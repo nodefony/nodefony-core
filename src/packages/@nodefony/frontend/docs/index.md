@@ -637,7 +637,7 @@ const tags = frontend.renderTags("shop", context.cspNonce);
 const html = frontend.renderDocument("shop", context.cspNonce);
 ```
 
-`renderDocument` (`FrontendService.ts:642`) lit l'`index.html` **de ton module**, retire le `<script>`
+`renderDocument` (`FrontendService.ts:683`) lit l'`index.html` **de ton module**, retire le `<script>`
 d'entrée source, injecte les balises au marqueur (ou avant `</head>`), et renvoie le document.
 Pas d'`index.html` ? Une coquille minimale est générée. En production, l'index est mis en cache ; en
 développement il est relu à chaque appel, pour que tes modifications de la coquille apparaissent.
@@ -681,19 +681,31 @@ npx nodefony frontend:build          # construit ce qui a changé
 npx nodefony frontend:build --force  # reconstruit tout
 ```
 
-`FrontendService.build()` (`FrontendService.ts:549`) appelle Vite **entrée par entrée**, et non une
+Dans une application générée par `nodefony create app`, tu n'as pas à y penser :
+**`npm run build` construit l'application entière** — le backend (rolldown) puis le front (il
+chaîne `nodefony frontend:build`). Un seul geste avant `npm start` ou dans un pipeline.
+
+`FrontendService.build()` (`FrontendService.ts:590`) appelle Vite **entrée par entrée**, et non une
 fois pour toutes. Ce n'est pas un détail : chaque bundle a sa racine, son dossier de sortie, sa base
 et son manifeste — c'est ce qui rend le multi-modules possible et ce qui isole Angular.
 
-Trois comportements à connaître :
+Quatre comportements à connaître :
 
 - **Idempotent.** Une entrée dont le manifeste est plus récent que ses sources est ignorée
-  (`isBuildFresh()`, `FrontendService.ts:595`) — le scan est borné au dossier front et saute
+  (`isBuildFresh()`, `FrontendService.ts:636`) — le scan est borné au dossier front et saute
   `node_modules`. Relancer un déploiement ne recompile pas tout.
 - **Les échecs sont collectés, pas propagés.** Un bundle en échec n'arrête pas les autres ; la
   commande passe le code de sortie à `1` s'il en reste un — de quoi casser un pipeline sans masquer
   les autres résultats.
 - **Le résultat est un bilan** : construits / ignorés / en échec, journalisé et renvoyé.
+- **Un démarrage en production sans build se répare — ou se dénonce.** `setupProd()`
+  (`FrontendService.ts:500`) vérifie le manifeste de chaque entrée AVANT de monter les statics.
+  Manifeste absent et Vite installé (poste de développement, devDependencies présentes) : le build
+  tourne **une fois au démarrage**, annoncé en WARNING — fini l'écran blanc après un
+  `nodefony production --detach` lancé trop tôt. Manifeste absent et Vite introuvable (image de
+  production sans devDependencies) : impossible de compiler ici — le démarrage continue (l'API
+  sert) mais une ERROR nomme l'entrée, le manifeste attendu et le geste (`npm run build` à
+  l'image). Jamais de page blanche muette.
 
 ### Les commandes
 
@@ -723,7 +735,7 @@ use("@nodefony/frontend", { assetBaseUrl: "https://cdn.example.com" });
 // → <script src="https://cdn.example.com/_assets/shop/main-a1b2c3.js">
 ```
 
-En production, `setupProd()` (`FrontendService.ts:489`) monte chaque dossier de sortie sur son
+En production, `setupProd()` (`FrontendService.ts:500`) monte chaque dossier de sortie sur son
 `publicPath` via le serveur statique — résolu **par nom**, jamais par import, pour ne pas créer de
 cycle. Si ce service est absent (proxy frontal, CDN devant), un avertissement le dit et rien n'est
 monté : c'est un déploiement valide, pas une panne.
@@ -770,10 +782,10 @@ origine. Or en développement, tes modules viennent du port 5173 alors que ta pa
 
 La solution retenue n'est pas d'affaiblir la politique, mais de la **composer**. Une fois Vite prêt
 (donc ses ports réellement connus), le service déclare ses origines au pare-feu
-(`#registerCsp()`, `FrontendService.ts:673`), qui émet **un seul** en-tête, origines fusionnées et
+(`#registerCsp()`, `FrontendService.ts:714`), qui émet **un seul** en-tête, origines fusionnées et
 nonce par requête. À l'arrêt, les origines sont retirées et la politique redevient stricte.
 
-Le fragment déclaré (`#viteCspFragment()`, `FrontendService.ts:695`) mérite deux explications, parce
+Le fragment déclaré (`#viteCspFragment()`, `FrontendService.ts:736`) mérite deux explications, parce
 qu'elles piègent tout le monde :
 
 - **`'self'` est répété dans chaque directive.** `connect-src`, `style-src`, `img-src` et `font-src`
@@ -838,25 +850,25 @@ apparaisse avant le « prêt ».
 
 ## ⚠️ Pièges
 
-| Symptôme                                                | Cause                                                                 | Correction                                                                      |
-| ------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `Unexpected token '<'` sur un `fetch`                   | Vite répond son repli SPA : le préfixe d'API n'est pas proxifié       | déclarer `apiProxyPaths: ["/mon/api"]` dans `registerEntry`                     |
-| Le service `frontend` est introuvable au `onKernelBoot` | ordre de chargement des modules                                       | placer `@nodefony/frontend` **avant** ses consommateurs dans `modules`          |
-| L'entrée n'apparaît pas dans le superviseur             | `registerEntry` appelé après `onKernelReady`                          | enregistrer dans `onKernelBoot`, jamais plus tard                               |
-| `@vitejs/plugin-react can't detect preamble`            | le préambule React n'est pas dans la page                             | rendre via `renderTags`/`renderDocument`, qui l'injectent                       |
-| Page blanche + « Invalid hook call »                    | deux copies de React dans la page (deux `node_modules`)               | comportement couvert par `resolve.dedupe` ; purger le pré-empaquetage de Vite   |
-| Deux modules affichent la **même** interface            | racines identiques et URL relatives                                   | comportement couvert : l'entrée est servie par chemin absolu `/@fs/…`           |
-| Vite écoute sur un autre port que `devPort`             | port occupé ⇒ reprise sur le suivant                                  | lire le port **réel** dans `frontend:status`, jamais la configuration           |
-| Les appels d'API partent vers une autre application     | port du serveur glissé, proxy figé sur `backendPort`                  | comportement couvert : le port réel est lu sur le serveur ; vérifier le journal |
-| `no frontend entries declared` au démarrage             | aucun module n'a appelé `registerEntry`                               | normal si tu n'as pas d'interface ; sinon voir les deux lignes ci-dessus        |
-| `max restarts reached`                                  | Vite plante en boucle                                                 | lire les lignes `[vite]` du journal — l'erreur est dans ton code front          |
-| Le navigateur refuse le certificat de Vite              | certificat auto-signé sur une origine distincte                       | l'accepter sur l'origine Vite, ou installer l'autorité racine de développement  |
-| `Refused to load the script` (politique de sécurité)    | le pare-feu n'a pas les origines Vite (Vite pas encore prêt au rendu) | recharger une fois Vite prêt ; vérifier que le nonce est bien propagé           |
-| Commentaire `prod manifest missing` dans la page        | les bundles n'ont pas été construits                                  | `npx nodefony frontend:build`                                                   |
-| Les assets répondent 404 en production                  | le serveur statique est absent ou le préfixe ne correspond pas        | vérifier le montage journalisé au démarrage, et `publicPath`                    |
-| Un module à interface est invisible de `listEntries()`  | il est en mode `static` — il n'appelle jamais `registerEntry`         | attendu ; regarder la molette `ui` et le mode journalisé au démarrage           |
-| Modifications du front sans effet                       | `vite.config.generated.mjs` édité à la main                           | ne jamais l'éditer : il est réécrit à chaque démarrage                          |
-| Angular recharge la page entière au lieu du composant   | son greffon ne fait pas de remplacement à chaud                       | attendu — c'est le comportement du greffon Angular                              |
+| Symptôme                                                | Cause                                                                                   | Correction                                                                                                                                                                                                             |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Unexpected token '<'` sur un `fetch`                   | Vite répond son repli SPA : le préfixe d'API n'est pas proxifié                         | déclarer `apiProxyPaths: ["/mon/api"]` dans `registerEntry`                                                                                                                                                            |
+| Le service `frontend` est introuvable au `onKernelBoot` | ordre de chargement des modules                                                         | placer `@nodefony/frontend` **avant** ses consommateurs dans `modules`                                                                                                                                                 |
+| L'entrée n'apparaît pas dans le superviseur             | `registerEntry` appelé après `onKernelReady`                                            | enregistrer dans `onKernelBoot`, jamais plus tard                                                                                                                                                                      |
+| `@vitejs/plugin-react can't detect preamble`            | le préambule React n'est pas dans la page                                               | rendre via `renderTags`/`renderDocument`, qui l'injectent                                                                                                                                                              |
+| Page blanche + « Invalid hook call »                    | deux copies de React dans la page (deux `node_modules`)                                 | comportement couvert par `resolve.dedupe` ; purger le pré-empaquetage de Vite                                                                                                                                          |
+| Deux modules affichent la **même** interface            | racines identiques et URL relatives                                                     | comportement couvert : l'entrée est servie par chemin absolu `/@fs/…`                                                                                                                                                  |
+| Vite écoute sur un autre port que `devPort`             | port occupé ⇒ reprise sur le suivant                                                    | lire le port **réel** dans `frontend:status`, jamais la configuration                                                                                                                                                  |
+| Les appels d'API partent vers une autre application     | port du serveur glissé, proxy figé sur `backendPort`                                    | comportement couvert : le port réel est lu sur le serveur ; vérifier le journal                                                                                                                                        |
+| `no frontend entries declared` au démarrage             | aucun module n'a appelé `registerEntry`                                                 | normal si tu n'as pas d'interface ; sinon voir les deux lignes ci-dessus                                                                                                                                               |
+| `max restarts reached`                                  | Vite plante en boucle                                                                   | lire les lignes `[vite]` du journal — l'erreur est dans ton code front                                                                                                                                                 |
+| Le navigateur refuse le certificat de Vite              | certificat auto-signé sur une origine distincte                                         | l'accepter sur l'origine Vite, ou installer l'autorité racine de développement                                                                                                                                         |
+| `Refused to load the script` (politique de sécurité)    | le pare-feu n'a pas les origines Vite (Vite pas encore prêt au rendu)                   | recharger une fois Vite prêt ; vérifier que le nonce est bien propagé                                                                                                                                                  |
+| Commentaire `prod manifest missing` dans la page        | les bundles n'ont pas été construits, et Vite n'était pas là pour le faire au démarrage | `npm run build` (ou `npx nodefony frontend:build`) puis **recharge la page** — l'absence de manifeste n'est jamais mise en cache (`loadManifest()`, `TemplateHelper.ts:336`), le serveur voit le build sans redémarrer |
+| Les assets répondent 404 en production                  | le serveur statique est absent ou le préfixe ne correspond pas                          | vérifier le montage journalisé au démarrage, et `publicPath`                                                                                                                                                           |
+| Un module à interface est invisible de `listEntries()`  | il est en mode `static` — il n'appelle jamais `registerEntry`                           | attendu ; regarder la molette `ui` et le mode journalisé au démarrage                                                                                                                                                  |
+| Modifications du front sans effet                       | `vite.config.generated.mjs` édité à la main                                             | ne jamais l'éditer : il est réécrit à chaque démarrage                                                                                                                                                                 |
+| Angular recharge la page entière au lieu du composant   | son greffon ne fait pas de remplacement à chaud                                         | attendu — c'est le comportement du greffon Angular                                                                                                                                                                     |
 
 ## 🧪 Tests et couverture
 

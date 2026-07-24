@@ -177,10 +177,10 @@ class FrontendService extends Service implements IFrontendService {
           });
         }
       } else if (env !== "development") {
-        // Prod / cluster / staging : pas de Vite. Servir les assets buildés
+        // Prod / cluster / staging : pas de Vite dev. Servir les assets buildés
         // (`public/dist/`) via le serveur statique de @nodefony/http + préparer
-        // le helper qui lit les manifests.
-        this.setupProd();
+        // le helper qui lit les manifests (+ build one-shot si absent — cf TSDoc).
+        await this.setupProd();
       }
     });
 
@@ -485,8 +485,19 @@ class FrontendService extends Service implements IFrontendService {
    * Câblage prod (idempotent) : monte chaque `outDir` sur son `publicPath`
    * auprès du serveur statique `server-static` (résolu par nom — pas d'import
    * http) et crée le helper prod (lecture manifests). No-op si pas d'entrée.
+   *
+   * Une entrée SANS build servirait une page blanche : jamais en silence.
+   * Cas nominal cloud-native : le build est fait à l'image (`npm run build`,
+   * qui chaîne `frontend:build` dans les apps générées) → manifest présent,
+   * zéro travail ici. Cas « prod essayée sur le poste » (devDeps installées →
+   * vite résolvable) : build one-shot au boot — idempotent, et il supprime
+   * l'écran blanc qui perd l'utilisateur, surtout en `--detach`. Sans vite
+   * (image runtime sans devDependencies) : impossible de réparer ici → on
+   * NOMME l'entrée, le manifest attendu et le geste, en ERROR.
+   * Cf project_resilience_no_silent_degradation (fail-soft dispo, fail-loud
+   * dégradation — tout fallback annoncé).
    */
-  private setupProd(): void {
+  private async setupProd(): Promise<void> {
     if (this.prodHelper) return;
     if (this.entries.length === 0) {
       this.log(
@@ -494,6 +505,36 @@ class FrontendService extends Service implements IFrontendService {
         "INFO",
       );
       return;
+    }
+    const unbuilt = this.entries.filter(
+      (e) => !fs.existsSync(path.join(e.outDir, ".vite", "manifest.json")),
+    );
+    if (unbuilt.length > 0) {
+      const names = unbuilt.map((e) => e.entryName).join(", ");
+      try {
+        this.log(
+          `entrée(s) frontend sans build (${names}) — construction au boot (one-shot). ` +
+            `En production réelle, builde à l'image : npm run build.`,
+          "WARNING",
+        );
+        const r = await this.build();
+        if (r.failures.length > 0) {
+          this.log(
+            `build front en ÉCHEC au boot (${r.failures
+              .map((f) => f.entryName)
+              .join(", ")}) — ces pages seront servies SANS interface`,
+            "ERROR",
+          );
+        }
+      } catch (e) {
+        this.log(
+          `entrée(s) frontend sans build (${names}) et vite indisponible ici — ` +
+            `les pages seront servies SANS interface (blanches). ` +
+            `Builde AVANT de lancer : npm run build (ou nodefony frontend:build), ` +
+            `puis redémarre. Détail : ${e instanceof Error ? e.message : String(e)}`,
+          "ERROR",
+        );
+      }
     }
     const stat = this.container?.get?.("server-static") as
       IStaticMountService | undefined;

@@ -324,8 +324,14 @@ mountDebugBar(${opts});
 
   /**
    * Lit + parse `${outDir}/.vite/manifest.json` (Vite ≥5) une seule fois par
-   * `outDir`. Retombe sur `${outDir}/manifest.json` (layout legacy). `null` mis
-   * en cache si absent — pas de relecture disque par requête (hot path).
+   * `outDir`. Retombe sur `${outDir}/manifest.json` (layout legacy).
+   *
+   * Un manifest TROUVÉ est caché (hot path : zéro disque par requête). Un
+   * manifest ABSENT n'est JAMAIS caché : figer l'absence condamnait le serveur
+   * à la page blanche jusqu'au restart, même après un `frontend:build` réussi
+   * (vécu). Le coût — 2 lectures ratées par rendu — n'existe que dans l'état
+   * dégradé « pas de build », qui n'est pas un hot path à défendre ; dès que
+   * le build apparaît, la lecture réussit et le cache reprend.
    */
   private loadManifest(outDir: string): ViteManifest | null {
     const cached = this.manifestCache.get(outDir);
@@ -340,7 +346,9 @@ mountDebugBar(${opts});
         /* essaie le layout suivant */
       }
     }
-    this.manifestCache.set(outDir, parsed);
+    if (parsed !== null) {
+      this.manifestCache.set(outDir, parsed);
+    }
     return parsed;
   }
 
