@@ -47,7 +47,9 @@ function newPeer() {
   const errs: { ctx: string; err: unknown }[] = [];
   const peer = new JsonRpcPeer<DefaultEventsMap, DefaultEventsMap, TestActions>(
     {
-      send: (f) => sent.push(f),
+      send: (f) => {
+        sent.push(f);
+      },
       onNotification: (method, params) => notes.push({ method, params }),
       onError: (ctx, err) => errs.push({ ctx, err }),
     },
@@ -312,7 +314,9 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
       const audits: { reason: string; frame: unknown }[] = [];
       let handlerCalled = 0;
       const peer = new JsonRpcPeer({
-        send: (f) => sent.push(f),
+        send: (f) => {
+          sent.push(f);
+        },
         beforeDispatch: () => false,
         onFrameAudit: (reason, frame) => audits.push({ reason, frame }),
       });
@@ -343,7 +347,9 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
       const notes: { method: string; params: unknown }[] = [];
       const audits: string[] = [];
       const peer = new JsonRpcPeer({
-        send: (f) => sent.push(f),
+        send: (f) => {
+          sent.push(f);
+        },
         onNotification: (method, params) => notes.push({ method, params }),
         beforeDispatch: () => false,
         onFrameAudit: (reason) => audits.push(reason),
@@ -363,7 +369,9 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
       const sent: unknown[] = [];
       const audits: string[] = [];
       const peer = new JsonRpcPeer({
-        send: (f) => sent.push(f),
+        send: (f) => {
+          sent.push(f);
+        },
         beforeDispatch: () => true,
         onFrameAudit: (reason) => audits.push(reason),
       });
@@ -415,7 +423,9 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
       const sent: unknown[] = [];
       const audits: string[] = [];
       const peer = new JsonRpcPeer({
-        send: (f) => sent.push(f),
+        send: (f) => {
+          sent.push(f);
+        },
         onFrameAudit: (reason) => audits.push(reason),
       });
       peer.receive({ jsonrpc: "2.0", id: 7, method: "ghost" });
@@ -441,7 +451,9 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
       const sent: unknown[] = [];
       const audits: string[] = [];
       const peer = new JsonRpcPeer({
-        send: (f) => sent.push(f),
+        send: (f) => {
+          sent.push(f);
+        },
         onError: () => {},
         onFrameAudit: (reason) => audits.push(reason),
       });
@@ -511,7 +523,11 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
   describe("bypass 0-coût quand les hooks sont absents", () => {
     it("sans beforeDispatch ni onFrameAudit → comportement identique à avant les seams", async () => {
       const sent: unknown[] = [];
-      const peer = new JsonRpcPeer({ send: (f) => sent.push(f) });
+      const peer = new JsonRpcPeer({
+        send: (f) => {
+          sent.push(f);
+        },
+      });
       peer.register("ping", () => ({ pong: true }));
       // chemin heureux : request → result (dispatch via microtask → arrive après les sends sync)
       peer.receive({ jsonrpc: "2.0", id: 1, method: "ping" });

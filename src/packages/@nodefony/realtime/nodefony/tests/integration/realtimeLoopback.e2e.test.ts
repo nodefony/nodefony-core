@@ -651,6 +651,59 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     await flush();
   });
 
+  it("coupure serveur : un `request` échoue AUSSITÔT au lieu d'attendre son timeout", async () => {
+    const { client, closeServer } = await connectPair();
+    closeServer(1006, "réseau"); // coupure SUBIE (autoReconnect: false ici)
+    await flush();
+
+    const started = performance.now();
+    let err: Error | null = null;
+    try {
+      // Timeout explicite de 5 s : s'il fallait l'attendre, l'écart se verrait.
+      await client.request("nodefony:kernel:ping", undefined, 5000);
+    } catch (e) {
+      err = e as Error;
+    }
+    const elapsedMs = performance.now() - started;
+
+    expect(err, "la requête doit échouer").to.be.instanceOf(Error);
+    expect(err!.message).to.match(/non émis/);
+    expect(elapsedMs, "rejet immédiat, pas au timeout").to.be.lessThan(500);
+    expect(client.framesUnsent).to.be.greaterThan(0);
+  });
+
+  it("coupure serveur : la PLOMBERIE d'abonnement ne prévient pas, l'ÉMISSION applicative si", async () => {
+    const { client, closeServer } = await connectPair();
+    const perdues: string[] = [];
+    client.onNotice((n) => {
+      if (/perdus/.test(n.message)) perdues.push(n.message);
+    });
+
+    closeServer(1006, "réseau");
+    await flush();
+
+    // (Dés)abonnements pendant la coupure — c'est ce que fait une app qui monte
+    // et démonte des vues (Studio). Rejoués au reconnect → RIEN à signaler,
+    // sinon le centre de notifications crie pour une perte qui n'en est pas une.
+    client.subscribe("tick");
+    client.unsubscribe("tick");
+    await flush();
+    expect(
+      perdues,
+      "un (dés)abonnement perdu ne se signale pas",
+    ).to.have.lengthOf(0);
+
+    // Notifications applicatives : personne d'autre n'apprendra leur perte.
+    client.publish("tick", { n: 1 });
+    client.publish("tick", { n: 2 });
+    client.publish("tick", { n: 3 });
+    await flush();
+
+    expect(perdues, "une seule notice pour l'épisode").to.have.lengthOf(1);
+    // 2 frames de plomberie + 3 d'application, toutes comptées.
+    expect(client.framesUnsent).to.equal(5);
+  });
+
   it("L4 façade serveur : subscribedChannels + ref-count (stop au dernier unsubscribe)", () => {
     const back = serverSocket();
     back.subscribe("a");

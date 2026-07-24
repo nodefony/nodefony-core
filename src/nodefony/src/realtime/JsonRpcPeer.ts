@@ -159,8 +159,16 @@ export interface JsonRpcPeerOptions<
   Listen extends EventsMap = DefaultEventsMap,
   Actions extends ActionsMap = DefaultActionsMap,
 > {
-  /** Envoie une frame sérialisable sur le transport (le peer ignore le transport). */
-  send: (frame: unknown) => void;
+  /**
+   * Envoie une frame sérialisable sur le transport (le peer ignore le transport).
+   *
+   * Un transport qui sait que la frame **n'est pas partie** (socket fermée,
+   * reconnexion en cours) doit retourner `false` : le peer rejette alors la
+   * requête corrélée immédiatement, au lieu de laisser l'appelant attendre son
+   * timeout pour une frame jamais émise. `void`/`true` = considéré comme émis
+   * (comportement historique des transports qui ne savent pas répondre).
+   */
+  send: (frame: unknown) => boolean | void;
   /** Notifications entrantes (`method` sans `id`) : pub/sub côté client, subscribe/unsubscribe côté serveur. */
   onNotification?: RpcNotificationHandler<Listen>;
   /** Erreur interne d'un handler — détail JAMAIS renvoyé au pair (loggé ici). */
@@ -354,12 +362,23 @@ export class JsonRpcPeer<
     return { jsonrpc: "2.0", method, params };
   }
 
-  /** Notification SORTANTE (pas de réponse attendue). */
+  /**
+   * Notification SORTANTE (pas de réponse attendue).
+   *
+   * @returns `false` si le transport a signalé qu'il n'a pas émis. Une
+   * notification n'attend rien en retour : sans cette valeur, une frame perdue
+   * ne laisserait aucune trace chez l'appelant. Les appels qui se rattrapent
+   * seuls (ré-abonnement au reconnect) peuvent l'ignorer.
+   */
   notify<K extends EventNames<Emit>>(
     method: K,
     params?: EventPayload<Emit, K>,
-  ): void {
-    this.opts.send(JsonRpcPeer.buildNotification(method as string, params));
+  ): boolean {
+    return (
+      this.opts.send(
+        JsonRpcPeer.buildNotification(method as string, params),
+      ) !== false
+    );
   }
 
   /**
@@ -466,7 +485,13 @@ export class JsonRpcPeer<
         timer,
         withMeta,
       });
-      this.opts.send({ jsonrpc: "2.0", id, method, params });
+      // Un transport qui répond `false` n'a PAS émis : inutile de faire patienter
+      // l'appelant jusqu'au timeout (30 s par défaut) pour une frame perdue.
+      if (this.opts.send({ jsonrpc: "2.0", id, method, params }) === false) {
+        clearTimeout(timer);
+        pending.delete(id);
+        reject(new Error(`RPC non émis (transport indisponible) : ${method}`));
+      }
     });
   }
 

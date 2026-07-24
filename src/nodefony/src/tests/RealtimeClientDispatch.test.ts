@@ -9,8 +9,17 @@ import { RealtimeClient } from "../client/realtime/RealtimeClient";
  */
 interface Internals {
   handleMessage(raw: string): void;
-  send(msg: unknown): void;
+  send(msg: unknown): boolean | void;
 }
+
+/**
+ * Simule un transport OUVERT. Sans ce stub, `send` répond `false` (aucune socket
+ * dans ce décor) et le peer rejette la requête AVANT qu'on puisse lui livrer sa
+ * réponse — on ne testerait plus la corrélation, seulement l'absence de socket.
+ */
+const openTransport = (internal: Internals): void => {
+  internal.send = () => true;
+};
 
 function newClient(): { client: RealtimeClient; internal: Internals } {
   const client = new RealtimeClient({
@@ -23,6 +32,7 @@ function newClient(): { client: RealtimeClient; internal: Internals } {
 describe("RealtimeClient — discrimination des frames (entrant vs sortant)", () => {
   it("RÉPONSE (id, result, SANS method) → résout la requête sortante", async () => {
     const { client, internal } = newClient();
+    openTransport(internal);
     const p = client.request<{ ok: boolean }>("nodefony:kernel:ping"); // 1ʳᵉ requête → id 1
     internal.handleMessage(
       JSON.stringify({ jsonrpc: "2.0", id: 1, result: { ok: true } }),
@@ -34,6 +44,7 @@ describe("RealtimeClient — discrimination des frames (entrant vs sortant)", ()
 
   it("RÉPONSE error (id, error, SANS method) → rejette la requête sortante", async () => {
     const { client, internal } = newClient();
+    openTransport(internal);
     const p = client.request("nodefony:orm:flow:reset"); // id 1
     internal.handleMessage(
       JSON.stringify({
@@ -55,7 +66,10 @@ describe("RealtimeClient — discrimination des frames (entrant vs sortant)", ()
   it("REQUÊTE entrante (method + id) → le client répond -32601, PAS traitée comme une réponse", () => {
     const { client, internal } = newClient();
     const out: unknown[] = [];
-    internal.send = (m) => out.push(m);
+    internal.send = (m) => {
+      out.push(m);
+      return true; // transport ouvert simulé
+    };
     // aucune requête sortante enregistrée → si c'était mal classé en réponse, on
     // ne renverrait rien. Ici method présent + id = requête entrante.
     internal.handleMessage(
@@ -73,7 +87,10 @@ describe("RealtimeClient — discrimination des frames (entrant vs sortant)", ()
   it("REQUÊTE entrante à id STRING (JSON-RPC autorise string) → répond avec le même id string", () => {
     const { client, internal } = newClient();
     const out: Array<{ id?: unknown }> = [];
-    internal.send = (m) => out.push(m as { id?: unknown });
+    internal.send = (m) => {
+      out.push(m as { id?: unknown });
+      return true; // transport ouvert simulé
+    };
     internal.handleMessage(
       JSON.stringify({ jsonrpc: "2.0", id: "abc-7", method: "client:x" }),
     );
@@ -87,7 +104,10 @@ describe("RealtimeClient — discrimination des frames (entrant vs sortant)", ()
     const received: unknown[] = [];
     client.on("nodefony:dashboard", (p) => received.push(p));
     const out: unknown[] = [];
-    internal.send = (m) => out.push(m);
+    internal.send = (m) => {
+      out.push(m);
+      return true; // transport ouvert simulé
+    };
     internal.handleMessage(
       JSON.stringify({
         jsonrpc: "2.0",
@@ -105,7 +125,10 @@ describe("RealtimeClient — discrimination des frames (entrant vs sortant)", ()
     const received: unknown[] = [];
     client.on("x", (p) => received.push(p));
     const out: unknown[] = [];
-    internal.send = (m) => out.push(m);
+    internal.send = (m) => {
+      out.push(m);
+      return true; // transport ouvert simulé
+    };
     internal.handleMessage(JSON.stringify({ method: "x", params: 1 }));
     expect(received).to.have.length(0);
     expect(out).to.have.length(0);

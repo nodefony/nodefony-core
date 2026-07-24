@@ -65,7 +65,9 @@ describe("F86 — le verrou s'applique aux connexions déjà ouvertes", () => {
     const sent: unknown[] = [];
     let handlerCalled = 0;
     const peer: JsonRpcPeer = new JsonRpcPeer({
-      send: (f) => sent.push(f),
+      send: (f) => {
+        sent.push(f);
+      },
       beforeDispatch: (frame) => hub.runAuthorizer(frame, peer),
     });
     peer.register("app:ping", () => {

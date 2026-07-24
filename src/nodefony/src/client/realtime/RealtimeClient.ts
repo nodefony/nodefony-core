@@ -204,6 +204,14 @@ export class RealtimeClient<
   // frames), donc fiables et réutilisables par toute app.
   private readonly _stats = new Map<string, MessageStats>();
   private _framesReceived = 0;
+  // Frames qui n'ont pas pu partir (transport fermé) — pendant sortant de
+  // `_framesReceived`, lu par la debug bar et les bancs.
+  private _framesUnsent = 0;
+  // Vaut `true` tant qu'on ne s'est jamais connecté : une frame émise avant la
+  // première connexion est un séquencement d'application, pas une coupure — la
+  // signaler comme telle serait un faux avertissement. Remis à `false` à chaque
+  // passage en `connected` → une notice par ÉPISODE de coupure, jamais par frame.
+  private _unsentNotified = true;
   private _lastFrameAt: number | null = null;
   private _lastFrameMethod: string | null = null;
   private statsTimer: ReturnType<typeof setInterval> | null = null;
@@ -388,23 +396,39 @@ export class RealtimeClient<
     return this.on("__denied__", handler as never);
   }
 
-  /** Notification one-way client → server (pas de réponse attendue). */
+  /**
+   * Notification one-way client → server (pas de réponse attendue).
+   *
+   * C'est la SEULE émission dont personne n'apprend l'échec autrement : une
+   * requête corrélée est rejetée, un (dés)abonnement est rejoué au reconnect —
+   * une notification applicative perdue, elle, ne laisse aucune trace. Si le
+   * transport est fermé, l'utilisateur en est donc averti (une fois par épisode
+   * de coupure, cf {@link send}).
+   */
   emit<K extends string>(
     method: K,
     params?: K extends EventNames<Emit> ? EventPayload<Emit, K> : unknown,
   ): void {
-    this._emitRaw(method, params);
+    if (!this._emitRaw(method, params)) this.noticeUnsent();
   }
 
   /**
    * Émission interne sans typage strict — utilisée pour les notifications système
    * (`subscribe`, `unsubscribe`, `ping`) qui ne figurent pas dans la map `Emit`
    * utilisateur. Bypasse les types conditionnels de {@link emit}.
+   *
+   * Ces frames-là **ne préviennent pas** l'utilisateur quand elles se perdent :
+   * les abonnements sont rejoués à la reconnexion et le heartbeat est arrêté
+   * avec les timers. Avertir ferait paraître comme une perte ce que le client
+   * rattrape tout seul — du bruit dans le centre de notifications d'une app qui
+   * monte et démonte des vues (le cas de Studio).
+   *
+   * @returns `false` si le transport n'a pas émis la frame.
    */
-  private _emitRaw(method: string, params?: unknown): void {
+  private _emitRaw(method: string, params?: unknown): boolean {
     // `method`/`params` système (subscribe/unsubscribe/ping) hors map `Emit` →
     // cast vers la signature stricte du peer (équivalent à l'API pré-types).
-    this.peer.notify(method as never, params as never);
+    return this.peer.notify(method as never, params as never);
   }
 
   /**
@@ -788,6 +812,16 @@ export class RealtimeClient<
     return this._framesReceived;
   }
 
+  /**
+   * Total de frames qui n'ont **pas** pu partir depuis la création du client
+   * (transport fermé au moment de l'émission). Reste à `0` en fonctionnement
+   * normal ; toute valeur non nulle date d'une coupure ou d'une émission
+   * antérieure à la première connexion.
+   */
+  get framesUnsent(): number {
+    return this._framesUnsent;
+  }
+
   /** Timestamp (ms) de la dernière notification reçue. */
   get lastFrameAt(): number | null {
     return this._lastFrameAt;
@@ -1111,13 +1145,48 @@ export class RealtimeClient<
     };
   }
 
-  private send(msg: unknown): void {
+  /**
+   * Émet une frame si — et seulement si — le transport est ouvert.
+   *
+   * La frame n'est **pas** mise en file d'attente : rejouer une intention après
+   * coup peut être pire que la perdre (une commande obsolète appliquée en
+   * retard, un abonnement rétabli sur un écran déjà quitté). Ce qui n'est plus
+   * accepté, c'est de la perdre **en silence** — l'appelant reçoit `false`, une
+   * requête corrélée est rejetée aussitôt par {@link JsonRpcPeer} plutôt qu'au
+   * bout de son timeout, et l'utilisateur est prévenu une fois par épisode.
+   *
+   * @param msg - la frame JSON-RPC à sérialiser.
+   * @returns `true` si la frame est partie, `false` si le transport était fermé.
+   */
+  private send(msg: unknown): boolean {
     if (this.transport?.readyState !== TransportState.OPEN) {
-      // TODO P13.7 : buffering offline ? Pour l'instant on drop.
-      return;
+      this._framesUnsent++;
+      return false;
     }
     this.transport.send(JSON.stringify(msg));
     this.recordFrame("out", msg);
+    return true;
+  }
+
+  /**
+   * Avertit que des notifications applicatives se perdent — **une fois par
+   * épisode** de coupure, jamais par frame : une vue qui pousse en boucle
+   * remplirait sinon le centre de notifications à elle seule.
+   *
+   * Appelé depuis {@link emit} uniquement. Les requêtes corrélées et les
+   * (dés)abonnements ont déjà leur propre voie (rejet, rejeu au reconnect).
+   */
+  private noticeUnsent(): void {
+    if (this._unsentNotified) return;
+    this._unsentNotified = true;
+    this.fireNotice({
+      level: "warning",
+      title: "Temps réel",
+      message:
+        "Connexion interrompue — les messages émis pendant la coupure sont perdus",
+      source: "realtime",
+      ts: Date.now(),
+    });
   }
 
   private handleMessage(raw: string | ArrayBuffer | Blob): void {
@@ -1136,6 +1205,9 @@ export class RealtimeClient<
 
   private setState(s: RealtimeState): void {
     if (this._state === s) return;
+    // Réarme l'avertissement de frames perdues : la prochaine coupure en émettra
+    // un, celle-ci n'en émettra pas un second.
+    if (s === "connected") this._unsentNotified = false;
     this._state = s;
     this.fireLocal("__state__", s);
   }
