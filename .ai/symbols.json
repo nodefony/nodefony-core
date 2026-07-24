@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-24T14:19:13.249Z",
+  "generated": "2026-07-24T16:47:13.074Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1045,
-    "symbols": 2849,
-    "classes": 333,
-    "interfaces": 746,
+    "files": 1046,
+    "symbols": 2853,
+    "classes": 334,
+    "interfaces": 748,
     "types": 329,
     "enums": 4,
-    "functions": 855,
+    "functions": 856,
     "constants": 582
   },
   "symbols": {
@@ -2957,6 +2957,15 @@
       "module": "@nodefony/core",
       "extends": null
     },
+    "IScaffoldRunOptions": {
+      "name": "IScaffoldRunOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Options d'exécution d'un scaffold (cf {@link runScaffold})."
+    },
     "IScaffoldTarget": {
       "name": "IScaffoldTarget",
       "kind": "interface",
@@ -3323,6 +3332,26 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Catalogue UNIQUE des versions npm émises par les scaffolds (`create app`, `create front`, lots suivants) — la SEULE table à toucher quand une dep tierce bouge. Les paquets `nodefony`/`@nodefony/*` …"
+    },
+    "ScaffoldWriter": {
+      "name": "ScaffoldWriter",
+      "kind": "class",
+      "file": "src/nodefony/src/cli/scaffold/writer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Système de fichiers TRANSACTIONNEL du scaffold : toutes les écritures sont retenues en mémoire, et ne touchent le disque qu'au {@link ScaffoldWriter.commit} final. POURQUOI le moteur ne peut pas éc…"
+    },
+    "IScaffoldChange": {
+      "name": "IScaffoldChange",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/writer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Écriture prévue par un scaffold, telle qu'un dry-run la restitue. `previous` n'est renseigné que pour un `overwrite` : c'est ce qui permet à un front (CLI `--dry-run`, préview Studio) de montrer un…"
     },
     "Storage": {
       "name": "Storage",
@@ -23268,6 +23297,12 @@
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "SCAFFOLD_VERSIONS": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "ScaffoldWriter": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "IScaffoldChange": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "IScaffoldTypeSpec": [

@@ -1,10 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,6 +13,7 @@ import {
   type TEntityIdKind,
 } from "./entityFields";
 import { pick, SCAFFOLD_VERSIONS } from "./versions";
+import { ScaffoldWriter, type IScaffoldChange } from "./writer";
 import {
   getScaffoldSpec,
   CONTROLLER_KIND_CHOICES,
@@ -62,6 +57,29 @@ export interface IScaffoldResult {
   linked: string[];
   /** Points d'entrée utiles du scaffold (routes, canaux…) — affichés tels quels. */
   notes?: string[];
+  /**
+   * Écritures PRÉVUES, avec l'ancien contenu quand il y en a un — présent
+   * uniquement en dry-run (rien n'a touché le disque).
+   */
+  changes?: IScaffoldChange[];
+}
+
+/** Options d'exécution d'un scaffold (cf {@link runScaffold}). */
+export interface IScaffoldRunOptions {
+  /**
+   * Ne rien écrire : le scaffold se déroule entièrement (gardes comprises) et
+   * rend son plan dans `result.changes`. Un refus reste un refus — c'est le but,
+   * une simulation qui ne validerait pas ne servirait à rien.
+   */
+  dryRun?: boolean;
+  /**
+   * Transaction déjà ouverte par un scaffold APPELANT (`create module` délègue
+   * à `controller`/`front`). Le sous-scaffold y écrit sans committer : la
+   * décision de vider sur disque appartient au scaffold racine, sinon la
+   * transaction serait coupée en morceaux et le refus tardif d'une étape
+   * laisserait les précédentes écrites.
+   */
+  writer?: ScaffoldWriter;
 }
 
 /** Fichiers dont le nom rendu diffère du template (npm strip les dotfiles publiés). */
@@ -183,9 +201,10 @@ export function resolveLocalWorkspaces(
 export function linkLocalDeps(
   destDir: string,
   workspaces: Record<string, string>,
+  writer: ScaffoldWriter,
 ): string[] {
   const manifestPath = path.join(destDir, "package.json");
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as Record<
+  const manifest = JSON.parse(writer.read(manifestPath)) as Record<
     string,
     Record<string, string>
   >;
@@ -207,7 +226,7 @@ export function linkLocalDeps(
       linked.push(name);
     }
   }
-  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  writer.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   return linked.sort();
 }
 
@@ -266,6 +285,7 @@ function renderLayer(
   destDir: string,
   data: Record<string, unknown>,
   written: string[],
+  writer: ScaffoldWriter,
   tokens?: Record<string, string>,
 ): void {
   const entries = readdirSync(srcDir, { withFileTypes: true, recursive: true });
@@ -286,9 +306,7 @@ function renderLayer(
     if (rendered.includes("<%")) {
       throw new Error(`tag eta résiduel dans ${rel}`);
     }
-    const target = path.join(destDir, rel);
-    mkdirSync(path.dirname(target), { recursive: true });
-    writeFileSync(target, rendered);
+    writer.write(path.join(destDir, rel), rendered);
     written.push(rel);
   }
 }
@@ -333,12 +351,15 @@ export function scaffoldCaps(): IScaffoldCaps {
   return { hasCheckout: resolveLocalWorkspaces(findPackageRoot()) !== null };
 }
 
-export function listTargets(projectRoot: string): IScaffoldTarget[] {
+export function listTargets(
+  projectRoot: string,
+  writer: ScaffoldWriter = new ScaffoldWriter(),
+): IScaffoldTarget[] {
   const readName = (dir: string): string | null => {
     try {
-      const pkg = JSON.parse(
-        readFileSync(path.join(dir, "package.json"), "utf8"),
-      ) as { name?: string };
+      const pkg = JSON.parse(writer.read(path.join(dir, "package.json"))) as {
+        name?: string;
+      };
       return pkg.name ?? null;
     } catch {
       return null;
@@ -352,10 +373,10 @@ export function listTargets(projectRoot: string): IScaffoldTarget[] {
     },
   ];
   const modulesDir = path.join(projectRoot, "modules");
-  if (existsSync(modulesDir)) {
-    for (const entry of readdirSync(modulesDir, { withFileTypes: true })) {
+  if (writer.exists(modulesDir)) {
+    for (const entry of writer.listDir(modulesDir)) {
       const dir = path.join(modulesDir, entry.name);
-      if (!entry.isDirectory() || !existsSync(path.join(dir, "index.ts"))) {
+      if (!entry.isDirectory || !writer.exists(path.join(dir, "index.ts"))) {
         continue;
       }
       targets.push({
@@ -400,8 +421,9 @@ export function wireDecoratorList(
   decorator: "controllers" | "entities",
   className: string,
   importPath: string,
+  writer: ScaffoldWriter,
 ): void {
-  const source = readFileSync(indexPath, "utf8");
+  const source = writer.read(indexPath);
   if (new RegExp(`\\b${className}\\b`, "u").test(source)) {
     throw new Error(
       `${className} est déjà référencé dans ${indexPath} — choisis un autre nom`,
@@ -432,7 +454,7 @@ export function wireDecoratorList(
     decoRe,
     `@${decorator}([${list ? `${list.replace(/,\s*$/u, "")}, ` : ""}${className}])`,
   );
-  writeFileSync(indexPath, wired);
+  writer.write(indexPath, wired);
 }
 
 /**
@@ -443,12 +465,40 @@ export function wireDecoratorList(
  *    détection de racine (cwd de l'appelant), la cible réelle vient de
  *    `answers.module` (vide = app racine).
  *
+ * Toutes les écritures passent par une TRANSACTION ({@link ScaffoldWriter}) que
+ * seul le scaffold RACINE vide sur disque, une fois toutes les étapes passées :
+ * un refus, même tardif, ne laisse donc jamais de projet à moitié modifié. Et
+ * comme la simulation n'est que « la même exécution sans vidage », `dryRun`
+ * décrit exactement ce qui se passerait — pas ce qu'un second code de
+ * prévision croirait.
+ *
  * @returns fichiers écrits + paquets liés — l'appelant décide du rendu (CLI ou JSON)
  * @throws Error si réponses invalides, dossier non vide sans force, ou template cassé
  */
 export function runScaffold(
   request: IScaffoldRequest,
   version: string,
+  options: IScaffoldRunOptions = {},
+): IScaffoldResult {
+  // Transaction du scaffold RACINE (`options.writer` absent) : c'est lui qui
+  // commit. Un sous-scaffold hérite de celle de son appelant.
+  const writer = options.writer ?? new ScaffoldWriter();
+  const result = dispatchScaffold(request, version, writer);
+  if (options.writer) {
+    return result;
+  }
+  if (options.dryRun) {
+    return { ...result, changes: writer.changes() };
+  }
+  writer.commit();
+  return result;
+}
+
+/** Résout la spec puis route vers le scaffold du type demandé. */
+function dispatchScaffold(
+  request: IScaffoldRequest,
+  version: string,
+  writer: ScaffoldWriter,
 ): IScaffoldResult {
   const [spec] = getScaffoldSpec(request.type);
   if (!spec) {
@@ -460,16 +510,16 @@ export function runScaffold(
     hasCheckout: workspaces !== null,
   });
   if (request.type === "module") {
-    return runModuleScaffold(request, answers, packageRoot, version);
+    return runModuleScaffold(request, answers, packageRoot, version, writer);
   }
   if (request.type === "controller") {
-    return runControllerScaffold(request, answers, packageRoot);
+    return runControllerScaffold(request, answers, packageRoot, writer);
   }
   if (request.type === "front") {
-    return runFrontScaffold(request, answers, packageRoot);
+    return runFrontScaffold(request, answers, packageRoot, writer);
   }
   if (request.type === "entity") {
-    return runEntityScaffold(request, answers, packageRoot);
+    return runEntityScaffold(request, answers, packageRoot, writer);
   }
   const dest = path.resolve(request.dir);
   if (existsSync(dest) && readdirSync(dest).length > 0 && !request.force) {
@@ -504,9 +554,16 @@ export function runScaffold(
   const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
   const templates = path.join(packageRoot, "templates", request.type);
   const written: string[] = [];
-  renderLayer(eta, path.join(templates, "base"), dest, data, written);
+  renderLayer(eta, path.join(templates, "base"), dest, data, written, writer);
   if (preset === "complete") {
-    renderLayer(eta, path.join(templates, "complete"), dest, data, written);
+    renderLayer(
+      eta,
+      path.join(templates, "complete"),
+      dest,
+      data,
+      written,
+      writer,
+    );
   }
   if (front) {
     // Coquille HTML commune à TOUS les scaffolds à front (`create app` ET
@@ -517,6 +574,7 @@ export function runScaffold(
       dest,
       data,
       written,
+      writer,
     );
     // `shared/` = ce qui est commun aux 3 frameworks (controller HTML+CSP) ;
     // le layer du framework n'apporte que son entry/App.
@@ -526,6 +584,7 @@ export function runScaffold(
       dest,
       data,
       written,
+      writer,
     );
     renderLayer(
       eta,
@@ -533,6 +592,7 @@ export function runScaffold(
       dest,
       data,
       written,
+      writer,
     );
     // Briques par-framework partagées avec `create front` (source unique).
     if (frontend === "angular") {
@@ -542,6 +602,7 @@ export function runScaffold(
         dest,
         data,
         written,
+        writer,
       );
     }
     if (frontend === "vue") {
@@ -551,6 +612,7 @@ export function runScaffold(
         dest,
         data,
         written,
+        writer,
       );
     }
   }
@@ -562,7 +624,7 @@ export function runScaffold(
           "sans checkout, attends la release npm puis installe sans --link",
       );
     }
-    linked = linkLocalDeps(dest, workspaces);
+    linked = linkLocalDeps(dest, workspaces, writer);
   }
   return { dest, files: written.sort(), linked };
 }
@@ -581,9 +643,12 @@ export function runScaffold(
  *
  * @returns true si le `package.json` de l'app a été modifié.
  */
-export function ensureWorkspaces(projectRoot: string): boolean {
+export function ensureWorkspaces(
+  projectRoot: string,
+  writer: ScaffoldWriter,
+): boolean {
   const manifestPath = path.join(projectRoot, "package.json");
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+  const manifest = JSON.parse(writer.read(manifestPath)) as {
     workspaces?: string[];
     scripts?: Record<string, string>;
   };
@@ -614,7 +679,7 @@ export function ensureWorkspaces(projectRoot: string): boolean {
     changed = true;
   }
   if (changed) {
-    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    writer.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   }
   return changed;
 }
@@ -633,12 +698,13 @@ export function ensureWorkspaces(projectRoot: string): boolean {
 export function wireModuleManifest(
   configPath: string,
   pkgName: string,
+  writer: ScaffoldWriter,
 ): string | null {
   const manual = `ajoute à la main dans le manifeste modules de nodefony.config.ts :\n  use("${pkgName}", {}),`;
-  if (!existsSync(configPath)) {
+  if (!writer.exists(configPath)) {
     return manual;
   }
-  const source = readFileSync(configPath, "utf8");
+  const source = writer.read(configPath);
   if (source.includes(`"${pkgName}"`)) {
     return null; // déjà câblé (rejeu de la commande) — rien à faire.
   }
@@ -675,10 +741,7 @@ export function wireModuleManifest(
   const line =
     `\n  // Module local du projet (modules/) — créé par \`nodefony create module\`.\n` +
     entry;
-  writeFileSync(
-    configPath,
-    source.slice(0, close) + line + source.slice(close),
-  );
+  writer.write(configPath, source.slice(0, close) + line + source.slice(close));
   return null;
 }
 
@@ -700,6 +763,7 @@ function runModuleScaffold(
   answers: TScaffoldAnswers,
   packageRoot: string,
   version: string,
+  writer: ScaffoldWriter,
 ): IScaffoldResult {
   const projectRoot = findProjectRoot(request.dir);
   if (!projectRoot) {
@@ -710,13 +774,17 @@ function runModuleScaffold(
   }
   const name = toKebabCase(String(answers.name));
   const dest = path.join(projectRoot, "modules", name);
-  if (existsSync(dest) && readdirSync(dest).length > 0 && !request.force) {
+  if (
+    writer.exists(dest) &&
+    writer.listDir(dest).length > 0 &&
+    !request.force
+  ) {
     throw new Error(
       `le module ${name} existe déjà (modules/${name}) — choisis un autre nom, ou --force`,
     );
   }
   const appManifestPath = path.join(projectRoot, "package.json");
-  const appManifest = JSON.parse(readFileSync(appManifestPath, "utf8")) as {
+  const appManifest = JSON.parse(writer.read(appManifestPath)) as {
     name?: string;
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
@@ -770,7 +838,15 @@ function runModuleScaffold(
   const templates = path.join(packageRoot, "templates", "module");
   const tokens = { __PASCAL__: pascal, __KEBAB__: name };
   const written: string[] = [];
-  renderLayer(eta, path.join(templates, "base"), dest, data, written, tokens);
+  renderLayer(
+    eta,
+    path.join(templates, "base"),
+    dest,
+    data,
+    written,
+    writer,
+    tokens,
+  );
   if (data.service) {
     renderLayer(
       eta,
@@ -778,6 +854,7 @@ function runModuleScaffold(
       dest,
       data,
       written,
+      writer,
       tokens,
     );
   }
@@ -788,13 +865,22 @@ function runModuleScaffold(
       dest,
       data,
       written,
+      writer,
       tokens,
     );
   }
   // Docs IA (CLAUDE.md/MEMORY.md) : seulement si le projet en tient déjà — dans
   // une app qui n'en a pas, ce seraient deux fichiers morts.
-  if (existsSync(path.join(projectRoot, "CLAUDE.md"))) {
-    renderLayer(eta, path.join(templates, "ai"), dest, data, written, tokens);
+  if (writer.exists(path.join(projectRoot, "CLAUDE.md"))) {
+    renderLayer(
+      eta,
+      path.join(templates, "ai"),
+      dest,
+      data,
+      written,
+      writer,
+      tokens,
+    );
   }
   const notes: string[] = [];
   // Le module existe sur le disque → il est désormais une CIBLE (`listTargets`) :
@@ -808,6 +894,7 @@ function runModuleScaffold(
         force: request.force,
       },
       version,
+      { writer },
     );
     written.push(...sub.files);
     notes.push(...(sub.notes ?? []));
@@ -821,11 +908,12 @@ function runModuleScaffold(
         force: request.force,
       },
       version,
+      { writer },
     );
     written.push(...sub.files);
     notes.push(...(sub.notes ?? []));
   }
-  if (ensureWorkspaces(projectRoot)) {
+  if (ensureWorkspaces(projectRoot, writer)) {
     notes.push(
       "package.json de l'app : workspaces modules/* + scripts build/typecheck/test chaînés",
     );
@@ -833,6 +921,7 @@ function runModuleScaffold(
   const manifestNote = wireModuleManifest(
     path.join(projectRoot, "nodefony.config.ts"),
     pkgName,
+    writer,
   );
   notes.push(
     manifestNote ??
@@ -855,6 +944,7 @@ function runControllerScaffold(
   request: IScaffoldRequest,
   answers: TScaffoldAnswers,
   packageRoot: string,
+  writer: ScaffoldWriter,
 ): IScaffoldResult {
   const projectRoot = findProjectRoot(request.dir);
   if (!projectRoot) {
@@ -863,7 +953,7 @@ function runControllerScaffold(
         "lance la commande depuis une app (créée par `nodefony create app`)",
     );
   }
-  const targets = listTargets(projectRoot);
+  const targets = listTargets(projectRoot, writer);
   const moduleName = String(answers.module ?? "");
   const target = moduleName
     ? targets.find((t) => t.kind === "module" && t.name === moduleName)
@@ -885,7 +975,7 @@ function runControllerScaffold(
   // proprement — la vitrine example ne montre les gardes sécurité que si la brique
   // est là ; la saveur realtime, elle, n'a AUCUNE version dégradée → throw.
   const manifest = JSON.parse(
-    readFileSync(path.join(target.dir, "package.json"), "utf8"),
+    writer.read(path.join(target.dir, "package.json")),
   ) as Record<string, Record<string, string>>;
   const targetDeps = new Set(
     ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
@@ -921,6 +1011,7 @@ function runControllerScaffold(
     target.dir,
     data,
     written,
+    writer,
     { __NAME__: nameClass },
   );
   wireDecoratorList(
@@ -928,6 +1019,7 @@ function runControllerScaffold(
     "controllers",
     nameClass,
     `./nodefony/controllers/${nameClass}`,
+    writer,
   );
   written.push("index.ts");
   const NOTES: Record<TControllerKindChoice, string[]> = {
@@ -973,10 +1065,13 @@ function tableName(pascal: string): string {
  * ANNONCE le dialecte retenu, pour qu'une déduction fausse se voie tout de suite au
  * lieu de produire une table du mauvais moteur en silence.
  */
-function detectDialect(projectRoot: string): TEntityDialect {
+function detectDialect(
+  projectRoot: string,
+  writer: ScaffoldWriter,
+): TEntityDialect {
   const configPath = path.join(projectRoot, "nodefony.config.ts");
-  if (!existsSync(configPath)) return "sqlite";
-  const source = readFileSync(configPath, "utf8");
+  if (!writer.exists(configPath)) return "sqlite";
+  const source = writer.read(configPath);
   const match = /dialect\s*:\s*["'](\w+)["']/u.exec(source);
   const found = match?.[1];
   return (ENTITY_DIALECTS as readonly string[]).includes(found ?? "")
@@ -997,6 +1092,7 @@ function runEntityScaffold(
   request: IScaffoldRequest,
   answers: TScaffoldAnswers,
   packageRoot: string,
+  writer: ScaffoldWriter,
 ): IScaffoldResult {
   const projectRoot = findProjectRoot(request.dir);
   if (!projectRoot) {
@@ -1005,7 +1101,7 @@ function runEntityScaffold(
         "lance la commande depuis une app (créée par `nodefony create app`)",
     );
   }
-  const targets = listTargets(projectRoot);
+  const targets = listTargets(projectRoot, writer);
   const moduleName = String(answers.module ?? "");
   const target = moduleName
     ? targets.find((t) => t.kind === "module" && t.name === moduleName)
@@ -1025,14 +1121,14 @@ function runEntityScaffold(
   // c'est l'app qui les installe et qui charge le module ORM (manifeste `modules`).
   // Exiger la dep dans le module rendait `--module` inutilisable (vécu).
   const manifestPath = path.join(target.dir, "package.json");
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as Record<
+  const manifest = JSON.parse(writer.read(manifestPath)) as Record<
     string,
     Record<string, string>
   >;
   const depsOf = (dir: string): Set<string> => {
     const file = path.join(dir, "package.json");
-    if (!existsSync(file)) return new Set();
-    const pkg = JSON.parse(readFileSync(file, "utf8")) as Record<
+    if (!writer.exists(file)) return new Set();
+    const pkg = JSON.parse(writer.read(file)) as Record<
       string,
       Record<string, string>
     >;
@@ -1063,7 +1159,7 @@ function runEntityScaffold(
 
   const dialect =
     (String(answers.dialect || "") as TEntityDialect) ||
-    detectDialect(projectRoot);
+    detectDialect(projectRoot, writer);
   if (!(ENTITY_DIALECTS as readonly string[]).includes(dialect)) {
     throw new Error(
       `dialecte invalide « ${dialect} » — attendus : ${ENTITY_DIALECTS.join(" | ")}`,
@@ -1149,6 +1245,7 @@ function runEntityScaffold(
     target.dir,
     data,
     written,
+    writer,
     tokens,
   );
   if (service) {
@@ -1158,6 +1255,7 @@ function runEntityScaffold(
       target.dir,
       data,
       written,
+      writer,
       tokens,
     );
   }
@@ -1168,6 +1266,7 @@ function runEntityScaffold(
       target.dir,
       data,
       written,
+      writer,
       tokens,
     );
   }
@@ -1178,6 +1277,7 @@ function runEntityScaffold(
       target.dir,
       data,
       written,
+      writer,
       tokens,
     );
   }
@@ -1196,7 +1296,7 @@ function runEntityScaffold(
       }
     }
     if (touched) {
-      writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+      writer.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
       written.push("package.json");
     }
   }
@@ -1206,6 +1306,7 @@ function runEntityScaffold(
     indexPath,
     `${pascal}Entity`,
     `./nodefony/entity/${pascal}`,
+    writer,
   );
   if (controller) {
     wireDecoratorList(
@@ -1213,6 +1314,7 @@ function runEntityScaffold(
       "controllers",
       `${pascal}Controller`,
       `./nodefony/controllers/${pascal}Controller`,
+      writer,
     );
   }
   written.push("index.ts");
@@ -1260,8 +1362,9 @@ export function wireEntitiesDecorator(
   indexPath: string,
   className: string,
   importPath: string,
+  writer: ScaffoldWriter,
 ): void {
-  const source = readFileSync(indexPath, "utf8");
+  const source = writer.read(indexPath);
   if (new RegExp(`\\b${className}\\b`, "u").test(source)) {
     throw new Error(
       `${className} est déjà référencé dans ${indexPath} — choisis un autre nom d'entité`,
@@ -1293,7 +1396,7 @@ export function wireEntitiesDecorator(
       listRe,
       `@entities([${current ? `${current.replace(/,\s*$/u, "")}, ` : ""}${className}])`,
     );
-    writeFileSync(indexPath, wired);
+    writer.write(indexPath, wired);
     return;
   }
 
@@ -1332,7 +1435,7 @@ export function wireEntitiesDecorator(
     withImports.slice(0, shifted.index) +
     `@entities([${className}])\n` +
     withImports.slice(shifted.index);
-  writeFileSync(indexPath, wired);
+  writer.write(indexPath, wired);
 }
 
 /**
@@ -1350,6 +1453,7 @@ function runFrontScaffold(
   request: IScaffoldRequest,
   answers: TScaffoldAnswers,
   packageRoot: string,
+  writer: ScaffoldWriter,
 ): IScaffoldResult {
   const projectRoot = findProjectRoot(request.dir);
   if (!projectRoot) {
@@ -1358,7 +1462,7 @@ function runFrontScaffold(
         "lance la commande depuis une app (créée par `nodefony create app`)",
     );
   }
-  const targets = listTargets(projectRoot);
+  const targets = listTargets(projectRoot, writer);
   const moduleName = String(answers.module ?? "");
   const target = moduleName
     ? targets.find((t) => t.kind === "module" && t.name === moduleName)
@@ -1369,7 +1473,7 @@ function runFrontScaffold(
       `module « ${moduleName} » introuvable — cibles du projet : ${known}`,
     );
   }
-  if (existsSync(path.join(target.dir, "frontend", "index.html"))) {
+  if (writer.exists(path.join(target.dir, "frontend", "index.html"))) {
     throw new Error(
       `${target.name} porte déjà un front (frontend/index.html) — ce scaffold ` +
         `pose la coquille et l'entry INITIALES ; pour une page de plus, ajoute ` +
@@ -1377,7 +1481,7 @@ function runFrontScaffold(
     );
   }
   const manifestPath = path.join(target.dir, "package.json");
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as Record<
+  const manifest = JSON.parse(writer.read(manifestPath)) as Record<
     string,
     Record<string, string>
   >;
@@ -1418,6 +1522,7 @@ function runFrontScaffold(
     target.dir,
     data,
     written,
+    writer,
     tokens,
   );
   renderLayer(
@@ -1426,6 +1531,7 @@ function runFrontScaffold(
     target.dir,
     data,
     written,
+    writer,
     tokens,
   );
   renderLayer(
@@ -1434,6 +1540,7 @@ function runFrontScaffold(
     target.dir,
     data,
     written,
+    writer,
     tokens,
   );
   if (frontend === "angular") {
@@ -1443,6 +1550,7 @@ function runFrontScaffold(
       target.dir,
       data,
       written,
+      writer,
       tokens,
     );
   }
@@ -1453,6 +1561,7 @@ function runFrontScaffold(
       target.dir,
       data,
       written,
+      writer,
       tokens,
     );
   }
@@ -1471,7 +1580,7 @@ function runFrontScaffold(
   addDeps("dependencies", front.deps);
   addDeps("devDependencies", front.devDeps);
   if (added.length > 0) {
-    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    writer.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     written.push("package.json");
   }
   const indexPath = path.join(target.dir, "index.ts");
@@ -1480,11 +1589,13 @@ function runFrontScaffold(
     "controllers",
     nameClass,
     `./nodefony/controllers/${nameClass}`,
+    writer,
   );
   const wireNote = wireKernelBootCall(
     indexPath,
     `register${pascal}Entry`,
     `./nodefony/frontend/register${pascal}Entry`,
+    writer,
   );
   written.push("index.ts");
   const notes = [
@@ -1509,8 +1620,9 @@ export function wireKernelBootCall(
   indexPath: string,
   fnName: string,
   importPath: string,
+  writer: ScaffoldWriter,
 ): string | null {
-  const source = readFileSync(indexPath, "utf8");
+  const source = writer.read(indexPath);
   const importLine = `import { ${fnName} } from "${importPath}";`;
   const imports = [...source.matchAll(/^import [^\n]*$/gmu)];
   const last = imports.at(-1);
@@ -1523,7 +1635,7 @@ export function wireKernelBootCall(
   if (/onKernelBoot\s*\(/u.test(withImport)) {
     // Hook déjà présent : on pose l'import (inoffensif) mais l'appel est un
     // geste HUMAIN — éditer une méthode existante à l'aveugle = corruption.
-    writeFileSync(indexPath, withImport);
+    writer.write(indexPath, withImport);
     return `onKernelBoot() existe déjà dans index.ts — ajoute : ${fnName}(this);`;
   }
   const hook =
@@ -1540,7 +1652,7 @@ export function wireKernelBootCall(
   // fichier corrompu.
   const closer = /\n\}\s*\n+export default /u.exec(withImport);
   if (!closer || closer.index === undefined) {
-    writeFileSync(indexPath, withImport);
+    writer.write(indexPath, withImport);
     return (
       `fin de classe introuvable dans index.ts — ajoute à la main le hook :\n` +
       `  override async onKernelBoot(): Promise<this> { ${fnName}(this); return this; }`
@@ -1550,6 +1662,6 @@ export function wireKernelBootCall(
     withImport.slice(0, closer.index) +
     hook +
     withImport.slice(closer.index + 1);
-  writeFileSync(indexPath, wired);
+  writer.write(indexPath, wired);
   return null;
 }

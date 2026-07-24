@@ -23,6 +23,7 @@ import {
   linkLocalDeps,
   runScaffold,
 } from "../cli/scaffold/engine";
+import { ScaffoldWriter } from "../cli/scaffold/writer";
 import { askMissing } from "../cli/scaffold/interactive";
 import { SysExit } from "../cli/sysexits";
 
@@ -53,6 +54,39 @@ function codeOnly(source: string): string {
   return source
     .replace(/\/\*[\s\S]*?\*\//gu, "") // blocs
     .replace(/(^|[^:])\/\/.*$/gmu, "$1"); // lignes (hors `://` d'une URL)
+}
+
+/**
+ * Empreinte COMPLÈTE d'une arborescence : chemin relatif → contenu.
+ *
+ * Sert les contrôles « aucun geste partiel » : comparer l'empreinte avant et
+ * après un scaffold qui refuse prouve à la fois qu'aucun fichier n'a été
+ * ajouté ET qu'aucun n'a été réécrit — ce qu'un `assert.throws` seul ne dit
+ * pas (un moteur peut parfaitement écrire cinq fichiers puis lever).
+ */
+function snapshotTree(dir: string): Map<string, string> {
+  const snap = new Map<string, string>();
+  for (const entry of readdirSync(dir, {
+    recursive: true,
+    withFileTypes: true,
+  })) {
+    if (!entry.isFile()) continue;
+    const abs = path.join(entry.parentPath, entry.name);
+    snap.set(path.relative(dir, abs), readFileSync(abs, "utf8"));
+  }
+  return snap;
+}
+
+/** L'arborescence est restée octet pour octet celle de `before`. */
+function assertTreeUnchanged(before: Map<string, string>, dir: string): void {
+  const after = snapshotTree(dir);
+  const added = [...after.keys()].filter((f) => !before.has(f));
+  assert.deepEqual(added, [], "fichiers écrits malgré le refus");
+  const removed = [...before.keys()].filter((f) => !after.has(f));
+  assert.deepEqual(removed, [], "fichiers supprimés malgré le refus");
+  for (const [file, content] of before) {
+    assert.equal(after.get(file), content, `${file} réécrit malgré le refus`);
+  }
 }
 
 /** Aucun résidu de template dans le rendu (tag eta oublié = projet corrompu). */
@@ -607,6 +641,40 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       controller(dest, { name: "dup" });
       assert.throws(() => controller(dest, { name: "dup" }), /déjà référencé/u);
+    });
+
+    it("nom en double : refus SANS toucher au projet", () => {
+      const dest = path.join(tmp, "cintact");
+      scaffold(dest, { name: "cintact", preset: "minimal" });
+      controller(dest, { name: "blog", kind: "rest" });
+      const before = snapshotTree(dest);
+      assert.throws(
+        () => controller(dest, { name: "blog", kind: "hello" }),
+        /déjà référencé/u,
+      );
+      assertTreeUnchanged(before, dest);
+    });
+
+    it("wiring impossible : refus SANS laisser un controller orphelin", () => {
+      // Un `index.ts` sans `@controllers([...])` : le moteur ne SAIT pas câbler.
+      // Il doit le dire avant d'écrire — un fichier posé mais jamais chargé est
+      // pire qu'un refus, l'utilisateur croit avoir un controller qui répond.
+      const dest = path.join(tmp, "noanchor");
+      scaffold(dest, { name: "noanchor", preset: "minimal" });
+      const indexPath = path.join(dest, "index.ts");
+      writeFileSync(
+        indexPath,
+        readFileSync(indexPath, "utf8").replace(
+          /@controllers\(\[[^\]]*\]\)/u,
+          "",
+        ),
+      );
+      const before = snapshotTree(dest);
+      assert.throws(
+        () => controller(dest, { name: "orphan" }),
+        /@controllers/u,
+      );
+      assertTreeUnchanged(before, dest);
     });
 
     it("parseCreateArgv : --kind --route --module", () => {
@@ -1292,13 +1360,17 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         );
       });
 
-      it("entité déjà déclarée : refus (pas d'écrasement silencieux)", () => {
+      it("entité déjà déclarée : refus SANS toucher au projet", () => {
         const dest = app("dup");
         entity(dest, { name: "Post", fields: "title:string" });
+        // L'empreinte est prise APRÈS le premier scaffold : c'est le travail de
+        // l'utilisateur que le second appel ne doit pas effleurer.
+        const before = snapshotTree(dest);
         assert.throws(
           () => entity(dest, { name: "Post", fields: "other:string" }),
           /déjà référencé/u,
         );
+        assertTreeUnchanged(before, dest);
       });
 
       it("champ mal formé : refus avec le mot « invalide » (→ EX_USAGE)", () => {
@@ -1394,10 +1466,16 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           devDependencies: { "@nodefony/http": "^10.0.0", rolldown: "^1.1.5" },
         }),
       );
-      const linked = linkLocalDeps(dest, {
-        nodefony: "/repo/src/nodefony",
-        "@nodefony/http": "/repo/src/packages/@nodefony/http",
-      });
+      const writer = new ScaffoldWriter();
+      const linked = linkLocalDeps(
+        dest,
+        {
+          nodefony: "/repo/src/nodefony",
+          "@nodefony/http": "/repo/src/packages/@nodefony/http",
+        },
+        writer,
+      );
+      writer.commit();
       assert.deepEqual(linked, ["@nodefony/http", "nodefony"]);
       const pkg = readJson(path.join(dest, "package.json"));
       assert.equal(pkg["dependencies"]["nodefony"], "file:/repo/src/nodefony");
