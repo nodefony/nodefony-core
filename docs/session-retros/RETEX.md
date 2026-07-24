@@ -15,6 +15,15 @@
 
 ---
 
+## 🔢 La nomenclature d'un plan appartient à son lecteur
+
+- `[1× — 2026-07-24]` ⭐ **Trois échelles empilées (lots `devkit N`, vagues `V1-V5`, décisions `T1-T10`) ont PERDU le user** (« je ne veux pas 15 sous-lettres »). Règle : **UNE seule échelle d'identifiants publics** (ici `devkit S<n>`, alignée sur la famille de lots existante) ; les décisions/justifications se NOMMENT (« Refuser avant d'écrire »), ne se numérotent JAMAIS — un numéro n'est dû que s'il sera cité dans un commit ou une demande de session. Corollaire : un identifiant court réutilisé entre kits (S5 du kit ORM vs `devkit S5`) exige le préfixe.
+- `[1× — 2026-07-24]` **Une directive floue arbitrée sans reformuler l'INTENTION coûte 2 allers-retours.** « Entity beaucoup mieux » : j'ai renforcé le REST généré ; le user visait le formulaire STUDIO contextuel (types selon le dialecte). Reformuler l'objet CONCRET (un exemple) d'une directive avant de décider où elle vit dans le design.
+
+## 📦 Ce qui est COPIÉ à la création ne se met jamais à jour
+
+- `[1× — 2026-07-24]` ⭐ **Mon étagement release contredisait ma propre gate — le user l'a attrapé.** J'avais mis « entity bout-en-bout » APRÈS la release alors que le banc des 3 tâches (gate de 10.0.0) mord précisément sur ces trous. Deux leçons : (a) **vérifier qu'une gate définie ne mord pas sur ce qu'on reporte** ; (b) le critère de placement release pour tout artefact scaffold est l'**asymétrie de support** — le code généré est FIGÉ dans l'app à sa création (un fix 10.1 ne répare AUCUNE app née en 10.0.0), un module npm (Studio) se met à jour. Trancher par le support, pas par l'envie de sortir vite.
+
 ## 🚪 Ce que la frontière npm laisse passer
 
 - `[1× — 2026-07-24]` ⭐ **TSDoc TRAVERSE le build, les commentaires inline NON.** Prouvé sur pièce : le bloc `/** */` de `ProfilerAdminApi` arrive intégral dans le `dist/` (+ `.d.ts` + 1ʳᵉ phrase dans symbols) ; le `// Encapsulation et runtime identiques.` de `sessions-service.ts:165` disparaît. **Tout savoir destiné à l'utilisateur d'une app vit en TSDoc ou en `docs/` — l'inline ne parle qu'au lecteur du repo.** Option « préserver les `//` au build » à instruire (kit release).
