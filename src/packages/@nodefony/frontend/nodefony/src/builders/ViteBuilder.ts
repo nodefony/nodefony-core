@@ -79,11 +79,30 @@ export class ViteBuilder implements IFrontBuilder {
     const base =
       mode === "production" ? assetBaseUrl + entries[0]!.publicPath : undefined;
 
+    // MÊME règle que le fichier dev généré (ViteConfigGenerator) : dans une app
+    // liée (`--link`), un import `react` émis par la façade `nodefony/react`
+    // (réelpathée HORS de l'app, dans le checkout) se résout dans le
+    // node_modules du framework pendant qu'`App.tsx` résout celui de l'app →
+    // DEUX runtimes React dans le bundle prod, hooks au dispatcher null
+    // (« Cannot read properties of null (reading 'useContext') » au mount —
+    // vécu ; le dev ne le voyait pas : le prébundle unifie). `resolve.dedupe`
+    // force une seule résolution, celle du root Vite.
+    const dedupe: string[] = [];
+    if (usedPresets.has("react19")) dedupe.push("react", "react-dom");
+    if (usedPresets.has("vue3")) dedupe.push("vue");
+    if (usedPresets.has("angular"))
+      dedupe.push(
+        "@angular/core",
+        "@angular/common",
+        "@angular/platform-browser",
+      );
+
     return {
       mode,
       ...(base ? { base } : {}),
       root,
       plugins,
+      ...(dedupe.length ? { resolve: { dedupe } } : {}),
       optimizeDeps: { include: optimizeInclude },
       build: {
         outDir,

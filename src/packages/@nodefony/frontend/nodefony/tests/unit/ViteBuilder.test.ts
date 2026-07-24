@@ -44,3 +44,20 @@ describe("ViteBuilder — base CDN (assetBaseUrl)", () => {
     expect(cfg.base).to.be.undefined;
   });
 });
+
+describe("ViteBuilder — resolve.dedupe (un seul runtime par framework)", () => {
+  const builder = new ViteBuilder();
+
+  it("react19 : dedupe react + react-dom (app --link = 2 runtimes sinon, hooks null en prod)", async () => {
+    const cfg = await builder.buildViteConfig(
+      [{ ...entry, type: "react19", entryFile: "src/main.tsx" }],
+      "production",
+    );
+    expect(cfg.resolve).to.deep.equal({ dedupe: ["react", "react-dom"] });
+  });
+
+  it("vanilla : aucun resolve (rien à dédupliquer)", async () => {
+    const cfg = await builder.buildViteConfig([entry], "production");
+    expect(cfg.resolve).to.be.undefined;
+  });
+});
