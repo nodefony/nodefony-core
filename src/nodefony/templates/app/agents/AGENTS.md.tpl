@@ -5,6 +5,11 @@
 > **GÉNÉRER** (`nodefony create …` produit du vrai code, à imiter) →
 > **VÉRIFIER** (`npm test` d'abord, puis `npm run typecheck`).
 >
+> **Le réflexe, avant d'écrire le MOINDRE fichier** : un générateur le
+> produit-il ? Écrire à la main un CRUD, un controller, une entité ou un
+> squelette de module, c'est le signal que tu as raté une commande de la
+> table ci-dessous — arrête-toi et lance-la.
+>
 > Fichier 100 % généré (nodefony <%= it.nodefonyVersion %>) — régénéré par les
 > commandes `create`, il ne peut pas mentir. Tes leçons propres à CETTE app
 > vont dans la zone « Notes » en bas : elle survit à la régénération.
@@ -15,7 +20,7 @@
 | --- | --- |
 | Module applicatif (workspace npm) | `nodefony create module <nom>` |
 | Controller HTTP **et** WebSocket (même classe) | `nodefony create controller <nom> --kind hello\|rest\|realtime\|duplex\|example` |
-| Entité + service + CRUD REST + tests | `nodefony create entity <Nom> --fields "sku:string! price:float"` |
+| Ressource REST **complète** — entité + service + controller CRUD + tests (ne JAMAIS l'écrire à la main) | `nodefony create entity <Nom> --fields "sku:string! price:float"` |
 | Frontend Vite (React/Vue/Angular) | `nodefony create front <nom> [--module <m>]` |
 
 Chaque commande se décrit à une machine : `--describe-json` (questions + options
