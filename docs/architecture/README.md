@@ -1,4 +1,5 @@
 ---
+lang: fr
 module: global
 topic: architecture-index
 audience: [human, ai]

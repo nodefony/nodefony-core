@@ -173,8 +173,10 @@ export default defineConfig<Env>((ctx) => ({
       },
       { policy: "mandatory" },
     ),
-    // Idempotence des mutations : `auto` (défaut — suit l'infra déclarée :
-    // NF_REDIS_URL → redis, sinon NF_DATABASE_URL → drizzle, sinon memory) |
+    // Idempotence des mutations : `auto` (défaut) suit l'infra déclarée —
+    // NF_REDIS_URL → redis, sinon NF_DATABASE_URL → drizzle ; SANS infra réseau,
+    // un backend local persistant chargé (drizzle sqlite, puis mongoose) passe
+    // AVANT le repli `memory`. `NF_STORE` force tout cela d'un cran au-dessus. |
     // `memory` (per-pod) | `redis` | `drizzle` (distribués cross-pod). Opt-in
     // explicite `NF_IDEMPOTENCY_STORE`. Le framework résout le nom au boot
     // (fail-loud si non enregistré). Cf `@Idempotent` (P6.8).

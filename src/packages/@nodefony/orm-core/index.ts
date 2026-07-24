@@ -56,16 +56,25 @@ export {
   buildConnectionHealth,
   buildOrmFlow,
   toDbml,
+  // Frère de `toDbml` : même endpoint `export/{format}`, même statut public.
+  // N'en exporter qu'un rendait l'autre inatteignable pour un consommateur npm
+  // alors que le data plane le sert déjà.
+  toJsonSchema,
   createOrmAdminApi,
   registerOrmAdminApi,
 } from "./nodefony/src/OrmAdminApi";
 export { queryFlowMonitor } from "./nodefony/src/QueryFlowMonitor";
+// Pendant de `queryFlowMonitor` (débit des requêtes) côté CONNEXIONS.
+export { connectionMonitor } from "./nodefony/src/ConnectionMonitor";
 export { buildOrmLeanHealth } from "./nodefony/src/buildOrmLeanHealth";
 
 // ─── Câblage runtime d'un driver (factorise la dette C5 — appelé par chaque ORM) ─
 export {
   wireOrmAdminPlane,
   resolveOrmFlowEnabled,
+  // Un adapter qui câble son plan d'admin veut aussi pouvoir rapporter son
+  // état de boot — les trois vivent dans le même fichier.
+  reportOrmBootLines,
 } from "./nodefony/src/ormWiring";
 export type {
   ISlowQuery,

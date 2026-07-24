@@ -61,7 +61,12 @@ export async function provisionUsers(module: Module): Promise<void> {
     );
   }
 
-  const orm = ormRegistry.get("default") as DrizzleOrm | undefined;
+  // `get()` LÈVE sur un nom inconnu : interroger AVANT, sinon ce repli
+  // fail-soft — tout l'objet du bloc qui suit — ne s'exécute jamais et le
+  // boot casse là où il devait dégrader.
+  const orm = ormRegistry.has("default")
+    ? (ormRegistry.get("default") as DrizzleOrm)
+    : undefined;
   if (!orm) {
     // Repli ANNONCÉ (jamais silencieux) : sans ORM, annuaire mémoire volatil.
     module.log(

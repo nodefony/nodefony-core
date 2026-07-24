@@ -1,4 +1,5 @@
 ---
+lang: fr
 module: global
 topic: adr-index
 audience: [human, ai]

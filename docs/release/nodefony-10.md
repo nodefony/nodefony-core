@@ -1,5 +1,6 @@
 ---
 title: Release Nodefony 10 — plan & décisions
+lang: fr
 status: DISCUSSION (historisation — on n'exécute PAS aujourd'hui)
 date: 2026-05-24
 audience: Lead Architect / mainteneur

@@ -1,12 +1,16 @@
 ---
 title: "API souveraine par construction — vision & POC (DRAFT)"
-type: draft
-status: draft — NON FIGÉ, document de travail
-audience: architecte, contributeurs Nodefony
-auteur: Christophe Camensuli
-date: 2026-05-31
-version: 0.1 (draft)
+lang: fr
+module: "global"
+topic: api-souveraine
+audience: [developer]
+tags: [api, rest, graphql, realtime, design]
+status: draft
+updated: 2026-05-31
 ---
+
+> **Ceci n'est pas la référence d'API.** C'est un document de DESIGN : la
+> référence, elle, est dérivée des TSDoc (ADR-0001) et ne s'écrit pas à la main.
 
 # API souveraine par construction — vision & POC
 

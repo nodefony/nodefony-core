@@ -1,4 +1,5 @@
 ---
+lang: fr
 module: global
 topic: docs-index
 audience: [human, ai]
@@ -47,23 +48,33 @@ Chaque fichier `.md` (sauf `README.md` d'index simple) commence par un bloc fron
 
 ```yaml
 ---
+title: "Conteneur de services" # titre affiché dans le portail
+lang: fr # langue de la page (le corpus est en français)
 module: "@nodefony/core" # workspace ou "global" pour transverse
 topic: container # slug court — identifiant du sujet
-audience: [human, ai] # cibles : human, ai, ou les deux
+audience: [developer] # developer | devops | supervisor | admin
 tags: [di, container, scope] # mots-clés pour le RAG
 status: stable # stable | draft | obsolete
-last-updated: 2026-05-17 # YYYY-MM-DD
+updated: 2026-05-17 # YYYY-MM-DD
 ---
 ```
 
-| Champ          | Valeurs                               | Rôle                                                |
-| -------------- | ------------------------------------- | --------------------------------------------------- |
-| `module`       | `@nodefony/<name>` / `global` / `app` | Filtre par scope dans le RAG                        |
-| `topic`        | slug-kebab-case                       | Identifiant stable de la page                       |
-| `audience`     | sous-ensemble de `[human, ai]`        | Permet de séparer doc utilisateur vs notes internes |
-| `tags`         | tableau de mots-clés                  | Indexation thématique                               |
-| `status`       | `stable` / `draft` / `obsolete`       | Vision ignore `obsolete`, signale `draft`           |
-| `last-updated` | date `YYYY-MM-DD`                     | Permet de prioriser les pages fraîches              |
+> Ces noms sont ceux que le **runtime lit vraiment** (`DocumentationService`,
+> `DocAudience`). Deux pièges hérités : la clé de date est `updated`, pas
+> `last-updated` ; et `audience` ne connaît pas `human`/`ai`/`architect` — une
+> valeur hors des quatre ci-dessus est ignorée, la page se retrouve alors sans
+> public et disparaît des filtres du portail.
+
+| Champ      | Valeurs                                   | Rôle                                               |
+| ---------- | ----------------------------------------- | -------------------------------------------------- |
+| `module`   | `@nodefony/<name>` / `global` / `app`     | Filtre par scope dans le RAG                       |
+| `topic`    | slug-kebab-case                           | Identifiant stable de la page                      |
+| `title`    | texte libre                               | Titre affiché (portail + navigation)               |
+| `lang`     | `fr`                                      | Langue de la page (i18n non implémentée à ce jour) |
+| `audience` | `developer`/`devops`/`supervisor`/`admin` | Filtre « pour qui » du portail                     |
+| `tags`     | tableau de mots-clés                      | Indexation thématique                              |
+| `status`   | `stable` / `draft` / `obsolete`           | Vision ignore `obsolete`, signale `draft`          |
+| `updated`  | date `YYYY-MM-DD`                         | Permet de prioriser les pages fraîches             |
 
 ### Structure du corps
 

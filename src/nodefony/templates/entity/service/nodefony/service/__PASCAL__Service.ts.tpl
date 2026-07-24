@@ -63,12 +63,15 @@ let instance: <%= it.pascal %>Service | null = null;
 /** Récupère le service (le construit au premier appel). */
 export function get<%= it.pascal %>Service(): <%= it.pascal %>Service {
   if (instance === null) {
-    const orm = ormRegistry.get("<%= it.connector %>");
-    if (!orm) {
+    // `ormRegistry.get()` LÈVE quand le nom est inconnu — un `if (!orm)` posé
+    // après lui ne s'exécute jamais. On demande donc d'abord, pour que le
+    // message qui suit (celui qui dit QUOI FAIRE) soit bien celui qu'on lit.
+    if (!ormRegistry.has("<%= it.connector %>")) {
       throw new Error(
         `<%= it.pascal %>Service : aucun connecteur « <%= it.connector %> » — vérifie que @nodefony/drizzle est dans le manifeste modules de nodefony.config.ts`,
       );
     }
+    const orm = ormRegistry.get("<%= it.connector %>");
     instance = new <%= it.pascal %>Service(
       orm.getRepository<<%= it.pascal %>Row>("<%= it.pascal %>"),
     );

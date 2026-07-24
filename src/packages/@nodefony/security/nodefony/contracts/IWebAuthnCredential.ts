@@ -34,7 +34,19 @@ export interface IWebAuthnCredential {
    * PIN) au moins une fois (`uvInitialized`, §7.2) — base du step-up MFA.
    */
   uvInitialized: boolean;
-  /** Surnom optionnel choisi par l'utilisateur (« MacBook de Chris »). */
+  /**
+   * Surnom optionnel de la passkey (« MacBook de Chris »).
+   *
+   * ⚠️ **Emplacement réservé — rien ne l'écrit aujourd'hui.** Le champ est porté
+   * par ce contrat, par les trois stores (memory, drizzle, redis) et par la vue
+   * admin de Studio, mais **aucune API publique ne le renseigne** : ni endpoint,
+   * ni setter. En pratique il vaut donc toujours `undefined`, et l'écran retombe
+   * sur son libellé de repli (`Passkey ···1234`).
+   *
+   * Le garder coûte zéro (il traverse déjà toute la chaîne) ; le renseigner
+   * demande une décision produit — un endpoint de renommage, avec la question de
+   * qui a le droit de renommer la passkey de qui.
+   */
   nickname?: string;
   /** Création (epoch ms). */
   readonly createdAt: number;

@@ -1,4 +1,5 @@
 ---
+lang: fr
 module: global
 topic: ia-index
 audience: [human, ai]

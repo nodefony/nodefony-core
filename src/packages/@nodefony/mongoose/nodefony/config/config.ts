@@ -45,8 +45,12 @@ const connectorSchema = z
       .describe(
         "URI de connexion complète (`mongodb://…` ou `mongodb+srv://…`). Si " +
           "fournie, elle PRIME sur `host`/`port`/`dbname`. Pratique pour les " +
-          "PaaS / Atlas. Surchargée par l'env `MONGODB_URI`. ⚠️ Zero Trust : un " +
-          "secret (user:pass) NE doit JAMAIS être committé — passer par l'env.",
+          "PaaS / Atlas. ⚠️ Zero Trust : un secret (user:pass) NE doit JAMAIS " +
+          "être committé — passer par l'env. Pour la poser par variable : " +
+          "`MONGODB_URI` (ou l'infra `NF_DATABASE_URL` de famille mongo). " +
+          "`NF__MONGOOSE__CONNECTORS__<NOM>__URI` ne marche QUE si la clé `uri` " +
+          "existe déjà dans la config de l'application : la surcharge par " +
+          "chemin remplace une valeur, elle n'en crée pas (elle avertit sinon).",
       ),
     host: z
       .string()

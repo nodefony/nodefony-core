@@ -37,6 +37,17 @@ export interface SessionRow {
 /**
  * Entité session enregistrée dans le `entityRegistry` pour le connecteur
  * `nodefony` — `MongooseOrm` compile le modèle à la connexion (au boot).
+ *
+ * ⚠️ **`frameworkEntities: false` ne la coupe PAS.** Ce commutateur gouverne les
+ * entités déclarées dans le flux de boot (tokens, webauthn, webhooks) ; la
+ * session, elle, s'enregistre à l'**import** de ce fichier — le décorateur
+ * `@entity` s'exécute au chargement du barrel, avant que la moindre config soit
+ * lue. Même chose pour son store (`SessionStorage.ts`, `registerStorage`).
+ *
+ * Conséquence pratique : couper `frameworkEntities` retire les autres entités,
+ * pas la collection `session`. Pour ne pas avoir de session Mongo du tout, il
+ * faut ne pas router le store session vers mongoose (`session.store`), pas
+ * baisser ce drapeau.
  */
 @entity({ connector: SESSION_CONNECTOR, name: "session", schema })
 class SessionEntity {}

@@ -1,6 +1,7 @@
 ---
 adr: 3
 title: Architecture orm-core — abstraction Repository multi-ORM (risques & garde-fous)
+lang: fr
 date: 2026-05-21
 status: accepted
 deciders: [Christophe CAMENSULI]
@@ -63,7 +64,7 @@ passe par l'abstraction vs par la trappe native. Si la jointure force déjà le
 natif → faire évoluer `IRepository` (criteria typé, méthode `query`/`with`/
 `paginate`) **AVANT** d'écrire 4 drivers sur un contrat insuffisant.
 
-### Risque 2 — Multi-ORM *simultané* partiellement YAGNI
+### Risque 2 — Multi-ORM _simultané_ partiellement YAGNI
 
 Faire tourner 2 ORM **SQL** en même temps est un cas quasi inexistant. Les cas
 réels = stores **hétérogènes** (SQL + Mongo, ou DB + Redis cache), où un
@@ -116,12 +117,12 @@ driver Drizzle sera branché, sur un type d'entité concret.
 
 Premier adapter réel branché : `SequelizeOrm` (`@nodefony/sequelize/nodefony/src/orm-core/`,
 distinct du service legacy), validé sur **sqlite `::memory:`** avec les entités
-ADR-0002 (User *one-to-many* Room, UUID-first). **6 tests d'intégration verts.**
+ADR-0002 (User _one-to-many_ Room, UUID-first). **6 tests d'intégration verts.**
 
 **Prouvé (chaîne P5.1→P5.4 de bout en bout) :**
 
 - `@entity` (descripteur) → l'adapter **compile les modèles** depuis `entity.schema`
-  + câble les associations → `getRepository(name)` sert un repository portable ;
+  - câble les associations → `getRepository(name)` sert un repository portable ;
 - `Orm` s'auto-enregistre dans `ormRegistry`, template `connect()` émet `onOrmReady` ;
 - **CRUD portable OK** : `create/findOne/find/count/update/delete` (UUID auto) ;
 - relation one-to-many : lecture portable par critère simple (`find({ userId })`) OK ;
@@ -154,7 +155,7 @@ Contrat `IRepository` enrichi (additif, non-cassant) + adapter Sequelize mis à
 jour. **orm-core 22 tests / Sequelize 7 tests verts.**
 
 - **Risque #1 (jointure) — RÉSOLU pour le cas commun** : `find/findOne(criteria,
-  { relations: [...] })` charge les **associations déclarées** (`include`/`populate`/
+{ relations: [...] })` charge les **associations déclarées** (`include`/`populate`/
   `with` selon l'adapter). Les jointures **arbitraires** restent via
   `getNativeConnection()` (acceptation explicite). Ajout aussi `limit/offset/order`.
 - **Risque #4 (repo non tx-aware) — RÉSOLU** : `repo.withTransaction(tx)` renvoie
@@ -219,13 +220,13 @@ d'opérateurs **`$`-préfixés façon MongoDB**, typés par champ via
 
 **Divergences Drizzle absorbées par l'adapter (findings) :**
 
-- **Schema-as-code** : `entity.schema` *est* déjà une table Drizzle (pas de
+- **Schema-as-code** : `entity.schema` _est_ déjà une table Drizzle (pas de
   `define()`/compilation). L'adapter dérive le DDL via `getTableConfig()` pour le
   dev/test (la prod = `drizzle-kit`).
 - **Eager-load manuel** : pas de couche `relations()` imposée → 1 requête `IN (...)`
   par relation déclarée + regroupement mémoire (`options.relations`, API identique).
 - **Transaction manuelle** `BEGIN`/`COMMIT`/`ROLLBACK` : `better-sqlite3` est
-  **synchrone**, son helper committe au `return` *avant* les `await` du contrat
+  **synchrone**, son helper committe au `return` _avant_ les `await` du contrat
   async ; la connexion étant unique, encadrer le travail garantit l'atomicité.
   `withTransaction(tx)` réutilise le **même** db (connexion unique).
 

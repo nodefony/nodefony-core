@@ -1,5 +1,6 @@
 ---
 title: Configurer une application Nodefony (defineConfig)
+lang: fr
 audience: humain
 date: 2026-06-05
 related: project_config_chantier_defineconfig_kit, project_module_loading_architecture, project_app_config_refonte_chantier, feedback_config_docs

@@ -1,4 +1,5 @@
 ---
+lang: fr
 module: "@nodefony/frontend"
 topic: frontend-react-guide
 audience: [human]

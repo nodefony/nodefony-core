@@ -1,4 +1,5 @@
 ---
+lang: fr
 module: global
 topic: guides-index
 audience: [human]

@@ -1,6 +1,7 @@
 ---
 adr: 2
 title: Schéma DB plateforme conférence WebRTC (mediasoup) — banc de test ORM + cible P15
+lang: fr
 date: 2026-05-21
 status: accepted
 deciders: [Christophe CAMENSULI]
@@ -19,7 +20,7 @@ Accepté (2026-05-21). Superséde l'usage des entités legacy `nodefony-mediasou
 
 `@nodefony/orm-core` (P5.1 ✅) a besoin d'un **banc de test représentatif** pour
 valider le multi-driver (Sequelize/Mongoose/Drizzle) et le test « CRITIQUE
-multi-ORM » de la roadmap (P5.4 / 7.5 : *même entité, 2 stores*).
+multi-ORM » de la roadmap (P5.4 / 7.5 : _même entité, 2 stores_).
 
 Plutôt qu'une base de démo générique (Chinook, Sakila), on conçoit le schéma
 d'une **plateforme de visioconférence WebRTC type Teams-light** basée sur
@@ -41,7 +42,7 @@ Ces objets sont **runtime in-memory**, jamais persistés.
    Le nom lisible devient un `slug`/`username` **unique**, pas la clé primaire.
 2. **`room` ≠ `meeting`** (décision structurante) : `room` = espace **persistant
    réutilisable** (lien permanent, droits d'accès — type Zoom PMI / salon Teams) ;
-   `meeting` = **occurrence** (planifiée ou instantanée) se déroulant *dans* une
+   `meeting` = **occurrence** (planifiée ou instantanée) se déroulant _dans_ une
    room. L'**accès** est porté par la room, la **présence** par le meeting.
 3. **Multi-tenant léger** : `organization_id` scope les entités, **un seul niveau**
    (pas de hiérarchie Teams).
@@ -91,38 +92,38 @@ Légende dictionnaire : `∎` unique · `→` FK · `?` nullable.
 
 **A. Identité & Organisation**
 
-| Table | Colonnes |
-|---|---|
-| `organization` | id(UUID), name, slug∎, settings(JSON), createdAt, updatedAt |
-| `user` | id(UUID), orgId→, username∎, email∎, passwordHash?, roles(JSON `["ROLE_USER"]`), enabled(bool), locked(bool), twoFactor(bool), name?, surname?, avatar?, lang, lastSeenAt?, createdAt, updatedAt, deletedAt? |
-| `team` | id(UUID), orgId→, name, slug∎, description?, createdAt, updatedAt |
-| `team_member` | **PK(teamId→, userId→)**, role(enum owner/admin/member), joinedAt |
+| Table          | Colonnes                                                                                                                                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `organization` | id(UUID), name, slug∎, settings(JSON), createdAt, updatedAt                                                                                                                                                  |
+| `user`         | id(UUID), orgId→, username∎, email∎, passwordHash?, roles(JSON `["ROLE_USER"]`), enabled(bool), locked(bool), twoFactor(bool), name?, surname?, avatar?, lang, lastSeenAt?, createdAt, updatedAt, deletedAt? |
+| `team`         | id(UUID), orgId→, name, slug∎, description?, createdAt, updatedAt                                                                                                                                            |
+| `team_member`  | **PK(teamId→, userId→)**, role(enum owner/admin/member), joinedAt                                                                                                                                            |
 
 **B. Salles & Réunions**
 
-| Table | Colonnes |
-|---|---|
-| `room` | id(UUID), orgId→, ownerId→user, slug∎, displayName, type(enum webrtc), access(enum public/private/org), secure(bool), passwordHash?, lobbyEnabled(bool), maxParticipants(int), settings(JSON: layout, médias), persistent(bool), createdAt, updatedAt, deletedAt? |
-| `room_member` | **PK(roomId→, userId→)**, role(enum host/cohost/presenter/member), invitedById→user?, addedAt |
-| `meeting` | id(UUID), roomId→, orgId→, title, status(enum scheduled/live/ended/cancelled), scheduledStart?, scheduledEnd?, actualStart?, actualEnd?, recurrenceRule(JSON RRULE)?, createdById→user, settings(JSON), createdAt, updatedAt |
-| `meeting_participant` | id(UUID), meetingId→, userId→**?**, guestName?, role(enum host/cohost/presenter/attendee), state(enum invited/joined/left/declined), joinedAt?, leftAt?, durationSec? |
-| `invitation` | id(UUID), meetingId→, email, token∎, role(enum), status(enum pending/accepted/declined/expired), expiresAt, invitedById→user, createdAt |
+| Table                 | Colonnes                                                                                                                                                                                                                                                          |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `room`                | id(UUID), orgId→, ownerId→user, slug∎, displayName, type(enum webrtc), access(enum public/private/org), secure(bool), passwordHash?, lobbyEnabled(bool), maxParticipants(int), settings(JSON: layout, médias), persistent(bool), createdAt, updatedAt, deletedAt? |
+| `room_member`         | **PK(roomId→, userId→)**, role(enum host/cohost/presenter/member), invitedById→user?, addedAt                                                                                                                                                                     |
+| `meeting`             | id(UUID), roomId→, orgId→, title, status(enum scheduled/live/ended/cancelled), scheduledStart?, scheduledEnd?, actualStart?, actualEnd?, recurrenceRule(JSON RRULE)?, createdById→user, settings(JSON), createdAt, updatedAt                                      |
+| `meeting_participant` | id(UUID), meetingId→, userId→**?**, guestName?, role(enum host/cohost/presenter/attendee), state(enum invited/joined/left/declined), joinedAt?, leftAt?, durationSec?                                                                                             |
+| `invitation`          | id(UUID), meetingId→, email, token∎, role(enum), status(enum pending/accepted/declined/expired), expiresAt, invitedById→user, createdAt                                                                                                                           |
 
 **C. Contenu de réunion**
 
-| Table | Colonnes |
-|---|---|
-| `chat_message` | id(UUID), meetingId→, senderId→user?, guestName?, body(text), type(enum text/file/system), createdAt, editedAt?, deletedAt? — index (meetingId, createdAt) pour pagination |
-| `recording` | id(UUID), meetingId→, status(enum recording/processing/ready/failed), storageUrl?, sizeBytes(bigint)?, durationSec?, format(enum mp4/webm)?, workerId→media_worker?, createdById→user, createdAt, updatedAt |
+| Table          | Colonnes                                                                                                                                                                                                    |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `chat_message` | id(UUID), meetingId→, senderId→user?, guestName?, body(text), type(enum text/file/system), createdAt, editedAt?, deletedAt? — index (meetingId, createdAt) pour pagination                                  |
+| `recording`    | id(UUID), meetingId→, status(enum recording/processing/ready/failed), storageUrl?, sizeBytes(bigint)?, durationSec?, format(enum mp4/webm)?, workerId→media_worker?, createdById→user, createdAt, updatedAt |
 
 **D. Supervision mediasoup (infra + historique)**
 
-| Table | Colonnes |
-|---|---|
-| `media_server` | id(UUID), hostname∎, region, ip, status(enum up/draining/down), version, capacity(int), lastHeartbeatAt, registeredAt — MAJ par heartbeat |
-| `media_worker` | id(UUID), serverId→, pid(int), workerIndex(int), status(enum), routersCount(int), lastHeartbeatAt |
+| Table           | Colonnes                                                                                                                                                                                                                                                                                                                         |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `media_server`  | id(UUID), hostname∎, region, ip, status(enum up/draining/down), version, capacity(int), lastHeartbeatAt, registeredAt — MAJ par heartbeat                                                                                                                                                                                        |
+| `media_worker`  | id(UUID), serverId→, pid(int), workerIndex(int), status(enum), routersCount(int), lastHeartbeatAt                                                                                                                                                                                                                                |
 | `media_session` | id(UUID), meetingId→, participantId→meeting_participant, workerId→media_worker, transportType(enum webrtc/plain/pipe), startedAt, endedAt?, durationSec?, bytesSent(bigint), bytesReceived(bigint), codecs(JSON), **qosSummary(JSON: rttAvg, packetLossAvg, jitterAvg)** — **1 ligne par connexion peer, écrite à la fermeture** |
-| `media_event` | id(UUID), meetingId→?, serverId→?, userId→?, type(enum room.created/peer.joined/peer.left/producer.created/recording.started/server.down/…), payload(JSON), severity(enum), createdAt — append-only, rotation/archivage |
+| `media_event`   | id(UUID), meetingId→?, serverId→?, userId→?, type(enum room.created/peer.joined/peer.left/producer.created/recording.started/server.down/…), payload(JSON), severity(enum), createdAt — append-only, rotation/archivage                                                                                                          |
 
 ### Supervision — règle ferme (perf)
 

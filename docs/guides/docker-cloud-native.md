@@ -1,5 +1,6 @@
 ---
 title: Booter Nodefony en Docker / Kubernetes (cloud-native)
+lang: fr
 audience: humain
 date: 2026-06-01
 related: project_pm2_deprecation, project_cloud_native_plan

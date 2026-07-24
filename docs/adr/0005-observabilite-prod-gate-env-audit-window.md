@@ -1,6 +1,7 @@
 ---
 adr: 5
 title: Observabilité des logs en prod — gate env des sévérités + fenêtre d'audit à chaud
+lang: fr
 date: 2026-06-01
 status: accepted
 deciders: [Christophe CAMENSULI]

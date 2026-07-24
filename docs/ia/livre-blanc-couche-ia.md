@@ -1,5 +1,6 @@
 ---
 title: "Nodefony — Une couche IA agentique souveraine, par construction"
+lang: fr
 type: livre blanc
 version: 0.1 (brouillon)
 audience: ingénieurs et chercheurs en IA, décideurs techniques

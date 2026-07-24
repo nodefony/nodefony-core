@@ -1,4 +1,5 @@
 ---
+lang: fr
 module: "@nodefony/http"
 topic: session-storage-guide
 audience: [human, ai]

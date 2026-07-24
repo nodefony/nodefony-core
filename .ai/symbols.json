@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-23T23:55:09.490Z",
+  "generated": "2026-07-24T00:03:28.999Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -10346,7 +10346,7 @@
       "decorators": [
         "entity"
       ],
-      "description": "Entité session enregistrée dans le `entityRegistry` pour le connecteur `nodefony` — `MongooseOrm` compile le modèle à la connexion (au boot)."
+      "description": "Entité session enregistrée dans le `entityRegistry` pour le connecteur `nodefony` — `MongooseOrm` compile le modèle à la connexion (au boot). ⚠️ **`frameworkEntities: false` ne la coupe PAS.** Ce c…"
     },
     "@nodefony/mongoose:SessionRow": {
       "name": "SessionRow",

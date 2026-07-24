@@ -1,4 +1,5 @@
 ---
+lang: fr
 module: global
 topic: persistence-guide
 audience: [human, ai]

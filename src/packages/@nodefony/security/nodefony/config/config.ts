@@ -415,7 +415,7 @@ const tokenStoreSchema = z
       .string()
       .default("auto")
       .describe(
-        "Store de jetons (refresh/PAT/denylist) : auto [défaut] (infra database → drizzle/mongoose ; sinon sqlite local si drizzle chargé ; sinon repli memory volatil)|memory|drizzle|mongoose|redis. Pluggable (`registerTokenStore`). Memory = dev/tests (volatil, non partagé). Vocabulaire unifié : données = `store`.",
+        "Store de jetons (refresh/PAT/denylist) : auto [défaut] (infra database → drizzle/mongoose ; sinon sqlite local si drizzle chargé ; sinon repli memory volatil ; `NF_STORE` passe AVANT tout cela et force le backend pour toutes les briques `auto`)|memory|drizzle|mongoose|redis. Pluggable (`registerTokenStore`). Memory = dev/tests (volatil, non partagé). Vocabulaire unifié : données = `store`.",
       ),
     gcIntervalS: z
       .number()
@@ -515,7 +515,7 @@ const passkeysSchema = z
       .string()
       .default("auto")
       .describe(
-        "Backend de stockage des credentials : auto [défaut] (infra database déclarée → drizzle/mongoose ; sinon sqlite local si drizzle chargé ; sinon repli memory volatil)|memory|drizzle|mongoose|redis. Pluggable (`registerWebAuthnStore`). 'memory' = dev/tests (volatil, perdu au redémarrage — les passkeys enregistrés deviennent inutilisables). Persistance = adapter durable auto-enregistré par le module chargé.",
+        "Backend de stockage des credentials : auto [défaut] (infra database déclarée → drizzle/mongoose ; sinon sqlite local si drizzle chargé ; sinon repli memory volatil ; `NF_STORE` passe AVANT tout cela et force le backend pour toutes les briques `auto`)|memory|drizzle|mongoose|redis. Pluggable (`registerWebAuthnStore`). 'memory' = dev/tests (volatil, perdu au redémarrage — les passkeys enregistrés deviennent inutilisables). Persistance = adapter durable auto-enregistré par le module chargé.",
       ),
   })
   .describe("Passkeys (WebAuthn L3 / FIDO2) — synced par défaut.");
@@ -581,7 +581,7 @@ const totpSchema = z
       .string()
       .default("auto")
       .describe(
-        "Backend de stockage du secret : auto [défaut] | memory | drizzle — plus tout backend ajouté par `registerTotpStore` (la liste qui fait foi est celle de l'écran Stores de Studio, pas ce texte). ⚠️ Contrairement aux sessions, aux jetons et aux passkeys, **seul @nodefony/drizzle fournit un store TOTP** : @nodefony/mongoose et @nodefony/redis n'en enregistrent pas. Sur une infra Mongo, `auto` ne trouve donc pas de backend durable et se replie sur `memory` (repli tracé au boot, et WARNING en production) : les secrets 2FA seraient perdus au redémarrage, verrouillant les utilisateurs hors de leur second facteur. Charger @nodefony/drizzle — même en sqlite local, à côté de Mongo — donne la persistance.",
+        "Backend de stockage du secret : auto [défaut, forçable par `NF_STORE`] | memory | drizzle — plus tout backend ajouté par `registerTotpStore` (la liste qui fait foi est celle de l'écran Stores de Studio, pas ce texte). ⚠️ Contrairement aux sessions, aux jetons et aux passkeys, **seul @nodefony/drizzle fournit un store TOTP** : @nodefony/mongoose et @nodefony/redis n'en enregistrent pas. Sur une infra Mongo, `auto` ne trouve donc pas de backend durable et se replie sur `memory` (repli tracé au boot, et WARNING en production) : les secrets 2FA seraient perdus au redémarrage, verrouillant les utilisateurs hors de leur second facteur. Charger @nodefony/drizzle — même en sqlite local, à côté de Mongo — donne la persistance.",
       ),
   })
   .describe(
