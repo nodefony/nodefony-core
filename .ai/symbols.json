@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-24T16:47:13.074Z",
+  "generated": "2026-07-24T16:52:17.935Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1046,
-    "symbols": 2853,
+    "symbols": 2856,
     "classes": 334,
-    "interfaces": 748,
+    "interfaces": 749,
     "types": 329,
     "enums": 4,
-    "functions": 856,
+    "functions": 858,
     "constants": 582
   },
   "symbols": {
@@ -3352,6 +3352,23 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Écriture prévue par un scaffold, telle qu'un dry-run la restitue. `previous` n'est renseigné que pour un `overwrite` : c'est ce qui permet à un front (CLI `--dry-run`, préview Studio) de montrer un…"
+    },
+    "IDiffLine": {
+      "name": "IDiffLine",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/writer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une ligne d'un diff, telle que {@link diffLines} la classe."
+    },
+    "diffLines": {
+      "name": "diffLines",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/writer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Diff ligne à ligne de deux contenus (plus longue sous-séquence commune). Calculé au MOTEUR, et non dans chaque front : le CLI (`--dry-run`) et la préview Studio montrent le même changement, et un r…"
     },
     "Storage": {
       "name": "Storage",
@@ -22423,6 +22440,13 @@
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
+      "diffLines": [
+        "src/nodefony/src/cli/create.ts"
+      ],
+      "IScaffoldChange": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
       "askMissing": [
         "src/nodefony/src/cli/create.ts"
       ],
@@ -23300,9 +23324,6 @@
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "ScaffoldWriter": [
-        "src/nodefony/src/cli/scaffold/engine.ts"
-      ],
-      "IScaffoldChange": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "IScaffoldTypeSpec": [

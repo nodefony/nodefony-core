@@ -17,6 +17,7 @@ import {
   runScaffold,
   type TScaffoldAnswers,
 } from "./scaffold/engine";
+import { diffLines, type IScaffoldChange } from "./scaffold/writer";
 import { askMissing, confirm } from "./scaffold/interactive";
 
 /**
@@ -57,6 +58,8 @@ export interface ICreateRequest {
   install: boolean;
   /** `--no-git` : ne pas faire `git init` + first commit après la génération. */
   git: boolean;
+  /** `--dry-run` : montrer ce qui serait écrit, ne rien écrire. */
+  dryRun: boolean;
 }
 
 /**
@@ -77,12 +80,15 @@ export function parseCreateArgv(
   let yes = false;
   let install = true;
   let git = true;
+  let dryRun = false;
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
     if (word === "--force" || word === "-f") {
       force = true;
     } else if (word === "--yes" || word === "-y") {
       yes = true;
+    } else if (word === "--dry-run" || word === "-n") {
+      dryRun = true;
     } else if (word === "--no-install") {
       install = false;
     } else if (word === "--no-git") {
@@ -156,11 +162,20 @@ export function parseCreateArgv(
   if (type === "entity" && extra.length > 0) {
     answers.fields = extra.join(" ");
   }
-  return { type: type as TCreateType, answers, dir, force, yes, install, git };
+  return {
+    type: type as TCreateType,
+    answers,
+    dir,
+    force,
+    yes,
+    install,
+    git,
+    dryRun,
+  };
 }
 
 const USAGE =
-  `usage : nodefony create <${CREATE_TYPES.join("|")}> [name] [--dir <path>] [--force] [--yes]\n` +
+  `usage : nodefony create <${CREATE_TYPES.join("|")}> [name] [--dir <path>] [--force] [--yes] [--dry-run|-n]\n` +
   `  app        : [--preset <${PRESET_CHOICES.join("|")}>] [--frontend <${FRONTEND_CHOICES.join("|")}>]\n` +
   `               [--link|--no-link] [--no-install] [--no-git]\n` +
   `  module     : [--controller <${MODULE_CONTROLLER_CHOICES.join("|")}>] [--no-service] [--command]\n` +
@@ -174,6 +189,45 @@ const USAGE =
   `               ex : nodefony create entity Post title:string! content:text views:int author:ref:User\n` +
   `               (types controller/front/entity : dans un projet existant — app racine ou module)\n` +
   `  Sans flags dans un terminal → mode interactif (questions + récap).\n`;
+
+/** Lignes de diff affichées par fichier réécrit, avant troncature annoncée. */
+const DRY_RUN_DIFF_LINES = 20;
+
+/**
+ * Rend le plan d'un `--dry-run` : ce qui serait créé, et surtout le DIFF de ce
+ * qui serait réécrit.
+ *
+ * Les créations sont listées à plat (leur contenu n'écrase rien, l'inventaire
+ * suffit) ; les réécritures sont les seules opérations qui touchent au travail
+ * existant — c'est là que la simulation a une valeur, donc c'est là qu'on
+ * dépense de la place.
+ */
+function renderDryRun(changes: IScaffoldChange[]): string {
+  const rel = (file: string) => path.relative(process.cwd(), file) || ".";
+  const created = changes.filter((c) => c.kind === "create");
+  const rewritten = changes.filter((c) => c.kind === "overwrite");
+  let out =
+    `\n🔍 simulation (--dry-run) — RIEN n'a été écrit\n\n` +
+    `  ${created.length} fichier(s) à créer, ${rewritten.length} à réécrire\n`;
+  if (created.length > 0) {
+    out += `\nCréés :\n${created.map((c) => `  + ${rel(c.path)}`).join("\n")}\n`;
+  }
+  for (const change of rewritten) {
+    const lines = diffLines(change.previous ?? "", change.content).filter(
+      (l) => l.kind !== "keep",
+    );
+    const shown = lines.slice(0, DRY_RUN_DIFF_LINES);
+    out +=
+      `\nRéécrit : ${rel(change.path)}\n` +
+      shown
+        .map((l) => `  ${l.kind === "add" ? "+" : "-"} ${l.text}`)
+        .join("\n") +
+      (lines.length > shown.length
+        ? `\n  … ${lines.length - shown.length} ligne(s) de plus\n`
+        : "\n");
+  }
+  return out;
+}
 
 /**
  * `npm install` dans l'app générée (sortie streamée — le dev voit npm
@@ -268,7 +322,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       })
       .join("\n");
     process.stdout.write(`\nRécapitulatif :\n${lines}\n`);
-    if (!(await confirm("Générer ?"))) {
+    if (!(await confirm(parsed.dryRun ? "Simuler ?" : "Générer ?"))) {
       process.stdout.write("create: annulé\n");
       return SysExit.OK;
     }
@@ -290,6 +344,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     result = runScaffold(
       { type: parsed.type, answers, dir, force: parsed.force },
       version,
+      { dryRun: parsed.dryRun },
     );
   } catch (e) {
     const message = (e as Error).message;
@@ -304,6 +359,17 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     return SysExit.SOFTWARE;
   }
   const relDest = path.relative(process.cwd(), result.dest) || ".";
+  if (parsed.dryRun) {
+    // Sortie AVANT toute étape post-génération : installer, construire ou
+    // initialiser un dépôt pour des fichiers qui n'existent pas serait
+    // exactement le contraire de ce que « simulation » promet.
+    process.stdout.write(
+      `✔ ${parsed.type} « ${String(answers.name)} » — cible : ${relDest}/\n` +
+        renderDryRun(result.changes ?? []) +
+        `\nRelance sans --dry-run pour écrire.\n`,
+    );
+    return SysExit.OK;
+  }
   if (parsed.type === "module") {
     process.stdout.write(
       `✔ module « ${String(answers.name)} » généré dans ${relDest}/\n\n` +

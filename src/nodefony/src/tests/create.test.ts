@@ -14,7 +14,11 @@ import { PassThrough } from "node:stream";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { version } from "../../package.json";
-import { parseCreateArgv, runCreateCommand } from "../cli/create";
+import {
+  parseCreateArgv,
+  runCreateCommand,
+  type ICreateRequest,
+} from "../cli/create";
 import { getScaffoldSpec } from "../cli/scaffold/spec";
 import {
   findPackageRoot,
@@ -23,7 +27,7 @@ import {
   linkLocalDeps,
   runScaffold,
 } from "../cli/scaffold/engine";
-import { ScaffoldWriter } from "../cli/scaffold/writer";
+import { ScaffoldWriter, diffLines } from "../cli/scaffold/writer";
 import { askMissing } from "../cli/scaffold/interactive";
 import { SysExit } from "../cli/sysexits";
 
@@ -126,6 +130,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         yes: false,
         install: true,
         git: true,
+        dryRun: false,
       });
     });
 
@@ -161,7 +166,15 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         yes: true,
         install: false,
         git: false,
+        dryRun: false,
       });
+    });
+
+    it("--dry-run / -n : simulation demandée", () => {
+      const long = parseCreateArgv(argv("create", "app", "x", "--dry-run"));
+      const short = parseCreateArgv(argv("create", "app", "x", "-n"));
+      assert.isTrue((long as ICreateRequest).dryRun);
+      assert.isTrue((short as ICreateRequest).dryRun);
     });
 
     it("type inconnu / option inconnue → error", () => {
@@ -1396,6 +1409,105 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  describe("dry-run (simulation — même exécution, sans le disque)", () => {
+    it("une app simulée n'existe pas, mais son plan est complet", () => {
+      const dest = path.join(tmp, "sim");
+      const r = runScaffold(
+        {
+          type: "app",
+          answers: { name: "sim", preset: "minimal", frontend: "none" },
+          dir: dest,
+          force: false,
+        },
+        version,
+        { dryRun: true },
+      );
+      assert.isFalse(existsSync(dest), "le dry-run a écrit sur le disque");
+      const changes = r.changes ?? [];
+      assert.isNotEmpty(changes);
+      // Le plan porte le MÊME inventaire que le résultat annoncé.
+      assert.sameMembers(
+        changes.map((c) => path.relative(dest, c.path)),
+        r.files,
+      );
+      assert.isTrue(changes.every((c) => c.kind === "create"));
+      // Le contenu est celui qui SERAIT écrit : il est rendu, pas promis.
+      const index = changes.find((c) => c.path.endsWith("index.ts"));
+      assert.include(index?.content ?? "", "@controllers([");
+    });
+
+    it("sur un projet existant, distingue création et réécriture + diff", () => {
+      const dest = path.join(tmp, "simc");
+      scaffold(dest, { name: "simc", preset: "minimal" });
+      const before = snapshotTree(dest);
+      const r = runScaffold(
+        {
+          type: "controller",
+          answers: { name: "blog" },
+          dir: dest,
+          force: false,
+        },
+        version,
+        { dryRun: true },
+      );
+      assertTreeUnchanged(before, dest);
+      const changes = r.changes ?? [];
+      const rewritten = changes.filter((c) => c.kind === "overwrite");
+      // `index.ts` existe : le câblage le RÉÉCRIT — c'est le seul cas où la
+      // simulation a une valeur, et le plan doit le dire.
+      assert.deepEqual(
+        rewritten.map((c) => path.relative(dest, c.path)),
+        ["index.ts"],
+      );
+      const [wire] = rewritten;
+      assert.include(wire.previous ?? "", "@controllers([");
+      const added = diffLines(wire.previous ?? "", wire.content)
+        .filter((l) => l.kind === "add")
+        .map((l) => l.text);
+      assert.isTrue(
+        added.some((l) => l.includes("BlogController")),
+        "le diff ne montre pas l'insertion du controller",
+      );
+    });
+
+    it("un refus reste un refus en simulation", () => {
+      const dest = path.join(tmp, "simref");
+      scaffold(dest, { name: "simref", preset: "minimal" });
+      runScaffold(
+        {
+          type: "controller",
+          answers: { name: "dup" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      assert.throws(
+        () =>
+          runScaffold(
+            {
+              type: "controller",
+              answers: { name: "dup" },
+              dir: dest,
+              force: false,
+            },
+            version,
+            { dryRun: true },
+          ),
+        /déjà référencé/u,
+      );
+    });
+
+    it("diffLines : conserve l'ordre et n'invente aucune ligne", () => {
+      const diff = diffLines("a\nb\nc", "a\nx\nb\nc");
+      assert.deepEqual(
+        diff.map((l) => `${l.kind[0]}${l.text}`),
+        ["ka", "ax", "kb", "kc"],
+      );
+      assert.deepEqual(diffLines("a", "a"), [{ kind: "keep", text: "a" }]);
+    });
+  });
+
   describe("catalogue de versions (anti-dérive templates ↔ monorepo)", () => {
     it("chaque version du catalogue reste alignée (même MAJEURE) sur le repo", async () => {
       const { SCAFFOLD_VERSIONS } = await import("../cli/scaffold/versions");
@@ -1570,6 +1682,37 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.isTrue(existsSync(path.join(dest, "compose.yaml")));
       const pkg = readJson(path.join(dest, "package.json"));
       assert.equal(pkg["dependencies"]["nodefony"], `^${version}`); // pas de link implicite
+    });
+
+    it("--dry-run : plan affiché, disque intact, ni install ni git", async () => {
+      // Contrôle du CHEMIN COMPLET (argv → moteur → rendu) : le moteur sait
+      // déjà simuler, ce qui reste à prouver c'est que la commande NE PASSE PAS
+      // aux étapes post-génération — installer et commiter des fichiers qui
+      // n'existent pas est le seul vrai danger de ce mode.
+      const dest = path.join(tmp, "sim-app");
+      const written: string[] = [];
+      const stdout = process.stdout.write.bind(process.stdout);
+      process.stdout.write = ((chunk: string) => {
+        written.push(String(chunk));
+        return true;
+      }) as typeof process.stdout.write;
+      let code: number;
+      try {
+        code = await runCreateCommand(
+          argv("create", "app", "sim-app", "--dir", dest, "--dry-run"),
+        );
+      } finally {
+        process.stdout.write = stdout;
+      }
+      const out = written.join("");
+      assert.equal(code, SysExit.OK);
+      assert.isFalse(existsSync(dest), "--dry-run a écrit sur le disque");
+      assert.include(out, "RIEN n'a été écrit");
+      assert.include(out, "package.json");
+      // `--dry-run` sans `--no-install`/`--no-git` : ces étapes doivent être
+      // sautées d'elles-mêmes, pas par un flag que l'utilisateur penserait à poser.
+      assert.notInclude(out, "npm install");
+      assert.notInclude(out, "🌱 git");
     });
 
     it("--preset/--frontend passent au moteur ; valeur invalide → EX_USAGE", async () => {

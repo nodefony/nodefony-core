@@ -25,6 +25,74 @@ export interface IScaffoldChange {
   previous?: string;
 }
 
+/** Une ligne d'un diff, telle que {@link diffLines} la classe. */
+export interface IDiffLine {
+  /** `keep` = inchangée, `add` = ajoutée, `remove` = retirée. */
+  kind: "keep" | "add" | "remove";
+  text: string;
+}
+
+/**
+ * Au-delà de cette taille, le diff ligne à ligne n'est plus calculé (la matrice
+ * de programmation dynamique est quadratique). Les fichiers qu'un scaffold
+ * RÉÉCRIT sont des `index.ts`, des `package.json`, une config — deux ordres de
+ * grandeur en dessous ; la borne n'existe que pour qu'un cas aberrant dégrade
+ * l'affichage au lieu de figer le terminal.
+ */
+const DIFF_MAX_LINES = 1000;
+
+/**
+ * Diff ligne à ligne de deux contenus (plus longue sous-séquence commune).
+ *
+ * Calculé au MOTEUR, et non dans chaque front : le CLI (`--dry-run`) et la
+ * préview Studio montrent le même changement, et un rendu qui diverge du plan
+ * réellement exécuté serait pire que pas de préview du tout.
+ *
+ * Au-delà de {@link DIFF_MAX_LINES} lignes, rend le remplacement en bloc —
+ * exact, mais sans détail.
+ */
+export function diffLines(before: string, after: string): IDiffLine[] {
+  const a = before.split("\n");
+  const b = after.split("\n");
+  if (a.length > DIFF_MAX_LINES || b.length > DIFF_MAX_LINES) {
+    return [
+      ...a.map((text): IDiffLine => ({ kind: "remove", text })),
+      ...b.map((text): IDiffLine => ({ kind: "add", text })),
+    ];
+  }
+  // lcs[i][j] = longueur de la plus longue sous-séquence commune de a[i…] et b[j…].
+  const width = b.length + 1;
+  const lcs = new Uint32Array((a.length + 1) * width);
+  for (let i = a.length - 1; i >= 0; i--) {
+    for (let j = b.length - 1; j >= 0; j--) {
+      lcs[i * width + j] =
+        a[i] === b[j]
+          ? lcs[(i + 1) * width + j + 1] + 1
+          : Math.max(lcs[(i + 1) * width + j], lcs[i * width + j + 1]);
+    }
+  }
+  const diff: IDiffLine[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      diff.push({ kind: "keep", text: a[i++] });
+      j++;
+    } else if (lcs[(i + 1) * width + j] >= lcs[i * width + j + 1]) {
+      diff.push({ kind: "remove", text: a[i++] });
+    } else {
+      diff.push({ kind: "add", text: b[j++] });
+    }
+  }
+  while (i < a.length) {
+    diff.push({ kind: "remove", text: a[i++] });
+  }
+  while (j < b.length) {
+    diff.push({ kind: "add", text: b[j++] });
+  }
+  return diff;
+}
+
 /**
  * Système de fichiers TRANSACTIONNEL du scaffold : toutes les écritures sont
  * retenues en mémoire, et ne touchent le disque qu'au {@link ScaffoldWriter.commit}

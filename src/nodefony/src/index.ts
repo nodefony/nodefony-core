@@ -487,10 +487,16 @@ export type { IScaffoldRoot } from "./cli/scaffold/destination";
 export type {
   IScaffoldRequest,
   IScaffoldResult,
+  IScaffoldRunOptions,
   IScaffoldCaps,
   IScaffoldTarget,
   TScaffoldAnswers,
 } from "./cli/scaffold/engine";
+// Simulation : `runScaffold(…, { dryRun: true })` rend le PLAN au lieu d'écrire.
+// Le diff est calculé ici et non par chaque front, pour que la préview d'un
+// front décrive exactement l'exécution qui suivra.
+export { diffLines } from "./cli/scaffold/writer";
+export type { IScaffoldChange, IDiffLine } from "./cli/scaffold/writer";
 
 // ─── Branchement Node-only : ALS → Pdu.requestId (corrélation log↔requête) ────
 // Le bundle browser/client (src/client/index.ts) NE RÉ-EXPORTE PAS ce fichier
