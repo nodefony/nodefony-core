@@ -354,7 +354,13 @@ export abstract class RealtimeController<
       token = ANONYMOUS_REALTIME_TOKEN;
     }
 
-    const transport = new WsConnectionTransport(conn);
+    // Seuils de back-pressure de CETTE connexion : ceux posés au boot depuis la
+    // config, sinon les constantes du transport (hub utilisé sans RealtimeService).
+    // Cold path : une lecture de champ au handshake, rien par frame.
+    const transport = new WsConnectionTransport(
+      conn,
+      hub.backpressureBytes ?? undefined,
+    );
     const peerOptions: JsonRpcPeerOptions = {
       // Fail-safe : un payload non JSON-safe (structure circulaire…) ne doit
       // JAMAIS casser la chaîne du peer — sinon unhandledRejection serveur +

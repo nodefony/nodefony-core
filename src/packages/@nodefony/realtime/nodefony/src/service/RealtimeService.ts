@@ -115,6 +115,13 @@ class RealtimeService extends Service {
     // F9 (revue 0.6) — câble le seuil de comptage des consommateurs lents de la
     // sonde depuis la config (avant : clé morte, la sonde lisait une constante).
     hub.setSlowConsumerBytes(this.#config.slowConsumer.bytes);
+    // Le frère qui AGIT : seuils de drop puis de fermeture, appliqués au
+    // transport de chaque nouvelle connexion. Sans ce câblage, une application
+    // subissait les constantes du transport sans pouvoir les régler.
+    hub.setBackpressureBytes(
+      this.#config.backpressure.dropBytes,
+      this.#config.backpressure.closeBytes,
+    );
     // Politique de forward DÉCLARÉE (`@RealtimeBroadcast`) posée dès le boot :
     // sans elle, un pod qui publie sans abonné local (job, webhook, worker) ne
     // propagerait rien tant qu'aucun client ne s'est connecté à lui — et deux

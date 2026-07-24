@@ -267,7 +267,9 @@ expliquent quand et pourquoi en changer.
 | `backplane.secret`                    | `string?` (≥ 32)       | _absent_             | scelle les messages du transport partagé (HMAC) ; identique sur tous les pods. Absent = bus ouvert + avertissement au boot                                           |
 | `backplane.maxQueueBytes`             | `number` entier ≥ 0    | `8388608` (8 MiB)    | plafond des octets publiés en attente d'accusé de réception du bus ; au-delà, les publications sont abandonnées et comptées (`backplane.queue`). `0` = aucune limite |
 | `cluster.probe.enabled`               | `boolean`              | `true`               | branche la sonde agrégée du pod en worker de cluster. `false` = aucun minuteur, aucun IPC                                                                            |
-| `slowConsumer.bytes`                  | `number` entier > 0    | `1048576` (1 MiB)    | seuil de **comptage** des consommateurs lents dans la sonde. Ne freine rien                                                                                          |
+| `slowConsumer.bytes`                  | `number` entier > 0    | `1048576` (1 MiB)    | seuil de **comptage** des consommateurs lents dans la sonde. Observe, n'agit pas                                                                                     |
+| `backpressure.dropBytes`              | `number` entier > 0    | `1048576` (1 MiB)    | file d'envoi au-delà de laquelle une frame est **jetée** pour cette connexion                                                                                        |
+| `backpressure.closeBytes`             | `number` entier > 0    | `8388608` (8 MiB)    | file d'envoi au-delà de laquelle la connexion est **fermée** (`1013`). Doit être > `dropBytes`                                                                       |
 | `limits.maxChannelsPerConnection`     | `number > 0` \| `null` | `256`                | plafond de canaux par connexion ; au-delà le `subscribe` est refusé. `null` = illimité                                                                               |
 | `csrf.checkOrigin.enabled`            | `boolean`              | `false`              | active le contrôle d'`Origin` à l'ouverture de la socket                                                                                                             |
 | `csrf.checkOrigin.allowList`          | `string[]`             | `[]`                 | origines acceptées, **comparaison exacte**. Vide + activé = tout est refusé                                                                                          |
@@ -378,14 +380,38 @@ d'éteindre une sonde sur un pod en incident sans redéployer une configuration.
 Seuil de `bufferedAmount` — les octets en attente d'envoi sur une socket — au-delà duquel la sonde
 compte la connexion comme « lente » (`RealtimeHub.probe()`, `RealtimeHub.ts:775`).
 
-> [!WARNING]
-> **Cette clé ne règle pas la contre-pression.** Elle ne change que le compteur `slowConsumers` de la
-> sonde. Les seuils qui **agissent** — jeter une frame, puis fermer la connexion — sont des
-> constantes : `BACKPRESSURE_DROP_BYTES` à 1 MiB et `BACKPRESSURE_CLOSE_BYTES` à 8 MiB
-> (`WsConnectionTransport.ts:32`). Le transport accepte pourtant de les recevoir à la construction,
-> mais le contrôleur le construit **sans les passer** (`RealtimeController.ts:356`) : le chemin de
-> câblage n'est pas relié. Baisser `slowConsumer.bytes` à 64 KiB en espérant fermer plus tôt les
-> clients lents ne change **rien** au comportement — seulement le nombre affiché.
+> [!IMPORTANT]
+> **Cette clé observe, elle n'agit pas.** Elle ne change que le compteur `slowConsumers` de la
+> sonde. Ce qui **agit** — jeter une frame, puis fermer la connexion — se règle à côté, sous
+> `backpressure` (section suivante). Baisser `slowConsumer.bytes` à 64 KiB pour fermer plus tôt les
+> clients lents ne changerait que le nombre affiché.
+
+### `backpressure` — ce qui agit vraiment
+
+Deux seuils de `bufferedAmount`, appliqués au transport de **chaque connexion** au moment du
+handshake :
+
+| Clé                       | Défaut            | Ce qui se passe au-delà                                        |
+| ------------------------- | ----------------- | -------------------------------------------------------------- |
+| `backpressure.dropBytes`  | `1048576` (1 MiB) | la frame sortante est **jetée** pour cette connexion           |
+| `backpressure.closeBytes` | `8388608` (8 MiB) | la connexion est **fermée** (code `1013`, « Try Again Later ») |
+
+`closeBytes` doit rester **strictement supérieur** à `dropBytes` — le schéma refuse le contraire, et
+le dit : fermer avant d'avoir tenté de jeter rendrait le drop inatteignable.
+
+Pourquoi jeter plutôt que d'attendre : les canaux d'état sont **latest-wins**. Une frame perdue est
+remplacée par la suivante, tandis qu'une file qui enfle est de la mémoire serveur immobilisée par un
+client qui ne lit pas — multipliée par le nombre de connexions.
+
+Régler ces valeurs quand : des clients légitimement lents décrochent trop tôt (mobile, IoT, réseau
+contraint) → monter les deux ; ou au contraire un pod encaisse des clients qui ne drainent pas et
+sa mémoire monte → descendre `closeBytes` pour couper plus tôt.
+
+> [!NOTE]
+> Ces seuils sont **par pod** et ne sont jamais annoncés au client : celui-ci n'en a pas besoin. Il
+> reçoit le seul signal qui compte — la fermeture `1013`, qu'il classe comme transitoire et fait
+> suivre d'une reconnexion avec temporisation. Sa cadence, elle, s'ajuste toute seule (AIMD) sur le
+> comportement observé, ce qui reste juste même si tu changes ces valeurs à chaud.
 
 L'usage correct est celui d'un **seuil d'alerte** : le baisser pour être averti plus tôt qu'une
 population de clients décroche (mobile, réseau contraint), le monter pour cesser de compter comme
@@ -711,16 +737,16 @@ Trois endroits, par ordre de fiabilité décroissante.
 
 ## ⚠️ Pièges
 
-| Symptôme                                                                            | Cause                                                                                                                         | Correction                                                                          |
-| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Un message n'arrive qu'à la moitié des clients, sans aucune erreur                  | plusieurs répliques avec `driver: "loopback"`                                                                                 | passer à `redis` et déclarer `@nodefony/redis` dans le manifeste                    |
-| Driver `redis` configuré, journal `RealtimeHub reste local`                         | module `@nodefony/redis` absent du manifeste, ou connexions `publish`/`subscribe` indisponibles                               | déclarer le module ; vérifier que Redis répond                                      |
-| Le fan-out traverse, mais des messages d'un autre environnement arrivent            | `backplane.namespace` non posé : deux déploiements de la même application dérivent le même canal                              | poser un namespace explicite et distinct par environnement                          |
-| Une clé écrite dans `use()` n'a aucun effet                                         | nom de clé fautif : le registre de types n'étant pas augmenté, l'éditeur ne corrige pas, et Zod **retire** l'inconnu          | relire la configuration effective dans Studio, onglet Config                        |
-| Baisser `slowConsumer.bytes` ne ferme pas les clients lents                         | cette clé ne pilote que le **comptage** de la sonde ; les seuils d'action sont des constantes (`WsConnectionTransport.ts:32`) | rien à régler : le comportement n'est pas configurable                              |
-| Toutes les connexions tombent en `4003` après activation du contrôle d'origine      | `allowList` vide, ou origine non identique au caractère près (port, schéma, sous-domaine)                                     | inscrire l'origine exacte ; un client non-navigateur relève de `allowMissingOrigin` |
-| `enabled: false` posé « pour désactiver », et la garde d'origine ne s'applique plus | le service devient inerte et ne pose plus les politiques sur le hub                                                           | retirer le module du manifeste plutôt que l'éteindre                                |
-| Le plafond de canaux semble ignoré en test                                          | il ne l'est pas : le hub porte le même défaut de 256 sans configuration (`RealtimeHub.ts:217`)                                | vérifier le motif de refus `realtime:denied` côté client                            |
+| Symptôme                                                                            | Cause                                                                                                                | Correction                                                                          |
+| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Un message n'arrive qu'à la moitié des clients, sans aucune erreur                  | plusieurs répliques avec `driver: "loopback"`                                                                        | passer à `redis` et déclarer `@nodefony/redis` dans le manifeste                    |
+| Driver `redis` configuré, journal `RealtimeHub reste local`                         | module `@nodefony/redis` absent du manifeste, ou connexions `publish`/`subscribe` indisponibles                      | déclarer le module ; vérifier que Redis répond                                      |
+| Le fan-out traverse, mais des messages d'un autre environnement arrivent            | `backplane.namespace` non posé : deux déploiements de la même application dérivent le même canal                     | poser un namespace explicite et distinct par environnement                          |
+| Une clé écrite dans `use()` n'a aucun effet                                         | nom de clé fautif : le registre de types n'étant pas augmenté, l'éditeur ne corrige pas, et Zod **retire** l'inconnu | relire la configuration effective dans Studio, onglet Config                        |
+| Baisser `slowConsumer.bytes` ne ferme pas les clients lents                         | cette clé ne pilote que le **comptage** de la sonde                                                                  | régler `backpressure.dropBytes` / `backpressure.closeBytes`                         |
+| Toutes les connexions tombent en `4003` après activation du contrôle d'origine      | `allowList` vide, ou origine non identique au caractère près (port, schéma, sous-domaine)                            | inscrire l'origine exacte ; un client non-navigateur relève de `allowMissingOrigin` |
+| `enabled: false` posé « pour désactiver », et la garde d'origine ne s'applique plus | le service devient inerte et ne pose plus les politiques sur le hub                                                  | retirer le module du manifeste plutôt que l'éteindre                                |
+| Le plafond de canaux semble ignoré en test                                          | il ne l'est pas : le hub porte le même défaut de 256 sans configuration (`RealtimeHub.ts:217`)                       | vérifier le motif de refus `realtime:denied` côté client                            |
 
 ## 🧪 Tests & couverture
 

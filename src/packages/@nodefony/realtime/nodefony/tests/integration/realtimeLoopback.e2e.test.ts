@@ -197,6 +197,7 @@ function makeServer(
 ): {
   rt: LoopbackRt;
   fireFinish: () => void;
+  conn: { bufferedAmount: number };
   closeServer: (code?: number, reason?: string) => void;
 } {
   let onFinish: (() => void) | null = null;
@@ -204,6 +205,9 @@ function makeServer(
     get readyState() {
       return wire.serverConnOpen ? OPEN : TransportState.CLOSED;
     },
+    // File d'envoi non drainée, pilotable : c'est la seule entrée de la
+    // back-pressure. À 0 (défaut) rien ne change pour les autres scénarios.
+    bufferedAmount: 0,
     send: (raw: string, cb?: (err?: Error) => void) => {
       wire.deliverToClient(raw);
       cb?.();
@@ -228,6 +232,7 @@ function makeServer(
   wire.feedServer = (raw) => rt.feed(raw);
   return {
     rt,
+    conn,
     fireFinish: () => onFinish?.(),
     closeServer: (code, reason) => conn.close(code, reason),
   };
@@ -240,11 +245,13 @@ async function connectPair(
 ): Promise<{
   client: RealtimeClient;
   rt: LoopbackRt;
+  /** Connexion serveur factice — `bufferedAmount` pilotable (back-pressure). */
+  conn: { bufferedAmount: number };
   fireFinish: () => void;
   closeServer: (code?: number, reason?: string) => void;
 }> {
   const wire = new LoopbackWire();
-  const { rt, fireFinish, closeServer } = makeServer(wire, serverHs);
+  const { rt, conn, fireFinish, closeServer } = makeServer(wire, serverHs);
   const transport = new LoopbackClientTransport(wire);
   const client = new RealtimeClient(
     { url: "ws://loopback/realtime", autoReconnect: false, ...clientOpts },
@@ -253,7 +260,7 @@ async function connectPair(
   await client.connect(); // résout sur onOpen
   await flush(); // laisse le handshake serveur (async) livrer le welcome
   await flush();
-  return { client, rt, fireFinish, closeServer };
+  return { client, rt, conn, fireFinish, closeServer };
 }
 
 describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)", () => {
@@ -641,6 +648,29 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     expect(alertes[0]).to.contain("guard:room:1000");
     expect(alertes[0]).to.match(/exact/i);
     client.unsubscribe("guard:room:1000");
+    await flush();
+  });
+
+  it("⭐ back-pressure : le seuil de la CONFIG atteint le transport de la connexion", async () => {
+    // Posé comme au boot par RealtimeService, AVANT le handshake.
+    getRealtimeHub().setBackpressureBytes(4096, 8192);
+    const { client, rt, conn } = await connectPair();
+    const got: unknown[] = [];
+    client.on("tick", (p) => got.push(p));
+    client.subscribe("tick");
+    await flush();
+
+    rt.publishers["tick"]!("tick", { n: 1 }); // file vide → passe
+    await flush();
+    expect(got).to.have.lengthOf(1);
+
+    conn.bufferedAmount = 5000; // au-dessus du seuil CONFIGURÉ, très sous le défaut 1 MiB
+    rt.publishers["tick"]!("tick", { n: 2 });
+    await flush();
+    expect(got).to.have.lengthOf(1); // jetée : le seuil de la config a bien voyagé
+
+    conn.bufferedAmount = 0;
+    client.unsubscribe("tick");
     await flush();
   });
 
