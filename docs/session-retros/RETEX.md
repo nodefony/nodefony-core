@@ -33,7 +33,7 @@
 
 ## 🧷 Un run vert ne typecheck rien — et tous les typechecks ne se valent pas
 
-- `[1× — 2026-07-24]` **Deux erreurs de type dans mes propres tests, invisibles en vert.** Vitest efface les types à la transpilation : les 6 tests passaient alors qu'un import pointait un type non exporté (TS2459) et qu'une conversion sautait `unknown` (TS2352). C'est le **pre-push** qui a mordu, deux fois de suite. Pire piège : `npx tsc --noEmit` lancé DANS le module était vert — il ne couvre pas les mêmes fichiers que `npm run typecheck`, qui est le gate réel. **Avant un push : `npm run typecheck` à la racine, pas le tsc du module.**
+- `[2× — 2026-07-24]` **Des erreurs de type dans mes propres tests, invisibles en vert.** Vitest efface les types à la transpilation. 1ʳᵉ fois : un import pointait un type non exporté (TS2459), une conversion sautait `unknown` (TS2352) — c'est le **pre-push** qui a mordu. 2ᵉ fois : élargir le retour de `send` en `boolean | void` a cassé **6 stubs** `send: (f) => sent.push(f)` (une flèche concise renvoie le `number` de `push`) — suites 100 % vertes, `npm run typecheck` racine rouge. Pire piège : `npx tsc --noEmit` lancé DANS le module est vert, il ne couvre pas les mêmes fichiers. **Avant un push : `npm run typecheck` à la racine, pas le tsc du module.** Et **élargir un type de retour de callback casse les stubs concis**, jamais les tests.
 
 ## 📎 Un diff de code décale les ancres de la doc
 
@@ -120,6 +120,15 @@
 
 - `[1× — 2026-07-24]` ⭐ **Un test rouge en permanence cesse d'être lu.** `create.test.ts` échouait depuis des jours ; ni le test ni le code n'étaient fautifs — l'assertion cherchait `RequestContext` dans le FICHIER entier, et le template avait gagné un commentaire pédagogique qui le cite à raison. Une assertion doit viser **ce que le code fait**, pas ce que le fichier contient. Resserrer la visée, jamais désarmer : vérifié qu'elle mord encore sur un usage réel.
 - `[1× — 2026-07-24]` **Un catalogue déclaré et consommé par personne** : `OPT_IN_SWITCHES` existait depuis toujours, seul `test:all` le lisait. Résultat, dès que l'infra était présente le rapport signait « ✔ toutes cibles exercées » en laissant 9 tests muets. Un gate qui ne regarde qu'une moitié du silence produit un vert menteur.
+- `[1× — 2026-07-24]` ⭐ **Une règle STRICTE et énonçable bat une règle EXACTE et imprévisible — mais il faut en MESURER le prix d'abord.** Refuser une action de controller sur le seul NOM est plus sévère que TypeScript (qui ne râle que si les signatures divergent : un `trace()` compilait). Avant de trancher, j'ai compté ce que la sévérité coûterait sur tout le dépôt : **un seul renommage**. Le chiffre a fait la décision, pas l'intuition — et une règle qui tient en une phrase (« une action ne reprend pas un nom de `Controller` ») vaut mieux qu'un TS2416 que personne n'anticipe.
+
+## 📣 Un signal ajouté pour l'utilisateur : QUI va l'émettre, en vrai ?
+
+- `[1× — 2026-07-24]` ⭐ **Un avertissement correct au mauvais étage devient du bruit.** J'avais posé la notice « messages perdus » dans le `send()` bas niveau : correct, mais Studio (dés)abonne à chaque montage/démontage de vue — l'utilisateur aurait vu « messages perdus » à chaque changement de page pendant une coupure, pour des frames **rejouées au reconnect**. La question du user (« ça a des répercussions sur Studio ? ») a trouvé le défaut. **Réflexe : après avoir ajouté un signal visible, lister les appelants RÉELS qui vont le déclencher** — pas seulement vérifier qu'il dit vrai. Le signal a migré vers la seule voie dont personne n'apprend l'échec autrement (`emit`), et un test verrouille la distinction.
+
+## 🧨 Une commande composée refusée n'exécute RIEN — et le run suivant ment
+
+- `[1× — 2026-07-24]` **Un `cd` relatif refusé par le hook a emporté le `cat >> …` qui suivait dans la même ligne.** Mes tests n'ont jamais été écrits ; j'ai relancé la suite, lu « 12 passed » et cru qu'ils passaient. Le compte était celui des tests d'AVANT. **Après un refus d'outil sur une commande composée, considérer que RIEN n'a tourné** — et vérifier le nombre de tests attendu, pas seulement la couleur. Corollaire : écrire un fichier par l'outil d'édition, jamais par heredoc dans un enchaînement.
 
 ## 🔁 Deux implémentations d'une même règle (et comment on s'en aperçoit)
 

@@ -272,7 +272,9 @@ Console Logs Studio = panneau P10 de facto livré.
 > cellule-journal P7.10 dégraissée (5 099 → 1 110 car.) · gap E2E SQL comblé (S1-S4) · blocker rollup caduc.
 > Passes précédentes : mémoire IA `core-dev/migration/AUDIT-verite-2026-06.md`.
 >
-> **REGISTRE CLOS — 119 / 120 soldés, 1 partiel, 0 ouvert, 0 critique.** Les cinq motifs sont
+> **REGISTRE SOLDÉ — 120 / 120, 0 ouvert, 0 critique** (`16db7f53` : F59, dernier item — une action
+> de controller ne peut plus reprendre un nom porté par `Controller`, le décorateur le refuse à la
+> déclaration en nommant le conflit, liste dérivée du prototype donc jamais périmée). Les cinq motifs sont
 > clos, et les trois derniers items — qui étaient des **décisions d'architecture** — ont été
 > tranchés : **F93** (un canal appartient à qui fournit son provider ; `hub.listen()` = écoute
 > PASSIVE, la fabrique est rejouée à l'arrivée d'un client — `ce7eb849`) · **F177** (streaming RPC
