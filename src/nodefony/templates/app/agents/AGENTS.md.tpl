@@ -27,13 +27,33 @@ Chaque commande se décrit à une machine : `--describe-json` (questions + optio
 en JSON), `--answers-json <fichier|->` (réponses en JSON), `--dry-run` (plan et
 diffs, zéro écriture). Un refus n'écrit jamais rien (transaction).
 
+## Vérités du framework (anti-préjugés — ce que tu crois savoir est faux ici)
+
+- **Le cœur `nodefony` est ISOMORPHE** : le même paquet se charge côté Node
+  ET navigateur. La porte client EXPLICITE est le subpath `nodefony/client`
+  (`RealtimeClient`, notices, rôles — résolu à l'identique par Vite, Node et
+  le typecheck) ; les hooks React vivent dans `nodefony/react`. Ne réécris
+  JAMAIS un client WebSocket/JSON-RPC, ne duplique JAMAIS un type entre front
+  et back : un seul contrat, vérifié par le compilateur des deux bouts.
+- **Le container DI est PROTOTYPAL** : les services vivent sur une chaîne de
+  prototypes — un scope de requête VOIT tous les services du kernel sans
+  aucune copie (coût d'un scope ≈ un `Object.create`), et ce qu'on `set()`
+  dans un scope MEURT avec la requête. Ne fabrique donc ni cache de services
+  par requête, ni singleton maison : `container.get("<nom>")` remonte la
+  chaîne, c'est le mécanisme.
+- **Le WS métier passe par la socket Nodefony** (`--kind realtime` : canaux
+  pub/sub + actions RPC + policies). L'echo WS brut des exemples est une démo
+  du pipeline partagé, pas un modèle à imiter.
+
 ## Où lire AVANT de coder (tâche → doc installée)
 
 La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le dossier.
 
 | Tâche | Doc |
 | --- | --- |
-| Kernel, services, DI, CLI, client isomorphe | `node_modules/nodefony/docs/` |
+| Kernel, cycle de vie, CLI | `node_modules/nodefony/docs/kernel.md` + `cli.md` |
+| Service, DI, container, scopes | `node_modules/nodefony/docs/service.md` |
+| Client isomorphe (navigateur), hooks React | `node_modules/nodefony/docs/client.md` + `react-hooks.md` |
 | Serveurs, sessions, cookies, upload, rate-limit | `node_modules/@nodefony/http/docs/` |
 | Routing, controllers, décorateurs, idempotence | `node_modules/@nodefony/framework/docs/` |
 <% if (it.hasSecurity) { %>| Firewall, authenticators, CSRF, CORS, clés d'API | `node_modules/@nodefony/security/docs/` |

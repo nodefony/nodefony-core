@@ -312,7 +312,14 @@ class <%= it.nameClass %> extends Controller {
 
   // ── WebSocket — MÊME classe, même pipeline ────────────────────────────────
 
-  /** Echo WS : `wscat -c wss://127.0.0.1:5152<%= it.route %>/echo`. */
+  /**
+   * Echo WS : `wscat -c wss://127.0.0.1:5152<%= it.route %>/echo`.
+   *
+   * ⚠ WS BRUT = démo du pipeline partagé, pas un modèle. Pour du WS métier
+   * (canaux pub/sub, actions RPC, policies), la bonne couche est la socket
+   * Nodefony : `nodefony create controller <nom> --kind realtime` — ou
+   * `--kind duplex` pour les MÊMES actions REST par la socket.
+   */
   @route("<%= it.kebab %>-echo", {
     path: "/echo",
     requirements: { methods: ["WEBSOCKET"] },

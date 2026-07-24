@@ -42,7 +42,7 @@ Puis :
 <% } %><% if (it.complete) { %>| Studio (console admin, dev)     | http://127.0.0.1:5151/nodefony — config, sessions, logs, routes    |
 | ORM + persistance               | Drizzle : sans `NF_DATABASE_URL`, sqlite locale automatique        |
 | Firewall + audit                | chaque requête traverse le pipeline sécurité (logs `audit`)        |
-| Realtime (canaux multiplexés)   | `@nodefony/realtime` chargé (backplane cluster, zéro dépendance)   |
+| Temps réel — socket Nodefony    | `nodefony/controllers/LiveController.ts` : canal `live:ticker` + RPC `live:ping`<% if (it.front) { %> — la carte « Temps réel » de la page d'accueil le consomme par la façade client<% } %> |
 | Redis (opt-in)                  | `NF_REDIS_URL` présente ⇔ module chargé, stores basculent dessus   |
 <% } %>| Probes cloud-native             | `curl http://127.0.0.1:5151/livez` (liveness k8s)                  |
 
@@ -139,9 +139,18 @@ Dans l'ordre — chaque étape isole un étage, du moins cher au plus cher :
 ## 8. Production (cloud-native)
 
 ```bash
-npm run build
+npm run build        # backend (rolldown)<% if (it.front) { %> + frontend (vite → public/dist, fingerprinté)<% } %>
 npm start            # nodefony production — bind 0.0.0.0, logs stdout, probes /livez /readyz
 ```
+<% if (it.front) { %>
+> Le front de production est un build Vite figé (`public/dist/`), servi en
+> statics par Nodefony — `npm run build` le produit (il chaîne
+> `nodefony frontend:build`). Si tu lances `npm start` sans build, le boot le
+> construit une fois pour toi quand Vite est installé (poste de dev) et le DIT
+> dans les logs ; dans une image de production sans devDependencies, builde à
+> l'image — sinon la page est servie sans interface et le boot le signale en
+> ERROR.
+<% } %>
 
 Un process Node = un pod/container ; le scaling horizontal vient de
 l'orchestrateur (k8s, Swarm, Cloud Run…).<% if (it.complete) { %> Studio est chargé en dev seulement

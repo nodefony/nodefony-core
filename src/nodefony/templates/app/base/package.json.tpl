@@ -7,7 +7,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "nodefony development",
-    "build": "rolldown -c rolldown.config.ts",
+    "build": "rolldown -c rolldown.config.ts<% if (it.front) { %> && nodefony frontend:build<% } %>",
     "start": "nodefony production",
     "stop": "nodefony stop",
     "status": "nodefony status",

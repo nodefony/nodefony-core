@@ -1,7 +1,9 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { readRuntimeState } from "nodefony";
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+<% if (it.complete) { %>// La façade temps réel isomorphe — côté Node, subpath `nodefony/client`.
+import { RealtimeClient } from "nodefony/client";
+<% } %>import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
 /**
  * Test E2E — boote l'app RÉELLE (mode production) et lui parle en HTTP + WebSocket.
@@ -72,4 +74,35 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
     const res = await fetch(`${BASE}/livez`);
     expect(res.status).toBe(200);
   });
-});
+<% if (it.complete) { %>
+  it("realtime — RPC live:ping + canal live:ticker par la FAÇADE", async () => {
+    // La MÊME façade que les vitrines navigateur — zéro `ws` à la main.
+    const live = new RealtimeClient({ url: `${WS_BASE}/api/live/realtime` });
+    try {
+      // Listener posé AVANT subscribe : le provider démarre au 1ᵉʳ abonné.
+      const tickP = new Promise<unknown>((resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error("timeout tick 10s")),
+          10_000,
+        );
+        live.on("live:ticker", (msg) => {
+          clearTimeout(timer);
+          resolve(msg);
+        });
+      });
+      await live.connect();
+      // Action OUVERTE ({ authenticated: false }) — répond même anonyme.
+      const pong = (await live.request("live:ping", {})) as { pong: boolean };
+      expect(pong.pong).toBe(true);
+      // Canal libre : 1 tick/s tant qu'au moins un client est abonné.
+      live.subscribe("live:ticker");
+      const tick = (await tickP) as { n: number; pid: number };
+      expect(tick.n).toBeGreaterThan(0);
+      expect(tick.pid).toBeGreaterThan(0);
+    } finally {
+      // Le nettoyage vit dans le `finally` : une assertion qui tombe ne doit
+      // jamais laisser une socket ouverte derrière le run.
+      live.disconnect();
+    }
+  }, 15_000);
+<% } %>});

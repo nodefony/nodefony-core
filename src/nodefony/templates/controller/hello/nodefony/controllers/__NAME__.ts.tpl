@@ -79,6 +79,11 @@ class <%= it.nameClass %> extends Controller {
 <% } %>  /**
    * WebSocket natif : `wscat -c wss://127.0.0.1:5152<%= it.route %>/echo`
    * puis tape un message — la réponse repasse par le MÊME pipeline.
+   *
+   * ⚠ Cet echo BRUT est une DÉMO du pipeline HTTP/WS partagé, pas un modèle :
+   * pour du WS métier (canaux pub/sub, actions RPC, reconnexion, policies),
+   * génère la bonne couche — `nodefony create controller <nom> --kind realtime`
+   * (socket Nodefony JSON-RPC, côté client `RealtimeClient`/hooks React).
    */
   @route("<%= it.kebab %>-echo", {
     path: "/echo",

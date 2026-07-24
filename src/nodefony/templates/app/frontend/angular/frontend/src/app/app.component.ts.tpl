@@ -6,7 +6,12 @@ import {
   ViewEncapsulation,
   signal,
 } from "@angular/core";
-import { NODEFONY_LOGO } from "../brand";
+<% if (it.complete) { %>// FAÇADE temps réel isomorphe du framework — reconnexion, re-subscribe, état :
+// gérés par le client. Aucun `new WebSocket` à la main. Subpath
+// `nodefony/client` : la porte client explicite, résolue à l'identique par
+// Vite, Node et le typecheck.
+import { RealtimeClient } from "nodefony/client";
+<% } %>import { NODEFONY_LOGO } from "../brand";
 // Mise en page et palette de la démonstration — feuille PARTAGÉE par les trois
 // vitrines ; `accent.css` n'y ajoute que la couleur du framework.
 import "../showcase.css";
@@ -25,6 +30,17 @@ interface SecureData {
   zone: string;
   pid: number;
 }
+
+/** Un tick du canal `live:ticker` (cf `nodefony/controllers/LiveController.ts`). */
+interface Tick {
+  n: number;
+  ts: number;
+  pid: number;
+}
+
+// UNE socket par URL pour toute la page (`.shared`) — URL RELATIVE, résolue
+// contre la page (https → wss automatique). La même façade que Studio.
+const live = RealtimeClient.shared({ url: "/api/live/realtime" });
 <% } %>
 /**
  * Page d'accueil de l'app — vitrine AUTONOME (zéro dépendance UI) :
@@ -176,8 +192,27 @@ interface SecureData {
           }
         </div>
 <% } %>
-        <div class="nf-card">
-          <h2><%= it.complete ? 3 : 2 %>. WebSocket — MÊME controller que le HTTP</h2>
+<% if (it.complete) { %>        <div class="nf-card">
+          <h2>3. Temps réel — la socket Nodefony</h2>
+          <p class="nf-dim">
+            <code>LiveController</code> (<code>--kind realtime</code>) publie le
+            canal <code>live:ticker</code> (1 tick/s tant qu'un client est
+            abonné) ; la page le consomme par la façade
+            <code>RealtimeClient</code> — zéro <code>WebSocket</code> à la main.
+          </p>
+          <p>
+            état : <strong>{{ liveState() }}</strong>
+            @if (tick(); as t) {
+              <span> · tick <strong>#{{ t.n }}</strong> (pid {{ t.pid }})</span>
+            }
+          </p>
+          <button (click)="doPing()">RPC live:ping</button>
+          @if (pingMs(); as ms) {
+            <span class="nf-dim"> pong en {{ ms }} ms</span>
+          }
+        </div>
+<% } else { %>        <div class="nf-card">
+          <h2>2. WebSocket — MÊME controller que le HTTP</h2>
           <p class="nf-dim">
             <code>HelloController</code> porte la route GET <em>et</em> la route
             WEBSOCKET : un seul pipeline (firewall, audit, logs).
@@ -186,6 +221,7 @@ interface SecureData {
           <button (click)="sendWs(wsIn.value)">Envoyer en WS</button>
           <pre>{{ wsLog().join("\\n") || "(envoie un message)" }}</pre>
         </div>
+<% } %>
 
         <div class="nf-card">
           <h2><%= it.complete ? 4 : 3 %>. ♻️ HMR check</h2>
@@ -210,11 +246,16 @@ export class AppComponent implements OnInit, OnDestroy {
   data = signal<ApiData | null>(null);
   error = signal<string | null>(null);
   count = signal(0);
-  wsLog = signal<string[]>([]);
 <% if (it.complete) { %>  authMsg = signal<string | null>(null);
   secureData = signal<SecureData | null>(null);
-<% } %>  #ws: WebSocket | null = null;
-  stringify = (v: unknown) => JSON.stringify(v, null, 2);
+  liveState = signal(live.state);
+  tick = signal<Tick | null>(null);
+  pingMs = signal<number | null>(null);
+  // Disposers des listeners locaux — rendus au ngOnDestroy (HMR détruit le composant).
+  #offLive: (() => void)[] = [];
+<% } else { %>  wsLog = signal<string[]>([]);
+  #ws: WebSocket | null = null;
+<% } %>  stringify = (v: unknown) => JSON.stringify(v, null, 2);
 
   // Rappelé après login/logout : la zone firewall `main` (^/api) résout
   // l'identité par requête → `who` change sans recharger la page.
@@ -276,8 +317,24 @@ export class AppComponent implements OnInit, OnDestroy {
 <% } %>
   ngOnInit() {
     this.refreshHello();
-
+<% if (it.complete) { %>
+    // Abonnement par la façade : `on()` rend un disposer ; `subscribe()` est
+    // ref-compté et REJOUÉ à chaque (re)connexion ; `connect()` est idempotent.
+    // Pas de `disconnect()` au ngOnDestroy — la connexion appartient à la PAGE.
+    this.#offLive.push(
+      live.on("__state__", () => this.liveState.set(live.state)),
+    );
+    this.#offLive.push(live.on("live:ticker", (msg) => this.tick.set(msg as Tick)));
+    live.subscribe("live:ticker");
+    live.connect().catch(() => {
+      /* la carte affiche l'état (`error`) — la reconnexion est automatique */
+    });
+<% } else { %>
     // WS même origine que la page (ws en http, wss en https).
+    // ⚠ Echo BRUT = démo du pipeline HTTP/WS partagé, pas un modèle : pour du
+    // WS métier, génère la bonne couche (`nodefony create controller <nom>
+    // --kind realtime`) et consomme-la par la FAÇADE client (`RealtimeClient`)
+    // au lieu d'un `new WebSocket` à la main.
     const scheme = location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(`${scheme}://${location.host}/api/echo`);
     socket.addEventListener("message", (ev: MessageEvent) => {
@@ -287,10 +344,15 @@ export class AppComponent implements OnInit, OnDestroy {
       this.wsLog.update((log) => [...log, "⚠ connexion WS impossible"]);
     });
     this.#ws = socket;
-  }
+<% } %>  }
 
   ngOnDestroy() {
-    // HMR/full-reload détruit le composant : fermer une socket encore en
+<% if (it.complete) { %>    // HMR/full-reload détruit le composant : on rend les listeners +
+    // l'abonnement — la socket PARTAGÉE (`.shared`), elle, reste ouverte.
+    for (const off of this.#offLive) off();
+    this.#offLive = [];
+    live.unsubscribe("live:ticker");
+<% } else { %>    // HMR/full-reload détruit le composant : fermer une socket encore en
     // CONNECTING lève un warning navigateur (« closed before the connection
     // is established ») — on attend l'open pour fermer proprement.
     const socket = this.#ws;
@@ -301,12 +363,18 @@ export class AppComponent implements OnInit, OnDestroy {
     } else {
       socket.close();
     }
+<% } %>  }
+<% if (it.complete) { %>
+  async doPing() {
+    const t0 = performance.now();
+    await live.request("live:ping", {});
+    this.pingMs.set(Math.round(performance.now() - t0));
   }
-
+<% } else { %>
   sendWs(msg: string) {
     if (this.#ws?.readyState === WebSocket.OPEN) {
       this.#ws.send(msg);
       this.wsLog.update((log) => [...log.slice(-4), `→ ${msg}`]);
     }
   }
-}
+<% } %>}

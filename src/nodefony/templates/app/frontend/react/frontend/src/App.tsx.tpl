@@ -1,5 +1,16 @@
-import { useEffect, useRef, useState, version as reactVersion } from "react";
-import { NODEFONY_LOGO } from "./brand";
+import { useEffect, <% if (!it.complete) { %>useRef, <% } %>useState, version as reactVersion } from "react";
+<% if (it.complete) { %>// FAÇADE temps réel isomorphe du framework : client + bindings React —
+// aucun `new WebSocket` à la main (reconnexion, re-subscribe, état : gérés).
+// Subpath `nodefony/client` : la porte client EXPLICITE, résolue à l'identique
+// par Vite, Node et le typecheck (la racine `nodefony` dépend d'une condition
+// d'export que `tsgo --noEmit` ne voit pas).
+import { RealtimeClient } from "nodefony/client";
+import {
+  NodefonyProvider,
+  useNodefonyState,
+  useNodefonyChannelData,
+} from "nodefony/react";
+<% } %>import { NODEFONY_LOGO } from "./brand";
 // Mise en page et palette de la démonstration — feuille PARTAGÉE par les trois
 // vitrines (Vite l'injecte dans le document, elle est donc bien globale).
 import "./showcase.css";
@@ -51,13 +62,62 @@ const FEATURES = [
 ];
 
 
-export function App() {
+<% if (it.complete) { %>/** Un tick du canal `live:ticker` (cf `nodefony/controllers/LiveController.ts`). */
+interface Tick {
+  n: number;
+  ts: number;
+  pid: number;
+}
+
+// UNE socket par URL pour toute la page (`.shared`) — URL RELATIVE, résolue
+// contre la page (https → wss automatique). C'est la même façade que Studio.
+const live = RealtimeClient.shared({ url: "/api/live/realtime" });
+
+/**
+ * Carte temps réel — consomme la FAÇADE (hooks `nodefony/react`) : abonnement
+ * au montage, désabonnement au démontage, re-subscribe à la reconnexion, état
+ * de connexion — tout est porté par le client. Zéro `WebSocket` à la main.
+ */
+function LiveCard() {
+  const state = useNodefonyState();
+  const tick = useNodefonyChannelData<Tick>("live:ticker");
+  const [pong, setPong] = useState<string | null>(null);
+  const ping = async () => {
+    const t0 = performance.now();
+    await live.request("live:ping", {});
+    setPong(`pong en ${Math.round(performance.now() - t0)} ms`);
+  };
+  return (
+    <div className="nf-card">
+      <h2>3. Temps réel — la socket Nodefony</h2>
+      <p className="nf-dim">
+        <code>LiveController</code> (<code>--kind realtime</code>) publie le
+        canal <code>live:ticker</code> (1 tick/s tant qu'un client est abonné) ;
+        la page le consomme par les hooks <code>nodefony/react</code>.
+      </p>
+      <p>
+        état : <strong>{state}</strong>
+        {tick && (
+          <>
+            {" "}
+            · tick <strong>#{tick.n}</strong> (pid {tick.pid})
+          </>
+        )}
+      </p>
+      <button onClick={ping}>RPC live:ping</button>
+      {pong && <span className="nf-dim"> {pong}</span>}
+    </div>
+  );
+}
+
+<% } %>export function App() {
   const [data, setData] = useState<ApiData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [count, setCount] = useState(0);
-  const [wsInput, setWsInput] = useState("ping");
+<% if (!it.complete) { %>  const [wsInput, setWsInput] = useState("ping");
   const [wsLog, setWsLog] = useState<string[]>([]);
   const ws = useRef<WebSocket | null>(null);
+<% } %>
 <% if (it.complete) { %>  const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("admin");
   const [authMsg, setAuthMsg] = useState<string | null>(null);
@@ -117,8 +177,19 @@ export function App() {
 <% } %>
   useEffect(() => {
     refreshHello();
-
+<% if (it.complete) { %>
+    // La socket Nodefony est PARTAGÉE par URL (`.shared`) et `connect()` est
+    // idempotent : le double-montage StrictMode (dev) ne coûte rien. Pas de
+    // `disconnect()` au démontage — la connexion appartient à la PAGE.
+    live.connect().catch(() => {
+      /* la carte affiche l'état (`error`) — la reconnexion est automatique */
+    });
+<% } else { %>
     // WS même origine que la page (ws en http, wss en https).
+    // ⚠ Echo BRUT = démo du pipeline HTTP/WS partagé, pas un modèle : pour du
+    // WS métier, génère la bonne couche (`nodefony create controller <nom>
+    // --kind realtime`) et consomme-la par la FAÇADE client (`RealtimeClient`,
+    // hooks `nodefony/react`) au lieu d'un `new WebSocket` à la main.
     const scheme = location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(`${scheme}://${location.host}/api/echo`);
     socket.addEventListener("message", (ev) => {
@@ -138,14 +209,15 @@ export function App() {
         socket.close();
       }
     };
-  }, []);
-
+<% } %>  }, []);
+<% if (!it.complete) { %>
   const sendWs = () => {
     if (ws.current?.readyState === WebSocket.OPEN) {
       ws.current.send(wsInput);
       setWsLog((log) => [...log.slice(-4), `→ ${wsInput}`]);
     }
   };
+<% } %>
 
   return (
     <div className="nf-split">
@@ -273,8 +345,11 @@ export function App() {
           {authMsg && <p className="nf-dim">{authMsg}</p>}
         </div>
 <% } %>
-        <div className="nf-card">
-          <h2><%= it.complete ? 3 : 2 %>. WebSocket — MÊME controller que le HTTP</h2>
+<% if (it.complete) { %>        <NodefonyProvider client={live}>
+          <LiveCard />
+        </NodefonyProvider>
+<% } else { %>        <div className="nf-card">
+          <h2>2. WebSocket — MÊME controller que le HTTP</h2>
           <p className="nf-dim">
             <code>HelloController</code> porte la route GET <em>et</em> la route
             WEBSOCKET : un seul pipeline (firewall, audit, logs).
@@ -287,6 +362,7 @@ export function App() {
           <button onClick={sendWs}>Envoyer en WS</button>
           <pre>{wsLog.join("\n") || "(envoie un message)"}</pre>
         </div>
+<% } %>
 
         <div className="nf-card">
           <h2><%= it.complete ? 4 : 3 %>. ♻️ HMR check — état React préservé</h2>

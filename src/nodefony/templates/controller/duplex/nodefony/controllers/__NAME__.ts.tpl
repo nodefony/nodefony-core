@@ -8,10 +8,13 @@ import {
   HttpCode,
   Idempotent,
   CurrentUser,
-} from "@nodefony/framework";
+<% if (it.hasSecurity) { %>  IsGranted,
+<% } %>} from "@nodefony/framework";
 import { RealtimeController } from "@nodefony/realtime";
 import { HttpError } from "@nodefony/http";
 import type { ContextType } from "@nodefony/http";
+<% if (it.hasSecurity) { %>import type { IUser } from "@nodefony/user";
+<% } %>
 
 /** Forme d'un item — remplace par ton entité (`nodefony create entity`). */
 interface IItem {
@@ -38,14 +41,13 @@ interface IItem {
  * d'abord (le cookie de session voyage avec le handshake), ou place la route
  * hors zone pour un accès anonyme assumé.
  *
- * Côté client (navigateur — le core `nodefony` est isomorphe ; dans un script
- * Node, importe depuis `nodefony/client`) :
+ * Côté client (navigateur OU script Node — la façade est isomorphe, le
+ * subpath `nodefony/client` est sa porte explicite) :
  * ```ts
- * import { RealtimeClient } from "nodefony";
- * const scheme = location.protocol === "https:" ? "wss" : "ws";
- * const socket = new RealtimeClient({
- *   url: `${scheme}://${location.host}<%= it.route %>/realtime`,
- * });
+ * import { RealtimeClient } from "nodefony/client";
+ * // URL RELATIVE, résolue contre la page (https → wss automatique) ;
+ * // `.shared()` = UNE socket par URL, partagée par toute la page.
+ * const socket = RealtimeClient.shared({ url: "<%= it.route %>/realtime" });
  * await socket.connect();
  * // LECTURE — la même action que `GET <%= it.route %>` :
  * const items = await socket.request("<%= it.route %>?limit=10");
@@ -140,7 +142,24 @@ class <%= it.nameClass %> extends RealtimeController {
     return item;
   }
 
-  /** Suppression — `DELETE` HTTP ou `socket.mutate(path, { method: "DELETE", … })`. */
+<% if (it.hasSecurity) { %>  /**
+   * Suppression PROTÉGÉE par rôle — la MÊME garde pour les DEUX portes : en
+   * HTTP `@IsGranted` refuse (403) AVANT l'action ; par la socket, le pont
+   * `api.request` re-traverse le MÊME pipeline (le token du handshake voyage
+   * dans l'ALS) → même refus. En dev, `admin/admin` a le rôle.
+   */
+  @route("<%= it.kebab %>-delete", {
+    path: "/{id}",
+    requirements: { methods: ["DELETE", "WEBSOCKET"] },
+  })
+  @IsGranted("ROLE_ADMIN")
+  destroy(@Param("id") id: string, @CurrentUser() user: IUser) {
+    if (!<%= it.nameClass %>.items.delete(id)) {
+      throw new HttpError(`item ${id} introuvable`, 404);
+    }
+    return { deleted: id, by: user.identifier };
+  }
+<% } else { %>  /** Suppression — `DELETE` HTTP ou `socket.mutate(path, { method: "DELETE", … })`. */
   @route("<%= it.kebab %>-delete", {
     path: "/{id}",
     requirements: { methods: ["DELETE", "WEBSOCKET"] },
@@ -151,6 +170,6 @@ class <%= it.nameClass %> extends RealtimeController {
     }
     return { deleted: id };
   }
-}
+<% } %>}
 
 export default <%= it.nameClass %>;

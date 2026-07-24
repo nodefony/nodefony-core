@@ -709,6 +709,27 @@ function dispatchScaffold(
       written,
       writer,
     );
+    // Controller temps réel de la vitrine : rendu par le template de `create
+    // controller --kind realtime` (même principe que HelloController — le
+    // premier exemple realtime lu est celui que la commande régénérera).
+    // C'est LUI que la carte « Temps réel » des vitrines consomme via la
+    // façade client (RealtimeClient / hooks nodefony/react) : canal
+    // `live:ticker`, actions `live:ping` / `live:snapshot`.
+    renderLayer(
+      eta,
+      path.join(packageRoot, "templates", "controller", "realtime"),
+      dest,
+      {
+        nameClass: "LiveController",
+        kebab: "live",
+        route: "/api/live",
+        channel: "live",
+        hasSecurity: true,
+      },
+      written,
+      writer,
+      { __NAME__: "LiveController" },
+    );
   }
   if (front) {
     // Coquille HTML commune à TOUS les scaffolds à front (`create app` ET
@@ -1000,6 +1021,7 @@ function runModuleScaffold(
     pkg: SCAFFOLD_VERSIONS,
     service: answers.service === true,
     command: answers.command === true,
+    controller,
     needsRealtime: controller === "realtime" || controller === "duplex",
     frontend,
     front: frontend !== "none" ? FRONTEND_PARAMS[frontend] : null,

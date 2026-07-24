@@ -257,8 +257,45 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.equal(pkg["dependencies"]["nodefony"], `^${version}`);
       assert.property(pkg["dependencies"], "@nodefony/drizzle");
       assert.property(pkg["scripts"], "infra:up");
+      // Sans front, le build reste back seul (pas de frontend:build fantôme).
+      assert.notInclude(pkg["scripts"]["build"], "frontend:build");
       assertNoEtaResidue(dest);
       assert.isEmpty(r.linked);
+    });
+
+    it("temps réel de l'app : LiveController délégué au gabarit realtime, câblé, prouvé par l'e2e", () => {
+      const dest = path.join(tmp, "livefull");
+      scaffold(dest, { name: "livefull" });
+      const live = readFileSync(
+        path.join(dest, "nodefony", "controllers", "LiveController.ts"),
+        "utf8",
+      );
+      // Le MÊME gabarit que `create controller --kind realtime` (délégation,
+      // zéro copie propre à l'app — corriger le gabarit corrige les deux).
+      assert.include(live, "extends RealtimeController");
+      assert.include(live, '@RealtimeChannel("live:ticker")');
+      // Policy INLINE visible : l'ouverture d'une action est un choix ÉCRIT,
+      // la protection par rôle est démontrée à côté.
+      assert.include(
+        live,
+        '@RealtimeAction("live:ping", { authenticated: false })',
+      );
+      assert.include(
+        live,
+        '@RealtimeAction("live:snapshot", { roles: ["ROLE_ADMIN"] })',
+      );
+      // Les décorateurs annoncent déjà canaux et actions au welcome : un
+      // override les ferait apparaître en DOUBLE (doublon vécu).
+      assert.notInclude(live, "realtimeChannels()");
+      assert.notInclude(live, "realtimeActions()");
+      const index = readFileSync(path.join(dest, "index.ts"), "utf8");
+      assert.include(index, "LiveController");
+      // La sonde FONCTIONNELLE vit dans l'e2e généré : la MÊME façade que les
+      // vitrines navigateur, côté Node (`nodefony/client`).
+      const e2e = readFileSync(path.join(dest, "tests", "e2e.test.ts"), "utf8");
+      assert.include(e2e, 'from "nodefony/client"');
+      assert.include(e2e, 'live.request("live:ping"');
+      assert.include(e2e, 'live.subscribe("live:ticker")');
     });
 
     it("secrets PAR-PROJET : .env.local porte 3 clés uniques, .gitignore les exclut", () => {
@@ -329,6 +366,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.notInclude(config, "@nodefony/security");
       assert.include(config, "@nodefony/http");
+      // Sans @nodefony/realtime, pas de controller realtime de vitrine.
+      assert.isFalse(
+        existsSync(
+          path.join(dest, "nodefony", "controllers", "LiveController.ts"),
+        ),
+      );
       assertNoEtaResidue(dest);
     });
   });
@@ -389,6 +432,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // générer la route ici enseignerait une protection qui n'existe pas.
       assert.notInclude(src, "/secure/hello");
       assert.include(src, 'hello: "blog"');
+      // L'echo brut porte sa REDIRECTION : démo du pipeline, pas un modèle —
+      // le WS métier a sa couche (`--kind realtime`).
+      assert.include(src, "--kind realtime");
     });
   });
 
@@ -414,6 +460,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.property(pkg["dependencies"], "react");
       assert.property(pkg["dependencies"], "@nodefony/frontend");
       assert.property(pkg["devDependencies"], "@vitejs/plugin-react");
+      // `npm run build` produit l'app ENTIÈRE : back (rolldown) + front (vite
+      // → public/dist). Sans ce chaînage, `npm start` servait une page blanche
+      // (vécu) — l'utilisateur n'a qu'UN geste de build à connaître.
+      assert.include(pkg["scripts"]["build"], "nodefony frontend:build");
       // L'entry se déclare dans le fichier PARTAGÉ avec `create front` — pas
       // inlinée dans l'index : l'app et un module écrivent le même geste.
       const registrar = readFileSync(
@@ -428,7 +478,69 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(index, "registerEntry(this, {");
       const tsconfig = readFileSync(path.join(dest, "tsconfig.json"), "utf8");
       assert.include(tsconfig, "react-jsx");
+      // Minimal (pas de realtime) : l'echo BRUT reste — mais il porte sa
+      // redirection vers la bonne couche, et n'importe pas la façade.
+      const app = readFileSync(
+        path.join(dest, "frontend", "src", "App.tsx"),
+        "utf8",
+      );
+      assert.include(app, "new WebSocket(");
+      assert.include(app, "--kind realtime");
+      // Le NOM de la façade reste cité par la redirection (commentaire) — on
+      // vérifie l'absence d'USAGE, pas du mot (même règle que la vitrine
+      // example dégradée).
+      assert.notInclude(app, "import { RealtimeClient }");
+      assert.notInclude(app, "NodefonyProvider");
       assertNoEtaResidue(dest);
+    });
+
+    it("vitrines complete : la carte temps réel passe par la FAÇADE, plus aucun ws à la main", () => {
+      // React — hooks `nodefony/react` (Provider + état + canal).
+      const rdest = path.join(tmp, "rlive");
+      scaffold(rdest, { name: "rlive", preset: "complete", frontend: "react" });
+      const rapp = readFileSync(
+        path.join(rdest, "frontend", "src", "App.tsx"),
+        "utf8",
+      );
+      assert.include(
+        rapp,
+        'RealtimeClient.shared({ url: "/api/live/realtime" })',
+      );
+      assert.include(rapp, "NodefonyProvider");
+      assert.include(rapp, "useNodefonyState()");
+      assert.include(rapp, 'useNodefonyChannelData<Tick>("live:ticker")');
+      assert.include(rapp, 'live.request("live:ping"');
+      assert.notInclude(rapp, "new WebSocket(");
+      // Vue et Angular — pas de bindings dédiés : la façade RealtimeClient.
+      const vdest = path.join(tmp, "vlive");
+      scaffold(vdest, { name: "vlive", preset: "complete", frontend: "vue" });
+      const vapp = readFileSync(
+        path.join(vdest, "frontend", "src", "App.vue"),
+        "utf8",
+      );
+      assert.include(
+        vapp,
+        'RealtimeClient.shared({ url: "/api/live/realtime" })',
+      );
+      assert.include(vapp, 'live.on("live:ticker"');
+      assert.include(vapp, 'live.subscribe("live:ticker")');
+      assert.notInclude(vapp, "new WebSocket(");
+      const adest = path.join(tmp, "alive");
+      scaffold(adest, {
+        name: "alive",
+        preset: "complete",
+        frontend: "angular",
+      });
+      const aapp = readFileSync(
+        path.join(adest, "frontend", "src", "app", "app.component.ts"),
+        "utf8",
+      );
+      assert.include(
+        aapp,
+        'RealtimeClient.shared({ url: "/api/live/realtime" })',
+      );
+      assert.include(aapp, 'live.on("live:ticker"');
+      assert.notInclude(aapp, "new WebSocket(");
     });
 
     it("vue : SFC + plugin ; angular : composant + tsconfig.app.json", () => {
@@ -596,15 +708,24 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Preset complete → les docs des briques embarquées sont pointées.
       assert.include(agents, "@nodefony/security/docs");
       assert.include(agents, "@nodefony/realtime/docs");
+      // Les 2 savoirs fondamentaux que tout agent doit avoir AVANT d'écrire :
+      // le cœur est ISOMORPHE (jamais un client WS/type dupliqué à la main),
+      // le container DI est PROTOTYPAL (scopes par héritage, zéro copie).
+      assert.include(agents, "ISOMORPHE");
+      assert.include(agents, "PROTOTYPAL");
+      assert.include(agents, "nodefony/docs/client.md");
+      assert.include(agents, "nodefony/docs/service.md");
       // Aucun module encore : l'état vide DIT quoi faire.
       assert.include(agents, "Aucun — `nodefony create module");
-      // CLAUDE.md = pointeur + LA règle du réflexe (auto-chargé à chaque tour
+      // CLAUDE.md = pointeur + les DEUX réflexes (auto-chargé à chaque tour
       // par l'outil agent, contrairement à AGENTS.md — mesuré au banc : la
       // règle doit vivre dans le contexte au moment d'ÉCRIRE). Reste court.
       const claude = readFileSync(path.join(dest, "CLAUDE.md"), "utf8");
       assert.include(claude, "AGENTS.md");
       assert.include(claude, "vérifie qu'un générateur");
-      assert.isBelow(claude.split("\n").length, 16);
+      assert.include(claude, "ISOMORPHE");
+      assert.include(claude, "RealtimeClient");
+      assert.isBelow(claude.split("\n").length, 24);
     });
 
     it("minimal : la table des docs dit la vérité des briques réellement installées", () => {
@@ -761,7 +882,19 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.include(src, "extends RealtimeController");
       assert.include(src, '@RealtimeChannel("pulse:ticker")');
-      assert.include(src, '"pulse:ping"');
+      // Actions par DÉCORATEUR, policy inline visible — plus d'override.
+      assert.include(
+        src,
+        '@RealtimeAction("pulse:ping", { authenticated: false })',
+      );
+      assert.include(src, '@RealtimeAction("pulse:snapshot"');
+      assert.notInclude(src, "realtimeActions()");
+      // Le décorateur annonce le canal au welcome : l'override le doublerait.
+      assert.notInclude(src, "realtimeChannels()");
+      // La TSDoc client cite les VRAIS symboles de la façade (une API inventée
+      // dans un exemple coûte plus cher qu'aucun exemple).
+      assert.include(src, "RealtimeClient.shared");
+      assert.include(src, "useNodefonyChannelData");
 
       const mini = path.join(tmp, "rtmini");
       scaffold(mini, { name: "rtmini", preset: "minimal" });
@@ -810,6 +943,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         src.indexOf('@Get("/latest")'),
         src.indexOf('@Get("/{id}")'),
       );
+      // L'echo WS de fin de vitrine porte sa redirection vers la bonne couche.
+      assert.include(src, "--kind realtime");
     });
 
     it("example minimal : vitrine DÉGRADÉE sans security (aucun import mort)", () => {
@@ -898,6 +1033,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "socket.request(",
         "socket.mutate(",
         "idempotencyKey",
+        // Variante sécurisée (complete) : la MÊME garde par rôle pour les
+        // DEUX portes — HTTP direct et pont api.request (ALS au handshake).
+        '@IsGranted("ROLE_ADMIN")',
+        'import type { IUser } from "@nodefony/user";',
       ]) {
         assert.include(src, marker, `manque ${marker}`);
       }
@@ -1229,6 +1368,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(agents, "@plain/blog");
       assert.include(agents, "proche gagne");
       assert.include(agents, "source unique des défauts");
+      // Les 2 savoirs fondamentaux, portés AUSSI au niveau module (le fichier
+      // le plus proche est celui que l'agent lit) : DI prototypal + isomorphisme.
+      assert.include(agents, "PROTOTYPAL");
+      assert.include(agents, "nodefony/docs/service.md");
+      assert.include(agents, "nodefony/docs/client.md");
+      assert.include(agents, "--kind realtime --module blog");
+      // Sans controller demandé, l'inventaire n'en promet aucun.
+      assert.notInclude(agents, "BlogController");
       // L'ancien couple est fusionné dedans — plus jamais généré.
       assert.isFalse(existsSync(path.join(r.dest, "CLAUDE.md")));
       assert.isFalse(existsSync(path.join(r.dest, "MEMORY.md")));

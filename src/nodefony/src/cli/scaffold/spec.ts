@@ -157,7 +157,7 @@ const CONTROLLER_SPEC: IScaffoldTypeSpec = {
         {
           value: "hello",
           label: "HTTP + WebSocket (recommandé)",
-          hint: "GET JSON + echo WS dans la MÊME classe — le différenciateur Nodefony",
+          hint: "pour DÉCOUVRIR le pipeline partagé : GET + echo WS même classe — WS métier → --kind realtime",
         },
         {
           value: "rest",
@@ -294,7 +294,7 @@ const MODULE_SPEC: IScaffoldTypeSpec = {
         {
           value: "hello",
           label: "HTTP + WebSocket (recommandé)",
-          hint: "GET JSON + echo WS dans la MÊME classe — le différenciateur Nodefony",
+          hint: "pour DÉCOUVRIR le pipeline partagé : GET + echo WS même classe — WS métier → --kind realtime",
         },
         {
           value: "rest",

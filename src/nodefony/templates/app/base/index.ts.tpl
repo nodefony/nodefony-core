@@ -4,7 +4,8 @@ import { controllers } from "@nodefony/framework";
 <% if (it.front) { %>import { register<%= it.pascal %>Entry } from "./nodefony/frontend/register<%= it.pascal %>Entry";
 <% } %>import config from "./nodefony.config";
 import HelloController from "./nodefony/controllers/HelloController";
-<% if (it.front) { %>import AppController from "./nodefony/controllers/AppController";
+<% if (it.complete) { %>import LiveController from "./nodefony/controllers/LiveController";
+<% } %><% if (it.front) { %>import AppController from "./nodefony/controllers/AppController";
 <% } else { %>import HomeController from "./nodefony/controllers/HomeController";
 <% } %><% if (it.complete) { %>import { provisionUsers } from "./nodefony/security/provisionUsers";
 <% } %>
@@ -19,7 +20,7 @@ export { env } from "./env";
  * L'app ne déclare ici que ce qui lui est INTRINSÈQUE : ses controllers.
  * Les modules chargés vivent dans `nodefony.config.ts` (manifeste `modules`).
  */
-@controllers([HelloController<% if (it.front) { %>, AppController<% } else { %>, HomeController<% } %>])
+@controllers([HelloController<% if (it.complete) { %>, LiveController<% } %><% if (it.front) { %>, AppController<% } else { %>, HomeController<% } %>])
 class App extends Module {
   constructor(kernel: Kernel) {
     super("app", kernel, import.meta.url, config);
