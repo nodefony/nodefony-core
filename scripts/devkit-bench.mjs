@@ -7,9 +7,10 @@
  * Le critère unique du devkit — « l'agent n'invente jamais du code Nodefony » —
  * devient ici un harnais REJOUABLE, pas une impression de session :
  *
- *  - tâche 1 « CRUD produit »   : a-t-il lancé `create entity` ? le doublon
- *    répond-il 409, le PATCH partiel existe-t-il ? (ÉCHOUE avant devkit S4 :
- *    le 409 et le PATCH ne sont pas encore générés — preuve négative VOULUE)
+ *  - tâche 1 « CRUD produit »   : a-t-il lancé `create entity` ? le 409 et le
+ *    PATCH sortent-ils du GÉNÉRÉ, ou l'agent a-t-il dû les inventer à la main ?
+ *    (ÉCHOUE avant devkit S4 : non générés, l'agent code un `throw … 409`
+ *    artisanal dans le service — preuve négative VOULUE, vérifiée au 1ᵉʳ run)
  *  - tâche 2 « protège une route » : zone firewall / `@IsGranted`, pas un
  *    contrôle d'accès artisanal dans le controller ?
  *  - tâche 3 « canal temps réel » : `create controller --kind realtime` /
@@ -88,7 +89,7 @@ const TASKS = [
       {
         kind: "code",
         name: "entité générée (nodefony/entity/)",
-        pattern: /nodefony\/entity\/.*\.ts$/u,
+        pattern: /nodefony\/entity\/.*\.ts$/mu,
         where: "files",
       },
       {
@@ -96,6 +97,18 @@ const TASKS = [
         name: "pas de CRUD artisanal (ResourceController attendu)",
         pattern: /extends\s+ResourceController/u,
         where: "content",
+      },
+      {
+        // LA sonde de la preuve négative S4 : tant que le scaffold ne génère
+        // ni le PATCH ni le mapping contrainte-unique→409, un agent ne peut
+        // satisfaire l'énoncé qu'en les INVENTANT à la main (throw 409 dans le
+        // service — vécu au premier run réel). Après S4, l'app n'a plus aucun
+        // `throw … 409` : le framework mappe, le généré expose PATCH.
+        kind: "code",
+        name: "409 obtenu SANS mapping artisanal (généré/framework attendu)",
+        pattern: /throw[^\n]*409|nodefonyError\([^)]*409/u,
+        where: "content",
+        invert: true,
       },
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
     ],
@@ -245,11 +258,15 @@ function judgeTask(app, runDir, task) {
       )
     : "";
   // Le commit de la tâche se retrouve par son MESSAGE — robuste quel que soit
-  // le sous-ensemble de tâches joué (--task N, run partiel).
-  const line = git(app, "log", "--format=%H %s")
-    .split("\n")
-    .find((l) => l.endsWith(`tâche ${task.id}`));
-  if (!line) {
+  // le sous-ensemble de tâches joué (--task N, run partiel). La BASE du diff
+  // est le commit de HARNAIS précédent (« tâche N-1 » ou « état initial »),
+  // pas `hash~1` : un agent peut committer LUI-MÊME en cours de tâche (vécu au
+  // premier run réel), et son travail vivrait entre les deux commits de
+  // harnais — un diff d'un seul cran le raterait entièrement.
+  const log = git(app, "log", "--format=%H %s").split("\n");
+  const harnessIdx = (suffix) => log.findIndex((l) => l.endsWith(suffix));
+  const idx = harnessIdx(`tâche ${task.id}`);
+  if (idx === -1) {
     console.log(
       `  ❌ aucun commit « tâche ${task.id} » — la tâche n'a pas été jouée`,
     );
@@ -261,8 +278,12 @@ function judgeTask(app, runDir, task) {
       probes: [],
     };
   }
-  const hash = line.split(" ")[0];
-  const files = git(app, "diff", "--name-only", `${hash}~1`, hash)
+  const hash = log[idx].split(" ")[0];
+  const base = log
+    .slice(idx + 1)
+    .find((l) => /tâche \d+$|état initial$/u.test(l))
+    ?.split(" ")[0];
+  const files = git(app, "diff", "--name-only", `${base ?? `${hash}~1`}`, hash)
     .split("\n")
     .filter(Boolean);
   const content = files
@@ -351,7 +372,9 @@ function main() {
   );
   if (failed.length > 0) {
     console.log(
-      "(avant devkit S4, l'échec des tâches 1 et 3 est l'état ATTENDU — preuve négative)",
+      "(avant devkit S4, l'échec de la tâche 1 est l'état ATTENDU — le 409/PATCH " +
+        "non générés forcent l'agent à inventer ; la 3 peut passer côté serveur " +
+        "si l'agent suit la façade realtime)",
     );
     process.exit(1);
   }
