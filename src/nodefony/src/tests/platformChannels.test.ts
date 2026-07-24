@@ -41,6 +41,7 @@ describe("Espace de nommage des surfaces de plateforme", () => {
     expect(PLATFORM_METHODS).to.deep.equal({
       ping: "nodefony:kernel:ping",
       gc: "nodefony:kernel:gc",
+      scaffoldPreview: "nodefony:scaffold:preview",
       scaffoldRun: "nodefony:scaffold:run",
       scaffoldCancel: "nodefony:scaffold:cancel",
     });

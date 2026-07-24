@@ -22,7 +22,7 @@ import {
   type ScaffoldStep,
   type IScaffoldJobState,
 } from "../service/ScaffoldService";
-import type { TScaffoldAnswers } from "nodefony";
+import type { IScaffoldChange, TScaffoldAnswers } from "nodefony";
 import { PLATFORM_CHANNELS, PLATFORM_METHODS } from "nodefony";
 
 /**
@@ -114,6 +114,8 @@ class StudioRealtimeController extends RealtimeController {
     return {
       [PLATFORM_METHODS.ping]: () => this.actionPing(),
       [PLATFORM_METHODS.gc]: () => this.actionGc(),
+      [PLATFORM_METHODS.scaffoldPreview]: (params) =>
+        this.actionScaffoldPreview(params),
       [PLATFORM_METHODS.scaffoldRun]: (params) =>
         this.actionScaffoldRun(params),
       [PLATFORM_METHODS.scaffoldCancel]: (params) =>
@@ -156,6 +158,30 @@ class StudioRealtimeController extends RealtimeController {
     );
 
     return svc.start(p.type, answers, steps);
+  }
+
+  /**
+   * Rend le PLAN d'un scaffold sans rien écrire : fichiers à créer, et pour
+   * ceux qui seraient réécrits, leur contenu actuel.
+   *
+   * Même chemin que l'exécution — mêmes réponses, même résolution de
+   * destination, mêmes gardes du moteur : ce que l'écran montre est ce que le
+   * run fera, et un scaffold qui sera refusé l'est déjà ici.
+   *
+   * @throws si le service est absent ou hors développement, ou si le moteur refuse.
+   */
+  private actionScaffoldPreview(params: unknown): {
+    dest: string;
+    changes: IScaffoldChange[];
+  } {
+    const svc = this.get<ScaffoldService>("scaffold");
+    if (!svc?.enabled) throw new Error("scaffold is development-only");
+    const p = (params ?? {}) as { type?: unknown; answers?: unknown };
+    if (typeof p.type !== "string") throw new Error("type manquant");
+    const answers = (
+      p.answers && typeof p.answers === "object" ? p.answers : {}
+    ) as TScaffoldAnswers;
+    return svc.preview(p.type, answers);
   }
 
   /** Interrompt le process en cours d'un job (bouton « arrêter »). */

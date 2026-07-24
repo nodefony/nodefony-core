@@ -83,6 +83,8 @@ export const PLATFORM_METHODS = {
   ping: "nodefony:kernel:ping",
   /** Force un cycle GC (seulement si le pod tourne avec `--expose-gc`). */
   gc: "nodefony:kernel:gc",
+  /** Ce qu'un scaffold écrirait — fichiers créés, diff des réécritures — sans rien écrire. */
+  scaffoldPreview: "nodefony:scaffold:preview",
   /** Démarre un job de génération de code et rend son identifiant. */
   scaffoldRun: "nodefony:scaffold:run",
   /** Demande l'arrêt d'un job de génération en cours. */

@@ -497,6 +497,15 @@ export type {
 // front décrive exactement l'exécution qui suivra.
 export { diffLines } from "./cli/scaffold/writer";
 export type { IScaffoldChange, IDiffLine } from "./cli/scaffold/writer";
+// Étapes post-écriture (install/build/typecheck) : décrites une fois, exécutées
+// par le CLI comme par Studio — chacun à sa façon de les montrer.
+export {
+  SCAFFOLD_STEPS,
+  SCAFFOLD_STEP_COMMANDS,
+  SCAFFOLD_STEP_LABELS,
+  isScaffoldStep,
+} from "./cli/scaffold/steps";
+export type { TScaffoldStep } from "./cli/scaffold/steps";
 
 // ─── Branchement Node-only : ALS → Pdu.requestId (corrélation log↔requête) ────
 // Le bundle browser/client (src/client/index.ts) NE RÉ-EXPORTE PAS ce fichier

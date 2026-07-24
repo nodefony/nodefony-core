@@ -21,30 +21,31 @@ import {
   isSafeSubPath,
   isInsideRoot,
   ScaffoldDestinationError,
+  SCAFFOLD_STEPS,
+  SCAFFOLD_STEP_COMMANDS,
   type Container,
   type Event,
   type Module,
+  type IScaffoldChange,
   type IScaffoldRequest,
   type IScaffoldResult,
   type IScaffoldRoot,
   type IScaffoldTarget,
   type TScaffoldAnswers,
+  type TScaffoldStep,
 } from "nodefony";
 
 /**
- * Étapes exécutables APRÈS l'écriture des fichiers. C'est une **allowlist fermée** :
- * le client coche une étape connue, il n'envoie JAMAIS une ligne de commande. Sans ça,
- * on offrirait une exécution de code arbitraire derrière une session web.
+ * Étapes exécutables APRÈS l'écriture des fichiers, et la commande npm de
+ * chacune : décrites par le CORE (`nodefony/cli/scaffold/steps`), pour que le
+ * CLI et Studio ne puissent pas en donner deux définitions.
+ *
+ * C'est une **allowlist fermée** : le client coche une étape connue, il n'envoie
+ * JAMAIS une ligne de commande. Sans ça, on offrirait une exécution de code
+ * arbitraire derrière une session web.
  */
-export const SCAFFOLD_STEPS = ["install", "build", "typecheck"] as const;
-export type ScaffoldStep = (typeof SCAFFOLD_STEPS)[number];
-
-/** Commande réelle de chaque étape — figée côté serveur, jamais dérivée d'une entrée client. */
-const STEP_COMMANDS: Record<ScaffoldStep, readonly string[]> = {
-  install: ["install"],
-  build: ["run", "build"],
-  typecheck: ["run", "typecheck"],
-};
+export { SCAFFOLD_STEPS };
+export type ScaffoldStep = TScaffoldStep;
 
 /** Nature d'une ligne du terminal — pilote la couleur côté front. */
 export type ScaffoldStream = "info" | "out" | "err" | "ok" | "fail";
@@ -139,8 +140,9 @@ const serviceName = "scaffold";
  *
  * `runScaffold` ne se contente pas de créer des fichiers : pour un module ou une entité,
  * il **modifie le projet** (câblage dans `index.ts`, dépendances dans `package.json`).
- * Il n'existe **aucun mode simulation** dans le moteur — d'où la confirmation exigée
- * côté front avant de lancer un job.
+ * D'où {@link ScaffoldService.preview} : la même exécution, sans le disque, qui rend le
+ * plan et le diff des fichiers réécrits — le front montre ce qui va changer au lieu de
+ * demander un accord à l'aveugle.
  *
  * ## Pourquoi c'est réservé au développement
  *
@@ -289,6 +291,61 @@ class ScaffoldService extends Service {
       );
     }
     return path.join(parentReal, path.basename(dest));
+  }
+
+  /**
+   * Destination d'un scaffold — le dossier que le moteur prendra pour cible.
+   *
+   * Une APP naît AILLEURS : sa destination est recomposée sous une racine
+   * autorisée (le client envoie un identifiant de racine et un nom, jamais un
+   * chemin). Tout le reste s'écrit dans le projet courant, et `dir` sert de
+   * point de départ à la remontée vers sa racine.
+   *
+   * Partagée par l'exécution et la simulation : prévisualiser une destination
+   * qui ne serait pas celle du vrai run n'apprendrait rien.
+   */
+  #destination(type: string, answers: TScaffoldAnswers): string {
+    if (type !== "app") return this.projectRoot;
+    if (answers.delivery === "download") {
+      // Mode archive : l'app naîtra dans un temporaire JETABLE, créé par le run
+      // lui-même. Ici on rend le chemin nominal, sans rien créer — ce qui suffit
+      // à la simulation, dont le dossier de travail n'a aucune importance.
+      return path.join(tmpdir(), String(answers.name ?? "app"));
+    }
+    return this.#appDestination(answers);
+  }
+
+  /**
+   * Ce qu'un scaffold FERAIT, sans rien écrire : fichiers créés, fichiers
+   * réécrits, et l'ancien contenu de ces derniers.
+   *
+   * Studio demandait une confirmation à l'aveugle — « générer ? » — alors que
+   * la réponse utile est « quoi, et par-dessus quoi ». Les scaffolds
+   * in-project modifient de vrais fichiers de l'utilisateur (`index.ts`,
+   * `package.json`, `nodefony.config.ts`) : voir le diff AVANT de valider est
+   * la différence entre accepter et parier.
+   *
+   * La simulation traverse le MÊME moteur avec les mêmes gardes : un scaffold
+   * qui serait refusé l'est aussi ici, avec son message.
+   *
+   * @throws si le service est désactivé, ou si le moteur refuse (message tel quel).
+   */
+  preview(
+    type: string,
+    answers: TScaffoldAnswers,
+  ): { dest: string; changes: IScaffoldChange[] } {
+    if (!this.enabled) {
+      throw new Error("scaffold is development-only");
+    }
+    const request: IScaffoldRequest = {
+      type,
+      answers,
+      dir: this.#destination(type, answers),
+      force: false,
+    };
+    const version = (this.module.kernel?.version as string) ?? "0.0.0";
+    const result = runScaffold(request, version, { dryRun: true });
+    return { dest: result.dest, changes: result.changes ?? [] };
   }
 
   /**
@@ -550,7 +607,7 @@ class ScaffoldService extends Service {
         job.tempDir = mkdtempSync(path.join(tmpdir(), "nodefony-app-"));
         dir = path.join(job.tempDir, String(answers.name ?? "app"));
       } else {
-        dir = type === "app" ? this.#appDestination(answers) : root;
+        dir = this.#destination(type, answers);
       }
       const label =
         type === "app"
@@ -647,7 +704,7 @@ class ScaffoldService extends Service {
 
   /** Lance UNE étape de l'allowlist et streame sa sortie ligne par ligne. */
   #spawnStep(job: IJob, step: ScaffoldStep, cwd: string): Promise<boolean> {
-    const args = STEP_COMMANDS[step];
+    const args = SCAFFOLD_STEP_COMMANDS[step];
     if (!args) {
       this.#emit(job, "fail", `étape inconnue: ${step}`);
       return Promise.resolve(false);

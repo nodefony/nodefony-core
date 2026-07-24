@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-24T17:21:15.583Z",
+  "generated": "2026-07-24T17:29:50.421Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1046,
-    "symbols": 2858,
+    "files": 1047,
+    "symbols": 2862,
     "classes": 334,
     "interfaces": 749,
-    "types": 329,
+    "types": 330,
     "enums": 4,
-    "functions": 860,
-    "constants": 582
+    "functions": 861,
+    "constants": 584
   },
   "symbols": {
     "Cli": {
@@ -3316,6 +3316,45 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Stratégies de clé primaire proposées par `create entity`."
+    },
+    "TScaffoldStep": {
+      "name": "TScaffoldStep",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/steps.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "isScaffoldStep": {
+      "name": "isScaffoldStep",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/steps.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Une étape connue ? (garde des entrées venues du réseau)."
+    },
+    "SCAFFOLD_STEPS": {
+      "name": "SCAFFOLD_STEPS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/steps.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Étapes qui SUIVENT l'écriture d'un scaffold. Le moteur (`engine.ts`) est pur : il écrit des fichiers et s'arrête là. Mais du code écrit n'est pas encore du code qui tourne — il reste à installer le…"
+    },
+    "SCAFFOLD_STEP_COMMANDS": {
+      "name": "SCAFFOLD_STEP_COMMANDS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/steps.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Arguments passés à `npm` pour chaque étape."
+    },
+    "SCAFFOLD_STEP_LABELS": {
+      "name": "SCAFFOLD_STEP_LABELS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/steps.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce que chaque étape apporte — affiché avant de la lancer."
     },
     "pick": {
       "name": "pick",
@@ -13062,14 +13101,6 @@
       "module": "@nodefony/studio",
       "description": "Ce qui transite sur le canal `nodefony:scaffold:job@<id>`. Deux natures, et pas une seule : une ligne de terminal **et** l'état du job. Sans le second, le front n'aurait aucun moyen d'apprendre par…"
     },
-    "SCAFFOLD_STEPS": {
-      "name": "SCAFFOLD_STEPS",
-      "kind": "const",
-      "file": "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
-      "exported": true,
-      "module": "@nodefony/studio",
-      "description": "Étapes exécutables APRÈS l'écriture des fichiers. C'est une **allowlist fermée** : le client coche une étape connue, il n'envoie JAMAIS une ligne de commande. Sans ça, on offrirait une exécution de…"
-    },
     "IOAuthProfile": {
       "name": "IOAuthProfile",
       "kind": "interface",
@@ -22449,7 +22480,9 @@
       ],
       "IScaffoldChange": [
         "src/nodefony/src/cli/create.ts",
-        "src/nodefony/src/cli/scaffold/engine.ts"
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "askMissing": [
         "src/nodefony/src/cli/create.ts"
@@ -25928,7 +25961,8 @@
       ],
       "SCAFFOLD_STEPS": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "RateBounds": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
@@ -25980,6 +26014,9 @@
       "ScaffoldDestinationError": [
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
+      "SCAFFOLD_STEP_COMMANDS": [
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
       "IScaffoldRequest": [
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
@@ -25990,6 +26027,9 @@
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "IScaffoldTarget": [
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
+      "TScaffoldStep": [
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "AbstractCrudService": [
