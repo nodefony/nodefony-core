@@ -76,6 +76,20 @@
 
 - `[1× — 2026-07-23f]` **Prettier reformatait les fichiers GÉNÉRÉS à chaque commit ; le générateur les reproduisait sans ce formatage → diff perpétuel** (les tables se réalignaient dans un sens puis l'autre). Un fichier généré ne doit avoir **qu'un seul formateur : son générateur**. Fix = les exclure de `.prettierignore` ; idempotence de la régénération prouvée ensuite (0 diff).
 
+## 🚰 Fermer un trou au POINT DE PASSAGE, pas site par site
+
+- `[1× — 2026-07-24]` ⭐ **Deux fonctions écrivaient avant de refuser ; le kit demandait une pré-vérification DANS chacune.** Mettre les écritures dans une **transaction** (buffer mémoire, versement final par l'appelant racine) a fermé les DEUX cas plus tous les autres chemins de refus que je n'avais pas listés — et donné la simulation par-dessus, puisque simuler = ne pas verser. Réflexe : quand un correctif se décline par site, chercher le passage obligé en amont ; le corriger là ferme aussi ce qu'on n'a pas su énumérer, et la garde ajoutée demain naît sûre.
+- `[1× — 2026-07-24]` **Un raccourci qui ne SERT que le premier appelant se paie au deuxième.** La table des étapes npm vivait dans Studio, le CLI en avait une copie en dur ; la manière de les MONTRER diffère légitimement (terminal hérité vs canal temps réel), ce qu'elles SONT non. Séparer « ce que c'est » de « comment on l'affiche » avant de dupliquer.
+
+## 🕵️ Un outil muet n'est pas une preuve d'absence
+
+- `[1× — 2026-07-24]` ⭐ **`grep -rn --include=… .` a rendu VIDE là où `rg` trouvait 10 occurrences.** J'allais conclure « tout est corrigé » sur un silence. Le dépôt résout `grep` vers `ugrep`, dont les `--include` multiples ne se comportent pas comme attendu. **Un résultat vide qui vous arrange se re-teste avec un autre outil** — c'est le seul cas où l'absence de sortie mérite un contrôle, et c'est justement celui où on ne le fait pas. (Famille [[feedback_shell_false_diagnostics]].)
+
+## 🧱 Ce qui sort du dépôt n'est pas testé par le dépôt
+
+- `[1× — 2026-07-24]` ⭐ **Un import de feuille de style dans un gabarit a cassé le `npm run typecheck` de l'app GÉNÉRÉE (TS2882) — 2145 tests verts, typecheck racine vert.** Le trou ne vit que chez le consommateur : front et back y partagent UN tsconfig, qui ignore ce que Vite sait importer (`vite/client`). Aucune suite du dépôt ne peut le voir. **Tout changement de gabarit se prouve en générant une app et en lui faisant passer SES propres gates** (install → build → typecheck → build front), pas en relançant les nôtres.
+- `[1× — 2026-07-24]` **Angular RENOMME les `@keyframes` déclarés dans `styles: [...]`** (encapsulation de vue) : une animation nommée par une variable CSS devient introuvable, sans erreur. Un style qui doit être global passe par un import CSS que Vite injecte — et les trois frameworks gagnent à utiliser le MÊME mécanisme plutôt qu'un idiome par framework.
+
 ## 🔎 Vérifier dans le rendu — et vérifier le décor de la vérification
 
 - `[2× — 2026-07-23e]` **Deux fausses alertes d'affilée sur la même page.** (1) Une session expirée renvoyait du JSON d'erreur que mon parseur lisait comme un markdown vide → « les cards ont disparu ». (2) Le motif cherché était celui d'AVANT réécriture : le portail transforme `skills/x.md` en slug `root~skills~x.md`, comportement correct. **Avant de déclarer une régression sur une mesure HTTP : vérifier le code de retour, puis ce que la couche transforme légitimement.**
@@ -137,6 +151,7 @@
 - `[1× — 2026-07-22]` **Un contrôle peut être satisfait PAR ACCIDENT — le vérifier avant de l'imposer** (l'« intro en blockquote » matchait déjà pour une autre raison).
 - `[1× — 2026-07-20]` **Changer le FORMAT d'un contenu peut le sortir du champ de vision de son gate** — étendre le gate en même temps que le format.
 
+- `[1× — 2026-07-24]` **`code-check` dit qu'un bloc de doc COMPILE, pas qu'il décrit le rendu réel.** Le contrôleur montré dans `vue-ensemble.md` comme « le fichier généré, complet, compile tel quel » portait des noms de route que le scaffold ne produit plus : gate vert, page fausse. Un extrait présenté comme une transcription se vérifie en le RÉGÉNÉRANT, pas en le compilant.
 - `[1× — 2026-07-24]` ⭐ **Un test rouge en permanence cesse d'être lu.** `create.test.ts` échouait depuis des jours ; ni le test ni le code n'étaient fautifs — l'assertion cherchait `RequestContext` dans le FICHIER entier, et le template avait gagné un commentaire pédagogique qui le cite à raison. Une assertion doit viser **ce que le code fait**, pas ce que le fichier contient. Resserrer la visée, jamais désarmer : vérifié qu'elle mord encore sur un usage réel.
 - `[1× — 2026-07-24]` **Un catalogue déclaré et consommé par personne** : `OPT_IN_SWITCHES` existait depuis toujours, seul `test:all` le lisait. Résultat, dès que l'infra était présente le rapport signait « ✔ toutes cibles exercées » en laissant 9 tests muets. Un gate qui ne regarde qu'une moitié du silence produit un vert menteur.
 - `[1× — 2026-07-24]` ⭐ **Une règle STRICTE et énonçable bat une règle EXACTE et imprévisible — mais il faut en MESURER le prix d'abord.** Refuser une action de controller sur le seul NOM est plus sévère que TypeScript (qui ne râle que si les signatures divergent : un `trace()` compilait). Avant de trancher, j'ai compté ce que la sévérité coûterait sur tout le dépôt : **un seul renommage**. Le chiffre a fait la décision, pas l'intuition — et une règle qui tient en une phrase (« une action ne reprend pas un nom de `Controller` ») vaut mieux qu'un TS2416 que personne n'anticipe.
