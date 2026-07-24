@@ -331,6 +331,12 @@ class Resolver implements IResolver {
     // SECURITY — @IsGranted AVANT newController : un 403 court-circuite
     // l'instanciation DI + initialize() (Zero Trust). `security === null`
     // (route non gardée, 99 %) → 0 lookup, 0 await, 0 alloc.
+    //
+    // ⚠️ Vrai du trajet HTTP SEULEMENT. Le kernel y arme la route sans instancier
+    // (`http-kernel.ts` `prepareFrontController`), donc ce court-circuit est celui
+    // de bout en bout. En **WebSocket**, le controller est instancié au HANDSHAKE
+    // — avant qu'une frame ne soit gardée : sur ce transport, un refus n'évite
+    // ni la DI ni `initialize()`, qui ont déjà tourné.
     if (meta.security !== null) {
       await this._enforceSecurity(meta.security);
     }
