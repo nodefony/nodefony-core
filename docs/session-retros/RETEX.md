@@ -15,6 +15,15 @@
 
 ---
 
+## 🚪 Ce que la frontière npm laisse passer
+
+- `[1× — 2026-07-24]` ⭐ **TSDoc TRAVERSE le build, les commentaires inline NON.** Prouvé sur pièce : le bloc `/** */` de `ProfilerAdminApi` arrive intégral dans le `dist/` (+ `.d.ts` + 1ʳᵉ phrase dans symbols) ; le `// Encapsulation et runtime identiques.` de `sessions-service.ts:165` disparaît. **Tout savoir destiné à l'utilisateur d'une app vit en TSDoc ou en `docs/` — l'inline ne parle qu'au lecteur du repo.** Option « préserver les `//` au build » à instruire (kit release).
+
+## 🤖 Sous-agents — vérifier avant de répercuter
+
+- `[1× — 2026-07-24]` **Un sous-agent d'inventaire peut AFFIRMER un fichier qui n'existe pas.** L'agent haiku a déclaré un `AGENTS.md` racine « créé 22-23/07 » en sur-interprétant un message de commit — `ls` direct : rien. Une affirmation d'inventaire d'un sous-agent (surtout modèle léger) se REVÉRIFIE d'un `ls`/`grep` avant d'entrer dans une synthèse.
+- `[1× — 2026-07-24]` **Un kit boussole non relu ment 22 jours sans alarme.** Le kit release décrivait encore le modèle mono-distrib ABANDONNÉ le 02-07 (la décision vivait dans le doc repo, jamais reportée en mémoire). Le garde-fou `_state`↔commits existe pour les états de session, pas pour les kits : **à la reprise d'un kit, croiser sa date avec le journal du doc vivant qu'il pointe.**
+
 ## 🧮 Un compteur dérivé ment quand la source parle deux langues
 
 - `[1× — 2026-07-24]` ⭐ **Le rapport du registre affichait 68 items ouverts pour 33 réels, et 2 « critiques » déjà corrigés.** Il PARSE le kit, mais ne lit que la **colonne « suite à donner »** ; les lots soldés « par geste » étaient racontés en **prose sous le tableau**. Deux façons d'écrire le même état dans une même source, une seule que l'outil regarde. **Écrire l'état LÀ OÙ l'outil lit** — sinon on pilote un chantier sur un chiffre faux, et on croit qu'il reste le double de travail.
@@ -50,6 +59,7 @@
 
 ## 🕰️ Une norme externe bouge — le gate qui la contrôle dérive en silence
 
+- `[1× — 2026-07-24]` **Une GOUVERNANCE recopiée se propage jusque dans les gates.** « Agent Skills = AAIF/Linux Foundation » était faux (l'AAIF a reçu AGENTS.md+MCP+goose ; Agent Skills reste piloté par Anthropic) — et l'erreur vivait dans le kit devkit, `skills-doc.mjs` (`org:`) et l'index MEMORY. **Une attribution de gouvernance se vérifie à la source primaire** (communiqué de la fondation, repo de la spec), pas dans la presse secondaire ; corriger la source ET les gates qui la citent.
 - `[1× — 2026-07-23f]` **Rafraîchir le standard AAIF a révélé DEUX dérives de mon gate** : le champ `compatibility` avait été ajouté à la spec (≤500) et manquait à `ALLOWED_FIELDS` (faux positif « hors standard » en puissance) ; la règle `name` interdit les tirets consécutifs et aux bords, que ma regex laissait passer. **Un contrôle de conformité calibré une fois se périme quand la norme avance — revalider contre la spec FRAÎCHE avant de lui faire confiance ou de le durcir.** Les constantes du standard citent désormais leur source en tête du script.
 - `[1× — 2026-07-23f]` **Une fiche générée peut PROUVER sa conformité, pas seulement l'affirmer** : badge en tête (N/N normatifs MUST · projet · recommandé SHOULD) + une colonne qui CITE la règle exacte du standard et sa nature. « Du vrai travail visible » > un ✅ nu.
 
@@ -70,7 +80,7 @@
 
 ## 📦 Surface npm & publication (chantier release en cours)
 
-- `[1× — 2026-07-23]` **Le seul consommateur qu'on exerce n'est jamais celui qui a le problème.** Six paquets publiaient `exports["."].types → ./index.ts`, absent du tarball (`files:`) : invisible dans le repo self-hosted, cassé pour tout installeur npm. Vérifier une surface publiée = **dépaqueter le tarball** (`npm pack` + lire le manifeste), jamais lire le `package.json` du dépôt.
+- `[2× — 2026-07-24]` **Le seul consommateur qu'on exerce n'est jamais celui qui a le problème.** Six paquets publiaient `exports["."].types → ./index.ts`, absent du tarball (`files:`) : invisible dans le repo self-hosted, cassé pour tout installeur npm. Vérifier une surface publiée = **dépaqueter le tarball** (`npm pack` + lire le manifeste), jamais lire le `package.json` du dépôt. Revécu via `--link` : le `node_modules` symlinké montre les SOURCES complètes (CLAUDE.md, `.ts`) — conclure de là ce qu'un installeur verra est faux ; raisonner sur `files:`.
 - `[1× — 2026-07-23]` **`publishConfig.exports` n'est PAS appliqué par npm** (c'est pnpm/yarn). Testé avant de le proposer.
 - `[1× — 2026-07-23]` **Un import non déclaré ne casse rien ICI et deux choses AILLEURS** : turbo ne peut pas ordonner le build, et le consommateur npm n'installe pas la dépendance. Auditer les imports de **valeur** (pas seulement de types) contre les `dependencies`.
 - `[1× — 2026-07-23]` **Un contournement documenté peut cacher une contrainte RÉELLE — la vérifier avant de le retirer.** `exports.types → ./index.ts` avait l'air d'une paresse ; c'était l'anti-race du CLAUDE.md. 4 `clean && build` complets pour le prouver (le `dist` d'avant masque exactement cette panne).
