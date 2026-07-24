@@ -1,4 +1,5 @@
 import { TransportState, type IRealtimeTransport } from "nodefony";
+import { decideSend, type WsBackpressurePolicy } from "@nodefony/http";
 import type { IRealtimeConnProbe } from "../../interfaces/IRealtimeProbe";
 
 /**
@@ -18,24 +19,17 @@ export interface RawWsConnection {
 }
 
 /**
- * Back-pressure WS — seuils de `bufferedAmount` (octets en file `ws` non drainée).
- * - **DROP** (1 MiB, = `SLOW_CONSUMER_BYTES` de la sonde) : au-delà, la frame est
- *   JETÉE (canaux d'ÉTAT latest-wins : le prochain snapshot la remplace) → borne la
- *   file sans couper la connexion.
- * - **CLOSE** (8 MiB) : file irrécupérable → `close(1013)` (RFC 6455 « Try Again
- *   Later ») ; le client se reconnecte et resync. Protège la mémoire process
- *   (file non bornée × M clients = OOM, blocker #1 du multiplexing N canaux / 1 WS).
+ * Contre-pression WS — **la règle vit dans `@nodefony/http`**, ce transport ne
+ * fait que l'appliquer (`decideSend`). Deux implémentations de la même
+ * protection avaient déjà divergé en silence : 4 MiB côté `http`, 1 MiB ici.
  *
- * Overridables PAR CONNEXION via le 2ᵉ arg du constructeur (`{ dropBytes, closeBytes }`)
- * — seam TESTÉ (WsConnectionTransport.test.ts) mais **non câblé à la config** aujourd'hui :
- * le seul appelant de prod (`RealtimeController.ts:357`) construit SANS, donc en pratique
- * ce sont toujours ces constantes. ⚠️ NE PAS confondre avec `slowConsumer.bytes` (config) :
- * celle-ci ne règle QUE le seuil de COMPTAGE de la sonde (`RealtimeHub.#slowConsumerBytes`,
- * cf `RealtimeHub.ts:305` « l'ACTION de back-pressure a ses propres seuils ici »), PAS
- * l'action drop/close de ce transport.
+ * Réglage = config du serveur WebSocket (`websocket.maxBackpressure`,
+ * `.backpressurePolicy`, `.backpressureCloseAfterDrops`) — une seule source pour
+ * `send`/`broadcast` HTTP **et** pour le realtime.
+ *
+ * ⚠️ NE PAS confondre avec `slowConsumer.bytes` (config realtime) : celle-ci ne
+ * règle QUE le seuil de COMPTAGE de la sonde, jamais l'action.
  */
-export const BACKPRESSURE_DROP_BYTES = 1 << 20; // 1 MiB
-export const BACKPRESSURE_CLOSE_BYTES = 8 << 20; // 8 MiB
 
 /**
  * WsConnectionTransport — transport {@link IRealtimeTransport} CÔTÉ SERVEUR :
@@ -61,17 +55,24 @@ export class WsConnectionTransport
   private _messagesSent = 0;
   // Frames jetées par back-pressure (drop latest-wins + close slow-consumer).
   private _dropped = 0;
-  // Seuils résolus à la construction (2ᵉ arg = override par connexion, seam testé mais
-  // NON câblé à la config ; défauts = constantes module, protection active sans câblage).
-  private readonly _dropBytes: number;
-  private readonly _closeBytes: number;
+  // Réglages de contre-pression de CETTE connexion, lus une fois au handshake
+  // depuis les options du serveur WebSocket (source unique, côté `@nodefony/http`).
+  // Absents → `max: 0` = protection désactivée, comme un serveur non configuré.
+  private readonly _max: number;
+  private readonly _policy: WsBackpressurePolicy;
+  private readonly _closeAfterDrops: number;
 
   constructor(
     private readonly conn: RawWsConnection,
-    limits?: { dropBytes?: number; closeBytes?: number },
+    limits?: {
+      max?: number;
+      policy?: WsBackpressurePolicy;
+      closeAfterDrops?: number;
+    },
   ) {
-    this._dropBytes = limits?.dropBytes ?? BACKPRESSURE_DROP_BYTES;
-    this._closeBytes = limits?.closeBytes ?? BACKPRESSURE_CLOSE_BYTES;
+    this._max = limits?.max ?? 0;
+    this._policy = limits?.policy ?? "drop";
+    this._closeAfterDrops = limits?.closeAfterDrops ?? 0;
   }
 
   connect(): void {
@@ -80,22 +81,20 @@ export class WsConnectionTransport
 
   send(raw: string): void {
     if (this.conn.readyState !== TransportState.OPEN) return;
-    // Back-pressure (blocker mémoire #1) — la file `ws` non drainée (`bufferedAmount`)
-    // grossit sans borne pour un slow-consumer (onglet throttlé, mobile, fenêtre TCP
-    // pleine) ; × M clients = OOM, et le multiplexing concentre (1 WS lente bloque
-    // TOUS ses canaux). Politique 2 seuils (cf BACKPRESSURE_*_BYTES) :
-    //  - ≥ CLOSE : file irrécupérable → `close(1013)`, le client se reconnecte/resync.
-    //  - ≥ DROP  : on JETTE la frame (canaux d'ÉTAT = latest-wins) → borne la file.
-    // Mock de test sans `bufferedAmount` → `?? 0` → jamais de drop (0 régression).
-    const buffered = this.conn.bufferedAmount ?? 0;
-    if (buffered >= this._closeBytes) {
+    // Contre-pression : la RÈGLE est celle de `@nodefony/http` (une seule
+    // implémentation pour `send`/`broadcast` HTTP et pour le realtime). Elle
+    // jette la frame quand la file d'envoi dépasse le seuil, et ferme (1013)
+    // quand le client n'a plus rien drainé depuis N frames — un second seuil
+    // d'octets serait inatteignable, puisque jeter empêche la file de croître.
+    const decision = decideSend(
+      this.conn,
+      this._max,
+      this._policy,
+      this._closeAfterDrops,
+    );
+    if (decision !== "send") {
       this._dropped += 1;
-      this.conn.close(1013, "slow consumer");
-      return;
-    }
-    if (buffered >= this._dropBytes) {
-      this._dropped += 1;
-      return;
+      return; // `decideSend` a déjà fermé la socket si c'était la décision
     }
     // `raw.length` (≈ octets pour l'ASCII/JSON ; O(1) en V8) compté AVANT l'envoi :
     // un échec d'envoi reste rare et la file `ws` retient quand même la frame.

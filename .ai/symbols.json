@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-24T11:40:35.528Z",
+  "generated": "2026-07-24T12:23:36.019Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1044,
-    "symbols": 2845,
+    "files": 1045,
+    "symbols": 2848,
     "classes": 333,
-    "interfaces": 744,
+    "interfaces": 746,
     "types": 329,
     "enums": 4,
     "functions": 854,
-    "constants": 581
+    "constants": 582
   },
   "symbols": {
     "Cli": {
@@ -5987,6 +5987,48 @@
       "exported": true,
       "module": "modules/test",
       "description": "Shared observation state for the ALS propagation integration tests (BUG-001 WS messages, BUG-002 onAfterResponse). Module-level singleton — controllers are scoped per request, so the captured value…"
+    },
+    "IBackpressureProbe": {
+      "name": "IBackpressureProbe",
+      "kind": "interface",
+      "file": "src/modules/test/nodefony/controller/backpressureProbe.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": null,
+      "description": "Mouchard de contre-pression — état vu par le TRANSPORT de la dernière connexion de banc, lisible par une route publique. Pourquoi hors des instances : un controller ne survit pas à sa requête, et s…"
+    },
+    "IProbedTransport": {
+      "name": "IProbedTransport",
+      "kind": "interface",
+      "file": "src/modules/test/nodefony/controller/backpressureProbe.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": null,
+      "description": "Ce que le transport de la connexion courante expose au mouchard."
+    },
+    "setProbedTransport": {
+      "name": "setProbedTransport",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/controller/backpressureProbe.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Inscrit le transport de la connexion de banc ET les réglages lus au handshake. Les réglages doivent être capturés ICI : une route HTTP n'a pas de `WebSocketServer` sur son contexte, donc les relire…"
+    },
+    "countPushed": {
+      "name": "countPushed",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/controller/backpressureProbe.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Compte une charge poussée par le provider (avant toute décision du transport)."
+    },
+    "readBackpressureProbe": {
+      "name": "readBackpressureProbe",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/controller/backpressureProbe.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Lecture — `null` si aucune connexion de banc n'a encore été ouverte."
     },
     "BackpressureRealtimeController": {
       "name": "BackpressureRealtimeController",
@@ -18046,7 +18088,7 @@
         "IRealtimeConnProbe"
       ],
       "decorators": [],
-      "description": "WsConnectionTransport — transport {@link IRealtimeTransport} CÔTÉ SERVEUR : wrap d'une connexion `ws` (1 par client connecté). Pendant serveur du `BrowserWsTransport` → la connexion serveur compose…"
+      "description": "Contre-pression WS — **la règle vit dans `@nodefony/http`**, ce transport ne fait que l'appliquer (`decideSend`). Deux implémentations de la même protection avaient déjà divergé en silence : 4 MiB …"
     },
     "RawWsConnection": {
       "name": "RawWsConnection",
@@ -18056,21 +18098,6 @@
       "module": "@nodefony/realtime",
       "extends": null,
       "description": "Connexion ws brute, typée structurellement (évite d'importer le package `ws`). `ctx.connection` (WebsocketContext) la fournit."
-    },
-    "BACKPRESSURE_DROP_BYTES": {
-      "name": "BACKPRESSURE_DROP_BYTES",
-      "kind": "const",
-      "file": "src/packages/@nodefony/realtime/nodefony/src/transport/WsConnectionTransport.ts",
-      "exported": true,
-      "module": "@nodefony/realtime",
-      "description": "Back-pressure WS — seuils de `bufferedAmount` (octets en file `ws` non drainée). - **DROP** (1 MiB, = `SLOW_CONSUMER_BYTES` de la sonde) : au-delà, la frame est JETÉE (canaux d'ÉTAT latest-wins : l…"
-    },
-    "BACKPRESSURE_CLOSE_BYTES": {
-      "name": "BACKPRESSURE_CLOSE_BYTES",
-      "kind": "const",
-      "file": "src/packages/@nodefony/realtime/nodefony/src/transport/WsConnectionTransport.ts",
-      "exported": true,
-      "module": "@nodefony/realtime"
     },
     "adminActor": {
       "name": "adminActor",
@@ -19804,6 +19831,15 @@
       "module": "@nodefony/http",
       "extends": null,
       "description": "Options de backpressure SORTANTE (serveur → client). Knobs Nodefony (pas des options `ws`) ; `ws` les conserve quand même dans `wss.options` car son constructeur fait `{ ...defaults, ...options }` …"
+    },
+    "IBackpressureTarget": {
+      "name": "IBackpressureTarget",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/wsBackpressure.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Ce dont la règle a besoin, et rien de plus : la taille de la file d'envoi et de quoi fermer. Typé STRUCTURELLEMENT pour que `@nodefony/realtime` applique la même règle sans importer `ws` (son trans…"
     },
     "IBackpressureSocket": {
       "name": "IBackpressureSocket",
@@ -23820,6 +23856,11 @@
         "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
+      "readBackpressureOptions": [
+        "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
+      ],
       "RealtimePublish": [
         "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts",
         "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
@@ -23828,6 +23869,18 @@
         "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
+      ],
+      "countPushed": [
+        "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts"
+      ],
+      "readBackpressureProbe": [
+        "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts"
+      ],
+      "setProbedTransport": [
+        "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts"
+      ],
+      "IProbedTransport": [
+        "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts"
       ],
       "ContextType": [
         "src/modules/test/nodefony/controller/DecoratorController.ts",
@@ -27504,6 +27557,13 @@
       "applyDeclaredBroadcastPrefixes": [
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
+      "decideSend": [
+        "src/packages/@nodefony/realtime/nodefony/src/transport/WsConnectionTransport.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
+      ],
+      "WsBackpressurePolicy": [
+        "src/packages/@nodefony/realtime/nodefony/src/transport/WsConnectionTransport.ts"
+      ],
       "adminActor": [
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
@@ -27679,12 +27739,6 @@
       ],
       "responseTimeoutType": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts"
-      ],
-      "decideSend": [
-        "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
-      ],
-      "readBackpressureOptions": [
-        "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
       ],
       "IBackpressureSocket": [
         "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"

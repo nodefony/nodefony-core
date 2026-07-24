@@ -179,6 +179,20 @@ export type {
   IHttpConfigInput,
 } from "./nodefony/interfaces/IHttpConfig";
 
+// Contre-pression WS SORTANTE — règle UNIQUE, partagée. `@nodefony/realtime`
+// l'applique sur le transport de chaque connexion realtime ; `Response` sur
+// `send`/`broadcast`. Deux implémentations auraient divergé en silence (elles
+// avaient déjà des seuils différents : 4 MiB ici, 1 MiB là-bas).
+export {
+  decideSend,
+  readBackpressureOptions,
+  type WsBackpressurePolicy,
+  type WsSendDecision,
+  type IWsBackpressureOptions,
+  type IBackpressureSocket,
+  type IBackpressureTarget,
+} from "./nodefony/src/context/websocket/wsBackpressure";
+
 // Matching de domaine (Host) — fonctions pures réutilisées par @nodefony/framework
 // (Route.matchHostname / @Domain) pour la cohérence kernel ↔ route.
 export {

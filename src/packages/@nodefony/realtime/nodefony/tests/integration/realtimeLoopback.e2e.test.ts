@@ -651,29 +651,6 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     await flush();
   });
 
-  it("⭐ back-pressure : le seuil de la CONFIG atteint le transport de la connexion", async () => {
-    // Posé comme au boot par RealtimeService, AVANT le handshake.
-    getRealtimeHub().setBackpressureBytes(4096, 8192);
-    const { client, rt, conn } = await connectPair();
-    const got: unknown[] = [];
-    client.on("tick", (p) => got.push(p));
-    client.subscribe("tick");
-    await flush();
-
-    rt.publishers["tick"]!("tick", { n: 1 }); // file vide → passe
-    await flush();
-    expect(got).to.have.lengthOf(1);
-
-    conn.bufferedAmount = 5000; // au-dessus du seuil CONFIGURÉ, très sous le défaut 1 MiB
-    rt.publishers["tick"]!("tick", { n: 2 });
-    await flush();
-    expect(got).to.have.lengthOf(1); // jetée : le seuil de la config a bien voyagé
-
-    conn.bufferedAmount = 0;
-    client.unsubscribe("tick");
-    await flush();
-  });
-
   it("L4 façade serveur : subscribedChannels + ref-count (stop au dernier unsubscribe)", () => {
     const back = serverSocket();
     back.subscribe("a");

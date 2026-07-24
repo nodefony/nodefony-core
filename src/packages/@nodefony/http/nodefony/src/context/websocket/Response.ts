@@ -102,10 +102,15 @@ class WebsocketResponse {
       }
       // Backpressure SORTANTE (G1) : si le client est lent à recevoir, on ne gonfle
       // pas la RAM d'envoi sans borne. Sous le seuil = chemin nominal (0 alloc).
-      const { max, policy } = readBackpressureOptions(
+      const { max, policy, closeAfterDrops } = readBackpressureOptions(
         this.context?.server as WebSocketServer | null,
       );
-      const decision = decideSend(this.connection, max, policy);
+      const decision = decideSend(
+        this.connection,
+        max,
+        policy,
+        closeAfterDrops,
+      );
       if (decision !== "send") {
         this.logFirstDrop(this.connection, decision, max);
         // Frame non émise (drop) ou socket fermée (close) — pas une erreur.
@@ -157,7 +162,7 @@ class WebsocketResponse {
           : payload;
 
     // Seuil + politique lus UNE fois hors boucle (pas par client).
-    const { max, policy } = readBackpressureOptions(wss);
+    const { max, policy, closeAfterDrops } = readBackpressureOptions(wss);
     // UNE closure par broadcast (pas par client — règle perf : N clients ×
     // M frames). Client parti = silencieux ; vraie erreur d'écriture = ERROR.
     const onWriteError = (error?: Error) => {
@@ -171,7 +176,7 @@ class WebsocketResponse {
       }
       // Backpressure SORTANTE (G1) : un client lent ne doit pas plomber la
       // diffusion ni gonfler la RAM serveur → on le saute (drop) / ferme (close).
-      const decision = decideSend(client, max, policy);
+      const decision = decideSend(client, max, policy, closeAfterDrops);
       if (decision !== "send") {
         this.logFirstDrop(client, decision, max);
         return;

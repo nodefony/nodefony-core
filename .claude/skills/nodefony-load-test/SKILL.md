@@ -102,38 +102,36 @@ METHOD=POST BODY='{"x":1}' URL=https://127.0.0.1:5152/nodefony/test/... run.sh h
 
 ENV : `URL` `N`(1000) `C`(50) `METHOD`(GET) `BODY`.
 
-### Contre-pression WS sur socket RÉELLE (`ws-backpressure-e2e.mjs`) — ⚠️ non encore vert
+### Contre-pression WS sur socket RÉELLE (`ws-backpressure-e2e.mjs`)
 
-Éprouve les seuils `config.backpressure` (`dropBytes` → la frame est jetée ;
-`closeBytes` → fermeture `1013`) sur une **vraie** socket : le client suspend la
-lecture (`ws._socket.pause()`), la fenêtre TCP se referme, et la file du serveur
-enfle pour de bon. Les tests unitaires posent `bufferedAmount` à la main — ils
-prouvent la logique du seuil, **jamais la physique du transport**. D'où ce banc.
+Éprouve la contre-pression SORTANTE (serveur → client) sur une **vraie** socket : le
+client suspend la lecture (`ws._socket.pause()`), la fenêtre TCP se referme, la file du
+serveur enfle pour de bon. Les tests unitaires posent `bufferedAmount` à la main — ils
+prouvent la logique du seuil, **jamais la physique du transport**.
 
-**Décor obligatoire** (sans lui le banc ne mesure rien, ou refuse) :
+Il mesure **côté serveur** (route `/nodefony/test/bench/backpressure/probe`), jamais en
+comptant les frames reçues : un client qui n'a pas fini de lire affiche le même déficit
+qu'un client dont les frames ont été jetées. Piège vécu — « 129 reçues sur 400 » ne
+prouvait rien.
 
-1. seuils BAS dans la config de l'app — sinon il faut pousser 8 Mio pour voir la
-   fermeture : `use("@nodefony/realtime", { backpressure: { dropBytes: 65536, closeBytes: 262144 } })` ;
-2. endpoint de banc monté : `NF_BENCH_WS_BACKPRESSURE=1` (il n'existe jamais par
-   défaut — un endpoint qui inonde une connexion sur demande est une amplification) ;
-3. serveur démarré **avec les deux** :
-   `NF_BENCH_WS_BACKPRESSURE=1 bash .claude/skills/nodefony-start-server/start.sh`
+**Décor obligatoire** :
+
+1. seuils bas sur le **bon** serveur — ⚠️ `websocket` (ws://5151) et `websocketSecure`
+   (wss://5152) sont **deux sections distinctes**, le banc frappe en `wss` :
+   `use("@nodefony/http", { websocketSecure: { maxBackpressure: 65536, backpressureCloseAfterDrops: 20 } })`
+2. endpoint de banc + volume de rafale :
+   `NF_BENCH_WS_BACKPRESSURE=1 NF_BENCH_WS_FRAMES=400 NF_BENCH_WS_BYTES=32768 bash .claude/skills/nodefony-start-server/start.sh`
 
 ```bash
 node .claude/skills/nodefony-load-test/scripts/ws-backpressure-e2e.mjs
-FRAMES=800 BYTES=32768 node .claude/skills/nodefony-load-test/scripts/ws-backpressure-e2e.mjs
 ```
 
-> 🔴 **État : le banc n'a JAMAIS été vu vert.** Le décor est en place (endpoint
-> `/nodefony/test/bench/backpressure`, module test), mais le **verrou de frame**
-> refuse `subscribe` et l'action (`realtime:denied {reason:"forbidden"}` puis
-> `-32001 unauthorized`) pour une connexion anonyme, alors que le canal
-> `bench:flood` ne porte aucune politique déclarée et n'est pas dans un namespace
-> réservé — la cause n'est pas isolée. **Ne pas contourner la garde pour faire
-> passer le banc** : soit le refus est légitime et le décor doit fournir une
-> identité, soit c'est un défaut du verrou, et c'est alors ce défaut qui compte.
-> Tant que ce banc n'est pas vert, la contre-pression est prouvée **en logique**
-> (unitaires + e2e loopback) et **pas en conditions réelles**.
+Mesure de référence (seuils ci-dessus, 400 charges de 32 Kio) : **3 frames servies, 20
+refusées, fermeture `1013`** — le client zombie est coupé et sait retenter. Ce banc a
+trouvé un défaut réel : la fermeture reposait sur un **second seuil d'octets**, que le
+drop rend inatteignable (il plafonne la file). Elle repose désormais sur un **solde de
+refus**. Si tu le vois échouer sur « socket encore ouverte », c'est ce défaut qui est
+revenu.
 
 ### Charge du HUB realtime (`hub-load.mjs`) — panneau `/nodefony/hub`
 

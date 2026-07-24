@@ -1,18 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { RealtimeHub } from "../../src/server/RealtimeHub.js";
 import {
   WsConnectionTransport,
-  BACKPRESSURE_DROP_BYTES,
-  BACKPRESSURE_CLOSE_BYTES,
   type RawWsConnection,
 } from "../../src/transport/WsConnectionTransport.js";
-import { defineRealtimeConfig } from "../../config/defineModuleConfig.js";
 
 /** Connexion factice : `bufferedAmount` pilotable, envois et fermetures captés. */
-function fakeConn(bufferedAmount: number): RawWsConnection & {
+type FakeConn = RawWsConnection & {
   sent: string[];
   closed: Array<{ code?: number }>;
-} {
+  bufferedAmount: number;
+  readyState: number;
+};
+
+function fakeConn(bufferedAmount: number): FakeConn {
   const sent: string[] = [];
   const closed: Array<{ code?: number }> = [];
   return {
@@ -26,84 +26,101 @@ function fakeConn(bufferedAmount: number): RawWsConnection & {
     close(code?: number) {
       closed.push({ code });
     },
-  } as RawWsConnection & { sent: string[]; closed: Array<{ code?: number }> };
+  } as FakeConn;
 }
 
 /**
- * Les seuils d'ACTION de la back-pressure sont réglables depuis la config. Sans
- * ce câblage ils n'étaient atteignables que par le 2ᵉ argument du constructeur
- * du transport, qu'aucun appelant de production ne passe.
+ * Le transport realtime n'implémente PAS sa propre contre-pression : il applique
+ * celle de `@nodefony/http` (`decideSend`), avec les réglages du serveur WebSocket
+ * qui sert la connexion. Deux implémentations de la même protection avaient déjà
+ * divergé en silence (4 MiB d'un côté, 1 MiB de l'autre).
  */
-describe("back-pressure — les seuils de la config atteignent le transport", () => {
-  it("le schéma expose les deux seuils, aux valeurs du transport", () => {
-    const c = defineRealtimeConfig();
-    expect(c.backpressure.dropBytes).to.equal(BACKPRESSURE_DROP_BYTES);
-    expect(c.backpressure.closeBytes).to.equal(BACKPRESSURE_CLOSE_BYTES);
-  });
-
-  it("refuse un closeBytes qui n'est pas STRICTEMENT au-dessus du drop", () => {
-    expect(() =>
-      defineRealtimeConfig({
-        backpressure: { dropBytes: 4096, closeBytes: 4096 },
-      }),
-    ).to.throw();
-    expect(() =>
-      defineRealtimeConfig({
-        backpressure: { dropBytes: 8192, closeBytes: 4096 },
-      }),
-    ).to.throw();
-    expect(() =>
-      defineRealtimeConfig({
-        backpressure: { dropBytes: 4096, closeBytes: 8192 },
-      }),
-    ).to.not.throw();
-  });
-
-  it("le hub ne porte AUCUN seuil tant que la config ne l'a pas posé", () => {
-    expect(new RealtimeHub().backpressureBytes).to.equal(null);
-  });
-
-  it("le hub rend les seuils posés — ce que le contrôleur lit au handshake", () => {
-    const hub = new RealtimeHub();
-    const c = defineRealtimeConfig({
-      backpressure: { dropBytes: 4096, closeBytes: 8192 },
-    });
-    hub.setBackpressureBytes(
-      c.backpressure.dropBytes,
-      c.backpressure.closeBytes,
-    );
-    expect(hub.backpressureBytes).to.deep.equal({
-      dropBytes: 4096,
-      closeBytes: 8192,
-    });
-  });
-
-  it("un seuil ABAISSÉ fait vraiment jeter la frame (sinon on a déplacé le mensonge)", () => {
-    const conn = fakeConn(5000); // au-dessus de 4096, très en dessous du 1 MiB par défaut
-    const t = new WsConnectionTransport(conn, {
-      dropBytes: 4096,
-      closeBytes: 8192,
-    });
-    t.send("frame");
-    expect(conn.sent).to.deep.equal([]); // jetée
-    expect(t.dropped).to.equal(1);
-    expect(conn.closed).to.deep.equal([]); // pas encore la fermeture
-  });
-
-  it("le même envoi PASSE avec les seuils par défaut — c'est bien le réglage qui agit", () => {
-    const conn = fakeConn(5000);
+describe("WsConnectionTransport — applique la contre-pression de @nodefony/http", () => {
+  it("sans réglage, la protection est INACTIVE (serveur non configuré)", () => {
+    const conn = fakeConn(999_999_999);
     new WsConnectionTransport(conn).send("frame");
     expect(conn.sent).to.deep.equal(["frame"]);
   });
 
-  it("au-delà du seuil de fermeture, la connexion est close en 1013", () => {
-    const conn = fakeConn(9000);
-    const t = new WsConnectionTransport(conn, {
-      dropBytes: 4096,
-      closeBytes: 8192,
-    });
+  it("sous le seuil → la frame part", () => {
+    const conn = fakeConn(1024);
+    new WsConnectionTransport(conn, { max: 4096 }).send("frame");
+    expect(conn.sent).to.deep.equal(["frame"]);
+  });
+
+  it("au-dessus du seuil → la frame est JETÉE et comptée", () => {
+    const conn = fakeConn(8192);
+    const t = new WsConnectionTransport(conn, { max: 4096 });
     t.send("frame");
     expect(conn.sent).to.deep.equal([]);
+    expect(t.dropped).to.equal(1);
+    expect(conn.closed).to.deep.equal([]);
+  });
+
+  it("policy 'close' → ferme en 1013 dès le premier dépassement", () => {
+    const conn = fakeConn(8192);
+    new WsConnectionTransport(conn, { max: 4096, policy: "close" }).send("f");
     expect(conn.closed.map((c) => c.code)).to.deep.equal([1013]);
+  });
+
+  it("⭐ ferme après N refus CONSÉCUTIFS — le seuil d'octets seul ne suffit pas", () => {
+    const conn = fakeConn(8192);
+    const t = new WsConnectionTransport(conn, {
+      max: 4096,
+      closeAfterDrops: 3,
+    });
+    t.send("a");
+    t.send("b");
+    expect(conn.closed, "pas encore : 2 refus").to.deep.equal([]);
+    t.send("c");
+    expect(conn.closed.map((c) => c.code)).to.deep.equal([1013]);
+    expect(t.dropped).to.equal(3);
+  });
+
+  it("le solde DÉCROÎT quand une frame passe (pic passager ≠ client mort)", () => {
+    const conn = fakeConn(8192);
+    const t = new WsConnectionTransport(conn, {
+      max: 4096,
+      closeAfterDrops: 4,
+    });
+    t.send("a"); // solde 1
+    t.send("b"); // solde 2
+    conn.bufferedAmount = 0; // le client rattrape
+    t.send("c"); // solde 1, envoyée
+    t.send("d"); // solde 0, envoyée
+    expect(conn.sent).to.deep.equal(["c", "d"]);
+    conn.bufferedAmount = 8192; // il ressature
+    t.send("e"); // solde 1
+    t.send("f"); // solde 2
+    expect(conn.closed, "un client qui rattrape n'est pas coupé").to.deep.equal(
+      [],
+    );
+  });
+
+  it("⭐ un client qui refuse PLUS qu'il n'accepte finit coupé (file qui OSCILLE)", () => {
+    // Cas mesuré sur socket réelle : la file oscille autour du seuil, donc une
+    // remise à zéro du compteur empêchait TOUTE fermeture.
+    const conn = fakeConn(8192);
+    const t = new WsConnectionTransport(conn, {
+      max: 4096,
+      closeAfterDrops: 4,
+    });
+    for (let i = 0; i < 20 && conn.closed.length === 0; i++) {
+      conn.bufferedAmount = 8192;
+      t.send("x");
+      t.send("y");
+      conn.bufferedAmount = 0;
+      t.send("z");
+    }
+    expect(conn.closed.map((c) => c.code)).to.deep.equal([1013]);
+  });
+
+  it("socket fermée → aucun envoi, aucune décision", () => {
+    const conn = fakeConn(0);
+    conn.readyState = 3;
+    const t = new WsConnectionTransport(conn, { max: 4096 });
+    t.send("frame");
+    expect(conn.sent).to.deep.equal([]);
+    expect(t.dropped).to.equal(0);
   });
 });

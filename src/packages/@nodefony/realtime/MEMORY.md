@@ -47,8 +47,7 @@ defineRealtimeConfig({
   enabled: true,
   backplane: { driver: "loopback" }, // "loopback" | "cluster" | "redis" | "kafka"
   cluster: { probe: { enabled: true } }, // sonde agrégée pod (Phase 4c)
-  slowConsumer: { bytes: 1 << 20 }, // 1 MiB — seuil de COMPTAGE de la sonde (OBSERVE)
-  backpressure: { dropBytes: 1 << 20, closeBytes: 8 << 20 }, // AGIT : jette puis ferme (1013)
+  slowConsumer: { bytes: 1 << 20 }, // 1 MiB — COMPTAGE de la sonde (OBSERVE seulement)
   limits: { maxChannelsPerConnection: 256 },
 });
 
@@ -64,13 +63,14 @@ defineRealtimeConfig(
 realtimeConfigJsonSchema();
 ```
 
-**`slowConsumer` ≠ `backpressure`** : le premier ne règle que le compteur `slowConsumers` de la sonde,
-le second agit sur le transport de CHAQUE connexion (drop latest-wins, puis close 1013). Chemin :
-`config` → `RealtimeService.init` → `hub.setBackpressureBytes` → lu par `RealtimeController` au
-handshake → `new WsConnectionTransport(conn, seuils)`. `closeBytes > dropBytes` imposé par un `refine`
-(fermer avant d'avoir jeté rendrait le drop inatteignable). **Jamais annoncé au client** : il a le
-close `1013` (transitoire → reconnexion) + son AIMD, qui suit le comportement, pas une valeur déclarée
-— seuils par pod, une valeur annoncée serait fausse dès la reconnexion ailleurs.
+**`slowConsumer` OBSERVE ; l'ACTION vit dans `@nodefony/http`** (`decideSend`, exporté) — une seule
+implémentation pour `send`/`broadcast` HTTP et pour le transport realtime. Chemin : config
+`websocket*`→ `WebSocketServer.options` → `readBackpressureOptions(ctx.server)` au handshake →
+`new WsConnectionTransport(conn, opts)`. ⚠️ **DEUX serveurs, DEUX sections** (`websocket` ws:// et
+`websocketSecure` wss://). Fermeture = **solde** de refus (`backpressureCloseAfterDrops`, +1/refus
+−1/envoi), PAS un 2ᵉ seuil d'octets : jeter empêche la file de croître, donc un seuil supérieur est
+inatteignable (mesuré : 4000 frames → 3 servies, 0 fermeture). **Jamais annoncé au client** : il a le
+close `1013` (transitoire → reconnexion) + son AIMD. Banc réel : `ws-backpressure-e2e.mjs`.
 
 **Piège Zod 4** : `.default({})` plat NE déclenche PAS les sous-défauts internes
 → pattern obligatoire `.default(() => subSchema.parse({}))` partout dans `config.ts`.

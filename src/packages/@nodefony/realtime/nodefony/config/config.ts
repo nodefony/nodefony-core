@@ -130,54 +130,11 @@ const slowConsumerSchema = z
           "pour clients lents tolérés (IoT, mobile faible bande), à diminuer " +
           "pour un signalement plus précoce. N.B. : ce seuil pilote UNIQUEMENT " +
           "le COMPTAGE de la sonde — l'ACTION de back-pressure (drop/close de " +
-          "frames) se règle à côté, sous `backpressure`.",
+          "frames) se règle sur le SERVEUR WebSocket, côté @nodefony/http : " +
+          "`websocket.maxBackpressure` / `.backpressurePolicy` / `.backpressureCloseAfterDrops`.",
       ),
   })
   .describe("Détection des consommateurs lents (métrique de la sonde WS).");
-
-// Seuils d'ACTION de la back-pressure WS — le frère de `slowConsumer` (qui, lui,
-// ne fait qu'OBSERVER). Sans ces clés, les seuils du transport n'étaient
-// atteignables que par le 2ᵉ argument de son constructeur, qu'aucun appelant de
-// prod ne passe : une application ne pouvait ni desserrer la garde (IoT, mobile
-// en bande faible, gros payloads légitimes) ni la resserrer sous attaque, sauf à
-// réécrire le contrôleur.
-const backpressureSchema = z
-  .object({
-    dropBytes: z
-      .number()
-      .int()
-      .positive()
-      .default(1 << 20)
-      .describe(
-        "Seuil de `bufferedAmount` (octets) au-dessus duquel une frame sortante " +
-          "est JETÉE pour cette connexion, plutôt que d'allonger une file que le " +
-          "client ne draine pas. Défaut : 1 MiB (1<<20). Les canaux d'ÉTAT sont " +
-          "latest-wins : perdre une frame vaut mieux que faire enfler la mémoire " +
-          "du serveur. Augmenter pour des clients lents tolérés, diminuer pour " +
-          "protéger plus tôt.",
-      ),
-    closeBytes: z
-      .number()
-      .int()
-      .positive()
-      .default(8 << 20)
-      .describe(
-        "Seuil de `bufferedAmount` (octets) au-dessus duquel la connexion est " +
-          "FERMÉE (code 1013 « Try Again Later », RFC 6455) : la file est jugée " +
-          "irrécupérable. Défaut : 8 MiB (8<<20). Doit rester STRICTEMENT " +
-          "supérieur à `dropBytes` — fermer avant d'avoir tenté de jeter rendrait " +
-          "le drop inatteignable.",
-      ),
-  })
-  .refine((c) => c.closeBytes > c.dropBytes, {
-    message:
-      "backpressure.closeBytes doit être STRICTEMENT supérieur à dropBytes " +
-      "(sinon la connexion est fermée avant que le drop ait pu la sauver).",
-    path: ["closeBytes"],
-  })
-  .describe(
-    "Action de back-pressure WS : jeter la frame, puis fermer (≠ `slowConsumer`, qui compte).",
-  );
 
 // Bornes de ressources PAR CONNEXION — garde anti-DoS/OOM (revue 0.6, F6a).
 const limitsSchema = z
@@ -258,9 +215,6 @@ export const realtimeConfigSchema = z
     cluster: clusterSchema.default(() => clusterSchema.parse({})),
     slowConsumer: slowConsumerSchema.default(() =>
       slowConsumerSchema.parse({}),
-    ),
-    backpressure: backpressureSchema.default(() =>
-      backpressureSchema.parse({}),
     ),
     limits: limitsSchema.default(() => limitsSchema.parse({})),
     csrf: csrfSchema.default(() => csrfSchema.parse({})),

@@ -321,12 +321,6 @@ export class RealtimeHub {
   // uniquement — l'ACTION de back-pressure a ses propres seuils dans WsConnectionTransport.
   #slowConsumerBytes: number = SLOW_CONSUMER_BYTES;
 
-  // Seuils d'ACTION de la back-pressure (drop puis close), posés au boot depuis
-  // `defineRealtimeConfig().backpressure` et lus par le contrôleur au handshake.
-  // `null` = aucune politique → le transport garde ses constantes (comportement
-  // d'avant le câblage, préservé pour un hub utilisé sans `RealtimeService`).
-  #backpressure: { dropBytes: number; closeBytes: number } | null = null;
-
   // Politique de forward PAR CANAL (Phase 4). Préfixes des canaux **broadcast**
   // (cross-process). Lazy : `null` tant qu'aucun canal broadcast n'est déclaré →
   // par défaut TOUT canal est **instance-local** (ne traverse PAS le backplane).
@@ -924,31 +918,6 @@ export class RealtimeHub {
    */
   setSlowConsumerBytes(bytes: number): void {
     this.#slowConsumerBytes = bytes;
-  }
-
-  /**
-   * Pose les seuils d'**action** de la back-pressure WS, lus par le contrôleur
-   * à chaque handshake pour construire le transport de la connexion.
-   *
-   * Frère de {@link setSlowConsumerBytes}, qui ne règle que l'observation. Avant
-   * ce câblage, les seuils du transport n'étaient atteignables que par le 2ᵉ
-   * argument de son constructeur — qu'aucun appelant de production ne passe :
-   * une application subissait les constantes, sans pouvoir les desserrer ni les
-   * resserrer. `null` = laisser le transport sur ses valeurs par défaut.
-   *
-   * @param drop  - octets en file au-delà desquels une frame est jetée.
-   * @param close - octets en file au-delà desquels la connexion est fermée (1013).
-   */
-  setBackpressureBytes(drop: number, close: number): void {
-    this.#backpressure = { dropBytes: drop, closeBytes: close };
-  }
-
-  /**
-   * Seuils d'action de la back-pressure à appliquer aux nouvelles connexions,
-   * ou `null` si aucun n'a été posé (le transport garde ses défauts).
-   */
-  get backpressureBytes(): { dropBytes: number; closeBytes: number } | null {
-    return this.#backpressure;
   }
 
   /**

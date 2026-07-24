@@ -18,6 +18,7 @@ import {
   type ActionResult,
 } from "nodefony";
 import type { WebsocketContext, ProfiledResolver } from "@nodefony/http";
+import { readBackpressureOptions } from "@nodefony/http";
 import { Controller } from "@nodefony/framework";
 import {
   WsConnectionTransport,
@@ -354,12 +355,18 @@ export abstract class RealtimeController<
       token = ANONYMOUS_REALTIME_TOKEN;
     }
 
-    // Seuils de back-pressure de CETTE connexion : ceux posés au boot depuis la
-    // config, sinon les constantes du transport (hub utilisé sans RealtimeService).
-    // Cold path : une lecture de champ au handshake, rien par frame.
+    // Contre-pression de CETTE connexion : réglages lus sur le serveur WebSocket
+    // qui la sert — source UNIQUE, partagée avec `send`/`broadcast` HTTP. Cold
+    // path (une lecture au handshake, rien par frame).
     const transport = new WsConnectionTransport(
       conn,
-      hub.backpressureBytes ?? undefined,
+      readBackpressureOptions(
+        (
+          ctx as unknown as {
+            server?: Parameters<typeof readBackpressureOptions>[0];
+          }
+        ).server ?? null,
+      ),
     );
     const peerOptions: JsonRpcPeerOptions = {
       // Fail-safe : un payload non JSON-safe (structure circulaire…) ne doit

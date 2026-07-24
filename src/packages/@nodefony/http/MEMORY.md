@@ -18,6 +18,33 @@ metadata:
 
 Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Différenciateur : HTTP et WS dans le même pipeline Controller.
 
+## Contre-pression WS SORTANTE (serveur → client) — RÈGLE UNIQUE du dépôt
+
+`src/context/websocket/wsBackpressure.ts` → `decideSend(ws, max, policy, closeAfterDrops)`.
+**Exportée par l'index** : `@nodefony/realtime` l'applique sur le transport de chaque
+connexion realtime au lieu d'en tenir une copie (les deux avaient divergé : 4 Mio ici,
+1 Mio là-bas). Cible typée structurellement (`IBackpressureTarget`) → realtime n'importe
+pas `ws`.
+
+- `maxBackpressure` (4 Mio) : `ws.bufferedAmount` au-delà → la frame est **jetée**.
+- `backpressurePolicy` (`drop`|`close`) : `close` ferme dès le 1ᵉʳ dépassement.
+- `backpressureCloseAfterDrops` (1000) : **solde** de refus (+1 refus / −1 envoi) au-delà
+  duquel on ferme en `1013`. `0` = ne jamais fermer.
+
+🔴 **Ne PAS remplacer par un second seuil d'octets** : jeter empêche la file de croître,
+elle plafonne donc au seuil de drop et n'atteint jamais un seuil supérieur. Mesuré sur
+socket réelle : 4000 frames poussées à un client qui ne lit pas → 3 servies, aucune
+fermeture. Le solde a été préféré à une « série consécutive » parce que la file OSCILLE
+autour du seuil (refus, drainage partiel, envoi) — une remise à zéro empêchait toute
+fermeture.
+
+⚠️ **DEUX serveurs, DEUX sections de config** : `websocket` (ws://5151) et
+`websocketSecure` (wss://5152). Régler l'un ne règle pas l'autre, et rien ne le signale.
+
+Compteurs sur la socket : `_nfDrops` (cumul, sonde) · `_nfDropStreak` (solde courant).
+Tests : `unit/wsBackpressure.test.ts` (16) · realtime `unit/backpressureConfig.test.ts` (7)
+· banc réel `ws-backpressure-e2e.mjs` (skill `nodefony-load-test`).
+
 ## Ports — repli automatique (`servers.portPolicy`)
 
 - **Les ports NE sont PAS dans le Zod de ce module** : ils vivent dans la config d'APP (core `config/schema.ts` → `servers.http.port` 5151 / `servers.https.port` 5152, défauts `config/defaults.ts`). Ce module ne fait que les LIRE (`kernel.options.servers`).

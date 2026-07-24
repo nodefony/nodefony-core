@@ -1,15 +1,14 @@
 /// <reference types="node" />
 import { route, controller } from "@nodefony/framework";
 import { RealtimeController } from "@nodefony/realtime";
-import { Context } from "@nodefony/http";
+import { Context, readBackpressureOptions } from "@nodefony/http";
 import type { RealtimePublish } from "@nodefony/realtime";
-
-/** Vue minimale du transport de la connexion — ce que la sonde en lit. */
-interface ConnProbe {
-  readonly readyState: number;
-  readonly bufferedAmount: number;
-  readonly dropped: number;
-}
+import {
+  countPushed,
+  readBackpressureProbe,
+  setProbedTransport,
+  type IProbedTransport,
+} from "./backpressureProbe";
 
 /**
  * Décor de banc — endpoint realtime capable de **pousser du volume à la
@@ -30,9 +29,10 @@ interface ConnProbe {
  * connexion est une amplification offerte à qui la demande — il ne doit exister
  * que le temps d'une mesure.
  *
- * Usage (banc `ws-backpressure-e2e.mjs`) : le client ouvre la socket, s'abonne à
- * `bench:flood`, **suspend la lecture de sa socket**, puis demande l'inondation
- * par l'action `bench:flood`. La file du serveur enfle jusqu'aux seuils.
+ * Usage (banc `ws-backpressure-e2e.mjs`) : le client ouvre la socket, **suspend la
+ * lecture de sa socket**, puis s'abonne à `bench:stream` — le provider part en
+ * rafale au 1ᵉʳ abonné et la file du serveur enfle jusqu'aux seuils.
+ * Volume réglable : `NF_BENCH_WS_FRAMES` (400), `NF_BENCH_WS_BYTES` (16384).
  */
 @controller("/nodefony/test/bench")
 class BackpressureRealtimeController extends RealtimeController {
@@ -46,63 +46,65 @@ class BackpressureRealtimeController extends RealtimeController {
   })
   async realtime(message: string | Buffer | null): Promise<void> {
     this.handleRealtime(message);
-  }
-
-  protected override realtimeChannels(): string[] {
-    return ["bench:flood"];
+    // Au handshake, on inscrit le transport de CETTE connexion au mouchard :
+    // c'est la seule vue fiable de ce qui a été refusé (le client, lui, ne
+    // distingue pas une frame jetée d'une frame pas encore lue).
+    if (message == null) {
+      const t = (
+        this.context as unknown as {
+          __nfRealtime?: { transport: IProbedTransport };
+        }
+      ).__nfRealtime?.transport;
+      setProbedTransport(
+        t ?? null,
+        readBackpressureOptions(
+          (this.context as unknown as { server?: unknown })
+            .server as Parameters<typeof readBackpressureOptions>[0],
+        ),
+      );
+    }
   }
 
   /**
-   * Le canal ne pousse RIEN de lui-même : c'est l'action `bench:flood` qui
-   * alimente, pour que la mesure décide du volume et du moment. Un provider qui
-   * pousserait en continu rendrait le banc dépendant de son propre minuteur.
+   * Lecture du mouchard — route PUBLIQUE et hors WebSocket, parce que le banc
+   * interroge précisément au moment où il ne lit plus sa socket.
+   */
+  @route("test-bench-backpressure-probe", {
+    path: "/backpressure/probe",
+    requirements: { methods: ["GET"] },
+  })
+  async probe(): Promise<unknown> {
+    return readBackpressureProbe() ?? { pushed: 0, dropped: 0, absent: true };
+  }
+
+  protected override realtimeChannels(): string[] {
+    return ["bench:stream"];
+  }
+
+  /**
+   * Le provider part en rafale au 1ᵉʳ abonné : l'abonnement EST le déclencheur,
+   * ce qui évite de dépendre d'une action RPC (toute action porte un défaut
+   * fermé — s'authentifier pour mesurer un mécanisme de transport n'aurait
+   * aucun sens).
    */
   override createRealtimeChannel(
     channel: string,
     publish: RealtimePublish,
   ): (() => void) | null {
-    if (channel !== "bench:flood") return null;
-    this.#publish = publish;
-    return () => {
-      this.#publish = null;
-    };
-  }
-
-  #publish: RealtimePublish | null = null;
-
-  protected override realtimeActions(): Record<
-    string,
-    (params?: unknown) => unknown
-  > {
-    return {
-      /**
-       * Pousse `frames` charges de `bytes` octets sur `bench:flood`.
-       * Rend ce que la sonde de CETTE connexion voit ensuite : octets en file,
-       * frames jetées, état de la socket — les trois grandeurs qui disent si la
-       * contre-pression a mordu.
-       */
-      "bench:flood": (params?: unknown) => {
-        const p = (params ?? {}) as { frames?: number; bytes?: number };
-        const frames = Math.min(Math.max(p.frames ?? 200, 1), 5000);
-        const bytes = Math.min(Math.max(p.bytes ?? 16384, 1), 1 << 20);
-        const payload = { blob: "x".repeat(bytes) };
-        for (let i = 0; i < frames; i++)
-          this.#publish?.("bench:flood", payload);
-        // Le transport de CETTE connexion, tenu par la base sur le contexte.
-        const probe = (
-          this.context as unknown as {
-            __nfRealtime?: { transport: ConnProbe };
-          }
-        ).__nfRealtime?.transport;
-        return {
-          pushed: frames,
-          bytes,
-          bufferedAmount: probe?.bufferedAmount ?? -1,
-          dropped: probe?.dropped ?? -1,
-          readyState: probe?.readyState ?? -1,
-        };
-      },
-    };
+    if (channel !== "bench:stream") return null;
+    // La rafale part au 1ᵉʳ abonné, PAS par une action RPC : toute action porte
+    // un défaut fermé (`authenticated`), ce qui obligerait le banc à s'authentifier
+    // pour mesurer un mécanisme de transport qui n'a rien à voir avec l'identité.
+    // Le canal, lui, est libre — c'est la surface juste pour ce décor.
+    const frames = Number(process.env.NF_BENCH_WS_FRAMES ?? 400);
+    const bytes = Number(process.env.NF_BENCH_WS_BYTES ?? 16384);
+    const payload = { blob: "x".repeat(bytes) };
+    const timer = setTimeout(() => {
+      countPushed(frames);
+      for (let i = 0; i < frames; i++) publish("bench:stream", payload);
+    }, 50);
+    timer.unref?.();
+    return () => clearTimeout(timer);
   }
 }
 
