@@ -236,3 +236,45 @@ describe("routerDecorators — @Param / @Body / @Query", () => {
     });
   });
 });
+
+// ─── Noms d'action réservés par la classe de base ─────────────────────────────
+
+describe("routerDecorators — noms d'action réservés", () => {
+  // Les décorateurs sont appelés À LA MAIN : écrire `remove()` dans une classe
+  // qui étend `Controller` ne compilerait pas (TS2416) — c'est précisément le
+  // conflit que ce garde-fou déplace vers un message lisible.
+  const decorate = (proto: object, name: string) =>
+    route(`reserved-${name}`, { path: "/x" })(proto, name, {
+      value: () => null,
+    } as PropertyDescriptor);
+
+  it("refuse une action qui reprend une MÉTHODE héritée de Service", () => {
+    expect(() => decorate(StubController.prototype, "remove")).to.throw(
+      /RÉSERVÉ.*Service/s,
+    );
+  });
+
+  it("refuse une action qui reprend un ACCESSEUR de Controller", () => {
+    // `session` ne casse pas la compilation : il masque l'action en silence.
+    expect(() => decorate(StubController.prototype, "session")).to.throw(
+      /RÉSERVÉ.*Controller/s,
+    );
+  });
+
+  it("nomme la sortie : renommer l'action, l'URL ne bouge pas", () => {
+    expect(() => decorate(StubController.prototype, "get")).to.throw(
+      /Renommez la méthode/,
+    );
+  });
+
+  it("laisse passer un nom libre", () => {
+    expect(() =>
+      decorate(StubController.prototype, "removeUser"),
+    ).to.not.throw();
+  });
+
+  it("ne déborde pas hors de la hiérarchie Controller", () => {
+    class Plain {}
+    expect(() => decorate(Plain.prototype, "remove")).to.not.throw();
+  });
+});

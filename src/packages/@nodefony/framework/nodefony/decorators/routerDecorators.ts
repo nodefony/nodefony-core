@@ -15,6 +15,74 @@ type Constructor<T = {}> = new (...args: any[]) => T;
 
 const metadataKey = "routes:definitions";
 
+/**
+ * Noms déjà portés par `Controller` — méthodes ET accesseurs, les siens comme
+ * ceux hérités de `Service`. Une action qui en reprend un est refusée à la
+ * déclaration (cf `assertActionNameFree`).
+ *
+ * Résolu PARESSEUSEMENT, et une seule fois : `Controller` participe à un cycle
+ * d'import (`Controller` → `Router` → ce module), le lire au chargement du
+ * module tomberait dans sa zone morte temporelle. Au premier décorateur d'un
+ * controller userland, la classe de base est forcément déjà initialisée.
+ *
+ * @returns Map `nom → classe qui le porte` (la plus DÉRIVÉE des deux gagne).
+ */
+let reservedActionNames: Map<string, string> | null = null;
+const getReservedActionNames = (): Map<string, string> => {
+  if (reservedActionNames) return reservedActionNames;
+  const reserved = new Map<string, string>();
+  let proto: object | null = Controller.prototype;
+  while (proto && proto !== Object.prototype) {
+    const owner =
+      (proto as { constructor?: { name?: string } }).constructor?.name ??
+      "Controller";
+    for (const key of Object.getOwnPropertyNames(proto)) {
+      if (key !== "constructor" && !reserved.has(key)) reserved.set(key, owner);
+    }
+    proto = Object.getPrototypeOf(proto) as object | null;
+  }
+  reservedActionNames = reserved;
+  return reserved;
+};
+
+/**
+ * Refuse, AU MOMENT DE LA DÉCLARATION, une action dont le nom est déjà celui
+ * d'un membre de `Controller`.
+ *
+ * Le langage sanctionne déjà ce conflit, mais tard et sans le nommer : un
+ * `remove()` de controller produit un `TS2416` sur une incompatibilité de
+ * signature (`Service.remove(name): boolean`), et un `session()` ne produit
+ * rien du tout — l'accesseur de la classe de base masque simplement l'action à
+ * l'instanciation. La règle posée ici est volontairement plus stricte que
+ * TypeScript (elle refuse le nom, sans regarder les signatures) : une règle
+ * qu'on peut énoncer en une phrase vaut mieux qu'une règle exacte que
+ * personne ne peut anticiper.
+ *
+ * @param target - Le prototype de la classe qui déclare l'action.
+ * @param propertyKey - Le nom de la méthode décorée.
+ * @throws Error nommant le membre en conflit et la sortie (renommer l'action).
+ */
+function assertActionNameFree(target: object, propertyKey: string): void {
+  // Hors hiérarchie `Controller` (classe d'API admin, stub de test…) : rien à
+  // masquer, donc rien à refuser.
+  if (!Object.prototype.isPrototypeOf.call(Controller.prototype, target)) {
+    return;
+  }
+  const owner = getReservedActionNames().get(propertyKey);
+  if (!owner) return;
+  const className =
+    (target as { constructor?: { name?: string } }).constructor?.name ??
+    "(anonyme)";
+  throw new Error(
+    `Action « ${propertyKey} » de ${className} : ce nom est RÉSERVÉ par le framework — ` +
+      `${owner} porte déjà un membre « ${propertyKey} », dont tout controller hérite. ` +
+      `Le conflit casse la compilation (TS2416) ou masque silencieusement l'action. ` +
+      `Renommez la méthode (« ${propertyKey}Action », « ${propertyKey}One »…) : ` +
+      `l'URL vient du décorateur, pas du nom de la méthode — seul le nom généré ` +
+      `de la route suit (« ${className}::${propertyKey} »).`,
+  );
+}
+
 function controllers(
   controller: TypeController<Controller>[] | TypeController<Controller>,
 ): <T extends Constructor<Module>>(constructor: T) => T {
@@ -163,6 +231,7 @@ function route(name: string, options: RouteOptions) {
     propertyKey: string,
     descriptor: PropertyDescriptor,
   ) {
+    assertActionNameFree(target, propertyKey);
     const className = target.constructor.name;
     const classMethod = propertyKey;
     const prefix = options.prefix || null;

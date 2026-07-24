@@ -133,13 +133,13 @@ Les chiffres exacts vivent dans la carte de l'aperçu, régénérée depuis vite
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                      | Cause                                                           | Correction                                    |
-| --------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------- |
-| `404` sur une route qui « existe »            | Contrôleur jamais importé — les routes naissent à l'import      | L'ajouter à `@controllers([…])` du module     |
-| Une route paramétrée mange un chemin littéral | L'ordre de déclaration **est** la priorité                      | Déclarer le littéral avant le paramétré       |
-| Action WebSocket jamais atteinte              | Transport `WEBSOCKET` non déclaré sur la route                  | L'ajouter aux méthodes de la route            |
-| `TS2416` sur une action `remove`              | Le nom entre en collision avec une méthode héritée de `Service` | Renommer l'action — l'URL vient du décorateur |
-| Double effet d'une mutation rejouée           | Route sensible sans clé d'idempotence                           | Voir [idempotence](idempotence.md)            |
+| Symptôme                                      | Cause                                                        | Correction                                    |
+| --------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------- |
+| `404` sur une route qui « existe »            | Contrôleur jamais importé — les routes naissent à l'import   | L'ajouter à `@controllers([…])` du module     |
+| Une route paramétrée mange un chemin littéral | L'ordre de déclaration **est** la priorité                   | Déclarer le littéral avant le paramétré       |
+| Action WebSocket jamais atteinte              | Transport `WEBSOCKET` non déclaré sur la route               | L'ajouter aux méthodes de la route            |
+| `ce nom est RÉSERVÉ` sur une action `remove`  | Le nom entre en collision avec un membre hérité de `Service` | Renommer l'action — l'URL vient du décorateur |
+| Double effet d'une mutation rejouée           | Route sensible sans clé d'idempotence                        | Voir [idempotence](idempotence.md)            |
 
 ## 🔗 Pour aller plus loin
 

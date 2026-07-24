@@ -27,7 +27,7 @@ class DbController extends Controller {
    * loggant chaque étape → trace complète sous un seul `requestId`.
    */
   @Get("/trace")
-  async trace() {
+  async traceQueries() {
     const requestId = this.context?.requestId ?? "";
     this.log("Trace DB — début (comptage des entités)", "INFO", "DB-DEMO");
 
