@@ -117,7 +117,7 @@ const TASKS = [
         kind: "code",
         name: "409 obtenu SANS mapping artisanal (généré/framework attendu)",
         pattern: /throw[^\n]*409|nodefonyError\([^)]*409/u,
-        where: "content",
+        where: "added",
         invert: true,
       },
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
@@ -147,7 +147,7 @@ const TASKS = [
         kind: "code",
         name: "pas de contrôle artisanal (401/403 renvoyé à la main)",
         pattern: /renderJson\([^)]*40[13]|status(Code)?\s*=\s*40[13]/u,
-        where: "content",
+        where: "added",
         invert: true,
       },
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
@@ -158,8 +158,9 @@ const TASKS = [
     name: "canal temps réel",
     prompt:
       "Ajoute un canal temps réel « prices » : le serveur pousse un tick JSON par seconde " +
-      "aux abonnés, et documente en commentaire comment un client s'y abonne. Utilise ce que " +
-      "le framework offre de plus haut niveau. Termine en prouvant que les tests de l'app passent.",
+      "aux abonnés, et montre côté CLIENT comment s'y abonner (doc ou test). Utilise ce que " +
+      "le framework offre de plus haut niveau des DEUX côtés. Termine en prouvant que les " +
+      "tests de l'app passent.",
     probes: [
       {
         kind: "transcript",
@@ -176,7 +177,24 @@ const TASKS = [
         kind: "code",
         name: "pas de WS bas-niveau bricolé côté serveur",
         pattern: /new\s+WebSocketServer|\bws\.on\(/u,
+        where: "added",
+        invert: true,
+      },
+      // Côté CLIENT (dilution mesurée au banc S2 : les 2 modèles passaient le
+      // serveur, le trou est dans l'exemple client). Paire sonde positive
+      // (la façade isomorphe est montrée) + sonde négative (pas de client WS
+      // recomposé à la main) — une négative seule passe aussi par abandon.
+      {
+        kind: "code",
+        name: "côté client : la façade isomorphe est montrée (RealtimeClient / nodefony/react)",
+        pattern: /RealtimeClient|nodefony\/react/u,
         where: "content",
+      },
+      {
+        kind: "code",
+        name: "pas de client WS recomposé à la main (new WebSocket)",
+        pattern: /new\s+WebSocket\(/u,
+        where: "added",
         invert: true,
       },
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
@@ -306,6 +324,15 @@ function judgeTask(app, runDir, task) {
     )
     .map((f) => readFileSync(path.join(app, f), "utf8"))
     .join("\n");
+  // Lignes AJOUTÉES seulement — le haystack des sondes NÉGATIVES. Sur fichiers
+  // entiers, une sonde inversée mord sur du PRÉ-EXISTANT légitime (vécu : agent
+  // 6/6 côté fond, recalé parce qu'il avait touché l'e2e généré qui porte le
+  // `new WebSocket` du test echo). On ne juge un interdit que sur ce que
+  // l'agent a ÉCRIT.
+  const added = git(app, "diff", "--unified=0", `${base ?? `${hash}~1`}`, hash)
+    .split("\n")
+    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
+    .join("\n");
   const probes = task.probes.map((p) => {
     let pass = false;
     let evidence = "";
@@ -313,7 +340,12 @@ function judgeTask(app, runDir, task) {
       pass = p.pattern.test(transcript);
       evidence = pass ? "vu dans le transcript" : "absent du transcript";
     } else if (p.kind === "code") {
-      const haystack = p.where === "files" ? files.join("\n") : content;
+      const haystack =
+        p.where === "files"
+          ? files.join("\n")
+          : p.where === "added"
+            ? added
+            : content;
       const hit = p.pattern.test(haystack);
       pass = p.invert ? !hit : hit;
       evidence = `${files.length} fichier(s) touchés`;

@@ -165,6 +165,22 @@ publiables) → app témoin `examples/minimal-app` copiée HORS repo (deps → t
 `docker stop` pendant une requête lente. **Preuve 7/7** : tsc vert sur tarballs, boot container,
 in-flight terminée au stop, exit 0, logs drain. Reste : le câbler en CI + boot pg (multi-dialecte Ph.2).
 
+> ⚠️ **À ÉTENDRE — scénario FRONT en production (trou vécu 2026-07-25 : page blanche muette).**
+> La chaîne est corrigée à trois étages — (1) scaffold : le `npm run build` d'une app à front
+> chaîne `nodefony frontend:build` (le package.json généré est COPIÉ à la création : les apps
+> nées AVANT n'ont pas ce chaînage — le canal de correction pour elles = les étages 2-3, portés
+> par npm) ; (2) `@nodefony/frontend` : `setupProd()` refuse la page blanche muette — entry sans
+> manifest → build one-shot au boot si vite est résolvable (WARNING annoncé), sinon ERROR qui
+> nomme l'entrée et le geste ; (3) `TemplateHelper.loadManifest()` ne met JAMAIS l'absence en
+> cache → un `frontend:build` post-boot est vu au reload, sans restart. Le smoke doit PROUVER ces
+> scénarios sur l'install vierge (le repo self-hosted ne peut pas les voir) : **(a)** app témoin
+> AVEC front → `npm run build` → `nodefony production --detach --wait` → `GET /` contient des
+> tags `/_assets/…` ; **(b)** `rm -rf public/dist` → boot → auto-build annoncé (devDeps
+> présentes) ET, dans l'image runtime sans devDependencies, ERROR nommée + API toujours servie ;
+> **(c)** Studio `ui: "static"` + `policy: "mandatory"` → `GET /nodefony` 200 + un asset
+> `/_assets/studio/…` 200 (l'UI pré-buildée shippée npm — un 404 ici = dist/frontend absent du
+> tarball ou config dist non rebuildée).
+
 > ✅ **Mutations AU PACK câblées dans `pack-all.mjs`** (mutation temporaire du package.json,
 > restauration à l'octet près en try/finally) : (1) **bascule `exports.types`** `./index.ts` →
 > `./dist/types/index.d.ts` — détection AUTO des packages concernés (les 7 du cœur), garde-fou
