@@ -1,12 +1,12 @@
 {
-  "generated": "2026-07-24T11:27:30.237Z",
+  "generated": "2026-07-24T11:40:35.528Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1043,
-    "symbols": 2843,
-    "classes": 332,
-    "interfaces": 743,
+    "files": 1044,
+    "symbols": 2845,
+    "classes": 333,
+    "interfaces": 744,
     "types": 329,
     "enums": 4,
     "functions": 854,
@@ -5987,6 +5987,19 @@
       "exported": true,
       "module": "modules/test",
       "description": "Shared observation state for the ALS propagation integration tests (BUG-001 WS messages, BUG-002 onAfterResponse). Module-level singleton — controllers are scoped per request, so the captured value…"
+    },
+    "BackpressureRealtimeController": {
+      "name": "BackpressureRealtimeController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "RealtimeController",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Décor de banc — endpoint realtime capable de **pousser du volume à la demande**, pour éprouver la contre-pression WebSocket sur une VRAIE socket. Pourquoi il existe : la contre-pression (jeter une …"
     },
     "DbController": {
       "name": "DbController",
@@ -20149,12 +20162,13 @@
         "StudioCreateController",
         "RealtimeController"
       ],
-      "ResourceController": [
-        "PocBookResourceController"
-      ],
       "RealtimeController": [
+        "BackpressureRealtimeController",
         "TestM2mRealtimeController",
         "StudioRealtimeController"
+      ],
+      "ResourceController": [
+        "PocBookResourceController"
       ],
       "AgentError": [
         "AgentShutdownError",
@@ -20530,6 +20544,7 @@
       "controller": [
         "MediasoupController",
         "AlsController",
+        "BackpressureRealtimeController",
         "DbController",
         "DecoratorController",
         "DefaultController",
@@ -21284,6 +21299,9 @@
       "PipelineOrderController": [
         "src/modules/test/index.ts"
       ],
+      "BackpressureRealtimeController": [
+        "src/modules/test/index.ts"
+      ],
       "SecureWsController": [
         "src/modules/test/index.ts"
       ],
@@ -21632,6 +21650,7 @@
       "route": [
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
+        "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/DiController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
@@ -21653,6 +21672,7 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
+        "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts",
         "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
@@ -21869,6 +21889,7 @@
         "src/packages/@nodefony/http/index.ts",
         "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
+        "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts",
         "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/DiController.ts",
@@ -22036,6 +22057,7 @@
       ],
       "RealtimeController": [
         "src/packages/@nodefony/realtime/index.ts",
+        "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts",
         "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
@@ -23798,6 +23820,15 @@
         "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
+      "RealtimePublish": [
+        "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/studio/nodefony/realtime/clusterOrm.ts",
+        "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
+      ],
       "ContextType": [
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/PipelineOrderController.ts",
@@ -25284,14 +25315,6 @@
         "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
-      ],
-      "RealtimePublish": [
-        "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
-        "src/packages/@nodefony/studio/nodefony/realtime/clusterOrm.ts",
-        "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
       ],
       "RealtimeInboundHandler": [
         "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",

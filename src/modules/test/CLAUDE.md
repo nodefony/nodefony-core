@@ -105,6 +105,26 @@ Attendu : après un **401** (firewall) ou un **403** (`@IsGranted`), `runs` rest
 controller ne s'exécute pour une requête refusée. Sur une requête servie, `identity` porte
 l'utilisateur (le hook tourne après le firewall). Banc : `http/tests/http/pipeline-order.test.ts`.
 
+### BackpressureRealtimeController (`/nodefony/test/bench`) — décor de banc, OPT-IN
+
+Monté **uniquement** si `NF_BENCH_WS_BACKPRESSURE=1` (voir `index.ts`). Un endpoint
+capable d'inonder une connexion sur demande est une amplification offerte à qui la
+demande : il n'existe que le temps d'une mesure.
+
+| Route           | Méthode   | Description                                                               |
+| --------------- | --------- | ------------------------------------------------------------------------- |
+| `/backpressure` | WEBSOCKET | endpoint realtime (JSON-RPC) — canal `bench:flood` + action `bench:flood` |
+
+L'action `bench:flood {frames, bytes}` pousse N charges sur le canal et rend ce que
+la sonde de CETTE connexion voit ensuite (`bufferedAmount`, `dropped`, `readyState`).
+Elle sert le banc `ws-backpressure-e2e.mjs` (skill `nodefony-load-test`), qui vérifie
+que les seuils `config.backpressure` mordent sur une socket réelle — ce qu'aucun test
+unitaire ne peut faire, puisqu'ils simulent `bufferedAmount`.
+
+> ⚠️ **Le banc n'est pas encore vert** : le verrou de frame refuse `subscribe` et
+> l'action pour une connexion anonyme, cause non isolée. Détail et conduite à tenir
+> dans le SKILL.md du banc — ne pas désarmer la garde pour faire passer la mesure.
+
 ### RestController (`/nodefony/test/rest`)
 
 | Route                          | Méthode | Description                               |

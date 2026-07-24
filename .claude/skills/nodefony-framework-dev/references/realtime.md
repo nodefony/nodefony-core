@@ -527,9 +527,20 @@ Contrats `rt/nodefony/interfaces/IRealtimeProbe.ts` : `IRealtimeProbe` (`:61` �
 { enabled: true,
   backplane: { driver: "loopback" /* | "cluster" | "redis" | <custom> */, namespace?: string },
   cluster:   { probe: { enabled: true } },
-  slowConsumer: { bytes: 1<<20 },            // 1 MiB — seuil slow-consumer
+  slowConsumer:  { bytes: 1<<20 },           // 1 MiB — seuil de COMPTAGE de la sonde (observe)
+  backpressure:  { dropBytes: 1<<20,         // 1 MiB — au-delà, la frame est JETÉE (latest-wins)
+                   closeBytes: 8<<20 },      // 8 MiB — au-delà, close 1013. DOIT être > dropBytes (refine)
+  limits:    { maxChannelsPerConnection: 256 },
   csrf: { checkOrigin: { enabled: false, allowList: [], allowMissingOrigin: false } } }
 ```
+
+⚠️ **`slowConsumer` OBSERVE, `backpressure` AGIT** — deux clés, deux rôles. Les seuils d'action sont
+appliqués au transport de CHAQUE connexion au handshake (`RealtimeController` lit `hub.backpressureBytes`,
+posé par `RealtimeService.init()`). Avant ce câblage ils n'étaient atteignables que par le 2ᵉ arg du
+constructeur du transport, qu'aucun appelant de prod ne passe : une app subissait les constantes.
+**Rien n'est annoncé au client** — il a le close `1013` (classé transitoire → reconnexion) et son AIMD,
+qui suit le comportement observé plutôt qu'une valeur déclarée (juste même si les seuils changent à chaud,
+et même si la reconnexion tombe sur un pod réglé autrement).
 
 Backplane custom userland (NATS…) hors schéma sérialisable : `defineRealtimeConfig({ backplane: { driver: "loopback" } }, { backplane: new MyBackplane() })` OU service DI `realtimeBackplane`. Env layering : `NODEFONY_REALTIME_DRIVER` surcharge le driver. ⚠️ **Zod 4** : `.default({})` plat n'applique PAS les sous-défauts → pattern `.default(() => sub.parse({}))` partout (`schema.ts:67/:128/:141`).
 
@@ -564,7 +575,7 @@ Backplane custom userland (NATS…) hors schéma sérialisable : `defineRealtime
 
 ## 4. Gotchas spécifiques realtime
 
-- **Push hors action = conn brute, pas `ctx.send()`.** Après le handshake, `ctx.send()` (réponse HTTP) **rejette** (`requestEnded`). Tout push (fan-out, `notify`, `notifyClient`) passe par le peer → `WsConnectionTransport.send` (`rt/.../transport/WsConnectionTransport.ts:76`) qui écrit sur `ctx.connection` brute avec garde `readyState === OPEN` (`:77`). Ne JAMAIS écrire `ctx.connection.send(...)` à la main sans cette garde : le transport gère aussi la **back-pressure 2 seuils** (DROP 1 MiB latest-wins `:91` / CLOSE 1013 à 8 MiB `:86`) et les compteurs sonde — bypasser = file `ws` non bornée → OOM.
+- **Push hors action = conn brute, pas `ctx.send()`.** Après le handshake, `ctx.send()` (réponse HTTP) **rejette** (`requestEnded`). Tout push (fan-out, `notify`, `notifyClient`) passe par le peer → `WsConnectionTransport.send` (`rt/.../transport/WsConnectionTransport.ts:76`) qui écrit sur `ctx.connection` brute avec garde `readyState === OPEN` (`:77`). Ne JAMAIS écrire `ctx.connection.send(...)` à la main sans cette garde : le transport gère aussi la **back-pressure 2 seuils** (DROP latest-wins / CLOSE 1013, réglables par `config.backpressure`) et les compteurs sonde — bypasser = file `ws` non bornée → OOM.
 
 - **Cleanup symétrique connect/close.** Chaque ressource posée au handshake DOIT être retirée sur `ctx.once("onFinish")` (`onHandshake:422`) : désabonner CHAQUE canal (`hub.unsubscribe` par sink → le hub dispose le provider au dernier), `hub.unregisterConnection(transport)` (sonde), `transport.fireClose()`, `peer.dispose()`. Règle générale : `registerConnection`↔`unregisterConnection`, `subscribe`↔`unsubscribe`. Un sink oublié = provider/timer orphelin + fuite mémoire (gate `memory.test`).
 

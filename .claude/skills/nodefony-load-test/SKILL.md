@@ -102,6 +102,39 @@ METHOD=POST BODY='{"x":1}' URL=https://127.0.0.1:5152/nodefony/test/... run.sh h
 
 ENV : `URL` `N`(1000) `C`(50) `METHOD`(GET) `BODY`.
 
+### Contre-pression WS sur socket RÉELLE (`ws-backpressure-e2e.mjs`) — ⚠️ non encore vert
+
+Éprouve les seuils `config.backpressure` (`dropBytes` → la frame est jetée ;
+`closeBytes` → fermeture `1013`) sur une **vraie** socket : le client suspend la
+lecture (`ws._socket.pause()`), la fenêtre TCP se referme, et la file du serveur
+enfle pour de bon. Les tests unitaires posent `bufferedAmount` à la main — ils
+prouvent la logique du seuil, **jamais la physique du transport**. D'où ce banc.
+
+**Décor obligatoire** (sans lui le banc ne mesure rien, ou refuse) :
+
+1. seuils BAS dans la config de l'app — sinon il faut pousser 8 Mio pour voir la
+   fermeture : `use("@nodefony/realtime", { backpressure: { dropBytes: 65536, closeBytes: 262144 } })` ;
+2. endpoint de banc monté : `NF_BENCH_WS_BACKPRESSURE=1` (il n'existe jamais par
+   défaut — un endpoint qui inonde une connexion sur demande est une amplification) ;
+3. serveur démarré **avec les deux** :
+   `NF_BENCH_WS_BACKPRESSURE=1 bash .claude/skills/nodefony-start-server/start.sh`
+
+```bash
+node .claude/skills/nodefony-load-test/scripts/ws-backpressure-e2e.mjs
+FRAMES=800 BYTES=32768 node .claude/skills/nodefony-load-test/scripts/ws-backpressure-e2e.mjs
+```
+
+> 🔴 **État : le banc n'a JAMAIS été vu vert.** Le décor est en place (endpoint
+> `/nodefony/test/bench/backpressure`, module test), mais le **verrou de frame**
+> refuse `subscribe` et l'action (`realtime:denied {reason:"forbidden"}` puis
+> `-32001 unauthorized`) pour une connexion anonyme, alors que le canal
+> `bench:flood` ne porte aucune politique déclarée et n'est pas dans un namespace
+> réservé — la cause n'est pas isolée. **Ne pas contourner la garde pour faire
+> passer le banc** : soit le refus est légitime et le décor doit fournir une
+> identité, soit c'est un défaut du verrou, et c'est alors ce défaut qui compte.
+> Tant que ce banc n'est pas vert, la contre-pression est prouvée **en logique**
+> (unitaires + e2e loopback) et **pas en conditions réelles**.
+
 ### Charge du HUB realtime (`hub-load.mjs`) — panneau `/nodefony/hub`
 
 Fait bouger la sonde de **la Socket Nodefony** (`RealtimeHub.probe` → endpoint

@@ -33,6 +33,8 @@ import PocBookResourceController from "./nodefony/poc/PocBookResourceController"
 // P6 J1 — banc ZONE PROTÉGÉE (dossier secure/ = préfixe /secure = zone "test-secure").
 import SecureController from "./nodefony/secure/SecureController";
 import PipelineOrderController from "./nodefony/controller/PipelineOrderController";
+// Décor de banc contre-pression WS — monté SEULEMENT sous interrupteur (voir plus bas).
+import BackpressureRealtimeController from "./nodefony/controller/BackpressureRealtimeController";
 // P6 J8 — banc preuve garde @IsGranted côté WS via api.request (/nodefony/test/api/*).
 import SecureWsController from "./nodefony/secure/SecureWsController";
 // P6 J8 (volet b) — endpoint realtime JWT Bearer (zone test-api) pour prouver la
@@ -61,6 +63,12 @@ import { DrizzleOrm } from "@nodefony/drizzle";
 
 /** Nom du connecteur Drizzle dédié à la fixture Dolibarr (clé `ormRegistry`). */
 const DOLIBARR_ORM = "dolibarr";
+
+/**
+ * Un endpoint capable d'inonder une connexion est une amplification offerte à
+ * qui la demande : il n'existe que le temps d'une mesure, jamais par défaut.
+ */
+const BENCH_WS_BACKPRESSURE = process.env.NF_BENCH_WS_BACKPRESSURE === "1";
 
 @services([])
 @controllers([
@@ -95,6 +103,8 @@ const DOLIBARR_ORM = "dolibarr";
   ApiM2mController,
   // P6.8 — banc démo idempotence userland (@Idempotent, /nodefony/test/secure/idempotent/*)
   IdempotentDemoController,
+  // Décor du banc de contre-pression WS (opt-in `NF_BENCH_WS_BACKPRESSURE=1`)
+  ...(BENCH_WS_BACKPRESSURE ? [BackpressureRealtimeController] : []),
   // POC API souveraine (JETABLE)
   PocBookController,
   PocInvokeController,

@@ -47,7 +47,9 @@ defineRealtimeConfig({
   enabled: true,
   backplane: { driver: "loopback" }, // "loopback" | "cluster" | "redis" | "kafka"
   cluster: { probe: { enabled: true } }, // sonde agrégée pod (Phase 4c)
-  slowConsumer: { bytes: 1 << 20 }, // 1 MiB — seuil backpressure WS
+  slowConsumer: { bytes: 1 << 20 }, // 1 MiB — seuil de COMPTAGE de la sonde (OBSERVE)
+  backpressure: { dropBytes: 1 << 20, closeBytes: 8 << 20 }, // AGIT : jette puis ferme (1013)
+  limits: { maxChannelsPerConnection: 256 },
 });
 
 // Backplane custom userland (NATS, Pulsar…) — hors schéma sérialisable
@@ -61,6 +63,14 @@ defineRealtimeConfig(
 // JSON Schema (Studio, exclut backplane.instance)
 realtimeConfigJsonSchema();
 ```
+
+**`slowConsumer` ≠ `backpressure`** : le premier ne règle que le compteur `slowConsumers` de la sonde,
+le second agit sur le transport de CHAQUE connexion (drop latest-wins, puis close 1013). Chemin :
+`config` → `RealtimeService.init` → `hub.setBackpressureBytes` → lu par `RealtimeController` au
+handshake → `new WsConnectionTransport(conn, seuils)`. `closeBytes > dropBytes` imposé par un `refine`
+(fermer avant d'avoir jeté rendrait le drop inatteignable). **Jamais annoncé au client** : il a le
+close `1013` (transitoire → reconnexion) + son AIMD, qui suit le comportement, pas une valeur déclarée
+— seuils par pod, une valeur annoncée serait fausse dès la reconnexion ailleurs.
 
 **Piège Zod 4** : `.default({})` plat NE déclenche PAS les sous-défauts internes
 → pattern obligatoire `.default(() => subSchema.parse({}))` partout dans `config.ts`.
