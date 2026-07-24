@@ -7,6 +7,10 @@ import {
   signal,
 } from "@angular/core";
 import { NODEFONY_LOGO } from "../brand";
+// Mise en page et palette de la démonstration — feuille PARTAGÉE par les trois
+// vitrines ; `accent.css` n'y ajoute que la couleur du framework.
+import "../showcase.css";
+import "../accent.css";
 
 interface ApiData {
   hello: string;
@@ -199,57 +203,6 @@ interface SecureData {
       </main>
     </div>
   `,
-  styles: [
-    `
-      app-root { display: block; }
-      body { margin: 0; }
-      :root { --nf-bg:#f7f9fc; --nf-fg:#1a1f26; --nf-card:#fff; --nf-border:#e2e8f0; --nf-dim:#5b6472; }
-      @media (prefers-color-scheme: dark) {
-        :root { --nf-bg:#12161c; --nf-fg:#e8ecf1; --nf-card:#1a2028; --nf-border:#2a3340; --nf-dim:#98a2b3; }
-      }
-      .nf-split { display:flex; min-height:100vh; font-family:system-ui, sans-serif;
-                  background:var(--nf-bg); color:var(--nf-fg); }
-      .nf-hero { flex:1.05; position:relative; overflow:hidden; color:#fff;
-                 display:flex; flex-direction:column; justify-content:space-between;
-                 padding:48px; box-sizing:border-box;
-                 background:linear-gradient(140deg,#022c4e 0%,#004d8c 45%,#0067ba 100%); }
-      .nf-glow { position:absolute; inset:0; pointer-events:none;
-                 background:radial-gradient(circle at 26% 16%, rgba(255,255,255,.16), transparent 46%),
-                            radial-gradient(circle at 88% 92%, rgba(255,255,255,.08), transparent 42%); }
-      .nf-hero h1 { font-size:clamp(30px,3.4vw,42px); font-weight:800; line-height:1.12; margin:0; }
-      .nf-hero .nf-sub { font-size:18px; color:rgba(255,255,255,.82); margin:10px 0 0; }
-      .nf-feature { display:flex; gap:14px; align-items:flex-start; margin-top:22px; }
-      .nf-ficon { width:42px; height:42px; border-radius:10px; flex:none; display:grid; place-items:center;
-                  background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.18); }
-      .nf-ficon svg { width:22px; height:22px; fill:#fff; stroke:#fff; }
-      .nf-fdesc { font-size:14px; color:rgba(255,255,255,.78); }
-      .nf-main { flex:1; padding:48px 40px; box-sizing:border-box; overflow-y:auto; }
-      .nf-card { background:var(--nf-card); border:1px solid var(--nf-border); border-radius:10px;
-                 padding:20px; margin-bottom:18px; }
-      .nf-card h2 { margin:0 0 10px; font-size:17px; }
-      .nf-card pre { background:rgba(127,127,127,.08); padding:10px; border-radius:6px; overflow-x:auto; }
-      .nf-card input { padding:7px 10px; border-radius:6px; border:1px solid var(--nf-border);
-                       background:var(--nf-bg); color:var(--nf-fg); margin-right:6px; }
-      .nf-card button { padding:7px 14px; border-radius:6px; border:none; cursor:pointer;
-                        background:#0067ba; color:#fff; font-weight:600; }
-      .nf-card button:hover { background:#0a79d6; }
-      .nf-dim { color:var(--nf-dim); font-size:14px; }
-      .nf-fwhead { display:flex; align-items:center; gap:16px; margin-bottom:8px; }
-      .nf-fwhead h1 { margin:0; }
-      .nf-fwlogo { width:52px; height:auto; flex:none;
-                   filter:drop-shadow(0 6px 14px rgba(221,0,49,.28));
-                   animation:nf-pulse 4s ease-in-out infinite; }
-      @keyframes nf-pulse { 0%, 100% { transform:scale(1); } 50% { transform:scale(1.07); } }
-      .nf-fwbadge { display:inline-block; margin-top:4px; padding:2px 10px; border-radius:999px;
-                    font-size:12.5px; font-weight:600; color:#dd0031;
-                    background:rgba(221,0,49,.10); border:1px solid rgba(221,0,49,.30); }
-      .nf-hello { margin-left:auto; padding:7px 16px; border-radius:999px; font-weight:700;
-                  font-size:15px; color:#2ea043; white-space:nowrap;
-                  background:rgba(46,160,67,.12); border:1px solid rgba(46,160,67,.35); }
-      a { color:#0a79d6; }
-      @media (max-width: 920px) { .nf-split { flex-direction:column; } .nf-hero { padding:32px 24px; } }
-    `,
-  ],
 })
 export class AppComponent implements OnInit, OnDestroy {
   readonly ngVersion = VERSION.full;

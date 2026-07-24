@@ -7,7 +7,13 @@
     // nodefony sont leurs SOURCES TS, qui utilisent des APIs ES2025+
     // (RegExp.escape…) — même choix que les tsconfigs du framework.
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": ["node"],
+<% if (it.front) { %>    // `vite/client` déclare ce que Vite sait importer et que TypeScript ignore :
+    // les feuilles de style, les images, `import.meta.env`. Sans lui, un
+    // `import "./styles.css"` fait échouer `npm run typecheck` (TS2882) alors
+    // que la page se construit et s'affiche parfaitement.
+    "types": ["node", "vite/client"],
+<% } else { %>    "types": ["node"],
+<% } %>
     "rootDir": "./",
     "outDir": "./dist",
     "strict": true,

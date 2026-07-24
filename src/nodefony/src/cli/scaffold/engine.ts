@@ -532,6 +532,10 @@ function dispatchScaffold(
   const front = frontend !== "none" ? FRONTEND_PARAMS[frontend] : null;
   const data = {
     appName: answers.name,
+    // Nom de la fonction de déclaration d'entry, et nom de l'entry Vite —
+    // mêmes clés que `create front`, puisque c'est le MÊME template qui les rend.
+    pascal: toPascalCase(String(answers.name)),
+    entryName: answers.name,
     nodefonyVersion: version,
     // Catalogue de versions tierces (source unique — cf versions.ts).
     pkg: SCAFFOLD_VERSIONS,
@@ -555,6 +559,34 @@ function dispatchScaffold(
   const templates = path.join(packageRoot, "templates", request.type);
   const written: string[] = [];
   renderLayer(eta, path.join(templates, "base"), dest, data, written, writer);
+  // Controller d'accueil : rendu par le template de `create controller --kind
+  // hello`, PAS par une copie propre à l'app. Le premier exemple que
+  // l'utilisateur lit est ainsi celui que la commande lui régénérera — et
+  // corriger cet exemple le corrige aux deux endroits à la fois.
+  //
+  // Data DÉDIÉE (et non le `data` de l'app) : ce layer parle le vocabulaire
+  // d'un controller ; mélanger les deux jeux de clés ferait qu'un renommage
+  // dans l'un casserait l'autre en silence.
+  renderLayer(
+    eta,
+    path.join(packageRoot, "templates", "controller", "hello"),
+    dest,
+    {
+      nameClass: "HelloController",
+      kebab: "hello",
+      route: "/api",
+      // L'action d'index reste sur `/api/hello` (et non `/api`) : c'est l'URL
+      // que le README, le test e2e généré et les trois vitrines montrent.
+      indexPath: "/hello",
+      helloName: answers.name,
+      // Route protégée seulement si le manifeste généré déclare la zone
+      // `secure` — c'est le preset complete qui embarque @nodefony/security.
+      secureRoute: preset === "complete",
+    },
+    written,
+    writer,
+    { __NAME__: "HelloController" },
+  );
   if (preset === "complete") {
     renderLayer(
       eta,
@@ -577,7 +609,7 @@ function dispatchScaffold(
       writer,
     );
     // `shared/` = ce qui est commun aux 3 frameworks (controller HTML+CSP) ;
-    // le layer du framework n'apporte que son entry/App.
+    // le layer du framework n'apporte que son App.
     renderLayer(
       eta,
       path.join(templates, "frontend", "shared"),
@@ -585,6 +617,31 @@ function dispatchScaffold(
       data,
       written,
       writer,
+    );
+    // Point de montage du framework — brique PARTAGÉE avec `create front`
+    // (`shared/front-entry/`) : ces trois fichiers ne dépendent que du
+    // framework, jamais de ce qui les entoure. Les tenir en deux exemplaires
+    // faisait qu'une correction n'atteignait qu'une commande sur deux.
+    renderLayer(
+      eta,
+      path.join(packageRoot, "templates", "shared", "front-entry", frontend),
+      dest,
+      data,
+      written,
+      writer,
+    );
+    // Déclaration de l'entry auprès du FrontendService — UN fichier documenté,
+    // le même pour une app et pour un module. L'app l'inlinait dans son
+    // `index.ts` : deux rédactions du même geste, dont une seule portait le
+    // TSDoc qui explique `apiProxyPaths` (le piège n°1 du dev multi-origine).
+    renderLayer(
+      eta,
+      path.join(packageRoot, "templates", "shared", "front-registrar"),
+      dest,
+      data,
+      written,
+      writer,
+      { __PASCAL__: toPascalCase(String(answers.name)) },
     );
     renderLayer(
       eta,
@@ -1004,6 +1061,12 @@ function runControllerScaffold(
     route,
     channel: kebab,
     hasSecurity: targetDeps.has("@nodefony/security"),
+    // Le controller créé à la demande monte son index à la racine de SON
+    // préfixe (`/api/blog`), et n'expose pas de route protégée : celle-ci
+    // n'aurait aucune zone firewall qui la couvre (cf le template `hello`).
+    indexPath: "",
+    helloName: kebab,
+    secureRoute: false,
   };
   renderLayer(
     eta,
@@ -1509,6 +1572,8 @@ function runFrontScaffold(
     nameClass,
     pascal,
     kebab,
+    // Nom de l'entry Vite (même clé que `create app` — le registrar est partagé).
+    entryName: kebab,
     route,
     frontend,
     front,
@@ -1534,9 +1599,29 @@ function runFrontScaffold(
     writer,
     tokens,
   );
+  // Même déclaration d'entry que `create app` (source unique).
+  renderLayer(
+    eta,
+    path.join(packageRoot, "templates", "shared", "front-registrar"),
+    target.dir,
+    data,
+    written,
+    writer,
+    tokens,
+  );
   renderLayer(
     eta,
     path.join(packageRoot, "templates", "front", frontend),
+    target.dir,
+    data,
+    written,
+    writer,
+    tokens,
+  );
+  // Même point de montage que `create app` (source unique).
+  renderLayer(
+    eta,
+    path.join(packageRoot, "templates", "shared", "front-entry", frontend),
     target.dir,
     data,
     written,

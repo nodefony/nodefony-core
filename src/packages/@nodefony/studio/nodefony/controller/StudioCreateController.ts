@@ -77,7 +77,9 @@ class StudioCreateController extends Controller {
         403,
       );
     }
-    // La spec est un TABLEAU de types ; on ne garde que ceux que Studio expose (pas `app`).
+    // La spec est un TABLEAU de types ; on ne garde que ceux que Studio expose
+    // (cf `STUDIO_TYPES` — `app` en fait partie, avec sa destination recomposée
+    // côté serveur).
     const specs = getScaffoldSpec().filter((s) =>
       (STUDIO_TYPES as readonly string[]).includes(s.type),
     );

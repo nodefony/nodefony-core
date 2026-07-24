@@ -333,6 +333,65 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  describe("controller d'accueil — un seul gabarit pour l'app et la commande", () => {
+    /** Le HelloController rendu par `create app`, tel quel. */
+    const helloOf = (dest: string) =>
+      readFileSync(
+        path.join(dest, "nodefony", "controllers", "HelloController.ts"),
+        "utf8",
+      );
+
+    it("l'app garde /api/hello et son payload (README, e2e et vitrines en dépendent)", () => {
+      const dest = path.join(tmp, "happ");
+      scaffold(dest, { name: "happ", preset: "complete", frontend: "none" });
+      const src = helloOf(dest);
+      assert.include(src, '@controller("/api")');
+      assert.include(src, 'path: "/hello"');
+      assert.include(src, 'hello: "happ"');
+      // Route protégée : seulement quand une zone `secure` existe (preset complete).
+      assert.include(src, 'path: "/secure/hello"');
+      // Le test e2e généré interroge cette route et compare ce payload : les
+      // deux templates doivent rester d'accord.
+      const e2e = readFileSync(path.join(dest, "tests", "e2e.test.ts"), "utf8");
+      assert.include(e2e, "/api/hello");
+      assert.include(e2e, 'expect(body.hello).toBe("happ")');
+      assertNoEtaResidue(dest);
+    });
+
+    it("sans security, aucune route protégée n'est promise", () => {
+      const dest = path.join(tmp, "hmini");
+      scaffold(dest, { name: "hmini", preset: "minimal", frontend: "none" });
+      const src = helloOf(dest);
+      assert.include(src, 'path: "/hello"');
+      assert.notInclude(src, "/secure/hello");
+      assert.notInclude(src, 'zone: "secure"');
+    });
+
+    it("create controller --kind hello : index à la racine de SON préfixe, pas de route protégée", () => {
+      const dest = path.join(tmp, "hctrl");
+      scaffold(dest, { name: "hctrl", preset: "complete", frontend: "none" });
+      runScaffold(
+        {
+          type: "controller",
+          answers: { name: "blog", kind: "hello" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const src = readFileSync(
+        path.join(dest, "nodefony", "controllers", "BlogController.ts"),
+        "utf8",
+      );
+      assert.include(src, '@controller("/api/blog")');
+      assert.include(src, 'path: ""');
+      // La zone `secure` du manifeste ne couvre PAS /api/blog/secure/… :
+      // générer la route ici enseignerait une protection qui n'existe pas.
+      assert.notInclude(src, "/secure/hello");
+      assert.include(src, 'hello: "blog"');
+    });
+  });
+
   describe("moteur — choix frontend", () => {
     it("react : entry tsx + AppController + registerEntry + deps + jsx", () => {
       const dest = path.join(tmp, "rapp");
@@ -355,9 +414,18 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.property(pkg["dependencies"], "react");
       assert.property(pkg["dependencies"], "@nodefony/frontend");
       assert.property(pkg["devDependencies"], "@vitejs/plugin-react");
+      // L'entry se déclare dans le fichier PARTAGÉ avec `create front` — pas
+      // inlinée dans l'index : l'app et un module écrivent le même geste.
+      const registrar = readFileSync(
+        path.join(dest, "nodefony", "frontend", "registerRappEntry.ts"),
+        "utf8",
+      );
+      assert.include(registrar, 'type: "react19"');
+      assert.include(registrar, "apiProxyPaths");
+      assert.include(registrar, 'name: "rapp"');
       const index = readFileSync(path.join(dest, "index.ts"), "utf8");
-      assert.include(index, 'type: "react19"');
-      assert.include(index, "apiProxyPaths");
+      assert.include(index, "registerRappEntry(this);");
+      assert.notInclude(index, "registerEntry(this, {");
       const tsconfig = readFileSync(path.join(dest, "tsconfig.json"), "utf8");
       assert.include(tsconfig, "react-jsx");
       assertNoEtaResidue(dest);
@@ -370,7 +438,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const vpkg = readJson(path.join(vdest, "package.json"));
       assert.property(vpkg["dependencies"], "vue");
       assert.include(
-        readFileSync(path.join(vdest, "index.ts"), "utf8"),
+        readFileSync(
+          path.join(vdest, "nodefony", "frontend", "registerVappEntry.ts"),
+          "utf8",
+        ),
         'type: "vue3"',
       );
 
@@ -387,6 +458,103 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const apkg = readJson(path.join(adest, "package.json"));
       assert.property(apkg["devDependencies"], "@analogjs/vite-plugin-angular");
       assertNoEtaResidue(adest);
+    });
+
+    it("la feuille de style de la vitrine est PARTAGÉE, l'accent seul est local", () => {
+      // Le CSS de démonstration existait en trois copies (mise en page, palette,
+      // composants), dont seule la couleur du framework différait. La feuille
+      // est désormais unique ; ce test vérifie les deux moitiés du contrat :
+      // (a) la feuille est bien la même partout, (b) chaque accent définit
+      // TOUTES les variables qu'elle consomme — sinon la page part sans son
+      // logo animé et sans badge, silencieusement.
+      const rendered = new Map<string, { showcase: string; accent: string }>();
+      for (const fw of ["react", "vue", "angular"]) {
+        const dest = path.join(tmp, `css-${fw}`);
+        scaffold(dest, { name: `css-${fw}`, preset: "minimal", frontend: fw });
+        const src = path.join(dest, "frontend", "src");
+        rendered.set(fw, {
+          showcase: readFileSync(path.join(src, "showcase.css"), "utf8"),
+          accent: readFileSync(path.join(src, "accent.css"), "utf8"),
+        });
+      }
+      const [first, ...others] = [...rendered.values()];
+      for (const other of others) {
+        assert.equal(other.showcase, first.showcase, "la feuille a divergé");
+      }
+      const used = new Set(
+        [...first.showcase.matchAll(/var\((--nf-[\w-]+)\)/gu)].map((m) => m[1]),
+      );
+      // Les variables de palette sont définies par la feuille elle-même ; ne
+      // restent à la charge de l'accent que celles qui portent la couleur.
+      const fromAccent = [...used].filter(
+        (v) => !first.showcase.includes(`${v}:`),
+      );
+      assert.isNotEmpty(
+        fromAccent,
+        "aucune variable d'accent — test inopérant",
+      );
+      for (const [fw, { accent }] of rendered) {
+        for (const variable of fromAccent) {
+          assert.include(
+            accent,
+            `${variable}:`,
+            `${fw} ne définit pas ${variable}`,
+          );
+        }
+        // L'animation nommée par la variable doit exister LÀ où elle est posée
+        // (un `@keyframes` déclaré dans les styles d'un composant Angular est
+        // renommé par l'encapsulation — l'animation serait introuvable).
+        const anim = /--nf-logo-anim:\s*([\w-]+)/u.exec(accent)?.[1];
+        assert.isString(anim, `${fw} : animation du logo non nommée`);
+        assert.include(
+          accent,
+          `@keyframes ${anim}`,
+          `${fw} : ${anim} non déclarée`,
+        );
+      }
+    });
+
+    it("ce que le front importe et que TypeScript ignore est DÉCLARÉ", () => {
+      // Un `import "./showcase.css"` se construit et s'affiche parfaitement,
+      // mais fait échouer le `npm run typecheck` de l'app générée (TS2882) tant
+      // que `vite/client` n'est pas dans `types` — une app livrée avec un gate
+      // rouge d'emblée. Le contrôle est posé sur la RÈGLE, pas sur le CSS :
+      // ajouter demain un import d'image le fera tomber aussi.
+      for (const fw of ["react", "vue", "angular"]) {
+        const dest = path.join(tmp, `decl-${fw}`);
+        scaffold(dest, { name: `decl-${fw}`, preset: "minimal", frontend: fw });
+        const imports: string[] = [];
+        for (const entry of readdirSync(path.join(dest, "frontend", "src"), {
+          recursive: true,
+          withFileTypes: true,
+        })) {
+          if (!entry.isFile() || !/\.(ts|tsx|vue)$/u.test(entry.name)) continue;
+          const src = readFileSync(
+            path.join(entry.parentPath, entry.name),
+            "utf8",
+          );
+          for (const m of src.matchAll(
+            /from\s+"([^"]+)"|import\s+"([^"]+)"/gu,
+          )) {
+            const spec = m[1] ?? m[2];
+            // Un specifier relatif portant une extension que tsc ne compile pas.
+            if (
+              /^\.{1,2}\//u.test(spec) &&
+              /\.\w+$/u.test(spec) &&
+              !/\.(ts|tsx)$/u.test(spec)
+            ) {
+              imports.push(spec);
+            }
+          }
+        }
+        if (imports.length === 0) continue;
+        const tsconfig = readFileSync(path.join(dest, "tsconfig.json"), "utf8");
+        assert.include(
+          tsconfig,
+          "vite/client",
+          `${fw} importe ${imports.join(", ")} sans déclaration de type`,
+        );
+      }
     });
 
     it("none : aucun fichier frontend, pas d'AppController", () => {
@@ -1061,6 +1229,39 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(ctrl, 'renderDocument("dashboard"');
       assert.include(ctrl, 'path: "/dashboard"');
       assertNoEtaResidue(dest);
+    });
+
+    it("app-avec-front et front-ajouté partagent la MÊME source", () => {
+      // Le gate de la mutualisation : `create app --frontend react` et
+      // `create front --frontend react` rendaient chacun leur copie de l'entry
+      // et de la déclaration. Comparer les deux sorties octet pour octet est la
+      // seule façon de s'assurer que personne ne re-duplique le template — une
+      // divergence future casse ce test, pas un rendu de page dans six mois.
+      const withFront = path.join(tmp, "twin-a");
+      scaffold(withFront, {
+        name: "twin",
+        preset: "minimal",
+        frontend: "react",
+      });
+      // `complete` : c'est ce preset qui embarque @nodefony/frontend sans front
+      // choisi — le décor minimal pour qu'un front puisse être AJOUTÉ ensuite.
+      const added = path.join(tmp, "twin-b");
+      scaffold(added, { name: "twin-b", preset: "complete", frontend: "none" });
+      front(added, { name: "twin", frontend: "react" });
+
+      const read = (root: string, ...rel: string[]) =>
+        readFileSync(path.join(root, ...rel), "utf8");
+      // Le point de montage ne porte aucune variable : strictement identique.
+      assert.equal(
+        read(added, "frontend", "src", "main.tsx"),
+        read(withFront, "frontend", "src", "main.tsx"),
+      );
+      // La déclaration d'entry ne diffère que par le nom de l'entry Vite —
+      // ici le même (« twin ») de part et d'autre, donc égalité stricte aussi.
+      assert.equal(
+        read(added, "nodefony", "frontend", "registerTwinEntry.ts"),
+        read(withFront, "nodefony", "frontend", "registerTwinEntry.ts"),
+      );
     });
 
     it("cible avec un front DÉJÀ posé → throw actionnable", () => {

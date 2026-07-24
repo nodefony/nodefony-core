@@ -1,7 +1,7 @@
 import { Module } from "nodefony";
 import type { Kernel } from "nodefony";
 import { controllers } from "@nodefony/framework";
-<% if (it.front) { %>import type { FrontendService } from "@nodefony/frontend";
+<% if (it.front) { %>import { register<%= it.pascal %>Entry } from "./nodefony/frontend/register<%= it.pascal %>Entry";
 <% } %>import config from "./nodefony.config";
 import HelloController from "./nodefony/controllers/HelloController";
 <% if (it.front) { %>import AppController from "./nodefony/controllers/AppController";
@@ -39,25 +39,13 @@ class App extends Module {
    * Déclare l'entry frontend <%= it.frontend %> auprès du FrontendService —
    * AVANT `onKernelReady` pour que le superviseur Vite démarre avec elle.
    * En dev : HMR ; en prod : build pré-compilé servi en statics.
+   *
+   * Le DÉTAIL de l'entry (type, racine Vite, proxy d'API) vit dans
+   * `nodefony/frontend/register<%= it.pascal %>Entry.ts` — même fichier, même
+   * forme que pour un module créé par `nodefony create front`.
    */
   override async onKernelBoot(): Promise<this> {
-    const svc = this.kernel?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
-    if (!svc) {
-      this.log("@nodefony/frontend service not registered", "ERROR");
-      return this;
-    }
-    svc.registerEntry(this, {
-      type: "<%= it.front.type %>",
-      entry: "<%= it.front.entry %>",
-      root: "./frontend",
-      outDir: "./public/dist",
-      name: "<%= it.appName %>",
-      // Sans ça, un fetch("/api/…") depuis la page servie par Vite tape Vite
-      // (qui répond son SPA-fallback HTML) au lieu du backend (piège n°1).
-      apiProxyPaths: ["/api"],
-    });
+    register<%= it.pascal %>Entry(this);
     return this;
   }
 <% } %>}

@@ -2,7 +2,7 @@ import type { Module } from "nodefony";
 import type { FrontendService } from "@nodefony/frontend";
 
 /**
- * Déclare l'entry Vite « <%= it.kebab %> » auprès de `@nodefony/frontend`.
+ * Déclare l'entry Vite « <%= it.entryName %> » auprès de `@nodefony/frontend`.
  *
  * À appeler depuis le hook `onKernelBoot()` du module propriétaire — AVANT
  * `onKernelReady` : le superviseur Vite démarre avec la liste COMPLÈTE des
@@ -17,7 +17,7 @@ import type { FrontendService } from "@nodefony/frontend";
  *  - `root`   : racine Vite du module (contient index.html + src/) ;
  *  - `outDir` : sortie du build prod (montée en statique par le framework) ;
  *  - `name`   : nom de l'entry — le MÊME que celui passé à
- *    `renderDocument("<%= it.kebab %>", nonce)` par le controller de page ;
+ *    `renderDocument("<%= it.entryName %>", nonce)` par le controller de page ;
  *  - `apiProxyPaths` : chemins re-proxifiés de Vite vers Nodefony en dev —
  *    sans eux, un `fetch("/api/…")` depuis la page servie par Vite reçoit le
  *    SPA-fallback HTML de Vite au lieu du JSON (piège n°1 du multi-origine).
@@ -35,7 +35,7 @@ export function register<%= it.pascal %>Entry(module: Module): void {
     entry: "<%= it.front.entry %>",
     root: "./frontend",
     outDir: "./public/dist",
-    name: "<%= it.kebab %>",
+    name: "<%= it.entryName %>",
     apiProxyPaths: ["/api"],
   });
 }
