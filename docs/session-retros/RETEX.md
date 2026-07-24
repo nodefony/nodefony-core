@@ -176,12 +176,13 @@
 
 ## 🧨 Une commande composée refusée n'exécute RIEN — et le run suivant ment
 
-- `[1× — 2026-07-24]` **Un `cd` relatif refusé par le hook a emporté le `cat >> …` qui suivait dans la même ligne.** Mes tests n'ont jamais été écrits ; j'ai relancé la suite, lu « 12 passed » et cru qu'ils passaient. Le compte était celui des tests d'AVANT. **Après un refus d'outil sur une commande composée, considérer que RIEN n'a tourné** — et vérifier le nombre de tests attendu, pas seulement la couleur. Corollaire : écrire un fichier par l'outil d'édition, jamais par heredoc dans un enchaînement.
+- `[2× — 2026-07-25]` **Un maillon en échec dans une chaîne `&&` fait mentir la mesure d'après.** (1) Un `cd` relatif refusé a emporté le `cat >>` suivant : tests jamais écrits, « 12 passed » = le compte d'AVANT. (2) Ma contre-preuve dedupe : le `npm run build` du module échouait (tsgo refusait la valeur hors union) DANS la chaîne — le banc d'après mesurait l'ANCIEN dist et « prouvait » que le fix ne changeait rien. **Après tout échec dans une commande composée, considérer que RIEN d'aval n'a tourné** ; vérifier que l'artefact mesuré a bien été RÉGÉNÉRÉ (hash/mtime), pas seulement relancer la mesure.
 
 ## 🔁 Deux implémentations d'une même règle (et comment on s'en aperçoit)
 
 - `[1× — 2026-07-24]` ⭐ **La question du user « il faut utiliser celle de http au lieu de réinventer ? » a révélé une duplication que j'étais en train d'AGGRAVER.** Deux contre-pressions WS cohabitaient (`@nodefony/http` configurable et testée, une copie dans le transport realtime), déjà divergentes — 4 Mio contre 1 Mio — et je venais d'ajouter une SECONDE source de configuration au lieu de brancher la première. **Avant d'ajouter un réglage à un mécanisme, chercher si un module plus bas porte déjà la règle** : `grep` le concept, pas le nom de la clé.
 - `[1× — 2026-07-24]` **Une règle partagée se type STRUCTURELLEMENT, pas par la classe du fournisseur.** Le transport realtime évite volontairement d'importer `ws` ; la règle a donc été généralisée sur `{ bufferedAmount?, close() }` au lieu d'exiger un `Ws`. Sans ça, l'unification aurait imposé une dépendance à toute la couche.
+- `[1× — 2026-07-25]` ⭐ **Un correctif posé sur UN des deux chemins d'une même règle protège le seul chemin qu'on regarde.** `resolve.dedupe` (anti double-React des apps liées) vivait dans le fichier dev GÉNÉRÉ — avec le commentaire du piège — mais pas dans la config BUILD du ViteBuilder : vert en dev, crash au mount en prod (« useContext of null », vécu par le user). Deux générateurs de la même config Vite = deux implémentations d'une même règle ; quand on corrige l'un, `grep` le concept dans l'autre.
 
 ## 🕳️ Une garde qui ne peut PAS se déclencher
 
