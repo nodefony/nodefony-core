@@ -35,6 +35,15 @@ un seul framework (NestJS a le serveur sans l'IA ; LangChain l'IA sans le serveu
 **Piliers techniques réutilisés** : WS natif `@nodefony/http` = transport streaming LLM · DI
 Container = orchestration de sous-agents · multi-ORM = persistance audit/coûts.
 
+> ⚠️ **Le protocole n'a PAS de streaming RPC** — une action rend UNE valeur, aucune frame de
+> fragment n'existe. Une réception en morceaux avait été écrite sans qu'aucun serveur n'émette sa
+> contrepartie : retirée plutôt que publiée à moitié. Une réponse qui progresse passe aujourd'hui
+> par le motif **« travail + canal »** (l'action accuse réception, la progression arrive sur un
+> canal abonné) — ce qui suffit à un flux de jetons. **Concevoir le streaming RPC en P12, avec son
+> premier consommateur réel**, et seulement s'il apporte plus que le motif canal ; il devra alors
+> savoir **annuler** un flux en cours, **signaler une erreur au milieu** et **réguler le débit**,
+> ce qu'une simple suite de fragments ne sait pas faire.
+
 ### Modules IA — état réel (à revérifier au câblage de la phase)
 
 | Module                  | Rôle                                                      | Sous-phase |

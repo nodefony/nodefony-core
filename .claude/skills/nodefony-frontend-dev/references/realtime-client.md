@@ -13,7 +13,7 @@ Source : `src/nodefony/src/client/realtime/RealtimeClient.ts` (1108 l). Contrats
 3. [État de connexion & reconnexion](#3-etat-de-connexion--reconnexion)
 4. [Pub/sub : `subscribe`/`unsubscribe`/`on`/`publish` (ref-comptage)](#4-pubsub--subscribeunsubscribeonpublish-ref-comptage)
 5. [RPC : `request`, `mutate`, `ping`, `stream` + pont `api.request`](#5-rpc--request-mutate-ping-stream--pont-apirequest)
-6. [Duplex serveur→client : `register`/`notify`/`requestStream`](#6-duplex-serveurclient--registernotifyrequeststream)
+6. [Duplex serveur→client : `register`/`notify`](#6-duplex-serveurclient--registernotify)
 7. [Identité & découverte (`welcome`)](#7-identite--decouverte-welcome)
 8. [Notices & refus de canal](#8-notices--refus-de-canal)
 9. [Stats & inspecteur de frames](#9-stats--inspecteur-de-frames)
@@ -175,11 +175,9 @@ Helper réutilisable (topbar, debug bar) : mesure le round-trip via la méthode 
 
 ### `stream` — réponse en chunks
 
-```ts
-stream<TChunk>(method, params, onChunk: (c: TChunk) => void, timeoutMs = 120000): Promise<TChunk[]>;  // :665
-```
-
-Chunks émis avec le même `id`, terminés par `{ done: true }`. `onChunk` est appelé en live ; la Promise résout avec la liste des chunks au `done`. Pour les réponses token-by-token (LLM). Alias DX de `requestStream` (contrat peer, §6).
+> **Pas de streaming RPC.** Une action rend UNE valeur ; il n'existe aucune frame de fragment.
+> Pour une réponse qui progresse (LLM token par token, export long) : motif **« travail + canal »**
+> — l'action accuse réception, la progression arrive sur un canal `subscribe`.
 
 ### Erreur RPC
 
@@ -192,7 +190,7 @@ catch (e) { if (e instanceof RpcError && (e.data as any)?.status === 404) … }
 
 ---
 
-## 6. Duplex serveur→client : `register`/`notify`/`requestStream`
+## 6. Duplex serveur→client : `register`/`notify`
 
 Le client expose la surface bidirectionnelle isomorphe (`IRealtimePeer`) — un serveur peut le `request` (duplex réel serveur→client).
 
@@ -201,7 +199,6 @@ register<K>(method, handler): void;     // expose une action appelable PAR LE SE
 unregister<K>(method): void;            // (:721)
 get methods(): string[];                // actions exposées par CE client (découverte) (:726)
 notify<K>(method, params?): void;       // notification sortante typée (:687)
-requestStream<K>(method, params, onChunk, timeoutMs = 60000): Promise<…[]>;  // (:698)
 receive(frame): JsonRpcFrameKind;       // ingestion d'une frame entrante déjà parsée (:735)
 dispose(reason?): void;                 // annule les requêtes sortantes en attente (:743)
 ```

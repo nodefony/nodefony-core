@@ -190,27 +190,6 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
     });
   });
 
-  describe("requestStream() — chunks", () => {
-    it("accumule les chunks puis résout au done", async () => {
-      const { peer } = newPeer();
-      const chunks: unknown[] = [];
-      const p = peer.requestStream("gen", {}, (c) => chunks.push(c));
-      peer.receive({
-        jsonrpc: "2.0",
-        id: 1,
-        stream: { chunk: "a", done: false },
-      });
-      peer.receive({
-        jsonrpc: "2.0",
-        id: 1,
-        stream: { chunk: "b", done: true },
-      });
-      const all = await p;
-      expect(chunks).to.deep.equal(["a", "b"]);
-      expect(all).to.deep.equal(["a", "b"]);
-    });
-  });
-
   describe("notify() + methods + dispose()", () => {
     it("notify envoie une notification sans id", () => {
       const { peer, sent } = newPeer();

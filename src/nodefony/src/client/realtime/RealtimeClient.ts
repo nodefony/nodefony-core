@@ -728,27 +728,6 @@ export class RealtimeClient<
     return { ...res, rtt: Math.round(now() - t0) };
   }
 
-  /**
-   * Streaming response — chunks émis avec le même `id`, terminés par
-   * `{ done: true }`. Resolve avec la liste de chunks (et appelle
-   * `onChunk` en live).
-   */
-  async stream<TChunk = unknown>(
-    method: string,
-    params: unknown,
-    onChunk: (chunk: TChunk) => void,
-    timeoutMs = 120000,
-  ): Promise<TChunk[]> {
-    // Délègue au streaming du moteur (accumule les chunks + pousse `onChunk` en
-    // live, résout au `done`). Alias DX de {@link requestStream} (contrat peer).
-    return this.peer.requestStream(
-      method as never,
-      params as never,
-      onChunk as (chunk: unknown) => void,
-      timeoutMs,
-    ) as Promise<TChunk[]>;
-  }
-
   // ── Contrat IRealtimePeer (plan de contrôle, délégué au moteur) ─────────
   // Le client EXPOSE la surface bidirectionnelle isomorphe en composant le MÊME
   // `JsonRpcPeer` que la connexion serveur. `register` rend le client CALLEE : un
@@ -760,19 +739,6 @@ export class RealtimeClient<
     params?: EventPayload<Emit, K>,
   ): void {
     this.peer.notify(method, params);
-  }
-
-  /**
-   * Requête SORTANTE en streaming (chunks → `onChunk`, `Promise` résolue au `done`).
-   * Contrat {@link IRealtimePeer} ; {@link stream} en est l'alias DX permissif.
-   */
-  requestStream<K extends ActionNames<Actions>>(
-    method: K,
-    params: ActionParams<Actions, K>,
-    onChunk: (chunk: unknown) => void,
-    timeoutMs = 60000,
-  ): Promise<ActionResult<Actions, K>[]> {
-    return this.peer.requestStream(method, params, onChunk, timeoutMs);
   }
 
   /**
@@ -1134,7 +1100,6 @@ export class RealtimeClient<
       const p = m.params as { channel?: unknown } | undefined;
       if (p && typeof p.channel === "string") channel = p.channel;
     } else if ("error" in m) kind = "error";
-    else if ("stream" in m) kind = "stream";
     else if ("result" in m) kind = "response";
     return {
       ts,

@@ -20,7 +20,8 @@ import { PageHeader, PAGE_CONTENT_HEIGHT } from "../components/ui";
  * Chat IA temps réel — préfigure la vue agentic Nodefony (P12).
  *
  * Pour le POC, le `ChatStore` mock le streaming token-by-token. Quand P12
- * sera là, ChatStore.send() utilisera `RealtimeClient.stream("chat:send", ...)`.
+ * sera là, ChatStore.send() lancera le travail par une action et lira les jetons
+ * sur un canal abonné.
  */
 export const Chat = observer(() => {
   const chat = useChat();

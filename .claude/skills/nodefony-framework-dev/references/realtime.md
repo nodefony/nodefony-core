@@ -50,7 +50,6 @@ const off = c.on("dashboard:stats", (p) => {
   /* … */
 }); // off() pour se désabonner
 const data = await c.request<T>("method", params); // RPC requête/réponse
-await c.stream<TChunk>("method", params, (chunk) => {}); // RPC streaming
 // getters : state · subscribedChannels · framesReceived · frameLog (ring lazy : émis seulement si listener)
 ```
 
@@ -79,8 +78,9 @@ UNE fois, composé des 2 côtés. ZÉRO dépendance node (pub/sub via `Map`+call
 - **Discrimination par `method`, PAS par `id`** (règle absolue) : `method`+`id`=requête → `result`/`error` ;
   `method` seul=notification ; `id` sans `method`=réponse (matchée au pending, ignorée si aucun). `id` string|number.
   Inconnu → `-32601` ; handler qui throw → `-32603` **message générique** (détail via `onError`=Zero Trust).
-- API : `register/unregister/methods` (actions entrantes) · `request/requestStream/notify` (sortant) · `receive`
-  (entrant) · `dispose`. Bug à NE PAS refaire : le stream doit pousser dans `pending.chunks` (sinon résout `[]`).
+- API : `register/unregister/methods` (actions entrantes) · `request/requestTraced/notify` (sortant) · `receive`
+  (entrant) · `dispose`. **Pas de streaming RPC** : une action rend UNE valeur, aucune frame de fragment
+  n'existe. Réponse qui progresse (LLM, export long) → motif « travail + canal ».
 
 **`IRealtimeTransport` (core, seam)** — `connect/send/close/readyState` + `onOpen/onMessage/onClose/onError`.
 `TransportState` (0..3, aligné WebSocket). `BrowserWsTransport` (navigateur, wrap `WebSocket`) ; `WsConnectionTransport`
@@ -464,7 +464,7 @@ Getters : `state` · `identity` (résolue au `realtime:welcome`, `null` avant) �
 `core/src/realtime/JsonRpcPeer.ts:237` — moteur protocole **JSON-RPC 2.0** isomorphe, 0 dép Node (browser-safe). `import { JsonRpcPeer, RpcError } from "nodefony"`.
 
 - `new JsonRpcPeer(opts: JsonRpcPeerOptions)` `:250` — `opts = { send, onNotification?, onError?, beforeDispatch?, onFrameAudit? }` (`:116`).
-- Sortant : `request<K>(method, params?, timeoutMs=30000)` `:276` · `requestStream(...)` `:288` · `notify<K>(method, params?)` `:303`.
+- Sortant : `request<K>(method, params?, timeoutMs=30000)` `:276` · `notify<K>(method, params?)` `:303`.
 - Entrant/callee : `register<K>(method, handler)` `:255` · `unregister` `:266` · `receive(frame): JsonRpcFrameKind` `:315` · `methods` `:271` · `dispose(reason?)` `:378`.
 - `RpcError extends Error` `:70` — `{ code: number, data?: unknown }`, plage applicative `-32000..-32099`. **Seule** façon d'exposer un code/message au pair (tout autre throw → `-32603` opaque). Isomorphe : `catch (e) { if (e instanceof RpcError) e.data.status }`.
 
@@ -552,7 +552,7 @@ Backplane custom userland (NATS…) hors schéma sérialisable : `defineRealtime
 
 **Forward opt-in par canal** — `forward` mis en cache dans `ChannelState` au 1ᵉʳ abonné (`#isBroadcast` `:330`) → hot path lit un booléen. Défaut : tout **instance-local** (observabilité/état pod ne fuit pas cross-pod sans `markBroadcastChannel`). Un `publish` serveur sans abonné local évalue la politique à la volée (`:276`).
 
-**JSON-RPC 2.0 — discrimination par `method`, PAS par `id`** (`JsonRpcPeer.receive:315`) : `method`+`id` → **requête** (`handleRequest` → `result`/`error`) · `method` seul → **notification** (`onNotification`) · `id` sans `method` → **réponse** (résout un pending sortant). `id` string|number. Méthode inconnue → `-32601` ; handler qui throw → `-32603` générique (détail via `onError` = Zero Trust) ; `RpcError` lancée → renvoyée fidèlement (code/data préservés). `pending` et `actions` du peer sont **lazy** (`null` jusqu'au 1ᵉʳ `request`/`register`). Le streaming pousse dans `pending.chunks` (résout au `done`).
+**JSON-RPC 2.0 — discrimination par `method`, PAS par `id`** (`JsonRpcPeer.receive:315`) : `method`+`id` → **requête** (`handleRequest` → `result`/`error`) · `method` seul → **notification** (`onNotification`) · `id` sans `method` → **réponse** (résout un pending sortant). `id` string|number. Méthode inconnue → `-32601` ; handler qui throw → `-32603` générique (détail via `onError` = Zero Trust) ; `RpcError` lancée → renvoyée fidèlement (code/data préservés). `pending` et `actions` du peer sont **lazy** (`null` jusqu'au 1ᵉʳ `request`/`register`).
 
 **Gating inbound** (`RealtimeController.onRealtimeNotification:466`) — une notification entrante est routée : `subscribe`/`unsubscribe` (pub/sub), `ping` (heartbeat no-op), sinon `state.inbound[method]` → handler full-duplex **uniquement si déclaré** (`realtimeInbound`/`@RealtimeInbound`). Non déclaré = **droppé en silence** (défaut sûr : un client ne pousse rien tant que le serveur ne l'a pas ouvert). `state.inbound = null` si aucun déclaré → 0 lookup. Seam #1 (P6) : `beforeDispatch` branché sur le peer SEULEMENT si `hub.hasFrameAuthorizer()` (`onHandshake:308`) → hot-path 0-coût quand security absent.
 

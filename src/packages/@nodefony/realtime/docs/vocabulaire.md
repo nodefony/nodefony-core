@@ -460,7 +460,7 @@ Une enveloppe JSON-RPC 2.0. Sa **nature se lit sur `method`**, pas sur `id` : `m
 requête, `method` seul = notification, `id` seul = réponse. Tout le reste est invalide.
 
 `JsonRpcFrameKind` (`JsonRpcPeer.ts:133`). Le classement est fait par `JsonRpcPeer.receive()`
-(`JsonRpcPeer.ts:400`), qui **ne lève jamais**.
+(`JsonRpcPeer.ts:370`), qui **ne lève jamais**.
 
 ### `pair` (peer) — le moteur de protocole
 

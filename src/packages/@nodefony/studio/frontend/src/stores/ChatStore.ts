@@ -4,9 +4,9 @@ import type { RealtimeClient } from "nodefony";
 /**
  * ChatStore — prépare l'UI du chat IA temps réel.
  *
- * Pipeline cible (P12 — couche IA agentic + P13.7 streaming) :
- *  - user envoie un message → `client.stream("chat:send", { msg }, onToken)`
- *  - serveur stream les tokens LLM → mis à jour dans `currentResponse`
+ * Pipeline cible (P12 — couche IA agentic), motif « travail + canal » :
+ *  - user envoie un message → une action accuse réception
+ *  - les jetons du modèle arrivent sur un canal abonné → `currentResponse`
  *  - à la fin → flush dans `messages` + clear `currentResponse`
  *
  * Pour le POC, on garde la structure de données + un mock "echo" local.
@@ -38,8 +38,8 @@ export class ChatStore {
   }
 
   /**
-   * Envoie un message + reçoit la réponse streamée.
-   * POC : mock local. À remplacer par `client.stream("chat:send", ...)` en P12.
+   * Envoie un message + reçoit la réponse jeton par jeton.
+   * POC : mock local — le pipeline réel arrive en P12.
    */
   async send(content: string): Promise<void> {
     if (!content.trim() || this.isStreaming) return;
@@ -58,21 +58,11 @@ export class ChatStore {
     });
 
     try {
-      if (this.client.state === "connected") {
-        // Vraie API future :
-        await this.client.stream<{ token: string }>(
-          "chat:send",
-          { message: content },
-          (chunk) => {
-            runInAction(() => {
-              this.currentResponse += chunk.token;
-            });
-          },
-        );
-      } else {
-        // Mock local — simule un streaming token-by-token.
-        await this.mockStream(content);
-      }
+      // Mock local — simule une réponse jeton par jeton. Le pipeline réel (P12)
+      // passera par le motif « travail + canal » : l'action accuse réception,
+      // les jetons arrivent sur un canal abonné (le protocole n'a pas de
+      // streaming RPC — une action rend UNE valeur).
+      await this.mockStream(content);
       runInAction(() => {
         this.messages.push({
           id: `a-${Date.now()}`,

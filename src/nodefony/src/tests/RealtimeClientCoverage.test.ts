@@ -309,7 +309,7 @@ describe("RealtimeClient — canaux (ref-count, handle, adaptatif)", () => {
   });
 });
 
-describe("RealtimeClient — RPC (path, ping, stream, register)", () => {
+describe("RealtimeClient — RPC (path, ping, register)", () => {
   it("request forme PATH → routé en api.request {path} (2e arg = timeout)", async () => {
     const client = await connected();
     const p = client.request("/nodefony/kernel/api/x", 5000);
@@ -345,39 +345,6 @@ describe("RealtimeClient — RPC (path, ping, stream, register)", () => {
     expect(client.methods).to.include("client:confirm");
     client.unregister("client:confirm" as never);
     expect(client.methods).to.not.include("client:confirm");
-    client.disconnect();
-  });
-
-  it("stream : accumule les chunks et résout au done", async () => {
-    const client = await connected();
-    const chunks: unknown[] = [];
-    const p = client.stream("ai:gen", { prompt: "x" }, (c) => chunks.push(c));
-    last().fireMsg(
-      JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        stream: { chunk: { tok: "a" }, done: false },
-      }),
-    );
-    last().fireMsg(
-      JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        stream: { chunk: { tok: "b" }, done: false },
-      }),
-    );
-    last().fireMsg(
-      JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        stream: { chunk: null, done: true },
-      }),
-    );
-    await p;
-    expect(chunks.filter((c) => c !== null)).to.deep.equal([
-      { tok: "a" },
-      { tok: "b" },
-    ]);
     client.disconnect();
   });
 
@@ -491,17 +458,10 @@ describe("RealtimeClient — edge (parsing, redaction, dispose, frameLog)", () =
     client.disconnect();
   });
 
-  it("frameLog buildFrame : kinds error/stream/response + redaction d'array", async () => {
+  it("frameLog buildFrame : kinds error/response + redaction d'array", async () => {
     const client = await connected();
     last().fireMsg(
       JSON.stringify({ jsonrpc: "2.0", error: { code: 1, message: "e" } }),
-    );
-    last().fireMsg(
-      JSON.stringify({
-        jsonrpc: "2.0",
-        id: 5,
-        stream: { chunk: 1, done: false },
-      }),
     );
     last().fireMsg(
       JSON.stringify({ jsonrpc: "2.0", id: 6, result: { ok: 1 } }),
@@ -510,7 +470,6 @@ describe("RealtimeClient — edge (parsing, redaction, dispose, frameLog)", () =
     const log = client.frameLog;
     const kinds = log.map((f) => f.kind);
     expect(kinds).to.include("error");
-    expect(kinds).to.include("stream");
     expect(kinds).to.include("response");
     // redaction récursive dans un array
     const arrFrame = log.find((f) => f.kind === "arr:x")!;
@@ -529,35 +488,6 @@ describe("RealtimeClient — edge (parsing, redaction, dispose, frameLog)", () =
       );
     }
     expect(client.frameLog.length).to.be.lessThanOrEqual(300);
-    client.disconnect();
-  });
-
-  it("requestStream (contrat IRealtimePeer) + dispose des requêtes en attente", async () => {
-    const client = await connected();
-    const chunks: unknown[] = [];
-    const p = client.requestStream(
-      "ai:gen" as never,
-      { prompt: "x" } as never,
-      (c) => chunks.push(c),
-    );
-    last().fireMsg(
-      JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        stream: { chunk: "tok", done: false },
-      }),
-    );
-    last().fireMsg(
-      JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        stream: { chunk: null, done: true },
-      }),
-    );
-    await p;
-    expect(chunks).to.include("tok");
-    // dispose : annule les pending (no-op ici, mais couvre la délégation)
-    client.dispose("test cleanup");
     client.disconnect();
   });
 

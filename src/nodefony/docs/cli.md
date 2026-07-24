@@ -211,7 +211,7 @@ cycle de vie (`onKernelStart()`, `onKernelReady()`…) sont câblés à la deman
 - `onRegister` (défaut) — les modules sont enregistrés (ex. build, install).
 - `onStart` — rien n'est chargé : pour le vrai standalone.
 
-**Enregistrer.** Un module appelle `this.addCommand(Ctor)` dans son constructeur (`Module.ts:508`) —
+**Enregistrer.** Un module appelle `this.addCommand(Ctor)` dans son constructeur (`Module.ts:545`) —
 il exige que `kernel.cli` existe, sinon il lève `Kernel not ready` (`Module.ts:524`). Hors module, un
 outil autonome construit un `Cli` et appelle `cli.addCommand(Ctor)` (`Cli.ts:585`). Dans les deux cas,
 `addCommand` **instancie** la commande et l'enregistre sous le nom porté par son constructeur.

@@ -231,13 +231,6 @@ export interface IRealtimePeer<
     params?: ActionParams<Actions, K>,
     timeoutMs?: number,
   ): Promise<ActionResult<Actions, K>>;
-  /** Requête sortante en streaming (chunks → `onChunk`, `Promise` au `done`). */
-  requestStream<K extends ActionNames<Actions>>(
-    method: K,
-    params: ActionParams<Actions, K>,
-    onChunk: (chunk: unknown) => void,
-    timeoutMs?: number,
-  ): Promise<ActionResult<Actions, K>[]>;
   /** Notification sortante (pas de réponse). */
   notify<K extends EventNames<Emit>>(
     method: K,
@@ -262,19 +255,15 @@ interface PendingCall {
   resolve: (value: unknown) => void;
   reject: (reason: unknown) => void;
   timer: ReturnType<typeof setTimeout> | null;
-  /** Mode streaming : chunks accumulés jusqu'au `done`. */
-  onChunk?: (chunk: unknown) => void;
-  chunks?: unknown[];
   /** Appel tracé : la promesse rend `{ result, meta }` au lieu du `result` nu. */
   withMeta?: boolean;
 }
 
-/** Une réponse JSON-RPC entrante (succès, erreur, ou chunk de stream). */
+/** Une réponse JSON-RPC entrante (succès ou erreur). */
 interface JsonRpcInboundResponse {
   id: number;
   result?: unknown;
   error?: JsonRpcErrorObject;
-  stream?: { chunk: unknown; done: boolean };
   /** Métadonnées serveur (dev) — champ frère du `result`, cf {@link RpcMeta}. */
   meta?: RpcMeta;
 }
@@ -343,26 +332,7 @@ export class JsonRpcPeer<
       method,
       params,
       timeoutMs,
-      undefined,
       true,
-    );
-  }
-
-  /**
-   * Requête SORTANTE en streaming — chunks émis avec le même `id`, `Promise`
-   * résolue (avec tous les chunks) au `done`. Pour les réponses token-by-token (LLM).
-   */
-  requestStream<K extends ActionNames<Actions>>(
-    method: K,
-    params: ActionParams<Actions, K>,
-    onChunk: (chunk: unknown) => void,
-    timeoutMs = 60000,
-  ): Promise<ActionResult<Actions, K>[]> {
-    return this.startCall<ActionResult<Actions, K>[]>(
-      method,
-      params,
-      timeoutMs,
-      onChunk,
     );
   }
 
@@ -475,7 +445,6 @@ export class JsonRpcPeer<
     method: string,
     params: unknown,
     timeoutMs: number,
-    onChunk?: (chunk: unknown) => void,
     withMeta?: boolean,
   ): Promise<T> {
     const id = this.nextId++;
@@ -495,8 +464,6 @@ export class JsonRpcPeer<
           reject(e);
         },
         timer,
-        onChunk,
-        chunks: onChunk ? [] : undefined,
         withMeta,
       });
       this.opts.send({ jsonrpc: "2.0", id, method, params });
@@ -566,15 +533,6 @@ export class JsonRpcPeer<
     if (typeof msg.id !== "number" || !this.pending) return;
     const pending = this.pending.get(msg.id);
     if (!pending) return; // réponse inattendue (déjà résolue/timeout) → ignore
-    if (msg.stream) {
-      pending.chunks?.push(msg.stream.chunk); // accumulé → résolu au `done`
-      pending.onChunk?.(msg.stream.chunk); // poussé live à l'appelant
-      if (msg.stream.done) {
-        this.pending.delete(msg.id);
-        pending.resolve(pending.chunks);
-      }
-      return;
-    }
     if (msg.error) {
       this.pending.delete(msg.id);
       // `code`/`data` préservés (ex. `data.status` HTTP d'un `api.request`) —

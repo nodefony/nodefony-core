@@ -116,7 +116,7 @@ attendre trop longtemps et repartir.
 
 Techniquement, ce numéro est le champ `id` de la frame JSON-RPC 2.0. Le pair l'attribue, garde
 l'appel en attente dans une table, arme une minuterie, et résout la `Promise` quand la réponse
-portant cet `id` revient (`JsonRpcPeer.handleResponse()`, `JsonRpcPeer.ts:563`). Une frame sans
+portant cet `id` revient (`JsonRpcPeer.handleResponse()`, `JsonRpcPeer.ts:530`). Une frame sans
 `id` ne crée aucune de ces trois choses — c'est pourquoi une publication ne coûte rien au repos.
 
 ## La vision Nodefony — un nom, un handler, une découverte
@@ -394,10 +394,9 @@ await socket.request("orders:quote", { orderId }); // 30 000 ms par défaut
 await socket.request("orders:export", { scope }, 120_000); // action longue
 ```
 
-| Défaut          | Valeur    | Ancrage              |
-| --------------- | --------- | -------------------- |
-| `request`       | 30 000 ms | `JsonRpcPeer.ts:313` |
-| `requestStream` | 60 000 ms | `JsonRpcPeer.ts:348` |
+| Défaut    | Valeur    | Ancrage              |
+| --------- | --------- | -------------------- |
+| `request` | 30 000 ms | `JsonRpcPeer.ts:310` |
 
 À l'expiration, l'entrée en attente est **retirée** et la `Promise` rejetée avec
 `RPC timeout: <méthode>` (`JsonRpcPeer.ts:455`). Conséquence à connaître : une réponse qui
@@ -416,7 +415,7 @@ Trois leviers existent, et ils ne font pas la même chose :
 
 1. **Le délai d'expiration** — libère le client, laisse le serveur travailler.
 2. **La fermeture de la connexion** — `dispose()` rejette **tous** les appels en attente d'un
-   coup (`JsonRpcPeer.ts:463`), appelé au nettoyage de la socket
+   coup (`JsonRpcPeer.ts:433`), appelé au nettoyage de la socket
    (`RealtimeController.ts:553`). Là encore : côté client seulement.
 3. **Une action compagnon** — la seule vraie annulation. On expose une seconde action qui prend
    l'identifiant du travail et l'interrompt côté serveur. Le modèle du dépôt est
@@ -489,12 +488,15 @@ le début (`ScaffoldService.subscribe()`, `ScaffoldService.ts:364`). C'est ce qu
 
 ### Et le streaming du protocole ?
 
-Le pair sait recevoir une réponse en morceaux — `requestStream()` (`JsonRpcPeer.ts:344`), exposé
-côté client (`RealtimeClient.ts:768`), accumule des fragments jusqu'au dernier. C'est la forme
-prévue pour les réponses mot à mot d'un modèle de langage. Mais **une action de contrôleur ne peut
-pas les émettre** : son contrat rend **une** valeur (`RpcActionHandler`, `JsonRpcPeer.ts:118`), que
-le pair emballe en une réponse unique. Le motif « travail + canal » reste donc la voie pour tout
-ce qui progresse.
+**Il n'y en a pas.** Une action rend **une** valeur (`RpcActionHandler`, `JsonRpcPeer.ts:118`), que
+le pair emballe en une réponse unique. Pour tout ce qui progresse — une réponse mot à mot d'un
+modèle de langage, un export qui avance, un traitement long — la voie est le motif
+**« travail + canal »** : l'action accuse réception, et la progression arrive sur un canal.
+
+Le protocole a porté un temps une réception en morceaux dont **aucun serveur n'émettait la
+contrepartie** : elle a été retirée plutôt que publiée à moitié. Un vrai streaming demande de
+pouvoir **annuler** un flux en cours, **signaler une erreur au milieu** et **réguler le débit** —
+il sera conçu avec son premier consommateur réel.
 
 ## 🔌 Le pont API — la même action, servie sur la socket
 
@@ -536,7 +538,7 @@ vivent dans la carte de l'aperçu, régénérée depuis les résultats réels, j
 
 - **Unitaires, protocole** (`JsonRpcPeer.test.ts`) : corrélation requête/réponse, méthode inconnue
   `-32601`, `throw` opaque `-32603`, propagation fidèle d'une `RpcError`, expiration du délai,
-  accumulation des fragments de `requestStream`, audit des frames.
+  audit des frames.
 - **Unitaires, déclaration** (`realtimeDecorators.test.ts`) : `@RealtimeAction` enregistre bien le
   nom et lie le `this` ; (`RealtimeController.test.ts`) : fusion décorateurs + override et
   annonce dans l'accueil.

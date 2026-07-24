@@ -299,7 +299,7 @@ politique (1008, c'est-à-dire un 401/403 traduit) ne la relance **pas**. Sans c
 anonyme martèlerait indéfiniment un point d'entrée protégé.
 
 Le délai entre tentatives double à chaque échec — `scheduleReconnect()`
-(`client/realtime/RealtimeClient.ts:1056`) — plafonné à 30 secondes par défaut. La date de la
+(`client/realtime/RealtimeClient.ts:1023`) — plafonné à 30 secondes par défaut. La date de la
 prochaine tentative est exposée en lecture, ce qui permet d'afficher un compte à rebours exact plutôt
 qu'un sablier qui ment.
 
@@ -325,18 +325,17 @@ Le serveur repart d'un état vide après une coupure ; c'est le client qui se so
 
 ### Les quatre façons de parler au serveur
 
-| Appel                                 | Ancre                                   | Ce que ça fait                                                     |
-| ------------------------------------- | --------------------------------------- | ------------------------------------------------------------------ |
-| `RealtimeClient.emit()` / `publish()` | `client/realtime/RealtimeClient.ts:391` | Notification sans réponse — la forme du pub/sub                    |
-| `RealtimeClient.request()`            | `client/realtime/RealtimeClient.ts:569` | Requête/réponse ; un argument commençant par `/` cible une route   |
-| `RealtimeClient.mutate()`             | `client/realtime/RealtimeClient.ts:639` | Écriture par le pont d'API — **clé d'idempotence obligatoire**     |
-| `RealtimeClient.stream()`             | `client/realtime/RealtimeClient.ts:735` | Réponse en morceaux (génération jeton par jeton), résolue à la fin |
+| Appel                                 | Ancre                                   | Ce que ça fait                                                   |
+| ------------------------------------- | --------------------------------------- | ---------------------------------------------------------------- |
+| `RealtimeClient.emit()` / `publish()` | `client/realtime/RealtimeClient.ts:391` | Notification sans réponse — la forme du pub/sub                  |
+| `RealtimeClient.request()`            | `client/realtime/RealtimeClient.ts:569` | Requête/réponse ; un argument commençant par `/` cible une route |
+| `RealtimeClient.mutate()`             | `client/realtime/RealtimeClient.ts:639` | Écriture par le pont d'API — **clé d'idempotence obligatoire**   |
 
 Deux compléments moins courants. `RealtimeClient.call()`
 (`client/realtime/RealtimeClient.ts:681`) rend l'**enveloppe complète** — la valeur **et**
 l'identifiant du profil serveur de cette trame, ce qui permet en développement d'aller lire la
 radiographie de l'appel. Et `RealtimeClient.register()`
-(`client/realtime/RealtimeClient.ts:783`) fait du navigateur un **appelé** : le serveur peut lui
+(`client/realtime/RealtimeClient.ts:750`) fait du navigateur un **appelé** : le serveur peut lui
 adresser une requête et attendre son résultat. C'est le duplex réel, pas seulement du push.
 
 ### Identité et refus — l'interface sait sans demander
@@ -552,7 +551,7 @@ Le détail du builder, du rechargement à chaud et du rendu de la page côté se
 | Après une reconnexion, plus rien n'arrive                       | Le serveur repart d'un état vide ; le client ré-émet ses abonnements                                          | Comportement natif ; vérifier que l'abonnement passe bien par `subscribe()`                  |
 | La reconnexion ne repart jamais                                 | Fermeture **définitive** (1008 = 401/403 traduit), reconnexion volontairement coupée                          | Corriger la cause (se connecter) puis `retryNow()` (`client/realtime/RealtimeClient.ts:294`) |
 | Deux connexions WebSocket pour la même page                     | Deux `new RealtimeClient(…)` au lieu de l'instance partagée                                                   | `RealtimeClient.shared()` (`client/realtime/RealtimeClient.ts:243`)                          |
-| Les trames envoyées juste après la connexion sont perdues       | `send()` abandonne la trame tant que le transport n'est pas ouvert (`client/realtime/RealtimeClient.ts:1148`) | Émettre après la résolution de `connect()`                                                   |
+| Les trames envoyées juste après la connexion sont perdues       | `send()` abandonne la trame tant que le transport n'est pas ouvert (`client/realtime/RealtimeClient.ts:1114`) | Émettre après la résolution de `connect()`                                                   |
 | La cadence adaptative « perd » des messages                     | Employée sur un canal d'**événements**, où décimer supprime des éléments                                      | La réserver aux canaux d'état, ou passer `enabled: false`                                    |
 | `hasAnyRole(roles, [])` rend `false` et surprend                | Aucune exigence ne peut être satisfaite (`client/roles/roles.ts:34`)                                          | Convention assumée ; `hasAllRoles` avec une liste vide rend `true`                           |
 | `RoleRegistry` lève au 32ᵉ rôle                                 | Limite des entiers 32 bits signés (`client/roles/registry.ts:11`)                                             | Rester sur les chaînes / `RoleSet` au-delà de 31 rôles                                       |

@@ -285,7 +285,7 @@ Rend `"disconnected" | "connecting" | "connected" | "reconnecting" | "error"`. L
 `useSyncExternalStore`, donc **sans tearing** en rendu concurrent : le snapshot est une chaîne, la
 comparaison est exacte.
 
-Le re-rendu suit `RealtimeClient.setState()` (`client/realtime/RealtimeClient.ts:1171`), qui
+Le re-rendu suit `RealtimeClient.setState()` (`client/realtime/RealtimeClient.ts:1137`), qui
 court-circuite si l'état est inchangé — un état stable ne coûte rien, même sous un flux dense.
 
 C'est le hook des badges de connexion et des écrans dégradés (« temps réel indisponible »).
@@ -390,13 +390,13 @@ const { data, intervalMs } = useNodefonyAdaptiveChannelData<Health>(
 ### `useNodefonyChannelStats()` — débit et série d'un canal
 
 Rend `{ msgCount, lastMessage, rate, series }` pour un canal, calculé par le client à partir des
-trames reçues (`getChannelStats()`, `client/realtime/RealtimeClient.ts:841`). La série glisse sur 32
+trames reçues (`getChannelStats()`, `client/realtime/RealtimeClient.ts:808`). La série glisse sur 32
 points — `STATS_SERIES_POINTS` (`client/realtime/RealtimeClient.ts:111`) —, échantillonnés une fois par seconde par
-`startStatsSampler()` (`client/realtime/RealtimeClient.ts:938`).
+`startStatsSampler()` (`client/realtime/RealtimeClient.ts:905`).
 
 > [!WARNING]
 > Ce hook ne se rafraîchit **pas** tout seul après sa première valeur. Le client réutilise le même
-> objet de statistiques et le mute en place (`trackFrame()`, `client/realtime/RealtimeClient.ts:848`) :
+> objet de statistiques et le mute en place (`trackFrame()`, `client/realtime/RealtimeClient.ts:815`) :
 > l'état React reçoit une référence identique, et React court-circuite le rendu. La valeur affichée
 > n'est correcte que si le composant se re-rend pour une autre raison. Pour un VU-mètre fiable,
 > compte toi-même sur `useNodefonyChannel()`.
@@ -604,7 +604,7 @@ Studio.
 | `Module 'nodefony' has no exported member 'RealtimeClient'`  | Condition d'export `browser` inactive dans le `tsconfig.json` de l'app                                      | Importer depuis `nodefony/client`, ou ajouter `customConditions: ["browser"]` |
 | Rien n'arrive et l'état reste `disconnected`                 | Les hooks s'abonnent mais ne connectent pas                                                                 | Appeler `socket.connect()` une fois (`client/realtime/RealtimeClient.ts:311`) |
 | Un `subscribe`/`unsubscribe`/`subscribe` par montage         | StrictMode double le montage ; le comptage est symétrique                                                   | Comportement attendu en développement ; absent en production                  |
-| Le débit de `useNodefonyChannelStats()` reste figé           | `trackFrame()` mute le même objet de stats (`client/realtime/RealtimeClient.ts:848`) → React court-circuite | Compter soi-même via `useNodefonyChannel()`                                   |
+| Le débit de `useNodefonyChannelStats()` reste figé           | `trackFrame()` mute le même objet de stats (`client/realtime/RealtimeClient.ts:815`) → React court-circuite | Compter soi-même via `useNodefonyChannel()`                                   |
 | `useNodefonySyslog({ severities })` ne rend rien             | Le filtre compare un champ numérique à des noms (`client/react/index.ts:295`)                               | Filtrer au rendu sur `severityName` (`Pdu.ts:137`)                            |
 | L'abonnement se refait à chaque frappe                       | Le nom du canal est recalculé et passé dans `deps`                                                          | Ne mettre dans `deps` que ce qui doit vraiment ré-abonner                     |
 | Changer un réglage AIMD ne change rien                       | Les options sont capturées par référence (`client/react/index.ts:192`)                                      | Passer par `desiredMs`/`enabled`, ou ajouter la valeur aux `deps`             |

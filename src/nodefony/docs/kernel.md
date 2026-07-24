@@ -343,7 +343,7 @@ dépendances déclarées. Détail du tri et des portées :
 [Injection & portées](../../../docs/architecture/injection-portees.md).
 
 `addService()` fait plus que construire : il initialise le service **sous garde** —
-`Kernel.guardServiceInitialize()` (`Module.ts:331`) —, apprend au registre DI le lien entre la classe
+`Kernel.guardServiceInitialize()` (`Module.ts:350`) —, apprend au registre DI le lien entre la classe
 et sa clé de container, puis range l'instance. C'est
 la raison pour laquelle on ne fait jamais un `new` manuel — un service construit à la main n'est
 connu de personne.
@@ -385,8 +385,8 @@ Le registre des controllers est global au process mais **indexé par module** �
 
 | Appel                | Ancre           | Rend                                                       |
 | -------------------- | --------------- | ---------------------------------------------------------- |
-| `getController("X")` | `Module.ts:436` | le constructeur, ou **lève** si absent de **ce** module    |
-| `getControllers()`   | `Module.ts:451` | vue filtrée `{ NomDeClasse: Ctor }`, préfixe module retiré |
+| `getController("X")` | `Module.ts:473` | le constructeur, ou **lève** si absent de **ce** module    |
+| `getControllers()`   | `Module.ts:488` | vue filtrée `{ NomDeClasse: Ctor }`, préfixe module retiré |
 
 ### Surcharger la config d'un autre module
 
@@ -456,7 +456,7 @@ const scratch = path.resolve(kernel.tmpDir!.path, "build"); // jetable
 | `environment`               | `Kernel.ts:378`  | Le mode **moteur** : `"development"` ou `"production"`.                |
 | `domain`                    | `Kernel.ts:416`  | Le nom d'hôte retenu, résolu au boot.                                  |
 | `get()` / `set()` / `has()` | —                | La façade container héritée de `Service` — voir [Service](service.md). |
-| `getBootReport()`           | `Kernel.ts:2303` | Le verdict du dernier boot : modules, serveurs, santé.                 |
+| `getBootReport()`           | `Kernel.ts:2365` | Le verdict du dernier boot : modules, serveurs, santé.                 |
 
 > [!WARNING]
 > Ne **jamais** déréférencer le kernel au premier niveau d'un fichier de configuration : il est
@@ -494,7 +494,7 @@ même chose.
 | ----------------------- | ---------------- | ---------------------------------------------------------------- | ---------------------- |
 | `fire(nom, …)`          | `Kernel.ts:2148` | Synchrone. Les écouteurs tournent tout de suite, **0 microtask** | le chemin chaud        |
 | `fireAsync(nom, …)`     | `Kernel.ts:2166` | Attend les écouteurs asynchrones, **en séquence**                | pipeline HTTP/WS, boot |
-| `fireLifecycle(nom, …)` | `Kernel.ts:2513` | Isole chaque écouteur : délai maximal + politique de criticité   | **le boot seulement**  |
+| `fireLifecycle(nom, …)` | `Kernel.ts:2575` | Isole chaque écouteur : délai maximal + politique de criticité   | **le boot seulement**  |
 
 La règle de choix tient en une ligne : **si le résultat de l'écouteur t'importe, `fireAsync` ; sinon
 `fire`.** `fire()` ne t'apprend rien de ce qui s'est passé — il rend un booléen « quelqu'un

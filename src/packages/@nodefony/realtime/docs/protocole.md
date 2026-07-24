@@ -290,7 +290,7 @@ L'accueil porte **cinq** champs : `ts`, `protocol`, `channels`, `methods`, `iden
 > [!IMPORTANT]
 > Le pair accepte un `id` **chaîne** en entrée (conforme à la norme), mais il n'attribue jamais que
 > des `id` **numériques** à ses propres appels sortants. Une réponse portant un `id` chaîne est donc
-> ignorée sans erreur (`JsonRpcPeer.handleResponse()`, `JsonRpcPeer.ts:563`) : elle ne peut, par
+> ignorée sans erreur (`JsonRpcPeer.handleResponse()`, `JsonRpcPeer.ts:530`) : elle ne peut, par
 > construction, correspondre à aucune requête émise par ce pair.
 
 ### La réponse — `result` ou `error`, jamais les deux
@@ -336,7 +336,7 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 | ------------------ | ------------- | :-----: | --------------------------------------------------------------------- | --------------------------- |
 | `subscribe`        | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:592` |
 | `unsubscribe`      | client→server |   non   | « arrête » — dernier abonné, le producteur est libéré                 | `RealtimeController.ts:599` |
-| `ping`             | client→server |   non   | Battement de cœur — **no-op serveur**, aucun pong                     | `RealtimeClient.ts:1080`    |
+| `ping`             | client→server |   non   | Battement de cœur — **no-op serveur**, aucun pong                     | `RealtimeClient.ts:716`     |
 | `<canal>`          | server→client |   non   | Push d'un message : le **nom du canal est la `method`**               | `RealtimeController.ts:612` |
 | `<canal entrant>`  | client→server |   non   | Le client pousse sur un canal déclaré entrant                         | `RealtimeController.ts:608` |
 | `realtime:welcome` | server→client |   non   | L'accueil : 5 champs, dont l'identité résolue                         | `RealtimeController.ts:579` |
@@ -403,8 +403,7 @@ de `RpcError`.
 
 Et un échec qui n'est **pas** une frame : l'expiration. `startCall()` ne reçoit rien dans le délai
 imparti, supprime l'entrée en attente et rejette localement avec `RPC timeout: <méthode>`
-(`JsonRpcPeer.ts:457`). Défaut de 30 000 ms pour un appel ordinaire, 60 000 ms en streaming
-(`requestStream()`, `JsonRpcPeer.ts:344`). Aucun octet ne part sur le fil : c'est une décision du
+(`JsonRpcPeer.ts:428`). Défaut de 30 000 ms, réglable par appel. Aucun octet ne part sur le fil : c'est une décision du
 client, le serveur peut très bien répondre après, sa réponse sera ignorée.
 
 ### Les deux codes de la norme que Nodefony n'émet jamais
