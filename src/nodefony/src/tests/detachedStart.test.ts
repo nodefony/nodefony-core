@@ -87,12 +87,37 @@ describe("parseDetachArgs — parse + strip anti-récursion", () => {
   });
 });
 
+/**
+ * Tue un child factice détaché (leader de son groupe).
+ *
+ * À appeler depuis un `finally`, JAMAIS en fin de corps de test : ces children
+ * tournent sur un `setInterval(() => {}, 1 << 30)` — une assertion qui échoue
+ * avant le nettoyage en laisse un immortel sur la machine. Vécu : un résidu
+ * découvert plus d'un jour après le run qui l'avait engendré.
+ *
+ * Tolérant par construction (pid absent, process déjà mort) — un nettoyage ne
+ * doit jamais masquer l'échec qu'il suit.
+ */
+function killDetached(pid: number | undefined): void {
+  if (!pid) return;
+  try {
+    process.kill(-pid, "SIGKILL");
+  } catch {
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      /* déjà mort — rien à nettoyer */
+    }
+  }
+}
+
 describe("launchDetached — readiness / crash / timeout (child factices)", () => {
   vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
 
   it("readiness : child qui ouvre les ports → ok, exit 0, log capturé", async () => {
     const [p1, p2] = [await freePort(), await freePort()];
     const log = tmpLog("ready");
+    let childPid: number | undefined;
     try {
       // Child factice : ouvre les 2 ports après 300 ms puis reste vivant.
       const script = `
@@ -112,6 +137,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         ports: [p1, p2],
         waitSec: 15,
       });
+      childPid = r.pid as number;
       assert.strictEqual(r.ok, true, `attendu ok — reason: ${r.reason}`);
       assert.strictEqual(r.exitCode, 0);
       assert.ok(typeof r.pid === "number" && r.pid > 0);
@@ -120,13 +146,8 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
       assert.ok(r.ports.some((p) => p.listening));
       // Le stdout du child va bien dans le log file.
       assert.ok(fs.readFileSync(log, "utf8").includes("[dev] fake boot"));
-      // Cleanup : tuer le child factice détaché (leader de groupe).
-      try {
-        process.kill(-(r.pid as number), "SIGKILL");
-      } catch {
-        process.kill(r.pid as number, "SIGKILL");
-      }
     } finally {
+      killDetached(childPid);
       fs.rmSync(log, { force: true });
     }
   });
@@ -134,6 +155,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
   it("readiness partielle : UN SEUL port ouvert sur 2 sondés → ok (app https:false)", async () => {
     const [p1, p2] = [await freePort(), await freePort()];
     const log = tmpLog("partial");
+    let childPid: number | undefined;
     try {
       // Child factice type app `https: false` : n'ouvrira JAMAIS le 2ᵉ port —
       // la liste sondée est une CONVENTION du parent, pas la topologie réelle.
@@ -149,16 +171,13 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         ports: [p1, p2],
         waitSec: 15,
       });
+      childPid = r.pid as number;
       assert.strictEqual(r.ok, true, `attendu ok — reason: ${r.reason}`);
       // Fail-loud : le port jamais ouvert reste VISIBLE comme fermé dans l'état.
       assert.strictEqual(r.ports.find((p) => p.port === p1)?.listening, true);
       assert.strictEqual(r.ports.find((p) => p.port === p2)?.listening, false);
-      try {
-        process.kill(-(r.pid as number), "SIGKILL");
-      } catch {
-        process.kill(r.pid as number, "SIGKILL");
-      }
     } finally {
+      killDetached(childPid);
       fs.rmSync(log, { force: true });
     }
   });
@@ -178,6 +197,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
       path.join(os.tmpdir(), "nodefony-detach-state-"),
     );
     const log = tmpLog("state");
+    let childPid: number | undefined;
     try {
       // Child factice : écoute sur `real` (jamais sondé par le parent) PUIS publie
       // ses ports effectifs, exactement comme le fait `HttpKernel.publishRuntimePorts`.
@@ -210,6 +230,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         ports: [conv1, conv2], // la CONVENTION du parent — aucun ne sera ouvert
         waitSec: 15,
       });
+      childPid = r.pid as number;
       assert.strictEqual(r.ok, true, `attendu ok — reason: ${r.reason}`);
       assert.strictEqual(r.exitCode, 0);
       // La readiness a suivi le state file : elle rapporte le port RÉEL, pas la
@@ -219,12 +240,8 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         [real],
       );
       assert.strictEqual(r.ports[0].listening, true);
-      try {
-        process.kill(-(r.pid as number), "SIGKILL");
-      } catch {
-        process.kill(r.pid as number, "SIGKILL");
-      }
     } finally {
+      killDetached(childPid);
       fs.rmSync(log, { force: true });
       fs.rmSync(cwd, { recursive: true, force: true });
     }
@@ -258,6 +275,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
   it("timeout : child vivant sans readiness → EX_UNAVAILABLE + child group-killé", async () => {
     const p1 = await freePort();
     const log = tmpLog("timeout");
+    let childPid: number | undefined;
     try {
       // Child vivant qui n'ouvre JAMAIS le port.
       const script = `setInterval(() => {}, 1 << 30);`;
@@ -268,6 +286,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         ports: [p1],
         waitSec: 2,
       });
+      childPid = r.pid as number;
       assert.strictEqual(r.ok, false);
       assert.strictEqual(r.exitCode, 69);
       assert.ok(r.reason?.includes("readiness non atteinte"));
@@ -278,6 +297,9 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         "le child doit être mort après le timeout (group-kill)",
       );
     } finally {
+      // Ceinture : si l'assertion ci-dessus tombe, c'est justement que le child
+      // a SURVÉCU — le laisser en vie doublerait le dégât.
+      killDetached(childPid);
       fs.rmSync(log, { force: true });
     }
   });
