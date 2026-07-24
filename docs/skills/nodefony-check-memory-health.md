@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-07-23
+updated: 2026-07-24
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-check-memory-health/SKILL.md"
 ---
@@ -16,7 +16,7 @@ source: ".claude/skills/nodefony-check-memory-health/SKILL.md"
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-check-memory-health**
 
 > [!TIP]
-> 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _AAIF / Linux Foundation_.
+> 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
 > ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **1/1** projet · 💡 **1/1** recommandé (SHOULD).
 
 > [!NOTE]
@@ -64,7 +64,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 ## Conformité au standard Agent Skills
 
 > [!NOTE]
-> **Standard [Agent Skills](https://agentskills.io/specification.md)** (AAIF / Linux Foundation).
+> **Standard [Agent Skills](https://agentskills.io/specification.md)** — Anthropic (standard ouvert).
 > **Nature** — ℹ️ _normatif_ : règle **MUST** du standard, un client conforme la refuse ;
 > _recommandé_ : **SHOULD** des best-practices ; _projet_ : contrôle propre à Nodefony. La colonne
 > _Règle_ cite la source exacte de chaque contrôle.

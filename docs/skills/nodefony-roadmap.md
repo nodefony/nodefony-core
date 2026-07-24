@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-07-23
+updated: 2026-07-24
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-roadmap/SKILL.md"
 ---
@@ -16,7 +16,7 @@ source: ".claude/skills/nodefony-roadmap/SKILL.md"
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-roadmap**
 
 > [!TIP]
-> 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _AAIF / Linux Foundation_.
+> 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
 > ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **1/1** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.0.0`.
 
 > [!NOTE]
@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-roadmap/SKILL.md"
 | --- | --- |
 | Version | `2.0.0` |
 | Famille | Références et livrables |
-| Corps | 108 lignes |
-| Coût d'activation | ~2 001 tokens (le corps est chargé à l'invocation) |
+| Corps | 117 lignes |
+| Coût d'activation | ~2 185 tokens (le corps est chargé à l'invocation) |
 | Description | 812 / 1024 caractères |
 | Déclencheurs | 13 |
 | Ressources `references/` | 0 page(s) |
@@ -62,7 +62,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 ## Conformité au standard Agent Skills
 
 > [!NOTE]
-> **Standard [Agent Skills](https://agentskills.io/specification.md)** (AAIF / Linux Foundation).
+> **Standard [Agent Skills](https://agentskills.io/specification.md)** — Anthropic (standard ouvert).
 > **Nature** — ℹ️ _normatif_ : règle **MUST** du standard, un client conforme la refuse ;
 > _recommandé_ : **SHOULD** des best-practices ; _projet_ : contrôle propre à Nodefony. La colonne
 > _Règle_ cite la source exacte de chaque contrôle.
@@ -75,7 +75,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 108 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 117 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

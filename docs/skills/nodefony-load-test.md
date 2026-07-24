@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-07-23
+updated: 2026-07-24
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-load-test/SKILL.md"
 ---
@@ -16,8 +16,8 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-load-test**
 
 > [!TIP]
-> 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _AAIF / Linux Foundation_.
-> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **1/1** projet · 💡 **1/1** recommandé (SHOULD).
+> 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
+> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **1/1** projet · 💡 **0/1** recommandé (SHOULD).
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -27,12 +27,12 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Exécuter, diagnostiquer, mesurer |
-| Corps | 466 lignes |
-| Coût d'activation | ~7 311 tokens (le corps est chargé à l'invocation) |
+| Corps | 520 lignes |
+| Coût d'activation | ~8 181 tokens (le corps est chargé à l'invocation) |
 | Description | 878 / 1024 caractères |
 | Déclencheurs | 14 |
 | Ressources `references/` | 1 page(s) |
-| Scripts | 36 |
+| Scripts | 37 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -73,7 +73,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 148 |
+| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 152 |
 
 
 ## Scripts embarqués
@@ -115,6 +115,7 @@ script, donc toujours à jour après régénération.
 | `scripts/totp-mfa-e2e.mjs` | Banc e2e 2FA TOTP step-up (P6.17) — VRAI serveur, sans navigateur. | — | — |
 | `scripts/users-admin-factors-e2e.mjs` | Banc e2e — RESET ADMIN des facteurs forts d'un utilisateur (P6.15) — VRAI | — | — |
 | `scripts/webhooks-dataplane-e2e.mjs` | Banc e2e — Data plane WEBHOOKS (P6.13 Slice C) — VRAI serveur, session BFF, | — | — |
+| `scripts/ws-backpressure-e2e.mjs` | Contre-pression WebSocket SORTANTE (serveur → client) sur une VRAIE socket. | — | `BASE` `HOST` `NODE_TLS_REJECT_UNAUTHORIZED` `PORT` `URL` `WS_URL` |
 | `scripts/ws-conn-cap-e2e.mjs` | Banc e2e du BACKSTOP de connexions WS concurrentes par IP (@nodefony/http, F6c | — | `NODE_TLS_REJECT_UNAUTHORIZED` `WS_URL` |
 | `scripts/ws-connections.mjs` | Stress WS — AXE 1 : nombre de connexions simultanées (combien de sockets un | `--pending` | `BATCH` `CAP` `HEAP_URL` `HOLD_MS` `STEP` `WS_URL` |
 | `scripts/ws-handshake-ratelimit-e2e.mjs` | Banc e2e du RATE-LIMIT du HANDSHAKE WebSocket (@nodefony/http, F5 revue 0.6) — sans navigateur. | — | `HTTP_URL` `MAX` `NODE_TLS_REJECT_UNAUTHORIZED` `WS_URL` |
@@ -152,6 +153,7 @@ Lancement : node .claude/skills/nodefony-load-test/scripts/totp-mfa-attack-e2e.m
 node .claude/skills/nodefony-load-test/scripts/totp-mfa-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/users-admin-factors-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/webhooks-dataplane-e2e.mjs
+bash .claude/skills/nodefony-start-server/start.sh
 NF__HTTP__WSMAXCONNECTIONSPERIP=3 bash .claude/skills/nodefony-start-server/start.sh
 node .claude/skills/load-test/scripts/ws-connections.mjs
 bash .claude/skills/nodefony-start-server/start.sh
@@ -163,7 +165,7 @@ node .claude/skills/load-test/scripts/ws-messages.mjs
 ## Conformité au standard Agent Skills
 
 > [!NOTE]
-> **Standard [Agent Skills](https://agentskills.io/specification.md)** (AAIF / Linux Foundation).
+> **Standard [Agent Skills](https://agentskills.io/specification.md)** — Anthropic (standard ouvert).
 > **Nature** — ℹ️ _normatif_ : règle **MUST** du standard, un client conforme la refuse ;
 > _recommandé_ : **SHOULD** des best-practices ; _projet_ : contrôle propre à Nodefony. La colonne
 > _Règle_ cite la source exacte de chaque contrôle.
@@ -176,7 +178,7 @@ node .claude/skills/load-test/scripts/ws-messages.mjs
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 466 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 520 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

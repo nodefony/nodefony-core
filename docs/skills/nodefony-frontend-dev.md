@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-07-23
+updated: 2026-07-24
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 ---
@@ -16,7 +16,7 @@ source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-frontend-dev**
 
 > [!TIP]
-> 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _AAIF / Linux Foundation_.
+> 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
 > ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **1/1** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.0.0`.
 
 > [!NOTE]
@@ -71,14 +71,14 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/front-quality.md` | Qualité front (Nodefony) — temps réel calme · perf CSS · a11y · sécu | 154 |
 | `references/isomorphic.md` | Cœur isomorphe nodefony côté navigateur | 269 |
 | `references/patterns.md` | Patterns d'écran front (Nodefony) — framework-agnostique | 168 |
-| `references/realtime-client.md` | RealtimeClient & hooks React (nodefony/client, nodefony/react) | 374 |
+| `references/realtime-client.md` | RealtimeClient & hooks React (nodefony/client, nodefony/react) | 371 |
 
 _(+ 8 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 
 ## Conformité au standard Agent Skills
 
 > [!NOTE]
-> **Standard [Agent Skills](https://agentskills.io/specification.md)** (AAIF / Linux Foundation).
+> **Standard [Agent Skills](https://agentskills.io/specification.md)** — Anthropic (standard ouvert).
 > **Nature** — ℹ️ _normatif_ : règle **MUST** du standard, un client conforme la refuse ;
 > _recommandé_ : **SHOULD** des best-practices ; _projet_ : contrôle propre à Nodefony. La colonne
 > _Règle_ cite la source exacte de chaque contrôle.

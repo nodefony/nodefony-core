@@ -64,11 +64,11 @@ src/packages/@nodefony/[module]/ ou src/modules/[module]
 ├── tsconfig.json
 ├── nodefony
 │   ├── interfaces        ← I*.ts
-│   ├── errors            ← classes typées
 │   ├── config
 │   ├── decorators
 │   ├── services          ← @Service implementations
 │   ├── src
+│   │   └── errors        ← classes typées (l’emplacement que pose `create module`)
 │   ├── types
 │   └── [domain]/         ← sous-dossiers spécifiques
 └── tests/

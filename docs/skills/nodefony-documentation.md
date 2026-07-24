@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-07-23
+updated: 2026-07-24
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-documentation/SKILL.md"
 ---
@@ -16,7 +16,7 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-documentation**
 
 > [!TIP]
-> 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _AAIF / Linux Foundation_.
+> 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
 > ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **1/1** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.4.0`.
 
 > [!NOTE]
@@ -27,12 +27,12 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 | --- | --- |
 | Version | `2.4.0` |
 | Famille | Développer le framework |
-| Corps | 439 lignes |
-| Coût d'activation | ~7 602 tokens (le corps est chargé à l'invocation) |
+| Corps | 459 lignes |
+| Coût d'activation | ~8 004 tokens (le corps est chargé à l'invocation) |
 | Description | 993 / 1024 caractères |
 | Déclencheurs | 17 |
 | Ressources `references/` | 2 page(s) |
-| Scripts | 6 |
+| Scripts | 7 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -83,6 +83,7 @@ script, donc toujours à jour après régénération.
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
 | `scripts/anchor-check.mjs` | anchor-check.mjs — vérifie l'EXACTITUDE des ancres `fichier:ligne` du corpus doc. | `--show-toplevel` | — |
+| `scripts/anchor-fix.mjs` | Recale les ancres `fichier.ts:N` SUSPECT d'une page de doc, par SYMBOLE. | `--apply` | `APPLY` |
 | `scripts/anchor-inpage.mjs` | anchor-inpage.mjs — les ancres INTRA-PAGE mènent-elles quelque part ? | — | — |
 | `scripts/build-preview.mjs` | Tout est relatif au dossier de CE script (tmp/doc-corpus/_tools/) — plus aucun | `--accent` `--bg` `--border` `--brand` `--code` `--codefg` `--fg` `--muted` `--no-save` `--panel` `--short` `--show-current` `--show-toplevel` `--th` | `GEN_DATE` `LOGO` `MMDC` `NF_BRANCH` `NF_COMMIT` `NF_VERSION` |
 | `scripts/code-check.mjs` | code-check.mjs — gate de COMPILABILITÉ du « Démarrage rapide » (standard §8sexies). | `--show-toplevel` | — |
@@ -99,12 +100,12 @@ Usage : node doc-lint.mjs /tmp/corpus/*.md
 Usage : node gen-counters.mjs [topic...]   (sans args : tous les topics)
 ```
 
-**Toutes les variables lues par ce skill** : `COVERAGE` · `GEN_DATE` · `LOGO` · `MMDC` · `NF_BRANCH` · `NF_COMMIT` · `NF_VERSION`
+**Toutes les variables lues par ce skill** : `APPLY` · `COVERAGE` · `GEN_DATE` · `LOGO` · `MMDC` · `NF_BRANCH` · `NF_COMMIT` · `NF_VERSION`
 
 ## Conformité au standard Agent Skills
 
 > [!NOTE]
-> **Standard [Agent Skills](https://agentskills.io/specification.md)** (AAIF / Linux Foundation).
+> **Standard [Agent Skills](https://agentskills.io/specification.md)** — Anthropic (standard ouvert).
 > **Nature** — ℹ️ _normatif_ : règle **MUST** du standard, un client conforme la refuse ;
 > _recommandé_ : **SHOULD** des best-practices ; _projet_ : contrôle propre à Nodefony. La colonne
 > _Règle_ cite la source exacte de chaque contrôle.
@@ -117,7 +118,7 @@ Usage : node gen-counters.mjs [topic...]   (sans args : tous les topics)
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 439 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 459 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

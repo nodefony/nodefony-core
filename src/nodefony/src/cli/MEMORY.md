@@ -176,6 +176,32 @@ Ordre : garde `NODEFONY_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/no
 - `NODEFONY_CLI_DEBUG=1` → une ligne stderr `[nodefony] cli → <chemin>`. Silencieux par défaut (sinon
   pollue les sorties `--json`).
 
+## Scaffold — transaction, simulation, mode machine
+
+- `scaffold/writer.ts` = `ScaffoldWriter` : TOUTES les écritures du moteur y passent, en mémoire ;
+  seul le scaffold RACINE `commit()`. Les lectures aussi (`read`/`exists`/`listDir`) — une étape voit
+  ce que les précédentes ont produit (2 câblages dans un même `index.ts`, module rendu puis ciblé).
+- Conséquence : un refus, même tardif (nom pris, `@controllers` introuvable, tag eta résiduel,
+  workspace de link absent), ne laisse RIEN sur disque. Les gardes n'ont plus à être placées avant
+  les rendus.
+- `runScaffold(request, version, { dryRun })` → `result.changes: IScaffoldChange[]`
+  (`create` | `overwrite` + `previous`). `{ writer }` = transaction héritée d'un scaffold appelant
+  (`create module` délègue à `controller`/`front`) : le sous-scaffold n'y commit pas.
+- `diffLines(before, after)` (writer.ts) : diff LCS, calculé au moteur pour que CLI et Studio
+  décrivent le même changement. Au-delà de 1000 lignes → remplacement en bloc.
+- CLI : `--dry-run`/`-n` (plan + diff des réécritures, sort AVANT install/build/git) ·
+  `--describe-json` (catalogue JSON : types, questions, caps, cibles du projet ; sans type = tout) ·
+  `--answers-json <fichier|->`. Les flags l'emportent sur le fichier ; une clé hors spec = EX_USAGE
+  (`resolveAnswers` l'ignorerait en silence — invisible pour un appelant automatique).
+- `scaffold/steps.ts` : `SCAFFOLD_STEPS` + `SCAFFOLD_STEP_COMMANDS` — étapes post-écriture partagées
+  avec Studio (`ScaffoldService`), qui les MONTRE autrement (canal temps réel vs terminal hérité).
+- Templates partagés : `shared/front-entry/<fw>` (point de montage), `shared/front-registrar`
+  (déclaration d'entry — `it.entryName`/`it.pascal`), `shared/front-shell`. Le controller d'accueil
+  d'une app est rendu par le gabarit `controller/hello` (`it.indexPath`, `it.helloName`,
+  `it.secureRoute`) — pas de copie propre à `create app`.
+- ⚠️ Un front généré importe du CSS → `types: ["node", "vite/client"]` dans le tsconfig de l'app,
+  sinon `npm run typecheck` échoue en TS2882 sur un projet qui, lui, se construit très bien.
+
 ## Deps
 
 - `Cli` → Service, Container, Event, Command, Tools(extend), FileClass, Syslog, Kernel, clui, cli-color, commander, moment, semver, asciify, shelljs, node-emoji

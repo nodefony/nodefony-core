@@ -4,7 +4,7 @@
  *
  * Une fiche écrite à la main diverge du skill qu'elle décrit dès la première édition. Ici, les 26
  * fiches sont DÉRIVÉES du `SKILL.md` lui-même : version, ressources, scripts, déclencheurs et
- * conformité au standard Agent Skills (AAIF) sont lus, jamais recopiés.
+ * conformité au standard Agent Skills sont lus, jamais recopiés.
  *
  * @usage    node .claude/skills/nodefony-skill/scripts/skills-doc.mjs
  * @usage    node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check
@@ -29,7 +29,7 @@ import { join, relative } from "node:path";
 const SKILLS_DIR = ".claude/skills";
 const OUT_DIR = "docs/skills";
 const CHECK_ONLY = process.argv.includes("--check");
-// Champs de frontmatter autorisés par le standard Agent Skills (AAIF). Source :
+// Champs de frontmatter autorisés par le standard Agent Skills. Source :
 // https://agentskills.io/specification.md § "SKILL.md format". `compatibility` a été ajouté par le
 // standard (≤500 car.) — sans lui ici, un skill conforme serait faussement signalé « hors standard ».
 const ALLOWED_FIELDS = new Set([
@@ -45,11 +45,15 @@ const MAX_COMPAT = 500; // spec : compatibility 1-500 caractères
 const MAX_BODY_LINES = 500; // best-practices (SHOULD, pas MUST) : corps court
 // name (spec) : 1-64 car., minuscules alphanumériques + tirets, ni au bord ni consécutifs.
 const NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-// Le standard référencé par les fiches. Agent Skills est un standard OUVERT (Anthropic → AAIF) sans
-// numéro de révision publié — on nomme la source plutôt qu'une version fictive.
+// Le standard référencé par les fiches. Agent Skills n'a pas de numéro de révision publié — on
+// nomme la source plutôt qu'une version fictive.
+//
+// Gouvernance vérifiée à la source primaire (agentskills.io, § « Open development ») : « The Agent
+// Skills format was originally developed by Anthropic, released as an open standard ». Aucune
+// fondation ne le porte — ne pas confondre avec AGENTS.md et MCP, eux confiés à l'AAIF.
 const STANDARD = {
   name: "Agent Skills",
-  org: "AAIF / Linux Foundation",
+  org: "Anthropic (standard ouvert)",
   url: "https://agentskills.io/specification.md",
 };
 // Horodatage exigé par le gate de documentation. Passé par l'environnement pour rester rejouable.
@@ -367,7 +371,7 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
     .sort();
 
   const compat = fields.compatibility || "";
-  // `nature` : normatif = MUST du standard AAIF · recommandé = SHOULD (best-practices) · projet =
+  // `nature` : normatif = MUST du standard · recommandé = SHOULD (best-practices) · projet =
   // contrôle propre à Nodefony. `ref` = la règle citée, pour qu'un lecteur voie d'où sort le contrôle.
   const checks = [
     {
@@ -692,9 +696,7 @@ function renderSkill(s) {
   L.push("## Conformité au standard Agent Skills");
   L.push("");
   L.push("> [!NOTE]");
-  L.push(
-    "> **Standard [Agent Skills](https://agentskills.io/specification.md)** (AAIF / Linux Foundation).",
-  );
+  L.push(`> **Standard [Agent Skills](${STANDARD.url})** — ${STANDARD.org}.`);
   L.push(
     "> **Nature** — ℹ️ _normatif_ : règle **MUST** du standard, un client conforme la refuse ;",
   );
@@ -905,7 +907,7 @@ if (!CHECK_ONLY) {
   // prérequis, graphe de voisinage, conformité. C'est la même donnée que les fiches, sérialisée.
   const registry = {
     schema: "nodefony.skills-registry/1",
-    standard: "agent-skills (AAIF)",
+    standard: "agent-skills",
     generatedBy: ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
     generatedAt: STAMP,
     count: skills.length,

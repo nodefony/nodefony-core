@@ -18,7 +18,7 @@ tags: [skills, agents, aaif, agent-skills, outillage, claude-code]
 > n'est ni publié sur npm ni chargé au boot : il sert à celles et ceux qui développent le framework.
 > Le dépôt embarque **22 skills**, **2 commandes** et **1 garde-fou** destinés aux agents qui
 > travaillent sur Nodefony. Cette page dit ce que chacun fait, **combien il sert réellement**
-> (mesuré, pas estimé), s'il respecte le standard **Agent Skills** de l'AAIF, et comment l'inventaire
+> (mesuré, pas estimé), s'il respecte le standard ouvert **Agent Skills**, et comment l'inventaire
 > a été resserré (fusions, retraits). Elle sert au moment où l'on se demande « ai-je un outil pour
 > ça ? » ou « pourquoi celui-là ne se déclenche jamais ? ».
 
@@ -94,7 +94,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme · 📎 1 réf" },
   { "icon": "📘", "title": "documentation", "href": "skills/nodefony-documentation.md",
     "desc": "Kit de dev de la DOCUMENTATION Nodefony, deux faces. (1) Le PORTAIL doc Studio et le futur module `@nodefony/documentation` : briques React (DocLayout, DocToc, MarkdownDoc, FlowGraph, SymbolGraph), mise en page docs-site, data plane avec allowlist anti-traversée.",
-    "meta": "🟢 conforme v2.4.0 · ⚙️ 6 scripts · 📎 2 réf" },
+    "meta": "🟢 conforme v2.4.0 · ⚙️ 7 scripts · 📎 2 réf" },
   { "icon": "⚙️", "title": "framework-dev", "href": "skills/nodefony-framework-dev.md",
     "desc": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM).",
     "meta": "🟢 conforme v2.0.0 · 📎 8 réf" },
@@ -119,7 +119,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.1.0" },
   { "icon": "📈", "title": "load-test", "href": "skills/nodefony-load-test.md",
     "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).",
-    "meta": "🟢 conforme · ⚙️ 36 scripts · 📎 1 réf" },
+    "meta": "🟢 conforme · ⚙️ 37 scripts · 📎 1 réf" },
   { "icon": "🛰️", "title": "multipod-bench", "href": "skills/nodefony-multipod-bench.md",
     "desc": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout.",
     "meta": "🟢 conforme · ⚙️ 9 scripts · 📎 2 réf" },
@@ -256,7 +256,7 @@ pas remplacer :
 > Nodefony à Express et Fastify. Il **n'est pas versionné** (vérifié) — mais il pèse sur les
 > recherches lancées depuis la racine.
 
-## Conformité au standard Agent Skills (AAIF / Linux Foundation)
+## Conformité au standard Agent Skills (Anthropic — standard ouvert)
 
 Le standard tient en peu de règles **normatives** : `name` ≤ 64 caractères en minuscules, identique au
 dossier ; `description` de 1 à 1024 caractères ; **aucun champ hors** `name`, `description`, `license`,

@@ -195,8 +195,8 @@ class HelloController extends Controller {
 
   // Route HTTP classique. `@CurrentUser()` injecte l'utilisateur résolu par la
   // zone firewall qui couvre ce chemin — hors zone, il n'est jamais résolu.
-  @route("route-hello", { path: "/hello", method: "GET" })
-  async hello(@CurrentUser() user?: { identifier?: string }) {
+  @route("hello-index", { path: "/hello", method: "GET" })
+  async index(@CurrentUser() user?: { identifier?: string }) {
     return this.renderJson({
       hello: "mon-app",
       who: user?.identifier ?? "anonyme",
@@ -205,7 +205,7 @@ class HelloController extends Controller {
 
   // MÊME classe, MÊME décorateur : seul le transport déclaré change.
   // L'action reçoit en plus le contenu de la trame reçue.
-  @route("route-echo", {
+  @route("hello-echo", {
     path: "/echo",
     requirements: { methods: ["WEBSOCKET"] },
   })
