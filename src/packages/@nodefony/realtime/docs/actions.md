@@ -116,7 +116,7 @@ attendre trop longtemps et repartir.
 
 Techniquement, ce numéro est le champ `id` de la frame JSON-RPC 2.0. Le pair l'attribue, garde
 l'appel en attente dans une table, arme une minuterie, et résout la `Promise` quand la réponse
-portant cet `id` revient (`JsonRpcPeer.handleResponse()`, `JsonRpcPeer.ts:534`). Une frame sans
+portant cet `id` revient (`JsonRpcPeer.handleResponse()`, `JsonRpcPeer.ts:563`). Une frame sans
 `id` ne crée aucune de ces trois choses — c'est pourquoi une publication ne coûte rien au repos.
 
 ## La vision Nodefony — un nom, un handler, une découverte
@@ -135,7 +135,7 @@ l'instance du contrôleur au handshake, ce qui donne accès au noyau, aux servic
 connexion sans élargir le contrat.
 
 **L'endpoint s'annonce lui-même.** La liste des actions exposées voyage dans la frame d'accueil —
-`IRealtimeWelcome` (`RealtimeController.ts:566`) — et se lit côté client par
+`IRealtimeWelcome` (`RealtimeController.ts:8`) — et se lit côté client par
 `RealtimeClient.serverMethods` (`RealtimeClient.ts:476`). Une interface n'écrit donc jamais un nom d'action en dur : elle
 n'active un bouton que si le serveur a déclaré savoir le servir.
 
@@ -282,7 +282,7 @@ allouée au premier enregistrement seulement.
 ### Ce que ton `return` et ton `throw` deviennent sur le fil
 
 Le retour du handler est envoyé tel quel en `result`. Les erreurs, elles, suivent une règle Zero
-Trust stricte, appliquée dans `JsonRpcPeer.handleRequest()` (`JsonRpcPeer.ts:477`) :
+Trust stricte, appliquée dans `JsonRpcPeer.handleRequest()` (`JsonRpcPeer.ts:506`) :
 
 | Côté serveur                    | Ce que reçoit le client                  | Pourquoi                                        |
 | ------------------------------- | ---------------------------------------- | ----------------------------------------------- |
@@ -308,7 +308,7 @@ Trust stricte, appliquée dans `JsonRpcPeer.handleRequest()` (`JsonRpcPeer.ts:47
 Cette défense est le **verrou de frame**, posé par `@nodefony/security`. Il examine chaque frame
 entrante et, pour une action, résout une politique **par son nom** — exactement le mécanisme des
 canaux (`buildFrameAuthorizer()`, `frameAuthorizer.ts:352` ; branche des méthodes,
-`frameAuthorizer.ts:386`). Trois situations, à connaître dans cet ordre :
+`frameAuthorizer.ts:356`). Trois situations, à connaître dans cet ordre :
 
 ### Situation 1 — une action est FERMÉE par défaut
 
@@ -353,7 +353,7 @@ donc réservée, quoi qu'en dise son décorateur. À savoir avant de nommer une 
 
 Pour exiger un rôle sur tes propres actions, on déclare une règle de préfixe dans la
 configuration de sécurité — la même liste que pour les canaux
-(`realtimeChannels`, `security/nodefony/config/config.ts:906`) :
+(`realtimeChannels`, `security/nodefony/config/config.ts:968`) :
 
 ```ts ignore
 use("@nodefony/security", {
@@ -416,7 +416,7 @@ Trois leviers existent, et ils ne font pas la même chose :
 
 1. **Le délai d'expiration** — libère le client, laisse le serveur travailler.
 2. **La fermeture de la connexion** — `dispose()` rejette **tous** les appels en attente d'un
-   coup (`JsonRpcPeer.ts:434`), appelé au nettoyage de la socket
+   coup (`JsonRpcPeer.ts:463`), appelé au nettoyage de la socket
    (`RealtimeController.ts:553`). Là encore : côté client seulement.
 3. **Une action compagnon** — la seule vraie annulation. On expose une seconde action qui prend
    l'identifiant du travail et l'interrompt côté serveur. Le modèle du dépôt est
@@ -501,7 +501,7 @@ ce qui progresse.
 Un cas particulier mérite d'être connu avant d'écrire une action : **elle existe peut-être déjà en
 HTTP**. Le pont API expose la méthode `api.request`, qui rejoue une route de contrôleur sur la
 socket, avec la même garde et le même résultat qu'en REST — `invokeApiRequest()`
-(`RealtimeController.ts:679`). Il est **désactivé par défaut** et s'active en surchargeant
+(`RealtimeController.ts:741`). Il est **désactivé par défaut** et s'active en surchargeant
 `realtimeApiRequest()` (`RealtimeController.ts:219`).
 
 ```ts ignore

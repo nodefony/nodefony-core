@@ -265,7 +265,7 @@ Sur le fil, dans l'inspecteur réseau du navigateur, exactement cinq frames :
 
 L'accueil porte **cinq** champs : `ts`, `protocol`, `channels`, `methods`, `identity`
 (`IRealtimeWelcome`, `RealtimeEventMap.ts:204`), émis par le contrôleur au handshake
-(`RealtimeController.ts:566`). Il n'y a pas de champ `version`.
+(`RealtimeController.ts:8`). Il n'y a pas de champ `version`.
 
 ## 🔌 Anatomie d'une frame, champ par champ
 
@@ -290,7 +290,7 @@ L'accueil porte **cinq** champs : `ts`, `protocol`, `channels`, `methods`, `iden
 > [!IMPORTANT]
 > Le pair accepte un `id` **chaîne** en entrée (conforme à la norme), mais il n'attribue jamais que
 > des `id` **numériques** à ses propres appels sortants. Une réponse portant un `id` chaîne est donc
-> ignorée sans erreur (`JsonRpcPeer.handleResponse()`, `JsonRpcPeer.ts:537`) : elle ne peut, par
+> ignorée sans erreur (`JsonRpcPeer.handleResponse()`, `JsonRpcPeer.ts:563`) : elle ne peut, par
 > construction, correspondre à aucune requête émise par ce pair.
 
 ### La réponse — `result` ou `error`, jamais les deux
@@ -399,7 +399,7 @@ de `RpcError`.
 | `-32603` | même méthode (`JsonRpcPeer.ts:528`)                        | le handler a levé une exception **ordinaire**       | `internal error` — générique, rien d'autre     |
 | `-32001` | le refus du verrou de frame (`JsonRpcPeer.ts:400`)         | `beforeDispatch` a dit non **sur une requête**      | `unauthorized`, sans jamais dire pourquoi      |
 | `-32000` | défaut du constructeur de `RpcError` (`JsonRpcPeer.ts:74`) | le handler expose volontairement son refus          | le message ET le `data` choisis par le handler |
-| `-32602` | le pont API, via `RpcError` (`RealtimeController.ts:694`)  | `api.request` appelé avec un `params.path` invalide | message explicite (l'appel est malformé)       |
+| `-32602` | le pont API, via `RpcError` (`RealtimeController.ts:743`)  | `api.request` appelé avec un `params.path` invalide | message explicite (l'appel est malformé)       |
 
 Et un échec qui n'est **pas** une frame : l'expiration. `startCall()` ne reçoit rien dans le délai
 imparti, supprime l'entrée en attente et rejette localement avec `RPC timeout: <méthode>`

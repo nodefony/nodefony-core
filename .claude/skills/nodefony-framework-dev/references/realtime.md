@@ -429,7 +429,7 @@ Types : `RealtimePublish = (channel: string, payload: unknown) => void` · `Real
 `rt/nodefony/src/server/ServerRealtimeSocket.ts:43`. `implements IRealtimeSocket` au-dessus du hub : un **service back** tient UN handle comme une page front. Fabrique `serverSocket<Emit, Listen, Actions>()` `:223`.
 
 - `publish(channel, payload)` `:56` — fan-out hub (+ backplane si broadcast). **Cas d'usage principal.**
-- `subscribe`/`unsubscribe` `:67/:80` — le service ÉCOUTE (ref-compté). ⚠️ au 1ᵉʳ abonné, **provider VIDE** créé si le canal n'existe pas (`() => () => {}`, `:76`) — un service est écouteur, pas source.
+- `subscribe`/`unsubscribe` `:68/:81` — le service ÉCOUTE (ref-compté). Au 1ᵉʳ abonné, pose une **écoute passive** (`hub.listen`, `:77`) : le service reçoit ce qui passe **sans ouvrir le canal**. Un canal tenu par de seuls écouteurs est `passif` — la 1ʳᵉ connexion cliente qui le demande fait rejouer la fabrique du controller, qui seule décide de son existence.
 - `on`/`off`/`channel` `:97/:117/:147` · `getStats`/`getChannelStats`/`subscribedChannels` `:175/:180/:185`.
 - `request(...)` `:131` — **rejette toujours** (pas de pair unique côté hub multi-clients) → utiliser `RealtimeController.requestClient` pour un RPC 1-1.
 

@@ -605,6 +605,29 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     expect(msg).to.contain("requestClient");
   });
 
+  it("⭐ L4 écoute passive : un service qui écoute NE prive PAS le client du vrai provider", async () => {
+    const { client, rt } = await connectPair();
+    const back = serverSocket();
+    const heardBack: unknown[] = [];
+    back.on("owned:feed", (p) => heardBack.push(p));
+    back.subscribe("owned:feed"); // le service écoute AVANT tout client
+    expect(rt.publishers["owned:feed"]).to.equal(undefined); // rien d'ouvert
+
+    const heardClient: unknown[] = [];
+    client.on("owned:feed", (p) => heardClient.push(p));
+    client.subscribe("owned:feed");
+    await flush();
+    // La fabrique du controller a bien été consultée malgré l'écoute préalable :
+    // sans ce réveil, le client serait abonné à un canal que rien ne produit.
+    expect(rt.publishers["owned:feed"]).to.be.a("function");
+
+    rt.publishers["owned:feed"]!("owned:feed", { tick: 1 });
+    await flush();
+    expect(heardClient).to.deep.equal([{ tick: 1 }]); // le client reçoit du VRAI provider
+    expect(heardBack).to.deep.equal([{ tick: 1 }]); // l'écouteur serveur aussi
+    back.unsubscribe("owned:feed");
+  });
+
   it("L4 façade serveur : subscribedChannels + ref-count (stop au dernier unsubscribe)", () => {
     const back = serverSocket();
     back.subscribe("a");

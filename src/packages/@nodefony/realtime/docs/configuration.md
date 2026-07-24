@@ -376,7 +376,7 @@ d'éteindre une sonde sur un pod en incident sans redéployer une configuration.
 ### `slowConsumer.bytes` — un compteur, pas un frein
 
 Seuil de `bufferedAmount` — les octets en attente d'envoi sur une socket — au-delà duquel la sonde
-compte la connexion comme « lente » (`RealtimeHub.probe()`, `RealtimeHub.ts:540`).
+compte la connexion comme « lente » (`RealtimeHub.probe()`, `RealtimeHub.ts:775`).
 
 > [!WARNING]
 > **Cette clé ne règle pas la contre-pression.** Elle ne change que le compteur `slowConsumers` de la
@@ -421,13 +421,13 @@ les clients — un tableau de bord interne qui compose des dizaines de flux, par
 ### `csrf.checkOrigin` — qui a le droit d'ouvrir la socket
 
 Trois clés qui forment une seule politique, appliquée à l'ouverture de la connexion
-(`RealtimeHub.checkOrigin()`, `RealtimeHub.ts:652`). Une origine refusée ferme la socket avec le code
+(`RealtimeHub.checkOrigin()`, `RealtimeHub.ts:896`). Une origine refusée ferme la socket avec le code
 `4003`.
 
 Le défaut est **désactivé**. C'est le seul défaut du module qui n'est pas le réglage recommandé :
 active-le dès que ta socket est joignable depuis un navigateur.
 
-Le comportement se lit en trois lignes (`buildOriginGuard()`, `RealtimeService.ts:270`) :
+Le comportement se lit en trois lignes (`buildOriginGuard()`, `RealtimeService.ts:291`) :
 
 | Situation                                        | Résultat                                                                 |
 | ------------------------------------------------ | ------------------------------------------------------------------------ |

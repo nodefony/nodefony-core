@@ -117,10 +117,10 @@ politiques.**
   _fail-open_ (une zone qui oublie le flag laisserait le WS anonyme).
 - Le verrou de frame consulte la **même** fonction de match que le HTTP, `Firewall.matchPath()`
   (`firewall.ts:529`), et la **même** hiérarchie de rôles, `Firewall.hasRole()`
-  (`firewall.ts:399`). Invariant par construction : `api.request {path}` n'accorde jamais plus que
+  (`firewall.ts:438`). Invariant par construction : `api.request {path}` n'accorde jamais plus que
   `GET {path}`.
-- L'identité du handshake est celle du firewall HTTP : `SessionRealtimeAuthenticator`
-  (`SessionRealtimeAuthenticator.ts:37`) ne relit ni cookie ni base, il **promeut** l'`IUser` déjà
+- L'identité du handshake est celle du firewall HTTP : `FirewallRealtimeAuthenticator`
+  (`FirewallRealtimeAuthenticator.ts:57`) ne relit ni cookie ni base, il **promeut** l'`IUser` déjà
   posé dans l'ALS. Zéro lecture redondante par connexion.
 
 Le compromis assumé : l'identité est **figée au handshake**, les frames lisent un cache O(1). C'est
@@ -265,8 +265,8 @@ loopback en développement et une allowlist optionnelle (`allowedOrigins`,
 requête **sans** `Origin` est acceptée : un attaquant non-navigateur n'a pas besoin de CSWSH.
 
 **Barrière 2 — module realtime, opt-in et plus stricte.** `RealtimeHub.checkOrigin()`
-(`RealtimeHub.ts:652`) consulte une garde compilée une fois au boot par `buildOriginGuard()`
-(`RealtimeService.ts:270`) depuis `checkOriginSchema` (`realtime/nodefony/config/config.ts:142`).
+(`RealtimeHub.ts:896`) consulte une garde compilée une fois au boot par `buildOriginGuard()`
+(`RealtimeService.ts:291`) depuis `checkOriginSchema` (`realtime/nodefony/config/config.ts:162`).
 Trois différences comptent :
 
 1. **Match exact scheme + host + port**, aucun wildcard. Durcissement volontaire par rapport au
@@ -293,10 +293,10 @@ n'est jamais traitée.
 `RealtimeController.onHandshake()` (`RealtimeController.ts:312`) exécute, une fois par connexion :
 
 1. Construction d'un DTO neutre `IRealtimeHandshake` par `buildHandshakeFromContext()`
-   (`RealtimeController.ts:914`) — headers, cookies aplatis, url, origin, sous-protocoles. Aucune
+   (`RealtimeController.ts:976`) — headers, cookies aplatis, url, origin, sous-protocoles. Aucune
    dépendance à `@nodefony/security` dans le contrat.
 2. Contrôle d'origine (verrou 1).
-3. Résolution de l'authenticator par `RealtimeHub.resolveAuthenticator()` (`RealtimeHub.ts:635`) :
+3. Résolution de l'authenticator par `RealtimeHub.resolveAuthenticator()` (`RealtimeHub.ts:871`) :
    les matchers sont testés dans l'ordre d'enregistrement, **le premier qui matche capture**.
 4. `authenticator.authenticate(handshake)` — **async autorisé** (on est en cold path, une fois par
    connexion : lire un store est acceptable ici, jamais par frame).
@@ -310,7 +310,7 @@ d'audit défectueux ne peut pas empêcher la fermeture.
 
 ### Les matchers — quelle porte, quel vigile
 
-`RealtimeHub.useAuthenticator()` (`RealtimeHub.ts:617`) associe un sélecteur à une stratégie.
+`RealtimeHub.useAuthenticator()` (`RealtimeHub.ts:853`) associe un sélecteur à une stratégie.
 `compileMatcher()` (`RealtimeHub.ts:855`) le compile une fois :
 
 - `pattern` chaîne → RegExp **préfixe ancrée**, méta-caractères échappés par `RegExp.escape`.
@@ -328,7 +328,7 @@ identité d'instance et une instance partagée n'enregistrerait que le premier m
 
 ### Zero Trust — il y a toujours un token
 
-`RealtimeHub.getTokenForPeer()` (`RealtimeHub.ts:704`) ne renvoie **jamais** `null` : à défaut de
+`RealtimeHub.getTokenForPeer()` (`RealtimeHub.ts:940`) ne renvoie **jamais** `null` : à défaut de
 token posé, c'est `ANONYMOUS_REALTIME_TOKEN` (`AnonymousRealtimeToken.ts:18`), singleton gelé,
 `isAuthenticated() === false`, `roles: ["ROLE_ANONYMOUS"]`. Le code consommateur (verrou, audit)
 n'a jamais à écrire « et s'il n'y a pas de token ? ».
@@ -344,7 +344,7 @@ n'a jamais à écrire « et s'il n'y a pas de token ? ».
 > [!WARNING]
 > La troisième ligne est un comportement à comprendre : un authenticator qui **matche mais ne
 > supporte pas** le handshake fait retomber la connexion en anonyme, sans fermeture. C'est le cas
-> de `SessionRealtimeAuthenticator.supports()` (`SessionRealtimeAuthenticator.ts:41`) quand aucune
+> de `FirewallRealtimeAuthenticator.supports()` (`FirewallRealtimeAuthenticator.ts:80`) quand aucune
 > identité authentifiée n'est en ALS. Ce n'est pas un trou **parce que** le firewall HTTP a déjà
 > refusé l'anonyme en amont sur une zone protégée (Zero Trust appliqué à la requête d'upgrade). Sur
 > une route WS **hors zone**, en revanche, la connexion anonyme aboutit : la protection y repose
@@ -465,11 +465,11 @@ Trois durcissements méritent d'être connus :
   `authenticated: true`. Le test porte sur le **namespace du canal**, pas sur le préfixe de la règle
   qui a matché : un préfixe de config plus court ou altéré ne contourne rien.
 - **La config passe avant les défauts** — les règles de `realtimeChannels`
-  (`security/nodefony/config/config.ts:906`) sont placées en tête, premier match gagnant. On peut
+  (`security/nodefony/config/config.ts:968`) sont placées en tête, premier match gagnant. On peut
   donc re-cibler `nodefony:syslog` sur `ROLE_SECURITY_AUDITOR` ; on ne peut pas l'ouvrir à l'anonyme.
 
 Le canal du journal d'audit (`nodefony:audit`) est enregistré comme **canal système** sur le hub
-(`RealtimeHub.registerSystemChannel()`, `RealtimeHub.ts:741`) : il devient servable par n'importe
+(`RealtimeHub.registerSystemChannel()`, `RealtimeHub.ts:1079`) : il devient servable par n'importe
 quel endpoint realtime, sans qu'aucun controller ne le connaisse — et il est gardé par sa règle
 dédiée. Son enregistrement est **couplé** à la pose du verrou (même condition), donc il n'existe
 jamais de canal d'audit non gardé.
@@ -483,12 +483,12 @@ cumulatifs (ET) ; un axe absent n'impose rien :
 | Axe             | Sens                                                                          | Évalué par                               |
 | --------------- | ----------------------------------------------------------------------------- | ---------------------------------------- |
 | `authenticated` | token non anonyme                                                             | `satisfies()` (`frameAuthorizer.ts:240`) |
-| `roles`         | un des rôles suffit, **hiérarchie comprise**                                  | `Firewall.hasRole()` (`firewall.ts:399`) |
+| `roles`         | un des rôles suffit, **hiérarchie comprise**                                  | `Firewall.hasRole()` (`firewall.ts:438`) |
 | `scopes`        | un des scopes suffit — axe API (JWT, clé API), une session BFF n'en porte pas | comparaison directe                      |
 
 Une policy **vide** n'est pas enregistrée : `definePolicy()` (`realtimeDecorators.ts:40`) ignore un
 objet sans contrainte — le canal reste libre, le registre reste vide. Les déclarations sont publiées
-au hub **au handshake**, pas au boot (`RealtimeHub.registerChannelPolicy()`, `RealtimeHub.ts:751`,
+au hub **au handshake**, pas au boot (`RealtimeHub.registerChannelPolicy()`, `RealtimeHub.ts:1037`,
 idempotent) ; le décideur les relit par `RealtimeService.resolveChannelPolicy()`
 (`RealtimeService.ts:243`).
 
@@ -505,14 +505,14 @@ C'est exactement le test de `Firewall.#wireRealtime()` (`firewall.ts:253`) : san
 
 Deuxième subtilité : `beforeDispatch` n'est branché sur une connexion que si le verrou est **déjà**
 posé au moment de son handshake (`RealtimeController.ts:402`, via
-`RealtimeHub.hasFrameAuthorizer()` — `RealtimeHub.ts:722`). Choix de performance délibéré (un hub
+`RealtimeHub.hasFrameAuthorizer()` — `RealtimeHub.ts:961`). Choix de performance délibéré (un hub
 non sécurisé garde un coût nul par frame), mais avec une conséquence : **une connexion ouverte avant
 la pose du verrou n'est jamais gardée**, et ce jusqu'à sa fermeture. En fonctionnement normal le
 firewall se construit au boot, avant tout trafic ; le cas ne se présente qu'en appelant
 `setFrameAuthorizer()` à chaud.
 
 **Le refus de dégrader en silence.** Quand des policies sont déclarées sans décideur câblé,
-`RealtimeHub.hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:734`) renvoie `true` et le controller
+`RealtimeHub.hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:1020`) renvoie `true` et le controller
 émet un WARNING explicite, une seule fois par process (`RealtimeController.ts:487`) :
 
 ```text
@@ -539,7 +539,7 @@ Le refus doit être observable sans devenir un oracle. Nodefony tranche ainsi :
 
 | Type de frame refusée               | Réponse au client                                                                |
 | ----------------------------------- | -------------------------------------------------------------------------------- |
-| Requête (avec `id`)                 | `-32001 "unauthorized"` — `JsonRpcPeer.receive()` (`JsonRpcPeer.ts:371`)         |
+| Requête (avec `id`)                 | `-32001 "unauthorized"` — `JsonRpcPeer.receive()` (`JsonRpcPeer.ts:400`)         |
 | Notification (`subscribe`, inbound) | `realtime:denied { channel, reason: "forbidden" }` (`RealtimeController.ts:432`) |
 | Dépassement du plafond de canaux    | `realtime:denied { channel, reason: "limit" }`                                   |
 
@@ -564,8 +564,8 @@ Nodefony ferme l'écart par deux mécanismes de granularité différente.
 
 | Surface                     | Re-validation        | Fenêtre d'exposition | Où                                                                    |
 | --------------------------- | -------------------- | -------------------- | --------------------------------------------------------------------- |
-| `api.request` (data plane)  | **à chaque frame**   | nulle                | `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:679`) |
-| `subscribe` / flux de canal | **périodique**, 30 s | ≤ 30 s               | `RealtimeHub.revalidateRevocable()` (`RealtimeHub.ts:464`)            |
+| `api.request` (data plane)  | **à chaque frame**   | nulle                | `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:741`) |
+| `subscribe` / flux de canal | **périodique**, 30 s | ≤ 30 s               | `RealtimeHub.revalidateRevocable()` (`RealtimeHub.ts:736`)            |
 
 **Sur `api.request`**, `token.isValid()` est appelé avant l'exécution de l'action ; identité périmée
 ou changée → `-32000` avec `status: 401`, et le client bascule sur un `fetch` HTTP porteur du cookie
@@ -573,9 +573,9 @@ courant. Une erreur de re-validation vaut refus (fail-closed).
 
 **Sur les canaux**, le hub n'inscrit au registre de révocation que les connexions dont le token porte
 `isValid` (`RealtimeController.ts:511`) — anonymes et JWT n'y entrent jamais, coût nul.
-`RealtimeHub.registerRevocable()` (`RealtimeHub.ts:470`) démarre un `setInterval` `unref` au premier
+`RealtimeHub.registerRevocable()` (`RealtimeHub.ts:704`) démarre un `setInterval` `unref` au premier
 inscrit et l'arrête dès que le registre se vide : zéro timer au repos. Période :
-`REVOCATION_REVALIDATE_MS` (`RealtimeHub.ts:68`), 30 s, alignée sur le heartbeat WS.
+`REVOCATION_REVALIDATE_MS` (`RealtimeHub.ts:111`), 30 s, alignée sur le heartbeat WS.
 
 Ce que `realtimeRevocation.attack.test.ts` prouve exactement :
 
@@ -589,7 +589,7 @@ Ce que `realtimeRevocation.attack.test.ts` prouve exactement :
 | registre vide                              | tick no-op, aucun crash                                  |
 
 La source de vérité côté security est `buildSessionRevalidator()`
-(`SessionRealtimeAuthenticator.ts:88`) : il relit la session BFF **par son id capturé au handshake**
+(`FirewallRealtimeAuthenticator.ts:227`) : il relit la session BFF **par son id capturé au handshake**
 et vérifie qu'elle est toujours vivante **et toujours celle du même utilisateur** — ce second point
 attrape le changement de compte sur un navigateur partagé.
 
@@ -600,7 +600,7 @@ attrape le changement de compte sur un navigateur partagé.
 >    immédiate, fermer la socket explicitement côté serveur.
 > 2. **Best-effort si la session est illisible au handshake.** Si l'id ou le store ne sont pas
 >    accessibles, `buildSessionRevalidator()` renvoie `null` ; `UserRealtimeToken.isValid()`
->    (`UserRealtimeToken.ts:40`) répond alors toujours `true`. La connexion **est** inscrite au
+>    (`UserRealtimeToken.ts:78`) répond alors toujours `true`. La connexion **est** inscrite au
 >    registre (le token expose bien `isValid`) mais ne sera **jamais** révoquée. Choix assumé pour
 >    éviter les faux refus — à connaître, car cela ne se voit pas.
 > 3. **Les identités sans `isValid` ne sont pas révocables du tout** : anonyme, JWT, clé API. Pour
@@ -617,11 +617,11 @@ Chaque canal ouvert coûte un provider, un ticker et une entrée de Map. Sans bo
 peut abonner jusqu'à l'OOM — un déni de service mémoire déclenché par **un seul** client.
 
 `RealtimeController.startChannel()` (`RealtimeController.ts:618`) refuse au-delà de
-`limits.maxChannelsPerConnection` (`realtime/nodefony/config/config.ts:122`), défaut **256**,
+`limits.maxChannelsPerConnection` (`realtime/nodefony/config/config.ts:142`), défaut **256**,
 `null` pour illimité. Points prouvés par `realtimeChannelCap.attack.test.ts` :
 
 - le plafond est actif **même sans `RealtimeService`** — le hub porte le défaut 256
-  (`RealtimeHub.ts:217`), il n'y a pas de fenêtre où la garde n'existerait pas ;
+  (`RealtimeHub.ts:315`), il n'y a pas de fenêtre où la garde n'existerait pas ;
 - au-delà, le hub **n'est jamais appelé** : le canal n'est pas ouvert, aucun provider ne démarre ;
 - le refus est **observable** (`realtime:denied`, motif `limit`) ;
 - un re-`subscribe` d'un canal déjà tenu **ne consomme pas de slot** (l'idempotence est vérifiée
@@ -662,7 +662,7 @@ au défaut de la librairie `ws`.
 
 Seules les clés à **effet de sécurité** figurent ici ; le catalogue complet est dans
 [`configuration.md`](./configuration.md).
-Source unique des défauts : `realtimeConfigSchema` (`realtime/nodefony/config/config.ts:185`).
+Source unique des défauts : `realtimeConfigSchema` (`realtime/nodefony/config/config.ts:205`).
 
 | Clé                                   | Défaut   | Effet de sécurité                                                                         |
 | ------------------------------------- | -------- | ----------------------------------------------------------------------------------------- |
@@ -687,7 +687,7 @@ Source unique des défauts : `realtimeConfigSchema` (`realtime/nodefony/config/c
 Cette section existe pour éviter une confiance mal placée. Chaque point est vérifié au code.
 
 **1. Il n'y a pas de frontière de canal entre modules.** Un nom de canal est une chaîne dans un
-registre global (`#channelPolicies` du hub singleton, `RealtimeHub.ts:197`). Rien n'empêche le
+registre global (`#channelPolicies` du hub singleton, `RealtimeHub.ts:295`). Rien n'empêche le
 controller du module A de servir un canal au nom d'un canal du module B, ni de déclarer une policy
 plus faible sur ce même nom — la déclaration la plus récente écrase (`RealtimeHub.ts:751`, idempotent
 par écrasement). En pratique, l'exploitation exige que le controller fautif accepte le nom (sa
@@ -736,7 +736,7 @@ n'est pas appliquée.
 ## 📡 Observabilité — Studio
 
 - **Santé de la socket** : `/nodefony/realtime/api/health`, alimenté par `RealtimeHub.probe()`
-  (`RealtimeHub.ts:540`) — canaux, abonnés, fan-out, connexions, back-pressure et carte d'identité
+  (`RealtimeHub.ts:775`) — canaux, abonnés, fan-out, connexions, back-pressure et carte d'identité
   du backplane. Un `drops` qui grimpe signale des clients en souffrance ; un `slowConsumers` non nul
   précède souvent une fermeture `1013`. Même snapshot en flux sur le canal `nodefony:socket`
   (namespace réservé : `ROLE_ADMIN`).

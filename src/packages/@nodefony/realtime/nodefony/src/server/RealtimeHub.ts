@@ -154,6 +154,18 @@ export type ChannelFactory = (
 interface ChannelState {
   /** dispose du provider partagé (`null` brièvement pendant la création). */
   dispose: (() => void) | null;
+  /**
+   * Le canal a-t-il un **propriétaire** — c'est-à-dire une fabrique qui a
+   * répondu de lui et fourni un provider réel ? `false` = état **passif** :
+   * il n'existe que parce qu'un service serveur ÉCOUTE ce nom ({@link listen}).
+   *
+   * Un état passif ne vaut PAS existence du canal : une connexion cliente qui
+   * le demande fait rejouer la fabrique du controller ({@link subscribe}), qui
+   * seule décide. Sans cette distinction, le premier écouteur venu inventait un
+   * canal pour tout le monde — et les clients suivants entraient sans que
+   * personne n'ait dit que ce canal existait, sur un flux que rien ne produit.
+   */
+  owned: boolean;
   /** abonnés locaux (1 sink = 1 connexion). */
   sinks: Set<ChannelSink>;
   /**
@@ -322,14 +334,6 @@ export class RealtimeHub {
   #broadcastPrefixes: string[] | null = null;
 
   /**
-   * Abonne une connexion à un canal. Crée le provider partagé au **1ᵉʳ** abonné (via
-   * `factory`), puis ajoute le sink. Le sink est inscrit AVANT l'appel à `factory` →
-   * le 1ᵉʳ paquet immédiat éventuel du provider (ex. `createBrokerTicker` tick initial)
-   * atteint bien ce 1ᵉʳ abonné.
-   *
-   * @returns `true` si abonné, `false` si canal inconnu (`factory` a renvoyé `null`).
-   */
-  /**
    * Abonnement demandé par une **connexion cliente** — même chose que
    * {@link subscribe}, plus le plancher des canaux de plateforme.
    *
@@ -368,6 +372,19 @@ export class RealtimeHub {
     return this.subscribe(channel, sink, factory, serialize);
   }
 
+  /**
+   * Abonne un consommateur qui **répond du canal** : il apporte la `factory`, donc
+   * la réponse à « ce canal existe-t-il, et qui le produit ? ». Le provider partagé
+   * est créé au 1ᵉʳ abonné de ce genre. Le sink est inscrit AVANT l'appel à
+   * `factory` → le 1ᵉʳ paquet immédiat éventuel du provider (ex. tick initial de
+   * `createBrokerTicker`) atteint bien cet abonné.
+   *
+   * Un canal en état **passif** (ouvert par des écouteurs seuls, cf {@link listen})
+   * n'est PAS considéré comme existant : la fabrique est rejouée et tranche. Un
+   * refus laisse les écouteurs en place — ils n'ont jamais prétendu le produire.
+   *
+   * @returns `true` si abonné, `false` si canal inconnu (`factory` a renvoyé `null`).
+   */
   subscribe(
     channel: string,
     sink: ChannelSink,
@@ -377,39 +394,105 @@ export class RealtimeHub {
     const channels = (this.#channels ??= new Map<string, ChannelState>());
     let st = channels.get(channel);
     if (st) {
-      st.sinks.add(sink);
-      // Canal déjà ouvert par un abonné sans sérialiseur : le premier qui en
-      // apporte un ouvre la mutualisation pour les suivants.
-      if (st.serialize === null && serialize !== undefined) {
-        st.serialize = serialize;
+      if (st.owned) {
+        st.sinks.add(sink);
+        // Canal déjà ouvert par un abonné sans sérialiseur : le premier qui en
+        // apporte un ouvre la mutualisation pour les suivants.
+        if (st.serialize === null && serialize !== undefined) {
+          st.serialize = serialize;
+        }
+        return true;
       }
+      // Canal PASSIF : seuls des écouteurs le tiennent. Celui-ci apporte une
+      // fabrique — elle décide. Sink inscrit avant (même invariant qu'à la
+      // création), et retiré si la fabrique ne connaît pas le canal.
+      st.sinks.add(sink);
+      const dispose = this.#createProvider(channel, factory);
+      if (dispose === null) {
+        st.sinks.delete(sink);
+        return false;
+      }
+      st.dispose = dispose;
+      st.owned = true;
+      if (serialize !== undefined) st.serialize = serialize;
       return true;
     }
     // 1ᵉʳ abonné : on inscrit le sink AVANT de créer le provider (capte son 1ᵉʳ push).
     // `forward` résolu UNE fois ici (cold path) puis lu en O(1) sur `publish`.
     st = {
       dispose: null,
+      owned: false,
       sinks: new Set([sink]),
       serialize: serialize ?? null,
       messages: 0,
       forward: this.#isBroadcast(channel),
     };
     channels.set(channel, st);
-    const publishFn = (ch: string, payload: unknown): void =>
-      this.publish(ch, payload);
-    let dispose = factory(channel, publishFn);
-    if (dispose === null) {
-      // Inconnu du controller → dernier recours : factory de canal SYSTÈME
-      // (plateforme) enregistrée par un module bas niveau (nodefony:audit…).
-      const sys = this.#systemChannelFactories?.get(channel);
-      if (sys) dispose = sys(channel, publishFn);
-    }
+    const dispose = this.#createProvider(channel, factory);
     if (dispose === null) {
       channels.delete(channel); // canal inconnu → rien créé, on nettoie
       return false;
     }
     st.dispose = dispose;
+    st.owned = true;
     return true;
+  }
+
+  /**
+   * **Écoute passive** — un service du serveur reçoit ce qui passe sur un canal
+   * sans prétendre le produire. C'est la porte de {@link ServerRealtimeSocket} :
+   * un service back qui `subscribe` sur sa façade écoute, il n'ouvre rien.
+   *
+   * Différence avec {@link subscribe} : aucune fabrique, donc aucun provider et
+   * **aucune revendication d'existence**. Si le canal n'a pas encore de
+   * propriétaire, l'état créé est marqué passif ; la première connexion cliente
+   * qui le demandera fera trancher la fabrique du controller. Un canal déjà
+   * ouvert est simplement rejoint (le provider partagé n'est pas touché).
+   *
+   * Un écouteur n'échoue jamais : il entendra si — et quand — quelqu'un publie.
+   * Cold path (abonnement d'un service, pas une frame réseau).
+   */
+  listen(channel: string, sink: ChannelSink): void {
+    const channels = (this.#channels ??= new Map<string, ChannelState>());
+    const st = channels.get(channel);
+    if (st !== undefined) {
+      st.sinks.add(sink);
+      return;
+    }
+    channels.set(channel, {
+      dispose: null,
+      owned: false,
+      sinks: new Set([sink]),
+      serialize: null,
+      messages: 0,
+      forward: this.#isBroadcast(channel),
+    });
+  }
+
+  /**
+   * Le canal a-t-il un propriétaire (une fabrique a fourni son provider) ?
+   * `false` = inconnu, ou tenu par de seuls écouteurs ({@link listen}).
+   */
+  isChannelOwned(channel: string): boolean {
+    return this.#channels?.get(channel)?.owned ?? false;
+  }
+
+  /**
+   * Crée le provider d'un canal : fabrique de l'abonné d'abord, registre des
+   * canaux SYSTÈME en dernier recours. `null` = canal inconnu des deux.
+   */
+  #createProvider(
+    channel: string,
+    factory: ChannelFactory,
+  ): (() => void) | null {
+    const publishFn = (ch: string, payload: unknown): void =>
+      this.publish(ch, payload);
+    const dispose = factory(channel, publishFn);
+    if (dispose !== null) return dispose;
+    // Inconnu du controller → dernier recours : factory de canal SYSTÈME
+    // (plateforme) enregistrée par un module bas niveau (nodefony:audit…).
+    const sys = this.#systemChannelFactories?.get(channel);
+    return sys ? sys(channel, publishFn) : null;
   }
 
   /**

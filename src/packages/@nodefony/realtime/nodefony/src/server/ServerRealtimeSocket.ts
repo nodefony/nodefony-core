@@ -27,10 +27,11 @@ import { getRealtimeHub, type ChannelSink } from "./RealtimeHub";
  *  - `publish(channel, payload)` : **fan-out** aux abonnés via le hub (+ backplane si
  *    le canal est broadcast). C'est le cas d'usage principal (un service pousse des
  *    events que les clients reçoivent).
- *  - `subscribe`/`on` : le service ÉCOUTE un canal (sink interne). ⚠️ Si le canal n'a
- *    pas encore de provider, un provider VIDE est créé (le service est un écouteur, pas
- *    une source). Cf dette #3 du hub (frontière inter-module) : réserver l'écoute aux
- *    canaux que le service possède ou déjà actifs.
+ *  - `subscribe`/`on` : le service ÉCOUTE un canal (sink interne) — **écoute passive**
+ *    (`RealtimeHub.listen`). Écouter n'ouvre PAS le canal : s'il n'a pas de provider,
+ *    l'état créé est passif, et c'est la fabrique du controller qui tranchera quand
+ *    une connexion cliente le demandera. Un service n'invente donc jamais un canal
+ *    pour les autres.
  *  - `request` : **non supporté** — un handle au-dessus du hub n'a PAS de pair unique
  *    (le hub est multi-clients). Pour un RPC serveur→client 1-1, utiliser
  *    `RealtimeController.requestClient` (par connexion, L1).
@@ -62,7 +63,8 @@ export class ServerRealtimeSocket<
 
   /**
    * S'abonne (ref-compté) à un canal pour le RECEVOIR. Au 1ᵉʳ consommateur, pose un
-   * sink auprès du hub (provider VIDE si le canal n'existe pas — le service écoute).
+   * sink d'**écoute passive** auprès du hub : le service reçoit ce qui passe, sans
+   * ouvrir le canal à qui que ce soit d'autre.
    */
   subscribe(channel: EventNames<Listen> | (string & {})): void {
     const c = channel as string;
@@ -72,8 +74,8 @@ export class ServerRealtimeSocket<
     if (n !== 1) return;
     const sink: ChannelSink = (payload) => this.#receive(c, payload);
     (this.#sinks ??= new Map<string, ChannelSink>()).set(c, sink);
-    // Provider VIDE : le service est un écouteur, pas une source (dette #3 hub).
-    this.hub.subscribe(c, sink, () => () => {});
+    // Écoute, pas propriété : le canal reste à qui fournit son provider.
+    this.hub.listen(c, sink);
   }
 
   /** Désabonne (ref-compté) : coupe le sink du hub au DERNIER consommateur. */

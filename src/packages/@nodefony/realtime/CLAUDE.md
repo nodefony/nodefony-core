@@ -141,6 +141,15 @@ Ce qu'il faut savoir en entrant dans le module, et qui ne périme pas :
   cross-pod, sonde. On construit dessus, on ne le refonde pas.
 - Les **dettes de nommage cross-pod sont soldées** : l'espace de nommage du canal et l'`originId`
   sont câblés. Toute doc qui les présente comme ouvertes est périmée.
-- La dette qui **reste vraiment** : la frontière inter-modules des canaux. Le registre est plat et
-  indexé par nom, donc un module peut redéclarer un canal avec une politique plus faible. Elle
-  attend l'arbitrage sécurité — et elle n'a jamais porté le nom `#channelAllowed` qu'on lui prête.
+- **Un canal appartient à qui fournit son provider.** Trois portes, à ne pas confondre :
+  `subscribe` (l'abonné apporte une fabrique → il répond du canal), `subscribeClient` (idem +
+  plancher des canaux de plateforme, pour une frame venue du réseau) et `listen` (**écoute
+  passive** : un service reçoit ce qui passe sans ouvrir le canal). Un canal tenu par de seuls
+  écouteurs est **passif** ; la première connexion cliente qui le demande fait rejouer la fabrique,
+  qui seule tranche. Écouter n'a donc jamais fait exister un canal pour les autres.
+- La dette qui **reste vraiment** : le registre des **politiques** de canal est indexé par nom
+  EXACT, donc un canal dynamique (`call:<uuid>`, forage, suffixes de cadence) n'en porte aucune, et
+  `IChannelPolicy` ne sait exprimer qu'une classe d'identité (rôles/scopes), jamais une liste de
+  membres. Ce que ça bloque, et les cinq autres briques manquantes d'un canal privé (sink anonyme,
+  pas de fermeture administrative, admission qui ne traverse pas le backplane) : mémoire IA
+  `project_realtime_private_channels_kit`. Elle n'a jamais porté le nom `#channelAllowed` qu'on lui prête.
