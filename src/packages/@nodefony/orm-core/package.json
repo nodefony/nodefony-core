@@ -5,7 +5,7 @@
   "contributors": [],
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./index.ts",
+  "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
       "types": "./index.ts",

@@ -25,7 +25,10 @@ import {
 import path from "node:path";
 import { fixDtsExtensions } from "./fix-dts-extensions.mjs";
 
-const ROOT = path.resolve(import.meta.dirname, "../..");
+// `scripts/` → `nodefony-release/` → `skills/` → `.claude/` → racine du dépôt.
+// Quatre niveaux, pas deux : ce script a été déplacé dans le skill et sa racine
+// n'avait pas suivi — il cherchait les workspaces sous `.claude/skills/src/…`.
+const ROOT = path.resolve(import.meta.dirname, "../../../..");
 const OUT = path.join(ROOT, "release", "tarballs");
 
 // Contrainte release §6bis (2) : peers OPTIONNELS injectés au pack — npm ≥7
@@ -62,19 +65,35 @@ for (const w of workspaces) {
     }
   }
 
-  // Bascule exports.types source → .d.ts généré (détection auto, 0 liste en dur).
+  // Bascule des types SOURCE → .d.ts généré (détection auto, 0 liste en dur).
+  //
+  // DEUX champs, pas un. `exports["."].types` sert la résolution moderne
+  // (`Bundler`, `node16`) ; le champ RACINE `types` reste le fallback des
+  // résolutions classiques et de nombreux outils/IDE. Un paquet `files: ["dist"]`
+  // qui publie `types: "./index.ts"` désigne un fichier ABSENT du tarball : le
+  // dépôt self-hosted n'en souffre jamais, l'installeur n'a pas de types. C'est
+  // le même piège que la bascule d'`exports`, une porte plus loin — d'où la
+  // garde générique plutôt qu'une correction paquet par paquet.
   const rootExport = pkg.exports?.["."];
-  const needsSwitch = rootExport?.types === "./index.ts";
-  if (needsSwitch) {
-    const dts = path.join(dir, "dist", "types", "index.d.ts");
-    if (!existsSync(dts)) {
-      failures.push(
-        `${pkg.name}: exports.types=./index.ts mais dist/types/index.d.ts absent — build types requis`,
-      );
-      continue;
-    }
-    rootExport.types = "./dist/types/index.d.ts";
+  const switched = [];
+  const dts = path.join(dir, "dist", "types", "index.d.ts");
+  const needsDts =
+    rootExport?.types === "./index.ts" || pkg.types === "./index.ts";
+  if (needsDts && !existsSync(dts)) {
+    failures.push(
+      `${pkg.name}: types pointent la source (./index.ts) mais dist/types/index.d.ts absent — build types requis`,
+    );
+    continue;
   }
+  if (rootExport?.types === "./index.ts") {
+    rootExport.types = "./dist/types/index.d.ts";
+    switched.push("exports.types");
+  }
+  if (pkg.types === "./index.ts") {
+    pkg.types = "./dist/types/index.d.ts";
+    switched.push("types");
+  }
+  const needsSwitch = switched.length > 0;
 
   // Peers optionnels au pack (§6bis) — merge sans écraser un meta existant.
   const optionalPeers = PACK_PEER_OPTIONAL[pkg.name];
@@ -118,7 +137,7 @@ for (const w of workspaces) {
     }).trim();
     manifest[pkg.name] = tgz;
     const notes = [
-      needsSwitch ? "exports.types basculé" : null,
+      needsSwitch ? `${switched.join(" + ")} basculé(s)` : null,
       needsPeerMeta ? "peers optional injectés" : null,
     ].filter(Boolean);
     console.log(
