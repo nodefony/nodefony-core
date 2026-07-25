@@ -41,6 +41,8 @@ import Completion from "./commands/CompletionCommand";
 import Create from "./commands/CreateCommand";
 import { runCreateCommand } from "../cli/create";
 import { runCheckCommand } from "./checks/runCheck";
+import Env from "./commands/EnvCommand";
+import { runEnvCommand } from "../cli/env";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import { HelpContext, Command as commanderCommand } from "commander";
@@ -224,6 +226,15 @@ class CliKernel extends Cli {
       return process.exit(runCheckCommand(process.argv));
     }
 
+    // ─── `env` : la cascade des `.env` + les variables déclarées — même famille ─
+    // Même raison que `check`, en plus tranchée : on cherche une variable
+    // d'environnement précisément quand l'app NE démarre pas (requise manquante,
+    // valeur qui ne prend pas). La faire booter la rendrait muette au seul
+    // moment où elle sert.
+    if (requested === "env") {
+      return process.exit(await runEnvCommand(process.argv));
+    }
+
     // ─── Lancement DÉTACHÉ (`<runtime> --detach`) : même famille standalone ────
     // Spawn détaché + readiness (sonde ports) + health + exit code sémantique —
     // l'expérience du script start.sh absorbée nativement (cf detachedStart.ts).
@@ -357,6 +368,7 @@ class CliKernel extends Cli {
     this.addCommand(Completion);
     this.addCommand(Create);
     this.addCommand(Check);
+    this.addCommand(Env);
     this.addCommand(Inspect);
   }
 

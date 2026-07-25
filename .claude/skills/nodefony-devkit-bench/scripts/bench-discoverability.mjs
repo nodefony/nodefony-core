@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Banc de DÉCOUVRABILITÉ du devkit — les 5 tâches (gate de la release 10.0.0).
+ * Banc de DÉCOUVRABILITÉ du devkit — les 6 tâches (gate de la release 10.0.0).
  *
  * La question mesurée : un agent IA lâché dans une app FRAÎCHEMENT générée
  * (`nodefony create app`) découvre-t-il l'outillage du framework, ou DEVINE-t-il ?
@@ -25,13 +25,18 @@
  *    ou bricole-t-il `lsof`/`kill -9` ? Rien ne prouvait qu'un agent les
  *    utilise ; c'est la seule tâche dont le gate est un état du SYSTÈME (plus
  *    aucun port tenu à la fin), pas un état du dépôt.
+ *  - tâche 6 « configuration par l'environnement » : pose-t-il la variable au
+ *    bon endroit, avec le nom que l'application DÉCLARE ? Le juge est
+ *    `nodefony env --json` lui-même : une variable inventée y apparaît
+ *    « inconnue », et une valeur masquée par un rang supérieur n'est pas
+ *    l'effective — deux fautes qu'aucune relecture de diff ne montre.
  *
  * Chaque tâche est déroulée par un agent en mode headless dans l'app témoin,
  * puis JUGÉE sur pièces — le transcript (a-t-il APPELÉ l'outil ?) et le diff
  * git (qu'a-t-il ÉCRIT ?). Aucun juge LLM : que des sondes objectives.
  *
  * Usage :
- *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + 5 tâches + rapport
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + 6 tâches + rapport
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 2       # une seule tâche
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --setup-only   # juste l'app témoin (--link)
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --analyze-only tmp/devkit-bench/<run>
@@ -118,7 +123,7 @@ const PORTS = { NF_PORT: "5371", NF_PORT_HTTPS: "5372" };
 const APP_ENV = { ...process.env, ...PORTS };
 
 /**
- * Les 5 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
+ * Les 6 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
  * mesure, et deux runs ne se comparent plus. Toute évolution = nouvelle tâche.
  */
 const TASKS = [
@@ -338,6 +343,67 @@ const TASKS = [
       },
     ],
   },
+  {
+    id: 6,
+    name: "configuration par l'environnement",
+    prompt:
+      "Configure cette application pour qu'elle écrive ses journaux dans un FICHIER plutôt " +
+      "que sur la sortie standard, et pour qu'elle utilise la base PostgreSQL " +
+      "postgres://app:pwd@db:5432/app. N'écris aucune de ces deux valeurs en dur dans le " +
+      "code : passe par l'environnement, au bon endroit. Prouve ensuite que la " +
+      "configuration est bien prise en compte.",
+    probes: [
+      {
+        // Le chemin qu'on vient d'ouvrir : la cascade et le catalogue des
+        // variables ne se DEVINENT pas, ils se demandent.
+        kind: "transcript",
+        name: "a interrogé l'environnement (nodefony env)",
+        pattern: /nodefony\s+env\b|npx nodefony env/u,
+      },
+      // ⚠️ PAS de sonde sur le diff git pour cette tâche. Vécu au premier run :
+      // l'agent avait fait JUSTE — `NF_LOG_DRIVER=file` dans `.env.local`, le bon
+      // endroit — et deux sondes de code l'ont déclaré en échec, parce que
+      // `.env.local` est GITIGNORÉ et n'apparaît dans aucun diff. Le juge lisait
+      // le dépôt là où la bonne réponse vit hors du dépôt, par conception. Pour
+      // une tâche de configuration, seul un juge d'ÉTAT dit la vérité.
+      {
+        kind: "code",
+        name: "aucune valeur en dur dans le code TypeScript",
+        pattern: /^\+.*postgres:\/\/[^\n]*$/mu,
+        where: "addedTs",
+        invert: true,
+      },
+      {
+        // LE gate : la commande sert de JUGE. Elle dit ce que l'application
+        // verra vraiment — pas ce que le fichier contient. Une variable
+        // inventée apparaît en « inconnue », une valeur masquée par un rang
+        // supérieur n'est pas l'effective : les deux font rougir ici, et aucune
+        // ne se verrait en relisant le diff.
+        kind: "gate",
+        name: "`nodefony env --json` : valeurs EFFECTIVES, venues d'un .env, 0 variable inconnue",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JSON.stringify(BIN)} env --json > .nf-env.json; node -e ` +
+            `"const r=require('./.nf-env.json');` +
+            `const v=n=>r.vars.find(x=>x.name===n);` +
+            `const log=v('NF_LOG_DRIVER'),db=v('NF_DATABASE_URL');` +
+            `const bad=[];` +
+            // Une variable inventée n'a aucun effet et ne le dit jamais : c'est
+            // ici, et nulle part ailleurs, qu'elle se voit.
+            `if(r.unknown.length)bad.push('variables inconnues: '+r.unknown.map(u=>u.name).join(','));` +
+            `if(!log||log.value!=='file')bad.push('NF_LOG_DRIVER effectif='+(log&&log.value));` +
+            `if(!db||!String(db.value).startsWith('postgres://'))bad.push('NF_DATABASE_URL effectif='+(db&&db.value));` +
+            // « Au bon endroit » se prouve par la PROVENANCE, pas par le diff :
+            // changer le défaut dans env.ts produirait la même valeur effective,
+            // et ce n'est pas ce qu'on demandait.
+            `for (const x of [log,db]) if(x && !/^\\\\.env/.test(String(x.origin))) ` +
+            `bad.push(x.name+' ne vient pas d\\\\'un fichier .env (origine: '+x.origin+')');` +
+            `if(bad.length){console.error(bad.join(' | '));process.exit(1)}"`,
+        ],
+      },
+    ],
+  },
 ];
 
 const sh = (cmd, args, opts = {}) =>
@@ -475,6 +541,22 @@ function judgeTask(app, runDir, task) {
     .split("\n")
     .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
     .join("\n");
+  // Lignes ajoutées dans le CODE seul. Une valeur peut être légitime dans un
+  // `.env` (c'est même là qu'on la veut) et fautive dans un `.ts` : sans cette
+  // restriction, une sonde « pas de valeur en dur » rougirait sur la bonne
+  // réponse.
+  const addedTs = git(
+    app,
+    "diff",
+    "--unified=0",
+    `${base ?? `${hash}~1`}`,
+    hash,
+    "--",
+    "*.ts",
+  )
+    .split("\n")
+    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
+    .join("\n");
   const probes = task.probes.map((p) => {
     let pass = false;
     let evidence = "";
@@ -491,7 +573,9 @@ function judgeTask(app, runDir, task) {
           ? files.join("\n")
           : p.where === "added"
             ? added
-            : content;
+            : p.where === "addedTs"
+              ? addedTs
+              : content;
       const hit = p.pattern.test(haystack);
       pass = p.invert ? !hit : hit;
       evidence = `${files.length} fichier(s) touchés`;

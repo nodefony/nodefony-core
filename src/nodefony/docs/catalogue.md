@@ -164,4 +164,6 @@ dossier.
 - ⬆️ **Retour au hub** : [Cœur — @nodefony/core](index.md)
 - 🧭 **Le cycle de vie** qui charge ces modules : [kernel.md](kernel.md) · les commandes qui les
   interrogent : [cli.md](cli.md)
+- ⚙️ **Régler un module sans toucher au code** — variables, cascade des `.env`, précédence :
+  [environnement.md](environnement.md)
 - 📖 [Lexique général](../../../docs/lexique.md) du framework.

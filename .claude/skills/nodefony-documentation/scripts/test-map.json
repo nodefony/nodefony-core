@@ -620,5 +620,13 @@
       "src/packages/@nodefony/security/tests/support/webhookPaginationContract.ts",
       "src/packages/@nodefony/drizzle/tests/integration/webhook-store-contract.ts"
     ]
+  },
+  "environnement": {
+    "unit": [
+      "src/nodefony/src/tests/envReport.test.ts",
+      "src/nodefony/src/tests/loadEnv.test.ts",
+      "src/nodefony/src/tests/defineEnv.test.ts",
+      "src/nodefony/src/tests/envOverride.test.ts"
+    ]
   }
 }

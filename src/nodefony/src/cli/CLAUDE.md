@@ -176,6 +176,7 @@ Filet d'intégration : `CliIntegration.test.ts` (`RUN_CLI_BOOT=1` pour les boots
 | `Stop`       | —         | `StopCommand.ts`       | **standalone** (0 boot)                                   |
 | `Completion` | —         | `CompletionCommand.ts` | **standalone** — script bash/zsh/fish (cf § Complétion)   |
 | `Create`     | —         | `CreateCommand.ts`     | **standalone** — scaffold projet (cf § Scaffold)          |
+| `Env`        | —         | `EnvCommand.ts`        | **standalone** — cascade `.env` + provenance (cf § env)   |
 
 Les commandes de MODULE (`http:network`, `proxy:generate`, `frontend:build`…) passent par le
 dispatch différé de `CliKernel` — happy-path couvert e2e (exit 0, 1 Kernel, 0 serveur).
@@ -207,6 +208,32 @@ en prod). Hors projet → fallback built-ins en mémoire (`CliKernel.buildBuilti
 Protocole candidats : dernier mot = en cours de frappe (le shell filtre par préfixe) ;
 commande validée → ses options + globales, sinon noms + alias. Install zsh :
 `source <(nodefony completion zsh)`.
+
+## `nodefony env` — l'environnement, en entier (standalone 0-boot)
+
+`nodefony env [--json] [--cwd <path>]` — cascade des `.env`, variables déclarées, valeur
+EFFECTIVE de chacune et sa PROVENANCE, puis ce qui est ignoré. Standalone **par nécessité**
+(même raison que `check`, en plus tranchée) : on cherche une variable précisément quand l'app
+NE démarre pas. Sort en **78** (`EX_CONFIG`) si une variable requise manque.
+
+Architecture en deux morceaux : `cli/envReport.ts` = calcul **PUR** (`buildEnvReport` — reçoit
+la cascade déjà lue + l'env effectif, conclut) ; `cli/env.ts` = adaptateur (lecture fichiers,
+import du catalogue depuis `dist/index.js` de l'app, rendu humain/JSON).
+
+**L'ordre des fichiers vient de `envFileOrder`** (`runtime/loadEnv.ts:72`, extrait de `loadEnv`
+pour cette raison) — jamais d'une copie : un ordre AFFICHÉ qui différerait de l'ordre APPLIQUÉ
+serait pire que pas d'affichage, puisqu'on le croirait sur parole.
+
+Ce que le rapport reconstruit sans instrumenter `loadEnv` : au moment où la commande tourne,
+`process.env` est déjà peuplé et la trace de « qui a posé quoi » est perdue. On la recalcule —
+le PREMIER fichier de la cascade qui porte la valeur effective EST l'origine ; aucun ne
+correspond → c'est le shell, qui gagne toujours. Les niveaux suivants qui définissent la même
+clé sont rendus **masqués** (le piège n°1).
+
+Quatre sorties, dont trois qu'aucun autre outil ne donne : les **masquées**, les **NF\_
+inconnues** (faute de frappe → suggestion par `closestMatch`, la brique de `envOverride`), les
+**surcharges `NF__<MODULE>__<CHEMIN>`** distinguées des variables déclarées, et les **requises
+manquantes**. Secrets jamais rendus en clair (`pathLooksSecret` — même regex que partout).
 
 ## Scaffold — `cli/scaffold/` + `cli/create.ts` (3 fronts, UN moteur)
 

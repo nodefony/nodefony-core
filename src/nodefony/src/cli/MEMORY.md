@@ -176,6 +176,24 @@ Ordre : garde `NODEFONY_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/no
 - `NODEFONY_CLI_DEBUG=1` → une ligne stderr `[nodefony] cli → <chemin>`. Silencieux par défaut (sinon
   pollue les sorties `--json`).
 
+## Environnement — `nodefony env`
+
+- `runtime/loadEnv.ts` : `envFileOrder(opts)` = **source UNIQUE** de l'ordre des `.env` (extraite
+  de `loadEnv`, que `nodefony env` AFFICHE). 7 niveaux : `process.env` > `.env.<appEnv>.local` >
+  `.env.<mode>.local` > `.env.local` > `.env.<appEnv>` > `.env.<mode>` > `.env`. Règle mnémo :
+  les `*.local` priment ; à rang égal, le plus spécifique gagne. `loadEnv` n'écrase JAMAIS une clé
+  déjà posée → la précédence est une CONSÉQUENCE de l'ordre de lecture, rien à synchroniser.
+- `appEnv === runtimeEnv` → les niveaux `appEnv` sont sautés (pas de doublon).
+- `cli/envReport.ts` = calcul PUR ; `cli/env.ts` = I/O + rendu. Le rapport RECONSTRUIT la
+  provenance (au moment du run, `process.env` est déjà peuplé) : 1ᵉʳ fichier portant la valeur
+  effective = origine ; aucun → shell. Les suivants qui définissent la clé = `shadowed`.
+- Catalogue lu par import de `<projet>/dist/index.js` → `getEnvCatalog(mod.env)`. Pas de build →
+  `null`, et le rapport le DIT (`catalogAvailable: false` + note) au lieu d'échouer.
+- Exit **78** (`EX_CONFIG`) si une variable requise manque. Requise = ni `default` ni `optional`.
+- `NF_` (variable d'app, déclarée dans `env.ts`) ≠ `NF__MODULE__CHEMIN` (surcharge directe d'une
+  clé de module, rien à déclarer) ≠ `<VAR>_FILE` (secret monté). Les 3 sont rendus séparément.
+- Secrets : `pathLooksSecret` (`envOverride.ts`) — MÊME regex partout, jamais de valeur en clair.
+
 ## Scaffold — transaction, simulation, mode machine
 
 - `scaffold/writer.ts` = `ScaffoldWriter` : TOUTES les écritures du moteur y passent, en mémoire ;

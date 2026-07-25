@@ -74,6 +74,7 @@ La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le do
 | Tâche | Doc |
 | --- | --- |
 | **Quel module installer pour tel besoin** (et lequel NE PAS installer) | `node_modules/nodefony/docs/catalogue.md` |
+| **Variables d'environnement** : cascade des `.env`, précédence, `NF__` | `node_modules/nodefony/docs/environnement.md` |
 | Kernel, cycle de vie, CLI | `node_modules/nodefony/docs/kernel.md` + `cli.md` |
 | Service, DI, container, scopes | `node_modules/nodefony/docs/service.md` |
 | Client isomorphe (navigateur), hooks React | `node_modules/nodefony/docs/client.md` + `react-hooks.md` |
@@ -91,6 +92,43 @@ La config de l'app vit dans `nodefony.config.ts` (modules chargés) et `env.ts`
 (variables d'environnement, seul lecteur de `process.env`) — pointe-les, ne les
 recopie pas.
 
+## Environnement : ne devine JAMAIS, demande
+
+```bash
+npx nodefony env          # cascade des .env, valeur EFFECTIVE de chaque variable, sa PROVENANCE
+npx nodefony env --json   # même rapport, pour un script
+```
+
+Cette commande répond aux quatre questions dont dépend toute configuration, et
+qu'aucune lecture de fichier ne tranche : quels fichiers sont lus **et dans quel
+ordre**, quelles variables l'app **déclare**, quelle valeur est **effective et
+d'où elle vient**, et **ce qui est ignoré**. Elle ne boote rien — elle répond
+même quand l'app ne démarre plus, ce qui est justement le moment où on la lance.
+
+**Précédence, du plus FORT au plus faible** — le premier qui pose une valeur
+gagne, les suivants sont ignorés en silence :
+
+```
+process.env  >  .env.<déploiement>.local  >  .env.<mode>.local  >  .env.local
+             >  .env.<déploiement>        >  .env.<mode>        >  .env
+```
+
+`<mode>` = `NODE_ENV` (`development`/`production`). `<déploiement>` = `APP_ENV`
+(`staging`, `canary`… — plus spécifique, donc plus fort). Les `*.local` ne sont
+jamais committés : les secrets y vont, et nulle part ailleurs.
+
+**Deux mécanismes à ne pas confondre** :
+
+| Forme | Ce que c'est | Où c'est déclaré |
+| --- | --- | --- |
+| `NF_PORT=5151` | variable de l'APP, typée et validée | `env.ts` (`defineEnv`) — non déclarée = **sans effet** |
+| `NF__HTTP__SERVERS__HTTPS__PORT=8443` | surcharge DIRECTE d'une clé de config d'un module | rien à déclarer — double `__` = séparateur |
+| `NF_TOTP_KEY_FILE=/run/secrets/x` | la même variable, lue depuis un fichier (secret Docker/K8s) | idem `NF_TOTP_KEY` |
+
+Une variable `NF_` mal orthographiée n'échoue pas : elle est **ignorée**, et le
+défaut s'applique en silence. `nodefony env` est le seul endroit qui la montre
+(avec la correction probable).
+
 **Les clés de configuration d'un module, avec leurs défauts, sont LISIBLES :**
 `node_modules/@nodefony/<module>/dist/nodefony/config/config.js` porte le schéma
 Zod du module — chaque clé, son `.default(…)` et sa `.describe(…)`. C'est la
@@ -102,6 +140,28 @@ Pour ce que le PROJET offre comme choix (connecteurs déclarés, entités déjà
 créées, types de colonnes de ton moteur) :
 `npx nodefony create entity --describe-json` — c'est la même source que le
 formulaire de Studio, à jour par construction.
+
+## Pièges qui coûtent cher — vécus, pas théoriques
+
+Chacun a déjà fait perdre une heure et beaucoup d'allers-retours. Le symptôme ne
+désigne jamais la cause : c'est ce qui les rend chers.
+
+| Symptôme | Cause réelle | Le geste |
+| --- | --- | --- |
+| **La route existe dans le code et répond 404** | le runtime charge `dist/`, pas tes sources | `npm run build` (ou laisse le serveur dev le faire) |
+| **TOUT répond 404, même les routes du gabarit** | un AUTRE serveur Nodefony tient les ports — ta requête part chez lui | `nodefony status` puis `nodefony stop` |
+| **Une variable d'environnement « ne prend pas »** | mal orthographiée (ignorée en silence) ou masquée par un rang supérieur | `nodefony env` — il montre la valeur EFFECTIVE et sa provenance |
+| **Les tests passent, `npm run typecheck` échoue** | le runner efface les types : un test vert ne typecheck rien | lance les DEUX avant de conclure |
+| **Suite verte, et le câblage est mort** | un test qui ne quitte pas la brique ne prouve que la brique | débranche le point de câblage : si rien ne tombe, il n'est pas testé |
+| **Un test vert « prouve » une garantie de sécurité** | elle est vraie dans la fonction, fausse sur le trajet réel | frappe la route en anonyme et regarde si le code a tourné |
+| **Un test qui n'a jamais échoué** | il ne garde rien — un test neuf est complaisant par défaut | casse-le exprès une fois, vérifie qu'il rougit |
+| **« Tout est vert » alors qu'une suite ne s'est pas exécutée** | un test sauté faute d'infra compte comme réussi | lis le NOMBRE de tests, pas la couleur |
+<% if (it.front) { %>| **Ta modif front n'apparaît pas** | le navigateur sert son cache | rechargement forcé, et vérifie que Vite a bien recompilé |
+<% } %>
+**Ce qui coûte le plus de tokens** : enchaîner arrêt → construction → démarrage
+après chaque petite modification. Regroupe TOUTES tes modifications serveur, puis
+UN seul cycle. Le serveur de développement reconstruit tout seul<% if (it.front) { %>, et le front
+passe en rechargement à chaud — zéro redémarrage<% } %>.
 
 ## Modules du projet
 

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-25T10:08:15.980Z",
+  "generated": "2026-07-25T11:02:34.547Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1049,
-    "symbols": 2893,
-    "classes": 335,
-    "interfaces": 756,
+    "files": 1052,
+    "symbols": 2910,
+    "classes": 336,
+    "interfaces": 762,
     "types": 331,
     "enums": 4,
-    "functions": 881,
+    "functions": 891,
     "constants": 586
   },
   "symbols": {
@@ -699,6 +699,75 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Adaptateur CLI du scaffold `nodefony create <type> [name]` — front n°1 et n°2 du moteur (`scaffold/engine.ts`, partagé avec Studio) : - **CLI rapide** : tout est dit en flags (`create app x --prese…"
+    },
+    "parseEnvArgv": {
+      "name": "parseEnvArgv",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/env.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Parse l'argv après le mot `env`."
+    },
+    "runEnvCommand": {
+      "name": "runEnvCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/env.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Commande `nodefony env` — orchestre : résout le projet, lit la cascade et le catalogue, délègue le calcul au module pur, rend."
+    },
+    "IEnvLevel": {
+      "name": "IEnvLevel",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/envReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Calcul PUR du rapport d'environnement — aucune I/O, aucun `process.env` lu ici. Pourquoi ce module existe séparé de la commande : la question « d'où vient cette valeur ? » ne se répond bien qu'en c…"
+    },
+    "IEnvVarReport": {
+      "name": "IEnvVarReport",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/envReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une variable, telle que le rapport la restitue."
+    },
+    "IEnvOverrideReport": {
+      "name": "IEnvOverrideReport",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/envReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une surcharge directe de configuration de module (`NF__<MODULE>__<CHEMIN>`)."
+    },
+    "IEnvReport": {
+      "name": "IEnvReport",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/envReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Rapport complet — la forme rendue par `--json`."
+    },
+    "IEnvFileInput": {
+      "name": "IEnvFileInput",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/envReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un niveau de fichier tel que l'adaptateur le fournit (`vars: null` = absent)."
+    },
+    "buildEnvReport": {
+      "name": "buildEnvReport",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/envReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Construit le rapport d'environnement."
     },
     "findProjectRoot": {
       "name": "findProjectRoot",
@@ -2182,13 +2251,20 @@
       "extends": null,
       "description": "Options de {@link loadEnv} — les deux axes d'environnement Nodefony (12-factor)."
     },
-    "loadEnv": {
-      "name": "loadEnv",
+    "envFileOrder": {
+      "name": "envFileOrder",
       "kind": "function",
       "file": "src/nodefony/src/runtime/loadEnv.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Charge les fichiers `.env` du projet dans `process.env`, en cascade et SANS jamais écraser une variable déjà présente. **Convention B (Vite / Next.js)** — règle : les fichiers `*.local` (gitignorés…"
+    },
+    "loadEnv": {
+      "name": "loadEnv",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/loadEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core"
     },
     "PaginationModeError": {
       "name": "PaginationModeError",
@@ -4329,6 +4405,17 @@
       "implements": [],
       "decorators": [],
       "description": "Commande `nodefony development` — serveur en mode dev (front Vite/HMR + auto-restart). **Invariant non négociable : `development` = TOUJOURS 1 process.** La molette topologie (`cluster.workers` / `…"
+    },
+    "Env": {
+      "name": "Env",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/EnvCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony env` — l'environnement de l'application, en entier. Elle répond aux quatre questions qu'on se pose toujours ensemble, et dont aucune n'avait de réponse ailleurs que dans le code …"
     },
     "Inspect": {
       "name": "Inspect",
@@ -20312,6 +20399,7 @@
         "Completion",
         "Create",
         "Dev",
+        "Env",
         "Inspect",
         "Install",
         "Outdated",
@@ -20843,6 +20931,7 @@
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
+        "src/nodefony/src/kernel/commands/EnvCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
@@ -22531,6 +22620,7 @@
       "findProjectRoot": [
         "src/nodefony/src/bin/resolveLocalCli.ts",
         "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
@@ -22540,6 +22630,7 @@
       "SysExit": [
         "src/nodefony/src/cli/completion.ts",
         "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
@@ -22608,6 +22699,44 @@
       ],
       "confirm": [
         "src/nodefony/src/cli/create.ts"
+      ],
+      "envFileOrder": [
+        "src/nodefony/src/cli/env.ts"
+      ],
+      "getEnvCatalog": [
+        "src/nodefony/src/cli/env.ts"
+      ],
+      "NamedEnvVarMeta": [
+        "src/nodefony/src/cli/env.ts",
+        "src/nodefony/src/cli/envReport.ts",
+        "src/nodefony/src/config/envExample.ts"
+      ],
+      "buildEnvReport": [
+        "src/nodefony/src/cli/env.ts"
+      ],
+      "IEnvFileInput": [
+        "src/nodefony/src/cli/env.ts"
+      ],
+      "IEnvReport": [
+        "src/nodefony/src/cli/env.ts"
+      ],
+      "IEnvVarReport": [
+        "src/nodefony/src/cli/env.ts"
+      ],
+      "closestMatch": [
+        "src/nodefony/src/cli/envReport.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "parseNfEnvOverrides": [
+        "src/nodefony/src/cli/envReport.ts",
+        "src/nodefony/src/config/defineConfig.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "pathLooksSecret": [
+        "src/nodefony/src/cli/envReport.ts",
+        "src/nodefony/src/config/defineConfig.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "IRealtimeSocket": [
         "src/nodefony/src/client/IClientKernel.ts",
@@ -22698,6 +22827,7 @@
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
+        "src/nodefony/src/kernel/commands/EnvCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
@@ -22744,19 +22874,10 @@
       "validateAppConfig": [
         "src/nodefony/src/config/defineConfig.ts"
       ],
-      "parseNfEnvOverrides": [
-        "src/nodefony/src/config/defineConfig.ts",
-        "src/nodefony/src/kernel/Kernel.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
-      ],
       "applyResolvedPath": [
         "src/nodefony/src/config/defineConfig.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
-      ],
-      "pathLooksSecret": [
-        "src/nodefony/src/config/defineConfig.ts",
-        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "resolveFailureHint": [
         "src/nodefony/src/config/defineConfig.ts",
@@ -22771,9 +22892,6 @@
       ],
       "ConfigInput": [
         "src/nodefony/src/config/defineConfig.ts"
-      ],
-      "NamedEnvVarMeta": [
-        "src/nodefony/src/config/envExample.ts"
       ],
       "ModulePolicy": [
         "src/nodefony/src/config/types.ts",
@@ -22901,6 +23019,13 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/commands/CheckCommand.ts"
       ],
+      "Env": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "runEnvCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/EnvCommand.ts"
+      ],
       "setLogColor": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
@@ -22995,9 +23120,6 @@
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "readAppEnvOverrideReport": [
-        "src/nodefony/src/kernel/Kernel.ts"
-      ],
-      "closestMatch": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "resolveInfra": [
@@ -23676,6 +23798,7 @@
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
+        "src/nodefony/src/kernel/commands/EnvCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",

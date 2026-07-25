@@ -56,13 +56,25 @@ export interface ILoadEnvOptions {
  * @param opts - {@link ILoadEnvOptions} (runtimeEnv / appEnv / cwd).
  * @returns le nombre de variables effectivement injectées (diagnostic / tests).
  */
-export function loadEnv(opts: ILoadEnvOptions = {}): number {
-  const { runtimeEnv, appEnv, cwd = process.cwd() } = opts;
+
+/**
+ * Les fichiers de la cascade, du PLUS prioritaire au MOINS prioritaire.
+ *
+ * Extrait de {@link loadEnv} pour être la source UNIQUE de cet ordre : la
+ * commande `nodefony env` l'affiche, et un ordre affiché qui différerait de
+ * l'ordre appliqué serait pire que pas d'affichage du tout — c'est exactement ce
+ * qu'un utilisateur croirait sur parole en cherchant pourquoi sa variable est
+ * ignorée.
+ *
+ * @param opts - `runtimeEnv` (mode) et `appEnv` (déploiement).
+ * @returns les noms de fichiers, ordonnés ; ne dit pas lesquels existent.
+ */
+export function envFileOrder(
+  opts: Pick<ILoadEnvOptions, "runtimeEnv" | "appEnv"> = {},
+): string[] {
+  const { runtimeEnv, appEnv } = opts;
   // `appEnv` n'est un niveau distinct que s'il diffère du mode runtime.
   const deployEnv = appEnv && appEnv !== runtimeEnv ? appEnv : undefined;
-
-  // Du PLUS prioritaire au MOINS prioritaire : le premier fichier qui définit une
-  // clé gagne (après le shell, déjà présent dans process.env). `*.local` d'abord.
   const files: string[] = [];
   if (deployEnv) files.push(`.env.${deployEnv}.local`);
   if (runtimeEnv) files.push(`.env.${runtimeEnv}.local`);
@@ -70,6 +82,14 @@ export function loadEnv(opts: ILoadEnvOptions = {}): number {
   if (deployEnv) files.push(`.env.${deployEnv}`);
   if (runtimeEnv) files.push(`.env.${runtimeEnv}`);
   files.push(".env");
+  return files;
+}
+
+export function loadEnv(opts: ILoadEnvOptions = {}): number {
+  const { cwd = process.cwd() } = opts;
+  // Du PLUS prioritaire au MOINS prioritaire : le premier fichier qui définit une
+  // clé gagne (après le shell, déjà présent dans process.env). `*.local` d'abord.
+  const files = envFileOrder(opts);
 
   let injected = 0;
   for (const file of files) {
