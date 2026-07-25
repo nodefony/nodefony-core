@@ -9,14 +9,15 @@ sur quoi porte l'engagement, et à quoi vous pouvez raisonnablement vous attendr
 Une issue est indexée en quelques minutes : la publier, c'est armer tout le monde avant que le
 correctif existe.
 
-Deux canaux privés, par ordre de préférence :
+Deux canaux privés :
 
-1. **GitHub — signalement privé de vulnérabilité** (recommandé) :
-   onglet **Security** du dépôt [`nodefony/nodefony-core`](https://github.com/nodefony/nodefony-core/security)
-   → _Report a vulnerability_. L'échange reste privé, et c'est de là que part l'avis publié (GHSA)
-   et la demande de CVE une fois le correctif disponible.
-2. **Courriel** : `ccamensuli@gmail.com`, avec `[SECURITY]` en objet — si le canal GitHub vous est
-   inaccessible.
+1. **Courriel** : `ccamensuli@gmail.com`, avec `[SECURITY]` en objet. C'est le canal qui fonctionne
+   en toutes circonstances — prenez-le en cas de doute.
+2. **GitHub — signalement privé de vulnérabilité** : onglet **Security** du dépôt
+   [`nodefony/nodefony-core`](https://github.com/nodefony/nodefony-core/security)
+   → _Report a vulnerability_. L'échange reste privé, et c'est de là que partent l'avis publié
+   (GHSA) et la demande de CVE une fois le correctif disponible. Ce bouton n'existe que si le dépôt
+   est public et le réglage activé : **si vous ne le voyez pas, écrivez-nous.**
 
 ### Ce qui rend un rapport exploitable
 
