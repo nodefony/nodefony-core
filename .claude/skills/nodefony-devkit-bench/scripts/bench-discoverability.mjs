@@ -663,6 +663,32 @@ function runTask(app, runDir, task) {
   if (res.status !== 0) {
     console.log(`  ⚠️ agent sorti en ${res.status} (transcript conservé)`);
   }
+  // ─── L'agent a-t-il seulement PU travailler ? ────────────────────────────
+  // Un agent qui n'a jamais démarré rend un transcript où toutes les sondes
+  // sont rouges — et le rapport ressemble alors trait pour trait à une app
+  // devenue indécouvrable. Vécu : quota de session épuisé au milieu d'un run
+  // complet, huit tâches « échouées » qui n'étaient jamais parties, et un
+  // 1/9 qui ne disait rien du devkit. On ARRÊTE, plutôt que de publier un
+  // verdict qui n'en est pas un.
+  const transcript = res.stdout ?? "";
+  if (/"terminal_reason"\s*:\s*"api_error"/u.test(transcript)) {
+    const reason =
+      /"result"\s*:\s*"([^"]{0,160})"/u.exec(transcript)?.[1] ?? "erreur API";
+    // Le NOMBRE d'échanges tranche entre les deux cas, qui ne valent pas pareil.
+    const turns = (transcript.match(/"type"\s*:\s*"assistant"/gu) ?? []).length;
+    console.log(
+      turns < 3
+        ? `\n🛑 l'agent n'a JAMAIS démarré (${turns} échange) — ${reason}\n` +
+            `   Toutes ses sondes seraient rouges sans que l'application y soit pour rien.`
+        : `\n🛑 l'agent a été COUPÉ après ${turns} échanges — ${reason}\n` +
+            `   Son verdict est partiel : ce qu'il n'a pas eu le temps de faire n'est pas un échec.`,
+    );
+    console.log(
+      `   Run INTERROMPU. Relancer l'accès rétabli ; le décor est conservé et\n` +
+        `   \`--analyze-only <run>\` re-juge sans redérouler les agents.`,
+    );
+    process.exit(2);
+  }
   git(app, "add", "-A");
   // Un agent qui n'a RIEN écrit est déjà un verdict — commit vide autorisé.
   git(
