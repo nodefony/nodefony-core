@@ -1,6 +1,40 @@
 # BUG_REPORT — Nodefony Core
 
-**Aucun bug ouvert.**
+## BUG-1 — un échec de connexion à la base fait sortir `inspect` en 1, sans un mot
+
+**Symptôme.** Dans une application dont la base configurée est injoignable
+(`NF_DATABASE_URL=postgres://app:pwd@db:5432/app`, hôte inexistant) :
+
+```
+nodefony inspect routes --json   →  stdout 0 octet · stderr 0 octet · code 1
+nodefony inspect services --json →  idem (tout sujet confondu)
+```
+
+Aucun message, nulle part. L'appelant conclut que l'application n'a ni routes ni services. Trouvé
+par le banc de découvrabilité : l'agent a annoncé un nombre de routes inventé plutôt que de
+constater une panne qu'aucune sortie ne lui signalait.
+
+**Reproduction.** Dans une app générée, poser un `NF_DATABASE_URL` vers un hôte qui n'existe pas,
+puis lancer `nodefony inspect routes --json`. Avec la base neutralisée, la même commande rend
+122 routes.
+
+**Est-ce mon diff ?** Non — pré-existant. Vérifié avec `-d` : la journalisation complète affiche les
+étapes du boot jusqu'à `SESSION STORAGE registered : drizzle`, puis s'interrompt sans une ligne
+d'erreur. `grep -icE "error|critic|econnrefused"` sur la sortie complète : **0**.
+
+**Ancrage.** `src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts:64` journalise
+pourtant l'erreur (`this.log(e, "ERROR")`) avant de la relancer — donc elle est émise et perdue
+entre là et la sortie standard.
+
+**Ce qui reste supposé.** Le buffer de sortie a été écarté (`Syslog.ts:48` : stderr reste immédiat
+par conception). Restent deux pistes non tranchées : le transport de log n'écoute pas encore — ou
+plus — au moment où l'erreur est émise ; ou le processus meurt sur un rejet non capturé avant que le
+hook n'ait journalisé.
+
+**Partiellement corrigé.** `CliKernel.initSyslog` retournait sans brancher aucun transport dès que
+`--json` était passé, alors que son propre commentaire promettait que « les erreurs partent sur la
+sortie d'erreur ». Les sévérités 0..3 sont désormais branchées, `stdout` restant réservé au flux
+JSON. Nécessaire, mais **pas suffisant** : dans ce cas précis il n'y a rien à laisser passer.
 
 ## À quoi sert ce fichier
 

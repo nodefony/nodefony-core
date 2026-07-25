@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-25T11:02:34.547Z",
+  "generated": "2026-07-25T22:22:52.399Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -4513,14 +4513,16 @@
       "kind": "function",
       "file": "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
       "exported": true,
-      "module": "@nodefony/core"
+      "module": "@nodefony/core",
+      "description": "Déclare les services qu'un module enregistre dans son conteneur au démarrage. Décorateur de **classe de module**. Les services sont instanciés au hook `onPreBoot`, et **l'ordre écrit ici n'a aucune…"
     },
     "injectable": {
       "name": "injectable",
       "kind": "function",
       "file": "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
       "exported": true,
-      "module": "@nodefony/core"
+      "module": "@nodefony/core",
+      "description": "Rend une classe de service résoluble par le conteneur d'injection. Décorateur de **classe**. Il inscrit la classe à l'annuaire d'injection sous un nom — celui de la classe par défaut — et fige sa p…"
     },
     "inject": {
       "name": "inject",
@@ -8217,7 +8219,8 @@
       "kind": "function",
       "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
       "exported": true,
-      "module": "@nodefony/framework"
+      "module": "@nodefony/framework",
+      "description": "Rattache un ou plusieurs contrôleurs à un module, dont ils suivent le cycle de vie. Décorateur de **classe de module**. L'enregistrement n'a pas lieu à l'évaluation du décorateur mais au hook `onBo…"
     },
     "controller": {
       "name": "controller",
@@ -8248,21 +8251,24 @@
       "kind": "function",
       "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
       "exported": true,
-      "module": "@nodefony/framework"
+      "module": "@nodefony/framework",
+      "description": "Fixe le code de statut HTTP de la réponse d'une action. Décorateur de **méthode**. Le code est posé sur la réponse **avant** que le corps de l'action ne s'exécute (`Resolver._applyResponseMeta`) : …"
     },
     "Header": {
       "name": "Header",
       "kind": "function",
       "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
       "exported": true,
-      "module": "@nodefony/framework"
+      "module": "@nodefony/framework",
+      "description": "Ajoute un en-tête à la réponse d'une action. Décorateur de **méthode**, empilable : chaque application ajoute une entrée, la dernière l'emportant sur un même nom d'en-tête. Les en-têtes sont posés …"
     },
     "Redirect": {
       "name": "Redirect",
       "kind": "function",
       "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
       "exported": true,
-      "module": "@nodefony/framework"
+      "module": "@nodefony/framework",
+      "description": "Redirige la réponse d'une action vers une autre URL. Décorateur de **méthode**. ⚠️ Le corps de l'action **est exécuté** : la redirection est portée à côté du résultat et appliquée après coup par le…"
     },
     "Domain": {
       "name": "Domain",

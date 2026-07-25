@@ -753,7 +753,24 @@ class CliKernel extends Cli {
       return super.initSyslog(environment, debug, options);
     }
     if (this.commander && this.commander.opts().json) {
-      return;
+      // Mode machine : `stdout` appartient au flux JSON, rien d'autre ne doit y
+      // paraître. Mais tout couper rendait la commande MUETTE quand le boot
+      // échoue — zéro octet, aucune explication, et l'appelant conclut que
+      // l'application n'a ni routes ni services. Vécu : une base injoignable, et
+      // `inspect routes --json` rendait le vide en silence ; un agent a écrit un
+      // chiffre inventé plutôt que de constater la panne.
+      // On branche donc les seules sévérités EMERGENCY..ERROR (0..3), que
+      // `Syslog.rawLog` écrit sur `stderr` : le flux JSON reste pur (`| jq`
+      // fonctionne), et un échec se lit là où on lit les échecs.
+      return this.syslog?.listenWithConditions(
+        { severity: { data: [0, 1, 2, 3] } },
+        (pdu: Pdu) => {
+          Syslog.rawLog(
+            pdu,
+            this.environment === "development" ? "" : this.pid?.toString(),
+          );
+        },
+      );
     }
 
     const { syslog } = this;

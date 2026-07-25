@@ -411,7 +411,13 @@ describe("CliKernel — initSyslog()", () => {
     );
   });
 
-  it("avec kernel + json commander opt → retour immédiat, aucun listener ajouté", () => {
+  // Ce test verrouillait naguère l'inverse — « aucun listener ajouté » — et il
+  // était vert parce qu'il CONSTATAIT un défaut au lieu de le justifier : en
+  // coupant tout le journal, `--json` rendait une commande muette quand le boot
+  // échouait (0 octet, aucune explication, cf BUG_REPORT). Ce qu'il faut garder
+  // n'est pas le silence, c'est la PURETÉ de `stdout` : les erreurs ont leur
+  // canal, `Syslog.rawLog` les dirigeant vers `stderr`.
+  it("avec kernel + json commander opt → un listener, restreint aux erreurs", () => {
     const cli = makeCliKernel();
     cli.syslog?.removeAllListeners();
     cli.kernel = { type: "CONSOLE", environment: "development" } as any;
@@ -425,7 +431,11 @@ describe("CliKernel — initSyslog()", () => {
     // Nettoyage
     cli.commander?.setOptionValue("json", false);
 
-    assert.strictEqual(after, before, "json=true → aucun listener ajouté");
+    assert.strictEqual(
+      after,
+      before + 1,
+      "json=true → un listener branché (les erreurs restent lisibles)",
+    );
   });
 
   it("initSyslog 2x avec kernel → 2 listeners (pas de deduplication)", () => {
