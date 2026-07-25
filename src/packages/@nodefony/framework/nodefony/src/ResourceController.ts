@@ -2,6 +2,8 @@ import Controller from "./Controller";
 import type { ControllerScope } from "./Controller";
 import { HttpError } from "@nodefony/http";
 import type { ContextType } from "@nodefony/http";
+import { assertPageQuery } from "nodefony";
+import type { IPage, IPageQuery } from "nodefony";
 
 /**
  * Contrat structurel du service de ressource consommé par un
@@ -24,10 +26,29 @@ export interface IResourceReadOptions {
   limit?: number;
   /** Enregistrements sautés (⚠️ se dégrade sur les grandes tables — curseur à venir). */
   offset?: number;
-  /** Tri, sous la forme comprise par l'implémentation. */
-  order?: unknown;
+  /**
+   * Tri, sous la forme `[[champ, sens], …]` — même écriture que `IPageQuery.order`
+   * (core) et que `RepositoryReadOptions` (orm-core).
+   *
+   * Typé plutôt que libre : une porte qui doit deviner la forme attendue finit
+   * par la caster, et le tri se perd en silence — la pagination devient alors
+   * fausse par intermittence, ce qui est pire qu'absente.
+   */
+  order?: Array<[string, "ASC" | "DESC"]>;
   /** Associations à charger avec l'enregistrement. */
   relations?: string[];
+}
+
+/**
+ * Requête de page telle qu'une porte la passe au service — `IPageQuery` du core,
+ * plus les critères que la sous-classe a EXPLICITEMENT décidé d'exposer.
+ *
+ * Miroir structurel de `PageQuery<T>` (orm-core) sans dépendre de l'ORM : le
+ * framework ne connaît pas `Criteria<T>`.
+ */
+export interface IResourcePageQuery extends IPageQuery {
+  /** Critères de filtrage — jamais dérivés de la query string automatiquement. */
+  criteria?: Record<string, unknown>;
 }
 
 export interface IResourceService<T = unknown> {
@@ -35,7 +56,23 @@ export interface IResourceService<T = unknown> {
     criteria?: Record<string, unknown>,
     options?: IResourceReadOptions,
   ): Promise<T[]> | T[];
-  findById(id: string): Promise<T | null> | T | null;
+  /**
+   * Lit par identifiant. `options.relations` charge les associations en une fois
+   * (`AbstractCrudService` le transmet au repository, qui sait les résoudre).
+   */
+  findById(
+    id: string,
+    options?: IResourceReadOptions,
+  ): Promise<T | null> | T | null;
+  /**
+   * Rend une PAGE plutôt qu'un tableau nu — `AbstractCrudService` l'hérite déjà
+   * (`findPage` → `paginate`).
+   *
+   * Optionnel : une ressource read-only ou une façade en mémoire n'a pas à
+   * l'implémenter, `listPageResource` sait alors reconstituer la page à partir
+   * de `find`.
+   */
+  findPage?(page: IResourcePageQuery): Promise<IPage<T>> | IPage<T>;
   create?(data: Partial<T>): Promise<T> | T;
   updateOne?(
     criteria: Record<string, unknown>,
@@ -137,9 +174,65 @@ class ResourceController<T = unknown> extends Controller {
     return Promise.resolve(this.requireResource().find(criteria, options));
   }
 
-  /** Lit une entité par id — `null` si absente (la porte décide du 404). */
-  protected getResource(id: string): Promise<T | null> {
-    return Promise.resolve(this.requireResource().findById(id));
+  /**
+   * Liste la ressource en rendant une **page** (`{ items, hasNext, total? }`)
+   * plutôt qu'un tableau nu.
+   *
+   * Pourquoi une page et pas un tableau : un tableau ne dit pas s'il en reste.
+   * Le client qui reçoit 25 lignes ne peut pas distinguer « c'est tout » de
+   * « demande la suite » — il redemande indéfiniment, ou s'arrête trop tôt.
+   *
+   * **Mode offset imposé** (`assertPageQuery`) : un client qui enverrait un
+   * `cursor` recevrait sinon la page 1 à chaque appel, en boucle et sans erreur.
+   *
+   * Si le service n'expose pas `findPage`, la page est reconstituée à partir de
+   * `find` en chargeant `limit + 1` lignes (même technique que `paginate`) : le
+   * `hasNext` reste exact, seul `total` manque — et son absence est lisible dans
+   * la réponse, le contrat `IPage` le donnant pour optionnel.
+   *
+   * @param page - bornes, tri et critères de la page demandée.
+   * @returns la page (`items` borné à `limit`).
+   * @throws PaginationModeError si la requête mélange offset et curseur.
+   */
+  protected async listPageResource(
+    page: IResourcePageQuery,
+  ): Promise<IPage<T>> {
+    assertPageQuery(page, "offset");
+    const resource = this.requireResource();
+    if (typeof resource.findPage === "function") {
+      return resource.findPage(page);
+    }
+    const limit = Math.max(1, Math.floor(page.limit));
+    const offset = Math.max(0, Math.floor(page.offset ?? 0));
+    const rows = await Promise.resolve(
+      resource.find(page.criteria, {
+        limit: limit + 1,
+        offset,
+        order: page.order,
+      }),
+    );
+    const hasNext = rows.length > limit;
+    return {
+      items: hasNext ? rows.slice(0, limit) : rows,
+      limit,
+      offset,
+      hasNext,
+    };
+  }
+
+  /**
+   * Lit une entité par id — `null` si absente (la porte décide du 404).
+   *
+   * `options.relations` charge les associations dans la foulée. La porte doit
+   * n'y laisser passer que des relations qu'elle a DÉCLARÉES : un `include`
+   * libre laisse le client nommer n'importe quelle association, donc lire des
+   * données qu'aucune route ne lui ouvre.
+   */
+  protected getResource(
+    id: string,
+    options?: IResourceReadOptions,
+  ): Promise<T | null> {
+    return Promise.resolve(this.requireResource().findById(id, options));
   }
 
   /** Crée une entité — 501 si la ressource est read-only. */

@@ -4,6 +4,7 @@ import {
   ResourceController,
   Post,
   Put,
+  Patch,
   Delete,
   HttpCode,
   Param,
@@ -19,6 +20,64 @@ import { get<%= it.pascal %>Service } from "../service/<%= it.pascal %>Service";
 /** Taille de page par défaut, et plafond au-delà duquel on refuse d'aller. */
 const PAGE_SIZE = 25;
 const PAGE_MAX = 100;
+
+/**
+ * Colonnes qu'un client a le droit de trier.
+ *
+ * Une **allowlist**, pas la liste des colonnes : un tri libre laisse le client
+ * nommer n'importe quoi, et l'ORM lève sur un nom inconnu — un 500 offert à qui
+ * tape au hasard. Ce qui n'est pas dans cette liste est ignoré, pas refusé : le
+ * client reçoit la liste triée par défaut plutôt qu'une erreur.
+ */
+const SORTABLE = new Set<string>(<%= JSON.stringify(it.sortable) %>);
+
+/**
+ * Ordre par défaut — **il n'est pas décoratif**.
+ *
+ * Sans ordre déterministe, la base rend les lignes dans l'ordre qui l'arrange, et
+ * il peut changer entre deux requêtes : la page 2 remontre alors une ligne déjà
+ * vue, ou en saute une, sans que rien ne le signale. L'`id` départage les ex æquo.
+ */
+const DEFAULT_ORDER: Array<[string, "ASC" | "DESC"]> = <%= it.defaultOrder %>;
+
+/**
+ * Traduit `?sort=-<%= it.timestamps ? "createdAt" : "id" %>` en ordre de tri.
+ *
+ * Convention JSON:API : un `-` devant le nom inverse le sens. Les colonnes
+ * inconnues sont écartées ; si rien ne subsiste, l'ordre par défaut s'applique —
+ * on ne rend jamais une liste non ordonnée.
+ */
+function parseSort(sort?: string): Array<[string, "ASC" | "DESC"]> {
+  if (!sort) return DEFAULT_ORDER;
+  const parsed = sort
+    .split(",")
+    .map((raw) => raw.trim())
+    .filter(Boolean)
+    .map((raw): [string, "ASC" | "DESC"] =>
+      raw.startsWith("-") ? [raw.slice(1), "DESC"] : [raw, "ASC"],
+    )
+    .filter(([field]) => SORTABLE.has(field));
+  return parsed.length > 0 ? parsed : DEFAULT_ORDER;
+}
+<% if (it.relations.length) { %>
+/**
+ * Relations chargeables par `?include=` — **allowlist**, comme le tri.
+ *
+ * Un `include` libre laisserait le client nommer n'importe quelle association et
+ * lire, par ricochet, des données qu'aucune route ne lui ouvre. Ici, seules les
+ * relations déclarées sur l'entité sont chargeables.
+ */
+const INCLUDABLE = new Set<string>(<%= JSON.stringify(it.relations.map((r) => r.field)) %>);
+
+/** Traduit `?include=<%= it.relations[0].field %>` en liste de relations à charger. */
+function parseInclude(include?: string): string[] {
+  if (!include) return [];
+  return include
+    .split(",")
+    .map((raw) => raw.trim())
+    .filter((name) => INCLUDABLE.has(name));
+}
+<% } %>
 
 /**
  * `<%= it.pascal %>` exposée en HTTP **et** par la socket Nodefony — une seule classe.
@@ -46,34 +105,75 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
   /**
    * `GET <%= it.route %>` — liste paginée (et le même appel par la socket).
    *
+   * Rend une **page**, pas un tableau nu : `{ items, limit, offset, hasNext, total }`.
+   * Un tableau ne dit pas s'il en reste — le client qui reçoit 25 lignes ne peut pas
+   * distinguer « c'est tout » de « demande la suite ».
+   *
    * La pagination est **plafonnée** plutôt que refusée : un `limit=10000` rend 100
    * lignes, il ne rend pas une erreur. Ce plafond est ce qui empêche un client d'user
    * de charger la table entière en mémoire.
    *
+   * `?sort=-<%= it.timestamps ? "createdAt" : "id" %>` trie (le `-` inverse le sens) ;
+   * seules les colonnes de `SORTABLE` sont acceptées. `?withTotal=false` économise le
+   * `COUNT(*)` quand le client n'affiche pas de numéros de page.
+   *
    * ⚠️ `offset` se dégrade sur les grandes tables (la base doit compter les lignes
    * sautées) et peut sauter des enregistrements si des insertions ont lieu pendant la
    * pagination. Un curseur opaque viendra le remplacer.
+   *
+   * ```bash
+   * curl -k "https://127.0.0.1:5152<%= it.route %>?limit=10&sort=-<%= it.timestamps ? "createdAt" : "id" %>"
+   * ```
    */
   @route("<%= it.kebab %>-list", {
     path: "",
     requirements: { methods: ["GET", "WEBSOCKET"] },
   })
-  list(@Query("limit") limit?: string, @Query("offset") offset?: string) {
+  list(
+    @Query("limit") limit?: string,
+    @Query("offset") offset?: string,
+    @Query("sort") sort?: string,
+    @Query("withTotal") withTotal?: string,
+  ) {
     const take = Math.min(Number(limit) || PAGE_SIZE, PAGE_MAX);
     const skip = Math.max(Number(offset) || 0, 0);
     // Aucun filtre de la requête n'est transmis au service automatiquement : exposer
     // un critère de recherche est une décision, jamais un effet de bord.
-    return this.listResource(undefined, { limit: take, offset: skip });
+    return this.listPageResource({
+      limit: take,
+      offset: skip,
+      order: parseSort(sort),
+      withTotal: withTotal !== "false",
+    });
   }
 
-  /** `GET <%= it.route %>/{id}` — 404 si l'enregistrement n'existe pas. */
+  /**
+   * `GET <%= it.route %>/{id}` — 404 si l'enregistrement n'existe pas.
+<% if (it.relations.length) { %>   *
+   * `?include=<%= it.relations[0].field %>` charge la relation dans la même requête,
+   * au lieu de laisser le client enchaîner un second appel par ligne. Seules les
+   * relations déclarées sur l'entité sont acceptées.
+   *
+   * ```bash
+   * curl -k "https://127.0.0.1:5152<%= it.route %>/<id>?include=<%= it.relations[0].field %>"
+   * ```
+<% } %>   */
   @route("<%= it.kebab %>-get", {
     path: "/{id}",
     requirements: { methods: ["GET", "WEBSOCKET"] },
   })
-  async detail(@Param("id") id: string) {
+<% if (it.relations.length) { %>  async detail(
+    @Param("id") id: string,
+    @Query("include") include?: string,
+  ) {
+    const relations = parseInclude(include);
+    const found = await this.getResource(
+      id,
+      relations.length > 0 ? { relations } : undefined,
+    );
+<% } else { %>  async detail(@Param("id") id: string) {
     const found = await this.getResource(id);
-    if (!found) {
+<% } %>    if (!found) {
       throw new HttpError(`<%= it.pascal %> ${id} introuvable`, 404);
     }
     return found;
@@ -103,9 +203,39 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
     return created;
   }
 
-  /** `PUT <%= it.route %>/{id}` — mise à jour. 404 si la ressource n'existe pas. */
+  /**
+   * `PUT <%= it.route %>/{id}` — **remplacement**. 404 si la ressource n'existe pas.
+   *
+   * Le corps doit être COMPLET : un champ requis manquant est un `422`. C'est la
+   * sémantique de `PUT` (RFC 9110 §9.3.4) — pour ne changer qu'un champ, voir
+   * `PATCH` juste en dessous.
+   *
+   * Le service est demandé ici plutôt qu'appelé par `this.updateResource` parce
+   * que la distinction remplacer/retoucher est une règle MÉTIER : elle vit dans
+   * le service (qui choisit le schéma de validation), pas dans la porte.
+   */
   @Put("/{id}")
   async replace(
+    @Param("id") id: string,
+    @Body() payload: Partial<<%= it.pascal %>Row>,
+  ) {
+    const updated = await get<%= it.pascal %>Service().replace(id, payload);
+    if (!updated) {
+      throw new HttpError(`<%= it.pascal %> ${id} introuvable`, 404);
+    }
+    return updated;
+  }
+
+  /**
+   * `PATCH <%= it.route %>/{id}` — **retouche partielle**. 404 si absente.
+   *
+   * N'envoie que les champs à changer : ils sont validés contre
+   * `update<%= it.pascal %>Schema` (le schéma de création rendu facultatif), donc
+   * un corps `{ "<%= it.sortable[1] ?? "champ" %>": … }` suffit. Les champs absents
+   * ne sont pas touchés.
+   */
+  @Patch("/{id}")
+  async patch(
     @Param("id") id: string,
     @Body() payload: Partial<<%= it.pascal %>Row>,
   ) {

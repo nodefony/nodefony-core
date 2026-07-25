@@ -40,12 +40,40 @@ export class <%= it.pascal %>Service extends AbstractCrudService<<%= it.pascal %
     return create<%= it.pascal %>Schema.parse(data) as Partial<<%= it.pascal %>Row>;
   }
 
-  /** Même contrat qu'à la création, mais tous les champs sont facultatifs. */
+  /**
+   * Même contrat qu'à la création, mais tous les champs sont facultatifs.
+   *
+   * C'est la validation de la **retouche** (`PATCH`) : on ne peut pas exiger un
+   * champ que le client n'a pas voulu changer.
+   */
   protected override beforeUpdate(
     _criteria: Record<string, unknown>,
     data: Partial<<%= it.pascal %>Row>,
   ): Partial<<%= it.pascal %>Row> {
     return update<%= it.pascal %>Schema.parse(data) as Partial<<%= it.pascal %>Row>;
+  }
+
+  /**
+   * Remplace un enregistrement — le corps doit être **complet** (`PUT`).
+   *
+   * C'est ce qui distingue `PUT` de `PATCH`, et la distinction est réelle : ici
+   * le corps est validé contre le schéma de CRÉATION, donc un champ requis
+   * manquant est un `422`. En `PATCH`, le même corps passerait. Sans cette
+   * méthode, les deux verbes feraient exactement la même chose et le `PUT`
+   * mentirait sur son contrat (RFC 9110 §9.3.4).
+   *
+   * @param id - identifiant de l'enregistrement à remplacer.
+   * @param data - représentation COMPLÈTE de la ressource.
+   * @returns l'enregistrement remplacé, ou `null` s'il n'existe pas.
+   */
+  async replace(
+    id: string,
+    data: Partial<<%= it.pascal %>Row>,
+  ): Promise<<%= it.pascal %>Row | null> {
+    const complete = create<%= it.pascal %>Schema.parse(
+      data,
+    ) as Partial<<%= it.pascal %>Row>;
+    return this.updateOne({ id }, complete);
   }
 }
 

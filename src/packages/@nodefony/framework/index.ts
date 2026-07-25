@@ -528,7 +528,11 @@ export type {
   PlaygroundGuards,
   PlaygroundParam,
 } from "./nodefony/src/PlaygroundAdminApi";
-export type { IResourceService } from "./nodefony/src/ResourceController";
+export type {
+  IResourceService,
+  IResourceReadOptions,
+  IResourcePageQuery,
+} from "./nodefony/src/ResourceController";
 export type {
   FrameworkConfig,
   FrameworkConfigInput,
