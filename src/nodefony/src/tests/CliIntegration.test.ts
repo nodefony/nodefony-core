@@ -413,6 +413,71 @@ describe.skipIf(!fs.existsSync(DIST))(
   },
 );
 
+/*
+ * Contrat de la sortie MACHINE : une commande qui échoue ne part jamais muette.
+ *
+ * Ce banc existe parce que le contraire s'est produit (BUG_REPORT, BUG-1) : base
+ * injoignable, `inspect <sujet> --json` rendait zéro octet sur les deux flux et
+ * sortait en 1. L'appelant — ici un agent — en a conclu que l'application n'avait
+ * aucune route, et a écrit un chiffre inventé plutôt que de constater la panne.
+ *
+ * Il vérifie le COMPORTEMENT OBSERVABLE, pas le chemin interne qui le produit :
+ * c'est ce qui le rend robuste au refactor. Le silence avait justement survécu à
+ * un test unitaire vert, lequel forçait sa condition avec `setOptionValue` et
+ * validait donc une branche que le CLI réel n'emprunte jamais.
+ *
+ * L'hôte `.invalid` est un TLD réservé (RFC 2606) : sa résolution échoue partout
+ * et tout de suite, là où un nom fantaisiste peut être capté par le résolveur
+ * d'un fournisseur d'accès et transformer l'échec attendu en attente longue.
+ */
+describe.skipIf(!fs.existsSync(DIST))(
+  "CLI integration — sortie machine : un boot en échec n'est jamais silencieux",
+  () => {
+    vi.setConfig({
+      testTimeout: CLI_TIMEOUT_MS + 10_000,
+      hookTimeout: CLI_TIMEOUT_MS + 10_000,
+    });
+
+    it("base injoignable + --json → l'échec se lit sur la sortie d'erreur", async () => {
+      const r = await runCli(["inspect", "routes", "--json"], CLI_TIMEOUT_MS, {
+        NF_DATABASE_URL: "postgres://app:pwd@base-absente.invalid:5432/app",
+      });
+
+      assert.notStrictEqual(
+        r.code,
+        0,
+        `un boot en échec doit sortir en code non nul\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+      );
+      assert.ok(
+        r.stderr.trim().length > 0,
+        "MUET : boot en échec, et pas un octet sur la sortie d'erreur — " +
+          "l'appelant ne peut pas distinguer « aucune route » de « rien n'a démarré »",
+      );
+      assert.match(
+        r.stderr,
+        /ENOTFOUND|connecteur|ERROR|CRITIC/,
+        `la sortie d'erreur doit NOMMER la panne, pas seulement exister\n${r.stderr}`,
+      );
+    });
+
+    it("l'échec ne pollue pas la sortie standard réservée aux données", async () => {
+      const r = await runCli(["inspect", "routes", "--json"], CLI_TIMEOUT_MS, {
+        NF_DATABASE_URL: "postgres://app:pwd@base-absente.invalid:5432/app",
+      });
+
+      // Rien, ou du JSON — jamais du texte de journal : `… --json | jq` doit
+      // rester utilisable, y compris le jour où la commande échoue.
+      const out = r.stdout.trim();
+      if (out.length > 0) {
+        assert.doesNotThrow(
+          () => JSON.parse(out),
+          `stdout doit rester du JSON pur en mode machine\n${out.slice(0, 400)}`,
+        );
+      }
+    });
+  },
+);
+
 // Skip hors RUN_CLI_BOOT ou sans dist (conditions sync). « Serveur déjà up » est
 // une condition ASYNC → vérifiée par beforeEach via ctx.skip().
 describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(

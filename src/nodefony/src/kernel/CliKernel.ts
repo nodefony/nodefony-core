@@ -736,7 +736,9 @@ class CliKernel extends Cli {
    * - Sévérités `[0..6]` (EMERGENCY..INFO) toujours
    * - `+7` (DEBUG) si `debug === true` OR `this.debug`
    * - `+4, +5` (WARNING, NOTICE) si type === SERVER et env === development
-   * - `commander.opts().json` truthy → mode silencieux (return immédiat)
+   * - mode MACHINE (`--json`) ou {@link quietBoot} → `[0..3]` seulement, que
+   *   `Syslog.rawLog` dirige vers la sortie d'erreur : le flux de données reste
+   *   pur, et un échec reste lisible.
    *
    * Le `pid` est ajouté en préfixe de chaque ligne SAUF en dev mono-process.
    *
@@ -752,27 +754,6 @@ class CliKernel extends Cli {
     if (!this.kernel) {
       return super.initSyslog(environment, debug, options);
     }
-    if (this.commander && this.commander.opts().json) {
-      // Mode machine : `stdout` appartient au flux JSON, rien d'autre ne doit y
-      // paraître. Mais tout couper rendait la commande MUETTE quand le boot
-      // échoue — zéro octet, aucune explication, et l'appelant conclut que
-      // l'application n'a ni routes ni services. Vécu : une base injoignable, et
-      // `inspect routes --json` rendait le vide en silence ; un agent a écrit un
-      // chiffre inventé plutôt que de constater la panne.
-      // On branche donc les seules sévérités EMERGENCY..ERROR (0..3), que
-      // `Syslog.rawLog` écrit sur `stderr` : le flux JSON reste pur (`| jq`
-      // fonctionne), et un échec se lit là où on lit les échecs.
-      return this.syslog?.listenWithConditions(
-        { severity: { data: [0, 1, 2, 3] } },
-        (pdu: Pdu) => {
-          Syslog.rawLog(
-            pdu,
-            this.environment === "development" ? "" : this.pid?.toString(),
-          );
-        },
-      );
-    }
-
     const { syslog } = this;
     // Boot SILENCIEUX (commande CLI utilitaire, cf quietBoot) : on coupe
     // NOTICE(5)/INFO(6) — le bruit de cycle de vie (MODULE ADD, ORM connected,
@@ -782,8 +763,22 @@ class CliKernel extends Cli {
     // pour l'env) pour que `-d` lève le silence dès `loadApp`/initSyslog.
     const argvDebug =
       process.argv.includes("-d") || process.argv.includes("--debug");
+    // Mode MACHINE : la sortie standard appartient aux données, le journal doit
+    // s'écarter — `Syslog.rawLog` n'envoie sur `stderr` que les sévérités ≤ 3,
+    // au-dessus il écrit sur `stdout` et casserait un `| jq`.
+    //
+    // La détection passe par argv, et c'est le SEUL endroit où elle peut être
+    // juste : `--json` est déclaré sur la sous-commande (`inspect`), donc
+    // `commander.opts()`, qui rend les options du programme RACINE, ne le voit
+    // jamais. Une garde écrite sur `opts().json` a vécu ici sans s'exécuter une
+    // seule fois — verte sous un test unitaire qui posait la valeur à la main, et
+    // muette sur le seul cas qui comptait (cf BUG_REPORT, BUG-1).
+    //
+    // Même règle que `quietBoot`, donc même branche : un seul filtre à maintenir.
+    const argvMachine =
+      process.argv.includes("--json") || process.argv.includes("-j");
     const data =
-      this.quietBoot && !(debug || this.debug || argvDebug)
+      (this.quietBoot || argvMachine) && !(debug || this.debug || argvDebug)
         ? [0, 1, 2, 3]
         : [0, 1, 2, 3, 4, 5, 6];
     if (debug || this.debug) {

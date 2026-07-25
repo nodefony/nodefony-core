@@ -411,31 +411,41 @@ describe("CliKernel — initSyslog()", () => {
     );
   });
 
-  // Ce test verrouillait naguère l'inverse — « aucun listener ajouté » — et il
-  // était vert parce qu'il CONSTATAIT un défaut au lieu de le justifier : en
-  // coupant tout le journal, `--json` rendait une commande muette quand le boot
-  // échouait (0 octet, aucune explication, cf BUG_REPORT). Ce qu'il faut garder
-  // n'est pas le silence, c'est la PURETÉ de `stdout` : les erreurs ont leur
-  // canal, `Syslog.rawLog` les dirigeant vers `stderr`.
-  it("avec kernel + json commander opt → un listener, restreint aux erreurs", () => {
+  // Le mode MACHINE se lit dans `process.argv`, et nulle part ailleurs : `--json`
+  // est déclaré par la SOUS-commande (`inspect`), donc `commander.opts()` — qui
+  // rend les options du programme racine — ne le porte jamais.
+  //
+  // Ce test posait naguère la valeur à la main (`setOptionValue("json", true)`) :
+  // il exerçait une branche que le CLI réel n'emprunte pas, restait vert, et
+  // laissait passer le silence qu'il était censé garder (cf BUG_REPORT, BUG-1).
+  // Il vérifie désormais l'EFFET — quelles sévérités franchissent le filtre —
+  // plutôt que le nombre de listeners, qui ne dit rien de ce qui sera lisible.
+  it("--json dans argv → seules les erreurs passent, le bruit de cycle de vie s'efface", () => {
     const cli = makeCliKernel();
     cli.syslog?.removeAllListeners();
     cli.kernel = { type: "CONSOLE", environment: "development" } as any;
 
-    // Simuler l'option --json active
-    cli.commander?.setOptionValue("json", true);
-    const before = cli.syslog?.listenerCount("onLog") ?? 0;
-    cli.initSyslog("development", false);
-    const after = cli.syslog?.listenerCount("onLog") ?? 0;
+    const argv = process.argv;
+    process.argv = [argv[0], argv[1], "inspect", "routes", "--json"];
+    try {
+      cli.initSyslog("development", false);
 
-    // Nettoyage
-    cli.commander?.setOptionValue("json", false);
+      const { received, restore } = interceptRawLog();
+      cli.syslog?.log("base injoignable", "ERROR", "BOOT");
+      cli.syslog?.log("MODULE ADD : http", "INFO", "BOOT");
+      restore();
 
-    assert.strictEqual(
-      after,
-      before + 1,
-      "json=true → un listener branché (les erreurs restent lisibles)",
-    );
+      assert.ok(
+        received.some((p) => p.severityName === "ERROR"),
+        "une panne doit rester lisible en mode machine — sinon la commande sort muette",
+      );
+      assert.ok(
+        !received.some((p) => p.severityName === "INFO"),
+        "le journal de cycle de vie irait sur stdout (rawLog : severity > 3) et casserait `| jq`",
+      );
+    } finally {
+      process.argv = argv;
+    }
   });
 
   it("initSyslog 2x avec kernel → 2 listeners (pas de deduplication)", () => {

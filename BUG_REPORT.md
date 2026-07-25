@@ -26,15 +26,26 @@ d'erreur. `grep -icE "error|critic|econnrefused"` sur la sortie complète : **0*
 pourtant l'erreur (`this.log(e, "ERROR")`) avant de la relancer — donc elle est émise et perdue
 entre là et la sortie standard.
 
-**Ce qui reste supposé.** Le buffer de sortie a été écarté (`Syslog.ts:48` : stderr reste immédiat
-par conception). Restent deux pistes non tranchées : le transport de log n'écoute pas encore — ou
-plus — au moment où l'erreur est émise ; ou le processus meurt sur un rejet non capturé avant que le
-hook n'ait journalisé.
+**Ne se reproduit plus.** Rejoué dans deux décors — le dépôt lui-même et une application témoin
+liée aux workspaces — avec un hôte de base inexistant : la sortie d'erreur reçoit près de sept
+kilo-octets, l'échec du connecteur y est nommé, code 1. Le symptôme « pas un octet » n'a pas été
+retrouvé.
 
-**Partiellement corrigé.** `CliKernel.initSyslog` retournait sans brancher aucun transport dès que
-`--json` était passé, alors que son propre commentaire promettait que « les erreurs partent sur la
-sortie d'erreur ». Les sévérités 0..3 sont désormais branchées, `stdout` restant réservé au flux
-JSON. Nécessaire, mais **pas suffisant** : dans ce cas précis il n'y a rien à laisser passer.
+**Ce qui a été trouvé en cherchant.** La garde qui prétendait tenir cet endroit ne s'exécutait
+jamais : `initSyslog` décidait du mode machine sur `commander.opts().json`, or `--json` est déclaré
+par la SOUS-commande `inspect`, si bien que les options du programme racine ne l'ont jamais porté.
+Sonde posée dans le code compilé : `opts().json` vaut `undefined` aux deux appels. Ce qui rendait
+réellement le flux de données propre était `quietBoot`, seul à scanner `process.argv`. La branche a
+donc été retirée au profit d'une détection unique, effective, sur argv — et le test unitaire qui la
+gardait posait sa condition à la main (`setOptionValue`), validant un chemin que le CLI n'emprunte
+pas : il vérifie désormais quelles sévérités franchissent le filtre.
+
+**Ce qui reste ouvert.** L'observation initiale — zéro octet sur les deux flux — n'est expliquée par
+aucune de ces découvertes. Le chemin qui PRODUIT ce symptôme est en revanche identifié et verrouillé :
+couper le journal en mode machine le reproduit à l'identique, et un banc de bout en bout le refuse
+désormais (`CliIntegration.test.ts`, « un boot en échec n'est jamais silencieux » — vu rouge sur cette
+neutralisation, avec le message « MUET », avant d'être vert). Si le silence réapparaît, ce banc tombe
+en nommant la panne.
 
 ## À quoi sert ce fichier
 
