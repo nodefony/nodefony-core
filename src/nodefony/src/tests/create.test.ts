@@ -1341,12 +1341,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.isTrue(
         existsSync(
-          path.join(withAll.dest, "nodefony", "command", "BlogCommand.ts"),
+          path.join(withAll.dest, "nodefony", "command", "HelloCommand.ts"),
         ),
       );
       const index = readFileSync(path.join(withAll.dest, "index.ts"), "utf8");
       assert.include(index, "@services([BlogService])");
-      assert.include(index, "this.addCommand(BlogCommand)");
+      assert.include(index, "this.addCommand(HelloCommand)");
 
       // Le service et la commande générés doivent porter les DEUX noms cohérents :
       // `@injectable()` nomme la CLASSE, `super("blog", …)` la clé du conteneur —
@@ -1367,7 +1367,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "le service doit s'enregistrer sous sa clé conteneur",
       );
       const cmd = readFileSync(
-        path.join(withAll.dest, "nodefony", "command", "BlogCommand.ts"),
+        path.join(withAll.dest, "nodefony", "command", "HelloCommand.ts"),
         "utf8",
       );
       assert.include(
@@ -1388,7 +1388,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       for (const [file, src] of [
         ["index.ts", index],
         ["BlogService.ts", svc],
-        ["BlogCommand.ts", cmd],
+        ["HelloCommand.ts", cmd],
       ] as const) {
         assert.notMatch(
           src,
@@ -2283,6 +2283,205 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  describe("moteur — create command (in-project)", () => {
+    /** App de fixture, avec un module `blog` qui porte un service. */
+    const appWithModule = (name: string): string => {
+      const dest = path.join(tmp, name);
+      scaffold(dest, { name, preset: "minimal", frontend: "none" });
+      runScaffold(
+        {
+          type: "module",
+          answers: { name: "blog", controller: "none", service: true },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      return dest;
+    };
+
+    const command = (
+      from: string,
+      answers: Record<string, string | boolean>,
+      force = false,
+    ) => runScaffold({ type: "command", answers, dir: from, force }, version);
+
+    it("dérive `<module>:<action>` du Module cible, pas du nom npm", () => {
+      const dest = appWithModule("cmdapp");
+      const r = command(dest, { name: "publish", module: "@cmdapp/blog" });
+      const file = path.join(
+        r.dest,
+        "nodefony",
+        "command",
+        "PublishCommand.ts",
+      );
+      assert.isTrue(existsSync(file), "commande non rendue dans le module");
+      const src = readFileSync(file, "utf8");
+      // Le nom npm est `@cmdapp/blog` ; le nom Nodefony est `blog` — c'est le
+      // second qui préfixe la commande, parce que c'est lui qui existe au runtime.
+      assert.include(src, 'super("blog:publish"');
+      assert.include(src, 'kernelEvent: "onReady"');
+      assert.notMatch(src, /<%|%>/u, "balise de template non rendue");
+      assert.deepInclude(
+        r.notes ?? [],
+        "CLI  nodefony blog:publish [who] [-j]  (phase onReady)",
+      );
+    });
+
+    it("câble `this.addCommand(...)` après le super(…) du constructeur", () => {
+      const dest = appWithModule("cmdwire");
+      const r = command(dest, { name: "publish", module: "@cmdwire/blog" });
+      const index = readFileSync(path.join(r.dest, "index.ts"), "utf8");
+      assert.include(
+        index,
+        'import PublishCommand from "./nodefony/command/PublishCommand";',
+      );
+      // L'ORDRE compte : un addCommand AVANT le super() lèverait au runtime
+      // (« must call super before accessing this »). On l'ancre, au lieu de se
+      // contenter de la présence des deux lignes.
+      assert.match(
+        index,
+        /super\([^()]*\);\n\s*this\.addCommand\(PublishCommand\);/u,
+        "addCommand doit suivre immédiatement le super(…)",
+      );
+    });
+
+    it("app racine : cible par défaut, préfixe `app`", () => {
+      const dest = appWithModule("cmdroot");
+      const r = command(dest, { name: "seed" });
+      assert.equal(r.dest, dest);
+      const src = readFileSync(
+        path.join(dest, "nodefony", "command", "SeedCommand.ts"),
+        "utf8",
+      );
+      assert.include(src, 'super("app:seed"');
+      // Câblé dans l'index de l'APP, pas dans celui du module.
+      assert.include(
+        readFileSync(path.join(dest, "index.ts"), "utf8"),
+        "this.addCommand(SeedCommand)",
+      );
+      assert.notInclude(
+        readFileSync(path.join(dest, "modules", "blog", "index.ts"), "utf8"),
+        "SeedCommand",
+      );
+    });
+
+    it("tolère le préfixe déjà écrit, et garde les sous-actions", () => {
+      const dest = appWithModule("cmdpfx");
+      // Réflexe naturel de qui a lu `nodefony blog:publish` dans l'aide.
+      const a = command(dest, { name: "blog:publish", module: "@cmdpfx/blog" });
+      assert.include(
+        readFileSync(
+          path.join(a.dest, "nodefony", "command", "PublishCommand.ts"),
+          "utf8",
+        ),
+        'super("blog:publish"',
+      );
+      // Sous-action (convention `security:user:add`) : le `:` interne survit,
+      // et la classe s'en déduit sans lui.
+      const b = command(dest, { name: "user:add", module: "@cmdpfx/blog" });
+      assert.include(
+        readFileSync(
+          path.join(b.dest, "nodefony", "command", "UserAddCommand.ts"),
+          "utf8",
+        ),
+        'super("blog:user:add"',
+      );
+    });
+
+    it("plusieurs commandes cohabitent dans la même cible", () => {
+      const dest = appWithModule("cmdmulti");
+      command(dest, { name: "publish", module: "@cmdmulti/blog" });
+      const r = command(dest, { name: "archive", module: "@cmdmulti/blog" });
+      const index = readFileSync(path.join(r.dest, "index.ts"), "utf8");
+      assert.include(index, "this.addCommand(PublishCommand);");
+      assert.include(index, "this.addCommand(ArchiveCommand);");
+    });
+
+    it("--phase choisit le point d'arrêt du boot ; une phase inconnue est refusée", () => {
+      const dest = appWithModule("cmdphase");
+      const r = command(dest, {
+        name: "serve",
+        phase: "onPostReady",
+        module: "@cmdphase/blog",
+      });
+      assert.include(
+        readFileSync(
+          path.join(r.dest, "nodefony", "command", "ServeCommand.ts"),
+          "utf8",
+        ),
+        'kernelEvent: "onPostReady"',
+      );
+      assert.throws(
+        () =>
+          command(dest, {
+            name: "boom",
+            phase: "onWhenever",
+            module: "@cmdphase/blog",
+          }),
+        // Refusée par la spec elle-même (question de type `choice`) : le moteur
+        // n'a pas à revalider ce que `resolveAnswers` garantit déjà.
+        /phase invalide « onWhenever »/u,
+      );
+    });
+
+    it("--service : appelle le service par sa CLÉ, et refuse s'il n'y en a pas", () => {
+      const dest = appWithModule("cmdsvc");
+      const r = command(dest, {
+        name: "greet",
+        service: true,
+        module: "@cmdsvc/blog",
+      });
+      const src = readFileSync(
+        path.join(r.dest, "nodefony", "command", "GreetCommand.ts"),
+        "utf8",
+      );
+      assert.include(src, 'get("blog")');
+      assert.include(src, "svc.greet(who)");
+      // Eta AVALE le saut de ligne qui suit un tag placé en fin de ligne : la
+      // ligne suivante se recolle à la précédente, et le fichier part avec un
+      // TSDoc recousu ou un type coupé en deux. Vu sur pièce en écrivant ce
+      // template (« — Publie les brouillons *\n * Convention ») — d'où un
+      // contrôle de FORME, que les assertions de contenu ne voient pas.
+      assert.notMatch(
+        src,
+        /^ \*.*\S \*$/mu,
+        "ligne de TSDoc recollée — tag eta en fin de ligne",
+      );
+      assert.match(src, /as BlogService \| undefined;/u);
+      // L'app racine n'a pas de service : produire l'appel ne compilerait pas —
+      // on refuse AVANT d'écrire plutôt que de livrer du code cassé.
+      assert.throws(
+        () => command(dest, { name: "greet", service: true }),
+        /aucun service appelable/u,
+      );
+    });
+
+    it("refuse un nom déjà pris, une cible inconnue, une action vide", () => {
+      const dest = appWithModule("cmdguard");
+      command(dest, { name: "publish", module: "@cmdguard/blog" });
+      assert.throws(
+        () => command(dest, { name: "publish", module: "@cmdguard/blog" }),
+        /déjà référencé/u,
+      );
+      assert.throws(
+        () => command(dest, { name: "publish", module: "@cmdguard/absent" }),
+        /introuvable/u,
+      );
+      assert.throws(
+        () => command(dest, { name: "blog", module: "@cmdguard/blog" }),
+        /action requise/u,
+      );
+    });
+
+    it("hors projet : refus propre", () => {
+      assert.throws(
+        () => command(tmp, { name: "publish" }),
+        /aucun projet Nodefony ici/u,
+      );
+    });
+  });
+
   describe("mode machine (--describe-json / --answers-json)", () => {
     /** Capture stdout d'un appel de commande (le mode machine ÉCRIT du JSON). */
     const capture = async (...words: string[]): Promise<[number, string]> => {
@@ -2310,7 +2509,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       };
       assert.sameMembers(
         doc.types.map((t) => t.type),
-        ["app", "module", "controller", "front", "entity"],
+        ["app", "module", "controller", "front", "entity", "command"],
       );
       // Ce que l'agent doit pouvoir apprendre sans lire une ligne de source.
       const entity = doc.types.find((t) => t.type === "entity");

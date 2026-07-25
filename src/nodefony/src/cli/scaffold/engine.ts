@@ -20,6 +20,7 @@ import {
   getScaffoldSpec,
   CONTROLLER_KIND_CHOICES,
   type IScaffoldTypeSpec,
+  type TCommandPhaseChoice,
   type TControllerKindChoice,
   type TFrontendChoice,
   type TModuleControllerChoice,
@@ -675,6 +676,9 @@ function dispatchScaffold(
   if (request.type === "entity") {
     return runEntityScaffold(request, answers, packageRoot, writer);
   }
+  if (request.type === "command") {
+    return runCommandScaffold(request, answers, packageRoot, writer);
+  }
   const dest = path.resolve(request.dir);
   if (existsSync(dest) && readdirSync(dest).length > 0 && !request.force) {
     throw new Error(
@@ -1116,17 +1120,6 @@ function runModuleScaffold(
       tokens,
     );
   }
-  if (data.command) {
-    renderLayer(
-      eta,
-      path.join(templates, "command"),
-      dest,
-      data,
-      written,
-      writer,
-      tokens,
-    );
-  }
   // AGENTS.md du module — TOUJOURS rendu : la précédence « le plus proche
   // gagne » du standard fait qu'un agent travaillant dans `modules/<nom>/` lit
   // le contexte du module, pas l'index global de l'app. (L'ancien couple
@@ -1143,7 +1136,29 @@ function runModuleScaffold(
   );
   const notes: string[] = [];
   // Le module existe sur le disque → il est désormais une CIBLE (`listTargets`) :
-  // les scaffolds controller/front peuvent le viser, sans un template dupliqué.
+  // les scaffolds command/controller/front peuvent le viser, sans un template dupliqué.
+  if (data.command) {
+    const sub = runScaffold(
+      {
+        type: "command",
+        answers: {
+          name: "hello",
+          description: `Salue depuis le module ${name}`,
+          phase: "onReady",
+          module: pkgName,
+          // Le module vient de rendre son service : c'est le seul appelant qui
+          // SAIT que l'appel généré compilera.
+          service: data.service,
+        },
+        dir: projectRoot,
+        force: request.force,
+      },
+      version,
+      { writer },
+    );
+    written.push(...sub.files);
+    notes.push(...(sub.notes ?? []));
+  }
   if (controller !== "none") {
     const sub = runScaffold(
       {
@@ -1334,6 +1349,227 @@ function runControllerScaffold(
     files: written.sort(),
     linked: [],
     notes: NOTES[kind],
+  };
+}
+
+/**
+ * Nom Nodefony déclaré par le premier `super("…", …)` d'un fichier — celui d'un
+ * `Module` (`index.ts`) ou d'un `Service`.
+ *
+ * C'est la CLÉ du conteneur, et pour un module le préfixe de ses commandes CLI
+ * (`<module>:<action>`). Elle ne se déduit ni du nom npm du paquet ni du nom de
+ * la classe : les trois peuvent différer, et seule celle-ci existe au runtime.
+ *
+ * @returns le nom déclaré, ou `null` si le fichier ne suit pas la forme attendue.
+ */
+function readNodefonyName(file: string, writer: ScaffoldWriter): string | null {
+  try {
+    return /\bsuper\(\s*"([^"]+)"/u.exec(writer.read(file))?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Service appelable de la cible : sa classe et sa clé de conteneur.
+ *
+ * `greet` est exigée parce que c'est la méthode que la commande générée appelle :
+ * mieux vaut refuser l'option que produire un appel qui ne compile pas. Un
+ * service écrit à la main porte d'autres méthodes — l'utilisateur adaptera le
+ * fichier généré, ce qui reste plus honnête qu'un exemple faux.
+ *
+ * @returns `{ pascal, key }`, ou `null` si la cible n'a aucun service de cette forme.
+ */
+function findTargetService(
+  targetDir: string,
+  writer: ScaffoldWriter,
+): { pascal: string; key: string } | null {
+  const dir = path.join(targetDir, "nodefony", "service");
+  if (!writer.exists(dir)) {
+    return null;
+  }
+  for (const entry of writer.listDir(dir)) {
+    if (entry.isDirectory || !entry.name.endsWith("Service.ts")) {
+      continue;
+    }
+    const file = path.join(dir, entry.name);
+    const key = readNodefonyName(file, writer);
+    if (key === null || !/\bgreet\s*\(/u.test(writer.read(file))) {
+      continue;
+    }
+    return { pascal: entry.name.replace(/\.ts$/u, ""), key };
+  }
+  return null;
+}
+
+/**
+ * Câble `this.addCommand(<Classe>)` dans le constructeur du Module d'un
+ * `index.ts` : ajoute l'import après le dernier import, insère l'appel juste
+ * après le `super(…)` du constructeur.
+ *
+ * L'ancre est le `super(…)` et non l'accolade du constructeur : c'est la seule
+ * ligne dont l'existence est GARANTIE (un `Module` doit appeler `super`), et
+ * insérer après elle vaut pour un constructeur vide comme pour un constructeur
+ * déjà rempli. Édition textuelle gardée, même contrat que
+ * {@link wireDecoratorList} : toute ambiguïté = throw actionnable, jamais un
+ * fichier corrompu.
+ *
+ * @throws si la classe y est déjà, si aucun import n'ancre l'insertion, ou si
+ *   le `super(…)` du constructeur est introuvable (le message donne l'édition
+ *   manuelle exacte).
+ */
+export function wireCommandCall(
+  indexPath: string,
+  className: string,
+  importPath: string,
+  writer: ScaffoldWriter,
+): void {
+  const source = writer.read(indexPath);
+  const importLine = `import ${className} from "${importPath}";`;
+  const callLine = `this.addCommand(${className});`;
+  if (new RegExp(`\\b${className}\\b`, "u").test(source)) {
+    throw new Error(
+      `${className} est déjà référencé dans ${indexPath} — choisis un autre nom`,
+    );
+  }
+  const imports = [...source.matchAll(/^import [^\n]*$/gmu)];
+  const last = imports.at(-1);
+  if (!last || last.index === undefined) {
+    throw new Error(
+      `aucun import trouvé dans ${indexPath} — ajoute à la main :\n` +
+        `  ${importLine}\n  ${callLine} dans le constructeur`,
+    );
+  }
+  const importAt = last.index + last[0].length;
+  const withImport =
+    source.slice(0, importAt) + `\n${importLine}` + source.slice(importAt);
+  // Pas de parenthèse imbriquée attendue dans un `super(nom, kernel, url, config)` :
+  // si la forme est autre, on REFUSE plutôt que de deviner où finit l'appel.
+  const superRe = /super\([^()]*\);/u;
+  const match = superRe.exec(withImport);
+  if (!match || match.index === undefined) {
+    throw new Error(
+      `super(…) du constructeur introuvable dans ${indexPath} — ajoute à la main :\n` +
+        `  ${importLine}\n  ${callLine} après le super(…) du constructeur`,
+    );
+  }
+  const lineStart = withImport.lastIndexOf("\n", match.index) + 1;
+  const indent =
+    /^[ \t]*/u.exec(withImport.slice(lineStart, match.index))?.[0] ?? "    ";
+  const at = match.index + match[0].length;
+  writer.write(
+    indexPath,
+    `${withImport.slice(0, at)}\n${indent}${callLine}${withImport.slice(at)}`,
+  );
+}
+
+/**
+ * Scaffold IN-PROJECT d'une commande CLI : rend la classe dans
+ * `<cible>/nodefony/command/` puis la câble dans le constructeur du Module
+ * cible (`this.addCommand(…)`).
+ *
+ * Le nom complet est DÉRIVÉ : `<module>:<action>`, où le module est celui que
+ * l'`index.ts` de la cible déclare (`super("blog", …)`) — pas le nom npm du
+ * paquet, qui peut différer. Écrire le préfixe soi-même est toléré (il est
+ * strippé), jamais exigé.
+ *
+ * @throws hors projet, cible inconnue (le message liste les cibles), action
+ *   vide, phase inconnue, `--service` sans service appelable, ou wiring
+ *   impossible (actionnable).
+ */
+function runCommandScaffold(
+  request: IScaffoldRequest,
+  answers: TScaffoldAnswers,
+  packageRoot: string,
+  writer: ScaffoldWriter,
+): IScaffoldResult {
+  const projectRoot = findProjectRoot(request.dir);
+  if (!projectRoot) {
+    throw new Error(
+      "aucun projet Nodefony ici (nodefony.config.ts introuvable en remontant) — " +
+        "lance la commande depuis une app (créée par `nodefony create app`)",
+    );
+  }
+  const targets = listTargets(projectRoot, writer);
+  const moduleName = String(answers.module ?? "");
+  const target = moduleName
+    ? targets.find((t) => t.kind === "module" && t.name === moduleName)
+    : targets[0];
+  if (!target) {
+    const known = targets.map((t) => `${t.name} (${t.kind})`).join(" · ");
+    throw new Error(
+      `module « ${moduleName} » introuvable — cibles du projet : ${known}`,
+    );
+  }
+  const indexPath = path.join(target.dir, "index.ts");
+  const prefix =
+    readNodefonyName(indexPath, writer) ??
+    (target.name.split("/").pop() as string);
+  // L'action seule suffit — mais `create command blog:publish` est le réflexe
+  // naturel de qui lit `nodefony blog:publish` dans l'aide. On strippe le
+  // préfixe redondant au lieu de refuser (même tolérance que le suffixe
+  // `Controller` de `create controller`).
+  let action = String(answers.name).trim().toLowerCase();
+  if (action === prefix) {
+    // Nommer la commande d'après son module (`create command blog` dans `blog`)
+    // est une confusion, pas une intention : `blog:blog` n'est la commande de
+    // personne. On dit ce qui manque plutôt que de la produire.
+    action = "";
+  } else if (action.startsWith(`${prefix}:`)) {
+    action = action.slice(prefix.length + 1);
+  }
+  if (action === "") {
+    throw new Error(
+      `action requise (le préfixe « ${prefix} » est ajouté seul) — ` +
+        `ex : nodefony create command publish${moduleName ? ` --module ${moduleName}` : ""}`,
+    );
+  }
+  // La phase est un `choice` de la spec : `resolveAnswers` a déjà refusé une
+  // valeur hors liste — inutile de la revalider ici.
+  const phase = String(answers.phase) as TCommandPhaseChoice;
+  const commandName = `${prefix}:${action}`;
+  const nameClass = `${toPascalCase(action.replaceAll(":", "-"))}Command`;
+  const service =
+    answers.service === true ? findTargetService(target.dir, writer) : null;
+  if (answers.service === true && service === null) {
+    throw new Error(
+      `--service : aucun service appelable dans ${target.name} ` +
+        `(attendu : nodefony/service/*Service.ts exposant greet()) — relance sans --service`,
+    );
+  }
+  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const written: string[] = [];
+  renderLayer(
+    eta,
+    path.join(packageRoot, "templates", "command"),
+    target.dir,
+    {
+      nameClass,
+      commandName,
+      phase,
+      description:
+        String(answers.description) || `Commande ${commandName} de ${prefix}`,
+      service,
+    },
+    written,
+    writer,
+    { __NAME__: nameClass },
+  );
+  wireCommandCall(
+    indexPath,
+    nameClass,
+    `./nodefony/command/${nameClass}`,
+    writer,
+  );
+  written.push("index.ts");
+  return {
+    dest: target.dir,
+    files: written.sort(),
+    linked: [],
+    notes: [
+      `CLI  nodefony ${commandName} [who] [-j]  (phase ${phase})`,
+      `visible dans \`nodefony --help\` une fois le module construit`,
+    ],
   };
 }
 

@@ -3,7 +3,6 @@ import { controllers } from "@nodefony/framework";
 import config, { type <%= it.pascal %>ConfigInput } from "./nodefony/config/config";
 import { define<%= it.pascal %>Config } from "./nodefony/config/defineModuleConfig";
 <% if (it.service) { %>import <%= it.pascal %>Service from "./nodefony/service/<%= it.pascal %>Service";
-<% } %><% if (it.command) { %>import <%= it.pascal %>Command from "./nodefony/command/<%= it.pascal %>Command";
 <% } %>
 /**
  * <%= it.pkgName %> — <%= it.description %>
@@ -31,9 +30,7 @@ declare module "nodefony" {
 <% } %>class <%= it.pascal %>Module extends Module {
   constructor(kernel: Kernel) {
     super("<%= it.name %>", kernel, import.meta.url, config);
-<% if (it.command) { %>    // Commande CLI du module : `nodefony <%= it.name %>:hello`.
-    this.addCommand(<%= it.pascal %>Command);
-<% } %>  }
+  }
 
   /**
    * Valide la config au boot — défauts du schéma fusionnés avec ce que l'app

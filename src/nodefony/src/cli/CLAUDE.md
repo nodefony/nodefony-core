@@ -276,6 +276,29 @@ corrompu). Nom normalisé (`blog-post`→`BlogPostController`, suffixe strippé)
 défaut `/api/<kebab>` (couverte par la zone firewall du manifeste généré). Noms de
 fichiers de templates : token `__NAME__` (`templates/controller/<kind>/.../__NAME__.ts.tpl`).
 
+`nodefony create command <action> [--phase <onReady|onRegister|onPostReady>]
+[--description "…"] [--service] [--module <nom>]` — scaffold **IN-PROJECT**
+d'une commande CLI dans `<cible>/nodefony/command/<Action>Command.ts`. Le nom
+complet est **DÉRIVÉ** : `<module>:<action>`, où le module est celui que
+l'`index.ts` de la cible DÉCLARE (`super("blog", …)`) — pas le nom npm du paquet
+(`@app/blog`), qui peut différer et n'existe pas au runtime. Écrire le préfixe
+soi-même est toléré (strippé) ; le donner SEUL (`create command blog` dans le
+module `blog`) est refusé — `blog:blog` n'est la commande de personne. Wiring
+AUTO : import + `this.addCommand(X)` inséré **juste après le `super(…)`** du
+constructeur (`wireCommandCall` — l'ancre est le `super`, seule ligne dont
+l'existence est garantie ; un appel AVANT lèverait « must call super before
+accessing this »). `--service` fait appeler le service de la cible par sa **clé
+de conteneur**, et refuse AVANT d'écrire s'il n'y a pas de service appelable
+(`nodefony/service/*Service.ts` exposant `greet()`) — plutôt que de produire un
+appel qui ne compile pas. `create module --command` **délègue** ici (zéro
+template dupliqué, même patron que controller/front) : la classe porte donc
+l'ACTION (`HelloCommand`), pas le module — un module peut avoir N commandes.
+
+> ⚠️ **Piège eta des templates** : un tag en FIN de ligne fait avaler le saut de
+> ligne suivant (`autoTrim: [false, "nl"]`) → TSDoc recousu, type coupé en deux.
+> Toujours du texte après un `<%= … %>`. Contrôlé par un test de FORME
+> (`/^ \*.*\S \*$/m`), que les assertions de contenu ne voient pas.
+
 `nodefony create entity <Nom> [champs…] [--id <uuid7|uuid4|serial>] [--soft-delete]
 [--no-timestamps] [--no-controller] [--no-service] [--no-tests] [--route </api/x>]
 [--module <nom>] [--connector <nom>] [--dialect <sqlite|postgres|mysql>]` — scaffold

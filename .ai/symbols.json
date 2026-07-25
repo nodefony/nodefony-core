@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-25T09:10:32.438Z",
+  "generated": "2026-07-25T10:08:15.980Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1049,
-    "symbols": 2887,
+    "symbols": 2893,
     "classes": 335,
     "interfaces": 756,
-    "types": 330,
+    "types": 331,
     "enums": 4,
-    "functions": 877,
-    "constants": 585
+    "functions": 881,
+    "constants": 586
   },
   "symbols": {
     "Cli": {
@@ -3104,6 +3104,14 @@
       "module": "@nodefony/core",
       "description": "Ajoute le module au manifeste `modules` de `nodefony.config.ts` — c'est CE tableau qui décide de ce qui se charge, et dans quel ordre. Un module local vient à la fin : le socle (http, framework, se…"
     },
+    "wireCommandCall": {
+      "name": "wireCommandCall",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Câble `this.addCommand(<Classe>)` dans le constructeur du Module d'un `index.ts` : ajoute l'import après le dernier import, insère l'appel juste après le `super(…)` du constructeur. L'ancre est le …"
+    },
     "wireEntitiesDecorator": {
       "name": "wireEntitiesDecorator",
       "kind": "function",
@@ -3320,6 +3328,13 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "TCommandPhaseChoice": {
+      "name": "TCommandPhaseChoice",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
     "TEntityIdChoice": {
       "name": "TEntityIdChoice",
       "kind": "type",
@@ -3366,6 +3381,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Saveurs de controller posables AVEC le module — les mêmes que `create controller` (le scaffold module DÉLÈGUE, il ne duplique aucun template), plus `none` pour une coquille nue."
+    },
+    "COMMAND_PHASE_CHOICES": {
+      "name": "COMMAND_PHASE_CHOICES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Phases de boot proposées comme point d'exécution d'une commande. C'est le `kernelEvent` de `OptionsCommandInterface` — le kernel s'ARRÊTE à cette phase. Trois valeurs suffisent à couvrir les usages…"
     },
     "ENTITY_ID_CHOICES": {
       "name": "ENTITY_ID_CHOICES",
@@ -22529,6 +22552,9 @@
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
       ],
+      "COMMAND_PHASE_CHOICES": [
+        "src/nodefony/src/cli/create.ts"
+      ],
       "CONTROLLER_KIND_CHOICES": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/scaffold/engine.ts"
@@ -23471,6 +23497,9 @@
       "IScaffoldTypeSpec": [
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/nodefony/src/cli/scaffold/interactive.ts"
+      ],
+      "TCommandPhaseChoice": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "TControllerKindChoice": [
         "src/nodefony/src/cli/scaffold/engine.ts"

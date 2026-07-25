@@ -22,6 +22,7 @@
 | Controller HTTP **et** WebSocket (même classe) | `nodefony create controller <nom> --kind hello\|rest\|realtime\|duplex\|example` |
 | Ressource REST **complète** — entité + service + controller CRUD + tests (ne JAMAIS l'écrire à la main) | `nodefony create entity <Nom> --fields "sku:string! price:float"` |
 | Frontend Vite (React/Vue/Angular) | `nodefony create front <nom> [--module <m>]` |
+| Commande CLI `nodefony <module>:<action>` | `nodefony create command <action> [--module <m>] [--phase onReady\|onRegister\|onPostReady]` |
 
 Chaque commande se décrit à une machine : `--describe-json` (questions + options
 en JSON), `--answers-json <fichier|->` (réponses en JSON), `--dry-run` (plan et

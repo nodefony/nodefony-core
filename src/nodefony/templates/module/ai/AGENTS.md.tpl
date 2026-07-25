@@ -60,6 +60,7 @@ l'app. Config invalide → boot FATAL, champ nommé.
 
 - Ne pas redéclarer `options` dans le service (la classe `Service` l'assigne via `super()`).
 - Ajouter un controller/front : `nodefony create controller|front <nom> --module <%= it.name %>` (câble l'`index.ts` seul).
+- Ajouter une commande CLI : `nodefony create command <action> --module <%= it.pkgName %>` → `nodefony <%= it.name %>:<action>` (le préfixe est ajouté seul, le `this.addCommand(…)` aussi).
 - Build : `rolldown` → `dist/index.js` (chargé par le Kernel). En dev, le superviseur rebuild tout seul.
 
 ## Gates avant commit

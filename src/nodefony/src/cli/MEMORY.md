@@ -186,7 +186,17 @@ Ordre : garde `NODEFONY_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/no
   les rendus.
 - `runScaffold(request, version, { dryRun })` → `result.changes: IScaffoldChange[]`
   (`create` | `overwrite` + `previous`). `{ writer }` = transaction héritée d'un scaffold appelant
-  (`create module` délègue à `controller`/`front`) : le sous-scaffold n'y commit pas.
+  (`create module` délègue à `command`/`controller`/`front`) : le sous-scaffold n'y commit pas.
+- Câblage d'un `index.ts` : `wireDecoratorList` (liste d'un décorateur —
+  `@controllers`/`@entities`) et `wireCommandCall` (`this.addCommand(X)` inséré APRÈS le
+  `super(…)` du constructeur ; regex `super\([^()]*\);` — parenthèse imbriquée = REFUS, pas de
+  devinette). Même contrat : ambiguïté → throw actionnable, fichier jamais corrompu.
+- `readNodefonyName(file)` = le `super("…")` d'un `Module`/`Service` : c'est la CLÉ du conteneur, et
+  pour un module le préfixe de ses commandes CLI. Ni le nom npm (`@app/blog`) ni le nom de classe —
+  les trois peuvent différer, seul celui-là existe au runtime.
+- ⚠️ **eta avale le saut de ligne qui suit un tag en FIN de ligne** (`autoTrim: [false, "nl"]`) : la
+  ligne suivante se recolle. Toujours du texte après un `<%= … %>`, sinon TSDoc recousu / type coupé
+  en deux — invisible pour le contrôle « tag résiduel », d'où un test de FORME.
 - `diffLines(before, after)` (writer.ts) : diff LCS, calculé au moteur pour que CLI et Studio
   décrivent le même changement. Au-delà de 1000 lignes → remplacement en bloc.
 - CLI : `--dry-run`/`-n` (plan + diff des réécritures, sort AVANT install/build/git) ·

@@ -5,6 +5,7 @@ import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
 import {
   getScaffoldSpec,
+  COMMAND_PHASE_CHOICES,
   CONTROLLER_KIND_CHOICES,
   ENTITY_ID_CHOICES,
   FRONTEND_CHOICES,
@@ -45,6 +46,7 @@ export const CREATE_TYPES = [
   "controller",
   "front",
   "entity",
+  "command",
 ] as const;
 export type TCreateType = (typeof CREATE_TYPES)[number];
 
@@ -129,6 +131,8 @@ export function parseCreateArgv(
       answers.command = true;
     } else if (word === "--no-command") {
       answers.command = false;
+    } else if (word === "--phase") {
+      answers.phase = rest[++i];
     } else if (word === "--route") {
       answers.route = rest[++i];
     } else if (word === "--module") {
@@ -219,7 +223,9 @@ const USAGE =
   `               [--connector <nom>] [--dialect <sqlite|postgres|mysql>]\n` +
   `               champs : nom:type[?|!][:index] — types : string text int float bool json date uuid ref:<Entité>\n` +
   `               ex : nodefony create entity Post title:string! content:text views:int author:ref:User\n` +
-  `               (types controller/front/entity : dans un projet existant — app racine ou module)\n` +
+  `  command    : [--phase <${COMMAND_PHASE_CHOICES.join("|")}>] [--description "…"] [--service] [--module <nom>]\n` +
+  `               nom = l'ACTION ; la commande vaut <module>:<action> (ex : blog:publish)\n` +
+  `               (types controller/front/entity/command : dans un projet existant — app racine ou module)\n` +
   `  Sans flags dans un terminal → mode interactif (questions + récap).\n` +
   `  Mode machine (agents, scripts) :\n` +
   `    --describe-json                  types, questions, valeurs permises et cibles du projet, en JSON\n` +
@@ -568,7 +574,9 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     process.stdout.write(
       `✔ ${type} « ${String(answers.name)} » généré dans ${relDest}/\n\n` +
         result.files.map((f) => `  ${f}`).join("\n") +
-        `\n\nEndpoints :\n` +
+        // Une commande CLI n'expose aucune URL : annoncer « Endpoints » pour
+        // elle serait un contresens (l'utilisateur chercherait une route).
+        `\n\n${type === "command" ? "Câblage" : "Endpoints"} :\n` +
         (result.notes ?? []).map((n) => `  ${n}`).join("\n") +
         `\n\nServeur dev lancé → rebuild automatique ; sinon : npm run build\n`,
     );

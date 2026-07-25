@@ -374,6 +374,90 @@ const MODULE_SPEC: IScaffoldTypeSpec = {
   ],
 };
 
+/**
+ * Phases de boot proposées comme point d'exécution d'une commande.
+ *
+ * C'est le `kernelEvent` de `OptionsCommandInterface` — le kernel s'ARRÊTE à
+ * cette phase. Trois valeurs suffisent à couvrir les usages réels ; les autres
+ * phases (`onPreBoot`, `onServersReady`…) restent atteignables en éditant le
+ * fichier généré, mais n'ont pas à être proposées à qui crée sa première
+ * commande.
+ */
+export const COMMAND_PHASE_CHOICES = [
+  "onReady",
+  "onRegister",
+  "onPostReady",
+] as const;
+export type TCommandPhaseChoice = (typeof COMMAND_PHASE_CHOICES)[number];
+
+const COMMAND_SPEC: IScaffoldTypeSpec = {
+  type: "command",
+  description:
+    "Commande CLI `nodefony <module>:<action>` dans le projet courant (app racine ou module)",
+  questions: [
+    {
+      key: "name",
+      label:
+        "Action de la commande (ex : publish, user:add — le préfixe du module est ajouté)",
+      type: "string",
+      default: "",
+      // Les sous-actions sont la convention du framework (`security:user:add`) :
+      // le `:` est donc légal DANS l'action, pas seulement comme séparateur.
+      pattern: "^[a-z][a-z0-9-]*(:[a-z][a-z0-9-]*)*$",
+      patternHint:
+        "kebab-case, sous-actions séparées par « : » (ex : publish, user:add)",
+    },
+    {
+      key: "description",
+      label: "Description (affichée par `nodefony --help`)",
+      type: "string",
+      default: "",
+    },
+    {
+      key: "phase",
+      label: "Phase de boot où la commande s'exécute",
+      type: "choice",
+      choices: [
+        {
+          value: "onReady",
+          label: "Services prêts, aucun serveur (recommandé)",
+          hint: "lire/écrire des données, appeler un service — sans ouvrir de port",
+        },
+        {
+          value: "onRegister",
+          label: "Modules enregistrés",
+          hint: "ultra-léger : les services ne sont pas encore construits",
+        },
+        {
+          value: "onPostReady",
+          label: "Serveurs HTTP/WS en écoute",
+          hint: "seulement si la commande doit parler à ses propres serveurs",
+        },
+      ],
+      default: "onReady",
+    },
+    {
+      key: "module",
+      label: "Cible (vide = app racine, sinon nom d'un module du projet)",
+      type: "string",
+      default: "",
+      pattern: "^$|^[@A-Za-z][@A-Za-z0-9/_-]*$",
+      patternHint: "nom d'un module du projet (dossier modules/<nom>) ou vide",
+    },
+    {
+      // Jamais demandé en dialogue : c'est `create module --command` qui l'active,
+      // parce que lui SAIT ce qu'il vient de générer. Demandé à la main, le
+      // scaffold vérifie que la cible a bien un service appelable — plutôt que de
+      // produire un appel qui ne compilerait pas.
+      key: "service",
+      label: "Appeler le service du module (exemple de délégation)",
+      type: "boolean",
+      default: false,
+      advanced: true,
+    },
+  ],
+};
+
 /** Stratégies de clé primaire proposées par `create entity`. */
 export const ENTITY_ID_CHOICES = ["uuid7", "uuid4", "serial"] as const;
 export type TEntityIdChoice = (typeof ENTITY_ID_CHOICES)[number];
@@ -496,6 +580,7 @@ const SPECS: Record<string, IScaffoldTypeSpec> = {
   controller: CONTROLLER_SPEC,
   front: FRONT_SPEC,
   entity: ENTITY_SPEC,
+  command: COMMAND_SPEC,
 };
 
 /**
