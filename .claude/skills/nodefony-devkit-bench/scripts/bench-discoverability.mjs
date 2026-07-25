@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Banc de DÉCOUVRABILITÉ du devkit — les « 3 tâches » (gate de la release 10.0.0).
+ * Banc de DÉCOUVRABILITÉ du devkit — les 5 tâches (gate de la release 10.0.0).
  *
  * La question mesurée : un agent IA lâché dans une app FRAÎCHEMENT générée
  * (`nodefony create app`) découvre-t-il l'outillage du framework, ou DEVINE-t-il ?
@@ -16,13 +16,22 @@
  *  - tâche 3 « canal temps réel » : `create controller --kind realtime` /
  *    `RealtimeController`, pas un `new WebSocket` bas-niveau bricolé ?
  *    (fragile avant S3 : les vitrines n'illustrent pas encore la façade)
+ *  - tâche 4 « commande CLI » : a-t-il lancé `create command`, ou recomposé une
+ *    classe `Command` de mémoire ? (ÉCHOUAIT tant que le générateur n'existait
+ *    pas : le gabarit n'était rendu qu'au moment de `create module --command`,
+ *    donc ajouter une commande à un module déjà créé n'avait AUCUN chemin)
+ *  - tâche 5 « démarre puis arrête » : emploie-t-il `npm run dev` /
+ *    `nodefony status` / `nodefony stop` — que l'`AGENTS.md` généré lui donne —
+ *    ou bricole-t-il `lsof`/`kill -9` ? Rien ne prouvait qu'un agent les
+ *    utilise ; c'est la seule tâche dont le gate est un état du SYSTÈME (plus
+ *    aucun port tenu à la fin), pas un état du dépôt.
  *
  * Chaque tâche est déroulée par un agent en mode headless dans l'app témoin,
  * puis JUGÉE sur pièces — le transcript (a-t-il APPELÉ l'outil ?) et le diff
  * git (qu'a-t-il ÉCRIT ?). Aucun juge LLM : que des sondes objectives.
  *
  * Usage :
- *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + 3 tâches + rapport
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + 5 tâches + rapport
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 2       # une seule tâche
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --setup-only   # juste l'app témoin (--link)
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --analyze-only tmp/devkit-bench/<run>
@@ -94,7 +103,22 @@ const AGENT_ARGS = process.env.DEVKIT_BENCH_AGENT_ARGS
     ];
 
 /**
- * Les 3 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
+ * Ports DÉDIÉS de l'app témoin, hérités par tout ce que l'agent lance depuis
+ * elle (le serveur qu'il démarre en tâche 5 compris).
+ *
+ * Sans eux, un autre serveur Nodefony déjà en marche répond sur les ports par
+ * défaut : la readiness de `--detach --wait` est déclarée, et l'agent — comme
+ * le gate — interroge une application qui n'est pas la sienne. Distincts de
+ * ceux du banc de vérité (5361/5362) pour que les deux puissent tourner
+ * ensemble.
+ */
+const PORTS = { NF_PORT: "5371", NF_PORT_HTTPS: "5372" };
+
+/** Env de tout ce qui s'exécute DANS l'app témoin — agent comme gates. */
+const APP_ENV = { ...process.env, ...PORTS };
+
+/**
+ * Les 5 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
  * mesure, et deux runs ne se comparent plus. Toute évolution = nouvelle tâche.
  */
 const TASKS = [
@@ -218,6 +242,102 @@ const TASKS = [
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
     ],
   },
+  {
+    id: 4,
+    name: "commande CLI",
+    prompt:
+      "Ajoute à cette application une commande CLI `app:ping` qui affiche un message " +
+      "et accepte une option `--json` pour une sortie machine. Elle doit apparaître dans " +
+      "`nodefony --help` et s'exécuter réellement. Termine en le prouvant.",
+    probes: [
+      {
+        // LA sonde du trou : tant que `create command` n'existait pas, un agent
+        // ne pouvait que recomposer la classe de mémoire — et il le faisait.
+        kind: "transcript",
+        name: "a lancé create command",
+        pattern: /create\s+command/u,
+      },
+      { kind: "transcript", name: "a lu AGENTS.md", pattern: /AGENTS\.md/u },
+      {
+        kind: "code",
+        name: "commande générée (nodefony/command/)",
+        pattern: /nodefony\/command\/.*\.ts$/mu,
+        where: "files",
+      },
+      {
+        kind: "code",
+        name: "façade du framework (extends Command)",
+        pattern: /extends\s+Command\b/u,
+        where: "content",
+      },
+      {
+        // Un agent qui ignore la façade parse argv lui-même ou tire un parseur
+        // tiers — les deux contournent le cycle de vie du Kernel (la commande ne
+        // s'arrête plus à une phase de boot, et n'a plus accès au conteneur).
+        kind: "code",
+        name: "pas de parsing d'argv artisanal ni de parseur tiers",
+        pattern: /process\.argv|from\s+["']commander["']|from\s+["']yargs["']/u,
+        where: "added",
+        invert: true,
+      },
+      {
+        // Le gate d'ÉTAT : peu importe le chemin pris, la commande doit exister
+        // pour de vrai. Le build est inclus — le CLI lit le `dist/`, pas les
+        // sources (cause n°1 des « ma commande n'apparaît pas »).
+        kind: "gate",
+        name: "app:ping listée par `nodefony --help` (après build)",
+        cmd: [
+          "sh",
+          "-c",
+          `npm run build >/dev/null 2>&1 && node ${JSON.stringify(BIN)} --help | grep -q "app:ping"`,
+        ],
+      },
+    ],
+  },
+  {
+    id: 5,
+    name: "démarre puis arrête le serveur",
+    prompt:
+      "Démarre le serveur de cette application en arrière-plan, vérifie qu'il répond, " +
+      "puis arrête-le proprement sans laisser de processus derrière toi. " +
+      "Termine en montrant la preuve des trois étapes.",
+    probes: [
+      {
+        kind: "transcript",
+        name: "a démarré par le framework (npm run dev / nodefony development)",
+        pattern: /npm run dev\b|nodefony\s+(development|dev|production)\b/u,
+      },
+      {
+        // Les deux commandes standalone que l'AGENTS.md généré lui donne — et
+        // dont RIEN ne prouvait qu'un agent s'en sert.
+        kind: "transcript",
+        name: "a employé nodefony status ou nodefony stop",
+        pattern: /nodefony\s+(status|stop)\b/u,
+      },
+      {
+        kind: "transcript",
+        name: "pas d'arrêt bricolé (kill -9 / pkill / lsof)",
+        pattern: /kill\s+-9|pkill|lsof\s+-t/u,
+        invert: true,
+      },
+      {
+        // Gate d'ÉTAT DU SYSTÈME, pas du dépôt : le seul de tout le banc. Un
+        // « je l'ai arrêté » dans le transcript ne prouve rien — un port encore
+        // tenu, si. Node pur : `nc` n'est pas garanti partout.
+        kind: "gate",
+        name: "aucun port de l'app encore tenu",
+        cmd: [
+          "node",
+          "-e",
+          `const net=require("node:net");let open=0,left=2;` +
+            `for (const p of [${PORTS.NF_PORT}, ${PORTS.NF_PORT_HTTPS}]) {` +
+            `const s=net.connect(p,"127.0.0.1");` +
+            `s.on("connect",()=>{open++;s.destroy();if(!--left)process.exit(open?1:0)});` +
+            `s.on("error",()=>{if(!--left)process.exit(open?1:0)});}`,
+        ],
+      },
+    ],
+  },
 ];
 
 const sh = (cmd, args, opts = {}) =>
@@ -276,6 +396,10 @@ function runTask(app, runDir, task) {
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
       timeout: 30 * 60 * 1000,
+      // Les ports dédiés sont hérités par TOUT ce que l'agent lance — serveur
+      // compris : c'est ce qui rend la tâche 5 mesurable sans dépendre de ce
+      // qui tourne par ailleurs sur la machine.
+      env: APP_ENV,
     },
   );
   writeFileSync(transcriptPath, res.stdout ?? "");
@@ -355,8 +479,12 @@ function judgeTask(app, runDir, task) {
     let pass = false;
     let evidence = "";
     if (p.kind === "transcript") {
-      pass = p.pattern.test(transcript);
-      evidence = pass ? "vu dans le transcript" : "absent du transcript";
+      // `invert` vaut ici aussi : certains INTERDITS ne laissent pas de trace
+      // dans le dépôt (un `kill -9` n'écrit aucun fichier) — le transcript est
+      // la seule pièce qui les montre.
+      const hit = p.pattern.test(transcript);
+      pass = p.invert ? !hit : hit;
+      evidence = hit ? "vu dans le transcript" : "absent du transcript";
     } else if (p.kind === "code") {
       const haystack =
         p.where === "files"
@@ -372,6 +500,7 @@ function judgeTask(app, runDir, task) {
         cwd: app,
         encoding: "utf8",
         timeout: 300_000,
+        env: APP_ENV,
       });
       pass = r.status === 0;
       evidence = pass ? "exit 0" : `exit ${r.status}`;

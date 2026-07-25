@@ -77,11 +77,31 @@ node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
 ```
 
-Trois tâches déroulées par un agent réel, en mode autonome, dans une application
-fraîche : « CRUD produit », « protège une route », « canal temps réel ». Jugées
-sur pièces — le transcript (a-t-il APPELÉ l'outil ?) et le diff git (qu'a-t-il
-ÉCRIT ?). **Aucun juge automatique n'est un modèle de langage** : uniquement des
-sondes objectives.
+Cinq tâches déroulées par un agent réel, en mode autonome, dans une application
+fraîche : « CRUD produit », « protège une route », « canal temps réel »,
+« commande CLI », « démarre puis arrête le serveur ». Jugées sur pièces — le
+transcript (a-t-il APPELÉ l'outil ?) et le diff git (qu'a-t-il ÉCRIT ?).
+**Aucun juge automatique n'est un modèle de langage** : uniquement des sondes
+objectives. La dernière tâche est la seule dont le gate est un état du
+**système** (plus aucun port tenu) et non du dépôt : « je l'ai arrêté » dans un
+transcript ne prouve rien, un port encore ouvert si.
+
+### Ce banc ne découvre pas les trous — il les garde fermés
+
+Les libellés des tâches sont **figés** : les reformuler change ce qui est
+mesuré, et deux runs cessent d'être comparables. La conséquence est à connaître :
+le banc ne voit QUE ce qu'on lui a appris à voir. Un générateur ajouté sans sa
+tâche reste un angle mort — `create command` a manqué pendant tout le temps où
+aucune tâche ne le demandait, et aucun run ne l'a signalé.
+
+D'où la règle : **une capacité destinée à un agent arrive AVEC sa tâche**, comme
+du code arrive avec ses tests. Ajouter une tâche = une entrée dans `TASKS`
+(prompt figé + sondes), jamais retoucher une existante.
+
+Une sonde se conçoit par paire quand l'énoncé peut être satisfait par abandon :
+une positive (la bonne façade est là) et une négative (la mauvaise n'est pas
+apparue **dans les lignes ajoutées**). Une négative seule passe aussi quand
+l'agent n'a rien fait.
 
 Le modèle par défaut est volontairement le plus **défavorable**. Un banc qui ne
 passe qu'avec le modèle le plus fort ne mesure pas la découvrabilité, il mesure
@@ -119,6 +139,7 @@ un message qui parle de colonne inconnue. Nommer autrement dans un banc.
 | gabarits, `entityFields.ts`, `engine.ts`                         | vérité (`--no-e2e` en boucle courte, complet avant de conclure) |
 | `ResourceController`, contrat de ressource, DDL de développement | vérité, complet                                                 |
 | `AGENTS.md` généré, docs embarquées, nommage des générateurs     | découvrabilité                                                  |
+| une capacité NEUVE offerte aux agents (générateur, commande)     | découvrabilité — **après y avoir ajouté sa tâche**              |
 | une vague `devkit S<n>` que tu veux déclarer finie               | les deux                                                        |
 
 ## Quand passer la main

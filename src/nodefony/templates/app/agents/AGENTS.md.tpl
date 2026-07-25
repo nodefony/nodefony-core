@@ -73,6 +73,7 @@ La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le do
 
 | Tâche | Doc |
 | --- | --- |
+| **Quel module installer pour tel besoin** (et lequel NE PAS installer) | `node_modules/nodefony/docs/catalogue.md` |
 | Kernel, cycle de vie, CLI | `node_modules/nodefony/docs/kernel.md` + `cli.md` |
 | Service, DI, container, scopes | `node_modules/nodefony/docs/service.md` |
 | Client isomorphe (navigateur), hooks React | `node_modules/nodefony/docs/client.md` + `react-hooks.md` |

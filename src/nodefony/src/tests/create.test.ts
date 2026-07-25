@@ -709,6 +709,35 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Preset complete → les docs des briques embarquées sont pointées.
       assert.include(agents, "@nodefony/security/docs");
       assert.include(agents, "@nodefony/realtime/docs");
+      // ── Les renvois de doc EXISTENT-ILS ? ────────────────────────────────
+      // Toute la découvrabilité tient à cette table : l'agent ne CHERCHE pas la
+      // doc, il lit les chemins qu'on lui donne. Une page renommée, et
+      // l'AGENTS.md pointe dans le vide — sans un mot, puisqu'aucun lien
+      // markdown ne se casse ici (ce sont des chemins en code inline).
+      // On confronte donc chaque renvoi au monorepo, d'où provient ce que npm
+      // publiera (`docs` est dans les `files` des 13 paquets — le catalogue en
+      // porte le gate).
+      const repoRoot = path.resolve(findPackageRoot(), "..", "..");
+      const resolveRenvoi = (cited: string): string => {
+        const rest = cited.replace(/^node_modules\//u, "");
+        return rest.startsWith("@nodefony/")
+          ? path.join(repoRoot, "src", "packages", rest)
+          : path.join(repoRoot, "src", rest);
+      };
+      const renvois = [
+        ...new Set(
+          [...agents.matchAll(/node_modules\/[@\w./-]+/gu)].map((m) =>
+            m[0].replace(/[.,)]+$/u, ""),
+          ),
+        ),
+      ];
+      assert.isAtLeast(renvois.length, 5, "table tâche→doc vide ou non captée");
+      const morts = renvois.filter((r) => !existsSync(resolveRenvoi(r)));
+      assert.deepEqual(
+        morts,
+        [],
+        `renvois de doc morts dans l'AGENTS.md généré (l'agent y sera envoyé pour rien) :\n${morts.join("\n")}`,
+      );
       // Cycle de vie du serveur : démarrer ne suffit pas, il faut ARRÊTER. Un
       // serveur laissé derrière garde les ports, et le run suivant échoue sur
       // une erreur qui ne parle jamais de lui.
