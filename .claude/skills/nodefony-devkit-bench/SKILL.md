@@ -77,14 +77,25 @@ node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
 ```
 
-Cinq tâches déroulées par un agent réel, en mode autonome, dans une application
+Neuf tâches déroulées par un agent réel, en mode autonome, dans une application
 fraîche : « CRUD produit », « protège une route », « canal temps réel »,
-« commande CLI », « démarre puis arrête le serveur ». Jugées sur pièces — le
-transcript (a-t-il APPELÉ l'outil ?) et le diff git (qu'a-t-il ÉCRIT ?).
+« commande CLI », « démarre puis arrête le serveur », « configuration par
+l'environnement », « choisir la bonne brique », « appeler le générateur au lieu
+de l'imiter », « interroger l'application plutôt que lire ses sources ». Jugées
+sur pièces — le transcript (a-t-il APPELÉ l'outil ?) et le diff git (qu'a-t-il
+ÉCRIT ?).
 **Aucun juge automatique n'est un modèle de langage** : uniquement des sondes
-objectives. La dernière tâche est la seule dont le gate est un état du
-**système** (plus aucun port tenu) et non du dépôt : « je l'ai arrêté » dans un
-transcript ne prouve rien, un port encore ouvert si.
+objectives.
+
+Les meilleurs gates ne lisent pas le dépôt, ils interrogent l'**état** ou
+utilisent **l'outil lui-même comme juge** : plus aucun port tenu après la tâche 5 ;
+`nodefony env --json` pour la 6 (une variable inventée y apparaît « inconnue ») ;
+le catalogue publié pour la 7 (un paquet inventé n'y figure pas) ; le nombre réel
+de routes pour la 9. Un « je l'ai fait » dans un transcript ne prouve rien.
+
+Et une tâche de configuration ne se juge JAMAIS sur le diff git : la bonne
+réponse vit dans `.env.local`, qui est **gitignoré**. Vécu — deux sondes ont
+déclaré en échec un agent qui avait fait juste.
 
 ### Ce banc ne découvre pas les trous — il les garde fermés
 

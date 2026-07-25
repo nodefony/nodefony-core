@@ -299,7 +299,7 @@ Depuis `servers.portPolicy: "auto"` (défaut dev, cf `@nodefony/http/MEMORY.md`)
 - `@entities` → `onBoot` → addEntity|loadEntity
 - `prependOnceListener` (setEvents) toujours index 0 avant `once` (@services/@entities)
 
-**Roadmap** : ✅ A (property) ✅ C (circular) ⬜ B (scoped/ALS) ⬜ D (namespace) ⬜ E (lazy)
+**Avancement** : `MIGRATION_STATUS.md` — jamais ici (un MEMORY décrit ce que le code FAIT).
 
 ## Deps
 
@@ -346,7 +346,6 @@ Redéfini localement — import circulaire `IKernel→Kernel→Command→IKernel
 - `isModule(null)` → TypeError (pas false)
 - Module hooks : prototype method obligatoire, pas arrow/property
 - `setCommandComplete` sans `this.command` → toujours false
-- Module constructor ajoute toujours 2 listeners (onBoot + onPostReady) indépendamment des hooks
 - `interfacesFilter({})` → tous vides (ni type ni family spécifiés → matchs false, condition && → false)
 - `getDependencies()` : devDependencies exclus, doublons possibles si dep dans deux sections
 - `Command.setEvents()` : `eventsRegistered` guard ajouté — idempotent

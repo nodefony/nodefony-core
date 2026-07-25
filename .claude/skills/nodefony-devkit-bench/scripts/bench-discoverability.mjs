@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Banc de DÉCOUVRABILITÉ du devkit — les 6 tâches (gate de la release 10.0.0).
+ * Banc de DÉCOUVRABILITÉ du devkit — les 9 tâches (gate de la release 10.0.0).
  *
  * La question mesurée : un agent IA lâché dans une app FRAÎCHEMENT générée
  * (`nodefony create app`) découvre-t-il l'outillage du framework, ou DEVINE-t-il ?
@@ -30,13 +30,25 @@
  *    `nodefony env --json` lui-même : une variable inventée y apparaît
  *    « inconnue », et une valeur masquée par un rang supérieur n'est pas
  *    l'effective — deux fautes qu'aucune relecture de diff ne montre.
+ *  - tâche 7 « choisir la bonne brique » : ouvre-t-il le catalogue publié avec
+ *    le cœur, ou invente-t-il un nom de paquet plausible (`@nodefony/mongo`,
+ *    `@nodefony/nosql`) qu'aucun `npm install` ne résoudra ? Le gate confronte
+ *    tout `@nodefony/*` écrit au catalogue réel.
+ *  - tâche 8 « appeler le générateur au lieu de l'imiter » : emploie-t-il
+ *    `--describe-json` (le scaffold DÉCRIT ses questions et le contexte du
+ *    projet) et `--dry-run` (simuler = la même exécution, sans le disque) ?
+ *    C'est le pari central du devkit, et rien ne l'avait jamais mesuré.
+ *  - tâche 9 « interroger plutôt que lire les sources » : `nodefony inspect`.
+ *    Le gate confronte le nombre de routes ANNONCÉ au nombre réel — un agent qui
+ *    a compté dans les sources se trompe, puisqu'une route dépend de
+ *    décorateurs, d'un manifeste et d'un ordre de chargement.
  *
  * Chaque tâche est déroulée par un agent en mode headless dans l'app témoin,
  * puis JUGÉE sur pièces — le transcript (a-t-il APPELÉ l'outil ?) et le diff
  * git (qu'a-t-il ÉCRIT ?). Aucun juge LLM : que des sondes objectives.
  *
  * Usage :
- *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + 6 tâches + rapport
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + 9 tâches + rapport
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 2       # une seule tâche
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --setup-only   # juste l'app témoin (--link)
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --analyze-only tmp/devkit-bench/<run>
@@ -123,7 +135,7 @@ const PORTS = { NF_PORT: "5371", NF_PORT_HTTPS: "5372" };
 const APP_ENV = { ...process.env, ...PORTS };
 
 /**
- * Les 6 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
+ * Les 9 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
  * mesure, et deux runs ne se comparent plus. Toute évolution = nouvelle tâche.
  */
 const TASKS = [
@@ -400,6 +412,170 @@ const TASKS = [
             `for (const x of [log,db]) if(x && !/^\\\\.env/.test(String(x.origin))) ` +
             `bad.push(x.name+' ne vient pas d\\\\'un fichier .env (origine: '+x.origin+')');` +
             `if(bad.length){console.error(bad.join(' | '));process.exit(1)}"`,
+        ],
+      },
+    ],
+  },
+  {
+    id: 7,
+    name: "choisir la bonne brique",
+    prompt:
+      "Cette application doit stocker des documents hétérogènes, sans schéma fixe : des " +
+      "rapports d'audit externes dont la forme varie d'un émetteur à l'autre. Écris dans un " +
+      "fichier NOTES.md quelle brique Nodefony s'en charge, comment on la déclare dans CETTE " +
+      "application, et ce que cette brique ne fera PAS aussi bien que celle déjà en place — " +
+      "la limite est connue et assumée par le framework, ne la devine pas. N'installe rien.",
+    probes: [
+      {
+        // Le catalogue est publié AVEC le cœur et pointé par l'AGENTS.md. Rien
+        // ne prouvait qu'un agent l'ouvre plutôt que de deviner un nom de paquet.
+        kind: "transcript",
+        name: "a ouvert le catalogue des modules",
+        pattern: /catalogue\.md/u,
+      },
+      {
+        kind: "code",
+        name: "a nommé la bonne brique (@nodefony/mongoose)",
+        pattern: /@nodefony\/mongoose/u,
+        where: "content",
+      },
+      {
+        // LA question non devinable, et c'est tout l'intérêt : « mongoose pour du
+        // document » est de la culture générale — le premier run l'a montré, un
+        // modèle léger y répond juste sans rien ouvrir. La COUVERTURE ADAPTÉE
+        // (l'adaptateur n'implémente pas tout le contrat, et c'est un choix) ne
+        // s'invente pas : elle n'existe que dans le catalogue et la doc du module.
+        kind: "code",
+        name: "a rapporté la limite ASSUMÉE (couverture adaptée, pas parité)",
+        pattern:
+          /couverture|capacit[ée]s?|adapt[ée]e?\s+(à|a)\s+la\s+nature|parit[ée]/iu,
+        where: "content",
+      },
+      {
+        // Un chemin du monorepo (`src/packages/@nodefony/…`) n'existe PAS dans une
+        // application installée par npm : le citer produit une instruction
+        // inapplicable. Vu au premier run — l'agent l'a écrit quatre fois, le mode
+        // `--link` le lui ayant rendu visible.
+        kind: "code",
+        name: "aucun chemin du monorepo (inapplicable chez l'utilisateur npm)",
+        pattern: /src\/packages\/@nodefony/u,
+        where: "added",
+        invert: true,
+      },
+      {
+        // LE gate : tout `@nodefony/*` écrit doit EXISTER. Un agent qui devine
+        // invente `@nodefony/mongo`, `@nodefony/nosql`, `@nodefony/document` —
+        // des noms plausibles qu'aucun `npm install` ne résoudra jamais.
+        kind: "gate",
+        name: "aucun paquet @nodefony/* inventé (confronté au catalogue publié)",
+        cmd: [
+          "sh",
+          "-c",
+          `node -e "const fs=require('node:fs');` +
+            `const cat=fs.readFileSync('node_modules/nodefony/docs/catalogue.md','utf8');` +
+            `const known=new Set([...cat.matchAll(/@nodefony\\\\/[a-z0-9-]+/g)].map(m=>m[0]));` +
+            `const notes=fs.existsSync('NOTES.md')?fs.readFileSync('NOTES.md','utf8'):'';` +
+            `if(!notes){console.error('NOTES.md absent');process.exit(1)}` +
+            `const cited=new Set([...notes.matchAll(/@nodefony\\\\/[a-z0-9-]+/g)].map(m=>m[0]));` +
+            `const ghosts=[...cited].filter(p=>!known.has(p));` +
+            `if(ghosts.length){console.error('paquets inventés: '+ghosts.join(','));process.exit(1)}"`,
+        ],
+      },
+    ],
+  },
+  {
+    id: 8,
+    name: "appeler le générateur au lieu de l'imiter",
+    prompt:
+      "Avant de créer quoi que ce soit dans cette application, établis un plan : quelles " +
+      "entités existent déjà, quels connecteurs de base de données sont déclarés, et quelles " +
+      "options le générateur d'entité accepte. Écris ce plan dans DISCOVERY.md. Puis SIMULE " +
+      "la création d'une entité Invoice (numéro texte unique, montant décimal) sans rien " +
+      "écrire sur le disque, et colle le résultat de la simulation dans DISCOVERY.md.",
+    probes: [
+      {
+        // La porte MACHINE du scaffold : il se DÉCRIT (questions, valeurs
+        // permises, contexte réel du projet). C'est le pari central du devkit —
+        // l'agent APPELLE l'outil au lieu d'imiter des fichiers — et rien ne
+        // l'avait jamais mesuré.
+        kind: "transcript",
+        name: "a demandé au scaffold de se décrire (--describe-json)",
+        pattern: /--describe-json/u,
+      },
+      {
+        kind: "transcript",
+        name: "a simulé au lieu d'écrire (--dry-run)",
+        pattern: /--dry-run/u,
+      },
+      {
+        kind: "code",
+        name: "le plan est écrit (DISCOVERY.md)",
+        pattern: /^DISCOVERY\.md$/mu,
+        where: "files",
+      },
+      {
+        // Gate d'ÉTAT, et il est double : la simulation n'a RIEN écrit (aucun
+        // fichier d'entité), et le plan cite un connecteur RÉEL du projet — donc
+        // lu, pas inventé.
+        kind: "gate",
+        name: "la simulation n'a rien écrit, et le plan cite le connecteur réel",
+        cmd: [
+          "sh",
+          "-c",
+          `node -e "const fs=require('node:fs');` +
+            `const bad=[];` +
+            `for (const d of ['nodefony/entity','modules']) {` +
+            `if(fs.existsSync(d)&&JSON.stringify(fs.readdirSync(d,{recursive:true})).includes('Invoice'))` +
+            `bad.push('une entité Invoice a été ÉCRITE malgré la simulation');}` +
+            `const p=fs.existsSync('DISCOVERY.md')?fs.readFileSync('DISCOVERY.md','utf8'):'';` +
+            `if(!p)bad.push('DISCOVERY.md absent');` +
+            `else if(!/default|sqlite|connecteur/i.test(p))bad.push('le plan ne cite aucun connecteur réel');` +
+            `if(bad.length){console.error(bad.join(' | '));process.exit(1)}"`,
+        ],
+      },
+    ],
+  },
+  {
+    id: 9,
+    name: "interroger l'application plutôt que lire ses sources",
+    prompt:
+      "Réponds à trois questions sur CETTE application, et écris les réponses dans AUDIT.md : " +
+      "combien de routes expose-t-elle au total, quels services le module de sécurité " +
+      "enregistre-t-il, et quelle est la valeur effective de la durée de vie d'une session. " +
+      "Les réponses doivent refléter l'état RÉEL de l'application, pas ce que ses sources " +
+      "laissent supposer.",
+    probes: [
+      {
+        // L'état réel d'une app (routes montées, services, config effective)
+        // dépend de décorateurs, d'un manifeste et d'un ordre de chargement :
+        // le déduire des sources est faux dès qu'un module en ajoute.
+        kind: "transcript",
+        name: "a interrogé l'application (nodefony inspect)",
+        pattern: /nodefony\s+inspect|npx nodefony inspect/u,
+      },
+      {
+        kind: "code",
+        name: "le rapport est écrit (AUDIT.md)",
+        pattern: /^AUDIT\.md$/mu,
+        where: "files",
+      },
+      {
+        // LE gate : le nombre de routes écrit doit être le VRAI. Un agent qui a
+        // compté à la main dans les sources se trompe — c'est précisément ce que
+        // la commande existe pour éviter, et le seul moyen de le prouver est de
+        // confronter sa réponse au chiffre que l'outil donne.
+        kind: "gate",
+        name: "le nombre de routes annoncé est le nombre RÉEL",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JSON.stringify(BIN)} inspect routes --json > .nf-routes.json 2>/dev/null; node -e ` +
+            `"const fs=require('node:fs');` +
+            `const n=JSON.parse(fs.readFileSync('.nf-routes.json','utf8')).length;` +
+            `const a=fs.existsSync('AUDIT.md')?fs.readFileSync('AUDIT.md','utf8'):'';` +
+            `if(!a){console.error('AUDIT.md absent');process.exit(1)}` +
+            `if(!new RegExp('\\\\\\\\b'+n+'\\\\\\\\b').test(a)){` +
+            `console.error('routes réelles='+n+', absent du rapport');process.exit(1)}"`,
         ],
       },
     ],

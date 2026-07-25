@@ -33,7 +33,12 @@ Service(name, container?, notificationsCenter?, options?)
 - `notificationsCenter=null` → traité comme absent → nouveau Event créé
 - `notificationsCenter=Event` → Event partagé (cross-services) → `#sharedNc=true`
 - Syslog réutilisé depuis container si présent, sinon auto-créé (variable locale, pas champ)
-- `options.events.nbListeners` → propagé dans les DEUX branches (partagé et auto-créé)
+- `options.events.nbListeners` : bus AUTO-CRÉÉ → appliqué tel quel ; bus PARTAGÉ → ne peut que
+  RELEVER le plafond (`wanted > shared`, `Service.ts:128`), jamais l'abaisser. Le Kernel
+  dimensionne le sien à 60 ; chaque Service qui y réécrivait son défaut 20 faisait crier
+  `MaxListenersExceededWarning` au boot sans qu'il fuie quoi que ce soit — le dernier arrivé
+  décidait. **Règle : un plafond posé sur une ressource qu'on ne possède pas ne se restreint
+  jamais.**
 - `options.events` supprimé de `this.options` après construction
 - `notificationsCenter` mis dans container seulement si PAS de kernel (intentionnel)
 
@@ -85,7 +90,7 @@ Service(name, container?, notificationsCenter?, options?)
 **Gotchas**
 
 - `Service.remove()` retourne `true` si trouvé/supprimé, `false` sinon (propagé depuis Container)
-- `options.events.nbListeners` propagé dans les deux branches (partagé et auto-créé)
+- `options.events.nbListeners` sur un bus PARTAGÉ ne fait que RELEVER le plafond (cf § Service)
 - `settingsToListen()` et `listen()` → listeners non traçés → PAS retirés à `clean()`
 - `settingsToListen()` matche regex `^on(.*)$` — event name = la clé complète (`onFoo`)
 - `pdu.severity` = number, `pdu.severityName` = string — ne pas confondre

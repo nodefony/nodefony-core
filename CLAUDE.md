@@ -110,7 +110,24 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
 2. **Mini-cahier des charges en amont** d'un gros écran/feature : lister (ou valider en 1 question) ce qui doit apparaître/se comporter AVANT de coder → 1 passe au lieu de N petits Edits. **S'applique AUSSI aux GROS artefacts non-écran** (> ~150 lignes, widget visuel, skill/doc/CLAUDE.md/README) : lister sections/panneaux/contrôles puis **figer la structure** AVANT d'écrire (éviter renumérotations `cf §N`). Vécu : `DebugBar.ts` 27→50 edits, `SKILL.md` 49 edits — improviser la structure coûte en allers-retours.
 3. **Avant de dire « fait » :** après une modif **frontend** → annoncer la vérif (curl transform Vite) + demander un **hard-reload** (cache React) ; **lancer la suite de tests impactée** + **suspecter son propre diff** avant de qualifier un échec de « pré-existant ».
 4. **Batcher les edits backend avant UN SEUL `rebuild + restart`** (coût #1 mesuré sur 8/8 retex : 10→23 restarts/session, souvent fusionnables). Regrouper TOUTES les modifs serveur d'une feature (controllers, services, config), PUIS un seul cycle `stop.sh → build → start.sh`. Ne PAS faire stop/build/start après chaque petit Edit. Les modifs **frontend** passent en **HMR Vite** → 0 restart. Réserver les restarts intermédiaires aux vrais points de mesure (diagnostic).
-5. **Décision design/archi = décider + expliquer le POURQUOI**, pas d'`AskUserQuestion`. Le user (expert, auteur du framework) préfère que je tranche et justifie le choix technique (préférence vue 2× : QCM design rejetés). Réserver `AskUserQuestion` aux cas où la réponse change réellement l'action : install lourd/irréversible, ambiguïté de specs, choix produit non-déductible du code. Jamais pour un arbitrage technique que je peux trancher.
+5. **DÉLÉGUER à un sous-agent tout ce qui exige de LIRE BEAUCOUP pour rendre PEU** — inventaire,
+   tri, audit, recherche multi-modules, revue d'un corpus. Le gain n'est pas la parallélisation :
+   c'est que les 300 fichiers lus n'entrent JAMAIS dans le contexte principal, seule la conclusion
+   revient. Trois règles qui font la différence entre un sous-agent utile et un sous-agent coûteux :
+   - **Le modèle se choisit sur la NATURE de la tâche, pas sur son importance.** Mécanique /
+     énumération / extraction → `haiku`. Plomberie, recherche de code, exécution guidée → `sonnet`.
+     Tri éditorial, audit qui exige du jugement, texte à fort levier → `fable`. Un modèle trop
+     faible rend une synthèse plausible et fausse ; trop fort sur du mécanique, on paye pour rien.
+   - **Le sous-agent PROPOSE, l'agent principal APPLIQUE.** Il ignore les décisions prises dans la
+     session ; le laisser éditer produit des patchs qui contredisent le fil en cours. Lui demander
+     « fichier → section → texte exact → preuve », et trancher soi-même.
+   - **Donner le périmètre EXACT (chemins), et VÉRIFIER avant de répercuter.** Un périmètre
+     approximatif envoie chercher au mauvais endroit (vécu : 250 retex archivés hors du dossier
+     que j'avais indiqué) ; et un sous-agent peut AFFIRMER un fichier qui n'existe pas — toute
+     affirmation d'inventaire se recontrôle d'un `ls`/`grep` avant d'entrer dans une synthèse.
+     Ne PAS déléguer : ce qui tient en deux `rg`, et ce qui demande d'éditer du code au milieu d'une
+     session (le coût d'explication dépasse le gain).
+6. **Décision design/archi = décider + expliquer le POURQUOI**, pas d'`AskUserQuestion`. Le user (expert, auteur du framework) préfère que je tranche et justifie le choix technique (préférence vue 2× : QCM design rejetés). Réserver `AskUserQuestion` aux cas où la réponse change réellement l'action : install lourd/irréversible, ambiguïté de specs, choix produit non-déductible du code. Jamais pour un arbitrage technique que je peux trancher.
 
 ---
 
@@ -245,6 +262,16 @@ Les **invariants** qui doivent rester présents en permanence :
   mal orthographiée compile puis est retirée par Zod **sans un mot**.
 - **Scaffold** : un module neuf naît conforme via `nodefony create module` / skill
   `nodefony-create-module` — ne pas recomposer le squelette à la main.
+- **1 RÈGLE = 1 implémentation.** Avant d'encoder une décision (garde, filet, scoping, seuil,
+  liste, format), chercher qui la porte DÉJÀ — `rg` sur le CONCEPT, pas sur le nom de clé, plus
+  `.ai/symbols.json` — et l'APPELER, jamais la recopier « à l'identique ». Duplication rendue
+  inévitable par une frontière de paquets → un test compare les deux sorties. Deux copies
+  divergent en silence : chacune passe ses propres tests (vécu : deux seuils de contre-pression
+  WS, `resolve.dedupe` présent en dev et absent du build → crash en production).
+- **Une brique requise en PROD n'est jamais fournie par un seul module `policy:"dev"`**, ni par
+  un défaut Zod vide (`.default({})`) : le gating (`Kernel.ts:1131`) la fait disparaître en
+  production sans un mot. Défaut framework sain + un test « boot SANS la config dev » qui
+  vérifie que le service requis est toujours posé.
 
 ---
 
@@ -346,6 +373,14 @@ const tmp = Nodefony.getKernel()?.tmpDir?.path ?? "/tmp";
 
 - Un seul module par session
 - Écrire les tests dans la même session que le code
+- **Un test ou un gate NEUF doit être vu ROUGE une fois.** Débrancher le point de câblage
+  (retirer le fix, couper le branchement) et vérifier que quelque chose tombe — en prouvant que
+  le débranchement a EU LIEU (`git diff --stat` ; sur un fichier déjà commité, `git stash push`
+  ne stashe RIEN, et l'on conclut sur 110 verts qui n'ont rien testé). Un test écrit face au
+  code corrigé est complaisant par défaut.
+- **Avant « fait / vert / livré » : nommer ce qui n'a PAS été lancé**, ce qui est supposé plutôt
+  que vérifié, les chemins restés hors preuve. Une phrase suffit (« non lancé : X »). C'est le
+  motif n°1 des rattrapages.
 - Valider : `npm run build` (0 erreur TS) + `npm run test` (tous verts)
 
 **FIN :**
@@ -429,6 +464,10 @@ Format minimum :
 ```
 
 La **première phrase** doit être auto-suffisante — elle apparaîtra seule dans le graphe symbolique et dans les hover-popups IDE.
+
+> **Frontière npm** : le TSDoc TRAVERSE le build (`dist/` + `.d.ts` + `symbols.json`) ; un
+> commentaire `//` inline DISPARAÎT. Tout savoir destiné à l'utilisateur d'une app vit donc en
+> TSDoc ou dans `docs/` — l'inline ne parle qu'au lecteur du dépôt.
 
 **Trois niveaux de doc à maintenir** :
 

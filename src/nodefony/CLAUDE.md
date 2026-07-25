@@ -52,19 +52,9 @@ Il fournit :
 
 Avant **TOUTE** modification dans `Service.ts`, `Container.ts`, `Kernel.ts`, `Syslog.ts`, `Event.ts` :
 
-- Penser au coût par requête (allocations, appels système, listeners attachés)
-- Pas d'allocation "au cas où" — préférer `null` + lazy init au premier usage
-- Pas de listener sans `removeListener` correspondant
-- Pas de Promise/async pour rien (microtasks coûtent)
-- Pas de `JSON.stringify`/string concat dans le hot path sans nécessité
+La règle, ses seuils et la conduite à tenir quand l'un saute vivent **au [`CLAUDE.md` racine](../../CLAUDE.md)** — une seule source. La recopier ici l'avait déjà fait diverger : la copie avait perdu un des trois seuils, et c'est celle qu'un agent travaillant dans le cœur lisait.
 
-Après modification :
-
-```bash
-cd src/packages/@nodefony/http && npm run test:memory
-```
-
-Si un seuil saute (35 MB / 1000 req HTTP, 30 MB / 100 WS) → c'est un **blocker**. NE PAS commit. Investiguer + lazy + cleanup avant de continuer.
+Le diagnostic (vraie fuite ou flake d'isolation, où chercher) est porté par le skill **`nodefony-check-memory-health`**, à charger AVANT de lancer la commande.
 
 ## Structure du workspace
 
@@ -173,13 +163,10 @@ Tout listener EventEmitter attaché _dans_ le contexte async mais qui fire plus 
 
 Décorateurs dans `src/kernel/injector/`. Cf [`src/kernel/injector/MEMORY.md`](src/kernel/injector/MEMORY.md) pour internals (algorithme topologique, détection de cycles, scopes).
 
-Phases d'évolution prévues (cf [INJECTION_PLAN.md](./INJECTION_PLAN.md) workspace racine) :
-
-- Phase A : `@Inject` propriété ✅ partial
-- Phase B : scoped/`AsyncLocalStorage` officiel ⬜
-- Phase C : circular detection ⬜
-- Phase D : registry module ⬜
-- Phase E : lazy ⬜
+Internals (deux annuaires, détection de cycles, tri topologique, scopes, limites connues) :
+[`src/kernel/injector/MEMORY.md`](src/kernel/injector/MEMORY.md). **L'avancement vit dans
+`MIGRATION_STATUS.md`, jamais ici** — cette liste a affirmé « circular detection ⬜ » longtemps
+après sa livraison, et contredisait le fichier qu'elle pointe.
 
 ### Logging structuré — Pdu
 

@@ -157,7 +157,7 @@ Applique les **conditions par défaut** selon environnement.
 ## Pattern SSE Studio (Phase 10)
 
 ```typescript
-// @nodefony/studio (futur P10)
+// @nodefony/studio
 @Controller("/nodefony/api/logs")
 class LogsController {
   @Get("/stream")
@@ -189,7 +189,7 @@ class LogsController {
 14:32:01.350 ERROR FIREWALL     : Auth failed for user@example.com
 ```
 
-Le skill `start-nodefony-server` parse ce format.
+Le skill `nodefony-start-server` parse ce format.
 
 ## Tests de regression
 
@@ -224,4 +224,4 @@ syslog.clean(); // libère transports + reset
 - [`../../CLAUDE.md`](../../CLAUDE.md) — workspace core
 - [`../../docs/syslog.md`](../../docs/syslog.md) — vision architecturale (relocalisé `src/nodefony/docs/`, ADR-0001)
 - `feedback_sse_http2_request_close` (mémoire IA) — piège HTTP/2 cleanup SSE
-- Studio Logs panel (futur P10) — `@nodefony/studio/frontend/src/pages/Logs.tsx`
+- Studio Logs panel — `@nodefony/studio/frontend/src/pages/Logs.tsx`

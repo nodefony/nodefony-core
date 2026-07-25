@@ -86,12 +86,11 @@ export class MyModule extends Module {
 }
 ```
 
-**Constructor side effects** (TOUJOURS exécutés) :
-
-- `kernel.once("onBoot", ...)` → récupère le service `rollup` (build one-shot)
-- `setParameters("modules.${name}", options)`
-
-→ **Conséquence** : 1 listener attaché par module, indépendamment de tes hooks personnalisés.
+**Constructor** : `setParameters("modules.<name>")` + `setPath()` + `setEvents()` — qui ne pose un
+hook que s'il EXISTE sur la classe (`if (this.onKernelRegister)`), plus le
+`prependOnceListener("onPreBoot")` qui charge le `package.json` et les overrides de config.
+**Aucun listener de build** : le build passe par la toolchain CLI (turbo + rolldown), le
+rechargement dev par le `DevSupervisor` (`Module.ts:115` le dit au source).
 
 > Le watch Rollup runtime write-only (listener `onPostReady` + `Module.watch()` + service `watcherService`) a été RETIRÉ : il ne rechargeait rien. Le dev = **`DevSupervisor` auto-restart** (`src/service/dev/DevSupervisor.ts`, activé par `DevCommand` en mode `development`) : un process parent (type CONSOLE, ne boote pas de serveur) `spawn` le serveur enfant (`NODEFONY_DEV_CHILD=1`) en **leader de groupe** (`detached:true`), watch les sources backend (frontend exclu → HMR Vite préservé), rebuild **ciblé** (`turbo --filter` + `rollup -c` racine) puis **group-kill** l'enfant (tue les instances Vite filles → 0 orphelin) et relance après **attente des ports libres** (anti-`EADDRINUSE`) avec retry crash borné. Validé runtime (boot/restart 1.2s/anti-orphelin/multi-Vite/Ctrl+C propre). Le `stop.sh`/`start.sh` du skill `nodefony-start-server` reste l'option « boot direct » pour les suites de tests (serveur stable sans superviseur).
 
@@ -224,16 +223,15 @@ Cf [`injector/CLAUDE.md`](injector/CLAUDE.md) pour le détail.
 
 ## Gotchas critiques
 
-| Symptôme                                 | Cause                                                | Fix                                                 |
-| ---------------------------------------- | ---------------------------------------------------- | --------------------------------------------------- |
-| `Cannot read 'environment' of undefined` | Constructor CliKernel                                | Conditionner dans `onKernelStart()`                 |
-| `Kernel not ready` (`addCommand`)        | `cli === null`                                       | Vérifier `kernel.cli` avant `addCommand`            |
-| Hook lifecycle pas appelé                | Arrow function / property init au lieu de prototype  | Méthode classique `async onKernelBoot() {}`         |
-| 2 listeners en trop par module           | Module constructor toujours add onBoot + onPostReady | Comportement normal — accepter ou cleanup explicite |
-| `setCommandComplete` retourne false      | `this.command === null`                              | Vérifier qu'une command est attachée                |
-| `isModule(null)` → TypeError             | Pas false, vraiment throw                            | Vérifier null avant                                 |
-| `getDependencies()` doublons             | dep dans deps + peerDeps                             | Ne pas se fier à l'unicité                          |
-| `Cannot add option '-v, --version'`      | `setCommandVersion()` appelé 2×                      | Le constructor le fait déjà                         |
+| Symptôme                                 | Cause                                               | Fix                                         |
+| ---------------------------------------- | --------------------------------------------------- | ------------------------------------------- |
+| `Cannot read 'environment' of undefined` | Constructor CliKernel                               | Conditionner dans `onKernelStart()`         |
+| `Kernel not ready` (`addCommand`)        | `cli === null`                                      | Vérifier `kernel.cli` avant `addCommand`    |
+| Hook lifecycle pas appelé                | Arrow function / property init au lieu de prototype | Méthode classique `async onKernelBoot() {}` |
+| `setCommandComplete` retourne false      | `this.command === null`                             | Vérifier qu'une command est attachée        |
+| `isModule(null)` → TypeError             | Pas false, vraiment throw                           | Vérifier null avant                         |
+| `getDependencies()` doublons             | dep dans deps + peerDeps                            | Ne pas se fier à l'unicité                  |
+| `Cannot add option '-v, --version'`      | `setCommandVersion()` appelé 2×                     | Le constructor le fait déjà                 |
 
 ## Lancer le code
 
