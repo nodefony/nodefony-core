@@ -24,6 +24,22 @@
 | Frontend Vite (React/Vue/Angular) | `nodefony create front <nom> [--module <m>]` |
 | Commande CLI `nodefony <module>:<action>` | `nodefony create command <action> [--module <m>] [--phase onReady\|onRegister\|onPostReady]` |
 
+**Ces dossiers ne s'écrivent JAMAIS à la main** — y déposer un fichier signifie
+que tu as raté une commande de la table ci-dessus :
+
+| Tu t'apprêtes à écrire dans… | Lance plutôt |
+| --- | --- |
+| `nodefony/entity/` | `nodefony create entity <Nom> --fields "…"` |
+| `nodefony/controllers/` | `nodefony create controller <nom> --kind …` |
+| `nodefony/service/` | `nodefony create entity` (le service vient avec) |
+| `nodefony/command/` | `nodefony create command <action> [--module <m>]` |
+| `modules/<nom>/` (module entier) | `nodefony create module <nom>` |
+
+Le code écrit à la main compile souvent — c'est tout le piège. Il diverge du
+gabarit courant, et cette divergence ne se voit qu'à la première montée de
+version. `nodefony create --help` liste les générateurs de CETTE version : la
+liste s'allonge, ne te fie pas à ta mémoire.
+
 Chaque commande se décrit à une machine : `--describe-json` (questions + options
 en JSON), `--answers-json <fichier|->` (réponses en JSON), `--dry-run` (plan et
 diffs, zéro écriture). Un refus n'écrit jamais rien (transaction).
@@ -109,11 +125,19 @@ npx nodefony env          # cascade des .env, valeur EFFECTIVE de chaque variabl
 npx nodefony env --json   # même rapport, pour un script
 ```
 
-Cette commande répond aux quatre questions dont dépend toute configuration, et
-qu'aucune lecture de fichier ne tranche : quels fichiers sont lus **et dans quel
-ordre**, quelles variables l'app **déclare**, quelle valeur est **effective et
-d'où elle vient**, et **ce qui est ignoré**. Elle ne boote rien — elle répond
-même quand l'app ne démarre plus, ce qui est justement le moment où on la lance.
+**Encadre toute modification de configuration par cette commande** : une fois
+AVANT, pour savoir ce qui s'applique aujourd'hui et d'où ça vient ; une fois
+APRÈS, pour prouver que ta valeur est bien celle qui gagne. Ce n'est pas un
+outil de dépannage qu'on sort quand ça casse — c'est le geste qui remplace la
+déduction.
+
+Elle répond aux quatre questions dont dépend toute configuration, et qu'aucune
+lecture de fichier ne tranche : quels fichiers sont lus **et dans quel ordre**,
+quelles variables l'app **déclare**, quelle valeur est **effective et d'où elle
+vient**, et **ce qui est ignoré**. Lire les `.env` toi-même te donne des
+contenus ; la précédence, elle, est un mécanisme — tu ne peux que la supposer,
+et une supposition fausse ne se voit qu'en production. La commande ne boote
+rien, donc elle répond aussi quand l'app ne démarre plus.
 
 **Précédence, du plus FORT au plus faible** — le premier qui pose une valeur
 gagne, les suivants sont ignorés en silence :
