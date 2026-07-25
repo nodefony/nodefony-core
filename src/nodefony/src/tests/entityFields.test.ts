@@ -9,6 +9,7 @@
 import assert from "node:assert";
 import {
   parseEntityFields,
+  parseEntityIndexes,
   buildEntityCodegen,
   EntityFieldError,
 } from "../cli/scaffold/entityFields";
@@ -424,5 +425,127 @@ describe("scaffold — code des colonnes", () => {
     });
     assert.strictEqual(c.tableExtras, "");
     assert.doesNotMatch(c.drizzleImport, /\bindex\b/u);
+  });
+});
+
+/*
+ *   Index de TABLE — ce que le modificateur `:index` ne peut pas exprimer.
+ *
+ *   Mesuré sur un schéma réel (Umami, 18 tables) : 28 de ses index portent
+ *   plusieurs colonnes, contre 45 une seule. Une grammaire qui n'indexe que
+ *   colonne par colonne laisse donc de côté la moitié de ce qui fait la
+ *   performance d'une table — et le manque est invisible, puisque le code produit
+ *   compile et fonctionne.
+ */
+describe("scaffold — index de table (plusieurs colonnes)", () => {
+  const fields = parseEntityFields("siteId:uuid visitId:uuid path:string");
+  const opts = { timestamps: true, softDelete: false };
+
+  it("l'ordre des colonnes est conservé — il décide des requêtes servies", () => {
+    const [idx] = parseEntityIndexes(["siteId,createdAt"], fields, opts);
+    assert.deepStrictEqual(idx.columns, ["siteId", "createdAt"]);
+    assert.strictEqual(idx.unique, false);
+  });
+
+  it("une colonne implicite est indexable (createdAt, id)", () => {
+    const [idx] = parseEntityIndexes(["id,createdAt"], fields, opts);
+    assert.deepStrictEqual(idx.columns, ["id", "createdAt"]);
+  });
+
+  it("colonne inconnue → refus AVANT d'écrire, avec les noms disponibles", () => {
+    assert.throws(
+      () => parseEntityIndexes(["siteId,inexistante"], fields, opts),
+      (e: unknown) =>
+        e instanceof EntityFieldError &&
+        /inexistante/u.test((e as Error).message) &&
+        /colonnes disponibles/u.test((e as Error).message),
+    );
+  });
+
+  it("colonne répétée dans le même index → refus", () => {
+    assert.throws(
+      () => parseEntityIndexes(["siteId,siteId"], fields, opts),
+      EntityFieldError,
+    );
+  });
+
+  it("createdAt n'est PAS indexable sans horodatages", () => {
+    assert.throws(
+      () =>
+        parseEntityIndexes(["siteId,createdAt"], fields, {
+          timestamps: false,
+          softDelete: false,
+        }),
+      EntityFieldError,
+    );
+  });
+
+  it("deux déclarations identiques → un seul index (la base refuserait la seconde)", () => {
+    const out = parseEntityIndexes(
+      ["siteId,visitId", "siteId,visitId"],
+      fields,
+      opts,
+    );
+    assert.strictEqual(out.length, 1);
+  });
+
+  it("émission : deux index de deux colonnes, jamais un de quatre", () => {
+    const c = buildEntityCodegen(fields, {
+      dialect: "postgres",
+      id: "uuid7",
+      timestamps: true,
+      softDelete: false,
+      table: "events",
+      indexes: parseEntityIndexes(
+        ["siteId,createdAt", "visitId,createdAt"],
+        fields,
+        opts,
+      ),
+    });
+    assert.match(
+      c.tableExtras,
+      /index\("events_siteId_createdAt_idx"\)\.on\(t\.siteId, t\.createdAt\)/u,
+    );
+    assert.match(
+      c.tableExtras,
+      /index\("events_visitId_createdAt_idx"\)\.on\(t\.visitId, t\.createdAt\)/u,
+    );
+  });
+
+  it("`--unique` produit une contrainte, pas un simple index", () => {
+    const c = buildEntityCodegen(fields, {
+      dialect: "postgres",
+      id: "uuid7",
+      timestamps: true,
+      softDelete: false,
+      table: "events",
+      indexes: parseEntityIndexes(["siteId,visitId"], fields, opts, true),
+    });
+    assert.match(
+      c.tableExtras,
+      /uniqueIndex\("events_siteId_visitId_key"\)\.on\(t\.siteId, t\.visitId\)/u,
+    );
+    assert.match(c.drizzleImport, /\buniqueIndex\b/u);
+  });
+
+  it("`:index` sur un champ et `--index` sur la même colonne → un seul index", () => {
+    const withMarker = parseEntityFields("siteId:uuid:index");
+    const c = buildEntityCodegen(withMarker, {
+      dialect: "sqlite",
+      id: "uuid7",
+      timestamps: false,
+      softDelete: false,
+      table: "events",
+      indexes: parseEntityIndexes(["siteId"], withMarker, {
+        timestamps: false,
+        softDelete: false,
+      }),
+    });
+    const occurrences = c.tableExtras.match(/events_siteId_idx/gu) ?? [];
+    assert.strictEqual(
+      occurrences.length,
+      1,
+      `index émis deux fois → la création de la table échouerait :\n${c.tableExtras}`,
+    );
   });
 });

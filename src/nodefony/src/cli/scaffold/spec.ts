@@ -15,10 +15,18 @@ export interface IScaffoldQuestion {
   key: string;
   /** Libellé montré tel quel par le CLI interactif et Studio. */
   label: string;
-  type: "string" | "boolean" | "choice";
+  /**
+   * `"list"` = plusieurs valeurs indépendantes, chacune conservée entière.
+   *
+   * Distinct de `"string"` pour une raison qui se paie cher autrement : les
+   * réponses sont normalisées en texte, et deux valeurs concaténées deviennent
+   * indiscernables d'une seule. Deux index de deux colonnes se fondraient ainsi en
+   * un index de quatre — du code qui compile et n'indexe pas ce qu'on croit.
+   */
+  type: "string" | "boolean" | "choice" | "list";
   /** Choix ordonnés (type "choice") — le premier N'est PAS forcément le défaut. */
   choices?: { value: string; label: string; hint?: string }[];
-  default: string | boolean;
+  default: string | boolean | string[];
   /** Regex source (sans flags) que la valeur string doit satisfaire. */
   pattern?: string;
   /** Message d'aide affiché si la validation échoue. */
@@ -569,6 +577,22 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
       label: "Route REST (défaut : /api/<pluriel>)",
       type: "string",
       default: "",
+      advanced: true,
+    },
+    {
+      key: "index",
+      label:
+        'Index de table, colonnes séparées par des virgules (ex. "siteId,createdAt")',
+      type: "list",
+      default: [],
+      advanced: true,
+    },
+    {
+      key: "uniqueIndex",
+      label:
+        'Contrainte d\'unicité sur plusieurs colonnes (ex. "siteId,visitId")',
+      type: "list",
+      default: [],
       advanced: true,
     },
   ],

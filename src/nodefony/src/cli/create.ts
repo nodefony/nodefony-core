@@ -151,6 +151,16 @@ export function parseCreateArgv(
       answers.connector = rest[++i];
     } else if (word === "--dialect") {
       answers.dialect = rest[++i];
+      // Index de TABLE : RÉPÉTABLES, parce qu'une table réelle en porte plusieurs
+      // et qu'ils ne se cumulent pas en une seule liste — `--index "a,b" --index
+      // "c,d"` déclare deux index de deux colonnes, jamais un de quatre.
+    } else if (word === "--index" || word === "--unique") {
+      const value = rest[++i];
+      if (value !== undefined) {
+        const key = word === "--index" ? "index" : "uniqueIndex";
+        const current = answers[key];
+        answers[key] = [...(Array.isArray(current) ? current : []), value];
+      }
     } else if (word === "--soft-delete") {
       answers.softDelete = true;
     } else if (word === "--no-timestamps") {
@@ -221,8 +231,10 @@ const USAGE =
   `  entity     : [champs…] [--id <${ENTITY_ID_CHOICES.join("|")}>] [--soft-delete] [--no-timestamps]\n` +
   `               [--no-controller] [--no-service] [--no-tests] [--route </api/x>] [--module <nom>]\n` +
   `               [--connector <nom>] [--dialect <sqlite|postgres|mysql>]\n` +
+  `               [--index "colA,colB"] [--unique "colA,colB"] — répétables, un par index\n` +
   `               champs : nom:type[?|!][:index] — types : string text int float bool json date uuid ref:<Entité>\n` +
   `               ex : nodefony create entity Post title:string! content:text views:int author:ref:User\n` +
+  `               ex : nodefony create entity Event siteId:uuid path:string --index "siteId,createdAt"\n` +
   `  command    : [--phase <${COMMAND_PHASE_CHOICES.join("|")}>] [--description "…"] [--service] [--module <nom>]\n` +
   `               nom = l'ACTION ; la commande vaut <module>:<action> (ex : blog:publish)\n` +
   `               (types controller/front/entity/command : dans un projet existant — app racine ou module)\n` +

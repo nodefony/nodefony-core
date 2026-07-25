@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-25T23:06:03.633Z",
+  "generated": "2026-07-25T23:38:07.701Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1052,
-    "symbols": 2910,
+    "symbols": 2913,
     "classes": 336,
-    "interfaces": 762,
+    "interfaces": 763,
     "types": 331,
     "enums": 4,
-    "functions": 891,
+    "functions": 893,
     "constants": 586
   },
   "symbols": {
@@ -3232,6 +3232,15 @@
       "extends": null,
       "description": "Un champ déclaré, après analyse de `title:string!` ou `author:ref:User`."
     },
+    "IEntityIndex": {
+      "name": "IEntityIndex",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Index portant sur PLUSIEURS colonnes, déclaré au niveau de la table. Un index composite n'appartient à aucune colonne en particulier — il décrit une façon d'interroger la table (« les événements de…"
+    },
     "IEntityCodegen": {
       "name": "IEntityCodegen",
       "kind": "interface",
@@ -3269,6 +3278,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Analyse la déclaration textuelle des champs. Grammaire : `nom:type[?][!][=defaut][:index]` · `nom:ref:Entité[?][!][:index]` - `?` → nullable (sinon **NOT NULL** : une colonne nullable est une décis…"
+    },
+    "parseEntityIndexes": {
+      "name": "parseEntityIndexes",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Analyse les index de table déclarés par `--index` / `--unique`. Chaque valeur est une liste de colonnes séparées par des virgules (`\"websiteId,createdAt\"`). Toute colonne citée doit exister : sans …"
     },
     "describeColumnTypes": {
       "name": "describeColumnTypes",
@@ -23590,6 +23607,9 @@
         "src/packages/@nodefony/redis/nodefony/registerStores.ts"
       ],
       "parseEntityFields": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "parseEntityIndexes": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "buildEntityCodegen": [

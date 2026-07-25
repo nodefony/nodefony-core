@@ -260,6 +260,106 @@ export function parseEntityFields(input: string): IEntityField[] {
   return fields;
 }
 
+/**
+ * Index portant sur PLUSIEURS colonnes, déclaré au niveau de la table.
+ *
+ * Un index composite n'appartient à aucune colonne en particulier — il décrit une
+ * façon d'interroger la table (« les événements de ce site, du plus récent au plus
+ * ancien »). C'est pourquoi il se déclare à part de la grammaire de champs, et non
+ * par un modificateur : il n'y aurait pas de champ légitime où l'accrocher.
+ *
+ * L'ORDRE des colonnes est significatif et se conserve : un index sur `(site, date)`
+ * sert les requêtes qui filtrent sur le site, celles qui ne filtrent que sur la date
+ * ne le verront pas.
+ */
+export interface IEntityIndex {
+  /** Colonnes indexées, dans l'ordre déclaré. */
+  columns: string[];
+  /** `true` pour une contrainte d'unicité portant sur la combinaison. */
+  unique: boolean;
+}
+
+/**
+ * Colonnes qu'une entité possède SANS qu'un champ les déclare.
+ *
+ * Elles sont indexables comme les autres — un index composite sur la date de
+ * création est même le cas le plus courant sur une table d'événements — mais elles
+ * n'apparaissent pas dans la liste des champs analysés, d'où cette table.
+ */
+function implicitColumns(options: {
+  timestamps: boolean;
+  softDelete: boolean;
+}): string[] {
+  const names = ["id"];
+  if (options.timestamps) names.push("createdAt", "updatedAt");
+  if (options.softDelete) names.push("deletedAt");
+  return names;
+}
+
+/**
+ * Analyse les index de table déclarés par `--index` / `--unique`.
+ *
+ * Chaque valeur est une liste de colonnes séparées par des virgules
+ * (`"websiteId,createdAt"`). Toute colonne citée doit exister : sans ce contrôle, on
+ * écrirait une entité qui ne compile pas, et l'erreur tomberait chez l'utilisateur
+ * sous la forme d'une propriété inconnue — loin de la commande qui l'a causée.
+ *
+ * @param specs - valeurs brutes des options, dans l'ordre de la ligne de commande.
+ * @param fields - champs déjà analysés, qui fournissent les noms légitimes.
+ * @param options - présence des colonnes implicites (horodatages, suppression douce).
+ * @param unique - `true` quand ces valeurs viennent de `--unique`.
+ * @returns les index analysés, doublons retirés.
+ * @throws {EntityFieldError} colonne inconnue, liste vide, ou colonne répétée.
+ */
+export function parseEntityIndexes(
+  specs: readonly string[],
+  fields: readonly IEntityField[],
+  options: { timestamps: boolean; softDelete: boolean },
+  unique = false,
+): IEntityIndex[] {
+  const known = new Set([
+    ...implicitColumns(options),
+    ...fields.map((f) => f.name),
+  ]);
+  const out: IEntityIndex[] = [];
+  const seen = new Set<string>();
+
+  for (const raw of specs) {
+    const columns = raw
+      .split(",")
+      .map((c) => c.trim())
+      .filter((c) => c.length > 0);
+    if (columns.length === 0) {
+      throw new EntityFieldError(
+        `index « ${raw} » : aucune colonne — attendu une liste séparée par des virgules, ex. --index "websiteId,createdAt"`,
+      );
+    }
+    for (const column of columns) {
+      if (!known.has(column)) {
+        throw new EntityFieldError(
+          `index « ${raw} » : la colonne « ${column} » n'existe pas sur cette entité — ` +
+            `colonnes disponibles : ${[...known].join(", ")}`,
+        );
+      }
+    }
+    // Une colonne répétée dans le même index ne veut rien dire, et le moteur
+    // l'accepterait sans broncher en créant un index inutile.
+    const duplicate = columns.find((c, i) => columns.indexOf(c) !== i);
+    if (duplicate !== undefined) {
+      throw new EntityFieldError(
+        `index « ${raw} » : la colonne « ${duplicate} » est citée deux fois`,
+      );
+    }
+    // Deux déclarations identiques produiraient deux fois le même nom d'index, et
+    // la base refuserait la seconde au premier démarrage.
+    const key = `${unique ? "u" : "i"}:${columns.join(",")}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ columns, unique });
+  }
+  return out;
+}
+
 /** Liste de valeurs d'énumération, écrite comme option Drizzle (`{ enum: [...] }`). */
 const enumOption = (values: readonly string[] = []): string =>
   `enum: [${values.map((value) => JSON.stringify(value)).join(", ")}] as const`;
@@ -517,6 +617,13 @@ export function buildEntityCodegen(
      * marcheraient dessus au premier boot.
      */
     table: string;
+    /**
+     * Index de TABLE, portant une ou plusieurs colonnes ({@link parseEntityIndexes}).
+     *
+     * Fusionnés avec ceux que les champs déclarent par `:index` — un même jeu de
+     * colonnes n'est émis qu'une fois, quelle que soit la voie empruntée.
+     */
+    indexes?: IEntityIndex[];
   },
 ): IEntityCodegen {
   const { dialect, id, timestamps, softDelete, table } = options;
@@ -578,19 +685,35 @@ export function buildEntityCodegen(
     rowProps.push("deletedAt: Date | null;");
   }
 
-  // Index déclarés par `:index`. Ils vivent dans le TROISIÈME argument de la
-  // table — une colonne ne peut pas se déclarer indexée toute seule chez Drizzle.
-  const indexed = fields.filter((field) => field.indexed);
+  // Index de table. Ils vivent dans le TROISIÈME argument — une colonne ne peut pas
+  // se déclarer indexée toute seule chez Drizzle. Deux sources se rejoignent ici :
+  // le modificateur `:index` d'un champ, et les index de TABLE (`--index`,
+  // `--unique`), seuls capables de porter plusieurs colonnes.
+  //
+  // La fusion se fait sur le NOM d'index, qui dérive des colonnes : déclarer
+  // `email:string:index` et `--index "email"` ne produit qu'un index, là où deux
+  // lignes identiques auraient fait échouer la création de la table au démarrage.
+  const declared: IEntityIndex[] = [
+    ...fields
+      .filter((field) => field.indexed)
+      .map((field) => ({ columns: [field.name], unique: false })),
+    ...(options.indexes ?? []),
+  ];
   let tableExtras = "";
-  if (indexed.length > 0) {
-    imports.add("index");
-    const lines = indexed
-      .map(
-        (field) =>
-          `    index("${table}_${field.name}_idx").on(t.${field.name}),`,
-      )
-      .join("\n");
-    tableExtras = `, (t) => [\n${lines}\n  ]`;
+  if (declared.length > 0) {
+    const seen = new Set<string>();
+    const lines: string[] = [];
+    for (const entry of declared) {
+      const suffix = entry.unique ? "key" : "idx";
+      const name = `${table}_${entry.columns.join("_")}_${suffix}`;
+      if (seen.has(name)) continue;
+      seen.add(name);
+      const fn = entry.unique ? "uniqueIndex" : "index";
+      imports.add(fn);
+      const cols = entry.columns.map((c) => `t.${c}`).join(", ");
+      lines.push(`    ${fn}("${name}").on(${cols}),`);
+    }
+    tableExtras = `, (t) => [\n${lines.join("\n")}\n  ]`;
   }
 
   const { fn, module } = TABLE_FN[dialect];

@@ -345,7 +345,15 @@ se connecte qu'à `onBoot`), controller (`extends ResourceController` — lectur
 204, 404, 422, `@Idempotent({required:false})` = mode souple), tests vitest (sqlite mémoire).
 Champs : `nom:type[?|!][:index]` · `ref:<Entité>` · **non-null par défaut** (types :
 `string text int float bool json date uuid`) — analyse + traduction Drizzle dans
-`scaffold/entityFields.ts` (module PUR, 3 dialectes). **`ref:` ⇒ colonne INDEXÉE d'office**
+`scaffold/entityFields.ts` (module PUR, 3 dialectes). **Index de TABLE** :
+`--index "colA,colB"` / `--unique "colA,colB"`, **répétables** (un par index) — les seuls à
+porter PLUSIEURS colonnes, donc les seuls qui expriment comment une table réelle est
+interrogée (mesuré : sur les 73 index du schéma Umami, **28 sont composites**). Question de
+spec de type `"list"` : chaque valeur reste entière, là où la normalisation en texte fondrait
+deux index de deux colonnes en un de quatre. Colonne inconnue, répétée, ou implicite absente
+(`createdAt` sans horodatages) → **refus AVANT écriture**, avec les colonnes disponibles ;
+même jeu de colonnes déclaré par `:index` ET `--index` → **un seul index émis** (sinon la
+création de la table échoue au démarrage). **`ref:` ⇒ colonne INDEXÉE d'office**
 (sauf `!`, qui pose déjà l'index) : c'est la colonne de jointure (`?include=` = `IN (…)`).
 L'index n'est PAS la FK — un `JOIN` n'exige aucune contrainte ; les **FOREIGN KEY ne sont pas
 émises** par le DDL dev (déclarées dans le `CREATE TABLE`, elles n'atteindraient jamais une base

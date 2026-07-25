@@ -6,6 +6,7 @@ import { Eta } from "eta";
 import { findProjectRoot } from "../projectRoot";
 import {
   parseEntityFields,
+  parseEntityIndexes,
   buildEntityCodegen,
   describeColumnTypes,
   ENTITY_DIALECTS,
@@ -36,8 +37,14 @@ import {
  * fichiers entiers n'auraient pas tenu deux axes croisés.
  */
 
-/** Réponses d'un scaffold, complétées et validées contre la spec. */
-export type TScaffoldAnswers = Record<string, string | boolean>;
+/**
+ * Réponses d'un scaffold, complétées et validées contre la spec.
+ *
+ * Le tableau de chaînes sert les questions de type `"list"` — plusieurs valeurs
+ * qui doivent rester DISTINCTES. Les fondre dans le type texte reviendrait à les
+ * concaténer, et deux index de deux colonnes deviendraient un index de quatre.
+ */
+export type TScaffoldAnswers = Record<string, string | boolean | string[]>;
 
 /** Capacités d'environnement évaluées par le front (cf `IScaffoldQuestion.askIf`). */
 export interface IScaffoldCaps {
@@ -257,6 +264,17 @@ export function resolveAnswers(
     }
     if (q.type === "boolean") {
       answers[q.key] = value === true || value === "true";
+      continue;
+    }
+    if (q.type === "list") {
+      // Chaque valeur reste ENTIÈRE. Les passer par `String()` comme les autres
+      // les souderait en une seule, et l'appelant récupérerait un index de quatre
+      // colonnes là où il en avait demandé deux de deux.
+      answers[q.key] = Array.isArray(value)
+        ? value.map(String).filter((v) => v.length > 0)
+        : typeof value === "string" && value.length > 0
+          ? [value]
+          : [];
       continue;
     }
     const str = String(value);
@@ -1868,12 +1886,34 @@ function runEntityScaffold(
   }
   const timestamps = answers.timestamps !== false;
   const softDelete = answers.softDelete === true;
+  // Index de TABLE : les seuls capables de porter plusieurs colonnes, donc les
+  // seuls qui expriment la façon dont une table réelle est interrogée. Analysés
+  // APRÈS les champs, dont ils empruntent les noms pour se valider.
+  const toList = (value: unknown): string[] =>
+    Array.isArray(value)
+      ? value.map(String)
+      : typeof value === "string" && value.length > 0
+        ? [value]
+        : [];
+  const indexes = [
+    ...parseEntityIndexes(toList(answers.index), fields, {
+      timestamps,
+      softDelete,
+    }),
+    ...parseEntityIndexes(
+      toList(answers.uniqueIndex),
+      fields,
+      { timestamps, softDelete },
+      true,
+    ),
+  ];
   const codegen = buildEntityCodegen(fields, {
     dialect,
     id,
     timestamps,
     softDelete,
     table,
+    indexes,
   });
 
   // Colonnes qu'un client a le droit de trier. Une allowlist, pas la liste des

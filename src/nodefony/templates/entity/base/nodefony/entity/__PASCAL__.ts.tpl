@@ -7,8 +7,12 @@ import { defineEntity } from "@nodefony/orm-core";
  *
  * C'est du Drizzle ordinaire : tous les types et options du moteur sont à ta
  * disposition, il n'y a aucune couche à contourner. Un besoin non couvert par le
- * générateur (colonne `numeric(12,4)`, index composite, contrainte de clé étrangère)
- * s'écrit directement ici.
+ * générateur (colonne `numeric(12,4)`, longueur de chaîne sur mesure, contrainte de
+ * clé étrangère) s'écrit directement ici.
+ *
+ * Les index de table, eux, sont couverts : `--index "colA,colB"` et
+ * `--unique "colA,colB"` à la création, répétables autant de fois que la table
+ * porte d'index.
  *
  * ⚠️ En développement, la table est créée au boot par un `CREATE TABLE IF NOT EXISTS`
  * dérivé de ce schéma. Deux conséquences à connaître :
