@@ -2183,9 +2183,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(dest, "nodefony", "entity", "Comment.ts"),
         "utf8",
       );
-      // Le commentaire de la relation est bien SUIVI d'un saut de ligne avant `});`.
-      assert.match(src, /\/\/ → Author\.id[^\n]*\n\}\);/u);
+      // Le commentaire de la relation est bien SUIVI d'un saut de ligne avant la
+      // fermeture de l'objet de colonnes — laquelle porte maintenant le 3ᵉ
+      // argument (l'index automatique de la colonne de jointure).
+      assert.match(src, /\/\/ → Author\.id[^\n]*\n\}/u);
       assert.notMatch(src, /\}\);.*\/\//u);
+      // L'index EST là, et il porte bien sur la colonne de relation.
+      assert.match(src, /index\("comments_author_idx"\)\.on\(t\.author\)/u);
+      assert.include(src, "import { index, sqliteTable");
       // Idem pour l'interface de ligne et le schéma Zod (mêmes interpolations).
       assert.match(src, /author: string;\n\}/u);
     });

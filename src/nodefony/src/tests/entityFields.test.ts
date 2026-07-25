@@ -48,6 +48,33 @@ describe("scaffold — analyse des champs", () => {
     assert.strictEqual(f.target, "User");
   });
 
+  it("une colonne de relation est INDEXÉE d'office (c'est par elle qu'on joint)", () => {
+    // `?include=` émet une requête `IN (…)` sur cette colonne, comme toute
+    // jointure écrite ensuite : sans index, chacune balaie la table — et ça ne
+    // se voit jamais sur les dix lignes du développement.
+    const [f] = parseEntityFields("author:ref:User");
+    assert.strictEqual(f.indexed, true);
+    // `!` (unique) pose DÉJÀ un index : en ajouter un second serait du poids
+    // mort à l'écriture, sans un seul lecteur de plus.
+    const [u] = parseEntityFields("owner:ref:User!");
+    assert.strictEqual(u.unique, true);
+    assert.strictEqual(u.indexed, false);
+  });
+
+  it("l'index de relation est bien ÉMIS dans la table générée", () => {
+    // Contre-épreuve au niveau du rendu : le drapeau ne sert à rien s'il ne
+    // ressort pas en `CREATE INDEX`.
+    const c = buildEntityCodegen(parseEntityFields("author:ref:User"), {
+      dialect: "sqlite",
+      id: "uuid7",
+      timestamps: false,
+      softDelete: false,
+      table: "posts",
+    });
+    assert.match(c.tableExtras, /author/u);
+    assert.notStrictEqual(c.tableExtras.trim(), "");
+  });
+
   it("refuse ce qui produirait du code faux (le mot « invalide » → EX_USAGE)", () => {
     const rejected = [
       "title:unknownType", // type inconnu

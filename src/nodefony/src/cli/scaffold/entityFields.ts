@@ -157,7 +157,22 @@ export function parseEntityFields(input: string): IEntityField[] {
           `champ invalide « ${raw} » — une relation n'a pas de valeur par défaut`,
         );
       }
-      fields.push({ name, type: "ref", target, nullable, unique, indexed });
+      // Une colonne de relation est INDEXÉE d'office. C'est par elle que passent
+      // le `?include=` (une requête `IN (…)` par relation) et toute jointure
+      // écrite ensuite : sans index, chacune balaie la table entière, et le
+      // ralentissement n'apparaît qu'une fois les données arrivées — jamais sur
+      // les dix lignes de développement. La contrainte d'intégrité (FOREIGN KEY)
+      // est un sujet DISTINCT, traité au DDL ; l'index, lui, sert à chaque
+      // requête et ne coûte qu'à l'écriture. `unique` s'en passe : il en pose
+      // déjà un (relation 1-1).
+      fields.push({
+        name,
+        type: "ref",
+        target,
+        nullable,
+        unique,
+        indexed: indexed || !unique,
+      });
       continue;
     }
 
