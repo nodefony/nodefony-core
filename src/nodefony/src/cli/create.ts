@@ -232,7 +232,7 @@ const USAGE =
   `               [--no-controller] [--no-service] [--no-tests] [--route </api/x>] [--module <nom>]\n` +
   `               [--connector <nom>] [--dialect <sqlite|postgres|mysql>]\n` +
   `               [--index "colA,colB"] [--unique "colA,colB"] — répétables, un par index\n` +
-  `               champs : nom:type[?|!][:index] — types : string text int float bool json date uuid ref:<Entité>\n` +
+  `               champs : nom:type[?|!][:index] — types : string(n) text int float bool json date uuid char(n) decimal(p,s) ref:<Entité>\n` +
   `               ex : nodefony create entity Post title:string! content:text views:int author:ref:User\n` +
   `               ex : nodefony create entity Event siteId:uuid path:string --index "siteId,createdAt"\n` +
   `  command    : [--phase <${COMMAND_PHASE_CHOICES.join("|")}>] [--description "…"] [--service] [--module <nom>]\n` +

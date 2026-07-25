@@ -549,3 +549,93 @@ describe("scaffold — index de table (plusieurs colonnes)", () => {
     );
   });
 });
+
+/*
+ *   Tailles de colonne — `string(200)`, `char(2)`, `decimal(12,2)`.
+ *
+ *   Mesuré sur le schéma Umami : onze longueurs de chaîne distinctes, huit
+ *   colonnes décimales, un code pays sur deux caractères fixes. Sans ces tailles,
+ *   tout partait en `varchar(255)` — de la place perdue à chaque ligne, et surtout
+ *   aucune borne là où le métier en pose une.
+ *
+ *   Les trois moteurs ne se valent pas ici, et les tests le disent plutôt que de
+ *   l'aplanir : SQLite n'a ni `varchar` ni `char`, MySQL n'a pas `numeric`.
+ */
+describe("scaffold — tailles de colonne", () => {
+  const fields = parseEntityFields(
+    "title:string(200) country:char(2) price:decimal(12,2)",
+  );
+  const base = {
+    id: "uuid7" as const,
+    timestamps: false,
+    softDelete: false,
+    table: "t",
+  };
+
+  it("postgres : varchar borné, char fixe, numeric à précision", () => {
+    const c = buildEntityCodegen(fields, { ...base, dialect: "postgres" });
+    assert.match(c.columns, /title: varchar\("title", \{ length: 200 \}\)/u);
+    assert.match(c.columns, /country: char\("country", \{ length: 2 \}\)/u);
+    assert.match(
+      c.columns,
+      /price: numeric\("price", \{ precision: 12, scale: 2 \}\)/u,
+    );
+  });
+
+  it("mysql : decimal, car le moteur n'expose pas numeric", () => {
+    const c = buildEntityCodegen(fields, { ...base, dialect: "mysql" });
+    assert.match(
+      c.columns,
+      /price: decimal\("price", \{ precision: 12, scale: 2 \}\)/u,
+    );
+    assert.doesNotMatch(c.drizzleImport, /\bnumeric\b/u);
+  });
+
+  it("sqlite : la longueur n'existe pas côté moteur — la borne vit dans Zod", () => {
+    const c = buildEntityCodegen(fields, { ...base, dialect: "sqlite" });
+    assert.match(c.columns, /title: text\("title"\)/u);
+    assert.match(c.columns, /country: text\("country"\)/u);
+    // La garantie ne disparaît pas pour autant : elle change de gardien.
+    assert.match(c.zodProps, /title: z\.string\(\)\.min\(1\)\.max\(200\)/u);
+    assert.match(c.zodProps, /country: z\.string\(\)\.length\(2\)/u);
+  });
+
+  it("un décimal transite en chaîne — un flottant perdrait la précision", () => {
+    const c = buildEntityCodegen(fields, { ...base, dialect: "postgres" });
+    assert.match(c.rowProps, /price: string;/u);
+    assert.match(c.zodProps, /price: z\.string\(\)\.regex\(/u);
+  });
+
+  it("char sans longueur → refus (char(1) ne serait presque jamais l'intention)", () => {
+    assert.throws(
+      () => parseEntityFields("country:char"),
+      (e: unknown) =>
+        e instanceof EntityFieldError && /longueur/u.test((e as Error).message),
+    );
+  });
+
+  it("decimal sans précision → refus (la garantie recherchée disparaîtrait)", () => {
+    assert.throws(
+      () => parseEntityFields("price:decimal"),
+      (e: unknown) =>
+        e instanceof EntityFieldError &&
+        /précision/u.test((e as Error).message),
+    );
+  });
+
+  it("échelle supérieure à la précision → refus", () => {
+    assert.throws(
+      () => parseEntityFields("price:decimal(2,5)"),
+      EntityFieldError,
+    );
+  });
+
+  it("sans taille déclarée, rien ne change pour l'existant", () => {
+    const c = buildEntityCodegen(parseEntityFields("title:string"), {
+      ...base,
+      dialect: "postgres",
+    });
+    assert.match(c.columns, /title: varchar\("title", \{ length: 255 \}\)/u);
+    assert.match(c.zodProps, /max\(255\)/u);
+  });
+});

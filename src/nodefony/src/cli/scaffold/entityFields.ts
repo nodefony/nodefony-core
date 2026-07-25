@@ -29,6 +29,8 @@ export const ENTITY_FIELD_TYPES = [
   "date",
   "uuid",
   "enum",
+  "char",
+  "decimal",
 ] as const;
 export type TEntityFieldType = (typeof ENTITY_FIELD_TYPES)[number];
 
@@ -42,6 +44,19 @@ export interface IEntityField {
   target?: string;
   /** Valeurs admises quand `type === "enum"` (`status:enum(draft,published)`). */
   values?: string[];
+  /**
+   * Longueur déclarée d'une chaîne (`title:string(200)`, `country:char(2)`).
+   *
+   * Absente pour `string`, la colonne retombe sur 255 — la valeur par défaut
+   * historique. Un schéma réel dimensionne ses colonnes (onze longueurs
+   * distinctes chez Umami) : la place perdue se paie en octets par ligne, et
+   * l'absence de borne laisse passer des valeurs qu'aucune règle ne veut.
+   */
+  length?: number;
+  /** Chiffres significatifs d'un décimal exact (`price:decimal(12,2)` → 12). */
+  precision?: number;
+  /** Chiffres après la virgule d'un décimal exact (`price:decimal(12,2)` → 2). */
+  scale?: number;
   /**
    * Valeur par défaut littérale, telle qu'écrite (`price:float=0` → `"0"`).
    *
@@ -207,6 +222,42 @@ export function parseEntityFields(input: string): IEntityField[] {
       continue;
     }
 
+    // Tailles de colonne : `string(200)`, `char(2)`, `decimal(12,2)`. Meme forme
+    // que l'énumération, parce que c'est la même idée — un type qui se précise.
+    const spec2 = parts[1] ?? "string";
+    let length: number | undefined;
+    let precision: number | undefined;
+    let scale: number | undefined;
+    const sized = /^(string|char)\((\d+)\)$/u.exec(spec2);
+    const decimalMatch = /^decimal\((\d+),\s*(\d+)\)$/u.exec(spec2);
+    if (sized) {
+      length = Number(sized[2]);
+      if (length < 1) {
+        throw new EntityFieldError(
+          `champ invalide « ${raw} » — longueur nulle (ex : title:string(200), country:char(2))`,
+        );
+      }
+      parts[1] = sized[1] as string;
+    } else if (decimalMatch) {
+      precision = Number(decimalMatch[1]);
+      scale = Number(decimalMatch[2]);
+      if (precision < 1 || scale > precision) {
+        throw new EntityFieldError(
+          `champ invalide « ${raw} » — décimal incohérent : l'échelle (${scale}) ne peut dépasser la précision (${precision}), ex : price:decimal(12,2)`,
+        );
+      }
+      parts[1] = "decimal";
+    } else if (spec2 === "char" || spec2 === "decimal") {
+      // Ces deux types NE SE DEVINENT PAS : un `char` sans longueur vaudrait
+      // `char(1)` chez la plupart des moteurs — presque jamais l'intention —, et
+      // un décimal sans précision perd la garantie même qu'on venait chercher.
+      throw new EntityFieldError(
+        spec2 === "char"
+          ? `champ invalide « ${raw} » — char doit déclarer sa longueur (ex : country:char(2))`
+          : `champ invalide « ${raw} » — décimal doit déclarer sa précision et son échelle (ex : price:decimal(12,2))`,
+      );
+    }
+
     const type = (parts[1] ?? "string") as TEntityFieldType;
     if (!(ENTITY_FIELD_TYPES as readonly string[]).includes(type)) {
       throw new EntityFieldError(
@@ -253,6 +304,8 @@ export function parseEntityFields(input: string): IEntityField[] {
       nullable,
       unique,
       indexed,
+      ...(length !== undefined ? { length } : {}),
+      ...(precision !== undefined ? { precision, scale } : {}),
       ...(defaultValue !== undefined ? { defaultValue } : {}),
     });
   }
@@ -364,20 +417,55 @@ export function parseEntityIndexes(
 const enumOption = (values: readonly string[] = []): string =>
   `enum: [${values.map((value) => JSON.stringify(value)).join(", ")}] as const`;
 
+/** Taille déclarée d'une colonne, telle que l'analyse l'a lue. */
+interface IColumnSize {
+  length?: number;
+  precision?: number;
+  scale?: number;
+}
+
+/** Longueur d'une chaîne, avec le repli historique quand rien n'est déclaré. */
+const len = (size?: IColumnSize): number => size?.length ?? 255;
+
+/**
+ * Option de précision d'un décimal, écrite comme Drizzle l'attend.
+ *
+ * Sans précision déclarée, on n'écrit RIEN plutôt qu'un défaut inventé : les
+ * moteurs n'ont pas la même idée d'un `numeric` nu, et choisir à leur place
+ * masquerait ce désaccord au lieu de le laisser paraître.
+ */
+const decimalOption = (size?: IColumnSize): string =>
+  size?.precision === undefined
+    ? ""
+    : `, { precision: ${size.precision}, scale: ${size.scale ?? 0} }`;
+
 /**
  * Constructeur de colonne Drizzle par (dialecte, type) — le cœur de la traduction.
  *
- * Le second argument ne sert qu'aux énumérations.
+ * Le second argument ne sert qu'aux énumérations, le troisième aux tailles
+ * (longueur d'une chaîne, précision d'un décimal).
+ *
+ * Les trois moteurs n'offrent pas le même vocabulaire, et la table le dit au lieu
+ * de le contourner : SQLite ignore `varchar` et `char` — toute chaîne y est un
+ * `text`, la longueur n'y est de toute façon pas appliquée —, et MySQL n'expose
+ * pas `numeric`, dont `decimal` est l'exact équivalent.
  */
 const COLUMN: Record<
   TEntityDialect,
   Record<
     TEntityFieldType | "ref",
-    (col: string, values?: readonly string[]) => string
+    (col: string, values?: readonly string[], size?: IColumnSize) => string
   >
 > = {
   sqlite: {
     string: (c) => `text("${c}")`,
+    // SQLite n'applique aucune contrainte de longueur : une chaîne bornée y est
+    // un `text` comme les autres. La borne reste tenue par le schéma Zod, donc
+    // sur tous les transports — c'est la seule à mordre ici.
+    char: (c) => `text("${c}")`,
+    // `numeric` en mode chaîne : la précision décimale ne survit pas à un
+    // flottant, et c'est précisément ce qu'on venait chercher.
+    decimal: (c) => `numeric("${c}")`,
     text: (c) => `text("${c}")`,
     int: (c) => `integer("${c}")`,
     float: (c) => `real("${c}")`,
@@ -390,7 +478,9 @@ const COLUMN: Record<
     enum: (c, v) => `text("${c}", { ${enumOption(v)} })`,
   },
   postgres: {
-    string: (c) => `varchar("${c}", { length: 255 })`,
+    string: (c, _v, s) => `varchar("${c}", { length: ${len(s)} })`,
+    char: (c, _v, s) => `char("${c}", { length: ${len(s)} })`,
+    decimal: (c, _v, s) => `numeric("${c}"${decimalOption(s)})`,
     text: (c) => `text("${c}")`,
     int: (c) => `integer("${c}")`,
     float: (c) => `doublePrecision("${c}")`,
@@ -407,7 +497,11 @@ const COLUMN: Record<
     enum: (c, v) => `varchar("${c}", { length: 255, ${enumOption(v)} })`,
   },
   mysql: {
-    string: (c) => `varchar("${c}", { length: 255 })`,
+    string: (c, _v, s) => `varchar("${c}", { length: ${len(s)} })`,
+    char: (c, _v, s) => `char("${c}", { length: ${len(s)} })`,
+    // MySQL n'expose pas `numeric` chez Drizzle : `decimal` en est l'équivalent
+    // exact côté moteur, le nom seul diffère.
+    decimal: (c, _v, s) => `decimal("${c}"${decimalOption(s)})`,
     text: (c) => `text("${c}")`,
     int: (c) => `int("${c}")`,
     float: (c) => `double("${c}")`,
@@ -449,7 +543,12 @@ export function describeColumnTypes(): Array<{
       ENTITY_DIALECTS.map((dialect) => [
         dialect,
         // Colonne d'exemple : le nom importe peu, la FORME est ce qu'on montre.
-        COLUMN[dialect][type]("exemple", ["a", "b"]),
+        // Les tailles sont fournies pour que `char` et `decimal` se montrent tels
+        // qu'on les écrit vraiment — un `char` sans longueur n'existe pas.
+        COLUMN[dialect][type]("exemple", ["a", "b"], {
+          ...(type === "char" ? { length: 2 } : {}),
+          ...(type === "decimal" ? { precision: 12, scale: 2 } : {}),
+        }),
       ]),
     ),
   }));
@@ -475,6 +574,11 @@ const TS_TYPE: Record<TEntityFieldType | "ref", string> = {
   uuid: "string",
   ref: "string",
   enum: "string",
+  char: "string",
+  // Un décimal exact transite en CHAÎNE, dans les trois moteurs : le convertir en
+  // nombre JavaScript lui ferait perdre en route la précision qu'on est venu
+  // chercher (0.1 + 0.2 ne fait pas 0.3 en virgule flottante).
+  decimal: "string",
 };
 
 /** Schéma Zod correspondant (validation à la frontière). */
@@ -489,6 +593,8 @@ const ZOD_TYPE: Record<TEntityFieldType | "ref", string> = {
   uuid: "z.string().uuid()",
   ref: "z.string()",
   enum: "z.string()",
+  char: "z.string()",
+  decimal: "z.string()",
 };
 
 /**
@@ -513,10 +619,39 @@ function tsTypeOf(field: IEntityField): string {
   return TS_TYPE[field.type];
 }
 
-/** Schéma Zod d'un champ — `z.enum` pour une énumération. */
+/**
+ * Schéma Zod d'un champ — `z.enum` pour une énumération, borné pour une taille.
+ *
+ * C'est ici que les tailles deviennent une garantie RÉELLE. La colonne, elle, ne
+ * protège pas partout : SQLite n'applique aucune longueur, et une valeur trop
+ * longue y entrerait sans un mot pour ressortir tronquée le jour d'une migration
+ * vers PostgreSQL. Le schéma, lui, s'applique sur tous les transports — REST,
+ * socket, ligne de commande — et dans les trois moteurs.
+ */
 function zodTypeOf(field: IEntityField): string {
   if (field.type === "enum" && field.values) {
     return `z.enum([${field.values.map((value) => JSON.stringify(value)).join(", ")}])`;
+  }
+  if (field.type === "string") {
+    return `z.string().min(1).max(${field.length ?? 255})`;
+  }
+  if (field.type === "char") {
+    // Longueur EXACTE : un `char(2)` qui recevrait une seule lettre serait
+    // complété par des espaces côté moteur, et la comparaison suivante
+    // échouerait sans raison visible.
+    return field.length === undefined
+      ? "z.string()"
+      : `z.string().length(${field.length})`;
+  }
+  if (field.type === "decimal") {
+    // Le message porte la précision : c'est la seule trace qu'en verra l'appelant
+    // d'une API. Pas de commentaire en fin de ligne ici — il avalerait la virgule
+    // suivante du schéma rendu.
+    const hint =
+      field.precision === undefined
+        ? "d\u00e9cimal attendu"
+        : `d\u00e9cimal attendu (${field.precision} chiffres dont ${field.scale ?? 0} apr\u00e8s la virgule)`;
+    return `z.string().regex(/^-?\\d+(\\.\\d+)?$/, ${JSON.stringify(hint)})`;
   }
   return ZOD_TYPE[field.type];
 }
@@ -639,7 +774,11 @@ export function buildEntityCodegen(
 
   for (const field of fields) {
     imports.add(columnImport(dialect, field.type));
-    let col = COLUMN[dialect][field.type](field.name, field.values);
+    let col = COLUMN[dialect][field.type](field.name, field.values, {
+      length: field.length,
+      precision: field.precision,
+      scale: field.scale,
+    });
     if (!field.nullable) col += ".notNull()";
     if (field.unique) col += ".unique()";
     if (field.defaultValue !== undefined) {
