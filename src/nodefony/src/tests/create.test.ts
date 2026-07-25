@@ -709,6 +709,23 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Preset complete → les docs des briques embarquées sont pointées.
       assert.include(agents, "@nodefony/security/docs");
       assert.include(agents, "@nodefony/realtime/docs");
+      // Cycle de vie du serveur : démarrer ne suffit pas, il faut ARRÊTER. Un
+      // serveur laissé derrière garde les ports, et le run suivant échoue sur
+      // une erreur qui ne parle jamais de lui.
+      for (const needle of [
+        "npm run dev",
+        "nodefony status",
+        "nodefony stop",
+        "--detach --wait",
+      ]) {
+        assert.include(agents, needle, `AGENTS.md sans « ${needle} »`);
+      }
+      // Interroger l'app plutôt que déduire de ses sources : une route dépend de
+      // décorateurs, d'un manifeste et d'un ordre de chargement.
+      assert.include(agents, "nodefony inspect routes --json");
+      assert.include(agents, "nodefony inspect config --json");
+      // Où sont les CLÉS de config d'un module — le pointage qui manquait.
+      assert.include(agents, "dist/nodefony/config/config.js");
       // Les 2 savoirs fondamentaux que tout agent doit avoir AVANT d'écrire :
       // le cœur est ISOMORPHE (jamais un client WS/type dupliqué à la main),
       // le container DI est PROTOTYPAL (scopes par héritage, zéro copie).
