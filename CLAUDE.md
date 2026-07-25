@@ -106,7 +106,15 @@ Avant de commencer une nouvelle phase / tâche :
 
 Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_session_hygiene` + consolidation retex 2026-05-21) :
 
-1. **1 feature = 1 session courte.** Proposer activement `/clear` entre features non liées et `/compact` quand ça s'allonge (ne pas attendre le quota). Tenir « une session = un module ».
+1. **1 feature = 1 session courte — c'est LE poste de dépense, mesuré.** Sur l'ensemble des
+   transcripts du projet : **~72 % du coût est de la RELECTURE de contexte, ~10 % la production**.
+   Ce que l'agent écrit ne coûte presque rien ; ce qui coûte, c'est que chaque tour relit tout
+   l'historique — donc le coût d'une session croît **quadratiquement** avec sa durée (2× plus
+   longue ≈ 4× plus chère). `/clear` entre deux features non liées et `/compact` quand ça
+   s'allonge ne sont donc PAS de l'hygiène de confort : ce sont les seuls leviers qui agissent sur
+   les trois quarts de la dépense. Les proposer activement, sans attendre le quota. Tenir « une
+   session = un module ». Corollaire : réduire les fichiers d'instructions est un **faux** levier
+   (le contexte FIXE pèse quelques pourcents du contexte relu) — c'est la LONGUEUR qu'il faut couper.
 2. **Mini-cahier des charges en amont** d'un gros écran/feature : lister (ou valider en 1 question) ce qui doit apparaître/se comporter AVANT de coder → 1 passe au lieu de N petits Edits. **S'applique AUSSI aux GROS artefacts non-écran** (> ~150 lignes, widget visuel, skill/doc/CLAUDE.md/README) : lister sections/panneaux/contrôles puis **figer la structure** AVANT d'écrire (éviter renumérotations `cf §N`). Vécu : `DebugBar.ts` 27→50 edits, `SKILL.md` 49 edits — improviser la structure coûte en allers-retours.
 3. **Avant de dire « fait » :** après une modif **frontend** → annoncer la vérif (curl transform Vite) + demander un **hard-reload** (cache React) ; **lancer la suite de tests impactée** + **suspecter son propre diff** avant de qualifier un échec de « pré-existant ».
 4. **Batcher les edits backend avant UN SEUL `rebuild + restart`** (coût #1 mesuré sur 8/8 retex : 10→23 restarts/session, souvent fusionnables). Regrouper TOUTES les modifs serveur d'une feature (controllers, services, config), PUIS un seul cycle `stop.sh → build → start.sh`. Ne PAS faire stop/build/start après chaque petit Edit. Les modifs **frontend** passent en **HMR Vite** → 0 restart. Réserver les restarts intermédiaires aux vrais points de mesure (diagnostic).
@@ -156,11 +164,17 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
    pour rien.** Un sous-agent lancé sans réfléchir à son modèle est la dépense la plus facile à
    faire et la plus difficile à voir : elle n'apparaît nulle part dans la conversation.
 
-   | Nature de la tâche                                                             | Modèle   |
-   | ------------------------------------------------------------------------------ | -------- |
-   | Mécanique : énumérer, extraire, compter, vérifier un fait, appliquer un patron | `haiku`  |
-   | Recherche de code, plomberie guidée, exécution d'une recette connue            | `sonnet` |
-   | Tri éditorial, audit qui exige du jugement, synthèse d'un corpus, rédaction    | `fable`  |
+   | Nature de la tâche                                                             | Modèle   | Coût relatif / réponse |
+   | ------------------------------------------------------------------------------ | -------- | ---------------------- |
+   | Mécanique : énumérer, extraire, compter, vérifier un fait, appliquer un patron | `haiku`  | **1**                  |
+   | Recherche de code, plomberie guidée, exécution d'une recette connue            | `sonnet` | ~5                     |
+   | Tri éditorial, audit qui exige du jugement, synthèse d'un corpus, rédaction    | `fable`  | ~40                    |
+
+   Les ratios sont **mesurés sur les transcripts du projet** (l'agent principal en Opus se situe
+   autour de 20). L'ordre de grandeur est l'information utile : un inventaire rendu par `fable`
+   coûte ~40× le même inventaire rendu par `haiku`, pour un résultat identique — et à l'inverse,
+   une synthèse de corpus confiée à `haiku` revient plausible et FAUSSE, donc payée deux fois.
+   Un lot de sous-agents `fable` peut représenter à lui seul le tiers de la dépense d'une période.
 
    Les deux erreurs ne coûtent pas pareil. **Trop faible** : la synthèse revient plausible et
    FAUSSE, on la croit, et on paye deux fois — le run raté, puis le travail refait. **Trop
@@ -184,7 +198,8 @@ Pour économiser le quota de tokens (session de 5h) :
 2. **Style "Caveman"** : Pas de politesses, pas de phrases d'introduction ("Voici le code...", "J'ai analysé..."). Va directement au code ou à l'erreur.
 3. **Context Stripping** : À chaque début de session, n'analyse QUE le module cible (ex: `@nodefony/http`). Ignore le reste.
 4. **Log Cleaning** : Avant de me donner un retour de test, résume-le. Supprime les warnings inutiles, ne garde que l'erreur bloquante.
-5. **Auto-Compact** : Si la conversation devient longue, suggère-moi d'utiliser `/compact` immédiatement.
+5. **Auto-Compact** : porté par la règle d'hygiène §1 (« 1 feature = 1 session courte »), qui donne
+   la mesure et le pourquoi — ne pas dupliquer la consigne ici.
 6. **No Prose** : Interdiction de récapituler ce qui a été fait en fin de message, sauf si demandé explicitement.
 
 ---
