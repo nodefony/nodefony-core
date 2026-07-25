@@ -433,6 +433,12 @@ const TASKS = [
         // fichier apparaissait parce que l'`AGENTS.md`, lui, le mentionne. Une
         // sonde qui cherche un nom de fichier mesure une mention ; seule une
         // chaîne du contenu prouve que le fichier a transité.
+        // OBSERVATION, pas jugement : depuis que l'`AGENTS.md` porte lui-même la
+        // limite des adaptateurs, deux voies équivalentes mènent à la réponse.
+        // Exiger CELLE-CI recalerait un agent qui a lu l'index et répondu juste
+        // — on mesurerait la conformité à un chemin, pas la découvrabilité. Ce
+        // qui juge est la sonde suivante : a-t-il RAPPORTÉ la limite ?
+        observe: true,
         kind: "transcript",
         name: "a ouvert le catalogue des modules (contenu vu, pas seulement cité)",
         pattern: /Ne le prends pas si|Prends-le quand/u,
@@ -702,6 +708,43 @@ function runTask(app, runDir, task) {
     `tâche ${task.id}`,
     "--allow-empty",
   );
+  runGates(app, runDir, task);
+}
+
+/**
+ * Exécute les sondes `gate` d'une tâche IMMÉDIATEMENT après elle, et fige le
+ * résultat sur disque.
+ *
+ * Une gate lance une commande dans l'arbre de travail : la jouer plus tard,
+ * c'est mesurer l'état laissé par les tâches SUIVANTES. Vécu : la tâche 9
+ * recommente une variable d'environnement pour faire booter sa propre
+ * inspection, et c'est la tâche 6 — jouée bien avant — qui rougit. Se détacher
+ * sur le commit de la tâche ne suffit pas : l'agent avait écrit dans un fichier
+ * GITIGNORÉ (`.env.local`), qu'aucun `checkout` ne restaure. Le seul instant où
+ * l'état est fidèle, suivi ou non, est la seconde qui suit la tâche.
+ */
+function runGates(app, runDir, task) {
+  const gates = task.probes.filter((p) => p.kind === "gate");
+  if (!gates.length) return;
+  const results = gates.map((p) => {
+    const r = spawnSync(p.cmd[0], p.cmd.slice(1), {
+      cwd: app,
+      encoding: "utf8",
+      timeout: 300_000,
+      env: APP_ENV,
+    });
+    const pass = r.status === 0;
+    console.log(`  ${pass ? "✅" : "❌"} [gate] ${p.name} (exit ${r.status})`);
+    return {
+      name: p.name,
+      pass,
+      evidence: pass ? "exit 0" : `exit ${r.status}`,
+    };
+  });
+  writeFileSync(
+    path.join(runDir, `task-${task.id}.gates.json`),
+    JSON.stringify(results, null, 2),
+  );
 }
 
 /** Juge UNE tâche sur pièces : transcript + diff du commit de la tâche. */
@@ -770,10 +813,25 @@ function judgeTask(app, runDir, task) {
     hash,
     "--",
     "*.ts",
+    // Les TESTS sont exclus : une valeur littérale y est une FIXTURE, pas une
+    // configuration en dur. Vécu — un agent qui avait tout fait juste (valeur
+    // dans le `.env`, config qui lit l'environnement, `nodefony env --json`
+    // vert) était recalé parce que son test d'accompagnement citait l'URL
+    // qu'il venait de poser. La sonde visait la config ; elle mordait sur la
+    // preuve.
+    ":(exclude)tests/**",
+    ":(exclude)**/*.test.ts",
+    ":(exclude)**/*.spec.ts",
   )
     .split("\n")
     .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
     .join("\n");
+  // Les gates ont été jouées à la fin de la tâche (`runGates`) : on relit leur
+  // verdict figé, on ne les rejoue pas ici — l'arbre de travail a changé depuis.
+  const gatesPath = path.join(runDir, `task-${task.id}.gates.json`);
+  const frozenGates = existsSync(gatesPath)
+    ? JSON.parse(readFileSync(gatesPath, "utf8"))
+    : null;
   const probes = task.probes.map((p) => {
     let pass = false;
     let evidence = "";
@@ -797,30 +855,58 @@ function judgeTask(app, runDir, task) {
       pass = p.invert ? !hit : hit;
       evidence = `${files.length} fichier(s) touchés`;
     } else if (p.kind === "gate") {
-      const r = spawnSync(p.cmd[0], p.cmd.slice(1), {
-        cwd: app,
-        encoding: "utf8",
-        timeout: 300_000,
-        env: APP_ENV,
-      });
-      pass = r.status === 0;
-      evidence = pass ? "exit 0" : `exit ${r.status}`;
+      const frozen = frozenGates?.find((g) => g.name === p.name);
+      if (frozen) {
+        pass = frozen.pass;
+        evidence = `${frozen.evidence} (mesuré à la fin de la tâche)`;
+      } else {
+        // Run antérieur à la mesure figée : on rejoue, en DISANT que le verdict
+        // porte sur l'état courant de l'app et non sur celui de la tâche.
+        const r = spawnSync(p.cmd[0], p.cmd.slice(1), {
+          cwd: app,
+          encoding: "utf8",
+          timeout: 300_000,
+          env: APP_ENV,
+        });
+        pass = r.status === 0;
+        evidence = `exit ${r.status} ⚠️ rejoué sur l'état COURANT de l'app (gate non figée à l'époque) — non opposable`;
+      }
     }
-    console.log(`  ${pass ? "✅" : "❌"} ${p.name} (${evidence})`);
-    return { name: p.name, kind: p.kind, pass, evidence };
+    console.log(
+      `  ${pass ? "✅" : p.observe ? "👁 " : "❌"} ${p.name} (${evidence})${p.observe ? " — observation" : ""}`,
+    );
+    return { name: p.name, kind: p.kind, pass, evidence, observe: !!p.observe };
   });
-  const guessed = probes.filter((p) => !p.pass).length;
+  // ─── Ce qui JUGE et ce qui OBSERVE ────────────────────────────────────────
+  // Une sonde exige un ACTE quand aucune autre voie ne donne l'information de
+  // façon fiable — lancer le générateur (le code écrit à la main diverge du
+  // gabarit), interroger l'environnement (la précédence est un mécanisme, pas
+  // un contenu qu'on lirait dans un fichier). Elle se contente d'OBSERVER
+  // quand plusieurs voies équivalentes existent : exiger l'ouverture du
+  // catalogue alors que l'AGENTS.md porte déjà la réponse mesurerait la
+  // conformité à un chemin, pas la capacité. L'observation reste affichée et
+  // consignée — elle dit COMMENT l'agent s'y est pris, sans faire échouer.
+  const guessed = probes.filter((p) => !p.pass && !p.observe).length;
+  const observed = probes.filter((p) => !p.pass && p.observe).length;
   const verdict = guessed === 0 ? "PASS" : "FAIL";
   console.log(
-    `  → ${verdict} — ${guessed} sonde(s) rouge(s) sur ${probes.length}`,
+    `  → ${verdict} — ${guessed} sonde(s) rouge(s) sur ${probes.filter((p) => !p.observe).length}` +
+      (observed ? ` (+ ${observed} observation non tenue)` : ""),
   );
-  return { id: task.id, name: task.name, verdict, guessed, probes };
+  return { id: task.id, name: task.name, verdict, guessed, observed, probes };
 }
 
 function main() {
   const args = process.argv.slice(2);
+  // `--task 4` ou `--task 4,6,7` — rejouer PLUSIEURS tâches ciblées dans UN
+  // décor : monter une app témoin coûte une installation complète, la payer
+  // trois fois pour trois tâches n'apporte rien (chaque tâche a son commit et
+  // ses gates figées, elles ne se contaminent plus).
   const only = args.includes("--task")
-    ? Number(args[args.indexOf("--task") + 1])
+    ? args[args.indexOf("--task") + 1]
+        .split(",")
+        .map((n) => Number(n.trim()))
+        .filter((n) => Number.isFinite(n))
     : null;
   const analyzeOnly = args.includes("--analyze-only")
     ? path.resolve(args[args.indexOf("--analyze-only") + 1])
@@ -834,7 +920,7 @@ function main() {
       new Date().toISOString().replaceAll(":", "-").slice(0, 19),
     );
   const app = path.join(runDir, "app");
-  const tasks = TASKS.filter((t) => only === null || t.id === only);
+  const tasks = TASKS.filter((t) => only === null || only.includes(t.id));
 
   if (!analyzeOnly) {
     if (!existsSync(path.join(REPO, "src", "nodefony", "dist"))) {
