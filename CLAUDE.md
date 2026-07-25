@@ -113,11 +113,8 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
 5. **DÉLÉGUER à un sous-agent tout ce qui exige de LIRE BEAUCOUP pour rendre PEU** — inventaire,
    tri, audit, recherche multi-modules, revue d'un corpus. Le gain n'est pas la parallélisation :
    c'est que les 300 fichiers lus n'entrent JAMAIS dans le contexte principal, seule la conclusion
-   revient. Trois règles qui font la différence entre un sous-agent utile et un sous-agent coûteux :
-   - **Le modèle se choisit sur la NATURE de la tâche, pas sur son importance.** Mécanique /
-     énumération / extraction → `haiku`. Plomberie, recherche de code, exécution guidée → `sonnet`.
-     Tri éditorial, audit qui exige du jugement, texte à fort levier → `fable`. Un modèle trop
-     faible rend une synthèse plausible et fausse ; trop fort sur du mécanique, on paye pour rien.
+   revient (le choix du MODÈLE, lui, fait l'objet du point suivant — c'est le poste de dépense).
+   Deux règles qui font la différence entre un sous-agent utile et un sous-agent coûteux :
    - **Le sous-agent PROPOSE, l'agent principal APPLIQUE.** Il ignore les décisions prises dans la
      session ; le laisser éditer produit des patchs qui contredisent le fil en cours. Lui demander
      « fichier → section → texte exact → preuve », et trancher soi-même.
@@ -127,7 +124,27 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
      affirmation d'inventaire se recontrôle d'un `ls`/`grep` avant d'entrer dans une synthèse.
      Ne PAS déléguer : ce qui tient en deux `rg`, et ce qui demande d'éditer du code au milieu d'une
      session (le coût d'explication dépasse le gain).
-6. **Décision design/archi = décider + expliquer le POURQUOI**, pas d'`AskUserQuestion`. Le user (expert, auteur du framework) préfère que je tranche et justifie le choix technique (préférence vue 2× : QCM design rejetés). Réserver `AskUserQuestion` aux cas où la réponse change réellement l'action : install lourd/irréversible, ambiguïté de specs, choix produit non-déductible du code. Jamais pour un arbitrage technique que je peux trancher.
+6. **🔴 LE MODÈLE D'UN SOUS-AGENT SE CHOISIT SUR LA NATURE DE LA TÂCHE — c'est LÀ que les tokens
+   fuient pour rien.** Un sous-agent lancé sans réfléchir à son modèle est la dépense la plus
+   facile à faire et la plus difficile à voir : elle n'apparaît nulle part dans la conversation.
+
+   | Nature de la tâche                                                             | Modèle   |
+   | ------------------------------------------------------------------------------ | -------- |
+   | Mécanique : énumérer, extraire, compter, vérifier un fait, appliquer un patron | `haiku`  |
+   | Recherche de code, plomberie guidée, exécution d'une recette connue            | `sonnet` |
+   | Tri éditorial, audit qui exige du jugement, synthèse d'un corpus, rédaction    | `fable`  |
+
+   Les deux erreurs ne coûtent pas pareil. **Trop faible** : la synthèse revient plausible et
+   FAUSSE, on la croit, et on paye deux fois — le run raté, puis le travail refait. **Trop
+   fort** : on paye plusieurs fois le prix pour lister des fichiers, sans que le résultat change
+   d'une ligne. Ordre de grandeur mesuré ici : un audit de corpus (≈ 300 fichiers, jugement
+   requis) coûte ~200 k tokens de sortie en `fable` — parfaitement justifié pour ce travail,
+   pure fuite pour un inventaire que `haiku` rendrait à l'identique.
+
+   Et aucun modèle ne rattrape un **périmètre flou** : trois lignes de chemins précis dans le
+   prompt évitent un run entier à côté de la plaque. Le modèle ne compense jamais la consigne.
+
+7. **Décision design/archi = décider + expliquer le POURQUOI**, pas d'`AskUserQuestion`. Le user (expert, auteur du framework) préfère que je tranche et justifie le choix technique (préférence vue 2× : QCM design rejetés). Réserver `AskUserQuestion` aux cas où la réponse change réellement l'action : install lourd/irréversible, ambiguïté de specs, choix produit non-déductible du code. Jamais pour un arbitrage technique que je peux trancher.
 
 ---
 
