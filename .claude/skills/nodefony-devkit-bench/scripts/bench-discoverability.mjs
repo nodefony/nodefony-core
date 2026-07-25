@@ -427,11 +427,15 @@ const TASKS = [
       "la limite est connue et assumée par le framework, ne la devine pas. N'installe rien.",
     probes: [
       {
-        // Le catalogue est publié AVEC le cœur et pointé par l'AGENTS.md. Rien
-        // ne prouvait qu'un agent l'ouvre plutôt que de deviner un nom de paquet.
+        // ⚠️ La sonde vise une chaîne du CONTENU du catalogue, jamais son NOM.
+        // Vécu, et c'est le piège de toute sonde de transcript : `/catalogue\.md/`
+        // passait au vert alors que l'agent ne l'avait JAMAIS ouvert — le nom du
+        // fichier apparaissait parce que l'`AGENTS.md`, lui, le mentionne. Une
+        // sonde qui cherche un nom de fichier mesure une mention ; seule une
+        // chaîne du contenu prouve que le fichier a transité.
         kind: "transcript",
-        name: "a ouvert le catalogue des modules",
-        pattern: /catalogue\.md/u,
+        name: "a ouvert le catalogue des modules (contenu vu, pas seulement cité)",
+        pattern: /Ne le prends pas si|Prends-le quand/u,
       },
       {
         kind: "code",
@@ -446,9 +450,20 @@ const TASKS = [
         // (l'adaptateur n'implémente pas tout le contrat, et c'est un choix) ne
         // s'invente pas : elle n'existe que dans le catalogue et la doc du module.
         kind: "code",
-        name: "a rapporté la limite ASSUMÉE (couverture adaptée, pas parité)",
-        pattern:
-          /couverture|capacit[ée]s?|adapt[ée]e?\s+(à|a)\s+la\s+nature|parit[ée]/iu,
+        // Le premier run recalibré a mis la DOC en cause, pas l'agent : il avait
+        // bien ouvert le catalogue, mais n'en avait rapporté que des limites de
+        // MongoDB (devinables). La cellule disait « couverture adaptée à la
+        // nature du moteur » — vrai, allusif, et inexploitable. Elle nomme
+        // désormais les stores manquants ; la sonde vise donc un FAIT vérifiable
+        // (`nodefony.stores` du paquet), pas une tournure.
+        // La sonde vise les noms des stores MANQUANTS, et EUX SEULS. Première
+        // version : `\bstores?\b` — faux POSITIF immédiat, l'agent employait
+        // « stores noSQL » sans rien avoir rapporté. Un faux positif est pire
+        // qu'un faux négatif : il déclare fermé un trou ouvert. `audit` est
+        // exclu aussi, le mot figure dans l'énoncé lui-même. Restent deux termes
+        // qu'on n'écrit pas sans avoir lu la liste.
+        name: "a rapporté la limite ASSUMÉE (les stores que l'adaptateur ne couvre pas)",
+        pattern: /idempot|totp/iu,
         where: "content",
       },
       {

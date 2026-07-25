@@ -89,17 +89,24 @@ des comptes **sans** fermer de routes.
 
 Un contrat commun, plusieurs implémentations : écris contre le contrat, choisis le moteur ensuite.
 
-| Paquet               | Prends-le quand…                                                                            | Ne le prends pas si…                                                                                                    |
-| -------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `@nodefony/orm-core` | jamais directement — c'est le contrat, tiré par l'adaptateur que tu choisis                 | —                                                                                                                       |
-| `@nodefony/drizzle`  | **le défaut** : SQL (PostgreSQL, MySQL/MariaDB, SQLite), `nodefony create entity` cible lui | tes données sont des documents sans schéma stable                                                                       |
-| `@nodefony/mongoose` | MongoDB, données orientées document                                                         | tu attends la couverture complète du contrat : elle est **adaptée à la nature du moteur**, pas identique à celle de SQL |
-| `@nodefony/redis`    | cache, sessions partagées entre pods, backplane du temps réel en cluster                    | un seul processus : les sessions en mémoire et le backplane local suffisent                                             |
+| Paquet               | Prends-le quand…                                                                            | Ne le prends pas si…                                                                                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@nodefony/orm-core` | jamais directement — c'est le contrat, tiré par l'adaptateur que tu choisis                 | —                                                                                                                                                                                              |
+| `@nodefony/drizzle`  | **le défaut** : SQL (PostgreSQL, MySQL/MariaDB, SQLite), `nodefony create entity` cible lui | tes données sont des documents sans schéma stable                                                                                                                                              |
+| `@nodefony/mongoose` | MongoDB, données orientées document                                                         | tu as besoin d'un des **stores qu'il ne fournit pas** : il en couvre 5 (session, user, tokens, passkeys, webhooks) là où `drizzle` en couvre 8 — `totp`, `audit` et `idempotency` lui manquent |
+| `@nodefony/redis`    | cache, sessions partagées entre pods, backplane du temps réel en cluster                    | un seul processus : les sessions en mémoire et le backplane local suffisent                                                                                                                    |
 
 **L'arbitrage qui revient le plus souvent** : `drizzle` ou `mongoose` ? Le générateur d'entités
 (`nodefony create entity`) produit du Drizzle natif du dialecte ; partir sur Mongoose, c'est écrire
 ses modèles à la main. Prends `mongoose` parce que tes données SONT des documents, pas pour éviter
 de choisir un dialecte SQL.
+
+**La couverture d'un adaptateur est ADAPTÉE, pas identique.** Chaque adaptateur déclare les
+_stores_ qu'il sait tenir (`nodefony.stores` de son `package.json`) : `drizzle` les huit,
+`mongoose` cinq, `redis` quatre. Ce n'est pas un retard de développement mais un choix — stocker
+un journal d'audit ou un verrou d'idempotence dans un moteur documentaire n'a pas de sens partout.
+Conséquence pratique : un adaptateur ne remplace pas l'autre, ils se **complètent**, et
+`nodefony inspect stores` dit où chaque donnée atterrit RÉELLEMENT dans ton application.
 
 **Et `redis` ?** Il ne sert à rien tant que l'application tourne dans un seul processus. Il devient
 nécessaire à l'instant où il y en a deux : sans lui, deux pods ont deux annuaires de sessions et

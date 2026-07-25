@@ -30,6 +30,16 @@ diffs, zéro écriture). Un refus n'écrit jamais rien (transaction).
 
 ## Vérités du framework (anti-préjugés — ce que tu crois savoir est faux ici)
 
+- **Un adaptateur de données ne remplace pas l'autre : ils se COMPLÈTENT.** Chacun
+  déclare les _stores_ qu'il sait tenir (`nodefony.stores` de son `package.json`) —
+  `drizzle` les huit (session, user, tokens, passkeys, totp, audit, webhooks,
+  idempotency), `mongoose` cinq (ni `totp`, ni `audit`, ni `idempotency`), `redis`
+  quatre. Ce n'est pas un retard de développement mais un CHOIX : un journal
+  d'audit n'a rien à faire dans un moteur documentaire. Ne promets donc jamais une
+  parité qui n'existe pas, et vérifie où atterrit chaque donnée :
+  `nodefony inspect stores`. Le détail par brique :
+  `node_modules/nodefony/docs/catalogue.md`.
+
 - **Le cœur `nodefony` est ISOMORPHE** : le même paquet se charge côté Node
   ET navigateur. La porte client EXPLICITE est le subpath `nodefony/client`
   (`RealtimeClient`, notices, rôles — résolu à l'identique par Vite, Node et
