@@ -194,6 +194,21 @@ Le détail de chaque scaffold (options, gabarits, presets) vit dans les skills d
 `CREATE TABLE IF NOT EXISTS`), et **aucune migration n'est produite** : modifier une entité déjà créée
 n'altère pas la table.
 
+Trois comportements de `create entity` qui surprennent si on ne les connaît pas :
+
+- **Une colonne de relation (`ref:`) naît indexée.** C'est par elle que passent le chargement
+  d'association (`?include=`) et les jointures que vous écrirez ensuite. En revanche la **clé
+  étrangère n'est pas créée** : une jointure n'en a jamais eu besoin (elle compare deux colonnes),
+  et une contrainte se déclare dans le `CREATE TABLE`, donc n'atteindrait jamais une base déjà
+  créée. L'intégrité référentielle relève des migrations.
+- **Les noms d'entités du framework sont refusés** (`User`, `session`, `access_token`,
+  `audit_event`…). Le registre est plat : une entité homonyme prendrait la place de celle d'un
+  module, et l'application ne démarrerait plus — avec un message parlant d'une colonne inconnue,
+  jamais du doublon. Le refus arrive avant la moindre écriture et propose les voies possibles.
+- **`drizzle-orm` est ajouté au `package.json`** s'il manque : le code produit l'importe
+  directement, ce n'est donc pas une dépendance du seul module ORM. Un `npm install` est requis
+  après coup, et la commande le dit.
+
 ## 🧩 Ajouter sa propre commande
 
 Le squelette est en [Démarrage rapide](#-démarrage-rapide) ; voici les leviers.

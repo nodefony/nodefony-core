@@ -33,6 +33,12 @@ const SESSION_TABLE_SPEC = {
     createdAt: { kind: "epochMs", notNull: true },
     updatedAt: { kind: "epochMs", notNull: true },
   },
+  // `user` est la SEULE colonne sur laquelle on filtre (`listSessions` /
+  // `countSessions` du data plane, et la révocation des sessions d'un compte).
+  // Son TSDoc promettait déjà un « WHERE indexable côté SQL » — que le schéma ne
+  // tenait pas : chaque appel balayait la table entière des sessions, c'est-à-dire
+  // la table la plus volumineuse d'une application vivante.
+  indexes: [{ name: "session_user_idx", on: ["user"] }],
 } satisfies IFrameworkTableSpec;
 
 /**

@@ -2,6 +2,10 @@ import { DrizzleOrm } from "../../index";
 import { entityRegistry, ormRegistry, defineEntity } from "@nodefony/orm-core";
 import { sqliteTable, text, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
+import {
+  registerSessionEntity,
+  SESSION_ENTITY_NAME,
+} from "../../nodefony/entity/sessionEntity";
 
 /**
  * Les index déclarés arrivent-ils VRAIMENT en base ?
@@ -108,6 +112,37 @@ describe("DDL de développement — les index déclarés sont émis", () => {
       throw new Error(
         "le doublon a été accepté : l'index unique ne contraint rien",
       );
+    }
+  });
+
+  it("la colonne `user` des sessions est indexée EN BASE", async () => {
+    // Le data plane filtre les sessions par utilisateur (`listSessions`,
+    // `countSessions`) et la révocation en dépend. Le TSDoc du storage promettait
+    // un « WHERE indexable côté SQL » que le schéma ne tenait pas : sans cet
+    // index, chaque appel balaie la table la plus volumineuse d'une application
+    // vivante. On lit le catalogue, pas la spec — c'est la base qui arbitre.
+    const sessionOrm = new DrizzleOrm(`${ORM}-session`, {
+      filename: ":memory:",
+    });
+    registerSessionEntity(`${ORM}-session`);
+    await sessionOrm.connect();
+    try {
+      const db = sessionOrm.getNativeConnection() as {
+        all(query: unknown): Promise<{ name: string }[]>;
+      };
+      const rows = await db.all(
+        sql`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'session'`,
+      );
+      const names = rows.map((row) => row.name);
+      if (!names.includes("session_user_idx")) {
+        throw new Error(
+          `index de session absent — présents : ${names.join(", ") || "aucun"}`,
+        );
+      }
+    } finally {
+      await sessionOrm.disconnect();
+      entityRegistry.unregister(SESSION_ENTITY_NAME, `${ORM}-session`);
+      ormRegistry.unregister(`${ORM}-session`);
     }
   });
 

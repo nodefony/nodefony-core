@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { sql } from "drizzle-orm";
 import { SessionsService } from "@nodefony/http";
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
@@ -325,6 +326,77 @@ export function runDrizzleSessionStoreContract(
       await storage.gc(1);
       await storage.gc(1); // rejeu : rien de neuf, ne lève pas
       assert.equal(await repo().count({}), 0);
+    });
+  });
+
+  describe("schéma", () => {
+    it("le DDL (RE)CRÉE l'index de `user` — le filtre admin s'y appuie", async () => {
+      // Ce que ce test doit prouver, c'est que le DDL ÉMET l'index — pas qu'il
+      // en existe un. En postgres et mysql les tables SURVIVENT aux runs : un
+      // index créé la veille resterait là même si la spec ne le déclarait plus,
+      // et le test passerait au vert sur un schéma devenu faux. On le SUPPRIME
+      // donc d'abord, puis on relance le DDL par une reconnexion.
+      // `listSessions`/`countSessions` du plan d'administration filtrent par
+      // utilisateur, et la révocation d'un compte aussi. Sans index, chacun de
+      // ces appels balaie la table la plus volumineuse d'une application vivante
+      // — et rien ne le signale, la réponse restant juste. On lit donc le
+      // CATALOGUE du moteur, dans les trois dialectes, plutôt que la spec.
+      type NativeDb = {
+        all(query: unknown): Promise<unknown[]>;
+        /** better-sqlite3 : le DDL passe par `run`, `all` attend un SELECT. */
+        run?: (query: unknown) => Promise<unknown>;
+        execute?: (query: unknown) => Promise<unknown>;
+      };
+      // Trois API natives, trois formes de retour : `all()` rend le tableau
+      // (better-sqlite3), `execute()` rend `{ rows }` (node-postgres) et un
+      // tuple `[rows, fields]` (mysql2). Normaliser ici, une fois.
+      const run = async (query: unknown): Promise<unknown[]> => {
+        const db = orm.getNativeConnection() as NativeDb;
+        if (dialect === "sqlite") return db.all(query);
+        const res = await db.execute!(query);
+        return Array.isArray(res)
+          ? (res[0] as unknown[])
+          : ((res as { rows?: unknown[] }).rows ?? []);
+      };
+      const listIndexes = async (): Promise<string[]> => {
+        const query =
+          dialect === "postgres"
+            ? sql`SELECT indexname AS name FROM pg_indexes WHERE tablename = 'session'`
+            : dialect === "mysql"
+              ? sql`SELECT DISTINCT index_name AS name FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'session'`
+              : sql`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'session'`;
+        const raw = (await run(query)) as { name?: string; NAME?: string }[];
+        return raw.map((row) => row.name ?? row.NAME ?? "");
+      };
+
+      // 1. On efface l'index — s'il est là. Sur mysql l'ordre porte la table.
+      //    Le DDL ne passe PAS par la même porte que les SELECT : en sqlite
+      //    c'est `run` (un `all` sur un DROP ne fait rien, silencieusement —
+      //    c'est le garde ci-dessous qui l'a révélé).
+      try {
+        const db = orm.getNativeConnection() as NativeDb;
+        const drop =
+          dialect === "mysql"
+            ? sql`DROP INDEX session_user_idx ON session`
+            : sql`DROP INDEX IF EXISTS session_user_idx`;
+        await (dialect === "sqlite" ? db.run!(drop) : db.execute!(drop));
+      } catch {
+        /* absent : rien à effacer, le DDL va le poser */
+      }
+      assert.ok(
+        !(await listIndexes()).includes("session_user_idx"),
+        `l'index survit à son DROP en ${dialect} — le test ne prouverait rien`,
+      );
+
+      // 2. On rejoue le DDL (il tourne au connect) et on relit le CATALOGUE du
+      //    moteur : c'est la base qui arbitre, jamais la spec.
+      await orm.disconnect();
+      await orm.connect();
+      const names = await listIndexes();
+      assert.ok(
+        names.includes("session_user_idx"),
+        `le DDL n'a pas recréé l'index en ${dialect} — présents : ${names.join(", ") || "aucun"}`,
+      );
     });
   });
 

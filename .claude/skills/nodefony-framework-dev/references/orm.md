@@ -38,6 +38,25 @@ Elle pose la chaîne entière (table Drizzle native du dialecte, interface de li
 d'entrée, service CRUD, controller REST **et** WebSocket, tests) et câble l'`index.ts`
 (`@entities([...])` créé s'il n'existe pas, `@controllers([...])` complété). Champs :
 `nom:type[?|!][:index]` · `ref:<Entité>` · **non-null par défaut**.
+
+Deux gardes à connaître :
+
+- **Une colonne `ref:` naît INDEXÉE** (sauf `!`, qui pose déjà un index). C'est par elle que
+  passent le `?include=` et toute jointure écrite ensuite ; sans index chacune balaie la table.
+  À ne pas confondre avec la contrainte d'intégrité : un `JOIN` n'exige **aucune** clé étrangère,
+  il compare deux colonnes. Les **FOREIGN KEY ne sont pas émises** par le DDL de développement
+  (elles se déclarent dans le `CREATE TABLE`, donc n'atteindraient jamais une base déjà créée) —
+  c'est le domaine des migrations.
+- **Les noms d'entités du framework sont refusés** (`User`, `session`, `access_token`,
+  `audit_event`…, casse et séparateurs ignorés) : le registre ORM est plat, une entité homonyme
+  déposséderait celle d'un module et l'application ne démarrerait plus — sur un message parlant
+  d'une colonne inconnue, jamais du doublon. Pour enrichir l'utilisateur : la colonne JSON
+  `metadata`, ou une entité liée (`create entity Profile bio:text ref:User`), ou reprendre la
+  main sur l'entité `User` en l'enregistrant **avant** le module ORM (il respecte une entité déjà
+  présente — `registerStores.ts`), à condition d'en porter toutes les colonnes.
+
+`drizzle-orm` est une dépendance **de l'application** (le code généré l'importe en direct) : le
+gabarit `complete` la déclare, et `create entity` l'ajoute au `package.json` si elle manque.
 Options utiles : `--id uuid7|uuid4|serial` · `--soft-delete` · `--no-controller` · `--module <nom>`
 · `--dialect`. Design + alternatives rejetées : mémoire IA `core-dev/audits/create-entity-design-2026-07.md`.
 

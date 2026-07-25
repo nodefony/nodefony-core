@@ -289,12 +289,22 @@ se connecte qu'à `onBoot`), controller (`extends ResourceController` — lectur
 204, 404, 422, `@Idempotent({required:false})` = mode souple), tests vitest (sqlite mémoire).
 Champs : `nom:type[?|!][:index]` · `ref:<Entité>` · **non-null par défaut** (types :
 `string text int float bool json date uuid`) — analyse + traduction Drizzle dans
-`scaffold/entityFields.ts` (module PUR, 18 tests, 3 dialectes). Wiring : `wireEntitiesDecorator`
-**crée** `@entities([...])` s'il n'existe pas (import **nommé** — un descripteur n'est pas un
-default), + `@controllers`. Gardes AVANT écriture : hors projet · `@nodefony/drizzle` absent de
-la cible · entité déjà déclarée · champ invalide. **Dit la vérité** : la table naît au prochain
-boot dev (`CREATE TABLE IF NOT EXISTS`), la **modifier n'altère RIEN** (pas d'`ALTER`), aucune
-migration n'est produite. Design + alternatives rejetées :
+`scaffold/entityFields.ts` (module PUR, 3 dialectes). **`ref:` ⇒ colonne INDEXÉE d'office**
+(sauf `!`, qui pose déjà l'index) : c'est la colonne de jointure (`?include=` = `IN (…)`).
+L'index n'est PAS la FK — un `JOIN` n'exige aucune contrainte ; les **FOREIGN KEY ne sont pas
+émises** par le DDL dev (déclarées dans le `CREATE TABLE`, elles n'atteindraient jamais une base
+existante) → domaine des migrations. Wiring : `wireEntitiesDecorator` **crée** `@entities([...])`
+s'il n'existe pas (import **nommé** — un descripteur n'est pas un default), + `@controllers`.
+Gardes AVANT écriture : hors projet · `@nodefony/drizzle` absent de la cible · entité déjà
+déclarée · **nom RÉSERVÉ par un module du framework** (`scaffold/reservedEntities.ts` : `User`,
+`session`, `access_token`, `audit_event`… ; casse et séparateurs ignorés — registre ORM PLAT, un
+homonyme dépossède le module et l'app ne démarre plus sur un message de « colonne inconnue » ;
+table tenue honnête par le gate `RUN_CLI_BOOT=1` de `CliIntegration.test.ts` qui la confronte à
+`nodefony inspect entities --json`) · champ invalide. Ajoute `drizzle-orm` au `package.json` de
+l'app si absent (le code produit l'importe EN DIRECT — sans la dep, seul le hissage npm sauvait
+la résolution, absent en `--link`) et l'ANNONCE (`npm install` requis). **Dit la vérité** : la
+table naît au prochain boot dev (`CREATE TABLE IF NOT EXISTS`), la **modifier n'altère RIEN**
+(pas d'`ALTER`), aucune migration n'est produite. Design + alternatives rejetées :
 `create-entity-design-2026-07` (mémoire IA `core-dev/audits/`).
 
 **Architecture 3 fronts** (préparée pour Studio — créer app/module/entity depuis
