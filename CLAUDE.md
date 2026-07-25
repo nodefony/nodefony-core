@@ -1,5 +1,5 @@
 > ⚖️ **DEVISE — À LIRE EN PREMIER : « La confiance n'exclut pas le contrôle. »**
-> Avant d'éditer : vérifier le terrain (ancrages `fichier:ligne`) — un kit/plan/mémoire n'est PAS le code (vécu J3b : 3 ancrages du kit périmés, dont `bypassFirewall` non câblé qui aurait deadlocké le login). Suspecter son propre diff. Prouver par un test que chaque trou est fermé.
+> Avant d'éditer : **vérifier le terrain** — un kit, un plan, une mémoire, un `CLAUDE.md` ne sont PAS le code ; l'ancrage `fichier:ligne` se relit au moment où on s'en sert. **Suspecter son propre diff.** **Prouver par un test** que chaque trou est fermé — un test qu'on n'a jamais vu échouer ne prouve rien.
 
 ---
 
@@ -110,11 +110,28 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
 2. **Mini-cahier des charges en amont** d'un gros écran/feature : lister (ou valider en 1 question) ce qui doit apparaître/se comporter AVANT de coder → 1 passe au lieu de N petits Edits. **S'applique AUSSI aux GROS artefacts non-écran** (> ~150 lignes, widget visuel, skill/doc/CLAUDE.md/README) : lister sections/panneaux/contrôles puis **figer la structure** AVANT d'écrire (éviter renumérotations `cf §N`). Vécu : `DebugBar.ts` 27→50 edits, `SKILL.md` 49 edits — improviser la structure coûte en allers-retours.
 3. **Avant de dire « fait » :** après une modif **frontend** → annoncer la vérif (curl transform Vite) + demander un **hard-reload** (cache React) ; **lancer la suite de tests impactée** + **suspecter son propre diff** avant de qualifier un échec de « pré-existant ».
 4. **Batcher les edits backend avant UN SEUL `rebuild + restart`** (coût #1 mesuré sur 8/8 retex : 10→23 restarts/session, souvent fusionnables). Regrouper TOUTES les modifs serveur d'une feature (controllers, services, config), PUIS un seul cycle `stop.sh → build → start.sh`. Ne PAS faire stop/build/start après chaque petit Edit. Les modifs **frontend** passent en **HMR Vite** → 0 restart. Réserver les restarts intermédiaires aux vrais points de mesure (diagnostic).
-5. **DÉLÉGUER à un sous-agent tout ce qui exige de LIRE BEAUCOUP pour rendre PEU** — inventaire,
-   tri, audit, recherche multi-modules, revue d'un corpus. Le gain n'est pas la parallélisation :
-   c'est que les 300 fichiers lus n'entrent JAMAIS dans le contexte principal, seule la conclusion
-   revient (le choix du MODÈLE, lui, fait l'objet du point suivant — c'est le poste de dépense).
-   Deux règles qui font la différence entre un sous-agent utile et un sous-agent coûteux :
+5. **DÉLÉGUER sur DEUX déclencheurs — le VOLUME, mais aussi la NATURE de la tâche.** Le second est
+   celui qu'on rate : il ne se voit pas au nombre de fichiers.
+
+   - **(a) VOLUME — LIRE BEAUCOUP pour rendre PEU** : inventaire, tri, audit, recherche
+     multi-modules, revue d'un corpus. Le gain n'est pas la parallélisation : c'est que les 300
+     fichiers lus n'entrent JAMAIS dans le contexte principal, seule la conclusion revient.
+   - **(b) NATURE — TOUTE LISTE D'AFFIRMATIONS À CONFRONTER AU TERRAIN part en `haiku`, même si
+     ça tient en cinq `rg`.** À reconnaître : « ces N corrections annoncées sont-elles en place
+     dans le code ? », « ces ancrages `fichier:ligne` sont-ils encore justes ? », « ce document
+     dit-il encore vrai ? », « ces symboles existent-ils toujours ? », « ces N clés de config
+     sont-elles lues quelque part ? ». Le signe distinctif : **chaque item a un verdict binaire et
+     une preuve, aucun jugement n'est requis** — c'est exactement le travail que le modèle le moins
+     cher rend à l'identique. Consigne à donner : « pour chaque affirmation → VRAI/FAUX → ancrage
+     `fichier:ligne` ACTUEL » ; le principal ne récupère que le tableau et tranche dessus.
+     Vécu (2026-07-25) : 8 résolutions de `BUG_REPORT.md` vérifiées à la main en `opus` alors que
+     la tâche était mécanique de bout en bout — le déclencheur « volume » ne mordait pas, et le
+     plancher « ne pas déléguer ce qui tient en deux `rg` » achevait de m'en dissuader.
+
+   Le gain de (b) n'est pas le prix du run : c'est que **le contexte principal reste sur la
+   décision** au lieu de se remplir de sorties de `grep`.
+
+   Trois règles qui font la différence entre un sous-agent utile et un sous-agent coûteux :
    - **Le sous-agent PROPOSE, l'agent principal APPLIQUE.** Il ignore les décisions prises dans la
      session ; le laisser éditer produit des patchs qui contredisent le fil en cours. Lui demander
      « fichier → section → texte exact → preuve », et trancher soi-même.
@@ -122,8 +139,10 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
      approximatif envoie chercher au mauvais endroit (vécu : 250 retex archivés hors du dossier
      que j'avais indiqué) ; et un sous-agent peut AFFIRMER un fichier qui n'existe pas — toute
      affirmation d'inventaire se recontrôle d'un `ls`/`grep` avant d'entrer dans une synthèse.
-     Ne PAS déléguer : ce qui tient en deux `rg`, et ce qui demande d'éditer du code au milieu d'une
-     session (le coût d'explication dépasse le gain).
+   - **Le plancher est un COMPTE, pas une impression** : **≥ 3 vérifications indépendantes du même
+     type → déléguer**, en dessous → faire soi-même. Ne PAS déléguer non plus : ce qui demande
+     d'éditer du code au milieu d'une session (le coût d'explication dépasse le gain).
+
 6. **🔴 LE MODÈLE D'UN SOUS-AGENT SE CHOISIT SUR LA NATURE DE LA TÂCHE — c'est LÀ que les tokens
    fuient pour rien.** Un sous-agent lancé sans réfléchir à son modèle est la dépense la plus
    facile à faire et la plus difficile à voir : elle n'apparaît nulle part dans la conversation.
