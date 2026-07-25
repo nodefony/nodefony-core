@@ -784,15 +784,23 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
       // Aucun module encore : l'état vide DIT quoi faire.
       assert.include(agents, "Aucun — `nodefony create module");
-      // CLAUDE.md = pointeur + les DEUX réflexes (auto-chargé à chaque tour
+      // CLAUDE.md = pointeur + les QUATRE réflexes (auto-chargé à chaque tour
       // par l'outil agent, contrairement à AGENTS.md — mesuré au banc : la
       // règle doit vivre dans le contexte au moment d'ÉCRIRE). Reste court.
+      //
+      // Il n'ÉNUMÈRE PLUS les générateurs : la liste avait dérivé (`create
+      // command` manquait), et l'agent qui ne l'y trouvait pas écrivait à la
+      // main. On vérifie donc ce qui ne peut pas se périmer — le renvoi à
+      // `create --help` et les CHEMINS interdits d'écriture manuelle.
       const claude = readFileSync(path.join(dest, "CLAUDE.md"), "utf8");
       assert.include(claude, "AGENTS.md");
-      assert.include(claude, "vérifie qu'un générateur");
-      assert.include(claude, "ISOMORPHE");
+      assert.include(claude, "nodefony create --help");
+      assert.include(claude, "nodefony/command/");
+      assert.include(claude, "nodefony env");
+      assert.include(claude, "nodefony stop");
+      assert.include(claude, "isomorphe");
       assert.include(claude, "RealtimeClient");
-      assert.isBelow(claude.split("\n").length, 24);
+      assert.isBelow(claude.split("\n").length, 40);
     });
 
     it("minimal : la table des docs dit la vérité des briques réellement installées", () => {

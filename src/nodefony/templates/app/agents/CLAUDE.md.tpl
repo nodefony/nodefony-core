@@ -19,7 +19,14 @@
 > qu'elle est mal orthographiée. Lance-la AVANT de modifier, et RELANCE-la après
 > pour prouver que ta modification a pris.
 >
-> **3 · Temps réel ou code partagé front/back : passe par la façade isomorphe.**
+> **3 · Tu vas démarrer ou arrêter le serveur ? Le framework s'en charge.**
+> `npm run dev` démarre, `nodefony status` dit ce qui tourne et sur quels ports,
+> `nodefony stop` arrête proprement. N'arrête JAMAIS par le port ni par le PID
+> (`lsof`, `kill`, `pkill`) : le superviseur relance ce que tu tues, et un
+> serveur survivant garde les ports — la course suivante échoue sur une erreur
+> qui ne parle jamais de lui. Arrête ce que tu démarres.
+>
+> **4 · Temps réel ou code partagé front/back : passe par la façade isomorphe.**
 > `RealtimeClient` depuis `nodefony/client`, hooks React depuis `nodefony/react`
 > — mêmes types des deux bouts. Un `new WebSocket` écrit à la main ou un type
 > recopié côté front est le même signal : arrête-toi (vérités du framework :
