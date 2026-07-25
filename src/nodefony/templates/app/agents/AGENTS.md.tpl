@@ -92,6 +92,40 @@ npm run test:e2e      # boot RÉEL de l'app + HTTP/WS (build inclus)
 npm run check         # cohérence du projet (config, modules, wiring)
 ```
 
+## Piloter le serveur — et l'ARRÊTER
+
+```bash
+npm run dev                          # développement : rechargement auto, Ctrl+C pour arrêter
+nodefony status                      # que tourne-t-il ? ports, PID — ne boote rien
+nodefony stop                        # arrêt PROPRE de tout runtime de cette app
+nodefony production --detach --wait  # boot réel en arrière-plan ; rend la main ports OUVERTS
+```
+
+**Arrête ce que tu démarres.** Un serveur laissé derrière garde les ports : le run
+suivant échoue sur une erreur qui ne parle jamais de lui (`EADDRINUSE`, ou pire, un
+test qui interroge l'ANCIENNE version du code). `nodefony stop` est la sortie
+propre, `nodefony status` dit ce qui reste.
+
+## Demander à l'app, plutôt que déduire du code
+
+```bash
+nodefony inspect routes --json     # toutes les routes réelles (chemin, méthodes, controller)
+nodefony inspect services --json   # services enregistrés, et le module qui les porte
+nodefony inspect config --json     # config EFFECTIVE de chaque module (+ d'où vient chaque valeur)
+nodefony inspect module http       # un module en détail
+nodefony inspect entities --json   # entités déclarées à l'ORM
+```
+
+Ces commandes bootent l'app **sans ouvrir un seul port** et rendent exactement ce
+que sert la console d'administration — même code, deux portes. Préfère-les à la
+lecture des sources : une route dépend de décorateurs, d'un manifeste et d'un
+ordre de chargement ; la déduire, c'est se tromper un jour sur deux. `--json` est
+un flux pur, `| jq` fonctionne.
+
+N'invente pas d'attente : `--wait` ne rend la main qu'une fois les ports en écoute
+— un `sleep` arbitraire est soit trop court (test rouge sans raison), soit du temps
+perdu à chaque exécution. `npm run test:e2e` gère déjà ce cycle tout seul.
+
 ## Méthode de travail
 
 1. **Budget tokens = une règle de conception** : lire ciblé via les tables

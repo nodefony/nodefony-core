@@ -22,10 +22,10 @@
  * git (qu'a-t-il ÉCRIT ?). Aucun juge LLM : que des sondes objectives.
  *
  * Usage :
- *   node scripts/devkit-bench.mjs                # décor + 3 tâches + rapport
- *   node scripts/devkit-bench.mjs --task 2       # une seule tâche
- *   node scripts/devkit-bench.mjs --setup-only   # juste l'app témoin (--link)
- *   node scripts/devkit-bench.mjs --analyze-only tmp/devkit-bench/<run>
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + 3 tâches + rapport
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 2       # une seule tâche
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --setup-only   # juste l'app témoin (--link)
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --analyze-only tmp/devkit-bench/<run>
  *                                                # re-juger un run existant
  *
  * Prérequis : le checkout est BUILDÉ (`npm run build` — l'app témoin se lie au
@@ -51,7 +51,25 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+/**
+ * Racine du dépôt, trouvée en REMONTANT plutôt qu'en comptant les « .. ».
+ *
+ * Ces scripts vivent dans un skill, et un skill se déplace : un chemin relatif
+ * figé casse au premier rangement, sur une erreur (« module introuvable ») qui
+ * ne dit pas qu'elle parle d'un déplacement.
+ */
+function findRepoRoot(from) {
+  let dir = from;
+  for (let up = 0; up < 8; up += 1) {
+    if (existsSync(path.join(dir, "src/nodefony/bin/nodefony"))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  throw new Error("racine du dépôt Nodefony introuvable depuis " + from);
+}
+
+const REPO = findRepoRoot(path.dirname(fileURLToPath(import.meta.url)));
 const BIN = path.join(REPO, "src", "nodefony", "bin", "nodefony");
 const AGENT = process.env.DEVKIT_BENCH_AGENT ?? "claude";
 /**

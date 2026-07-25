@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-25T01:20:50.448Z",
+  "generated": "2026-07-25T02:12:30.459Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1047,
-    "symbols": 2879,
-    "classes": 334,
-    "interfaces": 754,
+    "files": 1048,
+    "symbols": 2882,
+    "classes": 335,
+    "interfaces": 755,
     "types": 330,
     "enums": 4,
-    "functions": 873,
+    "functions": 874,
     "constants": 584
   },
   "symbols": {
@@ -4282,6 +4282,17 @@
       "implements": [],
       "decorators": [],
       "description": "Commande `nodefony development` — serveur en mode dev (front Vite/HMR + auto-restart). **Invariant non négociable : `development` = TOUJOURS 1 process.** La molette topologie (`cluster.workers` / `…"
+    },
+    "Inspect": {
+      "name": "Inspect",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/InspectCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony inspect <sujet> [--json]` — lit l'état RÉEL de l'application, sans serveur ni session. Pourquoi cette commande existe : l'état d'une application (ses routes, ses services, sa configuratio…"
     },
     "Install": {
       "name": "Install",
@@ -20246,6 +20257,7 @@
         "Completion",
         "Create",
         "Dev",
+        "Inspect",
         "Install",
         "Outdated",
         "Prod",
@@ -20776,6 +20788,7 @@
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
+        "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
@@ -22474,6 +22487,7 @@
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
@@ -22626,6 +22640,7 @@
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
+        "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
@@ -22778,6 +22793,9 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Check": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "Inspect": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Stop": [
@@ -23594,6 +23612,7 @@
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
+        "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
@@ -23632,6 +23651,50 @@
       ],
       "BootReporter": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"
+      ],
+      "IAdminApi": [
+        "src/nodefony/src/kernel/commands/InspectCommand.ts",
+        "src/modules/test/nodefony/admin/TestAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "IAdminEndpoint": [
+        "src/nodefony/src/kernel/commands/InspectCommand.ts",
+        "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "IAdminRequest": [
+        "src/nodefony/src/kernel/commands/InspectCommand.ts",
+        "src/modules/test/nodefony/admin/TestAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "startClusterMaster": [
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts"
@@ -23956,32 +24019,6 @@
       ],
       "userTable": [
         "src/modules/mediasoup/nodefony/entity/schema.ts"
-      ],
-      "IAdminApi": [
-        "src/modules/test/nodefony/admin/TestAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
-        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
-      ],
-      "IAdminRequest": [
-        "src/modules/test/nodefony/admin/TestAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "RequestContext": [
         "src/modules/test/nodefony/controller/AlsController.ts",
@@ -24816,21 +24853,6 @@
       "SessionIntent": [
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
-      ],
-      "IAdminEndpoint": [
-        "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
-        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "contextRequest": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",

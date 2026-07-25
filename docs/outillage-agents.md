@@ -176,6 +176,16 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v2.0.0" }
 ]
 ```
+
+### Autres
+
+```nodefony-cards
+[
+  { "icon": "🔧", "title": "devkit-bench", "href": "skills/nodefony-devkit-bench.md",
+    "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par deux mesures — le code généré tient-il debout (il compile, ses tests passent, sa ressource répond vraiment en HTTP), et un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner.",
+    "meta": "🟢 conforme v1.0.0 · ⚙️ 2 scripts" }
+]
+```
 <!-- skills-cards:end -->
 
 ## L'inventaire chiffré — usage réel

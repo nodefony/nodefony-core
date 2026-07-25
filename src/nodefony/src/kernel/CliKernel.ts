@@ -20,6 +20,7 @@ import Install from "./commands/InstallCommand";
 import Outdated from "./commands/OutdatedCommand";
 import Status from "./commands/StatusCommand";
 import Check from "./commands/CheckCommand";
+import Inspect from "./commands/InspectCommand";
 import Stop from "./commands/StopCommand";
 import {
   isStandaloneDevCommand,
@@ -356,6 +357,7 @@ class CliKernel extends Cli {
     this.addCommand(Completion);
     this.addCommand(Create);
     this.addCommand(Check);
+    this.addCommand(Inspect);
   }
 
   /**

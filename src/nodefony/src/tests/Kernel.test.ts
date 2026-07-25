@@ -260,6 +260,54 @@ describe("Kernel — isConsole", () => {
   });
 });
 
+// Une commande poussée jusqu'à `onPostReady` traversait `initServers` et ouvrait
+// les ports par EFFET DE BORD : elle échouait si un serveur tournait déjà, et
+// refusait le service à celui qui tournait pendant sa brève existence.
+describe("Kernel — initServers respecte le profil d'exécution", () => {
+  it("profil console (servers:false) → aucun serveur, même avec un HttpKernel", async () => {
+    const k = mkKernel();
+    k.runProfile = { servers: false, lifetime: "oneshot", interactive: false };
+    let asked = false;
+    // Un HttpKernel présent dans le conteneur ne doit PAS suffire à démarrer.
+    (k as unknown as { get: (name: string) => unknown }).get = (name) => {
+      if (name === "HttpKernel") {
+        asked = true;
+        return {
+          initServers: () => {
+            throw new Error(
+              "les serveurs ont démarré malgré le profil console",
+            );
+          },
+        };
+      }
+      return undefined;
+    };
+    const servers = await k.initServers();
+    assert.deepStrictEqual(servers, []);
+    assert.strictEqual(
+      asked,
+      false,
+      "le HttpKernel ne devrait même pas être demandé",
+    );
+  });
+
+  it("profil serveur (servers:true) → délègue bien au HttpKernel", async () => {
+    const k = mkKernel();
+    k.runProfile = {
+      servers: true,
+      lifetime: "longrunning",
+      interactive: false,
+    };
+    const started: unknown[] = [{ port: 5151 }];
+    (k as unknown as { get: (name: string) => unknown }).get = (name) =>
+      name === "HttpKernel"
+        ? { initServers: () => Promise.resolve(started) }
+        : undefined;
+    const servers = await k.initServers();
+    assert.deepStrictEqual(servers, started);
+  });
+});
+
 // ─── 4. clusterIsMaster ──────────────────────────────────────────────────────
 
 describe("Kernel — clusterIsMaster", () => {

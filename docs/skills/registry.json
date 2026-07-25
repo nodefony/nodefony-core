@@ -2,9 +2,9 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-07-24",
-  "count": 22,
-  "conformant": 22,
+  "generatedAt": "2026-07-25",
+  "count": 23,
+  "conformant": 23,
   "skills": [
     {
       "name": "nodefony-check-externals",
@@ -456,6 +456,245 @@
       }
     },
     {
+      "name": "nodefony-devkit-bench",
+      "summary": "Éprouve ce que le scaffold de Nodefony PRODUIT, par deux mesures — le code généré tient-il debout (il compile, ses tests passent, sa ressource répond vraiment en HTTP), et un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner.",
+      "family": "Autres",
+      "version": "1.0.0",
+      "keywords": [],
+      "triggers": [],
+      "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par deux mesures — le code généré tient-il debout (il compile, ses tests passent, sa ressource répond vraiment en HTTP), et un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner. À charger AVANT de déclarer finie une évolution des gabarits, de la grammaire de champs, du moteur de génération ou du contrat de ressource : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un échantillon viole son propre schéma, qu'une relation déclarée fait lever l'ORM au démarrage, ou qu'un type généré ne compile pas. Porte l'interprétation des échecs et les pièges de décor. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"prouver qu'une vague devkit est finie\", \"tester une app témoin\".",
+      "cost": {
+        "bodyLines": 126,
+        "approxTokens": 1709
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": [
+          {
+            "path": "scripts/bench-discoverability.mjs",
+            "purpose": "Banc de DÉCOUVRABILITÉ du devkit — les « 3 tâches » (gate de la release 10.0.0).",
+            "usage": [
+              "node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + 3 tâches + rapport"
+            ],
+            "options": [
+              {
+                "flag": "--allow-empty",
+                "help": ""
+              },
+              {
+                "flag": "--analyze-only",
+                "help": ""
+              },
+              {
+                "flag": "--dangerously-skip-permissi",
+                "help": ""
+              },
+              {
+                "flag": "--dir",
+                "help": ""
+              },
+              {
+                "flag": "--format",
+                "help": ""
+              },
+              {
+                "flag": "--frontend",
+                "help": ""
+              },
+              {
+                "flag": "--kind",
+                "help": ""
+              },
+              {
+                "flag": "--link",
+                "help": ""
+              },
+              {
+                "flag": "--model",
+                "help": ""
+              },
+              {
+                "flag": "--name-only",
+                "help": ""
+              },
+              {
+                "flag": "--no-audit",
+                "help": ""
+              },
+              {
+                "flag": "--no-fund",
+                "help": ""
+              },
+              {
+                "flag": "--output-format",
+                "help": ""
+              },
+              {
+                "flag": "--preset",
+                "help": ""
+              },
+              {
+                "flag": "--setup-only",
+                "help": ""
+              },
+              {
+                "flag": "--task",
+                "help": ""
+              },
+              {
+                "flag": "--unified",
+                "help": ""
+              },
+              {
+                "flag": "--verbose",
+                "help": ""
+              },
+              {
+                "flag": "--yes",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "DEVKIT_BENCH_AGENT",
+                "help": ""
+              },
+              {
+                "name": "DEVKIT_BENCH_AGENT_ARGS",
+                "help": ""
+              },
+              {
+                "name": "DEVKIT_BENCH_MODEL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/verify-generated.mjs",
+            "purpose": "Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? »",
+            "usage": [
+              "node scripts/devkit-verify.mjs              # décor + toutes les étapes"
+            ],
+            "options": [
+              {
+                "flag": "--detach",
+                "help": ""
+              },
+              {
+                "flag": "--frontend",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--keep",
+                "help": ""
+              },
+              {
+                "flag": "--link",
+                "help": ""
+              },
+              {
+                "flag": "--no-audit",
+                "help": ""
+              },
+              {
+                "flag": "--no-e2e",
+                "help": ""
+              },
+              {
+                "flag": "--no-fund",
+                "help": ""
+              },
+              {
+                "flag": "--preset",
+                "help": ""
+              },
+              {
+                "flag": "--wait",
+                "help": ""
+              },
+              {
+                "flag": "--yes",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "APP",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          }
+        ]
+      },
+      "related": [
+        "nodefony-framework-dev",
+        "nodefony-load-test",
+        "nodefony-release",
+        "nodefony-skill"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "939",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "126",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-devkit-bench/SKILL.md",
+        "doc": "docs/skills/nodefony-devkit-bench.md"
+      }
+    },
+    {
       "name": "nodefony-documentation",
       "summary": "Kit de dev de la DOCUMENTATION Nodefony, deux faces.",
       "family": "Développer le framework",
@@ -781,8 +1020,8 @@
       ],
       "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
       "cost": {
-        "bodyLines": 317,
-        "approxTokens": 6730
+        "bodyLines": 334,
+        "approxTokens": 7104
       },
       "requires": [],
       "resources": {
@@ -856,7 +1095,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "317",
+            "detail": "334",
             "advisory": true
           }
         ]

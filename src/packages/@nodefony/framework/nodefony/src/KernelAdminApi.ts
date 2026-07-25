@@ -768,6 +768,41 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       },
     },
     {
+      path: "services",
+      summary:
+        "Every service registered by every module, with its implementing class",
+      handler: () => {
+        // Agrégat de ce que `module/{name}` rend déjà par module. Exposé à part
+        // parce que la question « quel service existe, et où ? » se pose SANS
+        // qu'on sache déjà dans quel module chercher — c'est précisément ce
+        // qu'on ignore quand on la pose.
+        const modules = kernel.getModules();
+        const services: Array<Record<string, unknown>> = [];
+        for (const name of Object.keys(modules)) {
+          const mod = modules[name];
+          for (const service of mod.getServiceNames?.() ?? []) {
+            services.push({
+              name: service,
+              module: name,
+              class:
+                (
+                  mod.get(service) as
+                    { constructor?: { name?: string } } | null | undefined
+                )?.constructor?.name ?? null,
+            });
+          }
+        }
+        // Ordre stable : deux appels doivent rendre la même liste, sinon un diff
+        // entre deux inspections signale des changements qui n'ont pas eu lieu.
+        services.sort((a, b) =>
+          `${a.module as string}.${a.name as string}`.localeCompare(
+            `${b.module as string}.${b.name as string}`,
+          ),
+        );
+        return services;
+      },
+    },
+    {
       path: "config",
       summary:
         "Aggregated config of all modules (effective values redacted + JSON Schema + per-field provenance) for the global config page",

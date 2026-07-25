@@ -168,6 +168,23 @@ Pour un type tordu ou une signature `@types/node` exacte, `curl` la source brute
 
 ### Pièges structurels du core
 
+- **Une commande CLI qui doit LIRE l'état de l'app se déclare `kernelEvent: "onPostReady"`, pas
+  `"onReady"`.** Le plan d'administration (`adminBroker`) est peuplé PAR un écouteur de `onReady`
+  (`Framework.onKernelReady`), et l'action d'une commande **intégrée** est branchée avant qu'un
+  seul module n'existe : à `onReady` elle passe donc AVANT celui qui remplit le registre, et ne
+  trouve rien. Aucun port ne s'ouvre pour autant — `Kernel.initServers` respecte
+  `runProfile.servers` (défaut console `false`). Une commande de MODULE, elle, est branchée après
+  les modules : pour elle `onReady` suffit.
+- **Un flux `--json` se protège dans le CONSTRUCTEUR de la commande** (`cli.quietBoot = true`,
+  gardé sur `process.argv`). Le syslog est branché au tout début de `Kernel.start()`, donc avant
+  le moindre hook : demandé depuis `generate()`, le silence arrive après que le boot a déjà écrit
+  sur la sortie standard, et un `| jq` casse sur la première ligne de log. Les sévérités ≤ 3
+  partent sur la sortie d'erreur — elles restent visibles sans polluer le flux.
+- **Ne JAMAIS réimplémenter une donnée qu'un `IAdminApi` produit déjà.** Un handler admin est une
+  fonction pure `IAdminRequest → donnée` : on l'appelle directement
+  (`broker.list()` → `adminEndpoints()` → `handler(req)`), CLI et HTTP rendent alors le même objet
+  par construction. Corollaire : la redaction des secrets vit DANS les handlers, donc elle
+  s'applique aussi en local — une porte CLI ne révèle rien de plus.
 - **JAMAIS dérefencer le kernel au top-level** d'un fichier chargé à l'import (config.ts surtout) :
   `Nodefony.getKernel()` est `null` au moment de l'`import` → crash non-importable/non-testable.
   → **getter lazy** (`get filename() { return path.resolve((Nodefony.getKernel() as Kernel).path, …) }`)

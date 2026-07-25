@@ -917,10 +917,20 @@ class Kernel extends Service implements IKernel {
    * Si le HttpKernel n'est pas dans le container (mode CONSOLE pur) → retourne tableau vide.
    * Sinon → délègue à `httpKernel.initServers()`, fire `"onServersReady"` après succès.
    *
+   * **Le profil d'exécution fait foi** : une commande qui déclare ne pas vouloir
+   * de serveur (`runProfile.servers === false`, le défaut console) n'en obtient
+   * pas, même si le `HttpKernel` est chargé. Sans cette garde, toute commande
+   * poussée jusqu'à `onPostReady` ouvrait les ports par effet de bord — elle
+   * échouait alors si un serveur tournait déjà, et refusait le service à celui
+   * qui tournait pendant sa brève existence. `onServersReady` n'est pas émis :
+   * annoncer des serveurs prêts quand il n'y en a aucun rendrait l'événement
+   * inexploitable pour ceux qui l'écoutent.
+   *
    * @returns array d'instances de serveurs démarrés (ou `[]`).
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async initServers(): Promise<any[]> {
+    if (this.runProfile?.servers === false) return [];
     const httpKernel = this.get<HttpKernel>("HttpKernel");
     if (httpKernel)
       return await httpKernel

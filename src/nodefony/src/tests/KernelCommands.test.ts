@@ -15,6 +15,7 @@ import InstallCommand from "../kernel/commands/InstallCommand";
 import OutdatedCommand from "../kernel/commands/OutdatedCommand";
 import ProdCommand from "../kernel/commands/ProdCommand";
 import StartCommand from "../kernel/commands/StartCommand";
+import InspectCommand from "../kernel/commands/InspectCommand";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
@@ -340,5 +341,46 @@ describe("KernelCommands — performance", () => {
     }
     const elapsed = Date.now() - start;
     expect(elapsed).to.be.lessThan(1000);
+  });
+});
+
+// ─── InspectCommand ──────────────────────────────────────────────────────────
+
+describe("KernelCommand — InspectCommand", () => {
+  let cli: CliKernel;
+  beforeEach(() => {
+    cli = makeCli();
+  });
+
+  it("est une Command nommée « inspect »", () => {
+    const cmd = new InspectCommand(cli);
+    assert(cmd instanceof Command);
+    assert.strictEqual(cmd.name, "inspect");
+  });
+
+  // Le registre d'administration est peuplé PAR un écouteur de `onReady` ; une
+  // commande intégrée est branchée avant tout module, donc à `onReady` elle
+  // passerait avant lui et ne trouverait rien. La phase suivante est la première
+  // où le registre est garanti complet.
+  it("s'exécute à onPostReady — sinon le registre admin est encore vide", () => {
+    const cmd = new InspectCommand(cli);
+    assert.strictEqual(cmd.kernelEvent, "onPostReady");
+  });
+
+  it("n'affiche pas de bannière (elle polluerait un flux JSON)", () => {
+    const cmd = new InspectCommand(cli);
+    assert.strictEqual((cmd.options as any).showBanner, false);
+  });
+
+  it("est one-shot : elle rend la main, elle ne parke pas", () => {
+    const cmd = new InspectCommand(cli);
+    assert.strictEqual(cmd.lifetime, "oneshot");
+  });
+
+  // Sans profil console, une commande poussée jusqu'à `onPostReady` ouvrirait
+  // les ports par effet de bord — et échouerait si un serveur tourne déjà.
+  it("ne déclare aucun profil serveur (le défaut console fait foi)", () => {
+    const cmd = new InspectCommand(cli);
+    assert.strictEqual((cmd.options as any).runProfile, undefined);
   });
 });

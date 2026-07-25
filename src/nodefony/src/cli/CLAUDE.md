@@ -221,7 +221,7 @@ en réinjectant la seule zone `app-notes` (`renderProjectAgents`/`preserveAppNot
 `engine.ts`). Sans frontend, `GET /` répond (HomeController JSON accueil — avec
 front, `AppController` tient `/`). Suites franches : e2e EXCLUS de
 `vitest.config.ts`, ciblés par `vitest.e2e.config.ts` seule (`npm test` n'affiche
-jamais de skipped-vert). Banc de découvrabilité : `node scripts/devkit-bench.mjs`
+jamais de skipped-vert). Banc de découvrabilité : `node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs`
 (3 tâches agent headless, sondes objectives transcript+diff).
 
 `nodefony create front <name> [--frontend <react|vue|angular>] [--route </page>]

@@ -101,6 +101,16 @@ const CASES = [
   ["où en est la migration ?", "nodefony-migration-audit"],
   ["fais un rapport HTML imprimable de ces mesures", "nodefony-html-report"],
   ["c'est quoi la phase 12, la couche IA agentic ?", "nodefony-roadmap"],
+  // — bancs du scaffold : ce qu'il PRODUIT, et ce qu'un agent en TROUVE
+  [
+    "j'ai modifié le scaffold, est-ce que le code généré compile toujours ?",
+    "nodefony-devkit-bench",
+  ],
+  [
+    "rejouer le banc devkit avant de dire que la vague est finie",
+    "nodefony-devkit-bench",
+  ],
+  ["est-ce que create entity marche encore ?", "nodefony-devkit-bench"],
   // — méta
   ["créer un skill", "nodefony-skill"],
   ["mon skill ne se déclenche jamais", "nodefony-skill"],
