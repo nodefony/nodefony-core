@@ -143,9 +143,18 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
      type → déléguer**, en dessous → faire soi-même. Ne PAS déléguer non plus : ce qui demande
      d'éditer du code au milieu d'une session (le coût d'explication dépasse le gain).
 
-6. **🔴 LE MODÈLE D'UN SOUS-AGENT SE CHOISIT SUR LA NATURE DE LA TÂCHE — c'est LÀ que les tokens
-   fuient pour rien.** Un sous-agent lancé sans réfléchir à son modèle est la dépense la plus
-   facile à faire et la plus difficile à voir : elle n'apparaît nulle part dans la conversation.
+6. **🔴 QUESTION ZÉRO — FAUT-IL UN MODÈLE ? Puis SEULEMENT : lequel ?** Avant de choisir un modèle,
+   chercher l'**automate déterministe** qui fait le travail : `rg`, `jq`, `git log -S`, un
+   linter/gate du dépôt, `.ai/symbols.json`, un scanner spécialisé (secrets, licences,
+   vulnérabilités). Un outil est **gratuit en tokens, exhaustif et reproductible** ; un modèle
+   survole, n'offre aucune garantie de couverture, et sur les tâches à seuil (entropie d'un secret,
+   comptage exact) il est à la fois **plus cher ET moins fiable**. Vécu : « quel modèle pour relire
+   2 739 fichiers à la recherche de secrets ? » — aucun, `gitleaks` le fait en secondes ; le modèle
+   ne sert qu'à TRIER les 40 résultats qu'il rend. **L'automate produit, le modèle juge.**
+
+   **Ensuite** : **le modèle se choisit sur la NATURE de la tâche — c'est LÀ que les tokens fuient
+   pour rien.** Un sous-agent lancé sans réfléchir à son modèle est la dépense la plus facile à
+   faire et la plus difficile à voir : elle n'apparaît nulle part dans la conversation.
 
    | Nature de la tâche                                                             | Modèle   |
    | ------------------------------------------------------------------------------ | -------- |
