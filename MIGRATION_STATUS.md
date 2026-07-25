@@ -87,8 +87,14 @@ Console Logs Studio = panneau P10 de facto livré.
 > un logiciel libre : le paquet publié contient `dist/`, `.d.ts` et souvent les sourcemaps —
 > **fermer le code ne protégerait de rien**, et un agent sans garde-fou trouvera des choses. Ce qui
 > décide n'est pas le nombre de failles mais le **délai entre découverte et correctif**. Périmètre
-> de la session, du plus urgent au moins : **(1)** `SECURITY.md` À LA RACINE DU DÉPÔT — sans chemin
-> de divulgation, qui trouve **publie** ; c'est le geste le moins cher du lot. **(2)** Traiter les
+> de la session, du plus urgent au moins : **(1)** ✅ **`SECURITY.md` livré** (`8d992260`, corrigé
+> `a226f974`) — canal privé, périmètre (ce qui n'est PAS une faille : comptes de dev, modules
+> `policy:"dev"`, `NF_BENCH_ROUTE`, maquettes IA), délais tenables en solo. L'historique complet a
+> été scanné (`gitleaks`, 2 020 commits, 59 Mo) : **aucun secret**, 44 résultats tous expliqués
+> (35 = jetons d'exemple des RFC bundlées, 3 = vecteur de test RFC 6238, 1 = cert mkcert de dev).
+> Reste **ouvert sur ce point** : brancher le scan en gate avec une allowlist (sinon les 44 faux
+> positifs le feront désactiver), et — au moment de l'ouverture du dépôt — activer le signalement
+> privé GitHub, indisponible tant que le dépôt est privé. **(2)** Traiter les
 > **166 vulnérabilités Dependabot** de la branche par défaut (1 critique, 63 hautes) — surface
 > RÉELLE et mesurable, là où l'agent hostile reste hypothétique. **(3)** **Provenance npm + 2FA** :
 > pour un projet solo, le risque n°1 n'est pas la faille trouvée, c'est le **compte de publication
