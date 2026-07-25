@@ -83,6 +83,24 @@ function assertActionNameFree(target: object, propertyKey: string): void {
   );
 }
 
+/**
+ * Rattache un ou plusieurs contrôleurs à un module, dont ils suivent le cycle de vie.
+ *
+ * Décorateur de **classe de module**. L'enregistrement n'a pas lieu à
+ * l'évaluation du décorateur mais au hook `onBoot` du kernel : tant que le boot
+ * n'a pas eu lieu, les routes déclarées par `@route` sur ces classes n'existent
+ * pas encore dans le routeur — un test qui interroge le routeur sans booter ne
+ * verra rien. L'enregistrement est tagué au nom du module, de sorte qu'un échec
+ * désigne le module fautif au lieu d'un contrôleur anonyme.
+ *
+ * @param controller - Un contrôleur, ou un tableau de contrôleurs, à rattacher.
+ * @returns Le décorateur de classe, qui renvoie le module enrichi du hook.
+ * @example
+ * ```typescript
+ * @controllers([DefaultController, RestController])
+ * class TestModule extends Module {}
+ * ```
+ */
 function controllers(
   controller: TypeController<Controller>[] | TypeController<Controller>,
 ): <T extends Constructor<Module>>(constructor: T) => T {
@@ -456,6 +474,27 @@ function All(path: string = "", options: MethodDecoratorOptions = {}) {
 }
 
 // ── Response decorators ─────────────────────────────────────────────────────
+/**
+ * Fixe le code de statut HTTP de la réponse d'une action.
+ *
+ * Décorateur de **méthode**. Le code est posé sur la réponse **avant** que le
+ * corps de l'action ne s'exécute (`Resolver._applyResponseMeta`) : l'action
+ * garde donc le dernier mot et peut encore le remplacer. Emploie-le pour le
+ * statut nominal d'une action — un 201 sur une création — et non pour un statut
+ * qui dépend du résultat. La métadonnée n'est lue qu'une fois par route, puis
+ * mémorisée : le décorateur ne coûte rien par requête.
+ *
+ * @param statusCode - Code HTTP appliqué à la réponse (201, 204, 202…).
+ * @returns Le décorateur de méthode.
+ * @example
+ * ```typescript
+ * @route("item-create", { path: "/items", method: "POST" })
+ * @HttpCode(201)
+ * async create() {
+ *   return this.renderJson({ id: 42 });
+ * }
+ * ```
+ */
 function HttpCode(statusCode: number) {
   return function (
     target: object,
@@ -467,6 +506,27 @@ function HttpCode(statusCode: number) {
   };
 }
 
+/**
+ * Ajoute un en-tête à la réponse d'une action.
+ *
+ * Décorateur de **méthode**, empilable : chaque application ajoute une entrée,
+ * la dernière l'emportant sur un même nom d'en-tête. Les en-têtes sont posés
+ * avant l'exécution du corps de l'action, qui peut donc encore les modifier.
+ * Réserve-le aux en-têtes constants d'une action ; ce qui dépend de la requête
+ * s'écrit dans le corps.
+ *
+ * @param key - Nom de l'en-tête.
+ * @param value - Valeur de l'en-tête.
+ * @returns Le décorateur de méthode.
+ * @example
+ * ```typescript
+ * @route("feed", { path: "/feed", method: "GET" })
+ * @Header("Cache-Control", "public, max-age=3600")
+ * async feed() {
+ *   return this.renderJson(items);
+ * }
+ * ```
+ */
 function Header(key: string, value: string) {
   return function (
     target: object,
@@ -481,6 +541,26 @@ function Header(key: string, value: string) {
   };
 }
 
+/**
+ * Redirige la réponse d'une action vers une autre URL.
+ *
+ * Décorateur de **méthode**. ⚠️ Le corps de l'action **est exécuté** : la
+ * redirection est portée à côté du résultat et appliquée après coup par le
+ * `Resolver`. Ce n'est donc pas un court-circuit — tout effet de bord écrit dans
+ * l'action a bien lieu. L'action peut d'ailleurs surcharger la cible ou le code
+ * en renvoyant sa propre redirection.
+ *
+ * @param url - URL cible, absolue ou relative à l'application.
+ * @param statusCode - Code HTTP de redirection. Défaut `302` (temporaire) ;
+ *   `301` pour un déplacement permanent, `307` pour conserver la méthode.
+ * @returns Le décorateur de méthode.
+ * @example
+ * ```typescript
+ * @route("legacy", { path: "/old-path", method: "GET" })
+ * @Redirect("/new-path", 301)
+ * async oldPath() {}
+ * ```
+ */
 function Redirect(url: string, statusCode: number = 302) {
   return function (
     target: object,

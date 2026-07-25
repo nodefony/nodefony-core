@@ -30,6 +30,26 @@ import {
 type Constructor = new (...args: any[]) => Module<unknown>;
 type Injectable<T = { service: Service }> = new (...args: any[]) => T;
 
+/**
+ * Déclare les services qu'un module enregistre dans son conteneur au démarrage.
+ *
+ * Décorateur de **classe de module**. Les services sont instanciés au hook
+ * `onPreBoot`, et **l'ordre écrit ici n'a aucune importance** : il est recalculé
+ * depuis les dépendances déclarées (`@inject`), de sorte qu'un service réclamé
+ * soit présent avant son consommateur. Le hook est tagué au nom du module : un
+ * service qui échoue suit la politique de criticité de SON module — fatal en
+ * production, dégradation annoncée ailleurs — au lieu de faire tomber le boot
+ * anonymement.
+ *
+ * @param nameOrPath - Une classe de service, un chemin de fichier, ou un tableau
+ *   mêlant les deux.
+ * @returns Le décorateur de classe, qui renvoie le module enrichi du hook.
+ * @example
+ * ```typescript
+ * @services([Router, Eta, AdminBroker])
+ * class FrameworkModule extends Module {}
+ * ```
+ */
 function services(
   nameOrPath: string | (string | ServiceConstructor)[] | ServiceConstructor,
 ): <T extends Constructor>(constructor: T) => T {
@@ -91,6 +111,27 @@ function services(
   };
 }
 
+/**
+ * Rend une classe de service résoluble par le conteneur d'injection.
+ *
+ * Décorateur de **classe**. Il inscrit la classe à l'annuaire d'injection sous
+ * un nom — celui de la classe par défaut — et fige sa portée. Sans lui, la
+ * classe reste une classe ordinaire : elle ne peut être ni découverte, ni
+ * injectée, et un `@inject("…")` qui la réclame échouera à la résolution.
+ *
+ * @param nameOrOptions - Le nom d'enregistrement, ou `{ name?, scope? }`. La
+ *   portée vaut `"singleton"` par défaut — une seule instance pour le
+ *   processus ; `"transient"` en fabrique une par résolution.
+ * @returns Le décorateur de classe, qui renvoie la classe inchangée.
+ * @example
+ * ```typescript
+ * @injectable()
+ * class Router extends Service {}
+ *
+ * @injectable({ name: "pdfRenderer", scope: "transient" })
+ * class PdfRenderer extends Service {}
+ * ```
+ */
 function injectable(
   nameOrOptions?: string | InjectableOptions,
 ): <T extends Injectable<Service>>(constructor: T) => T {
