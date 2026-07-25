@@ -1,12 +1,12 @@
 {
-  "generated": "2026-07-25T01:11:24.784Z",
+  "generated": "2026-07-25T01:20:50.448Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1047,
-    "symbols": 2878,
+    "symbols": 2879,
     "classes": 334,
-    "interfaces": 753,
+    "interfaces": 754,
     "types": 330,
     "enums": 4,
     "functions": 873,
@@ -7082,7 +7082,7 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "extends": null,
-      "description": "Index déclaratif (lu par drizzle-kit en prod ; sans effet sur le DDL dérivé)."
+      "description": "Index déclaratif — émis par le DDL dérivé (dev) et par drizzle-kit (prod)."
     },
     "IFrameworkTableSpec": {
       "name": "IFrameworkTableSpec",

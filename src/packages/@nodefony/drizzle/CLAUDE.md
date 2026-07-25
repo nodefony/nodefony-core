@@ -205,8 +205,14 @@ main ; opt-out `frameworkEntities: false`.
 - **`DrizzleOrm` dialect-aware** : `onConnect` route `#connectSqlite` (better-sqlite3, sync) /
   `#connectPostgres` (driver `pg` **lazy** `await import`, `optionalDependency`, externalisé rolldown).
   DDL dérivé partagé `#buildCreateTable` (le bon `getTableConfig` selon dialecte ; `col.getSQLType()`
-  rend `text`/`integer` SQLite, `text`/`bigint`/`jsonb` PG). `disconnect`/`ping`/`describeConnection`/
-  `describeEntity` routés. `getNativeConnection<DrizzleDb>()` inchangé.
+  rend `text`/`integer` SQLite, `text`/`bigint`/`jsonb` PG) **+ `#buildCreateIndexes`** : les index
+  déclarés sont émis à part (`CREATE INDEX IF NOT EXISTS`, clause retirée en MySQL qui ne la connaît
+  pas → `ER_DUP_KEYNAME` toléré, et LUI SEUL). Émis SÉPARÉMENT de la table pour arriver aussi sur une
+  base de dev déjà créée. Les **clés étrangères ne sont PAS émises** : elles se déclarent DANS le
+  `CREATE TABLE` (donc jamais sur une base existante) et imposeraient un ordre de création
+  topologique, indécidable sur un cycle — c'est le domaine de drizzle-kit.
+  `disconnect`/`ping`/`describeConnection`/`describeEntity` routés.
+  `getNativeConnection<DrizzleDb>()` inchangé.
 - **`colKit`** (`entity/colKit.ts`, garde-fou G1 de l'audit comparatif ORM) : **spec logique →
   table du dialecte**. `IFrameworkTableSpec` (kinds `text`/`json`/`bool`/`epochMs`/`int`/`dateMs` +
   pk/notNull/unique/`defaultFn`/`onUpdateFn` + index) → `buildFrameworkTable(dialect, spec)` ;

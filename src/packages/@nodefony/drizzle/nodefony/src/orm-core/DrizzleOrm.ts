@@ -95,6 +95,18 @@ interface DDLColumn {
 }
 
 /**
+ * Sous-ensemble structural d'un index Drizzle, tel que le rendent les trois
+ * `getTableConfig` (`.indexes[].config`).
+ */
+interface DDLIndex {
+  config: {
+    name: string;
+    unique: boolean;
+    columns: readonly { name?: string }[];
+  };
+}
+
+/**
  * Adapter Drizzle (driver `better-sqlite3`) **branché sur `@nodefony/orm-core`**
  * — 3ᵉ adapter du banc multi-ORM (P7.4), choix SQL #1 moderne.
  *
@@ -232,10 +244,66 @@ export class DrizzleOrm extends Orm {
     return `CREATE TABLE IF NOT EXISTS ${quote}${name}${quote} (${defs.join(", ")})`;
   }
 
+  /**
+   * Dérive les `CREATE INDEX` des index déclarés sur la table (dev/test).
+   *
+   * Les index étaient construits sur la table Drizzle mais jamais émis : une
+   * colonne déclarée indexée ne l'était nulle part, et rien ne le disait. La
+   * requête restait correcte, seulement lente — le pire genre d'écart, celui qui
+   * ne se voit qu'en charge.
+   *
+   * Pourquoi ici et pas dans `#buildCreateTable` : un index est un objet SÉPARÉ
+   * de la table en SQL standard, et `CREATE TABLE IF NOT EXISTS` ne le porterait
+   * pas. Émis à part, il arrive AUSSI sur une base de développement déjà créée —
+   * ce qu'aucune clause de table ne permettrait.
+   *
+   * Les clés étrangères, elles, ne sont toujours PAS émises : elles se déclarent
+   * DANS le `CREATE TABLE`, donc elles n'atteindraient jamais une base existante,
+   * et elles imposeraient de créer les tables dans l'ordre de leurs dépendances
+   * (indécidable sur un cycle). C'est le travail du DDL de production
+   * (drizzle-kit), pas d'un dérivé de développement.
+   *
+   * @param table - nom de la table portant les index.
+   * @param indexes - index déclarés (`getTableConfig(...).indexes`).
+   * @param quote - caractère de citation des identifiants du dialecte.
+   * @returns une instruction par index (vide s'il n'y en a aucun).
+   */
+  #buildCreateIndexes(
+    table: string,
+    indexes: readonly DDLIndex[],
+    quote = '"',
+  ): string[] {
+    const statements: string[] = [];
+    for (const entry of indexes) {
+      const { name, unique, columns } = entry.config;
+      const names = columns
+        .map((column) => column.name)
+        .filter((column): column is string => typeof column === "string");
+      // Un index sur une expression (et non sur des colonnes nommées) n'est pas
+      // portable entre moteurs : on le laisse au DDL de production plutôt que
+      // d'en produire une traduction approximative.
+      if (names.length === 0 || names.length !== columns.length) continue;
+      const cols = names
+        .map((column) => `${quote}${column}${quote}`)
+        .join(", ");
+      statements.push(
+        `CREATE ${unique ? "UNIQUE " : ""}INDEX IF NOT EXISTS ` +
+          `${quote}${name}${quote} ON ${quote}${table}${quote} (${cols})`,
+      );
+    }
+    return statements;
+  }
+
   /** Dérive le `CREATE TABLE` SQLite depuis la table Drizzle (dev/test). */
   #createTableSQL(table: SQLiteTable): string {
     const { name, columns } = getTableConfig(table);
     return this.#buildCreateTable(name, columns);
+  }
+
+  /** Dérive les `CREATE INDEX` SQLite depuis la table Drizzle (dev/test). */
+  #createIndexesSQL(table: SQLiteTable): string[] {
+    const { name, indexes } = getTableConfig(table);
+    return this.#buildCreateIndexes(name, indexes as unknown as DDLIndex[]);
   }
 
   /** Dérive le `CREATE TABLE` Postgres depuis la table Drizzle (dev/test). */
@@ -244,10 +312,32 @@ export class DrizzleOrm extends Orm {
     return this.#buildCreateTable(name, columns);
   }
 
+  /** Dérive les `CREATE INDEX` Postgres depuis la table Drizzle (dev/test). */
+  #createIndexesPgSQL(table: PgTable): string[] {
+    const { name, indexes } = getPgTableConfig(table);
+    return this.#buildCreateIndexes(name, indexes as unknown as DDLIndex[]);
+  }
+
   /** Dérive le `CREATE TABLE` MySQL depuis la table Drizzle (dev/test). */
   #createTableMysqlSQL(table: MySqlTable): string {
     const { name, columns } = getMysqlTableConfig(table);
     return this.#buildCreateTable(name, columns, "`");
+  }
+
+  /**
+   * Dérive les `CREATE INDEX` MySQL depuis la table Drizzle (dev/test).
+   *
+   * MySQL ne connaît pas `CREATE INDEX IF NOT EXISTS` : la clause est retirée, et
+   * l'exécution tolère l'erreur « index déjà existant » (le seul cas où rejouer
+   * le DDL de développement doit rester silencieux).
+   */
+  #createIndexesMysqlSQL(table: MySqlTable): string[] {
+    const { name, indexes } = getMysqlTableConfig(table);
+    return this.#buildCreateIndexes(
+      name,
+      indexes as unknown as DDLIndex[],
+      "`",
+    ).map((statement) => statement.replace(" IF NOT EXISTS", ""));
   }
 
   /** Résout les relations déclaratives d'une entité en métadonnées eager-load. */
@@ -385,6 +475,9 @@ export class DrizzleOrm extends Orm {
       this.#tables![entity.name] = table;
       entity.model = table;
       client.exec(this.#createTableSQL(table));
+      for (const statement of this.#createIndexesSQL(table)) {
+        client.exec(statement);
+      }
     }
   }
 
@@ -489,6 +582,9 @@ export class DrizzleOrm extends Orm {
       this.#tables![entity.name] = table;
       entity.model = table;
       await pool.query(this.#createTablePgSQL(table));
+      for (const statement of this.#createIndexesPgSQL(table)) {
+        await pool.query(statement);
+      }
     }
   }
 
@@ -571,6 +667,18 @@ export class DrizzleOrm extends Orm {
       this.#tables![entity.name] = table;
       entity.model = table;
       await pool.query(this.#createTableMysqlSQL(table));
+      for (const statement of this.#createIndexesMysqlSQL(table)) {
+        try {
+          await pool.query(statement);
+        } catch (error) {
+          // MySQL n'a pas de `CREATE INDEX IF NOT EXISTS` : rejouer le DDL de
+          // développement sur une base existante lève `ER_DUP_KEYNAME`. C'est le
+          // SEUL cas toléré — toute autre erreur remonte, une table sans son
+          // index se paierait en requêtes lentes que rien n'expliquerait.
+          const code = (error as { code?: string }).code;
+          if (code !== "ER_DUP_KEYNAME") throw error;
+        }
+      }
     }
   }
 

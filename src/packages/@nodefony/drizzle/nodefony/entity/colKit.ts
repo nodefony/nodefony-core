@@ -72,8 +72,9 @@ import type { SqlDialect } from "../interfaces/IDrizzleConfig";
  *   la clé d'idempotence ~330 chars max) ;
  * - défauts en **`$defaultFn`/`$onUpdateFn` (JS-level) uniquement** — le DDL
  *   dérivé (`getTableConfig` → `DrizzleOrm.#buildCreateTable`) n'émet PAS les
- *   `DEFAULT` SQL (gotcha `userTable`) ; les `index` déclarés ne sortent que
- *   via drizzle-kit (migrations prod), pas dans le DDL dev/test.
+ *   `DEFAULT` SQL (gotcha `userTable`). Les `index` déclarés, eux, SONT émis
+ *   (`DrizzleOrm.#buildCreateIndexes`, `CREATE INDEX IF NOT EXISTS`) — les clés
+ *   étrangères restent le domaine de drizzle-kit (migrations prod).
  *
  * **Interne au module** (décision audit) : pas d'export dans `index.ts` — les
  * entités de l'app choisissent LEUR dialecte et écrivent leurs tables Drizzle
@@ -97,7 +98,7 @@ export interface IFrameworkColSpec {
   onUpdateFn?: () => unknown;
 }
 
-/** Index déclaratif (lu par drizzle-kit en prod ; sans effet sur le DDL dérivé). */
+/** Index déclaratif — émis par le DDL dérivé (dev) et par drizzle-kit (prod). */
 export interface IFrameworkIndexSpec {
   name: string;
   /** Noms de colonnes de la spec (validés au build — fail-loud). */
