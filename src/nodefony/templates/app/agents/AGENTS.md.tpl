@@ -66,6 +66,18 @@ La config de l'app vit dans `nodefony.config.ts` (modules chargés) et `env.ts`
 (variables d'environnement, seul lecteur de `process.env`) — pointe-les, ne les
 recopie pas.
 
+**Les clés de configuration d'un module, avec leurs défauts, sont LISIBLES :**
+`node_modules/@nodefony/<module>/dist/nodefony/config/config.js` porte le schéma
+Zod du module — chaque clé, son `.default(…)` et sa `.describe(…)`. C'est la
+source, pas une copie : la lire évite d'inventer une option qui n'existe pas
+(une clé inconnue est retirée en silence à la validation). Ne recopie jamais ces
+valeurs dans la doc du projet ; elles bougeront sans toi.
+
+Pour ce que le PROJET offre comme choix (connecteurs déclarés, entités déjà
+créées, types de colonnes de ton moteur) :
+`npx nodefony create entity --describe-json` — c'est la même source que le
+formulaire de Studio, à jour par construction.
+
 ## Modules du projet
 
 <% if (it.modules.length === 0) { %>Aucun — `nodefony create module <nom>` en pose un (workspace npm sous `modules/`).

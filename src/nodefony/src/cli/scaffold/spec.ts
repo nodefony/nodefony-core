@@ -30,6 +30,21 @@ export interface IScaffoldQuestion {
    */
   askIf?: "hasCheckout";
   /**
+   * Source des choix RÉELS de cette question, dans le projet courant (JSON-able,
+   * même esprit qu'`askIf`).
+   *
+   * Certaines réponses ne sont connues que du projet : les connecteurs qu'il
+   * déclare, les entités qu'il contient déjà. Les écrire dans la spec serait
+   * faux le lendemain. La question désigne donc une clé de
+   * `getScaffoldContext()`, et chaque front l'hydrate à sa manière — Studio en
+   * liste déroulante, le terminal en choix numérotés, `--describe-json` en
+   * embarquant le contexte.
+   *
+   * Sans cela, `ref:` et `--connector` restent du texte libre : une faute de
+   * frappe passe le scaffold et ne se voit qu'au démarrage suivant.
+   */
+  optionsFrom?: "connectors" | "entities";
+  /**
    * Réglage **avancé** : jamais posé en dialogue (son défaut est sûr), mais piloté par
    * une option de la ligne de commande — et proposé par Studio dans un repli.
    *
@@ -454,6 +469,9 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
       type: "string",
       default: "default",
       advanced: true,
+      // Les connecteurs sont ceux que l'application DÉCLARE : les proposer évite
+      // qu'un nom inventé produise une entité rattachée à une base inexistante.
+      optionsFrom: "connectors",
     },
     {
       key: "dialect",

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-25T01:02:31.218Z",
+  "generated": "2026-07-25T01:11:24.784Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1047,
-    "symbols": 2870,
+    "symbols": 2878,
     "classes": 334,
-    "interfaces": 751,
+    "interfaces": 753,
     "types": 330,
     "enums": 4,
-    "functions": 867,
+    "functions": 873,
     "constants": 584
   },
   "symbols": {
@@ -2975,6 +2975,24 @@
       "extends": null,
       "description": "Cible d'un scaffold in-project : l'app racine ou un module du projet."
     },
+    "IScaffoldContext": {
+      "name": "IScaffoldContext",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le PROJET RÉEL offre comme choix à un scaffold, sans démarrer le noyau. Une question dont les réponses valides dépendent du projet ne peut pas être décrite par la spec seule : les connecteur…"
+    },
+    "IScaffoldConnector": {
+      "name": "IScaffoldConnector",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un connecteur de base de données, tel que déclaré dans la configuration."
+    },
     "TScaffoldAnswers": {
       "name": "TScaffoldAnswers",
       "kind": "type",
@@ -3022,6 +3040,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Cibles de scaffold du projet : l'app racine + les modules locaux (`modules/<x>/` portant `package.json` + `index.ts` — le layout produit par `create module`). Consommée par le CLI (validation `--mo…"
+    },
+    "getScaffoldContext": {
+      "name": "getScaffoldContext",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le contexte du projet contenant `dir`."
     },
     "listTargets": {
       "name": "listTargets",
@@ -3159,6 +3185,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Analyse la déclaration textuelle des champs. Grammaire : `nom:type[?][!][=defaut][:index]` · `nom:ref:Entité[?][!][:index]` - `?` → nullable (sinon **NOT NULL** : une colonne nullable est une décis…"
+    },
+    "describeColumnTypes": {
+      "name": "describeColumnTypes",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce que chaque type de champ devient, dans chaque moteur. Montrer la traduction plutôt que la promettre : `json` devient `jsonb` en PostgreSQL et une colonne texte en SQLite, `string` un `varchar(25…"
     },
     "buildEntityCodegen": {
       "name": "buildEntityCodegen",
@@ -22472,6 +22506,9 @@
         "src/nodefony/src/cli/create.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
+      "getScaffoldContext": [
+        "src/nodefony/src/cli/create.ts"
+      ],
       "resolveLocalWorkspaces": [
         "src/nodefony/src/cli/create.ts"
       ],
@@ -23354,6 +23391,9 @@
       "buildEntityCodegen": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
+      "describeColumnTypes": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
       "ENTITY_DIALECTS": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
@@ -23392,6 +23432,9 @@
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "IScaffoldCaps": [
+        "src/nodefony/src/cli/scaffold/interactive.ts"
+      ],
+      "IScaffoldContext": [
         "src/nodefony/src/cli/scaffold/interactive.ts"
       ],
       "RealtimeState": [

@@ -15,6 +15,7 @@ import {
   findPackageRoot,
   findProjectRoot,
   listTargets,
+  getScaffoldContext,
   resolveLocalWorkspaces,
   runScaffold,
   type TScaffoldAnswers,
@@ -235,9 +236,11 @@ const USAGE =
  * valeurs permises, défauts. C'est exactement ce que la spec déclarative
  * contient déjà ; il ne manquait que la porte.
  *
- * Le format est volontairement additif : `project` décrit où l'on se trouve,
- * et les vagues suivantes y ajouteront le contexte fin (types par dialecte,
- * entités existantes) sans déplacer ce qui est déjà là.
+ * Le format est additif : `types` décrit les questions, `project` décrit où l'on
+ * se trouve — et son `context` porte ce que seul le projet sait (connecteurs
+ * déclarés, entités déjà créées, traduction des types par moteur). Une question
+ * marquée `optionsFrom` s'y réfère : ses réponses valides sont là, pas dans la
+ * spec, parce qu'elles changent d'un projet à l'autre.
  */
 function describeScaffold(type: TCreateType | undefined): string {
   const projectRoot = findProjectRoot(process.cwd());
@@ -256,6 +259,9 @@ function describeScaffold(type: TCreateType | undefined): string {
               kind: t.kind,
               name: t.name,
             })),
+            // Ce que le projet RÉEL offre comme choix — un appelant automatique
+            // n'a pas à deviner un nom de connecteur ni d'entité cible.
+            context: getScaffoldContext(projectRoot),
           }
         : null,
       usage: {
@@ -443,7 +449,18 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   const interactive = process.stdin.isTTY === true && !parsed.yes;
   if (interactive) {
     const [spec] = getScaffoldSpec(type);
-    answers = await askMissing(spec, answers, caps);
+    // Le contexte du projet transforme les questions dont les réponses valides
+    // n'existent QUE dans ce projet (connecteurs déclarés, entités présentes) en
+    // choix réels — au lieu d'un champ libre où une faute de frappe ne se voit
+    // qu'au démarrage suivant. `null` hors projet : les questions restent libres.
+    answers = await askMissing(
+      spec,
+      answers,
+      caps,
+      process.stdin,
+      process.stdout,
+      getScaffoldContext(process.cwd()),
+    );
     // Récap générique piloté par la spec (mêmes questions que l'interactif).
     // ⚠️ On affiche ce qui SERA fait, donc le DÉFAUT de la spec quand la question n'a
     // pas été posée (réglage `advanced`). Sans ce repli, un booléen non répondu

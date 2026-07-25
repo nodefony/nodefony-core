@@ -7,6 +7,7 @@ import { findProjectRoot } from "../projectRoot";
 import {
   parseEntityFields,
   buildEntityCodegen,
+  describeColumnTypes,
   ENTITY_DIALECTS,
   ENTITY_ID_KINDS,
   type TEntityDialect,
@@ -437,6 +438,70 @@ export interface IScaffoldTarget {
  */
 export function scaffoldCaps(): IScaffoldCaps {
   return { hasCheckout: resolveLocalWorkspaces(findPackageRoot()) !== null };
+}
+
+/**
+ * Ce que le PROJET RÉEL offre comme choix à un scaffold, sans démarrer le noyau.
+ *
+ * Une question dont les réponses valides dépendent du projet ne peut pas être
+ * décrite par la spec seule : les connecteurs déclarés, les entités déjà créées
+ * et les types de colonnes réellement disponibles varient d'une application à
+ * l'autre. Sans ce contexte, chaque front redemande la même chose en texte
+ * libre — et une faute de frappe ne se voit qu'au démarrage suivant.
+ *
+ * Le calcul vit ici, au moteur, et pas dans Studio : un formulaire intelligent
+ * écrit côté navigateur ne profiterait ni au terminal ni à un agent, et
+ * dériverait du projet réel à la première évolution.
+ */
+export interface IScaffoldContext {
+  /** Cibles possibles : l'application racine et ses modules locaux. */
+  targets: IScaffoldTarget[];
+  /** Connecteurs déclarés, avec le moteur SQL de chacun. */
+  connectors: IScaffoldConnector[];
+  /**
+   * Types de champ disponibles, et ce qu'ils deviennent dans CHAQUE moteur.
+   *
+   * La traduction est montrée plutôt que promise : `json` devient `jsonb` en
+   * PostgreSQL et une colonne texte en SQLite, et c'est une information dont
+   * dépend le choix de celui qui modélise.
+   */
+  columnTypes: Array<{
+    /** Nom du type dans le vocabulaire Nodefony. */
+    type: string;
+    /** Colonne Drizzle produite, par dialecte. */
+    byDialect: Record<string, string>;
+  }>;
+  /** Entités existantes par cible — ce que `ref:` peut viser. */
+  entities: Record<string, string[]>;
+  /** Stratégies de clé primaire proposées. */
+  idKinds: readonly string[];
+}
+
+/**
+ * Lit le contexte du projet contenant `dir`.
+ *
+ * @param dir - un dossier quelconque du projet (la racine est retrouvée seule).
+ * @param writer - accès fichiers (injectable pour les tests).
+ * @returns le contexte, ou `null` si `dir` n'est pas dans un projet Nodefony.
+ */
+export function getScaffoldContext(
+  dir: string,
+  writer: ScaffoldWriter = new ScaffoldWriter(),
+): IScaffoldContext | null {
+  const projectRoot = findProjectRoot(dir);
+  if (!projectRoot) return null;
+  const targets = listTargets(projectRoot, writer);
+  const entities: Record<string, string[]> = {};
+  for (const target of targets) {
+    entities[target.name] = readEntities(target.dir, writer);
+  }
+  return {
+    targets,
+    connectors: readConnectors(projectRoot, writer),
+    columnTypes: describeColumnTypes(),
+    entities,
+    idKinds: ENTITY_ID_KINDS,
+  };
 }
 
 export function listTargets(
@@ -1294,15 +1359,129 @@ function tableName(pascal: string): string {
 function detectDialect(
   projectRoot: string,
   writer: ScaffoldWriter,
+  connector = "default",
 ): TEntityDialect {
+  const connectors = readConnectors(projectRoot, writer);
+  const found = connectors.find((c) => c.name === connector);
+  if (found) return found.dialect;
+  // Connecteur inconnu du fichier de configuration : on garde le repli
+  // historique plutôt que d'échouer — le scaffold ANNONCE le dialecte retenu,
+  // donc une déduction fausse se voit tout de suite au lieu de produire une
+  // table du mauvais moteur en silence.
+  return connectors[0]?.dialect ?? "sqlite";
+}
+
+/**
+ * Contenu de l'objet qui suit `<clé>:`, borné par son accolade APPARIÉE.
+ *
+ * Sans appariement, une expression régulière lâche continue de trouver des
+ * entrées bien après la fin du bloc visé — elle ramasserait alors tout le reste
+ * du fichier de configuration.
+ *
+ * @returns le corps du bloc (accolades exclues), ou `null` si la clé est absente.
+ */
+function extractBlock(source: string, key: string): string | null {
+  const at = source.indexOf(key);
+  if (at < 0) return null;
+  const open = source.indexOf("{", at);
+  if (open < 0) return null;
+  let depth = 0;
+  for (let i = open; i < source.length; i += 1) {
+    if (source[i] === "{") depth += 1;
+    else if (source[i] === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(open + 1, i);
+    }
+  }
+  return null;
+}
+
+/** Un connecteur de base de données, tel que déclaré dans la configuration. */
+export interface IScaffoldConnector {
+  /** Nom sous lequel les entités le désignent (`default`, `analytics`…). */
+  name: string;
+  /** Moteur SQL visé — décide des types de colonnes générés. */
+  dialect: TEntityDialect;
+}
+
+/**
+ * Connecteurs déclarés par l'application, lus SANS démarrer le noyau.
+ *
+ * Lecture TEXTUELLE assumée : `nodefony.config.ts` est du TypeScript, et
+ * l'exécuter pour lire une clé coûterait un boot complet. On isole donc le bloc
+ * `connectors: { … }` puis chaque entrée `<nom>: { … dialect: "…" }`.
+ *
+ * Pourquoi ne pas se contenter de chercher le premier `dialect:` du fichier :
+ * une application qui déclare deux connecteurs de moteurs différents ferait
+ * générer TOUTES ses entités dans le dialecte du premier, sans un mot.
+ *
+ * @param projectRoot - racine du projet (là où vit `nodefony.config.ts`).
+ * @param writer - accès fichiers transactionnel du scaffold.
+ * @returns les connecteurs trouvés, dans l'ordre de déclaration (vide si aucun).
+ */
+function readConnectors(
+  projectRoot: string,
+  writer: ScaffoldWriter,
+): IScaffoldConnector[] {
   const configPath = path.join(projectRoot, "nodefony.config.ts");
-  if (!writer.exists(configPath)) return "sqlite";
+  if (!writer.exists(configPath)) return [];
   const source = writer.read(configPath);
-  const match = /dialect\s*:\s*["'](\w+)["']/u.exec(source);
-  const found = match?.[1];
-  return (ENTITY_DIALECTS as readonly string[]).includes(found ?? "")
-    ? (found as TEntityDialect)
-    : "sqlite";
+  const asDialect = (value: string | undefined): TEntityDialect =>
+    (ENTITY_DIALECTS as readonly string[]).includes(value ?? "")
+      ? (value as TEntityDialect)
+      : "sqlite";
+
+  const connectors: IScaffoldConnector[] = [];
+  const block = extractBlock(source, "connectors");
+  if (block !== null) {
+    // On s'appuie sur la forme `<nom>: { … dialect: "x" }` DANS le bloc, borné
+    // par son accolade appariée. Une analyse syntaxique complète du TypeScript
+    // n'est pas le métier d'un scaffold — et le dialecte retenu est annoncé.
+    const entry = /(\w+)\s*:\s*\{([^{}]*)\}/gu;
+    let match: RegExpExecArray | null;
+    while ((match = entry.exec(block)) !== null) {
+      const [, name, body] = match;
+      if (!name) continue;
+      connectors.push({
+        name,
+        dialect: asDialect(
+          /dialect\s*:\s*["'](\w+)["']/u.exec(body ?? "")?.[1],
+        ),
+      });
+    }
+  }
+  if (connectors.length > 0) return connectors;
+  // Aucun connecteur déclaré : le module ORM en fournit un, nommé `default`.
+  // On expose CELUI-LÀ plutôt qu'une liste vide — c'est celui que l'application
+  // utilise réellement, et une liste vide ferait croire qu'il n'y a rien à choisir.
+  return [
+    {
+      name: "default",
+      dialect: asDialect(/dialect\s*:\s*["'](\w+)["']/u.exec(source)?.[1]),
+    },
+  ];
+}
+
+/**
+ * Entités déjà déclarées dans une cible, lues au disque.
+ *
+ * Sert à transformer `ref:` d'un texte libre en un CHOIX : le formulaire de
+ * Studio comme le dialogue du terminal peuvent proposer ce qui existe vraiment,
+ * au lieu de laisser deviner un nom qui fera échouer le démarrage.
+ */
+function readEntities(targetDir: string, writer: ScaffoldWriter): string[] {
+  const dir = path.join(targetDir, "nodefony", "entity");
+  if (!writer.exists(dir)) return [];
+  return writer
+    .listDir(dir)
+    .filter(
+      (file) =>
+        !file.isDirectory &&
+        file.name.endsWith(".ts") &&
+        !file.name.endsWith(".schema.ts"),
+    )
+    .map((file) => file.name.slice(0, -".ts".length))
+    .sort();
 }
 
 /**
@@ -1383,9 +1562,13 @@ function runEntityScaffold(
   const kebab = toKebabCase(base);
   const table = tableName(pascal);
 
+  // Le connecteur est résolu AVANT le dialecte : c'est LUI qui décide du moteur.
+  // Sans cela, une entité posée sur un second connecteur héritait du dialecte du
+  // premier — une table PostgreSQL générée en SQLite, sans un mot.
+  const connector = String(answers.connector || "default");
   const dialect =
     (String(answers.dialect || "") as TEntityDialect) ||
-    detectDialect(projectRoot, writer);
+    detectDialect(projectRoot, writer, connector);
   if (!(ENTITY_DIALECTS as readonly string[]).includes(dialect)) {
     throw new Error(
       `dialecte invalide « ${dialect} » — attendus : ${ENTITY_DIALECTS.join(" | ")}`,
@@ -1473,7 +1656,6 @@ function runEntityScaffold(
     }));
 
   const route = String(answers.route) || `/api/${pluralize(kebab)}`;
-  const connector = String(answers.connector || "default");
 
   // Exemple de charge utile — un exemple faux serait pire que pas d'exemple.
   // Deux formes, pour deux usages :

@@ -26,6 +26,7 @@ import {
   resolveAnswers,
   linkLocalDeps,
   runScaffold,
+  getScaffoldContext,
 } from "../cli/scaffold/engine";
 import { ScaffoldWriter, diffLines } from "../cli/scaffold/writer";
 import { askMissing } from "../cli/scaffold/interactive";
@@ -1764,6 +1765,80 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
 
     // Une entité sans champ produit un CRUD qui « marche » et ne transporte rien.
+    // Ce qu'un front (Studio, terminal, agent) doit pouvoir demander AU PROJET
+    // plutôt que le deviner : ses connecteurs, ses entités, la traduction réelle
+    // des types dans son moteur.
+    it("le contexte du projet décrit ce que le projet offre RÉELLEMENT", () => {
+      const dest = app("eapp4m");
+      entity(dest, { name: "Author", fields: "email:string!" });
+      const context = getScaffoldContext(dest);
+      assert.isNotNull(context);
+      const ctx = context as NonNullable<typeof context>;
+
+      // Les connecteurs viennent de la configuration, pas d'une liste figée.
+      assert.isAtLeast(ctx.connectors.length, 1);
+      assert.deepEqual(
+        ctx.connectors.map((c) => c.name),
+        ["default"],
+      );
+      assert.equal(ctx.connectors[0].dialect, "sqlite");
+
+      // Les entités existantes : c'est ce que `ref:` peut viser.
+      const appTarget = ctx.targets.find((t) => t.kind === "app");
+      assert.isDefined(appTarget);
+      assert.include(ctx.entities[appTarget!.name], "Author");
+      // Le schéma Zod n'est pas une entité — il ne doit pas polluer les choix.
+      assert.notInclude(ctx.entities[appTarget!.name], "Author.schema");
+
+      // La traduction par moteur est MONTRÉE : c'est elle qui guide le choix.
+      const json = ctx.columnTypes.find((t) => t.type === "json");
+      assert.isDefined(json);
+      assert.include(json!.byDialect.postgres, "jsonb");
+      assert.include(json!.byDialect.sqlite, 'mode: "json"');
+    });
+
+    it("hors projet, le contexte est nul plutôt qu'inventé", () => {
+      assert.isNull(getScaffoldContext(os.tmpdir()));
+    });
+
+    // Chercher le premier `dialect:` du fichier faisait générer TOUTES les
+    // entités dans le moteur du premier connecteur, sans un mot — une entité
+    // « analytics » naissait en SQLite alors que sa base est PostgreSQL.
+    it("plusieurs connecteurs : chacun garde SON moteur", () => {
+      const dest = app("eapp4n");
+      const configPath = path.join(dest, "nodefony.config.ts");
+      const config = readFileSync(configPath, "utf8").replace(
+        '"@nodefony/drizzle",',
+        `use("@nodefony/drizzle", {
+      connectors: {
+        default: { dialect: "sqlite" },
+        analytics: { dialect: "postgres" },
+      },
+    }),`,
+      );
+      writeFileSync(configPath, config);
+
+      const ctx = getScaffoldContext(dest);
+      assert.deepEqual(ctx?.connectors, [
+        { name: "default", dialect: "sqlite" },
+        { name: "analytics", dialect: "postgres" },
+      ]);
+
+      // Et le scaffold suit : l'entité posée sur `analytics` naît en PostgreSQL.
+      entity(dest, {
+        name: "Visit",
+        fields: "path:string meta:json",
+        connector: "analytics",
+      });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "entity", "Visit.ts"),
+        "utf8",
+      );
+      assert.include(src, "pgTable");
+      assert.include(src, 'jsonb("meta")');
+      assert.include(src, 'connector: "analytics"');
+    });
+
     it("refuse une entité sans champ, et n'écrit rien", () => {
       const dest = app("eapp4g");
       const before = snapshotTree(dest);

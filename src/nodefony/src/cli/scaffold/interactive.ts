@@ -1,7 +1,11 @@
 import readline from "node:readline/promises";
 import type { Readable, Writable } from "node:stream";
 import type { IScaffoldTypeSpec } from "./spec";
-import type { IScaffoldCaps, TScaffoldAnswers } from "./engine";
+import type {
+  IScaffoldCaps,
+  IScaffoldContext,
+  TScaffoldAnswers,
+} from "./engine";
 
 /**
  * Front INTERACTIF du scaffold — rend les questions de la spec en
@@ -84,6 +88,7 @@ export async function askMissing(
   caps: IScaffoldCaps,
   input: Readable = process.stdin,
   output: Writable = process.stdout,
+  context: IScaffoldContext | null = null,
 ): Promise<TScaffoldAnswers> {
   const rl = readline.createInterface({ input, output });
   const answers: TScaffoldAnswers = { ...partial };
@@ -99,10 +104,41 @@ export async function askMissing(
       if (q.advanced) {
         continue;
       }
-      answers[q.key] = await ask(rl, output, q);
+      answers[q.key] = await ask(rl, output, hydrate(q, context));
     }
   } finally {
     rl.close();
   }
   return answers;
+}
+
+/**
+ * Remplace les réponses possibles d'une question par celles du PROJET RÉEL.
+ *
+ * Une question marquée `optionsFrom` n'a pas ses choix dans la spec : ils
+ * dépendent de ce que l'application déclare. Sans cette hydratation, le dialogue
+ * demande un nom de connecteur en texte libre — et une faute de frappe ne se
+ * voit qu'au démarrage suivant.
+ *
+ * Sans contexte (hors projet), ou si le projet n'a rien à proposer, la question
+ * est rendue telle quelle : mieux vaut un champ libre qu'une liste vide dont on
+ * ne peut rien choisir.
+ */
+function hydrate(
+  question: IScaffoldTypeSpec["questions"][number],
+  context: IScaffoldContext | null,
+): IScaffoldTypeSpec["questions"][number] {
+  if (!question.optionsFrom || !context) return question;
+  const values =
+    question.optionsFrom === "connectors"
+      ? context.connectors.map((c) => ({
+          value: c.name,
+          label: c.name,
+          hint: c.dialect,
+        }))
+      : Object.values(context.entities)
+          .flat()
+          .map((name) => ({ value: name, label: name }));
+  if (values.length === 0) return question;
+  return { ...question, type: "choice", choices: values };
 }

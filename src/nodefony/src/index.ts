@@ -471,6 +471,11 @@ export {
   listTargets,
   findProjectRoot,
   scaffoldCaps,
+  getScaffoldContext,
+} from "./cli/scaffold/engine";
+export type {
+  IScaffoldContext,
+  IScaffoldConnector,
 } from "./cli/scaffold/engine";
 // Où une app créée DEPUIS LE WEB a le droit de naître. En CLI la destination est le
 // `cwd` (l'utilisateur est chez lui) ; par le réseau, elle doit être RECOMPOSÉE côté

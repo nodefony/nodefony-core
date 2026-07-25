@@ -310,6 +310,36 @@ const COLUMN: Record<
   },
 };
 
+/**
+ * Ce que chaque type de champ devient, dans chaque moteur.
+ *
+ * Montrer la traduction plutôt que la promettre : `json` devient `jsonb` en
+ * PostgreSQL et une colonne texte en SQLite, `string` un `varchar(255)` ici et un
+ * `text` là. C'est une information dont dépend le choix de celui qui modélise, et
+ * elle n'est déductible d'aucune documentation générique.
+ *
+ * Dérivé de la table de traduction elle-même : impossible que ce catalogue
+ * dérive de ce que le générateur produit réellement.
+ *
+ * @returns un descripteur par type, avec sa colonne Drizzle par dialecte.
+ */
+export function describeColumnTypes(): Array<{
+  type: string;
+  byDialect: Record<string, string>;
+}> {
+  const types = [...ENTITY_FIELD_TYPES, "ref"] as const;
+  return types.map((type) => ({
+    type,
+    byDialect: Object.fromEntries(
+      ENTITY_DIALECTS.map((dialect) => [
+        dialect,
+        // Colonne d'exemple : le nom importe peu, la FORME est ce qu'on montre.
+        COLUMN[dialect][type]("exemple", ["a", "b"]),
+      ]),
+    ),
+  }));
+}
+
 /** Fonction de table Drizzle du dialecte (`sqliteTable`…) et son import. */
 export const TABLE_FN: Record<TEntityDialect, { fn: string; module: string }> =
   {
