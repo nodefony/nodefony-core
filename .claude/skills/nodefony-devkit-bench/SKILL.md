@@ -114,6 +114,30 @@ une positive (la bonne façade est là) et une négative (la mauvaise n'est pas
 apparue **dans les lignes ajoutées**). Une négative seule passe aussi quand
 l'agent n'a rien fait.
 
+**Ce qui JUGE et ce qui OBSERVE.** Une sonde exige un **acte** quand aucune autre
+voie ne donne l'information de façon fiable — lancer le générateur, puisque le
+code écrit à la main diverge du gabarit ; interroger l'environnement, puisque la
+précédence est un mécanisme et non un contenu qu'on lirait dans un fichier. Elle
+se contente d'**observer** (`observe: true`, affichée `👁`, sans faire échouer)
+quand plusieurs voies mènent au même savoir : exiger l'ouverture du catalogue
+alors que l'`AGENTS.md` porte déjà la réponse mesurerait la conformité à un
+chemin, pas la découvrabilité — un agent qui a lu l'index et répondu juste serait
+recalé. Le critère n'est pas « l'agent a-t-il fait comme je l'imaginais » mais
+« pouvait-il savoir autrement ? ».
+
+Une sonde de moyen garde sa valeur **le temps qu'elle révèle quelque chose** :
+celle du catalogue a prouvé que pointer un document ne suffit pas. Une fois
+l'information hissée dans le fichier lu par défaut, elle devient redondante — on
+la déclasse en observation plutôt que de la supprimer, pour continuer à voir
+comment l'agent s'y prend.
+
+**Une sonde de contenu ne regarde pas les tests.** Une valeur littérale dans un
+fichier de test est une **fixture**, pas une configuration en dur. Vécu : un
+agent avait tout fait juste — valeur dans le fichier d'environnement,
+configuration qui le lit, vérification verte — et se voyait recalé parce que son
+test citait l'URL qu'il venait de poser. La sonde visait la configuration, elle
+mordait sur la preuve.
+
 Le modèle par défaut est volontairement le plus **défavorable**. Un banc qui ne
 passe qu'avec le modèle le plus fort ne mesure pas la découvrabilité, il mesure
 la culture générale du modèle.

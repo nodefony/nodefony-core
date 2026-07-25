@@ -334,7 +334,14 @@ const TASKS = [
       {
         kind: "transcript",
         name: "pas d'arrêt bricolé (kill -9 / pkill / lsof)",
-        pattern: /kill\s+-9|pkill|lsof\s+-t/u,
+        // Le motif vise une INVOCATION, pas une mention : il exige la clé
+        // `"command"` d'un appel d'outil. Vécu — la version qui cherchait les
+        // noms nus rougissait sur le `CLAUDE.md` de l'application, qui INTERDIT
+        // précisément ces commandes et les nomme donc pour les proscrire :
+        // l'agent lisait la règle, le fichier entrait au transcript, et la
+        // sonde comptait la règle comme sa violation. Un texte lu n'est pas un
+        // geste posé.
+        pattern: /"command"\s*:\s*"[^"]*(kill\s+-9|pkill|lsof)/u,
         invert: true,
       },
       {
