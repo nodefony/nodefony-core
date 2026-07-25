@@ -19,6 +19,7 @@
 
 - `[1× — 2026-07-24]` ⭐ **Trois échelles empilées (lots `devkit N`, vagues `V1-V5`, décisions `T1-T10`) ont PERDU le user** (« je ne veux pas 15 sous-lettres »). Règle : **UNE seule échelle d'identifiants publics** (ici `devkit S<n>`, alignée sur la famille de lots existante) ; les décisions/justifications se NOMMENT (« Refuser avant d'écrire »), ne se numérotent JAMAIS — un numéro n'est dû que s'il sera cité dans un commit ou une demande de session. Corollaire : un identifiant court réutilisé entre kits (S5 du kit ORM vs `devkit S5`) exige le préfixe.
 - `[1× — 2026-07-24]` **Une directive floue arbitrée sans reformuler l'INTENTION coûte 2 allers-retours.** « Entity beaucoup mieux » : j'ai renforcé le REST généré ; le user visait le formulaire STUDIO contextuel (types selon le dialecte). Reformuler l'objet CONCRET (un exemple) d'une directive avant de décider où elle vit dans le design.
+- `[2× — 2026-07-25]` **Les deux échelles ont RE-perdu le user en session** (« comment ça le lot 2 nous l'avons déjà fait non ? »). Cause exacte : le lot 1 des lots `N` (AGENTS.md) a été **absorbé par la vague `S2`**, donc la numérotation des lots `N` est partiellement périmée — parler de « lot 2 » devient faux pour qui suit les vagues. Remède appliqué : ne plus citer le numéro, **nommer le livrable** (« inspect »). Un identifiant n'a de valeur que s'il désigne encore ce qu'il désignait.
 
 ## 📦 Ce qui est COPIÉ à la création ne se met jamais à jour
 
@@ -65,6 +66,8 @@
 
 - `[1× — 2026-07-24]` **Un test qui n'assertait que le cas REFUSÉ cachait que le chemin nominal est asynchrone.** Mon test F86 échouait : le handler n'avait « pas tourné ». En réalité le dispatch d'une requête JSON-RPC passe par une microtask — le test existant ne l'avait jamais montré, puisqu'il ne vérifiait que le refus (synchrone). **Un test qui ne couvre qu'une branche apprend faux sur l'autre.**
 - `[1× — 2026-07-24]` **Le durcissement bat la documentation.** `UploadedFile.move()` composait sa destination avec le nom de fichier CLIENT ; un `[!WARNING]` dans la doc « couvrait » le piège. Un avertissement demande à chaque application de se souvenir ; un `basename` forcé ferme la porte. Quand le choix est « durcir ou documenter », c'est durcir.
+- `[1× — 2026-07-25]` ⭐ **`git stash push` sur un fichier DÉJÀ COMMITÉ ne stashe rien — et la preuve négative passe au vert sans rien avoir débranché.** J'ai « prouvé » un gate d'AGENTS.md ainsi : 110 verts, conclusion fausse. Le tell : `git stash list` vide, ou `git diff --stat` sans effet. Une preuve négative doit d'abord vérifier **que quelque chose a bien été retiré**, sinon elle mesure le statu quo. (Sur un fichier commité : éditer, tester, `git checkout --`.)
+- `[1× — 2026-07-25]` **Une modification de GABARIT sans assertion est une modification non gardée.** Deux sections ajoutées à l'`AGENTS.md` généré (piloter le serveur, interroger l'app) sont parties sans gate — c'est le user qui l'a réclamé. Rien n'aurait signalé leur disparition, alors que c'est précisément ce qu'un agent lit pour savoir arrêter un serveur.
 
 ## 🕰️ Une norme externe bouge — le gate qui la contrôle dérive en silence
 
@@ -107,6 +110,11 @@
 ## 🔎 Vérifier dans le rendu — et vérifier le décor de la vérification
 
 - `[2× — 2026-07-23e]` **Deux fausses alertes d'affilée sur la même page.** (1) Une session expirée renvoyait du JSON d'erreur que mon parseur lisait comme un markdown vide → « les cards ont disparu ». (2) Le motif cherché était celui d'AVANT réécriture : le portail transforme `skills/x.md` en slug `root~skills~x.md`, comportement correct. **Avant de déclarer une régression sur une mesure HTTP : vérifier le code de retour, puis ce que la couche transforme légitimement.**
+
+## 🪞 Utiliser l'outillage qu'on prêche
+
+- `[1× — 2026-07-25]` ⭐ **J'ai écrit un skill à la main SANS charger `nodefony-skill`** — en livrant, dans la même session, un banc qui mesure si un agent découvre l'outillage existant. Le user l'a demandé (« tu as utilisé le skill ? ») ; les gates ont mordu aussitôt : description à **1072 > 1024**, et surtout **zéro cas au banc de déclenchement** (porte non testée, donc invérifiable). Règle : avant de produire un artefact STRUCTURANT (skill, banc, doc de référence), la première question est « un skill couvre-t-il ça ? » — c'est exactement le réflexe que le devkit essaie d'installer chez les autres.
+- `[1× — 2026-07-25]` **Un protocole improvisé qui trouve des bugs doit devenir rejouable le jour même.** Le protocole de vérification du code généré (app témoin → compile → build → tests → HTTP réel) a trouvé 4 pannes invisibles aux assertions de chaînes. Laissé en gestes de session, il aurait été réinventé à la vague suivante. Devenu `nodefony-devkit-bench` — et il a trouvé 2 pièges de plus à son premier run automatisé.
 
 ## 🧭 Où vit un outil
 
