@@ -239,6 +239,137 @@ describe("DefaultErrorRenderer — unit tests (P1.5)", () => {
       expect(r.reason).to.contain("qty");
     });
   });
+
+  // Écrire deux fois la même valeur unique n'est pas une panne : c'est un refus
+  // d'état, et le client peut agir dessus (proposer un autre identifiant). Rendu
+  // en 500, il n'avait aucun moyen de faire la différence avec un serveur cassé.
+  describe("violation de contrainte unique → 409", () => {
+    /**
+     * Erreur telle qu'un pilote la produit, ENVELOPPÉE comme le fait Drizzle.
+     *
+     * L'enveloppe n'est pas un détail de mise en scène : `DrizzleQueryError`
+     * porte un `code` à `undefined` et range l'erreur réelle dans `cause`. Un
+     * test qui poserait le code au premier niveau validerait un renderer
+     * incapable de reconnaître le cas réel.
+     */
+    function driverError(code: string | number, wrapped = true): Error {
+      const inner = new Error(
+        "UNIQUE constraint failed: posts.slug",
+      ) as Error & {
+        code: unknown;
+      };
+      inner.code = code;
+      if (!wrapped) return inner;
+      const outer = new Error("Failed query: insert into posts") as Error & {
+        cause: unknown;
+      };
+      outer.name = "DrizzleQueryError";
+      outer.cause = inner;
+      return outer;
+    }
+
+    it("SQLite — doublon enveloppé par Drizzle → 409", () => {
+      const ctx = fakeHttpContext();
+      const r = renderer.renderHttp(
+        driverError("SQLITE_CONSTRAINT_UNIQUE"),
+        ctx as never,
+      );
+      expect(r.status).to.equal(409);
+    });
+
+    it("PostgreSQL — 23505 → 409", () => {
+      const ctx = fakeHttpContext();
+      const r = renderer.renderHttp(driverError("23505"), ctx as never);
+      expect(r.status).to.equal(409);
+    });
+
+    it("MySQL — ER_DUP_ENTRY → 409", () => {
+      const ctx = fakeHttpContext();
+      const r = renderer.renderHttp(driverError("ER_DUP_ENTRY"), ctx as never);
+      expect(r.status).to.equal(409);
+    });
+
+    it("MongoDB — E11000 (code numérique) → 409", () => {
+      const ctx = fakeHttpContext();
+      const r = renderer.renderHttp(driverError(11000), ctx as never);
+      expect(r.status).to.equal(409);
+    });
+
+    it("erreur de pilote NUE (sans enveloppe) → 409 aussi", () => {
+      const ctx = fakeHttpContext();
+      const r = renderer.renderHttp(driverError("23505", false), ctx as never);
+      expect(r.status).to.equal(409);
+    });
+
+    it("le message du pilote ne franchit PAS la frontière (ni table ni colonne)", () => {
+      const ctx = fakeHttpContext();
+      const r = renderer.renderHttp(
+        driverError("SQLITE_CONSTRAINT_UNIQUE"),
+        ctx as never,
+      );
+      expect(r.message).to.not.contain("posts");
+      expect(r.message).to.not.contain("slug");
+      expect(r.message.toLowerCase()).to.contain("conflict");
+    });
+
+    // Contrôle négatif : le générique couvre AUSSI NOT NULL, CHECK et les clés
+    // étrangères. Le confondre avec l'unicité rendrait 409 sur une donnée qui
+    // viole le schéma — le client corrigerait la mauvaise chose.
+    it("SQLITE_CONSTRAINT générique n'est PAS un conflit d'unicité", () => {
+      const ctx = fakeHttpContext();
+      const r = renderer.renderHttp(
+        driverError("SQLITE_CONSTRAINT"),
+        ctx as never,
+      );
+      expect(r.status).to.equal(500);
+    });
+
+    it("une erreur ordinaire reste 500 — la détection ne déborde pas", () => {
+      const ctx = fakeHttpContext();
+      const r = renderer.renderHttp(driverError("ECONNREFUSED"), ctx as never);
+      expect(r.status).to.equal(500);
+    });
+
+    it("un `cause` cyclique ne fait pas boucler le rendu", () => {
+      const ctx = fakeHttpContext();
+      const a = new Error("a") as Error & { cause: unknown };
+      const b = new Error("b") as Error & { cause: unknown };
+      a.cause = b;
+      b.cause = a;
+      const r = renderer.renderHttp(a, ctx as never);
+      expect(r.status).to.equal(500);
+    });
+  });
+
+  // Un `code` d'erreur n'est pas un statut HTTP. `nodefonyError.parseMessage`
+  // recopie celui de l'erreur source, et Node comme les pilotes en produisent
+  // des textuels — qui partaient tels quels dans `setStatusCode()`.
+  describe("un code non numérique ne devient jamais un statut", () => {
+    it("une erreur Node (`ENOENT`) rend 500, pas la chaîne", () => {
+      const ctx = fakeHttpContext();
+      const e = new Error("no such file") as Error & { code: unknown };
+      e.code = "ENOENT";
+      const r = renderer.renderHttp(e, ctx as never);
+      expect(r.status).to.equal(500);
+      expect(ctx.metaData.code).to.equal(500);
+    });
+
+    it("un code hors plage HTTP retombe sur 500", () => {
+      const ctx = fakeHttpContext();
+      const e = new Error("bizarre") as Error & { code: unknown };
+      e.code = 9999;
+      const r = renderer.renderHttp(e, ctx as never);
+      expect(r.status).to.equal(500);
+    });
+
+    it("sur WebSocket, un code textuel ferme en 1011 (panne), pas en NaN", () => {
+      const ctx = fakeWsContext({ rejected: false });
+      const e = new Error("socket") as Error & { code: unknown };
+      e.code = "ECONNRESET";
+      const r = renderer.renderWebsocket(e, ctx as never);
+      expect(r.code).to.equal(1011);
+    });
+  });
 });
 
 /**

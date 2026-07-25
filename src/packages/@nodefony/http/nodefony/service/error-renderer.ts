@@ -13,6 +13,45 @@ import { Nodefony, nodefonyError } from "nodefony";
 const VALIDATION_STATUS = 422;
 
 /**
+ * Statut d'un conflit d'ÉTAT : la requête est valide, c'est l'état courant du
+ * serveur qui la refuse (RFC 9110 §15.5.10). Réécrire une valeur déclarée unique
+ * est exactement ce cas — ni 400 (le corps est lisible), ni 422 (le contenu
+ * respecte le schéma), ni 500 (rien n'est cassé).
+ */
+const CONFLICT_STATUS = 409;
+
+/**
+ * Codes rendus par les pilotes de base de données quand une écriture viole une
+ * contrainte d'UNICITÉ — le seul signal fiable, commun à tous les moteurs.
+ *
+ * Volontairement restreint aux codes qui ne désignent QUE l'unicité : le
+ * `SQLITE_CONSTRAINT` générique couvre aussi NOT NULL, CHECK et les clés
+ * étrangères, et le retenir rendrait un 409 là où la vérité est un 422 (ou un
+ * 500). Un code inconnu retombe donc sur le comportement d'avant — l'oubli coûte
+ * un statut trop pessimiste, jamais un mensonge.
+ */
+const UNIQUE_VIOLATION_CODES = new Set<string>([
+  "SQLITE_CONSTRAINT_UNIQUE", // better-sqlite3 — code étendu
+  "SQLITE_CONSTRAINT_PRIMARYKEY",
+  "23505", // PostgreSQL — unique_violation
+  "ER_DUP_ENTRY", // MySQL / MariaDB
+  "1062", // MySQL — errno de ER_DUP_ENTRY
+  "11000", // MongoDB — E11000 duplicate key
+  "11001", // MongoDB — duplicate key on update
+]);
+
+/**
+ * Ce qu'un client reçoit sur un doublon.
+ *
+ * Le message du pilote (« UNIQUE constraint failed: posts.slug ») nomme la table
+ * ET la colonne : c'est de la cartographie de schéma offerte à qui frappe la
+ * porte. Le détail reste dans la `stack` — journal côté serveur, et corps de
+ * réponse hors production.
+ */
+const UNIQUE_VIOLATION_MESSAGE =
+  "Conflict — a resource with these unique values already exists";
+
+/**
  * Ce qu'un client reçoit à la place du détail d'une panne serveur, en production.
  *
  * Le message d'une exception non maîtrisée cite volontiers un chemin de fichier,
@@ -126,6 +165,46 @@ function toValidationError(
 }
 
 /**
+ * Vrai si l'erreur — ou l'une de ses causes — est une violation de contrainte
+ * d'unicité remontée par un pilote de base de données.
+ *
+ * **La descente dans `cause` n'est pas un raffinement, c'est la condition pour
+ * que ça marche** : Drizzle enveloppe toute erreur de pilote dans un
+ * `DrizzleQueryError` dont le `code` vaut `undefined`. Sans elle, une écriture
+ * en doublon reste un 500.
+ *
+ * Reconnaissance par CODE seul, jamais par message : « duplicate key » dans un
+ * texte d'erreur est un indice, pas une preuve, et un faux positif déguiserait
+ * une panne réelle en conflit — le client réessaierait autrement au lieu
+ * d'alerter. Même parti-pris de duck-typing que `toValidationFields`, pour la
+ * même raison (l'application peut embarquer sa propre copie du pilote).
+ *
+ * Ne coûte rien au chemin nominal : ne tourne que sur une erreur déjà levée.
+ *
+ * @param error - erreur remontée par le pipeline.
+ * @returns vrai si un code de violation d'unicité est trouvé dans la chaîne.
+ */
+function isUniqueViolation(error: Error): boolean {
+  let current: unknown = error;
+  // Chaîne bornée : un pilote enveloppe une fois (Drizzle), deux au pire. La
+  // borne protège aussi d'un `cause` cyclique, qui bouclerait sur un chemin
+  // d'erreur — l'endroit exact où l'on ne veut pas d'une seconde panne.
+  for (let depth = 0; depth < 5 && current instanceof Error; depth += 1) {
+    const candidate = current as Error & { code?: unknown; errno?: unknown };
+    if (
+      (candidate.code !== undefined &&
+        UNIQUE_VIOLATION_CODES.has(String(candidate.code))) ||
+      (candidate.errno !== undefined &&
+        UNIQUE_VIOLATION_CODES.has(String(candidate.errno)))
+    ) {
+      return true;
+    }
+    current = candidate.cause;
+  }
+  return false;
+}
+
+/**
  * Default Nodefony error renderer — preserves the legacy JSON error shape.
  *
  * HTTP body (unchanged across the migration):
@@ -189,7 +268,13 @@ class DefaultErrorRenderer implements IErrorRenderer {
     const httpError = this.toHttpError(error, context);
     // Reject phase (no WS connection yet): caller uses HTTP-style status.
     // Connected phase: caller uses WS close code. Both clamped here.
-    let code = (httpError.code as number) ?? 500;
+    // Le code n'est retenu que s'il est numérique (même raison qu'en HTTP : un
+    // code de pilote est une chaîne). On ne passe PAS par `normalizeHttpStatus`
+    // ici : en phase connectée le code est déjà un code de fermeture WS
+    // (1000-4999), qu'elle écraserait en 500.
+    const rawCode = (httpError as { code?: unknown }).code;
+    let code =
+      typeof rawCode === "number" && Number.isInteger(rawCode) ? rawCode : 500;
     if (
       context &&
       (context as unknown as { rejected?: boolean }).rejected === false
@@ -233,17 +318,44 @@ class DefaultErrorRenderer implements IErrorRenderer {
       (httpError as HttpError & { fields: IValidationField[] }).fields = fields;
       return httpError;
     }
-    const code = (error as { code?: number }).code;
+    if (isUniqueViolation(error)) {
+      // Message string, JAMAIS l'erreur d'origine : `nodefonyError.parseMessage`
+      // recopie le `code` de l'erreur qu'on lui passe — lui donner l'erreur du
+      // pilote écraserait le 409 par « 23505 ».
+      const conflict = new nodefonyError(
+        UNIQUE_VIOLATION_MESSAGE,
+        CONFLICT_STATUS,
+      );
+      conflict.stack = error.stack;
+      return new HttpError(
+        conflict,
+        CONFLICT_STATUS,
+        context as unknown as undefined,
+      );
+    }
+    // Le `code` n'est passé que s'il est numérique : `HttpError` pose
+    // `response.statusCode = code` DÈS son constructeur, donc un code textuel de
+    // pilote atteindrait la réponse avant même le rendu.
+    const code = (error as { code?: unknown }).code;
     return new HttpError(
       error,
-      code as number,
+      typeof code === "number" ? code : undefined,
       context as unknown as undefined,
     );
   }
 
-  private normalizeHttpStatus(code: number | undefined): number {
+  /**
+   * Ramène un `code` d'erreur à un statut HTTP réellement émettable.
+   *
+   * Le filtre de type n'est pas défensif « au cas où » : `nodefonyError.parseMessage`
+   * RECOPIE le code de l'erreur source, et pilotes comme Node en produisent des
+   * textuels (`"ENOENT"`, `"ECONNRESET"`, `"23505"`). Sans lui, la chaîne partait
+   * telle quelle en statut de réponse et le serveur répondait hors RFC 9110 §15.
+   */
+  private normalizeHttpStatus(code: unknown): number {
+    if (typeof code !== "number" || !Number.isInteger(code)) return 500;
     if (code === 200) return 500; // legacy quirk preserved
-    if (!code) return 500;
+    if (code < 100 || code > 599) return 500;
     return code;
   }
 }

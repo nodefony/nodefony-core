@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-24T22:54:11.125Z",
+  "generated": "2026-07-25T01:01:17.244Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1047,
-    "symbols": 2865,
+    "symbols": 2870,
     "classes": 334,
-    "interfaces": 750,
+    "interfaces": 751,
     "types": 330,
     "enums": 4,
-    "functions": 863,
+    "functions": 867,
     "constants": 584
   },
   "symbols": {
@@ -3158,7 +3158,7 @@
       "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Analyse la déclaration textuelle des champs. Grammaire : `nom:type[?][!][:index]` · `nom:ref:Entité[?][!]` - `?` → nullable (sinon **NOT NULL** : une colonne nullable est une décision, pas un oubli…"
+      "description": "Analyse la déclaration textuelle des champs. Grammaire : `nom:type[?][!][=defaut][:index]` · `nom:ref:Entité[?][!][:index]` - `?` → nullable (sinon **NOT NULL** : une colonne nullable est une décis…"
     },
     "buildEntityCodegen": {
       "name": "buildEntityCodegen",
@@ -8983,6 +8983,15 @@
       "module": "@nodefony/framework",
       "extends": null,
       "description": "Contrat structurel du service de ressource consommé par un {@link ResourceController} — aligné sur `AbstractCrudService` (`@nodefony/orm-core`) SANS en dépendre : le framework ne connaît pas l'ORM,…"
+    },
+    "IResourcePageQuery": {
+      "name": "IResourcePageQuery",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "IPageQuery",
+      "description": "Requête de page telle qu'une porte la passe au service — `IPageQuery` du core, plus les critères que la sous-classe a EXPLICITEMENT décidé d'exposer. Miroir structurel de `PageQuery<T>` (orm-core) …"
     },
     "IResourceService": {
       "name": "IResourceService",
@@ -20175,6 +20184,7 @@
       ],
       "IPageQuery": [
         "IIdempotencyListQuery",
+        "IResourcePageQuery",
         "ISessionListQuery",
         "PageQuery",
         "IAuditListQuery",
@@ -23039,6 +23049,7 @@
       "IPageQuery": [
         "src/nodefony/src/runtime/pageGuard.ts",
         "src/nodefony/src/types/IIdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
@@ -23071,6 +23082,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
@@ -24284,6 +24296,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
