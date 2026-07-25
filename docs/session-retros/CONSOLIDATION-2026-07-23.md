@@ -60,7 +60,7 @@ hypothèse est le cwd_.
   output        10,23 M tokens        cache write 1h   30,2 M
   cache READ  4 497    M tokens   ← 76 % du coût à lui seul
   ------------------------------------------------------------
-  ≈ 8 900 USD / 8 200 EUR      cache 91 %  ·  output 9 %
+  répartition du coût :        cache 91 %  ·  output 9 %
 ```
 
 **Ce que je produis coûte 9 %. Relire le contexte coûte 91 %.** Moyenne : **~269 k tokens de
