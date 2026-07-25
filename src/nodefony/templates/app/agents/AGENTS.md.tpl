@@ -148,20 +148,34 @@ désigne jamais la cause : c'est ce qui les rend chers.
 
 | Symptôme | Cause réelle | Le geste |
 | --- | --- | --- |
-| **La route existe dans le code et répond 404** | le runtime charge `dist/`, pas tes sources | `npm run build` (ou laisse le serveur dev le faire) |
-| **TOUT répond 404, même les routes du gabarit** | un AUTRE serveur Nodefony tient les ports — ta requête part chez lui | `nodefony status` puis `nodefony stop` |
+| **Un test rouge en suite, VERT rejoué seul** | une ressource PARTAGÉE entre fichiers (serveur, table, état global) — pas une régression de ton diff | rejoue-le seul : l'isolation dit la vérité ; puis donne à chaque fichier sa propre ressource |
+| **Le serveur lancé en arrière-plan a disparu** | `… &` reçoit SIGHUP et meurt ; et tuer le PID du port ne tue pas le superviseur, qui respawne | `nodefony production --detach --wait` pour démarrer, `nodefony stop` pour arrêter — jamais `&`, jamais un kill par le port |
+| **Des dizaines de tests d'intégration rouges d'un coup** | ils FRAPPENT un serveur, ils ne le lancent pas : il est éteint (`ECONNREFUSED`) | `nodefony status` d'abord ; en e2e, laisse la commande gérer le cycle |
+| **La route existe dans le code et répond 404** | le runtime charge `dist/`, pas tes sources | `npm run build` — et en cas de doute vérifie le `dist/` par son CONTENU (`grep` du symbole), jamais par sa date |
+| **TOUT répond 404, même les routes du gabarit** | un AUTRE serveur tient les ports — ou LE TIEN a glissé sur d'autres ports, le port voulu étant pris | `nodefony status` : il montre les ports RÉELS, pas ceux que tu as configurés |
+| **Ça marche en dev, c'est mort en production** | les modules `policy: dev` sont RETIRÉS en production — ce qu'ils portaient disparaît avec eux | avant de livrer, UN boot `nodefony production --detach --wait` et rejoue tes vérifications |
+| **Un réglage de `nodefony.config.ts` ne change rien** | clé inconnue ou mal placée : retirée EN SILENCE à la validation | `nodefony inspect config --json` — la config effective et la provenance de chaque valeur |
 | **Une variable d'environnement « ne prend pas »** | mal orthographiée (ignorée en silence) ou masquée par un rang supérieur | `nodefony env` — il montre la valeur EFFECTIVE et sa provenance |
+| **Après un échec au milieu d'une chaîne `&&`, tout ment** | rien d'aval n'a tourné : tu mesures l'état d'AVANT | après tout échec, considère que la suite n'a pas eu lieu — revérifie que l'artefact mesuré a été régénéré |
 | **Les tests passent, `npm run typecheck` échoue** | le runner efface les types : un test vert ne typecheck rien | lance les DEUX avant de conclure |
 | **Suite verte, et le câblage est mort** | un test qui ne quitte pas la brique ne prouve que la brique | débranche le point de câblage : si rien ne tombe, il n'est pas testé |
 | **Un test vert « prouve » une garantie de sécurité** | elle est vraie dans la fonction, fausse sur le trajet réel | frappe la route en anonyme et regarde si le code a tourné |
 | **Un test qui n'a jamais échoué** | il ne garde rien — un test neuf est complaisant par défaut | casse-le exprès une fois, vérifie qu'il rougit |
-| **« Tout est vert » alors qu'une suite ne s'est pas exécutée** | un test sauté faute d'infra compte comme réussi | lis le NOMBRE de tests, pas la couleur |
-<% if (it.front) { %>| **Ta modif front n'apparaît pas** | le navigateur sert son cache | rechargement forcé, et vérifie que Vite a bien recompilé |
+| **« Tout est vert » alors qu'une suite ne s'est pas exécutée** | un test sauté compte comme réussi — et un fichier jamais COLLECTÉ (erreur de syntaxe, hors du glob) ne compte pas du tout | lis le NOMBRE de tests, pas la couleur |
+| **`localhost` et `127.0.0.1` te jouent des tours** | ce sont deux ORIGINES distinctes : cookies, cache et passkeys ne les partagent pas | une seule origine en développement, partout — URL ouverte comme callbacks |
+<% if (it.hasOrm) { %>| **La modif d'une entité « ne prend pas »** (erreur SQL au runtime) | le schéma de développement fait `CREATE TABLE IF NOT EXISTS` — une table existante n'est JAMAIS altérée | en dev, supprime la table (ou le fichier de base sous `var/`) et relance ; en production, une migration |
+<% } %><% if (it.hasSecurity) { %>| **Les routes authentifiées plafonnent** quand le reste tient la charge | le stockage de session par défaut est SYNCHRONE : chaque reprise bloque la boucle d'événements | compare une route anonyme et une route authentifiée AVANT d'accuser TLS ou le pare-feu ; passe le stockage sur redis pour la charge |
+<% } %><% if (it.front) { %>| **En production, la modif front n'apparaît jamais** | hors développement il n'y a PAS de rechargement à chaud, et le manifeste est lu AU BOOT | `npm run build` → **redémarre le serveur** → rechargement forcé |
+| **Ta modif front n'apparaît pas (en dev)** | le navigateur sert son cache — et le rechargement à chaud ne remplace ni un singleton ni un composant qui gagne des hooks : le code neuf tourne sur du vieil état | rechargement forcé, et vérifie que Vite a bien recompilé |
+| **Une route d'API répond du HTML** | un repli SPA générique avale les routes voisines — le premier motif qui correspond gagne | repli en préfixe LITTÉRAL ; `nodefony inspect routes --json` montre l'ordre réel |
+| **Des utilisateurs « déconnectés au hasard »** | le traitement global « 401 = session expirée » frappe aussi les sondes d'authentification, où 401 est NORMAL — et détruit une session valide | exempte les sondes du traitement global |
 <% } %>
 **Ce qui coûte le plus de tokens** : enchaîner arrêt → construction → démarrage
 après chaque petite modification. Regroupe TOUTES tes modifications serveur, puis
 UN seul cycle. Le serveur de développement reconstruit tout seul<% if (it.front) { %>, et le front
-passe en rechargement à chaud — zéro redémarrage<% } %>.
+passe en rechargement à chaud — zéro redémarrage<% } %>. Et ne lance **jamais** une
+construction pendant qu'une suite de tests interroge le serveur : il redémarre au
+milieu, et tu passes l'heure suivante sur des 404 fantômes.
 
 ## Modules du projet
 
