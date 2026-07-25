@@ -22,7 +22,7 @@ import {
   Tooltip,
   type MantineColor,
 } from "@mantine/core";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import {
   IconDatabase,
   IconPlugConnected,

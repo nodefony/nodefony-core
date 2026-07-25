@@ -46,7 +46,7 @@ import {
   IconArrowLeft,
   IconInfoCircle,
 } from "@tabler/icons-react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { useStore, useAuth, useUi } from "../stores";
 import { hasRole } from "nodefony/roles";
 import { ROLE_DEV } from "../auth/roles";

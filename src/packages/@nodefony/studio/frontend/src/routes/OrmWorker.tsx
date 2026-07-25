@@ -11,7 +11,7 @@ import {
   Alert,
   Loader,
 } from "@mantine/core";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router";
 import {
   IconArrowLeft,
   IconDatabase,

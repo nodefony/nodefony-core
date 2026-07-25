@@ -3,11 +3,8 @@ import { observer } from "mobx-react-lite";
 import { MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import { ModalsProvider } from "@mantine/modals";
-import {
-  createBrowserRouter,
-  Navigate,
-  RouterProvider,
-} from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router";
+import { RouterProvider } from "react-router/dom";
 
 import { NodefonyProvider } from "nodefony/react";
 import { StoreProvider, RootStore, useAuth } from "./stores";

@@ -17,7 +17,7 @@
  * secondes, et une requête muette pendant tout ce temps n'apprend rien à personne.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import {
   Alert,
   Badge,

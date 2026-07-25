@@ -1,7 +1,7 @@
 import { observer } from "mobx-react-lite";
 import { Stack, ThemeIcon, Title, Text, Button, Code } from "@mantine/core";
 import { IconLock, IconHome } from "@tabler/icons-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useAuth } from "../stores";
 
 /**

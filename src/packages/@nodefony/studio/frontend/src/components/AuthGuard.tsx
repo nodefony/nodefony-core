@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router";
 import { Center, Loader } from "@mantine/core";
 import { useAuth } from "../stores";
 

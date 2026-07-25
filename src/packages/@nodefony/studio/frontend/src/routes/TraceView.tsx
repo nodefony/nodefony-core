@@ -15,7 +15,7 @@
  */
 import { observer } from "mobx-react-lite";
 import { useCallback, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router";
 import {
   Alert,
   Badge,

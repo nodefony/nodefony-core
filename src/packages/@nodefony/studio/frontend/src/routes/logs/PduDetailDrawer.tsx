@@ -11,7 +11,7 @@
  */
 import { observer } from "mobx-react-lite";
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import {
   ActionIcon,
   Alert,
@@ -62,13 +62,7 @@ export interface PduDetailDrawerProps {
 }
 
 /** Une ligne compacte de la mini-chronologie du drawer. */
-function TimelineRow({
-  row,
-  current,
-}: {
-  row: LogRecord;
-  current: boolean;
-}) {
+function TimelineRow({ row, current }: { row: LogRecord; current: boolean }) {
   const flow = describeFlow(row);
   return (
     <Group
@@ -98,7 +92,12 @@ function TimelineRow({
       </Text>
       <SeverityBadge severity={row.severityName} size="xs" />
       {flow && (
-        <Badge size="xs" variant="light" color={flow.color} style={{ flexShrink: 0 }}>
+        <Badge
+          size="xs"
+          variant="light"
+          color={flow.color}
+          style={{ flexShrink: 0 }}
+        >
           {flow.label}
         </Badge>
       )}
@@ -330,9 +329,9 @@ export const PduDetailDrawer = observer(
                     p="xs"
                   >
                     <Text size="xs">
-                      Connexion <b>WebSocket</b> : la ligne « Handshake terminé »
-                      marque la fin de l'ouverture, puis chaque « Message reçu »
-                      arrive au fil de l'eau sous le même requestId. Le{" "}
+                      Connexion <b>WebSocket</b> : la ligne « Handshake terminé
+                      » marque la fin de l'ouverture, puis chaque « Message reçu
+                      » arrive au fil de l'eau sous le même requestId. Le{" "}
                       <b>contenu</b> des frames échangées (JSON-RPC) se consulte
                       dans la console <b>Realtime Hub</b> (log protocole) — les
                       logs serveur ne tracent que l'arrivée d'un message.

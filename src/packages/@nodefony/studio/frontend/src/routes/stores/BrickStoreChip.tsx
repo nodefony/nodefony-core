@@ -9,7 +9,7 @@ import { observer } from "mobx-react-lite";
 import { useCallback } from "react";
 import { Badge, HoverCard, Stack, Group, Text, Anchor } from "@mantine/core";
 import { IconDatabase, IconAlertTriangle } from "@tabler/icons-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useStore } from "../../stores";
 import { useResource } from "../../hooks";
 import { KeyValue } from "../../components/ui";

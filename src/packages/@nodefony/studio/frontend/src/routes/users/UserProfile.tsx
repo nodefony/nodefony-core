@@ -12,7 +12,7 @@
  */
 import { useCallback, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router";
 import {
   Tabs,
   Card,

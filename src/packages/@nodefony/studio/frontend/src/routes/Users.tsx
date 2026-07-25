@@ -14,7 +14,7 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import {
   Stack,
   Grid,

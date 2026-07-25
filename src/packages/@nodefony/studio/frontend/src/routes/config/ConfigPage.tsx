@@ -9,7 +9,7 @@
  */
 import { useCallback, useMemo } from "react";
 import { observer } from "mobx-react-lite";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import {
   ActionIcon,
   Badge,

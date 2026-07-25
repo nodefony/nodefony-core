@@ -1,6 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { jsonSchemaToSections } from "./config/jsonSchemaToSections";
 import { withOverrideKeys } from "./config/configModel";
 import { ConfigExplorer } from "./config/ConfigExplorer";

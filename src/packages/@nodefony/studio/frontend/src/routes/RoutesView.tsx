@@ -1,6 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Badge, Code, Group, Text, Tooltip } from "@mantine/core";
 import { IconRoute, IconShieldOff } from "@tabler/icons-react";
 import { useStore } from "../stores";

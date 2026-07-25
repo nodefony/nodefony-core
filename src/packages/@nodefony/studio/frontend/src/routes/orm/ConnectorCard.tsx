@@ -31,7 +31,7 @@ import {
   ActionIcon,
   type MantineColor,
 } from "@mantine/core";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import {
   IconDatabase,
   IconPlugConnected,

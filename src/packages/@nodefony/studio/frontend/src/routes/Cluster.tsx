@@ -30,7 +30,7 @@ import {
   IconDatabase,
   IconAlertTriangle,
 } from "@tabler/icons-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useNodefonyAdaptiveChannelData } from "nodefony/react";
 import { useStore, useUi } from "../stores";
 import { useResource } from "../hooks";

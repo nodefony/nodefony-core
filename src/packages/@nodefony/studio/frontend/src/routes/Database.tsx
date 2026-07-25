@@ -46,7 +46,7 @@ import {
   IconTarget,
   IconArrowsMaximize,
 } from "@tabler/icons-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useStore } from "../stores";
 import {
   PageLayout,

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { observer } from "mobx-react-lite";
-import { Outlet } from "react-router-dom";
+import { Outlet } from "react-router";
 import { useAuth } from "../stores";
 import { isVisibleForRoles } from "../auth/roles";
 import { Forbidden } from "./Forbidden";

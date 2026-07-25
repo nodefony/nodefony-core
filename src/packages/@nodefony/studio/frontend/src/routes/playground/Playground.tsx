@@ -11,7 +11,7 @@
  */
 import { useCallback, useMemo } from "react";
 import { observer } from "mobx-react-lite";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router";
 import {
   Accordion,
   Badge,

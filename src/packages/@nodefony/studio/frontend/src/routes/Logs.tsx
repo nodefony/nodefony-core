@@ -34,7 +34,7 @@ import {
   IconSearch,
 } from "@tabler/icons-react";
 import { useNodefonyState } from "nodefony/react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { useStore } from "../stores";
 import { useResource } from "../hooks";
 import { TabbedPage } from "../components/ui";

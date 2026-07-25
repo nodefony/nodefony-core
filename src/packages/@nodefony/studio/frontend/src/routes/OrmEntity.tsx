@@ -1,6 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   Anchor,
   Badge,

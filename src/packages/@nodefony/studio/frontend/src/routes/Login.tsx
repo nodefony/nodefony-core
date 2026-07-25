@@ -30,7 +30,7 @@ import {
   IconUser,
   IconWifiOff,
 } from "@tabler/icons-react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { type ConnectionStep } from "../components/ConnectionStepper";
 import { useAuth, useConnection, useStore } from "../stores";
