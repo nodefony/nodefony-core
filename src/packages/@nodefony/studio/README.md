@@ -4,8 +4,8 @@
 d'introspection et de supervision du framework : modules, services (DI), routes, config, logs,
 santé runtime, cluster, ORM, realtime.
 
-Frontend **React 19 + Mantine v9 + MobX**, servi par `@nodefony/frontend` (Vite). Module
-`private` (non publié) : ses types ne sont pas consommés hors Studio.
+Frontend **React 19 + Mantine v9 + MobX**, servi par `@nodefony/frontend` (Vite). Application admin embarquée : le paquet ne publie pas de types, il n'est pas destiné à être
+consommé comme librairie.
 
 > Docs IA : [`CLAUDE.md`](./CLAUDE.md) · [`MEMORY.md`](./MEMORY.md) · [`docs/`](./docs).
 > **Développement frontend** : invoquer d'abord le skill `nodefony-studio-dev` (UI kit, hooks

@@ -7,9 +7,6 @@ JSON-RPC 2.0 (peer isomorphe partagé avec le client du cœur) et backplane clus
 > 📖 **La doc complète est dans [`docs/`](./docs/)** — vulgarisée, avec analogies physiques,
 > schémas et exemples. Lis-la dans Studio (`/nodefony/documentation` → section Realtime) pour le
 > rendu Mermaid + admonitions + blocs de code copiables.
->
-> L'avancement du module vit dans `MIGRATION_STATUS.md` (§ P13), jamais ici : une carte
-> d'avancement recopiée dans un README se périme sans que personne ne la corrige.
 
 ## Installation
 
@@ -149,6 +146,6 @@ Détail des réglages : [`docs/configuration.md`](./docs/configuration.md).
 | [`docs/observabilite.md`](./docs/observabilite.md) | Sonde, canaux de santé, écrans                |
 | [`docs/cookbook-chat.md`](./docs/cookbook-chat.md) | Exemple de chat de bout en bout               |
 
-## License
+## Licence
 
-CECILL-B
+CeCILL-B — Christophe CAMENSULI.

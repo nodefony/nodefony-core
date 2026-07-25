@@ -1,6 +1,6 @@
 # @nodefony/frontend
 
-Builder frontend Nodefony — supervise [Vite](https://vite.dev/) dans un process séparé pour transpiler les frontends de tes modules (React 19, Vue 3, Svelte 5, vanilla TS).
+Builder frontend Nodefony — supervise [Vite](https://vite.dev/) dans un process séparé pour transpiler les frontends de tes modules (React 19, Vue 3, Angular, vanilla TS).
 
 > Audience : développeur Nodefony qui ajoute son **premier frontend** à un module existant. Tu connais déjà `Module`, `Service`, `Controller`. Si non, lis d'abord le [CLAUDE.md racine](../../../../CLAUDE.md).
 
@@ -8,7 +8,7 @@ Builder frontend Nodefony — supervise [Vite](https://vite.dev/) dans un proces
 
 ## Pourquoi un process séparé ?
 
-Vite a besoin d'un event-loop et d'un tas V8 pour compiler/HMR. L'exécuter **in-proc** dans le serveur Nodefony bloque les requêtes pendant les rebuilds. La branche `poc/frontend-child` valide qu'un process séparé (`child_process.spawn`) isole parfaitement Vite du backend :
+Vite a besoin d'un event-loop et d'un tas V8 pour compiler/HMR. L'exécuter **in-proc** dans le serveur Nodefony bloque les requêtes pendant les rebuilds. Un process séparé (`child_process.spawn`) isole parfaitement Vite du backend :
 
 - Crash Vite ≠ crash Nodefony
 - Compilation Vite ≠ latence event-loop Nodefony
@@ -60,14 +60,13 @@ class MyModule extends Module {
 
   override async onKernelBoot(): Promise<this> {
     const svc = this.kernel?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
+      FrontendService | undefined;
     svc?.registerEntry(this, {
-      type: "react19",                       // | "vanilla"
-      entry: "./frontend/src/main.tsx",      // relatif au module
-      root: "./frontend",                    // contient index.html
-      outDir: "./public/dist",               // pour la prod build
-      name: "my-module",                     // nom logique (entryName)
+      type: "react19", // | "vanilla"
+      entry: "./frontend/src/main.tsx", // relatif au module
+      root: "./frontend", // contient index.html
+      outDir: "./public/dist", // pour la prod build
+      name: "my-module", // nom logique (entryName)
       // Quand le browser fait fetch("/my/api/x") depuis l'app Vite,
       // Vite proxifie vers Nodefony :
       apiProxyPaths: ["/my/api"],
@@ -120,11 +119,10 @@ class MyController extends Controller {
   renderReact(): unknown {
     this.setContextHtml();
     const svc = this.context?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
+      FrontendService | undefined;
 
-    // ⚠️ TODO module security — pour l'instant, le controller doit
-    // override la CSP pour autoriser les origines Vite cross-origin.
+    // En développement, la CSP doit autoriser les origines Vite cross-origin :
+    // le controller surcharge l'en-tête via les directives du service.
     if (svc) {
       this.context?.response?.setHeader(
         "Content-Security-Policy",
@@ -132,8 +130,8 @@ class MyController extends Controller {
       );
     }
 
-    const viteTags = svc?.renderTags("my-module")
-      ?? "<!-- @nodefony/frontend not started -->";
+    const viteTags =
+      svc?.renderTags("my-module") ?? "<!-- @nodefony/frontend not started -->";
 
     return this.render(`<!DOCTYPE html>
 <html lang="en">
@@ -174,18 +172,18 @@ Dans le `config.ts` de **ton app** ou de **ton module** :
 ```ts
 const config = {
   "module-frontend": {
-    devHost: "127.0.0.1",         // host d'écoute Vite
-    devPort: 5173,                 // port Vite (incrémenté si occupé)
-    autoStartInDevelopment: true,  // démarre Vite en env=development
-    pipeViteLogs: true,            // logs Vite dans syslog Nodefony
+    devHost: "127.0.0.1", // host d'écoute Vite
+    devPort: 5173, // port Vite (incrémenté si occupé)
+    autoStartInDevelopment: true, // démarre Vite en env=development
+    pipeViteLogs: true, // logs Vite dans syslog Nodefony
 
     // HTTPS — partage les certs Nodefony (server-https 5152)
-    https: true,                   // false par défaut
+    https: true, // false par défaut
 
     // Proxy backend Vite → Nodefony
     backendHost: "127.0.0.1",
     backendPort: 5151,
-    backendProtocol: "http",       // http | https
+    backendProtocol: "http", // http | https
 
     // Variables d'env passées à Vite (les VITE_* sont exposées au browser)
     viteEnv: {
@@ -194,13 +192,13 @@ const config = {
 
     // Résilience supervisor
     resilience: {
-      autoRestart: true,                 // restart sur crash
-      maxRestarts: 5,                    // avant abandon
-      restartBackoffBaseMs: 500,         // backoff exponentiel
+      autoRestart: true, // restart sur crash
+      maxRestarts: 5, // avant abandon
+      restartBackoffBaseMs: 500, // backoff exponentiel
       restartBackoffMaxMs: 8_000,
-      healthCheckIntervalMs: 30_000,     // ping HTTP périodique (0 = off)
-      healthCheckFailureThreshold: 3,    // échecs avant restart
-      portRetryAttempts: 3,              // port+1, port+2 sur EADDRINUSE
+      healthCheckIntervalMs: 30_000, // ping HTTP périodique (0 = off)
+      healthCheckFailureThreshold: 3, // échecs avant restart
+      portRetryAttempts: 3, // port+1, port+2 sur EADDRINUSE
     },
   },
 };
@@ -214,12 +212,12 @@ Tout est optionnel — les defaults fonctionnent out-of-the-box.
 
 `FrontendService` est un `Service` Nodefony (donc un `EventEmitter`). Tu peux écouter :
 
-| Event                | Payload                            | Quand                                        |
-| -------------------- | ---------------------------------- | -------------------------------------------- |
-| `frontend:starting`  | `{ backendOrigin, entries }`       | Juste avant le spawn Vite                    |
-| `frontend:ready`     | `IViteSupervisorStatus`            | Vite a annoncé `Local:` dans son stdout      |
-| `frontend:error`     | `Error`                            | Spawn ou ready timeout échoué                |
-| `frontend:stopped`   | (rien)                             | Après `stop()` propre (SIGINT envoyé)        |
+| Event               | Payload                      | Quand                                   |
+| ------------------- | ---------------------------- | --------------------------------------- |
+| `frontend:starting` | `{ backendOrigin, entries }` | Juste avant le spawn Vite               |
+| `frontend:ready`    | `IViteSupervisorStatus`      | Vite a annoncé `Local:` dans son stdout |
+| `frontend:error`    | `Error`                      | Spawn ou ready timeout échoué           |
+| `frontend:stopped`  | (rien)                       | Après `stop()` propre (SIGINT envoyé)   |
 
 Exemple :
 
@@ -239,11 +237,11 @@ interface IFrontendService {
   registerEntry(module, declaration): IResolvedFrontendEntry;
   listEntries(): ReadonlyArray<IResolvedFrontendEntry>;
   status(): IViteSupervisorStatus;
-  startDev(): Promise<void>;          // appelé auto par onServersReady
+  startDev(): Promise<void>; // appelé auto par onServersReady
   stopDev(): Promise<void>;
-  build(): Promise<void>;              // vite.build() in-proc
+  build(): Promise<void>; // vite.build() in-proc
   renderTags(entryName): string;
-  getCspDirectives(): string;          // CSP custom pour helmet override
+  getCspDirectives(): string; // CSP custom pour helmet override
 }
 ```
 
@@ -254,15 +252,18 @@ interface IFrontendService {
 ### Page blanche, scripts bloqués par CSP
 
 Le helmet de `@nodefony/security` pose `script-src 'self'` par défaut. Override dans le controller :
-```ts
-this.context.response.setHeader("Content-Security-Policy", svc.getCspDirectives());
-```
 
-> TODO : exposer une API dans `@nodefony/security` pour que `FrontendService.startDev()` enregistre ses origines globalement.
+```ts
+this.context.response.setHeader(
+  "Content-Security-Policy",
+  svc.getCspDirectives(),
+);
+```
 
 ### `Unexpected token '<'` sur `fetch("/api/...")`
 
 Vite sert son SPA-fallback HTML pour les routes inconnues. Déclare le préfixe dans `apiProxyPaths` :
+
 ```ts
 svc.registerEntry(this, { ..., apiProxyPaths: ["/my/api"] });
 ```
@@ -288,8 +289,8 @@ Le superviseur abandonne après `maxRestarts` (default 5). Regarde les logs Vite
 ## Tests
 
 ```bash
-npm test                     # 14 unit tests — ViteConfigGenerator
-npm run test:integration     # 3 integration tests — supervisor real spawn (~6s)
+npm test                     # unit — ViteConfigGenerator
+npm run test:integration     # intégration — supervisor, spawn réel
 ```
 
 Les tests d'intégration nécessitent `vite` installé (déjà en devDependencies du repo).

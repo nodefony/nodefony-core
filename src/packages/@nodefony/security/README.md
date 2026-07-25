@@ -1,6 +1,6 @@
 # @nodefony/security
 
-Couche de sécurité de Nodefony (**P6**).
+Couche de sécurité de Nodefony.
 
 Firewall par zones, authentication (pattern `IAuthenticator`), autorisation (rôles + voters),
 CORS, CSRF, en-têtes de sécurité, JWT, clés API, WebAuthn/passkeys, OAuth2 social, 2FA TOTP,
@@ -9,7 +9,7 @@ Consomme [`@nodefony/user`](../user).
 
 > **Statut** : cœur livré — firewall + zones, session serveur (NIST), JWT (`jose`), WebAuthn,
 > OAuth2 social, CSRF/CORS/en-têtes natifs, clés API/PAT, 2FA TOTP, webhooks, audit persistant,
-> rate-limit. Reste : voters d'autorisation, CSP nonce par requête, décorateurs `@CsrfProtect`.
+> rate-limit. Reste : voters d'autorisation, décorateurs `@CsrfProtect`.
 
 ## Principes
 

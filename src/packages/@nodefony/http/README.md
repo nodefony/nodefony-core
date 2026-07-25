@@ -63,7 +63,7 @@ confiance). Compteur en mémoire (borné + purge planifiée hors hot-path) ; un 
 ## Tests
 
 ```bash
-npm test                 # unit (vitest, 337 tests, sans serveur)
+npm test                 # unit (vitest, sans serveur)
 npm run test:integration # http/intégration/routing/websockets (serveur dev requis)
 npm run test:load        # charge + heap + leak (serveur requis)
 npm run test:memory      # GATE mémoire (memory.test.ts) — AVANT tout commit pipeline

@@ -159,7 +159,7 @@ Exportées pour un futur générateur de site statique ou le RAG (testées unita
 ```bash
 cd src/packages/@nodefony/documentation
 npm test            # vitest — briques pures (frontmatter / slug / docScanner)
-npm run build       # rollup + TypeScript → dist/ + dist/types
+npm run build       # rolldown + tsgo → dist/ + dist/types
 ```
 
 ## Licence

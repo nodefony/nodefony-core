@@ -12,15 +12,31 @@ Le package `nodefony` est **ESM-only** — zéro `require()`, zéro default expo
 // Imports nommés uniquement
 import {
   Nodefony,
-  Kernel, Module, Service, Container, Event,
-  Syslog, Pdu,
+  Kernel,
+  Module,
+  Service,
+  Container,
+  Event,
+  Syslog,
+  Pdu,
   nodefonyError,
-  inject, injectable, services, entities,
-  extend, typeOf, isArray,
+  inject,
+  injectable,
+  services,
+  entities,
+  extend,
+  typeOf,
+  isArray,
 } from "nodefony";
 
 // Types (tree-shaken à la compilation)
-import type { IKernel, IService, IContainer, IScope, DynamicParam } from "nodefony";
+import type {
+  IKernel,
+  IService,
+  IContainer,
+  IScope,
+  DynamicParam,
+} from "nodefony";
 ```
 
 > `Error` n'est plus exporté — utiliser `nodefonyError`.
@@ -34,10 +50,10 @@ Point d'accès au kernel depuis n'importe où dans l'application.
 ```typescript
 import { Nodefony } from "nodefony";
 
-Nodefony.version;              // "10.0.0"
-Nodefony.getKernel();          // Kernel | null (null avant boot)
-Nodefony.generateId();         // UUID v4
-Nodefony.generateV5Id(name);   // UUID v5
+Nodefony.version; // "10.0.0"
+Nodefony.getKernel(); // Kernel | null (null avant boot)
+Nodefony.generateId(); // UUID v4
+Nodefony.generateV5Id(name); // UUID v5
 ```
 
 ---
@@ -47,6 +63,7 @@ Nodefony.generateV5Id(name);   // UUID v5
 `Service` est la brique fondamentale de Nodefony. Toutes les classes du framework (Kernel, Module, Controller, adapters ORM, services applicatifs) en héritent.
 
 Elle intègre trois responsabilités dans une seule classe de base :
+
 - **DI Container** — accès et injection de dépendances
 - **EventEmitter** — système de notifications (délégation vers un `Event` interne)
 - **Logging structuré** — via `Syslog` / `Pdu`
@@ -79,12 +96,12 @@ new Service(
 )
 ```
 
-| Paramètre | Défaut | Effet |
-|-----------|--------|-------|
-| `container` | `new Container()` | Container DI partagé ou auto-créé |
-| `notificationsCenter` | `new Event()` | `false` = pas d'events ; `Event` = partagé |
-| `options.events.nbListeners` | 10 | Nb max de listeners (propagé si Event partagé) |
-| `options.syslog` | `{ moduleName: name }` | Config du Syslog interne |
+| Paramètre                    | Défaut                 | Effet                                          |
+| ---------------------------- | ---------------------- | ---------------------------------------------- |
+| `container`                  | `new Container()`      | Container DI partagé ou auto-créé              |
+| `notificationsCenter`        | `new Event()`          | `false` = pas d'events ; `Event` = partagé     |
+| `options.events.nbListeners` | 10                     | Nb max de listeners (propagé si Event partagé) |
+| `options.syslog`             | `{ moduleName: name }` | Config du Syslog interne                       |
 
 ### Extension (pattern typique)
 
@@ -135,21 +152,21 @@ svc.prependListener("myEvent", firstHandler); // exécuté avant les autres
 
 // Émettre
 svc.emit("myEvent", payload);
-svc.fire("myEvent", payload);          // alias emit
-await svc.fireAsync("myEvent", data);  // async, attend les handlers async
-await svc.emitAsync("myEvent", data);  // alias fireAsync
+svc.fire("myEvent", payload); // alias emit
+await svc.fireAsync("myEvent", data); // async, attend les handlers async
+await svc.emitAsync("myEvent", data); // alias fireAsync
 
 // Supprimer
 svc.off("myEvent", handler);
 svc.removeListener("myEvent", handler);
-svc.removeAllListeners();              // vide tous les events
-svc.removeAllListeners("myEvent");     // vide un event spécifique
+svc.removeAllListeners(); // vide tous les events
+svc.removeAllListeners("myEvent"); // vide un event spécifique
 
 // Introspection
-svc.eventNames();                      // ['myEvent', ...]
-svc.listenerCount("myEvent");          // 2
-svc.listeners("myEvent");             // [fn1, fn2]
-svc.getMaxListeners();                 // 10
+svc.eventNames(); // ['myEvent', ...]
+svc.listenerCount("myEvent"); // 2
+svc.listeners("myEvent"); // [fn1, fn2]
+svc.getMaxListeners(); // 10
 svc.setMaxListeners(50);
 
 // Auto-wire via options (clés onFoo)
@@ -170,17 +187,17 @@ fire(); // émet "myEvent"
 
 svc.log("message", "INFO");
 svc.log("erreur", "ERROR", "MSGID", "détails");
-svc.spinlog("Chargement...");          // severity SPINNER
-svc.logger("debug payload");           // console.debug
-svc.trace("trace payload");            // console.trace
+svc.spinlog("Chargement..."); // severity SPINNER
+svc.logger("debug payload"); // console.debug
+svc.trace("trace payload"); // console.trace
 
 // Pdu retourné
 const pdu = svc.log("msg", "WARNING");
 pdu.severityName; // "WARNING" (string)
-pdu.severity;     // 4 (numérique)
-pdu.payload;      // "msg"
-pdu.msgid;        // nom du service si msgid non fourni
-pdu.timeStamp;    // Date.now()
+pdu.severity; // 4 (numérique)
+pdu.payload; // "msg"
+pdu.msgid; // nom du service si msgid non fourni
+pdu.timeStamp; // Date.now()
 
 // Initialiser le syslog (filtres par env/debug)
 svc.initSyslog("production", false);
@@ -195,9 +212,9 @@ svc.initSyslog("development", true);
 svc.getName(); // "myService"
 
 // Nettoyage complet
-svc.clean();       // container=null, kernel=null, syslog=null, #nc=undefined
-svc.clean(true);   // idem + syslog.reset() (vide le ring buffer)
-svc.clean(false);  // idem sans reset syslog
+svc.clean(); // container=null, kernel=null, syslog=null, #nc=undefined
+svc.clean(true); // idem + syslog.reset() (vide le ring buffer)
+svc.clean(false); // idem sans reset syslog
 ```
 
 ### Partage de container (scénario framework)
@@ -230,33 +247,33 @@ sharedNC.emit("broadcast"); // les deux services reçoivent
 
 ### API complète — IService
 
-| Méthode | Retour | Description |
-|---------|--------|-------------|
-| `getName()` | `string` | Nom du service |
-| `initSyslog(env, debug, opts?)` | `Syslog \| null` | Initialise le syslog |
-| `clean(syslog?)` | `void` | Libère toutes les références |
-| `log(pci, sev?, msgid?, msg?)` | `Pdu` | Log structuré |
-| `spinlog(msg)` | `Pdu` | Log SPINNER |
-| `logger(pci, ...args)` | `void` | console.debug |
-| `trace(pci, ...args)` | `void` | console.trace |
-| `get<T>(name)` | `T \| null` | Récupère du container |
-| `set<T>(name, obj)` | `void` | Stocke dans le container |
-| `has(name)` | `boolean` | Vérifie dans le container |
-| `remove(name)` | `boolean` | Supprime du container (toujours `false`) |
-| `getParameters(name)` | `DynamicParam \| null` | Paramètre dot-notation |
-| `setParameters(name, val)` | `DynamicParam \| null` | Définit paramètre |
-| `on/off/once/emit/fire/...` | `this \| boolean` | Events (délégation EventEmitter) |
+| Méthode                         | Retour                 | Description                              |
+| ------------------------------- | ---------------------- | ---------------------------------------- |
+| `getName()`                     | `string`               | Nom du service                           |
+| `initSyslog(env, debug, opts?)` | `Syslog \| null`       | Initialise le syslog                     |
+| `clean(syslog?)`                | `void`                 | Libère toutes les références             |
+| `log(pci, sev?, msgid?, msg?)`  | `Pdu`                  | Log structuré                            |
+| `spinlog(msg)`                  | `Pdu`                  | Log SPINNER                              |
+| `logger(pci, ...args)`          | `void`                 | console.debug                            |
+| `trace(pci, ...args)`           | `void`                 | console.trace                            |
+| `get<T>(name)`                  | `T \| null`            | Récupère du container                    |
+| `set<T>(name, obj)`             | `void`                 | Stocke dans le container                 |
+| `has(name)`                     | `boolean`              | Vérifie dans le container                |
+| `remove(name)`                  | `boolean`              | Supprime du container (toujours `false`) |
+| `getParameters(name)`           | `DynamicParam \| null` | Paramètre dot-notation                   |
+| `setParameters(name, val)`      | `DynamicParam \| null` | Définit paramètre                        |
+| `on/off/once/emit/fire/...`     | `this \| boolean`      | Events (délégation EventEmitter)         |
 
 ### Comportements à connaître (gotchas)
 
-| Comportement | Détail |
-|-------------|--------|
-| `remove()` retourne `false` | Toujours, même si suppression réussie |
-| `events.nbListeners` ignoré | Seulement appliqué si Event partagé passé au constructeur |
-| `pdu.severity` vs `pdu.severityName` | Numérique vs string — utiliser `severityName` pour comparer |
-| `"CRITIC"` pas `"CRITICAL"` | Nom exact dans l'enum SysLogSeverity |
-| `removeAllListeners()` | Corrigé — `(undefined)` ne vidait pas (bug `arguments.length`) |
-| Events après `clean()` | Tous throw `notificationsCenter not initialized` |
+| Comportement                         | Détail                                                         |
+| ------------------------------------ | -------------------------------------------------------------- |
+| `remove()` retourne `false`          | Toujours, même si suppression réussie                          |
+| `events.nbListeners` ignoré          | Seulement appliqué si Event partagé passé au constructeur      |
+| `pdu.severity` vs `pdu.severityName` | Numérique vs string — utiliser `severityName` pour comparer    |
+| `"CRITIC"` pas `"CRITICAL"`          | Nom exact dans l'enum SysLogSeverity                           |
+| `removeAllListeners()`               | Corrigé — `(undefined)` ne vidait pas (bug `arguments.length`) |
+| Events après `clean()`               | Tous throw `notificationsCenter not initialized`               |
 
 ---
 
@@ -270,5 +287,4 @@ Voir [`src/syslog/`](src/syslog/) — logger structuré RFC 5424 avec ring buffe
 
 ```bash
 npm run test
-# 230 tests — mocha + tsx
 ```

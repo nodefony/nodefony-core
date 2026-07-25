@@ -159,4 +159,4 @@ const rows = db.all(sql`SELECT ... JOIN ...`);
 
 ## Licence
 
-CECILL-B — Christophe CAMENSULI.
+CeCILL-B — Christophe CAMENSULI.
