@@ -28,6 +28,7 @@ export const ENTITY_FIELD_TYPES = [
   "json",
   "date",
   "uuid",
+  "enum",
 ] as const;
 export type TEntityFieldType = (typeof ENTITY_FIELD_TYPES)[number];
 
@@ -39,6 +40,15 @@ export interface IEntityField {
   type: TEntityFieldType | "ref";
   /** Entité cible quand `type === "ref"`. */
   target?: string;
+  /** Valeurs admises quand `type === "enum"` (`status:enum(draft,published)`). */
+  values?: string[];
+  /**
+   * Valeur par défaut littérale, telle qu'écrite (`price:float=0` → `"0"`).
+   *
+   * Conservée en texte : c'est le générateur qui sait la traduire en littéral du
+   * bon type, et lui seul connaît le dialecte visé.
+   */
+  defaultValue?: string;
   /** `true` si `?` — la colonne accepte `NULL`. Non-null par DÉFAUT. */
   nullable: boolean;
   /** `true` si `!` — contrainte d'unicité. */
@@ -53,15 +63,21 @@ export class EntityFieldError extends Error {}
 const NAME_RE = /^[a-z][a-zA-Z0-9]*$/u;
 const ENTITY_RE = /^[A-Z][A-Za-z0-9]*$/u;
 
+/** Types qui n'acceptent pas de valeur par défaut littérale. */
+const NO_DEFAULT: ReadonlySet<string> = new Set(["json", "date", "ref"]);
+
 /**
  * Analyse la déclaration textuelle des champs.
  *
- * Grammaire : `nom:type[?][!][:index]` · `nom:ref:Entité[?][!]`
+ * Grammaire : `nom:type[?][!][=defaut][:index]` · `nom:ref:Entité[?][!][:index]`
  * - `?` → nullable (sinon **NOT NULL** : une colonne nullable est une décision, pas un oubli) ;
  * - `!` → unique ;
+ * - `=valeur` → valeur par défaut (`price:float=0`, `status:enum(draft,published)=draft`) ;
  * - `:index` → index simple.
  *
- * @param input - `"title:string! content:text? views:int author:ref:User"`.
+ * Le type `enum` porte ses valeurs entre parenthèses : `status:enum(draft,published)`.
+ *
+ * @param input - `"title:string! content:text? views:int=0 author:ref:User"`.
  * @returns les champs, dans l'ordre de déclaration.
  * @throws EntityFieldError si un champ est mal formé (le mot « invalide » est attendu
  *   par le routeur d'erreurs du CLI pour sortir en `EX_USAGE`).
@@ -77,6 +93,20 @@ export function parseEntityFields(input: string): IEntityField[] {
     if (spec.endsWith(":index")) {
       indexed = true;
       spec = spec.slice(0, -":index".length);
+    }
+    // Valeur par défaut. Le `=` est cherché APRÈS la parenthèse fermante d'un
+    // éventuel `enum(...)` : sans cette précaution, `status:enum(a=1,b)` couperait
+    // au milieu de la liste de valeurs.
+    let defaultValue: string | undefined;
+    const equalsAt = spec.indexOf("=", spec.lastIndexOf(")") + 1);
+    if (equalsAt >= 0) {
+      defaultValue = spec.slice(equalsAt + 1);
+      spec = spec.slice(0, equalsAt);
+      if (defaultValue === "") {
+        throw new EntityFieldError(
+          `champ invalide « ${raw} » — valeur par défaut vide après « = » (ex : views:int=0)`,
+        );
+      }
     }
     let nullable = false;
     let unique = false;
@@ -122,7 +152,43 @@ export function parseEntityFields(input: string): IEntityField[] {
           `champ invalide « ${raw} » — cible attendue : nom d'entité en PascalCase (ex : author:ref:User)`,
         );
       }
+      if (defaultValue !== undefined) {
+        throw new EntityFieldError(
+          `champ invalide « ${raw} » — une relation n'a pas de valeur par défaut`,
+        );
+      }
       fields.push({ name, type: "ref", target, nullable, unique, indexed });
+      continue;
+    }
+
+    // Énumération : `status:enum(draft,published)`.
+    const enumMatch = /^enum\((.*)\)$/u.exec(parts[1] ?? "");
+    if (enumMatch) {
+      const values = (enumMatch[1] ?? "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
+      if (values.length === 0) {
+        throw new EntityFieldError(
+          `champ invalide « ${raw} » — enum sans valeur (ex : status:enum(draft,published))`,
+        );
+      }
+      if (defaultValue !== undefined && !values.includes(defaultValue)) {
+        throw new EntityFieldError(
+          `champ invalide « ${raw} » — défaut « ${defaultValue} » absent des valeurs (${values.join(", ")})`,
+        );
+      }
+      fields.push({
+        name,
+        type: "enum",
+        values,
+        nullable,
+        unique,
+        indexed,
+        // Clé posée seulement si une valeur existe : un `defaultValue: undefined`
+        // explicite change la forme de l'objet sans rien apporter.
+        ...(defaultValue !== undefined ? { defaultValue } : {}),
+      });
       continue;
     }
 
@@ -132,21 +198,68 @@ export function parseEntityFields(input: string): IEntityField[] {
         `champ invalide « ${raw} » — type « ${type} » inconnu ; attendus : ${ENTITY_FIELD_TYPES.join(" | ")} | ref:<Entité>`,
       );
     }
-    if (parts.length > 2) {
+    if (type === "enum") {
       throw new EntityFieldError(
-        `champ invalide « ${raw} » — trop de segments (attendu nom:type[?][!][:index])`,
+        `champ invalide « ${raw} » — enum doit lister ses valeurs (ex : status:enum(draft,published))`,
       );
     }
-    fields.push({ name, type, nullable, unique, indexed });
+    if (parts.length > 2) {
+      throw new EntityFieldError(
+        `champ invalide « ${raw} » — trop de segments (attendu nom:type[?][!][=defaut][:index])`,
+      );
+    }
+    if (defaultValue !== undefined) {
+      if (NO_DEFAULT.has(type)) {
+        throw new EntityFieldError(
+          `champ invalide « ${raw} » — le type « ${type} » n'accepte pas de valeur par défaut`,
+        );
+      }
+      if (
+        (type === "int" || type === "float") &&
+        !Number.isFinite(Number(defaultValue))
+      ) {
+        throw new EntityFieldError(
+          `champ invalide « ${raw} » — défaut « ${defaultValue} » n'est pas un nombre`,
+        );
+      }
+      if (
+        type === "bool" &&
+        defaultValue !== "true" &&
+        defaultValue !== "false"
+      ) {
+        throw new EntityFieldError(
+          `champ invalide « ${raw} » — défaut d'un booléen : true ou false`,
+        );
+      }
+    }
+    fields.push({
+      name,
+      type,
+      nullable,
+      unique,
+      indexed,
+      ...(defaultValue !== undefined ? { defaultValue } : {}),
+    });
   }
 
   return fields;
 }
 
-/** Constructeur de colonne Drizzle par (dialecte, type) — le cœur de la traduction. */
+/** Liste de valeurs d'énumération, écrite comme option Drizzle (`{ enum: [...] }`). */
+const enumOption = (values: readonly string[] = []): string =>
+  `enum: [${values.map((value) => JSON.stringify(value)).join(", ")}] as const`;
+
+/**
+ * Constructeur de colonne Drizzle par (dialecte, type) — le cœur de la traduction.
+ *
+ * Le second argument ne sert qu'aux énumérations.
+ */
 const COLUMN: Record<
   TEntityDialect,
-  Record<TEntityFieldType | "ref", (col: string) => string>
+  Record<
+    TEntityFieldType | "ref",
+    (col: string, values?: readonly string[]) => string
+  >
 > = {
   sqlite: {
     string: (c) => `text("${c}")`,
@@ -159,6 +272,7 @@ const COLUMN: Record<
     date: (c) => `integer("${c}", { mode: "timestamp_ms" })`,
     uuid: (c) => `text("${c}")`,
     ref: (c) => `text("${c}")`,
+    enum: (c, v) => `text("${c}", { ${enumOption(v)} })`,
   },
   postgres: {
     string: (c) => `varchar("${c}", { length: 255 })`,
@@ -171,6 +285,11 @@ const COLUMN: Record<
     date: (c) => `timestamp("${c}", { withTimezone: true, precision: 3 })`,
     uuid: (c) => `uuid("${c}")`,
     ref: (c) => `text("${c}")`,
+    // Pas de `pgEnum` : un type PostgreSQL nommé exige un `CREATE TYPE` que le
+    // DDL dérivé du mode dev n'émet pas — la table ne se créerait pas au boot.
+    // La contrainte vit donc au typage TS et dans le schéma Zod, qui la fait
+    // respecter sur TOUS les transports (REST, socket, CLI).
+    enum: (c, v) => `varchar("${c}", { length: 255, ${enumOption(v)} })`,
   },
   mysql: {
     string: (c) => `varchar("${c}", { length: 255 })`,
@@ -183,6 +302,11 @@ const COLUMN: Record<
     // InnoDB ne peut pas indexer un TEXT : toute colonne indexable est un varchar.
     uuid: (c) => `varchar("${c}", { length: 36 })`,
     ref: (c) => `varchar("${c}", { length: 255 })`,
+    // `mysqlEnum` existe, mais produirait un type de colonne différent des deux
+    // autres dialectes pour la même déclaration Nodefony. On garde la même
+    // colonne partout : porter une entité d'un moteur à l'autre ne doit rien
+    // changer d'autre que le fichier de configuration.
+    enum: (c, v) => `varchar("${c}", { length: 255, ${enumOption(v)} })`,
   },
 };
 
@@ -205,6 +329,7 @@ const TS_TYPE: Record<TEntityFieldType | "ref", string> = {
   date: "Date",
   uuid: "string",
   ref: "string",
+  enum: "string",
 };
 
 /** Schéma Zod correspondant (validation à la frontière). */
@@ -218,7 +343,38 @@ const ZOD_TYPE: Record<TEntityFieldType | "ref", string> = {
   date: "z.coerce.date()",
   uuid: "z.string().uuid()",
   ref: "z.string()",
+  enum: "z.string()",
 };
+
+/**
+ * Littéral TypeScript d'une valeur par défaut, selon le type du champ.
+ *
+ * Les nombres et booléens sont écrits nus, tout le reste est une chaîne : c'est
+ * la seule interprétation possible d'un texte saisi en ligne de commande.
+ */
+function defaultLiteral(field: IEntityField): string {
+  if (field.type === "int" || field.type === "float") {
+    return String(Number(field.defaultValue));
+  }
+  if (field.type === "bool") return String(field.defaultValue === "true");
+  return JSON.stringify(field.defaultValue);
+}
+
+/** Type TS d'un champ — union littérale pour une énumération. */
+function tsTypeOf(field: IEntityField): string {
+  if (field.type === "enum" && field.values) {
+    return field.values.map((value) => JSON.stringify(value)).join(" | ");
+  }
+  return TS_TYPE[field.type];
+}
+
+/** Schéma Zod d'un champ — `z.enum` pour une énumération. */
+function zodTypeOf(field: IEntityField): string {
+  if (field.type === "enum" && field.values) {
+    return `z.enum([${field.values.map((value) => JSON.stringify(value)).join(", ")}])`;
+  }
+  return ZOD_TYPE[field.type];
+}
 
 /** Colonne de clé primaire, selon la stratégie retenue. */
 function primaryKeyColumn(
@@ -278,6 +434,13 @@ export interface IEntityCodegen {
   rowProps: string;
   /** Corps du schéma Zod de création. */
   zodProps: string;
+  /**
+   * Troisième argument de la table Drizzle — les index déclarés par `:index`.
+   *
+   * Chaîne vide quand aucun index n'est demandé : la table garde alors sa forme
+   * à deux arguments.
+   */
+  tableExtras: string;
   /** `true` si la clé primaire est générée côté JS (le template importe `Nodefony`). */
   needsNodefony: boolean;
   /** Type TS de la clé primaire. */
@@ -301,9 +464,17 @@ export function buildEntityCodegen(
     id: TEntityIdKind;
     timestamps: boolean;
     softDelete: boolean;
+    /**
+     * Nom de la table — sert à préfixer les noms d'index.
+     *
+     * Requis : en PostgreSQL comme en SQLite, un nom d'index est unique pour
+     * TOUTE la base. Deux entités qui indexeraient chacune un `title` se
+     * marcheraient dessus au premier boot.
+     */
+    table: string;
   },
 ): IEntityCodegen {
-  const { dialect, id, timestamps, softDelete } = options;
+  const { dialect, id, timestamps, softDelete, table } = options;
   const imports = new Set<string>();
   const columns: string[] = [];
   const rowProps: string[] = [];
@@ -316,16 +487,25 @@ export function buildEntityCodegen(
 
   for (const field of fields) {
     imports.add(columnImport(dialect, field.type));
-    let col = COLUMN[dialect][field.type](field.name);
+    let col = COLUMN[dialect][field.type](field.name, field.values);
     if (!field.nullable) col += ".notNull()";
     if (field.unique) col += ".unique()";
+    if (field.defaultValue !== undefined) {
+      // `$defaultFn` (côté JS) et non `.default()` (côté SQL) : le DDL dérivé du
+      // mode dev n'émet pas les `DEFAULT`, une valeur posée en base ne
+      // s'appliquerait donc jamais. Même raison que pour les horodatages.
+      col += `.$defaultFn(() => ${defaultLiteral(field)})`;
+    }
     columns.push(`${field.name}: ${col},`);
 
     const optional = field.nullable ? " | null" : "";
-    rowProps.push(`${field.name}: ${TS_TYPE[field.type]}${optional};`);
+    rowProps.push(`${field.name}: ${tsTypeOf(field)}${optional};`);
 
-    let zod = ZOD_TYPE[field.type];
+    let zod = zodTypeOf(field);
     if (field.nullable) zod += ".nullable().optional()";
+    if (field.defaultValue !== undefined) {
+      zod += `.default(${defaultLiteral(field)})`;
+    }
     zodProps.push(`${field.name}: ${zod},`);
 
     if (field.type === "ref") {
@@ -353,6 +533,21 @@ export function buildEntityCodegen(
     rowProps.push("deletedAt: Date | null;");
   }
 
+  // Index déclarés par `:index`. Ils vivent dans le TROISIÈME argument de la
+  // table — une colonne ne peut pas se déclarer indexée toute seule chez Drizzle.
+  const indexed = fields.filter((field) => field.indexed);
+  let tableExtras = "";
+  if (indexed.length > 0) {
+    imports.add("index");
+    const lines = indexed
+      .map(
+        (field) =>
+          `    index("${table}_${field.name}_idx").on(t.${field.name}),`,
+      )
+      .join("\n");
+    tableExtras = `, (t) => [\n${lines}\n  ]`;
+  }
+
   const { fn, module } = TABLE_FN[dialect];
   imports.add(fn);
 
@@ -370,6 +565,7 @@ export function buildEntityCodegen(
     tableFn: fn,
     rowProps: block(rowProps),
     zodProps: block(zodProps),
+    tableExtras,
     needsNodefony: id !== "serial",
     idType: pk.tsType,
   };

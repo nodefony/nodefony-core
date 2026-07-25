@@ -1,46 +1,35 @@
-import { execFileSync } from "node:child_process";
-import path from "node:path";
 import { readRuntimeState } from "nodefony";
 <% if (it.complete) { %>// La façade temps réel isomorphe — côté Node, subpath `nodefony/client`.
 import { RealtimeClient } from "nodefony/client";
-<% } %>import { describe, it, expect, beforeAll, afterAll } from "vitest";
+<% } %>import { describe, it, expect, beforeAll } from "vitest";
 
 /**
- * Test E2E — boote l'app RÉELLE (mode production) et lui parle en HTTP + WebSocket.
+ * Test E2E — parle en HTTP + WebSocket à l'application RÉELLE (mode production).
  *
  * Seule porte d'entrée : `npm run test:e2e` (build d'abord : un serveur spawné
  * valide le DIST, pas le source). Ce fichier est EXCLU de `vitest.config.ts` et
  * ciblé par `vitest.e2e.config.ts` — invoqué, il tourne TOUJOURS : pas de gate
  * d'environnement qui l'afficherait « skipped » dans un rapport vert.
- * La mécanique est 100 % native Nodefony :
- *   - `nodefony production --detach --wait` : lancement détaché, exit 0 seulement
- *     quand la readiness est sondée (ports ouverts) — aucun sleep arbitraire.
- *   - `nodefony stop` : arrêt propre de tout runtime de l'app.
+ *
+ * Le démarrage et l'arrêt de l'application vivent dans `tests/e2e.setup.ts`
+ * (une fois pour toute la suite), pas ici.
  * Client WebSocket = `WebSocket` NATIF Node (≥ 22) — zéro dépendance de test.
  *
  * Le port n'est PAS écrit en dur : le serveur publie ses ports effectifs
  * (`readRuntimeState`) — un test qui suppose 5151 casse dès que l'app déclare son
  * port (`NF_PORT`, `PORT` en PaaS) ou qu'un port occupé l'a fait glisser en dev.
  */
-const bin = path.resolve("node_modules/.bin/nodefony");
 let BASE = "http://127.0.0.1:5151";
 let WS_BASE = "ws://127.0.0.1:5151";
 
 describe("e2e — l'app boote et répond (HTTP + WS)", () => {
   beforeAll(() => {
-    execFileSync(bin, ["production", "--detach", "--wait"], {
-      stdio: "inherit",
-      timeout: 120_000,
-    });
-    // `--wait` n'est sorti que serveur PRÊT : ses ports sont publiés. Le premier
-    // est celui du serveur en clair (une app TLS-only adaptera ces deux lignes).
+    // Le serveur est PRÊT (le setup global n'est sorti qu'après la readiness) :
+    // ses ports sont publiés. Le premier est celui du serveur en clair (une app
+    // TLS-only adaptera ces deux lignes).
     const port = readRuntimeState(process.cwd())?.ports[0] ?? 5151;
     BASE = `http://127.0.0.1:${port}`;
     WS_BASE = `ws://127.0.0.1:${port}`;
-  }, 130_000);
-
-  afterAll(() => {
-    execFileSync(bin, ["stop"], { stdio: "inherit", timeout: 30_000 });
   });
 
   it("GET /api/hello → 200 + payload JSON", async () => {

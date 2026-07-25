@@ -71,6 +71,52 @@ describe("scaffold — analyse des champs", () => {
   it("chaîne vide → aucun champ (l'entité n'a que sa clé et ses horodatages)", () => {
     assert.deepStrictEqual(parseEntityFields("   "), []);
   });
+
+  it("énumération : status:enum(draft,published)", () => {
+    const [f] = parseEntityFields("status:enum(draft,published)");
+    assert.strictEqual(f.type, "enum");
+    assert.deepStrictEqual(f.values, ["draft", "published"]);
+    assert.strictEqual(f.nullable, false);
+  });
+
+  it("énumération avec modificateurs et défaut", () => {
+    const [f] = parseEntityFields("status:enum(draft,published)?=draft:index");
+    assert.deepStrictEqual(f.values, ["draft", "published"]);
+    assert.strictEqual(f.defaultValue, "draft");
+    assert.strictEqual(f.nullable, true);
+    assert.strictEqual(f.indexed, true);
+  });
+
+  it("valeurs par défaut : nombre, booléen, texte", () => {
+    const fields = parseEntityFields(
+      "views:int=0 ok:bool=true tag:string=neuf",
+    );
+    assert.strictEqual(fields[0].defaultValue, "0");
+    assert.strictEqual(fields[1].defaultValue, "true");
+    assert.strictEqual(fields[2].defaultValue, "neuf");
+  });
+
+  it("un défaut incohérent est refusé AVANT d'écrire du code faux", () => {
+    const rejected = [
+      "views:int=abc", // pas un nombre
+      "ok:bool=oui", // ni true ni false
+      "meta:json={}", // type sans défaut littéral
+      "at:date=now", // idem
+      "author:ref:User=x", // une relation n'a pas de défaut
+      "status:enum(draft,published)=archived", // défaut hors des valeurs
+      "status:enum()", // enum sans valeur
+      "status:enum", // enum sans parenthèses
+      "title:string=", // `=` sans valeur
+    ];
+    for (const spec of rejected) {
+      assert.throws(
+        () => parseEntityFields(spec),
+        (e: Error) =>
+          e instanceof EntityFieldError && /invalide/u.test(e.message),
+        `« ${spec} » aurait dû être refusé`,
+      );
+    }
+  });
 });
 
 describe("scaffold — code des colonnes", () => {
@@ -84,6 +130,7 @@ describe("scaffold — code des colonnes", () => {
       id: "uuid7",
       timestamps: true,
       softDelete: false,
+      table: "posts",
     });
     assert.match(c.drizzleImport, /from "drizzle-orm\/sqlite-core"/u);
     assert.strictEqual(c.tableFn, "sqliteTable");
@@ -103,6 +150,7 @@ describe("scaffold — code des colonnes", () => {
       id: "uuid7",
       timestamps: true,
       softDelete: false,
+      table: "posts",
     });
     assert.strictEqual(c.tableFn, "pgTable");
     assert.match(c.columns, /meta: jsonb\("meta"\)/u);
@@ -118,6 +166,7 @@ describe("scaffold — code des colonnes", () => {
       id: "uuid7",
       timestamps: false,
       softDelete: false,
+      table: "posts",
     });
     assert.strictEqual(c.tableFn, "mysqlTable");
     assert.match(
@@ -132,6 +181,7 @@ describe("scaffold — code des colonnes", () => {
       id: "uuid7",
       timestamps: false,
       softDelete: false,
+      table: "posts",
     });
     assert.match(
       c.columns,
@@ -147,6 +197,7 @@ describe("scaffold — code des colonnes", () => {
       id: "uuid4",
       timestamps: false,
       softDelete: false,
+      table: "posts",
     });
     assert.match(c.columns, /\$defaultFn\(\(\) => Nodefony\.generateId\(\)\)/u);
   });
@@ -157,6 +208,7 @@ describe("scaffold — code des colonnes", () => {
       id: "serial",
       timestamps: false,
       softDelete: false,
+      table: "posts",
     });
     assert.match(
       c.columns,
@@ -172,6 +224,7 @@ describe("scaffold — code des colonnes", () => {
       id: "uuid7",
       timestamps: true,
       softDelete: false,
+      table: "posts",
     });
     assert.match(
       c.columns,
@@ -190,6 +243,7 @@ describe("scaffold — code des colonnes", () => {
       id: "uuid7",
       timestamps: false,
       softDelete: false,
+      table: "posts",
     });
     assert.doesNotMatch(c.columns, /createdAt/u);
   });
@@ -200,6 +254,7 @@ describe("scaffold — code des colonnes", () => {
       id: "uuid7",
       timestamps: false,
       softDelete: true,
+      table: "posts",
     });
     assert.match(
       c.columns,
@@ -214,6 +269,7 @@ describe("scaffold — code des colonnes", () => {
       id: "uuid7",
       timestamps: false,
       softDelete: false,
+      table: "posts",
     });
     assert.match(c.rowProps, /title: string;/u);
     assert.match(c.rowProps, /body: string \| null;/u);
@@ -226,6 +282,7 @@ describe("scaffold — code des colonnes", () => {
       id: "uuid7",
       timestamps: false,
       softDelete: false,
+      table: "posts",
     });
     assert.match(c.zodProps, /title: z\.string\(\)\.min\(1\)\.max\(255\),/u);
     assert.match(
@@ -243,10 +300,102 @@ describe("scaffold — code des colonnes", () => {
       id: "uuid7",
       timestamps: false,
       softDelete: false,
+      table: "posts",
     });
     assert.match(
       c.columns,
       /author: text\("author"\)\.notNull\(\), \/\/ → User\.id/u,
     );
+  });
+
+  // Une énumération doit contraindre pour de vrai — au typage ET à l'entrée.
+  it("énumération : colonne typée, union TS et z.enum", () => {
+    const c = buildEntityCodegen(
+      parseEntityFields("status:enum(draft,published)"),
+      {
+        dialect: "sqlite",
+        id: "uuid7",
+        timestamps: false,
+        softDelete: false,
+        table: "posts",
+      },
+    );
+    assert.match(
+      c.columns,
+      /status: text\("status", \{ enum: \["draft", "published"\] as const \}\)/u,
+    );
+    assert.match(c.rowProps, /status: "draft" \| "published";/u);
+    assert.match(c.zodProps, /status: z\.enum\(\["draft", "published"\]\),/u);
+  });
+
+  it("postgres : une énumération reste une colonne texte (pas de CREATE TYPE)", () => {
+    const c = buildEntityCodegen(
+      parseEntityFields("status:enum(draft,published)"),
+      {
+        dialect: "postgres",
+        id: "uuid7",
+        timestamps: false,
+        softDelete: false,
+        table: "posts",
+      },
+    );
+    // `pgEnum` exigerait un `CREATE TYPE` que le DDL dérivé du dev n'émet pas :
+    // la table ne se créerait jamais au boot.
+    assert.doesNotMatch(c.drizzleImport, /pgEnum/u);
+    assert.match(
+      c.columns,
+      /status: varchar\("status", \{ length: 255, enum:/u,
+    );
+  });
+
+  // Un défaut SQL ne serait pas émis par le DDL dérivé : il doit vivre côté JS.
+  it("valeur par défaut : $defaultFn côté JS, et le Zod l'accepte", () => {
+    const c = buildEntityCodegen(
+      parseEntityFields("views:int=0 tag:string=neuf"),
+      {
+        dialect: "sqlite",
+        id: "uuid7",
+        timestamps: false,
+        softDelete: false,
+        table: "posts",
+      },
+    );
+    assert.match(
+      c.columns,
+      /views: integer\("views"\)\.notNull\(\)\.\$defaultFn\(\(\) => 0\)/u,
+    );
+    assert.match(
+      c.columns,
+      /tag: text\("tag"\)\.notNull\(\)\.\$defaultFn\(\(\) => "neuf"\)/u,
+    );
+    assert.doesNotMatch(c.columns, /\.default\(/u);
+    assert.match(c.zodProps, /views: z\.number\(\)\.int\(\)\.default\(0\),/u);
+  });
+
+  // `:index` était parsé mais jamais émis — la promesse de la grammaire était vide.
+  it("`:index` produit un vrai index, nommé d'après la table", () => {
+    const c = buildEntityCodegen(parseEntityFields("title:string:index"), {
+      dialect: "sqlite",
+      id: "uuid7",
+      timestamps: false,
+      softDelete: false,
+      table: "posts",
+    });
+    assert.match(c.drizzleImport, /\bindex\b/u);
+    // Le préfixe de table n'est pas cosmétique : un nom d'index est unique pour
+    // toute la base en PostgreSQL comme en SQLite.
+    assert.match(c.tableExtras, /index\("posts_title_idx"\)\.on\(t\.title\)/u);
+  });
+
+  it("sans `:index`, la table garde sa forme à deux arguments", () => {
+    const c = buildEntityCodegen(parseEntityFields("title:string"), {
+      dialect: "sqlite",
+      id: "uuid7",
+      timestamps: false,
+      softDelete: false,
+      table: "posts",
+    });
+    assert.strictEqual(c.tableExtras, "");
+    assert.doesNotMatch(c.drizzleImport, /\bindex\b/u);
   });
 });

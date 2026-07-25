@@ -20,7 +20,16 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
-    exclude: ["**/node_modules/**", "**/dist/**", "tests/e2e.test.ts"],
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "tests/e2e.test.ts",
+      // Tout fichier `*.e2e.test.ts` — `create entity` en ajoute un par
+      // ressource. Sans cette ligne, `npm test` les lancerait sans serveur et
+      // échouerait sur des `fetch` refusés, pour une raison sans rapport avec
+      // le code testé.
+      "tests/**/*.e2e.test.ts",
+    ],
   },
   oxc: {
     decorator: { legacy: true, emitDecoratorMetadata: true },

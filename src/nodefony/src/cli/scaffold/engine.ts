@@ -1399,12 +1399,78 @@ function runEntityScaffold(
   }
 
   const fields = parseEntityFields(String(answers.fields ?? ""));
+  // Une entité sans champ produit un CRUD qui « marche » et ne sert à rien : une
+  // table réduite à sa clé primaire, un schéma Zod vide qui accepte tout, des
+  // routes qui ne transportent rien. C'est un oubli dans presque tous les cas, et
+  // le refus coûte moins cher que le détour par cinq fichiers à jeter.
+  if (fields.length === 0) {
+    throw new Error(
+      `create entity ${pascal} : aucun champ déclaré — passe-les en arguments ` +
+        `(ex : nodefony create entity ${pascal} title:string! body:text? views:int=0)`,
+    );
+  }
+  const timestamps = answers.timestamps !== false;
+  const softDelete = answers.softDelete === true;
   const codegen = buildEntityCodegen(fields, {
     dialect,
     id,
-    timestamps: answers.timestamps !== false,
-    softDelete: answers.softDelete === true,
+    timestamps,
+    softDelete,
+    table,
   });
+
+  // Colonnes qu'un client a le droit de trier. Une allowlist, pas la liste des
+  // champs : un tri libre laisse le client nommer n'importe quelle colonne, et
+  // l'ORM lève sur un nom inconnu — un 500 offert à qui tape au hasard. Le JSON
+  // en est exclu (aucun ordre naturel, et les moteurs divergent).
+  const sortable = [
+    "id",
+    ...fields.filter((f) => f.type !== "json").map((f) => f.name),
+    ...(timestamps ? ["createdAt", "updatedAt"] : []),
+  ];
+  // Tri PAR DÉFAUT — une liste sans ordre déterministe rend la pagination fausse
+  // par intermittence : deux pages consécutives peuvent montrer la même ligne, ou
+  // en sauter une, sans que rien ne le signale. `id` départage les ex æquo (uuid7
+  // est chronologique, serial est croissant : dans les deux cas l'ordre est stable).
+  const defaultOrder = timestamps
+    ? '[["createdAt", "DESC"], ["id", "DESC"]]'
+    : '[["id", "DESC"]]';
+  // Relations déclarées — nourrissent `defineEntity({ relations })` (ERD Studio et
+  // eager-load les consomment déjà) et l'allowlist d'`?include=` du controller.
+  // Une relation vers une entité absente n'est pas une imprécision : l'ORM la
+  // résout au moment de se connecter et LÈVE. L'application ne démarrerait pas,
+  // avec un message qui parle de registre d'entités et pas du champ fautif. On
+  // refuse ici, tant qu'on peut encore nommer la cause et la solution.
+  for (const field of fields) {
+    if (field.type !== "ref" || !field.target) continue;
+    const targetFile = path.join(
+      target.dir,
+      "nodefony",
+      "entity",
+      `${field.target}.ts`,
+    );
+    if (!writer.exists(targetFile)) {
+      throw new Error(
+        `create entity ${pascal} : la relation « ${field.name}:ref:${field.target} » ` +
+          `vise une entité qui n'existe pas dans ${target.name} — crée-la d'abord ` +
+          `(nodefony create entity ${field.target} …), puis relance`,
+      );
+    }
+  }
+
+  const relations = fields
+    .filter((f) => f.type === "ref" && f.target)
+    .map((f) => ({
+      field: f.name,
+      target: f.target as string,
+      // Le champ porte la clé étrangère → c'est le côté « plusieurs » du lien.
+      type: "many-to-one" as const,
+      // `foreignKey` est écrit EXPLICITEMENT, jamais laissé à la dérivation :
+      // l'adapter déduirait `<cible>Id` (`userId` pour `target: "User"`) alors
+      // que la colonne porte le nom du CHAMP (`author:ref:User` → colonne
+      // `author`). Une relation dérivée pointerait une colonne inexistante.
+      foreignKey: f.name,
+    }));
 
   const route = String(answers.route) || `/api/${pluralize(kebab)}`;
   const connector = String(answers.connector || "default");
@@ -1421,26 +1487,36 @@ function runEntityScaffold(
   for (const f of fields) {
     if (f.nullable) continue;
     const isNumber = f.type === "int" || f.type === "float";
-    sample[f.name] = isNumber
-      ? 1
-      : f.type === "bool"
-        ? true
-        : f.type === "json"
-          ? {}
-          : f.type === "date"
-            ? "2026-01-01T00:00:00.000Z"
-            : `${f.name}-1`;
+    // Une énumération n'accepte que ses propres valeurs : y mettre `status-1`
+    // produirait un échantillon que le schéma refuse — et un test généré qui
+    // échoue sur lui-même. On prend le défaut déclaré, sinon la première valeur.
+    const enumValue =
+      f.type === "enum" ? (f.defaultValue ?? f.values?.[0] ?? "") : null;
+    sample[f.name] =
+      enumValue !== null
+        ? enumValue
+        : isNumber
+          ? 1
+          : f.type === "bool"
+            ? true
+            : f.type === "json"
+              ? {}
+              : f.type === "date"
+                ? "2026-01-01T00:00:00.000Z"
+                : `${f.name}-1`;
     factory.push(
       `${f.name}: ` +
-        (isNumber
-          ? "n"
-          : f.type === "bool"
-            ? "true"
-            : f.type === "json"
-              ? "{}"
-              : f.type === "date"
-                ? "new Date()"
-                : `\`${f.name}-\${n}\``),
+        (enumValue !== null
+          ? JSON.stringify(enumValue)
+          : isNumber
+            ? "n"
+            : f.type === "bool"
+              ? "true"
+              : f.type === "json"
+                ? "{}"
+                : f.type === "date"
+                  ? "new Date()"
+                  : `\`${f.name}-\${n}\``),
     );
   }
 
@@ -1457,6 +1533,37 @@ function runEntityScaffold(
     moduleName: target.kind === "app" ? "app" : String(target.name),
     curlBody: JSON.stringify(sample),
     sampleFactory: `{ ${factory.join(", ")} }`,
+    // Un champ dont la valeur voyage telle quelle en JSON ET varie d'un
+    // échantillon à l'autre : le test HTTP généré compare ce qu'il a envoyé à ce
+    // qu'il relit. Sont exclus les dates (envoyées en `Date`, relues en chaîne
+    // ISO — l'égalité serait fausse pour une bonne raison) et les énumérations
+    // (valeur constante : comparer deux fois la même chose ne prouve rien).
+    comparableField:
+      fields.find(
+        (f) =>
+          !f.nullable &&
+          f.type !== "date" &&
+          f.type !== "json" &&
+          f.type !== "ref" &&
+          f.type !== "enum",
+      )?.name ?? null,
+    // Sans champ unique, aucun doublon n'est possible : le cas 409 n'existe pas
+    // pour cette entité, et un test qui l'attendrait échouerait à jamais.
+    hasUnique: fields.some((f) => f.unique),
+    // Entités visées par les relations — le test généré doit les enregistrer,
+    // sinon l'ORM lève en résolvant les relations au moment de se connecter.
+    relationTargets: [
+      ...new Set(
+        fields
+          .filter((f) => f.type === "ref" && f.target)
+          .map((f) => f.target as string),
+      ),
+    ],
+    timestamps,
+    softDelete,
+    sortable,
+    defaultOrder,
+    relations,
     ...codegen,
   };
 
@@ -1554,7 +1661,7 @@ function runEntityScaffold(
   ];
   if (controller) {
     notes.push(
-      `REST ${route} (GET/POST) · ${route}/{id} (GET/PUT/DELETE) — les lectures répondent AUSSI par la socket`,
+      `REST ${route} (GET liste paginée/POST) · ${route}/{id} (GET/PUT/PATCH/DELETE) — les lectures répondent AUSSI par la socket`,
     );
   }
   if (!service) {

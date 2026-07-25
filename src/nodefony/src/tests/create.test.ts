@@ -800,13 +800,24 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const dest = path.join(tmp, "suites");
       scaffold(dest, { name: "suites", preset: "complete", frontend: "none" });
       // `npm test` ne montre que ce qu'il exécute — plus de skipped-vert.
-      assert.include(
-        readFileSync(path.join(dest, "vitest.config.ts"), "utf8"),
-        '"tests/e2e.test.ts"',
+      const unit = readFileSync(path.join(dest, "vitest.config.ts"), "utf8");
+      assert.include(unit, '"tests/e2e.test.ts"');
+      // `create entity` ajoute un `*.e2e.test.ts` par ressource : eux aussi
+      // doivent rester hors du glob par défaut, sinon `npm test` les lance sans
+      // serveur et échoue pour une raison sans rapport avec le code testé.
+      assert.include(unit, '"tests/**/*.e2e.test.ts"');
+      const e2eConfig = readFileSync(
+        path.join(dest, "vitest.e2e.config.ts"),
+        "utf8",
       );
-      assert.include(
-        readFileSync(path.join(dest, "vitest.e2e.config.ts"), "utf8"),
-        'include: ["tests/e2e.test.ts"]',
+      assert.include(e2eConfig, '"tests/e2e.test.ts"');
+      assert.include(e2eConfig, '"tests/**/*.e2e.test.ts"');
+      // L'app est démarrée UNE fois pour toute la suite : un démarrage par
+      // fichier rendrait la suite inutilisable dès la deuxième entité.
+      assert.include(e2eConfig, 'globalSetup: ["tests/e2e.setup.ts"]');
+      assert.isTrue(
+        existsSync(path.join(dest, "tests", "e2e.setup.ts")),
+        "le setup global e2e doit être généré",
       );
       const pkg = readJson(path.join(dest, "package.json"));
       assert.include(pkg["scripts"]["test:e2e"], "-c vitest.e2e.config.ts");
@@ -1657,10 +1668,214 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(src, '@controller("/api/posts")');
       assert.include(src, 'methods: ["GET", "WEBSOCKET"]'); // le différenciateur
       assert.include(src, "@HttpCode(201)");
-      assert.include(src, "@Idempotent()");
+      // Le décorateur RÉEL, pas la phrase de la TSDoc qui le mentionne : la
+      // forme souple (`required: false`) est ce qui distingue « rejeu toléré »
+      // de « clé obligatoire », et c'est elle qu'on veut voir générée.
+      assert.include(src, "@Idempotent({ required: false })");
       assert.include(src, '"Location"');
       assert.include(src, "@HttpCode(204)");
       assert.include(src, "404");
+    });
+
+    // Une liste qui ne dit pas s'il en reste n'est pas paginée : le client ne
+    // peut pas distinguer « c'est tout » de « demande la suite ».
+    it("la liste rend une PAGE, pas un tableau nu — et son ordre est déterministe", () => {
+      const dest = app("eapp4b");
+      entity(dest, { name: "Post", fields: "title:string" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "controllers", "PostController.ts"),
+        "utf8",
+      );
+      assert.include(src, "listPageResource(");
+      assert.notInclude(src, "listResource(");
+      // Tri par défaut : sans lui, deux pages consécutives peuvent montrer la
+      // même ligne ou en sauter une, sans que rien ne le signale.
+      assert.include(src, '[["createdAt", "DESC"], ["id", "DESC"]]');
+      // Allowlist de tri : un `?sort=` libre laisserait le client nommer une
+      // colonne inconnue, et l'ORM lèverait — un 500 offert à qui tape au hasard.
+      assert.match(src, /const SORTABLE = new Set<string>\(\[[^\]]*"title"/u);
+      assert.include(src, "SORTABLE.has(field)");
+    });
+
+    it("sans horodatage, l'ordre par défaut retombe sur l'id (jamais rien)", () => {
+      const dest = app("eapp4c");
+      entity(dest, {
+        name: "Post",
+        fields: "title:string",
+        timestamps: false,
+      });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "controllers", "PostController.ts"),
+        "utf8",
+      );
+      assert.include(src, '[["id", "DESC"]]');
+      assert.notInclude(src, "createdAt");
+    });
+
+    // PUT et PATCH ne doivent PAS faire la même chose : sinon le PUT ment sur
+    // son contrat (RFC 9110 §9.3.4) et l'exemple enseigne le mensonge.
+    it("PUT remplace (corps complet) et PATCH retouche — la différence est réelle", () => {
+      const dest = app("eapp4d");
+      entity(dest, { name: "Post", fields: "title:string" });
+      const ctrl = readFileSync(
+        path.join(dest, "nodefony", "controllers", "PostController.ts"),
+        "utf8",
+      );
+      const service = readFileSync(
+        path.join(dest, "nodefony", "service", "PostService.ts"),
+        "utf8",
+      );
+      assert.include(ctrl, '@Patch("/{id}")');
+      assert.include(ctrl, '@Put("/{id}")');
+      // Le PUT passe par le service (schéma de CRÉATION = corps complet exigé),
+      // le PATCH par le helper générique (schéma partiel).
+      assert.include(ctrl, "getPostService().replace(id, payload)");
+      assert.include(ctrl, "this.updateResource({ id }, payload)");
+      assert.include(service, "async replace(");
+      assert.include(service, "createPostSchema.parse(");
+    });
+
+    // Une relation déclarée en `ref:` doit devenir une relation RÉELLE : le
+    // graphe Studio et l'eager-load la consomment. Une colonne + un commentaire
+    // ne sont pas une relation.
+    it("`ref:` renseigne defineEntity({ relations }) et ouvre ?include=", () => {
+      const dest = app("eapp4e");
+      entity(dest, { name: "User", fields: "email:string!" });
+      entity(dest, { name: "Post", fields: "title:string author:ref:User" });
+      const ent = readFileSync(
+        path.join(dest, "nodefony", "entity", "Post.ts"),
+        "utf8",
+      );
+      const ctrl = readFileSync(
+        path.join(dest, "nodefony", "controllers", "PostController.ts"),
+        "utf8",
+      );
+      assert.include(ent, "relations: [");
+      assert.include(ent, 'type: "many-to-one"');
+      assert.include(ent, 'target: "User"');
+      assert.include(ent, 'field: "author"');
+      // `foreignKey` EXPLICITE : l'adapter déduirait `userId` (d'après la cible)
+      // alors que la colonne porte le nom du champ. Une relation dérivée
+      // pointerait une colonne qui n'existe pas.
+      assert.include(ent, 'foreignKey: "author"');
+      // Côté porte : allowlist d'include, jamais un include libre.
+      assert.include(ctrl, 'const INCLUDABLE = new Set<string>(["author"])');
+      assert.include(ctrl, "INCLUDABLE.has(name)");
+    });
+
+    // Une entité sans champ produit un CRUD qui « marche » et ne transporte rien.
+    it("refuse une entité sans champ, et n'écrit rien", () => {
+      const dest = app("eapp4g");
+      const before = snapshotTree(dest);
+      assert.throws(
+        () => entity(dest, { name: "Post", fields: "" }),
+        /aucun champ/u,
+      );
+      assertTreeUnchanged(before, dest);
+    });
+
+    it("enum et défaut traversent jusqu'au fichier généré", () => {
+      const dest = app("eapp4h");
+      entity(dest, {
+        name: "Post",
+        fields:
+          "status:enum(draft,published)=draft views:int=0 title:string:index",
+      });
+      const ent = readFileSync(
+        path.join(dest, "nodefony", "entity", "Post.ts"),
+        "utf8",
+      );
+      const schema = readFileSync(
+        path.join(dest, "nodefony", "entity", "Post.schema.ts"),
+        "utf8",
+      );
+      // La colonne porte l'énumération au typage…
+      assert.include(ent, 'enum: ["draft", "published"] as const');
+      // …et le défaut est posé côté JS (le DDL dev n'émet pas les DEFAULT SQL).
+      assert.include(ent, '$defaultFn(() => "draft")');
+      assert.include(ent, "$defaultFn(() => 0)");
+      // …tandis que Zod le fait respecter à l'entrée, sur tous les transports.
+      assert.include(schema, 'z.enum(["draft", "published"])');
+      // `:index` produit un index RÉEL, préfixé par la table (unicité globale).
+      assert.include(ent, 'index("posts_title_idx").on(t.title)');
+      assert.match(ent, /import \{[^}]*\bindex\b[^}]*\} from "drizzle-orm/u);
+    });
+
+    // Le test data ne prouve pas que la ressource est SERVIE : routage,
+    // décorateurs, statuts et sérialisation ne sont traversés qu'en HTTP réel.
+    it("génère un test HTTP de bout en bout, hors du glob par défaut", () => {
+      const dest = app("eapp4i");
+      entity(dest, { name: "Post", fields: "title:string!" });
+      const e2e = readFileSync(
+        path.join(dest, "tests", "post.e2e.test.ts"),
+        "utf8",
+      );
+      assert.include(e2e, "expect(created.status).toBe(201)");
+      assert.include(e2e, '"location"');
+      assert.include(e2e, "toBe(422)");
+      assert.include(e2e, "expect(page.hasNext).toBe(true)");
+      assert.include(e2e, "expect(removed.status).toBe(204)");
+      assert.include(e2e, 'method: "PATCH"');
+      // Champ unique déclaré → le doublon DOIT être éprouvé.
+      assert.include(e2e, "expect(duplicate.status).toBe(409)");
+    });
+
+    // Sans cette garde, l'app se génère mais ne démarre plus : l'ORM résout les
+    // relations au connect et lève sur une cible inconnue — un message qui parle
+    // de registre d'entités, jamais du champ fautif.
+    it("refuse une relation vers une entité qui n'existe pas, et n'écrit rien", () => {
+      const dest = app("eapp4k");
+      const before = snapshotTree(dest);
+      assert.throws(
+        () => entity(dest, { name: "Post", fields: "author:ref:Ghost" }),
+        /Ghost/u,
+      );
+      assertTreeUnchanged(before, dest);
+    });
+
+    it("le test data généré enregistre les entités cibles des relations", () => {
+      const dest = app("eapp4l");
+      entity(dest, { name: "User", fields: "email:string!" });
+      entity(dest, { name: "Post", fields: "title:string author:ref:User" });
+      const src = readFileSync(
+        path.join(dest, "tests", "post.test.ts"),
+        "utf8",
+      );
+      assert.include(
+        src,
+        'import { UserEntity } from "../nodefony/entity/User"',
+      );
+      assert.include(
+        src,
+        "entityRegistry.register({ ...UserEntity, connector: ORM })",
+      );
+      assert.include(src, 'entityRegistry.unregister("User", ORM)');
+    });
+
+    it("sans champ unique, le cas 409 n'est PAS généré (il ne pourrait pas passer)", () => {
+      const dest = app("eapp4j");
+      entity(dest, { name: "Post", fields: "title:string" });
+      const e2e = readFileSync(
+        path.join(dest, "tests", "post.e2e.test.ts"),
+        "utf8",
+      );
+      assert.notInclude(e2e, "409");
+    });
+
+    it("sans relation, aucune mécanique d'include n'est générée", () => {
+      const dest = app("eapp4f");
+      entity(dest, { name: "Post", fields: "title:string" });
+      const ent = readFileSync(
+        path.join(dest, "nodefony", "entity", "Post.ts"),
+        "utf8",
+      );
+      const ctrl = readFileSync(
+        path.join(dest, "nodefony", "controllers", "PostController.ts"),
+        "utf8",
+      );
+      assert.notInclude(ent, "relations:");
+      assert.notInclude(ctrl, "INCLUDABLE");
+      assert.notInclude(ctrl, "parseInclude");
     });
 
     it("le service porte la validation — donc tous les transports en profitent", () => {
@@ -1808,6 +2023,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // invisible. Mais le commentaire de fin de ligne d'un champ `ref` avalait la
       // fermeture : `…, // → User.id …});` ne compile pas.
       const dest = app("eapp12");
+      // La cible d'une relation doit exister : l'ORM la résout au connect et lève
+      // sinon (l'app ne démarrerait pas). Le scaffold refuse donc en amont.
+      entity(dest, { name: "User", fields: "email:string!" });
       // `timestamps: false` : SANS ça, createdAt/updatedAt suivent la relation et le
       // commentaire n'est plus en dernière position — le bug ne se reproduit pas.
       entity(dest, {
