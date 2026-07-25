@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/llm",
-  "version": "10.0.0-alpha.1",
+  "version": "0.0.0",
   "description": "Generic multi-model LLM provider interface for Nodefony",
   "type": "module",
   "main": "./dist/index.js",
