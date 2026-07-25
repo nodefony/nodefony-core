@@ -733,6 +733,26 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(agents, "PROTOTYPAL");
       assert.include(agents, "nodefony/docs/client.md");
       assert.include(agents, "nodefony/docs/service.md");
+      // Utilisateurs et droits : sans ces repères, un agent réinvente un lecteur
+      // de session, teste l'appartenance à un rôle à la main, ou insère un
+      // utilisateur en base sans passer par l'encodeur de mot de passe. Les
+      // quatre gestes sont NOMMÉS, et leur doc installée est pointée.
+      // ⚠️ Chercher `@IsGranted` ne prouverait RIEN : le nom apparaît dans
+      // plusieurs phrases voisines, donc retirer le geste laisserait le gate au
+      // vert (vécu en écrivant ce test). On ancre sur des marqueurs PROPRES à
+      // chaque geste — un par ligne de la section.
+      for (const needle of [
+        "Utilisateurs et droits : tout existe",
+        '`@IsGranted("ROLE_ADMIN")` sur la',
+        "lire l'utilisateur courant** : le paramètre décoré `@CurrentUser()`",
+        "la clé `roleHierarchy`",
+        "`npx nodefony security:user:add <identifiant>`",
+        "s'enregistre par\n    `registerVoterFactory`",
+        "@nodefony/security/docs/authorization.md",
+        "@nodefony/user/docs/index.md",
+      ]) {
+        assert.include(agents, needle, `AGENTS.md sans « ${needle} »`);
+      }
       // Aucun module encore : l'état vide DIT quoi faire.
       assert.include(agents, "Aucun — `nodefony create module");
       // CLAUDE.md = pointeur + les DEUX réflexes (auto-chargé à chaque tour
@@ -753,6 +773,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Pointer une doc non installée serait un mensonge — le trou n°1 du kit.
       assert.notInclude(agents, "@nodefony/security/docs");
       assert.notInclude(agents, "@nodefony/orm-core/docs");
+      // …et les gestes d'autorisation non plus : une app sans module de sécurité
+      // n'a ni `@IsGranted` ni `security:user:add`. Promettre un décorateur qui
+      // n'existe pas ici enverrait l'agent droit dans une erreur d'import.
+      assert.notInclude(agents, "Utilisateurs et droits");
+      assert.notInclude(agents, "security:user:add");
       assert.include(agents, "@nodefony/framework/docs");
     });
 

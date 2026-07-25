@@ -44,6 +44,27 @@ diffs, zéro écriture). Un refus n'écrit jamais rien (transaction).
 - **Le WS métier passe par la socket Nodefony** (`--kind realtime` : canaux
   pub/sub + actions RPC + policies). L'echo WS brut des exemples est une démo
   du pipeline partagé, pas un modèle à imiter.
+<% if (it.hasSecurity) { %>- **Utilisateurs et droits : tout existe, n'improvise RIEN.** Quatre gestes
+  couvrent l'essentiel, et chacun a sa doc installée (cf. table ci-dessous) :
+  - **protéger une action** : le décorateur `@IsGranted("ROLE_ADMIN")` sur la
+    méthode — il vaut pour TOUS les transports (HTTP et socket), et se pose
+    **en plus** de la zone de firewall (le firewall AUTHENTIFIE, `@IsGranted`
+    AUTORISE) ;
+  - **lire l'utilisateur courant** : le paramètre décoré `@CurrentUser()`
+    (typé `IUser` de `@nodefony/user`) — l'identité est ré-résolue à chaque
+    requête, donc les rôles sont frais et une révocation prend effet tout de
+    suite. N'écris pas ton propre lecteur de session ;
+  - **déclarer qu'un rôle en implique un autre** : la clé `roleHierarchy` de
+    la config du module de sécurité (`ROLE_ADMIN` hérite `ROLE_USER`). Elle
+    est aplatie au boot ; n'écris pas de test d'appartenance à la main ;
+  - **créer un compte** : la commande `npx nodefony security:user:add <identifiant>`.
+    Ne fabrique pas d'utilisateur en insérant directement dans la base — le mot
+    de passe passe par l'encodeur du framework.
+  - Un droit **métier** qui ne se réduit pas à un rôle (« l'auteur peut éditer
+    SON document ») s'écrit en **voter** et s'enregistre par
+    `registerVoterFactory` ; `@IsGranted("doc.edit", { subject: "id" })` l'appelle.
+    C'est le point d'extension prévu — il n'y a pas de table de permissions à
+    inventer.<% } %>
 
 ## Où lire AVANT de coder (tâche → doc installée)
 
@@ -56,7 +77,9 @@ La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le do
 | Client isomorphe (navigateur), hooks React | `node_modules/nodefony/docs/client.md` + `react-hooks.md` |
 | Serveurs, sessions, cookies, upload, rate-limit | `node_modules/@nodefony/http/docs/` |
 | Routing, controllers, décorateurs, idempotence | `node_modules/@nodefony/framework/docs/` |
-<% if (it.hasSecurity) { %>| Firewall, authenticators, CSRF, CORS, clés d'API | `node_modules/@nodefony/security/docs/` |
+<% if (it.hasSecurity) { %>| Firewall, authenticators, CSRF, CORS, clés d'API | `node_modules/@nodefony/security/docs/firewall.md` |
+| **Protéger une action par un RÔLE** (`@IsGranted`), voters, hiérarchie | `node_modules/@nodefony/security/docs/authorization.md` |
+| **Utilisateurs** : contrat `IUser`, `UserService`, mot de passe | `node_modules/@nodefony/user/docs/index.md` |
 <% } %><% if (it.hasOrm) { %>| Entités, repositories, requêtes (ORM) | `node_modules/@nodefony/orm-core/docs/` |
 <% } %><% if (it.hasRealtime) { %>| Canaux temps réel, actions, protocole WS | `node_modules/@nodefony/realtime/docs/` |
 <% } %><% if (it.front) { %>| Builder Vite, entries, HMR | `node_modules/@nodefony/frontend/docs/` |
