@@ -9,6 +9,11 @@
 dist/
 node_modules/
 tmp/
+# Support de présentation GÉNÉRÉ (`node scripts/readme-html.mjs`) : ~1 Mo dont
+# des captures en base64, réécrit intégralement à chaque exécution. La source
+# versionnée est le script ; committer sa sortie alourdirait chaque diff sans
+# rien apprendre à personne.
+/readme.html
 # ANCRÉ (`/logs/`, pas `logs/`) : un motif non ancré vaut pour TOUT dossier nommé
 # `logs`, à n'importe quelle profondeur — il masquait `studio/frontend/src/routes/
 # logs/` (les composants de la page Logs). Un `git add <dossier>` saute un chemin
