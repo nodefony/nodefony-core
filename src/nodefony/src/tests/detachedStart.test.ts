@@ -247,6 +247,152 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
     }
   });
 
+  it("ports tenus par un TIERS : le child n'écoute jamais → PAS de faux READY", async () => {
+    // Le piège du banc devkit : un AUTRE serveur occupe les ports sondés. Une
+    // readiness qui ne regarde que « ça écoute » déclare prêt — et tout ce qui
+    // suit interroge l'application du voisin (symptôme : 404 partout, y compris
+    // sur les routes du gabarit). La readiness doit exiger la preuve que c'est
+    // NOTRE runtime qui répond : le state file publié par lui.
+    const [conv1, conv2] = [await freePort(), await freePort()];
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "nodefony-detach-3rd-"));
+    const log = tmpLog("thirdparty");
+    const squatters = [conv1, conv2].map((p) =>
+      net.createServer().listen(p, "127.0.0.1"),
+    );
+    let childPid: number | undefined;
+    try {
+      // Child vivant qui n'ouvre RIEN et ne publie RIEN — le seul écho sur les
+      // ports vient du tiers.
+      const r = await launchDetached({
+        spawnCmd: process.execPath,
+        spawnArgs: ["-e", "setInterval(() => {}, 1 << 30);"],
+        logFile: log,
+        cwd,
+        ports: [conv1, conv2],
+        waitSec: 2,
+      });
+      childPid = r.pid as number;
+      assert.strictEqual(
+        r.ok,
+        false,
+        "un port tenu par un TIERS ne prouve rien : jamais de READY",
+      );
+      assert.strictEqual(r.exitCode, 69);
+    } finally {
+      killDetached(childPid);
+      for (const s of squatters) s.close();
+      fs.rmSync(log, { force: true });
+      fs.rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("glissement de ports : le décalage config→effectif est RAPPORTÉ", async () => {
+    // `portPolicy: "auto"` : les ports voulus sont pris, l'app glisse ailleurs.
+    // Elle démarre très bien — mais quiconque garde le port de la config tape
+    // chez l'occupant et reçoit 404 partout. Le résultat doit porter le décalage.
+    const [wanted, real] = [await freePort(), await freePort()];
+    const cwd = fs.mkdtempSync(
+      path.join(os.tmpdir(), "nodefony-detach-shift-"),
+    );
+    const log = tmpLog("shift");
+    let childPid: number | undefined;
+    try {
+      const stateFile = path.join(
+        cwd,
+        "node_modules",
+        ".cache",
+        "nodefony",
+        "runtime.json",
+      );
+      const script = `
+        const net = require("node:net");
+        const fs = require("node:fs");
+        const path = require("node:path");
+        setTimeout(() => {
+          net.createServer().listen(${real}, "127.0.0.1", () => {
+            fs.mkdirSync(path.dirname(${JSON.stringify(stateFile)}), { recursive: true });
+            fs.writeFileSync(${JSON.stringify(stateFile)}, JSON.stringify({
+              pid: process.pid, ports: [${real}], desiredPorts: [${wanted}], ts: Date.now(),
+            }));
+          });
+        }, 300);
+        setInterval(() => {}, 1 << 30);
+      `;
+      const r = await launchDetached({
+        spawnCmd: process.execPath,
+        spawnArgs: ["-e", script],
+        logFile: log,
+        cwd,
+        ports: [wanted],
+        waitSec: 15,
+      });
+      childPid = r.pid as number;
+      assert.strictEqual(r.ok, true, `attendu ok — reason: ${r.reason}`);
+      assert.deepStrictEqual(
+        r.desiredPorts,
+        [wanted],
+        "le port DEMANDÉ doit être rapporté quand l'app a glissé",
+      );
+      assert.deepStrictEqual(
+        r.ports.map((p) => p.port),
+        [real],
+      );
+    } finally {
+      killDetached(childPid);
+      fs.rmSync(log, { force: true });
+      fs.rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("pas de glissement : aucun décalage rapporté (silence quand tout va bien)", async () => {
+    // Contrôle : `desiredPorts` ne doit PAS s'allumer quand l'app écoute là où
+    // elle voulait — sinon l'avertissement devient du bruit permanent.
+    const real = await freePort();
+    const cwd = fs.mkdtempSync(
+      path.join(os.tmpdir(), "nodefony-detach-noshift-"),
+    );
+    const log = tmpLog("noshift");
+    let childPid: number | undefined;
+    try {
+      const stateFile = path.join(
+        cwd,
+        "node_modules",
+        ".cache",
+        "nodefony",
+        "runtime.json",
+      );
+      const script = `
+        const net = require("node:net");
+        const fs = require("node:fs");
+        const path = require("node:path");
+        setTimeout(() => {
+          net.createServer().listen(${real}, "127.0.0.1", () => {
+            fs.mkdirSync(path.dirname(${JSON.stringify(stateFile)}), { recursive: true });
+            fs.writeFileSync(${JSON.stringify(stateFile)}, JSON.stringify({
+              pid: process.pid, ports: [${real}], desiredPorts: [${real}], ts: Date.now(),
+            }));
+          });
+        }, 300);
+        setInterval(() => {}, 1 << 30);
+      `;
+      const r = await launchDetached({
+        spawnCmd: process.execPath,
+        spawnArgs: ["-e", script],
+        logFile: log,
+        cwd,
+        ports: [real],
+        waitSec: 15,
+      });
+      childPid = r.pid as number;
+      assert.strictEqual(r.ok, true, `attendu ok — reason: ${r.reason}`);
+      assert.strictEqual(r.desiredPorts, undefined);
+    } finally {
+      killDetached(childPid);
+      fs.rmSync(log, { force: true });
+      fs.rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
   it("crash : child qui meurt avant la readiness → EX_UNAVAILABLE + diagnostic", async () => {
     const p1 = await freePort();
     const log = tmpLog("crash");

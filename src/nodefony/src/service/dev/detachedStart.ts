@@ -72,6 +72,13 @@ export interface DetachedStartResult {
   logFile: string;
   /** Résultat du health check (`"200"`, `"skipped (…)"`), absent si non demandé. */
   health?: string;
+  /**
+   * Ports DEMANDÉS par la config quand l'app a dû glisser ailleurs
+   * (`servers.portPolicy: "auto"`), absent sinon. Un décalage tu en silence est la
+   * cause n°1 des « tout répond 404 » : le client garde le port de sa config et
+   * tombe sur le serveur du voisin, qui lui répond très bien — mais autre chose.
+   */
+  desiredPorts?: number[];
   /** Cause de l'échec (`ok: false`) — diagnostic humain. */
   reason?: string;
   /** Dernières lignes du log (strip ANSI) pour le diagnostic d'échec. */
@@ -348,6 +355,14 @@ export async function launchDetached(
       const health = opts.healthPath
         ? await probeHealth(watched, opts.healthPath)
         : undefined;
+      // Le runtime a-t-il dû GLISSER ? (`portPolicy: "auto"` sur des ports pris.)
+      // Un glissement tu envoie le client sur le port de sa config — donc chez le
+      // voisin, qui répond 404 à tout : le décalage doit être DIT, pas déduit.
+      const desired = state?.desiredPorts;
+      const shifted =
+        desired !== undefined &&
+        (desired.length !== watched.length ||
+          desired.some((p, k) => p !== watched[k]));
       return {
         ok: true,
         pid: child.pid ?? null,
@@ -355,6 +370,7 @@ export async function launchDetached(
         ports: states,
         logFile,
         health,
+        desiredPorts: shifted ? desired : undefined,
       };
     }
     // Progression ~toutes les 5 s, avec la phase courante du superviseur si visible.
@@ -433,6 +449,15 @@ export async function runDetachedStart(argv: string[]): Promise<number> {
     .map((p) => p.port)
     .join(" | ");
   say(`READY — ports en écoute : ${portsUp}`);
+  // Glissement de ports : le dire FORT. Sans cette ligne, celui qui a écrit 5151
+  // dans sa config (ou son test) tape sur le serveur qui occupait le port et
+  // reçoit 404 sur TOUTES ses routes — le diagnostic part alors très loin.
+  if (result.desiredPorts) {
+    say(
+      `⚠️  PORTS DÉCALÉS — config ${result.desiredPorts.join(", ")} déjà pris ` +
+        `→ cette app écoute sur ${portsUp}. Viser CES ports (nodefony status).`,
+    );
+  }
   if (result.health !== undefined) say(`HEALTH ${result.health}`);
   say(`UP — PID=${result.pid} | log : ${result.logFile}`);
   say(`arrêt : nodefony stop · état : nodefony status`);

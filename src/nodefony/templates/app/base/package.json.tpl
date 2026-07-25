@@ -26,6 +26,7 @@
     "@nodefony/framework": "^<%= it.nodefonyVersion %>",
 <% if (it.complete) { %>    "@nodefony/orm-core": "^<%= it.nodefonyVersion %>",
     "@nodefony/drizzle": "^<%= it.nodefonyVersion %>",
+    "drizzle-orm": "<%= it.pkg["drizzle-orm"] %>",
     "@nodefony/user": "^<%= it.nodefonyVersion %>",
     "@nodefony/realtime": "^<%= it.nodefonyVersion %>",
     "@nodefony/security": "^<%= it.nodefonyVersion %>",

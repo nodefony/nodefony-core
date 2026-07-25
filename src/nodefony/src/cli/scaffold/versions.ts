@@ -12,6 +12,15 @@
 export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // ── Backend / outillage (template package.json de l'app) ──
   zod: "^4.4.3",
+  // Le code GÉNÉRÉ importe `drizzle-orm/<dialecte>-core` en direct (l'entité est
+  // du Drizzle natif) : c'est donc une dépendance DE L'APPLICATION, pas seulement
+  // du module ORM. Sans elle, la résolution ne tient que par le hissage npm des
+  // dépendances transitives — qui n'a pas lieu quand les paquets nodefony sont
+  // liés en `file:` (`--link`) : npm les installe dans le checkout, pas à la
+  // racine de l'app, et le typecheck échoue sur un import introuvable.
+  // Version ÉPINGLÉE comme dans le monorepo : en 0.x la mineure porte les
+  // ruptures, et le repository dépend de comportements fins (cf `limit(-1)`).
+  "drizzle-orm": "0.45.2",
   "@types/node": "^26.1.1",
   "@typescript-eslint/eslint-plugin": "^8.63.0",
   "@typescript-eslint/parser": "^8.63.0",

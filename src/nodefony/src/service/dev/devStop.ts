@@ -1,4 +1,5 @@
 import { writeSync } from "node:fs";
+import path from "node:path";
 import {
   clearRuntimeState,
   clearSupervisorPidFile,
@@ -6,9 +7,12 @@ import {
   detectRuntimeMode,
   discoverDevProcesses,
   formatForeignRuntimes,
+  isNodefonyProjectDir,
   probePorts,
+  processCwd,
   splitByProject,
   terminateDevProcesses,
+  type DevProcessInfo,
   type PortState,
   type RuntimeMode,
 } from "./devProcess";
@@ -82,6 +86,74 @@ const portsLine = (states: readonly PortState[], freeLabel: string): string =>
     )
     .join("   ");
 
+/**
+ * Filtre de `--all` : sans projet de référence, la SEULE preuve restante serait le
+ * titre de process. C'est peu pour un `kill -9` trans-projets — un homonyme
+ * suffirait. On exige donc une SECONDE preuve, indépendante du nom : le process
+ * travaille bien dans un projet Nodefony (`package.json` qui dépend de `nodefony`,
+ * ou `node_modules/nodefony`), lui-même ou un ancêtre (un Vite tourne dans le
+ * SOUS-dossier de son bundle). Un cwd illisible — process d'un autre utilisateur,
+ * `lsof` muet — ne prouve rien : on n'y touche pas.
+ *
+ * PURE (dépendances injectables) : `--all` tue sans garde-fou de projet, il ne
+ * doit pas rester une branche non éprouvée.
+ *
+ * @param procs - runtimes découverts par `ps`.
+ * @param getCwd - lecture du cwd d'un pid (défaut : `processCwd`).
+ * @param isProject - test « ce dossier est un projet Nodefony » (défaut : `isNodefonyProjectDir`).
+ * @returns `kept` = appartenance PROUVÉE (tuables) ; `rejected` = épargnés + le motif.
+ */
+export function scopeAllToNodefonyProjects(
+  procs: readonly DevProcessInfo[],
+  getCwd: (pid: number) => string | null = processCwd,
+  isProject: (dir: string) => boolean = isNodefonyProjectDir,
+): {
+  kept: DevProcessInfo[];
+  rejected: { proc: DevProcessInfo; why: string }[];
+} {
+  const kept: DevProcessInfo[] = [];
+  const rejected: { proc: DevProcessInfo; why: string }[] = [];
+  for (const p of procs) {
+    const cwd = getCwd(p.pid);
+    if (cwd === null) {
+      rejected.push({ proc: p, why: "cwd illisible" });
+      continue;
+    }
+    let cur = path.resolve(cwd);
+    let belongs = false;
+    for (;;) {
+      if (isProject(cur)) {
+        belongs = true;
+        break;
+      }
+      const parent = path.dirname(cur);
+      if (parent === cur) break;
+      cur = parent;
+    }
+    if (belongs) kept.push(p);
+    else rejected.push({ proc: p, why: `${cwd} n'est pas un projet Nodefony` });
+  }
+  return { kept, rejected };
+}
+
+/** Applique {@link scopeAllToNodefonyProjects} et ANNONCE les process épargnés. */
+function allRuntimesOfThisPoste(
+  procs: readonly DevProcessInfo[],
+): DevProcessInfo[] {
+  const { kept, rejected } = scopeAllToNodefonyProjects(procs);
+  if (rejected.length > 0) {
+    writeSync(
+      1,
+      `${ANSI.dim}[stop]${ANSI.reset} ${rejected.length} process au titre Nodefony NON confirmé(s), épargné(s) :\n` +
+        rejected
+          .map((r) => `  pid ${r.proc.pid} (${r.proc.label}) — ${r.why}`)
+          .join("\n") +
+        "\n",
+    );
+  }
+  return kept;
+}
+
 /** Découvre, tue (SIGTERM→SIGKILL) et nettoie ; écrit un rapport sur stdout. */
 export async function runStopReport(
   cwd: string,
@@ -90,7 +162,7 @@ export async function runStopReport(
   const tag = `${ANSI.dim}[stop]${ANSI.reset}`;
   const discovered = discoverDevProcesses();
   const scoped = opts.all
-    ? { mine: [...discovered], foreign: [] }
+    ? { mine: allRuntimesOfThisPoste(discovered), foreign: [] }
     : splitByProject(discovered, cwd);
   const before = scoped.mine;
 

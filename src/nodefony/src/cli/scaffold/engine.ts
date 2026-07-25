@@ -13,6 +13,7 @@ import {
   type TEntityDialect,
   type TEntityIdKind,
 } from "./entityFields";
+import { findReservedEntity } from "./reservedEntities";
 import { pick, SCAFFOLD_VERSIONS } from "./versions";
 import { ScaffoldWriter, type IScaffoldChange } from "./writer";
 import {
@@ -1555,9 +1556,46 @@ function runEntityScaffold(
     );
   }
 
+  // `drizzle-orm` est une dépendance DE L'APPLICATION : l'entité produite ici
+  // importe `drizzle-orm/<dialecte>-core` en direct. Une app générée avant que le
+  // gabarit ne la déclare — ou liée au checkout (`--link`, où npm n'installe rien
+  // à la racine de l'app) — compile jusqu'ici puis échoue sur un import
+  // introuvable, loin de la cause. On la déclare, et on dit qu'il faut installer.
+  const ormRuntimeNote: string[] = [];
+  if (!projectDeps.has("drizzle-orm")) {
+    const rootManifestPath = path.join(projectRoot, "package.json");
+    const rootManifest = JSON.parse(writer.read(rootManifestPath)) as Record<
+      string,
+      Record<string, string>
+    >;
+    rootManifest["dependencies"] ??= {};
+    rootManifest["dependencies"]["drizzle-orm"] =
+      SCAFFOLD_VERSIONS["drizzle-orm"];
+    writer.write(
+      rootManifestPath,
+      `${JSON.stringify(rootManifest, null, 2)}\n`,
+    );
+    ormRuntimeNote.push(
+      `dépendance manquante ajoutée au package.json : drizzle-orm@${SCAFFOLD_VERSIONS["drizzle-orm"]} ` +
+        `(l'entité l'importe en direct) → lance \`npm install\` avant de compiler`,
+    );
+  }
+
   // `PostEntity` / `Post.ts` → `Post` (le suffixe donné n'est jamais redoublé).
   const base = String(answers.name).replace(/[-_]?[Ee]ntity$/u, "");
   const pascal = toPascalCase(base);
+  // Le registre ORM est PLAT : une entité du même nom qu'un module déjà chargé le
+  // dépossède. La panne ne survient qu'au démarrage suivant, dans une requête du
+  // module victime, sous la forme d'une colonne inconnue — rien ne pointe le
+  // doublon. Refuser ici, en nommant le propriétaire et l'issue.
+  const reserved = findReservedEntity(pascal);
+  if (reserved) {
+    throw new Error(
+      `create entity ${pascal} : ce nom appartient au module « ${reserved.module} » ` +
+        `(entité « ${reserved.name} ») — deux entités du même nom ne cohabitent pas dans ` +
+        `le registre ORM, et l'application ne démarrerait plus.\n  → ${reserved.advice}`,
+    );
+  }
   const camel = pascal.charAt(0).toLowerCase() + pascal.slice(1);
   const kebab = toKebabCase(base);
   const table = tableName(pascal);
@@ -1837,6 +1875,7 @@ function runEntityScaffold(
   // Dire la vérité sur la base : le DDL dérivé du mode dev crée la table au boot, mais
   // ne la modifie JAMAIS ensuite, et aucune migration n'est produite.
   const notes = [
+    ...ormRuntimeNote,
     `table ${table} (${dialect}) — créée au prochain boot en développement`,
     `⚠ modifier l'entité ensuite n'altère PAS la table (pas d'ALTER en dev) — supprime la base de dev, ou passe par une migration`,
     `⚠ production : aucune migration générée (orm:migrate n'existe pas encore)`,

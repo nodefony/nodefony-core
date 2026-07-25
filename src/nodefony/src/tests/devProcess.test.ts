@@ -32,6 +32,7 @@ import {
   writeRuntimeState,
   type DevProcessInfo,
 } from "../service/dev/devProcess";
+import { scopeAllToNodefonyProjects } from "../service/dev/devStop";
 
 describe("devProcess — parsePsRow (parsing ps)", () => {
   it("superviseur, %CPU à VIRGULE décimale (locale FR) → cpu numérique correct", () => {
@@ -82,6 +83,44 @@ describe("devProcess — parsePsRow (parsing ps)", () => {
     assert.strictEqual(h?.uptimeSec, 1 * 3600 + 2 * 60 + 3);
     const d = parsePsRow("100 1 1000 0,0 2-03:04:05 nodefony-dev-server");
     assert.strictEqual(d?.uptimeSec, 2 * 86400 + 3 * 3600 + 4 * 60 + 5);
+  });
+
+  it("process INNOCENT qui MENTIONNE un titre → null (jamais une cible de kill)", () => {
+    // Le titre d'un runtime Nodefony REMPLACE l'argv : `ps` rend le titre SEUL.
+    // Un process qui porte le motif ailleurs dans sa ligne (fichier ouvert,
+    // argument, grep) n'est PAS un runtime — et `nodefony stop --all`, qui ne
+    // filtre pas par projet, le tuerait sur la seule foi d'une sous-chaîne.
+    for (const cmd of [
+      "tail -f /dev/null nodefony server",
+      "vim src/nodefony master.ts",
+      "node -e setInterval(()=>{}) nodefony worker 3 [cluster]",
+      "grep -r nodefony-dev-server src/",
+      "less /var/log/nodefony-vite.log",
+      "npm exec nodefony development", // fenêtre PRÉ-titre : pas encore un runtime
+    ]) {
+      assert.strictEqual(
+        parsePsRow(`700 1 20000 0.0 10:00 ${cmd}`),
+        null,
+        `doit rester hors périmètre : ${cmd}`,
+      );
+    }
+  });
+
+  it("titres RÉELS (argv remplacé par process.title) → toujours reconnus", () => {
+    // Contre-épreuve du test ci-dessus : le durcissement ne doit tuer aucune
+    // détection légitime, padding d'espaces de `ps` compris.
+    const cases: [string, string][] = [
+      ["nodefony-dev-supervisor  ", "supervisor"],
+      ["nodefony-dev-server", "server"],
+      ["nodefony-vite[studio] /path/vite.js", "vite"],
+      ["nodefony master [cluster 6w]", "master"],
+      ["nodefony worker 3 [cluster]", "worker"],
+      ["nodefony server", "server"],
+    ];
+    for (const [cmd, role] of cases) {
+      const r = parsePsRow(`700 1 20000 0.0 10:00 ${cmd}`);
+      assert.strictEqual(r?.role, role, `doit rester détecté : ${cmd}`);
+    }
   });
 
   it("process NON-dev → null (hors périmètre)", () => {
@@ -471,4 +510,62 @@ describe("splitByProject — plusieurs apps Nodefony sur le même poste", () => 
       assert.strictEqual(path.resolve(cwd), path.resolve(process.cwd()));
     }
   }, 30_000);
+});
+
+// ─── `stop --all` : le titre ne suffit pas à autoriser un kill trans-projets ──
+
+describe("scopeAllToNodefonyProjects — seconde preuve avant un kill sans projet", () => {
+  const proc = (pid: number, role: DevProcessInfo["role"]): DevProcessInfo => ({
+    pid,
+    ppid: 1,
+    mode: "dev",
+    role,
+    label: role,
+    detail: "",
+    rssKb: 0,
+    cpu: 0,
+    uptimeSec: 1,
+  });
+
+  it("titre Nodefony mais cwd HORS projet → épargné (homonyme)", () => {
+    const cwds: Record<number, string | null> = {
+      1: "/home/dev/app-1", // vrai projet
+      2: "/opt/random-daemon", // homonyme : porte le titre, sans projet
+    };
+    const { kept, rejected } = scopeAllToNodefonyProjects(
+      [proc(1, "supervisor"), proc(2, "server")],
+      (pid) => cwds[pid] ?? null,
+      (dir) => dir === "/home/dev/app-1",
+    );
+    assert.deepStrictEqual(
+      kept.map((p) => p.pid),
+      [1],
+    );
+    assert.deepStrictEqual(
+      rejected.map((r) => r.proc.pid),
+      [2],
+    );
+  });
+
+  it("cwd ILLISIBLE → épargné (aucune preuve ⇒ aucun kill)", () => {
+    const { kept, rejected } = scopeAllToNodefonyProjects(
+      [proc(3, "server")],
+      () => null,
+      () => true,
+    );
+    assert.deepStrictEqual(kept, []);
+    assert.strictEqual(rejected[0].why, "cwd illisible");
+  });
+
+  it("Vite dans un SOUS-dossier du projet → gardé (racine remontée)", () => {
+    const { kept } = scopeAllToNodefonyProjects(
+      [proc(4, "vite")],
+      () => "/home/dev/app-1/src/bundles/studio",
+      (dir) => dir === "/home/dev/app-1",
+    );
+    assert.deepStrictEqual(
+      kept.map((p) => p.pid),
+      [4],
+    );
+  });
 });

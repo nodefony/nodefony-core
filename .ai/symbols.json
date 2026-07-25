@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-25T02:12:30.459Z",
+  "generated": "2026-07-25T08:31:39.633Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1048,
-    "symbols": 2882,
+    "files": 1049,
+    "symbols": 2887,
     "classes": 335,
-    "interfaces": 755,
+    "interfaces": 756,
     "types": 330,
     "enums": 4,
-    "functions": 874,
-    "constants": 584
+    "functions": 877,
+    "constants": 585
   },
   "symbols": {
     "Cli": {
@@ -3250,6 +3250,30 @@
       "module": "@nodefony/core",
       "description": "Pose les questions de la spec NON déjà répondues (les flags argv gagnent — on ne redemande jamais ce que l'utilisateur a déjà dit) et retourne les réponses fusionnées. Les questions `askIf` non sat…"
     },
+    "IReservedEntity": {
+      "name": "IReservedEntity",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/reservedEntities.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Noms d'entités que les modules du framework occupent déjà dans le registre ORM. Le registre d'entités est PLAT et partagé par toute l'application : deux entités du même nom ne cohabitent pas. Une a…"
+    },
+    "findReservedEntity": {
+      "name": "findReservedEntity",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/reservedEntities.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Cherche une collision de nom d'entité avec le framework. Comparaison INSENSIBLE À LA CASSE et aux séparateurs : `AccessToken`, `access_token` et `accesstoken` désignent la même table pour un humain…"
+    },
+    "RESERVED_ENTITY_NAMES": {
+      "name": "RESERVED_ENTITY_NAMES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/reservedEntities.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
     "IScaffoldQuestion": {
       "name": "IScaffoldQuestion",
       "kind": "interface",
@@ -5429,6 +5453,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Tableau ANSI des process dev (RÔLE/PID/PPID/UPTIME/RSS/%CPU + `↳ bundles`) — LE gabarit partagé `nodefony status` ⇄ bilan de fin de boot (même topologie, même sérieux). `indent` décale toute la gri…"
+    },
+    "scopeAllToNodefonyProjects": {
+      "name": "scopeAllToNodefonyProjects",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devStop.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Filtre de `--all` : sans projet de référence, la SEULE preuve restante serait le titre de process. C'est peu pour un `kill -9` trans-projets — un homonyme suffirait. On exige donc une SECONDE preuv…"
     },
     "runStopReport": {
       "name": "runStopReport",
@@ -23424,6 +23456,9 @@
       "TEntityIdKind": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
+      "findReservedEntity": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
       "pick": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
@@ -23781,7 +23816,8 @@
       ],
       "DevProcessInfo": [
         "src/nodefony/src/service/dev/BootReporter.ts",
-        "src/nodefony/src/service/dev/devStatusReport.ts"
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
       ],
       "renderProcessTable": [
         "src/nodefony/src/service/dev/BootReporter.ts"
@@ -23829,7 +23865,8 @@
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "isNodefonyProjectDir": [
-        "src/nodefony/src/service/dev/devStatusReport.ts"
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
       ],
       "isPidAlive": [
         "src/nodefony/src/service/dev/devStatusReport.ts"
@@ -23844,6 +23881,9 @@
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "clearSupervisorPidFile": [
+        "src/nodefony/src/service/dev/devStop.ts"
+      ],
+      "processCwd": [
         "src/nodefony/src/service/dev/devStop.ts"
       ],
       "terminateDevProcesses": [

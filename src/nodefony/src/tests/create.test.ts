@@ -1647,6 +1647,60 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assertNoEtaResidue(dest);
     });
 
+    it("drizzle-orm est déclaré par l'app (import direct de l'entité générée)", () => {
+      // L'entité produite importe `drizzle-orm/<dialecte>-core` : c'est une dep DE
+      // L'APP. Sans elle, la résolution ne tient que par le hissage npm des
+      // transitives — absent quand les paquets nodefony sont liés en `file:`
+      // (`--link`) : le typecheck échoue alors sur un import introuvable, loin de
+      // la cause. Le gabarit `complete` la déclare…
+      const dest = app("eapp-ormdep");
+      const pkg = readJson(path.join(dest, "package.json"));
+      assert.property(pkg["dependencies"], "drizzle-orm");
+
+      // …et une app générée AVANT ce gabarit se rattrape au scaffold d'entité.
+      const legacy = app("eapp-ormdep-legacy");
+      const legacyPath = path.join(legacy, "package.json");
+      const legacyPkg = readJson(legacyPath) as Record<
+        string,
+        Record<string, string>
+      >;
+      delete legacyPkg["dependencies"]["drizzle-orm"];
+      writeFileSync(legacyPath, `${JSON.stringify(legacyPkg, null, 2)}\n`);
+
+      const r = entity(legacy, { name: "Post", fields: "title:string" });
+      assert.property(readJson(legacyPath)["dependencies"], "drizzle-orm");
+      assert.include(
+        (r.notes ?? []).join("\n"),
+        "drizzle-orm",
+        "l'ajout d'une dépendance doit être ANNONCÉ (npm install requis)",
+      );
+    });
+
+    it("nom RÉSERVÉ par un module du framework → refus AVANT écriture", () => {
+      // Vécu : `create entity User` écrit tout, puis l'application ne démarre plus
+      // — l'entité `User` du module `user` est dépossédée et l'erreur parle d'une
+      // colonne inconnue, jamais du doublon. La casse ne sauve pas : `access_token`
+      // et `AccessToken` désignent la même table.
+      const dest = app("eapp-reserved");
+      for (const name of ["User", "user", "AccessToken", "session"]) {
+        assert.throws(
+          () => entity(dest, { name, fields: "title:string" }),
+          /appartient au module/u,
+          `${name} doit être refusé`,
+        );
+      }
+      // Refus AVANT écriture : rien ne traîne dans l'app.
+      assert.isFalse(
+        existsSync(path.join(dest, "nodefony", "entity", "User.ts")),
+      );
+      // Contre-épreuve : un nom voisin mais libre passe (la garde ne sur-bloque pas).
+      const ok = entity(dest, { name: "UserProfile", fields: "bio:text" });
+      assert.isTrue(
+        existsSync(path.join(dest, "nodefony", "entity", "UserProfile.ts")),
+        `UserProfile doit passer — notes: ${(ok.notes ?? []).join(" ")}`,
+      );
+    });
+
     it("l'entité est du Drizzle natif, avec la clé uuid7 générée côté JS", () => {
       const dest = app("eapp2");
       entity(dest, { name: "Post", fields: "title:string! views:int" });
@@ -1758,8 +1812,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     // ne sont pas une relation.
     it("`ref:` renseigne defineEntity({ relations }) et ouvre ?include=", () => {
       const dest = app("eapp4e");
-      entity(dest, { name: "User", fields: "email:string!" });
-      entity(dest, { name: "Post", fields: "title:string author:ref:User" });
+      entity(dest, { name: "Author", fields: "email:string!" });
+      entity(dest, { name: "Post", fields: "title:string author:ref:Author" });
       const ent = readFileSync(
         path.join(dest, "nodefony", "entity", "Post.ts"),
         "utf8",
@@ -1770,7 +1824,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.include(ent, "relations: [");
       assert.include(ent, 'type: "many-to-one"');
-      assert.include(ent, 'target: "User"');
+      assert.include(ent, 'target: "Author"');
       assert.include(ent, 'field: "author"');
       // `foreignKey` EXPLICITE : l'adapter déduirait `userId` (d'après la cible)
       // alors que la colonne porte le nom du champ. Une relation dérivée
@@ -1927,21 +1981,21 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
     it("le test data généré enregistre les entités cibles des relations", () => {
       const dest = app("eapp4l");
-      entity(dest, { name: "User", fields: "email:string!" });
-      entity(dest, { name: "Post", fields: "title:string author:ref:User" });
+      entity(dest, { name: "Author", fields: "email:string!" });
+      entity(dest, { name: "Post", fields: "title:string author:ref:Author" });
       const src = readFileSync(
         path.join(dest, "tests", "post.test.ts"),
         "utf8",
       );
       assert.include(
         src,
-        'import { UserEntity } from "../nodefony/entity/User"',
+        'import { AuthorEntity } from "../nodefony/entity/Author"',
       );
       assert.include(
         src,
-        "entityRegistry.register({ ...UserEntity, connector: ORM })",
+        "entityRegistry.register({ ...AuthorEntity, connector: ORM })",
       );
-      assert.include(src, 'entityRegistry.unregister("User", ORM)');
+      assert.include(src, 'entityRegistry.unregister("Author", ORM)');
     });
 
     it("sans champ unique, le cas 409 n'est PAS généré (il ne pourrait pas passer)", () => {
@@ -2117,12 +2171,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const dest = app("eapp12");
       // La cible d'une relation doit exister : l'ORM la résout au connect et lève
       // sinon (l'app ne démarrerait pas). Le scaffold refuse donc en amont.
-      entity(dest, { name: "User", fields: "email:string!" });
+      entity(dest, { name: "Author", fields: "email:string!" });
       // `timestamps: false` : SANS ça, createdAt/updatedAt suivent la relation et le
       // commentaire n'est plus en dernière position — le bug ne se reproduit pas.
       entity(dest, {
         name: "Comment",
-        fields: "body:text author:ref:User",
+        fields: "body:text author:ref:Author",
         timestamps: false,
       });
       const src = readFileSync(
@@ -2130,7 +2184,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "utf8",
       );
       // Le commentaire de la relation est bien SUIVI d'un saut de ligne avant `});`.
-      assert.match(src, /\/\/ → User\.id[^\n]*\n\}\);/u);
+      assert.match(src, /\/\/ → Author\.id[^\n]*\n\}\);/u);
       assert.notMatch(src, /\}\);.*\/\//u);
       // Idem pour l'interface de ligne et le schéma Zod (mêmes interpolations).
       assert.match(src, /author: string;\n\}/u);
@@ -2446,6 +2500,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join("src", "nodefony", "package.json"),
         path.join("src", "packages", "@nodefony", "studio", "package.json"),
         path.join("src", "packages", "@nodefony", "frontend", "package.json"),
+        // Le code généré importe `drizzle-orm` en direct → l'app le déclare, et
+        // sa version doit suivre celle sur laquelle l'adapter est éprouvé.
+        path.join("src", "packages", "@nodefony", "drizzle", "package.json"),
       ];
       const repo: Record<string, string> = {};
       for (const rel of sources) {
@@ -2458,13 +2515,21 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           pkg["dependencies"] ?? {},
         );
       }
-      const major = (v: string) =>
-        Number.parseInt(v.replace(/^[~^>=\s]*/u, ""), 10);
+      const clean = (v: string) => v.replace(/^[~^>=\s]*/u, "");
+      const major = (v: string) => Number.parseInt(clean(v), 10);
+      // En 0.x, c'est la MINEURE qui porte les ruptures (semver §4) : comparer la
+      // seule majeure y revient à ne rien comparer — `drizzle-orm` 0.45 vs 0.99
+      // passerait, alors que le repository dépend de comportements fins du
+      // builder (cf `limit(-1)` ignoré silencieusement en 0.45).
+      const track = (v: string) => {
+        const [ma, mi] = clean(v).split(".");
+        return ma === "0" ? `0.${mi}` : ma;
+      };
       const drifts: string[] = [];
       for (const [name, range] of Object.entries(SCAFFOLD_VERSIONS)) {
         const used = repo[name];
         if (!used || used.startsWith("file:")) continue; // pas comparable
-        if (major(range) !== major(used)) {
+        if (major(range) !== major(used) || track(range) !== track(used)) {
           drifts.push(`${name}: scaffold ${range} vs repo ${used}`);
         }
       }

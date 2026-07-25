@@ -23,6 +23,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { findReservedEntity } from "../cli/scaffold/reservedEntities";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // src/nodefony/src/tests
 const CORE_ROOT = path.resolve(HERE, "../.."); // src/nodefony
@@ -424,6 +425,33 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
     beforeEach(async (ctx) => {
       // Un serveur tourne déjà (dev) → le child échouerait EADDRINUSE → skip soft.
       if (await isPortOpen(HTTP_PORT)) ctx.skip();
+    });
+
+    // ─── Anti-dérive : la liste des noms d'entités réservés dit-elle encore vrai ? ──
+    // `create entity` refuse les noms que les modules du framework occupent, sur la
+    // foi d'une table écrite à la main (`scaffold/reservedEntities.ts`). Une table
+    // écrite à la main se périme : un module qui ajoute une entité rouvrirait la
+    // panne qu'elle ferme. Ce dépôt EST une application chargeant user/http/security/
+    // framework — on lui DEMANDE ses entités plutôt que de les déduire.
+    it("reservedEntities couvre ce que `inspect entities` rapporte VRAIMENT", async () => {
+      const r = await runCli(["inspect", "entities", "--json"], CLI_TIMEOUT_MS);
+      assert.strictEqual(
+        r.code,
+        0,
+        `inspect entities doit sortir 0\n${r.stderr}`,
+      );
+      const parsed = JSON.parse(r.stdout) as
+        | { entities?: { name: string; module: string }[] }
+        | { name: string; module: string }[];
+      const live = Array.isArray(parsed) ? parsed : (parsed.entities ?? []);
+      assert.ok(live.length > 0, "l'app dev doit déclarer des entités");
+      const missing = live.filter((e) => findReservedEntity(e.name) === null);
+      assert.deepStrictEqual(
+        missing.map((e) => `${e.name} (${e.module})`),
+        [],
+        "entités du framework absentes de RESERVED_ENTITY_NAMES — " +
+          "`create entity <ce nom>` casserait le boot de l'app générée",
+      );
     });
 
     it("commande inconnue (typo) → exit 64 (EX_USAGE) et AUCUN serveur démarré", async () => {

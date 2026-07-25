@@ -211,7 +211,13 @@ export function clearRuntimeState(cwd: string): void {
  * endroit, déjà gitignoré.
  */
 export function supervisorLockFile(cwd: string): string {
-  return path.join(cwd, "node_modules", ".cache", "nodefony", "supervisor.lock");
+  return path.join(
+    cwd,
+    "node_modules",
+    ".cache",
+    "nodefony",
+    "supervisor.lock",
+  );
 }
 
 /** Ce que le serveur publie quand il demande au superviseur de patienter. */
@@ -754,6 +760,16 @@ export function parsePsRow(line: string): DevProcessInfo | null {
  * périmètre. Ordre du matching : titres dev (les plus spécifiques) d'abord, puis cluster
  * (master/worker), puis le serveur prod mono générique en dernier — `nodefony-dev-server`
  * (tiret) ne contient jamais `nodefony server` (espace), donc aucune ambiguïté.
+ *
+ * **Le titre est ANCRÉ EN TÊTE, jamais cherché dans la ligne.** Poser un
+ * `process.title` REMPLACE l'argv entier : `ps` rend alors le titre seul (au
+ * padding d'espaces près). Un process qui porte le motif AILLEURS ne fait que le
+ * mentionner — `tail -f /dev/null nodefony server`, `vim nodefony master.ts`,
+ * `grep -r nodefony-dev-server` — et il ne doit jamais devenir une cible :
+ * `nodefony stop --all` ne filtre par aucun projet, la reconnaissance du titre y
+ * est le SEUL rempart. Corollaire assumé : la fenêtre PRÉ-titre d'un boot
+ * (`npm exec nodefony development`, avant que la commande pose son titre) n'est
+ * pas détectée — mieux vaut manquer un process de 200 ms que tuer celui d'autrui.
  */
 function classify(command: string): {
   mode: RuntimeMode;
@@ -761,19 +777,20 @@ function classify(command: string): {
   label: string;
   detail?: string;
 } | null {
-  if (command.includes(DEV_SUPERVISOR_TITLE))
+  const cmd = command.trim();
+  if (cmd.startsWith(DEV_SUPERVISOR_TITLE))
     return { mode: "dev", role: "supervisor", label: "supervisor" };
-  if (command.includes(DEV_SERVER_TITLE))
+  if (cmd.startsWith(DEV_SERVER_TITLE))
     return { mode: "dev", role: "server", label: "server" };
-  if (command.includes(DEV_VITE_PREFIX)) {
+  if (cmd.startsWith(DEV_VITE_PREFIX)) {
     // Rôle court en colonne (`vite`) ; les bundles vont en `detail` (hors colonne)
     // pour ne pas faire déborder l'alignement quand ils sont nombreux/longs.
-    const e = viteEntries(command);
+    const e = viteEntries(cmd);
     return { mode: "dev", role: "vite", label: "vite", detail: e || undefined };
   }
-  if (command.includes(CLUSTER_MASTER_PREFIX)) {
+  if (cmd.startsWith(CLUSTER_MASTER_PREFIX)) {
     // Détail = nombre de workers déclaré dans le titre (`[cluster 6w]`).
-    const w = command.match(/\[cluster\s+(\d+)w\]/);
+    const w = cmd.match(/\[cluster\s+(\d+)w\]/);
     return {
       mode: "cluster",
       role: "master",
@@ -781,9 +798,9 @@ function classify(command: string): {
       detail: w ? `${w[1]} workers` : undefined,
     };
   }
-  if (command.includes(CLUSTER_WORKER_PREFIX)) {
+  if (cmd.startsWith(CLUSTER_WORKER_PREFIX)) {
     // Détail = id du worker (`nodefony worker 3 [cluster]`).
-    const id = command.match(/nodefony worker (\d+)/);
+    const id = cmd.match(/^nodefony worker (\d+)/);
     return {
       mode: "cluster",
       role: "worker",
@@ -791,7 +808,7 @@ function classify(command: string): {
       detail: id ? `#${id[1]}` : undefined,
     };
   }
-  if (command.includes(PROD_SERVER_TITLE))
+  if (cmd.startsWith(PROD_SERVER_TITLE))
     return { mode: "prod", role: "server", label: "server" };
   return null;
 }
