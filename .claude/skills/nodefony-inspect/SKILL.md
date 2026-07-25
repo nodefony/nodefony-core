@@ -3,12 +3,12 @@ name: nodefony-inspect
 metadata:
   version: 1.0.0
 description: >
-  Interroge l'état du dépôt Nodefony sans en lire les sources : graphe symbolique (qui étend une
-  classe, qui implémente une interface, qui importe un symbole, où il est défini), signature d'une
-  méthode, puis config / services / routes d'un module **déjà existant** — ses métadonnées, sans
-  démarrer de serveur et **sans rien créer** (scaffolder → `nodefony-create-module`). Donne aussi le
-  diff propre des sources non commitées et régénère le graphe. À charger AVANT de partir en `grep`
-  sur plusieurs modules ou d'ouvrir un fichier de 500 lignes pour l'ordre des arguments.
+  Interroge le dépôt Nodefony par DEUX voies : le graphe symbolique pour les relations de CODE (qui
+  étend, implémente ou importe un symbole ; où il est défini ; signature d'une méthode), et la
+  commande `nodefony inspect` pour l'état RÉEL d'une application qui démarre (routes montées,
+  services enregistrés, config effective et provenance de chaque valeur) — mêmes valeurs que la
+  console d'administration, sans ouvrir de port, ici comme dans une app. Donne aussi le diff propre.
+  Ne crée rien (scaffolder → `nodefony-create-module`).
   Déclencheurs : "qui étend cette classe ?", "qui implémente cette interface ?", "qui utilise ce
   symbole ?", "où est défini X ?", "trouver les consommateurs", "analyse d'impact avant refactor",
   "quels paramètres prend cette méthode ?", "inspecter un module existant", "montre la config de ce
@@ -143,6 +143,14 @@ sed -n '120,135p' src/path/to/File.ts
 
 ## 5. Comment un module est câblé (config, services, routes)
 
+> ⚠️ **Deux voies répondent à cette question — et elles ne disent pas la même chose.** Ce qui suit
+> lit les SOURCES ; la commande `nodefony inspect` (§5bis) lit l'application RÉELLE. Pour « quelles
+> routes existent », « quelle config s'applique vraiment », « quels services sont enregistrés », la
+> commande est plus fiable : une route dépend de décorateurs, d'un manifeste et d'un ordre de
+> chargement, et la config effective est un empilement de défauts, de `use()` et de variables
+> d'environnement. Les sources ci-dessous restent la bonne voie quand l'application **ne boote pas**,
+> ou quand la question porte sur la structure d'un fichier plutôt que sur l'état obtenu.
+
 Un module Nodefony expose sa structure dans `nodefony/config/` — les métadonnées, pas le métier.
 
 ```bash
@@ -170,6 +178,46 @@ find src -type f -name "config.ts" -path "*/nodefony/config/*"
 >
 > ⚠️ Un `config.ts` de module ne doit **jamais** déréférencer le kernel à l'import (§ `CLAUDE.md`) —
 > si l'inspection d'un module fait tomber quelque chose, c'est ce bug-là.
+
+## 5bis. Demander à l'application — `nodefony inspect` (état RÉEL)
+
+**Marche dans CE dépôt** : la racine est une application Nodefony (dualité self-hosted), donc tout
+ce qui suit s'exécute ici comme dans une app d'utilisateur.
+
+```bash
+npx nodefony inspect routes --json     # toutes les routes montées (chemin, méthodes, controller, module)
+npx nodefony inspect services --json   # services enregistrés + le module qui les porte
+npx nodefony inspect config --json     # config EFFECTIVE par module (+ schéma, + provenance par champ)
+npx nodefony inspect module http       # un module en détail (config, services, dépendances)
+npx nodefony inspect stores --json     # où sont réellement écrites les données
+npx nodefony inspect entities --json   # entités déclarées à l'ORM
+npx nodefony inspect graph --json      # graphe des entités et de leurs relations
+```
+
+Ce que ça coûte et ce que ça garantit :
+
+- **Un boot console, aucun port ouvert** — le profil console est respecté, donc la commande
+  cohabite avec un serveur de développement déjà lancé.
+- **Les MÊMES valeurs que la console d'administration** : la commande appelle les producteurs du
+  plan d'administration, elle ne recalcule rien. Une divergence entre les deux portes est donc
+  impossible par construction — y compris la redaction des secrets, qui vit dans les producteurs.
+- **`--json` est un flux pur**, `| jq` fonctionne (le journal de boot est mis en sourdine, les
+  erreurs partent sur la sortie d'erreur).
+
+Quelques questions fréquentes, et la voie la plus courte :
+
+| Question                                                         | Voie                                   |
+| ---------------------------------------------------------------- | -------------------------------------- |
+| « cette route existe-t-elle vraiment, et sur quel controller ? » | `inspect routes`                       |
+| « ce service est-il enregistré, et par quel module ? »           | `inspect services`                     |
+| « quelle valeur de config s'applique, et d'où vient-elle ? »     | `inspect config` (porte la provenance) |
+| « qui étend / implémente / importe ce symbole ? »                | le graphe symbolique (§3)              |
+| « quelle est la signature de cette méthode ? »                   | le graphe verbose (§4)                 |
+| « l'app ne boote pas, je dois quand même comprendre »            | les sources (§5)                       |
+
+> **Deux verbes, deux moments** : `nodefony check` est le diagnostic STATIQUE (il marche sur une
+> application cassée), `nodefony inspect` interroge une application qui démarre. Si `inspect`
+> échoue, la question suivante est pour `check`.
 
 ## 6. Diff propre — ce que j'ai changé
 

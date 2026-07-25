@@ -137,7 +137,7 @@ serait sans effet à la régénération suivante.
 ```nodefony-cards
 [
   { "icon": "🔬", "title": "inspect", "href": "skills/nodefony-inspect.md",
-    "desc": "Interroge l'état du dépôt Nodefony sans en lire les sources : graphe symbolique (qui étend une classe, qui implémente une interface, qui importe un symbole, où il est défini), signature d'une méthode, puis config / services / routes d'un module déjà existant — ses métadonnées, sans démarrer de…",
+    "desc": "Interroge le dépôt Nodefony par DEUX voies : le graphe symbolique pour les relations de CODE (qui étend, implémente ou importe un symbole ; où il est défini ; signature d'une méthode), et la commande `nodefony inspect` pour l'état RÉEL d'une application qui démarre (routes montées, services…",
     "meta": "🟢 conforme v1.0.0" },
   { "icon": "🗺️", "title": "migration-audit", "href": "skills/nodefony-migration-audit.md",
     "desc": "Audit phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MIGRATION_STATUS.md au code (grep/ls/find), une phase à la fois, corrige les écarts. Inclut un mode synthèse graphique (barres de progression par phase) ET un mode VÉRITÉ exhaustif : croise code + mémoire IA + docs + MD…",

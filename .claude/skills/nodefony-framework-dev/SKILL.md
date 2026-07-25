@@ -86,6 +86,7 @@ section correspondante de `nodefony-frontend-dev` (et inversement).
 | auth, crypto, secrets, validation d'entrée, surface d'attaque, header de sécurité  | **`nodefony-security-review`** + sources OWASP/ANSSI (§10)   |
 | Kernel / Container / pipeline request / mémoire                                    | **`nodefony-check-memory-health`** (avant commit)            |
 | l'impact d'un refactor : qui étend / implémente / importe ce symbole               | **`nodefony-inspect`** (index, pas `grep`)                   |
+| l'état RÉEL de l'app : routes montées, services, config effective                  | **`npx nodefony inspect <sujet> --json`** (cf ci-dessous)    |
 
 > Règle : sur RFC, types Node/TS, ou sécurité/vulns, **TOUJOURS** consulter la source/skill — ne jamais
 > trancher de mémoire. Ces skills sont gratuits en tokens tant qu'ils ne se déclenchent pas.
@@ -263,6 +264,24 @@ jq '.relations.implementedBy.IContainer' .ai/symbols.json      # qui implémente
 jq '.relations.usedBy.Container' .ai/symbols.json              # qui importe
 jq '.symbols | to_entries | map(select(.value.module=="@nodefony/http")) | from_entries' .ai/symbols.json
 ```
+
+**Lookup de l'état RÉEL** — le graphe ci-dessus décrit le CODE ; ces commandes décrivent ce que
+l'application OBTIENT. **Ce dépôt est lui-même une application** (dualité self-hosted), donc elles
+s'exécutent ici comme chez un utilisateur :
+
+```bash
+npx nodefony inspect routes --json     # routes MONTÉES (≠ décorateurs lus dans les sources)
+npx nodefony inspect services --json   # services enregistrés + le module qui les porte
+npx nodefony inspect config --json     # config effective + PROVENANCE de chaque valeur
+npx nodefony inspect module http       # un module en détail
+npx nodefony inspect entities --json   # entités déclarées à l'ORM
+```
+
+Boot console, **aucun port ouvert** (cohabite avec un serveur de dev en marche), `--json` est un
+flux pur. Elles appellent les producteurs du plan d'administration : mêmes valeurs que la console
+d'admin, redaction des secrets comprise. Déduire une route en lisant des décorateurs, c'est se
+tromper le jour où le manifeste ou l'ordre de chargement change. Protocole et arbre de décision
+entre les deux voies → skill **`nodefony-inspect`**.
 
 ## 4. Recettes & référence — `references/` (chargé À LA DEMANDE)
 
