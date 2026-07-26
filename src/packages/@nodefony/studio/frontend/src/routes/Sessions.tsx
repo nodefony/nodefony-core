@@ -294,7 +294,7 @@ export const Sessions = observer(() => {
           />
           {mode === "all" && (
             <Text size="xs" c="dimmed">
-              Vue gouvernance — révocation auditée.
+              Vue gouvernance — actions auditées.
             </Text>
           )}
           <BrickStoreChip brick="session" />
