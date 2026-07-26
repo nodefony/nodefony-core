@@ -139,7 +139,17 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
    Le gain de (b) n'est pas le prix du run : c'est que **le contexte principal reste sur la
    décision** au lieu de se remplir de sorties de `grep`.
 
-   Trois règles qui font la différence entre un sous-agent utile et un sous-agent coûteux :
+   Quatre règles qui font la différence entre un sous-agent utile et un sous-agent coûteux :
+   - **🔴 INTERDIRE À TOUT SOUS-AGENT DE TOUCHER À L'INDEX GIT.** À écrire dans CHAQUE prompt de
+     délégation, en toutes lettres : ni `git checkout`, ni `git stash`, ni `git restore`, ni
+     `git reset`, ni commit, ni push. Le motif n'est pas la prudence, c'est un vol de travail
+     déjà constaté : un sous-agent chargé de mesurer une baseline a « nettoyé » l'arbre et
+     emporté une heure de code non commité de l'agent principal — qui ne s'en est aperçu qu'en
+     voyant un test échouer sur une fonction devenue introuvable. Le sous-agent ne voit pas le
+     travail en cours, il ne voit qu'un arbre sale à ranger. Corollaires : **committer AVANT de
+     déléguer** quand l'arbre n'est pas propre ; donner au sous-agent le moyen d'annuler
+     autrement (réinstaller une version par `npm`, réécrire le fichier) ; et **ne jamais éditer
+     les mêmes fichiers qu'un sous-agent en vol**.
    - **Le sous-agent PROPOSE, l'agent principal APPLIQUE.** Il ignore les décisions prises dans la
      session ; le laisser éditer produit des patchs qui contredisent le fil en cours. Lui demander
      « fichier → section → texte exact → preuve », et trancher soi-même.
