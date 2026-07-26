@@ -1,6 +1,7 @@
 import { dirname, resolve, basename, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import Kernel, { ServiceConstructor, ServiceWithInit } from "./Kernel";
+import { toImportSpecifier } from "./resolveModuleEntry";
 import type { IModule, PackageJson } from "../types/IModule";
 export type { PackageJson } from "../types/IModule";
 import type { IKernel } from "../types/IKernel";
@@ -450,7 +451,7 @@ class Module<TConfig = Record<string, unknown>>
     // if (!module) {
     //   throw new Error(`Applcation not ready`);
     // }
-    const res = await import(service);
+    const res = await import(toImportSpecifier(service));
     return this.addService(res.default, ...args);
   }
 

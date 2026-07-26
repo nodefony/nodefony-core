@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-26T18:15:28.717Z",
+  "generated": "2026-07-26T18:41:45.887Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 638,
-    "symbols": 2500,
+    "symbols": 2501,
     "classes": 335,
     "interfaces": 763,
     "types": 331,
     "enums": 4,
-    "functions": 893,
+    "functions": 894,
     "constants": 174
   },
   "symbols": {
@@ -1815,6 +1815,14 @@
       "file": "src/nodefony/src/kernel/Module.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "toImportSpecifier": {
+      "name": "toImportSpecifier",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/resolveModuleEntry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend un chemin importable par `import()`, et laisse tout le reste intact. POURQUOI : le spécificateur d'un `import()` dynamique est une **URL**, pas un chemin. Sous POSIX la confusion est sans cons…"
     },
     "resolveModuleEntry": {
       "name": "resolveModuleEntry",
@@ -20026,6 +20034,11 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "toImportSpecifier": [
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/Module.ts"
       ],
       "CliDefaultOptions": [
         "src/nodefony/src/kernel/CliKernel.ts"

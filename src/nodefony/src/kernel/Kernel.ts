@@ -33,7 +33,7 @@ import type { ITransport } from "../types/ITransport";
 import { DebugType, EnvironmentType } from "../types/globals";
 import CliKernel from "./CliKernel";
 import Module from "./Module";
-import { resolveModuleEntry } from "./resolveModuleEntry";
+import { resolveModuleEntry, toImportSpecifier } from "./resolveModuleEntry";
 //import Fetch from "../service/fetchService";
 // Type SEUL (`this.get<HttpKernel>(…)`) : le cœur ne dépend pas de `@nodefony/http`
 // à l'exécution — l'inverse serait un cycle, http déclarant `nodefony`.
@@ -1077,7 +1077,7 @@ class Kernel extends Service implements IKernel {
     if (!module) {
       throw new Error(`Applcation not ready`);
     }
-    const res = await import(service);
+    const res = await import(toImportSpecifier(service));
     return this.addService(res.default, module, ...args);
   }
 
@@ -1391,7 +1391,7 @@ class Kernel extends Service implements IKernel {
     if (entry === null) {
       return;
     }
-    const mod = (await import(entry)) as {
+    const mod = (await import(toImportSpecifier(entry))) as {
       validateConfig?: (options: unknown) => void;
     };
     mod.validateConfig?.(this.app?.options);
@@ -1616,7 +1616,7 @@ class Kernel extends Service implements IKernel {
     // Catalogue env optionnel exposé par l'app (`export const env = defineEnv(…)`)
     // → alimente `ctx.env` ; absent (app legacy) → `process.env`. Import en cache
     // ESM (déjà résolu ci-dessus → ne peut plus échouer) → coût négligeable.
-    const appModule = (await import(appEntry)) as {
+    const appModule = (await import(toImportSpecifier(appEntry))) as {
       env?: unknown;
     };
     const ctx = this.buildConfigContext(appModule.env);

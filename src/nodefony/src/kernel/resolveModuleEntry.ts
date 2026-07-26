@@ -3,6 +3,30 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 /**
+ * Rend un chemin importable par `import()`, et laisse tout le reste intact.
+ *
+ * POURQUOI : le spécificateur d'un `import()` dynamique est une **URL**, pas un chemin.
+ * Sous POSIX la confusion est sans conséquence — `/a/b/c.js` n'est l'URL de rien, alors
+ * Node le traite en chemin. Sous Windows elle est fatale : dans `D:\app\index.js`, `d:`
+ * EST un schéma d'URL syntaxiquement valide, et Node refuse net —
+ * `ERR_UNSUPPORTED_ESM_URL_SCHEME: Received protocol 'd:'`. Le chargement des modules
+ * échouait donc à chaque démarrage, ce qui ne se voyait pas : le code compile, il ne
+ * s'exécute simplement jamais.
+ *
+ * Ce que la fonction NE touche pas : un nom de paquet (`@nodefony/http`), un chemin
+ * relatif, une URL déjà formée (`file:`, `data:`, `node:`) — aucun n'est absolu au sens
+ * de `path`, tous sont rendus tels quels. Le test d'absoluité vient donc AVANT toute
+ * lecture de schéma : l'inverse reprendrait `d:` pour un protocole, ce qui est
+ * précisément le défaut qu'on ferme.
+ *
+ * @param spec - chemin de fichier, nom de paquet ou URL.
+ * @returns une URL `file://` si `spec` est un chemin absolu, `spec` inchangé sinon.
+ */
+export function toImportSpecifier(spec: string): string {
+  return path.isAbsolute(spec) ? pathToFileURL(spec).href : spec;
+}
+
+/**
  * Résout le point d'entrée d'un module Nodefony **depuis l'application**, et non
  * depuis le paquet `nodefony`.
  *

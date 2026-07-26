@@ -10,7 +10,10 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { resolveModuleEntry } from "../kernel/resolveModuleEntry";
+import {
+  resolveModuleEntry,
+  toImportSpecifier,
+} from "../kernel/resolveModuleEntry";
 
 /**
  * SPEC — « c'est l'APP qui décide où sont ses modules ».
@@ -120,5 +123,46 @@ describe("resolveModuleEntry — résolution des modules depuis l'app", () => {
     expect(entry).to.match(/^file:\/\//u);
     expect(entry.startsWith(pathToFileURL(coreRoot).href.slice(0, 8))).to.be
       .true;
+  });
+});
+
+/**
+ * SPEC — le spécificateur d'un `import()` dynamique est une URL, pas un chemin.
+ *
+ * Sous POSIX la confusion ne se voit pas : `/app/index.js` n'est l'URL de rien, Node le
+ * traite en chemin et tout marche. Sous Windows elle est fatale — dans `D:\app\index.js`,
+ * `d:` est un schéma syntaxiquement valide, et Node refuse avec
+ * `ERR_UNSUPPORTED_ESM_URL_SCHEME: Received protocol 'd:'`. Le Kernel ne chargeait donc
+ * AUCUN module au démarrage, ce qui ne se voyait nulle part : le code compilait, il ne
+ * s'exécutait simplement jamais. Ces assertions mordent sur toutes les plateformes —
+ * retirer la conversion les fait tomber ici comme là-bas.
+ */
+describe("toImportSpecifier — un chemin n'est pas une URL", () => {
+  it("chemin ABSOLU → URL file:// (ce que `import()` exige)", () => {
+    const abs = path.resolve(path.sep, "app", "index.js");
+    expect(toImportSpecifier(abs)).to.equal(pathToFileURL(abs).href);
+    expect(toImportSpecifier(abs)).to.match(/^file:\/\//u);
+  });
+
+  it("le résultat ne porte JAMAIS un protocole d'une seule lettre", () => {
+    // Le défaut exact fermé ici : une lettre de lecteur lue comme un schéma d'URL.
+    const abs = path.resolve(path.sep, "app", "index.js");
+    expect(/^[a-z]:/iu.test(toImportSpecifier(abs))).to.equal(false);
+  });
+
+  it("nom de paquet, chemin relatif et URL déjà formée passent INCHANGÉS", () => {
+    // Aucun n'est absolu au sens de `path` — les convertir produirait un chemin
+    // fantaisiste (`file:///cwd/@nodefony/http`) et casserait la résolution npm.
+    for (const spec of [
+      "@nodefony/http",
+      "eta",
+      "./local.js",
+      "../up.js",
+      "node:fs",
+      "data:text/javascript,export default 1",
+      pathToFileURL(path.resolve(path.sep, "a", "b.js")).href,
+    ]) {
+      expect(toImportSpecifier(spec)).to.equal(spec);
+    }
   });
 });

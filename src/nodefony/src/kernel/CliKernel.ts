@@ -4,6 +4,7 @@ import Syslog, { conditionsInterface } from "../syslog/Syslog";
 import Pdu from "../syslog/Pdu";
 import { logColor } from "../syslog/logColor";
 import { SysExit } from "../cli/sysexits";
+import { toImportSpecifier } from "./resolveModuleEntry";
 import Cli, { CliDefaultOptions, PackageManagerName } from "../Cli";
 import Kernel, {
   IRunProfile,
@@ -727,7 +728,7 @@ class CliKernel extends Cli {
       const detectpath = path.isAbsolute(moduleName)
         ? moduleName
         : path.resolve(cwd, moduleName);
-      const module = await import(detectpath);
+      const module = await import(toImportSpecifier(detectpath));
       return module.default as ModuleWithDefault<T>;
     } catch (error) {
       this.log(error, "ERROR");
