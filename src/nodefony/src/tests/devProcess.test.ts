@@ -435,6 +435,20 @@ describe("devProcess — missingWorkspaceDists (post-condition build)", () => {
 
 // ─── Multi-projet : scoping par cwd (splitByProject / processCwd) ─────────────
 
+/**
+ * Chemins du décor, dans la grammaire de la PLATEFORME.
+ *
+ * `splitByProject` et `scopeAllToNodefonyProjects` normalisent les chemins qu'on leur
+ * donne (`path.resolve`) avant de les comparer, et rendent la forme résolue. Un littéral
+ * POSIX écrit en dur revient donc transformé sous Windows (`D:\home\dev\app-1`) et ne
+ * s'égale plus lui-même — l'assertion tombe sans qu'aucun rattachement n'ait été mal
+ * calculé. Construire le décor avec `path` éprouve le RATTACHEMENT, qui est le mécanisme
+ * en cause, au lieu de la façon dont la plateforme écrit ses séparateurs.
+ */
+const P = (...seg: string[]): string => path.resolve(path.sep, ...seg);
+const APP1 = P("home", "dev", "app-1");
+const APP2 = P("home", "dev", "app-2");
+
 describe("splitByProject — plusieurs apps Nodefony sur le même poste", () => {
   const proc = (pid: number, role: DevProcessInfo["role"]): DevProcessInfo => ({
     pid,
@@ -450,12 +464,12 @@ describe("splitByProject — plusieurs apps Nodefony sur le même poste", () => 
 
   it("cwd exact → mine ; autre dossier → foreign (JAMAIS tué)", () => {
     const cwds: Record<number, string | null> = {
-      1: "/home/dev/app-1",
-      2: "/home/dev/app-2",
+      1: APP1,
+      2: APP2,
     };
     const { mine, foreign } = splitByProject(
       [proc(1, "supervisor"), proc(2, "supervisor")],
-      "/home/dev/app-1",
+      APP1,
       (pid) => cwds[pid] ?? null,
     );
     assert.deepStrictEqual(
@@ -464,18 +478,18 @@ describe("splitByProject — plusieurs apps Nodefony sur le même poste", () => 
     );
     assert.deepStrictEqual(
       foreign.map((p) => [p.pid, p.cwd]),
-      [[2, "/home/dev/app-2"]],
+      [[2, APP2]],
     );
   });
 
   it("vite en SOUS-dossier du projet → mine ; server en sous-dossier → foreign (spawn racine)", () => {
     const cwds: Record<number, string> = {
-      3: "/home/dev/app-1/frontend",
-      4: "/home/dev/app-1/frontend",
+      3: P("home", "dev", "app-1", "frontend"),
+      4: P("home", "dev", "app-1", "frontend"),
     };
     const { mine, foreign } = splitByProject(
       [proc(3, "vite"), proc(4, "server")],
-      "/home/dev/app-1",
+      APP1,
       (pid) => cwds[pid] ?? null,
     );
     assert.deepStrictEqual(
@@ -491,7 +505,7 @@ describe("splitByProject — plusieurs apps Nodefony sur le même poste", () => 
   it("cwd IRRÉSOLU → foreign (on préfère un orphelin vivant à un projet tué)", () => {
     const { mine, foreign } = splitByProject(
       [proc(5, "supervisor")],
-      "/home/dev/app-1",
+      APP1,
       () => null,
     );
     assert.deepStrictEqual(mine, []);
@@ -529,13 +543,13 @@ describe("scopeAllToNodefonyProjects — seconde preuve avant un kill sans proje
 
   it("titre Nodefony mais cwd HORS projet → épargné (homonyme)", () => {
     const cwds: Record<number, string | null> = {
-      1: "/home/dev/app-1", // vrai projet
-      2: "/opt/random-daemon", // homonyme : porte le titre, sans projet
+      1: APP1, // vrai projet
+      2: P("opt", "random-daemon"), // homonyme : porte le titre, sans projet
     };
     const { kept, rejected } = scopeAllToNodefonyProjects(
       [proc(1, "supervisor"), proc(2, "server")],
       (pid) => cwds[pid] ?? null,
-      (dir) => dir === "/home/dev/app-1",
+      (dir) => dir === APP1,
     );
     assert.deepStrictEqual(
       kept.map((p) => p.pid),
@@ -560,8 +574,8 @@ describe("scopeAllToNodefonyProjects — seconde preuve avant un kill sans proje
   it("Vite dans un SOUS-dossier du projet → gardé (racine remontée)", () => {
     const { kept } = scopeAllToNodefonyProjects(
       [proc(4, "vite")],
-      () => "/home/dev/app-1/src/bundles/studio",
-      (dir) => dir === "/home/dev/app-1",
+      () => P("home", "dev", "app-1", "src", "bundles", "studio"),
+      (dir) => dir === APP1,
     );
     assert.deepStrictEqual(
       kept.map((p) => p.pid),
