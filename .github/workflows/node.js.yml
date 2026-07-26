@@ -12,6 +12,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Le jeton du workflow ne peut QUE lire le dépôt. Aucun de ces jobs ne publie,
+# ne commente ni n'écrit quoi que ce soit ; sans ce bloc, le jeton hérite des
+# permissions par défaut du dépôt, souvent en écriture. Le dépôt est public :
+# une dépendance compromise s'exécutant pendant `npm ci` disposerait alors d'un
+# jeton capable d'écrire. Recommandation explicite de GitHub.
+permissions:
+  contents: read
+
 env:
   # Désactive la télémétrie Turbo / Next
   TURBO_TELEMETRY_DISABLED: 1
@@ -59,19 +67,50 @@ jobs:
         run: npm run typecheck
         continue-on-error: false
 
-      # Bloquant sur les ERREURS, tolérant aux avertissements : `oxlint` sort en
-      # échec dès la première erreur et rend 0 quand il ne reste que des
-      # avertissements. Une règle qu'on décide d'ignorer se désactive donc dans
-      # `.oxlintrc.json`, où la décision est lisible — jamais en laissant la
-      # marche passer outre, qui rend le contrôle silencieux pour TOUTES les
-      # règles à la fois.
+      # Bloquant sur les erreurs ET sur les avertissements (`--deny-warnings`).
+      #
+      # Le compteur est à ZÉRO : chacun des 263 avertissements accumulés a été
+      # soit corrigé, soit dérogé avec son motif à l'endroit exact, soit éteint
+      # par zone dans `.oxlintrc.json` — jamais laissé traîner. Sans cette
+      # option, `oxlint` rend 0 tant qu'il ne reste que des avertissements :
+      # la marche resterait verte pendant que le compteur remonte, et on ne le
+      # découvrirait qu'en le regardant à la main. C'est exactement ce qui
+      # s'était produit quand la CI ne lançait pas le lint du tout.
+      #
+      # Conséquence assumée : un avertissement neuf CASSE la demande de fusion.
+      # C'est le but — une règle qu'on décide d'ignorer se désactive dans
+      # `.oxlintrc.json`, où la décision se lit et se discute.
       - name: Lint (oxlint)
-        run: npm run lint
+        run: npm run lint -- --deny-warnings
+
+      # Bloquant à partir de « high ». `npm ci` tourne avec `--no-audit` (l'audit
+      # à l'installation ralentit sans rien bloquer) — la vérification est donc
+      # faite ICI, à un endroit qui peut casser la marche. Une faille de gravité
+      # haute se ferme par un `overrides` dans le package.json racine, où la
+      # décision se lit, plutôt qu'en laissant l'alerte vivre au tableau de bord.
+      - name: Audit des dépendances
+        run: npm audit --audit-level=high
+
+      # Conformité des skills au standard Agent Skills : fiches publiques à jour,
+      # aucun renvoi mort, aucun fichier orphelin. Le contrôle existait en local
+      # depuis des semaines sans que rien ne le déclenche — c'est précisément le
+      # motif qui a laissé le lint dériver jusqu'à 263 avertissements. Un seul
+      # système d'exploitation suffit : il ne lit que des fichiers.
+      - name: Conformité des skills
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        run: npm run skills:check
 
   # ─── Tests unit — toutes les plateformes, pas besoin du serveur ─────────────
+  #
+  # ⚠️ PAS de `needs: build`, et c'est délibéré. Un job qui dépend d'un job À
+  # MATRICE attend les SIX variantes et échoue si UNE SEULE tombe : les tests
+  # passaient alors en `skipped`, ce qui s'affiche comme « non exécuté » et se
+  # lit comme « rien à signaler ». Vécu ici pendant deux mois — une variante de
+  # build rouge masquait l'état réel de tout ce qui suit. Ce job réinstalle et
+  # reconstruit de toute façon : le rendre indépendant ne coûte rien et lui fait
+  # dire SA propre vérité, en parallèle des autres.
   test-unit:
     name: Tests unit (${{ matrix.os }} / Node ${{ matrix.node-version }})
-    needs: build
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -90,12 +129,6 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
 
-      # Bun requis pour `@nodefony/llm/test` (script: "bun test")
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
@@ -106,9 +139,11 @@ jobs:
         run: npm test
 
   # ─── Tests d'intégration — ubuntu only, démarre le serveur Nodefony ─────────
+  # Indépendant lui aussi (même raison que `test-unit` ci-dessus) : c'est le job
+  # le plus lent à révéler ses pannes, donc le dernier qu'on veuille voir
+  # `skipped` derrière l'échec d'une plateforme qui ne le concerne pas.
   test-integration:
     name: Tests intégration (Node ${{ matrix.node-version }})
-    needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -215,8 +250,9 @@ jobs:
           if [ -f srv.pid ]; then
             kill -9 $(cat srv.pid) 2>/dev/null || true
           fi
-          # Best-effort cleanup des ports
-          lsof -ti:5151 -ti:5152 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+          # Filet de sécurité sur les ports. `-ti:5151,5152` en UNE liste : la
+          # forme `-ti:5151 -ti:5152` ne fait pas l'union attendue.
+          lsof -ti:5151,5152 2>/dev/null | xargs -r kill -9 2>/dev/null || true
 
       - name: Upload server log on failure
         if: failure()
