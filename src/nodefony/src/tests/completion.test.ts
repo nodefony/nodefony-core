@@ -50,9 +50,9 @@ describe("completion — buildCliManifest (built-ins réels)", () => {
     assert.ok(dev.aliases.includes("dev"));
     assert.ok(dev.options.includes("--detach"));
     assert.ok(dev.options.includes("--wait"));
-    const names = m.commands.map((c) => c.name);
+    const names = new Set(m.commands.map((c) => c.name));
     for (const n of ["build", "cluster", "status", "stop", "completion"]) {
-      assert.ok(names.includes(n), `${n} attendu dans le manifest`);
+      assert.ok(names.has(n), `${n} attendu dans le manifest`);
     }
   });
 

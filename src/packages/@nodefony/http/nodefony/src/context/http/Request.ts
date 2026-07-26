@@ -32,7 +32,7 @@ import {
   type ResolvedProxy,
 } from "../forwarded";
 
-const reg = /(.*)[\[][\]]$/u;
+const reg = /(.*)[[][\]]$/u;
 
 // Sentinelle (singleton, 0 alloc/req) renvoyée quand le corps a été ENTIÈREMENT
 // consommé + onRequestEnd émis DANS parseRequest (multipart busboy en streaming,

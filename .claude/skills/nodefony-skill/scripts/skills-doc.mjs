@@ -172,7 +172,7 @@ function analyzeScript(path) {
     // Un filet de séparation (tirets ASCII ou box-drawing) n'est pas une raison d'être.
     if (
       c &&
-      !/^#!/.test(line.trim()) &&
+      !line.trim().startsWith("#!") &&
       !/eslint|prettier|@ts-/.test(c[1]) &&
       !/^[-=─━_*·.\s]+$/u.test(c[1])
     ) {

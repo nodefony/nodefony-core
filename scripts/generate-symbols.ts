@@ -56,8 +56,18 @@ interface SymbolDetail extends SymbolBase {
   decorators?: string[];
   description?: string; // first sentence of the TSDoc, trimmed to ~200 chars
   // Verbose-only
-  methods?: { name: string; static: boolean; visibility: "public" | "protected" | "private"; decorators?: string[]; description?: string }[];
-  properties?: { name: string; static: boolean; visibility: "public" | "protected" | "private" }[];
+  methods?: {
+    name: string;
+    static: boolean;
+    visibility: "public" | "protected" | "private";
+    decorators?: string[];
+    description?: string;
+  }[];
+  properties?: {
+    name: string;
+    static: boolean;
+    visibility: "public" | "protected" | "private";
+  }[];
   members?: string[]; // for enums / interfaces
   signature?: string; // for functions / decorator-fn
 }
@@ -131,9 +141,9 @@ function visibilityOf(node: Node): "public" | "protected" | "private" {
 // Extract the leading description from a JSDoc/TSDoc block. Strips @tags and
 // collapses whitespace; truncates to ~200 chars so the stable index stays
 // lightweight. Returns undefined when no usable description exists.
-function tsDocOf(
-  node: { getJsDocs?: () => { getDescription: () => string }[] }
-): string | undefined {
+function tsDocOf(node: {
+  getJsDocs?: () => { getDescription: () => string }[];
+}): string | undefined {
   if (typeof node.getJsDocs !== "function") return undefined;
   const docs = node.getJsDocs();
   if (!docs.length) return undefined;
@@ -147,7 +157,12 @@ function tsDocOf(
 
 // ─── Extractors ─────────────────────────────────────────────────────────────
 
-function extractClass(cls: ClassDeclaration, file: string, module: string, verbose: boolean): SymbolDetail | null {
+function extractClass(
+  cls: ClassDeclaration,
+  file: string,
+  module: string,
+  verbose: boolean,
+): SymbolDetail | null {
   const name = cls.getName();
   if (!name) return null;
   const description = tsDocOf(cls);
@@ -163,27 +178,55 @@ function extractClass(cls: ClassDeclaration, file: string, module: string, verbo
   };
   if (description) sym.description = description;
   if (verbose) {
-    sym.methods = cls.getInstanceMethods().concat(cls.getStaticMethods()).map((m) => {
-      const methodDoc = tsDocOf(m);
-      const entry: { name: string; static: boolean; visibility: "public" | "protected" | "private"; decorators?: string[]; description?: string } = {
-        name: m.getName(),
-        static: m.isStatic(),
-        visibility: m.hasModifier(SyntaxKind.PrivateKeyword) ? "private" : m.hasModifier(SyntaxKind.ProtectedKeyword) ? "protected" : "public",
-        decorators: m.getDecorators().map((d) => d.getName()),
-      };
-      if (methodDoc) entry.description = methodDoc;
-      return entry;
-    });
-    sym.properties = cls.getInstanceProperties().concat(cls.getStaticProperties()).map((p) => ({
-      name: p.getName(),
-      static: "isStatic" in p && typeof p.isStatic === "function" ? p.isStatic() : false,
-      visibility: p.hasModifier?.(SyntaxKind.PrivateKeyword) ? "private" : p.hasModifier?.(SyntaxKind.ProtectedKeyword) ? "protected" : "public",
-    }));
+    sym.methods = cls
+      .getInstanceMethods()
+      .concat(cls.getStaticMethods())
+      .map((m) => {
+        const methodDoc = tsDocOf(m);
+        const entry: {
+          name: string;
+          static: boolean;
+          visibility: "public" | "protected" | "private";
+          decorators?: string[];
+          description?: string;
+        } = {
+          name: m.getName(),
+          static: m.isStatic(),
+          visibility: m.hasModifier(SyntaxKind.PrivateKeyword)
+            ? "private"
+            : m.hasModifier(SyntaxKind.ProtectedKeyword)
+              ? "protected"
+              : "public",
+          decorators: m.getDecorators().map((d) => d.getName()),
+        };
+        if (methodDoc) entry.description = methodDoc;
+        return entry;
+      });
+    sym.properties = cls
+      .getInstanceProperties()
+      .concat(cls.getStaticProperties())
+      .map((p) => ({
+        name: p.getName(),
+        static:
+          "isStatic" in p && typeof p.isStatic === "function"
+            ? p.isStatic()
+            : false,
+        visibility: p.hasModifier?.(SyntaxKind.PrivateKeyword)
+          ? "private"
+          : p.hasModifier?.(SyntaxKind.ProtectedKeyword)
+            ? "protected"
+            : "public",
+      }));
   }
   return sym;
 }
 
-function extractInterface(iface: InterfaceDeclaration, file: string, module: string, verbose: boolean): SymbolDetail {
+function extractInterface(
+  iface: InterfaceDeclaration,
+  file: string,
+  module: string,
+  verbose: boolean,
+): SymbolDetail {
   const description = tsDocOf(iface);
   const sym: SymbolDetail = {
     name: iface.getName(),
@@ -191,16 +234,27 @@ function extractInterface(iface: InterfaceDeclaration, file: string, module: str
     file,
     exported: iface.isExported(),
     module,
-    extends: iface.getExtends().map((e) => e.getExpression().getText()).join(", ") || null,
+    extends:
+      iface
+        .getExtends()
+        .map((e) => e.getExpression().getText())
+        .join(", ") || null,
   };
   if (description) sym.description = description;
   if (verbose) {
-    sym.members = iface.getProperties().map((p) => p.getName()).concat(iface.getMethods().map((m) => m.getName()));
+    sym.members = iface
+      .getProperties()
+      .map((p) => p.getName())
+      .concat(iface.getMethods().map((m) => m.getName()));
   }
   return sym;
 }
 
-function extractTypeAlias(t: TypeAliasDeclaration, file: string, module: string): SymbolDetail {
+function extractTypeAlias(
+  t: TypeAliasDeclaration,
+  file: string,
+  module: string,
+): SymbolDetail {
   const description = tsDocOf(t);
   const sym: SymbolDetail = {
     name: t.getName(),
@@ -213,7 +267,12 @@ function extractTypeAlias(t: TypeAliasDeclaration, file: string, module: string)
   return sym;
 }
 
-function extractEnum(e: EnumDeclaration, file: string, module: string, verbose: boolean): SymbolDetail {
+function extractEnum(
+  e: EnumDeclaration,
+  file: string,
+  module: string,
+  verbose: boolean,
+): SymbolDetail {
   const description = tsDocOf(e);
   const sym: SymbolDetail = {
     name: e.getName(),
@@ -227,12 +286,19 @@ function extractEnum(e: EnumDeclaration, file: string, module: string, verbose: 
   return sym;
 }
 
-function extractFunction(f: FunctionDeclaration, file: string, module: string, verbose: boolean): SymbolDetail | null {
+function extractFunction(
+  f: FunctionDeclaration,
+  file: string,
+  module: string,
+  verbose: boolean,
+): SymbolDetail | null {
   const name = f.getName();
   if (!name) return null;
   // Heuristic: decorator factory if returns ClassDecorator / MethodDecorator / PropertyDecorator / ParameterDecorator
   const returnTypeText = f.getReturnTypeNode()?.getText() ?? "";
-  const isDecorator = /Decorator$/.test(returnTypeText) || /Decorator\s*\|/.test(returnTypeText);
+  const isDecorator =
+    returnTypeText.endsWith("Decorator") ||
+    /Decorator\s*\|/.test(returnTypeText);
   const description = tsDocOf(f);
   const sym: SymbolDetail = {
     name,
@@ -248,8 +314,14 @@ function extractFunction(f: FunctionDeclaration, file: string, module: string, v
   return sym;
 }
 
-function extractConsts(stmt: VariableStatement, file: string, module: string, verbose: boolean): SymbolDetail[] {
-  if (!stmt.isExported() && !stmt.hasModifier?.(SyntaxKind.ExportKeyword)) return [];
+function extractConsts(
+  stmt: VariableStatement,
+  file: string,
+  module: string,
+  verbose: boolean,
+): SymbolDetail[] {
+  if (!stmt.isExported() && !stmt.hasModifier?.(SyntaxKind.ExportKeyword))
+    return [];
   const description = tsDocOf(stmt);
   return stmt.getDeclarations().map((d) => {
     const sym: SymbolDetail = {
@@ -303,97 +375,116 @@ function generate(): void {
   for (const absPath of matched) {
     const size = fs.statSync(absPath).size;
     if (size > 500_000) {
-      console.log(`  ⚠ skip large file (${(size / 1024).toFixed(0)} KB): ${relPath(absPath)}`);
+      console.log(
+        `  ⚠ skip large file (${(size / 1024).toFixed(0)} KB): ${relPath(absPath)}`,
+      );
       skippedSize++;
       continue;
     }
     try {
       project.addSourceFileAtPath(absPath);
     } catch (err) {
-      console.warn(`  ⚠ skip ${relPath(absPath)} — parse error: ${(err as Error).message.split("\n")[0]}`);
+      console.warn(
+        `  ⚠ skip ${relPath(absPath)} — parse error: ${(err as Error).message.split("\n")[0]}`,
+      );
       skippedParse++;
     }
   }
 
   const sourceFiles = project.getSourceFiles();
-  console.log(`  → ${matched.length} files matched, ${sourceFiles.length} parsed (skipped: ${skippedSize} large, ${skippedParse} parse errors)`);
+  console.log(
+    `  → ${matched.length} files matched, ${sourceFiles.length} parsed (skipped: ${skippedSize} large, ${skippedParse} parse errors)`,
+  );
 
   const stableSymbols: SymbolDetail[] = [];
   const verboseSymbols: SymbolDetail[] = [];
   const filesImports: FileImports[] = [];
-  const stats = { files: sourceFiles.length, symbols: 0, classes: 0, interfaces: 0, types: 0, enums: 0, functions: 0, constants: 0 };
+  const stats = {
+    files: sourceFiles.length,
+    symbols: 0,
+    classes: 0,
+    interfaces: 0,
+    types: 0,
+    enums: 0,
+    functions: 0,
+    constants: 0,
+  };
 
   for (const sf of sourceFiles) {
     const file = relPath(sf.getFilePath());
     const module = moduleOf(file);
 
     try {
-    // Imports
-    const imports = sf.getImportDeclarations().map((imp) => {
-      const moduleSpec = imp.getModuleSpecifierValue();
-      const names: string[] = [];
-      if (imp.getDefaultImport()) names.push(imp.getDefaultImport()!.getText());
-      for (const named of imp.getNamedImports()) names.push(named.getName());
-      if (imp.getNamespaceImport()) names.push("* as " + imp.getNamespaceImport()!.getText());
-      return { module: moduleSpec, names, isTypeOnly: imp.isTypeOnly() };
-    });
-    if (imports.length) filesImports.push({ file, imports });
+      // Imports
+      const imports = sf.getImportDeclarations().map((imp) => {
+        const moduleSpec = imp.getModuleSpecifierValue();
+        const names: string[] = [];
+        if (imp.getDefaultImport())
+          names.push(imp.getDefaultImport()!.getText());
+        for (const named of imp.getNamedImports()) names.push(named.getName());
+        if (imp.getNamespaceImport())
+          names.push("* as " + imp.getNamespaceImport()!.getText());
+        return { module: moduleSpec, names, isTypeOnly: imp.isTypeOnly() };
+      });
+      if (imports.length) filesImports.push({ file, imports });
 
-    // Classes
-    for (const cls of sf.getClasses()) {
-      const stableSym = extractClass(cls, file, module, false);
-      const verboseSym = extractClass(cls, file, module, true);
-      if (stableSym) {
-        stableSymbols.push(stableSym);
-        stats.classes++;
+      // Classes
+      for (const cls of sf.getClasses()) {
+        const stableSym = extractClass(cls, file, module, false);
+        const verboseSym = extractClass(cls, file, module, true);
+        if (stableSym) {
+          stableSymbols.push(stableSym);
+          stats.classes++;
+          stats.symbols++;
+        }
+        if (verboseSym) verboseSymbols.push(verboseSym);
+      }
+      // Interfaces
+      for (const iface of sf.getInterfaces()) {
+        stableSymbols.push(extractInterface(iface, file, module, false));
+        verboseSymbols.push(extractInterface(iface, file, module, true));
+        stats.interfaces++;
         stats.symbols++;
       }
-      if (verboseSym) verboseSymbols.push(verboseSym);
-    }
-    // Interfaces
-    for (const iface of sf.getInterfaces()) {
-      stableSymbols.push(extractInterface(iface, file, module, false));
-      verboseSymbols.push(extractInterface(iface, file, module, true));
-      stats.interfaces++;
-      stats.symbols++;
-    }
-    // Types
-    for (const t of sf.getTypeAliases()) {
-      const sym = extractTypeAlias(t, file, module);
-      stableSymbols.push(sym);
-      verboseSymbols.push(sym);
-      stats.types++;
-      stats.symbols++;
-    }
-    // Enums
-    for (const e of sf.getEnums()) {
-      stableSymbols.push(extractEnum(e, file, module, false));
-      verboseSymbols.push(extractEnum(e, file, module, true));
-      stats.enums++;
-      stats.symbols++;
-    }
-    // Functions
-    for (const f of sf.getFunctions()) {
-      const stableSym = extractFunction(f, file, module, false);
-      const verboseSym = extractFunction(f, file, module, true);
-      if (stableSym) {
-        stableSymbols.push(stableSym);
-        stats.functions++;
+      // Types
+      for (const t of sf.getTypeAliases()) {
+        const sym = extractTypeAlias(t, file, module);
+        stableSymbols.push(sym);
+        verboseSymbols.push(sym);
+        stats.types++;
         stats.symbols++;
       }
-      if (verboseSym) verboseSymbols.push(verboseSym);
-    }
-    // Exported consts
-    for (const stmt of sf.getVariableStatements()) {
-      const consts = extractConsts(stmt, file, module, false);
-      const constsV = extractConsts(stmt, file, module, true);
-      stableSymbols.push(...consts);
-      verboseSymbols.push(...constsV);
-      stats.constants += consts.length;
-      stats.symbols += consts.length;
-    }
+      // Enums
+      for (const e of sf.getEnums()) {
+        stableSymbols.push(extractEnum(e, file, module, false));
+        verboseSymbols.push(extractEnum(e, file, module, true));
+        stats.enums++;
+        stats.symbols++;
+      }
+      // Functions
+      for (const f of sf.getFunctions()) {
+        const stableSym = extractFunction(f, file, module, false);
+        const verboseSym = extractFunction(f, file, module, true);
+        if (stableSym) {
+          stableSymbols.push(stableSym);
+          stats.functions++;
+          stats.symbols++;
+        }
+        if (verboseSym) verboseSymbols.push(verboseSym);
+      }
+      // Exported consts
+      for (const stmt of sf.getVariableStatements()) {
+        const consts = extractConsts(stmt, file, module, false);
+        const constsV = extractConsts(stmt, file, module, true);
+        stableSymbols.push(...consts);
+        verboseSymbols.push(...constsV);
+        stats.constants += consts.length;
+        stats.symbols += consts.length;
+      }
     } catch (err) {
-      console.warn(`  ⚠ skip ${file} — parse error: ${(err as Error).message.split("\n")[0]}`);
+      console.warn(
+        `  ⚠ skip ${file} — parse error: ${(err as Error).message.split("\n")[0]}`,
+      );
     }
   }
 
@@ -416,16 +507,21 @@ function generate(): void {
         continue;
       }
       const existing = map[sym.name];
-      if (existing.module === sym.module && existing.file === sym.file) continue; // exact dup, ignore
+      if (existing.module === sym.module && existing.file === sym.file)
+        continue; // exact dup, ignore
       const namespaced = `${sym.module}:${sym.name}`;
       map[namespaced] = sym;
       homonyms++;
       if (verbose) {
-        console.warn(`  ⚠ homonym: ${sym.name} exists in ${existing.module} and ${sym.module} → stored as "${namespaced}"`);
+        console.warn(
+          `  ⚠ homonym: ${sym.name} exists in ${existing.module} and ${sym.module} → stored as "${namespaced}"`,
+        );
       }
     }
     if (homonyms > 0 && !verbose) {
-      console.warn(`  ⚠ ${homonyms} homonymes namespacés (lancer avec --verbose pour le détail)`);
+      console.warn(
+        `  ⚠ ${homonyms} homonymes namespacés (lancer avec --verbose pour le détail)`,
+      );
     }
     return map;
   }
@@ -498,18 +594,32 @@ function generate(): void {
   // Write stable
   const stablePath = path.join(repoRoot, config.output.stable);
   fs.mkdirSync(path.dirname(stablePath), { recursive: true });
-  fs.writeFileSync(stablePath, JSON.stringify(stableOutput, null, 2) + "\n", "utf8");
+  fs.writeFileSync(
+    stablePath,
+    JSON.stringify(stableOutput, null, 2) + "\n",
+    "utf8",
+  );
 
   // Write verbose
   const verbosePath = path.join(repoRoot, config.output.verbose);
   fs.mkdirSync(path.dirname(verbosePath), { recursive: true });
-  fs.writeFileSync(verbosePath, JSON.stringify(verboseOutput, null, 2) + "\n", "utf8");
+  fs.writeFileSync(
+    verbosePath,
+    JSON.stringify(verboseOutput, null, 2) + "\n",
+    "utf8",
+  );
 
   console.log("✅ generate-symbols done");
   console.log(`  → ${stats.files} files, ${stats.symbols} symbols`);
-  console.log(`     classes: ${stats.classes}, interfaces: ${stats.interfaces}, types: ${stats.types}, enums: ${stats.enums}, functions: ${stats.functions}, constants: ${stats.constants}`);
-  console.log(`  → stable  : ${config.output.stable} (${(fs.statSync(stablePath).size / 1024).toFixed(1)} KB, ${Object.keys(stableMap).length} exported symbols)`);
-  console.log(`  → verbose : ${config.output.verbose} (${(fs.statSync(verbosePath).size / 1024).toFixed(1)} KB, ${Object.keys(verboseMap).length} symbols)`);
+  console.log(
+    `     classes: ${stats.classes}, interfaces: ${stats.interfaces}, types: ${stats.types}, enums: ${stats.enums}, functions: ${stats.functions}, constants: ${stats.constants}`,
+  );
+  console.log(
+    `  → stable  : ${config.output.stable} (${(fs.statSync(stablePath).size / 1024).toFixed(1)} KB, ${Object.keys(stableMap).length} exported symbols)`,
+  );
+  console.log(
+    `  → verbose : ${config.output.verbose} (${(fs.statSync(verbosePath).size / 1024).toFixed(1)} KB, ${Object.keys(verboseMap).length} symbols)`,
+  );
 }
 
 // ─── --check-staged mode (for pre-commit hook) ──────────────────────────────

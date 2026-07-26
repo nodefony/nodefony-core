@@ -93,7 +93,7 @@ export const ApiKeys = observer(() => {
       const res = await store.api.getAbsolute<{ keys: ApiKey[] }>(endpoint);
       return res.keys ?? [];
     } catch (e) {
-      throw new Error(describeApiKeysError(e));
+      throw new Error(describeApiKeysError(e), { cause: e });
     }
   }, [store, endpoint]);
   const { data, loading, error, reload } = useResource(fetcher);
@@ -106,7 +106,7 @@ export const ApiKeys = observer(() => {
         KEYS_CAPABILITIES_ENDPOINT,
       );
     } catch (e) {
-      throw new Error(describeApiKeysError(e));
+      throw new Error(describeApiKeysError(e), { cause: e });
     }
   }, [store]);
   const { data: caps } = useResource(capFetcher);

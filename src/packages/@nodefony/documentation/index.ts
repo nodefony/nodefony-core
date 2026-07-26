@@ -70,7 +70,9 @@ class Documentation extends Module<DocumentationConfig> {
               .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
               .join(" · ")
           : (e as Error).message;
-      throw new Error(`[@nodefony/documentation] Invalid config: ${issues}`);
+      throw new Error(`[@nodefony/documentation] Invalid config: ${issues}`, {
+        cause: e,
+      });
     }
     return this;
   }

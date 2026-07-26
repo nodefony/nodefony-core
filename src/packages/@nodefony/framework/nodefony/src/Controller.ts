@@ -38,7 +38,7 @@ import {
 } from "node:http";
 //import { ServerHttp2Stream } from "node:http2";
 import fs, { createReadStream, ReadStream } from "node:fs";
-import { promisify } from "util";
+import { promisify } from "node:util";
 import Eta from "../service/Eta";
 const fsClose = promisify(fs.close);
 
@@ -494,13 +494,11 @@ class Controller extends Service implements IController {
     const File = await this.getFileAsync(file);
     const length = File.stats.size;
     const head = {
-      ...{
-        "Content-Disposition": `attachment; filename="${File.name}"`,
-        "Content-Length": length,
-        Expires: "0",
-        "Content-Description": "File Transfer",
-        "Content-Type": File.mimeType || "application/octet-stream",
-      },
+      "Content-Disposition": `attachment; filename="${File.name}"`,
+      "Content-Length": length,
+      Expires: "0",
+      "Content-Description": "File Transfer",
+      "Content-Type": File.mimeType || "application/octet-stream",
       ...headers,
     };
     try {
@@ -650,18 +648,14 @@ class Controller extends Service implements IController {
       const chunksize = end - start + 1;
       value = {
         ...options,
-        ...{
-          start,
-          end,
-        },
+        start,
+        end,
       };
       head = {
-        ...{
-          "Content-Range": `bytes ${start}-${end}/${length}`,
-          "Accept-Ranges": "bytes",
-          "Content-Length": chunksize.toString(),
-          "Content-Type": File.mimeType || "application/octet-stream",
-        },
+        "Content-Range": `bytes ${start}-${end}/${length}`,
+        "Accept-Ranges": "bytes",
+        "Content-Length": chunksize.toString(),
+        "Content-Type": File.mimeType || "application/octet-stream",
         ...headers,
       };
       response?.removeHeader("content-type");
@@ -671,12 +665,10 @@ class Controller extends Service implements IController {
         ...options,
       };
       head = {
-        ...{
-          "Content-Type": File.mimeType || "application/octet-stream",
-          "Content-Length": length.toString(),
-          "Content-Disposition": ` inline; filename="${File.name}"`,
-          "Accept-Ranges": "bytes",
-        },
+        "Content-Type": File.mimeType || "application/octet-stream",
+        "Content-Length": length.toString(),
+        "Content-Disposition": ` inline; filename="${File.name}"`,
+        "Accept-Ranges": "bytes",
         ...headers,
       };
       response?.removeHeader("content-type");

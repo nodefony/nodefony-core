@@ -312,7 +312,10 @@ function readAnswersJson(source: string, type: TCreateType): TScaffoldAnswers {
   try {
     parsed = JSON.parse(raw);
   } catch (e) {
-    throw new Error(`--answers-json : JSON invalide (${(e as Error).message})`);
+    throw new Error(
+      `--answers-json : JSON invalide (${(e as Error).message})`,
+      { cause: e },
+    );
   }
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error("--answers-json : un objet de réponses est attendu");

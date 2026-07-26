@@ -333,8 +333,8 @@ export async function readDependencies(modulePath: string): Promise<DepInfo[]> {
     /* pas de package.json */
   }
   const ranges: Record<string, string> = {
-    ...(pkg.dependencies ?? {}),
-    ...(pkg.peerDependencies ?? {}),
+    ...pkg.dependencies,
+    ...pkg.peerDependencies,
   };
   const root = process.cwd();
   const out: DepInfo[] = [];

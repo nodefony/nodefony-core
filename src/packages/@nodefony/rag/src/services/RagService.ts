@@ -3,10 +3,20 @@
 import type { ILLMProvider } from "@nodefony/llm";
 import type { IVectorStore, IVectorEntry } from "@nodefony/vector";
 import type {
-  IRagService, IChunk, ISearchResult, IIndexOptions,
-  ISearchOptions, IRagStats, IChunker, ChunkingStrategy
+  IRagService,
+  IChunk,
+  ISearchResult,
+  IIndexOptions,
+  ISearchOptions,
+  IRagStats,
+  IChunker,
+  ChunkingStrategy,
 } from "../interfaces/IRagService.js";
-import { RagError, RagInvalidInputError, RagShutdownError } from "../errors/RagErrors.js";
+import {
+  RagError,
+  RagInvalidInputError,
+  RagShutdownError,
+} from "../errors/RagErrors.js";
 import { FixedChunker } from "../chunking/FixedChunker.js";
 import { SentenceChunker } from "../chunking/SentenceChunker.js";
 import { createHash, randomUUID } from "node:crypto";
@@ -19,22 +29,26 @@ export class RagService implements IRagService {
   private isShutdown = false;
 
   constructor(
-    private readonly llm:    ILLMProvider,
+    private readonly llm: ILLMProvider,
     private readonly vector: IVectorStore,
   ) {
     this.chunkers = {
-      fixed:     new FixedChunker(),
-      sentence:  new SentenceChunker(),
+      fixed: new FixedChunker(),
+      sentence: new SentenceChunker(),
       paragraph: new SentenceChunker(),
     };
   }
 
-  async indexText(text: string, source: string, options: IIndexOptions = {}): Promise<number> {
+  async indexText(
+    text: string,
+    source: string,
+    options: IIndexOptions = {},
+  ): Promise<number> {
     this.assertReady();
     this.validateInput(text, source);
 
     const strategy = options.strategy ?? "sentence";
-    const chunker  = this.chunkers[strategy];
+    const chunker = this.chunkers[strategy];
     if (!chunker) {
       throw new RagInvalidInputError(`Unknown strategy: ${strategy}`);
     }
@@ -49,13 +63,13 @@ export class RagService implements IRagService {
     for (const chunkText of textChunks) {
       const vector = await this.llm.embed(chunkText);
       entries.push({
-        id:       randomUUID(),
+        id: randomUUID(),
         vector,
-        text:     chunkText,
+        text: chunkText,
         metadata: {
           source,
           hash: sourceHash,
-          ...(options.metadata ?? {}),
+          ...options.metadata,
         },
       });
     }
@@ -64,7 +78,10 @@ export class RagService implements IRagService {
     return entries.length;
   }
 
-  async search(query: string, options: ISearchOptions = {}): Promise<ISearchResult[]> {
+  async search(
+    query: string,
+    options: ISearchOptions = {},
+  ): Promise<ISearchResult[]> {
     this.assertReady();
     if (!query || query.trim().length === 0) {
       throw new RagInvalidInputError("query is empty");
@@ -75,19 +92,19 @@ export class RagService implements IRagService {
 
     const queryVector = await this.llm.embed(query);
     const results = await this.vector.search(queryVector, {
-      limit:    options.limit,
+      limit: options.limit,
       minScore: options.minScore,
-      filter:   options.filters,
+      filter: options.filters,
     });
 
-    return results.map(r => ({
+    return results.map((r) => ({
       chunk: {
-        id:       r.entry.id,
-        text:     r.entry.text,
+        id: r.entry.id,
+        text: r.entry.text,
         metadata: r.entry.metadata,
       } as IChunk,
       score: r.score,
-      rank:  r.rank,
+      rank: r.rank,
     }));
   }
 
@@ -103,9 +120,9 @@ export class RagService implements IRagService {
     // Pour totalSources, on compte les sources distinctes — coûteux mais OK pour stats
     // Délégué au backend sinon
     return {
-      totalChunks:  stats.totalEntries,
+      totalChunks: stats.totalEntries,
       totalSources: 0, // TODO: query distinct sur metadata.source côté adapter
-      dimensions:   stats.dimensions,
+      dimensions: stats.dimensions,
     };
   }
 
@@ -131,7 +148,9 @@ export class RagService implements IRagService {
       throw new RagInvalidInputError("source is required");
     }
     if (source.length > MAX_SOURCE_LENGTH) {
-      throw new RagInvalidInputError(`source exceeds ${MAX_SOURCE_LENGTH} chars`);
+      throw new RagInvalidInputError(
+        `source exceeds ${MAX_SOURCE_LENGTH} chars`,
+      );
     }
   }
 }

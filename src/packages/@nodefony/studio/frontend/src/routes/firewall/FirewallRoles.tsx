@@ -39,7 +39,7 @@ export const FirewallRoles = observer(() => {
     try {
       return await store.api.getAbsolute<RoleHierarchy>(ROLES_ENDPOINT);
     } catch (e) {
-      throw new Error(describeFirewallError(e));
+      throw new Error(describeFirewallError(e), { cause: e });
     }
   }, [store]);
 

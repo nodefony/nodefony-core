@@ -110,7 +110,7 @@ export function CreateDestination({
         `${BROWSE_URL}?${query.toString()}`,
       );
     } catch (e) {
-      throw new Error(describeBrowseError(e));
+      throw new Error(describeBrowseError(e), { cause: e });
     }
   }, [store, rootId, subPath]);
   const { data, loading, error, reload } = useResource(fetcher);

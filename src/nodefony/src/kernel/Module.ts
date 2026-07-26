@@ -1,5 +1,5 @@
 import { dirname, resolve, basename, isAbsolute } from "node:path";
-import { fileURLToPath } from "url";
+import { fileURLToPath } from "node:url";
 import Kernel, { ServiceConstructor, ServiceWithInit } from "./Kernel";
 import type { IModule, PackageJson } from "../types/IModule";
 export type { PackageJson } from "../types/IModule";
@@ -9,7 +9,7 @@ import Service, { DefaultOptionsService } from "../Service";
 import Command from "../command/Command";
 import Injector from "./injector/injector";
 import Container from "../Container";
-import * as fs from "fs/promises";
+import * as fs from "node:fs/promises";
 import CliKernel from "./CliKernel";
 import { extend } from "../Tools";
 import { tagListener } from "./lifecycleTags";
@@ -165,7 +165,7 @@ class Module<TConfig = Record<string, unknown>>
    * @returns chemin absolu du dossier source du module.
    */
   setPath(myPath: string): string {
-    if (/^file:\/\//.test(myPath)) {
+    if (myPath.startsWith("file://")) {
       myPath = fileURLToPath(myPath);
     }
     const base = basename(dirname(myPath));

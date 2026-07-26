@@ -69,7 +69,7 @@ export function DeliveriesPanel({ id }: { id: string }) {
       }>(webhookDeliveriesEndpoint(id));
       return res.deliveries ?? [];
     } catch (e) {
-      throw new Error(describeWebhooksError(e));
+      throw new Error(describeWebhooksError(e), { cause: e });
     }
   }, [store, id]);
   const { data, loading, error, reload } = useResource(fetcher);

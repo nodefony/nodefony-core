@@ -16,7 +16,7 @@ import Controller from "./Controller";
 
 const REG_ROUTE = /(\/)?(\.)?\{([^}]+)\}(?:\(([^)]*)\))?(\?)?/g;
 
-const REG_REPLACE = /([\/.])/g;
+const REG_REPLACE = /([/.])/g;
 const REG_REPLACE_DOUBLE_SLASH = /\/+/g;
 const REG_REPLACE_END_SLASH = /\/+$/g;
 const decode = function (str: string): string {
@@ -411,7 +411,7 @@ class Route implements IRoute {
     return `${method} ${this.path} → ${mod}${ctrl}.${action}${auth}`;
   }
 
-  toObject(): Object {
+  toObject(): object {
     return {
       name: this.name,
       path: this.path,

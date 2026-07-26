@@ -370,7 +370,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
         env: {
           ...process.env,
           ...(this.opts.nodeEnv ? { NODE_ENV: this.opts.nodeEnv } : {}),
-          ...(this.opts.extraEnv ?? {}),
+          ...this.opts.extraEnv,
           FORCE_COLOR: "0",
           NO_COLOR: "1",
         },

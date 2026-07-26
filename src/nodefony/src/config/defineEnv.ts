@@ -121,6 +121,7 @@ function resolveFileEnv(
   } catch (e) {
     throw new Error(
       `[nodefony] ${key}_FILE : lecture de "${filePath}" impossible (${(e as Error).message}).`,
+      { cause: e },
     );
   }
 }

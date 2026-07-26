@@ -73,7 +73,7 @@ export function buildClientOptions(
     return options;
   }
 
-  const socket = { ...global.socket, ...(connection.socket ?? {}) };
+  const socket = { ...global.socket, ...connection.socket };
   options.socket = {
     host: socket.host,
     port: socket.port,

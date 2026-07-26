@@ -66,7 +66,7 @@ export const Roles = observer(() => {
     try {
       return await store.api.getAbsolute<RoleHierarchy>(ROLES_ENDPOINT);
     } catch (e) {
-      throw new Error(describeRolesError(e));
+      throw new Error(describeRolesError(e), { cause: e });
     }
   }, [store]);
 

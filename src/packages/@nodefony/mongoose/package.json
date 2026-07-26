@@ -53,8 +53,6 @@
     "@nodefony/security": "*",
     "@nodefony/user": "*",
     "@types/node": "26.1.1",
-    "@typescript-eslint/eslint-plugin": "8.65.0",
-    "@typescript-eslint/parser": "8.65.0",
     "mongodb-memory-server": "11.2.0",
     "nodefony": "*",
     "rimraf": "6.1.3",

@@ -3,12 +3,17 @@
 // Usage : pg + pgvector pour la production
 
 import type {
-  IVectorStore, IVectorEntry, IVectorSearchOptions,
-  IVectorSearchResult, IVectorStoreConfig
+  IVectorStore,
+  IVectorEntry,
+  IVectorSearchOptions,
+  IVectorSearchResult,
+  IVectorStoreConfig,
 } from "../interfaces/IVectorStore.js";
 import {
-  VectorError, VectorDimensionError,
-  VectorConnectionError, VectorNotInitializedError
+  VectorError,
+  VectorDimensionError,
+  VectorConnectionError,
+  VectorNotInitializedError,
 } from "../errors/VectorErrors.js";
 
 export interface IPgVectorConfig extends IVectorStoreConfig {
@@ -36,7 +41,7 @@ export class PgVectorAdapter implements IVectorStore {
 
   constructor(
     config: IPgVectorConfig,
-    poolFactory: (connStr: string) => IPgPool
+    poolFactory: (connStr: string) => IPgPool,
   ) {
     this.collection = this.sanitizeName(config.collection);
     this.dimensions = config.dimensions;
@@ -89,31 +94,36 @@ export class PgVectorAdapter implements IVectorStore {
     let paramIdx = 1;
 
     for (const entry of entries) {
-      values.push(`($${paramIdx}, $${paramIdx + 1}::vector, $${paramIdx + 2}, $${paramIdx + 3}::jsonb)`);
+      values.push(
+        `($${paramIdx}, $${paramIdx + 1}::vector, $${paramIdx + 2}, $${paramIdx + 3}::jsonb)`,
+      );
       params.push(
         entry.id,
         `[${entry.vector.join(",")}]`,
         entry.text,
-        JSON.stringify(entry.metadata)
+        JSON.stringify(entry.metadata),
       );
       paramIdx += 4;
     }
 
-    await this.pool!.query(`
+    await this.pool!.query(
+      `
       INSERT INTO ${this.collection} (id, vector, text, metadata)
       VALUES ${values.join(", ")}
       ON CONFLICT (id) DO UPDATE
       SET vector = EXCLUDED.vector,
           text = EXCLUDED.text,
           metadata = EXCLUDED.metadata
-    `, params);
+    `,
+      params,
+    );
 
-    return entries.map(e => e.id);
+    return entries.map((e) => e.id);
   }
 
   async search(
     queryVector: number[],
-    options: IVectorSearchOptions = {}
+    options: IVectorSearchOptions = {},
   ): Promise<IVectorSearchResult[]> {
     this.assertReady();
     if (queryVector.length !== this.dimensions) {
@@ -131,22 +141,30 @@ export class PgVectorAdapter implements IVectorStore {
       const conditions: string[] = [];
       for (const [key, value] of Object.entries(options.filter)) {
         params.push(JSON.stringify(value));
-        conditions.push(`metadata->>'${this.sanitizeName(key)}' = $${params.length}::text`);
+        conditions.push(
+          `metadata->>'${this.sanitizeName(key)}' = $${params.length}::text`,
+        );
       }
       if (conditions.length) where = `WHERE ${conditions.join(" AND ")}`;
     }
 
     const result = await this.pool!.query<{
-      id: string; vector_str: string; text: string;
-      metadata: Record<string, unknown>; distance: number;
-    }>(`
+      id: string;
+      vector_str: string;
+      text: string;
+      metadata: Record<string, unknown>;
+      distance: number;
+    }>(
+      `
       SELECT id, vector::text AS vector_str, text, metadata,
              1 - (vector <=> $1::vector) AS score
       FROM ${this.collection}
       ${where}
       ORDER BY vector <=> $1::vector
       LIMIT $2
-    `, params);
+    `,
+      params,
+    );
 
     return result.rows
       .map((row, i) => ({
@@ -159,15 +177,18 @@ export class PgVectorAdapter implements IVectorStore {
         score: (row as unknown as { score: number }).score,
         rank: i + 1,
       }))
-      .filter(r => r.score >= minScore);
+      .filter((r) => r.score >= minScore);
   }
 
-  async delete(criteria: { ids?: string[]; filter?: Record<string, unknown> }): Promise<number> {
+  async delete(criteria: {
+    ids?: string[];
+    filter?: Record<string, unknown>;
+  }): Promise<number> {
     this.assertReady();
     if (criteria.ids?.length) {
       const result = await this.pool!.query(
         `DELETE FROM ${this.collection} WHERE id = ANY($1::text[])`,
-        [criteria.ids]
+        [criteria.ids],
       );
       return (result as unknown as { rowCount?: number }).rowCount ?? 0;
     }
@@ -176,11 +197,13 @@ export class PgVectorAdapter implements IVectorStore {
       const params: unknown[] = [];
       for (const [key, value] of Object.entries(criteria.filter)) {
         params.push(JSON.stringify(value));
-        conditions.push(`metadata->>'${this.sanitizeName(key)}' = $${params.length}::text`);
+        conditions.push(
+          `metadata->>'${this.sanitizeName(key)}' = $${params.length}::text`,
+        );
       }
       const result = await this.pool!.query(
         `DELETE FROM ${this.collection} WHERE ${conditions.join(" AND ")}`,
-        params
+        params,
       );
       return (result as unknown as { rowCount?: number }).rowCount ?? 0;
     }
@@ -191,7 +214,7 @@ export class PgVectorAdapter implements IVectorStore {
     this.assertReady();
     if (!filter) {
       const result = await this.pool!.query<{ count: string }>(
-        `SELECT COUNT(*)::text AS count FROM ${this.collection}`
+        `SELECT COUNT(*)::text AS count FROM ${this.collection}`,
       );
       return parseInt(result.rows[0]?.count ?? "0", 10);
     }
@@ -199,11 +222,13 @@ export class PgVectorAdapter implements IVectorStore {
     const params: unknown[] = [];
     for (const [key, value] of Object.entries(filter)) {
       params.push(JSON.stringify(value));
-      conditions.push(`metadata->>'${this.sanitizeName(key)}' = $${params.length}::text`);
+      conditions.push(
+        `metadata->>'${this.sanitizeName(key)}' = $${params.length}::text`,
+      );
     }
     const result = await this.pool!.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count FROM ${this.collection} WHERE ${conditions.join(" AND ")}`,
-      params
+      params,
     );
     return parseInt(result.rows[0]?.count ?? "0", 10);
   }
@@ -225,13 +250,18 @@ export class PgVectorAdapter implements IVectorStore {
   async shutdown(): Promise<void> {
     this.isShutdown = true;
     if (this.pool) {
-      try { await this.pool.end(); } catch { /* OK */ }
+      try {
+        await this.pool.end();
+      } catch {
+        /* OK */
+      }
       this.pool = null;
     }
   }
 
   private assertReady(): void {
-    if (this.isShutdown || !this.pool) throw new VectorNotInitializedError(this.name);
+    if (this.isShutdown || !this.pool)
+      throw new VectorNotInitializedError(this.name);
     if (!this.initialized) throw new VectorNotInitializedError(this.name);
   }
 
@@ -244,6 +274,6 @@ export class PgVectorAdapter implements IVectorStore {
   }
 
   private parseVector(str: string): number[] {
-    return str.replace(/[\[\]]/g, "").split(",").map(Number);
+    return str.replace(/[[\]]/g, "").split(",").map(Number);
   }
 }

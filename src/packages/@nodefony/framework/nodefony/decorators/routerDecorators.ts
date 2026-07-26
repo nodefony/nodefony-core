@@ -779,7 +779,7 @@ function resolveSessionIntent(
   ) as UseSessionOptions | undefined;
   if (classMeta || methodMeta) {
     // Précédence : @UseSession méthode > @UseSession classe.
-    return { ...(classMeta ?? {}), ...(methodMeta ?? {}) };
+    return { ...classMeta, ...methodMeta };
   }
   // Intent implicite : un paramètre @Session sur l'action déclare le besoin.
   const params = Reflect.getMetadata(

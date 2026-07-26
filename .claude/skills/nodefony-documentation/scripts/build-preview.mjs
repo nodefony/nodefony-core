@@ -206,7 +206,7 @@ html = html.replace(
 // le lecteur voit un texte propre, la preuve reste dans la source MD (gates).
 // Ne touche que le code inline des paragraphes (les <pre> ont leur propre balisage).
 html = html.replace(
-  /<code>([A-Za-z0-9_.\-]+(?:\/[A-Za-z0-9_.\-]+)*\.(?:ts|mjs|tsx):\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*)<\/code>/g,
+  /<code>([A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*\.(?:ts|mjs|tsx):\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*)<\/code>/g,
   '<sup class="srcref"><code>$1</code></sup>',
 );
 // Une parenthèse qui n'enrobe QUE des références devient discrète elle aussi.

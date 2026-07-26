@@ -1,0 +1,192 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "promise", "import"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "env": {
+    "node": true,
+    "es2024": true
+  },
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/.turbo/**",
+    "**/coverage/**",
+    "**/.coverage/**",
+    "**/bin/**",
+    ".ai/**",
+    "**/*.generated.*",
+    "src/**/frontend/dist/**",
+    "src/nodefony/src/service/babel/**",
+    "tmp/**",
+    "examples/**/dist/**"
+  ],
+  "rules": {
+    "no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrors": "none"
+      }
+    ],
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "assert",
+            "message": "Préfixe Node obligatoire : importe \"node:assert\"."
+          },
+          {
+            "name": "buffer",
+            "message": "Préfixe Node obligatoire : importe \"node:buffer\"."
+          },
+          {
+            "name": "child_process",
+            "message": "Préfixe Node obligatoire : importe \"node:child_process\"."
+          },
+          {
+            "name": "cluster",
+            "message": "Préfixe Node obligatoire : importe \"node:cluster\"."
+          },
+          {
+            "name": "crypto",
+            "message": "Préfixe Node obligatoire : importe \"node:crypto\"."
+          },
+          {
+            "name": "dns",
+            "message": "Préfixe Node obligatoire : importe \"node:dns\"."
+          },
+          {
+            "name": "events",
+            "message": "Préfixe Node obligatoire : importe \"node:events\"."
+          },
+          {
+            "name": "fs",
+            "message": "Préfixe Node obligatoire : importe \"node:fs\"."
+          },
+          {
+            "name": "fs/promises",
+            "message": "Préfixe Node obligatoire : importe \"node:fs/promises\"."
+          },
+          {
+            "name": "http",
+            "message": "Préfixe Node obligatoire : importe \"node:http\"."
+          },
+          {
+            "name": "http2",
+            "message": "Préfixe Node obligatoire : importe \"node:http2\"."
+          },
+          {
+            "name": "https",
+            "message": "Préfixe Node obligatoire : importe \"node:https\"."
+          },
+          {
+            "name": "net",
+            "message": "Préfixe Node obligatoire : importe \"node:net\"."
+          },
+          {
+            "name": "os",
+            "message": "Préfixe Node obligatoire : importe \"node:os\"."
+          },
+          {
+            "name": "path",
+            "message": "Préfixe Node obligatoire : importe \"node:path\"."
+          },
+          {
+            "name": "perf_hooks",
+            "message": "Préfixe Node obligatoire : importe \"node:perf_hooks\"."
+          },
+          {
+            "name": "process",
+            "message": "Préfixe Node obligatoire : importe \"node:process\"."
+          },
+          {
+            "name": "querystring",
+            "message": "Préfixe Node obligatoire : importe \"node:querystring\"."
+          },
+          {
+            "name": "readline",
+            "message": "Préfixe Node obligatoire : importe \"node:readline\"."
+          },
+          {
+            "name": "stream",
+            "message": "Préfixe Node obligatoire : importe \"node:stream\"."
+          },
+          {
+            "name": "string_decoder",
+            "message": "Préfixe Node obligatoire : importe \"node:string_decoder\"."
+          },
+          {
+            "name": "timers",
+            "message": "Préfixe Node obligatoire : importe \"node:timers\"."
+          },
+          {
+            "name": "tls",
+            "message": "Préfixe Node obligatoire : importe \"node:tls\"."
+          },
+          {
+            "name": "url",
+            "message": "Préfixe Node obligatoire : importe \"node:url\"."
+          },
+          {
+            "name": "util",
+            "message": "Préfixe Node obligatoire : importe \"node:util\"."
+          },
+          {
+            "name": "v8",
+            "message": "Préfixe Node obligatoire : importe \"node:v8\"."
+          },
+          {
+            "name": "vm",
+            "message": "Préfixe Node obligatoire : importe \"node:vm\"."
+          },
+          {
+            "name": "worker_threads",
+            "message": "Préfixe Node obligatoire : importe \"node:worker_threads\"."
+          },
+          {
+            "name": "zlib",
+            "message": "Préfixe Node obligatoire : importe \"node:zlib\"."
+          }
+        ]
+      }
+    ],
+    "typescript/no-explicit-any": "warn",
+    "typescript/ban-ts-comment": "warn",
+    "no-console": "off",
+    "no-eval": "error",
+    "no-new-func": "error",
+    "typescript/no-empty-object-type": "off",
+    "no-underscore-dangle": "off",
+    "unicorn/consistent-function-scoping": "off",
+    "unicorn/no-array-sort": "off",
+    "typescript/no-extraneous-class": "off",
+    "import/no-unassigned-import": "off",
+    "import/no-named-as-default": "off",
+    "no-await-in-loop": "off",
+    "unicorn/no-array-reverse": "off"
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/*.test.ts",
+        "**/*.spec.ts",
+        "**/tests/**/*.ts",
+        "**/*.config.{ts,mts,cts,js,mjs,cjs}",
+        "scripts/**/*.ts"
+      ],
+      "rules": {
+        "typescript/no-explicit-any": "off",
+        "no-unused-expressions": "off",
+        "no-unused-vars": "off",
+        "no-console": "off",
+        "no-restricted-imports": "off"
+      }
+    }
+  ]
+}

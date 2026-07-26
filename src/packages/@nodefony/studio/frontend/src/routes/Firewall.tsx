@@ -125,7 +125,7 @@ export const Firewall = observer(() => {
         FIREWALL_ENDPOINT,
       );
     } catch (e) {
-      throw new Error(describeFirewallError(e));
+      throw new Error(describeFirewallError(e), { cause: e });
     }
   }, [store]);
 

@@ -1426,7 +1426,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const job = jobId ? testJobs.get(jobId) : undefined;
         if (!job)
           return { status: 404, body: { error: "Unknown jobId", jobId } };
-        return { jobId, done: job.status === "done", ...(job.result ?? {}) };
+        return { jobId, done: job.status === "done", ...job.result };
       },
     },
   ];

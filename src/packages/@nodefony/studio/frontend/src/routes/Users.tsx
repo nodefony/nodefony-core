@@ -84,7 +84,7 @@ export const Users = observer(() => {
         usersListEndpoint({ limit: USERS_LIST_WINDOW }),
       );
     } catch (e) {
-      throw new Error(describeUsersError(e));
+      throw new Error(describeUsersError(e), { cause: e });
     }
   }, [store]);
   const { data, loading, error, reload } = useResource(fetcher);

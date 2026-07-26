@@ -368,7 +368,7 @@ class HttpResponse {
     }
     const actualBody = body || this.body;
     const noContentLengthMethods = ["HEAD", "OPTIONS", "TRACE"];
-    const noContentLengthStatusCodes = [204, 304];
+    const noContentLengthStatusCodes = new Set([204, 304]);
     // Ne pas définir Content-Length si Transfer-Encoding est chunked
     const isChunked = this.getHeader("Transfer-Encoding") === "chunked";
     // Vérifier si Content-Length doit être défini
@@ -379,7 +379,7 @@ class HttpResponse {
     if (
       //actualBody &&
       !noContentLengthMethods.includes(this.context?.method as string) &&
-      !noContentLengthStatusCodes.includes(this.statusCode) &&
+      !noContentLengthStatusCodes.has(this.statusCode) &&
       !isChunked
     ) {
       // Calculer la longueur du corps
@@ -396,7 +396,7 @@ class HttpResponse {
       return length;
     } else {
       // Ne pas définir Content-Length pour les réponses sans corps
-      if (!noContentLengthStatusCodes.includes(this.statusCode)) {
+      if (!noContentLengthStatusCodes.has(this.statusCode)) {
         if (actualContentLength) {
           this.response?.removeHeader("Content-Length");
         }

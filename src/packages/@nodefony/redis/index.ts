@@ -75,7 +75,9 @@ class Redis extends Module<IRedisConfig> {
               .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
               .join(" · ")
           : (e as Error).message;
-      throw new Error(`[@nodefony/redis] Invalid config: ${issues}`);
+      throw new Error(`[@nodefony/redis] Invalid config: ${issues}`, {
+        cause: e,
+      });
     }
     // Config validée exposée via this.options → `this.config` (accès uniforme
     // typé). Le RedisService la lit sur son module (`this.module.config`).

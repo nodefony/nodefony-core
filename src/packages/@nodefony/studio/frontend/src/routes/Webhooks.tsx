@@ -85,7 +85,7 @@ export const Webhooks = observer(() => {
         WEBHOOKS_ENDPOINT,
       );
     } catch (e) {
-      throw new Error(describeWebhooksError(e));
+      throw new Error(describeWebhooksError(e), { cause: e });
     }
   }, [store]);
   const { data, loading, error, reload } = useResource(fetcher);

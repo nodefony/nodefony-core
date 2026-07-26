@@ -97,7 +97,7 @@ class Service implements IService {
       const syslogSettings: SyslogDefaultSettings = {
         ...defaultSyslogSettings,
         moduleName: this.name,
-        ...(this.options.syslog ?? {}),
+        ...this.options.syslog,
       };
       this.syslog = new Syslog(syslogSettings);
       this.container.set("syslog", this.syslog);

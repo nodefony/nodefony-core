@@ -47,8 +47,6 @@
     "@nodefony/http": "*",
     "@nodefony/orm-core": "*",
     "@types/node": "26.1.1",
-    "@typescript-eslint/eslint-plugin": "8.65.0",
-    "@typescript-eslint/parser": "8.65.0",
     "@vitejs/plugin-vue": "^6.0.7",
     "@vitest/coverage-v8": "4.1.10",
     "nodefony": "*",

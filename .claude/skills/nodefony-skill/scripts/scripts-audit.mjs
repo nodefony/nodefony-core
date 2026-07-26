@@ -103,7 +103,7 @@ const rootScripts = collect(ROOT_SCRIPTS);
 // Sans ça, un fichier de configuration importé par son outil passe pour un orphelin.
 const allScriptSources = rootScripts
   .concat(
-    ...[...skillTexts.keys()].map((n) => collect(join(SKILLS_DIR, n))).flat(),
+    ...[...skillTexts.keys()].flatMap((n) => collect(join(SKILLS_DIR, n))),
   )
   .map((p) => {
     try {

@@ -238,12 +238,14 @@ describe("WebhookAdminApi — déclaration & composition", () => {
   });
 
   it("sont composés dans le producteur security (namespace partagé)", () => {
-    const paths = createSecurityAdminApi(new Container())
-      .adminEndpoints()
-      .map((e) => `${e.method ?? "GET"} ${e.path}`);
-    assert.ok(paths.includes("POST webhooks"));
-    assert.ok(paths.includes("POST webhooks/{id}/reveal"));
-    assert.ok(paths.includes("DELETE webhooks/{id}"));
+    const paths = new Set(
+      createSecurityAdminApi(new Container())
+        .adminEndpoints()
+        .map((e) => `${e.method ?? "GET"} ${e.path}`),
+    );
+    assert.ok(paths.has("POST webhooks"));
+    assert.ok(paths.has("POST webhooks/{id}/reveal"));
+    assert.ok(paths.has("DELETE webhooks/{id}"));
   });
 });
 

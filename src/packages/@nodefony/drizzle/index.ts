@@ -62,7 +62,9 @@ class Drizzle extends Module<IDrizzleConfig> {
               .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
               .join(" · ")
           : (e as Error).message;
-      throw new Error(`[@nodefony/drizzle] Invalid config: ${issues}`);
+      throw new Error(`[@nodefony/drizzle] Invalid config: ${issues}`, {
+        cause: e,
+      });
     }
     // Config validée exposée via this.options → `this.config` (accès uniforme
     // typé). Le DrizzleService la lit sur son module (`this.module.config`).

@@ -223,7 +223,9 @@ class Realtime extends Module<IRealtimeConfig> {
               .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
               .join(" · ")
           : (e as Error).message;
-      throw new Error(`[@nodefony/realtime] Invalid config: ${issues}`);
+      throw new Error(`[@nodefony/realtime] Invalid config: ${issues}`, {
+        cause: e,
+      });
     }
     // Config validée exposée via this.options → `this.config` (accès uniforme
     // typé). Le RealtimeService la lit sur son module (`this.module.config`).

@@ -75,7 +75,9 @@ class Mongoose extends Module<IMongooseConfig> {
               .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
               .join(" · ")
           : (e as Error).message;
-      throw new Error(`[@nodefony/mongoose] Invalid config: ${issues}`);
+      throw new Error(`[@nodefony/mongoose] Invalid config: ${issues}`, {
+        cause: e,
+      });
     }
     // Config validée exposée via this.options → `this.config` (accès uniforme
     // typé). Le MongooseService la lit sur son module (`this.module.config`).

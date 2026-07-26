@@ -45,7 +45,7 @@ class ServerHttp extends Service {
     module: Module,
     @inject("HttpKernel") private httpKernel: HttpKernel,
   ) {
-    module: Module;
+    Module;
     super(
       "server-http",
       module.container as Container,

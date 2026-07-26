@@ -50,7 +50,7 @@ class ServerHttps extends Service {
     module: Module,
     @inject("HttpKernel") private httpKernel: HttpKernel,
   ) {
-    module: Module;
+    Module;
     super(
       "server-https",
       module.container as Container,

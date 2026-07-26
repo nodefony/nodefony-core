@@ -121,7 +121,7 @@ export const Sessions = observer(() => {
             });
       return await store.api.getAbsolute<SessionListResponse>(url);
     } catch (e) {
-      throw new Error(describeSessionsError(e));
+      throw new Error(describeSessionsError(e), { cause: e });
     }
   }, [store, mode, adminUserFilter]);
   const { data, loading, error, reload } = useResource(fetcher);

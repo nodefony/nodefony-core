@@ -32,7 +32,9 @@ export function defineFrameworkConfig(
             .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
             .join(" · ")
         : (e as Error).message;
-    throw new Error(`[@nodefony/framework] Invalid config: ${issues}`);
+    throw new Error(`[@nodefony/framework] Invalid config: ${issues}`, {
+      cause: e,
+    });
   }
 }
 

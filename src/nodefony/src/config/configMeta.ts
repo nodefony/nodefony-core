@@ -1,5 +1,3 @@
-import type {} from "zod";
-
 /**
  * Métadonnées Nodefony d'un champ de config Zod, au-delà de la `description`.
  *

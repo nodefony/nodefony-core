@@ -109,7 +109,7 @@ function contextTokens(mdLine, anchorRaw) {
 }
 
 const ANCHOR_RE =
-  /`?([A-Za-z0-9_.\-]+(?:\/[A-Za-z0-9_.\-]+)*\.(?:ts|mjs|tsx)):(\d+)(?:-(\d+))?`?/g;
+  /`?([A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*\.(?:ts|mjs|tsx)):(\d+)(?:-(\d+))?`?/g;
 
 let total = 0;
 const problems = { FILE_NOT_FOUND: [], LINE_OUT: [], SUSPECT: [] };

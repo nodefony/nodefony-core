@@ -536,6 +536,7 @@ export class DrizzleOrm extends Orm {
       throw new Error(
         `DrizzleOrm "${this.name}": the postgres dialect needs the optional ` +
           `driver \`pg\` (run \`npm i pg\`). ${(e as Error).message}`,
+        { cause: e },
       );
     }
     const pool = new PoolCtor({ connectionString: this.#url });
@@ -623,6 +624,7 @@ export class DrizzleOrm extends Orm {
       throw new Error(
         `DrizzleOrm "${this.name}": the mysql dialect needs the optional ` +
           `driver \`mysql2\` (run \`npm i mysql2\`). ${(e as Error).message}`,
+        { cause: e },
       );
     }
     // Ping RÉEL au connect (même raison que #connectPostgres : pool lazy).

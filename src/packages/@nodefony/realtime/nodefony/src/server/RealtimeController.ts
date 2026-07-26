@@ -477,7 +477,7 @@ export abstract class RealtimeController<
     // gagne en cas de conflit (un user peut volontairement écraser un décorateur hérité).
     const decoratedActions = getRealtimeActions(this);
     const allActions: Record<string, RpcActionHandler> = {
-      ...(decoratedActions ?? {}),
+      ...decoratedActions,
       ...this.realtimeActions(),
     };
     for (const [name, handler] of Object.entries(allActions)) {
@@ -569,7 +569,7 @@ export abstract class RealtimeController<
     const decoratedInbound = getRealtimeInbound(this);
     const overrideInbound = this.realtimeInbound();
     const inboundMap: Record<string, RealtimeInboundHandler> = {
-      ...(decoratedInbound ?? {}),
+      ...decoratedInbound,
       ...overrideInbound,
     };
     const inbound = Object.keys(inboundMap).length > 0 ? inboundMap : null;

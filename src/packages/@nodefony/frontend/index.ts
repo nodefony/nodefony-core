@@ -62,7 +62,9 @@ class Frontend extends Module<FrontendConfig> {
               .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
               .join(" · ")
           : (e as Error).message;
-      throw new Error(`[@nodefony/frontend] Invalid config: ${issues}`);
+      throw new Error(`[@nodefony/frontend] Invalid config: ${issues}`, {
+        cause: e,
+      });
     }
     return this;
   }

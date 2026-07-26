@@ -379,9 +379,11 @@ describe.skipIf(!fs.existsSync(DIST))(
         CLI_TIMEOUT_MS,
       );
       assert.strictEqual(r.code, 0, r.stderr);
-      const candidates = r.stdout.split("\n").filter((l) => l.length > 0);
-      assert.ok(candidates.includes("--workers"), r.stdout);
-      assert.ok(candidates.includes("--detach"), r.stdout);
+      const candidates = new Set(
+        r.stdout.split("\n").filter((l) => l.length > 0),
+      );
+      assert.ok(candidates.has("--workers"), r.stdout);
+      assert.ok(candidates.has("--detach"), r.stdout);
     });
 
     it("status (standalone) → exit 0 et ZÉRO Kernel construit", async () => {

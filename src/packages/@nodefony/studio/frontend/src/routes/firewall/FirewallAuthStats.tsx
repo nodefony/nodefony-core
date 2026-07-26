@@ -91,7 +91,7 @@ export const FirewallAuthStats = observer(() => {
       };
     } catch (e) {
       // Message FR honnête (401 mock Studio, 403, 503…) plutôt que le brut.
-      throw new Error(describeFirewallError(e));
+      throw new Error(describeFirewallError(e), { cause: e });
     }
   }, [store, period]);
 

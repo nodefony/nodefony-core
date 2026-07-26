@@ -43,7 +43,7 @@ export const Playground = observer(() => {
         "/nodefony/framework/api/playground/routes",
       );
     } catch (e) {
-      throw new Error(describePlaygroundError(e));
+      throw new Error(describePlaygroundError(e), { cause: e });
     }
   }, [store]);
   const { data, loading, error, reload } = useResource(fetcher);

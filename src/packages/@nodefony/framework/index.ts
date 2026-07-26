@@ -309,6 +309,7 @@ class Framework extends Module<FrameworkConfig> {
         // Cluster prod : pas de dédup cross-pod = double-effet → boot avorté.
         throw new Error(
           `${msg} A distributed store is mandatory in production.`,
+          { cause: e },
         );
       }
       // Dev/test mono-pod : on garde le cache mémoire (dédup per-pod), LOUDEMENT.
