@@ -190,6 +190,7 @@ export class DrizzleWebAuthnCredentialStore implements IWebAuthnCredentialStore 
     });
     return {
       ...page,
+      // oxlint-disable-next-line no-map-spread -- projection EXPLICITE champ par champ ; le seul spread est le littéral conditionnel du surnom, forme imposée par `exactOptionalPropertyTypes`
       items: page.items.map((row) => ({
         id: row.id,
         userId: row.userId,

@@ -94,12 +94,12 @@ export function ModuleSymbolGraph({
       involved.add(e.target);
     });
     const names = [...involved];
-    const truncated = names.length > MAX_NODES;
+    const isTruncated = names.length > MAX_NODES;
     const kept = new Set(names.slice(0, MAX_NODES));
-    const edges = rawEdges.filter(
+    const keptEdges = rawEdges.filter(
       (e) => kept.has(e.source) && kept.has(e.target),
     );
-    const nodes: FlowGraphNode[] = [...kept].map((name) => {
+    const graphNodes: FlowGraphNode[] = [...kept].map((name) => {
       const s = byName.get(name);
       const isExternal = !s; // cité par un extends/implements mais hors module
       const kind = s?.kind ?? "externe";
@@ -115,7 +115,12 @@ export function ModuleSymbolGraph({
         },
       };
     });
-    return { nodes, edges, total: names.length, truncated };
+    return {
+      nodes: graphNodes,
+      edges: keptEdges,
+      total: names.length,
+      truncated: isTruncated,
+    };
   }, [symbols]);
 
   if (!edges.length) {

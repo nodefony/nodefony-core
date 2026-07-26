@@ -194,6 +194,7 @@ export function buildEnvReport(input: {
       exists: true,
       count: Object.keys(processEnv).length,
     },
+    // oxlint-disable-next-line no-map-spread -- l'objet est CONSTRUIT champ par champ ; le seul spread est le littéral conditionnel, forme imposée par `exactOptionalPropertyTypes` pour ne pas poser une clé à `undefined`
     ...files.map((f, i) => ({
       rank: i + 2,
       source: f.source,
@@ -204,6 +205,7 @@ export function buildEnvReport(input: {
   ];
 
   const declared = new Set((catalog ?? []).map((v) => v.name));
+  // oxlint-disable-next-line no-map-spread -- projection EXPLICITE champ par champ ; les seuls spreads sont des littéraux conditionnels (description, défaut, valeurs admises), forme imposée par `exactOptionalPropertyTypes`
   const vars: IEnvVarReport[] = (catalog ?? []).map((meta) => {
     const raw = processEnv[meta.name];
     const secret = pathLooksSecret([meta.name]);

@@ -22,7 +22,9 @@ class Network extends Command {
 
   override async generate(
     arg: string,
-    options: { json: boolean },
+    // `opts`, pas `options` : ce nom masquait la constante `options` du module
+    // (la description de la commande passée à `super`).
+    opts: { json: boolean },
   ): Promise<this> {
     let network = this.kernel?.getNetwork();
     let result: NetworkInterface | os.NetworkInterfaceInfo[] | undefined = {};
@@ -35,7 +37,7 @@ class Network extends Command {
       result = network?.interfaces as NetworkInterface;
     }
 
-    if (options.json) {
+    if (opts.json) {
       process.stdout.write(`${JSON.stringify(result, undefined, " ")}\n`);
     } else {
       // Sortie CLI lisible (dump objet coloré) — stdout, pas un log syslog.

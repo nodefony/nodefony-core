@@ -226,7 +226,17 @@
         // Reste ACTIVE en production (cf rules) : c'est là qu'elle a trouvé un
         // vrai double verdict. Ici elle n'a signalé que des décors — sondes
         // tolérantes où le premier arrivé gagne, gardes `settled` explicites.
-        "promise/no-multiple-resolved": "off"
+        "promise/no-multiple-resolved": "off",
+        // Reste ACTIVE en production, et pour cause : c'est là qu'elle a trouvé
+        // six variables locales qui masquaient un IMPORT du même nom — un `path`
+        // qui cachait `node:path` utilisé soixante lignes plus bas, un `sql` qui
+        // cachait le gabarit de drizzle. Aucune ne cassait quoi que ce soit ce
+        // jour-là ; toutes cassaient la ligne suivante écrite dans la portée.
+        // Dans un banc, en revanche, réutiliser `i`, `r` ou `results` dans une
+        // portée interne est l'idiome même du test, et le test est son propre
+        // filet. Vérifié avant de déroger : 56 occurrences, 41 ici, 15 en
+        // production — ces quinze-là ont été renommées, pas dérogées.
+        "no-shadow": "off"
       }
     }
   ]

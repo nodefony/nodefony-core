@@ -612,6 +612,7 @@ export function runModuleTests(
       clearTimeout(timer);
       child.stdout?.off("data", cap);
       child.stderr?.off("data", cap);
+      // oxlint-disable-next-line no-multiple-resolved -- c'est ICI la garde `settled` décrite juste au-dessus : la règle signale sa propre correction, elle ne suit pas le drapeau
       resolve(result);
     };
     child.on("error", (e) => {

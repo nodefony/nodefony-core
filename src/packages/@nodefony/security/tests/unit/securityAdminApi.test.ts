@@ -251,6 +251,7 @@ function bootFactors(opts: {
       // croire que la façade redacte, alors que c'est le contrat qui garantit.
       listCredentialsPage: async (query: Record<string, unknown>) => {
         listQueries.push(query);
+        // oxlint-disable-next-line no-map-spread -- le double REND des résumés champ par champ, exactement comme le magasin réel ; le seul spread est le littéral conditionnel du surnom
         const items = (opts.credentials ?? []).map((c) => ({
           id: c.id,
           userId: c.userId,

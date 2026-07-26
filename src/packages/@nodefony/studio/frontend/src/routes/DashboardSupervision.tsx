@@ -2838,7 +2838,10 @@ export const DashboardSupervision = observer(() => {
                         <Table.Tbody>
                           {slowQueries.map((q, i) => {
                             const { op, table } = parseSql(q.sql);
-                            const ms = Math.round(q.durationMs);
+                            // `durMs` : `ms` est déjà le formateur déclaré plus
+                            // haut dans ce composant — le masquer le rendait
+                            // inappelable dans toute cette portée.
+                            const durMs = Math.round(q.durationMs);
                             const pct = Math.min(
                               100,
                               slowWorstMs > 0
@@ -2883,7 +2886,7 @@ export const DashboardSupervision = observer(() => {
                                         minWidth: 52,
                                       }}
                                     >
-                                      {ms} ms
+                                      {durMs} ms
                                     </Text>
                                     <Progress
                                       value={pct}
@@ -2891,7 +2894,7 @@ export const DashboardSupervision = observer(() => {
                                       size="sm"
                                       radius="xl"
                                       style={{ flex: 1 }}
-                                      aria-label={`Durée ${ms} ms`}
+                                      aria-label={`Durée ${durMs} ms`}
                                     />
                                   </Group>
                                 </Table.Td>

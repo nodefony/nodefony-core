@@ -354,6 +354,7 @@ class DefaultController extends Controller {
           timeoutState.lastReason =
             (signal.reason as Error)?.message ??
             String(signal.reason ?? "aborted");
+          // oxlint-disable-next-line no-multiple-resolved -- exclusion garantie : le `return resolve()` de la garde `signal.aborted` sort avant qu'on attache, et l'écouteur est `once`
           resolve();
         },
         { once: true },

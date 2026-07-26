@@ -109,7 +109,9 @@ function assertActionNameFree(target: object, propertyKey: string): void {
  * ```
  */
 function controllers(
-  controller: TypeController<Controller>[] | TypeController<Controller>,
+  // `targets`, pas `controller` : ce nom masquait le décorateur `controller()`
+  // déclaré plus bas dans ce même module.
+  targets: TypeController<Controller>[] | TypeController<Controller>,
 ): <T extends Constructor<Module>>(constructor: T) => T {
   return function <T extends Constructor<Module>>(constructor: T): T {
     class NewConstructorControllers extends constructor {
@@ -135,12 +137,12 @@ function controllers(
             }
           }
         };
-        if (Array.isArray(controller)) {
-          for (const contr of controller) {
+        if (Array.isArray(targets)) {
+          for (const contr of targets) {
             log(contr);
           }
         } else {
-          log(controller);
+          log(targets);
         }
       }
     }
@@ -1016,7 +1018,10 @@ function Csp(directives: CspDirectives) {
  * Fabrique d'un marqueur booléen dual classe+méthode (idiome `any` du module).
  * Pose `true` sur le ctor (classe) ou le prototype keyé par nom (méthode).
  */
-function booleanMarkerDecorator(metadataKey: string) {
+// `markerKey`, pas `metadataKey` : ce nom masquait la constante `metadataKey`
+// du module (la clé des définitions de routes), qui n'a rien à voir avec le
+// marqueur posé ici.
+function booleanMarkerDecorator(markerKey: string) {
   return function () {
     return function (
       target: any,
@@ -1024,10 +1029,10 @@ function booleanMarkerDecorator(metadataKey: string) {
       descriptor?: PropertyDescriptor,
     ): any {
       if (propertyKey === undefined) {
-        Reflect.defineMetadata(metadataKey, true, target);
+        Reflect.defineMetadata(markerKey, true, target);
         return target;
       }
-      Reflect.defineMetadata(metadataKey, true, target, propertyKey);
+      Reflect.defineMetadata(markerKey, true, target, propertyKey);
       return descriptor;
     };
   };
@@ -1282,26 +1287,26 @@ function buildParamArgs(metas: ParamMeta[], ctx: IParamArgContext): unknown[] {
  * hot-path. Lu **en amont** par `handleHttp` (avant le parse) pour décider de
  * sauter le parse busboy/JSON. Typage structurel (pas d'import `Route` → 0 cycle).
  *
- * @param route - route résolue (porte `controller` + `classMethod` à `onBoot`).
+ * @param routeDef - route résolue (porte `controller` + `classMethod` à `onBoot`).
  * @returns `true` si l'action déclare un `@Body({ stream:true })`.
  */
-function routeExpectsBodyStream(route: {
+function routeExpectsBodyStream(routeDef: {
   controller?: { prototype: object } | null;
   classMethod?: string;
   bodyStream?: boolean;
 }): boolean {
-  if (route.bodyStream === undefined) {
+  if (routeDef.bodyStream === undefined) {
     let flag = false;
-    const ctor = route.controller;
-    const method = route.classMethod;
+    const ctor = routeDef.controller;
+    const method = routeDef.classMethod;
     if (ctor && method) {
       const metas: ParamMeta[] =
         Reflect.getMetadata(PARAM_ARGS_METADATA, ctor.prototype, method) || [];
       flag = metas.some((m) => m.source === "body" && m.stream === true);
     }
-    route.bodyStream = flag;
+    routeDef.bodyStream = flag;
   }
-  return route.bodyStream;
+  return routeDef.bodyStream;
 }
 
 // ── P5 — Metadata d'action FIGÉES par route (memo, hot path 0 Reflect) ──────
@@ -1544,15 +1549,18 @@ function computeActionMeta(
  * hash de route et l'introspection Studio restent stables. Typage structurel
  * (pas d'import `Route` → 0 cycle).
  */
-function resolveActionMeta(route: {
+function resolveActionMeta(routeDef: {
   controller?: { prototype: object } | null;
   classMethod?: string;
   actionMeta?: RouteActionMeta;
 }): RouteActionMeta {
-  if (route.actionMeta === undefined) {
-    route.actionMeta = computeActionMeta(route.controller, route.classMethod);
+  if (routeDef.actionMeta === undefined) {
+    routeDef.actionMeta = computeActionMeta(
+      routeDef.controller,
+      routeDef.classMethod,
+    );
   }
-  return route.actionMeta;
+  return routeDef.actionMeta;
 }
 
 export {

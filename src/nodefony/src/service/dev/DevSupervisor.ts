@@ -945,6 +945,7 @@ export class DevSupervisor {
               // `degraded` est alors transitoire (race port-up/boot). null → re-sonde.
               resolve(j.booted ? Boolean(j.degraded) : null);
             } catch {
+              // oxlint-disable-next-line no-multiple-resolved -- branche EXCLUSIVE : on n'arrive ici que si l'analyse a levé, donc avant le `resolve` du `try`
               resolve(null);
             }
           });
@@ -1090,7 +1091,10 @@ export class DevSupervisor {
         this.#log(`⏸ ${suspension.reason} — rechargement différé`, "yellow");
       }
       if (this.#timer) clearTimeout(this.#timer);
-      this.#timer = setTimeout(() => void this.#restart(), SUSPENSION_RECHECK_MS);
+      this.#timer = setTimeout(
+        () => void this.#restart(),
+        SUSPENSION_RECHECK_MS,
+      );
       return;
     }
     if (this.#suspendedBy) {
@@ -1233,6 +1237,7 @@ export class DevSupervisor {
       const kill9 = setTimeout(() => this.#signalGroup(c, "SIGKILL"), 4000);
       c.once("exit", () => {
         clearTimeout(kill9);
+        // oxlint-disable-next-line no-multiple-resolved -- exclusion garantie : le `return resolve()` du cas « enfant déjà mort » sort avant qu'on attende `exit`
         resolve();
       });
       this.#signalGroup(c, "SIGTERM");

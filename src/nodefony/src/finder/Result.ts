@@ -53,8 +53,8 @@ class Result extends Array {
   ): Result {
     const res = new Result(
       this.filter((data: Result) => {
-        const res = data.query(query, logger, options, sevrity);
-        if (res) {
+        const found = data.query(query, logger, options, sevrity);
+        if (found) {
           return data;
         }
         return null;
@@ -69,8 +69,8 @@ class Result extends Array {
   queryGrep(query: string, grep: string, clean: boolean = false): Result {
     const res = new Result(
       this.filter((data: Result) => {
-        const res = data.queryGrep(query, grep);
-        if (res) {
+        const found = data.queryGrep(query, grep);
+        if (found) {
           return data;
         }
         return null;

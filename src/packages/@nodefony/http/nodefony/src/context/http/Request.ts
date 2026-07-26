@@ -601,20 +601,22 @@ class HttpRequest {
   }
 
   accepts(Type: string) {
-    let parse: string[] = [];
+    // `parts`, pas `parse` : le module déclare déjà un `parse` (la table des
+    // analyseurs de corps) que ce nom masquait sur toute la méthode.
+    let parts: string[] = [];
     let subtype = "*";
     let type = "*";
     if (Type) {
-      parse = Type.split("/");
+      parts = Type.split("/");
     }
-    if (parse) {
-      switch (parse.length) {
+    if (parts) {
+      switch (parts.length) {
         case 1:
-          subtype = parse.shift() as string;
+          subtype = parts.shift() as string;
           break;
         case 2:
-          type = parse.shift() as string;
-          subtype = parse.shift() as string;
+          type = parts.shift() as string;
+          subtype = parts.shift() as string;
           break;
         default:
           throw new Error("request accepts method bad type format");

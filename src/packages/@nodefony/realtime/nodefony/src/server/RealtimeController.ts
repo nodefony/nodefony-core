@@ -586,13 +586,16 @@ export abstract class RealtimeController<
     ctx.once?.("onFinish", () => {
       // Désabonne CETTE connexion de tous ses canaux : le hub dispose le provider
       // partagé au dernier abonné (aucun timer/listener orphelin).
-      const hub = getRealtimeHub();
+      // `liveHub` : résolu À LA FERMETURE, donc distinct du `hub` capturé plus
+      // haut au moment du branchement — les masquer l'un l'autre cachait que ce
+      // sont deux instants différents.
+      const liveHub = getRealtimeHub();
       for (const [channel, sink] of state.channels) {
-        hub.unsubscribe(channel, sink);
+        liveHub.unsubscribe(channel, sink);
       }
       state.channels.clear();
-      hub.unregisterConnection(transport); // sonde : sortie symétrique du registre
-      if (revocable) hub.unregisterRevocable(revocable); // F4 : sortie du tick de révocation
+      liveHub.unregisterConnection(transport); // sonde : sortie symétrique du registre
+      if (revocable) liveHub.unregisterRevocable(revocable); // F4 : sortie du tick de révocation
       transport.fireClose();
       peer.dispose("ws closed");
       this.log("WS realtime client disconnected — cleanup done", "INFO");

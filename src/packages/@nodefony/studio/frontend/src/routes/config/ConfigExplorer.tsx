@@ -185,15 +185,15 @@ export function ConfigExplorer({
     [sections, seg],
   );
   const { live, secrets } = useMemo(() => {
-    let live = 0;
-    let secrets = 0;
+    let liveCount = 0;
+    let secretCount = 0;
     for (const s of sections) {
       for (const f of s.fields) {
-        if (f.mutability === "live") live++;
-        if (f.secret) secrets++;
+        if (f.mutability === "live") liveCount++;
+        if (f.secret) secretCount++;
       }
     }
-    return { live, secrets };
+    return { live: liveCount, secrets: secretCount };
   }, [sections]);
 
   return (

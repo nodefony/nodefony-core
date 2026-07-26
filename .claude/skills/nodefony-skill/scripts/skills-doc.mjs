@@ -460,14 +460,21 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
       referenceMeta(refDir, f),
     ),
     referencesTotal: countRecursive(refDir),
+    // Les trois `map` ci-dessous itèrent des NOMS DE FICHIERS (des chaînes) : ce
+    // qui est étalé n'est pas l'élément parcouru, c'est l'objet neuf que rend
+    // `analyzeScript`. Rien n'est donc copié en double, et le remplacement que
+    // suggère la règle (`Object.assign`) n'aurait ici aucune source à muter.
+    // oxlint-disable-next-line no-map-spread
     scripts: listFiles(scrDir, [".mjs", ".js", ".sh", ".py", ".ts"]).map(
       (f) => ({ f, path: `scripts/${f}`, ...analyzeScript(join(scrDir, f)) }),
     ),
+    // oxlint-disable-next-line no-map-spread
     rootScripts: listFiles(dir, [".sh"]).map((f) => ({
       f,
       path: f,
       ...analyzeScript(join(dir, f)),
     })),
+    // oxlint-disable-next-line no-map-spread
     libs: listFiles(join(dir, "lib"), [".mjs", ".js"]).map((f) => ({
       f,
       path: `lib/${f}`,
