@@ -187,23 +187,6 @@ export function readRuntimeState(cwd: string): RuntimeState | null {
 }
 
 /** Retire le state file (arrêt propre, ou reliquat d'un process mort). */
-/**
- * `true` si l'OBSERVATION EXTERNE des process est disponible (`ps` POSIX).
- *
- * Source UNIQUE de cette règle : elle vivait recopiée dans `discoverDevProcesses` et
- * dans `collectDevStatus`, ce qui laissait chaque lecteur décider seul de ce qu'il fait
- * du « non supporté » — l'un le disait, l'autre rendait une liste vide indiscernable de
- * « aucun process », et le repli du second n'a jamais existé.
- *
- * Windows n'a pas de `ps` POSIX, et le répertoire courant d'un process tiers n'y est pas
- * lisible sans privilèges : le SCOPING PAR PROJET, qui interdit de tuer le runtime du
- * voisin, ne peut donc pas s'appuyer sur l'introspection système. Le repli est le
- * fichier d'état, qui est scopé au projet par construction — voir
- * {@link discoverFromRuntimeState}.
- */
-export function isProcessDiscoverySupported(): boolean {
-  return process.platform !== "win32";
-}
 
 /**
  * Retrouve le runtime de CE projet par son fichier d'état, sans observer les process.
@@ -902,19 +885,38 @@ export interface DiscoverOptions {
   readonly includeSelf?: boolean;
 }
 
+/** Résultat d'une tentative d'observation externe — le VERDICT avec la liste. */
+export interface ProcessDiscovery {
+  /**
+   * `true` si `ps` a réellement répondu. Distingue « aucun process » de « je n'ai pas
+   * pu regarder » — deux états que la seule liste vide confondait, et dont dépend
+   * l'existence d'un repli.
+   */
+  readonly supported: boolean;
+  readonly procs: DevProcessInfo[];
+}
+
 /**
- * Découvre les process dev Nodefony vivants par OBSERVATION EXTERNE (`ps`) — zéro IPC.
+ * Découvre les process dev Nodefony vivants par OBSERVATION EXTERNE (`ps`), et DIT si
+ * l'observation a eu lieu.
  *
  * Ne retient que les process dont la commande porte un titre dev connu (superviseur /
  * serveur / Vite) et en extrait PID/PPID/RSS/CPU/uptime. S'auto-exclut par défaut (le
  * process appelant) sauf `opts.includeSelf`. Tri : superviseur, puis serveur, puis Vite.
- * Best-effort : Windows (pas de `ps` POSIX fiable) ou `ps` en échec → liste vide (le
- * lecteur le signale).
+ *
+ * @remarks La disponibilité de `ps` ne se DÉDUIT pas de la plateforme, elle se CONSTATE.
+ *   La supposer d'après `process.platform` revenait à parier que tout ce qui n'est pas
+ *   Windows embarque `ps` — faux là où ça compte le plus : `procps` n'est pas installé
+ *   dans les images Node minces (`node:*-slim`, distroless, Alpine nu) qui SONT le
+ *   modèle de déploiement de Nodefony, et les BSD n'acceptent pas forcément cette
+ *   syntaxe. Le pari donnait alors « aucun process » sans repli et sans un mot. On rend
+ *   donc `supported:false` sur tout ce qui empêche de conclure : plateforme sans `ps`,
+ *   binaire absent (`ENOENT`), code de sortie non nul, sortie illisible.
  */
-export function discoverDevProcesses(
+export function discoverDevProcessesDetailed(
   opts: DiscoverOptions = {},
-): DevProcessInfo[] {
-  if (!isProcessDiscoverySupported()) return [];
+): ProcessDiscovery {
+  if (process.platform === "win32") return { supported: false, procs: [] };
   let out: string;
   try {
     const res = spawnSync(
@@ -929,10 +931,12 @@ export function discoverDevProcesses(
         env: { ...process.env, LC_ALL: "C", LANG: "C" },
       },
     );
-    if (res.status !== 0 || typeof res.stdout !== "string") return [];
+    // `res.error` couvre le binaire ABSENT (`ENOENT`) — le cas des images minces.
+    if (res.error || res.status !== 0 || typeof res.stdout !== "string")
+      return { supported: false, procs: [] };
     out = res.stdout;
   } catch {
-    return [];
+    return { supported: false, procs: [] };
   }
   const procs: DevProcessInfo[] = [];
   for (const raw of out.split("\n")) {
@@ -951,7 +955,19 @@ export function discoverDevProcesses(
     vite: 2,
   };
   procs.sort((a, b) => order[a.role] - order[b.role] || a.pid - b.pid);
-  return procs;
+  return { supported: true, procs };
+}
+
+/**
+ * Liste seule des process observés — commodité pour les appelants qui n'ont rien à
+ * décider du « je n'ai pas pu regarder » (le rendu d'un tableau, un décompte).
+ * Quiconque doit choisir un REPLI prend {@link discoverDevProcessesDetailed}, sans quoi
+ * une liste vide se lit « rien ne tourne » alors qu'elle peut signifier l'inverse.
+ */
+export function discoverDevProcesses(
+  opts: DiscoverOptions = {},
+): DevProcessInfo[] {
+  return discoverDevProcessesDetailed(opts).procs;
 }
 
 /**

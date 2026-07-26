@@ -5,11 +5,10 @@ import {
   clearSupervisorPidFile,
   defaultDevPorts,
   detectRuntimeMode,
-  discoverDevProcesses,
+  discoverDevProcessesDetailed,
   discoverFromRuntimeState,
   formatForeignRuntimes,
   isNodefonyProjectDir,
-  isProcessDiscoverySupported,
   probePorts,
   processCwd,
   splitByProject,
@@ -162,21 +161,21 @@ export async function runStopReport(
   opts: { all?: boolean } = {},
 ): Promise<void> {
   const tag = `${ANSI.dim}[stop]${ANSI.reset}`;
-  const discovered = discoverDevProcesses();
+  const observed = discoverDevProcessesDetailed();
+  const discovered = observed.procs;
   const scoped = opts.all
     ? { mine: allRuntimesOfThisPoste(discovered), foreign: [] }
     : splitByProject(discovered, cwd);
-  // Là où les process ne s'observent pas (Windows), la découverte rend une liste vide
-  // qu'on ne peut pas distinguer de « rien ne tourne » : l'arrêt annonçait alors « déjà
-  // arrêté » pendant qu'un serveur détaché continuait d'écouter. Le fichier d'état du
-  // projet, lui, dit la vérité — et il ne désigne QUE ce projet.
-  const byState = !isProcessDiscoverySupported()
-    ? discoverFromRuntimeState(cwd)
-    : [];
+  // Quand `ps` n'a pas pu répondre — Windows, mais AUSSI une image Node mince où
+  // `procps` n'est pas installé, ce qui est le cas de déploiement nominal — la
+  // découverte rend une liste vide qu'on ne peut pas distinguer de « rien ne tourne » :
+  // l'arrêt annonçait alors « déjà arrêté » pendant qu'un serveur continuait d'écouter.
+  // Le fichier d'état du projet, lui, dit la vérité — et ne désigne QUE ce projet.
+  const byState = observed.supported ? [] : discoverFromRuntimeState(cwd);
   if (byState.length > 0) {
     writeSync(
       1,
-      `${tag} process non observables sur cette plateforme — runtime retrouvé par son fichier d'état (pid ${byState[0].pid}).\n`,
+      `${tag} observation des process indisponible ici — runtime retrouvé par son fichier d'état (pid ${byState[0].pid}).\n`,
     );
   }
   const before = scoped.mine.length > 0 ? scoped.mine : byState;
@@ -201,13 +200,13 @@ export async function runStopReport(
     // process ne s'observent pas et où aucun fichier d'état ne subsiste, un port encore
     // tenu est la seule preuve qui reste — l'annoncer plutôt que déclarer le calme.
     const occupied = ports.filter((p) => p.listening).map((p) => p.port);
-    const blind = !isProcessDiscoverySupported() && occupied.length > 0;
+    const blind = !observed.supported && occupied.length > 0;
     writeSync(
       1,
       [
         "",
         blind
-          ? `${tag} ${ANSI.bold}Nodefony — aucun process observable sur cette plateforme, mais ${occupied.join(", ")} répond(ent) encore${ANSI.reset}`
+          ? `${tag} ${ANSI.bold}Nodefony — process non observables ici, mais ${occupied.join(", ")} répond(ent) encore${ANSI.reset}`
           : `${tag} ${ANSI.bold}Nodefony — aucune instance de ce projet en cours (déjà arrêté)${ANSI.reset}`,
         `  ${ANSI.dim}ports${ANSI.reset} : ${portsLine(ports, blind ? "occupé" : "libre")}`,
         ...(blind

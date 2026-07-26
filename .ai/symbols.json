@@ -1,12 +1,12 @@
 {
-  "generated": "2026-07-26T21:51:52.621Z",
+  "generated": "2026-07-26T21:58:52.526Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 638,
-    "symbols": 2503,
+    "symbols": 2504,
     "classes": 335,
-    "interfaces": 763,
+    "interfaces": 764,
     "types": 331,
     "enums": 4,
     "functions": 896,
@@ -5212,6 +5212,15 @@
       "extends": null,
       "description": "Options de {@link discoverDevProcesses}."
     },
+    "ProcessDiscovery": {
+      "name": "ProcessDiscovery",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Résultat d'une tentative d'observation externe — le VERDICT avec la liste."
+    },
     "RuntimeMode": {
       "name": "RuntimeMode",
       "kind": "type",
@@ -5268,21 +5277,13 @@
       "module": "@nodefony/core",
       "description": "Lit les ports publiés par le runtime, ou `null`. **Un state file dont le process est MORT est ignoré** (et purgé) : sinon un `status` lirait les ports d'un serveur d'hier et sonderait dans le vide."
     },
-    "isProcessDiscoverySupported": {
-      "name": "isProcessDiscoverySupported",
-      "kind": "function",
-      "file": "src/nodefony/src/service/dev/devProcess.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "description": "Retire le state file (arrêt propre, ou reliquat d'un process mort)."
-    },
     "discoverFromRuntimeState": {
       "name": "discoverFromRuntimeState",
       "kind": "function",
       "file": "src/nodefony/src/service/dev/devProcess.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Retrouve le runtime de CE projet par son fichier d'état, sans observer les process. Repli employé là où l'observation externe n'existe pas ({@link isProcessDiscoverySupported}). Le fichier vit sous…"
+      "description": "Retire le state file (arrêt propre, ou reliquat d'un process mort)."
     },
     "clearRuntimeState": {
       "name": "clearRuntimeState",
@@ -5451,13 +5452,21 @@
       "module": "@nodefony/core",
       "description": "Parse UNE ligne `ps` (pid ppid rss pcpu etime command) en {@link DevProcessInfo}, ou `null` si la ligne ne matche pas ou n'est pas un process dev connu. `%CPU` toléré avec point OU virgule décimale…"
     },
+    "discoverDevProcessesDetailed": {
+      "name": "discoverDevProcessesDetailed",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Découvre les process dev Nodefony vivants par OBSERVATION EXTERNE (`ps`), et DIT si l'observation a eu lieu. Ne retient que les process dont la commande porte un titre dev connu (superviseur / serv…"
+    },
     "discoverDevProcesses": {
       "name": "discoverDevProcesses",
       "kind": "function",
       "file": "src/nodefony/src/service/dev/devProcess.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Découvre les process dev Nodefony vivants par OBSERVATION EXTERNE (`ps`) — zéro IPC. Ne retient que les process dont la commande porte un titre dev connu (superviseur / serveur / Vite) et en extrai…"
+      "description": "Liste seule des process observés — commodité pour les appelants qui n'ont rien à décider du « je n'ai pas pu regarder » (le rendu d'un tableau, un décompte). Quiconque doit choisir un REPLI prend {…"
     },
     "runtimeModes": {
       "name": "runtimeModes",
@@ -21023,8 +21032,6 @@
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/BootReporter.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
-        "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "findRuntimeConflict": [
@@ -21142,11 +21149,11 @@
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
-      "discoverFromRuntimeState": [
+      "discoverDevProcessesDetailed": [
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts"
       ],
-      "isProcessDiscoverySupported": [
+      "discoverFromRuntimeState": [
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts"
       ],

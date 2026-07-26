@@ -18,6 +18,7 @@ import {
 import {
   clearRuntimeState,
   defaultDevPorts,
+  discoverDevProcessesDetailed,
   discoverFromRuntimeState,
   detectRuntimeMode,
   devSupervisorPidFile,
@@ -34,6 +35,7 @@ import {
   type DevProcessInfo,
 } from "../service/dev/devProcess";
 import { scopeAllToNodefonyProjects } from "../service/dev/devStop";
+import { buildDevStatus } from "../service/dev/devStatusReport";
 
 describe("devProcess — parsePsRow (parsing ps)", () => {
   it("superviseur, %CPU à VIRGULE décimale (locale FR) → cpu numérique correct", () => {
@@ -320,6 +322,50 @@ describe("devProcess — state file runtime (ports effectifs)", () => {
   it("crée l'arborescence si `node_modules/.cache` n'existe pas encore", () => {
     writeRuntimeState(cwd, { pid: process.pid, ports: [7000] });
     assert.ok(existsSync(runtimeStateFile(cwd)));
+  });
+
+  it("un rapport privé d'observation le DIT (il ne se contente pas d'un tableau nu)", () => {
+    // Sans cet avertissement, un tableau sans mémoire ni CPU se lit comme un serveur au
+    // repos plutôt que comme une mesure absente — et l'on cherche la panne au mauvais
+    // endroit. Le verdict est injecté, donc la règle s'éprouve depuis n'importe quel
+    // système : c'est le comportement attendu sur Windows COMME dans un conteneur mince.
+    const proc = {
+      pid: 42,
+      ppid: 0,
+      mode: "dev" as const,
+      role: "server" as const,
+      label: "server",
+      rssKb: 0,
+      cpu: 0,
+      uptimeSec: 1,
+    };
+    const blind = buildDevStatus(cwd, null, false, [proc], [], true, false);
+    assert.strictEqual(blind.supported, false);
+    assert.ok(
+      blind.warnings.some((w) => w.includes("non observables")),
+      `le rapport doit annoncer l'absence d'observation : ${JSON.stringify(blind.warnings)}`,
+    );
+    // Et il rapporte quand même la topologie : se taire serait le vrai défaut.
+    assert.strictEqual(blind.running, true);
+
+    // Observation disponible → aucun avertissement de ce type.
+    const seen = buildDevStatus(cwd, null, false, [proc], [], true, true);
+    assert.strictEqual(seen.supported, true);
+    assert.ok(!seen.warnings.some((w) => w.includes("non observables")));
+  });
+
+  it("discoverDevProcessesDetailed CONSTATE la disponibilité, il ne la déduit pas", () => {
+    // La règle ne peut pas être « tout ce qui n'est pas Windows a `ps` » : `procps`
+    // n'est pas installé dans les images Node minces — celles du Dockerfile de
+    // production — ni garanti sur une BSD avec cette syntaxe. Le verdict doit donc
+    // venir de l'exécution, et il doit distinguer « aucun process » de « je n'ai pas
+    // pu regarder », faute de quoi aucun repli ne peut se déclencher.
+    const d = discoverDevProcessesDetailed();
+    assert.strictEqual(typeof d.supported, "boolean");
+    assert.ok(Array.isArray(d.procs));
+    // Là où l'observation a lieu, elle rend une liste (vide ou non) ; là où elle
+    // n'a pas lieu, la liste est vide ET le drapeau le dit.
+    if (!d.supported) assert.deepStrictEqual(d.procs, []);
   });
 
   it("discoverFromRuntimeState rend le SUPERVISEUR AVANT le serveur (sinon il respawn)", () => {

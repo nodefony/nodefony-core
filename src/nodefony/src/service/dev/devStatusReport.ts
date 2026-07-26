@@ -5,9 +5,8 @@ import {
   defaultDevPorts,
   detectRuntimeMode,
   devSupervisorPidFile,
+  discoverDevProcessesDetailed,
   discoverFromRuntimeState,
-  isProcessDiscoverySupported,
-  discoverDevProcesses,
   formatUptime,
   isNodefonyProjectDir,
   isPidAlive,
@@ -67,7 +66,9 @@ export async function runStandaloneDevCommand(name: string): Promise<void> {
  */
 export interface DevStatusReport {
   /**
-   * `false` si l'OBSERVATION EXTERNE (`ps`) est indisponible — Windows.
+   * `false` si l'OBSERVATION EXTERNE n'a pas pu être menée — CONSTATÉ, jamais déduit
+   * de la plateforme : Windows, mais aussi `ps` absent (images Node minces, distroless,
+   * Alpine nu) ou syntaxe refusée (certaines BSD).
    *
    * Ne signifie plus « rapport vide » : le pidfile, le fichier d'état et la sonde TCP
    * répondent partout, donc la topologie et les ports restent rapportés. Le drapeau dit
@@ -128,11 +129,11 @@ export function buildDevStatus(
   ports: readonly PortState[],
   inProject = true,
   /**
-   * `true` si les process s'observent (`ps`). Paramètre plutôt que lecture directe de
-   * la plateforme : la fonction reste PURE, et un test peut éprouver depuis n'importe
-   * quel système ce qu'un rapport dit quand l'observation manque.
+   * `true` si `ps` a réellement répondu — verdict fourni par l'appelant. Paramètre et
+   * non lecture d'environnement : la fonction reste PURE, et un test peut éprouver
+   * depuis n'importe quel système ce que dit un rapport privé d'observation.
    */
-  discoverySupported = isProcessDiscoverySupported(),
+  discoverySupported = true,
 ): DevStatusReport {
   const nSup = procs.filter((p) => p.role === "supervisor").length;
   const nSrv = procs.filter((p) => p.role === "server").length;
@@ -206,7 +207,7 @@ export function buildDevStatus(
   // se lit comme un serveur au repos plutôt que comme une mesure absente.
   if (!discoverySupported && procs.length > 0)
     warnings.push(
-      "process non observables sur cette plateforme — topologie lue dans le pidfile et le fichier d'état (ni RSS, ni %CPU, ni Vite)",
+      "process non observables ici (`ps` indisponible) — topologie lue dans le pidfile et le fichier d'état (ni RSS, ni %CPU, ni Vite)",
     );
 
   return {
@@ -248,11 +249,10 @@ export async function collectDevStatus(
   // Là où les process ne s'observent pas, on ne rend plus un rapport VIDE : c'était se
   // taire au moment précis où l'on a besoin de savoir ce qui tourne. Le pidfile, le
   // fichier d'état et la sonde TCP ne dépendent d'aucun `ps` — ils répondent partout.
-  const observed = discoverDevProcesses(opts);
-  const procs =
-    observed.length === 0 && !isProcessDiscoverySupported()
-      ? discoverFromRuntimeState(cwd)
-      : observed;
+  const observed = discoverDevProcessesDetailed(opts);
+  const procs = observed.supported
+    ? observed.procs
+    : discoverFromRuntimeState(cwd);
   const ports = await probePorts(defaultDevPorts(cwd));
   return buildDevStatus(
     cwd,
@@ -261,6 +261,7 @@ export async function collectDevStatus(
     procs,
     ports,
     isNodefonyProjectDir(cwd),
+    observed.supported,
   );
 }
 
