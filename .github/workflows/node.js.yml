@@ -59,6 +59,16 @@ jobs:
         run: npm run typecheck
         continue-on-error: false
 
+      # Non bloquant TANT QUE la dette héritée n'est pas résorbée : le lint
+      # signalait déjà ces erreurs sous eslint, mais rien ne les lisait puisque
+      # la CI ne le lançait pas. Le rendre bloquant d'emblée ferait échouer
+      # toutes les demandes de fusion dès demain, et on le désactiverait dans la
+      # semaine. Retirer `continue-on-error` le jour où le compte atteint zéro —
+      # c'est à ce moment seulement qu'il devient un vrai garde-fou.
+      - name: Lint (oxlint)
+        run: npm run lint
+        continue-on-error: true
+
   # ─── Tests unit — toutes les plateformes, pas besoin du serveur ─────────────
   test-unit:
     name: Tests unit (${{ matrix.os }} / Node ${{ matrix.node-version }})

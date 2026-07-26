@@ -1,0 +1,26 @@
+---
+# CodeQL Configuration — nodefony-core
+#
+# Excludes paths that are not production code to reduce noise and focus alerts
+# on meaningful security findings in the actual codebase.
+#
+# Documentation: https://docs.github.com/en/code-security/code-scanning/using-codeql-code-scanning-with-github-actions/customizing-code-scanning
+
+paths-ignore:
+  # Generated/dist directories
+  - "**/dist/**"
+  - "**/node_modules/**"
+
+  # Temporary and build artifacts
+  - "tmp/**"
+  - "examples/**/dist/**"
+
+  # Test coverage reports
+  - "**/coverage/**"
+  - ".coverage/**"
+
+  # Generated files (config, types)
+  - "**/*.generated.*"
+
+  # Benchmarks and framework comparison suites (not production code)
+  - ".claude/skills/**/bench-frameworks/**"
