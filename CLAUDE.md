@@ -166,6 +166,15 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
      **Le doute tranche POUR la délégation** : un run `haiku` inutile coûte l'équivalent d'une
      poignée de `grep` ; la même vérification faite dans le contexte principal le remplit de
      sorties d'outils pour le reste de la session, et ça, ça se paie à chaque tour suivant.
+     **Mais un sous-agent n'est pas gratuit non plus** — il faut l'énoncer, attendre, puis
+     VÉRIFIER ce qu'il affirme. Trois cas où déléguer coûte plus que faire, et où il ne faut
+     donc pas : (a) un **automate rend la réponse** — c'est la QUESTION ZÉRO ci-dessous, un `rg`
+     ou un `jq` répond en deux secondes, exhaustivement, sans rien à recontrôler ; (b) la réponse
+     tient en **une commande dont je lis la sortie** (un `git log`, un `npm ls`) — l'écrire pour
+     quelqu'un d'autre prend plus longtemps que la lancer ; (c) la tâche est **sur le chemin
+     critique** et son résultat conditionne le geste suivant : la latence d'un run se paie alors
+     en attente pure. Le bon usage est l'inverse : ce qui peut avancer PENDANT qu'on travaille
+     ailleurs.
      Ne PAS déléguer, en revanche : **éditer du code** au milieu d'une session (le coût
      d'explication dépasse le gain, et deux mains sur les mêmes fichiers finissent par se
      marcher dessus). Déléguer la VÉRIFICATION et la MESURE, appliquer soi-même.
