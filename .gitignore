@@ -58,7 +58,11 @@ ehthumbs.db
 example/
 temp/
 
-# Fixture Dolibarr — schéma GPLv3 dérivé (local only, ne pas committer dans un repo CeCILL-B)
+# Fixture Dolibarr — schéma GPLv3 dérivé (local only, ne pas committer dans un repo CeCILL-B).
+# ⚠️ Un dossier ignoré est ABSENT de tout clone : aucun fichier versionné ne doit
+# l'importer, sous peine de rendre le dépôt public inconstruisible (vécu — la CI a
+# passé deux mois rouge sur un `import` de ce chemin). Idem pour tout artefact
+# généré puis commité, qui doit l'exclure de son scan (cf generate-symbols.config).
 src/modules/test/nodefony/entity/dolibarr/
 
 yarn.lock
