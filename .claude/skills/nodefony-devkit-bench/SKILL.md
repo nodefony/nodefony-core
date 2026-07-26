@@ -32,13 +32,17 @@ l'exécution. Trois pannes réelles, trouvées par le banc de vérité et invisi
 aux assertions :
 
 - un échantillon de test généré violait le schéma Zod de sa propre entité (une
-  valeur d'énumération fabriquée par interpolation) ;
+  valeur d'énumération fabriquée par interpolation — puis, plus tard, un décimal
+  et un caractère fixe : le même piège trois fois) ;
 - une relation déclarée faisait **lever l'ORM au démarrage**, parce que le test
   généré n'enregistrait que son entité, pas la cible du lien ;
 - un type généré ne compilait pas chez le consommateur, l'export utilisé
-  n'existant que sous condition.
+  n'existant que sous condition ;
+- une colonne de référence sortait en texte face à une clé `uuid` : le code
+  compile, les tests passent, la ressource répond — et toute jointure SQL écrite
+  ensuite est refusée par PostgreSQL.
 
-Aucune de ces trois n'aurait été vue autrement qu'en compilant et en exécutant.
+Aucune de ces quatre n'aurait été vue autrement qu'en compilant et en exécutant.
 
 ## Banc de vérité — le code généré tient-il debout ?
 
@@ -55,16 +59,30 @@ pas ce qui est publié.
 Les étapes, dans l'ordre, et ce que chacune protège :
 
 1. **décor** — application témoin liée, ports dédiés ;
-2. **génération** — deux entités qui exercent toute la grammaire (unique,
-   énumération avec défaut, entier avec défaut, index, relation) ;
+2. **génération** — cinq entités qui exercent toute la grammaire (unique,
+   énumération avec défaut, entier avec défaut, index simple et composite,
+   unicité composite, tailles de colonne, relation), dont deux émises pour
+   PostgreSQL ;
 3. **compilation** — l'étape qui manquait : un type faux ne se voit pas dans une
    assertion de chaîne ;
-4. **build** — le runtime charge le `dist/` : sans lui, une entité neuve est
+4. **décâblage** — les entités PostgreSQL quittent le manifeste : leur schéma
+   enregistré sur un connecteur SQLite ferait échouer le boot, et cet échec ne
+   dirait rien du générateur. Leurs fichiers restent — c'est leur type qu'on lit ;
+5. **cohérence FK ↔ PK** — une colonne de référence doit avoir le type de la clé
+   visée, sinon la jointure est refusée par le moteur ;
+6. **build** — le runtime charge le `dist/` : sans lui, une entité neuve est
    invisible du serveur (cause n°1 des « ma route répond 404 ») ;
-5. **tests générés** — couche donnée ;
-6. **HTTP réel** — 201 + `Location`, 422, 409 sur doublon, page `hasNext`,
+7. **tests générés** — couche donnée ;
+8. **HTTP réel** — 201 + `Location`, 422, 409 sur doublon, page `hasNext`,
    PATCH, 204 puis 404 ;
-7. **inspection** — l'application se laisse lire sans ouvrir de port.
+9. **inspection** — l'application se laisse lire sans ouvrir de port.
+
+> **Une sonde de type doit porter sur un moteur qui DISTINGUE les types.** La
+> cohérence FK ↔ PK a d'abord été écrite sur les entités SQLite du banc, et elle
+> passait quel que soit le générateur : en SQLite, une clé `uuid` et une colonne
+> texte sont le **même** type. La sonde ne pouvait rien voir. D'où les deux
+> entités PostgreSQL — aucune base n'est requise, Drizzle déclare ces types sans
+> se connecter. C'est la preuve négative qui l'a révélé, pas la relecture.
 
 Le décor est **conservé** quand une étape échoue (le chemin est affiché) : la
 première chose à faire est d'y entrer et de rejouer la commande fautive à la
