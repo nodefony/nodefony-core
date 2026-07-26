@@ -28,14 +28,19 @@
   porte (`--fix`, codemod) avec compilation + tests derrière.
 - `[1× — 2026-07-26]` Le **TYPE** d'agent (lecture seule vs complet) est le second levier de coût,
   choisi AVANT le modèle. Un agent en lecture seule ne peut pas casser le dépôt.
-- `[1× — 2026-07-26]` 🔴 **Un sous-agent de fond sans ORDRE DE TERMINER renotifie en boucle.** Dix
-  réveils d'un agent marqué `completed` : il redemandait des consignes, reproposait son rapport, et
-  l'un a proposé **d'arrêter mon serveur pour « corriger »** des fichiers déjà commités. Chaque
-  réveil coûte un tour de relecture COMPLÈTE du contexte — le poste n°1 de dépense (~72 %). Cause
-  exacte : mon prompt finissait sur un format de rendu, jamais sur une consigne d'arrêt. Remède, à
-  écrire dans CHAQUE prompt de délégation : « rends le rapport puis **TERMINE** — aucune question,
-  aucune proposition de suite, aucune action ». Et quand ça boucle quand même : `TaskStop` **échoue**
-  sur un agent `completed` → l'arrêter par un `SendMessage` d'ordre explicite.
+- `[1× — 2026-07-26]` 🔴🔴 **UN SOUS-AGENT ZOMBIE REND LA SESSION INATTEIGNABLE — et fait perdre du
+  travail au USER.** Dix réveils d'un agent `completed` ont occupé le fil ; j'y répondais « rien de
+  neuf, j'attends ta décision ». Vu du user : **session inerte, en lecture seule** (renforcé par les
+  messages de l'agent, « je suis bloqué en lecture seule », qui parlaient de LUI). Ne pouvant plus
+  reprendre la main, **il a ouvert une SECONDE session Claude Code**, qui a **tué son résumé de
+  terminal**. Le grave n'est pas le coût : c'est la PERTE DE CONTRÔLE, et une parade (2ᵉ instance sur
+  le même arbre) destructrice par nature. Remèdes : (1) **au 2ᵉ réveil sans apport, ARRÊTER l'agent**,
+  jamais « ignorer » — chaque réponse polie est un tour où le user ne passe pas ; (2) si le fil est
+  pollué, le **DIRE et AGIR** (« un agent zombie réveille le fil, je le tue »), jamais conclure
+  « j'attends ta décision », qui se lit comme une session morte ; (3) **`TaskStop` ÉCHOUE** sur un
+  agent `completed` qui consomme encore des outils (39→43) → seul un `SendMessage` d'ordre l'arrête ;
+  (4) terminer TOUT prompt de délégation par « rends le rapport puis **TERMINE** — aucune question,
+  aucune proposition, aucune action » (le mien finissait sur un format de rendu).
 - `[1× — 2026-07-26]` 🔴 **Déléguer l'EXTRACTION, jamais la QUALIFICATION.** Le déclencheur « verdict
   binaire + preuve » m'a fait confier un tri « vrai défaut / faux positif / dette » — qui est un
   **jugement**, pas un verdict. Résultat : 3 verdicts faux sur 12 familles, dont **deux qui
