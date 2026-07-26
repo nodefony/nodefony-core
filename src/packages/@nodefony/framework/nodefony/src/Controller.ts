@@ -619,7 +619,11 @@ class Controller extends Service implements IController {
   ) {
     const File = await this.getFileAsync(file);
     this.response?.setEncoding("binary");
-    const { range } = (this.request as HttpRequest | Http2Request)?.headers;
+    // Le `?.` doit porter jusqu'au BOUT : `const { range } = X?.headers`
+    // déstructure `undefined` dès que `X` l'est — donc lève exactement le
+    // TypeError que l'optional chaining prétendait éviter.
+    const range = (this.request as HttpRequest | Http2Request | undefined)
+      ?.headers?.range;
     const length = File.stats.size;
     let head: OutgoingHttpHeaders;
     let value: ReadStreamOptions;

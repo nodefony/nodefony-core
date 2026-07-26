@@ -248,7 +248,6 @@ class HttpRequest {
               );
             }
             //});
-            break;
           }
           default: {
             if (!parser) {

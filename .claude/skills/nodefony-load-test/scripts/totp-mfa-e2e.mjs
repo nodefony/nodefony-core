@@ -118,7 +118,7 @@ check(
   "enroll → 200 + secretBase32 + otpauthUri",
   r.status === 200 &&
     /^[A-Z2-7]+$/.test(r.body?.secretBase32 || "") &&
-    /^otpauth:\/\/totp\//.test(r.body?.otpauthUri || ""),
+    (r.body?.otpauthUri || "").startsWith("otpauth://totp/"),
   r,
 );
 const secret = r.body?.secretBase32;

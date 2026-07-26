@@ -253,9 +253,10 @@ describe("colKit — buildFrameworkTable (S1 multi-dialecte)", () => {
         const rows = (await db.select().from(table)) as Array<
           Record<string, unknown>
         >;
-        assert.ok(rows[0]?.bornAt instanceof Date);
+        const bornAt = rows[0]?.bornAt;
+        assert.ok(bornAt instanceof Date);
         assert.equal(
-          (rows[0]?.bornAt as Date).getTime(),
+          bornAt.getTime(),
           at.getTime(),
           "précision milliseconde conservée",
         );

@@ -170,7 +170,9 @@
     "import/no-named-as-default": "off",
     "no-await-in-loop": "off",
     "unicorn/no-array-reverse": "off",
-    "unicorn/no-new-array": "off"
+    "unicorn/no-new-array": "off",
+    "no-control-regex": "off",
+    "typescript/no-this-alias": "off"
   },
   "overrides": [
     {

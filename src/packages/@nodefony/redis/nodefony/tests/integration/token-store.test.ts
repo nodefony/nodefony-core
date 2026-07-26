@@ -156,6 +156,10 @@ class FakeRedis implements RedisClientLike {
         )
       : null;
     const keys: string[] = [];
+    // Le spread n'est PAS superflu : `#expired()` appelle `#purge()`, qui
+    // supprime de `#hashes`. On itère donc sur un instantané pris AVANT la
+    // mutation, pas sur l'itérateur vivant de la Map qu'on est en train de vider.
+    // oxlint-disable-next-line no-useless-spread
     for (const key of [...this.#hashes.keys()]) {
       if (this.#expired(key)) {
         continue;

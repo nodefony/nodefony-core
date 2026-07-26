@@ -772,7 +772,7 @@ const FAMILY_ORDER = [
 ];
 const short = (name) => name.replace(/^nodefony-/, "");
 const iconFor = (name) => (CATALOG[short(name)] || ["🔧"])[0];
-const familyOf = (name) => (CATALOG[short(name)] || [, "Autres"])[1];
+const familyOf = (name) => (CATALOG[short(name)] || [undefined, "Autres"])[1];
 
 /**
  * Cards des skills — bloc `nodefony-cards` rendu par Studio. Généré, donc toujours aligné sur les

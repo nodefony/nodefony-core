@@ -694,6 +694,9 @@ describe("isPromise", () => {
     expect(isPromise(p)).to.be.true;
   });
   it("thenable (duck typing) → true", () => {
+    // Le thenable est l'OBJET DU TEST : `isPromise` doit reconnaître un `.then`
+    // sans exiger une vraie Promise (ex-Bluebird userland, Q…).
+    // oxlint-disable-next-line no-thenable
     expect(isPromise({ then: () => {} })).to.be.true;
   });
   it("objet sans .then → false", () =>

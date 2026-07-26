@@ -301,27 +301,32 @@ class Cli extends Service {
   }
 
   start(): Promise<Cli | Kernel> {
-    return new Promise(async (resolve, reject) => {
-      try {
+    // L'exécuteur reste SYNCHRONE : un exécuteur `async` avale ses propres
+    // rejets (la promesse ne se règle jamais). Le travail asynchrone vit dans
+    // `run()`, dont le rejet est rebranché sur `reject` — y compris celui des
+    // callbacks DIFFÉRÉS (`once`), qu'un try/catch d'exécuteur ne couvre pas :
+    // ils s'exécutent après que l'exécuteur a rendu la main.
+    return new Promise((resolve, reject) => {
+      const run = async (): Promise<void> => {
         if (this.options.autostart) {
           if (this.options.asciify) {
             this.once("onStart", () => resolve(this));
-          } else {
-            await this.fireAsync("onStart", this);
-            return resolve(this);
+            return;
           }
-        } else if (this.options.asciify) {
-          this.once("onAsciify", async () => {
-            await this.fireAsync("onStart", this);
-            return resolve(this);
-          });
-        } else {
           await this.fireAsync("onStart", this);
-          return resolve(this);
+          resolve(this);
+          return;
         }
-      } catch (e) {
-        return reject(e);
-      }
+        if (this.options.asciify) {
+          this.once("onAsciify", () => {
+            this.fireAsync("onStart", this).then(() => resolve(this), reject);
+          });
+          return;
+        }
+        await this.fireAsync("onStart", this);
+        resolve(this);
+      };
+      run().catch(reject);
     });
   }
 

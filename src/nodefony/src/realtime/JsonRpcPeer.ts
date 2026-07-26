@@ -63,6 +63,7 @@ export interface JsonRpcErrorObject {
 // → un champ déclaré exigerait `override` ; le build client (tsconfigClient,
 // sans cette augmentation) refuserait ce même `override` (TS4113/TS4114
 // inconciliables). La prop fusionnée échappe au check et type `number` partout.
+// oxlint-disable-next-line no-unsafe-declaration-merging -- fusion VOULUE, cf ci-dessus
 export interface RpcError {
   /** Code JSON-RPC 2.0 (`-32000`…`-32099` applicatif, ou codes protocole). */
   code: number;

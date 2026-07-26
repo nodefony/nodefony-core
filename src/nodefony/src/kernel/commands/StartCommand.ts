@@ -123,7 +123,6 @@ class Start extends Command {
         });
       }
     }
-    return Promise.resolve(this);
   }
 
   override async showBanner(): Promise<string> {
