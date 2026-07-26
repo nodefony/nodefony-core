@@ -566,14 +566,20 @@ class CliKernel extends Cli {
    * sortie CLI). Couleur gatée par `logColor` (isTTY + NO_COLOR/FORCE_COLOR).
    */
   private printHelpHeader(): void {
-    let version = "";
+    // `shownVersion` et non `version` : ce fichier importe déjà `version` du
+    // `package.json` (utilisée par `--version` et le manifeste CLI). Un `version`
+    // local ici masquerait cet import — et l'en-tête tire sa valeur de commander,
+    // pas du paquet.
+    let shownVersion = "";
     try {
       const v: unknown = this.commander?.version();
-      if (typeof v === "string") version = v;
+      if (typeof v === "string") shownVersion = v;
     } catch {
       /* commander sans version — ignore */
     }
-    const tag = version ? ` ${logColor.blackBright(`v${version}`)}` : "";
+    const tag = shownVersion
+      ? ` ${logColor.blackBright(`v${shownVersion}`)}`
+      : "";
     console.log(
       `  ${logColor.cyan("⬢")} ${logColor.cyanBold("Nodefony")}${tag}   ` +
         `${logColor.blackBright("framework fullstack Node.js — HTTP · WS · ORM · IA")}\n`,

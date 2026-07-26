@@ -277,12 +277,14 @@ export class MongooseOrm extends Orm {
       return [];
     }
     const paths = model.schema.paths as Record<string, SchemaType>;
-    return Object.entries(paths).map(([path, schemaType]) => ({
-      name: path,
+    // `field`, pas `path` : le module `node:path` est importé dans ce fichier et
+    // s'en sert plus bas (`path.dirname`) — un `path` local le masquerait.
+    return Object.entries(paths).map(([field, schemaType]) => ({
+      name: field,
       // `instance` = type Mongoose ("String", "ObjectId", "Number", "Date"...).
       type: schemaType.instance || "Mixed",
-      primaryKey: path === "_id",
-      nullable: path === "_id" ? false : schemaType.isRequired !== true,
+      primaryKey: field === "_id",
+      nullable: field === "_id" ? false : schemaType.isRequired !== true,
       unique: (schemaType.options as { unique?: unknown }).unique === true,
     }));
   }

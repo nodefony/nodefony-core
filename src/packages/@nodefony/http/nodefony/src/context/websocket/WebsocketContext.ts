@@ -412,11 +412,13 @@ export default class WebsocketContext
    * `id` JSON-RPC ne peut pas servir de clé : il est choisi par le client.
    *
    * @param method - méthode LOGIQUE de l'invocation (`GET`, `POST`…).
-   * @param url - chemin invoqué par la frame (jamais l'URL de la connexion).
+   * @param framePath - chemin invoqué par la frame (jamais l'URL de la
+   *          connexion) — nommé ainsi parce que `url` masquerait le module
+   *          `node:url`, importé ici et utilisé par `connect()`.
    * @returns le profil, ou `null` si profiler ET timing sont éteints (prod) —
    *          zéro allocation dans ce cas.
    */
-  beginFrame(method: string, url: string): FrameProfile | null {
+  beginFrame(method: string, framePath: string): FrameProfile | null {
     if (!this.profiling && !this.timingEnabled) return null;
     this.#frameSeq += 1;
     return new FrameProfile({
@@ -424,7 +426,7 @@ export default class WebsocketContext
       type: this.type,
       scheme: this.scheme,
       method,
-      url,
+      url: framePath,
       remoteAddress: this.remoteAddress ?? null,
       traceparent: this.traceparent,
       // Zone + décision du handshake : c'est de là que la frame tient son

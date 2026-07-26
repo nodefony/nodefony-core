@@ -248,13 +248,18 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
 
   /** Tronque + redacte un SQL paramétré pour l'affichage (jamais de valeur). */
   #safeSql(builder: ProfiledQuery<unknown>): string {
-    let sql: string;
+    // `statement`, pas `sql` : ce fichier importe le constructeur de fragments
+    // `sql` de drizzle (utilisé par `#firstRowPredicate`) — un `sql` local le
+    // masquerait, et un futur `sql`…` écrit ici échouerait sans raison lisible.
+    let statement: string;
     try {
-      sql = builder.toSQL().sql;
+      statement = builder.toSQL().sql;
     } catch {
-      sql = "<drizzle query>";
+      statement = "<drizzle query>";
     }
-    return redactSecrets(sql.length > 2000 ? `${sql.slice(0, 2000)}…` : sql);
+    return redactSecrets(
+      statement.length > 2000 ? `${statement.slice(0, 2000)}…` : statement,
+    );
   }
 
   /**
@@ -288,11 +293,11 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     if (flow) {
       // toSQL UNIQUEMENT sur le chemin lent (rare) — l'agrégat ne paie jamais
       // la sérialisation du texte au cas nominal.
-      const sql =
+      const statement =
         durationMs >= queryFlowMonitor.slowMs
           ? this.#safeSql(builder)
           : undefined;
-      queryFlowMonitor.record(this.#connector, durationMs, sql);
+      queryFlowMonitor.record(this.#connector, durationMs, statement);
     }
     if (buf) {
       buf.push({

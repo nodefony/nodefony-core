@@ -784,6 +784,7 @@ export const sparkline = (
 /** Jauge (0→1) — pour un taux d'utilisation, une saturation, un score. */
 export const gauge = (
   ratio,
+  // oxlint-disable-next-line no-shadow -- `warn` est le nom PUBLIC de ce seuil dans l'API de `gauge` ; il masque le helper `warn()` exporté plus haut, sans conséquence ici (aucun appel), et le renommer casserait les appelants.
   { label = "", width = 180, danger = 0.85, warn = 0.7 } = {},
 ) => {
   const r = Math.max(0, Math.min(1, ratio));
