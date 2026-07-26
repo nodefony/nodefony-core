@@ -53,7 +53,7 @@
   ],
   "scripts": {
     "nodefony": "node ./bin/nodefony",
-    "build": "rolldown -c rolldown.config.ts && npm run build:types",
+    "build": "rimraf dist && rolldown -c rolldown.config.ts && npm run build:types",
     "postbuild": "node -e \"try{require('fs').chmodSync('bin/nodefony',0o755)}catch(e){}\"",
     "dev": "rolldown -c rolldown.config.ts --watch",
     "clean": "rimraf dist bin/nodefony tsconfig.tsbuildinfo",
