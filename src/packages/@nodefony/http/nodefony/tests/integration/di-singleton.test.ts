@@ -49,14 +49,14 @@ function get<T = DiProbe>(path: string): Promise<{ status: number; body: T }> {
       let data = "";
       res.on("data", (c) => (data += c));
       res.on("end", () => {
+        let body: T;
         try {
-          resolve({
-            status: res.statusCode ?? 0,
-            body: JSON.parse(data) as T,
-          });
-        } catch (e) {
+          body = JSON.parse(data) as T;
+        } catch {
           reject(new Error(`réponse non-JSON (${res.statusCode}): ${data}`));
+          return;
         }
+        resolve({ status: res.statusCode ?? 0, body });
       });
     });
     req.on("error", reject);

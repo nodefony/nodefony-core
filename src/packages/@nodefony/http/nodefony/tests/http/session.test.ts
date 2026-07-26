@@ -16,15 +16,17 @@ function request(
       let raw = "";
       res.on("data", (c) => (raw += c));
       res.on("end", () => {
+        let body: unknown;
         try {
-          resolve({
-            status: res.statusCode!,
-            body: JSON.parse(raw),
-            setCookie: (res.headers["set-cookie"] as string[]) ?? [],
-          });
+          body = JSON.parse(raw);
         } catch {
-          resolve({ status: res.statusCode!, body: raw, setCookie: [] });
+          body = raw;
         }
+        resolve({
+          status: res.statusCode!,
+          body,
+          setCookie: (res.headers["set-cookie"] as string[]) ?? [],
+        });
       });
     });
     req.on("error", reject);

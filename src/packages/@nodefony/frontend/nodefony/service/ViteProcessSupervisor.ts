@@ -694,7 +694,16 @@ export class ViteProcessSupervisor implements IViteSupervisor {
       return;
     }
     return new Promise<void>((resolve) => {
+      // `sigKillTimer` est déclaré AVANT `done` : le `catch` du kill appelle
+      // `done()` avant l'affectation, et un `const` posé plus bas serait alors
+      // lu dans sa zone morte (ReferenceError, pas un `undefined` filtrable).
+      let sigKillTimer: NodeJS.Timeout | null = null;
+      let settled = false;
       const done = () => {
+        // `exit` peut survenir après un `done()` déclenché par un kill en échec.
+        if (settled) return;
+        settled = true;
+        child.removeListener("exit", done);
         this.cleanupChildListeners();
         this.child = null;
         this.state = "stopped";
@@ -708,7 +717,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
         done();
         return;
       }
-      const sigKillTimer = setTimeout(() => {
+      sigKillTimer = setTimeout(() => {
         if (this.child && !this.child.killed) {
           try {
             this.child.kill("SIGKILL");

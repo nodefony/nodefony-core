@@ -36,18 +36,20 @@ function req(
         res.on("data", (c: Buffer) => chunks.push(c));
         res.on("end", () => {
           const raw = Buffer.concat(chunks).toString("utf-8");
+          let body: Record<string, unknown>;
           try {
-            resolve({
-              status: res.statusCode!,
-              body: raw ? JSON.parse(raw) : {},
-              headers: res.headers as Record<
-                string,
-                string | string[] | undefined
-              >,
-            });
+            body = raw ? JSON.parse(raw) : {};
           } catch {
-            resolve({ status: res.statusCode!, body: { raw }, headers: {} });
+            body = { raw };
           }
+          resolve({
+            status: res.statusCode!,
+            body,
+            headers: res.headers as Record<
+              string,
+              string | string[] | undefined
+            >,
+          });
         });
       },
     );

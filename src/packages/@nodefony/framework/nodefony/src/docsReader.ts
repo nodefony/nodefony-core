@@ -602,9 +602,20 @@ export function runModuleTests(
     child.stdout?.on("data", cap);
     child.stderr?.on("data", cap);
     const timer = setTimeout(() => child.kill("SIGKILL"), 180_000);
-    child.on("error", (e) => {
+    // Un spawn qui échoue émet `error` PUIS `close` : sans garde, le second
+    // verdict écraserait le premier (silencieusement — une Promise ignore la
+    // seconde résolution) et laisserait les listeners attachés.
+    let settled = false;
+    const settle = (result: TestRunResult): void => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
-      resolve({
+      child.stdout?.off("data", cap);
+      child.stderr?.off("data", cap);
+      resolve(result);
+    };
+    child.on("error", (e) => {
+      settle({
         ok: false,
         code: null,
         passed: 0,
@@ -615,7 +626,6 @@ export function runModuleTests(
       });
     });
     child.on("close", (code) => {
-      clearTimeout(timer);
       const clean = out.replace(/\x1b\[[0-9;]*m/g, "");
       const passed = Number(
         clean.match(/Tests\s+(\d+)\s+passed/)?.[1] ??
@@ -627,7 +637,7 @@ export function runModuleTests(
           clean.match(/(\d+)\s+failing/)?.[1] ??
           0,
       );
-      resolve({
+      settle({
         ok: code === 0,
         code,
         passed,

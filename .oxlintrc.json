@@ -172,7 +172,18 @@
     "unicorn/no-array-reverse": "off",
     "unicorn/no-new-array": "off",
     "no-control-regex": "off",
-    "typescript/no-this-alias": "off"
+    "typescript/no-this-alias": "off",
+    // Désactivée APRÈS avoir récolté ce qu'elle avait à donner : 24 signalements,
+    // 2 défauts réels (corrigés), 0 dans les tests et les scripts. La règle compte
+    // les `resolve`/`reject` d'une portée sans suivre le flux : elle signale à tort
+    // un `return resolve()`, un ternaire `c ? resolve() : reject()`, une garde
+    // d'idempotence (`if (settled) return`) et une course volontaire où le premier
+    // arrivé gagne (sonde `end`/`error`/`timeout`). 13 signalements permanents pour
+    // du code correct — à ce taux, le 14ᵉ, lui vrai, ne serait plus lu.
+    // Le piège qu'elle avait trouvé, à surveiller à la main : un `child_process` en
+    // échec émet `error` PUIS `close`, donc deux verdicts pour une seule Promise
+    // (cf `docsReader.ts`, garde `settle`).
+    "promise/no-multiple-resolved": "off"
   },
   "overrides": [
     {

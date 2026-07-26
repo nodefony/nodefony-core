@@ -29,16 +29,16 @@ export default async function probeServerEnv(): Promise<void> {
         const chunks: Buffer[] = [];
         res.on("data", (c: Buffer) => chunks.push(c));
         res.on("end", () => {
+          let value: string | null = null;
           try {
             const body = JSON.parse(Buffer.concat(chunks).toString()) as {
               environment?: unknown;
             };
-            resolve(
-              typeof body.environment === "string" ? body.environment : null,
-            );
+            if (typeof body.environment === "string") value = body.environment;
           } catch {
-            resolve(null);
+            /* réponse non-JSON → sonde inconclusive, `null` */
           }
+          resolve(value);
         });
       },
     );

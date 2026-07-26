@@ -37,19 +37,17 @@ function get(
         res.on("data", (c: Buffer) => chunks.push(c));
         res.on("end", () => {
           const raw = Buffer.concat(chunks).toString();
+          let body: unknown;
           try {
-            resolve({
-              status: res.statusCode!,
-              ct: (res.headers["content-type"] as string) ?? "",
-              body: JSON.parse(raw),
-            });
+            body = JSON.parse(raw);
           } catch {
-            resolve({
-              status: res.statusCode!,
-              ct: (res.headers["content-type"] as string) ?? "",
-              body: raw,
-            });
+            body = raw;
           }
+          resolve({
+            status: res.statusCode!,
+            ct: (res.headers["content-type"] as string) ?? "",
+            body,
+          });
         });
       },
     );
