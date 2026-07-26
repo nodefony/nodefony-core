@@ -15,6 +15,30 @@
 
 ---
 
+## 🤖 Déléguer : le geste, pas seulement le verdict
+
+- `[1× — 2026-07-26]` 🔴 **Un agent délégué a « nettoyé » l'arbre pour mesurer une baseline et a
+  emporté une heure de code non commité.** La perte se voit PLUS TARD (un test échoue sur une
+  fonction devenue introuvable). Gravé en règle dans `CLAUDE.md` + `AGENTS.md` : interdire l'index
+  git EN TOUTES LETTRES dans chaque prompt de délégation, et **committer AVANT de déléguer**.
+- `[1× — 2026-07-26]` 🔴 **Un verdict vérifiable ne rend pas le GESTE mécanique.** « Retirer les
+  imports inutilisés » a un verdict binaire par occurrence — le modèle léger a coupé des listes
+  d'imports en plein milieu, fichiers non compilables. Éditer du code est STRUCTUREL sur un arbre
+  que le modèle ne parse pas. Déléguer le DIAGNOSTIC, garder l'ÉDITION — sauf si un automate la
+  porte (`--fix`, codemod) avec compilation + tests derrière.
+- `[1× — 2026-07-26]` Le **TYPE** d'agent (lecture seule vs complet) est le second levier de coût,
+  choisi AVANT le modèle. Un agent en lecture seule ne peut pas casser le dépôt.
+
+## 🔍 Un contrôle que personne ne lance n'existe pas
+
+- `[1× — 2026-07-26]` **La CI ne lançait pas le lint** — 146 erreurs accumulées sans qu'aucune
+  demande de fusion en dise un mot. Le contrôle existait en local, donc « on l'avait ». Corollaire
+  vérifié sur CodeQL : deux alertes marquées « corrigées » l'étaient par un **renommage de
+  dossier**, pas par un correctif — les mêmes défauts rouverts au nouveau chemin.
+- `[1× — 2026-07-26]` **Une sonde doit porter sur un terrain qui DISTINGUE ce qu'elle mesure.** La
+  cohérence FK↔PK écrite sur les entités SQLite du banc restait verte avec un générateur cassé
+  exprès : en SQLite, `uuid` et `text` sont le MÊME type. Portée sur PostgreSQL, elle mord.
+
 ## 🔢 La nomenclature d'un plan appartient à son lecteur
 
 - `[1× — 2026-07-24]` ⭐ **Trois échelles empilées (lots `devkit N`, vagues `V1-V5`, décisions `T1-T10`) ont PERDU le user** (« je ne veux pas 15 sous-lettres »). Règle : **UNE seule échelle d'identifiants publics** (ici `devkit S<n>`, alignée sur la famille de lots existante) ; les décisions/justifications se NOMMENT (« Refuser avant d'écrire »), ne se numérotent JAMAIS — un numéro n'est dû que s'il sera cité dans un commit ou une demande de session. Corollaire : un identifiant court réutilisé entre kits (S5 du kit ORM vs `devkit S5`) exige le préfixe.
