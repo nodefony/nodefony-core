@@ -28,6 +28,42 @@
   porte (`--fix`, codemod) avec compilation + tests derrière.
 - `[1× — 2026-07-26]` Le **TYPE** d'agent (lecture seule vs complet) est le second levier de coût,
   choisi AVANT le modèle. Un agent en lecture seule ne peut pas casser le dépôt.
+- `[1× — 2026-07-26]` 🔴 **Un sous-agent de fond sans ORDRE DE TERMINER renotifie en boucle.** Dix
+  réveils d'un agent marqué `completed` : il redemandait des consignes, reproposait son rapport, et
+  l'un a proposé **d'arrêter mon serveur pour « corriger »** des fichiers déjà commités. Chaque
+  réveil coûte un tour de relecture COMPLÈTE du contexte — le poste n°1 de dépense (~72 %). Cause
+  exacte : mon prompt finissait sur un format de rendu, jamais sur une consigne d'arrêt. Remède, à
+  écrire dans CHAQUE prompt de délégation : « rends le rapport puis **TERMINE** — aucune question,
+  aucune proposition de suite, aucune action ». Et quand ça boucle quand même : `TaskStop` **échoue**
+  sur un agent `completed` → l'arrêter par un `SendMessage` d'ordre explicite.
+- `[1× — 2026-07-26]` 🔴 **Déléguer l'EXTRACTION, jamais la QUALIFICATION.** Le déclencheur « verdict
+  binaire + preuve » m'a fait confier un tri « vrai défaut / faux positif / dette » — qui est un
+  **jugement**, pas un verdict. Résultat : 3 verdicts faux sur 12 familles, dont **deux qui
+  proposaient un bug** (retirer un spread qui protège d'une Map purgée pendant son parcours ;
+  « corriger » une fusion interface+classe qui réconcilie deux builds), et un troisième qui classait
+  « scripts de test » deux fichiers de PRODUCTION. Bon découpage : le sous-agent rend le CODE et son
+  contexte factuel (`fichier:ligne`, la ligne, ce que la fonction appelle) ; le principal qualifie.
+
+## ✂️ La preuve qu'on tronque est PERDUE — un pipe est destructif
+
+- `[1× — 2026-07-26]` 🔴 **`npm run test:all | tail -80` a mangé le nom du SEUL test échoué**
+  (1 sur 7094). Le rapport final tient dans les dernières lignes, le NOM du test non → flake
+  impossible à caractériser, run relancé pour rien, et il est repassé vert : l'information est
+  définitivement perdue. Un run dont on veut le DIAGNOSTIC se redirige **intégralement dans un
+  fichier**, on filtre le fichier ensuite. Ne tronquer que ce dont on ne veut qu'un état.
+
+## 🔧 Un correcteur automatique peut proposer un BUG
+
+- `[1× — 2026-07-26]` 🔴 **`oxlint --fix-suggestions` réécrit `.map(x => ({...x, n}))` en
+  `Object.assign(x, …)`** — qui **mute l'objet source** au lieu d'en produire une copie — et supprime
+  des constructeurs. Son nom le dit (« may change program behavior ») ; on ne le lit qu'après. Un
+  automate d'édition se **cadre sur la seule règle voulue**.
+- `[1× — 2026-07-26]` 🔴 **`-D <règle>` en ligne de commande ÉCRASE les options de cette règle**
+  définies dans le fichier de config (retour aux défauts) : `-A all -D no-unused-vars` a réactivé
+  `caughtErrors:"all"` que le dépôt met à `"none"`, et touché **37 fichiers hors périmètre**. Cadrer
+  un automate = une **config jetable** qui n'active que la règle, avec SES options — jamais un flag
+  qui la redéfinit. Corollaire : l'arbre doit être PROPRE avant de lancer un `--fix`, le diff est le
+  seul garde-fou.
 
 ## 🔍 Un contrôle que personne ne lance n'existe pas
 
@@ -35,6 +71,11 @@
   demande de fusion en dise un mot. Le contrôle existait en local, donc « on l'avait ». Corollaire
   vérifié sur CodeQL : deux alertes marquées « corrigées » l'étaient par un **renommage de
   dossier**, pas par un correctif — les mêmes défauts rouverts au nouveau chemin.
+- `[1× — 2026-07-26]` **Une entrée de config qui NOMME un chemin se vérifie à l'écriture.** J'avais
+  recopié `src/nodefony/src/service/babel/**` dans les exclusions du linter — le dossier n'existe
+  plus depuis longtemps, et une exclusion morte n'échoue jamais, elle protège juste le vide. Le user
+  l'a vu avant moi, et le fil a mené à trois autres vestiges (dont un dossier de l'ancien bundler et
+  une exclusion de compilation). Écrire un glob = le confronter d'un `ls`, comme une ancre.
 - `[1× — 2026-07-26]` **Une sonde doit porter sur un terrain qui DISTINGUE ce qu'elle mesure.** La
   cohérence FK↔PK écrite sur les entités SQLite du banc restait verte avec un générateur cassé
   exprès : en SQLite, `uuid` et `text` sont le MÊME type. Portée sur PostgreSQL, elle mord.
