@@ -28,6 +28,17 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
+/**
+ * Met un serveur de test en écoute sur un port éphémère de la boucle locale
+ * et rend son adresse — l'équivalent attendable de `server.listen(0, cb)`.
+ */
+const listen = (server: http.Server): Promise<{ port: number }> =>
+  new Promise((resolve) => {
+    server.listen(0, "127.0.0.1", () => {
+      resolve(server.address() as { port: number });
+    });
+  });
+
 class TestSyslog extends Syslog {
   _eventsCount?: number;
 }
@@ -1146,23 +1157,23 @@ describe("NODEFONY SYSLOG", () => {
         done();
       }));
 
-    it("send() calls Syslog.normalizeLog", () =>
-      new Promise<void>((done) => {
-        const pdu = new Pdu("hello", "INFO", "TEST");
-        pdu.status = "ACCEPTED";
-        let called = false;
-        const orig = Syslog.normalizeLog;
-        Syslog.normalizeLog = (p: Pdu) => {
-          called = true;
-          return p;
-        };
-        const t = new ConsoleTransport();
-        t.send(pdu).then(() => {
-          Syslog.normalizeLog = orig;
-          assert.strict.equal(called, true);
-          done();
-        });
-      }));
+    it("send() calls Syslog.normalizeLog", async () => {
+      const pdu = new Pdu("hello", "INFO", "TEST");
+      pdu.status = "ACCEPTED";
+      let called = false;
+      const orig = Syslog.normalizeLog;
+      Syslog.normalizeLog = (p: Pdu) => {
+        called = true;
+        return p;
+      };
+      const t = new ConsoleTransport();
+      try {
+        await t.send(pdu);
+      } finally {
+        Syslog.normalizeLog = orig;
+      }
+      assert.strict.equal(called, true);
+    });
   });
 
   describe("FileTransport", () => {
@@ -1249,63 +1260,55 @@ describe("NODEFONY SYSLOG", () => {
         done();
       }));
 
-    it("send() POSTs JSON to a local server", () =>
-      new Promise<void>((done) => {
-        let body = "";
-        const server = http.createServer((req, res) => {
-          req.on("data", (chunk) => {
-            body += chunk;
-          });
-          req.on("end", () => {
-            res.writeHead(200);
-            res.end();
-          });
+    it("send() POSTs JSON to a local server", async () => {
+      let body = "";
+      const server = http.createServer((req, res) => {
+        req.on("data", (chunk) => {
+          body += chunk;
         });
-        server.listen(0, "127.0.0.1", () => {
-          const addr = server.address() as { port: number };
-          const t = new HttpTransport({ url: `http://127.0.0.1:${addr.port}` });
-          const pdu = new Pdu("http test", "INFO", "HTTP");
-          pdu.status = "ACCEPTED";
-          t.send(pdu)
-            .then(() => {
-              server.close();
-              const parsed = JSON.parse(body);
-              assert.strict.equal(parsed.payload, "http test");
-              done();
-            })
-            .catch(done);
-        });
-      }));
-
-    it("send() rejects on HTTP 4xx", () =>
-      new Promise<void>((done) => {
-        const server = http.createServer((_req, res) => {
-          res.writeHead(400);
+        req.on("end", () => {
+          res.writeHead(200);
           res.end();
         });
-        server.listen(0, "127.0.0.1", () => {
-          const addr = server.address() as { port: number };
-          const t = new HttpTransport({ url: `http://127.0.0.1:${addr.port}` });
-          const pdu = new Pdu("fail", "ERROR", "X");
-          pdu.status = "ACCEPTED";
-          t.send(pdu).catch((err: Error) => {
-            server.close();
-            assert.ok(/HTTP 400/.test(err.message));
-            done();
-          });
-        });
-      }));
+      });
+      const addr = await listen(server);
+      const t = new HttpTransport({ url: `http://127.0.0.1:${addr.port}` });
+      const pdu = new Pdu("http test", "INFO", "HTTP");
+      pdu.status = "ACCEPTED";
+      try {
+        await t.send(pdu);
+      } finally {
+        server.close();
+      }
+      const parsed = JSON.parse(body);
+      assert.strict.equal(parsed.payload, "http test");
+    });
 
-    it("send() rejects on connection refused (no server)", () =>
-      new Promise<void>((done) => {
-        const t = new HttpTransport({ url: "http://127.0.0.1:1" });
-        const pdu = new Pdu("refused", "ERROR", "X");
-        pdu.status = "ACCEPTED";
-        t.send(pdu).catch((err: Error) => {
-          assert.ok(err instanceof Error);
-          done();
-        });
-      }));
+    it("send() rejects on HTTP 4xx", async () => {
+      const server = http.createServer((_req, res) => {
+        res.writeHead(400);
+        res.end();
+      });
+      const addr = await listen(server);
+      const t = new HttpTransport({ url: `http://127.0.0.1:${addr.port}` });
+      const pdu = new Pdu("fail", "ERROR", "X");
+      pdu.status = "ACCEPTED";
+      try {
+        await assert.rejects(() => t.send(pdu), /HTTP 400/);
+      } finally {
+        server.close();
+      }
+    });
+
+    it("send() rejects on connection refused (no server)", async () => {
+      const t = new HttpTransport({ url: "http://127.0.0.1:1" });
+      const pdu = new Pdu("refused", "ERROR", "X");
+      pdu.status = "ACCEPTED";
+      await assert.rejects(
+        () => t.send(pdu),
+        (err: unknown) => err instanceof Error,
+      );
+    });
   });
 
   describe("SyslogTransport", () => {
@@ -1687,27 +1690,24 @@ describe("NODEFONY SYSLOG", () => {
   // ─── HttpTransport — timeout ─────────────────────────────────────────────────
 
   describe("HttpTransport — timeout", () => {
-    it("send() rejette si le serveur ne répond pas dans le délai", () =>
-      new Promise<void>((done) => {
-        // Serveur qui ne répond jamais
-        const server = http.createServer((_req, _res) => {
-          /* silence */
-        });
-        server.listen(0, "127.0.0.1", () => {
-          const addr = server.address() as { port: number };
-          const t = new HttpTransport({
-            url: `http://127.0.0.1:${addr.port}`,
-            timeout: 50,
-          });
-          const pdu = new Pdu("timeout test", "INFO", "X");
-          pdu.status = "ACCEPTED";
-          t.send(pdu).catch((err: Error) => {
-            server.close();
-            assert.ok(/timeout/.test(err.message));
-            done();
-          });
-        });
-      }));
+    it("send() rejette si le serveur ne répond pas dans le délai", async () => {
+      // Serveur qui ne répond jamais
+      const server = http.createServer((_req, _res) => {
+        /* silence */
+      });
+      const addr = await listen(server);
+      const t = new HttpTransport({
+        url: `http://127.0.0.1:${addr.port}`,
+        timeout: 50,
+      });
+      const pdu = new Pdu("timeout test", "INFO", "X");
+      pdu.status = "ACCEPTED";
+      try {
+        await assert.rejects(() => t.send(pdu), /timeout/);
+      } finally {
+        server.close();
+      }
+    });
   });
 });
 
