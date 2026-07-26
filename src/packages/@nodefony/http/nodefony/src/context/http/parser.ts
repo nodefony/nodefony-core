@@ -162,9 +162,9 @@ class ParserXml extends Parser {
     this.charset = this.request.charset;
   }
 
-  override async parse(): Promise<any> {
+  override async parse(): Promise<this> {
     await super.parse();
-    return new Promise((resolve, reject) => {
+    return new Promise<this>((resolve, reject) => {
       this.xmlParser.parseString(
         this.request.data.toString(this.charset),
         (err, result) => {
@@ -280,9 +280,21 @@ class ParserJson extends Parser {
 // };
 
 /** Media-range « accepte tout » (wildcard type + sous-type) — repli sûr, jamais throw. */
-const ACCEPT_ANY: { type: RegExp; subtype: RegExp }[] = [
-  { type: /.*/, subtype: /.*/ },
-];
+/**
+ * Une entrée d'en-tête `Accept` analysée : le type et le sous-type compilés en
+ * expressions régulières, plus les paramètres bruts du segment (`q`, `charset`,
+ * `level`…). L'index est ouvert parce que le client choisit ces noms — mais ses
+ * valeurs, elles, sont connues : une regex pour le type, un nombre pour `q`, une
+ * chaîne pour le reste.
+ */
+type AcceptEntry = {
+  type: RegExp;
+  subtype: RegExp;
+  q?: number;
+  [key: string]: RegExp | number | string | undefined;
+};
+
+const ACCEPT_ANY: AcceptEntry[] = [{ type: /.*/, subtype: /.*/ }];
 
 /**
  * Construit le matcher d'un composant de media-range `Accept` (`type` ou `subtype`).
@@ -301,9 +313,7 @@ const acceptMatcher = (token: string | undefined): RegExp =>
     ? /.*/
     : new RegExp(`^${token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
 
-const acceptParser = function (
-  acc?: string,
-): { type: RegExp; subtype: RegExp; [key: string]: any }[] {
+const acceptParser = function (acc?: string): AcceptEntry[] {
   if (!acc) {
     return [{ type: /.*/, subtype: /.*/ }];
   }
@@ -319,7 +329,7 @@ const acceptParser = function (
       const dec = mine.trim().split("/");
       const ele1 = dec.shift();
       const ele2 = dec.shift();
-      const obj: { [key: string]: any } = {
+      const obj: AcceptEntry = {
         type: acceptMatcher(ele1),
         subtype: acceptMatcher(ele2),
       };
@@ -340,7 +350,7 @@ const acceptParser = function (
       const qA = a.q || 1;
       const qB = b.q || 1;
       return qB - qA;
-    }) as { type: RegExp; subtype: RegExp; [key: string]: any }[];
+    });
   } catch {
     // Un `Accept` malformé ne doit JAMAIS faire échouer une requête (Zero Trust
     // sur l'entrée client) → repli « accepte tout » plutôt que de propager.

@@ -40,7 +40,6 @@ import MemorySessionStorage from "../../src/session/storage/MemorySessionStorage
 import RevocationGuardStorage from "../../src/session/storage/RevocationGuardStorage";
 
 export type sessionStrategyType = "none" | "migrate" | "invalidate";
-export type sessionStorageType = any; //  "orm" | "memcached" | "redis" | "fileSystem" | "memory";
 
 export type FlashBagSessionType = Record<string, unknown>;
 export type MetaBagSessionType = Record<string, unknown>;
@@ -190,7 +189,7 @@ class SessionsService extends Service {
   }
 
   sessionStrategy: sessionStrategyType = "migrate";
-  storage: any = null;
+  storage: ISessionStorage | null = null;
   module: Module;
   defaultSessionName: string = "nodefony";
   secret?: Buffer;
@@ -276,7 +275,10 @@ class SessionsService extends Service {
     // un défaut du cycle de vie, pas d'un store. `storage.inner` reste le store
     // réel (introspection admin : quel driver persiste les sessions).
     const innerStorage = new Storage(this);
-    this.storage = new RevocationGuardStorage(innerStorage);
+    // Référence locale : le `onReady` plus bas est asynchrone, et c'est CE store
+    // qu'il doit ouvrir — pas celui que `this.storage` désignerait à ce moment-là.
+    const storage = new RevocationGuardStorage(innerStorage);
+    this.storage = storage;
     this.log(`SESSION STORAGE active : ${storeName}`, "INFO");
     // Événement (kernel + service) : quel backend de session est actif.
     this.fire("onSessionStorageReady", storeName, this.storage);
@@ -299,7 +301,7 @@ class SessionsService extends Service {
         // drizzle → base SQLite ; memory/réseau → undefined (voir l'infra).
         location: readStoreLocation(innerStorage),
       });
-      await this.storage.open();
+      await storage.open();
       // Maintenance déterministe HORS hot-path (GcScheduler unifié du core) :
       // armée une fois le store ouvert, désarmée au onTerminate. Le scan ne
       // tourne plus PENDANT une requête.
@@ -439,14 +441,6 @@ class SessionsService extends Service {
     return new Session(name, options as OptionsSessionType, this);
   }
 
-  addContextSession(context: ContextType) {
-    if (this.storage) {
-      this.once("onReady", () => {
-        this.storage.open(context);
-      });
-    }
-  }
-
   setSessionStrategy(strategy: sessionStrategyType) {
     this.sessionStrategy = strategy;
   }
@@ -491,7 +485,7 @@ class SessionsService extends Service {
    * régression déguisée en capacité.
    */
   supportsEnumeration(): boolean {
-    const storage = this.storage as ISessionStorage | null;
+    const storage = this.storage;
     return !!storage && typeof storage.listPage === "function";
   }
 
@@ -560,7 +554,7 @@ class SessionsService extends Service {
   // d'orchestration instancient volontairement par `Object.create(prototype)`
   // pour isoler la surface admin du constructeur lourd (kernel/certificats).
   private enumerable(): ISessionStorage {
-    const storage = this.storage as ISessionStorage | null;
+    const storage = this.storage;
     if (!storage || typeof storage.listPage !== "function") {
       throw new Error("sessions: enumeration not supported by current storage");
     }

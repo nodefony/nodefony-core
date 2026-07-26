@@ -5,7 +5,7 @@ import { HttpRequestType, HttpRsponseType } from "../context/http/HttpContext";
 type JsonDescriptor = {
   configurable?: boolean;
   enumerable?: boolean;
-  value?: () => any;
+  value?: () => unknown;
   writable?: boolean;
 };
 
@@ -21,8 +21,8 @@ const jsonHttpError: JsonDescriptor = {
   configurable: true,
   writable: true,
   value() {
-    const alt: Record<string, any> = {};
-    const storeKey = function (this: Record<string, any>, key: string) {
+    const alt: Record<string, unknown> = {};
+    const storeKey = function (this: Record<string, unknown>, key: string) {
       if (key in exclude) {
         return;
       }
@@ -42,11 +42,14 @@ class HttpError extends NodefonyError {
   action?: string;
   jsonResponse?: string;
   constructor(
-    message?: string | NodefonyError | Error | any,
+    // `unknown` et non une union : l'union `… | any` acceptait déjà TOUT en
+    // silence. Les appelants passent aussi des objets (charge JSON d'une
+    // réponse d'erreur), que le parent ramène à son message.
+    message?: unknown,
     code?: number,
     context?: ContextType,
   ) {
-    super(message, code);
+    super(message as string | Error, code);
     this.context = context;
     this.response = context?.response as HttpRsponseType;
     this.request = context?.request as HttpRequestType;
@@ -100,7 +103,7 @@ export default HttpError;
 // module.exports = nodefony.register("httpError", () => {
 //   class httpError extends nodefony.Error {
 //     constructor(message, code, container) {
-//       super(message, code);
+//       super(message as string | Error, code);
 //       this.container = container;
 //       this.context = null;
 //       this.bundle = "";

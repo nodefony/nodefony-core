@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-26T15:08:19.414Z",
+  "generated": "2026-07-26T15:26:38.781Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -16981,13 +16981,6 @@
       "exported": true,
       "module": "@nodefony/http"
     },
-    "sessionStorageType": {
-      "name": "sessionStorageType",
-      "kind": "type",
-      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-      "exported": true,
-      "module": "@nodefony/http"
-    },
     "FlashBagSessionType": {
       "name": "FlashBagSessionType",
       "kind": "type",
@@ -21281,6 +21274,7 @@
         "src/nodefony/src/types/ISyslog.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
+        "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",

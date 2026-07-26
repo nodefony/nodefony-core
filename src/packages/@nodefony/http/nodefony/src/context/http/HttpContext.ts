@@ -278,7 +278,7 @@ class HttpContext extends Context implements IHttpContextInterface {
   }
 
   async render(
-    chunk: any,
+    chunk: unknown,
     encoding?: BufferEncoding,
     status?: string | number,
     headers?: Record<string, string | number>,
@@ -331,7 +331,7 @@ class HttpContext extends Context implements IHttpContextInterface {
   }
 
   async send(
-    chunk?: any,
+    chunk?: unknown,
     encoding?: BufferEncoding,
   ): Promise<
     //http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
@@ -366,7 +366,7 @@ class HttpContext extends Context implements IHttpContextInterface {
   }
 
   #doSend(
-    chunk?: any,
+    chunk?: unknown,
     encoding?: BufferEncoding,
   ): Promise<Http2Response | HttpResponse> {
     return this.saveSession()
@@ -437,7 +437,7 @@ class HttpContext extends Context implements IHttpContextInterface {
   }
 
   async write(
-    chunk: any,
+    chunk: unknown,
     encoding?: BufferEncoding,
     _flush: boolean = false,
   ): Promise<
@@ -458,7 +458,7 @@ class HttpContext extends Context implements IHttpContextInterface {
     });
   }
 
-  flush(chunk: any, encoding: BufferEncoding) {
+  flush(chunk: unknown, encoding: BufferEncoding) {
     return this.response.flush(chunk, encoding);
   }
 

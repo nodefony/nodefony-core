@@ -208,7 +208,7 @@ class Statics extends Service {
     return this.mounts.length > 0;
   }
 
-  addDirectory(Path: string, options: any) {
+  addDirectory(Path: string, options: serveStatic.ServeStaticOptions) {
     if (!Path) {
       throw new Error("Static file path not Defined ");
     }

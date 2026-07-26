@@ -47,8 +47,8 @@ const cookieDefaultSettings: CookieOptionsType = {
   secret: "!nodefony.secret!",
 };
 
-function parser(strToParse: string, options?: any) {
-  return parseCookie(strToParse, options);
+function parser(strToParse: string) {
+  return parseCookie(strToParse);
 }
 // function parserWs(tab: websocket.ICookie[]): Record<string, string> {
 //   const ele = {};
@@ -131,7 +131,7 @@ class Cookie implements ICookieInterface {
   options: CookieOptionsType = {};
   name: string;
   signed?: boolean;
-  value: any;
+  value: unknown;
   originalMaxAge?: number;
   expires?: Date;
   maxAge?: number;
@@ -143,10 +143,10 @@ class Cookie implements ICookieInterface {
   priority?: string;
 
   constructor(cookies: Cookie);
-  constructor(name: string, value: any, options?: CookieOptionsType);
+  constructor(name: string, value: unknown, options?: CookieOptionsType);
   constructor(
     cookiesOrName: Cookie | string,
-    value?: any,
+    value?: unknown,
     options?: CookieOptionsType,
   ) {
     this.options = extend({}, cookieDefaultSettings, options || {});
@@ -196,9 +196,11 @@ class Cookie implements ICookieInterface {
     this.path = "/";
   }
 
-  setValue(value: any): any {
+  setValue(value: unknown): unknown {
+    // `decodeURIComponent` convertissait déjà sa valeur en chaîne implicitement :
+    // `String()` rend cette conversion visible sans changer ce qui est décodé.
     if (value) {
-      value = decode(value);
+      value = decode(String(value));
     }
     if (this.signed) {
       const secret = this.options.secret as string;
@@ -311,7 +313,9 @@ class Cookie implements ICookieInterface {
   }
 
   toString() {
-    return `${this.name}=${encode(this.value)}`;
+    // `encodeURIComponent` convertissait déjà implicitement — conversion rendue
+    // visible, résultat inchangé.
+    return `${this.name}=${encode(String(this.value))}`;
   }
 
   /**
@@ -324,7 +328,7 @@ class Cookie implements ICookieInterface {
    * @returns `value.base64url(hmac)`.
    * @throws {TypeError} si `val` n'est pas une string ou `secret` est vide.
    */
-  sign(val: string, secret: string): string {
+  sign(val: unknown, secret: string): string {
     if (typeof val !== "string") {
       throw new TypeError("cookie value required (string)");
     }
@@ -425,7 +429,12 @@ class Cookie implements ICookieInterface {
       this.secure || this.sameSite === "None" || hostPrefix || securePrefix;
     const obj: IWsCookie = {
       name: this.name,
-      value: this.value,
+      // `IWsCookie.value` est contractuellement une chaîne, `Cookie.value` est
+      // large (`unknown`, cf ICookie) : l'écart existait déjà, l'`any` le rendait
+      // muet. Pas de `String()` ici — un cookie construit sans valeur écrirait
+      // alors la chaîne "undefined" dans la trame, ce qu'il ne fait pas
+      // aujourd'hui. Le contrat de `value` est un chantier à lui seul.
+      value: this.value as string,
     };
     if (this.maxAge) obj.maxage = this.maxAge;
     // `__Host-` interdit Domain et impose Path=/ (cf serialize()).

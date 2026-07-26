@@ -7,6 +7,7 @@ import {
   Msgid,
   Pdu,
   Message,
+  Pci,
   Cli,
   inject,
   Module,
@@ -78,7 +79,7 @@ export class upload extends Service {
     return UploadedFile.create(file, name);
   }
   override log(
-    pci: any,
+    pci: Pci,
     severity?: Severity,
     msgid?: Msgid,
     msg?: Message,

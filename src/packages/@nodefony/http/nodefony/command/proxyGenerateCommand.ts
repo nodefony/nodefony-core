@@ -90,8 +90,11 @@ class ProxyGenerate extends Command {
     const httpOpts = (module?.options ?? {}) as {
       trustedHosts?: string[];
     };
-    const servers = (this.kernel?.options as { servers?: Record<string, any> })
-      ?.servers;
+    const servers = (
+      this.kernel?.options as {
+        servers?: Record<string, { port?: string | number }>;
+      }
+    )?.servers;
     const staticSvc = module?.get<StaticServiceShape>("server-static");
     // Garantit la carte des montages natifs `/<module>/` indépendamment de
     // l'ordre des listeners `onReady` (le `generate()` de cette commande peut
