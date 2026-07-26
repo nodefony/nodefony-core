@@ -11,7 +11,6 @@ import {
   ScrollArea,
   Text,
   ActionIcon,
-  Avatar,
   Button,
   Stack,
   Badge,

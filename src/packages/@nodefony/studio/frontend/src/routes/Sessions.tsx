@@ -61,10 +61,8 @@ import {
   revokeUserSessionsEndpoint,
   countByAuth,
   describeSessionsError,
-  SESSIONS_STATUS_ENDPOINT,
   type SessionSummary,
   type SessionListResponse,
-  type SessionsStatus,
 } from "./sessions/sessionsModel";
 import { SessionsTable } from "./sessions/SessionsTable";
 import { SessionsHelp } from "./sessions/SessionsHelp";
@@ -130,17 +128,6 @@ export const Sessions = observer(() => {
   // en mode « all » — le mode pilote la cible des mutations.
   const revokeOneEndpoint =
     mode === "mine" ? revokeSessionMineEndpoint : revokeSessionEndpoint;
-
-  // Statut « où on écrit » (driver + durcissement) = endpoint ADMIN → on ne le
-  // sollicite QUE pour un admin (sinon 403 inutile dans la console d'un user).
-  const statusFetcher = useCallback(
-    (): Promise<SessionsStatus | null> =>
-      isAdmin
-        ? store.api.getAbsolute<SessionsStatus>(SESSIONS_STATUS_ENDPOINT)
-        : Promise.resolve(null),
-    [store, isAdmin],
-  );
-  const { data: status } = useResource(statusFetcher);
 
   const sessions = useMemo(() => data?.items ?? [], [data]);
   const total = data?.total ?? sessions.length;

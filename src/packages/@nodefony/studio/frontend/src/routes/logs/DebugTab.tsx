@@ -37,7 +37,6 @@ import {
   Tooltip,
 } from "@mantine/core";
 import {
-  IconAlertTriangle,
   IconBolt,
   IconBug,
   IconInfoCircle,

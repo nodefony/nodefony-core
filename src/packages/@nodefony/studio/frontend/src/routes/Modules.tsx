@@ -8,14 +8,12 @@ import {
   Card,
   Grid,
   Group,
-  Loader,
   Skeleton,
   Stack,
   Text,
   TextInput,
   ThemeIcon,
   Tooltip,
-  Title,
 } from "@mantine/core";
 import { PageLayout } from "../components/ui";
 import {

@@ -217,15 +217,6 @@ function fmtRate(n: number): string {
   return n >= 10 ? String(Math.round(n)) : n.toFixed(1);
 }
 
-/** Cadence effective (ms) → badge lisible `~Xs` / `~Xms`. */
-function fmtCadence(ms: number): string {
-  if (ms >= 1000) {
-    const s = ms / 1000;
-    return `~${Number.isInteger(s) ? s : s.toFixed(1)}s`;
-  }
-  return `~${ms}ms`;
-}
-
 /** Cadence (ms) → texte court pour l'axe du graphe AIMD. */
 function fmtMs(v: number): string {
   return v >= 1000

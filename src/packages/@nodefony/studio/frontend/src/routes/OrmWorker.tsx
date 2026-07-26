@@ -47,7 +47,6 @@ import {
   useOrmRates,
 } from "./orm/ConnectorCard";
 import { type OrmSummary, type OrmGraph, type ConnHealth } from "../types/orm";
-import { PLATFORM_CHANNELS } from "nodefony";
 
 /**
  * **Drill ORM par worker** (`/nodefony/orm/:pid`) — détail d'UN process/pod :

@@ -7,7 +7,6 @@ import {
   ScrollArea,
   Stack,
   Select,
-  Switch,
   ActionIcon,
   Tooltip,
   Code,
@@ -86,7 +85,10 @@ function LogLine({ line }: { line: string }) {
   const pdu = parsePdu(line);
   if (!pdu) {
     return (
-      <Text size="xs" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+      <Text
+        size="xs"
+        style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+      >
         {ansiToReact(line)}
       </Text>
     );
@@ -165,8 +167,8 @@ export const LogFiles = observer(() => {
         setEnabled(res.enabled);
         setReason(res.reason);
         setFiles(res.files ?? []);
-        setSelected((prev) =>
-          prev ?? (res.files?.length ? res.files[0].name : null),
+        setSelected(
+          (prev) => prev ?? (res.files?.length ? res.files[0].name : null),
         );
       })
       .catch((e: unknown) =>
@@ -331,11 +333,7 @@ export const LogFiles = observer(() => {
             style={{ minWidth: 320 }}
             nothingFoundMessage="Aucun fichier .log"
           />
-          <Badge
-            size="sm"
-            variant="light"
-            color={showRaw ? "orange" : "teal"}
-          >
+          <Badge size="sm" variant="light" color={showRaw ? "orange" : "teal"}>
             {showRaw ? "brut (secrets visibles)" : "secrets masqués"}
           </Badge>
         </Group>
@@ -362,7 +360,9 @@ export const LogFiles = observer(() => {
         >
           {lines.length === 0 ? (
             <Text size="sm" c="dimmed" ta="center" py="xl">
-              {selected ? "Fichier vide ou en attente…" : "Sélectionne un fichier."}
+              {selected
+                ? "Fichier vide ou en attente…"
+                : "Sélectionne un fichier."}
             </Text>
           ) : (
             <Stack gap={0} p="xs">

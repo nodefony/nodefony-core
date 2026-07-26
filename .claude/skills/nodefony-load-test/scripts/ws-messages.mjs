@@ -27,7 +27,6 @@ const MODE = process.env.MODE ?? "echo";
 const HOST = process.env.HOST ?? "wss://127.0.0.1:5152";
 const TIMEOUT_MS = Number(process.env.TIMEOUT_MS ?? 60000);
 const wsOpts = { rejectUnauthorized: false };
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Ouvre 1 WS, résout sur le 1er frame (handshake). */
 function open(url) {
@@ -41,28 +40,50 @@ function open(url) {
 async function runEcho() {
   const url = process.env.WS_URL ?? `${HOST}/nodefony/test/ws/echo`;
   const bursts = (process.env.BURSTS ?? "1000,5000,20000,50000,100000,200000")
-    .split(",").map((s) => Number(s.trim())).filter(Boolean);
-  console.log(`\n  WS MESSAGES — echo flood\n  cible=${url}  paliers=${bursts.join(",")}\n`);
+    .split(",")
+    .map((s) => Number(s.trim()))
+    .filter(Boolean);
+  console.log(
+    `\n  WS MESSAGES — echo flood\n  cible=${url}  paliers=${bursts.join(",")}\n`,
+  );
   const ws = await open(url);
-  let lastRate = 0, brokeAt = 0;
+  let lastRate = 0,
+    brokeAt = 0;
   for (const burst of bursts) {
     let received = 0;
     const t0 = Date.now();
     const ok = await new Promise((resolve) => {
-      const onMsg = () => { if (++received >= burst) { ws.removeListener("message", onMsg); resolve(true); } };
+      const onMsg = () => {
+        if (++received >= burst) {
+          ws.removeListener("message", onMsg);
+          resolve(true);
+        }
+      };
       ws.on("message", onMsg);
       for (let i = 0; i < burst; i++) ws.send(`m-${i}`);
-      setTimeout(() => { ws.removeListener("message", onMsg); resolve(received >= burst); }, TIMEOUT_MS);
+      setTimeout(() => {
+        ws.removeListener("message", onMsg);
+        resolve(received >= burst);
+      }, TIMEOUT_MS);
     });
     const rate = (received / (Date.now() - t0)) * 1000;
-    console.log(`  ▶ burst ${String(burst).padStart(7)} : ${String(received).padStart(7)} reçus @ ${rate.toFixed(0).padStart(6)} msg/s ${ok ? "" : "← SHORTFALL"}`);
-    if (!ok) { brokeAt = burst; break; }
+    console.log(
+      `  ▶ burst ${String(burst).padStart(7)} : ${String(received).padStart(7)} reçus @ ${rate.toFixed(0).padStart(6)} msg/s ${ok ? "" : "← SHORTFALL"}`,
+    );
+    if (!ok) {
+      brokeAt = burst;
+      break;
+    }
     lastRate = rate;
   }
   ws.close();
   console.log(`\n  ── RÉSULTAT ──`);
   console.log(`  dernier débit propre : ${lastRate.toFixed(0)} msg/s`);
-  console.log(brokeAt ? `  rupture au palier    : ${brokeAt}\n` : `  aucune perte jusqu'au dernier palier\n`);
+  console.log(
+    brokeAt
+      ? `  rupture au palier    : ${brokeAt}\n`
+      : `  aucune perte jusqu'au dernier palier\n`,
+  );
 }
 
 async function runBroadcast() {
@@ -70,15 +91,24 @@ async function runBroadcast() {
   const CLIENTS = Number(process.env.CLIENTS ?? 20);
   const BURST = Number(process.env.BURST ?? 50);
   const expectedPerClient = CLIENTS * BURST; // chaque frame fan-out à tous
-  console.log(`\n  WS MESSAGES — broadcast fan-out\n  cible=${url}  clients=${CLIENTS}  frames/client=${BURST}\n  attendu/client=${expectedPerClient}  livraisons totales=${CLIENTS * expectedPerClient}\n`);
+  console.log(
+    `\n  WS MESSAGES — broadcast fan-out\n  cible=${url}  clients=${CLIENTS}  frames/client=${BURST}\n  attendu/client=${expectedPerClient}  livraisons totales=${CLIENTS * expectedPerClient}\n`,
+  );
 
-  const clients = await Promise.all(Array.from({ length: CLIENTS }, () => open(url)));
+  const clients = await Promise.all(
+    Array.from({ length: CLIENTS }, () => open(url)),
+  );
   const counts = new Array(CLIENTS).fill(0);
   let total = 0;
   const wantTotal = CLIENTS * expectedPerClient;
 
   const done = new Promise((resolve) => {
-    clients.forEach((ws, idx) => ws.on("message", () => { counts[idx]++; if (++total >= wantTotal) resolve(true); }));
+    clients.forEach((ws, idx) =>
+      ws.on("message", () => {
+        counts[idx]++;
+        if (++total >= wantTotal) resolve(true);
+      }),
+    );
     setTimeout(() => resolve(false), TIMEOUT_MS);
   });
 
@@ -88,17 +118,31 @@ async function runBroadcast() {
   const dt = Date.now() - t0;
   for (const ws of clients) ws.close();
 
-  const min = Math.min(...counts), max = Math.max(...counts);
+  const min = Math.min(...counts),
+    max = Math.max(...counts);
   const loss = ((wantTotal - total) / wantTotal) * 100;
   console.log(`  ── RÉSULTAT ──`);
-  console.log(`  livraisons reçues : ${total}/${wantTotal} (${loss <= 0 ? "0" : loss.toFixed(2)}% perte)`);
-  console.log(`  par client        : min ${min} / max ${max} / attendu ${expectedPerClient}`);
-  console.log(`  débit fan-out     : ${((total / dt) * 1000).toFixed(0)} livraisons/s`);
-  console.log(ok ? `  ✓ lossless dans le budget\n` : `  ← perte/lag (budget ${TIMEOUT_MS}ms dépassé)\n`);
+  console.log(
+    `  livraisons reçues : ${total}/${wantTotal} (${loss <= 0 ? "0" : loss.toFixed(2)}% perte)`,
+  );
+  console.log(
+    `  par client        : min ${min} / max ${max} / attendu ${expectedPerClient}`,
+  );
+  console.log(
+    `  débit fan-out     : ${((total / dt) * 1000).toFixed(0)} livraisons/s`,
+  );
+  console.log(
+    ok
+      ? `  ✓ lossless dans le budget\n`
+      : `  ← perte/lag (budget ${TIMEOUT_MS}ms dépassé)\n`,
+  );
 }
 
 (async () => {
   if (MODE === "broadcast") await runBroadcast();
   else await runEcho();
   process.exit(0);
-})().catch((e) => { console.error("\n  FATAL:", e?.message ?? e); process.exit(1); });
+})().catch((e) => {
+  console.error("\n  FATAL:", e?.message ?? e);
+  process.exit(1);
+});

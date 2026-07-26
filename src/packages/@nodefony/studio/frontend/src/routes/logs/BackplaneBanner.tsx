@@ -21,7 +21,6 @@ import {
   Select,
   Stack,
   Text,
-  Tooltip,
 } from "@mantine/core";
 import {
   IconPencil,
@@ -67,7 +66,13 @@ function Counter({
   return (
     <Box style={{ minWidth: 64 }}>
       <Group gap={4} wrap="nowrap" mb={1}>
-        <Text fz={10} fw={600} tt="uppercase" c="dimmed" style={{ letterSpacing: 0.3 }}>
+        <Text
+          fz={10}
+          fw={600}
+          tt="uppercase"
+          c="dimmed"
+          style={{ letterSpacing: 0.3 }}
+        >
           {label}
         </Text>
         <DocHint title={label} version={LOGS_DOC} summary={hint} />

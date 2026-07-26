@@ -4,7 +4,7 @@
  * tenant) rendues en TEXTE/Code/Badge, jamais en HTML.
  */
 import type { ReactNode } from "react";
-import { Badge, Group, Stack, Text, Tooltip } from "@mantine/core";
+import { Badge, Stack, Text, Tooltip } from "@mantine/core";
 import {
   IconUserCheck,
   IconUserOff,

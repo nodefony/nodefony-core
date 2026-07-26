@@ -14,7 +14,7 @@
  *
  * Output JSON sur stdout : { iterations, p50, p95, p99, samples: [...] }
  */
-import { utimes, readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 
 const args = parseArgs(process.argv.slice(2));

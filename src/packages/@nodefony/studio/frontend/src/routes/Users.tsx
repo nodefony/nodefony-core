@@ -49,12 +49,10 @@ import {
   USERS_LIST_WINDOW,
   usersListEndpoint,
   deleteUserEndpoint,
-  USERS_STATUS_ENDPOINT,
   countUsers,
   describeUsersError,
   type UserSummary,
   type UserListResponse,
-  type UsersStatus,
 } from "./users/usersModel";
 import { UsersTable } from "./users/UsersTable";
 import { UsersHelp } from "./users/UsersHelp";
@@ -88,13 +86,6 @@ export const Users = observer(() => {
     }
   }, [store]);
   const { data, loading, error, reload } = useResource(fetcher);
-
-  // Statut « où on écrit » : driver de persistance + nb de comptes.
-  const statusFetcher = useCallback(
-    () => store.api.getAbsolute<UsersStatus>(USERS_STATUS_ENDPOINT),
-    [store],
-  );
-  const { data: status } = useResource(statusFetcher);
 
   const users = useMemo(() => data?.items ?? [], [data]);
   const total = data?.total ?? users.length;

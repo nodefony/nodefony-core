@@ -18,7 +18,6 @@ import {
   EnumDeclaration,
   FunctionDeclaration,
   VariableStatement,
-  SourceFile,
 } from "ts-morph";
 import fs from "node:fs";
 import path from "node:path";

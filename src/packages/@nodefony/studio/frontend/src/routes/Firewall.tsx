@@ -21,7 +21,6 @@ import {
   Button,
   Alert,
   Card,
-  ThemeIcon,
 } from "@mantine/core";
 import {
   IconShieldLock,

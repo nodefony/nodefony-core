@@ -1,7 +1,5 @@
 import { Controller, route, controller, UseSession } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
-import { graphql } from "@nodefony/framework";
-import { inject, nodefonyError as Error } from "nodefony";
 
 @controller("/nodefony/test/graphql")
 @UseSession()

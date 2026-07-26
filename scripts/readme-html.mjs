@@ -25,13 +25,7 @@ import {
   fmt,
   COLORS,
 } from "../.claude/skills/nodefony-html-report/lib/report.mjs";
-import {
-  readFileSync,
-  writeFileSync,
-  existsSync,
-  readdirSync,
-  statSync,
-} from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 

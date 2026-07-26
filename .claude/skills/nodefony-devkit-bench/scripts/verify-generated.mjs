@@ -29,7 +29,7 @@
  *
  * Sortie : rapport console + code de sortie 1 à la première étape rouge.
  */
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import {
   mkdirSync,
   rmSync,

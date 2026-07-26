@@ -13,7 +13,6 @@ import { buildStudioTheme } from "./theme";
 import { AuthGuard } from "./components/AuthGuard";
 import { RoleGuardOutlet } from "./components/RoleGuard";
 import { VIEW_ROLES } from "./auth/roles";
-import { AuthLayout } from "./layouts/AuthLayout";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { Login } from "./routes/Login";
 

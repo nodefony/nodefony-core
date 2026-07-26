@@ -1,12 +1,12 @@
 {
-  "generated": "2026-07-26T10:44:33.119Z",
+  "generated": "2026-07-26T11:13:05.718Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 1052,
-    "symbols": 2916,
-    "classes": 336,
-    "interfaces": 764,
+    "files": 1049,
+    "symbols": 2914,
+    "classes": 335,
+    "interfaces": 763,
     "types": 331,
     "enums": 4,
     "functions": 895,
@@ -3590,16 +3590,6 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Diff ligne à ligne de deux contenus (plus longue sous-séquence commune). Calculé au MOTEUR, et non dans chaque front : le CLI (`--dry-run`) et la préview Studio montrent le même changement, et un r…"
-    },
-    "Storage": {
-      "name": "Storage",
-      "kind": "class",
-      "file": "src/nodefony/src/client/api/Storage.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": "Service",
-      "implements": [],
-      "decorators": []
     },
     "DebugBar": {
       "name": "DebugBar",
@@ -20281,7 +20271,6 @@
         "ServiceWithInit",
         "Module",
         "Fetch",
-        "Storage",
         "Websocket",
         "Injector",
         "DocumentationService",
@@ -20996,7 +20985,6 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/service/fetchService.ts",
-        "src/nodefony/src/client/api/Storage.ts",
         "src/nodefony/src/client/transport/websocket.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
@@ -21057,7 +21045,6 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/service/fetchService.ts",
         "src/packages/@nodefony/redis/nodefony/registerStores.ts",
-        "src/nodefony/src/client/api/Storage.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
@@ -22271,9 +22258,7 @@
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/HtmlController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
-        "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
-        "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
@@ -23171,8 +23156,6 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/runtime/pageGuard.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
-        "src/modules/test/nodefony/controller/GraphqlController.ts",
-        "src/modules/test/nodefony/controller/RouteController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
@@ -23978,8 +23961,7 @@
       ],
       "Fetch": [
         "src/nodefony/src/kernel/injector/injector.ts",
-        "src/modules/test/nodefony/controller/DefaultController.ts",
-        "src/modules/test/nodefony/controller/RouteController.ts"
+        "src/modules/test/nodefony/controller/DefaultController.ts"
       ],
       "ClusterManager": [
         "src/nodefony/src/service/cluster/clusterMaster.ts"
@@ -24360,8 +24342,6 @@
       ],
       "inject": [
         "src/modules/test/nodefony/controller/DefaultController.ts",
-        "src/modules/test/nodefony/controller/GraphqlController.ts",
-        "src/modules/test/nodefony/controller/RouteController.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
@@ -25741,9 +25721,6 @@
         "src/packages/@nodefony/rag/src/services/RagService.ts"
       ],
       "ChunkingStrategy": [
-        "src/packages/@nodefony/rag/src/services/RagService.ts"
-      ],
-      "RagError": [
         "src/packages/@nodefony/rag/src/services/RagService.ts"
       ],
       "RagInvalidInputError": [

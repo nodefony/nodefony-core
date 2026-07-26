@@ -1,7 +1,6 @@
 import { resolve } from "node:path";
 import { Controller, route, controller, UseSession } from "@nodefony/framework";
-import { Context, HttpError } from "@nodefony/http";
-import { inject, Fetch, nodefonyError as Error } from "nodefony";
+import { Context } from "@nodefony/http";
 
 @controller("/nodefony/test/route")
 @UseSession()

@@ -18,7 +18,6 @@ import {
   ActionIcon,
   Alert,
   Badge,
-  Box,
   Group,
   Paper,
   ScrollArea,
@@ -144,9 +143,7 @@ function parseReplayLine(line: string, index: number): ReplayLine | null {
 
   // 2) Format texte console : `HH:MM:SS.mmm SEV  MSGID : payload`.
   const plain = stripAnsi(line);
-  const m = plain.match(
-    /^(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s+([A-Z]+)\s+(.*)$/,
-  );
+  const m = plain.match(/^(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s+([A-Z]+)\s+(.*)$/);
   if (m) {
     const ts = clockToTs(+m[1], +m[2], +m[3], +m[4]);
     const sev = m[5];
@@ -225,7 +222,7 @@ export const FileReplay = observer(() => {
         setEnabled(res.enabled);
         setReason(res.reason);
         setFiles(res.files ?? []);
-        setSelected((prev) => prev ?? (res.files?.[0]?.name ?? null));
+        setSelected((prev) => prev ?? res.files?.[0]?.name ?? null);
       })
       .catch((e: unknown) =>
         setError(e instanceof Error ? e.message : "liste fichiers échouée"),
@@ -269,9 +266,7 @@ export const FileReplay = observer(() => {
   const allRecords = useMemo(() => lines.map((l) => l.record), [lines]);
   const focusCount = useMemo(
     () =>
-      focusRid
-        ? allRecords.filter((r) => r.requestId === focusRid).length
-        : 0,
+      focusRid ? allRecords.filter((r) => r.requestId === focusRid).length : 0,
     [allRecords, focusRid],
   );
 
@@ -386,7 +381,11 @@ export const FileReplay = observer(() => {
               nothingFoundMessage="Aucun fichier .log"
             />
             <Tooltip label="Recharger le fichier">
-              <ActionIcon variant="default" onClick={loadFile} aria-label="recharger">
+              <ActionIcon
+                variant="default"
+                onClick={loadFile}
+                aria-label="recharger"
+              >
                 <IconRefresh size={16} />
               </ActionIcon>
             </Tooltip>
@@ -408,7 +407,11 @@ export const FileReplay = observer(() => {
           </Group>
 
           <Group gap="xs" wrap="nowrap">
-            <Tooltip label={playing ? "Pause" : revealed >= total ? "Rejouer" : "Lecture"}>
+            <Tooltip
+              label={
+                playing ? "Pause" : revealed >= total ? "Rejouer" : "Lecture"
+              }
+            >
               <ActionIcon
                 variant="filled"
                 color="brand"
@@ -455,7 +458,11 @@ export const FileReplay = observer(() => {
 
         {/* Progression : scrub + position + temps simulé. */}
         <Group gap="sm" wrap="nowrap" mt="xs">
-          <Text size="xs" c="dimmed" style={{ fontVariantNumeric: "tabular-nums", minWidth: 92 }}>
+          <Text
+            size="xs"
+            c="dimmed"
+            style={{ fontVariantNumeric: "tabular-nums", minWidth: 92 }}
+          >
             {revealed} / {total}
           </Text>
           <Slider
@@ -472,7 +479,11 @@ export const FileReplay = observer(() => {
             disabled={total === 0}
             aria-label="position de rejeu"
           />
-          <Text size="xs" c="dimmed" style={{ fontVariantNumeric: "tabular-nums", minWidth: 110 }}>
+          <Text
+            size="xs"
+            c="dimmed"
+            style={{ fontVariantNumeric: "tabular-nums", minWidth: 110 }}
+          >
             {(elapsedMs / 1000).toFixed(1)}s / {(totalMs / 1000).toFixed(1)}s
           </Text>
         </Group>
@@ -582,7 +593,10 @@ export const FileReplay = observer(() => {
                     <Text
                       size="xs"
                       c="dimmed"
-                      style={{ flexShrink: 0, fontVariantNumeric: "tabular-nums" }}
+                      style={{
+                        flexShrink: 0,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
                     >
                       {fmtClock(rec.timeStamp)}
                       <Text span size="xs" opacity={0.6}>

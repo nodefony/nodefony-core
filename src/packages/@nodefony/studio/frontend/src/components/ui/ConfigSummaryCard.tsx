@@ -121,7 +121,6 @@ function PreviewRow({ field }: { field: ConfigField }) {
 }
 
 export function ConfigSummaryCard({
-  module,
   schema = "none",
   sections,
   onOpen,

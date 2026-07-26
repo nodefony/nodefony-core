@@ -34,7 +34,6 @@ import {
   writeSync,
   closeSync,
   write as fsWrite,
-  ftruncateSync,
   unlinkSync,
   statSync,
   writeFileSync,

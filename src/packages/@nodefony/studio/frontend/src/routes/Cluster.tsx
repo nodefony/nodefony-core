@@ -25,7 +25,6 @@ import {
   IconPlugConnected,
   IconRefresh,
   IconServer,
-  IconStack3,
   IconBroadcast,
   IconDatabase,
   IconAlertTriangle,

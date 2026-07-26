@@ -22,7 +22,7 @@
 import cluster from "node:cluster";
 import process from "node:process";
 import { performance } from "node:perf_hooks";
-import { ClusterRelay, CLUSTER_RT_KIND } from "nodefony";
+import { ClusterRelay } from "nodefony";
 import { ClusterBackplane, processIpcTransport } from "@nodefony/realtime";
 
 const WORKERS = Math.max(2, Number(process.env.WORKERS || 4));

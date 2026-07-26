@@ -24,7 +24,7 @@ import {
   mkdirSync,
   statSync,
 } from "node:fs";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 
 const SKILLS_DIR = ".claude/skills";
 const OUT_DIR = "docs/skills";

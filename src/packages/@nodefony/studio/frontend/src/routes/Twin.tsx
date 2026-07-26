@@ -1,13 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { useState, type ReactNode } from "react";
-import {
-  Anchor,
-  Badge,
-  Breadcrumbs,
-  Group,
-  Stack,
-  Switch,
-} from "@mantine/core";
+import { Anchor, Badge, Breadcrumbs, Group, Switch } from "@mantine/core";
 import {
   IconChevronRight,
   IconCpu,

@@ -12,11 +12,7 @@ import type {
   IChunker,
   ChunkingStrategy,
 } from "../interfaces/IRagService.js";
-import {
-  RagError,
-  RagInvalidInputError,
-  RagShutdownError,
-} from "../errors/RagErrors.js";
+import { RagInvalidInputError, RagShutdownError } from "../errors/RagErrors.js";
 import { FixedChunker } from "../chunking/FixedChunker.js";
 import { SentenceChunker } from "../chunking/SentenceChunker.js";
 import { createHash, randomUUID } from "node:crypto";

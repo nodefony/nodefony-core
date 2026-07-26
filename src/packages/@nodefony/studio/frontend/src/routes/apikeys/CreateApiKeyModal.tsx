@@ -23,7 +23,6 @@ import {
   Alert,
   Code,
   CopyButton,
-  ThemeIcon,
   Box,
 } from "@mantine/core";
 import {

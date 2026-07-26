@@ -7,7 +7,6 @@ import { ConfigExplorer } from "./config/ConfigExplorer";
 import { ApiError } from "../services/ApiClient";
 import dayjs from "dayjs";
 import {
-  ActionIcon,
   Alert,
   Badge,
   Box,
@@ -51,7 +50,6 @@ import {
   IconFlask,
   IconPlayerPlay,
   IconPackage,
-  IconHash,
   IconExternalLink,
   IconRefresh,
   IconStack2,
@@ -67,7 +65,6 @@ import {
   DocLayout,
   KeyValue,
   MarkdownDoc,
-  PAGE_CONTENT_HEIGHT,
   TABS_PANEL_HEIGHT,
   type ConfigField,
   type EditResult,

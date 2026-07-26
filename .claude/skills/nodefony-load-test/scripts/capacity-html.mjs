@@ -17,7 +17,6 @@ import {
   table,
   barChart,
   scatterFit,
-  gauge,
   details,
   deckControls,
   printButton,

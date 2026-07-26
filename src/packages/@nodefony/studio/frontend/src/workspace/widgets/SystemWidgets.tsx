@@ -32,7 +32,6 @@ import {
 import { DefinitionList, KeyValue } from "../../components/ui";
 import {
   BigMetric,
-  Metric,
   WorkerTile,
   fmtMB,
   fmtMs,

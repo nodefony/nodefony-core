@@ -2,9 +2,8 @@
 // doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony.
 // Une page ne peut être marquée ✅ que si elle PASSE ce linter.
 // Usage : node doc-lint.mjs /tmp/corpus/*.md
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 // Les compteurs sont des ARTEFACTS régénérables (gen-counters.mjs) → tmp/doc-work/.
 import { execSync } from "node:child_process";

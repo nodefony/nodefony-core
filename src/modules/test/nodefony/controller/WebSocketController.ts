@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { Controller, route, controller, UseSession } from "@nodefony/framework";
-import { Context, HttpError } from "@nodefony/http";
+import { Context } from "@nodefony/http";
 import type { WebsocketContext } from "@nodefony/http";
 import { Cookie } from "@nodefony/http";
 //import { inject, Fetch, Error } from "nodefony";
