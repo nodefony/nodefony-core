@@ -111,6 +111,25 @@ function killDetached(pid: number | undefined): void {
   }
 }
 
+/**
+ * Supprime le répertoire de travail d'un child qu'on vient de tuer.
+ *
+ * Tuer un process ne libère pas ses handles dans la seconde, et Windows refuse de
+ * supprimer un dossier tant qu'un process l'a pour répertoire courant : la suppression
+ * échoue alors en `EPERM`, DANS le `finally` — ce qui fait échouer un test dont toutes
+ * les assertions sont passées. `maxRetries`/`retryDelay` existent précisément pour ça
+ * (Node réessaie sur `EPERM`/`EBUSY`/`ENOTEMPTY`), et laissent au système le temps de
+ * relâcher le verrou. Sans effet sous POSIX, où la suppression réussit du premier coup.
+ */
+function removeWorkDir(dir: string): void {
+  fs.rmSync(dir, {
+    recursive: true,
+    force: true,
+    maxRetries: 20,
+    retryDelay: 50,
+  });
+}
+
 describe("launchDetached — readiness / crash / timeout (child factices)", () => {
   vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
 
@@ -243,7 +262,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
     } finally {
       killDetached(childPid);
       fs.rmSync(log, { force: true });
-      fs.rmSync(cwd, { recursive: true, force: true });
+      removeWorkDir(cwd);
     }
   });
 
@@ -282,7 +301,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
       killDetached(childPid);
       for (const s of squatters) s.close();
       fs.rmSync(log, { force: true });
-      fs.rmSync(cwd, { recursive: true, force: true });
+      removeWorkDir(cwd);
     }
   });
 
@@ -340,7 +359,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
     } finally {
       killDetached(childPid);
       fs.rmSync(log, { force: true });
-      fs.rmSync(cwd, { recursive: true, force: true });
+      removeWorkDir(cwd);
     }
   });
 
@@ -389,7 +408,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
     } finally {
       killDetached(childPid);
       fs.rmSync(log, { force: true });
-      fs.rmSync(cwd, { recursive: true, force: true });
+      removeWorkDir(cwd);
     }
   });
 

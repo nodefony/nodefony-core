@@ -187,6 +187,59 @@ export function readRuntimeState(cwd: string): RuntimeState | null {
 }
 
 /** Retire le state file (arrêt propre, ou reliquat d'un process mort). */
+/**
+ * `true` si l'OBSERVATION EXTERNE des process est disponible (`ps` POSIX).
+ *
+ * Source UNIQUE de cette règle : elle vivait recopiée dans `discoverDevProcesses` et
+ * dans `collectDevStatus`, ce qui laissait chaque lecteur décider seul de ce qu'il fait
+ * du « non supporté » — l'un le disait, l'autre rendait une liste vide indiscernable de
+ * « aucun process », et le repli du second n'a jamais existé.
+ *
+ * Windows n'a pas de `ps` POSIX, et le répertoire courant d'un process tiers n'y est pas
+ * lisible sans privilèges : le SCOPING PAR PROJET, qui interdit de tuer le runtime du
+ * voisin, ne peut donc pas s'appuyer sur l'introspection système. Le repli est le
+ * fichier d'état, qui est scopé au projet par construction — voir
+ * {@link discoverFromRuntimeState}.
+ */
+export function isProcessDiscoverySupported(): boolean {
+  return process.platform !== "win32";
+}
+
+/**
+ * Retrouve le runtime de CE projet par son fichier d'état, sans observer les process.
+ *
+ * Repli employé là où l'observation externe n'existe pas ({@link isProcessDiscoverySupported}).
+ * Le fichier vit sous le `cwd` du projet et porte le PID de qui écoute : l'appartenance au
+ * projet est donc acquise par construction, là où `ps` exigeait de lire le répertoire
+ * courant d'un process tiers. {@link readRuntimeState} a déjà vérifié que le PID est
+ * vivant et purgé le fichier sinon — un reliquat ne peut pas faire tuer un PID recyclé.
+ *
+ * Le mode est INFÉRÉ, faute d'être publié : un `pidfile` de superviseur vivant signe un
+ * runtime de développement ; son absence, un serveur lancé en production. L'inférence ne
+ * porte que sur le LIBELLÉ du rapport, jamais sur la décision d'arrêter.
+ *
+ * @param cwd - racine du projet.
+ * @returns un process, ou une liste vide si aucun état exploitable.
+ */
+export function discoverFromRuntimeState(cwd: string): DevProcessInfo[] {
+  const state = readRuntimeState(cwd);
+  if (!state || state.pid <= 0) return [];
+  const supervisor = readSupervisorPid(cwd);
+  const isDev = supervisor !== null && isPidAlive(supervisor);
+  return [
+    {
+      pid: state.pid,
+      ppid: 0,
+      mode: isDev ? "dev" : "prod",
+      role: "server",
+      label: "server",
+      rssKb: 0,
+      cpu: 0,
+      uptimeSec: Math.max(0, Math.round((Date.now() - state.ts) / 1000)),
+    },
+  ];
+}
+
 export function clearRuntimeState(cwd: string): void {
   try {
     rmSync(runtimeStateFile(cwd), { force: true });
@@ -838,7 +891,7 @@ export interface DiscoverOptions {
 export function discoverDevProcesses(
   opts: DiscoverOptions = {},
 ): DevProcessInfo[] {
-  if (process.platform === "win32") return [];
+  if (!isProcessDiscoverySupported()) return [];
   let out: string;
   try {
     const res = spawnSync(

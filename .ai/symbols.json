@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-26T18:41:45.887Z",
+  "generated": "2026-07-26T19:13:49.494Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 638,
-    "symbols": 2501,
+    "symbols": 2503,
     "classes": 335,
     "interfaces": 763,
     "types": 331,
     "enums": 4,
-    "functions": 894,
+    "functions": 896,
     "constants": 174
   },
   "symbols": {
@@ -5268,13 +5268,28 @@
       "module": "@nodefony/core",
       "description": "Lit les ports publiés par le runtime, ou `null`. **Un state file dont le process est MORT est ignoré** (et purgé) : sinon un `status` lirait les ports d'un serveur d'hier et sonderait dans le vide."
     },
-    "clearRuntimeState": {
-      "name": "clearRuntimeState",
+    "isProcessDiscoverySupported": {
+      "name": "isProcessDiscoverySupported",
       "kind": "function",
       "file": "src/nodefony/src/service/dev/devProcess.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Retire le state file (arrêt propre, ou reliquat d'un process mort)."
+    },
+    "discoverFromRuntimeState": {
+      "name": "discoverFromRuntimeState",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Retrouve le runtime de CE projet par son fichier d'état, sans observer les process. Repli employé là où l'observation externe n'existe pas ({@link isProcessDiscoverySupported}). Le fichier vit sous…"
+    },
+    "clearRuntimeState": {
+      "name": "clearRuntimeState",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core"
     },
     "supervisorLockFile": {
       "name": "supervisorLockFile",
@@ -21127,6 +21142,10 @@
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
+      "isProcessDiscoverySupported": [
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
+      ],
       "isNodefonyProjectDir": [
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts"
@@ -21144,6 +21163,9 @@
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "clearSupervisorPidFile": [
+        "src/nodefony/src/service/dev/devStop.ts"
+      ],
+      "discoverFromRuntimeState": [
         "src/nodefony/src/service/dev/devStop.ts"
       ],
       "processCwd": [

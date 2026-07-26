@@ -5,6 +5,7 @@ import {
   defaultDevPorts,
   detectRuntimeMode,
   devSupervisorPidFile,
+  isProcessDiscoverySupported,
   discoverDevProcesses,
   formatUptime,
   isNodefonyProjectDir,
@@ -223,7 +224,7 @@ export async function collectDevStatus(
   opts: DiscoverOptions = {},
 ): Promise<DevStatusReport> {
   const pidPath = path.relative(cwd, devSupervisorPidFile(cwd));
-  if (process.platform === "win32")
+  if (!isProcessDiscoverySupported())
     return {
       supported: false,
       running: false,

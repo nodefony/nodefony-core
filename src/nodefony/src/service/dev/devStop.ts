@@ -6,8 +6,10 @@ import {
   defaultDevPorts,
   detectRuntimeMode,
   discoverDevProcesses,
+  discoverFromRuntimeState,
   formatForeignRuntimes,
   isNodefonyProjectDir,
+  isProcessDiscoverySupported,
   probePorts,
   processCwd,
   splitByProject,
@@ -164,7 +166,20 @@ export async function runStopReport(
   const scoped = opts.all
     ? { mine: allRuntimesOfThisPoste(discovered), foreign: [] }
     : splitByProject(discovered, cwd);
-  const before = scoped.mine;
+  // Là où les process ne s'observent pas (Windows), la découverte rend une liste vide
+  // qu'on ne peut pas distinguer de « rien ne tourne » : l'arrêt annonçait alors « déjà
+  // arrêté » pendant qu'un serveur détaché continuait d'écouter. Le fichier d'état du
+  // projet, lui, dit la vérité — et il ne désigne QUE ce projet.
+  const byState = !isProcessDiscoverySupported()
+    ? discoverFromRuntimeState(cwd)
+    : [];
+  if (byState.length > 0) {
+    writeSync(
+      1,
+      `${tag} process non observables sur cette plateforme — runtime retrouvé par son fichier d'état (pid ${byState[0].pid}).\n`,
+    );
+  }
+  const before = scoped.mine.length > 0 ? scoped.mine : byState;
 
   // Les runtimes des AUTRES projets : jamais touchés, mais NOMMÉS (le dev sait
   // où aller — jamais un « pourquoi mon port est pris ? » sans réponse).
@@ -182,12 +197,24 @@ export async function runStopReport(
   if (before.length === 0) {
     clearSupervisorPidFile(cwd);
     const ports = await probePorts(defaultDevPorts(cwd));
+    // « Rien trouvé » ne vaut « déjà arrêté » que si l'on POUVAIT chercher. Là où les
+    // process ne s'observent pas et où aucun fichier d'état ne subsiste, un port encore
+    // tenu est la seule preuve qui reste — l'annoncer plutôt que déclarer le calme.
+    const occupied = ports.filter((p) => p.listening).map((p) => p.port);
+    const blind = !isProcessDiscoverySupported() && occupied.length > 0;
     writeSync(
       1,
       [
         "",
-        `${tag} ${ANSI.bold}Nodefony — aucune instance de ce projet en cours (déjà arrêté)${ANSI.reset}`,
-        `  ${ANSI.dim}ports${ANSI.reset} : ${portsLine(ports, "libre")}`,
+        blind
+          ? `${tag} ${ANSI.bold}Nodefony — aucun process observable sur cette plateforme, mais ${occupied.join(", ")} répond(ent) encore${ANSI.reset}`
+          : `${tag} ${ANSI.bold}Nodefony — aucune instance de ce projet en cours (déjà arrêté)${ANSI.reset}`,
+        `  ${ANSI.dim}ports${ANSI.reset} : ${portsLine(ports, blind ? "occupé" : "libre")}`,
+        ...(blind
+          ? [
+              `  ${ANSI.dim}un runtime tourne sans fichier d'état — l'arrêter par son PID (Get-Process node)${ANSI.reset}`,
+            ]
+          : []),
         "",
       ].join("\n") + "\n",
     );

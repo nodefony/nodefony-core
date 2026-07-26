@@ -18,6 +18,7 @@ import {
 import {
   clearRuntimeState,
   defaultDevPorts,
+  discoverFromRuntimeState,
   detectRuntimeMode,
   devSupervisorPidFile,
   findRuntimeConflict,
@@ -319,6 +320,29 @@ describe("devProcess — state file runtime (ports effectifs)", () => {
   it("crée l'arborescence si `node_modules/.cache` n'existe pas encore", () => {
     writeRuntimeState(cwd, { pid: process.pid, ports: [7000] });
     assert.ok(existsSync(runtimeStateFile(cwd)));
+  });
+
+  it("discoverFromRuntimeState retrouve le runtime SANS observer les process", () => {
+    // Le repli employé là où `ps` n'existe pas (Windows). Il n'observe rien : il lit
+    // le fichier d'état du projet, qui porte le PID de qui écoute. L'appartenance au
+    // projet est donc acquise par construction — c'est précisément ce que
+    // l'introspection système ne peut pas garantir sous Windows, faute de pouvoir
+    // lire le répertoire courant d'un process tiers.
+    writeRuntimeState(cwd, { pid: process.pid, ports: [5153, 5154] });
+    const found = discoverFromRuntimeState(cwd);
+    assert.strictEqual(found.length, 1);
+    assert.strictEqual(found[0].pid, process.pid);
+    assert.strictEqual(found[0].role, "server");
+  });
+
+  it("discoverFromRuntimeState : aucun état → rien (jamais un PID inventé)", () => {
+    assert.deepStrictEqual(discoverFromRuntimeState(cwd), []);
+  });
+
+  it("discoverFromRuntimeState : état d'un process MORT → rien (pas de PID recyclé)", () => {
+    // Un PID mort réattribué par l'OS à un process tiers ferait tuer un innocent.
+    writeRuntimeState(cwd, { pid: 999_999_998, ports: [5153, 5154] });
+    assert.deepStrictEqual(discoverFromRuntimeState(cwd), []);
   });
 
   it("defaultDevPorts LIT le state file — c'est tout l'intérêt du canal", () => {
