@@ -11,13 +11,25 @@
 #
 name: "CodeQL"
 
+# ⚠️ Deux pièges corrigés ici, qui rendaient l'analyse INEXISTANTE :
+#
+# 1. Seule `main` était écoutée, alors que tout le développement vit sur
+#    `claude-ts`. Le code réellement écrit n'a donc jamais été analysé, et les
+#    alertes affichées sont des fossiles de `main` datés de 2024 — jamais
+#    rejoués, pointant des lignes qui sont aujourd'hui des commentaires.
+# 2. Le filtre valait `- "src"`, qui ne correspond à AUCUN fichier : GitHub
+#    attend un motif de chemins (`src/**`). Même un envoi sur `main` ne
+#    déclenchait rien. Un filtre qui ne filtre pas ressemble à un filtre, et
+#    c'est ce qui le rend coûteux.
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "claude-ts"]
     paths:
-      - "src"
+      - "src/**"
+      - ".github/workflows/codeql.yml"
+      - ".github/codeql-config.yml"
   pull_request:
-    branches: ["main"]
+    branches: ["main", "claude-ts"]
   schedule:
     - cron: "00 00 * * *"
 
