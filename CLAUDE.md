@@ -208,6 +208,26 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
    verdict, appliquer un patron connu — oui, donc `haiku`. Choisir, pondérer, rédiger pour un
    humain, décider ce qui mérite d'exister — non, donc plus haut.
 
+   ⚠️ **Un verdict vérifiable ne rend pas le GESTE mécanique.** Vécu, et coûteux : « retirer les
+   imports inutilisés » a un verdict binaire par occurrence — et un modèle léger l'a exécuté en
+   coupant des listes d'imports en plein milieu, produisant des fichiers qui ne compilaient plus.
+   Éditer du code est une opération STRUCTURELLE sur un arbre syntaxique que le modèle ne parse
+   pas ; il édite par correspondance de texte. Donc : déléguer le DIAGNOSTIC (« lesquels sont
+   morts, où »), garder l'ÉDITION — ou n'accepter l'édition déléguée que là où un **automate**
+   la porte (`--fix` d'un linter, `codemod`), avec compilation ET tests derrière.
+
+   **Le TYPE d'agent est le second levier de coût, et on l'oublie.** Il décide de ce que l'agent
+   a le droit de faire, indépendamment du modèle :
+   - **lecture seule** (`Explore`) — cherche large, ne rend que la conclusion. Le défaut pour
+     tout inventaire, tout « où est X ? », toute confrontation d'affirmations au code. Il ne
+     PEUT pas casser le dépôt, et c'est la moitié de sa valeur.
+   - **complet** (`general-purpose`) — nécessaire seulement s'il doit exécuter ou écrire.
+     Chaque délégation en type complet est un risque d'écrasement (cf la règle sur l'index git)
+     et de corruption. Ne le prendre que quand la lecture ne suffit pas.
+
+   Le réflexe : **type le plus restreint qui fait le travail, modèle le plus léger qui le fait
+   bien**. Les deux se choisissent séparément, et se justifient séparément.
+
    Les ratios sont **mesurés sur les transcripts du projet** (l'agent principal en Opus se situe
    autour de 20). L'ordre de grandeur est l'information utile : un inventaire rendu par `fable`
    coûte ~40× le même inventaire rendu par `haiku`, pour un résultat identique — et à l'inverse,
