@@ -387,8 +387,8 @@ export class ViteProcessSupervisor implements IViteSupervisor {
     this.opts.logger.debug?.(`vite ready on port ${port}`);
   }
 
-  private waitReady(_expectedPort: number): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
+  private async waitReady(_expectedPort: number): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
       const child = this.child;
       if (!child) {
         reject(new FrontendSupervisorStartError("no child"));
@@ -498,11 +498,10 @@ export class ViteProcessSupervisor implements IViteSupervisor {
       this.trackListener(child.stderr!, "data", onStderr);
       this.trackListener(child, "exit", onExit);
       this.trackListener(child, "error", onError);
-    }).then(() => {
-      // Une fois ready : remplace `onExit` initial par le handler runtime
-      // (auto-restart sur crash). Le précédent onExit ne sert qu'au boot.
-      this.attachRuntimeExitHandler();
     });
+    // Une fois ready : remplace `onExit` initial par le handler runtime
+    // (auto-restart sur crash). Le précédent onExit ne sert qu'au boot.
+    this.attachRuntimeExitHandler();
   }
 
   /**

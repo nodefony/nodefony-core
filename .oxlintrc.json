@@ -173,6 +173,12 @@
     "unicorn/no-new-array": "off",
     "no-control-regex": "off",
     "typescript/no-this-alias": "off",
+    // Le DERNIER maillon d'une chaîne n'a personne à qui transmettre : il pose un
+    // drapeau, journalise, résout une promesse englobante. Exiger un `return` là
+    // ne protège de rien. Sur un maillon INTERMÉDIAIRE, en revanche, l'oubli est
+    // un vrai défaut — le maillon suivant reçoit `undefined` — et la règle le dit
+    // toujours.
+    "promise/always-return": ["warn", { "ignoreLastCallback": true }],
     // Désactivée APRÈS avoir récolté ce qu'elle avait à donner : 24 signalements,
     // 2 défauts réels (corrigés), 0 dans les tests et les scripts. La règle compte
     // les `resolve`/`reject` d'une portée sans suivre le flux : elle signale à tort
@@ -200,7 +206,19 @@
         "no-unused-expressions": "off",
         "no-unused-vars": "off",
         "no-console": "off",
-        "no-restricted-imports": "off"
+        "no-restricted-imports": "off",
+        // `new Foo()` dont on jette le résultat : en production c'est le signe
+        // d'une intention perdue, dans un test c'est le test lui-même. Les trois
+        // motifs rencontrés ici — construire pour OBSERVER l'effet de bord du
+        // constructeur (un `Module` qui pose ses écouteurs kernel, l'assertion
+        // suit), un banc de perf (« 100 constructions < 500 ms »), et une
+        // construction sous `assert.doesNotThrow` / `assert.throws`. Le résultat
+        // n'a nulle part où aller ; le stocker créerait une variable jamais lue.
+        // Vérifié avant de déroger : 37 occurrences, 37 en tests, 0 en production.
+        "no-new": "off",
+        // Un `it()` rend sa chaîne d'assertions au runner, qui en ignore la
+        // valeur. Exiger un `return` à la fin d'un test ne décrit rien.
+        "promise/always-return": "off"
       }
     }
   ]
