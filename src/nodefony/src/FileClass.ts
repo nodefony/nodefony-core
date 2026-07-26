@@ -78,8 +78,8 @@ class FileClass {
   /**
    * Construit un FileClass à partir d'un chemin (absolu OR relatif à `process.cwd()`).
    *
-   * Par défaut : résout `lstatSync` (suit pas les symlinks) + `realpathSync`, parse le
-   * path, devine le MIME type — **synchrone, bloque l'event-loop** (boot/CLI uniquement).
+   * Par défaut : résout `lstatSync` (suit pas les symlinks) + `realpathSync.native`, parse
+   * le path, devine le MIME type — **synchrone, bloque l'event-loop** (boot/CLI uniquement).
    * Passer `{ defer: true }` n'effectue AUCUNE I/O (utilisé par `FileClass.from()` async).
    *
    * @param Path - chemin absolu OR relatif vers le fichier/dossier.
@@ -98,7 +98,7 @@ class FileClass {
       const stats = fs.lstatSync(this.path as string);
       const resolved = stats.isSymbolicLink()
         ? (this.path as string)
-        : fs.realpathSync(this.path as string);
+        : fs.realpathSync.native(this.path as string);
       this.hydrate(stats, resolved);
     }
   }
@@ -229,8 +229,25 @@ class FileClass {
     return mime.extension(<string>this.mimeType);
   }
 
-  getRealpath(Path: string, options: fs.EncodingOption = {}) {
-    return fs.realpathSync(Path, options);
+  /**
+   * Canonicalise un chemin par la voie SYSTÈME (`uv_fs_realpath`), la même que
+   * `fsp.realpath` employé par la voie async.
+   *
+   * @remarks `fs.realpathSync` (sans `.native`) est une implémentation JavaScript qui
+   *   se contente de dérouler les liens : sous Windows elle **conserve les noms courts
+   *   8.3** (`C:\Users\RUNNER~1\…`) là où la voie système rend la forme longue
+   *   (`C:\Users\runneradmin\…`). Deux canonicalisations pour un même fichier, donc
+   *   deux `path` différents selon qu'on est passé par le constructeur ou par
+   *   `FileClass.from()` — et toute comparaison de chemins (dédup, cache, garde
+   *   « la cible reste-t-elle sous le dossier autorisé ? ») devient fausse sans un mot.
+   *   Sous POSIX les deux voies sont identiques : l'alignement ne change rien.
+   *
+   * @param Path - chemin à canonicaliser.
+   * @param options - encodage (cf `fs.EncodingOption`).
+   * @returns le chemin réel, forme canonique du système de fichiers.
+   */
+  getRealpath(Path: string, options: fs.EncodingOption = {}): string {
+    return fs.realpathSync.native(Path, options);
   }
 
   matchName(ele: RegExp | string): boolean | RegExpExecArray | null {

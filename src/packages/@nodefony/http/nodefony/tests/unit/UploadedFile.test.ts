@@ -8,6 +8,18 @@ import type { IParsedUploadFile } from "../../interfaces/IUpload.js";
 import { UploadedFile } from "../../service/upload/upload-service.js";
 
 /**
+ * Racine temporaire CANONIQUE.
+ *
+ * `os.tmpdir()` rend sous Windows la forme courte 8.3 (`C:\Users\RUNNER~1\…`) là où la
+ * résolution système (`fsp.realpath`, celle qu'emploie `FileClass.from()`) rend la forme
+ * longue (`C:\Users\runneradmin\…`). Deux écritures du MÊME dossier : bâtir le décor sur
+ * une racine déjà canonique met le test et le code dans le même espace de noms — sans
+ * quoi `startsWith(dir + sep)` rend `false` alors qu'aucune garde n'a cédé, et l'on
+ * conclurait à une faille là où il n'y a qu'un décor mal posé. Sans effet sous POSIX.
+ */
+const TMP_ROOT = fs.realpathSync.native(os.tmpdir());
+
+/**
  * Construit un faux fichier parsé pointant vers un vrai fichier temporaire
  * (pour que `stat()` fonctionne). `size`/`mimetype`/`hash` proviennent du
  * parser (pas du disque) — comme en prod (busboy).
@@ -33,7 +45,7 @@ describe("UploadedFile — unit (async, non bloquant)", () => {
 
   async function mkTmp(content = "hello", name?: string): Promise<string> {
     const p = path.join(
-      os.tmpdir(),
+      TMP_ROOT,
       name ?? `nf-up-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`,
     );
     await fsp.writeFile(p, content);
@@ -82,7 +94,7 @@ describe("UploadedFile — unit (async, non bloquant)", () => {
   describe("moveAsync() — déplacement non bloquant", () => {
     it("déplace vers un fichier cible + source supprimée", async () => {
       const src = await mkTmp("payload");
-      const dst = path.join(os.tmpdir(), `nf-moved-${Date.now()}.txt`);
+      const dst = path.join(TMP_ROOT, `nf-moved-${Date.now()}.txt`);
       tmp.push(dst);
       const f = await UploadedFile.create(fakeParsed(src), "field");
       const moved = await f.moveAsync(dst);
@@ -93,7 +105,7 @@ describe("UploadedFile — unit (async, non bloquant)", () => {
 
     it("déplace DANS un dossier existant (utilise filename)", async () => {
       const src = await mkTmp("data");
-      const dir = await fsp.mkdtemp(path.join(os.tmpdir(), "nf-updir-"));
+      const dir = await fsp.mkdtemp(path.join(TMP_ROOT, "nf-updir-"));
       const f = await UploadedFile.create(
         fakeParsed(src, { originalFilename: "doc.bin" }),
         "field",
@@ -121,7 +133,7 @@ describe("UploadedFile — unit (async, non bloquant)", () => {
   describe("move() — sync conservé (backward compat)", () => {
     it("déplace toujours en synchrone", async () => {
       const src = await mkTmp("legacy");
-      const dst = path.join(os.tmpdir(), `nf-syncmoved-${Date.now()}.txt`);
+      const dst = path.join(TMP_ROOT, `nf-syncmoved-${Date.now()}.txt`);
       tmp.push(dst);
       const f = await UploadedFile.create(fakeParsed(src), "field");
       const moved = f.move(dst);
@@ -144,7 +156,7 @@ describe("UploadedFile — le nom client ne compose pas la destination (F188)", 
 
   async function mkUpload(originalFilename: string): Promise<UploadedFile> {
     const src = path.join(
-      os.tmpdir(),
+      TMP_ROOT,
       `nf-f188-src-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     );
     await fsp.writeFile(src, "payload");
@@ -153,7 +165,7 @@ describe("UploadedFile — le nom client ne compose pas la destination (F188)", 
   }
 
   async function mkDir(): Promise<string> {
-    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), "nf-f188-dst-"));
+    const dir = await fsp.mkdtemp(path.join(TMP_ROOT, "nf-f188-dst-"));
     tmpDirs.push(dir);
     return dir;
   }

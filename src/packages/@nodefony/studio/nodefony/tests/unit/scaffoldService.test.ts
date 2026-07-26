@@ -91,8 +91,13 @@ describe("ScaffoldService — pilotage du générateur depuis Studio", () => {
     const plan = svc.preview("controller", { name: "blog", kind: "hello" });
 
     expect(plan.dest).to.equal(project);
+    // `c.path` est un chemin de système de fichiers : `path.relative` rend le séparateur
+    // natif (`\` sous Windows). L'attendu se compose donc par segments — on affirme
+    // l'emplacement du fichier, pas l'écriture d'un séparateur.
     const rel = plan.changes.map((c) => path.relative(project, c.path));
-    expect(rel).to.include("nodefony/controllers/BlogController.ts");
+    expect(rel).to.include(
+      path.join("nodefony", "controllers", "BlogController.ts"),
+    );
     expect(rel).to.include("index.ts");
     // Rien n'a bougé : c'est TOUT l'intérêt d'une préview.
     expect(readFileSync(path.join(project, "index.ts"), "utf8")).to.equal(

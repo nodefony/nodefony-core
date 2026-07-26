@@ -9,12 +9,20 @@ const dataDir = path.resolve("src", "tests", "finder", "data");
 const dataJs = path.resolve(dataDir, "data.js");
 const dataPng = path.resolve(dataDir, "data.png");
 
+/**
+ * Racine temporaire CANONIQUE — `os.tmpdir()` rend sous Windows la forme courte 8.3
+ * (`C:\Users\RUNNER~1\…`), la résolution système la forme longue. Le décor part donc
+ * de la forme canonique ; la divergence elle-même est éprouvée par le test de parité
+ * dédié, qui part exprès de la forme BRUTE.
+ */
+const TMP_ROOT = fs.realpathSync.native(os.tmpdir());
+
 describe("NODEFONY CORE FileClass", () => {
   // temp file with actual content, shared across content/checkSum tests
   let contentFilePath: string;
 
   beforeAll(async () => {
-    contentFilePath = path.join(os.tmpdir(), `fc-content-${Date.now()}.txt`);
+    contentFilePath = path.join(TMP_ROOT, `fc-content-${Date.now()}.txt`);
     await fsp.writeFile(contentFilePath, "hello world\nsecond line\n");
   });
 
@@ -129,8 +137,8 @@ describe("NODEFONY CORE FileClass", () => {
     });
 
     it("moveAsync() déplace le fichier sans bloquer + retourne un FileClass", async () => {
-      const src = path.join(os.tmpdir(), `nf-move-${Date.now()}.txt`);
-      const dst = path.join(os.tmpdir(), `nf-moved-${Date.now()}.txt`);
+      const src = path.join(TMP_ROOT, `nf-move-${Date.now()}.txt`);
+      const dst = path.join(TMP_ROOT, `nf-moved-${Date.now()}.txt`);
       await fsp.writeFile(src, "hello");
       const f = await FileClass.from(src);
       const moved = await f.moveAsync(dst);
@@ -139,6 +147,25 @@ describe("NODEFONY CORE FileClass", () => {
       expect(await fsp.readFile(dst, "utf8")).to.equal("hello");
       await fsp.rm(dst, { force: true });
       expect(fs.existsSync(src)).to.be.false; // source déplacée
+    });
+
+    it("constructeur et from() canonicalisent le chemin de la MÊME façon", async () => {
+      // Décor VOLONTAIREMENT non canonicalisé : c'est la forme que rend `os.tmpdir()`,
+      // donc celle qu'écrit tout code applicatif. Sous Windows elle peut porter un nom
+      // court 8.3 (`RUNNER~1`) que la voie sync conservait et que la voie async résolvait
+      // en forme longue. Les deux voies doivent rendre le MÊME `path` : sans cet
+      // invariant, toute comparaison de chemins (dédup, cache, et surtout la garde
+      // « la cible reste-t-elle sous le dossier autorisé ? ») devient fausse sans un mot.
+      const raw = path.join(os.tmpdir(), `nf-canon-${Date.now()}.txt`);
+      await fsp.writeFile(raw, "x");
+      try {
+        const sync = new FileClass(raw);
+        const asyncF = await FileClass.from(raw);
+        expect(asyncF.path).to.equal(sync.path);
+        expect(asyncF.dirName).to.equal(sync.dirName);
+      } finally {
+        await fsp.rm(raw, { force: true });
+      }
     });
   });
 
@@ -355,7 +382,7 @@ describe("NODEFONY CORE FileClass", () => {
     let tmpFile: string;
 
     beforeEach(async () => {
-      tmpFile = path.join(os.tmpdir(), `fc-test-${Date.now()}.txt`);
+      tmpFile = path.join(TMP_ROOT, `fc-test-${Date.now()}.txt`);
       await fsp.writeFile(tmpFile, "initial");
     });
 
