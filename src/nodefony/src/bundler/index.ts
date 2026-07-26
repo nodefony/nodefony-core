@@ -88,18 +88,37 @@ export const nodefonyTreeshake = {
  * Construit la map d'entrées d'un package Nodefony : `index.ts` + toutes les sources
  * `nodefony/**` (hors tests et `.d.ts`), nommées par chemin relatif — la sortie
  * `preserveModules` reproduit l'arborescence source dans `dist/`.
+ *
+ * @remarks Les chemins sont ramenés à la grammaire POSIX **avant tout le reste**, car
+ *   `globSync` rend le séparateur NATIF. Deux conséquences sous Windows, sinon : la
+ *   clé devient un nom de sortie que personne ne reconnaît (`input["nodefony/src/x"]`
+ *   vaut `undefined`, le `dist/` d'un build Windows cesse de ressembler aux autres) ;
+ *   et surtout l'exclusion `(^|/)tests/` ne mord plus sur `nodefony\tests\…` — les
+ *   fichiers de test entrent alors dans le paquet publié, sans un mot. Une clé
+ *   d'entrée est un identifiant qui VOYAGE — vers rolldown, vers `dist/`, vers les
+ *   `exports` du `package.json` — pas un chemin qu'on ouvre.
  */
 export function nodefonyInput(
   globPatterns: string[] = ["nodefony/**/*.ts"],
+  deps: {
+    /** Expansion des motifs (défaut `globSync`). */
+    readonly glob?: (pattern: string) => string[];
+    /** Séparateur de la plateforme — injecté pour éprouver Windows d'ailleurs. */
+    readonly sep?: string;
+  } = {},
 ): Record<string, string> {
+  const glob = deps.glob ?? ((pattern: string): string[] => globSync(pattern));
+  const sep = deps.sep ?? path.sep;
+  const toPosix = (p: string): string => p.split(sep).join("/");
   const files = globPatterns
-    .flatMap((pattern) => globSync(pattern))
+    .flatMap((pattern) => glob(pattern))
+    .map(toPosix) // POSIX D'ABORD : les exclusions ci-dessous parlent en `/`
     .filter((file) => !IGNORED.some((re) => re.test(file)));
   return {
     index: "./index.ts",
     ...Object.fromEntries(
       files.map((file) => [
-        path.relative(".", file).replace(/\.ts$/u, ""),
+        path.posix.relative(".", file).replace(/\.ts$/u, ""),
         "./" + file,
       ]),
     ),

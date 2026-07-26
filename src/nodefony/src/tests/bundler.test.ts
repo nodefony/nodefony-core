@@ -58,6 +58,28 @@ describe("nodefony/bundler — socle rolldown partagé (subpath publiable)", () 
       const input = nodefonyInput(["src/tests/bundler.test.ts"]);
       assert.deepEqual(Object.keys(input), ["index"]);
     });
+
+    // Windows depuis n'importe quel poste : `globSync` y rend le séparateur natif.
+    // La grammaire est INJECTÉE — un test qui lit `path.sep` n'éprouve qu'un système.
+    const win = {
+      sep: "\\",
+      glob: (): string[] => [
+        "nodefony\\src\\Kernel.ts",
+        "nodefony\\tests\\Kernel.test.ts",
+        "nodefony\\src\\types\\IKernel.d.ts",
+      ],
+    };
+
+    it("Windows : les clés d'entrée restent en `/` (le dist ne dépend pas du poste)", () => {
+      const input = nodefonyInput(["nodefony/**/*.ts"], win);
+      assert.equal(input["nodefony/src/Kernel"], "./nodefony/src/Kernel.ts");
+      assert.notProperty(input, "nodefony\\src\\Kernel");
+    });
+
+    it("Windows : `tests/` et `.d.ts` restent EXCLUS du paquet publié", () => {
+      const input = nodefonyInput(["nodefony/**/*.ts"], win);
+      assert.deepEqual(Object.keys(input), ["index", "nodefony/src/Kernel"]);
+    });
   });
 
   describe("defineNodefonyRolldownConfig", () => {
