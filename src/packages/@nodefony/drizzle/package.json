@@ -43,13 +43,9 @@
     "orm"
   ],
   "dependencies": {
-    "@mantine/spotlight": "9.4.2",
     "better-sqlite3": "13.0.1",
     "drizzle-orm": "0.45.2",
-    "jose": "6.2.4",
-    "mongoose": "9.8.0",
     "tslib": "2.8.1",
-    "vue": "3.5.40",
     "zod": "^4.4.3"
   },
   "optionalDependencies": {
