@@ -186,5 +186,12 @@ describe("certificates — écriture sécurisée + stratégies", () => {
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }
-  });
+    // DEUX paires RSA 2048 : celle du décor, puis celle que le code régénère — les
+    // autres cas du fichier mutualisent une paire unique, une régénération ne le
+    // peut pas. node-forge calcule en JavaScript pur : le coût ne dépend d'aucune
+    // accélération matérielle, seulement du CPU — ~0,4 s ici, plus de 5 s sur un
+    // runner Windows d'intégration continue, où le budget par défaut expirait. Le
+    // budget est donc EXPLICITE et large : il ne se paie que dans le cas lent, et
+    // aucune assertion n'a été touchée pour autant.
+  }, 60_000);
 });
