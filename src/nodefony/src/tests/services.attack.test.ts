@@ -22,6 +22,7 @@
 //
 import "reflect-metadata";
 import assert from "node:assert";
+import { fileURLToPath } from "node:url";
 import Kernel from "../kernel/Kernel";
 import Module from "../kernel/Module";
 import Service from "../Service";
@@ -39,7 +40,12 @@ const makeKernel = (env: "development" | "production"): Kernel =>
 // donc désigner un fichier dont le dossier en contient un (sinon ENOENT → le
 // module est skippé pour une raison étrangère à ce qu'on teste). On vise
 // l'`index.ts` du core, comme un vrai module vise le sien.
-const MODULE_PATH = new URL("../../index.ts", import.meta.url).pathname;
+// `URL.pathname` n'est PAS un chemin de fichier : sur `file:///D:/a/x/index.ts` il rend
+// `/D:/a/x/index.ts` — slash initial parasite, séparateurs d'URL. Le dossier n'existe pas
+// sous ce nom, le `package.json` ne se charge pas, et le module est ignoré pour une raison
+// étrangère à ce qu'on teste : le CONTRÔLE POSITIF tombe avec les autres, ce qui fait lire
+// six bugs là où le décor seul est en cause. `fileURLToPath` est la conversion correcte.
+const MODULE_PATH = fileURLToPath(new URL("../../index.ts", import.meta.url));
 
 /** Service dont la CONSTRUCTION échoue — le cas réel : une dépendance absente. */
 class BrokenService extends Service {

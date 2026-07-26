@@ -162,6 +162,13 @@ class Module<TConfig = Record<string, unknown>>
    * Résout le chemin source du module (`module.path`) — normalise URL `file://`,
    * remonte au-dessus de `dist/` si nécessaire.
    *
+   * @remarks Opération purement LEXICALE, volontairement : l'entrée est déjà absolue
+   *   (`import.meta.url`). Remonter le dossier `dist` passait auparavant par
+   *   `resolve(myPath, "..")`, qui ancre le chemin sur le répertoire courant — donc sous
+   *   Windows y ajoute la lettre de lecteur et normalise les séparateurs. La racine d'un
+   *   module se mettait ainsi à dépendre de l'endroit d'où l'on avait lancé le process.
+   *   `dirname` donne le même résultat sur tout chemin absolu, sans cet ancrage.
+   *
    * @param myPath - chemin brut (souvent `import.meta.url` de la classe Module).
    * @returns chemin absolu du dossier source du module.
    */
@@ -170,12 +177,7 @@ class Module<TConfig = Record<string, unknown>>
       myPath = fileURLToPath(myPath);
     }
     const base = basename(dirname(myPath));
-    let dir = null;
-    if (base === "dist") {
-      dir = resolve(myPath, "..");
-    } else {
-      dir = myPath;
-    }
+    const dir = base === "dist" ? dirname(myPath) : myPath;
     return dirname(dir);
   }
 

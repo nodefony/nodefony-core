@@ -1,5 +1,6 @@
 import assert from "node:assert";
-import { resolve } from "node:path";
+import { resolve, dirname, sep } from "node:path";
+import { pathToFileURL } from "node:url";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import Module from "../kernel/Module";
@@ -118,8 +119,13 @@ describe("Module — setPath()", () => {
   });
 
   it("chemin file:// → décodé puis dirname", () => {
-    const result = mod.setPath("file:///a/b/module.ts");
-    assert.strictEqual(result, "/a/b");
+    // L'URL se construit à partir d'un chemin NATIF : `file:///a/b/module.ts` n'est pas
+    // une URL de fichier valide sous Windows (aucune lettre de lecteur), et la comparer
+    // à un littéral POSIX éprouverait la plateforme au lieu du mécanisme — qui est le
+    // décodage d'une URL réelle, celle que rend `import.meta.url`.
+    const native = resolve(sep, "a", "b", "module.ts");
+    const result = mod.setPath(pathToFileURL(native).href);
+    assert.strictEqual(result, dirname(native));
   });
 
   it("chemin déjà normalisé (dossier sans extension)", () => {

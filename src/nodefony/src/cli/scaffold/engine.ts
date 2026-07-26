@@ -234,7 +234,11 @@ export function linkLocalDeps(
       if (!workspace) {
         throw new Error(`link : workspace introuvable pour ${name}`);
       }
-      deps[name] = `file:${workspace}`;
+      // Un specifier `file:` est une donnée qui VOYAGE (le `package.json` généré est lu
+      // par npm, commité, partagé) — pas un chemin qu'on redonne au système de fichiers.
+      // Il s'écrit donc avec des `/` sur toutes les plateformes, là où `workspace` porte
+      // le séparateur natif (`D:\a\checkout\src\nodefony` sous Windows).
+      deps[name] = `file:${workspace.split(path.sep).join("/")}`;
       linked.push(name);
     }
   }
@@ -1242,7 +1246,10 @@ function runModuleScaffold(
         .filter((t) => t.kind === "module")
         .map((t) => ({
           name: t.name,
-          dir: path.relative(projectRoot, t.dir),
+          // Ce chemin est RENDU dans `AGENTS.md` — un document que lisent des agents et
+          // des humains, pas un chemin qu'on redonne au système de fichiers. Il s'écrit
+          // donc `modules/blog` partout, jamais `modules\blog`.
+          dir: path.relative(projectRoot, t.dir).split(path.sep).join("/"),
         })),
     },
     written,
