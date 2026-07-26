@@ -38,6 +38,17 @@ export interface ViteConfigGeneratorOptions {
   };
 }
 
+/**
+ * Normalise un chemin filesystem en séparateurs `/` avant sérialisation dans
+ * le fichier `.mjs` généré. Le fichier généré est du JS/ESM : un backslash
+ * (produit par `path.resolve` sur `win32`) y est un caractère d'échappement
+ * de string — Windows accepte nativement `/` comme séparateur, donc on
+ * normalise plutôt que de laisser fuir des `\` bruts dans la sortie.
+ */
+function toGeneratedPath(p: string): string {
+  return p.replace(/\\/g, "/");
+}
+
 export class ViteConfigGenerator {
   /**
    * Construit le content `.mjs` à écrire à côté de `index.html` du module.
@@ -87,9 +98,8 @@ export class ViteConfigGenerator {
           break;
         case "angular": {
           imports.push(`import angular from "@analogjs/vite-plugin-angular";`);
-          const tsconfigPath = path.resolve(
-            angularEntry!.root,
-            "tsconfig.app.json",
+          const tsconfigPath = toGeneratedPath(
+            path.resolve(angularEntry!.root, "tsconfig.app.json"),
           );
           pluginsExprs.push(
             `angular({ tsconfig: ${JSON.stringify(tsconfigPath)} })`,
@@ -111,19 +121,19 @@ export class ViteConfigGenerator {
 
     const input: Record<string, string> = {};
     for (const e of entries) {
-      input[e.entryName] = path.resolve(e.root, e.entryFile);
+      input[e.entryName] = toGeneratedPath(path.resolve(e.root, e.entryFile));
     }
 
-    const root = entries[0]!.root;
-    const outDir = entries[0]!.outDir;
+    const root = toGeneratedPath(entries[0]!.root);
+    const outDir = toGeneratedPath(entries[0]!.outDir);
 
     // Multi-bundle fix (P14.6) : autorise `/@fs/<abs>` pour chaque entry root.
     // Sans ça, deux consumers qui partagent la même structure (ex `frontend/src/main.tsx`)
     // collisionnent sur le root Vite unique (= entries[0].root) et le browser
     // charge le main.tsx du premier consumer pour TOUTES les pages.
     // process.cwd() couvre le workspace root (node_modules hoistés inclus).
-    const fsAllowSet = new Set<string>([process.cwd()]);
-    for (const e of entries) fsAllowSet.add(e.root);
+    const fsAllowSet = new Set<string>([toGeneratedPath(process.cwd())]);
+    for (const e of entries) fsAllowSet.add(toGeneratedPath(e.root));
     // Debug bar : servie via `/@fs` depuis le PAQUET nodefony (même résolution
     // que TemplateHelper.debugBarTag). Dans une app `--link`, le realpath sort
     // du cwd (symlink vers le checkout du framework) → sans cette entrée, Vite
@@ -131,9 +141,9 @@ export class ViteConfigGenerator {
     // le dossier `dist/client` entier : les imports internes (preserveModules)
     // remontent entre chunks frères.
     try {
-      const dbg = createRequire(import.meta.url)
-        .resolve("nodefony/debugbar")
-        .replace(/\\/g, "/");
+      const dbg = toGeneratedPath(
+        createRequire(import.meta.url).resolve("nodefony/debugbar"),
+      );
       const clientRoot = dbg.includes("/dist/client/")
         ? dbg.slice(0, dbg.indexOf("/dist/client/") + "/dist/client".length)
         : path.dirname(dbg);
@@ -190,8 +200,8 @@ export class ViteConfigGenerator {
     const useHttps = mode === "development" && !!opts.https;
     const httpsLines = useHttps
       ? `    https: {
-      key: fs.readFileSync(${JSON.stringify(opts.https!.keyPath)}),
-      cert: fs.readFileSync(${JSON.stringify(opts.https!.certPath)}),
+      key: fs.readFileSync(${JSON.stringify(toGeneratedPath(opts.https!.keyPath))}),
+      cert: fs.readFileSync(${JSON.stringify(toGeneratedPath(opts.https!.certPath))}),
     },\n`
       : "";
     const fsBlock = `    fs: {

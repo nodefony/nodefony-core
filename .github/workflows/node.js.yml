@@ -149,9 +149,12 @@ jobs:
           // npm ne crée PAS le symlink node_modules/.bin/nodefony → 'npx nodefony'
           // échoue en CI (sh: nodefony: not found). On invoque le bin construit en direct.
           const bin = path.join(process.cwd(), 'node_modules', 'nodefony', 'bin', 'nodefony');
-          // production --no-daemon : boot foreground in-process, SANS PM2 (cible
-          // cloud-native, 1 process = 1 pod). Logs sur stdout → captés ci-dessous.
-          const child = spawn(process.execPath, [bin, 'production', '--no-daemon'], {
+          // production : boot foreground in-process, SANS PM2 (cible cloud-native,
+          // 1 process = 1 pod). Foreground est le comportement PAR DÉFAUT de la
+          // commande (pas de flag à passer) — '--no-daemon' était un vestige de
+          // PM2, retiré du framework, et faisait échouer commander sur
+          // 'unknown option'. Logs sur stdout → captés ci-dessous.
+          const child = spawn(process.execPath, [bin, 'production'], {
             cwd: process.cwd(),
             stdio: ['ignore', 'pipe', 'pipe'],
             detached: true,

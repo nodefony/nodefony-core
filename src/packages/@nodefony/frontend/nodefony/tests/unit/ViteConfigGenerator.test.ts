@@ -204,4 +204,26 @@ describe("ViteConfigGenerator — toMjs()", () => {
     expect(out).to.include("fs: {");
     expect(out).to.include("allow: [");
   });
+
+  // --- Séparateurs Windows (CI windows-latest) ----------------------------
+  // Le fichier généré est du JS/ESM : un backslash brut y est un caractère
+  // d'échappement de string. `path.resolve` sur win32 produit des `\` — tout
+  // chemin filesystem injecté dans la sortie doit être normalisé en `/`
+  // AVANT sérialisation. Reproductible sans machine Windows : on fournit
+  // directement un `root`/`outDir` au format Windows (backslash), ce que
+  // `path.resolve` produirait réellement sur windows-latest.
+  it("normalise les chemins Windows (backslash) en '/' dans la sortie générée", () => {
+    const winRoot = "C:\\Users\\dev\\my-app\\frontend";
+    const winOutDir = "C:\\Users\\dev\\my-app\\dist";
+    const out = gen.toMjs(
+      [{ ...baseEntry, type: "angular", root: winRoot, outDir: winOutDir }],
+      "production",
+    );
+    expect(out).to.include("C:/Users/dev/my-app/frontend");
+    expect(out).to.include("C:/Users/dev/my-app/dist");
+    // tsconfig angular résolu depuis ce root — même normalisation attendue.
+    expect(out).to.include("C:/Users/dev/my-app/frontend/tsconfig.app.json");
+    // Aucun backslash brut ne doit survivre dans la sortie.
+    expect(out).to.not.include("C:\\\\Users");
+  });
 });
