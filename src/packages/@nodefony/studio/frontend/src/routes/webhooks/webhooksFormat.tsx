@@ -190,7 +190,13 @@ export function EventChips({ events }: { events: string[] }): ReactNode {
 /**
  * Badge **« où on écrit »** : le backend du store qui porte le registre des
  * endpoints (classe + driver mémoire/SGBD). Un store `memory` perd les endpoints
- * au redémarrage ; un store ORM les persiste. Calque du `StorageBadge` API Keys.
+ * au redémarrage ; un store ORM les persiste.
+ *
+ * Dernier survivant des badges de store écrits par page : les autres consoles
+ * (Sessions, Users, API Keys) passent par `BrickStoreChip`, alimenté par le
+ * registre unique `/nodefony/kernel/api/stores`. Celui-ci reste parce qu'il vit
+ * dans une COLONNE du tableau, pas dans l'en-tête de page — la puce générique
+ * n'y a pas sa place. À basculer si la colonne disparaît.
  */
 export function StorageBadge({
   store,

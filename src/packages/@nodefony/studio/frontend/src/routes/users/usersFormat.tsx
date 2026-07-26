@@ -4,7 +4,7 @@
  * provider, tenant) rendues en TEXTE/Code/Badge, jamais en HTML.
  */
 import type { ReactNode } from "react";
-import { Badge, Group, Stack, Text, Tooltip } from "@mantine/core";
+import { Badge, Group, Text, Tooltip } from "@mantine/core";
 import {
   IconShieldCheck,
   IconUser,
@@ -16,7 +16,6 @@ import {
   IconBrandGoogle,
   IconBrandGithub,
   IconKey,
-  IconDatabase,
 } from "@tabler/icons-react";
 import { ADMIN_ROLE } from "./usersModel";
 
@@ -210,53 +209,5 @@ export function TenantChip({
     >
       {tenantId}
     </Badge>
-  );
-}
-
-/**
- * Badge **« où on écrit »** : le backend de persistance des utilisateurs
- * (`memory`/`drizzle`/`mongoose`) + le nombre de comptes en tooltip. Info
- * MAJEURE : savoir quel store porte réellement les utilisateurs — `memory` est
- * volatil (les comptes disparaissent au redémarrage), couleur d'alerte.
- */
-export function StorageBadge({
-  store,
-  repository,
-  count,
-}: {
-  store: "memory" | "drizzle" | "mongoose" | null;
-  repository: string;
-  count: number | null;
-}): ReactNode {
-  const volatile = store === "memory";
-  const label = store ?? repository;
-  return (
-    <Tooltip
-      withArrow
-      openDelay={150}
-      multiline
-      label={
-        <Stack gap={2}>
-          <Text size="xs">Repository : {repository}</Text>
-          {count !== null ? <Text size="xs">Comptes : {count}</Text> : null}
-          <Text size="xs">
-            {volatile
-              ? "⚠ Annuaire volatil (perdu au redémarrage)"
-              : "Persistance durable"}
-          </Text>
-        </Stack>
-      }
-    >
-      <Badge
-        variant="light"
-        color={volatile ? "orange" : "grape"}
-        size="sm"
-        leftSection={<IconDatabase size={12} />}
-        style={{ textTransform: "none" }}
-      >
-        {label}
-        {count !== null ? ` · ${count}` : ""}
-      </Badge>
-    </Tooltip>
   );
 }

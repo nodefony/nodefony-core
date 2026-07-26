@@ -12,7 +12,6 @@ import {
   IconWorld,
   IconRobot,
   IconDeviceDesktop,
-  IconDatabase,
   IconShieldCheck,
   IconShieldOff,
 } from "@tabler/icons-react";
@@ -115,63 +114,6 @@ export function ClientChip({ ua }: { ua: string | null }): ReactNode {
         style={{ textTransform: "none", maxWidth: 220 }}
       >
         {label}
-      </Badge>
-    </Tooltip>
-  );
-}
-
-/**
- * Badge **« où on écrit »** : le driver de persistance des sessions
- * (drizzle/files/redis/mongo) + un bouclier ✓ si la révocation est durcie
- * (garde-fou anti-résurrection actif). Chemin relatif (store fichier) en
- * tooltip. Info MAJEURE : savoir quel backend porte réellement les sessions —
- * et donc quelles garanties s'appliquent.
- */
-export function StorageBadge({
-  driver,
-  storage,
-  revocationHardened,
-  savePath,
-}: {
-  driver: string | null;
-  storage: string;
-  revocationHardened: boolean;
-  savePath: string | null;
-}): ReactNode {
-  const label = driver ?? storage;
-  return (
-    <Tooltip
-      withArrow
-      openDelay={150}
-      multiline
-      label={
-        <Stack gap={2}>
-          <Text size="xs">Store : {storage}</Text>
-          {savePath ? <Text size="xs">Chemin : {savePath}</Text> : null}
-          <Text size="xs">
-            {revocationHardened
-              ? "Révocation durcie (anti-résurrection) ✓"
-              : "⚠ Révocation NON durcie sur ce backend"}
-          </Text>
-        </Stack>
-      }
-    >
-      <Badge
-        variant="light"
-        color={revocationHardened ? "grape" : "orange"}
-        size="sm"
-        leftSection={<IconDatabase size={12} />}
-        rightSection={
-          revocationHardened ? (
-            <IconShieldCheck size={12} />
-          ) : (
-            <IconShieldOff size={12} />
-          )
-        }
-        style={{ textTransform: "none" }}
-      >
-        {label}
-        {savePath ? ` · ${savePath}` : ""}
       </Badge>
     </Tooltip>
   );
