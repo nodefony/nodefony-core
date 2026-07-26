@@ -439,24 +439,193 @@ export function isPidAlive(pid: number): boolean {
 }
 
 /**
- * Envoie `signal` au GROUPE de process de `pid` (POSIX : `-pid` → atteint les
- * descendants, ex. l'enfant serveur + ses Vite quand `pid` est le superviseur leader
- * de groupe) PUIS au `pid` lui-même en fallback. No-op silencieux si le process /
- * groupe n'existe plus. Windows : pas de groupe POSIX → kill direct du pid.
+ * Nom d'image d'une ligne `tasklist /NH /FO CSV` — fonction PURE.
+ *
+ * `tasklist` sort `"node.exe","4212","Console","1","52 480 K"`, mais aussi, quand le
+ * PID n'existe plus, une phrase en clair (`INFO: No tasks are running…`) avec un code
+ * de sortie NUL. Ne rendre un nom que sur la forme CSV attendue est donc ce qui
+ * distingue « je l'ai vu » de « je n'ai rien vu ».
+ *
+ * @param out - sortie brute de `tasklist`.
+ * @returns le nom d'image, ou `null` si la sortie ne décrit aucun process.
  */
-export function signalProcessGroup(pid: number, signal: NodeJS.Signals): void {
-  if (process.platform !== "win32") {
-    try {
-      process.kill(-pid, signal);
-    } catch {
-      /* pas leader de groupe / groupe déjà parti */
-    }
+export function parseTasklistImage(out: string): string | null {
+  for (const raw of out.split("\n")) {
+    const line = raw.trim();
+    if (!line.startsWith('"')) continue; // phrase INFO:/ERROR: → pas une ligne de données
+    const m = /^"([^"]+)","(\d+)"/.exec(line);
+    if (m) return m[1];
   }
+  return null;
+}
+
+/** Ce qu'on a pu CONSTATER d'un process — le verdict d'observation avec la donnée. */
+export interface ProcessIdentity {
+  /**
+   * `true` si l'outil a réellement répondu. Sépare « ce PID n'est pas à nous » de
+   * « je n'ai pas pu regarder » — deux états qu'une chaîne vide confondait, et dont
+   * dépend le droit de tuer.
+   */
+  readonly observed: boolean;
+  /** Ligne de commande (POSIX) ou nom d'image (Windows). `null` si non observé. */
+  readonly command: string | null;
+}
+
+/**
+ * Identifie un process vivant par OBSERVATION EXTERNE, sur toutes les plateformes.
+ *
+ * POSIX lit la ligne de commande (`ps -o command=`) — la preuve la plus forte, elle
+ * contient le titre de process Nodefony. Windows n'a pas d'équivalent bon marché :
+ * `tasklist` ne rend que le nom d'IMAGE (`node.exe`), preuve plus faible, qui suffit
+ * néanmoins à écarter un PID recyclé par un process tiers. C'est à l'appelant de
+ * corroborer (le pidfile qui nomme ce PID vit dans SON projet).
+ *
+ * @param pid - process à identifier (supposé vivant).
+ * @returns le verdict d'observation, cf {@link ProcessIdentity}.
+ */
+export function identifyProcess(pid: number): ProcessIdentity {
+  const cmd =
+    process.platform === "win32"
+      ? {
+          file: "tasklist",
+          args: ["/FI", `PID eq ${pid}`, "/NH", "/FO", "CSV"],
+        }
+      : { file: "ps", args: ["-p", String(pid), "-o", "command="] };
   try {
-    process.kill(pid, signal);
+    const res = spawnSync(cmd.file, cmd.args, {
+      encoding: "utf8",
+      env: { ...process.env, LC_ALL: "C", LANG: "C" },
+    });
+    // `res.error` = binaire ABSENT (`procps` manquant d'une image mince, PATH nu).
+    if (res.error || typeof res.stdout !== "string")
+      return { observed: false, command: null };
+    if (process.platform === "win32") {
+      const image = parseTasklistImage(res.stdout);
+      // Code non nul OU aucune ligne de données : `tasklist` a parlé et n'a rien vu.
+      return image === null
+        ? { observed: res.status === 0, command: null }
+        : { observed: true, command: image };
+    }
+    if (res.status !== 0) return { observed: true, command: null }; // `ps` a répondu : ce PID n'existe plus
+    const out = res.stdout.trim();
+    return { observed: true, command: out.length > 0 ? out : null };
   } catch {
-    /* déjà mort */
+    return { observed: false, command: null };
   }
+}
+
+/**
+ * Comment atteindre l'ARBRE de `pid` sur `platform` — fonction PURE, sans effet.
+ *
+ * POSIX répond par un signal au groupe (`-pid`), qui n'a pas d'équivalent Windows :
+ * là-bas la seule voie est un programme externe, `taskkill /T`, qui descend la
+ * FILIATION (parent → enfants → petits-enfants) au lieu du groupe. C'est pourquoi
+ * l'enfant serveur y est spawné `detached:false` : rattaché, il est atteignable.
+ *
+ * `/F` (forcé) est là par nécessité, pas par choix : `taskkill` sans `/F` poste un
+ * `WM_CLOSE` aux FENÊTRES du process, ce qu'un process console n'a pas — la demande
+ * gracieuse n'arriverait donc nulle part. **Windows n'offre aucun arrêt gracieux
+ * d'arbre**, et ce fait s'ÉNONCE ({@link TreeSignalOutcome}) plutôt qu'il ne se
+ * masque derrière un `SIGTERM` qui n'en a que le nom.
+ *
+ * @param pid - racine de l'arbre à emporter.
+ * @param platform - `process.platform` (injecté : c'est ce qui rend la règle testable
+ *   depuis n'importe quel système).
+ * @returns le programme à lancer, ou `null` quand la plateforme passe par les signaux.
+ */
+export function killTreeCommand(
+  pid: number,
+  platform: NodeJS.Platform,
+): { file: string; args: string[] } | null {
+  if (platform !== "win32") return null;
+  return { file: "taskkill", args: ["/PID", String(pid), "/T", "/F"] };
+}
+
+/**
+ * Ce qu'un envoi de signal a RÉELLEMENT pu atteindre — le verdict, pas l'intention.
+ *
+ * - `group` : le groupe POSIX a reçu le signal (descendants inclus), gracieux respecté.
+ * - `forced-tree` : l'arbre Windows a été emporté de FORCE (aucune autre voie n'existe).
+ * - `single` : seul le process visé a été atteint. **Ses descendants survivent** — un
+ *   Vite orphelin par rechargement, ce qui rend le mode dev inutilisable à la longue.
+ *   Cet état se DIT à l'utilisateur ; c'est tout l'intérêt de le distinguer.
+ * - `gone` : plus rien à atteindre (déjà mort). À ne surtout pas confondre avec
+ *   `single` : le second annonce un risque d'orphelin, le premier un non-événement —
+ *   les confondre ferait crier au Vite fantôme à chaque arrêt normal.
+ */
+export type TreeSignalOutcome = "group" | "forced-tree" | "single" | "gone";
+
+/** Dépendances de {@link signalProcessGroup} — injectées pour éprouver Windows sans Windows. */
+export interface SignalTreeDeps {
+  readonly platform?: NodeJS.Platform;
+  /** Lance le programme de kill d'arbre ; `true` si l'arbre a été traité. */
+  readonly runTreeKill?: (cmd: { file: string; args: string[] }) => boolean;
+  readonly killPid?: (pid: number, signal: NodeJS.Signals) => void;
+  readonly killGroup?: (pid: number, signal: NodeJS.Signals) => void;
+}
+
+/** Lance `taskkill` et CONSTATE le résultat (code 128 = process déjà parti : succès). */
+function defaultRunTreeKill(cmd: { file: string; args: string[] }): boolean {
+  try {
+    const res = spawnSync(cmd.file, cmd.args, { encoding: "utf8" });
+    if (res.error) return false; // binaire absent (image Windows nue) → repli
+    return res.status === 0 || res.status === 128;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Envoie `signal` à l'ARBRE de `pid` — enfant serveur ET ses Vite — et dit ce qu'il a
+ * pu atteindre. No-op silencieux si le process n'existe plus.
+ *
+ * POSIX : signal au groupe (`-pid`) puis au pid en repli. Windows : `taskkill /T /F`
+ * (cf {@link killTreeCommand}) puis, si le programme manque, `process.kill(pid)` —
+ * qui n'emporte QUE l'enfant direct, d'où le verdict `single` à annoncer.
+ *
+ * @returns ce qui a été atteint, cf {@link TreeSignalOutcome}.
+ */
+export function signalProcessGroup(
+  pid: number,
+  signal: NodeJS.Signals,
+  deps: SignalTreeDeps = {},
+): TreeSignalOutcome {
+  const platform = deps.platform ?? process.platform;
+  const killPid =
+    deps.killPid ??
+    ((p: number, s: NodeJS.Signals): void => {
+      process.kill(p, s);
+    });
+  const tree = killTreeCommand(pid, platform);
+  if (tree) {
+    const ran = (deps.runTreeKill ?? defaultRunTreeKill)(tree);
+    if (ran) return "forced-tree";
+    try {
+      killPid(pid, signal); // repli : l'enfant direct au moins
+    } catch {
+      return "gone";
+    }
+    return "single";
+  }
+  const killGroup =
+    deps.killGroup ??
+    ((p: number, s: NodeJS.Signals): void => {
+      process.kill(-p, s);
+    });
+  let group = true;
+  try {
+    killGroup(pid, signal);
+  } catch {
+    group = false; // pas leader de groupe / groupe déjà parti
+  }
+  let self = true;
+  try {
+    killPid(pid, signal);
+  } catch {
+    self = false; // déjà mort
+  }
+  if (group) return "group";
+  return self ? "single" : "gone";
 }
 
 /** Supprime le pidfile du superviseur (best-effort, idempotent). */

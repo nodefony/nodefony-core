@@ -1,4 +1,4 @@
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -27,6 +27,9 @@ import {
   readRuntimeState,
   splitByProject,
   formatForeignRuntimes,
+  identifyProcess,
+  isPidAlive,
+  signalProcessGroup,
   terminateDevProcesses,
 } from "./devProcess";
 
@@ -44,8 +47,8 @@ export interface DevSupervisorOptions {
    * Ports serveur à attendre **libres** avant de relancer l'enfant (évite
    * `EADDRINUSE` au restart). Défaut : `[5151, 5152]` (HTTP/HTTPS Nodefony) ou
    * `NODEFONY_DEV_PORTS` (liste séparée par des virgules). Les ports Vite ne sont
-   * pas listés : le group-kill tue les instances Vite et chacune a son propre
-   * port-retry au redémarrage.
+   * pas listés : l'arrêt emporte l'arbre (Vite compris) et chaque instance a son
+   * propre port-retry au redémarrage.
    */
   readonly ports?: readonly number[];
 }
@@ -136,13 +139,15 @@ const delay = (ms: number): Promise<void> =>
  * `NODEFONY_DEV_CHILD=1`), surveille les sources **backend** et, à chaque
  * changement, rebuild puis **redémarre l'enfant**.
  *
- * L'enfant est spawné **detached** (leader de groupe de processus) : il devient
- * la tête d'un groupe qui contient ses propres enfants (les instances Vite du
- * `ViteProcessSupervisor`, spawnées `detached:false`). Le restart tue donc le
- * **groupe entier** (`process.kill(-pid, …)`) → aucun orphelin Vite ne retient
- * un port. Avant chaque relance, le superviseur attend que les ports serveur
- * soient libres (anti-`EADDRINUSE`) et retente de façon bornée si l'enfant
- * crashe immédiatement.
+ * Le restart doit emporter l'**arbre** de l'enfant — lui et les instances Vite du
+ * `ViteProcessSupervisor` — sans quoi chaque sauvegarde laisse un Vite orphelin
+ * retenant son port. Deux grammaires y mènent, une par famille de système, et une
+ * seule implémentation les porte (`signalProcessGroup`) : en POSIX l'enfant est
+ * spawné **detached**, donc leader d'un groupe que `process.kill(-pid, …)` emporte
+ * d'un coup ; sous Windows, où les groupes POSIX n'existent pas, il est au contraire
+ * **rattaché** pour que `taskkill /T` puisse descendre la filiation. Avant chaque
+ * relance, le superviseur attend que les ports serveur soient libres
+ * (anti-`EADDRINUSE`) et retente de façon bornée si l'enfant crashe immédiatement.
  *
  * Pourquoi pas de HMR backend : Node ne décharge pas un module ESM déjà importé →
  * un re-bundle du `dist/` ne rechargerait rien. Le restart de process est le seul
@@ -213,6 +218,12 @@ export class DevSupervisor {
   #spinFrame = 0;
   #spinLabel = "";
   #stopping = false;
+  /**
+   * `true` une fois annoncé qu'un arrêt n'a pu emporter que l'enfant direct. Dit une
+   * seule fois : le mode dev rejoue ce chemin à CHAQUE sauvegarde, et un avertissement
+   * répété à l'infini cesse d'être lu.
+   */
+  #orphanRiskWarned = false;
   /** Fichiers modifiés depuis le dernier build (pour cibler le rebuild). */
   readonly #dirty = new Set<string>();
   /** Cache dir → nom de workspace (`null` = app racine). */
@@ -711,17 +722,24 @@ export class DevSupervisor {
           readFileSync(this.#pidFile, "utf8").trim(),
           10,
         );
-        if (
-          Number.isInteger(prev) &&
-          prev > 0 &&
-          prev !== process.pid &&
-          this.#isNodefonySupervisor(prev)
-        ) {
-          this.#log(
-            `superviseur précédent encore actif (pid ${prev}) — arrêt avant démarrage`,
-            "yellow",
-          );
-          await this.#killSupervisor(prev);
+        if (Number.isInteger(prev) && prev > 0 && prev !== process.pid) {
+          if (this.#isNodefonySupervisor(prev)) {
+            this.#log(
+              `superviseur précédent encore actif (pid ${prev}) — arrêt avant démarrage`,
+              "yellow",
+            );
+            await this.#killSupervisor(prev);
+          } else if (isPidAlive(prev)) {
+            // Vivant, mais rien ne le rattache à Nodefony : on ÉPARGNE (même
+            // doctrine que `scopeAllToNodefonyProjects`) et on le dit, sinon le
+            // superviseur d'à côté continue de rebuilder sans que personne
+            // comprenne pourquoi la machine chauffe.
+            this.#log(
+              `pid ${prev} du pidfile encore vivant mais non confirmé Nodefony — épargné ; ` +
+                "s'il s'agit d'un superviseur résiduel : `nodefony stop`",
+              "yellow",
+            );
+          }
         }
       }
     } catch {
@@ -736,9 +754,27 @@ export class DevSupervisor {
   }
 
   /**
-   * `true` si `pid` est vivant ET correspond à un process Nodefony — évite de
-   * tuer un PID recyclé par un process tiers. POSIX : vérifié via `ps`. Windows :
-   * pas de `ps` fiable → best-effort (vivant suffit).
+   * `true` si `pid` est vivant ET qu'on a la PREUVE qu'il s'agit d'un superviseur
+   * Nodefony — sinon on n'y touche pas.
+   *
+   * Ce prédicat autorise un `kill`, il doit donc se taire quand il ne sait pas. Il
+   * répondait `true` sur toute absence d'observation (Windows, `ps` introuvable),
+   * c'est-à-dire qu'il tuait un PID **recyclé** par un process tiers dès que le
+   * moyen de regarder manquait — alors que `scopeAllToNodefonyProjects` épargne, à
+   * dix fichiers d'ici, tout process dont l'appartenance n'est pas prouvée. Deux
+   * doctrines opposées pour la même question ; celle qui épargne l'emporte.
+   *
+   * Trois faits concordants sont exigés, et le troisième existe partout
+   * ({@link identifyProcess}) :
+   *
+   * 1. le pidfile qui nomme ce PID vit dans **ce** projet (acquis par construction) ;
+   * 2. le process est vivant ;
+   * 3. l'observation le rattache à Nodefony — la ligne de commande porte le titre
+   *    (POSIX), ou l'image est un runtime Node (Windows, où `tasklist` ne donne pas
+   *    mieux : plus faible seule, décisive corroborée par (1)).
+   *
+   * Sans observation possible, le superviseur résiduel survit — c'est le prix, et il
+   * est ANNONCÉ par l'appelant, avec la commande qui le règle.
    */
   #isNodefonySupervisor(pid: number): boolean {
     try {
@@ -746,35 +782,24 @@ export class DevSupervisor {
     } catch {
       return false;
     }
-    if (process.platform === "win32") return true;
-    try {
-      const out = spawnSync("ps", ["-p", String(pid), "-o", "command="], {
-        encoding: "utf8",
-      });
-      return (out.stdout ?? "").toLowerCase().includes("nodefony");
-    } catch {
-      return true; // ps indisponible → on ne bloque pas le nettoyage
-    }
+    const { observed, command } = identifyProcess(pid);
+    if (!observed || command === null) return false; // rien vu → on ne tue pas
+    const c = command.toLowerCase();
+    return (
+      c.includes("nodefony") ||
+      (process.platform === "win32" && c.startsWith("node"))
+    );
   }
 
   /**
-   * Tue le superviseur précédent et **son groupe** (enfant serveur + Vite) :
-   * SIGTERM (arrêt propre), puis SIGKILL si toujours vivant après 1,5 s.
+   * Tue le superviseur précédent et **son arbre** (enfant serveur + Vite) : SIGTERM
+   * (arrêt propre là où il existe), puis SIGKILL si toujours vivant après 1,5 s.
    */
   async #killSupervisor(pid: number): Promise<void> {
-    const groupKill = (signal: NodeJS.Signals): void => {
-      try {
-        if (process.platform !== "win32") process.kill(-pid, signal);
-      } catch {
-        /* pas leader de groupe / groupe disparu */
-      }
-      try {
-        process.kill(pid, signal);
-      } catch {
-        /* déjà mort */
-      }
-    };
-    groupKill("SIGTERM");
+    // Un seul « tuer un arbre de process dev » dans le dépôt : `signalProcessGroup`
+    // (groupe POSIX / `taskkill /T` Windows). La copie locale qui vivait ici ne
+    // connaissait que les groupes POSIX — sous Windows elle laissait tout l'arbre.
+    signalProcessGroup(pid, "SIGTERM");
     const deadline = Date.now() + 1500;
     while (Date.now() < deadline) {
       await delay(100);
@@ -784,7 +809,7 @@ export class DevSupervisor {
         return; // mort proprement
       }
     }
-    groupKill("SIGKILL");
+    signalProcessGroup(pid, "SIGKILL");
     await delay(200);
   }
 
@@ -799,8 +824,10 @@ export class DevSupervisor {
       cwd: this.#cwd,
       env: { ...process.env, [this.#childEnvKey]: "1" },
       stdio: "inherit",
-      // Leader de groupe (POSIX) → kill du groupe entier (Vite inclus) au restart.
-      // Windows n'a pas de groupes POSIX → kill direct de l'enfant (fallback).
+      // POSIX : leader de groupe → `kill(-pid)` emporte le groupe entier (Vite
+      // inclus) au restart. Windows : pas de groupes, et le rattachement est ce
+      // qui rend l'arbre atteignable — `taskkill /T` suit la FILIATION. Détacher
+      // y couperait le lien de parenté, seul chemin vers les Vite.
       detached: process.platform !== "win32",
     });
     this.#child = child;
@@ -1213,18 +1240,33 @@ export class DevSupervisor {
   }
 
   /**
-   * Envoie un signal au **groupe** de l'enfant (POSIX, pid négatif) — tue Vite et
-   * tout descendant. Fallback `child.kill` sur Windows / pid indisponible.
+   * Envoie un signal à l'**arbre** de l'enfant — Vite et tout descendant compris —
+   * via l'unique implémentation du dépôt ({@link signalProcessGroup}).
+   *
+   * Ce point était le plus coûteux du chantier Windows : il retombait sur
+   * `child.kill()`, qui n'atteint que l'enfant DIRECT. Chaque rechargement laissait
+   * donc un Vite orphelin, et le mode dev en enchaîne un par sauvegarde.
+   *
+   * Quand même l'arbre est hors de portée, on le DIT (une fois) plutôt que de laisser
+   * l'utilisateur découvrir sa machine saturée.
    */
   #signalGroup(c: ChildProcess, signal: NodeJS.Signals): void {
-    try {
-      if (process.platform === "win32" || typeof c.pid !== "number") {
+    if (typeof c.pid !== "number") {
+      try {
         c.kill(signal);
-      } else {
-        process.kill(-c.pid, signal);
+      } catch {
+        /* déjà mort */
       }
-    } catch {
-      /* déjà mort / groupe disparu */
+      return;
+    }
+    const outcome = signalProcessGroup(c.pid, signal);
+    if (outcome === "single" && !this.#orphanRiskWarned) {
+      this.#orphanRiskWarned = true;
+      this.#log(
+        "arrêt limité au process serveur (arbre hors de portée) — des instances Vite " +
+          "peuvent survivre à ce rechargement ; `nodefony stop` les balaie",
+        "yellow",
+      );
     }
   }
 

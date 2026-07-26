@@ -24,8 +24,11 @@ import {
   devSupervisorPidFile,
   findRuntimeConflict,
   formatUptime,
+  killTreeCommand,
   missingWorkspaceDists,
   parsePsRow,
+  parseTasklistImage,
+  signalProcessGroup,
   processCwd,
   readRuntimeState,
   runtimeModes,
@@ -677,5 +680,122 @@ describe("scopeAllToNodefonyProjects — seconde preuve avant un kill sans proje
       kept.map((p) => p.pid),
       [4],
     );
+  });
+});
+
+describe("killTreeCommand — atteindre un arbre sur chaque plateforme", () => {
+  it("Windows : taskkill descend la filiation, de force (aucun gracieux n'existe)", () => {
+    assert.deepStrictEqual(killTreeCommand(4212, "win32"), {
+      file: "taskkill",
+      args: ["/PID", "4212", "/T", "/F"],
+    });
+  });
+
+  it("POSIX : pas de programme externe — la voie est le signal de groupe", () => {
+    assert.strictEqual(killTreeCommand(4212, "linux"), null);
+    assert.strictEqual(killTreeCommand(4212, "darwin"), null);
+  });
+});
+
+describe("signalProcessGroup — le verdict, pas l'intention", () => {
+  it("Windows : l'arbre est emporté par taskkill, pas par un kill de pid", () => {
+    const killed: number[] = [];
+    const ran: { file: string; args: string[] }[] = [];
+    const outcome = signalProcessGroup(4212, "SIGTERM", {
+      platform: "win32",
+      runTreeKill: (cmd) => {
+        ran.push(cmd);
+        return true;
+      },
+      killPid: (p) => {
+        killed.push(p);
+      },
+    });
+    assert.strictEqual(outcome, "forced-tree");
+    assert.deepStrictEqual(ran[0].args, ["/PID", "4212", "/T", "/F"]);
+    assert.deepStrictEqual(killed, []); // l'enfant direct n'est PAS visé séparément
+  });
+
+  it("Windows sans taskkill : repli sur l'enfant direct, et on l'ANNONCE (single)", () => {
+    const killed: number[] = [];
+    const outcome = signalProcessGroup(4212, "SIGTERM", {
+      platform: "win32",
+      runTreeKill: () => false, // binaire absent / refusé
+      killPid: (p) => {
+        killed.push(p);
+      },
+    });
+    assert.strictEqual(outcome, "single"); // ⇒ des Vite peuvent survivre
+    assert.deepStrictEqual(killed, [4212]);
+  });
+
+  it("Windows, process déjà mort : `gone`, jamais `single` (pas de faux orphelin)", () => {
+    const outcome = signalProcessGroup(4212, "SIGTERM", {
+      platform: "win32",
+      runTreeKill: () => false,
+      killPid: () => {
+        throw new Error("ESRCH");
+      },
+    });
+    assert.strictEqual(outcome, "gone");
+  });
+
+  it("POSIX : le groupe reçoit le signal négatif", () => {
+    const groups: number[] = [];
+    const outcome = signalProcessGroup(77, "SIGTERM", {
+      platform: "linux",
+      killGroup: (p) => {
+        groups.push(p);
+      },
+      killPid: () => {},
+    });
+    assert.strictEqual(outcome, "group");
+    assert.deepStrictEqual(groups, [77]);
+  });
+
+  it("POSIX, pas leader de groupe : `single` — le pid seul a été atteint", () => {
+    const outcome = signalProcessGroup(77, "SIGKILL", {
+      platform: "linux",
+      killGroup: () => {
+        throw new Error("ESRCH");
+      },
+      killPid: () => {},
+    });
+    assert.strictEqual(outcome, "single");
+  });
+
+  it("POSIX, plus rien à atteindre : `gone`", () => {
+    const outcome = signalProcessGroup(77, "SIGKILL", {
+      platform: "linux",
+      killGroup: () => {
+        throw new Error("ESRCH");
+      },
+      killPid: () => {
+        throw new Error("ESRCH");
+      },
+    });
+    assert.strictEqual(outcome, "gone");
+  });
+});
+
+describe("parseTasklistImage — « je l'ai vu » vs « je n'ai rien vu »", () => {
+  it("ligne CSV → nom d'image", () => {
+    assert.strictEqual(
+      parseTasklistImage('"node.exe","4212","Console","1","52 480 K"'),
+      "node.exe",
+    );
+  });
+
+  it("phrase INFO (code de sortie NUL) → aucun process décrit", () => {
+    assert.strictEqual(
+      parseTasklistImage(
+        "INFO: No tasks are running which match the specified criteria.",
+      ),
+      null,
+    );
+  });
+
+  it("sortie vide → null", () => {
+    assert.strictEqual(parseTasklistImage(""), null);
   });
 });

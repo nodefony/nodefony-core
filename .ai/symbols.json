@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-26T21:58:52.526Z",
+  "generated": "2026-07-26T22:21:40.084Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 638,
-    "symbols": 2504,
+    "symbols": 2511,
     "classes": 335,
-    "interfaces": 764,
-    "types": 331,
+    "interfaces": 766,
+    "types": 332,
     "enums": 4,
-    "functions": 896,
+    "functions": 900,
     "constants": 174
   },
   "symbols": {
@@ -5194,6 +5194,24 @@
       "extends": null,
       "description": "Ce que le serveur publie quand il demande au superviseur de patienter."
     },
+    "ProcessIdentity": {
+      "name": "ProcessIdentity",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'on a pu CONSTATER d'un process — le verdict d'observation avec la donnée."
+    },
+    "SignalTreeDeps": {
+      "name": "SignalTreeDeps",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Dépendances de {@link signalProcessGroup} — injectées pour éprouver Windows sans Windows."
+    },
     "TerminateOptions": {
       "name": "TerminateOptions",
       "kind": "interface",
@@ -5236,6 +5254,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Rôle d'un process dans la topologie runtime Nodefony (dev OU prod OU cluster). `supervisor`/`master` = superviseurs (0 HTTP) ; `server`/`worker` = servent le HTTP ; `vite` = enfant dev (bundler)."
+    },
+    "TreeSignalOutcome": {
+      "name": "TreeSignalOutcome",
+      "kind": "type",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'un envoi de signal a RÉELLEMENT pu atteindre — le verdict, pas l'intention. - `group` : le groupe POSIX a reçu le signal (descendants inclus), gracieux respecté. - `forced-tree` : l'arbre Win…"
     },
     "DevProcessWithCwd": {
       "name": "DevProcessWithCwd",
@@ -5348,13 +5374,37 @@
       "module": "@nodefony/core",
       "description": "`true` si le process `pid` est vivant (signal 0 — ne le tue pas)."
     },
+    "parseTasklistImage": {
+      "name": "parseTasklistImage",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom d'image d'une ligne `tasklist /NH /FO CSV` — fonction PURE. `tasklist` sort `\"node.exe\",\"4212\",\"Console\",\"1\",\"52 480 K\"`, mais aussi, quand le PID n'existe plus, une phrase en clair (`INFO: No …"
+    },
+    "identifyProcess": {
+      "name": "identifyProcess",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Identifie un process vivant par OBSERVATION EXTERNE, sur toutes les plateformes. POSIX lit la ligne de commande (`ps -o command=`) — la preuve la plus forte, elle contient le titre de process Nodef…"
+    },
+    "killTreeCommand": {
+      "name": "killTreeCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Comment atteindre l'ARBRE de `pid` sur `platform` — fonction PURE, sans effet. POSIX répond par un signal au groupe (`-pid`), qui n'a pas d'équivalent Windows : là-bas la seule voie est un programm…"
+    },
     "signalProcessGroup": {
       "name": "signalProcessGroup",
       "kind": "function",
       "file": "src/nodefony/src/service/dev/devProcess.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Envoie `signal` au GROUPE de process de `pid` (POSIX : `-pid` → atteint les descendants, ex. l'enfant serveur + ses Vite quand `pid` est le superviseur leader de groupe) PUIS au `pid` lui-même en f…"
+      "description": "Envoie `signal` à l'ARBRE de `pid` — enfant serveur ET ses Vite — et dit ce qu'il a pu atteindre. No-op silencieux si le process n'existe plus. POSIX : signal au groupe (`-pid`) puis au pid en repl…"
     },
     "clearSupervisorPidFile": {
       "name": "clearSupervisorPidFile",
@@ -21129,7 +21179,8 @@
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "signalProcessGroup": [
-        "src/nodefony/src/service/dev/detachedStart.ts"
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "formatForeignRuntimes": [
         "src/nodefony/src/service/dev/detachedStart.ts",
@@ -21162,7 +21213,8 @@
         "src/nodefony/src/service/dev/devStop.ts"
       ],
       "isPidAlive": [
-        "src/nodefony/src/service/dev/devStatusReport.ts"
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "readSupervisorPid": [
         "src/nodefony/src/service/dev/devStatusReport.ts"
@@ -21190,6 +21242,9 @@
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "missingWorkspaceDists": [
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "identifyProcess": [
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "FileTransport": [
