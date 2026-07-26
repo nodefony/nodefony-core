@@ -21,6 +21,7 @@ import { createRequire } from "node:module";
 // Type SEUL (paramètre de `TypeController<…>`) : le cœur ne dépend pas de
 // `@nodefony/framework` à l'exécution — l'inverse serait un cycle.
 import type { Controller } from "@nodefony/framework";
+// oxlint-disable-next-line typescript/no-explicit-any -- signature de constructeur générique — `unknown[]` casse l'assignabilité des classes concrètes
 export type TypeController<T> = new (...args: any[]) => T;
 const controllers: Record<string, TypeController<Controller>> = {};
 

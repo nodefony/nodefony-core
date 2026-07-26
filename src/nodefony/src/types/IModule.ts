@@ -8,6 +8,7 @@ import type { JSONObject } from "./globals";
  * Permet aux consommateurs (framework, http, security) de typer leurs
  * controllers sans que le core dépende de @nodefony/framework.
  */
+// oxlint-disable-next-line typescript/no-explicit-any -- signature de constructeur générique — `unknown[]` casse l'assignabilité des classes concrètes
 export type IControllerConstructor<T = unknown> = new (...args: any[]) => T;
 
 // Déplacé depuis Module.ts — défini ici pour éviter l'import circulaire IModule → Module

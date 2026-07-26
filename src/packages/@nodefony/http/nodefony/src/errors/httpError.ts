@@ -60,6 +60,7 @@ class HttpError extends NodefonyError {
         (context?.response as HttpRsponseType)?.statusMessage ||
         (context?.response as HttpRsponseType)?.getStatusMessage();
     }
+    // oxlint-disable-next-line typescript/no-explicit-any -- resolver atteint sans importer @nodefony/framework (dépendance circulaire)
     const resolver = (context as any)?.resolver;
     this.controller = resolver?.controller?.name ?? undefined;
     this.action = resolver?.actionName ?? undefined;

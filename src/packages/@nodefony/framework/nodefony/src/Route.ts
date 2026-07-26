@@ -30,6 +30,7 @@ const decode = function (str: string): string {
 export interface ControllerConstructor {
   // Idiome TS officiel des signatures de constructeur (mixins/DI) — `any[]`
   // requis ; `unknown[]` casse l'instanciation via `Injector`. Pas de la dette.
+  // oxlint-disable-next-line typescript/no-explicit-any -- signature de constructeur générique — `unknown[]` casse l'assignabilité des classes concrètes
   new (...args: any[]): Controller;
 }
 

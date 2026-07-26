@@ -43,6 +43,7 @@ function collectSupportedMethods(route: Route): Set<string> {
 }
 // Idiome TS officiel des mixins/factories de constructeur — `unknown[]` y casse
 // la contravariance des args ; `any[]` gardé volontairement (pas de la dette).
+// oxlint-disable-next-line typescript/no-explicit-any -- signature de constructeur générique — `unknown[]` casse l'assignabilité des classes concrètes
 export type TypeController<T> = new (...args: any[]) => T;
 
 const routes: Route[] = [];

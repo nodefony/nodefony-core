@@ -1,3 +1,10 @@
+/* oxlint-disable typescript/no-explicit-any -- Fichier des décorateurs : `any` y est
+   la signature IMPOSÉE par TypeScript, jamais de la dette. Deux formes, toutes deux
+   justifiées au cas par cas dans les commentaires ci-dessous : le type de constructeur
+   d'un mixin (`new (...args: any[]) => T` — un `unknown[]` casse l'`extends
+   constructor`), et le décorateur DUAL classe+méthode (`target` est le constructeur
+   OU le prototype ; un type concret casse l'assignabilité à `ClassDecorator` /
+   `MethodDecorator`). Un `any` AUTRE que ces deux formes n'a rien à faire ici. */
 import "reflect-metadata";
 //import { fileURLToPath } from "url";
 import Router, { TypeController } from "../service/router";

@@ -1047,6 +1047,7 @@ class Kernel extends Service implements IKernel {
    */
   async addKernelService(
     service: ServiceConstructor,
+    // oxlint-disable-next-line typescript/no-explicit-any -- arguments variadiques transmis tels quels au constructeur appelé
     ...args: any[]
   ): Promise<Service | null> {
     const inst: Service = Injector.instantiate(service, this, ...args);
@@ -1207,6 +1208,7 @@ class Kernel extends Service implements IKernel {
    * @param args - arguments additionnels (après `kernel, path, options` par défaut).
    * @returns instance du module enregistrée.
    */
+  // oxlint-disable-next-line typescript/no-explicit-any -- arguments variadiques transmis tels quels au constructeur appelé
   async addModule(Mod: ModuleConstructor, ...args: any[]): Promise<Module> {
     const mod = new Mod(this, ...args);
     this.modules[mod.name] = mod;
@@ -2581,9 +2583,9 @@ class Kernel extends Service implements IKernel {
    * @returns le {@link IGuardedEmitResult} (results / errors / stopped).
    * @throws l'erreur d'un module critique en production (interrompt le boot).
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async fireLifecycle(
     event: KernelEventsType,
+    // oxlint-disable-next-line typescript/no-explicit-any -- arguments variadiques d'un événement de cycle de vie — leur forme dépend de l'événement
     ...args: any[]
   ): Promise<IGuardedEmitResult> {
     this.log(`${colorLogEvent()} ${event as string} [guarded]`, "DEBUG");

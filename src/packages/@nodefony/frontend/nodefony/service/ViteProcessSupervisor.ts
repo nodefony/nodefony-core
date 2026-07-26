@@ -202,6 +202,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
   private childListeners: Array<{
     target: NodeJS.EventEmitter;
     event: string;
+    // oxlint-disable-next-line typescript/no-explicit-any -- registre d'écouteurs hétérogènes — chaque handler a sa propre signature
     fn: (...args: any[]) => void;
   }> = [];
 
@@ -746,6 +747,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
   private trackListener(
     target: NodeJS.EventEmitter,
     event: string,
+    // oxlint-disable-next-line typescript/no-explicit-any -- registre d'écouteurs hétérogènes — chaque handler a sa propre signature
     fn: (...args: any[]) => void,
   ): void {
     target.on(event, fn);
