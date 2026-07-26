@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-25T23:50:17.617Z",
+  "generated": "2026-07-26T00:08:13.292Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 1052,
-    "symbols": 2914,
+    "symbols": 2916,
     "classes": 336,
     "interfaces": 764,
     "types": 331,
     "enums": 4,
-    "functions": 893,
+    "functions": 895,
     "constants": 586
   },
   "symbols": {
@@ -3187,6 +3187,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Câble `this.addCommand(<Classe>)` dans le constructeur du Module d'un `index.ts` : ajoute l'import après le dernier import, insère l'appel juste après le `super(…)` du constructeur. L'ancre est le …"
+    },
+    "sampleValue": {
+      "name": "sampleValue",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Valeur d'exemple d'un champ — VALIDE au regard du schéma de l'entité. Un échantillon n'est pas une décoration : les tests générés s'en servent pour insérer, et la documentation pour montrer un appe…"
     },
     "wireEntitiesDecorator": {
       "name": "wireEntitiesDecorator",
@@ -23628,6 +23636,9 @@
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "TEntityIdKind": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "IEntityField": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "findReservedEntity": [

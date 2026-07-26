@@ -694,6 +694,60 @@ function primaryKeyColumn(
   };
 }
 
+/**
+ * Colonne qui PORTE une référence — le pendant exact de {@link primaryKeyColumn}.
+ *
+ * Une clé étrangère doit avoir le TYPE de la clé qu'elle désigne, et c'est la
+ * raison d'être de cette fonction : la référence était jusqu'ici une colonne
+ * texte, quelle que soit la clé visée. En PostgreSQL, comparer un `text` à un
+ * `uuid` échoue — « operator does not exist: text = uuid ». La jointure que cette
+ * colonne existe précisément pour servir refusait donc de s'exécuter, et le
+ * `?include=` avec elle. En SQLite, moteur du développement, la même comparaison
+ * passe sans broncher : la panne n'attendait que le premier vrai serveur.
+ *
+ * La stratégie retenue est celle de l'entité qu'on crée. C'est le seul indice
+ * dont dispose le générateur — il ne lit pas l'entité visée —, et il est juste
+ * tant qu'une application ne mélange pas ses styles d'identifiant, ce qui est le
+ * cas ordinaire. Une cible d'un autre style se corrige dans la table générée :
+ * c'est du Drizzle natif.
+ *
+ * Aucune contrainte `REFERENCES` n'est émise — même raison qu'ailleurs : le DDL
+ * dérivé du mode développement ne l'appliquerait pas, et une promesse non tenue
+ * coûte plus cher qu'un commentaire honnête.
+ *
+ * @param dialect - moteur visé.
+ * @param id - stratégie de clé primaire de l'entité en cours.
+ * @param col - nom de la colonne.
+ * @returns l'expression Drizzle, son type TypeScript et l'import nécessaire.
+ */
+function foreignKeyColumn(
+  dialect: TEntityDialect,
+  id: TEntityIdKind,
+  col: string,
+): { expr: string; tsType: string; imports: string[] } {
+  if (id === "serial") {
+    // Un entier ORDINAIRE : la table cible auto-incrémente sa clé, celle qui la
+    // désigne se contente de la recopier.
+    const expr = dialect === "mysql" ? `int("${col}")` : `integer("${col}")`;
+    return {
+      expr,
+      tsType: "number",
+      imports: [dialect === "mysql" ? "int" : "integer"],
+    };
+  }
+  return {
+    expr: COLUMN[dialect].uuid(col),
+    tsType: "string",
+    imports: [
+      dialect === "postgres"
+        ? "uuid"
+        : dialect === "mysql"
+          ? "varchar"
+          : "text",
+    ],
+  };
+}
+
 /** Nom du constructeur Drizzle utilisé par un champ (pour la liste d'imports). */
 function columnImport(
   dialect: TEntityDialect,
@@ -773,12 +827,24 @@ export function buildEntityCodegen(
   rowProps.push(`id: ${pk.tsType};`);
 
   for (const field of fields) {
-    imports.add(columnImport(dialect, field.type));
-    let col = COLUMN[dialect][field.type](field.name, field.values, {
-      length: field.length,
-      precision: field.precision,
-      scale: field.scale,
-    });
+    // Une référence emprunte le type de la CLÉ qu'elle désigne, pas celui d'une
+    // chaîne quelconque : c'est la condition pour que la jointure s'exécute.
+    const fk =
+      field.type === "ref"
+        ? foreignKeyColumn(dialect, id, field.name)
+        : undefined;
+    if (fk) {
+      fk.imports.forEach((i) => imports.add(i));
+    } else {
+      imports.add(columnImport(dialect, field.type));
+    }
+    let col =
+      fk?.expr ??
+      COLUMN[dialect][field.type](field.name, field.values, {
+        length: field.length,
+        precision: field.precision,
+        scale: field.scale,
+      });
     if (!field.nullable) col += ".notNull()";
     if (field.unique) col += ".unique()";
     if (field.defaultValue !== undefined) {
@@ -790,9 +856,13 @@ export function buildEntityCodegen(
     columns.push(`${field.name}: ${col},`);
 
     const optional = field.nullable ? " | null" : "";
-    rowProps.push(`${field.name}: ${tsTypeOf(field)}${optional};`);
+    rowProps.push(
+      `${field.name}: ${fk?.tsType ?? tsTypeOf(field)}${optional};`,
+    );
 
-    let zod = zodTypeOf(field);
+    // Le schéma suit le même type : une clé auto-incrémentée est un NOMBRE, et
+    // le valider comme une chaîne rejetterait la valeur que la base rend.
+    let zod = fk?.tsType === "number" ? "z.number().int()" : zodTypeOf(field);
     if (field.nullable) zod += ".nullable().optional()";
     if (field.defaultValue !== undefined) {
       zod += `.default(${defaultLiteral(field)})`;

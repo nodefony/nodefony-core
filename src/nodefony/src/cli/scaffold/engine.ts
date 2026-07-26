@@ -13,6 +13,7 @@ import {
   ENTITY_ID_KINDS,
   type TEntityDialect,
   type TEntityIdKind,
+  type IEntityField,
 } from "./entityFields";
 import { findReservedEntity } from "./reservedEntities";
 import { pick, SCAFFOLD_VERSIONS } from "./versions";
@@ -1591,6 +1592,86 @@ function runCommandScaffold(
   };
 }
 
+/**
+ * Valeur d'exemple d'un champ — VALIDE au regard du schéma de l'entité.
+ *
+ * Un échantillon n'est pas une décoration : les tests générés s'en servent pour
+ * insérer, et la documentation pour montrer un appel qui marche. S'il viole le
+ * schéma, l'entité naît avec un test rouge, et la première impression du
+ * générateur est qu'il produit du code cassé.
+ *
+ * Ce piège s'est présenté trois fois, sur trois types ajoutés à trois moments
+ * différents — l'énumération, puis le décimal et le caractère fixe. Chaque fois,
+ * la valeur générique `nom-1` passait à côté d'une contrainte que le schéma, lui,
+ * faisait respecter. D'où cette fonction unique : tout type qui restreint ses
+ * valeurs doit dire ici ce qu'il accepte, sinon rien ne le rappellera.
+ *
+ * @param field - le champ à illustrer.
+ * @param id - stratégie de clé primaire (une référence vers une clé numérique
+ *   attend un nombre, pas une chaîne).
+ * @returns `fixed` pour le JSON de la documentation, `expr` pour la fabrique
+ *   paramétrée des tests (une expression TypeScript où `n` varie).
+ */
+export function sampleValue(
+  field: IEntityField,
+  id: TEntityIdKind,
+): { fixed: unknown; expr: string } {
+  const { name, type } = field;
+  if (type === "int" || type === "float") return { fixed: 1, expr: "n" };
+  if (type === "bool") return { fixed: true, expr: "true" };
+  if (type === "json") return { fixed: {}, expr: "{}" };
+  if (type === "date") {
+    return { fixed: "2026-01-01T00:00:00.000Z", expr: "new Date()" };
+  }
+  if (type === "enum") {
+    // Une énumération n'accepte que ses propres valeurs. Le défaut déclaré
+    // d'abord, sinon la première — jamais une valeur inventée.
+    const value = field.defaultValue ?? field.values?.[0] ?? "";
+    return { fixed: value, expr: JSON.stringify(value) };
+  }
+  if (type === "ref") {
+    // Une référence vers une clé auto-incrémentée est un NOMBRE : le schéma la
+    // valide comme tel, une chaîne y serait refusée.
+    return id === "serial"
+      ? { fixed: 1, expr: "n" }
+      : { fixed: `${name}-1`, expr: `\`${name}-\${n}\`` };
+  }
+  if (type === "uuid") {
+    // Le schéma exige un identifiant bien formé (`z.string().uuid()`), donc pas
+    // `nom-1`. On fabrique une version 4 valide dont seule la fin varie.
+    const tail = (n: string): string =>
+      `00000000-0000-4000-8000-${n.padStart(12, "0")}`;
+    return {
+      fixed: tail("1"),
+      expr: `\`00000000-0000-4000-8000-\${String(n).padStart(12, "0")}\``,
+    };
+  }
+  if (type === "decimal") {
+    // Le schéma impose une écriture décimale : `nom-1` la viole.
+    return { fixed: "12.34", expr: "`${n}.50`" };
+  }
+  if (type === "char") {
+    // Longueur EXACTE : ni plus, ni moins. On répète un caractère, et la
+    // variation se loge dans les derniers rangs quand la place le permet.
+    const size = field.length ?? 1;
+    const fixed = "A".repeat(size);
+    return {
+      fixed,
+      expr: `String(n).padStart(${size}, "A").slice(-${size})`,
+    };
+  }
+  // `string` bornée : le libellé habituel, tronqué à la longueur permise — un
+  // nom de champ long dépasserait une petite colonne, et le schéma le refuserait.
+  const max = field.length;
+  if (type === "string" && max !== undefined) {
+    return {
+      fixed: `${name}-1`.slice(0, max),
+      expr: `\`${name}-\${n}\`.slice(0, ${max})`,
+    };
+  }
+  return { fixed: `${name}-1`, expr: `\`${name}-\${n}\`` };
+}
+
 /** Pluriel simple, suffisant pour un nom de table (`Post` → `posts`, `Story` → `stories`). */
 function pluralize(word: string): string {
   if (/[^aeiou]y$/u.test(word)) return `${word.slice(0, -1)}ies`;
@@ -1978,42 +2059,18 @@ function runEntityScaffold(
   //    Elle est indispensable dès qu'un champ est UNIQUE : deux insertions du même
   //    échantillon violeraient la contrainte, et le test généré échouerait sur
   //    lui-même (vécu).
+  //
+  // Les deux formes sortent de {@link sampleValue}, et c'est le point : elles
+  // doivent obéir au MÊME schéma de validation que l'entité. Un échantillon qui
+  // le viole produit un test généré rouge à la naissance — vécu trois fois, sur
+  // trois types différents, chacun ajouté après coup.
   const sample: Record<string, unknown> = {};
   const factory: string[] = [];
   for (const f of fields) {
     if (f.nullable) continue;
-    const isNumber = f.type === "int" || f.type === "float";
-    // Une énumération n'accepte que ses propres valeurs : y mettre `status-1`
-    // produirait un échantillon que le schéma refuse — et un test généré qui
-    // échoue sur lui-même. On prend le défaut déclaré, sinon la première valeur.
-    const enumValue =
-      f.type === "enum" ? (f.defaultValue ?? f.values?.[0] ?? "") : null;
-    sample[f.name] =
-      enumValue !== null
-        ? enumValue
-        : isNumber
-          ? 1
-          : f.type === "bool"
-            ? true
-            : f.type === "json"
-              ? {}
-              : f.type === "date"
-                ? "2026-01-01T00:00:00.000Z"
-                : `${f.name}-1`;
-    factory.push(
-      `${f.name}: ` +
-        (enumValue !== null
-          ? JSON.stringify(enumValue)
-          : isNumber
-            ? "n"
-            : f.type === "bool"
-              ? "true"
-              : f.type === "json"
-                ? "{}"
-                : f.type === "date"
-                  ? "new Date()"
-                  : `\`${f.name}-\${n}\``),
-    );
+    const { fixed, expr } = sampleValue(f, id);
+    sample[f.name] = fixed;
+    factory.push(`${f.name}: ${expr}`);
   }
 
   const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });

@@ -12,7 +12,9 @@ import {
   parseEntityIndexes,
   buildEntityCodegen,
   EntityFieldError,
+  type IEntityField,
 } from "../cli/scaffold/entityFields";
+import { sampleValue } from "../cli/scaffold/engine";
 
 describe("scaffold — analyse des champs", () => {
   it("nom seul → string par défaut, NON NULL", () => {
@@ -637,5 +639,135 @@ describe("scaffold — tailles de colonne", () => {
     });
     assert.match(c.columns, /title: varchar\("title", \{ length: 255 \}\)/u);
     assert.match(c.zodProps, /max\(255\)/u);
+  });
+});
+
+/*
+ *   Une référence porte le TYPE de la clé qu'elle désigne.
+ *
+ *   La colonne de relation sortait en texte quel que soit l'identifiant visé. En
+ *   PostgreSQL, comparer un `text` à un `uuid` échoue — « operator does not
+ *   exist » — donc la jointure que cette colonne existe pour servir refusait de
+ *   s'exécuter, `?include=` compris. Le défaut était invisible en développement :
+ *   SQLite accepte la comparaison sans broncher, et la panne attendait le premier
+ *   vrai serveur.
+ */
+describe("scaffold — la référence suit la clé primaire", () => {
+  const fields = parseEntityFields("author:ref:User");
+  const base = { timestamps: false, softDelete: false, table: "posts" };
+
+  it("postgres + uuid : la référence est un uuid, pas un texte", () => {
+    const c = buildEntityCodegen(fields, {
+      ...base,
+      dialect: "postgres",
+      id: "uuid7",
+    });
+    assert.match(c.columns, /id: uuid\("id"\)/u);
+    assert.match(c.columns, /author: uuid\("author"\)/u);
+    // Le défaut exact que ce banc verrouille.
+    assert.doesNotMatch(c.columns, /author: text\("author"\)/u);
+  });
+
+  it("mysql + uuid : même largeur que la clé (36), pas 255", () => {
+    const c = buildEntityCodegen(fields, {
+      ...base,
+      dialect: "mysql",
+      id: "uuid7",
+    });
+    assert.match(c.columns, /author: varchar\("author", \{ length: 36 \}\)/u);
+  });
+
+  it("clé auto-incrémentée : la référence est un ENTIER, jamais du texte", () => {
+    for (const dialect of ["postgres", "mysql", "sqlite"] as const) {
+      const c = buildEntityCodegen(fields, { ...base, dialect, id: "serial" });
+      assert.match(
+        c.columns,
+        /author: (integer|int)\("author"\)/u,
+        `${dialect} : une référence vers une clé numérique doit être numérique\n${c.columns}`,
+      );
+      // Et le contrat TypeScript suit, sinon le code appelant compile faux.
+      assert.match(c.rowProps, /author: number;/u, dialect);
+    }
+  });
+
+  it("le schéma de validation suit le type, pas l'inverse", () => {
+    const numeric = buildEntityCodegen(fields, {
+      ...base,
+      dialect: "postgres",
+      id: "serial",
+    });
+    assert.match(numeric.zodProps, /author: z\.number\(\)\.int\(\)/u);
+    const uuid = buildEntityCodegen(fields, {
+      ...base,
+      dialect: "postgres",
+      id: "uuid7",
+    });
+    assert.match(uuid.zodProps, /author: z\.string\(\)/u);
+  });
+});
+
+/*
+ *   L'échantillon d'un champ doit satisfaire le schéma de ce champ.
+ *
+ *   Règle évidente, cassée trois fois — à l'ajout de l'énumération, puis du
+ *   décimal, puis du caractère fixe. Chaque fois la valeur générique `nom-1`
+ *   passait à côté d'une contrainte, l'entité naissait avec un test rouge, et le
+ *   défaut ne se voyait qu'en LANÇANT le test généré : les assertions du dépôt
+ *   lisent des chaînes dans des fichiers rendus, elles n'exécutent rien.
+ *
+ *   Ce banc ferme la récidive : tout type qui restreint ses valeurs est confronté
+ *   ici à la contrainte réelle. Un type ajouté sans sa valeur d'exemple tombera.
+ */
+describe("scaffold — l'échantillon respecte le schéma", () => {
+  const field = (spec: string): IEntityField => parseEntityFields(spec)[0];
+
+  it("décimal : la valeur s'écrit comme un décimal", () => {
+    const { fixed } = sampleValue(field("price:decimal(12,2)"), "uuid7");
+    assert.match(String(fixed), /^-?\d+(\.\d+)?$/u);
+  });
+
+  it("caractère fixe : longueur EXACTE, dans les deux formes", () => {
+    const f = field("country:char(3)");
+    const { fixed, expr } = sampleValue(f, "uuid7");
+    assert.strictEqual(String(fixed).length, 3);
+    // La fabrique varie avec `n` : sa longueur doit tenir pour n'importe quel n.
+    for (const n of [1, 42, 123456]) {
+      const value = String(n).padStart(3, "A").slice(-3);
+      assert.strictEqual(value.length, 3, `n=${n} → « ${value} »`);
+    }
+    assert.match(expr, /padStart\(3/u);
+  });
+
+  it("identifiant : un uuid bien formé, pas « nom-1 »", () => {
+    const { fixed } = sampleValue(field("siteId:uuid"), "uuid7");
+    assert.match(
+      String(fixed),
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
+      "le schéma exige un identifiant valide (z.string().uuid())",
+    );
+  });
+
+  it("chaîne bornée : l'exemple ne dépasse pas la borne", () => {
+    // Un nom de champ long dans une colonne courte : c'est là que ça casse.
+    const { fixed } = sampleValue(
+      field("descriptionDetaillee:string(5)"),
+      "uuid7",
+    );
+    assert.ok(
+      String(fixed).length <= 5,
+      `« ${String(fixed)} » dépasse la longueur déclarée`,
+    );
+  });
+
+  it("énumération : une des valeurs déclarées, jamais une inventée", () => {
+    const f = field("status:enum(draft,published)");
+    const { fixed } = sampleValue(f, "uuid7");
+    assert.ok(f.values?.includes(String(fixed)));
+  });
+
+  it("référence vers une clé auto-incrémentée : un NOMBRE", () => {
+    const { fixed, expr } = sampleValue(field("author:ref:User"), "serial");
+    assert.strictEqual(typeof fixed, "number");
+    assert.strictEqual(expr, "n");
   });
 });
