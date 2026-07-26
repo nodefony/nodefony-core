@@ -179,17 +179,21 @@
     // un vrai défaut — le maillon suivant reçoit `undefined` — et la règle le dit
     // toujours.
     "promise/always-return": ["warn", { "ignoreLastCallback": true }],
-    // Désactivée APRÈS avoir récolté ce qu'elle avait à donner : 24 signalements,
-    // 2 défauts réels (corrigés), 0 dans les tests et les scripts. La règle compte
-    // les `resolve`/`reject` d'une portée sans suivre le flux : elle signale à tort
-    // un `return resolve()`, un ternaire `c ? resolve() : reject()`, une garde
-    // d'idempotence (`if (settled) return`) et une course volontaire où le premier
-    // arrivé gagne (sonde `end`/`error`/`timeout`). 13 signalements permanents pour
-    // du code correct — à ce taux, le 14ᵉ, lui vrai, ne serait plus lu.
-    // Le piège qu'elle avait trouvé, à surveiller à la main : un `child_process` en
-    // échec émet `error` PUIS `close`, donc deux verdicts pour une seule Promise
-    // (cf `docsReader.ts`, garde `settle`).
-    "promise/no-multiple-resolved": "off"
+    // MAINTENUE en production, désactivée dans les tests et les scripts (cf
+    // overrides). Elle a trouvé le seul défaut qu'on ne voyait pas : un
+    // `child_process` dont le lancement échoue émet `error` PUIS `close` — deux
+    // verdicts pour une seule promesse, le second écrasant le premier en silence
+    // (cf `docsReader.ts`, garde `settle`). Ce piège reviendra, et c'est ELLE qui
+    // le dira.
+    //
+    // Prix à payer, assumé : elle compte les `resolve`/`reject` d'une portée sans
+    // suivre le flux, donc elle signale aussi des formes correctes — un
+    // `return resolve()`, un ternaire `c ? resolve() : reject()`, une garde
+    // d'idempotence (`if (settled) return`), et la course volontaire d'une sonde
+    // où le premier arrivé gagne (`end` / `error` / `timeout`). Cinq signalements
+    // permanents, tous vérifiés un par un. Les laisser visibles coûte moins cher
+    // que de perdre le seul cas qui mord.
+    "promise/no-multiple-resolved": "warn"
   },
   "overrides": [
     {
@@ -218,7 +222,11 @@
         "no-new": "off",
         // Un `it()` rend sa chaîne d'assertions au runner, qui en ignore la
         // valeur. Exiger un `return` à la fin d'un test ne décrit rien.
-        "promise/always-return": "off"
+        "promise/always-return": "off",
+        // Reste ACTIVE en production (cf rules) : c'est là qu'elle a trouvé un
+        // vrai double verdict. Ici elle n'a signalé que des décors — sondes
+        // tolérantes où le premier arrivé gagne, gardes `settled` explicites.
+        "promise/no-multiple-resolved": "off"
       }
     }
   ]
