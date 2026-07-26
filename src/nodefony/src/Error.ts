@@ -51,6 +51,7 @@ const json: JsonDescriptor = {
   },
 };
 
+// oxlint-disable-next-line no-extend-native -- extension DÉLIBÉRÉE : toute erreur, y compris celles levées par Node ou une dépendance, doit être sérialisable par le syslog ; non-énumérable, donc invisible d'un `for...in`
 Object.defineProperty(Error.prototype, "toJSON", json);
 
 const exclude = {

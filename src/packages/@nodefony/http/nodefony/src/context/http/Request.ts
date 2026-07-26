@@ -34,6 +34,15 @@ import {
 
 const reg = /(.*)[[][\]]$/u;
 
+/**
+ * Supprime un fichier temporaire d'upload sans jamais faire échouer le nettoyage :
+ * le fichier peut déjà avoir disparu, et l'erreur d'origine qu'on est en train de
+ * remonter doit rester celle que l'appelant voit. Définie au niveau du module —
+ * une seule allocation pour tout le processus, jamais une par requête.
+ */
+const unlinkQuiet = (p: string): Promise<void> =>
+  fsp.unlink(p).catch(() => undefined);
+
 // Sentinelle (singleton, 0 alloc/req) renvoyée quand le corps a été ENTIÈREMENT
 // consommé + onRequestEnd émis DANS parseRequest (multipart busboy en streaming,
 // ou JSON drainé+parsé). `initialize()` la voit comme « déjà traité » (n'est ni
@@ -444,9 +453,8 @@ class HttpRequest {
         for (const ws of openStreams) {
           ws.destroy();
         }
-        Promise.all(
-          tempPaths.map((p) => fsp.unlink(p).catch(() => undefined)),
-        ).finally(() => reject(err));
+        // oxlint-disable-next-line no-promise-in-callback -- promesse DÉLIBÉRÉE dans un rappel : `abort` est appelée depuis les rappels de busboy, qui ne peuvent rien attendre ; le rejet est garanti par le `finally`, et s'en passer laisserait les fichiers temporaires sur le disque
+        Promise.all(tempPaths.map(unlinkQuiet)).finally(() => reject(err));
       };
 
       bb.on("field", (name: string, value: string) => {

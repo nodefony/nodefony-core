@@ -13,6 +13,7 @@ import { nodefonyError } from "nodefony";
  * refuse d'enregistrer un credential de plus.
  */
 export class WebAuthnError extends nodefonyError {
+  // oxlint-disable-next-line no-useless-constructor -- pas redondant : il FIGE `code` à 409, seul statut que cette erreur puisse porter, là où le parent accepte n'importe quel nombre
   constructor(message: string, code: 409) {
     super(message, code);
   }

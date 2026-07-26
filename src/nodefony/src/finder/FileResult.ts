@@ -2,6 +2,7 @@ import Result from "./Result";
 import File from "./File";
 
 class FileResult extends Result {
+  // oxlint-disable-next-line no-useless-constructor -- pas redondant : il RESSERRE le type accepté (`File[]` au lieu du `any[]` du parent) ; le retirer rendrait la signature permissive
   constructor(res?: File[] | undefined) {
     super(res);
   }

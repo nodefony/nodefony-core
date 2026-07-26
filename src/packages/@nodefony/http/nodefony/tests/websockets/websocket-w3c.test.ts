@@ -1,3 +1,7 @@
+// oxlint-disable prefer-add-event-listener -- dérogation de FICHIER : ce banc vérifie
+// précisément que la socket expose l'API W3C `onopen`/`onmessage`/`onclose`/`onerror`,
+// par opposition à l'API `.on()` de la bibliothèque `ws` éprouvée juste au-dessus.
+// La remplacer par `addEventListener` ferait disparaître ce que le test prouve.
 import { expect } from "chai";
 import WebSocket from "ws";
 

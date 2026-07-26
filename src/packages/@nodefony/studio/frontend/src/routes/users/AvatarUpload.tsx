@@ -109,7 +109,7 @@ function AvatarCropper({
   // Dimensions naturelles + centrage initial.
   useEffect(() => {
     const img = new Image();
-    img.onload = () => {
+    img.addEventListener("load", () => {
       setNat({ w: img.naturalWidth, h: img.naturalHeight });
       const bs = Math.max(
         VIEWPORT / img.naturalWidth,
@@ -118,7 +118,7 @@ function AvatarCropper({
       const w = img.naturalWidth * bs;
       const h = img.naturalHeight * bs;
       setOff({ x: (VIEWPORT - w) / 2, y: (VIEWPORT - h) / 2 });
-    };
+    });
     img.src = src;
   }, [src]);
 
@@ -150,8 +150,8 @@ function AvatarCropper({
     try {
       const img = new Image();
       await new Promise<void>((res, rej) => {
-        img.onload = () => res();
-        img.onerror = () => rej(new Error("image"));
+        img.addEventListener("load", () => res());
+        img.addEventListener("error", () => rej(new Error("image")));
         img.src = src;
       });
       const canvas = document.createElement("canvas");
@@ -284,11 +284,12 @@ export function AvatarUpload({
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => setSrc(reader.result as string);
-    reader.onerror = () =>
+    reader.addEventListener("load", () => setSrc(reader.result as string));
+    reader.addEventListener("error", () =>
       notifications.notify("error", "Lecture du fichier impossible.", {
         source: "api",
-      });
+      }),
+    );
     reader.readAsDataURL(file);
   };
 

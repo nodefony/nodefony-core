@@ -13,6 +13,7 @@ import { nodefonyError } from "nodefony";
  * 401, message uniforme anti-énumération).
  */
 export class ApiKeyError extends nodefonyError {
+  // oxlint-disable-next-line no-useless-constructor -- pas redondant : il RESTREINT `code` aux trois statuts admis ci-dessus, là où le parent accepte n'importe quel nombre
   constructor(message: string, code: 400 | 409 | 503) {
     super(message, code);
   }

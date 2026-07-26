@@ -336,7 +336,7 @@ describe("NODEFONY CORE FINDER", () => {
         const res = await global.finder.in(global.dataPath);
         assert.strictEqual(res[0].childrens.length, 5);
         assert(res[0] instanceof Object);
-        assert(res[0].childrens instanceof Array);
+        assert(Array.isArray(res[0].childrens));
         // console.log(res[0].toJson())
         // console.log(res.toJson())
         // console.log(JSON.stringify(res.toJson()))

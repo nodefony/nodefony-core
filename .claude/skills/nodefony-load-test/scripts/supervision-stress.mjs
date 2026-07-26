@@ -96,6 +96,7 @@ function httpOnce(path, lane) {
 
 /** Worker = boucle de requêtes tant que le test tourne (1 unité de concurrence). */
 async function httpWorker(path, lane) {
+  // oxlint-disable-next-line no-unmodified-loop-condition -- `running` est basculé en fin de campagne, depuis un autre contexte asynchrone : la règle ne suit pas cette écriture
   while (running) await httpOnce(path, lane);
 }
 
@@ -174,6 +175,7 @@ async function main() {
   }, 1000);
 
   let ruptured = false;
+  // oxlint-disable-next-line no-unmodified-loop-condition -- `running` est basculé en fin de campagne, depuis un autre contexte asynchrone : la règle ne suit pas cette écriture
   for (let stage = 1; stage <= STAGES && running; stage++) {
     // Ajoute la charge du palier.
     for (let i = 0; i < HTTP_STEP; i++) httpWorker(HTTP_PATH, C.http);

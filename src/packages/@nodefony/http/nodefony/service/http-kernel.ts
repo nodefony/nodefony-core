@@ -830,15 +830,16 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           return context;
         }
         if (!context.response.isHeaderSent()) {
-          return context
-            .render(result.body)
-            .then(() => context)
-            .catch((e) => {
-              this.log(e, "CRITIC");
-              throw e;
-            });
+          try {
+            await context.render(result.body);
+          } catch (e) {
+            this.log(e, "CRITIC");
+            throw e;
+          }
+          return context;
         }
-        return context.close().then(() => context);
+        await context.close();
+        return context;
       }
       case context instanceof WebsocketContext: {
         try {

@@ -45,6 +45,7 @@ const ok = (cond, msg) => {
 };
 
 // — Sonde + nettoyage : skip PROPRE si Postgres injoignable (≠ échec du banc) —
+// oxlint-disable-next-line no-named-as-default-member -- `pg` est publié en CommonJS : en ESM, l'accès par l'export par défaut est la forme qui fonctionne
 const probe = new pg.Client({ connectionString: PG_URL });
 try {
   await probe.connect();

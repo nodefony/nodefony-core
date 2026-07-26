@@ -1,3 +1,8 @@
+// oxlint-disable no-async-endpoint-handlers -- dérogation de FICHIER : la règle vise Express,
+// où une promesse rejetée échappe au gestionnaire d'erreurs. Ici c'est Fastify, dont l'API
+// NORMALE est le gestionnaire `async` : la valeur retournée devient la réponse, et un rejet
+// est capté par le framework. Comparer les deux à armes égales suppose d'écrire chacun dans
+// son idiome — c'est tout l'objet de ce banc.
 // Fastify 5 — index radix (find-my-way) = ce que viserait le fast path P2/P3b.
 // Deux modes : par défaut sans schéma (JSON.stringify, comme les autres) ;
 // FASTIFY_SCHEMA=1 active fast-json-stringify (le "plein potentiel" Fastify).

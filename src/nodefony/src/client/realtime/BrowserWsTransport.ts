@@ -19,17 +19,25 @@ export class BrowserWsTransport implements IRealtimeTransport {
   constructor(private readonly url: string) {}
 
   connect(): void {
-    this.ws = new WebSocket(this.url);
-    this.ws.onopen = () => this._onOpen?.();
-    this.ws.onmessage = (ev: MessageEvent) => {
+    // `addEventListener` plutôt qu'une affectation `onopen = …` : une affectation
+    // REMPLACE le gestionnaire précédent, y compris celui qu'un code tiers aurait
+    // posé sur la même socket. Ici la socket vient d'être créée, donc rien n'est
+    // encore écrasé — mais la forme qui ne peut pas voler un gestionnaire est
+    // celle qu'on veut voir recopiée.
+    const ws = new WebSocket(this.url);
+    this.ws = ws;
+    ws.addEventListener("open", () => this._onOpen?.());
+    ws.addEventListener("message", (ev: MessageEvent) => {
       // On ne traite que le texte (frames JSON-RPC) ; le binaire est ignoré ici.
       if (typeof ev.data === "string") this._onMessage?.(ev.data);
-    };
-    this.ws.onclose = (ev: CloseEvent) => {
+    });
+    ws.addEventListener("close", (ev: CloseEvent) => {
       this.ws = null;
       this._onClose?.(ev.code, ev.reason);
-    };
-    this.ws.onerror = () => this._onError?.(new Error("websocket error"));
+    });
+    ws.addEventListener("error", () =>
+      this._onError?.(new Error("websocket error")),
+    );
   }
 
   send(raw: string): void {

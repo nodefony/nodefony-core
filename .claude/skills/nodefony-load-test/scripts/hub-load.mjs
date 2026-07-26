@@ -75,6 +75,7 @@ let httpOn = true;
 async function httpBlaster() {
   if (HTTP_RPS <= 0) return;
   const periodMs = 1000 / HTTP_RPS;
+  // oxlint-disable-next-line no-unmodified-loop-condition -- `httpOn` est basculé après la phase de maintien, depuis un autre contexte asynchrone : la règle ne suit pas cette écriture
   while (httpOn) {
     fetch(`${BASE}${HTTP_PATH}`).catch(() => {});
     await new Promise((r) => setTimeout(r, periodMs));

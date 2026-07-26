@@ -103,7 +103,8 @@ const checkMatch = function (
   }
   if (options.matchFile) {
     if (info.isFile()) {
-      match = info.matchName(options.matchFile) ? true : false;
+      // `matchName` rend `boolean | RegExpExecArray | null` → conversion voulue.
+      match = Boolean(info.matchName(options.matchFile));
     }
   }
   if (options.match) {

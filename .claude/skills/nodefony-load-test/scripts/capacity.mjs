@@ -176,6 +176,7 @@ function eluSampler() {
   const seen = [];
   let running = true;
   const loop = (async () => {
+    // oxlint-disable-next-line no-unmodified-loop-condition -- `running` est basculé par `stop()` plus bas, depuis un autre contexte asynchrone : la règle ne suit pas cette écriture
     while (running) {
       try {
         const s = await stats();

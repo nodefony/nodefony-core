@@ -4,7 +4,7 @@ import { Severity } from "../syslog/Pdu";
 class Result extends Array {
   constructor(res?: any[]) {
     if (res) {
-      if (res instanceof Array) {
+      if (Array.isArray(res)) {
         super();
         for (const item of res) {
           this.push(item);

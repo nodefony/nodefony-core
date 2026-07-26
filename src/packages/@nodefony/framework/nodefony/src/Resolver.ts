@@ -711,6 +711,7 @@ class Resolver implements IResolver {
           this.returnController(myresult),
         );
       case type === "string":
+      // oxlint-disable-next-line no-instanceof-builtins -- le remplacement suggéré (`typeof`) EST le cas juste au-dessus : cette branche attrape l'objet enveloppe `new String()`, dont le `typeof` vaut "object"
       case result instanceof String:
         return (this.context as HttpContext | WebsocketContext).send(
           result as string,
