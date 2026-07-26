@@ -84,6 +84,33 @@
 - `[1× — 2026-07-26]` **Une sonde doit porter sur un terrain qui DISTINGUE ce qu'elle mesure.** La
   cohérence FK↔PK écrite sur les entités SQLite du banc restait verte avec un générateur cassé
   exprès : en SQLite, `uuid` et `text` sont le MÊME type. Portée sur PostgreSQL, elle mord.
+- `[1× — 2026-07-26d]` **Un gate rendu bloquant se paie tout de suite — et c'est le signe qu'il
+  sert.** Une heure après avoir retiré `continue-on-error` du lint, une suppression de code mort a
+  laissé 7 déclarations orphelines par ricochet (imports, une table de libellés, puis un type devenu
+  inutile APRÈS elle). Le lint les a toutes nommées, en deux passes. Sans le gate, elles partaient
+  dans le commit. Corollaire de méthode : les retirer À LA MAIN, jamais par `--fix`.
+
+## 🧹 Remplacer sans retirer laisse du code fantôme — et un appel réseau qui tourne
+
+- `[1× — 2026-07-26d]` ⭐ **Une brique générique a remplacé 4 badges écrits par page ; 3 sont restés
+  en place, complets et inatteignables.** Pire : le point d'accès `/status` qui les alimentait
+  continuait d'être appelé à chaque affichage de deux consoles, réponse jetée. Le geste manquant
+  n'est pas le remplacement, c'est le RETRAIT des instances dans la même session. Symptôme à
+  reconnaître : un composant riche (tooltip, couleurs, sémantique) qu'aucun fichier n'importe.
+- `[1× — 2026-07-26d]` **Un renvoi de commentaire survit au refactor qui a supprimé sa cible.**
+  `webhooksFormat` disait « calque du `StorageBadge` API Keys » — supprimé dans le même geste. Un
+  renvoi par NOM se recontrôle quand on retire ce qu'il nomme ; mieux, le remplacer par la RAISON
+  (ici : « il vit dans une colonne, pas dans un en-tête, la puce générique n'y irait pas »), qui,
+  elle, ne pointe vers rien qui puisse disparaître.
+
+## 🖥️ Sans navigateur, l'attendu EXACT vaut mieux qu'une description
+
+- `[1× — 2026-07-26d]` **Annoncer la valeur précise que l'écran doit afficher transforme une
+  vérification visuelle en contrôle binaire.** Plutôt que décrire un badge, j'ai lu les défauts de
+  config (`idleTimeoutS: 1800`) et annoncé « tu dois lire _Révocation durcie · 30 min_ », plus les
+  deux conditions sans lesquelles rien ne s'affiche (rôle admin, rechargement forcé). Le user a
+  répondu par une capture : conforme, en un aller-retour. La règle projet interdit le navigateur
+  headless — c'est donc l'attendu chiffré qui remplace l'œil, pas la prose.
 
 ## 🔢 La nomenclature d'un plan appartient à son lecteur
 
