@@ -157,9 +157,18 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
      approximatif envoie chercher au mauvais endroit (vécu : 250 retex archivés hors du dossier
      que j'avais indiqué) ; et un sous-agent peut AFFIRMER un fichier qui n'existe pas — toute
      affirmation d'inventaire se recontrôle d'un `ls`/`grep` avant d'entrer dans une synthèse.
-   - **Le plancher est un COMPTE, pas une impression** : **≥ 3 vérifications indépendantes du même
-     type → déléguer**, en dessous → faire soi-même. Ne PAS déléguer non plus : ce qui demande
-     d'éditer du code au milieu d'une session (le coût d'explication dépasse le gain).
+   - **Le plancher est un COMPTE, pas une impression : ≥ 2 vérifications indépendantes du même
+     type → déléguer.** Abaissé de 3 à 2 après l'avoir enfreint sans m'en apercevoir : trois
+     trous d'un kit ont été vérifiés à la main (lire le code, lancer la commande, conclure
+     VRAI/FAUX) alors que chacun avait un verdict binaire et une preuve — le travail que le
+     modèle le moins cher rend à l'identique. Le déclencheur ne se voit pas au nombre de
+     fichiers : il se voit à ce qu'on est en train de FAIRE.
+     **Le doute tranche POUR la délégation** : un run `haiku` inutile coûte l'équivalent d'une
+     poignée de `grep` ; la même vérification faite dans le contexte principal le remplit de
+     sorties d'outils pour le reste de la session, et ça, ça se paie à chaque tour suivant.
+     Ne PAS déléguer, en revanche : **éditer du code** au milieu d'une session (le coût
+     d'explication dépasse le gain, et deux mains sur les mêmes fichiers finissent par se
+     marcher dessus). Déléguer la VÉRIFICATION et la MESURE, appliquer soi-même.
 
 6. **🔴 QUESTION ZÉRO — FAUT-IL UN MODÈLE ? Puis SEULEMENT : lequel ?** Avant de choisir un modèle,
    chercher l'**automate déterministe** qui fait le travail : `rg`, `jq`, `git log -S`, un
@@ -179,6 +188,16 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
    | Mécanique : énumérer, extraire, compter, vérifier un fait, appliquer un patron | `haiku`  | **1**                  |
    | Recherche de code, plomberie guidée, exécution d'une recette connue            | `sonnet` | ~5                     |
    | Tri éditorial, audit qui exige du jugement, synthèse d'un corpus, rédaction    | `fable`  | ~40                    |
+
+   **`haiku` est le DÉFAUT, pas le repli.** Un sous-agent part en `haiku` sauf justification
+   écrite dans le prompt de délégation ; monter en gamme est la décision qui se motive, jamais
+   l'inverse. La justification tient en une phrase et doit nommer ce que le modèle léger
+   ÉCHOUERAIT à faire — « il faut arbitrer entre deux formulations », « il faut juger si cette
+   page dit encore vrai ». Si cette phrase ne vient pas, c'est que `haiku` suffit.
+   Le test qui tranche en une seconde : **la tâche a-t-elle une bonne réponse VÉRIFIABLE ?**
+   Compter, extraire, confronter une affirmation au code, lancer une commande et lire son
+   verdict, appliquer un patron connu — oui, donc `haiku`. Choisir, pondérer, rédiger pour un
+   humain, décider ce qui mérite d'exister — non, donc plus haut.
 
    Les ratios sont **mesurés sur les transcripts du projet** (l'agent principal en Opus se situe
    autour de 20). L'ordre de grandeur est l'information utile : un inventaire rendu par `fable`
