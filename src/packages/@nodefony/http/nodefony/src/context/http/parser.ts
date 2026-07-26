@@ -138,22 +138,14 @@ class ParserQs extends Parser {
   }
 
   override async parse() {
-    try {
-      await super.parse();
-      this.request.queryPost = QS.parse(
-        this.request.data.toString(this.charset),
-        this.parserOptions,
-      );
-      this.request.query = extend(
-        {},
-        this.request.query,
-        this.request.queryPost,
-      );
-      this.request.context.requestEnded = true;
-      return this;
-    } catch (err) {
-      throw err;
-    }
+    await super.parse();
+    this.request.queryPost = QS.parse(
+      this.request.data.toString(this.charset),
+      this.parserOptions,
+    );
+    this.request.query = extend({}, this.request.query, this.request.queryPost);
+    this.request.context.requestEnded = true;
+    return this;
   }
 }
 

@@ -302,19 +302,15 @@ class FileClass {
   }
 
   readByLine(callback: (line: string, n: number) => void, encoding?: string) {
-    try {
-      const res = this.content(encoding);
-      let nb = 0;
-      res
-        .toString()
-        .split("\n")
-        .forEach((line: string) => {
-          callback(line, ++nb);
-        });
-      return res;
-    } catch (e) {
-      throw e;
-    }
+    const res = this.content(encoding);
+    let nb = 0;
+    res
+      .toString()
+      .split("\n")
+      .forEach((line: string) => {
+        callback(line, ++nb);
+      });
+    return res;
   }
 
   /**

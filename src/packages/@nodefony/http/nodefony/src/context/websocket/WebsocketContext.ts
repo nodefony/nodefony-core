@@ -267,75 +267,71 @@ export default class WebsocketContext
       this.webSocketState = "error";
       throw new Error("Nodefony Websocket rejected");
     }
-    try {
-      if (!this.resolver) {
-        this.resolver = this.router?.resolve(this) as Resolver;
-      } else {
-        try {
-          this.resolver.match(this.resolver.route as Route, this);
-        } catch (e) {
-          if (!this.rejected) {
-            this.reject(
-              (e as HttpError).code ?? undefined,
-              (e as HttpError).message,
-            );
-          }
-          throw e;
+    if (!this.resolver) {
+      this.resolver = this.router?.resolve(this) as Resolver;
+    } else {
+      try {
+        this.resolver.match(this.resolver.route as Route, this);
+      } catch (e) {
+        if (!this.rejected) {
+          this.reject(
+            (e as HttpError).code ?? undefined,
+            (e as HttpError).message,
+          );
         }
+        throw e;
       }
-      // Pas de `setParameters("query.*")` : les décorateurs lisent
-      // `request.queryGet/query` directement (cf HttpContext) — scope DI jamais lu.
-      await this.fireAsync("onRequest", this, this.resolver);
-      await this.kernel?.fireAsync("onRequest", this, this.resolver);
-      if (this.resolver && this.resolver.resolve) {
-        this.setMetaData({
-          nodefony: {
-            websocket: {
-              state: this.webSocketState,
-              protocol: this.acceptedProtocol,
-            },
+    }
+    // Pas de `setParameters("query.*")` : les décorateurs lisent
+    // `request.queryGet/query` directement (cf HttpContext) — scope DI jamais lu.
+    await this.fireAsync("onRequest", this, this.resolver);
+    await this.kernel?.fireAsync("onRequest", this, this.resolver);
+    if (this.resolver && this.resolver.resolve) {
+      this.setMetaData({
+        nodefony: {
+          websocket: {
+            state: this.webSocketState,
+            protocol: this.acceptedProtocol,
           },
-        });
-        await this.resolver
-          .callController(data)
-          .then(async () => {
-            await this.saveSession()
-              .then((session) => {
-                if (session) {
-                  this.log(`SAVE SESSION ID : ${session.id}`, "DEBUG");
-                }
-              })
-              .catch((e) => {
-                throw e;
-              });
-            return this;
-          })
-          .catch((error: unknown) => {
-            if (!this.rejected) {
-              if (this.requestEnded) {
-                // close() coerce le code via `toWsCloseCode` (RFC 6455 §7.4) :
-                // 5xx/absent → 1011, 401/403 → 1008, 404/autre → 4004.
-                throw this.close(
-                  (error as HttpError).code,
-                  (error as HttpError).message,
-                );
+        },
+      });
+      await this.resolver
+        .callController(data)
+        .then(async () => {
+          await this.saveSession()
+            .then((session) => {
+              if (session) {
+                this.log(`SAVE SESSION ID : ${session.id}`, "DEBUG");
               }
-              this.reject(
-                (error as HttpError).code ?? undefined,
+            })
+            .catch((e) => {
+              throw e;
+            });
+          return this;
+        })
+        .catch((error: unknown) => {
+          if (!this.rejected) {
+            if (this.requestEnded) {
+              // close() coerce le code via `toWsCloseCode` (RFC 6455 §7.4) :
+              // 5xx/absent → 1011, 401/403 → 1008, 404/autre → 4004.
+              throw this.close(
+                (error as HttpError).code,
                 (error as HttpError).message,
               );
-              this.rejected = true;
-              this.webSocketState = "error";
-              throw error;
             }
-          });
-      } else if (!this.rejected) {
-        this.reject(4004, "Not Found");
-        this.rejected = true;
-        this.webSocketState = "error";
-      }
-    } catch (e) {
-      throw e;
+            this.reject(
+              (error as HttpError).code ?? undefined,
+              (error as HttpError).message,
+            );
+            this.rejected = true;
+            this.webSocketState = "error";
+            throw error;
+          }
+        });
+    } else if (!this.rejected) {
+      this.reject(4004, "Not Found");
+      this.rejected = true;
+      this.webSocketState = "error";
     }
     return this;
   }
@@ -489,11 +485,7 @@ export default class WebsocketContext
       if (!this.resolver) {
         this.resolver = this.router?.resolve(this) as Resolver;
       } else {
-        try {
-          this.resolver.match(this.resolver?.route as Route, this);
-        } catch (e) {
-          throw e;
-        }
+        this.resolver.match(this.resolver?.route as Route, this);
       }
       await this.fireAsync("onMessage", message, this, "RECEIVE");
       if (this.resolver.resolve) {

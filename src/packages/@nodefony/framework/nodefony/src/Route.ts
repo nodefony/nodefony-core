@@ -224,26 +224,14 @@ class Route implements IRoute {
       return res;
     }
 
-    try {
-      this.hydrateDefaultParameters(res);
-    } catch (e) {
-      throw e;
-    }
+    this.hydrateDefaultParameters(res);
     // check Hostname AVANT les requirements (RFC 9110 : la ressource cible est
     // identifiée par l'URI HOST COMPRIS) — une route restreinte à un autre vhost
     // jette 403 et ne peut plus polluer la résolution d'une 405 portant SES
     // méthodes (fuite cross-vhost du header Allow, cf banc routing NR §D).
-    try {
-      this.matchHostname(context);
-    } catch (e) {
-      throw e;
-    }
+    this.matchHostname(context);
     // check requierments
-    try {
-      this.matchRequirements(context, methodOverride);
-    } catch (e) {
-      throw e;
-    }
+    this.matchRequirements(context, methodOverride);
     // Tableau hybride array+dict (legacy) : valeurs positionnelles `push`ées +
     // accès par nom de variable (`map[k]`, `map.wildcard`, `map["*"]`). Le double
     // cast est requis : un array n'a pas d'index signature string implicite.

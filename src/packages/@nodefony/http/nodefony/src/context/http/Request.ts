@@ -597,37 +597,33 @@ class HttpRequest {
     let parse: string[] = [];
     let subtype = "*";
     let type = "*";
-    try {
-      if (Type) {
-        parse = Type.split("/");
-      }
-      if (parse) {
-        switch (parse.length) {
-          case 1:
-            subtype = parse.shift() as string;
-            break;
-          case 2:
-            type = parse.shift() as string;
-            subtype = parse.shift() as string;
-            break;
-          default:
-            throw new Error("request accepts method bad type format");
-        }
-      }
-      for (let i = 0; i < this.accept.length; i++) {
-        const line = this.accept[i];
-        if (
-          (type === "*" || line.type.test(type)) &&
-          (subtype === "*" || line.subtype.test(subtype))
-        ) {
-          return true;
-        }
-        continue;
-      }
-      return false;
-    } catch (e) {
-      throw e;
+    if (Type) {
+      parse = Type.split("/");
     }
+    if (parse) {
+      switch (parse.length) {
+        case 1:
+          subtype = parse.shift() as string;
+          break;
+        case 2:
+          type = parse.shift() as string;
+          subtype = parse.shift() as string;
+          break;
+        default:
+          throw new Error("request accepts method bad type format");
+      }
+    }
+    for (let i = 0; i < this.accept.length; i++) {
+      const line = this.accept[i];
+      if (
+        (type === "*" || line.type.test(type)) &&
+        (subtype === "*" || line.subtype.test(subtype))
+      ) {
+        return true;
+      }
+      continue;
+    }
+    return false;
   }
 
   // La limite de taille par fichier (`maxFileSize`) et le cumul

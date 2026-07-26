@@ -120,42 +120,38 @@ class Resolver implements IResolver {
   }
 
   match(route: Route, context: ContextType, cleanPath?: string) {
-    try {
-      const match = route.match(
-        context,
-        cleanPath,
-        this.methodOverride ?? undefined,
-      );
-      if (match) {
-        this.variables = match;
-        this.route = route;
-        this.controller = route.controller as ControllerConstructor;
-        this.actionName = route.classMethod;
-        this.resolve = true;
-        this.bypassFirewall = this.route.bypassFirewall;
-        if (route.requirements.protocol) {
-          this.acceptedProtocol = route.requirements.protocol.toLowerCase();
-        }
-        // Intent de session de la route (depuis `@UseSession` / paramètre
-        // `@Session`) → pilote le point d'activation unique (HttpKernel.startSession).
-        // P5 : lu depuis le memo de route (0 Reflect par requête).
-        const actionMeta = resolveActionMeta(route);
-        this.context.sessionIntent = actionMeta.sessionIntent;
-        // CSP per-route (`@Csp`) → directives additionnelles posées sur le
-        // contexte, lues par `Firewall.applySecurityHeaders` APRÈS le resolve.
-        // `null` en l'absence de `@Csp` (99 %) → on n'écrit pas (champ déjà null).
-        if (actionMeta.cspDirectives !== null) {
-          this.context.cspDirectives = actionMeta.cspDirectives;
-        }
-        // CSRF per-route (`@CsrfProtect`/`@CsrfExempt`) → lus par `Firewall.enforceCsrf`
-        // (post-resolve, dans `onRequestEnd`). `false` par défaut → on n'écrit que si posé.
-        if (actionMeta.csrfProtect) this.context.csrfProtect = true;
-        if (actionMeta.csrfExempt) this.context.csrfExempt = true;
+    const match = route.match(
+      context,
+      cleanPath,
+      this.methodOverride ?? undefined,
+    );
+    if (match) {
+      this.variables = match;
+      this.route = route;
+      this.controller = route.controller as ControllerConstructor;
+      this.actionName = route.classMethod;
+      this.resolve = true;
+      this.bypassFirewall = this.route.bypassFirewall;
+      if (route.requirements.protocol) {
+        this.acceptedProtocol = route.requirements.protocol.toLowerCase();
       }
-      return match;
-    } catch (e) {
-      throw e;
+      // Intent de session de la route (depuis `@UseSession` / paramètre
+      // `@Session`) → pilote le point d'activation unique (HttpKernel.startSession).
+      // P5 : lu depuis le memo de route (0 Reflect par requête).
+      const actionMeta = resolveActionMeta(route);
+      this.context.sessionIntent = actionMeta.sessionIntent;
+      // CSP per-route (`@Csp`) → directives additionnelles posées sur le
+      // contexte, lues par `Firewall.applySecurityHeaders` APRÈS le resolve.
+      // `null` en l'absence de `@Csp` (99 %) → on n'écrit pas (champ déjà null).
+      if (actionMeta.cspDirectives !== null) {
+        this.context.cspDirectives = actionMeta.cspDirectives;
+      }
+      // CSRF per-route (`@CsrfProtect`/`@CsrfExempt`) → lus par `Firewall.enforceCsrf`
+      // (post-resolve, dans `onRequestEnd`). `false` par défaut → on n'écrit que si posé.
+      if (actionMeta.csrfProtect) this.context.csrfProtect = true;
+      if (actionMeta.csrfExempt) this.context.csrfExempt = true;
     }
+    return match;
   }
 
   /**

@@ -804,63 +804,59 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     context?: ContextType,
     _extraHeaders?: Record<string, unknown> | object,
   ): Promise<HttpContext | WebsocketContext> {
-    try {
-      if (context) {
-        context.error = error;
+    if (context) {
+      context.error = error;
+    }
+    switch (true) {
+      case context instanceof HttpContext: {
+        const result = this.errorRenderer.renderHttp(error, context);
+        // Mirror result back onto error so callers / logs see normalised code.
+        if (error instanceof HttpError || error instanceof nodefonyError) {
+          error.code = result.status;
+        }
+        context.response.setStatusCode(result.status, result.message);
+        if (result.headers) {
+          context.response.setHeaders(result.headers);
+        }
+        if (this.kernel?.debug) {
+          this.log(error.toString(), "ERROR");
+        }
+        // Race: client closed the socket before the controller produced a
+        // response → teardown ran (`finished=true`) or write already
+        // happened. Don't try to render — that path explodes into a CRITIC
+        // "Response Already sended" for a case the framework expects.
+        if (context.finished || context.sended) {
+          this.log(error.toString(), "DEBUG", "onError on closed context");
+          return context;
+        }
+        if (!context.response.isHeaderSent()) {
+          return context
+            .render(result.body)
+            .then(() => context)
+            .catch((e) => {
+              this.log(e, "CRITIC");
+              throw e;
+            });
+        }
+        return context.close().then(() => context);
       }
-      switch (true) {
-        case context instanceof HttpContext: {
-          const result = this.errorRenderer.renderHttp(error, context);
-          // Mirror result back onto error so callers / logs see normalised code.
-          if (error instanceof HttpError || error instanceof nodefonyError) {
-            error.code = result.status;
-          }
-          context.response.setStatusCode(result.status, result.message);
-          if (result.headers) {
-            context.response.setHeaders(result.headers);
-          }
-          if (this.kernel?.debug) {
-            this.log(error.toString(), "ERROR");
-          }
-          // Race: client closed the socket before the controller produced a
-          // response → teardown ran (`finished=true`) or write already
-          // happened. Don't try to render — that path explodes into a CRITIC
-          // "Response Already sended" for a case the framework expects.
-          if (context.finished || context.sended) {
-            this.log(error.toString(), "DEBUG", "onError on closed context");
+      case context instanceof WebsocketContext: {
+        try {
+          const wsResult = this.errorRenderer.renderWebsocket(error, context);
+          if (context.response && context.response.connection) {
+            context.close(wsResult.code, wsResult.reason);
             return context;
           }
-          if (!context.response.isHeaderSent()) {
-            return context
-              .render(result.body)
-              .then(() => context)
-              .catch((e) => {
-                this.log(e, "CRITIC");
-                throw e;
-              });
+          if (context.request && !context.rejected) {
+            context.reject(wsResult.code, wsResult.reason);
+            return context;
           }
-          return context.close().then(() => context);
-        }
-        case context instanceof WebsocketContext: {
-          try {
-            const wsResult = this.errorRenderer.renderWebsocket(error, context);
-            if (context.response && context.response.connection) {
-              context.close(wsResult.code, wsResult.reason);
-              return context;
-            }
-            if (context.request && !context.rejected) {
-              context.reject(wsResult.code, wsResult.reason);
-              return context;
-            }
-          } catch (e) {
-            throw error;
-          }
-        }
-        default:
+        } catch (e) {
           throw error;
+        }
       }
-    } catch (e) {
-      throw e;
+      default:
+        throw error;
     }
   }
 
@@ -1576,42 +1572,38 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     context: WebsocketContext,
     error: null | undefined | unknown = null,
   ): Promise<Ws | number> {
+    if (error) {
+      throw error;
+    }
+    if (!context) {
+      throw new nodefonyError("Bad context", 500);
+    }
+    // DOMAIN VALID
+    if (this.domainCheck) {
+      this.checkValidDomain(context);
+    }
+    // B4 — anti-CSWSH : valide l'Origin du handshake (same-origin par défaut,
+    // loopback dev toléré, allowlist `allowedOrigins`). Refus → close WS 1008.
+    this.checkWebsocketOrigin(context);
+    // SECURITY HOOK — beforeResolve (P1.7) — WS
+    await this.fireAsync("beforeResolve", context);
+    // FRONT CONTROLLER — le WS instancie ICI (avant `connect()`) : le
+    // controller porte le protocole négocié et peut encore toucher la réponse
+    // du handshake ; après l'accept, il est trop tard.
     try {
-      if (error) {
-        throw error;
-      }
-      if (!context) {
-        throw new nodefonyError("Bad context", 500);
-      }
-      // DOMAIN VALID
-      if (this.domainCheck) {
-        this.checkValidDomain(context);
-      }
-      // B4 — anti-CSWSH : valide l'Origin du handshake (same-origin par défaut,
-      // loopback dev toléré, allowlist `allowedOrigins`). Refus → close WS 1008.
-      this.checkWebsocketOrigin(context);
-      // SECURITY HOOK — beforeResolve (P1.7) — WS
-      await this.fireAsync("beforeResolve", context);
-      // FRONT CONTROLLER — le WS instancie ICI (avant `connect()`) : le
-      // controller porte le protocole négocié et peut encore toucher la réponse
-      // du handshake ; après l'accept, il est trop tard.
-      try {
-        await this.handleFrontController(context);
-      } catch (e: unknown) {
-        context.logRequest(e as Error);
-        throw e;
-      }
-      // SESSIONS — même point d'activation unique que le HTTP (co-citoyenneté
-      // HTTP/WS) : `startSession` décide via l'intent de route ou le cookie (L1).
-      // AVANT le firewall WS (P6 J3) — y compris en zone sécurisée : le
-      // SessionAuthenticator lit la session reprise au handshake.
-      if (!context.sessionStarting) {
-        await this.startSession(context);
-      }
-      return await context.connect();
-    } catch (e) {
+      await this.handleFrontController(context);
+    } catch (e: unknown) {
+      context.logRequest(e as Error);
       throw e;
     }
+    // SESSIONS — même point d'activation unique que le HTTP (co-citoyenneté
+    // HTTP/WS) : `startSession` décide via l'intent de route ou le cookie (L1).
+    // AVANT le firewall WS (P6 J3) — y compris en zone sécurisée : le
+    // SessionAuthenticator lit la session reprise au handshake.
+    if (!context.sessionStarting) {
+      await this.startSession(context);
+    }
+    return await context.connect();
   }
 
   checkValidDomain(context: ContextType): number {

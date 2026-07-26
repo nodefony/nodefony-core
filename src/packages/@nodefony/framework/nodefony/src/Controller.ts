@@ -292,15 +292,12 @@ class Controller extends Service implements IController {
     status?: string | number,
     headers?: Record<string, string | number>,
   ) {
-    try {
-      return (this.context as HttpContext)
-        ?.render(data, encoding, status, headers)
-        .catch((e: unknown) => {
-          throw e;
-        });
-    } catch (e) {
-      throw e;
-    }
+    return (this.context as HttpContext)?.render(
+      data,
+      encoding,
+      status,
+      headers,
+    );
   }
 
   renderResponse(
@@ -442,23 +439,18 @@ class Controller extends Service implements IController {
    *   Utiliser {@link getFileAsync} dans tout pipeline. Conservé pour compat.
    */
   getFile(file: FileClass | string): FileClass {
-    try {
-      let File: FileClass;
-      if (file instanceof FileClass) {
-        File = file;
-      } else if (typeof file === "string") {
-        // eslint-disable-next-line new-cap
-        File = new FileClass(file);
-      } else {
-        throw new Error(`File argument bad type for getFile :${typeof file}`);
-      }
-      if (File.type !== "File") {
-        throw new Error(`getFile bad type for  :${file}`);
-      }
-      return File;
-    } catch (e) {
-      throw e;
+    let File: FileClass;
+    if (file instanceof FileClass) {
+      File = file;
+    } else if (typeof file === "string") {
+      File = new FileClass(file);
+    } else {
+      throw new Error(`File argument bad type for getFile :${typeof file}`);
     }
+    if (File.type !== "File") {
+      throw new Error(`getFile bad type for  :${file}`);
+    }
+    return File;
   }
 
   /**

@@ -303,13 +303,9 @@ class Router extends Service {
   }
 
   resolveController(contex: ContextType, name: string): Resolver {
-    try {
-      const resolver = new Resolver(contex);
-      resolver.parsePathernController(name);
-      return resolver;
-    } catch (e) {
-      throw e;
-    }
+    const resolver = new Resolver(contex);
+    resolver.parsePathernController(name);
+    return resolver;
   }
 
   matchRoutes(path: string): RegExpExecArray[] {

@@ -184,30 +184,23 @@ class UploadedFile extends FileClass {
   }
 
   override move(target: string): FileClass {
-    try {
-      if (fs.existsSync(target)) {
-        const newFile = new FileClass(target);
-        if (newFile.isDirectory()) {
-          const n = path.resolve(
-            newFile.path as string,
-            this.#safeTargetName(),
-          );
-          return super.move(n);
-        }
+    if (fs.existsSync(target)) {
+      const newFile = new FileClass(target);
+      if (newFile.isDirectory()) {
+        const n = path.resolve(newFile.path as string, this.#safeTargetName());
+        return super.move(n);
       }
-      const dirname = path.dirname(target);
-      if (fs.existsSync(dirname)) {
-        if (target === dirname) {
-          const name = path.resolve(target, this.#safeTargetName());
-          return super.move(name);
-        } else {
-          return super.move(target);
-        }
-      }
-      throw fs.lstatSync(dirname);
-    } catch (e) {
-      throw e;
     }
+    const dirname = path.dirname(target);
+    if (fs.existsSync(dirname)) {
+      if (target === dirname) {
+        const name = path.resolve(target, this.#safeTargetName());
+        return super.move(name);
+      } else {
+        return super.move(target);
+      }
+    }
+    throw fs.lstatSync(dirname);
   }
 
   /**

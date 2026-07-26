@@ -435,12 +435,8 @@ class SessionsService extends Service {
   }
 
   createSession(name: string, options?: OptionsSessionType): Session {
-    try {
-      options = extend({}, this.options, options);
-      return new Session(name, options as OptionsSessionType, this);
-    } catch (e) {
-      throw e;
-    }
+    options = extend({}, this.options, options);
+    return new Session(name, options as OptionsSessionType, this);
   }
 
   addContextSession(context: ContextType) {
