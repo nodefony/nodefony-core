@@ -322,6 +322,32 @@ describe("devProcess — state file runtime (ports effectifs)", () => {
     assert.ok(existsSync(runtimeStateFile(cwd)));
   });
 
+  it("discoverFromRuntimeState rend le SUPERVISEUR AVANT le serveur (sinon il respawn)", () => {
+    // Le superviseur relance son enfant dès qu'il le voit mourir : rendre le serveur
+    // seul revenait à provoquer un rechargement au lieu d'un arrêt — l'arrêt sortait 0
+    // et le port se rouvrait derrière. L'ordre EST le correctif.
+    mkdirSync(path.dirname(devSupervisorPidFile(cwd)), { recursive: true });
+    writeFileSync(devSupervisorPidFile(cwd), String(process.pid), "utf8");
+    writeRuntimeState(cwd, { pid: process.pid, ports: [5153] });
+    const found = discoverFromRuntimeState(cwd);
+    assert.deepStrictEqual(
+      found.map((p) => p.role),
+      ["supervisor", "server"],
+    );
+    // Un superviseur vivant signe un runtime de développement.
+    assert.strictEqual(found[1].mode, "dev");
+  });
+
+  it("discoverFromRuntimeState sans superviseur → serveur SEUL, en mode prod", () => {
+    writeRuntimeState(cwd, { pid: process.pid, ports: [5153] });
+    const found = discoverFromRuntimeState(cwd);
+    assert.deepStrictEqual(
+      found.map((p) => p.role),
+      ["server"],
+    );
+    assert.strictEqual(found[0].mode, "prod");
+  });
+
   it("discoverFromRuntimeState retrouve le runtime SANS observer les process", () => {
     // Le repli employé là où `ps` n'existe pas (Windows). Il n'observe rien : il lit
     // le fichier d'état du projet, qui porte le PID de qui écoute. L'appartenance au

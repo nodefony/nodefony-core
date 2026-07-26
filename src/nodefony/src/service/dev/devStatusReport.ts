@@ -5,6 +5,7 @@ import {
   defaultDevPorts,
   detectRuntimeMode,
   devSupervisorPidFile,
+  discoverFromRuntimeState,
   isProcessDiscoverySupported,
   discoverDevProcesses,
   formatUptime,
@@ -65,7 +66,14 @@ export async function runStandaloneDevCommand(name: string): Promise<void> {
  * (`GET /nodefony/kernel/api/processes`). CLI et Web affichent EXACTEMENT le même état.
  */
 export interface DevStatusReport {
-  /** `false` si l'introspection `ps` est indisponible (Windows). */
+  /**
+   * `false` si l'OBSERVATION EXTERNE (`ps`) est indisponible — Windows.
+   *
+   * Ne signifie plus « rapport vide » : le pidfile, le fichier d'état et la sonde TCP
+   * répondent partout, donc la topologie et les ports restent rapportés. Le drapeau dit
+   * seulement que les colonnes issues de `ps` (mémoire résidente, part CPU, instances
+   * Vite) manquent — ce qu'un avertissement du rapport énonce en toutes lettres.
+   */
   readonly supported: boolean;
   /** `true` si au moins un process runtime Nodefony tourne. */
   readonly running: boolean;
@@ -119,6 +127,12 @@ export function buildDevStatus(
   procs: readonly DevProcessInfo[],
   ports: readonly PortState[],
   inProject = true,
+  /**
+   * `true` si les process s'observent (`ps`). Paramètre plutôt que lecture directe de
+   * la plateforme : la fonction reste PURE, et un test peut éprouver depuis n'importe
+   * quel système ce qu'un rapport dit quand l'observation manque.
+   */
+  discoverySupported = isProcessDiscoverySupported(),
 ): DevStatusReport {
   const nSup = procs.filter((p) => p.role === "supervisor").length;
   const nSrv = procs.filter((p) => p.role === "server").length;
@@ -188,8 +202,15 @@ export function buildDevStatus(
       `${nSrvMine} serveurs simultanés sur CE projet — empilement anormal`,
     );
 
+  // Dire d'OÙ vient l'information : un tableau sans mémoire ni CPU, affiché sans un mot,
+  // se lit comme un serveur au repos plutôt que comme une mesure absente.
+  if (!discoverySupported && procs.length > 0)
+    warnings.push(
+      "process non observables sur cette plateforme — topologie lue dans le pidfile et le fichier d'état (ni RSS, ni %CPU, ni Vite)",
+    );
+
   return {
-    supported: true,
+    supported: discoverySupported,
     running: procs.length > 0,
     mode,
     processes: procs,
@@ -223,29 +244,15 @@ export async function collectDevStatus(
   cwd: string,
   opts: DiscoverOptions = {},
 ): Promise<DevStatusReport> {
-  const pidPath = path.relative(cwd, devSupervisorPidFile(cwd));
-  if (!isProcessDiscoverySupported())
-    return {
-      supported: false,
-      running: false,
-      mode: null,
-      processes: [],
-      ports: [],
-      summary: {
-        supervisors: 0,
-        servers: 0,
-        vites: 0,
-        masters: 0,
-        workers: 0,
-        portsUp: 0,
-        portsTotal: 0,
-      },
-      warnings: [],
-      pidfile: { path: pidPath, pid: null, alive: false },
-      inProject: isNodefonyProjectDir(cwd),
-    };
   const pid = readSupervisorPid(cwd);
-  const procs = discoverDevProcesses(opts);
+  // Là où les process ne s'observent pas, on ne rend plus un rapport VIDE : c'était se
+  // taire au moment précis où l'on a besoin de savoir ce qui tourne. Le pidfile, le
+  // fichier d'état et la sonde TCP ne dépendent d'aucun `ps` — ils répondent partout.
+  const observed = discoverDevProcesses(opts);
+  const procs =
+    observed.length === 0 && !isProcessDiscoverySupported()
+      ? discoverFromRuntimeState(cwd)
+      : observed;
   const ports = await probePorts(defaultDevPorts(cwd));
   return buildDevStatus(
     cwd,

@@ -214,30 +214,53 @@ export function isProcessDiscoverySupported(): boolean {
  * courant d'un process tiers. {@link readRuntimeState} a déjà vérifié que le PID est
  * vivant et purgé le fichier sinon — un reliquat ne peut pas faire tuer un PID recyclé.
  *
- * Le mode est INFÉRÉ, faute d'être publié : un `pidfile` de superviseur vivant signe un
- * runtime de développement ; son absence, un serveur lancé en production. L'inférence ne
- * porte que sur le LIBELLÉ du rapport, jamais sur la décision d'arrêter.
+ * Rend la TOPOLOGIE, pas un process isolé : le superviseur (pidfile) EN TÊTE, puis le
+ * serveur qui écoute (fichier d'état). L'ordre porte une conséquence — un superviseur
+ * relance son enfant dès qu'il le voit mourir, donc arrêter le serveur seul ne fait que
+ * provoquer un rechargement. Les instances Vite, elles, restent hors de portée : rien ne
+ * les publie, et elles meurent avec le superviseur qui les a lancées.
+ *
+ * Ce que le repli NE donne pas, faute de les observer : mémoire résidente, part CPU,
+ * durée de vie du superviseur. Ces colonnes valent zéro et le rapport le dit.
  *
  * @param cwd - racine du projet.
- * @returns un process, ou une liste vide si aucun état exploitable.
+ * @returns les process du projet, du superviseur au serveur ; vide si rien d'exploitable.
  */
 export function discoverFromRuntimeState(cwd: string): DevProcessInfo[] {
-  const state = readRuntimeState(cwd);
-  if (!state || state.pid <= 0) return [];
   const supervisor = readSupervisorPid(cwd);
-  const isDev = supervisor !== null && isPidAlive(supervisor);
-  return [
-    {
-      pid: state.pid,
+  const supervisorAlive = supervisor !== null && isPidAlive(supervisor);
+  const state = readRuntimeState(cwd);
+  const found: DevProcessInfo[] = [];
+  // Le SUPERVISEUR d'abord, et ce n'est pas cosmétique : il relance son enfant dès
+  // qu'il le voit mourir. L'omettre revenait à tuer le serveur d'un parent qui le
+  // ressuscitait aussitôt — l'arrêt sortait 0, le port se rouvrait derrière.
+  if (supervisorAlive) {
+    found.push({
+      pid: supervisor,
       ppid: 0,
-      mode: isDev ? "dev" : "prod",
+      mode: "dev",
+      role: "supervisor",
+      label: "supervisor",
+      rssKb: 0,
+      cpu: 0,
+      uptimeSec: 0,
+    });
+  }
+  if (state && state.pid > 0) {
+    found.push({
+      pid: state.pid,
+      ppid: supervisorAlive ? supervisor : 0,
+      // Le mode est INFÉRÉ, faute d'être publié : un superviseur vivant signe un
+      // runtime de développement ; son absence, un serveur de production.
+      mode: supervisorAlive ? "dev" : "prod",
       role: "server",
       label: "server",
       rssKb: 0,
       cpu: 0,
       uptimeSec: Math.max(0, Math.round((Date.now() - state.ts) / 1000)),
-    },
-  ];
+    });
+  }
+  return found;
 }
 
 export function clearRuntimeState(cwd: string): void {

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-26T19:13:49.494Z",
+  "generated": "2026-07-26T21:51:52.621Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -21142,6 +21142,10 @@
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
+      "discoverFromRuntimeState": [
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
+      ],
       "isProcessDiscoverySupported": [
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts"
@@ -21163,9 +21167,6 @@
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "clearSupervisorPidFile": [
-        "src/nodefony/src/service/dev/devStop.ts"
-      ],
-      "discoverFromRuntimeState": [
         "src/nodefony/src/service/dev/devStop.ts"
       ],
       "processCwd": [
