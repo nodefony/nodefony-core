@@ -182,7 +182,12 @@ describe("ViteConfigGenerator — toMjs()", () => {
     expect(out).to.include("allow: [");
     expect(out).to.include('"/abs/path/to/a/frontend"');
     expect(out).to.include('"/abs/path/to/b/frontend"');
-    expect(out).to.include(JSON.stringify(process.cwd()));
+    // Le dossier courant est injecté NORMALISÉ (séparateurs `/`), comme tout
+    // chemin qui entre dans le fichier généré : sur Windows, `process.cwd()`
+    // rend `D:\a\…`, et un antislash dans une chaîne JavaScript ouvre une
+    // séquence d'échappement. Comparer au brut revenait à exiger la sortie
+    // invalide — ce test-là passait sous POSIX et ne pouvait qu'échouer ailleurs.
+    expect(out).to.include(JSON.stringify(process.cwd().replace(/\\/g, "/")));
   });
 
   it("déduplique les roots identiques dans fs.allow", () => {

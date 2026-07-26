@@ -138,6 +138,48 @@ jobs:
       - name: Run unit tests (turbo)
         run: npm test
 
+  # ─── Filet CLI — exerce le BINAIRE `nodefony`, sur les deux plateformes ─────
+  #
+  # Pourquoi ce job existe : le lanceur (`src/bin/nodefony.ts`) est la porte
+  # d'entrée du framework, et il est écrit POUR Windows — `fileURLToPath` à
+  # l'entrée, `pathToFileURL(...).href` avant l'`import()` dynamique (sans quoi
+  # Node refuse un chemin `C:\…` comme URL de module). Cet effort n'était prouvé
+  # nulle part : `test:boot` ne tournait dans AUCUN job. Le support de Windows
+  # est un impératif du framework, pas une compatibilité de bonne volonté — il
+  # se vérifie donc là où il peut casser, à chaque envoi.
+  #
+  # Ces cas démarrent de VRAIS serveurs (`production`, `cluster`, `--detach`) et
+  # attendent leur arrêt propre : c'est précisément le code le plus dépendant du
+  # système (signaux, groupes de processus, libération des ports).
+  test-cli:
+    name: Filet CLI (${{ matrix.os }} / Node ${{ matrix.node-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node-version: ["26.x"]
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build workspaces
+        run: npm run build
+
+      - name: Filet CLI (RUN_CLI_BOOT)
+        run: npm run test:boot
+
   # ─── Tests d'intégration — ubuntu only, démarre le serveur Nodefony ─────────
   # Indépendant lui aussi (même raison que `test-unit` ci-dessus) : c'est le job
   # le plus lent à révéler ses pannes, donc le dernier qu'on veuille voir
