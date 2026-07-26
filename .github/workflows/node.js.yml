@@ -215,6 +215,35 @@ jobs:
       - name: Rebuild test module
         run: npm run build --workspace=src/modules/test
 
+      # Le serveur démarre en PRODUCTION, où les clés de chiffrement ne sont plus
+      # optionnelles : sans elles, le 2FA et les webhooks se désactivent en
+      # journalisant deux CRITIC — et la sonde de démarrage ci-dessous, qui
+      # cherche précisément « CRITIC », déclarait le serveur mort alors qu'il
+      # écoutait ses quatre ports. Le journal était juste, le verdict faux.
+      #
+      # Générées ici, jamais commitées (`.env.local` tombe sous `*.local` du
+      # .gitignore) : 32 octets en base64, exactement ce que produit
+      # `nodefony security:secrets` — une seule définition du format.
+      # `NF_ADMIN_PASSWORD` en prime : sans lui aucun compte n'est seedé, et le
+      # firewall des bancs d'intégration n'aurait personne à authentifier.
+      - name: Générer les clés de production (.env.local)
+        shell: bash
+        run: |
+          node -e "
+          const { randomBytes } = require('node:crypto');
+          const gen = () => randomBytes(32).toString('base64');
+          const lines = [
+            '# clés éphémères de CI — régénérées à chaque exécution, jamais commitées',
+            'NF_TOTP_KEY=' + gen(),
+            'NF_WEBHOOK_KEY=' + gen(),
+            'NF_CSRF_SECRET=' + gen(),
+            'NF_ADMIN_PASSWORD=' + randomBytes(18).toString('base64url'),
+            '',
+          ];
+          require('node:fs').writeFileSync('.env.local', lines.join('\n'));
+          console.log('✅ .env.local généré (4 clés, valeurs non affichées)');
+          "
+
       - name: Start Nodefony server (production, no PM2, detached, fail-fast)
         shell: bash
         run: |
