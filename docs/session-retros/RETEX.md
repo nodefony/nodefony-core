@@ -106,6 +106,47 @@
   inutile APRÈS elle). Le lint les a toutes nommées, en deux passes. Sans le gate, elles partaient
   dans le commit. Corollaire de méthode : les retirer À LA MAIN, jamais par `--fix`.
 
+## 🎲 Une capacité se CONSTATE, elle ne se déduit pas de la plateforme
+
+- `[3× — 2026-07-27]` 🔴 **Trois fois dans une seule session, du code a répondu « je ne peux
+  pas » d'après `process.platform` au lieu d'essayer.** `discoverDevProcesses` rendait `[]` sous
+  Windows, `collectDevStatus` un rapport ENTIÈREMENT vide, `#isNodefonySupervisor` supposait
+  « oui » — chacun décidant seul quoi faire d'une capacité qu'il n'avait jamais vérifiée. Et le
+  pari était faux **jusqu'en dehors de Windows** : `procps` n'est pas installé dans `node:*-slim`
+  ni distroless, donc `ps` est absent du mode de déploiement NOMINAL, et aucun repli ne se
+  déclenchait puisque « Linux ⇒ supporté ». Règle : rendre `{supported, data}` depuis
+  l'EXÉCUTION (binaire absent, code de sortie, sortie illisible), jamais un prédicat de
+  plateforme. Corollaire : une liste vide et « je n'ai pas pu regarder » sont deux états
+  différents — les confondre supprime tout repli, en silence.
+- `[1× — 2026-07-27]` **Quand une capacité manque, penchez du côté sûr — et soyez cohérent.** Le
+  même dépôt tranchait dans les deux sens : `scopeAllToNodefonyProjects` épargne un process dont
+  il ne peut pas prouver l'appartenance, `#isNodefonySupervisor` le TUE. Deux doctrines opposées
+  pour la même question, à dix fichiers d'écart.
+
+## 🙈 Un test rouge peut en MASQUER cinq (le skip compte comme vert)
+
+- `[1× — 2026-07-27]` 🔴 Un compteur passé de « 12 rouges » à « 1 rouge » cachait en fait
+  **1 rouge + 6 tests jamais exécutés** : le test en échec laissait un serveur vivant, et le
+  `beforeEach` des suivants faisait `ctx.skip()` sur port occupé. Lire les `skipped` autant que
+  les `failed` — surtout quand un compteur s'améliore d'un coup.
+- `[1× — 2026-07-27]` **Diagnostiquer le DÉCOR avant les cas** : 7 tests rouges dont le
+  « contrôle positif » n'étaient pas 7 bugs mais un décor qui ne se montait pas
+  (`new URL(...).pathname` pris pour un chemin de fichier). Si le contrôle positif tombe, rien
+  d'autre n'est à lire.
+
+## 🧪 Éprouver une plateforme qu'on n'a pas
+
+- `[1× — 2026-07-27]` ⭐ **Trois leviers, tous employés sans machine Windows.** (a) Rendre la
+  fonction PURE et injecter la grammaire : `path.win32` reproduit le mécanisme depuis macOS, et
+  a prouvé qu'un `resolve()` rendait `\a\b` là où on attendait `/a/b`. (b) Injecter le verdict
+  plutôt que le lire dans l'environnement (`discoverySupported` en paramètre) → le comportement
+  « privé d'observation » se teste partout. (c) Écrire le test en Node PUR pour qu'il tourne dans
+  le job qui, lui, est sur la plateforme visée — le script shell POSIX existant ne pouvait pas
+  quitter ubuntu. Le reste se lit dans les logs CI, dé-ANSI.
+- `[1× — 2026-07-27]` **`utimesSync` réveille un watcher sans laisser de diff** — écrire dans un
+  fichier pour déclencher chokidar laisse une trace le jour où le test échoue avant sa
+  restauration.
+
 ## 📂 Un fichier ABSENT du dépôt fait tenir ce qui tourne en local
 
 - `[3× — 2026-07-26f]` 🔴 **Le même motif a mordu TROIS fois dans une seule session.** (1) Un
