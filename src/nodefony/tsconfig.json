@@ -1,12 +1,6 @@
 {
   "include": ["./rolldown.config.ts", "./src"],
-  "exclude": [
-    "src/tests/**/*",
-    "src/bin/**/*",
-    "node_modules",
-    "dist",
-    "src/service/babel"
-  ],
+  "exclude": ["src/tests/**/*", "src/bin/**/*", "node_modules", "dist"],
   "compilerOptions": {
     "esModuleInterop": true,
     "declaration": false,

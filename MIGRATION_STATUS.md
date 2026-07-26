@@ -153,7 +153,6 @@ Console Logs Studio = panneau P10 de facto livré.
 | Fan-out realtime : **N sérialisations pour N abonnés** (un `JSON.stringify` par abonné)                                                | `RealtimeController.ts:364` |
 | Suites **charge/mémoire hors CI** — le différenciateur de méthode du projet n'est vérifié qu'en local                                  | `.github/workflows/`        |
 | **166 `any`** (dont 119 dans le cœur) + 158 `as unknown as` ; ESLint absent des hooks ET de la CI (`no-explicit-any` en `warn`)        | transverse                  |
-| Code mort : `client/api/Storage.ts` (71 l., importé par personne) · `server-http3.ts` (17 l. commentées)                               | core / http                 |
 | Validation d'entrée absente : `@Body()` injecte le payload **brut** (Zod ne valide que la config)                                      | `@nodefony/framework`       |
 | Audit sur le chemin critique = **5,9 % du profil CPU** · `setTimeout`/requête 2,6 % · churn listeners 1,9 %                            | `renderHttp`                |
 

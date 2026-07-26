@@ -20,7 +20,7 @@
     ".ai/**",
     "**/*.generated.*",
     "src/**/frontend/dist/**",
-    "src/nodefony/src/service/babel/**",
+    "src/nodefony/src/tests/finder/data/**",
     "tmp/**",
     "examples/**/dist/**"
   ],
@@ -169,7 +169,8 @@
     "import/no-unassigned-import": "off",
     "import/no-named-as-default": "off",
     "no-await-in-loop": "off",
-    "unicorn/no-array-reverse": "off"
+    "unicorn/no-array-reverse": "off",
+    "unicorn/no-new-array": "off"
   },
   "overrides": [
     {

@@ -486,19 +486,6 @@ Le subpath expose aussi son **modèle pur** — `computeWaterfall()`
 ligne de DOM. C'est ce qui permet à Studio d'afficher la même cascade dans son écran de profilage
 sans recopier le calcul.
 
-### Le stockage de jetons
-
-`Storage` (`client/api/Storage.ts:19`) est un service qui range un jeton et son jeton de
-rafraîchissement dans `sessionStorage` (par défaut) ou `localStorage`, avec `clearToken()`
-(`client/api/Storage.ts:61`) pour la déconnexion.
-
-> [!WARNING]
-> Cette classe n'est **pas réexportée** par le barrel client : elle n'est pas importable depuis
-> `nodefony/client`. Et sur le fond, le modèle de session recommandé par Nodefony pour une application
-> web est le **cookie opaque** posé par le serveur, pas un jeton rangé par le navigateur — un jeton en
-> stockage est lisible par tout script de la page. Réserve ce genre de stockage aux clients purement
-> machine.
-
 ### Les shims — pourquoi ton code Node compile dans un onglet
 
 Deux modules Node sont remplacés au build par des équivalents navigateur de quelques dizaines de
