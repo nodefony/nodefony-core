@@ -24,6 +24,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findReservedEntity } from "../cli/scaffold/reservedEntities";
+import { readRuntimeState } from "../service/dev/devProcess";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // src/nodefony/src/tests
 const CORE_ROOT = path.resolve(HERE, "../.."); // src/nodefony
@@ -98,6 +99,27 @@ function runCli(
       resolve({ code, signal, stdout, stderr });
     });
   });
+}
+
+/**
+ * Attend que le runtime publie un PID DIFFÉRENT — la signature d'un rechargement.
+ *
+ * Sonde le fichier d'état plutôt que les journaux : c'est le canal que le serveur
+ * alimente lui-même une fois ses ports ouverts, donc il ne dit « rechargé » qu'une fois
+ * le nouvel enfant réellement en écoute. Rend le PID d'origine si le délai expire —
+ * l'appelant conclut, jamais ce helper.
+ */
+async function waitForRuntimePidChange(
+  from: number,
+  timeoutMs: number,
+): Promise<number> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const state = readRuntimeState(REPO_ROOT);
+    if (state && state.pid !== from) return state.pid;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return from;
 }
 
 /** true si un serveur écoute déjà sur le port (garde-fou conflit pour les tests serveur). */
@@ -622,6 +644,69 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
       // Ports libérés après stop — aucun zombie.
       assert.strictEqual(await isPortOpen(HTTP_PORT), false);
     }, 210000);
+
+    // ─── Cycle dev COMPLET : démarrer → recharger → arrêter ─────────────────────
+    // Le mode dev n'était éprouvé sur AUCUNE plateforme autre que par lecture de
+    // code : le job d'intégration est ubuntu-only et démarre en `production`. Ce
+    // test est en Node pur (aucun shell), donc il s'exécute là où le reste du
+    // filet CLI s'exécute — Windows compris, qui est précisément l'endroit où
+    // rien ne prouvait que le superviseur sait relancer son enfant.
+    it("development --detach → le superviseur RECHARGE sur modification, puis stop propre", async () => {
+      const r = await runCli(
+        ["development", "--detach", "--wait", "150"],
+        170000,
+      );
+      try {
+        assert.strictEqual(
+          r.code,
+          0,
+          `--detach doit sortir 0 à la readiness\n${r.stdout}\n${r.stderr}`,
+        );
+        const before = readRuntimeState(REPO_ROOT);
+        assert.ok(before, "le runtime détaché doit publier son fichier d'état");
+        const pidBefore = before.pid;
+        assert.strictEqual(await isPortOpen(HTTP_PORT), true);
+
+        // Touche un fichier SURVEILLÉ sans écrire dedans : `utimesSync` ne change que
+        // les dates, donc l'arbre git reste identique — alors que chokidar, lui, voit
+        // bien un changement. Modifier le contenu pour déclencher un watcher est un
+        // piège : le test laisserait un diff derrière lui s'il échoue avant sa
+        // restauration.
+        const watched = path.join(
+          REPO_ROOT,
+          "src",
+          "modules",
+          "test",
+          "index.ts",
+        );
+        assert.ok(
+          fs.existsSync(watched),
+          `fichier surveillé absent : ${watched}`,
+        );
+        const now = new Date();
+        fs.utimesSync(watched, now, now);
+
+        // Rechargement = anti-rebond + rebuild ciblé + arrêt du groupe + respawn.
+        // Le capteur est le PID publié dans le fichier d'état : c'est le canal que
+        // le serveur alimente lui-même, pas une heuristique de log.
+        const pidAfter = await waitForRuntimePidChange(pidBefore, 180000);
+        assert.notStrictEqual(
+          pidAfter,
+          pidBefore,
+          "le superviseur doit relancer son enfant après modification d'une source",
+        );
+        // Un rechargement qui ne réécoute pas est un rechargement raté.
+        assert.strictEqual(
+          await isPortOpen(HTTP_PORT),
+          true,
+          "le serveur doit réécouter après rechargement",
+        );
+      } finally {
+        const stop = await runCli(["stop"], CLI_TIMEOUT_MS);
+        assert.strictEqual(stop.code, 0, `stop doit nettoyer\n${stop.stderr}`);
+      }
+      assert.strictEqual(await isPortOpen(HTTP_PORT), false);
+    }, 400000);
 
     // ─── PRODUCTION sur un port NON conventionnel ───────────────────────────────
     // Le chemin réel du déploiement : l'app déclare son port (`NF_PORT`, ou `PORT`
