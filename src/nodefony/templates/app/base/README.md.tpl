@@ -63,7 +63,7 @@ pas deux mondes séparés.
 | `AGENTS.md`                | Instructions pour un agent IA — 100 % généré (régénéré par `create`), tes notes vivent dans sa zone préservée |
 <% if (it.complete) { %>| `compose.yaml`             | Infra de dev docker : Redis, Postgres, MariaDB, MySQL, Loki/Grafana (profils) |
 <% } %>| `rolldown.config.ts`       | Build — 3 lignes, délègue tout au socle publié `nodefony/bundler`           |
-| `eslint.config.mjs`        | Lint non-intrusif (warn) ; le style est délégué à Prettier                  |
+| `.oxlintrc.json`           | Lint non-intrusif (warn) ; le style est délégué à Prettier                  |
 | `vitest.config.ts`         | Tests unitaires — porte le bloc `oxc` décorateurs (OBLIGATOIRE, commenté)   |
 | `vitest.e2e.config.ts`     | Tests e2e — config séparée : `npm test` ne montre que ce qu'il exécute      |
 | `var/`                     | Données locales (sqlite, logs fichiers) — gitignoré                         |
@@ -115,13 +115,24 @@ arbitraire), et `nodefony stop` arrête proprement. Le client WebSocket est le
 ```bash
 npm run typecheck    # tsgo — le bundler ne type-check PAS : gate séparé, obligatoire
 npm run check        # cohérence du projet : config, modules déclarés, wiring
-npm run lint         # eslint — garde-fous en warn, non-intrusif
+npm run lint         # oxlint — garde-fous en warn, non-intrusif
 npm run format       # prettier — le style, c'est lui qui décide
 ```
 
-Pourquoi **deux** TypeScript dans les devDependencies ? `@typescript/native-preview`
-fournit `tsgo` (typecheck, rapide) ; `typescript@6` fournit l'**API JS** dont
-eslint a besoin pour parser tes fichiers. Deux outils, deux rôles.
+Le lint et le typecheck sont **deux gates distincts**, et c'est volontaire :
+`tsgo` juge les TYPES, `oxlint` juge tout ce qu'un type ne dit pas — code mort,
+promesse mal formée, import Node sans son préfixe. Aucun des deux ne remplace
+l'autre.
+
+`oxlint` s'appuie sur le même analyseur que le bundler (`rolldown`) : un seul
+lecteur de ta syntaxe, donc aucun risque que l'un accepte ce que l'autre refuse.
+Il n'a **pas** besoin du paquet `typescript` — celui-ci ne reste dans les
+dépendances que pour ton éditeur.
+
+Les règles sont dans `.oxlintrc.json`, commentées par leur intention. Deux
+familles ne pardonnent pas : le code mort (il finit par mentir) et le préfixe
+`node:` sur les modules du runtime (sans lui, un paquet npm homonyme peut prendre
+la place d'un module natif). Le reste avertit sans bloquer.
 
 ## 7. Quand ça casse (troubleshooting)
 

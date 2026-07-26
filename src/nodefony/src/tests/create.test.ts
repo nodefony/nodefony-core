@@ -236,7 +236,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         ".gitignore",
         "README.md",
         "compose.yaml",
-        "eslint.config.mjs",
+        ".oxlintrc.json",
         "vitest.config.ts",
         path.join("nodefony", "controllers", "HelloController.ts"),
         path.join("tests", "config.test.ts"),

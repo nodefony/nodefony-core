@@ -15,7 +15,7 @@
     "test:e2e": "npm run build && vitest run -c vitest.e2e.config.ts",
     "typecheck": "tsgo --noEmit",
     "check": "nodefony check",
-    "lint": "eslint .",
+    "lint": "oxlint",
     "format": "prettier --write ."<% if (it.complete) { %>,
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down"<% } %>
@@ -39,11 +39,8 @@
   },
   "devDependencies": {
     "@types/node": "<%= it.pkg["@types/node"] %>",
-    "@typescript-eslint/eslint-plugin": "<%= it.pkg["@typescript-eslint/eslint-plugin"] %>",
-    "@typescript-eslint/parser": "<%= it.pkg["@typescript-eslint/parser"] %>",
     "@typescript/native-preview": "<%= it.pkg["@typescript/native-preview"] %>",
-    "eslint": "<%= it.pkg["eslint"] %>",
-    "eslint-config-prettier": "<%= it.pkg["eslint-config-prettier"] %>",
+    "oxlint": "<%= it.pkg["oxlint"] %>",
     "prettier": "<%= it.pkg["prettier"] %>",
     "rolldown": "<%= it.pkg["rolldown"] %>",
 <% if (it.front) { for (const [n, v] of Object.entries(it.front.devDeps)) { %>    "<%= n %>": "<%= v %>",

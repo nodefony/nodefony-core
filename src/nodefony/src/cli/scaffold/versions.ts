@@ -22,11 +22,8 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // ruptures, et le repository dépend de comportements fins (cf `limit(-1)`).
   "drizzle-orm": "0.45.2",
   "@types/node": "^26.1.1",
-  "@typescript-eslint/eslint-plugin": "^8.63.0",
-  "@typescript-eslint/parser": "^8.63.0",
   "@typescript/native-preview": "^7.0.0-dev.0",
-  eslint: "^10.6.0",
-  "eslint-config-prettier": "^10.1.8",
+  oxlint: "^1.75.0",
   prettier: "^3.9.5",
   rolldown: "^1.1.5",
   typescript: "^6.0.3",

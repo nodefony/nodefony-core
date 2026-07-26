@@ -96,6 +96,7 @@ export interface IScaffoldRunOptions {
 /** Fichiers dont le nom rendu diffère du template (npm strip les dotfiles publiés). */
 const RENAMES: Record<string, string> = {
   gitignore: ".gitignore",
+  "oxlintrc.json": ".oxlintrc.json",
   env: ".env",
   "env.local": ".env.local",
 };
