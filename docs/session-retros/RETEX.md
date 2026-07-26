@@ -72,10 +72,26 @@
 
 ## 🔍 Un contrôle que personne ne lance n'existe pas
 
-- `[1× — 2026-07-26]` **La CI ne lançait pas le lint** — 146 erreurs accumulées sans qu'aucune
+- `[3× — 2026-07-26f]` **La CI ne lançait pas le lint** — 146 erreurs accumulées sans qu'aucune
   demande de fusion en dise un mot. Le contrôle existait en local, donc « on l'avait ». Corollaire
   vérifié sur CodeQL : deux alertes marquées « corrigées » l'étaient par un **renommage de
   dossier**, pas par un correctif — les mêmes défauts rouverts au nouveau chemin.
+  **2ᵉ occurrence** : CodeQL n'avait JAMAIS tourné sur la branche de travail — il n'écoutait que
+  `main`, et son filtre valait `paths: - "src"`, motif qui ne correspond à aucun fichier là où
+  GitHub attend `src/**`. Les 7 alertes affichées étaient des fossiles de 2024 (`ref` = `main`,
+  date de mise à jour = date de création) désignant des lignes devenues des commentaires. La liste
+  d'exclusions ajoutée la veille n'avait jamais eu l'occasion de servir.
+  **3ᵉ occurrence** : `npm audit` (neutralisé par le `--no-audit` de l'installation) et
+  `skills:check` (en local depuis des semaines) n'étaient déclenchés nulle part. Un contrôle
+  n'existe que dans le fichier de workflow — et **un gate à zéro se verrouille** (`--deny-warnings`),
+  sinon la marche reste verte pendant que le compteur remonte.
+- `[1× — 2026-07-26f]` 🔴 **`needs:` sur un job À MATRICE masque tout ce qui suit.** Le job dépendant
+  attend les 6 variantes et échoue si UNE tombe → les tests passent en `skipped`, état qui s'affiche
+  « non exécuté » et se lit « rien à signaler ». Deux mois d'aveuglement : une variante Windows
+  rouge cachait l'état réel des tests unitaires ET d'intégration. Les jobs réinstallant et
+  reconstruisant de toute façon, les **découpler** ne coûte rien et fait dire à chacun SA vérité.
+  Corollaire de nommage : le job s'appelait « Build », ce qui laissait croire à une étape amont dont
+  les autres attendaient la sortie — renommé « Vérifications », puisqu'il ne produit rien pour eux.
 - `[1× — 2026-07-26]` **Une entrée de config qui NOMME un chemin se vérifie à l'écriture.** J'avais
   recopié `src/nodefony/src/service/babel/**` dans les exclusions du linter — le dossier n'existe
   plus depuis longtemps, et une exclusion morte n'échoue jamais, elle protège juste le vide. Le user
@@ -89,6 +105,24 @@
   laissé 7 déclarations orphelines par ricochet (imports, une table de libellés, puis un type devenu
   inutile APRÈS elle). Le lint les a toutes nommées, en deux passes. Sans le gate, elles partaient
   dans le commit. Corollaire de méthode : les retirer À LA MAIN, jamais par `--fix`.
+
+## 📂 Un fichier ABSENT du dépôt fait tenir ce qui tourne en local
+
+- `[3× — 2026-07-26f]` 🔴 **Le même motif a mordu TROIS fois dans une seule session.** (1) Un
+  `index.ts` versionné importait en dur une fixture de 410 tables que le MÊME commit avait mise au
+  `.gitignore` (licence incompatible) : build cassé depuis deux mois pour quiconque clone, invisible
+  ici où le dossier existe. (2) Les clés de production vivent dans `.env.local` (`*.local` ignoré) —
+  sans elles, deux `CRITIC` légitimes, et la sonde de démarrage déclarait mort un serveur qui
+  écoutait ses quatre ports. (3) L'analyse de code restait sur une autre branche, donc n'avait
+  jamais lu le code écrit. **« Ça marche chez moi » est presque toujours cette phrase-là.**
+  Règles qui en sortent : un dossier ignoré ne doit être importé par **aucun** fichier versionné, ni
+  scanné par un artefact **commité** (un `symbols.json` qui décrit des fichiers absents des clones
+  diverge d'une machine à l'autre) ; et le `.gitignore` est le bon endroit où écrire l'interdit,
+  puisque c'est là qu'on le lira avant d'ignorer le prochain dossier.
+- `[1× — 2026-07-26f]` **Preuve par contraste, à faire systématiquement** : écarter le fichier du
+  disque et rejouer la commande (`mv` aller-retour dans une SEULE commande), ou constater que la
+  variable est présente en local et absente du clone. Deux secondes, et le diagnostic devient un
+  fait au lieu d'une hypothèse.
 
 ## 🧹 Remplacer sans retirer laisse du code fantôme — et un appel réseau qui tourne
 
