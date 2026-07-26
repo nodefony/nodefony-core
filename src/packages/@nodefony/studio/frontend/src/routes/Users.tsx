@@ -49,10 +49,12 @@ import {
   USERS_LIST_WINDOW,
   usersListEndpoint,
   deleteUserEndpoint,
+  USERS_STATUS_ENDPOINT,
   countUsers,
   describeUsersError,
   type UserSummary,
   type UserListResponse,
+  type UsersStatus,
 } from "./users/usersModel";
 import { UsersTable } from "./users/UsersTable";
 import { UsersHelp } from "./users/UsersHelp";
@@ -87,10 +89,27 @@ export const Users = observer(() => {
   }, [store]);
   const { data, loading, error, reload } = useResource(fetcher);
 
+  // Compte RÉEL de comptes côté serveur (`count()` du dépôt) — endpoint ADMIN,
+  // donc jamais sollicité pour un utilisateur ordinaire (403 inutile). C'est la
+  // seule source du total au-delà de la fenêtre : la liste est plafonnée, et son
+  // `total` retombe sur la taille de la page quand le backend ne sait pas compter.
+  const statusFetcher = useCallback(
+    (): Promise<UsersStatus | null> =>
+      isAdmin
+        ? store.api.getAbsolute<UsersStatus>(USERS_STATUS_ENDPOINT)
+        : Promise.resolve(null),
+    [store, isAdmin],
+  );
+  const { data: status } = useResource(statusFetcher);
+
   const users = useMemo(() => data?.items ?? [], [data]);
   const total = data?.total ?? users.length;
   const truncated = total > users.length;
   const counts = useMemo(() => countUsers(users), [users]);
+  // Total affiché : le compte serveur s'il est dénombrable, sinon ce que la
+  // fenêtre montre — l'aide de la carte dit toujours laquelle des deux.
+  const serverCount = status?.count ?? null;
+  const displayedTotal = serverCount ?? counts.total;
 
   // Suggestions de rôles : rôles connus de Studio ∪ ceux déjà portés par les
   // comptes chargés (autocomplétion honnête ; la saisie reste libre).
@@ -211,10 +230,16 @@ export const Users = observer(() => {
         <StatCard
           label="Total"
           icon={<IconUsers size={20} color="var(--mantine-color-brand-5)" />}
-          hint="Nombre de comptes utilisateurs dans la fenêtre chargée."
+          hint={
+            serverCount === null
+              ? `Nombre de comptes dans la fenêtre chargée (${counts.total}). Le total du serveur n'est pas affiché ici : soit vous n'êtes pas administrateur, soit le dépôt de persistance ne sait pas compter ses lignes.`
+              : serverCount > users.length
+                ? `Total réel côté serveur : ${serverCount} comptes. La table n'en affiche que ${users.length} (fenêtre plafonnée à ${USERS_LIST_WINDOW}).`
+                : `Total réel côté serveur : ${serverCount} comptes — tous affichés dans la table.`
+          }
         >
           <Text fz={28} fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
-            {counts.total}
+            {displayedTotal}
           </Text>
         </StatCard>
         <StatCard

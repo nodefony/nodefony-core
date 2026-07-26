@@ -61,11 +61,14 @@ import {
   revokeUserSessionsEndpoint,
   countByAuth,
   describeSessionsError,
+  SESSIONS_STATUS_ENDPOINT,
   type SessionSummary,
   type SessionListResponse,
+  type SessionsStatus,
 } from "./sessions/sessionsModel";
 import { SessionsTable } from "./sessions/SessionsTable";
 import { SessionsHelp } from "./sessions/SessionsHelp";
+import { SessionPolicyBadge } from "./sessions/sessionsFormat";
 import { BrickStoreChip } from "./stores/BrickStoreChip";
 
 type Mode = "mine" | "all";
@@ -123,6 +126,18 @@ export const Sessions = observer(() => {
     }
   }, [store, mode, adminUserFilter]);
   const { data, loading, error, reload } = useResource(fetcher);
+
+  // Politique de session (garde-fou de révocation + délais d'expiration) =
+  // endpoint ADMIN → on ne le sollicite QUE pour un admin, sinon on provoque un
+  // 403 inutile dans la console d'un utilisateur ordinaire.
+  const statusFetcher = useCallback(
+    (): Promise<SessionsStatus | null> =>
+      isAdmin
+        ? store.api.getAbsolute<SessionsStatus>(SESSIONS_STATUS_ENDPOINT)
+        : Promise.resolve(null),
+    [store, isAdmin],
+  );
+  const { data: status } = useResource(statusFetcher);
 
   // Révocation : endpoint scopé self (anti-IDOR) en mode « mine », endpoint admin
   // en mode « all » — le mode pilote la cible des mutations.
@@ -283,6 +298,13 @@ export const Sessions = observer(() => {
             </Text>
           )}
           <BrickStoreChip brick="session" />
+          {status && (
+            <SessionPolicyBadge
+              revocationHardened={status.revocationHardened}
+              idleTimeoutS={status.idleTimeoutS}
+              absoluteTimeoutS={status.absoluteTimeoutS}
+            />
+          )}
         </Group>
         {mode === "all" && (
           <TextInput
