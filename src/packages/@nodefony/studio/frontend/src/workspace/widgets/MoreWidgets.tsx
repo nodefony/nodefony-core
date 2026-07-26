@@ -198,7 +198,7 @@ function aggChannels(
     }
   }
   return [...map.entries()]
-    .map(([channel, v]) => ({ channel, ...v }))
+    .map(([channel, v]) => ({ channel, sub: v.sub, msg: v.msg }))
     .sort((a, b) => b.msg - a.msg);
 }
 function ChannelsBody({ source }: WidgetRenderProps<HealthPayload>) {

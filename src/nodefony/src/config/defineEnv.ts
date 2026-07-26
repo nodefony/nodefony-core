@@ -288,6 +288,7 @@ export function defineEnv<M extends Record<string, z.ZodTypeAny>>(
   // Agrège les métadonnées (introspectables) du catalogue sur l'objet retourné,
   // en clé NON-énumérable → invisible pour le typage/consommateurs, lue par
   // `getEnvCatalog` (génération `.env.example`). Posé AVANT le freeze.
+  // oxlint-disable-next-line no-map-spread -- `m` est la métadonnée PARTAGÉE portée par le schéma Zod : y écrire `name` la polluerait pour tous ses lecteurs
   const catalogMeta: NamedEnvVarMeta[] = Object.keys(catalog).map((name) => {
     const m = readMeta(catalog[name]);
     return m

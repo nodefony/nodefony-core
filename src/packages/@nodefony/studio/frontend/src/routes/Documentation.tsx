@@ -238,14 +238,15 @@ export const Documentation = observer(() => {
     { key: "modules", label: "Modules", match: (s) => Boolean(s.module) },
     { key: "refs", label: "Références internes", match: () => true },
   ];
-  const navFamilies = NAV_FAMILIES.map((f) => ({
-    ...f,
+  // Une section n'apparaît que dans la PREMIÈRE famille qui la reconnaît : les
+  // familles déjà passées (`slice(0, idx)`) ont priorité, la dernière ramasse le
+  // reste. On ne projette que ce que le rendu lit — `match` reste ici.
+  const navFamilies = NAV_FAMILIES.map((f, idx) => ({
+    key: f.key,
+    label: f.label,
     sections: navSections.filter(
       (s) =>
-        f.match(s) &&
-        !NAV_FAMILIES.slice(0, NAV_FAMILIES.indexOf(f)).some((prev) =>
-          prev.match(s),
-        ),
+        f.match(s) && !NAV_FAMILIES.slice(0, idx).some((prev) => prev.match(s)),
     ),
   })).filter((f) => f.sections.length > 0);
 

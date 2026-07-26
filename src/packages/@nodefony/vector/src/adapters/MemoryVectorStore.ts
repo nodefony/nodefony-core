@@ -3,10 +3,16 @@
 // Implémente la similarité cosinus simple
 
 import type {
-  IVectorStore, IVectorEntry, IVectorSearchOptions,
-  IVectorSearchResult, IVectorStoreConfig
+  IVectorStore,
+  IVectorEntry,
+  IVectorSearchOptions,
+  IVectorSearchResult,
+  IVectorStoreConfig,
 } from "../interfaces/IVectorStore.js";
-import { VectorDimensionError, VectorNotInitializedError } from "../errors/VectorErrors.js";
+import {
+  VectorDimensionError,
+  VectorNotInitializedError,
+} from "../errors/VectorErrors.js";
 
 export class MemoryVectorStore implements IVectorStore {
   readonly name = "memory";
@@ -41,7 +47,7 @@ export class MemoryVectorStore implements IVectorStore {
 
   async search(
     queryVector: number[],
-    options: IVectorSearchOptions = {}
+    options: IVectorSearchOptions = {},
   ): Promise<IVectorSearchResult[]> {
     this.assertReady();
 
@@ -49,14 +55,15 @@ export class MemoryVectorStore implements IVectorStore {
       throw new VectorDimensionError(this.dimensions, queryVector.length);
     }
 
-    const limit    = options.limit ?? 5;
+    const limit = options.limit ?? 5;
     const minScore = options.minScore ?? 0;
 
     const results: IVectorSearchResult[] = [];
 
     for (const entry of this.entries.values()) {
       // Filtrage metadata si fourni
-      if (options.filter && !this.matchesFilter(entry, options.filter)) continue;
+      if (options.filter && !this.matchesFilter(entry, options.filter))
+        continue;
 
       const score = this.cosineSimilarity(queryVector, entry.vector);
       if (score >= minScore) {
@@ -65,10 +72,15 @@ export class MemoryVectorStore implements IVectorStore {
     }
 
     results.sort((a, b) => b.score - a.score);
-    return results.slice(0, limit).map((r, i) => ({ ...r, rank: i + 1 }));
+    return results
+      .slice(0, limit)
+      .map((r, i) => ({ entry: r.entry, score: r.score, rank: i + 1 }));
   }
 
-  async delete(criteria: { ids?: string[]; filter?: Record<string, unknown> }): Promise<number> {
+  async delete(criteria: {
+    ids?: string[];
+    filter?: Record<string, unknown>;
+  }): Promise<number> {
     this.assertReady();
     let deleted = 0;
     if (criteria.ids) {
@@ -116,9 +128,11 @@ export class MemoryVectorStore implements IVectorStore {
   }
 
   private cosineSimilarity(a: number[], b: number[]): number {
-    let dot = 0, normA = 0, normB = 0;
+    let dot = 0,
+      normA = 0,
+      normB = 0;
     for (let i = 0; i < a.length; i++) {
-      dot   += a[i]! * b[i]!;
+      dot += a[i]! * b[i]!;
       normA += a[i]! * a[i]!;
       normB += b[i]! * b[i]!;
     }
@@ -126,7 +140,10 @@ export class MemoryVectorStore implements IVectorStore {
     return denom === 0 ? 0 : dot / denom;
   }
 
-  private matchesFilter(entry: IVectorEntry, filter: Record<string, unknown>): boolean {
+  private matchesFilter(
+    entry: IVectorEntry,
+    filter: Record<string, unknown>,
+  ): boolean {
     for (const [key, value] of Object.entries(filter)) {
       const entryValue = (entry.metadata as Record<string, unknown>)[key];
       if (entryValue !== value) return false;

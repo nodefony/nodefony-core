@@ -302,6 +302,7 @@ export class WorkspaceStore {
     this.layouts[nid] = {
       id: nid,
       label: this.uniqueLabel(`${src.label} (copie)`),
+      // oxlint-disable-next-line no-map-spread -- clone VOULU : sans lui, les deux bureaux partageraient les mêmes objets et se déplaceraient ensemble
       items: src.items.map((i) => ({ ...i })),
     };
     this.activeId = nid;

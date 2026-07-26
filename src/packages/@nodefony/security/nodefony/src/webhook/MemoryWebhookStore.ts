@@ -64,6 +64,7 @@ export class MemoryWebhookStore implements IWebhookStore {
   }
 
   async listAll(): Promise<IWebhookEndpoint[]> {
+    // oxlint-disable-next-line no-map-spread -- copie DÉFENSIVE : le remplacement suggéré (`Object.assign`) rendrait la référence interne du store, que l'appelant pourrait muter
     return [...this.#byId.values()].map((e) => ({ ...e }));
   }
 
@@ -80,6 +81,7 @@ export class MemoryWebhookStore implements IWebhookStore {
       (a, b) =>
         b.createdAt - a.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
     );
+    // oxlint-disable-next-line no-map-spread -- clonage DÉFENSIF de la page (cf ci-dessus) : muter l'élément exposerait l'entrée du store
     const items = filtered.slice(offset, offset + limit).map((e) => ({
       ...e,
       events: [...e.events],
