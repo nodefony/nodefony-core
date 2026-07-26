@@ -181,7 +181,8 @@
         "**/*.spec.ts",
         "**/tests/**/*.ts",
         "**/*.config.{ts,mts,cts,js,mjs,cjs}",
-        "scripts/**/*.ts"
+        "scripts/**/*.ts",
+        ".claude/skills/**/scripts/**"
       ],
       "rules": {
         "typescript/no-explicit-any": "off",

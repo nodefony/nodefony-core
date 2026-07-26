@@ -50,6 +50,9 @@ class ServerHttps extends Service {
     module: Module,
     @inject("HttpKernel") private httpKernel: HttpKernel,
   ) {
+    // NE PAS SUPPRIMER — cf `server-http.ts` : seul usage de `Module` comme
+    // VALEUR ici ; l'élider ferait retomber `design:paramtypes` sur `Object`.
+    // oxlint-disable-next-line no-unused-expressions
     Module;
     super(
       "server-https",
