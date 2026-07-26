@@ -15,19 +15,21 @@ const wait = (ms = 30): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 describe("Log sink driver (LB.W)", () => {
   describe("FileSink", () => {
+    let tmpDir: string;
     let tmpFile: string;
+    // Dossier temporaire demandé à l'OS, comme partout ailleurs dans ces bancs
+    // (`detachedStart`, `devProcess`, `completion`…). L'unicité est alors une
+    // GARANTIE du système, là où un nom composé d'un horodatage et d'un tirage
+    // aléatoire n'est qu'un pari : deux cas qui démarrent dans la même
+    // milliseconde reposaient sur le seul `Math.random()`, et le perdant relisait
+    // le fichier du cas précédent. C'est ce qui faisait apparaître un `x` — écrit
+    // par le banc d'idempotence de `close()` — en tête d'une assertion d'ordre.
     beforeEach(() => {
-      tmpFile = path.join(
-        os.tmpdir(),
-        `nf-filesink-${Date.now()}-${Math.random().toString(36).slice(2)}.log`,
-      );
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-filesink-"));
+      tmpFile = path.join(tmpDir, "sink.log");
     });
     afterEach(() => {
-      try {
-        fs.unlinkSync(tmpFile);
-      } catch {
-        /* fichier absent — rien à nettoyer */
-      }
+      fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
     it("écrit les lignes en async sur le fichier (FIFO préservé)", async () => {

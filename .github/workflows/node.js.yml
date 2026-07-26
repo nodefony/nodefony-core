@@ -29,9 +29,17 @@ env:
   FORCE_COLOR: 1
 
 jobs:
-  # ─── Build + Typecheck — cross-platform, rapide ─────────────────────────────
-  build:
-    name: Build (${{ matrix.os }} / Node ${{ matrix.node-version }})
+  # ─── Vérifications statiques — multi-plateformes ────────────────────────────
+  #
+  # Ce job ne PRODUIT rien pour les autres : il compile pour vérifier que ça
+  # compile, puis contrôle types, style, dépendances et skills. Chaque job de
+  # test réinstalle et reconstruit sur son propre runner. Il s'appelait « Build »,
+  # ce qui laissait croire à une étape amont dont les tests attendraient la
+  # sortie — d'où l'étonnement légitime de voir les tests démarrer « avant lui ».
+  # Ils démarrent EN MÊME TEMPS, et c'est le but : plus aucun job n'est mis en
+  # attente, donc plus aucun ne peut être masqué par l'échec d'un autre.
+  checks:
+    name: Vérifications (${{ matrix.os }} / Node ${{ matrix.node-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
