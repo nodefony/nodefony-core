@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-26T22:25:32.988Z",
+  "generated": "2026-07-26T22:51:31.201Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -21180,7 +21180,8 @@
       ],
       "signalProcessGroup": [
         "src/nodefony/src/service/dev/detachedStart.ts",
-        "src/nodefony/src/service/dev/DevSupervisor.ts"
+        "src/nodefony/src/service/dev/DevSupervisor.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
       ],
       "formatForeignRuntimes": [
         "src/nodefony/src/service/dev/detachedStart.ts",
@@ -22498,6 +22499,9 @@
       "FrontendPresetUnknownError": [
         "src/packages/@nodefony/frontend/nodefony/service/ViteConfigGenerator.ts",
         "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts"
+      ],
+      "TreeSignalOutcome": [
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
       ],
       "ViteSupervisorState": [
         "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"

@@ -20,6 +20,15 @@ export interface FileSinkOptions {
    * un fichier local rapide, l'annule). Défaut `false` (async, pour sinks lents).
    */
   sync?: boolean;
+  /**
+   * Écriture asynchrone employée par le drain. Défaut `fs.write`.
+   *
+   * Injectable pour une seule raison : la remise du descripteur de fichier dépend
+   * d'une COURSE avec le pool de threads, et une course ne se provoque pas à
+   * volonté. En la pilotant depuis le banc, l'invariant « on ne rend jamais un
+   * descripteur sous une écriture en vol » devient une assertion au lieu d'un pari.
+   */
+  write?: typeof fsWrite;
 }
 
 /**
@@ -48,7 +57,9 @@ export class FileSink implements ILogSink {
   #writing = false;
   #inFlight: string | null = null; // chunk passé à fsWrite, pas encore confirmé écrit
   #closed = false;
+  #fdClosed = false; // le descripteur a-t-il été RENDU au système ?
   #dropped = 0;
+  readonly #write: typeof fsWrite;
 
   constructor(options: FileSinkOptions) {
     // Dossier parent créé si absent (openSync "a" échouerait sinon).
@@ -58,6 +69,7 @@ export class FileSink implements ILogSink {
     this.#fd = openSync(options.path, "a");
     this.#maxPendingBytes = options.maxPendingBytes ?? 4 * 1024 * 1024;
     this.#sync = options.sync ?? false;
+    this.#write = options.write ?? fsWrite;
   }
 
   /** Lignes droppées (buffer saturé) — lu par une sonde, JAMAIS reloggé (récursion). */
@@ -124,11 +136,28 @@ export class FileSink implements ILogSink {
     // si close()/flushSync() (exit) survient avant le callback async, il est ré-écrit
     // en SYNC — sinon perdu (le fd serait fermé avant que le callback ne tourne).
     this.#inFlight = chunk;
-    fsWrite(this.#fd, chunk, (err: NodeJS.ErrnoException | null): void => {
+    this.#write(this.#fd, chunk, (err: NodeJS.ErrnoException | null): void => {
       this.#writing = false;
       this.#inFlight = null; // confirmé écrit (ou erreur I/O → best-effort, jamais throw)
+      // Une fermeture est survenue pendant le vol : elle a laissé le descripteur
+      // ouvert exprès et nous a délégué sa remise. C'est maintenant, et pas avant.
+      if (this.#closed) {
+        this.#closeFd();
+        return;
+      }
       if (!err) this.#drain(); // ré-écrit ce qui s'est accumulé pendant le write async
     });
+  }
+
+  /** Rend le descripteur au système, une seule fois. */
+  #closeFd(): void {
+    if (this.#fdClosed) return;
+    this.#fdClosed = true;
+    try {
+      closeSync(this.#fd);
+    } catch {
+      /* déjà fermé — idempotent */
+    }
   }
 
   flushSync(): void {
@@ -148,15 +177,26 @@ export class FileSink implements ILogSink {
     }
   }
 
+  /**
+   * Ferme le sink : plus rien n'est accepté, le pending part en SYNC, et le
+   * descripteur est rendu — mais **jamais sous une écriture en vol**.
+   *
+   * Un descripteur est un entier que le système réattribue au premier `open` venu.
+   * Le rendre pendant qu'une écriture asynchrone attend encore son tour dans le pool
+   * de threads, c'est la laisser atterrir dans le fichier — ou la socket — de
+   * quelqu'un d'autre, sans la moindre erreur visible. Le symptôme observé était une
+   * ligne d'un banc apparue en tête du fichier d'un autre ; il avait été pris pour un
+   * défaut d'isolation et « corrigé » par un dossier temporaire unique, d'où son
+   * retour. Quand une écriture est en vol, la remise est donc déléguée à son
+   * callback ({@link #closeFd}) — idempotente et sans attente pour l'appelant.
+   */
   close(): void {
     if (this.#closed) return;
     this.flushSync();
     this.#closed = true;
-    try {
-      closeSync(this.#fd);
-    } catch {
-      // idempotent — fd déjà fermé.
-      this.#closed = true;
-    }
+    // Écriture en vol : le callback rendra le descripteur (il tourne toujours, même
+    // en cas d'erreur d'entrée-sortie).
+    if (this.#writing) return;
+    this.#closeFd();
   }
 }

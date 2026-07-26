@@ -1,4 +1,5 @@
 import { spawn, ChildProcess } from "node:child_process";
+import { signalProcessGroup, type TreeSignalOutcome } from "nodefony";
 import { writeFileSync, readFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import http from "node:http";
@@ -712,19 +713,19 @@ export class ViteProcessSupervisor implements IViteSupervisor {
         resolve();
       };
       child.once("exit", done);
-      try {
-        child.kill("SIGINT");
-      } catch {
+      // Rien à tuer → aucun `exit` ne viendra : conclure ICI, sinon l'arrêt du kernel
+      // attend un événement qui n'existera jamais.
+      if (this.signalTree(child, "SIGINT") === "gone") {
         done();
         return;
       }
       sigKillTimer = setTimeout(() => {
-        if (this.child && !this.child.killed) {
-          try {
-            this.child.kill("SIGKILL");
-          } catch {
-            /* déjà mort */
-          }
+        const c = this.child;
+        // `killed` ne dit que « un signal a été envoyé PAR cet objet » — il resterait
+        // faux ici puisqu'on passe par l'arbre. La question est « ce process vit-il
+        // encore ? », et ce sont les codes de sortie qui y répondent.
+        if (c && c.exitCode === null && c.signalCode === null) {
+          this.signalTree(c, "SIGKILL");
         }
       }, 3_000);
     });
@@ -733,11 +734,42 @@ export class ViteProcessSupervisor implements IViteSupervisor {
   /** Force kill du child (pour les health checks failing). Le exit handler gère le restart. */
   private killChild(): void {
     if (!this.child) return;
-    try {
-      this.child.kill("SIGTERM");
-    } catch {
-      /* déjà mort */
+    this.signalTree(this.child, "SIGTERM");
+  }
+
+  /**
+   * Envoie un signal à l'ARBRE de Vite — lui et ses propres enfants, à commencer par
+   * le service esbuild que Vite lance pour la pré-optimisation des dépendances.
+   *
+   * `child.kill()` n'atteint que Vite. Sous POSIX cela suffit en pratique : Vite n'est
+   * pas leader de son groupe (`detached: false`, voulu — un Ctrl+C terminal doit
+   * l'atteindre), donc le comportement ici est inchangé, et l'arbre est de toute façon
+   * emporté par le groupe du superviseur de développement. Sous Windows il n'y a pas de
+   * groupe du tout : les descendants survivaient à chaque arrêt, et `stopDev()` laissait
+   * un service esbuild derrière lui.
+   *
+   * Une seule implémentation dans le dépôt ({@link signalProcessGroup}, cœur) : groupe
+   * POSIX ou `taskkill /T` selon la plateforme. La recopier ici aurait fait réapparaître
+   * l'angle mort qu'on venait de fermer dans le superviseur de développement.
+   *
+   * @returns ce qui a pu être atteint. `gone` = plus rien à tuer, donc plus aucun `exit`
+   *   à attendre : c'est un VERDICT, là où l'arrêt reposait jusqu'ici sur une exception
+   *   remontée par `child.kill()`. Une exception dit qu'un appel a échoué, pas ce qu'il
+   *   est advenu du process — et elle disparaît dès qu'un intermédiaire la rattrape.
+   */
+  private signalTree(
+    child: ChildProcess,
+    signal: NodeJS.Signals,
+  ): TreeSignalOutcome {
+    if (typeof child.pid !== "number") {
+      try {
+        child.kill(signal); // pas de pid : rien d'autre à tenter
+        return "single";
+      } catch {
+        return "gone"; // process déjà disparu (ESRCH)
+      }
     }
+    return signalProcessGroup(child.pid, signal);
   }
 
   // ───────────────────────────────────────────────────────────────────────

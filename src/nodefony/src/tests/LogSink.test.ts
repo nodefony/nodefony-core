@@ -88,6 +88,56 @@ describe("Log sink driver (LB.W)", () => {
       sink.close();
       assert.doesNotThrow(() => sink.writeOut("late\n"));
     });
+
+    it("close() ne rend PAS le descripteur sous une écriture en vol", async () => {
+      // Un descripteur est un ENTIER que le système réattribue au premier `open`
+      // venu. Le rendre pendant qu'une écriture asynchrone attend son tour dans le
+      // pool de threads, c'est la laisser atterrir dans le fichier — ou la socket —
+      // de quelqu'un d'autre, sans la moindre erreur visible. Le symptôme observé
+      // était une ligne d'un banc en tête du fichier d'un autre ; il avait été pris
+      // pour un défaut d'isolation et « corrigé » par un dossier temporaire unique,
+      // d'où son retour.
+      //
+      // Cette course ne se provoque pas à volonté : en local le pool répond avant
+      // le `close`. On la PILOTE donc, en retenant le rappel de l'écriture — et on
+      // interroge le seul fait qui tranche : le descripteur est-il encore valide au
+      // moment où l'écriture s'exécuterait ?
+      let released: (() => void) | null = null;
+      let capturedFd = -1;
+      const sink = new FileSink({
+        path: tmpFile,
+        write: ((
+          fd: number,
+          data: string,
+          cb: (err: NodeJS.ErrnoException | null) => void,
+        ): void => {
+          capturedFd = fd;
+          released = () => {
+            fs.writeSync(fd, data);
+            cb(null);
+          };
+        }) as unknown as typeof fs.write,
+      });
+      sink.writeOut("en-vol\n"); // écriture partie, rappel RETENU par le banc
+      sink.close(); // ferme SOUS l'écriture en vol
+
+      // Le descripteur doit être encore ouvert : c'est exactement ce que `close()`
+      // a délégué au rappel. `fstatSync` sur un descripteur rendu lève `EBADF`.
+      assert.doesNotThrow(
+        () => fs.fstatSync(capturedFd),
+        "le descripteur a été rendu alors qu'une écriture était en vol",
+      );
+
+      // Le rappel s'exécute : il écrit puis rend le descripteur, dans cet ordre.
+      assert.ok(released, "le banc devait retenir le rappel");
+      (released as unknown as () => void)();
+      await wait(5);
+      assert.throws(
+        () => fs.fstatSync(capturedFd),
+        "le descripteur devait être rendu une fois l'écriture confirmée",
+      );
+      assert.ok(fs.readFileSync(tmpFile, "utf8").includes("en-vol\n"));
+    });
   });
 
   describe("FileSink (mode sync)", () => {

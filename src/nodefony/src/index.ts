@@ -444,6 +444,11 @@ export {
   suspendSupervisor,
   resumeSupervisor,
   readSupervisorSuspension,
+  // Arrêt d'un ARBRE de process — implémentation UNIQUE du dépôt (groupe POSIX /
+  // `taskkill /T` Windows). Exposée parce que tout superviseur d'enfants en a besoin
+  // hors du cœur (Vite et son service esbuild) : la recopier ailleurs ferait
+  // réapparaître, dans le paquet suivant, l'angle mort qu'on vient de fermer ici.
+  signalProcessGroup,
 } from "./service/dev/devProcess";
 export type {
   DevProcessInfo,
@@ -452,6 +457,7 @@ export type {
   PortState,
   RuntimeState,
   SupervisorLock,
+  TreeSignalOutcome,
 } from "./service/dev/devProcess";
 
 // ─── Scaffold (création app/module/…) : spec déclarative + moteur PUR ─────────
