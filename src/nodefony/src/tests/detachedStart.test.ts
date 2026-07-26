@@ -18,6 +18,7 @@ import {
   isDetachRequested,
   DETACH_CHILD_ENV,
 } from "../service/dev/detachedStart";
+import { signalProcessGroup, waitAllDead } from "../service/dev/devProcess";
 
 /** Réserve un port libre (listen(0) → close) — évite les collisions inter-suites. */
 function freePort(): Promise<number> {
@@ -97,29 +98,31 @@ describe("parseDetachArgs — parse + strip anti-récursion", () => {
  *
  * Tolérant par construction (pid absent, process déjà mort) — un nettoyage ne
  * doit jamais masquer l'échec qu'il suit.
+ *
+ * Rend la main quand le process est RÉELLEMENT mort, pas quand le signal est parti :
+ * ce qui suit (la suppression du répertoire de travail) échoue sous Windows tant
+ * qu'un process y a son répertoire courant. Envoyer un signal n'est pas une preuve
+ * de mort — elle se constate.
  */
-function killDetached(pid: number | undefined): void {
+async function killDetached(pid: number | undefined): Promise<void> {
   if (!pid) return;
-  try {
-    process.kill(-pid, "SIGKILL");
-  } catch {
-    try {
-      process.kill(pid, "SIGKILL");
-    } catch {
-      /* déjà mort — rien à nettoyer */
-    }
-  }
+  // Même implémentation que le reste du dépôt : groupe POSIX / `taskkill /T` Windows.
+  signalProcessGroup(pid, "SIGKILL");
+  await waitAllDead([pid], 5000);
 }
 
 /**
  * Supprime le répertoire de travail d'un child qu'on vient de tuer.
  *
- * Tuer un process ne libère pas ses handles dans la seconde, et Windows refuse de
- * supprimer un dossier tant qu'un process l'a pour répertoire courant : la suppression
- * échoue alors en `EPERM`, DANS le `finally` — ce qui fait échouer un test dont toutes
- * les assertions sont passées. `maxRetries`/`retryDelay` existent précisément pour ça
- * (Node réessaie sur `EPERM`/`EBUSY`/`ENOTEMPTY`), et laissent au système le temps de
- * relâcher le verrou. Sans effet sous POSIX, où la suppression réussit du premier coup.
+ * Windows refuse de supprimer un dossier tant qu'un process l'a pour répertoire
+ * courant : la suppression échoue en `EPERM`, DANS le `finally` — ce qui fait échouer
+ * un test dont toutes les assertions sont passées. C'est ce qui rougissait ici, et
+ * seulement pour les cas qui se donnent un répertoire de travail.
+ *
+ * Le remède tient à l'ORDRE, pas au nombre d'essais : {@link killDetached} attend
+ * désormais la mort EFFECTIVE du process avant qu'on arrive ici. Une fenêtre subsiste
+ * (le système relâche le verrou peu après la mort), et les réessais de Node la
+ * couvrent — en ceinture. Sans effet sous POSIX, où la suppression passe du premier coup.
  */
 function removeWorkDir(dir: string): void {
   fs.rmSync(dir, {
@@ -166,7 +169,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
       // Le stdout du child va bien dans le log file.
       assert.ok(fs.readFileSync(log, "utf8").includes("[dev] fake boot"));
     } finally {
-      killDetached(childPid);
+      await killDetached(childPid);
       fs.rmSync(log, { force: true });
     }
   });
@@ -196,7 +199,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
       assert.strictEqual(r.ports.find((p) => p.port === p1)?.listening, true);
       assert.strictEqual(r.ports.find((p) => p.port === p2)?.listening, false);
     } finally {
-      killDetached(childPid);
+      await killDetached(childPid);
       fs.rmSync(log, { force: true });
     }
   });
@@ -260,7 +263,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
       );
       assert.strictEqual(r.ports[0].listening, true);
     } finally {
-      killDetached(childPid);
+      await killDetached(childPid);
       fs.rmSync(log, { force: true });
       removeWorkDir(cwd);
     }
@@ -298,7 +301,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
       );
       assert.strictEqual(r.exitCode, 69);
     } finally {
-      killDetached(childPid);
+      await killDetached(childPid);
       for (const s of squatters) s.close();
       fs.rmSync(log, { force: true });
       removeWorkDir(cwd);
@@ -357,7 +360,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         [real],
       );
     } finally {
-      killDetached(childPid);
+      await killDetached(childPid);
       fs.rmSync(log, { force: true });
       removeWorkDir(cwd);
     }
@@ -406,7 +409,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
       assert.strictEqual(r.ok, true, `attendu ok — reason: ${r.reason}`);
       assert.strictEqual(r.desiredPorts, undefined);
     } finally {
-      killDetached(childPid);
+      await killDetached(childPid);
       fs.rmSync(log, { force: true });
       removeWorkDir(cwd);
     }
@@ -464,7 +467,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
     } finally {
       // Ceinture : si l'assertion ci-dessus tombe, c'est justement que le child
       // a SURVÉCU — le laisser en vie doublerait le dégât.
-      killDetached(childPid);
+      await killDetached(childPid);
       fs.rmSync(log, { force: true });
     }
   });
