@@ -224,6 +224,36 @@ status` le payait sur macOS et Windows.
   ReDoS n'était pas atteignable depuis le réseau — le parseur HTTP de Node refuse un saut de ligne
   brut dans un en-tête. Protection réelle, chez quelqu'un d'autre, énoncée nulle part, et qui
   tombe dès que la valeur arrive d'ailleurs (frame, banc, appel direct).
+- `[2× — 2026-07-27]` ✅ **La leçon appliquée, et elle a payé deux fois.** `/\/+$/` mesuré AVANT
+  d'affirmer : quadratique (16 000 → 309 ms) mais **uniquement en cas d'échec** — d'où la
+  formulation retenue, « coût quadratique évitable sur une entrée réseau », et non « déni de
+  service » que je n'avais pas construit. `(?:\d+;?)*` de la coloration ANSI, lui, est
+  **exponentiel** : le test ne rend pas la main en 5 minutes à 40 chiffres. La preuve la plus
+  éloquente d'une session n'est pas un chiffre, c'est un test qui ne termine pas.
+
+## 🔎 Chercher le MOTIF, pas les alertes — l'outil ne voit qu'un échantillon
+
+- `[1× — 2026-07-27]` **CodeQL signalait 5 copies de `replace(/\/+$/, "")` ; le dépôt en portait 8.**
+  Les 3 manquantes ont été trouvées d'un `rg` sur le motif, pas dans la liste d'alertes. Corollaire :
+  traiter une alerte par son ancrage, c'est traiter le symptôme — le défaut était la duplication.
+  Le geste juste : lire l'alerte, puis chercher **le motif** partout, puis rallier tous les sites à
+  UNE implémentation.
+- `[1× — 2026-07-27]` 🔴 **`rg` saute EN SILENCE un fichier source qu'il juge binaire.**
+  `LokiTransport.ts` porte deux octets nuls littéraux (séparateur de clé, intentionnel) → classé
+  `data`, absent de tout résultat. Il a fallu `rg -a` pour le voir. Tout inventaire par `rg` sur ce
+  dépôt est donc potentiellement incomplet d'un fichier, sans le moindre avertissement.
+
+## 🧰 Un automate mal cadré CORROMPT — et `npm pkg delete` en est un
+
+- `[1× — 2026-07-27]` 🔴 **`npm pkg delete` avec plusieurs clés a écrit des clés imbriquées absurdes
+  dans 22 `package.json`** (`"@mantine/spotlight dependencies": { "jose dependencies": {…} }`) et
+  supprimé au passage des `devDependencies: {}`. Le diff l'a dit tout de suite : **+140 insertions**
+  là où on attendait des suppressions. Sauvé parce que l'arbre était propre (commit juste avant) —
+  `git checkout` a tout rendu. Refait à `jq`, avec vérification préalable que `jq --indent 2`
+  reproduit le fichier à l'octet près : 125 suppressions, 0 insertion parasite.
+  Règles : **lire le SENS du diff, pas seulement son existence** (des insertions sur une opération
+  de suppression = alarme) · **committer avant de lâcher un automate** · préférer l'outil dont on
+  peut PROUVER qu'il est neutre sur le format.
 
 ## 🧹 Un banc qui s'appuie sur un ÉTAT PARTAGÉ marche par accident
 
