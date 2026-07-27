@@ -1,0 +1,80 @@
+# Dependabot — surveille ce que le dépôt CONSOMME, et que personne ne relit.
+#
+# Motif d'existence, vécu : les actions GitHub sont restées sur un runtime
+# déprécié jusqu'à ce que la forge le signale d'elle-même, et les trois actions
+# CodeQL sont restées en v3 après que toutes les autres soient passées en v5 —
+# oubliées, parce qu'une version d'action ne se lit nulle part dans le travail
+# quotidien. C'est exactement la classe de dérive qu'un robot voit et pas nous.
+#
+# Deux écosystèmes, deux régimes : les actions sont peu nombreuses et sans
+# risque de rupture applicative (une PR groupée suffit) ; les paquets npm sont
+# ~1 500 et une montée majeure y est une décision d'architecture, pas une mise
+# à jour.
+
+version: 2
+updates:
+  # ─── Actions GitHub ────────────────────────────────────────────────────────
+  #
+  # `directory: "/"` — Dependabot regarde `.github/workflows/` ET les actions
+  # composites du dépôt (`.github/actions/`). Tout en UNE pull request : ces
+  # montées se relisent d'un coup d'œil et n'ont aucune raison d'arriver en
+  # ordre dispersé.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci(actions)"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # ─── Paquets npm (monorepo à espaces de travail) ───────────────────────────
+  #
+  # Un seul verrou à la racine couvre les 19 espaces de travail : `directory: "/"`
+  # suffit, et déclarer chaque paquet produirait 19 fois la même pull request.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+      include: "scope"
+
+    # Délai de décantation — la seule protection de chaîne d'approvisionnement
+    # qui coûte zéro effort. Un paquet compromis est le plus souvent publié puis
+    # retiré en quelques heures ; ne jamais consommer une version le jour de sa
+    # sortie retire le dépôt de cette fenêtre. Plus long pour les montées
+    # majeures, qu'on ne prendra de toute façon pas à chaud.
+    cooldown:
+      default-days: 5
+      semver-major-days: 14
+
+    # Trois lots plutôt qu'un flot : ce qui se fusionne sans réfléchir d'un
+    # côté, ce qui demande une décision de l'autre. Les majeures ne sont PAS
+    # ignorées — les ignorer reviendrait à ne plus jamais les voir, et le dépôt
+    # porte déjà une dette de montées majeures identifiée (Angular, TypeScript
+    # et son écosystème). Elles arrivent groupées, visibles, et se traitent
+    # quand c'est le moment.
+    #
+    # `patterns` est écrit en toutes lettres partout, y compris là où « tout »
+    # est le défaut : un défaut implicite se relit mal, et l'ordre compte —
+    # une dépendance rejoint le PREMIER groupe qui la retient, et les deux
+    # premiers ne retiennent que les montées mineures ou correctives.
+    groups:
+      production:
+        patterns: ["*"]
+        dependency-type: "production"
+        update-types: ["minor", "patch"]
+      development:
+        patterns: ["*"]
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+      majeures:
+        patterns: ["*"]
+        update-types: ["major"]
