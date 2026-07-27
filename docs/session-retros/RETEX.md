@@ -70,6 +70,17 @@
   qui la redéfinit. Corollaire : l'arbre doit être PROPRE avant de lancer un `--fix`, le diff est le
   seul garde-fou.
 
+## 🏷️ Un contrôle qu'on ne TROUVE pas compte pour rien
+
+- `[1× — 2026-07-27]` **Vingt attaques JWT invisibles à l'inventaire.** À la question « la porte
+  JWT est-elle éprouvée ? », un balayage des bancs d'attaque (`*.attack.test.ts`) répond non : les
+  vingt vecteurs de la RFC 8725 vivaient dans `jwtAuthenticator.test.ts`, un nom qui annonce un
+  test de composant. La convention existait pourtant, écrite dans le skill de revue — et la ligne
+  qui citait ce fichier écrivait `.attack?.test.ts`, point d'interrogation compris : quelqu'un
+  avait vu l'exception et l'avait **contournée dans la référence** au lieu de la corriger à la
+  source. Un nom qui ne suit pas la convention rend une couverture réelle indistinguable d'une
+  absence de couverture.
+
 ## 🔍 Un contrôle que personne ne lance n'existe pas
 
 - `[3× — 2026-07-26f]` **La CI ne lançait pas le lint** — 146 erreurs accumulées sans qu'aucune
@@ -122,6 +133,24 @@
   même dépôt tranchait dans les deux sens : `scopeAllToNodefonyProjects` épargne un process dont
   il ne peut pas prouver l'appartenance, `#isNodefonySupervisor` le TUE. Deux doctrines opposées
   pour la même question, à dix fichiers d'écart.
+
+## 🧹 Un banc qui s'appuie sur un ÉTAT PARTAGÉ marche par accident
+
+- `[1× — 2026-07-27]` 🔴 **60 rouges dans 16 fichiers, un seul défaut.** Le backoff de connexion
+  compte par identifiant SAISI et vit aussi longtemps que le serveur ; toute la suite
+  d'intégration s'authentifie avec le même compte. Trois échecs n'importe où — y compris dans un
+  banc d'ATTAQUE qui fait exactement son travail — épuisent le crédit, après quoi le compte répond
+  429 **même avec le bon mot de passe**, pour tous les fichiers suivants. Ça n'était jamais sorti
+  parce qu'en développement supervisé, chaque rebuild redémarrait le serveur et remettait les
+  compteurs à zéro : le banc dépendait d'une réinitialisation que **personne n'avait écrite**.
+  Passer le serveur en `--no-watch` l'a mis à nu. Règle : un banc ne doit dépendre d'aucun état
+  global qu'il ne remet pas lui-même — et quand un décor « marche », se demander CE QUI le remet
+  à zéro.
+- `[1× — 2026-07-27]` **Une purge qui exige de réussir ne sauve pas d'une rafale.** Premier
+  correctif : rendre le compte propre après chaque cas par une authentification réussie (le seul
+  moyen prévu par la doctrine). Insuffisant, et pour une raison qui se lit dans le code : une fois
+  le seuil franchi, le throttle rejette **avant** de vérifier le mot de passe — donc plus rien ne
+  peut purger. Un remède qui passe par le chemin qu'on vient de fermer n'est pas un remède.
 
 ## 🙈 Un test rouge peut en MASQUER cinq (le skip compte comme vert)
 
