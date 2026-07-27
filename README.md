@@ -4,7 +4,7 @@
 
 # Nodefony
 
-**Le framework Node.js où le temps réel n'est pas une pièce rapportée — et où l'application sait se décrire à l'agent qui la développe.**
+**Le framework Node.js fullstack : temps réel natif, développement agentic-ready, sur un socle TypeScript isomorphe.**
 
 _Une action de contrôleur. Deux transports. La même session, la même sécurité, le même code._
 
