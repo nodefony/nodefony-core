@@ -1,7 +1,7 @@
 import HttpRequest from "./Request";
 import Http2Request from "../http2/Request";
 import QS from "qs";
-import { extend } from "nodefony";
+import { extend, escapeRegExp } from "nodefony";
 import xml2js from "xml2js";
 import HttpError from "../../errors/httpError";
 
@@ -309,9 +309,7 @@ const ACCEPT_ANY: AcceptEntry[] = [{ type: /.*/, subtype: /.*/ }];
  * corrige aussi la négociation (match du token ENTIER, pas d'une sous-chaîne).
  */
 const acceptMatcher = (token: string | undefined): RegExp =>
-  !token || token === "*"
-    ? /.*/
-    : new RegExp(`^${token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+  !token || token === "*" ? /.*/ : new RegExp(`^${escapeRegExp(token)}$`);
 
 const acceptParser = function (acc?: string): AcceptEntry[] {
   if (!acc) {

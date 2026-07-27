@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-27T18:54:58.767Z",
+  "generated": "2026-07-27T19:02:29.679Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 640,
-    "symbols": 2534,
+    "symbols": 2531,
     "classes": 335,
     "interfaces": 770,
     "types": 334,
     "enums": 4,
-    "functions": 913,
+    "functions": 910,
     "constants": 178
   },
   "symbols": {
@@ -14499,7 +14499,7 @@
       "file": "src/packages/@nodefony/http/nodefony/src/context/domainMatcher.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "description": "Matching de domaine (`Host`) — fonctions PURES, politique UNIQUE partagée par les deux étages de Nodefony : - **`trustedHosts` (kernel, sécu)** : barrière testée AVANT le routing. Quels `Host` ce s…"
+      "description": "Un pattern de domaine : string (exact ou `*`-wildcard) ou `RegExp` (libre)."
     },
     "TrustedHostsConfig": {
       "name": "TrustedHostsConfig",
@@ -22597,9 +22597,6 @@
       "compileDomainPatterns": [
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
-      ],
-      "escapeRegExp": [
-        "src/packages/@nodefony/framework/nodefony/src/Route.ts"
       ],
       "redactSecrets": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",

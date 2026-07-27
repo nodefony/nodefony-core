@@ -20,6 +20,8 @@
  * requête est un simple `RegExp.test` sur une liste pré-compilée (zéro alloc hot-path).
  */
 
+import { escapeRegExp } from "nodefony";
+
 /** Un pattern de domaine : string (exact ou `*`-wildcard) ou `RegExp` (libre). */
 export type DomainPattern = string | RegExp;
 
@@ -35,12 +37,6 @@ export type TrustedHostsConfig = boolean | DomainPattern | DomainPattern[];
 // Loopback ajouté au défaut en development (les 3 formes que `url.hostname`
 // produit : Node sérialise toute IPv6 loopback en `[::1]` canonique — WHATWG URL).
 const DEV_LOOPBACK: readonly string[] = ["localhost", "127.0.0.1", "[::1]"];
-
-// Échappe les métacaractères RegExp d'un segment littéral (le `*` est traité en
-// amont par `compileDomainPattern`, donc absent ici).
-function escapeRegExp(segment: string): string {
-  return segment.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-}
 
 /**
  * Compile UN pattern de domaine en `RegExp` selon la politique sûre.

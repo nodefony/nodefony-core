@@ -6,6 +6,7 @@ import type {
 } from "./ILogDriver";
 import { filterPdus } from "./filterPdus";
 import { coerceRecord } from "./FileLogDriver";
+import { escapeRegExp } from "../../Tools";
 import { resolveFetch, fetchWithTimeout } from "../httpFetch";
 import type { FetchLike } from "../httpFetch";
 import { stripTrailingSlashes } from "../../Tools";
@@ -42,9 +43,7 @@ function escapeLogQLString(s: string): string {
 }
 
 /** Échappe les métacaractères regex (pour un line filter `|~`). */
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+const escapeRegex = escapeRegExp;
 
 /**
  * Extrait les lignes de log d'une réponse `query_range` Loki (`data.result[].values[][1]`),

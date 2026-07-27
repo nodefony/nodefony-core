@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { createRequire } from "node:module";
-import { PLATFORM_EVENTS } from "nodefony";
+import { PLATFORM_EVENTS, escapeRegExp } from "nodefony";
 import type { IViteSupervisor } from "../../interfaces/IViteSupervisor";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder";
 
@@ -24,8 +24,7 @@ type ViteManifest = Record<string, ViteManifestChunk>;
 const FRONTEND_MARKER = "<!--nodefony:frontend-->";
 
 /** Échappe une string pour usage littéral dans une RegExp. */
-const escapeRe = (s: string): string =>
-  s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRe = escapeRegExp;
 
 /**
  * Génère les balises HTML à injecter dans la page rendue côté serveur

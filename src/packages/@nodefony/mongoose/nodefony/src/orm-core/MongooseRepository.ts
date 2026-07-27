@@ -1,5 +1,5 @@
 import type { ClientSession, QueryFilter, Model } from "mongoose";
-import { RequestContext, redactSecrets } from "nodefony";
+import { RequestContext, redactSecrets, escapeRegExp } from "nodefony";
 import {
   isFieldOperators,
   isUpdateOperators,
@@ -24,7 +24,7 @@ type LooseModel = Model<Record<string, unknown>>;
  */
 function sqlLikeToRegex(pattern: string): RegExp {
   // 1) échappe les méta-caractères regex, 2) traduit les jokers SQL.
-  const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escaped = escapeRegExp(pattern);
   return new RegExp(`^${escaped.replace(/%/g, ".*").replace(/_/g, ".")}$`);
 }
 

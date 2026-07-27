@@ -1,6 +1,6 @@
 import type { IRepository } from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
-import { assertPageQuery } from "nodefony";
+import { assertPageQuery, escapeRegExp } from "nodefony";
 // `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
 // dépendance runtime de l'ORM vers `@nodefony/security`. L'application câble le
 // store via `registerWebhookStore("mongoose", …)`.
@@ -171,7 +171,7 @@ export class MongooseWebhookStore implements IWebhookStore {
     if (query.event !== undefined) filter.events = query.event;
     if (query.q !== undefined && query.q.length > 0) {
       // Échappe les métacaractères : une recherche utilisateur n'est PAS une regex.
-      const needle = query.q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const needle = escapeRegExp(query.q);
       filter.$or = [
         { url: { $regex: needle, $options: "i" } },
         { description: { $regex: needle, $options: "i" } },

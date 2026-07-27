@@ -6,7 +6,7 @@ import type {
   IUserRepository,
 } from "@nodefony/user";
 import type { IPage } from "nodefony";
-import { assertPageQuery } from "nodefony";
+import { assertPageQuery, escapeRegExp } from "nodefony";
 import type {
   Criteria,
   IRepository,
@@ -18,11 +18,6 @@ import type { UserRow } from "../entity/userEntity";
 
 /** Colonnes autorisées au tri (allowlist) → clé de tri Mongo. */
 const ORDERABLE = new Set(["identifier", "enabled", "createdAt", "updatedAt"]);
-
-/** Échappe les métacaractères d'expression régulière (recherche `q` = sous-chaîne littérale). */
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 /** Critère typé sur la ligne `User`. */
 type UserCriteria = Criteria<UserRow>;
