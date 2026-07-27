@@ -149,6 +149,35 @@ curl --cacert docker/certs/ca.pem --resolve nodefony.com:8443:127.0.0.1 \
 > L'offload correct (montages + `location` par module + domaines) relève du futur
 > générateur de config CLI (`nodefony proxy:generate`). Ici nginx proxifie tout.
 
+### La suite automatisée — `reverse-proxy.test.ts`
+
+Les commandes ci-dessus décrivent le protocole ; la suite le REJOUE. Elle ne
+re-teste pas le dépouillement `X-Forwarded-For` ni le parsing RFC 7239 (les
+suites unitaires le font mieux, sans décor) : elle éprouve les quatre **raccords**
+que rien d'autre ne peut atteindre — ce qu'un vrai proxy POSE face à ce que le
+serveur ATTEND, le `proto` du client distinct du chiffrement interne, le TLS de
+bout en bout chaîne validée, et l'`Upgrade` WebSocket relayé.
+
+```bash
+cd src/packages/@nodefony/http
+NF_PROXY_NGINX_URL=http://localhost:8080 \
+NF_PROXY_HAPROXY_URL=http://localhost:8081 \
+NF_PROXY_HAPROXY_TLS_URL=https://nodefony.com:8443 \
+  npx vitest run --config vitest.integration.config.ts \
+    nodefony/tests/integration/reverse-proxy.test.ts
+```
+
+Sans ces variables, la suite se saute — le décor à deux versants (conteneurs
+**et** serveur en `NF_BIND_ALL=1` **et** certificats dérivés **et** `nodefony.com`
+résolu côté client) ne se devine pas, et un montage à moitié réussi produirait un
+vert qui ne prouve rien. Les variables et leur mode d'emploi vivent dans
+`PROXY_GATE` (`vitest.gates.ts`), avec les autres cibles d'infra.
+
+**Ce que ce banc a déjà attrapé** : `proxy:generate` annonçait `proto=https` sur
+un frontend en clair dès qu'on demandait le re-chiffrement vers le backend — le
+serveur traitait alors une requête claire comme sécurisée. Rejoué contre un
+haproxy portant ce défaut, le cas tombe avec `expected 'https' to equal 'http'`.
+
 ## Arrêt
 
 ```bash

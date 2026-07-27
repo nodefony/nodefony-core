@@ -351,6 +351,40 @@ export const OPENSEARCH_GATE: EnvGate = {
   }),
 };
 
+/**
+ * Reverse-proxy RÉELS devant le serveur (profil compose `proxy`) — nginx pose
+ * les `X-Forwarded-*` de fait, haproxy le `Forwarded` standard (RFC 7239) et
+ * re-chiffre vers le backend avec validation complète de la chaîne.
+ *
+ * Ce que ce décor prouve et qu'aucun test unitaire ne peut prouver : que ce
+ * qu'un VRAI proxy pose correspond à ce que le serveur ATTEND. Le parser se
+ * teste contre l'idée qu'on se fait du format ; un seul mot de configuration
+ * renverse l'entrée (`$proxy_add_x_forwarded_for` PRÉSERVE la chaîne forgée par
+ * le client, `$remote_addr` l'écrase) sans qu'aucun test unitaire ne bouge — et
+ * l'écart est une usurpation d'adresse, pas une différence de style.
+ *
+ * Trois portes, trois questions distinctes : nginx en clair, haproxy en clair
+ * (le lien interne est chiffré, le client NON), haproxy en TLS de bout en bout.
+ *
+ * ⚠️ Décor à deux versants — le serveur doit écouter une adresse joignable
+ * depuis un conteneur (`NF_BIND_ALL=1`, qui active aussi `trustProxy`), et
+ * `nodefony.com` doit résoudre vers l'hôte des DEUX côtés (`extra_hosts` dans le
+ * compose, `/etc/hosts` côté client).
+ */
+export const PROXY_GATE: EnvGate = {
+  label: "Reverse-proxy réels (nginx + haproxy)",
+  service: { name: "nginx", profile: "proxy" },
+  values: () => ({
+    NF_PROXY_NGINX_URL: `http://localhost:${fromCompose("NGINX_PORT", "8080")}`,
+    NF_PROXY_HAPROXY_URL: `http://localhost:${fromCompose("HAPROXY_PORT", "8081")}`,
+    NF_PROXY_HAPROXY_TLS_URL: `https://nodefony.com:${fromCompose("HAPROXY_TLS_PORT", "8443")}`,
+  }),
+  note:
+    "Exige un serveur lancé avec NF_BIND_ALL=1 (bind 0.0.0.0 + trustProxy), " +
+    "`bash docker/certs/build-haproxy-pem.sh` (cert SAN=nodefony.com), et " +
+    "`nodefony.com` dans /etc/hosts côté client.",
+};
+
 /** Les variables manquantes (ou vides) d'une gate ; `[]` = gate satisfaite. */
 function missingVars(gate: EnvGate): string[] {
   return gateEnv(gate).filter((name) => isBlank(name));

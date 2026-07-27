@@ -72,13 +72,40 @@ branche : réserver l'infra à `main`, c'est découvrir la casse après le merge
 | `node.js.yml`                     | Vérifications                            | types, lint, audit des dépendances, conformité des skills                          | —                              |
 | `node.js.yml`                     | Tests unit                               | suites unitaires, **3 systèmes × 2 versions de Node**                              | —                              |
 | `node.js.yml`                     | Filet CLI                                | le binaire `nodefony` démarre vraiment (`RUN_CLI_BOOT`)                            | —                              |
-| `node.js.yml`                     | Tests intégration                        | pipeline HTTP/WS sur serveur réel, dont le câblage du 429 (backoff NIST)           | serveur de dev                 |
+| `node.js.yml`                     | Tests intégration                        | pipeline HTTP/WS sur serveur réel, dont le câblage du 429 (backoff NIST)           | serveur **dev ET production**  |
 | `orm.yml`                         | Stores                                   | drizzle sur **sqlite + PostgreSQL + MySQL**, redis, orm-core                       | PostgreSQL, MariaDB, Redis     |
 | `orm.yml`                         | Socket distribuée                        | fan-out **cross-process** (IPC) et **cross-pod** (backplane Redis), attaques F83   | Redis, `RUN_CLUSTER_E2E`       |
 | `memory.yml`                      | Charge, fuites et scopes                 | heap, fuites HTTP/WS, scopes d'injection sous charge, sessions, flux               | serveur `--expose-gc`          |
 | `e2e-autonomes.yml`               | Cluster · configuration · arrêt gracieux | fan-out entre process, sonde de pod, point de santé, surcharge par l'environnement | aucun (les scripts se montent) |
 | `codeql.yml`                      | Analyze                                  | analyse statique de sécurité                                                       | —                              |
 | `npm-publish-github-packages.yml` | build · publish-gpr                      | publication sur le registre GitHub (déclenché par une release)                     | —                              |
+
+### Le MODE du serveur est une dimension de la matrice, pas une propriété de branche
+
+Le job d'intégration tourne en **trois variantes** — Node 24 en développement,
+Node 26 en développement, Node 26 en **production**. Trois et pas quatre : le
+mode éprouve le _gating_ du framework (modules `policy:"dev"` absents, clés de
+chiffrement obligatoires, erreurs muettes, comptes seedés autrement), pas le
+moteur JavaScript — que les deux versions croisent déjà en développement.
+
+Le mode a dépendu de la branche : production sur `main`, développement ailleurs.
+La casse propre au mode livré n'apparaissait alors qu'**après** la fusion, sur la
+branche où plus personne ne peut la corriger sans un second aller-retour. C'est
+le même défaut que « filtrer par branche » — corrigé pour l'infra, resté là.
+
+Deux conséquences qui se lisent dans le workflow :
+
+- **le banc crée son second compte lui-même** en production (`security:user:add`),
+  parce que `provisionUsers` n'y seede que `admin` — les comptes de fixture ont
+  un hash public. Neuf fichiers éprouvent ce qu'un compte NON-administrateur a le
+  droit de faire ; les rendre muets en production aurait rejoué le silence qu'on
+  passe son temps à supprimer ;
+- **un cas propre à un mode a toujours sa contrepartie dans l'autre.** La stack
+  d'erreur et le profil par frame n'existent qu'en développement ; la production
+  reçoit donc les cas qui prouvent qu'ils ne fuient PAS, et que le pont RPC
+  répond quand même. Le rapporteur exige, à chaque passe, les cas du mode qu'il
+  a **constaté** (sonde `/livez`) — un `skipIf` qui partirait à l'envers
+  éteindrait les deux côtés en silence.
 
 **La forge est gratuite** tant que le dépôt est public : les runners standard
 n'ont pas de quota de minutes. Le coût réel est la **durée** et la maintenance,
@@ -241,13 +268,14 @@ node .claude/skills/nodefony-load-test/scripts/cluster-realtime-e2e.mjs
 
 Un choix énoncé n'est pas un oubli. Ce qui suit est délibérément dehors :
 
-| Absent                                              | Raison                                                                                                                                                                                               |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Bancs de performance (`RUN_PERF`)                   | une latence dépend du voisin de runner ; un seuil non déterministe est un futur rouge stérile                                                                                                        |
-| Sondes de rupture WebSocket (`RUN_WS_RUPTURE`)      | elles épuisent les ports éphémères de l'hôte                                                                                                                                                         |
-| Loki, OpenSearch (`LogBackplaneE2E`)                | décor à monter à la forge — et `test:all` n'importe pas leurs gates, donc même une machine qui FAIT tourner les deux conteneurs les saute en silence. Reporté APRÈS la release (décision 2026-07-27) |
-| `idempotency-cluster-e2e`                           | tape sur le serveur de développement : sa place est avec les bancs à serveur partagé                                                                                                                 |
-| Les preuves à décor opt-in (un serveur par plafond) | coût de montage disproportionné pour ce qu'elles ajoutent à chaque poussée                                                                                                                           |
+| Absent                                              | Raison                                                                                                                                                                                                                                                                                                                   |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Bancs de performance (`RUN_PERF`)                   | une latence dépend du voisin de runner ; un seuil non déterministe est un futur rouge stérile                                                                                                                                                                                                                            |
+| Sondes de rupture WebSocket (`RUN_WS_RUPTURE`)      | elles épuisent les ports éphémères de l'hôte                                                                                                                                                                                                                                                                             |
+| Loki, OpenSearch (`LogBackplaneE2E`)                | décor à monter à la forge — et `test:all` n'importe pas leurs gates, donc même une machine qui FAIT tourner les deux conteneurs les saute en silence. Reporté APRÈS la release (décision 2026-07-27)                                                                                                                     |
+| `idempotency-cluster-e2e`                           | tape sur le serveur de développement : sa place est avec les bancs à serveur partagé                                                                                                                                                                                                                                     |
+| Les preuves à décor opt-in (un serveur par plafond) | coût de montage disproportionné pour ce qu'elles ajoutent à chaque poussée                                                                                                                                                                                                                                               |
+| Banc reverse-proxy (`reverse-proxy.test.ts`)        | décor à DEUX versants — conteneurs `--profile proxy`, serveur en `NF_BIND_ALL=1`, certificats dérivés, `nodefony.com` résolu côté client. Un montage automatique à moitié réussi rendrait le vert menteur qu'on passe ce guide à combattre : il se lance à la main (`PROXY_GATE`, mode d'emploi dans `docker/README.md`) |
 
 **Perf dehors, mémoire dedans** : une latence dépend de la machine, une fuite
 fuit quelle que soit la charge.
