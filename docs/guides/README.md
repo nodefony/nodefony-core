@@ -24,6 +24,16 @@ last-updated: 2026-05-21
 | [`session-storage.md`](./session-storage.md) | Stockage de session : mécanisme IoC, backends, storage sur mesure                  | stable |
 | [`persistence.md`](./persistence.md)         | Persistance & stores : infra déclarée, profils, matrice brique×backend, audit≠logs | stable |
 
+> ⚠️ [`integration-continue.md`](./integration-continue.md) fait exception à la
+> règle ci-dessus : il documente la forge du **dépôt du framework** (ce que la CI
+> lance, avec quel décor, comment le rejouer), pas l'usage du framework dans une
+> application. Il est ici parce qu'il n'a pas de meilleur endroit — et parce que
+> le savoir qu'il porte n'était lisible que dans des commentaires YAML.
+
+| Page                                                   | Sujet                                                                 | Statut |
+| ------------------------------------------------------ | --------------------------------------------------------------------- | ------ |
+| [`integration-continue.md`](./integration-continue.md) | Forge du dépôt : ce qui tourne, le décor, les gates, rejouer en local | stable |
+
 ## Pages (à venir)
 
 | Page                  | Sujet                                                               |

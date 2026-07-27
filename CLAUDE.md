@@ -126,6 +126,10 @@ Avant de commencer une nouvelle phase / tâche :
      exécutés, dont PostgreSQL ET MySQL ; redis 14 tests muets faute de `REDIS_TEST_URL`).
      Source unique des variables + commandes docker = **`vitest.gates.ts`** (racine) ; les suites
      concernées l'affichent en fin de run (`gateReporter`). Lire ce bloc AVANT de conclure « vert ».
+     **En CI (`CI` posé) ce n'est plus un avertissement : la passe ÉCHOUE** si une cible déclarée
+     n'a pas été exercée — et une absence voulue s'énonce (`NF_GATES_ALLOW`), elle ne s'oublie pas.
+     Ce que la forge lance, avec quel décor, et comment rejouer chaque job en local :
+     [`docs/guides/integration-continue.md`](docs/guides/integration-continue.md).
 4. **Lire le `CLAUDE.md` + `MEMORY.md`** du module ciblé (table d'index plus bas).
 5. **Si fiche kit existante** (ex: `project_p1_1_kit.md` pour P1.1) → la lire AVANT toute exploration.
 6. **`.ai/symbols.json`** est régénéré par hook pre-commit. Utiliser pour résoudre les relations cross-module sans grep tout le repo.
