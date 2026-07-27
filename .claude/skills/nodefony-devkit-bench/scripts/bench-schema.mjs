@@ -1,0 +1,1084 @@
+#!/usr/bin/env node
+/**
+ * Banc de SCHÉMA — ce que la grammaire de champs ne sait pas exprimer.
+ *
+ * Les deux autres bancs demandent « le code généré tient-il debout ? » et
+ * « un agent trouve-t-il l'outillage ? ». Celui-ci pose la troisième question,
+ * qu'aucun des deux ne voit : **le modèle de données d'un vrai logiciel est-il
+ * seulement EXPRIMABLE** avec `nodefony create entity` ?
+ *
+ * La différence n'est pas de degré. Les cinq entités du banc de vérité ont été
+ * écrites POUR exercer la grammaire : elles ne peuvent, par construction, rien
+ * demander qu'elle ne sache faire. Un schéma qu'un autre projet a écrit sans
+ * nous connaître n'a pas cette complaisance — et c'est ce qu'on vient chercher.
+ *
+ * ## Pourquoi TROIS schémas et pas un plus gros
+ *
+ * Mesuré : ils stressent des axes disjoints, et un seul rendrait un verdict faux.
+ *
+ * | Axe | umami | calcom | ghost |
+ * | --- | --- | --- | --- |
+ * | nom SQL ≠ nom TS | **72 % des colonnes** | 0 % | 0 % (snake natif) |
+ * | tailles de chaîne | 11 formes | 0 (`text` partout) | **`maxlength` sur tout** |
+ * | énumérations | 0 | **46 partagées** | `validations.isIn` |
+ * | relations tordues | 2 doubles liens | **29 doubles + 3 auto-réf.** | 101 FK explicites |
+ * | cascades de suppression | — | `onDelete` | **53 `cascadeDelete`** |
+ * | valeurs par défaut | 2 | **247** | 119 |
+ * | clé primaire | uuid **renommée** | cuid `id` | **`string(24)`** |
+ * | binaire · 64 bits · unsigned | **`Bytes`** | — | `bigInteger` · `unsigned` |
+ *
+ * Sur `umami` seul on conclurait « la grammaire ne sait pas nommer » sans voir
+ * qu'elle ne sait pas non plus déclarer une énumération PARTAGÉE par dix tables.
+ *
+ * ## Ce qui juge
+ *
+ * La **base réellement créée**, jamais les sources. Après le passage de l'agent,
+ * l'application boote en console (`inspect entities` — aucun port ouvert), ce qui
+ * exécute le DDL de développement ; on lit alors `sqlite_master` et les `PRAGMA`.
+ * Une table absente y est absente, une colonne mal nommée y porte son vrai nom,
+ * un index composite y est ou n'y est pas. Lire les fichiers `.ts` dirait ce que
+ * l'agent a écrit ; la base dit ce qui EXISTE.
+ *
+ * ## La mesure qui compte
+ *
+ * Ce n'est pas « le schéma est-il juste » — un agent finit toujours par l'obtenir
+ * s'il édite assez de Drizzle à la main, et il aura alors prouvé que le
+ * générateur ne servait à rien. C'est **combien a-t-il fallu écrire HORS du
+ * générateur** : les éditions manuelles de fichiers d'entité désignent, une par
+ * une, ce que la grammaire n'a pas su porter.
+ *
+ * ## Trois décisions de décor, énoncées plutôt que subies
+ *
+ * - **Les sources ne sont pas versionnées ici** : elles appartiennent à leurs
+ *   projets. Le banc les télécharge, les met en cache, et vérifie une empreinte
+ *   FIGÉE. Une source qui bouge est signalée — les runs cessent d'être
+ *   comparables, et c'est le genre de dérive qui ne se voit jamais autrement.
+ * - **Un sous-ensemble de tables figé**, par liste nommée. Les cent tables de
+ *   `calcom` mesureraient l'endurance de l'agent, pas la grammaire.
+ * - **Les entités `User` sont renommées `Account`.** La collision avec l'entité
+ *   du module de sécurité est un piège de décor DÉJÀ consigné : la laisser ferait
+ *   mesurer ce trou-là, qu'on connaît, au lieu de celui qu'on cherche.
+ *
+ * ## Usage
+ *
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.mjs
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.mjs --schema calcom
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.mjs --setup-only
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.mjs --dump-only   # extrait le schéma, sans agent
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.mjs --analyze-only tmp/devkit-schema/<run>
+ *
+ * Prérequis : le checkout est BÂTI (`npm run build`) — l'app témoin se lie au
+ * `dist/` local. L'agent tourne SANS garde-fou d'approbation dans un décor
+ * jetable : ne jamais pointer ce banc sur un vrai projet.
+ *
+ * Variables : `DEVKIT_BENCH_AGENT` · `DEVKIT_BENCH_MODEL` (défaut `haiku` — le
+ * cas le plus défavorable est le seul qui prouve : un modèle fort compense les
+ * trous de la grammaire en devinant juste).
+ */
+import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { DatabaseSync } from "node:sqlite";
+
+/** Racine du dépôt, trouvée en REMONTANT — un skill se déplace, un `..` non. */
+function findRepoRoot(from) {
+  let dir = from;
+  for (let up = 0; up < 8; up += 1) {
+    if (existsSync(path.join(dir, "src/nodefony/bin/nodefony"))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  throw new Error("racine du dépôt Nodefony introuvable depuis " + from);
+}
+
+const REPO = findRepoRoot(path.dirname(fileURLToPath(import.meta.url)));
+const BIN = path.join(REPO, "src", "nodefony", "bin", "nodefony");
+const CACHE = path.join(REPO, "tmp", "devkit-schema", ".sources");
+const AGENT = process.env.DEVKIT_BENCH_AGENT ?? "claude";
+const MODEL = process.env.DEVKIT_BENCH_MODEL ?? "haiku";
+const AGENT_ARGS = process.env.DEVKIT_BENCH_AGENT_ARGS
+  ? process.env.DEVKIT_BENCH_AGENT_ARGS.split(" ")
+  : [
+      "-p",
+      "--output-format",
+      "stream-json",
+      "--verbose",
+      "--dangerously-skip-permissions",
+    ];
+
+/**
+ * Ports dédiés — distincts du banc de vérité (5361) et de découvrabilité (5371),
+ * pour que les trois puissent tourner ensemble.
+ */
+const PORTS = { NF_PORT: "5381", NF_PORT_HTTPS: "5382" };
+const APP_ENV = { ...process.env, ...PORTS };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Les schémas — sources EXTERNES, sous-ensembles FIGÉS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Catalogue des schémas éprouvables.
+ *
+ * `tables` est la liste FIGÉE du sous-ensemble : la changer change ce que le
+ * banc mesure, et deux runs cessent d'être comparables. `rename` neutralise les
+ * collisions de décor connues. `sha256` est l'empreinte relevée au moment où le
+ * sous-ensemble a été choisi.
+ */
+export const SCHEMAS = {
+  umami: {
+    format: "prisma",
+    repo: "umami-software/umami",
+    file: "prisma/schema.prisma",
+    license: "MIT",
+    sha256: "f99024170a33d5cb",
+    /** Six tables sur dix-huit — chacune pour une difficulté nommée. */
+    tables: [
+      "User", // clé primaire à nom propre, unicité, longueurs disparates, suppression douce
+      "Session", // horodatage de création SEUL, Char(2), dix index dont huit composites
+      "Website", // deux liens vers la MÊME entité, booléen à défaut, JSON facultatif
+      "WebsiteEvent", // décimaux à précision, renommage NON mécanique, index à 3 colonnes
+      "EventData", // décimal large
+      "SessionReplay", // BINAIRE, dates métier non nulles
+    ],
+    rename: { User: "Account" },
+    stresses: "nommage SQL, tailles de chaîne, binaire, index composites",
+  },
+  calcom: {
+    format: "prisma",
+    repo: "calcom/cal.com",
+    file: "packages/prisma/schema.prisma",
+    license: "AGPL-3.0 (non redistribué — téléchargé au run)",
+    sha256: "95064d27e842e8a9",
+    /** Six tables sur cent — celles qui portent énumérations et relations. */
+    tables: [
+      "Membership", // énumération de rôle + double lien
+      "Booking", // énumération de statut, refs multiples
+      "Schedule", // cible de DEUX liens distincts depuis EventType
+      "Webhook", // TABLEAU d'énumération (WebhookTriggerEvents[])
+      "ApiKey", // horodatage de création seul
+      "Availability", // dates et heures nues
+    ],
+    rename: {},
+    stresses: "énumérations partagées, relations multiples, valeurs par défaut",
+  },
+  ghost: {
+    format: "knex",
+    repo: "TryGhost/Ghost",
+    file: "ghost/core/core/server/data/schema/schema.js",
+    license: "MIT",
+    sha256: "217fcb84cc3cc574",
+    /** Six tables sur quatre-vingt-neuf. */
+    tables: [
+      "newsletters", // maxlength partout, defaultTo, isIn
+      "posts", // clé primaire string(24), texte long, index
+      "posts_meta", // FK avec cascadeDelete
+      "users", // unsigned, validations
+      "posts_authors", // table de JOINTURE + cascade
+      "api_keys", // références croisées
+    ],
+    rename: { users: "accounts" },
+    stresses: "cascades de suppression, bornes de longueur, entiers 64 bits",
+  },
+};
+
+/**
+ * Consigne FIGÉE.
+ *
+ * Elle exige explicitement les noms de colonnes SQL : sans cette phrase, un agent
+ * qui les ignore a raison de le faire, et le banc ne mesure plus le trou
+ * principal d'`umami`. Elle ne souffle en revanche AUCUN moyen — savoir s'il
+ * appelle le générateur ou écrit du Drizzle de mémoire fait partie de la mesure.
+ */
+const PROMPT =
+  "Le fichier `schema-cible.md` à la racine décrit le modèle de données que cette " +
+  "application doit porter. Reproduis-le fidèlement : mêmes tables, mêmes colonnes " +
+  "AVEC LES NOMS DE COLONNES SQL indiqués, mêmes types, mêmes contraintes " +
+  "d'unicité, mêmes index (y compris ceux qui portent plusieurs colonnes). " +
+  "Termine en prouvant que l'application démarre.";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lecteurs — deux formats d'entrée, UNE forme canonique
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * La forme canonique que les deux lecteurs rendent et que le juge compare.
+ *
+ * @typedef {object} ICanonTable
+ * @property {string} model - nom du modèle dans la source (après renommage).
+ * @property {string} table - nom SQL de la table.
+ * @property {Array<{prop: string, column: string, logical: string|null, nullable: boolean, unique: boolean, isId: boolean, note?: string}>} columns
+ * @property {Array<{columns: string[], unique: boolean}>} indexes
+ */
+
+/** Types Prisma → type logique Nodefony (`null` = la grammaire ne l'exprime pas). */
+const PRISMA_TYPES = {
+  String: "string",
+  Int: "int",
+  BigInt: null, // entier 64 bits — absent de la grammaire
+  Float: "float",
+  Decimal: "decimal",
+  Boolean: "bool",
+  DateTime: "date",
+  Json: "json",
+  Bytes: null, // binaire — absent de la grammaire
+};
+
+/** Types knex (Ghost) → type logique Nodefony. */
+const KNEX_TYPES = {
+  string: "string",
+  text: "text",
+  integer: "int",
+  bigInteger: null, // entier 64 bits — absent de la grammaire
+  boolean: "bool",
+  dateTime: "date",
+  float: "float",
+  blob: null, // binaire — absent de la grammaire
+};
+
+/**
+ * Lit un schéma Prisma.
+ *
+ * Les énumérations déclarées HORS des modèles sont collectées à part : une
+ * colonne qui en porte une est marquée, parce que notre grammaire ne connaît que
+ * l'énumération inline — dix colonnes partageant un type nommé deviendraient dix
+ * répétitions, et c'est exactement ce qu'on veut voir apparaître au rapport.
+ *
+ * @param src - texte du schéma.
+ * @returns {{tables: ICanonTable[], enums: Map<string, string[]>}}
+ */
+export function readPrisma(src) {
+  const enums = new Map();
+  {
+    let name = null;
+    let values = [];
+    for (const raw of src.split("\n")) {
+      const line = raw.trim();
+      const open = /^enum\s+(\w+)\s*\{/u.exec(line);
+      if (open) {
+        name = open[1];
+        values = [];
+        continue;
+      }
+      if (name === null) continue;
+      if (line === "}") {
+        enums.set(name, values);
+        name = null;
+        continue;
+      }
+      if (line && !line.startsWith("//")) values.push(line.split(/\s+/u)[0]);
+    }
+  }
+
+  const tables = [];
+  let current = null;
+  const colOf = new Map();
+
+  for (const raw of src.split("\n")) {
+    const line = raw.trim();
+    const model = /^model\s+(\w+)\s*\{/u.exec(line);
+    if (model) {
+      current = {
+        model: model[1],
+        table: model[1].toLowerCase(),
+        columns: [],
+        indexes: [],
+      };
+      tables.push(current);
+      colOf.set(current.model, new Map());
+      continue;
+    }
+    if (!current) continue;
+    if (line === "}") {
+      current = null;
+      continue;
+    }
+
+    const tableMap = /^@@map\("([^"]+)"\)/u.exec(line);
+    if (tableMap) {
+      current.table = tableMap[1];
+      continue;
+    }
+    const idx = /^@@(index|unique)\(\[([^\]]+)\]/u.exec(line);
+    if (idx) {
+      current.indexes.push({
+        unique: idx[1] === "unique",
+        props: idx[2].split(",").map((c) => c.trim()),
+      });
+      continue;
+    }
+
+    const field = /^(\w+)\s+(\w+)(\??)(\[\])?\s*(.*)$/u.exec(line);
+    if (!field) continue;
+    const [, prop, type, optional, list, attrs] = field;
+
+    const isEnum = enums.has(type);
+    // Navigation Prisma (`Account? @relation(…)`, `Website[]`) : pas une colonne.
+    // Un TABLEAU d'énumération en est une, en revanche — et c'est un cas que la
+    // grammaire n'exprime pas du tout.
+    if (!Object.hasOwn(PRISMA_TYPES, type) && !isEnum) continue;
+    if (list && !isEnum) continue;
+
+    const map = /@map\("([^"]+)"\)/u.exec(attrs);
+    const column = map ? map[1] : prop;
+    colOf.get(current.model).set(prop, column);
+    current.columns.push({
+      prop,
+      column,
+      logical: isEnum ? "enum" : PRISMA_TYPES[type],
+      sourceType: type + (list ? "[]" : ""),
+      nullable: optional === "?",
+      unique: /@unique\b/u.test(attrs),
+      isId: /@id\b/u.test(attrs),
+      note: isEnum
+        ? list
+          ? `tableau d'énumération ${type} (INEXPRIMABLE)`
+          : `énumération PARTAGÉE ${type} (${enums.get(type)?.length ?? 0} valeurs)`
+        : PRISMA_TYPES[type] === null
+          ? `type ${type} INEXPRIMABLE`
+          : undefined,
+    });
+  }
+
+  // Les index se déclarent en noms de PROPRIÉTÉ ; le juge lit des noms de
+  // COLONNE. La traduction se fait ici, une fois.
+  for (const t of tables) {
+    const m = colOf.get(t.model);
+    for (const i of t.indexes) i.columns = i.props.map((p) => m.get(p) ?? p);
+  }
+  return { tables, enums };
+}
+
+/**
+ * Rend le contenu du bloc `{…}` qui suit `from`, accolades extérieures exclues.
+ *
+ * Un comptage d'accolades, là où une expression régulière doit décider À
+ * L'AVANCE de la profondeur qu'elle tolère — et se trompe en silence dès qu'un
+ * cas réel la dépasse.
+ *
+ * @param src - texte source.
+ * @param from - position à partir de laquelle chercher l'accolade ouvrante.
+ * @returns le corps du bloc, ou `null` s'il n'est pas refermé.
+ */
+function sliceBraces(src, from) {
+  let i = src.indexOf("{", from);
+  if (i === -1) return null;
+  const start = i + 1;
+  let depth = 0;
+  for (; i < src.length; i += 1) {
+    const c = src[i];
+    if (c === "{") depth += 1;
+    else if (c === "}") {
+      depth -= 1;
+      if (depth === 0) return src.slice(start, i);
+    }
+  }
+  return null;
+}
+
+/**
+ * Lit le schéma knex de Ghost (`{type, maxlength, nullable, defaultTo, …}`).
+ *
+ * Le fichier est du JavaScript, mais l'ÉVALUER exécuterait du code tiers dans
+ * notre processus pour en tirer une structure de données : on l'analyse
+ * textuellement. Les attributs qui n'existent pas chez nous (`unsigned`,
+ * `cascadeDelete`, `validations`) sont RELEVÉS plutôt qu'ignorés — ils sont la
+ * moitié de ce que le banc vient chercher.
+ *
+ * @param src - texte du schéma.
+ * @returns {{tables: ICanonTable[], enums: Map<string, string[]>}}
+ */
+export function readKnex(src) {
+  const tables = [];
+  for (const open of src.matchAll(/^ {4}(\w+): \{$/gmu)) {
+    const name = open[1];
+    const body = sliceBraces(src, open.index);
+    if (body === null) continue;
+    const current = { model: name, table: name, columns: [], indexes: [] };
+    tables.push(current);
+
+    // Les colonnes de la table, repérées par leur INDENTATION plutôt que par
+    // une expression régulière imbriquée. Deux fois payé pour l'apprendre : une
+    // regex à un niveau d'imbrication perdait `bio`, `meta_title`, `secret`… —
+    // toutes celles portant `validations: {isLength: {max: 300}}`, DEUX niveaux.
+    // Un compteur d'accolades ne se laisse pas surprendre par la profondeur.
+    for (const col of body.matchAll(/^ {8}(\w+): \{/gmu)) {
+      const prop = col[1];
+      const attrs = sliceBraces(body, col.index);
+      if (attrs === null) continue;
+      const type = /type:\s*'(\w+)'/u.exec(attrs)?.[1];
+      if (!type) continue;
+      const maxlength = /maxlength:\s*(\d+)/u.exec(attrs)?.[1];
+
+      // Ce que Ghost déclare et que la grammaire ne sait pas dire. Relevé plutôt
+      // qu'ignoré : c'est la moitié de ce que le banc vient chercher.
+      const notes = [];
+      if (/unsigned:\s*true/u.test(attrs))
+        notes.push("unsigned (INEXPRIMABLE)");
+      if (/cascadeDelete:\s*true/u.test(attrs))
+        notes.push("cascade de suppression (INEXPRIMABLE)");
+      if (/setNullDelete:\s*true/u.test(attrs))
+        notes.push("mise à NULL en cascade (INEXPRIMABLE)");
+      if (/isIn:/u.test(attrs)) notes.push("énumération applicative");
+      if (KNEX_TYPES[type] === null) notes.push(`type ${type} INEXPRIMABLE`);
+      if (maxlength && Number(maxlength) > 65535)
+        notes.push(`longueur ${maxlength} (texte long)`);
+
+      current.columns.push({
+        prop,
+        // Ghost écrit déjà ses colonnes en snake_case : nom TS = nom SQL.
+        column: prop,
+        logical: KNEX_TYPES[type] ?? null,
+        sourceType: maxlength ? `${type}(${maxlength})` : type,
+        nullable: /nullable:\s*true/u.test(attrs),
+        unique: /unique:\s*true/u.test(attrs),
+        isId: /primary:\s*true/u.test(attrs),
+        note: notes.length ? notes.join(" · ") : undefined,
+      });
+      if (/index:\s*true/u.test(attrs)) {
+        current.indexes.push({ unique: false, columns: [prop], props: [prop] });
+      }
+    }
+  }
+  return { tables, enums: new Map() };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Source : téléchargement, cache, empreinte
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Rend le texte du schéma, depuis le cache ou GitHub.
+ *
+ * L'empreinte est VÉRIFIÉE mais non bloquante : un schéma amont qui bouge ne
+ * doit pas rendre le banc inutilisable, seulement dire tout haut que ce run ne
+ * se compare plus aux précédents. Un banc qui meurt au premier commit d'un autre
+ * projet ne serait plus lancé du tout, ce qui est pire.
+ */
+function fetchSchema(key, def) {
+  mkdirSync(CACHE, { recursive: true });
+  const cached = path.join(
+    CACHE,
+    `${key}.${def.format === "knex" ? "js" : "prisma"}`,
+  );
+  let content;
+  if (existsSync(cached)) {
+    content = readFileSync(cached, "utf8");
+  } else {
+    console.log(`• téléchargement du schéma ${key} (${def.repo})…`);
+    const res = spawnSync(
+      "gh",
+      ["api", `repos/${def.repo}/contents/${def.file}`, "--jq", ".content"],
+      { encoding: "utf8", timeout: 120_000, maxBuffer: 32 * 1024 * 1024 },
+    );
+    if (res.status !== 0) {
+      throw new Error(
+        `téléchargement impossible (${def.repo}) — ${res.stderr?.trim() || "gh en échec"}`,
+      );
+    }
+    content = Buffer.from(res.stdout.replace(/\s/gu, ""), "base64").toString(
+      "utf8",
+    );
+    writeFileSync(cached, content);
+  }
+  const sha = createHash("sha256").update(content).digest("hex").slice(0, 16);
+  const drifted = sha !== def.sha256;
+  if (drifted) {
+    console.log(
+      `\n⚠️  Le schéma ${key} a CHANGÉ en amont (attendu ${def.sha256}, lu ${sha}).\n` +
+        `   Ce run ne se compare pas aux précédents. Le sous-ensemble figé peut\n` +
+        `   avoir perdu des tables — vérifier avant de conclure quoi que ce soit.\n`,
+    );
+  }
+  return { content, sha, drifted };
+}
+
+/** Ne garde que les tables du sous-ensemble figé, et applique les renommages. */
+export function subset(parsed, def) {
+  const wanted = new Set(def.tables);
+  const kept = parsed.tables.filter((t) => wanted.has(t.model));
+  const missing = def.tables.filter(
+    (n) => !parsed.tables.some((t) => t.model === n),
+  );
+  for (const t of kept) {
+    const alias = def.rename[t.model];
+    if (alias) {
+      t.model = alias;
+      t.table = alias.toLowerCase();
+    }
+  }
+  return { tables: kept, missing };
+}
+
+/**
+ * Rend le schéma cible sous une forme LISIBLE par l'agent.
+ *
+ * Volontairement pas le format d'origine : donner du Prisma inviterait à
+ * chercher un import de Prisma, et donner du knex à chercher knex. Ce qu'on veut
+ * mesurer, c'est la traduction d'un MODÈLE vers la grammaire de Nodefony — pas
+ * la reconnaissance d'un outil.
+ */
+function renderTarget(tables, def) {
+  const out = [
+    "# Modèle de données à reproduire",
+    "",
+    `> Extrait de ${def.repo} (${def.license}), réduit à ${tables.length} tables.`,
+    "> Les noms entre parenthèses sont les **noms de colonnes SQL** attendus.",
+    "",
+  ];
+  for (const t of tables) {
+    out.push(`## Table \`${t.table}\``, "");
+    out.push("| propriété | colonne SQL | type | nul ? | unique ? |");
+    out.push("| --- | --- | --- | --- | --- |");
+    for (const c of t.columns) {
+      out.push(
+        `| ${c.prop} | \`${c.column}\` | ${c.sourceType} | ${c.nullable ? "oui" : "non"} | ${c.unique ? "oui" : "non"}${c.isId ? " (clé primaire)" : ""} |`,
+      );
+    }
+    out.push("");
+    if (t.indexes.length) {
+      out.push("Index :");
+      for (const i of t.indexes) {
+        out.push(`- ${i.unique ? "unique " : ""}sur (${i.columns.join(", ")})`);
+      }
+      out.push("");
+    }
+  }
+  return out.join("\n");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lecture du schéma RÉELLEMENT créé
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Retrouve le fichier de base de l'app témoin (l'ORM le pose sous `var/`). */
+function findDatabase(app) {
+  const stack = [path.join(app, "var"), app];
+  const seen = new Set();
+  while (stack.length) {
+    const dir = stack.pop();
+    if (!dir || seen.has(dir) || !existsSync(dir)) continue;
+    seen.add(dir);
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const e of entries) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        if (e.name !== "node_modules" && e.name !== ".git") stack.push(full);
+      } else if (/\.(sqlite|sqlite3|db)$/u.test(e.name)) {
+        return full;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Lit le schéma que la base porte VRAIMENT.
+ *
+ * @param dbPath - fichier SQLite créé au boot.
+ * @returns une entrée par table : colonnes et index.
+ */
+function readSqlite(dbPath) {
+  const db = new DatabaseSync(dbPath, { readOnly: true });
+  const out = new Map();
+  const tables = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+    )
+    .all();
+  for (const { name } of tables) {
+    const cols = db.prepare(`PRAGMA table_info("${name}")`).all();
+    const indexes = [];
+    for (const idx of db.prepare(`PRAGMA index_list("${name}")`).all()) {
+      const info = db.prepare(`PRAGMA index_info("${idx.name}")`).all();
+      indexes.push({
+        name: idx.name,
+        unique: idx.unique === 1,
+        columns: info.map((c) => c.name),
+      });
+    }
+    out.set(name.toLowerCase(), {
+      columns: cols.map((c) => ({
+        name: c.name,
+        type: (c.type || "").toLowerCase(),
+        nullable: c.notnull === 0,
+        pk: c.pk > 0,
+      })),
+      indexes,
+    });
+  }
+  db.close();
+  return out;
+}
+
+/**
+ * Le type SQLite obtenu est-il compatible avec le type logique attendu ?
+ *
+ * SQLite n'a que cinq classes de stockage, et Nodefony le sait : une chaîne
+ * bornée y est un `text` comme les autres. On ne compare donc que ce qui est
+ * DISTINGUABLE sur ce moteur — juger une longueur ici rendrait un verdict que
+ * le moteur ne porte pas.
+ */
+function typeMatches(logical, sqlType) {
+  const t = sqlType.replace(/\(.*/u, "").trim();
+  switch (logical) {
+    case "string":
+    case "text":
+    case "json":
+    case "enum":
+      return t === "text";
+    case "int":
+    case "bool":
+    case "date":
+      return t === "integer" || t === "numeric";
+    case "float":
+      return t === "real" || t === "numeric";
+    case "decimal":
+      return t === "numeric" || t === "text" || t === "real";
+    default:
+      // Type INEXPRIMABLE par la grammaire : tout ce qui existe est déjà un
+      // contournement de l'agent. Le rapport le dira — pas un faux vert ici.
+      return t === "blob";
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Décor
+// ─────────────────────────────────────────────────────────────────────────────
+
+const sh = (cmd, args, opts = {}) =>
+  execFileSync(cmd, args, {
+    stdio: "inherit",
+    env: APP_ENV,
+    timeout: 900_000,
+    ...opts,
+  });
+
+const git = (cwd, ...args) =>
+  execFileSync("git", args, { cwd, stdio: "pipe", encoding: "utf8" });
+
+/** App témoin fraîche, liée au `dist/` local, schéma cible déposé à sa racine. */
+function setup(runDir, target) {
+  const app = path.join(runDir, "app");
+  mkdirSync(runDir, { recursive: true });
+  console.log("• app témoin (create app --link --preset complete)…");
+  sh(BIN, [
+    "create",
+    "app",
+    "schema-bench",
+    "--dir",
+    app,
+    "--preset",
+    "complete",
+    "--frontend",
+    "none",
+    "--link",
+    "--yes",
+  ]);
+  console.log("• npm install…");
+  sh("npm", ["install", "--no-audit", "--no-fund"], { cwd: app });
+  writeFileSync(path.join(app, "schema-cible.md"), target);
+  git(app, "init", "-q");
+  git(app, "add", "-A");
+  git(
+    app,
+    "-c",
+    "user.name=bench",
+    "-c",
+    "user.email=bench@local",
+    "commit",
+    "-qm",
+    "état initial",
+  );
+  return app;
+}
+
+/** Déroule l'agent dans l'app ; transcript capturé. */
+function runAgent(app, runDir) {
+  console.log(`\n━━ agent (${MODEL}) — reproduire le schéma`);
+  const res = spawnSync(
+    AGENT,
+    [...AGENT_ARGS, ...(MODEL ? ["--model", MODEL] : []), PROMPT],
+    {
+      cwd: app,
+      encoding: "utf8",
+      maxBuffer: 128 * 1024 * 1024,
+      timeout: 60 * 60 * 1000,
+      env: APP_ENV,
+    },
+  );
+  const transcript = res.stdout ?? "";
+  writeFileSync(path.join(runDir, "transcript.jsonl"), transcript);
+
+  // Un agent qui n'a jamais démarré rendrait un rapport identique à celui d'une
+  // grammaire incapable — on s'arrête plutôt que de publier un verdict qui n'en
+  // est pas un.
+  if (/"terminal_reason"\s*:\s*"api_error"/u.test(transcript)) {
+    const turns = (transcript.match(/"type"\s*:\s*"assistant"/gu) ?? []).length;
+    console.log(
+      `\n🛑 agent interrompu après ${turns} échanges — verdict NON concluant.\n` +
+        `   Décor conservé ; \`--analyze-only ${runDir}\` re-juge sans relancer.`,
+    );
+    process.exit(2);
+  }
+  git(app, "add", "-A");
+  git(
+    app,
+    "-c",
+    "user.name=bench",
+    "-c",
+    "user.email=bench@local",
+    "commit",
+    "-qm",
+    "travail de l'agent",
+    "--allow-empty",
+  );
+  return transcript;
+}
+
+/**
+ * Compte ce que l'agent a fait DE SES MAINS sur les fichiers d'entité.
+ *
+ * C'est la mesure centrale : le générateur écrit ces fichiers, donc toute
+ * édition ultérieure dit qu'il n'a pas suffi. On lit le transcript et non le
+ * diff — un fichier généré puis retouché a le même aspect final qu'un fichier
+ * écrit à la main, et seule la SÉQUENCE distingue les deux.
+ */
+function countWork(transcript) {
+  const generated = [];
+  const edits = [];
+  for (const line of transcript.split("\n")) {
+    if (!line.trim()) continue;
+    let ev;
+    try {
+      ev = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const blocks = ev?.message?.content;
+    if (!Array.isArray(blocks)) continue;
+    for (const b of blocks) {
+      if (b?.type !== "tool_use") continue;
+      const input = b.input ?? {};
+      if (b.name === "Bash" && /create\s+entity/u.test(input.command ?? "")) {
+        generated.push(String(input.command).slice(0, 160));
+      }
+      if (
+        (b.name === "Edit" ||
+          b.name === "Write" ||
+          b.name === "NotebookEdit") &&
+        /nodefony\/entity\/.*\.ts$/u.test(input.file_path ?? "")
+      ) {
+        edits.push({ tool: b.name, file: path.basename(input.file_path) });
+      }
+    }
+  }
+  return { generated, edits };
+}
+
+/** Boote l'app en console — exécute le DDL de développement, sans ouvrir de port. */
+function bootApp(app, runDir) {
+  console.log("\n• build de l'app…");
+  const build = spawnSync("npm", ["run", "build"], {
+    cwd: app,
+    encoding: "utf8",
+    timeout: 900_000,
+    env: APP_ENV,
+  });
+  console.log(`  build : exit ${build.status}`);
+  console.log("• boot console (crée les tables)…");
+  const boot = spawnSync(
+    process.execPath,
+    [BIN, "inspect", "entities", "--json"],
+    { cwd: app, encoding: "utf8", timeout: 300_000, env: APP_ENV },
+  );
+  writeFileSync(
+    path.join(runDir, "boot.log"),
+    `build exit ${build.status}\n${build.stdout ?? ""}${build.stderr ?? ""}\n` +
+      `--- boot exit ${boot.status} ---\n${boot.stdout ?? ""}\n${boot.stderr ?? ""}`,
+  );
+  console.log(`  boot  : exit ${boot.status}`);
+  return { buildOk: build.status === 0, bootOk: boot.status === 0 };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Le juge
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Confronte le schéma attendu au schéma réellement créé. */
+function compare(expected, actual) {
+  return expected.map((t) => {
+    const got = actual.get(t.table.toLowerCase());
+    if (!got) {
+      return {
+        table: t.table,
+        present: false,
+        columns: { expected: t.columns.length, found: 0, wrongType: 0 },
+        indexes: { expected: t.indexes.length, found: 0 },
+        missingColumns: t.columns.map((c) => c.column),
+        missingIndexes: t.indexes.map((i) => i.columns.join("+")),
+      };
+    }
+    const byName = new Map(got.columns.map((c) => [c.name.toLowerCase(), c]));
+    const missingColumns = [];
+    let found = 0;
+    let wrongType = 0;
+    for (const c of t.columns) {
+      const g = byName.get(c.column.toLowerCase());
+      if (!g) {
+        missingColumns.push(c.column);
+        continue;
+      }
+      found += 1;
+      if (!typeMatches(c.logical, g.type)) wrongType += 1;
+    }
+    const idxKeys = new Set(
+      got.indexes.map((i) => i.columns.join("+").toLowerCase()),
+    );
+    const missingIndexes = t.indexes
+      .filter((i) => !idxKeys.has(i.columns.join("+").toLowerCase()))
+      .map((i) => i.columns.join("+"));
+    return {
+      table: t.table,
+      present: true,
+      columns: { expected: t.columns.length, found, wrongType },
+      indexes: {
+        expected: t.indexes.length,
+        found: t.indexes.length - missingIndexes.length,
+      },
+      missingColumns,
+      missingIndexes,
+    };
+  });
+}
+
+/** Rapport console + `report.json`. */
+function report(ctx) {
+  const { runDir, key, def, source, expected, rows, work, boot, dbPath } = ctx;
+  const tot = (pick) => rows.reduce((n, r) => n + pick(r), 0);
+  const tablesFound = rows.filter((r) => r.present).length;
+  const colsExpected = tot((r) => r.columns.expected);
+  const colsFound = tot((r) => r.columns.found);
+  const colsWrong = tot((r) => r.columns.wrongType);
+  const idxExpected = tot((r) => r.indexes.expected);
+  const idxFound = tot((r) => r.indexes.found);
+
+  // Ce que la source contient et que la grammaire ne sait PAS dire — relevé au
+  // moment de la lecture, indépendamment de ce que l'agent a réussi.
+  const inexprimables = expected.flatMap((t) =>
+    t.columns
+      .filter((c) => c.note?.includes("INEXPRIMABLE") || c.logical === null)
+      .map((c) => `${t.table}.${c.column} — ${c.note ?? c.sourceType}`),
+  );
+  const partages = expected.flatMap((t) =>
+    t.columns
+      .filter((c) => c.note?.includes("PARTAGÉE"))
+      .map((c) => `${t.table}.${c.column} — ${c.note}`),
+  );
+
+  const bar = "─".repeat(76);
+  console.log(`\n${bar}\nBANC DE SCHÉMA — ${key}\n${bar}`);
+  console.log(`source : ${def.repo}/${def.file} (${def.license})`);
+  console.log(
+    `         empreinte ${source.sha}${source.drifted ? " ⚠️ DIFFÉRENTE de la figée" : " (conforme)"}`,
+  );
+  console.log(`stress : ${def.stresses}`);
+  console.log(`agent  : ${AGENT} · modèle : ${MODEL}`);
+  console.log(`base   : ${dbPath ?? "AUCUNE — aucune table n'a été créée"}`);
+  console.log(
+    `build  : ${boot.buildOk ? "✅" : "❌"}   boot console : ${boot.bootOk ? "✅" : "❌"}`,
+  );
+
+  console.log(`\n  RÉSULTAT`);
+  console.log(`    tables   ${tablesFound}/${rows.length}`);
+  console.log(
+    `    colonnes ${colsFound}/${colsExpected}` +
+      (colsWrong ? `   (dont ${colsWrong} de type inattendu)` : ""),
+  );
+  console.log(`    index    ${idxFound}/${idxExpected}`);
+
+  console.log(`\n  CE QU'IL A FALLU FAIRE`);
+  console.log(`    appels au générateur      : ${work.generated.length}`);
+  console.log(
+    `    éditions d'entité à la MAIN : ${work.edits.length}` +
+      (work.edits.length ? "   ← ce que la grammaire n'a pas su porter" : ""),
+  );
+
+  if (inexprimables.length) {
+    console.log(`\n  INEXPRIMABLE PAR LA GRAMMAIRE (relevé à la source)`);
+    for (const l of inexprimables) console.log(`    • ${l}`);
+  }
+  if (partages.length) {
+    console.log(
+      `\n  ÉNUMÉRATIONS PARTAGÉES (la grammaire ne connaît que l'inline)`,
+    );
+    for (const l of partages.slice(0, 12)) console.log(`    • ${l}`);
+  }
+
+  console.log(`\n  DÉTAIL PAR TABLE`);
+  for (const r of rows) {
+    const mark = !r.present ? "❌" : r.missingColumns.length ? "⚠️ " : "✅";
+    console.log(
+      `    ${mark} ${r.table.padEnd(18)} colonnes ${String(r.columns.found).padStart(2)}/${r.columns.expected}` +
+        `  index ${String(r.indexes.found).padStart(2)}/${r.indexes.expected}`,
+    );
+    if (r.missingColumns.length) {
+      console.log(
+        `         colonnes absentes : ${r.missingColumns.join(", ")}`,
+      );
+    }
+    if (r.missingIndexes.length) {
+      console.log(
+        `         index absents     : ${r.missingIndexes.join(" · ")}`,
+      );
+    }
+  }
+
+  writeFileSync(
+    path.join(runDir, "report.json"),
+    JSON.stringify(
+      {
+        schema: key,
+        source: { ...def, sha256Read: source.sha, drifted: source.drifted },
+        agent: AGENT,
+        model: MODEL,
+        build: boot.buildOk,
+        boot: boot.bootOk,
+        database: dbPath,
+        totals: {
+          tables: { expected: rows.length, found: tablesFound },
+          columns: {
+            expected: colsExpected,
+            found: colsFound,
+            wrongType: colsWrong,
+          },
+          indexes: { expected: idxExpected, found: idxFound },
+          generatorCalls: work.generated.length,
+          handEdits: work.edits.length,
+        },
+        inexpressible: inexprimables,
+        sharedEnums: partages,
+        generatorCalls: work.generated,
+        handEdits: work.edits,
+        tables: rows,
+      },
+      null,
+      2,
+    ),
+  );
+  console.log(`\n  rapport : ${path.join(runDir, "report.json")}\n${bar}`);
+
+  // Un banc qui ne peut pas échouer ne gate rien. Le seuil porte sur ce qui
+  // mesure la GRAMMAIRE — les colonnes obtenues et les tables créées.
+  return colsFound === colsExpected && tablesFound === rows.length;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function main() {
+  const argv = process.argv.slice(2);
+  const arg = (flag) => {
+    const i = argv.indexOf(flag);
+    return i === -1 ? null : argv[i + 1];
+  };
+  const key = arg("--schema") ?? "umami";
+  const def = SCHEMAS[key];
+  if (!def) {
+    console.error(
+      `schéma inconnu « ${key} » — disponibles : ${Object.keys(SCHEMAS).join(", ")}`,
+    );
+    process.exit(64);
+  }
+
+  const source = fetchSchema(key, def);
+  const parsed =
+    def.format === "prisma"
+      ? readPrisma(source.content)
+      : readKnex(source.content);
+  const { tables: expected, missing } = subset(parsed, def);
+  if (missing.length) {
+    console.log(
+      `\n⚠️  Tables du sous-ensemble figé INTROUVABLES en amont : ${missing.join(", ")}\n` +
+        `   Le banc mesure ${expected.length} tables au lieu de ${def.tables.length}.\n`,
+    );
+  }
+  const target = renderTarget(expected, def);
+
+  const analyzeOnly = arg("--analyze-only");
+  const runDir =
+    analyzeOnly ??
+    path.join(
+      REPO,
+      "tmp",
+      "devkit-schema",
+      `${key}-${new Date().toISOString().replace(/[:.]/gu, "-").slice(0, 19)}`,
+    );
+  const app = path.join(runDir, "app");
+
+  if (argv.includes("--dump-only")) {
+    mkdirSync(runDir, { recursive: true });
+    const out = path.join(runDir, "schema-cible.md");
+    writeFileSync(out, target);
+    const cols = expected.reduce((n, t) => n + t.columns.length, 0);
+    const idx = expected.reduce((n, t) => n + t.indexes.length, 0);
+    console.log(
+      `\n${expected.length} tables · ${cols} colonnes · ${idx} index\n` +
+        `schéma cible : ${out}\n`,
+    );
+    return;
+  }
+
+  if (!analyzeOnly) {
+    setup(runDir, target);
+    if (argv.includes("--setup-only")) {
+      console.log(`\n• décor prêt : ${app}\n  cible : ${app}/schema-cible.md`);
+      return;
+    }
+    runAgent(app, runDir);
+  }
+
+  const transcriptPath = path.join(runDir, "transcript.jsonl");
+  const work = countWork(
+    existsSync(transcriptPath) ? readFileSync(transcriptPath, "utf8") : "",
+  );
+  const boot = analyzeOnly
+    ? { buildOk: true, bootOk: true }
+    : bootApp(app, runDir);
+
+  const dbPath = findDatabase(app);
+  const actual = dbPath ? readSqlite(dbPath) : new Map();
+  const rows = compare(expected, actual);
+  const ok = report({
+    runDir,
+    key,
+    def,
+    source,
+    expected,
+    rows,
+    work,
+    boot,
+    dbPath,
+  });
+  process.exit(ok ? 0 : 1);
+}
+
+// Ce fichier est AUSSI importé par son auto-contrôle (`bench-schema.selftest.mjs`),
+// qui a besoin des lecteurs sans dérouler le banc. Ne s'exécute donc que lancé
+// directement.
+if (process.argv[1] && import.meta.filename === path.resolve(process.argv[1])) {
+  main();
+}
