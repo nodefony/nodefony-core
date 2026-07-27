@@ -1,4 +1,4 @@
-name: Gate mémoire (pipeline)
+name: Charge et mémoire (pipeline)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # POURQUOI CE WORKFLOW EXISTE
@@ -23,8 +23,13 @@ name: Gate mémoire (pipeline)
 #     dizaines ; la marge entre les deux est large ;
 #   · `vitest.load.config.ts` impose `fileParallelism: false` + `singleFork`,
 #     ce qui supprime par construction la contention entre fichiers ;
-#   · le banc assume déjà de tourner SANS `--expose-gc` : il est écrit pour vivre
-#     avec l'imprécision du ramasse-miettes, pas contre elle.
+#   · le serveur reçoit `--expose-gc`, sans quoi la sonde du module de test ne
+#     force RIEN et l'on compare des tas pleins de déchets en attente — la
+#     mesure devient alors du bruit déguisé en fuite.
+#
+# Ce qui tourne ici n'est pas que la mémoire : `test:load` porte AUSSI la charge
+# WebSocket, les scopes d'injection, les sessions et les flux. Sept fichiers, dont
+# un seul mesure le heap.
 #
 # Si malgré cela il devenait instable, la conduite à tenir est de le déplacer vers
 # une exécution nocturne — pas de le rendre non bloquant. Un contrôle qui ne peut
@@ -73,9 +78,9 @@ env:
 
 jobs:
   memory:
-    name: Fuites — HTTP et WebSocket
+    name: Charge, fuites et scopes — HTTP et WebSocket
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
@@ -120,16 +125,26 @@ jobs:
       # sortie lisible, si bien qu'un seuil franchi ne dit plus de combien ni sur
       # quel banc. Une défaillance qui ne peut pas s'expliquer coûte plus cher que
       # celle qu'elle signale.
-      - name: Gate mémoire — 1000 requêtes, 100 crashes, 100 connexions WS
+      # `test:load` et NON `test:memory` : la même configuration séquentielle porte
+      # les deux, et le banc mémoire n'en est qu'un fichier sur sept. Les six autres
+      # — connexions WebSocket concurrentes et churn, débit d'écho et de diffusion,
+      # latence, flux, sessions, et surtout les fuites de scopes d'injection sous
+      # charge — sont décrits comme stables en intégration continue par le kit de
+      # charge, et ne tournaient nulle part. Les sondes de RUPTURE, elles, restent
+      # fermées : elles épuisent les ports éphémères de la machine hôte, ce qui n'a
+      # rien à faire sur un runner partagé.
+      - name: Charge et mémoire — WebSocket, scopes, sessions, flux, heap
         working-directory: src/packages/@nodefony/http
         run: |
-          npm run test:memory -- \
+          npm run test:load -- \
             --reporter=default --reporter=json --outputFile=memory-report.json
 
       # `always()` : c'est en ÉCHEC que ce résumé sert le plus. Il dit de combien
       # le seuil a été franchi — un dépassement de quelques Mo se lit comme du
       # bruit de ramasse-miettes, un dépassement d'un ordre de grandeur comme une
       # fuite. Sans ce chiffre, les deux se ressemblent.
+      # Les sondes de rupture (`RUN_WS_RUPTURE`) restent volontairement fermées : elles
+      # épuisent les ports éphémères de l'hôte. Leur silence est un choix, pas un oubli.
       - name: Ce que le banc a mesuré
         if: always()
         working-directory: src/packages/@nodefony/http
