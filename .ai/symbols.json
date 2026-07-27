@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-27T14:10:30.291Z",
+  "generated": "2026-07-27T14:14:56.743Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 639,
-    "symbols": 2520,
+    "symbols": 2521,
     "classes": 335,
     "interfaces": 766,
     "types": 332,
     "enums": 4,
-    "functions": 905,
+    "functions": 906,
     "constants": 178
   },
   "symbols": {
@@ -16577,6 +16577,14 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Construit l'URI `otpauth://totp/{issuer}:{account}?...` encodé dans le QR code d'enrôlement. Le label `issuer:account` et le paramètre `issuer` sont tous deux renseignés (recommandation Key Uri For…"
+    },
+    "unbiasedIndices": {
+      "name": "unbiasedIndices",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/totp/totpCrypto.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Tire `count` indices UNIFORMES dans `[0, size)` à partir d'octets aléatoires. Le repli direct (`octet % size`) n'est uniforme que si `size` divise 256. Ici `256 % 30 = 16` : les seize premiers symb…"
     },
     "generateRecoveryCodes": {
       "name": "generateRecoveryCodes",

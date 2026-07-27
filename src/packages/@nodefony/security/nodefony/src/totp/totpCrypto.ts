@@ -268,6 +268,55 @@ export function buildOtpauthUri(params: IOtpauthParams): string {
 /** Alphabet des codes de récupération (Crockford-ish, sans I/L/O/U ambigus). */
 const RECOVERY_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
 
+/**
+ * Tire `count` indices UNIFORMES dans `[0, size)` à partir d'octets aléatoires.
+ *
+ * Le repli direct (`octet % size`) n'est uniforme que si `size` divise 256. Ici
+ * `256 % 30 = 16` : les seize premiers symboles de l'alphabet sortaient une fois
+ * sur neuf-deux-cent-cinquante-sixièmes, les quatorze autres une fois sur huit —
+ * environ 12 % plus souvent pour les premiers.
+ *
+ * L'enjeu réel est modeste (l'entropie tombe de 4,9069 à 4,9044 bit par
+ * caractère, soit 0,025 bit perdu sur les ~49 d'un code) et n'ouvre aucune
+ * attaque praticable. Ce n'est pas la raison de corriger : un tirage biaisé dans
+ * du code cryptographique est une dette qui ne se voit plus une fois écrite, et
+ * dont le coût explose si l'alphabet change un jour pour une taille moins
+ * clémente. Le refus d'échantillon coûte ici quelques octets de plus, une fois
+ * par activation de second facteur.
+ *
+ * @param count - nombre d'indices voulus.
+ * @param size - taille de l'alphabet (2 à 256).
+ * @param source - fournisseur d'octets aléatoires — paramétrable pour que le
+ *          refus d'échantillon soit OBSERVABLE en test, faute de quoi on ne
+ *          prouverait jamais que la garde mord.
+ * @returns exactement `count` indices, uniformément distribués.
+ */
+export function unbiasedIndices(
+  count: number,
+  size: number,
+  source: (n: number) => Buffer = randomBytes,
+): number[] {
+  if (size < 2 || size > 256) {
+    throw new RangeError(`taille d'alphabet hors bornes : ${size}`);
+  }
+  // Plus grand multiple de `size` tenant dans un octet : au-delà, l'octet est
+  // REJETÉ plutôt que replié — c'est tout le principe.
+  const limit = 256 - (256 % size);
+  const out: number[] = [];
+  while (out.length < count) {
+    // Marge de huit octets : avec un alphabet de 30, moins d'un octet sur seize
+    // est rejeté, donc une seule passe suffit en pratique. La boucle reste là
+    // pour les alphabets ingrats, où le taux de rejet grimpe.
+    const bytes = source(count - out.length + 8);
+    for (const b of bytes) {
+      if (b >= limit) continue;
+      out.push(b % size);
+      if (out.length === count) break;
+    }
+  }
+  return out;
+}
+
 /** Normalise un code de récupération présenté (casse + séparateurs ignorés). */
 function normalizeRecoveryCode(code: string): string {
   return code.replace(/[\s-]/g, "").toUpperCase();
@@ -282,9 +331,8 @@ export function generateRecoveryCodes(count = 10): string[] {
   const codes: string[] = [];
   for (let c = 0; c < count; c++) {
     let raw = "";
-    const bytes = randomBytes(10);
-    for (let i = 0; i < 10; i++) {
-      raw += RECOVERY_ALPHABET[(bytes[i] as number) % RECOVERY_ALPHABET.length];
+    for (const idx of unbiasedIndices(10, RECOVERY_ALPHABET.length)) {
+      raw += RECOVERY_ALPHABET[idx];
     }
     codes.push(`${raw.slice(0, 5)}-${raw.slice(5)}`);
   }
