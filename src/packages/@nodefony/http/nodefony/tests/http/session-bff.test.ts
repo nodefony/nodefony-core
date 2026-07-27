@@ -98,6 +98,22 @@ async function login(identifier: string, password: string): Promise<Res> {
 }
 
 describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
+  // Le throttle NIST compte par identifiant SAISI, dans un serveur qui vit toute la
+  // suite, et les DEUX portes (JSON et Basic) partagent ce compteur — ce fichier le
+  // prouve plus bas. Un échec volontaire sur un compte RÉEL laisse donc une dette au
+  // fichier suivant : trois suffisent à épuiser le crédit, et le délai double ensuite
+  // jusqu'à ce que `admin` réponde 429 même avec le bon mot de passe. On le rend
+  // propre après chaque cas, par le seul moyen prévu : une authentification réussie
+  // (NIST — le légitime ne traîne pas la dette d'un attaquant). Tolérant : un
+  // nettoyage ne doit jamais masquer l'échec qu'il suit.
+  afterEach(async () => {
+    try {
+      await login("admin", "secret");
+    } catch {
+      /* le cas suivant dira ce qui ne va pas */
+    }
+  });
+
   it("login : body invalide ou credential faux → 401 au message uniforme", async () => {
     const empty = await post(`${AUTH}/login`, {});
     expect(empty.status).to.equal(401);

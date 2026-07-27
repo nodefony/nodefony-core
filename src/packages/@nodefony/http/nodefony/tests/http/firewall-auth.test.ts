@@ -51,7 +51,39 @@ const basic = (identifier: string, password: string) => ({
   authorization: `Basic ${Buffer.from(`${identifier}:${password}`, "utf8").toString("base64")}`,
 });
 
+/**
+ * Efface la dette de backoff accumulée sur un compte RÉEL, par le seul moyen que la
+ * doctrine prévoit : une authentification RÉUSSIE (`LoginThrottler.recordSuccess`
+ * oublie l'identifiant — NIST : l'utilisateur légitime ne traîne pas la dette d'un
+ * attaquant passé).
+ *
+ * Pourquoi c'est nécessaire ici. Le throttle compte par identifiant SAISI, dans un
+ * serveur qui vit toute la suite. Les cas ci-dessous ont besoin d'un compte qui
+ * EXISTE (« mot de passe invalide → 401 » ne veut rien dire sur un inconnu), donc
+ * l'astuce de l'identifiant unique par run ne s'applique pas à eux : ils dépensent
+ * du crédit sur `admin`. Trois échecs suffisent à épuiser `freeAttempts`, et le
+ * suivant arme un délai qui DOUBLE — après quoi tout ce qui s'authentifie en `admin`
+ * reçoit 429, y compris avec le bon mot de passe, dans ce fichier comme dans les
+ * suivants. Le banc s'appuyait jusqu'ici sur un hasard : en développement supervisé,
+ * un rebuild redémarrait le serveur et remettait les compteurs à zéro.
+ *
+ * Tolérant par construction : un nettoyage ne doit jamais masquer l'échec qu'il suit.
+ */
+async function forgetThrottle(identifier: string): Promise<void> {
+  try {
+    await get("/nodefony/test/secure/ping", basic(identifier, "secret"));
+  } catch {
+    /* le test qui suit dira ce qui ne va pas — pas ce nettoyage */
+  }
+}
+
 describe("Firewall — zone protégée test-secure (requires server)", () => {
+  // Chaque cas rend le compte `admin` au suivant sans dette de backoff. Posé en
+  // `afterEach` et non en fin de corps : un cas qui échoue ne doit pas empoisonner
+  // tous ceux d'après (c'est exactement ce qui a produit 60 rouges pour un défaut).
+  afterEach(async () => {
+    await forgetThrottle("admin");
+  });
   it("Zero Trust : aucune preuve → 401 + WWW-Authenticate Basic (RFC 7235)", async () => {
     const { status, headers } = await get("/nodefony/test/secure/ping");
     expect(status).to.equal(401);
