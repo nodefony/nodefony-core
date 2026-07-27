@@ -120,7 +120,50 @@ const AGENT_ARGS = process.env.DEVKIT_BENCH_AGENT_ARGS
  * pour que les trois puissent tourner ensemble.
  */
 const PORTS = { NF_PORT: "5381", NF_PORT_HTTPS: "5382" };
-const APP_ENV = { ...process.env, ...PORTS };
+
+/**
+ * Moteur sur lequel l'application témoin persiste — et donc sur lequel le juge
+ * lit.
+ *
+ * **PostgreSQL par défaut, et ce n'est pas un détail de décor.** SQLite ne
+ * distingue pas `varchar(255)` de `char(2)` de `text` : ils y sont le MÊME type.
+ * Un juge posé dessus serait aveugle exactement là où les schémas réels sont
+ * exigeants — onze longueurs distinctes chez umami, `maxlength` sur chaque
+ * colonne chez ghost. Le skill portait déjà la leçon (le banc de vérité a dû
+ * ajouter deux entités PostgreSQL pour la même raison) : une sonde de type doit
+ * porter sur un moteur qui DISTINGUE les types.
+ *
+ * PostgreSQL rend en plus lisibles `numeric(p,s)`, `bytea`, `jsonb` et
+ * `timestamptz` — soit tout ce que la grammaire prétend traduire.
+ */
+const DIALECT = (() => {
+  const i = process.argv.indexOf("--dialect");
+  return i === -1 ? "postgres" : process.argv[i + 1];
+})();
+
+/** Chaînes de connexion des moteurs de développement (docker du dépôt). */
+const DB_URL = {
+  postgres:
+    process.env.NF_PG_URL ??
+    "postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony",
+  mysql:
+    process.env.NF_MYSQL_URL ??
+    "mysql://nodefony:nodefony-dev@127.0.0.1:3306/nodefony",
+  sqlite: null,
+};
+
+/**
+ * Env de tout ce qui s'exécute DANS l'app témoin.
+ *
+ * `NF_DATABASE_URL` est la variable que le gabarit d'application désigne
+ * lui-même pour pointer une vraie base ; le dialecte s'en déduit par le schéma
+ * d'URL. Rien d'autre à configurer.
+ */
+const APP_ENV = {
+  ...process.env,
+  ...PORTS,
+  ...(DB_URL[DIALECT] ? { NF_DATABASE_URL: DB_URL[DIALECT] } : {}),
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Les schémas — sources EXTERNES, sous-ensembles FIGÉS
@@ -150,7 +193,12 @@ export const SCHEMAS = {
       "EventData", // décimal large
       "SessionReplay", // BINAIRE, dates métier non nulles
     ],
-    rename: { User: "Account" },
+    // `User` ET `Session` sont des noms d'entité RÉSERVÉS par le framework
+    // (`scaffold/reservedEntities.ts`) : un homonyme déposséderait le module qui
+    // les porte, et l'application refuserait de démarrer sur un message parlant
+    // d'une colonne inconnue. Deux pièges de décor connus, neutralisés ici pour
+    // que le banc mesure la grammaire et non eux.
+    rename: { User: "Account", Session: "Visit" },
     stresses: "nommage SQL, tailles de chaîne, binaire, index composites",
   },
   calcom: {
@@ -330,12 +378,34 @@ export function readPrisma(src) {
 
     const map = /@map\("([^"]+)"\)/u.exec(attrs);
     const column = map ? map[1] : prop;
+
+    // La taille NATIVE (`@db.VarChar(255)`, `@db.Decimal(10,1)`, `@db.Char(2)`).
+    // Sans elle, la cible remise à l'agent dirait « String » là où la source dit
+    // « au plus 255 caractères » — et le banc jugerait une longueur qu'il
+    // n'aurait jamais demandée.
+    const db = /@db\.(\w+)(?:\(([^)]*)\))?/u.exec(attrs);
+    const dbArgs = db?.[2]?.split(",").map((s) => Number(s.trim()));
+    // `String @db.Uuid` n'est PAS une chaîne : c'est un identifiant, que
+    // PostgreSQL porte dans un type dédié. Le confondre faisait crier le juge
+    // sur les dix-huit colonnes de clé — dix-huit faux positifs qui noyaient le
+    // seul vrai écart du run.
+    const isUuid = db && /^uuid$/iu.test(db[1]);
+    const isDecimal = db && /^decimal$/iu.test(db[1]);
+    const length = !isDecimal && dbArgs?.length === 1 ? dbArgs[0] : undefined;
+    const precision = isDecimal ? dbArgs?.[0] : undefined;
+    const scale = isDecimal ? dbArgs?.[1] : undefined;
+
     colOf.get(current.model).set(prop, column);
     current.columns.push({
       prop,
       column,
-      logical: isEnum ? "enum" : PRISMA_TYPES[type],
-      sourceType: type + (list ? "[]" : ""),
+      logical: isEnum ? "enum" : isUuid ? "uuid" : PRISMA_TYPES[type],
+      length,
+      precision,
+      scale,
+      sourceType: db
+        ? `${type}${list ? "[]" : ""} — ${db[1]}${db[2] ? `(${db[2]})` : ""}`
+        : type + (list ? "[]" : ""),
       nullable: optional === "?",
       unique: /@unique\b/u.test(attrs),
       isId: /@id\b/u.test(attrs),
@@ -626,6 +696,175 @@ function readSqlite(dbPath) {
 }
 
 /**
+ * Lit le schéma que PostgreSQL porte VRAIMENT.
+ *
+ * Contrairement à SQLite, ce moteur conserve tout ce que la grammaire prétend
+ * traduire : la longueur d'une chaîne, la précision d'un décimal, `bytea`,
+ * `jsonb`, `timestamptz`. C'est pour ça que le juge vit ici.
+ *
+ * @param url - chaîne de connexion.
+ * @returns une entrée par table, même forme que le lecteur SQLite.
+ */
+async function readPostgres(url) {
+  const { Client } = await import("pg");
+  const client = new Client({ connectionString: url });
+  await client.connect();
+  try {
+    const cols = await client.query(
+      `SELECT table_name, column_name, udt_name, is_nullable,
+              character_maximum_length AS len,
+              numeric_precision AS prec, numeric_scale AS scale
+         FROM information_schema.columns
+        WHERE table_schema = 'public'
+        ORDER BY table_name, ordinal_position`,
+    );
+    const idx = await client.query(
+      `SELECT t.relname AS table_name, i.relname AS index_name,
+              ix.indisunique AS is_unique,
+              -- Le cast en text[] n'est PAS cosmétique : \`attname\` est de type
+              -- \`name\`, et le pilote ne sait pas décoder un \`name[]\` — il rend
+              -- la chaîne brute « {a,b} », sur laquelle \`.join()\` n'existe pas.
+              array_agg(a.attname::text ORDER BY k.ord) AS columns
+         FROM pg_index ix
+         JOIN pg_class t ON t.oid = ix.indrelid
+         JOIN pg_class i ON i.oid = ix.indexrelid
+         JOIN pg_namespace n ON n.oid = t.relnamespace
+         CROSS JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS k(attnum, ord)
+         JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum
+        WHERE n.nspname = 'public'
+        GROUP BY t.relname, i.relname, ix.indisunique`,
+    );
+    const out = new Map();
+    for (const r of cols.rows) {
+      const key = r.table_name.toLowerCase();
+      if (!out.has(key)) out.set(key, { columns: [], indexes: [] });
+      out.get(key).columns.push({
+        name: r.column_name,
+        type: r.udt_name.toLowerCase(),
+        length: r.len,
+        precision: r.prec,
+        scale: r.scale,
+        nullable: r.is_nullable === "YES",
+      });
+    }
+    for (const r of idx.rows) {
+      const key = r.table_name.toLowerCase();
+      if (!out.has(key)) continue;
+      out.get(key).indexes.push({
+        name: r.index_name,
+        unique: r.is_unique,
+        columns: r.columns,
+      });
+    }
+    return out;
+  } finally {
+    await client.end();
+  }
+}
+
+/**
+ * Supprime les tables du sous-ensemble AVANT le run.
+ *
+ * Sans ce nettoyage, les tables laissées par le run précédent seraient comptées
+ * comme des réussites de celui-ci — le juge lirait un état, pas un résultat.
+ * La base de développement est partagée : on ne touche QUE les tables attendues.
+ *
+ * @returns le nombre de tables effectivement supprimées.
+ */
+async function dropExpected(url, tables) {
+  const { Client } = await import("pg");
+  const client = new Client({ connectionString: url });
+  await client.connect();
+  let dropped = 0;
+  try {
+    for (const t of tables) {
+      const res = await client.query(
+        `SELECT to_regclass($1) IS NOT NULL AS present`,
+        [`public.${t.table}`],
+      );
+      if (res.rows[0]?.present) {
+        await client.query(`DROP TABLE IF EXISTS "${t.table}" CASCADE`);
+        dropped += 1;
+      }
+    }
+  } finally {
+    await client.end();
+  }
+  return dropped;
+}
+
+/**
+ * Le type PostgreSQL obtenu correspond-il au type attendu — TAILLE COMPRISE ?
+ *
+ * C'est ici que le banc gagne sa raison d'être : sur SQLite, `varchar(255)` et
+ * `char(2)` sont indiscernables, et toute la partie « tailles » d'un schéma réel
+ * passait pour juste sans avoir jamais été vérifiée.
+ *
+ * @returns `null` si tout correspond, sinon la raison de l'écart.
+ */
+function pgMismatch(expected, got) {
+  const t = got.type;
+  switch (expected.logical) {
+    case "string":
+      if (t !== "varchar" && t !== "text" && t !== "bpchar")
+        return `attendu varchar, obtenu ${t}`;
+      // La longueur n'est vérifiée que si la source en déclarait une.
+      if (
+        expected.length &&
+        got.length &&
+        Number(expected.length) !== got.length
+      )
+        return `longueur ${got.length} au lieu de ${expected.length}`;
+      if (expected.length && !got.length)
+        return `longueur ${expected.length} perdue (${t})`;
+      return null;
+    case "text":
+      return t === "text" || t === "varchar"
+        ? null
+        : `attendu text, obtenu ${t}`;
+    case "int":
+      return ["int2", "int4", "int8", "numeric"].includes(t)
+        ? null
+        : `attendu entier, obtenu ${t}`;
+    case "float":
+      return ["float4", "float8", "numeric"].includes(t)
+        ? null
+        : `attendu flottant, obtenu ${t}`;
+    case "decimal":
+      if (t !== "numeric") return `attendu numeric, obtenu ${t}`;
+      if (expected.precision && got.precision !== Number(expected.precision))
+        return `précision ${got.precision ?? "aucune"} au lieu de ${expected.precision}`;
+      return null;
+    case "bool":
+      return t === "bool" ? null : `attendu bool, obtenu ${t}`;
+    case "date":
+      return ["timestamptz", "timestamp", "date", "int8"].includes(t)
+        ? null
+        : `attendu horodatage, obtenu ${t}`;
+    case "json":
+      return ["jsonb", "json", "text"].includes(t)
+        ? null
+        : `attendu jsonb, obtenu ${t}`;
+    case "enum":
+      return ["varchar", "text"].includes(t)
+        ? null
+        : `attendu varchar, obtenu ${t}`;
+    case "uuid":
+      // Une clé en `text` FONCTIONNE et compile — jusqu'à la première jointure,
+      // que PostgreSQL refuse (« operator does not exist: text = uuid »). La
+      // dégradation se signale donc, sans être une absence.
+      if (t === "uuid") return null;
+      return ["varchar", "text"].includes(t)
+        ? `identifiant dégradé en ${t} (toute jointure sera refusée)`
+        : `attendu uuid, obtenu ${t}`;
+    default:
+      // Type INEXPRIMABLE par la grammaire (binaire, entier 64 bits) : ce qui
+      // existe est déjà un contournement de l'agent. Le rapport le dira.
+      return t === "bytea" || t === "int8" ? null : `type non porté (${t})`;
+  }
+}
+
+/**
  * Le type SQLite obtenu est-il compatible avec le type logique attendu ?
  *
  * SQLite n'a que cinq classes de stockage, et Nodefony le sait : une chaîne
@@ -835,8 +1074,8 @@ function compare(expected, actual) {
     }
     const byName = new Map(got.columns.map((c) => [c.name.toLowerCase(), c]));
     const missingColumns = [];
+    const typeErrors = [];
     let found = 0;
-    let wrongType = 0;
     for (const c of t.columns) {
       const g = byName.get(c.column.toLowerCase());
       if (!g) {
@@ -844,8 +1083,17 @@ function compare(expected, actual) {
         continue;
       }
       found += 1;
-      if (!typeMatches(c.logical, g.type)) wrongType += 1;
+      // Sur PostgreSQL le contrôle porte AUSSI sur la taille : c'est la raison
+      // d'être du choix de moteur.
+      const why =
+        DIALECT === "postgres"
+          ? pgMismatch(c, g)
+          : typeMatches(c.logical, g.type)
+            ? null
+            : `attendu ${c.logical}, obtenu ${g.type}`;
+      if (why) typeErrors.push(`${c.column} : ${why}`);
     }
+    const wrongType = typeErrors.length;
     const idxKeys = new Set(
       got.indexes.map((i) => i.columns.join("+").toLowerCase()),
     );
@@ -862,6 +1110,7 @@ function compare(expected, actual) {
       },
       missingColumns,
       missingIndexes,
+      typeErrors,
     };
   });
 }
@@ -898,6 +1147,7 @@ function report(ctx) {
   );
   console.log(`stress : ${def.stresses}`);
   console.log(`agent  : ${AGENT} · modèle : ${MODEL}`);
+  console.log(`moteur : ${DIALECT}`);
   console.log(`base   : ${dbPath ?? "AUCUNE — aucune table n'a été créée"}`);
   console.log(
     `build  : ${boot.buildOk ? "✅" : "❌"}   boot console : ${boot.bootOk ? "✅" : "❌"}`,
@@ -946,6 +1196,11 @@ function report(ctx) {
         `         index absents     : ${r.missingIndexes.join(" · ")}`,
       );
     }
+    // Ce que SQLite n'aurait jamais montré : la taille, la précision, le type
+    // exact. C'est pour ces lignes-là que le juge vit sur PostgreSQL.
+    for (const e of r.typeErrors ?? []) {
+      console.log(`         type              : ${e}`);
+    }
   }
 
   writeFileSync(
@@ -989,7 +1244,7 @@ function report(ctx) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function main() {
+async function main() {
   const argv = process.argv.slice(2);
   const arg = (flag) => {
     const i = argv.indexOf(flag);
@@ -1000,6 +1255,12 @@ function main() {
   if (!def) {
     console.error(
       `schéma inconnu « ${key} » — disponibles : ${Object.keys(SCHEMAS).join(", ")}`,
+    );
+    process.exit(64);
+  }
+  if (!Object.hasOwn(DB_URL, DIALECT)) {
+    console.error(
+      `dialecte inconnu « ${DIALECT} » — disponibles : ${Object.keys(DB_URL).join(", ")}`,
     );
     process.exit(64);
   }
@@ -1043,6 +1304,14 @@ function main() {
   }
 
   if (!analyzeOnly) {
+    // La base de développement est PARTAGÉE : sans ce nettoyage, les tables
+    // laissées par le run précédent compteraient comme des réussites de
+    // celui-ci — le juge lirait un état, pas un résultat.
+    if (DIALECT === "postgres") {
+      const dropped = await dropExpected(DB_URL.postgres, expected);
+      if (dropped)
+        console.log(`• ${dropped} table(s) du run précédent retirée(s)`);
+    }
     setup(runDir, target);
     if (argv.includes("--setup-only")) {
       console.log(`\n• décor prêt : ${app}\n  cible : ${app}/schema-cible.md`);
@@ -1059,8 +1328,13 @@ function main() {
     ? { buildOk: true, bootOk: true }
     : bootApp(app, runDir);
 
-  const dbPath = findDatabase(app);
-  const actual = dbPath ? readSqlite(dbPath) : new Map();
+  const dbPath = DIALECT === "sqlite" ? findDatabase(app) : DB_URL[DIALECT];
+  const actual =
+    DIALECT === "postgres"
+      ? await readPostgres(DB_URL.postgres)
+      : dbPath
+        ? readSqlite(dbPath)
+        : new Map();
   const rows = compare(expected, actual);
   const ok = report({
     runDir,
@@ -1080,5 +1354,5 @@ function main() {
 // qui a besoin des lecteurs sans dérouler le banc. Ne s'exécute donc que lancé
 // directement.
 if (process.argv[1] && import.meta.filename === path.resolve(process.argv[1])) {
-  main();
+  await main();
 }
