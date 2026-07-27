@@ -87,8 +87,14 @@ class ProxyGenerate extends Command {
     reencrypt?: boolean;
   }): ProxyIntrospection {
     const module = this.kernel?.getModules()?.["http"];
+    // Deux réglages du SERVEUR que le proxy doit refléter, sans quoi il impose
+    // les siens en silence : la taille de corps acceptée (nginx coupe à 1 Mo par
+    // défaut) et le battement du heartbeat WebSocket (d'où se dérive le délai
+    // d'inactivité, faute de quoi le proxy tranche des sockets vivantes).
     const httpOpts = (module?.options ?? {}) as {
       trustedHosts?: string[];
+      maxBodySize?: number;
+      websocket?: { keepaliveInterval?: number };
     };
     const servers = (
       this.kernel?.options as {
@@ -120,6 +126,8 @@ class ProxyGenerate extends Command {
       mounts,
       listen: opts.listen ? Number(opts.listen) : defaultIntrospection.listen,
       reencrypt: Boolean(opts.reencrypt),
+      maxBodyBytes: Number(httpOpts.maxBodySize) || 0,
+      keepaliveIntervalMs: Number(httpOpts.websocket?.keepaliveInterval) || 0,
     };
   }
 }

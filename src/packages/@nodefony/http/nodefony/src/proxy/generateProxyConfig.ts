@@ -36,6 +36,27 @@ export interface ProxyIntrospection {
   listen: number;
   /** Re-chiffrer vers le backend HTTPS (true) ou forward en clair (false). */
   reencrypt: boolean;
+  /**
+   * Taille maximale d'un corps de requête acceptée par Nodefony, en octets
+   * (`http.maxBodySize`). `0` = ne rien imposer au proxy.
+   *
+   * Sans elle, nginx applique son propre défaut — **1 Mo** — et rend un `413`
+   * que le serveur ne voit jamais : l'application marche en direct et casse
+   * derrière le proxy, sur une limite que personne n'a écrite.
+   */
+  maxBodyBytes: number;
+  /**
+   * Intervalle du heartbeat WebSocket, en millisecondes (`ws.keepaliveInterval`,
+   * `0` = désactivé) — d'où les proxys tirent leur délai de tunnel.
+   *
+   * Une WebSocket est, vue d'un proxy, une connexion SANS trafic entre deux
+   * messages. Ce qui la garde en vie derrière nginx et haproxy, ce sont les
+   * pings du serveur : le délai d'inactivité doit donc être dérivé de leur
+   * intervalle, jamais posé au hasard. Heartbeat désactivé → plus rien ne borne
+   * le silence, et seul un délai franchement long évite de couper des sockets
+   * saines.
+   */
+  keepaliveIntervalMs: number;
 }
 
 /** Valeurs par défaut d'un modèle d'introspection (complété par la commande). */
@@ -48,7 +69,25 @@ export const defaultIntrospection: ProxyIntrospection = {
   mounts: [],
   listen: 80,
   reencrypt: false,
+  maxBodyBytes: 0,
+  keepaliveIntervalMs: 0,
 };
+
+/**
+ * Délai d'inactivité, en secondes, qu'un proxy doit accorder à une connexion
+ * portée par le heartbeat WebSocket.
+ *
+ * Quatre intervalles de battement : il faut trois pings perdus d'affilée pour
+ * que le proxy coupe, ce qui laisse passer une pause de collecteur mémoire ou
+ * une seconde de charge sans sacrifier des sockets vivantes. Plancher à 300 s
+ * pour que les requêtes HTTP lentes ne soient pas coupées par le même réglage ;
+ * heartbeat éteint → une heure, parce que plus rien ne garantit du trafic et
+ * qu'un silence légitime peut alors durer.
+ */
+function idleTimeoutSeconds(intro: ProxyIntrospection): number {
+  if (intro.keepaliveIntervalMs <= 0) return 3600;
+  return Math.max(300, Math.ceil((intro.keepaliveIntervalMs * 4) / 1000));
+}
 
 /** `server_name` nginx / hôte de comparaison — IP et `0.0.0.0` exclus. */
 function serverNames(domains: string[]): string {
@@ -62,7 +101,7 @@ function isIpLiteral(host: string): boolean {
 }
 
 /** En-têtes forwarded nginx (pattern EDGE : on ÉCRASE X-Forwarded-For). */
-const NGINX_FORWARD_HEADERS = `      # EDGE (face client) : on ÉCRASE X-Forwarded-For avec la SEULE IP vue par
+const NGINX_FORWARD_HEADERS_TPL = `      # EDGE (face client) : on ÉCRASE X-Forwarded-For avec la SEULE IP vue par
       # nginx → toute valeur forgée par le client est jetée (RFC 7239 §8.1).
       proxy_set_header Host              $host;
       proxy_set_header X-Real-IP         $remote_addr;
@@ -72,7 +111,17 @@ const NGINX_FORWARD_HEADERS = `      # EDGE (face client) : on ÉCRASE X-Forward
       proxy_set_header X-Forwarded-Port  $server_port;
       # WebSocket (Nodefony co-héberge HTTP + WS sur le même port).
       proxy_set_header Upgrade           $http_upgrade;
-      proxy_set_header Connection        $connection_upgrade;`;
+      proxy_set_header Connection        $connection_upgrade;
+      # Inactivité tolérée — dérivée du heartbeat WebSocket du serveur, pas du
+      # défaut nginx (60 s) : entre deux messages, une socket vivante ne montre
+      # au proxy que les pings du serveur.
+      proxy_read_timeout __IDLE__s;
+      proxy_send_timeout __IDLE__s;`;
+
+/** Les en-têtes forwarded nginx, avec le délai d'inactivité effectif. */
+function nginxForwardHeaders(idleSeconds: number): string {
+  return NGINX_FORWARD_HEADERS_TPL.replaceAll("__IDLE__", String(idleSeconds));
+}
 
 /**
  * Génère une configuration nginx complète (reverse-proxy + offload statiques).
@@ -83,6 +132,7 @@ const NGINX_FORWARD_HEADERS = `      # EDGE (face client) : on ÉCRASE X-Forward
 export function generateNginxConfig(intro: ProxyIntrospection): string {
   const scheme = intro.reencrypt ? "https" : "http";
   const backendPort = intro.reencrypt ? intro.httpsPort : intro.httpPort;
+  const idleSeconds = idleTimeoutSeconds(intro);
   const lines: string[] = [];
 
   lines.push(
@@ -97,6 +147,21 @@ export function generateNginxConfig(intro: ProxyIntrospection): string {
     "",
     `  upstream nodefony { server ${intro.backendHost}:${backendPort}; keepalive 32; }`,
     "",
+  );
+
+  // La limite de corps est celle du SERVEUR, pas celle de nginx. Sans cette
+  // ligne, nginx refuse à 1 Mo (son défaut) une requête que Nodefony aurait
+  // acceptée — un 413 qui n'apparaît dans aucun journal applicatif.
+  if (intro.maxBodyBytes > 0) {
+    lines.push(
+      `  # Aligné sur \`http.maxBodySize\` (${intro.maxBodyBytes} octets) — sans quoi`,
+      "  # nginx rendrait 413 à 1 Mo, son défaut, sans que le serveur le sache.",
+      `  client_max_body_size ${intro.maxBodyBytes};`,
+      "",
+    );
+  }
+
+  lines.push(
     "  server {",
     `    listen ${intro.listen};`,
     `    server_name ${serverNames(intro.domains)};`,
@@ -127,7 +192,7 @@ export function generateNginxConfig(intro: ProxyIntrospection): string {
     `    location @nodefony {`,
     `      proxy_pass ${scheme}://nodefony;`,
     "      proxy_http_version 1.1;",
-    NGINX_FORWARD_HEADERS,
+    nginxForwardHeaders(idleSeconds),
     "    }",
   );
 
@@ -138,7 +203,7 @@ export function generateNginxConfig(intro: ProxyIntrospection): string {
       "    location / {",
       `      proxy_pass ${scheme}://nodefony;`,
       "      proxy_http_version 1.1;",
-      NGINX_FORWARD_HEADERS,
+      nginxForwardHeaders(idleSeconds),
       "    }",
     );
   } else {
@@ -178,7 +243,7 @@ export function generateNginxConfig(intro: ProxyIntrospection): string {
  */
 export function generateHaproxyConfig(intro: ProxyIntrospection): string {
   const backendPort = intro.reencrypt ? intro.httpsPort : intro.httpPort;
-  const proto = intro.reencrypt ? "https" : "http";
+  const idleSeconds = idleTimeoutSeconds(intro);
   const serverSsl = intro.reencrypt
     ? " ssl ca-file /etc/haproxy/certs/ca.pem verify required" +
       ` verifyhost ${firstDomain(intro)} sni str(${firstDomain(intro)})`
@@ -200,8 +265,12 @@ defaults
   log global
   option httplog
   timeout connect 5s
-  timeout client  30s
-  timeout server  30s
+  timeout client  ${idleSeconds}s
+  timeout server  ${idleSeconds}s
+  # Une fois l'échange passé en WebSocket, ce sont ces secondes-là qui comptent :
+  # \`timeout server\` ne s'applique plus au tunnel. Sans cette ligne, la valeur
+  # implicite coupe des sockets que le heartbeat gardait pourtant vivantes.
+  timeout tunnel  ${idleSeconds}s
 
 frontend fe_nodefony
   bind *:${intro.listen}
@@ -209,10 +278,22 @@ frontend fe_nodefony
   # SÉCU : effacer le Forwarded entrant (forgé) avant de poser le nôtre (§8.1).
   http-request del-header Forwarded
   option forwardfor
-  http-request set-header X-Forwarded-Proto ${proto}
+
+  # Le \`proto\` annoncé au serveur est le scheme vu par le CLIENT — il se
+  # CONSTATE sur la connexion entrante (\`ssl_fc\`), il ne se déduit pas.
+  #
+  # Il était déduit du re-chiffrement vers le backend, qui est une tout autre
+  # question : un frontend en clair re-chiffrant vers le backend annonçait
+  # \`proto=https\`, et le serveur traitait alors une requête EN CLAIR comme
+  # sécurisée — cookies \`Secure\` posés sur du clair, garde « exiger HTTPS »
+  # jamais déclenchée. Le cas inverse (frontend TLS, backend en clair) faisait
+  # boucler les redirections vers HTTPS.
+  http-request set-header X-Forwarded-Proto https if { ssl_fc }
+  http-request set-header X-Forwarded-Proto http  unless { ssl_fc }
   http-request set-header X-Forwarded-Host  %[req.hdr(host)]
   http-request set-header X-Real-IP         %[src]
-  http-request set-header Forwarded "for=%[src];proto=${proto};host=%[req.hdr(host)]"
+  http-request set-header Forwarded "for=%[src];proto=https;host=%[req.hdr(host)]" if { ssl_fc }
+  http-request set-header Forwarded "for=%[src];proto=http;host=%[req.hdr(host)]" unless { ssl_fc }
 
   default_backend be_nodefony
 

@@ -241,13 +241,13 @@ node .claude/skills/nodefony-load-test/scripts/cluster-realtime-e2e.mjs
 
 Un choix énoncé n'est pas un oubli. Ce qui suit est délibérément dehors :
 
-| Absent                                              | Raison                                                                                        |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Bancs de performance (`RUN_PERF`)                   | une latence dépend du voisin de runner ; un seuil non déterministe est un futur rouge stérile |
-| Sondes de rupture WebSocket (`RUN_WS_RUPTURE`)      | elles épuisent les ports éphémères de l'hôte                                                  |
-| MongoDB, Loki, OpenSearch                           | serveurs jamais joints à la forge — cibles déclarées, décor à monter                          |
-| `idempotency-cluster-e2e`                           | tape sur le serveur de développement : sa place est avec les bancs à serveur partagé          |
-| Les preuves à décor opt-in (un serveur par plafond) | coût de montage disproportionné pour ce qu'elles ajoutent à chaque poussée                    |
+| Absent                                              | Raison                                                                                                                                                                                               |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bancs de performance (`RUN_PERF`)                   | une latence dépend du voisin de runner ; un seuil non déterministe est un futur rouge stérile                                                                                                        |
+| Sondes de rupture WebSocket (`RUN_WS_RUPTURE`)      | elles épuisent les ports éphémères de l'hôte                                                                                                                                                         |
+| Loki, OpenSearch (`LogBackplaneE2E`)                | décor à monter à la forge — et `test:all` n'importe pas leurs gates, donc même une machine qui FAIT tourner les deux conteneurs les saute en silence. Reporté APRÈS la release (décision 2026-07-27) |
+| `idempotency-cluster-e2e`                           | tape sur le serveur de développement : sa place est avec les bancs à serveur partagé                                                                                                                 |
+| Les preuves à décor opt-in (un serveur par plafond) | coût de montage disproportionné pour ce qu'elles ajoutent à chaque poussée                                                                                                                           |
 
 **Perf dehors, mémoire dedans** : une latence dépend de la machine, une fuite
 fuit quelle que soit la charge.

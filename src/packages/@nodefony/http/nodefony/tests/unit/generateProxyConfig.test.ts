@@ -12,6 +12,21 @@ function intro(over: Partial<ProxyIntrospection> = {}): ProxyIntrospection {
 }
 
 describe("generateProxyConfig — nginx", () => {
+  it("la limite de corps du SERVEUR est imposée au proxy (sinon nginx coupe à 1 Mo)", () => {
+    const c = generateNginxConfig(intro({ maxBodyBytes: 8_388_608 }));
+    expect(c).to.include("client_max_body_size 8388608;");
+    // Rien d'imposé quand le serveur n'annonce pas de limite.
+    expect(generateNginxConfig(intro({ maxBodyBytes: 0 }))).to.not.include(
+      "client_max_body_size",
+    );
+  });
+
+  it("délai d'inactivité dérivé du heartbeat, pas du défaut nginx (60 s)", () => {
+    const c = generateNginxConfig(intro({ keepaliveIntervalMs: 20_000 }));
+    expect(c).to.include("proxy_read_timeout 300s;");
+    expect(c).to.include("proxy_send_timeout 300s;");
+  });
+
   it("server_name exclut les IP et 0.0.0.0", () => {
     const c = generateNginxConfig(
       intro({ domains: ["nodefony.com", "localhost", "127.0.0.1", "0.0.0.0"] }),
@@ -99,7 +114,46 @@ describe("generateProxyConfig — haproxy", () => {
     );
     expect(c).to.include("verifyhost nodefony.com");
     expect(c).to.include("sni str(nodefony.com)");
-    expect(c).to.include("proto=https");
+  });
+
+  it("le `proto` annoncé se CONSTATE sur la connexion cliente (ssl_fc)", () => {
+    const c = generateHaproxyConfig(intro({ domains: ["nodefony.com"] }));
+    // Les deux branches, et rien d'inconditionnel entre les deux.
+    expect(c).to.include(
+      "http-request set-header X-Forwarded-Proto https if { ssl_fc }",
+    );
+    expect(c).to.include(
+      "http-request set-header X-Forwarded-Proto http  unless { ssl_fc }",
+    );
+    expect(c).to.include('proto=https;host=%[req.hdr(host)]" if { ssl_fc }');
+    expect(c).to.include('proto=http;host=%[req.hdr(host)]" unless { ssl_fc }');
+  });
+
+  it("le re-chiffrement vers le backend ne décide PAS du `proto` du client", () => {
+    // LE cas qui a manqué : `--reencrypt` décrit le lien proxy↔backend, `proto`
+    // décrit ce que voit le client. Les confondre faisait annoncer `https` à un
+    // frontend en clair — cookies `Secure` sur du clair, garde HTTPS désarmée.
+    // La section forwarded doit donc être RIGOUREUSEMENT la même des deux côtés.
+    const forwardedOf = (reencrypt: boolean) =>
+      generateHaproxyConfig(intro({ domains: ["nodefony.com"], reencrypt }))
+        .split("\n")
+        .filter((l) => l.includes("set-header") || l.includes("Forwarded"))
+        .join("\n");
+    expect(forwardedOf(true)).to.equal(forwardedOf(false));
+  });
+
+  it("délai de tunnel dérivé du heartbeat (une WS n'est que du silence entre deux pings)", () => {
+    // 4 battements, plancher 300 s : 20 s → 300 s, 120 s → 480 s.
+    expect(
+      generateHaproxyConfig(intro({ keepaliveIntervalMs: 20_000 })),
+    ).to.include("timeout tunnel  300s");
+    expect(
+      generateHaproxyConfig(intro({ keepaliveIntervalMs: 120_000 })),
+    ).to.include("timeout tunnel  480s");
+    // Heartbeat éteint : plus rien ne borne le silence → une heure.
+    expect(generateHaproxyConfig(intro({ keepaliveIntervalMs: 0 }))).to.include(
+      "timeout tunnel  3600s",
+    );
   });
 
   it("note l'absence d'offload statique si des statiques existent", () => {
