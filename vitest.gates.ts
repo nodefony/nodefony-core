@@ -482,6 +482,13 @@ export function gateReporter(
       }
 
       {
+        // Rien de déclaré, rien à dire. Une suite qui ne dépend d'aucune cible
+        // (le rapporteur n'est là que pour `NF_GATES_EXPECT`) ne doit pas se
+        // voir affirmer que « tout a été exercé » : ce serait vrai au sens
+        // logique et faux au sens utile, et un tel message finit par être lu
+        // comme une preuve alors qu'il n'en porte aucune.
+        if (expectations.length === 0 && envExpectations().length === 0) return;
+
         const names = met.map(expectationLabel).join(", ");
         // Une exemption qui ne se voit plus est une exemption qu'on n'ôte
         // jamais : `NF_GATES_ALLOW` posé une fois dans un workflow y resterait

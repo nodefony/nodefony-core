@@ -345,26 +345,21 @@ jobs:
       # Sélection par NOM : jouer les fichiers entiers réarmerait le problème que
       # le décor principal contourne (les autres cas de `firewall-auth` échouent
       # sur `admin` par conception).
+      # Le filet est DANS la suite (`NF_GATES_EXPECT`), plus dans un `jq` ici.
+      #
+      # Sans lui cette étape serait décorative : un motif de sélection qui ne
+      # mord plus — un cas renommé, déplacé — laisse vitest sortir 0 avec 591
+      # tests `pending`. Vérifié à l'époque : exit=0, zéro cas passé, étape
+      # verte. On exige donc que CHAQUE porte ait produit un cas passé, nommée
+      # par le motif qui la désigne. Le rapporteur échoue et dit lequel manque.
       - name: Câblage du backoff NIST (les 2 cas opt-in)
         working-directory: src/packages/@nodefony/http
         env:
           NF__SECURITY__RATELIMIT__ENABLED: "true"
+          NF_GATES_EXPECT: "backoff NIST,NIST PARTAGÉ"
         run: |
           npx vitest run --config vitest.integration.config.ts \
-            -t "(backoff NIST|NIST PARTAGÉ)" \
-            --reporter=json --outputFile=throttle-report.json
-
-          # FILET — sans lui cette étape est décorative. Un motif qui ne matche plus
-          # (renommage d'un cas) laisse vitest sortir 0 avec 591 tests `pending` :
-          # vérifié, exit=0 et numPassedTests=0. On exige donc le COMPTE.
-          passed=$(jq '.numPassedTests' throttle-report.json)
-          if [ "$passed" != "2" ]; then
-            echo "::error::Câblage du 429 NON prouvé — $passed cas exécutés au lieu de 2."
-            echo "Le motif de sélection ne mord plus (cas renommé ou déplacé) :"
-            jq -r '.testResults[].assertionResults[] | "  \(.status)\t\(.fullName)"' throttle-report.json | head -20
-            exit 1
-          fi
-          echo "✅ Câblage du backoff prouvé sur les 2 portes (Basic + JSON)."
+            -t "(backoff NIST|NIST PARTAGÉ)"
 
       - name: Show server log on failure
         if: failure()

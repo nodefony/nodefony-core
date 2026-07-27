@@ -1,5 +1,6 @@
 import { defineConfig, configDefaults } from "vitest/config";
 import { fileURLToPath } from "node:url";
+import { gateReporter } from "../../../../vitest.gates";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -17,6 +18,14 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 export default defineConfig({
   test: {
     globals: true,
+    // Aucune cible d'infra n'est déclarée ici : cette suite parle à un serveur
+    // local, pas à une base. Le rapporteur est présent pour l'autre usage —
+    // `NF_GATES_EXPECT`, par lequel une PASSE (et non le paquet) exige qu'un cas
+    // précis ait réellement tourné. C'est le besoin d'une étape qui sélectionne
+    // par `-t` : un motif qui ne mord plus laisse vitest sortir 0 avec zéro cas
+    // exécuté, et l'étape devient décorative sans que rien ne le dise.
+    // Sans cette variable, le rapporteur ne dit rien et ne coûte rien.
+    reporters: ["default", gateReporter([])],
     include: [
       "nodefony/tests/http/**/*.test.ts",
       "nodefony/tests/integration/**/*.test.ts",
