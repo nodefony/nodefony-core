@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-27T14:18:08.801Z",
+  "generated": "2026-07-27T14:48:11.222Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 639,
-    "symbols": 2521,
+    "files": 640,
+    "symbols": 2532,
     "classes": 335,
-    "interfaces": 766,
-    "types": 332,
+    "interfaces": 770,
+    "types": 334,
     "enums": 4,
-    "functions": 906,
+    "functions": 911,
     "constants": 178
   },
   "symbols": {
@@ -768,6 +768,89 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Construit le rapport d'environnement."
+    },
+    "INpmOutdatedEntry": {
+      "name": "INpmOutdatedEntry",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/outdated.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une entrée telle que `npm outdated --json` la rend, pour UN couple paquet/dépendant. Le champ `current` est absent quand le paquet n'est pas installé du tout."
+    },
+    "IOutdatedPackage": {
+      "name": "IOutdatedPackage",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/outdated.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un paquet en retard, agrégé : une seule ligne quel que soit le nombre de dépendants."
+    },
+    "IOutdatedSummary": {
+      "name": "IOutdatedSummary",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/outdated.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Résultat agrégé, prêt à afficher ou à sérialiser."
+    },
+    "NpmOutdatedReport": {
+      "name": "NpmOutdatedReport",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/outdated.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le document rendu par `npm outdated --json`. Un paquet réclamé par plusieurs espaces de travail apparaît sous forme de TABLEAU — c'est la source de la duplication massive quand on se contente de ré…"
+    },
+    "OutdatedSeverity": {
+      "name": "OutdatedSeverity",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/outdated.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nature du saut de version qui sépare la version installée de la dernière publiée."
+    },
+    "classifySeverity": {
+      "name": "classifySeverity",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/outdated.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Classe le saut qui sépare deux versions. Les variantes de préversion rendues par `semver.diff` (`premajor`, `preminor`…) sont ramenées à leur saut de rang, faute de quoi elles échapperaient à tout …"
+    },
+    "aggregateOutdated": {
+      "name": "aggregateOutdated",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/outdated.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Agrège le document de `npm outdated --json` en une ligne par paquet. Deux corrections que le brut n'apporte pas : les dépendants sont regroupés au lieu d'être répétés, et un paquet dont la version …"
+    },
+    "formatDependents": {
+      "name": "formatDependents",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/outdated.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Résume la liste des dépendants pour l'affichage."
+    },
+    "toTableRows": {
+      "name": "toTableRows",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/outdated.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose les lignes du tableau des paquets en retard. Rendu PUR : aucune écriture, aucune couleur — l'appelant décide de la sortie."
+    },
+    "formatHeadline": {
+      "name": "formatHeadline",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/outdated.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose la phrase d'en-tête qui dit ce qui a été trouvé — et ce qui a été agrégé. Nommer le nombre d'entrées brutes n'est pas décoratif : c'est ce qui explique pourquoi la sortie tient en quelques …"
     },
     "findProjectRoot": {
       "name": "findProjectRoot",
@@ -4517,7 +4600,8 @@
       "module": "@nodefony/core",
       "extends": "Command",
       "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Liste les dépendances en retard du projet — une ligne par paquet, pas une par dépendant. Une seule interrogation de `npm` est faite, à la racine du projet : les espaces de travail y sont déjà couve…"
     },
     "Prod": {
       "name": "Prod",
@@ -18444,6 +18528,7 @@
         "src/nodefony/src/service/fetchService.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
+        "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
@@ -19876,6 +19961,7 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
+        "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
@@ -21132,6 +21218,21 @@
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "aggregateOutdated": [
+        "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
+      ],
+      "formatHeadline": [
+        "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
+      ],
+      "toTableRows": [
+        "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
+      ],
+      "IOutdatedSummary": [
+        "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
+      ],
+      "NpmOutdatedReport": [
+        "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
       ],
       "startClusterMaster": [
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts"
