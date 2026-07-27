@@ -231,6 +231,18 @@ status` le payait sur macOS et Windows.
   **exponentiel** : le test ne rend pas la main en 5 minutes à 40 chiffres. La preuve la plus
   éloquente d'une session n'est pas un chiffre, c'est un test qui ne termine pas.
 
+## 📢 Une règle LUE s'érode — même quand l'agent vient de la lire
+
+- `[1× — 2026-07-27]` **Le banc de découvrabilité l'a repris sur le fait.** Le gabarit `AGENTS.md`
+  dit en toutes lettres « une route dépend de décorateurs, d'un manifeste et d'un ordre de
+  chargement ; la déduire, c'est se tromper un jour sur deux ». L'agent l'a lu, a LANCÉ
+  `nodefony inspect` (sonde verte), puis a annoncé son compte de routes par « analyse statique des
+  décorateurs » — écrit noir sur blanc dans son propre rapport. Lancer l'outil et s'en servir sont
+  deux choses ; une sonde « a lancé X » ne prouve pas que la réponse VIENT de X.
+- `[1× — 2026-07-27]` 🔴 **Un banc INTERROMPU peut rendre exit 0.** Panne d'API à la tâche 2 sur 9 :
+  le script l'écrivait (« run INTERROMPU »), le code de sortie disait 0. Lire le RAPPORT, jamais le
+  code de sortie seul — c'est la même famille que « un skip compte vert ».
+
 ## 🔎 Chercher le MOTIF, pas les alertes — l'outil ne voit qu'un échantillon
 
 - `[1× — 2026-07-27]` **CodeQL signalait 5 copies de `replace(/\/+$/, "")` ; le dépôt en portait 8.**
