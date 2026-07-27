@@ -32,6 +32,15 @@ inputs:
       décors, ça doit se lire dans l'appel.
     required: false
     default: ""
+  node-args:
+    description: >-
+      Arguments passés à `node` AVANT le binaire — `--expose-gc` typiquement.
+      Ils ne peuvent pas transiter par `NODE_OPTIONS`, que Node refuse pour ce
+      drapeau. Sans `--expose-gc`, la sonde mémoire du module de test est un
+      no-op silencieux et le banc mesure le déchet en attente de collecte au
+      lieu du heap retenu.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -44,6 +53,7 @@ runs:
         NF_CI_LOG: ${{ inputs.log-file }}
         NF_CI_PID: ${{ inputs.pid-file }}
         NF_CI_ENV: ${{ inputs.env }}
+        NF_CI_NODE_ARGS: ${{ inputs.node-args }}
       run: |
         # Variables propres à CE décor, avant tout spawn.
         while IFS= read -r line; do
@@ -63,7 +73,8 @@ runs:
         // production : boot foreground in-process, SANS PM2 (cible cloud-native,
         // 1 process = 1 pod). Foreground est le comportement PAR DÉFAUT de la
         // commande (pas de flag à passer). Logs sur stdout → captés ci-dessous.
-        const child = spawn(process.execPath, [bin, ...process.env.NF_CI_MODE.split(' ')], {
+        const nodeArgs = (process.env.NF_CI_NODE_ARGS || '').split(' ').filter(Boolean);
+        const child = spawn(process.execPath, [...nodeArgs, bin, ...process.env.NF_CI_MODE.split(' ')], {
           cwd: process.cwd(),
           stdio: ['ignore', 'pipe', 'pipe'],
           detached: true,

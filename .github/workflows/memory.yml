@@ -102,10 +102,19 @@ jobs:
       # requête, pas le gating de production. Les routes qu'il sollicite vivent dans
       # un module `policy: "dev"` — en production elles répondraient 404, et l'on
       # mesurerait la mémoire d'un serveur qui ne fait rien.
+      # `--expose-gc` n'est PAS un réglage de confort : la sonde `/nodefony/test/memory`
+      # force un ramasse-miettes avant de relever le heap, et ce forçage est un NO-OP
+      # silencieux quand le drapeau manque. Sans lui, le banc compare des tas qui
+      # contiennent le déchet en attente de collecte — le module de test le documente
+      # lui-même : 5000 trames WebSocket laissent alors ~180 Mo qui passent pour une
+      # fuite. Le premier run de ce gate a d'ailleurs accusé le chemin de crash
+      # synchrone, alors que le crash `TypeError` — synchrone lui aussi — passait :
+      # ce n'était pas une rétention, c'était la mesure qui était aveugle.
       - name: Start Nodefony server
         uses: ./.github/actions/nodefony-server
         with:
           mode: development --no-watch
+          node-args: --expose-gc
 
       # DEUX rapporteurs, et c'est délibéré : `--reporter=json` seul REMPLACE la
       # sortie lisible, si bien qu'un seuil franchi ne dit plus de combien ni sur

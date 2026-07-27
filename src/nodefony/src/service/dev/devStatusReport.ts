@@ -150,7 +150,15 @@ export function buildDevStatus(
   // ports) — la 1ʳᵉ cause du bug « dev démarré par-dessus prod ». À signaler en priorité.
   // Restreint à CE projet : un dev ici + un prod dans le dossier d'à côté n'a rien
   // d'anormal (chacun ses ports, cf `servers.portPolicy: "auto"`).
-  const modes = runtimeModes(splitByProject(procs, cwd).mine);
+  // Une SEULE partition pour tout le rapport. `splitByProject` demande au système
+  // le répertoire courant de chaque process, ce qui coûte un `lsof` par pid hors
+  // Linux — mesuré à plus d'une seconde pour un seul process. Ce calcul était fait
+  // deux fois avec les mêmes arguments : le rapport payait donc deux fois le prix
+  // d'une réponse identique, et `nodefony status` avec un superviseur, un serveur,
+  // Vite et des workers en payait une dizaine.
+  const mine = splitByProject(procs, cwd).mine;
+
+  const modes = runtimeModes(mine);
   if (modes.size > 1)
     warnings.push(
       `${modes.size} runtimes Nodefony cohabitent sur CE projet ` +
@@ -163,7 +171,6 @@ export function buildDevStatus(
   // serveurs, et le compte global criait « anormal » sur une situation saine.
   // Une alerte qui se déclenche sur le cas nominal ne se lit plus du tout : on
   // ne compte donc que NOS process.
-  const mine = splitByProject(procs, cwd).mine;
   const nSupMine = mine.filter((p) => p.role === "supervisor").length;
   const nSrvMine = mine.filter((p) => p.role === "server").length;
   const nMasterMine = mine.filter((p) => p.role === "master").length;

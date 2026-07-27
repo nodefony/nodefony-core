@@ -169,7 +169,16 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
    Le gain de (b) n'est pas le prix du run : c'est que **le contexte principal reste sur la
    décision** au lieu de se remplir de sorties de `grep`.
 
-   Quatre règles qui font la différence entre un sous-agent utile et un sous-agent coûteux :
+   Cinq règles qui font la différence entre un sous-agent utile et un sous-agent coûteux :
+   - **🔴 LE MODÈLE S'ÉCRIT DANS LE CHAMP `description` DE L'APPEL, ENTRE CROCHETS.**
+     `description: "[haiku] Vérifier 12 ancrages"`, `"[fable] Trier le corpus"` — **le champ
+     `description`, pas le prompt** : c'est la SEULE chaîne que le user voit passer. Le mettre
+     dans le prompt ne coûte rien à écrire et n'affiche rien ; la règle a été enfreinte
+     exactement comme ça. Toujours, y compris quand le modèle est le défaut. Le modèle est le
+     premier poste de dépense d'une délégation (`fable` ≈ 40× `haiku`) et il est invisible
+     autrement : **on ne peut pas arbitrer ce qu'on ne voit pas.** Et si le modèle dépasse
+     `haiku`, dire en UNE phrase, dans la réponse au user, ce que le modèle léger échouerait à
+     faire. Détail : [[feedback_subagent_model_in_label]].
    - **🔴 INTERDIRE À TOUT SOUS-AGENT DE TOUCHER À L'INDEX GIT.** À écrire dans CHAQUE prompt de
      délégation, en toutes lettres : ni `git checkout`, ni `git stash`, ni `git restore`, ni
      `git reset`, ni commit, ni push. Le motif n'est pas la prudence, c'est un vol de travail
