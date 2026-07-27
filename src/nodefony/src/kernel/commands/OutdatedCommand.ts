@@ -9,6 +9,7 @@ import Kernel from "../Kernel";
 import { SysExit } from "../../cli/sysexits";
 import {
   aggregateOutdated,
+  formatDependents,
   formatHeadline,
   toTableRows,
   type IOutdatedSummary,
@@ -29,6 +30,9 @@ const optionsCommand: OptionsCommandInterface = {
 
 /** Sortie maximale acceptée de `npm outdated --json` (un gros dépôt en rend beaucoup). */
 const MAX_BUFFER = 32 * 1024 * 1024;
+
+/** Largeur de la colonne des dépendants — au-delà, le texte est replié. */
+const DEPENDENTS_COLUMN_WIDTH = 44;
 
 /**
  * Ce que `execFile` attache à son erreur quand le process sort avec un code non nul.
@@ -71,11 +75,17 @@ class Outdated extends Command {
       "nomme tous les dépendants au lieu de n'en donner le compte",
     );
 
-    // Le syslog est branché au tout début de `Kernel.start()`, avant le moindre
-    // hook : un silence demandé depuis `generate()` arriverait après que le boot
-    // a déjà écrit, et un `| jq` casserait sur la première ligne de log.
-    // Le constructeur tourne pour TOUTES les commandes, d'où la garde sur argv.
-    if (process.argv.includes("--json") || process.argv.includes("-j")) {
+    // Silence du boot, et pas seulement pour `--json`. Cette commande répond à
+    // une question qui ne parle ni de modules ni de topologie : le bandeau
+    // d'environnement et les lignes d'ajout de module noient sa réponse sous
+    // une dizaine de lignes sans rapport. Les sévérités ≤ 3 partent sur la
+    // sortie d'erreur — un vrai problème de boot reste donc visible.
+    //
+    // Posé dans le CONSTRUCTEUR : le syslog est branché au tout début de
+    // `Kernel.start()`, avant le moindre hook. Demandé depuis `generate()`, le
+    // silence arriverait après que le boot a déjà écrit. Et comme le
+    // constructeur tourne pour TOUTES les commandes, il faut la garde sur argv.
+    if (process.argv.includes("outdated")) {
       (cli as CliKernel).quietBoot = true;
     }
   }
@@ -169,12 +179,17 @@ class Outdated extends Command {
    * @param all - `true` pour nommer tous les dépendants.
    */
   private renderHuman(summary: IOutdatedSummary, all: boolean): void {
-    // Les tableaux passent par le MÊME syslog que les phrases qui les
-    // introduisent : `displayTable` écrit sinon directement sur la sortie
-    // standard, et le tableau apparaît AVANT le titre qui l'annonce.
-    const syslog = this.cli?.syslog ?? null;
+    // Tout le rendu passe par la sortie standard, jamais par le journal — deux
+    // raisons qui vont dans le même sens. Le boot est mis en silence (voir le
+    // constructeur), donc une phrase journalisée ne sortirait pas du tout ; et
+    // `displayTable` écrit de son côté sur la sortie standard, si bien qu'un
+    // titre journalisé apparaîtrait APRÈS le tableau qu'il annonce.
+    const say = (line: string): void => {
+      process.stdout.write(`${line}\n`);
+    };
+    const syslog = null;
 
-    this.log(formatHeadline(summary), "INFO");
+    say(formatHeadline(summary));
 
     if (summary.packages.length) {
       this.cli?.displayTable(
@@ -188,19 +203,35 @@ class Outdated extends Command {
             "Dernier",
             "Dépendants",
           ],
+          // Sans largeur, `wordWrap` ne fait rien : avec `--all`, la liste des
+          // dépendants tient sur une seule cellule de plusieurs centaines de
+          // caractères et le tableau déborde du terminal.
+          colWidths: [null, null, null, null, null, DEPENDENTS_COLUMN_WIDTH],
+          wordWrap: true,
         },
         syslog,
       );
     }
 
     if (summary.ahead.length) {
-      this.log(
-        `${summary.ahead.length} paquet${summary.ahead.length > 1 ? "s" : ""} en AVANCE sur le registre — un espace de travail local non publié n'est pas un retard :`,
-        "INFO",
+      say(
+        `\n${summary.ahead.length} paquet${summary.ahead.length > 1 ? "s" : ""} en AVANCE sur le registre — un espace de travail local non publié n'est pas un retard :`,
       );
+      // La colonne des dépendants est ici pour la même raison que dans l'autre
+      // tableau, et elle y est plus utile encore : c'est le paquet local qui
+      // concentre le gros des lignes brutes de npm (un rappel par dépendant).
       this.cli?.displayTable(
-        summary.ahead.map((p) => [p.name, p.current ?? "—", p.latest]),
-        { head: ["Paquet", "Installé ici", "Publié au registre"] },
+        summary.ahead.map((p) => [
+          p.name,
+          p.current ?? "—",
+          p.latest,
+          formatDependents(p.dependents, all),
+        ]),
+        {
+          head: ["Paquet", "Installé ici", "Publié au registre", "Dépendants"],
+          colWidths: [null, null, null, DEPENDENTS_COLUMN_WIDTH],
+          wordWrap: true,
+        },
         syslog,
       );
     }

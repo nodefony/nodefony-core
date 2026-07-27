@@ -195,10 +195,28 @@ describe("cli/outdated — agrégation du rapport npm", () => {
       expect(ts?.[3]).to.equal("6.0.3 (épinglé)");
     });
 
-    it("dit combien d'entrées ont été agrégées", () => {
+    // Ce que npm affiche, et pourquoi ce n'est pas le même nombre : sans cette
+    // phrase, on compare 8 lignes à 25 et on conclut à une divergence.
+    it("explique l'écart avec le nombre de lignes de npm", () => {
       const headline = formatHeadline(aggregateOutdated(REPORT));
       expect(headline).to.contain("3 paquets en retard");
-      expect(headline).to.contain("7 entrées agrégées");
+      expect(headline).to.contain("npm en affiche 7 lignes");
+      expect(headline).to.contain("CHAQUE dépendant");
+    });
+
+    it("ne parle pas de npm quand il n'y a rien à expliquer", () => {
+      // Un paquet, un dépendant : le brut et l'agrégé coïncident.
+      const headline = formatHeadline(
+        aggregateOutdated({
+          vitest: {
+            current: "4.0.1",
+            wanted: "4.0.9",
+            latest: "4.1.0",
+            dependent: "nodefony-core",
+          },
+        }),
+      );
+      expect(headline).to.not.contain("npm en affiche");
     });
   });
 });

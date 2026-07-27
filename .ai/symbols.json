@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-27T15:36:53.495Z",
+  "generated": "2026-07-27T15:49:59.416Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -21220,6 +21220,9 @@
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "aggregateOutdated": [
+        "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
+      ],
+      "formatDependents": [
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
       ],
       "formatHeadline": [

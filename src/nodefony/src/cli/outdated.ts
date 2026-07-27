@@ -263,5 +263,13 @@ export function formatHeadline(summary: IOutdatedSummary): string {
     parts.push(`${counts.missing} absent${counts.missing > 1 ? "s" : ""}`);
   }
   const detail = parts.length ? ` — ${parts.join(", ")}` : "";
-  return `${packages.length} paquet${packages.length > 1 ? "s" : ""} en retard${detail} (${counts.rawEntries} entrées agrégées).`;
+  const shown = packages.length + counts.ahead;
+  // Le compte brut n'est pas décoratif : c'est ce que `npm outdated` affiche,
+  // et sans l'explication on croit à une divergence. Un paquet y revient
+  // autant de fois qu'il compte de dépendants — d'où 25 lignes pour 8 paquets.
+  const raw =
+    counts.rawEntries > shown
+      ? ` npm en affiche ${counts.rawEntries} lignes : il répète un paquet pour CHAQUE dépendant.`
+      : "";
+  return `${packages.length} paquet${packages.length > 1 ? "s" : ""} en retard${detail}.${raw}`;
 }
