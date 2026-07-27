@@ -862,28 +862,62 @@ export async function readPostgres(url) {
 }
 
 /**
- * Supprime les tables du sous-ensemble AVANT le run.
+ * Tables du framework — jamais supprimées, quoi qu'elles contiennent.
+ *
+ * Le nettoyage identifie les tables par leur CONTENU. Or l'entité `User` du
+ * module de sécurité porte `username`, `password`, `created_at`… soit une bonne
+ * part des colonnes d'un `account` d'umami : sans cette liste, un run de banc
+ * emporterait l'annuaire d'utilisateurs de la base de développement.
+ */
+const FRAMEWORK_TABLES = new Set([
+  "user",
+  "session",
+  "access_token",
+  "audit_event",
+  "totp_secret",
+  "webauthn_credential",
+  "webhook_endpoint",
+  "denied_jti",
+  "subject_revocation",
+  "idempotency_key",
+]);
+
+/**
+ * Supprime les tables du sous-ensemble AVANT le run — par CONTENU, pas par nom.
  *
  * Sans ce nettoyage, les tables laissées par le run précédent seraient comptées
  * comme des réussites de celui-ci — le juge lirait un état, pas un résultat.
- * La base de développement est partagée : on ne touche QUE les tables attendues.
  *
- * @returns le nombre de tables effectivement supprimées.
+ * La première version visait les noms ATTENDUS (`account`, `visit`) alors que le
+ * générateur crée `accounts`, `visits` : **elle ne supprimait donc jamais rien**,
+ * et le juge relisait le run précédent. Un correctif du générateur a ainsi paru
+ * sans effet, ses chiffres étant ceux d'avant. Un nettoyage se fait sur ce qui
+ * EXISTE, jamais sur ce qu'on espère trouver.
+ *
+ * Le seuil est plus exigeant que celui du rapport (70 % contre 50 %) : se
+ * tromper coûte ici une table détruite, là une ligne de rapport.
+ *
+ * @returns les noms des tables effectivement supprimées.
  */
 async function dropExpected(url, tables) {
+  const actual = await readPostgres(url);
   const { Client } = await import("pg");
   const client = new Client({ connectionString: url });
   await client.connect();
-  let dropped = 0;
+  const dropped = [];
   try {
     for (const t of tables) {
-      const res = await client.query(
-        `SELECT to_regclass($1) IS NOT NULL AS present`,
-        [`public.${t.table}`],
-      );
-      if (res.rows[0]?.present) {
-        await client.query(`DROP TABLE IF EXISTS "${t.table}" CASCADE`);
-        dropped += 1;
+      const wanted = t.columns.map((c) => c.column.toLowerCase());
+      for (const [name, got] of actual) {
+        if (FRAMEWORK_TABLES.has(name) || dropped.includes(name)) continue;
+        const have = new Set(got.columns.map((c) => c.name.toLowerCase()));
+        const hits = wanted.filter((w) => have.has(w)).length;
+        const isTarget =
+          name === t.table.toLowerCase() ||
+          (wanted.length > 0 && hits / wanted.length >= 0.7);
+        if (!isTarget) continue;
+        await client.query(`DROP TABLE IF EXISTS "${name}" CASCADE`);
+        dropped.push(name);
       }
     }
   } finally {
@@ -2125,9 +2159,14 @@ async function main() {
     // laissées par le run précédent compteraient comme des réussites de
     // celui-ci — le juge lirait un état, pas un résultat.
     if (DIALECT === "postgres") {
+      // Un tableau VIDE est truthy : tester la longueur, sinon le banc annonce
+      // « 0 table retirée » à chaque run et l'on croit le nettoyage actif.
       const dropped = await dropExpected(DB_URL.postgres, expected);
-      if (dropped)
-        console.log(`• ${dropped} table(s) du run précédent retirée(s)`);
+      if (dropped.length) {
+        console.log(
+          `• ${dropped.length} table(s) du run précédent retirée(s) : ${dropped.join(", ")}`,
+        );
+      }
     }
     setup(runDir, target);
 
