@@ -157,6 +157,30 @@ status` le payait sur macOS et Windows.
   inutile APRÈS elle). Le lint les a toutes nommées, en deux passes. Sans le gate, elles partaient
   dans le commit. Corollaire de méthode : les retirer À LA MAIN, jamais par `--fix`.
 
+- `[1× — 2026-07-27d]` 🔴 **Un job VERT ne dit pas qu'une garde est CHARGÉE.** `--reporter=json` en
+  ligne de commande REMPLACE `test.reporters` au lieu de s'y ajouter : le workflow du gate mémoire
+  le passait pour son rapport machine, et retirait du même geste le rapporteur qu'on venait d'y
+  poser. La variable était bien transmise — le journal la montre — et rien ne tournait. Vu en
+  cherchant la ligne du rapporteur dans le journal d'un job vert ; aucun symptôme autrement.
+  **Chercher la trace de la garde fait partie de la preuve.** Corollaire : un rapport machine se
+  déclare DANS la configuration, où il cohabite.
+- `[1× — 2026-07-27d]` 🔴🔴 **LE CACHE EST UN GATE SILENCIEUX — vérifier ses `inputs`.** Les
+  `inputs` de la tâche `test` de `turbo.json` listaient `src/**` et `nodefony/**` ; six paquets
+  rangent leurs tests dans `tests/` — **160 fichiers ne participaient à AUCUN hash**. Écrire un
+  test, le modifier, en ajouter un : rien n'invalidait le cache. Prouvé dans les deux sens — un
+  fichier NEUF contenant `expect(1).toBe(2)` donne « cache hit » et exit 0. Effet nul en CI (cache
+  froid par job), ENTIER en local, là où le geste quotidien est « j'ajoute un test, c'est vert ».
+- `[1× — 2026-07-27d]` **Une liste recopiée N fois se trompe N fois.** Les cinq blocs `env` de
+  `turbo.json` portaient tous `RUN_CLUSTER_E` au lieu de `RUN_CLUSTER_E2E` — donc `npm test` à la
+  racine n'a jamais pu ouvrir les bancs cluster, quoi qu'on pose dans l'environnement. Corriger une
+  copie n'aurait rien réparé. Remplacées par des motifs (`NF_*`, `RUN_*`) : on ne peut plus mal
+  orthographier un nom qu'on n'écrit plus.
+- `[1× — 2026-07-27d]` **Un détecteur de crash trop large transforme un cri en mort.** Le lanceur
+  cherchait `CRITIC` et déclarait le serveur mort en citant deux messages qui disent l'inverse
+  (« clé de chiffrement absente — 2FA désactivé ») : le framework refuse, dégrade, le dit fort et
+  CONTINUE. Journal juste, verdict faux. Garder fatals les motifs qui signent une mort certaine ;
+  pour le reste, le juge est le fait d'écouter — et la dégradation s'AFFICHE au lieu de tuer.
+
 ## 🎲 Une capacité se CONSTATE, elle ne se déduit pas de la plateforme
 
 - `[3× — 2026-07-27]` 🔴 **Trois fois dans une seule session, du code a répondu « je ne peux
