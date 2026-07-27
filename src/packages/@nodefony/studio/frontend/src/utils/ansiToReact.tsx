@@ -81,7 +81,16 @@ export function ansiToReact(input: string): ReactNode {
   if (!input || typeof input !== "string" || input.indexOf("\x1b[") === -1) {
     return input;
   }
-  const re = /\x1b\[((?:\d+;?)*)m/g;
+  // Classe de caractères, et surtout PAS `(?:\d+;?)*` : un `+` imbriqué dans un
+  // `*` oblige le moteur à essayer toutes les partitions de la suite de chiffres
+  // quand la reconnaissance échoue — c'est-à-dire quand il manque le `m` final.
+  // Mesuré : 22 chiffres → 27 ms, 24 → 97 ms, 26 → 410 ms, un doublement tous
+  // les deux caractères. L'entrée est une ligne de journal affichée ici : il
+  // suffit qu'une valeur journalisée (agent utilisateur, chemin, identifiant)
+  // porte `\x1b[` suivi de chiffres pour figer le navigateur de l'admin.
+  // La classe accepte en plus `\x1b[;m`, que le découpage en aval traite en
+  // remise à zéro — ce que cette séquence signifie.
+  const re = /\x1b\[([\d;]*)m/g;
   const parts: ReactNode[] = [];
   let last = 0;
   let cur: AnsiState = {};
