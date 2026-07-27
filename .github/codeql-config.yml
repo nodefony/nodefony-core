@@ -24,3 +24,26 @@ paths-ignore:
 
   # Benchmarks and framework comparison suites (not production code)
   - ".claude/skills/**/bench-frameworks/**"
+
+  # ─── Suites de tests ──────────────────────────────────────────────────────
+  #
+  # Pourquoi les exclure, alors qu'on ne retire jamais une garde de gaieté de
+  # cœur : 114 des 144 alertes ouvertes venaient de là, et 108 disaient la même
+  # chose — `rejectUnauthorized: false` face au certificat auto-signé du serveur
+  # de banc. C'est le geste JUSTE dans un test (valider une autorité qui n'existe
+  # pas rendrait le banc impossible), et il n'y a aucune surface d'attaque
+  # derrière : ces fichiers ne s'exécutent pas en production et ne sont pas
+  # publiés sur npm.
+  #
+  # Le coût du bruit n'est pas théorique : 144 alertes dont personne ne lit
+  # aucune valent strictement moins que 30 qu'on peut traiter. Une liste qu'on
+  # renonce à ouvrir est une liste qui ne garde plus rien.
+  #
+  # Ce que cette exclusion ne couvre PAS, et qui reste couvert ailleurs : un
+  # secret en dur dans un test relève de l'analyse de secrets (`gitleaks`), pas
+  # de CodeQL. Et la seule exception qui compte — un test qui désactive une
+  # validation pour de MAUVAISES raisons — se voit à la relecture du diff, pas
+  # dans un tableau de bord qu'on a cessé de regarder.
+  - "**/tests/**"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"

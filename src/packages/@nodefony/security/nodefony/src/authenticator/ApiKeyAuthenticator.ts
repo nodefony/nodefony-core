@@ -7,9 +7,9 @@ import type { ITokenStore } from "../../contracts/ITokenStore";
 import { AuthenticationError } from "../../errors/AuthenticationError";
 import { UserToken } from "../token/UserToken";
 import { looksLikeApiKey, parseApiKey } from "../apikey/apiKeyFormat";
+import { bearerToken } from "./bearer";
 
 // Scheme Bearer (RFC 6750 §2.1), case-insensitive, capture la valeur.
-const BEARER_SCHEME = /^bearer\s+(.+)$/i;
 
 // Message UNIFORME (anti-énumération) — la cause fine (forme, inconnue, révoquée,
 // expirée, sujet banni) part en log d'audit, jamais au client (RFC 6750 §3.1 :
@@ -75,17 +75,14 @@ export class ApiKeyAuthenticator implements IAuthenticator {
   supports(context: ContextType): boolean {
     const auth = context.request?.headers?.authorization;
     if (typeof auth !== "string") return false;
-    const match = auth.match(BEARER_SCHEME);
-    return match !== null && looksLikeApiKey(match[1]!.trim(), this.#prefix);
+    const token = bearerToken(auth);
+    return token !== null && looksLikeApiKey(token, this.#prefix);
   }
 
   /** Extrait la valeur brute (non vérifiée) → portée par un `UserToken` type `"apikey"`. */
   createToken(context: ContextType): Promise<IToken> {
-    const auth = context.request?.headers?.authorization as string;
-    const match = auth.match(BEARER_SCHEME);
-    return Promise.resolve(
-      new UserToken("apikey", match ? match[1]!.trim() : ""),
-    );
+    const auth = context.request?.headers?.authorization;
+    return Promise.resolve(new UserToken("apikey", bearerToken(auth) ?? ""));
   }
 
   /**

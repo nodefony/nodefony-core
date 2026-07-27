@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-27T13:33:04.672Z",
+  "generated": "2026-07-27T14:10:30.291Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 638,
-    "symbols": 2519,
+    "files": 639,
+    "symbols": 2520,
     "classes": 335,
     "interfaces": 766,
     "types": 332,
     "enums": 4,
-    "functions": 904,
+    "functions": 905,
     "constants": 178
   },
   "symbols": {
@@ -15927,6 +15927,14 @@
       "module": "@nodefony/security",
       "description": "Noms enregistrés (validation boot, introspection Studio, tests)."
     },
+    "bearerToken": {
+      "name": "bearerToken",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/bearer.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Rend le jeton porté par un en-tête `Authorization`, ou `null`."
+    },
     "FirewallRealtimeAuthenticator": {
       "name": "FirewallRealtimeAuthenticator",
       "kind": "class",
@@ -23976,6 +23984,10 @@
       ],
       "parseApiKey": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts"
+      ],
+      "bearerToken": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts"
       ],
       "AnonymousAuthenticator": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"

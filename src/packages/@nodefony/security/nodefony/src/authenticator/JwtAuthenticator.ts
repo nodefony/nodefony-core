@@ -9,9 +9,9 @@ import type { ITokenStore } from "../../contracts/ITokenStore";
 import { AuthenticationError } from "../../errors/AuthenticationError";
 import { UserToken } from "../token/UserToken";
 import type { IJwtRuntime } from "../token/jwtRuntime";
+import { bearerToken } from "./bearer";
 
 // Scheme Bearer (RFC 6750 §2.1), case-insensitive, capture le token.
-const BEARER_SCHEME = /^bearer\s+(.+)$/i;
 
 // Structure JWS compacte (RFC 7515 §3.1 / RFC 7519 §3) : 3 segments base64url
 // séparés par des points (3ᵉ vide toléré → `alg=none` reste routé vers jose qui
@@ -68,15 +68,14 @@ export class JwtAuthenticator implements IAuthenticator {
   supports(context: ContextType): boolean {
     const auth = context.request?.headers?.authorization;
     if (typeof auth !== "string") return false;
-    const match = auth.match(BEARER_SCHEME);
-    return match !== null && COMPACT_JWS.test(match[1]!.trim());
+    const token = bearerToken(auth);
+    return token !== null && COMPACT_JWS.test(token);
   }
 
   /** Extrait le token brut (non vérifié) → porté par un `UserToken` type `"jwt"`. */
   createToken(context: ContextType): Promise<IToken> {
-    const auth = context.request?.headers?.authorization as string;
-    const match = auth.match(BEARER_SCHEME);
-    return Promise.resolve(new UserToken("jwt", match ? match[1]!.trim() : ""));
+    const auth = context.request?.headers?.authorization;
+    return Promise.resolve(new UserToken("jwt", bearerToken(auth) ?? ""));
   }
 
   /**
