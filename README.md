@@ -26,6 +26,15 @@ Sa particularité tient en une propriété : **le WebSocket n'y est pas un ajout
 de première classe, servi par le même pipeline, la même table de routes et la même sécurité que le
 HTTP. Une application temps réel s'y écrit comme une application web ordinaire.
 
+Les frontends ne sont pas laissés dehors. Nodefony pilote **Vite** : en développement il démarre
+les serveurs de développement — React, Vue, Angular —, les surveille, relaie leur rechargement à
+chaud et sert leurs pages ; en production il construit les bundles et les distribue. Une
+application peut en porter plusieurs, chacun monté sur sa route.
+
+Le socle, lui, est **isomorphe** : le même paquet s'importe côté serveur et côté navigateur. Le
+client temps réel, les règles d'autorisation, les types d'une ressource sont écrits une fois et
+s'exécutent là où ils servent — une règle corrigée l'est des deux côtés.
+
 ## D'où ça vient
 
 Nodefony est publié depuis **2017**, en JavaScript, et a mûri jusqu'à sa version 7 : des
