@@ -86,16 +86,36 @@ runs:
         console.log('SERVER PID=' + child.pid);
         " > "$NF_CI_LOG" 2>&1 &
 
-        # Poll avec fail-fast sur erreur fatale, succès sur 4× "Server Listen on"
+        # Poll avec fail-fast sur erreur FATALE, succès sur 4× "Server Listen on".
+        #
+        # `CRITIC` ne figure PLUS parmi les motifs fatals, et c'est une décision.
+        # Le framework écrit `CRITIC` pour DEUX choses très différentes : ce qui
+        # le tue, et ce qu'il désactive en continuant de tourner (« AUCUNE clé de
+        # chiffrement en PRODUCTION — 2FA désactivé »). Confondre les deux fait
+        # annoncer « Serveur Nodefony a crashé au démarrage » à propos d'un
+        # serveur qui écoute ses quatre ports — un verdict faux sur un journal
+        # juste, et un rouge que personne ne sait lire.
+        #
+        # Restent fatals les motifs qui signent une mort CERTAINE. Pour tout le
+        # reste, le juge est le fait d'écouter : un vrai crash ne produit jamais
+        # ses quatre « Server Listen on », et tombe au délai avec son journal.
+        # Une dégradation, elle, est AFFICHÉE — elle ne doit ni tuer la passe,
+        # ni passer inaperçue.
         for i in $(seq 1 60); do
-          if grep -q -E "SyntaxError|CRITIC|EADDRINUSE|ALREADY USE|terminate :" "$NF_CI_LOG" 2>/dev/null; then
+          if grep -q -E "SyntaxError|EADDRINUSE|ALREADY USE|terminate :" "$NF_CI_LOG" 2>/dev/null; then
             echo "::error::Serveur Nodefony a crashé au démarrage"
-            grep -E "SyntaxError|CRITIC|terminate|EADDRINUSE" "$NF_CI_LOG" | tail -20
+            grep -E "SyntaxError|terminate|EADDRINUSE" "$NF_CI_LOG" | tail -20
             exit 1
           fi
           if [ "$(grep -c 'Server Listen on' "$NF_CI_LOG" 2>/dev/null)" -ge 4 ]; then
             echo "✅ Serveur Nodefony READY"
             grep "Server Listen" "$NF_CI_LOG" | head -10
+            # Le serveur tourne, mais peut-être amputé. Le dire fort, sans mentir
+            # sur la nature du fait : une fonction désactivée n'est pas un crash.
+            if grep -q "CRITIC" "$NF_CI_LOG" 2>/dev/null; then
+              echo "::warning::Le serveur écoute, mais a signalé des CRITIC — des fonctions sont peut-être DÉSACTIVÉES :"
+              grep "CRITIC" "$NF_CI_LOG" | tail -10
+            fi
             exit 0
           fi
           sleep 1
