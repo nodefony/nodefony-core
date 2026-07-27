@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["vitest.gates.ts", "vitest.oxc.ts"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -17,7 +18,15 @@
     "test": {
       "dependsOn": ["build"],
       "outputs": [],
-      "inputs": ["index.ts", "src/**", "nodefony/**", "tsconfig*.json"],
+      "inputs": [
+        "index.ts",
+        "src/**",
+        "nodefony/**",
+        "tests/**",
+        "vitest*.ts",
+        "tsconfig*.json",
+        "package.json"
+      ],
       "env": ["NF_*", "REDIS_*", "MONGO_TEST_URI", "MONGODB_URI", "RUN_*", "CI"]
     },
     "test:integration": {
