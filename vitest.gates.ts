@@ -9,7 +9,8 @@
  *    `REDIS_TEST_URL` alors que le reste du package lit `REDIS_URL`, et lancer la
  *    suite avec la seconde skippait 14 tests **en silence, tout en restant vert**.
  * 2. **Le rapporteur** qui, en fin de suite, dit à voix haute ce qui n'a PAS été
- *    exécuté et comment l'exécuter.
+ *    exécuté, comment l'exécuter — et qui **fait ÉCHOUER la passe en intégration
+ *    continue** quand une cible déclarée n'a pas été exercée.
  *
  * ## Pourquoi c'est nécessaire
  *
@@ -17,8 +18,28 @@
  * verte. Sur `@nodefony/drizzle`, un `npm test` sans variables laisse **442 tests
  * sur 781 non exécutés** — soit les deux dialectes de PRODUCTION (PostgreSQL et
  * MySQL) — et annonce quand même un succès. Le vert par défaut ne prouve alors
- * que sqlite, sans jamais le dire. Ce rapporteur transforme ce silence en
- * avertissement lisible : un banc non joué n'est pas un banc réussi.
+ * que sqlite, sans jamais le dire.
+ *
+ * ## Deux régimes, une seule règle
+ *
+ * La règle est « un test non exécuté n'est pas un test réussi ». Sa sanction
+ * dépend de qui lit :
+ *
+ * - **En local** (`CI` absent) : un AVERTISSEMENT. Travailler sur sqlite sans
+ *   lever trois conteneurs est légitime ; bloquer y serait une punition.
+ * - **En intégration continue** (`CI` posé) : un ÉCHEC. Personne ne lit un
+ *   avertissement jaune dans un job vert — c'est très exactement le silence que
+ *   ce fichier existe pour rompre.
+ *
+ * Un décor sciemment absent s'ÉNONCE, il ne s'oublie pas : `NF_GATES_ALLOW`
+ * (ci-dessous) le déclare et le rapport le nomme.
+ *
+ * ## Deux preuves, pas une
+ *
+ * Les variables présentes ne prouvent que le DÉCOR. Une URL mal formée, un
+ * serveur injoignable : les variables sont là, les suites SAUTENT, et le vert
+ * revient. D'où `proof` — au moins un cas PASSÉ dont le nom contient le motif.
+ * C'est la seule affirmation qu'un décor absent ne peut pas satisfaire.
  *
  * ## Usage (dans un `vitest.config.ts` de workspace)
  *
@@ -26,9 +47,25 @@
  * import { gateReporter, PG_GATE, MYSQL_GATE } from "../../../../vitest.gates";
  *
  * export default defineConfig({
- *   test: { reporters: ["default", gateReporter([PG_GATE, MYSQL_GATE])] },
+ *   test: {
+ *     reporters: [
+ *       "default",
+ *       gateReporter([
+ *         { gate: PG_GATE, proof: "(postgres)" },
+ *         { gate: MYSQL_GATE, proof: "(mysql)" },
+ *       ]),
+ *     ],
+ *   },
  * });
  * ```
+ *
+ * ## Variables d'environnement lues par le rapporteur
+ *
+ * | Variable          | Effet                                                        |
+ * | ----------------- | ------------------------------------------------------------ |
+ * | `CI`              | non vide → une attente non tenue fait ÉCHOUER la passe        |
+ * | `NF_GATES_ALLOW`  | liste (virgules) de variables/interrupteurs sciemment absents |
+ * | `NF_GATES_EXPECT` | attentes ponctuelles `motif=N` posées par un workflow         |
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -299,33 +336,160 @@ export const OPENSEARCH_GATE: EnvGate = {
 
 /** Les variables manquantes (ou vides) d'une gate ; `[]` = gate satisfaite. */
 function missingVars(gate: EnvGate): string[] {
-  return gateEnv(gate).filter((name) => {
-    const value = process.env[name];
-    return value === undefined || value.trim() === "";
-  });
+  return gateEnv(gate).filter((name) => isBlank(name));
+}
+
+/** Une variable absente ou vide — « posée à vide » vaut absente. */
+function isBlank(name: string): boolean {
+  return (process.env[name] ?? "").trim() === "";
 }
 
 /**
- * Rapporteur vitest qui clôt la suite par un état des cibles NON testées.
+ * Ce qu'une suite doit avoir exercé pour que son vert veuille dire quelque chose.
+ *
+ * Trois façons de l'exprimer, combinables :
+ *
+ * - `gate` — un décor d'infra ; ses variables doivent être posées ;
+ * - `switch` — un interrupteur de coût ({@link OPT_IN_SWITCHES}) qui doit être ouvert ;
+ * - `proof` — le motif d'un nom de test qui doit avoir PASSÉ.
+ *
+ * `proof` est ce qui distingue « le décor était là » de « le décor a servi ».
+ * Les deux se trompent séparément : une URL peut être posée et mal formée, un
+ * interrupteur ouvert sur une suite dont les cas ont été renommés.
+ */
+export interface GateExpectation {
+  /** Décor d'infra requis — ses variables doivent être posées. */
+  gate?: EnvGate;
+  /** Interrupteur de coût requis (nom de la variable, ex. `"RUN_CLUSTER_E2E"`). */
+  switch?: string;
+  /** Étiquette lisible ; par défaut celle de la gate ou le nom de l'interrupteur. */
+  label?: string;
+  /**
+   * Motif(s) qu'au moins un test PASSÉ doit contenir dans son nom complet.
+   * Plusieurs motifs = plusieurs preuves indépendantes, toutes exigées.
+   */
+  proof?: string | readonly string[];
+}
+
+/** Une attente non tenue, prête à être affichée. */
+interface Unmet {
+  label: string;
+  /** Variables/interrupteurs absents. */
+  missing: string[];
+  /** Motifs sans aucun cas passé. */
+  unproven: string[];
+  /** Mode d'emploi copiable, quand une gate le fournit. */
+  how: string[];
+  /** Clés qui permettraient d'écarter cette attente via `NF_GATES_ALLOW`. */
+  keys: string[];
+}
+
+/** Accepte la forme courte (`EnvGate` nue) comme la forme complète. */
+function asExpectation(entry: EnvGate | GateExpectation): GateExpectation {
+  return "values" in entry ? { gate: entry } : entry;
+}
+
+/** Les clés par lesquelles `NF_GATES_ALLOW` peut écarter une attente. */
+function expectationKeys(x: GateExpectation): string[] {
+  const keys = x.gate ? gateEnv(x.gate) : [];
+  return x.switch ? [...keys, x.switch] : keys;
+}
+
+/** Les cibles que cette passe écarte SCIEMMENT (`NF_GATES_ALLOW`). */
+function allowedKeys(): Set<string> {
+  return new Set(
+    (process.env.NF_GATES_ALLOW ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+}
+
+/**
+ * Attentes ponctuelles posées par un workflow, sans toucher à la configuration
+ * du paquet : `NF_GATES_EXPECT="backoff NIST=1,NIST PARTAGÉ"`.
+ *
+ * Existe pour les preuves qui n'appartiennent PAS au paquet mais à la passe —
+ * typiquement une sélection par `-t` dont le motif peut cesser de mordre après
+ * un renommage, laissant vitest sortir 0 avec zéro cas exécuté.
+ *
+ * Le compte par défaut est 1 : la question posée est « ce cas a-t-il tourné »,
+ * pas « combien de fois » — un plancher chiffré se périme au premier test ajouté.
+ */
+function envExpectations(): Array<{ pattern: string; min: number }> {
+  return (process.env.NF_GATES_EXPECT ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const at = item.lastIndexOf("=");
+      if (at === -1) return { pattern: item, min: 1 };
+      const min = Number.parseInt(item.slice(at + 1), 10);
+      return Number.isFinite(min)
+        ? { pattern: item.slice(0, at), min }
+        : { pattern: item, min: 1 };
+    });
+}
+
+/**
+ * Rapporteur vitest qui clôt la suite par un état des cibles NON testées — et
+ * qui **fait échouer la passe en intégration continue** quand l'une d'elles n'a
+ * pas été exercée.
  *
  * Silencieux au sens strict quand tout est couvert : il confirme en une ligne
  * (l'information « les 3 dialectes ont tourné » vaut d'être affirmée, pas
  * seulement déduite d'une absence d'avertissement).
  *
- * @param gates - les cibles que CE package sait exercer.
+ * Il ne lève JAMAIS : il pose `process.exitCode`. Une exception ici masquerait
+ * le rapport de la suite elle-même, qui est ce qu'on est venu lire.
+ *
+ * @param entries - les cibles que CE paquet sait exercer, en {@link EnvGate}
+ *   nue (décor seul) ou en {@link GateExpectation} (décor + preuve d'exécution).
  * @returns un reporter à placer dans `test.reporters`.
  */
-export function gateReporter(gates: readonly EnvGate[]) {
+export function gateReporter(
+  entries: ReadonlyArray<EnvGate | GateExpectation>,
+) {
+  const expectations = entries.map(asExpectation);
   return {
     onTestRunEnd(testModules: ReadonlyArray<unknown>): void {
       const skipped = countSkipped(testModules);
       const total = countAll(testModules);
-      const unmet = gates.filter((gate) => missingVars(gate).length > 0);
-      const met = gates.filter((gate) => missingVars(gate).length === 0);
+      const allowed = allowedKeys();
+      const blocking = (process.env.CI ?? "").trim() !== "";
 
-      if (unmet.length === 0) {
-        const names = met.map((g) => g.label).join(", ");
-        const head = `\n\x1b[32m✔ Cibles d'infra toutes exercées${names ? ` : ${names}` : ""}.\x1b[0m`;
+      // Une attente écartée par `NF_GATES_ALLOW` reste NOMMÉE : un choix énoncé
+      // doit se lire dans le journal, sinon il redevient un oubli silencieux.
+      const waived = expectations.filter((x) =>
+        expectationKeys(x).some((k) => allowed.has(k)),
+      );
+      const examined = expectations.filter((x) => !waived.includes(x));
+      const verdicts = examined.map(
+        (x) => [x, evaluate(x, testModules)] as const,
+      );
+      const unmet = verdicts
+        .map(([, u]) => u)
+        .filter((u): u is Unmet => u !== null);
+      const met = verdicts
+        .filter(([x, u]) => u === null && (x.gate ?? x.switch))
+        .map(([x]) => x);
+      const expectFailures = evaluateEnvExpectations(testModules);
+
+      if (unmet.length > 0 || expectFailures.length > 0) {
+        reportUnmet(unmet, expectFailures, waived, skipped, total, blocking);
+        if (blocking) process.exitCode = 1;
+        return;
+      }
+
+      {
+        const names = met.map(expectationLabel).join(", ");
+        // Une exemption qui ne se voit plus est une exemption qu'on n'ôte
+        // jamais : `NF_GATES_ALLOW` posé une fois dans un workflow y resterait
+        // pour toujours, et « toutes exercées » deviendrait faux en silence.
+        const head = waived.length
+          ? `\n\x1b[32m✔ Cibles exercées${names ? ` : ${names}` : ""}.\x1b[0m` +
+            `\n\x1b[33m  ○ écartées sciemment (NF_GATES_ALLOW) : ${waived.map(expectationLabel).join(", ")}\x1b[0m`
+          : `\n\x1b[32m✔ Cibles d'infra toutes exercées${names ? ` : ${names}` : ""}.\x1b[0m`;
         // L'infra n'est qu'une des deux façons de rester muet. Des tests peuvent
         // dormir derrière un INTERRUPTEUR DE COÛT (`RUN_PERF`, `RUN_CLUSTER_E2E`…),
         // fermé à raison mais dont le silence ressemble trait pour trait à une
@@ -351,34 +515,154 @@ export function gateReporter(gates: readonly EnvGate[]) {
         );
         return;
       }
-
-      const bar = "─".repeat(72);
-      const pct = total > 0 ? Math.round((skipped / total) * 100) : 0;
-      const lines: string[] = [
-        "",
-        `\x1b[33m${bar}`,
-        `⚠  COUVERTURE PARTIELLE — ${unmet.length} cible(s) n'ont PAS été testées`,
-        bar + "\x1b[0m",
-      ];
-      for (const gate of unmet) {
-        lines.push(
-          `  \x1b[1m${gate.label}\x1b[0m — ${missingVars(gate).join(", ")} absente(s)`,
-        );
-        for (const how of gateHow(gate)) lines.push(`      ${how}`);
-        lines.push("");
-      }
-      if (skipped > 0) {
-        lines.push(
-          `  \x1b[33m${skipped} test(s) sur ${total} n'ont pas été exécutés (${pct} %).\x1b[0m`,
-        );
-      }
-      lines.push(
-        "  \x1b[2mUn test skippé compte comme vert : ce succès ne dit rien de ces cibles.\x1b[0m",
-      );
-      lines.push(`\x1b[33m${bar}\x1b[0m`);
-      console.log(lines.join("\n"));
     },
   };
+}
+
+/** L'étiquette lisible d'une attente. */
+function expectationLabel(x: GateExpectation): string {
+  return x.label ?? x.gate?.label ?? x.switch ?? "cible sans nom";
+}
+
+/** Les motifs d'une attente, sous forme de liste. */
+function proofsOf(x: GateExpectation): string[] {
+  if (!x.proof) return [];
+  return typeof x.proof === "string" ? [x.proof] : [...x.proof];
+}
+
+/**
+ * Confronte une attente à la passe qui vient de finir.
+ *
+ * @returns `null` si l'attente est tenue, sinon ce qui manque.
+ */
+function evaluate(
+  x: GateExpectation,
+  testModules: ReadonlyArray<unknown>,
+): Unmet | null {
+  const missing = x.gate ? missingVars(x.gate) : [];
+  if (x.switch && isBlank(x.switch)) missing.push(x.switch);
+
+  // Les preuves ne sont cherchées que si le décor est là : quand la variable
+  // manque, exiger EN PLUS le motif noierait la cause sous sa conséquence.
+  const unproven =
+    missing.length === 0
+      ? proofsOf(x).filter((p) => countPassedMatching(testModules, p) === 0)
+      : [];
+
+  if (missing.length === 0 && unproven.length === 0) return null;
+  return {
+    label: expectationLabel(x),
+    missing,
+    unproven,
+    how: x.gate ? gateHow(x.gate) : x.switch ? [`${x.switch}=1 npm test`] : [],
+    keys: expectationKeys(x),
+  };
+}
+
+/** Les attentes `NF_GATES_EXPECT` non tenues par cette passe. */
+function evaluateEnvExpectations(
+  testModules: ReadonlyArray<unknown>,
+): string[] {
+  return envExpectations()
+    .map(({ pattern, min }) => {
+      const seen = countPassedMatching(testModules, pattern);
+      return seen >= min
+        ? null
+        : `« ${pattern} » — ${seen} cas passé(s) au lieu de ${min} attendu(s)`;
+    })
+    .filter((m): m is string => m !== null);
+}
+
+/**
+ * Le bloc de fin de passe quand une cible n'a pas été exercée.
+ *
+ * @param blocking - `true` en intégration continue : le vocabulaire devient
+ *   celui d'un échec, parce que c'en est un.
+ */
+function reportUnmet(
+  unmet: readonly Unmet[],
+  expectFailures: readonly string[],
+  waived: readonly GateExpectation[],
+  skipped: number,
+  total: number,
+  blocking: boolean,
+): void {
+  const color = blocking ? "\x1b[31m" : "\x1b[33m";
+  const bar = "─".repeat(72);
+  const count = unmet.length + expectFailures.length;
+  const lines: string[] = [
+    "",
+    `${color}${bar}`,
+    blocking
+      ? `✗ COUVERTURE INCOMPLÈTE — ${count} cible(s) n'ont PAS été exercées`
+      : `⚠  COUVERTURE PARTIELLE — ${count} cible(s) n'ont PAS été testées`,
+    bar + "\x1b[0m",
+  ];
+
+  for (const u of unmet) {
+    const cause = u.missing.length
+      ? `${u.missing.join(", ")} absente(s)`
+      : `décor présent mais AUCUN cas passé pour ${u.unproven.map((p) => `« ${p} »`).join(", ")}`;
+    lines.push(`  \x1b[1m${u.label}\x1b[0m — ${cause}`);
+    for (const how of u.how) lines.push(`      ${how}`);
+    lines.push("");
+  }
+
+  for (const failure of expectFailures) {
+    lines.push(`  \x1b[1mNF_GATES_EXPECT\x1b[0m — ${failure}`);
+    lines.push(
+      "      \x1b[2mle motif de sélection ne mord plus (cas renommé ou déplacé)\x1b[0m",
+    );
+    lines.push("");
+  }
+
+  if (waived.length > 0) {
+    lines.push(
+      `  \x1b[2m○ écartées sciemment (NF_GATES_ALLOW) : ${waived.map(expectationLabel).join(", ")}\x1b[0m`,
+    );
+  }
+  if (skipped > 0) {
+    const pct = total > 0 ? Math.round((skipped / total) * 100) : 0;
+    lines.push(
+      `  ${color}${skipped} test(s) sur ${total} n'ont pas été exécutés (${pct} %).\x1b[0m`,
+    );
+  }
+  lines.push(
+    blocking
+      ? "  \x1b[2mUn test skippé compte comme vert : cette passe échoue pour que ce vert ne mente pas.\x1b[0m\n" +
+          `  \x1b[2mSi cette absence est VOULUE, énoncez-la : NF_GATES_ALLOW=${[...unmet.flatMap((u) => u.keys)].join(",") || "<VARIABLE>"}\x1b[0m`
+      : "  \x1b[2mUn test skippé compte comme vert : ce succès ne dit rien de ces cibles.\x1b[0m",
+  );
+  lines.push(`${color}${bar}\x1b[0m`);
+  console.log(lines.join("\n"));
+}
+
+/**
+ * Le nombre de cas PASSÉS dont le nom complet contient `pattern`.
+ *
+ * Toute surprise de forme rend 0 — ce qui rend l'attente non tenue, donc
+ * bruyante. Un rapporteur d'honnêteté ne doit jamais se taire par accident.
+ */
+function countPassedMatching(
+  testModules: ReadonlyArray<unknown>,
+  pattern: string,
+): number {
+  let n = 0;
+  for (const mod of testModules) {
+    const children = (mod as { children?: { allTests?: unknown } }).children;
+    const allTests = children?.allTests;
+    if (typeof allTests !== "function") continue;
+    try {
+      for (const test of allTests.call(children, "passed") as Iterable<{
+        fullName?: string;
+      }>) {
+        if ((test.fullName ?? "").includes(pattern)) n++;
+      }
+    } catch {
+      // Module non collecté (échec d'import) → rien à compter ici.
+    }
+  }
+  return n;
 }
 
 /** Compte les cas skippés, sans dépendre de la forme interne d'un module. */
