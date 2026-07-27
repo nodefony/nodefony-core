@@ -276,16 +276,18 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
                 `sa table n'est pas créée au démarrage et le repository lèvera « entité inconnue »`,
             });
           }
-          const declared = ENTITY_NAME_RE.exec(
+          const entityName = ENTITY_NAME_RE.exec(
             content.slice(content.indexOf(symbol)),
           )?.[1];
-          const reserved = declared ? findReservedEntity(declared) : undefined;
+          const reserved = entityName
+            ? findReservedEntity(entityName)
+            : undefined;
           if (reserved) {
             findings.push({
               kind: "reserved-entity",
               file: rel(file),
               message:
-                `${symbol} déclare name: "${declared}", qui appartient au module « ${reserved.module} » — ` +
+                `${symbol} déclare name: "${entityName}", qui appartient au module « ${reserved.module} » — ` +
                 `le registre ORM est plat, l'application ne démarrera plus.\n  → ${reserved.advice}`,
             });
           }

@@ -14,7 +14,24 @@ import { createHash } from "node:crypto";
 import { typeOf, stripTrailingSlashes, escapeRegExp } from "nodefony";
 import Controller from "./Controller";
 
-const REG_ROUTE = /(\/)?(\.)?\{([^}]+)\}(?:\(([^)]*)\))?(\?)?/g;
+/**
+ * Motif d'un segment variable : `{id}`, `/{slug}?`, `.{format}`, `{id}(\d+)`.
+ *
+ * Les deux quantificateurs sont **bornés**, et ce n'est pas de la coquetterie :
+ * `[^}]+` suivi d'un `}` obligatoire fait reprendre le moteur à chaque position
+ * quand l'accolade fermante n'arrive jamais — un temps polynomial en la longueur
+ * du chemin (`{{{{{{…`). Ici l'entrée est une route DÉCLARÉE par le développeur,
+ * donc la dénégation de service n'est pas atteignable depuis une requête ; mais
+ * ceci est une bibliothèque, et rien ne garantit qu'aucune application ne
+ * fabriquera un jour une route à partir d'une donnée qu'elle n'a pas écrite.
+ *
+ * Les bornes sont larges au point d'être insensibles : un nom de variable de
+ * plus de 128 caractères ou une contrainte de plus de 256 sont des erreurs de
+ * frappe, pas des usages. Au-delà, le segment n'est plus reconnu comme variable
+ * et le chemin est traité comme littéral — et `unreachableChars` le signale déjà
+ * au démarrage, puisqu'une accolade est un caractère qu'aucun chemin ne porte.
+ */
+const REG_ROUTE = /(\/)?(\.)?\{([^}]{1,128})\}(?:\(([^)]{0,256})\))?(\?)?/g;
 
 const REG_REPLACE_DOUBLE_SLASH = /\/+/g;
 
