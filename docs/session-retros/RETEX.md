@@ -70,6 +70,46 @@
   qui la redéfinit. Corollaire : l'arbre doit être PROPRE avant de lancer un `--fix`, le diff est le
   seul garde-fou.
 
+## 🟢 Un test NON EXÉCUTÉ doit être ROUGE, jamais vert
+
+- `[1× — 2026-07-27]` 🔴🔴 **Le vert par défaut est un SILENCE, pas une preuve.** Trois formes du
+  même défaut, toutes rencontrées le même jour : `npm test` sur drizzle sort **exit 0 avec 517
+  tests sautés sur 901** (les deux dialectes de PRODUCTION) ; deux cas anti-bruteforce passés en
+  `skipIf` comptent **verts** ; une vingtaine de preuves e2e ne sont **jamais lancées**, donc
+  jamais rouges. **Position du user, à graver : s'ils ne sont pas lancés, c'est ROUGE.**
+  Conséquence concrète : `gateReporter` (`vitest.gates.ts`) se contente d'AVERTIR
+  (« COUVERTURE PARTIELLE ») et laisse la suite verte — il doit **échouer en CI**. Une seule
+  implémentation y remplacerait les filets `jq` ad hoc écrits workflow par workflow.
+- `[1× — 2026-07-27]` **Un filet qui compte MAL ne se contente pas de laisser passer : il
+  RENSEIGNE de travers.** Le mien ne comptait qu'un banc Redis sur deux → j'en ai conclu « une
+  seule preuve cross-pod » et j'ai failli faire écrire des tests qui existaient déjà (7, dont la
+  matrice d'attaque F83). Vérifier ce que le filet REGARDE, pas seulement qu'il est vert.
+- `[1× — 2026-07-27]` **Une fiche d'inventaire non exécutée ment.** Le catalogue du kit de charge
+  classait `idempotency-cluster` parmi les bancs « autonomes » ; premier run réel →
+  `ECONNREFUSED 5152`, il exige le serveur dev. Le classement d'un banc se vérifie en le LANÇANT.
+- `[1× — 2026-07-27]` **`--reporter=json` REMPLACE la sortie lisible** → un gate tombe sans dire
+  quel cas ni de combien. Reproduit **trois fois dans la même session** (banc mémoire, stores,
+  realtime) après l'avoir corrigé le matin même sur `turbo --continue`. Toujours
+  `--reporter=default --reporter=json`.
+
+## 🩺 Mesurer sans forcer le ramasse-miettes, c'est mesurer du bruit
+
+- `[1× — 2026-07-27]` 🔴 **Un gate mémoire sans `--expose-gc` accuse au hasard.** Le banc a
+  désigné le chemin de crash SYNCHRONE (23,5 Mo pour un seuil de 10) — alors que le crash
+  `TypeError`, **synchrone lui aussi**, passait : l'axe « sync vs async » était faux. La sonde
+  `global.gc?.()` est un **no-op silencieux** sans le drapeau, et le code le documentait déjà.
+  Flag posé → **9/9 verts**. Corollaire de méthode : avant d'accuser un chemin de code, chercher
+  le cas JUMEAU qui passe — c'est lui qui réfute l'hypothèse.
+
+## 🐌 Une fonction « pure » peut appeler le système
+
+- `[1× — 2026-07-27]` **`buildDevStatus` prenait 2,5 s** (1,15 s même isolée) pour UN process et
+  ZÉRO port : elle partitionnait deux fois, et la partition fait un `lsof` par pid hors Linux.
+  Diagnostiqué d'abord — à tort — comme une contention entre workers vitest. **Ce qui a tranché :
+  encadrer l'appel de `performance.now()`**, ce qui sépare « la fonction est lente » de « le test
+  attend ». Défaut invisible sous Linux (`readlink /proc`), donc invisible en CI : `nodefony
+status` le payait sur macOS et Windows.
+
 ## 🏷️ Un contrôle qu'on ne TROUVE pas compte pour rien
 
 - `[1× — 2026-07-27]` **Vingt attaques JWT invisibles à l'inventaire.** À la question « la porte
