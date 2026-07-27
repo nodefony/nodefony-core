@@ -21,7 +21,7 @@ jobs:
       # échouer le job — ce qui est son rôle : une couverture absente s'énonce.
       - run: npm test
         env:
-          NF_GATES_ALLOW: NF_PG_URL,NF_MYSQL_URL,REDIS_URL,REDIS_TEST_URL,MONGO_TEST_URI,NF_LOKI_TEST_URL,NF_OPENSEARCH_TEST_URL
+          NF_GATES_ALLOW: NF_PG_URL,NF_MYSQL_URL,REDIS_URL,REDIS_TEST_URL,MONGO_TEST_URI,NF_LOKI_TEST_URL,NF_OPENSEARCH_TEST_URL,RUN_CLUSTER_E2E
 
   publish-gpr:
     needs: build
