@@ -58,7 +58,9 @@ Deux gardes à connaître :
 `drizzle-orm` est une dépendance **de l'application** (le code généré l'importe en direct) : le
 gabarit `complete` la déclare, et `create entity` l'ajoute au `package.json` si elle manque.
 Options utiles : `--id uuid7|uuid4|serial` · `--soft-delete` · `--no-controller` · `--module <nom>`
-· `--dialect`. Design + alternatives rejetées : mémoire IA `core-dev/audits/create-entity-design-2026-07.md`.
+· `--dialect` · `--index "a,b"` / `--unique "a,b"` (répétables). Pour épouser une table qui EXISTE
+déjà : `--table` · `--column-case snake` · `--id-name` (§ B — elles ne touchent que le SQL).
+Design + alternatives rejetées : mémoire IA `core-dev/audits/create-entity-design-2026-07.md`.
 
 **À la main** (module du framework, ou entité qu'on veut écrire soi-même) — la forme canonique :
 
@@ -134,10 +136,29 @@ class Blog extends Module { … }
 
 **Décide d'abord de ce que tu fais — les deux cas n'ont PAS la même réponse :**
 
-| Objectif                                                                 | Voie                                                                                                                                                                                                                                                                               |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Lire la base EXISTANTE** du logiciel (mêmes tables, mêmes colonnes)    | ❌ **PAS `create entity`** — il ne contrôle ni le nom de table (`Post` → `posts`) ni celui des colonnes (`postAuthor` → `postAuthor`, jamais `post_author`). → **table Drizzle native écrite à la main** (ou introspection `drizzle-kit pull`), puis `defineEntity` + `@entities`. |
-| **Re-modéliser** le domaine dans une base NEUVE (reprendre la structure) | ✅ `create entity` — c'est le cas courant (réécriture, migration, prototypage).                                                                                                                                                                                                    |
+| Objectif                                                                 | Voie                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Lire la base EXISTANTE** du logiciel (mêmes tables, mêmes colonnes)    | ✅ `create entity` **avec les trois options de nommage** (`--table`, `--column-case snake`, `--id-name`) — elles ne touchent QUE le SQL. Il reste des formes non exprimables (PK composite, index préfixés MySQL) : celles-là s'écrivent à la main dans la table générée, c'est du Drizzle natif. |
+| **Re-modéliser** le domaine dans une base NEUVE (reprendre la structure) | ✅ `create entity` — c'est le cas courant (réécriture, migration, prototypage).                                                                                                                                                                                                                   |
+
+**Les trois options de nommage** (elles n'existent que pour ce cas — une entité neuve n'a
+aucune raison d'y toucher, leurs défauts reproduisent le comportement historique) :
+
+| Option                | Effet                                         | Ce qui NE change PAS                     |
+| --------------------- | --------------------------------------------- | ---------------------------------------- |
+| `--table wp_posts`    | nom SQL littéral au lieu du pluriel (`posts`) | la route REST (`/api/posts`), le fichier |
+| `--column-case snake` | colonne `post_author`, propriété `postAuthor` | le service, le controller, les tests     |
+| `--id-name ID`        | clé primaire `ID`, propriété toujours `id`    | le tri par défaut, `findById`            |
+
+L'invariant : **la COLONNE change, la PROPRIÉTÉ jamais.** Drizzle porte nativement la
+dissociation — le premier argument d'un constructeur de colonne EST le nom SQL. Faire suivre le
+TypeScript aurait transformé un réglage de nommage en refonte de la chaîne générée. Le nom
+d'index suit la casse des colonnes (c'est un objet SQL) ; les colonnes qu'il vise restent
+nommées côté Drizzle (`t.postAuthor`).
+
+Dimensionnement, si tu te demandes pourquoi deux options globales et pas un mapping par champ :
+sur les **134 renommages** qu'exige le schéma d'Umami, **115 sont le passage mécanique au
+`snake_case` et 18 sont la clé primaire**. Un seul est arbitraire — il s'édite à la main.
 
 **Méthode (le cas ✅) — 4 étapes :**
 
@@ -160,8 +181,10 @@ class Blog extends Module { … }
    et souvent `--no-timestamps` (ils gèrent leurs propres dates). Une entité par ligne, dans un script :
    ```bash
    M="--module @app/blog --connector wordpress --id serial --no-timestamps"
-   nodefony create entity User $M --route /api/wp/users userLogin:string userEmail:string …
-   nodefony create entity Post $M --route /api/wp/posts postAuthor:ref:User postTitle:text …
+   # Pour LIRE la base de WordPress, ajoute le nommage physique (--table par entité) :
+   N="--column-case snake --id-name ID"
+   nodefony create entity User $M $N --table wp_users  --route /api/wp/users userLogin:string(60) …
+   nodefony create entity Post $M $N --table wp_posts  --route /api/wp/posts postAuthor:ref:User …
    ```
    ⚠️ **`--route` obligatoire** si l'app a déjà une entité du même nom : deux controllers sur
    `/api/posts` = collision de routes.
@@ -171,27 +194,30 @@ class Blog extends Module { … }
 
 **Correspondance des types (SQL → vocabulaire Nodefony) :**
 
-| SQL du logiciel                           | Champ Nodefony  | Remarque                                                                     |
-| ----------------------------------------- | --------------- | ---------------------------------------------------------------------------- |
-| `varchar(n)`, `char(n)`                   | `string`        | → `varchar(255)` (PG/MySQL) / `text` (sqlite). La longueur n'est PAS reprise |
-| `text`, `longtext`, `mediumtext`          | `text`          | les 4 tailles MySQL s'écrasent en un seul type                               |
-| `int`, `tinyint`, `smallint`              | `int`           |                                                                              |
-| `bigint(20) unsigned`                     | `int`           | ⚠️ **> 2^53 casse en JS** — au-delà, garder l'id en `string`                 |
-| `float`, `double`, `decimal`              | `float`         | ⚠️ `decimal` (monétaire) perd sa précision — à écrire à la main              |
-| `tinyint(1)`, booléen en `varchar('Y')`   | `bool`          | un booléen stocké en varchar (`'yes'`/`'1'`) reste un `string`               |
-| `datetime`, `timestamp`                   | `date`          | ⚠️ défaut `'0000-00-00 00:00:00'` : **illégal** ailleurs — ne pas reprendre  |
-| `json`, PHP sérialisé                     | `json` / `text` | du PHP sérialisé n'est PAS du JSON → `text`                                  |
-| FK implicite (`post_author` → `users.ID`) | `ref:User`      | pose un commentaire + le type ; **aucune contrainte FK n'est émise**         |
+| SQL du logiciel                           | Champ Nodefony  | Remarque                                                                       |
+| ----------------------------------------- | --------------- | ------------------------------------------------------------------------------ |
+| `varchar(n)`                              | `string(n)`     | la longueur se DÉCLARE ; sans elle, retombe sur 255 (sqlite : toujours `text`) |
+| `char(n)`                                 | `char(n)`       | longueur obligatoire — un `char(1)` implicite ne serait jamais l'intention     |
+| `text`, `longtext`, `mediumtext`          | `text`          | les 4 tailles MySQL s'écrasent en un seul type                                 |
+| `int`, `tinyint`, `smallint`              | `int`           |                                                                                |
+| `bigint(20) unsigned`                     | `int`           | ⚠️ **> 2^53 casse en JS** — au-delà, garder l'id en `string`                   |
+| `float`, `double`                         | `float`         |                                                                                |
+| `decimal(p,s)` (monétaire)                | `decimal(p,s)`  | précision EXACTE, transite en chaîne — un flottant la perdrait                 |
+| `tinyint(1)`, booléen en `varchar('Y')`   | `bool`          | un booléen stocké en varchar (`'yes'`/`'1'`) reste un `string`                 |
+| `datetime`, `timestamp`                   | `date`          | ⚠️ défaut `'0000-00-00 00:00:00'` : **illégal** ailleurs — ne pas reprendre    |
+| `json`, PHP sérialisé                     | `json` / `text` | du PHP sérialisé n'est PAS du JSON → `text`                                    |
+| FK implicite (`post_author` → `users.ID`) | `ref:User`      | pose un commentaire + le type ; **aucune contrainte FK n'est émise**           |
 
 **Ce qui NE PASSE PAS (limites dures — dis-le, ne bricole pas) :**
 
-- **Noms physiques** : impossible d'imposer `wp_posts` / `post_title`. C'est LA raison pour laquelle on ne
-  lit pas une base existante avec du code généré.
 - **PK composite** (`term_relationships (object_id, term_taxonomy_id)`) : non exprimable → le scaffold pose
   un `id` en plus. Si la PK composite est structurante, écris la table à la main
   (`primaryKey({ columns: [...] })` de Drizzle).
-- **UNIQUE composite** (`(term_id, taxonomy)`), **index préfixés** (`meta_key(191)`, spécifique MySQL),
-  **index composites** : à ajouter à la main dans la table générée (c'est du Drizzle natif, rien ne bloque).
+- **Index préfixés** (`meta_key(191)`, spécifique MySQL) : à ajouter à la main dans la table générée
+  (c'est du Drizzle natif, rien ne bloque). Les index **composites** et les **UNIQUE composites**, eux,
+  se déclarent : `--index "termId,taxonomy"` et `--unique "a,b"`, répétables — un par index.
+- **Nom de colonne arbitraire** (celui que ni la casse ni la clé primaire n'expliquent — 1 sur 134 chez
+  Umami) : il s'édite dans la table générée. C'est du Drizzle natif, le reste du code n'en dépend pas.
 - **Validation Zod plus stricte que le legacy** : un `string` non-null exige `min(1)` — or ces bases mettent
   des chaînes vides partout (défaut `''`). Soit tu marques le champ `?` (nullable), soit tu assouplis le
   schéma généré. **Le 422 qui te le dit est un service, pas une panne.**
