@@ -133,8 +133,14 @@ jobs:
       # charge, et ne tournaient nulle part. Les sondes de RUPTURE, elles, restent
       # fermées : elles épuisent les ports éphémères de la machine hôte, ce qui n'a
       # rien à faire sur un runner partagé.
+      #
+      # `NF_GATES_EXPECT` nomme les DEUX moitiés du gate mémoire. Compter « au
+      # moins une mesure passée » ne suffisait pas : la moitié WebSocket peut
+      # disparaître pendant que la moitié HTTP porte le vert à elle seule.
       - name: Charge et mémoire — WebSocket, scopes, sessions, flux, heap
         working-directory: src/packages/@nodefony/http
+        env:
+          NF_GATES_EXPECT: "Memory leaks — HTTP,Memory leaks — WebSocket"
         run: |
           npm run test:load -- \
             --reporter=default --reporter=json --outputFile=memory-report.json
@@ -156,6 +162,11 @@ jobs:
           jq -r '.testResults[].assertionResults[]
             | select(.status == "failed")
             | "  ✗ \(.fullName)\n    \(.failureMessages[0] // "" | split("\n")[0])"' memory-report.json
+          # Garde de DERNIER RECOURS, et non un doublon de `NF_GATES_EXPECT` :
+          # celui-ci vit dans le rapporteur de fin de suite, donc il ne dit rien
+          # si le run s'interrompt avant d'y arriver. Les deux ne répondent pas à
+          # la même question — « quels bancs devaient tourner » là-haut, « la
+          # passe est-elle seulement allée au bout » ici.
           if [ "$passed" -eq 0 ]; then
             echo "::error::Aucune mesure n'a tourné — le gate mémoire est décoratif."
             exit 1

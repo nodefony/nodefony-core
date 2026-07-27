@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
+import { gateReporter } from "../../../../vitest.gates";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -20,6 +21,11 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 export default defineConfig({
   test: {
     globals: true,
+    // Aucune cible d'infra ici (le décor est un serveur, pas une base), mais
+    // `NF_GATES_EXPECT` permet à la PASSE d'exiger que le gate mémoire ait
+    // réellement tourné. Un serveur injoignable, un fichier renommé, et cette
+    // suite rend un vert qui n'a mesuré aucun octet.
+    reporters: ["default", gateReporter([])],
     include: [
       "nodefony/tests/load/**/*.test.ts",
       "nodefony/tests/http/memory.test.ts",

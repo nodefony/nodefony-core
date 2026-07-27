@@ -487,7 +487,19 @@ export function gateReporter(
         // voir affirmer que « tout a été exercé » : ce serait vrai au sens
         // logique et faux au sens utile, et un tel message finit par être lu
         // comme une preuve alors qu'il n'en porte aucune.
-        if (expectations.length === 0 && envExpectations().length === 0) return;
+        const envExpected = envExpectations();
+        if (expectations.length === 0 && envExpected.length === 0) return;
+
+        // Aucune cible d'infra déclarée : ce qui vient d'être tenu, ce sont les
+        // attentes de la PASSE. Le dire autrement ferait porter au décor une
+        // preuve qu'il n'a pas fournie.
+        if (expectations.length === 0) {
+          const motifs = envExpected.map((e) => `« ${e.pattern} »`).join(", ");
+          console.log(
+            `\n\x1b[32m✔ Attentes de la passe tenues : ${motifs}.\x1b[0m`,
+          );
+          return;
+        }
 
         const names = met.map(expectationLabel).join(", ");
         // Une exemption qui ne se voit plus est une exemption qu'on n'ôte
