@@ -111,19 +111,13 @@ jobs:
           --health-timeout 3s
           --health-retries 12
 
-      redis:
-        image: redis:7-alpine
-        # Le serveur du compose tourne en `requirepass` ; sans mot de passe la
-        # connexion échoue en NOAUTH. Le décor doit donc l'exiger aussi, sinon on
-        # éprouverait un Redis plus permissif que celui de développement.
-        options: >-
-          --requirepass nodefony-dev
-          --health-cmd "redis-cli -a nodefony-dev ping | grep -q PONG"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
-        ports:
-          - 6379:6379
+      # Redis n'est PAS ici : il lui faut `redis-server --requirepass …`, et
+      # `services:` ne sait pas passer d'arguments au conteneur — `options` est
+      # inséré dans `docker create` AVANT l'image, donc `--requirepass` y est lu
+      # comme une option docker et la création échoue (exit 125, constaté).
+      # Le mot de passe n'est pas négociable : les bancs se connectent avec, et un
+      # serveur sans authentification les ferait échouer sur « AUTH sans mot de
+      # passe configuré ». Il est donc démarré en étape, plus bas.
 
     env:
       # Forme des URL : `vitest.gates.ts` (source unique). Le job tourne sur le
@@ -145,6 +139,26 @@ jobs:
         with:
           node-version: 26.x
           cache: "npm"
+
+      # Même image, même mot de passe et même sonde que `docker/docker-compose.yml` —
+      # en étape plutôt qu'en service, faute de pouvoir passer la commande du serveur.
+      # L'attente est explicite ici : on perd la garantie que GitHub n'entre dans les
+      # étapes qu'une fois le service sain, il faut donc la reconstituer, sinon les
+      # bancs démarreraient avant Redis et rendraient un rouge parlant de connexion.
+      - name: Redis (mot de passe, comme en développement)
+        run: |
+          docker run -d --name nf-redis -p 6379:6379 redis:7-alpine \
+            redis-server --requirepass nodefony-dev
+          for i in $(seq 1 30); do
+            if docker exec nf-redis redis-cli -a nodefony-dev ping 2>/dev/null | grep -q PONG; then
+              echo "✅ Redis prêt"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Redis n'a pas répondu PONG en 30 s"
+          docker logs nf-redis || true
+          exit 1
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
