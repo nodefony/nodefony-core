@@ -286,6 +286,27 @@ const stripTrailingSlashes = (value: string): string => {
   return end === value.length ? value : value.slice(0, end);
 };
 
+/** Métacaractères d'expression régulière — tous ceux qui changent le SENS d'un motif. */
+const REG_METACHARACTERS = /[.*+?^${}()|[\]\\]/gu;
+
+/**
+ * Neutralise les métacaractères d'une chaîne destinée à être insérée dans une
+ * expression régulière, pour qu'elle n'y vaille que pour elle-même.
+ *
+ * **Pourquoi c'est ici** — le même motif était recopié à sept endroits, dans
+ * cinq paquets. Une liste de caractères recopiée est une liste qui diverge : il
+ * suffit qu'une copie oublie `|` pour qu'un littéral cesse d'être un littéral.
+ * `|` est d'ailleurs le plus coûteux à omettre, parce qu'il ne fait pas
+ * qu'élargir la reconnaissance : il DÉSANCRE. `new RegExp("^/a|b$")` ne
+ * reconnaît pas « /a ou /b » — il reconnaît « commence par /a » **ou** « finit
+ * par b », donc `/n/importe/quoi/b`.
+ *
+ * @param value - la chaîne à traiter comme un littéral.
+ * @returns la même chaîne, chaque métacaractère précédé d'une barre inverse.
+ */
+const escapeRegExp = (value: string): string =>
+  value.replace(REG_METACHARACTERS, "\\$&");
+
 // ─── Exports ──────────────────────────────────────────────────────────────────
 
 export {
@@ -301,4 +322,5 @@ export {
   isPromise,
   isSubclassOf,
   stripTrailingSlashes,
+  escapeRegExp,
 };

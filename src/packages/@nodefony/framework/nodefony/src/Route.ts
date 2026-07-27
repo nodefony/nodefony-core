@@ -11,13 +11,38 @@ import {
 import type { IRoute } from "../interfaces/index.js";
 import type { RouteActionMeta } from "../decorators/routerDecorators.js";
 import { createHash } from "node:crypto";
-import { typeOf, stripTrailingSlashes } from "nodefony";
+import { typeOf, stripTrailingSlashes, escapeRegExp } from "nodefony";
 import Controller from "./Controller";
 
 const REG_ROUTE = /(\/)?(\.)?\{([^}]+)\}(?:\(([^)]*)\))?(\?)?/g;
 
-const REG_REPLACE = /([/.])/g;
 const REG_REPLACE_DOUBLE_SLASH = /\/+/g;
+
+/**
+ * Rend un morceau LITTÉRAL du chemin sous forme de motif — le `*` final mis à
+ * part, rien de ce que le développeur écrit ne doit valoir comme métacaractère.
+ *
+ * L'ordre importe, et c'est tout le défaut d'avant : le motif était assemblé
+ * d'abord, échappé ensuite, et seuls `/` et `.` l'étaient. Un chemin
+ * `"/a|b"` produisait donc `^\/a|b$` — qui ne reconnaît pas « /a ou /b » mais
+ * « commence par /a » **ou** « finit par b », soit `/n/importe/quoi/b` ; un
+ * `"/pricing/(beta)"` reconnaissait `/pricing/beta` et refusait le chemin
+ * déclaré. Symétriquement, la passe d'échappement mordait sur les contraintes
+ * du développeur : `{id}(\d+\.\d+)` devenait `(\d+\\.\d+)`, où `\\.` est une
+ * barre inverse littérale — la route ne reconnaissait plus rien.
+ *
+ * @param literal - le morceau de chemin situé hors de toute variable `{…}`.
+ * @param wildcard - le chemin se termine-t-il par `*` (route « fourre-tout ») ?
+ * @returns le morceau prêt à être concaténé au motif.
+ */
+function compileLiteral(literal: string, wildcard: boolean): string {
+  if (!wildcard) {
+    return escapeRegExp(literal);
+  }
+  // Le `*` reste le seul caractère du chemin qui garde un pouvoir — il vaut
+  // « n'importe quel suffixe », barre oblique finale tolérée.
+  return literal.split("*").map(escapeRegExp).join("(.*)/?");
+}
 const decode = function (str: string): string {
   try {
     return decodeURIComponent(str);
@@ -70,10 +95,14 @@ function replaceCallback(
 ) {
   if (this.path) {
     this.variables.push(key);
+    // `slash` et `dot` viennent du chemin — donc littéraux, donc échappés ici :
+    // c'est le callback qui les émet, plus aucune passe globale derrière.
+    // `capture` (la contrainte du développeur) et `opt` sont, eux, des motifs
+    // VOULUS et restent intacts.
     if (checkDefaultParameters.call(this, key)) {
-      return `${(slash ? `${slash}?` : "") + (dot || "")}(${capture || "[^/]*"})${opt || ""}`;
+      return `${(slash ? "\\/?" : "") + (dot ? "\\." : "")}(${capture || "[^/]*"})${opt || ""}`;
     }
-    return `${(slash || "") + (dot || "")}(${capture || "[^/]+"})${opt || ""}`;
+    return `${(slash ? "\\/" : "") + (dot ? "\\." : "")}(${capture || "[^/]+"})${opt || ""}`;
   }
   throw new Error(`Bad path `);
 }
@@ -293,12 +322,35 @@ class Route implements IRoute {
     if (!this.path) {
       this.path = "";
     }
-    let pattern = this.path.replace(REG_ROUTE, replaceCallback.bind(this));
-    if (pattern[pattern.length - 1] === "*") {
-      pattern = pattern.replace(REG_REPLACE, "\\$1").replace(/\*/g, "(.*)/?");
-    } else {
-      pattern = pattern.replace(REG_REPLACE, "\\$1");
+    // Les LITTÉRAUX du chemin sont neutralisés AVANT que les groupes de
+    // variables ne soient posés — l'inverse (échapper le motif déjà assemblé)
+    // laissait passer tout métacaractère écrit dans le chemin ET abîmait les
+    // contraintes du développeur. Cf {@link compileLiteral}.
+    const wildcard = this.path.endsWith("*");
+    let pattern = "";
+    let from = 0;
+    // `replaceCallback` EMPILE dans `variables` : sans remise à zéro, une route
+    // recompilée (changement de préfixe, réenregistrement) déclare ses noms de
+    // variables deux fois, puis trois. Le motif, lui, reste juste — le défaut ne
+    // se voyait donc pas.
+    this.variables.length = 0;
+    REG_ROUTE.lastIndex = 0;
+    let found: RegExpExecArray | null;
+    while ((found = REG_ROUTE.exec(this.path)) !== null) {
+      pattern += compileLiteral(this.path.slice(from, found.index), wildcard);
+      pattern += replaceCallback.call(
+        this,
+        found[0],
+        found[1],
+        found[2],
+        found[3],
+        found[4],
+        found[5],
+        found.index,
+      );
+      from = found.index + found[0].length;
     }
+    pattern += compileLiteral(this.path.slice(from), wildcard);
     this.pattern = new RegExp(`^${pattern}$`, "i");
     this.compileHost();
     this.compileRequirements();

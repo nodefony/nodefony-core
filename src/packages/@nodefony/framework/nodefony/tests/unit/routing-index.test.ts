@@ -63,15 +63,37 @@ afterEach(() => {
 });
 
 describe("Routing index — classification littérale/dynamique", () => {
-  it("path avec metachar regex (+) classé dynamique → matching regex legacy préservé", () => {
-    // `^\/m+x$/i` : `+` NON échappé par compile() (qui n'échappe que / et .)
-    // → matche /mmx (quantificateur) et PAS la string littérale /m+x.
-    // Si l'index classait ce path en littéral, les deux comportements
-    // s'inverseraient — ce test verrouille la frontière de classification.
+  it("path avec metachar regex (+) : le chemin DÉCLARÉ est celui qui est servi", () => {
+    // ⚠️ CONTRAT INVERSÉ, et c'était le but. Ce test affirmait auparavant que
+    // `/m+x` servait `/mmx` et refusait `/m+x` — parce que `compile()`
+    // n'échappait que `/` et `.`, laissant le `+` valoir comme quantificateur.
+    // Une route ne servait donc pas le chemin que son auteur avait écrit.
+    // `compile()` neutralise désormais tout littéral : ce qui est déclaré est
+    // ce qui est servi, et rien d'autre.
     Router.createRoute("meta", { path: "/m+x" });
     const router = makeRouter();
-    expect(router.resolve(makeCtx("/mmx")).route?.name).to.equal("meta");
-    expect(router.resolve(makeCtx("/m+x")).resolve).to.equal(false);
+    expect(router.resolve(makeCtx("/m+x")).route?.name).to.equal("meta");
+    expect(router.resolve(makeCtx("/mmx")).resolve).to.equal(false);
+  });
+
+  it("path avec alternance (|) : la route reste ANCRÉE sur son chemin", () => {
+    // Le plus grave des métacaractères oubliés : `^/a|b$` ne dit pas « /a ou
+    // /b », il dit « commence par /a » OU « finit par b » — la route absorbait
+    // n'importe quelle URL finissant par `b`.
+    Router.createRoute("alt", { path: "/a|b" });
+    const router = makeRouter();
+    expect(router.resolve(makeCtx("/a|b")).route?.name).to.equal("alt");
+    expect(router.resolve(makeCtx("/totally/other/b")).resolve).to.equal(false);
+    expect(router.resolve(makeCtx("/a")).resolve).to.equal(false);
+  });
+
+  it("path avec parenthèses : ce n'est pas un groupe de capture", () => {
+    Router.createRoute("paren", { path: "/pricing/(beta)" });
+    const router = makeRouter();
+    expect(router.resolve(makeCtx("/pricing/(beta)")).route?.name).to.equal(
+      "paren",
+    );
+    expect(router.resolve(makeCtx("/pricing/beta")).resolve).to.equal(false);
   });
 
   it("path avec point (échappé par compile) reste littéral exact", () => {

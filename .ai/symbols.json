@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-27T18:08:35.076Z",
+  "generated": "2026-07-27T18:54:58.767Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 640,
-    "symbols": 2533,
+    "symbols": 2534,
     "classes": 335,
     "interfaces": 770,
     "types": 334,
     "enums": 4,
-    "functions": 912,
+    "functions": 913,
     "constants": 178
   },
   "symbols": {
@@ -22597,6 +22597,9 @@
       "compileDomainPatterns": [
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "escapeRegExp": [
+        "src/packages/@nodefony/framework/nodefony/src/Route.ts"
       ],
       "redactSecrets": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",

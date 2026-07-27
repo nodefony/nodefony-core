@@ -270,6 +270,7 @@ export {
   isFunction,
   isArray,
   stripTrailingSlashes,
+  escapeRegExp,
 } from "./Tools";
 
 // ─── Config (defineConfig — back-only, zod peerDep core, D1) ──────────────────

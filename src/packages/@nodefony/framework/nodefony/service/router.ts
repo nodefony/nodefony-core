@@ -54,8 +54,12 @@ const serviceName: string = "router";
 // Partition de la table par FORME de path — ne court-circuite JAMAIS le match :
 //  - littérale = pattern qui ne peut matcher qu'UNE string exacte (casse-insensible,
 //    flag `i` de compile()) → Map path.toLowerCase() → candidates, lookup O(1) ;
-//  - dynamique = {var}, wildcard, ou metachar regex NON neutralisé par compile()
-//    (qui n'échappe que `/` et `.`) → scan regex ordonné, comme avant.
+//  - dynamique = {var}, wildcard, ou metachar regex → scan regex ordonné.
+//    `compile()` neutralise pourtant TOUT littéral depuis qu'il échappe le
+//    chemin AVANT d'y poser les groupes : un path à metachar pourrait donc
+//    rejoindre les littérales. On l'en tient à l'écart quand même — la
+//    partition ne doit jamais être plus permissive que le matching qu'elle
+//    remplace, et le gain porterait sur des chemins qui n'existent pas.
 // resolve() fusionne les deux flux PAR POSITION D'INSERTION → même séquence de
 // candidats que le scan linéaire complet, MOINS les littérales d'autres paths
 // (pattern ancré ^…$ : elles ne pouvaient pas matcher, et Resolver.match est

@@ -65,6 +65,92 @@ describe("Route — compile()", () => {
     const r = new Route("r", { path: "/foo/*" });
     expect(r.pattern!.test("/foo/bar/baz")).to.be.true;
   });
+
+  it("recompiler une route ne redéclare pas ses variables", () => {
+    const r = new Route("r", { path: "/foo/{id}/{name}" });
+    r.compile();
+    r.compile();
+    expect(r.variables).to.deep.equal(["id", "name"]);
+  });
+});
+
+// ─── compile() — littéraux vs motifs voulus ───────────────────────────────────
+// Ce que le développeur ÉCRIT dans un chemin vaut pour lui-même ; ce qu'il écrit
+// dans une CONTRAINTE vaut comme expression régulière. L'ancienne compilation
+// mélangeait les deux : elle laissait le chemin agir comme un motif et abîmait
+// les contraintes. Les deux moitiés du contrat sont verrouillées ici.
+
+describe("Route — compile() : le chemin est un littéral", () => {
+  const cases: Array<[string, string, string]> = [
+    ["/pricing/(beta)", "/pricing/(beta)", "/pricing/beta"],
+    ["/api/v1+2", "/api/v1+2", "/api/v12"],
+    ["/x[ab]y", "/x[ab]y", "/xay"],
+    ["/report_2024?", "/report_2024?", "/report_202"],
+    ["/a^b$c", "/a^b$c", "/abc"],
+  ];
+  for (const [path, servi, refuse] of cases) {
+    it(`${path} sert ${servi} et refuse ${refuse}`, () => {
+      const r = new Route("r", { path });
+      expect(r.pattern!.test(servi), `devait servir ${servi}`).to.be.true;
+      expect(r.pattern!.test(refuse), `devait refuser ${refuse}`).to.be.false;
+    });
+  }
+
+  it("l'alternance ne DÉSANCRE plus la route", () => {
+    // `^/a|b$` ne dit pas « /a ou /b » : il dit « commence par /a » OU « finit
+    // par b ». La route absorbait toute URL finissant par `b`.
+    const r = new Route("r", { path: "/a|b" });
+    expect(r.pattern!.test("/a|b")).to.be.true;
+    expect(r.pattern!.test("/totally/other/b")).to.be.false;
+    expect(r.pattern!.test("/a")).to.be.false;
+  });
+});
+
+describe("Route — compile() : la contrainte reste une expression régulière", () => {
+  it("{id}(\\d+\\.\\d+) reconnaît 1.2 — l'échappement ne la corrompt plus", () => {
+    // ⚠️ RUPTURE ASSUMÉE. La passe d'échappement globale transformait `\.` en
+    // `\\.` — une barre inverse littérale : cette route ne reconnaissait RIEN.
+    const r = new Route("r", { path: "/b/{id}(\\d+\\.\\d+)" });
+    expect(r.pattern!.test("/b/1.2")).to.be.true;
+    expect(r.pattern!.test("/b/1x2")).to.be.false;
+  });
+
+  it("{id}(\\d+) inchangé", () => {
+    const r = new Route("r", { path: "/a/{id}(\\d+)" });
+    expect(r.pattern!.test("/a/42")).to.be.true;
+    expect(r.pattern!.test("/a/x")).to.be.false;
+  });
+
+  it("variable à défaut SOUS un wildcard : le défaut s'applique, la variable reste mono-segment", () => {
+    // ⚠️ RUPTURE ASSUMÉE, la seule que l'audit différentiel ait trouvée sur un
+    // cas légitime. L'ancienne passe `*` → `(.*)/?` s'appliquait au motif DÉJÀ
+    // assemblé : elle mutilait le `*` du groupe de défaut `[^/]*`, qui devenait
+    // `[^/](.*)/?` — exigeant au moins un caractère, et traversant les `/`.
+    // Résultat : `/page` était refusé alors qu'un défaut existait, et `name`
+    // capturait `x/y`. Aucune route du dépôt ne combine les deux formes.
+    const r = new Route("r", {
+      path: "/page/{name}*",
+      defaults: { name: "home" },
+    });
+    expect(r.pattern!.test("/page")).to.be.true;
+    const m = r.match(makeCtx("/page/x/y"));
+    expect(m, "la route doit reconnaître /page/x/y").to.not.be.null;
+    expect(r.variables).to.deep.equal(["name"]);
+  });
+
+  it("un point dans une contrainte vaut comme joker — et c'est ÉLARGISSANT", () => {
+    // ⚠️ RUPTURE ASSUMÉE, à connaître avant d'écrire une contrainte : avant,
+    // `(1.0)` était échappé en `(1\.0)` et ne reconnaissait que `1.0`. Une
+    // contrainte est une expression régulière ; qui veut un point littéral
+    // écrit `\.`. Corollaire : `(.*)` absorbe désormais TOUT, barres obliques
+    // comprises — donc masque les routes déclarées après elle.
+    const r = new Route("r", { path: "/v/{id}(1.0)" });
+    expect(r.pattern!.test("/v/1.0")).to.be.true;
+    expect(r.pattern!.test("/v/1x0")).to.be.true;
+
+    const glob = new Route("r2", { path: "/files/{p}(.*)" });
+    expect(glob.pattern!.test("/files/a/b/c")).to.be.true;
+  });
 });
 
 // ─── match() ──────────────────────────────────────────────────────────────────
