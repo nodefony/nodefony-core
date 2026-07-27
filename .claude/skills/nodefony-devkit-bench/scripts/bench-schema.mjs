@@ -104,7 +104,7 @@
  * trous de la grammaire en devinant juste).
  */
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   appendFileSync,
   cpSync,
@@ -295,19 +295,63 @@ export const SCHEMAS = {
 };
 
 /**
- * Consigne FIGÉE.
+ * La table sur laquelle la CHAÎNE COMPLÈTE est exigée, et sa route.
+ *
+ * **Une seule table, et c'est un choix.** Exiger l'API sur les six mesurerait
+ * l'endurance de l'agent, pas l'outillage — la même raison qui a fait figer six
+ * tables sur les cent de cal.com. La question « sait-il produire une ressource
+ * REST protégée et paginée » ne se pose pas six fois.
+ *
+ * La route tombe volontairement dans la zone `main` du gabarit
+ * (`^/api`, `session` PUIS `anonymous`) : telle quelle, elle laisse passer un
+ * anonyme. L'agent doit donc AGIR — retirer `anonymous`, déclarer une zone plus
+ * spécifique, ou décorer son controller. On impose le CHEMIN, jamais le MOYEN.
+ */
+const CHAIN = {
+  umami: { model: "Account", route: "/api/accounts" },
+  calcom: { model: "Membership", route: "/api/memberships" },
+  ghost: { model: "newsletters", route: "/api/newsletters" },
+};
+
+/**
+ * Consigne FIGÉE — schéma, puis CHAÎNE COMPLÈTE.
  *
  * Elle exige explicitement les noms de colonnes SQL : sans cette phrase, un agent
  * qui les ignore a raison de le faire, et le banc ne mesure plus le trou
  * principal d'`umami`. Elle ne souffle en revanche AUCUN moyen — savoir s'il
  * appelle le générateur ou écrit du Drizzle de mémoire fait partie de la mesure.
+ *
+ * Le second paragraphe existe parce que le banc mesurait les ENTITÉS et rien
+ * d'autre, alors que `create entity` produit une chaîne entière — entité, schéma
+ * de validation, service, controller de ressource, tests. Un agent peut donc
+ * rendre un schéma parfait sans avoir jamais exercé ce que l'outil sait faire,
+ * et le banc concluait sur la grammaire seule.
+ *
+ * Il énonce des EXIGENCES OBSERVABLES, jamais des moyens : « un anonyme ne doit
+ * pas accéder » ne dit ni zone firewall, ni décorateur ; « liste paginée » ne
+ * dit pas le contrat `IPage`. Si l'agent invente sa propre pagination, la sonde
+ * le verra — et c'est une mesure, pas un piège : le contrat unique de Nodefony
+ * est censé être trouvable.
  */
-const PROMPT =
+const chainPrompt = (key) => {
+  const c = CHAIN[key];
+  return (
+    `\n\nEnsuite, expose la table ${c.model} comme une ressource REST complète ` +
+    `servie sur \`${c.route}\` : création, lecture unitaire, liste PAGINÉE, ` +
+    `modification, suppression. Cette ressource porte des données personnelles — ` +
+    `un appel NON authentifié ne doit pas pouvoir la lire, alors qu'un ` +
+    `utilisateur connecté le doit. Une entrée invalide doit être refusée plutôt ` +
+    `qu'enregistrée.`
+  );
+};
+
+const PROMPT_BASE =
   "Le fichier `schema-cible.md` à la racine décrit le modèle de données que cette " +
   "application doit porter. Reproduis-le fidèlement : mêmes tables, mêmes colonnes " +
   "AVEC LES NOMS DE COLONNES SQL indiqués, mêmes types, mêmes contraintes " +
-  "d'unicité, mêmes index (y compris ceux qui portent plusieurs colonnes). " +
-  "Termine en prouvant que l'application démarre.";
+  "d'unicité, mêmes index (y compris ceux qui portent plusieurs colonnes).";
+
+const PROMPT_END = "\n\nTermine en prouvant que l'application démarre.";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lecteurs — deux formats d'entrée, UNE forme canonique
@@ -1209,7 +1253,7 @@ function setup(runDir, target) {
  *
  * @returns {Promise<string>} le transcript complet.
  */
-function runAgent(app, runDir) {
+function runAgent(app, runDir, prompt) {
   console.log(`\n━━ agent (${MODEL}) — reproduire le schéma`);
   const out = path.join(runDir, "transcript.jsonl");
   writeFileSync(out, "");
@@ -1218,7 +1262,7 @@ function runAgent(app, runDir) {
   return new Promise((resolve, reject) => {
     const child = spawn(
       AGENT,
-      [...AGENT_ARGS, ...(MODEL ? ["--model", MODEL] : []), PROMPT],
+      [...AGENT_ARGS, ...(MODEL ? ["--model", MODEL] : []), prompt],
       { cwd: app, env: APP_ENV, stdio: ["ignore", "pipe", "pipe"] },
     );
     const kill = setTimeout(() => child.kill("SIGKILL"), 60 * 60 * 1000);
@@ -1407,17 +1451,339 @@ function bootApp(app, runDir) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Le juge
+// Le juge de la CHAÎNE COMPLÈTE — l'API, frappée pour de vrai
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fabrique un corps de création valide À PARTIR DU SCHÉMA ATTENDU.
+ *
+ * On n'envoie que le STRICT REQUIS — colonnes non nulles, hors clé primaire et
+ * hors horodatages. Une clé primaire et un `createdAt` sont produits par la
+ * couche ; les poster ferait échouer la validation pour une raison qui ne dit
+ * rien de ce qu'on mesure.
+ *
+ * Les clés sont les PROPRIÉTÉS et non les colonnes SQL : une API expose son
+ * modèle, pas sa table — c'est d'ailleurs tout l'intérêt d'umami, où les deux
+ * diffèrent sur 72 % des colonnes.
+ *
+ * @returns `{body, skipped}` — `skipped` liste ce qu'on n'a pas su fabriquer,
+ *   pour que le rapport distingue « l'API refuse » de « le banc a mal demandé ».
+ */
+function sampleBody(table) {
+  const body = {};
+  const skipped = [];
+  const auto = /^(created_?at|updated_?at|deleted_?at)$/iu;
+  for (const c of table.columns) {
+    if (c.isId || auto.test(c.column) || auto.test(c.prop)) continue;
+    if (c.nullable) continue;
+    const max = c.length ? Number(c.length) : null;
+    switch (c.logical) {
+      case "string":
+        body[c.prop] = "ab".repeat(8).slice(0, Math.min(max ?? 16, 16));
+        break;
+      case "text":
+        body[c.prop] = "texte";
+        break;
+      case "int":
+        body[c.prop] = 1;
+        break;
+      case "float":
+      case "decimal":
+        body[c.prop] = 1.5;
+        break;
+      case "bool":
+        body[c.prop] = true;
+        break;
+      case "date":
+        body[c.prop] = new Date().toISOString();
+        break;
+      case "json":
+        body[c.prop] = {};
+        break;
+      case "uuid":
+        body[c.prop] = randomUUID();
+        break;
+      default:
+        // Énumération (dont on ignore les valeurs ici) ou type que la grammaire
+        // ne porte pas : on ne devine pas, on le DIT.
+        skipped.push(`${c.prop} (${c.logical ?? c.sourceType ?? "?"})`);
+    }
+  }
+  return { body, skipped };
+}
+
+/**
+ * Démarre le serveur de l'app, exécute `fn`, l'arrête quoi qu'il arrive.
+ *
+ * `--detach --wait` sonde les ports : si un AUTRE serveur les occupe, la
+ * readiness est déclarée et l'on interroge une application qui n'est pas la
+ * nôtre — piège déjà consigné pour les deux autres bancs. D'où des ports
+ * dédiés, et un arrêt en `finally` : un serveur laissé debout empoisonne le run
+ * suivant, qui répondra 404 sur tout.
+ */
+async function withServer(app, runDir, fn) {
+  const bin = appBin(app);
+  const start = spawnSync(
+    process.execPath,
+    [bin, "development", "--detach", "--wait"],
+    { cwd: app, encoding: "utf8", timeout: 300_000, env: APP_ENV },
+  );
+  writeFileSync(
+    path.join(runDir, "server.log"),
+    `start exit ${start.status}\n${start.stdout ?? ""}\n${start.stderr ?? ""}`,
+  );
+  if (start.status !== 0) {
+    return { started: false, probes: [] };
+  }
+  try {
+    return { started: true, probes: await fn() };
+  } finally {
+    spawnSync(process.execPath, [bin, "stop"], {
+      cwd: app,
+      encoding: "utf8",
+      timeout: 60_000,
+      env: APP_ENV,
+    });
+  }
+}
+
+/**
+ * Frappe l'API produite par l'agent et rend une sonde par exigence.
+ *
+ * **Aucune sonde ne lit un fichier.** Le code peut porter un décorateur de
+ * sécurité sans que la route soit protégée (mauvaise zone, mauvais ordre de
+ * patterns) : seule la réponse du serveur tranche. C'est la même règle que pour
+ * le schéma — la base dit ce qui existe, pas les sources.
+ *
+ * La sécurité se juge par PAIRE : refuser l'anonyme ne prouve rien tout seul,
+ * puisqu'une ressource cassée refuse tout le monde. Il faut donc AUSSI qu'un
+ * utilisateur authentifié passe.
+ */
+async function judgeHttp(app, runDir, table, chain) {
+  const base = `http://127.0.0.1:${PORTS.NF_PORT}`;
+  const probes = [];
+  const add = (name, ok, detail, observe = false) =>
+    probes.push({ name, ok, detail, observe });
+  const trace = [];
+  const call = async (method, url, { cookie, body, headers } = {}) => {
+    const res = await fetch(`${base}${url}`, {
+      method,
+      redirect: "manual",
+      headers: {
+        ...(body ? { "content-type": "application/json" } : {}),
+        ...(cookie ? { cookie } : {}),
+        ...headers,
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    const text = await res.text();
+    let json = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      /* réponse non JSON — le statut suffit */
+    }
+    trace.push({
+      method,
+      url,
+      status: res.status,
+      body: text.slice(0, 400),
+    });
+    return { status: res.status, json, text, headers: res.headers };
+  };
+
+  // ── 1. La route existe-t-elle seulement ?
+  const anon = await call("GET", chain.route);
+  add(
+    "la ressource est SERVIE à la route demandée",
+    anon.status !== 404,
+    `GET ${chain.route} → ${anon.status}`,
+  );
+
+  // ── 2. Sécurité, versant négatif : un anonyme ne lit pas.
+  add(
+    "un appel NON authentifié est refusé",
+    anon.status !== 404 && !(anon.status >= 200 && anon.status < 300),
+    `anonyme → ${anon.status}` +
+      (anon.status >= 200 && anon.status < 300
+        ? " (la ressource répond à tout le monde)"
+        : ""),
+  );
+
+  // ── 3. Ouvrir une session — décor, pas exigence.
+  //    Le champ est `username` (contrat du BFF, `SessionAuthController`), pas
+  //    `identifier` : la première version postait la mauvaise clé et récoltait
+  //    un 401 qu'on aurait pu lire comme « l'app refuse l'admin ».
+  const login = await call("POST", "/nodefony/security/api/auth/login", {
+    body: { username: "admin", password: "admin" },
+  });
+  const raw = login.headers.getSetCookie?.() ?? [];
+  const cookie = raw.map((c) => c.split(";")[0]).join("; ");
+  if (login.status >= 300 || !cookie) {
+    add(
+      "session admin ouverte (décor)",
+      false,
+      `login → ${login.status} — sondes authentifiées NON exécutées`,
+    );
+    writeFileSync(
+      path.join(runDir, "http-trace.json"),
+      JSON.stringify(trace, null, 2),
+    );
+    return probes;
+  }
+
+  // ── 4. Sécurité, versant positif : sans lui, « tout casser » passerait.
+  const authed = await call("GET", chain.route, { cookie });
+  add(
+    "un utilisateur AUTHENTIFIÉ accède",
+    authed.status >= 200 && authed.status < 300,
+    `authentifié → ${authed.status}`,
+  );
+
+  // ── 5. Pagination — le contrat unique de Nodefony, pas une invention locale.
+  const page = await call("GET", `${chain.route}?limit=2`, { cookie });
+  const p = page.json;
+  add(
+    "la liste rend une PAGE au contrat Nodefony",
+    Boolean(p) && Array.isArray(p.items) && typeof p.hasNext === "boolean",
+    p
+      ? `clés : ${Object.keys(p).join(", ")}`
+      : `réponse non JSON (${page.status})`,
+  );
+
+  // ── 6. Création.
+  const { body, skipped } = sampleBody(table);
+  const created = await call("POST", chain.route, { cookie, body });
+  add(
+    "création → 201 avec un en-tête Location",
+    created.status === 201 && Boolean(created.headers.get("location")),
+    `POST → ${created.status}` +
+      (created.headers.get("location")
+        ? ` · Location: ${created.headers.get("location")}`
+        : " · pas de Location") +
+      (skipped.length ? ` · champs non fabriqués : ${skipped.join(", ")}` : ""),
+  );
+
+  // ── 7. Validation : une entrée absurde ne doit pas entrer.
+  const bad = await call("POST", chain.route, {
+    cookie,
+    body: {
+      ...body,
+      ...Object.fromEntries(Object.keys(body).map((k) => [k, 42])),
+    },
+  });
+  add(
+    "une entrée invalide est refusée (422)",
+    bad.status === 422,
+    `POST invalide → ${bad.status}`,
+  );
+
+  // ── 8. Cycle de vie complet sur la ressource créée.
+  const loc = created.headers.get("location");
+  if (created.status === 201 && loc) {
+    const one = await call("GET", loc, { cookie });
+    add(
+      "lecture unitaire → 200",
+      one.status === 200,
+      `GET ${loc} → ${one.status}`,
+    );
+    const patched = await call("PATCH", loc, {
+      cookie,
+      body: Object.fromEntries(Object.entries(body).slice(0, 1)),
+    });
+    add(
+      "modification partielle acceptée",
+      patched.status >= 200 && patched.status < 300,
+      `PATCH → ${patched.status}`,
+    );
+    const del = await call("DELETE", loc, { cookie });
+    add("suppression → 204", del.status === 204, `DELETE → ${del.status}`);
+    const gone = await call("GET", loc, { cookie });
+    add(
+      "la ressource supprimée → 404",
+      gone.status === 404,
+      `GET → ${gone.status}`,
+    );
+  }
+
+  // ── 9. Idempotence — OBSERVÉE : jamais demandée dans la consigne, mais le
+  //    controller généré la porte. Le savoir renseigne sur ce que l'agent a
+  //    conservé du gabarit, sans le sanctionner pour ne pas l'avoir inventé.
+  const key = randomUUID();
+  const first = await call("POST", chain.route, {
+    cookie,
+    body,
+    headers: { "idempotency-key": key },
+  });
+  const again = await call("POST", chain.route, {
+    cookie,
+    body,
+    headers: { "idempotency-key": key },
+  });
+  add(
+    "clé d'idempotence honorée (rejeu = même réponse)",
+    first.status === again.status &&
+      first.headers.get("location") === again.headers.get("location"),
+    `${first.status} puis ${again.status}`,
+    true,
+  );
+
+  writeFileSync(
+    path.join(runDir, "http-trace.json"),
+    JSON.stringify(trace, null, 2),
+  );
+  return probes;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Le juge du SCHÉMA
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Cherche la table attendue SOUS UN AUTRE NOM.
+ *
+ * Sans cela le rapport ment par omission : il annonce « 0 colonne sur 83 »
+ * quand les 83 colonnes existent dans une table que le générateur a nommée
+ * autrement — `create entity Account` crée `accounts`, et rien ne permet
+ * d'imposer le nom. On lit alors un échec total là où le travail est fait,
+ * et on accuse l'agent au lieu de l'outil.
+ *
+ * Le critère est le CONTENU, jamais la ressemblance des noms : une table qui
+ * porte la moitié des colonnes attendues est la même table.
+ *
+ * @returns `{name, got}` ou `null`.
+ */
+function findRenamed(expected, actual) {
+  const wanted = expected.columns.map((c) => c.column.toLowerCase());
+  if (wanted.length === 0) return null;
+  for (const [name, got] of actual) {
+    const have = new Set(got.columns.map((c) => c.name.toLowerCase()));
+    const hits = wanted.filter((w) => have.has(w)).length;
+    if (hits / wanted.length >= 0.5) return { name, got };
+  }
+  return null;
+}
 
 /** Confronte le schéma attendu au schéma réellement créé. */
 export function compare(expected, actual) {
   return expected.map((t) => {
-    const got = actual.get(t.table.toLowerCase());
+    let got = actual.get(t.table.toLowerCase());
+    let renamedTo = null;
+    if (!got) {
+      const near = findRenamed(t, actual);
+      if (near) {
+        // La table EXISTE, sous un autre nom. On la juge quand même — sinon on
+        // ne saurait rien de ses colonnes — mais on garde qu'elle est mal
+        // nommée : c'est un écart au schéma cible, et il compte.
+        got = near.got;
+        renamedTo = near.name;
+      }
+    }
     if (!got) {
       return {
         table: t.table,
         present: false,
+        renamedTo: null,
         columns: { expected: t.columns.length, found: 0, wrongType: 0 },
         indexes: { expected: t.indexes.length, found: 0 },
         missingColumns: t.columns.map((c) => c.column),
@@ -1454,7 +1820,10 @@ export function compare(expected, actual) {
       .map((i) => i.columns.join("+"));
     return {
       table: t.table,
-      present: true,
+      // Une table trouvée sous un autre nom n'est PAS la table demandée : le
+      // schéma cible n'est pas respecté, et le gate doit continuer de mordre.
+      present: renamedTo === null,
+      renamedTo,
       columns: { expected: t.columns.length, found, wrongType },
       indexes: {
         expected: t.indexes.length,
@@ -1480,6 +1849,7 @@ function report(ctx) {
     boot,
     dbPath,
     isolation,
+    http,
   } = ctx;
   const tot = (pick) => rows.reduce((n, r) => n + pick(r), 0);
   const tablesFound = rows.filter((r) => r.present).length;
@@ -1551,6 +1921,24 @@ function report(ctx) {
     console.log(`      • ${o.tool} ${o.target.slice(0, 90)}`);
   }
 
+  if (http) {
+    console.log(`\n  LA CHAÎNE COMPLÈTE — API frappée sur un serveur RÉEL`);
+    if (!http.started) {
+      console.log(
+        `    ❌ le serveur n'a pas démarré — aucune sonde exécutée (server.log)`,
+      );
+    } else {
+      for (const p of http.probes) {
+        console.log(
+          `    ${p.observe ? "👁 " : p.ok ? "✅" : "❌"} ${p.name.padEnd(48)} ${p.detail}`,
+        );
+      }
+      if (!http.probes.length) {
+        console.log(`    (aucune sonde — la ressource n'a pas été trouvée)`);
+      }
+    }
+  }
+
   if (inexprimables.length) {
     console.log(`\n  INEXPRIMABLE PAR LA GRAMMAIRE (relevé à la source)`);
     for (const l of inexprimables) console.log(`    • ${l}`);
@@ -1562,12 +1950,35 @@ function report(ctx) {
     for (const l of partages.slice(0, 12)) console.log(`    • ${l}`);
   }
 
+  // Un nom de table imposé par l'outil n'est pas un oubli de l'agent : c'est un
+  // trou de la grammaire, et il se lit autrement. Le dire ICI évite de conclure
+  // « il n'a rien produit » devant un schéma entier rangé sous d'autres noms.
+  const renamed = rows.filter((r) => r.renamedTo);
+  if (renamed.length) {
+    console.log(`\n  TABLES TROUVÉES SOUS UN AUTRE NOM (le schéma cible dit…)`);
+    for (const r of renamed) {
+      console.log(`    • ${r.table} → ${r.renamedTo}`);
+    }
+    console.log(
+      `    Le générateur dérive le nom de table du nom d'entité et le met au\n` +
+        `    PLURIEL (\`tableName()\`) ; aucune option ne permet de l'imposer.\n` +
+        `    Un schéma existant ne peut donc pas être épousé par le générateur.`,
+    );
+  }
+
   console.log(`\n  DÉTAIL PAR TABLE`);
   for (const r of rows) {
-    const mark = !r.present ? "❌" : r.missingColumns.length ? "⚠️ " : "✅";
+    const mark = r.renamedTo
+      ? "🔤"
+      : !r.present
+        ? "❌"
+        : r.missingColumns.length
+          ? "⚠️ "
+          : "✅";
     console.log(
       `    ${mark} ${r.table.padEnd(18)} colonnes ${String(r.columns.found).padStart(2)}/${r.columns.expected}` +
-        `  index ${String(r.indexes.found).padStart(2)}/${r.indexes.expected}`,
+        `  index ${String(r.indexes.found).padStart(2)}/${r.indexes.expected}` +
+        (r.renamedTo ? `   (nommée « ${r.renamedTo} »)` : ""),
     );
     if (r.missingColumns.length) {
       console.log(
@@ -1621,6 +2032,13 @@ function report(ctx) {
         generatorCalls: work.generated,
         handEdits: work.edits,
         outsideAccess: work.outside ?? [],
+        chain: http
+          ? {
+              route: CHAIN[key]?.route ?? null,
+              serverStarted: http.started,
+              probes: http.probes,
+            }
+          : null,
         tables: rows,
       },
       null,
@@ -1656,6 +2074,13 @@ async function main() {
     );
     process.exit(64);
   }
+
+  // La chaîne complète est le DÉFAUT : mesurer les entités seules laissait
+  // hors de vue tout ce que `create entity` produit (controller, validation,
+  // service). `--schema-only` restitue l'ancienne cible — un run de l'une ne se
+  // compare pas à un run de l'autre, la consigne n'est pas la même.
+  let chainOn = !argv.includes("--schema-only") && Boolean(CHAIN[key]);
+  const prompt = PROMPT_BASE + (chainOn ? chainPrompt(key) : "") + PROMPT_END;
 
   const source = fetchSchema(key, def);
   const parsed =
@@ -1721,11 +2146,30 @@ async function main() {
       process.exit(3);
     }
 
+    // La CONSIGNE est écrite avec le run. Sans elle, `--analyze-only` juge un
+    // travail qu'on n'a peut-être jamais demandé : un run de schéma seul se
+    // verrait reprocher une API non protégée, alors que rien ne l'exigeait.
+    writeFileSync(
+      path.join(runDir, "mission.json"),
+      JSON.stringify({ schema: key, chain: chainOn, prompt }, null, 2),
+    );
+
     if (argv.includes("--setup-only")) {
       console.log(`\n• décor prêt : ${app}\n  cible : ${app}/schema-cible.md`);
       return;
     }
-    await runAgent(app, runDir);
+    await runAgent(app, runDir, prompt);
+  } else {
+    const missionPath = path.join(runDir, "mission.json");
+    if (existsSync(missionPath)) {
+      chainOn = JSON.parse(readFileSync(missionPath, "utf8")).chain === true;
+    } else {
+      // Un run antérieur à la traçabilité de la consigne : on ne devine pas.
+      chainOn = false;
+      console.log(
+        `\n⚠️  ce run ne porte pas sa consigne (mission.json absent) — juge HTTP sauté.`,
+      );
+    }
   }
 
   const transcriptPath = path.join(runDir, "transcript.jsonl");
@@ -1745,6 +2189,26 @@ async function main() {
         ? readSqlite(dbPath)
         : new Map();
   const rows = compare(expected, actual);
+
+  // Le juge du schéma a lu la base ; celui-ci démarre l'application et frappe
+  // l'API. Les deux sont nécessaires : une table juste ne dit rien d'une route
+  // servie, et une route qui répond ne dit rien du schéma sous-jacente.
+  let http = null;
+  if (chainOn && boot.buildOk) {
+    const chain = CHAIN[key];
+    const target = expected.find((t) => t.model === chain.model);
+    if (!target) {
+      console.log(
+        `\n⚠️  table de chaîne « ${chain.model} » absente du sous-ensemble — juge HTTP sauté`,
+      );
+    } else {
+      console.log(`\n• serveur réel — API ${chain.route}…`);
+      http = await withServer(app, runDir, () =>
+        judgeHttp(app, runDir, target, chain),
+      );
+    }
+  }
+
   const ok = report({
     runDir,
     key,
@@ -1756,6 +2220,7 @@ async function main() {
     boot,
     dbPath,
     isolation,
+    http,
   });
   process.exit(ok ? 0 : 1);
 }
