@@ -285,3 +285,264 @@ describe.skipIf(!REDIS_UP)("F83 — injection tierce sur le bus Redis", () => {
     expect(b.hub.probe().ingressRejectedTotal).to.equal(0);
   });
 });
+
+/**
+ * Cinq propriétés que SEUL du Redis réel peut mettre en défaut — un bus en mémoire
+ * (unit tests) ne peut ni saturer une vraie file d'acquittement réseau, ni couper
+ * une vraie connexion TCP, ni exercer le routage par canal du serveur Redis.
+ */
+describe.skipIf(!REDIS_UP)(
+  "RedisBackplane — contre-pression, cloisonnement, abonnement tardif, ordre FIFO (Redis réel)",
+  () => {
+    const clients: RedisClientType[] = [];
+    const backplanes: RedisBackplane[] = [];
+    const channel = `nodefony:rt:test2:${Date.now()}`;
+
+    /** Pod complet, avec option de canal et de seuil de file — pour ces 4 bancs. */
+    async function mkPod(
+      originId: string,
+      opts: { channel?: string; maxQueueBytes?: number } = {},
+    ): Promise<RedisBackplane> {
+      const pub = mkClient();
+      const sub = mkClient();
+      await pub.connect();
+      await sub.connect();
+      clients.push(pub, sub);
+      const bp = new RedisBackplane(
+        createRedisServiceTransport(pub, sub),
+        originId,
+        opts.channel ?? channel,
+        null,
+        opts.maxQueueBytes !== undefined
+          ? { maxQueueBytes: opts.maxQueueBytes }
+          : {},
+      );
+      backplanes.push(bp);
+      return bp;
+    }
+
+    afterEach(async () => {
+      await Promise.allSettled(backplanes.map((b) => b.stop()));
+      backplanes.length = 0;
+      await Promise.allSettled(
+        clients.map(async (c) => {
+          if (c.isOpen) await c.quit();
+        }),
+      );
+      clients.length = 0;
+    });
+
+    it("contre-pression RÉELLE : le client Redis authentique alimente la file bornée (pas une promesse simulée)", async () => {
+      // Même gabarit que le banc unitaire de `BackplanePublishQueue` (seuil 2000,
+      // charge ~1 Ko) — mais ICI `publisher.publish()` est le vrai client `redis`.
+      // L'incrément de la file est SYNCHRONE (juste après l'appel `emit()`, cf
+      // `BackplanePublishQueue.send`) : il ne dépend donc pas de la latence réseau
+      // réelle — seul compte que la promesse rendue par le client réel soit bien
+      // PROPAGÉE jusqu'à la file, pas avalée en route.
+      const KB = "x".repeat(1000);
+      const a = await mkPod("pod-A", { maxQueueBytes: 2000 });
+      const b = await mkPod("pod-B");
+      const got: IBackplaneMessage[] = [];
+      b.onMessage((m) => got.push(m));
+      await a.start();
+      await b.start();
+      await wait(80);
+
+      a.publish("chat:room", KB); // file vide → admis
+      a.publish("chat:room", KB); // file < seuil → admis
+      a.publish("chat:room", KB); // file ≥ seuil → JETÉ
+
+      expect(
+        a.describe().queue?.droppedTotal,
+        "la file bornée doit jeter la 3e publication AVANT même l'acquittement réseau",
+      ).to.equal(1);
+
+      await wait(200); // laisse Redis acquitter + livrer les 2 publications admises
+      expect(
+        got,
+        "B ne reçoit que les 2 publications réellement parties",
+      ).to.have.lengthOf(2);
+      expect(
+        a.describe().queue?.bytes,
+        "la file a drainé une fois les acquittements réseau reçus",
+      ).to.equal(0);
+    });
+
+    it("cloisonnement RÉEL : deux backplanes sur des namespaces distincts ne se voient PAS, même sur le même serveur Redis", async () => {
+      const chanA = `${channel}:ns-a`;
+      const chanB = `${channel}:ns-b`; // canal distinct → le serveur Redis ne route rien vers B
+      const a = await mkPod("pod-A", { channel: chanA });
+      const b = await mkPod("pod-B", { channel: chanB });
+      const got: IBackplaneMessage[] = [];
+      b.onMessage((m) => got.push(m));
+      await a.start();
+      await b.start();
+      await wait(80);
+
+      a.publish("chat:room", "message namespace A");
+      await wait(150);
+
+      expect(
+        got,
+        "aucun cross-talk entre namespaces sur le même serveur Redis",
+      ).to.have.lengthOf(0);
+    });
+
+    it("abonnement tardif : un pod qui s'abonne APRÈS une publication ne reçoit pas le message passé, mais reçoit bien les suivants", async () => {
+      const a = await mkPod("pod-A");
+      await a.start();
+      await wait(50);
+
+      a.publish("chat:room", "avant abonnement"); // personne n'écoute encore sur ce canal
+      await wait(150);
+
+      const b = await mkPod("pod-B"); // s'abonne APRÈS la publication passée
+      const got: IBackplaneMessage[] = [];
+      b.onMessage((m) => got.push(m));
+      await b.start();
+      await wait(80);
+
+      a.publish("chat:room", "après abonnement");
+      await wait(150);
+
+      expect(
+        got,
+        "pub/sub Redis ne rejoue jamais le passé : seul le message postérieur à l'abonnement arrive",
+      ).to.deep.equal([
+        {
+          channel: "chat:room",
+          payload: "après abonnement",
+          originId: "pod-A",
+        },
+      ]);
+    });
+
+    it("ordre FIFO : les messages d'un même émetteur arrivent dans l'ordre d'émission", async () => {
+      const a = await mkPod("pod-A");
+      const b = await mkPod("pod-B");
+      const got: IBackplaneMessage[] = [];
+      b.onMessage((m) => got.push(m));
+      await a.start();
+      await b.start();
+      await wait(80);
+
+      const N = 30;
+      for (let i = 0; i < N; i += 1) a.publish("chat:room", i);
+      await wait(300);
+
+      expect(got.map((m) => m.payload)).to.deep.equal(
+        Array.from({ length: N }, (_, i) => i),
+      );
+    });
+  },
+);
+
+/**
+ * RECONNEXION — coupure **réelle** de la connexion Redis, pas un `.quit()`
+ * volontaire (chemin intentionnel côté client qui ne déclenche PAS le
+ * `reconnectStrategy` — `RedisSocket#destroy` pose `#isOpen = false` avant de
+ * fermer, donc le handler de fermeture inattendue `#onSocketError` s'auto-annule).
+ * On simule un incident réel (redémarrage Redis, coupure réseau, LB qui recycle la
+ * connexion) via `CLIENT KILL` émis depuis une connexion tierce : le client abonné
+ * voit une fermeture INATTENDUE, déclenche son `reconnectStrategy`, et le driver
+ * `redis` ré-abonne automatiquement les canaux actifs (mécanisme interne
+ * `commands-queue.js` → `resubscribe`, rejoué à chaque (re)connexion du socket).
+ * `RedisBackplane` ne porte AUCUNE logique de reconnexion propre — ce banc prouve
+ * que rien dans le branchement (transport, handler conservé après coupure) ne fait
+ * obstacle à ce mécanisme.
+ */
+describe.skipIf(!REDIS_UP)(
+  "RedisBackplane — reconnexion (coupure réelle de connexion Redis)",
+  () => {
+    const clients: RedisClientType[] = [];
+    const backplanes: RedisBackplane[] = [];
+    const channel = `nodefony:rt:test3:${Date.now()}`;
+
+    /** Client dont le `reconnectStrategy` est ACTIF (contrairement à `mkClient()`). */
+    function mkReconnectingClient(): RedisClientType {
+      const url = process.env.REDIS_URL;
+      const c = createClient(
+        url
+          ? { url, socket: { reconnectStrategy: () => 100 } }
+          : {
+              socket: { host: HOST, port: PORT, reconnectStrategy: () => 100 },
+              password: PASSWORD,
+            },
+      ) as RedisClientType;
+      c.on("error", () => {}); // silence — le test observe l'effet, pas l'event brut
+      return c;
+    }
+
+    afterEach(async () => {
+      await Promise.allSettled(backplanes.map((b) => b.stop()));
+      backplanes.length = 0;
+      await Promise.allSettled(
+        clients.map(async (c) => {
+          if (c.isOpen) await c.quit();
+        }),
+      );
+      clients.length = 0;
+    });
+
+    it("reconnexion : le backplane se rétablit après une coupure de la connexion Redis (CLIENT KILL réel)", async () => {
+      const pubA = mkClient();
+      const subA = mkClient();
+      await pubA.connect();
+      await subA.connect();
+      clients.push(pubA, subA);
+      const a = new RedisBackplane(
+        createRedisServiceTransport(pubA, subA),
+        "pod-A",
+        channel,
+      );
+      backplanes.push(a);
+
+      const pubB = mkClient();
+      const subB = mkReconnectingClient();
+      await pubB.connect();
+      await subB.connect();
+      clients.push(pubB, subB);
+      const subBId = await subB.clientId();
+      const b = new RedisBackplane(
+        createRedisServiceTransport(pubB, subB),
+        "pod-B",
+        channel,
+      );
+      backplanes.push(b);
+
+      const got: IBackplaneMessage[] = [];
+      b.onMessage((m) => got.push(m));
+      await a.start();
+      await b.start();
+      await wait(80);
+
+      a.publish("chat:room", "avant coupure");
+      await wait(150);
+      expect(
+        got,
+        "sanity : la liaison fonctionne avant la coupure",
+      ).to.have.lengthOf(1);
+
+      // Coupure RÉELLE depuis le serveur (pas un arrêt volontaire du client).
+      const admin = mkClient();
+      await admin.connect();
+      clients.push(admin);
+      await admin.clientKill({ filter: "ID", id: subBId });
+
+      await wait(800); // laisse le client se reconnecter puis se ré-abonner
+
+      a.publish("chat:room", "après reconnexion");
+      await wait(300);
+
+      expect(
+        got,
+        "le backplane doit avoir repris la réception après la coupure",
+      ).to.have.lengthOf(2);
+      expect(got[1]).to.deep.equal({
+        channel: "chat:room",
+        payload: "après reconnexion",
+        originId: "pod-A",
+      });
+    });
+  },
+);
