@@ -121,10 +121,14 @@ jobs:
           mode: development --no-watch
           node-args: --expose-gc
 
-      # DEUX rapporteurs, et c'est délibéré : `--reporter=json` seul REMPLACE la
-      # sortie lisible, si bien qu'un seuil franchi ne dit plus de combien ni sur
-      # quel banc. Une défaillance qui ne peut pas s'expliquer coûte plus cher que
-      # celle qu'elle signale.
+      # ⚠️ AUCUN `--reporter` ici, et c'est la leçon de ce fichier : cette option
+      # REMPLACE `test.reporters` de la configuration au lieu de s'y ajouter.
+      # L'étape la posait pour obtenir le rapport JSON — et désarmait du même
+      # geste le rapporteur de gates censé la protéger. Un job vert, aucune garde
+      # chargée : exactement le silence que ce workflow existe pour rompre.
+      # Le rapport JSON est désormais déclaré dans `vitest.load.config.ts`, sous
+      # condition de `CI`, où il COHABITE avec les autres rapporteurs.
+      #
       # `test:load` et NON `test:memory` : la même configuration séquentielle porte
       # les deux, et le banc mémoire n'en est qu'un fichier sur sept. Les six autres
       # — connexions WebSocket concurrentes et churn, débit d'écho et de diffusion,
@@ -141,9 +145,7 @@ jobs:
         working-directory: src/packages/@nodefony/http
         env:
           NF_GATES_EXPECT: "Memory leaks — HTTP,Memory leaks — WebSocket"
-        run: |
-          npm run test:load -- \
-            --reporter=default --reporter=json --outputFile=memory-report.json
+        run: npm run test:load
 
       # `always()` : c'est en ÉCHEC que ce résumé sert le plus. Il dit de combien
       # le seuil a été franchi — un dépassement de quelques Mo se lit comme du

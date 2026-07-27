@@ -25,7 +25,20 @@ export default defineConfig({
     // `NF_GATES_EXPECT` permet à la PASSE d'exiger que le gate mémoire ait
     // réellement tourné. Un serveur injoignable, un fichier renommé, et cette
     // suite rend un vert qui n'a mesuré aucun octet.
-    reporters: ["default", gateReporter([])],
+    //
+    // ⚠️ Le rapport JSON est déclaré ICI et non par `--reporter=json` en ligne
+    // de commande : cette option REMPLACE `test.reporters` au lieu de s'y
+    // ajouter. Le workflow l'utilisait, et désarmait donc en silence le
+    // rapporteur censé le protéger — un job vert, aucune garde chargée.
+    // Vérifié : avec `--reporter` en ligne de commande, une attente
+    // `NF_GATES_EXPECT` volontairement fausse laisse sortir 0.
+    reporters: process.env.CI
+      ? [
+          "default",
+          ["json", { outputFile: "memory-report.json" }],
+          gateReporter([]),
+        ]
+      : ["default", gateReporter([])],
     include: [
       "nodefony/tests/load/**/*.test.ts",
       "nodefony/tests/http/memory.test.ts",

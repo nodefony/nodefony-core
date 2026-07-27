@@ -148,6 +148,29 @@ chiffré se périme au premier test ajouté.
 
 ---
 
+### ⚠️ Le piège qui désarme les trois
+
+`--reporter=…` en ligne de commande **remplace** `test.reporters` au lieu de s'y
+ajouter. Une étape qui réclame un rapport JSON de cette façon retire la garde
+qu'on vient de lui poser — silencieusement, et en restant verte.
+
+C'est arrivé au workflow du gate mémoire le jour même où sa garde y a été
+ajoutée : la variable était bien passée, le rapporteur n'était pas chargé, et
+seul un contrôle du journal l'a montré. Un rapport supplémentaire se déclare donc
+**dans la configuration** :
+
+```ts
+reporters: process.env.CI
+  ? ["default", ["json", { outputFile: "rapport.json" }], gateReporter(gates)]
+  : ["default", gateReporter(gates)],
+```
+
+> Vérifier qu'une garde est **chargée** ne se déduit pas d'un job vert : c'est
+> précisément ce qu'un job vert ne dit pas. Chercher la ligne du rapporteur dans
+> le journal.
+
+---
+
 ## 4. Le décor, et ses deux pièges déjà payés
 
 ### Redis se monte par `docker run`, pas par `services:`

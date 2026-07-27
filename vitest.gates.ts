@@ -59,6 +59,23 @@
  * });
  * ```
  *
+ * ## ⚠️ Ce rapporteur se DÉSARME en silence
+ *
+ * `--reporter=…` en ligne de commande **REMPLACE** `test.reporters` au lieu de
+ * s'y ajouter. Une étape qui demande un rapport JSON par la ligne de commande
+ * retire donc cette garde — sans un mot, et en restant verte. C'est arrivé au
+ * workflow du gate mémoire le jour même où la garde y a été posée : la variable
+ * était bien passée, le rapporteur n'était pas chargé.
+ *
+ * Un rapport supplémentaire se déclare donc DANS la configuration, où il
+ * cohabite :
+ *
+ * ```ts
+ * reporters: process.env.CI
+ *   ? ["default", ["json", { outputFile: "rapport.json" }], gateReporter(gates)]
+ *   : ["default", gateReporter(gates)],
+ * ```
+ *
  * ## Variables d'environnement lues par le rapporteur
  *
  * | Variable          | Effet                                                        |
