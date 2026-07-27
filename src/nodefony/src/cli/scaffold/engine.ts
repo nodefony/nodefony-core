@@ -2253,6 +2253,69 @@ function runEntityScaffold(
  * @param importPath - chemin relatif du descripteur.
  * @throws si l'entité est déjà référencée, ou si aucun point d'insertion n'est trouvé.
  */
+/**
+ * Position d'insertion devant la classe `… extends Module` — décorateurs de
+ * classe COMPRIS, puisque `@entities([…])` doit se poser au-dessus d'eux.
+ *
+ * Volontairement PAS une expression régulière. Le motif naturel
+ * (`(?:@\w+\([\s\S]*?\)\s*)*class …`) est ambigu — le contenu paresseux d'un
+ * décorateur peut se découper de plusieurs façons entre deux itérations — donc
+ * exponentiel au backtracking : mesuré ici, 26 décorateurs sans classe à trouver
+ * coûtaient 636 ms, et chaque paire supplémentaire multipliait par ~3,5. Or le
+ * pire cas EST le cas d'échec prévu par l'appelant (ancre introuvable) : la
+ * commande figeait au lieu de rendre son geste manuel.
+ *
+ * Le balayage ci-dessous remonte les décorateurs un par un en appariant les
+ * parenthèses — linéaire, et correct sur un décorateur qui en contient
+ * lui-même (`@entities([defineEntity(x)])`).
+ *
+ * @param source - contenu de l'`index.ts` de la cible.
+ * @returns l'index d'insertion, ou `undefined` si aucune classe `extends Module`.
+ */
+export function findModuleClassAnchor(source: string): number | undefined {
+  const match = /^class\s+\w+\s+extends\s+Module\b/mu.exec(source);
+  if (!match || match.index === undefined) {
+    return undefined;
+  }
+  let at = match.index;
+  for (;;) {
+    // Blancs qui séparent le décorateur de ce qui le suit.
+    let end = at - 1;
+    while (end >= 0 && /\s/u.test(source[end])) {
+      end--;
+    }
+    if (end < 0 || source[end] !== ")") {
+      return at;
+    }
+    // Parenthèse ouvrante APPARIÉE (un décorateur peut en contenir).
+    let depth = 0;
+    let open = end;
+    for (; open >= 0; open--) {
+      const char = source[open];
+      if (char === ")") {
+        depth++;
+      } else if (char === "(") {
+        depth--;
+        if (depth === 0) {
+          break;
+        }
+      }
+    }
+    if (open < 0) {
+      return at; // parenthèses non appariées → on ne remonte pas plus haut
+    }
+    // `@nom` collé à l'ouvrante, sinon ce n'est pas un décorateur.
+    let name = open - 1;
+    while (name >= 0 && /[\w.]/u.test(source[name])) {
+      name--;
+    }
+    if (name < 0 || source[name] !== "@" || name === open - 1) {
+      return at;
+    }
+    at = name;
+  }
+}
+
 export function wireEntitiesDecorator(
   indexPath: string,
   className: string,
@@ -2297,10 +2360,9 @@ export function wireEntitiesDecorator(
 
   // Ancre : `@controllers(` s'il existe, sinon la déclaration de classe.
   const anchorRe = /^@controllers\(/mu;
-  const classRe =
-    /^(?:@[\w.]+\([\s\S]*?\)\s*)*class\s+\w+\s+extends\s+Module\b/mu;
-  const anchor = anchorRe.exec(source) ?? classRe.exec(source);
-  if (!anchor || anchor.index === undefined) {
+  const anchorAt =
+    anchorRe.exec(source)?.index ?? findModuleClassAnchor(source);
+  if (anchorAt === undefined) {
     throw new Error(
       `ni @controllers ni « class … extends Module » dans ${indexPath} — ajoute à la main :\n${manual}`,
     );
@@ -2320,16 +2382,17 @@ export function wireEntitiesDecorator(
     source.slice(0, importAt) + injected + source.slice(importAt);
 
   // L'ancre est recalculée : les imports viennent de décaler le fichier.
-  const shifted = anchorRe.exec(withImports) ?? classRe.exec(withImports);
-  if (!shifted || shifted.index === undefined) {
+  const shiftedAt =
+    anchorRe.exec(withImports)?.index ?? findModuleClassAnchor(withImports);
+  if (shiftedAt === undefined) {
     throw new Error(
       `point d'insertion perdu dans ${indexPath} — ajoute à la main :\n${manual}`,
     );
   }
   const wired =
-    withImports.slice(0, shifted.index) +
+    withImports.slice(0, shiftedAt) +
     `@entities([${className}])\n` +
-    withImports.slice(shifted.index);
+    withImports.slice(shiftedAt);
   writer.write(indexPath, wired);
 }
 

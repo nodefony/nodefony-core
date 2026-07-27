@@ -27,6 +27,7 @@ import {
   linkLocalDeps,
   runScaffold,
   getScaffoldContext,
+  findModuleClassAnchor,
 } from "../cli/scaffold/engine";
 import { ScaffoldWriter, diffLines } from "../cli/scaffold/writer";
 import { askMissing } from "../cli/scaffold/interactive";
@@ -2181,6 +2182,53 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const index = readFileSync(path.join(dest, "index.ts"), "utf8");
       assert.match(index, /@entities\(\[PostEntity\]\)/u);
       assert.notInclude(index, "PostController");
+    });
+
+    describe("ancre de la classe Module (findModuleClassAnchor)", () => {
+      it("remonte les décorateurs de classe, parenthèses imbriquées comprises", () => {
+        const source =
+          `import { Module } from "nodefony";\n\n` +
+          `@services([A])\n` +
+          `@entities([defineEntity(x)])\n` +
+          `class App extends Module {}\n`;
+        const at = findModuleClassAnchor(source);
+        assert.isNumber(at);
+        // L'insertion se fait AU-DESSUS des décorateurs, pas entre eux et la classe.
+        assert.strictEqual(
+          source.slice(at as number),
+          "@services([A])\n@entities([defineEntity(x)])\nclass App extends Module {}\n",
+        );
+      });
+
+      it("sans décorateur : l'ancre est la classe elle-même", () => {
+        const source = `import { Module } from "nodefony";\n\nclass App extends Module {}\n`;
+        assert.strictEqual(
+          source.slice(findModuleClassAnchor(source) as number),
+          "class App extends Module {}\n",
+        );
+      });
+
+      it("aucune classe Module → undefined (l'appelant rend son geste manuel)", () => {
+        assert.isUndefined(findModuleClassAnchor(`export const x = 1;\n`));
+      });
+
+      // 🔴 GARDE ANTI-ReDoS. L'ancienne regex `(?:@[\w.]+\([\s\S]*?\)\s*)*class …`
+      // était EXPONENTIELLE au backtracking, et son pire cas était précisément le
+      // cas d'échec de l'appelant (aucune classe à trouver) : mesuré 636 ms à 26
+      // décorateurs, ×3,5 par paire — ~40 s à 34, des heures à 60. La commande
+      // figeait au lieu de dire « ajoute à la main ». Ce test échoue par TIMEOUT
+      // si le balayage redevient une regex ambiguë.
+      it("60 décorateurs sans classe : rend la main immédiatement", () => {
+        const evil = "@a()".repeat(60) + "class X extends Modul";
+        const started = process.hrtime.bigint();
+        assert.isUndefined(findModuleClassAnchor(evil));
+        const ms = Number(process.hrtime.bigint() - started) / 1e6;
+        assert.isBelow(
+          ms,
+          50,
+          `${ms.toFixed(1)} ms — backtracking exponentiel`,
+        );
+      });
     });
 
     it("nom normalisé : PostEntity → Post (le suffixe n'est jamais redoublé)", () => {

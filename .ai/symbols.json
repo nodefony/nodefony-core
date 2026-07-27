@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-27T15:49:59.416Z",
+  "generated": "2026-07-27T18:05:05.769Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 640,
-    "symbols": 2532,
+    "symbols": 2533,
     "classes": 335,
     "interfaces": 770,
     "types": 334,
     "enums": 4,
-    "functions": 911,
+    "functions": 912,
     "constants": 178
   },
   "symbols": {
@@ -3327,13 +3327,20 @@
       "module": "@nodefony/core",
       "description": "Valeur d'exemple d'un champ — VALIDE au regard du schéma de l'entité. Un échantillon n'est pas une décoration : les tests générés s'en servent pour insérer, et la documentation pour montrer un appe…"
     },
-    "wireEntitiesDecorator": {
-      "name": "wireEntitiesDecorator",
+    "findModuleClassAnchor": {
+      "name": "findModuleClassAnchor",
       "kind": "function",
       "file": "src/nodefony/src/cli/scaffold/engine.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Ajoute une entité au décorateur `@entities([...])` de la cible — **en le créant s'il n'existe pas encore**. Différence avec `wireDecoratorList` : une app n'a aucune raison de porter un `@entities([…"
+    },
+    "wireEntitiesDecorator": {
+      "name": "wireEntitiesDecorator",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core"
     },
     "wireKernelBootCall": {
       "name": "wireKernelBootCall",
