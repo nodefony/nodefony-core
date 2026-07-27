@@ -39,7 +39,7 @@
     "@nodefony/framework": "*",
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",
-    "@types/node": "26.1.1",
+    "@types/node": "26.1.2",
     "nodefony": "*",
     "rimraf": "6.1.3"
   },
