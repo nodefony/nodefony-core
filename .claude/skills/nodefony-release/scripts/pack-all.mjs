@@ -131,10 +131,27 @@ for (const w of workspaces) {
     if (mutated) {
       writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
     }
-    const tgz = execSync(`npm pack --silent --pack-destination "${OUT}"`, {
+    // `--silent` fait taire NPM, pas les scripts qu'il déclenche : un paquet
+    // dont le `prepack` construit un frontend déverse tout son build sur la
+    // sortie standard, et le nom du tarball se retrouve noyé dedans. Seule la
+    // DERNIÈRE ligne non vide est le nom de fichier — le prendre en entier
+    // écrivait un pavé de plusieurs kilo-octets comme valeur dans le manifeste,
+    // et l'installation suivante échouait sur un `ENAMETOOLONG` incompréhensible.
+    const out = execSync(`npm pack --silent --pack-destination "${OUT}"`, {
       cwd: dir,
       encoding: "utf8",
-    }).trim();
+    });
+    const tgz = out
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .at(-1);
+    if (!tgz?.endsWith(".tgz")) {
+      failures.push(
+        `${pkg.name}: npm pack n'a pas rendu de nom d'archive (dernière ligne : « ${String(tgz).slice(0, 60)} »)`,
+      );
+      continue;
+    }
     manifest[pkg.name] = tgz;
     const notes = [
       needsSwitch ? `${switched.join(" + ")} basculé(s)` : null,

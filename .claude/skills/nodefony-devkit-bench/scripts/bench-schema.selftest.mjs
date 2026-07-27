@@ -24,7 +24,14 @@
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { readPrisma, readKnex, SCHEMAS, subset } from "./bench-schema.mjs";
+import {
+  pgMismatch,
+  readKnex,
+  readPostgres,
+  readPrisma,
+  SCHEMAS,
+  subset,
+} from "./bench-schema.mjs";
 
 function findRepoRoot(from) {
   let dir = from;
@@ -281,6 +288,225 @@ function verifyShape() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Le JUGE PostgreSQL — le chemin qui a rendu dix-huit faux positifs
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Verdicts de {@link pgMismatch} sur des cas NOMMÉS — sans base.
+ *
+ * Chaque ligne est ancrée sur une exigence réelle d'un des trois schémas, et
+ * trois d'entre elles sur des défauts vécus : une clé `String @db.Uuid` prise
+ * pour une chaîne (dix-huit écarts annoncés, tous faux, qui noyaient le seul
+ * vrai), un `char(2)` d'umami confondu avec un `varchar`, une longueur déclarée
+ * mais perdue à la création.
+ *
+ * `attendu` vaut `null` pour « aucun écart », sinon un fragment que le message
+ * doit contenir — on vérifie que le juge DIT ce qui ne va pas, pas seulement
+ * qu'il refuse.
+ */
+const PG_CASES = [
+  ["uuid conservé", { logical: "uuid" }, { type: "uuid" }, null],
+  ["uuid dégradé en text", { logical: "uuid" }, { type: "text" }, "dégradé"],
+  [
+    "char(2) accepté comme chaîne bornée",
+    { logical: "string", length: 2 },
+    { type: "bpchar", length: 2 },
+    null,
+  ],
+  [
+    "longueur trop courte signalée",
+    { logical: "string", length: 500 },
+    { type: "varchar", length: 255 },
+    "longueur",
+  ],
+  [
+    "longueur perdue signalée",
+    { logical: "string", length: 500 },
+    { type: "text", length: null },
+    "perdue",
+  ],
+  [
+    "aucune longueur exigée → aucun écart",
+    { logical: "string" },
+    { type: "varchar", length: 255 },
+    null,
+  ],
+  [
+    "précision décimale respectée",
+    { logical: "decimal", precision: 19 },
+    { type: "numeric", precision: 19 },
+    null,
+  ],
+  [
+    "précision décimale fausse signalée",
+    { logical: "decimal", precision: 19 },
+    { type: "numeric", precision: 10 },
+    "précision",
+  ],
+  ["horodatage", { logical: "date" }, { type: "timestamptz" }, null],
+  [
+    "date rendue en chaîne signalée",
+    { logical: "date" },
+    { type: "varchar" },
+    "horodatage",
+  ],
+  ["json en jsonb", { logical: "json" }, { type: "jsonb" }, null],
+  ["booléen", { logical: "bool" }, { type: "bool" }, null],
+  ["entier", { logical: "int" }, { type: "int4" }, null],
+  [
+    "binaire — inexprimable, contournement accepté",
+    { logical: null },
+    { type: "bytea" },
+    null,
+  ],
+];
+
+/** DDL témoin — écrit à la MAIN, sans une ligne du banc. C'est la référence. */
+const JUDGE_TABLE = "zz_judge_selftest";
+const JUDGE_DDL = `
+CREATE TABLE ${JUDGE_TABLE} (
+  id uuid PRIMARY KEY,
+  code char(2) NOT NULL,
+  label varchar(120),
+  amount numeric(12,4) NOT NULL,
+  payload jsonb,
+  raw bytea,
+  created_at timestamptz NOT NULL
+);
+CREATE INDEX ${JUDGE_TABLE}_pair ON ${JUDGE_TABLE} (code, label);
+CREATE UNIQUE INDEX ${JUDGE_TABLE}_label ON ${JUDGE_TABLE} (label);`;
+
+/**
+ * Ampute le lecteur PostgreSQL — chaque mutilation REJOUE un défaut vécu.
+ *
+ * Sans elle, on ne saurait pas si les contrôles ci-dessous mordent : ils ont
+ * tous été écrits APRÈS coup, face à un lecteur devenu correct.
+ */
+function mutilate(map) {
+  const t = map.get(JUDGE_TABLE);
+  if (!t) return map;
+  return new Map([
+    ...map,
+    [
+      JUDGE_TABLE,
+      {
+        // 1. une colonne disparaît · 2. les longueurs sont perdues ·
+        // 3. les colonnes d'index redeviennent la chaîne brute que le pilote
+        //    rend quand le cast `::text[]` manque.
+        columns: t.columns.slice(1).map((c) => ({ ...c, length: null })),
+        indexes: t.indexes.map((i) => ({
+          ...i,
+          columns: `{${(i.columns ?? []).join(",")}}`,
+        })),
+      },
+    ],
+  ]);
+}
+
+/**
+ * Éprouve le lecteur PostgreSQL contre une table dont on CONNAÎT le DDL.
+ *
+ * Le juge du banc lit la base plutôt que les sources, ce qui est juste — mais
+ * rien ne gardait ce lecteur-là : il a cassé au premier contact, puis rendu
+ * dix-huit écarts imaginaires. On lui donne donc une table qu'on a écrite
+ * nous-mêmes, et on exige qu'il la restitue exactement.
+ *
+ * @returns `false` si PostgreSQL est injoignable (contrôle NON exécuté).
+ */
+async function verifyPostgresJudge({ prove }) {
+  console.log(`\n━━ juge PostgreSQL — verdicts sur cas nommés`);
+  // Amputer le juge, c'est le rendre complaisant : s'il ne trouve plus jamais
+  // d'écart, les cas qui en attendent un doivent tomber.
+  const judge = prove ? () => null : pgMismatch;
+  for (const [name, expected, got, want] of PG_CASES) {
+    const verdict = judge(expected, got);
+    const ok =
+      want === null ? verdict === null : (verdict ?? "").includes(want);
+    if (!ok) failures += 1;
+    console.log(
+      `  ${ok ? "✅" : "❌"} ${name.padEnd(46)} ${verdict ?? "aucun écart"}`,
+    );
+  }
+
+  const url =
+    process.env.NF_PG_URL ??
+    "postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony";
+  let Client;
+  try {
+    ({ Client } = await import("pg"));
+  } catch {
+    console.log(`\n  ⏭️  pilote « pg » absent — lecteur NON exercé`);
+    return false;
+  }
+  const client = new Client({ connectionString: url });
+  try {
+    await client.connect();
+  } catch (e) {
+    console.log(
+      `\n  ⏭️  PostgreSQL injoignable (${url}) — lecteur NON exercé\n` +
+        `      ${String(e.message).split("\n")[0]}\n` +
+        `      docker compose up -d postgres, ou NF_PG_URL=…`,
+    );
+    return false;
+  }
+
+  console.log(`\n━━ juge PostgreSQL — lecture d'une table au DDL connu`);
+  try {
+    await client.query(`DROP TABLE IF EXISTS ${JUDGE_TABLE} CASCADE`);
+    await client.query(JUDGE_DDL);
+    let map = await readPostgres(url);
+    if (prove) map = mutilate(map);
+    const t = map.get(JUDGE_TABLE);
+    if (!t) {
+      console.log(`  ❌ table ${JUDGE_TABLE} absente de la lecture`);
+      failures += 1;
+      return true;
+    }
+    const col = (n) => t.columns.find((c) => c.name === n);
+    check(`colonnes lues`, t.columns.length, 7);
+    check(`code — type`, col("code")?.type, "bpchar");
+    check(`code — longueur`, col("code")?.length, 2);
+    check(`label — longueur`, col("label")?.length, 120);
+    check(`label — nullable`, col("label")?.nullable, true);
+    check(`amount — précision`, col("amount")?.precision, 12);
+    check(`amount — échelle`, col("amount")?.scale, 4);
+    check(`amount — nullable`, col("amount")?.nullable, false);
+    check(`payload — type`, col("payload")?.type, "jsonb");
+    check(`raw — type`, col("raw")?.type, "bytea");
+    check(`created_at — type`, col("created_at")?.type, "timestamptz");
+
+    check(`index lus (dont la clé primaire)`, t.indexes.length, 3);
+    const pair = t.indexes.find((i) => i.name === `${JUDGE_TABLE}_pair`);
+    // Le contrôle décisif : sans le cast `::text[]`, le pilote rend « {code,
+    // label} », une CHAÎNE — sur laquelle le juge appelait `.join()`.
+    check(
+      `index composite rendu en TABLEAU`,
+      Array.isArray(pair?.columns),
+      true,
+      `obtenu : ${JSON.stringify(pair?.columns)}`,
+    );
+    check(
+      `index composite — colonnes dans l'ordre`,
+      Array.isArray(pair?.columns)
+        ? pair.columns.join(",")
+        : String(pair?.columns),
+      "code,label",
+    );
+    const uniq = t.indexes.find((i) => i.name === `${JUDGE_TABLE}_label`);
+    check(`index unique reconnu`, uniq?.unique, true);
+    check(
+      `index non unique reconnu`,
+      t.indexes.find((i) => i.name === `${JUDGE_TABLE}_pair`)?.unique,
+      false,
+    );
+    return true;
+  } finally {
+    await client.query(`DROP TABLE IF EXISTS ${JUDGE_TABLE} CASCADE`);
+    await client.end();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const prove = process.argv.includes("--prove");
 
@@ -293,10 +519,20 @@ console.log(
 
 for (const key of Object.keys(SCHEMAS)) verify(key, { breakReader: prove });
 if (!prove) verifyShape();
+const judgeExercised = await verifyPostgresJudge({ prove });
 
 console.log(
   `\n${failures === 0 ? "✅ tous les contrôles passent" : `❌ ${failures} contrôle(s) en échec`}`,
 );
+// Un contrôle SAUTÉ compte vert si on ne le dit pas — c'est le piège maison
+// n°1, et c'est le lecteur PostgreSQL qui l'a payé : il a vécu une session
+// entière sans qu'aucun garde ne l'exerce.
+if (!judgeExercised) {
+  console.log(
+    `   ⚠️  le lecteur PostgreSQL n'a PAS été exercé (base injoignable).\n` +
+      `      Ce vert ne couvre donc PAS le chemin qui juge les vrais runs.`,
+  );
+}
 if (prove) {
   console.log(
     failures > 0
@@ -305,4 +541,13 @@ if (prove) {
   );
   process.exit(failures > 0 ? 0 : 1);
 }
+// Sortie 2 = « rien n'est faux, mais tout n'a pas été vu ». Un banc dont le juge
+// n'a pas été exercé ne doit pas rendre le même code qu'un banc entièrement
+// contrôlé, sinon la CI le lit comme un succès complet.
+if (
+  failures === 0 &&
+  !judgeExercised &&
+  !process.argv.includes("--allow-no-pg")
+)
+  process.exit(2);
 process.exit(failures === 0 ? 0 : 1);

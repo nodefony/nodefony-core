@@ -11,18 +11,21 @@ metadata:
 > jour = éditer la section concernée en place. Pas de journal, pas de date :
 > l'historique vit dans `git log`, l'avancement dans `MIGRATION_STATUS.md`.
 
-## Pourquoi deux bancs, et pas un
+## Pourquoi trois bancs, et pas un
 
-Ils répondent à deux questions qu'on confond facilement, et un seul des deux ne
-protège de rien :
+Ils répondent à trois questions qu'on confond facilement, et aucun ne protège
+seul :
 
-| Banc                            | Question                              | Ce qu'il ne voit pas          |
-| ------------------------------- | ------------------------------------- | ----------------------------- |
-| **`verify-generated.mjs`**      | Le code produit **tient-il debout** ? | Si l'agent l'a trouvé         |
-| **`bench-discoverability.mjs`** | Un agent le **trouve-t-il** ?         | Si ce qu'il trouve fonctionne |
+| Banc                            | Question                                          | Ce qu'il ne voit pas               |
+| ------------------------------- | ------------------------------------------------- | ---------------------------------- |
+| **`verify-generated.mjs`**      | Le code produit **tient-il debout** ?             | Si l'agent l'a trouvé              |
+| **`bench-discoverability.mjs`** | Un agent le **trouve-t-il** ?                     | Si ce qu'il trouve fonctionne      |
+| **`bench-schema.mjs`**          | Un **vrai** modèle de données est-il exprimable ? | Ce qu'aucun schéma réel ne demande |
 
-Un scaffold peut générer du code parfait que personne ne lance, et un scaffold
-parfaitement documenté qui produit du code qui ne compile pas.
+Un scaffold peut générer du code parfait que personne ne lance, un scaffold
+parfaitement documenté qui produit du code qui ne compile pas — et une grammaire
+que ses propres exemples valident, jusqu'au jour où on lui donne le schéma de
+quelqu'un d'autre.
 
 ## Ce que les tests du dépôt ne peuvent pas prouver
 
@@ -164,6 +167,81 @@ Ce banc a produit la leçon qui gouverne tout le devkit : **une règle lue s'ér
 une règle affichée agit.** Durcir la prose d'un fichier que l'agent lit n'a eu
 aucun effet ; déplacer la même règle dans le fichier chargé automatiquement l'a
 fait appliquer.
+
+## Banc de schéma — un vrai modèle de données est-il exprimable ?
+
+```bash
+node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.mjs
+node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.mjs --schema calcom
+node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.mjs --dump-only    # la cible, sans agent
+node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.mjs --analyze-only <runDir>
+node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.selftest.mjs       # le juge, AVANT le verdict
+```
+
+Un agent reçoit le schéma d'un logiciel libre — umami, cal.com, Ghost — et doit
+le reproduire. Les cinq entités du banc de vérité ont été écrites POUR exercer
+la grammaire : elles ne peuvent, par construction, rien demander qu'elle ne
+sache faire. Un schéma que quelqu'un d'autre a écrit sans nous connaître n'a pas
+cette complaisance.
+
+**Trois schémas, pas un plus gros** : ils stressent des axes disjoints. Sur
+umami seul on conclurait « la grammaire ne sait pas nommer » sans voir qu'elle
+ne sait pas non plus déclarer une énumération PARTAGÉE par dix tables (46 chez
+cal.com), ni une cascade de suppression (53 chez Ghost).
+
+**Ce qui juge : la base réellement créée**, jamais les fichiers. Les `.ts`
+disent ce que l'agent a écrit ; `information_schema` dit ce qui EXISTE.
+
+**Sur PostgreSQL, et c'est structurel** — SQLite ne distingue pas
+`varchar(255)` de `char(2)` de `text` : un juge posé dessus serait aveugle
+exactement là où les schémas réels sont exigeants (onze longueurs distinctes
+chez umami, `maxlength` sur chaque colonne chez Ghost). Même leçon que la sonde
+FK ↔ PK du banc de vérité.
+
+**La mesure qui compte n'est pas la justesse du schéma** mais le nombre
+d'éditions faites à la MAIN : un agent finit toujours par obtenir le bon schéma
+s'il écrit assez de Drizzle — et il aura alors prouvé que le générateur ne
+servait à rien.
+
+### Le décor doit être celui de l'utilisateur, pas celui du mainteneur
+
+Le premier verdict a été rendu dans un décor qui le faussait : l'application
+vivait sous le checkout, paquets symlinkés. L'agent est allé lire
+`src/packages/@nodefony/drizzle/` — un savoir qu'aucun installeur npm ne
+possède, puisqu'un tarball ne contient que `dist/`. **Le banc mesurait un agent
+mieux servi que l'utilisateur réel**, et le seul chiffre qui compte en dépendait.
+
+Deux gestes, tous deux nécessaires : le décor **sort du dépôt** (sinon `../..`
+y ramène) et les paquets s'installent **depuis les tarballs** de `pack-all.mjs`
+(sinon le lien expose les sources malgré la distance). L'isolation est ensuite
+**constatée** avant l'agent — run hors dépôt, aucun lien qui sorte, aucune
+source `.ts` atteignable — et le banc s'arrête si le constat échoue : mieux vaut
+aucun verdict qu'un verdict sur autre chose.
+
+`--link` reste là pour la boucle courte ; le rapport énonce alors que la mesure
+n'est pas transposable. **Deux runs de décors différents ne se comparent pas.**
+
+Le rapport compte aussi les **accès hors de l'application** : zéro est le
+résultat attendu en décor fermé, et c'est ce chiffre qu'on relit quand un
+verdict surprend.
+
+### Le juge s'éprouve AVANT de juger
+
+`bench-schema.selftest.mjs` refait chaque compte par un chemin **indépendant**
+du lecteur, et `--prove` ampute les lecteurs pour montrer que le contrôle mord.
+Il existe parce que ce banc a livré des verdicts faux avec l'aplomb des justes :
+un lecteur knex perdant les définitions multi-lignes (130 colonnes — l'allure
+d'un compte juste), un `array_agg` rendu en chaîne brute que le pilote ne décode
+pas, un `String @db.Uuid` pris pour une chaîne — **18 faux positifs qui noyaient
+le seul vrai écart**. Et le tout premier de ces défauts était **dans le
+contrôle**, pas dans le lecteur : `indexOf("posts: {")` tombait sur
+`show_latest_posts: {`.
+
+Le juge PostgreSQL est exercé contre une table au **DDL écrit à la main** — la
+référence n'emprunte pas une ligne au banc. S'il n'y a pas de base, le contrôle
+n'est pas silencieusement sauté : il est **annoncé non exécuté** et la sortie
+vaut **2**, parce qu'un vert incomplet lu comme un vert complet est le piège
+maison n°1.
 
 ## Interpréter un échec — commencer par le décor
 

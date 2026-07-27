@@ -47,6 +47,32 @@
  * générateur** : les éditions manuelles de fichiers d'entité désignent, une par
  * une, ce que la grammaire n'a pas su porter.
  *
+ * ## Le décor doit être celui de l'UTILISATEUR, pas celui du mainteneur
+ *
+ * Le premier verdict de ce banc a été rendu dans un décor qui le faussait :
+ * l'application témoin vivait SOUS le checkout et ses paquets y étaient
+ * symlinkés (`--link`). L'agent est allé lire `src/packages/@nodefony/drizzle/`
+ * pour déduire comment une entité se déclare — un savoir qu'aucun installeur
+ * npm ne possède, puisqu'un tarball ne contient que `dist/`. **Le banc mesurait
+ * un agent mieux servi que l'utilisateur réel**, et le seul chiffre qui compte
+ * (« a-t-il appelé le générateur ? ») en dépendait directement.
+ *
+ * D'où deux gestes, tous deux nécessaires — l'un sans l'autre ne ferme rien :
+ *
+ * 1. **le décor sort du checkout** (`os.tmpdir()`), sinon `../../..` y ramène ;
+ * 2. **les paquets s'installent depuis les TARBALLS** (`pack-all.mjs`, l'outil
+ *    de la release — pas un packer de plus), sinon le symlink expose les
+ *    sources malgré la distance.
+ *
+ * Et parce qu'un décor qu'on croit isolé sans le vérifier ne vaut pas mieux
+ * qu'un décor ouvert, {@link assertIsolated} le CONSTATE avant l'agent : aucun
+ * `.ts` de source atteignable, aucun lien qui sorte, run hors du dépôt. Le banc
+ * s'arrête si le constat échoue — un décor faux rend un verdict faux.
+ *
+ * `--link` reste disponible pour la boucle courte, et le rapport ÉNONCE alors
+ * que la mesure n'est pas représentative : deux runs de décors différents ne se
+ * comparent pas.
+ *
  * ## Trois décisions de décor, énoncées plutôt que subies
  *
  * - **Les sources ne sont pas versionnées ici** : elles appartiennent à leurs
@@ -65,7 +91,9 @@
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.mjs --schema calcom
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.mjs --setup-only
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.mjs --dump-only   # extrait le schéma, sans agent
- *   node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.mjs --analyze-only tmp/devkit-schema/<run>
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.mjs --analyze-only <runDir>
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.mjs --link        # décor RAPIDE, NON représentatif
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.mjs --repack      # force le re-pack des tarballs
  *
  * Prérequis : le checkout est BÂTI (`npm run build`) — l'app témoin se lie au
  * `dist/` local. L'agent tourne SANS garde-fou d'approbation dans un décor
@@ -75,15 +103,20 @@
  * cas le plus défavorable est le seul qui prouve : un modèle fort compense les
  * trous de la grammaire en devinant juste).
  */
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  appendFileSync,
+  cpSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   writeFileSync,
 } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
@@ -103,6 +136,28 @@ function findRepoRoot(from) {
 const REPO = findRepoRoot(path.dirname(fileURLToPath(import.meta.url)));
 const BIN = path.join(REPO, "src", "nodefony", "bin", "nodefony");
 const CACHE = path.join(REPO, "tmp", "devkit-schema", ".sources");
+
+/**
+ * Mode d'installation des paquets du framework dans l'application témoin.
+ *
+ * `installed` (défaut) : tarballs — ce qu'un `npm i nodefony` dépose, soit
+ * `dist/` et rien d'autre. `link` : symlinks vers les workspaces du checkout,
+ * **sources comprises** — rapide, mais l'agent y lit du code que l'utilisateur
+ * réel n'a pas, et la mesure cesse d'être transposable.
+ */
+const LINKED = process.argv.includes("--link");
+
+/**
+ * Racine des runs — HORS du dépôt en mode `installed`.
+ *
+ * Un décor posé sous `tmp/` du checkout laisse `../../../src/packages/…`
+ * accessible : l'isolation par les tarballs serait annulée par la simple
+ * remontée de répertoires. En mode `--link` on reste sous le dépôt, puisque
+ * l'exposition y est assumée.
+ */
+const RUN_ROOT = LINKED
+  ? path.join(REPO, "tmp", "devkit-schema")
+  : path.join(os.tmpdir(), "nodefony-devkit-schema");
 const AGENT = process.env.DEVKIT_BENCH_AGENT ?? "claude";
 const MODEL = process.env.DEVKIT_BENCH_MODEL ?? "haiku";
 const AGENT_ARGS = process.env.DEVKIT_BENCH_AGENT_ARGS
@@ -705,7 +760,7 @@ function readSqlite(dbPath) {
  * @param url - chaîne de connexion.
  * @returns une entrée par table, même forme que le lecteur SQLite.
  */
-async function readPostgres(url) {
+export async function readPostgres(url) {
   const { Client } = await import("pg");
   const client = new Client({ connectionString: url });
   await client.connect();
@@ -802,7 +857,7 @@ async function dropExpected(url, tables) {
  *
  * @returns `null` si tout correspond, sinon la raison de l'écart.
  */
-function pgMismatch(expected, got) {
+export function pgMismatch(expected, got) {
   const t = got.type;
   switch (expected.logical) {
     case "string":
@@ -910,27 +965,224 @@ const sh = (cmd, args, opts = {}) =>
 const git = (cwd, ...args) =>
   execFileSync("git", args, { cwd, stdio: "pipe", encoding: "utf8" });
 
-/** App témoin fraîche, liée au `dist/` local, schéma cible déposé à sa racine. */
+/**
+ * Tarballs des paquets publiables — l'outil de la RELEASE, pas un packer de plus.
+ *
+ * `pack-all.mjs` porte des subtilités qu'une copie perdrait sans le dire : la
+ * bascule des `exports.types` du source vers les `.d.ts` générés au moment du
+ * pack (sans elle, le typecheck du consommateur casse), les peers rendus
+ * optionnels, la restauration des `package.json` à l'octet près.
+ *
+ * Re-packer coûte une minute ; on ne le refait donc que si un `dist/` a bougé
+ * depuis le dernier pack — la fraîcheur se CONSTATE, elle ne se suppose pas.
+ *
+ * @returns {{dir: string, manifest: Record<string,string>}}
+ */
+function packTarballs(force) {
+  const outDir = path.join(REPO, "release", "tarballs");
+  const manifestPath = path.join(outDir, "manifest.json");
+  const newestDist = () => {
+    let newest = 0;
+    const roots = [
+      path.join(REPO, "src", "nodefony"),
+      ...readdirSync(path.join(REPO, "src", "packages", "@nodefony"), {
+        withFileTypes: true,
+      })
+        .filter((e) => e.isDirectory())
+        .map((e) => path.join(REPO, "src", "packages", "@nodefony", e.name)),
+    ];
+    for (const r of roots) {
+      const f = path.join(r, "dist", "index.js");
+      if (existsSync(f)) newest = Math.max(newest, lstatSync(f).mtimeMs);
+    }
+    return newest;
+  };
+
+  const fresh =
+    !force &&
+    existsSync(manifestPath) &&
+    lstatSync(manifestPath).mtimeMs >= newestDist();
+  if (fresh) {
+    console.log("• tarballs à jour (aucun dist plus récent) — pack ignoré");
+  } else {
+    console.log("• npm pack des paquets publiables (release/tarballs)…");
+    sh(process.execPath, [
+      path.join(
+        REPO,
+        ".claude",
+        "skills",
+        "nodefony-release",
+        "scripts",
+        "pack-all.mjs",
+      ),
+    ]);
+  }
+  if (!existsSync(manifestPath)) {
+    throw new Error(
+      `pack : manifeste absent (${manifestPath}) — le checkout est-il bâti ? (npm run build)`,
+    );
+  }
+  return {
+    dir: outDir,
+    manifest: JSON.parse(readFileSync(manifestPath, "utf8")),
+  };
+}
+
+/**
+ * Réécrit les dépendances du scope `nodefony` vers les tarballs COPIÉS dans
+ * l'app, puis installe.
+ *
+ * Les tarballs sont copiés (et référencés en relatif) plutôt que pointés dans le
+ * dépôt : un `file:` absolu vers `release/tarballs` rebrancherait l'application
+ * sur le checkout par un autre chemin, ce qu'on vient précisément de couper.
+ *
+ * @returns les noms de paquets installés depuis un tarball.
+ */
+function installFromTarballs(app, packed) {
+  const local = path.join(app, "tarballs");
+  cpSync(packed.dir, local, { recursive: true });
+  const pkgPath = path.join(app, "package.json");
+  const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+  const installed = [];
+  for (const block of ["dependencies", "devDependencies"]) {
+    for (const name of Object.keys(pkg[block] ?? {})) {
+      if (name !== "nodefony" && !name.startsWith("@nodefony/")) continue;
+      const tgz = packed.manifest[name];
+      if (!tgz) {
+        throw new Error(
+          `tarball absent pour ${name} — le paquet est-il publiable (non private) ?`,
+        );
+      }
+      pkg[block][name] = `file:./tarballs/${tgz}`;
+      installed.push(name);
+    }
+  }
+  writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
+  console.log(`• npm install (${installed.length} paquets depuis tarballs)…`);
+  sh("npm", ["install", "--no-audit", "--no-fund"], { cwd: app });
+  return installed.sort();
+}
+
+/**
+ * CONSTATE l'isolation du décor — ne la suppose pas.
+ *
+ * Trois faits, chacun suffisant à fausser le verdict s'il est faux : le run
+ * vit hors du dépôt (sinon `../..` y ramène), aucun paquet du framework n'est
+ * un lien qui sorte de l'app (sinon les sources sont à un `cd` de distance), et
+ * aucun `.ts` de source n'est atteignable dans `node_modules` (un `.d.ts` l'est
+ * légitimement — un installeur les reçoit).
+ *
+ * @returns {{ok: boolean, facts: string[]}}
+ */
+function assertIsolated(app) {
+  const facts = [];
+  let ok = true;
+  const note = (good, text) => {
+    if (!good) ok = false;
+    facts.push(`${good ? "✅" : "❌"} ${text}`);
+  };
+
+  const realApp = realpathSync(app);
+  const realRepo = realpathSync(REPO);
+  note(
+    !realApp.startsWith(realRepo + path.sep),
+    `l'application vit hors du dépôt (${realApp})`,
+  );
+
+  const scopes = [
+    path.join(app, "node_modules", "nodefony"),
+    ...(existsSync(path.join(app, "node_modules", "@nodefony"))
+      ? readdirSync(path.join(app, "node_modules", "@nodefony")).map((n) =>
+          path.join(app, "node_modules", "@nodefony", n),
+        )
+      : []),
+  ].filter((p) => existsSync(p));
+
+  const escaping = scopes.filter((p) => {
+    const st = lstatSync(p);
+    return st.isSymbolicLink() && !realpathSync(p).startsWith(realApp);
+  });
+  note(
+    escaping.length === 0,
+    `aucun paquet du framework ne sort de l'app par un lien` +
+      (escaping.length ? ` (${escaping.length} en sortent)` : ""),
+  );
+
+  // Un `.ts` qui n'est pas une déclaration EST une source : sa présence dit que
+  // l'agent peut lire l'implémentation du framework, ce qu'un installeur ne
+  // peut pas.
+  let sources = 0;
+  let sample = "";
+  const walk = (dir, depth) => {
+    if (depth > 6 || sources > 0) return;
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (sources > 0) return;
+      const p = path.join(dir, e.name);
+      if (e.isSymbolicLink()) continue;
+      if (e.isDirectory()) {
+        if (e.name === "node_modules") continue;
+        walk(p, depth + 1);
+      } else if (e.name.endsWith(".ts") && !e.name.endsWith(".d.ts")) {
+        sources += 1;
+        sample = path.relative(app, p);
+      }
+    }
+  };
+  for (const s of scopes) walk(s, 0);
+  note(
+    sources === 0,
+    `aucune source .ts du framework atteignable` +
+      (sample ? ` (${sample})` : ""),
+  );
+
+  return { ok, facts };
+}
+
+/** App témoin fraîche, schéma cible déposé à sa racine. */
 function setup(runDir, target) {
   const app = path.join(runDir, "app");
   mkdirSync(runDir, { recursive: true });
-  console.log("• app témoin (create app --link --preset complete)…");
-  sh(BIN, [
-    "create",
-    "app",
-    "schema-bench",
-    "--dir",
-    app,
-    "--preset",
-    "complete",
-    "--frontend",
-    "none",
-    "--link",
-    "--yes",
-  ]);
-  console.log("• npm install…");
-  sh("npm", ["install", "--no-audit", "--no-fund"], { cwd: app });
+  console.log(
+    `• app témoin (create app --preset complete${LINKED ? " --link" : ""})…`,
+  );
+  sh(
+    BIN,
+    [
+      "create",
+      "app",
+      "schema-bench",
+      "--dir",
+      app,
+      "--preset",
+      "complete",
+      "--frontend",
+      "none",
+      ...(LINKED
+        ? ["--link"]
+        : // Les deps du scaffold pointent le registre npm, où la version 10
+          // n'est pas publiée : l'installation du scaffold échouerait sur un
+          // 404 (avertissement non bloquant, mais vingt secondes perdues et un
+          // journal trompeur). On installe nous-mêmes, après réécriture.
+          ["--no-install"]),
+      "--yes",
+    ],
+    { cwd: RUN_ROOT },
+  );
+  if (LINKED) {
+    console.log("• npm install…");
+    sh("npm", ["install", "--no-audit", "--no-fund"], { cwd: app });
+  } else {
+    installFromTarballs(app, packTarballs(process.argv.includes("--repack")));
+  }
   writeFileSync(path.join(app, "schema-cible.md"), target);
+  if (!LINKED) {
+    // Une trentaine de mégaoctets d'archives n'ont rien à faire dans les
+    // instantanés qui servent à lire le travail de l'agent.
+    appendFileSync(
+      path.join(app, ".gitignore"),
+      "\n# décor du banc — archives d'installation\ntarballs/\n",
+    );
+  }
   git(app, "init", "-q");
   git(app, "add", "-A");
   git(
@@ -946,23 +1198,86 @@ function setup(runDir, target) {
   return app;
 }
 
-/** Déroule l'agent dans l'app ; transcript capturé. */
+/**
+ * Déroule l'agent dans l'app ; transcript écrit AU FIL DE L'EAU.
+ *
+ * Le premier jet capturait tout en mémoire et n'écrivait qu'à la fin : pendant
+ * les vingt minutes du run, rien ne disait où en était l'agent, et une
+ * interruption emportait le transcript entier — donc la possibilité même de
+ * re-juger sans relancer. Chaque ligne est maintenant sur le disque dès qu'elle
+ * arrive, et l'outil appelé s'affiche à mesure.
+ *
+ * @returns {Promise<string>} le transcript complet.
+ */
 function runAgent(app, runDir) {
   console.log(`\n━━ agent (${MODEL}) — reproduire le schéma`);
-  const res = spawnSync(
-    AGENT,
-    [...AGENT_ARGS, ...(MODEL ? ["--model", MODEL] : []), PROMPT],
-    {
-      cwd: app,
-      encoding: "utf8",
-      maxBuffer: 128 * 1024 * 1024,
-      timeout: 60 * 60 * 1000,
-      env: APP_ENV,
-    },
-  );
-  const transcript = res.stdout ?? "";
-  writeFileSync(path.join(runDir, "transcript.jsonl"), transcript);
+  const out = path.join(runDir, "transcript.jsonl");
+  writeFileSync(out, "");
+  const started = Date.now();
 
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      AGENT,
+      [...AGENT_ARGS, ...(MODEL ? ["--model", MODEL] : []), PROMPT],
+      { cwd: app, env: APP_ENV, stdio: ["ignore", "pipe", "pipe"] },
+    );
+    const kill = setTimeout(() => child.kill("SIGKILL"), 60 * 60 * 1000);
+    let transcript = "";
+    let pending = "";
+    let turns = 0;
+
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      transcript += chunk;
+      appendFileSync(out, chunk);
+      pending += chunk;
+      const lines = pending.split("\n");
+      pending = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        let ev;
+        try {
+          ev = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        if (ev?.type !== "assistant") continue;
+        turns += 1;
+        const tools = (ev.message?.content ?? [])
+          .filter((b) => b?.type === "tool_use")
+          .map((b) => {
+            const i = b.input ?? {};
+            const what =
+              i.command ??
+              i.file_path ??
+              i.pattern ??
+              i.path ??
+              i.description ??
+              "";
+            return `${b.name}(${String(what).replace(/\s+/gu, " ").slice(0, 64)})`;
+          });
+        if (!tools.length) continue;
+        const s = Math.round((Date.now() - started) / 1000);
+        console.log(
+          `    ${String(s).padStart(4)}s #${turns} ${tools.join(" ")}`,
+        );
+      }
+    });
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (c) => appendFileSync(out + ".err", c));
+    child.on("error", (e) => {
+      clearTimeout(kill);
+      reject(e);
+    });
+    child.on("close", () => {
+      clearTimeout(kill);
+      resolve(transcript);
+    });
+  }).then((transcript) => finishAgent(app, runDir, transcript));
+}
+
+/** Clôt le passage de l'agent : garde-fou d'interruption puis instantané git. */
+function finishAgent(app, runDir, transcript) {
   // Un agent qui n'a jamais démarré rendrait un rapport identique à celui d'une
   // grammaire incapable — on s'arrête plutôt que de publier un verdict qui n'en
   // est pas un.
@@ -996,10 +1311,23 @@ function runAgent(app, runDir) {
  * édition ultérieure dit qu'il n'a pas suffi. On lit le transcript et non le
  * diff — un fichier généré puis retouché a le même aspect final qu'un fichier
  * écrit à la main, et seule la SÉQUENCE distingue les deux.
+ *
+ * Relève AUSSI les incursions hors de l'application. Le gate d'isolation
+ * ({@link assertIsolated}) constate que le décor est fermé ; ce compte-ci dit ce
+ * que l'agent a CHERCHÉ à faire — il reste utile en `--link`, où le décor est
+ * ouvert et où le chiffre explique alors le verdict.
  */
-function countWork(transcript) {
+function countWork(transcript, app) {
   const generated = [];
   const edits = [];
+  const outside = [];
+  const realApp = app && existsSync(app) ? realpathSync(app) : null;
+  /** Un chemin est « dehors » s'il est absolu et ne mène pas dans l'app. */
+  const isOutside = (p) =>
+    typeof p === "string" &&
+    path.isAbsolute(p) &&
+    realApp !== null &&
+    !path.resolve(p).startsWith(realApp);
   for (const line of transcript.split("\n")) {
     if (!line.trim()) continue;
     let ev;
@@ -1024,9 +1352,33 @@ function countWork(transcript) {
       ) {
         edits.push({ tool: b.name, file: path.basename(input.file_path) });
       }
+      // Lecture d'un fichier hors de l'app, ou commande shell qui cite un
+      // chemin du dépôt : les deux disent que l'agent s'est servi ailleurs.
+      const target = input.file_path ?? input.path ?? input.pattern;
+      if (isOutside(target)) {
+        outside.push({ tool: b.name, target: String(target) });
+      } else if (typeof input.command === "string") {
+        const cited = input.command.match(/(?:^|\s)(\/[^\s'"]+)/gu) ?? [];
+        for (const raw of cited) {
+          const p = raw.trim();
+          if (isOutside(p)) outside.push({ tool: "Bash", target: p });
+        }
+      }
     }
   }
-  return { generated, edits };
+  return { generated, edits, outside };
+}
+
+/**
+ * Le CLI de l'APPLICATION, jamais celui du checkout quand l'app en possède un.
+ *
+ * Le banc mesure ce qu'un installeur reçoit : piloter l'app témoin avec le
+ * binaire du dépôt réintroduirait par la porte de service exactement ce que le
+ * décor vient de couper.
+ */
+function appBin(app) {
+  const own = path.join(app, "node_modules", "nodefony", "bin", "nodefony");
+  return existsSync(own) ? own : BIN;
 }
 
 /** Boote l'app en console — exécute le DDL de développement, sans ouvrir de port. */
@@ -1042,7 +1394,7 @@ function bootApp(app, runDir) {
   console.log("• boot console (crée les tables)…");
   const boot = spawnSync(
     process.execPath,
-    [BIN, "inspect", "entities", "--json"],
+    [appBin(app), "inspect", "entities", "--json"],
     { cwd: app, encoding: "utf8", timeout: 300_000, env: APP_ENV },
   );
   writeFileSync(
@@ -1059,7 +1411,7 @@ function bootApp(app, runDir) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Confronte le schéma attendu au schéma réellement créé. */
-function compare(expected, actual) {
+export function compare(expected, actual) {
   return expected.map((t) => {
     const got = actual.get(t.table.toLowerCase());
     if (!got) {
@@ -1117,7 +1469,18 @@ function compare(expected, actual) {
 
 /** Rapport console + `report.json`. */
 function report(ctx) {
-  const { runDir, key, def, source, expected, rows, work, boot, dbPath } = ctx;
+  const {
+    runDir,
+    key,
+    def,
+    source,
+    expected,
+    rows,
+    work,
+    boot,
+    dbPath,
+    isolation,
+  } = ctx;
   const tot = (pick) => rows.reduce((n, r) => n + pick(r), 0);
   const tablesFound = rows.filter((r) => r.present).length;
   const colsExpected = tot((r) => r.columns.expected);
@@ -1150,6 +1513,17 @@ function report(ctx) {
   console.log(`moteur : ${DIALECT}`);
   console.log(`base   : ${dbPath ?? "AUCUNE — aucune table n'a été créée"}`);
   console.log(
+    `décor  : ${
+      LINKED
+        ? "⚠️  --link — paquets SYMLINKÉS vers le checkout : l'agent voit les " +
+          "sources du framework.\n         Mesure NON transposable à un installeur npm."
+        : "paquets installés depuis les tarballs (dist seul), app hors du dépôt"
+    }`,
+  );
+  if (isolation) {
+    for (const f of isolation.facts) console.log(`         ${f}`);
+  }
+  console.log(
     `build  : ${boot.buildOk ? "✅" : "❌"}   boot console : ${boot.bootOk ? "✅" : "❌"}`,
   );
 
@@ -1167,6 +1541,15 @@ function report(ctx) {
     `    éditions d'entité à la MAIN : ${work.edits.length}` +
       (work.edits.length ? "   ← ce que la grammaire n'a pas su porter" : ""),
   );
+  // Zéro en décor fermé est le résultat ATTENDU : c'est la valeur du gate qu'on
+  // relit. Non nul, il faut expliquer par où l'agent est sorti.
+  console.log(
+    `    accès hors de l'application : ${work.outside?.length ?? 0}` +
+      (work.outside?.length ? "   ← savoir qu'un installeur npm n'a PAS" : ""),
+  );
+  for (const o of (work.outside ?? []).slice(0, 8)) {
+    console.log(`      • ${o.tool} ${o.target.slice(0, 90)}`);
+  }
 
   if (inexprimables.length) {
     console.log(`\n  INEXPRIMABLE PAR LA GRAMMAIRE (relevé à la source)`);
@@ -1211,6 +1594,13 @@ function report(ctx) {
         source: { ...def, sha256Read: source.sha, drifted: source.drifted },
         agent: AGENT,
         model: MODEL,
+        // Sans lui, deux rapports de décors différents se lisent comme
+        // comparables — ils ne le sont pas.
+        decor: {
+          mode: LINKED ? "link" : "installed",
+          representative: !LINKED,
+          isolation: isolation ?? null,
+        },
         build: boot.buildOk,
         boot: boot.bootOk,
         database: dbPath,
@@ -1224,11 +1614,13 @@ function report(ctx) {
           indexes: { expected: idxExpected, found: idxFound },
           generatorCalls: work.generated.length,
           handEdits: work.edits.length,
+          outsideAccess: work.outside?.length ?? 0,
         },
         inexpressible: inexprimables,
         sharedEnums: partages,
         generatorCalls: work.generated,
         handEdits: work.edits,
+        outsideAccess: work.outside ?? [],
         tables: rows,
       },
       null,
@@ -1279,13 +1671,13 @@ async function main() {
   }
   const target = renderTarget(expected, def);
 
+  /** Constat d'isolation du décor — `null` en `--analyze-only` (rien n'est monté). */
+  let isolation = null;
   const analyzeOnly = arg("--analyze-only");
   const runDir =
     analyzeOnly ??
     path.join(
-      REPO,
-      "tmp",
-      "devkit-schema",
+      RUN_ROOT,
       `${key}-${new Date().toISOString().replace(/[:.]/gu, "-").slice(0, 19)}`,
     );
   const app = path.join(runDir, "app");
@@ -1313,16 +1705,33 @@ async function main() {
         console.log(`• ${dropped} table(s) du run précédent retirée(s)`);
     }
     setup(runDir, target);
+
+    // Le décor se CONSTATE avant de servir. Un banc qui annonce mesurer un
+    // installeur npm et laisse traîner les sources du framework rend un verdict
+    // sur autre chose que ce qu'il prétend.
+    isolation = assertIsolated(app);
+    console.log(`\n• isolation du décor`);
+    for (const f of isolation.facts) console.log(`  ${f}`);
+    if (!isolation.ok && !LINKED) {
+      console.error(
+        `\n🛑 décor NON isolé — le banc mesurerait un agent mieux servi que\n` +
+          `   l'utilisateur réel. Arrêt avant l'agent (aucun jeton dépensé).\n` +
+          `   Décor : ${app}`,
+      );
+      process.exit(3);
+    }
+
     if (argv.includes("--setup-only")) {
       console.log(`\n• décor prêt : ${app}\n  cible : ${app}/schema-cible.md`);
       return;
     }
-    runAgent(app, runDir);
+    await runAgent(app, runDir);
   }
 
   const transcriptPath = path.join(runDir, "transcript.jsonl");
   const work = countWork(
     existsSync(transcriptPath) ? readFileSync(transcriptPath, "utf8") : "",
+    app,
   );
   const boot = analyzeOnly
     ? { buildOk: true, bootOk: true }
@@ -1346,6 +1755,7 @@ async function main() {
     work,
     boot,
     dbPath,
+    isolation,
   });
   process.exit(ok ? 0 : 1);
 }
