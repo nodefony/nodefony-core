@@ -21,16 +21,47 @@ import {
 import { signalProcessGroup, waitAllDead } from "../service/dev/devProcess";
 import { isWatchDisabled } from "../kernel/commands/DevCommand";
 
-/** Réserve un port libre (listen(0) → close) — évite les collisions inter-suites. */
-function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const srv = net.createServer();
-    srv.listen(0, "127.0.0.1", () => {
-      const { port } = srv.address() as net.AddressInfo;
-      srv.close(() => resolve(port));
+/**
+ * Borne HAUTE de la zone où ces bancs tirent leurs ports.
+ *
+ * Toutes les plateformes placent leur plage ÉPHÉMÈRE au-dessus : 32768 sous
+ * Linux, 49152 sous macOS et Windows. Rester en dessous est ce qui rend le port
+ * ré-attribuable à NOUS SEULS.
+ */
+const PORT_CEILING = 32768;
+
+/** Base de tirage, décalée par process pour que deux workers ne se croisent pas. */
+let portCursor = 21000 + (process.pid % 500) * 20;
+
+/**
+ * Réserve un port libre pour un child factice, HORS de la plage éphémère.
+ *
+ * Le `listen(0) → close` d'origine demandait un port au noyau — qui le prend
+ * dans sa plage éphémère, donc dans le vivier où il puise aussi pour les
+ * connexions SORTANTES. Entre notre `close` et le `listen` du child (300 ms plus
+ * loin dans ces scénarios), n'importe quel `npm`, worker vitest ou requête du
+ * runner pouvait se voir attribuer ce port : le child mourait sur `EADDRINUSE`,
+ * et le banc accusait `launchDetached` d'avoir raté sa readiness. Observé en
+ * intégration continue, sur Linux seulement — c'est la plateforme dont la plage
+ * éphémère commence le plus bas, donc celle où la collision est la plus probable.
+ *
+ * Sous {@link PORT_CEILING}, un port ne s'attribue plus tout seul : seul un autre
+ * banc pourrait le prendre, d'où le curseur monotone décalé par PID. Le port est
+ * quand même ÉPROUVÉ libre avant d'être rendu — un vrai service local a le droit
+ * d'être là, on passe au suivant.
+ */
+async function freePort(): Promise<number> {
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const port = portCursor++;
+    if (portCursor >= PORT_CEILING) portCursor = 21000;
+    const free = await new Promise<boolean>((resolve) => {
+      const srv = net.createServer();
+      srv.once("error", () => resolve(false));
+      srv.listen(port, "127.0.0.1", () => srv.close(() => resolve(true)));
     });
-    srv.once("error", reject);
-  });
+    if (free) return port;
+  }
+  throw new Error("aucun port libre sous la plage éphémère");
 }
 
 /** Chemin de log jetable dans le tmpdir système. */
@@ -154,6 +185,21 @@ describe("development --no-watch — la sortie explicite du superviseur", () => 
     assert.strictEqual(p.detach, true);
     assert.deepStrictEqual(p.relayArgs, ["development", "--no-watch"]);
     assert.strictEqual(isWatchDisabled(p.relayArgs), true);
+  });
+});
+
+describe("le décor du banc — les ports qu'il réserve", () => {
+  it("hors de la plage éphémère du système (sinon le child perd son port)", async () => {
+    // La garde de l'invariant, pas une redite du helper : le `listen(0)` d'avant
+    // rendait un port éphémère (≥ 32768) et ce cas serait tombé. C'est ce qui
+    // rendait la readiness ROUGE en intégration continue, une fois sur beaucoup.
+    for (let i = 0; i < 5; i++) {
+      const port = await freePort();
+      assert.ok(
+        port > 1024 && port < PORT_CEILING,
+        `port ${port} hors de la zone réservée au banc (1024 < p < ${PORT_CEILING})`,
+      );
+    }
   });
 });
 
