@@ -30,9 +30,10 @@ last-updated: 2026-05-21
 > application. Il est ici parce qu'il n'a pas de meilleur endroit — et parce que
 > le savoir qu'il porte n'était lisible que dans des commentaires YAML.
 
-| Page                                                   | Sujet                                                                 | Statut |
-| ------------------------------------------------------ | --------------------------------------------------------------------- | ------ |
-| [`integration-continue.md`](./integration-continue.md) | Forge du dépôt : ce qui tourne, le décor, les gates, rejouer en local | stable |
+| Page                                                             | Sujet                                                                             | Statut |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------ |
+| [`integration-continue.md`](./integration-continue.md)           | Forge du dépôt : ce qui tourne, le décor, les gates, rejouer en local             | stable |
+| [`eprouver-loutillage-agent.md`](./eprouver-loutillage-agent.md) | Mesurer un framework avec un agent : méthode, pièges du juge, ce qu'elle a trouvé | stable |
 
 ## Pages (à venir)
 

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-27T19:14:17.232Z",
+  "generated": "2026-07-27T21:28:35.756Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 640,
-    "symbols": 2531,
+    "symbols": 2533,
     "classes": 335,
     "interfaces": 770,
     "types": 334,
     "enums": 4,
-    "functions": 910,
+    "functions": 912,
     "constants": 178
   },
   "symbols": {
@@ -20036,7 +20036,8 @@
         "src/nodefony/src/cli/create.ts"
       ],
       "envFileOrder": [
-        "src/nodefony/src/cli/env.ts"
+        "src/nodefony/src/cli/env.ts",
+        "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "getEnvCatalog": [
         "src/nodefony/src/cli/env.ts"
@@ -20464,6 +20465,7 @@
       ],
       "resolveInfra": [
         "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/cli/scaffold/engine.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/mongoose/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/redis/nodefony/config/defineModuleConfig.ts"

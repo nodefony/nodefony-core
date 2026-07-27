@@ -4,6 +4,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Eta } from "eta";
 import { findProjectRoot } from "../projectRoot";
+// L'infra déclarée et l'ordre de la cascade `.env` ont chacun UNE
+// implémentation, celle qu'exécute le kernel. Le scaffold les emprunte : une
+// seconde lecture divergerait au premier alias ou au premier fichier ajouté.
+import { resolveInfra } from "../../config/infra";
+import { envFileOrder } from "../../runtime/loadEnv";
 import {
   parseEntityFields,
   parseEntityIndexes,
@@ -1693,12 +1698,28 @@ function tableName(pascal: string): string {
 }
 
 /**
- * Dialecte SQL du connecteur visé, lu dans `nodefony.config.ts`.
+ * Dialecte SQL du connecteur visé — **l'infra déclarée d'abord**, le fichier ensuite.
  *
- * Lecture TEXTUELLE assumée (le fichier est du TypeScript : l'exécuter pour lire une
- * clé coûterait un boot). En cas de doute, on retombe sur `sqlite` — et le scaffold
- * ANNONCE le dialecte retenu, pour qu'une déduction fausse se voie tout de suite au
- * lieu de produire une table du mauvais moteur en silence.
+ * L'ordre n'est pas un détail de confort : c'est celui du RUNTIME. Une
+ * application déclare sa base par URL (`NF_DATABASE_URL`, modèle « infra
+ * déclarée » — docker, conteneur, CI, production), et `nodefony.config.ts` ne
+ * porte alors aucun dialecte. Le scaffold, qui ne lisait que le fichier,
+ * retombait sur `sqlite` et générait du Drizzle SQLite pour une application qui
+ * tourne sur PostgreSQL. Le DDL de développement créait ensuite les colonnes
+ * telles quelles : chaînes bornées devenues `text`, identifiants `uuid` devenus
+ * `text` — et là c'est structurel, PostgreSQL refuse `text = uuid`, donc toute
+ * jointure écrite ensuite échoue.
+ *
+ * Mesuré sur un schéma réel (banc de schéma, umami) : **18 identifiants
+ * dégradés et 32 longueurs perdues** sur 83 colonnes, sans un mot.
+ *
+ * La déduction depuis l'URL n'est pas réécrite ici : {@link resolveInfra} en est
+ * la source unique, la même que celle qu'exécute le kernel. Un scaffold qui
+ * dériverait son propre scheme divergerait au premier alias ajouté.
+ *
+ * Le fichier reste consulté ensuite : un connecteur qui déclare explicitement
+ * son dialecte l'emporte sur un défaut, et une app multi-connecteurs n'a pas
+ * qu'une base.
  */
 function detectDialect(
   projectRoot: string,
@@ -1707,12 +1728,97 @@ function detectDialect(
 ): TEntityDialect {
   const connectors = readConnectors(projectRoot, writer);
   const found = connectors.find((c) => c.name === connector);
+  // Un dialecte ÉCRIT dans la configuration est une intention explicite : elle
+  // prime. C'est l'ABSENCE de déclaration qui doit interroger l'environnement,
+  // et non l'inverse.
+  if (found && declaresDialect(projectRoot, writer, connector)) {
+    return found.dialect;
+  }
+  const declared = infraDialect(projectRoot);
+  if (declared) return declared;
   if (found) return found.dialect;
   // Connecteur inconnu du fichier de configuration : on garde le repli
   // historique plutôt que d'échouer — le scaffold ANNONCE le dialecte retenu,
   // donc une déduction fausse se voit tout de suite au lieu de produire une
   // table du mauvais moteur en silence.
   return connectors[0]?.dialect ?? "sqlite";
+}
+
+/**
+ * Le dialecte du connecteur est-il ÉCRIT dans `nodefony.config.ts` ?
+ *
+ * {@link readConnectors} ne peut pas répondre : il rend `sqlite` aussi bien pour
+ * un `dialect: "sqlite"` assumé que pour une absence de déclaration. Distinguer
+ * les deux est tout l'enjeu — sans cela, l'infra déclarée ne pourrait jamais
+ * s'appliquer, puisqu'un défaut lui ressemblerait toujours à un choix.
+ */
+function declaresDialect(
+  projectRoot: string,
+  writer: ScaffoldWriter,
+  connector: string,
+): boolean {
+  const configPath = path.join(projectRoot, "nodefony.config.ts");
+  if (!writer.exists(configPath)) return false;
+  const block = extractBlock(writer.read(configPath), "connectors");
+  if (block === null) return false;
+  const entry = /(\w+)\s*:\s*\{([^{}]*)\}/gu;
+  let match: RegExpExecArray | null;
+  while ((match = entry.exec(block)) !== null) {
+    if (match[1] !== connector) continue;
+    return /dialect\s*:\s*["'](\w+)["']/u.test(match[2] ?? "");
+  }
+  return false;
+}
+
+/**
+ * Dialecte de l'infra DÉCLARÉE du projet, cascade `.env` comprise.
+ *
+ * `process.env` seul ne suffit pas : une URL posée dans `.env.local` (le cas
+ * nominal en développement — le fichier est gitignoré, c'est là qu'on met sa
+ * base) n'est pas dans l'environnement du terminal qui lance le scaffold. On
+ * emprunte donc l'ORDRE de la cascade au runtime ({@link envFileOrder}) plutôt
+ * que d'en inventer un : un ordre affiché qui différerait de l'ordre appliqué
+ * serait pire que pas d'ordre du tout.
+ *
+ * @returns le dialecte SQL, ou `null` si aucune base n'est déclarée (ou si elle
+ *   n'est pas SQL — une base mongo ne dicte aucun dialecte à `create entity`).
+ */
+function infraDialect(projectRoot: string): TEntityDialect | null {
+  const env: Record<string, string | undefined> = {};
+  try {
+    // `envFileOrder` rend des NOMS, pas des chemins — et sans mode d'exécution
+    // il rend les deux niveaux universels (`.env.local` puis `.env`), qui sont
+    // exactement ceux qu'un scaffold peut connaître : il tourne hors de tout
+    // boot, donc hors de tout `NODE_ENV` résolu.
+    for (const name of envFileOrder()) {
+      const file = path.join(projectRoot, name);
+      if (!existsSync(file)) continue;
+      for (const line of readFileSync(file, "utf8").split("\n")) {
+        const m =
+          /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/u.exec(line);
+        if (!m?.[1]) continue;
+        // La cascade est ordonnée du plus fort au plus faible : le premier
+        // fichier qui pose une clé la garde.
+        if (env[m[1]] === undefined) {
+          env[m[1]] = m[2]?.trim().replace(/^["']|["']$/gu, "");
+        }
+      }
+    }
+  } catch {
+    /* cascade illisible — l'environnement du process reste consultable */
+  }
+  try {
+    // Le shell l'emporte sur les fichiers, comme au runtime.
+    const infra = resolveInfra({ ...env, ...process.env });
+    const dialect = infra.database?.dialect;
+    return dialect && (ENTITY_DIALECTS as readonly string[]).includes(dialect)
+      ? (dialect as TEntityDialect)
+      : null;
+  } catch {
+    // URL non supportée : ce n'est pas au scaffold de rendre ce verdict — le
+    // boot le fera, avec le bon message.
+    return null;
+  }
 }
 
 /**

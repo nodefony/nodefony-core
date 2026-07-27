@@ -1676,6 +1676,21 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
   });
 
   describe("moteur — create entity (in-project)", () => {
+    // Le dialecte suit l'INFRA DÉCLARÉE : sans ce décor explicite, les cas
+    // ci-dessous héritaient du terminal, et un développeur qui garde
+    // `NF_DATABASE_URL` dans son shell (docker local — le cas courant) voyait
+    // quatre tests virer au rouge sans rapport avec son travail. Un test qui
+    // hérite de l'environnement n'éprouve pas ce qu'il croit.
+    let savedDbUrl: string | undefined;
+    beforeEach(() => {
+      savedDbUrl = process.env.NF_DATABASE_URL;
+      delete process.env.NF_DATABASE_URL;
+    });
+    afterEach(() => {
+      if (savedDbUrl === undefined) delete process.env.NF_DATABASE_URL;
+      else process.env.NF_DATABASE_URL = savedDbUrl;
+    });
+
     /** Scaffold entité depuis `from` (détection racine = comme le CLI). */
     const entity = (from: string, answers: Record<string, string | boolean>) =>
       runScaffold(
@@ -1708,6 +1723,58 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
       assert.include((r.notes ?? []).join("\n"), "table posts (sqlite)");
       assertNoEtaResidue(dest);
+    });
+
+    it("le dialecte suit l'INFRA DÉCLARÉE, pas seulement le fichier de config", () => {
+      // Une application déclare sa base par URL (conteneur, CI, production) et
+      // `nodefony.config.ts` ne porte alors aucun dialecte. Le scaffold lisait
+      // le seul fichier, retombait sur sqlite, et générait du Drizzle SQLite
+      // pour une application tournant sur PostgreSQL — chaînes bornées rendues
+      // en `text`, identifiants `uuid` rendus en `text`. Ce dernier point est
+      // structurel : PostgreSQL refuse `text = uuid`, donc toute jointure
+      // écrite ensuite échoue. Mesuré sur un schéma réel : 18 identifiants
+      // dégradés et 32 longueurs perdues sur 83 colonnes, sans un mot.
+      const dest = app("pgapp");
+      process.env.NF_DATABASE_URL = "postgres://u:p@127.0.0.1:5432/db";
+      const r = entity(dest, {
+        name: "Ticket",
+        fields: "code:string(2)! ref:uuid!",
+      });
+      assert.include((r.notes ?? []).join("\n"), "(postgres)");
+      const src = readFileSync(
+        path.join(dest, "nodefony/entity/Ticket.ts"),
+        "utf8",
+      );
+      assert.include(src, "drizzle-orm/pg-core");
+      // Les deux traductions que le mauvais dialecte faisait disparaître.
+      assert.include(src, 'varchar("code", { length: 2 })');
+      assert.include(src, 'uuid("ref")');
+    });
+
+    it("un dialecte ÉCRIT dans la config l'emporte sur l'environnement", () => {
+      // L'inverse doit rester vrai : déclarer `dialect` est une intention
+      // explicite, et une variable d'environnement ne la contredit pas. Sans
+      // cette borne, poser une URL rendrait indéréglable un projet qui a
+      // sciemment choisi son moteur.
+      const dest = app("mixapp");
+      const cfg = path.join(dest, "nodefony.config.ts");
+      const before = readFileSync(cfg, "utf8");
+      assert.isTrue(
+        before.includes('"@nodefony/drizzle"'),
+        "fixture inattendue : le preset complete ne déclare pas drizzle",
+      );
+      // Le gabarit déclare le module sans configurer de connecteur (l'infra
+      // vient de l'URL) : on en pose un qui CHOISIT son dialecte.
+      writeFileSync(
+        cfg,
+        before.replace(
+          '"@nodefony/drizzle",',
+          'use("@nodefony/drizzle", { connectors: { default: { dialect: "sqlite" } } }),',
+        ),
+      );
+      process.env.NF_DATABASE_URL = "postgres://u:p@127.0.0.1:5432/db";
+      const r = entity(dest, { name: "Fixed", fields: "code:string!" });
+      assert.include((r.notes ?? []).join("\n"), "(sqlite)");
     });
 
     it("drizzle-orm est déclaré par l'app (import direct de l'entité générée)", () => {
