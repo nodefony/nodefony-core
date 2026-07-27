@@ -666,7 +666,7 @@ function reportUnmet(
   lines.push(
     blocking
       ? "  \x1b[2mUn test skippé compte comme vert : cette passe échoue pour que ce vert ne mente pas.\x1b[0m\n" +
-          `  \x1b[2mSi cette absence est VOULUE, énoncez-la : NF_GATES_ALLOW=${[...unmet.flatMap((u) => u.keys)].join(",") || "<VARIABLE>"}\x1b[0m`
+          `  \x1b[2mSi cette absence est VOULUE, énoncez-la : NF_GATES_ALLOW=${unmet.flatMap((u) => u.keys).join(",") || "<VARIABLE>"}\x1b[0m`
       : "  \x1b[2mUn test skippé compte comme vert : ce succès ne dit rien de ces cibles.\x1b[0m",
   );
   lines.push(`${color}${bar}\x1b[0m`);

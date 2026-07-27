@@ -18,106 +18,31 @@
       "dependsOn": ["build"],
       "outputs": [],
       "inputs": ["index.ts", "src/**", "nodefony/**", "tsconfig*.json"],
-      "env": [
-        "NF_PG_URL",
-        "NF_MYSQL_URL",
-        "REDIS_URL",
-        "REDIS_TEST_URL",
-        "REDIS_HOST",
-        "REDIS_PORT",
-        "REDIS_PASSWORD",
-        "MONGO_TEST_URI",
-        "MONGODB_URI",
-        "RUN_PERF",
-        "RUN_CLI_BOOT",
-        "RUN_CLUSTER_E",
-        "RUN_WS_RUPTURE",
-        "CI"
-      ]
+      "env": ["NF_*", "REDIS_*", "MONGO_TEST_URI", "MONGODB_URI", "RUN_*", "CI"]
     },
     "test:integration": {
       "dependsOn": ["build"],
       "cache": false,
       "outputs": [],
-      "env": [
-        "NF_PG_URL",
-        "NF_MYSQL_URL",
-        "REDIS_URL",
-        "REDIS_TEST_URL",
-        "REDIS_HOST",
-        "REDIS_PORT",
-        "REDIS_PASSWORD",
-        "MONGO_TEST_URI",
-        "MONGODB_URI",
-        "RUN_PERF",
-        "RUN_CLI_BOOT",
-        "RUN_CLUSTER_E",
-        "RUN_WS_RUPTURE",
-        "CI"
-      ]
+      "env": ["NF_*", "REDIS_*", "MONGO_TEST_URI", "MONGODB_URI", "RUN_*", "CI"]
     },
     "test:load": {
       "dependsOn": ["build"],
       "cache": false,
       "outputs": [],
-      "env": [
-        "NF_PG_URL",
-        "NF_MYSQL_URL",
-        "REDIS_URL",
-        "REDIS_TEST_URL",
-        "REDIS_HOST",
-        "REDIS_PORT",
-        "REDIS_PASSWORD",
-        "MONGO_TEST_URI",
-        "MONGODB_URI",
-        "RUN_PERF",
-        "RUN_CLI_BOOT",
-        "RUN_CLUSTER_E",
-        "RUN_WS_RUPTURE",
-        "CI"
-      ]
+      "env": ["NF_*", "REDIS_*", "MONGO_TEST_URI", "MONGODB_URI", "RUN_*", "CI"]
     },
     "test:memory": {
       "dependsOn": ["build"],
       "cache": false,
       "outputs": [],
-      "env": [
-        "NF_PG_URL",
-        "NF_MYSQL_URL",
-        "REDIS_URL",
-        "REDIS_TEST_URL",
-        "REDIS_HOST",
-        "REDIS_PORT",
-        "REDIS_PASSWORD",
-        "MONGO_TEST_URI",
-        "MONGODB_URI",
-        "RUN_PERF",
-        "RUN_CLI_BOOT",
-        "RUN_CLUSTER_E",
-        "RUN_WS_RUPTURE",
-        "CI"
-      ]
+      "env": ["NF_*", "REDIS_*", "MONGO_TEST_URI", "MONGODB_URI", "RUN_*", "CI"]
     },
     "test:boot": {
       "dependsOn": ["build"],
       "cache": false,
       "outputs": [],
-      "env": [
-        "NF_PG_URL",
-        "NF_MYSQL_URL",
-        "REDIS_URL",
-        "REDIS_TEST_URL",
-        "REDIS_HOST",
-        "REDIS_PORT",
-        "REDIS_PASSWORD",
-        "MONGO_TEST_URI",
-        "MONGODB_URI",
-        "RUN_PERF",
-        "RUN_CLI_BOOT",
-        "RUN_CLUSTER_E",
-        "RUN_WS_RUPTURE",
-        "CI"
-      ]
+      "env": ["NF_*", "REDIS_*", "MONGO_TEST_URI", "MONGODB_URI", "RUN_*", "CI"]
     },
     "dev": {
       "dependsOn": ["^build"],
