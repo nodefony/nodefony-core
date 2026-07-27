@@ -1,4 +1,4 @@
-name: Stores sur serveurs réels
+name: Bancs sur infrastructure réelle
 
 # ─────────────────────────────────────────────────────────────────────────────
 # POURQUOI CE WORKFLOW EXISTE
@@ -11,6 +11,12 @@ name: Stores sur serveurs réels
 # Ces suites savent parler à un vrai serveur ; il ne leur manquait qu'un serveur.
 # Les variables attendues et leur forme sont définies une seule fois, dans
 # `vitest.gates.ts` à la racine — ce fichier les POSE, il ne les invente pas.
+#
+# Le second job traite le même mal sur ce que le framework promet de plus
+# structurant : une socket distribuée en cluster. Les deux bancs qui l'éprouvent
+# — fan-out cross-process par IPC, fan-out cross-pod par le backplane Redis —
+# s'auto-skippaient faute d'un interrupteur que personne ne posait. La garantie
+# la plus centrale du produit reposait donc sur des tests jamais exécutés.
 #
 # POURQUOI UN WORKFLOW SÉPARÉ, ET FILTRÉ PAR CHEMIN
 #
@@ -34,6 +40,7 @@ on:
       - "src/packages/@nodefony/drizzle/**"
       - "src/packages/@nodefony/redis/**"
       - "src/packages/@nodefony/orm-core/**"
+      - "src/packages/@nodefony/realtime/**"
       - "src/nodefony/src/tests/support/**"
       - "vitest.gates.ts"
       - ".github/workflows/orm.yml"
@@ -43,6 +50,7 @@ on:
       - "src/packages/@nodefony/drizzle/**"
       - "src/packages/@nodefony/redis/**"
       - "src/packages/@nodefony/orm-core/**"
+      - "src/packages/@nodefony/realtime/**"
       - "src/nodefony/src/tests/support/**"
       - "vitest.gates.ts"
       - ".github/workflows/orm.yml"
@@ -140,25 +148,8 @@ jobs:
           node-version: 26.x
           cache: "npm"
 
-      # Même image, même mot de passe et même sonde que `docker/docker-compose.yml` —
-      # en étape plutôt qu'en service, faute de pouvoir passer la commande du serveur.
-      # L'attente est explicite ici : on perd la garantie que GitHub n'entre dans les
-      # étapes qu'une fois le service sain, il faut donc la reconstituer, sinon les
-      # bancs démarreraient avant Redis et rendraient un rouge parlant de connexion.
       - name: Redis (mot de passe, comme en développement)
-        run: |
-          docker run -d --name nf-redis -p 6379:6379 redis:7-alpine \
-            redis-server --requirepass nodefony-dev
-          for i in $(seq 1 30); do
-            if docker exec nf-redis redis-cli -a nodefony-dev ping 2>/dev/null | grep -q PONG; then
-              echo "✅ Redis prêt"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "::error::Redis n'a pas répondu PONG en 30 s"
-          docker logs nf-redis || true
-          exit 1
+        uses: ./.github/actions/redis
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
@@ -204,3 +195,72 @@ jobs:
       - name: orm-core
         working-directory: src/packages/@nodefony/orm-core
         run: npm test
+
+  # ─── La socket distribuée, éprouvée sur de VRAIS process ────────────────────
+  #
+  # C'est la promesse centrale du framework — « HTTP et WebSocket co-citoyens,
+  # jusqu'en cluster » — et elle n'était vérifiée nulle part : les deux bancs qui
+  # la portent s'auto-skippent sans `RUN_CLUSTER_E2E`, jamais posé. La garantie
+  # la plus structurante du produit reposait donc sur des tests que personne
+  # n'exécutait, dans une suite qui sortait verte.
+  #
+  # Job séparé du précédent : il fork de vrais workers, et cette charge n'a rien à
+  # faire dans le même runner qu'une suite qui martèle trois bases.
+  realtime:
+    name: Socket distribuée (IPC · backplane Redis)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      # Ouvre les deux bancs e2e. Les MESURES (latence, débit) restent derrière
+      # `RUN_PERF`, fermé ici : un banc de mesure sur runner partagé rendrait un
+      # chiffre non reproductible, et un seuil non déterministe est un futur
+      # rouge qui n'apprend rien.
+      RUN_CLUSTER_E2E: "1"
+      REDIS_URL: redis://:nodefony-dev@127.0.0.1:6379
+      REDIS_TEST_URL: redis://:nodefony-dev@127.0.0.1:6379/15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26.x
+          cache: "npm"
+
+      # Le banc IPC n'a besoin de RIEN d'autre que `fork()` ; c'est le banc
+      # backplane qui exige un vrai Redis. Les deux vivent dans la même suite.
+      - name: Redis (mot de passe, comme en développement)
+        uses: ./.github/actions/redis
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build workspaces
+        run: npm run build
+
+      - name: Realtime — fan-out cross-process (IPC) et cross-pod (Redis)
+        working-directory: src/packages/@nodefony/realtime
+        run: npm test -- --reporter=json --outputFile=realtime-report.json
+
+      # FILET — le banc Redis s'auto-skippe quand le serveur est injoignable, et
+      # le banc IPC quand la variable manque. Les deux silences sont VERTS. Exiger
+      # que chaque topologie ait réellement produit des cas passés est la seule
+      # affirmation qu'un décor absent ne peut pas satisfaire.
+      - name: Les deux topologies ont réellement tourné
+        working-directory: src/packages/@nodefony/realtime
+        run: |
+          count() {
+            jq --arg d "$1" '[.testResults[].assertionResults[]
+              | select(.status == "passed")
+              | select(.fullName | contains($d))] | length' realtime-report.json
+          }
+          ipc=$(count "e2e cluster IPC")
+          redis=$(count "e2e cluster Redis")
+          echo "IPC : $ipc cas · backplane Redis : $redis cas"
+          if [ "$ipc" -eq 0 ] || [ "$redis" -eq 0 ]; then
+            echo "::error::Une topologie n'a PAS été éprouvée (ipc=$ipc, redis=$redis) — le vert ci-dessus ne prouve pas la socket distribuée."
+            exit 1
+          fi

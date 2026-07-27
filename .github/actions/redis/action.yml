@@ -1,0 +1,51 @@
+name: Redis de développement
+description: >-
+  Démarre un Redis identique à celui du compose — même image, même mot de passe,
+  même sonde — et attend qu'il réponde. En étape et non en service container :
+  `services:` insère ses `options` dans `docker create` AVANT l'image, donc
+  `--requirepass` y est lu comme une option docker et la création échoue (exit
+  125, constaté). Seul `docker run` laisse choisir la commande du serveur.
+
+inputs:
+  password:
+    description: >-
+      Mot de passe du serveur. Aligné sur `docker/docker-compose.yml` : les bancs
+      se connectent AVEC, un serveur ouvert les ferait échouer sur « AUTH sans
+      mot de passe configuré ».
+    required: false
+    default: nodefony-dev
+  port:
+    description: Port publié sur l'hôte.
+    required: false
+    default: "6379"
+  name:
+    description: Nom du conteneur — distinct par job si plusieurs cohabitent.
+    required: false
+    default: nf-redis
+
+runs:
+  using: composite
+  steps:
+    - name: Démarrer Redis et attendre PONG
+      shell: bash
+      env:
+        NF_REDIS_PASSWORD: ${{ inputs.password }}
+        NF_REDIS_PORT: ${{ inputs.port }}
+        NF_REDIS_NAME: ${{ inputs.name }}
+      run: |
+        docker run -d --name "$NF_REDIS_NAME" -p "$NF_REDIS_PORT":6379 redis:7-alpine \
+          redis-server --requirepass "$NF_REDIS_PASSWORD"
+
+        # L'attente est explicite : hors `services:`, GitHub n'entre plus dans les
+        # étapes une fois le service sain. Sans elle, les bancs démarreraient avant
+        # le serveur et rendraient un rouge parlant de connexion au lieu du code.
+        for i in $(seq 1 30); do
+          if docker exec "$NF_REDIS_NAME" redis-cli -a "$NF_REDIS_PASSWORD" ping 2>/dev/null | grep -q PONG; then
+            echo "✅ Redis prêt (port $NF_REDIS_PORT)"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "::error::Redis n'a pas répondu PONG en 30 s"
+        docker logs "$NF_REDIS_NAME" || true
+        exit 1

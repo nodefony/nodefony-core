@@ -6,10 +6,11 @@
 *.bak
 *.log
 *.turbo
-# Traces d'un banc qui lance un vrai serveur : pid du process et rapport machine
-# d'une passe ciblée. Écrits par la CI comme en local, jamais versionnés.
+# Traces d'un banc qui lance un vrai serveur : pid du process et rapports machine
+# des passes ciblées, lus pour vérifier que les cas visés ont RÉELLEMENT tourné.
+# Écrits par la CI comme en local, jamais versionnés.
 *.pid
-throttle-report.json
+*-report.json
 dist/
 node_modules/
 tmp/
