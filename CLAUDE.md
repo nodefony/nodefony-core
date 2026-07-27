@@ -59,6 +59,36 @@ Pour **TOUT** développement (nouvelle feature, refacto, hook, instrumentation, 
 
 ---
 
+## 🚨 RÈGLE ABSOLUE — LES 3 PLATEFORMES, DÈS L'ÉCRITURE (linux · macOS · Windows)
+
+**Windows est un impératif produit** (« dans les grosses boîtes, ils n'ont que ça pour dev »), pas
+une compatibilité de bonne volonté. Ces axiomes s'appliquent à **toute** ligne écrite — code,
+test, script, gabarit — et **jamais après coup** : ils ont été payés en un chantier entier, dont
+un défaut qui empêchait le Kernel de charger le moindre module.
+
+> ⚠️ **« Ça compile » ne dit RIEN.** Les contrôles Windows étaient verts pendant que rien ne
+> démarrait. Seul un test qui EXÉCUTE prouve quelque chose.
+
+| #   | Axiome                                                                            | Le geste                                                                                                             |
+| --- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 1   | Un chemin qui **VOYAGE** s'écrit en `/` ; un chemin qu'on **OUVRE** s'écrit natif | Spécificateur d'import, URL, clé d'entrée de bundler, ancre de doc, `AGENTS.md` → `/`. Accès disque → `path.join`.   |
+| 2   | **Normaliser AVANT de filtrer ou comparer**                                       | Un filtre écrit en `/` ne mord pas sur `a\tests\b` — vécu : les tests entraient dans le paquet publié.               |
+| 3   | `import()` prend une **URL**, pas un chemin                                       | `pathToFileURL(...).href` (helper `toImportSpecifier`). `D:\…` → `d:` lu comme un protocole.                         |
+| 4   | Une **capacité se CONSTATE**, jamais ne se déduit de `process.platform`           | Rendre `{supported, data}` depuis l'exécution. `ps` manque aussi des images `node:*-slim`.                           |
+| 5   | **Pas de groupes de process** sous Windows                                        | Tuer un arbre par l'implémentation UNIQUE (`signalProcessGroup`), jamais `child.kill()` s'il y a des petits-enfants. |
+| 6   | **Aucun arrêt gracieux d'arbre** sous Windows                                     | L'ÉNONCER (verdict), ne pas le masquer derrière un SIGTERM qui n'en a que le nom.                                    |
+| 7   | Un dossier ne se supprime pas tant qu'un process **l'a pour répertoire courant**  | Attendre la mort EFFECTIVE (`waitAllDead`) avant de nettoyer ; les réessais sont une ceinture, pas le remède.        |
+| 8   | Les **permissions POSIX n'existent pas** (`chmod 600`)                            | Ne jamais asseoir une garantie de sécurité dessus sans repli explicite.                                              |
+| 9   | Un script npm ne porte pas de `VAR=1 cmd`                                         | `cross-env` — `cmd.exe` refuse la syntaxe POSIX.                                                                     |
+| 10  | Une **assertion sur un chemin** se compose, ne se littéralise pas                 | `path.join(...)` dans le test. Accepter « l'un ou l'autre séparateur » n'est JAMAIS la réponse.                      |
+
+**Éprouver sans machine Windows** (3 leviers, tous vérifiés) : rendre la fonction PURE et injecter
+la grammaire (`path.win32`) · injecter le VERDICT plutôt que lire l'environnement · écrire le test
+en Node pur pour qu'il tourne dans le job de la plateforme visée. Recettes, pièges de lecture des
+journaux et cas déjà traités → skill **`nodefony-framework-dev`** (`references/portabilite.md`).
+
+---
+
 ## 🚦 Checklist début de session (LIRE EN PREMIER)
 
 > **Juste après un `/clear` : dire simplement « reprends »** → skill `nodefony-session` mode RESUME

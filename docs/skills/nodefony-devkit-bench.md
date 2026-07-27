@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-07-25
+updated: 2026-07-27
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 ---
@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 | --- | --- |
 | Version | `1.0.0` |
 | Famille | Autres |
-| Corps | 126 lignes |
-| Coût d'activation | ~1 929 tokens (le corps est chargé à l'invocation) |
+| Corps | 200 lignes |
+| Coût d'activation | ~3 079 tokens (le corps est chargé à l'invocation) |
 | Description | 939 / 1024 caractères |
 | Déclencheurs | 0 |
 | Ressources `references/` | 0 page(s) |
@@ -38,6 +38,10 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 ## Ce qu'il fait
 
 Éprouve ce que le scaffold de Nodefony PRODUIT, par deux mesures — le code généré tient-il debout (il compile, ses tests passent, sa ressource répond vraiment en HTTP), et un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner. À charger AVANT de déclarer finie une évolution des gabarits, de la grammaire de champs, du moteur de génération ou du contrat de ressource : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un échantillon viole son propre schéma, qu'une relation déclarée fait lever l'ORM au démarrage, ou qu'un type généré ne compile pas. Porte l'interprétation des échecs et les pièges de décor. Déclencheurs - "j'ai modifié le scaffold", "le code généré compile-t-il ?", "est-ce que create entity marche encore ?", "rejouer le banc devkit", "l'agent trouve-t-il les générateurs ?", "prouver qu'une vague devkit est finie", "tester une app témoin".
+
+## Prérequis
+
+Ce que le décor doit fournir pour que ses scripts disent quelque chose : **serveur UP** · **base de données**.
 
 ## Skills voisins
 
@@ -62,13 +66,12 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/bench-discoverability.mjs` | Banc de DÉCOUVRABILITÉ du devkit — les « 3 tâches » (gate de la release 10.0.0). | `--allow-empty` `--analyze-only` `--dangerously-skip-permissi` `--dir` `--format` `--frontend` `--kind` `--link` `--model` `--name-only` `--no-audit` `--no-fund` `--output-format` `--preset` `--setup-only` `--task` `--unified` `--verbose` `--yes` | `DEVKIT_BENCH_AGENT` `DEVKIT_BENCH_AGENT_ARGS` `DEVKIT_BENCH_MODEL` |
-| `scripts/verify-generated.mjs` | Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? » | `--detach` `--frontend` `--json` `--keep` `--link` `--no-audit` `--no-e2e` `--no-fund` `--preset` `--wait` `--yes` | `APP` |
+| `scripts/bench-discoverability.mjs` | Banc de DÉCOUVRABILITÉ du devkit — les 9 tâches (gate de la release 10.0.0). | `--allow-empty` `--analyze-only` `--command` `--dangerously-skip-permissi` `--describe-json` `--detach` `--dir` `--dry-run` `--format` `--frontend` `--help` `--json` `--kind` `--left` `--link` `--model` `--name-only` `--no-audit` `--no-fund` `--output-format` `--preset` `--setup-only` `--task` `--unified` `--verbose` `--wait` `--yes` | `DEVKIT_BENCH_AGENT` `DEVKIT_BENCH_AGENT_ARGS` `DEVKIT_BENCH_MODEL` |
+| `scripts/verify-generated.mjs` | Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? » | `--detach` `--dialect` `--frontend` `--index` `--json` `--keep` `--link` `--no-audit` `--no-controller` `--no-e2e` `--no-fund` `--no-tests` `--preset` `--unique` `--wait` `--yes` | `APP` |
 
 **Invocation telle que documentée dans chaque script :**
 
 ```bash
-node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + 3 tâches + rapport
 node scripts/devkit-verify.mjs              # décor + toutes les étapes
 ```
 
@@ -90,7 +93,7 @@ node scripts/devkit-verify.mjs              # décor + toutes les étapes
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 126 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 200 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

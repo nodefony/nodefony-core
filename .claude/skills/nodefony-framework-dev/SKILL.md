@@ -301,6 +301,7 @@ entre les deux voies → skill **`nodefony-inspect`**.
 | **Normes/RFC exactes** (HTTP/WS/cookies/CORS/auth/crypto) — bundle offline                                                                                                                          | `references/rfc/` (index `references/rfc/README.md`) |
 | **Gotchas TRANSVERSES & diagnostic** (perf, ALS, boot, build ; reproduire un bug)                                                                                                                   | `references/gotchas.md`                              |
 | **Conventions de STRUCTURE** : arborescence du dépôt, squelette d'un module, `package.json`/`exports`/`.d.ts`, `defineConfig`+`env.ts` de l'app, config d'un module en 2 fichiers                   | `references/conventions.md`                          |
+| **PORTABILITÉ 3 plateformes** : chemin qui voyage vs qu'on ouvre, `import()` = URL, arbres de process sans groupes (Windows), capacité constatée, éprouver Windows sans machine Windows             | `references/portabilite.md`                          |
 
 > Review/attaque sécurité d'un diff (red/blue-team, conformité) → skill **`nodefony-security-review`**.
 > RFC full-text rare (hors `references/rfc/`) → skill **`nodefony-rfc`** (raw GitHub + proxy r.jina.ai).

@@ -5,7 +5,7 @@ audience: humain
 topic: skills
 tests: none
 status: stable
-updated: 2026-07-25
+updated: 2026-07-27
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -60,7 +60,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v2.4.0 · ⚙️ 7 scripts · 📎 2 réf" },
   { "icon": "⚙️", "title": "framework-dev", "href": "nodefony-framework-dev.md",
     "desc": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM).",
-    "meta": "🟢 conforme v2.0.0 · 📎 8 réf" },
+    "meta": "🟢 conforme v2.0.0 · 📎 9 réf" },
   { "icon": "🎨", "title": "frontend-dev", "href": "nodefony-frontend-dev.md",
     "desc": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie / temps réel…",
     "meta": "🟢 conforme v1.0.0 · 📎 6 réf" },
@@ -159,9 +159,9 @@ source: "docs/skills/index.md"
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 247 | 1 | 0 | ✅ |
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 276 | 1 | 0 | ✅ |
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 192 | 0 | 0 | ✅ |
-| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.0.0 | 126 | 0 | 2 | ✅ |
+| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.0.0 | 200 | 0 | 2 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 2.4.0 | 459 | 2 | 7 | ✅ |
-| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 353 | 8 | 0 | ✅ |
+| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 354 | 9 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 101 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 174 | 3 | 3 | ✅ |
 | [`nodefony-inspect`](nodefony-inspect.md) | 1.0.0 | 258 | 0 | 0 | ✅ |
