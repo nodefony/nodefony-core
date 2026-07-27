@@ -157,9 +157,13 @@ jobs:
       - name: Build workspaces
         run: npm run build
 
+      # DEUX rapporteurs : `--reporter=json` seul REMPLACE la sortie lisible, et un
+      # échec ne dit alors plus quel dialecte ni sur quelle assertion.
       - name: Drizzle — sqlite + PostgreSQL + MySQL
         working-directory: src/packages/@nodefony/drizzle
-        run: npm test -- --reporter=json --outputFile=stores-report.json
+        run: |
+          npm test -- \
+            --reporter=default --reporter=json --outputFile=stores-report.json
 
       # FILET — la raison d'être de ce workflow, donc son point le plus fragile.
       # Une URL mal formée ne fait pas ÉCHOUER ces suites : elle les fait
@@ -241,9 +245,13 @@ jobs:
       - name: Build workspaces
         run: npm run build
 
+      # DEUX rapporteurs : `--reporter=json` seul REMPLACE la sortie lisible, et un
+      # échec ne dit alors plus quel cas ni pourquoi.
       - name: Realtime — fan-out cross-process (IPC) et cross-pod (Redis)
         working-directory: src/packages/@nodefony/realtime
-        run: npm test -- --reporter=json --outputFile=realtime-report.json
+        run: |
+          npm test -- \
+            --reporter=default --reporter=json --outputFile=realtime-report.json
 
       # FILET — le banc Redis s'auto-skippe quand le serveur est injoignable, et
       # le banc IPC quand la variable manque. Les deux silences sont VERTS. Exiger
@@ -258,9 +266,18 @@ jobs:
               | select(.fullName | contains($d))] | length' realtime-report.json
           }
           ipc=$(count "e2e cluster IPC")
+          # DEUX bancs parlent à un vrai Redis, et il faut compter les deux : le
+          # cross-PROCESS (`redisCluster.e2e.test.ts`, derrière RUN_CLUSTER_E2E) et
+          # l'intégration en process unique sur vraies connexions
+          # (`integration/RedisBackplane.test.ts`, gardé seulement par la joignabilité
+          # de Redis) — ce dernier porte la matrice d'attaque F83 : injection tierce,
+          # sceau, secret volé. Ne compter que le premier faisait conclure « une seule
+          # preuve cross-pod » alors que six autres tournaient déjà.
           redis=$(count "e2e cluster Redis")
-          echo "IPC : $ipc cas · backplane Redis : $redis cas"
-          if [ "$ipc" -eq 0 ] || [ "$redis" -eq 0 ]; then
-            echo "::error::Une topologie n'a PAS été éprouvée (ipc=$ipc, redis=$redis) — le vert ci-dessus ne prouve pas la socket distribuée."
+          reel=$(count "RedisBackplane — intégration")
+          f83=$(count "F83 — injection tierce")
+          echo "IPC : $ipc · cross-process Redis : $redis · intégration Redis : $reel · attaques F83 : $f83"
+          if [ "$ipc" -eq 0 ] || [ "$redis" -eq 0 ] || [ "$reel" -eq 0 ] || [ "$f83" -eq 0 ]; then
+            echo "::error::Une topologie n'a PAS été éprouvée (ipc=$ipc, cross-process=$redis, intégration=$reel, F83=$f83) — le vert ci-dessus ne prouve pas la socket distribuée."
             exit 1
           fi
