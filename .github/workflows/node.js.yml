@@ -7,10 +7,16 @@ on:
     branches: ["main", "claude-ts"]
   workflow_dispatch:
 
-# Annule les runs précédents sur la même branche / PR si un nouveau push arrive
+# Annule les runs précédents sur la même branche / PR si un nouveau push arrive.
+#
+# SAUF sur `main` : là, chaque commit doit garder SON verdict. Annuler y ferait
+# disparaître la seule preuve qu'un commit donné passait — et un commit sans
+# verdict est indiscernable d'un commit vert quand on remonte le journal pour
+# trouver quand une régression est entrée. Ailleurs, seul le dernier état
+# compte, et libérer la file est plus utile que d'archiver un résultat périmé.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 # Le jeton du workflow ne peut QUE lire le dépôt. Aucun de ces jobs ne publie,
 # ne commente ni n'écrit quoi que ce soit ; sans ce bloc, le jeton hérite des

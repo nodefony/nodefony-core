@@ -1,0 +1,192 @@
+name: Stores sur serveurs réels
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POURQUOI CE WORKFLOW EXISTE
+#
+# `npm test` sur @nodefony/drizzle laisse 442 tests sur 781 NON EXÉCUTÉS — soit
+# les deux dialectes de PRODUCTION, PostgreSQL et MySQL — et sort vert quand
+# même : un test sauté ne bloque pas. Le vert par défaut ne prouvait donc que
+# sqlite, sans jamais le dire. Même silence côté Redis (15 cas muets faute d'URL).
+#
+# Ces suites savent parler à un vrai serveur ; il ne leur manquait qu'un serveur.
+# Les variables attendues et leur forme sont définies une seule fois, dans
+# `vitest.gates.ts` à la racine — ce fichier les POSE, il ne les invente pas.
+#
+# POURQUOI UN WORKFLOW SÉPARÉ, ET FILTRÉ PAR CHEMIN
+#
+#  · `paths:` — démarrer trois bases pour un changement de feuille de style est
+#    une dépense sans contrepartie. Ce workflow ne s'éveille que si un paquet qui
+#    parle à un store a bougé. C'est ce filtre, et non une restriction de branche,
+#    qui garde la boucle de développement courte : réserver ces bancs à `main`
+#    reviendrait à découvrir la casse après le merge, quand elle coûte le plus.
+#  · séparé — il tourne EN PARALLÈLE du workflow principal, qu'il n'allonge pas,
+#    et un décor d'infra défaillant n'y teint pas en rouge des jobs qui n'ont
+#    rien à voir.
+#  · Ubuntu seulement — contrainte de la plateforme, pas un choix : les service
+#    containers exigent un runner Linux. Ce qui est éprouvé ici est du SQL et un
+#    protocole, pas un comportement de système de fichiers.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: ["main", "claude-ts"]
+    paths:
+      - "src/packages/@nodefony/drizzle/**"
+      - "src/packages/@nodefony/redis/**"
+      - "src/packages/@nodefony/orm-core/**"
+      - "src/nodefony/src/tests/support/**"
+      - "vitest.gates.ts"
+      - ".github/workflows/orm.yml"
+  pull_request:
+    branches: ["main", "claude-ts"]
+    paths:
+      - "src/packages/@nodefony/drizzle/**"
+      - "src/packages/@nodefony/redis/**"
+      - "src/packages/@nodefony/orm-core/**"
+      - "src/nodefony/src/tests/support/**"
+      - "vitest.gates.ts"
+      - ".github/workflows/orm.yml"
+  # Rattrapage manuel : un changement transverse peut casser ces suites sans
+  # toucher aucun des chemins ci-dessus.
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  DO_NOT_TRACK: 1
+  CI: true
+  FORCE_COLOR: 1
+
+jobs:
+  stores:
+    name: Stores (PostgreSQL · MariaDB · Redis)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    # Images, identifiants et sondes de santé ALIGNÉS sur `docker/docker-compose.yml`.
+    # Deux décors pour une même cible ne peuvent pas être fusionnés — compose n'est
+    # pas lisible par `services:` — donc la seule protection contre la dérive est
+    # qu'ils échouent ensemble : une suite qui passe ici et pas en local (ou
+    # l'inverse) est le signal que ces deux listes ont divergé.
+    #
+    # Les sondes ne sont pas décoratives : GitHub attend qu'un service soit SAIN
+    # avant de lancer la moindre étape. Sans elles, la suite démarrerait avant la
+    # base et rendrait un rouge qui parle de connexion refusée au lieu du code —
+    # le faux négatif classique de ce genre de décor.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nodefony
+          POSTGRES_PASSWORD: nodefony-dev
+          POSTGRES_DB: nodefony
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nodefony -d nodefony"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: nodefony-dev
+          MARIADB_USER: nodefony
+          MARIADB_PASSWORD: nodefony-dev
+          MARIADB_DATABASE: nodefony
+        ports:
+          - 3306:3306
+        # `healthcheck.sh` est l'outil officiel de l'image mariadb ; `--innodb_initialized`
+        # attend l'initialisation du moteur, pas seulement l'ouverture du port.
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+
+      redis:
+        image: redis:7-alpine
+        # Le serveur du compose tourne en `requirepass` ; sans mot de passe la
+        # connexion échoue en NOAUTH. Le décor doit donc l'exiger aussi, sinon on
+        # éprouverait un Redis plus permissif que celui de développement.
+        options: >-
+          --requirepass nodefony-dev
+          --health-cmd "redis-cli -a nodefony-dev ping | grep -q PONG"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+        ports:
+          - 6379:6379
+
+    env:
+      # Forme des URL : `vitest.gates.ts` (source unique). Le job tourne sur le
+      # runner, pas dans un conteneur → les services sont joints par 127.0.0.1
+      # sur les ports publiés ci-dessus.
+      NF_PG_URL: postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony
+      NF_MYSQL_URL: mysql://nodefony:nodefony-dev@127.0.0.1:3306/nodefony
+      REDIS_URL: redis://:nodefony-dev@127.0.0.1:6379
+      # Index dédié : le banc comportemental purge sa base, il ne doit pas
+      # emporter celle des bancs de pagination.
+      REDIS_TEST_URL: redis://:nodefony-dev@127.0.0.1:6379/15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26.x
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build workspaces
+        run: npm run build
+
+      - name: Drizzle — sqlite + PostgreSQL + MySQL
+        working-directory: src/packages/@nodefony/drizzle
+        run: npm test -- --reporter=json --outputFile=stores-report.json
+
+      # FILET — la raison d'être de ce workflow, donc son point le plus fragile.
+      # Une URL mal formée ne fait pas ÉCHOUER ces suites : elle les fait
+      # SAUTER, et `npm test` sort vert avec les dialectes muets — précisément le
+      # silence qu'on vient de payer. Compter les cas qui ont réellement tourné
+      # par dialecte est la seule affirmation qui ne peut pas être satisfaite par
+      # un décor absent.
+      #
+      # Le compte n'est pas comparé à un plancher chiffré (qui se périmerait au
+      # premier test ajouté) mais à zéro : la question posée est « ce dialecte
+      # a-t-il été exercé », pas « combien de fois ».
+      - name: Les dialectes de PRODUCTION ont réellement tourné
+        working-directory: src/packages/@nodefony/drizzle
+        run: |
+          count() {
+            jq --arg d "$1" '[.testResults[].assertionResults[]
+              | select(.status == "passed")
+              | select(.fullName | contains("(" + $d + ")"))] | length' stores-report.json
+          }
+          pg=$(count postgres)
+          my=$(count mysql)
+          echo "PostgreSQL : $pg cas · MySQL/MariaDB : $my cas"
+          if [ "$pg" -eq 0 ] || [ "$my" -eq 0 ]; then
+            echo "::error::Un dialecte de production n'a PAS été exercé (postgres=$pg, mysql=$my) — le décor n'a pas été joint, et le vert ci-dessus ne prouve que sqlite."
+            jq -r '.numPendingTests as $p | "tests sautés : \($p)"' stores-report.json
+            exit 1
+          fi
+
+      - name: Redis — serveur réel
+        working-directory: src/packages/@nodefony/redis
+        run: npm test
+
+      - name: orm-core
+        working-directory: src/packages/@nodefony/orm-core
+        run: npm test
