@@ -24,7 +24,8 @@ import { findReservedEntity } from "../../cli/scaffold/reservedEntities";
 
 /** Un câblage manquant, ou un nom qui dépossède un module du framework. */
 export interface IWiringFinding {
-  kind: "orphan-entity" | "orphan-controller" | "reserved-entity";
+  kind:
+    "orphan-entity" | "orphan-controller" | "reserved-entity" | "missing-brick";
   /** Phrase lisible, déjà orientée vers la correction. */
   message: string;
   /** Fichier fautif, relatif à la racine analysée. */
@@ -36,7 +37,50 @@ export interface IWiringCheckOptions {
   roots: string[];
   /** Racine servant à raccourcir les chemins affichés. */
   cwd?: string;
+  /**
+   * Racine du PROJET — c'est elle qui porte le manifeste des modules.
+   *
+   * Distincte des cibles : un module vit dans `modules/blog`, mais la brique
+   * dont son code dépend se déclare dans le `nodefony.config.ts` de
+   * l'application. Absente, le contrôle des briques est simplement sauté.
+   */
+  projectRoot?: string;
 }
+
+/**
+ * Ce qu'un code EXIGE d'avoir été déclaré, et que la compilation ne dit pas.
+ *
+ * Le générateur refuse d'écrire quand la brique manque — c'est une de ses
+ * gardes. Écrit à la main, le même code compile dès que le paquet traîne dans
+ * `node_modules` (hissé par une transitive), et la panne attend le démarrage :
+ * le module n'étant pas dans le manifeste, il n'est jamais chargé, donc le canal
+ * n'existe pas, l'entité n'est enregistrée nulle part, la garde ne garde rien.
+ *
+ * Le marqueur vise l'USAGE, jamais la définition : `extends RealtimeController`
+ * et non `class RealtimeController`, sans quoi le module qui fournit la brique
+ * s'accuserait lui-même.
+ */
+const BRICKS: ReadonlyArray<{
+  marker: RegExp;
+  packages: string[];
+  what: string;
+}> = [
+  {
+    marker: /extends\s+RealtimeController\b|@RealtimeChannel\b/u,
+    packages: ["@nodefony/realtime"],
+    what: "un canal temps réel",
+  },
+  {
+    marker: /\bdefineEntity\s*\(/u,
+    packages: ["@nodefony/drizzle", "@nodefony/mongoose"],
+    what: "une entité",
+  },
+  {
+    marker: /@IsGranted\b/u,
+    packages: ["@nodefony/security"],
+    what: "une garde d'autorisation",
+  },
+];
 
 export interface IWiringCheckResult {
   findings: IWiringFinding[];
@@ -172,9 +216,20 @@ function isTarget(dir: string): boolean {
  * @returns les manquements et le nombre de fichiers analysés.
  */
 export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
-  const { roots, cwd = process.cwd() } = options;
+  const { roots, cwd = process.cwd(), projectRoot } = options;
   const findings: IWiringFinding[] = [];
   let scanned = 0;
+
+  // Le manifeste et le manifeste npm de l'application, lus UNE fois. Les deux
+  // comptent, et pour des raisons différentes : `nodefony.config.ts` décide de
+  // ce qui est CHARGÉ, `package.json` de ce qui est INSTALLÉ. Une brique
+  // installée mais absente du manifeste ne s'exécute jamais.
+  const declared = projectRoot
+    ? [
+        read(path.join(projectRoot, "nodefony.config.ts")),
+        read(path.join(projectRoot, "package.json")),
+      ].join("\n")
+    : "";
 
   for (const root of roots) {
     if (!statSync(root, { throwIfNoEntry: false }) || !isTarget(root)) {
@@ -194,6 +249,21 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
       const inControllers = dir.endsWith(path.join("nodefony", "controllers"));
       if (!inEntities && !inControllers) continue;
       scanned += 1;
+
+      if (declared) {
+        for (const brick of BRICKS) {
+          if (!brick.marker.test(content)) continue;
+          if (brick.packages.some((p) => declared.includes(p))) continue;
+          findings.push({
+            kind: "missing-brick",
+            file: rel(file),
+            message:
+              `ce fichier déclare ${brick.what}, mais ${brick.packages.join(" ni ")} ` +
+              `n'est déclaré par l'application — le module ne sera pas chargé, et le code ` +
+              `compilera sans jamais s'exécuter`,
+          });
+        }
+      }
 
       if (inEntities) {
         for (const [, symbol] of content.matchAll(ENTITY_RE)) {

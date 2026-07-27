@@ -99,7 +99,13 @@ export function runCheckCommand(argv: string[]): number {
     typeCycles,
     typesUnreachable,
   });
-  const wiring = checkWiring({ roots: wiringTargets(cwd), cwd });
+  const wiring = checkWiring({
+    roots: wiringTargets(cwd),
+    cwd,
+    // La racine du projet porte le manifeste : c'est lui qui dit quelles
+    // briques seront CHARGÉES, information qu'aucune cible ne détient seule.
+    projectRoot: cwd,
+  });
 
   if (json) {
     process.stdout.write(

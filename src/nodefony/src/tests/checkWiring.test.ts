@@ -138,6 +138,52 @@ class App extends Module {}`,
     assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
   });
 
+  it("un canal temps réel exige que la brique soit DÉCLARÉE", () => {
+    // Le code compile dès que le paquet traîne dans node_modules, hissé par une
+    // transitive. Mais absent du manifeste, le module n'est jamais chargé : le
+    // canal n'existe pas, et rien ne le dit. C'est la garde que le générateur
+    // pose avant d'écrire, et que la copie manuelle contourne.
+    const dir = make({
+      "nodefony/controllers/ChatController.ts": `
+export class ChatController extends RealtimeController {}`,
+      "index.ts": `import { ChatController } from "./nodefony/controllers/ChatController";
+@controllers([ChatController])
+class App extends Module {}`,
+      "nodefony.config.ts": `use("@nodefony/framework", {});`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir, projectRoot: dir });
+    assert.strictEqual(r.findings.length, 1, JSON.stringify(r.findings));
+    assert.strictEqual(r.findings[0].kind, "missing-brick");
+    assert.match(r.findings[0].message, /@nodefony\/realtime/u);
+  });
+
+  it("la même classe, la brique déclarée → rien à signaler", () => {
+    const dir = make({
+      "nodefony/controllers/ChatController.ts": `
+export class ChatController extends RealtimeController {}`,
+      "index.ts": `import { ChatController } from "./nodefony/controllers/ChatController";
+@controllers([ChatController])
+class App extends Module {}`,
+      "nodefony.config.ts": `use("@nodefony/realtime", {});`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir, projectRoot: dir });
+    assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
+  });
+
+  it("sans racine de projet, le contrôle des briques est SAUTÉ (pas deviné)", () => {
+    // Une cible analysée seule ne peut rien conclure : le manifeste vit ailleurs.
+    // Conclure à l'absence serait accuser sur une information qu'on n'a pas.
+    const dir = make({
+      "nodefony/controllers/ChatController.ts": `
+export class ChatController extends RealtimeController {}`,
+      "index.ts": `import { ChatController } from "./nodefony/controllers/ChatController";
+@controllers([ChatController])
+class App extends Module {}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
+  });
+
   it("une cible sans nodefony/ n'est pas analysée (et n'accuse personne)", () => {
     const dir = make({ "index.ts": "export const x = 1;" });
     const r = checkWiring({ roots: [dir], cwd: dir });
