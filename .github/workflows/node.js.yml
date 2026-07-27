@@ -262,7 +262,13 @@ jobs:
             'NF_TOTP_KEY=' + gen(),
             'NF_WEBHOOK_KEY=' + gen(),
             'NF_CSRF_SECRET=' + gen(),
-            'NF_ADMIN_PASSWORD=' + randomBytes(18).toString('base64url'),
+            // Mot de passe du compte seedé : FIXE, et il doit valoir ce que les
+            // bancs présentent. Un tirage aléatoire donnait un compte que rien ne
+            // sait ouvrir — la suite entière recevait 401, symptôme jumeau des 429
+            // d'hier : le serveur répondait correctement à des tests qui parlaient
+            // d'un autre monde. Sans risque : ce runtime est éphémère, il vit le
+            // temps d'une tâche et n'est joignable que depuis elle.
+            'NF_ADMIN_PASSWORD=secret',
             '',
           ];
           require('node:fs').writeFileSync('.env.local', lines.join('\n'));
