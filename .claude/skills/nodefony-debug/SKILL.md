@@ -38,7 +38,7 @@ Je me charge quand un symptôme runtime arrive : crash boot, fuite mémoire, rac
 | RETEX bugs réels par symptôme                                       | `nodefony-framework-dev` §11 (kit vivant)                                 |
 | Design/refacto/build neuf                                           | `nodefony-framework-dev` (cœur backend) ou `nodefony-studio-dev` (Studio) |
 
-## 3. Les 5 recettes RETEX (session 2026-05-27)
+## 3. Les recettes éprouvées
 
 ### Recette A — Memory test flake en suite full → isolation = vérité
 
@@ -169,6 +169,34 @@ grep -rn "<pattern>" <fichiers> > /tmp/out.txt 2>&1; echo ok
 **Ne PAS** relancer 3 variantes de la même commande qui échoue pareil (vécu 2026-06-11/12).
 Bonus même famille : sous charge (serveur dev + 4 Vite), le Bash peut dupliquer/vider les sorties
 → 1 commande à la fois, `Read` plutôt que `cat`/`sed` pour lire un fichier.
+
+### Recette G — `404` sur TOUTES les routes d'un banc → le mode, pas le code
+
+**Symptôme** : une suite d'intégration ou un banc reçoit `404` partout, y compris sur des routes
+qu'on lit dans les sources. Le serveur répond pourtant, et son démarrage est vert.
+
+**Cause** : le runtime tourne en **production**, où les modules `policy:"dev"` ne sont pas
+chargés — `@nodefony/test`, qui porte `/nodefony/test/*`, en fait partie. Les routes n'existent
+pas ; ce n'est pas un défaut de configuration, c'est le rôle de la politique. Vécu à l'échelle
+d'un dépôt : une tâche d'intégration continue est morte sept semaines sur ce seul motif, sans
+qu'aucune suite ne tourne derrière.
+
+**Diagnostic en une commande** — l'app dit elle-même ce qu'elle a gaté :
+
+```bash
+nodefony inspect routes --json | jq '.[].path'      # la route existe-t-elle VRAIMENT ?
+nodefony inspect config --json                       # et d'où vient chaque valeur
+```
+
+**Conduite** : lancer la suite contre un serveur de **développement** (`--no-watch` pour qu'aucun
+rechargement ne coupe le run) ; ou, si c'est bien le mode production qu'on veut éprouver, poser
+la dérogation `NF_WITH_DEV_MODULES=1` — qui charge les modules dev en production, le journalise
+en `WARNING` et **minute le runtime** (30 min, réglable jusqu'à 4 h par
+`NF_WITH_DEV_MODULES_TTL_MIN`, jamais désarmable).
+
+⚠️ **Corollaire de lecture** : un `CRITIC` « arrêt automatique … dérogation » dans le journal
+d'un banc n'est pas une panne du framework — c'est cette garde qui a tiré. Régler le TTL et
+relancer, plutôt que chercher une fuite.
 
 ## 4. Orchestration des skills voisins
 

@@ -3,7 +3,13 @@ import assert from "node:assert";
 import fs from "node:fs";
 import os from "node:os";
 import nodePath from "node:path";
-import Kernel, { Events, TypeKernelOptions } from "../kernel/Kernel";
+import Kernel, {
+  Events,
+  TypeKernelOptions,
+  resolveDevModulesTtlMs,
+  FORCE_DEV_MODULES_TTL_MS,
+  FORCE_DEV_MODULES_TTL_MAX_MS,
+} from "../kernel/Kernel";
 import Module from "../kernel/Module";
 import Service from "../Service";
 import Container from "../Container";
@@ -1402,5 +1408,37 @@ describe("Kernel — resolveAppEntry() / isTrunk()", () => {
       }),
     });
     assert.strictEqual(k.resolveAppEntry(), null);
+  });
+});
+
+describe("dérogation modules dev en production — la garde qui se dilate mais ne s'annule pas", () => {
+  it("sans réglage : la durée par défaut", () => {
+    assert.strictEqual(resolveDevModulesTtlMs({}), FORCE_DEV_MODULES_TTL_MS);
+  });
+
+  it("un banc de charge peut ALLONGER la durée", () => {
+    assert.strictEqual(
+      resolveDevModulesTtlMs({ NF_WITH_DEV_MODULES_TTL_MIN: "120" }),
+      120 * 60_000,
+    );
+  });
+
+  it("mais jamais au-delà du plafond dur", () => {
+    assert.strictEqual(
+      resolveDevModulesTtlMs({ NF_WITH_DEV_MODULES_TTL_MIN: "100000" }),
+      FORCE_DEV_MODULES_TTL_MAX_MS,
+    );
+  });
+
+  it("et jamais EN DESSOUS du défaut : on ne désarme pas la garde en la réglant", () => {
+    // Le piège serait qu'une valeur minuscule (0, 1, un `-1` mal lu) serve à
+    // neutraliser l'auto-arrêt par la variable même qui le règle.
+    for (const v of ["0", "-1", "1", "", "oui", "NaN"]) {
+      assert.ok(
+        resolveDevModulesTtlMs({ NF_WITH_DEV_MODULES_TTL_MIN: v }) >=
+          FORCE_DEV_MODULES_TTL_MS,
+        `valeur "${v}" ne doit pas raccourcir la garde`,
+      );
+    }
   });
 });

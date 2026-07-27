@@ -119,6 +119,43 @@ node $BIN development                     ← lancé par start.sh (binaire direc
       └─ nodefony-vite[...]               ← N instances Vite (ViteProcessSupervisor)
 ```
 
+### `--no-watch` — développement SANS superviseur (1 seul process)
+
+`nodefony development --no-watch` boote le serveur de dev **directement** : mêmes modules
+(`policy:"dev"` inclus), mêmes erreurs détaillées, mais **aucun watcher, aucun rebuild, aucun
+redémarrage**. La topologie tombe à `nodefony-dev-server` seul — pas de superviseur, donc rien
+dans le pidfile de superviseur.
+
+**Quand le prendre** : pour faire tourner une SUITE contre un serveur. Le rechargement automatique
+est ce qu'on veut en codant et ce qu'on ne veut pas pendant un run — il coupe les connexions sous
+les tests, et le rouge qui en sort accuse le code alors que le fautif est le décor (c'est
+l'avertissement « ne pas éditer pendant un run intégration » du `CLAUDE.md` de `@nodefony/http`,
+mais côté serveur). Se combine avec `--detach` : le drapeau survit au relais vers l'enfant.
+
+### Éprouver la PRODUCTION avec les modules de banc — `NF_WITH_DEV_MODULES=1`
+
+Par défaut, un runtime `production` ne charge pas les modules `policy:"dev"` — dont
+`@nodefony/test`, qui porte les routes qu'interrogent les suites. Une suite lancée contre un
+serveur de production reçoit donc `404` sur tout, et ce n'est pas un réglage à contourner : c'est
+le rôle de cette politique.
+
+Quand on veut malgré tout mesurer **le mode production** (intégration de bout en bout, banc de
+charge, RPS) :
+
+```bash
+NF_WITH_DEV_MODULES=1 nodefony production --detach --wait      # modules dev chargés en prod
+NF_WITH_DEV_MODULES=1 NF_WITH_DEV_MODULES_TTL_MIN=120 …        # campagne longue (charge)
+```
+
+**Le runtime s'arrête tout seul** — 30 min par défaut, réglable jusqu'à 4 h, **jamais
+désarmable** (une valeur plus courte est ignorée). L'échéance est annoncée au démarrage, un
+préavis tombe 5 min avant, et l'arrêt dit sa raison en `CRITIC`. Le but n'est pas de gêner le
+banc : c'est qu'une variable oubliée dans une image ou un manifeste devienne un incident
+immédiat au lieu d'une surface offerte pendant des mois.
+
+⚠️ **Pour une campagne de charge, règle le TTL AVANT de lancer.** Un serveur qui tombe au milieu
+d'une mesure ne rend pas une mesure fausse, il rend une mesure qu'on croira vraie.
+
 Ce qu'il fait :
 
 - **Boot durci** : `#ensureBuilt` AVANT le 1er spawn — `turbo run build` PUIS vérification des `dist`

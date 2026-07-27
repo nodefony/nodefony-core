@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-26T22:51:31.201Z",
+  "generated": "2026-07-27T07:24:17.967Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 638,
-    "symbols": 2511,
+    "symbols": 2517,
     "classes": 335,
     "interfaces": 766,
     "types": 332,
     "enums": 4,
-    "functions": 900,
-    "constants": 174
+    "functions": 902,
+    "constants": 178
   },
   "symbols": {
     "Cli": {
@@ -1762,6 +1762,46 @@
       "file": "src/nodefony/src/kernel/Kernel.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "resolveDevModulesTtlMs": {
+      "name": "resolveDevModulesTtlMs",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Durée de vie effective d'un runtime en dérogation — fonction PURE."
+    },
+    "FORCE_DEV_MODULES_ENV": {
+      "name": "FORCE_DEV_MODULES_ENV",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Dérogation au gating `policy:\"dev\"` en production — posée à `1`, les modules de développement sont chargés malgré le mode. Existe pour éprouver un runtime de production AVEC les briques de banc (un…"
+    },
+    "FORCE_DEV_MODULES_TTL_MS": {
+      "name": "FORCE_DEV_MODULES_TTL_MS",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Durée de vie d'un runtime de production qui a dérogé au gating des modules dev. La variable seule ne protège de rien : elle s'oublie, dans une image, un manifeste de déploiement, un fichier d'envir…"
+    },
+    "FORCE_DEV_MODULES_TTL_MAX_MS": {
+      "name": "FORCE_DEV_MODULES_TTL_MAX_MS",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Plafond DUR de cette durée de vie. Un banc de charge légitime dure plus qu'une suite d'intégration, d'où le réglage ci-dessous — mais aucune valeur ne désarme la minuterie : une protection qu'on pe…"
+    },
+    "FORCE_DEV_MODULES_TTL_ENV": {
+      "name": "FORCE_DEV_MODULES_TTL_ENV",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Variable de réglage de la durée de vie, en MINUTES (bornée par le plafond dur)."
     },
     "CONSOLE_RUN_PROFILE": {
       "name": "CONSOLE_RUN_PROFILE",
@@ -4428,6 +4468,14 @@
       "implements": [],
       "decorators": [],
       "description": "Commande `nodefony development` — serveur en mode dev (front Vite/HMR + auto-restart). **Invariant non négociable : `development` = TOUJOURS 1 process.** La molette topologie (`cluster.workers` / `…"
+    },
+    "isWatchDisabled": {
+      "name": "isWatchDisabled",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/commands/DevCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`true` si l'invocation demande un mode développement SANS superviseur. Lu sur `argv` et non sur les options analysées, comme `--detach` : ce choix décide de la topologie du process, donc il se tran…"
     },
     "Env": {
       "name": "Env",

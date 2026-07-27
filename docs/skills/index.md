@@ -158,14 +158,14 @@ source: "docs/skills/index.md"
 | [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | — | 83 | 0 | 0 | ✅ |
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 247 | 1 | 0 | ✅ |
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 276 | 1 | 0 | ✅ |
-| [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 192 | 0 | 0 | ✅ |
+| [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 220 | 0 | 0 | ✅ |
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.0.0 | 200 | 0 | 2 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 2.4.0 | 459 | 2 | 7 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 354 | 9 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 101 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 174 | 3 | 3 | ✅ |
 | [`nodefony-inspect`](nodefony-inspect.md) | 1.0.0 | 258 | 0 | 0 | ✅ |
-| [`nodefony-load-test`](nodefony-load-test.md) | — | 520 | 1 | 37 | ✅ |
+| [`nodefony-load-test`](nodefony-load-test.md) | — | 541 | 1 | 37 | ✅ |
 | [`nodefony-migration-audit`](nodefony-migration-audit.md) | — | 357 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 140 | 2 | 9 | ✅ |
 | [`nodefony-release`](nodefony-release.md) | 1.0.0 | 67 | 0 | 3 | ✅ |
@@ -174,7 +174,7 @@ source: "docs/skills/index.md"
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 356 | 0 | 0 | ✅ |
 | [`nodefony-session`](nodefony-session.md) | — | 434 | 1 | 0 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 276 | 0 | 3 | ✅ |
-| [`nodefony-start-server`](nodefony-start-server.md) | — | 209 | 0 | 2 | ✅ |
+| [`nodefony-start-server`](nodefony-start-server.md) | — | 246 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 143 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 77 | 0 | 0 | ✅ |
 

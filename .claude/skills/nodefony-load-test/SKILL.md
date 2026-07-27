@@ -482,6 +482,27 @@ absent = banc **périmé** (refactor non répercuté), pas bug runtime : le symb
 **changé de module** — le retrouver par `.ai/symbols.json` (`.symbols.X.module`) et rebrancher
 l'import, plutôt que de conclure à une régression du runtime.
 
+### Mesurer la PRODUCTION : les routes de banc n'y sont pas — et le runtime est MINUTÉ
+
+Un serveur `production` ne charge pas les modules `policy:"dev"` : les routes qu'un banc
+interroge (`/nodefony/test/*`) n'existent tout simplement pas là-bas, tout répond `404`. Pour
+mesurer le mode production pour de vrai :
+
+```bash
+NF_WITH_DEV_MODULES=1 NF_WITH_DEV_MODULES_TTL_MIN=120 nodefony production --detach --wait
+```
+
+⚠️ **Règle le TTL AVANT de lancer une campagne.** Le runtime en dérogation s'arrête tout seul
+(30 min par défaut, plafond 4 h, jamais désarmable) — c'est la garde qui empêche la variable de
+survivre à un déploiement. Un serveur qui tombe au milieu d'une rafale ne rend pas une mesure
+fausse : il rend une mesure qu'on croira vraie. L'échéance est annoncée au démarrage et un
+préavis tombe 5 min avant ; un `CRITIC` qui parle de dérogation dans le journal du banc désigne
+cette garde, pas une panne du framework.
+
+Rappel de méthode : la **cible dédiée** `/nodefony/kernel/bench` (`NF_BENCH_ROUTE=1`) existe
+justement pour mesurer sans traverser la zone d'administration — elle, ne dépend d'aucun module
+de banc.
+
 ## Publier les résultats (HTML) — et la question à poser AVANT
 
 Un banc produit une sortie console qui se perd, et deux runs ne s'y comparent pas. Pour

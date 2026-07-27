@@ -73,7 +73,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/gotchas.md` | Gotchas & diagnostic — règles durables (vérité courante) | 94 |
 | `references/http.md` | @nodefony/http (pipeline/serveurs/WS/TLS) — référence complète (recettes + API + internals + gotchas) | 586 |
 | `references/orm.md` | ORM (orm-core/drizzle/mongoose) — référence complète (recettes + API + internals + gotchas) | 657 |
-| `references/portabilite.md` | Portabilité — écrire du code qui tourne sur les 3 plateformes | 137 |
+| `references/portabilite.md` | Portabilité — écrire du code qui tourne sur les 3 plateformes | 141 |
 | `references/realtime.md` | Realtime (WS/hub/RealtimeService) — référence complète (recettes + API + internals + gotchas) | 593 |
 | `references/security.md` | Référence SÉCURITÉ (coder AVEC la sécurité) — intemporel | 67 |
 

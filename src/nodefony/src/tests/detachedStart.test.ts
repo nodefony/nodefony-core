@@ -19,6 +19,7 @@ import {
   DETACH_CHILD_ENV,
 } from "../service/dev/detachedStart";
 import { signalProcessGroup, waitAllDead } from "../service/dev/devProcess";
+import { isWatchDisabled } from "../kernel/commands/DevCommand";
 
 /** Réserve un port libre (listen(0) → close) — évite les collisions inter-suites. */
 function freePort(): Promise<number> {
@@ -132,6 +133,29 @@ function removeWorkDir(dir: string): void {
     retryDelay: 50,
   });
 }
+
+describe("development --no-watch — la sortie explicite du superviseur", () => {
+  it("reconnu sur argv, et seulement lui", () => {
+    assert.strictEqual(isWatchDisabled(["development", "--no-watch"]), true);
+    assert.strictEqual(isWatchDisabled(["development"]), false);
+    // Ni `--watch` (qui n'existe pas), ni une occurrence en sous-chaîne.
+    assert.strictEqual(isWatchDisabled(["development", "--watch"]), false);
+    assert.strictEqual(
+      isWatchDisabled(["development", "--no-watchdog"]),
+      false,
+    );
+  });
+
+  it("cohabite avec le lancement détaché : le flag SURVIT au relais vers l'enfant", () => {
+    // `--detach` est retiré des args relayés (anti-récursion), `--no-watch` non :
+    // sans quoi le child détaché relancerait un superviseur, et l'intention serait
+    // perdue au passage exact où elle compte.
+    const p = parseDetachArgs(["development", "--no-watch", "--detach"]);
+    assert.strictEqual(p.detach, true);
+    assert.deepStrictEqual(p.relayArgs, ["development", "--no-watch"]);
+    assert.strictEqual(isWatchDisabled(p.relayArgs), true);
+  });
+});
 
 describe("launchDetached — readiness / crash / timeout (child factices)", () => {
   vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });

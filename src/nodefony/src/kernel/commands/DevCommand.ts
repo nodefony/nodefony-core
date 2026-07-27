@@ -12,6 +12,19 @@ const options: OptionsCommandInterface = {
 const CHILD_ENV = "NODEFONY_DEV_CHILD";
 
 /**
+ * `true` si l'invocation demande un mode développement SANS superviseur.
+ *
+ * Lu sur `argv` et non sur les options analysées, comme `--detach` : ce choix décide
+ * de la topologie du process, donc il se tranche AVANT que Commander n'ait rendu la
+ * main. Fonction PURE (l'argv est passé) — elle s'éprouve sans lancer de serveur.
+ *
+ * @param args - `process.argv` ou son équivalent de test.
+ */
+export function isWatchDisabled(args: readonly string[]): boolean {
+  return args.includes("--no-watch");
+}
+
+/**
  * Commande `nodefony development` — serveur en mode dev (front Vite/HMR + auto-restart).
  *
  * **Invariant non négociable : `development` = TOUJOURS 1 process.** La molette
@@ -44,6 +57,10 @@ class Dev extends Command {
     this.addOption("--wait <sec>", "plafond d'attente readiness (défaut 120)");
     this.addOption("--health <path>", "GET de santé post-boot (best-effort)");
     this.addOption("--log <file>", "log du runtime détaché (défaut tmp/)");
+    this.addOption(
+      "--no-watch",
+      "développement SANS superviseur : un seul process, aucun rechargement automatique",
+    );
   }
 
   /**
@@ -54,7 +71,8 @@ class Dev extends Command {
    * → marqueurs statiques + logs bruts (cf {@link BootReporter}).
    */
   override async onKernelPreStart(): Promise<void> {
-    if (process.env[CHILD_ENV] !== "1") return;
+    if (process.env[CHILD_ENV] !== "1" && !isWatchDisabled(process.argv))
+      return;
     const kernel = this.kernel as Kernel | null;
     if (!kernel) return;
     this.#reporter = new BootReporter(kernel, {
@@ -71,8 +89,14 @@ class Dev extends Command {
     this.cli.environment = "development";
     process.env.MODE_START = "development";
 
-    // Enfant supervisé → boot serveur normal (HTTP/WS).
-    if (process.env[CHILD_ENV] === "1") {
+    // Deux chemins mènent au même boot serveur, et c'est voulu :
+    //  · enfant supervisé (`NODEFONY_DEV_CHILD=1`), lancé par le superviseur ;
+    //  · `--no-watch`, demandé par un humain ou une machine qui veut le mode
+    //    développement SANS rechargement — une suite d'intégration au premier chef :
+    //    un rebuild déclenché en plein run coupe les connexions sous les tests, et
+    //    le diagnostic qui suit accuse le code plutôt que le décor.
+    // Le superviseur reste le défaut ; ceci est la sortie explicite, pas un repli.
+    if (process.env[CHILD_ENV] === "1" || isWatchDisabled(process.argv)) {
       // Nom de process repérable, distinct du superviseur parent
       // (`nodefony-dev-supervisor`). Posé à `onReady` car `Kernel.preRegister`
       // (onPreRegister) écrase le title avec le `projectName` (Kernel.ts:608) —

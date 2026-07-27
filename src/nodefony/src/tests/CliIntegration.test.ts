@@ -24,7 +24,11 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findReservedEntity } from "../cli/scaffold/reservedEntities";
-import { readRuntimeState } from "../service/dev/devProcess";
+import {
+  isPidAlive,
+  readRuntimeState,
+  readSupervisorPid,
+} from "../service/dev/devProcess";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // src/nodefony/src/tests
 const CORE_ROOT = path.resolve(HERE, "../.."); // src/nodefony
@@ -707,6 +711,41 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
       }
       assert.strictEqual(await isPortOpen(HTTP_PORT), false);
     }, 400000);
+
+    // ─── Développement SANS superviseur (`--no-watch`) ──────────────────────────
+    // La sortie explicite du rechargement automatique. Une suite d'intégration en a
+    // besoin : un rebuild déclenché au milieu d'un run coupe les connexions sous les
+    // tests, et le diagnostic qui suit accuse le code plutôt que le décor.
+    // La preuve porte sur le PIDFILE du superviseur, pas sur une liste de process :
+    // l'observation externe n'existe pas partout (Windows, images minces), le fichier
+    // si — c'est le seul capteur qui vaut sur les trois plateformes.
+    it("development --no-watch → serveur en écoute et AUCUN superviseur", async () => {
+      const r = await runCli(
+        ["development", "--no-watch", "--detach", "--wait", "150"],
+        170000,
+      );
+      try {
+        assert.strictEqual(
+          r.code,
+          0,
+          `--no-watch doit sortir 0 à la readiness\n${r.stdout}\n${r.stderr}`,
+        );
+        assert.strictEqual(
+          await isPortOpen(HTTP_PORT),
+          true,
+          "le serveur de développement doit écouter, superviseur ou non",
+        );
+        const supervisor = readSupervisorPid(REPO_ROOT);
+        assert.ok(
+          supervisor === null || !isPidAlive(supervisor),
+          `aucun superviseur ne doit tourner avec --no-watch (pid ${supervisor})`,
+        );
+      } finally {
+        const stop = await runCli(["stop"], CLI_TIMEOUT_MS);
+        assert.strictEqual(stop.code, 0, `stop doit nettoyer\n${stop.stderr}`);
+      }
+      assert.strictEqual(await isPortOpen(HTTP_PORT), false);
+    }, 210000);
 
     // ─── PRODUCTION sur un port NON conventionnel ───────────────────────────────
     // Le chemin réel du déploiement : l'app déclare son port (`NF_PORT`, ou `PORT`

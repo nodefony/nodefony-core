@@ -384,8 +384,8 @@
       ],
       "description": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une baseline stashée, échec d'intégration dont la première hypothèse est un serveur éteint, dépendance implicite à `delete`, faux ENOSPC du harnais. Délègue à `nodefony-tail-error-logs`, `nodefony-check-memory-health`, `nodefony-load-test`, `nodefony-frontend-dev` ; la doctrine préventive vit dans `nodefony-framework-dev`. Déclencheurs : \"ça crash\", \"stack trace\", \"unhandledRejection\", \"fuite mémoire\", \"memory leak\", \"race condition\", \"reproduire\", \"ne démarre plus\", \"test rouge inexpliqué\", \"test flake\", \"vert isolé rouge en suite\", \"ce test passe seul mais pas en suite\", \"diagnostic régression\", \"baseline stash\", \"est-ce ma régression ?\", \"404 inexpliqué\", \"ECONNREFUSED tests\", \"ENOSPC\".",
       "cost": {
-        "bodyLines": 192,
-        "approxTokens": 3359
+        "bodyLines": 220,
+        "approxTokens": 3747
       },
       "requires": [],
       "resources": {
@@ -445,7 +445,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "192",
+            "detail": "220",
             "advisory": true
           }
         ]
@@ -1583,8 +1583,8 @@
       ],
       "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"quel est l'impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"prouver que c'est plus rapide\".",
       "cost": {
-        "bodyLines": 520,
-        "approxTokens": 8181
+        "bodyLines": 541,
+        "approxTokens": 8464
       },
       "requires": [
         "serveur UP",
@@ -2643,7 +2643,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "520",
+            "detail": "541",
             "advisory": true
           }
         ]
@@ -3668,8 +3668,8 @@
       ],
       "description": "Lance le serveur Nodefony en mode développement pour les tests d'intégration — script unique start.sh (1 commande, 1 approbation) : build conditionnel du module test, kill ports, spawn detached du DevSupervisor (auto-restart), wait boot fail-fast, health check. Commandes natives standalone nodefony status / nodefony stop (introspection + arrêt propre, de partout). Déclencheurs : \"lance le serveur\", \"démarre nodefony\", \"relance le serveur\", \"start server\", \"redémarre le serveur\", tests d'intégration en 404 (dist périmé).",
       "cost": {
-        "bodyLines": 209,
-        "approxTokens": 3868
+        "bodyLines": 246,
+        "approxTokens": 4404
       },
       "requires": [
         "serveur UP"
@@ -3778,7 +3778,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "209",
+            "detail": "246",
             "advisory": true
           }
         ]

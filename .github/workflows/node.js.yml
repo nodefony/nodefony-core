@@ -200,6 +200,15 @@ jobs:
       matrix:
         node-version: ["24.x", "26.x"]
     timeout-minutes: 20
+    env:
+      # Dérogation au gating `policy: "dev"` — SANS EFFET hors production, donc posée
+      # inconditionnellement. Elle ne sert qu'à la marche `main`, qui démarre en
+      # production : sans elle, le module qui porte les routes du banc n'est pas chargé
+      # et la suite entière répondrait 404. Le runtime en dérogation s'arrête tout seul
+      # au bout de 30 minutes — largement au-delà du plafond de 20 minutes de cette
+      # tâche, et c'est la garde qui empêche cette variable de survivre à un vrai
+      # déploiement si elle était un jour recopiée ailleurs.
+      NF_WITH_DEV_MODULES: "1"
 
     steps:
       - name: Checkout
@@ -252,7 +261,22 @@ jobs:
           console.log('✅ .env.local généré (4 clés, valeurs non affichées)');
           "
 
-      - name: Start Nodefony server (production, no PM2, detached, fail-fast)
+      # Le MODE dépend de la branche, et ce n'est pas une commodité :
+      #
+      #  · `main` démarre en PRODUCTION — le mode qu'on livre, celui dont les gardes
+      #    (clés obligatoires, modules gatés, erreurs muettes) ne s'éprouvent nulle
+      #    part ailleurs.
+      #  · toute autre branche démarre en DÉVELOPPEMENT — celui contre lequel la suite
+      #    d'intégration est ÉCRITE. Elle interroge `/nodefony/test/*`, porté par un
+      #    module `policy: "dev"` : en production ce module n'est pas chargé, donc tout
+      #    répondrait 404. Ce n'est pas un réglage à contourner, c'est le rôle de la
+      #    politique — et c'est exactement ce qui a tué cette tâche pendant sept
+      #    semaines, sans qu'aucun test d'intégration ne tourne derrière.
+      #
+      # `--no-watch` : mode développement SANS superviseur ni rechargement. Un rebuild
+      # déclenché au milieu du run couperait les connexions sous les tests, et le rouge
+      # accuserait le code alors que le fautif serait le décor.
+      - name: Start Nodefony server (detached, fail-fast)
         shell: bash
         run: |
           node -e "
@@ -268,7 +292,7 @@ jobs:
           // commande (pas de flag à passer) — '--no-daemon' était un vestige de
           // PM2, retiré du framework, et faisait échouer commander sur
           // 'unknown option'. Logs sur stdout → captés ci-dessous.
-          const child = spawn(process.execPath, [bin, 'production'], {
+          const child = spawn(process.execPath, [bin, ...'${{ github.ref == 'refs/heads/main' && 'production' || 'development --no-watch' }}'.split(' ')], {
             cwd: process.cwd(),
             stdio: ['ignore', 'pipe', 'pipe'],
             detached: true,

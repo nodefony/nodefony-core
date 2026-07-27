@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-debug/SKILL.md"
 | --- | --- |
 | Version | `1.1.0` |
 | Famille | Exécuter, diagnostiquer, mesurer |
-| Corps | 192 lignes |
-| Coût d'activation | ~3 359 tokens (le corps est chargé à l'invocation) |
+| Corps | 220 lignes |
+| Coût d'activation | ~3 747 tokens (le corps est chargé à l'invocation) |
 | Description | 990 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 0 page(s) |
@@ -55,7 +55,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 
 - 1. Quand m'utiliser
 - 2. Quand passer la main (anti-overlap)
-- 3. Les 5 recettes RETEX (session 2026-05-27)
+- 3. Les recettes éprouvées
 - 4. Orchestration des skills voisins
 - 5. Doctrine "memory may lie" (CLAUDE.md global)
 - 6. Références (anti-duplication, vérité unique)
@@ -77,7 +77,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 192 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 220 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

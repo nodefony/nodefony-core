@@ -212,6 +212,55 @@ const DEFAULT_SHUTDOWN_DEADLINE = 15_000;
 // à une valeur de listener).
 const SHUTDOWN_DEADLINE = Symbol("shutdown-deadline");
 const SHUTDOWN_DRAIN_ERROR = Symbol("shutdown-drain-error");
+/**
+ * Dérogation au gating `policy:"dev"` en production — posée à `1`, les modules de
+ * développement sont chargés malgré le mode.
+ *
+ * Existe pour éprouver un runtime de production AVEC les briques de banc (une suite
+ * d'intégration interroge des routes qu'un module `policy:"dev"` porte, et qui
+ * n'existent donc pas là-bas : tout répond 404). Réservée aux bancs et au
+ * diagnostic — chaque module chargé par dérogation est journalisé en WARNING, et
+ * la variable n'a **aucun effet** hors production.
+ */
+export const FORCE_DEV_MODULES_ENV = "NF_WITH_DEV_MODULES";
+/**
+ * Durée de vie d'un runtime de production qui a dérogé au gating des modules dev.
+ *
+ * La variable seule ne protège de rien : elle s'oublie, dans une image, un manifeste
+ * de déploiement, un fichier d'environnement recopié — et le jour où elle survit à
+ * une mise en production, plus rien ne le dit. Un runtime en dérogation **s'arrête
+ * donc tout seul** : l'oubli devient un incident immédiat et lisible plutôt qu'une
+ * surface offerte pour des mois. Large devant toute suite de tests (les tâches
+ * d'intégration continue du dépôt expirent à 20 minutes), dérisoire devant la durée
+ * de vie d'un déploiement.
+ */
+export const FORCE_DEV_MODULES_TTL_MS = 30 * 60_000;
+/**
+ * Plafond DUR de cette durée de vie. Un banc de charge légitime dure plus qu'une
+ * suite d'intégration, d'où le réglage ci-dessous — mais aucune valeur ne désarme
+ * la minuterie : une protection qu'on peut annuler par la même variable que celle
+ * qu'elle protège n'en est pas une.
+ */
+export const FORCE_DEV_MODULES_TTL_MAX_MS = 4 * 60 * 60_000;
+/** Variable de réglage de la durée de vie, en MINUTES (bornée par le plafond dur). */
+export const FORCE_DEV_MODULES_TTL_ENV = "NF_WITH_DEV_MODULES_TTL_MIN";
+
+/**
+ * Durée de vie effective d'un runtime en dérogation — fonction PURE.
+ *
+ * @param env - environnement à lire (injecté : la règle s'éprouve sans toucher au process).
+ * @returns la durée en millisecondes, toujours comprise entre le défaut et le plafond.
+ */
+export function resolveDevModulesTtlMs(
+  env: Record<string, string | undefined>,
+): number {
+  const raw = Number.parseInt(env[FORCE_DEV_MODULES_TTL_ENV] ?? "", 10);
+  if (!Number.isFinite(raw) || raw <= 0) return FORCE_DEV_MODULES_TTL_MS;
+  return Math.min(
+    Math.max(raw * 60_000, FORCE_DEV_MODULES_TTL_MS),
+    FORCE_DEV_MODULES_TTL_MAX_MS,
+  );
+}
 
 type ClusterType = "master" | "worker";
 type NodefonyStartType = "CONSOLE" | "NODEFONY" | "NODEFONY_CONSOLE";
@@ -401,6 +450,8 @@ class Kernel extends Service implements IKernel {
    * {@link terminate}.
    */
   private parkTimer: NodeJS.Timeout | null = null;
+  /** Minuterie d'auto-arrêt d'un runtime en dérogation de modules dev (`null` = aucune). */
+  private devModulesStopTimer: NodeJS.Timeout | null = null;
   node_start: NodefonyStartType =
     process.env.NODEFONY_START || this.options.node_start;
   platform: NodeJS.Platform = process.platform;
@@ -1119,6 +1170,12 @@ class Kernel extends Service implements IKernel {
     // environnement de déploiement passe par `when(config)` (axe appEnvironment).
     const isProd =
       this.resolveRuntimeEnv(this.cli?.environment) === "production";
+    // Dérogation explicite au gating `policy:"dev"` — pour éprouver un runtime de
+    // production AVEC les modules de banc (suite d'intégration, diagnostic « pourquoi
+    // ce module manque »). Lue ici et nulle part ailleurs ; jamais silencieuse (cf
+    // le WARNING par module ci-dessous) ; sans effet hors production.
+    const devModulesForced =
+      isProd && process.env[FORCE_DEV_MODULES_ENV] === "1";
     // Reset (défensif si rappelée) : les skips motivés sont re-collectés à chaque
     // résolution — sinon un double appel dupliquerait les entrées du bilan.
     this.modulesGated = null;
@@ -1130,8 +1187,24 @@ class Kernel extends Service implements IKernel {
         continue;
       }
       if (entry.policy === "dev" && isProd) {
-        this.recordModuleGated(entry.name, `policy "dev" — runtime production`);
-        continue;
+        if (devModulesForced) {
+          // Dérogation DEMANDÉE : on charge, on le CRIE, et on arme l'auto-arrêt.
+          // Un module de banc dans un runtime de production est une surface
+          // offerte — que personne ne doit découvrir en lisant les routes.
+          this.log(
+            `module "${entry.name}" (policy "dev") chargé en PRODUCTION sur ` +
+              `${FORCE_DEV_MODULES_ENV}=1 — dérogation explicite, à ne jamais poser sur un déploiement réel`,
+            "WARNING",
+            "KERNEL",
+          );
+          this.armDevModulesSelfStop();
+        } else {
+          this.recordModuleGated(
+            entry.name,
+            `policy "dev" — runtime production`,
+          );
+          continue;
+        }
       }
       if (typeof entry.when === "function" && !entry.when(this.options)) {
         this.recordModuleGated(
@@ -1156,6 +1229,53 @@ class Kernel extends Service implements IKernel {
   private recordModuleGated(module: string, reason: string): void {
     (this.modulesGated ??= []).push({ module, reason });
     this.log(`MODULE GATED : ${module} — ${reason}`, "DEBUG");
+  }
+
+  /**
+   * Arme l'auto-arrêt d'un runtime de production ayant dérogé au gating des modules
+   * de développement (cf {@link FORCE_DEV_MODULES_ENV}). Idempotent : une seule
+   * minuterie, quel que soit le nombre de modules concernés.
+   *
+   * **L'échéance est ANNONCÉE, deux fois.** Un arrêt temporisé qui surprend est pire
+   * que pas de garde-fou : il coupe un banc de charge au milieu d'une mesure, et le
+   * journal qu'on relira ensuite accusera le code. On dit donc l'échéance au
+   * démarrage — avec le moyen de l'allonger — puis on prévient avant de tomber, et
+   * l'arrêt lui-même en donne la raison. Les minuteries sont `unref` : elles
+   * n'empêchent jamais une sortie naturelle.
+   */
+  private armDevModulesSelfStop(): void {
+    if (this.devModulesStopTimer) return;
+    const ttl = resolveDevModulesTtlMs(process.env);
+    const minutes = Math.round(ttl / 60_000);
+    this.log(
+      `runtime en DÉROGATION (modules dev en production) — arrêt automatique dans ` +
+        `${minutes} min. Allonger : ${FORCE_DEV_MODULES_TTL_ENV}=<minutes> ` +
+        `(plafond ${Math.round(FORCE_DEV_MODULES_TTL_MAX_MS / 60_000)} min, jamais désarmé)`,
+      "WARNING",
+      "KERNEL",
+    );
+    const notice = ttl - 5 * 60_000;
+    if (notice > 0) {
+      setTimeout(() => {
+        this.log(
+          `arrêt automatique dans 5 min (dérogation ${FORCE_DEV_MODULES_ENV}) — ` +
+            `termine ta mesure ou relance avec ${FORCE_DEV_MODULES_TTL_ENV} plus haut`,
+          "WARNING",
+          "KERNEL",
+        );
+      }, notice).unref();
+    }
+    this.devModulesStopTimer = setTimeout(() => {
+      this.log(
+        `arrêt automatique : ce runtime tournait en production avec des modules ` +
+          `"policy: dev" (${FORCE_DEV_MODULES_ENV}=1). Ce n'est pas une panne — c'est la ` +
+          `garde qui empêche une dérogation de banc de survivre à un déploiement`,
+        "CRITIC",
+        "KERNEL",
+      );
+      void this.terminate(0);
+    }, ttl);
+    this.devModulesStopTimer.unref();
   }
 
   /**
