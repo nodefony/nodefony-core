@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type * as Jose from "jose";
 import type { JSONWebKeySet, JWK } from "jose";
@@ -49,8 +49,11 @@ interface LoadedKey {
  *  1. **env** — `config.jwt.keystore.keySetJson` (JWK Set injecté par l'app depuis
  *     son catalogue d'env) : prod cloud, secret géré hors-app, même clé sur tous
  *     les pods.
- *  2. **fichier** — `config.jwt.keystore.dir/keyset.json` (chmod 600, généré si
- *     absent) : opt-in dev/VPS mono-machine.
+ *  2. **fichier** — `config.jwt.keystore.dir/keyset.json` (écrit en mode 600,
+ *     généré si absent) : opt-in dev/VPS mono-machine. Le mode effectif est
+ *     **constaté** après coup : un système de fichiers qui n'applique pas les
+ *     permissions POSIX (NTFS, FAT, NFS sans mapping) déclenche un **warning**
+ *     plutôt qu'une garantie silencieusement fausse.
  *  3. **mémoire** — aucune source → clé éphémère générée au 1ᵉʳ usage + **warning**
  *     (perdue au redémarrage = refresh invalidés, incohérente en cluster).
  *
@@ -109,6 +112,7 @@ export class JwtKeystore implements IJwtKeystore {
       const file = join(this.#source.dir, "keyset.json");
       const existing = await this.#readFile(file);
       if (existing) {
+        await this.#checkRestricted(file);
         await this.#importKeyset(jose, this.#parseKeyset(existing));
         return;
       }
@@ -213,6 +217,40 @@ export class JwtKeystore implements IJwtKeystore {
     this.#log(
       `JWT keystore: clé Ed25519 générée et persistée (${file}).`,
       "INFO",
+    );
+    await this.#checkRestricted(file);
+  }
+
+  /**
+   * Constate le mode EFFECTIF du fichier de clés et avertit s'il n'est pas 0600.
+   *
+   * Le mode demandé à l'écriture est une intention, pas une garantie : NTFS
+   * (Windows) l'ignore, tout comme un montage FAT/exFAT ou NFS sans mapping
+   * d'identité — sous Linux comme ailleurs. Le fichier porte la clé PRIVÉE :
+   * si la restriction n'a pas pris, la confidentialité repose sur les droits du
+   * dossier, ce qui doit être DIT plutôt que supposé. La capacité se constate,
+   * elle ne se déduit pas de `process.platform`.
+   *
+   * Un `stat` par résolution de keystore (une fois par process, source fichier
+   * uniquement) — hors hot-path.
+   */
+  async #checkRestricted(file: string): Promise<void> {
+    let mode: number;
+    try {
+      mode = (await stat(file)).mode & 0o777;
+    } catch {
+      return; // fichier disparu entre-temps : le chemin d'erreur normal parlera
+    }
+    if (mode === 0o600) return;
+    this.#log(
+      `JWT keystore: ${file} porte la clé PRIVÉE mais n'est PAS restreint au ` +
+        `seul propriétaire (mode ${mode.toString(8).padStart(4, "0")}, attendu 0600). ` +
+        `Le système de fichiers n'applique pas les permissions POSIX (NTFS, ` +
+        `FAT/exFAT, NFS sans mapping) ou le fichier a été déposé par un tiers. ` +
+        `La confidentialité de la clé dépend alors des seuls droits du dossier : ` +
+        `restreignez-les, ou provisionnez la clé hors-bande via ` +
+        `jwt.keystore.keySetJson (recommandé en production).`,
+      "WARNING",
     );
   }
 }

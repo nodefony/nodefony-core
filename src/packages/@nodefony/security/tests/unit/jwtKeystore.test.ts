@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import {
+  chmodSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { calculateJwkThumbprint } from "jose";
@@ -9,7 +15,8 @@ import { JwtKeystore } from "../../nodefony/src/token/JwtKeystore";
  * Keystore Ed25519 — gates :
  * - kid = thumbprint RFC 7638 du JWK public.
  * - JWKS exposé = PUBLIC seulement (jamais `d`) — RFC 8037/7517.
- * - persistance fichier (chmod 600) + rechargement du MÊME kid (refresh durables).
+ * - persistance fichier : mode 600 appliqué OU annoncé (le disque peut l'ignorer)
+ *   + rechargement du MÊME kid (refresh durables).
  * - source env (keySetJson) + erreurs explicites.
  */
 
@@ -61,17 +68,39 @@ describe("JwtKeystore — mémoire (défaut dev)", () => {
 });
 
 describe("JwtKeystore — fichier (opt-in)", () => {
-  it("génère keyset.json (chmod 600, avec `d`) puis recharge le MÊME kid", async () => {
+  it("génère keyset.json (mode 600 constaté ou annoncé, avec `d`) puis recharge le MÊME kid", async () => {
     const dir = mkdtempSync(join(tmpdir(), "nf-jwt-"));
     try {
-      const ks1 = new JwtKeystore({ dir }, noop);
+      const warns: string[] = [];
+      const ks1 = new JwtKeystore({ dir }, (m, s) => {
+        if (s === "WARNING") warns.push(m);
+      });
       const k1 = await ks1.getSigningKey();
       const file = join(dir, "keyset.json");
-      assert.equal(
-        statSync(file).mode & 0o777,
-        0o600,
-        "keyset.json doit être en 0600",
-      );
+      // Le mode POSIX est une INTENTION : NTFS l'ignore (le job Windows rendait
+      // 0666), tout comme un montage FAT/exFAT ou NFS sans mapping. La garantie
+      // testée est donc : soit la restriction a pris, soit elle est ANNONCÉE.
+      const mode = statSync(file).mode & 0o777;
+      const told = warns.filter((w) => /PAS restreint/.test(w));
+      if (mode === 0o600) {
+        assert.equal(
+          told.length,
+          0,
+          "mode 600 effectif → aucun avertissement de restriction",
+        );
+      } else {
+        assert.equal(
+          told.length,
+          1,
+          `mode ${mode.toString(8)} non restreint → doit avertir exactement une fois`,
+        );
+        assert.match(told[0]!, /clé PRIVÉE/);
+        assert.match(
+          told[0]!,
+          /keySetJson/,
+          "l'avertissement doit dire la sortie",
+        );
+      }
       const raw = JSON.parse(readFileSync(file, "utf8")) as {
         active: string;
         keys: Array<{ d?: string }>;
@@ -85,6 +114,37 @@ describe("JwtKeystore — fichier (opt-in)", () => {
       assert.equal(k2.kid, k1.kid, "même clé rechargée (refresh durables)");
       const jwks2 = await ks2.getPublicJWKS();
       assert.equal((jwks2.keys[0] as { d?: string }).d, undefined);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // Fait MORDRE le bras « avertissement » sur les TROIS plateformes : sous POSIX
+  // le 0644 demandé est appliqué, sous Windows NTFS rend 0666 — dans les deux
+  // cas le fichier n'est pas restreint au propriétaire, et le keystore doit le
+  // dire au lieu de charger la clé privée en silence.
+  it("keyset déposé avec des droits trop larges → avertit au CHARGEMENT", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "nf-jwt-"));
+    try {
+      await new JwtKeystore({ dir }, noop).getSigningKey(); // génère le fichier
+      const file = join(dir, "keyset.json");
+      chmodSync(file, 0o644);
+      assert.notEqual(
+        statSync(file).mode & 0o777,
+        0o600,
+        "décor invalide : le fichier est resté restreint",
+      );
+
+      const warns: string[] = [];
+      const ks = new JwtKeystore({ dir }, (m, s) => {
+        if (s === "WARNING") warns.push(m);
+      });
+      await ks.getSigningKey();
+      assert.equal(
+        warns.filter((w) => /PAS restreint/.test(w)).length,
+        1,
+        "un keyset lisible par d'autres comptes doit être signalé",
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
