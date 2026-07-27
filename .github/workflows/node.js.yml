@@ -209,6 +209,14 @@ jobs:
       # tâche, et c'est la garde qui empêche cette variable de survivre à un vrai
       # déploiement si elle était un jour recopiée ailleurs.
       NF_WITH_DEV_MODULES: "1"
+      # Backoff de connexion désactivé sur le serveur de banc — et sur les tests,
+      # qui lisent la même variable pour savoir s'ils peuvent éprouver le câblage
+      # du 429. Le throttle compte par identifiant SAISI et vit aussi longtemps que
+      # le serveur : trois échecs n'importe où dans la suite (un banc d'attaque en
+      # produit par conception) condamnent tous les fichiers suivants, `admin`
+      # répondant alors 429 même avec le bon mot de passe. Le backoff reste prouvé
+      # unitairement ; son câblage se rejoue avec la variable à `true`.
+      NF__SECURITY__RATELIMIT__ENABLED: "false"
 
     steps:
       - name: Checkout

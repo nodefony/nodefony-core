@@ -128,6 +128,16 @@ else
   RUNTIME_ARGS=(${DEBUG_FLAG:+"$DEBUG_FLAG"} development)
 fi
 echo ">>> nodefony ${RUNTIME_ARGS[*]} --detach (natif : readiness + health + exit code)"
+# Backoff de connexion DÉSACTIVÉ sur ce serveur de banc. Ce n'est pas un
+# assouplissement : le throttle compte par identifiant SAISI, il est GLOBAL au
+# serveur, et toute la suite s'authentifie avec le même compte de banc. Trois
+# échecs n'importe où — y compris dans un banc d'attaque qui fait exactement son
+# travail — épuisent le crédit, après quoi `admin` reçoit 429 même avec le bon mot
+# de passe, dans tous les fichiers suivants (vécu : 60 rouges pour un défaut). Le
+# backoff lui-même reste prouvé unitairement (`security/tests/unit/loginThrottler`,
+# 10 cas) ; son CÂBLAGE se rejoue en posant la variable à `true` puis en relançant
+# ce script — les cas concernés se réactivent seuls.
+NF__SECURITY__RATELIMIT__ENABLED="${NF__SECURITY__RATELIMIT__ENABLED:-false}" \
 NODE_OPTIONS="$(echo "${NODE_OPTIONS:-} --expose-gc" | xargs)" \
   node "$BIN" "${RUNTIME_ARGS[@]}" --detach --wait 150 \
   --health /nodefony/test/index --log "$LOG" | tee /tmp/nodefony-detach-out.$$

@@ -236,25 +236,32 @@ describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
     expect(replay.status).to.equal(200);
   });
 
-  it("throttling NIST PARTAGÉ : les échecs JSON arment le backoff de la porte Basic", async () => {
-    // Identifiant unique par run (compteur serveur par identifiant SAISI).
-    const target = `bff-bruteforce-${Date.now()}`;
-    // freeAttempts=3 : 3 échecs libres + le 4e arme le délai — TOUS via la
-    // porte JSON.
-    for (let i = 0; i < 4; i++) {
-      const { status } = await login(target, "bad");
-      expect(status).to.equal(401);
-    }
-    // 5e tentative via la porte BASIC : même compteur → 429 + Retry-After.
-    const blocked = await get(
-      "/nodefony/test/secure/ping",
-      basic(target, "bad"),
-    );
-    expect(blocked.status).to.equal(429);
-    expect(Number(blocked.headers["retry-after"])).to.be.greaterThan(0);
-    // Et symétriquement la porte JSON est bloquée aussi.
-    const blockedJson = await login(target, "bad");
-    expect(blockedJson.status).to.equal(429);
-    expect(Number(blockedJson.headers["retry-after"])).to.be.greaterThan(0);
-  });
+  // Décor OPT-IN, comme son jumeau de `firewall-auth` : relancer le serveur avec
+  // `NF__SECURITY__RATELIMIT__ENABLED=true`. Le décor par défaut désactive le
+  // backoff (compteur global au serveur, partagé par toute la suite) — sans lui,
+  // aucun 429 ne peut sortir et le cas ne prouverait rien.
+  it.skipIf(process.env.NF__SECURITY__RATELIMIT__ENABLED !== "true")(
+    "throttling NIST PARTAGÉ : les échecs JSON arment le backoff de la porte Basic",
+    async () => {
+      // Identifiant unique par run (compteur serveur par identifiant SAISI).
+      const target = `bff-bruteforce-${Date.now()}`;
+      // freeAttempts=3 : 3 échecs libres + le 4e arme le délai — TOUS via la
+      // porte JSON.
+      for (let i = 0; i < 4; i++) {
+        const { status } = await login(target, "bad");
+        expect(status).to.equal(401);
+      }
+      // 5e tentative via la porte BASIC : même compteur → 429 + Retry-After.
+      const blocked = await get(
+        "/nodefony/test/secure/ping",
+        basic(target, "bad"),
+      );
+      expect(blocked.status).to.equal(429);
+      expect(Number(blocked.headers["retry-after"])).to.be.greaterThan(0);
+      // Et symétriquement la porte JSON est bloquée aussi.
+      const blockedJson = await login(target, "bad");
+      expect(blockedJson.status).to.equal(429);
+      expect(Number(blockedJson.headers["retry-after"])).to.be.greaterThan(0);
+    },
+  );
 });

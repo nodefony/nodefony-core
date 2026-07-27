@@ -52,6 +52,22 @@ const basic = (identifier: string, password: string) => ({
 });
 
 /**
+ * `true` si le serveur de banc tourne AVEC le backoff de connexion.
+ *
+ * Le décor par défaut le DÉSACTIVE (cf le lanceur et la tâche d'intégration) : le
+ * throttle compte par identifiant saisi et vit aussi longtemps que le serveur, or
+ * toute la suite s'authentifie avec le même compte de banc — trois échecs n'importe
+ * où, y compris dans un banc d'attaque qui fait son travail, condamnent tous les
+ * fichiers suivants. Les cas qui éprouvent le CÂBLAGE du 429 se réactivent en
+ * relançant le serveur avec `NF__SECURITY__RATELIMIT__ENABLED=true`. Le backoff
+ * lui-même est prouvé unitairement (`security/tests/unit/loginThrottler`, 10 cas) —
+ * ce qui se joue ici est ce qu'un banc unitaire ne peut pas dire : que le firewall
+ * traduit l'erreur en `429 + Retry-After`, et que les deux portes partagent bien le
+ * compteur.
+ */
+const throttleOn = process.env.NF__SECURITY__RATELIMIT__ENABLED === "true";
+
+/**
  * Efface la dette de backoff accumulée sur un compte RÉEL, par le seul moyen que la
  * doctrine prévoit : une authentification RÉUSSIE (`LoginThrottler.recordSuccess`
  * oublie l'identifiant — NIST : l'utilisateur légitime ne traîne pas la dette d'un
@@ -204,30 +220,38 @@ describe("P6 J2 — Argon2id + throttling NIST (requires server)", () => {
     expect((body as { format: string }).format).to.equal("argon2id");
   });
 
-  it("backoff NIST : échecs répétés → 429 + Retry-After (sans WWW-Authenticate)", async () => {
-    // Identifiant unique par run (compteur côté serveur) — inconnu en base :
-    // le throttle s'applique à l'identifiant SAISI (zéro oracle d'énumération).
-    const target = `bruteforce-${Date.now()}`;
-    // freeAttempts=3 (défaut) : 3 échecs libres + le 4e arme le délai (1 s).
-    for (let i = 0; i < 4; i++) {
-      const { status } = await get(
+  // Décor OPT-IN : relancer le serveur avec `NF__SECURITY__RATELIMIT__ENABLED=true`.
+  // Sans lui, ce cas ne prouverait rien (aucun 429 ne peut sortir).
+  it.skipIf(!throttleOn)(
+    "backoff NIST : échecs répétés → 429 + Retry-After (sans WWW-Authenticate)",
+    async () => {
+      // Identifiant unique par run (compteur côté serveur) — inconnu en base :
+      // le throttle s'applique à l'identifiant SAISI (zéro oracle d'énumération).
+      const target = `bruteforce-${Date.now()}`;
+      // freeAttempts=3 (défaut) : 3 échecs libres + le 4e arme le délai (1 s).
+      for (let i = 0; i < 4; i++) {
+        const { status } = await get(
+          "/nodefony/test/secure/ping",
+          basic(target, "bad"),
+        );
+        expect(status).to.equal(401);
+      }
+      const blocked = await get(
         "/nodefony/test/secure/ping",
         basic(target, "bad"),
       );
-      expect(status).to.equal(401);
-    }
-    const blocked = await get(
-      "/nodefony/test/secure/ping",
-      basic(target, "bad"),
-    );
-    expect(blocked.status).to.equal(429);
-    expect(Number(blocked.headers["retry-after"])).to.be.greaterThan(0);
-    expect(blocked.headers["www-authenticate"]).to.equal(undefined);
-    // Le délai EXPIRE (jamais de lockout dur) : on retombe sur 401 classique.
-    await new Promise((r) => setTimeout(r, 1200));
-    const after = await get("/nodefony/test/secure/ping", basic(target, "bad"));
-    expect(after.status).to.equal(401);
-  });
+      expect(blocked.status).to.equal(429);
+      expect(Number(blocked.headers["retry-after"])).to.be.greaterThan(0);
+      expect(blocked.headers["www-authenticate"]).to.equal(undefined);
+      // Le délai EXPIRE (jamais de lockout dur) : on retombe sur 401 classique.
+      await new Promise((r) => setTimeout(r, 1200));
+      const after = await get(
+        "/nodefony/test/secure/ping",
+        basic(target, "bad"),
+      );
+      expect(after.status).to.equal(401);
+    },
+  );
 
   it("le throttle d'un identifiant martelé ne bloque pas les autres comptes", async () => {
     const { status } = await get(
