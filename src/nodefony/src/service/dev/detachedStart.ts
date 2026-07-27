@@ -180,6 +180,13 @@ function probeHealth(ports: number[], healthPath: string): Promise<string> {
         hostname: "127.0.0.1",
         port: useTls ? tlsPort : plainPort,
         path: healthPath,
+        // Validation désactivée À DESSEIN, et l'analyse statique la signale à
+        // raison — la réponse ici est qu'il n'y a aucune identité à vérifier :
+        // la sonde parle en boucle locale au process qu'on VIENT de lancer, dont
+        // le certificat de développement est auto-signé par construction. Elle
+        // ne lit qu'un code de statut, jamais un contenu. Exiger une autorité
+        // rendrait le démarrage détaché impossible sans une PKI, c'est-à-dire
+        // pour une garantie que ce chemin ne peut pas offrir.
         rejectUnauthorized: false,
         timeout: 4000,
       },

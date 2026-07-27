@@ -654,6 +654,10 @@ export class ViteProcessSupervisor implements IViteSupervisor {
           port,
           path: "/",
           method: "GET",
+          // Même raison qu'au lanceur détaché : sonde de disponibilité vers un
+          // Vite de DÉVELOPPEMENT lancé par ce superviseur, sur l'hôte local,
+          // avec un certificat auto-signé. On demande « écoutes-tu ? », pas
+          // « qui es-tu ? » — et la réponse lue est un code de statut.
           rejectUnauthorized: false,
           timeout: this.cfg.healthCheckTimeoutMs,
         },
