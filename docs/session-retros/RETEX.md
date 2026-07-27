@@ -135,6 +135,34 @@ status` le payait sur macOS et Windows.
   source. Un nom qui ne suit pas la convention rend une couverture réelle indistinguable d'une
   absence de couverture.
 
+## 🧲 On ne convainc pas un agent — on retire le chemin plus court, ou on fait échouer l'autre
+
+- `[1× — 2026-07-28]` **Le générateur ne sera jamais appelé par persuasion.** Mesuré deux fois :
+  une app vierge n'a rien à copier → 11 appels ; une app peuplée offre un voisin copiable, et
+  aucune phrase d'`AGENTS.md` ne tient contre lui. Conséquence de conception : ne pas chercher à
+  faire appeler la commande, mais **faire échouer ce qui ne l'a pas appelée** (`nodefony check` de
+  câblage). Un agent obéit à un échec, pas à une consigne — et ça protège aussi l'humain pressé.
+- `[1× — 2026-07-28]` **Un contrôle qui accuse le décor est un contrôle qu'on désactive.** Deux
+  fois le même jour : un parcours libre depuis la racine remontait une entité d'une app témoin
+  oubliée dans `tmp/` ; et le compteur « accès hors de l'application » d'un banc rendait 14
+  incursions dont six fois le fichier de brouillon de l'agent et **une URL prise pour un chemin**.
+  Borner le périmètre AVANT de compter — après correction : 14 → 0, le décor était irréprochable.
+
+## 🧩 Deux gabarits justes, une combinaison qui échoue
+
+- `[1× — 2026-07-28]` Le scaffold d'app séparait ses suites vitest, celui de module non. Chacun
+  était correct **seul** ; dès qu'une entité naissait dans un module, son test e2e était ramassé
+  par la suite unitaire et frappait un serveur absent. Aucune assertion du dépôt ne pouvait le
+  voir — il fallait un banc qui **combine** les générateurs. Règle : quand deux générateurs
+  peuvent se cibler l'un l'autre (`--module`), la combinaison est un cas de test à part entière.
+
+## 📌 Un manifeste bumpé n'est pas une dépendance montée
+
+- `[1× — 2026-07-28]` `@types/node` monté à la racine : 25 workspaces restaient en arrière, et le
+  verrou portait 19 entrées imbriquées figées. `npm install` respectait le verrou sans rien dire ;
+  le seul indice était le mot `invalid` dans `npm ls`. **Vérifier l'ARBRE installé, jamais le
+  manifeste** — et purger les entrées imbriquées du verrou quand elles retiennent l'ancienne.
+
 ## 🔍 Un contrôle que personne ne lance n'existe pas
 
 - `[3× — 2026-07-26f]` **La CI ne lançait pas le lint** — 146 erreurs accumulées sans qu'aucune
