@@ -107,22 +107,46 @@ jobs:
         with:
           mode: development --no-watch
 
+      # DEUX rapporteurs, et c'est délibéré : `--reporter=json` seul REMPLACE la
+      # sortie lisible, si bien qu'un seuil franchi ne dit plus de combien ni sur
+      # quel banc. Une défaillance qui ne peut pas s'expliquer coûte plus cher que
+      # celle qu'elle signale.
       - name: Gate mémoire — 1000 requêtes, 100 crashes, 100 connexions WS
         working-directory: src/packages/@nodefony/http
-        run: npm run test:memory -- --reporter=json --outputFile=memory-report.json
+        run: |
+          npm run test:memory -- \
+            --reporter=default --reporter=json --outputFile=memory-report.json
 
-      # FILET — un banc qui ne trouve pas son serveur doit ÉCHOUER, jamais rendre
-      # un vert vide. Le compte de cas réellement passés est la seule affirmation
-      # qu'un décor absent ne peut pas satisfaire.
-      - name: Le banc a réellement mesuré
+      # `always()` : c'est en ÉCHEC que ce résumé sert le plus. Il dit de combien
+      # le seuil a été franchi — un dépassement de quelques Mo se lit comme du
+      # bruit de ramasse-miettes, un dépassement d'un ordre de grandeur comme une
+      # fuite. Sans ce chiffre, les deux se ressemblent.
+      - name: Ce que le banc a mesuré
+        if: always()
         working-directory: src/packages/@nodefony/http
         run: |
+          [ -f memory-report.json ] || { echo "::error::aucun rapport — le banc n'a pas démarré."; exit 1; }
           passed=$(jq '.numPassedTests' memory-report.json)
-          echo "cas de mesure exécutés : $passed"
+          failed=$(jq '.numFailedTests' memory-report.json)
+          echo "mesures passées : $passed · échouées : $failed"
+          jq -r '.testResults[].assertionResults[]
+            | select(.status == "failed")
+            | "  ✗ \(.fullName)\n    \(.failureMessages[0] // "" | split("\n")[0])"' memory-report.json
           if [ "$passed" -eq 0 ]; then
             echo "::error::Aucune mesure n'a tourné — le gate mémoire est décoratif."
             exit 1
           fi
+
+      - name: Rapport de mesure (échec)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-report
+          path: |
+            src/packages/@nodefony/http/memory-report.json
+            nodefony-server.log
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Show server log on failure
         if: failure()
