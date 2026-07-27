@@ -44,6 +44,45 @@ Chaque commande se décrit à une machine : `--describe-json` (questions + optio
 en JSON), `--answers-json <fichier|->` (réponses en JSON), `--dry-run` (plan et
 diffs, zéro écriture). Un refus n'écrit jamais rien (transaction).
 
+Les champs d'une entité se déclarent en positionnels :
+`nodefony create entity Post title:string! views:int? slug:string:index author:ref:User`.
+Le `!` interdit le nul, le `?` l'autorise, `:index` pose l'index, et
+`ref:<Entité>` crée la colonne de jointure **avec** son index. Les types portent
+leur taille (`string(120)`, `char(2)`, `decimal(10,2)`). Un index de TABLE couvre
+plusieurs colonnes et se répète : `--index "siteId,createdAt"`, `--unique "a,b"`.
+`nodefony create entity --help` porte la grammaire de CETTE version — elle
+s'enrichit, ta mémoire non.
+
+## Les commandes de l'app — demande la liste, ne la devine pas
+
+```bash
+nodefony --help              # TOUTES les commandes, celles des modules installés comprises
+nodefony <commande> --help   # les options exactes de l'une d'elles
+```
+
+La liste **dépend des modules installés** : elle n'est pas la même d'une app à
+l'autre, et elle s'allonge dès que tu en ajoutes un. C'est pour ça qu'elle se
+demande au lieu de se retenir.
+
+Celles qu'on n'invente pas — faute de savoir qu'elles existent :
+
+| Besoin | Commande |
+| --- | --- |
+| Mettre l'app derrière **nginx ou haproxy** | `nodefony proxy:generate <nginx\|haproxy> [-o <fichier>] [-b <hôte>] [-l <port>] [--reencrypt]` |
+| Servir les fichiers statiques depuis un CDN | `nodefony assets:publish [-o <dossier>] [--clean] [--json]` |
+| Certificat TLS de développement | `nodefony http:certificates [-f] [-j]` |
+<% if (it.front) { %>| Construire le front pour la production | `nodefony frontend:build [-f]` |
+| Où en est le serveur Vite | `nodefony frontend:status [-j]` |
+<% } %><% if (it.hasSecurity) { %>| Clés de chiffrement du firewall | `nodefony security:secrets [-j] [-w]` |
+| Créer un compte **administrateur** | `nodefony security:user:add <identifiant> --admin` |
+<% } %>| Dépendances en retard (agrégées, pas le brut de npm) | `nodefony outdated [-j] [-a]` |
+| Cohérence du projet | `nodefony check [--json]` |
+| Plusieurs processus, un cœur chacun | `nodefony production -w <n>` · `nodefony cluster -w <n>` |
+| Complétion au TAB | `source <(nodefony completion zsh)` |
+
+Ce tableau ne remplace pas `--help` : lui seul connaît les modules de CETTE app,
+et il fait foi le jour où les deux divergent.
+
 ## Vérités du framework (anti-préjugés — ce que tu crois savoir est faux ici)
 
 - **Un adaptateur de données ne remplace pas l'autre : ils se COMPLÈTENT.** Chacun
@@ -271,8 +310,11 @@ croira vraie.
 nodefony inspect routes --json     # toutes les routes réelles (chemin, méthodes, controller)
 nodefony inspect services --json   # services enregistrés, et le module qui les porte
 nodefony inspect config --json     # config EFFECTIVE de chaque module (+ d'où vient chaque valeur)
+nodefony inspect modules --json    # modules CHARGÉS — pas ceux que le manifeste déclare
 nodefony inspect module http       # un module en détail
 nodefony inspect entities --json   # entités déclarées à l'ORM
+nodefony inspect stores --json     # où sont RÉELLEMENT écrites les données (sessions, cache…)
+nodefony inspect graph --json      # graphe des entités et de leurs relations
 ```
 
 Ces commandes bootent l'app **sans ouvrir un seul port** et rendent exactement ce
