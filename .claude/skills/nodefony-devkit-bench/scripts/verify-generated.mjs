@@ -63,6 +63,17 @@ const BIN = path.join(REPO, "src/nodefony/bin/nodefony");
 const ROOT = path.join(REPO, "tmp/devkit-verify");
 const APP = path.join(ROOT, "app");
 
+/**
+ * Le module témoin, et son nom NPM.
+ *
+ * Les deux, parce qu'ils ne coïncident pas : le dossier est `modules/blog`, le
+ * paquet `@app/blog` — c'est ce dernier que le Kernel importe et que le
+ * manifeste déclare. Confondre les deux est l'erreur qui rend un module
+ * introuvable au démarrage, avec un message qui parle de paquet manquant.
+ */
+const MODULE = "blog";
+const MODULE_PKG = `@app/${MODULE}`;
+
 const keep = process.argv.includes("--keep");
 const withE2e = !process.argv.includes("--no-e2e");
 
@@ -268,6 +279,71 @@ step(
         "--yes",
       ]);
     }
+  },
+);
+
+step(
+  "un MODULE naît câblé, et porte sa propre entité",
+  "Le chemin que rien n'éprouvait : workspace npm, manifeste, entité ciblée.",
+  // `create module` est le générateur le plus structurant et le seul qui n'avait
+  // aucun banc. Ce qu'il pose n'est pas un dossier mais un **workspace npm** :
+  // le Kernel importe un module PAR SON NOM, donc npm doit savoir le résoudre.
+  // Si l'une des trois pièces manque — le workspace déclaré, le symlink installé,
+  // l'entrée `use()` du manifeste — l'application ne démarre pas, et le message
+  // parle d'un paquet introuvable, jamais du câblage.
+  //
+  // L'installation n'est PAS neutralisée ici : le symlink de workspace EST ce qui
+  // rend le module chargeable, et un banc qui l'évite mesurerait autre chose.
+  () => {
+    run(process.execPath, [
+      BIN,
+      "create",
+      "module",
+      MODULE,
+      "--controller",
+      "rest",
+      "--yes",
+    ]);
+    // L'entité va DANS le module — c'est l'usage réel, et le seul qui exerce la
+    // résolution du nom npm par le générateur.
+    run(process.execPath, [
+      BIN,
+      "create",
+      "entity",
+      "Comment",
+      "body:text",
+      "author:string",
+      "--module",
+      MODULE_PKG,
+      "--yes",
+    ]);
+
+    // Les trois pièces du câblage, constatées sur le disque plutôt que supposées.
+    const manifest = JSON.parse(
+      readFileSync(path.join(APP, "package.json"), "utf8"),
+    );
+    if (!(manifest.workspaces ?? []).some((w) => String(w).includes("modules")))
+      throw new Error(
+        "`modules/*` absent des workspaces npm — le module ne sera pas résolvable par son nom",
+      );
+    if (!existsSync(path.join(APP, "modules", MODULE, "package.json")))
+      throw new Error(
+        "le module n'a pas de package.json — ce n'est pas un paquet",
+      );
+    const config = readFileSync(path.join(APP, "nodefony.config.ts"), "utf8");
+    if (!config.includes(MODULE_PKG))
+      throw new Error(
+        `${MODULE_PKG} absent du manifeste \`modules\` — le Kernel ne le chargera pas`,
+      );
+    // Et l'entité doit être déclarée DANS le module, pas dans l'app.
+    const moduleIndex = readFileSync(
+      path.join(APP, "modules", MODULE, "index.ts"),
+      "utf8",
+    );
+    if (!/@entities\(\[[^\]]*CommentEntity/u.test(moduleIndex))
+      throw new Error(
+        "CommentEntity n'est pas déclarée dans le module — sa table ne sera pas créée",
+      );
   },
 );
 

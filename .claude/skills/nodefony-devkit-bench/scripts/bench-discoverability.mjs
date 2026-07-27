@@ -602,6 +602,133 @@ const TASKS = [
       },
     ],
   },
+
+  /*
+   *   ─── Le SOCLE, et pas les générateurs ──────────────────────────────────
+   *
+   *   Les neuf tâches précédentes mesurent toutes la même chose : l'agent
+   *   trouve-t-il le GÉNÉRATEUR. Un agent peut les réussir toutes et produire
+   *   un projet entièrement hors-cadre, parce que les gestes qui STRUCTURENT
+   *   une application n'ont, eux, aucun générateur : déclarer un service au
+   *   conteneur, journaliser par le Syslog, accrocher une initialisation à une
+   *   phase du cycle de vie. Ce sont des méthodes de travail, elles s'imitent
+   *   ou s'ignorent — et ce qu'on ignore ici ne se rattrape pas : un
+   *   `console.log` ne remonte à aucun collecteur, un service instancié à la
+   *   main ne voit ni la configuration ni les scopes, une initialisation posée
+   *   au chargement du fichier s'exécute avant que la configuration existe.
+   *
+   *   Les énoncés restent MÉTIER et ne nomment jamais la brique attendue :
+   *   citer `@injectable` ou `this.log` mesurerait l'obéissance, pas la
+   *   connaissance du socle.
+   */
+  {
+    id: 10,
+    name: "socle — un service au conteneur",
+    prompt:
+      "Deux endpoints différents de cette application doivent appliquer EXACTEMENT le même " +
+      "calcul de remise (un pourcentage lu dans la configuration, appliqué à un montant). " +
+      "Organise le code pour que ce calcul existe en un seul endroit, réutilisable ailleurs " +
+      "dans l'application et testable seul. Termine en prouvant que les tests de l'app passent.",
+    probes: [
+      {
+        kind: "code",
+        name: "service déclaré au conteneur (@injectable)",
+        pattern: /@injectable/u,
+        where: "content",
+      },
+      {
+        kind: "code",
+        name: "enregistré sur un module (@services([…]))",
+        pattern: /@services\(\[/u,
+        where: "content",
+      },
+      {
+        // Le contournement exact : une classe utilitaire instanciée à la main.
+        // Elle « marche », et perd tout ce que le conteneur apporte — la
+        // configuration résolue, les scopes, le journal, l'accès aux autres
+        // services. C'est la divergence qui ne se voit qu'au premier besoin.
+        kind: "code",
+        name: "pas d'instanciation manuelle (new XService())",
+        pattern: /new\s+\w*Service\s*\(/u,
+        where: "added",
+        invert: true,
+      },
+      {
+        // LE juge d'état : le conteneur de l'application EXÉCUTÉE le connaît-il ?
+        // Un service écrit mais jamais enregistré compile et n'existe pas.
+        kind: "gate",
+        name: "le service est réellement enregistré (inspect services)",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JSON.stringify(BIN)} inspect services --json > .nf-services.json 2>/dev/null; node -e ` +
+            `"const fs=require('node:fs');` +
+            `const s=JSON.parse(fs.readFileSync('.nf-services.json','utf8'));` +
+            `const names=JSON.stringify(s).toLowerCase();` +
+            `if(!/remise|discount/.test(names)){` +
+            `console.error('aucun service de remise dans le conteneur');process.exit(1)}"`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+  {
+    id: 11,
+    name: "socle — une trace exploitable en production",
+    prompt:
+      "En production, on doit pouvoir suivre dans les journaux de l'application chaque " +
+      "création de ressource : ce qui a été créé, et un niveau de gravité qui permette de " +
+      "filtrer. La trace doit partir là où partent déjà celles du framework, pour être " +
+      "collectée avec elles. Termine en prouvant que les tests de l'app passent.",
+    probes: [
+      {
+        kind: "code",
+        name: "journal du framework (this.log avec une gravité)",
+        pattern: /\.log\(\s*[^)]+,\s*["'`](INFO|DEBUG|WARNING|ERROR|NOTICE)/u,
+        where: "content",
+      },
+      {
+        // `console.log` écrit sur la sortie standard sans passer par le Syslog :
+        // ni gravité, ni contexte de requête, ni transport — donc invisible du
+        // collecteur, et absent de la barre de debug.
+        kind: "code",
+        name: "pas de console.log (il ne remonte à aucun collecteur)",
+        pattern: /console\.(log|info|error|warn)\s*\(/u,
+        where: "added",
+        invert: true,
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+  {
+    id: 12,
+    name: "socle — une initialisation au bon moment du démarrage",
+    prompt:
+      "Cette application doit charger une table de correspondance (un objet en mémoire) UNE " +
+      "seule fois au démarrage, et aucune requête ne doit pouvoir arriver avant qu'elle soit " +
+      "prête. Le chargement doit pouvoir lire la configuration de l'application. Termine en " +
+      "prouvant que les tests de l'app passent.",
+    probes: [
+      {
+        kind: "code",
+        name: "accroché à une phase du cycle de vie (onKernelBoot/Ready)",
+        pattern: /onKernel(Boot|Ready|Register)\s*\(/u,
+        where: "content",
+      },
+      {
+        // Le contournement : exécuter au CHARGEMENT du fichier. Le code part
+        // alors avant que la configuration soit résolue et avant l'existence du
+        // kernel — c'est le défaut qui rend un module non importable, déjà vu
+        // sur des `config.ts` qui déréférençaient le kernel au top-level.
+        kind: "code",
+        name: "pas de temporisation pour « attendre » le démarrage",
+        pattern: /set(Timeout|Interval)\s*\(/u,
+        where: "added",
+        invert: true,
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
 ];
 
 const sh = (cmd, args, opts = {}) =>

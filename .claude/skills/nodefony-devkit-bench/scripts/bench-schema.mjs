@@ -1400,23 +1400,40 @@ function countWork(transcript, app) {
   const edits = [];
   const outside = [];
   const realApp = app && existsSync(app) ? realpathSync(app) : null;
-  /**
-   * Chemins absolus qui ne DÉSIGNENT rien du dépôt.
-   *
-   * `/dev/null` était compté comme une incursion hors de l'application, et
-   * apparaissait au rapport sous « savoir qu'un installeur npm n'a PAS » — un
-   * faux positif dans le chiffre qui sert justement à vérifier l'isolation.
-   * Un compteur d'alerte qui crie pour une redirection de shell finit ignoré.
-   */
-  const NEUTRAL = /^\/dev\/(null|stdout|stderr|tty)$|^\/tmp\/?$/u;
+  const realRepo = existsSync(REPO) ? realpathSync(REPO) : REPO;
 
-  /** Un chemin est « dehors » s'il est absolu et ne mène pas dans l'app. */
+  /**
+   * Ce que ce compteur cherche : le SAVOIR qu'un installeur npm n'a pas.
+   *
+   * Il a d'abord compté « tout chemin absolu hors de l'application », et ce
+   * n'est pas la même chose. Mesuré sur un run réel : 14 incursions annoncées,
+   * dont six fois le fichier où l'agent écrivait ses propres traces
+   * (`/tmp/server.log`) et une URL prise pour un chemin (`/api/accounts`). Le
+   * chiffre servait à juger l'isolation du décor ; il jugeait la façon dont
+   * l'agent range ses brouillons.
+   *
+   * Ce qui compte vraiment est plus étroit et sans ambiguïté : un chemin qui
+   * mène DANS le dépôt du framework. Un tarball ne contient que `dist/` — lire
+   * `src/packages/@nodefony/drizzle/` est exactement le privilège que le décor
+   * doit refuser. Le reste (fichiers temporaires, sorties de shell, URL) ne dit
+   * rien de l'isolation, et un compteur d'alerte qui crie pour un brouillon
+   * finit ignoré — c'est déjà arrivé avec `/dev/null`.
+   */
   const isOutside = (p) =>
     typeof p === "string" &&
     path.isAbsolute(p) &&
-    realApp !== null &&
-    !NEUTRAL.test(p) &&
-    !path.resolve(p).startsWith(realApp);
+    path.resolve(p).startsWith(realRepo) &&
+    (realApp === null || !path.resolve(p).startsWith(realApp));
+
+  /**
+   * Une URL n'est pas un chemin.
+   *
+   * `curl … http://127.0.0.1:5381/api/accounts` porte un `/api/accounts` que
+   * toute recherche de chemin absolu ramasse. C'est la ressource que l'agent
+   * vient de créer, frappée sur SON serveur : l'inverse d'une incursion.
+   */
+  const stripUrls = (cmd) =>
+    cmd.replaceAll(/[a-z][a-z0-9+.-]*:\/\/\S+/giu, " ");
   for (const line of transcript.split("\n")) {
     if (!line.trim()) continue;
     let ev;
@@ -1447,7 +1464,8 @@ function countWork(transcript, app) {
       if (isOutside(target)) {
         outside.push({ tool: b.name, target: String(target) });
       } else if (typeof input.command === "string") {
-        const cited = input.command.match(/(?:^|\s)(\/[^\s'"]+)/gu) ?? [];
+        const cited =
+          stripUrls(input.command).match(/(?:^|\s)(\/[^\s'"]+)/gu) ?? [];
         for (const raw of cited) {
           const p = raw.trim();
           if (isOutside(p)) outside.push({ tool: "Bash", target: p });
@@ -1979,7 +1997,7 @@ function report(ctx) {
   // Zéro en décor fermé est le résultat ATTENDU : c'est la valeur du gate qu'on
   // relit. Non nul, il faut expliquer par où l'agent est sorti.
   console.log(
-    `    accès hors de l'application : ${work.outside?.length ?? 0}` +
+    `    accès au dépôt du framework : ${work.outside?.length ?? 0}` +
       (work.outside?.length ? "   ← savoir qu'un installeur npm n'a PAS" : ""),
   );
   for (const o of (work.outside ?? []).slice(0, 8)) {
