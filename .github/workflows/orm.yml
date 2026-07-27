@@ -174,6 +174,23 @@ jobs:
         working-directory: src/packages/@nodefony/drizzle
         run: npm test
 
+      # Huit mesures qui ne tournaient nulle part — le dernier banc du dépôt à
+      # être resté hors de toute passe sans que ce soit un choix.
+      #
+      # Il n'a pas sa place dans `memory.yml` : celui-ci lance le banc du paquet
+      # `http`, qui exige un serveur, alors que celui-ci mesure l'ORM seul sur
+      # une base en mémoire. Aucun décor, quelques secondes — et il garde ce
+      # qu'aucune autre suite ne regarde : le heap après 30 000 cycles
+      # create/find/delete, et 300 connexions ouvertes puis fermées.
+      #
+      # Le GC forcé est déclaré dans sa propre configuration (`execArgv:
+      # ["--expose-gc"]` sur le pool de forks) : sans lui la mesure porterait sur
+      # le déchet en attente de collecte, pas sur ce qui est RETENU — l'erreur
+      # qui avait fait accuser le mauvais banc côté HTTP.
+      - name: Drizzle — charge et heap de l'ORM (base en mémoire)
+        working-directory: src/packages/@nodefony/drizzle
+        run: npm run test:load
+
       - name: Redis — serveur réel
         working-directory: src/packages/@nodefony/redis
         run: npm test
