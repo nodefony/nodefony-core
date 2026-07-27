@@ -119,8 +119,44 @@ jobs:
       # Sa place est avec les bancs à serveur partagé. Une affirmation d'inventaire
       # se vérifie en l'exécutant — celle-ci a coûté un rouge pour l'apprendre.
 
+      # ─── Le seul banc de ce workflow qui N'EST PAS autonome ──────────────────
+      #
+      # Il a été rangé ici sur la foi du catalogue du kit, et il échouait à chaque
+      # exécution : « Aucun process n'écoute sur :5151 ». Exactement la faute déjà
+      # constatée pour `idempotency-cluster` quelques lignes plus haut — une
+      # affirmation d'inventaire se vérifie en l'EXÉCUTANT, jamais en la lisant.
+      #
+      # Il reste néanmoins ici, avec son décor, plutôt que de rejoindre les bancs
+      # à serveur partagé : il TUE le serveur, c'est l'objet même de la preuve. Le
+      # placer dans un job qui en enchaîne d'autres ferait tomber les suivants en
+      # connexion refusée — des « échecs » qui ne diraient rien du code.
+      #
+      # Le module `test` porte les routes qu'il interroge (`/nodefony/test/abort/wait`,
+      # `/nodefony/test/ws/echo`) : il se reconstruit APRÈS le build global.
+      - name: Rebuild test module
+        run: npm run build --workspace=src/modules/test
+
+      # `--no-watch` : pas de superviseur. Un rebuild déclenché en cours de route
+      # couperait les connexions sous le banc, et le rouge accuserait le drain.
+      - name: Serveur du banc d'arrêt gracieux
+        uses: ./.github/actions/nodefony-server
+        with:
+          mode: development --no-watch
+
       # EN DERNIER, délibérément : ce banc envoie un signal d'arrêt et prend les
       # ports. Placé plus haut, il ferait tomber les suivants en connexion refusée
       # — des « échecs » qui ne diraient rien du code.
       - name: Arrêt gracieux (drainage des requêtes en vol)
         run: node .claude/skills/nodefony-load-test/scripts/graceful-shutdown-e2e.mjs
+
+      # Le banc arrête le serveur lui-même — quand il réussit. S'il échoue avant,
+      # le process survit au job : `always()` + le filet sur les ports de l'action.
+      - name: Arrêter le serveur (s'il a survécu)
+        if: always()
+        uses: ./.github/actions/nodefony-server
+        with:
+          action: stop
+
+      - name: Journal du serveur (échec)
+        if: failure()
+        run: tail -100 nodefony-server.log || true
