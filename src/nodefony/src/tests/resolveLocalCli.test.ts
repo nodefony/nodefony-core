@@ -126,7 +126,10 @@ describe("bin — resolveLocalCli (le CLI de l'app prime sur le global)", () => 
     assert.strictEqual(d.delegate, null);
     assert.strictEqual(d.reason, "local-cli-broken");
     if (d.reason !== "local-cli-broken") return;
-    assert.ok(d.detail.includes("bin/nodefony"));
+    // Le message NOMME un chemin résolu sur le disque : il porte les séparateurs
+    // du système, et c'est ce qu'on veut — un développeur doit pouvoir le coller
+    // dans son terminal.
+    assert.ok(d.detail.includes(path.join("bin", "nodefony")));
   });
 
   it("champ `bin` en forme string (paquet non standard) : accepté", () => {

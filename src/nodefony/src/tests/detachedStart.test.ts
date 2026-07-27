@@ -160,7 +160,14 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         waitSec: 15,
       });
       childPid = r.pid as number;
-      assert.strictEqual(r.ok, true, `attendu ok — reason: ${r.reason}`);
+      assert.strictEqual(
+        r.ok,
+        true,
+        // Le journal du child, sinon « process mort avant la readiness (exit 1) »
+        // ne dit RIEN de la cause — et c'est précisément le message qu'on a
+        // récolté en intégration continue, sans pouvoir conclure.
+        `attendu ok — reason: ${r.reason}\njournal du child :\n${r.logTail ?? "(vide)"}`,
+      );
       assert.strictEqual(r.exitCode, 0);
       assert.ok(typeof r.pid === "number" && r.pid > 0);
       // Readiness = AU MoINS un port (la sonde peut rendre la main entre les
@@ -194,7 +201,14 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         waitSec: 15,
       });
       childPid = r.pid as number;
-      assert.strictEqual(r.ok, true, `attendu ok — reason: ${r.reason}`);
+      assert.strictEqual(
+        r.ok,
+        true,
+        // Le journal du child, sinon « process mort avant la readiness (exit 1) »
+        // ne dit RIEN de la cause — et c'est précisément le message qu'on a
+        // récolté en intégration continue, sans pouvoir conclure.
+        `attendu ok — reason: ${r.reason}\njournal du child :\n${r.logTail ?? "(vide)"}`,
+      );
       // Fail-loud : le port jamais ouvert reste VISIBLE comme fermé dans l'état.
       assert.strictEqual(r.ports.find((p) => p.port === p1)?.listening, true);
       assert.strictEqual(r.ports.find((p) => p.port === p2)?.listening, false);
@@ -253,7 +267,14 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         waitSec: 15,
       });
       childPid = r.pid as number;
-      assert.strictEqual(r.ok, true, `attendu ok — reason: ${r.reason}`);
+      assert.strictEqual(
+        r.ok,
+        true,
+        // Le journal du child, sinon « process mort avant la readiness (exit 1) »
+        // ne dit RIEN de la cause — et c'est précisément le message qu'on a
+        // récolté en intégration continue, sans pouvoir conclure.
+        `attendu ok — reason: ${r.reason}\njournal du child :\n${r.logTail ?? "(vide)"}`,
+      );
       assert.strictEqual(r.exitCode, 0);
       // La readiness a suivi le state file : elle rapporte le port RÉEL, pas la
       // convention qu'on lui avait passée.
@@ -349,7 +370,14 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         waitSec: 15,
       });
       childPid = r.pid as number;
-      assert.strictEqual(r.ok, true, `attendu ok — reason: ${r.reason}`);
+      assert.strictEqual(
+        r.ok,
+        true,
+        // Le journal du child, sinon « process mort avant la readiness (exit 1) »
+        // ne dit RIEN de la cause — et c'est précisément le message qu'on a
+        // récolté en intégration continue, sans pouvoir conclure.
+        `attendu ok — reason: ${r.reason}\njournal du child :\n${r.logTail ?? "(vide)"}`,
+      );
       assert.deepStrictEqual(
         r.desiredPorts,
         [wanted],
@@ -406,7 +434,14 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         waitSec: 15,
       });
       childPid = r.pid as number;
-      assert.strictEqual(r.ok, true, `attendu ok — reason: ${r.reason}`);
+      assert.strictEqual(
+        r.ok,
+        true,
+        // Le journal du child, sinon « process mort avant la readiness (exit 1) »
+        // ne dit RIEN de la cause — et c'est précisément le message qu'on a
+        // récolté en intégration continue, sans pouvoir conclure.
+        `attendu ok — reason: ${r.reason}\njournal du child :\n${r.logTail ?? "(vide)"}`,
+      );
       assert.strictEqual(r.desiredPorts, undefined);
     } finally {
       await killDetached(childPid);

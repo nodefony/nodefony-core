@@ -259,9 +259,12 @@ describe("completion — scripts shell", () => {
   }
 
   it("cliManifestFile — cache par projet sous node_modules/.cache/nodefony", () => {
+    // Chemin qu'on OUVRE : il s'écrit dans la grammaire du système, `\` compris.
+    // L'attendu se compose donc comme le code le compose — c'est aussi strict
+    // qu'une chaîne en dur, et ça ne ment plus sur une plateforme.
     assert.ok(
       cliManifestFile("/x").endsWith(
-        "node_modules/.cache/nodefony/cli-manifest.json",
+        path.join("node_modules", ".cache", "nodefony", "cli-manifest.json"),
       ),
     );
   });
@@ -351,7 +354,11 @@ describe("completion — install/uninstall (HOME jetable, fs réel)", () => {
     try {
       const { scriptFile, rcFile } = installCompletion("fish", home);
       assert.strictEqual(rcFile, null);
-      assert.ok(scriptFile.endsWith(".config/fish/completions/nodefony.fish"));
+      assert.ok(
+        scriptFile.endsWith(
+          path.join(".config", "fish", "completions", "nodefony.fish"),
+        ),
+      );
       assert.ok(fs.existsSync(scriptFile));
     } finally {
       fs.rmSync(home, { recursive: true, force: true });
