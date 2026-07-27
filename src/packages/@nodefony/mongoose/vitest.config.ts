@@ -30,7 +30,22 @@ export default defineConfig({
     // Dit à voix haute quand MongoDB n'a PAS été exercé : le repli
     // `mongodb-memory-server` skippe en silence quand il échoue, et une suite
     // verte ne prouve alors que la config Zod.
-    reporters: ["default", gateReporter([MONGO_GATE])],
+    //
+    // La `proof` couvre précisément ce repli. La variable, elle, ne dit rien de
+    // ce cas : sans elle un binaire éphémère prend le relais et les 168 cas
+    // tournent quand même — mais s'il ne peut pas se télécharger, TOUS les bancs
+    // d'intégration sautent (`describe.skipIf(!URI)`) et la suite reste verte en
+    // n'ayant prouvé qu'un schéma Zod. Exiger qu'un banc de store ait
+    // réellement PASSÉ est la seule affirmation que ce silence ne satisfait pas.
+    reporters: [
+      "default",
+      gateReporter([
+        {
+          gate: MONGO_GATE,
+          proof: "MongooseTokenStore — ITokenStore portable",
+        },
+      ]),
+    ],
     coverage: {
       provider: "v8",
       // `all` = compter aussi les fichiers non importés (garde-fou honnête).

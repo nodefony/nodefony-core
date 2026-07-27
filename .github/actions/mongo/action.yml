@@ -1,0 +1,75 @@
+name: MongoDB en replica set
+description: >-
+  Démarre un MongoDB identique à celui du compose — même image, même jeu de
+  réplicas — et attend qu'il ACCEPTE une session transactionnelle. En étape et
+  non en service container, pour la même raison que Redis : `services:` ne laisse
+  pas choisir la commande du serveur, or celle-ci porte `--replSet`. Sans jeu de
+  réplicas, Mongo refuse toute transaction et les bancs qui prouvent l'atomicité
+  échouent sur une erreur qui ne parle pas du décor.
+
+inputs:
+  image:
+    description: >-
+      Image du serveur. Alignée sur `docker/docker-compose.yml` — éprouver le
+      code contre une AUTRE version que celle de développement ferait de chaque
+      divergence un mystère.
+    required: false
+    default: mongo:8
+  replset:
+    description: Nom du jeu de réplicas, tel qu'attendu dans l'URI de connexion.
+    required: false
+    default: rs0
+  port:
+    description: Port publié sur l'hôte.
+    required: false
+    default: "27017"
+  name:
+    description: Nom du conteneur — distinct par job si plusieurs cohabitent.
+    required: false
+    default: nf-mongo
+
+runs:
+  using: composite
+  steps:
+    - name: Démarrer MongoDB et attendre le jeu de réplicas
+      shell: bash
+      env:
+        NF_MONGO_IMAGE: ${{ inputs.image }}
+        NF_MONGO_REPLSET: ${{ inputs.replset }}
+        NF_MONGO_PORT: ${{ inputs.port }}
+        NF_MONGO_NAME: ${{ inputs.name }}
+      run: |
+        docker run -d --name "$NF_MONGO_NAME" -p "$NF_MONGO_PORT":27017 \
+          "$NF_MONGO_IMAGE" --replSet "$NF_MONGO_REPLSET" --bind_ip_all
+
+        # Le membre s'annonce en `127.0.0.1:27017` : c'est l'adresse par laquelle
+        # le client, qui tourne sur l'HÔTE, joindra le serveur. Annoncer le nom du
+        # conteneur donnerait un jeu de réplicas sain vu de l'intérieur et
+        # injoignable depuis les bancs.
+        #
+        # `rs.initiate()` puis `rs.status()` : idempotent, exactement la sonde du
+        # compose — une seule définition de ce qu'« être prêt » veut dire.
+        for i in $(seq 1 45); do
+          if docker exec "$NF_MONGO_NAME" mongosh --quiet --eval \
+            'try { rs.status().ok } catch (e) { rs.initiate({_id:"'"$NF_MONGO_REPLSET"'",members:[{_id:0,host:"127.0.0.1:27017"}]}).ok }' 2>/dev/null | grep -q 1; then
+
+            # Répondre n'est pas savoir transiger : l'élection du primaire suit
+            # l'initiation de quelques secondes, et un banc lancé dans cet
+            # intervalle échoue sur « not primary » — un rouge qui accuse le code.
+            for j in $(seq 1 30); do
+              if docker exec "$NF_MONGO_NAME" mongosh --quiet --eval \
+                'db.hello().isWritablePrimary' 2>/dev/null | grep -q true; then
+                echo "✅ MongoDB prêt et primaire (port $NF_MONGO_PORT, replSet $NF_MONGO_REPLSET)"
+                exit 0
+              fi
+              sleep 1
+            done
+            echo "::error::MongoDB initié mais aucun primaire élu en 30 s"
+            docker logs "$NF_MONGO_NAME" 2>&1 | tail -30
+            exit 1
+          fi
+          sleep 1
+        done
+        echo "::error::MongoDB n'a pas formé son jeu de réplicas en 45 s"
+        docker logs "$NF_MONGO_NAME" 2>&1 | tail -30
+        exit 1

@@ -40,6 +40,7 @@ on:
       - "src/packages/@nodefony/drizzle/**"
       - "src/packages/@nodefony/redis/**"
       - "src/packages/@nodefony/orm-core/**"
+      - "src/packages/@nodefony/mongoose/**"
       - "src/packages/@nodefony/realtime/**"
       - "src/nodefony/src/tests/support/**"
       - "vitest.gates.ts"
@@ -50,6 +51,7 @@ on:
       - "src/packages/@nodefony/drizzle/**"
       - "src/packages/@nodefony/redis/**"
       - "src/packages/@nodefony/orm-core/**"
+      - "src/packages/@nodefony/mongoose/**"
       - "src/packages/@nodefony/realtime/**"
       - "src/nodefony/src/tests/support/**"
       - "vitest.gates.ts"
@@ -73,7 +75,7 @@ env:
 
 jobs:
   stores:
-    name: Stores (PostgreSQL · MariaDB · Redis)
+    name: Stores (PostgreSQL · MariaDB · Redis · MongoDB)
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -140,10 +142,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 26.x
           cache: "npm"
@@ -195,6 +197,24 @@ jobs:
         working-directory: src/packages/@nodefony/redis
         run: npm test
 
+      # MongoDB n'était pas une couverture ABSENTE — c'est plus subtil, et c'est
+      # pour ça que ça méritait d'être réglé. À défaut de serveur, la suite
+      # télécharge un `mongod` éphémère et ses 168 cas tournent quand même. Mais
+      # si ce téléchargement échoue — hors ligne, miroir en panne, image sans le
+      # binaire — TOUS les bancs d'intégration sautent (`describe.skipIf(!URI)`)
+      # et la suite reste VERTE en n'ayant prouvé qu'un schéma Zod.
+      #
+      # Un vrai serveur supprime la dépendance à un téléchargement au milieu
+      # d'une passe, et éprouve le code contre la version qu'on vise vraiment.
+      - name: MongoDB (jeu de réplicas, comme en développement)
+        uses: ./.github/actions/mongo
+
+      - name: Mongoose — serveur réel
+        working-directory: src/packages/@nodefony/mongoose
+        env:
+          MONGO_TEST_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+        run: npm test
+
       - name: orm-core
         working-directory: src/packages/@nodefony/orm-core
         run: npm test
@@ -225,10 +245,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 26.x
           cache: "npm"
