@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-27T21:57:47.708Z",
+  "generated": "2026-07-27T22:10:34.395Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 640,
-    "symbols": 2538,
+    "files": 641,
+    "symbols": 2547,
     "classes": 335,
-    "interfaces": 770,
+    "interfaces": 773,
     "types": 335,
     "enums": 4,
-    "functions": 915,
+    "functions": 921,
     "constants": 179
   },
   "symbols": {
@@ -4523,6 +4523,39 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Lance le contrôle et écrit le rapport."
+    },
+    "IWiringFinding": {
+      "name": "IWiringFinding",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/wiring.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un câblage manquant, ou un nom qui dépossède un module du framework."
+    },
+    "IWiringCheckOptions": {
+      "name": "IWiringCheckOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/wiring.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "IWiringCheckResult": {
+      "name": "IWiringCheckResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/wiring.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "checkWiring": {
+      "name": "checkWiring",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/wiring.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Contrôle le câblage d'une application et de ses modules locaux. Trois manquements, tous invisibles à la compilation : - **entité orpheline** — le descripteur n'est nommé nulle part, donc aucun `@en…"
     },
     "Build": {
       "name": "Build",
@@ -20990,7 +21023,8 @@
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "findReservedEntity": [
-        "src/nodefony/src/cli/scaffold/engine.ts"
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/kernel/checks/wiring.ts"
       ],
       "pick": [
         "src/nodefony/src/cli/scaffold/engine.ts"
@@ -21174,6 +21208,9 @@
         "src/nodefony/src/client/roles/registry.ts"
       ],
       "checkPackageDeps": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "checkWiring": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "OptionsCommandInterface": [

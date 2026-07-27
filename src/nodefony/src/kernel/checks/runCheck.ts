@@ -11,8 +11,9 @@
  * Même famille que `status`, `stop`, `create` et `--version`.
  */
 import path from "node:path";
-import { readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { checkPackageDeps } from "./packageDeps";
+import { checkWiring } from "./wiring";
 import clc from "../../colors";
 
 /** Dispositions explorées : une application (`modules/`) et ce dépôt. */
@@ -23,6 +24,33 @@ const CANDIDATE_ROOTS = [
   "src/packages/@nodefony",
   "src/nodefony",
 ];
+
+/** Dossiers qui CONTIENNENT des cibles, par opposition à en être une. */
+const TARGET_CONTAINERS = ["modules", "src/modules", "src/packages/@nodefony"];
+
+/**
+ * Cibles du contrôle de câblage : l'application elle-même, et chaque module.
+ *
+ * Ce n'est pas la même liste que celle des paquets : un contrôle de dépendances
+ * s'intéresse à ce qui porte un `package.json`, un contrôle de câblage à ce qui
+ * porte un `nodefony/`. Les confondre ferait chercher des entités à la racine
+ * d'un dossier qui n'en contient que des modules.
+ */
+function wiringTargets(cwd: string): string[] {
+  const targets = [cwd];
+  for (const container of TARGET_CONTAINERS) {
+    const dir = path.join(cwd, container);
+    if (!statSync(dir, { throwIfNoEntry: false })) continue;
+    try {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.isDirectory()) targets.push(path.join(dir, entry.name));
+      }
+    } catch {
+      // Un dossier illisible n'est pas un manquement de l'application.
+    }
+  }
+  return targets;
+}
 
 /**
  * Exceptions déclarées par le projet dans son `package.json` :
@@ -71,19 +99,30 @@ export function runCheckCommand(argv: string[]): number {
     typeCycles,
     typesUnreachable,
   });
+  const wiring = checkWiring({ roots: wiringTargets(cwd), cwd });
 
   if (json) {
-    process.stdout.write(`${JSON.stringify({ scanned, findings }, null, 2)}\n`);
-    return findings.length > 0 ? 1 : 0;
+    process.stdout.write(
+      `${JSON.stringify(
+        {
+          scanned,
+          findings,
+          wiring: { scanned: wiring.scanned, findings: wiring.findings },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    return findings.length + wiring.findings.length > 0 ? 1 : 0;
   }
 
-  if (findings.length === 0) {
+  if (findings.length === 0 && wiring.findings.length === 0) {
     const exceptions =
       Object.values(typeCycles ?? {}).flat().length +
       (typesUnreachable?.length ?? 0);
     process.stdout.write(
       clc.green(
-        `✓ ${scanned} paquet(s) — rien à signaler` +
+        `✓ ${scanned} paquet(s), ${wiring.scanned} classe(s) câblée(s) — rien à signaler` +
           (exceptions > 0 ? ` (${exceptions} exception(s) déclarée(s))` : "") +
           ".\n",
       ),
@@ -97,8 +136,15 @@ export function runCheckCommand(argv: string[]): number {
       process.stdout.write(`  premier usage : ${f.file}\n`);
     }
   }
+  for (const f of wiring.findings) {
+    process.stdout.write(clc.red(`✗ ${f.message}\n`));
+    process.stdout.write(`  ${f.file}\n`);
+  }
+  const total = findings.length + wiring.findings.length;
   process.stdout.write(
-    clc.red(`\n${findings.length} manquement(s) sur ${scanned} paquet(s).\n`),
+    clc.red(
+      `\n${total} manquement(s) sur ${scanned} paquet(s) et ${wiring.scanned} classe(s).\n`,
+    ),
   );
   return 1;
 }
