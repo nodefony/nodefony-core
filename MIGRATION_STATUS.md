@@ -322,6 +322,26 @@ Console Logs Studio = panneau P10 de facto livré.
 
 > Spécifications détaillées : mémoire IA `core-dev/migration/phases-details.md`.
 
+### 🔴 Dette APRÈS RELEASE — préfixe `NF_` sur toutes les variables d'environnement
+
+Le framework lit **47** variables ; **12** portent `NF_`, **35** non. Trois familles, une seule
+règle : le préfixe dit à qui appartient la variable. Une application qui installe Nodefony a déjà
+un environnement, et une collision ne produit pas d'erreur — elle produit un comportement
+inexplicable.
+
+| Famille                                                                                                                                                                            | Nb  | Traitement                                 |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ------------------------------------------ |
+| `NODEFONY_*` (`_ENV`, `_CLUSTER`, `_WORKERS`, `_BOOT_TIMEOUT_MS`, `_INSTANCE_ID`…)                                                                                                 | 12  | renommer en `NF_*` (forme, pas fond)       |
+| Génériques à risque : `COOKIE_SECRET`, `PG_URL`, `REDIS_HOST/PORT/PASSWORD/TEST_URL`, `MONGO_TEST_URI`, `BCRYPT_COST/N`, `POD_NAME`, `APP_ENV`, `MODE_START`, `RUN_PERF`, `NO_TTY` | ~14 | renommer en `NF_*` — **priorité**          |
+| Standards tiers : `NODE_ENV`, `CI`, `NODE_DEBUG`, `UV_THREADPOOL_SIZE`, `BABEL_ENV`…                                                                                               | ~9  | **ne pas toucher** — on ne les possède pas |
+
+**Pourquoi après la release** : renommer une variable lue est une rupture pour toute application
+déjà déployée. À faire d'un bloc, avec repli transitoire (lire l'ancienne, avertir, documenter la
+nouvelle), pas au fil de l'eau.
+
+**En attendant, la règle vaut pour tout ce qui est ÉCRIT** : cf `CLAUDE.md`, section des
+invariants — aucune variable neuve sans `NF_`, y compris pour les tests et les bancs.
+
 ### P0 — Bugs bloquants ✅ (6/6)
 
 Tous résolus : 11 fails RFC HTTP, 2 fails WS binary, `getController()` typé, **BUG-001→004** (propagation ALS WS,

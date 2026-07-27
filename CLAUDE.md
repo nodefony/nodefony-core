@@ -417,6 +417,17 @@ Les **invariants** qui doivent rester présents en permanence :
 - **Interfaces** : `nodefony/interfaces/I*.ts` + barrel, re-exportées en `export type` dans `index.ts`.
 - **Config d'app** : `nodefony.config.ts` + `env.ts` à la racine (`env.ts` = SEUL lecteur de
   `process.env`). Par-environnement = **fonction `(ctx) => …`**, jamais un fichier parallèle.
+- **🔴 TOUTE variable d'environnement que Nodefony lit se préfixe `NF_`.** Sans exception, y
+  compris pour les tests, les bancs et les interrupteurs de coût (`NF_RUN_PERF`, pas `RUN_PERF`).
+  Une application qui installe le framework a déjà un environnement : `COOKIE_SECRET`, `PG_URL`,
+  `REDIS_HOST`, `POD_NAME`, `APP_ENV` sont des noms que d'autres outils revendiquent, et une
+  collision se manifeste par un comportement inexplicable, jamais par une erreur. Le préfixe dit
+  À QUI appartient la variable — c'est sa seule raison d'être, et elle suffit.
+  Les **seules** exceptions sont les variables qu'on ne possède pas : `NODE_ENV`, `CI`,
+  `NODE_DEBUG`, `UV_THREADPOOL_SIZE`… — celles-là se lisent, ne se renomment pas.
+  ⚠️ `NODEFONY_*` est l'ANCIENNE forme : conforme sur le fond, hors convention sur la forme.
+  Ne pas en créer de nouvelles. Le stock existant est une dette inscrite au `MIGRATION_STATUS`
+  (renommage après release — c'est une rupture pour les applications).
 - **Config de module** : 2 fichiers, `nodefony/config/config.ts` (le QUOI — schéma Zod, source
   unique des défauts) + `nodefony/config/defineModuleConfig.ts` (le COMMENT — builder pur).
   Tout module qui expose une config **augmente le registre** `NodefonyModuleConfig`, sinon une clé
