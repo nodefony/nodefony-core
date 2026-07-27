@@ -7,6 +7,7 @@
 
 import assert from "node:assert";
 import { expect } from "chai";
+import { vi } from "vitest";
 import CliKernel from "../kernel/CliKernel";
 import Command from "../command/Command";
 import BuildCommand from "../kernel/commands/BuildCommand";
@@ -174,10 +175,38 @@ describe("KernelCommand — OutdatedCommand", () => {
     assert.strictEqual(cmd.kernelEvent, "onRegister");
   });
 
-  it("generate() sans kernel retourne this", async () => {
+  it("déclare les options --json et --all", () => {
     const cmd = new OutdatedCommand(cli);
-    const res = await cmd.generate();
-    assert.strictEqual(res, cmd);
+    const flags = (cmd.command?.options ?? []).map(
+      (o: { flags: string }) => o.flags,
+    );
+    expect(flags).to.include("-j, --json");
+    expect(flags).to.include("-a, --all");
+  });
+
+  // Le gestionnaire n'est pas deviné : hors d'un projet npm, la commande REFUSE
+  // au lieu de répondre de travers. `pnpm` et `yarn` rendent un document de
+  // forme différente, que l'agrégateur lirait mal sans rien signaler — un
+  // rapport faux est pire qu'une absence de rapport.
+  it("REFUSE hors d'un projet npm, au lieu de rendre un rapport faux", async () => {
+    const cmd = new OutdatedCommand(cli);
+    const codes: (number | undefined)[] = [];
+    const exit = vi.spyOn(process, "exit").mockImplementation(((
+      code?: number,
+    ) => {
+      codes.push(code);
+      return undefined as never;
+    }) as never);
+    try {
+      // Sans kernel, la racine retombe sur le cwd du runner (`src/nodefony`),
+      // qui ne porte pas de `package-lock.json`.
+      const res = await cmd.generate();
+      assert.strictEqual(res, cmd);
+    } finally {
+      exit.mockRestore();
+    }
+    // 69 = EX_UNAVAILABLE.
+    expect(codes).to.include(69);
   });
 });
 
