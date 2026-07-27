@@ -585,8 +585,23 @@ class Route implements IRoute {
     return true;
   }
 
+  /**
+   * Empreinte stable de la route — sert d'identité pour la comparer à
+   * elle-même (deux déclarations identiques donnent la même empreinte, deux
+   * chemins différents non). Ce n'est PAS un secret, et rien ne la vérifie :
+   * elle n'est ni persistée, ni exposée, ni transmise.
+   *
+   * SHA-256 et non MD5, bien qu'aucune propriété cryptographique ne soit
+   * requise ici : `JSON.stringify(this)` sérialise la route ENTIÈRE, donc ses
+   * `defaults` et ses `requirements` — ce que l'analyse statique lit, à juste
+   * titre, comme une donnée d'application passée dans un condensat cassé. Le
+   * coût est nul (une fois à la déclaration) et personne ne dépend de la
+   * valeur ; garder MD5 n'aurait acheté qu'une alerte à réexpliquer.
+   *
+   * @returns l'empreinte hexadécimale, également posée sur {@link hash}.
+   */
   generateId(): string {
-    this.hash = createHash("md5").update(JSON.stringify(this)).digest("hex");
+    this.hash = createHash("sha256").update(JSON.stringify(this)).digest("hex");
     return this.hash;
   }
 
