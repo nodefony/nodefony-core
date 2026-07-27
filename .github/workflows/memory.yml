@@ -1,0 +1,136 @@
+name: Gate mémoire (pipeline)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POURQUOI CE WORKFLOW EXISTE
+#
+# Le `CLAUDE.md` du dépôt fait du gate mémoire une RÈGLE ABSOLUE : le lancer avant
+# tout commit touchant `@nodefony/http`, `@nodefony/framework` ou le pipeline de
+# requête, et considérer un seuil franchi comme un blocage. Cette règle n'était
+# appliquée par rien : elle reposait entièrement sur la mémoire de l'auteur, et un
+# oubli ne laissait aucune trace. Une fuite se paie en production, pas en revue.
+#
+# POURQUOI UN GATE MÉMOIRE EN CI, ALORS QUE LES BANCS DE PERF RESTENT DEHORS
+#
+# Ce n'est pas la même mesure. Une latence dépend du voisin bruyant qui partage le
+# runner — d'où des seuils non reproductibles, et un rouge qui n'apprend rien. Une
+# FUITE, elle, fuit quelle que soit la charge : 35 Mo de heap retenus sur 1000
+# requêtes ne deviennent pas 5 Mo parce que la machine est occupée.
+#
+# Trois propriétés rendent ce banc-ci supportable sur un runner partagé, là où un
+# gate mémoire est d'ordinaire réputé instable :
+#   · les seuils sont GROSSIERS (35 Mo / 1000 requêtes, 10 Mo / 100 crashes) —
+#     le bruit du ramasse-miettes se compte en quelques Mo, une vraie fuite en
+#     dizaines ; la marge entre les deux est large ;
+#   · `vitest.load.config.ts` impose `fileParallelism: false` + `singleFork`,
+#     ce qui supprime par construction la contention entre fichiers ;
+#   · le banc assume déjà de tourner SANS `--expose-gc` : il est écrit pour vivre
+#     avec l'imprécision du ramasse-miettes, pas contre elle.
+#
+# Si malgré cela il devenait instable, la conduite à tenir est de le déplacer vers
+# une exécution nocturne — pas de le rendre non bloquant. Un contrôle qui ne peut
+# pas échouer n'est pas un contrôle, c'est une décoration.
+#
+# POURQUOI FILTRÉ PAR CHEMIN
+#
+# Il ne s'éveille que sur les paquets que la règle vise. Une modification de
+# documentation ou de frontal n'a aucune raison de démarrer un serveur et de
+# marteler mille requêtes.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: ["main", "claude-ts"]
+    paths:
+      - "src/packages/@nodefony/http/**"
+      - "src/packages/@nodefony/framework/**"
+      - "src/nodefony/**"
+      - "src/modules/test/**"
+      - ".github/workflows/memory.yml"
+      - ".github/actions/nodefony-server/**"
+  pull_request:
+    branches: ["main", "claude-ts"]
+    paths:
+      - "src/packages/@nodefony/http/**"
+      - "src/packages/@nodefony/framework/**"
+      - "src/nodefony/**"
+      - "src/modules/test/**"
+      - ".github/workflows/memory.yml"
+      - ".github/actions/nodefony-server/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  DO_NOT_TRACK: 1
+  CI: true
+  FORCE_COLOR: 1
+
+jobs:
+  memory:
+    name: Fuites — HTTP et WebSocket
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26.x
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build workspaces
+        run: npm run build
+
+      # Le module test porte les routes que martèle le banc ; il se construit après
+      # le build global, le mode développement chargeant le `dist` présent au boot.
+      - name: Rebuild test module
+        run: npm run build --workspace=src/modules/test
+
+      # TOUJOURS en développement, même sur `main` : ce banc mesure le pipeline de
+      # requête, pas le gating de production. Les routes qu'il sollicite vivent dans
+      # un module `policy: "dev"` — en production elles répondraient 404, et l'on
+      # mesurerait la mémoire d'un serveur qui ne fait rien.
+      - name: Start Nodefony server
+        uses: ./.github/actions/nodefony-server
+        with:
+          mode: development --no-watch
+
+      - name: Gate mémoire — 1000 requêtes, 100 crashes, 100 connexions WS
+        working-directory: src/packages/@nodefony/http
+        run: npm run test:memory -- --reporter=json --outputFile=memory-report.json
+
+      # FILET — un banc qui ne trouve pas son serveur doit ÉCHOUER, jamais rendre
+      # un vert vide. Le compte de cas réellement passés est la seule affirmation
+      # qu'un décor absent ne peut pas satisfaire.
+      - name: Le banc a réellement mesuré
+        working-directory: src/packages/@nodefony/http
+        run: |
+          passed=$(jq '.numPassedTests' memory-report.json)
+          echo "cas de mesure exécutés : $passed"
+          if [ "$passed" -eq 0 ]; then
+            echo "::error::Aucune mesure n'a tourné — le gate mémoire est décoratif."
+            exit 1
+          fi
+
+      - name: Show server log on failure
+        if: failure()
+        shell: bash
+        run: tail -200 nodefony-server.log || true
+
+      - name: Stop Nodefony server
+        if: always()
+        uses: ./.github/actions/nodefony-server
+        with:
+          action: stop
