@@ -11,14 +11,13 @@ import {
 import type { IRoute } from "../interfaces/index.js";
 import type { RouteActionMeta } from "../decorators/routerDecorators.js";
 import { createHash } from "node:crypto";
-import { typeOf } from "nodefony";
+import { typeOf, stripTrailingSlashes } from "nodefony";
 import Controller from "./Controller";
 
 const REG_ROUTE = /(\/)?(\.)?\{([^}]+)\}(?:\(([^)]*)\))?(\?)?/g;
 
 const REG_REPLACE = /([/.])/g;
 const REG_REPLACE_DOUBLE_SLASH = /\/+/g;
-const REG_REPLACE_END_SLASH = /\/+$/g;
 const decode = function (str: string): string {
   try {
     return decodeURIComponent(str);
@@ -194,10 +193,10 @@ class Route implements IRoute {
 
   /**
    * Normalise le pathname de la requête pour le matching : retire le(s)
-   * slash(es) final(aux) via {@link REG_REPLACE_END_SLASH}. À calculer UNE fois
+   * slash(es) final(aux) via `stripTrailingSlashes`. À calculer UNE fois
    * par requête dans `Router.resolve`, puis à passer à chaque {@link Route.match}
-   * scannée — sinon le getter `URL.pathname` + la regex + l'alloc string sont
-   * refaits pour CHAQUE route du scan O(N) (hot path, ~N routes/req).
+   * scannée — sinon le getter `URL.pathname` + la normalisation sont refaits
+   * pour CHAQUE route du scan O(N) (hot path, ~N routes/req).
    *
    * @param context - contexte HTTP/WS courant.
    * @returns le pathname sans slash final, ou `undefined` si la requête n'a pas d'URL.
@@ -207,7 +206,11 @@ class Route implements IRoute {
     if (!reqUrl) {
       return undefined;
     }
-    return (reqUrl as URL).pathname.replace(REG_REPLACE_END_SLASH, "");
+    // Pas `replace(/\/+$/, "")` : sur un chemin qui ne se termine PAS par une
+    // barre, cette forme est quadratique — et le chemin vient du réseau. Le
+    // helper lit en O(n) et n'alloue rien quand il n'y a rien à couper, ce qui
+    // est le cas de la quasi-totalité des requêtes.
+    return stripTrailingSlashes((reqUrl as URL).pathname);
   }
 
   match(context: ContextType, cleanPath?: string, methodOverride?: string) {
@@ -439,9 +442,9 @@ class Route implements IRoute {
         this.path = this.prefix;
       }
     }
-    return (this.path = (this.path as string)
-      .replace(REG_REPLACE_DOUBLE_SLASH, "/")
-      .replace(REG_REPLACE_END_SLASH, ""));
+    return (this.path = stripTrailingSlashes(
+      (this.path as string).replace(REG_REPLACE_DOUBLE_SLASH, "/"),
+    ));
   }
 
   setHostname(hostname?: string | string[]) {

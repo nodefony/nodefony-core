@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { stripTrailingSlashes } from "nodefony";
 
 /**
  * Une source d'assets statiques : un dossier servi sous un préfixe d'URL.
@@ -25,7 +26,7 @@ export interface AssetPlanEntry {
 
 /** Normalise un préfixe en segment de chemin (`/_assets/x/` → `_assets/x`). */
 const prefixToSegment = (prefix: string): string =>
-  prefix.replace(/^\/+/, "").replace(/\/+$/, "");
+  stripTrailingSlashes(prefix.replace(/^\/+/, ""));
 
 /**
  * Construit le plan de publication des assets : pour chaque source unique

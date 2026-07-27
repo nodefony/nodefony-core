@@ -13,6 +13,7 @@ import {
   isContainer,
   isSubclassOf,
   typeOf,
+  stripTrailingSlashes,
 } from "../Tools";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -891,5 +892,75 @@ describe("extend › performance", () => {
       50,
       `Delta mémoire: ${deltaMB.toFixed(1)} MB`,
     );
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// stripTrailingSlashes
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("stripTrailingSlashes", () => {
+  it("retire une barre finale", () => {
+    expect(stripTrailingSlashes("/a/b/")).to.equal("/a/b");
+  });
+
+  it("retire TOUTES les barres finales", () => {
+    expect(stripTrailingSlashes("/a/b///")).to.equal("/a/b");
+  });
+
+  it("ne touche pas aux barres intérieures", () => {
+    expect(stripTrailingSlashes("/a//b//c///")).to.equal("/a//b//c");
+  });
+
+  it("laisse intacte une chaîne sans barre finale", () => {
+    expect(stripTrailingSlashes("/a/b")).to.equal("/a/b");
+    expect(stripTrailingSlashes("abc")).to.equal("abc");
+  });
+
+  it("rend la chaîne vide pour une chaîne vide ou toute en barres", () => {
+    expect(stripTrailingSlashes("")).to.equal("");
+    expect(stripTrailingSlashes("/")).to.equal("");
+    expect(stripTrailingSlashes("///")).to.equal("");
+  });
+
+  // Le contrat qui autorise le remplacement des huit `replace(/\/+$/, "")`
+  // du dépôt : à sémantique STRICTEMENT identique, sinon la substitution
+  // change silencieusement le comportement de huit endroits d'un coup.
+  it('rend exactement ce que rendait `replace(/\\/+$/, "")`', () => {
+    const cases = [
+      "",
+      "/",
+      "///",
+      "abc",
+      "/a/b",
+      "/a/b/",
+      "/a/b///",
+      "/a//b//c///",
+      "http://h:9200",
+      "http://h:9200/",
+      "http://h:9200///",
+      "/_assets/x/",
+      "//",
+      "a/",
+    ];
+    for (const c of cases) {
+      expect(stripTrailingSlashes(c)).to.equal(
+        c.replace(/\/+$/, ""),
+        `divergence sur ${JSON.stringify(c)}`,
+      );
+    }
+  });
+
+  // Le motif regex est QUADRATIQUE quand la reconnaissance échoue (des barres
+  // suivies d'autre chose). C'est mesuré : 16 000 barres coûtent ~309 ms à la
+  // regex. Un plafond large — la machine de CI n'est pas celle-ci — mais qui
+  // mord largement avant un retour du motif quadratique.
+  it("reste linéaire sur l'entrée qui fait exploser la regex", () => {
+    const hostile = "/".repeat(16_000) + "x";
+    const t0 = performance.now();
+    const out = stripTrailingSlashes(hostile);
+    const ms = performance.now() - t0;
+    expect(out).to.equal(hostile);
+    expect(ms).to.be.lessThan(50, `${ms.toFixed(1)} ms`);
   });
 });

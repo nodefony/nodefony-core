@@ -269,6 +269,7 @@ export {
   isContainer,
   isFunction,
   isArray,
+  stripTrailingSlashes,
 } from "./Tools";
 
 // ─── Config (defineConfig — back-only, zod peerDep core, D1) ──────────────────

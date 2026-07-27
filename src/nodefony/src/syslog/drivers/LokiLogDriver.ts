@@ -8,6 +8,7 @@ import { filterPdus } from "./filterPdus";
 import { coerceRecord } from "./FileLogDriver";
 import { resolveFetch, fetchWithTimeout } from "../httpFetch";
 import type { FetchLike } from "../httpFetch";
+import { stripTrailingSlashes } from "../../Tools";
 
 export interface LokiLogDriverOptions {
   /** Base URL de Loki, ex. `http://127.0.0.1:3100`. */
@@ -84,7 +85,7 @@ function extractLokiLines(json: unknown): string[] {
  * @returns un `ILogDriver` `loki` queryable (Node-only).
  */
 export function createLokiLogDriver(options: LokiLogDriverOptions): ILogDriver {
-  const base = options.url.replace(/\/+$/, "");
+  const base = stripTrailingSlashes(options.url);
   const baseLabels = options.labels ?? { app: "nodefony" };
   const maxScanLines = options.maxScanLines ?? 1000;
   const defaultLookbackMs = options.defaultLookbackMs ?? 86_400_000;

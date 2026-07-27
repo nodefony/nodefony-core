@@ -19,6 +19,7 @@ import {
   DocNotFoundError,
   DocUnsafeSlugError,
 } from "../src/errors/DocumentationError";
+import { stripTrailingSlashes } from "nodefony";
 import type { DocumentationConfig } from "../config/config";
 import type {
   DocAudience,
@@ -423,7 +424,7 @@ class DocumentationService extends Service {
     const repo = this.#config().repo;
     const branch =
       repo.branch ?? (GitService.branch(this.#projectRoot()) || "main");
-    const base = repo.url.replace(/\/+$/, "");
+    const base = stripTrailingSlashes(repo.url);
     return `${base}/${repo.editPathPrefix}/${branch}/${repoRelPath}`;
   }
 }

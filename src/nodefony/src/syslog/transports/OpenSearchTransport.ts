@@ -7,6 +7,7 @@ import {
   basicAuthHeader,
   DEFAULT_OPENSEARCH_INDEX,
 } from "../drivers/opensearchShared";
+import { stripTrailingSlashes } from "../../Tools";
 import type Pdu from "../Pdu";
 
 export interface OpenSearchTransportOptions extends BatchTransportOptions {
@@ -50,7 +51,7 @@ export class OpenSearchTransport extends BatchingHttpTransport {
 
   constructor(options: OpenSearchTransportOptions) {
     super(options);
-    this.#bulkUrl = options.url.replace(/\/+$/, "") + "/_bulk";
+    this.#bulkUrl = stripTrailingSlashes(options.url) + "/_bulk";
     this.#index = options.index ?? DEFAULT_OPENSEARCH_INDEX;
     this.#headers = {
       "content-type": "application/x-ndjson",

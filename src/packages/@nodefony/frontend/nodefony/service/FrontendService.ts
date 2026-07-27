@@ -32,6 +32,7 @@ import {
   PRIMARY_FAMILY,
 } from "../src/isolationGroups";
 import defaultConfig, { type FrontendConfig } from "../config/config";
+import { stripTrailingSlashes } from "nodefony";
 import path from "node:path";
 
 /**
@@ -101,7 +102,7 @@ class FrontendService extends Service implements IFrontendService {
 
   /** Base CDN normalisée (sans slash final). `""` = origine Nodefony. */
   private get assetBase(): string {
-    return (this.cfg.assetBaseUrl ?? "").replace(/\/+$/, "");
+    return stripTrailingSlashes(this.cfg.assetBaseUrl ?? "");
   }
 
   /**
