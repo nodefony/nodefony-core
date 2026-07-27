@@ -75,11 +75,5 @@
   "publishConfig": {
     "access": "public"
   },
-  "dependencies": {
-    "@mantine/spotlight": "9.4.2",
-    "jose": "6.2.4",
-    "mongoose": "9.8.0",
-    "mysql2": "3.23.1",
-    "vue": "3.5.40"
-  }
+  "dependencies": {}
 }

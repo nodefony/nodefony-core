@@ -6,5 +6,4 @@ declare module "@mantine/core/styles.css";
 declare module "@mantine/notifications/styles.css";
 declare module "@mantine/modals/styles.css";
 declare module "@mantine/dates/styles.css";
-declare module "@mantine/spotlight/styles.css";
 declare module "*.css";

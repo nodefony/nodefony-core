@@ -5,13 +5,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "dependencies": {
-    "@mantine/spotlight": "9.4.2",
     "@nodefony/llm": "*",
-    "@nodefony/vector": "*",
-    "jose": "6.2.4",
-    "mongoose": "9.8.0",
-    "mysql2": "3.23.1",
-    "vue": "3.5.40"
+    "@nodefony/vector": "*"
   },
   "license": "CECILL-B",
   "private": true,
