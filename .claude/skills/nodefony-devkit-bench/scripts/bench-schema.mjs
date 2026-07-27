@@ -1400,11 +1400,22 @@ function countWork(transcript, app) {
   const edits = [];
   const outside = [];
   const realApp = app && existsSync(app) ? realpathSync(app) : null;
+  /**
+   * Chemins absolus qui ne DÉSIGNENT rien du dépôt.
+   *
+   * `/dev/null` était compté comme une incursion hors de l'application, et
+   * apparaissait au rapport sous « savoir qu'un installeur npm n'a PAS » — un
+   * faux positif dans le chiffre qui sert justement à vérifier l'isolation.
+   * Un compteur d'alerte qui crie pour une redirection de shell finit ignoré.
+   */
+  const NEUTRAL = /^\/dev\/(null|stdout|stderr|tty)$|^\/tmp\/?$/u;
+
   /** Un chemin est « dehors » s'il est absolu et ne mène pas dans l'app. */
   const isOutside = (p) =>
     typeof p === "string" &&
     path.isAbsolute(p) &&
     realApp !== null &&
+    !NEUTRAL.test(p) &&
     !path.resolve(p).startsWith(realApp);
   for (const line of transcript.split("\n")) {
     if (!line.trim()) continue;
@@ -1554,9 +1565,25 @@ function sampleBody(table) {
  * nôtre — piège déjà consigné pour les deux autres bancs. D'où des ports
  * dédiés, et un arrêt en `finally` : un serveur laissé debout empoisonne le run
  * suivant, qui répondra 404 sur tout.
+ *
+ * **On commence par arrêter ce qui traîne, on ne suppose jamais un décor
+ * propre.** L'agent qu'on vient de juger a passé vingt minutes dans cette
+ * application : il y a lancé le serveur pour vérifier son travail, et l'a laissé
+ * debout. Le premier run avec juge HTTP est mort exactement là — `port(s) déjà
+ * en écoute : 5381, 5382`, zéro sonde exécutée. Le piège était écrit dans le
+ * skill de ce banc, et il a quand même été rejoué.
  */
 async function withServer(app, runDir, fn) {
   const bin = appBin(app);
+  // Le serveur laissé par l'agent tient les ports du banc. `stop` est
+  // idempotent : sans rien à arrêter il sort proprement, on ne teste donc pas
+  // son code de retour.
+  const cleared = spawnSync(process.execPath, [bin, "stop"], {
+    cwd: app,
+    encoding: "utf8",
+    timeout: 60_000,
+    env: APP_ENV,
+  });
   const start = spawnSync(
     process.execPath,
     [bin, "development", "--detach", "--wait"],
@@ -1564,9 +1591,13 @@ async function withServer(app, runDir, fn) {
   );
   writeFileSync(
     path.join(runDir, "server.log"),
-    `start exit ${start.status}\n${start.stdout ?? ""}\n${start.stderr ?? ""}`,
+    `--- stop préalable (exit ${cleared.status}) ---\n${cleared.stdout ?? ""}${cleared.stderr ?? ""}\n` +
+      `--- start (exit ${start.status}) ---\n${start.stdout ?? ""}\n${start.stderr ?? ""}`,
   );
   if (start.status !== 0) {
+    console.log(
+      `    ⚠️  le serveur n'a pas démarré (exit ${start.status}) — voir ${path.join(runDir, "server.log")}`,
+    );
     return { started: false, probes: [] };
   }
   try {
