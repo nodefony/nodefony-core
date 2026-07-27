@@ -62,8 +62,16 @@ propriété de branche (24/dev · 26/dev · 26/**prod**) — la casse du mode li
 fusion ; le banc se crée son second compte en production (`security:user:add`) et chaque cas propre à un
 mode a sa contrepartie EXIGÉE dans l'autre. Analyse de code : périmètre restreint au code de production
 (114 alertes de tests écartées), `Bearer` sans automate et tirage de codes de récupération sans biais.
-**Reste** : 20 alertes à qualifier (aucune sur un chemin de requête), Loki/OpenSearch jamais montés à la
-forge (dette APRÈS release), et `dependabot.yml` en place pour que la dérive des versions se voie.
+**21 alertes soldées — branche à ZÉRO** (`334efa2a` `b420e5cc` `2efcfc4a` `fd164b01` `ce75768d`
+`621912a3`) : 16 corrigées, 5 fermées avec un motif écrit (entrée = code du développeur au démarrage,
+sans attaquant). En instruisant celle de `Route.ts`, le défaut trouvé n'était pas celui que l'outil
+signalait : **une route ne servait pas le chemin déclaré** — `compile()` échappait le motif après
+l'avoir assemblé, et seulement `/` et `.`, si bien que `"/a|b"` produisait `^\/a|b$`, soit « commence
+par /a » **ou** « finit par b » (la route absorbait `/n'importe/quoi/b`). RFC 3986 §3.3 : `( ) * + $`
+sont des `sub-delims` non encodés — huit métacaractères atteignent le routeur intacts. Un chemin
+portant l'un des six autres (`^ { } \ ? #`) est **inatteignable** et le dit désormais au démarrage.
+**Reste** : Loki/OpenSearch jamais montés à la forge (dette APRÈS release), et `dependabot.yml` en
+place pour que la dérive des versions se voie.
 
 **Log Backplane** (`project_log_backplane_vision`) : axe WRITE (`LB.W`) ✅ + axe QUERY (`LB.0→LB.5`) ✅ — drivers
 `memory`/`file`/`cluster-file`/`loki`/`opensearch` queryables, validés runtime cluster + Loki/OpenSearch réels.

@@ -49,6 +49,20 @@
   « scripts de test » deux fichiers de PRODUCTION. Bon découpage : le sous-agent rend le CODE et son
   contexte factuel (`fichier:ligne`, la ligne, ce que la fonction appelle) ; le principal qualifie.
 
+- `[1× — 2026-07-27]` 🔴 **Une PLAINTE n'est pas un ORDRE — j'ai tué un agent qui allait rendre.**
+  « le résultat c'est trop long !!! » décrivait une attente ; je l'ai lu comme « arrête-le » et j'ai
+  appelé `TaskStop` alors qu'il consolidait ses trouvailles. Le user : « je t'ai jamais dit de
+  l'arrêter, on a perdu beaucoup de token ». Réparation qui a marché : **`SendMessage` reprend un
+  agent arrêté depuis son transcript**, contexte intact — rien n'était perdu, mais je ne le savais
+  pas en le tuant. Devant une plainte sur un travail EN COURS : dire où il en est, proposer, ne
+  jamais trancher à sa place.
+- `[1× — 2026-07-27]` 🔴 **Un sous-agent rend des faux positifs PLAUSIBLES — et le plus cher est
+  celui qu'on est prêt à croire.** `fable` a signalé un défaut d'index sur `/Σ` vs `/ς` (pliage de
+  casse), mesuré, chiffré, ancré `fichier:ligne`. J'ai commencé le correctif. Il avait mesuré la
+  **regex isolément**, jamais le chemin tel qu'il ARRIVE : RFC 3986 §3.3 impose le percent-encodage
+  du non-ASCII, le routeur reçoit `/%CE%A3`, le cas n'existe pas. C'est mon propre test qui est
+  tombé et m'a averti. Une mesure juste sur un objet qui n'est pas celui du système reste fausse.
+
 ## ✂️ La preuve qu'on tronque est PERDUE — un pipe est destructif
 
 - `[1× — 2026-07-26]` 🔴 **`npm run test:all | tail -80` a mangé le nom du SEUL test échoué**
@@ -243,6 +257,24 @@ status` le payait sur macOS et Windows.
   le script l'écrivait (« run INTERROMPU »), le code de sortie disait 0. Lire le RAPPORT, jamais le
   code de sortie seul — c'est la même famille que « un skip compte vert ».
 
+## 🔢 Un COMPTE non paginé est un chiffre FAUX — et il se donne avec aplomb
+
+- `[1× — 2026-07-27]` 🔴 **J'ai annoncé « 4 alertes restantes », il y en avait 8 — le user l'a vu,
+  pas moi.** `gh api .../alerts` pagine à 30 par défaut ; mon `select(.state=="open") | length`
+  comptait sur UNE page, en silence. Le filtre côté client sur une réponse tronquée donne toujours
+  un chiffre plausible et petit. Deux réflexes : `--paginate` **et** `state=open` côté serveur, et
+  se méfier de tout compte qui tombe pile en dessous d'un seuil de pagination (30, 50, 100).
+  Même famille que le pipe destructif et le skip qui compte vert : la troncature ne s'annonce pas.
+
+## 🔒 Un TEST peut verrouiller le BUG — son commentaire l'écrit noir sur blanc
+
+- `[1× — 2026-07-27]` **Le seul test rouge après le correctif de routage affirmait le défaut.**
+  `routing-index.test.ts` : « `+` NON échappé par compile() → matche /mmx et PAS /m+x », et il
+  vérifiait cette phrase. Un test qui documente un comportement défectueux le rend intouchable :
+  le corriger fait « échouer la suite », et la pression est de revenir en arrière. Le signe qui
+  ne trompe pas — **le commentaire du test EXPLIQUE la bizarrerie au lieu de la déplorer**.
+  Corollaire : quand un unique test tombe sur un correctif, le lire AVANT de douter du correctif.
+
 ## 🔎 Chercher le MOTIF, pas les alertes — l'outil ne voit qu'un échantillon
 
 - `[1× — 2026-07-27]` **CodeQL signalait 5 copies de `replace(/\/+$/, "")` ; le dépôt en portait 8.**
@@ -254,6 +286,12 @@ status` le payait sur macOS et Windows.
   `LokiTransport.ts` porte deux octets nuls littéraux (séparateur de clé, intentionnel) → classé
   `data`, absent de tout résultat. Il a fallu `rg -a` pour le voir. Tout inventaire par `rg` sur ce
   dépôt est donc potentiellement incomplet d'un fichier, sans le moindre avertissement.
+- `[2× — 2026-07-27]` 🔴 **Poser le helper sans rallier les copies AJOUTE une implémentation.**
+  J'ai écrit `escapeRegExp` dans `Tools` en justifiant, dans le message de commit, que le motif
+  était « recopié à sept endroits » — et j'ai rallié **zéro** site. Le dépôt en portait donc huit.
+  La justification était juste, le geste s'est arrêté à mi-chemin, et rien ne l'aurait signalé si
+  je n'avais pas énoncé le trou moi-même. **Un commit qui invoque une duplication doit la
+  SUPPRIMER dans le même geste, ou dire explicitement qu'il ne le fait pas encore.**
 
 ## 🧰 Un automate mal cadré CORROMPT — et `npm pkg delete` en est un
 
