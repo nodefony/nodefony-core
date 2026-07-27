@@ -1,0 +1,123 @@
+name: Preuves e2e autonomes
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POURQUOI CE WORKFLOW EXISTE
+#
+# Le dépôt possède une trentaine de bancs qui vivent dans le kit de charge
+# (`.claude/skills/nodefony-load-test/scripts/`). La moitié n'a rien à voir avec
+# la charge : ce sont des PREUVES fonctionnelles — fan-out temps réel entre
+# process, sonde de santé agrégée d'un pod, surcharge de configuration par
+# l'environnement, arrêt gracieux, idempotence distribuée. Elles assertent et
+# sortent en 0 ou 1, exactement comme des tests. Aucune ne tournait.
+#
+# Elles ne sont pas dans le kit de charge par nature, mais par DÉCOR : elles
+# exigeaient un serveur réel, ce qu'aucune suite ne fournissait. L'argument ne
+# tient plus une fois le décor reproductible en intégration continue.
+#
+# CELLES-CI SONT LES PLUS SÛRES À AUTOMATISER : elles forkent LEUR PROPRE
+# serveur. Aucune ne dépend d'un serveur partagé, donc aucune ne peut faire
+# tomber les autres en cascade — le défaut classique de ces bancs, où un banc
+# destructeur laisse les suivants en connexion refusée et fabrique des « KO »
+# qui n'ont rien prouvé de faux.
+#
+# CE QUI RESTE VOLONTAIREMENT DEHORS
+#
+#  · Les bancs de MESURE que le kit désigne lui-même comme à durcir (`hub-load`,
+#    `supervision-stress`, `cluster-ipc`, `aimd-demo`, `ws-connections`) : ils
+#    publient des chiffres sans vérifier que le travail a eu lieu. Un banc qui ne
+#    contrôle pas sa cible mesure la vitesse à laquelle il échoue.
+#  · Les preuves à décor OPT-IN (rate-limit HTTP, rate-limit de poignée de main
+#    WebSocket, plafond de connexions par IP, anti-SSRF des webhooks) : chacune
+#    réclame des plafonds DIFFÉRENTS, donc un serveur par banc. À faire, mais pas
+#    dans le même lot.
+#  · Les preuves qui exigent une base (idempotence PostgreSQL, cluster ORM) :
+#    leur place est dans le workflow d'infrastructure.
+#
+# DETTE ASSUMÉE : ces preuves devraient être des tests du paquet qu'elles
+# éprouvent, pas des scripts dans un kit — hors espace de travail, hors `npm
+# test`, hors rapport agrégé. Les déplacer suppose de les réécrire ; les activer
+# coûte ce fichier. On active d'abord, on range ensuite.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: ["main", "claude-ts"]
+    paths:
+      - "src/nodefony/**"
+      - "src/packages/@nodefony/http/**"
+      - "src/packages/@nodefony/framework/**"
+      - "src/packages/@nodefony/realtime/**"
+      - ".claude/skills/nodefony-load-test/scripts/**"
+      - ".github/workflows/e2e-autonomes.yml"
+  pull_request:
+    branches: ["main", "claude-ts"]
+    paths:
+      - "src/nodefony/**"
+      - "src/packages/@nodefony/http/**"
+      - "src/packages/@nodefony/framework/**"
+      - "src/packages/@nodefony/realtime/**"
+      - ".claude/skills/nodefony-load-test/scripts/**"
+      - ".github/workflows/e2e-autonomes.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  DO_NOT_TRACK: 1
+  CI: true
+  FORCE_COLOR: 1
+
+jobs:
+  preuves:
+    name: Cluster · configuration · arrêt gracieux
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26.x
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      # Seul prérequis de ces bancs : ils importent les paquets construits.
+      - name: Build workspaces
+        run: npm run build
+
+      # Une ÉTAPE PAR PREUVE, et non une boucle : le journal doit nommer celle qui
+      # tombe. Un lot qui échoue en bloc oblige à relire la sortie entière pour
+      # savoir de quoi il parle, et c'est ce qui fait renoncer à lire.
+      - name: Fan-out temps réel entre process (8 vérifications)
+        run: node .claude/skills/nodefony-load-test/scripts/cluster-realtime-e2e.mjs
+
+      - name: Sonde de santé agrégée du pod (4 vérifications)
+        run: node .claude/skills/nodefony-load-test/scripts/cluster-probe-e2e.mjs
+
+      - name: Point de santé exposé en cluster
+        run: node .claude/skills/nodefony-load-test/scripts/cluster-health-endpoint-e2e.mjs
+
+      # Prouve qu'une surcharge par variable d'environnement traverse le boot RÉEL,
+      # et qu'une valeur invalide fait ÉCHOUER le démarrage au lieu d'être ignorée.
+      - name: Surcharge de configuration par l'environnement
+        run: node .claude/skills/nodefony-load-test/scripts/config-env-override-e2e.mjs
+
+      - name: Idempotence distribuée entre process
+        run: node .claude/skills/nodefony-load-test/scripts/idempotency-cluster-e2e.mjs
+
+      # EN DERNIER, délibérément : ce banc envoie un signal d'arrêt et prend les
+      # ports. Placé plus haut, il ferait tomber les suivants en connexion refusée
+      # — des « échecs » qui ne diraient rien du code.
+      - name: Arrêt gracieux (drainage des requêtes en vol)
+        run: node .claude/skills/nodefony-load-test/scripts/graceful-shutdown-e2e.mjs
