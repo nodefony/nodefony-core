@@ -157,40 +157,22 @@ jobs:
       - name: Build workspaces
         run: npm run build
 
-      # DEUX rapporteurs : `--reporter=json` seul REMPLACE la sortie lisible, et un
-      # échec ne dit alors plus quel dialecte ni sur quelle assertion.
+      # Le filet est DANS la suite, plus dans ce fichier.
+      #
+      # Il y a eu ici une étape `jq` qui comptait les cas passés par dialecte,
+      # parce qu'une URL mal formée ne fait pas ÉCHOUER ces suites : elle les
+      # fait SAUTER, et `npm test` sort vert avec les dialectes muets. La règle
+      # était juste ; son emplacement ne l'était pas. Écrite workflow par
+      # workflow, elle ne protégeait que les passes où quelqu'un avait pensé à
+      # la recopier — et ne disait rien à qui lance la suite en local.
+      #
+      # Elle vit maintenant dans `vitest.gates.ts`, appelée par la configuration
+      # du paquet (`proof: "(postgres)"`) : une seule implémentation, qui exige
+      # un cas PASSÉ par dialecte et fait échouer la passe quand `CI` est posé.
+      # Voir `docs/guides/integration-continue.md`.
       - name: Drizzle — sqlite + PostgreSQL + MySQL
         working-directory: src/packages/@nodefony/drizzle
-        run: |
-          npm test -- \
-            --reporter=default --reporter=json --outputFile=stores-report.json
-
-      # FILET — la raison d'être de ce workflow, donc son point le plus fragile.
-      # Une URL mal formée ne fait pas ÉCHOUER ces suites : elle les fait
-      # SAUTER, et `npm test` sort vert avec les dialectes muets — précisément le
-      # silence qu'on vient de payer. Compter les cas qui ont réellement tourné
-      # par dialecte est la seule affirmation qui ne peut pas être satisfaite par
-      # un décor absent.
-      #
-      # Le compte n'est pas comparé à un plancher chiffré (qui se périmerait au
-      # premier test ajouté) mais à zéro : la question posée est « ce dialecte
-      # a-t-il été exercé », pas « combien de fois ».
-      - name: Les dialectes de PRODUCTION ont réellement tourné
-        working-directory: src/packages/@nodefony/drizzle
-        run: |
-          count() {
-            jq --arg d "$1" '[.testResults[].assertionResults[]
-              | select(.status == "passed")
-              | select(.fullName | contains("(" + $d + ")"))] | length' stores-report.json
-          }
-          pg=$(count postgres)
-          my=$(count mysql)
-          echo "PostgreSQL : $pg cas · MySQL/MariaDB : $my cas"
-          if [ "$pg" -eq 0 ] || [ "$my" -eq 0 ]; then
-            echo "::error::Un dialecte de production n'a PAS été exercé (postgres=$pg, mysql=$my) — le décor n'a pas été joint, et le vert ci-dessus ne prouve que sqlite."
-            jq -r '.numPendingTests as $p | "tests sautés : \($p)"' stores-report.json
-            exit 1
-          fi
+        run: npm test
 
       - name: Redis — serveur réel
         working-directory: src/packages/@nodefony/redis

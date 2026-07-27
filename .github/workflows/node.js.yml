@@ -149,7 +149,21 @@ jobs:
       - name: Build workspaces
         run: npm run build
 
+      # `NF_GATES_ALLOW` — ce que cette passe n'exerce PAS, écrit noir sur blanc.
+      #
+      # Depuis que le rapporteur des gates fait échouer une passe dont une cible
+      # déclarée n'a pas tourné, ce job doit dire ce qu'il ne couvre pas : il
+      # tourne sur TROIS systèmes d'exploitation, on n'y montera pas trois bases
+      # de données. Ces cibles sont exercées par `orm.yml`, sur Linux, avec le
+      # décor complet — elles ne sont donc pas perdues, elles sont AILLEURS.
+      #
+      # Ce n'est pas un interrupteur pour faire taire un rouge : chaque nom
+      # ajouté ici est une couverture qu'on renonce à obtenir ICI, et le rapport
+      # de fin de suite les nomme même quand tout le reste est vert. En retirer
+      # un doit rester possible ; en ajouter un se justifie.
       - name: Run unit tests (turbo)
+        env:
+          NF_GATES_ALLOW: NF_PG_URL,NF_MYSQL_URL,REDIS_URL,REDIS_TEST_URL,MONGO_TEST_URI,NF_LOKI_TEST_URL,NF_OPENSEARCH_TEST_URL
         run: npm test
 
   # ─── Filet CLI — exerce le BINAIRE `nodefony`, sur les deux plateformes ─────

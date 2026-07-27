@@ -16,7 +16,12 @@ jobs:
         with:
           node-version: 24
       - run: npm ci
+      # Cette passe ne monte aucune base : les cibles d'infra sont exercées par
+      # `orm.yml`. Sans cette déclaration, le rapporteur des gates ferait
+      # échouer le job — ce qui est son rôle : une couverture absente s'énonce.
       - run: npm test
+        env:
+          NF_GATES_ALLOW: NF_PG_URL,NF_MYSQL_URL,REDIS_URL,REDIS_TEST_URL,MONGO_TEST_URI,NF_LOKI_TEST_URL,NF_OPENSEARCH_TEST_URL
 
   publish-gpr:
     needs: build

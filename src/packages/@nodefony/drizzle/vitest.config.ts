@@ -20,8 +20,21 @@ export default defineConfig({
     globals: true,
     // Les bancs PG/MySQL se skippent sans leurs variables — et un skip est
     // VERT. Ce rapporteur nomme en fin de suite les dialectes non exercés
-    // (jusqu'à 442 tests sur 781) au lieu de laisser croire à un succès complet.
-    reporters: ["default", gateReporter([PG_GATE, MYSQL_GATE])],
+    // (jusqu'à 442 tests sur 781) au lieu de laisser croire à un succès complet,
+    // et FAIT ÉCHOUER la passe en intégration continue.
+    //
+    // La preuve porte sur un cas PASSÉ, pas sur la variable : une URL peut être
+    // posée et mal formée — les suites sautent alors sans que rien ne manque à
+    // l'appel. Le motif est parenthésé (`(postgres)`, pas `postgres`) parce que
+    // c'est la forme des `describe` gatés ; `auto-register-postgres`, lui, tourne
+    // sans serveur et ne prouverait donc rien.
+    reporters: [
+      "default",
+      gateReporter([
+        { gate: PG_GATE, proof: "(postgres)" },
+        { gate: MYSQL_GATE, proof: "(mysql)" },
+      ]),
+    ],
     include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
     testTimeout: 20000,
     hookTimeout: 20000,
