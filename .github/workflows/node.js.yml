@@ -291,90 +291,87 @@ jobs:
       # déclenché au milieu du run couperait les connexions sous les tests, et le rouge
       # accuserait le code alors que le fautif serait le décor.
       - name: Start Nodefony server (detached, fail-fast)
-        shell: bash
-        run: |
-          node -e "
-          const { spawn } = require('child_process');
-          const path = require('path');
-          // Le bin 'nodefony' est un artefact de build (src/nodefony/.gitignore: /bin/)
-          // généré par 'npm run build'. À l'install (npm ci) il n'existe pas encore →
-          // npm ne crée PAS le symlink node_modules/.bin/nodefony → 'npx nodefony'
-          // échoue en CI (sh: nodefony: not found). On invoque le bin construit en direct.
-          const bin = path.join(process.cwd(), 'node_modules', 'nodefony', 'bin', 'nodefony');
-          // production : boot foreground in-process, SANS PM2 (cible cloud-native,
-          // 1 process = 1 pod). Foreground est le comportement PAR DÉFAUT de la
-          // commande (pas de flag à passer) — '--no-daemon' était un vestige de
-          // PM2, retiré du framework, et faisait échouer commander sur
-          // 'unknown option'. Logs sur stdout → captés ci-dessous.
-          const child = spawn(process.execPath, [bin, ...'${{ github.ref == 'refs/heads/main' && 'production' || 'development --no-watch' }}'.split(' ')], {
-            cwd: process.cwd(),
-            stdio: ['ignore', 'pipe', 'pipe'],
-            detached: true,
-          });
-          child.stdout.pipe(process.stdout);
-          child.stderr.pipe(process.stderr);
-          child.unref();
-          require('fs').writeFileSync('srv.pid', String(child.pid));
-          console.log('SERVER PID=' + child.pid);
-          " > nodefony-server.log 2>&1 &
-
-          # Poll avec fail-fast sur erreur fatale, succès sur 4× "Server Listen on"
-          for i in $(seq 1 60); do
-            if grep -q -E "SyntaxError|CRITIC|EADDRINUSE|ALREADY USE|terminate :" nodefony-server.log 2>/dev/null; then
-              echo "::error::Serveur Nodefony a crashé au démarrage"
-              grep -E "SyntaxError|CRITIC|terminate|EADDRINUSE" nodefony-server.log | tail -20
-              exit 1
-            fi
-            if [ "$(grep -c 'Server Listen on' nodefony-server.log 2>/dev/null)" -ge 4 ]; then
-              echo "✅ Serveur Nodefony READY"
-              grep "Server Listen" nodefony-server.log | head -10
-              exit 0
-            fi
-            sleep 1
-          done
-
-          echo "::error::Timeout — serveur n'a pas démarré en 60s"
-          tail -40 nodefony-server.log
-          exit 1
-
-      - name: Health check
-        shell: bash
-        run: |
-          for i in $(seq 1 10); do
-            if curl -sk -o /dev/null -w "%{http_code}" https://127.0.0.1:5152/nodefony/test/index | grep -q "200"; then
-              echo "✅ Health OK"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "::error::Health check failed"
-          exit 1
+        uses: ./.github/actions/nodefony-server
+        with:
+          mode: ${{ github.ref == 'refs/heads/main' && 'production' || 'development --no-watch' }}
 
       - name: Run integration tests
         run: npm run test:integration
+
+      - name: Stop Nodefony server
+        if: always()
+        uses: ./.github/actions/nodefony-server
+        with:
+          action: stop
+
+      # ─── Seconde passe : le CÂBLAGE du 429 ────────────────────────────────────
+      #
+      # Le décor principal éteint le backoff, sans quoi trois échecs produits par un
+      # banc d'attaque condamnent `admin` pour tous les fichiers suivants. Éteindre
+      # rendait du même coup MUETS les deux cas qui prouvent que le throttle est
+      # branché sur les deux portes — un skip compte comme vert, la garantie
+      # anti-bruteforce n'était donc plus prouvée nulle part.
+      #
+      # Ces deux cas martèlent un identifiant UNIQUE par exécution : ils ne touchent
+      # pas au compte partagé, et peuvent donc tourner seuls sur un serveur armé.
+      - name: Start Nodefony server (backoff ARMÉ)
+        uses: ./.github/actions/nodefony-server
+        with:
+          mode: ${{ github.ref == 'refs/heads/main' && 'production' || 'development --no-watch' }}
+          log-file: nodefony-server-throttle.log
+          pid-file: srv-throttle.pid
+          env: NF__SECURITY__RATELIMIT__ENABLED=true
+
+      # Sélection par NOM : jouer les fichiers entiers réarmerait le problème que
+      # le décor principal contourne (les autres cas de `firewall-auth` échouent
+      # sur `admin` par conception).
+      - name: Câblage du backoff NIST (les 2 cas opt-in)
+        working-directory: src/packages/@nodefony/http
+        env:
+          NF__SECURITY__RATELIMIT__ENABLED: "true"
+        run: |
+          npx vitest run --config vitest.integration.config.ts \
+            -t "(backoff NIST|NIST PARTAGÉ)" \
+            --reporter=json --outputFile=throttle-report.json
+
+          # FILET — sans lui cette étape est décorative. Un motif qui ne matche plus
+          # (renommage d'un cas) laisse vitest sortir 0 avec 591 tests `pending` :
+          # vérifié, exit=0 et numPassedTests=0. On exige donc le COMPTE.
+          passed=$(jq '.numPassedTests' throttle-report.json)
+          if [ "$passed" != "2" ]; then
+            echo "::error::Câblage du 429 NON prouvé — $passed cas exécutés au lieu de 2."
+            echo "Le motif de sélection ne mord plus (cas renommé ou déplacé) :"
+            jq -r '.testResults[].assertionResults[] | "  \(.status)\t\(.fullName)"' throttle-report.json | head -20
+            exit 1
+          fi
+          echo "✅ Câblage du backoff prouvé sur les 2 portes (Basic + JSON)."
 
       - name: Show server log on failure
         if: failure()
         shell: bash
         run: |
-          echo "─── nodefony-server.log (last 200 lines) ───"
-          tail -200 nodefony-server.log || true
+          for f in nodefony-server.log nodefony-server-throttle.log; do
+            [ -f "$f" ] || continue
+            echo "─── $f (last 200 lines) ───"
+            tail -200 "$f" || true
+          done
 
-      - name: Stop Nodefony server
+      - name: Stop Nodefony server (backoff ARMÉ)
         if: always()
-        shell: bash
-        run: |
-          if [ -f srv.pid ]; then
-            kill -9 $(cat srv.pid) 2>/dev/null || true
-          fi
-          # Filet de sécurité sur les ports. `-ti:5151,5152` en UNE liste : la
-          # forme `-ti:5151 -ti:5152` ne fait pas l'union attendue.
-          lsof -ti:5151,5152 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+        uses: ./.github/actions/nodefony-server
+        with:
+          action: stop
+          pid-file: srv-throttle.pid
 
       - name: Upload server log on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: nodefony-server-log-node${{ matrix.node-version }}
-          path: nodefony-server.log
+          # Les deux décors, sinon un échec de la seconde passe s'analyse à l'aveugle.
+          path: |
+            nodefony-server.log
+            nodefony-server-throttle.log
+            src/packages/@nodefony/http/throttle-report.json
           retention-days: 7
+          if-no-files-found: ignore

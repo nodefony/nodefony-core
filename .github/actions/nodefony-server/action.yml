@@ -1,0 +1,135 @@
+name: Serveur Nodefony (banc d'intégration)
+description: >-
+  Démarre le serveur du banc et attend qu'il ÉCOUTE (ou l'arrête). Existe parce
+  qu'un banc d'intégration a parfois besoin de deux décors successifs : recopier
+  le lanceur pour le second, c'est garantir qu'un jour l'un des deux corrigera un
+  défaut que l'autre gardera.
+
+inputs:
+  action:
+    description: "`start` (démarre et attend l'écoute) ou `stop` (tue l'arbre)."
+    required: false
+    default: start
+  mode:
+    description: >-
+      Arguments passés au binaire — `production` ou `development --no-watch`.
+      Le mode n'est PAS déduit ici : l'appelant sait pourquoi il veut l'un ou
+      l'autre, et cette raison doit rester lisible dans le workflow.
+    required: false
+    default: development --no-watch
+  log-file:
+    description: Journal du serveur. Deux décors successifs = deux journaux distincts.
+    required: false
+    default: nodefony-server.log
+  pid-file:
+    description: Fichier de pid, lu par `stop`.
+    required: false
+    default: srv.pid
+  env:
+    description: >-
+      Variables `CLÉ=valeur`, une par ligne, posées pour CE serveur seulement.
+      Passées explicitement plutôt qu'héritées : c'est ce qui distingue les deux
+      décors, ça doit se lire dans l'appel.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Démarrer et attendre l'écoute
+      if: inputs.action == 'start'
+      shell: bash
+      env:
+        NF_CI_MODE: ${{ inputs.mode }}
+        NF_CI_LOG: ${{ inputs.log-file }}
+        NF_CI_PID: ${{ inputs.pid-file }}
+        NF_CI_ENV: ${{ inputs.env }}
+      run: |
+        # Variables propres à CE décor, avant tout spawn.
+        while IFS= read -r line; do
+          [ -z "${line// }" ] && continue
+          export "${line?}"
+          echo "décor: ${line%%=*} posé"
+        done <<< "$NF_CI_ENV"
+
+        node -e "
+        const { spawn } = require('child_process');
+        const path = require('path');
+        // Le bin 'nodefony' est un artefact de build (src/nodefony/.gitignore: /bin/)
+        // généré par 'npm run build'. À l'install (npm ci) il n'existe pas encore →
+        // npm ne crée PAS le symlink node_modules/.bin/nodefony → 'npx nodefony'
+        // échoue en CI (sh: nodefony: not found). On invoque le bin construit en direct.
+        const bin = path.join(process.cwd(), 'node_modules', 'nodefony', 'bin', 'nodefony');
+        // production : boot foreground in-process, SANS PM2 (cible cloud-native,
+        // 1 process = 1 pod). Foreground est le comportement PAR DÉFAUT de la
+        // commande (pas de flag à passer). Logs sur stdout → captés ci-dessous.
+        const child = spawn(process.execPath, [bin, ...process.env.NF_CI_MODE.split(' ')], {
+          cwd: process.cwd(),
+          stdio: ['ignore', 'pipe', 'pipe'],
+          detached: true,
+        });
+        child.stdout.pipe(process.stdout);
+        child.stderr.pipe(process.stderr);
+        child.unref();
+        require('fs').writeFileSync(process.env.NF_CI_PID, String(child.pid));
+        console.log('SERVER PID=' + child.pid);
+        " > "$NF_CI_LOG" 2>&1 &
+
+        # Poll avec fail-fast sur erreur fatale, succès sur 4× "Server Listen on"
+        for i in $(seq 1 60); do
+          if grep -q -E "SyntaxError|CRITIC|EADDRINUSE|ALREADY USE|terminate :" "$NF_CI_LOG" 2>/dev/null; then
+            echo "::error::Serveur Nodefony a crashé au démarrage"
+            grep -E "SyntaxError|CRITIC|terminate|EADDRINUSE" "$NF_CI_LOG" | tail -20
+            exit 1
+          fi
+          if [ "$(grep -c 'Server Listen on' "$NF_CI_LOG" 2>/dev/null)" -ge 4 ]; then
+            echo "✅ Serveur Nodefony READY"
+            grep "Server Listen" "$NF_CI_LOG" | head -10
+            exit 0
+          fi
+          sleep 1
+        done
+
+        echo "::error::Timeout — serveur n'a pas démarré en 60s"
+        tail -40 "$NF_CI_LOG"
+        exit 1
+
+    - name: Répond en HTTP
+      if: inputs.action == 'start'
+      shell: bash
+      run: |
+        for i in $(seq 1 10); do
+          if curl -sk -o /dev/null -w "%{http_code}" https://127.0.0.1:5152/nodefony/test/index | grep -q "200"; then
+            echo "✅ Health OK"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "::error::Health check failed"
+        exit 1
+
+    - name: Arrêter
+      if: inputs.action == 'stop'
+      shell: bash
+      env:
+        NF_CI_PID: ${{ inputs.pid-file }}
+      run: |
+        if [ -f "$NF_CI_PID" ]; then
+          kill -9 "$(cat "$NF_CI_PID")" 2>/dev/null || true
+          rm -f "$NF_CI_PID"
+        fi
+        # Filet de sécurité sur les ports. `-ti:5151,5152` en UNE liste : la
+        # forme `-ti:5151 -ti:5152` ne fait pas l'union attendue.
+        lsof -ti:5151,5152 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+
+        # Attendre la mort EFFECTIVE : un `kill` rend la main avant que le noyau
+        # ait rendu le port. Le serveur suivant démarrerait sur un EADDRINUSE, et
+        # le rouge accuserait le code au lieu du décor.
+        for i in $(seq 1 20); do
+          if [ -z "$(lsof -ti:5151,5152 2>/dev/null)" ]; then
+            echo "✅ ports 5151/5152 libérés"
+            exit 0
+          fi
+          sleep 0.5
+        done
+        echo "::warning::ports encore occupés après 10 s"
