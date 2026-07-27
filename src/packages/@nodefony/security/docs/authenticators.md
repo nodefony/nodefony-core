@@ -449,7 +449,7 @@ Trois familles couvrent la brique — les **chiffres exacts vivent dans la carte
 (régénérée par `gen-counters.mjs` depuis vitest, jamais figée ici) :
 
 - **unit** (`security/tests/unit/`) : la chaîne + les modes (`authenticators`), les défenses JWT
-  RFC 8725 (`jwtAuthenticator`) et le pipeline JWT bout en bout (`jwtPipeline`), la clé API — flux,
+  RFC 8725 (`jwt.attack`) et le pipeline JWT bout en bout (`jwtPipeline`), la clé API — flux,
   service et forme/CRC (`apiKeyAuthenticator`, `apiKeyService`, `apiKeyFormat`), la session
   (`sessionAuthenticator`), le backoff NIST (`loginThrottler`), le step-up 2FA (`mfaStepUp`) ;
 - **intégration** (serveur réel, `@nodefony/http`) : le flux clé API de bout en bout

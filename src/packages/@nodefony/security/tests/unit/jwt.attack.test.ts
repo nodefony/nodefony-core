@@ -1,3 +1,21 @@
+/*
+ *   BANC D'ATTAQUE de la porte JWT — vecteurs de la RFC 8725 (JWT Best Current
+ *   Practices), présentés au `JwtAuthenticator` tel qu'il tourne en production.
+ *
+ *   Le fichier s'appelait `jwtAuthenticator.test.ts` : un nom de test de composant,
+ *   alors qu'il porte l'essentiel des attaques JWT du dépôt. Un inventaire des bancs
+ *   d'attaque (`*.attack.test.ts`) en trouvait dix-neuf et ratait celui-ci — au point
+ *   qu'on pouvait croire la porte JWT non éprouvée. Un contrôle qu'on ne trouve pas
+ *   compte pour rien.
+ *
+ *   Vecteurs couverts : `alg=none` (§3.1), confusion d'algorithme HS256 avec la clé
+ *   publique (§2.1), `kid` inconnu (§3.5), `iss`/`aud` faux (§3.8-3.9), `sub` absent
+ *   (§3.10), `typ` faux — jeton de rafraîchissement joué en jeton d'accès (§3.11),
+ *   signature falsifiée, `exp` passé, `nbf` futur, révocation (`jti` en liste noire,
+ *   `iat` antérieur à une invalidation globale), sujet disparu / verrouillé / inactif,
+ *   et l'absence de keystore (échec FERMÉ, jamais ouvert).
+ */
+
 import assert from "node:assert/strict";
 import type { Container } from "nodefony";
 import type { ContextType } from "@nodefony/http";
