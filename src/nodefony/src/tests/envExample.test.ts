@@ -111,4 +111,21 @@ describe("envExample — renderEnvExample", () => {
     const active = out.split("\n").filter((l) => /^[A-Z]/.test(l));
     assert.deepStrictEqual(active, []);
   });
+
+  it("se termine par UN saut de ligne, jamais plusieurs", () => {
+    assert.ok(renderEnvExample(cat).endsWith("\n"));
+    assert.doesNotMatch(renderEnvExample(cat), /\n\n$/u);
+    assert.doesNotMatch(
+      renderEnvExample(cat, { header: "# H\n\n\n" }),
+      /\n\n$/u,
+    );
+  });
+
+  it("catalogue vide et en-tête blanc → fichier VIDE (pas une ligne vide)", () => {
+    // Le rendu par `/\n+$/` laissait ici un `"\n"` solitaire : un en-tête fait
+    // de blancs n'est pas un en-tête, et un fichier d'une ligne vide n'est pas
+    // un fichier vide. Bord figé — c'est le SEUL écart avec l'ancien rendu.
+    assert.strictEqual(renderEnvExample([]), "");
+    assert.strictEqual(renderEnvExample([], { header: "   " }), "");
+  });
 });

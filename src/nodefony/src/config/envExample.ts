@@ -59,9 +59,16 @@ export function renderEnvExample(
   opts: { header?: string } = {},
 ): string {
   const lines: string[] = [];
-  if (opts.header) lines.push(opts.header.replace(/\s+$/, ""), "");
+  // `trimEnd` et le dépilage disent l'intention (« un seul saut de ligne final »)
+  // là où `/\s+$/` et `/\n+$/` la faisaient deviner — et coûtaient un balayage
+  // quadratique sur une queue de blancs, pour un rendu qui est une API publique.
+  if (opts.header) lines.push(opts.header.trimEnd(), "");
   for (const v of catalog) {
     lines.push(...renderVar(v), "");
   }
-  return lines.join("\n").replace(/\n+$/, "\n");
+  while (lines.length > 0 && lines[lines.length - 1] === "") {
+    lines.pop();
+  }
+  // Catalogue vide sans en-tête → fichier vide, pas une ligne vide.
+  return lines.length === 0 ? "" : `${lines.join("\n")}\n`;
 }
