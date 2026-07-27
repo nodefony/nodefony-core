@@ -131,9 +131,25 @@ function controllers(
           // Le log des routes DOIT être émis depuis `this` (le module) — pas
           // depuis Router.setController qui est static et perd la chaîne
           // d'override Module.log. Ici `this.log()` produit msgid `MODULE <name>`.
+          const declared = Router.getRoutesForController(contr);
           if (this.kernel?.debug) {
-            for (const r of Router.getRoutesForController(contr)) {
+            for (const r of declared) {
               this.log(`route + ${r.toLogLine()}`, "DEBUG");
+            }
+          }
+          // Route INATTEIGNABLE — pas un détail de mise au point, donc pas
+          // conditionné au mode debug : le chemin déclaré porte un caractère
+          // qu'une requête ne peut pas transporter, la route ne répondra
+          // jamais. Sans ce mot, la panne est parfaitement silencieuse.
+          for (const r of declared) {
+            if (r.unreachableChars) {
+              this.log(
+                `route INATTEIGNABLE : ${r.name} — le chemin « ${r.path} » ` +
+                  `contient ${r.unreachableChars.map((c) => `« ${c} »`).join(", ")}, ` +
+                  `qu'une requête ne porte jamais (encodé par l'analyseur d'URL, ` +
+                  `ou pris pour un délimiteur). Cette route ne répondra à rien.`,
+                "WARNING",
+              );
             }
           }
         };

@@ -66,6 +66,32 @@ describe("Route — compile()", () => {
     expect(r.pattern!.test("/foo/bar/baz")).to.be.true;
   });
 
+  it("relève les caractères qu'une requête ne porte jamais", () => {
+    // Ces six-là n'atteignent JAMAIS le routeur : `^ { }` sont percent-encodés
+    // par l'analyseur d'URL, `\` est replié en `/`, `?` ouvre la requête et `#`
+    // le fragment. Une route qui en déclare un ne répondra à rien — le
+    // décorateur `@controllers` l'annonce en WARNING au démarrage.
+    for (const char of ["^", "{", "}", "\\", "?", "#"]) {
+      const r = new Route("r", { path: `/a${char}b` });
+      expect(r.unreachableChars, `« ${char} » doit être relevé`).to.deep.equal([
+        char,
+      ]);
+    }
+  });
+
+  it("une route saine n'alloue rien pour ce relevé", () => {
+    for (const path of ["/foo/bar", "/foo/{id}", "/files/*", "/a.b-c_d~e"]) {
+      expect(new Route("r", { path }).unreachableChars, path).to.be.undefined;
+    }
+  });
+
+  it("le relevé ne compte pas les délimiteurs de variable", () => {
+    // `{` et `}` sont la SYNTAXE des variables : seuls comptent ceux qui
+    // restent dans un morceau littéral, une fois les `{…}` consommés.
+    expect(new Route("r", { path: "/u/{id}/{name}" }).unreachableChars).to.be
+      .undefined;
+  });
+
   it("recompiler une route ne redéclare pas ses variables", () => {
     const r = new Route("r", { path: "/foo/{id}/{name}" });
     r.compile();

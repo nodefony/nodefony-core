@@ -35,6 +35,22 @@ const REG_REPLACE_DOUBLE_SLASH = /\/+/g;
  * @param wildcard - le chemin se termine-t-il par `*` (route « fourre-tout ») ?
  * @returns le morceau prêt à être concaténé au motif.
  */
+/**
+ * Caractères qu'un chemin de requête ne porte JAMAIS littéralement — l'analyseur
+ * d'URL les encode (`^` → `%5E`, `{` → `%7B`, `}` → `%7D`) ou les traite comme
+ * un délimiteur (`?` ouvre la requête, `#` le fragment, `\` est replié en `/`).
+ *
+ * Une route qui en déclare un est donc **inatteignable**. Elle l'était déjà
+ * avant que les littéraux ne soient neutralisés — à ceci près qu'elle
+ * reconnaissait alors *autre chose*, ce qui est pire. Dans les deux cas, rien
+ * ne le disait : d'où l'avertissement au démarrage.
+ *
+ * RFC 3986 §3.3 est plus stricte encore (`pchar` n'admet ni `|`, ni `[`, ni
+ * `]`), mais les analyseurs réels les laissent passer : cette liste retient ce
+ * qui est VÉRIFIÉ inatteignable, pas ce qui est interdit sur le papier.
+ */
+const UNREACHABLE_IN_PATHNAME = new Set(["^", "{", "}", "\\", "?", "#"]);
+
 function compileLiteral(literal: string, wildcard: boolean): string {
   if (!wildcard) {
     return escapeRegExp(literal);
@@ -158,6 +174,14 @@ class Route implements IRoute {
   schemes?: SchemeType;
   pattern?: RegExp;
   variables: string[] = [];
+  /**
+   * Caractères du chemin déclaré qu'une requête ne peut PAS porter — la route
+   * est donc inatteignable. `undefined` tant que rien n'a été trouvé (le cas de
+   * toutes les routes saines : aucune allocation).
+   *
+   * @see {@link UNREACHABLE_IN_PATHNAME}
+   */
+  unreachableChars?: string[];
   defaults: Partial<Record<string, unknown>> = {};
   requirements: Partial<RouteRequirements> = {};
   hash?: string;
@@ -315,6 +339,24 @@ class Route implements IRoute {
   }
 
   /**
+   * Relève, dans un morceau LITTÉRAL du chemin, les caractères qu'une requête
+   * ne portera jamais. Alloue seulement s'il y en a — le cas normal ne coûte
+   * qu'un balayage.
+   *
+   * @param literal - morceau de chemin hors variable `{…}`.
+   */
+  #collectUnreachable(literal: string): void {
+    for (const char of literal) {
+      if (
+        UNREACHABLE_IN_PATHNAME.has(char) &&
+        !this.unreachableChars?.includes(char)
+      ) {
+        (this.unreachableChars ??= []).push(char);
+      }
+    }
+  }
+
+  /**
    * Compile the route into a regular expression pattern.
    * @returns The compiled regular expression pattern.
    */
@@ -334,10 +376,13 @@ class Route implements IRoute {
     // variables deux fois, puis trois. Le motif, lui, reste juste — le défaut ne
     // se voyait donc pas.
     this.variables.length = 0;
+    this.unreachableChars = undefined;
     REG_ROUTE.lastIndex = 0;
     let found: RegExpExecArray | null;
     while ((found = REG_ROUTE.exec(this.path)) !== null) {
-      pattern += compileLiteral(this.path.slice(from, found.index), wildcard);
+      const literal = this.path.slice(from, found.index);
+      this.#collectUnreachable(literal);
+      pattern += compileLiteral(literal, wildcard);
       pattern += replaceCallback.call(
         this,
         found[0],
@@ -350,7 +395,9 @@ class Route implements IRoute {
       );
       from = found.index + found[0].length;
     }
-    pattern += compileLiteral(this.path.slice(from), wildcard);
+    const tail = this.path.slice(from);
+    this.#collectUnreachable(tail);
+    pattern += compileLiteral(tail, wildcard);
     this.pattern = new RegExp(`^${pattern}$`, "i");
     this.compileHost();
     this.compileRequirements();
