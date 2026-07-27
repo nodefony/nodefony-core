@@ -131,7 +131,12 @@ chacun, jamais le même :
 | `webhooks-dataplane-e2e`     | `NF__SECURITY__WEBHOOKS__DENYPRIVATEIPS=true` (anti-SSRF strict) — sinon le sous-test « create SSRF → 422 » obtient **201** (le dev autorise le réseau privé, `169.254.169.254` passe) |
 
 **B. Autonomes** (forkent leur propre serveur → 0 serveur dev requis, mais `npm run build` d'abord) :
-`cluster-*`, `idempotency-cluster`, `idempotency-postgres`, `config-env-override`, `graceful-shutdown`.
+`cluster-*`, `idempotency-postgres`, `config-env-override`, `graceful-shutdown`.
+
+> ⚠️ `idempotency-cluster` **n'est PAS autonome** malgré son nom : il interroge le serveur de
+> développement et tombe en `ECONNREFUSED` sur 5152 sans lui — constaté en l'exécutant. Sa place
+> est en **classe C**. Le classement d'un banc se vérifie en le LANÇANT : lu dans ce tableau, il
+> a fait échouer un lot entier qui n'avait pourtant rien de faux à dire.
 
 **C. Serveur dev standard** (décor par défaut) : `totp-mfa`, `totp-mfa-attack`,
 `users-admin-factors`, `idempotency-userland` (+ `REDIS_URL`), `debug-runtime`.

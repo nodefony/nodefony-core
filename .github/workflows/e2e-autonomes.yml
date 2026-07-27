@@ -113,8 +113,11 @@ jobs:
       - name: Surcharge de configuration par l'environnement
         run: node .claude/skills/nodefony-load-test/scripts/config-env-override-e2e.mjs
 
-      - name: Idempotence distribuée entre process
-        run: node .claude/skills/nodefony-load-test/scripts/idempotency-cluster-e2e.mjs
+      # `idempotency-cluster-e2e` N'EST PAS ICI, et c'est un constat, pas un oubli :
+      # le catalogue du kit le range parmi les autonomes, mais il tape sur le
+      # serveur de développement (connexion refusée sur 5152 au premier run réel).
+      # Sa place est avec les bancs à serveur partagé. Une affirmation d'inventaire
+      # se vérifie en l'exécutant — celle-ci a coûté un rouge pour l'apprendre.
 
       # EN DERNIER, délibérément : ce banc envoie un signal d'arrêt et prend les
       # ports. Placé plus haut, il ferait tomber les suivants en connexion refusée
