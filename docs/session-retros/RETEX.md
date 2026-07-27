@@ -198,6 +198,33 @@ status` le payait sur macOS et Windows.
   il ne peut pas prouver l'appartenance, `#isNodefonySupervisor` le TUE. Deux doctrines opposées
   pour la même question, à dix fichiers d'écart.
 
+## 🧭 Un `skipIf` est un SILENCE — il lui faut une contrepartie, pas une exemption
+
+- `[1× — 2026-07-27]` **Ce qu'un mode éteint, l'autre doit PROUVER qu'il l'éteint.** Cinq bancs
+  se sautaient en production (stack d'erreur, profil par frame, phases, trace WS, 499) : le mode
+  livré n'avait plus AUCUNE preuve sur ces chemins — pas même que le pont RPC répondait encore.
+  Retourner les cas au lieu de les taire a élargi la couverture au passage : le versant dev ne
+  regardait que 2 des 6 clés retirées du corps d'erreur, le versant prod les vérifie toutes.
+  Corollaire outillé : le rapporteur exige, à chaque passe, les cas du mode qu'il a **constaté**
+  (sonde `/livez`) — un `skipIf` parti à l'envers éteindrait les deux côtés sans un mot.
+- `[1× — 2026-07-27]` **Un décor à DEUX versants ne s'automatise pas à moitié.** Le banc
+  reverse-proxy exige conteneurs + serveur en `NF_BIND_ALL=1` + certificats dérivés + résolution
+  DNS côté client. Le monter automatiquement aurait produit le vert menteur qu'on passe son temps
+  à traquer : il s'énonce (gate + guide + README) et se lance à la main.
+
+## 🔬 Le pire cas d'un ReDoS se CONSTRUIT — sinon on ne prouve rien
+
+- `[1× — 2026-07-27]` 🔴 **J'ai annoncé un déni de service, mesuré 0,3 ms, et j'avais tort sur
+  l'entrée.** `/^bearer\s+(.+)$/i` EST quadratique (136 ms → 2,2 s → 8,7 s quand n double), mais
+  seulement quand la reconnaissance ÉCHOUE : des espaces seuls la font réussir, donc aucun retour
+  arrière. Le premier test écrit se serait contenté d'espaces et aurait été VERT avec l'ancien
+  motif — un test complaisant de plus. Deux leçons : mesurer avant d'affirmer l'exploitabilité, et
+  un cas de non-régression sur un ReDoS doit forcer l'échec (`\n` final ici).
+- `[1× — 2026-07-27]` **Une garde EXTÉRIEURE au framework ne compte pas comme une garde.** Ce
+  ReDoS n'était pas atteignable depuis le réseau — le parseur HTTP de Node refuse un saut de ligne
+  brut dans un en-tête. Protection réelle, chez quelqu'un d'autre, énoncée nulle part, et qui
+  tombe dès que la valeur arrive d'ailleurs (frame, banc, appel direct).
+
 ## 🧹 Un banc qui s'appuie sur un ÉTAT PARTAGÉ marche par accident
 
 - `[1× — 2026-07-27]` 🔴 **60 rouges dans 16 fichiers, un seul défaut.** Le backoff de connexion
