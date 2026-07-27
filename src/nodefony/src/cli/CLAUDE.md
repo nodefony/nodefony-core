@@ -171,7 +171,7 @@ Filet d'intégration : `CliIntegration.test.ts` (`RUN_CLI_BOOT=1` pour les boots
 | `Prod`       | `prod`    | `ProdCommand.ts`       | foreground cloud-native, `--workers`, `--detach`          |
 | `Cluster`    | —         | `ClusterCommand.ts`    | `--workers`, `--detach`                                   |
 | `Install`    | —         | `InstallCommand.ts`    |                                                           |
-| `Outdated`   | —         | `OutdatedCommand.ts`   |                                                           |
+| `Outdated`   | —         | `OutdatedCommand.ts`   | `-j/--json`, `-a/--all` (cf § outdated)                   |
 | `Status`     | —         | `StatusCommand.ts`     | **standalone** (0 boot)                                   |
 | `Stop`       | —         | `StopCommand.ts`       | **standalone** (0 boot)                                   |
 | `Completion` | —         | `CompletionCommand.ts` | **standalone** — script bash/zsh/fish (cf § Complétion)   |
@@ -208,6 +208,32 @@ en prod). Hors projet → fallback built-ins en mémoire (`CliKernel.buildBuilti
 Protocole candidats : dernier mot = en cours de frappe (le shell filtre par préfixe) ;
 commande validée → ses options + globales, sinon noms + alias. Install zsh :
 `source <(nodefony completion zsh)`.
+
+## `nodefony outdated` — les dépendances en retard, agrégées par paquet
+
+`nodefony outdated [-j|--json] [-a|--all]` — **UNE** interrogation `npm outdated --json --long`
+à la racine (`kernel.path`), jamais une par module : un `npm` lancé dans un sous-dossier
+d'espace de travail remonte à la racine, donc boucler sur les modules réaffichait N fois la
+table entière (mesuré ici : 47 couples paquet/dépendant → 8 lignes).
+
+Architecture en deux morceaux, comme `env` : `cli/outdated.ts` = calcul **PUR**
+(`aggregateOutdated` / `classifySeverity` / `toTableRows` / `formatHeadline` — reçoit le
+document npm, conclut ; testé sans kernel) ; la commande = adaptateur (spawn, capture, rendu).
+
+Trois choses que le brut de npm ne dit pas : les **dépendants regroupés** (« 22 paquets » ;
+`--all` les nomme) · une plage **ÉPINGLÉE** (`wanted === current` → un `npm update` ne fera
+rien, c'est la plage qu'il faut décider de changer) · un paquet **en AVANCE** sur le registre,
+mis à part (`semver.gt(current, latest)` — un espace de travail local non publié, que npm
+présente comme un retard).
+
+⚠️ **Le gestionnaire n'est pas deviné** : sans `package-lock.json` à la racine, la commande sort
+en **69** (`EX_UNAVAILABLE`). `pnpm outdated --json` et `yarn outdated --json` rendent un
+document de FORME différente, que l'agrégateur lirait mal sans rien signaler.
+
+⚠️ `npm outdated` sort en **1** dès qu'un paquet est en retard — c'est son cas NOMINAL, et
+`error.stdout` porte alors le rapport. Sans stdout, c'est un vrai échec.
+
+`Module.outdated()` (`kernel/Module.ts`) reste l'API par-module, pour une app hors monorepo.
 
 ## `nodefony env` — l'environnement, en entier (standalone 0-boot)
 

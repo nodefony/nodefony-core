@@ -187,7 +187,7 @@ class MyCommand extends Command {
 | `Prod`     | `prod` | ✅ foreground cloud-native (topologie `--workers`)                                                                                                    |
 | `Cluster`  | —      | ✅ cgroup-aware + respawn backoff + graceful shutdown                                                                                                 |
 | `Install`  | —      | ✅                                                                                                                                                    |
-| `Outdated` | —      | ✅                                                                                                                                                    |
+| `Outdated` | —      | ✅ **UNE** interrogation npm à la racine, agrégée par paquet (`-j/--json`, `-a/--all`) — refuse hors projet npm                                       |
 | `Status`   | —      | ✅ introspection **multi-mode** (dev superviseur/serveur/Vite · prod `nodefony server` · cluster master/workers) + ports — **standalone, hors trunk** |
 | `Stop`     | —      | ✅ arrêt propre de **tout** runtime Nodefony (dev/prod/cluster, group-kill, remplace `pkill -9`) — **standalone, hors trunk**                         |
 
