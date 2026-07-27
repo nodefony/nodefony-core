@@ -360,7 +360,8 @@ l'ACTION (`HelloCommand`), pas le module — un module peut avoir N commandes.
 
 `nodefony create entity <Nom> [champs…] [--id <uuid7|uuid4|serial>] [--soft-delete]
 [--no-timestamps] [--no-controller] [--no-service] [--no-tests] [--route </api/x>]
-[--module <nom>] [--connector <nom>] [--dialect <sqlite|postgres|mysql>]` — scaffold
+[--module <nom>] [--connector <nom>] [--dialect <sqlite|postgres|mysql>]
+[--table <nom_sql>] [--column-case <camel|snake>] [--id-name <colonne>]` — scaffold
 **IN-PROJECT** de la chaîne complète : table Drizzle **native** du dialecte
 (`nodefony/entity/<Nom>.ts` + interface `<Nom>Row` + descripteur `defineEntity`),
 schémas Zod d'entrée (`<Nom>.schema.ts` : `create…Schema` + `update… = create.partial()`),
@@ -374,7 +375,15 @@ Champs : `nom:type[?|!][:index]` · `ref:<Entité>` · **non-null par défaut** 
 `scaffold/entityFields.ts` (module PUR, 3 dialectes). **Index de TABLE** :
 `--index "colA,colB"` / `--unique "colA,colB"`, **répétables** (un par index) — les seuls à
 porter PLUSIEURS colonnes, donc les seuls qui expriment comment une table réelle est
-interrogée (mesuré : sur les 73 index du schéma Umami, **28 sont composites**). Question de
+interrogée (mesuré : sur les 73 index du schéma Umami, **28 sont composites**). **Épouser une
+table EXISTANTE** : `--table` (nom SQL littéral — la pluralisation ne se devine pas à l'envers),
+`--column-case snake` et `--id-name`. Ces trois-là ne touchent QUE le SQL — la propriété
+TypeScript reste `id`/`siteId`, parce que le service, le controller, le tri par défaut et les
+tests générés la nomment ainsi : faire suivre le TS aurait transformé un réglage de nommage en
+refonte de la chaîne. Dimensionné sur un schéma réel : des 134 renommages qu'exige Umami,
+**115 sont le passage mécanique au `snake_case` et 18 la clé primaire** — d'où deux réglages
+globaux plutôt qu'un dictionnaire par champ. Le nom d'index, objet SQL, suit la casse des
+colonnes ; les colonnes VISÉES restent nommées côté Drizzle (`t.siteId`). Question de
 spec de type `"list"` : chaque valeur reste entière, là où la normalisation en texte fondrait
 deux index de deux colonnes en un de quatre. Colonne inconnue, répétée, ou implicite absente
 (`createdAt` sans horodatages) → **refus AVANT écriture**, avec les colonnes disponibles ;

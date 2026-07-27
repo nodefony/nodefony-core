@@ -579,6 +579,45 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
       default: "",
       advanced: true,
     },
+    // ─── Épouser un schéma qui EXISTE DÉJÀ ────────────────────────────────────
+    // Les trois réglages ci-dessous ne servent qu'à cela, et c'est pourquoi ils
+    // portent des défauts qui reproduisent exactement le comportement historique :
+    // une entité neuve n'a aucune raison de les toucher. Une table déjà en
+    // production, elle, impose ses noms — et sans eux il ne restait qu'à renommer
+    // à la main (134 renommages pour le seul schéma d'Umami).
+    {
+      key: "table",
+      label: "Nom SQL de la table (défaut : pluriel du nom de l'entité)",
+      type: "string",
+      default: "",
+      advanced: true,
+    },
+    {
+      key: "columnCase",
+      label: "Casse des colonnes SQL",
+      type: "choice",
+      choices: [
+        {
+          value: "camel",
+          label: "camelCase",
+          hint: "la colonne porte le nom de la propriété (siteId)",
+        },
+        {
+          value: "snake",
+          label: "snake_case",
+          hint: "convention SQL courante (site_id) — la propriété reste siteId",
+        },
+      ],
+      default: "camel",
+      advanced: true,
+    },
+    {
+      key: "idName",
+      label: "Nom SQL de la clé primaire (la propriété reste `id`)",
+      type: "string",
+      default: "id",
+      advanced: true,
+    },
     {
       key: "index",
       label:

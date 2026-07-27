@@ -50,6 +50,12 @@ Le `!` interdit le nul, le `?` l'autorise, `:index` pose l'index, et
 `ref:<Entité>` crée la colonne de jointure **avec** son index. Les types portent
 leur taille (`string(120)`, `char(2)`, `decimal(10,2)`). Un index de TABLE couvre
 plusieurs colonnes et se répète : `--index "siteId,createdAt"`, `--unique "a,b"`.
+
+Si la table EXISTE DÉJÀ en base, trois options lui font épouser ses noms sans
+rien renommer à la main : `--table <nom_sql>` (au lieu du pluriel),
+`--column-case snake` (colonne `site_id`, propriété toujours `siteId`) et
+`--id-name <colonne>` (clé primaire `website_id`, propriété toujours `id`). Le
+code TypeScript ne change dans aucun des trois cas — seul le SQL suit.
 `nodefony create entity --help` porte la grammaire de CETTE version — elle
 s'enrichit, ta mémoire non.
 

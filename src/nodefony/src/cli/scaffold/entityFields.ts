@@ -72,6 +72,39 @@ export interface IEntityField {
   indexed: boolean;
 }
 
+/**
+ * Casses de nom de colonne SQL proposées — la propriété TypeScript ne bouge jamais.
+ *
+ * `camel` reproduit la propriété telle quelle (défaut historique) ; `snake` émet
+ * `site_id` là où la propriété reste `siteId`. Drizzle porte nativement cette
+ * dissociation — le premier argument d'un constructeur de colonne EST le nom SQL.
+ *
+ * Une seule option couvre l'écrasante majorité des schémas existants : sur les 134
+ * renommages qu'exige le schéma d'Umami, **115 sont ce passage mécanique** au
+ * `snake_case`. Les nommer un par un aurait demandé un dictionnaire ; ils tiennent
+ * dans un choix.
+ */
+export const COLUMN_CASES = ["camel", "snake"] as const;
+export type TColumnCase = (typeof COLUMN_CASES)[number];
+
+/** `BlogPost` / `blog-post` / `siteId` → `blog_post` / `site_id`. */
+export function toSnakeCase(name: string): string {
+  return name
+    .replace(/([a-z0-9])([A-Z])/gu, "$1_$2")
+    .replaceAll("-", "_")
+    .toLowerCase();
+}
+
+/**
+ * Nom SQL d'une colonne, dérivé de sa propriété TypeScript.
+ *
+ * @param property - nom de la propriété (`siteId`).
+ * @param columnCase - casse demandée ; `camel` rend la propriété inchangée.
+ */
+export function sqlColumn(property: string, columnCase: TColumnCase): string {
+  return columnCase === "snake" ? toSnakeCase(property) : property;
+}
+
 /** Erreur de syntaxe dans la déclaration d'un champ — message actionnable. */
 export class EntityFieldError extends Error {}
 
@@ -656,18 +689,29 @@ function zodTypeOf(field: IEntityField): string {
   return ZOD_TYPE[field.type];
 }
 
-/** Colonne de clé primaire, selon la stratégie retenue. */
+/**
+ * Colonne de clé primaire, selon la stratégie retenue.
+ *
+ * La PROPRIÉTÉ reste `id` en toutes circonstances : le service CRUD, le controller,
+ * le tri par défaut et les tests générés la nomment ainsi, et un schéma existant
+ * n'a aucune raison d'imposer sa convention au code TypeScript. Seule la COLONNE
+ * SQL suit le nom demandé — c'est elle qui doit épouser la table déjà en place
+ * (`website_id` chez Umami, `session_id`, `user_id`… : 18 des 134 renommages).
+ *
+ * @param column - nom SQL de la colonne (`id` par défaut).
+ */
 function primaryKeyColumn(
   dialect: TEntityDialect,
   id: TEntityIdKind,
+  column: string,
 ): { line: string; tsType: string; imports: string[] } {
   if (id === "serial") {
     const line =
       dialect === "sqlite"
-        ? `id: integer("id").primaryKey({ autoIncrement: true }),`
+        ? `id: integer("${column}").primaryKey({ autoIncrement: true }),`
         : dialect === "postgres"
-          ? `id: serial("id").primaryKey(),`
-          : `id: int("id").autoincrement().primaryKey(),`;
+          ? `id: serial("${column}").primaryKey(),`
+          : `id: int("${column}").autoincrement().primaryKey(),`;
     const imports =
       dialect === "sqlite"
         ? ["integer"]
@@ -680,7 +724,7 @@ function primaryKeyColumn(
   // n'émet PAS les DEFAULT SQL, un défaut posé en base ne s'appliquerait donc pas.
   const generator =
     id === "uuid7" ? "Nodefony.generateSortableId()" : "Nodefony.generateId()";
-  const col = COLUMN[dialect].uuid("id");
+  const col = COLUMN[dialect].uuid(column);
   return {
     line: `id: ${col}.primaryKey().$defaultFn(() => ${generator}),`,
     tsType: "string",
@@ -813,15 +857,32 @@ export function buildEntityCodegen(
      * colonnes n'est émis qu'une fois, quelle que soit la voie empruntée.
      */
     indexes?: IEntityIndex[];
+    /**
+     * Casse des noms de COLONNES SQL — les propriétés TypeScript n'en dépendent pas.
+     *
+     * Défaut `camel` : le comportement historique, où la colonne porte le nom de la
+     * propriété. Une application existante impose presque toujours `snake`.
+     */
+    columnCase?: TColumnCase;
+    /**
+     * Nom SQL de la colonne de clé primaire (défaut `id`).
+     *
+     * La propriété reste `id` quoi qu'il arrive — cf {@link primaryKeyColumn}.
+     */
+    idName?: string;
   },
 ): IEntityCodegen {
   const { dialect, id, timestamps, softDelete, table } = options;
+  const columnCase: TColumnCase = options.columnCase ?? "camel";
+  const idName = options.idName ?? "id";
+  /** Nom SQL d'une propriété, dans la casse retenue. */
+  const sql = (property: string): string => sqlColumn(property, columnCase);
   const imports = new Set<string>();
   const columns: string[] = [];
   const rowProps: string[] = [];
   const zodProps: string[] = [];
 
-  const pk = primaryKeyColumn(dialect, id);
+  const pk = primaryKeyColumn(dialect, id, idName);
   pk.imports.forEach((i) => imports.add(i));
   columns.push(pk.line);
   rowProps.push(`id: ${pk.tsType};`);
@@ -829,10 +890,9 @@ export function buildEntityCodegen(
   for (const field of fields) {
     // Une référence emprunte le type de la CLÉ qu'elle désigne, pas celui d'une
     // chaîne quelconque : c'est la condition pour que la jointure s'exécute.
+    const column = sql(field.name);
     const fk =
-      field.type === "ref"
-        ? foreignKeyColumn(dialect, id, field.name)
-        : undefined;
+      field.type === "ref" ? foreignKeyColumn(dialect, id, column) : undefined;
     if (fk) {
       fk.imports.forEach((i) => imports.add(i));
     } else {
@@ -840,7 +900,7 @@ export function buildEntityCodegen(
     }
     let col =
       fk?.expr ??
-      COLUMN[dialect][field.type](field.name, field.values, {
+      COLUMN[dialect][field.type](column, field.values, {
         length: field.length,
         precision: field.precision,
         scale: field.scale,
@@ -914,7 +974,10 @@ export function buildEntityCodegen(
     const lines: string[] = [];
     for (const entry of declared) {
       const suffix = entry.unique ? "key" : "idx";
-      const name = `${table}_${entry.columns.join("_")}_${suffix}`;
+      // Le nom d'index est un objet SQL : il suit la casse des COLONNES, pas celle
+      // des propriétés. Les colonnes visées, elles, restent nommées côté Drizzle
+      // (`t.siteId`) — c'est du TypeScript, l'ORM fait la traduction.
+      const name = `${table}_${entry.columns.map(sql).join("_")}_${suffix}`;
       if (seen.has(name)) continue;
       seen.add(name);
       const fn = entry.unique ? "uniqueIndex" : "index";

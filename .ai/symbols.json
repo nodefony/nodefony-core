@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-27T21:28:35.756Z",
+  "generated": "2026-07-27T21:57:47.708Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 640,
-    "symbols": 2533,
+    "symbols": 2538,
     "classes": 335,
     "interfaces": 770,
-    "types": 334,
+    "types": 335,
     "enums": 4,
-    "functions": 912,
-    "constants": 178
+    "functions": 915,
+    "constants": 179
   },
   "symbols": {
     "Cli": {
@@ -3417,6 +3417,29 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "TColumnCase": {
+      "name": "TColumnCase",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "toSnakeCase": {
+      "name": "toSnakeCase",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`BlogPost` / `blog-post` / `siteId` → `blog_post` / `site_id`."
+    },
+    "sqlColumn": {
+      "name": "sqlColumn",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom SQL d'une colonne, dérivé de sa propriété TypeScript."
+    },
     "parseEntityFields": {
       "name": "parseEntityFields",
       "kind": "function",
@@ -3472,6 +3495,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Types de champ du vocabulaire Nodefony (jamais le vocabulaire Drizzle)."
+    },
+    "COLUMN_CASES": {
+      "name": "COLUMN_CASES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Casses de nom de colonne SQL proposées — la propriété TypeScript ne bouge jamais. `camel` reproduit la propriété telle quelle (défaut historique) ; `snake` émet `site_id` là où la propriété reste `…"
     },
     "TABLE_FN": {
       "name": "TABLE_FN",
@@ -20934,10 +20965,19 @@
       "describeColumnTypes": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
+      "toSnakeCase": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "COLUMN_CASES": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
       "ENTITY_DIALECTS": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "ENTITY_ID_KINDS": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "TColumnCase": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "TEntityDialect": [

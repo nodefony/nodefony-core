@@ -151,6 +151,16 @@ export function parseCreateArgv(
       answers.connector = rest[++i];
     } else if (word === "--dialect") {
       answers.dialect = rest[++i];
+      // Épouser une table qui existe : son nom, la casse de ses colonnes, le nom
+      // de sa clé primaire. Trois réglages, parce que trois suffisent — sur les
+      // 134 renommages qu'exige le schéma d'Umami, 115 sont le passage mécanique
+      // au snake_case et 18 sont la clé primaire.
+    } else if (word === "--table") {
+      answers.table = rest[++i];
+    } else if (word === "--column-case") {
+      answers.columnCase = rest[++i];
+    } else if (word === "--id-name") {
+      answers.idName = rest[++i];
       // Index de TABLE : RÉPÉTABLES, parce qu'une table réelle en porte plusieurs
       // et qu'ils ne se cumulent pas en une seule liste — `--index "a,b" --index
       // "c,d"` déclare deux index de deux colonnes, jamais un de quatre.
@@ -232,6 +242,10 @@ const USAGE =
   `               [--no-controller] [--no-service] [--no-tests] [--route </api/x>] [--module <nom>]\n` +
   `               [--connector <nom>] [--dialect <sqlite|postgres|mysql>]\n` +
   `               [--index "colA,colB"] [--unique "colA,colB"] — répétables, un par index\n` +
+  `               [--table <nom_sql>] [--column-case <camel|snake>] [--id-name <colonne>]\n` +
+  `                 — pour épouser une table EXISTANTE ; les propriétés TS ne changent pas\n` +
+  `               ex : nodefony create entity Website name:string domain:string \\\n` +
+  `                      --table website --column-case snake --id-name website_id\n` +
   `               champs : nom:type[?|!][:index] — types : string(n) text int float bool json date uuid char(n) decimal(p,s) ref:<Entité>\n` +
   `               ex : nodefony create entity Post title:string! content:text views:int author:ref:User\n` +
   `               ex : nodefony create entity Event siteId:uuid path:string --index "siteId,createdAt"\n` +

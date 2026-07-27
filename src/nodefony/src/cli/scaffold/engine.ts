@@ -14,8 +14,11 @@ import {
   parseEntityIndexes,
   buildEntityCodegen,
   describeColumnTypes,
+  toSnakeCase,
+  COLUMN_CASES,
   ENTITY_DIALECTS,
   ENTITY_ID_KINDS,
+  type TColumnCase,
   type TEntityDialect,
   type TEntityIdKind,
   type IEntityField,
@@ -1692,9 +1695,38 @@ function pluralize(word: string): string {
   return `${word}s`;
 }
 
-/** `BlogPost` → `blog_posts` — nom de table SQL. */
+/**
+ * `BlogPost` → `blog_posts` — nom de table SQL par DÉFAUT.
+ *
+ * Par défaut seulement : `--table` impose un nom littéral, seul moyen d'épouser une
+ * table qui existe déjà (`website`, `session`) — la pluralisation ne se devine pas à
+ * l'envers, et une table réelle ne demande la permission à personne.
+ *
+ * La casse vient de {@link toSnakeCase}, la même que celle des colonnes : deux
+ * grammaires auraient fini par diverger sur un nom composé.
+ */
 function tableName(pascal: string): string {
-  return pluralize(toKebabCase(pascal)).replaceAll("-", "_");
+  return pluralize(toSnakeCase(pascal));
+}
+
+/**
+ * Identifiant SQL acceptable — minuscules, chiffres, tiret bas.
+ *
+ * Volontairement plus strict que ce que les moteurs tolèrent entre guillemets : un
+ * nom qui exige d'être cité voyage mal d'un dialecte à l'autre, et le générateur
+ * l'écrirait sans les guillemets qui le sauvent.
+ */
+const SQL_NAME_RE = /^[a-z_][a-z0-9_]*$/u;
+
+/** Refuse un identifiant SQL AVANT toute écriture, en nommant ce qui est attendu. */
+function assertSqlName(value: string, option: string): string {
+  if (!SQL_NAME_RE.test(value)) {
+    throw new Error(
+      `${option} invalide « ${value} » — un identifiant SQL commence par une lettre ` +
+        `minuscule ou « _ », puis minuscules, chiffres et « _ » (ex : website_id)`,
+    );
+  }
+  return value;
 }
 
 /**
@@ -2047,7 +2079,26 @@ function runEntityScaffold(
   }
   const camel = pascal.charAt(0).toLowerCase() + pascal.slice(1);
   const kebab = toKebabCase(base);
-  const table = tableName(pascal);
+  // Nom SQL de la table : le pluriel du nom de l'entité, sauf si une table
+  // EXISTANTE impose le sien. Les noms d'index en dérivent (`<table>_<cols>_idx`),
+  // donc ils suivent sans qu'on ait à le dire.
+  const tableAnswer = String(answers.table ?? "").trim();
+  const table = tableAnswer
+    ? assertSqlName(tableAnswer, "--table")
+    : tableName(pascal);
+  // Casse des colonnes et nom de la clé primaire — la PROPRIÉTÉ TypeScript ne bouge
+  // dans aucun des deux cas : le service CRUD, le controller et les tests générés
+  // nomment `id` et `siteId`, quel que soit le nom que porte la colonne en base.
+  const columnCase = String(answers.columnCase ?? "camel") as TColumnCase;
+  if (!(COLUMN_CASES as readonly string[]).includes(columnCase)) {
+    throw new Error(
+      `--column-case invalide « ${columnCase} » — attendus : ${COLUMN_CASES.join(" | ")}`,
+    );
+  }
+  const idName = assertSqlName(
+    String(answers.idName ?? "id").trim() || "id",
+    "--id-name",
+  );
 
   // Le connecteur est résolu AVANT le dialecte : c'est LUI qui décide du moteur.
   // Sans cela, une entité posée sur un second connecteur héritait du dialecte du
@@ -2109,6 +2160,8 @@ function runEntityScaffold(
     softDelete,
     table,
     indexes,
+    columnCase,
+    idName,
   });
 
   // Colonnes qu'un client a le droit de trier. Une allowlist, pas la liste des

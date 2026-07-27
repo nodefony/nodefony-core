@@ -1751,6 +1751,89 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(src, 'uuid("ref")');
     });
 
+    /*
+     *   Une table qui EXISTE impose ses noms.
+     *
+     *   Le générateur pluralisait sans échappatoire : sur les six tables d'un
+     *   schéma réel, six portaient le mauvais nom, et il ne restait qu'à éditer.
+     *   Les trois réglages ci-dessous ne changent que du SQL — le code
+     *   TypeScript généré autour (service, controller, tests) continue de nommer
+     *   `id` et `siteId`, sinon un réglage de nommage deviendrait une refonte.
+     */
+    it("--table impose le nom SQL, et la route reste celle de la ressource", () => {
+      const dest = app("tblapp");
+      const r = entity(dest, {
+        name: "Website",
+        fields: "name:string domain:string!",
+        table: "website",
+      });
+      const src = readFileSync(
+        path.join(dest, "nodefony/entity/Website.ts"),
+        "utf8",
+      );
+      assert.include(src, 'sqliteTable("website"');
+      assert.notInclude(src, '"websites"');
+      assert.include((r.notes ?? []).join("\n"), "table website");
+      // La route REST est une URL publique : elle suit la ressource, pas la table.
+      const ctrl = readFileSync(
+        path.join(dest, "nodefony/controllers/WebsiteController.ts"),
+        "utf8",
+      );
+      assert.include(ctrl, "/api/websites");
+    });
+
+    it("--column-case snake et --id-name traversent le moteur jusqu'au fichier", () => {
+      const dest = app("snakeapp");
+      entity(dest, {
+        name: "Website",
+        fields: "siteName:string createdBy:uuid:index",
+        table: "website",
+        columnCase: "snake",
+        idName: "website_id",
+      });
+      const src = readFileSync(
+        path.join(dest, "nodefony/entity/Website.ts"),
+        "utf8",
+      );
+      assert.include(src, 'text("website_id")');
+      assert.include(src, 'siteName: text("site_name")');
+      assert.include(src, 'createdBy: text("created_by")');
+      assert.include(src, 'index("website_created_by_idx")');
+      // L'invariant : le reste de la chaîne ne connaît que les propriétés.
+      const service = readFileSync(
+        path.join(dest, "nodefony/service/WebsiteService.ts"),
+        "utf8",
+      );
+      assert.notInclude(service, "website_id");
+    });
+
+    it("un nom SQL invalide est refusé AVANT d'écrire quoi que ce soit", () => {
+      const dest = app("badsql");
+      // `table` et `idName` sont des chaînes libres : c'est le moteur qui les
+      // juge. `columnCase` est un choix DÉCLARÉ dans la spec, donc rejeté plus
+      // tôt, par le contrat commun aux trois fronts — le moteur n'a plus qu'à
+      // s'en tenir à sa ceinture.
+      for (const [answers, needle] of [
+        [{ table: "Web Site" }, "--table"],
+        [{ idName: "Website-Id" }, "--id-name"],
+        [{ columnCase: "kebab" }, "columnCase"],
+      ] as const) {
+        assert.throws(
+          () =>
+            entity(dest, {
+              name: "Website",
+              fields: "name:string",
+              ...answers,
+            }),
+          new RegExp(needle),
+        );
+      }
+      assert.isFalse(
+        existsSync(path.join(dest, "nodefony", "entity", "Website.ts")),
+        "un refus ne doit laisser aucun fichier derrière lui",
+      );
+    });
+
     it("un dialecte ÉCRIT dans la config l'emporte sur l'environnement", () => {
       // L'inverse doit rester vrai : déclarer `dialect` est une intention
       // explicite, et une variable d'environnement ne la contredit pas. Sans

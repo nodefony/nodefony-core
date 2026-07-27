@@ -11,6 +11,7 @@ import {
   parseEntityFields,
   parseEntityIndexes,
   buildEntityCodegen,
+  toSnakeCase,
   EntityFieldError,
   type IEntityField,
 } from "../cli/scaffold/entityFields";
@@ -769,5 +770,121 @@ describe("scaffold — l'échantillon respecte le schéma", () => {
     const { fixed, expr } = sampleValue(field("author:ref:User"), "serial");
     assert.strictEqual(typeof fixed, "number");
     assert.strictEqual(expr, "n");
+  });
+});
+
+/*
+ *   Épouser une table qui EXISTE — sans toucher au code TypeScript.
+ *
+ *   Un schéma déjà en production impose ses noms : `site_id` et non `siteId`,
+ *   `website_id` et non `id`. Sans ces réglages il ne restait qu'à renommer à la
+ *   main — 134 renommages pour le seul schéma d'Umami, dont 115 mécaniques.
+ *
+ *   L'invariant que ce banc verrouille est le même partout : la COLONNE change, la
+ *   PROPRIÉTÉ jamais. Le service CRUD, le controller, le tri par défaut et les tests
+ *   générés nomment `id` et `siteId` ; les faire suivre aurait transformé un réglage
+ *   de nommage SQL en refonte de la chaîne complète.
+ */
+describe("scaffold — nommage SQL d'une table existante", () => {
+  const fields = parseEntityFields("siteId:uuid pageTitle:string:index");
+  const base = {
+    dialect: "postgres" as const,
+    id: "uuid7" as const,
+    timestamps: true,
+    softDelete: false,
+    table: "websites",
+  };
+
+  it("par défaut, RIEN ne change — la colonne porte le nom de la propriété", () => {
+    const c = buildEntityCodegen(fields, base);
+    assert.match(c.columns, /id: uuid\("id"\)/u);
+    assert.match(c.columns, /siteId: uuid\("siteId"\)/u);
+    assert.match(c.columns, /pageTitle: varchar\("pageTitle"/u);
+  });
+
+  it("snake_case : la colonne change, la propriété reste intacte", () => {
+    const c = buildEntityCodegen(fields, { ...base, columnCase: "snake" });
+    assert.match(c.columns, /siteId: uuid\("site_id"\)/u);
+    assert.match(c.columns, /pageTitle: varchar\("page_title"/u);
+    // Ce que le reste du code généré continue de nommer.
+    assert.match(c.rowProps, /siteId: string;/u);
+    assert.match(c.zodProps, /pageTitle: z\.string\(\)/u);
+    // Et surtout : aucune propriété n'a été renommée au passage.
+    assert.doesNotMatch(c.columns, /site_id:/u);
+    assert.doesNotMatch(c.rowProps, /page_title/u);
+  });
+
+  it("la clé primaire prend le nom de la colonne, jamais celui de la propriété", () => {
+    const c = buildEntityCodegen(fields, { ...base, idName: "website_id" });
+    assert.match(c.columns, /id: uuid\("website_id"\)\.primaryKey\(\)/u);
+    assert.match(c.rowProps, /id: string;/u);
+  });
+
+  it("clé auto-incrémentée : le nom porte aussi, sur les trois dialectes", () => {
+    for (const dialect of ["postgres", "mysql", "sqlite"] as const) {
+      const c = buildEntityCodegen(fields, {
+        ...base,
+        dialect,
+        id: "serial",
+        idName: "website_id",
+      });
+      assert.match(
+        c.columns,
+        /id: (serial|int|integer)\("website_id"\)/u,
+        `${dialect}\n${c.columns}`,
+      );
+    }
+  });
+
+  it("une référence suit la casse — c'est la colonne de jointure", () => {
+    const c = buildEntityCodegen(parseEntityFields("ownerUser:ref:User"), {
+      ...base,
+      columnCase: "snake",
+    });
+    assert.match(c.columns, /ownerUser: uuid\("owner_user"\)/u);
+    assert.match(c.rowProps, /ownerUser: string;/u);
+  });
+
+  it("le nom d'index est un objet SQL — il suit la casse des colonnes", () => {
+    const camel = buildEntityCodegen(fields, base);
+    assert.match(camel.tableExtras, /index\("websites_pageTitle_idx"\)/u);
+    const snake = buildEntityCodegen(fields, { ...base, columnCase: "snake" });
+    assert.match(snake.tableExtras, /index\("websites_page_title_idx"\)/u);
+    // Les colonnes VISÉES restent nommées côté Drizzle : c'est du TypeScript.
+    assert.match(snake.tableExtras, /\.on\(t\.pageTitle\)/u);
+  });
+
+  it("un index de table composite suit la même règle", () => {
+    const indexes = parseEntityIndexes(["siteId,pageTitle"], fields, {
+      timestamps: true,
+      softDelete: false,
+    });
+    const c = buildEntityCodegen(fields, {
+      ...base,
+      columnCase: "snake",
+      indexes,
+    });
+    assert.match(c.tableExtras, /index\("websites_site_id_page_title_idx"\)/u);
+    assert.match(c.tableExtras, /\.on\(t\.siteId, t\.pageTitle\)/u);
+  });
+
+  it("les horodatages étaient DÉJÀ en snake_case — ils ne bougent pas", () => {
+    for (const columnCase of ["camel", "snake"] as const) {
+      const c = buildEntityCodegen(fields, { ...base, columnCase });
+      assert.match(
+        c.columns,
+        /createdAt: timestamp\("created_at"/u,
+        columnCase,
+      );
+    }
+  });
+
+  it("toSnakeCase couvre les formes qu'un nom de champ peut prendre", () => {
+    assert.strictEqual(toSnakeCase("siteId"), "site_id");
+    assert.strictEqual(toSnakeCase("BlogPost"), "blog_post");
+    assert.strictEqual(toSnakeCase("blog-post"), "blog_post");
+    assert.strictEqual(toSnakeCase("url2Path"), "url2_path");
+    // Déjà en snake : idempotent, sinon un second passage ajouterait des tirets bas.
+    assert.strictEqual(toSnakeCase("site_id"), "site_id");
   });
 });
