@@ -210,24 +210,102 @@ describe("Builder — build() arborescence récursive", () => {
 
 describe("Builder — build() copy", () => {
   let builder: Builder;
+
+  // Décor PROPRE au test. Il copiait auparavant `src/tests`, c'est-à-dire l'arbre
+  // de tests du dépôt — le seul endroit du code qui porte des symlinks, et ils y
+  // forment une BOUCLE (`data/dir2` → `dir1/dir2`, `dir1/dir2/dir3/dir2` →
+  // `../../../dir2`). Invisible sous POSIX (`fs.cp` ne déréférence pas), le
+  // décor changeait sous Windows où un checkout sans privilège matérialise ces
+  // liens en fichiers : ENOENT en pleine descente. Un test de copie doit poser
+  // l'arbre qu'il copie, sinon il éprouve le dépôt et non la brique.
+  const FIXTURE = path.join(TMP, "copyFixture");
+
   beforeAll(async () => {
     builder = await makeBuilder();
-    await fsp.mkdir(TMP, { recursive: true });
+    await fsp.mkdir(path.join(FIXTURE, "sub", "deep"), { recursive: true });
+    await fsp.writeFile(path.join(FIXTURE, "file.txt"), "racine");
+    await fsp.writeFile(path.join(FIXTURE, "sub", "nested.txt"), "niveau 1");
+    await fsp.writeFile(
+      path.join(FIXTURE, "sub", "deep", "leaf.txt"),
+      "feuille",
+    );
+  });
+
+  afterAll(async () => {
+    await cleanTmp("copyFixture");
   });
 
   afterEach(async () => {
-    await cleanTmp("src");
+    await cleanTmp("copied");
   });
 
-  it("copie récursive d'un répertoire existant", async () => {
+  it("copie récursive — l'arborescence ET le contenu arrivent", async () => {
     const obj: BuilderObject = {
-      name: "src",
+      name: "copied",
       type: "copy",
-      path: path.resolve(process.cwd(), "src", "tests"),
+      path: FIXTURE,
       params: { recurse: true },
     };
     await builder.build(obj, TMP);
-    assert.ok(fs.existsSync(path.join(TMP, "src")));
+    const copied = path.join(TMP, "copied");
+    assert.ok(fs.existsSync(path.join(copied, "file.txt")));
+    assert.ok(fs.existsSync(path.join(copied, "sub", "nested.txt")));
+    assert.strictEqual(
+      fs.readFileSync(path.join(copied, "sub", "deep", "leaf.txt"), "utf8"),
+      "feuille",
+      "la copie doit descendre jusqu'à la feuille, pas seulement créer la racine",
+    );
+  });
+
+  it("sans `recurse`, un fichier seul est copié", async () => {
+    const obj: BuilderObject = {
+      name: "copied",
+      type: "copy",
+      path: path.join(FIXTURE, "file.txt"),
+    };
+    await builder.build(obj, TMP);
+    assert.strictEqual(
+      fs.readFileSync(path.join(TMP, "copied"), "utf8"),
+      "racine",
+    );
+  });
+
+  // La capacité se CONSTATE : créer un lien symbolique demande un privilège sous
+  // Windows et peut lever EPERM. On l'éprouve si la plateforme le permet, et on
+  // ÉNONCE ce qui n'a pas pu l'être sinon — plutôt qu'un rouge qui ne parle pas
+  // de la brique, ou un skip muet qui se lit comme un succès.
+  it("un lien symbolique reste un lien dans la copie (si la plateforme le permet)", async () => {
+    const linked = path.join(FIXTURE, "sub", "link.txt");
+    let supported = true;
+    try {
+      await fsp.symlink(path.join("..", "file.txt"), linked);
+    } catch {
+      supported = false;
+    }
+    if (!supported) {
+      console.warn(
+        "Builder: lien symbolique NON éprouvé — la plateforme refuse d'en créer " +
+          "(privilège requis sous Windows). La copie de liens reste non couverte ici.",
+      );
+      return;
+    }
+    try {
+      const obj: BuilderObject = {
+        name: "copied",
+        type: "copy",
+        path: FIXTURE,
+        params: { recurse: true },
+      };
+      await builder.build(obj, TMP);
+      assert.ok(
+        fs
+          .lstatSync(path.join(TMP, "copied", "sub", "link.txt"))
+          .isSymbolicLink(),
+        "fs.cp ne déréférence pas : la copie doit porter un lien, pas le fichier",
+      );
+    } finally {
+      await fsp.rm(linked, { force: true });
+    }
   });
 });
 
