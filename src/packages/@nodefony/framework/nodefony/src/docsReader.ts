@@ -391,7 +391,13 @@ export async function checkOutdated(deps: DepInfo[]): Promise<OutdatedInfo[]> {
     external.map(async (d) => {
       let latest: string | null = null;
       try {
-        const url = `https://registry.npmjs.org/${d.name.replace("/", "%2F")}/latest`;
+        // `encodeURIComponent`, pas `replace("/", "%2F")` : la seconde forme ne
+        // remplace que la PREMIÈRE occurrence et laisse passer tout le reste
+        // (`..`, `?`, `#`) dans une URL. Le nom vient d'un `package.json` lu sur
+        // le disque — la confiance qu'on lui accorde n'a pas à être implicite.
+        // Vérifié au registre : la forme entièrement encodée (`%40scope%2Fnom`)
+        // répond comme l'ancienne.
+        const url = `https://registry.npmjs.org/${encodeURIComponent(d.name)}/latest`;
         const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
         if (r.ok) {
           const j = (await r.json()) as { version?: unknown };
