@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import https from "node:https";
+import { IS_PROD_TARGET } from "../helpers/targetEnv";
 
 // Tests for JSON error response format in development mode
 
@@ -60,7 +61,11 @@ function asError(body: unknown): ErrorBody {
   return body as ErrorBody;
 }
 
-describe("Error response format — development mode (requires server)", function () {
+// Le corps d'erreur JSON, dans LES DEUX modes : la forme (code/message/error/
+// nodefony) est commune, ce qui la remplit ne l'est pas — le développement montre
+// les entrailles, la production les retient. Les cas propres à un mode le disent
+// par `skipIf`/`runIf`, jamais par une absence.
+describe("Error response format — corps JSON d'erreur (requires server)", function () {
   // ── Structure JSON ────────────────────────────────────────────────
 
   describe("Top-level structure", () => {
@@ -122,18 +127,51 @@ describe("Error response format — development mode (requires server)", functio
         .with.length.greaterThan(0);
     });
 
-    it("error.stack is present in development", async () => {
-      const { body } = await get("/nodefony/test/crash/sync");
-      const stack = asError(body).error.stack;
-      expect(stack).to.be.a("string").with.length.greaterThan(0);
-      expect(stack).to.include("Error");
-    });
+    it.skipIf(IS_PROD_TARGET)(
+      "error.stack is present in development",
+      async () => {
+        const { body } = await get("/nodefony/test/crash/sync");
+        const stack = asError(body).error.stack;
+        expect(stack).to.be.a("string").with.length.greaterThan(0);
+        expect(stack).to.include("Error");
+      },
+    );
 
-    it("error.url matches request URL", async () => {
+    it.skipIf(IS_PROD_TARGET)("error.url matches request URL", async () => {
       const { body } = await get("/nodefony/test/crash/sync");
       const url = asError(body).error.url;
       expect(url).to.include("/nodefony/test/crash/sync");
     });
+
+    // La CONTREPARTIE des deux cas ci-dessus, et pas leur absence : ce que le
+    // développement expose est précisément ce que la production doit taire. Un
+    // `skipIf` seul aurait rendu ces lignes muettes dans le mode où la fuite est
+    // grave — le mode livré. Le banc couvre donc les SIX clés retirées par
+    // `error-renderer.ts` (`INTERNAL_ERROR_KEYS`), pas seulement les deux que le
+    // versant développement regarde, et le message opaque des 5xx avec elles.
+    it.runIf(IS_PROD_TARGET)(
+      "production : aucune entraille ne franchit la frontière (stack/url/controller/action/bundle/pdu)",
+      async () => {
+        const { body } = await get("/nodefony/test/crash/sync");
+        const error = asError(body).error as unknown as Record<string, unknown>;
+        for (const key of [
+          "stack",
+          "controller",
+          "action",
+          "bundle",
+          "url",
+          "pdu",
+        ]) {
+          expect(
+            error,
+            `error.${key} ne doit pas sortir en production`,
+          ).to.not.have.property(key);
+        }
+        // Le message d'une panne 5xx devient opaque (le détail reste au journal).
+        expect(asError(body).message).to.equal("Internal Server Error");
+        expect(error.message).to.equal("Internal Server Error");
+      },
+    );
 
     it("error.errorType is populated", async () => {
       const { body } = await get("/nodefony/test/crash/sync");

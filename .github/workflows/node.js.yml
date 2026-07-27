@@ -216,13 +216,31 @@ jobs:
   # Indépendant lui aussi (même raison que `test-unit` ci-dessus) : c'est le job
   # le plus lent à révéler ses pannes, donc le dernier qu'on veuille voir
   # `skipped` derrière l'échec d'une plateforme qui ne le concerne pas.
+  #
+  # Le MODE est une dimension de la MATRICE, pas une propriété de la branche.
+  # Il l'a été — `main` en production, tout le reste en développement — et le
+  # défaut se lit dans l'ordre des découvertes : la casse propre au mode livré
+  # (comptes seedés autrement, modules gatés, observabilité éteinte) n'apparaît
+  # qu'APRÈS la fusion, sur la branche où plus personne ne peut la corriger sans
+  # un second aller-retour. C'est le même défaut que « filtrer par branche »
+  # corrigé la veille pour l'infra, resté ici.
+  #
+  # Trois variantes, pas quatre : le mode éprouve le GATING du framework, pas le
+  # moteur JavaScript — les deux versions de Node sont déjà croisées en
+  # développement, et une quatrième tâche ne dirait rien de neuf.
   test-integration:
-    name: Tests intégration (Node ${{ matrix.node-version }})
+    name: Tests intégration (Node ${{ matrix.node-version }} / ${{ matrix.mode }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        node-version: ["24.x", "26.x"]
+        include:
+          - node-version: "24.x"
+            mode: development
+          - node-version: "26.x"
+            mode: development
+          - node-version: "26.x"
+            mode: production
     timeout-minutes: 20
     env:
       # Dérogation au gating `policy: "dev"` — SANS EFFET hors production, donc posée
@@ -299,25 +317,38 @@ jobs:
           console.log('✅ .env.local généré (4 clés, valeurs non affichées)');
           "
 
-      # Le MODE dépend de la branche, et ce n'est pas une commodité :
+      # Le SECOND compte du banc, en production seulement — et créé ICI, pas seedé.
       #
-      #  · `main` démarre en PRODUCTION — le mode qu'on livre, celui dont les gardes
-      #    (clés obligatoires, modules gatés, erreurs muettes) ne s'éprouvent nulle
-      #    part ailleurs.
-      #  · toute autre branche démarre en DÉVELOPPEMENT — celui contre lequel la suite
-      #    d'intégration est ÉCRITE. Elle interroge `/nodefony/test/*`, porté par un
-      #    module `policy: "dev"` : en production ce module n'est pas chargé, donc tout
-      #    répondrait 404. Ce n'est pas un réglage à contourner, c'est le rôle de la
-      #    politique — et c'est exactement ce qui a tué cette tâche pendant sept
-      #    semaines, sans qu'aucun test d'intégration ne tourne derrière.
+      # `provisionUsers` seede `admin` SEUL en production : les comptes de fixture
+      # ont un hash public (le dépôt est ouvert), ils n'ont donc rien à faire dans
+      # le mode qu'on livre. C'est le comportement SAIN, à ne surtout pas amender
+      # pour faire passer une tâche. Or neuf fichiers d'intégration éprouvent
+      # précisément ce qu'un compte NON-administrateur a le droit de faire (403 du
+      # RBAC, cloisonnement des sessions, anti-IDOR) : sans second compte, ils ne
+      # peuvent pas s'écrire. Les rendre muets en production (`skipIf`) rejouerait
+      # le silence qu'on vient de supprimer partout ailleurs.
       #
+      # Le banc se donne donc ce compte lui-même, par la porte publique du
+      # framework — la commande qu'un exploitant utiliserait. Avant le démarrage
+      # du serveur : la commande boot son propre kernel (qui crée les tables et
+      # seede `admin`), donc aucune écriture concurrente sur la base.
+      - name: Créer le second compte du banc (production)
+        if: matrix.mode == 'production'
+        env:
+          NODE_ENV: production
+        run: node node_modules/nodefony/bin/nodefony security:user:add user --password secret --roles ROLE_USER
+
       # `--no-watch` : mode développement SANS superviseur ni rechargement. Un rebuild
       # déclenché au milieu du run couperait les connexions sous les tests, et le rouge
       # accuserait le code alors que le fautif serait le décor.
+      #
+      # En production, le module qui porte les routes du banc est `policy: "dev"` —
+      # il n'est chargé que par la dérogation `NF_WITH_DEV_MODULES` posée plus haut,
+      # sans quoi la suite entière répondrait 404.
       - name: Start Nodefony server (detached, fail-fast)
         uses: ./.github/actions/nodefony-server
         with:
-          mode: ${{ github.ref == 'refs/heads/main' && 'production' || 'development --no-watch' }}
+          mode: ${{ matrix.mode == 'production' && 'production' || 'development --no-watch' }}
 
       - name: Run integration tests
         run: npm run test:integration
@@ -341,7 +372,7 @@ jobs:
       - name: Start Nodefony server (backoff ARMÉ)
         uses: ./.github/actions/nodefony-server
         with:
-          mode: ${{ github.ref == 'refs/heads/main' && 'production' || 'development --no-watch' }}
+          mode: ${{ matrix.mode == 'production' && 'production' || 'development --no-watch' }}
           log-file: nodefony-server-throttle.log
           pid-file: srv-throttle.pid
           env: NF__SECURITY__RATELIMIT__ENABLED=true
@@ -386,7 +417,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: nodefony-server-log-node${{ matrix.node-version }}
+          name: nodefony-server-log-node${{ matrix.node-version }}-${{ matrix.mode }}
           # Les deux décors, sinon un échec de la seconde passe s'analyse à l'aveugle.
           path: |
             nodefony-server.log

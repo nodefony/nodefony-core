@@ -462,18 +462,68 @@ function envExpectations(): Array<{ pattern: string; min: number }> {
  *
  * @param entries - les cibles que CE paquet sait exercer, en {@link EnvGate}
  *   nue (décor seul) ou en {@link GateExpectation} (décor + preuve d'exécution).
+ *   Une FONCTION est acceptée : elle est appelée à la fin de la passe, pas au
+ *   chargement de la configuration — indispensable quand une attente dépend d'un
+ *   fait CONSTATÉ au démarrage (le mode du serveur visé, sondé par un
+ *   `globalSetup`, n'est pas connu quand vitest lit le fichier de configuration).
  * @returns un reporter à placer dans `test.reporters`.
  */
 export function gateReporter(
-  entries: ReadonlyArray<EnvGate | GateExpectation>,
+  entries:
+    | ReadonlyArray<EnvGate | GateExpectation>
+    | (() => ReadonlyArray<EnvGate | GateExpectation>),
 ) {
-  const expectations = entries.map(asExpectation);
+  /**
+   * Vrai quand la passe a sélectionné ses cas par NOM (`-t`).
+   *
+   * Une telle passe n'exerce, par construction, qu'une fraction du paquet : lui
+   * opposer les attentes du paquet la rendrait rouge à chaque fois, et le seul
+   * moyen d'en sortir serait d'éteindre le rapporteur — c'est-à-dire de perdre
+   * aussi `NF_GATES_EXPECT`, la seule chose qui protège une sélection (un motif
+   * qui ne mord plus laisse vitest sortir 0 avec zéro cas exécuté). Les attentes
+   * du PAQUET sont donc écartées ici, celles de la PASSE restent exigées.
+   */
+  let selective = false;
   return {
+    onInit(vitest: unknown): void {
+      try {
+        const pattern = (
+          vitest as { config?: { testNamePattern?: unknown } } | undefined
+        )?.config?.testNamePattern;
+        selective = pattern !== undefined && pattern !== null;
+      } catch {
+        // Forme interne inattendue : on préfère exiger que taire.
+        selective = false;
+      }
+    },
     onTestRunEnd(testModules: ReadonlyArray<unknown>): void {
+      const expectations = (
+        typeof entries === "function" ? entries() : entries
+      ).map(asExpectation);
       const skipped = countSkipped(testModules);
       const total = countAll(testModules);
       const allowed = allowedKeys();
       const blocking = (process.env.CI ?? "").trim() !== "";
+
+      if (selective) {
+        // Énoncé, jamais tu : une passe qui ne peut pas prouver la couverture du
+        // paquet doit le DIRE, sinon son vert se lit comme celui d'une passe
+        // complète — exactement le silence que ce rapporteur existe pour rompre.
+        const expectFailures = evaluateEnvExpectations(testModules);
+        if (expectFailures.length > 0) {
+          reportUnmet([], expectFailures, [], skipped, total, blocking);
+          if (blocking) process.exitCode = 1;
+          return;
+        }
+        const motifs = envExpectations()
+          .map((e) => `« ${e.pattern} »`)
+          .join(", ");
+        console.log(
+          `\n\x1b[33m○ Sélection par nom (-t) : les attentes du paquet ne sont pas ` +
+            `évaluées${motifs ? ` — attentes de la passe tenues : ${motifs}` : ""}.\x1b[0m`,
+        );
+        return;
+      }
 
       // Une attente écartée par `NF_GATES_ALLOW` reste NOMMÉE : un choix énoncé
       // doit se lire dans le journal, sinon il redevient un oubli silencieux.
@@ -487,9 +537,16 @@ export function gateReporter(
       const unmet = verdicts
         .map(([, u]) => u)
         .filter((u): u is Unmet => u !== null);
+      // Une attente TENUE se nomme, qu'elle repose sur un décor (`gate`/`switch`)
+      // ou sur la seule preuve qu'un cas a tourné (`proof`). Ne retenir que les
+      // premières faisait afficher « cibles d'infra toutes exercées » à une passe
+      // qui n'en déclare aucune — un message qui parle d'autre chose que de ce
+      // qui vient d'être prouvé, donc un message qu'on apprend à ne plus lire.
       const met = verdicts
-        .filter(([x, u]) => u === null && (x.gate ?? x.switch))
+        .filter(([x, u]) => u === null && (x.gate ?? x.switch ?? x.proof))
         .map(([x]) => x);
+      /** Vrai si au moins une attente tenue repose sur un vrai décor d'infra. */
+      const anyInfra = met.some((x) => x.gate ?? x.switch);
       const expectFailures = evaluateEnvExpectations(testModules);
 
       if (unmet.length > 0 || expectFailures.length > 0) {
@@ -525,7 +582,9 @@ export function gateReporter(
         const head = waived.length
           ? `\n\x1b[32m✔ Cibles exercées${names ? ` : ${names}` : ""}.\x1b[0m` +
             `\n\x1b[33m  ○ écartées sciemment (NF_GATES_ALLOW) : ${waived.map(expectationLabel).join(", ")}\x1b[0m`
-          : `\n\x1b[32m✔ Cibles d'infra toutes exercées${names ? ` : ${names}` : ""}.\x1b[0m`;
+          : anyInfra
+            ? `\n\x1b[32m✔ Cibles d'infra toutes exercées${names ? ` : ${names}` : ""}.\x1b[0m`
+            : `\n\x1b[32m✔ Attentes tenues${names ? ` : ${names}` : ""}.\x1b[0m`;
         // L'infra n'est qu'une des deux façons de rester muet. Des tests peuvent
         // dormir derrière un INTERRUPTEUR DE COÛT (`RUN_PERF`, `RUN_CLUSTER_E2E`…),
         // fermé à raison mais dont le silence ressemble trait pour trait à une
