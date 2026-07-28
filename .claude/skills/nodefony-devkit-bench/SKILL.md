@@ -150,6 +150,25 @@ Et une tâche de configuration ne se juge JAMAIS sur le diff git : la bonne
 réponse vit dans `.env.local`, qui est **gitignoré**. Vécu — deux sondes ont
 déclaré en échec un agent qui avait fait juste.
 
+### Le décor, ici aussi, est celui de l'utilisateur
+
+Par défaut le décor est **isolé** — application hors du dépôt, paquets installés
+depuis les tarballs, isolation **constatée** avant le premier agent (le banc
+s'arrête si le constat échoue). Même exigence et **même implémentation** que le
+banc de schéma : `scripts/lib/isolation.mjs`, partagé par les deux. Les recopier
+les ferait diverger en silence, chacun passant ses propres contrôles avec sa
+propre idée de ce qu'« isolé » veut dire.
+
+La raison est vécue, pas théorique : sous le checkout, un agent a lu
+`/…/src/nodefony/src/Service.ts` **en chemin absolu** pendant une tâche. Pointé
+sur une telle application, le constat rend `ok: false` sur les trois faits, et
+nomme jusqu'au fichier atteignable (`node_modules/nodefony/rolldown.config.ts`).
+
+`--link` reste pour la boucle courte ; le rapport enregistre alors le décor
+(`decor`) et annonce que la mesure n'est pas transposable. **Deux runs de décors
+différents ne se comparent pas** — le décor est une variable de la mesure, au
+même titre que le modèle.
+
 ### Ce banc ne découvre pas les trous — il les garde fermés
 
 Les libellés des tâches sont **figés** : les reformuler change ce qui est

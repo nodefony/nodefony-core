@@ -68,8 +68,14 @@
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  assertIsolated,
+  installFromTarballs,
+  packTarballs,
+} from "./lib/isolation.mjs";
 
 /**
  * Racine du dépôt, trouvée en REMONTANT plutôt qu'en comptant les « .. ».
@@ -91,6 +97,22 @@ function findRepoRoot(from) {
 
 const REPO = findRepoRoot(path.dirname(fileURLToPath(import.meta.url)));
 const BIN = path.join(REPO, "src", "nodefony", "bin", "nodefony");
+
+/**
+ * Décor LIÉ au checkout — boucle courte, mesure non transposable.
+ *
+ * Le défaut est l'isolation : sous le checkout, `../..` ramène aux sources du
+ * framework, et l'agent les lit. C'est vécu, pas théorique.
+ */
+const LINKED = process.argv.includes("--link");
+
+/**
+ * Où vivent les runs. Hors du dépôt par défaut — la distance fait partie de
+ * l'isolation, elle ne s'obtient pas en interdisant un chemin.
+ */
+const RUN_ROOT = LINKED
+  ? path.join(REPO, "tmp", "devkit-bench")
+  : path.join(os.tmpdir(), "nodefony-devkit-bench");
 const AGENT = process.env.DEVKIT_BENCH_AGENT ?? "claude";
 /**
  * Modèle de l'agent — VARIABLE DU DÉCOR : deux runs sur deux modèles ne se
@@ -817,11 +839,24 @@ const sh = (cmd, args, opts = {}) =>
 
 const git = (dir, ...args) => sh("git", ["-C", dir, ...args]).trim();
 
-/** Décor : app témoin liée au checkout, sous git (le diff = la pièce à conviction). */
+/**
+ * Décor : app témoin sous git (le diff = la pièce à conviction).
+ *
+ * Par défaut le décor est ISOLÉ — hors du dépôt, paquets installés depuis les
+ * tarballs — parce que ce banc mesure ce qu'un agent TROUVE, et qu'un agent lié
+ * au checkout trouve nos sources. Constaté ici : un agent a lu
+ * `/…/src/nodefony/src/Service.ts` en chemin absolu pendant une tâche, un savoir
+ * qu'aucun `npm install` ne procure.
+ *
+ * `--link` reste pour la boucle courte, et le rapport DIT alors que la mesure
+ * n'est pas transposable. Deux runs de décors différents ne se comparent pas.
+ */
 function setup(runDir) {
   const app = path.join(runDir, "app");
   mkdirSync(runDir, { recursive: true });
-  console.log("• app témoin (create app --link --preset complete)…");
+  console.log(
+    `• app témoin (create app --preset complete${LINKED ? " --link" : ""})…`,
+  );
   sh(BIN, [
     "create",
     "app",
@@ -832,11 +867,35 @@ function setup(runDir) {
     "complete",
     "--frontend",
     "none",
-    "--link",
+    ...(LINKED ? ["--link"] : []),
     "--yes",
   ]);
-  console.log("• npm install (symlinks --link + transitives)…");
-  sh("npm", ["install", "--no-audit", "--no-fund"], { cwd: app });
+  if (LINKED) {
+    console.log("• npm install (symlinks --link + transitives)…");
+    sh("npm", ["install", "--no-audit", "--no-fund"], { cwd: app });
+  } else {
+    installFromTarballs(
+      app,
+      packTarballs(REPO, process.argv.includes("--repack")),
+    );
+  }
+
+  // L'isolation se CONSTATE avant l'agent : mieux vaut aucun verdict qu'un
+  // verdict rendu sur un décor qui n'est pas celui de l'utilisateur.
+  const isolation = assertIsolated(REPO, app);
+  for (const f of isolation.facts) console.log(`  ${f}`);
+  if (!LINKED && !isolation.ok) {
+    throw new Error(
+      "décor NON isolé — le banc mesurerait un agent mieux servi que l'utilisateur réel",
+    );
+  }
+  if (LINKED) {
+    console.log(
+      "  ⚠️  décor LIÉ (--link) : l'agent atteint les sources du framework — " +
+        "mesure non transposable à un utilisateur npm",
+    );
+  }
+
   git(app, "init", "-q");
   git(app, "add", "-A");
   git(
@@ -1108,9 +1167,7 @@ function main() {
   const runDir =
     analyzeOnly ??
     path.join(
-      REPO,
-      "tmp",
-      "devkit-bench",
+      RUN_ROOT,
       new Date().toISOString().replaceAll(":", "-").slice(0, 19),
     );
   const app = path.join(runDir, "app");
@@ -1146,6 +1203,10 @@ function main() {
     date: new Date().toISOString(),
     runDir,
     model: [...models].join("+") || MODEL || "inconnu",
+    // Le décor est une VARIABLE de la mesure, au même titre que le modèle :
+    // deux runs de décors différents ne se comparent pas. Il s'enregistre, il
+    // ne se déduit pas du chemin.
+    decor: LINKED ? "lié au checkout (--link)" : "isolé (tarballs, hors dépôt)",
     results,
   };
   writeFileSync(
@@ -1156,8 +1217,11 @@ function main() {
   console.log(
     `\n━━ verdict : ${results.length - failed.length}/${results.length} tâches PASS`,
   );
+  // Chemin ABSOLU dès que le run sort du dépôt : un `../../..` relatif à la
+  // racine n'aide personne à retrouver le décor.
+  const reportPath = path.join(runDir, "report.json");
   console.log(
-    `rapport : ${path.relative(REPO, path.join(runDir, "report.json"))}`,
+    `rapport : ${runDir.startsWith(REPO + path.sep) ? path.relative(REPO, reportPath) : reportPath}`,
   );
   if (failed.length > 0) {
     console.log(
