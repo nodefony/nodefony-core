@@ -647,10 +647,16 @@ const TASKS = [
         // Elle « marche », et perd tout ce que le conteneur apporte — la
         // configuration résolue, les scopes, le journal, l'accès aux autres
         // services. C'est la divergence qui ne se voit qu'au premier besoin.
+        //
+        // `addedTs` et non `added` : dans un TEST, `new DiscountService()` est
+        // la réponse ATTENDUE — l'énoncé exige « testable seul », et un service
+        // se teste en l'instanciant. Vécu : un agent instanciait proprement dans
+        // ses neuf cas de test et nulle part ailleurs ; la sonde visait le
+        // contournement, elle mordait sur la preuve que le service est isolable.
         kind: "code",
         name: "pas d'instanciation manuelle (new XService())",
         pattern: /new\s+\w*Service\s*\(/u,
-        where: "added",
+        where: "addedTs",
         invert: true,
       },
       {
@@ -682,9 +688,18 @@ const TASKS = [
       "collectée avec elles. Termine en prouvant que les tests de l'app passent.",
     probes: [
       {
+        // La charge loggée est presque toujours un OBJET, et cet objet appelle
+        // volontiers une méthode : `[^)]+` ne peut alors pas atteindre la
+        // gravité, puisqu'il bute sur la parenthèse fermante de cet appel.
+        // Vécu : `this.log({ …, pct: this.svc.getPercentage() }, "INFO",
+        // "RESOURCE_CREATED")` — une réponse exemplaire, déclarée rouge.
+        // Fenêtre BORNÉE (pas de quantificateur libre : ce fichier juge, il ne
+        // doit pas pouvoir s'étrangler sur une entrée hostile) et virgule exigée
+        // juste avant la gravité, pour rester sur le 2ᵉ argument.
         kind: "code",
         name: "journal du framework (this.log avec une gravité)",
-        pattern: /\.log\(\s*[^)]+,\s*["'`](INFO|DEBUG|WARNING|ERROR|NOTICE)/u,
+        pattern:
+          /\.log\([\s\S]{0,400}?,\s*["'`](INFO|DEBUG|WARNING|ERROR|NOTICE)["'`]/u,
         where: "content",
       },
       {
@@ -720,10 +735,18 @@ const TASKS = [
         // alors avant que la configuration soit résolue et avant l'existence du
         // kernel — c'est le défaut qui rend un module non importable, déjà vu
         // sur des `config.ts` qui déréférençaient le kernel au top-level.
+        //
+        // `unless` : ce contournement n'existe que POUR ÉVITER la phase de
+        // cycle de vie. Si l'accroche est là, un `setTimeout` n'attend plus le
+        // démarrage — il fait autre chose, et le lui reprocher revient à
+        // interdire l'asynchrone. Vécu : `await new Promise((r) =>
+        // setTimeout(r, 10))` simulant l'I/O DANS le chargement, sous un
+        // `onKernelBoot` correct, commenté comme tel — rouge quand même.
         kind: "code",
         name: "pas de temporisation pour « attendre » le démarrage",
         pattern: /set(Timeout|Interval)\s*\(/u,
         where: "added",
+        unless: /onKernel(Boot|Ready|Register)\s*\(/u,
         invert: true,
       },
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
@@ -979,9 +1002,18 @@ function judgeTask(app, runDir, task) {
             : p.where === "addedTs"
               ? addedTs
               : content;
+      // `unless` — la moitié NÉGATIVE d'une paire cède devant la POSITIVE.
+      // Un contournement ne se reproche que s'il a servi de contournement :
+      // quand la bonne façade est présente dans le code rendu, le motif interdit
+      // fait forcément autre chose, et le sanctionner mesure un style, pas une
+      // découvrabilité. Ne s'applique qu'aux sondes inversées — sur une positive
+      // ce serait une échappatoire, pas une garde.
+      const waived = p.invert && p.unless ? p.unless.test(content) : false;
       const hit = p.pattern.test(haystack);
-      pass = p.invert ? !hit : hit;
-      evidence = `${files.length} fichier(s) touchés`;
+      pass = waived ? true : p.invert ? !hit : hit;
+      evidence = waived
+        ? `${files.length} fichier(s) touchés — sans objet : la voie correcte est présente`
+        : `${files.length} fichier(s) touchés`;
     } else if (p.kind === "gate") {
       const frozen = frozenGates?.find((g) => g.name === p.name);
       if (frozen) {
