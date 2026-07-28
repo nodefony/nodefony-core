@@ -1302,6 +1302,19 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.include(src, 'super(\n      "billing",');
       assert.include(src, "Facturation de démonstration.");
+      // Le hook de démarrage d'un SERVICE s'appelle `init` — le kernel ne
+      // cherche que celui-là (`guardServiceInitialize` : `if (!serviceInit.init)
+      // return`). Une méthode `initialize` sur un service n'est JAMAIS appelée,
+      // et RIEN ne le signale : un abonnement kernel écrit dedans dort en
+      // silence. Prouvé à l'exécution (marqueurs dans les deux méthodes : seul
+      // `init` sort). `initialize` appartient au CONTROLLER, où il tourne à
+      // chaque requête — deux cycles de vie, deux noms.
+      assert.include(src, "async init(): Promise<this>");
+      assert.notMatch(
+        src,
+        /\basync initialize\s*\(/u,
+        "le gabarit de service rend une méthode `initialize` — elle ne sera jamais appelée",
+      );
       // Aucune dépendance à un config.ts — le point dur du kit : une cible
       // in-project n'en a pas forcément un.
       assert.notInclude(src, "config/config");
@@ -1624,6 +1637,15 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "utf8",
       );
       assert.include(svc, "@injectable()");
+      // Même règle que pour `create service` : le hook de démarrage d'un service
+      // s'appelle `init`. Le kernel ne cherche que celui-là — une `initialize`
+      // rendue ici serait du code mort silencieux dans CHAQUE module généré.
+      assert.include(svc, "async init(): Promise<this>");
+      assert.notMatch(
+        svc,
+        /\basync initialize\s*\(/u,
+        "le service du module rend une méthode `initialize` — jamais appelée",
+      );
       // Vise le CODE, pas la prose. Le fichier généré DOCUMENTE les deux noms en
       // commentaire (« super("blog", …) ») : un `include('"blog"')` — et même un
       // `/super\(\s*"blog",/` — reste donc vert avec un `super()` cassé, en
