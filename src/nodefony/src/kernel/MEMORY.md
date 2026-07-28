@@ -117,7 +117,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 
 **Registre modules**:
 
-- `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.initialize(this)` si présente.
+- `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.init(this)` si présente, sous `guardInitialize` (`Kernel.ts:1340`).
 - `getModule(name)` / `getModules()`.
 - `addKernelService(Ctor, ...args)` → instancie directement sur container kernel (pas sur module).
 - `loadModule(name, build?)` → `import(resolveModuleEntry(this.path, name))` + addModule.
@@ -169,12 +169,17 @@ hors `setEvents` — services (`this.module.hookKernel("onBoot", …)`), décora
 async onKernelRegister(): Promise<this> { ... }
 async onKernelBoot(): Promise<this> { ... }
 async onKernelReady(): Promise<this> { ... }
-async initialize?(kernel?: IKernel): Promise<this> { ... }
+async init?(kernel?: IKernel): Promise<this> { ... }
 ```
+
+⚠️ `init`, PAS `initialize`. `initialize()` est le hook du **Controller** (appelé
+sans argument à CHAQUE requête, `Resolver.ts:293`) ; `init(owner)` est celui du
+Module et du Service (une fois au démarrage, sous garde de boot). Deux cycles de
+vie, deux noms.
 
 **readOverrideModuleConfig(deep?)**: keys `Module-<name>` dans `this.options` → `extend(mod.options, override)`. Warn si module inconnu.
 
-**addService(Ctor, ...args)**: `Injector.instantiate(svc, this, ...args)` → container → `initialize(module)` si présente.
+**addService(Ctor, ...args)**: `Injector.instantiate(svc, this, ...args)` → container → `init(module)` si présente (`Module.ts:377`), sous `guardServiceInitialize` quand un kernel est présent. L'injecteur CONSTRUIT seulement — il n'appelle aucun hook.
 
 **getDependencies()**: `dependencies + peerDependencies` (PAS devDependencies). Pas de dedup — doublon possible si présent dans les deux.
 
