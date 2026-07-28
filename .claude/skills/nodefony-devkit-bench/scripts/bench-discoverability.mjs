@@ -132,7 +132,7 @@ const APP_ENV = { ...process.env, ...PORTS };
  * Les 9 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
  * mesure, et deux runs ne se comparent plus. Toute évolution = nouvelle tâche.
  */
-const TASKS = [
+export const TASKS = [
   {
     id: 1,
     name: "CRUD produit",
@@ -754,6 +754,60 @@ const TASKS = [
   },
 ];
 
+/**
+ * Verdict d'une sonde de CODE ou de TRANSCRIPT, sur des matières déjà extraites.
+ *
+ * Isolée et exportée pour une seule raison : `bench-discoverability.selftest.mjs`
+ * éprouve les sondes en appelant CETTE fonction. Un auto-contrôle qui
+ * réimplémenterait la règle validerait sa propre copie — et les trois faux
+ * positifs qui ont motivé ce découpage (une sonde qui lisait les tests, une
+ * regex qui ne franchissait pas une parenthèse, un interdit sans sa condition)
+ * seraient passés au travers exactement pareil.
+ *
+ * Ne traite PAS les gates : elles exécutent une commande contre une application
+ * réelle, il n'y a rien à simuler.
+ *
+ * @param {object} probe - la sonde (`pattern`, `where`, `invert`, `unless`).
+ * @param {{files: string[], added: string, addedTs: string, content: string, transcript: string}} matter - les matières à sonder.
+ * @returns {{pass: boolean, evidence: string}}
+ */
+export function evaluateProbe(probe, matter) {
+  const { files, added, addedTs, content, transcript } = matter;
+  if (probe.kind === "transcript") {
+    // `invert` vaut ici aussi : certains INTERDITS ne laissent pas de trace
+    // dans le dépôt (un `kill -9` n'écrit aucun fichier) — le transcript est
+    // la seule pièce qui les montre.
+    const hit = probe.pattern.test(transcript);
+    return {
+      pass: probe.invert ? !hit : hit,
+      evidence: hit ? "vu dans le transcript" : "absent du transcript",
+    };
+  }
+  const haystack =
+    probe.where === "files"
+      ? files.join("\n")
+      : probe.where === "added"
+        ? added
+        : probe.where === "addedTs"
+          ? addedTs
+          : content;
+  // `unless` — la moitié NÉGATIVE d'une paire cède devant la POSITIVE.
+  // Un contournement ne se reproche que s'il a servi de contournement :
+  // quand la bonne façade est présente dans le code rendu, le motif interdit
+  // fait forcément autre chose, et le sanctionner mesure un style, pas une
+  // découvrabilité. Ne s'applique qu'aux sondes inversées — sur une positive
+  // ce serait une échappatoire, pas une garde.
+  const waived =
+    probe.invert && probe.unless ? probe.unless.test(content) : false;
+  const hit = probe.pattern.test(haystack);
+  return {
+    pass: waived ? true : probe.invert ? !hit : hit,
+    evidence: waived
+      ? `${files.length} fichier(s) touchés — sans objet : la voie correcte est présente`
+      : `${files.length} fichier(s) touchés`,
+  };
+}
+
 const sh = (cmd, args, opts = {}) =>
   execFileSync(cmd, args, {
     encoding: "utf8",
@@ -986,34 +1040,14 @@ function judgeTask(app, runDir, task) {
   const probes = task.probes.map((p) => {
     let pass = false;
     let evidence = "";
-    if (p.kind === "transcript") {
-      // `invert` vaut ici aussi : certains INTERDITS ne laissent pas de trace
-      // dans le dépôt (un `kill -9` n'écrit aucun fichier) — le transcript est
-      // la seule pièce qui les montre.
-      const hit = p.pattern.test(transcript);
-      pass = p.invert ? !hit : hit;
-      evidence = hit ? "vu dans le transcript" : "absent du transcript";
-    } else if (p.kind === "code") {
-      const haystack =
-        p.where === "files"
-          ? files.join("\n")
-          : p.where === "added"
-            ? added
-            : p.where === "addedTs"
-              ? addedTs
-              : content;
-      // `unless` — la moitié NÉGATIVE d'une paire cède devant la POSITIVE.
-      // Un contournement ne se reproche que s'il a servi de contournement :
-      // quand la bonne façade est présente dans le code rendu, le motif interdit
-      // fait forcément autre chose, et le sanctionner mesure un style, pas une
-      // découvrabilité. Ne s'applique qu'aux sondes inversées — sur une positive
-      // ce serait une échappatoire, pas une garde.
-      const waived = p.invert && p.unless ? p.unless.test(content) : false;
-      const hit = p.pattern.test(haystack);
-      pass = waived ? true : p.invert ? !hit : hit;
-      evidence = waived
-        ? `${files.length} fichier(s) touchés — sans objet : la voie correcte est présente`
-        : `${files.length} fichier(s) touchés`;
+    if (p.kind === "transcript" || p.kind === "code") {
+      ({ pass, evidence } = evaluateProbe(p, {
+        files,
+        added,
+        addedTs,
+        content,
+        transcript,
+      }));
     } else if (p.kind === "gate") {
       const frozen = frozenGates?.find((g) => g.name === p.name);
       if (frozen) {
@@ -1135,4 +1169,8 @@ function main() {
   }
 }
 
-main();
+// Lancé directement → le banc tourne. IMPORTÉ (par l'auto-contrôle) → on
+// n'expose que `TASKS` et `evaluateProbe`, sans monter le moindre décor.
+if (process.argv[1] && import.meta.filename === path.resolve(process.argv[1])) {
+  main();
+}

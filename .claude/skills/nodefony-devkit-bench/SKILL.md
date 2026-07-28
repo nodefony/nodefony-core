@@ -94,9 +94,41 @@ main.
 ## Banc de découvrabilité — l'agent trouve-t-il ?
 
 ```bash
+node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs   # les sondes, AVANT le verdict
+node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs --prove
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
 ```
+
+### Les sondes s'éprouvent AVANT de juger
+
+**Le mode de défaillance n° 1 de ce banc n'est pas un agent qui échoue : c'est
+une sonde qui recale un agent ayant fait JUSTE.** Quatre fois — la valeur posée
+dans un `.env` gitignoré, le test pris pour de la configuration en dur,
+l'instanciation en fixture prise pour un contournement, la regex qui ne
+franchissait pas la parenthèse d'un appel imbriqué. À chaque fois, le défaut n'a
+été vu qu'après avoir lancé de vrais agents et relu les diffs à la main.
+
+Le danger n'est pas le rouge : c'est qu'un banc faux fasse **dégrader le devkit
+pour lui plaire**. Vécu — une sonde exigeait `@services([…])` alors que
+l'application répondait 200 sans lui ; seul le fait de démarrer le serveur et de
+frapper la route a évité de « corriger » un code qui marchait.
+
+D'où `bench-discoverability.selftest.mjs` : chaque sonde reçoit deux échantillons
+FIGÉS, un qu'elle doit accepter et un qu'elle doit refuser. Aucun agent lancé,
+aucun décor monté — quelques secondes, zéro token. Il appelle `evaluateProbe`
+exportée par le banc, jamais une copie : un auto-contrôle qui réimplémente la
+règle ne valide que lui-même.
+
+`--prove` **ampute** chaque sonde (motif qui ne reconnaît plus rien) et exige
+qu'au moins un cas tombe. Une sonde qui reste verte amputée n'est pas exercée
+par ses échantillons — le contrôle le dit au lieu de la compter comme couverte.
+
+Trois sorties, et la distinction est volontaire : `0` tout bon et couverture
+complète · `1` une sonde MENT · `2` couverture **incomplète, sondes nommées**.
+Une sonde ajoutée sans son échantillon doit se voir, pas se fondre dans le vert —
+c'est la règle « une capacité arrive AVEC sa tâche », appliquée à la tâche
+elle-même.
 
 Neuf tâches déroulées par un agent réel, en mode autonome, dans une application
 fraîche : « CRUD produit », « protège une route », « canal temps réel »,
