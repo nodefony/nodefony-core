@@ -44,6 +44,7 @@ export const CREATE_TYPES = [
   "app",
   "module",
   "controller",
+  "service",
   "front",
   "entity",
   "command",
@@ -237,6 +238,8 @@ const USAGE =
   `  module     : [--controller <${MODULE_CONTROLLER_CHOICES.join("|")}>] [--no-service] [--command]\n` +
   `               [--frontend <${FRONTEND_CHOICES.join("|")}>] [--description "…"] [--no-install]\n` +
   `  controller : [--kind <${CONTROLLER_KIND_CHOICES.join("|")}>] [--route </api/x>] [--module <nom>]\n` +
+  `  service    : [--description "…"] [--module <nom>]\n` +
+  `               classe @injectable, sans dépendance à un config.ts — pour la découvrir, imite-la\n` +
   `  front      : [--frontend <react|vue|angular>] [--route </page>] [--module <nom>]\n` +
   `  entity     : [champs…] [--id <${ENTITY_ID_CHOICES.join("|")}>] [--soft-delete] [--no-timestamps]\n` +
   `               [--no-controller] [--no-service] [--no-tests] [--route </api/x>] [--module <nom>]\n` +
@@ -251,7 +254,7 @@ const USAGE =
   `               ex : nodefony create entity Event siteId:uuid path:string --index "siteId,createdAt"\n` +
   `  command    : [--phase <${COMMAND_PHASE_CHOICES.join("|")}>] [--description "…"] [--service] [--module <nom>]\n` +
   `               nom = l'ACTION ; la commande vaut <module>:<action> (ex : blog:publish)\n` +
-  `               (types controller/front/entity/command : dans un projet existant — app racine ou module)\n` +
+  `               (types controller/service/front/entity/command : dans un projet existant — app racine ou module)\n` +
   `  Sans flags dans un terminal → mode interactif (questions + récap).\n` +
   `  Mode machine (agents, scripts) :\n` +
   `    --describe-json                  types, questions, valeurs permises et cibles du projet, en JSON\n` +

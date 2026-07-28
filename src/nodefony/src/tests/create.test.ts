@@ -754,13 +754,33 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // décorateurs, d'un manifeste et d'un ordre de chargement.
       assert.include(agents, "nodefony inspect routes --json");
       assert.include(agents, "nodefony inspect config --json");
+      // POINTER `inspect` ne suffit pas — mesuré au banc : la tâche l'a lancé
+      // CINQ fois et a quand même rendu le compte de ses propres sources (13
+      // routes au lieu des 124 montées). Deux repères manquaient, donc deux
+      // gates : l'écart d'un ordre de grandeur est NORMAL (les modules
+      // installés montent l'essentiel), et un outil qui résiste se RÉPARE — le
+      // repli sur les fichiers rend une réponse d'allure normale à une autre
+      // question que celle posée.
+      assert.include(agents, "ENGLOBE tes sources");
+      assert.include(agents, "écart d'un ordre de grandeur");
+      assert.include(agents, "ne te rabats pas sur les sources");
       // Où sont les CLÉS de config d'un module — le pointage qui manquait.
       assert.include(agents, "dist/nodefony/config/config.js");
-      // Les 2 savoirs fondamentaux que tout agent doit avoir AVANT d'écrire :
+      // Les 3 savoirs fondamentaux que tout agent doit avoir AVANT d'écrire :
       // le cœur est ISOMORPHE (jamais un client WS/type dupliqué à la main),
-      // le container DI est PROTOTYPAL (scopes par héritage, zéro copie).
+      // le container DI est PROTOTYPAL (scopes par héritage, zéro copie),
+      // et un SERVICE n'est pas une classe utilitaire — mesuré au banc : sans
+      // ce repère, l'agent écrit une classe à méthodes `static`, qui compile,
+      // qui marche, et qui reste invisible au conteneur.
+      // ⚠️ Ancrer sur la PHRASE et sur le couple `@injectable`/`extends
+      // Service`, jamais sur le mot « service » seul : il apparaît dans dix
+      // phrases voisines, donc un gate posé dessus resterait vert une fois la
+      // règle retirée (le piège déjà rencontré plus bas avec `@IsGranted`).
       assert.include(agents, "ISOMORPHE");
       assert.include(agents, "PROTOTYPAL");
+      assert.include(agents, "Un service n'est pas une classe utilitaire");
+      assert.include(agents, "`@injectable()` qui `extends Service`");
+      assert.include(agents, "nodefony create service");
       assert.include(agents, "nodefony/docs/client.md");
       assert.include(agents, "nodefony/docs/service.md");
       // Utilisateurs et droits : sans ces repères, un agent réinvente un lecteur
@@ -1246,6 +1266,216 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  describe("moteur — create service (in-project)", () => {
+    /** Scaffold service depuis `from` (détection racine = comme le CLI). */
+    const service = (from: string, answers: Record<string, string | boolean>) =>
+      runScaffold(
+        { type: "service", answers, dir: from, force: false },
+        version,
+      );
+
+    it("app racine SANS @services([...]) : le décorateur est CRÉÉ, pas refusé", () => {
+      // Le gabarit `app/base` ne rend JAMAIS @services([...]) — c'est le cas
+      // nominal du bug rapporté (un agent ne trouve @injectable nulle part).
+      const dest = path.join(tmp, "svcapp");
+      scaffold(dest, { name: "svcapp", preset: "minimal" });
+      const indexBefore = readFileSync(path.join(dest, "index.ts"), "utf8");
+      assert.notInclude(indexBefore, "@services");
+      const r = service(dest, {
+        name: "billing",
+        description: "Facturation de démonstration",
+      });
+      const file = path.join(dest, "nodefony", "service", "BillingService.ts");
+      const itf = path.join(
+        dest,
+        "nodefony",
+        "interfaces",
+        "IBillingService.ts",
+      );
+      assert.isTrue(existsSync(file));
+      assert.isTrue(existsSync(itf));
+      const src = readFileSync(file, "utf8");
+      assert.include(src, "@injectable()");
+      assert.include(
+        src,
+        "class BillingService extends Service implements IBillingService",
+      );
+      assert.include(src, 'super(\n      "billing",');
+      assert.include(src, "Facturation de démonstration.");
+      // Aucune dépendance à un config.ts — le point dur du kit : une cible
+      // in-project n'en a pas forcément un.
+      assert.notInclude(src, "config/config");
+      assert.notMatch(
+        src,
+        /^ \*.*\S \*$/mu,
+        "ligne de TSDoc recollée — tag eta en fin de ligne",
+      );
+      const index = readFileSync(path.join(dest, "index.ts"), "utf8");
+      assert.include(
+        index,
+        'import BillingService from "./nodefony/service/BillingService";',
+      );
+      assert.include(index, 'import { services } from "nodefony";');
+      assert.match(index, /@services\(\[BillingService\]\)\nclass App\b/u);
+      assert.include((r.notes ?? []).join("\n"), 'container.get("billing")');
+      assertNoEtaResidue(dest);
+    });
+
+    it("index.ts écrit à la MAIN en `export class` : le décorateur est posé quand même", () => {
+      // Nos gabarits exportent en bas de fichier, donc la classe s'y déclare
+      // nue (`class App extends Module`). Mais `export class X extends Module`
+      // est la forme que montre la doc du kernel — c'est donc celle qu'une app
+      // reprise à la main portera, et une ancre en `^class` la manquait : le
+      // scaffold refusait un projet parfaitement valide.
+      const dest = path.join(tmp, "svcexport");
+      scaffold(dest, { name: "svcexport", preset: "minimal" });
+      const indexPath = path.join(dest, "index.ts");
+      const before = readFileSync(indexPath, "utf8").replace(
+        /^class App extends Module\b/mu,
+        "export class App extends Module",
+      );
+      assert.include(before, "export class App extends Module");
+      writeFileSync(indexPath, before);
+      service(dest, { name: "billing", description: "Facturation" });
+      const index = readFileSync(indexPath, "utf8");
+      // Décorateur AVANT `export` — la forme valide en TypeScript.
+      assert.match(
+        index,
+        /@services\(\[BillingService\]\)\nexport class App\b/u,
+        "décorateur non posé sur une classe exportée en tête",
+      );
+      assertNoEtaResidue(dest);
+    });
+
+    it("@services([...]) déjà présent (module --service) : la liste s'ÉTEND", () => {
+      const dest = path.join(tmp, "svcmod");
+      scaffold(dest, { name: "svcmod", preset: "minimal" });
+      runScaffold(
+        {
+          type: "module",
+          answers: { name: "blog", controller: "none", service: true },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const modIndex = path.join(dest, "modules", "blog", "index.ts");
+      assert.match(
+        readFileSync(modIndex, "utf8"),
+        /@services\(\[BlogService\]\)/u,
+      );
+      service(dest, { name: "tax", module: "@svcmod/blog" });
+      const after = readFileSync(modIndex, "utf8");
+      assert.match(after, /@services\(\[BlogService, TaxService\]\)/u);
+      // `services` était déjà importé (module `--service` : `import { Kernel,
+      // Module, services } from "nodefony";`) — pas de DEUXIÈME import ajouté.
+      assert.equal(
+        (after.match(/\bservices\b[^\n]*from "nodefony"/gu) ?? []).length,
+        1,
+      );
+    });
+
+    it("module créé avec --no-service : le décorateur est CRÉÉ là aussi", () => {
+      const dest = path.join(tmp, "svcnosvc");
+      scaffold(dest, { name: "svcnosvc", preset: "minimal" });
+      runScaffold(
+        {
+          type: "module",
+          answers: { name: "shop", controller: "none", service: false },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const modIndex = path.join(dest, "modules", "shop", "index.ts");
+      assert.notInclude(readFileSync(modIndex, "utf8"), "@services");
+      service(dest, { name: "invoice", module: "@svcnosvc/shop" });
+      const after = readFileSync(modIndex, "utf8");
+      assert.match(
+        after,
+        /@services\(\[InvoiceService\]\)\nclass ShopModule\b/u,
+      );
+      assert.isTrue(
+        existsSync(
+          path.join(
+            dest,
+            "modules",
+            "shop",
+            "nodefony",
+            "service",
+            "InvoiceService.ts",
+          ),
+        ),
+      );
+    });
+
+    it("normalisation : billing-planService → BillingPlanService, clé camelCase", () => {
+      const dest = path.join(tmp, "svcnorm");
+      scaffold(dest, { name: "svcnorm", preset: "minimal" });
+      service(dest, { name: "billing-planService" });
+      const file = path.join(
+        dest,
+        "nodefony",
+        "service",
+        "BillingPlanService.ts",
+      );
+      assert.isTrue(existsSync(file));
+      assert.include(
+        readFileSync(file, "utf8"),
+        'super(\n      "billingPlan",',
+      );
+    });
+
+    it("garde-fous : hors projet / module inconnu / nom en double", () => {
+      assert.throws(
+        () => service(os.tmpdir(), { name: "x" }),
+        /aucun projet Nodefony/u,
+      );
+      const dest = path.join(tmp, "svcguard");
+      scaffold(dest, { name: "svcguard", preset: "minimal" });
+      assert.throws(
+        () => service(dest, { name: "x", module: "ghost" }),
+        /introuvable — cibles du projet/u,
+      );
+      service(dest, { name: "dup" });
+      assert.throws(() => service(dest, { name: "dup" }), /déjà référencé/u);
+    });
+
+    it("nom en double : refus SANS toucher au projet", () => {
+      const dest = path.join(tmp, "svcintact");
+      scaffold(dest, { name: "svcintact", preset: "minimal" });
+      service(dest, { name: "billing" });
+      const before = snapshotTree(dest);
+      assert.throws(
+        () => service(dest, { name: "billing" }),
+        /déjà référencé/u,
+      );
+      assertTreeUnchanged(before, dest);
+    });
+
+    it("parseCreateArgv : --module --description", () => {
+      const p = parseCreateArgv(
+        argv(
+          "create",
+          "service",
+          "billing",
+          "--module",
+          "@x/shop",
+          "--description",
+          "Facturation",
+        ),
+      );
+      assert.notProperty(p, "error");
+      const req = p as Exclude<typeof p, { error: string }>;
+      assert.equal(req.type, "service");
+      assert.deepInclude(req.answers, {
+        name: "billing",
+        module: "@x/shop",
+        description: "Facturation",
+      });
+    });
+  });
+
   describe("moteur — create module (in-project, workspace npm)", () => {
     /** Rend un module dans une app déjà scaffoldée. */
     const mod = (
@@ -1460,11 +1690,16 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(agents, "@plain/blog");
       assert.include(agents, "proche gagne");
       assert.include(agents, "source unique des défauts");
-      // Les 2 savoirs fondamentaux, portés AUSSI au niveau module (le fichier
-      // le plus proche est celui que l'agent lit) : DI prototypal + isomorphisme.
+      // Les savoirs fondamentaux, portés AUSSI au niveau module (le fichier
+      // le plus proche est celui que l'agent lit) : DI prototypal, isomorphisme,
+      // et l'ajout d'un service — la liste des ajouts d'un module couvrait
+      // controller/front/command, jamais le service, alors qu'il s'y ajoute
+      // exactement pareil (et se câble dans le `@services([…])`).
       assert.include(agents, "PROTOTYPAL");
       assert.include(agents, "nodefony/docs/service.md");
       assert.include(agents, "nodefony/docs/client.md");
+      assert.include(agents, "nodefony create service");
+      assert.include(agents, "extends Service");
       assert.include(agents, "--kind realtime --module blog");
       // Sans controller demandé, l'inventaire n'en promet aucun.
       assert.notInclude(agents, "BlogController");
@@ -2744,7 +2979,15 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       };
       assert.sameMembers(
         doc.types.map((t) => t.type),
-        ["app", "module", "controller", "front", "entity", "command"],
+        [
+          "app",
+          "module",
+          "controller",
+          "service",
+          "front",
+          "entity",
+          "command",
+        ],
       );
       // Ce que l'agent doit pouvoir apprendre sans lire une ligne de source.
       const entity = doc.types.find((t) => t.type === "entity");

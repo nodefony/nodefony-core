@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-28T19:07:40.974Z",
+  "generated": "2026-07-28T21:33:19.866Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 641,
-    "symbols": 2547,
+    "symbols": 2548,
     "classes": 335,
     "interfaces": 773,
     "types": 335,
     "enums": 4,
-    "functions": 921,
+    "functions": 922,
     "constants": 179
   },
   "symbols": {
@@ -3285,7 +3285,7 @@
       "file": "src/nodefony/src/cli/scaffold/engine.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Câble une classe générée dans le décorateur-liste de l'`index.ts` cible (`@controllers([...])`, `@entities([...])`) : ajoute l'import après le dernier import existant + insère le nom dans le tablea…"
+      "description": "Câble une classe générée dans le décorateur-liste de l'`index.ts` cible (`@controllers([...])`, `@entities([...])`, `@services([...])`) : ajoute l'import après le dernier import existant + insère l…"
     },
     "runScaffold": {
       "name": "runScaffold",

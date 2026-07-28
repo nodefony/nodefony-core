@@ -225,6 +225,38 @@ const CONTROLLER_SPEC: IScaffoldTypeSpec = {
   ],
 };
 
+const SERVICE_SPEC: IScaffoldTypeSpec = {
+  type: "service",
+  description:
+    "Service injectable (@injectable) dans le projet courant (app racine ou module) — la logique métier, réutilisable par un controller, une commande CLI ou un autre module",
+  questions: [
+    {
+      key: "name",
+      label:
+        "Nom du service (ex : billing ou Billing — suffixe Service ajouté)",
+      type: "string",
+      default: "",
+      pattern: "^[A-Za-z][A-Za-z0-9-]*$",
+      patternHint:
+        "lettres/chiffres/tirets, commence par une lettre (ex : billing, UserBilling)",
+    },
+    {
+      key: "description",
+      label: "Description courte (TSDoc du service)",
+      type: "string",
+      default: "",
+    },
+    {
+      key: "module",
+      label: "Cible (vide = app racine, sinon nom d'un module du projet)",
+      type: "string",
+      default: "",
+      pattern: "^$|^[@A-Za-z][@A-Za-z0-9/_-]*$",
+      patternHint: "nom d'un module du projet (dossier modules/<nom>) ou vide",
+    },
+  ],
+};
+
 const FRONT_SPEC: IScaffoldTypeSpec = {
   type: "front",
   description:
@@ -641,6 +673,7 @@ const SPECS: Record<string, IScaffoldTypeSpec> = {
   app: APP_SPEC,
   module: MODULE_SPEC,
   controller: CONTROLLER_SPEC,
+  service: SERVICE_SPEC,
   front: FRONT_SPEC,
   entity: ENTITY_SPEC,
   command: COMMAND_SPEC,

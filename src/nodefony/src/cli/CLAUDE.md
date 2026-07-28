@@ -335,6 +335,27 @@ corrompu). Nom normalisé (`blog-post`→`BlogPostController`, suffixe strippé)
 défaut `/api/<kebab>` (couverte par la zone firewall du manifeste généré). Noms de
 fichiers de templates : token `__NAME__` (`templates/controller/<kind>/.../__NAME__.ts.tpl`).
 
+`nodefony create service <Nom> [--description "…"] [--module <nom>]` — scaffold
+**IN-PROJECT** d'un service injectable dans `<cible>/nodefony/service/<Nom>Service.ts`,
+accompagné de son interface (`nodefony/interfaces/I<Nom>Service.ts`). Classe
+`@injectable()` `extends Service`, avec les DEUX noms explicités en TSDoc : le décorateur
+nomme la CLASSE (`@inject("…")`), le `super("nom", …)` nomme l'INSTANCE
+(`container.get("…")`). Gabarit `templates/service/` **autonome** — aucune dépendance à un
+`config/config.ts`, contrairement au service rendu par `create module`
+(`templates/module/service/`), qui lui vit toujours à côté de son schéma Zod : une cible
+in-project n'en a pas forcément. Wiring : `wireDecoratorList(…, "services")` — **seul
+décorateur que le moteur CRÉE quand il manque** (`app/base` ne rend jamais
+`@services([...])`, donc refuser aurait rendu la commande inutilisable à la racine d'une
+app) ; l'import `{ services }` est posé dans la même passe, et l'ancre tolère
+`export class X extends Module`.
+
+> **Pourquoi cette commande existe** : mesuré au banc de découvrabilité — en décor
+> ISOLÉ (sans accès aux sources du framework), un agent chargé d'écrire un service
+> produit une classe à méthodes `static`. Elle compile, elle marche, et elle reste
+> invisible au conteneur. La cause n'était pas un défaut de documentation mais une
+> ABSENCE : `@injectable` n'apparaissait nulle part dans une app fraîche, et
+> `nodefony/service/` n'était atteignable que comme sous-produit de `create entity`.
+
 `nodefony create command <action> [--phase <onReady|onRegister|onPostReady>]
 [--description "…"] [--service] [--module <nom>]` — scaffold **IN-PROJECT**
 d'une commande CLI dans `<cible>/nodefony/command/<Action>Command.ts`. Le nom

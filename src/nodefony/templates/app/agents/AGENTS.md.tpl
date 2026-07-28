@@ -21,6 +21,7 @@
 | Module applicatif (workspace npm) | `nodefony create module <nom>` |
 | Controller HTTP **et** WebSocket (même classe) | `nodefony create controller <nom> --kind hello\|rest\|realtime\|duplex\|example` |
 | Ressource REST **complète** — entité + service + controller CRUD + tests (ne JAMAIS l'écrire à la main) | `nodefony create entity <Nom> --fields "sku:string! price:float"` |
+| Service métier seul — la logique réutilisable, hors de tout controller | `nodefony create service <Nom> [--module <m>]` |
 | Frontend Vite (React/Vue/Angular) | `nodefony create front <nom> [--module <m>]` |
 | Commande CLI `nodefony <module>:<action>` | `nodefony create command <action> [--module <m>] [--phase onReady\|onRegister\|onPostReady]` |
 
@@ -31,7 +32,7 @@ que tu as raté une commande de la table ci-dessus :
 | --- | --- |
 | `nodefony/entity/` | `nodefony create entity <Nom> --fields "…"` |
 | `nodefony/controllers/` | `nodefony create controller <nom> --kind …` |
-| `nodefony/service/` | `nodefony create entity` (le service vient avec) |
+| `nodefony/service/` | `nodefony create service <Nom>` (ou `create entity`, qui en pose un) |
 | `nodefony/command/` | `nodefony create command <action> [--module <m>]` |
 | `modules/<nom>/` (module entier) | `nodefony create module <nom>` |
 
@@ -107,6 +108,16 @@ et il fait foi le jour où les deux divergent.
   le typecheck) ; les hooks React vivent dans `nodefony/react`. Ne réécris
   JAMAIS un client WebSocket/JSON-RPC, ne duplique JAMAIS un type entre front
   et back : un seul contrat, vérifié par le compilateur des deux bouts.
+- **Un service n'est pas une classe utilitaire.** Une classe à méthodes `static`,
+  ou un objet exporté, COMPILE et marche — et reste invisible au framework. Un
+  service Nodefony est une classe `@injectable()` qui `extends Service` : c'est
+  de là que lui viennent sa config fusionnée, son journal (`this.log`), les
+  événements, et sa place dans le conteneur. Il porte DEUX noms sans que ce soit
+  une redondance : le décorateur nomme la CLASSE (ce qu'on écrit dans
+  `@inject("…")`), le `super("nom", …)` nomme l'INSTANCE (sa clé pour
+  `container.get("…")`). Ne l'écris pas de mémoire — `nodefony create service
+  <Nom>` en pose un complet, commenté, à imiter ; la référence est dans
+  `node_modules/nodefony/docs/service.md`.
 - **Le container DI est PROTOTYPAL** : les services vivent sur une chaîne de
   prototypes — un scope de requête VOIT tous les services du kernel sans
   aucune copie (coût d'un scope ≈ un `Object.create`), et ce qu'on `set()`
@@ -328,6 +339,22 @@ que sert la console d'administration — même code, deux portes. Préfère-les 
 lecture des sources : une route dépend de décorateurs, d'un manifeste et d'un
 ordre de chargement ; la déduire, c'est se tromper un jour sur deux. `--json` est
 un flux pur, `| jq` fonctionne.
+
+**Ce que rend `inspect` ENGLOBE tes sources, et les dépasse de loin.** Les modules
+installés — ceux du framework compris — montent leurs propres routes, services et
+entités : une app qui ne définit qu'une poignée de routes en expose couramment plus
+d'une centaine. Un écart d'un ordre de grandeur entre ce que tu lis dans tes
+fichiers et `nodefony inspect routes --json | jq 'length'` n'est donc PAS une
+anomalie de l'outil : c'est la différence entre ce que TU as écrit et ce que l'app
+MONTE. Dès que la question porte sur l'app, le chiffre juste est celui d'`inspect` —
+compter dans les sources répond à une autre question que celle posée.
+
+**Si la commande te résiste, répare l'APPEL — ne te rabats pas sur les sources.**
+C'est le réflexe qui coûte le plus cher, parce qu'il produit une réponse d'allure
+normale : un shell qui manque un outil (`timeout` n'existe pas sur macOS), un `jq`
+mal formé, et l'on se replie sur ce qu'on sait lire. Les fichiers répondront
+toujours quelque chose — mais pas à la question posée. Relance sans le tube pour
+voir la sortie brute, puis remets ton filtre.
 
 N'invente pas d'attente : `--wait` ne rend la main qu'une fois les ports en écoute
 — un `sleep` arbitraire est soit trop court (test rouge sans raison), soit du temps

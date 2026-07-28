@@ -67,6 +67,7 @@ section correspondante de `nodefony-frontend-dev` (et inversement).
 | Besoin                                                        | Skill                                          |
 | ------------------------------------------------------------- | ---------------------------------------------- |
 | Scaffolder un module DANS UNE APP (workspace `modules/<nom>`) | **CLI** : `nodefony create module`             |
+| Écrire un **service** DANS UNE APP (jamais à la main)         | **CLI** : `nodefony create service <Nom>`      |
 | Scaffolder un package `@nodefony/*` du REPO (src/packages/)   | `nodefony-create-module`                       |
 | Module à front Vite (React/Vue/Angular) — repo                | `nodefony-create-frontend-module`              |
 | Frontend Studio (page/dashboard/composant React)              | `nodefony-studio-dev`                          |

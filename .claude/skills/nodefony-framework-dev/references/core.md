@@ -24,6 +24,14 @@
 
 ### Service injectable (DI)
 
+> **Dans une APPLICATION, ne l'écris pas à la main : `nodefony create service <Nom>
+[--module <m>]`.** Il pose la classe + son interface et câble le `@services([…])`
+> (qu'il CRÉE si la cible n'en a pas). La forme ci-dessous reste la référence pour le
+> REPO framework, où le CLI ne scaffolde pas. Mesuré au banc : sans ce générateur, un
+> agent écrit une classe à méthodes `static` — elle compile, elle marche, et elle reste
+> invisible au conteneur. `nodefony check` attrape le cas inverse (service `@injectable`
+> que personne ne déclare).
+
 ```typescript
 import { injectable, inject, Module, Service, Container } from "nodefony";
 

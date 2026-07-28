@@ -595,17 +595,30 @@ export function toKebabCase(name: string): string {
 
 /**
  * Câble une classe générée dans le décorateur-liste de l'`index.ts` cible
- * (`@controllers([...])`, `@entities([...])`) : ajoute l'import après le
- * dernier import existant + insère le nom dans le tableau du décorateur.
- * Édition TEXTUELLE gardée — toute ambiguïté = throw actionnable, jamais un
- * fichier corrompu (le fichier n'est écrit que si les DEUX insertions tiennent).
+ * (`@controllers([...])`, `@entities([...])`, `@services([...])`) : ajoute
+ * l'import après le dernier import existant + insère le nom dans le tableau du
+ * décorateur. Édition TEXTUELLE gardée — toute ambiguïté = throw actionnable,
+ * jamais un fichier corrompu (le fichier n'est écrit que si les insertions
+ * tiennent).
  *
- * @throws si la classe y est déjà, si aucun import n'ancre l'insertion, ou si
- *   le décorateur est introuvable (le message donne l'édition manuelle exacte).
+ * `controllers`/`entities` sont TOUJOURS rendus par les scaffolds qui les
+ * consomment (`@controllers([])` inconditionnel dans `app`/`module` ; les
+ * entités passent par {@link wireEntitiesDecorator}, qui crée déjà sa propre
+ * liste) — le décorateur introuvable y reste un refus. `services` diffère : le
+ * layer `module/base` ne le rend que si la question « service » a répondu
+ * `true`, et la racine d'une app n'en déclare JAMAIS un — le cas nominal d'un
+ * `create service` est donc une cible qui n'a PAS encore de `@services([...])`.
+ * Pour ce seul décorateur, l'absence n'est pas un refus : on le CRÉE, juste
+ * au-dessus de la classe (même position que le gabarit quand il le rend lui-même),
+ * en import ant `services` depuis `"nodefony"` s'il ne l'est pas déjà.
+ *
+ * @throws si la classe y est déjà, si aucun import n'ancre l'insertion, ou —
+ *   pour `controllers`/`entities` seulement — si le décorateur est introuvable
+ *   (le message donne l'édition manuelle exacte).
  */
 export function wireDecoratorList(
   indexPath: string,
-  decorator: "controllers" | "entities",
+  decorator: "controllers" | "entities" | "services",
   className: string,
   importPath: string,
   writer: ScaffoldWriter,
@@ -626,21 +639,54 @@ export function wireDecoratorList(
     );
   }
   const importAt = last.index + last[0].length;
+  // `@services(...)` peut ne pas être encore importé du tout (cible sans
+  // service) : on l'ajoute dans la MÊME passe que l'import de la classe, pour
+  // ne recalculer l'offset qu'une fois.
+  const needsServicesImport =
+    decorator === "services" &&
+    !/\bservices\b[^\n]*from "nodefony"/u.test(source);
+  const extraImport = needsServicesImport
+    ? `\nimport { services } from "nodefony";`
+    : "";
   const withImport =
-    source.slice(0, importAt) + `\n${importLine}` + source.slice(importAt);
+    source.slice(0, importAt) +
+    `\n${importLine}${extraImport}` +
+    source.slice(importAt);
   const decoRe = new RegExp(`@${decorator}\\(\\[([^\\]]*)\\]\\)`, "u");
   const match = decoRe.exec(withImport);
-  if (!match || match.index === undefined) {
+  if (match && match.index !== undefined) {
+    const list = match[1].trim();
+    const wired = withImport.replace(
+      decoRe,
+      `@${decorator}([${list ? `${list.replace(/,\s*$/u, "")}, ` : ""}${className}])`,
+    );
+    writer.write(indexPath, wired);
+    return;
+  }
+  if (decorator !== "services") {
     throw new Error(
       `@${decorator}([...]) introuvable dans ${indexPath} — ajoute à la main :\n` +
         `  ${importLine}\n  @${decorator}([${className}]) sur la classe Module`,
     );
   }
-  const list = match[1].trim();
-  const wired = withImport.replace(
-    decoRe,
-    `@${decorator}([${list ? `${list.replace(/,\s*$/u, "")}, ` : ""}${className}])`,
-  );
+  // `export` est TOLÉRÉ devant la classe : nos gabarits exportent en bas de
+  // fichier, mais `export class X extends Module` est la forme que la doc du
+  // kernel montre — et c'est celle qu'une app écrite à la main portera. Un
+  // décorateur inséré AVANT `export` reste valide (`@services([X])\nexport
+  // class …`), donc l'ancre d'insertion ne bouge pas.
+  const classRe =
+    /^(?:export\s+(?:default\s+)?)?class\s+\w+\s+extends\s+Module\b/mu;
+  const classMatch = classRe.exec(withImport);
+  if (!classMatch || classMatch.index === undefined) {
+    throw new Error(
+      `« class … extends Module » introuvable dans ${indexPath} — ajoute à la main :\n` +
+        `  ${importLine}\n  @services([${className}]) juste au-dessus de la classe`,
+    );
+  }
+  const wired =
+    withImport.slice(0, classMatch.index) +
+    `@services([${className}])\n` +
+    withImport.slice(classMatch.index);
   writer.write(indexPath, wired);
 }
 
@@ -701,6 +747,9 @@ function dispatchScaffold(
   }
   if (request.type === "controller") {
     return runControllerScaffold(request, answers, packageRoot, writer);
+  }
+  if (request.type === "service") {
+    return runServiceScaffold(request, answers, packageRoot, writer);
   }
   if (request.type === "front") {
     return runFrontScaffold(request, answers, packageRoot, writer);
@@ -1384,6 +1433,89 @@ function runControllerScaffold(
     files: written.sort(),
     linked: [],
     notes: NOTES[kind],
+  };
+}
+
+/**
+ * Scaffold IN-PROJECT d'un service injectable : résout la cible (app racine ou
+ * module), rend la classe (`@injectable`, `extends Service`) + son interface
+ * dans `<cible>/nodefony/{service,interfaces}/`, puis câble la classe dans le
+ * `@services([...])` de l'`index.ts` cible — CRÉÉ s'il n'existe pas encore
+ * (cf {@link wireDecoratorList}, seul cas où l'absence du décorateur n'est pas
+ * un refus).
+ *
+ * Volontairement AUTONOME : contrairement au service PRINCIPAL d'un module
+ * (`create module`, gabarit `templates/module/service/`), celui-ci ne dépend
+ * d'aucun `nodefony/config/config.ts` — une cible existante (app racine, ou
+ * module créé avec `--no-service`) n'en a pas forcément un, et le résultat
+ * doit compiler tel quel, sans édition manuelle.
+ *
+ * @throws hors projet, cible inconnue (le message liste les cibles), ou nom
+ *   déjà référencé dans l'`index.ts` cible.
+ */
+function runServiceScaffold(
+  request: IScaffoldRequest,
+  answers: TScaffoldAnswers,
+  packageRoot: string,
+  writer: ScaffoldWriter,
+): IScaffoldResult {
+  const projectRoot = findProjectRoot(request.dir);
+  if (!projectRoot) {
+    throw new Error(
+      "aucun projet Nodefony ici (nodefony.config.ts introuvable en remontant) — " +
+        "lance la commande depuis une app (créée par `nodefony create app`)",
+    );
+  }
+  const targets = listTargets(projectRoot, writer);
+  const moduleName = String(answers.module ?? "");
+  const target = moduleName
+    ? targets.find((t) => t.kind === "module" && t.name === moduleName)
+    : targets[0];
+  if (!target) {
+    const known = targets.map((t) => `${t.name} (${t.kind})`).join(" · ");
+    throw new Error(
+      `module « ${moduleName} » introuvable — cibles du projet : ${known}`,
+    );
+  }
+  // Nom normalisé : suffixe Service strippé s'il est déjà donné (même
+  // tolérance que `Controller` pour `create controller`), classe en
+  // PascalCase, clé de conteneur en camelCase (`super("billing", …)`).
+  const base = String(answers.name).replace(/[-_]?[Ss]ervice$/u, "");
+  const pascal = toPascalCase(base);
+  const nameClass = `${pascal}Service`;
+  const camel = pascal[0].toLowerCase() + pascal.slice(1);
+  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const written: string[] = [];
+  renderLayer(
+    eta,
+    path.join(packageRoot, "templates", "service"),
+    target.dir,
+    {
+      pascal,
+      camel,
+      description:
+        String(answers.description) || `Service ${pascal} de ${target.name}`,
+    },
+    written,
+    writer,
+    { __PASCAL__: pascal },
+  );
+  wireDecoratorList(
+    path.join(target.dir, "index.ts"),
+    "services",
+    nameClass,
+    `./nodefony/service/${nameClass}`,
+    writer,
+  );
+  written.push("index.ts");
+  return {
+    dest: target.dir,
+    files: written.sort(),
+    linked: [],
+    notes: [
+      `DI   container.get("${camel}")  — clé du conteneur (super("${camel}", …))`,
+      `DI   @inject("${nameClass}")    — nom de classe (@injectable)`,
+    ],
   };
 }
 

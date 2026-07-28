@@ -206,9 +206,15 @@ Ordre : garde `NODEFONY_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/no
   (`create` | `overwrite` + `previous`). `{ writer }` = transaction héritée d'un scaffold appelant
   (`create module` délègue à `command`/`controller`/`front`) : le sous-scaffold n'y commit pas.
 - Câblage d'un `index.ts` : `wireDecoratorList` (liste d'un décorateur —
-  `@controllers`/`@entities`) et `wireCommandCall` (`this.addCommand(X)` inséré APRÈS le
+  `@controllers`/`@entities`/`@services`) et `wireCommandCall` (`this.addCommand(X)` inséré APRÈS le
   `super(…)` du constructeur ; regex `super\([^()]*\);` — parenthèse imbriquée = REFUS, pas de
   devinette). Même contrat : ambiguïté → throw actionnable, fichier jamais corrompu.
+- ⚠️ `@services` est le SEUL décorateur que `wireDecoratorList` **crée** quand il est absent
+  (import `{ services }` posé dans la même passe, décorateur inséré au-dessus de la classe) :
+  `@controllers`/`@entities` sont toujours rendus par les gabarits, `@services` ne l'est jamais
+  par `app/base` — refuser aurait rendu `create service` inutilisable à la racine d'une app.
+  L'ancre tolère `export class X extends Module` (forme montrée par la doc du kernel, donc
+  celle d'une app reprise à la main) ; le décorateur se pose AVANT `export`, ce qui est valide.
 - `readNodefonyName(file)` = le `super("…")` d'un `Module`/`Service` : c'est la CLÉ du conteneur, et
   pour un module le préfixe de ses commandes CLI. Ni le nom npm (`@app/blog`) ni le nom de classe —
   les trois peuvent différer, seul celui-là existe au runtime.
