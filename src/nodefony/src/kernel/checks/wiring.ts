@@ -25,7 +25,11 @@ import { findReservedEntity } from "../../cli/scaffold/reservedEntities";
 /** Un câblage manquant, ou un nom qui dépossède un module du framework. */
 export interface IWiringFinding {
   kind:
-    "orphan-entity" | "orphan-controller" | "reserved-entity" | "missing-brick";
+    | "orphan-entity"
+    | "orphan-controller"
+    | "orphan-service"
+    | "reserved-entity"
+    | "missing-brick";
   /** Phrase lisible, déjà orientée vers la correction. */
   message: string;
   /** Fichier fautif, relatif à la racine analysée. */
@@ -102,6 +106,33 @@ const ENTITY_NAME_RE = /\bname\s*:\s*["'`](\w+)["'`]/u;
 
 /** `export class XController` — décoré ou non, la déclaration est la même. */
 const CONTROLLER_RE = /export\s+class\s+(\w*Controller)\b/gu;
+
+/**
+ * `@injectable()` posé sur une classe — le marqueur, pas le dossier.
+ *
+ * Viser le décorateur plutôt qu'un emplacement (`nodefony/service`) évite
+ * d'imposer une convention que le framework n'impose pas : un service se
+ * reconnaît à ce qu'il déclare, et l'application le range où elle veut.
+ * Une classe `abstract` est exclue à la lecture — c'est une base, pas une
+ * instance à enregistrer.
+ */
+const SERVICE_RE =
+  /@injectable\s*\([\s\S]{0,160}?\)\s*(?:export\s+)?(?:default\s+)?(abstract\s+)?class\s+(\w+)/gu;
+
+/** Contenu de chaque `@services([…])` — la liste, pas l'appel. */
+const SERVICES_LIST_RE = /@services\s*\(\s*\[([\s\S]{0,2000}?)\]/gu;
+
+/**
+ * Enregistrement IMPÉRATIF d'un service, la seconde voie légitime.
+ *
+ * La règle du contrôle est « quelqu'un te DÉCLARE », pas « tu passes par le
+ * décorateur » : les modules du framework posent une partie de leurs services à
+ * la main, souvent parce que l'instance dépend d'une valeur résolue au
+ * démarrage. Les tenir pour orphelins accuserait le cœur de ne pas suivre une
+ * convention dont il est l'auteur.
+ */
+const IMPERATIVE_RE =
+  /(?:addService|container\.set|\.set)\s*\(\s*[^)]{0,120}?\b(\w+)\b/gu;
 
 /**
  * Où le câblage d'une cible peut vivre — et nulle part ailleurs.
@@ -192,7 +223,7 @@ function referencedElsewhere(
  * `nodefony/controllers`. Tout le reste n'a rien à câbler.
  */
 function isTarget(dir: string): boolean {
-  return ["entity", "controllers"].some((sub) =>
+  return ["entity", "controllers", "service", "services"].some((sub) =>
     statSync(path.join(dir, "nodefony", sub), { throwIfNoEntry: false }),
   );
 }
@@ -206,6 +237,14 @@ function isTarget(dir: string): boolean {
  *   `@entities([…])` ne l'enregistre : sa table ne sera pas créée ;
  * - **controller orphelin** — la classe n'est nommée nulle part, donc aucune de
  *   ses routes n'est montée ;
+ * - **service orphelin** — la classe porte `@injectable` mais n'apparaît dans
+ *   aucun `@services([…])` ni enregistrement impératif. Seul manquement dont
+ *   le critère n'est PAS « quelqu'un te nomme » : un service non déclaré est
+ *   presque toujours nommé — par le controller qui le reçoit en paramètre. Le
+ *   framework l'auto-résout alors depuis le registre des classes, ce qui donne
+ *   une application qui fonctionne et un service qui n'existe pour personne
+ *   d'autre : hors ordre de démarrage, hors rapport de boot, hors politique
+ *   d'erreur, hors introspection, construit à la première requête ;
  * - **nom réservé** — l'entité porte le nom d'une entité d'un module du
  *   framework (`User`, `session`…). Le registre ORM est PLAT : l'homonyme
  *   dépossède le module, et l'application s'arrête au démarrage sur un message
@@ -243,7 +282,41 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
     }
     const rel = (f: string): string => path.relative(cwd, f);
 
+    // Ce que la cible DÉCLARE, relevé une fois — deux voies, une seule réponse
+    // à la question « ce service existera-t-il au démarrage ? ».
+    const declaredServices = new Set<string>();
+    for (const content of sources.values()) {
+      for (const [, list] of content.matchAll(SERVICES_LIST_RE)) {
+        for (const [, name] of list.matchAll(/\b(\w+)\b/gu)) {
+          declaredServices.add(name);
+        }
+      }
+      for (const [, name] of content.matchAll(IMPERATIVE_RE)) {
+        declaredServices.add(name);
+      }
+    }
+
     for (const [file, content] of sources) {
+      // Un service se cherche PARTOUT dans la cible : contrairement à une
+      // entité ou un controller, son emplacement n'est pas conventionnel.
+      for (const [, isAbstract, symbol] of content.matchAll(SERVICE_RE)) {
+        if (isAbstract) continue;
+        // Compté qu'il soit déclaré ou non : `scanned` dit ce que le contrôle a
+        // REGARDÉ. Ne compter que les fautifs ferait passer « 0 manquement sur
+        // 0 classe » pour un examen, alors que c'est une absence d'examen.
+        scanned += 1;
+        if (declaredServices.has(symbol)) continue;
+        findings.push({
+          kind: "orphan-service",
+          file: rel(file),
+          message:
+            `${symbol} porte @injectable mais n'est déclaré nulle part — sans ` +
+            `@services([${symbol}]) sur le module, il n'entre pas dans l'ordre de ` +
+            `démarrage, échappe au rapport de boot et à l'introspection, et n'est ` +
+            `construit qu'à la première requête qui le réclame`,
+        });
+      }
+
       const dir = path.dirname(file);
       const inEntities = dir.endsWith(path.join("nodefony", "entity"));
       const inControllers = dir.endsWith(path.join("nodefony", "controllers"));

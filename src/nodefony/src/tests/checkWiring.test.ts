@@ -191,3 +191,98 @@ class App extends Module {}`,
     assert.strictEqual(r.findings.length, 0);
   });
 });
+
+/*
+ *   Le service est le seul cas où « quelqu'un te nomme » ne prouve RIEN.
+ *
+ *   Une entité orpheline n'est nommée nulle part — c'est ce qui la trahit. Un
+ *   service non déclaré, lui, est presque toujours nommé : le controller le
+ *   reçoit en paramètre de constructeur, et le framework l'auto-résout depuis le
+ *   registre des classes (`injector.ts`, résolution par `design:paramtypes`).
+ *   L'application RÉPOND — mesuré, HTTP 200 — et le service n'existe pour
+ *   personne d'autre : hors ordre de démarrage, hors rapport de boot, hors
+ *   introspection, construit à la première requête au lieu du boot.
+ *
+ *   D'où un critère différent pour ce seul manquement : une DÉCLARATION, pas une
+ *   mention.
+ */
+const SERVICE = `
+import { Service, injectable } from "nodefony";
+@injectable()
+export class DiscountService extends Service {
+  constructor() { super("discount"); }
+}
+`;
+
+describe("check — câblage d'un service", () => {
+  const made: string[] = [];
+  const make = (files: Record<string, string>): string => {
+    const dir = target(files);
+    made.push(dir);
+    return dir;
+  };
+  afterAll(() => {
+    for (const d of made) rmSync(d, { recursive: true, force: true });
+  });
+
+  it("déclaré dans @services([…]) → rien à signaler", () => {
+    const dir = make({
+      "nodefony/services/DiscountService.ts": SERVICE,
+      "index.ts": `import { DiscountService } from "./nodefony/services/DiscountService";
+@services([DiscountService])
+class App extends Module {}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
+    assert.strictEqual(r.scanned, 1);
+  });
+
+  it("NOMMÉ par un controller mais jamais déclaré → manquement", () => {
+    // Le cas réel, relevé au banc : l'agent injecte proprement le service dans
+    // son controller, l'endpoint répond juste, et rien n'a été déclaré. Si ce
+    // test passait au vert, le contrôle serait aveugle à son unique cible.
+    const dir = make({
+      "nodefony/services/DiscountService.ts": SERVICE,
+      "nodefony/controllers/HelloController.ts": `
+import { DiscountService } from "../services/DiscountService";
+export class HelloController extends Controller {
+  constructor(context: ContextType, discountService: DiscountService) { super("hello", context); }
+}`,
+      "index.ts": `import { HelloController } from "./nodefony/controllers/HelloController";
+@controllers([HelloController])
+class App extends Module {}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    const service = r.findings.filter((f) => f.kind === "orphan-service");
+    assert.strictEqual(service.length, 1, JSON.stringify(r.findings));
+    assert.match(service[0].message, /@services\(\[DiscountService\]\)/u);
+  });
+
+  it("enregistré à la MAIN → rien à signaler", () => {
+    // La règle est « quelqu'un te déclare », pas « tu passes par le décorateur ».
+    // Les modules du framework posent une partie de leurs services en impératif ;
+    // les tenir pour orphelins accuserait le cœur de violer sa propre convention.
+    const dir = make({
+      "nodefony/services/DiscountService.ts": SERVICE,
+      "index.ts": `import { DiscountService } from "./nodefony/services/DiscountService";
+class App extends Module {
+  async onKernelBoot() { this.addService(DiscountService); return this; }
+}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
+  });
+
+  it("une base abstraite n'est pas un service à enregistrer", () => {
+    const dir = make({
+      "nodefony/services/BaseService.ts": `
+import { Service, injectable } from "nodefony";
+@injectable()
+export abstract class BaseService extends Service {}`,
+      "index.ts": `class App extends Module {}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
+    assert.strictEqual(r.scanned, 0);
+  });
+});
