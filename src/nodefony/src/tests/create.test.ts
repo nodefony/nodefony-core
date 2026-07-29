@@ -797,6 +797,17 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Une capacité que l'app n'ANNONCE pas est une capacité absente.
       assert.include(agents, "sont DÉJÀ traduites en HTTP");
       assert.include(agents, "SQLITE_CONSTRAINT_UNIQUE");
+      // Toute commande MONTRÉE se préfixe `npx` : le binaire n'est pas dans le
+      // PATH d'une app, et un agent tape ce qu'on lui montre. Mesuré au banc :
+      // le gabarit portait 39 formes nues contre 2 préfixées ; l'agent a suivi
+      // la majorité, s'est pris un 127 et a brûlé deux tours à chercher où
+      // vivait le binaire. Ce n'était pas son réflexe — c'était notre exemple.
+      const nues = [...agents.matchAll(/`nodefony [a-z]/gu)];
+      assert.equal(
+        nues.length,
+        0,
+        `commandes montrées sans « npx » (${nues.length}) — l'agent les copiera telles quelles`,
+      );
       // Utilisateurs et droits : sans ces repères, un agent réinvente un lecteur
       // de session, teste l'appartenance à un rôle à la main, ou insère un
       // utilisateur en base sans passer par l'encodeur de mot de passe. Les
@@ -818,7 +829,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         assert.include(agents, needle, `AGENTS.md sans « ${needle} »`);
       }
       // Aucun module encore : l'état vide DIT quoi faire.
-      assert.include(agents, "Aucun — `nodefony create module");
+      assert.include(agents, "Aucun — `npx nodefony create module");
       // CLAUDE.md = pointeur + les QUATRE réflexes (auto-chargé à chaque tour
       // par l'outil agent, contrairement à AGENTS.md — mesuré au banc : la
       // règle doit vivre dans le contexte au moment d'ÉCRIRE). Reste court.
