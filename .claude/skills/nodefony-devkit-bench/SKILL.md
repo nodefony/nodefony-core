@@ -130,17 +130,17 @@ Une sonde ajoutée sans son échantillon doit se voir, pas se fondre dans le ver
 c'est la règle « une capacité arrive AVEC sa tâche », appliquée à la tâche
 elle-même.
 
-Treize tâches déroulées par un agent réel, en mode autonome, dans une
+Quatorze tâches déroulées par un agent réel, en mode autonome, dans une
 application fraîche. Neuf visent les **générateurs** : « CRUD produit »,
 « protège une route », « canal temps réel », « commande CLI », « démarre puis
 arrête le serveur », « configuration par l'environnement », « choisir la bonne
 brique », « appeler le générateur au lieu de l'imiter », « interroger
-l'application plutôt que lire ses sources ». Quatre visent le **socle**, qui n'a
+l'application plutôt que lire ses sources ». Cinq visent le **socle**, qui n'a
 pas de générateur et s'imite ou s'ignore : « un service au conteneur »,
 « une trace exploitable en production », « une initialisation au bon moment du
-démarrage », « consommer un service depuis un autre composant ». Jugées sur
-pièces — le transcript (a-t-il APPELÉ l'outil ?) et le diff git (qu'a-t-il
-ÉCRIT ?).
+démarrage », « consommer un service depuis un autre composant », « servir un
+gros média sans le charger en mémoire ». Jugées sur pièces — le transcript
+(a-t-il APPELÉ l'outil ?) et le diff git (qu'a-t-il ÉCRIT ?).
 **Aucun juge automatique n'est un modèle de langage** : uniquement des sondes
 objectives.
 
@@ -150,8 +150,10 @@ utilisent **l'outil lui-même comme juge** : plus aucun port tenu après la tâc
 le catalogue publié pour la 7 (un paquet inventé n'y figure pas) ; le nombre réel
 de routes pour la 9 ; le conteneur de l'application EXÉCUTÉE pour les 10 et 13
 (un service jamais enregistré, ou une dépendance injectée sous un nom qui
-n'existe pas, ne se voient ni à la compilation ni dans une assertion de chaîne).
-Un « je l'ai fait » dans un transcript ne prouve rien.
+n'existe pas, ne se voient ni à la compilation ni dans une assertion de chaîne) ;
+une demande de MORCEAU pour la 14 (206 + `Content-Range` — lire le fichier en
+entier rend 200 et tout le corps, contraste binaire qu'aucune relecture de code
+ne donne aussi sûrement). Un « je l'ai fait » dans un transcript ne prouve rien.
 
 **Un gate ne littéralise pas ce qu'il peut DÉDUIRE.** Celui de la tâche 13
 demande deux services « à l'application » : écrit `module === "app"`, il

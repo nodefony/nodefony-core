@@ -883,6 +883,95 @@ export const TASKS = [
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
     ],
   },
+
+  /*
+   *   ─── Ce que l'agent écrit SPONTANÉMENT, et qui passe les tests ──────────
+   *
+   *   Les méthodes d'un controller n'ont pas le problème des décorateurs : elles
+   *   se PROPOSENT (`this.` dans une classe qui étend `Controller`), et leur
+   *   TSDoc traverse le build. Une tâche par méthode mesurerait la complétude
+   *   de l'API, pas la découvrabilité — et n'a donc pas lieu d'être.
+   *
+   *   Le streaming est l'exception, et pour une raison qui n'est pas la
+   *   documentation : le contournement MARCHE. Lire le fichier en entier puis le
+   *   rendre donne les bons octets, le bon type, un test vert — et charge le
+   *   fichier en mémoire à chaque requête, sans jamais honorer un `Range`. Le
+   *   défaut ne se voit ni à la compilation, ni dans une assertion, ni dans un
+   *   test écrit par l'agent lui-même : il se voit en demandant un morceau.
+   *
+   *   Même profil que T11 (`console.log`) et T12 (`setTimeout`) : ce n'est pas
+   *   « il ne trouve pas », c'est « ce qu'il écrit d'instinct est faux d'une
+   *   façon que rien ne signale ». `renderMediaStream` implémente RFC 9110
+   *   (206, 416, `Content-Range`) — d'où un juge objectif que le contournement
+   *   ne peut pas imiter par accident.
+   */
+  {
+    id: 14,
+    name: "socle — servir un gros média sans le charger en mémoire",
+    prompt:
+      "Cette application doit servir les vidéos déposées dans son dossier `media/`, sur la " +
+      "route GET /api/media/:name. Un lecteur doit pouvoir sauter à n'importe quel endroit de " +
+      "la vidéo sans avoir téléchargé ce qui précède, et l'empreinte mémoire du serveur ne " +
+      "doit pas dépendre du poids du fichier servi. Termine en prouvant que les tests de " +
+      "l'app passent.",
+    probes: [
+      {
+        kind: "code",
+        name: "façade de flux du framework (renderMediaStream/streamFile)",
+        pattern: /renderMediaStream|streamFile|renderFileDownload/u,
+        where: "content",
+      },
+      {
+        // Le contournement exact, et il est confortable : le fichier entier en
+        // mémoire, puis rendu. `unless` parce qu'une lecture peut servir à
+        // autre chose (fabriquer une fixture, lire un manifeste) dès lors que
+        // la façade est là — sanctionner alors mesurerait un style.
+        kind: "code",
+        name: "le fichier n'est pas lu en entier en mémoire",
+        pattern: /readFileSync\s*\(|\breadFile\s*\(/u,
+        where: "addedTs",
+        unless: /renderMediaStream|streamFile|renderFileDownload/u,
+        invert: true,
+      },
+      {
+        // OBSERVATION : la doc du controller EST installée et porte la réponse,
+        // mais l'`AGENTS.md` ne dit pas un mot de « média » ni de « flux ». On
+        // veut savoir par où l'agent est passé — les types se proposent tout
+        // seuls, la doc non — sans faire d'un chemin la condition du verdict.
+        kind: "transcript",
+        name: "a ouvert la doc du controller",
+        pattern: /framework\/docs\/controller\.md/u,
+        observe: true,
+      },
+      {
+        // LE juge, et le seul que le contournement ne peut pas imiter : une
+        // demande de morceau. Le gate fabrique son propre matériel — il tourne
+        // APRÈS le commit de la tâche, donc ce fichier n'entre pas dans le diff
+        // jugé — puis démarre l'app, réclame les 100 premiers octets, et exige
+        // la réponse partielle. Lire le fichier en entier rend 200 et tout le
+        // corps : le contraste est binaire.
+        kind: "gate",
+        name: "une demande de morceau rend 206 + Content-Range (RFC 9110)",
+        cmd: [
+          "sh",
+          "-c",
+          `npm run build >/dev/null 2>&1; mkdir -p media; ` +
+            `node -e "require('node:fs').writeFileSync('media/gate-sample.mp4', Buffer.alloc(3*1024*1024, 7))"; ` +
+            `node ${JSON.stringify(BIN)} development --detach --wait >/dev/null 2>&1; ` +
+            `node -e "const http=require('node:http');` +
+            `const req=http.request({host:'127.0.0.1',port:${PORTS.NF_PORT},path:'/api/media/gate-sample.mp4',` +
+            `headers:{Range:'bytes=0-99'}},res=>{let n=0;res.on('data',c=>{n+=c.length});` +
+            `res.on('end',()=>{const cr=res.headers['content-range'];` +
+            `if(res.statusCode!==206||!cr||n!==100){` +
+            `console.error('statut='+res.statusCode+' content-range='+cr+' octets='+n);process.exit(1)}})});` +
+            `req.on('error',e=>{console.error('requete impossible : '+e.message);process.exit(1)});` +
+            `req.setTimeout(15000,()=>{console.error('pas de reponse');process.exit(1)});req.end()"; ` +
+            `CODE=$?; node ${JSON.stringify(BIN)} stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
 ];
 
 /**

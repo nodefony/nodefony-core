@@ -329,6 +329,41 @@ const SAMPLES = {
       of: "13 :: la dépendance vient du conteneur (@inject ou container.get)",
       pass: { content: `    const vat = this.container.get("vat");` },
     },
+
+  // ── T14 ───────────────────────────────────────────────────────────────────
+  "14 :: façade de flux du framework (renderMediaStream/streamFile)": {
+    pass: {
+      content: `    return this.renderMediaStream(file, { "Content-Type": type });`,
+    },
+    fail: {
+      content: `    return this.renderResponse(buf, "binary", 200, head);`,
+    },
+  },
+  "14 :: le fichier n'est pas lu en entier en mémoire": {
+    pass: { addedTs: `+    return this.renderMediaStream(file);` },
+    fail: { addedTs: `+    const buf = readFileSync(full);` },
+    extra: [
+      {
+        // Le waiver : la lecture est là, mais la façade AUSSI — elle sert donc
+        // à autre chose (un manifeste, une fixture), et le reprocher
+        // reviendrait à interdire de lire un fichier dans une app qui en sert.
+        label: "readFileSync À CÔTÉ de la façade → sans objet",
+        matter: {
+          addedTs: `+    const index = readFileSync("media/index.json", "utf8");`,
+          content: `    return this.renderMediaStream(file, head);`,
+        },
+        expect: true,
+      },
+    ],
+  },
+  "14 :: a ouvert la doc du controller": {
+    pass: {
+      transcript: `{"file_path":"node_modules/@nodefony/framework/docs/controller.md"}`,
+    },
+    fail: {
+      transcript: `{"file_path":"node_modules/nodefony/docs/service.md"}`,
+    },
+  },
 };
 
 const key = (task, probe) => `${task.id} :: ${probe.name}`;
