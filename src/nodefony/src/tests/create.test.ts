@@ -783,6 +783,20 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(agents, "nodefony create service");
       assert.include(agents, "nodefony/docs/client.md");
       assert.include(agents, "nodefony/docs/service.md");
+      // Grammaire des champs : le défaut et l'énumération manquaient à l'appel.
+      // Mesuré au banc avec un agent TIERS (`vibe`) : faute de les voir, il a
+      // INVENTÉ un flag `--default "price:0"` (refusé, exit 64) et écrit
+      // `status:enum:draft,published` — deux tours perdus pour une grammaire
+      // que le générateur sait lire depuis S4. Ancrer sur l'EXEMPLE, pas sur le
+      // mot « enum » : il apparaît dans la phrase d'explication juste après.
+      assert.include(agents, "views:int=0");
+      assert.include(agents, "status:enum(draft,published)");
+      // Le 409 : la capacité existe (le rendu d'erreur mappe les codes pilote),
+      // mais RIEN ne le disait — même banc, même agent : il a réécrit un
+      // `throw new HttpError(…, 409)` dans le service généré, avec son TSDoc.
+      // Une capacité que l'app n'ANNONCE pas est une capacité absente.
+      assert.include(agents, "sont DÉJÀ traduites en HTTP");
+      assert.include(agents, "SQLITE_CONSTRAINT_UNIQUE");
       // Utilisateurs et droits : sans ces repères, un agent réinvente un lecteur
       // de session, teste l'appartenance à un rôle à la main, ou insère un
       // utilisateur en base sans passer par l'encodeur de mot de passe. Les

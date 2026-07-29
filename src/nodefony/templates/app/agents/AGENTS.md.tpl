@@ -46,11 +46,15 @@ en JSON), `--answers-json <fichier|->` (réponses en JSON), `--dry-run` (plan et
 diffs, zéro écriture). Un refus n'écrit jamais rien (transaction).
 
 Les champs d'une entité se déclarent en positionnels :
-`nodefony create entity Post title:string! views:int? slug:string:index author:ref:User`.
-Le `!` interdit le nul, le `?` l'autorise, `:index` pose l'index, et
+`nodefony create entity Post title:string! views:int=0 status:enum(draft,published) slug:string:index author:ref:User`.
+Le `!` interdit le nul, le `?` l'autorise, `:index` pose l'index, `=<valeur>` fixe
+la valeur par défaut, `enum(a,b)` borne les valeurs admises, et
 `ref:<Entité>` crée la colonne de jointure **avec** son index. Les types portent
 leur taille (`string(120)`, `char(2)`, `decimal(10,2)`). Un index de TABLE couvre
 plusieurs colonnes et se répète : `--index "siteId,createdAt"`, `--unique "a,b"`.
+Un `enum` rend la MÊME colonne sur les trois moteurs (pas de type SQL nommé, qui
+exigerait une migration) : c'est le type TypeScript et le schéma Zod qui la
+bornent — donc sur TOUS les transports, REST comme socket.
 
 Si la table EXISTE DÉJÀ en base, trois options lui font épouser ses noms sans
 rien renommer à la main : `--table <nom_sql>` (au lieu du pluriel),
@@ -118,6 +122,16 @@ et il fait foi le jour où les deux divergent.
   `container.get("…")`). Ne l'écris pas de mémoire — `nodefony create service
   <Nom>` en pose un complet, commenté, à imiter ; la référence est dans
   `node_modules/nodefony/docs/service.md`.
+- **Les violations de contrainte sont DÉJÀ traduites en HTTP — ne les rattrape pas.**
+  Un doublon sur une colonne unique ressort en **409**, une donnée qui viole le
+  schéma Zod en **422**, chacun avec son corps JSON : le rendu d'erreur lit le code
+  du pilote (`23505` PostgreSQL, `ER_DUP_ENTRY` MySQL, `SQLITE_CONSTRAINT_UNIQUE`,
+  `11000` MongoDB) et le mappe, quel que soit le moteur. N'écris donc JAMAIS un
+  `throw … 409` dans un service pour un `sku` déjà pris. Le vérifier toi-même
+  d'abord (« existe-t-il ? » puis insertion) est plus lent ET **faux sous
+  concurrence** : deux requêtes simultanées passent toutes les deux le test avant
+  que l'une n'écrive. La contrainte de la base est le seul arbitre exact — laisse-la
+  lever, le pipeline traduit.
 - **Le container DI est PROTOTYPAL** : les services vivent sur une chaîne de
   prototypes — un scope de requête VOIT tous les services du kernel sans
   aucune copie (coût d'un scope ≈ un `Object.create`), et ce qu'on `set()`
