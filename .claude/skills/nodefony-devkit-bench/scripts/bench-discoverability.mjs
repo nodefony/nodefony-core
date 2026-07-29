@@ -952,12 +952,19 @@ export const TASKS = [
         // corps : le contraste est binaire.
         kind: "gate",
         name: "une demande de morceau rend 206 + Content-Range (RFC 9110)",
+        // ⚠️ `npx --no-install nodefony`, PAS le binaire du checkout. Une
+        // commande qui BOOTE des serveurs doit être celle de l'application :
+        // lancé depuis le décor isolé, le binaire du checkout ne charge que le
+        // module `app` et rend « profil serveur mais aucun serveur en écoute ».
+        // Vécu au premier run de cette tâche — un gate rouge qui n'accusait pas
+        // l'agent. Les gates d'INTROSPECTION (`inspect`, `--help`) ne montrent
+        // pas le défaut, ce qui le rend d'autant plus facile à recopier.
         cmd: [
           "sh",
           "-c",
           `npm run build >/dev/null 2>&1; mkdir -p media; ` +
             `node -e "require('node:fs').writeFileSync('media/gate-sample.mp4', Buffer.alloc(3*1024*1024, 7))"; ` +
-            `node ${JSON.stringify(BIN)} development --detach --wait >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
             `node -e "const http=require('node:http');` +
             `const req=http.request({host:'127.0.0.1',port:${PORTS.NF_PORT},path:'/api/media/gate-sample.mp4',` +
             `headers:{Range:'bytes=0-99'}},res=>{let n=0;res.on('data',c=>{n+=c.length});` +
@@ -966,7 +973,7 @@ export const TASKS = [
             `console.error('statut='+res.statusCode+' content-range='+cr+' octets='+n);process.exit(1)}})});` +
             `req.on('error',e=>{console.error('requete impossible : '+e.message);process.exit(1)});` +
             `req.setTimeout(15000,()=>{console.error('pas de reponse');process.exit(1)});req.end()"; ` +
-            `CODE=$?; node ${JSON.stringify(BIN)} stop >/dev/null 2>&1; exit $CODE`,
+            `CODE=$?; npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
       },
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
