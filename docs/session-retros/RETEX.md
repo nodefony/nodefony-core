@@ -15,6 +15,35 @@
 
 ---
 
+## 📐 L'agent copie l'EXEMPLE qu'on lui montre — pas la règle écrite à côté
+
+- `[1× — 2026-07-29]` 🔴 **Le gabarit `AGENTS.md` portait 39 commandes NUES (`nodefony create …`)
+  contre 2 préfixées `npx`.** L'agent a suivi la majorité, s'est pris un code 127, puis a brûlé un
+  tour de plus sur `npm bin` (retirée de npm) avant de trouver la bonne forme. Mon premier
+  diagnostic — « c'est un réflexe du modèle, rien à corriger » — était **FAUX**, et je l'avais
+  donné au user avant de vérifier : c'est notre exemple qui enseignait la forme qui ne marche pas.
+  Une règle écrite ailleurs dans le fichier ne rattrape jamais un exemple majoritaire. Gate posé :
+  compter les formes nues, il tombe dès qu'**une seule** réapparaît.
+- `[1× — 2026-07-29]` **Une capacité que l'app n'ANNONCE pas est une capacité ABSENTE.** Le mapping
+  contrainte-unique → 409 est livré depuis la vague S4 (codes pilote lus dans le rendu d'erreur),
+  mais aucune ligne ne le disait à l'agent : il a réécrit `throw new HttpError(…, 409)` dans le
+  service généré, TSDoc compris. Livrer au framework ne suffit pas — ce qui n'est pas écrit **là
+  où l'agent lit** n'existe pas pour lui. Corollaire de méthode : la correction se juge en
+  rejouant la tâche, pas en relisant le gabarit (30 tours sans finir → 6 tours et 7 tests verts).
+
+## 🤖 Piloter un agent TIERS : ce qui BLOQUE, et ce qui MENT
+
+- `[1× — 2026-07-29]` 🔴 **Sans TTY, un CLI agentique peut LIRE stdin jusqu'à EOF.** `vibe`
+  (`cli/cli.py:53`) : `if sys.stdin.isatty(): return None` — sinon `read()`, pour accepter un
+  prompt en pipe. Lancé par un agent ou un CI, stdin n'est pas un TTY **et reste ouvert** → il ne
+  rend jamais la main. Vécu : **9 min 33 d'horloge pour 1,07 s de CPU**, aucune session créée — le
+  symptôme se lit comme « le modèle réfléchit ». Remède : `< /dev/null` sur toute automatisation.
+- `[1× — 2026-07-29]` **Une sonde de banc encode un HARNAIS, pas un comportement.** `vibe` charge
+  `AGENTS.md` **nativement** (walk-up « le plus proche gagne ») : aucun appel d'outil ne montre la
+  lecture, donc la sonde « a lu AGENTS.md », écrite pour Claude Code, rend un **FAUX rouge**.
+  Généraliser un banc à un autre agent, c'est revoir les SONDES — pas seulement le lecteur de
+  transcript.
+
 ## 🤖 Déléguer : le geste, pas seulement le verdict
 
 - `[1× — 2026-07-26]` 🔴 **Un agent délégué a « nettoyé » l'arbre pour mesurer une baseline et a
