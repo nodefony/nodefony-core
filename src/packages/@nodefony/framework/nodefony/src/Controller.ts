@@ -478,6 +478,18 @@ class Controller extends Service implements IController {
     return File;
   }
 
+  /**
+   * Sert un fichier en TÉLÉCHARGEMENT (`Content-Disposition: attachment`).
+   *
+   * Comme {@link Controller.streamFile} dont il est l'habillage, il envoie le
+   * fichier ENTIER et n'honore pas `Range` — c'est le comportement voulu pour un
+   * téléchargement. Pour un média seekable, voir {@link Controller.renderMediaStream}.
+   *
+   * @param file - chemin ou `FileClass` du fichier à servir.
+   * @param options - options de `createReadStream`.
+   * @param headers - en-têtes ajoutés (écrasent ceux posés par défaut).
+   * @returns le flux de lecture, une fois la réponse écoulée.
+   */
   async renderFileDownload(
     file: FileClass | string,
     options?: ReadStreamOptions,
@@ -501,6 +513,27 @@ class Controller extends Service implements IController {
     }
   }
 
+  /**
+   * Envoie un fichier en FLUX, du disque vers la réponse, sans jamais le charger
+   * en mémoire.
+   *
+   * ⚠️ **N'honore PAS l'en-tête `Range`** : le fichier part toujours en entier,
+   * avec un statut 200. Pour un média dans lequel un lecteur doit pouvoir sauter
+   * (vidéo, audio, gros PDF), utiliser {@link Controller.renderMediaStream} —
+   * seul à implémenter les requêtes par plage (RFC 9110 §14 : 206, 416,
+   * `Content-Range`). Annoncer `Accept-Ranges: bytes` depuis ici est un piège :
+   * le client croit pouvoir se déplacer et reçoit tout le fichier.
+   *
+   * Ce que cette méthode garantit et qui justifie son existence : le NETTOYAGE.
+   * Le flux est ouvert en `autoClose: false` ; un client qui raccroche en plein
+   * téléchargement laisserait sinon un descripteur ouvert et une promesse pendue.
+   *
+   * @param file - chemin ou `FileClass` du fichier à servir.
+   * @param headers - en-têtes ajoutés à la réponse (le type MIME est déduit si absent).
+   * @param options - options de `createReadStream` (`start`/`end` pour un extrait).
+   * @returns le flux de lecture, une fois la réponse écoulée.
+   * @throws Si la réponse n'est pas disponible, ou si le fichier est illisible.
+   */
   async streamFile(
     file: FileClass | string,
     headers?: OutgoingHttpHeaders,

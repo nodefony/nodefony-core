@@ -22,6 +22,28 @@ import defaultConfig, { type <%= it.pascal %>Config } from "../config/config";
  * ⚠️ Ne JAMAIS redéclarer `options` comme propriété : la classe `Service` parente
  * l'assigne déjà via le 4ᵉ argument du `super()`. On garde une référence typée
  * `cfg` pour lire la config sans se battre avec TypeScript.
+ *
+ * POUR L'UTILISER AILLEURS, deux voies, toutes deux légales :
+ *
+ * ```ts
+ * // 1. INJECTION par le constructeur — la dépendance est DÉCLARÉE, donc le
+ * //    conteneur l'ordonnance et elle se voit dans la signature (nom de CLASSE).
+ * import { inject, injectable, Service, Module } from "nodefony";
+ *
+ * @injectable()
+ * class ReportService extends Service {
+ *   constructor(
+ *     module: Module,
+ *     @inject("<%= it.pascal %>Service") private <%= it.name %>: <%= it.pascal %>Service,
+ *   ) {
+ *     super("report", module.container, module.notificationsCenter);
+ *   }
+ * }
+ *
+ * // 2. RÉSOLUTION par le conteneur, pour une dépendance tardive ou optionnelle
+ * //    (nom d'INSTANCE).
+ * const <%= it.name %> = this.container.get("<%= it.name %>");
+ * ```
  */
 @injectable()
 class <%= it.pascal %>Service extends Service implements I<%= it.pascal %>Service {

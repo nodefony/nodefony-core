@@ -22,6 +22,29 @@ import type { I<%= it.pascal %>Service } from "../interfaces/I<%= it.pascal %>Se
  * reste invisible au framework : ni conteneur, ni journal (`this.log`), ni
  * événements. C'est `@injectable()` + `extends Service` qui font qu'un service
  * EST un service Nodefony.
+ *
+ * POUR L'UTILISER AILLEURS, deux voies, toutes deux légales :
+ *
+ * ```ts
+ * // 1. INJECTION par le constructeur — la dépendance est DÉCLARÉE, donc le
+ * //    conteneur l'ordonnance et elle se voit dans la signature. Le décorateur
+ * //    prend le nom de la CLASSE.
+ * import { inject, injectable, Service, Module } from "nodefony";
+ *
+ * @injectable()
+ * class ReportService extends Service {
+ *   constructor(
+ *     module: Module,
+ *     @inject("<%= it.pascal %>Service") private <%= it.camel %>: <%= it.pascal %>Service,
+ *   ) {
+ *     super("report", module.container, module.notificationsCenter);
+ *   }
+ * }
+ *
+ * // 2. RÉSOLUTION par le conteneur — utile quand la dépendance est tardive ou
+ * //    optionnelle. Ici c'est le nom de l'INSTANCE.
+ * const <%= it.camel %> = this.container.get("<%= it.camel %>");
+ * ```
  */
 @injectable()
 class <%= it.pascal %>Service extends Service implements I<%= it.pascal %>Service {
