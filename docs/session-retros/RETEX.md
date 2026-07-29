@@ -30,6 +30,17 @@
   service généré, TSDoc compris. Livrer au framework ne suffit pas — ce qui n'est pas écrit **là
   où l'agent lit** n'existe pas pour lui. Corollaire de méthode : la correction se juge en
   rejouant la tâche, pas en relisant le gabarit (30 tours sans finir → 6 tours et 7 tests verts).
+- `[3× — 2026-07-29b]` ⇧ **À GRADUER en `feedback_*` au prochain CONSOLIDATE** (3ᵉ occurrence,
+  et la seule mesurée dans les DEUX sens) : **un exemple de CODE agit ; une explication, non —
+  et un TSDoc n'atteint que l'agent qui REGARDE les signatures.** Preuve positive : l'exemple de
+  constructeur injecté posé dans le gabarit de service a fait passer l'observation `@inject` de
+  T13 de ROUGE à VERTE, l'agent reprenant la forme exacte, nom de CLASSE compris. Preuve
+  négative le même jour : un TSDoc posé sur `streamFile` (« n'honore pas `Range` ») n'a rien
+  changé — l'agent n'a ouvert ni la doc ni les types et a réécrit RFC 9110 à la main. Corollaire
+  qui donne l'ordre des remèdes : gabarit rendu > `AGENTS.md` chargé d'office > TSDoc > page de
+  doc. Et un contournement peut être **cassé silencieusement** : le sien rendait
+  `statut=200` avec `content-range` correct et 100 octets, parce qu'il écrivait en
+  `(response as any).write` — statut jamais transmis à la socket, `npm test` vert.
 - `[2× — 2026-07-29b]` **De la PROSE juste ne remplace pas un exemple de code.** L'`AGENTS.md`
   généré nomme `@inject("…")` AVANT `container.get("…")`, et explique correctement le double
   nommage. Premier run réel de la tâche 13 : l'agent obtient bien ses services du conteneur (gate
