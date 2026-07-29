@@ -141,11 +141,12 @@ for (const w of workspaces) {
       cwd: dir,
       encoding: "utf8",
     });
+    // `findLast` et non `filter(Boolean).at(-1)` : c'est la DERNIÈRE ligne non
+    // vide qui porte le nom d'archive, npm écrivant ses avertissements avant.
     const tgz = out
       .split("\n")
       .map((l) => l.trim())
-      .filter(Boolean)
-      .at(-1);
+      .findLast(Boolean);
     if (!tgz?.endsWith(".tgz")) {
       failures.push(
         `${pkg.name}: npm pack n'a pas rendu de nom d'archive (dernière ligne : « ${String(tgz).slice(0, 60)} »)`,
