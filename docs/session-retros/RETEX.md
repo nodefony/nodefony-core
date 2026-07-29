@@ -30,6 +30,15 @@
   service généré, TSDoc compris. Livrer au framework ne suffit pas — ce qui n'est pas écrit **là
   où l'agent lit** n'existe pas pour lui. Corollaire de méthode : la correction se juge en
   rejouant la tâche, pas en relisant le gabarit (30 tours sans finir → 6 tours et 7 tests verts).
+- `[2× — 2026-07-29b]` **De la PROSE juste ne remplace pas un exemple de code.** L'`AGENTS.md`
+  généré nomme `@inject("…")` AVANT `container.get("…")`, et explique correctement le double
+  nommage. Premier run réel de la tâche 13 : l'agent obtient bien ses services du conteneur (gate
+  d'état vert, aucune instanciation manuelle, bonne clé d'instance) — mais **exclusivement par
+  `container.get`**, jamais par injection. Aucun gabarit ne montre à quoi ressemble un
+  constructeur injecté : les 4 occurrences de `@inject` dans les gabarits sont toutes des
+  COMMENTAIRES. On prend la voie qu'on a VUE, pas celle qu'on a lue en premier. Enseignement
+  d'outillage : c'est la sonde d'**observation** — celle qui ne fait jamais échouer — qui a porté
+  toute l'information, une tâche PASS 5/5 n'ayant rien dit de ce trou.
 
 ## 🤖 Piloter un agent TIERS : ce qui BLOQUE, et ce qui MENT
 
@@ -57,6 +66,13 @@
   porte (`--fix`, codemod) avec compilation + tests derrière.
 - `[1× — 2026-07-26]` Le **TYPE** d'agent (lecture seule vs complet) est le second levier de coût,
   choisi AVANT le modèle. Un agent en lecture seule ne peut pas casser le dépôt.
+- `[1× — 2026-07-29b]` **QUESTION ZÉRO ratée, et sanctionnée deux fois.** J'ai délégué un
+  inventaire « quelles formes existent pour obtenir un service » dont la moitié était un `rg`
+  agrégé — puis j'ai refait ce même comptage moi-même pendant que l'agent tournait, donc payé les
+  deux. Et son rapport affirmait « `@injectable` n'est PAS dans le gabarit `AGENTS.md` » : il y
+  est, ligne 126, ce qu'un `rg` de deux secondes a montré. Les deux moitiés de la leçon tiennent
+  ensemble : ce qu'un automate rend EXHAUSTIVEMENT ne se délègue pas, et ce qu'un modèle affirme
+  d'un fichier se recontrôle avant d'entrer dans une décision.
 - `[1× — 2026-07-26]` 🔴🔴 **UN SOUS-AGENT ZOMBIE REND LA SESSION INATTEIGNABLE — et fait perdre du
   travail au USER.** Dix réveils d'un agent `completed` ont occupé le fil ; j'y répondais « rien de
   neuf, j'attends ta décision ». Vu du user : **session inerte, en lecture seule** (renforcé par les
@@ -134,6 +150,16 @@
   quel cas ni de combien. Reproduit **trois fois dans la même session** (banc mémoire, stores,
   realtime) après l'avoir corrigé le matin même sur `turbo --continue`. Toujours
   `--reporter=default --reporter=json`.
+- `[1× — 2026-07-29b]` 🔴 **Le banc qui ÉPROUVE un juge peut être faux exactement comme lui.**
+  Pour prouver un gate HTTP, j'ai monté le serveur témoin dans le process qui lançait la requête
+  par `execSync` — qui BLOQUE la boucle d'événements : le témoin n'a jamais répondu, les trois
+  scénarios ont expiré, et **deux verdicts « ok » sur trois étaient des coïncidences** (un
+  timeout sort en 1, ce que deux scénarios attendaient). Pire : le seul rouge visible m'a fait
+  diagnostiquer un keep-alive inexistant, puis écrire un correctif — et un commentaire qui
+  racontait un vécu qui n'avait pas eu lieu. Les deux ont été retirés après avoir rejoué la
+  commande À LA MAIN. **Un scénario qui ne PEUT pas réussir ne prouve rien quand il échoue** :
+  toute preuve à N cas doit contenir au moins un cas attendu VERT, sinon on ne distingue pas
+  « le juge mord » de « rien ne s'est passé ».
 
 ## 🩺 Mesurer sans forcer le ramasse-miettes, c'est mesurer du bruit
 
@@ -251,6 +277,13 @@ status` le payait sur macOS et Windows.
   (« clé de chiffrement absente — 2FA désactivé ») : le framework refuse, dégrade, le dit fort et
   CONTINUE. Journal juste, verdict faux. Garder fatals les motifs qui signent une mort certaine ;
   pour le reste, le juge est le fait d'écouter — et la dégradation s'AFFICHE au lieu de tuer.
+- `[1× — 2026-07-29b]` **Un gate qui crie au loup finit par ne plus être lu.** `skills:check`
+  annonçait un renvoi mort vers `lib/isolation.mjs` — fichier bien présent sous
+  `scripts/lib/`. Cause : le motif n'acceptait qu'un seul segment, repartait au milieu du chemin,
+  et cherchait donc un fichier qui n'a jamais existé. L'alerte traînait depuis des jours comme
+  « faux positif connu », c'est-à-dire comme une ligne qu'on saute — exactement ce qui fait rater
+  la vraie. Cinq minutes à corriger, et le message donne désormais le chemin COMPLET : tronqué,
+  il envoyait chercher au mauvais endroit.
 
 ## 🎲 Une capacité se CONSTATE, elle ne se déduit pas de la plateforme
 
