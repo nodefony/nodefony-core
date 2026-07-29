@@ -160,12 +160,15 @@ for (const [name, text] of skillTexts) {
         : "présent mais jamais mentionné — mort, ou à documenter",
     });
   }
-  // Renvois vers des scripts qui n'existent pas. Deux pièges déjà payés :
+  // Renvois vers des scripts qui n'existent pas. Trois pièges déjà payés :
   //   — `\.js` capture le `.js` de `test-map.json` : exiger une frontière de mot ;
   //   — un renvoi peut viser la RACINE ou un AUTRE skill : chercher ailleurs avant de crier au mort.
   //   — `es5.d.ts` est une DÉCLARATION de types, jamais un script : l'écarter.
+  //   — un chemin peut porter un SOUS-DOSSIER (`scripts/lib/isolation.mjs`) : sans
+  //     le segment intermédiaire, le motif repartait à `lib/…` et déclarait mort un
+  //     fichier bien présent. Un gate qui crie au loup finit par ne plus être lu.
   for (const m of text.matchAll(
-    /(?:scripts|lib)\/[\w.-]+\.(?:mjs|js|sh|py|ts)(?![\w.])/g,
+    /(?:scripts|lib)(?:\/[\w.-]+)*\/[\w.-]+\.(?:mjs|js|sh|py|ts)(?![\w.])/g,
   )) {
     const ref = m[0];
     if (ref.endsWith(".d.ts")) continue;
