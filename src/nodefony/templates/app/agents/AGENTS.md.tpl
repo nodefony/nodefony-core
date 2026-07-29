@@ -141,6 +141,16 @@ et il fait foi le jour où les deux divergent.
   concurrence** : deux requêtes simultanées passent toutes les deux le test avant
   que l'une n'écrive. La contrainte de la base est le seul arbitre exact — laisse-la
   lever, le pipeline traduit.
+- **Un fichier ne se sert pas à la main.** Trois façades, et le choix se fait sur
+  l'usage : `this.renderMediaStream(file)` implémente les **requêtes par plage**
+  (`Range` → 206 + `Content-Range`, 416 hors plage) — c'est ce qu'exige un lecteur
+  vidéo ou audio pour se déplacer ; `this.streamFile(file)` envoie le fichier
+  ENTIER en flux, sans plage ; `this.renderFileDownload(file)` force le
+  téléchargement. Recomposer ça avec `createReadStream` et `response.write`
+  compile, passe les tests — et rend une réponse **incohérente** : un statut posé
+  à la main n'atteint jamais la socket (le pipeline écrit statut et en-têtes à
+  SON tour), donc le client reçoit **200 avec un corps partiel** et croit tenir le
+  fichier complet. Mesuré au banc, pas supposé.
 - **Le container DI est PROTOTYPAL** : les services vivent sur une chaîne de
   prototypes — un scope de requête VOIT tous les services du kernel sans
   aucune copie (coût d'un scope ≈ un `Object.create`), et ce qu'on `set()`
