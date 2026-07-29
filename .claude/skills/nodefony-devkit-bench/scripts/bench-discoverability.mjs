@@ -774,6 +774,115 @@ export const TASKS = [
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
     ],
   },
+
+  /*
+   *   ─── CONSOMMER, et pas seulement CRÉER ─────────────────────────────────
+   *
+   *   T10 mesure la CRÉATION d'un service : il est `@injectable`, déclaré sur
+   *   un module, réellement construit par le conteneur. Il ne dit rien du geste
+   *   suivant, qui est celui de tous les jours : un composant OBTIENT un
+   *   service que quelqu'un d'autre a écrit. C'est là que se joue le double
+   *   nommage — le décorateur nomme la CLASSE (`@inject("VatService")`), le
+   *   `super("vat", …)` nomme l'INSTANCE (`container.get("vat")`) — et c'est
+   *   exactement ce qu'une application fraîche ne MONTRE nulle part : ni le
+   *   gabarit de service, ni celui de controller ne portent une dépendance
+   *   injectée. Le texte de l'`AGENTS.md` l'explique ; aucun code ne le fait
+   *   voir, et un exemple absent se remplace par une invention.
+   *
+   *   Le domaine (TVA + facture) est choisi pour son vocabulaire CONTRAINT :
+   *   le gate d'état interroge le conteneur, il doit pouvoir reconnaître les
+   *   deux services sans imposer un nom. Il est aussi distinct de la remise de
+   *   T10 — les deux tâches partagent le même décor, un gate qui accepterait
+   *   le service de T10 se croirait vert sans rien avoir mesuré.
+   */
+  {
+    id: 13,
+    name: "socle — consommer un service depuis un autre composant",
+    prompt:
+      "Cette application doit établir des factures. Le calcul de la TVA — le taux vient de la " +
+      "configuration de l'application, jamais écrit en dur — est une responsabilité à part " +
+      "entière ; l'établissement d'une facture (lignes, total hors taxes, total toutes taxes " +
+      "comprises) en est une autre, et elle s'appuie sur la première pour la taxe. Expose " +
+      "POST /api/invoices qui rend la facture calculée. Changer le taux ne doit toucher qu'un " +
+      "seul endroit, et chaque responsabilité doit être testable séparément. Termine en " +
+      "prouvant que les tests de l'app passent.",
+    probes: [
+      {
+        // Écrit de mémoire, un service diverge du gabarit — c'est le constat
+        // qui a fait naître la commande (une classe à méthodes `static`,
+        // invisible au conteneur, mesurée en décor isolé).
+        kind: "transcript",
+        name: "a lancé create service",
+        pattern: /create\s+service/u,
+      },
+      {
+        // La CONSOMMATION, toutes voies légitimes confondues : injection
+        // déclarative ou résolution par le conteneur. Les deux mènent à la même
+        // instance et les deux sont documentées — exiger la première seule
+        // mesurerait un style, pas une découvrabilité.
+        kind: "code",
+        name: "la dépendance vient du conteneur (@inject ou container.get)",
+        pattern: /@inject\(|(?:container|kernel|this)\.get\(\s*["'`]/u,
+        where: "content",
+      },
+      {
+        // Le contournement exact : fabriquer soi-même l'exemplaire de l'autre
+        // service. Il compile, il passe les tests — et le service ainsi
+        // construit n'a ni la configuration fusionnée (donc le taux qu'on
+        // vient de mettre en configuration), ni le journal, ni les scopes.
+        //
+        // `addedTs` : dans son propre TEST, instancier le service est la
+        // réponse ATTENDUE (« testable séparément »). Même leçon qu'en T10, où
+        // la sonde mordait sur la preuve au lieu du contournement.
+        kind: "code",
+        name: "pas d'exemplaire fabriqué à la main (new XService())",
+        pattern: /new\s+\w*(?:Service|Calculator)\s*\(/u,
+        where: "addedTs",
+        invert: true,
+      },
+      {
+        // OBSERVATION, pas verdict : `container.get(…)` est une réponse juste.
+        // Ce qu'on veut savoir sans le sanctionner, c'est si la voie
+        // DÉCLARATIVE — la seule qui exprime la dépendance dans la signature,
+        // donc la seule que le conteneur peut ordonnancer — a été trouvée.
+        kind: "code",
+        name: "voie déclarative trouvée (injection par constructeur)",
+        pattern: /@inject\(/u,
+        where: "content",
+        observe: true,
+      },
+      {
+        // LE juge d'état : le conteneur de l'application EXÉCUTÉE porte-t-il
+        // les DEUX services ? Il prouve au passage ce qu'aucune lecture ne
+        // montre — un nom d'injection faux ne se voit pas à la compilation, il
+        // se voit au démarrage, où le conteneur ne résout rien.
+        //
+        // Le périmètre « ce que l'app possède » se DÉDUIT des modules chargés
+        // (tout ce qui n'est pas un paquet `@nodefony/*`), il ne se littéralise
+        // pas en `module === "app"` : un agent qui range ses deux services dans
+        // un module local a fait JUSTE, et un filtre écrit en dur le recalerait.
+        kind: "gate",
+        name: "les DEUX services sont au conteneur (taxe + facture, portés par l'app)",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JSON.stringify(BIN)} inspect services --json > .nf-services.json 2>/dev/null; ` +
+            `node ${JSON.stringify(BIN)} inspect modules --json > .nf-modules.json 2>/dev/null; node -e ` +
+            `"const fs=require('node:fs');` +
+            `const all=JSON.parse(fs.readFileSync('.nf-services.json','utf8'));` +
+            `const mods=JSON.parse(fs.readFileSync('.nf-modules.json','utf8'));` +
+            `const own=new Set(mods.filter(m=>!String(m.name||'').startsWith('@nodefony/')).map(m=>m.key));` +
+            `const mine=all.filter(x=>own.has(x.module));` +
+            `const txt=x=>((x.name||'')+' '+(x.class||'')).toLowerCase();` +
+            `const tax=mine.some(x=>/tva|vat|tax/.test(txt(x)));` +
+            `const inv=mine.some(x=>/factur|invoice|billing/.test(txt(x)));` +
+            `if(!tax||!inv){console.error('services de l app : '+(mine.map(txt).join(', ')||'aucun'));` +
+            `process.exit(1)}"`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
 ];
 
 /**

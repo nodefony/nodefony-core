@@ -130,12 +130,16 @@ Une sonde ajoutée sans son échantillon doit se voir, pas se fondre dans le ver
 c'est la règle « une capacité arrive AVEC sa tâche », appliquée à la tâche
 elle-même.
 
-Neuf tâches déroulées par un agent réel, en mode autonome, dans une application
-fraîche : « CRUD produit », « protège une route », « canal temps réel »,
-« commande CLI », « démarre puis arrête le serveur », « configuration par
-l'environnement », « choisir la bonne brique », « appeler le générateur au lieu
-de l'imiter », « interroger l'application plutôt que lire ses sources ». Jugées
-sur pièces — le transcript (a-t-il APPELÉ l'outil ?) et le diff git (qu'a-t-il
+Treize tâches déroulées par un agent réel, en mode autonome, dans une
+application fraîche. Neuf visent les **générateurs** : « CRUD produit »,
+« protège une route », « canal temps réel », « commande CLI », « démarre puis
+arrête le serveur », « configuration par l'environnement », « choisir la bonne
+brique », « appeler le générateur au lieu de l'imiter », « interroger
+l'application plutôt que lire ses sources ». Quatre visent le **socle**, qui n'a
+pas de générateur et s'imite ou s'ignore : « un service au conteneur »,
+« une trace exploitable en production », « une initialisation au bon moment du
+démarrage », « consommer un service depuis un autre composant ». Jugées sur
+pièces — le transcript (a-t-il APPELÉ l'outil ?) et le diff git (qu'a-t-il
 ÉCRIT ?).
 **Aucun juge automatique n'est un modèle de langage** : uniquement des sondes
 objectives.
@@ -144,7 +148,17 @@ Les meilleurs gates ne lisent pas le dépôt, ils interrogent l'**état** ou
 utilisent **l'outil lui-même comme juge** : plus aucun port tenu après la tâche 5 ;
 `nodefony env --json` pour la 6 (une variable inventée y apparaît « inconnue ») ;
 le catalogue publié pour la 7 (un paquet inventé n'y figure pas) ; le nombre réel
-de routes pour la 9. Un « je l'ai fait » dans un transcript ne prouve rien.
+de routes pour la 9 ; le conteneur de l'application EXÉCUTÉE pour les 10 et 13
+(un service jamais enregistré, ou une dépendance injectée sous un nom qui
+n'existe pas, ne se voient ni à la compilation ni dans une assertion de chaîne).
+Un « je l'ai fait » dans un transcript ne prouve rien.
+
+**Un gate ne littéralise pas ce qu'il peut DÉDUIRE.** Celui de la tâche 13
+demande deux services « à l'application » : écrit `module === "app"`, il
+recalerait un agent qui les range dans un module local — une réponse juste. Il
+croise donc les modules chargés (tout ce qui n'est pas un paquet `@nodefony/*`)
+avec les services enregistrés. Même famille de faute que les sondes qui lisaient
+les tests : le raccourci d'écriture devient un faux rouge.
 
 Et une tâche de configuration ne se juge JAMAIS sur le diff git : la bonne
 réponse vit dans `.env.local`, qui est **gitignoré**. Vécu — deux sondes ont

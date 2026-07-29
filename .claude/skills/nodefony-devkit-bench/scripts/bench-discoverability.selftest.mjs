@@ -297,6 +297,38 @@ const SAMPLES = {
       },
     ],
   },
+
+  // ── T13 ───────────────────────────────────────────────────────────────────
+  "13 :: a lancé create service": {
+    pass: { transcript: `{"command":"npx nodefony create service Vat"}` },
+    fail: {
+      transcript: `{"text":"j'écris la classe du service à la main"}`,
+    },
+  },
+  "13 :: la dépendance vient du conteneur (@inject ou container.get)": {
+    pass: {
+      content: `  constructor(module: Module, @inject("VatService") private vat: VatService) {}`,
+    },
+    fail: { content: `  private vat = new VatService();` },
+  },
+  "13 :: pas d'exemplaire fabriqué à la main (new XService())": {
+    // Le contournement se juge hors des tests : `new VatService()` DANS son
+    // test est la réponse attendue (« testable séparément »).
+    pass: { addedTs: `+    this.vat = vat;` },
+    fail: { addedTs: `+    const vat = new VatService();` },
+  },
+  "13 :: voie déclarative trouvée (injection par constructeur)": {
+    pass: { content: `    @inject("VatService") private vat: VatService,` },
+    fail: { content: `    this.vat = this.container.get("vat");` },
+  },
+  // L'AUTRE voie légitime doit rester acceptée par la sonde de consommation :
+  // c'est elle que l'`AGENTS.md` nomme en premier, et la recaler ferait
+  // dégrader une réponse juste pour plaire à l'instrument.
+  "13 :: la dépendance vient du conteneur (@inject ou container.get) — par résolution":
+    {
+      of: "13 :: la dépendance vient du conteneur (@inject ou container.get)",
+      pass: { content: `    const vat = this.container.get("vat");` },
+    },
 };
 
 const key = (task, probe) => `${task.id} :: ${probe.name}`;
