@@ -75,6 +75,15 @@ La liste **dépend des modules installés** : elle n'est pas la même d'une app 
 l'autre, et elle s'allonge dès que tu en ajoutes un. C'est pour ça qu'elle se
 demande au lieu de se retenir.
 
+**Toujours `npx`, jamais `nodefony` nu.** Le binaire vit dans les `node_modules`
+de CETTE app, pas dans ton PATH : la forme nue rend un code 127 tant que rien
+n'est installé globalement. Une installation globale existe bien
+(`npm i -g nodefony`) — elle sert à créer une app HORS projet — et, dans un
+projet, elle passe la main au binaire local (le projet gagne, comme `gradlew`).
+Mais elle peut être plus ANCIENNE que celle de l'app : `npx` prend directement la
+version que cette application a choisie, sans dépendre de ce qui traîne sur la
+machine.
+
 Celles qu'on n'invente pas — faute de savoir qu'elles existent :
 
 | Besoin | Commande |
