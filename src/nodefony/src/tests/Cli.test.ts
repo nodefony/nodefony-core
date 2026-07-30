@@ -1013,3 +1013,65 @@ describe("Cli — signal handler idempotent", () => {
     }
   });
 });
+
+// ─── Listeners sur `process` — la fuite qui noyait la CI ──────────────────────
+
+describe("Cli — listeners sur process", () => {
+  // Les sept événements qu'une instance complète écoute : quatre signaux, les
+  // avertissements Node, et les deux faces d'un rejet de promesse.
+  const WATCHED = [
+    "SIGINT",
+    "SIGTERM",
+    "SIGHUP",
+    "SIGQUIT",
+    "warning",
+    "rejectionHandled",
+    "unhandledRejection",
+  ] as const;
+  const posés = () =>
+    WATCHED.reduce((n, event) => n + process.listenerCount(event), 0);
+
+  it("rend TOUS ses listeners — N instances ne laissent rien derrière", () => {
+    const N = 15;
+    // Le seuil est relevé le temps du test : au 11ᵉ listener Node émettrait son
+    // `MaxListenersExceededWarning`, dont la charge est l'objet `process`
+    // entier — exactement le bruit que ce test existe pour empêcher.
+    const seuil = process.getMaxListeners();
+    process.setMaxListeners(0);
+    const avant = posés();
+    try {
+      const clis = Array.from(
+        { length: N },
+        (_, i) =>
+          new Cli(`leak-${i}`, {
+            autostart: false,
+            asciify: false,
+            clear: false,
+            autoLogger: false,
+            version: "1.0.0",
+            signals: true,
+            warning: true,
+            promiseRejection: true,
+          }),
+      );
+      assert.strictEqual(
+        posés(),
+        avant + N * WATCHED.length,
+        "chaque instance pose ses sept listeners",
+      );
+      let rendus = 0;
+      for (const cli of clis) {
+        rendus += cli.releaseProcessListeners();
+      }
+      assert.strictEqual(rendus, N * WATCHED.length, "tous rendus, comptés");
+      assert.strictEqual(posés(), avant, "aucun listener ne survit à son Cli");
+      assert.strictEqual(
+        clis[0].releaseProcessListeners(),
+        0,
+        "idempotent : un second appel ne retire rien",
+      );
+    } finally {
+      process.setMaxListeners(seuil);
+    }
+  });
+});

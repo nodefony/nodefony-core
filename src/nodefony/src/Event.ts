@@ -27,7 +27,6 @@ interface EventOptionInterface {
 type ContextType = unknown;
 
 const regListenOn = /^on(.*)$/;
-const defaultNbListeners = 20;
 
 /** Sentinelle de rejet interne au timeout d'{@link Event.emitAsyncGuarded} (jamais exposée). */
 const timeoutSentinel = Symbol("nodefony.emitAsyncGuarded.timeout");
@@ -119,7 +118,11 @@ class Event extends EventEmitter {
    * @param settings - objet de config dont les clés `onXxx` sont auto-bindées
    *   comme listeners (via {@link settingsToListen}).
    * @param context - `this` à bind sur les listeners auto-enregistrés.
-   * @param options - `nbListeners` surcharge la limite Node.js (défaut 20).
+   * @param options - `nbListeners` surcharge la limite d'abonnés de Node.js ;
+   *   absent, c'est celle de Node qui s'applique (10), et le dépassement
+   *   signale une fuite probable. La valeur `0` vaut **illimité**, comme dans
+   *   `setMaxListeners` — un bus dont on SAIT qu'il portera beaucoup d'abonnés
+   *   se déclare ainsi, au lieu de subir un avertissement qui n'annonce rien.
    */
   constructor(
     settings?: EventDefaultInterface,
@@ -127,8 +130,11 @@ class Event extends EventEmitter {
     options?: EventOptionInterface,
   ) {
     super();
-    if (options && options.nbListeners) {
-      this.setMaxListeners(options.nbListeners || defaultNbListeners);
+    // `!== undefined`, et non la véracité : `0` est une valeur DEMANDÉE
+    // (illimité), que `if (options.nbListeners)` rejetait en silence — l'appelant
+    // obtenait la limite par défaut et l'avertissement qu'il cherchait à éviter.
+    if (options?.nbListeners !== undefined) {
+      this.setMaxListeners(options.nbListeners);
     }
     if (settings) {
       this.settingsToListen(settings, context);

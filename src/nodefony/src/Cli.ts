@@ -166,6 +166,21 @@ class Cli extends Service {
    * serveurs). Le 2ᵉ signal force la sortie immédiate — cf {@link handleSignals}.
    */
   protected shuttingDown: boolean = false;
+  /**
+   * Retraits des listeners posés sur `process` — `null` tant qu'aucun n'est
+   * attaché (une instance qui n'écoute rien n'alloue rien).
+   *
+   * Chaque entrée est le retrait de SON listener, fermé sur la référence exacte :
+   * un handler anonyme passé à `process.on` ne peut plus jamais être retiré, et
+   * c'est ce qui faisait de chaque instance une fuite. En production le process
+   * meurt avec son unique `Cli`, mais un runner de tests en crée des dizaines
+   * dans le MÊME process : au 11ᵉ, Node crie `MaxListenersExceededWarning` — et
+   * comme le warning porte l'objet `process` entier, chacun coûtait ~500 lignes
+   * de journal (216 000 lignes sur un seul job de CI, tronqué par GitHub).
+   *
+   * @see {@link releaseProcessListeners}
+   */
+  #detachProcess: Array<() => void> | null = null;
   /** Numéros POSIX → code de sortie forcé `128 + signum` au 2ᵉ signal. */
   protected static readonly SIGNUM: Record<string, number> = {
     SIGHUP: 1,
@@ -286,18 +301,59 @@ class Cli extends Service {
         this.terminate();
       });
     };
-    process.on("SIGINT", () => signalHandler("SIGINT"));
-    process.on("SIGTERM", () => signalHandler("SIGTERM"));
-    process.on("SIGHUP", () => signalHandler("SIGHUP"));
-    process.on("SIGQUIT", () => signalHandler("SIGQUIT"));
+    for (const signal of ["SIGINT", "SIGTERM", "SIGHUP", "SIGQUIT"] as const) {
+      const handler = () => signalHandler(signal);
+      process.on(signal, handler);
+      this.trackProcessListener(() => process.removeListener(signal, handler));
+    }
+  }
+
+  /**
+   * Mémorise DE QUOI retirer un listener de `process`.
+   *
+   * Prend le retrait déjà fermé sur la référence du handler, plutôt que le
+   * couple (événement, handler) : c'est ce qui permet de garder chaque listener
+   * typé exactement (`NodeJS.Signals`, `Error`, `Promise<unknown>`) sans un seul
+   * cast au moment de le retirer.
+   *
+   * @param off - retire le listener correspondant, et rien d'autre.
+   */
+  protected trackProcessListener(off: () => void): void {
+    (this.#detachProcess ??= []).push(off);
+  }
+
+  /**
+   * Retire tous les listeners que cette instance a posés sur `process`.
+   *
+   * Sans effet utile en production — le process meurt avec son `Cli` — mais
+   * indispensable dès qu'un même process en instancie plusieurs (tests, outils
+   * qui enchaînent des commandes) : sinon chaque instance ajoute sept listeners
+   * que personne ne peut plus retirer.
+   *
+   * Idempotent : un second appel ne retire rien et rend `0`.
+   *
+   * @returns le nombre de listeners effectivement retirés.
+   */
+  releaseProcessListeners(): number {
+    if (!this.#detachProcess) {
+      return 0;
+    }
+    const released = this.#detachProcess.length;
+    for (const off of this.#detachProcess) {
+      off();
+    }
+    this.#detachProcess = null;
+    return released;
   }
 
   // Méthode privée pour gérer les avertissements
   private handleWarnings(): void {
-    process.on("warning", (warning) => {
+    const handler = (warning: Error) => {
       this.log(warning, "WARNING");
       this.fire("onNodeWarning", warning, this);
-    });
+    };
+    process.on("warning", handler);
+    this.trackProcessListener(() => process.removeListener("warning", handler));
   }
 
   start(): Promise<Cli | Kernel> {
@@ -398,21 +454,26 @@ class Cli extends Service {
   }
 
   listenRejection() {
-    process.on("rejectionHandled", (promise) => {
+    const onHandled = (promise: Promise<unknown>) => {
       this.log("PROMISE REJECTION EVENT ", "CRITIC", "rejectionHandled");
       this.unhandledRejections.delete(promise);
-    });
-    process.on(
-      "unhandledRejection",
-      (reason: string, promise: Promise<unknown>) => {
-        this.log(
-          `WARNING  !!! PROMISE CHAIN BREAKING : ${reason}`,
-          "WARNING",
-          "unhandledRejection",
-        );
-        console.trace(promise);
-        this.unhandledRejections.set(promise, reason);
-      },
+    };
+    process.on("rejectionHandled", onHandled);
+    this.trackProcessListener(() =>
+      process.removeListener("rejectionHandled", onHandled),
+    );
+    const onUnhandled = (reason: string, promise: Promise<unknown>) => {
+      this.log(
+        `WARNING  !!! PROMISE CHAIN BREAKING : ${reason}`,
+        "WARNING",
+        "unhandledRejection",
+      );
+      console.trace(promise);
+      this.unhandledRejections.set(promise, reason);
+    };
+    process.on("unhandledRejection", onUnhandled);
+    this.trackProcessListener(() =>
+      process.removeListener("unhandledRejection", onUnhandled),
     );
   }
 
@@ -790,6 +851,9 @@ class Cli extends Service {
   }
 
   async terminate(code: number = 0, quiet?: boolean): Promise<void | never> {
+    // Avant toute sortie, y compris la sortie « silencieuse » : une instance qui
+    // se termine ne doit rien laisser sur `process`.
+    this.releaseProcessListeners();
     if (quiet) {
       return;
     }

@@ -7,6 +7,7 @@
  */
 
 import { assert, expect } from "chai";
+import { EventEmitter } from "node:events";
 import Event, { create, notification } from "../Event";
 import { isPromise } from "../Tools";
 
@@ -558,5 +559,22 @@ describe("Event — charge", () => {
     assert.strictEqual(ev.listenerCount("onLeak"), 200);
     ev.removeAllListeners("onLeak");
     assert.strictEqual(ev.listenerCount("onLeak"), 0);
+  });
+});
+
+describe("Event — nbListeners", () => {
+  it("`0` vaut ILLIMITÉ, comme setMaxListeners", () => {
+    const ev = new Event(undefined, undefined, { nbListeners: 0 });
+    assert.strictEqual(ev.getMaxListeners(), 0);
+  });
+
+  it("une valeur explicite est appliquée telle quelle", () => {
+    const ev = new Event(undefined, undefined, { nbListeners: 42 });
+    assert.strictEqual(ev.getMaxListeners(), 42);
+  });
+
+  it("sans option, la limite de Node s'applique — le dépassement reste un signal", () => {
+    const ev = new Event();
+    assert.strictEqual(ev.getMaxListeners(), EventEmitter.defaultMaxListeners);
   });
 });
