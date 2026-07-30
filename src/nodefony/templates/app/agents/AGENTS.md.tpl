@@ -10,9 +10,11 @@
 > squelette de module, c'est le signal que tu as raté une commande de la
 > table ci-dessous — arrête-toi et lance-la.
 >
-> Fichier 100 % généré (nodefony <%= it.nodefonyVersion %>) — régénéré par les
-> commandes `create`, il ne peut pas mentir. Tes leçons propres à CETTE app
-> vont dans la zone « Notes » en bas : elle survit à la régénération.
+> **Tu SERS un fichier ?** Trois façades, jamais `createReadStream` à la main :
+> `this.renderMediaStream(f)` pour un média qu'on parcourt (`Range` → 206),
+> `this.streamFile(f)` pour le fichier entier, `this.renderFileDownload(f)` pour
+> forcer le téléchargement. Le faire soi-même rend une réponse que le client ne
+> peut pas lire — le détail, plus bas, est MESURÉ.
 
 ## Générateurs — appelle-les, ne recompose jamais leur sortie de mémoire
 
@@ -409,6 +411,10 @@ perdu à chaque exécution. `npm run test:e2e` gère déjà ce cycle tout seul.
    la zone Notes — pas dans des commentaires éparpillés.
 
 ## Notes de cette app (zone préservée à la régénération)
+
+Fichier 100 % généré (nodefony <%= it.nodefonyVersion %>) — régénéré par les
+commandes `create`, il ne peut pas mentir. Tes leçons propres à CETTE app vont
+dans la zone ci-dessous : elle survit à la régénération.
 
 <!-- app-notes:start -->
 
