@@ -29,6 +29,18 @@
 
 ## 🧪 Suspecter son INSTRUMENT avant le sujet mesuré
 
+- `[1× — 2026-07-30e]` 🔴 **Un daemon de dev qui tourne RÉÉCRIT l'artefact qu'on s'apprête à
+  mesurer.** Un `nodefony-dev-supervisor` vieux de 2 h 16 rebâtissait le core à chaque `Edit` : ma
+  mesure « AVANT le correctif » sur le binaire lisait déjà l'APRÈS, et allait me faire conclure
+  « le trou annoncé n'existe pas ». Le réflexe qui a sauvé la mesure — chercher POURQUOI l'ancien
+  code se comportait bien, au lieu de croire le verdict — est le même que pour une sonde. Avant
+  toute mesure par contraste : `ps` sur les process du projet, et vérifier la date/empreinte de
+  l'artefact, pas seulement celle de la source. Ici le contraste utile est venu d'ailleurs : le
+  DÉBRANCHEMENT du code neuf, qui ne dépend d'aucun artefact bâti.
+- `[2× — 2026-07-30e]` **7 regex `.{0,90}` sur une ligne de 34 448 caractères = commande expirée
+  à 2 min ; et un simple `rg -n` multi-fichiers qui touche cette ligne rend 35 KB d'un coup.**
+  `MIGRATION_STATUS.md:150` fait 34 KB sur UNE ligne. Ne jamais l'inclure dans un `rg` exploratoire :
+  le cibler seul, ou `fold -w 200` d'abord.
 - `[1× — 2026-07-30c]` 🔴 **Un `trap … EXIT INT TERM` en zsh restaure PUIS REPREND la boucle.**
   Le script de banc a reçu son SIGTERM, remis le gabarit à HEAD… et continué à mesurer l'état
   BEFORE — c'est-à-dire à mesurer AFTER en croyant l'inverse. Il manquait `exit` : `trap restore
@@ -38,9 +50,6 @@ EXIT` d'un côté, `trap 'restore; exit 130' INT TERM` de l'autre. Un banc qui s
   a rendu le run de 10 h (haiku) pendant que celui de 15 h montait encore son décor : « le modèle
   n'est pas le bon » — faux. Toute sonde qui cherche « le plus récent » se borne au run COURANT
   (`find -newer <marqueur du lancement>`).
-- `[1× — 2026-07-30c]` **7 regex `.{0,90}` sur une ligne de 34 448 caractères = commande expirée
-  à 2 min.** `MIGRATION_STATUS.md:150` fait 34 KB sur UNE ligne. Sur un fichier à lignes énormes :
-  `fold -w 200` d'abord, jamais un quantificateur borné répété.
 - `[1× — 2026-07-30]` **Comparer une heure UTC à une heure locale fait conclure à un run bloqué
   depuis deux heures.** Les décors du banc s'horodatent en UTC ; `ELAPSED` de `ps` disait 9 minutes.
   Avant d'annoncer un blocage : lire un compteur, pas une soustraction de fuseaux.
