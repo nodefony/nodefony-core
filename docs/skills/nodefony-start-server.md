@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-07-27
+updated: 2026-07-30
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-start-server/SKILL.md"
 ---
@@ -68,7 +68,7 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `start.sh` | start.sh — démarre le serveur Nodefony de manière fiable. | `--all` `--cluster` `--detach` `--force-build` `--health` `--log` `--wait` `--workers` | — |
+| `start.sh` | start.sh — démarre le serveur Nodefony de manière fiable. | `--all` `--cluster` `--detach` `--force-build` `--health` `--log` `--wait` `--workers` | `NF__SECURITY__RATELIMIT__ENABLED` |
 | `stop.sh` | stop.sh — arrête le serveur Nodefony proprement (one-shot, pas de respawn). | — | — |
 
 **Invocation telle que documentée dans chaque script :**
@@ -77,6 +77,8 @@ script, donc toujours à jour après régénération.
 Usage : bash .claude/skills/nodefony-start-server/start.sh [-d] [--force-build] [--cluster [-w N]]
 Usage : bash .claude/skills/nodefony-start-server/stop.sh
 ```
+
+**Toutes les variables lues par ce skill** : `NF__SECURITY__RATELIMIT__ENABLED`
 
 ## Conformité au standard Agent Skills
 

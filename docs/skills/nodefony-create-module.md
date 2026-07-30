@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-07-27
+updated: 2026-07-30
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-create-module/SKILL.md"
 ---
@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-create-module/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Développer le framework |
-| Corps | 276 lignes |
-| Coût d'activation | ~4 970 tokens (le corps est chargé à l'invocation) |
+| Corps | 278 lignes |
+| Coût d'activation | ~5 009 tokens (le corps est chargé à l'invocation) |
 | Description | 891 / 1024 caractères |
 | Déclencheurs | 10 |
 | Ressources `references/` | 1 page(s) |
@@ -87,7 +87,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 276 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 278 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

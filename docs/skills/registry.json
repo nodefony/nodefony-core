@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-07-27",
+  "generatedAt": "2026-07-30",
   "count": 23,
   "conformant": 23,
   "skills": [
@@ -282,8 +282,8 @@
       ],
       "description": "Scaffold d'un package @nodefony/* du REPO FRAMEWORK (src/packages/) — package.json, tsconfig, rolldown, structure nodefony/{interfaces,service,command,src,config}/, index.ts (Module + @services + exports), CLAUDE.md, MEMORY.md, README.md, peerDeps, manifeste `modules`. Dans une APPLICATION, le scaffold d'un module est une commande — `nodefony create module <nom>` — et ce skill s'y délègue au lieu de la réimplémenter (une seule source de templates). À charger AVANT d'écrire le moindre fichier d'un module neuf : recomposer le squelette à la main produit un module non conforme (types, exports, config, docs) que rien ne signale. Déclencheurs : \"crée un module\", \"scaffold module\", \"nouveau module nodefony\", \"génère un module\", \"create module\", \"bootstrap module\", \"module @nodefony/...\", \"j'ai besoin d'un nouveau paquet\", \"ajouter un module au framework\", \"structure d'un module neuf\".",
       "cost": {
-        "bodyLines": 276,
-        "approxTokens": 4970
+        "bodyLines": 278,
+        "approxTokens": 5009
       },
       "requires": [],
       "resources": {
@@ -339,7 +339,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "276",
+            "detail": "278",
             "advisory": true
           }
         ]
@@ -457,19 +457,21 @@
     },
     {
       "name": "nodefony-devkit-bench",
-      "summary": "Éprouve ce que le scaffold de Nodefony PRODUIT, par deux mesures — le code généré tient-il debout (il compile, ses tests passent, sa ressource répond vraiment en HTTP), et un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner.",
+      "summary": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs.",
       "family": "Autres",
-      "version": "1.0.0",
+      "version": "1.2.0",
       "keywords": [],
       "triggers": [],
-      "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par deux mesures — le code généré tient-il debout (il compile, ses tests passent, sa ressource répond vraiment en HTTP), et un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner. À charger AVANT de déclarer finie une évolution des gabarits, de la grammaire de champs, du moteur de génération ou du contrat de ressource : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un échantillon viole son propre schéma, qu'une relation déclarée fait lever l'ORM au démarrage, ou qu'un type généré ne compile pas. Porte l'interprétation des échecs et les pièges de décor. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"prouver qu'une vague devkit est finie\", \"tester une app témoin\".",
+      "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\".",
       "cost": {
-        "bodyLines": 200,
-        "approxTokens": 3079
+        "bodyLines": 381,
+        "approxTokens": 5677
       },
       "requires": [
         "serveur UP",
-        "base de données"
+        "base de données",
+        "docker",
+        "redis"
       ],
       "resources": {
         "references": [],
@@ -557,11 +559,19 @@
                 "help": ""
               },
               {
+                "flag": "--no-install",
+                "help": ""
+              },
+              {
                 "flag": "--output-format",
                 "help": ""
               },
               {
                 "flag": "--preset",
+                "help": ""
+              },
+              {
+                "flag": "--repack",
                 "help": ""
               },
               {
@@ -591,15 +601,235 @@
             ],
             "env": [
               {
-                "name": "DEVKIT_BENCH_AGENT",
+                "name": "LINKED",
                 "help": ""
               },
               {
-                "name": "DEVKIT_BENCH_AGENT_ARGS",
+                "name": "NF_DEVKIT_BENCH_AGENT",
                 "help": ""
               },
               {
-                "name": "DEVKIT_BENCH_MODEL",
+                "name": "NF_DEVKIT_BENCH_AGENT_ARGS",
+                "help": ""
+              },
+              {
+                "name": "NF_DEVKIT_BENCH_MODEL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/bench-discoverability.selftest.mjs",
+            "purpose": "Auto-contrôle des sondes du banc de découvrabilité — le juge, AVANT le verdict.",
+            "usage": [
+              "node bench-discoverability.selftest.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--describe-json",
+                "help": ""
+              },
+              {
+                "flag": "--dry-run",
+                "help": ""
+              },
+              {
+                "flag": "--help",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--kind",
+                "help": ""
+              },
+              {
+                "flag": "--prove",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/bench-schema.mjs",
+            "purpose": "Banc de SCHÉMA — ce que la grammaire de champs ne sait pas exprimer.",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--allow-empty",
+                "help": ""
+              },
+              {
+                "flag": "--analyze-only",
+                "help": ""
+              },
+              {
+                "flag": "--dangerously-skip-permissi",
+                "help": ""
+              },
+              {
+                "flag": "--detach",
+                "help": ""
+              },
+              {
+                "flag": "--dialect",
+                "help": ""
+              },
+              {
+                "flag": "--dir",
+                "help": ""
+              },
+              {
+                "flag": "--dump-only",
+                "help": ""
+              },
+              {
+                "flag": "--frontend",
+                "help": ""
+              },
+              {
+                "flag": "--jq",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--link",
+                "help": ""
+              },
+              {
+                "flag": "--model",
+                "help": ""
+              },
+              {
+                "flag": "--no-audit",
+                "help": ""
+              },
+              {
+                "flag": "--no-fund",
+                "help": ""
+              },
+              {
+                "flag": "--no-install",
+                "help": ""
+              },
+              {
+                "flag": "--output-format",
+                "help": ""
+              },
+              {
+                "flag": "--preset",
+                "help": ""
+              },
+              {
+                "flag": "--repack",
+                "help": ""
+              },
+              {
+                "flag": "--schema",
+                "help": ""
+              },
+              {
+                "flag": "--schema-only",
+                "help": ""
+              },
+              {
+                "flag": "--setup-only",
+                "help": ""
+              },
+              {
+                "flag": "--verbose",
+                "help": ""
+              },
+              {
+                "flag": "--wait",
+                "help": ""
+              },
+              {
+                "flag": "--yes",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "AGENT",
+                "help": ""
+              },
+              {
+                "name": "DIALECT",
+                "help": ""
+              },
+              {
+                "name": "LINKED",
+                "help": ""
+              },
+              {
+                "name": "MODEL",
+                "help": ""
+              },
+              {
+                "name": "NF_DEVKIT_BENCH_AGENT",
+                "help": ""
+              },
+              {
+                "name": "NF_DEVKIT_BENCH_AGENT_ARGS",
+                "help": ""
+              },
+              {
+                "name": "NF_DEVKIT_BENCH_MODEL",
+                "help": ""
+              },
+              {
+                "name": "NF_MYSQL_URL",
+                "help": ""
+              },
+              {
+                "name": "NF_PG_URL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/bench-schema.selftest.mjs",
+            "purpose": "Éprouve le BANC lui-même — avant qu'il ne juge quoi que ce soit.",
+            "usage": [
+              "node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.selftest.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--allow-no-pg",
+                "help": ""
+              },
+              {
+                "flag": "--dump-only",
+                "help": ""
+              },
+              {
+                "flag": "--prove",
+                "help": ""
+              },
+              {
+                "flag": "--schema",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "JUDGE_TABLE",
+                "help": ""
+              },
+              {
+                "name": "NF_PG_URL",
                 "help": ""
               }
             ],
@@ -613,6 +843,10 @@
               "node scripts/devkit-verify.mjs              # décor + toutes les étapes"
             ],
             "options": [
+              {
+                "flag": "--controller",
+                "help": ""
+              },
               {
                 "flag": "--detach",
                 "help": ""
@@ -639,6 +873,10 @@
               },
               {
                 "flag": "--link",
+                "help": ""
+              },
+              {
+                "flag": "--module",
                 "help": ""
               },
               {
@@ -682,6 +920,14 @@
               {
                 "name": "APP",
                 "help": ""
+              },
+              {
+                "name": "MODULE",
+                "help": ""
+              },
+              {
+                "name": "MODULE_PKG",
+                "help": ""
               }
             ],
             "output": "",
@@ -707,7 +953,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "939",
+            "detail": "1016",
             "advisory": false
           },
           {
@@ -737,7 +983,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "200",
+            "detail": "381",
             "advisory": true
           }
         ]
@@ -1073,8 +1319,8 @@
       ],
       "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
       "cost": {
-        "bodyLines": 354,
-        "approxTokens": 7478
+        "bodyLines": 355,
+        "approxTokens": 7507
       },
       "requires": [],
       "resources": {
@@ -1149,7 +1395,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "354",
+            "detail": "355",
             "advisory": true
           }
         ]
@@ -3718,7 +3964,12 @@
                 "help": ""
               }
             ],
-            "env": [],
+            "env": [
+              {
+                "name": "NF__SECURITY__RATELIMIT__ENABLED",
+                "help": ""
+              }
+            ],
             "output": "",
             "selfDocumented": false
           },

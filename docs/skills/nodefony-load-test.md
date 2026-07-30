@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-07-27
+updated: 2026-07-30
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-load-test/SKILL.md"
 ---
@@ -73,7 +73,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 152 |
+| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 157 |
 
 
 ## Scripts embarqués

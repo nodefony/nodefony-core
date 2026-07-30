@@ -182,8 +182,8 @@ serait sans effet à la régénération suivante.
 ```nodefony-cards
 [
   { "icon": "🔧", "title": "devkit-bench", "href": "skills/nodefony-devkit-bench.md",
-    "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par deux mesures — le code généré tient-il debout (il compile, ses tests passent, sa ressource répond vraiment en HTTP), et un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner.",
-    "meta": "🟢 conforme v1.0.0 · ⚙️ 2 scripts" }
+    "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
+    "meta": "🟢 conforme v1.2.0 · ⚙️ 5 scripts" }
 ]
 ```
 <!-- skills-cards:end -->

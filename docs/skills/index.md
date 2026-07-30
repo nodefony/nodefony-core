@@ -5,7 +5,7 @@ audience: humain
 topic: skills
 tests: none
 status: stable
-updated: 2026-07-27
+updated: 2026-07-30
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -145,8 +145,8 @@ source: "docs/skills/index.md"
 ```nodefony-cards
 [
   { "icon": "🔧", "title": "devkit-bench", "href": "nodefony-devkit-bench.md",
-    "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par deux mesures — le code généré tient-il debout (il compile, ses tests passent, sa ressource répond vraiment en HTTP), et un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner.",
-    "meta": "🟢 conforme v1.0.0 · ⚙️ 2 scripts" }
+    "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
+    "meta": "🟢 conforme v1.2.0 · ⚙️ 5 scripts" }
 ]
 ```
 
@@ -157,11 +157,11 @@ source: "docs/skills/index.md"
 | [`nodefony-check-externals`](nodefony-check-externals.md) | — | 86 | 0 | 0 | ✅ |
 | [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | — | 83 | 0 | 0 | ✅ |
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 247 | 1 | 0 | ✅ |
-| [`nodefony-create-module`](nodefony-create-module.md) | — | 276 | 1 | 0 | ✅ |
+| [`nodefony-create-module`](nodefony-create-module.md) | — | 278 | 1 | 0 | ✅ |
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 220 | 0 | 0 | ✅ |
-| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.0.0 | 200 | 0 | 2 | ✅ |
+| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.2.0 | 381 | 0 | 5 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 2.4.0 | 459 | 2 | 7 | ✅ |
-| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 354 | 9 | 0 | ✅ |
+| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 355 | 9 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 101 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 174 | 3 | 3 | ✅ |
 | [`nodefony-inspect`](nodefony-inspect.md) | 1.0.0 | 258 | 0 | 0 | ✅ |

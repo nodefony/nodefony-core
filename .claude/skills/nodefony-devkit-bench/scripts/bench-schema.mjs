@@ -99,7 +99,7 @@
  * `dist/` local. L'agent tourne SANS garde-fou d'approbation dans un décor
  * jetable : ne jamais pointer ce banc sur un vrai projet.
  *
- * Variables : `DEVKIT_BENCH_AGENT` · `DEVKIT_BENCH_MODEL` (défaut `haiku` — le
+ * Variables : `NF_DEVKIT_BENCH_AGENT` · `NF_DEVKIT_BENCH_MODEL` (défaut `haiku` — le
  * cas le plus défavorable est le seul qui prouve : un modèle fort compense les
  * trous de la grammaire en devinant juste).
  */
@@ -163,10 +163,10 @@ const LINKED = process.argv.includes("--link");
 const RUN_ROOT = LINKED
   ? path.join(REPO, "tmp", "devkit-schema")
   : path.join(os.tmpdir(), "nodefony-devkit-schema");
-const AGENT = process.env.DEVKIT_BENCH_AGENT ?? "claude";
-const MODEL = process.env.DEVKIT_BENCH_MODEL ?? "haiku";
-const AGENT_ARGS = process.env.DEVKIT_BENCH_AGENT_ARGS
-  ? process.env.DEVKIT_BENCH_AGENT_ARGS.split(" ")
+const AGENT = process.env.NF_DEVKIT_BENCH_AGENT ?? "claude";
+const MODEL = process.env.NF_DEVKIT_BENCH_MODEL ?? "haiku";
+const AGENT_ARGS = process.env.NF_DEVKIT_BENCH_AGENT_ARGS
+  ? process.env.NF_DEVKIT_BENCH_AGENT_ARGS.split(" ")
   : [
       "-p",
       "--output-format",

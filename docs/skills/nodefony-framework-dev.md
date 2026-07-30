@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-07-27
+updated: 2026-07-30
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 ---
@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 | --- | --- |
 | Version | `2.0.0` |
 | Famille | Développer le framework |
-| Corps | 354 lignes |
-| Coût d'activation | ~7 478 tokens (le corps est chargé à l'invocation) |
+| Corps | 355 lignes |
+| Coût d'activation | ~7 507 tokens (le corps est chargé à l'invocation) |
 | Description | 980 / 1024 caractères |
 | Déclencheurs | 17 |
 | Ressources `references/` | 9 page(s), 82 fichiers au total |
@@ -68,11 +68,11 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/conventions.md` | Conventions de structure — modules, types, configuration | 216 |
-| `references/core.md` | Core (nodefony) — référence complète (recettes + API + internals + gotchas) | 713 |
+| `references/core.md` | Core (nodefony) — référence complète (recettes + API + internals + gotchas) | 721 |
 | `references/framework.md` | @nodefony/framework (Router/Controller/admin) — référence complète (recettes + API + internals + gotchas) | 567 |
 | `references/gotchas.md` | Gotchas & diagnostic — règles durables (vérité courante) | 94 |
 | `references/http.md` | @nodefony/http (pipeline/serveurs/WS/TLS) — référence complète (recettes + API + internals + gotchas) | 586 |
-| `references/orm.md` | ORM (orm-core/drizzle/mongoose) — référence complète (recettes + API + internals + gotchas) | 657 |
+| `references/orm.md` | ORM (orm-core/drizzle/mongoose) — référence complète (recettes + API + internals + gotchas) | 683 |
 | `references/portabilite.md` | Portabilité — écrire du code qui tourne sur les 3 plateformes | 141 |
 | `references/realtime.md` | Realtime (WS/hub/RealtimeService) — référence complète (recettes + API + internals + gotchas) | 593 |
 | `references/security.md` | Référence SÉCURITÉ (coder AVEC la sécurité) — intemporel | 67 |
@@ -95,7 +95,7 @@ _(+ 73 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 354 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 355 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

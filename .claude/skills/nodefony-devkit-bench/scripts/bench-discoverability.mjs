@@ -56,7 +56,7 @@
  *
  * Prérequis : le checkout est BUILDÉ (`npm run build` — l'app témoin se lie au
  * dist local via --link) et le CLI `claude` est disponible (surchargable :
- * DEVKIT_BENCH_AGENT="mon-cli" — il doit accepter un prompt en argument,
+ * NF_DEVKIT_BENCH_AGENT="mon-cli" — il doit accepter un prompt en argument,
  * travailler dans le cwd et écrire son transcript sur stdout).
  *
  * ⚠️ L'agent tourne SANS garde-fou d'approbation, dans un décor JETABLE
@@ -113,20 +113,20 @@ const LINKED = process.argv.includes("--link");
 const RUN_ROOT = LINKED
   ? path.join(REPO, "tmp", "devkit-bench")
   : path.join(os.tmpdir(), "nodefony-devkit-bench");
-const AGENT = process.env.DEVKIT_BENCH_AGENT ?? "claude";
+const AGENT = process.env.NF_DEVKIT_BENCH_AGENT ?? "claude";
 /**
  * Modèle de l'agent — VARIABLE DU DÉCOR : deux runs sur deux modèles ne se
  * comparent pas. Défaut = le modèle LÉGER de la famille (haiku), à dessein :
  * le banc mesure la DÉCOUVRABILITÉ de l'app, pas l'intelligence de l'agent.
  * Un modèle fort compense les trous du devkit en devinant juste — un modèle
  * léger ne réussit que si l'app le GUIDE (AGENTS.md, docs, générateurs). Le
- * test le plus défavorable est le seul qui prouve. DEVKIT_BENCH_MODEL pour
+ * test le plus défavorable est le seul qui prouve. NF_DEVKIT_BENCH_MODEL pour
  * comparer (le rapport enregistre toujours le modèle RELEVÉ au transcript).
  */
-const MODEL = process.env.DEVKIT_BENCH_MODEL ?? "haiku";
+const MODEL = process.env.NF_DEVKIT_BENCH_MODEL ?? "haiku";
 /** Args du mode headless du CLI claude — transcript JSONL complet sur stdout. */
-const AGENT_ARGS = process.env.DEVKIT_BENCH_AGENT_ARGS
-  ? process.env.DEVKIT_BENCH_AGENT_ARGS.split(" ")
+const AGENT_ARGS = process.env.NF_DEVKIT_BENCH_AGENT_ARGS
+  ? process.env.NF_DEVKIT_BENCH_AGENT_ARGS.split(" ")
   : [
       "-p",
       "--output-format",
@@ -1217,6 +1217,53 @@ function runGates(app, runDir, task) {
 }
 
 /** Juge UNE tâche sur pièces : transcript + diff du commit de la tâche. */
+/**
+ * Effort dépensé par l'agent sur une tâche : tours, durée, coût.
+ *
+ * Le banc poursuit DEUX buts, et celui-ci se rate parce que rien ne le regardait :
+ * l'agent ne doit pas inventer, ET il doit y arriver en un minimum de tours. Ce
+ * que l'agent ne trouve pas du premier coup, il le cherche — ou il l'invente ;
+ * un chiffre de tours qui monte est donc le même défaut vu par l'autre bout,
+ * même quand le verdict reste vert.
+ *
+ * La mesure n'est pas fabriquée ici : le harnais la publie lui-même en dernière
+ * ligne du transcript. On la LIT, pour qu'elle entre dans le rapport et
+ * s'affiche — un chiffre qu'il faut aller chercher au `jq` n'est regardé par
+ * personne.
+ *
+ * @param {string} transcriptPath - le `task-<n>.transcript.jsonl` de la tâche.
+ * @returns {{tours: number, dureeMs: number, coutUsd: number} | null} `null` si
+ *   le harnais n'a rien publié (agent tué, transcript tronqué).
+ */
+function lireEffort(transcriptPath) {
+  if (!existsSync(transcriptPath)) {
+    return null;
+  }
+  for (const ligne of readFileSync(transcriptPath, "utf8")
+    .split("\n")
+    .reverse()) {
+    if (!ligne.includes('"type":"result"')) {
+      continue;
+    }
+    try {
+      const r = JSON.parse(ligne);
+      if (typeof r.num_turns !== "number") {
+        continue;
+      }
+      return {
+        tours: r.num_turns,
+        dureeMs: r.duration_ms ?? 0,
+        coutUsd: r.total_cost_usd ?? 0,
+      };
+    } catch {
+      // Ligne tronquée (agent tué en plein écrit) : ce n'est pas une erreur du
+      // banc, l'effort est simplement inconnu pour cette tâche.
+      return null;
+    }
+  }
+  return null;
+}
+
 function judgeTask(app, runDir, task) {
   const transcript = existsSync(
     path.join(runDir, `task-${task.id}.transcript.jsonl`),
@@ -1347,11 +1394,28 @@ function judgeTask(app, runDir, task) {
   const guessed = probes.filter((p) => !p.pass && !p.observe).length;
   const observed = probes.filter((p) => !p.pass && p.observe).length;
   const verdict = guessed === 0 ? "PASS" : "FAIL";
+  const effort = lireEffort(
+    path.join(runDir, `task-${task.id}.transcript.jsonl`),
+  );
   console.log(
     `  → ${verdict} — ${guessed} sonde(s) rouge(s) sur ${probes.filter((p) => !p.observe).length}` +
       (observed ? ` (+ ${observed} observation non tenue)` : ""),
   );
-  return { id: task.id, name: task.name, verdict, guessed, observed, probes };
+  if (effort) {
+    console.log(
+      `     effort : ${effort.tours} tours · ${Math.round(effort.dureeMs / 1000)} s · ` +
+        `${effort.coutUsd.toFixed(2)} $`,
+    );
+  }
+  return {
+    id: task.id,
+    name: task.name,
+    verdict,
+    guessed,
+    observed,
+    effort,
+    probes,
+  };
 }
 
 function main() {
