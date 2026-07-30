@@ -415,6 +415,68 @@ const SAMPLES = {
       transcript: `{"file_path":"node_modules/@nodefony/framework/docs/controller.md"}`,
     },
   },
+
+  // ── T16 ───────────────────────────────────────────────────────────────────
+  "16 :: la session est DÉCLARÉE (@UseSession ou @Session)": {
+    pass: { content: `  @Get("/cart")\n  @UseSession()\n  cart() {}` },
+    // Le contournement : un identifiant de visiteur posé à la main en cookie.
+    fail: {
+      content: `  cart() { const id = this.getRequestCookies("visitor"); }`,
+    },
+  },
+  "16 :: la mutation exige une preuve d'intention (@CsrfProtect)": {
+    pass: { content: `  @Post("/cart/items")\n  @CsrfProtect()\n  add() {}` },
+    // La défense de provenance seule : elle refuse un site hostile, elle
+    // n'exige aucune intention. C'est exactement ce que la tâche cherche à voir.
+    fail: {
+      content: `  add() { if (this.request.headers.origin !== SELF) throw new HttpError("nope", 403); }`,
+    },
+  },
+  "16 :: pas de registre global tenant lieu de session": {
+    pass: {
+      addedTs: `+  @UseSession()\n+  cart(@Session("cart") cart: string[]) {`,
+    },
+    fail: { addedTs: `+const paniers = new Map<string, string[]>();` },
+    extra: [
+      {
+        // Le waiver : la session EST déclarée, donc cette structure fait autre
+        // chose — un catalogue, un cache de prix. La reprocher mesurerait un
+        // style, pas une découvrabilité.
+        label: "Map À CÔTÉ de la session déclarée → sans objet",
+        matter: {
+          addedTs: `+const catalogue = new Map<string, number>();`,
+          content: `  @UseSession()\n  cart() {}`,
+        },
+        expect: true,
+      },
+    ],
+  },
+  "16 :: pas de jeton anti-rejeu fabriqué à la main": {
+    pass: { addedTs: `+  @CsrfProtect()\n+  add(@Body("sku") sku: string) {` },
+    fail: {
+      addedTs: `+    const token = createHmac("sha256", secret).update(sid).digest("hex");`,
+    },
+    extra: [
+      {
+        // Le waiver : la façade est là, donc le HMAC signe autre chose — un
+        // webhook sortant, une empreinte de cache.
+        label: "HMAC À CÔTÉ de @CsrfProtect → sans objet",
+        matter: {
+          addedTs: `+    const sig = createHmac("sha256", k).update(payload).digest("hex");`,
+          content: `  @CsrfProtect()\n  add() {}`,
+        },
+        expect: true,
+      },
+    ],
+  },
+  "16 :: a ouvert la doc CSRF ou session": {
+    pass: {
+      transcript: `{"file_path":"node_modules/@nodefony/security/docs/csrf.md"}`,
+    },
+    fail: {
+      transcript: `{"file_path":"node_modules/@nodefony/security/docs/firewall.md"}`,
+    },
+  },
 };
 
 const key = (task, probe) => `${task.id} :: ${probe.name}`;

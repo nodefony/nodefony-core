@@ -167,6 +167,13 @@ const JUGE_PARAM = path.join(
   "gate-route-param.mjs",
 );
 
+/** Juge de la tâche « état par visiteur + mutation qui prouve son intention ». */
+const JUGE_SESSION = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-session-csrf.mjs",
+);
+
 /**
  * Les 9 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
  * mesure, et deux runs ne se comparent plus. Toute évolution = nouvelle tâche.
@@ -1103,6 +1110,122 @@ export const TASKS = [
             `npm run build >/dev/null 2>&1; ` +
             `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
             `node ${JUGE_PARAM}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+
+  /*
+   *   ─── Deux garanties invisibles, deux contournements qui MARCHENT ────────
+   *
+   *   `@UseSession` et `@CsrfProtect` partagent le profil de T14 : ce que
+   *   l'agent écrit d'instinct fonctionne, passe ses propres tests, et perd la
+   *   garantie sans que rien ne le signale.
+   *
+   *   - un registre au niveau du module tient lieu de session : il rend les
+   *     bonnes valeurs en développement, et donne le panier d'un visiteur à
+   *     tous les autres — visible seulement en interrogeant depuis DEUX clients ;
+   *   - la défense de provenance étant active par défaut, une mutation « a
+   *     l'air » protégée : elle refuse bien un formulaire hostile. Ce qu'elle ne
+   *     fait pas, c'est exiger une preuve d'INTENTION quand la provenance
+   *     manque — et cela ne se voit qu'en frappant sans en-tête de navigateur,
+   *     cas documenté comme passant (`security/docs/csrf.md`, situation 2).
+   *
+   *   ⚠️ `@Scope` et `@RequireScope` ne sont PAS mesurés ici, et c'est un choix.
+   *   Pour `@Scope("singleton")`, un service injectable partagé est une réponse
+   *   au moins aussi bonne — le banc enseigne d'ailleurs les services en T10 et
+   *   T13 : une sonde qui exigerait le décorateur recalerait la meilleure des
+   *   deux réponses. `@RequireScope` exige un jeton MACHINE porteur de scopes
+   *   (clé d'API, JWT d'agent) : son décor est celui d'une tâche à part, pas un
+   *   ajout à celle-ci.
+   *
+   *   La forme du corps est FIGÉE par l'énoncé (`{ "sku": … }`) : le juge doit
+   *   pouvoir muter sans deviner un schéma. Il distingue d'ailleurs un corps
+   *   refusé (422) d'un refus CSRF (403) — sans quoi il accuserait la défense
+   *   pour une validation plus stricte que prévu.
+   */
+  {
+    id: 16,
+    name: "socle — un état par visiteur, et une mutation qui prouve son intention",
+    prompt:
+      "Cette application doit tenir un panier par visiteur, sans compte utilisateur et sans base " +
+      "de données : GET /api/cart rend le panier courant, POST /api/cart/items y ajoute une " +
+      'référence (corps JSON `{ "sku": "…" }`). Le panier doit survivre d\'une requête à ' +
+      "l'autre pour le même visiteur, et deux visiteurs différents ont deux paniers différents. " +
+      "L'ajout est une mutation sensible : elle doit exiger de l'appelant une preuve qu'il a " +
+      "VOULU cette requête, et pas seulement que la requête a l'air de venir du bon site. " +
+      "Termine en prouvant que les tests de l'app passent.",
+    probes: [
+      {
+        // La façade de session — unique, et la seule qui active le moteur : il
+        // n'y a pas de démarrage global « session partout ».
+        kind: "code",
+        name: "la session est DÉCLARÉE (@UseSession ou @Session)",
+        pattern: /@UseSession\s*\(|@Session\s*\(/u,
+        where: "content",
+      },
+      {
+        // La façade d'intention. Nommée séparément de la précédente : les deux
+        // garanties tombent indépendamment, et un rouge doit dire laquelle.
+        kind: "code",
+        name: "la mutation exige une preuve d'intention (@CsrfProtect)",
+        pattern: /@CsrfProtect\s*\(/u,
+        where: "content",
+      },
+      {
+        // Le contournement de la session : un registre au niveau du module.
+        // `unless` — une fois la session déclarée, une structure de ce genre
+        // fait autre chose (un catalogue, un cache) et la reprocher mesurerait
+        // un style. `addedTs` : dans un test, un tel registre est une fixture.
+        kind: "code",
+        name: "pas de registre global tenant lieu de session",
+        // `[^(\n]*` entre le nom et la parenthèse : un générique TypeScript s'y
+        // glisse (`new Map<string, string[]>()`), et une regex qui ne le
+        // franchit pas laisse passer le contournement le plus probable. Le
+        // selftest l'a montré avant qu'un seul agent ne soit lancé — c'est
+        // exactement la faute « la regex qui ne franchissait pas la parenthèse
+        // d'un appel imbriqué », commise une seconde fois sous une autre forme.
+        pattern:
+          /^\+\s*(?:const|let)\s+\w+\s*(?::[^=]*)?=\s*new\s+(?:Map|Set)\b[^(\n]*\(/mu,
+        where: "addedTs",
+        unless: /@UseSession\s*\(|@Session\s*\(/u,
+        invert: true,
+      },
+      {
+        // Le contournement du jeton : le fabriquer soi-même. Un agent qui a
+        // `@CsrfProtect` n'a aucune raison de signer quoi que ce soit.
+        kind: "code",
+        name: "pas de jeton anti-rejeu fabriqué à la main",
+        pattern: /createHmac\s*\(|timingSafeEqual\s*\(/u,
+        where: "addedTs",
+        unless: /@CsrfProtect\s*\(/u,
+        invert: true,
+      },
+      {
+        // OBSERVATION : la réponse est dans la doc installée du module security,
+        // que rien n'oblige à ouvrir. On regarde par où il est passé sans faire
+        // d'un chemin la condition du verdict.
+        kind: "transcript",
+        name: "a ouvert la doc CSRF ou session",
+        pattern: /security\/docs\/csrf\.md|http\/docs\/session/u,
+        observe: true,
+      },
+      {
+        // LE juge d'état, et il distingue NEUF situations : accepter sans
+        // jeton, refuser malgré le jeton, refuser pour une autre raison, ne
+        // rien retenir, tout partager. Un rouge indifférencié accuserait au
+        // hasard — la faute déjà payée sur la tâche 14.
+        kind: "gate",
+        name: "jeton exigé puis accepté, panier isolé par visiteur",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_SESSION} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_SESSION}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
       },

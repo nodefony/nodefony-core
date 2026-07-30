@@ -131,6 +131,32 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         run: npm run skills:check
 
+      # Les JUGES du banc devkit, éprouvés — pas le banc lui-même.
+      #
+      # Le banc lance de vrais agents et coûte de l'argent : il n'a rien à faire
+      # dans une passe automatique. Ses auto-contrôles, eux, ne lancent aucun
+      # agent, ne montent aucun décor, et tournent en quelques secondes pour zéro
+      # jeton — or c'est EUX qui décident si un verdict de banc veut dire quelque
+      # chose. Ils vivaient en local sans que rien ne les déclenche : exactement
+      # le motif qui a laissé le lint dériver jusqu'à 263 avertissements.
+      #
+      # `--prove` ampute chaque sonde et exige qu'un cas tombe : une sonde qui
+      # reste verte amputée n'est pas exercée par ses échantillons. Sortie `2` =
+      # couverture incomplète (sonde ajoutée sans son échantillon) — bloquante
+      # ici, parce qu'un vert incomplet lu comme un vert complet est le piège
+      # maison numéro un.
+      #
+      # NON couvert par cette étape : `bench-schema.selftest.mjs`, qui exige une
+      # base PostgreSQL pour exercer son lecteur et sort `2` sans elle. Il est
+      # lancé dans `orm.yml`, là où le service existe déjà.
+      - name: Auto-contrôle des juges du banc devkit
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        run: |
+          node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs
+          node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs --prove
+          node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-route-param.selftest.mjs
+          node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-session-csrf.selftest.mjs
+
   # ─── Tests unit — toutes les plateformes, pas besoin du serveur ─────────────
   #
   # ⚠️ PAS de `needs: build`, et c'est délibéré. Un job qui dépend d'un job À
