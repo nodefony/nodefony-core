@@ -514,6 +514,65 @@ const SAMPLES = {
       transcript: `{"file_path":"node_modules/@nodefony/security/docs/firewall.md"}`,
     },
   },
+
+  // ── T20 ───────────────────────────────────────────────────────────────────
+  "20 :: a lancé create entity": {
+    pass: {
+      transcript: `{"command":"npx nodefony create entity Invoice reference:string! amount:int --yes"}`,
+    },
+    fail: {
+      transcript: `{"text":"j'écris l'entité et son controller à la main"}`,
+    },
+  },
+  "20 :: entité générée (nodefony/entity/)": {
+    pass: { files: ["nodefony/entity/Invoice.ts"] },
+    fail: { files: ["nodefony/controllers/InvoiceController.ts"] },
+  },
+  "20 :: garde du framework (@IsGranted ou zone firewall)": {
+    pass: { content: `  @Delete("/{id}")\n  @IsGranted("ROLE_ADMIN")` },
+    fail: {
+      content: `  @Delete("/{id}")\n  async destroy(@Param("id") id: string) {}`,
+    },
+  },
+  "20 :: la garde est posée sur l'action destructrice elle-même": {
+    pass: {
+      content: `  @Delete("/{id}")\n  @IsGranted("ROLE_ADMIN")\n  async destroy() {}`,
+    },
+    // Une garde posée sur la LECTURE ne protège pas la suppression : la sonde
+    // ne doit pas se contenter de voir les deux décorateurs dans le fichier.
+    fail: {
+      content:
+        `  @IsGranted("ROLE_ADMIN")\n  @route("list", { path: "" })\n  async index() {}\n\n` +
+        `  // ${"…".repeat(120)}\n\n  @Delete("/{id}")\n  async destroy() {}`,
+    },
+    extra: [
+      {
+        label: "décorateurs dans l'ordre inverse",
+        matter: {
+          content: `  @IsGranted("ROLE_ADMIN")\n  @Delete("/{id}")\n  async destroy() {}`,
+        },
+        expect: true,
+      },
+      {
+        // Cette sonde est une OBSERVATION : protéger par une zone du firewall
+        // est une réponse juste qu'elle ne voit pas. Son rouge ne fait pas
+        // échouer la tâche — c'est le juge qui tranche l'effet obtenu.
+        label: "protection par zone firewall — non vue, et c'est assumé",
+        matter: {
+          content: `areas: { factures: { pattern: "^/api/invoices", authenticators: ["session"] } }`,
+        },
+        expect: false,
+      },
+    ],
+  },
+  "20 :: pas de contrôle d'accès artisanal dans le CRUD généré": {
+    pass: {
+      addedTs: `+  @Delete("/{id}")\n+  @IsGranted("ROLE_ADMIN")\n+  async destroy() {}`,
+    },
+    fail: {
+      addedTs: `+    if (!user.roles.includes("ROLE_ADMIN")) throw new HttpError("nope", 403);`,
+    },
+  },
 };
 
 const key = (task, probe) => `${task.id} :: ${probe.name}`;

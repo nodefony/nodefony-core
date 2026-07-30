@@ -57,120 +57,25 @@
  * @module
  */
 import { Bocal, demander, garderPortLibre, sortir } from "./http-probe.mjs";
+import {
+  ADMIN,
+  TEMOIN,
+  estRefus,
+  estSucces,
+  etablirIdentites,
+  repondreArgsTemoin,
+} from "./identites.mjs";
 
 /** Route figée par l'énoncé de la tâche : le juge ne présume d'aucun chemin. */
 const CIBLE = "/api/reports";
 
-/** Point d'entrée d'authentification du framework — jamais écrit par l'agent. */
-const LOGIN = "/nodefony/security/api/auth/login";
-
-/** Qui suis-je : prouve qu'un cookie porte bien une identité établie. */
-const MOI = "/nodefony/security/api/auth/me";
-
-/** Compte administrateur semé au premier démarrage par le preset `complete`. */
-const ADMIN = {
-  username: "admin",
-  password: process.env.NF_ADMIN_PASSWORD ?? "admin",
-};
-
-/**
- * Le témoin : authentifié, sans le moindre rôle d'administration.
- *
- * Créé par le gate (`security:user:add`), pas par l'agent — l'énoncé ne lui
- * demande aucun compte, et faire dépendre le verdict de ce qu'il aurait deviné
- * mesurerait autre chose.
- */
-const TEMOIN = { username: "bench-temoin", password: "TemoinPassw0rd42x" };
-
-/**
- * `--temoin-args` : rend les arguments de création du compte témoin.
- *
- * Le gate doit créer ce compte AVANT de booter, avec la commande du framework.
- * S'il recopiait l'identifiant et le mot de passe dans sa ligne de commande, la
- * valeur vivrait à deux endroits et divergerait au premier changement — le juge
- * échouerait alors à se connecter à un compte pourtant créé, et accuserait le
- * décor. Une seule source : celle-ci.
- *
- * Sans espace ni caractère spécial : la ligne du gate les découpe en mots.
- */
-if (process.argv.includes("--temoin-args")) {
-  console.log(`${TEMOIN.username} --password ${TEMOIN.password}`);
-  process.exit(0);
-}
-
+repondreArgsTemoin();
 await garderPortLibre();
 
-/**
- * Ouvre une session et rend son bocal — ou la raison de l'échec.
- *
- * Distingue l'application INJOIGNABLE du compte introuvable : « rien ne
- * répond » et « ce compte n'existe pas » appellent deux gestes différents, et
- * les confondre envoie chercher un défaut de seed alors que le serveur n'a
- * jamais démarré.
- *
- * @param {{username: string, password: string}} identite - identifiants.
- * @returns {Promise<{bocal?: Bocal, echec?: string, injoignable?: string}>} bocal utilisable, ou motif.
- */
-const ouvrirSession = async (identite) => {
-  const bocal = new Bocal();
-  const r = await demander("POST", LOGIN, bocal, { corps: identite });
-  if (r.erreur) return { injoignable: r.erreur };
-  if (r.statut !== 200) {
-    return {
-      echec: `POST ${LOGIN} rend ${r.statut} — ${r.corps.slice(0, 160)}`,
-    };
-  }
-  // Le 200 ne suffit pas : c'est le COOKIE rejoué qui doit établir l'identité.
-  const moi = await demander("GET", MOI, bocal);
-  if (moi.erreur) return { injoignable: `GET ${MOI} — ${moi.erreur}` };
-  if (moi.statut !== 200 || !moi.corps.includes(identite.username)) {
-    return {
-      echec:
-        `GET ${MOI} rend ${moi.statut} et ne reconnaît pas « ${identite.username} » : ` +
-        `le cookie de session n'est pas rejoué. Corps : ${moi.corps.slice(0, 120)}`,
-    };
-  }
-  return { bocal };
-};
-
 // ─── 0. LE DÉCOR D'ABORD — un juge sans identités ne rend pas de verdict ────
-const admin = await ouvrirSession(ADMIN);
-if (admin.injoignable) {
-  sortir(
-    4,
-    `CAUSE=aucune-reponse — l'application ne répond pas sur ${LOGIN} : ${admin.injoignable}. ` +
-      `Le serveur n'a pas démarré, ou pas sur ce port. Rien n'a été mesuré.`,
-  );
-}
-if (admin.echec) {
-  sortir(
-    7,
-    `CAUSE=identite-admin-indisponible — impossible d'ouvrir une session « ${ADMIN.username} » : ` +
-      `${admin.echec}. C'est le DÉCOR du banc qui manque (compte semé au premier démarrage par ` +
-      `le preset complete), pas le travail de l'agent. Verdict non rendu.`,
-  );
-}
-
-const temoin = await ouvrirSession(TEMOIN);
-if (temoin.injoignable) {
-  sortir(
-    4,
-    `CAUSE=aucune-reponse-temoin — l'application a cessé de répondre entre deux connexions : ` +
-      `${temoin.injoignable}.`,
-  );
-}
-if (temoin.echec) {
-  sortir(
-    9,
-    `CAUSE=identite-temoin-indisponible — impossible d'ouvrir une session « ${TEMOIN.username} » : ` +
-      `${temoin.echec}. Le compte témoin est créé par le gate (security:user:add), pas par ` +
-      `l'agent. Sans lui on ne mesure que l'anonyme, ce qui ne prouve rien. Verdict non rendu.`,
-  );
-}
-
-/** Un refus du framework : 401 (identité exigée) ou 403 (rôle refusé). */
-const estRefus = (statut) => statut === 401 || statut === 403;
-const estSucces = (statut) => statut >= 200 && statut < 300;
+// Les causes 4, 7 et 9 sortent depuis `identites.mjs` : elles n'accusent pas
+// l'agent, et tout juge de sécurité les partage mot pour mot.
+const { admin, temoin } = await etablirIdentites();
 
 // ─── 1. L'ANONYME — la protection agit-elle, tout court ? ───────────────────
 const anonyme = await demander("GET", CIBLE, new Bocal());
@@ -204,7 +109,7 @@ if (!estRefus(anonyme.statut)) {
 // C'est L'étage qui porte l'information : refuser l'anonyme est gratuit, une
 // zone quelconque y suffit. Refuser quelqu'un d'authentifié SANS le rôle exige
 // une autorisation branchée sur cette route-là.
-const vuTemoin = await demander("GET", CIBLE, temoin.bocal);
+const vuTemoin = await demander("GET", CIBLE, temoin);
 if (vuTemoin.erreur)
   sortir(4, `CAUSE=aucune-reponse-temoin — ${vuTemoin.erreur}`);
 if (estSucces(vuTemoin.statut)) {
@@ -225,7 +130,7 @@ if (!estRefus(vuTemoin.statut)) {
 }
 
 // ─── 3. L'ADMINISTRATEUR — la garde laisse-t-elle passer son destinataire ? ─
-const vuAdmin = await demander("GET", CIBLE, admin.bocal);
+const vuAdmin = await demander("GET", CIBLE, admin);
 if (vuAdmin.erreur) sortir(4, `CAUSE=aucune-reponse-admin — ${vuAdmin.erreur}`);
 if (!estSucces(vuAdmin.statut)) {
   sortir(

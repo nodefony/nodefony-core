@@ -181,6 +181,13 @@ const JUGE_SECURE = path.join(
   "gate-secure-route.mjs",
 );
 
+/** Juge de la tâche « le CRUD généré peut être protégé » — sur le DELETE. */
+const JUGE_ENTITY_DELETE = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-entity-delete.mjs",
+);
+
 /**
  * Les 9 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
  * mesure, et deux runs ne se comparent plus. Toute évolution = nouvelle tâche.
@@ -1267,6 +1274,87 @@ export const TASKS = [
             // une route dédiée, et c'est une réponse juste (vécu au 1ᵉʳ run).
             `npx --no-install nodefony inspect routes --json > .nf-routes.json 2>/dev/null; ` +
             `node ${JUGE_SESSION}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+
+  {
+    // Le générateur d'entité est le SEUL du devkit à produire des routes
+    // destructrices, et son gabarit de controller ne dit pas un mot de
+    // sécurité — là où le gabarit `rest` de `create controller` pose, lui, un
+    // `@IsGranted("ROLE_ADMIN")` sur son DELETE. Un agent qui fait confiance au
+    // code généré livre donc une suppression ouverte, sans avertissement.
+    // Cette tâche mesure ce trou au lieu de l'affirmer.
+    id: 20,
+    name: "le CRUD généré peut être protégé",
+    prompt:
+      "Une facture ne doit pas pouvoir être supprimée par n'importe qui. Ajoute une entité " +
+      "Invoice avec une référence unique (reference) et un montant entier (amount), expose son " +
+      "CRUD REST sous /api/invoices, puis réserve la SUPPRESSION aux administrateurs (rôle " +
+      "ROLE_ADMIN) — un utilisateur authentifié ordinaire doit être refusé par le framework, " +
+      "pas par un contrôle écrit à la main dans l'action. Termine en prouvant que les tests de " +
+      "l'app passent.",
+    probes: [
+      {
+        kind: "transcript",
+        name: "a lancé create entity",
+        pattern: /create\s+entity/u,
+      },
+      {
+        kind: "code",
+        name: "entité générée (nodefony/entity/)",
+        pattern: /nodefony\/entity\//u,
+        where: "files",
+      },
+      {
+        kind: "code",
+        name: "garde du framework (@IsGranted ou zone firewall)",
+        pattern: /@IsGranted|firewalls?\s*:|areas\s*:/u,
+        where: "content",
+      },
+      {
+        // OBSERVATION, pas verdict : protéger par une zone du firewall est une
+        // réponse aussi juste que le décorateur, et elle ne laisse pas cette
+        // trace. Faire échouer là-dessus mesurerait la conformité à UN chemin,
+        // pas la sécurité obtenue — c'est le juge qui tranche l'effet.
+        kind: "code",
+        name: "la garde est posée sur l'action destructrice elle-même",
+        // Fenêtre COURTE, et c'est le fond du sujet : deux décorateurs empilés
+        // sont adjacents (au plus un `@HttpCode` entre eux). Une fenêtre large
+        // traverse une action entière — écrite à 200, la sonde acceptait un
+        // `@IsGranted` posé sur la LECTURE, c'est-à-dire précisément le
+        // contournement qu'elle doit voir. Son propre échantillon l'a montrée.
+        pattern:
+          /@Delete\([^)]*\)[\s\S]{0,60}?@IsGranted|@IsGranted\([^)]*\)[\s\S]{0,60}?@Delete|@IsGranted\([^)]*\)[\s\S]{0,60}?destroy/u,
+        where: "content",
+        observe: true,
+      },
+      {
+        kind: "code",
+        name: "pas de contrôle d'accès artisanal dans le CRUD généré",
+        pattern:
+          /renderJson\([^)]*40[13]|status(?:Code)?\s*=\s*40[13]|(?:HttpError|nodefonyError)\([^)]*40[13]|roles\.(?:includes|indexOf)\(/u,
+        where: "addedTs",
+        invert: true,
+      },
+      {
+        // L'agent crée l'entité ; le juge crée une facture, puis trois
+        // identités tentent de la supprimer. La ressource n'est détruite qu'au
+        // dernier pas — les deux premiers doivent échouer.
+        kind: "gate",
+        name: "suppression : anonyme refusé, authentifié sans le rôle refusé, administrateur servi",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_ENTITY_DELETE} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `NODE_ENV=development npx --no-install nodefony security:user:add ` +
+            `$(node ${JUGE_ENTITY_DELETE} --temoin-args) >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_ENTITY_DELETE}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
       },

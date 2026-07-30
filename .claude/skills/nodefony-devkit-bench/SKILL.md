@@ -190,6 +190,7 @@ node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-route-param.selftest.mjs   # un juge à causes, chacune vue rouge
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-session-csrf.selftest.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-secure-route.selftest.mjs
+node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-entity-delete.selftest.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
 ```
@@ -394,7 +395,32 @@ nomme (`admin-refuse`) au lieu de laisser croire à un rôle mal orthographié.
 `port-deja-tenu`, `identite-admin-indisponible`, `identite-temoin-indisponible`)
 — un juge qui confond « le décor ne m'a pas donné d'identité » avec « l'agent a
 mal protégé » rend le pire des verdicts : un rouge crédible sur un travail
-juste.
+juste. Ces quatre causes, les identités et le vocabulaire du refus vivent dans
+`scripts/lib/identites.mjs` : tout juge de sécurité les partage mot pour mot.
+
+La même mesure porte sur ce que le générateur PRODUIT (tâche 20). Le générateur
+d'entité est le seul du devkit à livrer des routes destructrices, et son gabarit
+de controller ne dit pas un mot de sécurité — là où le gabarit `rest` de
+`create controller` pose, lui, un `@IsGranted("ROLE_ADMIN")` sur son DELETE.
+Vérifié sur une application réelle : le CRUD généré tel quel répond **204 à un
+DELETE anonyme**. Un agent qui fait confiance au code produit livre donc une
+suppression ouverte, sans qu'aucun avertissement ne l'ait alerté ; le banc le
+prouve au lieu de l'affirmer, et le correctif de gabarit se mesurera sur cette
+tâche.
+
+Deux nuances y protègent un agent qui a fait juste : sur une suppression, **404
+compte comme un refus** (ne pas divulguer l'existence d'un objet est une
+pratique de sécurité, pas un défaut — et le cas « la route n'existe pas » tombe
+de toute façon sur l'administrateur) ; et le juge **sème puis rejoue le jeton
+anti-rejeu** si l'application en exige un, sans quoi un agent qui protège aussi
+ses mutations contre le rejeu verrait son administrateur recalé.
+
+⚠️ **Une sonde de proximité se règle sur ce qu'elle traverse.** Celle qui
+vérifie que la garde est posée sur l'action destructrice cherchait `@IsGranted`
+à moins de 200 caractères d'un `@Delete` : assez large pour franchir une action
+entière, donc un `@IsGranted` posé sur la LECTURE la satisfaisait — précisément
+le contournement visé. Deux décorateurs empilés sont adjacents ; la fenêtre est
+courte. C'est l'échantillon de l'auto-contrôle qui l'a montré, pas la relecture.
 
 **Une sonde de contenu ne regarde pas les tests.** Une valeur littérale dans un
 fichier de test est une **fixture**, pas une configuration en dur. Vécu : un
