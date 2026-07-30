@@ -150,6 +150,7 @@ main.
 ```bash
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs   # les sondes, AVANT le verdict
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs --prove
+node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-route-param.selftest.mjs   # un juge à causes, chacune vue rouge
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
 ```
@@ -184,17 +185,18 @@ Une sonde ajoutée sans son échantillon doit se voir, pas se fondre dans le ver
 c'est la règle « une capacité arrive AVEC sa tâche », appliquée à la tâche
 elle-même.
 
-Quatorze tâches déroulées par un agent réel, en mode autonome, dans une
+Quinze tâches déroulées par un agent réel, en mode autonome, dans une
 application fraîche. Neuf visent les **générateurs** : « CRUD produit »,
 « protège une route », « canal temps réel », « commande CLI », « démarre puis
 arrête le serveur », « configuration par l'environnement », « choisir la bonne
 brique », « appeler le générateur au lieu de l'imiter », « interroger
-l'application plutôt que lire ses sources ». Cinq visent le **socle**, qui n'a
+l'application plutôt que lire ses sources ». Six visent le **socle**, qui n'a
 pas de générateur et s'imite ou s'ignore : « un service au conteneur »,
 « une trace exploitable en production », « une initialisation au bon moment du
 démarrage », « consommer un service depuis un autre composant », « servir un
-gros média sans le charger en mémoire ». Jugées sur pièces — le transcript
-(a-t-il APPELÉ l'outil ?) et le diff git (qu'a-t-il ÉCRIT ?).
+gros média sans le charger en mémoire », « une route qui porte une valeur dans
+son chemin ». Jugées sur pièces — le transcript (a-t-il APPELÉ l'outil ?) et le
+diff git (qu'a-t-il ÉCRIT ?).
 **Aucun juge automatique n'est un modèle de langage** : uniquement des sondes
 objectives.
 
@@ -250,6 +252,18 @@ aucune tâche ne le demandait, et aucun run ne l'a signalé.
 D'où la règle : **une capacité destinée à un agent arrive AVEC sa tâche**, comme
 du code arrive avec ses tests. Ajouter une tâche = une entrée dans `TASKS`
 (prompt figé + sondes), jamais retoucher une existante.
+
+**Une tâche neuve peut rendre un VERT, et c'est un résultat.** Le segment
+variable a longtemps été soupçonné : deux runs d'autres tâches montraient un
+agent fabriquant la valeur par expression régulière sur `this.request.url`, un
+autre déclarant `getMedia(name: string)`. Mesuré pour lui-même (tâche 15), il
+passe — l'agent traduit `:handle` en `{handle}` sans qu'on lui dise. Le soupçon
+venait de deux observations faites AILLEURS, où le paramètre n'était pas ce
+qu'on mesurait ; c'est exactement la raison d'être d'une tâche dédiée. Le vert
+répond aussi à une question de coût : rien n'a été ajouté à l'`AGENTS.md`, dont
+la tête est la ressource rare — on n'y écrit que ce qu'une mesure réclame.
+Le filet vit dans `nodefony check` (règle `route-colon-param`), qui ne prend la
+place de personne.
 
 Une sonde se conçoit par paire quand l'énoncé peut être satisfait par abandon :
 une positive (la bonne façade est là) et une négative (la mauvaise n'est pas

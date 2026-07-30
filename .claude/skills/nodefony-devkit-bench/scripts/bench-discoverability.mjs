@@ -160,6 +160,13 @@ const JUGE_MEDIA = path.join(
   "gate-media-range.mjs",
 );
 
+/** Juge de la tâche « valeur portée par le chemin » — chemin ABSOLU, même raison. */
+const JUGE_PARAM = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-route-param.mjs",
+);
+
 /**
  * Les 9 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
  * mesure, et deux runs ne se comparent plus. Toute évolution = nouvelle tâche.
@@ -984,6 +991,118 @@ export const TASKS = [
             `node -e "require('node:fs').writeFileSync('media/gate-sample.mp4', Buffer.alloc(3*1024*1024, 7))"; ` +
             `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
             `node ${JUGE_MEDIA}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+
+  /*
+   *   ─── Une capacité qu'aucun fichier lu d'office ne montre ────────────────
+   *
+   *   Le segment variable est la deuxième chose qu'on écrit dans une API, et
+   *   c'est le seul élément de routage dont la SYNTAXE diffère de ce que tout
+   *   le monde connaît : Nodefony écrit `{handle}` là où Express, Nest et
+   *   Fastify écrivent `:handle`. Un agent qui recopie son habitude monte un
+   *   chemin LITTÉRAL — la route ne correspond alors à aucune URL réelle.
+   *
+   *   Ce trou est resté invisible longtemps parce que la capacité EXISTE et est
+   *   documentée (`framework/docs/routing.md`) : elle n'est simplement écrite
+   *   nulle part dans ce que l'agent lit d'office. Deux runs d'autres tâches
+   *   l'ont montré sans qu'aucune sonde le regarde — l'un fabriquant la valeur
+   *   par expression régulière sur `this.request.url`, l'autre déclarant
+   *   `getMedia(name: string)`.
+   *
+   *   ⚠️ Il y a DEUX voies légitimes, et n'en admettre qu'une recalerait un
+   *   agent ayant fait juste : le décorateur nommé (`@Param("handle")`) et le
+   *   passage POSITIONNEL, où les captures arrivent dans l'ordre des variables
+   *   du chemin (`routing.md:327`). Ce qui sépare la bonne réponse du
+   *   contournement n'est donc pas la façon de LIRE la valeur, c'est le fait de
+   *   l'avoir DÉCLARÉE dans le chemin. La sonde vise l'accolade, pas `@Param`.
+   *
+   *   L'énoncé emploie `:handle` — la formulation qu'un utilisateur écrit
+   *   spontanément. C'est délibéré : traduire vers la syntaxe du framework EST
+   *   la mesure. Le remplacer par une forme neutre mesurerait la recopie.
+   */
+  {
+    id: 15,
+    name: "socle — une route qui porte une valeur dans son chemin",
+    prompt:
+      "Cette application doit rendre la fiche publique d'un auteur du forum, et il n'y a pas " +
+      "encore de base de données : GET /api/authors/:handle rend un objet JSON portant le " +
+      "pseudonyme demandé, ses initiales et le permalien de sa page. N'importe quel pseudonyme " +
+      "doit fonctionner, et deux pseudonymes différents rendent deux fiches différentes. " +
+      "Termine en prouvant que les tests de l'app passent.",
+    probes: [
+      {
+        // LA marque du chemin variable, commune aux deux voies légitimes : une
+        // chaîne où un segment est une accolade. Le motif exige le `/` qui
+        // précède — sans lui, une interpolation `${x}` d'un gabarit de chaîne
+        // suffirait à le rendre vert.
+        kind: "code",
+        name: "un segment du chemin est déclaré variable (/{...})",
+        pattern: /["'`][^"'`\n]*\/\{\w+\}/u,
+        where: "content",
+      },
+      {
+        // Le contournement exact, et il MARCHE : découper l'URL à la main rend
+        // la bonne valeur, passe les tests de l'agent, et perd tout ce que la
+        // déclaration apporte — le préfixe du contrôleur, l'ordre des routes,
+        // les contraintes de format, l'introspection (`inspect routes`).
+        //
+        // `unless` : une fois le chemin déclaré, toucher à l'URL fait forcément
+        // autre chose (journaliser, bâtir un permalien) et le sanctionner
+        // mesurerait un style. `addedTs` : dans un test, construire l'URL
+        // appelée est la preuve, pas la faute.
+        kind: "code",
+        name: "la valeur n'est pas découpée à la main depuis l'URL",
+        pattern: /(?:request|req)\.url|\bpathname\b/u,
+        where: "addedTs",
+        unless: /["'`][^"'`\n]*\/\{\w+\}/u,
+        invert: true,
+      },
+      {
+        // OBSERVATION : le passage positionnel est une réponse juste, donc pas
+        // un critère. Ce qu'on veut voir sans le sanctionner, c'est si la voie
+        // NOMMÉE a été trouvée — la seule qui survive à un réordonnancement des
+        // segments, et la seule que le gabarit `create controller --rest`
+        // montre en code.
+        kind: "code",
+        name: "voie déclarative nommée trouvée (@Param)",
+        pattern: /@Param\s*\(/u,
+        where: "content",
+        observe: true,
+      },
+      {
+        // OBSERVATION : la réponse est dans la doc installée, que rien n'oblige
+        // à ouvrir. Un agent qui a trouvé autrement (le gabarit REST, les
+        // types) a fait juste — on regarde par où il est passé.
+        kind: "transcript",
+        name: "a ouvert la doc de routage",
+        pattern: /framework\/docs\/routing\.md/u,
+        observe: true,
+      },
+      {
+        // LE juge d'état, et il DISTINGUE ses causes : 404 partout (le chemin
+        // n'est pas variable) ne dit pas la même chose que deux corps
+        // identiques (la valeur n'est pas lue). Deux pseudonymes absents de
+        // l'énoncé — donc impossibles à figer par recopie — et chaque réponse
+        // doit porter le sien.
+        //
+        // ⚠️ `npx --no-install nodefony` et non le binaire du checkout : lancé
+        // depuis le décor isolé, celui-ci ne charge que le module `app` et
+        // n'ouvre aucun serveur. La garde de port passe AVANT le boot, sinon un
+        // serveur resté d'un run précédent se fait mesurer à la place du décor.
+        kind: "gate",
+        name: "deux valeurs distinctes rendent deux fiches distinctes",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_PARAM} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_PARAM}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
       },

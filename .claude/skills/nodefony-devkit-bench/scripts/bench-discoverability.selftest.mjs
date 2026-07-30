@@ -364,6 +364,57 @@ const SAMPLES = {
       transcript: `{"file_path":"node_modules/nodefony/docs/service.md"}`,
     },
   },
+
+  // ── T15 ───────────────────────────────────────────────────────────────────
+  "15 :: un segment du chemin est déclaré variable (/{...})": {
+    pass: {
+      content: `  @Get("/api/authors/{handle}")\n  fiche(handle: string) {}`,
+    },
+    // La syntaxe d'un AUTRE framework : elle est montée comme un littéral et ne
+    // correspond à aucune URL réelle. C'est l'échec que la tâche vise.
+    fail: { content: `  @Get("/api/authors/:handle")\n  fiche() {}` },
+    extra: [
+      {
+        // Le faux positif que le `/` devant l'accolade écarte : une
+        // interpolation de chaîne n'est pas un segment de chemin variable.
+        label: "interpolation `${handle}` → ce n'est PAS une déclaration",
+        matter: { content: "    const url = `/api/authors/${handle}`;" },
+        expect: false,
+      },
+    ],
+  },
+  "15 :: la valeur n'est pas découpée à la main depuis l'URL": {
+    pass: { addedTs: `+  fiche(@Param("handle") handle: string) {` },
+    fail: {
+      addedTs: `+    const handle = this.request.url.split("/").pop();`,
+    },
+    extra: [
+      {
+        // Le waiver : le chemin EST déclaré variable, donc toucher à l'URL fait
+        // autre chose — ici bâtir le permalien que l'énoncé demande.
+        label: "URL relue À CÔTÉ du chemin déclaré → sans objet",
+        matter: {
+          addedTs: `+    const permalien = new URL(this.request.url).pathname;`,
+          content: `  @Get("/api/authors/{handle}")`,
+        },
+        expect: true,
+      },
+    ],
+  },
+  "15 :: voie déclarative nommée trouvée (@Param)": {
+    pass: { content: `  fiche(@Param("handle") handle: string) {}` },
+    // Le passage POSITIONNEL — une réponse juste, et c'est pourquoi cette sonde
+    // observe au lieu de juger. L'échantillon fixe ce qu'elle ne voit pas.
+    fail: { content: `  fiche(handle: string) {}` },
+  },
+  "15 :: a ouvert la doc de routage": {
+    pass: {
+      transcript: `{"file_path":"node_modules/@nodefony/framework/docs/routing.md"}`,
+    },
+    fail: {
+      transcript: `{"file_path":"node_modules/@nodefony/framework/docs/controller.md"}`,
+    },
+  },
 };
 
 const key = (task, probe) => `${task.id} :: ${probe.name}`;
