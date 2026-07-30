@@ -1,5 +1,37 @@
 # BUG_REPORT — Nodefony Core
 
+## BUG-2 — Angular ne peut pas monter en 22.1.0 : le lockfile reconstruit l'arbre 22.0.8
+
+**Symptôme.** Les six paquets `@angular/*` de `src/modules/test-frontend-angular` portés de
+`22.0.8` à `22.1.0` (`@angular/build` en `22.1.1`) → `npm install` sort en **ERESOLVE**, trois
+tentatives, même erreur :
+
+```
+While resolving: @nodefony/test-frontend-angular@10.0.0-poc.1
+Found: @angular/common@22.0.8
+  src/modules/test-frontend-angular/node_modules/@angular/common
+  peer @angular/common@"22.0.8" from @angular/platform-browser@22.0.8
+Conflicting peer dependency: @angular/core@22.1.0
+```
+
+**Ce qui est écarté.** Les versions demandées sont cohérentes entre elles : `@angular/build@22.1.1`
+déclare `^22.0.0` sur toute la famille (`npm view @angular/build@22.1.1 peerDependencies`), et
+`@angular/core@22.1.0` n'impose rien sur `typescript` — la contrainte `>=6.0 <6.1` vient de
+`compiler-cli`, déjà satisfaite par le `6.0.3` du dépôt. **Le conflit n'est pas dans les versions.**
+
+**La cause probable.** `package-lock.json` retient une arborescence **imbriquée** sous
+`src/modules/test-frontend-angular/node_modules/@angular/*` en `22.0.8`, et la reconstruit à chaque
+install. Purger `node_modules/@angular` **et** le `node_modules` du module ne suffit pas : le
+lockfile la réécrit.
+
+**Piste non essayée** (fin de session, arbre volontairement laissé sain) : supprimer les entrées
+`@angular/*` du lockfile, ou régénérer le lock entier hors ligne puis comparer le diff. À faire
+sur un arbre commité, jamais en fin de session.
+
+**Contournement actuel.** Angular reste en `22.0.8`. Aucune urgence : `22.1.0` est une mineure
+publiée le 2026-07-29 et n'apporte rien dont le dépôt dépende. Elle ne débloque PAS TypeScript 7
+non plus (`compiler-cli@22.1.0` exige toujours `typescript >=6.0 <6.1`).
+
 ## BUG-1 — un échec de connexion à la base fait sortir `inspect` en 1, sans un mot
 
 **Symptôme.** Dans une application dont la base configurée est injoignable
