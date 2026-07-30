@@ -113,6 +113,30 @@ function runCli(
  * le nouvel enfant réellement en écoute. Rend le PID d'origine si le délai expire —
  * l'appelant conclut, jamais ce helper.
  */
+/**
+ * Fin du journal du runtime détaché, pour joindre à un échec.
+ *
+ * Un « le superviseur n'a pas relancé » ne dit RIEN de la cause : le watcher
+ * n'a pas vu la modification, le rebuild a échoué, l'arrêt du groupe a traîné ?
+ * Sur une plateforme qu'on ne peut pas reproduire en local — Windows —, la
+ * seule pièce disponible est ce journal, et il faut donc qu'il voyage AVEC
+ * l'échec plutôt que de rester sur un runner déjà détruit.
+ *
+ * @returns les dernières lignes, ou une mention explicite si le journal manque.
+ */
+function tailDetachedLog(lines = 40): string {
+  const file = path.join(REPO_ROOT, "tmp", "nodefony-detached.log");
+  if (!fs.existsSync(file)) {
+    return `\n(aucun journal détaché à ${file})`;
+  }
+  const tail = fs
+    .readFileSync(file, "utf8")
+    .split("\n")
+    .slice(-lines)
+    .join("\n");
+  return `\n─── fin de ${file} ───\n${tail}`;
+}
+
 async function waitForRuntimePidChange(
   from: number,
   timeoutMs: number,
@@ -694,11 +718,16 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
         // Le capteur est le PID publié dans le fichier d'état : c'est le canal que
         // le serveur alimente lui-même, pas une heuristique de log.
         const pidAfter = await waitForRuntimePidChange(pidBefore, 180000);
-        assert.notStrictEqual(
-          pidAfter,
-          pidBefore,
-          "le superviseur doit relancer son enfant après modification d'une source",
-        );
+        if (pidAfter === pidBefore) {
+          // Échec MUET jusqu'ici : le PID inchangé ne distingue pas « le watcher
+          // n'a rien vu » de « le rebuild a échoué » ni de « l'arrêt du groupe
+          // n'a pas rendu la main ». Le journal du runtime tranche, et c'est la
+          // seule pièce qui survit à un runner distant.
+          assert.fail(
+            `le superviseur doit relancer son enfant après modification d'une source ` +
+              `(pid inchangé : ${pidBefore})${tailDetachedLog()}`,
+          );
+        }
         // Un rechargement qui ne réécoute pas est un rechargement raté.
         assert.strictEqual(
           await isPortOpen(HTTP_PORT),
