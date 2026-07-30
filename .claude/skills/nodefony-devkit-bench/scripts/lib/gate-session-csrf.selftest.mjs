@@ -23,6 +23,8 @@
  */
 import http from "node:http";
 import { spawn } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -34,9 +36,27 @@ const JUGE = path.join(
 const PORT = "5398";
 const SKU = "ZX9-QUARTZ-77";
 
+/**
+ * Répertoire de travail du juge — il y trouve `.nf-routes.json`, comme dans une
+ * application où le gate vient de le déposer. Hors du dépôt : le juge écrit son
+ * décor, il n'a pas à salir celui qui l'éprouve.
+ */
+const DECOR = mkdtempSync(path.join(os.tmpdir(), "nf-gate-csrf-"));
+writeFileSync(
+  path.join(DECOR, ".nf-routes.json"),
+  JSON.stringify([
+    { path: "/api/cart", methods: ["GET"] },
+    { path: "/api/cart/token", methods: ["GET"] },
+    { path: "/api/cart/items", methods: ["POST"] },
+  ]),
+);
+
 const run = (args) =>
   new Promise((resolve) => {
-    const p = spawn("node", args, { env: { ...process.env, NF_PORT: PORT } });
+    const p = spawn("node", args, {
+      cwd: DECOR,
+      env: { ...process.env, NF_PORT: PORT },
+    });
     let out = "";
     let err = "";
     p.stdout.on("data", (c) => (out += c));
@@ -70,6 +90,7 @@ function app({
   sessionOk = true,
   etatGlobal = false,
   refusTout = null,
+  jetonSemeSurRouteDediee = false,
 }) {
   const paniers = new Map();
   const global = [];
@@ -77,13 +98,21 @@ function app({
     const url = req.url ?? "";
     const sid = cookieDe(req, "nodefony") ?? String(Math.abs(Date.now() % 1e9));
     const jetonAttendu = "jeton-de-test";
+    // Le cas RÉEL produit par un agent : seule la mutation porte
+    // `@CsrfProtect`, et une route sûre DÉDIÉE distribue le jeton. La lecture
+    // ne sème alors rien — un juge qui ne frappe qu'elle recale à tort.
+    const semeIci = !jetonSemeSurRouteDediee || url === "/api/cart/token";
     const entetes = {
       "content-type": "application/json",
-      "set-cookie": [
-        `nodefony=${sid}; Path=/`,
-        `csrf-token=${jetonAttendu}; Path=/`,
-      ],
+      "set-cookie": semeIci
+        ? [`nodefony=${sid}; Path=/`, `csrf-token=${jetonAttendu}; Path=/`]
+        : [`nodefony=${sid}; Path=/`],
     };
+    if (url === "/api/cart/token" && req.method === "GET") {
+      res.writeHead(200, entetes);
+      res.end(JSON.stringify({ token: jetonAttendu }));
+      return;
+    }
     if (url === "/api/cart" && req.method === "GET") {
       const panier = etatGlobal
         ? global
@@ -121,6 +150,12 @@ function app({
 /** Un rôle par cause — le nom dit ce que l'application ferait mal. */
 const ROLES = {
   conforme: [0, app({})],
+  // ⭐ Le cas qui a fait tomber la première version du juge : un vrai agent a
+  // protégé la seule mutation et exposé `GET /api/cart/token` pour distribuer
+  // le jeton — réponse JUSTE, recalée. Le juge doit désormais demander ses
+  // routes sûres à l'application et les essayer. Sans ce rôle, la correction
+  // n'aurait fait que déplacer le trou.
+  jetonSurRouteDediee: [0, app({ jetonSemeSurRouteDediee: true })],
   // Aucun jeton exigé : le contournement « je vérifie l'origine, ça suffit ».
   mutationSansJeton: [1, app({ jetonExige: false })],
   // Protection posée mais le jeton attendu ne correspond à rien de semé.
@@ -193,6 +228,8 @@ for (const [nom, [attendu, handler]] of Object.entries(ROLES)) {
   const cause = (res.stderr || "").trim().split("\n")[0] ?? "";
   dire(res.status === 4, "injoignable", 4, res.status, cause);
 }
+
+rmSync(DECOR, { recursive: true, force: true });
 
 console.log(
   echecs

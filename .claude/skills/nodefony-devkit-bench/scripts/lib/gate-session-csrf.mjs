@@ -31,10 +31,25 @@
  * La sortie `8` existe pour ne PAS accuser le CSRF d'un 422 : la forme du corps
  * est figée par l'énoncé, mais un agent peut l'avoir contrainte davantage.
  *
+ * ⚠️ **Le jeton ne se sème pas forcément sur la route de lecture.** Le mécanisme
+ * documenté est « une requête SÛRE vers **une route `@CsrfProtect`** sème le
+ * cookie » : un agent qui protège la seule mutation doit donc exposer une autre
+ * route sûre pour le distribuer — et c'est ce qu'un vrai run a produit
+ * (`GET /api/cart/token`, portant `@CsrfProtect()`). La première version de ce
+ * juge ne frappait que la lecture, ne recevait aucun cookie, et recalait un
+ * agent qui avait fait JUSTE : le mode de défaillance n° 1 de ce banc, commis
+ * par son propre auteur.
+ *
+ * D'où la règle : le juge **demande à l'application** ses routes sûres
+ * (`inspect routes --json`, déposé par le gate) et les essaie jusqu'à obtenir le
+ * cookie, au lieu de présumer d'où il vient. C'est aussi ce qu'un client réel
+ * fait — il lit la documentation de l'API, pas les suppositions du juge.
+ *
  * @module
  */
 import http from "node:http";
 import net from "node:net";
+import { readFileSync, existsSync } from "node:fs";
 
 const PORT = process.env.NF_PORT ?? "5371";
 const LECTURE = "/api/cart";
@@ -159,6 +174,40 @@ if (lecture.statut !== 200) {
   );
 }
 
+/**
+ * Les autres routes SÛRES du périmètre, telles que l'application les déclare.
+ *
+ * Déposées par le gate (`inspect routes --json` → `.nf-routes.json`). Absent, on
+ * s'en tient à la route de lecture : le juge se dégrade, il ne ment pas.
+ */
+const routesSures = () => {
+  const fichier = ".nf-routes.json";
+  if (!existsSync(fichier)) return [];
+  try {
+    return JSON.parse(readFileSync(fichier, "utf8"))
+      .filter(
+        (r) =>
+          typeof r?.path === "string" &&
+          r.path.startsWith(LECTURE) &&
+          r.path !== LECTURE &&
+          (r.methods ?? []).includes("GET"),
+      )
+      .map((r) => r.path);
+  } catch {
+    return [];
+  }
+};
+
+// Le cookie n'est pas encore là ? Les autres routes sûres du périmètre peuvent
+// le semer — c'est le trajet d'un vrai client, pas une supposition du juge.
+if (!visiteur.jeton()) {
+  for (const chemin of routesSures()) {
+    const r = await demander("GET", chemin, visiteur);
+    if (r.erreur) continue;
+    if (visiteur.jeton()) break;
+  }
+}
+
 // ─── 2. LE juge du jeton — la mutation NUE doit être refusée ────────────────
 // `curl` sans en-tête de navigateur passe la défense de provenance : un 2xx ici
 // prouve donc qu'aucun jeton n'est exigé.
@@ -193,8 +242,9 @@ if (!(armee.statut >= 200 && armee.statut < 300)) {
   sortir(
     2,
     `CAUSE=jeton-rejoue-refuse — la mutation refuse ${armee.statut} MÊME avec le jeton ` +
-      `(${jeton ? "cookie lu" : "aucun cookie de jeton semé"}). La protection est posée mais ` +
-      `inutilisable : une requête sûre doit semer le cookie que la mutation rejoue.`,
+      `(${jeton ? "cookie lu" : "aucun cookie semé par AUCUNE route sûre du périmètre"}). ` +
+      `La protection est posée mais inutilisable : une requête sûre vers une route protégée ` +
+      `doit semer le cookie que la mutation rejoue.`,
   );
 }
 

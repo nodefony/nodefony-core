@@ -159,11 +159,23 @@ node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --ta
 ### Les sondes s'éprouvent AVANT de juger
 
 **Le mode de défaillance n° 1 de ce banc n'est pas un agent qui échoue : c'est
-une sonde qui recale un agent ayant fait JUSTE.** Quatre fois — la valeur posée
+une sonde qui recale un agent ayant fait JUSTE.** Cinq fois — la valeur posée
 dans un `.env` gitignoré, le test pris pour de la configuration en dur,
 l'instanciation en fixture prise pour un contournement, la regex qui ne
-franchissait pas la parenthèse d'un appel imbriqué. À chaque fois, le défaut n'a
-été vu qu'après avoir lancé de vrais agents et relu les diffs à la main.
+franchissait pas la parenthèse d'un appel imbriqué, et un juge qui présumait
+d'où venait un jeton. À chaque fois, le défaut n'a été vu qu'après avoir lancé
+de vrais agents et relu les diffs à la main.
+
+La cinquième est la plus instructive, parce qu'elle ne portait pas sur une
+regex : le juge de la tâche 16 frappait la route de LECTURE pour récolter le
+jeton anti-rejeu, alors que le mécanisme documenté est « une requête sûre vers
+**une route protégée** sème le cookie ». L'agent avait protégé la seule
+mutation et exposé une route dédiée pour distribuer le jeton — une réponse
+juste, et même soignée. Le juge, lui, n'avait rien reçu et accusait
+l'application. Remède, et il vaut au-delà de ce cas : **un juge DEMANDE à
+l'application** (`inspect routes --json`) au lieu de présumer d'un chemin. Le
+selftest porte désormais ce cas ; sans lui, la correction n'aurait fait que
+déplacer le trou.
 
 Le danger n'est pas le rouge : c'est qu'un banc faux fasse **dégrader le devkit
 pour lui plaire**. Vécu — une sonde exigeait `@services([…])` alors que

@@ -1225,6 +1225,10 @@ export const TASKS = [
           `node ${JUGE_SESSION} --check-port-free || exit 5; ` +
             `npm run build >/dev/null 2>&1; ` +
             `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            // Le juge DEMANDE ses routes sûres à l'application au lieu de
+            // présumer d'où vient le jeton : un agent peut le distribuer par
+            // une route dédiée, et c'est une réponse juste (vécu au 1ᵉʳ run).
+            `npx --no-install nodefony inspect routes --json > .nf-routes.json 2>/dev/null; ` +
             `node ${JUGE_SESSION}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
