@@ -32,6 +32,28 @@
 - `[1× — 2026-07-30]` **Comparer une heure UTC à une heure locale fait conclure à un run bloqué
   depuis deux heures.** Les décors du banc s'horodatent en UTC ; `ELAPSED` de `ps` disait 9 minutes.
   Avant d'annoncer un blocage : lire un compteur, pas une soustraction de fuseaux.
+- `[2× — 2026-07-30b]` 🔴 **Un juge qui PRÉSUME un trajet recale une réponse juste.** Le juge de
+  T16 frappait la route de LECTURE pour récolter le jeton CSRF ; le mécanisme est « une requête
+  sûre vers une route **protégée** sème le cookie », et l'agent avait exposé une route dédiée —
+  réponse juste, recalée. Remède général : **un juge DEMANDE à l'application** (`inspect routes
+--json`) au lieu de supposer un chemin. Et la correction ne vaut que prouvée sur le **décor
+  CONSERVÉ du run recalé** — un serveur jouet montre que le juge sait faire, pas qu'il a cessé de
+  se tromper sur CE code.
+- `[1× — 2026-07-30b]` **`spawnSync` BLOQUE la boucle du parent** : un banc d'épreuve qui lance un
+  juge pendant qu'il sert lui-même les requêtes rend « aucune réponse » sur TOUTES les causes —
+  rouge uniforme qui accuse le juge, alors que l'instrument est seul en cause.
+
+## 📏 Une règle de contrôle se juge sur le CODE EXISTANT, avant d'y croire
+
+- `[1× — 2026-07-30b]` 🔴 **Une garde « nom réservé » écrite puis retirée : 37 signalements, tous
+  sur du code qui COMPILE.** Croyance : redéfinir `get`/`log` d'une classe de base casse.
+  Réalité TypeScript : c'est légal tant que la **signature reste assignable** — le framework
+  lui-même fait `override log(`. Le vrai défaut (TS2416) exige de résoudre l'héritage, les types
+  et l'assignabilité : le travail d'un vérificateur de types, hors de portée d'une lecture PURE
+  par regex, et **déjà fait par la compilation**. Ce qui manquait n'était pas un détecteur mais
+  un TRADUCTEUR (l'erreur s'affiche sur la méthode, la classe casse sur `@services([X])`).
+  Réflexe : avant de croire une règle neuve, la **lancer sur le dépôt entier** — 100 % de faux
+  positifs ne s'affine pas, ça s'abandonne.
 
 ## 🤖 Piloter un agent TIERS : ce qui BLOQUE, et ce qui MENT
 
