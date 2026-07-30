@@ -438,6 +438,15 @@ Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
   `:226`/`:231` (= `console.debug`/`trace`). Fallback Pdu standalone si `syslog===null`.
 - **Cycle de vie** : `initSyslog(env, debug, opts?)` `:159` · `clean(syslog=false)` `:179` (null toutes les refs ;
   `clean(true)` → `syslog.reset()`). `clean()` appelle `clean()` sur les enfants `instanceof Service`.
+- ⚠️ **SURFACE RÉSERVÉE — 13 noms qu'un service métier ne peut pas redéfinir librement** :
+  `get set has remove clean log trace on off once emit fire listen`. Ce sont des méthodes de `Service`
+  (`get<T>(name): T|null` `:442` est l'accès au CONTENEUR, pas un accesseur métier). Redéfinir l'une
+  d'elles avec une autre signature casse l'assignabilité de la classe — et le symptôme est
+  **trompeur** : l'IDE souligne le décorateur `@services([X])` du module qui l'enregistre, alors que
+  l'erreur (`TS2416`) porte sur la LIGNE DE LA MÉTHODE du service. Vécu : le gate `nodefony check`
+  réclame `@services([X])`, l'ajouter ne compile plus, et on cherche le défaut dans le décorateur.
+  Un `get(key)` métier se nomme donc autrement (`find`, `fetch`, `lookup`) — **un geste exigé par un
+  gate doit compiler.**
 
 ### `Container` / `Scope`
 
