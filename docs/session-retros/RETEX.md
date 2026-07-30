@@ -152,6 +152,17 @@ apply -R` — et **prouver que le geste a eu lieu** (ici : 0 façade dans les 30
 
 - `[2× — 2026-07-25]` **Un maillon en échec dans une chaîne `&&` fait mentir la mesure d'après.** (1) Un `cd` relatif refusé a emporté le `cat >>` suivant : tests jamais écrits, « 12 passed » = le compte d'AVANT. (2) Ma contre-preuve dedupe : le `npm run build` du module échouait (tsgo refusait la valeur hors union) DANS la chaîne — le banc d'après mesurait l'ANCIEN dist et « prouvait » que le fix ne changeait rien. **Après tout échec dans une commande composée, considérer que RIEN d'aval n'a tourné** ; vérifier que l'artefact mesuré a bien été RÉGÉNÉRÉ (hash/mtime), pas seulement relancer la mesure.
 
+## 🔎 Ce que le journal des commits CACHE
+
+- `[1× — 2026-07-30]` 🔴 **Un correctif logé dans un commit au sujet étranger est invisible, et on le réécrit.** Le kill d'arbre Vite (chantier Windows) voyageait dans `2af71c0d`, dont le sujet annonce `fix(syslog)` : le kit a annoncé le trou OUVERT trois jours après sa fermeture, et une délégation entière est partie le refaire. Avant de reprendre un item de « RESTE » : `git log -S <symbole> -- <chemin>` — il retrouve ce que le sujet du commit ne dit pas. Corollaire : un kit décrit ce qu'on CROYAIT au moment de l'écrire, jamais l'état courant.
+- `[1× — 2026-07-30]` **Deux trous « ouverts » d'un kit étaient corrigés depuis** (TSDoc `streamFile`/Range, exemple `@inject` du gabarit). Deux `rg` l'ont établi en une commande. Vérifier AVANT de planifier coûte moins cher que planifier puis découvrir.
+
+## 📦 npm : un arbre réparé à la MAIN n'est pas une garantie
+
+- `[1× — 2026-07-30]` 🔴 **Un `node_modules` remis droit à la main tient jusqu'au prochain `npm install`.** Le hissage `@angular/*` a été refait par déplacement de dossiers + rebasage du lock ; le patch suivant (22.1.1→22.1.2) l'a immédiatement ré-imbriqué et cassé `vite build`. La seule preuve qu'un lock TIENT est `npm ci` (rase `node_modules`, réinstalle strictement) suivi du build réel — `npm ls` propre ne prouve rien.
+- `[1× — 2026-07-30]` **La cause était que le dépôt ne reproduisait pas la configuration que son PROPRE générateur produit** : le plugin déclaré à la racine, ses `peerDependencies` dans le module. npm ne les faisait coïncider que tant que les versions coïncidaient. Quand un défaut de résolution résiste, comparer avec ce que `create app` écrit — c'est la configuration de référence.
+- `[1× — 2026-07-30]` **`npm run build` vert ne dit rien du chemin réel** : le script du module passait pendant que `npx vite build` (le chemin qu'emprunte le serveur de développement) échouait en `ERR_MODULE_NOT_FOUND`. Éprouver la commande que le RUNTIME lance, pas celle du `package.json`.
+
 ---
 
 ## 🗄️ Archivé au CONSOLIDATE du 2026-07-30 — 59 thèmes, 190 frictions
