@@ -15,8 +15,37 @@
 
 ---
 
+## 🎲 Ce qui varie d'un run à l'autre EST la mesure — pas le verdict
+
+- `[1× — 2026-07-30]` 🔴 **Un banc à verdict binaire joué UNE fois ne dit rien.** T14 rejouée 4×,
+  gabarit identique, même modèle, même décor : **2 PASS / 2 FAIL**, 68→98 tours. J'avais écrit le
+  matin « la correction est prouvée » sur un seul PASS. Ce qui reste concluant sur un run unique,
+  c'est une **sonde de contenu** (binaire, sans seuil) : façade employée 4/4 après vs 0/1 avant.
+  Toute mesure d'effort = médiane ≥ 3 runs. Corollaire de coût : répondre à « un gros modèle
+  tourne-t-il moins en rond ? » demande ~6 runs, pas 2 — l'estimation initiale était 3× trop basse.
+- `[1× — 2026-07-30]` **Un chiffre qu'il faut aller chercher au `jq` n'agit pas.** Le harnais
+  publiait déjà tours/durée/coût en fin de transcript ; personne ne les lisait. Même leçon que pour
+  les agents, appliquée à moi : l'information doit être là où le regard passe déjà.
+
+## 🧪 Suspecter son INSTRUMENT avant le sujet mesuré
+
+- `[3× — 2026-07-30]` 🔴 **Trois de mes propres instruments se sont révélés faux dans une seule
+  session** : (a) la fraîcheur des tarballs jugeait sur `dist/index.js` seul — un gabarit corrigé
+  n'était pas repacké, le décor mesurait l'ancienne version ; (b) une sonde de `create.test.ts`
+  passait grâce au **commentaire** du gabarit qui citait le nom cherché, hook amputé compris ;
+  (c) un juge rendait un rouge unique pour quatre causes distinctes. Le point commun : **la preuve
+  négative les a tous démasqués**, la relecture aucun. Amputer, exiger que ça tombe, remettre.
+- `[1× — 2026-07-30]` **Comparer une heure UTC à une heure locale fait conclure à un run bloqué
+  depuis deux heures.** Les décors du banc s'horodatent en UTC ; `ELAPSED` de `ps` disait 9 minutes.
+  Avant d'annoncer un blocage : lire un compteur, pas une soustraction de fuseaux.
+
 ## 📐 L'agent copie l'EXEMPLE qu'on lui montre — pas la règle écrite à côté
 
+- `[1× — 2026-07-30]` 🔴 **La TÊTE du fichier est la ressource rare, pas le fichier.** L'agent lit
+  l'`AGENTS.md` **tronqué** : `head -20`, puis `Read limit:100`. Sur 403 lignes, une règle en 142
+  n'a jamais été dans son contexte. Le TSDoc n'atteint que qui regarde les signatures ; le seul
+  texte chargé d'office est le `CLAUDE.md` (33 lignes, un pointeur). Remède à coût nul : **échanger**
+  — descendre le méta (« ce fichier est généré ») pour hisser ce dont le contournement CASSE.
 - `[1× — 2026-07-29]` 🔴 **Le gabarit `AGENTS.md` portait 39 commandes NUES (`nodefony create …`)
   contre 2 préfixées `npx`.** L'agent a suivi la majorité, s'est pris un code 127, puis a brûlé un
   tour de plus sur `npm bin` (retirée de npm) avant de trouver la bonne forme. Mon premier
