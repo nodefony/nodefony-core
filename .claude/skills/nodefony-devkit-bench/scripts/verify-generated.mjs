@@ -421,7 +421,8 @@ step(
 if (withE2e) {
   step(
     "la ressource RÉPOND vraiment (HTTP, serveur réel)",
-    "201+Location, 422, 409 sur doublon, page hasNext, PATCH, 204 puis 404.",
+    "201+Location, 422, 409 sur doublon, page hasNext, PATCH, 204 puis 404 — " +
+      "et la suppression EXIGE une identité : refusée sans elle, la donnée survit.",
     () => run("npm", ["run", "test:e2e"]),
   );
 }

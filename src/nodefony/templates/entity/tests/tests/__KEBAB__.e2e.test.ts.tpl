@@ -1,5 +1,7 @@
 import { readRuntimeState } from "nodefony";
 import { describe, it, expect, beforeAll } from "vitest";
+<% if (it.hasSecurity) { %>import { connexionAdmin } from "./e2e.setup";
+<% } %>
 
 /**
  * Test E2E de la ressource `<%= it.pascal %>` — le cycle CRUD complet, sur le
@@ -147,9 +149,18 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
       body: JSON.stringify(sample(200)),
     });
     const id = String((await json(created)).id);
+<% if (it.hasSecurity) { %>
+    // La suppression est réservée à `ROLE_ADMIN` : sans identité, elle est
+    // refusée — c'est le comportement voulu, et le test qui suit le prouve.
+    const entete = { cookie: await connexionAdmin() };
 
+    const removed = await fetch(`${BASE}${ROUTE}/${id}`, {
+      method: "DELETE",
+      headers: entete,
+    });
+<% } else { %>
     const removed = await fetch(`${BASE}${ROUTE}/${id}`, { method: "DELETE" });
-    // 204 : il n'y a plus rien à décrire, donc pas de corps.
+<% } %>    // 204 : il n'y a plus rien à décrire, donc pas de corps.
     expect(removed.status).toBe(204);
 
     const gone = await fetch(`${BASE}${ROUTE}/${id}`);
@@ -157,7 +168,35 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
 
     // Supprimer deux fois n'est pas la même chose que supprimer une absente :
     // le 404 permet au client de distinguer les deux.
-    const again = await fetch(`${BASE}${ROUTE}/${id}`, { method: "DELETE" });
+    const again = await fetch(`${BASE}${ROUTE}/${id}`, {
+      method: "DELETE",
+<% if (it.hasSecurity) { %>      headers: entete,
+<% } %>    });
     expect(again.status).toBe(404);
   });
-});
+<% if (it.hasSecurity) { %>
+  it("DELETE sans identité → refusé, et l'enregistrement survit", async () => {
+    const created = await fetch(`${BASE}${ROUTE}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(sample(300)),
+    });
+    const id = String((await json(created)).id);
+
+    // Personne n'est authentifié : le framework refuse AVANT d'entrer dans
+    // l'action. 401 ou 403 selon la zone qui couvre la route — ce qui compte
+    // est le refus, pas son code.
+    const refuse = await fetch(`${BASE}${ROUTE}/${id}`, { method: "DELETE" });
+    expect([401, 403]).toContain(refuse.status);
+
+    // Et surtout : la donnée est toujours là. Un refus qui supprime quand même
+    // serait pire qu'une absence de garde, parce qu'il rassure.
+    const survit = await fetch(`${BASE}${ROUTE}/${id}`);
+    expect(survit.status).toBe(200);
+
+    await fetch(`${BASE}${ROUTE}/${id}`, {
+      method: "DELETE",
+      headers: { cookie: await connexionAdmin() },
+    });
+  });
+<% } %>});

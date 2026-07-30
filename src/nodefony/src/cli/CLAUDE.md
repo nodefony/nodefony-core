@@ -479,7 +479,16 @@ homonyme dépossède le module et l'app ne démarre plus sur un message de « co
 table tenue honnête par le gate `RUN_CLI_BOOT=1` de `CliIntegration.test.ts` qui la confronte à
 `nodefony inspect entities --json`) · champ invalide. Ajoute `drizzle-orm` au `package.json` de
 l'app si absent (le code produit l'importe EN DIRECT — sans la dep, seul le hissage npm sauvait
-la résolution, absent en `--link`) et l'ANNONCE (`npm install` requis). **Dit la vérité** : la
+la résolution, absent en `--link`) et l'ANNONCE (`npm install` requis). **La SUPPRESSION naît gardée** : `@IsGranted("ROLE_ADMIN")` sur `destroy` dès que
+`@nodefony/security` est dans les deps de la cible — le gabarit `rest` de `create controller`
+protège déjà le même DELETE, et deux générateurs qui produisent la même route destructrice ne
+peuvent pas avoir deux doctrines. Sans le module, la garde n'est pas émise (le décorateur
+n'existerait pas) et le TSDoc DIT que la route n'est protégée par rien, avec le geste pour la
+protéger. Le décor e2e généré fournit l'identité qui va avec (`connexionAdmin`, `NF_ADMIN_PASSWORD`
+posé pour la suite seule : la production ne sème aucun compte sans mot de passe explicite), et le
+test e2e d'entité éprouve les DEUX faces — l'admin supprime, l'anonyme est refusé et la donnée
+survit. Mesuré avant correction, sur une application réelle : le CRUD généré répondait **204 à un
+DELETE anonyme** (banc de découvrabilité, tâche 20). **Dit la vérité** : la
 table naît au prochain boot dev (`CREATE TABLE IF NOT EXISTS`), la **modifier n'altère RIEN**
 (pas d'`ALTER`), aucune migration n'est produite. Design + alternatives rejetées :
 `create-entity-design-2026-07` (mémoire IA `core-dev/audits/`).

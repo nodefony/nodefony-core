@@ -780,6 +780,14 @@ function dispatchScaffold(
     pkg: SCAFFOLD_VERSIONS,
     preset,
     complete: preset === "complete",
+    // Clé DISTINCTE de `complete`, et lue sous le MÊME nom par le gabarit
+    // d'entité : les deux sont rendus à des moments différents (l'app à sa
+    // création, l'entité plus tard), et le test e2e généré pour une entité
+    // importe un helper du décor e2e généré pour l'app. Deux noms pour la même
+    // question auraient laissé les deux gabarits diverger sans un mot — vécu à
+    // l'écriture de cette ligne : le helper n'était pas rendu, et seul le
+    // typecheck du code généré l'a dit.
+    hasSecurity: preset === "complete",
     frontend,
     front,
     // Secrets PAR-PROJET, générés À LA CRÉATION (jamais au build : un build
@@ -2416,6 +2424,14 @@ function runEntityScaffold(
     sortable,
     defaultOrder,
     relations,
+    // Le CRUD généré porte la seule route DESTRUCTRICE que produise le devkit.
+    // Sans garde, elle répond 204 à un anonyme — mesuré sur une application
+    // réelle, et c'est le défaut le plus coûteux qu'un générateur puisse livrer.
+    // Le gabarit `rest` de `create controller` protège déjà le même DELETE :
+    // deux générateurs qui produisent la même route ne peuvent pas avoir deux
+    // doctrines. Conditionné à la présence du module, faute de quoi `@IsGranted`
+    // n'existerait pas et le code généré ne compilerait pas (preset minimal).
+    hasSecurity: targetDeps.has("@nodefony/security"),
     ...codegen,
   };
 

@@ -11,7 +11,8 @@ import {
   Body,
   Query,
   Idempotent,
-} from "@nodefony/framework";
+<% if (it.hasSecurity) { %>  IsGranted,
+<% } %>} from "@nodefony/framework";
 import { HttpError } from "@nodefony/http";
 import type { ContextType } from "@nodefony/http";
 import type { <%= it.pascal %>Row } from "../entity/<%= it.pascal %>";
@@ -250,9 +251,25 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
    * `DELETE <%= it.route %>/{id}` — rend **204** (pas de corps : il n'y a plus rien à
    * décrire). 404 si la ressource n'existait pas, pour que le client distingue
    * « supprimée » de « jamais vue ».
-   */
+   *
+<% if (it.hasSecurity) { %>   * **Réservée à `ROLE_ADMIN`** : `@IsGranted` refuse AVANT même d'entrer dans
+   * l'action. C'est la seule route de ce contrôleur qui DÉTRUISE — la laisser
+   * ouverte reviendrait à livrer une application où n'importe qui efface les
+   * données d'autrui. En développement, `admin/admin` porte ce rôle.
+   *
+   * Pour ouvrir davantage (une équipe, un rôle métier), change le rôle ici, ou
+   * déclare une zone dans `security.areas` qui couvre `<%= it.route %>` — les
+   * deux voies sont du framework. Ce qu'il ne faut PAS faire, c'est lire
+   * `user.roles` à la main dans l'action : la garde s'exécute avant elle, et un
+   * contrôle écrit à la main est celui qu'on oublie de reporter ailleurs.
+<% } else { %>   * ⚠️ **Cette route n'est protégée par RIEN.** Aucun module de sécurité n'est
+   * installé, donc n'importe qui peut supprimer. Ajoute `@nodefony/security`,
+   * puis un `@IsGranted("ROLE_ADMIN")` juste au-dessus de `@Delete` — ou une
+   * zone dans `security.areas` qui couvre `<%= it.route %>`.
+<% } %>   */
   @Delete("/{id}")
-  @HttpCode(204)
+<% if (it.hasSecurity) { %>  @IsGranted("ROLE_ADMIN")
+<% } %>  @HttpCode(204)
   async destroy(@Param("id") id: string) {
     const removed = await this.removeResource({ id });
     if (removed === 0) {
