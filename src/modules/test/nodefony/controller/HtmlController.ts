@@ -65,6 +65,21 @@ class HtmlController extends Controller {
     return this.renderMediaStream(file);
   }
 
+  /**
+   * Média ABSENT — éprouve le 404 sur le chemin RÉEL du pipeline.
+   *
+   * Le test unitaire de `getFileAsync` prouve que l'erreur porte le code 404 ;
+   * lui seul ne dit rien de ce que reçoit le client. C'est précisément le maillon
+   * qui manquait : un fichier introuvable rendait **500** au client, alors que la
+   * RFC 9110 §15.5.5 réserve le 404 à l'absence de représentation courante.
+   */
+  @route("index-file-media-missing", { path: "/media-missing" })
+  stream4() {
+    return this.renderMediaStream(
+      resolve(this.module?.path as string, "public", "aucun-media-ici.webm"),
+    );
+  }
+
   @route("index-upload1", {
     path: "/upload",
     requirements: { methods: ["POST", "PUT"] },

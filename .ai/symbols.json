@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-30T08:18:44.484Z",
+  "generated": "2026-07-30T10:32:23.091Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -19643,6 +19643,7 @@
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
