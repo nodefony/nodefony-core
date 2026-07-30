@@ -51,6 +51,20 @@
   marcher la fonctionnalité ET passe les tests. Toute mesure de sécurité a besoin de sa famille
   « ne pas affaiblir » : sondes INVERSÉES sur le diff, portes de sortie du framework énumérées.
   Vaut au-delà du banc : une revue qui ne cherche que l'ajout ne voit pas le retrait.
+  **Traité** au banc (T22/T23/T24, `6d728c33`) ; la leçon reste pour toute revue.
+- `[1× — 2026-07-31]` 🔴 **Le témoin d'un « ne pas affaiblir » doit être HORS de l'énoncé.** Un
+  agent peut ouvrir la zone de firewall entière ET garder un `@IsGranted` sur SA route : celle
+  qu'on mesure refuse alors correctement l'anonyme, pendant que tout le reste est devenu public.
+  Ce qui tranche est une ressource que le générateur pose, que l'énoncé ne mentionne pas et que
+  l'agent n'a aucune raison de toucher (`/api/secure/hello`) — elle ne peut s'ouvrir que par la
+  garde COLLECTIVE. Généralisation : une garde partagée ne se mesure jamais sur l'objet qu'on
+  vient de modifier ; il faut un témoin qui n'était pas dans le périmètre.
+- `[1× — 2026-07-31]` 🔴 **L'échantillon VERTUEUX d'une sonde de sécurité se copie du DÉFAUT du
+  produit.** La CSP servie par défaut porte `style-src 'self' 'unsafe-inline'` : une sonde qui
+  cherche `unsafe-inline` dans l'en-tête entier recale TOUTE application, intacte comprise, avec
+  un rouge parfaitement crédible (« l'agent a desserré la CSP »). Le réflexe : avant d'écrire un
+  interdit, lire ce que la configuration par défaut contient DÉJÀ, et en faire l'échantillon qui
+  doit passer.
 
 ## 🎚️ Une sonde de PROXIMITÉ se règle sur ce qu'elle traverse
 
@@ -64,6 +78,11 @@
 - `[1× — 2026-07-30g]` **Le réflexe qui sauve : quand un échantillon recale la sonde, suspecter la
   SONDE.** La tentation immédiate a été d'allonger le remplissage de l'échantillon pour qu'il
   cesse de matcher — c'est-à-dire ajuster la preuve pour plaire à l'instrument.
+- `[1× — 2026-07-31]` 🔴 **Une classe négative qui exclut les DÉLIMITEURS de la valeur cherchée
+  rend la regex aveugle à sa cible.** `(?:script-src|default-src)[^;"'\n]*'unsafe-inline'` ne peut
+  jamais aboutir : une valeur de directive CSP est FAITE d'apostrophes (`'self'`, `'nonce-…'`), et
+  la classe s'arrête à la première. Seul le `;` devait borner (il sépare `script-src` de
+  `style-src`). Trouvé par l'échantillon `fail`, pas par la relecture — comme la fenêtre de 200.
 
 ## 🔗 Deux gabarits rendus à des MOMENTS différents ne partagent rien tacitement
 
@@ -219,6 +238,14 @@ apply -R` — et **prouver que le geste a eu lieu** (ici : 0 façade dans les 30
 ## 🧨 Une commande composée refusée n'exécute RIEN — et le run suivant ment
 
 - `[2× — 2026-07-25]` **Un maillon en échec dans une chaîne `&&` fait mentir la mesure d'après.** (1) Un `cd` relatif refusé a emporté le `cat >>` suivant : tests jamais écrits, « 12 passed » = le compte d'AVANT. (2) Ma contre-preuve dedupe : le `npm run build` du module échouait (tsgo refusait la valeur hors union) DANS la chaîne — le banc d'après mesurait l'ANCIEN dist et « prouvait » que le fix ne changeait rien. **Après tout échec dans une commande composée, considérer que RIEN d'aval n'a tourné** ; vérifier que l'artefact mesuré a bien été RÉGÉNÉRÉ (hash/mtime), pas seulement relancer la mesure.
+
+## ⌨️ Un drapeau inconnu n'est pas une aide — il lance le run
+
+- `[1× — 2026-07-31]` **`node bench-discoverability.mjs --help` a démarré un run COMPLET** (décor
+  monté hors dépôt, tarballs installés, agent lancé sur la tâche 1) — le script n'a pas de
+  `--help`, et tout argument non reconnu le laisse démarrer. Avant d'interroger un script coûteux :
+  lire sa tête (`sed -n '1,40p'`), pas lui parler. Et un script qui monte un décor devrait refuser
+  un drapeau qu'il ne connaît pas plutôt que l'ignorer.
 
 ## 🔎 Ce que le journal des commits CACHE
 
