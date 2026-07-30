@@ -33,6 +33,23 @@ env:
   # Sortie non interactive
   CI: true
   FORCE_COLOR: 1
+  # Turbo lance par défaut jusqu'à DIX tâches de front, sur des runners qui ont
+  # QUATRE cœurs — chacune démarrant un binaire natif (rolldown en Rust, tsgo en
+  # Go). Sous Windows, ces démarrages simultanés ont fait tomber des jobs entiers
+  # avec le code 3221225794 (0xC0000142, STATUS_DLL_INIT_FAILED) : le process ne
+  # démarre pas, il n'échoue pas à compiler. Constaté sur trois runs distincts,
+  # sur `rolldown` ET sur `tsgo`, et sur Windows seulement.
+  #
+  # Aligner la concurrence sur les cœurs réels supprime la sur-souscription sans
+  # rien coûter : ces tâches sont limitées par le CPU, pas par l'attente.
+  #
+  # ⚠️ C'est une ATTÉNUATION RAISONNÉE, pas une correction prouvée — elle ne peut
+  # pas l'être sans machine Windows. Si 3221225794 revient malgré cette valeur,
+  # l'hypothèse « sur-souscription » est fausse : chercher alors du côté de la
+  # mémoire du runner ou d'un binaire natif précis, et ne pas baisser davantage.
+  # (`TURBO_CONCURRENCY` est bien lu par turbo 2.10 — vérifié : une valeur
+  # invalide fait échouer la commande.)
+  TURBO_CONCURRENCY: 4
 
 jobs:
   # ─── Vérifications statiques — multi-plateformes ────────────────────────────
