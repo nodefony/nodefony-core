@@ -101,6 +101,8 @@
   },
   "dependencies": {
     "@analogjs/vite-plugin-angular": "2.6.4",
+    "@angular/build": "22.1.2",
+    "@angular/compiler-cli": "22.1.0",
     "@vitejs/plugin-react": "6.0.5",
     "@vitejs/plugin-vue": "6.0.8",
     "vite": "8.2.0"

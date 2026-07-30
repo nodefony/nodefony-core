@@ -52,6 +52,20 @@ exactement le même arbre — 6 paquets `@angular/*` à la racine, **0** imbriqu
 et `npx vite build` compile derrière (bundle émis). Ce qui est commité vaut donc pour un clone
 neuf, pas seulement ici.
 
+**Le hissage est désormais STRUCTUREL — le résiduel ci-dessous est fermé.** Il s'est d'ailleurs
+rouvert au premier install suivant (montée de `@angular/build` en `22.1.2`) : npm a ré-imbriqué le
+paquet sous le module et `vite build` est retombé. La cause n'était pas le lockfile mais une
+divergence de configuration — le dépôt de développement déclarait `@analogjs/vite-plugin-angular`
+à la RACINE (c'est de là que `@nodefony/frontend` l'importe, `presets/angular-vite.ts:25`) tout en
+laissant `@angular/build` et `@angular/compiler-cli`, ses **peers**, dans le module. npm ne les
+faisait coïncider que tant que les versions coïncidaient. Or le générateur, lui, place les quatre
+au MÊME niveau (`scaffold/engine.ts` : `devDeps: vite, @analogjs/vite-plugin-angular,
+@angular/build, @angular/compiler-cli`) — le dépôt ne reproduisait donc pas la configuration que
+son propre `create app` produit. `@angular/build` et `@angular/compiler-cli` déplacés vers la
+racine : une seule déclaration chacun, à l'endroit où le générateur les met. Effet de bord utile —
+ces deux paquets entrent enfin dans le champ du banc anti-dérive (`create.test.ts` ne lit que
+racine + core + studio + frontend + drizzle, jamais `src/modules/*`).
+
 **Résiduel — hors du périmètre accordé pour cette tâche (implique `package.json` racine ou de
 `@nodefony/frontend`, non touchés ici).** Rien ne garantit STRUCTURELLEMENT que la famille
 `@angular/*` d'un module consommateur reste hissée à la racine : un futur `npm install` qui
