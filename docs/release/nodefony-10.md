@@ -324,6 +324,118 @@ discussion → relire ce fichier d'abord.
 
 ---
 
+## 10. Plan d'exécution — distribution, vitrine et image
+
+> **Ordre NON négociable : R1 → R2 → R3.** `examples/minimal-app` est le seul décor du seul gate
+> qui prouve le modèle B ; le supprimer avant que le smoke sache générer le sien retire la preuve
+> « artefact reçu » du dépôt. Le reste des lots peut s'intercaler.
+
+### 10.1 Décisions
+
+| #      | Décision                                                                                     | Pourquoi                                                                                                                                                                                          |
+| ------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **D1** | `nodefony/nodefony` = **vitrine GÉNÉRÉE**, poussée par la CI au tag, jamais éditée à la main | Un template à cloner serait une seconde source face aux gabarits du cœur → la dérive qu'on vient de constater sur `minimal-app`                                                                   |
+| **D2** | Le framework reste sur `nodefony-core` ; **tous** les `repository` npm y pointent            | npmjs.com affiche le lien « Repository » : un utilisateur qui clique doit atteindre les sources, pas une application de démonstration                                                             |
+| **D3** | Le `Dockerfile` a **une seule source** : les gabarits de `create app`                        | Sa doctrine (forme **exec** → node PID 1 → SIGTERM reçu) ne survit pas à une réécriture par l'utilisateur, et son absence ne produit aucune erreur — juste la fin silencieuse de l'arrêt gracieux |
+| **D4** | L'image se construit **depuis une application générée**                                      | Elle prouve alors le générateur au lieu de vivre à côté de lui                                                                                                                                    |
+| **D5** | `npm create nodefony` = **shim mince** qui délègue à `nodefony create app`                   | Deux portes d'entrée, UNE implémentation de scaffold — et l'`npm i -g` que le §6bis-B nomme comme le bloqueur d'onboarding disparaît                                                              |
+| **D6** | Les deux dépôts Docker sont **archivés**                                                     | `nodefony-docker` ET `docker-nodefony` existent, même dernier push (2023-11-13) : un doublon, et plus aucune source à héberger une fois D3 appliqué                                               |
+| **D7** | Un tag `v10.*` déclenche **tout**                                                            | Un seul déclencheur, aucune étape manuelle à oublier                                                                                                                                              |
+
+**Pourquoi PAS de submodule** (option écartée) : un submodule sert à **consommer** un dépôt tiers à
+une révision figée (parent → dépendance) ; ici `nodefony-core` **produit** le contenu des deux
+dépôts — c'est une **publication**, au même titre que npm. Conséquences : `git clone` sans
+`--recursive` rend des dossiers vides (friction n°1 pour un projet dont l'enjeu est l'onboarding) ;
+deux commits par régénération ; et le contenu reste éditable des deux côtés, donc **la dérive
+demeure**. C'est de plus le montage qu'employait le v7 (`.gitmodules` à sa racine).
+
+### 10.2 R0 — hygiène de la surface publiée (aucun impact fonctionnel)
+
+Terrain relevé : sur les 13 publiables, **aucun** `repository` n'est exploitable — 7 pointent vers
+`git://github.com/nodefony/nodefony.git` (le futur dépôt VITRINE) avec un `directory`
+(`src/packages/@nodefony/…`) qui n'existe pas dans ce dépôt, 3 portent `repository: ""`
+(**framework, http, security** — le cœur), 3 n'ont aucun champ ; `homepage` est absent partout ; et
+le protocole `git://` est mort depuis 2022 (port 9418 fermé par GitHub).
+
+| Lot      | Geste                                                                                                                                    | Preuve                                                                                                                  |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **R0.1** | `repository` + `homepage` + `bugs` sur les 18 `package.json` du périmètre (`src/nodefony` + `src/packages/@nodefony/*`)                  | relevé avant/après ; `…/tree/HEAD/<location>` vérifié 200 (**`HEAD`** et non `main` : survit à un renommage de branche) |
+| **R0.2** | **Gate au pack** (`pack-all.mjs`) : un publiable sans `repository`, ou dont le `directory` n'existe pas sur disque, fait ÉCHOUER le pack | **vu ROUGE d'abord** — vider un champ, vérifier que le pack tombe                                                       |
+| **R0.3** | `@nodefony/frontend` déclare `"vite": "8.1.5"` en peer **exact** → passer en intervalle                                                  | toute application qui l'installe entre en conflit au prochain patch de vite                                             |
+
+> R0.2 est le vrai livrable : sans lui, le trou se rejoue à la création du prochain paquet.
+
+### 10.3 R1 — Docker entre dans le générateur
+
+État : `templates/app/complete/docker/` ne contient que le provisioning Grafana/Loki — **aucun
+Dockerfile généré**. Toute la doctrine cloud-native n'existe que dans le fichier que R3 supprime.
+
+| Lot      | Geste                                                                                                                                                                                            |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **R1.1** | `Dockerfile` + `.dockerignore` deviennent des gabarits de `create app` — repris de `minimal-app`, doctrine intégralement préservée (multi-stage, forme exec, `USER node`, HEALTHCHECK `/readyz`) |
+| **R1.2** | `docker-compose.yml` généré **seulement** si le scaffold a retenu pg/mysql — le générateur connaît déjà le dialecte                                                                              |
+| **R1.3** | **Pas** de `Dockerfile.dev` en 10.0.0 : le développement tourne en local, et un conteneur de dev (volumes + `node_modules` + HMR) coûte plus qu'il ne rend                                       |
+
+**Preuve R1** : application générée → `docker build` → `run` → `/livez` `/readyz` → `docker stop`
+pendant une requête lente → la requête aboutit, sortie en 0, drain visible dans les journaux.
+
+### 10.4 R2 — le smoke GÉNÈRE son décor (cœur du chantier)
+
+| Lot      | Geste                                                                                                                                                                                                                                                                |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **R2.1** | `smoke-docker.sh` : `nodefony create app` **remplace** la copie de `examples/minimal-app` (`APP_SRC`)                                                                                                                                                                |
+| **R2.2** | Étapes **nommées séparément** — « scaffold en échec » ne doit jamais se lire comme « tarballs en échec »                                                                                                                                                             |
+| **R2.3** | Étendre aux 3 scénarios front que le §6bis réclame déjà : **(a)** app à front → tags `/_assets/…` ; **(b)** `public/dist` supprimé → auto-build annoncé, et ERROR nommée dans l'image sans devDependencies ; **(c)** Studio `static` + `mandatory` → `/nodefony` 200 |
+
+Bénéfice structurel : le smoke éprouve alors **le générateur** — c'est-à-dire ce que reçoit
+réellement un nouvel utilisateur — et les variantes qu'exige R2.3 sont impossibles avec un dossier
+figé, naturelles avec un générateur.
+
+**Preuve R2** : smoke vert de bout en bout. C'est le seul gate qui débloque R3.
+
+### 10.5 R3 — `examples/` disparaît (après R2 vert, jamais avant)
+
+Suppression du dossier, puis la prose qui le cite : **`docs/release/nodefony-10.md:163` et `:284`**,
+**`MIGRATION_STATUS.md:627`**. Inventaire vérifié : il n'existe aucun autre consommateur, et un seul
+consommateur exécutable (`smoke-docker.sh`).
+
+### 10.6 R4 — `create-nodefony`
+
+14ᵉ paquet, ~50 lignes, versionné en lockstep : il résout le binaire `nodefony` et lui passe la
+main. **Preuve** : `npm create nodefony@<version> app-test` depuis les tarballs, en conteneur vierge.
+
+### 10.7 R5 — la CI porte tout
+
+```
+tag v10.x ─► build + tests ─► pack (14 tarballs) ─► smoke sur app GÉNÉRÉE
+          ├─► npm publish (lockstep)
+          ├─► create app ──► push vitrine + tag
+          ├─► docker build (depuis l'app générée) ──► push
+          └─► gh release + changelog
+```
+
+Secrets : `NPM_TOKEN`, jeton d'écriture sur la vitrine, identifiants du registre d'images.
+**Manque criant que ce lot comble** : aucun job ne construit l'image aujourd'hui, et
+`smoke-docker.sh` n'est déclenché par aucun automate — la preuve la plus proche de la production
+n'existe que si quelqu'un pense à la taper.
+
+### 10.8 R6 — dépôts externes (gestes GitHub, hors dépôt)
+
+1. `nodefony/nodefony` : **branche `v7` + tag `v7.0.2` AVANT** d'écraser la branche par défaut —
+   19 ★ et des liens entrants pointent vers ce code (framework JS 7.0.2, dernier commit 2025-02-05).
+2. `nodefony-docker` **et** `docker-nodefony` : archiver les deux (D6).
+3. Image publiée sous `nodefony/nodefony`.
+
+### 10.9 Ce que ce plan NE couvre PAS — et qui bloque encore la release
+
+Le DoD du §8 n'est pas atteint : **ORM multi-dialecte S5** (DDL prod) · **preset Svelte** (figé
+comme dernier geste avant release) · **devkit S1→S4** + volet A « l'application possède son
+`User` » · les **rouges CI jamais diagnostiqués** (« Tests intégration », « Filet CLI (windows) ») ·
+et le fait que **la CI n'a jamais tourné sur un runner réel**, aucun run complet des 16 tâches
+n'ayant eu lieu.
+
+---
+
 ## Journal des décisions
 
 | Date       | Décision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Statut                  |
@@ -353,3 +465,4 @@ discussion → relire ce fichier d'abord.
 | 2026-07-07 | **Gate « comparatif ORM froid » PASSÉE** (`a370b5a1`, mémoire IA `core-dev/audits/orm-comparatif-froid-2026-07.md`) : panel élargi Drizzle 0.45/Kysely 0.29/Prisma 7.8/TypeORM 1.0 (GA 05-19)/MikroORM 7.1, données npm+GitHub du jour → **Drizzle CONFIRMÉ** — aucun candidat ne couvre « entités livrées par le framework, dialecte choisi par l'app au runtime » sans céder sur type-safety (TypeORM), perf (ORM runtime) ou modèle de livraison (Prisma codegen) ; Kysely gagne l'intrinsèque d'un cheveu mais swap = 8-12 sessions + re-preuve sécu pour gain ≈ nul. Garde-fous : G1 confinement dialectal (~200 l. colKit+factories+queryKit) · G2 plan B Kysely nommé (entités framework seules) · G3 `rowid`→PK-subquery d'abord (sqlite-only ×3 dans `DrizzleRepository`, découvert à l'étude). P7.10 débloqué, plan S1-S4 (7 entités + mysql)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | ✅ fait                 |
 | 2026-07-24 | **Preset Svelte 5 = DERNIER geste avant la release** (figé user). Ajout `svelte5-vite` aux presets `@nodefony/frontend` + `create module --frontend svelte`. Raison du placement : zéro dépendance amont, coût faible, et sortir sur la version finale des presets. Studio **reste** React 19 (pas d'équivalent Mantine côté Svelte pour l'admin).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | ✅ acté                 |
 | 2026-07-25 | **VOLET A « l'entité `User` appartient à l'APPLICATION » INTÉGRÉ À 10.0.0 (GO user)** : le framework possède aujourd'hui la table `User` (adapter ORM) là où Symfony, Laravel, Django et Rails la donnent à l'app — le profil séparé avec clé étrangère n'est la norme que chez les services managés (Supabase), pas chez une bibliothèque. Le mécanisme d'appropriation EXISTE déjà (le module s'efface devant une entité déclarée par l'app) ; manquent le générateur, la spec dérivable et la vérification au boot. Entre en 10.0.0 parce que le code d'une app est figé à sa création. Décision FK RÉVISÉE au passage (les émettre, sous conditions). Volet B (hiérarchie de rôles pluggable) = 10.1, sans rupture. Kit : mémoire IA `project_user_entity_roles_kit`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | ✅ acté                 |
+| 2026-07-30 | **DISTRIBUTION TRANCHÉE (GO user) — cf §10 « Plan d'exécution »** : `nodefony/nodefony` devient la **vitrine GÉNÉRÉE** poussée par la CI (D1) ; les `repository` npm pointent tous vers `nodefony-core` (D2) ; le `Dockerfile` n'a qu'UNE source, les gabarits de `create app` (D3), et l'image se bâtit **depuis une application générée** (D4) ; `npm create nodefony` = shim déléguant à `nodefony create app` (D5) ; les deux dépôts Docker en doublon sont archivés (D6) ; un tag `v10.*` déclenche tout (D7). **Submodule ÉCARTÉ** : le flux est une PUBLICATION, pas une dépendance — et un clone sans `--recursive` rendrait des dossiers vides. `examples/minimal-app` est supprimé, mais **seulement après** que le smoke sache générer son décor (ordre R1→R2→R3) : il porte aujourd'hui le seul gate qui prouve le modèle B. Terrain relevé au passage : **aucun** des 13 publiables n'a de `repository` exploitable (7 pointent vers la future vitrine avec un `directory` inexistant, 3 vides — dont http, framework, security —, 3 absents ; `homepage` nulle part ; protocole `git://` mort depuis 2022)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | ✅ acté                 |
