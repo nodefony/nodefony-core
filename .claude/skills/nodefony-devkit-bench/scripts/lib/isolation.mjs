@@ -37,6 +37,62 @@ const sh = (cmd, args, opts = {}) =>
   });
 
 /**
+ * Date de la source publiable la plus récente du dépôt.
+ *
+ * Exportée pour que le contrôle de fraîcheur des tarballs appelle CETTE
+ * implémentation au lieu d'en recopier une : une copie ne validerait qu'elle-même.
+ *
+ * « Publiable » ne veut pas dire « bâti ». Le témoin `dist/index.js` a laissé
+ * passer deux cas, et le second a failli faire rendre un verdict de banc sur du
+ * code qui n'était plus le nôtre :
+ *
+ * - `templates/` est publié TEL QUEL — aucun build ne le touche. Un gabarit
+ *   corrigé laissait donc les tarballs « à jour », et le décor du banc portait
+ *   l'ancienne version du gabarit qu'on venait justement de corriger.
+ * - le core n'a même pas de `dist/index.js` : il émet `dist/node/` et
+ *   `dist/client/`. Il était donc absent du constat de bout en bout.
+ *
+ * D'où un parcours des dossiers réellement emportés par le tarball, plutôt
+ * qu'un fichier témoin.
+ *
+ * @param {string} repo - racine du dépôt Nodefony.
+ * @returns {number} le mtime le plus récent, en millisecondes (0 si rien).
+ */
+export function newestPublishedMtime(repo) {
+  const PUBLISHED = ["dist", "templates", "bin"];
+  const newestUnder = (dir) => {
+    if (!existsSync(dir)) return 0;
+    let newest = 0;
+    for (const e of readdirSync(dir, {
+      withFileTypes: true,
+      recursive: true,
+    })) {
+      if (!e.isFile()) continue;
+      newest = Math.max(
+        newest,
+        lstatSync(path.join(e.parentPath ?? e.path, e.name)).mtimeMs,
+      );
+    }
+    return newest;
+  };
+  const roots = [
+    path.join(repo, "src", "nodefony"),
+    ...readdirSync(path.join(repo, "src", "packages", "@nodefony"), {
+      withFileTypes: true,
+    })
+      .filter((e) => e.isDirectory())
+      .map((e) => path.join(repo, "src", "packages", "@nodefony", e.name)),
+  ];
+  let newest = 0;
+  for (const r of roots) {
+    for (const sub of PUBLISHED) {
+      newest = Math.max(newest, newestUnder(path.join(r, sub)));
+    }
+  }
+  return newest;
+}
+
+/**
  * Tarballs des paquets publiables — l'outil de la RELEASE, pas un packer de plus.
  *
  * `pack-all.mjs` porte des subtilités qu'une copie perdrait sans le dire : la
@@ -44,8 +100,9 @@ const sh = (cmd, args, opts = {}) =>
  * pack (sans elle, le typecheck du consommateur casse), les peers rendus
  * optionnels, la restauration des `package.json` à l'octet près.
  *
- * Re-packer coûte une minute ; on ne le refait donc que si un `dist/` a bougé
- * depuis le dernier pack — la fraîcheur se CONSTATE, elle ne se suppose pas.
+ * Re-packer coûte une minute ; on ne le refait donc que si une source publiable
+ * a bougé depuis le dernier pack — la fraîcheur se CONSTATE, elle ne se suppose
+ * pas. Voir {@link newestPublishedMtime} pour ce que « publiable » recouvre.
  *
  * @param {string} repo - racine du dépôt Nodefony.
  * @param {boolean} force - re-packer même si les tarballs semblent à jour.
@@ -54,29 +111,15 @@ const sh = (cmd, args, opts = {}) =>
 export function packTarballs(repo, force) {
   const outDir = path.join(repo, "release", "tarballs");
   const manifestPath = path.join(outDir, "manifest.json");
-  const newestDist = () => {
-    let newest = 0;
-    const roots = [
-      path.join(repo, "src", "nodefony"),
-      ...readdirSync(path.join(repo, "src", "packages", "@nodefony"), {
-        withFileTypes: true,
-      })
-        .filter((e) => e.isDirectory())
-        .map((e) => path.join(repo, "src", "packages", "@nodefony", e.name)),
-    ];
-    for (const r of roots) {
-      const f = path.join(r, "dist", "index.js");
-      if (existsSync(f)) newest = Math.max(newest, lstatSync(f).mtimeMs);
-    }
-    return newest;
-  };
 
   const fresh =
     !force &&
     existsSync(manifestPath) &&
-    lstatSync(manifestPath).mtimeMs >= newestDist();
+    lstatSync(manifestPath).mtimeMs >= newestPublishedMtime(repo);
   if (fresh) {
-    console.log("• tarballs à jour (aucun dist plus récent) — pack ignoré");
+    console.log(
+      "• tarballs à jour (aucune source publiable plus récente) — pack ignoré",
+    );
   } else {
     console.log("• npm pack des paquets publiables (release/tarballs)…");
     sh(process.execPath, [
