@@ -53,9 +53,10 @@
   tests sautés sur 901** (les deux dialectes de PRODUCTION) ; deux cas anti-bruteforce passés en
   `skipIf` comptent **verts** ; une vingtaine de preuves e2e ne sont **jamais lancées**, donc
   jamais rouges. **Position du user, à graver : s'ils ne sont pas lancés, c'est ROUGE.**
-  Conséquence concrète : `gateReporter` (`vitest.gates.ts`) se contente d'AVERTIR
-  (« COUVERTURE PARTIELLE ») et laisse la suite verte — il doit **échouer en CI**. Une seule
-  implémentation y remplacerait les filets `jq` ad hoc écrits workflow par workflow.
+  ✅ **Fermé depuis** : `gateReporter` (`vitest.gates.ts:540`) est BLOQUANT quand `CI` est posé
+  (`process.exitCode = 1`), branché dans 6 configs, avec `NF_GATES_ALLOW` pour énoncer une absence
+  voulue au lieu de l'oublier. Ce qui reste vrai, c'est la règle : un skip compte comme vert, donc
+  toute cible déclarée doit être exercée ou l'absence nommée.
 - `[1× — 2026-07-27]` **`--reporter=json` REMPLACE la sortie lisible** → un gate tombe sans dire
   quel cas ni de combien. Reproduit **trois fois dans la même session** (banc mémoire, stores,
   realtime) après l'avoir corrigé le matin même sur `turbo --continue`. Toujours
