@@ -163,20 +163,22 @@ Utilisé dans Kernel.memoryUsage() pour afficher RSS/heap.
 
 Filet d'intégration : `CliIntegration.test.ts` (`RUN_CLI_BOOT=1` pour les boots réels).
 
-| Command      | Alias     | Fichier                | Note                                                      |
-| ------------ | --------- | ---------------------- | --------------------------------------------------------- |
-| `Start`      | —         | `StartCommand.ts`      | menu interactif (TTY)                                     |
-| `Dev`        | `dev`     | `DevCommand.ts`        | + `--detach/--wait/--health/--log` (fast-path standalone) |
-| `Build`      | `compile` | `BuildCommand.ts`      | point d'arrêt `onRegister`                                |
-| `Prod`       | `prod`    | `ProdCommand.ts`       | foreground cloud-native, `--workers`, `--detach`          |
-| `Cluster`    | —         | `ClusterCommand.ts`    | `--workers`, `--detach`                                   |
-| `Install`    | —         | `InstallCommand.ts`    |                                                           |
-| `Outdated`   | —         | `OutdatedCommand.ts`   | `-j/--json`, `-a/--all` (cf § outdated)                   |
-| `Status`     | —         | `StatusCommand.ts`     | **standalone** (0 boot)                                   |
-| `Stop`       | —         | `StopCommand.ts`       | **standalone** (0 boot)                                   |
-| `Completion` | —         | `CompletionCommand.ts` | **standalone** — script bash/zsh/fish (cf § Complétion)   |
-| `Create`     | —         | `CreateCommand.ts`     | **standalone** — scaffold projet (cf § Scaffold)          |
-| `Env`        | —         | `EnvCommand.ts`        | **standalone** — cascade `.env` + provenance (cf § env)   |
+| Command      | Alias     | Fichier                | Note                                                          |
+| ------------ | --------- | ---------------------- | ------------------------------------------------------------- |
+| `Start`      | —         | `StartCommand.ts`      | menu interactif (TTY)                                         |
+| `Dev`        | `dev`     | `DevCommand.ts`        | + `--detach/--wait/--health/--log` (fast-path standalone)     |
+| `Build`      | `compile` | `BuildCommand.ts`      | point d'arrêt `onRegister`                                    |
+| `Prod`       | `prod`    | `ProdCommand.ts`       | foreground cloud-native, `--workers`, `--detach`              |
+| `Cluster`    | —         | `ClusterCommand.ts`    | `--workers`, `--detach`                                       |
+| `Install`    | —         | `InstallCommand.ts`    |                                                               |
+| `Outdated`   | —         | `OutdatedCommand.ts`   | `-j/--json`, `-a/--all` (cf § outdated)                       |
+| `Status`     | —         | `StatusCommand.ts`     | **standalone** (0 boot)                                       |
+| `Stop`       | —         | `StopCommand.ts`       | **standalone** (0 boot)                                       |
+| `Completion` | —         | `CompletionCommand.ts` | **standalone** — script bash/zsh/fish (cf § Complétion)       |
+| `Create`     | —         | `CreateCommand.ts`     | **standalone** — scaffold projet (cf § Scaffold)              |
+| `Env`        | —         | `EnvCommand.ts`        | **standalone** — cascade `.env` + provenance (cf § env)       |
+| `Check`      | `doctor`  | `CheckCommand.ts`      | **standalone** — diagnostic STATIQUE (cf § check)             |
+| `Inspect`    | —         | `InspectCommand.ts`    | état RÉEL de l'app, `onPostReady` sans serveur (cf § inspect) |
 
 Les commandes de MODULE (`http:network`, `proxy:generate`, `frontend:build`…) passent par le
 dispatch différé de `CliKernel` — happy-path couvert e2e (exit 0, 1 Kernel, 0 serveur).
@@ -260,6 +262,52 @@ Quatre sorties, dont trois qu'aucun autre outil ne donne : les **masquées**, le
 inconnues** (faute de frappe → suggestion par `closestMatch`, la brique de `envOverride`), les
 **surcharges `NF__<MODULE>__<CHEMIN>`** distinguées des variables déclarées, et les **requises
 manquantes**. Secrets jamais rendus en clair (`pathLooksSecret` — même regex que partout).
+
+## `nodefony check` / `doctor` — le diagnostic STATIQUE (standalone 0-boot)
+
+`nodefony check [--json]`, alias **`doctor`**. Ne lit que des fichiers (`package.json` + sources) —
+donc il fonctionne sur une application **qui ne démarre plus**, et c'est sa raison d'être. Fast-path
+`CliKernel.ts:230` : le faire booter coûterait un démarrage complet pour une réponse qui n'en dépend
+pas, et noierait le rapport sous le journal du Kernel.
+
+⚠️ **L'alias DOIT partager le fast-path.** Sans l'entrée `requested === "doctor"`, commander ne le
+voit pas parmi les intégrées avant le chargement des modules → dispatch différé → boot, exactement
+ce que le raccourci évite.
+
+**Neuf règles**, en deux familles :
+
+- **Câblage** (`kernel/checks/wiring.ts`, 6) — `orphan-entity` / `orphan-controller` /
+  `orphan-service` (classe écrite que rien n'enregistre : ni la compilation ni un test ne le
+  voient) · `reserved-entity` · `missing-brick` · `route-colon-param` (un segment `/api/x/:id`
+  compile, se monte, s'affiche dans `inspect routes` — et ne correspond à AUCUNE URL, Nodefony
+  écrit `{id}`).
+- **Dépendances** (`kernel/checks/packageDeps.ts`, 3) — `undeclared-import` (paquet importé sans
+  être déclaré) · `unreachable-types` · `stale-exception` (une exception de la liste qui ne
+  correspond plus à rien — la liste se périme, donc elle se contrôle).
+
+> **Le contre-exemple à garder** : la règle `route-colon-param` a d'abord lu `path:` PARTOUT et
+> accusé les cinq routes react-router du frontend Studio, où `:id` est la syntaxe JUSTE. Un contrôle
+> qui accuse du code correct est le pire mode de défaillance — il fait « corriger » ce qui marchait.
+> D'où le bornage à `@route(`. **Une règle neuve se lance sur le dépôt entier avant qu'on y croie** :
+> une garde « surface réservée de `Service` » écrite dans le même esprit a rendu **37 signalements,
+> tous sur du code qui compile**, et a été abandonnée (redéfinir un nom hérité est légal tant que la
+> signature reste assignable).
+
+## `nodefony inspect` — l'état RÉEL de l'app (boot console, 0 serveur)
+
+`nodefony inspect <sujet> [--json]` — sujets : `routes` · `modules` · `services` · `config` ·
+`stores` · `entities` · `graph`. Appelle les **mêmes** handlers que le data plane d'administration
+(une source, deux portes). C'est le verbe qui répond à « qu'est-ce qui est VRAIMENT monté ? » quand
+le code laisse croire autre chose.
+
+⚠️ **`kernelEvent: "onPostReady"`, et pas `onReady` malgré les apparences** (`InspectCommand.ts:11`) :
+le plan d'administration est monté PAR un écouteur de `onReady` (`Framework.onKernelReady`), or
+l'action d'une commande intégrée est branchée avant que le moindre module n'existe. À `onReady` elle
+passerait AVANT celui qui peuple le registre, et ne trouverait rien à inspecter. Aucun serveur
+n'écoute pour autant : le profil console (`servers: false`) est respecté par `Kernel.initServers`.
+
+> **Deux verbes, une frontière** : `check` est STATIQUE (des fichiers, marche sur une app cassée),
+> `inspect` est RUNTIME (elle boote, sans port). Un agent n'a que ces deux-là à retenir.
 
 ## Scaffold — `cli/scaffold/` + `cli/create.ts` (3 fronts, UN moteur)
 
