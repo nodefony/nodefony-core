@@ -151,6 +151,16 @@ const PORTS = { NF_PORT: "5371", NF_PORT_HTTPS: "5372" };
 const APP_ENV = { ...process.env, ...PORTS };
 
 /**
+ * Juge de la tâche « média » — chemin ABSOLU, car la commande s'exécute avec
+ * l'application témoin pour répertoire courant, hors du dépôt.
+ */
+const JUGE_MEDIA = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-media-range.mjs",
+);
+
+/**
  * Les 9 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
  * mesure, et deux runs ne se comparent plus. Toute évolution = nouvelle tâche.
  */
@@ -959,21 +969,22 @@ export const TASKS = [
         // Vécu au premier run de cette tâche — un gate rouge qui n'accusait pas
         // l'agent. Les gates d'INTROSPECTION (`inspect`, `--help`) ne montrent
         // pas le défaut, ce qui le rend d'autant plus facile à recopier.
+        //
+        // Le verdict vit dans `lib/gate-media-range.mjs` : il DISTINGUE ses
+        // causes (mauvaise façade / fichier ailleurs / réponse qui ne vient
+        // jamais / port étranger) là où une requête unique rendait un rouge
+        // indifférencié. Un juge en fichier s'éprouve seul, un juge inline non.
+        // La garde de port passe AVANT le boot : sinon un serveur resté d'un run
+        // précédent fait déclarer la readiness et le juge mesure une AUTRE app.
         cmd: [
           "sh",
           "-c",
-          `npm run build >/dev/null 2>&1; mkdir -p media; ` +
+          `node ${JUGE_MEDIA} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; mkdir -p media; ` +
             `node -e "require('node:fs').writeFileSync('media/gate-sample.mp4', Buffer.alloc(3*1024*1024, 7))"; ` +
             `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
-            `node -e "const http=require('node:http');` +
-            `const req=http.request({host:'127.0.0.1',port:${PORTS.NF_PORT},path:'/api/media/gate-sample.mp4',` +
-            `headers:{Range:'bytes=0-99'}},res=>{let n=0;res.on('data',c=>{n+=c.length});` +
-            `res.on('end',()=>{const cr=res.headers['content-range'];` +
-            `if(res.statusCode!==206||!cr||n!==100){` +
-            `console.error('statut='+res.statusCode+' content-range='+cr+' octets='+n);process.exit(1)}})});` +
-            `req.on('error',e=>{console.error('requete impossible : '+e.message);process.exit(1)});` +
-            `req.setTimeout(15000,()=>{console.error('pas de reponse');process.exit(1)});req.end()"; ` +
-            `CODE=$?; npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+            `node ${JUGE_MEDIA}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
       },
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
@@ -1203,11 +1214,26 @@ function runGates(app, runDir, task) {
       env: APP_ENV,
     });
     const pass = r.status === 0;
-    console.log(`  ${pass ? "✅" : "❌"} [gate] ${p.name} (exit ${r.status})`);
+    // La CAUSE remonte dans le rapport, pas seulement le code de sortie.
+    // Sans elle, un rouge se relit des heures plus tard sans qu'on puisse dire
+    // ce qui a lâché — vécu : un gate rouge dont le journal du décor avait été
+    // écrasé entre-temps, et dont l'agent avait en réalité fait juste. Un gate
+    // qui dit `exit 1` oblige à rejouer pour comprendre ; il doit s'expliquer
+    // du premier coup.
+    const cause = `${r.stderr ?? ""}\n${r.stdout ?? ""}`
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l.startsWith("CAUSE="));
+    console.log(
+      `  ${pass ? "✅" : "❌"} [gate] ${p.name} (exit ${r.status})` +
+        (cause ? `\n       ${cause}` : ""),
+    );
     return {
       name: p.name,
       pass,
-      evidence: pass ? "exit 0" : `exit ${r.status}`,
+      evidence: pass
+        ? "exit 0"
+        : `exit ${r.status}${cause ? ` — ${cause}` : ""}`,
     };
   });
   writeFileSync(

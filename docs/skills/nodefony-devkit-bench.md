@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 | --- | --- |
 | Version | `1.2.0` |
 | Famille | Autres |
-| Corps | 381 lignes |
-| Coût d'activation | ~5 677 tokens (le corps est chargé à l'invocation) |
+| Corps | 411 lignes |
+| Coût d'activation | ~6 135 tokens (le corps est chargé à l'invocation) |
 | Description | 1016 / 1024 caractères |
 | Déclencheurs | 0 |
 | Ressources `references/` | 0 page(s) |
@@ -68,7 +68,7 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/bench-discoverability.mjs` | Banc de DÉCOUVRABILITÉ du devkit — les 9 tâches (gate de la release 10.0.0). | `--allow-empty` `--analyze-only` `--command` `--dangerously-skip-permissi` `--describe-json` `--detach` `--dir` `--dry-run` `--format` `--frontend` `--help` `--json` `--kind` `--left` `--link` `--model` `--name-only` `--no-audit` `--no-fund` `--no-install` `--output-format` `--preset` `--repack` `--setup-only` `--task` `--unified` `--verbose` `--wait` `--yes` | `LINKED` `NF_DEVKIT_BENCH_AGENT` `NF_DEVKIT_BENCH_AGENT_ARGS` `NF_DEVKIT_BENCH_MODEL` |
+| `scripts/bench-discoverability.mjs` | Banc de DÉCOUVRABILITÉ du devkit — les 9 tâches (gate de la release 10.0.0). | `--allow-empty` `--analyze-only` `--check-port-free` `--command` `--dangerously-skip-permissi` `--describe-json` `--detach` `--dir` `--dry-run` `--format` `--frontend` `--help` `--json` `--kind` `--left` `--link` `--model` `--name-only` `--no-audit` `--no-fund` `--no-install` `--output-format` `--preset` `--repack` `--setup-only` `--task` `--unified` `--verbose` `--wait` `--yes` | `JUGE_MEDIA` `LINKED` `NF_DEVKIT_BENCH_AGENT` `NF_DEVKIT_BENCH_AGENT_ARGS` `NF_DEVKIT_BENCH_MODEL` |
 | `scripts/bench-discoverability.selftest.mjs` | Auto-contrôle des sondes du banc de découvrabilité — le juge, AVANT le verdict. | `--describe-json` `--dry-run` `--help` `--json` `--kind` `--prove` | — |
 | `scripts/bench-schema.mjs` | Banc de SCHÉMA — ce que la grammaire de champs ne sait pas exprimer. | `--allow-empty` `--analyze-only` `--dangerously-skip-permissi` `--detach` `--dialect` `--dir` `--dump-only` `--frontend` `--jq` `--json` `--link` `--model` `--no-audit` `--no-fund` `--no-install` `--output-format` `--preset` `--repack` `--schema` `--schema-only` `--setup-only` `--verbose` `--wait` `--yes` | `AGENT` `DIALECT` `LINKED` `MODEL` `NF_DEVKIT_BENCH_AGENT` `NF_DEVKIT_BENCH_AGENT_ARGS` `NF_DEVKIT_BENCH_MODEL` `NF_MYSQL_URL` `NF_PG_URL` |
 | `scripts/bench-schema.selftest.mjs` | Éprouve le BANC lui-même — avant qu'il ne juge quoi que ce soit. | `--allow-no-pg` `--dump-only` `--prove` `--schema` | `JUDGE_TABLE` `NF_PG_URL` |
@@ -82,7 +82,7 @@ node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.selftest.mjs
 node scripts/devkit-verify.mjs              # décor + toutes les étapes
 ```
 
-**Toutes les variables lues par ce skill** : `AGENT` · `APP` · `DIALECT` · `JUDGE_TABLE` · `LINKED` · `MODEL` · `MODULE` · `MODULE_PKG` · `NF_DEVKIT_BENCH_AGENT` · `NF_DEVKIT_BENCH_AGENT_ARGS` · `NF_DEVKIT_BENCH_MODEL` · `NF_MYSQL_URL` · `NF_PG_URL`
+**Toutes les variables lues par ce skill** : `AGENT` · `APP` · `DIALECT` · `JUDGE_TABLE` · `JUGE_MEDIA` · `LINKED` · `MODEL` · `MODULE` · `MODULE_PKG` · `NF_DEVKIT_BENCH_AGENT` · `NF_DEVKIT_BENCH_AGENT_ARGS` · `NF_DEVKIT_BENCH_MODEL` · `NF_MYSQL_URL` · `NF_PG_URL`
 
 ## Conformité au standard Agent Skills
 
@@ -100,7 +100,7 @@ node scripts/devkit-verify.mjs              # décor + toutes les étapes
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 381 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 411 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

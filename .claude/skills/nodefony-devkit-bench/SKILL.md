@@ -32,20 +32,38 @@ jq -r 'select(.type=="result") | {num_turns, duration_ms, total_cost_usd}' \
   <runDir>/task-<n>.transcript.jsonl
 ```
 
-Ordre de grandeur relevé sur la tâche 14, avant et après avoir hissé les trois
-façades de fichier en TÊTE de l'`AGENTS.md` généré :
+### 🔴 La variance ÉCRASE l'écart d'un run à l'autre — mesuré, pas supposé
 
-| Verdict  | Tours  | Durée     | Coût       |
-| -------- | ------ | --------- | ---------- |
-| **FAIL** | 101    | 874 s     | 1,16 $     |
-| **PASS** | **74** | **471 s** | **0,72 $** |
+Quatre runs de la tâche 14, **gabarit identique, même modèle, même décor** — seul
+le hasard du modèle change :
 
-Deux runs, deux agents : ce n'est pas une mesure contrôlée, et il ne faut pas la
-lire comme telle. Mais le sens est net et il est cohérent avec la leçon
-principale — **une information placée là où l'agent regarde déjà supprime les
-tours de recherche**, alors que la même information en profondeur les multiplie.
-Un chiffre de tours qui monte d'un run à l'autre est un signal à instruire, même
-quand le verdict reste vert.
+| Run | Verdict  | Façade employée | Tours | Durée |   Coût |
+| --- | -------- | --------------- | ----: | ----: | -----: |
+| a   | PASS     | ✅              |    74 | 471 s | 0,72 $ |
+| b   | **FAIL** | ✅              |    86 | 575 s | 0,94 $ |
+| c   | **FAIL** | ✅              |    98 | 850 s | 1,27 $ |
+| d   | PASS     | ✅              |    68 | 409 s | 0,64 $ |
+
+Deux conclusions, et elles commandent toute lecture de ce banc :
+
+- **Le verdict d'un run unique ne conclut pas.** Deux PASS et deux FAIL pour le
+  même gabarit. Déclarer une correction « prouvée » sur un seul PASS est une
+  erreur — elle a été commise ici.
+- **Les tours varient de 68 à 98, soit ±20 % autour de ~80.** Un écart de l'ordre
+  de 25 tours entre deux runs isolés est donc du BRUIT. Toute mesure d'effort qui
+  prétend comparer deux états du devkit doit être une **médiane de ≥ 3 runs** ;
+  celle qui répondra un jour à « un plus gros modèle tourne-t-il moins en rond ? »
+  aussi.
+
+**Ce qui reste lisible sur un seul run, c'est la sonde de CONTENU** — ici, « une
+façade de flux est-elle employée ? » : verte 4 fois sur 4 après la remontée des
+façades en tête de l'`AGENTS.md`, contre 0 sur 1 avant. Binaire, sans seuil, sans
+dépendance à l'humeur du modèle. La leçon tient donc toujours — **une information
+placée là où l'agent regarde déjà supprime les tours de recherche** — mais c'est
+la sonde qui la prouve, pas le compteur de tours.
+
+Corollaire pour l'interprétation : un chiffre de tours qui monte est un signal à
+**instruire**, jamais une conclusion à publier.
 
 ## Pourquoi trois bancs, et pas un
 
@@ -254,6 +272,18 @@ celle du catalogue a prouvé que pointer un document ne suffit pas. Une fois
 l'information hissée dans le fichier lu par défaut, elle devient redondante — on
 la déclasse en observation plutôt que de la supprimer, pour continuer à voir
 comment l'agent s'y prend.
+
+**Un juge doit NOMMER sa cause, sinon son rouge accuse au hasard.** Le juge de la
+tâche 14 faisait une requête et rendait un rouge unique — or quatre situations le
+produisaient : la façade ignore `Range`, le fichier est cherché ailleurs que dans
+le dossier nommé par l'énoncé, la réponse ne vient jamais, ou un serveur resté
+d'un run précédent tient le port et se fait mesurer à la place du décor. Les deux
+premières se confondaient, et la confusion faisait accuser la découvrabilité quand
+elle n'était pas en cause. Le juge vit maintenant dans
+`scripts/lib/gate-media-range.mjs` — un fichier s'éprouve seul, un `node -e` inline non —
+avec une sortie par cause, et `runGates` remonte la ligne `CAUSE=` dans
+l'`evidence` du rapport : un `exit 1` oblige à rejouer pour comprendre, et le
+journal du décor, lui, aura été écrasé entre-temps.
 
 **Une sonde de contenu ne regarde pas les tests.** Une valeur littérale dans un
 fichier de test est une **fixture**, pas une configuration en dur. Vécu : un
