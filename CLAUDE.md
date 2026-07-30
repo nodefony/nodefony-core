@@ -553,6 +553,14 @@ const tmp = Nodefony.getKernel()?.tmpDir?.path ?? "/tmp";
 - **Avant « fait / vert / livré » : nommer ce qui n'a PAS été lancé**, ce qui est supposé plutôt
   que vérifié, les chemins restés hors preuve. Une phrase suffit (« non lancé : X »). C'est le
   motif n°1 des rattrapages.
+- **🔴 Une preuve porte sur l'artefact REÇU, et sur une sortie ENTIÈRE.** Ce que j'écris n'est pas
+  ce que le consommateur exécute — tarball (pas le `package.json` du dépôt), `dist` rebâti
+  COMPLÈTEMENT (pas `--filter`), app générée, fichier relu APRÈS le formateur. Vérifier d'abord que
+  la transformation a EU LIEU (empreinte/date) : un maillon en échec dans une chaîne `&&` laisse
+  mesurer l'ancienne version et « prouver » qu'un correctif ne change rien. Et toute sortie qui
+  nourrit une décision se capture ENTIÈRE dans un fichier, puis se filtre : la troncature ne
+  s'annonce jamais (`tail`, un reporter qui REMPLACE la sortie lisible, une API qui pagine à 30,
+  `rg` sans `-a`). Mémoires : `feedback_prove_on_received_artifact`, `feedback_shell_false_diagnostics`.
 - Valider : `npm run build` (0 erreur TS) + `npm run test` (tous verts)
 
 **FIN :**
