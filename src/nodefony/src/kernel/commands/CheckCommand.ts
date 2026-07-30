@@ -30,6 +30,7 @@ const options: OptionsCommandInterface = {
  * @example
  * ```bash
  * nodefony check          # sortie lisible, sort en erreur si un manquement
+ * nodefony doctor         # même commande — le nom qu'on cherche quand ça ne va pas
  * nodefony check --json   # même chose, exploitable par un script de CI
  * ```
  */
@@ -41,6 +42,11 @@ class Check extends Command {
       cli as CliKernel,
       options,
     );
+    // `doctor` — le mot qu'on tape quand quelque chose ne va pas, et celui que
+    // les autres écosystèmes ont installé (`brew doctor`, `flutter doctor`).
+    // Un alias, pas une seconde commande : une règle ajoutée à `check` est
+    // servie par les deux, sans rien à recâbler.
+    this.alias("doctor");
     this.addOption("--json", "Machine-readable output");
   }
 

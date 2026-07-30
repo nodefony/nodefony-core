@@ -98,7 +98,7 @@ Celles qu'on n'invente pas — faute de savoir qu'elles existent :
 <% } %><% if (it.hasSecurity) { %>| Clés de chiffrement du firewall | `npx nodefony security:secrets [-j] [-w]` |
 | Créer un compte **administrateur** | `npx nodefony security:user:add <identifiant> --admin` |
 <% } %>| Dépendances en retard (agrégées, pas le brut de npm) | `npx nodefony outdated [-j] [-a]` |
-| Cohérence du projet | `npx nodefony check [--json]` |
+| Cohérence du projet (classe non câblée, route qui répondra 404) | `npx nodefony doctor [--json]` |
 | Plusieurs processus, un cœur chacun | `npx nodefony production -w <n>` · `npx nodefony cluster -w <n>` |
 | Complétion au TAB | `source <(nodefony completion zsh)` |
 

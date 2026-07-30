@@ -223,7 +223,11 @@ class CliKernel extends Cli {
     // coûtait un démarrage complet pour une réponse qui n'en dépend pas, noyait
     // le rapport sous le journal du Kernel, et le rendait inutilisable sur une
     // application qui justement ne démarre plus.
-    if (requested === "check") {
+    // `doctor` est l'ALIAS de `check` (cf `CheckCommand`) : il doit prendre le
+    // même fast-path, sinon commander ne le voit pas parmi les built-ins avant
+    // le chargement des modules et il partirait en dispatch différé — donc en
+    // boot, précisément ce que ce raccourci évite.
+    if (requested === "check" || requested === "doctor") {
       return process.exit(runCheckCommand(process.argv));
     }
 
@@ -271,7 +275,17 @@ class CliKernel extends Cli {
           //sortSubcommands: true,
           sortOptions: true,
           showGlobalOptions: true,
-          subcommandTerm: (cmd) => cmd.name(), // Just show the name, instead of short usage.
+          // Le nom, et SES ALIAS — jamais la « short usage » de commander, qui
+          // ajoute les arguments et élargit la colonne. Rendre `cmd.name()` seul
+          // rendait tous les alias INVISIBLES (`check|doctor`, et les autres
+          // avant lui) : un alias qui n'apparaît nulle part n'existe pas pour
+          // celui qui lit l'aide — c'est le seul endroit où il se découvre.
+          subcommandTerm: (cmd) => {
+            const aliases = cmd.aliases?.() ?? [];
+            return aliases.length
+              ? `${cmd.name()}|${aliases.join("|")}`
+              : cmd.name();
+          },
           // formatHelp: (cmd, help) => {
           //   return cmd.helpInformation();
           //   //return this.cli?.commander?.help();

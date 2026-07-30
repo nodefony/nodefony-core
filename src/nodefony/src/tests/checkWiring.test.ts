@@ -138,6 +138,88 @@ class App extends Module {}`,
     assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
   });
 
+  it("un segment `:param` est monté LITTÉRAL — le contrôle le traduit", () => {
+    const dir = make({
+      "nodefony/controllers/AuthorController.ts": `
+export class AuthorController extends Controller {
+  @Get("/api/authors/:handle")
+  fiche(handle: string) { return { handle }; }
+}`,
+      "index.ts": `import { AuthorController } from "./nodefony/controllers/AuthorController";
+@controllers([AuthorController])
+class App extends Module {}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    assert.strictEqual(r.findings.length, 1, JSON.stringify(r.findings));
+    assert.strictEqual(r.findings[0].kind, "route-colon-param");
+    // Le message porte le GESTE — le chemin corrigé, pas seulement le constat.
+    assert.match(r.findings[0].message, /"\/api\/authors\/\{handle\}"/u);
+  });
+
+  it("la forme `{param}` du framework → rien à signaler", () => {
+    const dir = make({
+      "nodefony/controllers/AuthorController.ts": `
+export class AuthorController extends Controller {
+  @Get("/api/authors/{handle}")
+  fiche(@Param("handle") handle: string) { return { handle }; }
+}`,
+      "index.ts": `import { AuthorController } from "./nodefony/controllers/AuthorController";
+@controllers([AuthorController])
+class App extends Module {}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
+  });
+
+  it("un deux-points qui n'est PAS un segment n'accuse personne", () => {
+    // `http://`, `C:/`, une heure — le `/` exigé devant les deux-points les
+    // écarte. Un contrôle qui crie sur ces cas est un contrôle qu'on désactive.
+    const dir = make({
+      "nodefony/controllers/ProxyController.ts": `
+export class ProxyController extends Controller {
+  @Get("/proxy")
+  amont() { return { cible: "http://amont.local/v1", a: "12:30" }; }
+}`,
+      "index.ts": `import { ProxyController } from "./nodefony/controllers/ProxyController";
+@controllers([ProxyController])
+class App extends Module {}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
+  });
+
+  it("la forme `path:` de @route est lue AUSSI", () => {
+    const dir = make({
+      "nodefony/controllers/AuthorController.ts": `
+export class AuthorController extends Controller {
+  @route("author-fiche", { path: "/api/authors/:handle", method: "GET" })
+  fiche(handle: string) { return { handle }; }
+}`,
+      "index.ts": `import { AuthorController } from "./nodefony/controllers/AuthorController";
+@controllers([AuthorController])
+class App extends Module {}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    assert.strictEqual(r.findings.length, 1, JSON.stringify(r.findings));
+    assert.strictEqual(r.findings[0].kind, "route-colon-param");
+  });
+
+  it("le routage react-router n'est PAS accusé (`:id` y est juste)", () => {
+    // Vécu : la première version lisait `path:` partout et rendait les cinq
+    // routes du frontend de Studio fautives. Le contrôle aurait fait corriger
+    // du code correct — le pire mode de défaillance d'un contrôle.
+    const dir = make({
+      "src/App.tsx": `
+const routes = [
+  { path: "modules/:name", element: <ModulePage /> },
+  { path: "users/:id", element: <UserPage /> },
+];`,
+      "index.ts": `class App extends Module {}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
+  });
+
   it("un canal temps réel exige que la brique soit DÉCLARÉE", () => {
     // Le code compile dès que le paquet traîne dans node_modules, hissé par une
     // transitive. Mais absent du manifeste, le module n'est jamais chargé : le

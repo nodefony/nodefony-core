@@ -29,7 +29,8 @@ export interface IWiringFinding {
     | "orphan-controller"
     | "orphan-service"
     | "reserved-entity"
-    | "missing-brick";
+    | "missing-brick"
+    | "route-colon-param";
   /** Phrase lisible, déjà orientée vers la correction. */
   message: string;
   /** Fichier fautif, relatif à la racine analysée. */
@@ -133,6 +134,38 @@ const SERVICES_LIST_RE = /@services\s*\(\s*\[([\s\S]{0,2000}?)\]/gu;
  */
 const IMPERATIVE_RE =
   /(?:addService|container\.set|\.set)\s*\(\s*[^)]{0,120}?\b(\w+)\b/gu;
+
+/**
+ * Un chemin de route Nodefony, tel qu'il est écrit — soit en premier argument
+ * d'un décorateur de méthode, soit sous la clé `path` D'UN `@route`.
+ *
+ * Les deux formes existent et se valent ; n'en lire qu'une rendrait le contrôle
+ * aveugle à l'autre, ce qui est pire que pas de contrôle du tout — on croirait
+ * la question posée.
+ *
+ * ⚠️ Le `path:` est borné au voisinage d'un `@route(` et NON lu partout : la
+ * clé est celle de react-router, où `:id` est la syntaxe JUSTE. Lu librement,
+ * le contrôle accusait les cinq routes du frontend de Studio — un contrôle qui
+ * accuse du code correct est un contrôle qu'on désactive, et il aurait fait
+ * « corriger » un routage qui marchait.
+ */
+const ROUTE_PATH_RE =
+  /@(?:Get|Post|Put|Patch|Delete|Head|Options|All)\s*\(\s*["'`]([^"'`\n]*)["'`]|@route\s*\([\s\S]{0,300}?\bpath\s*:\s*["'`]([^"'`\n]*)["'`]/gu;
+
+/**
+ * Le segment variable écrit à la mode d'un AUTRE framework : `/:handle`.
+ *
+ * Nodefony écrit `{handle}` ; Express, Nest et Fastify écrivent `:handle`. La
+ * confusion ne produit ni erreur de compilation ni avertissement au démarrage :
+ * le chemin est monté comme un LITTÉRAL, la route apparaît dans
+ * `inspect routes`, et elle ne correspond à aucune URL réelle. Le symptôme est
+ * un 404 sur une route qu'on voit dans le code — le plus coûteux à diagnostiquer
+ * de tous, puisque tout a l'air juste.
+ *
+ * Le `/` exigé devant le `:` écarte ce qui n'est pas un segment : `http://`,
+ * `C:/`, une heure. Un deux-points ailleurs dans un chemin ne dit rien.
+ */
+const COLON_SEGMENT_RE = /\/:(\w+)/u;
 
 /**
  * Où le câblage d'une cible peut vivre — et nulle part ailleurs.
@@ -314,6 +347,25 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
             `@services([${symbol}]) sur le module, il n'entre pas dans l'ordre de ` +
             `démarrage, échappe au rapport de boot et à l'introspection, et n'est ` +
             `construit qu'à la première requête qui le réclame`,
+        });
+      }
+
+      // Les routes se cherchent PARTOUT, comme les services : un controller
+      // rangé hors de `nodefony/controllers` reste un controller, et c'est
+      // justement le fichier écrit à la main qui porte la faute.
+      for (const m of content.matchAll(ROUTE_PATH_RE)) {
+        const routePath = m[1] ?? m[2] ?? "";
+        const colon = COLON_SEGMENT_RE.exec(routePath);
+        if (!colon) continue;
+        const corrige = routePath.replace(/\/:(\w+)/gu, "/{$1}");
+        findings.push({
+          kind: "route-colon-param",
+          file: rel(file),
+          message:
+            `le chemin "${routePath}" déclare son segment variable à la mode d'un autre ` +
+            `framework — Nodefony écrit "${corrige}". Tel quel, ":${colon[1]}" est monté ` +
+            `comme un littéral : la route s'affiche dans inspect routes et répond 404 ` +
+            `à toute URL réelle`,
         });
       }
 
