@@ -1,36 +1,66 @@
 # BUG_REPORT — Nodefony Core
 
-## BUG-2 — Angular ne peut pas monter en 22.1.0 : le lockfile reconstruit l'arbre 22.0.8
+## BUG-2 — Angular monté en 22.1.0 : le lockfile imbriquait l'arbre au lieu de le hisser
 
-**Symptôme.** Les six paquets `@angular/*` de `src/modules/test-frontend-angular` portés de
-`22.0.8` à `22.1.0` (`@angular/build` en `22.1.1`) → `npm install` sort en **ERESOLVE**, trois
-tentatives, même erreur :
+**Statut.** Résolu. Les six paquets `@angular/*` de `src/modules/test-frontend-angular` sont en
+`22.1.0` (`@angular/build` en `22.1.1`) ; `npm install` est vert, `npm ls` ne montre plus aucun
+`22.0.8` ni `UNMET`/`invalid`, et le `build` du module passe.
 
-```
-While resolving: @nodefony/test-frontend-angular@10.0.0-poc.1
-Found: @angular/common@22.0.8
-  src/modules/test-frontend-angular/node_modules/@angular/common
-  peer @angular/common@"22.0.8" from @angular/platform-browser@22.0.8
-Conflicting peer dependency: @angular/core@22.1.0
-```
+**Cause réelle de l'ERESOLVE.** Ce n'était pas un conflit de versions (`@angular/build@22.1.1`
+déclare `^22.0.0` sur toute la famille — cohérent avec `22.1.0`). `npm install` comparait la
+nouvelle demande à un `node_modules` déjà présent sur disque en `22.0.8`, imbriqué sous
+`src/modules/test-frontend-angular/node_modules/@angular/*` — et `package-lock.json` gardait ces
+mêmes chemins imbriqués en clé, donc les recréait à l'identique même après une purge du dossier
+seul.
 
-**Ce qui est écarté.** Les versions demandées sont cohérentes entre elles : `@angular/build@22.1.1`
-déclare `^22.0.0` sur toute la famille (`npm view @angular/build@22.1.1 peerDependencies`), et
-`@angular/core@22.1.0` n'impose rien sur `typescript` — la contrainte `>=6.0 <6.1` vient de
-`compiler-cli`, déjà satisfaite par le `6.0.3` du dépôt. **Le conflit n'est pas dans les versions.**
+**Fix ERESOLVE.** Retirer du `package-lock.json` les 5 entrées
+`src/modules/test-frontend-angular/node_modules/@angular/{common,compiler,compiler-cli,core,platform-browser}`
+(supprimées, pas éditées en place) + purger le dossier physique correspondant, puis
+`npm install --workspace=@nodefony/test-frontend-angular`. npm recalcule alors une résolution
+propre, sans référence à l'ancien arbre.
 
-**La cause probable.** `package-lock.json` retient une arborescence **imbriquée** sous
-`src/modules/test-frontend-angular/node_modules/@angular/*` en `22.0.8`, et la reconstruit à chaque
-install. Purger `node_modules/@angular` **et** le `node_modules` du module ne suffit pas : le
-lockfile la réécrit.
+**Deuxième trou, découvert en vérifiant le build réel (pas juste le script `build` du module).**
+Après ce premier passage, `npm ls` était propre et `npm run build` (rolldown, wrapper serveur)
+passait — mais `npx vite build --config frontend/vite.config.generated.mjs` (le chemin réellement
+emprunté par `ViteProcessSupervisor` au démarrage du dev server) échouait :
+`Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@angular/compiler-cli' imported from
+node_modules/@analogjs/vite-plugin-angular/src/lib/angular-vite-plugin.js`. Raison : cette
+première résolution avait choisi d'imbriquer toute la famille `@angular/*` sous le workspace
+plutôt que de la hisser à la racine — et `@analogjs/vite-plugin-angular` (dépendance directe de la
+racine `nodefony-core`, hissée dans `node_modules/`) importe `@angular/compiler-cli` puis
+`@angular/build/private` par résolution ESM Node **relative à son propre emplacement**, qui ne
+remonte jamais dans le `node_modules` imbriqué d'un workspace frère. Ce n'est pas une régression de
+la montée de version : en `22.0.8`, un artefact périmé (un pair optionnel auto-installé par npm à
+une version dépareillée, `@angular/compiler-cli@22.0.6`, resté à la racine depuis une résolution
+antérieure) masquait accidentellement ce même trou — `@nodefony/frontend` déclare
+`@analogjs/vite-plugin-angular` en peer optionnel (correct), mais rien ne garantit que la famille
+`@angular/*` concrète d'un module consommateur soit résolvable depuis la racine, l'ancêtre commun
+réel de `@nodefony/frontend` et de tout module frontend Angular.
 
-**Piste non essayée** (fin de session, arbre volontairement laissé sain) : supprimer les entrées
-`@angular/*` du lockfile, ou régénérer le lock entier hors ligne puis comparer le diff. À faire
-sur un arbre commité, jamais en fin de session.
+**Fix du deuxième trou.** Déplacé les 6 paquets (`build` inclus) de
+`src/modules/test-frontend-angular/node_modules/@angular/*` vers `node_modules/@angular/*`
+(racine) + rebasé les clés correspondantes dans `package-lock.json`, puis rejoué
+`npm install --workspace=...` : npm a accepté ce placement et l'a conservé (dédupliqué proprement —
+`@analogjs/vite-plugin-angular@2.6.4 -> @angular/build@22.1.1` apparaît comme une arête normale
+dans `npm ls`). `npx vite build` compile alors réellement l'app Angular (253 modules, bundle émis
+dans `public/dist/`).
 
-**Contournement actuel.** Angular reste en `22.0.8`. Aucune urgence : `22.1.0` est une mineure
-publiée le 2026-07-29 et n'apporte rien dont le dépôt dépende. Elle ne débloque PAS TypeScript 7
-non plus (`compiler-cli@22.1.0` exige toujours `typescript >=6.0 <6.1`).
+**Le lock est REPRODUCTIBLE — prouvé, pas supposé.** Le fix a déplacé des dossiers à la main dans
+`node_modules` : un arbre qui ne marche que sur la machine où il a été fabriqué aurait la même
+apparence. `npm ci` (node_modules RASÉ, réinstallation stricte depuis `package-lock.json`) rend
+exactement le même arbre — 6 paquets `@angular/*` à la racine, **0** imbriqué, `22.1.0`/`22.1.1` —
+et `npx vite build` compile derrière (bundle émis). Ce qui est commité vaut donc pour un clone
+neuf, pas seulement ici.
+
+**Résiduel — hors du périmètre accordé pour cette tâche (implique `package.json` racine ou de
+`@nodefony/frontend`, non touchés ici).** Rien ne garantit STRUCTURELLEMENT que la famille
+`@angular/*` d'un module consommateur reste hissée à la racine : un futur `npm install` qui
+retoucherait les pins `@angular/*` (ou un `dedupe`/install complet) peut retomber sur un arbre
+imbriqué et recasser silencieusement `vite build`/le dev server Angular — aucun banc actuel ne
+lance réellement `vite build` sur ce module pour le détecter. Deux pistes de fermeture durable,
+toutes deux hors périmètre ici : (a) déclarer `@angular/compiler-cli` comme dépendance directe de
+la racine, pour forcer le hissage à chaque install ; (b) un test d'intégration qui lance
+`vite build` sur `test-frontend-angular` et échoue si ça régresse.
 
 ## BUG-1 — un échec de connexion à la base fait sortir `inspect` en 1, sans un mot
 
