@@ -265,10 +265,19 @@ manquantes**. Secrets jamais rendus en clair (`pathLooksSecret` — même regex 
 
 ## `nodefony check` / `doctor` — le diagnostic STATIQUE (standalone 0-boot)
 
-`nodefony check [--json]`, alias **`doctor`**. Ne lit que des fichiers (`package.json` + sources) —
-donc il fonctionne sur une application **qui ne démarre plus**, et c'est sa raison d'être. Fast-path
-`CliKernel.ts:230` : le faire booter coûterait un démarrage complet pour une réponse qui n'en dépend
-pas, et noierait le rapport sous le journal du Kernel.
+`nodefony check [--json] [--cwd <path>]`, alias **`doctor`**. Ne lit que des fichiers
+(`package.json` + sources) — donc il fonctionne sur une application **qui ne démarre plus**, et
+c'est sa raison d'être. Fast-path `CliKernel.ts:230` : le faire booter coûterait un démarrage
+complet pour une réponse qui n'en dépend pas, et noierait le rapport sous le journal du Kernel.
+
+⚠️ **La cible est l'APPLICATION, pas le dossier où l'on a tapé.** La commande remonte au premier
+dossier portant `nodefony.config.ts` (`findProjectRoot` — la MÊME définition de « où commence
+l'app » que le lanceur et les scaffolds), et **annonce cette racine** quand elle diffère du dossier
+de départ. Sans cette remontée, un `check` lancé dans `modules/blog/` — le cas courant, on est dans
+le module qu'on développe — ne trouvait ni le manifeste ni `var/last-boot.json`, et concluait
+« rien à signaler » : un outil de diagnostic silencieux, et rassurant à tort. Hors projet, le
+dossier de départ reste la cible (ce dépôt-ci, un dossier de paquets). `--cwd` déplace le point de
+départ de la remontée, comme pour `env`.
 
 ⚠️ **L'alias DOIT partager le fast-path.** Sans l'entrée `requested === "doctor"`, commander ne le
 voit pas parmi les intégrées avant le chargement des modules → dispatch différé → boot, exactement

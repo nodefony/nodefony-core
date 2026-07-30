@@ -43,6 +43,12 @@ UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
 - 🔴 **Rien n'est EFFACÉ sur un succès** : une commande console (`inspect`)
   démarre et réussit sans serveur ; effacer ferait disparaître le bilan d'un
   échec applicatif au premier `inspect` lancé pour le diagnostiquer.
+- Lecture : `check` remonte à la racine de l'app (`findProjectRoot`) avant de
+  lire, et l'ANNONCE si elle diffère du dossier de départ (`--cwd` déplace ce
+  départ). Lu depuis `process.cwd()`, le bilan était introuvable dès qu'on
+  lançait la commande dans un module — et l'absence se rendait « rien à
+  signaler ». Même remontée dans `docsReader` du framework (`.ai/symbols.json`,
+  `node_modules` hissés, docs du core, dépôt git).
 - Écriture SYNCHRONE (chemin de mort du process) et best-effort — toute
   défaillance est avalée : une trace impossible à écrire ne doit pas masquer
   l'erreur de boot. Coût : 1 write par démarrage applicatif, hors hot path.

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-30T17:36:50.761Z",
+  "generated": "2026-07-30T19:53:26.917Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 642,
-    "symbols": 2556,
+    "symbols": 2559,
     "classes": 335,
-    "interfaces": 775,
+    "interfaces": 776,
     "types": 335,
     "enums": 4,
-    "functions": 927,
+    "functions": 929,
     "constants": 180
   },
   "symbols": {
@@ -4566,13 +4566,21 @@
       "module": "@nodefony/core",
       "description": "Analyse les paquets et rend les manquements trouvés."
     },
+    "parseCheckArgv": {
+      "name": "parseCheckArgv",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Parse l'argv après le mot `check` (ou son alias `doctor`). La borne est le mot de commande, pas la position : le fast-path passe `process.argv` entier (`node`, chemin du binaire, `check`, …) tandis…"
+    },
     "runCheckCommand": {
       "name": "runCheckCommand",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/runCheck.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Lance le contrôle et écrit le rapport."
+      "description": "Lance le contrôle et écrit le rapport. **La cible est l'APPLICATION, pas le dossier courant.** On remonte donc au premier dossier qui porte `nodefony.config.ts` (`findProjectRoot`, la même définiti…"
     },
     "IWiringFinding": {
       "name": "IWiringFinding",
@@ -9181,7 +9189,7 @@
       "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "description": "Symboles TS exportés d'un module + descriptions TSDoc, lus depuis `.ai/symbols.json` (à la racine du repo, `process.cwd()`). 100 % auto-généré (jamais de `.d.ts` manuel) → zéro divergence avec le c…"
+      "description": "Symboles TS exportés d'un module + descriptions TSDoc, lus depuis `.ai/symbols.json` (à la racine de l'application, cf {@link appRoot}). 100 % auto-généré (jamais de `.d.ts` manuel) → zéro divergen…"
     },
     "readDependencies": {
       "name": "readDependencies",
@@ -20071,6 +20079,8 @@
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "defineConfig": [

@@ -20,6 +20,7 @@ import {
   LAST_BOOT_FILE,
   type ILastBoot,
 } from "./lastBoot";
+import { findProjectRoot } from "../../cli/projectRoot";
 import clc from "../../colors";
 
 /** Dispositions explorées : une application (`modules/`) et ce dépôt. */
@@ -186,16 +187,75 @@ function reportLastBoot(entry: ILastBoot | null, now: number): void {
   out.write(`  bilan complet  : ${LAST_BOOT_FILE}\n\n`);
 }
 
+/** Ce que la ligne de commande demande. */
+interface ICheckRequest {
+  json: boolean;
+  /** Dossier de DÉPART de la remontée vers la racine (défaut : le cwd). */
+  cwd: string;
+}
+
+const USAGE =
+  `usage : nodefony check [--json] [--cwd <path>]  (alias : doctor)\n` +
+  `  Contrôle STATIQUE de l'application — dépendances déclarées, câblage,\n` +
+  `  et le bilan du dernier démarrage. N'exécute rien.\n`;
+
+/**
+ * Parse l'argv après le mot `check` (ou son alias `doctor`).
+ *
+ * La borne est le mot de commande, pas la position : le fast-path passe
+ * `process.argv` entier (`node`, chemin du binaire, `check`, …) tandis que le
+ * filet de {@link Check.generate} ne passe que les options. Sans mot de
+ * commande, tout l'argv reçu est donc considéré comme des options.
+ */
+export function parseCheckArgv(
+  argv: string[],
+): ICheckRequest | { error: string } {
+  const at = argv.findIndex((w) => w === "check" || w === "doctor");
+  const rest = at === -1 ? argv : argv.slice(at + 1);
+  let json = false;
+  let cwd = process.cwd();
+  for (let i = 0; i < rest.length; i++) {
+    const word = rest[i];
+    if (word === "--json" || word === "-j") {
+      json = true;
+    } else if (word === "--cwd") {
+      cwd = path.resolve(rest[++i] ?? "");
+    } else {
+      return { error: `option inconnue : ${word}` };
+    }
+  }
+  return { json, cwd };
+}
+
 /**
  * Lance le contrôle et écrit le rapport.
  *
- * @param argv - ligne de commande complète (seul `--json` est lu).
- * @returns le code de sortie : 0 si rien à signaler, 1 sinon. La trace d'un
- *          démarrage échoué est RAPPORTÉE mais ne pèse pas sur ce code.
+ * **La cible est l'APPLICATION, pas le dossier courant.** On remonte donc au
+ * premier dossier qui porte `nodefony.config.ts` (`findProjectRoot`, la même
+ * définition de « où commence l'app » que le lanceur et les scaffolds). Sans
+ * cette remontée, un `check` lancé dans `modules/blog/` ne trouvait ni le
+ * manifeste, ni le bilan du dernier démarrage, et concluait « rien à
+ * signaler » — le pire mode de défaillance pour un outil de diagnostic :
+ * silencieux, et rassurant à tort.
+ *
+ * Hors de tout projet, on retombe sur le dossier de départ : ce dépôt-ci et
+ * n'importe quel dossier de paquets restent contrôlables tels quels.
+ *
+ * @param argv - ligne de commande (`--json`, `--cwd <path>`).
+ * @returns le code de sortie : 0 si rien à signaler, 1 sinon, 64 (`EX_USAGE`)
+ *          sur une option inconnue. La trace d'un démarrage échoué est
+ *          RAPPORTÉE mais ne pèse pas sur ce code.
  */
 export function runCheckCommand(argv: string[]): number {
-  const cwd = process.cwd();
-  const json = argv.includes("--json");
+  const parsed = parseCheckArgv(argv);
+  if ("error" in parsed) {
+    process.stderr.write(`check: ${parsed.error}\n${USAGE}`);
+    return 64;
+  }
+  const { json } = parsed;
+  const start = parsed.cwd;
+  const projectRoot = findProjectRoot(start);
+  const cwd = projectRoot ?? start;
   const lastBoot = readLastBoot(cwd);
   const roots = CANDIDATE_ROOTS.map((r) => path.join(cwd, r)).filter((r) =>
     statSync(r, { throwIfNoEntry: false }),
@@ -219,6 +279,7 @@ export function runCheckCommand(argv: string[]): number {
     process.stdout.write(
       `${JSON.stringify(
         {
+          root: cwd,
           scanned,
           findings,
           wiring: { scanned: wiring.scanned, findings: wiring.findings },
@@ -229,6 +290,15 @@ export function runCheckCommand(argv: string[]): number {
       )}\n`,
     );
     return findings.length + wiring.findings.length > 0 ? 1 : 0;
+  }
+
+  // Dire QUOI a été contrôlé quand ce n'est pas là où on a tapé : un rapport
+  // qui porte sur un autre dossier que celui qu'on croit se lit de travers,
+  // dans les deux sens (« il n'a rien vu » comme « ça ne me concerne pas »).
+  if (path.resolve(cwd) !== path.resolve(start)) {
+    process.stdout.write(
+      `application : ${cwd}\n` + `  (lancé depuis ${start})\n`,
+    );
   }
 
   reportLastBoot(lastBoot, Date.now());

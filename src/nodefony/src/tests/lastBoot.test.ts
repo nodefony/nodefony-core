@@ -248,4 +248,77 @@ describe("last-boot — le bilan du dernier démarrage", () => {
       );
     });
   });
+
+  describe("la cible est l'APPLICATION, pas le dossier où l'on a tapé", () => {
+    /**
+     * Le défaut que ces tests ferment : `check` lisait tout depuis
+     * `process.cwd()`. Lancé une seule fois depuis un sous-dossier — et c'est
+     * le cas courant, on est dans le module qu'on développe — il ne trouvait ni
+     * le manifeste ni le bilan du dernier démarrage, et concluait « rien à
+     * signaler ». Un outil de diagnostic silencieux et rassurant à tort.
+     */
+    let sub = "";
+
+    beforeEach(() => {
+      // Ce qui FAIT une application Nodefony pour `findProjectRoot`.
+      writeFileSync(path.join(dir, "nodefony.config.ts"), "export default {};");
+      writeFileSync(path.join(dir, "package.json"), '{"name":"mon-app"}');
+      sub = path.join(dir, "modules", "blog");
+      mkdirSync(sub, { recursive: true });
+    });
+
+    it("⭐ lancé dans `modules/blog`, il trouve le bilan de l'app", () => {
+      writeLastBoot(dir, failed());
+      const { out } = capture(() => runCheckCommand(["--cwd", sub]));
+      assert.include(out, "Le dernier démarrage a ÉCHOUÉ");
+      assert.include(out, "Cannot find package 'redis'");
+    });
+
+    it("il DIT sur quoi il a porté quand ce n'est pas là où on a tapé", () => {
+      // Sans cette ligne, un rapport vide se lit « mon module va bien » alors
+      // qu'il parle de l'application entière — et inversement.
+      const { out } = capture(() => runCheckCommand(["--cwd", sub]));
+      assert.include(out, "application :");
+      assert.include(out, "lancé depuis");
+    });
+
+    it("`--json` porte la racine retenue", () => {
+      const { out } = capture(() =>
+        runCheckCommand(["check", "--cwd", sub, "--json"]),
+      );
+      const parsed = JSON.parse(out) as { root: string };
+      assert.equal(path.resolve(parsed.root), path.resolve(dir));
+    });
+
+    it("depuis la racine, aucune annonce — il n'y a rien à signaler", () => {
+      const { out } = capture(() => runCheckCommand(["--cwd", dir]));
+      assert.notInclude(out, "lancé depuis");
+    });
+
+    it("une option inconnue se DIT, elle ne s'ignore pas (EX_USAGE)", () => {
+      const err: string[] = [];
+      const write = process.stderr.write.bind(process.stderr);
+      process.stderr.write = ((s: string) => {
+        err.push(String(s));
+        return true;
+      }) as typeof process.stderr.write;
+      try {
+        assert.equal(runCheckCommand(["check", "--jsno"]), 64);
+      } finally {
+        process.stderr.write = write;
+      }
+      assert.include(err.join(""), "option inconnue");
+    });
+  });
+
+  describe("hors de tout projet, le dossier de départ reste la cible", () => {
+    it("un dossier de paquets sans `nodefony.config.ts` se contrôle tel quel", () => {
+      // Ce dépôt-ci comme n'importe quel dossier de travail : le repli n'est
+      // pas un cas dégradé, c'est un usage.
+      writeLastBoot(dir, failed());
+      const { out } = capture(() => runCheckCommand(["--cwd", dir]));
+      assert.include(out, "Le dernier démarrage a ÉCHOUÉ");
+      assert.notInclude(out, "lancé depuis");
+    });
+  });
 });

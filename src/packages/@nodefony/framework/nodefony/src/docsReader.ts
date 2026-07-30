@@ -4,8 +4,28 @@ import { join, dirname, basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
+import { findProjectRoot } from "nodefony";
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Racine de l'APPLICATION servie — jamais le dossier courant du process.
+ *
+ * Tout ce que ce module lit hors des modules eux-mêmes (`.ai/symbols.json`, les
+ * `node_modules` hissés, les docs du core, le dépôt git) vit à la racine de
+ * l'application. Or `process.cwd()` est le dossier depuis lequel quelqu'un a
+ * TAPÉ la commande : lancer l'application depuis un sous-dossier suffisait à
+ * vider les onglets Docs et API du plan d'administration, sans erreur ni trace
+ * — un fichier absent est indistinguable d'un module sans documentation.
+ *
+ * On remonte donc au premier dossier portant `nodefony.config.ts`, avec la même
+ * définition de « où commence l'app » que le lanceur, les scaffolds et
+ * `nodefony check`. Hors projet (dépôt de paquets, test), le dossier courant
+ * reste le repli.
+ */
+function appRoot(): string {
+  return findProjectRoot(process.cwd()) ?? process.cwd();
+}
 
 /**
  * Frontmatter d'un fichier de doc module. Tous les champs sont optionnels —
@@ -125,7 +145,7 @@ async function gitLastUpdated(file: string): Promise<string | null> {
     const { stdout } = await execFileAsync(
       "git",
       ["log", "-1", "--format=%cI", "--", file],
-      { cwd: process.cwd() },
+      { cwd: appRoot() },
     );
     const iso = stdout.trim();
     if (iso) return iso;
@@ -255,7 +275,7 @@ interface RawSymbol {
 
 /**
  * Symboles TS exportés d'un module + descriptions TSDoc, lus depuis
- * `.ai/symbols.json` (à la racine du repo, `process.cwd()`).
+ * `.ai/symbols.json` (à la racine de l'application, cf {@link appRoot}).
  *
  * 100 % auto-généré (jamais de `.d.ts` manuel) → zéro divergence avec le code.
  * Tab API maigre tant que la couverture TSDoc est faible : c'est volontaire,
@@ -268,7 +288,7 @@ interface RawSymbol {
 export async function listModuleSymbols(
   packageName: string,
 ): Promise<ModuleSymbol[]> {
-  const file = join(process.cwd(), ".ai", "symbols.json");
+  const file = join(appRoot(), ".ai", "symbols.json");
   let parsed: { symbols?: Record<string, RawSymbol> };
   try {
     parsed = JSON.parse(await readFile(file, "utf8"));
@@ -336,7 +356,7 @@ export async function readDependencies(modulePath: string): Promise<DepInfo[]> {
     ...pkg.dependencies,
     ...pkg.peerDependencies,
   };
-  const root = process.cwd();
+  const root = appRoot();
   const out: DepInfo[] = [];
   for (const name of Object.keys(ranges).sort()) {
     const kind: DepInfo["kind"] =
@@ -664,11 +684,11 @@ export function runModuleTests(
  * `core`) : c'est le socle de tous les autres. On résout donc son emplacement
  * pour lire ses docs colocalisées (`<core>/docs/*.md`).
  *
- * Dev self-hosted : `<cwd>/src/nodefony`. Fallback prod : résolution du package
- * npm `nodefony` (remontée jusqu'à son `package.json`).
+ * Dev self-hosted : `<racine de l'app>/src/nodefony`. Fallback prod :
+ * résolution du package npm `nodefony` (remontée jusqu'à son `package.json`).
  */
 export function resolveCorePath(): string {
-  const devPath = join(process.cwd(), "src", "nodefony");
+  const devPath = join(appRoot(), "src", "nodefony");
   if (existsSync(join(devPath, "package.json"))) return devPath;
   try {
     let dir = dirname(fileURLToPath(import.meta.resolve("nodefony")));
