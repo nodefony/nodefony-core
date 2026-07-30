@@ -296,9 +296,7 @@ export function runCheckCommand(argv: string[]): number {
   // qui porte sur un autre dossier que celui qu'on croit se lit de travers,
   // dans les deux sens (« il n'a rien vu » comme « ça ne me concerne pas »).
   if (path.resolve(cwd) !== path.resolve(start)) {
-    process.stdout.write(
-      `application : ${cwd}\n` + `  (lancé depuis ${start})\n`,
-    );
+    process.stdout.write(`application : ${cwd}\n  (lancé depuis ${start})\n`);
   }
 
   reportLastBoot(lastBoot, Date.now());
