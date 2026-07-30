@@ -29,6 +29,26 @@ started → preRegistered → registered → booted → ready → postReady
 - `ready` : set après `onReady` (dans `onReady()`)
 - `postReady` : set après `onPostReady` (dans `onReady()`)
 
+**Bilan de boot persisté** — `var/last-boot.json` (`checks/lastBoot.ts` = source
+UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
+
+- `start()` = enveloppe MINCE autour de `startBoot()` : son seul rôle est
+  `traceFatalBootFailure` au `catch` (`status:"failed"` + phase via
+  `lastReachedPhase()` sur le bitmask `progress`). Les ~12 `catch` internes
+  relancent — y répartir l'écriture donnerait 12 implémentations d'une règle.
+- Succès : `writeBootSummary(report)` au point où le bilan est FIGÉ (après
+  `captureBootServers` + `getBootReport()`, avant `onPostReady`) → `status:"ok"`
+  - `bricksSkipped` (fail-soft AVEC raison), `bricksGated` (`policy`/`when`),
+    warnings/errors, serveurs, remédiation.
+- 🔴 **Rien n'est EFFACÉ sur un succès** : une commande console (`inspect`)
+  démarre et réussit sans serveur ; effacer ferait disparaître le bilan d'un
+  échec applicatif au premier `inspect` lancé pour le diagnostiquer.
+- Écriture SYNCHRONE (chemin de mort du process) et best-effort — toute
+  défaillance est avalée : une trace impossible à écrire ne doit pas masquer
+  l'erreur de boot. Coût : 1 write par démarrage applicatif, hors hot path.
+- ⚠️ `recordBootFailure(IBootFailure)` (existant) = échecs NON fatals d'un boot
+  qui continue. Ne pas confondre avec `traceFatalBootFailure`.
+
 > ⚠️ `booted=true` **précède** `captureBootServers()` (qui tourne dans `onReady`→`initServers`). Donc
 > `booted:true` ≠ « serveurs prêts ». `getBootReport()` distingue `bootServers===null` (pas mesuré,
 > boot en cours) de `[]` (mesuré, 0 serveur = vrai échec) via le flag `measured` → sinon `healthy`

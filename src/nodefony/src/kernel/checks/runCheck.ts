@@ -14,6 +14,12 @@ import path from "node:path";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { checkPackageDeps } from "./packageDeps";
 import { checkWiring } from "./wiring";
+import {
+  readLastBoot,
+  formatAge,
+  LAST_BOOT_FILE,
+  type ILastBoot,
+} from "./lastBoot";
 import clc from "../../colors";
 
 /** Dispositions explorées : une application (`modules/`) et ce dépôt. */
@@ -81,14 +87,116 @@ function readExceptions(cwd: string): {
 }
 
 /**
+ * Un bilan mérite d'être rapporté quand il porte une MAUVAISE nouvelle.
+ *
+ * Un démarrage abouti, complet et sans brique manquante ne se commente pas :
+ * l'afficher à chaque contrôle serait du bruit, et le bruit finit par masquer
+ * le signal. Les avertissements seuls ne suffisent pas non plus à déclencher —
+ * un boot de développement en produit régulièrement.
+ *
+ * @param entry - le bilan lu.
+ * @returns `true` s'il y a quelque chose à dire.
+ */
+function worthReporting(entry: ILastBoot): boolean {
+  return (
+    entry.status === "failed" ||
+    entry.healthy === false ||
+    Boolean(entry.bricksSkipped?.length) ||
+    Boolean(entry.errors)
+  );
+}
+
+/**
+ * Écrit en TÊTE du rapport le bilan du dernier démarrage, quand il a une
+ * mauvaise nouvelle à donner.
+ *
+ * En tête, parce que c'est l'information la plus utile de tout le rapport quand
+ * elle existe : celui qui lance `check` sur une application qui ne démarre plus
+ * — ou qui démarre sans que ses briques répondent — cherche exactement ça, et
+ * la faire suivre une liste de manquements de câblage reviendrait à la cacher.
+ *
+ * Elle n'entre PAS dans le code de sortie. `check` contrôle le CODE ; l'état
+ * d'un démarrage est un fait d'exécution, souvent déjà réparé au moment où on
+ * lit. Faire échouer une intégration continue sur le boot local d'avant-hier
+ * apprendrait surtout à ignorer le contrôle.
+ *
+ * @param entry - le bilan lu, ou `null`.
+ * @param now - instant de référence, injecté (fonction pure, donc éprouvable).
+ */
+function reportLastBoot(entry: ILastBoot | null, now: number): void {
+  if (!entry || !worthReporting(entry)) return;
+  const out = process.stdout;
+  const age = formatAge(entry.timestamp, now);
+
+  if (entry.status === "failed") {
+    out.write(clc.red(`\n✖ Le dernier démarrage a ÉCHOUÉ (${age})\n`));
+    out.write(`  phase atteinte : ${entry.phase ?? "inconnue"}\n`);
+    out.write(`  environnement  : ${entry.environment}\n`);
+    if (entry.error) {
+      out.write(
+        `  cause          : ${entry.error.name}: ${entry.error.message}\n`,
+      );
+      if (entry.error.exitCode !== undefined) {
+        out.write(`  code de sortie : ${entry.error.exitCode}\n`);
+      }
+    }
+  } else {
+    // Le cas que personne ne diagnostique : ça DÉMARRE, donc ça a l'air sain.
+    out.write(
+      clc.yellow(
+        `\n⚠ Le dernier démarrage a abouti mais il MANQUE des briques (${age})\n`,
+      ),
+    );
+    out.write(`  environnement  : ${entry.environment}\n`);
+    if (entry.healthy === false) {
+      out.write(
+        clc.red(
+          `  verdict        : un profil serveur a fini SANS aucun serveur en écoute\n`,
+        ),
+      );
+    }
+  }
+
+  if (entry.bricksSkipped?.length) {
+    out.write(`  ${entry.bricksSkipped.length} brique(s) ignorée(s) :\n`);
+    for (const b of entry.bricksSkipped) {
+      out.write(
+        `    · ${b.module}${b.phase ? ` (${b.phase})` : ""} — ${b.reason}\n`,
+      );
+    }
+  }
+  if (entry.bricksGated?.length) {
+    // VOLONTAIRE — mais un module écarté en silence se diagnostique comme un
+    // module perdu, et on cherche longtemps un défaut qui n'existe pas.
+    out.write(
+      `  ${entry.bricksGated.length} brique(s) écartée(s) VOLONTAIREMENT :\n`,
+    );
+    for (const b of entry.bricksGated) {
+      out.write(`    · ${b.module} — ${b.reason}\n`);
+    }
+  }
+  if (entry.warnings || entry.errors) {
+    out.write(
+      `  journal du boot : ${entry.warnings ?? 0} avertissement(s), ${entry.errors ?? 0} erreur(s)\n`,
+    );
+  }
+  if (entry.remediation) {
+    out.write(clc.green(`  → ${entry.remediation}\n`));
+  }
+  out.write(`  bilan complet  : ${LAST_BOOT_FILE}\n\n`);
+}
+
+/**
  * Lance le contrôle et écrit le rapport.
  *
  * @param argv - ligne de commande complète (seul `--json` est lu).
- * @returns le code de sortie : 0 si rien à signaler, 1 sinon.
+ * @returns le code de sortie : 0 si rien à signaler, 1 sinon. La trace d'un
+ *          démarrage échoué est RAPPORTÉE mais ne pèse pas sur ce code.
  */
 export function runCheckCommand(argv: string[]): number {
   const cwd = process.cwd();
   const json = argv.includes("--json");
+  const lastBoot = readLastBoot(cwd);
   const roots = CANDIDATE_ROOTS.map((r) => path.join(cwd, r)).filter((r) =>
     statSync(r, { throwIfNoEntry: false }),
   );
@@ -114,6 +222,7 @@ export function runCheckCommand(argv: string[]): number {
           scanned,
           findings,
           wiring: { scanned: wiring.scanned, findings: wiring.findings },
+          lastBoot,
         },
         null,
         2,
@@ -121,6 +230,8 @@ export function runCheckCommand(argv: string[]): number {
     );
     return findings.length + wiring.findings.length > 0 ? 1 : 0;
   }
+
+  reportLastBoot(lastBoot, Date.now());
 
   if (findings.length === 0 && wiring.findings.length === 0) {
     const exceptions =

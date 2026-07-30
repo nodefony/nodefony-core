@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-30T11:48:49.877Z",
+  "generated": "2026-07-30T17:36:50.761Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 641,
-    "symbols": 2548,
+    "files": 642,
+    "symbols": 2556,
     "classes": 335,
-    "interfaces": 773,
+    "interfaces": 775,
     "types": 335,
     "enums": 4,
-    "functions": 922,
-    "constants": 179
+    "functions": 927,
+    "constants": 180
   },
   "symbols": {
     "Cli": {
@@ -4482,6 +4482,56 @@
       "extends": "Service",
       "implements": [],
       "decorators": []
+    },
+    "ILastBootBrick": {
+      "name": "ILastBootBrick",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/lastBoot.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une brique qui n'a pas été chargée, et la raison qui l'explique."
+    },
+    "ILastBoot": {
+      "name": "ILastBoot",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/lastBoot.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'on sait du dernier démarrage — abouti ou non. Chaque champ répond à une question qu'on se pose devant une application dont on n'a pas vu démarrer : QUAND (donc : est-ce encore d'actualité ?),…"
+    },
+    "writeLastBoot": {
+      "name": "writeLastBoot",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/lastBoot.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Écrit le bilan, SANS JAMAIS pouvoir aggraver la situation. Volontairement SYNCHRONE. Sur le chemin d'échec, elle est appelée juste avant que l'erreur soit relancée et que l'orchestrateur termine le…"
+    },
+    "readLastBoot": {
+      "name": "readLastBoot",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/lastBoot.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le bilan, sans exécuter quoi que ce soit."
+    },
+    "formatAge": {
+      "name": "formatAge",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/lastBoot.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend l'ancienneté d'un bilan en clair (« il y a 3 jours »). L'âge n'est pas un ornement : il décide de la conduite à tenir. Un bilan de la minute précédente décrit l'état courant ; un bilan de la s…"
+    },
+    "LAST_BOOT_FILE": {
+      "name": "LAST_BOOT_FILE",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/checks/lastBoot.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Emplacement du bilan, relatif à la racine de l'application."
     },
     "IPackageFinding": {
       "name": "IPackageFinding",
@@ -20492,6 +20542,13 @@
       "resolveModuleEntry": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
+      "writeLastBoot": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "ILastBoot": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
       "Injector": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
@@ -21212,6 +21269,15 @@
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "checkWiring": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "readLastBoot": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "formatAge": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "LAST_BOOT_FILE": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "OptionsCommandInterface": [

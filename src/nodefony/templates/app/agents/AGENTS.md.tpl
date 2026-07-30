@@ -278,6 +278,8 @@ désigne jamais la cause : c'est ce qui les rend chers.
 | **Des dizaines de tests d'intégration rouges d'un coup** | ils FRAPPENT un serveur, ils ne le lancent pas : il est éteint (`ECONNREFUSED`) | `npx nodefony status` d'abord ; en e2e, laisse la commande gérer le cycle |
 | **La route existe dans le code et répond 404** | le runtime charge `dist/`, pas tes sources | `npm run build` — et en cas de doute vérifie le `dist/` par son CONTENU (`grep` du symbole), jamais par sa date |
 | **TOUT répond 404, même les routes du gabarit** | un AUTRE serveur tient les ports — ou LE TIEN a glissé sur d'autres ports, le port voulu étant pris | `npx nodefony status` : il montre les ports RÉELS, pas ceux que tu as configurés |
+| **L'app démarre, et pourtant une brique manque** (base injoignable, module absent) | une brique peut tomber en fail-soft, ou être écartée par sa `policy` : le boot CONTINUE, et le journal ne le dit qu'une fois, dans le terminal de celui qui a lancé | `npm run check` — il lit `var/last-boot.json` et nomme chaque brique absente AVEC sa raison |
+| **L'app ne démarre plus et tu n'as pas la sortie** (démarrage détaché, conteneur, CI) | le journal est parti avec le terminal | `npm run check` n'exécute rien : il rapporte la phase atteinte et la cause du dernier démarrage |
 | **Ça marche en dev, c'est mort en production** | les modules `policy: dev` sont RETIRÉS en production — ce qu'ils portaient disparaît avec eux | avant de livrer, UN boot `npx nodefony production --detach --wait` et rejoue tes vérifications |
 | **Un réglage de `nodefony.config.ts` ne change rien** | clé inconnue ou mal placée : retirée EN SILENCE à la validation | `npx nodefony inspect config --json` — la config effective et la provenance de chaque valeur |
 | **Une variable d'environnement « ne prend pas »** | mal orthographiée (ignorée en silence) ou masquée par un rang supérieur | `npx nodefony env` — il montre la valeur EFFECTIVE et sa provenance |
@@ -313,8 +315,21 @@ milieu, et tu passes l'heure suivante sur des 404 fantômes.
 npm test              # 1ᵉʳ diagnostic — unitaires, rapides, zéro serveur
 npm run typecheck     # le bundler ne type-check PAS : gate séparé, obligatoire
 npm run test:e2e      # boot RÉEL de l'app + HTTP/WS (build inclus)
-npm run check         # cohérence du projet (config, modules, wiring)
+npm run check         # cohérence du projet + BILAN du dernier démarrage
 ```
+
+**`check` te dit aussi ce qui s'est passé au dernier démarrage**, et c'est la
+seule façon de l'apprendre après coup : l'app écrit son bilan dans
+`var/last-boot.json` à chaque boot. Deux cas que tu ne peux pas voir autrement :
+
+- **elle ne démarre plus** — `check` n'exécute rien, donc il répond quand même,
+  et il nomme la phase atteinte et la cause ;
+- **elle démarre mais AMPUTÉE** — c'est le cas piégeux : tout a l'air sain, et
+  une brique manque (base injoignable, module écarté par sa `policy`). Le
+  journal l'a dit une fois, au terminal de celui qui a lancé. `check` te le
+  redit, avec la RAISON de chaque brique absente.
+
+Sur une app saine il n'en parle pas. S'il en parle, lis avant de coder.
 
 ## Piloter le serveur — et l'ARRÊTER
 
