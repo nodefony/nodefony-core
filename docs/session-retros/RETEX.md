@@ -27,8 +27,43 @@
   publiait déjà tours/durée/coût en fin de transcript ; personne ne les lisait. Même leçon que pour
   les agents, appliquée à moi : l'information doit être là où le regard passe déjà.
 
+## 🔍 Un INVENTAIRE n'est exhaustif que par CROISEMENT — ni le modèle ni l'automate seul
+
+- `[1× — 2026-07-30f]` 🔴 **Les deux sens d'erreur se sont produits sur le MÊME inventaire.** Un
+  sous-agent `haiku` a dressé la surface de sécurité du framework ; le doute du user (« tu es sûr
+  que tout est couvert ? ») a été tranché par les schémas Zod : **12 briques manquées**
+  (`trustedHosts`, `maxBodySize`, `upload.*` côté http ; `csrf.checkOrigin`, `limits`,
+  `slowConsumer` côté realtime ; `passkeys`, `totp`, `webhooks`, `audit`, `tokenStore` côté
+  security). **Mais** `.ai/symbols.json` rate `@CsrfProtect`/`@CsrfExempt` — déclarés
+  `const X = booleanMarkerDecorator(...)`, forme que le générateur ne capte pas — que le modèle,
+  lui, avait vus. Le modèle SURVOLE, l'automate a des ANGLES MORTS de forme. Croiser les deux, et
+  ne jamais présenter un inventaire de modèle comme une couverture.
+- `[1× — 2026-07-30f]` **Le déclencheur n'est pas venu de moi mais du user.** J'avais relayé le
+  tableau du sous-agent sans le recontrôler, alors que la règle « vérifier avant de répercuter »
+  est écrite. Un inventaire rendu par un modèle se recontrôle par `jq`/`rg` **avant** d'entrer
+  dans une synthèse — le coût est de deux commandes.
+
+## 🛡️ Mesurer qu'on POSE une garde ne dit rien sur celle qu'on RETIRE
+
+- `[1× — 2026-07-30f]` 🔴 **Six tâches de banc écrites, toutes aveugles au mode d'échec le plus
+  grave.** Elles vérifiaient qu'un agent AJOUTE une protection ; aucune n'attrapait le geste
+  inverse — `unsafe-inline` en CSP, `@CsrfExempt`, `@BypassFirewall`, `maxBodySize: 0` — qui fait
+  marcher la fonctionnalité ET passe les tests. Toute mesure de sécurité a besoin de sa famille
+  « ne pas affaiblir » : sondes INVERSÉES sur le diff, portes de sortie du framework énumérées.
+  Vaut au-delà du banc : une revue qui ne cherche que l'ajout ne voit pas le retrait.
+
 ## 🧪 Suspecter son INSTRUMENT avant le sujet mesuré
 
+- `[1× — 2026-07-30f]` 🔴 **Un banc qui MESURE DÉJÀ le sujet peut être le faux vert.** La tâche
+  « protège une route » existait (`bench-discoverability.mjs:226`) : des sondes de présence de
+  chaîne, et un seul gate `npm test` — les tests que l'agent a écrits lui-même. Un `@IsGranted`
+  sur la mauvaise action PASSE. Chercher ce qui existe AVANT de concevoir n'a pas seulement évité
+  une duplication : ça a désigné le défaut. Corollaire : « ce sujet est couvert » se vérifie sur
+  la SONDE, jamais sur le titre de la tâche.
+- `[1× — 2026-07-30f]` **Un commentaire de test dit ce qu'il ATTEND ; seul le code dit ce qu'il
+  FAIT.** Soupçon de brèche CSWSH (`realtime.csrf.checkOrigin.enabled=false` par défaut) : faux.
+  Le socle `http-kernel.ts:1586` valide l'Origin de tout handshake, same-origin, close 1008. La
+  conclusion « brèche » aurait produit une tâche de banc exigeant une protection inutile.
 - `[1× — 2026-07-30e]` 🔴 **Un daemon de dev qui tourne RÉÉCRIT l'artefact qu'on s'apprête à
   mesurer.** Un `nodefony-dev-supervisor` vieux de 2 h 16 rebâtissait le core à chaque `Edit` : ma
   mesure « AVANT le correctif » sur le binaire lisait déjà l'APRÈS, et allait me faire conclure
