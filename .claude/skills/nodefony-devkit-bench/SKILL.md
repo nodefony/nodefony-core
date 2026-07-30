@@ -1,15 +1,51 @@
 ---
 name: nodefony-devkit-bench
-description: Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (il compile, ses tests passent, sa ressource répond en HTTP), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. À charger AVANT de déclarer finie une évolution des gabarits, de la grammaire de champs ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un échantillon viole son propre schéma ni qu'un type généré ne compile pas. Porte l'interprétation des échecs, l'isolation du décor et l'auto-contrôle des juges. Déclencheurs - "j'ai modifié le scaffold", "le code généré compile-t-il ?", "est-ce que create entity marche encore ?", "rejouer le banc devkit", "l'agent trouve-t-il les générateurs ?", "un vrai schéma est-il exprimable ?", "prouver qu'une vague devkit est finie".
+description: Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - "j'ai modifié le scaffold", "le code généré compile-t-il ?", "est-ce que create entity marche encore ?", "rejouer le banc devkit", "l'agent trouve-t-il les générateurs ?", "un vrai schéma est-il exprimable ?", "combien de tours a pris l'agent ?".
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 ---
 
 # nodefony-devkit-bench — prouver ce que le scaffold produit
 
-> **Maintenance** : ce fichier décrit la vérité COURANTE des deux bancs. Mettre à
+> **Maintenance** : ce fichier décrit la vérité COURANTE des trois bancs. Mettre à
 > jour = éditer la section concernée en place. Pas de journal, pas de date :
 > l'historique vit dans `git log`, l'avancement dans `MIGRATION_STATUS.md`.
+
+## Les DEUX buts — ne pas inventer, et ne pas tourner en rond
+
+Le premier but est celui qu'on cite toujours : **l'agent ne doit rien inventer**
+qu'un générateur produit déjà. Le second est aussi important, et il se rate parce
+qu'aucune sonde ne le regarde : **il doit y arriver en un minimum de TOURS.**
+
+Un devkit qui obtient la bonne réponse au bout de trente allers-retours a échoué
+autrement — plus lentement, plus cher, et sur un fil : chaque tour est une
+occasion de partir dans une impasse, et un agent qui tourne en rond finit par
+abandonner l'outil pour écrire à la main. Le nombre de tours n'est donc pas une
+métrique de confort, c'est **le même défaut vu par l'autre bout** : ce que l'agent
+ne trouve pas du premier coup, il le cherche — ou il l'invente.
+
+Chaque tâche le mesure déjà, sans rien à instrumenter : le transcript porte un
+enregistrement final.
+
+```bash
+jq -r 'select(.type=="result") | {num_turns, duration_ms, total_cost_usd}' \
+  <runDir>/task-<n>.transcript.jsonl
+```
+
+Ordre de grandeur relevé sur la tâche 14, avant et après avoir hissé les trois
+façades de fichier en TÊTE de l'`AGENTS.md` généré :
+
+| Verdict  | Tours  | Durée     | Coût       |
+| -------- | ------ | --------- | ---------- |
+| **FAIL** | 101    | 874 s     | 1,16 $     |
+| **PASS** | **74** | **471 s** | **0,72 $** |
+
+Deux runs, deux agents : ce n'est pas une mesure contrôlée, et il ne faut pas la
+lire comme telle. Mais le sens est net et il est cohérent avec la leçon
+principale — **une information placée là où l'agent regarde déjà supprime les
+tours de recherche**, alors que la même information en profondeur les multiplie.
+Un chiffre de tours qui monte d'un run à l'autre est un signal à instruire, même
+quand le verdict reste vert.
 
 ## Pourquoi trois bancs, et pas un
 
