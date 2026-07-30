@@ -52,6 +52,30 @@
   « ne pas affaiblir » : sondes INVERSÉES sur le diff, portes de sortie du framework énumérées.
   Vaut au-delà du banc : une revue qui ne cherche que l'ajout ne voit pas le retrait.
 
+## 🎚️ Une sonde de PROXIMITÉ se règle sur ce qu'elle traverse
+
+- `[1× — 2026-07-30g]` 🔴 **Écrite à 200 caractères, la fenêtre franchissait une action entière.**
+  La sonde « la garde est posée sur l'action destructrice » cherchait `@IsGranted` à moins de 200
+  caractères d'un `@Delete` : un `@IsGranted` posé sur la LECTURE la satisfaisait — précisément le
+  contournement qu'elle devait voir. Deux décorateurs empilés sont ADJACENTS (au plus un
+  `@HttpCode` entre eux) : fenêtre ramenée à 60. C'est l'échantillon `fail` de l'auto-contrôle qui
+  l'a montrée, pas la relecture. Généralisation : toute regex à fenêtre (`{0,N}`) doit justifier
+  son N par ce qu'elle a le droit de FRANCHIR, jamais par « ça devrait suffire ».
+- `[1× — 2026-07-30g]` **Le réflexe qui sauve : quand un échantillon recale la sonde, suspecter la
+  SONDE.** La tentation immédiate a été d'allonger le remplissage de l'échantillon pour qu'il
+  cesse de matcher — c'est-à-dire ajuster la preuve pour plaire à l'instrument.
+
+## 🔗 Deux gabarits rendus à des MOMENTS différents ne partagent rien tacitement
+
+- `[1× — 2026-07-30g]` 🔴 **Le trou était dans le NOM de la clé, pas dans la logique.** Le décor
+  e2e d'une app est rendu à sa création, le test e2e d'une entité des jours plus tard — et le
+  second importe un helper du premier. `hasSecurity` n'était passé qu'au rendu de l'`AGENTS.md` ;
+  le layer de base ne connaissait que `complete`. Résultat : garde émise côté entité, helper
+  absent côté app, import mort. **Seul le typecheck du code GÉNÉRÉ l'a dit** — aucun test du
+  dépôt, qui lit des chaînes dans des fichiers rendus, ne pouvait le voir. Corollaire : quand deux
+  gabarits doivent s'accorder, ils lisent la MÊME clé, et le contrôle est la compilation du
+  produit, pas la relecture du gabarit.
+
 ## 🧪 Suspecter son INSTRUMENT avant le sujet mesuré
 
 - `[1× — 2026-07-30f]` 🔴 **Un banc qui MESURE DÉJÀ le sujet peut être le faux vert.** La tâche
