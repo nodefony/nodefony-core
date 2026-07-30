@@ -29,9 +29,37 @@
 
 ## 🧪 Suspecter son INSTRUMENT avant le sujet mesuré
 
+- `[1× — 2026-07-30c]` 🔴 **Un `trap … EXIT INT TERM` en zsh restaure PUIS REPREND la boucle.**
+  Le script de banc a reçu son SIGTERM, remis le gabarit à HEAD… et continué à mesurer l'état
+  BEFORE — c'est-à-dire à mesurer AFTER en croyant l'inverse. Il manquait `exit` : `trap restore
+EXIT` d'un côté, `trap 'restore; exit 130' INT TERM` de l'autre. Un banc qui survit à son
+  arrêt rend des chiffres, et ils sont faux.
+- `[2× — 2026-07-30c]` **La sonde a lu le décor de la veille.** `ls -t <runRoot>/*/transcript`
+  a rendu le run de 10 h (haiku) pendant que celui de 15 h montait encore son décor : « le modèle
+  n'est pas le bon » — faux. Toute sonde qui cherche « le plus récent » se borne au run COURANT
+  (`find -newer <marqueur du lancement>`).
+- `[1× — 2026-07-30c]` **7 regex `.{0,90}` sur une ligne de 34 448 caractères = commande expirée
+  à 2 min.** `MIGRATION_STATUS.md:150` fait 34 KB sur UNE ligne. Sur un fichier à lignes énormes :
+  `fold -w 200` d'abord, jamais un quantificateur borné répété.
 - `[1× — 2026-07-30]` **Comparer une heure UTC à une heure locale fait conclure à un run bloqué
   depuis deux heures.** Les décors du banc s'horodatent en UTC ; `ELAPSED` de `ps` disait 9 minutes.
   Avant d'annoncer un blocage : lire un compteur, pas une soustraction de fuseaux.
+
+## 🎯 Isoler UNE variable, sinon la mesure ne répond pas à la question posée
+
+- `[1× — 2026-07-30c]` 🔴 **`git checkout <sha>~1 -- <fichier>` emporte TOUT ce qui a changé
+  depuis, pas seulement le hunk visé.** Pour comparer deux états du gabarit `AGENTS.md`, revenir
+  au fichier entier ramenait aussi un commit sans rapport (l'alias `doctor`) → deux variables au
+  lieu d'une. Le geste juste : appliquer l'INVERSE du seul diff — `git show <sha> -- <f> | git
+apply -R` — et **prouver que le geste a eu lieu** (ici : 0 façade dans les 30 premières lignes,
+  3 ailleurs) avant de lancer quoi que ce soit.
+- `[1× — 2026-07-30c]` **Le décor est une variable de la mesure : le prouver, pas l'espérer.**
+  Empreinte `md5` de `git status --porcelain` relevée au DÉPART et à la FIN de la série de runs,
+  identique → la comparaison tient. Sans ce relevé, « j'ai fait attention » n'est pas une preuve.
+- `[1× — 2026-07-30c]` **Un `npm outdated` ne dit pas si la déclaration est un intervalle ou une
+  version EXACTE — et ça change tout.** Ici les `peerDependencies` sont épinglées au patch près :
+  monter `vite` à la racine seule aurait produit un conflit sur six paquets. Avant de planifier un
+  bump : lire la FORME des déclarations, pas seulement les versions.
 - `[2× — 2026-07-30b]` 🔴 **Un juge qui PRÉSUME un trajet recale une réponse juste.** Le juge de
   T16 frappait la route de LECTURE pour récolter le jeton CSRF ; le mécanisme est « une requête
   sûre vers une route **protégée** sème le cookie », et l'agent avait exposé une route dédiée —
