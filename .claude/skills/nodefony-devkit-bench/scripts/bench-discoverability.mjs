@@ -174,6 +174,13 @@ const JUGE_SESSION = path.join(
   "gate-session-csrf.mjs",
 );
 
+/** Juge de la tâche « protège une route » — trois identités, une seule route. */
+const JUGE_SECURE = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-secure-route.mjs",
+);
+
 /**
  * Les 9 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
  * mesure, et deux runs ne se comparent plus. Toute évolution = nouvelle tâche.
@@ -243,11 +250,41 @@ export const TASKS = [
         where: "content",
       },
       {
+        // Élargie : la première version ne visait que deux formes de rendu, et
+        // un `throw new nodefonyError(…, 403)` ou une lecture de `roles` à la
+        // main passait au travers — c'est-à-dire l'essentiel du contrôle
+        // artisanal réel. `addedTs` exclut les tests : une valeur citée dans un
+        // test est une fixture, pas une garde.
         kind: "code",
-        name: "pas de contrôle artisanal (401/403 renvoyé à la main)",
-        pattern: /renderJson\([^)]*40[13]|status(Code)?\s*=\s*40[13]/u,
-        where: "added",
+        name: "pas de contrôle d'accès artisanal (rôles lus ou refus rendu à la main)",
+        pattern:
+          /renderJson\([^)]*40[13]|status(?:Code)?\s*=\s*40[13]|(?:HttpError|nodefonyError)\([^)]*40[13]|roles\.(?:includes|indexOf)\(/u,
+        where: "addedTs",
         invert: true,
+      },
+      {
+        // L'ÉTAGE QUI MANQUAIT. Les trois sondes ci-dessus lisent du texte ;
+        // celle-ci attaque. Un `@IsGranted` posé sur la mauvaise action, ou une
+        // zone dont le motif ne couvre pas la route, passait toutes les
+        // précédentes — et `npm test` est écrit par l'agent lui-même.
+        //
+        // Le compte témoin est créé AVANT le boot, par la commande du
+        // framework, avec les arguments que le juge lui-même dicte
+        // (`--temoin-args`) : une seule source pour cette identité. Son échec
+        // (compte déjà présent) n'interrompt pas la ligne — le juge tranchera.
+        kind: "gate",
+        name: "anonyme refusé, authentifié sans le rôle refusé, administrateur servi",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_SECURE} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `NODE_ENV=development npx --no-install nodefony security:user:add ` +
+            `$(node ${JUGE_SECURE} --temoin-args) >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_SECURE}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
       },
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
     ],

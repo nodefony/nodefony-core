@@ -95,10 +95,47 @@ const SAMPLES = {
       content: `  async index() { if (!user) return this.renderJson({}, 401); }`,
     },
   },
-  "2 :: pas de contrôle artisanal (401/403 renvoyé à la main)": {
-    pass: { added: `+  @IsGranted("ROLE_ADMIN")` },
-    fail: { added: `+    return this.renderJson({ error: "nope" }, 403);` },
-  },
+  "2 :: pas de contrôle d'accès artisanal (rôles lus ou refus rendu à la main)":
+    {
+      pass: {
+        addedTs:
+          `+  @IsGranted("ROLE_ADMIN")\n` +
+          `+  async reports() { return this.renderJson({ report: "ok" }); }`,
+      },
+      fail: { addedTs: `+    return this.renderJson({ error: "nope" }, 403);` },
+      extra: [
+        {
+          // Les trois formes que la première version laissait passer — donc
+          // l'essentiel du contrôle artisanal réellement écrit par un agent.
+          label: "erreur du framework levée à la main dans le controller",
+          matter: {
+            addedTs: `+    throw new nodefonyError("Access denied", 403);`,
+          },
+          expect: false,
+        },
+        {
+          label: "rôles lus à la main",
+          matter: {
+            addedTs: `+    if (!user.roles.includes("ROLE_ADMIN")) return this.renderJson({}, 403);`,
+          },
+          expect: false,
+        },
+        {
+          label: "statut posé à la main",
+          matter: { addedTs: `+    this.response.statusCode = 401;` },
+          expect: false,
+        },
+        {
+          // `addedTs` exclut les tests : une assertion qui CITE 403 est la preuve
+          // que l'agent a vérifié son travail, pas une garde artisanale. Recaler
+          // là-dessus serait punir la rigueur — le mode de défaillance n° 1 de ce
+          // banc, déjà commis cinq fois.
+          label: "un test qui assert un 403 n'est pas une garde",
+          matter: { added: `+    expect(res.status).toBe(403);` },
+          expect: true,
+        },
+      ],
+    },
 
   // ── T3 ────────────────────────────────────────────────────────────────────
   "3 :: a lancé create controller --kind realtime": {

@@ -47,11 +47,9 @@
  *
  * @module
  */
-import http from "node:http";
-import net from "node:net";
 import { readFileSync, existsSync } from "node:fs";
+import { Bocal, demander, garderPortLibre, sortir } from "./http-probe.mjs";
 
-const PORT = process.env.NF_PORT ?? "5371";
 const LECTURE = "/api/cart";
 const MUTATION = "/api/cart/items";
 
@@ -61,104 +59,8 @@ const MUTATION = "/api/cart/items";
  */
 const SKU = "ZX9-QUARTZ-77";
 
-/** Le port répond-il déjà ? (avant boot : quelqu'un d'autre l'occupe.) */
-const portTenu = (port) =>
-  new Promise((resolve) => {
-    const s = net.connect(Number(port), "127.0.0.1");
-    s.on("connect", () => {
-      s.destroy();
-      resolve(true);
-    });
-    s.on("error", () => resolve(false));
-  });
-
-/**
- * Un bocal à cookies minimal — `nom=valeur`, sans domaine ni expiration.
- *
- * Suffisant ici : tout tient sur `127.0.0.1`, en quelques secondes. Un bocal
- * complet apporterait des règles (domaine, chemin, `Max-Age`) dont aucune ne
- * change le verdict, et chacune serait une occasion de bogue dans le JUGE —
- * lequel doit rester plus simple que ce qu'il mesure.
- */
-class Bocal {
-  constructor() {
-    this.cookies = new Map();
-  }
-  absorber(setCookie) {
-    for (const ligne of setCookie ?? []) {
-      const [paire] = ligne.split(";");
-      const i = paire.indexOf("=");
-      if (i > 0) this.cookies.set(paire.slice(0, i).trim(), paire.slice(i + 1));
-    }
-  }
-  entete() {
-    return [...this.cookies].map(([k, v]) => `${k}=${v}`).join("; ");
-  }
-  /** Le jeton anti-rejeu, tel qu'un client web le relit (`csrf-token`). */
-  jeton() {
-    for (const [nom, valeur] of this.cookies) {
-      if (nom.endsWith("csrf-token")) return decodeURIComponent(valeur);
-    }
-    return null;
-  }
-}
-
-/**
- * Une requête, cookies absorbés dans le bocal fourni.
- *
- * @param {string} methode - verbe HTTP.
- * @param {string} chemin - chemin de la route.
- * @param {Bocal} bocal - cookies envoyés puis mis à jour depuis la réponse.
- * @param {{corps?: object, jeton?: string|null}} [opts] - corps JSON, jeton à rejouer.
- * @returns {Promise<object>} statut et corps — ou `erreur`.
- */
-const demander = (methode, chemin, bocal, opts = {}) =>
-  new Promise((resolve) => {
-    const payload = opts.corps ? JSON.stringify(opts.corps) : null;
-    const headers = {};
-    const cookies = bocal.entete();
-    if (cookies) headers.cookie = cookies;
-    if (payload) {
-      headers["content-type"] = "application/json";
-      headers["content-length"] = Buffer.byteLength(payload);
-    }
-    if (opts.jeton) headers["x-csrf-token"] = opts.jeton;
-    const r = http.request(
-      { host: "127.0.0.1", port: PORT, path: chemin, method: methode, headers },
-      (res) => {
-        let corps = "";
-        res.on("data", (c) => (corps += c));
-        res.on("end", () => {
-          bocal.absorber(res.headers["set-cookie"]);
-          resolve({ statut: res.statusCode, corps });
-        });
-      },
-    );
-    r.on("error", (e) => resolve({ erreur: e.message }));
-    r.setTimeout(15_000, () => {
-      r.destroy();
-      resolve({ erreur: "aucune réponse en 15 s" });
-    });
-    if (payload) r.write(payload);
-    r.end();
-  });
-
-const sortir = (code, message) => {
-  console.error(message);
-  process.exit(code);
-};
-
-// `--check-port-free` : appelé AVANT le boot, il ne fait que la garde.
-if (process.argv.includes("--check-port-free")) {
-  if (await portTenu(PORT)) {
-    sortir(
-      5,
-      `CAUSE=port-deja-tenu — le port ${PORT} répond AVANT le boot du décor : ` +
-        `le juge mesurerait un serveur étranger. Verdict non rendu.`,
-    );
-  }
-  process.exit(0);
-}
+// Garde d'INSTRUMENT, avant toute mesure (socle partagé : une seule règle).
+await garderPortLibre();
 
 const visiteur = new Bocal();
 const inconnu = new Bocal();

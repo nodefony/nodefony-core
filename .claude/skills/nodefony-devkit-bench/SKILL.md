@@ -189,6 +189,7 @@ node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs --prove
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-route-param.selftest.mjs   # un juge à causes, chacune vue rouge
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-session-csrf.selftest.mjs
+node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-secure-route.selftest.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
 ```
@@ -349,6 +350,51 @@ elle n'était pas en cause. Le juge vit maintenant dans
 avec une sortie par cause, et `runGates` remonte la ligne `CAUSE=` dans
 l'`evidence` du rapport : un `exit 1` oblige à rejouer pour comprendre, et le
 journal du décor, lui, aura été écrasé entre-temps.
+
+Ce que tous les juges partagent — la requête, le bocal à cookies, la garde de
+port — vit dans `scripts/lib/http-probe.mjs`, **une seule fois**. Quatre copies
+d'une garde divergent en silence, chacune passant son propre contrôle avec sa
+propre idée de ce que « le port est libre » veut dire ; et ce sont exactement
+les trois endroits où un juge se met à mentir sans qu'aucun rouge n'apparaisse.
+Le SENS (quelle route, quel code attendu, quelle cause) reste dans chaque juge :
+c'est ce qui se relit pour comprendre une mesure.
+
+### La sécurité ne se juge pas sur une présence de texte
+
+C'est la famille où le faux vert coûte le plus cher, et c'était la seule dont
+le verdict reposait sur une chaîne trouvée dans le diff. « Protège une route »
+vérifiait que `@IsGranted` APPARAISSE quelque part, et que `npm test` — les
+tests écrits par l'agent lui-même — soit vert. Mesuré sur une vraie
+application : un `@IsGranted("ROLE_USER")` posé à la place de `ROLE_ADMIN`
+laisse **tout titulaire d'un compte** lire le rapport, et passait les deux
+sondes.
+
+Le juge attaque donc avec **trois identités sur la même route**, et c'est le
+contraste qui tranche : anonyme refusé · authentifié **sans le rôle** refusé ·
+administrateur servi. Le deuxième est celui qui porte l'information — refuser
+un anonyme se gagne avec n'importe quelle zone du firewall, c'est gratuit ;
+refuser quelqu'un d'authentifié qui n'a pas le rôle exige une autorisation
+réellement branchée sur la route visée. Les identités viennent du framework
+(compte `admin` semé par le preset, témoin créé par `security:user:add`),
+jamais de ce que l'agent aurait écrit.
+
+**Le refus vaut 401 OU 403, et les deux sont justes.** Il dépend de la zone où
+la route tombe : une aire qui liste l'authentificateur `anonymous` délivre un
+jeton anonyme puis le refuse en 403 ; une aire qui ne le liste pas refuse en
+401 dès l'authentification. Le décor par défaut range `/api/reports` dans la
+première — un juge qui exigerait 401 recalerait donc un agent irréprochable, à
+chaque run. Ce qui se mesure est le REFUS.
+
+Corollaire vérifié au source : une route gardée **hors de toute zone** répond
+403 à tout le monde, administrateur compris — sans zone, aucun jeton n'est posé
+dans le contexte de requête et l'autorisation refuse par défaut. Le juge le
+nomme (`admin-refuse`) au lieu de laisser croire à un rôle mal orthographié.
+
+**Quatre de ses onze causes n'accusent pas l'agent** (`aucune-reponse`,
+`port-deja-tenu`, `identite-admin-indisponible`, `identite-temoin-indisponible`)
+— un juge qui confond « le décor ne m'a pas donné d'identité » avec « l'agent a
+mal protégé » rend le pire des verdicts : un rouge crédible sur un travail
+juste.
 
 **Une sonde de contenu ne regarde pas les tests.** Une valeur littérale dans un
 fichier de test est une **fixture**, pas une configuration en dur. Vécu : un

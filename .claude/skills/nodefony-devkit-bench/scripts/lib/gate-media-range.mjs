@@ -27,24 +27,16 @@
  * @module
  */
 import http from "node:http";
-import net from "node:net";
+import { PORT, HOTE, garderPortLibre } from "./http-probe.mjs";
 
-const PORT = process.env.NF_PORT ?? "5371";
 const CHEMIN = "/api/media/gate-sample.mp4";
-
-/** Le port répond-il déjà ? (avant boot : quelqu'un d'autre l'occupe.) */
-const portTenu = (port) =>
-  new Promise((resolve) => {
-    const s = net.connect(Number(port), "127.0.0.1");
-    s.on("connect", () => {
-      s.destroy();
-      resolve(true);
-    });
-    s.on("error", () => resolve(false));
-  });
 
 /**
  * Une requête sur l'échantillon du gate.
+ *
+ * Requête PROPRE à ce juge, et pas celle du socle : ici on COMPTE des octets
+ * sur un flux binaire de plusieurs mégaoctets. Le socle accumule le corps en
+ * chaîne — ce qui, sur du mp4, coûterait cher et mentirait sur la taille.
  *
  * @param {Record<string,string>} headers - en-têtes à envoyer (`Range` ou rien).
  * @returns {Promise<object>} statut, `content-range`, octets reçus — ou `erreur`.
@@ -52,7 +44,7 @@ const portTenu = (port) =>
 const demander = (headers) =>
   new Promise((resolve) => {
     const r = http.request(
-      { host: "127.0.0.1", port: PORT, path: CHEMIN, headers },
+      { host: HOTE, port: PORT, path: CHEMIN, headers },
       (res) => {
         let n = 0;
         res.on("data", (c) => (n += c.length));
@@ -73,17 +65,8 @@ const demander = (headers) =>
     r.end();
   });
 
-// `--check-port-free` : appelé AVANT le boot, il ne fait que la garde.
-if (process.argv.includes("--check-port-free")) {
-  if (await portTenu(PORT)) {
-    console.error(
-      `CAUSE=port-deja-tenu — le port ${PORT} répond AVANT le boot du décor : ` +
-        `le juge mesurerait un serveur étranger. Verdict non rendu.`,
-    );
-    process.exit(5);
-  }
-  process.exit(0);
-}
+// Garde d'INSTRUMENT, avant toute mesure (socle partagé : une seule règle).
+await garderPortLibre();
 
 // ─── 1. PRÉALABLE — l'échantillon est-il servi, tout court ? ─────────────────
 const plein = await demander({});

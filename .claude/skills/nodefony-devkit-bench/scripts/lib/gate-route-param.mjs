@@ -27,10 +27,8 @@
  *
  * @module
  */
-import http from "node:http";
-import net from "node:net";
+import { Bocal, demander as requeter, garderPortLibre } from "./http-probe.mjs";
 
-const PORT = process.env.NF_PORT ?? "5371";
 const BASE = "/api/authors";
 
 /**
@@ -42,52 +40,20 @@ const BASE = "/api/authors";
  */
 const VALEURS = ["ada-lovelace", "grace-hopper"];
 
-/** Le port répond-il déjà ? (avant boot : quelqu'un d'autre l'occupe.) */
-const portTenu = (port) =>
-  new Promise((resolve) => {
-    const s = net.connect(Number(port), "127.0.0.1");
-    s.on("connect", () => {
-      s.destroy();
-      resolve(true);
-    });
-    s.on("error", () => resolve(false));
-  });
-
 /**
  * Une requête sur la fiche d'un pseudonyme.
+ *
+ * Bocal neuf à chaque appel : ce juge ne mesure aucune identité, et deux
+ * requêtes qui partageraient des cookies ne mesureraient plus deux visiteurs
+ * indépendants.
  *
  * @param {string} handle - la valeur placée dans le chemin.
  * @returns {Promise<object>} statut et corps — ou `erreur`.
  */
-const demander = (handle) =>
-  new Promise((resolve) => {
-    const r = http.request(
-      { host: "127.0.0.1", port: PORT, path: `${BASE}/${handle}` },
-      (res) => {
-        let corps = "";
-        res.on("data", (c) => (corps += c));
-        res.on("end", () => resolve({ statut: res.statusCode, corps }));
-      },
-    );
-    r.on("error", (e) => resolve({ erreur: e.message }));
-    r.setTimeout(15_000, () => {
-      r.destroy();
-      resolve({ erreur: "aucune réponse en 15 s" });
-    });
-    r.end();
-  });
+const demander = (handle) => requeter("GET", `${BASE}/${handle}`, new Bocal());
 
-// `--check-port-free` : appelé AVANT le boot, il ne fait que la garde.
-if (process.argv.includes("--check-port-free")) {
-  if (await portTenu(PORT)) {
-    console.error(
-      `CAUSE=port-deja-tenu — le port ${PORT} répond AVANT le boot du décor : ` +
-        `le juge mesurerait un serveur étranger. Verdict non rendu.`,
-    );
-    process.exit(5);
-  }
-  process.exit(0);
-}
+// Garde d'INSTRUMENT, avant toute mesure (socle partagé : une seule règle).
+await garderPortLibre();
 
 const [a, b] = await Promise.all(VALEURS.map(demander));
 
