@@ -928,6 +928,19 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // `npm test` ne montre que ce qu'il exécute — plus de skipped-vert.
       const unit = readFileSync(path.join(dest, "vitest.config.ts"), "utf8");
       assert.include(unit, '"tests/e2e.test.ts"');
+      // …et il DIT ce qu'il n'a pas exercé : un vert muet a déjà fait conclure
+      // « les tests passent » sur une route qui rendait 500 et ne répondait
+      // jamais, les tests justes vivant dans le fichier que ce glob exclut.
+      // La parenthèse d'appel, pas le nom nu : le gabarit NOMME `onTestRunEnd`
+      // dans un commentaire (pour dire que `onFinished` subsiste dans les types
+      // de vitest 4 sans plus être appelé), et une sonde sur le nom seul passait
+      // donc grâce au commentaire, hook amputé compris.
+      assert.match(
+        unit,
+        /onTestRunEnd\s*\(/,
+        "le rappel doit être branché sur onTestRunEnd — onFinished ne serait jamais appelé",
+      );
+      assert.include(unit, "npm run test:e2e");
       // `create entity` ajoute un `*.e2e.test.ts` par ressource : eux aussi
       // doivent rester hors du glob par défaut, sinon `npm test` les lance sans
       // serveur et échoue pour une raison sans rapport avec le code testé.
