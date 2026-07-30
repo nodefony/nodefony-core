@@ -34,10 +34,10 @@
     "@analogjs/vite-plugin-angular": ">=2.5.0",
     "@nodefony/framework": "*",
     "@nodefony/http": "*",
-    "@vitejs/plugin-react": "6.0.4",
+    "@vitejs/plugin-react": "6.0.5",
     "@vitejs/plugin-vue": ">=6.0.0",
     "nodefony": "*",
-    "vite": "8.1.5",
+    "vite": "8.2.0",
     "zod": "^4.4.3"
   },
   "peerDependenciesMeta": {

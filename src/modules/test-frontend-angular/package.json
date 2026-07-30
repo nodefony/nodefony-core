@@ -30,7 +30,7 @@
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",
     "nodefony": "*",
-    "vite": "8.1.5"
+    "vite": "8.2.0"
   },
   "devDependencies": {
     "@analogjs/vite-plugin-angular": "^2.6.2",
