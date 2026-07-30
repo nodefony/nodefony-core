@@ -62,6 +62,43 @@ dépendance à l'humeur du modèle. La leçon tient donc toujours — **une info
 placée là où l'agent regarde déjà supprime les tours de recherche** — mais c'est
 la sonde qui la prouve, pas le compteur de tours.
 
+### 🔴 Le modèle par défaut n'est pas un réglage : c'est ce qui rend le banc capable de VOIR
+
+Le banc tourne sur le modèle le plus **défavorable** de la famille. Longtemps un
+principe raisonnable ; c'est désormais un résultat mesuré, et il commande le
+réglage.
+
+Deux séries de 3 runs, décor isolé identique, sur la tâche 14 :
+
+| État du gabarit          | Modèle léger                   | Modèle fort                        |
+| ------------------------ | ------------------------------ | ---------------------------------- |
+| façades en **tête**      | 4/4 sonde façade, 2/4 PASS     | 3/3 PASS, toutes sondes vertes     |
+| façades en **ligne 142** | **0/1 sonde façade** (le trou) | **3/3 PASS, toutes sondes vertes** |
+
+Le modèle fort franchit **indifféremment** les deux états — parce qu'il **ouvre la
+doc du controller** (6 runs sur 6) là où le léger ne l'ouvre jamais (0 sur 4). Il
+ne dépend pas de l'`AGENTS.md` : il a un autre chemin vers la réponse.
+
+**Conséquence directe : un banc joué en modèle fort aurait déclaré l'app saine, et
+le trou n'aurait jamais été corrigé.** Monter le modèle par défaut, c'est éteindre
+l'instrument.
+
+### ⭐ Ce que le banc mesure sans le dire : un générateur ABAISSE le modèle nécessaire
+
+En comparant une tâche **à générateur** (T1, « CRUD produit ») et une tâche de
+**socle** (T14, sans générateur), sur les deux poids de modèle :
+
+| Tâche               | Modèle léger                                      | Modèle fort                        | Écart                            |
+| ------------------- | ------------------------------------------------- | ---------------------------------- | -------------------------------- |
+| **T1** — générateur | **32** tours · **0,29 $** · 3/3 PASS · 6/6 sondes | 26 tours · 0,87 $ · 3/3 PASS · 6/6 | **nul** — coût ×3 pour rien      |
+| **T14** — socle     | 80 tours · 0,83 $ · **2/4 PASS**                  | 71 tours · 2,98 $ · 3/3 PASS       | le léger échoue **1 fois sur 2** |
+
+Les 80 tours de T14 ne mesuraient pas la faiblesse du petit modèle : ils mesuraient
+**l'absence de générateur**. Chaque générateur livré déplace le travail du modèle
+vers l'outil — et abaisse donc le poids de modèle nécessaire pour développer avec
+le framework. C'est une propriété du produit, pas une statistique de banc, et elle
+se re-mesure exactement de cette façon : même tâche, deux poids, médiane de 3.
+
 Corollaire pour l'interprétation : un chiffre de tours qui monte est un signal à
 **instruire**, jamais une conclusion à publier.
 

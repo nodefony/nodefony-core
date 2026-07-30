@@ -399,8 +399,18 @@ perdu à chaque exécution. `npm run test:e2e` gère déjà ce cycle tout seul.
 
 1. **Budget tokens = une règle de conception** : lire ciblé via les tables
    ci-dessus ; ne jamais scanner le projet entier.
-2. **Sous-agents au bon modèle** (si ton outil en a) : inventaire/mécanique →
-   modèle léger ; architecture/synthèse → modèle fort.
+2. **Le poids du modèle est un CHOIX, et il est mesuré ici** (si ton outil sait
+   déléguer à des sous-agents). Une tâche couverte par un **générateur** ne
+   demande pas un gros modèle : c'est le générateur qui porte le savoir, pas le
+   modèle. Mesuré sur ce framework, « ajoute une ressource REST » rend le MÊME
+   résultat en modèle léger et en modèle fort — mêmes contrôles verts, écart
+   d'étapes dans le bruit — pour **~3× moins cher**. À l'inverse, le socle SANS
+   générateur (flux, session, cycle de vie) fait échouer le modèle léger environ
+   une fois sur deux. Donc : **léger** pour appeler un générateur, inventorier,
+   lire, vérifier un fait, appliquer un patron ; **fort** pour écrire du socle
+   sans générateur et pour arbitrer une architecture. Le test qui tranche en une
+   seconde : _la tâche a-t-elle une bonne réponse vérifiable ?_ Aucun nom de
+   modèle ici — ils changent tous les trimestres ; raisonne en poids.
 3. **Une règle = une source** : ce fichier POINTE la doc, il ne la recopie
    pas ; n'y recopie rien non plus.
 4. **Batcher les modifs serveur** puis UN SEUL cycle build/restart ; le
