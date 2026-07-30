@@ -958,6 +958,21 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         existsSync(path.join(dest, "tests", "e2e.setup.ts")),
         "le setup global e2e doit être généré",
       );
+      // La suite tourne sur une base À ELLE. Partagée avec le développement,
+      // elle y sème un compte `admin` au mot de passe publié dans ce fichier ;
+      // le seed étant idempotent, `admin` / `admin` cesse ensuite de marcher
+      // pour toujours — et l'inverse (un admin de dev déjà là) fait échouer
+      // `connexionAdmin()`. Mesuré sur une application réelle, pas déduit.
+      const e2eSetup = readFileSync(
+        path.join(dest, "tests", "e2e.setup.ts"),
+        "utf8",
+      );
+      assert.match(
+        e2eSetup,
+        /NF_DATABASE_URL:\s*URL_BASE_E2E/,
+        "le serveur de test doit recevoir une base dédiée, jamais celle du développement",
+      );
+      assert.include(e2eSetup, "NF_E2E_DATABASE_URL");
       const pkg = readJson(path.join(dest, "package.json"));
       assert.include(pkg["scripts"]["test:e2e"], "-c vitest.e2e.config.ts");
       // Le test e2e n'a plus AUCUNE gate d'environnement : invoqué = exécuté.
