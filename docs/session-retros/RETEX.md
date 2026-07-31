@@ -97,6 +97,17 @@
 
 ## 🧪 Suspecter son INSTRUMENT avant le sujet mesuré
 
+- `[1× — 2026-07-31c]` 🔴 **La suggestion d'un linter peut INVERSER la sémantique — la lire, pas
+  l'appliquer.** `filter(…).pop()` a déclenché `prefer-array-find`, dont l'aide propose `find()` :
+  or le code veut le DERNIER élément, et `find` rend le premier. Le décor serait reparti du mauvais
+  commit **en silence**, sans faire échouer un test. Le bon correctif (`findLast`) éteint la règle
+  ET garde le sens. Un linter raisonne sur une forme, jamais sur l'intention — et l'intention était
+  écrite juste au-dessus, en commentaire. Cf [[feedback_code_rewrite_mechanical_traps]].
+- `[1× — 2026-07-31c]` 🔴 **Un contrôle VERT ne prouve rien s'il ne peut pas distinguer la faute.**
+  Le contrôle de la remise à zéro rend 5/5 avec `find` comme avec `findLast` : restaurer depuis une
+  remise à zéro produit le même arbre que depuis la création. Il fallait prouver sur le **hash
+  choisi** (`ff38058` contre `c02b83c`), pas sur le résultat. Avant de s'appuyer sur un vert, se
+  demander : _ce contrôle serait-il rouge si la faute était là ?_
 - `[1× — 2026-07-31c]` 🔴 **Un échantillon qui ne reproduit pas la MATIÈRE réelle valide le
   contraire de ce qu'il croit.** L'auto-contrôle d'un waiver plaçait la commande attendue dans
   `content` (le contenu des fichiers) alors qu'en conditions réelles elle vit dans le
