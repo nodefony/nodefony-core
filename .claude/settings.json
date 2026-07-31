@@ -15,15 +15,6 @@
     ]
   },
   "permissions": {
-    "ask": [
-      "Bash(git checkout *)",
-      "Bash(git restore *)",
-      "Bash(git reset *)",
-      "Bash(git clean *)",
-      "Bash(git stash *)",
-      "Bash(git rebase *)",
-      "Bash(git push *)"
-    ],
     "allow": [
       "Bash(npm *)",
       "Bash(npm run *)",
