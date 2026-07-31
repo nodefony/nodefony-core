@@ -2443,10 +2443,11 @@ export function reinitialiserDecor(app, runDir, id) {
   // Le commit d'ORIGINE, pas la remise à zéro précédente : `git log` va du plus
   // récent au plus ancien, et les remises à zéro portent le même suffixe — le
   // dernier de la liste est donc la création de l'app.
+  // `findLast` et non `find` : le linter propose le second, il inverserait la
+  // logique — on veut le DERNIER de la liste, c'est-à-dire le plus ancien.
   const initial = git(app, "log", "--format=%H %s")
     .split("\n")
-    .filter((l) => /état initial$/u.test(l))
-    .pop()
+    .findLast((l) => l.endsWith("état initial"))
     ?.split(" ")[0];
   if (!initial) {
     throw new Error(
