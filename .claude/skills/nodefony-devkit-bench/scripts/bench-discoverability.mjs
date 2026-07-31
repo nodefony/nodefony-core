@@ -67,7 +67,13 @@
  * l'état ATTENDU : un banc qui n'a jamais mordu ne gate rien.
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -299,6 +305,90 @@ const INTERRUPTEUR_DE_SECURITE = {
   where: "added",
   invert: true,
 };
+
+/**
+ * Les sondes de QUALITÉ — jouées sur **toute** tâche, sans qu'aucune ne les
+ * déclare.
+ *
+ * Le banc mesurait jusqu'ici ce que l'agent TROUVE, jamais ce qu'il ÉCRIT. Un
+ * agent peut employer la bonne façade et livrer par-dessus du code que le
+ * produit refuse : `npm test` lance vitest, qui n'inspecte aucun type — une app
+ * peut donc être verte et ne pas compiler.
+ *
+ * Aucun juge de style, et c'est un choix : un verdict de nommage ou de cohésion
+ * n'est pas reproductible, et un banc qui varie ne mesure plus les corrections
+ * qu'on lui soumet. Ne comptent ici que des **automates déterministes** — le
+ * compilateur, le vérificateur du framework — et des interdits ÉCRITS du projet
+ * (zéro `any`, zéro contrôle mis en sourdine, ESM seul). Ce qui n'a pas
+ * d'automate honnête reste hors du verdict.
+ *
+ * Injectées en un seul endroit, jamais recopiées par tâche : une liste
+ * dupliquée sur seize tâches diverge en silence, chacune passant ses propres
+ * contrôles avec sa propre idée de ce que « propre » veut dire.
+ *
+ * ⚠️ Vérifié avant d'écrire l'interdit, sur une application intacte : les deux
+ * gates y sont verts, et aucun `any`, `@ts-ignore` ni `require(` ne sort des
+ * gabarits. `console.log` en revanche a été RETIRÉ du lot — le seul du code
+ * généré vit dans un exemple TSDoc (`LiveController`), et l'interdire
+ * recalerait l'agent qui recopie la doc du produit.
+ */
+export const SONDES_QUALITE = [
+  {
+    // Le trou le plus large : la suite de tests d'une app générée ne typecheck
+    // pas. Un `any` mal placé, un import qui n'existe plus, un type de retour
+    // faux — tout passe, et c'est le consommateur qui le découvre.
+    kind: "gate",
+    name: "le code de l'app COMPILE (typecheck)",
+    cmd: ["npm", "run", "typecheck"],
+  },
+  {
+    // Le produit porte DÉJÀ son vérificateur : l'agent qui écrit ce que
+    // `nodefony check` refuse (un `:id` à la mode d'un autre framework, par
+    // exemple) est en faute contre le framework lui-même, pas contre un goût.
+    kind: "gate",
+    name: "aucun manquement au vérificateur du framework (nodefony check)",
+    cmd: ["npm", "run", "check"],
+  },
+  {
+    // `addedTs` — hors tests : dans une fixture, un `as any` est une commodité
+    // de banc d'essai, pas une dette d'API. L'interdit vise le code livré.
+    kind: "code",
+    name: "aucun `any` explicite dans le code ajouté",
+    pattern: /:\s*any\b|\bas\s+any\b|<any>/u,
+    where: "addedTs",
+    invert: true,
+  },
+  {
+    // `added` et non `addedTs` : mettre un contrôle en sourdine DANS un test est
+    // exactement le même geste — on fait taire l'outil au lieu de corriger.
+    kind: "code",
+    name: "aucun contrôle mis en sourdine (@ts-ignore, eslint-disable)",
+    pattern: /@ts-ignore|@ts-nocheck|eslint-disable/u,
+    where: "added",
+    invert: true,
+  },
+  {
+    // Reste verte en temps normal, et c'est sa valeur : basculer en CommonJS
+    // est le geste de celui qui bataille avec un import ESM et contourne.
+    kind: "code",
+    name: "aucun require() — l'application est ESM",
+    pattern: /\brequire\s*\(/u,
+    where: "addedTs",
+    invert: true,
+  },
+];
+
+/**
+ * Les sondes RÉELLEMENT jouées pour une tâche : les siennes, plus la qualité.
+ *
+ * Un seul point de composition, appelé par `runGates` (qui exécute) et par
+ * `judgeTask` (qui juge) — sinon un gate de qualité s'exécuterait sans être
+ * jugé, ou serait jugé sans avoir été exécuté.
+ *
+ * @param {{probes: object[]}} task - la tâche.
+ * @returns {object[]} ses sondes propres suivies des sondes de qualité.
+ */
+export const sondesDe = (task) => [...task.probes, ...SONDES_QUALITE];
 
 /**
  * Les 9 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
@@ -1780,9 +1870,16 @@ export const TASKS = [
     // dans le diff ne le montre — c'est une absence.
     id: 26,
     name: "ouvrir une API à un programme, pas à un navigateur",
+    // `--route` reçoit le chemin de l'énoncé ENTIER : le générateur monte la
+    // collection sur le préfixe exact (`@Post("")`), il n'y ajoute PAS le nom de
+    // l'entité. Amputer le dernier segment posait la collection sur
+    // `/api/machine` — et le POST du juge sur `/api/machine/ingest` tombait
+    // alors sur la route item `/{id}`, qui ne connaît que GET : **405**, jamais
+    // un refus d'authentification. Un juge d'authentification qui reçoit un
+    // « méthode non permise » accuse l'agent d'un trou qu'il n'a pas laissé.
     prepare:
       `npx --no-install nodefony create entity Ingest reference:string ` +
-      `--route ${ROUTE_MACHINE.replace(/\/[^/]+$/u, "")} --yes >/dev/null 2>&1 && ` +
+      `--route ${ROUTE_MACHINE} --yes >/dev/null 2>&1 && ` +
       `npm run build >/dev/null 2>&1`,
     prompt:
       `Un service partenaire — un PROGRAMME, pas un navigateur : ni cookie, ni ` +
@@ -2147,7 +2244,7 @@ function runTask(app, runDir, task) {
  * l'état est fidèle, suivi ou non, est la seconde qui suit la tâche.
  */
 function runGates(app, runDir, task) {
-  const gates = task.probes.filter((p) => p.kind === "gate");
+  const gates = sondesDe(task).filter((p) => p.kind === "gate");
   if (!gates.length) return;
   const results = gates.map((p) => {
     const r = spawnSync(p.cmd[0], p.cmd.slice(1), {
@@ -2317,7 +2414,7 @@ function judgeTask(app, runDir, task) {
   const frozenGates = existsSync(gatesPath)
     ? JSON.parse(readFileSync(gatesPath, "utf8"))
     : null;
-  const probes = task.probes.map((p) => {
+  const probes = sondesDe(task).map((p) => {
     let pass = false;
     let evidence = "";
     if (p.kind === "transcript" || p.kind === "code") {
@@ -2393,7 +2490,7 @@ function main() {
   // décor : monter une app témoin coûte une installation complète, la payer
   // trois fois pour trois tâches n'apporte rien (chaque tâche a son commit et
   // ses gates figées, elles ne se contaminent plus).
-  const only = args.includes("--task")
+  const demandees = args.includes("--task")
     ? args[args.indexOf("--task") + 1]
         .split(",")
         .map((n) => Number(n.trim()))
@@ -2402,6 +2499,23 @@ function main() {
   const analyzeOnly = args.includes("--analyze-only")
     ? path.resolve(args[args.indexOf("--analyze-only") + 1])
     : null;
+  // Re-juger un run PARTIEL sans lui redire quelles tâches il a jouées produit
+  // un rapport faux avec l'aplomb d'un vrai : les tâches jamais déroulées n'ont
+  // ni transcript ni diff, donc toutes leurs sondes rougissent, et un décor de
+  // trois tâches ressort « 2/23 ». Le run porte pourtant la trace objective de
+  // ce qu'il a joué — un transcript par tâche. On la lit, plutôt que d'exiger
+  // de l'opérateur qu'il se souvienne d'un drapeau.
+  const only =
+    demandees ??
+    (analyzeOnly
+      ? readdirSync(analyzeOnly)
+          .map((f) => /^task-(\d+)\.transcript\.jsonl$/u.exec(f)?.[1])
+          .filter(Boolean)
+          .map(Number)
+      : null);
+  if (analyzeOnly && !demandees && only?.length) {
+    console.log(`• tâches déroulées dans ce run : ${only.join(", ")}`);
+  }
   const runDir =
     analyzeOnly ??
     path.join(

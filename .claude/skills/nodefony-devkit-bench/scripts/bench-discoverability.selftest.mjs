@@ -28,7 +28,11 @@
  *      incomplet lu comme un vert complet est le piège maison n° 1 ; une sonde
  *      qu'on ajoute sans son échantillon doit se voir, pas se fondre dans le vert.
  */
-import { TASKS, evaluateProbe } from "./bench-discoverability.mjs";
+import {
+  TASKS,
+  SONDES_QUALITE,
+  evaluateProbe,
+} from "./bench-discoverability.mjs";
 
 /**
  * Matières par défaut — un échantillon ne renseigne QUE ce qu'il exerce.
@@ -849,6 +853,74 @@ const SAMPLES = {
     },
     fail: { content: `  async import(@Body() body: { batch: string }) {}` },
   },
+
+  // ── QUALITÉ — jouées sur TOUTE tâche, éprouvées une seule fois ─────────────
+  // Les échantillons vertueux sont COPIÉS du code que le produit génère (le
+  // controller de ressource, la configuration d'app) : un interdit dont
+  // l'échantillon `pass` est inventé finit par recaler l'application intacte —
+  // c'est arrivé avec `unsafe-inline`, cherché dans l'en-tête entier alors que
+  // la politique par défaut en porte un, légitime, sur `style-src`.
+  "qualité :: aucun `any` explicite dans le code ajouté": {
+    pass: {
+      addedTs: `+  async create(@Body() payload: Partial<IngestRow>) {\n+    const created = await this.createResource(payload);`,
+    },
+    fail: { addedTs: `+  async create(@Body() payload: any) {` },
+    extra: [
+      {
+        // Les deux autres formes du même renoncement : elles passaient la
+        // première rédaction de la sonde, qui ne cherchait que `: any`.
+        label: "assertion vers any",
+        matter: { addedTs: `+    const row = payload as any;` },
+        expect: false,
+      },
+      {
+        label: "générique any",
+        matter: { addedTs: `+    const rows: Array<any> = [];` },
+        expect: false,
+      },
+      {
+        // `anything` contient « any » : sans la limite de mot, la sonde
+        // rougirait sur un nom de variable parfaitement sain.
+        label: "un identifiant qui COMMENCE par any",
+        matter: { addedTs: `+    const anything: string = payload.reference;` },
+        expect: true,
+      },
+    ],
+  },
+  "qualité :: aucun contrôle mis en sourdine (@ts-ignore, eslint-disable)": {
+    pass: {
+      added: `+  const found = await this.getResource(id);`,
+    },
+    fail: { added: `+  // @ts-ignore\n+  const found = this.getResource(id);` },
+    extra: [
+      {
+        label: "linter mis en sourdine",
+        matter: { added: `+  // eslint-disable-next-line no-unused-vars` },
+        expect: false,
+      },
+      {
+        // `added` et non `addedTs` : faire taire l'outil DANS un test est le
+        // même geste, et doit rougir pareil.
+        label: "mise en sourdine dans un test",
+        matter: {
+          added: `+  // @ts-nocheck\n+  it("crée une ressource", async () => {});`,
+        },
+        expect: false,
+      },
+    ],
+  },
+  "qualité :: aucun require() — l'application est ESM": {
+    pass: { addedTs: `+import { readFileSync } from "node:fs";` },
+    fail: { addedTs: `+const fs = require("node:fs");` },
+    extra: [
+      {
+        // Le nom d'une méthode ne se lit pas comme un appel CommonJS.
+        label: "une méthode dont le nom finit par require",
+        matter: { addedTs: `+    this.checkRequirements();` },
+        expect: true,
+      },
+    ],
+  },
 };
 
 const key = (task, probe) => `${task.id} :: ${probe.name}`;
@@ -895,6 +967,14 @@ function main() {
       if (probe.kind === "gate") continue;
       probes.push({ task, probe });
     }
+  }
+  // Les sondes de QUALITÉ sont jouées sur toutes les tâches, mais elles ne sont
+  // qu'UNE règle : les éprouver par tâche demanderait le même échantillon seize
+  // fois, et seize occasions de le laisser diverger. Une entrée, sous un
+  // pseudo-identifiant qui les distingue à la lecture.
+  for (const probe of SONDES_QUALITE) {
+    if (probe.kind === "gate") continue;
+    probes.push({ task: { id: "qualité" }, probe });
   }
 
   // Un échantillon peut viser une sonde déjà couverte pour ajouter un cas
