@@ -49,11 +49,17 @@ export default defineConfig<typeof env>((ctx) => ({
    *
    * - `"mandatory"` → socle de l'app : toujours chargé, non filtrable
    *   (déclare l'intention « sans lui, cette app n'a pas de sens ») ;
-   * - `"optional"` → défaut : chargé, filtrable par une garde
-   *   `when: (config) => bool` (ex. redis plus bas : chargé SEULEMENT si
-   *   l'infra est déclarée) ;
+   * - `"optional"` → défaut : chargé, sauf si sa GARDE `when` dit non ;
    * - `"dev"` → chargé UNIQUEMENT hors production : outillage, démo, consoles
    *   (0 coût prod — un module non listé n'est même pas importé).
+   *
+   * La garde `when` rend un booléen : `false` ⇒ le module n'est pas chargé du
+   * tout. Elle reçoit la config résolue — `when: (config) => …` — mais peut
+   * l'ignorer et fermer sur `ctx`, ce que fait redis plus bas
+   * (`when: () => !!ctx.infra.cache`) : la question qu'il pose porte sur
+   * l'ENVIRONNEMENT (une URL Redis est-elle déclarée ?), pas sur sa propre
+   * configuration. Décider d'après `config` sert quand la réponse dépend d'une
+   * clé du module lui-même.
    */
   modules: [
 <% if (it.complete) { %>    /**
