@@ -199,9 +199,51 @@ node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-login-throttle.selfte
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-module-local.selftest.mjs    # le composant local, ses 5 causes
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-liste-bornee.selftest.mjs    # la liste bornée — verdict SANS seuil
 node .claude/skills/nodefony-devkit-bench/scripts/reinit-decor.selftest.mjs <runDir>   # la remise à zéro du décor, sur un run déjà consommé
+node .claude/skills/nodefony-devkit-bench/scripts/lib/reference.selftest.mjs --prove   # le dépistage, ses 5 règles vues rouges
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
 ```
+
+### Dépistage — 1 run sur tout, 3 runs sur ce qui a bougé
+
+Rejouer les 25 tâches trois fois à chaque changement coûte des heures et des
+dizaines de dollars. Les rejouer **une** fois ne prouve rien : même gabarit,
+même modèle, même décor, la tâche 14 a rendu **2 PASS / 2 FAIL**. La sortie
+n'est ni l'un ni l'autre — c'est de comparer un run large à une **référence
+écrite**, et de ne payer trois runs que sur le peu qui a bougé.
+
+```bash
+B=.claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
+node $B --depistage                      # compare à baseline.json, NOMME ce qui exige 3 runs
+node $B --task 26 --runs 3               # les 3 runs, décor remis à zéro entre chaque
+node $B --task 26 --runs 3 --enregistrer-reference   # fige le résultat dans la référence
+node $B --analyze-only <run1>,<run2>,<run3>          # agréger des runs déjà joués
+```
+
+Sorties : **0** rien n'a bougé · **3** des tâches attendent trois runs · **78**
+refus. Un FAIL _conforme à la référence_ ne sort pas 1 : le mode répond
+« qu'est-ce qui a bougé ? », pas « tout est-il vert ? ».
+
+La référence (`baseline.json`, versionnée à la racine du skill) porte le modèle,
+le décor, l'agent, et par tâche le verdict, le nombre de runs et les runs
+d'origine. Quatre règles la gouvernent, chacune payée par une erreur déjà
+commise — et toutes vues rouges par `reference.selftest.mjs --prove` :
+
+1. **Unanimité** — un verdict agrégé n'est PASS que si TOUS les runs le sont.
+   « 2/3 » n'est pas « plutôt bon » : c'est instable, donc non prouvé.
+2. **Asymétrie** — une REMONTÉE (référence FAIL → run PASS) se rejoue autant
+   qu'une chute. Elle suit une correction, elle arrive quand on l'espère, et
+   c'est précisément pour ça qu'on la croit sur un run. L'erreur est vécue.
+3. **Le décor est une variable de la mesure** — modèle, isolation, agent : un
+   écart REFUSE la comparaison (sortie 78). Un avertissement se lit après coup ;
+   une comparaison fausse s'utilise tout de suite.
+4. **Un rouge NON OPPOSABLE écarte le run** — une gate rejouée sur l'app
+   d'aujourd'hui (run antérieur aux gates figées) ne juge pas la tâche. Le banc
+   le DISAIT déjà dans son texte, sans en tirer la conséquence : le rouge était
+   compté, et il a fabriqué un FAIL de référence sur une tâche qui passait.
+
+Le mode **ne relance rien** : il nomme les tâches et rend la commande à copier.
+Un banc qui décide seul de rejouer dépense sans qu'on l'ait voulu.
 
 ### Les sondes s'éprouvent AVANT de juger
 

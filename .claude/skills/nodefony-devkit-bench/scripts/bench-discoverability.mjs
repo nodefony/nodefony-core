@@ -51,8 +51,18 @@
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + les 25 tâches + rapport
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 2       # une seule tâche
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --setup-only   # juste l'app témoin (--link)
- *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --analyze-only tmp/devkit-bench/<run>
- *                                                # re-juger un run existant
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --analyze-only <run>[,<run2>…]
+ *                                                # re-juger un run existant (plusieurs = agrégés)
+ *
+ * DÉPISTAGE — 1 run sur tout, 3 runs sur ce qui a bougé (`lib/reference.mjs`) :
+ *   … --depistage               # compare à `baseline.json` et NOMME ce qui exige 3 runs
+ *   … --task 26 --runs 3        # les trois runs, dans un décor remis à zéro entre chaque
+ *   … --enregistrer-reference   # fige CE run comme référence (fusion par tâche)
+ *
+ * Sorties du dépistage : 0 rien n'a bougé · 3 des tâches attendent 3 runs ·
+ * 78 refus (décor différent de la référence, ou référence absente). Un FAIL
+ * conforme à la référence ne sort PAS 1 : le mode répond « qu'est-ce qui a
+ * bougé ? », pas « tout est-il vert ? ».
  *
  * Prérequis : le checkout est BUILDÉ (`npm run build` — l'app témoin se lie au
  * dist local via --link) et le CLI `claude` est disponible (surchargable :
@@ -91,6 +101,14 @@ import {
   installFromTarballs,
   packTarballs,
 } from "./lib/isolation.mjs";
+import {
+  CHEMIN_REFERENCE,
+  depister,
+  ecrireReference,
+  fusionnerReference,
+  lireReference,
+  verdictAgrege,
+} from "./lib/reference.mjs";
 
 /**
  * Racine du dépôt, trouvée en REMONTANT plutôt qu'en comptant les « .. ».
@@ -112,6 +130,12 @@ function findRepoRoot(from) {
 
 const REPO = findRepoRoot(path.dirname(fileURLToPath(import.meta.url)));
 const BIN = path.join(REPO, "src", "nodefony", "bin", "nodefony");
+/**
+ * Ce script, tel qu'on le rappelle. Le dépistage rend une commande à COPIER :
+ * la recomposer à la main dans un message, c'est la voir se périmer au premier
+ * rangement du skill.
+ */
+const INVOCATION = fileURLToPath(import.meta.url);
 
 /**
  * Décor LIÉ au checkout — boucle courte, mesure non transposable.
@@ -2701,7 +2725,17 @@ function lireEffort(transcriptPath) {
   return null;
 }
 
-function judgeTask(app, runDir, task) {
+/**
+ * Juge UNE tâche sur pièces (transcript + diff du commit de la tâche).
+ *
+ * @param {number|null} occurrence - laquelle des répétitions juger, en ordre
+ *   CHRONOLOGIQUE (0 = la première). `null` = la plus récente, seul cas quand
+ *   la tâche n'a été jouée qu'une fois. Sans ce rang, rejouer une tâche trois
+ *   fois dans le même décor rendrait TROIS FOIS le verdict du dernier commit :
+ *   trois runs d'apparence indépendante, un seul jugement — et un « 3/3 » qui
+ *   ne prouverait rien.
+ */
+function judgeTask(app, runDir, task, occurrence = null) {
   const transcript = existsSync(
     path.join(runDir, `task-${task.id}.transcript.jsonl`),
   )
@@ -2717,8 +2751,15 @@ function judgeTask(app, runDir, task) {
   // premier run réel), et son travail vivrait entre les deux commits de
   // harnais — un diff d'un seul cran le raterait entièrement.
   const log = git(app, "log", "--format=%H %s").split("\n");
-  const harnessIdx = (suffix) => log.findIndex((l) => l.endsWith(suffix));
-  const idx = harnessIdx(`tâche ${task.id}`);
+  // `git log` va du plus RÉCENT au plus ancien : la répétition n° 0 est donc la
+  // DERNIÈRE de cette liste, pas la première.
+  const occurrences = log
+    .map((l, i) => (l.endsWith(`tâche ${task.id}`) ? i : -1))
+    .filter((i) => i !== -1);
+  const idx =
+    occurrence === null
+      ? (occurrences[0] ?? -1)
+      : (occurrences[occurrences.length - 1 - occurrence] ?? -1);
   if (idx === -1) {
     console.log(
       `  ❌ aucun commit « tâche ${task.id} » — la tâche n'a pas été jouée`,
@@ -2828,6 +2869,11 @@ function judgeTask(app, runDir, task) {
   const probes = sondesDe(task).map((p) => {
     let pass = false;
     let evidence = "";
+    // Une sonde est OPPOSABLE quand son rouge porte sur l'état de la tâche.
+    // Rejouer une gate qui n'a pas été figée mesure l'app d'AUJOURD'HUI : le
+    // dire dans le texte ne suffisait pas — le rouge était compté quand même,
+    // et il a fabriqué un FAIL de référence sur une tâche qui passait.
+    let opposable = true;
     if (p.kind === "transcript" || p.kind === "code") {
       ({ pass, evidence } = evaluateProbe(p, {
         files,
@@ -2853,13 +2899,21 @@ function judgeTask(app, runDir, task) {
           env: APP_ENV,
         });
         pass = r.status === 0;
+        opposable = false;
         evidence = `exit ${r.status} ⚠️ rejoué sur l'état COURANT de l'app (gate non figée à l'époque) — non opposable`;
       }
     }
     console.log(
-      `  ${pass ? "✅" : p.observe ? "👁 " : "❌"} ${p.name} (${evidence})${p.observe ? " — observation" : ""}`,
+      `  ${pass ? "✅" : p.observe ? "👁 " : opposable ? "❌" : "⁉️ "} ${p.name} (${evidence})${p.observe ? " — observation" : ""}`,
     );
-    return { name: p.name, kind: p.kind, pass, evidence, observe: !!p.observe };
+    return {
+      name: p.name,
+      kind: p.kind,
+      pass,
+      evidence,
+      observe: !!p.observe,
+      opposable,
+    };
   });
   // ─── Ce qui JUGE et ce qui OBSERVE ────────────────────────────────────────
   // Une sonde exige un ACTE quand aucune autre voie ne donne l'information de
@@ -2870,15 +2924,25 @@ function judgeTask(app, runDir, task) {
   // catalogue alors que l'AGENTS.md porte déjà la réponse mesurerait la
   // conformité à un chemin, pas la capacité. L'observation reste affichée et
   // consignée — elle dit COMMENT l'agent s'y est pris, sans faire échouer.
-  const guessed = probes.filter((p) => !p.pass && !p.observe).length;
+  const guessed = probes.filter(
+    (p) => !p.pass && !p.observe && p.opposable,
+  ).length;
   const observed = probes.filter((p) => !p.pass && p.observe).length;
-  const verdict = guessed === 0 ? "PASS" : "FAIL";
+  // Un rouge NON OPPOSABLE ne condamne pas et n'absout pas : il retire à ce run
+  // le droit de conclure. Le compter FAIL invente une régression ; le passer
+  // sous silence rendrait un PASS qui n'a rien prouvé. Un rouge opposable, lui,
+  // suffit à établir le FAIL, quoi qu'en dise le reste.
+  const suspendu = probes.filter(
+    (p) => !p.pass && !p.observe && !p.opposable,
+  ).length;
+  const verdict = guessed > 0 ? "FAIL" : suspendu > 0 ? "NON JUGEABLE" : "PASS";
   const effort = lireEffort(
     path.join(runDir, `task-${task.id}.transcript.jsonl`),
   );
   console.log(
     `  → ${verdict} — ${guessed} sonde(s) rouge(s) sur ${probes.filter((p) => !p.observe).length}` +
-      (observed ? ` (+ ${observed} observation non tenue)` : ""),
+      (observed ? ` (+ ${observed} observation non tenue)` : "") +
+      (suspendu ? ` (+ ${suspendu} rouge NON OPPOSABLE — run écarté)` : ""),
   );
   if (effort) {
     console.log(
@@ -2897,21 +2961,121 @@ function judgeTask(app, runDir, task) {
   };
 }
 
+/**
+ * Répertoires de MESURE d'un run : ses répétitions s'il en a, lui-même sinon.
+ *
+ * Un run à répétitions range chaque passe dans `rep-<n>/` ; un run simple écrit
+ * à plat, comme tous ceux d'avant. Les deux se relisent donc sans que
+ * l'opérateur ait à savoir lequel il regarde.
+ */
+function repetitionsDe(runDir) {
+  const reps = existsSync(runDir)
+    ? readdirSync(runDir)
+        .filter((f) => /^rep-\d+$/u.test(f))
+        .sort((a, b) => Number(a.slice(4)) - Number(b.slice(4)))
+    : [];
+  return reps.length ? reps.map((r) => path.join(runDir, r)) : [runDir];
+}
+
+/** Identifiants des tâches dont ce répertoire porte un transcript. */
+function tachesJouees(dir) {
+  return existsSync(dir)
+    ? readdirSync(dir)
+        .map((f) => /^task-(\d+)\.transcript\.jsonl$/u.exec(f)?.[1])
+        .filter(Boolean)
+        .map(Number)
+    : [];
+}
+
+/** Commit court du dépôt — trace de CE qui était mesuré, jamais une exigence. */
+function commitDuDepot() {
+  try {
+    return execFileSync("git", ["rev-parse", "--short", "HEAD"], {
+      cwd: REPO,
+      encoding: "utf8",
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+/** Commit qu'un run PORTAIT — `null` pour les runs d'avant ce champ. */
+function commitDuRun(runDir) {
+  const p = path.join(runDir, "report.json");
+  if (!existsSync(p)) return null;
+  try {
+    return JSON.parse(readFileSync(p, "utf8")).commit ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Restitue le dépistage : ce qui n'a pas bougé, et ce qui exige trois runs.
+ *
+ * NOMME les tâches et rend la commande à copier — il ne relance rien. Un banc
+ * qui décide seul de rejouer dépense sans qu'on l'ait voulu, et la seule chose
+ * qu'on regarde ensuite est la facture.
+ */
+function restituerDepistage(bilan, invocation) {
+  const ligne = (l, icone, quoi) => {
+    if (!l.length) return;
+    console.log(
+      `  ${icone} ${quoi} : ${l.map((r) => `T${r.id}` + (r.total > 1 ? ` (${r.passes}/${r.total})` : "")).join(", ")}`,
+    );
+  };
+  console.log("\n━━ dépistage");
+  ligne(bilan.stables, "✅", "conformes à la référence");
+  ligne(bilan.chutes, "🔻", "CHUTE — la référence les donnait PASS");
+  ligne(bilan.remontees, "🔺", "REMONTÉE — la référence les donnait FAIL");
+  ligne(bilan.instables, "🎲", "PARTAGÉES sur leurs propres runs");
+  ligne(bilan.inconnues, "❓", "absentes de la référence");
+  if (!bilan.aRejouer.length) {
+    console.log(
+      bilan.instables.length
+        ? "\n  Rien à rejouer : les écarts constatés sont ceux que la référence\n" +
+            "  enregistre déjà — une tâche instable le reste tant que le PRODUIT\n" +
+            "  ne change pas, la rejouer ne ferait que le remesurer."
+        : "\n  Rien à rejouer : le run confirme la référence.",
+    );
+    return;
+  }
+  console.log(
+    "\n  À REJOUER en 3 runs — une remontée compte autant qu'une chute :\n" +
+      "  elle SUIT une correction, elle arrive quand on l'espère, et c'est\n" +
+      "  précisément pour ça qu'un run unique ne la prouve pas.\n\n" +
+      `    ${invocation} --task ${bilan.aRejouer.join(",")} --runs 3\n`,
+  );
+}
+
 function main() {
   const args = process.argv.slice(2);
+  const valeurDe = (drapeau) => {
+    const i = args.indexOf(drapeau);
+    return i === -1 ? null : args[i + 1];
+  };
   // `--task 4` ou `--task 4,6,7` — rejouer PLUSIEURS tâches ciblées dans UN
   // décor : monter une app témoin coûte une installation complète, la payer
   // trois fois pour trois tâches n'apporte rien (chaque tâche a son commit et
   // ses gates figées, elles ne se contaminent plus).
-  const demandees = args.includes("--task")
-    ? args[args.indexOf("--task") + 1]
+  const demandees = valeurDe("--task")
+    ? valeurDe("--task")
         .split(",")
         .map((n) => Number(n.trim()))
         .filter((n) => Number.isFinite(n))
     : null;
-  const analyzeOnly = args.includes("--analyze-only")
-    ? path.resolve(args[args.indexOf("--analyze-only") + 1])
+  // `--analyze-only a,b,c` — PLUSIEURS runs agrégés en un seul verdict. C'est
+  // ce qui permet d'établir une référence à partir de trois runs déjà joués,
+  // sans les redérouler ni recopier leurs verdicts à la main.
+  const analyzeDirs = valeurDe("--analyze-only")
+    ? valeurDe("--analyze-only")
+        .split(",")
+        .map((d) => path.resolve(d.trim()))
     : null;
+  const runs = Math.max(1, Number(valeurDe("--runs") ?? 1) || 1);
+  const depistage = args.includes("--depistage");
+  const enregistrer = args.includes("--enregistrer-reference");
+
   // Re-juger un run PARTIEL sans lui redire quelles tâches il a jouées produit
   // un rapport faux avec l'aplomb d'un vrai : les tâches jamais déroulées n'ont
   // ni transcript ni diff, donc toutes leurs sondes rougissent, et un décor de
@@ -2920,17 +3084,18 @@ function main() {
   // de l'opérateur qu'il se souvienne d'un drapeau.
   const only =
     demandees ??
-    (analyzeOnly
-      ? readdirSync(analyzeOnly)
-          .map((f) => /^task-(\d+)\.transcript\.jsonl$/u.exec(f)?.[1])
-          .filter(Boolean)
-          .map(Number)
+    (analyzeDirs
+      ? [
+          ...new Set(
+            analyzeDirs.flatMap((d) => repetitionsDe(d).flatMap(tachesJouees)),
+          ),
+        ].sort((a, b) => a - b)
       : null);
-  if (analyzeOnly && !demandees && only?.length) {
+  if (analyzeDirs && !demandees && only?.length) {
     console.log(`• tâches déroulées dans ce run : ${only.join(", ")}`);
   }
   const runDir =
-    analyzeOnly ??
+    analyzeDirs?.[0] ??
     path.join(
       RUN_ROOT,
       new Date().toISOString().replaceAll(":", "-").slice(0, 19),
@@ -2938,7 +3103,22 @@ function main() {
   const app = path.join(runDir, "app");
   const tasks = TASKS.filter((t) => only === null || only.includes(t.id));
 
-  if (!analyzeOnly) {
+  // MESURES = une entrée par passe. `occurrence` est le rang de la passe dans
+  // l'historique git de SON app : sans lui, trois répétitions dans un même
+  // décor rendraient trois fois le jugement du dernier commit.
+  let mesures = [];
+  if (analyzeDirs) {
+    for (const run of analyzeDirs) {
+      const reps = repetitionsDe(run);
+      reps.forEach((dir, i) =>
+        mesures.push({
+          app: path.join(run, "app"),
+          dir,
+          occurrence: reps.length > 1 ? i : null,
+        }),
+      );
+    }
+  } else {
     if (!existsSync(path.join(REPO, "src", "nodefony", "dist"))) {
       console.error(
         "dist absent — `npm run build` d'abord (l'app témoin se lie au checkout)",
@@ -2953,22 +3133,62 @@ function main() {
     // Chaque tâche part d'un décor NEUF. Le coût est de quelques secondes (une
     // remise à zéro git + `npm prune`), là où réinstaller l'application en
     // coûterait deux à quatre minutes — et sans lui, une tâche juge l'agent sur
-    // la saleté de celle d'avant.
-    for (const [i, task] of tasks.entries()) {
-      if (i > 0) reinitialiserDecor(app, runDir, task.id);
-      runTask(app, runDir, task);
+    // la saleté de celle d'avant. La même remise à zéro sépare deux
+    // RÉPÉTITIONS : sans elle, la seconde passe hériterait du travail de la
+    // première et ne mesurerait plus rien.
+    for (let rep = 0; rep < runs; rep += 1) {
+      const dir = runs > 1 ? path.join(runDir, `rep-${rep + 1}`) : runDir;
+      if (runs > 1) {
+        mkdirSync(dir, { recursive: true });
+        console.log(`\n════ répétition ${rep + 1}/${runs}`);
+      }
+      for (const [i, task] of tasks.entries()) {
+        if (rep > 0 || i > 0) reinitialiserDecor(app, runDir, task.id);
+        runTask(app, dir, task);
+      }
+      mesures.push({ app, dir, occurrence: runs > 1 ? rep : null });
     }
   }
 
-  const results = tasks.map((t) => judgeTask(app, runDir, t));
+  // Une tâche ne se juge que dans les passes qui l'ont RÉELLEMENT jouée : trois
+  // runs partiels n'ont pas forcément le même sous-ensemble, et compter une
+  // absence comme un échec inventerait des régressions.
+  const results = [];
+  for (const t of tasks) {
+    const siennes = mesures.filter((m) =>
+      existsSync(path.join(m.dir, `task-${t.id}.transcript.jsonl`)),
+    );
+    if (!siennes.length) continue;
+    // Le rang se compte dans l'HISTORIQUE DE L'APP, jamais dans cette liste :
+    // trois runs agrégés ont trois apps distinctes, chacune avec un seul commit
+    // « tâche N ». Numéroter les passes 0,1,2 y chercherait des répétitions qui
+    // n'existent pas, et rendrait deux « tâche jamais jouée » sur trois — un
+    // 1/3 fabriqué de toutes pièces. Vérifié en confrontant l'agrégat aux
+    // rapports des mêmes runs jugés séparément.
+    const passes = siennes.map((m) => judgeTask(m.app, m.dir, t, m.occurrence));
+    const agrege = verdictAgrege(passes.map((p) => p.verdict));
+    if (agrege.total > 1 || agrege.ecartes) {
+      console.log(
+        `  ⇒ tâche ${t.id} sur ${agrege.total} run(s) retenu(s) : ${agrege.passes} PASS → ` +
+          `${agrege.verdict}${agrege.stable ? "" : " (PARTAGÉ — instable)"}` +
+          (agrege.ecartes ? ` — ${agrege.ecartes} run(s) écarté(s)` : ""),
+      );
+    }
+    // Une tâche sans run jugeable n'entre NI dans le rapport NI dans la
+    // référence : mieux vaut un trou qu'un verdict qu'aucun run n'a établi.
+    if (agrege.verdict === "NON JUGEABLE") continue;
+    results.push({ ...passes.at(-1), ...agrege, name: t.name, id: t.id });
+  }
   // Modèle RELEVÉ dans les transcripts (pas seulement demandé) : c'est ce qui
   // a réellement tourné qui rend deux runs comparables.
   const models = new Set();
-  for (const t of tasks) {
-    const p = path.join(runDir, `task-${t.id}.transcript.jsonl`);
-    if (existsSync(p)) {
-      const m = readFileSync(p, "utf8").match(/"model":"([^"]+)"/u);
-      if (m) models.add(m[1]);
+  for (const m of mesures) {
+    for (const t of tasks) {
+      const p = path.join(m.dir, `task-${t.id}.transcript.jsonl`);
+      if (existsSync(p)) {
+        const trouve = readFileSync(p, "utf8").match(/"model":"([^"]+)"/u);
+        if (trouve) models.add(trouve[1]);
+      }
     }
   }
   const report = {
@@ -2979,30 +3199,117 @@ function main() {
     // deux runs de décors différents ne se comparent pas. Il s'enregistre, il
     // ne se déduit pas du chemin.
     decor: LINKED ? "lié au checkout (--link)" : "isolé (tarballs, hors dépôt)",
+    agent: AGENT,
+    // Le commit MESURÉ — la seule variable qu'on veut voir différer entre la
+    // référence et le run. Re-juger un run ANCIEN ne le mesure pas au commit
+    // d'aujourd'hui : on reprend celui qu'il portait, quitte à n'en avoir
+    // aucun. Écrire HEAD ici daterait la mesure du jour où on l'a relue.
+    commit: analyzeDirs ? commitDuRun(analyzeDirs[0]) : commitDuDepot(),
+    // Les runs d'où sort la mesure. Leur nom EST leur horodatage : c'est ce qui
+    // permet de dire quand une référence a été mesurée, là où `date` ne dit que
+    // le jour où on l'a écrite — deux choses qu'un re-jugement sépare.
+    sources: (analyzeDirs ?? [runDir]).map((d) => path.basename(d)),
+    runs: mesures.length,
     results,
   };
-  writeFileSync(
-    path.join(runDir, "report.json"),
-    JSON.stringify(report, null, 2),
-  );
+  // Un agrégat de PLUSIEURS runs porte un autre nom : écrit sous `report.json`,
+  // il écraserait le rapport propre du premier run — la mesure qu'on venait
+  // justement agréger. Vécu au premier essai de ce mode, sur des runs réels.
+  const nomRapport =
+    analyzeDirs?.length > 1 ? "report-agrege.json" : "report.json";
+  writeFileSync(path.join(runDir, nomRapport), JSON.stringify(report, null, 2));
   const failed = results.filter((r) => r.verdict === "FAIL");
   console.log(
-    `\n━━ verdict : ${results.length - failed.length}/${results.length} tâches PASS`,
+    `\n━━ verdict : ${results.length - failed.length}/${results.length} tâches PASS` +
+      (mesures.length > 1
+        ? ` (${mesures.length} runs, PASS à l'unanimité)`
+        : ""),
   );
   // Chemin ABSOLU dès que le run sort du dépôt : un `../../..` relatif à la
   // racine n'aide personne à retrouver le décor.
-  const reportPath = path.join(runDir, "report.json");
+  const reportPath = path.join(runDir, nomRapport);
   console.log(
     `rapport : ${runDir.startsWith(REPO + path.sep) ? path.relative(REPO, reportPath) : reportPath}`,
   );
-  if (failed.length > 0) {
+
+  const reference = lireReference();
+  let aRejouer = 0;
+  if (depistage) {
+    if (!reference) {
+      console.error(
+        `\n🛑 aucune référence (${path.relative(REPO, CHEMIN_REFERENCE)}).\n` +
+          "   Dépister suppose un état antérieur écrit. Rejouer avec\n" +
+          "   `--enregistrer-reference` pour en établir un.",
+      );
+      process.exit(78);
+    }
+    const bilan = depistageOuRefus(reference, report);
+    restituerDepistage(bilan, "node " + path.relative(REPO, INVOCATION));
+    aRejouer = bilan.aRejouer.length;
+  }
+  if (enregistrer) {
+    try {
+      const fusion = fusionnerReference(reference, report);
+      ecrireReference(fusion);
+      console.log(
+        `\n📌 référence mise à jour (${results.length} tâche(s), ${mesures.length} run(s)) : ` +
+          path.relative(REPO, CHEMIN_REFERENCE),
+      );
+    } catch (e) {
+      console.error(`\n🛑 ${e.message}`);
+      process.exit(78);
+    }
+  }
+
+  // Hors dépistage seulement : ce rappel parle de l'état ABSOLU du banc, quand
+  // le dépistage vient précisément de dire que ces rouges-là sont attendus.
+  if (failed.length > 0 && !depistage) {
     console.log(
       "(avant devkit S4, l'échec de la tâche 1 est l'état ATTENDU — le 409/PATCH " +
         "non générés forcent l'agent à inventer ; la 3 peut passer côté serveur " +
         "si l'agent suit la façade realtime)",
     );
-    process.exit(1);
   }
+  // Le dépistage a sa PROPRE sortie : il répond « qu'est-ce qui a bougé ? », pas
+  // « tout est-il vert ? ». Sortir 1 parce qu'une tâche est FAIL DEPUIS TOUJOURS
+  // rendrait le mode inutilisable — impossible d'y distinguer une régression
+  // d'un rouge connu, c'est-à-dire exactement ce qu'il existe pour dire.
+  if (depistage) process.exit(aRejouer ? 3 : 0);
+  if (failed.length > 0) process.exit(1);
+}
+
+/**
+ * Dépiste, ou REFUSE de comparer.
+ *
+ * Le refus est un arrêt, pas un avertissement : un avertissement se lit après
+ * coup, une comparaison fausse s'utilise tout de suite.
+ */
+function depistageOuRefus(reference, report) {
+  const ecarts = [];
+  for (const champ of ["model", "decor", "agent"]) {
+    if (
+      reference[champ] !== undefined &&
+      report[champ] !== undefined &&
+      reference[champ] !== report[champ]
+    ) {
+      ecarts.push(
+        `${champ} : référence « ${reference[champ]} » ≠ run « ${report[champ]} »`,
+      );
+    }
+  }
+  if (ecarts.length) {
+    console.error(
+      "\n🛑 décor différent de la référence — comparaison REFUSÉE :\n   " +
+        ecarts.join("\n   ") +
+        "\n   Rejouer dans le décor de la référence, ou en établir une autre.",
+    );
+    process.exit(78);
+  }
+  console.log(
+    `\n• référence : ${reference.commit ?? "?"} (${reference.date?.slice(0, 10) ?? "?"}) ` +
+      `— run : ${report.commit ?? "?"}`,
+  );
+  return depister(reference, report.results);
 }
 
 // Lancé directement → le banc tourne. IMPORTÉ (par l'auto-contrôle) → on
