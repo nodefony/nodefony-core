@@ -97,6 +97,20 @@ export default defineConfig<typeof env>((ctx) => ({
        * Le firewall trie par longueur de pattern : `/api/secure/*` tombe donc
        * dans `secure`, sans `anonymous` → 401 avant ton controller. Essaie
        * `GET /api/secure/hello`.
+       *
+       * Ces deux zones sont STATEFUL : l'identité tient dans une session
+       * serveur, portée par un cookie opaque et révocable — le bon modèle pour
+       * un NAVIGATEUR. Quand l'appelant n'en est pas un (service partenaire,
+       * script, agent), la troisième nature de zone est `stateless: true` :
+       * aucun registre serveur, chaque requête porte sa preuve entière (clé
+       * d'API ou JWT), et un cookie éventuel est ignoré. Y laisser `session`
+       * ferait dépendre l'appel d'un cookie que personne ne stocke.
+       *
+       *   machine: {
+       *     pattern: "^/api/machine",
+       *     authenticators: ["apikey"],
+       *     stateless: true,
+       *   },
        */
       areas: {
         main: {

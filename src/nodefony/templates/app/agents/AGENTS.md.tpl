@@ -178,6 +178,13 @@ et il fait foi le jour où les deux divergent.
   - **créer un compte** : la commande `npx nodefony security:user:add <identifiant>`.
     Ne fabrique pas d'utilisateur en insérant directement dans la base — le mot
     de passe passe par l'encodeur du framework.
+  - **ouvrir une API à un PROGRAMME** (service partenaire, script, agent — pas
+    un navigateur) : une zone `stateless: true` avec l'authenticator `apikey`
+    ou `jwt`, dans `nodefony.config.ts`. Stateless veut dire qu'aucun registre
+    serveur ne tient l'identité : chaque requête porte sa preuve entière, et un
+    cookie éventuel est ignoré. Laisser `session` sur une telle zone ferait
+    dépendre l'appel d'un cookie que l'appelant ne stocke pas — c'est l'erreur
+    à ne pas faire. Les clés s'émettent par `POST /nodefony/security/api/keys`.
   - Un droit **métier** qui ne se réduit pas à un rôle (« l'auteur peut éditer
     SON document ») s'écrit en **voter** et s'enregistre par
     `registerVoterFactory` ; `@IsGranted("doc.edit", { subject: "id" })` l'appelle.

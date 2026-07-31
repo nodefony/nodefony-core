@@ -973,6 +973,22 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "le serveur de test doit recevoir une base dédiée, jamais celle du développement",
       );
       assert.include(e2eSetup, "NF_E2E_DATABASE_URL");
+      // Le mot `stateless` n'existait NULLE PART dans une application générée.
+      // Un agent à qui on demande une API pour un programme n'avait donc aucun
+      // chemin vers la troisième nature de zone : il posait une zone à session,
+      // et un client machine devait gérer des cookies. Le vocabulaire vit aux
+      // deux endroits où on le cherche — la config qu'on édite, et le fichier
+      // que l'agent lit par défaut.
+      assert.include(
+        readFileSync(path.join(dest, "nodefony.config.ts"), "utf8"),
+        "stateless",
+        "la config générée doit nommer la zone stateless (appelants non-navigateur)",
+      );
+      assert.include(
+        readFileSync(path.join(dest, "AGENTS.md"), "utf8"),
+        "stateless",
+        "AGENTS.md doit donner le geste M2M — c'est le fichier lu par défaut",
+      );
       const pkg = readJson(path.join(dest, "package.json"));
       assert.include(pkg["scripts"]["test:e2e"], "-c vitest.e2e.config.ts");
       // Le test e2e n'a plus AUCUNE gate d'environnement : invoqué = exécuté.
