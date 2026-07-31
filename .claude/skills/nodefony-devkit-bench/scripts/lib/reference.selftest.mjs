@@ -133,6 +133,43 @@ if (d.aRejouer.includes(10) || d.aRejouer.includes(13)) {
   echec(`aRejouer = ${d.aRejouer} — un stable ne se rejoue pas`);
 }
 
+console.log("• dépistage — un énoncé RÉÉCRIT ne se compare pas");
+// La tâche 26 a changé de route en cours de session : tout ce que l'agent doit
+// écrire en dépend. Sans ce classement, le dépistage aurait annoncé une chute
+// ou une remontée en comparant deux réponses à deux questions différentes.
+const refEmpreinte = {
+  model: "haiku",
+  decor: "isolé",
+  agent: "claude",
+  verdicts: { 26: { verdict: "FAIL", runs: 3, empreinte: "aaaaaaaaaaaa" } },
+};
+const dReecrit = depister(refEmpreinte, [
+  { id: 26, verdict: "PASS", passes: 1, total: 1, empreinte: "bbbbbbbbbbbb" },
+]);
+if (!dReecrit.modifiees.length || dReecrit.remontees.length) {
+  echec("un énoncé réécrit doit se classer MODIFIÉ, jamais en remontée");
+}
+if (!dReecrit.aRejouer.includes(26)) {
+  echec("un énoncé réécrit doit être rejoué — sa référence ne vaut plus");
+}
+// Empreinte identique → comparaison normale. Et une référence ANCIENNE, écrite
+// avant que l'empreinte existe, reste comparable : on ne périme pas tout un
+// fichier de mesures pour un champ ajouté après coup.
+const dMeme = depister(refEmpreinte, [
+  { id: 26, verdict: "PASS", passes: 1, total: 1, empreinte: "aaaaaaaaaaaa" },
+]);
+if (!dMeme.remontees.length)
+  echec("même empreinte → la comparaison doit avoir lieu");
+const dSansEmpreinte = depister(
+  { ...refEmpreinte, verdicts: { 26: { verdict: "FAIL", runs: 3 } } },
+  [{ id: 26, verdict: "PASS", passes: 1, total: 1, empreinte: "bbbbbbbbbbbb" }],
+);
+if (!dSansEmpreinte.remontees.length) {
+  echec(
+    "référence sans empreinte → comparaison maintenue, pas de faux « modifié »",
+  );
+}
+
 console.log("• dépistage — un run déjà joué 3× ne se re-rejoue pas");
 const d3 = depister(ref, [{ id: 11, verdict: "FAIL", passes: 0, total: 3 }]);
 if (d3.aRejouer.length) {
@@ -241,8 +278,13 @@ if (process.argv.includes("--prove") && MODULE === "./reference.mjs") {
     },
     {
       regle: "asymétrie (la remontée se rejoue)",
-      de: "const aRejouer = [...chutes, ...remontees, ...instables, ...inconnues]",
-      vers: "const aRejouer = [...chutes, ...instables, ...inconnues]",
+      de: "    ...remontees,\n",
+      vers: "",
+    },
+    {
+      regle: "énoncé réécrit → non comparable",
+      de: "if (ref0?.empreinte && r.empreinte && ref0.empreinte !== r.empreinte) {",
+      vers: "if (false) {",
     },
     {
       regle: "refus de décor",

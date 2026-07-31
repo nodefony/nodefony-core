@@ -105,6 +105,7 @@ import { indiceDeLaPasse } from "./lib/passes.mjs";
 import {
   CHEMIN_REFERENCE,
   depister,
+  empreinteTache,
   ecrireReference,
   fusionnerReference,
   lireReference,
@@ -1968,11 +1969,16 @@ export const TASKS = [
     name: "ouvrir une API à un programme, pas à un navigateur",
     // `--route` reçoit le chemin de l'énoncé ENTIER : le générateur monte la
     // collection sur le préfixe exact (`@Post("")`), il n'y ajoute PAS le nom de
-    // l'entité. Amputer le dernier segment posait la collection sur
-    // `/api/machine` — et le POST du juge sur `/api/machine/ingest` tombait
-    // alors sur la route item `/{id}`, qui ne connaît que GET : **405**, jamais
-    // un refus d'authentification. Un juge d'authentification qui reçoit un
-    // « méthode non permise » accuse l'agent d'un trou qu'il n'a pas laissé.
+    // l'entité. Amputer le dernier segment posait la collection sur le préfixe —
+    // et le POST du juge tombait alors sur la route item `/{id}`, qui ne connaît
+    // que GET : **405**, jamais un refus d'authentification. Un juge
+    // d'authentification qui reçoit un « méthode non permise » accuse l'agent
+    // d'un trou qu'il n'a pas laissé.
+    //
+    // L'URL est déclarée PUBLIÉE dans l'énoncé, et ce n'est pas un ornement :
+    // sans cela, déplacer la route sous le `^/api/machine` du gabarit serait une
+    // réponse valable, le juge frapperait une URL devenue 404, et la tâche
+    // mesurerait un déménagement plutôt qu'une zone.
     prepare:
       `npx --no-install nodefony create entity Ingest reference:string ` +
       `--route ${ROUTE_MACHINE} --yes >/dev/null 2>&1 && ` +
@@ -1980,8 +1986,9 @@ export const TASKS = [
     prompt:
       `Un service partenaire — un PROGRAMME, pas un navigateur : ni cookie, ni ` +
       `formulaire — doit déposer ses lots par POST ${ROUTE_MACHINE} en ` +
-      `s'authentifiant avec une clé d'API. Aujourd'hui n'importe qui peut poster ` +
-      `sur cette route. Fais que seule une clé d'API valide y donne accès. ` +
+      `s'authentifiant avec une clé d'API. Cette URL est publiée à nos ` +
+      `partenaires : elle ne change pas. Aujourd'hui n'importe qui peut poster ` +
+      `dessus. Fais que seule une clé d'API valide y donne accès. ` +
       "Termine en prouvant que les tests de l'app passent.",
     probes: [
       {
@@ -3026,6 +3033,24 @@ function restituerDepistage(bilan, invocation) {
   ligne(bilan.remontees, "🔺", "REMONTÉE — la référence les donnait FAIL");
   ligne(bilan.instables, "🎲", "PARTAGÉES sur leurs propres runs");
   ligne(bilan.inconnues, "❓", "absentes de la référence");
+  ligne(
+    bilan.modifiees ?? [],
+    "✍️ ",
+    "ÉNONCÉ RÉÉCRIT depuis la référence — non comparables",
+  );
+  // Une tâche sans référence, mais déjà mesurée trois fois, n'a rien à rejouer —
+  // elle a quelque chose à ENREGISTRER. Dire « rien à rejouer » sans le préciser
+  // laisserait croire que la référence est complète.
+  const aEnregistrer = [...bilan.inconnues, ...(bilan.modifiees ?? [])]
+    .filter((r) => (r.total ?? 1) >= 3)
+    .map((r) => r.id);
+  if (aEnregistrer.length) {
+    console.log(
+      `\n  Mesurées ${3} fois mais SANS référence : T${aEnregistrer.join(", T")}.\n` +
+        `  Rien à rejouer pour elles — il reste à les figer :\n\n` +
+        `    ${invocation} --analyze-only <run> --task ${aEnregistrer.join(",")} --enregistrer-reference\n`,
+    );
+  }
   if (!bilan.aRejouer.length) {
     console.log(
       bilan.instables.length
@@ -3173,7 +3198,13 @@ function main() {
     // Une tâche sans run jugeable n'entre NI dans le rapport NI dans la
     // référence : mieux vaut un trou qu'un verdict qu'aucun run n'a établi.
     if (agrege.verdict === "NON JUGEABLE") continue;
-    results.push({ ...passes.at(-1), ...agrege, name: t.name, id: t.id });
+    results.push({
+      ...passes.at(-1),
+      ...agrege,
+      name: t.name,
+      id: t.id,
+      empreinte: empreinteTache(t),
+    });
   }
   // Modèle RELEVÉ dans les transcripts (pas seulement demandé) : c'est ce qui
   // a réellement tourné qui rend deux runs comparables.

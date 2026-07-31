@@ -27,6 +27,7 @@
  * Le commit du dépôt, lui, s'ENREGISTRE sans jamais être exigé identique :
  * c'est précisément ce qu'on veut voir changer entre la référence et le run.
  */
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -48,6 +49,32 @@ export const CHEMIN_REFERENCE = path.join(
 
 /** Champs du décor qui doivent CORRESPONDRE pour qu'une comparaison ait un sens. */
 const CHAMPS_DECOR = ["model", "decor", "agent"];
+
+/**
+ * Empreinte d'une TÂCHE — l'énoncé et ce qu'on juge.
+ *
+ * Le décor est une variable de la mesure ; la tâche en est une autre, et elle
+ * se modifie bien plus souvent. Vécu à l'heure près : la route de l'énoncé a
+ * changé de préfixe, ce qui change tout ce que l'agent doit écrire — et sans
+ * cette empreinte, le dépistage suivant aurait comparé le résultat à une
+ * référence mesurée sur une AUTRE question, puis annoncé une « remontée » ou
+ * une « chute » avec le même aplomb.
+ *
+ * Ne couvre que ce qui change la RÉPONSE ATTENDUE : l'énoncé, la préparation du
+ * décor, et le nom des sondes. Un commentaire réécrit ne casse donc pas la
+ * comparaison ; une sonde ajoutée, si.
+ *
+ * @param {{prompt?: string, prepare?: string, probes?: Array<{name: string}>}} task
+ * @returns {string} douze caractères — assez pour distinguer, assez court pour se lire.
+ */
+export function empreinteTache(task) {
+  const matiere = JSON.stringify([
+    task.prompt ?? "",
+    task.prepare ?? "",
+    (task.probes ?? []).map((p) => p.name).sort(),
+  ]);
+  return createHash("sha256").update(matiere).digest("hex").slice(0, 12);
+}
 
 /**
  * Lit la référence versionnée.
@@ -144,7 +171,15 @@ export function depister(ref, results) {
   const remontees = [];
   const inconnues = [];
   const instables = [];
+  const modifiees = [];
   for (const r of results) {
+    // Une tâche RÉÉCRITE ne se compare pas : ni chute ni remontée, la question
+    // n'est plus la même. Elle se remesure, et sa référence se réécrit.
+    const ref0 = ref.verdicts?.[String(r.id)];
+    if (ref0?.empreinte && r.empreinte && ref0.empreinte !== r.empreinte) {
+      modifiees.push({ ...r, reference: ref0 });
+      continue;
+    }
     // Un run partagé (2/3) ne se classe pas par son verdict : il DIT déjà que la
     // tâche est instable, quelle que soit la référence. Le confondre avec une
     // chute enverrait chercher une régression là où il n'y a qu'un aléa connu.
@@ -165,10 +200,24 @@ export function depister(ref, results) {
   }
   // Les stables ne se rejouent pas — c'est tout l'intérêt : le dépistage achète
   // du silence sur ce qui n'a pas bougé.
-  const aRejouer = [...chutes, ...remontees, ...instables, ...inconnues]
+  const aRejouer = [
+    ...chutes,
+    ...remontees,
+    ...instables,
+    ...inconnues,
+    ...modifiees,
+  ]
     .filter((r) => (r.total ?? 1) < 3)
     .map((r) => r.id);
-  return { stables, chutes, remontees, inconnues, instables, aRejouer };
+  return {
+    stables,
+    chutes,
+    remontees,
+    inconnues,
+    instables,
+    modifiees,
+    aRejouer,
+  };
 }
 
 /**
@@ -203,6 +252,9 @@ export function fusionnerReference(ref, run) {
       verdict: r.verdict,
       runs: r.total ?? 1,
       passes: r.passes ?? (r.verdict === "PASS" ? 1 : 0),
+      // L'énoncé mesuré, pas seulement son résultat : une référence qui ne dit
+      // pas à quelle QUESTION elle répond se compare à n'importe quoi.
+      empreinte: r.empreinte,
       // `date` = quand on a ENREGISTRÉ ; `sources` = quand on a MESURÉ. Un
       // re-jugement sépare les deux, et seule la seconde situe la mesure.
       date: run.date,

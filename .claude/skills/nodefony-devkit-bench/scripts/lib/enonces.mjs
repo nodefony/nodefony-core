@@ -60,13 +60,20 @@ export const REPERE_ZONE_PROTEGEE = "/api/secure/hello";
  * Tâche « ouvrir une API à un PROGRAMME » — la route que le service partenaire
  * appelle.
  *
- * Le préfixe `/api/machine` n'est pas décoratif : il est PLUS SPÉCIFIQUE que le
- * `^/api` de la zone `main`, donc une aire déclarée dessus l'emporte au tri par
- * longueur du firewall. Sans ce préfixe distinct, l'agent devrait modifier la
- * zone web pour ouvrir la sienne — et la tâche mesurerait sa capacité à
- * contourner un obstacle de décor plutôt que sa connaissance du stateless.
+ * Le préfixe n'est pas décoratif : il est PLUS SPÉCIFIQUE que le `^/api` de la
+ * zone `main`, donc une aire déclarée dessus l'emporte au tri par longueur du
+ * firewall. Sans ce préfixe distinct, l'agent devrait modifier la zone web pour
+ * ouvrir la sienne — et la tâche mesurerait sa capacité à contourner un
+ * obstacle de décor plutôt que sa connaissance du stateless.
+ *
+ * ⚠️ Il doit aussi rester HORS du `^/api/machine` que le gabarit d'application
+ * pose désormais, sinon la route est protégée par le décor AVANT que l'agent
+ * arrive : les trois passes suivantes ont rendu une gate verte sans qu'un seul
+ * agent ait touché la configuration. Une tâche dont la prémisse (« aujourd'hui
+ * n'importe qui peut poster ») est devenue fausse ne mesure plus rien — et son
+ * vert est le plus convaincant des faux verts.
  */
-export const ROUTE_MACHINE = "/api/machine/ingest";
+export const ROUTE_MACHINE = "/api/partenaire/depot";
 
 /**
  * Tâche « la liste ne grossit pas avec la table » — la ressource que le décor

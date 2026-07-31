@@ -813,13 +813,17 @@ const SAMPLES = {
     fail: { transcript: `{"file_path":"/app/README.md"}` },
   },
   "26 :: zone déclarée stateless (appelant non-navigateur)": {
+    // La zone que l'agent doit ÉCRIRE porte le préfixe de l'énoncé, jamais
+    // celui du gabarit : `^/api/machine` est déjà posé par l'application
+    // générée, et une tâche qui se satisferait de lui rendrait un vert que
+    // personne n'a produit.
     pass: {
-      added: `+        machine: { pattern: "^/api/machine", authenticators: ["apikey"], stateless: true },`,
+      added: `+        partenaire: { pattern: "^/api/partenaire", authenticators: ["apikey"], stateless: true },`,
     },
-    // L'échantillon fautif est le piège EXACT de la tâche : une zone machine
-    // qui marche à l'essai, et qui exigera un cookie du client réel.
+    // L'échantillon fautif est le piège EXACT de la tâche : une zone qui marche
+    // à l'essai, et qui exigera un cookie du client réel.
     fail: {
-      added: `+        machine: { pattern: "^/api/machine", authenticators: ["session"] },`,
+      added: `+        partenaire: { pattern: "^/api/partenaire", authenticators: ["session"] },`,
     },
   },
   "26 :: authentificateur de porteur employé (apikey / jwt)": {
