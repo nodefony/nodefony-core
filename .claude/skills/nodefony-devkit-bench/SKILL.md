@@ -200,6 +200,7 @@ node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-module-local.selftest
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-liste-bornee.selftest.mjs    # la liste bornée — verdict SANS seuil
 node .claude/skills/nodefony-devkit-bench/scripts/reinit-decor.selftest.mjs <runDir>   # la remise à zéro du décor, sur un run déjà consommé
 node .claude/skills/nodefony-devkit-bench/scripts/lib/reference.selftest.mjs --prove   # le dépistage, ses 5 règles vues rouges
+node .claude/skills/nodefony-devkit-bench/scripts/lib/passes.selftest.mjs --prove      # quelle passe est jugée (décor ≠ agent)
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
 ```

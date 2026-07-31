@@ -101,6 +101,7 @@ import {
   installFromTarballs,
   packTarballs,
 } from "./lib/isolation.mjs";
+import { indiceDeLaPasse } from "./lib/passes.mjs";
 import {
   CHEMIN_REFERENCE,
   depister,
@@ -2751,15 +2752,10 @@ function judgeTask(app, runDir, task, occurrence = null) {
   // premier run réel), et son travail vivrait entre les deux commits de
   // harnais — un diff d'un seul cran le raterait entièrement.
   const log = git(app, "log", "--format=%H %s").split("\n");
-  // `git log` va du plus RÉCENT au plus ancien : la répétition n° 0 est donc la
-  // DERNIÈRE de cette liste, pas la première.
-  const occurrences = log
-    .map((l, i) => (l.endsWith(`tâche ${task.id}`) ? i : -1))
-    .filter((i) => i !== -1);
-  const idx =
-    occurrence === null
-      ? (occurrences[0] ?? -1)
-      : (occurrences[occurrences.length - 1 - occurrence] ?? -1);
+  // La sélection vit dans `lib/passes.mjs`, PURE et éprouvée sur un historique
+  // fabriqué : c'est un `endsWith` qui a fait juger deux commits de DÉCOR pour
+  // des passes d'agent, et rien dans un verdict plausible ne l'aurait dit.
+  const idx = indiceDeLaPasse(log, task.id, occurrence);
   if (idx === -1) {
     console.log(
       `  ❌ aucun commit « tâche ${task.id} » — la tâche n'a pas été jouée`,
