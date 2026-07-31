@@ -144,15 +144,30 @@ Aucune de ces quatre n'aurait été vue autrement qu'en compilant et en exécuta
 node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --no-e2e  # plus rapide
 node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --keep    # garder le décor
+node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --link    # boucle courte, verdict amputé
 ```
 
-**Prérequis : le checkout est BÂTI** (`npm run build`). L'application témoin se
-lie au `dist/` local (`--link`), donc elle éprouve ce que tu viens de compiler —
-pas ce qui est publié.
+**Prérequis : le checkout est BÂTI** (`npm run build`). Les tarballs sont
+fabriqués depuis le `dist/` local : le banc éprouve ce que tu viens de compiler,
+mais **tel qu'un installeur le reçoit**.
+
+> **Le décor de ce banc est ISOLÉ, et ce n'est pas un détail d'exécution.**
+> Longtemps il vivait sous le dépôt, paquets liés au checkout — la résolution de
+> modules de Node remontait alors jusqu'aux `node_modules` du monorepo, et
+> l'application témoin trouvait des paquets **qu'elle ne déclare pas**. Mesuré :
+> l'étape production restait verte avec ET sans `@node-rs/argon2`, pendant qu'une
+> application réellement installée mourait au boot sur cette dépendance. Ce n'est
+> pas un cas particulier mais une **famille entière** — toute dépendance absente
+> du gabarit était indétectable ici. Le décor sort donc du dépôt et s'installe
+> depuis les tarballs (`lib/isolation.mjs`, partagé avec le banc de
+> découvrabilité), et l'isolation est **constatée** avant la première mesure.
+> `--link` reste pour la boucle courte : le rapport enregistre alors le décor
+> (`decor`) et l'étape production ne vaut plus preuve.
 
 Les étapes, dans l'ordre, et ce que chacune protège :
 
-1. **décor** — application témoin liée, ports dédiés ;
+1. **décor** — application témoin isolée (hors dépôt, tarballs dépaquetés),
+   isolation constatée, ports dédiés ;
 2. **génération** — cinq entités qui exercent toute la grammaire (unique,
    énumération avec défaut, entier avec défaut, index simple et composite,
    unicité composite, tailles de colonne, relation), dont deux émises pour

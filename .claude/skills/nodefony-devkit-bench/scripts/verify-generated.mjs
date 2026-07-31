@@ -20,12 +20,15 @@
  * ou du DDL de développement.
  *
  * Usage :
- *   node scripts/devkit-verify.mjs              # décor + toutes les étapes
- *   node scripts/devkit-verify.mjs --keep       # garde l'app témoin (pour fouiller)
- *   node scripts/devkit-verify.mjs --no-e2e     # saute le boot réel (plus rapide)
+ *   node scripts/verify-generated.mjs            # décor ISOLÉ + toutes les étapes
+ *   node scripts/verify-generated.mjs --link     # décor lié au checkout (boucle courte)
+ *   node scripts/verify-generated.mjs --repack   # force le re-pack des tarballs
+ *   node scripts/verify-generated.mjs --keep     # garde l'app témoin (pour fouiller)
+ *   node scripts/verify-generated.mjs --no-e2e   # saute le boot réel (plus rapide)
  *
- * Prérequis : le checkout est BUILDÉ (`npm run build`) — l'app témoin se lie au
- * `dist/` local via `--link`, donc elle teste ce que tu viens de compiler.
+ * Prérequis : le checkout est BUILDÉ (`npm run build`) — les tarballs sont
+ * fabriqués depuis le `dist/` local, donc le banc teste ce que tu viens de
+ * compiler, mais tel qu'un installeur le reçoit.
  *
  * Sortie : rapport console + code de sortie 1 à la première étape rouge.
  */
@@ -37,8 +40,14 @@ import {
   readFileSync,
   writeFileSync,
 } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  assertIsolated,
+  installFromTarballs,
+  packTarballs,
+} from "./lib/isolation.mjs";
 
 /**
  * Racine du dépôt, trouvée en REMONTANT plutôt qu'en comptant les « .. ».
@@ -60,7 +69,33 @@ function findRepoRoot(from) {
 
 const REPO = findRepoRoot(path.dirname(fileURLToPath(import.meta.url)));
 const BIN = path.join(REPO, "src/nodefony/bin/nodefony");
-const ROOT = path.join(REPO, "tmp/devkit-verify");
+
+/**
+ * Décor LIÉ au checkout — boucle courte, verdict amputé.
+ *
+ * `--link` symlinke les paquets du framework depuis le dépôt : c'est rapide,
+ * mais la résolution de modules de Node remonte alors jusqu'aux `node_modules`
+ * du monorepo, et l'application témoin TROUVE des paquets qu'elle ne déclare
+ * pas. Toute la famille « dépendance manquante du gabarit » devient invisible —
+ * mesuré : l'étape production restait verte avec ET sans `@node-rs/argon2`,
+ * alors qu'une application réellement installée mourait au boot.
+ */
+const LINKED = process.argv.includes("--link");
+
+/**
+ * Où vit le décor. HORS du dépôt par défaut : la distance fait partie du
+ * verdict, elle ne s'obtient pas en interdisant un chemin.
+ *
+ * Deux gestes, tous deux nécessaires — l'un sans l'autre ne suffit pas : le
+ * décor sort du dépôt (sinon la remontée des `node_modules` y ramène) et les
+ * paquets s'installent depuis les TARBALLS (sinon le lien rebranche les sources
+ * malgré la distance). Le banc de découvrabilité l'avait appris avant nous ;
+ * l'implémentation est PARTAGÉE (`lib/isolation.mjs`) et non recopiée — deux
+ * copies de « isolé » divergent en silence, chacune passant ses propres contrôles.
+ */
+const ROOT = LINKED
+  ? path.join(REPO, "tmp", "devkit-verify")
+  : path.join(os.tmpdir(), "nodefony-devkit-verify");
 const APP = path.join(ROOT, "app");
 
 /**
@@ -235,9 +270,16 @@ process.stdout.write(
   "Banc de vérité du code généré — le scaffold produit-il du code qui tient ?\n",
 );
 
+/** Constat d'isolation du décor — repris dans le rapport, `null` tant qu'il n'est pas monté. */
+let isolation = null;
+
 step(
-  "décor : application témoin liée au checkout",
-  "`--link` fait pointer les dépendances vers ce que tu viens de compiler.",
+  LINKED
+    ? "décor : application témoin LIÉE au checkout"
+    : "décor : application témoin ISOLÉE, installée depuis les tarballs",
+  LINKED
+    ? "`--link` pointe vers ce que tu viens de compiler — mais masque toute dépendance manquante."
+    : "Ce qu'un installeur npm reçoit, et rien de plus : hors du dépôt, paquets dépaquetés.",
   () => {
     rmSync(ROOT, { recursive: true, force: true });
     mkdirSync(ROOT, { recursive: true });
@@ -252,16 +294,39 @@ step(
         "complete",
         "--frontend",
         "none",
-        "--link",
+        ...(LINKED ? ["--link"] : []),
         "--yes",
       ],
       ROOT,
     );
-    // `--link` symlinke les paquets du framework, mais npm ne hisse PAS leurs
-    // dépendances dans l'app : `drizzle-orm` manque, et le typecheck d'une
-    // entité échoue sur un import introuvable. Ce n'est pas un défaut du code
-    // généré — on le neutralise pour mesurer ce qu'on veut mesurer.
-    run("npm", ["install", "drizzle-orm@0.45.2", "--no-audit", "--no-fund"]);
+    if (LINKED) {
+      // `--link` symlinke les paquets du framework, mais npm ne hisse PAS leurs
+      // dépendances dans l'app : `drizzle-orm` peut manquer, et le typecheck
+      // d'une entité échoue sur un import introuvable. Ce n'est pas un défaut du
+      // code généré — on le neutralise pour mesurer ce qu'on veut mesurer.
+      run("npm", ["install", "drizzle-orm@0.45.2", "--no-audit", "--no-fund"]);
+    } else {
+      installFromTarballs(
+        APP,
+        packTarballs(REPO, process.argv.includes("--repack")),
+      );
+    }
+
+    // L'isolation se CONSTATE avant la première mesure : mieux vaut aucun
+    // verdict qu'un verdict rendu sur un décor mieux servi que l'utilisateur.
+    isolation = assertIsolated(REPO, APP);
+    for (const f of isolation.facts) process.stdout.write(`   ${f}\n`);
+    if (!LINKED && !isolation.ok) {
+      throw new Error(
+        "décor NON isolé — une dépendance manquante du gabarit resterait invisible",
+      );
+    }
+    if (LINKED) {
+      process.stdout.write(
+        "   ⚠️  décor LIÉ (--link) : les dépendances du monorepo restent " +
+          "atteignables — aucune dépendance manquante n'est détectable ici\n",
+      );
+    }
   },
 );
 
@@ -435,24 +500,25 @@ if (withE2e) {
  * n'est fourni en production), l'encodeur n'est jamais chargé, et l'étape serait
  * verte sans avoir rien exercé. Une vraie production, elle, a un mot de passe.
  *
- * ⚠️ CE QU'ELLE NE PEUT PAS VOIR — et c'est mesuré, pas supposé. Elle a été
- * écrite pour garder le défaut qu'un agent tiers venait de trouver : une
- * application générée qui meurt au boot en production sur `Cannot find package
- * '@node-rs/argon2'`, dépendance absente du `package.json` généré. Jouée avec la
- * dépendance PUIS sans elle, l'étape est verte **les deux fois**.
+ * Elle a été écrite pour garder le défaut qu'un agent tiers venait de trouver :
+ * une application générée qui meurt au boot en production sur `Cannot find
+ * package '@node-rs/argon2'`, dépendance absente du `package.json` généré.
  *
- * La raison est structurelle : ce banc monte son décor SOUS le dépôt
- * (`tmp/devkit-verify`) et lie les paquets au checkout (`--link`). La résolution
- * de modules de Node remonte donc jusqu'aux `node_modules` du monorepo, où le
- * binding est installé — l'application témoin trouve une dépendance qu'elle ne
- * déclare pas. Aucune dépendance manquante n'est détectable ici ; seul un décor
- * SORTI du dépôt et installé depuis les tarballs le montre, comme le banc de
- * découvrabilité l'a appris avant nous (`lib/isolation.mjs`).
+ * Longtemps elle ne pouvait pas le voir, et c'était mesuré : jouée AVEC la
+ * dépendance puis SANS elle, elle était verte les deux fois. La cause était le
+ * décor, pas la sonde — monté sous le dépôt et lié au checkout, il laissait la
+ * résolution de modules de Node remonter jusqu'aux `node_modules` du monorepo,
+ * où le binding est installé. L'application trouvait une dépendance qu'elle ne
+ * déclarait pas. Le décor par défaut est désormais ISOLÉ (hors du dépôt,
+ * paquets dépaquetés depuis les tarballs), et c'est la FAMILLE entière des
+ * dépendances manquantes qui devient visible ici — pas seulement `argon2`.
  *
- * Ce que cette étape garde donc vraiment : que le mode production BOOTE et
- * SERVE — un hook de cycle de vie qui jette, une config absente en production,
- * un service `policy:"dev"` requis au boot. C'est déjà ce que rien ne gardait.
- * La déclaration de la dépendance, elle, est gardée par `create.test.ts`.
+ * ⚠️ Sous `--link`, l'angle mort revient tel quel : le mode est là pour la
+ * boucle courte, et son verdict sur la production ne vaut pas preuve.
+ *
+ * Ce qu'elle garde en propre, indépendamment des dépendances : que le mode
+ * production BOOTE et SERVE — un hook de cycle de vie qui jette, une config
+ * absente en production, un service `policy:"dev"` requis au boot.
  */
 step(
   "l'app DÉMARRE en PRODUCTION et sert une route",
@@ -514,7 +580,15 @@ for (const s of steps) {
     `  ${s.ok ? "✅" : "❌"} ${s.label} (${Math.round(s.ms)} ms)\n`,
   );
 }
-const report = { steps, app: APP, generatedAt: null };
+const report = {
+  steps,
+  app: APP,
+  generatedAt: null,
+  // Le décor est une VARIABLE du verdict, pas un détail d'exécution : sous
+  // `--link`, l'étape production ne prouve rien sur les dépendances déclarées.
+  decor: LINKED ? "lié au checkout (--link)" : "isolé (tarballs, hors dépôt)",
+  isolation,
+};
 if (existsSync(ROOT)) {
   writeFileSync(
     path.join(ROOT, "report.json"),
