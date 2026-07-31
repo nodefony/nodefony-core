@@ -97,6 +97,26 @@
 
 ## 🧪 Suspecter son INSTRUMENT avant le sujet mesuré
 
+- `[1× — 2026-07-31c]` 🔴 **Un échantillon qui ne reproduit pas la MATIÈRE réelle valide le
+  contraire de ce qu'il croit.** L'auto-contrôle d'un waiver plaçait la commande attendue dans
+  `content` (le contenu des fichiers) alors qu'en conditions réelles elle vit dans le
+  **transcript**. Résultat : échantillon vert, sonde cassée — elle recalait un agent qui avait
+  lancé le générateur **8 fois**. Le garde-fou qui surveille les sondes tombe dans le même piège
+  qu'elles : écrire l'échantillon dans la matière qu'on IMAGINE, pas celle que le juge lira.
+  Vérifier d'où vient réellement la matière avant d'écrire le cas.
+- `[1× — 2026-07-31c]` 🔴 **Un correctif d'instrument crée ses propres angles morts — les
+  chercher AVANT de conclure.** La remise à zéro du décor entre tâches (correction d'un vrai
+  défaut de validité) a rendu FAUSSE la matière `content`, lue sur le disque au moment du
+  jugement : l'arbre ne portait plus que la dernière tâche. **17 tâches sur 25** en dépendaient,
+  dont toute la famille sécurité — et aucune n'était dans la campagne en cours, donc le défaut
+  était SILENCIEUX. Il aurait éclaté au premier run complet. Après toute refonte d'un instrument,
+  se demander quelles autres matières l'hypothèse changée alimentait.
+- `[1× — 2026-07-31c]` ⭐ **Re-juger coûte ZÉRO agent — y penser avant de rejouer.** Deux runs
+  invalidés par un faux rouge ont été récupérés par `--analyze-only` avec le juge corrigé : la
+  médiane est revenue sans relancer une seule fois le modèle (≈ 2 $ et 40 min économisés). Le
+  transcript et le diff git étant conservés, tout verdict est recalculable ; ce qui coûte, c'est
+  l'agent, jamais le jugement. Corollaire : ne jamais rejouer une campagne pour corriger une sonde.
+
 - `[1× — 2026-07-31]` 🔴 **Un énoncé qui DÉCRIT une situation doit la trouver VRAIE.** T23 affirme
   « ses envois sont rejetés en 403 » — donc route montée — alors que l'app générée ne la porte
   pas. L'agent devait fabriquer la prémisse et tombait LÀ : 404 puis 422 ×3, quatre rouges
