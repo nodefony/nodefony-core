@@ -158,6 +158,8 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
    - **(a) VOLUME — LIRE BEAUCOUP pour rendre PEU** : inventaire, tri, audit, recherche
      multi-modules, revue d'un corpus. Le gain n'est pas la parallélisation : c'est que les 300
      fichiers lus n'entrent JAMAIS dans le contexte principal, seule la conclusion revient.
+     **Cette règle a un agent : `nodefony-repo-inventory`** (`haiku`, lecture seule) — le
+     nommer, sinon le réflexe retombe sur `Explore` et la règle ne mord pas.
    - **(b) NATURE — TOUTE LISTE D'AFFIRMATIONS À CONFRONTER AU TERRAIN part en `haiku`, même si
      ça tient en cinq `rg`.** À reconnaître : « ces N corrections annoncées sont-elles en place
      dans le code ? », « ces ancrages `fichier:ligne` sont-ils encore justes ? », « ce document
@@ -166,6 +168,9 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
      une preuve, aucun jugement n'est requis** — c'est exactement le travail que le modèle le moins
      cher rend à l'identique. Consigne à donner : « pour chaque affirmation → VRAI/FAUX → ancrage
      `fichier:ligne` ACTUEL » ; le principal ne récupère que le tableau et tranche dessus.
+     **Cette règle a un agent : `nodefony-check-claims`** (`haiku`, lecture seule) — il porte
+     déjà cette consigne ; `@agent-nodefony-check-claims` GARANTIT le run, le nommer en prose
+     ne fait qu'en augmenter la probabilité.
      Vécu (2026-07-25) : 8 résolutions de `BUG_REPORT.md` vérifiées à la main en `opus` alors que
      la tâche était mécanique de bout en bout — le déclencheur « volume » ne mordait pas, et le
      plancher « ne pas déléguer ce qui tient en deux `rg` » achevait de m'en dissuader.
@@ -561,6 +566,9 @@ const tmp = Nodefony.getKernel()?.tmpDir?.path ?? "/tmp";
   nourrit une décision se capture ENTIÈRE dans un fichier, puis se filtre : la troncature ne
   s'annonce jamais (`tail`, un reporter qui REMPLACE la sortie lisible, une API qui pagine à 30,
   `rg` sans `-a`). Mémoires : `feedback_prove_on_received_artifact`, `feedback_shell_false_diagnostics`.
+  **Le filtrage a un agent : `nodefony-run-log-report`** (`haiku`, lecture seule) — lui passer le
+  chemin du fichier capturé au lieu d'y faire un `tail` : il lit TOUT et rend l'exit code, les
+  rouges nommés et les SKIPS, que la troncature efface sans le dire.
 - Valider : `npm run build` (0 erreur TS) + `npm run test` (tous verts)
 
 **FIN :**
