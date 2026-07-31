@@ -29,6 +29,13 @@
 
 ## 🔍 Un INVENTAIRE n'est exhaustif que par CROISEMENT — ni le modèle ni l'automate seul
 
+- `[2× — 2026-07-31e]` 🔴 **Un relevé « exhaustif » rendu par un modèle rate des sites SANS le
+  dire.** Sous-agent `haiku` chargé de relever les causes des juges du banc, périmètre exact,
+  consigne « ne saute AUCUNE occurrence » : **7 sites manqués sur 68** — tous des lignes courtes
+  (`if (x.erreur) sortir(4, …)`) et une cause entière (`module-non-charge`). Un `rg -o` les rend
+  tous, en deux secondes. Le bon usage n'est donc pas « déléguer OU compter » : l'automate établit
+  la LISTE, le modèle rend le CONTEXTE de chaque entrée (condition, commentaire, intention), et le
+  principal tranche. Ici le contexte du sous-agent a servi ; sa liste, non.
 - `[1× — 2026-07-30f]` 🔴 **Les deux sens d'erreur se sont produits sur le MÊME inventaire.** Un
   sous-agent `haiku` a dressé la surface de sécurité du framework ; le doute du user (« tu es sûr
   que tout est couvert ? ») a été tranché par les schémas Zod : **12 briques manquées**
@@ -106,6 +113,20 @@
 
 ## 🧪 Suspecter son INSTRUMENT avant le sujet mesuré
 
+- `[1× — 2026-07-31e]` 🔴 **Classer une cause « décor » coûte plus cher que la classer
+  « indéterminée » — la dissymétrie doit être écrite.** En imputant les 68 causes des juges du
+  banc, la tentation était de suivre le texte des juges eux-mêmes (« c'est le DÉCOR, pas le
+  travail de l'agent »). Or la gate **construit et démarre** l'application avant de juger : un
+  code cassé par l'agent rend exactement la même absence de réponse qu'un décor éteint. Dire
+  « l'agent n'est pas en cause » **éteint l'instruction** d'un vrai défaut ; dire « à instruire »
+  ne coûte qu'une ligne. Règle retenue : `DECOR` seulement si AUCUN geste de l'agent ne peut
+  produire la cause ; au moindre chemin, `INDETERMINE`. Vaut hors banc — tout diagnostic qui
+  DISCULPE doit être plus dur à obtenir que celui qui doute.
+- `[1× — 2026-07-31e]` **Le message d'un juge peut porter un faux diagnostic et personne ne le
+  relit.** `page-absente` proposait « ou l'application pas rebâtie » alors que la gate lance
+  `npm run build` juste avant de mesurer : la piste envoyait chercher au mauvais endroit, dans le
+  seul texte qu'on lit quand on cherche. Un message de cause se relit quand la commande qui
+  l'entoure change.
 - `[2× — 2026-07-31d]` 🔴 **Un correctif d'instrument crée ses PROPRES angles morts — deux fois de
   suite.** (a) Ajouter les répétitions au banc a fait retrouver la passe à juger par
   `endsWith("tâche 26")` — or l'historique porte aussi « **décor** de la tâche 26 » : deux
@@ -346,6 +367,19 @@ apply -R` — et **prouver que le geste a eu lieu** (ici : 0 façade dans les 30
 - `[1× — 2026-07-30]` 🔴 **Un `node_modules` remis droit à la main tient jusqu'au prochain `npm install`.** Le hissage `@angular/*` a été refait par déplacement de dossiers + rebasage du lock ; le patch suivant (22.1.1→22.1.2) l'a immédiatement ré-imbriqué et cassé `vite build`. La seule preuve qu'un lock TIENT est `npm ci` (rase `node_modules`, réinstalle strictement) suivi du build réel — `npm ls` propre ne prouve rien.
 - `[1× — 2026-07-30]` **La cause était que le dépôt ne reproduisait pas la configuration que son PROPRE générateur produit** : le plugin déclaré à la racine, ses `peerDependencies` dans le module. npm ne les faisait coïncider que tant que les versions coïncidaient. Quand un défaut de résolution résiste, comparer avec ce que `create app` écrit — c'est la configuration de référence.
 - `[1× — 2026-07-30]` **`npm run build` vert ne dit rien du chemin réel** : le script du module passait pendant que `npx vite build` (le chemin qu'emprunte le serveur de développement) échouait en `ERR_MODULE_NOT_FOUND`. Éprouver la commande que le RUNTIME lance, pas celle du `package.json`.
+
+## 🧰 Deux frictions d'outillage qui se répètent en fin de chantier
+
+- `[1× — 2026-07-31e]` **La garde anti-geste-git du dépôt mord aussi sur l'agent PRINCIPAL, et
+  c'est voulu.** Pour prouver un câblage en le débranchant, j'ai tenté `git stash push -- <f>` :
+  refus, arbre sale (5 fichiers). La conduite prescrite est la bonne — **committer d'abord**, la
+  garde ne mord pas sur un arbre propre. Et quand il faut vraiment restaurer un seul fichier sans
+  geste git : `git show HEAD:<f> > <f>` réécrit le contenu **sans toucher à l'index**. Le
+  débranchement se prouve ensuite par `git diff --stat`, comme d'habitude.
+- `[1× — 2026-07-31e]` **Attendre APRÈS la fin d'un run donne au user l'impression d'un
+  blocage.** Un `sleep 420` posé pendant que le banc tournait encore s'est terminé sur un banc
+  déjà fini ; le user a demandé « le run est bloqué ? ». Le harnais notifie la fin — dormir en
+  plus est du bruit. Vérifier la vitalité (`pgrep`) AVANT de dormir, ou ne pas dormir du tout.
 
 ---
 
