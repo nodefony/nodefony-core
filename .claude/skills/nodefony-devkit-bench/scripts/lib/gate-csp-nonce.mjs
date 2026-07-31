@@ -128,8 +128,8 @@ if (page.statut === 404) {
   sortir(
     6,
     `CAUSE=page-absente — GET ${PAGE} rend 404 : la page que l'énoncé nomme n'est pas montée. ` +
-      `L'action n'a pas été écrite, la route pas déclarée, ou l'application pas rebâtie — le ` +
-      `runtime charge le dist, pas les sources.`,
+      `L'action n'a pas été écrite, ou la route déclarée sous un autre chemin. La gate rebâtit ` +
+      `l'application avant de mesurer : un dist périmé n'est PAS une explication ici.`,
   );
 }
 if (page.statut < 200 || page.statut >= 300) {
