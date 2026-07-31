@@ -954,6 +954,54 @@ const SAMPLES = {
     ],
   },
 
+  // ── T29 — la liste ne grossit pas avec la table ────────────────────────────
+  "29 :: a lu la doc des ressources ou l'AGENTS.md": {
+    pass: { transcript: `{"file_path":"/app/AGENTS.md"}` },
+    fail: { transcript: `{"file_path":"/app/vitest.config.ts"}` },
+  },
+  "29 :: façade de page employée (listPage / IPage)": {
+    pass: {
+      addedTs: `+    return this.listPageResource({ limit: take, offset });`,
+    },
+    fail: { addedTs: `+    const rows = await this.service.findAll();` },
+  },
+  "29 :: pas de chargement complet de la table (findAll / find sans borne)": {
+    pass: {
+      addedTs: `+    const rows = await this.service.find({}, { limit: 25, offset: 0 });`,
+    },
+    fail: { addedTs: `+    const rows = await this.service.findAll();` },
+    extra: [
+      {
+        label: "find sans le moindre argument",
+        matter: { addedTs: `+    const rows = await this.service.find();` },
+        expect: false,
+      },
+      {
+        label: "critères vides, sans bornes",
+        matter: { addedTs: `+    const rows = await this.service.find({});` },
+        expect: false,
+      },
+      {
+        // `unless` : un `findAll` ailleurs dans le même diff, alors que la
+        // façade de page est employée pour la route mesurée, n'est pas le
+        // contournement — recaler là-dessus punirait un diff, pas un défaut.
+        //
+        // Le waiver se lit sur `content` (le CONTENU des fichiers touchés), pas
+        // sur les lignes ajoutées : l'échantillon renseigne donc les deux, comme
+        // un vrai diff le ferait. Renseigner `addedTs` seul faisait échouer ce
+        // cas — et c'était l'échantillon qui mentait, pas la sonde.
+        label: "findAll présent, mais la façade de page l'est aussi",
+        matter: {
+          addedTs:
+            `+    const tout = await this.service.findAll();\n` +
+            `+    return this.listPageResource({ limit: take, offset });`,
+          content: `    return this.listPageResource({ limit: take, offset });`,
+        },
+        expect: true,
+      },
+    ],
+  },
+
   // ── QUALITÉ — jouées sur TOUTE tâche, éprouvées une seule fois ─────────────
   // Les échantillons vertueux sont COPIÉS du code que le produit génère (le
   // controller de ressource, la configuration d'app) : un interdit dont

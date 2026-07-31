@@ -67,3 +67,33 @@ export const REPERE_ZONE_PROTEGEE = "/api/secure/hello";
  * contourner un obstacle de décor plutôt que sa connaissance du stateless.
  */
 export const ROUTE_MACHINE = "/api/machine/ingest";
+
+/**
+ * Tâche « la liste ne grossit pas avec la table » — la ressource que le décor
+ * génère, et qui sert à REMPLIR la table.
+ *
+ * Le juge sème par cette route plutôt qu'en écrivant dans la base : il doit
+ * poser des lignes que l'application elle-même accepte, sinon il mesure une
+ * table dont la forme ne correspond à rien de ce que l'agent a vu.
+ */
+export const ROUTE_CATALOGUE = "/api/products";
+
+/**
+ * La route de SYNTHÈSE que l'énoncé demande — la seule chose qu'il impose.
+ *
+ * Distincte de la ressource générée, et c'est tout l'objet de la tâche : le
+ * CRUD produit par le générateur est déjà paginé, donc le mesurer ne dirait
+ * rien. Une route de synthèse, elle, s'écrit à la main sur le repository — et
+ * `findAll()` suivi d'un `map` y est la réponse spontanée.
+ */
+export const ROUTE_SYNTHESE = "/api/products/summary";
+
+/**
+ * La marque des lignes semées par le juge.
+ *
+ * Elle sert à COMPTER les éléments d'une réponse sans rien supposer de sa
+ * forme : l'enveloppe appartient à l'agent (`{items:[…]}`, tableau nu, format
+ * maison), et un juge qui imposerait une structure mesurerait un style. La
+ * marque, elle, ne peut venir que du décor.
+ */
+export const MARQUE_SEMIS = "BANC-PERF-";

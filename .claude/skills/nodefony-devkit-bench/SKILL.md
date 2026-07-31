@@ -197,6 +197,7 @@ node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-zone-firewall.selftes
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-m2m-stateless.selftest.mjs   # API pour un programme
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-login-throttle.selftest.mjs  # bourrage de login
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-module-local.selftest.mjs    # le composant local, ses 5 causes
+node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-liste-bornee.selftest.mjs    # la liste bornée — verdict SANS seuil
 node .claude/skills/nodefony-devkit-bench/scripts/reinit-decor.selftest.mjs <runDir>   # la remise à zéro du décor, sur un run déjà consommé
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
@@ -244,15 +245,16 @@ Une sonde ajoutée sans son échantillon doit se voir, pas se fondre dans le ver
 c'est la règle « une capacité arrive AVEC sa tâche », appliquée à la tâche
 elle-même.
 
-Vingt-quatre tâches déroulées par un agent réel, en mode autonome, dans une
+Vingt-cinq tâches déroulées par un agent réel, en mode autonome, dans une
 application fraîche — **chacune dans un décor remis à zéro** (cf. plus bas).
 Dix visent les **générateurs** : « CRUD produit »,
 « protège une route », « canal temps réel », « commande CLI », « démarre puis
 arrête le serveur », « configuration par l'environnement », « choisir la bonne
 brique », « appeler le générateur au lieu de l'imiter », « interroger
 l'application plutôt que lire ses sources », « isoler une fonctionnalité dans un
-composant réutilisable ». Sept visent le **socle**, qui n'a
-pas de générateur et s'imite ou s'ignore : « un service au conteneur »,
+composant réutilisable ». Huit visent le **socle**, qui n'a
+pas de générateur et s'imite ou s'ignore : « la liste ne grossit pas avec la
+table », « un service au conteneur »,
 « une trace exploitable en production », « une initialisation au bon moment du
 démarrage », « consommer un service depuis un autre composant », « servir un
 gros média sans le charger en mémoire », « une route qui porte une valeur dans
@@ -283,6 +285,41 @@ les tests : le raccourci d'écriture devient un faux rouge.
 Et une tâche de configuration ne se juge JAMAIS sur le diff git : la bonne
 réponse vit dans `.env.local`, qui est **gitignoré**. Vécu — deux sondes ont
 déclaré en échec un agent qui avait fait juste.
+
+### Mesurer la PERFORMANCE sans jamais comparer une durée
+
+Le dépôt fait de la performance sa règle n°1 — coût par requête, allocation
+paresseuse, rien d'alloué « au cas où » — et rien ne mesurait ce qu'un agent en
+fait. L'obstacle n'était pas l'envie : c'est que la doctrine de ce banc interdit
+un verdict à seuil, et qu'une durée est un seuil. La variance mesurée ici (±20 %
+sur le nombre de tours, gabarit identique) dit assez ce que vaudrait un « c'est
+plus lent de 15 % ».
+
+La tâche 29 contourne l'obstacle au lieu de le forcer. Le juge **sème, mesure,
+sème encore et remesure** : une liste correctement bornée rend le même nombre
+d'éléments dans les deux cas, une liste qui charge la table grossit avec elle.
+Binaire, sans seuil — et **indifférent à la borne que l'agent choisit** : 20, 25
+ou 100 donnent le même verdict, ce qu'aucun critère du type « moins de N
+éléments » ne permettrait.
+
+Trois précautions, chacune payée par un défaut évité :
+
+- **Le comptage ne suppose aucune forme de réponse.** L'enveloppe appartient à
+  l'agent (`{items:[…]}`, tableau nu, format maison) ; le juge compte les
+  occurrences d'une MARQUE que seul le décor a pu semer. Imposer une structure
+  mesurerait un style.
+- **La ressource générée est déjà paginée** : la mesurer ne dirait rien.
+  L'énoncé demande donc une route de SYNTHÈSE, écrite à la main sur le
+  repository — là où `findAll()` puis `map` est la réponse spontanée. Le volume
+  est annoncé (« plusieurs dizaines de milliers ») sans que la pagination soit
+  jamais nommée.
+- **« Moins que ce qui est semé » n'est pas un critère.** Une liste qui charge
+  tout PUIS filtre rend moins d'éléments que la table, et grossit quand même
+  avec elle. Seule la seconde mesure le montre ; l'auto-contrôle porte ce cas.
+
+Éprouvé sur une application réelle, dans les deux sens : `findAll` + `map` →
+`charge-tout` (150 éléments pour 150 lignes, 300 pour 300), façade de page →
+conforme (25 éléments quel que soit le volume).
 
 ### Le meilleur juge demande à l'application, pas au dépôt
 

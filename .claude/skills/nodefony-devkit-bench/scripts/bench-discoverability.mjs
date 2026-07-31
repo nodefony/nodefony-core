@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Banc de DÉCOUVRABILITÉ du devkit — ses 24 tâches (gate de la release 10.0.0).
+ * Banc de DÉCOUVRABILITÉ du devkit — ses 25 tâches (gate de la release 10.0.0).
  *
  * La question mesurée : un agent IA lâché dans une app FRAÎCHEMENT générée
  * (`nodefony create app`) découvre-t-il l'outillage du framework, ou DEVINE-t-il ?
@@ -48,7 +48,7 @@
  * git (qu'a-t-il ÉCRIT ?). Aucun juge LLM : que des sondes objectives.
  *
  * Usage :
- *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + les 24 tâches + rapport
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + les 25 tâches + rapport
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 2       # une seule tâche
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --setup-only   # juste l'app témoin (--link)
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --analyze-only tmp/devkit-bench/<run>
@@ -80,9 +80,11 @@ import { fileURLToPath } from "node:url";
 import {
   ORIGINE_PARTENAIRE,
   PAGE_WIDGET,
+  ROUTE_CATALOGUE,
   ROUTE_COMMANDES,
   ROUTE_IMPORT,
   ROUTE_MACHINE,
+  ROUTE_SYNTHESE,
 } from "./lib/enonces.mjs";
 import {
   assertIsolated,
@@ -244,6 +246,13 @@ const JUGE_MODULE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "lib",
   "gate-module-local.mjs",
+);
+
+/** Juge « la liste ne grossit pas avec la table » — le premier de PERFORMANCE. */
+const JUGE_LISTE = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-liste-bornee.mjs",
 );
 
 /**
@@ -444,7 +453,7 @@ export const SONDES_QUALITE = [
 export const sondesDe = (task) => [...task.probes, ...SONDES_QUALITE];
 
 /**
- * Les 24 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
+ * Les 25 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
  * mesure, et deux runs ne se comparent plus. Toute évolution = nouvelle tâche.
  */
 export const TASKS = [
@@ -2110,6 +2119,81 @@ export const TASKS = [
         kind: "gate",
         name: "l'application CHARGE un composant local, qui porte ses routes",
         cmd: ["sh", "-c", `npm run build >/dev/null 2>&1; node ${JUGE_MODULE}`],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+
+  {
+    // La PREMIÈRE tâche de performance du banc. Le dépôt fait de la perf sa
+    // règle n°1 — coût par requête, lazy alloc, rien d'alloué « au cas où » —
+    // et rien ne mesurait ce qu'un agent en fait.
+    //
+    // Elle ne compare aucune durée, et c'est délibéré : un verdict à seuil
+    // mesurerait la machine et l'humeur du moment. Le juge sème, mesure, sème
+    // encore et remesure — une liste bornée rend le même nombre d'éléments, une
+    // liste qui charge la table grossit avec elle. Binaire, sans seuil, et
+    // indifférent à la borne que l'agent choisit.
+    //
+    // La ressource générée par la prémisse est DÉJÀ paginée : la mesurer ne
+    // dirait rien. L'énoncé demande donc une route de SYNTHÈSE, qui s'écrit à
+    // la main sur le repository — et où `findAll()` puis `map` est la réponse
+    // spontanée. Le volume est annoncé dans l'énoncé (« dizaines de milliers »)
+    // sans jamais nommer la pagination : dire « pense à paginer » mesurerait la
+    // lecture d'une consigne.
+    id: 29,
+    name: "la liste ne grossit pas avec la table",
+    prepare:
+      `npx --no-install nodefony create entity Product reference:string price:int ` +
+      `--route ${ROUTE_CATALOGUE} --yes >/dev/null 2>&1 && ` +
+      `npm run build >/dev/null 2>&1`,
+    prompt:
+      `Ajoute ${ROUTE_SYNTHESE} : la liste des produits destinée à l'écran ` +
+      `d'accueil — référence et prix de chaque produit, du plus récent au plus ` +
+      `ancien. En production ce catalogue compte plusieurs dizaines de milliers ` +
+      `de produits. Termine en prouvant que les tests de l'app passent.`,
+    probes: [
+      {
+        kind: "transcript",
+        name: "a lu la doc des ressources ou l'AGENTS.md",
+        pattern: /AGENTS\.md|resource|pagination|listPage/iu,
+        observe: true,
+      },
+      {
+        // La façade du framework, celle qui rend une page et son `hasNext`.
+        // OBSERVÉE et non jugée : une route de synthèse peut légitimement
+        // rendre un « top 20 » sans contrat de page — c'est borné, donc juste.
+        // Ce qui se juge est le COMPORTEMENT, mesuré par le gate.
+        kind: "code",
+        name: "façade de page employée (listPage / IPage)",
+        pattern: /listPage|IPage\b|hasNext/u,
+        where: "addedTs",
+        observe: true,
+      },
+      {
+        // La négative de la paire : charger toute la table puis trancher en
+        // mémoire. `unless` cède si une façade de page est présente — un
+        // `findAll` sur une AUTRE ressource du même diff ne doit pas rougir.
+        kind: "code",
+        name: "pas de chargement complet de la table (findAll / find sans borne)",
+        pattern: /findAll\s*\(|\.find\s*\(\s*\)|find\s*\(\s*\{\s*\}\s*\)/u,
+        where: "addedTs",
+        invert: true,
+        unless: /listPage|hasNext|limit\s*:/u,
+      },
+      {
+        // LE gate : deux mesures, aucune durée, aucun seuil.
+        kind: "gate",
+        name: "la réponse ne grossit pas quand la table grossit",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_LISTE} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_LISTE}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
       },
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
     ],
