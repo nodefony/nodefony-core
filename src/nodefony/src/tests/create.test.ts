@@ -979,15 +979,68 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // et un client machine devait gérer des cookies. Le vocabulaire vit aux
       // deux endroits où on le cherche — la config qu'on édite, et le fichier
       // que l'agent lit par défaut.
+      const configGeneree = readFileSync(
+        path.join(dest, "nodefony.config.ts"),
+        "utf8",
+      );
       assert.include(
-        readFileSync(path.join(dest, "nodefony.config.ts"), "utf8"),
+        configGeneree,
         "stateless",
         "la config générée doit nommer la zone stateless (appelants non-navigateur)",
       );
+      // Le mot seul ne suffit pas, et cette assertion l'a prouvé en passant au
+      // vert pendant que le trou restait ouvert : `stateless` vivait dans un
+      // COMMENTAIRE, avec son exemple complet — et sur trois agents mesurés,
+      // deux ont écrit `stateless: false` en ayant ce texte sous les yeux, dont
+      // un en reprenant le nom et le pattern de l'exemple. On recopie le code
+      // ACTIF, pas celui qu'on lit à côté : c'est donc lui qu'on vérifie.
+      const codeActif = configGeneree
+        .split("\n")
+        .filter((l) => !/^\s*(\*|\/\/|\/\*)/u.test(l))
+        .join("\n");
+      assert.match(
+        codeActif,
+        /stateless:\s*true/u,
+        "la config générée doit porter une zone stateless ACTIVE, pas un exemple commenté",
+      );
+      assert.match(
+        codeActif,
+        /authenticators:\s*\[\s*"apikey"\s*\]/u,
+        "cette zone doit montrer l'authentificateur de porteur SEUL — ajouter " +
+          '"session" à côté rouvre exactement le défaut qu\'elle illustre',
+      );
+      const agentsMd = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
       assert.include(
-        readFileSync(path.join(dest, "AGENTS.md"), "utf8"),
+        agentsMd,
         "stateless",
         "AGENTS.md doit donner le geste M2M — c'est le fichier lu par défaut",
+      );
+      // La zone est écrite DEUX fois — dans la config qu'on édite, et dans le
+      // fichier que l'agent lit par défaut. La frontière est réelle (l'un est
+      // du code, l'autre de la doc), donc la duplication reste ; ce qui ne
+      // reste pas, c'est la possibilité qu'elles divergent en silence. Une
+      // consigne qui dirait `stateless: false` pendant que la config dit
+      // `true` fabriquerait exactement le défaut qu'elles décrivent.
+      const zone = (texte: string) => {
+        const m =
+          /machine:\s*\{[^}]*?pattern:\s*"([^"]+)"[^}]*?authenticators:\s*\[([^\]]*)\][^}]*?stateless:\s*(true|false)/u.exec(
+            texte,
+          );
+        return m
+          ? { pattern: m[1], auth: m[2].replace(/\s/gu, ""), stateless: m[3] }
+          : null;
+      };
+      const zoneConfig = zone(configGeneree);
+      const zoneAgents = zone(agentsMd);
+      assert.isNotNull(
+        zoneConfig,
+        "zone machine introuvable dans la config générée",
+      );
+      assert.isNotNull(zoneAgents, "zone machine introuvable dans AGENTS.md");
+      assert.deepEqual(
+        zoneAgents,
+        zoneConfig,
+        "AGENTS.md et nodefony.config.ts doivent montrer la MÊME zone machine",
       );
       const pkg = readJson(path.join(dest, "package.json"));
       assert.include(pkg["scripts"]["test:e2e"], "-c vitest.e2e.config.ts");

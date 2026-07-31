@@ -179,15 +179,19 @@ et il fait foi le jour où les deux divergent.
     Ne fabrique pas d'utilisateur en insérant directement dans la base — le mot
     de passe passe par l'encodeur du framework.
   - **ouvrir une API à un PROGRAMME** (service partenaire, script, agent — pas
-    un navigateur) : dans `nodefony.config.ts`, une zone exactement comme ceci —
+    un navigateur) : cette zone est **déjà posée** dans `nodefony.config.ts` —
 
     ```ts
     machine: {
       pattern: "^/api/machine",
       authenticators: ["apikey"], // PAS "session" — ce client n'a pas de cookie
-      stateless: true,            // false ⇒ l'app ouvre une session qu'il ne renverra jamais
+      stateless: true, // false ⇒ l'app ouvre une session qu'il ne renverra jamais
     },
     ```
+
+    Fais donc **tomber ta route sous `/api/machine`** plutôt que d'ajouter une
+    zone : celle-ci est déjà réglée, et une seconde zone au pattern plus court
+    la coifferait sans prévenir (le firewall trie par longueur de pattern).
 
     ⚠️ `stateless: false` (le défaut) **ne fait pas échouer l'essai**, et c'est
     tout le piège : depuis un navigateur ou un `curl -c`, le cookie posé revient

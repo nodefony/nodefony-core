@@ -98,16 +98,10 @@ export default defineConfig<typeof env>((ctx) => ({
        * dans `secure`, sans `anonymous` → 401 avant ton controller. Essaie
        * `GET /api/secure/hello`.
        *
-       * Ces deux zones sont STATEFUL : l'identité tient dans une session
+       * `main` et `secure` sont STATEFUL : l'identité tient dans une session
        * serveur, portée par un cookie opaque et révocable — le bon modèle pour
-       * un NAVIGATEUR. Quand l'appelant n'en est pas un (service partenaire,
-       * script, agent), la zone se déclare `stateless: true`.
-       *
-       *   machine: {
-       *     pattern: "^/api/machine",
-       *     authenticators: ["apikey"], // PAS "session" — ce client n'a pas de cookie
-       *     stateless: true,            // false ⇒ l'app ouvre une session qu'il ne renverra jamais
-       *   },
+       * un NAVIGATEUR. `machine`, plus bas, montre l'autre cas : un appelant
+       * qui ne stocke pas de cookie ne doit RIEN recevoir qu'il faille stocker.
        *
        * ⚠️ `stateless: false` (le défaut) NE FAIT PAS ÉCHOUER l'essai — et c'est
        * le piège. Depuis un navigateur, ou avec un `curl -c`, tout marche : le
@@ -117,9 +111,6 @@ export default defineConfig<typeof env>((ctx) => ({
        * rien dans le code ne montre. Ajouter `"session"` à côté de `"apikey"`
        * produit exactement le même défaut, en plus discret encore : la clé
        * ouvre, et l'application ouvre une session par-dessus pour personne.
-       *
-       * La règle tient en une phrase : un appelant qui ne stocke pas de cookie
-       * ne doit RIEN recevoir qu'il faille stocker.
        */
       areas: {
         main: {
@@ -129,6 +120,15 @@ export default defineConfig<typeof env>((ctx) => ({
         secure: {
           pattern: "^/api/secure",
           authenticators: ["session"],
+        },
+        // Appelant qui n'est PAS un navigateur — service partenaire, script,
+        // agent. Zone ACTIVE, et non un exemple en commentaire : c'est le code
+        // qu'on a sous les yeux qu'on recopie, jamais celui qu'on lit à côté.
+        // Rien ne tombe ici tant qu'aucune route ne commence par `/api/machine`.
+        machine: {
+          pattern: "^/api/machine",
+          authenticators: ["apikey"], // PAS "session" — ce client n'a pas de cookie
+          stateless: true, // false ⇒ l'app ouvre une session qu'il ne renverra jamais
         },
       },
 
