@@ -2582,6 +2582,10 @@ function runTask(app, runDir, task) {
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
       timeout: 30 * 60 * 1000,
+      // Entrée FERMÉE, explicitement. Un agent qui attend sur stdin ne plante
+      // pas : il reste là jusqu'au délai, et l'échec ne ressemble pas à un
+      // agent bloqué. (`vibe` l'exige — axiome `< /dev/null`.)
+      stdio: ["ignore", "pipe", "pipe"],
       // Les ports dédiés sont hérités par TOUT ce que l'agent lance — serveur
       // compris : c'est ce qui rend la tâche 5 mesurable sans dépendre de ce
       // qui tourne par ailleurs sur la machine.
@@ -2600,6 +2604,24 @@ function runTask(app, runDir, task) {
   // 1/9 qui ne disait rien du devkit. On ARRÊTE, plutôt que de publier un
   // verdict qui n'en est pas un.
   const transcript = res.stdout ?? "";
+  // ─── L'agent a-t-il PARLÉ ? (contrôle agent-agnostique) ───────────────────
+  // Le garde-fou suivant lit un champ propre au CLI de Claude. Un AUTRE agent
+  // (`NF_DEVKIT_BENCH_AGENT`) qui échoue à s'authentifier, épuise son quota ou
+  // refuse ses arguments rend un transcript muet — et toutes les sondes
+  // rougissent alors sans que l'application y soit pour rien : le rapport
+  // ressemble trait pour trait à une app devenue indécouvrable. Un tour
+  // d'assistant se reconnaît dans les deux formats (`"type":"assistant"` chez
+  // Claude, `"role": "assistant"` chez vibe), et son absence n'est jamais un
+  // verdict.
+  if (!/["'](?:type|role)["']\s*:\s*["']assistant["']/u.test(transcript)) {
+    console.log(
+      `\n🛑 l'agent « ${AGENT} » n'a rendu AUCUN tour d'assistant ` +
+        `(${transcript.length} octets de transcript).\n` +
+        `   Authentification, quota, ou arguments refusés — ce n'est pas un verdict.\n` +
+        `   Premières lignes : ${transcript.slice(0, 300).replace(/\n/gu, " ") || "(vide)"}`,
+    );
+    process.exit(2);
+  }
   if (/"terminal_reason"\s*:\s*"api_error"/u.test(transcript)) {
     const reason =
       /"result"\s*:\s*"([^"]{0,160})"/u.exec(transcript)?.[1] ?? "erreur API";
@@ -3213,7 +3235,9 @@ function main() {
     for (const t of tasks) {
       const p = path.join(m.dir, `task-${t.id}.transcript.jsonl`);
       if (existsSync(p)) {
-        const trouve = readFileSync(p, "utf8").match(/"model":"([^"]+)"/u);
+        const trouve = readFileSync(p, "utf8").match(
+          /"model"\s*:\s*"([^"]+)"/u,
+        );
         if (trouve) models.add(trouve[1]);
       }
     }

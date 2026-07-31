@@ -29,7 +29,7 @@
  *
  * Sortie : rapport console + code de sortie 1 à la première étape rouge.
  */
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   mkdirSync,
   rmSync,
@@ -215,12 +215,12 @@ function step(label, why, run) {
 const PORTS = { NF_PORT: "5361", NF_PORT_HTTPS: "5362" };
 
 /** Exécute une commande dans l'app témoin, en faisant remonter sa sortie si elle échoue. */
-function run(cmd, args, cwd = APP) {
+function run(cmd, args, cwd = APP, env = {}) {
   const res = spawnSync(cmd, args, {
     cwd,
     encoding: "utf8",
     timeout: 600_000,
-    env: { ...process.env, ...PORTS },
+    env: { ...process.env, ...PORTS, ...env },
   });
   if (res.status !== 0) {
     const out = `${res.stdout ?? ""}${res.stderr ?? ""}`.trim();
@@ -426,6 +426,68 @@ if (withE2e) {
     () => run("npm", ["run", "test:e2e"]),
   );
 }
+
+/**
+ * Le mode qu'aucune étape n'exerçait — développement partout ailleurs.
+ *
+ * Le mot de passe admin est POSÉ à dessein : sans lui le provisionnement
+ * s'arrête avant de hacher (`seedAdmin` rend la main quand aucun mot de passe
+ * n'est fourni en production), l'encodeur n'est jamais chargé, et l'étape serait
+ * verte sans avoir rien exercé. Une vraie production, elle, a un mot de passe.
+ *
+ * ⚠️ CE QU'ELLE NE PEUT PAS VOIR — et c'est mesuré, pas supposé. Elle a été
+ * écrite pour garder le défaut qu'un agent tiers venait de trouver : une
+ * application générée qui meurt au boot en production sur `Cannot find package
+ * '@node-rs/argon2'`, dépendance absente du `package.json` généré. Jouée avec la
+ * dépendance PUIS sans elle, l'étape est verte **les deux fois**.
+ *
+ * La raison est structurelle : ce banc monte son décor SOUS le dépôt
+ * (`tmp/devkit-verify`) et lie les paquets au checkout (`--link`). La résolution
+ * de modules de Node remonte donc jusqu'aux `node_modules` du monorepo, où le
+ * binding est installé — l'application témoin trouve une dépendance qu'elle ne
+ * déclare pas. Aucune dépendance manquante n'est détectable ici ; seul un décor
+ * SORTI du dépôt et installé depuis les tarballs le montre, comme le banc de
+ * découvrabilité l'a appris avant nous (`lib/isolation.mjs`).
+ *
+ * Ce que cette étape garde donc vraiment : que le mode production BOOTE et
+ * SERVE — un hook de cycle de vie qui jette, une config absente en production,
+ * un service `policy:"dev"` requis au boot. C'est déjà ce que rien ne gardait.
+ * La déclaration de la dépendance, elle, est gardée par `create.test.ts`.
+ */
+step(
+  "l'app DÉMARRE en PRODUCTION et sert une route",
+  "Le mode que les autres étapes n'exercent jamais — un défaut de dépendance " +
+    "n'y apparaît qu'au déploiement, quand plus personne ne regarde.",
+  () => {
+    const env = { NF_ADMIN_PASSWORD: "banc-verite-admin" };
+    run(process.execPath, [BIN, "production", "--detach", "--wait"], APP, env);
+    try {
+      // `--wait` dit que le serveur écoute ; il ne dit pas qu'il RÉPOND. Le
+      // boot peut aussi échouer APRÈS l'ouverture du port (hook de cycle de
+      // vie), et c'est exactement le cas qu'on garde ici.
+      const res = execFileSync(
+        process.execPath,
+        [
+          "-e",
+          `fetch("http://127.0.0.1:${PORTS.NF_PORT}/api/posts")` +
+            `.then((r) => { if (!r.ok && r.status !== 401 && r.status !== 403) ` +
+            `{ console.error("statut " + r.status); process.exit(1); } })` +
+            `.catch((e) => { console.error(String(e.message ?? e)); process.exit(1); })`,
+        ],
+        { encoding: "utf8", timeout: 30_000 },
+      );
+      void res;
+    } finally {
+      // Toujours, même en échec : un serveur détaché qui survit au banc tient
+      // les ports et fait échouer le run SUIVANT sur un symptôme sans rapport.
+      spawnSync(process.execPath, [BIN, "stop"], {
+        cwd: APP,
+        encoding: "utf8",
+        env: { ...process.env, ...PORTS },
+      });
+    }
+  },
+);
 
 step(
   "l'app se laisse INSPECTER sans ouvrir de port",

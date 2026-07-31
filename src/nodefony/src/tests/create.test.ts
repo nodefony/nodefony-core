@@ -258,6 +258,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const pkg = readJson(path.join(dest, "package.json"));
       assert.equal(pkg["dependencies"]["nodefony"], `^${version}`);
       assert.property(pkg["dependencies"], "@nodefony/drizzle");
+      // Le hachage de mot de passe est un chemin PAR DÉFAUT (argon2id, RFC
+      // 9106) et le provisionnement seede un compte au boot. `@nodefony/user`
+      // déclare le binding en peer OPTIONNELLE — pour la bibliothèque, pas pour
+      // l'application. Sans cette dépendance, une app générée démarre en
+      // développement et meurt en production sur `Cannot find package
+      // '@node-rs/argon2'` : trouvé par un agent tiers, jamais par nos tests,
+      // parce qu'aucun d'eux ne démarrait l'app en production.
+      assert.property(pkg["dependencies"], "@node-rs/argon2");
       assert.property(pkg["scripts"], "infra:up");
       // Sans front, le build reste back seul (pas de frontend:build fantôme).
       assert.notInclude(pkg["scripts"]["build"], "frontend:build");

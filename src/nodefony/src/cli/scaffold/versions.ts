@@ -21,6 +21,16 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // Version ÉPINGLÉE comme dans le monorepo : en 0.x la mineure porte les
   // ruptures, et le repository dépend de comportements fins (cf `limit(-1)`).
   "drizzle-orm": "0.45.2",
+  // Le binding natif du hachage de mots de passe. `@nodefony/user` le déclare
+  // en peerDependency OPTIONNELLE — et il a raison : son code l'importe
+  // dynamiquement, une app qui ne hache jamais rien n'en a pas besoin. Mais le
+  // DÉFAUT du framework est `argon2id` (RFC 9106) et le provisionnement seede
+  // un compte au boot : l'application, elle, en a toujours besoin. « Optionnel
+  // pour la bibliothèque » ne veut pas dire « optionnel pour l'app ».
+  // Sans cette ligne, une application fraîchement générée démarre en
+  // développement et MEURT en production — `Cannot find package
+  // '@node-rs/argon2'`, échec critique du boot, sur le chemin par défaut.
+  "@node-rs/argon2": "^2.0.2",
   "@types/node": "^26.1.1",
   "@typescript/native-preview": "^7.0.0-dev.0",
   oxlint: "^1.75.0",

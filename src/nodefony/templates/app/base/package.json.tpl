@@ -28,6 +28,7 @@
     "@nodefony/drizzle": "^<%= it.nodefonyVersion %>",
     "drizzle-orm": "<%= it.pkg["drizzle-orm"] %>",
     "@nodefony/user": "^<%= it.nodefonyVersion %>",
+    "@node-rs/argon2": "<%= it.pkg["@node-rs/argon2"] %>",
     "@nodefony/realtime": "^<%= it.nodefonyVersion %>",
     "@nodefony/security": "^<%= it.nodefonyVersion %>",
     "@nodefony/frontend": "^<%= it.nodefonyVersion %>",
