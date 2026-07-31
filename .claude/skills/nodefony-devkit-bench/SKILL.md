@@ -282,6 +282,37 @@ Et une tâche de configuration ne se juge JAMAIS sur le diff git : la bonne
 réponse vit dans `.env.local`, qui est **gitignoré**. Vécu — deux sondes ont
 déclaré en échec un agent qui avait fait juste.
 
+### Un vert par ABANDON n'est pas un vert
+
+Une sonde peut être satisfaite parce que le travail est fait — ou parce qu'il ne
+l'est pas. Les deux cas trouvés se ressemblent, et aucun ne se voit à la lecture
+du verdict :
+
+- **Lire n'est pas faire.** Le transcript porte le CONTENU des fichiers que
+  l'agent ouvre, et l'`AGENTS.md` généré nomme les commandes qu'on espère voir
+  employées. Les sondes positives de la tâche 5 cherchaient `npm run dev` dans
+  le transcript entier : un agent qui ouvrait le fichier et racontait ce qu'il
+  ferait les satisfaisait toutes les deux — la troisième (inversée) étant verte
+  par construction quand rien n'est fait, et le gate de ports vert puisque rien
+  n'avait démarré. **La tâche entière passait sans qu'un serveur ait tourné.**
+  Toute sonde qui prétend constater un GESTE s'ancre donc sur une invocation
+  (`commandeQuiContient`), jamais sur un nom nu.
+- **Un vert s'obtient aussi en RETIRANT.** Quinze tâches exigent « npm test
+  vert » ; ce vert se gagne en réparant, ou en effaçant le test qui échoue. Le
+  banc ne lisait que les lignes AJOUTÉES — une suppression n'y laisse aucune
+  trace. Deux matières manquaient (`deleted`, `deletedFiles`) et deux sondes de
+  qualité les exploitent : aucun fichier de test supprimé, aucun cas `it`/`test`
+  retiré. C'est le symétrique exact de la famille « ne pas affaiblir », qu'on
+  avait construite pour la sécurité seule.
+
+⚠️ **Le motif d'invocation doit traverser les guillemets ÉCHAPPÉS.** Écrit
+`"command"\s*:\s*"[^"]*…`, il s'arrête au premier `\"` — et un
+`sh -c "kill -9 …"` lui échappe, c'est-à-dire précisément le contournement qu'il
+existe pour attraper. Les échantillons de l'auto-contrôle portent les deux cas,
+dans les deux sens : le bricolage caché dans un shell imbriqué doit rougir, et
+la règle qui INTERDIT `kill -9` — lue dans le `CLAUDE.md` de l'application, donc
+présente au transcript — doit rester innocente.
+
 ### Une tâche ne juge pas l'agent sur la saleté de la précédente
 
 Les tâches se déroulent dans une seule application témoin — la monter coûte une
