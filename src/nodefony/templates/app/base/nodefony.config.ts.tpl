@@ -101,16 +101,25 @@ export default defineConfig<typeof env>((ctx) => ({
        * Ces deux zones sont STATEFUL : l'identité tient dans une session
        * serveur, portée par un cookie opaque et révocable — le bon modèle pour
        * un NAVIGATEUR. Quand l'appelant n'en est pas un (service partenaire,
-       * script, agent), la troisième nature de zone est `stateless: true` :
-       * aucun registre serveur, chaque requête porte sa preuve entière (clé
-       * d'API ou JWT), et un cookie éventuel est ignoré. Y laisser `session`
-       * ferait dépendre l'appel d'un cookie que personne ne stocke.
+       * script, agent), la zone se déclare `stateless: true`.
        *
        *   machine: {
        *     pattern: "^/api/machine",
-       *     authenticators: ["apikey"],
-       *     stateless: true,
+       *     authenticators: ["apikey"], // PAS "session" — ce client n'a pas de cookie
+       *     stateless: true,            // false ⇒ l'app ouvre une session qu'il ne renverra jamais
        *   },
+       *
+       * ⚠️ `stateless: false` (le défaut) NE FAIT PAS ÉCHOUER l'essai — et c'est
+       * le piège. Depuis un navigateur, ou avec un `curl -c`, tout marche : le
+       * cookie posé à la première requête est renvoyé aux suivantes. Le vrai
+       * client, lui, ne stocke rien ; il repart ANONYME à chaque appel, et le
+       * symptôme arrive en production sous la forme d'un 401 intermittent que
+       * rien dans le code ne montre. Ajouter `"session"` à côté de `"apikey"`
+       * produit exactement le même défaut, en plus discret encore : la clé
+       * ouvre, et l'application ouvre une session par-dessus pour personne.
+       *
+       * La règle tient en une phrase : un appelant qui ne stocke pas de cookie
+       * ne doit RIEN recevoir qu'il faille stocker.
        */
       areas: {
         main: {

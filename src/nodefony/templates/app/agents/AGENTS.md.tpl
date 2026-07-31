@@ -179,12 +179,24 @@ et il fait foi le jour où les deux divergent.
     Ne fabrique pas d'utilisateur en insérant directement dans la base — le mot
     de passe passe par l'encodeur du framework.
   - **ouvrir une API à un PROGRAMME** (service partenaire, script, agent — pas
-    un navigateur) : une zone `stateless: true` avec l'authenticator `apikey`
-    ou `jwt`, dans `nodefony.config.ts`. Stateless veut dire qu'aucun registre
-    serveur ne tient l'identité : chaque requête porte sa preuve entière, et un
-    cookie éventuel est ignoré. Laisser `session` sur une telle zone ferait
-    dépendre l'appel d'un cookie que l'appelant ne stocke pas — c'est l'erreur
-    à ne pas faire. Les clés s'émettent par `POST /nodefony/security/api/keys`.
+    un navigateur) : dans `nodefony.config.ts`, une zone exactement comme ceci —
+
+    ```ts
+    machine: {
+      pattern: "^/api/machine",
+      authenticators: ["apikey"], // PAS "session" — ce client n'a pas de cookie
+      stateless: true,            // false ⇒ l'app ouvre une session qu'il ne renverra jamais
+    },
+    ```
+
+    ⚠️ `stateless: false` (le défaut) **ne fait pas échouer l'essai**, et c'est
+    tout le piège : depuis un navigateur ou un `curl -c`, le cookie posé revient
+    aux requêtes suivantes et tout semble marcher. Le vrai client ne stocke
+    rien : il repart **anonyme** à chaque appel, et le défaut n'apparaît qu'en
+    production, en 401 intermittents. Ajouter `"session"` à côté de `"apikey"`
+    produit le même défaut, en plus discret. Règle : un appelant qui ne stocke
+    pas de cookie ne doit rien recevoir qu'il faille stocker.
+    Les clés s'émettent par `POST /nodefony/security/api/keys`.
   - Un droit **métier** qui ne se réduit pas à un rôle (« l'auteur peut éditer
     SON document ») s'écrit en **voter** et s'enregistre par
     `registerVoterFactory` ; `@IsGranted("doc.edit", { subject: "id" })` l'appelle.
