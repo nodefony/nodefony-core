@@ -201,6 +201,7 @@ node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-liste-bornee.selftest
 node .claude/skills/nodefony-devkit-bench/scripts/reinit-decor.selftest.mjs <runDir>   # la remise à zéro du décor, sur un run déjà consommé
 node .claude/skills/nodefony-devkit-bench/scripts/lib/reference.selftest.mjs --prove   # le dépistage, ses 5 règles vues rouges
 node .claude/skills/nodefony-devkit-bench/scripts/lib/passes.selftest.mjs --prove      # quelle passe est jugée (décor ≠ agent)
+node .claude/skills/nodefony-devkit-bench/scripts/lib/imputation.selftest.mjs --prove  # à QUI le rouge d'un juge est opposable
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
 ```
@@ -540,6 +541,48 @@ celle du catalogue a prouvé que pointer un document ne suffit pas. Une fois
 l'information hissée dans le fichier lu par défaut, elle devient redondante — on
 la déclasse en observation plutôt que de la supprimer, pour continuer à voir
 comment l'agent s'y prend.
+
+### Nommer la cause ne suffisait pas : il faut dire À QUI elle est opposable
+
+Les juges nomment leur cause depuis longtemps, et le banc l'affichait — mais il
+comptait FAIL sur toutes. Or une partie d'entre elles ne dit rien de l'agent :
+l'application ne répond pas, un port est tenu par un serveur étranger, le décor
+n'a pas su ouvrir la session d'administration dont le juge a besoin pour
+attaquer. Le code de sortie ne pouvait pas porter la distinction — chaque juge
+numérote ses causes dans son ordre, si bien que `8` désigne le décor chez l'un
+et une faute chez l'autre.
+
+Les **68 causes** du banc sont donc classées une par une dans
+`scripts/lib/imputation.mjs` — **48 agent · 2 décor · 18 indéterminées** — et
+`runGates` fige l'imputation avec la cause, au moment où la mesure est fidèle.
+Un rouge non opposable rend la tâche **NON JUGEABLE** au lieu de FAIL, exactement
+comme le fait déjà une gate non figée : il ne condamne ni n'absout.
+
+La règle de classement et sa dissymétrie sont volontaires : **`DECOR` ne se pose
+que si AUCUN geste de l'agent ne peut produire la cause** ; au moindre chemin,
+c'est `INDETERMINE`. Les deux écartent le run — la différence est ce que lit
+l'opérateur, et c'est là qu'est le coût : « l'agent n'est pas en cause » éteint
+l'instruction d'un vrai défaut, « à instruire » ne coûte qu'une ligne.
+
+⚠️ **Toute la famille « aucune réponse » est INDÉTERMINÉE, pas du décor.** La
+gate construit et démarre l'application avant de juger (`npm run build` puis
+`nodefony development --detach --wait`) : un code que l'agent vient de casser
+rend exactement la même absence de réponse qu'un décor éteint. La gate de
+compilation, jouée sur la même tâche, tranche le plus souvent. Même raisonnement
+pour `identite-*-indisponible` (quatre tâches travaillent SUR
+l'authentification), `route-de-login-absente` et `semis-impossible` — dont les
+textes s'imputaient au décor avec un aplomb que rien ne garantissait.
+
+**Une gate sans cause nommée reste opposable** (`npm test`, `typecheck`,
+`nodefony check`) : son rouge décrit bien le logiciel produit. Ce qui écarte un
+run, c'est une cause NOMMÉE et non imputable à l'agent — ou nommée et **non
+classée**, qui se fait dire comme un trou d'instrument plutôt que de compter
+contre quelqu'un.
+
+**Un nom, une imputation.** Si deux sites d'émission d'une même cause relèvent
+d'imputations différentes, on renomme — on ne ruse pas dans la table. Vécu : une
+exception du juge lui-même sortait sous `aucune-reponse` et se lisait comme une
+application muette ; c'est aujourd'hui `juge-en-erreur`, du décor pur.
 
 **Un juge doit NOMMER sa cause, sinon son rouge accuse au hasard.** Le juge de la
 tâche 14 faisait une requête et rendait un rouge unique — or quatre situations le
