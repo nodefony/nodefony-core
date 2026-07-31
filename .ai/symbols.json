@@ -1,15 +1,15 @@
 {
-  "generated": "2026-07-31T15:34:53.265Z",
+  "generated": "2026-07-31T22:23:19.566Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 642,
-    "symbols": 2559,
+    "symbols": 2560,
     "classes": 335,
     "interfaces": 776,
     "types": 335,
     "enums": 4,
-    "functions": 929,
+    "functions": 930,
     "constants": 180
   },
   "symbols": {
@@ -5378,6 +5378,14 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Options des flags détacheur reconnues dans argv."
+    },
+    "childEnv": {
+      "name": "childEnv",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/detachedStart.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Environnement du child détaché — hérité du parent, MOINS ce qui ne se transmet pas. `DELEGATED_ENV` est une garde **anti-boucle de process** : le CLI global la pose sur lui-même juste avant de char…"
     },
     "parseDetachArgs": {
       "name": "parseDetachArgs",
@@ -20069,7 +20077,8 @@
         "src/nodefony/src/bin/nodefony.ts"
       ],
       "DELEGATED_ENV": [
-        "src/nodefony/src/bin/nodefony.ts"
+        "src/nodefony/src/bin/nodefony.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts"
       ],
       "TLocalCliDecision": [
         "src/nodefony/src/bin/nodefony.ts"
