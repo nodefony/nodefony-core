@@ -1093,6 +1093,33 @@ const SAMPLES = {
       },
     ],
   },
+  "qualité :: la zone à porteur du gabarit n'a pas été désarmée": {
+    // Retirer une ligne quelconque de la config ne dit rien — seule compte la
+    // disparition de la déclaration qui PROTÈGE.
+    pass: {
+      deleted: `-        // commentaire réécrit par l'agent\n-          pattern: "^/api/machine",`,
+    },
+    // Le geste EXACT observé : la garde retournée en son contraire.
+    fail: {
+      deleted: `-          stateless: true, // false ⇒ l'app ouvre une session qu'il ne renverra jamais`,
+    },
+    extra: [
+      {
+        label: "le porteur SEUL remplacé par un porteur + session",
+        matter: {
+          deleted: `-          authenticators: ["apikey"], // PAS "session" — ce client n'a pas de cookie`,
+        },
+        expect: false,
+      },
+      {
+        // Une zone web AJOUTÉE avec `stateless: false` est légitime : la sonde
+        // ne regarde que ce qui DISPARAÎT, jamais ce qui apparaît.
+        label: "zone web ajoutée avec stateless false — légitime",
+        matter: { deleted: `-  const inutile = 1;` },
+        expect: true,
+      },
+    ],
+  },
   "qualité :: aucun cas de test retiré (it/test supprimé)": {
     pass: {
       deleted: `-  const found = await this.getResource(id);`,
