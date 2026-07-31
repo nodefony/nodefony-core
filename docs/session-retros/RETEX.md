@@ -65,6 +65,15 @@
   un rouge parfaitement crédible (« l'agent a desserré la CSP »). Le réflexe : avant d'écrire un
   interdit, lire ce que la configuration par défaut contient DÉJÀ, et en faire l'échantillon qui
   doit passer.
+- `[1× — 2026-07-31d]` 🔴 **Poser un exemple ACTIF crée une surface d'affaiblissement neuve.** Une
+  zone de firewall exemplaire (`stateless: true`, porteur SEUL) a été mise en code vivant dans le
+  gabarit d'application — parce qu'un exemple en commentaire ne se recopie pas. Mesuré le jour
+  même : un modèle faible ne l'a pas recopiée, il l'a **RETOURNÉE** (`true` → `false`, `"session"`
+  ajouté), en remplaçant le commentaire qui met en garde contre ces deux gestes exactement. Un bon
+  modèle, lui, transpose sans y toucher (3 passes sur 3). Donc : **tout exemple actif a besoin de
+  sa sonde « non désarmé »**, et cette sonde vise ce qui est EFFACÉ (`deleted`), pas ce qui est
+  écrit — un agent qui n'a rien supprimé ne peut pas rougir, et une zone légitimement ajoutée avec
+  `stateless: false` ne déclenche rien.
 
 ## 🎚️ Une sonde de PROXIMITÉ se règle sur ce qu'elle traverse
 
@@ -97,6 +106,23 @@
 
 ## 🧪 Suspecter son INSTRUMENT avant le sujet mesuré
 
+- `[2× — 2026-07-31d]` 🔴 **Un correctif d'instrument crée ses PROPRES angles morts — deux fois de
+  suite.** (a) Ajouter les répétitions au banc a fait retrouver la passe à juger par
+  `endsWith("tâche 26")` — or l'historique porte aussi « **décor** de la tâche 26 » : deux
+  verdicts sur trois jugeaient un commit du HARNAIS, et accusaient l'agent d'un diff que nous
+  avions écrit. Invisible sans répétitions (le plus récent est alors toujours le bon). J'allais
+  conclure « le correctif de gabarit est réfuté » sur des verdicts fabriqués. (b) Poser une zone
+  d'exemple dans le gabarit a rendu la tâche 26 **triviale** : son préfixe couvrait exactement la
+  route que la prémisse installe, la prémisse de l'énoncé (« aujourd'hui n'importe qui peut
+  poster ») est devenue fausse, et trois passes ont rendu une gate verte sans qu'un seul agent
+  touche la configuration. Corollaire outillé : une **tâche réécrite** est une variable de la
+  mesure au même titre que le décor → la référence porte désormais l'empreinte de l'énoncé, et
+  refuse de comparer deux questions différentes.
+- `[1× — 2026-07-31d]` **Un banc dont le décor vit SOUS le dépôt ne peut pas voir une dépendance
+  manquante.** Étape « démarre en production » écrite pour garder un défaut trouvé sur le terrain :
+  verte AVEC la dépendance, verte SANS. La résolution de Node remonte aux `node_modules` du
+  monorepo, l'app témoin trouve ce qu'elle ne déclare pas. Mesuré avant d'y croire — sinon un gate
+  décoratif de plus. La leçon « le décor SORT du dépôt » était déjà payée par l'autre banc.
 - `[1× — 2026-07-31c]` 🔴 **La suggestion d'un linter peut INVERSER la sémantique — la lire, pas
   l'appliquer.** `filter(…).pop()` a déclenché `prefer-array-find`, dont l'aide propose `find()` :
   or le code veut le DERNIER élément, et `find` rend le premier. Le décor serait reparti du mauvais
@@ -231,6 +257,20 @@ apply -R` — et **prouver que le geste a eu lieu** (ici : 0 façade dans les 30
   lecture, donc la sonde « a lu AGENTS.md », écrite pour Claude Code, rend un **FAUX rouge**.
   Généraliser un banc à un autre agent, c'est revoir les SONDES — pas seulement le lecteur de
   transcript.
+- `[1× — 2026-07-31d]` 🔴 **Un format de sortie « à la fin » perd TOUT quand la fin n'arrive pas.**
+  `vibe --output json` n'émet qu'en sortie nominale : couperet `--max-turns` atteint → exit 1,
+  **0 octet sur stdout** après 26 minutes et 121 messages de travail réel. Le banc n'a rien eu à
+  juger. `--output streaming` (une ligne par message) rend 217–311 Ko exploitables. Vaut au-delà de
+  `vibe` : pour tout agent piloté, préférer le flux incrémental au rendu final.
+- `[1× — 2026-07-31d]` **Une borne annoncée n'est pas une borne.** La doc de `vibe` dit que
+  `--max-price` s'appuie sur des prix « potentiellement absents ou périmés » du fichier de config —
+  « ne pas s'en servir comme limite budgétaire ». La seule sécurité DURE est `--max-turns`. La
+  mémoire du projet disait le contraire ; corrigée.
+- `[1× — 2026-07-31d]` ⭐ **La valeur d'un agent tiers n'est pas sa force, c'est son ÉTRANGETÉ.**
+  `devstral-small` échoue là où `haiku` réussit 3/3 — mais il a fait le geste qu'aucune de nos
+  tâches ne fait (`nodefony production`) et exhibé un défaut qui empêchait toute app générée de
+  démarrer. Son échec a rapporté plus que trois succès. Corollaire : il échoue dans le sens
+  DANGEREUX — deux tâches jugées, deux affaiblissements (CSP desserrée, zone stateless retournée).
 
 ## 🟢 Un test NON EXÉCUTÉ doit être ROUGE, jamais vert
 
