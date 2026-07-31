@@ -193,5 +193,5 @@ const main = async () => {
 };
 
 main().catch((e) => {
-  sortir(4, `CAUSE=aucune-reponse — le juge lui-même a échoué : ${e.message}`);
+  sortir(4, `CAUSE=juge-en-erreur — le juge lui-même a échoué : ${e.message}`);
 });

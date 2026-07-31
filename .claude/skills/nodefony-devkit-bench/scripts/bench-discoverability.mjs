@@ -101,6 +101,11 @@ import {
   installFromTarballs,
   packTarballs,
 } from "./lib/isolation.mjs";
+import {
+  estOpposable,
+  lireCause,
+  motifNonOpposable,
+} from "./lib/imputation.mjs";
 import { indiceDeLaPasse } from "./lib/passes.mjs";
 import {
   CHEMIN_REFERENCE,
@@ -2709,20 +2714,29 @@ function runGates(app, runDir, task) {
     // écrasé entre-temps, et dont l'agent avait en réalité fait juste. Un gate
     // qui dit `exit 1` oblige à rejouer pour comprendre ; il doit s'expliquer
     // du premier coup.
-    const cause = `${r.stderr ?? ""}\n${r.stdout ?? ""}`
-      .split("\n")
-      .map((l) => l.trim())
-      .find((l) => l.startsWith("CAUSE="));
+    //
+    // Et le nom seul ne suffisait pas : tout rouge comptait contre l'agent,
+    // alors qu'une partie des causes ne dit rien de lui (application muette,
+    // port tenu par un serveur étranger, identité que le décor n'a pas su
+    // ouvrir). Le code de sortie ne pouvait pas porter cette distinction —
+    // chaque juge numérote ses causes dans son ordre, `8` désigne le décor chez
+    // l'un et une faute chez l'autre. L'imputation est donc FIGÉE ici, avec la
+    // cause, au moment où la mesure est fidèle.
+    const cause = lireCause(`${r.stderr ?? ""}\n${r.stdout ?? ""}`);
+    const ecarte = !pass && cause && !estOpposable(cause.imputation);
     console.log(
-      `  ${pass ? "✅" : "❌"} [gate] ${p.name} (exit ${r.status})` +
-        (cause ? `\n       ${cause}` : ""),
+      `  ${pass ? "✅" : ecarte ? "⁉️ " : "❌"} [gate] ${p.name} (exit ${r.status})` +
+        (cause ? `\n       ${cause.ligne}` : "") +
+        (ecarte ? `\n       ${motifNonOpposable(cause.imputation)}` : ""),
     );
     return {
       name: p.name,
       pass,
       evidence: pass
         ? "exit 0"
-        : `exit ${r.status}${cause ? ` — ${cause}` : ""}`,
+        : `exit ${r.status}${cause ? ` — ${cause.ligne}` : ""}`,
+      cause: cause?.nom ?? null,
+      imputation: cause?.imputation ?? null,
     };
   });
   writeFileSync(
@@ -2938,6 +2952,24 @@ function judgeTask(app, runDir, task, occurrence = null) {
       if (frozen) {
         pass = frozen.pass;
         evidence = `${frozen.evidence} (mesuré à la fin de la tâche)`;
+        // À QUI ce rouge est-il opposable ? Le run figé porte l'imputation
+        // depuis qu'elle existe ; pour les runs d'AVANT, on relit la ligne
+        // `CAUSE=` restée dans l'`evidence` — sans quoi un FAIL de référence
+        // continuerait de reposer sur une application qui n'a pas répondu.
+        // Une gate sans cause nommée (`npm test`, `typecheck`) reste opposable :
+        // son rouge décrit bien le logiciel produit.
+        const relu =
+          frozen.cause === undefined
+            ? lireCause(frozen.evidence)
+            : frozen.cause === null
+              ? null
+              : { nom: frozen.cause, imputation: frozen.imputation };
+        if (!pass && relu) {
+          opposable = estOpposable(relu.imputation);
+          if (!opposable) {
+            evidence += ` — ${motifNonOpposable(relu.imputation)}`;
+          }
+        }
       } else {
         // Run antérieur à la mesure figée : on rejoue, en DISANT que le verdict
         // porte sur l'état courant de l'app et non sur celui de la tâche.
