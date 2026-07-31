@@ -2109,7 +2109,13 @@ export const TASKS = [
         pattern: /"name"\s*:\s*"@[^"]+\/[^"]+"/u,
         where: "added",
         invert: true,
+        // La voie correcte est un GESTE, pas un texte : le waiver se lit donc
+        // dans le TRANSCRIPT. Écrit sans `unlessWhere`, il était évalué contre
+        // le contenu des fichiers et ne pouvait jamais céder — la sonde rougissait
+        // dès que le générateur produisait son `package.json`, c'est-à-dire à
+        // chaque fois qu'un agent faisait JUSTE (constaté sur deux runs réels).
         unless: commandeQuiContient("create\\s+module\\b"),
+        unlessWhere: "transcript",
       },
       {
         // LE gate : il demande à l'APPLICATION ce qu'elle charge, au lieu de
@@ -2247,6 +2253,14 @@ export function evaluateProbe(probe, matter) {
             : probe.where === "deletedFiles"
               ? (deletedFiles ?? []).join("\n")
               : content;
+  // La matière du WAIVER se choisit, elle ne se suppose pas. Par défaut le
+  // contenu rendu ; `unlessWhere: "transcript"` quand la voie correcte est un
+  // GESTE et non un texte — avoir lancé un générateur, par exemple. Vécu : un
+  // waiver ancré sur une commande était évalué contre le contenu des fichiers,
+  // donc ne cédait JAMAIS, et la sonde recalait un agent qui avait lancé le
+  // générateur huit fois.
+  const matiereWaiver =
+    probe.unlessWhere === "transcript" ? transcript : content;
   // `unless` — la moitié NÉGATIVE d'une paire cède devant la POSITIVE.
   // Un contournement ne se reproche que s'il a servi de contournement :
   // quand la bonne façade est présente dans le code rendu, le motif interdit
@@ -2254,7 +2268,7 @@ export function evaluateProbe(probe, matter) {
   // découvrabilité. Ne s'applique qu'aux sondes inversées — sur une positive
   // ce serait une échappatoire, pas une garde.
   const waived =
-    probe.invert && probe.unless ? probe.unless.test(content) : false;
+    probe.invert && probe.unless ? probe.unless.test(matiereWaiver) : false;
   const hit = probe.pattern.test(haystack);
   return {
     pass: waived ? true : probe.invert ? !hit : hit,
@@ -2724,11 +2738,28 @@ function judgeTask(app, runDir, task) {
   const files = git(app, "diff", "--name-only", `${base ?? `${hash}~1`}`, hash)
     .split("\n")
     .filter(Boolean);
+  // Le contenu tel qu'il était AU COMMIT DE LA TÂCHE, jamais tel qu'il est sur
+  // le disque au moment du jugement.
+  //
+  // Les tâches sont jugées à la fin du run, et le décor est remis à zéro entre
+  // chacune : lu depuis l'arbre de travail, `content` ne porterait plus que le
+  // travail de la DERNIÈRE tâche, et les sondes de toutes les autres liraient un
+  // arbre vide de leur objet. Le défaut préexistait sous une forme plus douce
+  // (une tâche pouvait être jugée sur un fichier qu'une tâche ultérieure avait
+  // réécrit) ; la remise à zéro l'a rendu systématique.
+  //
+  // Un fichier SUPPRIMÉ par la tâche n'existe pas dans son commit : `git show`
+  // échoue, et l'absence est la bonne réponse — c'est `deletedFiles` qui porte
+  // ce cas, pas `content`.
   const content = files
-    .filter(
-      (f) => /\.(ts|tsx|json|md)$/u.test(f) && existsSync(path.join(app, f)),
-    )
-    .map((f) => readFileSync(path.join(app, f), "utf8"))
+    .filter((f) => /\.(ts|tsx|json|md)$/u.test(f))
+    .map((f) => {
+      try {
+        return git(app, "show", `${hash}:${f}`);
+      } catch {
+        return "";
+      }
+    })
     .join("\n");
   // Lignes AJOUTÉES seulement — le haystack des sondes NÉGATIVES. Sur fichiers
   // entiers, une sonde inversée mord sur du PRÉ-EXISTANT légitime (vécu : agent

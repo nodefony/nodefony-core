@@ -944,10 +944,16 @@ const SAMPLES = {
       {
         // `unless` : le générateur a bien été appelé, donc retoucher le
         // `package.json` qu'il vient de produire n'est pas le contourner.
+        //
+        // La commande vit dans le TRANSCRIPT — c'est un geste, pas un texte de
+        // fichier. Le premier jet la plaçait dans `content`, ce qui rendait
+        // l'échantillon vert alors que la sonde, elle, était cassée : le waiver
+        // ne cédait jamais en conditions réelles. Un échantillon qui ne
+        // reproduit pas la matière réelle valide le contraire de ce qu'il croit.
         label: "manifeste touché APRÈS avoir lancé le générateur",
         matter: {
           added: `+  "name": "@bench-app/audit",`,
-          content: `{"command":"npx nodefony create module audit --yes"}`,
+          transcript: `{"command":"npx nodefony create module audit --yes"}`,
         },
         expect: true,
       },
