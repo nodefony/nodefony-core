@@ -910,6 +910,50 @@ const SAMPLES = {
     fail: { content: `  async import(@Body() body: { batch: string }) {}` },
   },
 
+  // ── T28 — isoler une fonctionnalité dans un composant ─────────────────────
+  "28 :: a lu la doc des modules ou l'AGENTS.md": {
+    pass: { transcript: `{"file_path":"/app/AGENTS.md"}` },
+    fail: { transcript: `{"file_path":"/app/package.json"}` },
+  },
+  "28 :: a lancé create module (au lieu d'imiter son squelette)": {
+    pass: {
+      transcript: `{"command":"npx nodefony create module audit --yes"}`,
+    },
+    fail: {
+      transcript: `{"command":"mkdir -p modules/audit/nodefony/service"}`,
+    },
+    extra: [
+      {
+        // Le cas qui a coûté la refonte des sondes de la tâche 5 : l'AGENTS.md
+        // généré NOMME ce générateur, donc l'avoir lu ne prouve rien.
+        label: "le générateur seulement mentionné dans un fichier lu",
+        matter: {
+          transcript: `{"type":"tool_result","content":"Créer un module : \`nodefony create module <nom>\`"}`,
+        },
+        expect: false,
+      },
+    ],
+  },
+  "28 :: pas de squelette de module recomposé à la main": {
+    // Vertueux : l'agent a écrit du code de service, pas un manifeste de paquet.
+    pass: {
+      added: `+export class AuditService extends Service {`,
+    },
+    fail: { added: `+  "name": "@bench-app/audit",` },
+    extra: [
+      {
+        // `unless` : le générateur a bien été appelé, donc retoucher le
+        // `package.json` qu'il vient de produire n'est pas le contourner.
+        label: "manifeste touché APRÈS avoir lancé le générateur",
+        matter: {
+          added: `+  "name": "@bench-app/audit",`,
+          content: `{"command":"npx nodefony create module audit --yes"}`,
+        },
+        expect: true,
+      },
+    ],
+  },
+
   // ── QUALITÉ — jouées sur TOUTE tâche, éprouvées une seule fois ─────────────
   // Les échantillons vertueux sont COPIÉS du code que le produit génère (le
   // controller de ressource, la configuration d'app) : un interdit dont

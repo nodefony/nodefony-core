@@ -196,6 +196,7 @@ node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-csrf-partenaire.selft
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-zone-firewall.selftest.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-m2m-stateless.selftest.mjs   # API pour un programme
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-login-throttle.selftest.mjs  # bourrage de login
+node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-module-local.selftest.mjs    # le composant local, ses 5 causes
 node .claude/skills/nodefony-devkit-bench/scripts/reinit-decor.selftest.mjs <runDir>   # la remise à zéro du décor, sur un run déjà consommé
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
@@ -243,13 +244,14 @@ Une sonde ajoutée sans son échantillon doit se voir, pas se fondre dans le ver
 c'est la règle « une capacité arrive AVEC sa tâche », appliquée à la tâche
 elle-même.
 
-Vingt-trois tâches déroulées par un agent réel, en mode autonome, dans une
+Vingt-quatre tâches déroulées par un agent réel, en mode autonome, dans une
 application fraîche — **chacune dans un décor remis à zéro** (cf. plus bas).
-Neuf visent les **générateurs** : « CRUD produit »,
+Dix visent les **générateurs** : « CRUD produit »,
 « protège une route », « canal temps réel », « commande CLI », « démarre puis
 arrête le serveur », « configuration par l'environnement », « choisir la bonne
 brique », « appeler le générateur au lieu de l'imiter », « interroger
-l'application plutôt que lire ses sources ». Sept visent le **socle**, qui n'a
+l'application plutôt que lire ses sources », « isoler une fonctionnalité dans un
+composant réutilisable ». Sept visent le **socle**, qui n'a
 pas de générateur et s'imite ou s'ignore : « un service au conteneur »,
 « une trace exploitable en production », « une initialisation au bon moment du
 démarrage », « consommer un service depuis un autre composant », « servir un
@@ -281,6 +283,36 @@ les tests : le raccourci d'écriture devient un faux rouge.
 Et une tâche de configuration ne se juge JAMAIS sur le diff git : la bonne
 réponse vit dans `.env.local`, qui est **gitignoré**. Vécu — deux sondes ont
 déclaré en échec un agent qui avait fait juste.
+
+### Le meilleur juge demande à l'application, pas au dépôt
+
+`create module` est le générateur le plus structurant du devkit — workspace,
+paquet, configuration, services, controller, tests, et le câblage au manifeste
+de l'application. Il n'avait **aucune tâche** : la règle « une capacité arrive
+AVEC sa tâche » était enfreinte par le générateur le plus lourd, et aucun run ne
+le signalait, puisque le banc ne voit que ce qu'on lui a appris à voir.
+
+Sa tâche (28) illustre pourquoi un juge d'ÉTAT vaut mieux qu'une sonde de
+fichiers. On peut créer un `modules/audit/` complet — `package.json`, classes,
+tests — sans que l'application le charge : il manque alors le workspace,
+l'installation, ou l'entrée `use(...)` du manifeste. **Le dépôt a l'air juste, et
+l'application ne sait rien du composant.** Toute sonde de contenu rendrait un
+vert ; le juge, lui, demande à l'application ce qu'elle charge
+(`nodefony inspect modules --json`) et nomme ce demi-travail
+(`module-non-charge`) au lieu de le confondre avec « rien fait ».
+
+Rien n'y est littéralisé — ni nom de module, ni chemin, ni préfixe de route :
+l'énoncé n'en dicte aucun, et un agent qui range son composant ailleurs a fait
+juste. Le critère est **déduit** : un module chargé, qui n'est pas l'application,
+pas un paquet `@nodefony/*`, et qui ne vient pas de `node_modules` — donc du code
+de ce dépôt, pas une dépendance installée. Ce dernier point n'est pas
+théorique : sans lui, toute application passerait la tâche sans rien faire.
+
+Et sa cause `inspection-impossible` ne tranche pas : l'application peut être non
+construite (décor) **ou** porter du code que l'agent vient de casser. Elle
+s'instruit — le gate de compilation, joué sur la même tâche, tranche le plus
+souvent. Un juge qui l'imputerait d'office au décor blanchirait un agent qui a
+cassé le boot ; l'inverse accuserait un travail juste.
 
 ### Un vert par ABANDON n'est pas un vert
 

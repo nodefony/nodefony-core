@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Banc de DÉCOUVRABILITÉ du devkit — ses 23 tâches (gate de la release 10.0.0).
+ * Banc de DÉCOUVRABILITÉ du devkit — ses 24 tâches (gate de la release 10.0.0).
  *
  * La question mesurée : un agent IA lâché dans une app FRAÎCHEMENT générée
  * (`nodefony create app`) découvre-t-il l'outillage du framework, ou DEVINE-t-il ?
@@ -48,7 +48,7 @@
  * git (qu'a-t-il ÉCRIT ?). Aucun juge LLM : que des sondes objectives.
  *
  * Usage :
- *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + les 23 tâches + rapport
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + les 24 tâches + rapport
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 2       # une seule tâche
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --setup-only   # juste l'app témoin (--link)
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --analyze-only tmp/devkit-bench/<run>
@@ -234,6 +234,16 @@ const JUGE_THROTTLE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "lib",
   "gate-login-throttle.mjs",
+);
+
+/**
+ * Juge « l'application charge un composant local » — il n'ouvre aucun port :
+ * il DEMANDE à l'application ce qu'elle charge (`nodefony inspect`).
+ */
+const JUGE_MODULE = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-module-local.mjs",
 );
 
 /**
@@ -434,7 +444,7 @@ export const SONDES_QUALITE = [
 export const sondesDe = (task) => [...task.probes, ...SONDES_QUALITE];
 
 /**
- * Les 23 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
+ * Les 24 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
  * mesure, et deux runs ne se comparent plus. Toute évolution = nouvelle tâche.
  */
 export const TASKS = [
@@ -2036,6 +2046,70 @@ export const TASKS = [
             `node ${JUGE_THROTTLE}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+
+  {
+    // `create module` est le générateur le PLUS structurant du devkit — il pose
+    // un workspace, un paquet, une configuration, des services, un controller,
+    // des tests, et câble le tout au manifeste de l'application. Il n'avait
+    // aucune tâche : la règle « une capacité arrive AVEC sa tâche » était
+    // enfreinte par le générateur le plus lourd, et aucun run ne le signalait
+    // puisque le banc ne voit que ce qu'on lui a appris à voir.
+    //
+    // L'énoncé décrit un BESOIN — isolable, réutilisable — et ne nomme ni
+    // « module », ni le générateur : nommer l'outil mesurerait la lecture d'une
+    // consigne, pas la découvrabilité. La porte de sortie est large et
+    // confortable : ranger quelques classes dans un dossier de l'application.
+    // Tout marche, les tests passent, et rien n'est retirable.
+    id: 28,
+    name: "isoler une fonctionnalité dans un composant réutilisable",
+    prompt:
+      "Cette application doit gérer des rapports d'audit : les enregistrer et " +
+      "les relire par HTTP. Range cette fonctionnalité à part du reste de " +
+      "l'application — avec sa propre configuration et ses propres tests — de " +
+      "sorte qu'on puisse la retirer, ou la réutiliser dans une autre " +
+      "application, sans toucher au reste. " +
+      "Termine en prouvant que les tests de l'app passent.",
+    probes: [
+      {
+        kind: "transcript",
+        name: "a lu la doc des modules ou l'AGENTS.md",
+        pattern: /AGENTS\.md|modules?\.md|create-module/u,
+        observe: true,
+      },
+      {
+        // JUGE, et non observe : écrire un module à la main diverge du gabarit
+        // (config en deux fichiers, registre augmenté, exports, tests), et
+        // aucune autre voie ne donne cette information de façon fiable. Ancrée
+        // sur une INVOCATION — l'`AGENTS.md` généré nomme ce générateur, et une
+        // sonde qui chercherait le nom nu compterait la lecture pour un geste.
+        kind: "transcript",
+        name: "a lancé create module (au lieu d'imiter son squelette)",
+        pattern: commandeQuiContient("create\\s+module\\b"),
+      },
+      {
+        // La moitié négative : recomposer un `package.json` de module à la main
+        // est le contournement exact que le générateur rend inutile. `unless`
+        // cède si le générateur a bien été appelé — l'agent peut légitimement
+        // retoucher le fichier que l'outil vient de produire.
+        kind: "code",
+        name: "pas de squelette de module recomposé à la main",
+        pattern: /"name"\s*:\s*"@[^"]+\/[^"]+"/u,
+        where: "added",
+        invert: true,
+        unless: commandeQuiContient("create\\s+module\\b"),
+      },
+      {
+        // LE gate : il demande à l'APPLICATION ce qu'elle charge, au lieu de
+        // lire des fichiers. Un dossier `modules/audit/` complet mais non câblé
+        // passerait toute sonde de contenu, et l'application ne saurait rien
+        // de lui — le juge nomme précisément ce cas (`module-non-charge`).
+        kind: "gate",
+        name: "l'application CHARGE un composant local, qui porte ses routes",
+        cmd: ["sh", "-c", `npm run build >/dev/null 2>&1; node ${JUGE_MODULE}`],
       },
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
     ],
