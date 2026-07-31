@@ -97,6 +97,24 @@
 
 ## 🧪 Suspecter son INSTRUMENT avant le sujet mesuré
 
+- `[1× — 2026-07-31]` 🔴 **Un énoncé qui DÉCRIT une situation doit la trouver VRAIE.** T23 affirme
+  « ses envois sont rejetés en 403 » — donc route montée — alors que l'app générée ne la porte
+  pas. L'agent devait fabriquer la prémisse et tombait LÀ : 404 puis 422 ×3, quatre rouges
+  crédibles, **zéro information sur la défense CSRF** qu'on prétendait mesurer. Le signe qui
+  aurait dû alerter dès le 2ᵉ run : l'échec ne parlait jamais du sujet de la tâche. Remède : la
+  prémisse se POSE avant l'agent (crochet `prepare`, outils du framework) et se COMMITE à part —
+  sinon les sondes sur les lignes ajoutées prennent le décor pour son travail.
+- `[1× — 2026-07-31]` 🔴 **Une liste recopiée dans une sonde diverge en silence — elle reste
+  VERTE.** L'interrupteur `enabled: false` gardait 5 briques écrites à la main quand le module en
+  déclare 13 : `rateLimit`, `audit`, `jwt`, `apiKeys`, `totp`, `passkeys`, `cors`, `webhooks`
+  pouvaient être éteints sans qu'aucune tâche ne bronche. Et la plus grave n'est pas un hasard :
+  **le rate-limit est la seule défense qui GÊNE l'agent pendant son travail**, donc la seule qu'il
+  ait une raison immédiate d'éteindre — la porte la plus large était celle que personne ne
+  gardait. La liste se DÉDUIT de sa source (schéma Zod) à chaque run. Cf [[feedback_single_source_rule]].
+- `[1× — 2026-07-31]` **On ne travaille pas lourdement sur la machine qui MESURE.** Builds,
+  `create app` et suites vitest lancés pendant un run : le décor n'a pas bouté en 15 s et une
+  tâche a rendu `aucune-reponse`. Le juge a correctement nommé la cause (décor, pas agent) — sans
+  ses causes, j'aurais cherché un défaut de CSP inexistant.
 - `[1× — 2026-07-30f]` 🔴 **Un banc qui MESURE DÉJÀ le sujet peut être le faux vert.** La tâche
   « protège une route » existait (`bench-discoverability.mjs:226`) : des sondes de présence de
   chaîne, et un seul gate `npm test` — les tests que l'agent a écrits lui-même. Un `@IsGranted`
