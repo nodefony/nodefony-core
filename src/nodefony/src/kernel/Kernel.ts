@@ -2655,9 +2655,13 @@ class Kernel extends Service implements IKernel {
     // runtime) ; à la volée tant que le boot est en cours.
     const { warnings, errors } =
       this.bootLogCounts ?? this.countBootLogIssues();
+    const manifestEntries = Array.isArray(this.options.modules)
+      ? this.options.modules.length
+      : 0;
     return {
       durationMs: this.bootStartedAt > 0 ? Date.now() - this.bootStartedAt : 0,
       modulesLoaded: Object.keys(this.modules),
+      manifestEntries,
       modulesSkipped,
       modulesGated: this.modulesGated ?? [],
       warnings,
@@ -2668,7 +2672,12 @@ class Kernel extends Service implements IKernel {
       // n'a pas constaté d'absence → pas encore « unhealthy » (le garde-fou de `onReady`
       // lit le report APRÈS `captureBootServers`, donc `measured` y est vrai → inchangé).
       healthy: !(serversExpected && measured && serversListening.length === 0),
-      remediation: this.bootRemediationHint(modulesSkipped) ?? undefined,
+      remediation:
+        this.bootRemediationHint(
+          modulesSkipped,
+          manifestEntries,
+          serversExpected,
+        ) ?? undefined,
     };
   }
 
@@ -2747,10 +2756,33 @@ class Kernel extends Service implements IKernel {
    * verdict (écran + log). Heuristique : un `import()` qui échoue (« Cannot find
    * package/module ») pointe presque toujours un `dist/` périmé après pull/merge.
    *
+   * Le manifeste VIDE est traité en premier parce qu'il ne produit aucune raison
+   * d'échec : rien n'ayant été tenté, `skipped` est vide et l'heuristique
+   * suivante n'a rien à lire. C'est précisément l'état qui laissait le diagnostic
+   * muet — il faut donc le nommer ici, à défaut de pouvoir le déduire.
+   *
+   * Le manifeste vide n'est signalé que sous un profil SERVEUR : une commande
+   * batch ou un test qui boote sans manifeste est un cas nominal, et une
+   * remédiation posée là serait un faux diagnostic recopié partout où le rapport
+   * est lu.
+   *
    * @param skipped - modules ignorés.
+   * @param manifestEntries - entrées déclarées au manifeste `config.modules`.
+   * @param serversExpected - le profil d'exécution attendait-il des serveurs.
    * @returns une phrase d'action, ou `null`.
    */
-  private bootRemediationHint(skipped: IBootFailure[]): string | null {
+  private bootRemediationHint(
+    skipped: IBootFailure[],
+    manifestEntries: number,
+    serversExpected: boolean,
+  ): string | null {
+    if (serversExpected && manifestEntries === 0) {
+      return (
+        "la configuration LUE ne déclare aucun module (`modules: []`) ⇒ " +
+        "vérifier `nodefony.config` et l'exécutable employé " +
+        "(`nodefony inspect config` dit la config effective et sa provenance)"
+      );
+    }
     const moduleNotFound = skipped.some((f) =>
       /Cannot find package|Cannot find module|ERR_MODULE_NOT_FOUND/i.test(
         f.reason,
@@ -2776,8 +2808,14 @@ class Kernel extends Service implements IKernel {
       const reasons = skipped
         .map((f) => `${f.module}: ${f.reason}`)
         .join(" · ");
+      // Ce que la config DEMANDAIT, toujours — pas seulement ce qui a raté. Un
+      // boot où rien n'a été tenté ne remplit aucune des listes d'échec : sans ce
+      // décompte, le verdict décrit une absence de serveurs sans jamais dire que
+      // le manifeste était vide, et l'enquête part vers les serveurs.
       this.log(
         `BOOT ÉCHEC — profil serveur mais aucun serveur en écoute` +
+          ` · manifeste : ${report.manifestEntries} module(s) déclaré(s), ` +
+          `${report.modulesLoaded.length} chargé(s)` +
           (skipped.length
             ? ` · ${skipped.length} module(s) en échec : ${reasons}`
             : "") +
