@@ -55,3 +55,15 @@ export const ROUTE_IMPORT = "/api/secure/import";
  * (`nodefony.config.ts.tpl:88`).
  */
 export const REPERE_ZONE_PROTEGEE = "/api/secure/hello";
+
+/**
+ * Tâche « ouvrir une API à un PROGRAMME » — la route que le service partenaire
+ * appelle.
+ *
+ * Le préfixe `/api/machine` n'est pas décoratif : il est PLUS SPÉCIFIQUE que le
+ * `^/api` de la zone `main`, donc une aire déclarée dessus l'emporte au tri par
+ * longueur du firewall. Sans ce préfixe distinct, l'agent devrait modifier la
+ * zone web pour ouvrir la sienne — et la tâche mesurerait sa capacité à
+ * contourner un obstacle de décor plutôt que sa connaissance du stateless.
+ */
+export const ROUTE_MACHINE = "/api/machine/ingest";

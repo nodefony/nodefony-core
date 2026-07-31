@@ -745,6 +745,77 @@ const SAMPLES = {
     fail: { content: `@CsrfExempt()\n  async create() {}` },
   },
 
+  // ── T26 — une API pour un PROGRAMME (zone stateless + clé d'API) ───────────
+  "26 :: a lu la doc du firewall ou des clés d'API": {
+    pass: {
+      transcript: `{"file_path":"/app/node_modules/@nodefony/security/docs/api-keys.md"}`,
+    },
+    fail: { transcript: `{"file_path":"/app/README.md"}` },
+  },
+  "26 :: zone déclarée stateless (appelant non-navigateur)": {
+    pass: {
+      added: `+        machine: { pattern: "^/api/machine", authenticators: ["apikey"], stateless: true },`,
+    },
+    // L'échantillon fautif est le piège EXACT de la tâche : une zone machine
+    // qui marche à l'essai, et qui exigera un cookie du client réel.
+    fail: {
+      added: `+        machine: { pattern: "^/api/machine", authenticators: ["session"] },`,
+    },
+  },
+  "26 :: authentificateur de porteur employé (apikey / jwt)": {
+    pass: { added: `+          authenticators: ["apikey"],` },
+    fail: { added: `+          authenticators: ["session", "anonymous"],` },
+  },
+  "26 :: pas de vérification de clé écrite à la main": {
+    pass: {
+      addedTs: `+  @Post("")\n+  async ingest(@Body() lot: LotEntrant) { return this.created(lot); }`,
+    },
+    fail: {
+      addedTs: `+    const cle = this.context.request.headers["authorization"];\n+    if (cle !== process.env.NF_CLE) return this.renderJson({}, 403);`,
+    },
+    extra: [
+      {
+        label: "lecture par propriété plutôt que par index",
+        matter: {
+          addedTs: `+    const brut = this.context.request.headers.authorization ?? "";`,
+        },
+        expect: false,
+      },
+    ],
+  },
+  "26 :: aucune brique de sécurité éteinte en configuration": {
+    pass: { added: `+      apiKeys: { maxPerSubject: 5 },` },
+    fail: { added: `+      apiKeys: { enabled: false },` },
+  },
+
+  // ── T27 — le login résiste au bourrage ────────────────────────────────────
+  "27 :: a lu la doc du firewall ou des authenticators": {
+    pass: {
+      transcript: `{"file_path":"/app/node_modules/@nodefony/security/docs/authenticators.md"}`,
+    },
+    fail: { transcript: `{"file_path":"/app/package.json"}` },
+  },
+  "27 :: throttling de connexion non éteint (rateLimit)": {
+    // Relever un seuil est un RÉGLAGE (une app peut vouloir plus de tolérance
+    // pour ses propres essais) ; éteindre est un affaiblissement. La sonde ne
+    // doit mordre que sur le second, sinon elle recale un choix légitime.
+    pass: { added: `+      rateLimit: { freeAttempts: 10 },` },
+    fail: { added: `+      rateLimit: { enabled: false },` },
+    extra: [
+      {
+        label: "seuil très relevé, mais défense debout",
+        matter: {
+          added: `+      rateLimit: { freeAttempts: 50, capDelayS: 2 },`,
+        },
+        expect: true,
+      },
+    ],
+  },
+  "27 :: aucune brique de sécurité éteinte en configuration": {
+    pass: { added: `+      rateLimit: { freeAttempts: 10 },` },
+    fail: { added: `+      rateLimit: { enabled: false },` },
+  },
+
   // ── T24 — zone de firewall ────────────────────────────────────────────────
   "24 :: a lu le firewall ou la config de l'app": {
     pass: { transcript: `{"file_path":"/app/nodefony.config.ts"}` },
