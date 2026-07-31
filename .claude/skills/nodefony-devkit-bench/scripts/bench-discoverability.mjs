@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Banc de DÉCOUVRABILITÉ du devkit — les 9 tâches (gate de la release 10.0.0).
+ * Banc de DÉCOUVRABILITÉ du devkit — ses 23 tâches (gate de la release 10.0.0).
  *
  * La question mesurée : un agent IA lâché dans une app FRAÎCHEMENT générée
  * (`nodefony create app`) découvre-t-il l'outillage du framework, ou DEVINE-t-il ?
@@ -48,7 +48,7 @@
  * git (qu'a-t-il ÉCRIT ?). Aucun juge LLM : que des sondes objectives.
  *
  * Usage :
- *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + 9 tâches + rapport
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + les 23 tâches + rapport
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 2       # une seule tâche
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --setup-only   # juste l'app témoin (--link)
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --analyze-only tmp/devkit-bench/<run>
@@ -391,7 +391,7 @@ export const SONDES_QUALITE = [
 export const sondesDe = (task) => [...task.probes, ...SONDES_QUALITE];
 
 /**
- * Les 9 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
+ * Les 23 tâches — LIBELLÉS FIGÉS : reformuler une tâche change ce que le banc
  * mesure, et deux runs ne se comparent plus. Toute évolution = nouvelle tâche.
  */
 export const TASKS = [
@@ -2122,7 +2122,143 @@ function setup(runDir) {
     "-qm",
     "état initial",
   );
+  sauverIgnoresInitiaux(app, runDir);
   return app;
+}
+
+/**
+ * Met de côté les FICHIERS ignorés que la création de l'app a posés.
+ *
+ * La remise à zéro entre deux tâches efface les fichiers non suivis — c'est
+ * tout son objet, puisque la contamination passe justement par là (une base de
+ * données semée dans `var/`, une variable écrite dans `.env.local`). Mais tout
+ * ce qui est ignoré n'est pas un résidu : `.env.local` porte **les clés de
+ * chiffrement générées à la création**, et une app qui les perd n'est plus
+ * celle qu'on mesure.
+ *
+ * La distinction se lit dans la nature de l'entrée, pas dans une liste de noms :
+ * les DOSSIERS ignorés (`dist/`, `var/`, `tmp/`) sont des artefacts qu'on veut
+ * voir disparaître ; les FICHIERS ignorés présents dès la création sont de la
+ * configuration de machine, qu'il faut rendre à l'identique.
+ *
+ * @param {string} app - l'application témoin.
+ * @param {string} runDir - le répertoire du run, HORS de l'app (sinon la
+ *   sauvegarde serait emportée par le nettoyage qu'elle sert à réparer).
+ */
+function sauverIgnoresInitiaux(app, runDir) {
+  // Un MANIFESTE (chemin + contenu), et non des fichiers renommés dans un
+  // dossier : le premier jet encodait le séparateur en `__`, ce qui rendait
+  // `.env.local` sous le nom `/env.local` — le secret n'était jamais rendu, et
+  // rien ne le disait. Le contenu est encodé en base64 pour ne rien supposer de
+  // ce qu'un gabarit futur pourrait poser (binaire, encodage exotique).
+  const entrees = git(app, "status", "--ignored", "--porcelain")
+    .split("\n")
+    .filter((l) => l.startsWith("!! "))
+    .map((l) => l.slice(3))
+    .filter((f) => f && !f.endsWith("/"))
+    .filter((f) => existsSync(path.join(app, f)))
+    .map((f) => ({
+      chemin: f,
+      contenu: readFileSync(path.join(app, f)).toString("base64"),
+    }));
+  writeFileSync(
+    path.join(runDir, "decor-initial.json"),
+    JSON.stringify(entrees, null, 2),
+  );
+  if (entrees.length) {
+    console.log(
+      `  · configuration de machine mise de côté : ${entrees.map((e) => e.chemin).join(", ")}`,
+    );
+  }
+  return entrees;
+}
+
+/**
+ * Rend le décor à son état de départ, entre deux tâches.
+ *
+ * Le banc déroulait toutes les tâches dans UNE application, chacune héritant de
+ * ce que les précédentes avaient laissé. Le défaut n'est pas théorique et il
+ * est déjà raconté dans ce fichier : la tâche 6 pose une URL de base de données
+ * qui ne répond pas — c'est la BONNE réponse à son énoncé — et tout gate
+ * ultérieur qui démarre l'application sort « aucune réponse », cause étiquetée
+ * « décor ». L'agent suivant brûle alors ses tours à réparer une saleté qui
+ * n'est pas la sienne, et le rouge accuse le mauvais.
+ *
+ * Trois gestes, et chacun ferme un canal de contamination distinct :
+ *   1. les fichiers SUIVIS reviennent à l'état initial ;
+ *   2. les non-suivis disparaissent — c'est là que vivent la base de données
+ *      semée, le `dist` d'une autre tâche et la variable d'environnement ;
+ *   3. les paquets qu'une tâche a installés sont ôtés : restaurer le
+ *      `package.json` ne vide pas `node_modules`, et une tâche suivante
+ *      importerait alors une dépendance qu'elle n'a jamais déclarée.
+ *
+ * `node_modules` est explicitement épargné par le nettoyage : le réinstaller
+ * coûterait deux à quatre minutes par tâche, pour un répertoire que `npm prune`
+ * suffit à remettre en conformité en quelques secondes.
+ *
+ * La remise à zéro est COMMITÉE : l'historique reste linéaire, et son message
+ * se termine par « état initial » — le motif exact que `judgeTask` cherche pour
+ * asseoir la base d'un diff. Le travail d'une tâche se lit donc entre SA remise
+ * à zéro et son propre commit, jamais par-dessus la tâche d'avant.
+ *
+ * @param {string} app - l'application témoin.
+ * @param {string} runDir - le répertoire du run (porte la sauvegarde).
+ * @param {number} id - la tâche sur le point d'être jouée (pour le message).
+ */
+export function reinitialiserDecor(app, runDir, id) {
+  // Le commit d'ORIGINE, pas la remise à zéro précédente : `git log` va du plus
+  // récent au plus ancien, et les remises à zéro portent le même suffixe — le
+  // dernier de la liste est donc la création de l'app.
+  const initial = git(app, "log", "--format=%H %s")
+    .split("\n")
+    .filter((l) => /état initial$/u.test(l))
+    .pop()
+    ?.split(" ")[0];
+  if (!initial) {
+    throw new Error(
+      "remise à zéro impossible : aucun commit « état initial » dans le décor",
+    );
+  }
+  // `read-tree -u --reset` et non `checkout -- .` : il faut aussi SUPPRIMER les
+  // fichiers suivis qu'une tâche a ajoutés (un controller, une entité), et un
+  // `checkout` de chemin ne fait que restaurer ceux qui existaient. Et non
+  // `reset --hard`, qui déplacerait HEAD et rendrait invisibles à `git log` les
+  // commits des tâches déjà jouées — ceux-là mêmes que `judgeTask` retrouve par
+  // leur message.
+  git(app, "read-tree", "-u", "--reset", initial);
+  git(app, "clean", "-xdfq", "-e", "node_modules");
+  const manifeste = path.join(runDir, "decor-initial.json");
+  if (existsSync(manifeste)) {
+    for (const { chemin, contenu } of JSON.parse(
+      readFileSync(manifeste, "utf8"),
+    )) {
+      const cible = path.join(app, chemin);
+      mkdirSync(path.dirname(cible), { recursive: true });
+      writeFileSync(cible, Buffer.from(contenu, "base64"));
+    }
+  }
+  // Restaurer `package.json` ne désinstalle rien : sans cette taille, une tâche
+  // hériterait des paquets qu'une autre a installés et pourrait en importer un
+  // sans l'avoir déclaré — un vert qui ne tiendrait pas chez un utilisateur.
+  spawnSync("npm", ["prune", "--no-audit", "--no-fund"], {
+    cwd: app,
+    encoding: "utf8",
+    timeout: 5 * 60 * 1000,
+    env: APP_ENV,
+  });
+  git(app, "add", "-A");
+  git(
+    app,
+    "-c",
+    "user.name=bench",
+    "-c",
+    "user.email=bench@local",
+    "commit",
+    "-qm",
+    `remise à zéro avant la tâche ${id} — état initial`,
+    "--allow-empty",
+  );
+  console.log("  · décor remis à zéro (aucun héritage de la tâche précédente)");
 }
 
 /** Déroule UNE tâche : agent headless dans l'app, transcript + diff capturés. */
@@ -2537,7 +2673,14 @@ function main() {
       console.log(`\napp témoin prête : ${app}`);
       return;
     }
-    for (const task of tasks) runTask(app, runDir, task);
+    // Chaque tâche part d'un décor NEUF. Le coût est de quelques secondes (une
+    // remise à zéro git + `npm prune`), là où réinstaller l'application en
+    // coûterait deux à quatre minutes — et sans lui, une tâche juge l'agent sur
+    // la saleté de celle d'avant.
+    for (const [i, task] of tasks.entries()) {
+      if (i > 0) reinitialiserDecor(app, runDir, task.id);
+      runTask(app, runDir, task);
+    }
   }
 
   const results = tasks.map((t) => judgeTask(app, runDir, t));

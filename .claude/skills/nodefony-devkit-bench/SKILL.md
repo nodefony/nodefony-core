@@ -196,6 +196,7 @@ node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-csrf-partenaire.selft
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-zone-firewall.selftest.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-m2m-stateless.selftest.mjs   # API pour un programme
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-login-throttle.selftest.mjs  # bourrage de login
+node .claude/skills/nodefony-devkit-bench/scripts/reinit-decor.selftest.mjs <runDir>   # la remise à zéro du décor, sur un run déjà consommé
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
 ```
@@ -242,8 +243,9 @@ Une sonde ajoutée sans son échantillon doit se voir, pas se fondre dans le ver
 c'est la règle « une capacité arrive AVEC sa tâche », appliquée à la tâche
 elle-même.
 
-Seize tâches déroulées par un agent réel, en mode autonome, dans une
-application fraîche. Neuf visent les **générateurs** : « CRUD produit »,
+Vingt-trois tâches déroulées par un agent réel, en mode autonome, dans une
+application fraîche — **chacune dans un décor remis à zéro** (cf. plus bas).
+Neuf visent les **générateurs** : « CRUD produit »,
 « protège une route », « canal temps réel », « commande CLI », « démarre puis
 arrête le serveur », « configuration par l'environnement », « choisir la bonne
 brique », « appeler le générateur au lieu de l'imiter », « interroger
@@ -279,6 +281,57 @@ les tests : le raccourci d'écriture devient un faux rouge.
 Et une tâche de configuration ne se juge JAMAIS sur le diff git : la bonne
 réponse vit dans `.env.local`, qui est **gitignoré**. Vécu — deux sondes ont
 déclaré en échec un agent qui avait fait juste.
+
+### Une tâche ne juge pas l'agent sur la saleté de la précédente
+
+Les tâches se déroulent dans une seule application témoin — la monter coûte une
+installation complète, la payer vingt-trois fois n'apporterait rien. Mais tant
+qu'elle n'était pas **remise à zéro** entre deux tâches, chacune héritait de ce
+que les précédentes avaient laissé, et le banc accusait le mauvais agent.
+
+Le cas est vécu et il est instructif parce que personne n'y a mal fait : la
+tâche 6 pose une URL de base de données qui ne répond pas — c'est la BONNE
+réponse à son énoncé, qui demande une configuration par l'environnement. Toutes
+les tâches suivantes qui démarrent l'application sortent alors « aucune
+réponse », cause étiquetée « décor ». L'agent d'après brûle ses tours à réparer
+une saleté qui n'est pas la sienne. Le gel des gates (`task-N.gates.json`)
+protégeait déjà la tâche N contre les tâches N+1 ; rien ne la protégeait
+contre 1…N-1.
+
+`reinitialiserDecor` ferme cinq canaux, et il faut les cinq — chacun a son
+véhicule propre :
+
+| Canal                            | Véhicule                      | Geste                      |
+| -------------------------------- | ----------------------------- | -------------------------- |
+| fichier suivi ajouté ou modifié  | controller, entité, manifeste | `git read-tree -u --reset` |
+| base de données semée            | `var/` (ignoré)               | `git clean -xdf`           |
+| variable d'environnement         | `.env.local` (ignoré)         | `git clean -xdf`           |
+| build d'une autre tâche          | `dist/` (ignoré)              | `git clean -xdf`           |
+| paquet installé mais non déclaré | `node_modules`                | `npm prune`                |
+
+Deux pièges s'y cachent, et tous deux ont mordu à l'écriture :
+
+- **Tout ce qui est ignoré n'est pas un résidu.** `.env.local` porte les clés de
+  chiffrement générées à la création de l'app ; les effacer donne une
+  application qui démarre encore, avec d'autres clés. Les FICHIERS ignorés
+  présents dès la création sont mis de côté (`decor-initial.json`, chemin +
+  contenu) et rendus après le nettoyage ; les DOSSIERS ignorés, eux, sont
+  précisément ce qu'on veut voir disparaître.
+- **`reset --hard` serait le mauvais outil** : il déplacerait `HEAD` et rendrait
+  invisibles à `git log` les commits des tâches déjà jouées — ceux-là mêmes que
+  `judgeTask` retrouve par leur message. `read-tree -u --reset` rend l'arbre
+  sans toucher l'historique, et la remise à zéro est ensuite COMMITÉE : son
+  message se termine par « état initial », le motif exact qui sert de base au
+  diff de la tâche suivante.
+
+`node reinit-decor.selftest.mjs <runDir>` éprouve le mécanisme sans lancer un
+seul agent : il salit un décor déjà consommé des cinq façons ci-dessus, constate
+que les cinq ont pris, remet à zéro, et vérifie que les cinq ont disparu — plus
+que le secret a été rendu à l'identique et que l'historique est intact. Nettoyage
+débranché, il tombe à 2/5 ; c'est ce contraste qui en fait une preuve. Sortie
+`2` si le décor porte encore la salissure d'un contrôle précédent : le résidu
+serait relu comme l'état initial, et produirait un rouge crédible sur un
+mécanisme intact.
 
 ### Le décor, ici aussi, est celui de l'utilisateur
 
