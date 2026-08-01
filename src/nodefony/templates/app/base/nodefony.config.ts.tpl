@@ -204,5 +204,18 @@ export default defineConfig<typeof env>((ctx) => ({
      * (HMR en dev, build pré-compilé en prod).
      */
     "@nodefony/frontend",
-<% } %>  ],
+<% } %>
+    /**
+     * Outillage de DÉVELOPPEMENT — la carte de visite de cette application et
+     * les portes qui mènent au reste : `npx nodefony devkit:card`.
+     *
+     * `policy: "dev"` : ce qu'il expose (modules chargés, chemins de
+     * documentation, commandes à lancer) aide pendant le développement et n'est,
+     * en production, qu'une divulgation de ton architecture. Un module non chargé
+     * n'est même pas importé — le coût en production est nul, pas « faible ».
+     *
+     * Il est en `devDependencies` : `npm ci --omit=dev` ne l'installe pas.
+     */
+    use("@nodefony/devkit", {}, { policy: "dev" }),
+  ],
 }));

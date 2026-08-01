@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-01T17:41:17.241Z",
+  "generated": "2026-08-01T17:57:03.854Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 651,
-    "symbols": 2576,
-    "classes": 339,
-    "interfaces": 779,
+    "files": 653,
+    "symbols": 2584,
+    "classes": 340,
+    "interfaces": 784,
     "types": 337,
     "enums": 4,
-    "functions": 936,
+    "functions": 938,
     "constants": 181
   },
   "symbols": {
@@ -7291,6 +7291,17 @@
       "implements": [],
       "decorators": []
     },
+    "CardCommand": {
+      "name": "CardCommand",
+      "kind": "class",
+      "file": "src/packages/@nodefony/devkit/nodefony/command/CardCommand.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony devkit:card [-j]` — qui répond, et où aller ensuite. ## Pourquoi une commande, alors que la route existe La route HTTP vit sous `/nodefony`, que le pare-feu d'une application réelle couvr…"
+    },
     "DevkitConfigInput": {
       "name": "DevkitConfigInput",
       "kind": "type",
@@ -7340,7 +7351,7 @@
       "decorators": [
         "controller"
       ],
-      "description": "DevkitController — UN controller, DEUX protocoles (le différenciateur Nodefony) : HTTP et WebSocket sont co-citoyens du même contexte controller, même pipeline (firewall, audit, logs). Routes monté…"
+      "description": "La carte de visite de l'application, servie en HTTP. ## Pourquoi cette route n'est pas `/` Ce qu'elle rend — modules chargés, chemins de documentation, commandes à lancer — aide pendant le développ…"
     },
     "IDevkitService": {
       "name": "IDevkitService",
@@ -7350,6 +7361,51 @@
       "module": "@nodefony/devkit",
       "extends": null,
       "description": "API publique de `DevkitService` (injectable, nom `devkit`). L'interface est le CONTRAT : ce que les autres modules (et Studio) peuvent appeler. Tout ce qui n'est pas ici est un détail d'implémentat…"
+    },
+    "IDevkitAppInfo": {
+      "name": "IDevkitAppInfo",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": null,
+      "description": "Identité de l'application qui répond."
+    },
+    "IDevkitDoor": {
+      "name": "IDevkitDoor",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": null,
+      "description": "Une PORTE : un endroit où aller chercher la suite. Volontairement plat et ORDONNÉ (un tableau, pas un objet indexé) : ce qui est lu en premier est ce qui compte, et un lecteur qui s'arrête au milie…"
+    },
+    "IDevkitVerb": {
+      "name": "IDevkitVerb",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": null,
+      "description": "Un VERBE : une commande à lancer. ⚠️ Toujours préfixée `npx` — le binaire vit dans les `node_modules` de l'application, et `nodefony` nu rend 127."
+    },
+    "IDevkitCard": {
+      "name": "IDevkitCard",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": null,
+      "description": "La carte de visite complète de l'application."
+    },
+    "IDevkitCardInput": {
+      "name": "IDevkitCardInput",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": null,
+      "description": "État minimal dont {@link IDevkitCard} se dérive. INJECTÉ, jamais lu : c'est ce qui rend la construction de la carte éprouvable sans Kernel ni serveur, et ce qui l'empêche d'inventer quoi que ce soit."
     },
     "DevkitService": {
       "name": "DevkitService",
@@ -7365,6 +7421,14 @@
         "injectable"
       ],
       "description": "Service principal du module — la logique vit ici, pas dans les controllers (un controller traduit du HTTP/WS ; un service, lui, est réutilisable par la CLI, un job, un autre module). Cycle : `const…"
+    },
+    "buildCard": {
+      "name": "buildCard",
+      "kind": "function",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/card.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Construit la carte de visite d'une application à partir de son état. Fonction **PURE** : elle reçoit l'état, elle ne le lit pas. C'est ce qui la rend éprouvable sans Kernel ni serveur — et ce qui g…"
     },
     "DocumentationConfig": {
       "name": "DocumentationConfig",
@@ -18007,6 +18071,7 @@
         "Stop",
         "BatchTest",
         "DaemonTest",
+        "CardCommand",
         "FrontendBuild",
         "FrontendDev",
         "FrontendStatus",
@@ -18547,6 +18612,7 @@
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
+        "src/packages/@nodefony/devkit/nodefony/command/CardCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
@@ -18924,6 +18990,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/modules/test/nodefony/controller/DiController.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
@@ -19258,9 +19325,13 @@
         "src/packages/@nodefony/devkit/index.ts"
       ],
       "DevkitService": [
-        "src/packages/@nodefony/devkit/index.ts"
+        "src/packages/@nodefony/devkit/index.ts",
+        "src/packages/@nodefony/devkit/nodefony/command/CardCommand.ts"
       ],
       "DevkitController": [
+        "src/packages/@nodefony/devkit/index.ts"
+      ],
+      "CardCommand": [
         "src/packages/@nodefony/devkit/index.ts"
       ],
       "GitService": [
@@ -20468,6 +20539,7 @@
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
+        "src/packages/@nodefony/devkit/nodefony/command/CardCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
@@ -21482,6 +21554,7 @@
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
+        "src/packages/@nodefony/devkit/nodefony/command/CardCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
@@ -22114,11 +22187,20 @@
       "ToolExecutionError": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
       ],
+      "IDevkitCard": [
+        "src/packages/@nodefony/devkit/nodefony/command/CardCommand.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
+        "src/packages/@nodefony/devkit/nodefony/src/card.ts"
+      ],
       "devkitConfigSchema": [
         "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts"
       ],
       "DevkitConfig": [
         "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
+      ],
+      "IDevkitService": [
+        "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
       ],
       "injectable": [
@@ -22131,8 +22213,17 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
-      "IDevkitService": [
+      "buildCard": [
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
+      ],
+      "IDevkitCardInput": [
+        "src/packages/@nodefony/devkit/nodefony/src/card.ts"
+      ],
+      "IDevkitDoor": [
+        "src/packages/@nodefony/devkit/nodefony/src/card.ts"
+      ],
+      "IDevkitVerb": [
+        "src/packages/@nodefony/devkit/nodefony/src/card.ts"
       ],
       "documentationConfigSchema": [
         "src/packages/@nodefony/documentation/nodefony/config/defineModuleConfig.ts"

@@ -30,13 +30,6 @@ export const devkitConfigSchema = z.object({
     .boolean()
     .default(true)
     .describe("Active les fonctionnalités du module devkit"),
-
-  /** Exemple : à remplacer par la vraie config du module. */
-  greeting: z
-    .string()
-    .min(1)
-    .default("Bonjour de devkit")
-    .describe("Message renvoyé par le service (exemple de champ configurable)"),
 });
 
 /** Config telle que l'APP l'écrit dans `use()` — tous les champs optionnels. */

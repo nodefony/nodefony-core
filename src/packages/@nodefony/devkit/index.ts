@@ -4,6 +4,7 @@ import config, { type DevkitConfigInput } from "./nodefony/config/config";
 import { defineDevkitConfig } from "./nodefony/config/defineModuleConfig";
 import DevkitService from "./nodefony/service/DevkitService";
 import DevkitController from "./nodefony/controllers/DevkitController";
+import CardCommand from "./nodefony/command/CardCommand";
 /**
  * @nodefony/devkit — Outillage de developpement d une application Nodefony : carte de visite et portes de decouverte pour un agent
  *
@@ -31,6 +32,7 @@ declare module "nodefony" {
 class DevkitModule extends Module {
   constructor(kernel: Kernel) {
     super("devkit", kernel, import.meta.url, config);
+    this.addCommand(CardCommand);
   }
 
   /**
@@ -47,3 +49,28 @@ class DevkitModule extends Module {
 }
 
 export default DevkitModule;
+export { DevkitService, DevkitController };
+
+// Brique PURE, réutilisable par une autre porte (CLI, presse-papier, MCP) : la
+// carte se compose à partir d'un état injecté, pas d'un Kernel. « Une source,
+// plusieurs portes » — le jour où une deuxième porte existe, elle n'aura rien à
+// réécrire.
+export { buildCard } from "./nodefony/src/card";
+
+// Config — schéma Zod (source de vérité) + builder
+export { defineDevkitConfig } from "./nodefony/config/defineModuleConfig";
+export {
+  devkitConfigSchema,
+  type DevkitConfig,
+  type DevkitConfigInput,
+} from "./nodefony/config/config";
+
+// Contrats publics
+export type {
+  IDevkitAppInfo,
+  IDevkitCard,
+  IDevkitCardInput,
+  IDevkitDoor,
+  IDevkitService,
+  IDevkitVerb,
+} from "./nodefony/interfaces/IDevkitService";

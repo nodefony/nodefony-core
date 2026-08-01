@@ -411,6 +411,16 @@ croira vraie.
 
 ## Demander à l'app, plutôt que déduire du code
 
+**Perdu ? Commence par ici** — la carte de visite dit qui répond, ce qui est
+chargé, où lire et quoi lancer :
+
+```bash
+npx nodefony devkit:card        # ajoute -j pour du JSON (| jq)
+```
+
+Elle vient de `@nodefony/devkit`, en `devDependencies` et `policy: "dev"` : elle
+existe pendant que tu développes, et pas en production.
+
 ```bash
 npx nodefony inspect routes --json     # toutes les routes réelles (chemin, méthodes, controller)
 npx nodefony inspect services --json   # services enregistrés, et le module qui les porte

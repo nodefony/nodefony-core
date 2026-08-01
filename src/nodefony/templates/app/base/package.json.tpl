@@ -39,6 +39,7 @@
 <% } } %>    "zod": "<%= it.pkg["zod"] %>"
   },
   "devDependencies": {
+    "@nodefony/devkit": "^<%= it.nodefonyVersion %>",
     "@types/node": "<%= it.pkg["@types/node"] %>",
     "@typescript/native-preview": "<%= it.pkg["@typescript/native-preview"] %>",
     "oxlint": "<%= it.pkg["oxlint"] %>",

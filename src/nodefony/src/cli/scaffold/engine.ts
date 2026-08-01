@@ -1620,19 +1620,60 @@ function readNodefonyName(file: string, writer: ScaffoldWriter): string | null {
 }
 
 /**
- * Service appelable de la cible : sa classe et sa clé de conteneur.
+ * Première méthode d'un service qu'une commande peut appeler SANS argument.
  *
- * `greet` est exigée parce que c'est la méthode que la commande générée appelle :
- * mieux vaut refuser l'option que produire un appel qui ne compile pas. Un
- * service écrit à la main porte d'autres méthodes — l'utilisateur adaptera le
- * fichier généré, ce qui reste plus honnête qu'un exemple faux.
+ * On cherche une méthode **publique** dont tous les paramètres sont facultatifs
+ * (aucun, ou tous avec `?`/valeur par défaut) : c'est la seule forme dont on
+ * puisse produire un appel qui compile à coup sûr. Le cycle de vie (`init`) et
+ * le constructeur sont exclus — les appeler serait un contresens.
  *
- * @returns `{ pascal, key }`, ou `null` si la cible n'a aucun service de cette forme.
+ * ⚠️ Analyse TEXTUELLE, volontairement conservatrice : à la moindre signature
+ * qu'on ne sait pas lire, on passe. Mieux vaut refuser `--service` que livrer un
+ * appel qui ne compile pas.
+ *
+ * @returns le nom de la méthode, ou `null` si aucune ne convient.
+ */
+function findCallableMethod(source: string): string | null {
+  // Méthode au premier niveau d'indentation d'une classe, non privée, non
+  // statique, éventuellement `async`. Le corps ne nous intéresse pas.
+  const re =
+    /^ {2}(?:public\s+)?(?:async\s+)?([a-z][A-Za-z0-9_]*)\s*\(([^)]*)\)/gmu;
+  for (const m of source.matchAll(re)) {
+    const [, name, params] = m;
+    if (name === "constructor" || name === "init" || name === "if") {
+      continue;
+    }
+    const args = params.trim();
+    // Tous facultatifs ? Un `=` ou un `?` par paramètre — sinon l'appel généré
+    // manquerait un argument requis.
+    const callable =
+      args === "" ||
+      args
+        .split(",")
+        .every((p) => p.includes("=") || /\?\s*:/u.test(p) || p.trim() === "");
+    if (callable) {
+      return name;
+    }
+  }
+  return null;
+}
+
+/**
+ * Service appelable de la cible : sa classe, sa clé de conteneur, sa méthode.
+ *
+ * ⚠️ La méthode est CHERCHÉE, pas supposée. Elle a longtemps été exigée par son
+ * nom (`greet`, celui du gabarit) — or ce même gabarit dit « à remplacer par la
+ * vôtre » : suivre le conseil cassait `--service`, sur un message qui réclamait
+ * une méthode d'exemple. Un générateur ne doit pas exiger que son propre exemple
+ * soit resté intact.
+ *
+ * @returns `{ pascal, key, method }`, ou `null` si la cible n'a aucun service
+ *   dont une méthode soit appelable sans argument.
  */
 function findTargetService(
   targetDir: string,
   writer: ScaffoldWriter,
-): { pascal: string; key: string } | null {
+): { pascal: string; key: string; method: string } | null {
   const dir = path.join(targetDir, "nodefony", "service");
   if (!writer.exists(dir)) {
     return null;
@@ -1643,10 +1684,14 @@ function findTargetService(
     }
     const file = path.join(dir, entry.name);
     const key = readNodefonyName(file, writer);
-    if (key === null || !/\bgreet\s*\(/u.test(writer.read(file))) {
+    if (key === null) {
       continue;
     }
-    return { pascal: entry.name.replace(/\.ts$/u, ""), key };
+    const method = findCallableMethod(writer.read(file));
+    if (method === null) {
+      continue;
+    }
+    return { pascal: entry.name.replace(/\.ts$/u, ""), key, method };
   }
   return null;
 }
@@ -1783,7 +1828,8 @@ function runCommandScaffold(
   if (answers.service === true && service === null) {
     throw new Error(
       `--service : aucun service appelable dans ${target.name} ` +
-        `(attendu : nodefony/service/*Service.ts exposant greet()) — relance sans --service`,
+        `(attendu : nodefony/service/*Service.ts exposant une méthode publique ` +
+        `sans argument obligatoire) — relance sans --service`,
     );
   }
   const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });

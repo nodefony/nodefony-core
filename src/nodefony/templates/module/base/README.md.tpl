@@ -1,8 +1,11 @@
 # <%= it.pkgName %>
 
+
 <%= it.description %>
 
-Module applicatif Nodefony — un **workspace npm** (`modules/<%= it.name %>/`) chargé par le
+
+Module applicatif Nodefony — un **workspace npm**
+(`<%= it.moduleDir %>/<%= it.name %>/`) chargé par le
 manifeste `modules` de `nodefony.config.ts` de l'app :
 
 ```ts

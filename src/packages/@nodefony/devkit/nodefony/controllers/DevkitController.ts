@@ -1,23 +1,29 @@
-import {
-  route,
-  controller,
-  Controller,
-  CurrentUser,
-  Param,
-} from "@nodefony/framework";
+import { route, controller, Controller } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
+import type { IDevkitService } from "../interfaces/IDevkitService";
 
 /**
- * DevkitController — UN controller, DEUX protocoles (le différenciateur
- * Nodefony) : HTTP et WebSocket sont co-citoyens du même contexte controller,
- * même pipeline (firewall, audit, logs).
+ * La carte de visite de l'application, servie en HTTP.
  *
- * Routes montées sous `/nodefony/devkit/api` (couvertes par la zone firewall `^/api`
- * si tu as gardé le manifeste par défaut : identité résolue, jamais bloquante).
+ * ## Pourquoi cette route n'est pas `/`
  *
- * C'est le MÊME gabarit qui sert le controller d'accueil d'une app neuve et
- * `nodefony create controller --kind hello` : le premier exemple que tu lis est
- * donc exactement celui que la commande te régénérera.
+ * Ce qu'elle rend — modules chargés, chemins de documentation, commandes à
+ * lancer — aide pendant le développement et n'est, en production, qu'une
+ * divulgation de l'architecture. Elle vit donc dans un module `policy: "dev"`,
+ * absent du boot en production, et sous le préfixe réservé `/nodefony` plutôt
+ * qu'à la racine : `/` appartient à l'application, qui doit pouvoir y répondre
+ * ce qu'elle assume devant ses utilisateurs.
+ *
+ * ## Pourquoi aucune garde `@IsGranted`
+ *
+ * Le module n'existe qu'en développement : c'est la `policy` qui le protège, pas
+ * un rôle. Exiger un rôle imposerait `@nodefony/security` à toute application
+ * qui installe le devkit — y compris celles qui n'ont pas de firewall du tout.
+ * Une garde qui force une dépendance protège moins qu'elle ne coûte.
+ *
+ * **Mince par design** : la composition de la carte vit dans le service (et sa
+ * construction dans une fonction pure) ; le controller ne fait que traduire en
+ * HTTP.
  */
 @controller("/nodefony/devkit/api")
 class DevkitController extends Controller {
@@ -25,85 +31,24 @@ class DevkitController extends Controller {
     super("devkit", context);
   }
 
-  // ── `initialize()` — le constructeur ASYNCHRONE du controller ──────────────
-  // Un `constructor` ne peut pas être `async` : tout ce qui demande un `await`
-  // avant l'action se fait ici. Le hook est optionnel — ne l'écris que si tu en
-  // as besoin.
-  //
-  //   async initialize(): Promise<this> {
-  //     this.setContextJson();                        // format de sortie
-  //     const user = RequestContext.getUser();        // identité déjà résolue
-  //     this.prefs = await this.get("prefs").load(user.identifier);
-  //     return this;
-  //   }
-  //
-  // Quand il tourne :
-  //  • en HTTP — APRÈS le firewall et la garde `@IsGranted` : l'identité est
-  //    résolue, et rien ne s'exécute pour un appelant qui sera rejeté ;
-  //  • en WebSocket — AVANT l'accept du handshake, donc avant le firewall :
-  //    l'identité n'y est PAS encore résolue. C'est en revanche la dernière
-  //    fenêtre pour poser un cookie ou un en-tête sur la réponse de handshake.
-  //    Pour de la mise en place par connexion AUTHENTIFIÉE, fais-la au
-  //    handshake (`echo(null)` ci-dessous), qui lui est post-firewall.
-  //
-  // À ne pas y mettre : une décision d'autorisation (c'est `@IsGranted`, qui
-  // s'évalue avant), ni un travail qu'une seule action sur cinq utilise — il
-  // serait payé par toutes.
-
-  @route("devkit-index", { path: "", method: "GET" })
-  // `@CurrentUser()` injecte l'utilisateur posé dans l'ALS par le firewall.
-  // `identifier` = identifiant fonctionnel ; l'anonyme est un VRAI user
-  // (AnonymousUser, identifier "anon."), jamais null en zone firewall.
-  async index(@CurrentUser() user?: { identifier?: string }) {
-    const authenticated = !!user?.identifier && user.identifier !== "anon.";
-    return this.renderJson({
-      hello: "devkit",
-      pid: process.pid,
-      who: authenticated ? user!.identifier! : "anonyme",
-    });
-  }
-
-  /**
-   * Une valeur PORTÉE PAR LE CHEMIN — et c'est la seule syntaxe de Nodefony qui
-   * diffère de ce que tu connais ailleurs.
-   *
-   * Le segment variable s'écrit **`{name}`**, entre accolades. `:name` — la
-   * forme d'Express, de Nest et de Fastify — compile, se monte, s'affiche dans
-   * `nodefony inspect routes`… et ne correspond à AUCUNE URL réelle : il est
-   * pris pour un segment littéral. Le symptôme est un 404 sur une route qu'on
-   * VOIT dans le code. (`nodefony doctor` nomme ce cas et rend le chemin
-   * corrigé.)
-   *
-   * La valeur se lit avec `@Param("name")`. Elle arrive aussi en argument
-   * positionnel, dans l'ordre des variables du chemin, mais le décorateur
-   * nomme ce qu'il injecte : il survit à un segment ajouté devant.
-   *
-   * Contraindre le format se fait dans le chemin : `{id}(\d+)` n'accepte que
-   * des chiffres, et `/{slug}?` rend le segment optionnel.
-   */
-  @route("devkit-greet", { path: "/hello/{name}", method: "GET" })
-  async greet(@Param("name") name: string) {
-    return this.renderJson({ hello: name, pid: process.pid });
-  }
-
-  /**
-   * WebSocket natif : `wscat -c wss://127.0.0.1:5152/nodefony/devkit/api/echo`
-   * puis tape un message — la réponse repasse par le MÊME pipeline.
-   *
-   * ⚠ Cet echo BRUT est une DÉMO du pipeline HTTP/WS partagé, pas un modèle :
-   * pour du WS métier (canaux pub/sub, actions RPC, reconnexion, policies),
-   * génère la bonne couche — `nodefony create controller <nom> --kind realtime`
-   * (socket Nodefony JSON-RPC, côté client `RealtimeClient`/hooks React).
-   */
-  @route("devkit-echo", {
-    path: "/echo",
-    requirements: { methods: ["WEBSOCKET"] },
-  })
-  async echo(message: string | Buffer | null) {
-    if (!message) {
-      return this.renderJson({ handshake: true });
+  /** Résout le service depuis le conteneur partagé (clé d'instance). */
+  #service(): IDevkitService {
+    const svc = this.get<IDevkitService>("devkit");
+    if (!svc) {
+      throw new Error("DevkitService non enregistré");
     }
-    return this.renderJson({ echo: message.toString() });
+    return svc;
+  }
+
+  /**
+   * `GET /nodefony/devkit/api/card` — qui répond, et où aller ensuite.
+   *
+   * La réponse est recalculée à chaque appel : elle décrit l'application TELLE
+   * QU'ELLE EST, pas telle qu'elle était au démarrage.
+   */
+  @route("devkit-card", { path: "/card", method: "GET" })
+  async card() {
+    return this.renderJson(this.#service().getCard());
   }
 }
 

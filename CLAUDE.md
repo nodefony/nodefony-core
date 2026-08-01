@@ -715,6 +715,7 @@ Deux niveaux de docs IA — **lire AVANT de toucher au code du module** :
 | `@nodefony/framework` | [`src/packages/@nodefony/framework/CLAUDE.md`](src/packages/@nodefony/framework/CLAUDE.md) | [`src/packages/@nodefony/framework/MEMORY.md`](src/packages/@nodefony/framework/MEMORY.md) | Router, Controller, Resolver, décorateurs                                  |
 | `@nodefony/frontend`  | [`src/packages/@nodefony/frontend/CLAUDE.md`](src/packages/@nodefony/frontend/CLAUDE.md)   | [`src/packages/@nodefony/frontend/MEMORY.md`](src/packages/@nodefony/frontend/MEMORY.md)   | Vite builder, ViteSupervisor, FrontendService, HMR, multi-bundle           |
 | `@nodefony/studio`    | [`src/packages/@nodefony/studio/CLAUDE.md`](src/packages/@nodefony/studio/CLAUDE.md)       | [`src/packages/@nodefony/studio/MEMORY.md`](src/packages/@nodefony/studio/MEMORY.md)       | Admin web Studio (P10), routes `/nodefony`, controller + frontend React 19 |
+| `@nodefony/devkit`    | [`src/packages/@nodefony/devkit/CLAUDE.md`](src/packages/@nodefony/devkit/CLAUDE.md)       | [`src/packages/@nodefony/devkit/MEMORY.md`](src/packages/@nodefony/devkit/MEMORY.md)       | Carte de visite de l'app (`devkit:card`), `policy:"dev"` — absent en prod  |
 | Module `test`         | [`src/modules/test/CLAUDE.md`](src/modules/test/CLAUDE.md)                                 | [`src/modules/test/MEMORY.md`](src/modules/test/MEMORY.md)                                 | Routes d'intégration HTTP+WS, controllers, statics                         |
 
 ### Core (`@nodefony/core` workspace `src/nodefony`)

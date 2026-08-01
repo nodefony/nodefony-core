@@ -7,24 +7,41 @@
 
 ## Rôle du module
 
-Outillage de developpement d une application Nodefony : carte de visite et portes de decouverte pour un agent
+La carte de visite d'une application et les portes qui mènent au reste. Module
+`policy: "dev"` — il aide pendant le développement et n'existe pas en production.
 
 ## Structure
 
 ```
 devkit/
-├── index.ts                                   ← classe Module + @services + re-exports publics
+├── index.ts                                      ← classe Module + @services + @controllers + exports
 ├── nodefony/
 │   ├── config/{config.ts,defineModuleConfig.ts}  ← schéma Zod (source unique) + builder
-│   ├── service/DevkitService.ts        ← service injectable
-│   ├── interfaces/IDevkitService.ts    ← contrat public
-│   └── src/errors/DevkitError.ts       ← erreurs typées
-├── tests/                                      ← vitest
-└── docs/                                       ← doc du module (surfacée dans Studio)
+│   ├── src/card.ts                               ← construction de la carte : fonction PURE
+│   ├── service/DevkitService.ts                  ← dérive la carte du Kernel
+│   ├── controllers/DevkitController.ts           ← porte HTTP
+│   ├── command/CardCommand.ts                    ← porte CLI (`devkit:card`)
+│   ├── interfaces/IDevkitService.ts              ← contrat public
+│   └── src/errors/DevkitError.ts                 ← erreurs typées
+├── tests/                                        ← vitest
+└── docs/                                         ← doc du module (surfacée dans Studio)
 ```
 
 ## Décisions figées
 
+- **Rien n'est stocké, tout est DÉRIVÉ.** La carte se recalcule à chaque lecture
+  depuis l'état du Kernel. Un cache mentirait au premier module ajouté — et un
+  outil de découverte qui ment coûte plus cher que pas d'outil du tout.
+- **La composition de la carte est PURE** (`src/card.ts`) : elle reçoit son état,
+  elle ne le lit pas. C'est ce qui la rend éprouvable sans Kernel ni serveur, et
+  ce qui garantit qu'elle ne peut rien inventer. Une porte de plus se branche
+  dessus, jamais sur le service.
+- **Aucune garde `@IsGranted`** sur le controller : ce serait imposer
+  `@nodefony/security` à toute application qui installe le devkit. C'est la
+  `policy` qui protège, pas un rôle.
+- **Ce module ne porte NI scaffold NI diagnostic** — `create`, `check` et
+  `inspect` vivent dans le cœur : ils doivent répondre sans qu'aucun module soit
+  installé, et quand l'application est cassée.
 - **Paquet PUBLIABLE** : `exports`/`types` pointent vers du GÉNÉRÉ (`dist/`,
   `dist/types/`) — jamais un `.d.ts` écrit à la main. `files` borne ce qui part
   sur npm.
@@ -39,6 +56,10 @@ devkit/
 - Modifier `rolldown.config.ts` / `tsconfig*.json`.
 - Retaper un défaut de config ailleurs que dans le schéma Zod.
 - Ajouter une dépendance runtime sans peser son coût (taille + mémoire).
+- Faire dépendre ce module d'un fournisseur de modèle (LLM) : son intérêt est de
+  servir l'agent que l'utilisateur a DÉJÀ.
+- Y déplacer une capacité qui doit marcher **sans installation** ou **application
+  cassée** — sa place est le cœur.
 
 ## Tests / build
 

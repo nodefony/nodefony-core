@@ -3,10 +3,12 @@ import {
   Module,
   Container,
   Event,
+  Nodefony,
   extend,
   injectable,
 } from "nodefony";
-import type { IDevkitService } from "../interfaces/IDevkitService";
+import type { IDevkitCard, IDevkitService } from "../interfaces/IDevkitService";
+import { buildCard } from "../src/card";
 import defaultConfig, { type DevkitConfig } from "../config/config";
 
 /**
@@ -90,9 +92,29 @@ class DevkitService extends Service implements IDevkitService {
     return this;
   }
 
-  /** Exemple de méthode métier — à remplacer par la vôtre. */
-  greet(who = "monde"): string {
-    return `${this.cfg.greeting}, ${who} !`;
+  /**
+   * Carte de visite de l'application — recalculée à CHAQUE lecture.
+   *
+   * Tout est DÉRIVÉ de l'état du Kernel : le module ne stocke rien en propre, et
+   * ne peut donc pas décrire une application qui n'est plus celle-là. Un cache
+   * mentirait au premier module ajouté ; le coût ne le justifie pas (quelques
+   * lectures de champs, sur une route de développement appelée à la main).
+   *
+   * `buildCard` reste PURE et reçoit cet état : c'est la frontière qui rend la
+   * composition de la carte éprouvable sans Kernel ni serveur.
+   */
+  getCard(): IDevkitCard {
+    const kernel = this.module.kernel;
+    return buildCard({
+      appName: kernel?.projectName ?? "application",
+      // `kernel.version` est celle de l'APP (lue de son package.json) ;
+      // `Nodefony.version` celle du FRAMEWORK. Deux versions distinctes, et les
+      // confondre est le genre d'erreur qu'une carte de visite ne doit pas faire.
+      appVersion: kernel?.version ?? "0.0.0",
+      nodefonyVersion: Nodefony.version,
+      environment: kernel?.environment ?? "unknown",
+      modules: Object.keys(kernel?.modules ?? {}),
+    });
   }
 
   status(): { ready: boolean } {

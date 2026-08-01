@@ -371,6 +371,43 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  /**
+   * L'outillage de développement arrive AVEC l'application, dans les deux
+   * presets — mais jamais en production.
+   *
+   * Les deux moitiés comptent, et séparément : en `devDependencies` pour qu'un
+   * `npm ci --omit=dev` ne l'installe pas, et `policy: "dev"` pour qu'un
+   * déploiement qui installerait tout ne le charge pas quand même. Personne
+   * n'apprend un verbe absent : s'il fallait l'ajouter à la main, il n'existerait
+   * pour personne.
+   */
+  describe("devkit — l'outillage de dev naît avec l'app, et pas en prod", () => {
+    for (const preset of ["complete", "minimal"]) {
+      it(`preset ${preset} : devDependency + policy dev au manifeste`, () => {
+        const dest = path.join(tmp, `dk-${preset}`);
+        scaffold(dest, { name: `dk${preset}`, preset, frontend: "none" });
+        const pkg = readJson(path.join(dest, "package.json"));
+        assert.property(
+          pkg["devDependencies"] as unknown as Record<string, string>,
+          "@nodefony/devkit",
+        );
+        // …et SURTOUT pas en dependencies : ce serait installé en production.
+        assert.notProperty(
+          pkg["dependencies"] as unknown as Record<string, string>,
+          "@nodefony/devkit",
+        );
+        const config = readFileSync(
+          path.join(dest, "nodefony.config.ts"),
+          "utf8",
+        );
+        assert.include(
+          config.replace(/\s+/gu, " "),
+          'use("@nodefony/devkit", {}, { policy: "dev" })',
+        );
+      });
+    }
+  });
+
   describe("moteur — preset minimal", () => {
     it("base saine : http+framework seuls, PAS d'infra docker", () => {
       const dest = path.join(tmp, "mini");
@@ -3181,7 +3218,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "utf8",
       );
       assert.include(src, 'get("blog")');
-      assert.include(src, "svc.greet(who)");
+      // La méthode est CHERCHÉE dans le service, pas supposée par son nom.
+      assert.include(src, "await svc.greet()");
       // Eta AVALE le saut de ligne qui suit un tag placé en fin de ligne : la
       // ligne suivante se recolle à la précédente, et le fichier part avec un
       // TSDoc recousu ou un type coupé en deux. Vu sur pièce en écrivant ce
@@ -3197,6 +3235,71 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // on refuse AVANT d'écrire plutôt que de livrer du code cassé.
       assert.throws(
         () => command(dest, { name: "greet", service: true }),
+        /aucun service appelable/u,
+      );
+    });
+
+    /**
+     * Le gabarit de service dit « Exemple de méthode métier — à remplacer par la
+     * vôtre ». La garde de `--service`, elle, exigeait cette méthode par son NOM
+     * (`greet`) : suivre le conseil du gabarit cassait l'option, sur un message
+     * qui réclamait une méthode d'exemple. Trouvé en dogfoodant sur un vrai
+     * module. Un générateur ne peut pas exiger que son propre exemple soit resté
+     * intact — c'est même l'inverse de ce qu'on lui demande.
+     */
+    it("--service : marche encore quand la méthode d'exemple a été REMPLACÉE", () => {
+      const dest = appWithModule("cmdrenamed");
+      const svcPath = path.join(
+        dest,
+        "modules",
+        "blog",
+        "nodefony",
+        "service",
+        "BlogService.ts",
+      );
+      const rewritten = readFileSync(svcPath, "utf8").replace(
+        /greet\(who = "monde"\): string \{/u,
+        "publier(): string {",
+      );
+      assert.notInclude(rewritten, "greet(", "réécriture du service ratée");
+      writeFileSync(svcPath, rewritten);
+
+      const r = command(dest, {
+        name: "publish",
+        service: true,
+        module: "@cmdrenamed/blog",
+      });
+      const src = readFileSync(
+        path.join(r.dest, "nodefony", "command", "PublishCommand.ts"),
+        "utf8",
+      );
+      assert.include(src, "await svc.publier()");
+    });
+
+    it("--service : refuse une méthode qui exige un argument (l'appel ne compilerait pas)", () => {
+      const dest = appWithModule("cmdargs");
+      const svcPath = path.join(
+        dest,
+        "modules",
+        "blog",
+        "nodefony",
+        "service",
+        "BlogService.ts",
+      );
+      const rewritten = readFileSync(svcPath, "utf8")
+        .replace(/greet\(who = "monde"\): string \{/u, "publier(id: string) {")
+        .replace(
+          /status\(\): \{ ready: boolean \} \{/u,
+          "etat(flag: boolean) {",
+        );
+      writeFileSync(svcPath, rewritten);
+      assert.throws(
+        () =>
+          command(dest, {
+            name: "publish",
+            service: true,
+            module: "@cmdargs/blog",
+          }),
         /aucun service appelable/u,
       );
     });
