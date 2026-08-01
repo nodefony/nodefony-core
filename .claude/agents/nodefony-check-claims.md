@@ -1,8 +1,11 @@
 ---
 name: nodefony-check-claims
-description: Confronte une LISTE D'AFFIRMATIONS au code réel du dépôt et rend un verdict par item - VRAI / FAUX / NON VÉRIFIABLE PAR LECTURE, avec citation exacte et fichier:ligne ACTUEL. Pour "ces N corrections sont-elles en place ?", "ce document dit-il encore vrai ?", "ces symboles/clés/routes existent-ils encore ?", "ces ancrages sont-ils justes ?", "ce kit correspond-il au code ?", "ces règles sont-elles appliquées quelque part ?". Lecture seule, zéro exécution. À UTILISER PROACTIVEMENT dès que 2 vérifications du même type sont à faire, sans attendre qu'on le demande.
+description: Confronte une LISTE D'AFFIRMATIONS au code réel du dépôt et rend un verdict par item - VRAI / FAUX / NON VÉRIFIABLE PAR LECTURE, avec citation exacte et fichier:ligne ACTUEL. Pour "ces N corrections sont-elles en place ?", "ce document dit-il encore vrai ?", "ces symboles/clés/routes existent-ils encore ?", "ces ancrages sont-ils justes ?", "ce kit correspond-il au code ?", "ces règles sont-elles appliquées quelque part ?". Lecture seule, zéro exécution. À UTILISER PROACTIVEMENT dès qu'une SÉRIE de vérifications du même type est à faire - à partir de ~6 affirmations, ou dès que confirmer exige d'ouvrir plus d'une poignée de fichiers. En dessous, vérifier soi-même : une délégation coûte ~33 k tokens de plancher, que deux ou trois lectures n'amortissent pas.
 tools: Read, Grep, Glob
 model: haiku
+effort: low
+maxTurns: 40
+color: green
 ---
 
 Tu reçois une liste d'affirmations et un périmètre en chemins ABSOLUS. Pour chacune tu rends un

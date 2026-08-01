@@ -174,6 +174,9 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
      Vécu (2026-07-25) : 8 résolutions de `BUG_REPORT.md` vérifiées à la main en `opus` alors que
      la tâche était mécanique de bout en bout — le déclencheur « volume » ne mordait pas, et le
      plancher « ne pas déléguer ce qui tient en deux `rg` » achevait de m'en dissuader.
+     ⚠️ Ce cas reste un ratage APRÈS le relèvement du plancher (§ ci-dessous) : **8 affirmations >
+     le seuil de ~6**, la délégation devait avoir lieu. Un plancher chiffré ne dissuade que sous
+     son seuil — il ne couvre pas un lot qui le dépasse.
 
    Le gain de (b) n'est pas le prix du run : c'est que **le contexte principal reste sur la
    décision** au lieu de se remplir de sorties de `grep`.
@@ -205,15 +208,25 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
      approximatif envoie chercher au mauvais endroit (vécu : 250 retex archivés hors du dossier
      que j'avais indiqué) ; et un sous-agent peut AFFIRMER un fichier qui n'existe pas — toute
      affirmation d'inventaire se recontrôle d'un `ls`/`grep` avant d'entrer dans une synthèse.
-   - **Le plancher est un COMPTE, pas une impression : ≥ 2 vérifications indépendantes du même
-     type → déléguer.** Abaissé de 3 à 2 après l'avoir enfreint sans m'en apercevoir : trois
-     trous d'un kit ont été vérifiés à la main (lire le code, lancer la commande, conclure
-     VRAI/FAUX) alors que chacun avait un verdict binaire et une preuve — le travail que le
-     modèle le moins cher rend à l'identique. Le déclencheur ne se voit pas au nombre de
-     fichiers : il se voit à ce qu'on est en train de FAIRE.
-     **Le doute tranche POUR la délégation** : un run `haiku` inutile coûte l'équivalent d'une
-     poignée de `grep` ; la même vérification faite dans le contexte principal le remplit de
-     sorties d'outils pour le reste de la session, et ça, ça se paie à chaque tour suivant.
+   - **Le plancher est un COÛT, pas un compte : une délégation custom coûte ~33 k tokens AVANT
+     d'avoir lu quoi que ce soit.** Mesuré sur les transcripts : un sous-agent lancé sur un
+     fichier de 2 403 caractères (~600 tokens de matière) a consommé **33 897 tokens**. Ce
+     plancher, c'est la hiérarchie `CLAUDE.md` rechargée EN ENTIER (~15 k), le prompt système de
+     l'agent et l'écriture de cache — et il ne se supprime pas : la doc Anthropic est explicite,
+     _« There is no frontmatter field or per-agent setting to change which agents skip them »_ ;
+     seuls les agents intégrés `Explore` et `Plan` en sont dispensés. **Déléguer devient rentable
+     au-delà de ~15 lectures, ou ~6 affirmations à confronter** — en deçà, faire soi-même.
+     ⚠️ Les deux formulations précédentes étaient fausses d'un ordre de grandeur : « ≥ 2
+     vérifications → déléguer », et « un run `haiku` inutile coûte l'équivalent d'une poignée de
+     `grep` ». Un run inutile coûte ~33 k tokens, pas trois `grep`. **Corollaire de dimensionnement** :
+     tout agent maison porte `effort: low` et un `maxTurns` large (le premier attaque le plancher,
+     le second borne une boucle sans tronquer un travail normal).
+     **Ce qui joue en sens inverse, et qui doit être pesé** : une sortie d'outil gardée dans le
+     contexte principal s'y **repaie à CHAQUE tour suivant** (~72 % du coût = relecture, croissance
+     quadratique), quand la délégation se paie UNE fois. C'est ce qui maintient le seuil à ~15
+     lectures plutôt qu'à cent. Le déclencheur ne se voit donc ni au nombre de fichiers ni au seul
+     compte d'items : il se voit à ce qu'on est en train de FAIRE, et à ce que ça laissera dans le
+     contexte.
      **Mais un sous-agent n'est pas gratuit non plus** — il faut l'énoncer, attendre, puis
      VÉRIFIER ce qu'il affirme. Trois cas où déléguer coûte plus que faire, et où il ne faut
      donc pas : (a) un **automate rend la réponse** — c'est la QUESTION ZÉRO ci-dessous, un `rg`
