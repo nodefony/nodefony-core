@@ -9,6 +9,7 @@ import { findProjectRoot } from "../projectRoot";
 // seconde lecture divergerait au premier alias ou au premier fichier ajouté.
 import { resolveInfra } from "../../config/infra";
 import { envFileOrder } from "../../runtime/loadEnv";
+import { resolveModuleLayout, type IRootManifest } from "./moduleLayout";
 import {
   parseEntityFields,
   parseEntityIndexes,
@@ -552,15 +553,31 @@ export function listTargets(
       return null;
     }
   };
+  let rootManifest: IRootManifest = {};
+  try {
+    rootManifest = JSON.parse(
+      writer.read(path.join(projectRoot, "package.json")),
+    ) as IRootManifest;
+  } catch {
+    // Racine sans manifeste lisible : le layout par défaut (`modules/`) reste
+    // la bonne réponse — c'est celui d'une app.
+  }
   const targets: IScaffoldTarget[] = [
     {
       kind: "app",
-      name: readName(projectRoot) ?? path.basename(projectRoot),
+      name: rootManifest.name ?? path.basename(projectRoot),
       dir: projectRoot,
     },
   ];
-  const modulesDir = path.join(projectRoot, "modules");
-  if (writer.exists(modulesDir)) {
+  // Les dossiers de modules viennent des workspaces DÉCLARÉS : un monorepo qui
+  // range ses paquets ailleurs que dans `modules/` est une cible comme une autre
+  // (c'est le cas du dépôt du framework lui-même).
+  const layout = resolveModuleLayout(rootManifest, path.basename(projectRoot));
+  for (const rel of layout.targetDirs) {
+    const modulesDir = path.join(projectRoot, ...rel.split("/"));
+    if (!writer.exists(modulesDir)) {
+      continue;
+    }
     for (const entry of writer.listDir(modulesDir)) {
       const dir = path.join(modulesDir, entry.name);
       if (!entry.isDirectory || !writer.exists(path.join(dir, "index.ts"))) {
@@ -1043,12 +1060,15 @@ export function ensureWorkspaces(
  * que si l'ancre est trouvée sans ambiguïté, sinon on rend une note actionnable —
  * jamais un `nodefony.config.ts` corrompu, qui empêcherait l'app de booter.
  *
+ * @param moduleDir - dossier où le module a été créé, relatif à la racine (en
+ *   `/`) — seulement pour NOMMER le bon endroit dans le commentaire inséré.
  * @returns note à afficher si un geste manuel reste nécessaire, sinon `null`.
  */
 export function wireModuleManifest(
   configPath: string,
   pkgName: string,
   writer: ScaffoldWriter,
+  moduleDir = "modules",
 ): string | null {
   const manual = `ajoute à la main dans le manifeste modules de nodefony.config.ts :\n  use("${pkgName}", {}),`;
   if (!writer.exists(configPath)) {
@@ -1087,11 +1107,18 @@ export function wireModuleManifest(
   const hasUse = /import\s*\{[^}]*\buse\b[^}]*\}\s*from\s*"nodefony"/u.test(
     source,
   );
-  const entry = hasUse ? `  use("${pkgName}", {}),\n` : `  "${pkgName}",\n`;
-  const line =
-    `\n  // Module local du projet (modules/) — créé par \`nodefony create module\`.\n` +
-    entry;
-  writer.write(configPath, source.slice(0, close) + line + source.slice(close));
+  const entry = hasUse ? `use("${pkgName}", {}),` : `"${pkgName}",`;
+  // Le dossier est DIT, jamais supposé : `modules/` pour une app, un dossier de
+  // paquets scopés pour un monorepo — un commentaire qui nomme le mauvais
+  // endroit envoie chercher le code là où il n'est pas.
+  const comment = `// Module local du projet (${moduleDir}/) — créé par \`nodefony create module\`.`;
+  // `trimEnd` sur la partie gauche puis indentation REPOSÉE : le crochet fermant
+  // est précédé de la sienne, qui laisserait sinon une ligne blanche pleine
+  // d'espaces et un `]` en colonne 0. Un manifeste reste un fichier qu'on RELIT.
+  writer.write(
+    configPath,
+    `${source.slice(0, close).trimEnd()}\n\n    ${comment}\n    ${entry}\n  ${source.slice(close)}`,
+  );
   return null;
 }
 
@@ -1123,27 +1150,31 @@ function runModuleScaffold(
     );
   }
   const name = toKebabCase(String(answers.name));
-  const dest = path.join(projectRoot, "modules", name);
+  const appManifestPath = path.join(projectRoot, "package.json");
+  const appManifest = JSON.parse(writer.read(appManifestPath)) as {
+    name?: string;
+    workspaces?: string[];
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+  const appName = appManifest.name ?? path.basename(projectRoot);
+  // OÙ le module naît et sous quel NOM : constaté dans les workspaces du dépôt,
+  // jamais supposé. Une app génère `modules/<nom>` ; un monorepo qui déclare un
+  // dossier de paquets scopés (le dépôt du framework en tête) y fait naître un
+  // paquet PUBLIABLE. Sans ça, l'auteur du framework écrivait à la main le
+  // squelette que sa propre commande produit — et il dérivait en silence.
+  const layout = resolveModuleLayout(appManifest, path.basename(projectRoot));
+  const dest = path.join(projectRoot, ...layout.createDir.split("/"), name);
   if (
     writer.exists(dest) &&
     writer.listDir(dest).length > 0 &&
     !request.force
   ) {
     throw new Error(
-      `le module ${name} existe déjà (modules/${name}) — choisis un autre nom, ou --force`,
+      `le module ${name} existe déjà (${layout.createDir}/${name}) — choisis un autre nom, ou --force`,
     );
   }
-  const appManifestPath = path.join(projectRoot, "package.json");
-  const appManifest = JSON.parse(writer.read(appManifestPath)) as {
-    name?: string;
-    dependencies?: Record<string, string>;
-    devDependencies?: Record<string, string>;
-  };
-  const appName = appManifest.name ?? path.basename(projectRoot);
-  // Scope npm dérivé de l'app : `mon-app` → `@mon-app/blog`. Un module naît donc
-  // paquet npm — le jour où il doit être publié ou partagé, il n'y a rien à refaire.
-  const scope = appName.replace(/^@/u, "").replaceAll("/", "-");
-  const pkgName = `@${scope}/${name}`;
+  const pkgName = `${layout.scope}/${name}`;
   const appDeps = new Set([
     ...Object.keys(appManifest.dependencies ?? {}),
     ...Object.keys(appManifest.devDependencies ?? {}),
@@ -1184,6 +1215,24 @@ function runModuleScaffold(
     needsRealtime: controller === "realtime" || controller === "duplex",
     frontend,
     front: frontend !== "none" ? FRONTEND_PARAMS[frontend] : null,
+    /**
+     * Le module naît-il paquet PUBLIABLE (surface npm : `exports`, `types`,
+     * `files`, peerDependencies, `.d.ts` générés) ou module local privé ?
+     * Décidé par le layout du dépôt, pas par une option — c'est une propriété du
+     * dossier où il atterrit.
+     */
+    publishable: layout.kind === "packages",
+    /** Dossier où le module atterrit, relatif à la racine (en `/`, il VOYAGE). */
+    moduleDir: layout.createDir,
+    /**
+     * Version de départ. Un paquet d'un monorepo suit la version de SA racine
+     * (verrouillage naturel : tous les paquets du dépôt avancent ensemble) ; un
+     * module local d'application démarre à `0.1.0`, il a sa propre vie.
+     */
+    version:
+      layout.kind === "packages"
+        ? ((appManifest as { version?: string }).version ?? "0.1.0")
+        : "0.1.0",
   };
   const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
   const templates = path.join(packageRoot, "templates", "module");
@@ -1223,6 +1272,20 @@ function runModuleScaffold(
     writer,
     tokens,
   );
+  // Layout `packages` : le module est un paquet publiable, il lui faut la
+  // surface que le layout d'app n'a pas (déclarations `.d.ts` émises, tsconfig
+  // des tests) et les deux fiches que la convention du dépôt attend.
+  if (data.publishable) {
+    renderLayer(
+      eta,
+      path.join(templates, "packages"),
+      dest,
+      data,
+      written,
+      writer,
+      tokens,
+    );
+  }
   const notes: string[] = [];
   // Le module existe sur le disque → il est désormais une CIBLE (`listTargets`) :
   // les scaffolds command/controller/front peuvent le viser, sans un template dupliqué.
@@ -1276,7 +1339,10 @@ function runModuleScaffold(
     written.push(...sub.files);
     notes.push(...(sub.notes ?? []));
   }
-  if (ensureWorkspaces(projectRoot, writer)) {
+  // Un dépôt qui déclare DÉJÀ son dossier de modules en workspace a sa propre
+  // chaîne de construction (turbo, nx…) : y greffer `npm run … --workspaces`
+  // la doublerait. On ne câble que ce qui manque.
+  if (!layout.workspaceDeclared && ensureWorkspaces(projectRoot, writer)) {
     notes.push(
       "package.json de l'app : workspaces modules/* + scripts build/typecheck/test chaînés",
     );
@@ -1285,6 +1351,7 @@ function runModuleScaffold(
     path.join(projectRoot, "nodefony.config.ts"),
     pkgName,
     writer,
+    layout.createDir,
   );
   notes.push(
     manifestNote ??
@@ -1295,31 +1362,38 @@ function runModuleScaffold(
   // est re-DÉRIVÉ de l'état réel (deps de l'app, cibles du projet — la
   // transaction voit le module en attente) ; seule la zone `app-notes` survit.
   // Une app née avant ce mécanisme y gagne son AGENTS.md au premier module.
-  renderProjectAgents(
-    eta,
-    packageRoot,
-    projectRoot,
-    {
-      appName,
-      nodefonyVersion: version,
-      hasSecurity: appDeps.has("@nodefony/security"),
-      hasOrm: appDeps.has("@nodefony/orm-core"),
-      hasRealtime: appDeps.has("@nodefony/realtime"),
-      hasStudio: appDeps.has("@nodefony/studio"),
-      front: appDeps.has("@nodefony/frontend"),
-      modules: listTargets(projectRoot, writer)
-        .filter((t) => t.kind === "module")
-        .map((t) => ({
-          name: t.name,
-          // Ce chemin est RENDU dans `AGENTS.md` — un document que lisent des agents et
-          // des humains, pas un chemin qu'on redonne au système de fichiers. Il s'écrit
-          // donc `modules/blog` partout, jamais `modules\blog`.
-          dir: path.relative(projectRoot, t.dir).split(path.sep).join("/"),
-        })),
-    },
-    written,
-    writer,
-  );
+  //
+  // ⚠️ JAMAIS en layout `packages` : dans un monorepo établi, l'AGENTS.md de la
+  // racine est écrit à la MAIN — il décrit le dépôt, pas une app générée. Le
+  // réécrire depuis le gabarit d'app détruirait ce travail, et le scaffold n'a
+  // aucun moyen de le distinguer d'un fichier qu'il aurait lui-même produit.
+  if (!data.publishable) {
+    renderProjectAgents(
+      eta,
+      packageRoot,
+      projectRoot,
+      {
+        appName,
+        nodefonyVersion: version,
+        hasSecurity: appDeps.has("@nodefony/security"),
+        hasOrm: appDeps.has("@nodefony/orm-core"),
+        hasRealtime: appDeps.has("@nodefony/realtime"),
+        hasStudio: appDeps.has("@nodefony/studio"),
+        front: appDeps.has("@nodefony/frontend"),
+        modules: listTargets(projectRoot, writer)
+          .filter((t) => t.kind === "module")
+          .map((t) => ({
+            name: t.name,
+            // Ce chemin est RENDU dans `AGENTS.md` — un document que lisent des agents et
+            // des humains, pas un chemin qu'on redonne au système de fichiers. Il s'écrit
+            // donc `modules/blog` partout, jamais `modules\blog`.
+            dir: path.relative(projectRoot, t.dir).split(path.sep).join("/"),
+          })),
+      },
+      written,
+      writer,
+    );
+  }
   return { dest, files: written.sort(), linked: [], notes };
 }
 

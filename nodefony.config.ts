@@ -306,5 +306,15 @@ export default defineConfig<Env>((ctx) => ({
     //     },
     //   },
     // }),
+
+    /**
+     * Outillage de DÉVELOPPEMENT : carte de visite de l'application et portes de
+     * découverte pour un agent.
+     *
+     * `policy: "dev"` — ce qu'il expose (modules chargés, chemins de doc, verbes
+     * à lancer) aide pendant le développement et n'est, en production, qu'une
+     * divulgation. Un module non chargé n'est même pas importé : coût nul.
+     */
+    use("@nodefony/devkit", {}, { policy: "dev" }),
   ],
 }));

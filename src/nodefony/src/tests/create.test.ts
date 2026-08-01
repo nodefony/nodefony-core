@@ -107,6 +107,20 @@ function assertNoEtaResidue(dest: string): void {
         "utf8",
       );
       assert.notInclude(content, "<%", `tag eta résiduel dans ${entry.name}`);
+      // Eta AVALE le saut de ligne qui suit un tag placé en FIN de ligne : la
+      // ligne suivante se recolle à la précédente. Le rendu reste valide (aucun
+      // résidu `<%`), mais le fichier part avec un TSDoc recousu ou un type
+      // coupé en deux. Le contrôle vivait sur deux scaffolds seulement — et le
+      // défaut est réapparu ailleurs le jour où un troisième gabarit a rendu la
+      // même forme. Il est donc ici, avec le contrôle frère : un rendu eta se
+      // vérifie au même endroit, quel que soit le scaffold.
+      if (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) {
+        assert.notMatch(
+          content,
+          /^ \*.*\S \*$/mu,
+          `ligne de TSDoc recollée dans ${entry.name} — tag eta en fin de ligne`,
+        );
+      }
     }
   }
 }
@@ -1715,6 +1729,114 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.include(config, 'use("@mapp/blog", {})');
       assert.include(config, 'use("@mapp/shop", {})');
+    });
+
+    /**
+     * Le layout des modules se CONSTATE dans les workspaces du dépôt.
+     *
+     * Motif : le dépôt du framework range ses paquets dans
+     * `src/packages/@nodefony/*` — la commande y visait quand même `modules/`,
+     * si bien que l'auteur écrivait à la main le squelette que sa propre
+     * commande produit. Un générateur qui ne sert pas le dépôt qui le publie
+     * dérive sans que personne le voie.
+     */
+    describe("monorepo de paquets scopés (le dépôt hérite de son générateur)", () => {
+      /** App de fixture RE-DÉCLARÉE en monorepo de paquets, avec témoins. */
+      const mono = (name: string): string => {
+        const dest = app(name);
+        const manifestPath = path.join(dest, "package.json");
+        const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+          workspaces?: string[];
+          scripts?: Record<string, string>;
+          version?: string;
+        };
+        manifest.workspaces = ["src/packages/@acme/*", "src/modules/*"];
+        manifest.version = "7.3.1";
+        manifest.scripts = { ...manifest.scripts, build: "turbo run build" };
+        writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+        // AGENTS.md ÉCRIT À LA MAIN — celui d'un dépôt, pas d'une app générée.
+        writeFileSync(path.join(dest, "AGENTS.md"), "# le mien\n");
+        return dest;
+      };
+
+      it("pose le module dans le dossier DÉCLARÉ, sous le scope déclaré", () => {
+        const dest = mono("mono");
+        const r = mod(dest, { name: "blog", controller: "none" });
+        assert.equal(
+          r.dest,
+          path.join(dest, "src", "packages", "@acme", "blog"),
+        );
+        const pkg = readJson(path.join(r.dest, "package.json"));
+        assert.equal(pkg["name"] as unknown as string, "@acme/blog");
+        assertNoEtaResidue(r.dest);
+      });
+
+      it("le module naît PUBLIABLE : exports, types générés, files, déclarations", () => {
+        const dest = mono("mono");
+        const r = mod(dest, { name: "blog", controller: "none" });
+        const pkg = readJson(path.join(r.dest, "package.json"));
+        // Les types pointent du GÉNÉRÉ — jamais un .d.ts écrit à la main.
+        assert.equal(
+          pkg["types"] as unknown as string,
+          "./dist/types/index.d.ts",
+        );
+        assert.deepEqual(pkg["files"], ["dist", "docs"]);
+        assert.isUndefined(
+          pkg["private"],
+          "un paquet publiable n'est pas privé",
+        );
+        // La version suit celle de la RACINE : les paquets d'un dépôt avancent
+        // ensemble, ils ne démarrent pas chacun à 0.1.0.
+        assert.equal(pkg["version"] as unknown as string, "7.3.1");
+        assert.include(
+          (pkg["scripts"] as unknown as Record<string, string>)["build"],
+          "tsconfig.declarations.json",
+        );
+        for (const f of [
+          "tsconfig.declarations.json",
+          "tsconfig.tests.json",
+          "CLAUDE.md",
+          "MEMORY.md",
+        ]) {
+          assert.isTrue(existsSync(path.join(r.dest, f)), `manque ${f}`);
+        }
+      });
+
+      it("ne touche NI aux workspaces NI aux scripts d'un dépôt qui les déclare", () => {
+        const dest = mono("mono");
+        mod(dest, { name: "blog", controller: "none" });
+        const pkg = JSON.parse(
+          readFileSync(path.join(dest, "package.json"), "utf8"),
+        ) as { workspaces: string[]; scripts: Record<string, string> };
+        assert.deepEqual(pkg.workspaces, [
+          "src/packages/@acme/*",
+          "src/modules/*",
+        ]);
+        // Un dépôt établi a sa propre chaîne (turbo, nx…) : la doubler la casse.
+        assert.equal(pkg.scripts["build"], "turbo run build");
+        assert.notInclude(pkg.scripts["build"], "--workspaces");
+      });
+
+      it("n'écrase JAMAIS l'AGENTS.md de la racine (il est écrit à la main)", () => {
+        const dest = mono("mono");
+        mod(dest, { name: "blog", controller: "none" });
+        assert.equal(
+          readFileSync(path.join(dest, "AGENTS.md"), "utf8"),
+          "# le mien\n",
+        );
+      });
+
+      it("le manifeste reçoit le module, et le commentaire nomme le BON dossier", () => {
+        const dest = mono("mono");
+        mod(dest, { name: "blog", controller: "none" });
+        const config = readFileSync(
+          path.join(dest, "nodefony.config.ts"),
+          "utf8",
+        );
+        assert.include(config, 'use("@acme/blog", {})');
+        assert.include(config, "src/packages/@acme/");
+        assert.notInclude(config, "(modules/) — créé par");
+      });
     });
 
     it("délègue le controller au scaffold controller (0 template dupliqué)", () => {

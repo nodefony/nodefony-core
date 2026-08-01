@@ -578,9 +578,15 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     // module chargeable. Le build suit : le runtime charge `dist/index.js`.
     const projectRoot = findProjectRoot(process.cwd());
     if (!parsed.install) {
+      // Le chemin annoncé est celui où le module a RÉELLEMENT atterri (il dépend
+      // du layout du dépôt) — pas `modules/` en dur, qui enverrait chercher un
+      // dossier inexistant dans un monorepo.
+      const where = projectRoot
+        ? path.relative(projectRoot, result.dest).split(path.sep).join("/")
+        : String(answers.name);
       process.stdout.write(
         `\nProchaines étapes (--no-install) :\n` +
-          `  npm install        # symlinke modules/${String(answers.name)} (workspace)\n` +
+          `  npm install        # symlinke ${where} (workspace)\n` +
           `  npm run build\n`,
       );
       return SysExit.OK;

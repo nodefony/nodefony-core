@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-01T16:52:32.358Z",
+  "generated": "2026-08-01T17:41:17.241Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 642,
-    "symbols": 2563,
-    "classes": 335,
-    "interfaces": 776,
-    "types": 335,
+    "files": 651,
+    "symbols": 2576,
+    "classes": 339,
+    "interfaces": 779,
+    "types": 337,
     "enums": 4,
-    "functions": 933,
-    "constants": 180
+    "functions": 936,
+    "constants": 181
   },
   "symbols": {
     "Cli": {
@@ -303,6 +303,19 @@
       "implements": [],
       "decorators": [
         "controllers"
+      ]
+    },
+    "DevkitModule": {
+      "name": "DevkitModule",
+      "kind": "class",
+      "file": "src/packages/@nodefony/devkit/index.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "controllers",
+        "services"
       ]
     },
     "Documentation": {
@@ -3527,6 +3540,32 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Pose les questions de la spec NON déjà répondues (les flags argv gagnent — on ne redemande jamais ce que l'utilisateur a déjà dit) et retourne les réponses fusionnées. Les questions `askIf` non sat…"
+    },
+    "IRootManifest": {
+      "name": "IRootManifest",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/moduleLayout.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "OÙ les modules d'un dépôt vivent, et sous quel NOM ils naissent. ## Le problème que ça règle `create module` posait ses modules dans `modules/<nom>` en dur, avec un scope npm dérivé du nom de l'app…"
+    },
+    "IModuleLayout": {
+      "name": "IModuleLayout",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/moduleLayout.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Où poser un module, sous quel nom, et ce que le dépôt déclare déjà."
+    },
+    "resolveModuleLayout": {
+      "name": "resolveModuleLayout",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/moduleLayout.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Déduit le layout des modules à partir du manifeste de la racine. Fonction PURE (aucun accès disque) : le manifeste est lu par l'appelant, ce qui la rend éprouvable sur des dépôts qu'on n'a pas."
     },
     "IReservedEntity": {
       "name": "IReservedEntity",
@@ -7251,6 +7290,81 @@
       "extends": null,
       "implements": [],
       "decorators": []
+    },
+    "DevkitConfigInput": {
+      "name": "DevkitConfigInput",
+      "kind": "type",
+      "file": "src/packages/@nodefony/devkit/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Config telle que l'APP l'écrit dans `use()` — tous les champs optionnels."
+    },
+    "DevkitConfig": {
+      "name": "DevkitConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/devkit/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Config telle que le CODE la lit — défauts appliqués, rien d'optionnel."
+    },
+    "devkitConfigSchema": {
+      "name": "devkitConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/devkit/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/devkit"
+    },
+    "defineDevkitConfig": {
+      "name": "defineDevkitConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/devkit"
+    },
+    "devkitConfigJsonSchema": {
+      "name": "devkitConfigJsonSchema",
+      "kind": "function",
+      "file": "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "JSON Schema de la config — Studio en dérive son formulaire d'édition (libellés, types, défauts, descriptions), sans une ligne d'UI écrite à la main."
+    },
+    "DevkitController": {
+      "name": "DevkitController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "DevkitController — UN controller, DEUX protocoles (le différenciateur Nodefony) : HTTP et WebSocket sont co-citoyens du même contexte controller, même pipeline (firewall, audit, logs). Routes monté…"
+    },
+    "IDevkitService": {
+      "name": "IDevkitService",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": null,
+      "description": "API publique de `DevkitService` (injectable, nom `devkit`). L'interface est le CONTRAT : ce que les autres modules (et Studio) peuvent appeler. Tout ce qui n'est pas ici est un détail d'implémentat…"
+    },
+    "DevkitService": {
+      "name": "DevkitService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": "Service",
+      "implements": [
+        "IDevkitService"
+      ],
+      "decorators": [
+        "injectable"
+      ],
+      "description": "Service principal du module — la logique vit ici, pas dans les controllers (un controller traduit du HTTP/WS ; un service, lui, est réutilisable par la CLI, un job, un autre module). Cycle : `const…"
     },
     "DocumentationConfig": {
       "name": "DocumentationConfig",
@@ -14096,6 +14210,17 @@
       "module": "@nodefony/vector",
       "extends": null
     },
+    "DevkitError": {
+      "name": "DevkitError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/errors/DevkitError.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": "Error",
+      "implements": [],
+      "decorators": [],
+      "description": "Erreur du module devkit. Deux champs qui font la différence en production : - `code` : identifiant MACHINE (stable, grep-able, consommé par Studio et l'audit) — le message, lui, peut changer sans r…"
+    },
     "DocumentationError": {
       "name": "DocumentationError",
       "kind": "class",
@@ -17723,6 +17848,7 @@
         "Fetch",
         "Websocket",
         "Injector",
+        "DevkitService",
         "DocumentationService",
         "DrizzleService",
         "AdminBroker",
@@ -17780,6 +17906,7 @@
         "UnknownCriteriaField",
         "RagError",
         "VectorError",
+        "DevkitError",
         "FrontendError",
         "RealtimeError"
       ],
@@ -17792,6 +17919,7 @@
         "TestFrontendAngular",
         "TestFrontendReact",
         "TestFrontendVue",
+        "DevkitModule",
         "Documentation",
         "Drizzle",
         "Framework",
@@ -17930,6 +18058,7 @@
         "AngularController",
         "PocController",
         "VueController",
+        "DevkitController",
         "DocumentationController",
         "AdminApiController",
         "ApiKeyController",
@@ -18104,6 +18233,9 @@
         "FileTransport",
         "HttpTransport",
         "SyslogTransport"
+      ],
+      "IDevkitService": [
+        "DevkitService"
       ],
       "IAuditStore": [
         "DrizzleAuditStore",
@@ -18307,11 +18439,13 @@
         "TestFrontendAngular",
         "TestFrontendReact",
         "TestFrontendVue",
+        "DevkitModule",
         "Documentation",
         "Studio"
       ],
       "services": [
         "Test",
+        "DevkitModule",
         "Documentation",
         "Drizzle",
         "Framework",
@@ -18355,6 +18489,7 @@
         "AngularController",
         "PocController",
         "VueController",
+        "DevkitController",
         "DocumentationController",
         "StudioController",
         "StudioCreateController",
@@ -18372,6 +18507,7 @@
         "DomainClassController"
       ],
       "injectable": [
+        "DevkitService",
         "AdminBroker",
         "MemoryIdempotencyStore",
         "Router",
@@ -18438,6 +18574,7 @@
         "src/nodefony/src/client/transport/websocket.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -18496,6 +18633,7 @@
         "src/nodefony/src/service/fetchService.ts",
         "src/packages/@nodefony/redis/nodefony/registerStores.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -18567,6 +18705,7 @@
         "src/nodefony/src/syslog/Syslog.ts",
         "src/nodefony/src/types/IService.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
@@ -18650,6 +18789,7 @@
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
         "src/modules/test-frontend-vue/index.ts",
+        "src/packages/@nodefony/devkit/index.ts",
         "src/packages/@nodefony/documentation/index.ts",
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/framework/index.ts",
@@ -18873,6 +19013,7 @@
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
         "src/modules/test-frontend-vue/index.ts",
+        "src/packages/@nodefony/devkit/index.ts",
         "src/packages/@nodefony/documentation/index.ts",
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/framework/index.ts",
@@ -18887,6 +19028,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/service/fetchService.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
@@ -18940,6 +19082,7 @@
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
         "src/modules/test-frontend-vue/index.ts",
+        "src/packages/@nodefony/devkit/index.ts",
         "src/packages/@nodefony/documentation/index.ts",
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/studio/index.ts"
@@ -18981,6 +19124,7 @@
       ],
       "services": [
         "src/modules/test/index.ts",
+        "src/packages/@nodefony/devkit/index.ts",
         "src/packages/@nodefony/documentation/index.ts",
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/framework/index.ts",
@@ -19105,6 +19249,19 @@
       ],
       "VueController": [
         "src/modules/test-frontend-vue/index.ts"
+      ],
+      "DevkitConfigInput": [
+        "src/packages/@nodefony/devkit/index.ts",
+        "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts"
+      ],
+      "defineDevkitConfig": [
+        "src/packages/@nodefony/devkit/index.ts"
+      ],
+      "DevkitService": [
+        "src/packages/@nodefony/devkit/index.ts"
+      ],
+      "DevkitController": [
+        "src/packages/@nodefony/devkit/index.ts"
       ],
       "GitService": [
         "src/packages/@nodefony/documentation/index.ts",
@@ -19324,6 +19481,7 @@
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
@@ -19446,6 +19604,7 @@
         "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "controller": [
@@ -19481,6 +19640,7 @@
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
@@ -21063,6 +21223,12 @@
       "RedisWebAuthnCredentialStore": [
         "src/packages/@nodefony/redis/nodefony/registerStores.ts"
       ],
+      "resolveModuleLayout": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "IRootManifest": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
       "parseEntityFields": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
@@ -21802,6 +21968,7 @@
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
@@ -21946,6 +22113,26 @@
       ],
       "ToolExecutionError": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
+      ],
+      "devkitConfigSchema": [
+        "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts"
+      ],
+      "DevkitConfig": [
+        "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
+      ],
+      "injectable": [
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/service/Eta.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/service/router.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "IDevkitService": [
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
       ],
       "documentationConfigSchema": [
         "src/packages/@nodefony/documentation/nodefony/config/defineModuleConfig.ts"
@@ -22614,15 +22801,6 @@
       ],
       "RouteRequirements": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts"
-      ],
-      "injectable": [
-        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
-        "src/packages/@nodefony/framework/nodefony/service/Eta.ts",
-        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/service/router.ts",
-        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "Template": [
         "src/packages/@nodefony/framework/nodefony/service/Eta.ts"
