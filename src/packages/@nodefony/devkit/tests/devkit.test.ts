@@ -1,8 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { defineDevkitConfig } from "../nodefony/config/defineModuleConfig";
 import DevkitModule from "../index";
-import { buildCard } from "../nodefony/src/card";
-import CardCommand from "../nodefony/command/CardCommand";
+import { buildCard, renderCard } from "../nodefony/src/card";
 
 /**
  * Ce que ce test prouve (et pourquoi il existe dès la naissance du module) :
@@ -85,7 +84,7 @@ describe("devkit — carte de visite", () => {
     // carte mentirait par omission — le pire mode de défaillance d'un outil de
     // découverte.
     const card = buildCard({ ...base, modules: [...base.modules, "studio"] });
-    const rendu = CardCommand.format(card);
+    const rendu = renderCard(card);
     for (const porte of card.portes) {
       expect(rendu).toContain(porte.ou);
     }

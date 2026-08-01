@@ -29,7 +29,6 @@ devkit/
 │   ├── src/card.ts                               ← construction de la carte : fonction PURE
 │   ├── service/DevkitService.ts                  ← dérive la carte du Kernel
 │   ├── controllers/DevkitController.ts           ← porte HTTP
-│   ├── command/CardCommand.ts                    ← ORPHELIN (la CLI vit au cœur)
 │   ├── interfaces/IDevkitService.ts              ← contrat public
 │   └── src/errors/DevkitError.ts                 ← erreurs typées
 ├── tests/                                        ← vitest
