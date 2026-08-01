@@ -10,6 +10,14 @@
 > squelette de module, c'est le signal que tu as raté une commande de la
 > table ci-dessous — arrête-toi et lance-la.
 >
+> **Tu RENDS une réponse ?** `return this.renderJson(obj)` pour du JSON ;
+> `this.setContextHtml()` puis `return this.render(html)` pour une PAGE — le nonce
+> CSP de la requête s'écrit **`this.context?.cspNonce`** (le `?.` n'est pas
+> optionnel : `context` est `ContextType | undefined`, sans lui le code ne
+> compile pas), à recopier dans tout `<script>` en ligne. Ne touche JAMAIS
+> `this.response` à la main : poser `Content-Type` toi-même court-circuite la
+> négociation, et un `this.response as any` est le signal que tu as raté la façade.
+>
 > **Tu SERS un fichier ?** Trois façades, jamais `createReadStream` à la main :
 > `this.renderMediaStream(f)` pour un média qu'on parcourt (`Range` → 206),
 > `this.streamFile(f)` pour le fichier entier, `this.renderFileDownload(f)` pour

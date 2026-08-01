@@ -31,6 +31,7 @@ export interface IWiringFinding {
     | "reserved-entity"
     | "missing-brick"
     | "route-colon-param"
+    | "reponse-a-la-main"
     | "firewall-area-enumere"
     | "hook-lifecycle-inconnu";
   /** Phrase lisible, déjà orientée vers la correction. */
@@ -168,6 +169,44 @@ const ROUTE_PATH_RE =
  * `C:/`, une heure. Un deux-points ailleurs dans un chemin ne dit rien.
  */
 const COLON_SEGMENT_RE = /\/:(\w+)/u;
+
+/** Une classe de ce fichier étend-elle `Controller` ? Sinon la réponse ne la concerne pas. */
+const EXTENDS_CONTROLLER_RE = /\bclass\s+\w+\s+extends\s+Controller\b/u;
+
+/**
+ * La réponse HTTP écrite À LA MAIN, alors qu'une façade la rend.
+ *
+ * Mesuré sur le banc de découvrabilité : servir une PAGE est le seul rendu dont
+ * aucun gabarit d'application sans frontend ne montre d'exemple, et l'
+ * `AGENTS.md` ne nommait aucune façade de réponse ordinaire. Deux agents sur
+ * trois ont donc bricolé — l'un en castant (`this.response as any`), l'autre en
+ * posant `Content-Type` lui-même. Les deux « marchent » à l'essai : c'est
+ * exactement pourquoi rien ne les signale.
+ *
+ * Ce qui se perd, et qu'aucun test de l'application ne voit : la négociation de
+ * contenu, l'encodage, le nonce CSP de la requête, et les hooks de fin de
+ * réponse (journal, profileur, métriques) que le pipeline attache autour de
+ * `render`. Écrire dans le socle court-circuite la couche qui les porte.
+ *
+ * Trois motifs, un seul manquement — chacun est une façon distincte de sortir
+ * du pipeline, et chacun a sa façade :
+ * `this.renderJson(obj)` · `this.setContextHtml()` + `this.render(html)` ·
+ * `this.streamFile(f)` / `renderMediaStream(f)` / `renderFileDownload(f)`.
+ *
+ * Poser un en-tête MÉTIER (`X-Total-Count`, `Cache-Control`) reste légitime et
+ * n'est pas visé : seul `Content-Type` l'est, parce que c'est la façade qui le
+ * décide, et parce que le poser deux fois produit une réponse que le client lit
+ * de travers.
+ */
+const REPONSE_CAST_RE = /\bthis\.response\s+as\s+(?:any|unknown)\b/u;
+
+/** `setHeader("Content-Type", …)` ou `setHeaders({ "content-type": … })`, sur quoi que ce soit. */
+const REPONSE_CONTENT_TYPE_RE =
+  /\.setHeaders?\s*\(\s*(?:\{\s*)?["'`]content-type["'`]/iu;
+
+/** L'écriture directe dans le socle : `this.response.end(…)`, `writeHead(…)`. */
+const REPONSE_ECRITURE_BRUTE_RE =
+  /\bthis\.response\s*\??\.\s*(?:end|writeHead)\s*\(/u;
 
 /**
  * Les TROIS hooks de cycle de vie qu'un module peut porter — la liste est
@@ -493,6 +532,46 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
             `comme un littéral : la route s'affiche dans inspect routes et répond 404 ` +
             `à toute URL réelle`,
         });
+      }
+
+      // La réponse ne se juge que dans un controller : ailleurs, `setHeader` ne
+      // dit rien. Le corps est relu SANS ses commentaires — un exemple mis en
+      // garde dans un TSDoc ne doit pas s'accuser lui-même.
+      if (EXTENDS_CONTROLLER_RE.test(content)) {
+        const code = sansCommentaires(content);
+        const facades =
+          `les façades : this.renderJson(obj) pour du JSON, ` +
+          `this.setContextHtml() puis this.render(html) pour une page, ` +
+          `this.streamFile(f) / renderMediaStream(f) / renderFileDownload(f) pour un fichier`;
+        const manquements: [RegExp, string][] = [
+          [
+            REPONSE_CAST_RE,
+            `this.response est casté en any — c'est le signal d'une façade ratée, et le ` +
+              `cast fait taire le seul contrôle qui aurait nommé la bonne`,
+          ],
+          [
+            REPONSE_CONTENT_TYPE_RE,
+            `Content-Type est posé à la main — c'est la façade qui le décide, et le poser ` +
+              `deux fois rend une réponse que le client lit de travers`,
+          ],
+          [
+            REPONSE_ECRITURE_BRUTE_RE,
+            `la réponse est écrite directement dans le socle (end/writeHead) — le corps part ` +
+              `sans passer par le pipeline`,
+          ],
+        ];
+        for (const [motif, quoi] of manquements) {
+          if (!motif.test(code)) continue;
+          findings.push({
+            kind: "reponse-a-la-main",
+            file: rel(file),
+            message:
+              `${quoi}. Court-circuitée ainsi, la réponse perd la négociation de contenu, ` +
+              `l'encodage, le nonce CSP de la requête et les hooks de fin de réponse ` +
+              `(journal, profileur) — tout cela sans qu'aucun test ne le voie, puisque le ` +
+              `corps arrive bien. Emploie ${facades}`,
+          });
+        }
       }
 
       // Les hooks se cherchent dans tout fichier qui déclare un module — c'est

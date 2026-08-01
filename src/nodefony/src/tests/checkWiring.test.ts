@@ -204,6 +204,88 @@ class App extends Module {}`,
     assert.strictEqual(r.findings[0].kind, "route-colon-param");
   });
 
+  it("la réponse écrite à la main est nommée — les TROIS façons d'en sortir", () => {
+    // Les trois motifs viennent de runs RÉELS du banc de découvrabilité, sur la
+    // tâche « servir une page sans desserrer la politique de contenu » : un
+    // agent a casté, un autre a posé Content-Type lui-même. Aucun test de leur
+    // application ne l'a vu — le corps arrivait bien.
+    const dir = make({
+      "nodefony/controllers/WidgetController.ts": `
+export class WidgetController extends Controller {
+  @Get("/widget")
+  page() {
+    const r = this.response as any;
+    r.setHeader("Content-Type", "text/html; charset=utf-8");
+    this.response.end("<h1>ok</h1>");
+  }
+}`,
+      "index.ts": `import { WidgetController } from "./nodefony/controllers/WidgetController";
+@controllers([WidgetController])
+class App extends Module {}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    const dits = r.findings.filter((f) => f.kind === "reponse-a-la-main");
+    assert.strictEqual(dits.length, 3, JSON.stringify(r.findings));
+    assert.match(dits.map((f) => f.message).join("\n"), /setContextHtml/u);
+  });
+
+  it("un controller qui emploie les façades n'est PAS accusé", () => {
+    // L'échantillon vertueux se copie du produit : un en-tête MÉTIER reste
+    // légitime, seul Content-Type est visé. Un contrôle qui crie dessus est un
+    // contrôle qu'on désactive.
+    const dir = make({
+      "nodefony/controllers/PageController.ts": `
+export class PageController extends Controller {
+  @Get("/page")
+  page() {
+    this.setContextHtml();
+    this.response?.setHeader("X-Total-Count", "12");
+    return this.render("<h1>ok</h1>");
+  }
+  @Get("/api/page")
+  json() { return this.renderJson({ ok: true }); }
+}`,
+      "index.ts": `import { PageController } from "./nodefony/controllers/PageController";
+@controllers([PageController])
+class App extends Module {}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
+  });
+
+  it("le manquement CITÉ EN COMMENTAIRE ne s'accuse pas lui-même", () => {
+    // La mise en garde qu'on écrit dans un TSDoc porte le motif interdit : sans
+    // le retrait des commentaires, documenter la règle la déclencherait.
+    const dir = make({
+      "nodefony/controllers/DocController.ts": `
+/**
+ * Ne fais JAMAIS \`const r = this.response as any\` ni
+ * \`setHeader("Content-Type", …)\` : emploie this.render(html).
+ */
+export class DocController extends Controller {
+  @Get("/doc")
+  page() { this.setContextHtml(); return this.render("<h1>ok</h1>"); }
+}`,
+      "index.ts": `import { DocController } from "./nodefony/controllers/DocController";
+@controllers([DocController])
+class App extends Module {}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
+  });
+
+  it("hors d'un controller, poser un en-tête ne regarde personne", () => {
+    const dir = make({
+      "nodefony/service/ProxyService.ts": `
+export class ProxyService extends Service {
+  amont(res: ServerResponse) { res.setHeader("Content-Type", "application/json"); }
+}`,
+      "index.ts": `class App extends Module {}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
+  });
+
   it("le routage react-router n'est PAS accusé (`:id` y est juste)", () => {
     // Vécu : la première version lisait `path:` partout et rendait les cinq
     // routes du frontend de Studio fautives. Le contrôle aurait fait corriger
