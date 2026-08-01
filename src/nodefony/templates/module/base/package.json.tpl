@@ -37,7 +37,14 @@
 <% } %><% if (it.publishable) { %>    "zod": "<%= it.pkg["zod"] %>",
 <% } %>    "@nodefony/http": "*"
   },
-<% if (it.publishable) { %>  "dependencies": {
+<% if (it.publishable) { %>  "devDependencies": {
+    "nodefony": "*",
+    "@nodefony/framework": "*",
+<% if (it.needsRealtime) { %>    "@nodefony/realtime": "*",
+<% } %><% if (it.front) { %>    "@nodefony/frontend": "*",
+<% } %>    "@nodefony/http": "*"
+  },
+  "dependencies": {
     "tslib": "<%= it.pkg["tslib"] %>"
   }
 <% } else { %>  "dependencies": {

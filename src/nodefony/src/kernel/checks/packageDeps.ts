@@ -25,7 +25,11 @@ import path from "node:path";
 export interface IPackageFinding {
   /** Nom npm du paquet fautif. */
   package: string;
-  kind: "undeclared-import" | "unreachable-types" | "stale-exception";
+  kind:
+    | "undeclared-import"
+    | "peer-only-sibling"
+    | "unreachable-types"
+    | "stale-exception";
   /** Phrase lisible, déjà orientée vers la correction. */
   message: string;
   /** Fichier qui porte le premier cas, relatif à la racine analysée. */
@@ -242,6 +246,15 @@ export function checkPackageDeps(
   const typesUnreachable = options.typesUnreachable ?? [];
   const packages = collectPackages(options.roots);
   const findings: IPackageFinding[] = [];
+  /**
+   * Les paquets CONSTRUITS ici — ceux dont l'ordre de construction se décide.
+   *
+   * C'est le seul cas où `peerDependencies` ne suffit pas : un paquet venu de
+   * `node_modules` arrive déjà construit, alors qu'un frère du dépôt doit
+   * l'être AVANT. Dans une application, cet ensemble ne contient que ses
+   * propres modules — la règle n'y mord donc jamais sur `nodefony`.
+   */
+  const siblings = new Set(packages.map((p) => p.name));
 
   for (const { dir, manifest, name } of packages) {
     const declared = new Set(
@@ -261,6 +274,23 @@ export function checkPackageDeps(
       declared.add(member);
     }
     const allowed = new Set(typeCycles[name] ?? []);
+    /**
+     * Déclaré, mais d'une façon qui n'ORDONNE rien.
+     *
+     * npm et turbo bâtissent le graphe sur `dependencies` et
+     * `devDependencies` ; une `peerDependency` seule dit ce qu'il faut
+     * fournir, jamais quand le construire. Vécu : `@nodefony/devkit` ne
+     * déclarait ses frères qu'ainsi — son `rolldown.config.ts` importe
+     * `nodefony/bundler`, donc il se construisait avant que ce fichier existe.
+     * En local la sortie de la fois d'avant masquait la panne ; quatre
+     * workflows sont tombés sur `Cannot find module … dist/node/bundler`.
+     */
+    const ordering = new Set(
+      ["dependencies", "devDependencies", "optionalDependencies"].flatMap((k) =>
+        Object.keys((manifest[k] as Record<string, string> | undefined) ?? {}),
+      ),
+    );
+    const peerOnly = new Map<string, string>();
     // On garde le PIRE cas avec SON fichier : citer un `import type` sous un
     // verdict « runtime » enverrait corriger au mauvais endroit.
     const missing = new Map<string, { file: string; typeOnly: boolean }>();
@@ -282,10 +312,24 @@ export function checkPackageDeps(
         if (dep === name) {
           continue;
         }
+        const rel = path.relative(cwd, file);
         if (declared.has(dep) || allowed.has(dep)) {
+          // Un import de TYPE ne crée aucun ordre : il est effacé à la
+          // compilation, et les paquets lus en source pointent leurs `types`
+          // vers `./index.ts` justement pour ne pas exiger d'être construits.
+          // Un cycle assumé non plus : y déclarer la réciproque est ce que npm
+          // et turbo refusent — c'est la raison d'être de la liste.
+          if (
+            !typeOnly &&
+            !allowed.has(dep) &&
+            siblings.has(dep) &&
+            !ordering.has(dep) &&
+            !peerOnly.has(dep)
+          ) {
+            peerOnly.set(dep, rel);
+          }
           continue;
         }
-        const rel = path.relative(cwd, file);
         const seen = missing.get(dep);
         if (!seen) {
           missing.set(dep, { file: rel, typeOnly });
@@ -303,6 +347,15 @@ export function checkPackageDeps(
         message: typeOnly
           ? `${name} importe ${dep} (type seul) sans le déclarer — soit peerDependencies, soit un cycle assumé si ${dep} déclare déjà ${name}`
           : `${name} importe ${dep} à l'exécution sans le déclarer — ajouter "${dep}": "*" en peerDependencies`,
+      });
+    }
+
+    for (const [dep, file] of peerOnly) {
+      findings.push({
+        package: name,
+        kind: "peer-only-sibling",
+        file,
+        message: `${name} importe ${dep}, construit dans ce dépôt, en ne le déclarant qu'en peerDependencies — rien n'ORDONNE les deux constructions : ajouter "${dep}": "*" en devDependencies`,
       });
     }
 

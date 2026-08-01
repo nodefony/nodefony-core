@@ -1938,6 +1938,46 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         }
       });
 
+      /**
+       * Motif payé en CI : `@nodefony/devkit`, né de cette commande, ne
+       * déclarait ses frères qu'en `peerDependencies`. Or un orchestrateur de
+       * monorepo (turbo, nx) construit son graphe sur `dependencies` +
+       * `devDependencies` : sans arête, le module se construisait AVANT
+       * `nodefony`, et son `rolldown.config.ts` importait un
+       * `nodefony/bundler` qui n'existait pas encore. Quatre workflows rouges,
+       * le même `Cannot find module … dist/node/bundler/index.js`.
+       *
+       * Ne vaut QUE pour un paquet du dépôt : dans une application, `nodefony`
+       * vient de npm déjà construit — il n'y a rien à ordonner.
+       */
+      it("déclare ses frères LOCAUX en devDependencies (l'ordre de build en dépend)", () => {
+        const dest = mono("mono");
+        const r = mod(dest, { name: "blog", controller: "none" });
+        const pkg = readJson(path.join(r.dest, "package.json"));
+        const peer = (pkg["peerDependencies"] ?? {}) as unknown as Record<
+          string,
+          string
+        >;
+        const dev = (pkg["devDependencies"] ?? {}) as unknown as Record<
+          string,
+          string
+        >;
+        const locaux = Object.keys(peer).filter(
+          (n) => n === "nodefony" || n.startsWith("@nodefony/"),
+        );
+        assert.isNotEmpty(
+          locaux,
+          "un module Nodefony dépend au minimum de `nodefony`",
+        );
+        for (const nom of locaux) {
+          assert.property(
+            dev,
+            nom,
+            `« ${nom} » est un workspace du dépôt cité en peerDependencies mais absent des devDependencies : turbo ne verra aucune arête et pourra construire ce module AVANT lui`,
+          );
+        }
+      });
+
       it("ne touche NI aux workspaces NI aux scripts d'un dépôt qui les déclare", () => {
         const dest = mono("mono");
         mod(dest, { name: "blog", controller: "none" });
