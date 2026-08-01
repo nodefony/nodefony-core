@@ -403,6 +403,15 @@ apply -R` — et **prouver que le geste a eu lieu** (ici : 0 façade dans les 30
   mécanisme de non-régression : **sur quel périmètre son « vert » porte-t-il, et l'annonce-t-il ?**
   Même famille que le `gateReporter` (une cible non exercée doit se DIRE) et que le job CI qui ne
   tourne que sur une combinaison de la matrice.
+- `[1× — 2026-08-01f]` 🔴 **Un token de gabarit non substitué produit un fichier qui PASSE.** Le
+  test realtime généré est sorti nommé `__KEBAB__-realtime.test.ts` : son CONTENU était juste
+  (rendu par eta), seul son NOM portait le token brut — et le banc de vérité l'a exécuté et
+  déclaré vert, puisqu'il tombe dans `tests/**/*.test.ts`. Aucune assertion de contenu ne pouvait
+  le voir. Règle : quand un gabarit compose un NOM DE FICHIER, le gate assert le **chemin**
+  (`readFileSync(path.join(dest, "tests", "pulse-realtime.test.ts"))`), pas seulement ce qu'il y a
+  dedans. Cause première : `create.test.ts` lit la SOURCE du moteur, le banc exécute le `dist/` —
+  j'avais édité `engine.ts` sans rebuild du core, donc les gabarits (`.tpl`, lus à chaud)
+  arrivaient tandis que la table de tokens restait l'ancienne.
 
 ## 🪞 Un exemple de CODE agit — y compris quand il est FAUX
 
@@ -557,6 +566,31 @@ apply -R` — et **prouver que le geste a eu lieu** (ici : 0 façade dans les 30
   blocage.** Un `sleep 420` posé pendant que le banc tournait encore s'est terminé sur un banc
   déjà fini ; le user a demandé « le run est bloqué ? ». Le harnais notifie la fin — dormir en
   plus est du bruit. Vérifier la vitalité (`pgrep`) AVANT de dormir, ou ne pas dormir du tout.
+
+## 🧭 La PRÉMISSE d'une question se vérifie avant d'en chercher la cause
+
+- `[1× — 2026-08-01f]` 🔴 **« Depuis les derniers changements, les agents ne sont plus appelés » —
+  mesure : ils l'ont été 5 fois APRÈS le changement, et aucune invocation n'a échoué.** Chercher
+  « pourquoi X ne marche plus » sans avoir établi que X marchait, c'est enquêter sur un fait qui
+  n'existe pas — et toute cause trouvée sera une confabulation plausible. Le geste juste tient en
+  une commande (`jq` sur les transcripts, comptage par `subagent_type` AVANT et APRÈS le commit).
+  Ce qui était vrai, c'est l'adoption faible (10 invocations contre 257 pour `Explore` +
+  `general-purpose`) : un fait voisin, mais qui appelle une tout autre réponse.
+- `[1× — 2026-08-01f]` **La règle « nommer l'agent, sinon le réflexe retombe sur `Explore` » s'est
+  vérifiée sur MOI, dans la minute.** La tâche de diagnostic disait « recense, cartographie » —
+  périmètre exact de `nodefony-repo-inventory` — et je l'ai routée vers `Explore` sans y penser.
+  Une règle écrite dans le `CLAUDE.md` ne mord pas parce qu'elle y est écrite.
+
+## 🔬 Avant de trancher COPIER ou PUBLIER : mesurer ce qui serait copié
+
+- `[1× — 2026-08-01f]` **Décision corrigée en séance, et la mesure a tranché seule.** Le canal le
+  plus fort pour enseigner un geste à un agent est le gabarit rendu — donc « gabarit d'abord »
+  semblait acquis. Faux ici : le décor d'un test realtime pesait ~100 lignes de plomberie
+  FRAMEWORK (faux `ContextType`, pont vers une méthode `protected`, reset d'un singleton), qui se
+  périme au premier changement de signature de la base. Copiée dans chaque app, elle y aurait
+  vieilli en silence. Le critère n'est pas « quel canal enseigne le mieux » mais **à qui appartient
+  ce qu'on s'apprête à dupliquer** : du code du framework se PUBLIE, du code de l'application se
+  gabarite. Un `wc -l` sur les fichiers sources répond en dix secondes.
 
 ---
 
