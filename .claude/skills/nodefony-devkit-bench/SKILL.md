@@ -183,20 +183,25 @@ Les étapes, dans l'ordre, et ce que chacune protège :
    et soumises au compilateur : un exemple faux AGIT (`this.context.cspNonce`
    sans le `?.` a été recopié à la lettre par trois agents, typecheck rouge
    3/3) ;
-7. **décâblage** — les entités PostgreSQL quittent le manifeste : leur schéma
+7. **lint du code généré** — un avertissement n'est ni une erreur de type ni une
+   chaîne absente : rien d'autre ne le voit. La grille du dépôt est COPIÉE dans
+   l'app (les motifs d'exclusion se résolvent depuis le dossier de la config —
+   le `tmp/**` du dépôt écartait tout le décor lié, et l'étape rendait vert sans
+   rien lire). L'étape se prouve d'abord sur un témoin fautif, puis juge ;
+8. **décâblage** — les entités PostgreSQL quittent le manifeste : leur schéma
    enregistré sur un connecteur SQLite ferait échouer le boot, et cet échec ne
    dirait rien du générateur. Leurs fichiers restent — c'est leur type qu'on lit ;
-8. **cohérence FK ↔ PK** — une colonne de référence doit avoir le type de la clé
+9. **cohérence FK ↔ PK** — une colonne de référence doit avoir le type de la clé
    visée, sinon la jointure est refusée par le moteur ;
-9. **build** — le runtime charge le `dist/` : sans lui, une entité neuve est
-   invisible du serveur (cause n°1 des « ma route répond 404 ») ;
-10. **la commande s'exécute** — elle est lancée pour de vrai, et sa SORTIE est
+10. **build** — le runtime charge le `dist/` : sans lui, une entité neuve est
+    invisible du serveur (cause n°1 des « ma route répond 404 ») ;
+11. **la commande s'exécute** — elle est lancée pour de vrai, et sa SORTIE est
     lue ;
-11. **tests générés** — couche donnée ;
-12. **HTTP réel** — 201 + `Location`, 422, 409 sur doublon, page `hasNext`,
+12. **tests générés** — couche donnée ;
+13. **HTTP réel** — 201 + `Location`, 422, 409 sur doublon, page `hasNext`,
     PATCH, 204 puis 404 ;
-13. **production** — l'app démarre dans le mode qu'aucune autre étape n'exerce ;
-14. **inspection** — l'application se laisse lire sans ouvrir de port.
+14. **production** — l'app démarre dans le mode qu'aucune autre étape n'exerce ;
+15. **inspection** — l'application se laisse lire sans ouvrir de port.
 
 > **Le trou n'était pas dans le banc d'agent, il était ici.** Sur les sept types
 > de `create`, ce script n'en exerçait que trois — `app`, `module`, `entity` ;

@@ -39,6 +39,7 @@ import {
   existsSync,
   readFileSync,
   writeFileSync,
+  copyFileSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -641,6 +642,100 @@ step(
       run("npm", ["run", "typecheck"]);
     } finally {
       rmSync(sonde, { force: true });
+    }
+  },
+);
+
+/**
+ * Efface un fichier de travail du banc — et SEULEMENT s'il est dans l'app.
+ *
+ * Payé pendant l'écriture de l'étape suivante : en débranchant le gate pour le
+ * voir rouge, le chemin de la config a été pointé sur celle du DÉPÔT, et le
+ * nettoyage de fin l'a supprimée pour de bon. Un `rmSync` sur un chemin calculé
+ * doit donc être BORNÉ par construction, jamais par la prudence de qui l'édite.
+ */
+function effaceDansApp(cible) {
+  const dansApp = path.relative(APP, cible);
+  if (dansApp.startsWith("..") || path.isAbsolute(dansApp)) {
+    throw new Error(
+      `refus d'effacer hors de l'application témoin : ${cible} (le banc ne nettoie que ${APP})`,
+    );
+  }
+  rmSync(cible, { force: true });
+}
+
+/**
+ * Témoin du gate de lint : il DOIT être signalé, sinon le lint ne lit rien.
+ *
+ * Il porte la faute exacte déjà payée — une erreur re-jetée sans sa `cause`,
+ * que le gabarit de config d'un module a portée deux sessions durant.
+ */
+const OXLINT_TEMOIN = `export function temoinDuBanc(): never {
+  try {
+    throw new Error("témoin");
+  } catch (e) {
+    throw new Error(\`témoin \${String(e)}\`);
+  }
+}
+`;
+
+step(
+  "le code généré passe le LINT",
+  "Un avertissement n'est ni une erreur de type ni une chaîne absente : rien d'autre ne le voit.",
+  // Ce que cette étape protège, vécu : le gabarit `defineModuleConfig.ts.tpl`
+  // re-jetait une erreur sans sa `cause`. Ni `create.test.ts` (qui cherche des
+  // chaînes), ni le typecheck (un avertissement n'est pas un type faux), ni le
+  // lint du dépôt (un `.tpl` n'est pas du TypeScript) ne pouvaient le voir. Il
+  // a fallu qu'un module GÉNÉRÉ soit commité dans le dépôt pour que la forge
+  // le trouve — sur une machine où personne ne débogue.
+  () => {
+    // La grille est celle du dépôt, COPIÉE dans l'app — pas relue, pas
+    // réécrite : le fichier porte des commentaires (JSONC), et le dériver
+    // demanderait un parseur qu'on n'a pas. La copie règle en même temps le
+    // piège mesuré : les motifs d'exclusion sont résolus depuis le dossier de
+    // la CONFIG, si bien que le `tmp/**` du dépôt écartait tout le décor lié —
+    // oxlint répondait « No files found to lint » et l'étape rendait VERT sans
+    // avoir rien lu. Posés dans l'app, ces mêmes motifs ne désignent plus rien.
+    copyFileSync(
+      path.join(REPO, ".oxlintrc.json"),
+      path.join(APP, ".oxlintrc.banc.json"),
+    );
+    const rcPath = path.join(APP, ".oxlintrc.banc.json");
+    const bin = path.join(
+      REPO,
+      "node_modules",
+      ".bin",
+      process.platform === "win32" ? "oxlint.cmd" : "oxlint",
+    );
+    const lance = () =>
+      spawnSync(bin, ["--config", rcPath, "--deny-warnings", "."], {
+        cwd: APP,
+        encoding: "utf8",
+        timeout: 120_000,
+      });
+    const temoin = path.join(APP, "tests", "oxlint.selfcheck.ts");
+    try {
+      // 1. Le gate se prouve AVANT de juger : un témoin fautif doit tomber.
+      writeFileSync(temoin, OXLINT_TEMOIN, "utf8");
+      const preuve = lance();
+      const vu = `${preuve.stdout ?? ""}${preuve.stderr ?? ""}`;
+      effaceDansApp(temoin);
+      if (preuve.status === 0 || !vu.includes("oxlint.selfcheck")) {
+        throw new Error(
+          `le lint ne LIT PAS l'application témoin (code ${preuve.status}) — ` +
+            `un motif d'exclusion l'écarte, et ce gate rendrait vert sans rien juger :\n${vu.slice(-800)}`,
+        );
+      }
+      // 2. Verdict réel, témoin retiré.
+      const verdict = lance();
+      if (verdict.status !== 0) {
+        throw new Error(
+          `${`${verdict.stdout ?? ""}${verdict.stderr ?? ""}`.trim().slice(-1500)}`,
+        );
+      }
+    } finally {
+      effaceDansApp(temoin);
+      effaceDansApp(rcPath);
     }
   },
 );
