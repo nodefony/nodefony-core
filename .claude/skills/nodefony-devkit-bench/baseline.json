@@ -2,8 +2,8 @@
   "model": "claude-haiku-4-5-20251001",
   "decor": "isolé (tarballs, hors dépôt)",
   "agent": "claude",
-  "date": "2026-08-01T22:52:46.227Z",
-  "commit": "fc02f4da",
+  "date": "2026-08-01T23:15:02.587Z",
+  "commit": "ac1a7d6e",
   "verdicts": {
     "17": {
       "verdict": "PASS",
@@ -69,13 +69,13 @@
       "commit": null
     },
     "29": {
-      "verdict": "FAIL",
+      "verdict": "PASS",
       "runs": 3,
-      "passes": 1,
+      "passes": 3,
       "empreinte": "89c8b20b3ea6",
-      "date": "2026-08-01T22:52:46.227Z",
-      "sources": ["2026-08-01T22-38-30"],
-      "commit": "fc02f4da"
+      "date": "2026-08-01T23:15:02.587Z",
+      "sources": ["2026-08-01T23-01-41"],
+      "commit": "ac1a7d6e"
     }
   }
 }

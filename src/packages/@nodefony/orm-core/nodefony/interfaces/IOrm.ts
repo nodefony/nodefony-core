@@ -44,9 +44,21 @@ export interface IOrm {
    * Expose la connexion native du driver (trappe SQL/commandes brutes).
    *
    * Anti-blocage indispensable : autorise une requête brute non couverte par
-   * l'abstraction (tag `sql` Drizzle, `connection` Mongoose, etc.).
+   * l'abstraction (tag `sql` Drizzle, `connection` Mongoose, etc.) — typiquement
+   * une projection de colonnes, une CTE ou une agrégation.
    *
-   * @typeParam C - type natif attendu.
+   * **Passer le type de l'adapter, jamais rien.** Le paramètre retombe sur
+   * `unknown` s'il est omis, et la seule issue devient alors un `as any` : c'est
+   * le contraire de ce que cette trappe cherche à offrir. Le type vient de
+   * l'adapter employé — `DrizzleDb` exporté par `@nodefony/drizzle`,
+   * `Connection` du paquet `mongoose` pour `@nodefony/mongoose` :
+   *
+   * ```ts
+   * import type { DrizzleDb } from "@nodefony/drizzle";
+   * const db = orm.getNativeConnection<DrizzleDb>();
+   * ```
+   *
+   * @typeParam C - type natif attendu, exporté par l'adapter employé.
    */
   getNativeConnection<C = unknown>(): C;
 

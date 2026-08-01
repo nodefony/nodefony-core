@@ -18,6 +18,16 @@
 > `this.response` à la main : poser `Content-Type` toi-même court-circuite la
 > négociation, et un `this.response as any` est le signal que tu as raté la façade.
 >
+> **Tu LIS une liste ?** Elle se BORNE, toujours. Le service d'une entité hérite
+> `findPage({ limit: 25 })` — il ne charge que `limit + 1` lignes et rend
+> `{ items, hasNext }` ; sinon `find(criteria, { limit })`. Un `find` sans borne
+> matérialise la table ENTIÈRE : indolore sur les quelques lignes du poste de
+> développement, fatal sur les dizaines de milliers de la production. Il te faut
+> une projection de colonnes, une CTE, une agrégation ? Descends au natif **avec
+> son type** — `import type { DrizzleDb } from "@nodefony/drizzle"` puis
+> `orm.getNativeConnection<DrizzleDb>()`. Sans le paramètre de type tu reçois
+> `unknown`, et il ne te reste qu'un `as any` que le contrôle refuse.
+>
 > **Tu SERS un fichier ?** Trois façades, jamais `createReadStream` à la main :
 > `this.renderMediaStream(f)` pour un média qu'on parcourt (`Range` → 206),
 > `this.streamFile(f)` pour le fichier entier, `this.renderFileDownload(f)` pour
