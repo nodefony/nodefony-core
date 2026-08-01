@@ -186,6 +186,33 @@
 
 ## 🧪 Suspecter son INSTRUMENT avant le sujet mesuré
 
+- `[1× — 2026-08-02b]` 🔴 **Un seuil de DURÉE mesure la machine, jamais la propriété.** La forge
+  rouge sur UNE seule case de la matrice (macOS / Node 24) : `96,4 ms sur 100 k espaces: expected
+to be below 50`. Rien n'avait régressé — la fonction visée n'a aucune expression régulière, et
+  le même travail prend 1,03 ms en local. `process.hrtime` compte le temps **mural** : sur un
+  agent qui déroule 901 tests en parallèle, une préemption de 90 ms au milieu d'un chrono de
+  0,3 ms est ordinaire. Le geste qui tranche : juger la **forme de la courbe** — doubler l'entrée
+  doit doubler le temps, pas le quadrupler (mesuré 1,95 contre 3,89 sur le motif quadratique).
+  Chauffer avant de mesurer (le premier appel précède la compilation), et prendre le **MINIMUM**
+  de N relevés : une préemption ne peut qu'AJOUTER du temps. Vaut pour toute assertion de perf
+  qui tourne en intégration continue — le seul cas rouge sur six cases identiques désigne la
+  machine, pas le code.
+- `[1× — 2026-08-02b]` 🔴 **Un débranchement peut aussi BLOQUER, pas seulement détruire.** Pour
+  voir rouge un test de complexité, j'ai installé l'implémentation quadratique : sur 200 k
+  espaces elle ne rend **jamais** la main — le test ne tombait pas, il bloquait le worker, et
+  rien n'interrompt du code synchrone (cinq minutes, puis l'outil coupe **avant la restauration**,
+  laissant le dépôt cassé). Deux acquis : un gate de complexité a besoin d'une **garde de
+  terminaison à petite taille**, franchie avant les tailles où l'implémentation fautive
+  s'immobilise (à 25 k elle consomme déjà 504 ms contre un budget de 50) ; et une manœuvre de
+  débranchement se **borne dans le temps**, avec la restauration hors du chemin qui peut pendre.
+  ⚠️ `timeout` n'existe pas sur macOS — un chien de garde s'écrit `( sleep N; kill -9 $PID ) &`.
+  Prolonge [[feedback_gate_must_bite]] et la ligne « un débranchement peut DÉTRUIRE » ci-dessus.
+- `[1× — 2026-08-02b]` **Un script maison ne connaît pas `--help` : il LANCE le travail.**
+  `bench-discoverability.mjs --help` a démarré un banc complet en parallèle d'un autre — deux
+  bancs se disputent les ports, et la cause `port-deja-tenu` aurait accusé le décor. Les options
+  se lisent **au source** (`valeurDe("--task")`), jamais en interrogeant le programme. Au
+  passage, la lecture a rendu ce qu'aucun `--help` n'aurait dit : `--task` accepte une **liste**
+  (`--task 4,6,7`) dans un seul décor.
 - `[1× — 2026-08-01]` 🔴 **Un code de retour `0` peut être un échec TOTAL — la sonde porte sur la
   SORTIE.** La commande générée par le scaffold journalise « service non enregistré » en ERROR
   puis rend la main normalement : sans son service, elle sort en **0**. Une étape de banc qui
