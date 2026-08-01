@@ -113,6 +113,23 @@
 
 ## 🧪 Suspecter son INSTRUMENT avant le sujet mesuré
 
+- `[1× — 2026-08-01]` 🔴 **Un DÉCOR mal placé ne rate pas un défaut : il en rend une FAMILLE
+  ENTIÈRE indétectable.** Le banc de vérité montait son application témoin sous le dépôt, paquets
+  liés au checkout — la résolution de modules de Node remontait donc au monorepo, et l'application
+  trouvait des paquets **qu'elle ne déclare pas**. Mesuré : l'étape production restait verte AVEC
+  et SANS `@node-rs/argon2`, pendant qu'une application réellement installée mourait au boot. Ce
+  n'était pas « un cas raté » mais toute dépendance manquante du gabarit, à jamais. Sorti du dépôt
+  et installé depuis les tarballs, le banc a trouvé un second défaut produit **dès sa première
+  passe**. Question à se poser sur tout banc : de quoi mon décor me rend-il AVEUGLE ?
+- `[1× — 2026-08-01]` 🔴 **Un auto-contrôle écrit par l'auteur de ce qu'il contrôle partage ses
+  hypothèses, donc ne les teste pas.** Un juge WebSocket délégué mesurait l'absence de fuite sur
+  1,2 s alors que le canal réel republie une période complète (1 s) après renaissance de son
+  provider — 200 ms de marge, la fuite passait sous charge. Son selftest était VERT : son serveur
+  jouet publiait toutes les 100 ms, avec un commentaire assumant que « la cadence réelle n'a aucune
+  importance ». Même run, même motif : une sonde n'acceptait qu'une des deux voies valides de
+  déclaration. **Les constantes de temps, les seuils et l'énumération des voies valides se relisent
+  au PRODUIT** — jamais au banc d'essai qui les accompagne.
+
 - `[1× — 2026-07-31e]` 🔴 **Classer une cause « décor » coûte plus cher que la classer
   « indéterminée » — la dissymétrie doit être écrite.** En imputant les 68 causes des juges du
   banc, la tentation était de suivre le texte des juges eux-mêmes (« c'est le DÉCOR, pas le
@@ -319,6 +336,15 @@ apply -R` — et **prouver que le geste a eu lieu** (ici : 0 façade dans les 30
 - `[2× — 2026-07-24]` **Des erreurs de type dans mes propres tests, invisibles en vert.** Vitest efface les types à la transpilation. 1ʳᵉ fois : un import pointait un type non exporté (TS2459), une conversion sautait `unknown` (TS2352) — c'est le **pre-push** qui a mordu. 2ᵉ fois : élargir le retour de `send` en `boolean | void` a cassé **6 stubs** `send: (f) => sent.push(f)` (une flèche concise renvoie le `number` de `push`) — suites 100 % vertes, `npm run typecheck` racine rouge. Pire piège : `npx tsc --noEmit` lancé DANS le module est vert, il ne couvre pas les mêmes fichiers. **Avant un push : `npm run typecheck` à la racine, pas le tsc du module.** Et **élargir un type de retour de callback casse les stubs concis**, jamais les tests.
 
 ## 🔇 Un mode machine qui coupe le journal coupe aussi les erreurs
+
+- `[1× — 2026-08-01]` 🔴 **Un diagnostic EXACT qui ne parle pas de la cause coûte plus qu'un
+  diagnostic faux.** Une application bootait avec 1 module sur 8 et mourait sur « profil serveur
+  mais aucun serveur en écoute ». Le message était vrai — et il a envoyé chercher du côté des
+  serveurs pendant vingt minutes, alors que le manifeste `modules` était vide. Le bilan de boot
+  comptait ce qui avait été chargé, ce qui avait échoué, ce qui avait été gaté : aucune des trois
+  listes ne contient ce qu'on n'a **jamais tenté**. Règle : un verdict d'échec doit dire ce que la
+  configuration DEMANDAIT, pas seulement ce qui manque à l'arrivée. Vaut pour tout rapport
+  d'erreur — l'absence de tentative est un état, et il doit se voir.
 
 - `[1× — 2026-07-26]` ⭐ **`--json` rendait une commande MUETTE sur échec** : `inspect <sujet> --json` sortait 0 octet, stderr vide, code 1, quand la base configurée était injoignable — l'appelant en concluait que l'app n'avait ni routes ni services (un agent a préféré inventer un chiffre plutôt que constater la panne). `initSyslog` retournait sans brancher AUCUN transport dès que `--json` était passé, alors que son propre commentaire promettait que « les erreurs partent sur la sortie d'erreur ». **Un commentaire n'est pas une garantie** : celui-ci décrivait un comportement que le code ne faisait pas, et le test qui gardait l'endroit affirmait « aucun listener ajouté » — il VERROUILLAIT le défaut, d'où son vert. Règle : `stdout` appartient aux données, `stderr` aux erreurs ; couper l'un ne doit jamais couper l'autre. (Cause racine du silence de boot : non trouvée → BUG-1.)
 
