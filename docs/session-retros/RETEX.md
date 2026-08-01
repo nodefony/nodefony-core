@@ -30,6 +30,24 @@
 - `[1× — 2026-08-01d]` **Un gabarit dit « remplace ceci par le tien », et une garde exige que ce
   soit resté intact.** `create command --service` cherchait littéralement `greet()`. Motif à
   reconnaître ailleurs : toute garde écrite en LISANT la sortie de son propre exemple.
+- `[1× — 2026-08-01d]` **Le trou d'un banc n'est pas toujours une tâche qui manque.** Analyse
+  demandée après la création du module : le banc d'agent était SAIN sur mes trois soupçons (le
+  typecheck y est déjà une sonde) — le trou vrai était dans `verify-generated.mjs`, qui n'exerce
+  que **3 des 7** générateurs (`controller`, `service`, `command`, `front` : zéro). Ajouter une
+  tâche d'agent aurait coûté 3 runs et mesuré autre chose. **Avant de proposer une tâche, compter
+  ce que le script DÉTERMINISTE couvre déjà** : c'est gratuit, exhaustif et reproductible.
+- `[1× — 2026-08-01d]` 🔴 **Un nombre écrit à la main se périme, et personne ne le voit.** Le
+  `SKILL.md` du banc annonçait « 25 tâches » quand le code en portait 28 — le kit avait DÉJÀ noté
+  le même écart (« le SKILL.md en annonce encore 9 — reliquat ») et il n'avait pas été corrigé.
+  Retirer le chiffre vaut mieux que le remettre à jour.
+
+## ✅ Un vert de test ne dit pas que ça COMPILE
+
+- `[1× — 2026-08-01d]` **Mon propre test passait `vitest` et échouait au `typecheck`** — vitest
+  transpile sans vérifier les types. C'est le hook de **pre-push** qui l'a vu, après trois commits.
+  Le geste manquant tient en une commande : `tsgo --noEmit -p tsconfig.tests.json` avant de dire
+  « vert ». Vaut aussi dans l'autre sens : le banc devkit lance déjà un typecheck sur l'app générée
+  (`SONDES_QUALITE`), c'est le DÉPÔT (`create.test.ts`) qui n'en fait pas.
 
 ## 🎲 Ce qui varie d'un run à l'autre EST la mesure — pas le verdict
 
