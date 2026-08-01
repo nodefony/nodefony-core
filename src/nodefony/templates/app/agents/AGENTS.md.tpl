@@ -162,8 +162,15 @@ et il fait foi le jour où les deux divergent.
 - **Le WS métier passe par la socket Nodefony** (`--kind realtime` : canaux
   pub/sub + actions RPC + policies). L'echo WS brut des exemples est une démo
   du pipeline partagé, pas un modèle à imiter.
-<% if (it.hasSecurity) { %>- **Utilisateurs et droits : tout existe, n'improvise RIEN.** Quatre gestes
+<% if (it.hasSecurity) { %>- **Utilisateurs et droits : tout existe, n'improvise RIEN.** Ces gestes
   couvrent l'essentiel, et chacun a sa doc installée (cf. table ci-dessous) :
+  - **protéger un ESPACE de routes** (tout ce qui commence par un préfixe) :
+    une zone de firewall dans `nodefony.config.ts`, dont le `pattern` est le
+    PRÉFIXE lui-même — `pattern: "^/api/account"`, **jamais** la liste des
+    routes du jour (`"^/api/account/(profile|invoices)"`). Énumérer marche à
+    l'essai, passe la revue, et laisse la route sœur ajoutée ensuite NAÎTRE
+    PUBLIQUE — rien ne le signale, la zone a l'air de couvrir l'espace. Quand
+    des routes partagent un préfixe, ne les protège pas une par une ;
   - **protéger une action** : le décorateur `@IsGranted("ROLE_ADMIN")` sur la
     méthode — il vaut pour TOUS les transports (HTTP et socket), et se pose
     **en plus** de la zone de firewall (le firewall AUTHENTIFIE, `@IsGranted`

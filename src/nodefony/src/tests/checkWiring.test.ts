@@ -368,3 +368,198 @@ export abstract class BaseService extends Service {}`,
     assert.strictEqual(r.scanned, 0);
   });
 });
+
+/*
+ *   Un hook de cycle de vie au nom VOISIN — écrit, compilé, jamais appelé.
+ *
+ *   `Module.setEvents()` attache chaque hook sous un `if (this.onKernelX)` :
+ *   `onKernelBooted` n'entre dans aucun de ces `if`. La méthode existe, elle
+ *   compile, elle se lit — et l'initialisation qu'elle porte n'a jamais lieu.
+ *   Le symptôme arrive très loin de sa cause, et aucun test unitaire ne le voit.
+ */
+describe("check — un hook de module au nom inconnu", () => {
+  const made: string[] = [];
+  const make = (files: Record<string, string>): string => {
+    const dir = target(files);
+    made.push(dir);
+    return dir;
+  };
+  afterAll(() => {
+    for (const d of made) rmSync(d, { recursive: true, force: true });
+  });
+
+  it("nom voisin sur un Module → signalé", () => {
+    const dir = make({
+      "nodefony/entity/Post.ts": ENTITY,
+      "index.ts": `import { PostEntity } from "./nodefony/entity/Post";
+@entities([PostEntity])
+class App extends Module {
+  async onKernelBooted(): Promise<this> {
+    return this;
+  }
+}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    const f = r.findings.filter((x) => x.kind === "hook-lifecycle-inconnu");
+    assert.strictEqual(f.length, 1, JSON.stringify(r.findings));
+    assert.match(f[0].message, /onKernelBooted/u);
+  });
+
+  it("les trois hooks légitimes → rien à signaler", () => {
+    const dir = make({
+      "nodefony/entity/Post.ts": ENTITY,
+      "index.ts": `import { PostEntity } from "./nodefony/entity/Post";
+@entities([PostEntity])
+class App extends Module {
+  async onKernelRegister(): Promise<this> { return this; }
+  async onKernelBoot(): Promise<this> { return this; }
+  override async onKernelReady(): Promise<this> { return this; }
+}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
+  });
+
+  /*
+   *   Le faux positif à écarter : `onKernelStart` est le hook d'une COMMAND,
+   *   pas d'un module. Un fichier qui ne déclare aucun `extends Module` n'a
+   *   rien à voir avec cette règle — l'accuser apprendrait à la contourner.
+   */
+  it("une Command et son onKernelStart → épargnées", () => {
+    const dir = make({
+      "nodefony/entity/Post.ts": ENTITY,
+      "nodefony/command/MyCommand.ts": `export class MyCommand extends Command {
+  override async onKernelStart(): Promise<void> {}
+}`,
+      "index.ts": `import { PostEntity } from "./nodefony/entity/Post";
+@entities([PostEntity])
+class App extends Module {}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    const f = r.findings.filter((x) => x.kind === "hook-lifecycle-inconnu");
+    assert.strictEqual(f.length, 0, JSON.stringify(r.findings));
+  });
+
+  it("un APPEL au bon hook ne s'accuse pas lui-même", () => {
+    const dir = make({
+      "nodefony/entity/Post.ts": ENTITY,
+      "index.ts": `import { PostEntity } from "./nodefony/entity/Post";
+@entities([PostEntity])
+class App extends Module {
+  async onKernelBoot(): Promise<this> {
+    await this.onKernelReady();
+    return this;
+  }
+}`,
+    });
+    const r = checkWiring({ roots: [dir], cwd: dir });
+    assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
+  });
+});
+
+/*
+ *   Une zone de firewall qui ÉNUMÈRE des routes au lieu de couvrir un espace.
+ *
+ *   Mode d'échec MESURÉ (banc de découvrabilité, tâche 17) : sommés de protéger
+ *   deux routes d'un même espace, 3 agents sur 4 écrivent la liste des routes du
+ *   jour dans le `pattern`. Les deux routes refusent bien l'anonyme, les tests
+ *   passent, la revue passe — et la troisième route de l'espace, ajoutée plus
+ *   tard, est publique. Le contrôle lit la FORME parce qu'il ne PEUT pas
+ *   interroger les routes : celle qui paiera n'existe pas encore.
+ */
+describe("check — une zone de firewall énumère des routes", () => {
+  const made: string[] = [];
+  const make = (files: Record<string, string>): string => {
+    const dir = target(files);
+    made.push(dir);
+    return dir;
+  };
+  afterAll(() => {
+    for (const d of made) rmSync(d, { recursive: true, force: true });
+  });
+
+  /** Manifeste minimal portant le bloc `areas` — le reste ne compte pas ici. */
+  const manifeste = (areas: string): Record<string, string> => ({
+    "nodefony.config.ts": `export default defineConfig((ctx) => ({
+  security: {
+    areas: {
+${areas}
+    },
+  },
+}));`,
+    "index.ts": `class App extends Module {}`,
+  });
+
+  it("énumère les routes du jour → signalé, avec le préfixe à employer", () => {
+    const dir = make(
+      manifeste(`      compte: {
+        pattern: "^/api/account/(profile|invoices)",
+        authenticators: ["session"],
+      },`),
+    );
+    const r = checkWiring({ roots: [dir], cwd: dir, projectRoot: dir });
+    const f = r.findings.filter((x) => x.kind === "firewall-area-enumere");
+    assert.strictEqual(f.length, 1, JSON.stringify(r.findings));
+    assert.match(f[0].message, /\^\/api\/account"/u);
+    assert.strictEqual(f[0].file, "nodefony.config.ts");
+  });
+
+  it("couvre le préfixe → rien à signaler", () => {
+    const dir = make(
+      manifeste(`      compte: {
+        pattern: "^/api/account",
+        authenticators: ["session"],
+      },`),
+    );
+    const r = checkWiring({ roots: [dir], cwd: dir, projectRoot: dir });
+    assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
+  });
+
+  it("ancre de fin → signalé : la zone ne couvre aucune route sœur", () => {
+    const dir = make(
+      manifeste(`      compte: {
+        pattern: "^/api/account/profile$",
+        authenticators: ["session"],
+      },`),
+    );
+    const r = checkWiring({ roots: [dir], cwd: dir, projectRoot: dir });
+    const f = r.findings.filter((x) => x.kind === "firewall-area-enumere");
+    assert.strictEqual(f.length, 1, JSON.stringify(r.findings));
+  });
+
+  /*
+   *   Le faux positif qui rendrait le contrôle nuisible : une alternance EN TÊTE
+   *   ne liste pas des routes, elle désigne deux ESPACES. La recaler
+   *   apprendrait à contourner le contrôle plutôt qu'à écrire juste.
+   */
+  it("alternance de deux espaces en tête → épargnée", () => {
+    const dir = make(
+      manifeste(`      publique: {
+        pattern: "^/(api|admin)",
+        authenticators: ["session", "anonymous"],
+      },`),
+    );
+    const r = checkWiring({ roots: [dir], cwd: dir, projectRoot: dir });
+    assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
+  });
+
+  /*
+   *   Le contrôle ne doit pas mordre sur sa PROPRE documentation : le gabarit
+   *   d'application explique le piège en citant le contre-exemple. Sans le
+   *   retrait des commentaires, toute application fraîche naîtrait avec un
+   *   avertissement portant sur du texte explicatif.
+   */
+  it("le contre-exemple cité en COMMENTAIRE n'accuse personne", () => {
+    const dir = make(
+      manifeste(`      /**
+       * jamais pattern: "^/api/account/(profile|invoices)" — voir la doc.
+       */
+      compte: {
+        pattern: "^/api/account",
+        authenticators: ["session"],
+      },`),
+    );
+    const r = checkWiring({ roots: [dir], cwd: dir, projectRoot: dir });
+    assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
+  });
+});

@@ -112,6 +112,25 @@ export default defineConfig<typeof env>((ctx) => ({
        * produit exactement le même défaut, en plus discret encore : la clé
        * ouvre, et l'application ouvre une session par-dessus pour personne.
        */
+      /**
+       * ⚠️ Un `pattern` couvre un PRÉFIXE, pas les routes qu'on a en tête —
+       * et c'est TOUT l'intérêt : les routes ajoutées demain sous ce préfixe
+       * naissent protégées, sans que personne ait à y penser.
+       *
+       * D'où le piège, mesuré : pour fermer `/api/account/profile` et
+       * `/api/account/invoices`, on écrit
+       * `pattern: "^/api/account/(profile|invoices)"`. Les deux routes
+       * refusent bien l'anonyme, l'essai est vert, la revue passe — et la
+       * TROISIÈME route du compte, ajoutée un mois plus tard, est PUBLIQUE.
+       * Rien ne le signale : la zone existe, elle a l'air de couvrir l'espace.
+       * Le bon pattern est `"^/api/account"`.
+       *
+       * La zone retenue est celle dont le pattern est le plus LONG parmi
+       * celles qui correspondent (`firewall.ts:245`) — pas la première
+       * déclarée. C'est ainsi que `^/api/secure` l'emporte sur `^/api`
+       * ci-dessous. Un pattern énuméré gagne donc lui aussi sur ses propres
+       * routes, ce qui rend l'erreur silencieuse : ce qu'on teste marche.
+       */
       areas: {
         main: {
           pattern: "^/api",

@@ -30,7 +30,9 @@ export interface IWiringFinding {
     | "orphan-service"
     | "reserved-entity"
     | "missing-brick"
-    | "route-colon-param";
+    | "route-colon-param"
+    | "firewall-area-enumere"
+    | "hook-lifecycle-inconnu";
   /** Phrase lisible, déjà orientée vers la correction. */
   message: string;
   /** Fichier fautif, relatif à la racine analysée. */
@@ -168,6 +170,109 @@ const ROUTE_PATH_RE =
 const COLON_SEGMENT_RE = /\/:(\w+)/u;
 
 /**
+ * Les TROIS hooks de cycle de vie qu'un module peut porter — la liste est
+ * fermée par le code, pas par une convention.
+ *
+ * `Module.setEvents()` (`Module.ts:222`) attache chacun sous un `if
+ * (this.onKernelX)`. Un nom voisin — `onKernelBooted`, `onBoot`,
+ * `onKernelStart` recopié d'une Command — n'entre dans aucun de ces `if` :
+ * la méthode est écrite, elle compile, elle s'affiche dans le fichier, et elle
+ * n'est JAMAIS appelée. Aucun test ne le voit non plus, sauf à démarrer le
+ * kernel entier ; le symptôme est une initialisation qui n'a pas lieu, très
+ * loin de sa cause.
+ */
+const HOOKS_MODULE = new Set([
+  "onKernelRegister",
+  "onKernelBoot",
+  "onKernelReady",
+]);
+
+/**
+ * Une DÉCLARATION de méthode `onKernel…`, jamais un appel.
+ *
+ * L'ancrage en début de ligne (indentation d'un corps de classe) écarte
+ * `this.onKernelBoot()` et `module.onKernelReady()` : un appel au bon hook ne
+ * doit pas s'accuser lui-même.
+ */
+const HOOK_DECL_RE =
+  /^\s{2,}(?:public\s+|private\s+|protected\s+)?(?:override\s+)?(?:async\s+)?(onKernel\w+)\s*\(/gmu;
+
+/** Une classe de ce fichier étend-elle `Module` ? Sinon les hooks ne la concernent pas. */
+const EXTENDS_MODULE_RE = /\bclass\s+\w+\s+extends\s+Module\b/u;
+
+/**
+ * Le bloc `areas: { … }` du manifeste, et lui seul.
+ *
+ * `pattern:` est un mot trop courant pour être lu partout — la clé existe dans
+ * une config de bundler, une règle de lint, un routeur front. Le contrôle ne
+ * doit accuser que ce qu'il comprend.
+ */
+const AREAS_BLOCK_RE = /\bareas\s*:\s*\{([\s\S]{0,4000}?)\n\s{0,10}\}/u;
+
+/** `pattern: "^/api/account"` — la valeur écrite, telle quelle. */
+const AREA_PATTERN_RE = /\bpattern\s*:\s*["'`]([^"'`\n]+)["'`]/gu;
+
+/**
+ * Les commentaires, ôtés AVANT toute analyse du manifeste.
+ *
+ * Sans quoi le contrôle mord sur le gabarit lui-même : le commentaire qui
+ * apprend à ne PAS énumérer cite le contre-exemple
+ * (`"^/api/account/(profile|invoices)"`), et toute application fraîche
+ * commencerait par un avertissement portant sur du texte explicatif. Un
+ * contrôle qui accuse sa propre documentation est un contrôle qu'on désactive.
+ */
+function sansCommentaires(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//gu, "").replace(/\/\/[^\n]*/gu, "");
+}
+
+/**
+ * La part LITTÉRALE d'un pattern — ce qu'il couvre à coup sûr.
+ *
+ * `^/api/account/(profile|invoices)` → `/api/account`. On coupe au premier
+ * métacaractère, puis au dernier `/` : un segment tronqué (`/api/acc`) ne
+ * désigne rien et ferait un conseil faux.
+ */
+function prefixeLitteral(pattern: string): string {
+  const sansAncre = pattern.replace(/^\^/u, "");
+  const coupe = sansAncre.search(/[([{|?*+$\\]/u);
+  const litteral = coupe === -1 ? sansAncre : sansAncre.slice(0, coupe);
+  const dernier = litteral.lastIndexOf("/");
+  return dernier > 0 ? litteral.slice(0, dernier) : litteral;
+}
+
+/**
+ * Une zone qui ÉNUMÈRE des routes au lieu de couvrir un espace.
+ *
+ * Le mode d'échec est mesuré, pas supposé : sommés de protéger deux routes d'un
+ * même espace, 3 agents sur 4 écrivent `^/api/account/(profile|invoices)`. Les
+ * deux routes refusent bien l'anonyme, les tests passent, la revue passe — et la
+ * TROISIÈME route de l'espace, ajoutée plus tard, est publique. Rien ne le
+ * signale : la zone existe et paraît couvrir l'espace.
+ *
+ * Le contrôle ne peut pas le voir en interrogeant les routes (elles n'existent
+ * pas encore — c'est tout le problème), donc il lit la FORME. Deux signaux, et
+ * aucun n'est une question de style :
+ *
+ * - une **ancre de fin** (`$`) — la zone ne couvre qu'un chemin exact, donc
+ *   aucune route sœur, jamais ;
+ * - une **alternance** précédée d'au moins deux segments littéraux
+ *   (`/api/account/(…|…)`) — l'alternance sert alors à lister des routes. En
+ *   tête (`^/(api|admin)`) elle désigne au contraire deux espaces : légitime,
+ *   et épargnée.
+ *
+ * @param pattern - la valeur écrite dans le manifeste.
+ * @returns le préfixe à employer, ou `null` si la zone est saine.
+ */
+function zoneEnumere(pattern: string): string | null {
+  const corps = pattern.replace(/^\^/u, "");
+  const prefixe = prefixeLitteral(pattern);
+  const segments = prefixe.split("/").filter(Boolean).length;
+  if (/\$/u.test(corps)) return prefixe;
+  if (/\([^)]*\|/u.test(corps) && segments >= 2) return prefixe;
+  return null;
+}
+
+/**
  * Où le câblage d'une cible peut vivre — et nulle part ailleurs.
  *
  * Borner n'est pas une optimisation : depuis la racine d'un dépôt, un parcours
@@ -296,12 +401,33 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
   // comptent, et pour des raisons différentes : `nodefony.config.ts` décide de
   // ce qui est CHARGÉ, `package.json` de ce qui est INSTALLÉ. Une brique
   // installée mais absente du manifeste ne s'exécute jamais.
-  const declared = projectRoot
-    ? [
-        read(path.join(projectRoot, "nodefony.config.ts")),
-        read(path.join(projectRoot, "package.json")),
-      ].join("\n")
+  const manifestePath = projectRoot
+    ? path.join(projectRoot, "nodefony.config.ts")
     : "";
+  const manifeste = manifestePath ? read(manifestePath) : "";
+  const declared = projectRoot
+    ? [manifeste, read(path.join(projectRoot, "package.json"))].join("\n")
+    : "";
+
+  // Les zones vivent au niveau du PROJET : le contrôle se fait une fois, hors de
+  // la boucle des cibles, sinon le même manquement serait rendu autant de fois
+  // qu'il y a de modules locaux.
+  const areasBlock = AREAS_BLOCK_RE.exec(sansCommentaires(manifeste))?.[1];
+  if (areasBlock) {
+    for (const [, pattern] of areasBlock.matchAll(AREA_PATTERN_RE)) {
+      const prefixe = zoneEnumere(pattern);
+      if (!prefixe) continue;
+      findings.push({
+        kind: "firewall-area-enumere",
+        file: path.relative(cwd, manifestePath),
+        message:
+          `la zone "${pattern}" énumère des routes au lieu de couvrir un espace — ` +
+          `écris pattern: "^${prefixe}". Tel quel, les routes visées sont bien ` +
+          `protégées et TOUTE route ajoutée ensuite sous ${prefixe} naîtra publique, ` +
+          `sans qu'aucun test ne le voie : la zone existe et paraît couvrir l'espace`,
+      });
+    }
+  }
 
   for (const root of roots) {
     if (!statSync(root, { throwIfNoEntry: false }) || !isTarget(root)) {
@@ -367,6 +493,22 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
             `comme un littéral : la route s'affiche dans inspect routes et répond 404 ` +
             `à toute URL réelle`,
         });
+      }
+
+      // Les hooks se cherchent dans tout fichier qui déclare un module — c'est
+      // l'`index.ts` en général, mais rien ne l'impose.
+      if (EXTENDS_MODULE_RE.test(content)) {
+        for (const [, hook] of content.matchAll(HOOK_DECL_RE)) {
+          if (HOOKS_MODULE.has(hook)) continue;
+          findings.push({
+            kind: "hook-lifecycle-inconnu",
+            file: rel(file),
+            message:
+              `${hook}() n'est pas un hook de module — seuls ${[...HOOKS_MODULE].join(", ")} ` +
+              `sont attachés au démarrage. Écrite ainsi, la méthode compile et n'est JAMAIS ` +
+              `appelée : ce qu'elle initialise ne le sera pas, et rien ne le signalera`,
+          });
+        }
       }
 
       const dir = path.dirname(file);
