@@ -1205,6 +1205,19 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(src, "RealtimeClient.shared");
       assert.include(src, "useNodefonyChannelData");
 
+      // Le controller naît avec SON test, nommé d'après la route qu'il éprouve.
+      // Le nom est vérifié parce qu'un token non substitué produit un fichier
+      // `__KEBAB__-realtime.test.ts` qui PASSE : le contenu est correct, le nom
+      // seul est faux — aucune assertion de contenu ne l'aurait vu.
+      const rtTest = readFileSync(
+        path.join(full, "tests", "pulse-realtime.test.ts"),
+        "utf8",
+      );
+      assert.include(rtTest, '"@nodefony/realtime/testing"');
+      assert.include(rtTest, "createRealtimeHarness");
+      assert.include(rtTest, '"pulse:ping"');
+      assert.notInclude(rtTest, "__KEBAB__");
+
       const mini = path.join(tmp, "rtmini");
       scaffold(mini, { name: "rtmini", preset: "minimal" });
       assert.throws(

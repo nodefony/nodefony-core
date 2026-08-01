@@ -9,7 +9,12 @@
     ".": {
       "types": "./dist/types/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./testing": {
+      "types": "./dist/types/nodefony/testing/index.d.ts",
+      "import": "./dist/nodefony/testing/index.js"
+    },
+    "./package.json": "./package.json"
   },
   "scripts": {
     "build": "rimraf dist && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",

@@ -132,6 +132,62 @@ Détail des réglages : [`docs/configuration.md`](./docs/configuration.md).
 | `RealtimeError`                                                           | class      | Erreur de base (code + contexte)                  |
 | `ANONYMOUS_REALTIME_TOKEN`                                                | const      | Jeton anonyme gelé — fallback Zero Trust          |
 
+## Tester un controller — `@nodefony/realtime/testing`
+
+Un controller temps réel s'éprouve **sans serveur ni navigateur**. Le harnais le monte sur
+une fausse connexion et parle son protocole : il envoie les frames JSON-RPC qu'un client
+enverrait, et rend celles qui sortent.
+
+```ts
+import { describe, it, expect, afterEach } from "vitest";
+import { getRealtimeHub } from "@nodefony/realtime";
+import { createRealtimeHarness } from "@nodefony/realtime/testing";
+import ChatController from "../nodefony/controllers/ChatController";
+
+describe("ChatController — socket", () => {
+  afterEach(() => getRealtimeHub().clear());
+
+  it("pousse sur son canal, et répond à son action", async () => {
+    const h = createRealtimeHarness((ctx) => new ChatController(ctx));
+    await h.connect(); // handshake → realtime:welcome
+    await h.subscribe("chat:ticker");
+    expect(h.messages("chat:ticker")).not.toHaveLength(0);
+    expect(await h.call("chat:ping")).toEqual({ pong: true });
+    h.dispose(); // dispose les providers + vide le hub
+  });
+});
+```
+
+Pour éprouver un canal ou une action **protégés**, il faut les deux : l'identité qu'un
+authenticator aurait résolue, et le verrou de frame que `@nodefony/security` pose au boot.
+Sans verrou, une `policy` déclarée n'est appliquée par personne — c'est vrai en test comme
+en production, `@nodefony/realtime` ne connaissant pas `@nodefony/security`.
+
+```ts
+const h = createRealtimeHarness((ctx) => new ChatController(ctx), {
+  identity: monToken, // IRealtimeToken
+  frameAuthorizer: buildFrameAuthorizer(firewall, {
+    // @nodefony/security
+    channelResolver: getRealtimeHub(),
+    systemRules: DEFAULT_SYSTEM_RULES,
+  }),
+});
+await h.connect();
+await h.subscribe("chat:admin");
+expect(h.denials().map((d) => d.channel)).toEqual(["chat:admin"]); // refusé
+```
+
+| Membre                                      | Rôle                                                            |
+| ------------------------------------------- | --------------------------------------------------------------- |
+| `connect()`                                 | Handshake ; rend le `realtime:welcome`, jette s'il n'arrive pas |
+| `subscribe(c)` / `unsubscribe(c)`           | Demande / rend un canal                                         |
+| `call(m, p?)` / `notify(m, p?)` / `send(f)` | Action RPC · notification entrante · frame brute                |
+| `messages(c)` / `denials()` / `received`    | Ce qui est sorti : par canal · refus · toutes les frames        |
+| `closes` / `notices`                        | Fermetures serveur (4003…) · avertissements de plateforme       |
+| `close()` / `dispose()`                     | Ferme la socket · ferme puis remet le hub à zéro                |
+
+`nodefony create controller --kind realtime` pose ce test à côté du controller qu'il génère.
+
 ## Doc complète
 
 | Page                                               | Description                                   |

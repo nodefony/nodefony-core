@@ -166,4 +166,33 @@ l'écriture réseau. D'où la règle : pour un gain d'étage, mesurer l'étage
 
 - `npm test` → vitest run (unit + intégration)
 - `npm run coverage` → vitest run --coverage (provider v8, reports `.coverage/`)
-- **167 unit verts + 9 skipped** (les skipped = intégration Redis/cluster réels, auto-skip sans docker). Le rapatriement P13.0 des tests est FAIT (12 fichiers unit + 3 intégration).
+- Les skippés = intégration Redis/cluster réels (auto-skip sans docker) ; `gateReporter` les nomme en fin de run — un skip compte comme vert.
+
+## Subpath publié `@nodefony/realtime/testing` — harnais de controller
+
+Source `nodefony/testing/index.ts` → `dist/nodefony/testing/index.js` + `dist/types/…`.
+**Sort du glob `nodefony/**/*.ts` du bundler** : aucune entrée à déclarer dans
+`rolldown.config.ts`, aucune ligne dans `tsconfig`. Seule l'entrée `exports["./testing"]`
+du `package.json` est écrite à la main.
+
+`createRealtimeHarness((ctx) => new MonController(ctx), options?)` → `{ controller, hub,
+received, closes, notices, connect, subscribe, unsubscribe, call, notify, send, messages,
+denials, close, dispose }`. Options : `url` · `origin` · `headers` · `cookies` ·
+`identity` (seam #2) · `frameAuthorizer` (seam #1) · `resetHub` (défaut `true`).
+
+- **Pilote le SERVEUR par frames**, jamais via `RealtimeClient` : le client est un artefact
+  navigateur du cœur, et `nodefony` est externalisé en EXACT-MATCH par le bundler
+  (`nodefonyExternalMatcher`) — un `import "nodefony/client"` ici entrerait BUNDLÉ dans le
+  paquet serveur. Contrôle : `dist/nodefony/testing/index.js` ne doit avoir qu'un import,
+  relatif, vers `RealtimeHub.js`.
+- **Absorbe le cast vers `handleRealtime`**, que la base garde `protected` (une route de
+  controller l'appelle depuis la sous-classe ; un test n'a pas cette position).
+- **`onPlatformNotice` est posé APRÈS le handshake** : le controller pose le sien pendant
+  (`RealtimeController.ts:538`) et l'écraserait. Les avertissements utiles (canal dynamique
+  sans politique) naissent au premier `subscribe`, donc après.
+- **`frameAuthorizer` est le seul moyen d'éprouver une `policy`** : `realtime` ⊥ `security`
+  au runtime — sans verrou, une politique déclarée n'est appliquée par personne, en test
+  comme en production. Éprouvé contre le VRAI `buildFrameAuthorizer` dans
+  `tests/integration/realtimeHarness.e2e.test.ts`.
+- Le gabarit `create controller --kind realtime` pose `tests/<kebab>-realtime.test.ts`
+  par-dessus (core : `templates/controller/realtime/tests/`).

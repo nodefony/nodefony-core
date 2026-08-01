@@ -904,7 +904,7 @@ function dispatchScaffold(
       },
       written,
       writer,
-      { __NAME__: "LiveController" },
+      { __NAME__: "LiveController", __KEBAB__: "live" },
     );
   }
   if (front) {
@@ -1485,7 +1485,10 @@ function runControllerScaffold(
     data,
     written,
     writer,
-    { __NAME__: nameClass },
+    // `__KEBAB__` sert au test généré (`tests/<kebab>-realtime.test.ts`) : un
+    // fichier de test se nomme d'après la ROUTE qu'il éprouve, pas d'après la
+    // classe — c'est ainsi qu'on le retrouve depuis un journal ou une URL.
+    { __NAME__: nameClass, __KEBAB__: kebab },
   );
   wireDecoratorList(
     path.join(target.dir, "index.ts"),
@@ -1504,6 +1507,7 @@ function runControllerScaffold(
     ],
     realtime: [
       `WS   ${route}/realtime (socket Nodefony — canal ${kebab}:ticker, action ${kebab}:ping)`,
+      `TEST tests/${kebab}-realtime.test.ts — \`npx vitest run\` (harnais @nodefony/realtime/testing, ni serveur ni navigateur)`,
     ],
     example: [
       `REST ${route} (vitrine décorateurs — voir les curl du TSDoc généré)`,

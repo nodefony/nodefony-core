@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-01T17:57:03.854Z",
+  "generated": "2026-08-01T20:48:05.607Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 653,
-    "symbols": 2584,
+    "files": 654,
+    "symbols": 2593,
     "classes": 340,
-    "interfaces": 784,
+    "interfaces": 790,
     "types": 337,
     "enums": 4,
-    "functions": 938,
+    "functions": 941,
     "constants": 181
   },
   "symbols": {
@@ -12500,6 +12500,59 @@
       "extends": null,
       "description": "Jeton realtime — surface MINIMALE de l'identité d'une connexion WebSocket. Sous-ensemble STRICT de `@nodefony/security`'s `IToken` (TypeScript structural typing → toute classe `Token` security l'im…"
     },
+    "IRealtimeFrame": {
+      "name": "IRealtimeFrame",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Frame JSON-RPC 2.0 telle qu'elle circule sur la socket, dans les deux sens. Volontairement permissive : un test lit `method`, `params`, `result` ou `error` selon ce qu'il éprouve, et le harnais ne …"
+    },
+    "IHarnessClose": {
+      "name": "IHarnessClose",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Fermeture demandée par le serveur (code RFC 6455 + raison)."
+    },
+    "IHarnessDenied": {
+      "name": "IHarnessDenied",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Refus d'abonnement notifié au client (`realtime:denied`)."
+    },
+    "IRealtimeHarnessOptions": {
+      "name": "IRealtimeHarnessOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Écart au décor par défaut du harnais."
+    },
+    "IRealtimeHarness": {
+      "name": "IRealtimeHarness",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Vue de test d'un controller temps réel connecté : ce qu'il a reçu, ce qu'il a émis, et de quoi le piloter frame par frame."
+    },
+    "createRealtimeHarness": {
+      "name": "createRealtimeHarness",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Monte un controller temps réel sur une fausse connexion et rend de quoi le piloter. La fabrique reçoit le contexte à passer au constructeur : c'est la seule chose que le harnais ne peut pas deviner…"
+    },
     "RedisConfig": {
       "name": "RedisConfig",
       "kind": "type",
@@ -20069,6 +20122,7 @@
         "src/packages/@nodefony/realtime/index.ts",
         "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts",
         "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "ServerRealtimeSocket": [
@@ -20079,10 +20133,12 @@
       ],
       "RealtimeHub": [
         "src/packages/@nodefony/realtime/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "getRealtimeHub": [
         "src/packages/@nodefony/realtime/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts",
@@ -22058,6 +22114,7 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ISecuredArea.ts",
@@ -23553,6 +23610,7 @@
       ],
       "IRealtimeToken": [
         "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeAuthenticator.ts",
+        "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/AnonymousRealtimeToken.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
@@ -23576,6 +23634,17 @@
         "src/packages/@nodefony/realtime/nodefony/src/backplane/ClusterBackplane.ts",
         "src/packages/@nodefony/realtime/nodefony/src/backplane/LoopbackBackplane.ts",
         "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts"
+      ],
+      "FrameAuthorizer": [
+        "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
+        "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts"
+      ],
+      "IRealtimeAuthenticator": [
+        "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts"
       ],
       "redisConfigSchema": [
         "src/packages/@nodefony/redis/nodefony/config/defineModuleConfig.ts",
@@ -24475,11 +24544,6 @@
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
-      "IRealtimeAuthenticator": [
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts"
-      ],
       "ICompiledRealtimeMatcher": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
       ],
@@ -24488,10 +24552,6 @@
       ],
       "OriginGuard": [
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
-      ],
-      "FrameAuthorizer": [
-        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
-        "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts"
       ],
       "applyDeclaredBroadcastPrefixes": [
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
