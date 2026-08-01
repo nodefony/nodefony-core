@@ -111,8 +111,13 @@ jobs:
       # Conséquence assumée : un avertissement neuf CASSE la demande de fusion.
       # C'est le but — une règle qu'on décide d'ignorer se désactive dans
       # `.oxlintrc.json`, où la décision se lit et se discute.
+      #
+      # L'option vit dans le script `lint` du manifeste racine, pas ici : quand
+      # elle n'était posée QUE dans cette marche, le lint local rendait 0 sur un
+      # avertissement que la forge refusait — la panne n'apparaissait qu'après
+      # le `push`, sur une machine où personne ne débogue. Une seule écriture.
       - name: Lint (oxlint)
-        run: npm run lint -- --deny-warnings
+        run: npm run lint
 
       # Bloquant à partir de « high ». `npm ci` tourne avec `--no-audit` (l'audit
       # à l'installation ralentit sans rien bloquer) — la vérification est donc

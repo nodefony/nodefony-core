@@ -34,7 +34,7 @@
     "test:boot": "turbo run build && turbo run test:boot --continue",
     "dev": "npm run dev --workspace=src/nodefony",
     "typecheck": "turbo run typecheck",
-    "lint": "oxlint",
+    "lint": "oxlint --deny-warnings",
     "certificates": "bash bin/generateCertificates.sh",
     "generate-symbols": "tsx scripts/generate-symbols.ts",
     "skills:check": "node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check && node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs && node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs --strict",
