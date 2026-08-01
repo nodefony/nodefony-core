@@ -15,6 +15,22 @@
 
 ---
 
+## 🥫 Un outil qui ne sert pas le dépôt qui le publie n'est éprouvé par personne
+
+- `[1× — 2026-08-01d]` 🔴 **J'ai commencé à écrire à la main le squelette que notre propre commande
+  produit.** `nodefony create module` visait `modules/` en dur ; le dépôt du framework range ses
+  paquets dans `src/packages/@nodefony/*`, donc il ne pouvait pas s'en servir — et le skill
+  `nodefony-create-module` avait ENTÉRINÉ l'écart (« deux scaffolders, c'est voulu »). Je l'ai lu,
+  j'ai obéi, j'ai sorti le Write. C'est le user qui a mordu (« incroyable, le core n'appelle pas la
+  commande »). **Le geste juste, quand un outil maison ne couvre pas le cas courant, est de lancer
+  l'outil D'ABORD pour voir ce qu'il rend** — le `--dry-run` a montré en 3 s que 80 % du chemin
+  était là. Deux défauts produit ont suivi immédiatement (garde `--service` qui exigeait la méthode
+  d'exemple du gabarit, contrôle TSDoc absent de 2 scaffolds sur 3) : aucun ne se voyait tant que
+  l'auteur n'utilisait pas sa propre commande.
+- `[1× — 2026-08-01d]` **Un gabarit dit « remplace ceci par le tien », et une garde exige que ce
+  soit resté intact.** `create command --service` cherchait littéralement `greet()`. Motif à
+  reconnaître ailleurs : toute garde écrite en LISANT la sortie de son propre exemple.
+
 ## 🎲 Ce qui varie d'un run à l'autre EST la mesure — pas le verdict
 
 - `[1× — 2026-07-30]` 🔴 **Un banc à verdict binaire joué UNE fois ne dit rien.** T14 rejouée 4×,
