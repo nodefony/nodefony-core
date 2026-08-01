@@ -2,12 +2,20 @@ import { route, controller, Controller } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 
 /**
- * Accueil `GET /` — la carte de visite JSON de l'app.
+ * Accueil `GET /` — la racine de TON application.
  *
  * Sans frontend, une racine muette répond 404 : la première URL qu'on ouvre
- * après `npm run dev` dirait « rien ici ». Cette route dit QUI répond (nom,
- * version) et OÙ aller ensuite. Elle n'est générée que pour une app SANS
- * frontend — avec un front, c'est `AppController` qui tient `/`.
+ * après `npm run dev` dirait « rien ici ». Cette route dit QUI répond, et rien
+ * de plus. Elle n'est générée que pour une app SANS frontend — avec un front,
+ * c'est `AppController` qui tient `/`.
+ *
+ * ⚠️ **Volontairement sobre, et c'est une décision de sécurité.** Ce que cette
+ * réponse contient part en PRODUCTION, vers n'importe qui. Énumérer les routes
+ * internes, la console d'administration ou les chemins de documentation
+ * décrirait ton architecture à qui la demande : c'est une divulgation, pas une
+ * fonctionnalité. Ces informations vivent dans `@nodefony/devkit`
+ * (`npx nodefony devkit:card`), un module `policy: "dev"` absent de la
+ * production.
  *
  * Tu ajoutes un frontend plus tard (`nodefony create front`) ? Sa page vivra
  * sous sa propre route ; garde cet accueil JSON ou remplace-le, c'est TA racine.
@@ -23,12 +31,6 @@ class HomeController extends Controller {
     return this.renderJson({
       app: "<%= it.appName %>",
       nodefony: "<%= it.nodefonyVersion %>",
-      liens: {
-        hello: "/api/hello",
-<% if (it.complete) { %>        studio: "/nodefony (console d'admin, mode développement)",
-<% } %>        docs: "node_modules/nodefony/docs/ + node_modules/@nodefony/*/docs/",
-        agents: "AGENTS.md (instructions pour un agent IA)",
-      },
     });
   }
 }

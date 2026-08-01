@@ -964,7 +964,23 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "utf8",
       );
       assert.include(home, 'path: "/"');
-      assert.include(home, "/api/hello");
+      // La racine dit QUI répond, et rien de plus : cette réponse part en
+      // production, vers n'importe qui. Énumérer les routes internes, la console
+      // d'administration ou les chemins de documentation décrirait
+      // l'architecture à qui la demande. Ces informations vivent dans
+      // `@nodefony/devkit` (policy dev), pas dans la racine de l'app.
+      for (const fuite of [
+        "/api/hello",
+        "/nodefony",
+        "node_modules",
+        "AGENTS",
+      ]) {
+        assert.notInclude(
+          home,
+          fuite,
+          `la racine générée divulgue « ${fuite} » — en production, c'est offert à tout le monde`,
+        );
+      }
       const index = readFileSync(path.join(none, "index.ts"), "utf8");
       assert.include(index, "HomeController");
 
