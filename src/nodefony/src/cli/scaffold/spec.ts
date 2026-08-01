@@ -247,6 +247,21 @@ const SERVICE_SPEC: IScaffoldTypeSpec = {
       default: "",
     },
     {
+      // Le geste que le banc a mesuré ROUGE : sans exemple ACTIF, l'agent passe
+      // par `container.get` partout — la dépendance n'est alors pas déclarée,
+      // donc ni ordonnée par le conteneur ni visible dans la signature. Le
+      // scaffold refuse un nom qu'il ne trouve pas dans la cible : mieux vaut
+      // pas d'injection qu'un import vers une classe absente.
+      key: "inject",
+      label:
+        "Injecter un service existant de la cible (nom de classe, ex : BillingService)",
+      type: "string",
+      default: "",
+      pattern: "^$|^[A-Za-z][A-Za-z0-9-]*$",
+      patternHint:
+        "nom d'un service de la cible (nodefony/service/<Nom>Service.ts) ou vide",
+    },
+    {
       key: "module",
       label: "Cible (vide = app racine, sinon nom d'un module du projet)",
       type: "string",

@@ -1,5 +1,7 @@
-import { Service, Module, Container, Event, injectable } from "nodefony";
+import { Service, Module, Container, Event, injectable<% if (it.inject) { %>, inject<% } %> } from "nodefony";
 import type { I<%= it.pascal %>Service } from "../interfaces/I<%= it.pascal %>Service";
+<% if (it.inject) { %>import <%= it.inject.pascal %> from "./<%= it.inject.pascal %>";
+<% } %>
 
 /**
  * <%= it.description %>.
@@ -25,7 +27,17 @@ import type { I<%= it.pascal %>Service } from "../interfaces/I<%= it.pascal %>Se
  *
  * POUR L'UTILISER AILLEURS, deux voies, toutes deux légales :
  *
+<% if (it.inject) { %> * 1. INJECTION par le constructeur — c'est CE QUE FAIT le constructeur
+ *    ci-dessous avec `<%= it.inject.pascal %>` : la dépendance est DÉCLARÉE, donc le
+ *    conteneur l'ordonnance et elle se voit dans la signature. Le décorateur
+ *    prend le nom de la CLASSE (`<%= it.inject.pascal %>`), pas la clé d'instance.
+ *
  * ```ts
+ * // 2. RÉSOLUTION par le conteneur — utile quand la dépendance est tardive ou
+ * //    optionnelle. Ici c'est le nom de l'INSTANCE.
+ * const <%= it.camel %> = this.container.get("<%= it.camel %>");
+ * ```
+<% } else { %> * ```ts
  * // 1. INJECTION par le constructeur — la dépendance est DÉCLARÉE, donc le
  * //    conteneur l'ordonnance et elle se voit dans la signature. Le décorateur
  * //    prend le nom de la CLASSE.
@@ -45,12 +57,21 @@ import type { I<%= it.pascal %>Service } from "../interfaces/I<%= it.pascal %>Se
  * //    optionnelle. Ici c'est le nom de l'INSTANCE.
  * const <%= it.camel %> = this.container.get("<%= it.camel %>");
  * ```
- */
+ *
+ * Le scaffold écrit la voie 1 pour toi : `nodefony create service <nom>
+ * --inject <%= it.pascal %>Service` rend le constructeur déjà injecté.
+<% } %> */
 @injectable()
 class <%= it.pascal %>Service extends Service implements I<%= it.pascal %>Service {
   module: Module;
 
-  constructor(module: Module) {
+  constructor(
+    module: Module,
+<% if (it.inject) { %>    // La dépendance passe par le CONSTRUCTEUR : le conteneur la construit avant
+    // celui-ci et l'ordonnance. `@inject` prend le nom de la CLASSE — la clé
+    // d'instance (`"<%= it.inject.key %>"`) ne sert qu'à `container.get`.
+    @inject("<%= it.inject.pascal %>") private readonly <%= it.inject.camel %>: <%= it.inject.pascal %>,
+<% } %>  ) {
     super(
       "<%= it.camel %>",
       module.container as Container,
@@ -79,6 +100,20 @@ class <%= it.pascal %>Service extends Service implements I<%= it.pascal %>Servic
   greet(who = "monde"): string {
     return `Bonjour, ${who} !`;
   }
+<% if (it.inject) { %>
+
+  /**
+   * Délègue au service injecté — remplace ce corps par ta logique.
+   *
+   * Rien à résoudre ici : `this.<%= it.inject.camel %>` est déjà l'instance que le
+   * conteneur a construite. C'est toute la différence avec
+   * `container.get("<%= it.inject.key %>")`, qui cherche à l'exécution et rend
+   * `undefined` en silence si le service n'est pas enregistré.
+   */
+  async depuis<%= it.inject.pascal %>(): Promise<unknown> {
+    return this.<%= it.inject.camel %>.<%= it.inject.method %>();
+  }
+<% } %>
 
   status(): { ready: boolean } {
     return { ready: true };

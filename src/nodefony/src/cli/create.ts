@@ -138,6 +138,11 @@ export function parseCreateArgv(
       answers.route = rest[++i];
     } else if (word === "--module") {
       answers.module = rest[++i];
+      // ─── `create service` ───────────────────────────────────────────────────
+      // Injection par le CONSTRUCTEUR — le service visé doit exister dans la
+      // cible, sinon le scaffold refuse avant d'écrire.
+    } else if (word === "--inject") {
+      answers.inject = rest[++i];
       // ─── `create entity` ────────────────────────────────────────────────────
       // `--controller` est déjà un flag À VALEUR (`create module --controller hello`) :
       // pour une entité, le booléen s'exprime donc par sa négation, jamais par
@@ -238,8 +243,9 @@ const USAGE =
   `  module     : [--controller <${MODULE_CONTROLLER_CHOICES.join("|")}>] [--no-service] [--command]\n` +
   `               [--frontend <${FRONTEND_CHOICES.join("|")}>] [--description "…"] [--no-install]\n` +
   `  controller : [--kind <${CONTROLLER_KIND_CHOICES.join("|")}>] [--route </api/x>] [--module <nom>]\n` +
-  `  service    : [--description "…"] [--module <nom>]\n` +
+  `  service    : [--inject <AutreService>] [--description "…"] [--module <nom>]\n` +
   `               classe @injectable, sans dépendance à un config.ts — pour la découvrir, imite-la\n` +
+  `               --inject : dépendance déclarée au CONSTRUCTEUR (@inject + appel), pas container.get\n` +
   `  front      : [--frontend <react|vue|angular>] [--route </page>] [--module <nom>]\n` +
   `  entity     : [champs…] [--id <${ENTITY_ID_CHOICES.join("|")}>] [--soft-delete] [--no-timestamps]\n` +
   `               [--no-controller] [--no-service] [--no-tests] [--route </api/x>] [--module <nom>]\n` +

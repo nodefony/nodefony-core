@@ -1566,6 +1566,56 @@ function runServiceScaffold(
   const pascal = toPascalCase(base);
   const nameClass = `${pascal}Service`;
   const camel = pascal[0].toLowerCase() + pascal.slice(1);
+
+  // Les services DÉJÀ présents dans la cible : ils décident de deux choses —
+  // ce que `--inject` peut viser, et la note qui apprend le geste à qui ne l'a
+  // pas demandé.
+  const existing = listTargetServices(target.dir, writer);
+  const injectName = String(answers.inject ?? "").trim();
+  let inject: {
+    pascal: string;
+    key: string;
+    camel: string;
+    method: string;
+  } | null = null;
+  if (injectName !== "") {
+    const wanted = `${toPascalCase(injectName.replace(/[-_]?[Ss]ervice$/u, ""))}Service`;
+    const found = existing.find((s) => s.pascal === wanted);
+    if (!found) {
+      // Refus AVANT écriture : produire un import vers une classe absente
+      // laisserait un projet qui ne compile plus, sur une erreur qui ne parle
+      // pas du scaffold. Même doctrine que `--service` de `create command`.
+      const known = existing.map((s) => s.pascal).join(" · ") || "aucun";
+      throw new Error(
+        `--inject : « ${injectName} » introuvable dans ${target.name} ` +
+          `(services de la cible : ${known}) — crée-le d'abord, ou relance sans --inject`,
+      );
+    }
+    if (found.pascal === nameClass) {
+      throw new Error(
+        `--inject : un service ne s'injecte pas lui-même (${nameClass})`,
+      );
+    }
+    // Une dépendance déclarée et jamais appelée ne compile pas (`noUnusedLocals`
+    // signale la propriété privée non lue) — et surtout, elle ne montrerait
+    // rien. Le gabarit produit donc un APPEL, sur une méthode CHERCHÉE dans le
+    // service visé : le même helper que `create command --service`, jamais un
+    // nom supposé.
+    const method = findCallableMethod(found.source);
+    if (method === null) {
+      throw new Error(
+        `--inject : ${found.pascal} n'expose aucune méthode publique appelable ` +
+          "sans argument obligatoire — le service injecté serait déclaré sans être appelé",
+      );
+    }
+    inject = {
+      pascal: found.pascal,
+      key: found.key,
+      camel: found.key[0].toLowerCase() + found.key.slice(1),
+      method,
+    };
+  }
+
   const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
   const written: string[] = [];
   renderLayer(
@@ -1575,6 +1625,7 @@ function runServiceScaffold(
     {
       pascal,
       camel,
+      inject,
       description:
         String(answers.description) || `Service ${pascal} de ${target.name}`,
     },
@@ -1590,14 +1641,30 @@ function runServiceScaffold(
     writer,
   );
   written.push("index.ts");
+  const notes = [
+    `DI   container.get("${camel}")  — clé du conteneur (super("${camel}", …))`,
+    `DI   @inject("${nameClass}")    — nom de classe (@injectable)`,
+  ];
+  if (inject) {
+    notes.push(
+      `DI   ${inject.pascal} est injecté par le CONSTRUCTEUR — dépendance déclarée, ordonnée par le conteneur`,
+    );
+  } else if (existing.length > 0) {
+    // La note APPREND le geste, au seul moment où il est applicable : la cible
+    // porte déjà un service, donc l'injection a un sens ici et maintenant.
+    // Mesuré au banc : `@inject` n'existait qu'en commentaire dans les gabarits,
+    // et l'agent passait exclusivement par `container.get` — on ne prend que la
+    // voie qu'on a VUE, jamais celle qu'on a lue.
+    notes.push(
+      `DI   pour appeler ${existing[0].pascal} depuis ce service, injecte-le : ` +
+        `nodefony create service ${base} --inject ${existing[0].pascal}`,
+    );
+  }
   return {
     dest: target.dir,
     files: written.sort(),
     linked: [],
-    notes: [
-      `DI   container.get("${camel}")  — clé du conteneur (super("${camel}", …))`,
-      `DI   @inject("${nameClass}")    — nom de classe (@injectable)`,
-    ],
+    notes,
   };
 }
 
@@ -1659,6 +1726,45 @@ function findCallableMethod(source: string): string | null {
 }
 
 /**
+ * Les services d'une cible : classe, clé de conteneur, source.
+ *
+ * Point UNIQUE qui sait où vivent les services et comment on les nomme —
+ * `--service` de `create command` et `--inject` de `create service` en
+ * dépendent tous deux. Deux façons de « trouver les services » divergeraient en
+ * silence, chacune passant ses propres essais.
+ *
+ * Un fichier dont on ne sait pas lire le `super("…", …)` est ignoré : sans clé
+ * de conteneur, il n'est atteignable par personne, donc il n'est pas un
+ * candidat.
+ */
+function listTargetServices(
+  targetDir: string,
+  writer: ScaffoldWriter,
+): Array<{ pascal: string; key: string; source: string }> {
+  const dir = path.join(targetDir, "nodefony", "service");
+  if (!writer.exists(dir)) {
+    return [];
+  }
+  const found: Array<{ pascal: string; key: string; source: string }> = [];
+  for (const entry of writer.listDir(dir)) {
+    if (entry.isDirectory || !entry.name.endsWith("Service.ts")) {
+      continue;
+    }
+    const file = path.join(dir, entry.name);
+    const key = readNodefonyName(file, writer);
+    if (key === null) {
+      continue;
+    }
+    found.push({
+      pascal: entry.name.replace(/\.ts$/u, ""),
+      key,
+      source: writer.read(file),
+    });
+  }
+  return found;
+}
+
+/**
  * Service appelable de la cible : sa classe, sa clé de conteneur, sa méthode.
  *
  * ⚠️ La méthode est CHERCHÉE, pas supposée. Elle a longtemps été exigée par son
@@ -1674,24 +1780,12 @@ function findTargetService(
   targetDir: string,
   writer: ScaffoldWriter,
 ): { pascal: string; key: string; method: string } | null {
-  const dir = path.join(targetDir, "nodefony", "service");
-  if (!writer.exists(dir)) {
-    return null;
-  }
-  for (const entry of writer.listDir(dir)) {
-    if (entry.isDirectory || !entry.name.endsWith("Service.ts")) {
-      continue;
-    }
-    const file = path.join(dir, entry.name);
-    const key = readNodefonyName(file, writer);
-    if (key === null) {
-      continue;
-    }
-    const method = findCallableMethod(writer.read(file));
+  for (const svc of listTargetServices(targetDir, writer)) {
+    const method = findCallableMethod(svc.source);
     if (method === null) {
       continue;
     }
-    return { pascal: entry.name.replace(/\.ts$/u, ""), key, method };
+    return { pascal: svc.pascal, key: svc.key, method };
   }
   return null;
 }

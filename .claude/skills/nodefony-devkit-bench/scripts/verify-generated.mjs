@@ -124,6 +124,8 @@ const MODULE_PKG = `@app/${MODULE}`;
  */
 const SERVICE = "Report";
 const SERVICE_METHOD = "bilan";
+/** Le service qui INJECTE le premier — `create service … --inject`. */
+const INJECTED_SERVICE = "Facture";
 const COMMAND_ACTION = "sync";
 const COMMAND_CLASS = "SyncCommand";
 
@@ -400,6 +402,36 @@ step(
       "--service",
       "--yes",
     ]);
+
+    // Un SECOND service, injecté par le premier. Le geste que le banc de
+    // découvrabilité a mesuré ROUGE : sans exemple ACTIF, l'agent passe
+    // exclusivement par `container.get`, et sa dépendance n'est ni déclarée ni
+    // ordonnée. Ici l'appel généré porte sur la méthode RENOMMÉE — donc il
+    // prouve, comme la commande, que le générateur cherche au lieu de supposer.
+    run(process.execPath, [
+      BIN,
+      "create",
+      "service",
+      INJECTED_SERVICE,
+      "--inject",
+      `${SERVICE}Service`,
+      "--yes",
+    ]);
+    const injected = readFileSync(
+      path.join(APP, "nodefony", "service", `${INJECTED_SERVICE}Service.ts`),
+      "utf8",
+    );
+    if (!injected.includes(`@inject("${SERVICE}Service")`)) {
+      throw new Error(
+        "le service généré n'injecte rien par le constructeur — `--inject` a-t-il été honoré ?",
+      );
+    }
+    if (!injected.includes(`.${SERVICE_METHOD}()`)) {
+      throw new Error(
+        `le service injecté n'est jamais APPELÉ (${SERVICE_METHOD}) — ` +
+          "une dépendance déclarée et non lue ne compile pas, et ne montre rien",
+      );
+    }
 
     const generated = readFileSync(
       path.join(APP, "nodefony", "command", `${COMMAND_CLASS}.ts`),

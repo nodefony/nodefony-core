@@ -31,7 +31,7 @@
 | Module applicatif (workspace npm) | `npx nodefony create module <nom>` |
 | Controller HTTP **et** WebSocket (même classe) | `npx nodefony create controller <nom> --kind hello\|rest\|realtime\|duplex\|example` |
 | Ressource REST **complète** — entité + service + controller CRUD + tests (ne JAMAIS l'écrire à la main) | `npx nodefony create entity <Nom> --fields "sku:string! price:float"` |
-| Service métier seul — la logique réutilisable, hors de tout controller | `npx nodefony create service <Nom> [--module <m>]` |
+| Service métier seul — la logique réutilisable, hors de tout controller | `npx nodefony create service <Nom> [--inject <AutreService>] [--module <m>]` |
 | Frontend Vite (React/Vue/Angular) | `npx nodefony create front <nom> [--module <m>]` |
 | Commande CLI `nodefony <module>:<action>` | `npx nodefony create command <action> [--module <m>] [--phase onReady\|onRegister\|onPostReady]` |
 
@@ -141,6 +141,12 @@ et il fait foi le jour où les deux divergent.
   `container.get("…")`). Ne l'écris pas de mémoire — `npx nodefony create service
   <Nom>` en pose un complet, commenté, à imiter ; la référence est dans
   `node_modules/nodefony/docs/service.md`.
+  **Un service qui en appelle un autre le déclare au CONSTRUCTEUR** :
+  `npx nodefony create service <Nom> --inject <AutreService>` écrit le
+  `@inject("AutreService")` et l'appel qui va avec. La dépendance est alors
+  ordonnée par le conteneur et visible dans la signature — là où
+  `container.get("…")` cherche à l'exécution et rend `undefined` en silence si
+  le service n'est pas enregistré.
 - **Les violations de contrainte sont DÉJÀ traduites en HTTP — ne les rattrape pas.**
   Un doublon sur une colonne unique ressort en **409**, une donnée qui viole le
   schéma Zod en **422**, chacun avec son corps JSON : le rendu d'erreur lit le code

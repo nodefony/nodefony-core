@@ -12,4 +12,8 @@ export interface I<%= it.pascal %>Service {
 
   /** Exemple de méthode métier — à remplacer par la vôtre. */
   greet(who?: string): string;
-}
+<% if (it.inject) { %>
+
+  /** Délègue à `<%= it.inject.pascal %>`, injecté par le constructeur. */
+  depuis<%= it.inject.pascal %>(): Promise<unknown>;
+<% } %>}

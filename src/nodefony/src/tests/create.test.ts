@@ -1531,6 +1531,76 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assertNoEtaResidue(dest);
     });
 
+    it("--inject : la dépendance est DÉCLARÉE au constructeur, et APPELÉE", () => {
+      // Le geste mesuré ROUGE au banc de découvrabilité : `@inject` n'existait
+      // en code ACTIF dans AUCUN gabarit (uniquement des commentaires), et
+      // l'agent passait exclusivement par `container.get`. On ne prend que la
+      // voie qu'on a VUE.
+      const dest = path.join(tmp, "svcinject");
+      scaffold(dest, { name: "svcinject", preset: "minimal" });
+      service(dest, { name: "billing" });
+      const r = service(dest, { name: "invoice", inject: "BillingService" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "service", "InvoiceService.ts"),
+        "utf8",
+      );
+      // L'import est une VALEUR : `@inject` nomme la classe, et le paramètre
+      // décoré porte son type — un `import type` effacerait la métadonnée.
+      assert.include(src, 'import BillingService from "./BillingService";');
+      assert.include(
+        src,
+        '@inject("BillingService") private readonly billing: BillingService,',
+      );
+      // Une dépendance déclarée et jamais lue ne compile pas (`noUnusedLocals`)
+      // — et ne montrerait rien. L'appel porte sur une méthode CHERCHÉE dans le
+      // service visé, jamais sur un nom supposé.
+      assert.include(src, "return this.billing.greet();");
+      assert.notMatch(
+        src,
+        /^ \*.*\S \*$/mu,
+        "ligne de TSDoc recollée — tag eta en fin de ligne",
+      );
+      const itf = readFileSync(
+        path.join(dest, "nodefony", "interfaces", "IInvoiceService.ts"),
+        "utf8",
+      );
+      assert.include(itf, "depuisBillingService(): Promise<unknown>;");
+      assert.include(
+        (r.notes ?? []).join("\n"),
+        "BillingService est injecté par le CONSTRUCTEUR",
+      );
+      assertNoEtaResidue(dest);
+    });
+
+    it("--inject : la note APPREND le geste quand la cible a déjà un service", () => {
+      // La note est le canal : elle est lue au moment exact où le geste
+      // s'applique. Sans elle, `--inject` n'existe que dans une aide que
+      // personne n'ouvre.
+      const dest = path.join(tmp, "svcnote");
+      scaffold(dest, { name: "svcnote", preset: "minimal" });
+      const first = service(dest, { name: "billing" });
+      assert.notInclude((first.notes ?? []).join("\n"), "--inject");
+      const second = service(dest, { name: "invoice" });
+      assert.include(
+        (second.notes ?? []).join("\n"),
+        "create service invoice --inject BillingService",
+      );
+    });
+
+    it("--inject : un service absent est REFUSÉ avant écriture", () => {
+      const dest = path.join(tmp, "svcinjectko");
+      scaffold(dest, { name: "svcinjectko", preset: "minimal" });
+      assert.throws(
+        () => service(dest, { name: "invoice", inject: "GhostService" }),
+        /--inject.*Ghost.*introuvable/u,
+      );
+      // Rien n'a été écrit : un import vers une classe absente casserait la
+      // compilation de toute l'app, sur une erreur qui ne parle pas du scaffold.
+      assert.isFalse(
+        existsSync(path.join(dest, "nodefony", "service", "InvoiceService.ts")),
+      );
+    });
+
     it("index.ts écrit à la MAIN en `export class` : le décorateur est posé quand même", () => {
       // Nos gabarits exportent en bas de fichier, donc la classe s'y déclare
       // nue (`class App extends Module`). Mais `export class X extends Module`
