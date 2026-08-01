@@ -155,6 +155,12 @@
 
 ## 🧪 Suspecter son INSTRUMENT avant le sujet mesuré
 
+- `[1× — 2026-08-01]` 🔴 **Un code de retour `0` peut être un échec TOTAL — la sonde porte sur la
+  SORTIE.** La commande générée par le scaffold journalise « service non enregistré » en ERROR
+  puis rend la main normalement : sans son service, elle sort en **0**. Une étape de banc qui
+  aurait lu le code de retour serait restée verte sur une application dont le service n'existe
+  pour personne. Vérifié en débranchant `@services([…])` puis en rebâtissant : exit 0, zéro octet
+  de JSON. **Pour tout programme qui a le droit d'échouer poliment, la preuve est ce qu'il ÉCRIT.**
 - `[1× — 2026-08-01]` 🔴 **Une commande refusée par un hook n'exécute AUCUNE de ses parties — et
   la suite ment.** `cat >> tests.ts <<EOF … EOF && cd x && npx vitest` a été bloquée par le garde
   `cd` relatif. Les tests n'ont donc **jamais été écrits** ; les trois `npx vitest` suivants ont
@@ -412,6 +418,27 @@ apply -R` — et **prouver que le geste a eu lieu** (ici : 0 façade dans les 30
   Le corollaire commande toute « vitrine de code de référence » : un exemple rangé dans
   `node_modules` n'est lu que s'il est ADRESSÉ depuis le fichier que l'agent ouvre d'office — le
   modèle défavorable n'ouvre jamais la doc d'un paquet (0/4 mesuré).
+- `[2× — 2026-08-01]` 🔴 **Un COMMENTAIRE ne compte pas comme exemple — et ça se compte.**
+  `@inject(` avait **zéro occurrence en code ACTIF** dans l'ensemble des gabarits : les deux
+  seules étaient une ligne de commentaire et une ligne d'`AGENTS.md`. D'où le `container.get`
+  systématique des agents, alors que les gabarits EXPLIQUENT correctement les deux voies. Le
+  contrôle qui tranche tient en une commande — `rg "@inject\(" templates/ | rg -v "^\S+: \*"` —
+  et vaut pour tout geste qu'on croit enseigné : **compter les occurrences ACTIVES, pas les
+  mentions**. Remède livré : `create service --inject <Autre>` écrit la dépendance déclarée au
+  constructeur ET son appel, la note de sortie apprenant le geste au moment où il s'applique.
+- `[1× — 2026-08-01]` 🔴 **Confronter le plan au terrain AVANT d'écrire a supprimé 4 items sur 6.**
+  La « vitrine de code » prévoyait six gestes ; quatre étaient déjà en code ACTIF dans les
+  gabarits (zone firewall avec ses deux pièges, canal realtime avec `roles`, CRUD paginé, page +
+  nonce CSP). Les recopier aurait créé deux sources qui divergent en silence. La vérification a
+  coûté quatre `rg` ; l'écriture aurait coûté la session. **Avant de livrer un « exemple de
+  référence », chercher qui montre DÉJÀ le geste** — le kit décrit ce qu'on croyait au moment de
+  l'écrire, jamais l'état courant.
+- `[1× — 2026-08-01]` **Avant de trancher entre COPIER et PUBLIER, mesurer ce qui serait copié.**
+  J'avais tranché « gabarit d'abord » (le canal le plus fort) pour le test d'un canal realtime —
+  faux tant que le décor n'était pas mesuré : ~40 lignes de faux `ContextType` + ~60 de transport
+  loopback, de la plomberie FRAMEWORK qui se périme au premier changement de signature. Un gabarit
+  aurait copié cette dette dans chaque app. L'ordre juste est l'inverse : **publier le harnais,
+  puis le gabarit par-dessus** — il n'écrit alors que les lignes propres à l'app.
 - `[1× — 2026-08-01]` 🔴 **Le rouge d'une tâche n'est pas de la famille annoncée par son titre.**
   T22 vit dans la famille « ne pas affaiblir » et était FAIL 1/3 : la CSP était **intacte 3/3**
   avant comme après. Les deux runs rouges tenaient à un `as any` et à un préfixe de route recopié.
