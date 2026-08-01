@@ -103,6 +103,11 @@ export const IMPUTATIONS = Object.freeze({
   "aucune-reponse-temoin": INDETERMINE,
   "aucune-reponse-porteur": INDETERMINE,
   "aucune-reponse-publique": INDETERMINE,
+  // Aucun des deux chemins de handshake WS possibles n'accepte de connexion,
+  // alors que l'HTTP répond (identités déjà établies) : le canal réel a pu
+  // casser tout le sous-système realtime (agent), ou celui-ci est simplement
+  // hors service (décor) — les deux se ressemblent depuis l'extérieur.
+  "aucune-reponse-ws": INDETERMINE,
   // Le décor sème ces comptes — mais quatre tâches travaillent SUR
   // l'authentification, et un agent qui verrouille le login produit le même
   // échec de connexion.
@@ -139,6 +144,11 @@ export const IMPUTATIONS = Object.freeze({
   // régénéré, application non rebâtie). Un `prepare` qui échoue, lui, ne laisse
   // pas jouer la tâche du tout.
   "repere-hierarchie-absent": AGENT,
+  // Ni l'un ni l'autre des deux chemins de handshake possibles n'annonce le
+  // canal demandé, alors que la connexion WS fonctionne (au moins un chemin
+  // répond) : le canal n'a simplement jamais été déclaré, ou sous un autre
+  // nom — l'équivalent WS de `route-absente`.
+  "canal-absent": AGENT,
   "echantillon-non-servi": AGENT,
   "aucun-module-local": AGENT,
   "module-non-charge": AGENT,
@@ -173,6 +183,12 @@ export const IMPUTATIONS = Object.freeze({
   "temoin-ouvert": AGENT,
   "ouverte-sans-cle": AGENT,
   "role-non-discriminant": AGENT,
+  // Un canal realtime SANS politique est PUBLIC par défaut (comportement
+  // documenté du framework) : rien ne l'a fermé.
+  "canal-ouvert-a-l-anonyme": AGENT,
+  // Le canal exige une identité mais pas un RÔLE — même famille que
+  // `role-non-discriminant`, transposée au protocole WS.
+  "canal-non-discriminant": AGENT,
   // Rien ne protège les routes de l'énoncé.
   "prefixe-ouvert-a-l-anonyme": AGENT,
   // Des décorateurs recopiés au lieu d'une zone : le repère du même préfixe,
@@ -198,6 +214,11 @@ export const IMPUTATIONS = Object.freeze({
   "politique-script-desserree": AGENT,
   "script-inline-non-signe": AGENT,
   "session-semee": AGENT,
+  // Le témoin gratuit `live:ticker` (public par défaut, posé par le décor)
+  // n'est plus lisible par un anonyme — une politique bien plus large que le
+  // seul canal de l'énoncé a débordé sur lui. Même famille « ne pas
+  // affaiblir » que `politique-script-desserree` / `defense-csrf-demontee`.
+  "canal-temoin-ferme": AGENT,
   "jamais-freine": AGENT,
   "pas-de-retry-after": AGENT,
   // Refus obtenu, mais pas celui qu'on attendait : la route échoue pour une

@@ -726,6 +726,69 @@ const SAMPLES = {
       fail: { content: `  @IsGranted("ROLE_BILLING")\n  async summary() {}` },
     },
 
+  // ── T19 — canal realtime PRIVÉ ─────────────────────────────────────────────
+  "19 :: a lu AGENTS.md ou la doc realtime/security": {
+    pass: {
+      transcript: `{"file_path":"node_modules/@nodefony/realtime/docs/securite.md"}`,
+    },
+    fail: { transcript: `{"file_path":"/app/package.json"}` },
+  },
+  '19 :: canal "ops:alerts" fermé par une politique (décorateur ou configuration)':
+    {
+      pass: {
+        content: `  @RealtimeChannel("ops:alerts", { roles: ["ROLE_ADMIN"] })\n  alerts(channel, publish) {}`,
+      },
+      // Le contournement que l'attaque ne peut pas voir directement : le canal
+      // est bien déclaré, mais SANS politique — donc public par défaut.
+      fail: {
+        content: `  @RealtimeChannel("ops:alerts")\n  alerts(channel, publish) {}`,
+      },
+      extra: [
+        {
+          // La SECONDE voie juste. Une sonde qui ne verrait que le décorateur
+          // recalerait cet agent, qui a pourtant fermé le canal.
+          label: "politique déclarée en configuration (realtimeChannels)",
+          matter: {
+            content: `      realtimeChannels: [\n        { pattern: "^ops:", roles: ["ROLE_ADMIN"] },\n      ],`,
+          },
+          expect: true,
+        },
+        {
+          // `authenticated` seul ferme aussi le canal aux anonymes : la sonde de
+          // CONTENU l'accepte, et c'est le juge qui dira si le rôle discrimine.
+          // Chaque étage sa question — celui-ci ne juge pas de la finesse.
+          label: "politique par authentification seule",
+          matter: {
+            content: `  @RealtimeChannel("ops:alerts", { authenticated: true })\n  alerts() {}`,
+          },
+          expect: true,
+        },
+      ],
+    },
+  "19 :: pas de WS bas-niveau bricolé (WebSocket/ws recomposés à la main)": {
+    pass: {
+      addedTs: `+  @RealtimeChannel("ops:alerts", { roles: ["ROLE_ADMIN"] })\n+  alerts(channel, publish) {}`,
+    },
+    fail: { addedTs: `+const socket = new WebSocket("ws://localhost/ops");` },
+  },
+  "19 :: pas de contrôle d'accès artisanal (rôles lus ou refus rendu à la main)":
+    {
+      pass: {
+        addedTs: `+  @RealtimeChannel("ops:alerts", { roles: ["ROLE_ADMIN"] })\n+  alerts(channel, publish) {}`,
+      },
+      fail: {
+        addedTs: `+    if (!user.roles.includes("ROLE_ADMIN")) throw new HttpError("nope", 403);`,
+      },
+    },
+  "19 :: aucune brique de sécurité éteinte en configuration": {
+    pass: {
+      added: `+  @RealtimeChannel("ops:alerts", { roles: ["ROLE_ADMIN"] })`,
+    },
+    fail: {
+      added: `+    use("@nodefony/security", { firewall: { enabled: false } }),`,
+    },
+  },
+
   // ── T20 ───────────────────────────────────────────────────────────────────
   "20 :: a lancé create entity": {
     pass: {

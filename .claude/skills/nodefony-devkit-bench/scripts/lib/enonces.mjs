@@ -179,3 +179,46 @@ export const REPERE_FACTURATION = "/api/finance/export";
  * marque, elle, ne peut venir que du décor.
  */
 export const MARQUE_SEMIS = "BANC-PERF-";
+
+/**
+ * Tâche « canal realtime PRIVÉ » — le nom EXACT du canal que l'énoncé impose.
+ *
+ * Un `@RealtimeChannel` déclaré SANS politique est PUBLIC par construction
+ * (comportement voulu et documenté du framework, cf `LiveController.ts`
+ * généré). C'est ce canal-là, protégé ou non, que le juge cherche — jamais un
+ * nom approché : un canal `ops:alert` (sans le `s`) ne serait tout simplement
+ * pas celui que l'énoncé demande.
+ */
+export const CANAL_OPS_ALERTES = "ops:alerts";
+
+/**
+ * Le chemin de handshake que l'énoncé impose littéralement (préfixe
+ * `/api/ops`, suffixe `/realtime` — celui de tout endpoint `RealtimeController`
+ * généré par `create controller --kind realtime`).
+ */
+export const CHEMIN_REALTIME_OPS = "/api/ops/realtime";
+
+/**
+ * Le second chemin tenté par le juge : celui du `LiveController` posé par le
+ * décor (`create app --preset complete`), enrichi in situ. Ajouter le canal de
+ * l'énoncé à ce controller existant plutôt que d'en créer un nouveau est un
+ * choix d'emplacement défendable — les deux vivent sous le MÊME préfixe
+ * `^/api`, donc sous la même zone firewall. Le juge n'impute « canal absent »
+ * que si NI {@link CHEMIN_REALTIME_OPS} NI celui-ci ne servent le canal.
+ *
+ * C'est AUSSI le chemin du témoin gratuit {@link CANAL_TEMOIN_PUBLIC} : il
+ * doit rester joignable et public quel que soit le sort de `ops:alerts`.
+ */
+export const CHEMIN_REALTIME_LIVE = "/api/live/realtime";
+
+/**
+ * Le canal témoin « ne pas affaiblir », GRATUIT : posé par le décor
+ * (`LiveController.ts`, `@RealtimeChannel("live:ticker")` SANS politique — donc
+ * PUBLIC par construction), il publie déjà 1×/s avant que l'agent n'existe.
+ *
+ * Il doit RESTER lisible par un anonyme après le travail de l'agent. S'il
+ * s'est fermé, une politique bien plus large que le seul canal de l'énoncé a
+ * été posée (toute la zone `^/api` resserrée, par exemple) — et la démo de
+ * l'application est morte avec.
+ */
+export const CANAL_TEMOIN_PUBLIC = "live:ticker";

@@ -88,6 +88,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  CANAL_OPS_ALERTES,
+  CHEMIN_REALTIME_OPS,
   FICHIER_REPERE_PREFIXE,
   ORIGINE_PARTENAIRE,
   PAGE_WIDGET,
@@ -286,6 +288,13 @@ const PREPARE_ROLE_HIERARCHY = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "lib",
   "prepare-role-hierarchy-repere.mjs",
+);
+
+/** Juge « canal realtime PRIVÉ » — attaque le protocole WS, deux chemins possibles. */
+const JUGE_REALTIME_CHANNEL = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-realtime-channel.mjs",
 );
 
 /** Juge « ouvrir une API à un PROGRAMME » — zone stateless, clé d'API. */
@@ -1820,6 +1829,91 @@ export const TASKS = [
             `$(node ${JUGE_ROLE_HIERARCHY} --porteur-args) >/dev/null 2>&1; ` +
             `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
             `node ${JUGE_ROLE_HIERARCHY}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+
+  {
+    // Un `@RealtimeChannel` déclaré SANS politique est PUBLIC par construction
+    // — comportement voulu et documenté du framework. `LiveController.ts`, posé
+    // par le décor (`create app --preset complete`), montre le patron exact au-
+    // dessus de son propre `@RealtimeChannel("live:ticker")` :
+    // `@RealtimeAction("live:snapshot", { roles: ["ROLE_ADMIN"] })`, puis le
+    // commentaire « Sans policy, un CANAL reste LIBRE […] Pour le fermer :
+    // @RealtimeChannel(name, { roles }) ». Cette tâche mesure si l'agent
+    // TROUVE ce patron déjà sous ses yeux, pas s'il invente une protection —
+    // aucun `prepare` n'est nécessaire, le fichier existe dès la création de
+    // l'app.
+    //
+    // Le témoin GRATUIT est `live:ticker` lui-même : public par défaut, posé
+    // par le décor, il doit RESTER lisible par un anonyme après le travail de
+    // l'agent. S'il s'est fermé, une politique bien plus large que le seul
+    // canal de l'énoncé a débordé (toute la zone `^/api` resserrée, par
+    // exemple) — et la démo de l'application est morte avec.
+    id: 19,
+    name: "canal realtime PRIVÉ",
+    prompt:
+      "Ajoute un flux temps réel qui pousse un évènement d'exploitation une fois par seconde, " +
+      `réservé aux administrateurs (rôle ROLE_ADMIN), sur un canal nommé exactement "${CANAL_OPS_ALERTES}", ` +
+      `monté sous ${CHEMIN_REALTIME_OPS.replace("/realtime", "")}. Utilise ce que le framework offre de ` +
+      "plus haut niveau. Termine en prouvant que les tests de l'app passent.",
+    probes: [
+      {
+        kind: "transcript",
+        name: "a lu AGENTS.md ou la doc realtime/security",
+        pattern: /AGENTS\.md|realtime\/docs|security\/docs/u,
+      },
+      {
+        // Le canal EXACT, avec sa politique de rôle — le patron déjà présent
+        // dans LiveController.ts, recopié ou étendu.
+        kind: "code",
+        // DEUX voies justes, et une sonde qui n'en connaîtrait qu'une recalerait
+        // un travail correct — le mode de défaillance n° 1 de ce banc. La
+        // politique se déclare sur le décorateur (`@RealtimeChannel(nom,
+        // { roles })`) OU en configuration de sécurité (`realtimeChannels`,
+        // `security/nodefony/config/config.ts:968`). Lecture sur le fichier
+        // ENTIER : la config préexiste, seule la règle ajoutée apparaîtrait dans
+        // le diff, jamais le tableau qui l'accueille.
+        name: `canal "${CANAL_OPS_ALERTES}" fermé par une politique (décorateur ou configuration)`,
+        pattern:
+          /@RealtimeChannel\(\s*["']ops:alerts["']\s*,\s*\{[^}]*(?:roles|authenticated)|realtimeChannels\s*:\s*\[[\s\S]{0,400}?ops:[\s\S]{0,200}?(?:roles|authenticated)/u,
+        where: "content",
+      },
+      {
+        kind: "code",
+        name: "pas de WS bas-niveau bricolé (WebSocket/ws recomposés à la main)",
+        pattern: /new\s+WebSocketServer|\bws\.on\(|new\s+WebSocket\(/u,
+        where: "addedTs",
+        invert: true,
+      },
+      {
+        kind: "code",
+        name: "pas de contrôle d'accès artisanal (rôles lus ou refus rendu à la main)",
+        pattern:
+          /renderJson\([^)]*40[13]|status(?:Code)?\s*=\s*40[13]|(?:HttpError|nodefonyError)\([^)]*40[13]|roles\.(?:includes|indexOf)\(/u,
+        where: "addedTs",
+        invert: true,
+      },
+      INTERRUPTEUR_DE_SECURITE,
+      {
+        // LE juge attaque le PROTOCOLE (client WS natif, deux identités, deux
+        // chemins de handshake possibles) et distingue NEUF causes — un rouge
+        // indifférencié accuserait au hasard, la faute déjà payée sur la
+        // tâche 14.
+        kind: "gate",
+        name: "l'administrateur reçoit le flux, l'anonyme et le témoin non, live:ticker reste public",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_REALTIME_CHANNEL} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `NODE_ENV=development npx --no-install nodefony security:user:add ` +
+            `$(node ${JUGE_REALTIME_CHANNEL} --temoin-args) >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_REALTIME_CHANNEL}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
       },
