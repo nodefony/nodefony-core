@@ -14,9 +14,14 @@ import {
  * résolveur GraphQL et une commande CLI. Écrire le CRUD dans un controller
  * obligerait à le réécrire pour chacun d'eux.
  *
- * `AbstractCrudService` fournit `find` / `findById` / `count` (délégation directe, sans
- * surcoût) et `create` / `updateOne` / `delete` (encadrés par des points d'extension et
- * suivis d'événements `onCreated` / `onUpdated` / `onDeleted`).
+ * `AbstractCrudService` fournit `find` / `findOne` / `findById` / `count` (délégation
+ * directe, sans surcoût), `findPage` (une page — `limit` obligatoire) et `create` /
+ * `updateOne` / `delete` (encadrés par des points d'extension et suivis d'événements
+ * `onCreated` / `onUpdated` / `onDeleted`).
+ *
+ * **Toute méthode qui rend une liste se borne** — `findPage`, ou `find` avec un `limit`.
+ * Un `find` sans borne matérialise la table entière en mémoire : indolore sur les
+ * quelques lignes du poste de développement, fatal sur celles de production.
  *
  * **Sans état par requête** : ce service est un singleton partagé. Ne jamais écrire
  * `this.quelqueChose = …` pendant le traitement d'une requête — l'utilisateur courant
