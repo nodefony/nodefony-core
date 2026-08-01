@@ -226,7 +226,7 @@ node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --ta
 
 ### Dépistage — 1 run sur tout, 3 runs sur ce qui a bougé
 
-Rejouer les 25 tâches trois fois à chaque changement coûte des heures et des
+Rejouer toutes les tâches trois fois à chaque changement coûte des heures et des
 dizaines de dollars. Les rejouer **une** fois ne prouve rien : même gabarit,
 même modèle, même décor, la tâche 14 a rendu **2 PASS / 2 FAIL**. La sortie
 n'est ni l'un ni l'autre — c'est de comparer un run large à une **référence
@@ -307,7 +307,7 @@ Une sonde ajoutée sans son échantillon doit se voir, pas se fondre dans le ver
 c'est la règle « une capacité arrive AVEC sa tâche », appliquée à la tâche
 elle-même.
 
-Vingt-cinq tâches déroulées par un agent réel, en mode autonome, dans une
+Les tâches du banc, déroulées par un agent réel, en mode autonome, dans une
 application fraîche — **chacune dans un décor remis à zéro** (cf. plus bas).
 Dix visent les **générateurs** : « CRUD produit »,
 « protège une route », « canal temps réel », « commande CLI », « démarre puis
