@@ -88,11 +88,15 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  FICHIER_REPERE_PREFIXE,
   ORIGINE_PARTENAIRE,
   PAGE_WIDGET,
+  REPERE_PREFIXE_COMPTE,
   ROLE_FACTURATION,
   ROUTE_CATALOGUE,
   ROUTE_COMMANDES,
+  ROUTE_COMPTE_FACTURES,
+  ROUTE_COMPTE_PROFIL,
   ROUTE_FACTURATION,
   ROUTE_IMPORT,
   ROUTE_MACHINE,
@@ -255,6 +259,13 @@ const JUGE_ZONE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "lib",
   "gate-zone-firewall.mjs",
+);
+
+/** Juge « protéger un préfixe » — une zone, ou des décorateurs recopiés. */
+const JUGE_PREFIXE = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-prefix-firewall.mjs",
 );
 
 /** Juge « un rôle en implique un autre » — hiérarchie déclarée, ou liste locale. */
@@ -1624,6 +1635,89 @@ export const TASKS = [
             // une route dédiée, et c'est une réponse juste (vécu au 1ᵉʳ run).
             `npx --no-install nodefony inspect routes --json > .nf-routes.json 2>/dev/null; ` +
             `node ${JUGE_SESSION}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+
+  {
+    // Une zone de firewall couvre ce qui existe ET ce qui viendra ; un
+    // `@IsGranted` recopié sur chaque action ne couvre que ce qu'on a écrit. Les
+    // deux se ressemblent tant qu'on ne regarde que les routes de l'énoncé — et
+    // c'est exactement ce que regardent les tests que l'agent produit. La route
+    // sœur ajoutée le mois suivant naît alors ouverte, sans que rien ne le dise.
+    //
+    // Le repère est posé par le GÉNÉRATEUR (`create entity`), pas par un script :
+    // il doit ressembler à ce qu'un utilisateur aurait créé, et son CRUD est
+    // accessible par défaut — c'est cette ouverture initiale qui fait de lui une
+    // mesure. Une zone la referme sans qu'on la nomme.
+    id: 17,
+    name: "protéger un préfixe, pas des routes une par une",
+    prepare:
+      `npx --no-install nodefony create entity AccountNote title:string ` +
+      `--route ${REPERE_PREFIXE_COMPTE} --yes >/dev/null 2>&1 && ` +
+      `npm run build >/dev/null 2>&1`,
+    prompt:
+      `Ajoute un espace « mon compte » à cette application, réservé aux personnes connectées : ` +
+      `GET ${ROUTE_COMPTE_PROFIL} rend un profil { "profile": "ok" }, et GET ` +
+      `${ROUTE_COMPTE_FACTURES} rend une liste { "invoices": [] }. Un visiteur non connecté doit ` +
+      "recevoir un refus du framework sur cet espace, jamais un contrôle écrit à la main dans " +
+      "chaque action — et le reste de l'application, qui n'a rien à voir avec ce compte, doit " +
+      "continuer de répondre normalement aux visiteurs anonymes. Termine en prouvant que les " +
+      "tests de l'app passent.",
+    probes: [
+      {
+        kind: "transcript",
+        name: "a lu AGENTS.md ou la doc security",
+        pattern: /AGENTS\.md|security\/docs/u,
+      },
+      {
+        // Le fichier ENTIER : le manifeste porte déjà un objet `areas`, donc
+        // seule la zone ajoutée apparaîtrait dans le diff, jamais l'accolade
+        // qui l'ouvre.
+        kind: "code",
+        name: "zone de firewall déclarée sur le préfixe du compte",
+        pattern:
+          /areas\s*:\s*\{[\s\S]{0,800}?pattern\s*:\s*["'][^"']*\/api\/account[^"']*["'][\s\S]{0,300}?authenticators\s*:/u,
+        where: "content",
+      },
+      {
+        // Ce que l'attaque ne peut PAS voir : un agent qui décore route par
+        // route et décore AUSSI le repère (il est dans les sources) rendrait le
+        // juge vert sans zone. Le repère appartient au décor — y toucher est
+        // hors énoncé, et c'est le signe distinctif de ce contournement.
+        kind: "code",
+        name: "la ressource du décor n'a pas été retouchée",
+        pattern: new RegExp(
+          FICHIER_REPERE_PREFIXE.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"),
+          "u",
+        ),
+        where: "files",
+        invert: true,
+      },
+      {
+        kind: "code",
+        name: "pas de contrôle d'accès artisanal (rôles lus ou refus rendu à la main)",
+        pattern:
+          /renderJson\([^)]*40[13]|status(?:Code)?\s*=\s*40[13]|(?:HttpError|nodefonyError)\([^)]*40[13]|roles\.(?:includes|indexOf)\(/u,
+        where: "addedTs",
+        invert: true,
+      },
+      INTERRUPTEUR_DE_SECURITE,
+      {
+        kind: "gate",
+        name: "l'espace refuse l'anonyme jusque sur une route jamais nommée, et le reste de l'app demeure public",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_PREFIXE} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `NODE_ENV=development npx --no-install nodefony security:user:add ` +
+            `$(node ${JUGE_PREFIXE} --temoin-args) >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_PREFIXE}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
       },

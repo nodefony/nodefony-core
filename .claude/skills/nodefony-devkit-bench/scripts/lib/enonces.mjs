@@ -95,6 +95,47 @@ export const ROUTE_CATALOGUE = "/api/products";
  */
 export const ROUTE_SYNTHESE = "/api/products/summary";
 
+/** Tâche « protéger un préfixe » — les deux routes que l'énoncé nomme. */
+export const ROUTE_COMPTE_PROFIL = "/api/account/profile";
+export const ROUTE_COMPTE_FACTURES = "/api/account/invoices";
+
+/**
+ * Le repère du préfixe : une TROISIÈME route sous le MÊME préfixe, posée par le
+ * décor (`create entity`, avant l'agent) et jamais nommée dans l'énoncé.
+ *
+ * C'est elle qui sépare « a décoré les deux routes citées » de « a protégé le
+ * PRÉFIXE ». Un `@IsGranted` recopié sur chacune des deux routes de l'énoncé la
+ * laisse ouverte ; une zone (`areas.<z>.pattern` sur `^/api/account`) la ferme
+ * sans qu'on l'ait jamais nommée — et fermera de même toute route sœur ajoutée
+ * demain, ce qui est précisément la raison d'être d'une zone.
+ *
+ * Le générateur la rend ACCESSIBLE par défaut : son CRUD ne garde que l'action
+ * destructrice. Son ouverture initiale fait donc partie du décor, et n'est pas
+ * un défaut à corriger.
+ */
+export const REPERE_PREFIXE_COMPTE = "/api/account/notes";
+
+/**
+ * Le fichier du repère, tel qu'il apparaît dans la liste des fichiers touchés.
+ *
+ * Une sonde le surveille EN NÉGATIF : si l'agent l'a modifié, c'est qu'il a
+ * décoré le repère lui-même — auquel cas l'attaque ne distingue plus une zone
+ * de deux décorateurs recopiés, et son verdict vert ne prouverait rien.
+ */
+export const FICHIER_REPERE_PREFIXE =
+  "nodefony/controllers/AccountNoteController.ts";
+
+/**
+ * Une route PUBLIQUE hors du préfixe protégé — le controller d'accueil que tout
+ * preset `complete` pose (`@controller("/api")`, chemin `/hello`).
+ *
+ * La zone livrée `^/api` liste l'authentificateur `anonymous` : elle résout une
+ * identité sans jamais bloquer. Cette route sert donc de témoin du DÉBORDEMENT :
+ * une protection posée sur `^/api` plutôt que sur `^/api/account` fermerait
+ * l'application entière, ce qu'aucun énoncé ne demande.
+ */
+export const ROUTE_PUBLIQUE_HORS_PREFIXE = "/api/hello";
+
 /**
  * Tâche « un rôle en implique un autre » — la route que l'énoncé demande.
  *

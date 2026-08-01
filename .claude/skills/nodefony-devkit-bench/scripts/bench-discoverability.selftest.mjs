@@ -575,6 +575,72 @@ const SAMPLES = {
     },
   },
 
+  // ── T17 — protéger un préfixe ─────────────────────────────────────────────
+  "17 :: a lu AGENTS.md ou la doc security": {
+    pass: {
+      transcript: `{"file_path":"node_modules/@nodefony/security/docs/firewall.md"}`,
+    },
+    fail: { transcript: `{"file_path":"/app/package.json"}` },
+  },
+  "17 :: zone de firewall déclarée sur le préfixe du compte": {
+    pass: {
+      content:
+        `      areas: {\n        main: { pattern: "^/api", authenticators: ["session", "anonymous"] },\n` +
+        `        compte: {\n          pattern: "^/api/account",\n          authenticators: ["session"],\n        },\n      },`,
+    },
+    // Les zones livrées, intactes : aucune ne couvre le préfixe du compte.
+    fail: {
+      content:
+        `      areas: {\n        main: { pattern: "^/api", authenticators: ["session", "anonymous"] },\n` +
+        `        secure: { pattern: "^/api/secure", authenticators: ["session"] },\n      },`,
+    },
+    extra: [
+      {
+        // Le contournement : deux décorateurs recopiés, aucune zone. La sonde
+        // ne doit pas s'en contenter — c'est tout l'objet de la tâche.
+        label: "décorateurs posés route par route, sans zone",
+        matter: {
+          content: `  @IsGranted("ROLE_USER")\n  async profile() {}\n\n  @IsGranted("ROLE_USER")\n  async invoices() {}`,
+        },
+        expect: false,
+      },
+    ],
+  },
+  "17 :: la ressource du décor n'a pas été retouchée": {
+    // Conforme : l'agent n'a touché que ses propres fichiers.
+    pass: {
+      files: [
+        "nodefony/controllers/AccountController.ts",
+        "nodefony.config.ts",
+      ],
+    },
+    // Le contournement que l'attaque ne verrait pas : décorer le repère lui
+    // -même referme la route sans qu'aucune zone n'existe.
+    fail: {
+      files: [
+        "nodefony/controllers/AccountNoteController.ts",
+        "nodefony.config.ts",
+      ],
+    },
+  },
+  "17 :: pas de contrôle d'accès artisanal (rôles lus ou refus rendu à la main)":
+    {
+      pass: {
+        addedTs: `+  @route("account-profile", { path: "/account/profile" })\n+  async profile() { return this.renderJson({ profile: "ok" }); }`,
+      },
+      fail: {
+        addedTs: `+    if (!user) return this.renderJson({ error: "nope" }, 401);`,
+      },
+    },
+  "17 :: aucune brique de sécurité éteinte en configuration": {
+    pass: {
+      added: `+    use("@nodefony/security", { firewall: { areas: { compte: { pattern: "^/api/account" } } } }),`,
+    },
+    fail: {
+      added: `+    use("@nodefony/security", { firewall: { enabled: false } }),`,
+    },
+  },
+
   // ── T18 — un rôle en implique un autre ────────────────────────────────────
   "18 :: a lu AGENTS.md ou la doc security": {
     pass: {

@@ -102,6 +102,7 @@ export const IMPUTATIONS = Object.freeze({
   "aucune-reponse-sur-relecture": INDETERMINE,
   "aucune-reponse-temoin": INDETERMINE,
   "aucune-reponse-porteur": INDETERMINE,
+  "aucune-reponse-publique": INDETERMINE,
   // Le décor sème ces comptes — mais quatre tâches travaillent SUR
   // l'authentification, et un agent qui verrouille le login produit le même
   // échec de connexion.
@@ -129,6 +130,10 @@ export const IMPUTATIONS = Object.freeze({
   "ressource-absente": AGENT,
   "page-absente": AGENT,
   "repere-de-zone-absent": AGENT,
+  // Le repère du préfixe est posé par le générateur AVANT l'agent et commité à
+  // part : sa disparition est un geste de l'agent (ressource supprimée,
+  // renommée, application non rebâtie).
+  "repere-de-prefixe-absent": AGENT,
   // Le repère de la hiérarchie est posé par le décor et COMMITÉ avant l'agent :
   // s'il a disparu, c'est un geste de l'agent (route renommée, controller
   // régénéré, application non rebâtie). Un `prepare` qui échoue, lui, ne laisse
@@ -168,6 +173,15 @@ export const IMPUTATIONS = Object.freeze({
   "temoin-ouvert": AGENT,
   "ouverte-sans-cle": AGENT,
   "role-non-discriminant": AGENT,
+  // Rien ne protège les routes de l'énoncé.
+  "prefixe-ouvert-a-l-anonyme": AGENT,
+  // Des décorateurs recopiés au lieu d'une zone : le repère du même préfixe,
+  // que l'agent n'a aucune raison de toucher, est resté ouvert.
+  "repere-de-prefixe-ouvert": AGENT,
+  // La garde refuse aussi son destinataire légitime — service non rendu.
+  "prefixe-inaccessible": AGENT,
+  // La protection a débordé du préfixe demandé sur le reste de l'application.
+  "prefixe-elargi-hors-cible": AGENT,
   // Une garde du DÉCOR a cédé : le repère porte le même rôle que la route de
   // l'énoncé, l'agent n'avait aucune raison d'y toucher, et il est devenu public.
   "repere-hierarchie-ouvert": AGENT,
