@@ -29,6 +29,14 @@
 
 ## 🔍 Un INVENTAIRE n'est exhaustif que par CROISEMENT — ni le modèle ni l'automate seul
 
+- `[1× — 2026-08-01c]` **Le sous-agent rend des ANCRAGES justes et une CONCLUSION fausse — les deux
+  dans le même rapport.** Essai d'instruction déléguée (tâche 29, `haiku` lecture seule, matière
+  extraite par `git diff` en amont) : **4 ancrages sur 4 exacts** au recontrôle, et une conclusion
+  à côté — il propose de documenter la façade `findPage` alors qu'**aucun** des trois runs ne
+  l'emploie (les deux PASS ont simplement passé `limit` à `find()`). D'où le partage à tenir :
+  l'automate EXTRAIT, le modèle RELÈVE et confronte item par item, le principal CONCLUT. Ne jamais
+  reprendre la section « proposition » d'un sous-agent sans la re-dériver soi-même.
+
 - `[2× — 2026-07-31e]` 🔴 **Un relevé « exhaustif » rendu par un modèle rate des sites SANS le
   dire.** Sous-agent `haiku` chargé de relever les causes des juges du banc, périmètre exact,
   consigne « ne saute AUCUNE occurrence » : **7 sites manqués sur 68** — tous des lignes courtes
@@ -355,6 +363,25 @@ apply -R` — et **prouver que le geste a eu lieu** (ici : 0 façade dans les 30
   mécanisme de non-régression : **sur quel périmètre son « vert » porte-t-il, et l'annonce-t-il ?**
   Même famille que le `gateReporter` (une cible non exercée doit se DIRE) et que le job CI qui ne
   tourne que sur une combinaison de la matrice.
+
+## 🪞 Un exemple de CODE agit — y compris quand il est FAUX
+
+- `[1× — 2026-08-01]` 🔴 **Une ligne de code écrite dans l'`AGENTS.md` généré doit COMPILER, et
+  rien ne le vérifie.** Le bloc ajouté pour la tâche 22 portait `this.context.cspNonce` sans le
+  `?.` ; les **trois** agents l'ont recopié à la lettre et le typecheck est tombé **3/3** (TS2532 —
+  `context` est `ContextType | undefined`). Le geste juste vivait pourtant deux fichiers plus loin,
+  dans le gabarit `AppController.ts.tpl`. Corollaire d'outillage : le pendant d'`anchor-check` pour
+  le code des fichiers lus d'office n'existe pas. Avant d'écrire du code dans un fichier que
+  l'agent charge, le compiler — ou le COPIER d'un gabarit qui compile.
+- `[1× — 2026-08-01]` **Ce qui agit, c'est la PROXIMITÉ, pas l'existence du code.** Même bloc, en
+  tête du fichier chargé d'office : façade employée **0/3 → 3/3**, effort 57 → 38 tours médians.
+  Le corollaire commande toute « vitrine de code de référence » : un exemple rangé dans
+  `node_modules` n'est lu que s'il est ADRESSÉ depuis le fichier que l'agent ouvre d'office — le
+  modèle défavorable n'ouvre jamais la doc d'un paquet (0/4 mesuré).
+- `[1× — 2026-08-01]` 🔴 **Le rouge d'une tâche n'est pas de la famille annoncée par son titre.**
+  T22 vit dans la famille « ne pas affaiblir » et était FAIL 1/3 : la CSP était **intacte 3/3**
+  avant comme après. Les deux runs rouges tenaient à un `as any` et à un préfixe de route recopié.
+  Lire la CAUSE de la gate AVANT de nommer le défaut — sinon on instruit la mauvaise piste.
 
 ## ⚖️ Documenter un geste que l'OUTIL punit ne change rien
 
