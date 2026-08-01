@@ -41,6 +41,37 @@
   le même écart (« le SKILL.md en annonce encore 9 — reliquat ») et il n'avait pas été corrigé.
   Retirer le chiffre vaut mieux que le remettre à jour.
 
+- `[2× — 2026-08-02]` 🔴 **Confirmé en grand : QUATRE défauts sur cinq d'une soirée venaient des
+  gabarits**, et aucun n'était visible tant que le dépôt n'utilisait pas sa propre commande — un
+  module né du scaffold sans arête de build (forge rouge sur quatre workflows), une erreur de config
+  re-jetée sans sa `cause` (lint Windows rouge), et deux angles morts du banc. Le module `devkit`,
+  premier paquet du dépôt réellement produit par `create module`, a servi de révélateur : **c'est
+  en le commitant que la forge a vu ce que trois sessions de tests n'avaient pas vu.**
+
+## 🕳️ Un gate qui ne LIT rien rend VERT — et un débranchement peut DÉTRUIRE
+
+- `[1× — 2026-08-02]` 🔴 **`oxlint` sur l'app témoin ne lisait AUCUN fichier, et sortait 0.** Les
+  motifs d'exclusion se résolvent depuis le dossier de la **config**, pas depuis le cwd : le
+  `tmp/**` du dépôt écartait tout le décor lié, message « No files found to lint » noyé dans une
+  sortie qu'on ne regarde pas quand elle est verte. Le geste qui tranche : **faire prouver le gate
+  par un témoin fautif AVANT de lui faire rendre un verdict** — il dépose l'erreur, exige qu'elle
+  soit signalée, puis juge. Vaut pour tout outil externe branché dans un banc.
+- `[1× — 2026-08-02]` 🔴 **Le débranchement d'un gate a supprimé un fichier du dépôt.** Pour voir
+  rouge, j'ai pointé le chemin de config sur celui du dépôt — et le `finally { rmSync(rcPath) }` de
+  l'étape l'a effacé (`.oxlintrc.json`, restauré par `git show HEAD:`). Deux règles : **inspecter
+  les effets de bord du débranchement lui-même**, et **borner par construction** tout effacement sur
+  chemin calculé (le banc a désormais `effaceDansApp`, qui refuse hors de l'app témoin). Au passage,
+  la garde du dépôt a refusé mon `git checkout` sur arbre sale — elle a eu raison.
+- `[1× — 2026-08-02]` **Une option qui BLOQUE ne vit pas dans la marche de la forge.**
+  `--deny-warnings` n'était posé que dans le workflow : `npm run lint` rendait 0 en local sur
+  l'avertissement même qui faisait tomber la CI. La panne n'apparaissait qu'après le `push`, sur
+  une machine où personne ne débogue. L'option est passée dans le script racine ; la marche appelle
+  `npm run lint` tout court.
+- `[1× — 2026-08-02]` **DÉCLARER n'est pas ORDONNER.** Une `peerDependency` dit ce qu'il faut
+  fournir ; elle ne crée aucune arête dans le graphe de npm et de turbo — mesuré :
+  `@nodefony/devkit#build <-` (rien), contre trois arêtes chez son voisin. En local, le `dist/` de
+  la fois précédente masque la panne ; elle ne se lève qu'au premier arbre propre.
+
 ## ✅ Un vert de test ne dit pas que ça COMPILE
 
 - `[1× — 2026-08-01d]` **Mon propre test passait `vitest` et échouait au `typecheck`** — vitest
