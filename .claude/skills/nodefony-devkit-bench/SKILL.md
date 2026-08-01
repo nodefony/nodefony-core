@@ -178,20 +178,25 @@ Les étapes, dans l'ordre, et ce que chacune protège :
 4. **module** — `create module` : workspace npm, manifeste, entité déposée dedans ;
 5. **compilation** — l'étape qui manquait : un type faux ne se voit pas dans une
    assertion de chaîne ;
-6. **décâblage** — les entités PostgreSQL quittent le manifeste : leur schéma
+6. **le code des `AGENTS.md` compile** — les expressions citées dans les
+   documents que l'agent lit d'office sont replacées dans leur classe de base
+   et soumises au compilateur : un exemple faux AGIT (`this.context.cspNonce`
+   sans le `?.` a été recopié à la lettre par trois agents, typecheck rouge
+   3/3) ;
+7. **décâblage** — les entités PostgreSQL quittent le manifeste : leur schéma
    enregistré sur un connecteur SQLite ferait échouer le boot, et cet échec ne
    dirait rien du générateur. Leurs fichiers restent — c'est leur type qu'on lit ;
-7. **cohérence FK ↔ PK** — une colonne de référence doit avoir le type de la clé
+8. **cohérence FK ↔ PK** — une colonne de référence doit avoir le type de la clé
    visée, sinon la jointure est refusée par le moteur ;
-8. **build** — le runtime charge le `dist/` : sans lui, une entité neuve est
+9. **build** — le runtime charge le `dist/` : sans lui, une entité neuve est
    invisible du serveur (cause n°1 des « ma route répond 404 ») ;
-9. **la commande s'exécute** — elle est lancée pour de vrai, et sa SORTIE est
-   lue ;
-10. **tests générés** — couche donnée ;
-11. **HTTP réel** — 201 + `Location`, 422, 409 sur doublon, page `hasNext`,
+10. **la commande s'exécute** — elle est lancée pour de vrai, et sa SORTIE est
+    lue ;
+11. **tests générés** — couche donnée ;
+12. **HTTP réel** — 201 + `Location`, 422, 409 sur doublon, page `hasNext`,
     PATCH, 204 puis 404 ;
-12. **production** — l'app démarre dans le mode qu'aucune autre étape n'exerce ;
-13. **inspection** — l'application se laisse lire sans ouvrir de port.
+13. **production** — l'app démarre dans le mode qu'aucune autre étape n'exerce ;
+14. **inspection** — l'application se laisse lire sans ouvrir de port.
 
 > **Le trou n'était pas dans le banc d'agent, il était ici.** Sur les sept types
 > de `create`, ce script n'en exerçait que trois — `app`, `module`, `entity` ;

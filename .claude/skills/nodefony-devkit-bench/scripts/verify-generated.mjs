@@ -452,7 +452,9 @@ step(
     // Le câblage, constaté sur le disque plutôt que supposé : une classe que
     // rien n'enregistre compile parfaitement et n'existe pour personne.
     const index = readFileSync(path.join(APP, "index.ts"), "utf8");
-    if (!new RegExp(`@services\\(\\[[^\\]]*${SERVICE}Service`, "u").test(index)) {
+    if (
+      !new RegExp(`@services\\(\\[[^\\]]*${SERVICE}Service`, "u").test(index)
+    ) {
       throw new Error(
         `${SERVICE}Service absent de @services([…]) — le conteneur ne le connaîtra pas`,
       );
@@ -466,7 +468,7 @@ step(
     const declared = /super\(\s*"([^"]+)"/u.exec(index);
     if (!declared) {
       throw new Error(
-        "nom de module introuvable dans index.ts (`super(\"…\"`) — impossible de nommer la commande",
+        'nom de module introuvable dans index.ts (`super("…"`) — impossible de nommer la commande',
       );
     }
     commandFullName = `${declared[1]}:${COMMAND_ACTION}`;
@@ -559,6 +561,88 @@ step(
   "le code généré COMPILE",
   "L'étape qui n'existait pas : les assertions de chaînes ne voient pas un type faux.",
   () => run("npm", ["run", "typecheck"]),
+);
+
+/**
+ * Les expressions de code citées dans un document que l'agent lit d'office.
+ *
+ * On garde la CHAÎNE D'ACCÈS (`this.context?.cspNonce`, `this.renderJson`) en
+ * coupant à l'appel : les arguments d'un exemple (`obj`, `html`, `f`) sont des
+ * noms libres qu'aucun décor ne peut fournir, alors que le membre visé, lui,
+ * se compile tel quel — c'est là que se logent les fautes.
+ */
+function expressionsCitees(markdown) {
+  const trouvees = new Set();
+  for (const [, inline] of markdown.matchAll(/`([^`\n]+)`/gu)) {
+    for (const [expr] of inline.matchAll(/this(?:\??\.[A-Za-z_$][\w$]*)+/gu)) {
+      trouvees.add(expr);
+    }
+  }
+  return [...trouvees].sort();
+}
+
+step(
+  "le code écrit dans les AGENTS.md COMPILE",
+  "Un exemple faux AGIT : trois agents ont recopié `this.context.cspNonce` sans le `?.` — typecheck rouge 3/3.",
+  // Ce document est lu AVANT le code par tout agent qui entre dans l'app :
+  // ce qu'il montre pèse plus que ce qu'il explique. Rien ne le compilait —
+  // ni `create.test.ts` (qui cherche des chaînes) ni le typecheck de l'app
+  // (le markdown n'est pas une source). La sonde replace chaque expression
+  // dans le contexte où l'agent la recopiera, et laisse le compilateur juger.
+  () => {
+    const cibles = [
+      {
+        md: path.join(APP, "AGENTS.md"),
+        classe: "Controller",
+        depuis: 'import { Controller } from "@nodefony/framework";',
+      },
+      {
+        md: path.join(APP, "modules", MODULE, "AGENTS.md"),
+        classe: "Module",
+        depuis: 'import { Module } from "nodefony";',
+      },
+    ];
+    const imports = [];
+    const classes = [];
+    let total = 0;
+    for (const [i, cible] of cibles.entries()) {
+      if (!existsSync(cible.md)) {
+        throw new Error(`${path.relative(APP, cible.md)} n'a pas été généré`);
+      }
+      const exprs = expressionsCitees(readFileSync(cible.md, "utf8"));
+      total += exprs.length;
+      if (!exprs.length) {
+        continue;
+      }
+      imports.push(cible.depuis);
+      classes.push(
+        `class SondeAgents${i} extends ${cible.classe} {\n` +
+          `  sonde(): void {\n` +
+          exprs.map((e) => `    void (${e});`).join("\n") +
+          `\n  }\n}\nexport type _Sonde${i} = SondeAgents${i};`,
+      );
+    }
+    // Un gate qui ne trouve plus rien à compiler ne garde plus rien, et il le
+    // dit en vert. Le seuil est bas à dessein : il constate que l'extraction
+    // MORD encore, il ne juge pas la densité du document.
+    if (total < 3) {
+      throw new Error(
+        `seulement ${total} expression(s) extraites des AGENTS.md — l'extraction ne mord plus, ce gate ne prouverait rien`,
+      );
+    }
+    const sonde = path.join(APP, "tests", "agents-md.probe.ts");
+    writeFileSync(
+      sonde,
+      `// Sonde du banc — expressions citées dans les AGENTS.md générés.\n` +
+        `${[...new Set(imports)].join("\n")}\n\n${classes.join("\n\n")}\n`,
+      "utf8",
+    );
+    try {
+      run("npm", ["run", "typecheck"]);
+    } finally {
+      rmSync(sonde, { force: true });
+    }
+  },
 );
 
 step(
