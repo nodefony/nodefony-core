@@ -33,7 +33,11 @@ export function defineDevkitConfig(
             .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
             .join(" · ")
         : (e as Error).message;
-    throw new Error(`[@nodefony/devkit] config invalide : ${issues}`);
+    // `cause` garde l'erreur Zod d'origine : sans elle, le détail par champ
+    // s'arrête à ce message et la trace d'où vient la valeur est perdue.
+    throw new Error(`[@nodefony/devkit] config invalide : ${issues}`, {
+      cause: e,
+    });
   }
 }
 
