@@ -113,6 +113,26 @@
 
 ## 🧪 Suspecter son INSTRUMENT avant le sujet mesuré
 
+- `[1× — 2026-08-01]` 🔴 **Une commande refusée par un hook n'exécute AUCUNE de ses parties — et
+  la suite ment.** `cat >> tests.ts <<EOF … EOF && cd x && npx vitest` a été bloquée par le garde
+  `cd` relatif. Les tests n'ont donc **jamais été écrits** ; les trois `npx vitest` suivants ont
+  affiché « 20 passed », que j'ai lus comme « mes nouveaux tests passent », puis comme « le gate
+  ne mord pas quand je le débranche ». J'étais sur le point de conclure que la règle neuve était
+  morte. Ce qui a sauvé : compter les `it(` dans le fichier (20, inchangé) et son nombre de lignes
+  (370, inchangé). **Après un refus de hook, vérifier que l'ÉCRITURE a eu lieu avant d'interpréter
+  quoi que ce soit** — et écrire les fichiers avec l'outil `Edit`/`Write`, jamais un heredoc
+  chaîné. Complète [[feedback_shell_false_diagnostics]].
+- `[1× — 2026-08-01]` 🔴 **Un `grep` filtré m'a fait AFFIRMER un diagnostic faux.** `grep -nE
+"fetch|headers|401"` sur un test généré rendait des `fetch` avec le seul `content-type` → j'ai
+  annoncé « le test ne s'authentifie JAMAIS ». Le fichier IMPORTAIT `connexionAdmin` en ligne 3 et
+  l'employait deux fois : il authentifiait le `DELETE` et rien d'autre. Le motif avait mangé les
+  lignes intermédiaires. La conclusion corrigée changeait le correctif (« lui apprendre à se
+  connecter » → « traiter la protection comme le cas normal »). **Un extrait filtré sert à
+  LOCALISER, jamais à conclure : relire la zone entière avant d'énoncer un fait.**
+- `[1× — 2026-08-01]` **`echo "EXIT=$?"` après un pipe mesure le DERNIER maillon**, pas la
+  commande. `node … | tail` puis `$?` → toujours 0, même quand `node` a levé. Capturer dans un
+  fichier, puis lire le code de sortie du process visé.
+
 - `[1× — 2026-08-01]` 🔴 **Un DÉCOR mal placé ne rate pas un défaut : il en rend une FAMILLE
   ENTIÈRE indétectable.** Le banc de vérité montait son application témoin sous le dépôt, paquets
   liés au checkout — la résolution de modules de Node remontait donc au monorepo, et l'application
@@ -285,6 +305,20 @@ apply -R` — et **prouver que le geste a eu lieu** (ici : 0 façade dans les 30
 
 ## 🤖 Piloter un agent TIERS : ce qui BLOQUE, et ce qui MENT
 
+- `[1× — 2026-08-01]` 🔴 **Un « 0 candidat trouvé » est un résultat à INSTRUIRE, pas à croire.**
+  Sous-agent chargé de relever dans toute la doc les invariants candidats à `nodefony check` :
+  rend « aucun nouveau candidat », avec deux signes qui le disqualifient — (a) la ligne
+  `Énumération : <motif exact> → N fichiers` que son contrat EXIGE était un placeholder
+  `[Grep complet sur docs/]`, donc son relevé est invérifiable ; (b) son meilleur candidat était
+  écarté sur un critère INVERSÉ (« le bug ne se manifeste qu'à l'exécution, donc il passe les
+  tests » — c'est exactement le critère « invisible aux tests » SATISFAIT). Ce candidat s'est
+  révélé juste et est devenu la règle `hook-lifecycle-inconnu`. **Vérifier d'abord que le contrat
+  de sortie est REMPLI ; un rapport dont la preuve manque ne se lit pas sur le fond.**
+- `[1× — 2026-08-01]` **Le plancher d'une délégation custom est ~33 k tokens, mesuré** (33 897
+  pour lire un fichier de 2 403 caractères) : hiérarchie `CLAUDE.md` rechargée en entier, prompt
+  système, écriture de cache. Irréductible — seuls `Explore` et `Plan` en sont dispensés, et
+  aucun champ de frontmatter ne le change. Gradué dans le `CLAUDE.md` racine §5.
+
 - `[1× — 2026-07-29]` 🔴 **Sans TTY, un CLI agentique peut LIRE stdin jusqu'à EOF.** `vibe`
   (`cli/cli.py:53`) : `if sys.stdin.isatty(): return None` — sinon `read()`, pour accepter un
   prompt en pipe. Lancé par un agent ou un CI, stdin n'est pas un TTY **et reste ouvert** → il ne
@@ -309,6 +343,35 @@ apply -R` — et **prouver que le geste a eu lieu** (ici : 0 façade dans les 30
   tâches ne fait (`nodefony production`) et exhibé un défaut qui empêchait toute app générée de
   démarrer. Son échec a rapporté plus que trois succès. Corollaire : il échoue dans le sens
   DANGEREUX — deux tâches jugées, deux affaiblissements (CSP desserrée, zone stateless retournée).
+
+## 🕳️ Un filet anti-régression ne couvre que ce qu'on y a MIS, et il ne le dit pas
+
+- `[1× — 2026-08-01]` 🔴 **`--depistage` du banc devkit couvre 7 tâches sur 28, et rend « rien
+  n'a bougé » comme si c'était un verdict global.** `baseline.json` est né le 31/07 à 13h38
+  (`ba9de547`) et n'enregistre que ce qu'on lui passe explicitement, run par run : il ne
+  rétro-remplit rien. Son contenu n'est donc pas une sélection réfléchie mais **la liste des
+  tâches jouées après cette heure-là par quelqu'un qui a pensé au drapeau**. Les 21 autres — dont
+  T1 (CRUD), T5 (serveur), T14 (média) — peuvent régresser sans un mot. Question à poser à tout
+  mécanisme de non-régression : **sur quel périmètre son « vert » porte-t-il, et l'annonce-t-il ?**
+  Même famille que le `gateReporter` (une cible non exercée doit se DIRE) et que le job CI qui ne
+  tourne que sur une combinaison de la matrice.
+
+## ⚖️ Documenter un geste que l'OUTIL punit ne change rien
+
+- `[1× — 2026-08-01]` 🔴 **Trois correctifs, un seul a compté — et ce n'était pas le mieux écrit.**
+  Tâche 17 du banc : 4 agents sur 4 énuméraient les routes dans le `pattern` d'une zone au lieu de
+  couvrir le préfixe. Ajouter le geste manquant à l'`AGENTS.md` généré + l'expliquer dans le
+  gabarit de config → **0/4 → 1/3**. Ajouter une règle `nodefony check` qui détecte la forme
+  fautive → **1/3, inchangé**. Faire que le test e2e généré par `create entity` s'AUTHENTIFIE →
+  **2/2, tâche PASS**. Cause réelle : le test généré n'authentifiait que le `DELETE` (la seule
+  action que le générateur garde) et présumait le reste du CRUD ouvert ; dès qu'on protégeait
+  l'espace, 3 cas sur 4 cassaient en 401, et rouvrir une brèche était le moyen le moins coûteux de
+  les reverdir. **L'agent n'ignorait pas le bon geste : l'outil le sanctionnait.** Avant d'écrire
+  de la doc pour corriger un comportement, chercher ce qui le PUNIT — un générateur, un test, un
+  gate. Tant que la sanction existe, la prose ne peut pas gagner.
+- `[1× — 2026-08-01]` **Un test qui pousse à désarmer une garde est pire qu'un test absent** : il
+  transforme la protection en panne à réparer. Vaut pour tout gabarit de test livré à un
+  utilisateur.
 
 ## 🟢 Un test NON EXÉCUTÉ doit être ROUGE, jamais vert
 
