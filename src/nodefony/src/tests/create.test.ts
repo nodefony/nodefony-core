@@ -1833,7 +1833,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           pkg["types"] as unknown as string,
           "./dist/types/index.d.ts",
         );
-        assert.deepEqual(pkg["files"], ["dist", "docs"]);
+        assert.deepEqual(pkg["files"] as unknown as string[], ["dist", "docs"]);
         assert.isUndefined(
           pkg["private"],
           "un paquet publiable n'est pas privé",
