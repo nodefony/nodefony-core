@@ -32,17 +32,41 @@ async function json(res: Response): Promise<Record<string, unknown>> {
   return (await res.json()) as Record<string, unknown>;
 }
 
+/**
+ * L'identité rejouée par TOUTES les requêtes du cycle — sauf celles qui
+ * mesurent un refus.
+ *
+ * Le CRUD généré répond à un anonyme tant que rien ne le protège. Mais dès que
+ * l'application pose une zone de firewall sur l'espace où vit la ressource — ce
+ * qu'une application réelle finit toujours par faire — un cycle anonyme casse
+ * en 401, et le réflexe le moins coûteux devient d'ouvrir une exception pour
+ * cette route. **Un test qui pousse à désarmer une garde est pire qu'un test
+ * absent** : il transforme la protection en panne à réparer.
+ *
+ * Le cycle s'authentifie donc par défaut, et reste vert que l'espace soit
+ * ouvert ou fermé. La seule requête volontairement anonyme est celle qui PROUVE
+ * le refus — elle est commentée comme telle.
+ */
+let AUTH: Record<string, string> = {};
+
+/** En-têtes d'une requête à corps JSON, identité comprise. */
+const entetes = (): Record<string, string> => ({
+  "content-type": "application/json",
+  ...AUTH,
+});
+
 describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     const port = readRuntimeState(process.cwd())?.ports[0] ?? 5151;
     BASE = `http://127.0.0.1:${port}`;
-  });
+<% if (it.hasSecurity) { %>    AUTH = { cookie: await connexionAdmin() };
+<% } %>  });
 
   it("POST → 201 + Location, puis GET sur cette Location", async () => {
     const payload = sample(1);
     const created = await fetch(`${BASE}${ROUTE}`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: entetes(),
       body: JSON.stringify(payload),
     });
     expect(created.status).toBe(201);
@@ -51,7 +75,7 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
     const location = created.headers.get("location");
     expect(location).toBeTruthy();
 
-    const reread = await fetch(`${BASE}${location}`);
+    const reread = await fetch(`${BASE}${location}`, { headers: AUTH });
     expect(reread.status).toBe(200);
 <% if (it.comparableField) { %>    const body = await json(reread);
     expect(body["<%= it.comparableField %>"]).toBe(
@@ -62,14 +86,14 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
   it("PATCH retouche sans exiger le document entier", async () => {
     const created = await fetch(`${BASE}${ROUTE}`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: entetes(),
       body: JSON.stringify(sample(2)),
     });
     const id = (await json(created)).id;
 
     const patched = await fetch(`${BASE}${ROUTE}/${String(id)}`, {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: entetes(),
       body: JSON.stringify(sample(3)),
     });
     expect(patched.status).toBe(200);
@@ -82,7 +106,7 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
   it("corps invalide → 422 qui NOMME les champs fautifs", async () => {
     const res = await fetch(`${BASE}${ROUTE}`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: entetes(),
       body: JSON.stringify({}),
     });
     // 422 et non 400 : le corps a bien été lu, c'est son CONTENU qui viole le
@@ -94,14 +118,14 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
     const payload = sample(42);
     const first = await fetch(`${BASE}${ROUTE}`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: entetes(),
       body: JSON.stringify(payload),
     });
     expect(first.status).toBe(201);
 
     const duplicate = await fetch(`${BASE}${ROUTE}`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: entetes(),
       body: JSON.stringify(payload),
     });
     // Rejouer la même valeur unique n'est pas une panne : c'est un refus d'état,
@@ -114,11 +138,11 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
     for (const n of [101, 102, 103]) {
       await fetch(`${BASE}${ROUTE}`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: entetes(),
         body: JSON.stringify(sample(n)),
       });
     }
-    const res = await fetch(`${BASE}${ROUTE}?limit=2`);
+    const res = await fetch(`${BASE}${ROUTE}?limit=2`, { headers: AUTH });
     expect(res.status).toBe(200);
     const page = (await res.json()) as {
       items: unknown[];
@@ -135,7 +159,9 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
   });
 
   it("le plafond de page tient, même si le client demande tout", async () => {
-    const res = await fetch(`${BASE}${ROUTE}?limit=100000`);
+    const res = await fetch(`${BASE}${ROUTE}?limit=100000`, {
+      headers: AUTH,
+    });
     const page = (await res.json()) as { limit: number };
     // Plafonné, pas refusé : le client reçoit une réponse utile, et la table
     // entière ne part jamais en mémoire.
@@ -145,40 +171,37 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
   it("DELETE → 204, et l'enregistrement n'est plus lisible", async () => {
     const created = await fetch(`${BASE}${ROUTE}`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: entetes(),
       body: JSON.stringify(sample(200)),
     });
     const id = String((await json(created)).id);
-<% if (it.hasSecurity) { %>
     // La suppression est réservée à `ROLE_ADMIN` : sans identité, elle est
     // refusée — c'est le comportement voulu, et le test qui suit le prouve.
-    const entete = { cookie: await connexionAdmin() };
-
+    // L'identité est celle du cycle (`AUTH`), pas une session ouverte à part :
+    // deux sources d'identité dans un même fichier finissent par diverger.
     const removed = await fetch(`${BASE}${ROUTE}/${id}`, {
       method: "DELETE",
-      headers: entete,
+      headers: AUTH,
     });
-<% } else { %>
-    const removed = await fetch(`${BASE}${ROUTE}/${id}`, { method: "DELETE" });
-<% } %>    // 204 : il n'y a plus rien à décrire, donc pas de corps.
+    // 204 : il n'y a plus rien à décrire, donc pas de corps.
     expect(removed.status).toBe(204);
 
-    const gone = await fetch(`${BASE}${ROUTE}/${id}`);
+    const gone = await fetch(`${BASE}${ROUTE}/${id}`, { headers: AUTH });
     expect(gone.status).toBe(404);
 
     // Supprimer deux fois n'est pas la même chose que supprimer une absente :
     // le 404 permet au client de distinguer les deux.
     const again = await fetch(`${BASE}${ROUTE}/${id}`, {
       method: "DELETE",
-<% if (it.hasSecurity) { %>      headers: entete,
-<% } %>    });
+      headers: AUTH,
+    });
     expect(again.status).toBe(404);
   });
 <% if (it.hasSecurity) { %>
   it("DELETE sans identité → refusé, et l'enregistrement survit", async () => {
     const created = await fetch(`${BASE}${ROUTE}`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: entetes(),
       body: JSON.stringify(sample(300)),
     });
     const id = String((await json(created)).id);
@@ -191,12 +214,12 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
 
     // Et surtout : la donnée est toujours là. Un refus qui supprime quand même
     // serait pire qu'une absence de garde, parce qu'il rassure.
-    const survit = await fetch(`${BASE}${ROUTE}/${id}`);
+    const survit = await fetch(`${BASE}${ROUTE}/${id}`, { headers: AUTH });
     expect(survit.status).toBe(200);
 
     await fetch(`${BASE}${ROUTE}/${id}`, {
       method: "DELETE",
-      headers: { cookie: await connexionAdmin() },
+      headers: AUTH,
     });
   });
 <% } %>});
