@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-01T23:52:05.600Z",
+  "generated": "2026-08-01T23:52:47.995Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -527,7 +527,7 @@
       "file": "src/nodefony/src/cli/card.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Compose l'état de la carte à FROID : ce que des fichiers suffisent à établir. Trois lectures, aucune exécution : le `package.json` de l'application (nom, version, briques installées) et celui du fr…"
+      "description": "Compose l'état de la carte à FROID : ce que des fichiers suffisent à établir. Que des lectures, aucune exécution : le `package.json` de l'application (nom, version, briques déclarées), celui du fra…"
     },
     "runCardCommand": {
       "name": "runCardCommand",

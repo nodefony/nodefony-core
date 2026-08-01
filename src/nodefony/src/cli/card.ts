@@ -109,11 +109,15 @@ function shortName(pkgName: string): string {
 /**
  * Compose l'état de la carte à FROID : ce que des fichiers suffisent à établir.
  *
- * Trois lectures, aucune exécution : le `package.json` de l'application (nom,
- * version, briques installées) et celui du framework installé (sa version). Les
- * modules rendus sont les paquets `@nodefony/*` DÉCLARÉS — un fait, là où lire
- * les `use()` de `nodefony.config.ts` à l'expression régulière produirait une
- * liste fausse dès qu'un appel est conditionnel, sans le dire.
+ * Que des lectures, aucune exécution : le `package.json` de l'application (nom,
+ * version, briques déclarées), celui du framework installé (sa version), puis le
+ * DISQUE — `node_modules/@nodefony/*` et `modules/*`, réunis aux déclarations.
+ *
+ * Ce sont des FAITS, là où lire les `use()` de `nodefony.config.ts` à
+ * l'expression régulière produirait une liste fausse dès qu'un appel est
+ * conditionnel, sans le dire. Ils restent des modules INSTALLÉS : ce qui sera
+ * réellement chargé dépend du gating `policy`/`when`, qui n'a pas encore eu lieu
+ * — d'où `source: "static"`, que le rendu annonce.
  *
  * @param projectRoot - racine de l'application (cf `findProjectRoot`).
  * @param fallbackVersion - version du framework à afficher si l'application ne

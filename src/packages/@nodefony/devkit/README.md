@@ -107,10 +107,9 @@ npm test            # vitest
 ├── nodefony/
 │   ├── config/config.ts              ← schéma Zod = source unique des défauts
 │   ├── config/defineModuleConfig.ts  ← builder pur (valide, gèle)
-│   ├── src/card.ts                   ← construction de la carte : fonction PURE
+│   ├── src/card.ts                   ← ré-export du cœur (la composition y vit)
 │   ├── service/DevkitService.ts      ← dérive la carte du Kernel (`container.get("devkit")`)
 │   ├── controllers/DevkitController.ts ← la porte HTTP
-│   ├── command/CardCommand.ts        ← la porte CLI
 │   └── interfaces/                   ← l'API publique du service
 ├── docs/                             ← documentation, surfacée dans Studio
 └── tests/
