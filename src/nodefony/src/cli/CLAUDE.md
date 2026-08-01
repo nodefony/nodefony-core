@@ -163,22 +163,23 @@ Utilisé dans Kernel.memoryUsage() pour afficher RSS/heap.
 
 Filet d'intégration : `CliIntegration.test.ts` (`RUN_CLI_BOOT=1` pour les boots réels).
 
-| Command      | Alias     | Fichier                | Note                                                          |
-| ------------ | --------- | ---------------------- | ------------------------------------------------------------- |
-| `Start`      | —         | `StartCommand.ts`      | menu interactif (TTY)                                         |
-| `Dev`        | `dev`     | `DevCommand.ts`        | + `--detach/--wait/--health/--log` (fast-path standalone)     |
-| `Build`      | `compile` | `BuildCommand.ts`      | point d'arrêt `onRegister`                                    |
-| `Prod`       | `prod`    | `ProdCommand.ts`       | foreground cloud-native, `--workers`, `--detach`              |
-| `Cluster`    | —         | `ClusterCommand.ts`    | `--workers`, `--detach`                                       |
-| `Install`    | —         | `InstallCommand.ts`    |                                                               |
-| `Outdated`   | —         | `OutdatedCommand.ts`   | `-j/--json`, `-a/--all` (cf § outdated)                       |
-| `Status`     | —         | `StatusCommand.ts`     | **standalone** (0 boot)                                       |
-| `Stop`       | —         | `StopCommand.ts`       | **standalone** (0 boot)                                       |
-| `Completion` | —         | `CompletionCommand.ts` | **standalone** — script bash/zsh/fish (cf § Complétion)       |
-| `Create`     | —         | `CreateCommand.ts`     | **standalone** — scaffold projet (cf § Scaffold)              |
-| `Env`        | —         | `EnvCommand.ts`        | **standalone** — cascade `.env` + provenance (cf § env)       |
-| `Check`      | `doctor`  | `CheckCommand.ts`      | **standalone** — diagnostic STATIQUE (cf § check)             |
-| `Inspect`    | —         | `InspectCommand.ts`    | état RÉEL de l'app, `onPostReady` sans serveur (cf § inspect) |
+| Command      | Alias         | Fichier                | Note                                                          |
+| ------------ | ------------- | ---------------------- | ------------------------------------------------------------- |
+| `Start`      | —             | `StartCommand.ts`      | menu interactif (TTY)                                         |
+| `Dev`        | `dev`         | `DevCommand.ts`        | + `--detach/--wait/--health/--log` (fast-path standalone)     |
+| `Build`      | `compile`     | `BuildCommand.ts`      | point d'arrêt `onRegister`                                    |
+| `Prod`       | `prod`        | `ProdCommand.ts`       | foreground cloud-native, `--workers`, `--detach`              |
+| `Cluster`    | —             | `ClusterCommand.ts`    | `--workers`, `--detach`                                       |
+| `Install`    | —             | `InstallCommand.ts`    |                                                               |
+| `Outdated`   | —             | `OutdatedCommand.ts`   | `-j/--json`, `-a/--all` (cf § outdated)                       |
+| `Status`     | —             | `StatusCommand.ts`     | **standalone** (0 boot)                                       |
+| `Stop`       | —             | `StopCommand.ts`       | **standalone** (0 boot)                                       |
+| `Completion` | —             | `CompletionCommand.ts` | **standalone** — script bash/zsh/fish (cf § Complétion)       |
+| `Create`     | —             | `CreateCommand.ts`     | **standalone** — scaffold projet (cf § Scaffold)              |
+| `Env`        | —             | `EnvCommand.ts`        | **standalone** — cascade `.env` + provenance (cf § env)       |
+| `Card`       | `devkit:card` | `CardCommand.ts`       | **standalone** — carte de visite de l'app (cf § card)         |
+| `Check`      | `doctor`      | `CheckCommand.ts`      | **standalone** — diagnostic STATIQUE (cf § check)             |
+| `Inspect`    | —             | `InspectCommand.ts`    | état RÉEL de l'app, `onPostReady` sans serveur (cf § inspect) |
 
 Les commandes de MODULE (`http:network`, `proxy:generate`, `frontend:build`…) passent par le
 dispatch différé de `CliKernel` — happy-path couvert e2e (exit 0, 1 Kernel, 0 serveur).
@@ -262,6 +263,34 @@ Quatre sorties, dont trois qu'aucun autre outil ne donne : les **masquées**, le
 inconnues** (faute de frappe → suggestion par `closestMatch`, la brique de `envOverride`), les
 **surcharges `NF__<MODULE>__<CHEMIN>`** distinguées des variables déclarées, et les **requises
 manquantes**. Secrets jamais rendus en clair (`pathLooksSecret` — même regex que partout).
+
+## `nodefony card` — la carte de visite (standalone 0-boot)
+
+`nodefony card [--json] [--cwd <path>]`, alias **`devkit:card`** (son nom
+d'origine, écrit dans les `AGENTS.md` déjà générés — et l'alias partage le
+fast-path, sinon il partirait en dispatch différé, donc en boot). Rend l'identité
+de l'application, ses modules, **où aller** (`AGENTS.md`, catalogue, docs des
+modules, console d'admin) et **quoi lancer**.
+
+⚠️ **C'est la première commande d'un arrivant : elle ne peut avoir AUCUNE
+condition d'accès.** Elle en avait deux, toutes deux constatées sur une app
+fraîchement générée : (1) l'app n'était pas encore CONSTRUITE, et
+`diagnoseUnbootableProject` répond « lance `npm run build` » à tout ce qui exige
+un Kernel ; (2) portée par une commande du module `@nodefony/devkit`
+(`policy: "dev"`), elle **n'existait pas** sans `NODE_ENV=development` — le CLI
+répondait `unknown command`, sans piste.
+
+Architecture en deux morceaux, comme `env` : `cli/cardReport.ts` = composition
+**PURE** (`buildCard` — reçoit l'état, ne le lit pas) + rendu (`renderCard`) ;
+`cli/card.ts` = adaptateur (lecture des fichiers, exit codes). Le module
+`@nodefony/devkit` importe les deux pour sa route HTTP : **une composition, deux
+portes**, aucune divergence possible.
+
+**Ce qu'elle ne peut pas savoir, elle le DIT** : sans boot, la liste est celle
+des modules **installés** (`node_modules/@nodefony/*` + `modules/*` + deps
+déclarées — le disque fait foi, sinon un dépôt en espaces de travail rend « 0
+module »), pas des modules **chargés**. La ligne le mentionne et renvoie à
+`npx nodefony inspect modules`. Sort en 66 (`EX_NOINPUT`) hors projet.
 
 ## `nodefony check` / `doctor` — le diagnostic STATIQUE (standalone 0-boot)
 

@@ -206,8 +206,10 @@ export default defineConfig<typeof env>((ctx) => ({
     "@nodefony/frontend",
 <% } %>
     /**
-     * Outillage de DÉVELOPPEMENT — la carte de visite de cette application et
-     * les portes qui mènent au reste : `npx nodefony devkit:card`.
+     * Outillage de DÉVELOPPEMENT — la porte HTTP de la carte de visite de cette
+     * application (`/nodefony/devkit`). La même carte au terminal ne dépend PAS
+     * de ce module : `npx nodefony card` est servie par le cœur et répond même
+     * ici retiré, application non construite ou environnement non posé.
      *
      * `policy: "dev"` : ce qu'il expose (modules chargés, chemins de
      * documentation, commandes à lancer) aide pendant le développement et n'est,

@@ -431,11 +431,14 @@ croira vraie.
 chargé, où lire et quoi lancer :
 
 ```bash
-npx nodefony devkit:card        # ajoute -j pour du JSON (| jq)
+npx nodefony card               # ajoute -j pour du JSON (| jq)
 ```
 
-Elle vient de `@nodefony/devkit`, en `devDependencies` et `policy: "dev"` : elle
-existe pendant que tu développes, et pas en production.
+Elle répond **toujours** : sur une application pas encore construite, et depuis
+un terminal qui n'a posé aucune variable d'environnement — elle ne lit que des
+fichiers. Dans ce cas elle le DIT (« modules installés », pas « chargés ») et
+renvoie à `npx nodefony inspect modules` pour ce qui est vraiment monté.
+`devkit:card` reste accepté : c'est son ancien nom.
 
 ```bash
 npx nodefony inspect routes --json     # toutes les routes réelles (chemin, méthodes, controller)

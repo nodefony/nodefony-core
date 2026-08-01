@@ -1042,8 +1042,11 @@ export const TASKS = [
         // mode de défaillance n°1 du banc : une sonde de moyen qui punit le bon
         // geste parce qu'elle n'en connaissait qu'une forme.
         kind: "transcript",
-        name: "a interrogé l'application en marche (inspect / devkit:card)",
-        pattern: /nodefony\s+(?:inspect\b|devkit:card\b)/u,
+        name: "a interrogé l'application en marche (inspect / card)",
+        // `devkit:card` reste l'ALIAS de `card` (le nom d'origine, encore écrit
+        // dans les AGENTS.md déjà générés) : la sonde accepte les deux, sinon
+        // elle rendrait FAIL un agent qui a fait le geste juste.
+        pattern: /nodefony\s+(?:inspect\b|(?:devkit:)?card\b)/u,
       },
       {
         kind: "code",

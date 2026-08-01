@@ -44,6 +44,8 @@ import { runCreateCommand } from "../cli/create";
 import { runCheckCommand } from "./checks/runCheck";
 import Env from "./commands/EnvCommand";
 import { runEnvCommand } from "../cli/env";
+import Card from "./commands/CardCommand";
+import { runCardCommand } from "../cli/card";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import { HelpContext, Command as commanderCommand } from "commander";
@@ -240,6 +242,27 @@ class CliKernel extends Cli {
       return process.exit(await runEnvCommand(process.argv));
     }
 
+    // ─── `card` : la carte de visite — même famille, et pour DEUX raisons ─────
+    // C'est la première commande lancée dans une application qu'on ne connaît
+    // pas : elle ne peut avoir aucune condition d'accès. Or elle en avait deux,
+    // toutes deux constatées sur une app fraîchement générée.
+    //   1. L'app n'est pas encore CONSTRUITE — `diagnoseUnbootableProject` répond
+    //      « lance npm run build » à toute commande qui exige un Kernel, donc
+    //      exactement au moment où l'on cherche par où commencer.
+    //   2. Le terminal n'a pas posé `NODE_ENV` — la carte était portée par une
+    //      commande du module `@nodefony/devkit`, `policy: "dev"` : hors
+    //      développement le module n'est pas chargé, la commande n'EXISTE pas et
+    //      le CLI répond `unknown command`, sans piste.
+    // Ne lisant que des fichiers, ce fast-path répond dans les quatre cas (app
+    // construite ou non, environnement posé ou non) — et il DIT ce qu'il ne peut
+    // pas savoir sans boot : installés ≠ chargés (cf `renderCard`).
+    // `devkit:card` reste reconnu : c'est le nom d'origine, déjà écrit dans les
+    // `AGENTS.md` générés. Comme `doctor` pour `check`, l'alias DOIT partager le
+    // fast-path, sinon il partirait en dispatch différé — donc en boot.
+    if (requested === "card" || requested === "devkit:card") {
+      return process.exit(runCardCommand(process.argv, version));
+    }
+
     // ─── Lancement DÉTACHÉ (`<runtime> --detach`) : même famille standalone ────
     // Spawn détaché + readiness (sonde ports) + health + exit code sémantique —
     // l'expérience du script start.sh absorbée nativement (cf detachedStart.ts).
@@ -384,6 +407,7 @@ class CliKernel extends Cli {
     this.addCommand(Create);
     this.addCommand(Check);
     this.addCommand(Env);
+    this.addCommand(Card);
     this.addCommand(Inspect);
   }
 

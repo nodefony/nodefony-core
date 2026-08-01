@@ -13,9 +13,9 @@ import type { ContextType } from "@nodefony/http";
  * réponse contient part en PRODUCTION, vers n'importe qui. Énumérer les routes
  * internes, la console d'administration ou les chemins de documentation
  * décrirait ton architecture à qui la demande : c'est une divulgation, pas une
- * fonctionnalité. Ces informations vivent dans `@nodefony/devkit`
- * (`npx nodefony devkit:card`), un module `policy: "dev"` absent de la
- * production.
+ * fonctionnalité. Ces informations se demandent au TERMINAL, où seul celui qui
+ * a déjà la main les obtient : `npx nodefony card` (et sa porte HTTP de
+ * développement, `@nodefony/devkit`, `policy: "dev"`, absente de la production).
  *
  * Tu ajoutes un frontend plus tard (`nodefony create front`) ? Sa page vivra
  * sous sa propre route ; garde cet accueil JSON ou remplace-le, c'est TA racine.

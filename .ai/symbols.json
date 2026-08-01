@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-01T23:15:45.582Z",
+  "generated": "2026-08-01T23:52:05.600Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 654,
-    "symbols": 2593,
-    "classes": 340,
-    "interfaces": 790,
-    "types": 337,
+    "files": 657,
+    "symbols": 2608,
+    "classes": 341,
+    "interfaces": 791,
+    "types": 343,
     "enums": 4,
-    "functions": 941,
+    "functions": 948,
     "constants": 181
   },
   "symbols": {
@@ -512,6 +512,99 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Treeshake commun : les externes sont sans effet de bord (équivalent `no-external`) SAUF `reflect-metadata`, dont le side-effect doit survivre."
+    },
+    "parseCardArgv": {
+      "name": "parseCardArgv",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/card.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Parse l'argv après le mot `card` (ou son alias)."
+    },
+    "readColdCardInput": {
+      "name": "readColdCardInput",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/card.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose l'état de la carte à FROID : ce que des fichiers suffisent à établir. Trois lectures, aucune exécution : le `package.json` de l'application (nom, version, briques installées) et celui du fr…"
+    },
+    "runCardCommand": {
+      "name": "runCardCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/card.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Commande `nodefony card` — orchestre : résout le projet, lit l'état statique, délègue la composition au module pur, rend."
+    },
+    "ICardAppInfo": {
+      "name": "ICardAppInfo",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/cardReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Composition de la CARTE DE VISITE d'une application — module PUR. Deux portes la servent, et c'est tout l'intérêt de vivre ici : - la CLI (`nodefony card`, standalone 0-boot — `cli/card.ts`), qui r…"
+    },
+    "ICardDoor": {
+      "name": "ICardDoor",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/cardReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une PORTE : un endroit où aller chercher la suite. Volontairement plat et ORDONNÉ (un tableau, pas un objet indexé) : ce qui est lu en premier est ce qui compte, et un lecteur qui s'arrête au milie…"
+    },
+    "ICardVerb": {
+      "name": "ICardVerb",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/cardReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un VERBE : une commande à lancer. ⚠️ Toujours préfixée `npx` — le binaire vit dans les `node_modules` de l'application, et `nodefony` nu rend 127."
+    },
+    "ICard": {
+      "name": "ICard",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/cardReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "La carte de visite complète de l'application."
+    },
+    "ICardInput": {
+      "name": "ICardInput",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/cardReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "État minimal dont {@link ICard} se dérive. INJECTÉ, jamais lu : c'est ce qui rend la construction de la carte éprouvable sans Kernel ni serveur, et ce qui l'empêche d'inventer quoi que ce soit."
+    },
+    "CardSource": {
+      "name": "CardSource",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/cardReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "D'où vient la liste de modules — et donc ce que la carte a le droit d'affirmer. `runtime` : l'application tourne, ce sont les modules CHARGÉS (le gating `policy`/`when` a déjà eu lieu). `static` : …"
+    },
+    "buildCard": {
+      "name": "buildCard",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/cardReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Construit la carte de visite d'une application à partir de son état. Fonction **PURE** : elle reçoit l'état, elle ne le lit pas. C'est ce qui la rend éprouvable sans Kernel ni serveur — et ce qui g…"
+    },
+    "renderCard": {
+      "name": "renderCard",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/cardReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend la carte pour un HUMAIN (ou un agent qui lit un terminal). PURE : elle ne touche ni au kernel ni au système de fichiers, donc elle s'éprouve seule. Écrite sur `stdout` par ses appelants plutôt…"
     },
     "ICliManifestCommand": {
       "name": "ICliManifestCommand",
@@ -4665,6 +4758,17 @@
       "decorators": [],
       "description": "Commande `nodefony build` (alias `compile`) — délègue à la **toolchain CLI** (`turbo run build` → chaque `rollup.config.ts` de workspace), source UNIQUE du build. Ne build PLUS via un service rollu…"
     },
+    "Card": {
+      "name": "Card",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/CardCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony card` — la carte de visite de l'application : qui répond, où aller ensuite, quoi lancer. C'est la PREMIÈRE commande d'un agent (ou d'un humain) qui arrive dans une application qu…"
+    },
     "Check": {
       "name": "Check",
       "kind": "class",
@@ -7362,50 +7466,45 @@
       "extends": null,
       "description": "API publique de `DevkitService` (injectable, nom `devkit`). L'interface est le CONTRAT : ce que les autres modules (et Studio) peuvent appeler. Tout ce qui n'est pas ici est un détail d'implémentat…"
     },
-    "IDevkitAppInfo": {
-      "name": "IDevkitAppInfo",
-      "kind": "interface",
+    "IDevkitCard": {
+      "name": "IDevkitCard",
+      "kind": "type",
       "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
       "exported": true,
       "module": "@nodefony/devkit",
-      "extends": null,
+      "description": "Le contrat de la carte est celui du CŒUR — ces noms n'en sont que les alias, conservés parce qu'ils forment la surface publique de ce module. La forme de la carte ne peut avoir qu'une définition : …"
+    },
+    "IDevkitAppInfo": {
+      "name": "IDevkitAppInfo",
+      "kind": "type",
+      "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
       "description": "Identité de l'application qui répond."
     },
     "IDevkitDoor": {
       "name": "IDevkitDoor",
-      "kind": "interface",
+      "kind": "type",
       "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
       "exported": true,
       "module": "@nodefony/devkit",
-      "extends": null,
-      "description": "Une PORTE : un endroit où aller chercher la suite. Volontairement plat et ORDONNÉ (un tableau, pas un objet indexé) : ce qui est lu en premier est ce qui compte, et un lecteur qui s'arrête au milie…"
+      "description": "Une PORTE : un endroit où aller chercher la suite."
     },
     "IDevkitVerb": {
       "name": "IDevkitVerb",
-      "kind": "interface",
+      "kind": "type",
       "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
       "exported": true,
       "module": "@nodefony/devkit",
-      "extends": null,
-      "description": "Un VERBE : une commande à lancer. ⚠️ Toujours préfixée `npx` — le binaire vit dans les `node_modules` de l'application, et `nodefony` nu rend 127."
-    },
-    "IDevkitCard": {
-      "name": "IDevkitCard",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "extends": null,
-      "description": "La carte de visite complète de l'application."
+      "description": "Un VERBE : une commande à lancer (toujours préfixée `npx`)."
     },
     "IDevkitCardInput": {
       "name": "IDevkitCardInput",
-      "kind": "interface",
+      "kind": "type",
       "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
       "exported": true,
       "module": "@nodefony/devkit",
-      "extends": null,
-      "description": "État minimal dont {@link IDevkitCard} se dérive. INJECTÉ, jamais lu : c'est ce qui rend la construction de la carte éprouvable sans Kernel ni serveur, et ce qui l'empêche d'inventer quoi que ce soit."
+      "description": "L'état minimal dont la carte se dérive — injecté, jamais lu."
     },
     "DevkitService": {
       "name": "DevkitService",
@@ -7421,14 +7520,6 @@
         "injectable"
       ],
       "description": "Service principal du module — la logique vit ici, pas dans les controllers (un controller traduit du HTTP/WS ; un service, lui, est réutilisable par la CLI, un job, un autre module). Cycle : `const…"
-    },
-    "buildCard": {
-      "name": "buildCard",
-      "kind": "function",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/card.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Construit la carte de visite d'une application à partir de son état. Fonction **PURE** : elle reçoit l'état, elle ne le lit pas. C'est ce qui la rend éprouvable sans Kernel ni serveur — et ce qui g…"
     },
     "DocumentationConfig": {
       "name": "DocumentationConfig",
@@ -18109,6 +18200,7 @@
       ],
       "Command": [
         "Build",
+        "Card",
         "Check",
         "Cluster",
         "Completion",
@@ -18650,6 +18742,7 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/types/ICliKernel.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
+        "src/nodefony/src/kernel/commands/CardCommand.ts",
         "src/nodefony/src/kernel/commands/CheckCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
@@ -19382,9 +19475,6 @@
         "src/packages/@nodefony/devkit/nodefony/command/CardCommand.ts"
       ],
       "DevkitController": [
-        "src/packages/@nodefony/devkit/index.ts"
-      ],
-      "CardCommand": [
         "src/packages/@nodefony/devkit/index.ts"
       ],
       "GitService": [
@@ -20372,6 +20462,7 @@
       ],
       "findProjectRoot": [
         "src/nodefony/src/bin/resolveLocalCli.ts",
+        "src/nodefony/src/cli/card.ts",
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
@@ -20383,6 +20474,7 @@
         "src/nodefony/src/bundler/index.ts"
       ],
       "SysExit": [
+        "src/nodefony/src/cli/card.ts",
         "src/nodefony/src/cli/completion.ts",
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/env.ts",
@@ -20393,6 +20485,21 @@
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "buildCard": [
+        "src/nodefony/src/cli/card.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
+      ],
+      "renderCard": [
+        "src/nodefony/src/cli/card.ts"
+      ],
+      "ICard": [
+        "src/nodefony/src/cli/card.ts",
+        "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
+      ],
+      "ICardInput": [
+        "src/nodefony/src/cli/card.ts",
+        "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
       ],
       "getScaffoldSpec": [
         "src/nodefony/src/cli/create.ts",
@@ -20579,6 +20686,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
+        "src/nodefony/src/kernel/commands/CardCommand.ts",
         "src/nodefony/src/kernel/commands/CheckCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
@@ -20788,6 +20896,13 @@
       "runEnvCommand": [
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/commands/EnvCommand.ts"
+      ],
+      "Card": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "runCardCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/CardCommand.ts"
       ],
       "setLogColor": [
         "src/nodefony/src/kernel/Kernel.ts"
@@ -21595,6 +21710,7 @@
       ],
       "OptionsCommandInterface": [
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
+        "src/nodefony/src/kernel/commands/CardCommand.ts",
         "src/nodefony/src/kernel/commands/CheckCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
@@ -22246,8 +22362,7 @@
       ],
       "IDevkitCard": [
         "src/packages/@nodefony/devkit/nodefony/command/CardCommand.ts",
-        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
-        "src/packages/@nodefony/devkit/nodefony/src/card.ts"
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
       ],
       "devkitConfigSchema": [
         "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts"
@@ -22260,6 +22375,15 @@
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
       ],
+      "ICardAppInfo": [
+        "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
+      ],
+      "ICardDoor": [
+        "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
+      ],
+      "ICardVerb": [
+        "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
+      ],
       "injectable": [
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -22269,18 +22393,6 @@
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
-      ],
-      "buildCard": [
-        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
-      ],
-      "IDevkitCardInput": [
-        "src/packages/@nodefony/devkit/nodefony/src/card.ts"
-      ],
-      "IDevkitDoor": [
-        "src/packages/@nodefony/devkit/nodefony/src/card.ts"
-      ],
-      "IDevkitVerb": [
-        "src/packages/@nodefony/devkit/nodefony/src/card.ts"
       ],
       "documentationConfigSchema": [
         "src/packages/@nodefony/documentation/nodefony/config/defineModuleConfig.ts"

@@ -8,8 +8,14 @@ Il répond à la question que tout le monde se pose en arrivant sur une applicat
 aller ensuite ?**
 
 ```bash
-npx nodefony devkit:card        # -j pour du JSON (| jq)
+npx nodefony card               # -j pour du JSON (| jq)
 ```
+
+> La commande est servie par le **cœur**, pas par ce module : elle doit répondre
+> sur une application pas encore construite et dans un terminal sans `NODE_ENV`,
+> deux cas où aucun module n'est chargé. Ce paquet, lui, sert la même carte en
+> **HTTP** — et c'est la seule porte qui connaisse les modules réellement
+> CHARGÉS.
 
 ```
 ma-boutique 1.4.0 — development (nodefony 10.0.0)
@@ -45,16 +51,16 @@ l'installe pas ; la `policy` fait qu'un déploiement qui installerait tout ne le
 charge pas quand même. **En production, le module n'est même pas importé** — le
 coût y est nul, pas « faible ».
 
-Corollaire : la commande n'existe que hors production. Depuis un terminal qui
-n'aurait pas posé la variable : `NODE_ENV=development npx nodefony devkit:card`.
+Corollaire : **la route** n'existe que hors production. La **commande**, elle,
+répond toujours — elle ne dépend pas de ce module.
 
 ## Ce qu'il expose
 
-| Porte                            | Pour qui                                                  |
-| -------------------------------- | --------------------------------------------------------- |
-| `npx nodefony devkit:card`       | un agent, un humain au terminal — **la porte qui compte** |
-| `GET /nodefony/devkit/api/card`  | Studio, un script authentifié                             |
-| `buildCard()` (export du paquet) | une porte de plus, à écrire — rien à réimplémenter        |
+| Porte                           | Pour qui                                                   |
+| ------------------------------- | ---------------------------------------------------------- |
+| `GET /nodefony/devkit/api/card` | Studio, un script authentifié — modules réellement CHARGÉS |
+| `buildCard()` (export du cœur)  | une porte de plus, à écrire — rien à réimplémenter         |
+| `npx nodefony card`             | un agent, un humain au terminal — **servie par le cœur**   |
 
 La route HTTP vit sous `/nodefony`, que le pare-feu d'une application réelle
 couvre : un agent qui code ne s'authentifie pas et n'a pas de navigateur — d'où

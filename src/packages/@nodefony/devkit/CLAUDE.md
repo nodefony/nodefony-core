@@ -7,8 +7,17 @@
 
 ## Rôle du module
 
-La carte de visite d'une application et les portes qui mènent au reste. Module
-`policy: "dev"` — il aide pendant le développement et n'existe pas en production.
+La porte **HTTP** de la carte de visite d'une application. Module `policy: "dev"`
+— il aide pendant le développement et n'existe pas en production.
+
+⚠️ **La porte CLI n'est PLUS ici.** `nodefony card` est servie par le cœur
+(fast-path standalone, `CliKernel.start` → `cli/card.ts`), qui ne lit que des
+fichiers. C'est l'application de la règle ci-dessous : une carte de visite doit
+répondre sur une application non construite et dans un terminal sans `NODE_ENV`
+— or ce module, `policy: "dev"`, n'est chargé dans aucun des deux cas. La
+composition (`buildCard`) et le rendu (`renderCard`) vivent donc au cœur ; ce
+module les importe pour sa route, où il ajoute ce que lui seul sait : les
+modules réellement CHARGÉS.
 
 ## Structure
 
@@ -20,7 +29,7 @@ devkit/
 │   ├── src/card.ts                               ← construction de la carte : fonction PURE
 │   ├── service/DevkitService.ts                  ← dérive la carte du Kernel
 │   ├── controllers/DevkitController.ts           ← porte HTTP
-│   ├── command/CardCommand.ts                    ← porte CLI (`devkit:card`)
+│   ├── command/CardCommand.ts                    ← ORPHELIN (la CLI vit au cœur)
 │   ├── interfaces/IDevkitService.ts              ← contrat public
 │   └── src/errors/DevkitError.ts                 ← erreurs typées
 ├── tests/                                        ← vitest

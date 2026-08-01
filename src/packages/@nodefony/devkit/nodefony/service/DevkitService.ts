@@ -114,6 +114,11 @@ class DevkitService extends Service implements IDevkitService {
       nodefonyVersion: Nodefony.version,
       environment: kernel?.environment ?? "unknown",
       modules: Object.keys(kernel?.modules ?? {}),
+      // Le Kernel tourne : ce sont les modules CHARGÉS, gating `policy`/`when`
+      // déjà appliqué. La porte CLI répond à froid et ne connaît, elle, que les
+      // modules INSTALLÉS — d'où ce champ, qui empêche les deux cartes de se
+      // faire passer l'une pour l'autre.
+      source: "runtime",
     });
   }
 

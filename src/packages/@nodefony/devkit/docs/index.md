@@ -25,11 +25,17 @@ Le devkit répond à la question d'ouverture, et à elle seule : **qui répond i
 et où faut-il aller ensuite ?**
 
 ```bash
-npx nodefony devkit:card        # -j pour du JSON (| jq)
+npx nodefony card               # -j pour du JSON (| jq)
 ```
 
 La réponse tient en trois blocs : l'identité (nom, version, environnement, cœur),
-les modules réellement chargés, puis **où lire** et **quoi lancer**.
+les modules, puis **où lire** et **quoi lancer**.
+
+Cette commande-là est servie par le **cœur**, pas par ce module : une carte de
+visite qui exigerait une application déjà construite, ou une variable
+d'environnement posée, serait fermée au moment exact où l'on en a besoin. Elle ne
+lit que des fichiers — et quand rien n'a démarré, elle annonce des modules
+**installés** plutôt que chargés, en renvoyant à `npx nodefony inspect modules`.
 
 ## Pourquoi il n'existe pas en production
 
@@ -49,20 +55,16 @@ use("@nodefony/devkit", {}, { policy: "dev" }),
   quand même. Un module non chargé n'est **même pas importé** — le coût en
   production est nul, pas « faible ».
 
-Corollaire à connaître : hors développement, la commande **n'existe pas**. Depuis
-un terminal qui n'aurait pas posé la variable :
-
-```bash
-NODE_ENV=development npx nodefony devkit:card
-```
+Corollaire à connaître : hors développement, c'est **la route** qui n'existe pas.
+La commande, elle, répond — elle ne passe pas par ce module.
 
 ## Trois portes, une seule source
 
-| Porte                            | Pour qui                                           |
-| -------------------------------- | -------------------------------------------------- |
-| `npx nodefony devkit:card`       | un agent, un humain au terminal                    |
-| `GET /nodefony/devkit/api/card`  | Studio, un script authentifié                      |
-| `buildCard()` (export du paquet) | une porte de plus, à écrire — rien à réimplémenter |
+| Porte                           | Pour qui                                                   |
+| ------------------------------- | ---------------------------------------------------------- |
+| `npx nodefony card`             | un agent, un humain au terminal — servie par le cœur       |
+| `GET /nodefony/devkit/api/card` | Studio, un script authentifié — modules réellement CHARGÉS |
+| `buildCard()` (export du cœur)  | une porte de plus, à écrire — rien à réimplémenter         |
 
 **Ajouter une porte n'ajoute jamais une vérité** : les trois lisent le même
 service, qui dérive le même Kernel. La construction elle-même vit dans une

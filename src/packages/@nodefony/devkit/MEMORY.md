@@ -6,21 +6,22 @@
 
 ## Purpose
 
-Carte de visite d'une application (qui répond, ce qui est chargé, où lire, quoi
-lancer) et les portes qui la servent. Module `policy: "dev"` — absent en prod.
+Porte **HTTP** de la carte de visite d'une application (qui répond, ce qui est
+chargé, où lire, quoi lancer). Module `policy: "dev"` — absent en prod. La porte
+CLI de la même carte vit au CŒUR (`nodefony card`), parce qu'elle doit répondre
+sans ce module.
 
 ## Core Components
 
-| Symbole              | Fichier                                 | Rôle                                                        |
-| -------------------- | --------------------------------------- | ----------------------------------------------------------- |
-| `DevkitModule`       | `index.ts`                              | `@services` + `@controllers` + `addCommand(CardCommand)`    |
-| `buildCard`          | `nodefony/src/card.ts`                  | PURE — état injecté → `IDevkitCard`, zéro accès kernel      |
-| `DevkitService`      | `nodefony/service/DevkitService.ts`     | `getCard()` — dérive du Kernel, clé conteneur `devkit`      |
-| `DevkitController`   | `nodefony/controllers/DevkitController` | `GET /nodefony/devkit/api/card` — mince, délègue            |
-| `CardCommand`        | `nodefony/command/CardCommand.ts`       | `nodefony devkit:card [-j]`, `onReady`, `format()` statique |
-| `devkitConfigSchema` | `nodefony/config/config.ts`             | `{ enabled }` — source unique des défauts                   |
-| `defineDevkitConfig` | `nodefony/config/defineModuleConfig.ts` | parse + freeze au boot                                      |
-| `DevkitError`        | `nodefony/src/errors/DevkitError.ts`    | erreurs typées du module                                    |
+| Symbole              | Fichier                                 | Rôle                                                 |
+| -------------------- | --------------------------------------- | ---------------------------------------------------- |
+| `DevkitModule`       | `index.ts`                              | `@services` + `@controllers` — AUCUNE commande CLI   |
+| `buildCard`          | `nodefony/src/card.ts`                  | ré-export du cœur (`nodefony` → `cli/cardReport.ts`) |
+| `DevkitService`      | `nodefony/service/DevkitService.ts`     | `getCard()` — dérive du Kernel, `source: "runtime"`  |
+| `DevkitController`   | `nodefony/controllers/DevkitController` | `GET /nodefony/devkit/api/card` — mince, délègue     |
+| `devkitConfigSchema` | `nodefony/config/config.ts`             | `{ enabled }` — source unique des défauts            |
+| `defineDevkitConfig` | `nodefony/config/defineModuleConfig.ts` | parse + freeze au boot                               |
+| `DevkitError`        | `nodefony/src/errors/DevkitError.ts`    | erreurs typées du module                             |
 
 ## Config
 
@@ -43,16 +44,22 @@ lancer) et les portes qui la servent. Module `policy: "dev"` — absent en prod.
 
 ## Gotchas
 
-- **La commande n'existe pas hors développement** : `policy: "dev"` ⇒ module non
-  chargé ⇒ `nodefony devkit:card` rend « unknown command ». Depuis un shell sans
-  variable : `NODE_ENV=development npx nodefony devkit:card`.
+- **La CLI ne passe PAS par ce module** : `nodefony card` (alias `devkit:card`)
+  est un fast-path standalone du cœur (`CliKernel.start`), 0 boot. Motif : porté
+  ici, il n'existait pas hors développement (`policy: "dev"` ⇒ « unknown
+  command ») et le Kernel refusait de démarrer sur une app non construite — les
+  deux situations où l'on cherche justement la carte.
+- **Cette porte-ci est la SEULE qui connaisse les modules CHARGÉS**
+  (`source: "runtime"`). La CLI répond à froid : modules INSTALLÉS, et elle le
+  dit.
 - **La route est derrière le pare-feu** dans toute app portant
   `@nodefony/security` (préfixe `/nodefony` = zone admin) → 401 sans session.
-  C'est voulu ; la porte utilisable par un agent est la CLI.
+  C'est voulu ; la porte utilisable par un agent est la CLI (`nodefony card`).
 - **Aucune garde `@IsGranted`** sur le controller : l'ajouter imposerait
   `@nodefony/security` à toute app qui installe le devkit, y compris celles sans
   firewall. C'est la `policy` qui protège, pas un rôle.
-- Une porte de plus se branche sur `buildCard` (exporté), jamais sur le service :
-  la brique pure est le point de réutilisation.
+- Une porte de plus se branche sur `buildCard` (dans le cœur, exporté par
+  `nodefony`), jamais sur le service : la brique pure est le point de
+  réutilisation.
 - La clé de CONTENEUR (`super("devkit", …)`) n'est pas le nom de la CLASSE :
   `container.get("devkit")`.

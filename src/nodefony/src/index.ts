@@ -520,6 +520,22 @@ export {
 } from "./cli/scaffold/steps";
 export type { TScaffoldStep } from "./cli/scaffold/steps";
 
+// ─── Carte de visite de l'application : UNE composition, DEUX portes ──────────
+// La CLI (`nodefony card`, standalone 0-boot) et le module `@nodefony/devkit`
+// (route HTTP, Kernel en marche) rendent la MÊME carte. Elle vit au cœur parce
+// qu'elle doit répondre sur une application non construite ou lancée sans
+// `NODE_ENV` — une capacité qui doit tenir sans installation ne peut pas
+// dépendre d'un module.
+export { buildCard, renderCard } from "./cli/cardReport";
+export type {
+  ICard,
+  ICardAppInfo,
+  ICardDoor,
+  ICardInput,
+  ICardVerb,
+  CardSource,
+} from "./cli/cardReport";
+
 // ─── Branchement Node-only : ALS → Pdu.requestId (corrélation log↔requête) ────
 // Le bundle browser/client (src/client/index.ts) NE RÉ-EXPORTE PAS ce fichier
 // et n'importe donc PAS `node:async_hooks`. Le provider reste `null` côté

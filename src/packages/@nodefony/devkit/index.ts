@@ -4,7 +4,6 @@ import config, { type DevkitConfigInput } from "./nodefony/config/config";
 import { defineDevkitConfig } from "./nodefony/config/defineModuleConfig";
 import DevkitService from "./nodefony/service/DevkitService";
 import DevkitController from "./nodefony/controllers/DevkitController";
-import CardCommand from "./nodefony/command/CardCommand";
 /**
  * @nodefony/devkit — Outillage de developpement d une application Nodefony : carte de visite et portes de decouverte pour un agent
  *
@@ -30,9 +29,22 @@ declare module "nodefony" {
 @controllers([DevkitController])
 @services([DevkitService])
 class DevkitModule extends Module {
+  /**
+   * ⚠️ Ce module ne pose PLUS de commande CLI.
+   *
+   * `devkit:card` vivait ici, et n'existait donc que lorsque le module était
+   * chargé : hors développement (`policy: "dev"`) le CLI répondait
+   * `unknown command`, et sur une application non encore construite le Kernel
+   * refusait de démarrer avant elle. Une carte de visite qui disparaît selon
+   * l'environnement n'accueille personne. Elle est désormais servie par le cœur
+   * (`nodefony card`, alias `devkit:card`, standalone 0-boot — fast-path de
+   * `CliKernel.start`), qui ne lit que des fichiers.
+   *
+   * Ce module garde la porte HTTP : elle, et elle seule, connaît les modules
+   * réellement CHARGÉS.
+   */
   constructor(kernel: Kernel) {
     super("devkit", kernel, import.meta.url, config);
-    this.addCommand(CardCommand);
   }
 
   /**
