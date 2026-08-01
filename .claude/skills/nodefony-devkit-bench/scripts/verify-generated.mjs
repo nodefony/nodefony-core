@@ -109,6 +109,31 @@ const APP = path.join(ROOT, "app");
 const MODULE = "blog";
 const MODULE_PKG = `@app/${MODULE}`;
 
+/**
+ * Le service témoin, la méthode qui REMPLACE son exemple, et la commande qui
+ * l'appelle.
+ *
+ * Trois générateurs sur sept n'étaient exercés par rien ici (`controller` l'est
+ * indirectement par `create module --controller rest`) — et c'est exactement par
+ * ce trou qu'un défaut est passé : `create command --service` exigeait la méthode
+ * `greet()` du gabarit, que ce même gabarit dit de remplacer. Suivre le conseil
+ * cassait la commande. Le banc fait donc le geste que le gabarit RÉCLAME.
+ *
+ * La méthode d'exemple ne se renomme pas au hasard : un générateur ne doit
+ * dépendre d'AUCUN nom de son propre exemple.
+ */
+const SERVICE = "Report";
+const SERVICE_METHOD = "bilan";
+const COMMAND_ACTION = "sync";
+const COMMAND_CLASS = "SyncCommand";
+
+/**
+ * Nom complet de la commande générée (`<module>:<action>`), DÉRIVÉ du `super(…)`
+ * de l'`index.ts` au moment de la génération — jamais écrit en dur : c'est le
+ * générateur qui décide du préfixe, et le banc ne doit pas figer sa décision.
+ */
+let commandFullName = null;
+
 const keep = process.argv.includes("--keep");
 const withE2e = !process.argv.includes("--no-e2e");
 
@@ -331,6 +356,92 @@ step(
 );
 
 step(
+  "un SERVICE, puis la COMMANDE qui l'appelle — exemple REMPLACÉ",
+  "Le geste que le gabarit RÉCLAME, et qu'un générateur punissait : suivre son conseil le cassait.",
+  // Jouée AVANT les entités, et c'est ce qui la rend déterministe : `create
+  // entity` dépose lui aussi des services CRUD dans `nodefony/service/`, et
+  // `--service` prend le PREMIER service appelable qu'il y trouve. Ici le
+  // dossier n'existe pas encore — le service choisi est forcément le nôtre,
+  // donc l'assertion sur la méthode appelée dit bien ce qu'elle prétend.
+  () => {
+    run(process.execPath, [BIN, "create", "service", SERVICE, "--yes"]);
+    const svcFile = path.join(
+      APP,
+      "nodefony",
+      "service",
+      `${SERVICE}Service.ts`,
+    );
+    const ifaceFile = path.join(
+      APP,
+      "nodefony",
+      "interfaces",
+      `I${SERVICE}Service.ts`,
+    );
+    // « Exemple de méthode métier — à remplacer par la vôtre » : on le fait, dans
+    // la classe ET dans son interface — sinon ce n'est plus le même contrat, et
+    // le typecheck de l'étape suivante le dirait à notre place.
+    for (const file of [svcFile, ifaceFile]) {
+      const before = readFileSync(file, "utf8");
+      const after = before.replaceAll("greet(", `${SERVICE_METHOD}(`);
+      if (after === before) {
+        throw new Error(
+          `méthode d'exemple introuvable dans ${path.basename(file)} — ` +
+            "le gabarit a changé de forme, et cette étape ne mesure plus rien",
+        );
+      }
+      writeFileSync(file, after, "utf8");
+    }
+
+    run(process.execPath, [
+      BIN,
+      "create",
+      "command",
+      COMMAND_ACTION,
+      "--service",
+      "--yes",
+    ]);
+
+    const generated = readFileSync(
+      path.join(APP, "nodefony", "command", `${COMMAND_CLASS}.ts`),
+      "utf8",
+    );
+    if (!generated.includes(`.${SERVICE_METHOD}(`)) {
+      throw new Error(
+        `la commande n'appelle pas « ${SERVICE_METHOD}() » — ` +
+          "le générateur a-t-il CHERCHÉ la méthode, ou l'a-t-il supposée ?",
+      );
+    }
+    if (/\bgreet\b/u.test(generated)) {
+      throw new Error(
+        "la commande appelle « greet » : le générateur exige encore son propre exemple",
+      );
+    }
+
+    // Le câblage, constaté sur le disque plutôt que supposé : une classe que
+    // rien n'enregistre compile parfaitement et n'existe pour personne.
+    const index = readFileSync(path.join(APP, "index.ts"), "utf8");
+    if (!new RegExp(`@services\\(\\[[^\\]]*${SERVICE}Service`, "u").test(index)) {
+      throw new Error(
+        `${SERVICE}Service absent de @services([…]) — le conteneur ne le connaîtra pas`,
+      );
+    }
+    if (!index.includes(`this.addCommand(${COMMAND_CLASS})`)) {
+      throw new Error(
+        `addCommand(${COMMAND_CLASS}) absent d'index.ts — la commande ne sera jamais atteignable`,
+      );
+    }
+    // Le préfixe vient du module que l'`index.ts` DÉCLARE, pas du nom du paquet.
+    const declared = /super\(\s*"([^"]+)"/u.exec(index);
+    if (!declared) {
+      throw new Error(
+        "nom de module introuvable dans index.ts (`super(\"…\"`) — impossible de nommer la commande",
+      );
+    }
+    commandFullName = `${declared[1]}:${COMMAND_ACTION}`;
+  },
+);
+
+step(
   "génération : deux entités qui exercent toute la grammaire",
   "unique, énumération, défauts, index et relation — les cas qui ont déjà cassé.",
   () => {
@@ -467,6 +578,27 @@ step(
   // « ma route répond 404 alors qu'elle existe ». Le banc la joue explicitement
   // pour que son absence se voie ici plutôt qu'en session.
   () => run("npm", ["run", "build"]),
+);
+
+step(
+  "la COMMANDE générée s'EXÉCUTE, et son service RÉPOND",
+  "Ni le typecheck ni un test ne voient qu'un service n'est pas enregistré au conteneur.",
+  // La sonde porte sur le CONTENU de la sortie, et pas sur le code de retour :
+  // le gabarit journalise « service non enregistré » puis rend la main
+  // NORMALEMENT — un service absent du conteneur sortirait donc en 0. C'est la
+  // seule preuve que les trois maillons tiennent ensemble : la classe est
+  // enregistrée (`@services`), la commande est câblée (`addCommand`), et la clé
+  // de conteneur écrite par le générateur est bien celle du `super(…)` du
+  // service.
+  () => {
+    const out = run(process.execPath, [BIN, commandFullName, "-j"]);
+    if (!/"message"\s*:/u.test(out)) {
+      throw new Error(
+        `${commandFullName} n'a rendu aucun JSON — service « ${SERVICE.toLowerCase()} » ` +
+          "absent du conteneur, ou commande non atteignable (elle sort 0 en le journalisant)",
+      );
+    }
+  },
 );
 
 step(

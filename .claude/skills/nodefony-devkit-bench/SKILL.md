@@ -2,7 +2,7 @@
 name: nodefony-devkit-bench
 description: Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - "j'ai modifié le scaffold", "le code généré compile-t-il ?", "est-ce que create entity marche encore ?", "rejouer le banc devkit", "l'agent trouve-t-il les générateurs ?", "un vrai schéma est-il exprimable ?", "combien de tours a pris l'agent ?".
 metadata:
-  version: 1.2.0
+  version: 1.3.0
 ---
 
 # nodefony-devkit-bench — prouver ce que le scaffold produit
@@ -168,23 +168,47 @@ Les étapes, dans l'ordre, et ce que chacune protège :
 
 1. **décor** — application témoin isolée (hors dépôt, tarballs dépaquetés),
    isolation constatée, ports dédiés ;
-2. **génération** — cinq entités qui exercent toute la grammaire (unique,
+2. **service + commande** — `create service`, la méthode d'exemple **remplacée**
+   (le geste que le gabarit réclame), puis `create command --service` : la
+   commande doit appeler la méthode NOUVELLE, et le service être enregistré ;
+3. **génération** — cinq entités qui exercent toute la grammaire (unique,
    énumération avec défaut, entier avec défaut, index simple et composite,
    unicité composite, tailles de colonne, relation), dont deux émises pour
    PostgreSQL ;
-3. **compilation** — l'étape qui manquait : un type faux ne se voit pas dans une
+4. **module** — `create module` : workspace npm, manifeste, entité déposée dedans ;
+5. **compilation** — l'étape qui manquait : un type faux ne se voit pas dans une
    assertion de chaîne ;
-4. **décâblage** — les entités PostgreSQL quittent le manifeste : leur schéma
+6. **décâblage** — les entités PostgreSQL quittent le manifeste : leur schéma
    enregistré sur un connecteur SQLite ferait échouer le boot, et cet échec ne
    dirait rien du générateur. Leurs fichiers restent — c'est leur type qu'on lit ;
-5. **cohérence FK ↔ PK** — une colonne de référence doit avoir le type de la clé
+7. **cohérence FK ↔ PK** — une colonne de référence doit avoir le type de la clé
    visée, sinon la jointure est refusée par le moteur ;
-6. **build** — le runtime charge le `dist/` : sans lui, une entité neuve est
+8. **build** — le runtime charge le `dist/` : sans lui, une entité neuve est
    invisible du serveur (cause n°1 des « ma route répond 404 ») ;
-7. **tests générés** — couche donnée ;
-8. **HTTP réel** — 201 + `Location`, 422, 409 sur doublon, page `hasNext`,
-   PATCH, 204 puis 404 ;
-9. **inspection** — l'application se laisse lire sans ouvrir de port.
+9. **la commande s'exécute** — elle est lancée pour de vrai, et sa SORTIE est
+   lue ;
+10. **tests générés** — couche donnée ;
+11. **HTTP réel** — 201 + `Location`, 422, 409 sur doublon, page `hasNext`,
+    PATCH, 204 puis 404 ;
+12. **production** — l'app démarre dans le mode qu'aucune autre étape n'exerce ;
+13. **inspection** — l'application se laisse lire sans ouvrir de port.
+
+> **Le trou n'était pas dans le banc d'agent, il était ici.** Sur les sept types
+> de `create`, ce script n'en exerçait que trois — `app`, `module`, `entity` ;
+> `controller` l'est indirectement (`create module --controller rest`), mais
+> `service`, `command` et `front` : rien. Or sa raison d'être est « le code
+> généré tient debout », et c'est exactement par là qu'un défaut est passé :
+> `create command --service` **exigeait la méthode `greet()` du gabarit**, que ce
+> même gabarit dit de remplacer — suivre le conseil cassait la commande, sur un
+> message qui réclamait une méthode d'exemple. D'où l'étape 2, qui fait le geste
+> réclamé avant de générer. **Reste `front`, non couvert** (il tirerait un
+> écosystème Vite complet dans le décor).
+>
+> **Et l'étape 9 juge la SORTIE, pas le code de retour** : le gabarit journalise
+> « service non enregistré » puis rend la main NORMALEMENT. Vérifié en
+> débranchant `@services([…])` — la commande sort **0** sans écrire une ligne de
+> JSON. Un banc qui aurait lu le code de retour aurait été vert sur une
+> application dont le service n'existe pour personne.
 
 > **Une sonde de type doit porter sur un moteur qui DISTINGUE les types.** La
 > cohérence FK ↔ PK a d'abord été écrite sur les entités SQLite du banc, et elle

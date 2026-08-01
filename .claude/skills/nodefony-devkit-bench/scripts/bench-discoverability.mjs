@@ -38,17 +38,18 @@
  *    `--describe-json` (le scaffold DÉCRIT ses questions et le contexte du
  *    projet) et `--dry-run` (simuler = la même exécution, sans le disque) ?
  *    C'est le pari central du devkit, et rien ne l'avait jamais mesuré.
- *  - tâche 9 « interroger plutôt que lire les sources » : `nodefony inspect`.
- *    Le gate confronte le nombre de routes ANNONCÉ au nombre réel — un agent qui
- *    a compté dans les sources se trompe, puisqu'une route dépend de
- *    décorateurs, d'un manifeste et d'un ordre de chargement.
+ *  - tâche 9 « interroger plutôt que lire les sources » : `nodefony inspect` —
+ *    ou `nodefony devkit:card`, la porte qui MÈNE à `inspect`. Le gate confronte
+ *    le nombre de routes ANNONCÉ au nombre réel — un agent qui a compté dans les
+ *    sources se trompe, puisqu'une route dépend de décorateurs, d'un manifeste
+ *    et d'un ordre de chargement.
  *
  * Chaque tâche est déroulée par un agent en mode headless dans l'app témoin,
  * puis JUGÉE sur pièces — le transcript (a-t-il APPELÉ l'outil ?) et le diff
  * git (qu'a-t-il ÉCRIT ?). Aucun juge LLM : que des sondes objectives.
  *
  * Usage :
- *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + les 25 tâches + rapport
+ *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs                # décor + toutes les tâches + rapport
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 2       # une seule tâche
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --setup-only   # juste l'app témoin (--link)
  *   node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --analyze-only <run>[,<run2>…]
@@ -1031,9 +1032,18 @@ export const TASKS = [
         // L'état réel d'une app (routes montées, services, config effective)
         // dépend de décorateurs, d'un manifeste et d'un ordre de chargement :
         // le déduire des sources est faux dès qu'un module en ajoute.
+        //
+        // DEUX verbes acceptés, parce que deux verbes mènent au même geste :
+        // `inspect` interroge l'app en marche, `devkit:card` la fait se
+        // présenter — et c'est elle qui NOMME `inspect` dans ses réponses. Un
+        // agent qui commence par la carte fait exactement ce qu'on lui apprend ;
+        // le sanctionner ici serait rougir sur le MOYEN alors que le gate
+        // ci-dessous juge déjà le RÉSULTAT (le nombre de routes réel). C'est le
+        // mode de défaillance n°1 du banc : une sonde de moyen qui punit le bon
+        // geste parce qu'elle n'en connaissait qu'une forme.
         kind: "transcript",
-        name: "a interrogé l'application (nodefony inspect)",
-        pattern: /nodefony\s+inspect|npx nodefony inspect/u,
+        name: "a interrogé l'application en marche (inspect / devkit:card)",
+        pattern: /nodefony\s+(?:inspect\b|devkit:card\b)/u,
       },
       {
         kind: "code",

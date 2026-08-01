@@ -318,9 +318,27 @@ const SAMPLES = {
   },
 
   // ── T9 ────────────────────────────────────────────────────────────────────
-  "9 :: a interrogé l'application (nodefony inspect)": {
+  "9 :: a interrogé l'application en marche (inspect / devkit:card)": {
     pass: { transcript: `{"command":"npx nodefony inspect routes --json"}` },
     fail: { transcript: `{"pattern":"@route","path":"nodefony/controllers"}` },
+    extra: [
+      {
+        // La carte de visite est l'autre porte du même geste — et c'est ELLE
+        // qui nomme `inspect`. Un agent qui commence par là fait ce qu'on lui
+        // apprend : la sonde de moyen ne doit pas le recaler, le gate juge déjà
+        // le résultat.
+        label: "accepte l'autre porte du même geste (devkit:card)",
+        matter: { transcript: `{"command":"npx nodefony devkit:card -j"}` },
+        expect: true,
+      },
+      {
+        // Mais elle reste une sonde de GESTE : lire les sources n'en est pas un,
+        // même en prononçant le mot.
+        label: "refuse le mot sans la commande",
+        matter: { transcript: `{"content":"je vais inspect les controllers"}` },
+        expect: false,
+      },
+    ],
   },
   "9 :: le rapport est écrit (AUDIT.md)": {
     pass: { files: ["AUDIT.md"] },
