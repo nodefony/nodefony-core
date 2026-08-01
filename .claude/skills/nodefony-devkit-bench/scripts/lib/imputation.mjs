@@ -101,11 +101,15 @@ export const IMPUTATIONS = Object.freeze({
   "aucune-reponse-sur-plage": INDETERMINE,
   "aucune-reponse-sur-relecture": INDETERMINE,
   "aucune-reponse-temoin": INDETERMINE,
+  "aucune-reponse-porteur": INDETERMINE,
   // Le décor sème ces comptes — mais quatre tâches travaillent SUR
   // l'authentification, et un agent qui verrouille le login produit le même
   // échec de connexion.
   "identite-admin-indisponible": INDETERMINE,
   "identite-temoin-indisponible": INDETERMINE,
+  // Même raison pour le compte PORTEUR, semé par le gate avec son rôle : un
+  // agent qui touche à l'authentification produit le même échec de connexion.
+  "identite-porteur-indisponible": INDETERMINE,
   // Le semis passe par la ressource générée : son texte l'impute au décor, à
   // raison le plus souvent, mais un boot cassé donne le même compte.
   "semis-impossible": INDETERMINE,
@@ -125,6 +129,11 @@ export const IMPUTATIONS = Object.freeze({
   "ressource-absente": AGENT,
   "page-absente": AGENT,
   "repere-de-zone-absent": AGENT,
+  // Le repère de la hiérarchie est posé par le décor et COMMITÉ avant l'agent :
+  // s'il a disparu, c'est un geste de l'agent (route renommée, controller
+  // régénéré, application non rebâtie). Un `prepare` qui échoue, lui, ne laisse
+  // pas jouer la tâche du tout.
+  "repere-hierarchie-absent": AGENT,
   "echantillon-non-servi": AGENT,
   "aucun-module-local": AGENT,
   "module-non-charge": AGENT,
@@ -159,6 +168,16 @@ export const IMPUTATIONS = Object.freeze({
   "temoin-ouvert": AGENT,
   "ouverte-sans-cle": AGENT,
   "role-non-discriminant": AGENT,
+  // Une garde du DÉCOR a cédé : le repère porte le même rôle que la route de
+  // l'énoncé, l'agent n'avait aucune raison d'y toucher, et il est devenu public.
+  "repere-hierarchie-ouvert": AGENT,
+  // Le rôle nommé par l'énoncé n'ouvre pas la route qu'il est censé ouvrir.
+  "porteur-refuse": AGENT,
+  // L'administration couvre la route écrite par l'agent, mais AUCUNE autre au
+  // même rôle : la protection est locale (liste de rôles sur l'action) là où
+  // l'énoncé demande une hiérarchie déclarée. Aucun décor ne produit cet écart —
+  // le repère et son rôle sont posés avant l'agent, et servis à qui les couvre.
+  "hierarchie-non-declaree": AGENT,
   "defense-csrf-demontee": AGENT,
   "mutation-sans-jeton": AGENT,
   "politique-absente": AGENT,

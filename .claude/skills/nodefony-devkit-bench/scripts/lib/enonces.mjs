@@ -96,6 +96,40 @@ export const ROUTE_CATALOGUE = "/api/products";
 export const ROUTE_SYNTHESE = "/api/products/summary";
 
 /**
+ * Tâche « un rôle en implique un autre » — la route que l'énoncé demande.
+ *
+ * Le rôle mesuré ne peut pas être `ROLE_USER` : toute application `complete`
+ * déclare DÉJÀ `ROLE_ADMIN: ["ROLE_USER"]` (`nodefony.config.ts.tpl:151`). La
+ * relation qu'on demanderait d'établir serait vraie avant le premier geste, et
+ * la tâche serait verte sur un agent qui ne touche à rien — le plus convaincant
+ * des faux verts, puisqu'il ferait croire que le banc couvre la hiérarchie.
+ *
+ * Règle qui en découle, et qui vaut pour toute tâche future : **une tâche qui
+ * demande d'établir une relation doit d'abord prouver que cette relation est
+ * FAUSSE dans le décor.** Sans quoi on mesure le gabarit, pas l'agent.
+ */
+export const ROUTE_FACTURATION = "/api/billing/summary";
+
+/** Le rôle que l'énoncé réserve à cette route — absent de la hiérarchie livrée. */
+export const ROLE_FACTURATION = "ROLE_BILLING";
+
+/**
+ * Le repère de la hiérarchie : une SECONDE route gardée par le MÊME rôle, posée
+ * par le décor (`prepare`) et JAMAIS nommée dans l'énoncé.
+ *
+ * C'est elle, et rien d'autre, qui sépare deux réponses indiscernables sur la
+ * route de l'énoncé : déclarer `roleHierarchy` (l'administrateur couvre le rôle
+ * PARTOUT) ou poser `@IsGranted(["ROLE_BILLING", "ROLE_ADMIN"])` sur la seule
+ * route qu'on vient d'écrire (il ne le couvre que LÀ). Les deux servent
+ * l'administrateur sur `ROUTE_FACTURATION` ; seule la première le sert ici.
+ *
+ * Volontairement HORS du préfixe de l'énoncé (`/api/billing`) : une zone de
+ * firewall posée sur ce préfixe ne doit pas pouvoir changer le sort du repère,
+ * sinon le verdict mélangerait hiérarchie de rôles et découpage en zones.
+ */
+export const REPERE_FACTURATION = "/api/finance/export";
+
+/**
  * La marque des lignes semées par le juge.
  *
  * Elle sert à COMPTER les éléments d'une réponse sans rien supposer de sa

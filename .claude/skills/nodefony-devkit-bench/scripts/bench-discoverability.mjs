@@ -90,8 +90,10 @@ import { fileURLToPath } from "node:url";
 import {
   ORIGINE_PARTENAIRE,
   PAGE_WIDGET,
+  ROLE_FACTURATION,
   ROUTE_CATALOGUE,
   ROUTE_COMMANDES,
+  ROUTE_FACTURATION,
   ROUTE_IMPORT,
   ROUTE_MACHINE,
   ROUTE_SYNTHESE,
@@ -253,6 +255,26 @@ const JUGE_ZONE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "lib",
   "gate-zone-firewall.mjs",
+);
+
+/** Juge « un rôle en implique un autre » — hiérarchie déclarée, ou liste locale. */
+const JUGE_ROLE_HIERARCHY = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-role-hierarchy.mjs",
+);
+
+/**
+ * Pose le repère de la tâche « hiérarchie de rôles » AVANT l'agent.
+ *
+ * Ce n'est pas un juge — il ne mesure rien et n'émet aucune cause — mais il se
+ * nomme en chemin ABSOLU pour la même raison : le `prepare` s'exécute avec
+ * l'application témoin pour répertoire courant.
+ */
+const PREPARE_ROLE_HIERARCHY = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "prepare-role-hierarchy-repere.mjs",
 );
 
 /** Juge « ouvrir une API à un PROGRAMME » — zone stateless, clé d'API. */
@@ -1602,6 +1624,108 @@ export const TASKS = [
             // une route dédiée, et c'est une réponse juste (vécu au 1ᵉʳ run).
             `npx --no-install nodefony inspect routes --json > .nf-routes.json 2>/dev/null; ` +
             `node ${JUGE_SESSION}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+
+  {
+    // Une hiérarchie de rôles est un mécanisme GLOBAL : déclarée une fois, elle
+    // vaut pour toute route future gardée par le rôle couvert. Deux gestes
+    // rendent pourtant la même réponse sur la route qu'on mesure — une liste de
+    // rôles posée sur l'action, ou le rôle dupliqué au compte administrateur
+    // dans le semis. Ni l'un ni l'autre ne généralise, et rien dans le diff ne
+    // les distingue d'une hiérarchie : c'est une ABSENCE qu'on cherche.
+    //
+    // ⚠️ Le rôle mesuré ne peut PAS être `ROLE_USER`. Toute application
+    // `complete` déclare déjà `ROLE_ADMIN: ["ROLE_USER"]`
+    // (`nodefony.config.ts.tpl:151`) : la relation qu'on demanderait d'établir
+    // serait vraie AVANT le premier geste, et la tâche verte sur un agent qui
+    // ne touche à rien — en faisant croire que le banc couvre la hiérarchie.
+    // D'où `ROLE_BILLING`, absent de la hiérarchie livrée. Règle générale :
+    // une tâche qui demande d'ÉTABLIR une relation doit d'abord prouver que
+    // cette relation est FAUSSE dans le décor.
+    id: 18,
+    name: "un rôle en implique un autre",
+    // Le repère se pose à la main : aucun générateur ne sait poser une garde
+    // sur un rôle CHOISI (les gabarits n'émettent que `ROLE_ADMIN` littéral, et
+    // le CLI `create` n'a aucune option de rôle). Le script échoue FORT si le
+    // gabarit du controller d'accueil a changé de forme — la tâche n'est alors
+    // pas jouée, plutôt que jugée sur un repère à moitié posé.
+    prepare: `node ${PREPARE_ROLE_HIERARCHY} && npm run build >/dev/null 2>&1`,
+    prompt:
+      `Ajoute une route GET ${ROUTE_FACTURATION} qui rend un résumé ` +
+      `{ "summary": "ok" }, réservée aux personnes habilitées à consulter la facturation ` +
+      `(rôle ${ROLE_FACTURATION}). Un administrateur doit lui aussi pouvoir la consulter — ` +
+      "administrer, c'est déjà pouvoir tout consulter, sans qu'on ait à lui attribuer un rôle " +
+      "de plus. Un visiteur non connecté, ou connecté sans droit sur la facturation, doit " +
+      "recevoir un refus du framework, jamais un contrôle écrit à la main dans l'action. " +
+      "Termine en prouvant que les tests de l'app passent.",
+    probes: [
+      {
+        kind: "transcript",
+        name: "a lu AGENTS.md ou la doc security",
+        pattern: /AGENTS\.md|security\/docs/u,
+      },
+      {
+        // Le fichier ENTIER, pas le diff : l'objet `roleHierarchy` existe déjà
+        // dans le manifeste généré, donc seule la LIGNE ajoutée apparaîtrait —
+        // jamais l'accolade qui l'ouvre.
+        kind: "code",
+        name: "hiérarchie de rôles étendue au rôle de facturation",
+        pattern: /roleHierarchy\s*:\s*\{[\s\S]{0,400}?ROLE_BILLING/u,
+        where: "content",
+      },
+      {
+        // L'autre contournement, celui que l'attaque ne peut PAS voir : donner
+        // le rôle littéralement au compte administrateur au semis rend l'admin
+        // vainqueur partout, repère compris, sans aucune hiérarchie déclarée.
+        // Les deux gestes symétriques sont donc pris chacun par UN étage.
+        kind: "code",
+        name: "rôle de facturation NON dupliqué au semis des comptes",
+        pattern:
+          /ADMIN_ROLES\s*=\s*\[[^\]]*ROLE_BILLING|roles\s*:\s*\[[^\]]*ROLE_ADMIN[^\]]*ROLE_BILLING|roles\s*:\s*\[[^\]]*ROLE_BILLING[^\]]*ROLE_ADMIN/u,
+        where: "added",
+        invert: true,
+      },
+      {
+        kind: "code",
+        name: "pas de contrôle d'accès artisanal (rôles lus ou refus rendu à la main)",
+        pattern:
+          /renderJson\([^)]*40[13]|status(?:Code)?\s*=\s*40[13]|(?:HttpError|nodefonyError)\([^)]*40[13]|roles\.(?:includes|indexOf)\(/u,
+        where: "addedTs",
+        invert: true,
+      },
+      INTERRUPTEUR_DE_SECURITE,
+      {
+        // Observation, jamais un rouge : une liste de rôles sur l'action est le
+        // contournement le plus probable, et savoir combien d'agents l'écrivent
+        // vaut mieux que de le deviner.
+        kind: "code",
+        name: "garde posée par liste de rôles plutôt que par hiérarchie — observation",
+        pattern: /@IsGranted\(\s*\[[^\]]*,[^\]]*\]/u,
+        where: "content",
+        observe: true,
+      },
+      {
+        kind: "gate",
+        name: "porteur du rôle servi, administrateur servi jusque sur une route qu'il n'a jamais touchée",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_ROLE_HIERARCHY} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `NODE_ENV=development npx --no-install nodefony security:user:add ` +
+            `$(node ${JUGE_ROLE_HIERARCHY} --temoin-args) >/dev/null 2>&1; ` +
+            // Le porteur naît AVEC son rôle : sans `--roles`, le compte
+            // existerait sans ce qu'on mesure, et le juge sortirait
+            // « porteur-refuse » sur un travail juste.
+            `NODE_ENV=development npx --no-install nodefony security:user:add ` +
+            `$(node ${JUGE_ROLE_HIERARCHY} --porteur-args) >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_ROLE_HIERARCHY}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
       },
