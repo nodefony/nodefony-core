@@ -159,7 +159,7 @@ mais **tel qu'un installeur le reçoit**.
 > application réellement installée mourait au boot sur cette dépendance. Ce n'est
 > pas un cas particulier mais une **famille entière** — toute dépendance absente
 > du gabarit était indétectable ici. Le décor sort donc du dépôt et s'installe
-> depuis les tarballs (`lib/isolation.mjs`, partagé avec le banc de
+> depuis les tarballs (`scripts/lib/isolation.mjs`, partagé avec le banc de
 > découvrabilité), et l'isolation est **constatée** avant la première mesure.
 > `--link` reste pour la boucle courte : le rapport enregistre alors le décor
 > (`decor`) et l'étape production ne vaut plus preuve.
@@ -209,6 +209,9 @@ node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-entity-delete.selftes
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-csp-nonce.selftest.mjs      # famille « ne pas affaiblir »
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-csrf-partenaire.selftest.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-zone-firewall.selftest.mjs
+node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-prefix-firewall.selftest.mjs  # protéger un PRÉFIXE, ses deux bords
+node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-role-hierarchy.selftest.mjs   # un rôle en implique un autre
+node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-realtime-channel.selftest.mjs # canal privé, ses 9 causes
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-m2m-stateless.selftest.mjs   # API pour un programme
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-login-throttle.selftest.mjs  # bourrage de login
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-module-local.selftest.mjs    # le composant local, ses 5 causes
