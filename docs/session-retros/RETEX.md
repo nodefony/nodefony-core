@@ -62,6 +62,13 @@
   les effets de bord du débranchement lui-même**, et **borner par construction** tout effacement sur
   chemin calculé (le banc a désormais `effaceDansApp`, qui refuse hors de l'app témoin). Au passage,
   la garde du dépôt a refusé mon `git checkout` sur arbre sale — elle a eu raison.
+- `[2× — 2026-08-02c]` 🔴 **Un débranchement PARTIEL prouve exactement RIEN — et il a mutilé le
+  fichier.** Gate neuf « l'`AGENTS.md` généré cite `nodefony symbols` » : j'ai coupé UNE des trois
+  occurrences, la sonde a trouvé les autres et le test est **resté vert**. J'ai failli conclure « le
+  gate est en place ». Second essai avec `sed /motif/d` : rouge, mais deux lignes légitimes
+  emportées. **Compter les occurrences AVANT de débrancher** (`rg -c`), et **restaurer par édition,
+  jamais par `git checkout`** quand le même fichier porte du travail non commité — la garde du dépôt
+  l'a refusé, à raison (2ᵉ fois en deux jours). Preuve de restauration = empreinte md5 identique.
 - `[1× — 2026-08-02]` **Une option qui BLOQUE ne vit pas dans la marche de la forge.**
   `--deny-warnings` n'était posé que dans le workflow : `npm run lint` rendait 0 en local sur
   l'avertissement même qui faisait tomber la CI. La panne n'apparaissait qu'après le `push`, sur
@@ -480,6 +487,18 @@ apply -R` — et **prouver que le geste a eu lieu** (ici : 0 façade dans les 30
   dans le gabarit `AppController.ts.tpl`. Corollaire d'outillage : le pendant d'`anchor-check` pour
   le code des fichiers lus d'office n'existe pas. Avant d'écrire du code dans un fichier que
   l'agent charge, le compiler — ou le COPIER d'un gabarit qui compile.
+- `[1× — 2026-08-02c]` 🔴 **Une capacité neuve n'existe pour personne tant qu'elle n'est pas dans
+  l'`AGENTS.md` — et j'ai livré deux commandes sans y penser.** `nodefony card` et `nodefony
+symbols` ont été codées, testées, commitées, documentées en TSDoc, en `README`, en `docs/` et en
+  `CLAUDE.md`… et le gabarit `AGENTS.md.tpl` n'en disait rien pour `symbols`. C'est le user qui a
+  demandé « est-ce que l'AGENTS.md connaît ces nouvelles commandes ? ». **À ajouter à la liste de
+  fin de tâche, au même rang que le test : une commande neuve se pose dans le fichier que l'agent
+  lit d'office, et un gate l'y tient** (assertion dans `create.test.ts`).
+- `[1× — 2026-08-02c]` **Le CLAUDE.md d'un module peut trancher un arbitrage d'architecture mieux
+  que moi.** Où placer la carte de visite (module `policy:dev` ou cœur) : la réponse était écrite
+  dans le `CLAUDE.md` du module lui-même — « ne JAMAIS y déplacer une capacité qui doit marcher sans
+  installation ou application cassée ». Lire les décisions figées de la cible AVANT de concevoir
+  évite de re-trancher un arbitrage déjà tranché, et dans le mauvais sens.
 - `[1× — 2026-08-01]` **Ce qui agit, c'est la PROXIMITÉ, pas l'existence du code.** Même bloc, en
   tête du fichier chargé d'office : façade employée **0/3 → 3/3**, effort 57 → 38 tours médians.
   Le corollaire commande toute « vitrine de code de référence » : un exemple rangé dans
