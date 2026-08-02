@@ -125,6 +125,21 @@ export function createFrameworkAdminApi(
         return s.toLowerCase().includes(v.toLowerCase());
       case "equals":
         return s === v;
+      // « est l'un de » (filtre multi-sélection du DataGrid) : la valeur porte
+      // une liste séparée par des virgules, et la cellule est découpée pareil —
+      // une route `GET,POST` matche dès qu'UNE des méthodes choisies y figure.
+      // Miroir EXACT de `matchFilter` côté grid, sinon le mode serveur et le
+      // mode client ne filtreraient pas la même chose.
+      case "in": {
+        const split = (raw: string) =>
+          raw
+            .split(",")
+            .map((t) => t.trim())
+            .filter((t) => t !== "");
+        const wanted = split(v);
+        if (wanted.length === 0) return true;
+        return split(s).some((c) => wanted.includes(c));
+      }
       case "startsWith":
         return s.toLowerCase().startsWith(v.toLowerCase());
       case "endsWith":

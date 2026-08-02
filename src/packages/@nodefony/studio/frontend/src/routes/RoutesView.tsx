@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { Badge, Code, Group, Text, Tooltip } from "@mantine/core";
 import { IconRoute, IconShieldOff } from "@tabler/icons-react";
@@ -46,6 +46,27 @@ export const RoutesView = observer(() => {
   const store = useStore();
   const navigate = useNavigate();
 
+  // Domaine du filtre « Méthodes » — demandé au serveur, pas deviné. En
+  // pagination serveur le grid n'a qu'une page sous les yeux : il ne peut pas
+  // déduire les valeurs possibles. `info` rend les méthodes RÉELLEMENT montées,
+  // donc le filtre ne propose ni une méthode absente ni n'en oublie une.
+  const [methodOptions, setMethodOptions] = useState<string[]>([]);
+  useEffect(() => {
+    let alive = true;
+    store.api
+      .getAbsolute<{ methods: string[] }>("/nodefony/framework/api/info")
+      .then((info) => {
+        if (alive) setMethodOptions(info.methods ?? []);
+      })
+      .catch(() => {
+        // Le filtre reste utilisable sans domaine (liste vide = aucune option
+        // proposée) — une erreur ici ne doit pas priver la page de sa table.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [store]);
+
   const loader = useCallback(
     async (q: DataGridServerQuery): Promise<DataGridServerResult<RouteRow>> => {
       const page = await store.api.getAbsolute<IPage<RouteRow>>(
@@ -63,7 +84,8 @@ export const RoutesView = observer(() => {
         header: "Méthodes",
         sortable: true,
         filterable: true,
-        filterType: "text",
+        filterType: "multiselect",
+        filterOptions: methodOptions,
         value: (r) => r.methods.join(","),
         render: (r) => (
           <Group gap={4} wrap="nowrap">
@@ -170,7 +192,10 @@ export const RoutesView = observer(() => {
           ),
       },
     ],
-    [navigate],
+    // `methodOptions` arrive APRÈS le premier rendu (fetch) — sans lui ici, les
+    // colonnes resteraient mémoïsées avec un domaine vide et le filtre ne
+    // proposerait jamais rien.
+    [navigate, methodOptions],
   );
 
   return (

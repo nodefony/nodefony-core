@@ -867,3 +867,72 @@ describe("Admin data plane — routes/page parle le contrat IPageQuery", () => {
     expect(filtered.items.length).to.be.above(0);
   });
 });
+
+// ── Filtre MULTI-SÉLECTION (opérateur `in`) sur routes/page ───────────────────
+// La colonne « Méthodes » est multi-valeur (`GET,POST`) : « est l'un de » doit
+// matcher par INTERSECTION, pas par égalité de chaîne. Le miroir client de cette
+// règle vit dans `matchFilter` (DataGrid) — les deux doivent filtrer pareil.
+
+describe("Admin data plane — routes/page filtre `in` (multi-sélection)", () => {
+  /** Construit l'URL d'un filtre colonne tel que le DataGrid le sérialise. */
+  const withFilter = (key: string, op: string, value: string) =>
+    `/nodefony/framework/api/routes/page?limit=200&filters=${encodeURIComponent(
+      JSON.stringify([{ key, op, value }]),
+    )}`;
+
+  it("`in` avec une seule méthode ne rend que des routes qui la portent", async () => {
+    const r = await req("GET", withFilter("methods", "in", "POST"), auth());
+    expect(r.status).to.equal(200);
+    const { items } = r.body as { items: { methods: string[] }[] };
+    expect(items.length, "le dépôt expose des routes POST").to.be.above(0);
+    for (const row of items) {
+      expect(row.methods).to.include("POST");
+    }
+  });
+
+  it("`in` avec deux méthodes rend l'UNION (jamais l'intersection)", async () => {
+    const only = (m: string) =>
+      req("GET", withFilter("methods", "in", m), auth()).then(
+        (r) => (r.body as { total: number }).total,
+      );
+    const [get, post, both] = await Promise.all([
+      only("GET"),
+      only("POST"),
+      req("GET", withFilter("methods", "in", "GET,POST"), auth()).then(
+        (r) => (r.body as { total: number }).total,
+      ),
+    ]);
+    expect(both).to.be.at.least(Math.max(get, post));
+    expect(
+      both,
+      "union ≤ somme (une route peut porter les deux)",
+    ).to.be.at.most(get + post);
+  });
+
+  it("une route MULTI-méthode matche via UNE seule des valeurs choisies", async () => {
+    const all = await req(
+      "GET",
+      "/nodefony/framework/api/routes/page?limit=200",
+      auth(),
+    );
+    const multi = (all.body as { items: { methods: string[] }[] }).items.find(
+      (r) => r.methods.length > 1,
+    );
+    if (!multi) return; // aucune route multi-méthode montée : rien à prouver
+    const one = multi.methods[0]!;
+    const r = await req("GET", withFilter("methods", "in", one), auth());
+    const names = (r.body as { items: { methods: string[] }[] }).items;
+    expect(
+      names.some((x) => x.methods.join(",") === multi.methods.join(",")),
+      `une route ${multi.methods.join(",")} doit sortir sur ?in=${one}`,
+    ).to.equal(true);
+  });
+
+  it("`in` vide ne filtre RIEN (pas de page vide sur un filtre non renseigné)", async () => {
+    const total = (
+      await req("GET", "/nodefony/framework/api/routes/page?limit=1", auth())
+    ).body as { total: number };
+    const r = await req("GET", withFilter("methods", "in", ""), auth());
+    expect((r.body as { total: number }).total).to.equal(total.total);
+  });
+});

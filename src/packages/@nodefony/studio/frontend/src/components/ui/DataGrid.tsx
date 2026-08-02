@@ -6,6 +6,7 @@ import {
   Loader,
   LoadingOverlay,
   Menu,
+  MultiSelect,
   Pagination,
   Paper,
   ScrollArea,
@@ -50,12 +51,13 @@ import { DataState } from "./DataState";
 import { InfoHint } from "./StatCard";
 
 /** Type de filtre d'une colonne → opérateurs + saisie disponibles. */
-export type DataGridFilterType = "text" | "number" | "select";
+export type DataGridFilterType = "text" | "number" | "select" | "multiselect";
 
 /** Opérateur de filtre. */
 export type DataGridFilterOp =
   | "contains"
   | "equals"
+  | "in"
   | "startsWith"
   | "endsWith"
   | "isEmpty"
@@ -88,9 +90,17 @@ export interface DataGridColumn<T> {
   sortable?: boolean;
   /** Active le filtre par colonne (ligne de filtres inline sous l'en-tête). */
   filterable?: boolean;
-  /** Type de filtre (défaut `"text"`). `"select"` → liste de valeurs. */
+  /**
+   * Type de filtre (défaut `"text"`). `"select"` → une valeur ;
+   * `"multiselect"` → plusieurs (opérateur « est l'un de »), pour une colonne
+   * dont le domaine est fermé et court : méthodes HTTP, statuts, sévérités.
+   */
   filterType?: DataGridFilterType;
-  /** Options du filtre `select` — REQUIS en mode serveur ; déduit (faceting) en client. */
+  /**
+   * Options des filtres `select`/`multiselect` — REQUIS en mode serveur (le
+   * grid n'a qu'une page, il ne peut pas déduire le domaine) ; déduit par
+   * faceting en mode client.
+   */
   filterOptions?: string[];
   hint?: string;
   render?: (row: T) => ReactNode;
@@ -253,6 +263,9 @@ const NUMBER_OPS: { value: DataGridFilterOp; label: string }[] = [
 const SELECT_OPS: { value: DataGridFilterOp; label: string }[] = [
   { value: "equals", label: "est" },
 ];
+const MULTISELECT_OPS: { value: DataGridFilterOp; label: string }[] = [
+  { value: "in", label: "est l'un de" },
+];
 const VALUELESS: ReadonlySet<DataGridFilterOp> = new Set([
   "isEmpty",
   "notEmpty",
@@ -261,8 +274,20 @@ const VALUELESS: ReadonlySet<DataGridFilterOp> = new Set([
 function opsFor(type: DataGridFilterType | undefined) {
   if (type === "number") return NUMBER_OPS;
   if (type === "select") return SELECT_OPS;
+  if (type === "multiselect") return MULTISELECT_OPS;
   return TEXT_OPS;
 }
+
+/**
+ * Sépare la valeur d'un filtre `in` — une liste est transportée comme UNE
+ * chaîne (`"GET,POST"`), parce que `DataGridColumnFilter.value` est un `string`
+ * qui doit traverser une query string. Les jetons vides sont écartés.
+ */
+const tokens = (raw: string): string[] =>
+  raw
+    .split(",")
+    .map((t) => t.trim())
+    .filter((t) => t !== "");
 
 const NUM_OPS: ReadonlySet<DataGridFilterOp> = new Set([
   "=",
@@ -284,6 +309,16 @@ function matchFilter(raw: unknown, f: FilterValue): boolean {
       return s.toLowerCase().includes(v.toLowerCase());
     case "equals":
       return s === v;
+    // « est l'un de » : la cellule est elle aussi découpée en jetons, si bien
+    // qu'une colonne multi-valeur (`GET,POST`) matche dès qu'UNE des méthodes
+    // choisies s'y trouve. Une cellule mono-valeur ne donne qu'un jeton — la
+    // même règle y produit le « est l'un de » attendu, sans second cas.
+    case "in": {
+      const wanted = tokens(v);
+      if (wanted.length === 0) return true;
+      const cell = tokens(s);
+      return cell.some((c) => wanted.includes(c));
+    }
     case "startsWith":
       return s.toLowerCase().startsWith(v.toLowerCase());
     case "endsWith":
@@ -356,6 +391,40 @@ function FilterCell<T>({
   const value = fv?.value ?? "";
   const valueless = VALUELESS.has(op);
   const header = String(column.columnDef.header ?? column.id);
+
+  if (type === "multiselect") {
+    // Domaine fermé : en mode serveur il est DÉCLARÉ (le grid n'a qu'une page,
+    // il ne peut rien déduire) ; en client il vient du faceting. Une cellule
+    // multi-valeur (`GET,POST`) est éclatée en jetons, sinon la liste proposerait
+    // des combinaisons au lieu des valeurs.
+    const options = isServer
+      ? (meta?.filterOptions ?? [])
+      : [
+          ...new Set(
+            [...column.getFacetedUniqueValues().keys()].flatMap((v) =>
+              tokens(String(v)),
+            ),
+          ),
+        ].sort();
+    return (
+      <MultiSelect
+        size="xs"
+        placeholder="filtrer"
+        data={options}
+        value={tokens(value)}
+        clearable
+        searchable
+        hidePickedOptions
+        comboboxProps={{ withinPortal: true }}
+        onChange={(vals) =>
+          column.setFilterValue(
+            vals.length ? { op: "in", value: vals.join(",") } : undefined,
+          )
+        }
+        aria-label={`filtrer ${header}`}
+      />
+    );
+  }
 
   if (type === "select") {
     const options = isServer
