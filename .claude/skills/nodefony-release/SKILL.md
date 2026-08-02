@@ -73,11 +73,11 @@ manifeste réécrit) sont là pour attribuer la faute au bon maillon.
 
 ### Les trois scénarios, et ce que chacun seul peut voir
 
-| Scénario | Décor                          | Ce qu'il prouve                                                                                                                                                                              |
-| -------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `base`   | `minimal`, sans front          | Sondes `/readyz` `/livez`, **node en PID 1** constaté à l'exécution, requête en vol drainée pendant `docker stop`, sortie 0, `SHUTDOWN` journalisé                                           |
-| `front`  | `minimal` + React              | (a) `GET /` porte les tags `/_assets/…` du build · (b1) `public/dist` effacé **avec** vite → reconstruit au boot et ANNONCÉ · (b2) même absence **sans** devDeps → ERROR nommée, API vivante |
-| `studio` | `complete`, Studio `mandatory` | L'UI **pré-buildée** du paquet est servie : `/nodefony` 200 puis un asset **pris dans la page** en 200 — un 404 ici = `dist/frontend` absent du tarball                                      |
+| Scénario | Décor                          | Ce qu'il prouve                                                                                                                                                                                 |
+| -------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `base`   | `minimal`, sans front          | Sondes `/readyz` `/livez`, **node en PID 1** constaté à l'exécution, requête en vol drainée pendant `docker stop`, sortie 0, `SHUTDOWN` journalisé                                              |
+| `front`  | `minimal` + React              | (a) `GET /` porte les tags `/_assets/…` du build · (b1) `public/dist` effacé **avec** vite → reconstruit au boot et ANNONCÉ · (b2) même absence dans l'image → le backend survit (l'API répond) |
+| `studio` | `complete`, Studio `mandatory` | L'UI **pré-buildée** du paquet est servie : `/nodefony` 200 puis un asset **pris dans la page** en 200 — un 404 ici = `dist/frontend` absent du tarball                                         |
 
 `front` est le seul à booter **hors conteneur** (poste de dev, devDependencies présentes) : la
 différence entre (b1) et (b2) EST le scénario. Le dépôt self-hosted ne peut voir ni l'un ni
