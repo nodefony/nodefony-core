@@ -516,12 +516,19 @@ export const SONDES_QUALITE = [
     invert: true,
   },
   {
-    // `added` et non `addedTs` : mettre un contrôle en sourdine DANS un test est
-    // exactement le même geste — on fait taire l'outil au lieu de corriger.
+    // `addedCode` et non `addedTs` : mettre un contrôle en sourdine DANS un test
+    // est exactement le même geste — on fait taire l'outil au lieu de corriger.
+    // Et surtout pas `added`, qui contient la PROSE.
+    //
+    // 🔴 Vécu, tâche 31 : un agent avait écrit dans sa présentation « TypeScript
+    // strict : zéro `any`, zéro `@ts-ignore` » — il DÉCRIVAIT correctement la
+    // doctrine du framework, et la sonde l'a recalé pour avoir cité le mot. Un
+    // marqueur de code dans un document est une CITATION, jamais une mise en
+    // sourdine : il n'y a aucun outil à faire taire dans un `.md`.
     kind: "code",
     name: "aucun contrôle mis en sourdine (@ts-ignore, eslint-disable)",
     pattern: /@ts-ignore|@ts-nocheck|eslint-disable/u,
-    where: "added",
+    where: "addedCode",
     invert: true,
   },
   {
@@ -2812,6 +2819,7 @@ export function evaluateProbe(probe, matter) {
   const {
     files,
     added,
+    addedCode,
     addedTs,
     content,
     contentByFile,
@@ -2852,13 +2860,15 @@ export function evaluateProbe(probe, matter) {
         ? files.join("\n")
         : probe.where === "added"
           ? added
-          : probe.where === "addedTs"
-            ? addedTs
-            : probe.where === "deleted"
-              ? (deleted ?? "")
-              : probe.where === "deletedFiles"
-                ? (deletedFiles ?? []).join("\n")
-                : content;
+          : probe.where === "addedCode"
+            ? (addedCode ?? "")
+            : probe.where === "addedTs"
+              ? addedTs
+              : probe.where === "deleted"
+                ? (deleted ?? "")
+                : probe.where === "deletedFiles"
+                  ? (deletedFiles ?? []).join("\n")
+                  : content;
   // La matière du WAIVER se choisit, elle ne se suppose pas. Par défaut le
   // contenu rendu ; `unlessWhere: "transcript"` quand la voie correcte est un
   // GESTE et non un texte — avoir lancé un générateur, par exemple. Vécu : un
@@ -3427,6 +3437,28 @@ function judgeTask(app, runDir, task, occurrence = null) {
   // `.env` (c'est même là qu'on la veut) et fautive dans un `.ts` : sans cette
   // restriction, une sonde « pas de valeur en dur » rougirait sur la bonne
   // réponse.
+  // Lignes ajoutées dans le CODE, tests COMPRIS, prose EXCLUE. C'est la matière
+  // des interdits qui visent un geste de développeur et dont le marqueur peut
+  // être CITÉ dans un document : `@ts-ignore` écrit dans un `.md` décrit une
+  // règle, il ne fait taire aucun outil. Sans cette matière, la seule option
+  // était `added` (qui contient la prose) ou `addedTs` (qui exclut les tests,
+  // où le geste est pourtant identique).
+  const addedCode = git(
+    app,
+    "diff",
+    "--unified=0",
+    `${base ?? `${hash}~1`}`,
+    hash,
+    "--",
+    "*.ts",
+    "*.tsx",
+    "*.js",
+    "*.mjs",
+    "*.json",
+  )
+    .split("\n")
+    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
+    .join("\n");
   const addedTs = git(
     app,
     "diff",
@@ -3489,6 +3521,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
       ({ pass, evidence } = evaluateProbe(p, {
         files,
         added,
+        addedCode,
         addedTs,
         content,
         contentByFile,

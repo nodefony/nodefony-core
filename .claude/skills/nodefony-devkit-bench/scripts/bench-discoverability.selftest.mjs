@@ -44,6 +44,9 @@ import {
 const EMPTY = {
   files: [],
   added: "",
+  // Lignes de CODE ajoutées, prose exclue — la matière des interdits dont le
+  // marqueur peut être CITÉ dans un document.
+  addedCode: "",
   addedTs: "",
   content: "",
   // Le contenu indexé PAR fichier — la matière des sondes qui visent la réponse
@@ -1426,21 +1429,38 @@ const SAMPLES = {
   },
   "qualité :: aucun contrôle mis en sourdine (@ts-ignore, eslint-disable)": {
     pass: {
-      added: `+  const found = await this.getResource(id);`,
+      addedCode: `+  const found = await this.getResource(id);`,
     },
-    fail: { added: `+  // @ts-ignore\n+  const found = this.getResource(id);` },
+    fail: {
+      addedCode: `+  // @ts-ignore\n+  const found = this.getResource(id);`,
+    },
     extra: [
       {
         label: "linter mis en sourdine",
-        matter: { added: `+  // eslint-disable-next-line no-unused-vars` },
+        matter: { addedCode: `+  // eslint-disable-next-line no-unused-vars` },
         expect: false,
+      },
+      {
+        // Le faux positif VÉCU (tâche 31) : l'agent décrit la doctrine du
+        // framework dans sa présentation. Citer le marqueur dans un document
+        // ne fait taire aucun outil — et `addedCode` exclut la prose, donc
+        // cette matière-là ne lui parvient même pas.
+        label: "le marqueur CITÉ dans un document, pas dans du code",
+        matter: {
+          added: `+- ✅ **TypeScript strict** : zéro \`any\`, zéro \`@ts-ignore\``,
+          addedCode: "",
+        },
+        expect: true,
       },
       {
         // `added` et non `addedTs` : faire taire l'outil DANS un test est le
         // même geste, et doit rougir pareil.
+        // Les tests restent JUGÉS : `addedCode` les inclut (contrairement à
+        // `addedTs`), parce que faire taire l'outil dans un test est le même
+        // geste que dans le code.
         label: "mise en sourdine dans un test",
         matter: {
-          added: `+  // @ts-nocheck\n+  it("crée une ressource", async () => {});`,
+          addedCode: `+  // @ts-nocheck\n+  it("crée une ressource", async () => {});`,
         },
         expect: false,
       },

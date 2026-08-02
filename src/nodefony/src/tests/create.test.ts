@@ -283,6 +283,21 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.property(pkg["scripts"], "infra:up");
       // Sans front, le build reste back seul (pas de frontend:build fantôme).
       assert.notInclude(pkg["scripts"]["build"], "frontend:build");
+      // Les DEUX verbes de diagnostic, jamais l'un sans l'autre : `check` est
+      // statique (répond sur une app cassée), `inspect` est runtime (ce qui est
+      // VRAIMENT monté). Un agent les apprend ensemble, et n'en exposer qu'un
+      // laisse croire que l'autre n'existe pas.
+      assert.property(pkg["scripts"], "check");
+      assert.property(pkg["scripts"], "inspect");
+      // `ai:sync` pose les skills livrés par les paquets. Sans cette ligne, le
+      // verbe existe et personne ne l'apprend — le défaut mesuré au banc sur
+      // les commandes maison (`nodefony check` employé 5 fois sur 63).
+      assert.property(pkg["scripts"], "ai:sync");
+      // `clean` ne peut PAS s'appuyer sur `rimraf` : il n'est pas dans les
+      // devDependencies du gabarit, et un script qui échoue au premier usage
+      // est pire qu'un script absent.
+      assert.property(pkg["scripts"], "clean");
+      assert.notInclude(pkg["scripts"]["clean"], "rimraf");
       assertNoEtaResidue(dest);
       assert.isEmpty(r.linked);
     });
