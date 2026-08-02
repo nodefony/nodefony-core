@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-01T23:52:47.995Z",
+  "generated": "2026-08-02T00:12:49.826Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 657,
-    "symbols": 2608,
-    "classes": 341,
-    "interfaces": 791,
+    "symbols": 2616,
+    "classes": 340,
+    "interfaces": 794,
     "types": 343,
     "enums": 4,
-    "functions": 948,
+    "functions": 954,
     "constants": 181
   },
   "symbols": {
@@ -814,13 +814,20 @@
       "module": "@nodefony/core",
       "description": "Parse l'argv après le mot `env`."
     },
-    "runEnvCommand": {
-      "name": "runEnvCommand",
+    "buildProjectEnvReport": {
+      "name": "buildProjectEnvReport",
       "kind": "function",
       "file": "src/nodefony/src/cli/env.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Commande `nodefony env` — orchestre : résout le projet, lit la cascade et le catalogue, délègue le calcul au module pur, rend."
+    },
+    "runEnvCommand": {
+      "name": "runEnvCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/env.ts",
+      "exported": true,
+      "module": "@nodefony/core"
     },
     "IEnvLevel": {
       "name": "IEnvLevel",
@@ -4698,6 +4705,49 @@
       "module": "@nodefony/core",
       "description": "Analyse les paquets et rend les manquements trouvés."
     },
+    "IReadinessFinding": {
+      "name": "IReadinessFinding",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/readiness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un manquement qui empêche — ou empêchera — l'application de démarrer."
+    },
+    "IReadinessResult": {
+      "name": "IReadinessResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/readiness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le contrôle a pu regarder — et ce qu'il n'a PAS pu."
+    },
+    "IPortProbe": {
+      "name": "IPortProbe",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/readiness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le VERDICT d'une sonde de port, injecté — jamais mesuré ici. Une capacité se CONSTATE et se transmet ; la faire mesurer par la règle l'aurait rendue inéprouvable sans ouvrir de vrais ports, donc no…"
+    },
+    "declaredModules": {
+      "name": "declaredModules",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/readiness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Noms des briques déclarées dans le manifeste `modules` de `nodefony.config.ts`. Lecture TEXTUELLE, et c'est un choix : le manifeste est du TypeScript, il ne s'évalue pas sans construire l'applicati…"
+    },
+    "checkReadiness": {
+      "name": "checkReadiness",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/readiness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Contrôle l'état d'installation et l'environnement d'une application."
+    },
     "parseCheckArgv": {
       "name": "parseCheckArgv",
       "kind": "function",
@@ -7394,17 +7444,6 @@
       "extends": null,
       "implements": [],
       "decorators": []
-    },
-    "CardCommand": {
-      "name": "CardCommand",
-      "kind": "class",
-      "file": "src/packages/@nodefony/devkit/nodefony/command/CardCommand.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "extends": "Command",
-      "implements": [],
-      "decorators": [],
-      "description": "`nodefony devkit:card [-j]` — qui répond, et où aller ensuite. ## Pourquoi une commande, alors que la route existe La route HTTP vit sous `/nodefony`, que le pare-feu d'une application réelle couvr…"
     },
     "DevkitConfigInput": {
       "name": "DevkitConfigInput",
@@ -18216,7 +18255,6 @@
         "Stop",
         "BatchTest",
         "DaemonTest",
-        "CardCommand",
         "FrontendBuild",
         "FrontendDev",
         "FrontendStatus",
@@ -18758,7 +18796,6 @@
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
-        "src/packages/@nodefony/devkit/nodefony/command/CardCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
@@ -19471,8 +19508,7 @@
         "src/packages/@nodefony/devkit/index.ts"
       ],
       "DevkitService": [
-        "src/packages/@nodefony/devkit/index.ts",
-        "src/packages/@nodefony/devkit/nodefony/command/CardCommand.ts"
+        "src/packages/@nodefony/devkit/index.ts"
       ],
       "DevkitController": [
         "src/packages/@nodefony/devkit/index.ts"
@@ -20703,7 +20739,6 @@
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
-        "src/packages/@nodefony/devkit/nodefony/command/CardCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
@@ -21693,6 +21728,9 @@
       "Role": [
         "src/nodefony/src/client/roles/registry.ts"
       ],
+      "buildProjectEnvReport": [
+        "src/nodefony/src/kernel/checks/readiness.ts"
+      ],
       "checkPackageDeps": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
@@ -21707,6 +21745,31 @@
       ],
       "LAST_BOOT_FILE": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "checkReadiness": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "IPortProbe": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "defaultDevPorts": [
+        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "probePorts": [
+        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "readRuntimeState": [
+        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "OptionsCommandInterface": [
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
@@ -21726,7 +21789,6 @@
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
-        "src/packages/@nodefony/devkit/nodefony/command/CardCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
@@ -21911,22 +21973,6 @@
       "clearRuntimeState": [
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStop.ts",
-        "src/nodefony/src/service/dev/DevSupervisor.ts"
-      ],
-      "defaultDevPorts": [
-        "src/nodefony/src/service/dev/detachedStart.ts",
-        "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts",
-        "src/nodefony/src/service/dev/DevSupervisor.ts"
-      ],
-      "probePorts": [
-        "src/nodefony/src/service/dev/detachedStart.ts",
-        "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts",
-        "src/nodefony/src/service/dev/DevSupervisor.ts"
-      ],
-      "readRuntimeState": [
-        "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "signalProcessGroup": [
@@ -22360,10 +22406,6 @@
       "ToolExecutionError": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
       ],
-      "IDevkitCard": [
-        "src/packages/@nodefony/devkit/nodefony/command/CardCommand.ts",
-        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
-      ],
       "devkitConfigSchema": [
         "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts"
       ],
@@ -22393,6 +22435,9 @@
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "IDevkitCard": [
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
       ],
       "documentationConfigSchema": [
         "src/packages/@nodefony/documentation/nodefony/config/defineModuleConfig.ts"

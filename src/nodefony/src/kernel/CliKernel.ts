@@ -230,7 +230,7 @@ class CliKernel extends Cli {
     // le chargement des modules et il partirait en dispatch différé — donc en
     // boot, précisément ce que ce raccourci évite.
     if (requested === "check" || requested === "doctor") {
-      return process.exit(runCheckCommand(process.argv));
+      return process.exit(await runCheckCommand(process.argv));
     }
 
     // ─── `env` : la cascade des `.env` + les variables déclarées — même famille ─

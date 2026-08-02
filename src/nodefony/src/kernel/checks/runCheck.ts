@@ -21,6 +21,12 @@ import {
   type ILastBoot,
 } from "./lastBoot";
 import { findProjectRoot } from "../../cli/projectRoot";
+import { checkReadiness, type IPortProbe } from "./readiness";
+import {
+  defaultDevPorts,
+  probePorts,
+  readRuntimeState,
+} from "../../service/dev/devProcess";
 import clc from "../../colors";
 
 /** Dispositions explorées : une application (`modules/`) et ce dépôt. */
@@ -187,6 +193,27 @@ function reportLastBoot(entry: ILastBoot | null, now: number): void {
   out.write(`  bilan complet  : ${LAST_BOOT_FILE}\n\n`);
 }
 
+/**
+ * Sonde les ports de développement et CONSTATE qui les tient.
+ *
+ * Le verdict `ownedByUs` vient de `readRuntimeState`, qui invalide de lui-même
+ * un état dont le processus est mort : un serveur Nodefony en marche est l'état
+ * sain le plus courant, et l'accuser d'occuper « son » port ferait de `check` un
+ * outil qu'on apprend à ignorer.
+ *
+ * @param projectRoot - racine de l'application.
+ * @returns le verdict à injecter dans la règle, jamais la mesure elle-même.
+ */
+async function probeLocalPorts(projectRoot: string): Promise<IPortProbe> {
+  const ports = defaultDevPorts(projectRoot);
+  const states = await probePorts(ports);
+  return {
+    probed: ports,
+    busy: states.filter((s) => s.listening).map((s) => s.port),
+    ownedByUs: readRuntimeState(projectRoot) !== null,
+  };
+}
+
 /** Ce que la ligne de commande demande. */
 interface ICheckRequest {
   json: boolean;
@@ -246,7 +273,7 @@ export function parseCheckArgv(
  *          sur une option inconnue. La trace d'un démarrage échoué est
  *          RAPPORTÉE mais ne pèse pas sur ce code.
  */
-export function runCheckCommand(argv: string[]): number {
+export async function runCheckCommand(argv: string[]): Promise<number> {
   const parsed = parseCheckArgv(argv);
   if ("error" in parsed) {
     process.stderr.write(`check: ${parsed.error}\n${USAGE}`);
@@ -275,6 +302,16 @@ export function runCheckCommand(argv: string[]): number {
     projectRoot: cwd,
   });
 
+  // L'état d'installation ne se contrôle QUE dans une application : hors projet
+  // (ce dépôt, un dossier de paquets) il n'y a ni manifeste, ni environnement,
+  // ni port à défendre — et une sonde y accuserait le premier serveur venu.
+  const readiness = projectRoot
+    ? await checkReadiness({
+        projectRoot,
+        probe: await probeLocalPorts(projectRoot),
+      })
+    : { findings: [], catalogUnreadable: false, portsProbed: [] };
+
   if (json) {
     process.stdout.write(
       `${JSON.stringify(
@@ -283,13 +320,19 @@ export function runCheckCommand(argv: string[]): number {
           scanned,
           findings,
           wiring: { scanned: wiring.scanned, findings: wiring.findings },
+          readiness,
           lastBoot,
         },
         null,
         2,
       )}\n`,
     );
-    return findings.length + wiring.findings.length > 0 ? 1 : 0;
+    return findings.length +
+      wiring.findings.length +
+      readiness.findings.length >
+      0
+      ? 1
+      : 0;
   }
 
   // Dire QUOI a été contrôlé quand ce n'est pas là où on a tapé : un rapport
@@ -301,7 +344,11 @@ export function runCheckCommand(argv: string[]): number {
 
   reportLastBoot(lastBoot, Date.now());
 
-  if (findings.length === 0 && wiring.findings.length === 0) {
+  if (
+    findings.length === 0 &&
+    wiring.findings.length === 0 &&
+    readiness.findings.length === 0
+  ) {
     const exceptions =
       Object.values(typeCycles ?? {}).flat().length +
       (typesUnreachable?.length ?? 0);
@@ -312,9 +359,30 @@ export function runCheckCommand(argv: string[]): number {
           ".\n",
       ),
     );
+    // Le silence de la règle « variable requise » ne vaut pas quitus quand le
+    // catalogue est illisible : ne pas le dire ferait passer une ignorance pour
+    // un contrôle réussi — exactement ce qu'un outil de diagnostic ne doit
+    // jamais faire.
+    if (readiness.catalogUnreadable) {
+      process.stdout.write(
+        clc.yellow(
+          `  ⓘ variables d'environnement NON contrôlées : le catalogue se lit dans` +
+            ` dist/ — construis l'application (npm run build) pour cette règle.\n`,
+        ),
+      );
+    }
     return 0;
   }
 
+  // Ce qui empêche de DÉMARRER passe en premier : quand l'application ne se
+  // lance plus, une variable absente ou un port tenu explique tout le reste, et
+  // le faire suivre une liste de manquements de câblage reviendrait à le cacher.
+  for (const f of readiness.findings) {
+    process.stdout.write(clc.red(`✗ ${f.message}\n`));
+    if (f.file) {
+      process.stdout.write(`  déclaré dans : ${f.file}\n`);
+    }
+  }
   for (const f of findings) {
     process.stdout.write(clc.red(`✗ ${f.message}\n`));
     if (f.file) {
@@ -325,7 +393,8 @@ export function runCheckCommand(argv: string[]): number {
     process.stdout.write(clc.red(`✗ ${f.message}\n`));
     process.stdout.write(`  ${f.file}\n`);
   }
-  const total = findings.length + wiring.findings.length;
+  const total =
+    findings.length + wiring.findings.length + readiness.findings.length;
   process.stdout.write(
     clc.red(
       `\n${total} manquement(s) sur ${scanned} paquet(s) et ${wiring.scanned} classe(s).\n`,

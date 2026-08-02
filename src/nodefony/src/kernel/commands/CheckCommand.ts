@@ -61,7 +61,7 @@ class Check extends Command {
     const argv: string[] = [];
     if (opts?.json) argv.push("--json");
     if (opts?.cwd) argv.push("--cwd", opts.cwd);
-    const code = runCheckCommand(argv);
+    const code = await runCheckCommand(argv);
     await this.terminate(code);
     return this;
   }

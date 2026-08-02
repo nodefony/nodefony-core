@@ -45,7 +45,9 @@ const failed = (over: Partial<ILastBoot> = {}): ILastBoot =>
   });
 
 /** Capture la sortie standard : `check` ÉCRIT son rapport, il ne le retourne pas. */
-function capture(run: () => number): { out: string; code: number } {
+async function capture(
+  run: () => number | Promise<number>,
+): Promise<{ out: string; code: number }> {
   const chunks: string[] = [];
   const write = process.stdout.write.bind(process.stdout);
   process.stdout.write = ((s: string) => {
@@ -53,7 +55,7 @@ function capture(run: () => number): { out: string; code: number } {
     return true;
   }) as typeof process.stdout.write;
   try {
-    return { code: run(), out: chunks.join("") };
+    return { code: await run(), out: chunks.join("") };
   } finally {
     process.stdout.write = write;
   }
@@ -70,7 +72,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("écrit puis relit le bilan à l'identique", () => {
+  it("écrit puis relit le bilan à l'identique", async () => {
     const e = failed({
       error: { name: "E", message: "m", exitCode: 78, stack: "at x" },
     });
@@ -79,16 +81,16 @@ describe("last-boot — le bilan du dernier démarrage", () => {
     assert.deepEqual(readLastBoot(dir), e);
   });
 
-  it("crée `var/` s'il manque — un conteneur frais n'a pas ce dossier", () => {
+  it("crée `var/` s'il manque — un conteneur frais n'a pas ce dossier", async () => {
     writeLastBoot(dir, ok());
     assert.isTrue(existsSync(path.join(dir, "var")));
   });
 
-  it("rend null quand aucun démarrage n'a été consigné", () => {
+  it("rend null quand aucun démarrage n'a été consigné", async () => {
     assert.isNull(readLastBoot(dir));
   });
 
-  it("rend null sur un fichier CORROMPU, sans throw", () => {
+  it("rend null sur un fichier CORROMPU, sans throw", async () => {
     // Le contrôle vient diagnostiquer une application cassée : il ne peut pas
     // se permettre de tomber sur son propre bilan.
     mkdirSync(path.join(dir, "var"), { recursive: true });
@@ -96,7 +98,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
     assert.isNull(readLastBoot(dir));
   });
 
-  it("rend null sur un JSON valide dont le `status` n'est pas reconnu", () => {
+  it("rend null sur un JSON valide dont le `status` n'est pas reconnu", async () => {
     mkdirSync(path.join(dir, "var"), { recursive: true });
     writeFileSync(
       path.join(dir, LAST_BOOT_FILE),
@@ -105,7 +107,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
     assert.isNull(readLastBoot(dir));
   });
 
-  it("n'explose pas quand le chemin est inécrivable", () => {
+  it("n'explose pas quand le chemin est inécrivable", async () => {
     // Un disque plein ne doit pas transformer un démarrage diagnosticable en
     // une seconde erreur qui masque la première.
     const impossible = path.join(dir, "fichier-pas-dossier");
@@ -117,19 +119,19 @@ describe("last-boot — le bilan du dernier démarrage", () => {
     const t0 = Date.parse("2026-07-30T18:00:00.000Z");
     const at = (ms: number) => formatAge("2026-07-30T18:00:00.000Z", t0 + ms);
 
-    it("moins d'une minute, puis minutes / heures / jours", () => {
+    it("moins d'une minute, puis minutes / heures / jours", async () => {
       assert.equal(at(30_000), "il y a moins d'une minute");
       assert.equal(at(5 * 60_000), "il y a 5 minutes");
       assert.equal(at(3 * 3_600_000), "il y a 3 heures");
       assert.equal(at(3 * 86_400_000), "il y a 3 jours");
     });
 
-    it("accorde le singulier", () => {
+    it("accorde le singulier", async () => {
       assert.equal(at(60_000), "il y a 1 minute");
       assert.equal(at(86_400_000), "il y a 1 jour");
     });
 
-    it("une date illisible se DIT, elle ne se devine pas", () => {
+    it("une date illisible se DIT, elle ne se devine pas", async () => {
       assert.equal(formatAge("pas une date", t0), "date illisible");
     });
   });
@@ -147,7 +149,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
       process.chdir(cwd);
     });
 
-    it("démarrage ÉCHOUÉ : phase, cause, âge — sans peser sur le code de sortie", () => {
+    it("démarrage ÉCHOUÉ : phase, cause, âge — sans peser sur le code de sortie", async () => {
       writeLastBoot(
         dir,
         failed({
@@ -158,7 +160,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
           },
         }),
       );
-      const { out, code } = capture(() => runCheckCommand([]));
+      const { out, code } = await capture(() => runCheckCommand([]));
       assert.include(out, "Le dernier démarrage a ÉCHOUÉ");
       assert.include(out, "onBoot");
       assert.include(out, "Cannot find package 'redis'");
@@ -168,7 +170,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
       assert.equal(code, 0);
     });
 
-    it("⭐ démarrage ABOUTI mais AMPUTÉ : signalé — c'est le cas que personne ne voit", () => {
+    it("⭐ démarrage ABOUTI mais AMPUTÉ : signalé — c'est le cas que personne ne voit", async () => {
       writeLastBoot(
         dir,
         ok({
@@ -178,7 +180,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
           warnings: 3,
         }),
       );
-      const { out, code } = capture(() => runCheckCommand([]));
+      const { out, code } = await capture(() => runCheckCommand([]));
       assert.include(out, "abouti mais il MANQUE des briques");
       assert.include(out, "redis");
       assert.include(out, "ECONNREFUSED");
@@ -186,13 +188,13 @@ describe("last-boot — le bilan du dernier démarrage", () => {
       assert.equal(code, 0);
     });
 
-    it("un profil serveur qui finit SANS serveur est nommé", () => {
+    it("un profil serveur qui finit SANS serveur est nommé", async () => {
       writeLastBoot(dir, ok({ healthy: false }));
-      const { out } = capture(() => runCheckCommand([]));
+      const { out } = await capture(() => runCheckCommand([]));
       assert.include(out, "SANS aucun serveur en écoute");
     });
 
-    it("les briques écartées VOLONTAIREMENT sont distinguées des pannes", () => {
+    it("les briques écartées VOLONTAIREMENT sont distinguées des pannes", async () => {
       writeLastBoot(
         dir,
         ok({
@@ -205,12 +207,12 @@ describe("last-boot — le bilan du dernier démarrage", () => {
           ],
         }),
       );
-      const { out } = capture(() => runCheckCommand([]));
+      const { out } = await capture(() => runCheckCommand([]));
       assert.include(out, "écartée(s) VOLONTAIREMENT");
       assert.include(out, "studio");
     });
 
-    it("la remédiation suggérée par le bilan est reprise", () => {
+    it("la remédiation suggérée par le bilan est reprise", async () => {
       writeLastBoot(
         dir,
         ok({
@@ -218,28 +220,28 @@ describe("last-boot — le bilan du dernier démarrage", () => {
           remediation: "npm run clean && npm run build",
         }),
       );
-      const { out } = capture(() => runCheckCommand([]));
+      const { out } = await capture(() => runCheckCommand([]));
       assert.include(out, "npm run clean && npm run build");
     });
 
-    it("un démarrage SAIN ne dit rien — le bruit finit par masquer le signal", () => {
+    it("un démarrage SAIN ne dit rien — le bruit finit par masquer le signal", async () => {
       writeLastBoot(
         dir,
         ok({ healthy: true, warnings: 2, modulesLoaded: ["http"] }),
       );
-      const { out } = capture(() => runCheckCommand([]));
+      const { out } = await capture(() => runCheckCommand([]));
       assert.notInclude(out, "MANQUE des briques");
       assert.notInclude(out, "a ÉCHOUÉ");
     });
 
-    it("aucun bilan du tout : silence", () => {
-      const { out } = capture(() => runCheckCommand([]));
+    it("aucun bilan du tout : silence", async () => {
+      const { out } = await capture(() => runCheckCommand([]));
       assert.notInclude(out, "dernier démarrage");
     });
 
-    it("`--json` porte le bilan, pour un agent qui le lit au `jq`", () => {
+    it("`--json` porte le bilan, pour un agent qui le lit au `jq`", async () => {
       writeLastBoot(dir, failed());
-      const { out } = capture(() => runCheckCommand(["--json"]));
+      const { out } = await capture(() => runCheckCommand(["--json"]));
       const parsed = JSON.parse(out) as { lastBoot: ILastBoot | null };
       assert.equal(parsed.lastBoot?.status, "failed");
       assert.equal(
@@ -267,35 +269,35 @@ describe("last-boot — le bilan du dernier démarrage", () => {
       mkdirSync(sub, { recursive: true });
     });
 
-    it("⭐ lancé dans `modules/blog`, il trouve le bilan de l'app", () => {
+    it("⭐ lancé dans `modules/blog`, il trouve le bilan de l'app", async () => {
       writeLastBoot(dir, failed());
-      const { out } = capture(() => runCheckCommand(["--cwd", sub]));
+      const { out } = await capture(() => runCheckCommand(["--cwd", sub]));
       assert.include(out, "Le dernier démarrage a ÉCHOUÉ");
       assert.include(out, "Cannot find package 'redis'");
     });
 
-    it("il DIT sur quoi il a porté quand ce n'est pas là où on a tapé", () => {
+    it("il DIT sur quoi il a porté quand ce n'est pas là où on a tapé", async () => {
       // Sans cette ligne, un rapport vide se lit « mon module va bien » alors
       // qu'il parle de l'application entière — et inversement.
-      const { out } = capture(() => runCheckCommand(["--cwd", sub]));
+      const { out } = await capture(() => runCheckCommand(["--cwd", sub]));
       assert.include(out, "application :");
       assert.include(out, "lancé depuis");
     });
 
-    it("`--json` porte la racine retenue", () => {
-      const { out } = capture(() =>
+    it("`--json` porte la racine retenue", async () => {
+      const { out } = await capture(() =>
         runCheckCommand(["check", "--cwd", sub, "--json"]),
       );
       const parsed = JSON.parse(out) as { root: string };
       assert.equal(path.resolve(parsed.root), path.resolve(dir));
     });
 
-    it("depuis la racine, aucune annonce — il n'y a rien à signaler", () => {
-      const { out } = capture(() => runCheckCommand(["--cwd", dir]));
+    it("depuis la racine, aucune annonce — il n'y a rien à signaler", async () => {
+      const { out } = await capture(() => runCheckCommand(["--cwd", dir]));
       assert.notInclude(out, "lancé depuis");
     });
 
-    it("une option inconnue se DIT, elle ne s'ignore pas (EX_USAGE)", () => {
+    it("une option inconnue se DIT, elle ne s'ignore pas (EX_USAGE)", async () => {
       const err: string[] = [];
       const write = process.stderr.write.bind(process.stderr);
       process.stderr.write = ((s: string) => {
@@ -303,7 +305,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
         return true;
       }) as typeof process.stderr.write;
       try {
-        assert.equal(runCheckCommand(["check", "--jsno"]), 64);
+        assert.equal(await runCheckCommand(["check", "--jsno"]), 64);
       } finally {
         process.stderr.write = write;
       }
@@ -312,11 +314,11 @@ describe("last-boot — le bilan du dernier démarrage", () => {
   });
 
   describe("hors de tout projet, le dossier de départ reste la cible", () => {
-    it("un dossier de paquets sans `nodefony.config.ts` se contrôle tel quel", () => {
+    it("un dossier de paquets sans `nodefony.config.ts` se contrôle tel quel", async () => {
       // Ce dépôt-ci comme n'importe quel dossier de travail : le repli n'est
       // pas un cas dégradé, c'est un usage.
       writeLastBoot(dir, failed());
-      const { out } = capture(() => runCheckCommand(["--cwd", dir]));
+      const { out } = await capture(() => runCheckCommand(["--cwd", dir]));
       assert.include(out, "Le dernier démarrage a ÉCHOUÉ");
       assert.notInclude(out, "lancé depuis");
     });
