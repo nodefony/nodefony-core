@@ -2,896 +2,181 @@
 
 > **Rôle** : sas entre les retex bruts (`docs/session-retros/archive/<date>-<id>.md`, jamais relus
 > seuls) et les leçons durables (mémoires `feedback_*` indexées dans `MEMORY.md`). Il porte les
-> **frictions récentes pas encore confirmées** (vues 1-2×). Le skill `nodefony-session` le **lit au
-> START/RESUME** et le **met à jour au END** (3-5 bullets du jour, par thème).
+> **frictions récentes pas encore confirmées**. Le skill `nodefony-session` le **lit au START/RESUME**
+> et le **met à jour au END** (3-5 bullets du jour, par thème).
 >
 > **Règle anti-doublon (CRITIQUE)** : une leçon est **soit** ici (sas), **soit** en `feedback_*`
-> (graduée). **JAMAIS les deux.** À **3×** → CONSOLIDATE la promeut et la **retire d'ici**.
+> (graduée). **JAMAIS les deux.**
 >
-> **Taille bornée : ~1 écran.** Deux sorties, gérées par CONSOLIDATE : (a) ≥3× → graduée puis
-> retirée ; (b) thème dont le chantier est clos → archive. Format : `[N× — date courte]`.
+> **🔴 SEUIL DE GRADUATION — il porte sur le THÈME, pas sur le compteur d'un bullet.** Un thème qui
+> atteint **~5 frictions distinctes** est démontré et part en `feedback_*`, puis disparaît d'ici.
+> Le compteur `[N×]` ne sert qu'à repérer une friction qui se répète à l'identique — il ne
+> déclenche rien. _Pourquoi ce changement (2026-08-02) : l'ancienne règle « ≥3× » n'a JAMAIS
+> déclenché en 135 frictions — chaque session écrivait un bullet neuf au lieu d'incrémenter, si
+> bien qu'un thème à 35 frictions en dix jours n'a jamais été gradué._
 >
-> Snapshots complets avant coupe : `archive/RETEX-snapshot-<date>.md` — rien n'est perdu.
+> **Taille bornée : ~1 écran.** Snapshots complets avant coupe :
+> `archive/RETEX-snapshot-<date>.md` — rien n'est perdu.
 
 ---
 
 ## 🥫 Un outil qui ne sert pas le dépôt qui le publie n'est éprouvé par personne
 
+- `[2× — 2026-08-02]` 🔴 **Quatre défauts sur cinq d'une soirée venaient des GABARITS**, aucun
+  visible tant que le dépôt n'utilisait pas sa propre commande : un module né du scaffold sans
+  arête de build (forge rouge sur quatre workflows), une erreur de config re-jetée sans sa `cause`,
+  deux angles morts du banc. **C'est en commitant le premier paquet réellement produit par
+  `create module` que la forge a vu ce que trois sessions de tests n'avaient pas vu.**
 - `[1× — 2026-08-01d]` 🔴 **J'ai commencé à écrire à la main le squelette que notre propre commande
-  produit.** `nodefony create module` visait `modules/` en dur ; le dépôt du framework range ses
-  paquets dans `src/packages/@nodefony/*`, donc il ne pouvait pas s'en servir — et le skill
-  `nodefony-create-module` avait ENTÉRINÉ l'écart (« deux scaffolders, c'est voulu »). Je l'ai lu,
-  j'ai obéi, j'ai sorti le Write. C'est le user qui a mordu (« incroyable, le core n'appelle pas la
-  commande »). **Le geste juste, quand un outil maison ne couvre pas le cas courant, est de lancer
-  l'outil D'ABORD pour voir ce qu'il rend** — le `--dry-run` a montré en 3 s que 80 % du chemin
-  était là. Deux défauts produit ont suivi immédiatement (garde `--service` qui exigeait la méthode
-  d'exemple du gabarit, contrôle TSDoc absent de 2 scaffolds sur 3) : aucun ne se voyait tant que
-  l'auteur n'utilisait pas sa propre commande.
+  produit** — et le skill avait ENTÉRINÉ l'écart (« deux scaffolders, c'est voulu »). Le geste
+  juste quand un outil maison ne couvre pas le cas courant : **le lancer D'ABORD pour voir ce qu'il
+  rend** (`--dry-run` : 80 % du chemin était là, en 3 s).
 - `[1× — 2026-08-01d]` **Un gabarit dit « remplace ceci par le tien », et une garde exige que ce
-  soit resté intact.** `create command --service` cherchait littéralement `greet()`. Motif à
-  reconnaître ailleurs : toute garde écrite en LISANT la sortie de son propre exemple.
-- `[1× — 2026-08-01d]` **Le trou d'un banc n'est pas toujours une tâche qui manque.** Analyse
-  demandée après la création du module : le banc d'agent était SAIN sur mes trois soupçons (le
-  typecheck y est déjà une sonde) — le trou vrai était dans `verify-generated.mjs`, qui n'exerce
-  que **3 des 7** générateurs (`controller`, `service`, `command`, `front` : zéro). Ajouter une
-  tâche d'agent aurait coûté 3 runs et mesuré autre chose. **Avant de proposer une tâche, compter
-  ce que le script DÉTERMINISTE couvre déjà** : c'est gratuit, exhaustif et reproductible.
-- `[1× — 2026-08-01d]` 🔴 **Un nombre écrit à la main se périme, et personne ne le voit.** Le
-  `SKILL.md` du banc annonçait « 25 tâches » quand le code en portait 28 — le kit avait DÉJÀ noté
-  le même écart (« le SKILL.md en annonce encore 9 — reliquat ») et il n'avait pas été corrigé.
-  Retirer le chiffre vaut mieux que le remettre à jour.
-
-- `[2× — 2026-08-02]` 🔴 **Confirmé en grand : QUATRE défauts sur cinq d'une soirée venaient des
-  gabarits**, et aucun n'était visible tant que le dépôt n'utilisait pas sa propre commande — un
-  module né du scaffold sans arête de build (forge rouge sur quatre workflows), une erreur de config
-  re-jetée sans sa `cause` (lint Windows rouge), et deux angles morts du banc. Le module `devkit`,
-  premier paquet du dépôt réellement produit par `create module`, a servi de révélateur : **c'est
-  en le commitant que la forge a vu ce que trois sessions de tests n'avaient pas vu.**
-
-## 🕳️ Un gate qui ne LIT rien rend VERT — et un débranchement peut DÉTRUIRE
-
-- `[1× — 2026-08-02]` 🔴 **`oxlint` sur l'app témoin ne lisait AUCUN fichier, et sortait 0.** Les
-  motifs d'exclusion se résolvent depuis le dossier de la **config**, pas depuis le cwd : le
-  `tmp/**` du dépôt écartait tout le décor lié, message « No files found to lint » noyé dans une
-  sortie qu'on ne regarde pas quand elle est verte. Le geste qui tranche : **faire prouver le gate
-  par un témoin fautif AVANT de lui faire rendre un verdict** — il dépose l'erreur, exige qu'elle
-  soit signalée, puis juge. Vaut pour tout outil externe branché dans un banc.
-- `[1× — 2026-08-02]` 🔴 **Le débranchement d'un gate a supprimé un fichier du dépôt.** Pour voir
-  rouge, j'ai pointé le chemin de config sur celui du dépôt — et le `finally { rmSync(rcPath) }` de
-  l'étape l'a effacé (`.oxlintrc.json`, restauré par `git show HEAD:`). Deux règles : **inspecter
-  les effets de bord du débranchement lui-même**, et **borner par construction** tout effacement sur
-  chemin calculé (le banc a désormais `effaceDansApp`, qui refuse hors de l'app témoin). Au passage,
-  la garde du dépôt a refusé mon `git checkout` sur arbre sale — elle a eu raison.
-- `[2× — 2026-08-02c]` 🔴 **Un débranchement PARTIEL prouve exactement RIEN — et il a mutilé le
-  fichier.** Gate neuf « l'`AGENTS.md` généré cite `nodefony symbols` » : j'ai coupé UNE des trois
-  occurrences, la sonde a trouvé les autres et le test est **resté vert**. J'ai failli conclure « le
-  gate est en place ». Second essai avec `sed /motif/d` : rouge, mais deux lignes légitimes
-  emportées. **Compter les occurrences AVANT de débrancher** (`rg -c`), et **restaurer par édition,
-  jamais par `git checkout`** quand le même fichier porte du travail non commité — la garde du dépôt
-  l'a refusé, à raison (2ᵉ fois en deux jours). Preuve de restauration = empreinte md5 identique.
-- `[1× — 2026-08-02]` **Une option qui BLOQUE ne vit pas dans la marche de la forge.**
-  `--deny-warnings` n'était posé que dans le workflow : `npm run lint` rendait 0 en local sur
-  l'avertissement même qui faisait tomber la CI. La panne n'apparaissait qu'après le `push`, sur
-  une machine où personne ne débogue. L'option est passée dans le script racine ; la marche appelle
-  `npm run lint` tout court.
-- `[1× — 2026-08-02]` **DÉCLARER n'est pas ORDONNER.** Une `peerDependency` dit ce qu'il faut
-  fournir ; elle ne crée aucune arête dans le graphe de npm et de turbo — mesuré :
-  `@nodefony/devkit#build <-` (rien), contre trois arêtes chez son voisin. En local, le `dist/` de
-  la fois précédente masque la panne ; elle ne se lève qu'au premier arbre propre.
-- `[1× — 2026-08-02f]` 🔴 **Un script DÉPLACÉ garde son ancien calcul de racine, et le gate cesse
-  simplement d'exister.** `smoke-docker.sh` remontait deux dossiers depuis `scripts/` : correct à
-  son ancien emplacement, faux depuis son entrée dans un skill (`547d81d3`). Résultat, `ROOT` =
-  `<repo>/.claude/skills`, symptôme UNIQUE et muet — un chemin doublé au premier `node`. Plus
-  aucune preuve release ne tournait depuis ce déplacement, et rien ne l'avait signalé. **Un compte
-  de `../` se VÉRIFIE** : deux lignes de garde (`package.json` + `.claude` doivent exister à
-  l'arrivée, sinon refus) valent mieux qu'un commentaire qui l'affirme.
-- `[1× — 2026-08-02f]` 🔴 **`cmd > log 2>&1; echo "exit=$?"` fabrique un faux VERT.** Le harnais
-  rapporte le code du DERNIER maillon — donc 0, toujours — et la redirection ne couvre que le
-  premier : le journal montrait un crash pendant que l'exécution était annoncée réussie. J'ai
-  diagnostiqué le script sur cette base avant de voir que le faux vert venait de MA ligne de
-  commande. Capturer, puis LIRE le journal ; ne jamais chaîner un `echo` derrière ce qu'on mesure.
-
-## 🟢 Un VERT annoncé se RECONSTATE — sur la forge comme ailleurs
-
-- `[1× — 2026-08-02f]` 🔴 **La clôture de la veille annonçait « CI réparée » ; elle était rouge
-  depuis deux commits, et c'est le user qui l'a vu.** Ce qui avait été réparé (6 jobs sur
-  `oxlint`) l'était vraiment — mais un 7ᵉ job, `Tests unit (ubuntu / Node 24.x)`, rougissait à
-  côté, seul de toute la matrice. **Réparer une CI et constater qu'elle est verte sont deux
-  gestes**, et le second se fait APRÈS le commit qui répare, sur le run qui le porte
-  (`gh run list --json headSha` filtré sur le SHA poussé). Coût du manquement : une session
-  entière de travail commitée par-dessus une forge rouge.
-- `[1× — 2026-08-02f]` 🔴 **Un filtre de surveillance qui ne reconnaît pas « en cours » conclut
-  « tous verts ».** Mon moniteur écartait `in_progress|queued` mais laissait passer les
-  `conclusion` VIDES — les runs fraîchement déclenchés — et a annoncé un verdict qui n'existait
-  pas. Symétrique du piège connu (« silence ≠ succès ») : **une ligne vide n'est pas un verdict**.
-  Filtrer sur `status == "completed"`, jamais sur l'absence d'un mot.
-
-## 📏 Une sonde de PERFORMANCE juge la machine avant de juger le code
-
-- `[1× — 2026-08-02f]` **Le minimum de N essais n'écarte qu'une préemption PONCTUELLE, pas une
-  machine lente pendant toute la série.** Test de linéarité (`bearer.test.ts`) : ×4,05 en
-  intégration, ×2,00 stable sur dix passes en local. Remède qui tient — prendre le ratio
-  **minimal sur K paires** : une implémentation réellement quadratique est lente à CHAQUE paire,
-  donc la meilleure ne peut pas l'innocenter.
-- `[1× — 2026-08-02f]` ⭐ **Avant d'accuser la mesure, lire la STRUCTURE — et inversement.** Ce
-  qui a tranché en dix secondes n'est pas un chronomètre : `bearerToken` est un scan de
-  caractères, sans regex ni retour arrière, donc il ne PEUT pas être quadratique. Le défaut était
-  forcément dans l'instrument. Corollaire à ne pas perdre : une sonde corrigée doit être **vue
-  mordre sur le témoin fautif** avant qu'on y croie (l'ancien motif, même formule : ×3,88).
-
-## ✅ Un vert de test ne dit pas que ça COMPILE
-
-- `[1× — 2026-08-01d]` **Mon propre test passait `vitest` et échouait au `typecheck`** — vitest
-  transpile sans vérifier les types. C'est le hook de **pre-push** qui l'a vu, après trois commits.
-  Le geste manquant tient en une commande : `tsgo --noEmit -p tsconfig.tests.json` avant de dire
-  « vert ». Vaut aussi dans l'autre sens : le banc devkit lance déjà un typecheck sur l'app générée
-  (`SONDES_QUALITE`), c'est le DÉPÔT (`create.test.ts`) qui n'en fait pas.
-
-## 🎲 Ce qui varie d'un run à l'autre EST la mesure — pas le verdict
-
-- `[1× — 2026-07-30]` 🔴 **Un banc à verdict binaire joué UNE fois ne dit rien.** T14 rejouée 4×,
-  gabarit identique, même modèle, même décor : **2 PASS / 2 FAIL**, 68→98 tours. J'avais écrit le
-  matin « la correction est prouvée » sur un seul PASS. Ce qui reste concluant sur un run unique,
-  c'est une **sonde de contenu** (binaire, sans seuil) : façade employée 4/4 après vs 0/1 avant.
-  Toute mesure d'effort = médiane ≥ 3 runs. Corollaire de coût : répondre à « un gros modèle
-  tourne-t-il moins en rond ? » demande ~6 runs, pas 2 — l'estimation initiale était 3× trop basse.
-- `[1× — 2026-07-30]` **Un chiffre qu'il faut aller chercher au `jq` n'agit pas.** Le harnais
-  publiait déjà tours/durée/coût en fin de transcript ; personne ne les lisait. Même leçon que pour
-  les agents, appliquée à moi : l'information doit être là où le regard passe déjà.
-- `[2× — 2026-08-02]` 🔴 **Confirmé en grand, et le vert est le pire des runs uniques.** La passe 1
-  avait rendu **21/21 PASS en 1 run** ; les mêmes 21 tâches en 3 runs donnent **13/21**. Un run
-  unique ne mesure pas un état, il tire une face — et quand la face est verte, plus rien ne pousse
-  à rejouer. Corollaire pour la lecture des FAIL « instables » : sur 6 tâches à 2/3, **5 ne
-  rougissent pas sur leur objet** mais sur une sonde de qualité commune (`any`, `@ts-ignore`) tirée
-  une fois sur trois. Lire la CAUSE avant de nommer un trou de découvrabilité.
-- `[1× — 2026-08-02]` 🔴 **Une sonde de MOYEN finit par recaler un travail juste.** T18 est comptée
-  FAIL parce que « a lu AGENTS.md ou la doc security » manque — toutes ses sondes de RÉSULTAT sont
-  vertes. Le banc nomme pourtant ce mode de défaillance comme son n°1. Une sonde de moyen ne vaut
-  que le temps qu'elle RÉVÈLE quelque chose ; une fois l'information hissée là où l'agent lit, elle
-  se déclasse en observation au lieu de condamner.
+  soit resté intact.** Motif à reconnaître : toute garde écrite en LISANT la sortie de son propre
+  exemple.
 
 ## 📣 Une commande MAISON est filtrée par la familiarité, pas par la position
 
-- `[1× — 2026-08-02e]` **Comparer les scripts npm du DÉPÔT à ceux du gabarit d'app trouve les
-  verbes qu'on a livrés sans les nommer.** Trois manquaient : `inspect` (l'app exposait `check`
-  sans son jumeau — les deux verbes s'apprennent ensemble), `ai:sync` (livré le jour même, nommé
-  nulle part) et `clean`. C'est un contrôle de deux minutes, à refaire après chaque capacité CLI
-  neuve. ⚠️ Et un script ne se copie pas du dépôt sans vérifier ses dépendances : `clean` reposait
-  sur `rimraf`, absent des devDependencies du gabarit — **un script qui échoue au premier usage est
-  pire qu'un script absent**.
-
-- `[1× — 2026-08-02]` 🔴 **Quatre gates dans le MÊME bloc, un écart de 1 à 9.** `npm test` 44/63,
-  `test:e2e` 44/63, `typecheck` 37/63 — et `nodefony check` **5/63**, ligne adjacente. Les trois
-  premiers sont des commandes que le modèle connaît d'avance ; le quatrième est un verbe du dépôt.
-  Déplacer ou répéter la ligne n'y changerait rien : ce qui manque n'est pas la visibilité, c'est
-  l'ancrage. Corollaire : pour qu'un verbe maison agisse, il faut soit un AUTOMATE qui parle au
-  moment de l'erreur, soit l'adosser à une commande déjà employée — pas une phrase de plus.
-- `[1× — 2026-08-02]` ⭐ **Un compte d'usage lu sur le transcript entier mesure la LECTURE, pas
-  l'usage.** Premier comptage : `card` 60/63. Vrai comptage (motif `"command":`) : **2/63**. Le
-  contenu des fichiers ouverts passe dans le transcript, et l'`AGENTS.md` nomme précisément les
-  commandes qu'on espère voir employées. Le banc porte déjà `commandeQuiContient` — l'utiliser,
-  jamais un `grep` sur le nom nu.
-- `[1× — 2026-08-02]` 🔴 **Trois faux diagnostics de LECTURE en une séance, tous silencieux** :
-  `git show <commit>` au lieu d'une PLAGE (rend « 0 fichier touché » sur un travail réel, parce que
-  l'agent commite lui-même en route) · `grep "nodefony check"` qui rate `npm run check` · `awk` dont
-  la borne de fin n'arrive qu'après les 3 répétitions. Aucun n'a levé d'erreur ; chacun a produit un
-  chiffre crédible et faux. Quand un chiffre surprend, suspecter la commande qui l'a produit AVANT
-  le sujet mesuré.
-
-## 🧩 Une capacité arrive AVEC sa tâche — sinon son absence de mesure ressemble à un rejet
-
-- `[1× — 2026-08-02]` 🔴 **La règle du banc enfreinte par ses propres auteurs.** `card`, `symbols`
-  et les 4 diagnostics de `check` ont été livrés sans tâche. Les comptes (2, 8, 5 sur 63) avaient
-  l'allure d'un verdict d'adoption ; ils ne mesuraient RIEN, aucune tâche ne demandant ces gestes.
-  Preuve par le rodage : dès qu'une tâche les sollicite, `card` et `check` sont employés au premier
-  essai. **Un chiffre bas sans tâche n'est pas un rejet, c'est un angle mort.**
-- `[1× — 2026-08-02]` ⭐ **Concevoir la tâche a trouvé un défaut que la relecture n'avait pas vu.**
-  En montant le décor de T32, mesure directe : un module déclaré-mais-absent n'arrête PAS le boot
-  (fail-soft, « BOOT dégradé »). Or le diagnostic annonçait « le démarrage échouera à l'import » —
-  il envoyait chercher un crash inexistant, plus coûteux qu'un silence. Écrire le banc d'une
-  capacité est un audit de cette capacité.
-
-## 🔍 Un INVENTAIRE n'est exhaustif que par CROISEMENT — ni le modèle ni l'automate seul
-
-- `[1× — 2026-08-01c]` **Le sous-agent rend des ANCRAGES justes et une CONCLUSION fausse — les deux
-  dans le même rapport.** Essai d'instruction déléguée (tâche 29, `haiku` lecture seule, matière
-  extraite par `git diff` en amont) : **4 ancrages sur 4 exacts** au recontrôle, et une conclusion
-  à côté — il propose de documenter la façade `findPage` alors qu'**aucun** des trois runs ne
-  l'emploie (les deux PASS ont simplement passé `limit` à `find()`). D'où le partage à tenir :
-  l'automate EXTRAIT, le modèle RELÈVE et confronte item par item, le principal CONCLUT. Ne jamais
-  reprendre la section « proposition » d'un sous-agent sans la re-dériver soi-même.
-
-- `[2× — 2026-07-31e]` 🔴 **Un relevé « exhaustif » rendu par un modèle rate des sites SANS le
-  dire.** Sous-agent `haiku` chargé de relever les causes des juges du banc, périmètre exact,
-  consigne « ne saute AUCUNE occurrence » : **7 sites manqués sur 68** — tous des lignes courtes
-  (`if (x.erreur) sortir(4, …)`) et une cause entière (`module-non-charge`). Un `rg -o` les rend
-  tous, en deux secondes. Le bon usage n'est donc pas « déléguer OU compter » : l'automate établit
-  la LISTE, le modèle rend le CONTEXTE de chaque entrée (condition, commentaire, intention), et le
-  principal tranche. Ici le contexte du sous-agent a servi ; sa liste, non.
-- `[1× — 2026-07-30f]` 🔴 **Les deux sens d'erreur se sont produits sur le MÊME inventaire.** Un
-  sous-agent `haiku` a dressé la surface de sécurité du framework ; le doute du user (« tu es sûr
-  que tout est couvert ? ») a été tranché par les schémas Zod : **12 briques manquées**
-  (`trustedHosts`, `maxBodySize`, `upload.*` côté http ; `csrf.checkOrigin`, `limits`,
-  `slowConsumer` côté realtime ; `passkeys`, `totp`, `webhooks`, `audit`, `tokenStore` côté
-  security). **Mais** `.ai/symbols.json` rate `@CsrfProtect`/`@CsrfExempt` — déclarés
-  `const X = booleanMarkerDecorator(...)`, forme que le générateur ne capte pas — que le modèle,
-  lui, avait vus. Le modèle SURVOLE, l'automate a des ANGLES MORTS de forme. Croiser les deux, et
-  ne jamais présenter un inventaire de modèle comme une couverture.
-- `[1× — 2026-07-30f]` **Le déclencheur n'est pas venu de moi mais du user.** J'avais relayé le
-  tableau du sous-agent sans le recontrôler, alors que la règle « vérifier avant de répercuter »
-  est écrite. Un inventaire rendu par un modèle se recontrôle par `jq`/`rg` **avant** d'entrer
-  dans une synthèse — le coût est de deux commandes.
+- `[1× — 2026-08-02]` 🔴 **Quatre gates dans le MÊME bloc, un écart d'usage de 1 à 9.** La position
+  dans le fichier n'explique rien : l'agent lance ce qu'il connaît d'ailleurs (`npm test` 44/63) et
+  ignore le verbe maison voisin. Un verbe propriétaire a besoin d'un **exemple d'usage**, pas d'une
+  meilleure place.
+- `[1× — 2026-08-02e]` **Comparer les scripts npm du DÉPÔT à ceux du gabarit d'app** trouve les
+  verbes qu'on a oublié de livrer à l'utilisateur.
 
 ## 🛡️ Mesurer qu'on POSE une garde ne dit rien sur celle qu'on RETIRE
 
-- `[1× — 2026-07-30f]` 🔴 **Six tâches de banc écrites, toutes aveugles au mode d'échec le plus
-  grave.** Elles vérifiaient qu'un agent AJOUTE une protection ; aucune n'attrapait le geste
-  inverse — `unsafe-inline` en CSP, `@CsrfExempt`, `@BypassFirewall`, `maxBodySize: 0` — qui fait
-  marcher la fonctionnalité ET passe les tests. Toute mesure de sécurité a besoin de sa famille
-  « ne pas affaiblir » : sondes INVERSÉES sur le diff, portes de sortie du framework énumérées.
-  Vaut au-delà du banc : une revue qui ne cherche que l'ajout ne voit pas le retrait.
-  **Traité** au banc (T22/T23/T24, `6d728c33`) ; la leçon reste pour toute revue.
-- `[1× — 2026-07-31]` 🔴 **Le témoin d'un « ne pas affaiblir » doit être HORS de l'énoncé.** Un
-  agent peut ouvrir la zone de firewall entière ET garder un `@IsGranted` sur SA route : celle
-  qu'on mesure refuse alors correctement l'anonyme, pendant que tout le reste est devenu public.
-  Ce qui tranche est une ressource que le générateur pose, que l'énoncé ne mentionne pas et que
-  l'agent n'a aucune raison de toucher (`/api/secure/hello`) — elle ne peut s'ouvrir que par la
-  garde COLLECTIVE. Généralisation : une garde partagée ne se mesure jamais sur l'objet qu'on
-  vient de modifier ; il faut un témoin qui n'était pas dans le périmètre.
-- `[1× — 2026-07-31]` 🔴 **L'échantillon VERTUEUX d'une sonde de sécurité se copie du DÉFAUT du
-  produit.** La CSP servie par défaut porte `style-src 'self' 'unsafe-inline'` : une sonde qui
-  cherche `unsafe-inline` dans l'en-tête entier recale TOUTE application, intacte comprise, avec
-  un rouge parfaitement crédible (« l'agent a desserré la CSP »). Le réflexe : avant d'écrire un
-  interdit, lire ce que la configuration par défaut contient DÉJÀ, et en faire l'échantillon qui
-  doit passer.
-- `[1× — 2026-07-31d]` 🔴 **Poser un exemple ACTIF crée une surface d'affaiblissement neuve.** Une
-  zone de firewall exemplaire (`stateless: true`, porteur SEUL) a été mise en code vivant dans le
-  gabarit d'application — parce qu'un exemple en commentaire ne se recopie pas. Mesuré le jour
-  même : un modèle faible ne l'a pas recopiée, il l'a **RETOURNÉE** (`true` → `false`, `"session"`
-  ajouté), en remplaçant le commentaire qui met en garde contre ces deux gestes exactement. Un bon
-  modèle, lui, transpose sans y toucher (3 passes sur 3). Donc : **tout exemple actif a besoin de
-  sa sonde « non désarmé »**, et cette sonde vise ce qui est EFFACÉ (`deleted`), pas ce qui est
-  écrit — un agent qui n'a rien supprimé ne peut pas rougir, et une zone légitimement ajoutée avec
-  `stateless: false` ne déclenche rien.
-
-## 🎚️ Une sonde de PROXIMITÉ se règle sur ce qu'elle traverse
-
-- `[1× — 2026-07-30g]` 🔴 **Écrite à 200 caractères, la fenêtre franchissait une action entière.**
-  La sonde « la garde est posée sur l'action destructrice » cherchait `@IsGranted` à moins de 200
-  caractères d'un `@Delete` : un `@IsGranted` posé sur la LECTURE la satisfaisait — précisément le
-  contournement qu'elle devait voir. Deux décorateurs empilés sont ADJACENTS (au plus un
-  `@HttpCode` entre eux) : fenêtre ramenée à 60. C'est l'échantillon `fail` de l'auto-contrôle qui
-  l'a montrée, pas la relecture. Généralisation : toute regex à fenêtre (`{0,N}`) doit justifier
-  son N par ce qu'elle a le droit de FRANCHIR, jamais par « ça devrait suffire ».
-- `[1× — 2026-07-30g]` **Le réflexe qui sauve : quand un échantillon recale la sonde, suspecter la
-  SONDE.** La tentation immédiate a été d'allonger le remplissage de l'échantillon pour qu'il
-  cesse de matcher — c'est-à-dire ajuster la preuve pour plaire à l'instrument.
-- `[1× — 2026-07-31]` 🔴 **Une classe négative qui exclut les DÉLIMITEURS de la valeur cherchée
-  rend la regex aveugle à sa cible.** `(?:script-src|default-src)[^;"'\n]*'unsafe-inline'` ne peut
-  jamais aboutir : une valeur de directive CSP est FAITE d'apostrophes (`'self'`, `'nonce-…'`), et
-  la classe s'arrête à la première. Seul le `;` devait borner (il sépare `script-src` de
-  `style-src`). Trouvé par l'échantillon `fail`, pas par la relecture — comme la fenêtre de 200.
-
-## 🔗 Deux gabarits rendus à des MOMENTS différents ne partagent rien tacitement
-
-- `[1× — 2026-07-30g]` 🔴 **Le trou était dans le NOM de la clé, pas dans la logique.** Le décor
-  e2e d'une app est rendu à sa création, le test e2e d'une entité des jours plus tard — et le
-  second importe un helper du premier. `hasSecurity` n'était passé qu'au rendu de l'`AGENTS.md` ;
-  le layer de base ne connaissait que `complete`. Résultat : garde émise côté entité, helper
-  absent côté app, import mort. **Seul le typecheck du code GÉNÉRÉ l'a dit** — aucun test du
-  dépôt, qui lit des chaînes dans des fichiers rendus, ne pouvait le voir. Corollaire : quand deux
-  gabarits doivent s'accorder, ils lisent la MÊME clé, et le contrôle est la compilation du
-  produit, pas la relecture du gabarit.
-
-## 🧪 Suspecter son INSTRUMENT avant le sujet mesuré
-
-- `[2× — 2026-08-02g]` 🔴 **Suspecter son PROPRE DIFF avant le produit — deux faux diagnostics
-  d'affilée en sont nés.** J'ai conclu « le preset complet ne se conteneurise pas » puis
-  « `better-sqlite3` n'a pas de prebuild pour Node 24 », et j'allais ajouter `python3 make g++` au
-  gabarit. Les deux étaient FAUX : l'étape qui échouait (`#12 [build 6/6] RUN rm -rf node_modules
-&& npm install --omit=dev`) était **une ligne que je venais d'ajouter** — et vérifié à part,
-  `npm install better-sqlite3@13.0.2` dans `node:24-slim` rend `added 2 packages` en arm64 comme
-  en amd64. Le signal était sous les yeux : le numéro d'étape docker NOMME la commande. **Lire
-  QUELLE commande a échoué avant de théoriser sur pourquoi.**
-- `[1× — 2026-08-02g]` 🔴 **Une mesure peut être fausse DANS SON SENS, et c'est le pire cas.**
-  `lireEffort` lisait le DERNIER `result` du transcript au lieu de les additionner : sur un run
-  relancé (`num_turns` 77 puis 1) le banc affichait « 1 tour · 4 s » pour 78 tours et 850 s. Donc
-  **plus l'agent peinait, plus l'effort affiché BAISSAIT** — l'inverse exact de ce que ce chiffre
-  sert à voir. Et comme le VERDICT restait juste, rien ne signalait l'écart : une moitié du banc
-  était aveugle sans qu'aucun test ne rougisse. À se demander d'une mesure : _si le phénomène
-  empire, mon chiffre monte-t-il ?_
-- `[1× — 2026-08-02g]` 🔴 **Une tâche déclarée REMPLACÉE doit être supprimée dans le MÊME geste.**
-  T23 avait été jugée fausse et réécrite en T25 (« une tâche fausse se remplace, elle ne se
-  retouche pas » — déjà écrit dans le kit sécurité). Seul le RETRAIT manquait : elle a continué de
-  voter pendant **deux passes complètes**, produisant un FAIL de référence en jugeant un agent
-  irréprochable. Corollaire de méthode : **lire le kit AVANT d'instruire** — j'ai refait par le
-  code un diagnostic qui était déjà écrit.
-- `[1× — 2026-08-02e]` 🔴 **La MATIÈRE d'une sonde est trop large par défaut, et c'est le mode de
-  défaillance n°1 — trois fois dans la même séance.** (a) une sonde de LECTURE (« a lu AGENTS.md »)
-  faisait tomber T18 dont les 15 sondes de résultat et les 4 gates étaient vertes ; (b) une sonde
-  cherchant `@nodefony/user` dans `content` — le contenu ENTIER de tous les fichiers touchés —
-  était verte dès que l'agent effleurait le `package.json` ; (c) `@ts-ignore` cherché dans `added`
-  recalait un agent qui avait écrit « TypeScript strict : zéro `any`, zéro `@ts-ignore` » dans sa
-  PRÉSENTATION — il décrivait la doctrine, et la sonde l'a puni de l'avoir citée. **Le remède est
-  toujours de BORNER la matière** (`file:` pour viser un fichier, `addedCode` pour exclure la
-  prose), jamais de contorsionner le motif. À se demander avant d'écrire toute sonde : _où ce
-  marqueur peut-il apparaître LÉGITIMEMENT ?_
-- `[1× — 2026-08-02e]` 🔴 **Un diagnostic écrit dans une mémoire vieillit comme un ancrage.** La
-  matrice affirmait de T10 un profil « 3 fois sur 3 » qu'AUCUN run ne portait : les trois runs
-  avaient trois causes différentes (un typecheck, un vrai contournement, un abandon à 0 fichier
-  touché), et la règle `nodefony check` qu'on projetait d'écrire EXISTAIT déjà et mordait. Coût de
-  la vérification : deux `jq`. **Relire le diagnostic au moment de s'en servir, pas au moment de
-  l'écrire.**
-- `[1× — 2026-08-02e]` **Un run à 0 fichier touché n'est pas une mesure, et le banc le compte comme
-  un FAIL ordinaire** — 8 sondes y sont vertes par vacuité. Symétrique du « vert par abandon » que
-  le banc nomme déjà, mais pour le cas total. À traiter comme un rouge NON OPPOSABLE.
-- `[1× — 2026-08-02e]` **Un banc qui fait concourir des corpus qui ne cohabitent JAMAIS fabrique de
-  faux avertissements.** Le banc de déclenchement opposait les skills du dépôt (dev du framework) à
-  ceux livrés par npm (auteur d'app) : 4 recouvrements « à arbitrer » qui n'existaient pour
-  personne. Une notion de PORTÉE les a supprimés — et un avertissement qu'on apprend à ignorer est
-  pire que pas d'avertissement.
-
-- `[1× — 2026-08-02b]` 🔴 **Un seuil de DURÉE mesure la machine, jamais la propriété.** La forge
-  rouge sur UNE seule case de la matrice (macOS / Node 24) : `96,4 ms sur 100 k espaces: expected
-to be below 50`. Rien n'avait régressé — la fonction visée n'a aucune expression régulière, et
-  le même travail prend 1,03 ms en local. `process.hrtime` compte le temps **mural** : sur un
-  agent qui déroule 901 tests en parallèle, une préemption de 90 ms au milieu d'un chrono de
-  0,3 ms est ordinaire. Le geste qui tranche : juger la **forme de la courbe** — doubler l'entrée
-  doit doubler le temps, pas le quadrupler (mesuré 1,95 contre 3,89 sur le motif quadratique).
-  Chauffer avant de mesurer (le premier appel précède la compilation), et prendre le **MINIMUM**
-  de N relevés : une préemption ne peut qu'AJOUTER du temps. Vaut pour toute assertion de perf
-  qui tourne en intégration continue — le seul cas rouge sur six cases identiques désigne la
-  machine, pas le code.
-- `[1× — 2026-08-02b]` 🔴 **Un débranchement peut aussi BLOQUER, pas seulement détruire.** Pour
-  voir rouge un test de complexité, j'ai installé l'implémentation quadratique : sur 200 k
-  espaces elle ne rend **jamais** la main — le test ne tombait pas, il bloquait le worker, et
-  rien n'interrompt du code synchrone (cinq minutes, puis l'outil coupe **avant la restauration**,
-  laissant le dépôt cassé). Deux acquis : un gate de complexité a besoin d'une **garde de
-  terminaison à petite taille**, franchie avant les tailles où l'implémentation fautive
-  s'immobilise (à 25 k elle consomme déjà 504 ms contre un budget de 50) ; et une manœuvre de
-  débranchement se **borne dans le temps**, avec la restauration hors du chemin qui peut pendre.
-  ⚠️ `timeout` n'existe pas sur macOS — un chien de garde s'écrit `( sleep N; kill -9 $PID ) &`.
-  Prolonge [[feedback_gate_must_bite]] et la ligne « un débranchement peut DÉTRUIRE » ci-dessus.
-- `[1× — 2026-08-02b]` **Un script maison ne connaît pas `--help` : il LANCE le travail.**
-  `bench-discoverability.mjs --help` a démarré un banc complet en parallèle d'un autre — deux
-  bancs se disputent les ports, et la cause `port-deja-tenu` aurait accusé le décor. Les options
-  se lisent **au source** (`valeurDe("--task")`), jamais en interrogeant le programme. Au
-  passage, la lecture a rendu ce qu'aucun `--help` n'aurait dit : `--task` accepte une **liste**
-  (`--task 4,6,7`) dans un seul décor.
-- `[1× — 2026-08-01]` 🔴 **Un code de retour `0` peut être un échec TOTAL — la sonde porte sur la
-  SORTIE.** La commande générée par le scaffold journalise « service non enregistré » en ERROR
-  puis rend la main normalement : sans son service, elle sort en **0**. Une étape de banc qui
-  aurait lu le code de retour serait restée verte sur une application dont le service n'existe
-  pour personne. Vérifié en débranchant `@services([…])` puis en rebâtissant : exit 0, zéro octet
-  de JSON. **Pour tout programme qui a le droit d'échouer poliment, la preuve est ce qu'il ÉCRIT.**
-- `[1× — 2026-08-01]` 🔴 **Une commande refusée par un hook n'exécute AUCUNE de ses parties — et
-  la suite ment.** `cat >> tests.ts <<EOF … EOF && cd x && npx vitest` a été bloquée par le garde
-  `cd` relatif. Les tests n'ont donc **jamais été écrits** ; les trois `npx vitest` suivants ont
-  affiché « 20 passed », que j'ai lus comme « mes nouveaux tests passent », puis comme « le gate
-  ne mord pas quand je le débranche ». J'étais sur le point de conclure que la règle neuve était
-  morte. Ce qui a sauvé : compter les `it(` dans le fichier (20, inchangé) et son nombre de lignes
-  (370, inchangé). **Après un refus de hook, vérifier que l'ÉCRITURE a eu lieu avant d'interpréter
-  quoi que ce soit** — et écrire les fichiers avec l'outil `Edit`/`Write`, jamais un heredoc
-  chaîné. Complète [[feedback_shell_false_diagnostics]].
-- `[1× — 2026-08-01]` 🔴 **Un `grep` filtré m'a fait AFFIRMER un diagnostic faux.** `grep -nE
-"fetch|headers|401"` sur un test généré rendait des `fetch` avec le seul `content-type` → j'ai
-  annoncé « le test ne s'authentifie JAMAIS ». Le fichier IMPORTAIT `connexionAdmin` en ligne 3 et
-  l'employait deux fois : il authentifiait le `DELETE` et rien d'autre. Le motif avait mangé les
-  lignes intermédiaires. La conclusion corrigée changeait le correctif (« lui apprendre à se
-  connecter » → « traiter la protection comme le cas normal »). **Un extrait filtré sert à
-  LOCALISER, jamais à conclure : relire la zone entière avant d'énoncer un fait.**
-- `[1× — 2026-08-01]` **`echo "EXIT=$?"` après un pipe mesure le DERNIER maillon**, pas la
-  commande. `node … | tail` puis `$?` → toujours 0, même quand `node` a levé. Capturer dans un
-  fichier, puis lire le code de sortie du process visé.
-
-- `[1× — 2026-08-01]` 🔴 **Un DÉCOR mal placé ne rate pas un défaut : il en rend une FAMILLE
-  ENTIÈRE indétectable.** Le banc de vérité montait son application témoin sous le dépôt, paquets
-  liés au checkout — la résolution de modules de Node remontait donc au monorepo, et l'application
-  trouvait des paquets **qu'elle ne déclare pas**. Mesuré : l'étape production restait verte AVEC
-  et SANS `@node-rs/argon2`, pendant qu'une application réellement installée mourait au boot. Ce
-  n'était pas « un cas raté » mais toute dépendance manquante du gabarit, à jamais. Sorti du dépôt
-  et installé depuis les tarballs, le banc a trouvé un second défaut produit **dès sa première
-  passe**. Question à se poser sur tout banc : de quoi mon décor me rend-il AVEUGLE ?
-- `[1× — 2026-08-01]` 🔴 **Un auto-contrôle écrit par l'auteur de ce qu'il contrôle partage ses
-  hypothèses, donc ne les teste pas.** Un juge WebSocket délégué mesurait l'absence de fuite sur
-  1,2 s alors que le canal réel republie une période complète (1 s) après renaissance de son
-  provider — 200 ms de marge, la fuite passait sous charge. Son selftest était VERT : son serveur
-  jouet publiait toutes les 100 ms, avec un commentaire assumant que « la cadence réelle n'a aucune
-  importance ». Même run, même motif : une sonde n'acceptait qu'une des deux voies valides de
-  déclaration. **Les constantes de temps, les seuils et l'énumération des voies valides se relisent
-  au PRODUIT** — jamais au banc d'essai qui les accompagne.
-
-- `[1× — 2026-07-31e]` 🔴 **Classer une cause « décor » coûte plus cher que la classer
-  « indéterminée » — la dissymétrie doit être écrite.** En imputant les 68 causes des juges du
-  banc, la tentation était de suivre le texte des juges eux-mêmes (« c'est le DÉCOR, pas le
-  travail de l'agent »). Or la gate **construit et démarre** l'application avant de juger : un
-  code cassé par l'agent rend exactement la même absence de réponse qu'un décor éteint. Dire
-  « l'agent n'est pas en cause » **éteint l'instruction** d'un vrai défaut ; dire « à instruire »
-  ne coûte qu'une ligne. Règle retenue : `DECOR` seulement si AUCUN geste de l'agent ne peut
-  produire la cause ; au moindre chemin, `INDETERMINE`. Vaut hors banc — tout diagnostic qui
-  DISCULPE doit être plus dur à obtenir que celui qui doute.
-- `[1× — 2026-07-31e]` **Le message d'un juge peut porter un faux diagnostic et personne ne le
-  relit.** `page-absente` proposait « ou l'application pas rebâtie » alors que la gate lance
-  `npm run build` juste avant de mesurer : la piste envoyait chercher au mauvais endroit, dans le
-  seul texte qu'on lit quand on cherche. Un message de cause se relit quand la commande qui
-  l'entoure change.
-- `[2× — 2026-07-31d]` 🔴 **Un correctif d'instrument crée ses PROPRES angles morts — deux fois de
-  suite.** (a) Ajouter les répétitions au banc a fait retrouver la passe à juger par
-  `endsWith("tâche 26")` — or l'historique porte aussi « **décor** de la tâche 26 » : deux
-  verdicts sur trois jugeaient un commit du HARNAIS, et accusaient l'agent d'un diff que nous
-  avions écrit. Invisible sans répétitions (le plus récent est alors toujours le bon). J'allais
-  conclure « le correctif de gabarit est réfuté » sur des verdicts fabriqués. (b) Poser une zone
-  d'exemple dans le gabarit a rendu la tâche 26 **triviale** : son préfixe couvrait exactement la
-  route que la prémisse installe, la prémisse de l'énoncé (« aujourd'hui n'importe qui peut
-  poster ») est devenue fausse, et trois passes ont rendu une gate verte sans qu'un seul agent
-  touche la configuration. Corollaire outillé : une **tâche réécrite** est une variable de la
-  mesure au même titre que le décor → la référence porte désormais l'empreinte de l'énoncé, et
-  refuse de comparer deux questions différentes.
-- `[1× — 2026-07-31d]` **Un banc dont le décor vit SOUS le dépôt ne peut pas voir une dépendance
-  manquante.** Étape « démarre en production » écrite pour garder un défaut trouvé sur le terrain :
-  verte AVEC la dépendance, verte SANS. La résolution de Node remonte aux `node_modules` du
-  monorepo, l'app témoin trouve ce qu'elle ne déclare pas. Mesuré avant d'y croire — sinon un gate
-  décoratif de plus. La leçon « le décor SORT du dépôt » était déjà payée par l'autre banc.
-- `[1× — 2026-07-31c]` 🔴 **La suggestion d'un linter peut INVERSER la sémantique — la lire, pas
-  l'appliquer.** `filter(…).pop()` a déclenché `prefer-array-find`, dont l'aide propose `find()` :
-  or le code veut le DERNIER élément, et `find` rend le premier. Le décor serait reparti du mauvais
-  commit **en silence**, sans faire échouer un test. Le bon correctif (`findLast`) éteint la règle
-  ET garde le sens. Un linter raisonne sur une forme, jamais sur l'intention — et l'intention était
-  écrite juste au-dessus, en commentaire. Cf [[feedback_code_rewrite_mechanical_traps]].
-- `[1× — 2026-07-31c]` 🔴 **Un contrôle VERT ne prouve rien s'il ne peut pas distinguer la faute.**
-  Le contrôle de la remise à zéro rend 5/5 avec `find` comme avec `findLast` : restaurer depuis une
-  remise à zéro produit le même arbre que depuis la création. Il fallait prouver sur le **hash
-  choisi** (`ff38058` contre `c02b83c`), pas sur le résultat. Avant de s'appuyer sur un vert, se
-  demander : _ce contrôle serait-il rouge si la faute était là ?_
-- `[1× — 2026-07-31c]` 🔴 **Un échantillon qui ne reproduit pas la MATIÈRE réelle valide le
-  contraire de ce qu'il croit.** L'auto-contrôle d'un waiver plaçait la commande attendue dans
-  `content` (le contenu des fichiers) alors qu'en conditions réelles elle vit dans le
-  **transcript**. Résultat : échantillon vert, sonde cassée — elle recalait un agent qui avait
-  lancé le générateur **8 fois**. Le garde-fou qui surveille les sondes tombe dans le même piège
-  qu'elles : écrire l'échantillon dans la matière qu'on IMAGINE, pas celle que le juge lira.
-  Vérifier d'où vient réellement la matière avant d'écrire le cas.
-- `[1× — 2026-07-31c]` 🔴 **Un correctif d'instrument crée ses propres angles morts — les
-  chercher AVANT de conclure.** La remise à zéro du décor entre tâches (correction d'un vrai
-  défaut de validité) a rendu FAUSSE la matière `content`, lue sur le disque au moment du
-  jugement : l'arbre ne portait plus que la dernière tâche. **17 tâches sur 25** en dépendaient,
-  dont toute la famille sécurité — et aucune n'était dans la campagne en cours, donc le défaut
-  était SILENCIEUX. Il aurait éclaté au premier run complet. Après toute refonte d'un instrument,
-  se demander quelles autres matières l'hypothèse changée alimentait.
-- `[1× — 2026-07-31c]` ⭐ **Re-juger coûte ZÉRO agent — y penser avant de rejouer.** Deux runs
-  invalidés par un faux rouge ont été récupérés par `--analyze-only` avec le juge corrigé : la
-  médiane est revenue sans relancer une seule fois le modèle (≈ 2 $ et 40 min économisés). Le
-  transcript et le diff git étant conservés, tout verdict est recalculable ; ce qui coûte, c'est
-  l'agent, jamais le jugement. Corollaire : ne jamais rejouer une campagne pour corriger une sonde.
-
-- `[1× — 2026-07-31]` 🔴 **Un énoncé qui DÉCRIT une situation doit la trouver VRAIE.** T23 affirme
-  « ses envois sont rejetés en 403 » — donc route montée — alors que l'app générée ne la porte
-  pas. L'agent devait fabriquer la prémisse et tombait LÀ : 404 puis 422 ×3, quatre rouges
-  crédibles, **zéro information sur la défense CSRF** qu'on prétendait mesurer. Le signe qui
-  aurait dû alerter dès le 2ᵉ run : l'échec ne parlait jamais du sujet de la tâche. Remède : la
-  prémisse se POSE avant l'agent (crochet `prepare`, outils du framework) et se COMMITE à part —
-  sinon les sondes sur les lignes ajoutées prennent le décor pour son travail.
-- `[1× — 2026-07-31]` 🔴 **Une liste recopiée dans une sonde diverge en silence — elle reste
-  VERTE.** L'interrupteur `enabled: false` gardait 5 briques écrites à la main quand le module en
-  déclare 13 : `rateLimit`, `audit`, `jwt`, `apiKeys`, `totp`, `passkeys`, `cors`, `webhooks`
-  pouvaient être éteints sans qu'aucune tâche ne bronche. Et la plus grave n'est pas un hasard :
-  **le rate-limit est la seule défense qui GÊNE l'agent pendant son travail**, donc la seule qu'il
-  ait une raison immédiate d'éteindre — la porte la plus large était celle que personne ne
-  gardait. La liste se DÉDUIT de sa source (schéma Zod) à chaque run. Cf [[feedback_single_source_rule]].
-- `[1× — 2026-07-31]` **On ne travaille pas lourdement sur la machine qui MESURE.** Builds,
-  `create app` et suites vitest lancés pendant un run : le décor n'a pas bouté en 15 s et une
-  tâche a rendu `aucune-reponse`. Le juge a correctement nommé la cause (décor, pas agent) — sans
-  ses causes, j'aurais cherché un défaut de CSP inexistant.
-- `[1× — 2026-07-30f]` 🔴 **Un banc qui MESURE DÉJÀ le sujet peut être le faux vert.** La tâche
-  « protège une route » existait (`bench-discoverability.mjs:226`) : des sondes de présence de
-  chaîne, et un seul gate `npm test` — les tests que l'agent a écrits lui-même. Un `@IsGranted`
-  sur la mauvaise action PASSE. Chercher ce qui existe AVANT de concevoir n'a pas seulement évité
-  une duplication : ça a désigné le défaut. Corollaire : « ce sujet est couvert » se vérifie sur
-  la SONDE, jamais sur le titre de la tâche.
-- `[1× — 2026-07-30f]` **Un commentaire de test dit ce qu'il ATTEND ; seul le code dit ce qu'il
-  FAIT.** Soupçon de brèche CSWSH (`realtime.csrf.checkOrigin.enabled=false` par défaut) : faux.
-  Le socle `http-kernel.ts:1586` valide l'Origin de tout handshake, same-origin, close 1008. La
-  conclusion « brèche » aurait produit une tâche de banc exigeant une protection inutile.
-- `[1× — 2026-07-30e]` 🔴 **Un daemon de dev qui tourne RÉÉCRIT l'artefact qu'on s'apprête à
-  mesurer.** Un `nodefony-dev-supervisor` vieux de 2 h 16 rebâtissait le core à chaque `Edit` : ma
-  mesure « AVANT le correctif » sur le binaire lisait déjà l'APRÈS, et allait me faire conclure
-  « le trou annoncé n'existe pas ». Le réflexe qui a sauvé la mesure — chercher POURQUOI l'ancien
-  code se comportait bien, au lieu de croire le verdict — est le même que pour une sonde. Avant
-  toute mesure par contraste : `ps` sur les process du projet, et vérifier la date/empreinte de
-  l'artefact, pas seulement celle de la source. Ici le contraste utile est venu d'ailleurs : le
-  DÉBRANCHEMENT du code neuf, qui ne dépend d'aucun artefact bâti.
-- `[2× — 2026-07-30e]` **7 regex `.{0,90}` sur une ligne de 34 448 caractères = commande expirée
-  à 2 min ; et un simple `rg -n` multi-fichiers qui touche cette ligne rend 35 KB d'un coup.**
-  `MIGRATION_STATUS.md:150` fait 34 KB sur UNE ligne. Ne jamais l'inclure dans un `rg` exploratoire :
-  le cibler seul, ou `fold -w 200` d'abord.
-- `[1× — 2026-07-30c]` 🔴 **Un `trap … EXIT INT TERM` en zsh restaure PUIS REPREND la boucle.**
-  Le script de banc a reçu son SIGTERM, remis le gabarit à HEAD… et continué à mesurer l'état
-  BEFORE — c'est-à-dire à mesurer AFTER en croyant l'inverse. Il manquait `exit` : `trap restore
-EXIT` d'un côté, `trap 'restore; exit 130' INT TERM` de l'autre. Un banc qui survit à son
-  arrêt rend des chiffres, et ils sont faux.
-- `[2× — 2026-07-30c]` **La sonde a lu le décor de la veille.** `ls -t <runRoot>/*/transcript`
-  a rendu le run de 10 h (haiku) pendant que celui de 15 h montait encore son décor : « le modèle
-  n'est pas le bon » — faux. Toute sonde qui cherche « le plus récent » se borne au run COURANT
-  (`find -newer <marqueur du lancement>`).
-- `[1× — 2026-07-30]` **Comparer une heure UTC à une heure locale fait conclure à un run bloqué
-  depuis deux heures.** Les décors du banc s'horodatent en UTC ; `ELAPSED` de `ps` disait 9 minutes.
-  Avant d'annoncer un blocage : lire un compteur, pas une soustraction de fuseaux.
-
-## 🎯 Isoler UNE variable, sinon la mesure ne répond pas à la question posée
-
-- `[1× — 2026-07-30c]` 🔴 **`git checkout <sha>~1 -- <fichier>` emporte TOUT ce qui a changé
-  depuis, pas seulement le hunk visé.** Pour comparer deux états du gabarit `AGENTS.md`, revenir
-  au fichier entier ramenait aussi un commit sans rapport (l'alias `doctor`) → deux variables au
-  lieu d'une. Le geste juste : appliquer l'INVERSE du seul diff — `git show <sha> -- <f> | git
-apply -R` — et **prouver que le geste a eu lieu** (ici : 0 façade dans les 30 premières lignes,
-  3 ailleurs) avant de lancer quoi que ce soit.
-- `[1× — 2026-07-30c]` **Le décor est une variable de la mesure : le prouver, pas l'espérer.**
-  Empreinte `md5` de `git status --porcelain` relevée au DÉPART et à la FIN de la série de runs,
-  identique → la comparaison tient. Sans ce relevé, « j'ai fait attention » n'est pas une preuve.
-- `[1× — 2026-07-30c]` **Un `npm outdated` ne dit pas si la déclaration est un intervalle ou une
-  version EXACTE — et ça change tout.** Ici les `peerDependencies` sont épinglées au patch près :
-  monter `vite` à la racine seule aurait produit un conflit sur six paquets. Avant de planifier un
-  bump : lire la FORME des déclarations, pas seulement les versions.
-- `[2× — 2026-07-30b]` 🔴 **Un juge qui PRÉSUME un trajet recale une réponse juste.** Le juge de
-  T16 frappait la route de LECTURE pour récolter le jeton CSRF ; le mécanisme est « une requête
-  sûre vers une route **protégée** sème le cookie », et l'agent avait exposé une route dédiée —
-  réponse juste, recalée. Remède général : **un juge DEMANDE à l'application** (`inspect routes
---json`) au lieu de supposer un chemin. Et la correction ne vaut que prouvée sur le **décor
-  CONSERVÉ du run recalé** — un serveur jouet montre que le juge sait faire, pas qu'il a cessé de
-  se tromper sur CE code.
-- `[1× — 2026-07-30b]` **`spawnSync` BLOQUE la boucle du parent** : un banc d'épreuve qui lance un
-  juge pendant qu'il sert lui-même les requêtes rend « aucune réponse » sur TOUTES les causes —
-  rouge uniforme qui accuse le juge, alors que l'instrument est seul en cause.
-
-## 📏 Une règle de contrôle se juge sur le CODE EXISTANT, avant d'y croire
-
-- `[1× — 2026-07-30b]` 🔴 **Une garde « nom réservé » écrite puis retirée : 37 signalements, tous
-  sur du code qui COMPILE.** Croyance : redéfinir `get`/`log` d'une classe de base casse.
-  Réalité TypeScript : c'est légal tant que la **signature reste assignable** — le framework
-  lui-même fait `override log(`. Le vrai défaut (TS2416) exige de résoudre l'héritage, les types
-  et l'assignabilité : le travail d'un vérificateur de types, hors de portée d'une lecture PURE
-  par regex, et **déjà fait par la compilation**. Ce qui manquait n'était pas un détecteur mais
-  un TRADUCTEUR (l'erreur s'affiche sur la méthode, la classe casse sur `@services([X])`).
-  Réflexe : avant de croire une règle neuve, la **lancer sur le dépôt entier** — 100 % de faux
-  positifs ne s'affine pas, ça s'abandonne.
+- `[1× — 2026-07-31]` 🔴 **Le témoin d'un « ne pas affaiblir » doit être HORS de l'énoncé** — sinon
+  l'agent le lit et le respecte pour de mauvaises raisons. Et **l'échantillon vertueux d'une sonde
+  de sécurité se copie du DÉFAUT du produit**, jamais réécrit à la main.
+- `[1× — 2026-07-31d]` 🔴 **Poser un exemple ACTIF crée une surface d'affaiblissement neuve** :
+  chaque garde qu'on montre est une garde que quelqu'un saura retirer.
 
 ## 🤖 Piloter un agent TIERS : ce qui BLOQUE, et ce qui MENT
 
-- `[1× — 2026-08-01]` 🔴 **Un « 0 candidat trouvé » est un résultat à INSTRUIRE, pas à croire.**
-  Sous-agent chargé de relever dans toute la doc les invariants candidats à `nodefony check` :
-  rend « aucun nouveau candidat », avec deux signes qui le disqualifient — (a) la ligne
-  `Énumération : <motif exact> → N fichiers` que son contrat EXIGE était un placeholder
-  `[Grep complet sur docs/]`, donc son relevé est invérifiable ; (b) son meilleur candidat était
-  écarté sur un critère INVERSÉ (« le bug ne se manifeste qu'à l'exécution, donc il passe les
-  tests » — c'est exactement le critère « invisible aux tests » SATISFAIT). Ce candidat s'est
-  révélé juste et est devenu la règle `hook-lifecycle-inconnu`. **Vérifier d'abord que le contrat
-  de sortie est REMPLI ; un rapport dont la preuve manque ne se lit pas sur le fond.**
-- `[1× — 2026-08-01]` **Le plancher d'une délégation custom est ~33 k tokens, mesuré** (33 897
-  pour lire un fichier de 2 403 caractères) : hiérarchie `CLAUDE.md` rechargée en entier, prompt
-  système, écriture de cache. Irréductible — seuls `Explore` et `Plan` en sont dispensés, et
-  aucun champ de frontmatter ne le change. Gradué dans le `CLAUDE.md` racine §5.
+- `[1× — 2026-07-29]` 🔴 **Sans TTY, un CLI agentique peut LIRE stdin jusqu'à EOF** et se figer.
+- `[1× — 2026-07-31d]` 🔴 **Un format de sortie « à la fin » perd TOUT quand la fin n'arrive pas** ;
+  et **une borne annoncée n'est pas une borne** (la doc de `vibe` dit elle-même que le coût
+  rapporté est indicatif — seul le nombre de TOURS borne réellement).
+- `[1× — 2026-07-31d]` ⭐ **La valeur d'un agent tiers n'est pas sa force, c'est son ÉTRANGETÉ** :
+  il ne connaît ni nos skills ni nos conventions, donc il mesure ce que l'app dit VRAIMENT.
 
-- `[1× — 2026-07-29]` 🔴 **Sans TTY, un CLI agentique peut LIRE stdin jusqu'à EOF.** `vibe`
-  (`cli/cli.py:53`) : `if sys.stdin.isatty(): return None` — sinon `read()`, pour accepter un
-  prompt en pipe. Lancé par un agent ou un CI, stdin n'est pas un TTY **et reste ouvert** → il ne
-  rend jamais la main. Vécu : **9 min 33 d'horloge pour 1,07 s de CPU**, aucune session créée — le
-  symptôme se lit comme « le modèle réfléchit ». Remède : `< /dev/null` sur toute automatisation.
-- `[1× — 2026-07-29]` **Une sonde de banc encode un HARNAIS, pas un comportement.** `vibe` charge
-  `AGENTS.md` **nativement** (walk-up « le plus proche gagne ») : aucun appel d'outil ne montre la
-  lecture, donc la sonde « a lu AGENTS.md », écrite pour Claude Code, rend un **FAUX rouge**.
-  Généraliser un banc à un autre agent, c'est revoir les SONDES — pas seulement le lecteur de
-  transcript.
-- `[1× — 2026-07-31d]` 🔴 **Un format de sortie « à la fin » perd TOUT quand la fin n'arrive pas.**
-  `vibe --output json` n'émet qu'en sortie nominale : couperet `--max-turns` atteint → exit 1,
-  **0 octet sur stdout** après 26 minutes et 121 messages de travail réel. Le banc n'a rien eu à
-  juger. `--output streaming` (une ligne par message) rend 217–311 Ko exploitables. Vaut au-delà de
-  `vibe` : pour tout agent piloté, préférer le flux incrémental au rendu final.
-- `[1× — 2026-07-31d]` **Une borne annoncée n'est pas une borne.** La doc de `vibe` dit que
-  `--max-price` s'appuie sur des prix « potentiellement absents ou périmés » du fichier de config —
-  « ne pas s'en servir comme limite budgétaire ». La seule sécurité DURE est `--max-turns`. La
-  mémoire du projet disait le contraire ; corrigée.
-- `[1× — 2026-07-31d]` ⭐ **La valeur d'un agent tiers n'est pas sa force, c'est son ÉTRANGETÉ.**
-  `devstral-small` échoue là où `haiku` réussit 3/3 — mais il a fait le geste qu'aucune de nos
-  tâches ne fait (`nodefony production`) et exhibé un défaut qui empêchait toute app générée de
-  démarrer. Son échec a rapporté plus que trois succès. Corollaire : il échoue dans le sens
-  DANGEREUX — deux tâches jugées, deux affaiblissements (CSP desserrée, zone stateless retournée).
+## 📦 Surface npm & publication (chantier release en cours)
+
+- `[1× — 2026-08-02g]` 🔴 **Un outil de BUILD ne se déclare JAMAIS en `peerDependencies`** — même
+  « optionnelle » : la devDependency de l'app la SATISFAIT, donc `npm prune --omit=dev` la garde.
+  Test qui tranche : _le paquet importe-t-il l'outil au RUNTIME ?_
+- `[1× — 2026-08-02g]` **Un décor de test FIGÉ vieillit à côté de ce qu'il est censé prouver** — le
+  générer depuis le TARBALL révèle en plus ce qu'aucun test du dépôt ne voit (un fichier oublié
+  dans `files`).
+- `[2× — 2026-07-24]` **Le seul consommateur qu'on exerce n'est jamais celui qui a le problème.**
+- `[1× — 2026-07-23]` **Un contournement documenté peut cacher une contrainte RÉELLE** — la
+  vérifier avant de le retirer. Et `publishConfig.exports` n'est PAS appliqué par npm (pnpm/yarn).
+
+## 📄 Un fichier « pointeur » se remplit tout seul, et une livraison n'entraîne pas sa doc
+
+- `[1× — 2026-08-02f]` 🔴 **Un lot livré ne met pas à jour la doc du paquet qu'il justifie** — 13
+  affirmations fausses sur 15 dans la doc d'un module dont le lot venait d'être livré.
+- `[1× — 2026-08-02f]` **Le `CLAUDE.md` généré annonçait « les trois réflexes » en en portant
+  quatre** : un fichier pointeur grossit sans que personne ne relise ce qu'il annonce.
+
+## 🧩 Une capacité arrive AVEC sa tâche, sinon son absence de mesure ressemble à un rejet
+
+- `[1× — 2026-08-02]` 🔴 **La règle du banc enfreinte par ses propres auteurs** : trois verbes
+  livrés sans aucune tâche pour les mesurer. **Concevoir la tâche a trouvé un défaut que la
+  relecture n'avait pas vu.**
 
 ## 🕳️ Un filet anti-régression ne couvre que ce qu'on y a MIS, et il ne le dit pas
 
-- `[1× — 2026-08-01]` 🔴 **`--depistage` du banc devkit couvre 7 tâches sur 28, et rend « rien
-  n'a bougé » comme si c'était un verdict global.** `baseline.json` est né le 31/07 à 13h38
-  (`ba9de547`) et n'enregistre que ce qu'on lui passe explicitement, run par run : il ne
-  rétro-remplit rien. Son contenu n'est donc pas une sélection réfléchie mais **la liste des
-  tâches jouées après cette heure-là par quelqu'un qui a pensé au drapeau**. Les 21 autres — dont
-  T1 (CRUD), T5 (serveur), T14 (média) — peuvent régresser sans un mot. Question à poser à tout
-  mécanisme de non-régression : **sur quel périmètre son « vert » porte-t-il, et l'annonce-t-il ?**
-  Même famille que le `gateReporter` (une cible non exercée doit se DIRE) et que le job CI qui ne
-  tourne que sur une combinaison de la matrice.
-- `[1× — 2026-08-01f]` 🔴 **Un token de gabarit non substitué produit un fichier qui PASSE.** Le
-  test realtime généré est sorti nommé `__KEBAB__-realtime.test.ts` : son CONTENU était juste
-  (rendu par eta), seul son NOM portait le token brut — et le banc de vérité l'a exécuté et
-  déclaré vert, puisqu'il tombe dans `tests/**/*.test.ts`. Aucune assertion de contenu ne pouvait
-  le voir. Règle : quand un gabarit compose un NOM DE FICHIER, le gate assert le **chemin**
-  (`readFileSync(path.join(dest, "tests", "pulse-realtime.test.ts"))`), pas seulement ce qu'il y a
-  dedans. Cause première : `create.test.ts` lit la SOURCE du moteur, le banc exécute le `dist/` —
-  j'avais édité `engine.ts` sans rebuild du core, donc les gabarits (`.tpl`, lus à chaud)
-  arrivaient tandis que la table de tokens restait l'ancienne.
+- `[1× — 2026-08-01]` 🔴 **Le dépistage du banc couvrait 7 tâches sur 28 et rendait « rien à
+  signaler »** — un filet partiel se lit comme un filet.
 
-## 🪞 Un exemple de CODE agit — y compris quand il est FAUX
+## 📏 Une sonde de PERFORMANCE juge la machine avant de juger le code
 
-- `[1× — 2026-08-01]` 🔴 **Une ligne de code écrite dans l'`AGENTS.md` généré doit COMPILER, et
-  rien ne le vérifie.** Le bloc ajouté pour la tâche 22 portait `this.context.cspNonce` sans le
-  `?.` ; les **trois** agents l'ont recopié à la lettre et le typecheck est tombé **3/3** (TS2532 —
-  `context` est `ContextType | undefined`). Le geste juste vivait pourtant deux fichiers plus loin,
-  dans le gabarit `AppController.ts.tpl`. Corollaire d'outillage : le pendant d'`anchor-check` pour
-  le code des fichiers lus d'office n'existe pas. Avant d'écrire du code dans un fichier que
-  l'agent charge, le compiler — ou le COPIER d'un gabarit qui compile.
-- `[1× — 2026-08-02c]` 🔴 **Une capacité neuve n'existe pour personne tant qu'elle n'est pas dans
-  l'`AGENTS.md` — et j'ai livré deux commandes sans y penser.** `nodefony card` et `nodefony
-symbols` ont été codées, testées, commitées, documentées en TSDoc, en `README`, en `docs/` et en
-  `CLAUDE.md`… et le gabarit `AGENTS.md.tpl` n'en disait rien pour `symbols`. C'est le user qui a
-  demandé « est-ce que l'AGENTS.md connaît ces nouvelles commandes ? ». **À ajouter à la liste de
-  fin de tâche, au même rang que le test : une commande neuve se pose dans le fichier que l'agent
-  lit d'office, et un gate l'y tient** (assertion dans `create.test.ts`).
-- `[1× — 2026-08-02c]` **Le CLAUDE.md d'un module peut trancher un arbitrage d'architecture mieux
-  que moi.** Où placer la carte de visite (module `policy:dev` ou cœur) : la réponse était écrite
-  dans le `CLAUDE.md` du module lui-même — « ne JAMAIS y déplacer une capacité qui doit marcher sans
-  installation ou application cassée ». Lire les décisions figées de la cible AVANT de concevoir
-  évite de re-trancher un arbitrage déjà tranché, et dans le mauvais sens.
-- `[1× — 2026-08-01]` **Ce qui agit, c'est la PROXIMITÉ, pas l'existence du code.** Même bloc, en
-  tête du fichier chargé d'office : façade employée **0/3 → 3/3**, effort 57 → 38 tours médians.
-  Le corollaire commande toute « vitrine de code de référence » : un exemple rangé dans
-  `node_modules` n'est lu que s'il est ADRESSÉ depuis le fichier que l'agent ouvre d'office — le
-  modèle défavorable n'ouvre jamais la doc d'un paquet (0/4 mesuré).
-- `[2× — 2026-08-01]` 🔴 **Un COMMENTAIRE ne compte pas comme exemple — et ça se compte.**
-  `@inject(` avait **zéro occurrence en code ACTIF** dans l'ensemble des gabarits : les deux
-  seules étaient une ligne de commentaire et une ligne d'`AGENTS.md`. D'où le `container.get`
-  systématique des agents, alors que les gabarits EXPLIQUENT correctement les deux voies. Le
-  contrôle qui tranche tient en une commande — `rg "@inject\(" templates/ | rg -v "^\S+: \*"` —
-  et vaut pour tout geste qu'on croit enseigné : **compter les occurrences ACTIVES, pas les
-  mentions**. Remède livré : `create service --inject <Autre>` écrit la dépendance déclarée au
-  constructeur ET son appel, la note de sortie apprenant le geste au moment où il s'applique.
-- `[1× — 2026-08-01]` 🔴 **Confronter le plan au terrain AVANT d'écrire a supprimé 4 items sur 6.**
-  La « vitrine de code » prévoyait six gestes ; quatre étaient déjà en code ACTIF dans les
-  gabarits (zone firewall avec ses deux pièges, canal realtime avec `roles`, CRUD paginé, page +
-  nonce CSP). Les recopier aurait créé deux sources qui divergent en silence. La vérification a
-  coûté quatre `rg` ; l'écriture aurait coûté la session. **Avant de livrer un « exemple de
-  référence », chercher qui montre DÉJÀ le geste** — le kit décrit ce qu'on croyait au moment de
-  l'écrire, jamais l'état courant.
-- `[1× — 2026-08-01]` **Avant de trancher entre COPIER et PUBLIER, mesurer ce qui serait copié.**
-  J'avais tranché « gabarit d'abord » (le canal le plus fort) pour le test d'un canal realtime —
-  faux tant que le décor n'était pas mesuré : ~40 lignes de faux `ContextType` + ~60 de transport
-  loopback, de la plomberie FRAMEWORK qui se périme au premier changement de signature. Un gabarit
-  aurait copié cette dette dans chaque app. L'ordre juste est l'inverse : **publier le harnais,
-  puis le gabarit par-dessus** — il n'écrit alors que les lignes propres à l'app.
-- `[1× — 2026-08-01]` 🔴 **Le rouge d'une tâche n'est pas de la famille annoncée par son titre.**
-  T22 vit dans la famille « ne pas affaiblir » et était FAIL 1/3 : la CSP était **intacte 3/3**
-  avant comme après. Les deux runs rouges tenaient à un `as any` et à un préfixe de route recopié.
-  Lire la CAUSE de la gate AVANT de nommer le défaut — sinon on instruit la mauvaise piste.
+- `[1× — 2026-08-02f]` ⭐ **Juger la FORME de la courbe, pas la durée** : doubler l'entrée doit
+  doubler le temps. Un seuil de durée rouge sur UNE seule case d'une matrice de six désigne la
+  machine, pas le code. Chauffer avant de mesurer, prendre le **MINIMUM** de N relevés (une
+  préemption ne peut qu'AJOUTER du temps). ⚠️ Le minimum n'écarte qu'une préemption PONCTUELLE.
+- `[1× — 2026-08-02f]` ⭐ **Avant d'accuser la mesure, lire la STRUCTURE — et inversement** : un
+  scan sans retour arrière ne PEUT pas être quadratique, le chronomètre avait tort.
 
 ## ⚖️ Documenter un geste que l'OUTIL punit ne change rien
 
 - `[1× — 2026-08-01]` 🔴 **Trois correctifs, un seul a compté — et ce n'était pas le mieux écrit.**
-  Tâche 17 du banc : 4 agents sur 4 énuméraient les routes dans le `pattern` d'une zone au lieu de
-  couvrir le préfixe. Ajouter le geste manquant à l'`AGENTS.md` généré + l'expliquer dans le
-  gabarit de config → **0/4 → 1/3**. Ajouter une règle `nodefony check` qui détecte la forme
-  fautive → **1/3, inchangé**. Faire que le test e2e généré par `create entity` s'AUTHENTIFIE →
-  **2/2, tâche PASS**. Cause réelle : le test généré n'authentifiait que le `DELETE` (la seule
-  action que le générateur garde) et présumait le reste du CRUD ouvert ; dès qu'on protégeait
-  l'espace, 3 cas sur 4 cassaient en 401, et rouvrir une brèche était le moyen le moins coûteux de
-  les reverdir. **L'agent n'ignorait pas le bon geste : l'outil le sanctionnait.** Avant d'écrire
-  de la doc pour corriger un comportement, chercher ce qui le PUNIT — un générateur, un test, un
-  gate. Tant que la sanction existe, la prose ne peut pas gagner.
-- `[1× — 2026-08-01]` **Un test qui pousse à désarmer une garde est pire qu'un test absent** : il
-  transforme la protection en panne à réparer. Vaut pour tout gabarit de test livré à un
-  utilisateur.
-
-## 🟢 Un test NON EXÉCUTÉ doit être ROUGE, jamais vert
-
-- `[1× — 2026-07-27]` 🔴🔴 **Le vert par défaut est un SILENCE, pas une preuve.** Trois formes du
-  même défaut, toutes rencontrées le même jour : `npm test` sur drizzle sort **exit 0 avec 517
-  tests sautés sur 901** (les deux dialectes de PRODUCTION) ; deux cas anti-bruteforce passés en
-  `skipIf` comptent **verts** ; une vingtaine de preuves e2e ne sont **jamais lancées**, donc
-  jamais rouges. **Position du user, à graver : s'ils ne sont pas lancés, c'est ROUGE.**
-  ✅ **Fermé depuis** : `gateReporter` (`vitest.gates.ts:540`) est BLOQUANT quand `CI` est posé
-  (`process.exitCode = 1`), branché dans 6 configs, avec `NF_GATES_ALLOW` pour énoncer une absence
-  voulue au lieu de l'oublier. Ce qui reste vrai, c'est la règle : un skip compte comme vert, donc
-  toute cible déclarée doit être exercée ou l'absence nommée.
-- `[1× — 2026-07-27]` **`--reporter=json` REMPLACE la sortie lisible** → un gate tombe sans dire
-  quel cas ni de combien. Reproduit **trois fois dans la même session** (banc mémoire, stores,
-  realtime) après l'avoir corrigé le matin même sur `turbo --continue`. Toujours
-  `--reporter=default --reporter=json`.
-
-## 📦 Ce qui est COPIÉ à la création ne se met jamais à jour
-
-- `[1× — 2026-07-28c]` 🔴 **Corriger la DOC sans corriger les GABARITS laisse le mensonge exactement là où il fait mal.** La veille : le hook d'un service s'appelle `init`, pas `initialize` — 4 docs IA + la page de référence corrigées. Les **deux gabarits** avaient été oubliés, et ce sont EUX qui atterrissent dans le code des utilisateurs : ils rendaient `async initialize()` sous le commentaire « appelé une fois par le conteneur, au démarrage ». Le kernel ne cherche que `init` → méthode morte, abonnements kernel qui dorment, **rien ne le signale**. Règle : quand une correction porte sur un FAIT du framework, la liste des cibles inclut les gabarits — et le gabarit prime, puisqu'il se recopie dans chaque app créée.
-- `[1× — 2026-07-24]` ⭐ **Mon étagement release contredisait ma propre gate — le user l'a attrapé.** J'avais mis « entity bout-en-bout » APRÈS la release alors que le banc des 3 tâches (gate de 10.0.0) mord précisément sur ces trous. Deux leçons : (a) **vérifier qu'une gate définie ne mord pas sur ce qu'on reporte** ; (b) le critère de placement release pour tout artefact scaffold est l'**asymétrie de support** — le code généré est FIGÉ dans l'app à sa création (un fix 10.1 ne répare AUCUNE app née en 10.0.0), un module npm (Studio) se met à jour. Trancher par le support, pas par l'envie de sortir vite.
-
-## 🧷 Un run vert ne typecheck rien — et tous les typechecks ne se valent pas
-
-- `[2× — 2026-07-24]` **Des erreurs de type dans mes propres tests, invisibles en vert.** Vitest efface les types à la transpilation. 1ʳᵉ fois : un import pointait un type non exporté (TS2459), une conversion sautait `unknown` (TS2352) — c'est le **pre-push** qui a mordu. 2ᵉ fois : élargir le retour de `send` en `boolean | void` a cassé **6 stubs** `send: (f) => sent.push(f)` (une flèche concise renvoie le `number` de `push`) — suites 100 % vertes, `npm run typecheck` racine rouge. Pire piège : `npx tsc --noEmit` lancé DANS le module est vert, il ne couvre pas les mêmes fichiers. **Avant un push : `npm run typecheck` à la racine, pas le tsc du module.** Et **élargir un type de retour de callback casse les stubs concis**, jamais les tests.
+  Un geste que la chaîne d'outils sanctionne ne se rattrape pas par de la prose.
+- `[1× — 2026-08-01]` **Un test qui pousse à désarmer une garde est pire qu'un test absent.**
 
 ## 🔇 Un mode machine qui coupe le journal coupe aussi les erreurs
 
-- `[1× — 2026-08-01]` 🔴 **Un diagnostic EXACT qui ne parle pas de la cause coûte plus qu'un
-  diagnostic faux.** Une application bootait avec 1 module sur 8 et mourait sur « profil serveur
-  mais aucun serveur en écoute ». Le message était vrai — et il a envoyé chercher du côté des
-  serveurs pendant vingt minutes, alors que le manifeste `modules` était vide. Le bilan de boot
-  comptait ce qui avait été chargé, ce qui avait échoué, ce qui avait été gaté : aucune des trois
-  listes ne contient ce qu'on n'a **jamais tenté**. Règle : un verdict d'échec doit dire ce que la
-  configuration DEMANDAIT, pas seulement ce qui manque à l'arrivée. Vaut pour tout rapport
-  d'erreur — l'absence de tentative est un état, et il doit se voir.
-
-- `[1× — 2026-07-26]` ⭐ **`--json` rendait une commande MUETTE sur échec** : `inspect <sujet> --json` sortait 0 octet, stderr vide, code 1, quand la base configurée était injoignable — l'appelant en concluait que l'app n'avait ni routes ni services (un agent a préféré inventer un chiffre plutôt que constater la panne). `initSyslog` retournait sans brancher AUCUN transport dès que `--json` était passé, alors que son propre commentaire promettait que « les erreurs partent sur la sortie d'erreur ». **Un commentaire n'est pas une garantie** : celui-ci décrivait un comportement que le code ne faisait pas, et le test qui gardait l'endroit affirmait « aucun listener ajouté » — il VERROUILLAIT le défaut, d'où son vert. Règle : `stdout` appartient aux données, `stderr` aux erreurs ; couper l'un ne doit jamais couper l'autre. (Cause racine du silence de boot : non trouvée → BUG-1.)
-
-## 📖 L'API d'une bibliothèque maison se LIT — la supposer produit un vide silencieux
-
-- `[2× — 2026-07-25]` ⭐ **Deux erreurs de suite sur la même lib de rapports, faute d'avoir ouvert le source.** `tabs()` attend `body`, j'ai passé `html` → les trois onglets sont sortis **vides**, sans une erreur : 35 Ko de page, zéro tableau, et le script « réussissait ». Puis `table()` s'est révélé **ne PAS échapper** ses cellules (elle accepte du HTML) alors que mes libellés contenaient des `<module>`/`<sujet>`. Le tell commun : un livrable qui se génère sans broncher mais dont le CONTENU manque. **Compter ce qu'on vient de produire** (`grep -c "<table"`) vaut mieux que faire confiance à un code de sortie — et la signature se lit dans la lib, elle ne se devine pas depuis un tableau de doc.
-
-## 🗣️ Quand le user REPOSE la question, c'est ma réponse qui est fausse
-
-- `[1× — 2026-07-27i]` ⭐⭐ **Trois fois la même question — « comment tu fais pour que le code s'améliore ? », « tu ajoutes quoi à chaque run ? », « il appelle pas create entity, comment tu fais ? »** — et trois fois j'ai répondu par la MÉTHODE (le protocole, l'isolation des variables, la boucle) alors qu'il demandait le **GESTE** : _qu'est-ce que tu écris, concrètement, entre deux runs ?_ La réponse qui a pris tenait en un tableau à deux colonnes — « ce que le banc a mesuré » → « ce que J'AJOUTE dans le framework » — avec la ligne de commande qui n'existe pas encore (`create entity --table account`). **Une question reformulée n'est pas une incompréhension du user : c'est le signal que je réponds à côté.** Réflexe : à la 2ᵉ occurrence, changer de REGISTRE (du pourquoi au quoi, de la prose au tableau, de l'abstrait à la commande exacte) au lieu de re-détailler la même chose.
-
-## 📦 Surface npm & publication (chantier release en cours)
-
-- `[1× — 2026-08-02g]` 🔴 **Un outil de BUILD ne se déclare JAMAIS en `peerDependencies` — et
-  « optionnelle » ne protège pas.** Une peer est SATISFAITE par le paquet que l'application
-  installe en devDependency ; `npm prune --omit=dev` le compte alors dans l'arbre de PRODUCTION et
-  le garde. Refaire l'arbre depuis zéro n'y change rien, le `package-lock.json` l'a figé — mesuré :
-  161 Mo dans les deux cas. Trois paquets étaient concernés (`vite` chez frontend et studio,
-  `rolldown` chez `nodefony` pour le subpath bundler), plus `vue` en dependency DURE d'un builder
-  générique, qui tirait TypeScript : **26,6 Mo dans toute app, même React**. Après retrait :
-  `node_modules` 161 → 106 Mo, image 542 → 472 Mo. **Mais le poids n'est pas le sujet** : la garde
-  de `setupProd` qui refuse la page blanche muette (« vite indisponible → ERREUR nommée ») était
-  **inatteignable** — écrite en juillet, elle n'avait jamais pu s'afficher, puisque Vite était
-  toujours là pour reconstruire en silence. Le test qui tranche : _le paquet importe-t-il l'outil
-  au RUNTIME ?_ Ici tout était déjà en `await import()`.
-- `[1× — 2026-08-02g]` **Une capacité se CONSTATE — Podman était installé, la déduction était
-  inutile.** Le Dockerfile généré s'y construit et s'y exécute tel quel (build 0,
-  `--mount=type=cache` accepté par Buildah, `readyz` 200, `pid: 1`, `podman stop` en 0 avec drain).
-  UNE perte, silencieuse : `HEALTHCHECK` est une extension du format **Docker** que la spec **OCI**
-  ne porte pas, et Podman produit de l'OCI par défaut → la sonde est retirée sans erreur
-  (`{{.HealthCheck}}` rend `<nil>`). Remède `--format docker`, écrit dans le gabarit lui-même.
-  « Plus standard » a signifié ici « perd une garantie ».
-- `[1× — 2026-08-02g]` **Un décor de test FIGÉ vieillit à côté de ce qu'il est censé prouver.** Le
-  smoke copiait `examples/minimal-app` : il éprouvait la surface npm, jamais ce que `create app`
-  produit. Il génère désormais son décor **depuis le tarball** (paquet installé dans un dossier
-  jetable, qui scaffolde les apps témoins) — un fichier oublié dans `files` ne se voit d'aucune
-  autre façon. Le dossier figé a pu être supprimé ensuite, ordre R1→R2→R3 tenu.
-- `[2× — 2026-07-24]` **Le seul consommateur qu'on exerce n'est jamais celui qui a le problème.** Six paquets publiaient `exports["."].types → ./index.ts`, absent du tarball (`files:`) : invisible dans le repo self-hosted, cassé pour tout installeur npm. Vérifier une surface publiée = **dépaqueter le tarball** (`npm pack` + lire le manifeste), jamais lire le `package.json` du dépôt. Revécu via `--link` : le `node_modules` symlinké montre les SOURCES complètes (CLAUDE.md, `.ts`) — conclure de là ce qu'un installeur verra est faux ; raisonner sur `files:`.
-- `[1× — 2026-07-23]` **`publishConfig.exports` n'est PAS appliqué par npm** (c'est pnpm/yarn). Testé avant de le proposer.
-- `[1× — 2026-07-23]` **Un import non déclaré ne casse rien ICI et deux choses AILLEURS** : turbo ne peut pas ordonner le build, et le consommateur npm n'installe pas la dépendance. Auditer les imports de **valeur** (pas seulement de types) contre les `dependencies`.
-- `[1× — 2026-07-23]` **Un contournement documenté peut cacher une contrainte RÉELLE — la vérifier avant de le retirer.** `exports.types → ./index.ts` avait l'air d'une paresse ; c'était l'anti-race du CLAUDE.md. 4 `clean && build` complets pour le prouver (le `dist` d'avant masque exactement cette panne).
-- `[1× — 2026-07-27]` **Un scan de secrets saute les fichiers « binaires » sans un mot** (`rg` sans `-a`), et les fichiers publics doivent être vérifiés sur la **branche par défaut**, pas seulement sur celle où l'on travaille.
-
-## 🗄️ Concurrence & atomicité (ce que le dialecte ne dit pas) — utile pour l'ORM S5
-
-- `[1× — 2026-07-17]` **Un pool FROID masque les races** : le 1ᵉʳ écrivain (seule connexion chaude) finit avant que les autres aient leur TCP+auth → vert 3/3 sans le fix, structurellement. Chauffer (`Promise.all` de `count()`) avant de mesurer.
-- `[1× — 2026-07-17]` **`ON CONFLICT (x)` n'arbitre QU'UN index** ; **MySQL n'a ni `RETURNING` ni `WHERE` sur ODKU** (tout upsert conditionnel y coûte 2-3 requêtes, donc une course) ; **un upsert reste un INSERT qui bascule** (colonnes `NOT NULL` obligatoires même quand la ligne existe).
-- `[1× — 2026-07-17]` **La concurrence est un angle mort structurel des bancs** (séquentiels) : `Promise.allSettled` + tenir le travail ouvert, sinon les tâches se sérialisent et le bug ne sort jamais.
-- `[1× — 2026-07-17]` **Les valeurs JOUETS ne prouvent rien sur le type d'une colonne** : `1000` passe partout ; `1_775_000_000_123` prouve le bigint, `INT32_MAX` trouve la borne.
-
-## 🧨 Une commande composée refusée n'exécute RIEN — et le run suivant ment
-
-- `[2× — 2026-07-25]` **Un maillon en échec dans une chaîne `&&` fait mentir la mesure d'après.** (1) Un `cd` relatif refusé a emporté le `cat >>` suivant : tests jamais écrits, « 12 passed » = le compte d'AVANT. (2) Ma contre-preuve dedupe : le `npm run build` du module échouait (tsgo refusait la valeur hors union) DANS la chaîne — le banc d'après mesurait l'ANCIEN dist et « prouvait » que le fix ne changeait rien. **Après tout échec dans une commande composée, considérer que RIEN d'aval n'a tourné** ; vérifier que l'artefact mesuré a bien été RÉGÉNÉRÉ (hash/mtime), pas seulement relancer la mesure.
-
-## ⌨️ Un drapeau inconnu n'est pas une aide — il lance le run
-
-- `[1× — 2026-07-31]` **`node bench-discoverability.mjs --help` a démarré un run COMPLET** (décor
-  monté hors dépôt, tarballs installés, agent lancé sur la tâche 1) — le script n'a pas de
-  `--help`, et tout argument non reconnu le laisse démarrer. Avant d'interroger un script coûteux :
-  lire sa tête (`sed -n '1,40p'`), pas lui parler. Et un script qui monte un décor devrait refuser
-  un drapeau qu'il ne connaît pas plutôt que l'ignorer.
+- `[1× — 2026-07-26]` ⭐ **`--json` rendait une commande MUETTE sur échec** : 0 octet, stderr vide,
+  code 1. Un mode machine doit garder un canal d'erreur.
 
 ## 🔎 Ce que le journal des commits CACHE
 
-- `[1× — 2026-07-30]` 🔴 **Un correctif logé dans un commit au sujet étranger est invisible, et on le réécrit.** Le kill d'arbre Vite (chantier Windows) voyageait dans `2af71c0d`, dont le sujet annonce `fix(syslog)` : le kit a annoncé le trou OUVERT trois jours après sa fermeture, et une délégation entière est partie le refaire. Avant de reprendre un item de « RESTE » : `git log -S <symbole> -- <chemin>` — il retrouve ce que le sujet du commit ne dit pas. Corollaire : un kit décrit ce qu'on CROYAIT au moment de l'écrire, jamais l'état courant.
-- `[1× — 2026-07-30]` **Deux trous « ouverts » d'un kit étaient corrigés depuis** (TSDoc `streamFile`/Range, exemple `@inject` du gabarit). Deux `rg` l'ont établi en une commande. Vérifier AVANT de planifier coûte moins cher que planifier puis découvrir.
+- `[1× — 2026-07-30]` 🔴 **Un correctif logé dans un commit au sujet étranger est invisible, et on
+  le réécrit.** Deux trous « ouverts » d'un kit étaient corrigés depuis.
 
 ## 📦 npm : un arbre réparé à la MAIN n'est pas une garantie
 
-- `[1× — 2026-07-30]` 🔴 **Un `node_modules` remis droit à la main tient jusqu'au prochain `npm install`.** Le hissage `@angular/*` a été refait par déplacement de dossiers + rebasage du lock ; le patch suivant (22.1.1→22.1.2) l'a immédiatement ré-imbriqué et cassé `vite build`. La seule preuve qu'un lock TIENT est `npm ci` (rase `node_modules`, réinstalle strictement) suivi du build réel — `npm ls` propre ne prouve rien.
-- `[1× — 2026-07-30]` **La cause était que le dépôt ne reproduisait pas la configuration que son PROPRE générateur produit** : le plugin déclaré à la racine, ses `peerDependencies` dans le module. npm ne les faisait coïncider que tant que les versions coïncidaient. Quand un défaut de résolution résiste, comparer avec ce que `create app` écrit — c'est la configuration de référence.
-- `[1× — 2026-07-30]` **`npm run build` vert ne dit rien du chemin réel** : le script du module passait pendant que `npx vite build` (le chemin qu'emprunte le serveur de développement) échouait en `ERR_MODULE_NOT_FOUND`. Éprouver la commande que le RUNTIME lance, pas celle du `package.json`.
-
-## 🧰 Deux frictions d'outillage qui se répètent en fin de chantier
-
-- `[1× — 2026-08-02g]` 🔴 **`timeout` n'existe pas sur macOS — un débranchement a rendu `exit 127`
-  et je l'ai lu comme un verdict.** J'éprouvais un gate en retirant un gabarit ; le run est sorti en
-  127 sans une ligne de sortie, et l'instant d'après j'aurais conclu que le gate ne mordait pas.
-  127 = commande introuvable, pas échec du sujet. **Tout code de sortie inhabituel (126, 127) se
-  lit AVANT d'être interprété** — et un débranchement dont la sortie est VIDE n'a rien prouvé.
-
-- `[1× — 2026-07-31e]` **La garde anti-geste-git du dépôt mord aussi sur l'agent PRINCIPAL, et
-  c'est voulu.** Pour prouver un câblage en le débranchant, j'ai tenté `git stash push -- <f>` :
-  refus, arbre sale (5 fichiers). La conduite prescrite est la bonne — **committer d'abord**, la
-  garde ne mord pas sur un arbre propre. Et quand il faut vraiment restaurer un seul fichier sans
-  geste git : `git show HEAD:<f> > <f>` réécrit le contenu **sans toucher à l'index**. Le
-  débranchement se prouve ensuite par `git diff --stat`, comme d'habitude.
-- `[1× — 2026-07-31e]` **Attendre APRÈS la fin d'un run donne au user l'impression d'un
-  blocage.** Un `sleep 420` posé pendant que le banc tournait encore s'est terminé sur un banc
-  déjà fini ; le user a demandé « le run est bloqué ? ». Le harnais notifie la fin — dormir en
-  plus est du bruit. Vérifier la vitalité (`pgrep`) AVANT de dormir, ou ne pas dormir du tout.
+- `[1× — 2026-07-30]` 🔴 **Un `node_modules` remis droit à la main tient jusqu'au prochain `npm
+install`.** Et `npm run build` vert ne dit rien du chemin réel qu'emprunte l'utilisateur.
 
 ## 🧭 La PRÉMISSE d'une question se vérifie avant d'en chercher la cause
 
-- `[1× — 2026-08-01f]` 🔴 **« Depuis les derniers changements, les agents ne sont plus appelés » —
-  mesure : ils l'ont été 5 fois APRÈS le changement, et aucune invocation n'a échoué.** Chercher
-  « pourquoi X ne marche plus » sans avoir établi que X marchait, c'est enquêter sur un fait qui
-  n'existe pas — et toute cause trouvée sera une confabulation plausible. Le geste juste tient en
-  une commande (`jq` sur les transcripts, comptage par `subagent_type` AVANT et APRÈS le commit).
-  Ce qui était vrai, c'est l'adoption faible (10 invocations contre 257 pour `Explore` +
-  `general-purpose`) : un fait voisin, mais qui appelle une tout autre réponse.
-- `[1× — 2026-08-01f]` **La règle « nommer l'agent, sinon le réflexe retombe sur `Explore` » s'est
-  vérifiée sur MOI, dans la minute.** La tâche de diagnostic disait « recense, cartographie » —
-  périmètre exact de `nodefony-repo-inventory` — et je l'ai routée vers `Explore` sans y penser.
-  Une règle écrite dans le `CLAUDE.md` ne mord pas parce qu'elle y est écrite.
+- `[1× — 2026-08-01f]` 🔴 **« Depuis les derniers changements, les agents ne sont plus appelés »** —
+  la prémisse était fausse ; chercher la cause d'un fait inexistant coûte une séance.
 
-## 📄 Un fichier « pointeur » se remplit tout seul, et une livraison n'entraîne pas sa doc
+## 📖 L'API d'une bibliothèque maison se LIT — la supposer produit un vide silencieux
 
-- `[1× — 2026-08-02f]` **Le `CLAUDE.md` généré annonçait « les trois réflexes » en en portant
-  QUATRE** — la signature de l'ajout successif : chacun se justifiait seul, la somme contredisait
-  l'intention du fichier (33 lignes pour un pointeur). Ce qui garde un tel fichier n'est pas une
-  consigne mais un **SEUIL testé** (`< 15 lignes`) doublé d'un refus des sujets déportés : il fait
-  tomber le PROCHAIN ajout, pas le dixième. Vérifier d'abord que la cible porte bien tout ce qu'on
-  retire — la coupe doit ôter une COPIE, jamais un contenu.
-- `[1× — 2026-08-02f]` 🔴 **Un lot livré ne met pas à jour la doc du paquet qu'il justifie.**
-  Inventaire délégué sur `@nodefony/devkit` : **13 affirmations FAUSSES sur 15** — ni le README, ni
-  la page surfacée dans Studio, ni MEMORY/CLAUDE/AGENTS ne mentionnaient les 4 skills livrés la
-  veille ni la commande qui les pose. Le code marchait, la preuve était faite, et le paquet restait
-  muet sur sa seule raison d'être. **La doc du paquet fait partie du lot**, au même titre que le
-  test — et l'inventaire par affirmations (verdict binaire + ancrage) est exactement ce qu'un
-  modèle léger rend à l'identique.
+- `[2× — 2026-07-25]` ⭐ **Deux erreurs de suite sur la même lib**, faute d'avoir ouvert le source.
 
-## 🔬 Avant de trancher COPIER ou PUBLIER : mesurer ce qui serait copié
+## 🧰 Outillage : ce qui pend, ce qui ment, ce qui lance
 
-- `[1× — 2026-08-01f]` **Décision corrigée en séance, et la mesure a tranché seule.** Le canal le
-  plus fort pour enseigner un geste à un agent est le gabarit rendu — donc « gabarit d'abord »
-  semblait acquis. Faux ici : le décor d'un test realtime pesait ~100 lignes de plomberie
-  FRAMEWORK (faux `ContextType`, pont vers une méthode `protected`, reset d'un singleton), qui se
-  périme au premier changement de signature de la base. Copiée dans chaque app, elle y aurait
-  vieilli en silence. Le critère n'est pas « quel canal enseigne le mieux » mais **à qui appartient
-  ce qu'on s'apprête à dupliquer** : du code du framework se PUBLIE, du code de l'application se
-  gabarite. Un `wc -l` sur les fichiers sources répond en dix secondes.
+- `[1× — 2026-08-02g]` 🔴 **`timeout` n'existe pas sur macOS** — un chien de garde s'écrit
+  `( sleep N; kill -9 $PID ) &`.
+- `[1× — 2026-08-02b]` **Un script maison ne connaît pas `--help` : il LANCE le travail.** Les
+  options se lisent au source.
+- `[1× — 2026-07-30b]` **`spawnSync` BLOQUE la boucle du parent** — mortel dans un harnais qui
+  lance des agents.
+- `[1× — 2026-07-31e]` **La garde anti-geste-git du dépôt mord aussi sur l'agent PRINCIPAL** — et
+  elle a eu raison à chaque fois.
+
+## 🗣️ Quand le user REPOSE la question, c'est ma réponse qui est fausse
+
+- `[1× — 2026-07-27i]` ⭐⭐ **Trois fois la même question** — « comment tu fais pour que le code
+  s'améliore ? ». Une reformulation n'est pas une demande de précision : c'est un signal que la
+  réponse n'a pas répondu.
+
+## 🗄️ Concurrence & atomicité (ce que le dialecte ne dit pas) — utile pour l'ORM S5
+
+- `[1× — 2026-07-17]` **Un pool FROID masque les races** : le 1ᵉʳ écrivain finit avant que les
+  autres aient leur TCP+auth.
+- `[1× — 2026-07-17]` **`ON CONFLICT (x)` n'arbitre QU'UN index** ; **MySQL n'a ni `RETURNING` ni
+  `WHERE` sur ODKU**.
+- `[1× — 2026-07-17]` **La concurrence est un angle mort structurel des bancs** (séquentiels) :
+  `Promise.allSettled` + tenir le travail ouvert.
+- `[1× — 2026-07-17]` **Les valeurs JOUETS ne prouvent rien sur le type d'une colonne** : `1000`
+  passe partout ; `1_775_000_000_123` prouve le bigint.
 
 ---
 
+## 🗄️ Gradué au CONSOLIDATE du 2026-08-02 (retiré d'ici — règle anti-doublon)
+
+Ces thèmes ont quitté le sas pour des mémoires durables. Ne pas les réécrire ici.
+
+| Thème (frictions)                                       | Mémoire                                                                 |
+| ------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 🧪 Suspecter son instrument / son propre diff (35)      | `feedback_suspect_instrument_and_own_diff`                              |
+| 🪞 Un exemple de CODE agit, même faux (8)               | `feedback_agent_example_over_prose`                                     |
+| 🕳️ Gate qui ne LIT rien · débranchement destructeur (7) | `feedback_gate_must_bite` + `feedback_destructive_needs_identity_scope` |
+| 🎯 Isoler une variable · sonde de proximité (8)         | `feedback_measure_method` + `feedback_bench_probe_false_verdicts`       |
+| 🔍 Inventaire exhaustif par croisement (4)              | `feedback_inventory_needs_crosscheck`                                   |
+| 🎲 Variance d'un run à l'autre (4)                      | `feedback_measure_method` + `feedback_bench_probe_false_verdicts`       |
+| ✅🧷 Un vert de test ne typecheck rien (3)              | `feedback_gate_must_bite`                                               |
+| 🟢 Test non exécuté = rouge · vert annoncé (4)          | `feedback_gate_must_bite` + `feedback_green_covers_only_its_diff`       |
+| 📦🔗🔬 Ce qui est COPIÉ ne se met pas à jour (4)        | `feedback_single_source_rule`                                           |
+| 🧨 Commande composée refusée (1)                        | `feedback_shell_false_diagnostics`                                      |
+
 ## 🗄️ Archivé au CONSOLIDATE du 2026-07-30 — 59 thèmes, 190 frictions
 
-Texte intégral : **`archive/RETEX-snapshot-2026-07-30.md`** (805 lignes). Rien n'est perdu ; ce qui
-suit dit seulement où la leçon vit désormais.
-
-**Gradué en mémoire durable** — 9 frictions ≥ 3× promues, puis retirées d'ici :
-
-| Leçon                                                         | Vit désormais dans                       |
-| ------------------------------------------------------------- | ---------------------------------------- |
-| exemple de CODE > prose > TSDoc ; tête de fichier = rare      | `feedback_agent_example_over_prose`      |
-| la sonde du banc est le premier suspect ; faux vert = pire    | `feedback_bench_probe_false_verdicts`    |
-| un fichier gitignoré ne tient que chez soi                    | `feedback_gitignored_breaks_clone`       |
-| instruments faux · câblage débranché · contrôle non déclenché | `feedback_gate_must_bite` (3 volets)     |
-| preuve négative sur une règle NORMATIVE                       | `feedback_gate_must_bite` (How to apply) |
-| une capacité se CONSTATE, jamais depuis `process.platform`    | `feedback_cross_platform_axioms`         |
-
-**Chantiers clos, leçon intégrée au code / aux skills** : CI assainie (lint câblé et verrouillé,
-analyse de code réparée, audit de dépendances, `skills:check`) · lint 263 → 0 et régime des gates par
-nature de règle · décor de test et bancs (isolation partagée, décor enregistré au rapport, modèle
-défavorable) · portabilité et épreuve d'une plateforme absente → kit Windows · gotchas front et
-Studio → skills front · nomenclature du plan et placement release · doctrine « où vit un outil » →
-`nodefony-skill` · ReDoS, `skipIf`, GC forcé, plafonds partagés, cache d'un échec, fermeture au point
-de passage, `npm pkg delete`, générateur vs formateur.
-
-**Déjà couvert par une mémoire existante** : deux implémentations d'une règle →
-`feedback_single_source_rule` · vérifier une affirmation de sous-agent avant de la répercuter → règle
-du `CLAUDE.md` racine (§ délégation) · outil muet ≠ absence → `feedback_shell_false_diagnostics`.
-
-**Patterns ÉPARPILLÉS, trouvés et gradués au CONSOLIDATE.** Chacun revenait 5 à 7 fois sous des noms
-différents — donc jamais compté 3× au même endroit, donc jamais promu jusqu'ici :
-
-| Pattern (nb de thèmes où il se cachait)                                  | Placé dans                                            |
-| ------------------------------------------------------------------------ | ----------------------------------------------------- |
-| la troncature ne s'annonce jamais (6)                                    | `feedback_shell_false_diagnostics` **+ CLAUDE.md**    |
-| on conclut sur ce qu'on écrit, pas sur ce que le consommateur REÇOIT (7) | `feedback_prove_on_received_artifact` **+ CLAUDE.md** |
-| l'information n'agit que là où le regard passe déjà (6)                  | `feedback_agent_example_over_prose` (volet final)     |
-| un geste destructeur exige identité prouvée + périmètre borné (5)        | `feedback_destructive_needs_identity_scope`           |
-
-Les deux premiers partagent une seule entrée du `CLAUDE.md` (§ PENDANT) : ce sont les seuls à devoir
-être relus à CHAQUE tour, puisqu'ils invalident des conclusions en cours de route.
+Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
