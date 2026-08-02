@@ -13,7 +13,8 @@
   },
   "files": [
     "dist",
-    "docs"
+    "docs",
+    "skills"
   ],
   "scripts": {
     "build": "rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",

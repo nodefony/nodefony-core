@@ -48,6 +48,7 @@ import Card from "./commands/CardCommand";
 import { runCardCommand } from "../cli/card";
 import Symbols from "./commands/SymbolsCommand";
 import { runSymbolsCommand } from "../cli/symbols";
+import { runAiSyncCommand } from "../cli/aiSync";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import { HelpContext, Command as commanderCommand } from "commander";
@@ -272,6 +273,17 @@ class CliKernel extends Cli {
     // plus — le moment où l'on cherche justement ce que fait une classe.
     if (requested === "symbols") {
       return process.exit(runSymbolsCommand(process.argv));
+    }
+
+    // ─── `ai:sync` : les skills d'agent livrés par les paquets — même famille ──
+    // Elle ne lit et n'écrit que des fichiers. Et surtout, elle DOIT répondre
+    // dans un terminal qui n'a pas posé `NODE_ENV` : portée par une commande du
+    // module `@nodefony/devkit` (`policy: "dev"`), elle n'aurait pas existé là —
+    // le CLI aurait répondu `unknown command`, exactement le défaut qui a fait
+    // remonter `card` dans le cœur. Le CONTENU des skills reste dans les
+    // paquets (il se met à jour par npm) ; seul le VERBE vit ici.
+    if (requested === "ai:sync") {
+      return process.exit(runAiSyncCommand(process.argv));
     }
 
     // ─── Lancement DÉTACHÉ (`<runtime> --detach`) : même famille standalone ────

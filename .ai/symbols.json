@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-02T08:55:29.410Z",
+  "generated": "2026-08-02T09:40:22.408Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 659,
-    "symbols": 2625,
+    "files": 661,
+    "symbols": 2640,
     "classes": 341,
-    "interfaces": 797,
-    "types": 343,
+    "interfaces": 800,
+    "types": 344,
     "enums": 4,
-    "functions": 959,
-    "constants": 181
+    "functions": 969,
+    "constants": 182
   },
   "symbols": {
     "Cli": {
@@ -512,6 +512,113 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Treeshake commun : les externes sont sans effet de bord (équivalent `no-external`) SAUF `reflect-metadata`, dont le side-effect doit survivre."
+    },
+    "readSkillHeader": {
+      "name": "readSkillHeader",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSync.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La première phrase de la `description` d'un `SKILL.md`. Volontairement écrit à la main plutôt que par un analyseur YAML : le cœur ne dépend d'aucune bibliothèque pour lire deux champs, et un `SKILL…"
+    },
+    "discoverSkills": {
+      "name": "discoverSkills",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSync.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Découvre les skills livrés par les paquets installés. Un skill est un DOSSIER portant un `SKILL.md` — c'est la spécification, et c'est le seul critère retenu : ni le nom du paquet, ni un champ maison."
+    },
+    "readExistingPointers": {
+      "name": "readExistingPointers",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSync.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce que le dossier de découverte porte déjà : nom du skill → contenu."
+    },
+    "parseAiSyncArgv": {
+      "name": "parseAiSyncArgv",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSync.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Analyse les arguments de `ai:sync`."
+    },
+    "runAiSyncCommand": {
+      "name": "runAiSyncCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSync.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Commande `nodefony ai:sync` — pose dans le projet les pointeurs vers les skills livrés par les paquets installés. Standalone (0 boot), et il le FAUT : la commande doit répondre dans un terminal qui…"
+    },
+    "IDiscoveredSkill": {
+      "name": "IDiscoveredSkill",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Composition PURE de la synchronisation des skills d'agent. Reçoit un état déjà lu (les skills découverts, ce que le projet porte déjà) et conclut : que poser, que remplacer, que laisser. Aucune lec…"
+    },
+    "IPlannedSkill": {
+      "name": "IPlannedSkill",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le geste décidé pour un skill, prêt à être exécuté ou affiché."
+    },
+    "IAiSyncPlan": {
+      "name": "IAiSyncPlan",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le plan complet, tel qu'il s'affiche et tel qu'il s'exécute."
+    },
+    "SkillAction": {
+      "name": "SkillAction",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'il faut faire d'un skill, une fois comparé à ce que le projet porte."
+    },
+    "renderPointer": {
+      "name": "renderPointer",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le pointeur écrit dans le projet. Il ne COPIE pas le skill : il le désigne. C'est ce qui fait que le contenu se met à jour par `npm update` sans qu'aucun fichier du projet ne soit réécrit — une cop…"
+    },
+    "planSync": {
+      "name": "planSync",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Décide, pour chaque skill découvert, s'il faut poser, remplacer ou ne rien faire — et relève les pointeurs devenus orphelins. Un pointeur déjà identique n'est PAS réécrit : sans cette comparaison, …"
+    },
+    "renderPlan": {
+      "name": "renderPlan",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le plan pour un humain."
+    },
+    "SKILLS_DIR": {
+      "name": "SKILLS_DIR",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le dossier de découverte INTEROPÉRABLE. La spécification Agent Skills ne mandate AUCUN emplacement — elle ne définit que ce qu'un skill contient. La convention qui a émergé pour le partage entre cl…"
     },
     "parseCardArgv": {
       "name": "parseCardArgv",
@@ -20561,6 +20668,7 @@
       ],
       "findProjectRoot": [
         "src/nodefony/src/bin/resolveLocalCli.ts",
+        "src/nodefony/src/cli/aiSync.ts",
         "src/nodefony/src/cli/card.ts",
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/env.ts",
@@ -20574,6 +20682,7 @@
         "src/nodefony/src/bundler/index.ts"
       ],
       "SysExit": [
+        "src/nodefony/src/cli/aiSync.ts",
         "src/nodefony/src/cli/card.ts",
         "src/nodefony/src/cli/completion.ts",
         "src/nodefony/src/cli/create.ts",
@@ -20586,6 +20695,18 @@
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "planSync": [
+        "src/nodefony/src/cli/aiSync.ts"
+      ],
+      "renderPlan": [
+        "src/nodefony/src/cli/aiSync.ts"
+      ],
+      "SKILLS_DIR": [
+        "src/nodefony/src/cli/aiSync.ts"
+      ],
+      "IDiscoveredSkill": [
+        "src/nodefony/src/cli/aiSync.ts"
       ],
       "buildCard": [
         "src/nodefony/src/cli/card.ts",
@@ -21011,6 +21132,9 @@
       "runSymbolsCommand": [
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts"
+      ],
+      "runAiSyncCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "setLogColor": [
         "src/nodefony/src/kernel/Kernel.ts"
