@@ -421,6 +421,75 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         );
       });
     }
+
+    it("pose les pointeurs de skills des paquets installés, AVANT le premier commit", async () => {
+      const dest = path.join(tmp, "skills-app");
+      // Décor : le paquet est DÉJÀ installé — cas réel d'un re-scaffold sur un
+      // dossier qui porte ses node_modules. Sans ce raccourci, prouver le
+      // câblage exigerait un `npm install` réel (une minute et le réseau) pour
+      // une ligne d'orchestration ; la mécanique de découverte, elle, est
+      // éprouvée par `aiSync.test.ts`.
+      const skill = path.join(
+        dest,
+        "node_modules",
+        "@nodefony",
+        "devkit",
+        "skills",
+        "add-crud",
+      );
+      mkdirSync(skill, { recursive: true });
+      writeFileSync(
+        path.join(skill, "SKILL.md"),
+        "---\nname: add-crud\ndescription: Crée une ressource REST complète. Détail ignoré.\n---\n\ncorps\n",
+      );
+      const code = await runCreateCommand(
+        argv(
+          "create",
+          "app",
+          "skills-app",
+          "--dir",
+          dest,
+          "--force",
+          "--no-install",
+          "--no-git",
+        ),
+      );
+      assert.equal(code, SysExit.OK);
+      const pointeur = path.join(
+        dest,
+        ".agents",
+        "skills",
+        "add-crud",
+        "SKILL.md",
+      );
+      assert.isTrue(
+        existsSync(pointeur),
+        "create app n'a posé aucun pointeur — le lot ne sert alors qu'à qui connaît déjà ai:sync",
+      );
+      const contenu = readFileSync(pointeur, "utf8");
+      // Un POINTEUR, pas une copie : il DÉSIGNE la source installée.
+      assert.include(
+        contenu,
+        "node_modules/@nodefony/devkit/skills/add-crud/SKILL.md",
+      );
+      assert.notInclude(contenu, "corps");
+      // Le dossier est fait pour être VERSIONNÉ — un .gitignore qui l'exclurait
+      // le ferait disparaître du premier commit sans qu'on le voie.
+      const ignore = readFileSync(path.join(dest, ".gitignore"), "utf8");
+      assert.notInclude(ignore, ".agents");
+    });
+
+    it("l'AGENTS.md DIT que ces skills existent — une capacité absente d'ici n'existe pour personne", () => {
+      const dest = path.join(tmp, "dk-agents");
+      scaffold(dest, {
+        name: "dkagents",
+        preset: "complete",
+        frontend: "none",
+      });
+      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      assert.include(agents, ".agents/skills/");
+      assert.include(agents, "ai:sync");
+    });
   });
 
   describe("moteur — preset minimal", () => {

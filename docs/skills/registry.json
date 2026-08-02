@@ -464,8 +464,8 @@
       "triggers": [],
       "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\".",
       "cost": {
-        "bodyLines": 943,
-        "approxTokens": 14843
+        "bodyLines": 324,
+        "approxTokens": 5344
       },
       "requires": [
         "serveur UP",
@@ -474,8 +474,12 @@
         "redis"
       ],
       "resources": {
-        "references": [],
-        "referenceFilesTotal": 0,
+        "references": [
+          "banc-decouvrabilite-lecons.md",
+          "banc-schema-etudes-de-cas.md",
+          "methode-de-mesure.md"
+        ],
+        "referenceFilesTotal": 3,
         "scripts": [
           {
             "path": "scripts/bench-discoverability.mjs",
@@ -1251,8 +1255,8 @@
           },
           {
             "key": "corps < 500 lignes",
-            "ok": false,
-            "detail": "943",
+            "ok": true,
+            "detail": "324",
             "advisory": true
           }
         ]
@@ -2098,8 +2102,8 @@
       ],
       "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"quel est l'impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"prouver que c'est plus rapide\".",
       "cost": {
-        "bodyLines": 541,
-        "approxTokens": 8464
+        "bodyLines": 229,
+        "approxTokens": 3566
       },
       "requires": [
         "serveur UP",
@@ -2109,9 +2113,12 @@
       ],
       "resources": {
         "references": [
-          "catalogue.md"
+          "ab-perf-mono-prod.md",
+          "catalogue.md",
+          "protocoles-bancs-charge.md",
+          "reperes-empiriques.md"
         ],
-        "referenceFilesTotal": 1,
+        "referenceFilesTotal": 4,
         "scripts": [
           {
             "path": "scripts/aimd-demo.mjs",
@@ -3157,8 +3164,8 @@
           },
           {
             "key": "corps < 500 lignes",
-            "ok": false,
-            "detail": "541",
+            "ok": true,
+            "detail": "229",
             "advisory": true
           }
         ]

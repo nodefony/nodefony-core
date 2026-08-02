@@ -54,7 +54,7 @@ qui introspecte la config booste jusqu'à `onReady`. Une commande serveur (`deve
 va jusqu'à `onPostReady`, où les serveurs écoutent, puis **reste** en vie.
 
 **Deux familles de commandes.** Les **intégrées** (`development`, `build`, `create`…) sont posées par
-le cœur au démarrage (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:370`). Les **commandes de
+le cœur au démarrage (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:416`). Les **commandes de
 module** (`http:network`, `security:user:add`…) sont ajoutées par chaque module dans son constructeur —
 elles suivent le namespace `<module>:<action>` et empruntent exactement le même chemin.
 
@@ -136,25 +136,28 @@ s'invoque `npx nodefony app:greet Ada`.
 
 ## 🗂️ Les commandes intégrées
 
-Quatorze commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:370`). La
+Seize commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:416`). La
 colonne **arrêt** indique jusqu'où le boot va — `0 boot` = fast-path standalone.
 
-| Commande      | Alias        | Ce qu'elle fait                                                                                                                                                                                                                                                                                          | Arrêt         | Classe                    |
-| ------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------------------- |
-| `development` | `dev`        | Serveur de dev : Vite/HMR + redémarrage auto (`--detach/--wait/--health/--log`)                                                                                                                                                                                                                          | `onPostReady` | `DevCommand.ts:26`        |
-| `production`  | `prod`       | Runtime prod au premier plan ; topologie via `-w, --workers`                                                                                                                                                                                                                                             | `onPostReady` | `ProdCommand.ts:37`       |
-| `cluster`     | —            | Cluster de N workers (cgroup-aware, respawn) — `-w, --workers`                                                                                                                                                                                                                                           | `onPostReady` | `ClusterCommand.ts:36`    |
-| `inspect`     | —            | **L'état RÉEL de l'app** : `routes` · `modules` · `services` · `config` · `stores` · `entities` · `graph`, `--json` — sans ouvrir de port                                                                                                                                                                | `onPostReady` | `InspectCommand.ts:136`   |
-| `build`       | `compile`    | Construit tous les paquets (délègue à `turbo run build`) — `-f/--force`                                                                                                                                                                                                                                  | `onRegister`  | `BuildCommand.ts:16`      |
-| `install`     | —            | `install` sur tous les modules — `-f/--force`                                                                                                                                                                                                                                                            | `onRegister`  | `InstallCommand.ts:9`     |
-| `outdated`    | —            | `outdated` sur tous les modules                                                                                                                                                                                                                                                                          | `onRegister`  | `OutdatedCommand.ts:9`    |
-| `start`       | —            | Menu interactif (TTY)                                                                                                                                                                                                                                                                                    | `onStart`     | `StartCommand.ts:70`      |
-| `check`       | **`doctor`** | **Diagnostic STATIQUE** : paquets importés non déclarés, câblage (entité / controller / service jamais enregistrés, nom réservé, brique manquante), segment `:id` qui répondra 404 — `--json`, `--cwd` ; **remonte à la racine de l'app**, donc lançable depuis n'importe quel sous-dossier (**0 boot**) | `0 boot`      | `CheckCommand.ts:37`      |
-| `env`         | —            | Cascade des `.env`, valeurs effectives et **provenance** de chacune (**0 boot**)                                                                                                                                                                                                                         | `0 boot`      | `EnvCommand.ts:36`        |
-| `status`      | —            | Introspecte les process dev/prod/cluster (**0 boot**)                                                                                                                                                                                                                                                    | `0 boot`      | `StatusCommand.ts:20`     |
-| `stop`        | —            | Arrête proprement les runtimes du projet (**0 boot**) — `--all`                                                                                                                                                                                                                                          | `0 boot`      | `StopCommand.ts:20`       |
-| `completion`  | —            | Script de complétion shell (**0 boot**)                                                                                                                                                                                                                                                                  | `0 boot`      | `CompletionCommand.ts:20` |
-| `create`      | —            | Échafaude projet / module / entité (**0 boot**)                                                                                                                                                                                                                                                          | `0 boot`      | `CreateCommand.ts:19`     |
+| Commande      | Alias         | Ce qu'elle fait                                                                                                                                                                                                                                                                                          | Arrêt         | Classe                    |
+| ------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------------------- |
+| `development` | `dev`         | Serveur de dev : Vite/HMR + redémarrage auto (`--detach/--wait/--health/--log`)                                                                                                                                                                                                                          | `onPostReady` | `DevCommand.ts:26`        |
+| `production`  | `prod`        | Runtime prod au premier plan ; topologie via `-w, --workers`                                                                                                                                                                                                                                             | `onPostReady` | `ProdCommand.ts:37`       |
+| `cluster`     | —             | Cluster de N workers (cgroup-aware, respawn) — `-w, --workers`                                                                                                                                                                                                                                           | `onPostReady` | `ClusterCommand.ts:36`    |
+| `inspect`     | —             | **L'état RÉEL de l'app** : `routes` · `modules` · `services` · `config` · `stores` · `entities` · `graph`, `--json` — sans ouvrir de port                                                                                                                                                                | `onPostReady` | `InspectCommand.ts:136`   |
+| `build`       | `compile`     | Construit tous les paquets (délègue à `turbo run build`) — `-f/--force`                                                                                                                                                                                                                                  | `onRegister`  | `BuildCommand.ts:16`      |
+| `install`     | —             | `install` sur tous les modules — `-f/--force`                                                                                                                                                                                                                                                            | `onRegister`  | `InstallCommand.ts:9`     |
+| `outdated`    | —             | `outdated` sur tous les modules                                                                                                                                                                                                                                                                          | `onRegister`  | `OutdatedCommand.ts:9`    |
+| `start`       | —             | Menu interactif (TTY)                                                                                                                                                                                                                                                                                    | `onStart`     | `StartCommand.ts:70`      |
+| `check`       | **`doctor`**  | **Diagnostic STATIQUE** : paquets importés non déclarés, câblage (entité / controller / service jamais enregistrés, nom réservé, brique manquante), segment `:id` qui répondra 404 — `--json`, `--cwd` ; **remonte à la racine de l'app**, donc lançable depuis n'importe quel sous-dossier (**0 boot**) | `0 boot`      | `CheckCommand.ts:37`      |
+| `env`         | —             | Cascade des `.env`, valeurs effectives et **provenance** de chacune (**0 boot**)                                                                                                                                                                                                                         | `0 boot`      | `EnvCommand.ts:36`        |
+| `status`      | —             | Introspecte les process dev/prod/cluster (**0 boot**)                                                                                                                                                                                                                                                    | `0 boot`      | `StatusCommand.ts:20`     |
+| `stop`        | —             | Arrête proprement les runtimes du projet (**0 boot**) — `--all`                                                                                                                                                                                                                                          | `0 boot`      | `StopCommand.ts:20`       |
+| `completion`  | —             | Script de complétion shell (**0 boot**)                                                                                                                                                                                                                                                                  | `0 boot`      | `CompletionCommand.ts:20` |
+| `create`      | —             | Échafaude projet / module / entité (**0 boot**)                                                                                                                                                                                                                                                          | `0 boot`      | `CreateCommand.ts:19`     |
+| `card`        | `devkit:card` | **Carte de visite** de l'app : identité, modules installés, où aller, quoi lancer — `--json`, `--cwd` (**0 boot**)                                                                                                                                                                                       | `0 boot`      | `CardCommand.ts`          |
+| `symbols`     | —             | Signature et TSDoc d'un symbole du framework, depuis le graphe publié — `--module`, `--json` (**0 boot**)                                                                                                                                                                                                | `0 boot`      | `SymbolsCommand.ts`       |
+| `ai:sync`     | —             | Pose dans `.agents/skills/` les **pointeurs** vers les skills livrés par les paquets installés — `--dry-run`, `--json`, `--cwd` (**0 boot**)                                                                                                                                                             | `0 boot`      | `cli/aiSync.ts`           |
 
 `status` et `stop` sont détournées vers leur exécution réelle **avant** tout boot
 (`CliKernel.ts:185`, via `isStandaloneDevCommand`) — leur `generate()` n'est qu'un filet.
@@ -169,6 +172,20 @@ partirait en dispatch différé, c'est-à-dire en boot.
 > **Deux verbes à retenir, et leur frontière** : `check` (ou `doctor`) est **statique** — il ne lit
 > que des fichiers, donc il fonctionne sur une application cassée. `inspect` est **runtime** — il
 > boote sans serveur et rend ce que l'application est VRAIMENT, pas ce que son code laisse croire.
+
+**`ai:sync` pose des POINTEURS, pas des copies.** Les skills d'agent vivent dans les paquets
+(`node_modules/@nodefony/*/skills/`, et les modules locaux de l'app) ; la commande écrit dans
+`.agents/skills/` un fichier court qui les DÉSIGNE. Le contenu suit donc `npm update` sans qu'aucun
+fichier du projet ne soit réécrit — une copie, elle, mentirait six mois plus tard sans casser le
+build. Le dossier visé est celui que **tous** les clients conformes lisent, pas celui d'un seul.
+
+`nodefony create app` fait ce geste à la création, juste avant le premier commit : les pointeurs
+sont faits pour être **versionnés**, l'équipe et l'intégration continue disposent des mêmes skills.
+Aucun `postinstall` ne l'appelle — `--ignore-scripts` est courant, les scripts d'installation sont
+un vecteur d'attaque connu, et écrire dans un dossier versionné à chaque installation produirait
+des différences surprises. Un pointeur identique n'est jamais réécrit (l'horodatage ne bouge pas) ;
+un pointeur que plus aucun paquet ne livre est **nommé**, jamais supprimé — quelqu'un a pu en
+écrire un à la main sous le même nom.
 
 ### Les commandes de module
 
@@ -185,13 +202,13 @@ sous le namespace `<module>:<action>`. Elles apparaissent dans `--help` comme le
 | `security:user:add` | Crée un utilisateur (`-p`, `-r roles`, `-a` admin)     | `security-user-add.ts:36`    |
 
 > Une commande introuvable rend le code `EX_USAGE` (64) — **jamais** un repli silencieux sur le
-> serveur (`CliKernel.ts:525`).
+> serveur (`CliKernel.ts:573`).
 
 ## 🏗️ Échafauder — `create`
 
 `create` prend un **type** en argument — **sept** (`app | module | controller | service | front |
 entity | command`, `CREATE_TYPES`, `create.ts:43`) — et route vers un moteur de scaffold unique
-(`runCreateCommand()`, `create.ts:459`) :
+(`runCreateCommand()`, `create.ts:503`) :
 
 ```bash
 nodefony create app mon-app --preset complete --frontend react   # nouveau projet
@@ -265,7 +282,7 @@ nodefony completion install zsh       # installation gérée (bloc idempotent da
 
 Au TAB, le script appelle `nodefony __complete` (fast-path 0 boot, sort toujours `OK`). Les
 suggestions viennent d'un **manifeste en cache** écrit au boot de dev (commandes de module comprises,
-`CliKernel.writeCompletionManifest()`, `CliKernel.ts:395`) ; hors projet, le repli est la liste des
+`CliKernel.writeCompletionManifest()`, `CliKernel.ts:443`) ; hors projet, le repli est la liste des
 intégrées en mémoire.
 
 ## 🩺 Codes de sortie

@@ -286,6 +286,15 @@ La config de l'app vit dans `nodefony.config.ts` (modules chargés) et `env.ts`
 (variables d'environnement, seul lecteur de `process.env`) — pointe-les, ne les
 recopie pas.
 
+**Des skills d'agent sont posés dans `.agents/skills/`** — la marche à suivre
+complète pour les tâches courantes (`ls .agents/skills/` les liste ; leur
+description dit quand chacun s'applique). Ce sont des **pointeurs** vers le
+contenu installé dans `node_modules` : ils suivent la version du framework de CE
+projet, et les éditer ne servirait à rien. Si ton outil ne charge que son propre
+dossier de découverte, lis-les à la main — c'est le chemin le plus court vers la
+bonne façade. `npx nodefony ai:sync` les remet à jour après un `npm update`
+(`--dry-run` dit ce qui changerait).
+
 ## Environnement : ne devine JAMAIS, demande
 
 ```bash

@@ -23,6 +23,7 @@ import {
 } from "./scaffold/engine";
 import { diffLines, type IScaffoldChange } from "./scaffold/writer";
 import { askMissing, confirm } from "./scaffold/interactive";
+import { syncSkillPointers } from "./aiSync";
 
 /**
  * Adaptateur CLI du scaffold `nodefony create <type> [name]` — front n°1 et n°2
@@ -425,6 +426,43 @@ function runBuild(dest: string): boolean {
 }
 
 /**
+ * Pose les pointeurs vers les skills d'agent livrés par les paquets installés.
+ *
+ * **Pourquoi ici, et pas par un `postinstall`** : `--ignore-scripts` est courant
+ * (intégration continue, politiques d'entreprise), les scripts d'installation
+ * sont un vecteur d'attaque connu de l'écosystème npm, et écrire dans un dossier
+ * VERSIONNÉ à chaque installation produirait des différences surprises. Le
+ * scaffold pose une fois, `npx nodefony ai:sync` remet à jour quand on le
+ * demande.
+ *
+ * **Pourquoi APRÈS l'install et AVANT le premier commit** : les skills vivent
+ * dans `node_modules`, il n'y a rien à découvrir tant qu'il n'existe pas ; et
+ * ces pointeurs sont faits pour être VERSIONNÉS — l'équipe et l'intégration
+ * continue disposent alors des mêmes skills que celui qui a créé l'app.
+ *
+ * Sans ce geste, le lot ne servirait qu'à celui qui connaît déjà `ai:sync` — or
+ * personne n'apprend un verbe absent.
+ *
+ * @param dest - racine de l'app générée.
+ * @returns la note à afficher. Ne lève JAMAIS : une application entièrement
+ *   générée ne s'annule pas parce qu'un dossier de skills est illisible.
+ */
+function poseSkillPointers(dest: string): string {
+  try {
+    const plan = syncSkillPointers(dest);
+    if (plan.skills.length === 0) {
+      return `aucun skill livré par les paquets installés → npx nodefony ai:sync après un npm install`;
+    }
+    return (
+      `${plan.skills.length} dans ${plan.directory}/ ` +
+      `(${plan.skills.map((s) => s.name).join(", ")}) — commite-les`
+    );
+  } catch (e) {
+    return `non posés (${(e as Error).message}) → npx nodefony ai:sync`;
+  }
+}
+
+/**
  * `git init` + first commit dans l'app générée — SEULEMENT si git est
  * disponible ET que le dossier n'est pas déjà couvert par un repo (une app de
  * banc dans le checkout du framework ne doit pas créer un repo imbriqué).
@@ -651,10 +689,14 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       `⚠ npm run build a échoué — relance-le à la main dans ${relDest}/\n`,
     );
   }
+  // AVANT git : ces pointeurs entrent dans le premier commit, comme le lockfile.
+  process.stdout.write(
+    `\n🤖 skills d'agent : ${poseSkillPointers(result.dest)}\n`,
+  );
   const gitNote = parsed.git
     ? runGitInit(result.dest, String(answers.name))
     : "sauté (--no-git)";
-  process.stdout.write(`\n🌱 git : ${gitNote}\n`);
+  process.stdout.write(`🌱 git : ${gitNote}\n`);
   process.stdout.write(
     `\nProchaines étapes :\n` +
       `  cd ${relDest}\n` +

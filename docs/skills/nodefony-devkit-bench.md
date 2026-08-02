@@ -17,7 +17,7 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **1/1** projet · 💡 **0/1** recommandé (SHOULD) · 🏷️ `v1.3.0`.
+> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **1/1** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.3.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -27,11 +27,11 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 | --- | --- |
 | Version | `1.3.0` |
 | Famille | Autres |
-| Corps | 943 lignes |
-| Coût d'activation | ~14 843 tokens (le corps est chargé à l'invocation) |
+| Corps | 324 lignes |
+| Coût d'activation | ~5 344 tokens (le corps est chargé à l'invocation) |
 | Description | 1016 / 1024 caractères |
 | Déclencheurs | 0 |
-| Ressources `references/` | 0 page(s) |
+| Ressources `references/` | 3 page(s) |
 | Scripts | 6 |
 | Conformité | ✅ conforme au standard |
 
@@ -60,6 +60,18 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 - Interpréter un échec — commencer par le décor
 - Quand les lancer
 - Quand passer la main
+- Références
+
+## Références (chargées à la demande)
+
+Détail déporté hors du corps — chargé seulement quand la tâche l'exige (divulgation progressive).
+
+| Fichier | Ce qu'il couvre | Lignes |
+| --- | --- | --: |
+| `references/banc-decouvrabilite-lecons.md` | Banc de découvrabilité — leçons et études de cas | 558 |
+| `references/banc-schema-etudes-de-cas.md` | Banc de schéma — études de cas | 48 |
+| `references/methode-de-mesure.md` | Méthode de mesure — ce que le banc devkit a appris sur lui-même | 87 |
+
 
 ## Scripts embarqués
 
@@ -102,7 +114,7 @@ node scripts/verify-generated.mjs            # décor ISOLÉ + toutes les étape
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
-| corps < 500 lignes | recommandé | ❌ | 943 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 324 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

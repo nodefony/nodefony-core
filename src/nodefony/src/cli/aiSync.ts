@@ -9,7 +9,7 @@ import path from "node:path";
 import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
 import { planSync, renderPlan, SKILLS_DIR } from "./aiSyncReport";
-import type { IDiscoveredSkill } from "./aiSyncReport";
+import type { IAiSyncPlan, IDiscoveredSkill } from "./aiSyncReport";
 
 const USAGE = `Usage : nodefony ai:sync [--dry-run] [--json] [--cwd <path>]\n`;
 
@@ -179,6 +179,46 @@ export function parseAiSyncArgv(
 }
 
 /**
+ * Pose dans un projet les pointeurs vers les skills livrés par les paquets
+ * installés, et rend le plan de ce qui a été fait.
+ *
+ * C'est le geste ENTIER — découvrir, comparer, écrire — tel que l'exécutent ses
+ * DEUX appelants : la commande `ai:sync` et le scaffold `create app`. Il vit ici
+ * en un seul exemplaire : recopier la boucle d'écriture dans le scaffold aurait
+ * produit deux gestes divergeant au premier réglage (format du pointeur, dossier
+ * visé, condition de réécriture), et chacun aurait passé ses propres tests.
+ *
+ * @param projectRoot - racine de l'application, DÉJÀ résolue (la remontée par
+ *   `findProjectRoot` appartient à l'appelant : le scaffold connaît sa cible,
+ *   la commande doit la chercher).
+ * @param dryRun - `true` pour calculer sans rien écrire.
+ * @returns le plan, qu'il ait été appliqué ou non.
+ */
+export function syncSkillPointers(
+  projectRoot: string,
+  dryRun = false,
+): IAiSyncPlan {
+  const plan = planSync(
+    discoverSkills(projectRoot),
+    readExistingPointers(projectRoot),
+  );
+  if (dryRun) return plan;
+  for (const skill of plan.skills) {
+    // Idempotence : un pointeur déjà identique n'est PAS réécrit. Sans ce
+    // saut, chaque passage réécrirait le même contenu — invisible dans un
+    // diff, mais l'horodatage change, les observateurs de fichiers se
+    // réveillent, et les outils qui suivent le mtime voient un fichier
+    // modifié. Une commande de synchronisation qui salit l'arbre est une
+    // commande qu'on hésite à lancer.
+    if (skill.action === "inchange") continue;
+    const dest = path.join(projectRoot, ...skill.target.split("/"));
+    mkdirSync(path.dirname(dest), { recursive: true });
+    writeFileSync(dest, skill.content, "utf8");
+  }
+  return plan;
+}
+
+/**
  * Commande `nodefony ai:sync` — pose dans le projet les pointeurs vers les
  * skills livrés par les paquets installés.
  *
@@ -212,25 +252,7 @@ export function runAiSyncCommand(argv: string[]): number {
     return SysExit.NOINPUT;
   }
 
-  const plan = planSync(
-    discoverSkills(projectRoot),
-    readExistingPointers(projectRoot),
-  );
-
-  if (!parsed.dryRun) {
-    for (const skill of plan.skills) {
-      // Idempotence : un pointeur déjà identique n'est PAS réécrit. Sans ce
-      // saut, chaque passage réécrirait le même contenu — invisible dans un
-      // diff, mais l'horodatage change, les observateurs de fichiers se
-      // réveillent, et les outils qui suivent le mtime voient un fichier
-      // modifié. Une commande de synchronisation qui salit l'arbre est une
-      // commande qu'on hésite à lancer.
-      if (skill.action === "inchange") continue;
-      const dest = path.join(projectRoot, ...skill.target.split("/"));
-      mkdirSync(path.dirname(dest), { recursive: true });
-      writeFileSync(dest, skill.content, "utf8");
-    }
-  }
+  const plan = syncSkillPointers(projectRoot, parsed.dryRun);
 
   process.stdout.write(
     parsed.json

@@ -180,6 +180,8 @@ Filet d'intégration : `CliIntegration.test.ts` (`RUN_CLI_BOOT=1` pour les boots
 | `Card`       | `devkit:card` | `CardCommand.ts`       | **standalone** — carte de visite de l'app (cf § card)         |
 | `Check`      | `doctor`      | `CheckCommand.ts`      | **standalone** — diagnostic STATIQUE (cf § check)             |
 | `Inspect`    | —             | `InspectCommand.ts`    | état RÉEL de l'app, `onPostReady` sans serveur (cf § inspect) |
+| `Symbols`    | —             | `SymbolsCommand.ts`    | **standalone** — signature + TSDoc depuis le graphe publié    |
+| `ai:sync`    | —             | `cli/aiSync.ts`        | **standalone** — pointeurs de skills (cf § ai:sync)           |
 
 Les commandes de MODULE (`http:network`, `proxy:generate`, `frontend:build`…) passent par le
 dispatch différé de `CliKernel` — happy-path couvert e2e (exit 0, 1 Kernel, 0 serveur).
@@ -347,6 +349,35 @@ n'écoute pour autant : le profil console (`servers: false`) est respecté par `
 > **Deux verbes, une frontière** : `check` est STATIQUE (des fichiers, marche sur une app cassée),
 > `inspect` est RUNTIME (elle boote, sans port). Un agent n'a que ces deux-là à retenir.
 
+## `nodefony ai:sync` — les skills d'agent livrés par les paquets (standalone 0-boot)
+
+`nodefony ai:sync [--dry-run] [--json] [--cwd <path>]` — pose dans `.agents/skills/` un
+**pointeur** par skill trouvé dans les paquets installés (`node_modules/@nodefony/*/skills/`
+**et** les modules locaux `modules/*/skills/` : rien dans la mécanique n'est propre à un paquet,
+et un module tiers doit être servi par la même commande). Standalone pour la raison qui a fait
+remonter `card` au cœur : portée par un module `policy: "dev"`, elle répondrait
+`unknown command` dans un terminal sans `NODE_ENV`.
+
+Architecture en deux morceaux, comme `env` et `card` : `cli/aiSyncReport.ts` = composition **PURE**
+(`planSync` — reçoit les skills découverts et ce que le projet porte déjà, conclut `pose` /
+`remplace` / `inchange` + les orphelins ; `renderPointer`, `renderPlan`) ; `cli/aiSync.ts` =
+adaptateur (découverte disque, écriture, exit codes) et porte **`syncSkillPointers`**, le geste
+entier appelé par ses DEUX consommateurs — la commande et `create app`. Une seule implémentation :
+recopier la boucle d'écriture dans le scaffold aurait produit deux gestes divergeant au premier
+réglage, chacun vert sur ses propres tests.
+
+**Le contenu n'est jamais COPIÉ** — il vit dans le paquet et suit `npm update`. Un skill dont le
+`name` ne correspond pas à son dossier est ÉCARTÉ (les clients l'écarteraient : poser un pointeur
+vers un skill que personne n'activera est pire que rien). Idempotence au sens FORT : un pointeur
+identique n'est pas réécrit, l'horodatage ne bouge pas — une commande de synchronisation qui salit
+l'arbre est une commande qu'on hésite à lancer. Un pointeur orphelin est **nommé**, jamais
+supprimé. Sort en 66 (`EX_NOINPUT`) hors projet.
+
+⚠️ **Aucun `postinstall`**, volontairement : `--ignore-scripts` est courant, les scripts
+d'installation sont un vecteur d'attaque connu de l'écosystème npm, et écrire dans un dossier
+VERSIONNÉ à chaque installation produirait des différences surprises. `create app` pose une fois
+(après l'install, avant le premier commit) ; cette commande remet à jour quand on le demande.
+
 ## Scaffold — `cli/scaffold/` + `cli/create.ts` (3 fronts, UN moteur)
 
 `nodefony create app [name] [--dir <path>] [--force] [--yes] [--preset <complete|minimal>]
@@ -354,7 +385,11 @@ n'écoute pour autant : le profil console (`servers: false`) est respecté par `
 (fast-path `CliKernel.start`, cas nominal HORS projet : `npx nodefony create app`).
 L'app naît **agent-ready** : `AGENTS.md` racine (devise + générateurs + table
 tâche→doc dérivée des deps réelles + gates + zone préservée `<!-- app-notes:start/end -->`)
-avec `CLAUDE.md` pointeur (écrit seulement s'il n'existe pas). Régénération BORNÉE :
+avec `CLAUDE.md` pointeur (écrit seulement s'il n'existe pas), **et les pointeurs de
+skills dans `.agents/skills/`** (`syncSkillPointers`, appelé APRÈS l'install — les skills
+vivent dans `node_modules` — et AVANT `git init`, parce que ces fichiers sont faits pour
+être versionnés). Sans ce geste, le lot ne servirait qu'à qui connaît déjà `ai:sync` :
+personne n'apprend un verbe absent. Régénération BORNÉE :
 `create module` réécrit l'`AGENTS.md` depuis l'état réel (inventaire `modules/*`)
 en réinjectant la seule zone `app-notes` (`renderProjectAgents`/`preserveAppNotes`,
 `engine.ts`). Sans frontend, `GET /` répond (HomeController JSON accueil — avec

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-02T09:40:22.408Z",
+  "generated": "2026-08-02T10:25:29.086Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 661,
-    "symbols": 2640,
+    "symbols": 2642,
     "classes": 341,
     "interfaces": 800,
     "types": 344,
     "enums": 4,
-    "functions": 969,
+    "functions": 971,
     "constants": 182
   },
   "symbols": {
@@ -544,6 +544,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Analyse les arguments de `ai:sync`."
+    },
+    "syncSkillPointers": {
+      "name": "syncSkillPointers",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSync.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Pose dans un projet les pointeurs vers les skills livrés par les paquets installés, et rend le plan de ce qui a été fait. C'est le geste ENTIER — découvrir, comparer, écrire — tel que l'exécutent s…"
     },
     "runAiSyncCommand": {
       "name": "runAiSyncCommand",
@@ -20705,6 +20713,9 @@
       "SKILLS_DIR": [
         "src/nodefony/src/cli/aiSync.ts"
       ],
+      "IAiSyncPlan": [
+        "src/nodefony/src/cli/aiSync.ts"
+      ],
       "IDiscoveredSkill": [
         "src/nodefony/src/cli/aiSync.ts"
       ],
@@ -20783,6 +20794,9 @@
         "src/nodefony/src/cli/create.ts"
       ],
       "confirm": [
+        "src/nodefony/src/cli/create.ts"
+      ],
+      "syncSkillPointers": [
         "src/nodefony/src/cli/create.ts"
       ],
       "envFileOrder": [
