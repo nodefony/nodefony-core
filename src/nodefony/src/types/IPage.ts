@@ -1,8 +1,12 @@
 /**
  * **LE contrat de pagination unique de Nodefony.** Tous les stores, toutes les API
  * (présents et futurs) paginent avec ce type — c'est un standard de développement,
- * jamais une pagination maison au cas par cas. Studio le consomme en pagination
- * **serveur** partout.
+ * jamais une pagination maison au cas par cas.
+ *
+ * Une requête HTTP se traduit en `IPageQuery` par `parsePageQuery(source)` — une
+ * fonction **pure**, agnostique de la provenance (query string aujourd'hui, corps
+ * d'une requête `QUERY` demain). C'est le seul traducteur : un data plane qui
+ * relit `request.query` lui-même refabrique un dialecte.
  *
  * Deux modes, **un seul vocabulaire** :
  * - **offset** (`offset`) — navigation par page directe, pour les backends qui la

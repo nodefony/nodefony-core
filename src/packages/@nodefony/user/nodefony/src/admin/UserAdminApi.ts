@@ -1,3 +1,4 @@
+import { parsePageQuery } from "nodefony";
 import type { Container } from "nodefony";
 import type {
   IAdminApi,
@@ -23,8 +24,6 @@ import {
  * Les garde-fous anti-lockout protègent **ce** rôle (jamais déchoir le dernier).
  */
 const ADMIN_ROLE = "ROLE_NODEFONY_ADMIN";
-const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 200;
 /** Longueur minimale d'un mot de passe self-service (OWASP ASVS V2.1.1 — plancher). */
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -142,18 +141,17 @@ function one(
   return Array.isArray(value) ? value[0] : value;
 }
 
-/** `?limit`/`?offset` bornés (défaut 50, cap dur 200 ; offset ≥ 0). */
+/**
+ * `limit`/`offset` du contrat de page, avec l'`offset` **matérialisé** : cet
+ * endpoint le renvoie dans sa réponse, où l'absence n'a pas de sens. Le
+ * traducteur, lui, laisse `offset` absent quand le client n'en demande pas.
+ */
 function pageParams(query: Readonly<Record<string, string | string[]>>): {
   limit: number;
   offset: number;
 } {
-  const rawLimit = Number.parseInt(one(query, "limit") ?? "", 10);
-  const rawOffset = Number.parseInt(one(query, "offset") ?? "", 10);
-  const limit = Number.isNaN(rawLimit)
-    ? DEFAULT_LIMIT
-    : Math.min(Math.max(rawLimit, 1), MAX_LIMIT);
-  const offset = Number.isNaN(rawOffset) || rawOffset < 0 ? 0 : rawOffset;
-  return { limit, offset };
+  const parsed = parsePageQuery(query);
+  return { limit: parsed.limit, offset: parsed.offset ?? 0 };
 }
 
 /** Vue minimale du journal d'audit security — résolu par nom au runtime. */

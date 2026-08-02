@@ -1,3 +1,4 @@
+import { parsePageQuery } from "nodefony";
 import type { Module, IPage } from "nodefony";
 import type {
   IAdminApi,
@@ -67,9 +68,6 @@ interface SessionsAdmin {
   ): Promise<boolean>;
 }
 
-const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 200;
-
 /** Premier param d'une clé de query (peut être `string | string[]`). */
 function one(
   query: Readonly<Record<string, string | string[]>>,
@@ -80,18 +78,18 @@ function one(
   return Array.isArray(value) ? value[0] : value;
 }
 
-/** `?limit`/`?offset` bornés (défaut 50, cap dur 200 ; offset ≥ 0). */
+/**
+ * `limit`/`offset` du contrat de page, avec l'`offset` **matérialisé** : ces
+ * endpoints le renvoient dans leur réponse, où l'absence n'a pas de sens (le
+ * client lit « page 1 », pas « pas de décalage »). Le traducteur, lui, laisse
+ * `offset` absent quand le client n'en demande pas — c'est le contrat.
+ */
 function pageParams(query: Readonly<Record<string, string | string[]>>): {
   limit: number;
   offset: number;
 } {
-  const rawLimit = Number.parseInt(one(query, "limit") ?? "", 10);
-  const rawOffset = Number.parseInt(one(query, "offset") ?? "", 10);
-  const limit = Number.isNaN(rawLimit)
-    ? DEFAULT_LIMIT
-    : Math.min(Math.max(rawLimit, 1), MAX_LIMIT);
-  const offset = Number.isNaN(rawOffset) || rawOffset < 0 ? 0 : rawOffset;
-  return { limit, offset };
+  const parsed = parsePageQuery(query);
+  return { limit: parsed.limit, offset: parsed.offset ?? 0 };
 }
 
 /**

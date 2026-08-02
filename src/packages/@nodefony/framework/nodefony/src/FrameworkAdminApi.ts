@@ -1,4 +1,10 @@
-import type { IAdminApi, IAdminEndpoint, IAdminDescriptor } from "nodefony";
+import { parsePageQuery } from "nodefony";
+import type {
+  IAdminApi,
+  IAdminEndpoint,
+  IAdminDescriptor,
+  IPage,
+} from "nodefony";
 import Router from "../service/router";
 import type Route from "./Route";
 import type { IAdminBroker } from "../interfaces/IAdminBroker";
@@ -76,6 +82,20 @@ export function createFrameworkAdminApi(
   /** Premier param d'une query (string|string[]). */
   const one = (v: string | string[] | undefined): string | undefined =>
     Array.isArray(v) ? v[0] : v;
+  /**
+   * Colonnes sur lesquelles `routes/page` sait trier — l'allowlist que
+   * `parsePageQuery` fait respecter. Elle a exactement les clés que {@link cell}
+   * sait rendre : un `order` sur autre chose est refusé (400) au lieu de trier
+   * sur une chaîne vide, ce qui rendait l'ordre arbitraire sans le dire.
+   */
+  const SORTABLE_COLUMNS = [
+    "methods",
+    "path",
+    "name",
+    "controller",
+    "module",
+    "firewall",
+  ] as const;
   /** Valeur d'une colonne pour le tri/filtre serveur (clés = colonnes du front). */
   const cell = (r: RouteDump, key: string): string => {
     switch (key) {
@@ -128,20 +148,17 @@ export function createFrameworkAdminApi(
     {
       path: "routes/page",
       summary:
-        "Routes paginées côté SERVEUR — query: page, pageSize, sort, dir, q, filters(JSON)",
-      handler: (request) => {
-        const q = request.query;
-        const page = Math.max(1, parseInt(one(q.page) ?? "1", 10) || 1);
-        const pageSize = Math.min(
-          200,
-          Math.max(1, parseInt(one(q.pageSize) ?? "25", 10) || 25),
-        );
-        const search = (one(q.q) ?? "").trim().toLowerCase();
-        const sortKey = one(q.sort) ?? "";
-        const dir = (one(q.dir) ?? "asc") === "desc" ? -1 : 1;
+        "Routes paginées côté SERVEUR — contrat IPageQuery : ?limit&offset&order=champ:ASC&q, " +
+        "plus filters(JSON) propre au DataGrid. Rend un IPage.",
+      handler: (request): IPage<RouteDump> => {
+        const query = parsePageQuery(request.query, {
+          defaultLimit: 25,
+          sortable: SORTABLE_COLUMNS,
+        });
+        const search = query.q?.toLowerCase() ?? "";
         let filters: { key: string; op: string; value: string }[] = [];
         try {
-          const raw = one(q.filters);
+          const raw = one(request.query.filters);
           if (raw) filters = JSON.parse(raw) as typeof filters;
         } catch {
           filters = [];
@@ -169,13 +186,25 @@ export function createFrameworkAdminApi(
           rows = rows.filter((r) => matchOp(cell(r, f.key), f.op, f.value));
         }
         const total = rows.length;
-        if (sortKey) {
-          rows = [...rows].sort(
-            (a, b) => cell(a, sortKey).localeCompare(cell(b, sortKey)) * dir,
-          );
+        if (query.order?.length) {
+          // Tri multi-champs : le premier couple qui départage l'emporte.
+          const order = query.order;
+          rows = [...rows].sort((a, b) => {
+            for (const [key, dir] of order) {
+              const cmp = cell(a, key).localeCompare(cell(b, key));
+              if (cmp !== 0) return dir === "DESC" ? -cmp : cmp;
+            }
+            return 0;
+          });
         }
-        const start = (page - 1) * pageSize;
-        return { rows: rows.slice(start, start + pageSize), total };
+        const offset = query.offset ?? 0;
+        return {
+          items: rows.slice(offset, offset + query.limit),
+          total,
+          limit: query.limit,
+          offset,
+          hasNext: offset + query.limit < total,
+        };
       },
     },
     {

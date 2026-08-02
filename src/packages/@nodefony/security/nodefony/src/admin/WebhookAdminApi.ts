@@ -1,3 +1,4 @@
+import { parsePageQuery } from "nodefony";
 import type {
   Container,
   IAdminEndpoint,
@@ -148,21 +149,18 @@ function queryOne(
 function parseWebhookListQuery(
   query: Readonly<Record<string, string | string[]>>,
 ): IWebhookListQuery {
-  const rawLimit = Number.parseInt(queryOne(query, "limit") ?? "", 10);
-  const out: IWebhookListQuery = {
-    limit: Number.isFinite(rawLimit)
-      ? Math.min(Math.max(rawLimit, 1), ENDPOINTS_MAX_LIMIT)
-      : ENDPOINTS_DEFAULT_LIMIT,
-  };
-  const rawOffset = Number.parseInt(queryOne(query, "offset") ?? "", 10);
-  if (Number.isFinite(rawOffset) && rawOffset >= 0) out.offset = rawOffset;
+  const page = parsePageQuery(query, {
+    defaultLimit: ENDPOINTS_DEFAULT_LIMIT,
+    maxLimit: ENDPOINTS_MAX_LIMIT,
+  });
+  const out: IWebhookListQuery = { limit: page.limit };
+  if (page.offset !== undefined) out.offset = page.offset;
+  if (page.q !== undefined) out.q = page.q;
   const enabled = queryOne(query, "enabled");
   if (enabled === "true") out.enabled = true;
   else if (enabled === "false") out.enabled = false;
   const event = queryOne(query, "event");
   if (event !== undefined) out.event = event;
-  const q = queryOne(query, "q");
-  if (q !== undefined) out.q = q;
   return out;
 }
 

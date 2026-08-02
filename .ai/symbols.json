@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-02T17:48:00.830Z",
+  "generated": "2026-08-02T21:16:59.554Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 661,
-    "symbols": 2685,
-    "classes": 341,
-    "interfaces": 800,
-    "types": 345,
+    "files": 662,
+    "symbols": 2689,
+    "classes": 342,
+    "interfaces": 801,
+    "types": 346,
     "enums": 4,
-    "functions": 974,
+    "functions": 975,
     "constants": 221
   },
   "symbols": {
@@ -2832,6 +2832,42 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Fait respecter le contrat « un store expose UN seul mode » au point d'entrée d'un `listPage`, sur la requête **brute** reçue de l'appelant (avant qu'elle ne soit normalisée) : rejette explicitement…"
+    },
+    "PageQueryError": {
+      "name": "PageQueryError",
+      "kind": "class",
+      "file": "src/nodefony/src/runtime/pageQuery.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "nodefonyError",
+      "implements": [],
+      "decorators": [],
+      "description": "Erreur d'une requête de page mal formée ou non honorable par le point d'entrée : `order` sur un endpoint qui ne trie pas, champ hors allowlist, sens de tri inconnu. `code = 400` : la faute est au c…"
+    },
+    "IParsePageQueryOptions": {
+      "name": "IParsePageQueryOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/runtime/pageQuery.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réglages d'un point d'entrée paginé : ses bornes et ce qu'il accepte de trier. Les défauts (`50` / `200`) sont ceux que tous les data planes admin du dépôt appliquaient déjà chacun de leur côté — i…"
+    },
+    "PageQuerySource": {
+      "name": "PageQuerySource",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageQuery.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Source d'où extraire une requête de page, **agnostique de sa provenance** : une query string déjà parsée (`?limit=20&offset=40`), le corps JSON d'une requête `QUERY` (RFC 10008), ou tout autre port…"
+    },
+    "parsePageQuery": {
+      "name": "parsePageQuery",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/pageQuery.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "**Le** traducteur d'une requête de page : transforme une source clé→valeur en {@link IPageQuery} borné et validé. Fonction **pure** — aucun accès au kernel, à l'ALS ni à la requête HTTP. Il remplac…"
     },
     "redactSecrets": {
       "name": "redactSecrets",
@@ -18681,6 +18717,7 @@
       ],
       "nodefonyError": [
         "PaginationModeError",
+        "PageQueryError",
         "AccessDeniedError",
         "ApiKeyError",
         "AuthenticationError",
@@ -21740,6 +21777,7 @@
       "nodefonyError": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/runtime/pageGuard.ts",
+        "src/nodefony/src/runtime/pageQuery.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
@@ -21882,6 +21920,7 @@
       ],
       "IPageQuery": [
         "src/nodefony/src/runtime/pageGuard.ts",
+        "src/nodefony/src/runtime/pageQuery.ts",
         "src/nodefony/src/types/IIdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
@@ -21915,6 +21954,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
@@ -23821,6 +23861,13 @@
       ],
       "resolveSymbolsFile": [
         "src/packages/@nodefony/framework/nodefony/src/docsReader.ts"
+      ],
+      "parsePageQuery": [
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "IAdminDescriptor": [
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",

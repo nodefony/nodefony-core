@@ -7,10 +7,13 @@ import { useStore } from "../stores";
 import {
   PageLayout,
   DataGrid,
+  toPageParams,
+  fromPage,
   type DataGridColumn,
   type DataGridServerQuery,
   type DataGridServerResult,
 } from "../components/ui";
+import type { IPage } from "nodefony";
 
 /** Une route telle que sérialisée par `/nodefony/framework/api/routes/page`. */
 interface RouteRow {
@@ -45,19 +48,10 @@ export const RoutesView = observer(() => {
 
   const loader = useCallback(
     async (q: DataGridServerQuery): Promise<DataGridServerResult<RouteRow>> => {
-      const params = new URLSearchParams();
-      params.set("page", String(q.page));
-      params.set("pageSize", String(q.pageSize));
-      if (q.sort) {
-        params.set("sort", q.sort.key);
-        params.set("dir", q.sort.dir);
-      }
-      if (q.search) params.set("q", q.search);
-      if (q.columnFilters.length)
-        params.set("filters", JSON.stringify(q.columnFilters));
-      return store.api.getAbsolute<DataGridServerResult<RouteRow>>(
-        `/nodefony/framework/api/routes/page?${params.toString()}`,
+      const page = await store.api.getAbsolute<IPage<RouteRow>>(
+        `/nodefony/framework/api/routes/page?${toPageParams(q)}`,
       );
+      return fromPage(page);
     },
     [store],
   );

@@ -754,3 +754,116 @@ describe("Admin data plane — mode de pagination invalide → 400", () => {
     expect(r.status, "cas nominal offset intact").to.equal(200);
   });
 });
+
+// ── CONTRAT DE PAGE sur le wire — `routes/page` parle IPageQuery ──────────────
+// Cet endpoint portait le SECOND dialecte de pagination du dépôt
+// (`page`/`pageSize`/`sort`/`dir`, réponse `{rows,total}`) et n'avait AUCUN
+// test. Il consomme désormais `parsePageQuery` et rend un `IPage`, comme tout
+// le reste. Ce banc verrouille les deux bouts de la traduction.
+
+describe("Admin data plane — routes/page parle le contrat IPageQuery", () => {
+  it("rend un IPage (items/limit/offset/hasNext), plus `rows`", async () => {
+    const r = await req(
+      "GET",
+      "/nodefony/framework/api/routes/page?limit=5",
+      auth(),
+    );
+    expect(r.status).to.equal(200);
+    const page = r.body as {
+      items?: unknown[];
+      rows?: unknown[];
+      total?: number;
+      limit?: number;
+      offset?: number;
+      hasNext?: boolean;
+    };
+    expect(page.items, "le contrat nomme la collection `items`").to.be.an(
+      "array",
+    );
+    expect(
+      page.rows,
+      "`rows` était le dialecte — il ne doit plus exister",
+    ).to.equal(undefined);
+    expect(page.items!.length).to.be.at.most(5);
+    expect(page.limit).to.equal(5);
+    expect(page.offset).to.equal(0);
+    expect(page.hasNext, "le dépôt a plus de 5 routes").to.equal(true);
+    expect(page.total).to.be.a("number");
+  });
+
+  it("`offset` décale la fenêtre (deux pages disjointes)", async () => {
+    const first = (
+      await req("GET", "/nodefony/framework/api/routes/page?limit=3", auth())
+    ).body as { items: { name: string }[] };
+    const second = (
+      await req(
+        "GET",
+        "/nodefony/framework/api/routes/page?limit=3&offset=3",
+        auth(),
+      )
+    ).body as { items: { name: string }[] };
+    const firstNames = first.items.map((r) => r.name);
+    for (const row of second.items) {
+      expect(firstNames, "page 2 ne rejoue pas la page 1").to.not.include(
+        row.name,
+      );
+    }
+  });
+
+  it("`order=path:DESC` trie — et l'inverse de `path:ASC`", async () => {
+    const asc = (
+      await req(
+        "GET",
+        "/nodefony/framework/api/routes/page?limit=10&order=path:ASC",
+        auth(),
+      )
+    ).body as { items: { path: string | null }[] };
+    const desc = (
+      await req(
+        "GET",
+        "/nodefony/framework/api/routes/page?limit=10&order=path:DESC",
+        auth(),
+      )
+    ).body as { items: { path: string | null }[] };
+    expect(asc.items[0]?.path).to.not.equal(desc.items[0]?.path);
+    const paths = asc.items.map((r) => r.path ?? "");
+    expect(paths, "ASC = ordre lexicographique croissant").to.deep.equal(
+      [...paths].sort((a, b) => a.localeCompare(b)),
+    );
+  });
+
+  it("un champ de tri HORS allowlist → 400, jamais un tri silencieusement inerte", async () => {
+    const r = await req(
+      "GET",
+      "/nodefony/framework/api/routes/page?order=secretColumn:ASC",
+      auth(),
+    );
+    expect(r.status).to.equal(400);
+    expect(JSON.stringify(r.body)).to.match(/sortable|secretColumn/i);
+  });
+
+  it("`limit` au-delà du cap est ramené, jamais refusé", async () => {
+    const r = await req(
+      "GET",
+      "/nodefony/framework/api/routes/page?limit=99999",
+      auth(),
+    );
+    expect(r.status).to.equal(200);
+    expect((r.body as { limit: number }).limit).to.equal(200);
+  });
+
+  it("`q` filtre, et `total` reflète le filtre (pas le dump entier)", async () => {
+    const all = (
+      await req("GET", "/nodefony/framework/api/routes/page?limit=1", auth())
+    ).body as { total: number };
+    const filtered = (
+      await req(
+        "GET",
+        "/nodefony/framework/api/routes/page?limit=100&q=nodefony",
+        auth(),
+      )
+    ).body as { total: number; items: { path: string | null }[] };
+    expect(filtered.total).to.be.below(all.total);
+    expect(filtered.items.length).to.be.above(0);
+  });
+});

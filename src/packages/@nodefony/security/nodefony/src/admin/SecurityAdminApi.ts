@@ -1,3 +1,4 @@
+import { parsePageQuery } from "nodefony";
 import type { Container, IPage } from "nodefony";
 import type {
   IAdminApi,
@@ -114,17 +115,13 @@ const KEYS_MAX_LIMIT = 200;
 function parseTokenListQuery(
   query: Readonly<Record<string, string | string[]>>,
 ): ITokenListQuery {
-  const rawLimit = intParam(query, "limit");
-  const out: ITokenListQuery = {
-    limit:
-      rawLimit === undefined
-        ? KEYS_DEFAULT_LIMIT
-        : Math.min(Math.max(rawLimit, 1), KEYS_MAX_LIMIT),
-  };
-  const offset = intParam(query, "offset");
-  if (offset !== undefined && offset >= 0) out.offset = offset;
-  const cursor = one(query, "cursor");
-  if (cursor !== undefined) out.cursor = cursor;
+  const page = parsePageQuery(query, {
+    defaultLimit: KEYS_DEFAULT_LIMIT,
+    maxLimit: KEYS_MAX_LIMIT,
+  });
+  const out: ITokenListQuery = { limit: page.limit };
+  if (page.offset !== undefined) out.offset = page.offset;
+  if (page.cursor !== undefined) out.cursor = page.cursor;
   const subjectId = one(query, "subjectId");
   if (subjectId !== undefined) out.subjectId = subjectId;
   const revoked = one(query, "revoked");
@@ -181,9 +178,10 @@ function intParam(
  * gardé `ROLE_NODEFONY_ADMIN`, renvoyer plus large à un admin est sûr) plutôt
  * que de renvoyer une 400 (robustesse de la console).
  *
- * Le `limit` est **toujours posé** (défaut {@link AUDIT_DEFAULT_LIMIT}) : le
- * contrat de page n'admet pas « tout » ; le store applique en plus son propre
- * plafond, l'appelant ne peut donc pas s'en servir pour tirer un journal entier.
+ * Le `limit` est **toujours posé** (défaut {@link AUDIT_DEFAULT_LIMIT}, cap du
+ * traducteur) : le contrat de page n'admet pas « tout » ; le store applique en
+ * plus son propre plafond, l'appelant ne peut donc pas s'en servir pour tirer un
+ * journal entier.
  *
  * @param query - `request.query` du broker admin.
  * @returns filtre prêt pour `auditService.listPage`.
@@ -191,7 +189,13 @@ function intParam(
 export function parseAuditQuery(
   query: Readonly<Record<string, string | string[]>>,
 ): IAuditListQuery {
-  const filter: IAuditListQuery = { limit: AUDIT_DEFAULT_LIMIT };
+  // Le journal d'audit pagine par CURSEUR : on ne retient du contrat de page que
+  // `limit` et `cursor` — pas d'`offset` (il ferait sauter des lignes sous
+  // insertion concurrente), pas de `q` (aucun store d'audit ne le sait, et un
+  // filtre accepté puis ignoré ment au client).
+  const page = parsePageQuery(query, { defaultLimit: AUDIT_DEFAULT_LIMIT });
+  const filter: IAuditListQuery = { limit: page.limit };
+  if (page.cursor !== undefined) filter.cursor = page.cursor;
   const category = one(query, "category");
   if (category !== undefined && CATEGORIES.has(category)) {
     filter.category = category as AuditCategory;
@@ -210,10 +214,6 @@ export function parseAuditQuery(
   if (since !== undefined) filter.since = since;
   const until = intParam(query, "until");
   if (until !== undefined) filter.until = until;
-  const limit = intParam(query, "limit");
-  if (limit !== undefined) filter.limit = limit;
-  const cursor = one(query, "cursor");
-  if (cursor !== undefined) filter.cursor = cursor;
   return filter;
 }
 
@@ -488,14 +488,12 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         offset: number;
       }> => {
         const svc = container.get("webauthn") as IWebAuthnAdmin | undefined;
-        const rawLimit = intParam(request.query, "limit");
-        const limit =
-          rawLimit === undefined
-            ? KEYS_DEFAULT_LIMIT
-            : Math.min(Math.max(rawLimit, 1), KEYS_MAX_LIMIT);
-        const offsetRaw = intParam(request.query, "offset");
-        const offset =
-          offsetRaw !== undefined && offsetRaw >= 0 ? offsetRaw : 0;
+        const pageQuery = parsePageQuery(request.query, {
+          defaultLimit: KEYS_DEFAULT_LIMIT,
+          maxLimit: KEYS_MAX_LIMIT,
+        });
+        const limit = pageQuery.limit;
+        const offset = pageQuery.offset ?? 0;
         // Lecture DÉFENSIVE : passkeys désactivés → état honnête, jamais un 503
         // (la console doit afficher « passkeys désactivés », pas une erreur).
         if (!svc) {
@@ -620,14 +618,12 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         offset: number;
       }> => {
         const svc = container.get("totp") as ITotpAdmin | undefined;
-        const rawLimit = intParam(request.query, "limit");
-        const limit =
-          rawLimit === undefined
-            ? KEYS_DEFAULT_LIMIT
-            : Math.min(Math.max(rawLimit, 1), KEYS_MAX_LIMIT);
-        const offsetRaw = intParam(request.query, "offset");
-        const offset =
-          offsetRaw !== undefined && offsetRaw >= 0 ? offsetRaw : 0;
+        const pageQuery = parsePageQuery(request.query, {
+          defaultLimit: KEYS_DEFAULT_LIMIT,
+          maxLimit: KEYS_MAX_LIMIT,
+        });
+        const limit = pageQuery.limit;
+        const offset = pageQuery.offset ?? 0;
         // Lecture DÉFENSIVE : 2FA désactivé → état honnête, jamais un 503 (la
         // console doit pouvoir afficher « 2FA désactivé » plutôt qu'une erreur).
         if (!svc) {

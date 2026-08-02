@@ -111,6 +111,10 @@ export {
   pduFlowStep,
   FLOW_STEPS,
 };
+// Le contrat de pagination est ISOMORPHE : le serveur rend des `IPage`, le
+// navigateur les consomme. Types purs — zéro octet de runtime côté client, et
+// une seule définition des deux côtés du fil (une copie front dériverait).
+export type { IPage, IPageQuery } from "../types/IPage";
 export type { LogProtocol } from "../syslog/drivers/pduProtocol";
 export type { FlowStepId, FlowStepMeta } from "../syslog/drivers/pduFlow";
 export type { RateBounds } from "../realtime/channelRate";
