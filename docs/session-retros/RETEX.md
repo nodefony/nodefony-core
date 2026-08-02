@@ -98,6 +98,50 @@
 - `[1× — 2026-07-30]` **Un chiffre qu'il faut aller chercher au `jq` n'agit pas.** Le harnais
   publiait déjà tours/durée/coût en fin de transcript ; personne ne les lisait. Même leçon que pour
   les agents, appliquée à moi : l'information doit être là où le regard passe déjà.
+- `[2× — 2026-08-02]` 🔴 **Confirmé en grand, et le vert est le pire des runs uniques.** La passe 1
+  avait rendu **21/21 PASS en 1 run** ; les mêmes 21 tâches en 3 runs donnent **13/21**. Un run
+  unique ne mesure pas un état, il tire une face — et quand la face est verte, plus rien ne pousse
+  à rejouer. Corollaire pour la lecture des FAIL « instables » : sur 6 tâches à 2/3, **5 ne
+  rougissent pas sur leur objet** mais sur une sonde de qualité commune (`any`, `@ts-ignore`) tirée
+  une fois sur trois. Lire la CAUSE avant de nommer un trou de découvrabilité.
+- `[1× — 2026-08-02]` 🔴 **Une sonde de MOYEN finit par recaler un travail juste.** T18 est comptée
+  FAIL parce que « a lu AGENTS.md ou la doc security » manque — toutes ses sondes de RÉSULTAT sont
+  vertes. Le banc nomme pourtant ce mode de défaillance comme son n°1. Une sonde de moyen ne vaut
+  que le temps qu'elle RÉVÈLE quelque chose ; une fois l'information hissée là où l'agent lit, elle
+  se déclasse en observation au lieu de condamner.
+
+## 📣 Une commande MAISON est filtrée par la familiarité, pas par la position
+
+- `[1× — 2026-08-02]` 🔴 **Quatre gates dans le MÊME bloc, un écart de 1 à 9.** `npm test` 44/63,
+  `test:e2e` 44/63, `typecheck` 37/63 — et `nodefony check` **5/63**, ligne adjacente. Les trois
+  premiers sont des commandes que le modèle connaît d'avance ; le quatrième est un verbe du dépôt.
+  Déplacer ou répéter la ligne n'y changerait rien : ce qui manque n'est pas la visibilité, c'est
+  l'ancrage. Corollaire : pour qu'un verbe maison agisse, il faut soit un AUTOMATE qui parle au
+  moment de l'erreur, soit l'adosser à une commande déjà employée — pas une phrase de plus.
+- `[1× — 2026-08-02]` ⭐ **Un compte d'usage lu sur le transcript entier mesure la LECTURE, pas
+  l'usage.** Premier comptage : `card` 60/63. Vrai comptage (motif `"command":`) : **2/63**. Le
+  contenu des fichiers ouverts passe dans le transcript, et l'`AGENTS.md` nomme précisément les
+  commandes qu'on espère voir employées. Le banc porte déjà `commandeQuiContient` — l'utiliser,
+  jamais un `grep` sur le nom nu.
+- `[1× — 2026-08-02]` 🔴 **Trois faux diagnostics de LECTURE en une séance, tous silencieux** :
+  `git show <commit>` au lieu d'une PLAGE (rend « 0 fichier touché » sur un travail réel, parce que
+  l'agent commite lui-même en route) · `grep "nodefony check"` qui rate `npm run check` · `awk` dont
+  la borne de fin n'arrive qu'après les 3 répétitions. Aucun n'a levé d'erreur ; chacun a produit un
+  chiffre crédible et faux. Quand un chiffre surprend, suspecter la commande qui l'a produit AVANT
+  le sujet mesuré.
+
+## 🧩 Une capacité arrive AVEC sa tâche — sinon son absence de mesure ressemble à un rejet
+
+- `[1× — 2026-08-02]` 🔴 **La règle du banc enfreinte par ses propres auteurs.** `card`, `symbols`
+  et les 4 diagnostics de `check` ont été livrés sans tâche. Les comptes (2, 8, 5 sur 63) avaient
+  l'allure d'un verdict d'adoption ; ils ne mesuraient RIEN, aucune tâche ne demandant ces gestes.
+  Preuve par le rodage : dès qu'une tâche les sollicite, `card` et `check` sont employés au premier
+  essai. **Un chiffre bas sans tâche n'est pas un rejet, c'est un angle mort.**
+- `[1× — 2026-08-02]` ⭐ **Concevoir la tâche a trouvé un défaut que la relecture n'avait pas vu.**
+  En montant le décor de T32, mesure directe : un module déclaré-mais-absent n'arrête PAS le boot
+  (fail-soft, « BOOT dégradé »). Or le diagnostic annonçait « le démarrage échouera à l'import » —
+  il envoyait chercher un crash inexistant, plus coûteux qu'un silence. Écrire le banc d'une
+  capacité est un audit de cette capacité.
 
 ## 🔍 Un INVENTAIRE n'est exhaustif que par CROISEMENT — ni le modèle ni l'automate seul
 
