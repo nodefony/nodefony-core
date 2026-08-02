@@ -115,6 +115,11 @@
 
 - `[1× — 2026-08-01]` 🔴 **Le dépistage du banc couvrait 7 tâches sur 28 et rendait « rien à
   signaler »** — un filet partiel se lit comme un filet.
+- `[1× — 2026-08-02j]` 🔴 **Le contrôle anti-recollement eta ne regarde que les `.ts`** — or le
+  défaut (« tag en FIN de ligne avale le saut suivant ») frappe pareil un YAML, un `.env`, un
+  Markdown. Reproduit **trois fois** dans la même passe sur des gabarits non couverts, chaque fois
+  invisible aux assertions de contenu. Un contrôle de FORME doit porter sur la classe de défaut,
+  pas sur l'extension où on l'a rencontré la première fois.
 
 ## 🎭 Le DÉCOR d'un banc doit être celui de l'utilisateur, sinon la mesure ment sur son objet
 
@@ -184,11 +189,20 @@ install`.** Et `npm run build` vert ne dit rien du chemin réel qu'emprunte l'ut
 ## 📖 L'API d'une bibliothèque maison se LIT — la supposer produit un vide silencieux
 
 - `[2× — 2026-07-25]` ⭐ **Deux erreurs de suite sur la même lib**, faute d'avoir ouvert le source.
+- `[1× — 2026-08-02j]` 🔴 **Une affirmation écrite dans un GABARIT est DISTRIBUÉE** — j'ai écrit
+  dans le `.env` généré « pas de commentaire en fin de ligne, la valeur court jusqu'au saut » :
+  faux, `node:util.parseEnv` coupe au `#` (prouvé en une commande). Un commentaire de gabarit part
+  chez tous ceux qui génèrent une app — il se vérifie comme du code, jamais « au raisonnable ».
 
 ## 🧰 Outillage : ce qui pend, ce qui ment, ce qui lance
 
 - `[1× — 2026-08-02g]` 🔴 **`timeout` n'existe pas sur macOS** — un chien de garde s'écrit
   `( sleep N; kill -9 $PID ) &`.
+- `[1× — 2026-08-02j]` 🔴 **Un script en chaîne `&&` ne vérifie QUE jusqu'au premier maillon
+  rouge** — `npm run typecheck` (3 `tsgo` chaînés) s'arrêtait au back : le front n'était pas
+  typé du tout, et je l'aurais cru vert. Pire, l'erreur affichée venait d'un **`dist` périmé**
+  (types absents) et accusait un paquet tiers. Deux faux diagnostics dans une seule commande :
+  lancer le maillon VISÉ séparément, et rebâtir avant de conclure sur des types.
 - `[1× — 2026-08-02b]` **Un script maison ne connaît pas `--help` : il LANCE le travail.** Les
   options se lisent au source.
 - `[1× — 2026-07-30b]` **`spawnSync` BLOQUE la boucle du parent** — mortel dans un harnais qui
