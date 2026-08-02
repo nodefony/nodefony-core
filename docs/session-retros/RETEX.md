@@ -78,6 +78,46 @@
   fournir ; elle ne crée aucune arête dans le graphe de npm et de turbo — mesuré :
   `@nodefony/devkit#build <-` (rien), contre trois arêtes chez son voisin. En local, le `dist/` de
   la fois précédente masque la panne ; elle ne se lève qu'au premier arbre propre.
+- `[1× — 2026-08-02f]` 🔴 **Un script DÉPLACÉ garde son ancien calcul de racine, et le gate cesse
+  simplement d'exister.** `smoke-docker.sh` remontait deux dossiers depuis `scripts/` : correct à
+  son ancien emplacement, faux depuis son entrée dans un skill (`547d81d3`). Résultat, `ROOT` =
+  `<repo>/.claude/skills`, symptôme UNIQUE et muet — un chemin doublé au premier `node`. Plus
+  aucune preuve release ne tournait depuis ce déplacement, et rien ne l'avait signalé. **Un compte
+  de `../` se VÉRIFIE** : deux lignes de garde (`package.json` + `.claude` doivent exister à
+  l'arrivée, sinon refus) valent mieux qu'un commentaire qui l'affirme.
+- `[1× — 2026-08-02f]` 🔴 **`cmd > log 2>&1; echo "exit=$?"` fabrique un faux VERT.** Le harnais
+  rapporte le code du DERNIER maillon — donc 0, toujours — et la redirection ne couvre que le
+  premier : le journal montrait un crash pendant que l'exécution était annoncée réussie. J'ai
+  diagnostiqué le script sur cette base avant de voir que le faux vert venait de MA ligne de
+  commande. Capturer, puis LIRE le journal ; ne jamais chaîner un `echo` derrière ce qu'on mesure.
+
+## 🟢 Un VERT annoncé se RECONSTATE — sur la forge comme ailleurs
+
+- `[1× — 2026-08-02f]` 🔴 **La clôture de la veille annonçait « CI réparée » ; elle était rouge
+  depuis deux commits, et c'est le user qui l'a vu.** Ce qui avait été réparé (6 jobs sur
+  `oxlint`) l'était vraiment — mais un 7ᵉ job, `Tests unit (ubuntu / Node 24.x)`, rougissait à
+  côté, seul de toute la matrice. **Réparer une CI et constater qu'elle est verte sont deux
+  gestes**, et le second se fait APRÈS le commit qui répare, sur le run qui le porte
+  (`gh run list --json headSha` filtré sur le SHA poussé). Coût du manquement : une session
+  entière de travail commitée par-dessus une forge rouge.
+- `[1× — 2026-08-02f]` 🔴 **Un filtre de surveillance qui ne reconnaît pas « en cours » conclut
+  « tous verts ».** Mon moniteur écartait `in_progress|queued` mais laissait passer les
+  `conclusion` VIDES — les runs fraîchement déclenchés — et a annoncé un verdict qui n'existait
+  pas. Symétrique du piège connu (« silence ≠ succès ») : **une ligne vide n'est pas un verdict**.
+  Filtrer sur `status == "completed"`, jamais sur l'absence d'un mot.
+
+## 📏 Une sonde de PERFORMANCE juge la machine avant de juger le code
+
+- `[1× — 2026-08-02f]` **Le minimum de N essais n'écarte qu'une préemption PONCTUELLE, pas une
+  machine lente pendant toute la série.** Test de linéarité (`bearer.test.ts`) : ×4,05 en
+  intégration, ×2,00 stable sur dix passes en local. Remède qui tient — prendre le ratio
+  **minimal sur K paires** : une implémentation réellement quadratique est lente à CHAQUE paire,
+  donc la meilleure ne peut pas l'innocenter.
+- `[1× — 2026-08-02f]` ⭐ **Avant d'accuser la mesure, lire la STRUCTURE — et inversement.** Ce
+  qui a tranché en dix secondes n'est pas un chronomètre : `bearerToken` est un scan de
+  caractères, sans regex ni retour arrière, donc il ne PEUT pas être quadratique. Le défaut était
+  forcément dans l'instrument. Corollaire à ne pas perdre : une sonde corrigée doit être **vue
+  mordre sur le témoin fautif** avant qu'on y croie (l'ancien motif, même formule : ×3,88).
 
 ## ✅ Un vert de test ne dit pas que ça COMPILE
 
@@ -734,6 +774,22 @@ symbols` ont été codées, testées, commitées, documentées en TSDoc, en `REA
   vérifiée sur MOI, dans la minute.** La tâche de diagnostic disait « recense, cartographie » —
   périmètre exact de `nodefony-repo-inventory` — et je l'ai routée vers `Explore` sans y penser.
   Une règle écrite dans le `CLAUDE.md` ne mord pas parce qu'elle y est écrite.
+
+## 📄 Un fichier « pointeur » se remplit tout seul, et une livraison n'entraîne pas sa doc
+
+- `[1× — 2026-08-02f]` **Le `CLAUDE.md` généré annonçait « les trois réflexes » en en portant
+  QUATRE** — la signature de l'ajout successif : chacun se justifiait seul, la somme contredisait
+  l'intention du fichier (33 lignes pour un pointeur). Ce qui garde un tel fichier n'est pas une
+  consigne mais un **SEUIL testé** (`< 15 lignes`) doublé d'un refus des sujets déportés : il fait
+  tomber le PROCHAIN ajout, pas le dixième. Vérifier d'abord que la cible porte bien tout ce qu'on
+  retire — la coupe doit ôter une COPIE, jamais un contenu.
+- `[1× — 2026-08-02f]` 🔴 **Un lot livré ne met pas à jour la doc du paquet qu'il justifie.**
+  Inventaire délégué sur `@nodefony/devkit` : **13 affirmations FAUSSES sur 15** — ni le README, ni
+  la page surfacée dans Studio, ni MEMORY/CLAUDE/AGENTS ne mentionnaient les 4 skills livrés la
+  veille ni la commande qui les pose. Le code marchait, la preuve était faite, et le paquet restait
+  muet sur sa seule raison d'être. **La doc du paquet fait partie du lot**, au même titre que le
+  test — et l'inventaire par affirmations (verdict binaire + ancrage) est exactement ce qu'un
+  modèle léger rend à l'identique.
 
 ## 🔬 Avant de trancher COPIER ou PUBLIER : mesurer ce qui serait copié
 
