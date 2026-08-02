@@ -318,7 +318,7 @@ const SAMPLES = {
   },
 
   // ── T9 ────────────────────────────────────────────────────────────────────
-  "9 :: a interrogé l'application en marche (inspect / devkit:card)": {
+  "9 :: a interrogé l'application en marche (inspect / card)": {
     pass: { transcript: `{"command":"npx nodefony inspect routes --json"}` },
     fail: { transcript: `{"pattern":"@route","path":"nodefony/controllers"}` },
     extra: [
@@ -327,7 +327,15 @@ const SAMPLES = {
         // qui nomme `inspect`. Un agent qui commence par là fait ce qu'on lui
         // apprend : la sonde de moyen ne doit pas le recaler, le gate juge déjà
         // le résultat.
-        label: "accepte l'autre porte du même geste (devkit:card)",
+        label: "accepte l'autre porte du même geste (card)",
+        matter: { transcript: `{"command":"npx nodefony card -j"}` },
+        expect: true,
+      },
+      {
+        // `devkit:card` reste l'ALIAS du verbe d'origine, et il est encore écrit
+        // dans les AGENTS.md déjà générés : le refuser recalerait un agent qui a
+        // lu un document conforme à ce qui lui a été livré.
+        label: "accepte l'alias conservé (devkit:card)",
         matter: { transcript: `{"command":"npx nodefony devkit:card -j"}` },
         expect: true,
       },
