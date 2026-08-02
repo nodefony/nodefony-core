@@ -410,7 +410,7 @@ function interrupteurPattern() {
  * qui y cherche un nom de commande nu ne mesure donc pas un geste : elle mesure
  * une lecture — et l'`AGENTS.md` généré nomme précisément les commandes qu'on
  * espère voir employées. Deux conséquences, symétriques et toutes deux vécues :
- * une sonde NÉGATIVE rougissait sur le `CLAUDE.md` qui INTERDIT `kill -9` (le
+ * une sonde NÉGATIVE rougissait sur l'`AGENTS.md` qui INTERDIT `kill -9` (le
  * texte de la règle comptait comme sa violation), et une sonde POSITIVE se
  * satisfaisait d'un agent qui avait lu `npm run dev` sans jamais rien démarrer.
  *
@@ -839,7 +839,7 @@ export const TASKS = [
         name: "pas d'arrêt bricolé (kill -9 / pkill / lsof)",
         // Le motif vise une INVOCATION, pas une mention : il exige la clé
         // `"command"` d'un appel d'outil. Vécu — la version qui cherchait les
-        // noms nus rougissait sur le `CLAUDE.md` de l'application, qui INTERDIT
+        // noms nus rougissait sur l'`AGENTS.md` de l'application, qui INTERDIT
         // précisément ces commandes et les nomme donc pour les proscrire :
         // l'agent lisait la règle, le fichier entrait au transcript, et la
         // sonde comptait la règle comme sa violation. Un texte lu n'est pas un

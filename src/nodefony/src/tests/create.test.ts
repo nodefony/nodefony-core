@@ -980,23 +980,35 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
       // Aucun module encore : l'état vide DIT quoi faire.
       assert.include(agents, "Aucun — `npx nodefony create module");
-      // CLAUDE.md = pointeur + les QUATRE réflexes (auto-chargé à chaque tour
-      // par l'outil agent, contrairement à AGENTS.md — mesuré au banc : la
-      // règle doit vivre dans le contexte au moment d'ÉCRIRE). Reste court.
+      // CLAUDE.md = un POINTEUR, et rien d'autre. Il n'a qu'un seul contenu
+      // propre : le renvoi à `create --help`, qui ne peut pas se périmer —
+      // contrairement à une liste de générateurs, qui avait déjà dérivé
+      // (`create command` y manquait), et l'agent qui ne l'y trouvait pas
+      // écrivait à la main.
       //
-      // Il n'ÉNUMÈRE PLUS les générateurs : la liste avait dérivé (`create
-      // command` manquait), et l'agent qui ne l'y trouvait pas écrivait à la
-      // main. On vérifie donc ce qui ne peut pas se périmer — le renvoi à
-      // `create --help` et les CHEMINS interdits d'écriture manuelle.
+      // La règle qui vaut la garde de TAILLE ci-dessous : tout ce qu'on
+      // recopierait ici existe dans `AGENTS.md` et en divergerait en silence.
+      // Ce fichier s'est déjà rempli par ajouts successifs — il annonçait
+      // « les trois réflexes » alors qu'il en portait quatre. Le seuil est
+      // donc serré exprès : il fait échouer le prochain ajout, pas le dixième.
       const claude = readFileSync(path.join(dest, "CLAUDE.md"), "utf8");
       assert.include(claude, "AGENTS.md");
       assert.include(claude, "nodefony create --help");
-      assert.include(claude, "nodefony/command/");
-      assert.include(claude, "nodefony env");
-      assert.include(claude, "nodefony stop");
-      assert.include(claude, "isomorphe");
-      assert.include(claude, "RealtimeClient");
-      assert.isBelow(claude.split("\n").length, 40);
+      assert.isBelow(
+        claude.split("\n").length,
+        15,
+        "CLAUDE.md se remplit : ce qui doit être lu vit dans AGENTS.md",
+      );
+      // Ces sujets sont traités par AGENTS.md — les redire ici crée deux
+      // versions dont une seule sera corrigée.
+      for (const recopie of [
+        "nodefony env",
+        "nodefony stop",
+        "RealtimeClient",
+      ]) {
+        assert.notInclude(claude, recopie);
+        assert.include(agents, recopie);
+      }
     });
 
     it("minimal : la table des docs dit la vérité des briques réellement installées", () => {
