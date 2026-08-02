@@ -1637,6 +1637,66 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.throws(() => controller(dest, { name: "dup" }), /déjà référencé/u);
     });
 
+    it("--module accepte le nom COURT du module, pas seulement son nom npm", () => {
+      // Un module a deux identités : `@app/blog` (manifeste) et `blog` (dossier,
+      // celui qu'on a tapé pour le créer). N'accepter que la première faisait
+      // échouer `--module blog` juste après `create module blog` — trois
+      // tentatives perdues par un agent tiers sur cette seule asymétrie.
+      const dest = path.join(tmp, "shortapp");
+      scaffold(dest, { name: "shortapp", preset: "minimal" });
+      runScaffold(
+        {
+          type: "module",
+          answers: { name: "blog", controller: "none" },
+          dir: dest,
+        },
+        version,
+      );
+      controller(dest, { name: "post", module: "blog" });
+      assert.isTrue(
+        existsSync(
+          path.join(
+            dest,
+            "modules",
+            "blog",
+            "nodefony",
+            "controllers",
+            "PostController.ts",
+          ),
+        ),
+      );
+      // Le nom npm exact reste évidemment accepté.
+      controller(dest, { name: "tag", module: "@shortapp/blog" });
+    });
+
+    it("nom court AMBIGU : refus qui nomme les candidats, jamais un choix arbitraire", () => {
+      // Deux dossiers de workspaces peuvent porter le même nom court — c'est le
+      // cas d'un monorepo (`packages/@x/auth` ET `modules/auth`). On ne devine
+      // pas : on rend les deux noms complets.
+      const dest = path.join(tmp, "ambigu");
+      scaffold(dest, { name: "ambigu", preset: "minimal" });
+      const pkgPath = path.join(dest, "package.json");
+      const pkg = readJson(pkgPath);
+      pkg["workspaces"] = ["modules/*", "packages/@x/*"];
+      writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
+      for (const [rel, name] of [
+        [path.join("modules", "auth"), "@ambigu/auth"],
+        [path.join("packages", "@x", "auth"), "@x/auth"],
+      ] as const) {
+        const dir = path.join(dest, rel);
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(
+          path.join(dir, "package.json"),
+          `${JSON.stringify({ name, version: "0.1.0" }, null, 2)}\n`,
+        );
+        writeFileSync(path.join(dir, "index.ts"), "export default {};\n");
+      }
+      assert.throws(
+        () => controller(dest, { name: "x", module: "auth" }),
+        /désigne 2 modules[\s\S]*@ambigu\/auth[\s\S]*@x\/auth/u,
+      );
+    });
+
     it("nom en double : refus SANS toucher au projet", () => {
       const dest = path.join(tmp, "cintact");
       scaffold(dest, { name: "cintact", preset: "minimal" });

@@ -616,6 +616,60 @@ export function listTargets(
   return targets;
 }
 
+/**
+ * Résout la cible d'un scaffold in-project : l'application, ou le module
+ * désigné par `--module`.
+ *
+ * Un module a DEUX identités — son **nom npm** (`@app/blog`, celui qui vit dans
+ * son manifeste et dans celui de l'app) et son **dossier** (`blog`, celui qu'on
+ * a tapé pour le créer). N'accepter que le premier faisait échouer
+ * `--module blog` juste après un `create module blog` : mesuré sur un agent
+ * tiers, trois tentatives perdues sur cette seule asymétrie, alors que le nom
+ * court est celui que l'utilisateur a en tête.
+ *
+ * Le nom court est donc accepté **quand il désigne UNE cible**. Ambigu, il est
+ * refusé en nommant les candidats plutôt qu'en en choisissant un : un dépôt à
+ * plusieurs dossiers de workspaces peut porter `packages/@x/auth` ET
+ * `modules/auth` — deux modules distincts, même nom court. Le nom npm exact
+ * l'emporte toujours, et reste la façon de lever l'ambiguïté.
+ *
+ * @param projectRoot - racine de l'application (porte `nodefony.config.ts`).
+ * @param moduleName - valeur de `--module` ; vide = l'application elle-même.
+ * @param writer - accès disque injecté (simulation `--dry-run` comprise).
+ * @returns la cible résolue.
+ * @throws si le nom ne désigne aucune cible, ou s'il en désigne plusieurs.
+ */
+function resolveScaffoldTarget(
+  projectRoot: string,
+  moduleName: string,
+  writer: ScaffoldWriter,
+): IScaffoldTarget {
+  const targets = listTargets(projectRoot, writer);
+  const app = targets[0] as IScaffoldTarget;
+  if (!moduleName) {
+    return app;
+  }
+  const modules = targets.filter((t) => t.kind === "module");
+  const exact = modules.find((t) => t.name === moduleName);
+  if (exact) {
+    return exact;
+  }
+  const short = modules.filter((t) => path.basename(t.dir) === moduleName);
+  if (short.length === 1) {
+    return short[0] as IScaffoldTarget;
+  }
+  if (short.length > 1) {
+    throw new Error(
+      `« ${moduleName} » désigne ${short.length} modules — reprends le nom ` +
+        `complet : ${short.map((t) => t.name).join(" · ")}`,
+    );
+  }
+  const known = targets.map((t) => `${t.name} (${t.kind})`).join(" · ");
+  throw new Error(
+    `module « ${moduleName} » introuvable — cibles du projet : ${known}`,
+  );
+}
+
 /** `blog-post` / `BlogPost` / `blogPost` → `BlogPost`. */
 export function toPascalCase(name: string): string {
   return name
@@ -1477,17 +1531,11 @@ function runControllerScaffold(
         "lance la commande depuis une app (créée par `nodefony create app`)",
     );
   }
-  const targets = listTargets(projectRoot, writer);
-  const moduleName = String(answers.module ?? "");
-  const target = moduleName
-    ? targets.find((t) => t.kind === "module" && t.name === moduleName)
-    : targets[0];
-  if (!target) {
-    const known = targets.map((t) => `${t.name} (${t.kind})`).join(" · ");
-    throw new Error(
-      `module « ${moduleName} » introuvable — cibles du projet : ${known}`,
-    );
-  }
+  const target = resolveScaffoldTarget(
+    projectRoot,
+    String(answers.module ?? ""),
+    writer,
+  );
   const kind = answers.kind as TControllerKindChoice;
   // Nom normalisé : suffixe Controller strippé s'il est déjà donné (évite
   // BlogControllerController), classe en PascalCase, route/canaux en kebab.
@@ -1609,17 +1657,11 @@ function runServiceScaffold(
         "lance la commande depuis une app (créée par `nodefony create app`)",
     );
   }
-  const targets = listTargets(projectRoot, writer);
-  const moduleName = String(answers.module ?? "");
-  const target = moduleName
-    ? targets.find((t) => t.kind === "module" && t.name === moduleName)
-    : targets[0];
-  if (!target) {
-    const known = targets.map((t) => `${t.name} (${t.kind})`).join(" · ");
-    throw new Error(
-      `module « ${moduleName} » introuvable — cibles du projet : ${known}`,
-    );
-  }
+  const target = resolveScaffoldTarget(
+    projectRoot,
+    String(answers.module ?? ""),
+    writer,
+  );
   // Nom normalisé : suffixe Service strippé s'il est déjà donné (même
   // tolérance que `Controller` pour `create controller`), classe en
   // PascalCase, clé de conteneur en camelCase (`super("billing", …)`).
@@ -1939,17 +1981,8 @@ function runCommandScaffold(
         "lance la commande depuis une app (créée par `nodefony create app`)",
     );
   }
-  const targets = listTargets(projectRoot, writer);
   const moduleName = String(answers.module ?? "");
-  const target = moduleName
-    ? targets.find((t) => t.kind === "module" && t.name === moduleName)
-    : targets[0];
-  if (!target) {
-    const known = targets.map((t) => `${t.name} (${t.kind})`).join(" · ");
-    throw new Error(
-      `module « ${moduleName} » introuvable — cibles du projet : ${known}`,
-    );
-  }
+  const target = resolveScaffoldTarget(projectRoot, moduleName, writer);
   const indexPath = path.join(target.dir, "index.ts");
   const prefix =
     readNodefonyName(indexPath, writer) ??
@@ -2403,17 +2436,11 @@ function runEntityScaffold(
         "lance la commande depuis une app (créée par `nodefony create app`)",
     );
   }
-  const targets = listTargets(projectRoot, writer);
-  const moduleName = String(answers.module ?? "");
-  const target = moduleName
-    ? targets.find((t) => t.kind === "module" && t.name === moduleName)
-    : targets[0];
-  if (!target) {
-    const known = targets.map((t) => `${t.name} (${t.kind})`).join(" · ");
-    throw new Error(
-      `module « ${moduleName} » introuvable — cibles du projet : ${known}`,
-    );
-  }
+  const target = resolveScaffoldTarget(
+    projectRoot,
+    String(answers.module ?? ""),
+    writer,
+  );
 
   // Garde ORM : générer une entité sans ORM produirait du code mort qui ne compile même
   // pas. On refuse AVANT d'écrire, avec le geste exact.
@@ -3005,17 +3032,11 @@ function runFrontScaffold(
         "lance la commande depuis une app (créée par `nodefony create app`)",
     );
   }
-  const targets = listTargets(projectRoot, writer);
-  const moduleName = String(answers.module ?? "");
-  const target = moduleName
-    ? targets.find((t) => t.kind === "module" && t.name === moduleName)
-    : targets[0];
-  if (!target) {
-    const known = targets.map((t) => `${t.name} (${t.kind})`).join(" · ");
-    throw new Error(
-      `module « ${moduleName} » introuvable — cibles du projet : ${known}`,
-    );
-  }
+  const target = resolveScaffoldTarget(
+    projectRoot,
+    String(answers.module ?? ""),
+    writer,
+  );
   if (writer.exists(path.join(target.dir, "frontend", "index.html"))) {
     throw new Error(
       `${target.name} porte déjà un front (frontend/index.html) — ce scaffold ` +
