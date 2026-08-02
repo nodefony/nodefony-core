@@ -663,7 +663,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         ),
       );
       const pkg = readJson(path.join(dest, "package.json"));
-      assert.property(pkg["dependencies"], "react");
+      // Le framework front est une devDependency : rien hors `frontend/` ne
+      // l'importe, Vite l'inline dans le bundle, et `npm prune --omit=dev`
+      // doit pouvoir le retirer de l'image. En `dependencies` il survivait au
+      // prune et embarquait un framework entier que rien ne charge.
+      assert.property(pkg["devDependencies"], "react");
+      assert.notProperty(pkg["dependencies"], "react");
+      assert.notProperty(pkg["dependencies"], "react-dom");
+      // `@nodefony/frontend`, LUI, est chargé par le Kernel en production.
       assert.property(pkg["dependencies"], "@nodefony/frontend");
       assert.property(pkg["devDependencies"], "@vitejs/plugin-react");
       // `npm run build` produit l'app ENTIÈRE : back (rolldown) + front (vite
@@ -754,7 +761,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       scaffold(vdest, { name: "vapp", frontend: "vue" });
       assert.isTrue(existsSync(path.join(vdest, "frontend", "src", "App.vue")));
       const vpkg = readJson(path.join(vdest, "package.json"));
-      assert.property(vpkg["dependencies"], "vue");
+      assert.property(vpkg["devDependencies"], "vue");
+      assert.notProperty(vpkg["dependencies"], "vue");
       assert.include(
         readFileSync(
           path.join(vdest, "nodefony", "frontend", "registerVappEntry.ts"),
@@ -2509,9 +2517,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.match(index, /@controllers\(\[[^\]]*DashboardController\]\)/u);
       assert.include(index, "registerDashboardEntry(this);");
       assert.include(index, "override async onKernelBoot()");
-      // Deps du framework ajoutées au package.json (catalogue unique).
+      // Deps du framework ajoutées au package.json (catalogue unique) — le
+      // framework front en dev, pour que `npm prune --omit=dev` le retire.
       const pkg = readJson(path.join(dest, "package.json"));
-      assert.property(pkg["dependencies"], "react");
+      assert.property(pkg["devDependencies"], "react");
+      assert.notProperty(pkg["dependencies"], "react");
       assert.property(pkg["devDependencies"], "@vitejs/plugin-react");
       assert.include((r.notes ?? []).join("\n"), "npm install");
       // Le controller de page rend l'entry du BON nom.

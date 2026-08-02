@@ -116,6 +116,23 @@ const RENAMES: Record<string, string> = {
  * montage, ET les dépendances npm (SOURCE UNIQUE : consommée par le
  * `package.json.tpl` de `create app` ET par `create front` qui les ajoute au
  * package.json d'une cible existante — une version ne vit qu'ici).
+ *
+ * ⚠️ **Le framework front lui-même est une devDependency, et `deps` est vide.**
+ * Le test qui tranche est le même que pour la toolchain : *le paquet est-il
+ * importé au RUNTIME du serveur ?* Ici non — aucun fichier hors `frontend/`
+ * n'importe `react`/`vue`/`@angular/*` : Vite les inline dans le bundle
+ * navigateur, et c'est ce bundle que la production sert. Les déclarer en
+ * `dependencies` les faisait survivre au `npm prune --omit=dev` de l'image et
+ * embarquer un framework entier que rien ne charge (mesuré ailleurs : 26,6 Mo
+ * pour `vue` seul, y compris dans une app React).
+ *
+ * L'ordre du `Dockerfile` généré est ce qui rend la bascule sûre :
+ * `RUN npm run build && npm prune --omit=dev` — le build les a quand il en a
+ * besoin, le prune les retire ensuite. Toute recette qui élaguerait AVANT de
+ * construire casserait, et c'est vrai de n'importe quelle devDependency.
+ *
+ * `deps` reste dans le contrat : le jour où un rendu côté serveur importera
+ * vraiment le framework, c'est là que la déclaration devra revenir.
  */
 export const FRONTEND_PARAMS: Record<
   Exclude<TFrontendChoice, "none">,
@@ -131,8 +148,10 @@ export const FRONTEND_PARAMS: Record<
     type: "react19",
     entry: "./frontend/src/main.tsx",
     mountNode: '<div id="root"></div>',
-    deps: pick("react", "react-dom"),
+    deps: {},
     devDeps: pick(
+      "react",
+      "react-dom",
       "vite",
       "@vitejs/plugin-react",
       "@types/react",
@@ -143,15 +162,18 @@ export const FRONTEND_PARAMS: Record<
     type: "vue3",
     entry: "./frontend/src/main.ts",
     mountNode: '<div id="app"></div>',
-    deps: pick("vue"),
-    devDeps: pick("vite", "@vitejs/plugin-vue"),
+    deps: {},
+    devDeps: pick("vue", "vite", "@vitejs/plugin-vue"),
   },
   angular: {
     type: "angular",
     entry: "./frontend/src/main.ts",
     mountNode: "<app-root></app-root>",
-    deps: pick("@angular/core", "@angular/common", "@angular/platform-browser"),
+    deps: {},
     devDeps: pick(
+      "@angular/core",
+      "@angular/common",
+      "@angular/platform-browser",
       "vite",
       "@analogjs/vite-plugin-angular",
       "@angular/build",
@@ -3124,6 +3146,9 @@ function runFrontScaffold(
   // (jamais de bump silencieux d'une version choisie par l'utilisateur).
   const added: string[] = [];
   const addDeps = (block: string, entries: Record<string, string>) => {
+    // Rien à poser : ne pas créer un bloc vide dans le manifeste de la cible
+    // (`deps` l'est pour les trois frameworks — cf FRONTEND_PARAMS).
+    if (Object.keys(entries).length === 0) return;
     const deps = (manifest[block] ??= {});
     for (const [name, version] of Object.entries(entries)) {
       if (!targetDeps.has(name)) {
