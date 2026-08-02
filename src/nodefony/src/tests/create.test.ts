@@ -1131,6 +1131,55 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(e2e, "RUN_E2E");
       assert.notInclude(e2e, "describe.skip");
     });
+
+    // Mesuré au banc de découvrabilité (tâche 23, 3 runs) : pour faire aboutir
+    // les envois d'un partenaire, DEUX agents sur trois DÉMONTENT la défense
+    // CSRF — une origine inconnue obtient alors 201. Aucun ne déclare l'origine,
+    // aucun n'ouvre la doc du module. La cause n'est pas le jugement de l'agent
+    // mais le placement du savoir : `@CsrfExempt` porte un nom qui se devine,
+    // `trustedOrigins` n'était écrit nulle part où l'agent lit d'office.
+    it("csrf : l'AGENTS.md donne le geste (trustedOrigins) et son bloc reste recopiable", () => {
+      const dest = path.join(tmp, "csrf-agents");
+      scaffold(dest, {
+        name: "csrf-agents",
+        preset: "complete",
+        frontend: "none",
+      });
+      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      assert.include(
+        agents,
+        "trustedOrigins",
+        "AGENTS.md doit nommer la clé qui DÉCLARE une origine partenaire",
+      );
+      // Nommer la bonne réponse ne suffit pas : la porte de sortie se devine
+      // sans documentation, il faut donc la citer POUR la désigner comme fausse.
+      assert.include(
+        agents,
+        "@CsrfExempt",
+        "AGENTS.md doit nommer le réflexe (@CsrfExempt) pour le récuser",
+      );
+      // Le bloc montré est fait pour être recopié dans `nodefony.config.ts`. S'il
+      // perdait la clé `secret` que la config y pose, le recopier couperait le
+      // token synchronizer — en silence, tests verts.
+      const config = readFileSync(
+        path.join(dest, "nodefony.config.ts"),
+        "utf8",
+      );
+      const bloc = (texte: string) =>
+        /csrf:\s*\{[^}]*?secret:\s*([^,\n}]+)/u.exec(texte)?.[1].trim() ?? null;
+      const secretConfig = bloc(config);
+      const secretAgents = bloc(agents);
+      assert.isNotNull(
+        secretConfig,
+        "bloc csrf introuvable dans la config générée",
+      );
+      assert.isNotNull(secretAgents, "bloc csrf introuvable dans l'AGENTS.md");
+      assert.equal(
+        secretAgents,
+        secretConfig,
+        "le bloc csrf de l'AGENTS.md doit reprendre le secret de la config — sinon le recopier le supprime",
+      );
+    });
   });
 
   describe("moteur — create controller (in-project)", () => {

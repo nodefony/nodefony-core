@@ -124,7 +124,30 @@ Ce tableau ne remplace pas `--help` : lui seul connaît les modules de CETTE app
 et il fait foi le jour où les deux divergent.
 
 ## Vérités du framework (anti-préjugés — ce que tu crois savoir est faux ici)
+<% if (it.hasSecurity) { %>
+- **Une origine tierce refusée en 403 se DÉCLARE — elle ne s'exempte pas.** Quand
+  les envois d'un partenaire sont rejetés alors que les tiens aboutissent, la
+  cause est la défense CSRF, et le réflexe qui vient (`@CsrfExempt` sur la route,
+  `checkOrigin: false`, `csrf.enabled: false`) fait passer le partenaire **et
+  n'importe quel autre site** : la route cesse de distinguer qui que ce soit,
+  c'est-à-dire exactement l'attaque que la défense arrêtait. La réponse est une
+  ligne de configuration — ajoute l'origine au bloc `csrf` déjà présent dans
+  `use("@nodefony/security", …)`, `nodefony.config.ts` :
 
+  ```ts
+  csrf: {
+    secret: ctx.env.NF_CSRF_SECRET,
+    trustedOrigins: ["https://partenaire.example"],
+  },
+  ```
+
+  La comparaison porte sur la chaîne d'origine ENTIÈRE (`scheme://host[:port]`) :
+  ni joker, ni sous-domaine implicite — une origine par entrée. À ne pas
+  confondre avec `cors.origins`, qui autorise EN PLUS le JS du tiers à **lire**
+  tes réponses : un partenaire qui POSTE n'en a pas besoin, et les deux
+  traversent la défense. Détail :
+  `node_modules/@nodefony/security/docs/csrf.md`.
+<% } %>
 - **Un adaptateur de données ne remplace pas l'autre : ils se COMPLÈTENT.** Chacun
   déclare les _stores_ qu'il sait tenir (`nodefony.stores` de son `package.json`) —
   `drizzle` les huit (session, user, tokens, passkeys, totp, audit, webhooks,
