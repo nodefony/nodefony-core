@@ -22,6 +22,21 @@
 
 ## 🥫 Un outil qui ne sert pas le dépôt qui le publie n'est éprouvé par personne
 
+- `[1× — 2026-08-02h]` 🔴 **Un agent ÉTRANGER a trouvé en 15 minutes et 0,04 $ ce que 30 tâches de
+  banc et deux passes complètes n'avaient jamais vu** — trois défauts produits, dont un qui rendait
+  `create module --frontend` inutilisable POUR TOUT NOM, sur la commande même que l'`AGENTS.md`
+  généré annonce. Le banc interne ne teste pas ce chemin, et il est juge et partie. Le rapport
+  coût/trouvailles n'est pas comparable : **instruire une tâche instable coûte ~1 $ pour conclure
+  « variance » ; un agent tiers sur une tâche métier coûte 4 centimes et rapporte des bugs réels.**
+- `[1× — 2026-08-02h]` 🔴 **Une commande peut échouer sur ce qu'elle vient ELLE-MÊME d'écrire.**
+  `create module --frontend` déléguait à deux scaffolds en leur passant le MÊME nom ; le second
+  refusait la classe que le premier venait d'enregistrer, avec un message (« déjà référencé —
+  choisis un autre nom ») qui envoyait chercher un conflit inexistant. L'agent a essayé quatre
+  noms puis `--force`. **Un message d'erreur juste sur les faits peut être faux sur la CAUSE.**
+- `[1× — 2026-08-02h]` **Un message qui réclame DEUX gestes dont un est déjà fait égare.**
+  « ajoute la dep + au manifeste » : le manifeste l'avait déjà, l'agent est parti fouiller la
+  config. Un refus doit nommer ce qui manque VRAIMENT, ici et maintenant.
+
 - `[2× — 2026-08-02]` 🔴 **Quatre défauts sur cinq d'une soirée venaient des GABARITS**, aucun
   visible tant que le dépôt n'utilisait pas sa propre commande : un module né du scaffold sans
   arête de build (forge rouge sur quatre workflows), une erreur de config re-jetée sans sa `cause`,
@@ -90,6 +105,20 @@
 
 - `[1× — 2026-08-01]` 🔴 **Le dépistage du banc couvrait 7 tâches sur 28 et rendait « rien à
   signaler »** — un filet partiel se lit comme un filet.
+
+## 🎭 Le DÉCOR d'un banc doit être celui de l'utilisateur, sinon la mesure ment sur son objet
+
+- `[1× — 2026-08-02h]` 🔴 **Le décor privait l'agent des skills que l'`AGENTS.md` lui ANNONCE.**
+  Les 4 skills étaient bien dans `node_modules/@nodefony/devkit/skills/`, `.agents/skills/` était
+  absent, et le texte généré disait « `ls .agents/skills/` les liste ». Le banc envoyait donc
+  l'agent sur un dossier vide. **Le produit était innocent** : `create app` pose les pointeurs,
+  mais le banc l'appelle AVANT d'installer les tarballs — à cet instant il n'y a rien à pointer,
+  et personne ne repasse. Réflexe : **une capacité livrée se CONSTATE dans le décor**, pas dans le
+  code qui la pose.
+- `[1× — 2026-08-02h]` 🔴 **Un FAIL minoritaire figé peut n'être qu'un tirage.** T16, donnée
+  « seul vrai défaut produit restant » à 1/3, rend **3/3 sans qu'aucun commit de l'intervalle ne
+  touche son sujet**. Remesurer coûte moins cher qu'instruire — et l'ordre inverse fait chercher
+  la cause d'un défaut qui n'existe pas. À appliquer aux quatre instables à 2/3.
 
 ## 📏 Une sonde de PERFORMANCE juge la machine avant de juger le code
 

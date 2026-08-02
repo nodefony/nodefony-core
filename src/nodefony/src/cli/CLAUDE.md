@@ -413,7 +413,13 @@ registrar `register<Name>Entry` (fichier dédié documenté) ; wiring AUTO
 `@controllers` + hook `onKernelBoot` (inséré si absent — un hook EXISTANT n'est
 jamais édité : note actionnable) ; deps du framework ajoutées au package.json si
 absentes. Gardes : cible avec `frontend/index.html` → throw ; `@nodefony/frontend`
-manquant → throw actionnable.
+absent de l'**APPLICATION** → throw actionnable. Absent du seul **module** visé, il
+y est POSÉ en peer : un module local est un workspace, rien ne s'y installe pour
+son compte propre, et exiger une édition manuelle du `package.json` revenait à
+réclamer à la main ce que ce scaffold existe pour écrire (mesuré sur un agent
+tiers). Le framework front (`react`/`vue`/`@angular/*`) part en
+**`devDependencies`** — aucun fichier hors `frontend/` ne l'importe, Vite l'inline
+dans le bundle, et `npm prune --omit=dev` doit pouvoir le retirer de l'image.
 
 **Versions npm des templates** : les paquets `nodefony`/`@nodefony/*` sont émis en
 `^<%= it.nodefonyVersion %>` (version du paquet qui scaffolde — une release ne
@@ -445,7 +451,12 @@ Puis `npm install` (le symlink de workspace **est** ce qui rend le module charge
 [--module <nom>]` — scaffold **IN-PROJECT** (lancé DANS une app : `findProjectRoot`
 remonte au `nodefony.config.ts`, refus propre hors projet). Cible = app racine ou un
 module local (`listTargets` : app + `modules/*/` — consommé par le CLI ET le futur
-formulaire Studio). Saveurs : `hello` = GET + WS echo MÊME classe (défaut — le
+formulaire Studio). **`--module` accepte le nom npm (`@app/blog`) ET le nom court
+du dossier (`blog`)** — celui qu'on a tapé pour créer le module ; ambigu (deux
+dossiers de workspaces, même nom court), il est refusé en NOMMANT les candidats.
+Une seule implémentation, `resolveScaffoldTarget`, appelée par les cinq scaffolds
+in-project : la résolution y était recopiée à l'identique, donc corrigeable cinq
+fois. Saveurs : `hello` = GET + WS echo MÊME classe (défaut — le
 différenciateur) ; `realtime` = sous-classe `RealtimeController` (@nodefony/realtime :
 canal `<nom>:ticker` décoré `@RealtimeChannel` + action `<nom>:ping`, TSDoc = snippet
 client `RealtimeClient`) — garde actionnable si la dep manque (preset minimal) ;
