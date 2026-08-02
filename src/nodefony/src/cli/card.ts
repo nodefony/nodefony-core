@@ -133,8 +133,8 @@ export function readColdCardInput(
   if (appPkg === null) return null;
 
   const deps = {
-    ...((appPkg.dependencies as Record<string, string>) ?? {}),
-    ...((appPkg.devDependencies as Record<string, string>) ?? {}),
+    ...(appPkg.dependencies as Record<string, string> | undefined),
+    ...(appPkg.devDependencies as Record<string, string> | undefined),
   };
   const modules = new Set<string>(
     Object.keys(deps)

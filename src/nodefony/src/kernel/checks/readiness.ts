@@ -199,10 +199,7 @@ export async function checkReadiness(input: {
     // revanche l'absence totale de `node_modules` ne se rapporte pas paquet par
     // paquet — ce serait cent lignes pour dire « npm install ».
     if (existsSync(path.join(projectRoot, "node_modules"))) {
-      const declared = {
-        ...(pkg.dependencies ?? {}),
-        ...(pkg.devDependencies ?? {}),
-      };
+      const declared = { ...pkg.dependencies, ...pkg.devDependencies };
       for (const nom of Object.keys(declared)) {
         // Une plage `file:`/`link:` non installée reste un défaut d'install,
         // mais le chemin de résolution est le même : présence du dossier.

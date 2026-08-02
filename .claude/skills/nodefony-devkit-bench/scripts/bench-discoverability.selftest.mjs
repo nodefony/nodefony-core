@@ -1617,7 +1617,7 @@ function main() {
   const jugeantes = [];
   for (const { task, probe } of probes) {
     if (probe.kind !== "transcript") continue;
-    if (!/^a lu /u.test(probe.name)) continue;
+    if (!probe.name.startsWith("a lu ")) continue;
     if (!probe.observe) jugeantes.push(key(task, probe));
   }
 
