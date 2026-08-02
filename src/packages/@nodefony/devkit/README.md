@@ -1,7 +1,8 @@
 # @nodefony/devkit
 
 L'outillage de **développement** d'une application Nodefony : sa carte de visite,
-et les portes qui mènent au reste.
+les **skills d'agent** qui disent comment faire les tâches courantes, et les
+portes qui mènent au reste.
 
 Il répond à la question que tout le monde se pose en arrivant sur une application
 — humain qui reprend un projet, agent qui code : **qui répond ici, et où faut-il
@@ -61,10 +62,60 @@ répond toujours — elle ne dépend pas de ce module.
 | `GET /nodefony/devkit/api/card` | Studio, un script authentifié — modules réellement CHARGÉS |
 | `buildCard()` (export du cœur)  | une porte de plus, à écrire — rien à réimplémenter         |
 | `npx nodefony card`             | un agent, un humain au terminal — **servie par le cœur**   |
+| `skills/` (dossier du paquet)   | l'agent de codage que vous utilisez déjà — voir ci-dessous |
 
 La route HTTP vit sous `/nodefony`, que le pare-feu d'une application réelle
 couvre : un agent qui code ne s'authentifie pas et n'a pas de navigateur — d'où
 la commande, qui reste la porte utile.
+
+## Les skills d'agent
+
+Le paquet livre quatre **skills** au format [Agent Skills](https://agentskills.io)
+— la marche à suivre complète pour les tâches où un agent, sans eux, inventerait
+du code : créer une ressource REST, ajouter un service injectable, réserver une
+route à qui est habilité, ouvrir un canal temps réel. Ils sont lus par tout
+client conforme (Claude Code, Cursor, Copilot, VS Code, Codex, Goose…).
+
+`nodefony create app` les met à disposition à la création. Après un
+`npm update`, une commande les remet à jour :
+
+```bash
+npx nodefony ai:sync            # --dry-run pour voir sans écrire, --json pour un script
+```
+
+```
+  Skills d'agent — .agents/skills
+
+  = add-crud                 @nodefony/devkit
+  = add-realtime-channel     @nodefony/devkit
+  = add-service              @nodefony/devkit
+  = protect-route            @nodefony/devkit
+
+  0 posé(s) · 0 mis à jour · 4 inchangé(s)
+```
+
+**Ce qui est écrit chez vous est un POINTEUR, pas une copie.** Le contenu reste
+dans le paquet et suit vos montées de version ; un skill recopié dans le projet
+décrirait, six mois plus tard, un framework qui a changé — sans casser le build,
+donc sans que personne le voie. Les pointeurs sont faits pour être **commités** :
+votre équipe et votre intégration continue disposent alors des mêmes skills.
+
+Le dossier visé, `.agents/skills/`, est celui que **tous** les clients conformes
+lisent — pas le dossier propriétaire d'un seul. Si le vôtre ne scanne que le
+sien, ajoutez-y ce chemin plutôt que de dupliquer un contenu qui divergerait.
+
+Deux garanties de la commande : un pointeur déjà à jour n'est **pas réécrit**
+(votre arbre git reste propre, l'horodatage ne bouge pas), et un pointeur que
+plus aucun paquet ne livre est **signalé, jamais supprimé** — vous avez pu en
+écrire un à la main sous le même nom.
+
+> **Aucun `postinstall`** ne fait ce geste, volontairement : `--ignore-scripts`
+> est courant, les scripts d'installation sont un vecteur d'attaque connu de
+> l'écosystème npm, et écrire dans un dossier versionné à chaque installation
+> produirait des différences surprises. La commande, elle, se lance quand vous
+> le décidez. Un module tiers qui livre ses propres skills est servi par la même
+> commande : elle scanne tout paquet `@nodefony/*` **et** les modules locaux de
+> l'application, sans que le cœur ait à les connaître.
 
 ## Configuration
 
@@ -90,6 +141,9 @@ Par l'environnement : `NF__DEVKIT__ENABLED=false`.
   l'application est cassée.
 - **Il ne dépend d'aucun fournisseur de modèle.** Son intérêt est de servir
   l'agent que vous avez déjà.
+- **Il ne s'installe pas tout seul dans votre projet.** Aucun `postinstall` :
+  les pointeurs de skills sont posés par `create app` à la création, et remis à
+  jour par `ai:sync` quand vous le demandez.
 
 ## Développer
 
@@ -111,6 +165,11 @@ npm test            # vitest
 │   ├── service/DevkitService.ts      ← dérive la carte du Kernel (`container.get("devkit")`)
 │   ├── controllers/DevkitController.ts ← la porte HTTP
 │   └── interfaces/                   ← l'API publique du service
+├── skills/<nom>/SKILL.md             ← les skills d'agent livrés par npm
 ├── docs/                             ← documentation, surfacée dans Studio
 └── tests/
 ```
+
+`dist/`, `docs/` et `skills/` sont les trois dossiers publiés (`files`) : un
+skill se corrige ici, et la correction arrive chez l'utilisateur par
+`npm update`, sans qu'il ait un fichier à réécrire.

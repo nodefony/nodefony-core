@@ -7,8 +7,9 @@
 
 ## Rôle du module
 
-La porte **HTTP** de la carte de visite d'une application. Module `policy: "dev"`
-— il aide pendant le développement et n'existe pas en production.
+Deux choses : la porte **HTTP** de la carte de visite d'une application, et **le
+CONTENU des skills d'agent** distribués par npm (`skills/`). Module
+`policy: "dev"` — il aide pendant le développement et n'existe pas en production.
 
 ⚠️ **La porte CLI n'est PLUS ici.** `nodefony card` est servie par le cœur
 (fast-path standalone, `CliKernel.start` → `cli/card.ts`), qui ne lit que des
@@ -31,6 +32,7 @@ devkit/
 │   ├── controllers/DevkitController.ts           ← porte HTTP
 │   ├── interfaces/IDevkitService.ts              ← contrat public
 │   └── src/errors/DevkitError.ts                 ← erreurs typées
+├── skills/<nom>/SKILL.md                         ← CONTENU des skills d'agent (publié tel quel)
 ├── tests/                                        ← vitest
 └── docs/                                         ← doc du module (surfacée dans Studio)
 ```
@@ -50,6 +52,12 @@ devkit/
 - **Ce module ne porte NI scaffold NI diagnostic** — `create`, `check` et
   `inspect` vivent dans le cœur : ils doivent répondre sans qu'aucun module soit
   installé, et quand l'application est cassée.
+- **Le VERBE au cœur, le CONTENU ici** — le même critère que pour `card` :
+  `ai:sync` est un fast-path du cœur (il doit répondre sans `NODE_ENV`), les
+  skills se corrigent ici et repartent par `npm update`. Détail : `MEMORY.md`.
+- **Un skill n'est JAMAIS copié dans l'application** — `ai:sync` y pose un
+  POINTEUR. Une copie décrit, six mois plus tard, un framework qui a changé,
+  sans rien casser : donc sans que personne le voie.
 - **Paquet PUBLIABLE** : `exports`/`types` pointent vers du GÉNÉRÉ (`dist/`,
   `dist/types/`) — jamais un `.d.ts` écrit à la main. `files` borne ce qui part
   sur npm.
@@ -68,6 +76,9 @@ devkit/
   servir l'agent que l'utilisateur a DÉJÀ.
 - Y déplacer une capacité qui doit marcher **sans installation** ou **application
   cassée** — sa place est le cœur.
+- Ajouter un `postinstall` (ou tout script d'installation).
+- Sortir les skills du paquet — ils ne se mettraient plus à jour, c'est leur
+  seule raison de vivre ici.
 
 ## Tests / build
 

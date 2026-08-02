@@ -8,8 +8,9 @@ status: stable
 
 # devkit
 
-> L'outillage de développement d'une application : sa carte de visite, et les
-> portes qui mènent au reste.
+> L'outillage de développement d'une application : sa carte de visite, les
+> skills qui disent à un agent comment faire les tâches courantes, et les portes
+> qui mènent au reste.
 
 Cette page est **surfacée dans Studio** (onglet Docs du module).
 
@@ -75,6 +76,43 @@ la rend éprouvable sans serveur, et ce qui l'empêche d'inventer quoi que ce so
 > couvre : un agent qui code ne s'authentifie pas et n'a pas de navigateur. La
 > porte qui compte pour lui est la commande.
 
+## Les skills d'agent — répondre à « comment fait-on ça, ici ? »
+
+La carte dit **où aller**. Elle ne dit pas **comment faire**. Or c'est là qu'un
+agent invente : faute d'une marche à suivre, il écrit un CRUD à la main, un
+service à méthodes `static` que le conteneur ne voit pas, un contrôle de droits
+dans le corps de l'action.
+
+Le paquet livre donc quatre **skills** au format [Agent Skills](https://agentskills.io),
+un par tâche où l'invention coûte cher :
+
+| Skill                  | Le besoin qu'il couvre                                      |
+| ---------------------- | ----------------------------------------------------------- |
+| `add-crud`             | exposer une ressource REST complète, entité comprise        |
+| `add-service`          | ajouter de la logique métier réutilisable, vue du conteneur |
+| `protect-route`        | réserver une route à qui est habilité                       |
+| `add-realtime-channel` | ouvrir un canal temps réel où le serveur pousse             |
+
+`nodefony create app` les met à disposition à la création ; après une montée de
+version, `npx nodefony ai:sync` les remet à jour (`--dry-run` montre sans
+écrire).
+
+**Ce qui est écrit dans le projet est un pointeur, jamais une copie.** Le contenu
+reste dans le paquet installé et suit `npm update` : une recette recopiée dans un
+projet décrit, six mois plus tard, un framework qui a changé — et comme rien ne
+casse, personne ne s'en aperçoit. C'est le même principe que le reste du devkit :
+**rien de figé n'est copié chez l'utilisateur.**
+
+Le dossier visé — `.agents/skills/` — est celui que tous les clients conformes
+lisent, plutôt que le dossier propriétaire d'un seul d'entre eux. Ces fichiers
+sont faits pour être commités : l'équipe entière et l'intégration continue
+travaillent alors avec les mêmes recettes.
+
+> Aucun `postinstall` ne les pose : `--ignore-scripts` est courant, les scripts
+> d'installation sont un vecteur d'attaque connu de l'écosystème npm, et écrire
+> dans un dossier versionné à chaque installation produirait des différences
+> surprises.
+
 ## Ce qu'il ne fait pas
 
 Le scaffold (`nodefony create …`), le diagnostic (`nodefony check`) et
@@ -82,6 +120,11 @@ l'introspection (`nodefony inspect`) **ne sont pas ici** : ils vivent dans le
 cœur, parce qu'ils doivent répondre sans qu'aucun module soit installé — et
 surtout quand l'application est cassée. Un outil de diagnostic qui exige que
 l'application démarre ne sert pas au moment où on en a besoin.
+
+Même partage pour les skills, et il se retient en une phrase : **le VERBE vit
+dans le cœur, le CONTENU dans ce paquet.** `ai:sync` doit répondre dans un
+terminal qui n'a rien posé (portée par un module `policy: "dev"`, elle serait
+absente sans `NODE_ENV`) ; les skills, eux, doivent se mettre à jour par npm.
 
 ## Configuration
 
