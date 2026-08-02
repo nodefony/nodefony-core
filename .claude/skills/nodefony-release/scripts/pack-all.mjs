@@ -36,20 +36,15 @@ const OUT = path.join(ROOT, "release", "tarballs");
 // installerait react/react-dom (peers du sous-chemin client `nodefony/react`,
 // jamais requis côté serveur). Injecté au pack (pas dans le source : le repo
 // self-hosted a toujours react via le workspace Studio).
-// `vite` suit la même logique, et le smoke l'a rendu VISIBLE (scénario front,
-// cas b2) : déclaré en peer NON optionnelle, npm l'installait comme une
-// dépendance de production — il survivait donc à `npm prune --omit=dev` et
-// voyageait dans toute image d'application. Deux conséquences, l'une pesante et
-// l'autre pernicieuse : des dizaines de Mo embarqués pour rien, et surtout le
-// chemin « vite indisponible → ERROR nommée » de `FrontendService.setupProd`
-// devenu INATTEIGNABLE — la garde qui refuse la page blanche muette n'avait
-// aucune chance de servir, puisque vite était toujours là pour reconstruire.
-// Studio le tire aussi (avec son plugin react) alors que son UI est
-// PRÉ-BUILDÉE dans le paquet (`ui: "static"`) : il n'en a jamais besoin.
+// ⚠️ Rien pour `vite` ici, et c'est délibéré : marquer une peer optionnelle ne
+// suffit PAS à la faire sortir de l'image. Une fois INSTALLÉE (elle l'est, en
+// devDependency de l'application), elle SATISFAIT la peer d'un paquet de
+// production, et `npm prune --omit=dev` la garde — mesuré. La seule chose qui
+// marche est de ne pas déclarer la peer du tout, ce que font désormais
+// `@nodefony/frontend` et `@nodefony/studio` : Vite et ses plugins y sont
+// chargés par `await import()`, donc rien n'exige de les déclarer.
 const PACK_PEER_OPTIONAL = {
   nodefony: ["react", "react-dom"],
-  "@nodefony/frontend": ["vite"],
-  "@nodefony/studio": ["vite", "@vitejs/plugin-react"],
 };
 
 // Workspaces publiables — résolus par npm (source de vérité, pas de liste en dur).

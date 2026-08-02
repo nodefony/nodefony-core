@@ -532,7 +532,10 @@ class FrontendService extends Service implements IFrontendService {
           `entrée(s) frontend sans build (${names}) et vite indisponible ici — ` +
             `les pages seront servies SANS interface (blanches). ` +
             `Builde AVANT de lancer : npm run build (ou nodefony frontend:build), ` +
-            `puis redémarre. Détail : ${e instanceof Error ? e.message : String(e)}`,
+            `puis redémarre. Si vite manque aussi en développement, il n'est pas ` +
+            `une dépendance de ce module : installe-le côté application ` +
+            `(npm i -D vite, plus le plugin de ton framework). ` +
+            `Détail : ${e instanceof Error ? e.message : String(e)}`,
           "ERROR",
         );
       }

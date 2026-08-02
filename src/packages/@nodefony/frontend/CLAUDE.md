@@ -87,16 +87,16 @@ Kernel onTerminate
 
 ## Décisions techniques figées
 
-| Sujet                      | Décision                                                                       |
-| -------------------------- | ------------------------------------------------------------------------------ |
-| Builder                    | **Vite** — ESM natif, HMR rapide, cohérence rolldown backend (même moteur oxc) |
-| Supervisor (cette branche) | `child_process.spawn("npx vite ...")` — process système isolé                  |
-| Config Vite                | Fichier `.mjs` GÉNÉRÉ au boot dans `${root}/vite.config.generated.mjs`         |
-| Plugins                    | Hardcodés dans le `.mjs` généré selon les preset types détectés                |
-| Logs                       | `child.stdout.pipe → syslog Nodefony` (pas de sérialisation JSON)              |
-| Cleanup                    | `SIGINT` puis `SIGKILL` timeout 3s — évite zombies bloquant 5173               |
-| Multi-bundles              | **Une seule instance Vite multi-entry** (rolldown-style `input` map)           |
-| Peer deps                  | `vite`, `@vitejs/plugin-react` (optional) — pas embarquées par défaut          |
+| Sujet                      | Décision                                                                           |
+| -------------------------- | ---------------------------------------------------------------------------------- |
+| Builder                    | **Vite** — ESM natif, HMR rapide, cohérence rolldown backend (même moteur oxc)     |
+| Supervisor (cette branche) | `child_process.spawn("npx vite ...")` — process système isolé                      |
+| Config Vite                | Fichier `.mjs` GÉNÉRÉ au boot dans `${root}/vite.config.generated.mjs`             |
+| Plugins                    | Hardcodés dans le `.mjs` généré selon les preset types détectés                    |
+| Logs                       | `child.stdout.pipe → syslog Nodefony` (pas de sérialisation JSON)                  |
+| Cleanup                    | `SIGINT` puis `SIGKILL` timeout 3s — évite zombies bloquant 5173                   |
+| Multi-bundles              | **Une seule instance Vite multi-entry** (rolldown-style `input` map)               |
+| Outils Vite                | **Ni deps NI peers** — `await import()` seul ; l'app les déclare (cf § ci-dessous) |
 
 ## Mode prod (build + renderProdTags)
 
@@ -118,6 +118,30 @@ Kernel onTerminate
 
 Défaut `/_assets/<entryName>/` (surchargeable via `frontend.publicPath`). Sert de : `base` Vite au build · mount prefix de `Statics` (guard `startsWith` O(1) + strip) · préfixe des URLs émises par `renderProdTags`. → les trois restent cohérents par construction.
 
+## Vite et les frameworks front — ce module n'en déclare AUCUN
+
+Ni `dependencies`, ni `peerDependencies` : `vite` et les trois plugins sont chargés par
+`await import()` (`FrontendService.ts` pour vite, les presets pour les plugins), et **rien
+n'exige donc de les déclarer**. C'est l'application qui les porte en `devDependencies` — le
+scaffold le fait, versions issues de la source unique `scaffold/versions.ts`.
+
+**Pourquoi une simple peer OPTIONNELLE ne suffisait pas.** Une peer, même optionnelle, est
+_satisfaite_ par le paquet installé en devDependency de l'application ; `npm prune --omit=dev`
+considère alors qu'il appartient à l'arbre de production et **le garde**. Vite voyageait donc
+dans toute image d'application à frontend — et, plus grave que le poids, la garde de
+`setupProd` (« vite indisponible → ERREUR nommée, geste indiqué ») devenait **inatteignable** :
+vite était toujours là pour reconstruire en silence, ce que le refus de la page blanche muette
+est précisément censé empêcher. Mesuré via le smoke release, scénario `front`.
+
+De même, **aucun framework front n'est une dépendance de ce module**. `vue` l'a été : une
+application React embarquait Vue et, dans son sillage, TypeScript — 26,6 Mo. Le module ne
+l'importe nulle part ; `"vue"` n'y apparaît que comme CHAÎNE dans les configs Vite générées
+(`optimizeDeps`, `resolve.dedupe`).
+
+Les entrées `external` du `rolldown.config.ts` restent, elles, légitimes et nécessaires : elles
+disent au bundler de ne pas inliner ces imports dynamiques. Un `external` sans peer n'est PAS une
+dérive ici — l'audit `nodefony-check-externals` doit lire ce paragraphe avant de conclure.
+
 ## Gotchas
 
 - **`vite.config.generated.mjs` overwrite** : régénéré à CHAQUE `startDev()`. Ne JAMAIS éditer manuellement.
@@ -130,7 +154,8 @@ Défaut `/_assets/<entryName>/` (surchargeable via `frontend.publicPath`). Sert 
 ## Ce qu'il ne faut JAMAIS faire sans accord
 
 - Modifier `rolldown.config.ts` ou `tsconfig.json`
-- Ajouter `vite` aux `dependencies` (doit rester `peerDependencies` — taille)
+- Redéclarer `vite` ou ses plugins en `dependencies` **ou en `peerDependencies`** (cf § ci-dessous — une peer suffit à les faire voyager en production)
+- Ajouter un framework front (`vue`, `react`…) aux `dependencies` : ce module est un BUILDER, il n'en importe aucun
 - Importer `@nodefony/framework` ou `@nodefony/http` (cycles potentiels via app config)
 - Remplacer `child_process.spawn` par `worker_threads` (testé/rejeté — sérialisation logs explose)
 

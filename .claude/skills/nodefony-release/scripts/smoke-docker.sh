@@ -324,30 +324,33 @@ if runs front; then
   step "[front] deps + image"
   build_image "$FAPP" "$FIMG"
 
-  step "[front] (b2) image de production, front non construit → le backend survit"
+  # La toolchain ne doit PAS descendre en production — c'est la promesse écrite
+  # en tête du Dockerfile généré. Elle a été fausse : une peer, même optionnelle,
+  # est SATISFAITE par la devDependency de l'application, et `npm prune
+  # --omit=dev` la garde alors comme un paquet de production. `@nodefony/frontend`
+  # ne déclare donc plus vite ni ses plugins (tout y est en `await import()`).
+  # Sans ce contrôle, la régression reviendrait par une simple ligne de manifeste,
+  # et rien ne la signalerait — l'image marcherait.
+  step "[front] (b2) image de production : la toolchain n'y est PAS"
+  for tool in vite vue typescript; do
+    docker run --rm --entrypoint sh "$FIMG" -c "test -d node_modules/$tool" \
+      && fail "$tool est dans l'image de production — une peer ou une dep l'y a fait entrer"
+  done
+  ok "vite, vue, typescript absents de l'image"
+
+  step "[front] (b2) front non construit, vite absent → ERREUR nommée, API vivante"
   docker rm -f "$FCTN" >/dev/null 2>&1 || true
   # `public/dist` effacé DANS le conteneur : on reproduit une image bâtie sans
   # build front, sans avoir à en construire une seconde.
   docker run -d --name "$FCTN" -p "$FPORT:5151" --entrypoint sh "$FIMG" \
     -c 'rm -rf public/dist && exec node_modules/.bin/nodefony production' >/dev/null
   wait_ready "$FCTN" "$FPORT"
+  docker logs "$FCTN" 2>&1 | grep -q "vite indisponible" \
+    || { docker logs "$FCTN" 2>&1 | tail -30; fail "ERREUR « vite indisponible » absente — la page blanche redevient muette"; }
+  ok "ERREUR nommée : vite indisponible, geste indiqué"
   APICODE=$(http_code "http://127.0.0.1:$FPORT/api/hello")
   [ "$APICODE" = "200" ] || fail "API à $APICODE — un front absent ne doit PAS emporter le backend"
   ok "/api/hello → 200 (le backend survit à un front non construit)"
-
-  # ── CE QUI N'EST PAS COUVERT, et pourquoi — un gate qui rétrécit doit le DIRE.
-  # Le cahier réclamait ici la seconde issue : « vite absent → ERREUR nommée ».
-  # Elle est INATTEIGNABLE sur une application à frontend, et c'est mesuré : le
-  # plugin Vite est une devDependency, il SATISFAIT la dépendance de pair
-  # (optionnelle) de `@nodefony/frontend`, donc `npm prune --omit=dev` le garde
-  # — et il tire Vite avec lui. Refaire l'arbre depuis zéro n'y change rien, le
-  # `package-lock.json` l'a figé : 161 Mo dans les deux cas.
-  # Conséquence à porter au produit : la garde de `setupProd` qui refuse la page
-  # blanche muette ne peut pas servir tant que Vite voyage dans l'image. Le
-  # remède est en amont — la façon dont `@nodefony/frontend` déclare Vite.
-  VITE_IN_IMAGE=$(docker run --rm --entrypoint sh "$FIMG" -c 'test -d node_modules/vite && echo oui || echo non')
-  echo "ℹ NON COUVERT — « vite absent → ERREUR nommée » : vite dans l'image = $VITE_IN_IMAGE"
-  echo "  (dette produit : peers de @nodefony/frontend ; cf docs/release/nodefony-10.md §10.4)"
   docker rm -f "$FCTN" >/dev/null 2>&1 || true
 fi
 
