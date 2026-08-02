@@ -33,6 +33,7 @@ import {
   type IScaffoldTypeSpec,
   type TCommandPhaseChoice,
   type TControllerKindChoice,
+  type TDatabaseChoice,
   type TFrontendChoice,
   type TModuleControllerChoice,
   type TPresetChoice,
@@ -183,6 +184,77 @@ export const FRONTEND_PARAMS: Record<
 };
 
 /**
+ * Paramètres de la base SQL retenue au scaffold — SOURCE UNIQUE du service
+ * docker, du port publié et de l'URL de connexion, consommée par les TROIS
+ * gabarits qui en parlent (`compose.yaml`, `.env`, `README.md`).
+ *
+ * Pourquoi ici plutôt que recopié en eta : ces valeurs doivent coïncider EXACTEMENT
+ * — l'URL du `.env` joint le port que le compose publie, et le README montre la
+ * même. Trois littéraux séparés divergent au premier réglage, et l'écart ne se
+ * voit qu'à la connexion refusée.
+ *
+ * ⚠️ **MySQL est publié sur 3306, pas 3307.** Le port décalé n'existait que pour
+ * faire cohabiter MySQL et MariaDB dans un compose qui portait les deux ; une
+ * app qui retient UN dialecte n'a plus rien avec quoi cohabiter, et un port
+ * inattendu est une friction gratuite.
+ */
+export const DATABASE_PARAMS: Record<
+  Exclude<TDatabaseChoice, "sqlite">,
+  {
+    /** Nom du service dans le compose (et suffixe du container_name). */
+    service: string;
+    /** Libellé humain — README et commentaires du compose. */
+    label: string;
+    /** Scheme de `NF_DATABASE_URL` : c'est LUI qui décide du dialecte de l'ORM. */
+    scheme: string;
+    /** Port publié sur 127.0.0.1 (l'app tourne sur l'hôte). */
+    port: number;
+  }
+> = {
+  postgres: {
+    service: "postgres",
+    label: "PostgreSQL 16",
+    scheme: "postgres",
+    port: 5432,
+  },
+  mariadb: {
+    service: "mariadb",
+    label: "MariaDB 11.4",
+    scheme: "mysql",
+    port: 3306,
+  },
+  mysql: { service: "mysql", label: "MySQL 8.4", scheme: "mysql", port: 3306 },
+};
+
+/**
+ * Compose le bloc `db` offert aux gabarits — `null` pour sqlite, qui n'a ni
+ * service ni URL (le fichier vit dans `var/databases/`, l'ORM s'en charge seul).
+ */
+export function resolveDatabase(
+  choice: TDatabaseChoice,
+  appName: string,
+): {
+  choice: string;
+  service: string;
+  label: string;
+  scheme: string;
+  port: number;
+  url: string;
+} | null {
+  if (choice === "sqlite") {
+    return null;
+  }
+  const params = DATABASE_PARAMS[choice];
+  return {
+    choice,
+    ...params,
+    // Identifiants du compose généré : mêmes défauts `${VAR:-…}` que les
+    // services, donc l'URL marche sans qu'aucune variable ne soit exportée.
+    url: `${params.scheme}://${appName}:${appName}-dev@127.0.0.1:${params.port}/${appName}`,
+  };
+}
+
+/**
  * Racine du paquet `nodefony` contenant `templates/` — remontée depuis CE fichier
  * (source `src/cli/scaffold/`, bundle `dist/node/cli/scaffold/` : la remontée
  * marche pour les deux sans dépendre de la profondeur).
@@ -282,7 +354,12 @@ export function linkLocalDeps(
  * Complète et VALIDE des réponses partielles contre la spec d'un type : défauts
  * appliqués, patterns vérifiés, choix contraints à leur liste. Le contexte des
  * templates est donc complet PAR CONSTRUCTION (eta ne rend jamais un `undefined`
- * silencieux). Les questions `askIf` non satisfaites sont forcées à `false`.
+ * silencieux). Les questions `askIf` non satisfaites sont forcées à `false` ;
+ * celles dont l'`askWhen` n'est pas satisfait retombent à leur DÉFAUT — une
+ * réponse qui porte sur ce qui ne sera pas généré n'a rien à décider.
+ *
+ * L'ordre de la spec fait foi : une question `askWhen` lit la réponse DÉJÀ
+ * résolue de celle qu'elle désigne, donc cette dernière doit la précéder.
  *
  * @throws Error si une valeur viole la spec (message = libellé + attendu)
  */
@@ -293,9 +370,12 @@ export function resolveAnswers(
 ): TScaffoldAnswers {
   const answers: TScaffoldAnswers = {};
   for (const q of spec.questions) {
-    let value = partial[q.key];
+    let value: TScaffoldAnswers[string] | undefined = partial[q.key];
     if (q.askIf === "hasCheckout" && !caps.hasCheckout) {
       value = false;
+    }
+    if (q.askWhen && String(answers[q.askWhen.key]) !== q.askWhen.equals) {
+      value = undefined;
     }
     if (value === undefined) {
       value = q.default;
@@ -863,6 +943,12 @@ function dispatchScaffold(
   const preset = answers.preset as TPresetChoice;
   const frontend = answers.frontend as TFrontendChoice;
   const front = frontend !== "none" ? FRONTEND_PARAMS[frontend] : null;
+  // `null` en sqlite — le compose ne rend alors AUCUN service SQL et le `.env`
+  // laisse l'ORM sur son fichier local.
+  const db = resolveDatabase(
+    answers.database as TDatabaseChoice,
+    String(answers.name),
+  );
   const data = {
     appName: answers.name,
     // Nom de la fonction de déclaration d'entry, et nom de l'entry Vite —
@@ -884,6 +970,8 @@ function dispatchScaffold(
     hasSecurity: preset === "complete",
     frontend,
     front,
+    // Base SQL retenue : `null` = sqlite (aucun service, aucune URL).
+    db,
     // Secrets PAR-PROJET, générés À LA CRÉATION (jamais au build : un build
     // doit rester pur/reproductible — en CI/prod les secrets viennent du
     // secret-manager). Consommés par `complete/env.local.tpl` (gitignoré) →

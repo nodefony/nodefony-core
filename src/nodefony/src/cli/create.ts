@@ -7,6 +7,7 @@ import {
   getScaffoldSpec,
   COMMAND_PHASE_CHOICES,
   CONTROLLER_KIND_CHOICES,
+  DATABASE_CHOICES,
   ENTITY_ID_CHOICES,
   FRONTEND_CHOICES,
   MODULE_CONTROLLER_CHOICES,
@@ -119,6 +120,8 @@ export function parseCreateArgv(
       answers.preset = rest[++i];
     } else if (word === "--frontend") {
       answers.frontend = rest[++i];
+    } else if (word === "--database") {
+      answers.database = rest[++i];
     } else if (word === "--kind") {
       answers.kind = rest[++i];
     } else if (word === "--controller") {
@@ -240,6 +243,7 @@ export function parseCreateArgv(
 const USAGE =
   `usage : nodefony create <${CREATE_TYPES.join("|")}> [name] [--dir <path>] [--force] [--yes] [--dry-run|-n]\n` +
   `  app        : [--preset <${PRESET_CHOICES.join("|")}>] [--frontend <${FRONTEND_CHOICES.join("|")}>]\n` +
+  `               [--database <${DATABASE_CHOICES.join("|")}>] — le compose ne porte QUE ce service\n` +
   `               [--link|--no-link] [--no-install] [--no-git]\n` +
   `  module     : [--controller <${MODULE_CONTROLLER_CHOICES.join("|")}>] [--no-service] [--command]\n` +
   `               [--frontend <${FRONTEND_CHOICES.join("|")}>] [--description "…"] [--no-install]\n` +
@@ -548,7 +552,21 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     // pas été posée (réglage `advanced`). Sans ce repli, un booléen non répondu
     // s'affichait « non » alors que son défaut est `true` — le récap annonçait
     // « service : non » puis le service était généré (vécu).
+    // Valeur EFFECTIVE de chaque question (réponse, sinon défaut de la spec) —
+    // c'est elle que lit la condition `askWhen`, comme le fait le moteur.
+    const effective = new Map(
+      spec.questions.map((q) => [q.key, answers[q.key] ?? q.default]),
+    );
     const lines = spec.questions
+      // Une question dont l'`askWhen` n'est pas satisfait ne sera PAS honorée
+      // (le moteur la ramène à son défaut) : l'afficher annoncerait un choix
+      // que la génération ignore — exactement le contresens que ce récap existe
+      // pour éviter.
+      .filter(
+        (q) =>
+          !q.askWhen ||
+          String(effective.get(q.askWhen.key)) === q.askWhen.equals,
+      )
       .map((q) => {
         const value = answers[q.key] ?? q.default;
         const shown =
@@ -697,11 +715,21 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     ? runGitInit(result.dest, String(answers.name))
     : "sauté (--no-git)";
   process.stdout.write(`🌱 git : ${gitNote}\n`);
+  // Une base docker a été retenue : `.env` déclare `NF_DATABASE_URL` dessus, donc
+  // le premier `npm run dev` échoue tant que le service n'écoute pas. L'étape est
+  // dans la séquence, pas en note de bas de page.
+  const needsInfra =
+    answers.preset !== "minimal" &&
+    answers.database !== undefined &&
+    answers.database !== "sqlite";
   process.stdout.write(
     `\nProchaines étapes :\n` +
       `  cd ${relDest}\n` +
       (installed ? "" : `  npm install\n`) +
       (built ? "" : `  npm run build\n`) +
+      (needsInfra
+        ? `  npm run infra:up   # docker : ${String(answers.database)} + Redis (NF_DATABASE_URL pointe dessus)\n`
+        : "") +
       `  npm run dev        # → https://127.0.0.1:5152 (admin : /nodefony — admin/admin en dev)\n`,
   );
   return SysExit.OK;

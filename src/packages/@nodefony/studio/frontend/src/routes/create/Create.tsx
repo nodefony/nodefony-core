@@ -692,7 +692,9 @@ export function Create() {
                 {typeSpec.type}
               </Text>
               {typeSpec.questions
-                .filter((q) => isQuestionVisible(q, caps))
+                // `answers` compris : récapituler une question que le moteur va
+                // ramener au défaut annoncerait un choix qu'il ignore.
+                .filter((q) => isQuestionVisible(q, caps, answers))
                 .map((q) => (
                   <Group
                     key={q.key}

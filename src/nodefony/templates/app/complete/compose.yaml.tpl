@@ -1,28 +1,31 @@
 # <%= it.appName %> — infra de développement (docker compose)
 #
-# Pourquoi ce fichier : ton app persiste OUT-OF-THE-BOX en sqlite local (zéro service
-# externe). Ce compose fournit l'infra du CRAN AU-DESSUS quand tu en as besoin :
+# Ce fichier ne porte QUE ce que ton app utilise : le dialecte SQL a été retenu à
+# la création, les deux autres ne sont pas là. Ce qu'il fournit :
 #   - Redis    → sessions/idempotence partagées + backplane realtime multi-process
-#   - Postgres / MariaDB / MySQL → base SQL de production (l'ORM Drizzle déduit le
-#     dialecte du scheme de l'URL — aucun autre changement dans l'app)
-#   - Loki + Grafana → centralisation des logs (driver `loki` du framework)
+<% if (it.db) { %>#   - <%= it.db.label %> → LA base de l'app — `NF_DATABASE_URL` est déjà posée dans
+#     `.env` sur ce service, il n'y a rien à câbler
+<% } %>#   - Loki + Grafana → centralisation des logs (driver `loki` du framework)
 #
-# Usage (activation PROGRESSIVE par profils — rien ne tourne « au cas où ») :
-#   docker compose up -d                          # Redis seul (défaut)
-#   docker compose --profile postgres up -d       # + PostgreSQL
-#   docker compose --profile mariadb up -d        # + MariaDB
-#   docker compose --profile mysql up -d          # + MySQL (port 3307)
+# Usage :
+#   docker compose up -d                          # Redis<%= it.db ? " + " + it.db.label : "" %> (ce qu'il faut à l'app)
 #   docker compose --profile tools up -d          # + RedisInsight (UI Redis)
 #   docker compose --profile loki up -d           # + Loki + Grafana (logs)
 #   docker compose down                           # arrêt (volumes conservés)
 #   docker compose down -v                        # arrêt + PURGE des données
 #
-# Câblage côté app (env.ts est le SEUL lecteur de process.env) :
-#   export NF_REDIS_URL="redis://:<%= it.appName %>-dev@127.0.0.1:6379"
-#   export NF_DATABASE_URL="postgres://<%= it.appName %>:<%= it.appName %>-dev@127.0.0.1:5432/<%= it.appName %>"
-#   # MariaDB : mysql://<%= it.appName %>:<%= it.appName %>-dev@127.0.0.1:3306/<%= it.appName %>
-#   # MySQL   : mysql://<%= it.appName %>:<%= it.appName %>-dev@127.0.0.1:3307/<%= it.appName %>
+<% if (it.db) { %># Câblage côté app (env.ts est le SEUL lecteur de process.env) — `.env` porte
+# déjà l'URL de la base ; Redis reste commenté tant que tu n'en as pas besoin :
+#   NF_DATABASE_URL="<%= it.db.url %>"
+#   NF_REDIS_URL="redis://:<%= it.appName %>-dev@127.0.0.1:6379"
+<% } else { %># Base SQL : aucune ici — l'app persiste en sqlite local (`var/databases/`), ce
+# qui la fait démarrer sans rien allumer. Pour passer sur une vraie base, ajoute
+# son service et déclare `NF_DATABASE_URL` : l'ORM déduit le dialecte du scheme
+# (`postgres://`, `mysql://`) et RIEN d'autre ne change dans l'app.
 #
+# Câblage côté app (env.ts est le SEUL lecteur de process.env) :
+#   NF_REDIS_URL="redis://:<%= it.appName %>-dev@127.0.0.1:6379"
+<% } %>#
 # Config : chaque valeur a un défaut inline `${VAR:-défaut}` → AUCUN fichier .env requis.
 # Pour surcharger (autre port, vrai secret) : `export VAR=…` avant le `up`.
 # Les mots de passe dev sont PUBLICS — JAMAIS en production.
@@ -64,12 +67,13 @@ services:
       retries: 5
       start_period: 5s
 
-  # --- PostgreSQL (profile postgres — base SQL recommandée en production) ---
+<% if (it.db && it.db.choice === "postgres") { %>  # --- PostgreSQL 16 — LA base de l'app (dialecte retenu à la création) ---
+  # Pas de `profiles:` : ce service n'est pas une option, c'est la base que
+  # `NF_DATABASE_URL` joint. `docker compose up -d` le monte avec Redis.
   postgres:
     image: postgres:16-alpine
     container_name: <%= it.appName %>-postgres
     restart: unless-stopped
-    profiles: ["postgres"]
     networks: [<%= it.appName %>]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-<%= it.appName %>}
@@ -90,12 +94,13 @@ services:
       retries: 5
       start_period: 5s
 
-  # --- MariaDB (profile mariadb — fork libre de MySQL, même driver/dialecte) ---
+<% } %><% if (it.db && it.db.choice === "mariadb") { %>  # --- MariaDB 11.4 — LA base de l'app (fork libre de MySQL, même dialecte) ---
+  # Pas de `profiles:` : ce service n'est pas une option, c'est la base que
+  # `NF_DATABASE_URL` joint. `docker compose up -d` le monte avec Redis.
   mariadb:
     image: mariadb:11.4
     container_name: <%= it.appName %>-mariadb
     restart: unless-stopped
-    profiles: ["mariadb"]
     networks: [<%= it.appName %>]
     environment:
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-<%= it.appName %>-dev}
@@ -114,12 +119,13 @@ services:
       retries: 10
       start_period: 10s
 
-  # --- MySQL (profile mysql — port 3307 pour cohabiter avec MariaDB) ---
+<% } %><% if (it.db && it.db.choice === "mysql") { %>  # --- MySQL 8.4 — LA base de l'app (dialecte retenu à la création) ---
+  # Pas de `profiles:` : ce service n'est pas une option, c'est la base que
+  # `NF_DATABASE_URL` joint. `docker compose up -d` le monte avec Redis.
   mysql:
     image: mysql:8.4
     container_name: <%= it.appName %>-mysql
     restart: unless-stopped
-    profiles: ["mysql"]
     networks: [<%= it.appName %>]
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-<%= it.appName %>-dev}
@@ -127,7 +133,9 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-<%= it.appName %>-dev}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-<%= it.appName %>}
     ports:
-      - "127.0.0.1:${MYSQL_PORT:-3307}:3306"
+      # 3306 : le port décalé n'existait que pour cohabiter avec MariaDB dans un
+      # compose qui portait les deux — une app retient UN dialecte.
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
@@ -141,7 +149,7 @@ services:
       retries: 10
       start_period: 10s
 
-  # --- RedisInsight (profile tools — UI de debug Redis, jamais en prod) ---
+<% } %>  # --- RedisInsight (profile tools — UI de debug Redis, jamais en prod) ---
   redisinsight:
     image: redis/redisinsight:latest
     container_name: <%= it.appName %>-redisinsight
@@ -205,8 +213,6 @@ networks:
 
 volumes:
   redis-data:
-  postgres-data:
-  mariadb-data:
-  mysql-data:
-  loki-data:
+<% if (it.db) { %>  <%= it.db.service %>-data:
+<% } %>  loki-data:
   grafana-data:

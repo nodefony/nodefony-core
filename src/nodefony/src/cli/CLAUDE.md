@@ -590,8 +590,9 @@ Hello HTTP+WS même classe, tests vitest unit+e2e `--detach --wait`, eslint flat
 prettier + `typescript@6` API-JS-pour-eslint (typecheck = tsgo), vitest bloc oxc
 décorateurs, `nodefony.config.ts`/`package.json`/`README` conditionnels,
 **`Dockerfile` + `.dockerignore`** — cf § ci-dessous) ·
-`complete/` (compose.yaml redis+profils postgres/mariadb/mysql/tools/loki+grafana,
-préfixé `<appName>`) · `frontend/shared/` (AppController : `renderTags(name,
+`complete/` (compose.yaml redis + **la SEULE base retenue** + profils
+tools/loki+grafana, préfixé `<appName>` — cf § base SQL ci-dessous) ·
+`frontend/shared/` (AppController : `renderTags(name,
 this.context?.cspNonce)` — la CSP est émise par le firewall, le controller ne
 fait que propager le nonce ; `getCspDirectives` N'EXISTE PAS) · `frontend/{react,
 vue,angular}/` (entry+App par framework, `registerEntry` type `react19|vue3|
@@ -599,6 +600,23 @@ angular` + `apiProxyPaths: ["/api"]` dans `index.ts` à `onKernelBoot`, tsconfig
 jsx pour react, `tsconfig.app.json` pour angular). Presets : `complete` = vitrine
 totale (drizzle sqlite auto, realtime, security, frontend+studio dev, redis gated) ;
 `minimal` = http+framework (+ `@nodefony/frontend` si un framework front est choisi).
+
+**Base SQL — `--database <sqlite|postgres|mariadb|mysql>` (défaut `sqlite`)** : le
+générateur connaît le dialecte, donc l'app ne reçoit ni les deux services qu'elle
+n'utilisera pas, ni une URL à recomposer. `DATABASE_PARAMS` + `resolveDatabase`
+(`engine.ts`) sont la SOURCE UNIQUE du service, du port publié et de
+`NF_DATABASE_URL` — trois gabarits en parlent (`compose.yaml`, `.env`,
+`README.md`) et un écart entre eux ne se voit qu'à la connexion refusée. Le
+service retenu est rendu **sans `profiles:`** (ce n'est pas une option : `docker
+compose up -d` doit le monter), et `.env` porte l'URL **active** — donc le récap
+de `create app` place `npm run infra:up` AVANT `npm run dev`. En `sqlite` :
+aucun service SQL, URL commentée, l'app démarre sans rien allumer.
+
+> La question porte `askWhen: { key: "preset", equals: "complete" }` — condition
+> sur une RÉPONSE précédente, là où `askIf` interroge l'environnement. Non
+> satisfaite, la valeur retombe au DÉFAUT (le layer `complete` porte le
+> `compose.yaml` : en minimal il n'y aurait aucun fichier où l'écrire). Le récap
+> interactif applique le même filtre, sinon il annoncerait un choix ignoré.
 
 **link (dev framework, AVANT release npm)** : réécrit les deps `nodefony`/
 `@nodefony/*` en `file:<workspace>` vers le checkout (`resolveLocalWorkspaces` ;

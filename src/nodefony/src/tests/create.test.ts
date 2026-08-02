@@ -492,6 +492,122 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  describe("base SQL retenue à la création (compose ↔ .env ↔ README)", () => {
+    /**
+     * Ce que ces contrôles tiennent : le générateur CONNAÎT le dialecte, donc
+     * l'app ne reçoit ni les deux services qu'elle n'utilisera pas, ni une URL à
+     * recomposer à la main. Trois fichiers en parlent (`compose.yaml`, `.env`,
+     * `README.md`) et ils doivent coïncider EXACTEMENT — c'est le seul défaut
+     * qui ne se voit qu'à la connexion refusée, jamais au rendu.
+     */
+    const composeOf = (dest: string) =>
+      readFileSync(path.join(dest, "compose.yaml"), "utf8");
+    const envOf = (dest: string) =>
+      readFileSync(path.join(dest, ".env"), "utf8");
+
+    it("défaut sqlite : AUCUN service SQL, et l'URL reste commentée", () => {
+      const dest = path.join(tmp, "solo");
+      scaffold(dest, { name: "solo" });
+      const compose = composeOf(dest);
+      // Redis et l'observabilité restent — c'est la base SQL qui disparaît.
+      assert.include(compose, "\n  redis:\n");
+      for (const service of ["postgres", "mariadb", "mysql"]) {
+        assert.notInclude(
+          compose,
+          `\n  ${service}:\n`,
+          `service ${service} rendu alors que l'app est en sqlite`,
+        );
+        assert.notInclude(compose, `  ${service}-data:`);
+      }
+      // Commentée : une app qui n'a rien demandé démarre sans rien allumer.
+      assert.notMatch(envOf(dest), /^NF_DATABASE_URL=/mu);
+      assert.include(envOf(dest), "# NF_DATABASE_URL=");
+      assertNoEtaResidue(dest);
+    });
+
+    for (const [database, service, port, scheme] of [
+      ["postgres", "postgres", "5432", "postgres"],
+      ["mariadb", "mariadb", "3306", "mysql"],
+      // 3306 aussi : le port décalé n'existait que pour faire cohabiter MySQL
+      // et MariaDB dans un compose qui portait les deux.
+      ["mysql", "mysql", "3306", "mysql"],
+    ] as const) {
+      it(`--database ${database} : ce service SEUL, sans profil, et l'URL posée dessus`, () => {
+        const dest = path.join(tmp, database);
+        scaffold(dest, { name: "demo", database });
+        const compose = composeOf(dest);
+        assert.include(compose, `\n  ${service}:\n`);
+        assert.include(compose, `  ${service}-data:`);
+        for (const other of ["postgres", "mariadb", "mysql"].filter(
+          (s) => s !== service,
+        )) {
+          assert.notInclude(
+            compose,
+            `\n  ${other}:\n`,
+            `${other} rendu alors que ${database} a été retenu`,
+          );
+          assert.notInclude(compose, `  ${other}-data:`);
+        }
+        // Sans profil : la base n'est pas une option, `up -d` doit la monter.
+        assert.notInclude(compose, `profiles: ["${service}"]`);
+        // Le port PUBLIÉ par le compose et celui de l'URL sont le même — c'est
+        // ce couple qui casse en silence si les deux gabarits divergent.
+        assert.include(
+          compose,
+          `127.0.0.1:\${${service.toUpperCase()}_PORT:-${port}}`,
+        );
+        assert.include(
+          envOf(dest),
+          `\nNF_DATABASE_URL=${scheme}://demo:demo-dev@127.0.0.1:${port}/demo\n`,
+        );
+        // Le README parle de LA base retenue, et met l'infra avant le dev.
+        const readme = readFileSync(path.join(dest, "README.md"), "utf8");
+        assert.include(readme, "npm run infra:up");
+        assert.notInclude(readme, "--profile postgres up -d");
+        assertNoEtaResidue(dest);
+      });
+    }
+
+    it("preset minimal : la question ne s'applique pas → la réponse retombe à sqlite", () => {
+      const [spec] = getScaffoldSpec("app");
+      const answers = resolveAnswers(
+        spec,
+        { name: "x", preset: "minimal", database: "postgres" },
+        { hasCheckout: false },
+      );
+      // Ni compose.yaml ni ORM en minimal : honorer « postgres » n'aurait aucun
+      // fichier où s'écrire, et laisserait croire à un choix appliqué.
+      assert.equal(answers.database, "sqlite");
+      assert.equal(
+        resolveAnswers(spec, { name: "x" }, { hasCheckout: false }).database,
+        "sqlite",
+      );
+    });
+
+    it("--database inconnu → refus AVANT écriture", () => {
+      const [spec] = getScaffoldSpec("app");
+      assert.throws(
+        () =>
+          resolveAnswers(
+            spec,
+            { name: "x", database: "oracle" },
+            { hasCheckout: false },
+          ),
+        /database invalide/u,
+      );
+      const dest = path.join(tmp, "refus");
+      assert.throws(() => scaffold(dest, { name: "x", database: "oracle" }));
+      assert.isFalse(existsSync(dest));
+    });
+
+    it("flag --database → answers", () => {
+      const req = parseCreateArgv(
+        argv("create", "app", "x", "--database", "mariadb"),
+      );
+      assert.equal((req as ICreateRequest).answers.database, "mariadb");
+    });
+  });
+
   describe("moteur — preset minimal", () => {
     it("base saine : http+framework seuls, PAS d'infra docker", () => {
       const dest = path.join(tmp, "mini");

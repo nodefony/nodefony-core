@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-02T16:25:34.461Z",
+  "generated": "2026-08-02T17:48:00.830Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 661,
-    "symbols": 2681,
+    "symbols": 2685,
     "classes": 341,
     "interfaces": 800,
-    "types": 344,
+    "types": 345,
     "enums": 4,
-    "functions": 973,
-    "constants": 219
+    "functions": 974,
+    "constants": 221
   },
   "symbols": {
     "Cli": {
@@ -3617,6 +3617,14 @@
       "module": "@nodefony/core",
       "description": "Moteur de scaffold — PUR : réponses validées → fichiers écrits. Aucune I/O terminal, aucun kernel : le même moteur sert le CLI rapide (argv), le CLI interactif (readline) et Studio (endpoint data p…"
     },
+    "resolveDatabase": {
+      "name": "resolveDatabase",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose le bloc `db` offert aux gabarits — `null` pour sqlite, qui n'a ni service ni URL (le fichier vit dans `var/databases/`, l'ORM s'en charge seul)."
+    },
     "findPackageRoot": {
       "name": "findPackageRoot",
       "kind": "function",
@@ -3766,6 +3774,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Paramètres frontend par framework — type registerEntry, entry, nœud de montage, ET les dépendances npm (SOURCE UNIQUE : consommée par le `package.json.tpl` de `create app` ET par `create front` qui…"
+    },
+    "DATABASE_PARAMS": {
+      "name": "DATABASE_PARAMS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Paramètres de la base SQL retenue au scaffold — SOURCE UNIQUE du service docker, du port publié et de l'URL de connexion, consommée par les TROIS gabarits qui en parlent (`compose.yaml`, `.env`, `R…"
     },
     "EntityFieldError": {
       "name": "EntityFieldError",
@@ -4019,6 +4035,13 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "TDatabaseChoice": {
+      "name": "TDatabaseChoice",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
     "TControllerKindChoice": {
       "name": "TControllerKindChoice",
       "kind": "type",
@@ -4070,6 +4093,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Presets d'app : la vitrine complète (défaut) ou la base saine http+framework."
+    },
+    "DATABASE_CHOICES": {
+      "name": "DATABASE_CHOICES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Base SQL de développement — le dialecte que l'app vise, choisi À LA CRÉATION. `sqlite` reste le défaut : c'est le seul qui n'exige aucun service, et la promesse du framework est qu'une app fraîche …"
     },
     "CONTROLLER_KIND_CHOICES": {
       "name": "CONTROLLER_KIND_CHOICES",
@@ -21154,6 +21185,9 @@
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
+      "DATABASE_CHOICES": [
+        "src/nodefony/src/cli/create.ts"
+      ],
       "ENTITY_ID_CHOICES": [
         "src/nodefony/src/cli/create.ts"
       ],
@@ -22210,6 +22244,9 @@
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "TControllerKindChoice": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "TDatabaseChoice": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "TFrontendChoice": [

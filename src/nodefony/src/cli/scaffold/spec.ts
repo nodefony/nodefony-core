@@ -38,6 +38,21 @@ export interface IScaffoldQuestion {
    */
   askIf?: "hasCheckout";
   /**
+   * Condition d'affichage par RÉPONSE PRÉCÉDENTE (JSON-able) : la question n'est
+   * posée que si `key` a déjà pour valeur `equals`. Distinct d'`askIf`, qui
+   * interroge l'ENVIRONNEMENT (un checkout est-il là ?) là où celle-ci exprime
+   * une dépendance entre deux choix de la même création.
+   *
+   * Non satisfaite, la question n'est ni posée ni honorée : sa valeur retombe au
+   * DÉFAUT de la spec. Une réponse portant sur ce qui ne sera pas généré n'a pas
+   * de sens à conserver — `--database postgres --preset minimal` ne rend aucun
+   * `compose.yaml` où mettre un service.
+   *
+   * La question référencée doit précéder celle-ci : le moteur comme le dialogue
+   * résolvent les questions dans l'ordre de la spec.
+   */
+  askWhen?: { key: string; equals: string };
+  /**
    * Source des choix RÉELS de cette question, dans le projet courant (JSON-able,
    * même esprit qu'`askIf`).
    *
@@ -79,6 +94,23 @@ export type TFrontendChoice = (typeof FRONTEND_CHOICES)[number];
 export const PRESET_CHOICES = ["complete", "minimal"] as const;
 export type TPresetChoice = (typeof PRESET_CHOICES)[number];
 
+/**
+ * Base SQL de développement — le dialecte que l'app vise, choisi À LA CRÉATION.
+ *
+ * `sqlite` reste le défaut : c'est le seul qui n'exige aucun service, et la
+ * promesse du framework est qu'une app fraîche démarre sans rien allumer. Les
+ * trois autres ne changent RIEN dans le code de l'app (l'ORM déduit le dialecte
+ * du scheme de `NF_DATABASE_URL`) — ils décident du service que l'infra de dev
+ * fournit, et de l'URL qui la joint.
+ */
+export const DATABASE_CHOICES = [
+  "sqlite",
+  "postgres",
+  "mariadb",
+  "mysql",
+] as const;
+export type TDatabaseChoice = (typeof DATABASE_CHOICES)[number];
+
 const APP_SPEC: IScaffoldTypeSpec = {
   type: "app",
   description: "Application Nodefony autonome (hors du repo framework)",
@@ -109,6 +141,37 @@ const APP_SPEC: IScaffoldTypeSpec = {
         },
       ],
       default: "complete",
+    },
+    {
+      key: "database",
+      label: "Base SQL de développement",
+      type: "choice",
+      choices: [
+        {
+          value: "sqlite",
+          label: "sqlite (recommandé pour démarrer)",
+          hint: "aucun service à lancer — le fichier vit dans var/databases/",
+        },
+        {
+          value: "postgres",
+          label: "PostgreSQL 16",
+          hint: "service docker + NF_DATABASE_URL posée",
+        },
+        {
+          value: "mariadb",
+          label: "MariaDB 11.4",
+          hint: "fork libre de MySQL — même dialecte",
+        },
+        {
+          value: "mysql",
+          label: "MySQL 8.4",
+          hint: "service docker + NF_DATABASE_URL posée",
+        },
+      ],
+      default: "sqlite",
+      // L'infra de dev et le catalogue `.env` vivent dans le layer `complete` :
+      // en preset minimal il n'y a ni compose.yaml ni ORM, donc rien à décider.
+      askWhen: { key: "preset", equals: "complete" },
     },
     {
       key: "frontend",

@@ -374,7 +374,7 @@ le protocole `git://` est mort depuis 2022 (port 9418 fermé par GitHub).
 | Lot         | Geste                                                                                                                                                                                            |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **R1.1** ✅ | `Dockerfile` + `.dockerignore` deviennent des gabarits de `create app` — repris de `minimal-app`, doctrine intégralement préservée (multi-stage, forme exec, `USER node`, HEALTHCHECK `/readyz`) |
-| **R1.2**    | `docker-compose.yml` généré **seulement** si le scaffold a retenu pg/mysql — le générateur connaît déjà le dialecte                                                                              |
+| **R1.2** ✅ | `compose.yaml` généré avec **le seul** service SQL retenu au scaffold (`--database`) — le générateur connaît le dialecte, l'app ne reçoit pas les deux bases qu'elle n'utilisera pas             |
 | **R1.3** ✅ | **Pas** de `Dockerfile.dev` en 10.0.0 : le développement tourne en local, et un conteneur de dev (volumes + `node_modules` + HMR) coûte plus qu'il ne rend                                       |
 
 **Preuve R1** : application générée → `docker build` → `run` → `/livez` `/readyz` → `docker stop`
@@ -393,6 +393,25 @@ Un écart au patron habituel, et il est délibéré : le `COPY . ./` précède l
 (`--mount=type=cache,target=/root/.npm`), qui garde l'installation vierge sans repayer le réseau.
 Conséquence pour R2 : le smoke n'aura **rien à patcher** dans le Dockerfile généré pour y injecter
 ses tarballs.
+
+**R1.2 fait** — question `database` dans la spec du scaffold + flag `--database`
+(`sqlite` | `postgres` | `mariadb` | `mysql`, défaut `sqlite`). Le `compose.yaml` généré ne porte
+plus trois bases derrière des profils : il porte **celle qui a été retenue**, sans `profiles:` —
+ce n'est pas une option, c'est la base que `NF_DATABASE_URL` joint, donc `docker compose up -d`
+doit la monter. `DATABASE_PARAMS` + `resolveDatabase` (`scaffold/engine.ts`) sont la source unique
+du service, du port et de l'URL : les trois fichiers qui en parlent (`compose.yaml`, `.env`,
+`README.md`) ne peuvent plus diverger — un écart entre le port publié et celui de l'URL ne se
+verrait qu'à la connexion refusée. En `sqlite`, aucun service SQL n'est rendu et l'URL reste
+commentée : l'app démarre sans rien allumer, ce qui reste le chemin par défaut.
+
+Deux effets de bord assumés : MySQL est publié sur **3306** (le 3307 n'existait que pour cohabiter
+avec MariaDB dans un compose qui portait les deux), et `.env` porte l'URL **active** quand une base
+docker est retenue — le récap de `create app` place donc `npm run infra:up` avant `npm run dev`.
+Un choix explicite à la création est un contrat : laisser la ligne commentée reviendrait à ignorer
+la réponse.
+
+Gate vu ROUGE : `db` forcé à `null` dans le moteur → les trois contrôles par dialecte tombent ;
+clause `askWhen` débranchée → le contrôle « preset minimal retombe à sqlite » tombe.
 
 ### 10.4 R2 — le smoke GÉNÈRE son décor (cœur du chantier)
 
