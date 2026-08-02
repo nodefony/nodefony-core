@@ -763,6 +763,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "npm run typecheck",
         "<!-- app-notes:start -->",
         "<!-- app-notes:end -->",
+        // Les verbes qui répondent SANS boot : ce sont les seuls utilisables au
+        // moment où l'agent arrive (rien n'est construit) ou quand plus rien ne
+        // démarre. Une capacité absente d'ici est une capacité ABSENTE : le banc
+        // a mesuré que ce fichier est le canal qui déplace un agent, là où le
+        // TSDoc et la doc ne le déplacent pas.
+        "nodefony card",
+        "nodefony symbols",
       ]) {
         assert.include(agents, needle, `AGENTS.md sans « ${needle} »`);
       }

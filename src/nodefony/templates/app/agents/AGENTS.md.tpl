@@ -369,8 +369,16 @@ milieu, et tu passes l'heure suivante sur des 404 fantômes.
 npm test              # 1ᵉʳ diagnostic — unitaires, rapides, zéro serveur
 npm run typecheck     # le bundler ne type-check PAS : gate séparé, obligatoire
 npm run test:e2e      # boot RÉEL de l'app + HTTP/WS (build inclus)
-npm run check         # cohérence du projet + BILAN du dernier démarrage
+npm run check         # cohérence, ce qui MANQUE à l'install, + BILAN du dernier démarrage
 ```
+
+**`check` nomme d'abord ce qui empêche de DÉMARRER**, et il le fait sans rien
+exécuter — donc il répond sur une app qui ne se lance plus :
+
+- une **variable REQUISE** sans valeur ;
+- un module que le manifeste charge mais qui n'est **pas installé** ;
+- une dépendance déclarée **absente de `node_modules`** ;
+- un **port déjà tenu** par un autre programme (le tien ne compte pas).
 
 **`check` te dit aussi ce qui s'est passé au dernier démarrage**, et c'est la
 seule façon de l'apprendre après coup : l'app écrit son bilan dans
@@ -456,6 +464,20 @@ que sert la console d'administration — même code, deux portes. Préfère-les 
 lecture des sources : une route dépend de décorateurs, d'un manifeste et d'un
 ordre de chargement ; la déduire, c'est se tromper un jour sur deux. `--json` est
 un flux pur, `| jq` fonctionne.
+
+**« Que fait cette classe, où est-elle définie, qu'étend-elle ? » → une commande,
+pas une fouille :**
+
+```bash
+npx nodefony symbols AbstractCrudService      # définition, TSDoc, parenté — en O(1)
+npx nodefony symbols --module @nodefony/http  # toute la surface exportée d'un paquet
+npx nodefony symbols                          # ce que le graphe couvre, et d'où il vient
+```
+
+Le graphe symbolique de TOUT le framework est livré avec le paquet `nodefony` :
+la réponse ne dépend ni d'un serveur, ni d'un build, ni de ta connexion. Va y
+chercher un symbole AVANT d'ouvrir un `.d.ts` ou de parcourir `node_modules` —
+et avant, surtout, d'inventer une signature.
 
 **Ce que rend `inspect` ENGLOBE tes sources, et les dépasse de loin.** Les modules
 installés — ceux du framework compris — montent leurs propres routes, services et
