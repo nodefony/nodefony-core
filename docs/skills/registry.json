@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-07-30",
+  "generatedAt": "2026-08-02",
   "count": 23,
   "conformant": 23,
   "skills": [
@@ -384,8 +384,8 @@
       ],
       "description": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une baseline stashée, échec d'intégration dont la première hypothèse est un serveur éteint, dépendance implicite à `delete`, faux ENOSPC du harnais. Délègue à `nodefony-tail-error-logs`, `nodefony-check-memory-health`, `nodefony-load-test`, `nodefony-frontend-dev` ; la doctrine préventive vit dans `nodefony-framework-dev`. Déclencheurs : \"ça crash\", \"stack trace\", \"unhandledRejection\", \"fuite mémoire\", \"memory leak\", \"race condition\", \"reproduire\", \"ne démarre plus\", \"test rouge inexpliqué\", \"test flake\", \"vert isolé rouge en suite\", \"ce test passe seul mais pas en suite\", \"diagnostic régression\", \"baseline stash\", \"est-ce ma régression ?\", \"404 inexpliqué\", \"ECONNREFUSED tests\", \"ENOSPC\".",
       "cost": {
-        "bodyLines": 220,
-        "approxTokens": 3747
+        "bodyLines": 254,
+        "approxTokens": 4165
       },
       "requires": [],
       "resources": {
@@ -445,7 +445,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "220",
+            "detail": "254",
             "advisory": true
           }
         ]
@@ -459,13 +459,13 @@
       "name": "nodefony-devkit-bench",
       "summary": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs.",
       "family": "Autres",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "keywords": [],
       "triggers": [],
       "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\".",
       "cost": {
-        "bodyLines": 411,
-        "approxTokens": 6135
+        "bodyLines": 943,
+        "approxTokens": 14843
       },
       "requires": [
         "serveur UP",
@@ -479,7 +479,7 @@
         "scripts": [
           {
             "path": "scripts/bench-discoverability.mjs",
-            "purpose": "Banc de DÉCOUVRABILITÉ du devkit — les 9 tâches (gate de la release 10.0.0).",
+            "purpose": "Banc de DÉCOUVRABILITÉ du devkit — ses 25 tâches (gate de la release 10.0.0).",
             "usage": [],
             "options": [
               {
@@ -503,11 +503,19 @@
                 "help": ""
               },
               {
+                "flag": "--depistage",
+                "help": ""
+              },
+              {
                 "flag": "--describe-json",
                 "help": ""
               },
               {
                 "flag": "--detach",
+                "help": ""
+              },
+              {
+                "flag": "--diff-filter",
                 "help": ""
               },
               {
@@ -519,6 +527,10 @@
                 "help": ""
               },
               {
+                "flag": "--enregistrer-reference",
+                "help": ""
+              },
+              {
                 "flag": "--format",
                 "help": ""
               },
@@ -527,7 +539,15 @@
                 "help": ""
               },
               {
+                "flag": "--hard",
+                "help": ""
+              },
+              {
                 "flag": "--help",
+                "help": ""
+              },
+              {
+                "flag": "--ignored",
                 "help": ""
               },
               {
@@ -559,6 +579,10 @@
                 "help": ""
               },
               {
+                "flag": "--no-check",
+                "help": ""
+              },
+              {
                 "flag": "--no-fund",
                 "help": ""
               },
@@ -571,6 +595,14 @@
                 "help": ""
               },
               {
+                "flag": "--porcelain",
+                "help": ""
+              },
+              {
+                "flag": "--porteur-args",
+                "help": ""
+              },
+              {
                 "flag": "--preset",
                 "help": ""
               },
@@ -579,11 +611,43 @@
                 "help": ""
               },
               {
+                "flag": "--reset",
+                "help": ""
+              },
+              {
+                "flag": "--rest",
+                "help": ""
+              },
+              {
+                "flag": "--roles",
+                "help": ""
+              },
+              {
+                "flag": "--route",
+                "help": ""
+              },
+              {
+                "flag": "--runs",
+                "help": ""
+              },
+              {
+                "flag": "--selftest",
+                "help": ""
+              },
+              {
                 "flag": "--setup-only",
                 "help": ""
               },
               {
+                "flag": "--short",
+                "help": ""
+              },
+              {
                 "flag": "--task",
+                "help": ""
+              },
+              {
+                "flag": "--temoin-args",
                 "help": ""
               },
               {
@@ -605,7 +669,71 @@
             ],
             "env": [
               {
+                "name": "AGENT",
+                "help": ""
+              },
+              {
+                "name": "CANAL_OPS_ALERTES",
+                "help": ""
+              },
+              {
+                "name": "JUGE_CSP",
+                "help": ""
+              },
+              {
+                "name": "JUGE_CSRF_PARTENAIRE",
+                "help": ""
+              },
+              {
+                "name": "JUGE_ENTITY_DELETE",
+                "help": ""
+              },
+              {
+                "name": "JUGE_LISTE",
+                "help": ""
+              },
+              {
+                "name": "JUGE_M2M",
+                "help": ""
+              },
+              {
                 "name": "JUGE_MEDIA",
+                "help": ""
+              },
+              {
+                "name": "JUGE_MODULE",
+                "help": ""
+              },
+              {
+                "name": "JUGE_PARAM",
+                "help": ""
+              },
+              {
+                "name": "JUGE_PREFIXE",
+                "help": ""
+              },
+              {
+                "name": "JUGE_REALTIME_CHANNEL",
+                "help": ""
+              },
+              {
+                "name": "JUGE_ROLE_HIERARCHY",
+                "help": ""
+              },
+              {
+                "name": "JUGE_SECURE",
+                "help": ""
+              },
+              {
+                "name": "JUGE_SESSION",
+                "help": ""
+              },
+              {
+                "name": "JUGE_THROTTLE",
+                "help": ""
+              },
+              {
+                "name": "JUGE_ZONE",
                 "help": ""
               },
               {
@@ -623,6 +751,62 @@
               {
                 "name": "NF_DEVKIT_BENCH_MODEL",
                 "help": ""
+              },
+              {
+                "name": "ORIGINE_PARTENAIRE",
+                "help": ""
+              },
+              {
+                "name": "PAGE_WIDGET",
+                "help": ""
+              },
+              {
+                "name": "PREPARE_MODULE_ABSENT",
+                "help": ""
+              },
+              {
+                "name": "PREPARE_ROLE_HIERARCHY",
+                "help": ""
+              },
+              {
+                "name": "REPERE_PREFIXE_COMPTE",
+                "help": ""
+              },
+              {
+                "name": "ROLE_FACTURATION",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_CATALOGUE",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_COMMANDES",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_COMPTE_FACTURES",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_COMPTE_PROFIL",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_FACTURATION",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_IMPORT",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_MACHINE",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_SYNTHESE",
+                "help": ""
               }
             ],
             "output": "",
@@ -637,6 +821,10 @@
             "options": [
               {
                 "flag": "--describe-json",
+                "help": ""
+              },
+              {
+                "flag": "--detach",
                 "help": ""
               },
               {
@@ -656,11 +844,24 @@
                 "help": ""
               },
               {
+                "flag": "--no-check",
+                "help": ""
+              },
+              {
                 "flag": "--prove",
+                "help": ""
+              },
+              {
+                "flag": "--yes",
                 "help": ""
               }
             ],
-            "env": [],
+            "env": [
+              {
+                "name": "NF_CLE",
+                "help": ""
+              }
+            ],
             "output": "",
             "selfDocumented": false
           },
@@ -845,14 +1046,42 @@
             "selfDocumented": false
           },
           {
-            "path": "scripts/verify-generated.mjs",
-            "purpose": "Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? »",
+            "path": "scripts/reinit-decor.selftest.mjs",
+            "purpose": "Auto-contrôle de la remise à zéro du décor — le mécanisme, AVANT de payer un",
             "usage": [
-              "node scripts/devkit-verify.mjs              # décor + toutes les étapes"
+              "node reinit-decor.selftest.mjs <runDir d'un run précédent>"
             ],
             "options": [
               {
+                "flag": "--allow-empty",
+                "help": ""
+              },
+              {
+                "flag": "--format",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/verify-generated.mjs",
+            "purpose": "Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? »",
+            "usage": [
+              "node scripts/verify-generated.mjs            # décor ISOLÉ + toutes les étapes"
+            ],
+            "options": [
+              {
+                "flag": "--config",
+                "help": ""
+              },
+              {
                 "flag": "--controller",
+                "help": ""
+              },
+              {
+                "flag": "--deny-warnings",
                 "help": ""
               },
               {
@@ -869,6 +1098,10 @@
               },
               {
                 "flag": "--index",
+                "help": ""
+              },
+              {
+                "flag": "--inject",
                 "help": ""
               },
               {
@@ -912,6 +1145,14 @@
                 "help": ""
               },
               {
+                "flag": "--repack",
+                "help": ""
+              },
+              {
+                "flag": "--service",
+                "help": ""
+              },
+              {
                 "flag": "--unique",
                 "help": ""
               },
@@ -930,11 +1171,31 @@
                 "help": ""
               },
               {
+                "name": "COMMAND_ACTION",
+                "help": ""
+              },
+              {
+                "name": "COMMAND_CLASS",
+                "help": ""
+              },
+              {
+                "name": "INJECTED_SERVICE",
+                "help": ""
+              },
+              {
                 "name": "MODULE",
                 "help": ""
               },
               {
                 "name": "MODULE_PKG",
+                "help": ""
+              },
+              {
+                "name": "SERVICE",
+                "help": ""
+              },
+              {
+                "name": "SERVICE_METHOD",
                 "help": ""
               }
             ],
@@ -990,8 +1251,8 @@
           },
           {
             "key": "corps < 500 lignes",
-            "ok": true,
-            "detail": "411",
+            "ok": false,
+            "detail": "943",
             "advisory": true
           }
         ]

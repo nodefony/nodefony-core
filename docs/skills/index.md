@@ -5,7 +5,7 @@ audience: humain
 topic: skills
 tests: none
 status: stable
-updated: 2026-07-30
+updated: 2026-08-02
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -146,7 +146,7 @@ source: "docs/skills/index.md"
 [
   { "icon": "🔧", "title": "devkit-bench", "href": "nodefony-devkit-bench.md",
     "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
-    "meta": "🟢 conforme v1.2.0 · ⚙️ 5 scripts" }
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 6 scripts" }
 ]
 ```
 
@@ -158,8 +158,8 @@ source: "docs/skills/index.md"
 | [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | — | 83 | 0 | 0 | ✅ |
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 247 | 1 | 0 | ✅ |
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 278 | 1 | 0 | ✅ |
-| [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 220 | 0 | 0 | ✅ |
-| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.2.0 | 411 | 0 | 5 | ✅ |
+| [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 254 | 0 | 0 | ✅ |
+| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.3.0 | 943 | 0 | 6 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 2.4.0 | 459 | 2 | 7 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 355 | 9 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 101 | 6 | 0 | ✅ |

@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-07-30
+updated: 2026-08-02
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 ---
@@ -17,7 +17,7 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **1/1** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.2.0`.
+> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **1/1** projet · 💡 **0/1** recommandé (SHOULD) · 🏷️ `v1.3.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -25,14 +25,14 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `1.2.0` |
+| Version | `1.3.0` |
 | Famille | Autres |
-| Corps | 411 lignes |
-| Coût d'activation | ~6 135 tokens (le corps est chargé à l'invocation) |
+| Corps | 943 lignes |
+| Coût d'activation | ~14 843 tokens (le corps est chargé à l'invocation) |
 | Description | 1016 / 1024 caractères |
 | Déclencheurs | 0 |
 | Ressources `references/` | 0 page(s) |
-| Scripts | 5 |
+| Scripts | 6 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -68,21 +68,23 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/bench-discoverability.mjs` | Banc de DÉCOUVRABILITÉ du devkit — les 9 tâches (gate de la release 10.0.0). | `--allow-empty` `--analyze-only` `--check-port-free` `--command` `--dangerously-skip-permissi` `--describe-json` `--detach` `--dir` `--dry-run` `--format` `--frontend` `--help` `--json` `--kind` `--left` `--link` `--model` `--name-only` `--no-audit` `--no-fund` `--no-install` `--output-format` `--preset` `--repack` `--setup-only` `--task` `--unified` `--verbose` `--wait` `--yes` | `JUGE_MEDIA` `LINKED` `NF_DEVKIT_BENCH_AGENT` `NF_DEVKIT_BENCH_AGENT_ARGS` `NF_DEVKIT_BENCH_MODEL` |
-| `scripts/bench-discoverability.selftest.mjs` | Auto-contrôle des sondes du banc de découvrabilité — le juge, AVANT le verdict. | `--describe-json` `--dry-run` `--help` `--json` `--kind` `--prove` | — |
+| `scripts/bench-discoverability.mjs` | Banc de DÉCOUVRABILITÉ du devkit — ses 25 tâches (gate de la release 10.0.0). | `--allow-empty` `--analyze-only` `--check-port-free` `--command` `--dangerously-skip-permissi` `--depistage` `--describe-json` `--detach` `--diff-filter` `--dir` `--dry-run` `--enregistrer-reference` `--format` `--frontend` `--hard` `--help` `--ignored` `--json` `--kind` `--left` `--link` `--model` `--name-only` `--no-audit` `--no-check` `--no-fund` `--no-install` `--output-format` `--porcelain` `--porteur-args` `--preset` `--repack` `--reset` `--rest` `--roles` `--route` `--runs` `--selftest` `--setup-only` `--short` `--task` `--temoin-args` `--unified` `--verbose` `--wait` `--yes` | `AGENT` `CANAL_OPS_ALERTES` `JUGE_CSP` `JUGE_CSRF_PARTENAIRE` `JUGE_ENTITY_DELETE` `JUGE_LISTE` `JUGE_M2M` `JUGE_MEDIA` `JUGE_MODULE` `JUGE_PARAM` `JUGE_PREFIXE` `JUGE_REALTIME_CHANNEL` `JUGE_ROLE_HIERARCHY` `JUGE_SECURE` `JUGE_SESSION` `JUGE_THROTTLE` `JUGE_ZONE` `LINKED` `NF_DEVKIT_BENCH_AGENT` `NF_DEVKIT_BENCH_AGENT_ARGS` `NF_DEVKIT_BENCH_MODEL` `ORIGINE_PARTENAIRE` `PAGE_WIDGET` `PREPARE_MODULE_ABSENT` `PREPARE_ROLE_HIERARCHY` `REPERE_PREFIXE_COMPTE` `ROLE_FACTURATION` `ROUTE_CATALOGUE` `ROUTE_COMMANDES` `ROUTE_COMPTE_FACTURES` `ROUTE_COMPTE_PROFIL` `ROUTE_FACTURATION` `ROUTE_IMPORT` `ROUTE_MACHINE` `ROUTE_SYNTHESE` |
+| `scripts/bench-discoverability.selftest.mjs` | Auto-contrôle des sondes du banc de découvrabilité — le juge, AVANT le verdict. | `--describe-json` `--detach` `--dry-run` `--help` `--json` `--kind` `--no-check` `--prove` `--yes` | `NF_CLE` |
 | `scripts/bench-schema.mjs` | Banc de SCHÉMA — ce que la grammaire de champs ne sait pas exprimer. | `--allow-empty` `--analyze-only` `--dangerously-skip-permissi` `--detach` `--dialect` `--dir` `--dump-only` `--frontend` `--jq` `--json` `--link` `--model` `--no-audit` `--no-fund` `--no-install` `--output-format` `--preset` `--repack` `--schema` `--schema-only` `--setup-only` `--verbose` `--wait` `--yes` | `AGENT` `DIALECT` `LINKED` `MODEL` `NF_DEVKIT_BENCH_AGENT` `NF_DEVKIT_BENCH_AGENT_ARGS` `NF_DEVKIT_BENCH_MODEL` `NF_MYSQL_URL` `NF_PG_URL` |
 | `scripts/bench-schema.selftest.mjs` | Éprouve le BANC lui-même — avant qu'il ne juge quoi que ce soit. | `--allow-no-pg` `--dump-only` `--prove` `--schema` | `JUDGE_TABLE` `NF_PG_URL` |
-| `scripts/verify-generated.mjs` | Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? » | `--controller` `--detach` `--dialect` `--frontend` `--index` `--json` `--keep` `--link` `--module` `--no-audit` `--no-controller` `--no-e2e` `--no-fund` `--no-tests` `--preset` `--unique` `--wait` `--yes` | `APP` `MODULE` `MODULE_PKG` |
+| `scripts/reinit-decor.selftest.mjs` | Auto-contrôle de la remise à zéro du décor — le mécanisme, AVANT de payer un | `--allow-empty` `--format` | — |
+| `scripts/verify-generated.mjs` | Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? » | `--config` `--controller` `--deny-warnings` `--detach` `--dialect` `--frontend` `--index` `--inject` `--json` `--keep` `--link` `--module` `--no-audit` `--no-controller` `--no-e2e` `--no-fund` `--no-tests` `--preset` `--repack` `--service` `--unique` `--wait` `--yes` | `APP` `COMMAND_ACTION` `COMMAND_CLASS` `INJECTED_SERVICE` `MODULE` `MODULE_PKG` `SERVICE` `SERVICE_METHOD` |
 
 **Invocation telle que documentée dans chaque script :**
 
 ```bash
 node bench-discoverability.selftest.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.selftest.mjs
-node scripts/devkit-verify.mjs              # décor + toutes les étapes
+node reinit-decor.selftest.mjs <runDir d'un run précédent>
+node scripts/verify-generated.mjs            # décor ISOLÉ + toutes les étapes
 ```
 
-**Toutes les variables lues par ce skill** : `AGENT` · `APP` · `DIALECT` · `JUDGE_TABLE` · `JUGE_MEDIA` · `LINKED` · `MODEL` · `MODULE` · `MODULE_PKG` · `NF_DEVKIT_BENCH_AGENT` · `NF_DEVKIT_BENCH_AGENT_ARGS` · `NF_DEVKIT_BENCH_MODEL` · `NF_MYSQL_URL` · `NF_PG_URL`
+**Toutes les variables lues par ce skill** : `AGENT` · `APP` · `CANAL_OPS_ALERTES` · `COMMAND_ACTION` · `COMMAND_CLASS` · `DIALECT` · `INJECTED_SERVICE` · `JUDGE_TABLE` · `JUGE_CSP` · `JUGE_CSRF_PARTENAIRE` · `JUGE_ENTITY_DELETE` · `JUGE_LISTE` · `JUGE_M2M` · `JUGE_MEDIA` · `JUGE_MODULE` · `JUGE_PARAM` · `JUGE_PREFIXE` · `JUGE_REALTIME_CHANNEL` · `JUGE_ROLE_HIERARCHY` · `JUGE_SECURE` · `JUGE_SESSION` · `JUGE_THROTTLE` · `JUGE_ZONE` · `LINKED` · `MODEL` · `MODULE` · `MODULE_PKG` · `NF_CLE` · `NF_DEVKIT_BENCH_AGENT` · `NF_DEVKIT_BENCH_AGENT_ARGS` · `NF_DEVKIT_BENCH_MODEL` · `NF_MYSQL_URL` · `NF_PG_URL` · `ORIGINE_PARTENAIRE` · `PAGE_WIDGET` · `PREPARE_MODULE_ABSENT` · `PREPARE_ROLE_HIERARCHY` · `REPERE_PREFIXE_COMPTE` · `ROLE_FACTURATION` · `ROUTE_CATALOGUE` · `ROUTE_COMMANDES` · `ROUTE_COMPTE_FACTURES` · `ROUTE_COMPTE_PROFIL` · `ROUTE_FACTURATION` · `ROUTE_IMPORT` · `ROUTE_MACHINE` · `ROUTE_SYNTHESE` · `SERVICE` · `SERVICE_METHOD`
 
 ## Conformité au standard Agent Skills
 
@@ -100,7 +102,7 @@ node scripts/devkit-verify.mjs              # décor + toutes les étapes
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 411 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 943 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
