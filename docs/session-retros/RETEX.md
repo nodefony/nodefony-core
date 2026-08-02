@@ -168,6 +168,13 @@ install`.** Et `npm run build` vert ne dit rien du chemin réel qu'emprunte l'ut
 - `[1× — 2026-08-02i]` **Une dépendance déclarée à N endroits ne se monte pas à N−1.** `tsx` vivait
   dans 3 workspaces **et** à la racine ; n'aligner que les workspaces a créé 3 copies imbriquées à
   côté de l'ancienne restée hissée. Relever TOUS les sites déclarants avant d'éditer le premier.
+- `[1× — 2026-08-02i]` 🔴 **`test:all` laisse son SERVEUR allumé, et il pollue tout rejeu
+  d'intégration.** Dix rouges sur 7393 : rejoués un à un, **aucun ne tenait au diff** — un timeout
+  de 2 s sous la charge de 19 espaces de travail (redis), cinq tests d'environnement, et trois
+  `session-revocation` qui disaient « expected +0 to equal 1 », c'est-à-dire un DELTA de sessions
+  nul parce que le serveur portait l'état de la passe précédente. `nodefony stop` + `start.sh` →
+  vert. **Un rouge d'intégration se rejoue sur un décor NEUF avant d'être qualifié**, et le rejeu
+  en isolation ne suffit pas s'il tape le même serveur sale.
 
 ## 🧭 La PRÉMISSE d'une question se vérifie avant d'en chercher la cause
 
