@@ -1649,6 +1649,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           type: "module",
           answers: { name: "blog", controller: "none" },
           dir: dest,
+          force: false,
         },
         version,
       );
@@ -1676,7 +1677,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const dest = path.join(tmp, "ambigu");
       scaffold(dest, { name: "ambigu", preset: "minimal" });
       const pkgPath = path.join(dest, "package.json");
-      const pkg = readJson(pkgPath);
+      const pkg = readJson(pkgPath) as unknown as Record<string, unknown>;
       pkg["workspaces"] = ["modules/*", "packages/@x/*"];
       writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
       for (const [rel, name] of [
@@ -2608,6 +2609,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           type: "module",
           answers: { name: "blog", controller: "none" },
           dir: dest,
+          force: false,
         },
         version,
       );
@@ -2629,6 +2631,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           type: "module",
           answers: { name: "blog", controller: "none" },
           dir: dest,
+          force: false,
         },
         version,
       );
