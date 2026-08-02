@@ -118,6 +118,7 @@ Celles qu'on n'invente pas — faute de savoir qu'elles existent :
 <% } %>| Dépendances en retard (agrégées, pas le brut de npm) | `npx nodefony outdated [-j] [-a]` |
 | Cohérence du projet (classe non câblée, route qui répondra 404) | `npx nodefony doctor [--json]` — depuis n'importe quel sous-dossier |
 | Plusieurs processus, un cœur chacun | `npx nodefony production -w <n>` · `npx nodefony cluster -w <n>` |
+| Construire l'image de container | `docker build -t <%= it.appName %> .` — le `Dockerfile` est DÉJÀ là, ne le réécris pas |
 | Complétion au TAB | `source <(nodefony completion zsh)` |
 
 Ce tableau ne remplace pas `--help` : lui seul connaît les modules de CETTE app,

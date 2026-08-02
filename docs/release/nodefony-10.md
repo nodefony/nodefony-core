@@ -367,17 +367,28 @@ le protocole `git://` est mort depuis 2022 (port 9418 fermé par GitHub).
 
 ### 10.3 R1 — Docker entre dans le générateur
 
-État : `templates/app/complete/docker/` ne contient que le provisioning Grafana/Loki — **aucun
-Dockerfile généré**. Toute la doctrine cloud-native n'existe que dans le fichier que R3 supprime.
-
-| Lot      | Geste                                                                                                                                                                                            |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **R1.1** | `Dockerfile` + `.dockerignore` deviennent des gabarits de `create app` — repris de `minimal-app`, doctrine intégralement préservée (multi-stage, forme exec, `USER node`, HEALTHCHECK `/readyz`) |
-| **R1.2** | `docker-compose.yml` généré **seulement** si le scaffold a retenu pg/mysql — le générateur connaît déjà le dialecte                                                                              |
-| **R1.3** | **Pas** de `Dockerfile.dev` en 10.0.0 : le développement tourne en local, et un conteneur de dev (volumes + `node_modules` + HMR) coûte plus qu'il ne rend                                       |
+| Lot         | Geste                                                                                                                                                                                            |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **R1.1** ✅ | `Dockerfile` + `.dockerignore` deviennent des gabarits de `create app` — repris de `minimal-app`, doctrine intégralement préservée (multi-stage, forme exec, `USER node`, HEALTHCHECK `/readyz`) |
+| **R1.2**    | `docker-compose.yml` généré **seulement** si le scaffold a retenu pg/mysql — le générateur connaît déjà le dialecte                                                                              |
+| **R1.3** ✅ | **Pas** de `Dockerfile.dev` en 10.0.0 : le développement tourne en local, et un conteneur de dev (volumes + `node_modules` + HMR) coûte plus qu'il ne rend                                       |
 
 **Preuve R1** : application générée → `docker build` → `run` → `/livez` `/readyz` → `docker stop`
 pendant une requête lente → la requête aboutit, sortie en 0, drain visible dans les journaux.
+
+**R1.1 fait** — gabarits `templates/app/base/{Dockerfile,dockerignore}.tpl`, rendus pour **les deux
+presets** (la doctrine n'est pas une option de la vitrine). Preuve tenue de bout en bout sur une app
+générée : image construite, `readyz`/`livez` 200, `/api/hello` répondu **avec `pid: 1`** (la forme
+exec constatée, pas supposée), requête de 2 s drainée pendant `docker stop`, sortie 0, `SHUTDOWN`
+dans les journaux.
+
+Un écart au patron habituel, et il est délibéré : le `COPY . ./` précède l'installation au lieu du
+`COPY package.json` seul. Une dépendance d'application Nodefony peut être **locale** — workspaces
+`modules/*` posés par `create module`, archive `file:` avant publication — et le patron canonique
+échoue sur elles. Le cache de couche perdu est repris par un **cache mount npm**
+(`--mount=type=cache,target=/root/.npm`), qui garde l'installation vierge sans repayer le réseau.
+Conséquence pour R2 : le smoke n'aura **rien à patcher** dans le Dockerfile généré pour y injecter
+ses tarballs.
 
 ### 10.4 R2 — le smoke GÉNÈRE son décor (cœur du chantier)
 

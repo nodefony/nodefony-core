@@ -521,6 +521,67 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  describe("Docker — la doctrine cloud-native naît AVEC l'application", () => {
+    /**
+     * Ces contrôles portent sur des lignes dont l'absence ne produit AUCUNE
+     * erreur : l'image se construit, le container démarre, les requêtes
+     * passent. Ce qui disparaît est le dialogue avec l'orchestrateur — un
+     * déploiement sur deux tue des requêtes en vol, et rien ne le dit.
+     */
+    for (const preset of ["complete", "minimal"] as const) {
+      it(`preset ${preset} : Dockerfile + .dockerignore, doctrine entière`, () => {
+        const dest = path.join(tmp, `docker-${preset}`);
+        scaffold(dest, { name: `docker-${preset}`, preset });
+        const dockerfile = readFileSync(path.join(dest, "Dockerfile"), "utf8");
+
+        // Multi-stage : la chaîne de compilation ne descend pas en production.
+        assert.match(dockerfile, /^FROM \S+ AS build$/mu);
+        assert.equal(dockerfile.match(/^FROM /gmu)?.length, 2);
+
+        // Forme EXEC obligatoire. En forme shell, /bin/sh devient PID 1 et ne
+        // transmet PAS le SIGTERM de `docker stop` : plus jamais de drain,
+        // SIGKILL à chaque déploiement — et l'image marche parfaitement.
+        assert.match(dockerfile, /^CMD \["/mu);
+        assert.notMatch(dockerfile, /^CMD [^[]/mu);
+
+        // Jamais root — les ports Nodefony n'exigent aucun privilège.
+        assert.match(dockerfile, /^USER node$/mu);
+
+        // La sonde de l'orchestrateur passe par la route NATIVE du framework.
+        assert.match(dockerfile, /^HEALTHCHECK /mu);
+        assert.include(dockerfile, "/readyz");
+
+        // Le build de l'image passe par le script de l'app : un jour où
+        // `npm run build` changera (front, modules), le Dockerfile suivra
+        // sans qu'on y touche.
+        assert.include(dockerfile, "npm run build");
+
+        const ignore = readFileSync(path.join(dest, ".dockerignore"), "utf8");
+        // Motifs contrôlés en LIGNE ENTIÈRE : `assert.include` se contenterait
+        // de `**/*.local` pour prouver `*.local`, et un retrait partiel
+        // resterait vert — le mode de défaillance classique d'un gate.
+        //
+        // `.env.local` porte les clés générées à la création. Entré dans une
+        // image, un secret y reste : les couches sont lisibles par qui la
+        // télécharge, et une couche suivante ne l'efface pas.
+        assert.match(ignore, /^\*\.local$/mu);
+        assert.match(ignore, /^\*\*\/\*\.local$/mu);
+        assert.match(ignore, /^\*\*\/node_modules$/mu);
+        // `dist/` de l'hôte : entré dans le contexte, il masquerait le build
+        // du stage et l'image partirait avec le code de la veille.
+        assert.match(ignore, /^\*\*\/dist$/mu);
+
+        // Un agent qui ignore que ce fichier existe en écrit un de mémoire —
+        // sans multi-stage, en root, en forme shell. La capacité doit donc
+        // être nommée là où il lit AVANT d'agir, pas seulement exister.
+        const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+        assert.include(agents, "docker build");
+        assert.include(agents, "Dockerfile");
+        assertNoEtaResidue(dest);
+      });
+    }
+  });
+
   describe("controller d'accueil — un seul gabarit pour l'app et la commande", () => {
     /** Le HelloController rendu par `create app`, tel quel. */
     const helloOf = (dest: string) =>

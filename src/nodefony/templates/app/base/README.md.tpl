@@ -163,6 +163,23 @@ npm start            # nodefony production — bind 0.0.0.0, logs stdout, probes
 > ERROR.
 <% } %>
 
+### Image de container
+
+`Dockerfile` et `.dockerignore` sont générés avec l'app ; la doctrine y est
+commentée ligne à ligne (multi-stage, `USER node`, sonde sur `/readyz`, forme
+exec du `CMD`).
+
+```bash
+docker build -t <%= it.appName %> .
+docker run -p 5151:5151 <%= it.appName %>
+docker stop -t 20 <container>   # SIGTERM → drain → exit 0
+```
+
+> ⚠️ **La période de grâce doit rester au-dessus de `shutdownDeadline`** (15 s
+> par défaut) : `docker stop` n'attend que 10 s sans `-t`, et k8s 30 s. En
+> dessous, le drain est coupé par un SIGKILL et les requêtes en vol meurent —
+> sans erreur ni trace, à chaque déploiement.
+
 Un process Node = un pod/container ; le scaling horizontal vient de
 l'orchestrateur (k8s, Swarm, Cloud Run…).<% if (it.complete) { %> Studio est chargé en dev seulement
 (`policy: "dev"`) — pour l'exposer en production, protège `/nodefony` par une

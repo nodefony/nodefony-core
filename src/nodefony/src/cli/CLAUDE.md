@@ -577,7 +577,8 @@ l'admin web) :
 `preset × frontend` impossibles en overlays purs) : `base/` (commun : controller
 Hello HTTP+WS même classe, tests vitest unit+e2e `--detach --wait`, eslint flat +
 prettier + `typescript@6` API-JS-pour-eslint (typecheck = tsgo), vitest bloc oxc
-décorateurs, `nodefony.config.ts`/`package.json`/`README` conditionnels) ·
+décorateurs, `nodefony.config.ts`/`package.json`/`README` conditionnels,
+**`Dockerfile` + `.dockerignore`** — cf § ci-dessous) ·
 `complete/` (compose.yaml redis+profils postgres/mariadb/mysql/tools/loki+grafana,
 préfixé `<appName>`) · `frontend/shared/` (AppController : `renderTags(name,
 this.context?.cspNonce)` — la CSP est émise par le firewall, le controller ne
@@ -595,8 +596,24 @@ transitives — app contrôlable bout en bout sans publication. Défaut spec =
 `false` : un moteur ne câble JAMAIS file: sans demande explicite (interactif :
 question posée si checkout ; API/flags : `--link`).
 
+**L'image de container naît avec l'app** (`base/`, donc les DEUX presets — la doctrine
+cloud-native n'est pas une option de la vitrine). Ce que ces lignes tiennent ne produit
+aucune erreur quand il disparaît : **forme EXEC** du `CMD` (sinon `/bin/sh` est PID 1, ne
+transmet pas le SIGTERM, et chaque déploiement tue les requêtes en vol), `USER node`,
+sonde sur `/readyz`, et un `.dockerignore` qui écarte `*.local` — un secret entré dans une
+couche y reste, même effacé par la suivante. Un test de FORME les contrôle en ligne entière
+(un `include` se serait contenté de `**/*.local` pour prouver `*.local`).
+
+⚠️ **Le `COPY . ./` précède l'installation**, contre le patron canonique du monde Node. Une
+dépendance ici peut être LOCALE — workspaces `modules/*`, archive `file:` avant publication —
+et installer avant de l'avoir copiée échoue sur elle. Le cache de couche perdu est repris par
+un **cache mount npm** (`--mount=type=cache,target=/root/.npm`), qui laisse l'installation
+vierge. Le stage d'exécution copie `/app` d'un seul geste : nommer les chemins ferait échouer
+la construction sur le premier dossier absent (`modules/`, `public/`), inconnus à la génération.
+
 Tag eta résiduel dans un rendu = throw (projet corrompu refusé). Renames :
-`gitignore.tpl` → `.gitignore` (npm strip les dotfiles publiés). Exit codes :
+`gitignore.tpl` → `.gitignore`, `dockerignore.tpl` → `.dockerignore` (npm strip les
+dotfiles publiés). Exit codes :
 `OK`/`USAGE`/`CANTCREAT`/`SOFTWARE`. Tests `create.test.ts` (parse + spec +
 moteur 2 presets × 4 fronts + interactif sur streams + e2e bin gate
 `RUN_CLI_BOOT=1`). Preuves terrain : complete+react (install→build→tsgo→lint→
