@@ -159,11 +159,14 @@ est **conservé tel quel** (0 renommage, 0 changement d'import). Le POC comparat
 
 ### Smoke test de parité (VALIDATION du modèle B) — ✅ LIVRÉ, fusionné avec la preuve Docker (0.7)
 
-**Réalisé** : `bash .claude/skills/nodefony-release/scripts/smoke-docker.sh` = `.claude/skills/nodefony-release/scripts/pack-all.mjs` (pack des 13
-publiables) → app témoin `examples/minimal-app` copiée HORS repo (deps → tarballs) → `docker build`
-(npm install **vierge** + `tsc` = gate types) → `docker run` → probes `/livez` `/readyz` + routes →
-`docker stop` pendant une requête lente. **Preuve 7/7** : tsc vert sur tarballs, boot container,
-in-flight terminée au stop, exit 0, logs drain. Reste : le câbler en CI + boot pg (multi-dialecte Ph.2).
+**Réalisé** : `bash .claude/skills/nodefony-release/scripts/smoke-docker.sh` = pack des 13
+publiables → `attw` sur les types publiés → **le paquet `nodefony` installé DEPUIS SON TARBALL**
+dans un dossier jetable, qui **GÉNÈRE** les applications témoins hors du dépôt (deps → tarballs) →
+`docker build` (npm install **vierge**) → `docker run` → probes `/livez` `/readyz` + routes →
+`docker stop` pendant une requête lente. Trois scénarios (`--scenario base|front|studio`).
+Le décor n'est plus copié d'un dossier figé : les **gabarits sont donc éprouvés tels qu'ils sont
+publiés**, ce qu'aucun test du dépôt ne peut voir. Reste : le câbler en CI (R5) + boot pg
+(multi-dialecte Ph.2).
 
 > ⚠️ **À ÉTENDRE — scénario FRONT en production (trou vécu 2026-07-25 : page blanche muette).**
 > La chaîne est corrigée à trois étages — (1) scaffold : le `npm run build` d'une app à front
@@ -281,7 +284,7 @@ jobs:
 | ----------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Sécurité**      | P6                   | **Complète** (firewall, auth, JWT, RBAC `@IsGranted`). **Bloqueur #1, non négociable.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | **ORM**           | P5/P7                | **Core stable** (✅) + **Drizzle production-ready = multi-dialecte sqlite/pg/mysql** (🔶 cf §6bis-A : seul sqlite + idempotence-pg faits ; pg/mysql repo générique à porter+prouver ; **comparatif ORM froid ✅ Drizzle confirmé** `a370b5a1`). Adapter Mongoose (NoSQL) = **acceptable en 10.x** (ne bloque pas).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| **Cloud-native**  | P16 (**baseline**)   | ✅ **Dockerfile livré** (template `examples/minimal-app` prouvé par `smoke-docker.sh`) + **graceful shutdown complet** (drain 3 serveurs, probes `/livez` `/readyz` natives, bascule readiness au SIGTERM, `shutdownDeadline` kernel) — Phase 0.7. Config par env (12-factor) : `defineEnv` + `NF__*` déjà en place. **PAS** le P16 complet (HPA, opérateurs k8s, secret managers = **10.x**).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| **Cloud-native**  | P16 (**baseline**)   | ✅ **Dockerfile livré** (gabarit de `create app`, prouvé par `smoke-docker.sh` sur une app GÉNÉRÉE) + **graceful shutdown complet** (drain 3 serveurs, probes `/livez` `/readyz` natives, bascule readiness au SIGTERM, `shutdownDeadline` kernel) — Phase 0.7. Config par env (12-factor) : `defineEnv` + `NF__*` déjà en place. **PAS** le P16 complet (HPA, opérateurs k8s, secret managers = **10.x**).                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Reste**         | P10/P11/P13/P14      | Studio, CLI, **realtime base** (socket/hub/AIMD/granularité ; backplane Redis si prêt, sinon 10.x), frontend.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | **Preset Svelte** | P14 — **en DERNIER** | Ajouter `svelte5-vite` aux presets de `@nodefony/frontend` (aujourd'hui `react19`, `vue3`, `angular`, `vanilla`) + branchement `nodefony create module --frontend svelte`. **Placé volontairement juste avant la release** : coût faible (le builder Vite est agnostique, `@sveltejs/vite-plugin-svelte` est un plugin standard) et **aucune dépendance amont** — le faire tôt ne débloque rien, le faire en dernier le fait sortir sur la version définitive des presets. **Studio reste React 19 + Mantine**, mais pas faute d'écosystème : Svelte a des kits sérieux (Carbon Components Svelte côté enterprise/DataTable, shadcn-svelte sur Bits UI, Skeleton v3, Flowbite Svelte), et notre grille vient déjà de **TanStack Table headless** — qui a un adaptateur Svelte. La vraie raison est le coût de réécriture d'une app admin qui marche, pas une limite du framework. |
 
@@ -326,9 +329,10 @@ discussion → relire ce fichier d'abord.
 
 ## 10. Plan d'exécution — distribution, vitrine et image
 
-> **Ordre NON négociable : R1 → R2 → R3.** `examples/minimal-app` est le seul décor du seul gate
-> qui prouve le modèle B ; le supprimer avant que le smoke sache générer le sien retire la preuve
-> « artefact reçu » du dépôt. Le reste des lots peut s'intercaler.
+> **Ordre R1 → R2 → R3 — TENU, et la séquence est close.** `examples/minimal-app` portait le seul
+> décor du seul gate prouvant le modèle B : le supprimer avant que le smoke sache générer le sien
+> aurait retiré la preuve « artefact reçu » du dépôt. Le smoke génère désormais son décor (R2), le
+> dossier a été supprimé (R3). Le reste des lots peut s'intercaler.
 
 ### 10.1 Décisions
 
@@ -448,14 +452,17 @@ atteignable et allégerait les images.
 extension du format _Docker_ absente de la spec **OCI**, que Podman produit par défaut — la sonde
 disparaît sans erreur. Remède vérifié `--format docker`, avertissement écrit dans le gabarit.
 
-### 10.5 R3 — `examples/` disparaît (après R2 vert, jamais avant)
+### 10.5 R3 ✅ — `examples/` a disparu
 
-Suppression du dossier, puis la prose qui le cite : **`docs/release/nodefony-10.md:163` et `:284`**,
-**`MIGRATION_STATUS.md:627`**. Inventaire vérifié : il n'existe aucun autre consommateur, et un seul
-consommateur exécutable (`smoke-docker.sh`).
+**Fait.** Le dossier est supprimé, et la prose qui le décrivait au présent est corrigée (le flux du
+smoke § « Smoke test de parité », la ligne Cloud-native du tableau des phases, l'encadré d'ordre
+ci-dessus, `MIGRATION_STATUS`). Les mentions restantes sont **historiques** et le restent : elles
+racontent d'où viennent les gabarits (R1.1) et ce que R2.1 a remplacé — les effacer réécrirait
+l'histoire au lieu de la dater.
 
-**Débloqué depuis R2.1** : ce dernier consommateur exécutable a disparu — plus aucun script ne lit
-`examples/`, il ne reste que de la prose (ce plan, `MIGRATION_STATUS`, deux retex archivés).
+La condition posée était que le smoke sache générer son décor : elle est remplie depuis R2.1, et
+plus aucun script ne lisait `examples/`. Le dépôt n'a donc plus **aucune** application témoin figée
+— toute preuve part désormais d'une application **générée par le paquet publié**.
 
 ### 10.6 R4 — `create-nodefony`
 
