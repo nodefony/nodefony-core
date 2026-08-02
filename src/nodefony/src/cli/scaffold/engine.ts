@@ -1124,6 +1124,30 @@ export function wireModuleManifest(
 }
 
 /**
+ * Noms des paquets que l'APPLICATION déclare (`dependencies` + `devDependencies`).
+ *
+ * Source unique des deux scaffolds qui doivent savoir si une brique du framework
+ * est installée : `create module` (refus AVANT écriture quand elle manque) et
+ * `create front` (qui pose la peer sur un module local quand l'app, elle, l'a).
+ *
+ * @param projectRoot - racine de l'application (porte `nodefony.config.ts`).
+ * @returns l'ensemble des noms déclarés — jamais les versions, seule la présence
+ *   est une information ici.
+ */
+function readAppDependencyNames(
+  projectRoot: string,
+  writer: ScaffoldWriter,
+): Set<string> {
+  const manifest = JSON.parse(
+    writer.read(path.join(projectRoot, "package.json")),
+  ) as Record<string, Record<string, string> | undefined>;
+  return new Set([
+    ...Object.keys(manifest.dependencies ?? {}),
+    ...Object.keys(manifest.devDependencies ?? {}),
+  ]);
+}
+
+/**
  * Scaffold IN-PROJECT d'un module applicatif : un WORKSPACE npm sous
  * `modules/<nom>/` (package.json + build rolldown + config Zod + tests + docs),
  * déclaré dans les workspaces de l'app et dans le manifeste `modules`.
@@ -1176,10 +1200,7 @@ function runModuleScaffold(
     );
   }
   const pkgName = `${layout.scope}/${name}`;
-  const appDeps = new Set([
-    ...Object.keys(appManifest.dependencies ?? {}),
-    ...Object.keys(appManifest.devDependencies ?? {}),
-  ]);
+  const appDeps = readAppDependencyNames(projectRoot, writer);
   const controller = String(answers.controller) as TModuleControllerChoice;
   const frontend = answers.frontend as TFrontendChoice;
   // Gardes AVANT le premier fichier écrit : une brique absente de l'app ne peut
@@ -1327,10 +1348,23 @@ function runModuleScaffold(
     notes.push(...(sub.notes ?? []));
   }
   if (frontend !== "none") {
+    // Le controller du module et la page du front rendent TOUS DEUX une classe
+    // `<Pascal>Controller`. Leur passer le même `name` faisait échouer la
+    // commande sur ce qu'elle venait elle-même d'écrire — `wireDecoratorList`
+    // refuse un nom déjà enregistré, et le message (« choisis un autre nom »)
+    // envoyait chercher un conflit qui n'existait pas. La page prend donc un nom
+    // DÉRIVÉ dès qu'un controller occupe déjà celui du module, et garde sa route
+    // courte : c'est la classe qui doit différer, pas l'URL.
+    const frontName = controller === "none" ? name : `${name}-page`;
     const sub = runScaffold(
       {
         type: "front",
-        answers: { name, frontend, route: "", module: pkgName },
+        answers: {
+          name: frontName,
+          frontend,
+          route: `/${toKebabCase(name)}`,
+          module: pkgName,
+        },
         dir: projectRoot,
         force: request.force,
       },
@@ -2931,7 +2965,10 @@ export function wireEntitiesDecorator(
  *
  * @throws hors projet, cible inconnue, cible portant DÉJÀ un front
  *   (`frontend/index.html` — ce scaffold pose l'INITIAL, il ne fusionne pas),
- *   ou dep `@nodefony/frontend` absente de la cible.
+ *   ou dep `@nodefony/frontend` absente de l'APPLICATION. Absente du seul module
+ *   visé, elle y est POSÉE en peer : un workspace résout depuis l'arbre de
+ *   l'app, et exiger une édition manuelle du `package.json` revenait à demander
+ *   à la main ce que ce scaffold existe pour écrire.
  */
 function runFrontScaffold(
   request: IScaffoldRequest,
@@ -2974,11 +3011,23 @@ function runFrontScaffold(
       Object.keys(manifest[b] ?? {}),
     ),
   );
+  // `@nodefony/frontend` absent de la CIBLE n'est un refus que si l'APP ne l'a
+  // pas non plus : un module local est un workspace, il résout depuis l'arbre de
+  // l'application et rien ne s'y installe séparément. Refuser dans ce cas
+  // envoyait éditer le `package.json` à la main — exactement ce qu'un
+  // générateur existe pour éviter, et c'est ce qui a été observé au banc.
+  // La dep est alors posée plus bas, avec les autres (une seule écriture).
+  let addFrontendPeer = false;
   if (!targetDeps.has("@nodefony/frontend")) {
-    throw new Error(
-      `@nodefony/frontend manque dans ${target.name} — ajoute la dep + ` +
-        `"@nodefony/frontend" au manifeste modules de nodefony.config.ts`,
-    );
+    const appDeps = readAppDependencyNames(projectRoot, writer);
+    if (target.kind === "module" && appDeps.has("@nodefony/frontend")) {
+      addFrontendPeer = true;
+    } else {
+      throw new Error(
+        `@nodefony/frontend manque dans ${target.name} — ajoute la dep + ` +
+          `"@nodefony/frontend" au manifeste modules de nodefony.config.ts`,
+      );
+    }
   }
   const frontend = answers.frontend as Exclude<TFrontendChoice, "none">;
   const front = FRONTEND_PARAMS[frontend];
@@ -3085,6 +3134,12 @@ function runFrontScaffold(
   };
   addDeps("dependencies", front.deps);
   addDeps("devDependencies", front.devDeps);
+  // Un module local résout depuis l'arbre de l'app : la brique s'y déclare en
+  // PEER (comme les autres du gabarit de module), jamais en dependency — rien
+  // ne s'installe dans un workspace pour son compte propre.
+  if (addFrontendPeer) {
+    addDeps("peerDependencies", { "@nodefony/frontend": "*" });
+  }
   if (added.length > 0) {
     writer.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     written.push("package.json");

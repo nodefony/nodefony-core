@@ -2424,6 +2424,34 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.isFalse(existsSync(path.join(dest, "modules", "blog")));
     });
 
+    it("controller ET frontend cohabitent — la page ne réclame pas le nom du module", () => {
+      // Régression mesurée sur un agent tiers : les deux scaffolds délégués
+      // rendaient `<Pascal>Controller`. Avec le même nom, la commande échouait
+      // sur ce qu'elle venait ELLE-MÊME d'écrire (« déjà référencé — choisis un
+      // autre nom »), pour TOUT nom — donc `create module --frontend <fw>`
+      // était inutilisable telle que l'`AGENTS.md` généré l'annonce.
+      const dest = app("cohab");
+      mod(dest, { name: "shop", controller: "hello", frontend: "vue" });
+      const controllers = path.join(
+        dest,
+        "modules",
+        "shop",
+        "nodefony",
+        "controllers",
+      );
+      assert.isTrue(existsSync(path.join(controllers, "ShopController.ts")));
+      assert.isTrue(
+        existsSync(path.join(controllers, "ShopPageController.ts")),
+      );
+      // La CLASSE diffère, l'URL reste courte : c'est le nom qui gênait, pas
+      // la route (le controller du module vit sous /api/…).
+      const page = readFileSync(
+        path.join(controllers, "ShopPageController.ts"),
+        "utf8",
+      );
+      assert.include(page, 'path: "/shop"');
+    });
+
     it("spec module : questions JSON-able, défauts sûrs (contrat des 3 fronts)", () => {
       const [spec] = getScaffoldSpec("module");
       assert.equal(spec.type, "module");
@@ -2494,6 +2522,51 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(ctrl, 'renderDocument("dashboard"');
       assert.include(ctrl, 'path: "/dashboard"');
       assertNoEtaResidue(dest);
+    });
+
+    it("module local : la brique de l'app est POSÉE en peer, pas réclamée à la main", () => {
+      // Régression mesurée sur un agent tiers : la garde refusait dès que
+      // `@nodefony/frontend` manquait à la CIBLE. Un module local est un
+      // workspace — rien ne s'y installe pour son compte propre — et l'agent a
+      // dû éditer le package.json à la main, ce qu'un générateur existe pour
+      // éviter. Le registrar rendu importe le type `FrontendService` : la
+      // dépendance est réelle (typecheck), d'où la peer, comme `@nodefony/http`.
+      const dest = path.join(tmp, "fmod");
+      scaffold(dest, { name: "fmod", preset: "complete", frontend: "none" });
+      runScaffold(
+        {
+          type: "module",
+          answers: { name: "blog", controller: "none" },
+          dir: dest,
+        },
+        version,
+      );
+      const r = front(dest, {
+        name: "page",
+        frontend: "vue",
+        module: "@fmod/blog",
+      });
+      const pkg = readJson(path.join(dest, "modules", "blog", "package.json"));
+      assert.property(pkg["peerDependencies"], "@nodefony/frontend");
+      assert.include((r.notes ?? []).join("\n"), "@nodefony/frontend");
+    });
+
+    it("app SANS la brique : la garde mord toujours (rien à poser depuis rien)", () => {
+      const dest = path.join(tmp, "fmini");
+      scaffold(dest, { name: "fmini", preset: "minimal", frontend: "none" });
+      runScaffold(
+        {
+          type: "module",
+          answers: { name: "blog", controller: "none" },
+          dir: dest,
+        },
+        version,
+      );
+      assert.throws(
+        () =>
+          front(dest, { name: "page", frontend: "vue", module: "@fmini/blog" }),
+        /@nodefony\/frontend manque/u,
+      );
     });
 
     it("app-avec-front et front-ajouté partagent la MÊME source", () => {
