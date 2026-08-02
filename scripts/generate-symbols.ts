@@ -599,6 +599,22 @@ function generate(): void {
     "utf8",
   );
 
+  // ─── Copie PUBLIÉE : le graphe part avec le paquet `nodefony` ──────────────
+  // Sans elle, `.ai/symbols.json` n'existait qu'ici : une application installée
+  // depuis npm lisait un fichier absent et recevait une liste vide, sans qu'un
+  // seul message ne le dise. Le graphe du monorepo entier est publié par le
+  // CŒUR — une application qui installe `nodefony` décrit donc tout le
+  // framework, quelle que soit la combinaison de paquets qu'elle a retenue.
+  // Un seul exemplaire, pas un par paquet : le contenu serait le même découpé,
+  // et 19 copies dériveraient dès qu'une seule ne serait pas régénérée.
+  const shippedPath = path.join(repoRoot, "src/nodefony/.ai/symbols.json");
+  fs.mkdirSync(path.dirname(shippedPath), { recursive: true });
+  fs.writeFileSync(
+    shippedPath,
+    JSON.stringify(stableOutput, null, 2) + "\n",
+    "utf8",
+  );
+
   // Write verbose
   const verbosePath = path.join(repoRoot, config.output.verbose);
   fs.mkdirSync(path.dirname(verbosePath), { recursive: true });

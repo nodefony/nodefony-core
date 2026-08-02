@@ -4,7 +4,7 @@ import { join, dirname, basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
-import { findProjectRoot } from "nodefony";
+import { findProjectRoot, resolveSymbolsFile } from "nodefony";
 
 const execFileAsync = promisify(execFile);
 
@@ -288,7 +288,12 @@ interface RawSymbol {
 export async function listModuleSymbols(
   packageName: string,
 ): Promise<ModuleSymbol[]> {
-  const file = join(appRoot(), ".ai", "symbols.json");
+  // Le graphe se RÉSOUT (projet, puis framework installé) — il ne se compose
+  // pas ici : un chemin en dur était précisément ce qui le rendait introuvable
+  // dans une application installée depuis npm, où il vit sous
+  // `node_modules/nodefony/.ai/`. Résolution partagée avec `nodefony symbols`.
+  const file = resolveSymbolsFile(process.cwd());
+  if (file === null) return [];
   let parsed: { symbols?: Record<string, RawSymbol> };
   try {
     parsed = JSON.parse(await readFile(file, "utf8"));

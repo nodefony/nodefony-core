@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-02T00:12:49.826Z",
+  "generated": "2026-08-02T00:20:03.568Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 657,
-    "symbols": 2616,
-    "classes": 340,
-    "interfaces": 794,
+    "files": 659,
+    "symbols": 2625,
+    "classes": 341,
+    "interfaces": 797,
     "types": 343,
     "enums": 4,
-    "functions": 954,
+    "functions": 959,
     "constants": 181
   },
   "symbols": {
@@ -972,6 +972,56 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Racine du PROJET Nodefony courant (app générée / app utilisateur) : remonte depuis `from` jusqu'au premier dossier portant `nodefony.config.ts` + `package.json`. Deux consommateurs, une seule défin…"
+    },
+    "ISymbolEntry": {
+      "name": "ISymbolEntry",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/symbols.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un symbole tel que le graphe le décrit (surface utile, pas le fichier entier)."
+    },
+    "ISymbolsGraph": {
+      "name": "ISymbolsGraph",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/symbols.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le graphe contient, réduit à ce que ses lecteurs utilisent."
+    },
+    "resolveSymbolsFile": {
+      "name": "resolveSymbolsFile",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/symbols.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Trouve le graphe symbolique utilisable depuis `from`."
+    },
+    "readSymbolsGraph": {
+      "name": "readSymbolsGraph",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/symbols.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le graphe, ou `null` s'il est absent ou illisible. Ne lève jamais : un outil de découverte qui tombe sur un fichier corrompu doit le DIRE à son appelant, pas interrompre ce qu'il diagnostiquait."
+    },
+    "parseSymbolsArgv": {
+      "name": "parseSymbolsArgv",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/symbols.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Parse l'argv après le mot `symbols`."
+    },
+    "runSymbolsCommand": {
+      "name": "runSymbolsCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/symbols.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Commande `nodefony symbols` — le graphe, sans boot et sans dépôt. Trois usages, du plus fréquent au plus rare : un nom (« qu'est-ce que `AbstractCrudService` ? »), un paquet (`--module"
     },
     "SysExit": {
       "name": "SysExit",
@@ -4984,6 +5034,17 @@
       "implements": [],
       "decorators": [],
       "description": "Commande `nodefony stop` — arrêt PROPRE et COMPLET des process de dev (superviseur + serveur + Vite). Remplace le `pkill -9` manuel ; idempotent. **Exécutée en « standalone » (zéro boot, hors trunk…"
+    },
+    "Symbols": {
+      "name": "Symbols",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony symbols` — le graphe symbolique du framework, en O(1). Répond à « qu'est-ce que ce symbole, où est-il défini, qui l'étend » sans ouvrir un `.d.ts` ni parcourir des sources — et d…"
     },
     "services": {
       "name": "services",
@@ -18253,6 +18314,7 @@
         "Start",
         "Status",
         "Stop",
+        "Symbols",
         "BatchTest",
         "DaemonTest",
         "FrontendBuild",
@@ -18794,6 +18856,7 @@
         "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
+        "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
@@ -20501,6 +20564,7 @@
         "src/nodefony/src/cli/card.ts",
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/env.ts",
+        "src/nodefony/src/cli/symbols.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts",
         "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
@@ -20514,6 +20578,7 @@
         "src/nodefony/src/cli/completion.ts",
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/env.ts",
+        "src/nodefony/src/cli/symbols.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
@@ -20737,6 +20802,7 @@
         "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
+        "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
@@ -20938,6 +21004,13 @@
       "runCardCommand": [
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/commands/CardCommand.ts"
+      ],
+      "Symbols": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "runSymbolsCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/SymbolsCommand.ts"
       ],
       "setLogColor": [
         "src/nodefony/src/kernel/Kernel.ts"
@@ -21787,6 +21860,7 @@
         "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
+        "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
@@ -23114,6 +23188,9 @@
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "resolveSymbolsFile": [
+        "src/packages/@nodefony/framework/nodefony/src/docsReader.ts"
       ],
       "IAdminDescriptor": [
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",

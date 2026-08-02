@@ -526,6 +526,17 @@ export type { TScaffoldStep } from "./cli/scaffold/steps";
 // qu'elle doit répondre sur une application non construite ou lancée sans
 // `NODE_ENV` — une capacité qui doit tenir sans installation ne peut pas
 // dépendre d'un module.
+// Le graphe symbolique : UNE résolution (projet, puis framework installé) pour
+// tous ses lecteurs — la commande `symbols` et le data plane doc du framework.
+// Un chemin en dur de chaque côté est ce qui l'avait rendu introuvable dans une
+// application installée depuis npm.
+export {
+  resolveSymbolsFile,
+  readSymbolsGraph,
+  runSymbolsCommand,
+} from "./cli/symbols";
+export type { ISymbolEntry, ISymbolsGraph } from "./cli/symbols";
+
 export { buildCard, renderCard } from "./cli/cardReport";
 export type {
   ICard,

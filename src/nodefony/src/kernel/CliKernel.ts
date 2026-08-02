@@ -46,6 +46,8 @@ import Env from "./commands/EnvCommand";
 import { runEnvCommand } from "../cli/env";
 import Card from "./commands/CardCommand";
 import { runCardCommand } from "../cli/card";
+import Symbols from "./commands/SymbolsCommand";
+import { runSymbolsCommand } from "../cli/symbols";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import { HelpContext, Command as commanderCommand } from "commander";
@@ -263,6 +265,15 @@ class CliKernel extends Cli {
       return process.exit(runCardCommand(process.argv, version));
     }
 
+    // ─── `symbols` : le graphe symbolique — même famille ──────────────────────
+    // C'est une lecture de JSON. La faire passer par un boot coûterait un
+    // démarrage complet pour répondre « où est défini ce symbole ? », et
+    // rendrait muette la question précisément quand l'application ne démarre
+    // plus — le moment où l'on cherche justement ce que fait une classe.
+    if (requested === "symbols") {
+      return process.exit(runSymbolsCommand(process.argv));
+    }
+
     // ─── Lancement DÉTACHÉ (`<runtime> --detach`) : même famille standalone ────
     // Spawn détaché + readiness (sonde ports) + health + exit code sémantique —
     // l'expérience du script start.sh absorbée nativement (cf detachedStart.ts).
@@ -408,6 +419,7 @@ class CliKernel extends Cli {
     this.addCommand(Check);
     this.addCommand(Env);
     this.addCommand(Card);
+    this.addCommand(Symbols);
     this.addCommand(Inspect);
   }
 

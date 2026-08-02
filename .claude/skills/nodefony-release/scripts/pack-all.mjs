@@ -65,6 +65,19 @@ for (const w of workspaces) {
     }
   }
 
+  // Même garde pour le graphe symbolique : il est GÉNÉRÉ (donc absent d'un
+  // checkout frais) et un `files` qui désigne un dossier inexistant ne fait pas
+  // échouer `npm pack` — il publie simplement sans lui. L'application installée
+  // lirait alors un graphe absent, exactement le trou que sa publication ferme.
+  if (Array.isArray(pkg.files) && pkg.files.includes(".ai")) {
+    if (!existsSync(path.join(dir, ".ai", "symbols.json"))) {
+      failures.push(
+        `${pkg.name}: .ai/symbols.json absent — lancer npm run generate-symbols d'abord`,
+      );
+      continue;
+    }
+  }
+
   // Bascule des types SOURCE → .d.ts généré (détection auto, 0 liste en dur).
   //
   // DEUX champs, pas un. `exports["."].types` sert la résolution moderne
