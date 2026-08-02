@@ -602,6 +602,16 @@ six plus anciennes jugeaient encore. Le prix se lit sur la tâche 18, comptée
 pour n'avoir jamais cité `AGENTS.md`. Le selftest refuse désormais toute sonde
 `transcript` nommée « a lu … » qui ne porte pas `observe`.
 
+**Une sonde qui cherche un NOM doit dire dans QUEL fichier** (`file: "NOTE.md"`).
+La matière `content` est le contenu ENTIER de chaque fichier touché, mis bout à
+bout : une sonde qui y cherche `@nodefony/user` est verte dès que l'agent a
+effleuré le `package.json` du décor, sans avoir répondu. Les trois tâches qui
+demandent une réponse écrite (30, 31, 32) visent donc leur fichier de réponse, et
+lui seul. Le même piège existe côté transcript, en pire — le nom cherché y entre
+au premier `cat` du fichier qui le contient : c'est ce qui donnait `card` à 60/63
+au lieu de 2/63. **Ne jamais sonder un nom dans le transcript quand il est déjà
+écrit quelque part dans le décor.**
+
 ⚠️ **L'empreinte d'une tâche ne voit PAS la sévérité.** `empreinteTache` est
 calculée sur le prompt, le `prepare` et les NOMS des sondes — déclasser une sonde
 laisse donc l'empreinte intacte, et le dépistage compare le nouveau verdict à

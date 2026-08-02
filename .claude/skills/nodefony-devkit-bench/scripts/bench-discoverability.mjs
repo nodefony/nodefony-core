@@ -2625,15 +2625,23 @@ export const TASKS = [
   // a fait juste, et c'est justement ce qu'on veut apprendre.
   {
     id: 30,
-    name: "connaître une classe du framework dont les sources sont absentes",
-    // Ce que l'app REÇOIT d'un installeur npm, c'est `dist/` — pas les sources
-    // du framework. La question est donc réellement fermée à `rg`, et le graphe
-    // symbolique publié (lot devkit 4) est la voie directe. Les `.d.ts` en sont
-    // une autre, plus longue : d'où l'observation plutôt que l'exigence.
+    name: "savoir QUI hérite d'une classe du framework",
+    // La question est posée à l'ENVERS, et c'est tout l'objet de la tâche. Un
+    // `.d.ts` dit toujours de quoi une classe hérite — c'est écrit dans sa
+    // déclaration. Il ne dit JAMAIS qui hérite d'elle : cette relation n'existe
+    // nulle part comme fait, elle ne se reconstitue qu'en balayant TOUS les
+    // paquets installés. C'est exactement l'index que `relations.extendedBy`
+    // pré-calcule dans le graphe publié (lot devkit 4).
+    //
+    // La voie longue reste ouverte — `@nodefony/user` est dans les dépendances
+    // du décor, donc un balayage des `.d.ts` finit par trouver. C'est voulu :
+    // la tâche mesure ce que l'agent SAIT à la fin, pas le chemin qu'il a pris,
+    // et un agent qui balaye a répondu juste. Le verbe reste une observation —
+    // ce qu'on veut apprendre, c'est justement lequel des deux il choisit.
     prompt:
-      "Un collègue te demande une note technique sur la classe `AbstractCrudService` du " +
-      "framework : de quel paquet elle provient, de quelle classe elle hérite, et à quoi " +
-      "elle sert en une phrase. Écris-la dans NOTE-SYMBOLE.md à la racine du projet. " +
+      "Un collègue veut savoir ce qui, dans le framework installé, dérive de la classe " +
+      "`AbstractCrudService` : quelles classes en héritent, et de quel paquet chacune " +
+      "provient. Écris la réponse dans NOTE-SYMBOLE.md à la racine du projet. " +
       "Ne devine pas et n'invente aucun nom : la réponse doit venir de ce qui est installé.",
     probes: [
       {
@@ -2649,18 +2657,26 @@ export const TASKS = [
         where: "files",
       },
       {
-        // LE fait non devinable : rien dans le nom `AbstractCrudService`
-        // n'annonce `@nodefony/orm-core`. Un agent qui l'écrit l'a obtenu.
+        // L'héritière, que rien n'annonce depuis le nom de la classe mère.
         kind: "code",
-        name: "le paquet d'origine est NOMMÉ et juste (@nodefony/orm-core)",
-        pattern: /@nodefony\/orm-core/u,
+        name: "l'héritière est NOMMÉE et juste (UserService)",
+        pattern: /\bUserService\b/u,
         where: "content",
+        file: "NOTE-SYMBOLE.md",
       },
       {
+        // Et son paquet — le second fait non devinable : `UserService` aurait
+        // tout aussi bien pu vivre dans `@nodefony/security`.
+        //
+        // 🔴 Sondée dans la NOTE seule (`file`), pas dans le contenu joint de
+        // tous les fichiers touchés : le `package.json` du décor porte déjà
+        // `"@nodefony/user": "^10…"`, et effleurer le manifeste aurait suffi à
+        // rendre cette sonde verte sans répondre à quoi que ce soit.
         kind: "code",
-        name: "la parenté est nommée (extends Service)",
-        pattern: /\bService\b/u,
+        name: "le paquet de l'héritière est NOMMÉ et juste (@nodefony/user)",
+        pattern: /@nodefony\/user\b/u,
         where: "content",
+        file: "NOTE-SYMBOLE.md",
       },
     ],
   },
@@ -2700,11 +2716,16 @@ export const TASKS = [
         // Le décor est le preset `complete` : ces deux modules sont chargés, et
         // aucun des deux ne se devine depuis le nom de l'application. Deux, pas
         // un : `security` est cité partout dans les gabarits, `realtime` non.
+        // Sondée dans la PRÉSENTATION seule : le `package.json` et le manifeste
+        // du décor nomment tous deux `security` ET `realtime`, si bien que la
+        // paire se serait validée sur un fichier effleuré. Le motif traverse les
+        // lignes (`[\s\S]`) — dans un seul fichier de réponse, c'est légitime.
         kind: "code",
         name: "des modules RÉELLEMENT chargés sont nommés (security + realtime)",
         pattern:
           /@nodefony\/security[\s\S]*@nodefony\/realtime|@nodefony\/realtime[\s\S]*@nodefony\/security/u,
         where: "content",
+        file: "PRESENTATION.md",
       },
     ],
   },
@@ -2724,7 +2745,8 @@ export const TASKS = [
     prompt:
       "Cette application démarre et répond aux requêtes, mais elle ne fonctionne pas comme " +
       "son manifeste le prévoit : une brique qu'elle déclare n'est pas active. Trouve " +
-      "laquelle, dis pourquoi, et remets l'application dans un état sain. " +
+      "laquelle et remets l'application dans un état sain. Écris ton diagnostic dans " +
+      "DIAGNOSTIC.md à la racine du projet : quelle brique, et pourquoi. " +
       "Termine en prouvant que les tests de l'app passent.",
     probes: [
       {
@@ -2736,11 +2758,25 @@ export const TASKS = [
         observe: true,
       },
       {
+        kind: "code",
+        name: "le diagnostic est écrit (DIAGNOSTIC.md)",
+        pattern: /^DIAGNOSTIC\.md$/mu,
+        where: "files",
+      },
+      {
         // La brique est NOMMÉE dans la réponse : trouver sans dire laisse le
         // lecteur devant le même mystère.
-        kind: "transcript",
+        //
+        // 🔴 Sondée dans le DIAGNOSTIC, pas dans le transcript. Le `prepare` de
+        // cette tâche INJECTE `@nodefony/mongoose` dans le manifeste : le nom
+        // entre donc dans le transcript au premier `cat` du fichier, et la sonde
+        // mesurait la LECTURE, jamais la conclusion. Même piège que le compte
+        // d'usage de `card`, qui donnait 60/63 au lieu de 2/63.
+        kind: "code",
         name: "la brique fautive est nommée (@nodefony/mongoose)",
         pattern: /@nodefony\/mongoose/u,
+        where: "content",
+        file: "DIAGNOSTIC.md",
       },
       {
         // Le contournement : faire taire le symptôme en désarmant le
@@ -2773,8 +2809,27 @@ export const TASKS = [
  * @returns {{pass: boolean, evidence: string}}
  */
 export function evaluateProbe(probe, matter) {
-  const { files, added, addedTs, content, transcript, deleted, deletedFiles } =
-    matter;
+  const {
+    files,
+    added,
+    addedTs,
+    content,
+    contentByFile,
+    transcript,
+    deleted,
+    deletedFiles,
+  } = matter;
+  // `file` — la sonde ne lit QUE ce fichier. `content` est la concaténation du
+  // contenu ENTIER de tous les fichiers touchés : une sonde qui y cherche un nom
+  // de paquet est verte dès que l'agent a effleuré le manifeste, sans avoir
+  // répondu à quoi que ce soit. Quand la tâche demande une réponse ÉCRITE dans
+  // un fichier nommé, c'est ce fichier-là qui fait foi — et lui seul.
+  // Fichier absent → chaîne vide, donc une sonde positive tombe : ne pas écrire
+  // la réponse n'est pas une façon de la donner.
+  const ciblé =
+    probe.kind !== "transcript" && probe.file
+      ? ((contentByFile ?? {})[probe.file] ?? "")
+      : null;
   if (probe.kind === "transcript") {
     // `invert` vaut ici aussi : certains INTERDITS ne laissent pas de trace
     // dans le dépôt (un `kill -9` n'écrit aucun fichier) — le transcript est
@@ -2791,17 +2846,19 @@ export function evaluateProbe(probe, matter) {
   // sans ajouter une ligne suspecte. C'est le symétrique exact de la famille
   // « ne pas affaiblir », construite pour la sécurité et qui manquait ici.
   const haystack =
-    probe.where === "files"
-      ? files.join("\n")
-      : probe.where === "added"
-        ? added
-        : probe.where === "addedTs"
-          ? addedTs
-          : probe.where === "deleted"
-            ? (deleted ?? "")
-            : probe.where === "deletedFiles"
-              ? (deletedFiles ?? []).join("\n")
-              : content;
+    ciblé !== null
+      ? ciblé
+      : probe.where === "files"
+        ? files.join("\n")
+        : probe.where === "added"
+          ? added
+          : probe.where === "addedTs"
+            ? addedTs
+            : probe.where === "deleted"
+              ? (deleted ?? "")
+              : probe.where === "deletedFiles"
+                ? (deletedFiles ?? []).join("\n")
+                : content;
   // La matière du WAIVER se choisit, elle ne se suppose pas. Par défaut le
   // contenu rendu ; `unlessWhere: "transcript"` quand la voie correcte est un
   // GESTE et non un texte — avoir lancé un générateur, par exemple. Vécu : un
@@ -3344,16 +3401,19 @@ function judgeTask(app, runDir, task, occurrence = null) {
   // Un fichier SUPPRIMÉ par la tâche n'existe pas dans son commit : `git show`
   // échoue, et l'absence est la bonne réponse — c'est `deletedFiles` qui porte
   // ce cas, pas `content`.
-  const content = files
-    .filter((f) => /\.(ts|tsx|json|md)$/u.test(f))
-    .map((f) => {
-      try {
-        return git(app, "show", `${hash}:${f}`);
-      } catch {
-        return "";
-      }
-    })
-    .join("\n");
+  // Indexé PAR fichier autant que concaténé : une sonde qui vise la réponse
+  // écrite (`file: "PRESENTATION.md"`) doit lire ce fichier SEUL, sinon le
+  // manifeste voisin lui donne raison à sa place. Une seule lecture nourrit les
+  // deux matières.
+  const contentByFile = Object.create(null);
+  for (const f of files.filter((f) => /\.(ts|tsx|json|md)$/u.test(f))) {
+    try {
+      contentByFile[f] = git(app, "show", `${hash}:${f}`);
+    } catch {
+      contentByFile[f] = "";
+    }
+  }
+  const content = Object.values(contentByFile).join("\n");
   // Lignes AJOUTÉES seulement — le haystack des sondes NÉGATIVES. Sur fichiers
   // entiers, une sonde inversée mord sur du PRÉ-EXISTANT légitime (vécu : agent
   // 6/6 côté fond, recalé parce qu'il avait touché l'e2e généré qui porte le
@@ -3431,6 +3491,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
         added,
         addedTs,
         content,
+        contentByFile,
         transcript,
         deleted,
         deletedFiles,

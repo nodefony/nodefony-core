@@ -46,6 +46,10 @@ const EMPTY = {
   added: "",
   addedTs: "",
   content: "",
+  // Le contenu indexé PAR fichier — la matière des sondes qui visent la réponse
+  // écrite (`file: "…"`). Un échantillon qui ne le pose pas décrit le cas
+  // NOMINAL : son `content` est ce que porte le fichier visé (cf `matter`).
+  contentByFile: null,
   transcript: "",
   // L'autre moitié du diff. `deletedFiles` est une LISTE (comme `files`), pas
   // un texte : une sonde qui la vise lit des chemins, pas des lignes de code.
@@ -369,15 +373,33 @@ const SAMPLES = {
     pass: { files: ["NOTE-SYMBOLE.md"] },
     fail: { files: ["docs/NOTE-SYMBOLE.md"] },
   },
-  "30 :: le paquet d'origine est NOMMÉ et juste (@nodefony/orm-core)": {
-    pass: { content: `AbstractCrudService vient de \`@nodefony/orm-core\`.` },
-    // Le paquet PLAUSIBLE mais faux — ce que produit une déduction depuis le
-    // nom de la classe. C'est exactement ce que la tâche cherche à distinguer.
-    fail: { content: `AbstractCrudService vient de \`@nodefony/framework\`.` },
+  "30 :: l'héritière est NOMMÉE et juste (UserService)": {
+    pass: { content: `\`UserService\` étend \`AbstractCrudService\`.` },
+    // Le nom PLAUSIBLE mais inventé — ce que produit une déduction depuis le
+    // nom de la classe mère. C'est ce que la tâche cherche à distinguer.
+    fail: { content: `\`CrudEntityService\` étend \`AbstractCrudService\`.` },
   },
-  "30 :: la parenté est nommée (extends Service)": {
-    pass: { content: `Elle hérite de \`Service\` (socle du framework).` },
-    fail: { content: `Elle n'hérite de rien de particulier.` },
+  "30 :: le paquet de l'héritière est NOMMÉ et juste (@nodefony/user)": {
+    pass: { content: `\`UserService\` vit dans \`@nodefony/user\`.` },
+    // Le paquet plausible et faux : gérer des utilisateurs évoque la sécurité,
+    // et un agent qui déduit sans vérifier écrit celui-ci.
+    fail: { content: `\`UserService\` vit dans \`@nodefony/security\`.` },
+    extra: [
+      {
+        // LE faux positif que `file` existe pour refuser : le paquet est bien
+        // dans la matière, mais dans le `package.json` du décor — pas dans la
+        // note. `contentByFile` posé À LA MAIN (note absente) est ce qui
+        // distingue les deux, et sans lui ce cas passerait au vert.
+        label: "refuse le paquet lu dans le manifeste, sans note écrite",
+        matter: {
+          content: `{\n  "dependencies": {\n    "@nodefony/user": "^10.0.0"\n  }\n}`,
+          contentByFile: {
+            "package.json": `{\n  "dependencies": {\n    "@nodefony/user": "^10.0.0"\n  }\n}`,
+          },
+        },
+        expect: false,
+      },
+    ],
   },
 
   // ── T31 ───────────────────────────────────────────────────────────────────
@@ -433,13 +455,30 @@ const SAMPLES = {
     ],
     fail: { transcript: `{"command":"npm test"}` },
   },
+  "32 :: le diagnostic est écrit (DIAGNOSTIC.md)": {
+    pass: { files: ["DIAGNOSTIC.md"] },
+    fail: { files: ["docs/DIAGNOSTIC.md"] },
+  },
   "32 :: la brique fautive est nommée (@nodefony/mongoose)": {
     pass: {
-      transcript: `{"content":"la cause est @nodefony/mongoose, déclaré mais absent"}`,
+      content: `La cause est \`@nodefony/mongoose\`, déclaré mais absent.`,
     },
-    fail: {
-      transcript: `{"content":"un module du manifeste ne se charge pas"}`,
-    },
+    fail: { content: `Un module du manifeste ne se charge pas.` },
+    extra: [
+      {
+        // Le faux positif propre à CETTE tâche : son `prepare` injecte le nom
+        // dans le manifeste, donc réparer ce fichier sans rien conclure faisait
+        // verdir la sonde quand elle lisait le transcript ou le contenu joint.
+        label: "refuse le nom réparé dans le manifeste, sans diagnostic écrit",
+        matter: {
+          content: `use("@nodefony/mongoose", {}),`,
+          contentByFile: {
+            "nodefony.config.ts": `use("@nodefony/mongoose", {}),`,
+          },
+        },
+        expect: false,
+      },
+    ],
   },
   "32 :: le vérificateur n'a pas été désarmé": {
     // La sonde est inversée : l'échantillon `pass` est un diff SAIN.
@@ -1502,7 +1541,30 @@ const SAMPLES = {
 };
 
 const key = (task, probe) => `${task.id} :: ${probe.name}`;
-const matter = (sample) => ({ ...EMPTY, ...sample });
+
+/**
+ * La matière d'un cas, complétée des champs qu'il ne pose pas.
+ *
+ * Pour une sonde qui vise un fichier (`file: "NOTE.md"`), le cas NOMINAL est
+ * « voici ce que la réponse contient » : son `content` est donc recopié sous ce
+ * nom de fichier. Sans cette recopie, chaque échantillon devrait écrire deux
+ * fois le même texte, et l'oubli produirait un rouge incompréhensible.
+ *
+ * Un cas qui pose `contentByFile` LUI-MÊME garde la main — c'est ainsi qu'on
+ * éprouve le faux positif que `file` existe pour refuser : du contenu présent
+ * ailleurs (un manifeste), et rien dans le fichier de réponse.
+ *
+ * @param {object} sample - les matières que le cas déclare.
+ * @param {{file?: string}} [probe] - la sonde jugée, pour connaître sa cible.
+ * @returns {object} la matière complète.
+ */
+const matter = (sample, probe) => {
+  const m = { ...EMPTY, ...sample };
+  if (probe?.file && m.contentByFile === null) {
+    m.contentByFile = { [probe.file]: m.content };
+  }
+  return m;
+};
 
 /**
  * Les cas d'un échantillon, mis à plat : paire de base + extras éventuels.
@@ -1512,25 +1574,25 @@ const matter = (sample) => ({ ...EMPTY, ...sample });
  * cas pour un autre — on cherche alors le défaut au mauvais endroit, ce qui est
  * précisément le temps que cet outil doit faire économiser.
  */
-function casesFor(entry, prefix = "") {
+function casesFor(entry, prefix = "", probe) {
   const at = (label) => (prefix ? `${prefix} → ${label}` : label);
   const cases = [];
   if (entry.pass)
     cases.push({
       label: at("accepte la bonne réponse"),
-      matter: matter(entry.pass),
+      matter: matter(entry.pass, probe),
       expect: true,
     });
   if (entry.fail)
     cases.push({
       label: at("refuse le contournement"),
-      matter: matter(entry.fail),
+      matter: matter(entry.fail, probe),
       expect: false,
     });
   for (const x of entry.extra ?? []) {
     cases.push({
       label: at(x.label),
-      matter: matter(x.matter),
+      matter: matter(x.matter, probe),
       expect: x.expect,
     });
   }
@@ -1577,10 +1639,10 @@ function main() {
       uncovered.push(k);
       continue;
     }
-    const cases = casesFor(entry);
+    const cases = casesFor(entry, "", probe);
     for (const { label, entry: e } of extraByProbe.get(k) ?? []) {
       cases.push(
-        ...casesFor(e, label.slice(k.length).replace(/^\s*—\s*/u, "")),
+        ...casesFor(e, label.slice(k.length).replace(/^\s*—\s*/u, ""), probe),
       );
     }
 
