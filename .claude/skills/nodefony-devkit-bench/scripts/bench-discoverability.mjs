@@ -2886,6 +2886,16 @@ function setup(runDir) {
     );
   }
 
+  // Les pointeurs de skills, APRÈS l'arrivée des paquets — sinon le décor n'est
+  // pas celui de l'utilisateur. `create app` les pose lui-même, mais il tourne
+  // ICI avant que les tarballs ne soient installés : à cet instant
+  // `@nodefony/devkit` n'existe pas, il n'y a aucun skill à pointer, et
+  // personne ne repasse. Constaté : `.agents/skills/` absent du décor alors que
+  // l'`AGENTS.md` généré l'ANNONCE (« `ls .agents/skills/` les liste ») — le
+  // banc mesurait donc un agent moins bien servi que l'utilisateur réel, et
+  // l'envoyait sur un dossier vide.
+  sh("npx", ["--no-install", "nodefony", "ai:sync"], { cwd: app });
+
   // L'isolation se CONSTATE avant l'agent : mieux vaut aucun verdict qu'un
   // verdict rendu sur un décor qui n'est pas celui de l'utilisateur.
   const isolation = assertIsolated(REPO, app);
