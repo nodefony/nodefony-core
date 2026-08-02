@@ -285,6 +285,27 @@
 
 ## 🧪 Suspecter son INSTRUMENT avant le sujet mesuré
 
+- `[2× — 2026-08-02g]` 🔴 **Suspecter son PROPRE DIFF avant le produit — deux faux diagnostics
+  d'affilée en sont nés.** J'ai conclu « le preset complet ne se conteneurise pas » puis
+  « `better-sqlite3` n'a pas de prebuild pour Node 24 », et j'allais ajouter `python3 make g++` au
+  gabarit. Les deux étaient FAUX : l'étape qui échouait (`#12 [build 6/6] RUN rm -rf node_modules
+&& npm install --omit=dev`) était **une ligne que je venais d'ajouter** — et vérifié à part,
+  `npm install better-sqlite3@13.0.2` dans `node:24-slim` rend `added 2 packages` en arm64 comme
+  en amd64. Le signal était sous les yeux : le numéro d'étape docker NOMME la commande. **Lire
+  QUELLE commande a échoué avant de théoriser sur pourquoi.**
+- `[1× — 2026-08-02g]` 🔴 **Une mesure peut être fausse DANS SON SENS, et c'est le pire cas.**
+  `lireEffort` lisait le DERNIER `result` du transcript au lieu de les additionner : sur un run
+  relancé (`num_turns` 77 puis 1) le banc affichait « 1 tour · 4 s » pour 78 tours et 850 s. Donc
+  **plus l'agent peinait, plus l'effort affiché BAISSAIT** — l'inverse exact de ce que ce chiffre
+  sert à voir. Et comme le VERDICT restait juste, rien ne signalait l'écart : une moitié du banc
+  était aveugle sans qu'aucun test ne rougisse. À se demander d'une mesure : _si le phénomène
+  empire, mon chiffre monte-t-il ?_
+- `[1× — 2026-08-02g]` 🔴 **Une tâche déclarée REMPLACÉE doit être supprimée dans le MÊME geste.**
+  T23 avait été jugée fausse et réécrite en T25 (« une tâche fausse se remplace, elle ne se
+  retouche pas » — déjà écrit dans le kit sécurité). Seul le RETRAIT manquait : elle a continué de
+  voter pendant **deux passes complètes**, produisant un FAIL de référence en jugeant un agent
+  irréprochable. Corollaire de méthode : **lire le kit AVANT d'instruire** — j'ai refait par le
+  code un diagnostic qui était déjà écrit.
 - `[1× — 2026-08-02e]` 🔴 **La MATIÈRE d'une sonde est trop large par défaut, et c'est le mode de
   défaillance n°1 — trois fois dans la même séance.** (a) une sonde de LECTURE (« a lu AGENTS.md »)
   faisait tomber T18 dont les 15 sondes de résultat et les 4 gates étaient vertes ; (b) une sonde
@@ -712,6 +733,30 @@ symbols` ont été codées, testées, commitées, documentées en TSDoc, en `REA
 
 ## 📦 Surface npm & publication (chantier release en cours)
 
+- `[1× — 2026-08-02g]` 🔴 **Un outil de BUILD ne se déclare JAMAIS en `peerDependencies` — et
+  « optionnelle » ne protège pas.** Une peer est SATISFAITE par le paquet que l'application
+  installe en devDependency ; `npm prune --omit=dev` le compte alors dans l'arbre de PRODUCTION et
+  le garde. Refaire l'arbre depuis zéro n'y change rien, le `package-lock.json` l'a figé — mesuré :
+  161 Mo dans les deux cas. Trois paquets étaient concernés (`vite` chez frontend et studio,
+  `rolldown` chez `nodefony` pour le subpath bundler), plus `vue` en dependency DURE d'un builder
+  générique, qui tirait TypeScript : **26,6 Mo dans toute app, même React**. Après retrait :
+  `node_modules` 161 → 106 Mo, image 542 → 472 Mo. **Mais le poids n'est pas le sujet** : la garde
+  de `setupProd` qui refuse la page blanche muette (« vite indisponible → ERREUR nommée ») était
+  **inatteignable** — écrite en juillet, elle n'avait jamais pu s'afficher, puisque Vite était
+  toujours là pour reconstruire en silence. Le test qui tranche : _le paquet importe-t-il l'outil
+  au RUNTIME ?_ Ici tout était déjà en `await import()`.
+- `[1× — 2026-08-02g]` **Une capacité se CONSTATE — Podman était installé, la déduction était
+  inutile.** Le Dockerfile généré s'y construit et s'y exécute tel quel (build 0,
+  `--mount=type=cache` accepté par Buildah, `readyz` 200, `pid: 1`, `podman stop` en 0 avec drain).
+  UNE perte, silencieuse : `HEALTHCHECK` est une extension du format **Docker** que la spec **OCI**
+  ne porte pas, et Podman produit de l'OCI par défaut → la sonde est retirée sans erreur
+  (`{{.HealthCheck}}` rend `<nil>`). Remède `--format docker`, écrit dans le gabarit lui-même.
+  « Plus standard » a signifié ici « perd une garantie ».
+- `[1× — 2026-08-02g]` **Un décor de test FIGÉ vieillit à côté de ce qu'il est censé prouver.** Le
+  smoke copiait `examples/minimal-app` : il éprouvait la surface npm, jamais ce que `create app`
+  produit. Il génère désormais son décor **depuis le tarball** (paquet installé dans un dossier
+  jetable, qui scaffolde les apps témoins) — un fichier oublié dans `files` ne se voit d'aucune
+  autre façon. Le dossier figé a pu être supprimé ensuite, ordre R1→R2→R3 tenu.
 - `[2× — 2026-07-24]` **Le seul consommateur qu'on exerce n'est jamais celui qui a le problème.** Six paquets publiaient `exports["."].types → ./index.ts`, absent du tarball (`files:`) : invisible dans le repo self-hosted, cassé pour tout installeur npm. Vérifier une surface publiée = **dépaqueter le tarball** (`npm pack` + lire le manifeste), jamais lire le `package.json` du dépôt. Revécu via `--link` : le `node_modules` symlinké montre les SOURCES complètes (CLAUDE.md, `.ts`) — conclure de là ce qu'un installeur verra est faux ; raisonner sur `files:`.
 - `[1× — 2026-07-23]` **`publishConfig.exports` n'est PAS appliqué par npm** (c'est pnpm/yarn). Testé avant de le proposer.
 - `[1× — 2026-07-23]` **Un import non déclaré ne casse rien ICI et deux choses AILLEURS** : turbo ne peut pas ordonner le build, et le consommateur npm n'installe pas la dépendance. Auditer les imports de **valeur** (pas seulement de types) contre les `dependencies`.
@@ -749,6 +794,12 @@ symbols` ont été codées, testées, commitées, documentées en TSDoc, en `REA
 - `[1× — 2026-07-30]` **`npm run build` vert ne dit rien du chemin réel** : le script du module passait pendant que `npx vite build` (le chemin qu'emprunte le serveur de développement) échouait en `ERR_MODULE_NOT_FOUND`. Éprouver la commande que le RUNTIME lance, pas celle du `package.json`.
 
 ## 🧰 Deux frictions d'outillage qui se répètent en fin de chantier
+
+- `[1× — 2026-08-02g]` 🔴 **`timeout` n'existe pas sur macOS — un débranchement a rendu `exit 127`
+  et je l'ai lu comme un verdict.** J'éprouvais un gate en retirant un gabarit ; le run est sorti en
+  127 sans une ligne de sortie, et l'instant d'après j'aurais conclu que le gate ne mordait pas.
+  127 = commande introuvable, pas échec du sujet. **Tout code de sortie inhabituel (126, 127) se
+  lit AVANT d'être interprété** — et un débranchement dont la sortie est VIDE n'a rien prouvé.
 
 - `[1× — 2026-07-31e]` **La garde anti-geste-git du dépôt mord aussi sur l'agent PRINCIPAL, et
   c'est voulu.** Pour prouver un câblage en le débranchant, j'ai tenté `git stash push -- <f>` :
