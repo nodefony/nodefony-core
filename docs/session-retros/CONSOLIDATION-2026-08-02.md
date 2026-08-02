@@ -64,9 +64,12 @@ sur 10 thèmes, et c'est l'essentiel des 897 lignes.
    recopiait les verdicts de `baseline.json` et annonçait 28 tâches quand la référence en portait
    30, un FAIL sur une tâche fermée (T18) et une tâche supprimée (T23). La colonne dupliquée est
    **retirée** au profit d'un `jq` — remettre le tableau à jour l'aurait seulement re-périmé.
-6. ⏳ **Reste à trancher avec le user** : reporter la règle de seuil corrigée dans le skill
-   `nodefony-session` (mode END / CONSOLIDATE), qui porte encore « à **3×** → CONSOLIDATE la
-   promeut ».
+6. ✅ **Aligner le skill `nodefony-session`** (modes END / CONSOLIDATE), qui portait encore « à
+   **3×** → CONSOLIDATE la promeut ». Laisser deux règles contradictoires — une dans le SAS, une
+   dans le skill qui le maintient — aurait été pire que le changement lui-même
+   ([[feedback_single_source_rule]]). Le mode CONSOLIDATE gagne au passage une étape explicite :
+   **vérifier que les graduations déjà faites ont bien été RETIRÉES du sas**, avec la commande qui
+   liste les mémoires créées depuis le dernier passage.
 
 ## Résultat
 
