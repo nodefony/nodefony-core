@@ -1607,7 +1607,26 @@ function main() {
     }
   }
 
+  // Une sonde de LECTURE ne juge JAMAIS. Contrôle STRUCTUREL, pas de motif :
+  // c'est la SÉVÉRITÉ qui est vérifiée ici, et rien d'autre ne la voit —
+  // l'empreinte d'une tâche (`empreinteTache`) est calculée sur le prompt, le
+  // `prepare` et les NOMS des sondes, jamais sur leur `observe`. On peut donc
+  // faire basculer ce qu'une tâche juge sans que la référence le refuse.
+  // Vécu (tâche 18) : un run rend ses 15 sondes de résultat vertes et ses 4
+  // gates à 0, et la tâche est comptée FAIL pour n'avoir pas cité `AGENTS.md`.
+  const jugeantes = [];
+  for (const { task, probe } of probes) {
+    if (probe.kind !== "transcript") continue;
+    if (!/^a lu /u.test(probe.name)) continue;
+    if (!probe.observe) jugeantes.push(key(task, probe));
+  }
+
   for (const w of wrong) console.log(`  ✗ ${w}`);
+  for (const j of jugeantes) {
+    console.log(
+      `  ✗ ${j}\n      sonde de LECTURE qui juge — exiger un chemin d'accès mesure la conformité, pas la découvrabilité : la passer par sondeLecture()`,
+    );
+  }
   for (const t of toothless) {
     console.log(
       `  ✗ ${t}\n      amputée, la sonde reste verte — les échantillons ne l'exercent pas`,
@@ -1619,10 +1638,11 @@ function main() {
   console.log(
     `\n━━ ${covered}/${probes.length} sonde(s) couverte(s), ${checked} cas joué(s)` +
       (prove ? ` — amputation vérifiée sur ${covered}` : "") +
-      `${wrong.length + toothless.length > 0 ? `, ${wrong.length + toothless.length} DÉFAUT(S)` : ""}`,
+      `${wrong.length + toothless.length + jugeantes.length > 0 ? `, ${wrong.length + toothless.length + jugeantes.length} DÉFAUT(S)` : ""}`,
   );
 
-  if (wrong.length > 0 || toothless.length > 0) return 1;
+  if (wrong.length > 0 || toothless.length > 0 || jugeantes.length > 0)
+    return 1;
   if (uncovered.length > 0) {
     console.log(
       `(${uncovered.length} sonde(s) sans échantillon — le contrôle ne dit RIEN d'elles)`,

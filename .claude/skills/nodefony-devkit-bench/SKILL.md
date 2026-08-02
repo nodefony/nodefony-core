@@ -594,6 +594,21 @@ l'information hissée dans le fichier lu par défaut, elle devient redondante �
 la déclasse en observation plutôt que de la supprimer, pour continuer à voir
 comment l'agent s'y prend.
 
+**Les sondes de LECTURE (« a lu … ») sont toutes des observations, et une seule
+implémentation le garantit** : `sondeLecture(name, pattern)`. La règle avait été
+écrite ici puis appliquée à moitié — les sept tâches de sécurité observaient, les
+six plus anciennes jugeaient encore. Le prix se lit sur la tâche 18, comptée
+`FAIL 2/3` avec ses **quinze sondes de résultat vertes et ses quatre gates à 0**,
+pour n'avoir jamais cité `AGENTS.md`. Le selftest refuse désormais toute sonde
+`transcript` nommée « a lu … » qui ne porte pas `observe`.
+
+⚠️ **L'empreinte d'une tâche ne voit PAS la sévérité.** `empreinteTache` est
+calculée sur le prompt, le `prepare` et les NOMS des sondes — déclasser une sonde
+laisse donc l'empreinte intacte, et le dépistage compare le nouveau verdict à
+l'ancien sans rien refuser. C'est voulu (inclure `observe` invaliderait les 25
+références d'un coup), mais ça se paie : **après tout changement de sévérité, la
+tâche touchée se REMESURE et se refige** — rien d'autre ne le rappellera.
+
 ### Nommer la cause ne suffisait pas : il faut dire À QUI elle est opposable
 
 Les juges nomment leur cause depuis longtemps, et le banc l'affichait — mais il
