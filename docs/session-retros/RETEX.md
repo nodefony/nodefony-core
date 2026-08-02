@@ -78,6 +78,16 @@
 
 ## 📦 Surface npm & publication (chantier release en cours)
 
+- `[1× — 2026-08-02i]` 🔴 **Un front CONSTRUIT avant publication n'a plus AUCUNE dépendance
+  d'exécution** — Studio faisait télécharger 190 Mo de paquets directs (React, Mantine, mermaid,
+  icônes) à quiconque l'installe, pour du code que personne n'exécute. Deux conditions
+  **cumulatives** l'autorisent : Vite a inliné le framework dans les assets livrés, **et** les
+  sources ne partent pas dans l'archive (`files`) — donc rien à recompiler chez le consommateur.
+  Si l'une saute, les deps redeviennent obligatoires. La faute ne se paie **nulle part** en
+  développement : les deux champs s'installent pareil, typecheck vert, tests verts ; elle ne se
+  constate que sur le tarball.
+- `[1× — 2026-08-02i]` **`npm pkg set` SUPPRIME une clé dont l'objet devient vide** —
+  `"dependencies": {}` disparaît sans un mot, et la convention-frère du dépôt la porte.
 - `[1× — 2026-08-02g]` 🔴 **Un outil de BUILD ne se déclare JAMAIS en `peerDependencies`** — même
   « optionnelle » : la devDependency de l'app la SATISFAIT, donc `npm prune --omit=dev` la garde.
   Test qui tranche : _le paquet importe-t-il l'outil au RUNTIME ?_
@@ -149,6 +159,15 @@
 
 - `[1× — 2026-07-30]` 🔴 **Un `node_modules` remis droit à la main tient jusqu'au prochain `npm
 install`.** Et `npm run build` vert ne dit rien du chemin réel qu'emprunte l'utilisateur.
+- `[1× — 2026-08-02i]` 🔴 **`npm outdated --workspaces --include-workspace-root` ne montre PAS les
+  dépendances de la RACINE.** Il a rendu « 0 périmé » alors que `turbo` et `typescript` attendaient —
+  c'est le user qui l'a vu, pas moi. **`npm outdated` NU les montre.** Corollaire qui coûte plus
+  cher : **un sous-agent hérite de la cécité de la commande qu'on lui DICTE** — son rapport était
+  exhaustif sur un périmètre amputé, et rien dans sa forme ne le signalait. Dicter la commande,
+  c'est dicter l'angle mort.
+- `[1× — 2026-08-02i]` **Une dépendance déclarée à N endroits ne se monte pas à N−1.** `tsx` vivait
+  dans 3 workspaces **et** à la racine ; n'aligner que les workspaces a créé 3 copies imbriquées à
+  côté de l'ancienne restée hissée. Relever TOUS les sites déclarants avant d'éditer le premier.
 
 ## 🧭 La PRÉMISSE d'une question se vérifie avant d'en chercher la cause
 
