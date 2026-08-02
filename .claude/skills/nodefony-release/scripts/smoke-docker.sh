@@ -13,7 +13,13 @@
 # Prérequis : npm run build (dist à jour) + docker daemon up.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Quatre niveaux : scripts → nodefony-release → skills → .claude → racine.
+# Le compte se VÉRIFIE au lieu de se supposer : déplacer ce script d'un dossier
+# le décalait en silence, et le seul symptôme était un chemin doublé
+# (`.claude/skills/.claude/skills/…`) au premier `node`.
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
+[[ -f "$ROOT/package.json" && -d "$ROOT/.claude" ]] ||
+  { echo "✗ racine du dépôt introuvable depuis ${BASH_SOURCE[0]} (ROOT=$ROOT)" >&2; exit 1; }
 APP_SRC="$ROOT/examples/minimal-app"
 # HORS du repo : dedans, la résolution node/TS remonterait aux node_modules
 # racine (symlinks workspaces → SOURCES du repo) → faux environnement vierge.
