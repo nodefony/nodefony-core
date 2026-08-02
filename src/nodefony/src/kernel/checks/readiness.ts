@@ -166,10 +166,18 @@ export async function checkReadiness(input: {
       if (isModuleResolvable(projectRoot, nom)) continue;
       findings.push({
         kind: "module-not-installed",
+        // Ce message a dit le CONTRAIRE de ce que fait le framework, et c'est
+        // pire qu'un silence : il annonçait « le démarrage échouera à l'import »,
+        // envoyant chercher un crash qui n'existe pas. Mesuré : le Kernel charge
+        // les modules en fail-soft, l'application démarre, et le bilan dit
+        // « BOOT dégradé — 1 en échec ». C'est exactement le cas que `check` est
+        // seul à savoir redire APRÈS coup — encore faut-il qu'il le décrive.
         message:
           `le manifeste charge "${nom}" mais le paquet est INTROUVABLE ` +
-          `(ni dans node_modules, ni dans modules/) — le démarrage échouera à ` +
-          `l'import, loin de cette cause : npm install ${nom}`,
+          `(ni dans node_modules, ni dans modules/) — le boot ne s'arrêtera PAS : ` +
+          `le module est écarté (fail-soft) et l'application démarre AMPUTÉE de ` +
+          `ce qu'il apporte, sans erreur au point d'usage : ` +
+          `npm install ${nom}, ou retirer la ligne du manifeste`,
         file: "nodefony.config.ts",
       });
     }

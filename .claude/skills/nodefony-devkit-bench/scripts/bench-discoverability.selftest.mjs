@@ -354,6 +354,106 @@ const SAMPLES = {
   },
 
   // ── T10 ───────────────────────────────────────────────────────────────────
+  // ── T30 ───────────────────────────────────────────────────────────────────
+  "30 :: a interrogé le graphe symbolique (nodefony symbols)": {
+    pass: {
+      transcript: `{"command":"npx nodefony symbols AbstractCrudService --json"}`,
+    },
+    // Prononcer le mot n'est pas l'invoquer : l'AGENTS.md généré NOMME cette
+    // commande, donc tout agent qui le lit la porte dans son transcript.
+    fail: {
+      transcript: `{"content":"je vais regarder les symbols du framework"}`,
+    },
+  },
+  "30 :: la note est écrite (NOTE-SYMBOLE.md)": {
+    pass: { files: ["NOTE-SYMBOLE.md"] },
+    fail: { files: ["docs/NOTE-SYMBOLE.md"] },
+  },
+  "30 :: le paquet d'origine est NOMMÉ et juste (@nodefony/orm-core)": {
+    pass: { content: `AbstractCrudService vient de \`@nodefony/orm-core\`.` },
+    // Le paquet PLAUSIBLE mais faux — ce que produit une déduction depuis le
+    // nom de la classe. C'est exactement ce que la tâche cherche à distinguer.
+    fail: { content: `AbstractCrudService vient de \`@nodefony/framework\`.` },
+  },
+  "30 :: la parenté est nommée (extends Service)": {
+    pass: { content: `Elle hérite de \`Service\` (socle du framework).` },
+    fail: { content: `Elle n'hérite de rien de particulier.` },
+  },
+
+  // ── T31 ───────────────────────────────────────────────────────────────────
+  "31 :: a demandé à l'app de se présenter (card)": {
+    pass: { transcript: `{"command":"npx nodefony card --json"}` },
+    extra: [
+      {
+        // L'alias d'origine, encore écrit dans les AGENTS.md déjà générés.
+        label: "accepte l'alias conservé (devkit:card)",
+        matter: { transcript: `{"command":"npx nodefony devkit:card"}` },
+        expect: true,
+      },
+    ],
+    fail: { transcript: `{"command":"cat nodefony.config.ts"}` },
+  },
+  "31 :: a interrogé l'app en marche (inspect)": {
+    pass: { transcript: `{"command":"npx nodefony inspect modules --json"}` },
+    fail: { transcript: `{"command":"ls node_modules/@nodefony"}` },
+  },
+  "31 :: la présentation est écrite (PRESENTATION.md)": {
+    pass: { files: ["PRESENTATION.md"] },
+    fail: { files: ["presentation.md"] },
+  },
+  "31 :: des modules RÉELLEMENT chargés sont nommés (security + realtime)": {
+    pass: {
+      content: `Modules actifs : @nodefony/security, @nodefony/realtime, @nodefony/http.`,
+    },
+    // Un seul des deux ne suffit pas : `security` se cite de mémoire (tous les
+    // gabarits en parlent), `realtime` beaucoup moins. C'est le COUPLE qui
+    // atteste qu'on a lu la liste réelle plutôt que récité l'attendu.
+    fail: { content: `Modules actifs : @nodefony/security, @nodefony/http.` },
+  },
+
+  // ── T32 ───────────────────────────────────────────────────────────────────
+  "32 :: a lancé le vérificateur du framework (check)": {
+    pass: { transcript: `{"command":"npm run check"}` },
+    extra: [
+      {
+        label: "accepte la forme directe (npx nodefony check)",
+        matter: { transcript: `{"command":"npx nodefony check"}` },
+        expect: true,
+      },
+      {
+        // Le motif doit traverser les guillemets ÉCHAPPÉS, sinon un appel
+        // enveloppé dans un shell lui échappe — c'est-à-dire le cas où l'agent
+        // enchaîne plusieurs commandes.
+        label: "traverse un shell imbriqué",
+        matter: {
+          transcript: `{"command":"sh -c \\"cd . && npm run check\\""}`,
+        },
+        expect: true,
+      },
+    ],
+    fail: { transcript: `{"command":"npm test"}` },
+  },
+  "32 :: la brique fautive est nommée (@nodefony/mongoose)": {
+    pass: {
+      transcript: `{"content":"la cause est @nodefony/mongoose, déclaré mais absent"}`,
+    },
+    fail: {
+      transcript: `{"content":"un module du manifeste ne se charge pas"}`,
+    },
+  },
+  "32 :: le vérificateur n'a pas été désarmé": {
+    // La sonde est inversée : l'échantillon `pass` est un diff SAIN.
+    pass: { added: `+    use("@nodefony/http", {}),` },
+    fail: { added: `+  check: { enabled: false },` },
+    extra: [
+      {
+        label: "refuse aussi le contournement par la ligne de commande",
+        matter: { added: `+    "check": "nodefony check --no-check"` },
+        expect: false,
+      },
+    ],
+  },
+
   "10 :: service déclaré au conteneur (@injectable)": {
     pass: {
       content: `@injectable()\nexport class DiscountService extends Service {}`,

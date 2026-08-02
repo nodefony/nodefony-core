@@ -291,6 +291,18 @@ const PREPARE_ROLE_HIERARCHY = path.join(
   "prepare-role-hierarchy-repere.mjs",
 );
 
+/**
+ * Décor de la tâche 32 — un module DÉCLARÉ mais pas installé. Le boot ne
+ * s'arrête pas (fail-soft) : l'app démarre amputée, et c'est le cas que
+ * `nodefony check` est seul à savoir redire après coup. Fichier plutôt que
+ * `node -e` inline : il porte son propre auto-contrôle (`--selftest`).
+ */
+const PREPARE_MODULE_ABSENT = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "prepare-module-absent.mjs",
+);
+
 /** Juge « canal realtime PRIVÉ » — attaque le protocole WS, deux chemins possibles. */
 const JUGE_REALTIME_CHANNEL = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -2588,6 +2600,151 @@ export const TASKS = [
         ],
       },
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+
+  // ─── Les trois capacités livrées SANS tâche ────────────────────────────────
+  //
+  // `card`, `symbols` et les diagnostics de `check` ont été mis dans les mains
+  // des agents sans que rien ne mesure s'ils y arrivent. Le compte l'a dit
+  // ensuite, sur 63 passes : `card` 2, `symbols` 8, `check` 5 — contre 28 pour
+  // `inspect` et 37 pour `create`. Ces chiffres ne prouvaient RIEN (aucune de
+  // ces tâches ne demandait ces gestes) ; ils constataient l'absence de mesure.
+  // C'est la règle du banc prise en défaut par ses propres auteurs : une
+  // capacité destinée à un agent arrive AVEC sa tâche.
+  //
+  // Les trois suivent la même doctrine : le VERDICT porte sur le savoir obtenu,
+  // l'emploi du verbe reste une OBSERVATION. Exiger la commande mesurerait la
+  // conformité à un chemin — or un agent qui obtient la bonne réponse autrement
+  // a fait juste, et c'est justement ce qu'on veut apprendre.
+  {
+    id: 30,
+    name: "connaître une classe du framework dont les sources sont absentes",
+    // Ce que l'app REÇOIT d'un installeur npm, c'est `dist/` — pas les sources
+    // du framework. La question est donc réellement fermée à `rg`, et le graphe
+    // symbolique publié (lot devkit 4) est la voie directe. Les `.d.ts` en sont
+    // une autre, plus longue : d'où l'observation plutôt que l'exigence.
+    prompt:
+      "Un collègue te demande une note technique sur la classe `AbstractCrudService` du " +
+      "framework : de quel paquet elle provient, de quelle classe elle hérite, et à quoi " +
+      "elle sert en une phrase. Écris-la dans NOTE-SYMBOLE.md à la racine du projet. " +
+      "Ne devine pas et n'invente aucun nom : la réponse doit venir de ce qui est installé.",
+    probes: [
+      {
+        kind: "transcript",
+        name: "a interrogé le graphe symbolique (nodefony symbols)",
+        pattern: commandeQuiContient("nodefony\\s+symbols\\b"),
+        observe: true,
+      },
+      {
+        kind: "code",
+        name: "la note est écrite (NOTE-SYMBOLE.md)",
+        pattern: /^NOTE-SYMBOLE\.md$/mu,
+        where: "files",
+      },
+      {
+        // LE fait non devinable : rien dans le nom `AbstractCrudService`
+        // n'annonce `@nodefony/orm-core`. Un agent qui l'écrit l'a obtenu.
+        kind: "code",
+        name: "le paquet d'origine est NOMMÉ et juste (@nodefony/orm-core)",
+        pattern: /@nodefony\/orm-core/u,
+        where: "content",
+      },
+      {
+        kind: "code",
+        name: "la parenté est nommée (extends Service)",
+        pattern: /\bService\b/u,
+        where: "content",
+      },
+    ],
+  },
+  {
+    id: 31,
+    name: "se présenter à une application qu'on ne connaît pas",
+    // La carte de visite (`nodefony card`) existe pour ce moment précis. Elle
+    // n'est pas la seule voie quand l'app est saine et bâtie — `inspect` répond
+    // aussi — et c'est bien pour cela que les deux sont OBSERVÉES : ce qu'on
+    // mesure ici, c'est que l'agent SE RENSEIGNE auprès de l'application au lieu
+    // de déduire d'une lecture de fichiers, et par quelle porte il le fait.
+    prompt:
+      "Tu prends la main sur cette application sans la connaître. Écris PRESENTATION.md à " +
+      "la racine : ce qu'elle est, et les modules du framework qu'elle charge RÉELLEMENT " +
+      "(pas ceux qu'un fichier déclare — ceux qui sont actifs). " +
+      "Les faits doivent venir de l'application elle-même.",
+    probes: [
+      {
+        kind: "transcript",
+        name: "a demandé à l'app de se présenter (card)",
+        pattern: commandeQuiContient("nodefony\\s+(?:devkit:)?card\\b"),
+        observe: true,
+      },
+      {
+        kind: "transcript",
+        name: "a interrogé l'app en marche (inspect)",
+        pattern: commandeQuiContient("nodefony\\s+inspect\\b"),
+        observe: true,
+      },
+      {
+        kind: "code",
+        name: "la présentation est écrite (PRESENTATION.md)",
+        pattern: /^PRESENTATION\.md$/mu,
+        where: "files",
+      },
+      {
+        // Le décor est le preset `complete` : ces deux modules sont chargés, et
+        // aucun des deux ne se devine depuis le nom de l'application. Deux, pas
+        // un : `security` est cité partout dans les gabarits, `realtime` non.
+        kind: "code",
+        name: "des modules RÉELLEMENT chargés sont nommés (security + realtime)",
+        pattern:
+          /@nodefony\/security[\s\S]*@nodefony\/realtime|@nodefony\/realtime[\s\S]*@nodefony\/security/u,
+        where: "content",
+      },
+    ],
+  },
+  {
+    id: 32,
+    name: "l'application démarre AMPUTÉE — le dire avant de le subir",
+    // Le cas que `check` est seul à savoir redire après coup, et le plus piégeux
+    // du framework : le Kernel charge les modules en FAIL-SOFT. Un module
+    // introuvable ne fait donc pas tomber le boot — les ports s'ouvrent, l'app
+    // répond, et ce qu'elle ne fait plus ne lève aucune erreur au point d'usage.
+    // Le journal l'a dit une fois, au terminal de celui qui a lancé.
+    //
+    // Aucune gate propre n'est nécessaire : `npm run check` est déjà jouée sur
+    // TOUTE tâche, et elle rend non-zéro tant que le manifeste charge un paquet
+    // introuvable. L'outil est le juge — c'est la forme que ce banc préfère.
+    prepare: `node ${PREPARE_MODULE_ABSENT}`,
+    prompt:
+      "Cette application démarre et répond aux requêtes, mais elle ne fonctionne pas comme " +
+      "son manifeste le prévoit : une brique qu'elle déclare n'est pas active. Trouve " +
+      "laquelle, dis pourquoi, et remets l'application dans un état sain. " +
+      "Termine en prouvant que les tests de l'app passent.",
+    probes: [
+      {
+        kind: "transcript",
+        name: "a lancé le vérificateur du framework (check)",
+        pattern: commandeQuiContient(
+          "(?:npm run|npx nodefony|nodefony)\\s+check\\b",
+        ),
+        observe: true,
+      },
+      {
+        // La brique est NOMMÉE dans la réponse : trouver sans dire laisse le
+        // lecteur devant le même mystère.
+        kind: "transcript",
+        name: "la brique fautive est nommée (@nodefony/mongoose)",
+        pattern: /@nodefony\/mongoose/u,
+      },
+      {
+        // Le contournement : faire taire le symptôme en désarmant le
+        // vérificateur plutôt qu'en réparant le manifeste.
+        kind: "code",
+        name: "le vérificateur n'a pas été désarmé",
+        pattern: /check\s*:\s*\{[^}]*enabled\s*:\s*false|--no-check\b/u,
+        where: "added",
+        invert: true,
+      },
     ],
   },
 ];

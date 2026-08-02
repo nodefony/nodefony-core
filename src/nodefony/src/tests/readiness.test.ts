@@ -73,6 +73,21 @@ describe("check — état d'installation et environnement", () => {
     assert.include(r.findings[0].message, "@acme/blog");
     // Le geste qui répare, pas seulement le constat.
     assert.include(r.findings[0].message, "npm install @acme/blog");
+    // Et la CONSÉQUENCE doit être vraie. Ce message a longtemps annoncé « le
+    // démarrage échouera à l'import » : mesuré sur une application réelle, le
+    // Kernel écarte le module en fail-soft, les ports s'ouvrent, et le bilan
+    // dit « BOOT dégradé ». Un diagnostic qui envoie chercher un crash
+    // inexistant coûte plus cher que pas de diagnostic du tout.
+    assert.notInclude(
+      r.findings[0].message,
+      "échouera",
+      "le boot ne s'arrête PAS sur un module absent (fail-soft) — ne pas annoncer un crash",
+    );
+    assert.include(
+      r.findings[0].message,
+      "AMPUTÉE",
+      "le message doit nommer la vraie conséquence : l'app démarre sans ce module",
+    );
   });
 
   it("accepte un module LOCAL non encore lié (`modules/<nom>`)", async () => {
