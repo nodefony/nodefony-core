@@ -112,6 +112,14 @@
 
 ## 📣 Une commande MAISON est filtrée par la familiarité, pas par la position
 
+- `[1× — 2026-08-02e]` **Comparer les scripts npm du DÉPÔT à ceux du gabarit d'app trouve les
+  verbes qu'on a livrés sans les nommer.** Trois manquaient : `inspect` (l'app exposait `check`
+  sans son jumeau — les deux verbes s'apprennent ensemble), `ai:sync` (livré le jour même, nommé
+  nulle part) et `clean`. C'est un contrôle de deux minutes, à refaire après chaque capacité CLI
+  neuve. ⚠️ Et un script ne se copie pas du dépôt sans vérifier ses dépendances : `clean` reposait
+  sur `rimraf`, absent des devDependencies du gabarit — **un script qui échoue au premier usage est
+  pire qu'un script absent**.
+
 - `[1× — 2026-08-02]` 🔴 **Quatre gates dans le MÊME bloc, un écart de 1 à 9.** `npm test` 44/63,
   `test:e2e` 44/63, `typecheck` 37/63 — et `nodefony check` **5/63**, ligne adjacente. Les trois
   premiers sont des commandes que le modèle connaît d'avance ; le quatrième est un verbe du dépôt.
@@ -236,6 +244,31 @@
   produit, pas la relecture du gabarit.
 
 ## 🧪 Suspecter son INSTRUMENT avant le sujet mesuré
+
+- `[1× — 2026-08-02e]` 🔴 **La MATIÈRE d'une sonde est trop large par défaut, et c'est le mode de
+  défaillance n°1 — trois fois dans la même séance.** (a) une sonde de LECTURE (« a lu AGENTS.md »)
+  faisait tomber T18 dont les 15 sondes de résultat et les 4 gates étaient vertes ; (b) une sonde
+  cherchant `@nodefony/user` dans `content` — le contenu ENTIER de tous les fichiers touchés —
+  était verte dès que l'agent effleurait le `package.json` ; (c) `@ts-ignore` cherché dans `added`
+  recalait un agent qui avait écrit « TypeScript strict : zéro `any`, zéro `@ts-ignore` » dans sa
+  PRÉSENTATION — il décrivait la doctrine, et la sonde l'a puni de l'avoir citée. **Le remède est
+  toujours de BORNER la matière** (`file:` pour viser un fichier, `addedCode` pour exclure la
+  prose), jamais de contorsionner le motif. À se demander avant d'écrire toute sonde : _où ce
+  marqueur peut-il apparaître LÉGITIMEMENT ?_
+- `[1× — 2026-08-02e]` 🔴 **Un diagnostic écrit dans une mémoire vieillit comme un ancrage.** La
+  matrice affirmait de T10 un profil « 3 fois sur 3 » qu'AUCUN run ne portait : les trois runs
+  avaient trois causes différentes (un typecheck, un vrai contournement, un abandon à 0 fichier
+  touché), et la règle `nodefony check` qu'on projetait d'écrire EXISTAIT déjà et mordait. Coût de
+  la vérification : deux `jq`. **Relire le diagnostic au moment de s'en servir, pas au moment de
+  l'écrire.**
+- `[1× — 2026-08-02e]` **Un run à 0 fichier touché n'est pas une mesure, et le banc le compte comme
+  un FAIL ordinaire** — 8 sondes y sont vertes par vacuité. Symétrique du « vert par abandon » que
+  le banc nomme déjà, mais pour le cas total. À traiter comme un rouge NON OPPOSABLE.
+- `[1× — 2026-08-02e]` **Un banc qui fait concourir des corpus qui ne cohabitent JAMAIS fabrique de
+  faux avertissements.** Le banc de déclenchement opposait les skills du dépôt (dev du framework) à
+  ceux livrés par npm (auteur d'app) : 4 recouvrements « à arbitrer » qui n'existaient pour
+  personne. Une notion de PORTÉE les a supprimés — et un avertissement qu'on apprend à ignorer est
+  pire que pas d'avertissement.
 
 - `[1× — 2026-08-02b]` 🔴 **Un seuil de DURÉE mesure la machine, jamais la propriété.** La forge
   rouge sur UNE seule case de la matrice (macOS / Node 24) : `96,4 ms sur 100 k espaces: expected
