@@ -392,11 +392,11 @@ ses tarballs.
 
 ### 10.4 R2 — le smoke GÉNÈRE son décor (cœur du chantier)
 
-| Lot      | Geste                                                                                                                                                                                                                                                                |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **R2.1** | `smoke-docker.sh` : `nodefony create app` **remplace** la copie de `examples/minimal-app` (`APP_SRC`)                                                                                                                                                                |
-| **R2.2** | Étapes **nommées séparément** — « scaffold en échec » ne doit jamais se lire comme « tarballs en échec »                                                                                                                                                             |
-| **R2.3** | Étendre aux 3 scénarios front que le §6bis réclame déjà : **(a)** app à front → tags `/_assets/…` ; **(b)** `public/dist` supprimé → auto-build annoncé, et ERROR nommée dans l'image sans devDependencies ; **(c)** Studio `static` + `mandatory` → `/nodefony` 200 |
+| Lot         | Geste                                                                                                                                                                                                                                                                |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **R2.1** ✅ | `smoke-docker.sh` : `nodefony create app` **remplace** la copie de `examples/minimal-app` (`APP_SRC`)                                                                                                                                                                |
+| **R2.2** ✅ | Étapes **nommées séparément** — « scaffold en échec » ne doit jamais se lire comme « tarballs en échec »                                                                                                                                                             |
+| **R2.3**    | Étendre aux 3 scénarios front que le §6bis réclame déjà : **(a)** app à front → tags `/_assets/…` ; **(b)** `public/dist` supprimé → auto-build annoncé, et ERROR nommée dans l'image sans devDependencies ; **(c)** Studio `static` + `mandatory` → `/nodefony` 200 |
 
 Bénéfice structurel : le smoke éprouve alors **le générateur** — c'est-à-dire ce que reçoit
 réellement un nouvel utilisateur — et les variantes qu'exige R2.3 sont impossibles avec un dossier
@@ -404,11 +404,33 @@ figé, naturelles avec un générateur.
 
 **Preuve R2** : smoke vert de bout en bout. C'est le seul gate qui débloque R3.
 
+**R2.1 + R2.2 faits.** Le décor est généré, et il l'est **depuis le tarball** : le paquet
+`nodefony` s'installe dans un dossier jetable, et c'est CE binaire qui produit l'application
+témoin (`create app`, puis `create controller` pour la route lente). Un pas de plus que ce que
+le lot demandait, et c'est là qu'est la valeur : les **gabarits sont éprouvés tels qu'ils sont
+publiés** — un fichier oublié dans `files` ne se voit d'aucune autre façon. Le smoke exerce
+maintenant deux générateurs au lieu de zéro.
+
+Trois gardes attribuent la faute au bon maillon (R2.2) : fichiers attendus après `create app`,
+`CMD` en forme exec dans le Dockerfile généré, et au moins une dépendance réécrite vers les
+tarballs. La forme exec est en outre **constatée à l'exécution** (`/api/hello` doit rendre
+`pid: 1`), pas seulement lue dans le fichier.
+
+Gate vu MORDRE : gabarit `Dockerfile.tpl` retiré → le smoke échoue à l'étape **« create app »**
+en nommant le gabarit absent, et non à `docker build` — ce que le lot R2.2 demandait exactement.
+
+Reste **R2.3** (les trois scénarios front : tags `/_assets/…`, `public/dist` supprimé, Studio en
+`static` + `mandatory`), désormais faisable puisque le décor est paramétrable par preset et par
+choix de frontend.
+
 ### 10.5 R3 — `examples/` disparaît (après R2 vert, jamais avant)
 
 Suppression du dossier, puis la prose qui le cite : **`docs/release/nodefony-10.md:163` et `:284`**,
 **`MIGRATION_STATUS.md:627`**. Inventaire vérifié : il n'existe aucun autre consommateur, et un seul
 consommateur exécutable (`smoke-docker.sh`).
+
+**Débloqué depuis R2.1** : ce dernier consommateur exécutable a disparu — plus aucun script ne lit
+`examples/`, il ne reste que de la prose (ce plan, `MIGRATION_STATUS`, deux retex archivés).
 
 ### 10.6 R4 — `create-nodefony`
 

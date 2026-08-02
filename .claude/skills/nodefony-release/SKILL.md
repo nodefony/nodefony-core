@@ -39,7 +39,8 @@ compile une application témoin contre lui.
 ## 2. La chaîne, dans l'ordre
 
 ```bash
-# Tout d'un coup : pack → app témoin → conteneur → install vierge → tsc → arrêt gracieux
+# Tout d'un coup : pack → attw → scaffolder installé du tarball → app GÉNÉRÉE →
+# conteneur → install vierge → arrêt gracieux
 bash .claude/skills/nodefony-release/scripts/smoke-docker.sh
 
 # Ou étape par étape
@@ -53,6 +54,21 @@ node .claude/skills/nodefony-release/scripts/fix-dts-extensions.mjs <dir>   # ap
 (`node16`/`nodenext` l'exige) — il est appelé **depuis** le pack, pas à la main en temps normal.
 `smoke-docker.sh` enchaîne le tout et prouve dans un conteneur ce qu'aucun test du dépôt ne peut
 prouver : une installation qui n'a jamais vu le dépôt.
+
+**Son décor est GÉNÉRÉ, pas copié.** Le paquet `nodefony` est installé depuis son tarball dans un
+dossier jetable, et c'est CE binaire qui produit l'application témoin (`create app`, puis
+`create controller` pour la route lente du drain). Deux conséquences qu'aucun autre gate ne donne :
+les **gabarits** sont éprouvés tels qu'ils sont publiés — un fichier oublié dans `files` ne se voit
+d'aucune autre façon —, et le smoke suit le générateur au lieu de dériver d'un dossier figé.
+
+**Les étapes sont nommées**, et l'échec dit laquelle a lâché. Ce n'est pas du confort : un
+`docker build` en échec parce que le scaffold a produit une app muette envoie chercher la panne
+dans les tarballs. Les gardes posées après `create app` (Dockerfile présent, `CMD` en forme exec,
+manifeste réécrit) sont là pour attribuer la faute au bon maillon.
+
+⚠️ **`create controller` est IN-PROJECT** : il remonte au `nodefony.config.ts` le plus proche.
+Lancé depuis la racine du dépôt, il écrirait DANS le dépôt — le script l'ancre dans l'app témoin
+par un sous-shell.
 
 ## 3. Pièges
 
