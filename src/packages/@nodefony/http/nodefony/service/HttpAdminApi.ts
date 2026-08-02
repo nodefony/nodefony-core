@@ -53,6 +53,8 @@ interface SessionsLike {
  */
 interface SessionsAdmin {
   supportsEnumeration(): boolean;
+  /** Capacité de tri du backend configuré — vide = ce store ne trie pas. */
+  sortableSessionFields(): readonly string[];
   listSessionsPage(query: ISessionListQuery): Promise<IPage<ISessionSummary>>;
   destroyByRef(ref: string, actor?: string | null): Promise<boolean>;
   destroyByUser(identifier: string, actor?: string | null): Promise<number>;
@@ -352,12 +354,21 @@ export function createHttpAdminApi(module: Module): IAdminApi {
           };
         }
         const user = one(request.query, "user");
-        const { limit, offset } = pageParams(request.query);
+        // Le tri traverse jusqu'au store, avec l'allowlist DÉCLARÉE par le
+        // backend configuré : sur un store qui ne trie pas (Redis SCAN), elle
+        // est vide et `parsePageQuery` refuse tout `order` en 400 plutôt que de
+        // rendre une page non triée.
+        const pageQuery = parsePageQuery(request.query, {
+          sortable: svc.sortableSessionFields(),
+        });
+        const { limit } = pageQuery;
+        const offset = pageQuery.offset ?? 0;
         // Pagination SERVEUR : le store ne rend qu'une page (LIMIT/OFFSET, SCAN).
         // Le coût de cet endpoint ne dépend plus du nombre de sessions.
         const page = await svc.listSessionsPage({
           limit,
           offset,
+          ...(pageQuery.order ? { order: pageQuery.order } : {}),
           ...(user !== undefined ? { user } : {}),
         });
         // `total` est REPORTÉ tel quel : absent sur un backend à curseur, où le
@@ -488,10 +499,15 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         if (!identifier) {
           return { status: 401, body: { error: "unauthenticated" } };
         }
-        const { limit, offset } = pageParams(request.query);
+        const ownQuery = parsePageQuery(request.query, {
+          sortable: svc.sortableSessionFields(),
+        });
+        const { limit } = ownQuery;
+        const offset = ownQuery.offset ?? 0;
         const page = await svc.listOwnSessionsPage(identifier, {
           limit,
           offset,
+          ...(ownQuery.order ? { order: ownQuery.order } : {}),
         });
         return {
           items: page.items,

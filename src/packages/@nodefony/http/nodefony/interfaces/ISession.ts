@@ -201,6 +201,23 @@ export interface ISessionStorage {
   listPage?(query: ISessionListQuery): Promise<IPage<ISessionRecord>>;
 
   /**
+   * Champs sur lesquels ce store sait honorer {@link IPageQuery.order}, en
+   * **vocabulaire public** — celui que le client écrit dans l'URL, jamais un nom
+   * de colonne. Un store qui traduit (`id` → colonne `session_id` en SQL) le
+   * fait chez lui ; le nom exposé reste le même quel que soit le backend, sans
+   * quoi le tri offert par la console dépendrait de la base configurée.
+   *
+   * **Une capacité se CONSTATE** : un store qui ne trie pas (Redis `SCAN`, ordre
+   * de parcours du keyspace) omet cette propriété. Le data plane la transmet
+   * alors telle quelle à `parsePageQuery`, qui **refuse** (400) tout `order`
+   * reçu — plutôt que de l'accepter et de rendre une page non triée en laissant
+   * croire le contraire.
+   *
+   * @example `["updatedAt", "id"]`
+   */
+  readonly sortableFields?: readonly string[];
+
+  /**
    * Compte les sessions correspondant aux filtres, **sans les énumérer** (`COUNT`
    * natif SQL/Mongo). Alimente les KPI de la console (total, authentifiées vs
    * anonymes) sans jamais charger de collection.

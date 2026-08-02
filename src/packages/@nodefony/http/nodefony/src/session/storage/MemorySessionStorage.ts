@@ -1,5 +1,6 @@
-import { assertPageQuery } from "nodefony";
+import { assertPageQuery, compareByOrder } from "nodefony";
 import type { IPage } from "nodefony";
+import { SESSION_DEFAULT_ORDER, SESSION_SORTABLE_FIELDS } from "./sessionSort";
 import type sessionService from "../../../service/sessions/sessions-service";
 import type {
   ISessionStorage,
@@ -30,6 +31,13 @@ class MemorySessionStorage implements ISessionStorage {
   absoluteTimeoutS: number;
   /** id → session sérialisée (source de vérité, horodatages inclus). */
   readonly #sessions = new Map<string, ISerializedSession>();
+
+  /**
+   * Trie sur tout le vocabulaire public : les données sont déjà en RAM, aucun
+   * champ n'est plus coûteux qu'un autre. Aucune traduction — les clés internes
+   * portent déjà ces noms (`id` étant la clé de la Map).
+   */
+  readonly sortableFields = SESSION_SORTABLE_FIELDS;
 
   constructor(manager: sessionService) {
     this.manager = manager;
@@ -168,11 +176,16 @@ class MemorySessionStorage implements ISessionStorage {
     for (const entry of this.#sessions) {
       if (this.#matches(entry[1], query)) matched.push(entry);
     }
-    matched.sort((a, b) => {
-      const delta =
-        (b[1].updatedAt?.getTime() ?? 0) - (a[1].updatedAt?.getTime() ?? 0);
-      return delta !== 0 ? delta : a[0].localeCompare(b[0]);
-    });
+    // Tri PARAMÉTRÉ par le contrat, via le comparateur partagé du core — le même
+    // vocabulaire public (`updatedAt`, `id`) que les stores SQL/Mongo, pour que
+    // le tri d'une console ne change pas de sens avec le backend configuré. À
+    // défaut d'`order`, l'ordre contractuel des sessions.
+    const order = query.order?.length ? query.order : SESSION_DEFAULT_ORDER;
+    matched.sort(
+      compareByOrder(order, ([id, data], field) =>
+        field === "id" ? id : data[field as keyof ISerializedSession],
+      ),
+    );
     const items = matched.slice(offset, offset + limit).map(([id, data]) => ({
       id,
       data: {

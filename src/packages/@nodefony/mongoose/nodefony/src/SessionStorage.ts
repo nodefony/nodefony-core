@@ -1,4 +1,9 @@
-import { SessionsService } from "@nodefony/http";
+import {
+  SessionsService,
+  SESSION_SORTABLE_FIELDS,
+  SESSION_DEFAULT_ORDER_SQL,
+  translateSessionOrder,
+} from "@nodefony/http";
 import type {
   ISessionStorage,
   ISerializedSession,
@@ -25,6 +30,12 @@ class SessionStorage implements ISessionStorage {
   manager: SessionsService;
   idleTimeoutS: number;
   absoluteTimeoutS: number;
+
+  /**
+   * Même vocabulaire public que les autres backends — le tri part dans le
+   * `sort()` Mongo, où il ne coûte qu'un index.
+   */
+  readonly sortableFields = SESSION_SORTABLE_FIELDS;
 
   constructor(manager: SessionsService) {
     this.manager = manager;
@@ -269,10 +280,11 @@ class SessionStorage implements ISessionStorage {
       limit: query.limit,
       offset: query.offset,
       withTotal: query.withTotal,
-      order: query.order ?? [
-        ["updatedAt", "DESC"],
-        ["session_id", "ASC"],
-      ],
+      // Vocabulaire de tri PUBLIC (`id`), champ stocké `session_id` → la
+      // traduction se fait ici, jamais dans l'URL.
+      order: query.order?.length
+        ? translateSessionOrder(query.order)
+        : SESSION_DEFAULT_ORDER_SQL,
     });
     return {
       ...page,

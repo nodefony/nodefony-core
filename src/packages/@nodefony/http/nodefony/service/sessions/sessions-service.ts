@@ -490,6 +490,22 @@ class SessionsService extends Service {
   }
 
   /**
+   * Champs de tri que le backend de session **actuellement configuré** sait
+   * honorer, en vocabulaire public.
+   *
+   * La capacité se CONSTATE au runtime : la même application rend `["updatedAt",
+   * "id"]` sur SQLite et `[]` sur Redis (`SCAN` ne donne aucun ordre global).
+   * Le data plane transmet cette liste à `parsePageQuery`, qui **refuse** (400)
+   * un `order` qu'aucun store ne pourrait honorer — au lieu de rendre une page
+   * non triée en laissant croire le contraire.
+   *
+   * @returns les champs triables, liste vide si le backend ne trie pas.
+   */
+  sortableSessionFields(): readonly string[] {
+    return this.storage?.sortableFields ?? [];
+  }
+
+  /**
    * Dérive le pseudonyme public d'une session — `HMAC-SHA256(secret, id)` tronqué,
    * préfixé `sess_`. **Non réversible** : exposer ce `ref` ne révèle pas l'id de
    * session (= le jeton du cookie). Le secret HMAC = celui de la couche session

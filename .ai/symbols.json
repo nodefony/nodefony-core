@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-02T21:29:18.301Z",
+  "generated": "2026-08-02T21:57:12.900Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 662,
-    "symbols": 2689,
+    "files": 664,
+    "symbols": 2696,
     "classes": 342,
     "interfaces": 801,
-    "types": 346,
+    "types": 347,
     "enums": 4,
-    "functions": 975,
-    "constants": 221
+    "functions": 978,
+    "constants": 224
   },
   "symbols": {
     "Cli": {
@@ -2868,6 +2868,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "**Le** traducteur d'une requête de page : transforme une source clé→valeur en {@link IPageQuery} borné et validé. Fonction **pure** — aucun accès au kernel, à l'ALS ni à la requête HTTP. Il remplac…"
+    },
+    "FieldReader": {
+      "name": "FieldReader",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageSort.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit la valeur d'un champ triable sur un élément. Chaque store fournit la sienne : le nom du champ est **public** (celui de l'URL), la façon de l'atteindre est interne."
+    },
+    "compareByOrder": {
+      "name": "compareByOrder",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/pageSort.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fabrique le comparateur d'un `order` du contrat de page — **le** tri en mémoire de Nodefony, partagé par tous les stores qui n'ont pas de moteur pour le faire à leur place. Il existe parce que chaq…"
     },
     "redactSecrets": {
       "name": "redactSecrets",
@@ -18565,6 +18581,38 @@
       "decorators": [],
       "description": "Garde-fou de révocation **décoré au-dessus** de n'importe quel {@link ISessionStorage} (file, drizzle, redis, mongo…). Pose une « pierre tombale » sur tout id détruit et REFUSE un `write` ultérieur…"
     },
+    "translateSessionOrder": {
+      "name": "translateSessionOrder",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionSort.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Traduit un `order` public vers les noms de colonnes d'un backend SQL/Mongo, où l'identifiant de session est stocké en `session_id`. À appeler par tout store dont le schéma nomme un champ autrement …"
+    },
+    "SESSION_SORTABLE_FIELDS": {
+      "name": "SESSION_SORTABLE_FIELDS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionSort.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "**Le vocabulaire de tri des sessions**, en noms PUBLICS — ceux qu'un client écrit dans l'URL (`?order=updatedAt:DESC`), jamais des noms de colonne. Il vit ici, chez le propriétaire du contrat (`@no…"
+    },
+    "SESSION_DEFAULT_ORDER": {
+      "name": "SESSION_DEFAULT_ORDER",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionSort.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Ordre contractuel appliqué quand le client n'en demande aucun : activité la plus récente d'abord, départagée par identifiant pour rester **déterministe** à horodatage égal (sans quoi une pagination…"
+    },
+    "SESSION_DEFAULT_ORDER_SQL": {
+      "name": "SESSION_DEFAULT_ORDER_SQL",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionSort.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Ordre par défaut des backends dont le schéma nomme l'identifiant `session_id` — {@link SESSION_DEFAULT_ORDER} déjà traduit."
+    },
     "createGithubProvider": {
       "name": "createGithubProvider",
       "kind": "function",
@@ -21921,6 +21969,7 @@
       "IPageQuery": [
         "src/nodefony/src/runtime/pageGuard.ts",
         "src/nodefony/src/runtime/pageQuery.ts",
+        "src/nodefony/src/runtime/pageSort.ts",
         "src/nodefony/src/types/IIdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
@@ -21931,7 +21980,8 @@
         "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
-        "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts"
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionSort.ts"
       ],
       "ModuleName": [
         "src/nodefony/src/syslog/Syslog.ts"
@@ -23690,6 +23740,19 @@
       "WebhookEndpointRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
+      ],
+      "SESSION_SORTABLE_FIELDS": [
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts"
+      ],
+      "SESSION_DEFAULT_ORDER_SQL": [
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
+      ],
+      "translateSessionOrder": [
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
       ],
       "ISessionStorage": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -25674,6 +25737,12 @@
       ],
       "formatWsLogContent": [
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "compareByOrder": [
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts"
+      ],
+      "SESSION_DEFAULT_ORDER": [
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts"
       ],
       "IOAuthProviderContext": [
         "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts"

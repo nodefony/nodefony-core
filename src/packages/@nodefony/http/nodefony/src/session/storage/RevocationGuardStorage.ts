@@ -78,8 +78,20 @@ class RevocationGuardStorage implements ISessionStorage {
   /** `COUNT` filtré — (ré)assigné seulement si le backend décoré le supporte. */
   countSessions?: (query?: ISessionListQuery) => Promise<number>;
 
+  /**
+   * Capacité de tri du backend décoré, relayée telle quelle.
+   *
+   * Une capacité qui se PERD dans un décorateur est pire qu'une capacité
+   * absente : elle est déclarée par le store réel, invisible au-dessus, et le
+   * data plane refuse alors (400) un tri que la base sait parfaitement faire.
+   * Comme ce décorateur est posé en production dès qu'une révocation est
+   * possible, l'oubli aurait désactivé le tri **partout**.
+   */
+  readonly sortableFields?: readonly string[];
+
   constructor(inner: ISessionStorage) {
     this.inner = inner;
+    this.sortableFields = inner.sortableFields;
     if (typeof inner.listAll === "function") {
       this.listAll = (filter?: ISessionListFilter) => inner.listAll!(filter);
     }

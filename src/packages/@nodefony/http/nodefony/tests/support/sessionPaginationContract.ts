@@ -257,6 +257,82 @@ export function runSessionPaginationContract(
         assert.equal(last.hasNext, false);
       });
 
+      // ── TRI : ce qu'un store DÉCLARE savoir trier, il le trie VRAIMENT ─────
+      // C'est le cœur de la parité : le vocabulaire (`updatedAt`, `id`) est
+      // public et identique partout, donc `?order=` doit produire le même ordre
+      // sur mémoire, SQLite, PostgreSQL et Mongo. Un store mémoire qui trierait
+      // en dur passerait les tests ci-dessus tout en mentant sur la production.
+      it("l'ordre par défaut est updatedAt DESC (contrat, sans `order`)", async () => {
+        const page = await storage().listPage({ limit: 12 });
+        assert.deepEqual(
+          page.items.map((r) => r.id),
+          [...orderedIds].reverse(),
+        );
+      });
+
+      it("`order` inverse réellement le sens (updatedAt ASC)", async () => {
+        const page = await storage().listPage({
+          limit: 12,
+          order: [["updatedAt", "ASC"]],
+        });
+        assert.deepEqual(
+          page.items.map((r) => r.id),
+          orderedIds,
+          "ASC doit rendre l'ordre d'écriture du seed",
+        );
+      });
+
+      it("`order` sur `id` trie par identifiant, dans les deux sens", async () => {
+        const asc = await storage().listPage({
+          limit: 12,
+          order: [["id", "ASC"]],
+        });
+        const ids = asc.items.map((r) => r.id);
+        assert.deepEqual(ids, [...ids].sort());
+
+        const desc = await storage().listPage({
+          limit: 12,
+          order: [["id", "DESC"]],
+        });
+        assert.deepEqual(
+          desc.items.map((r) => r.id),
+          [...ids].reverse(),
+        );
+      });
+
+      it("le tri s'applique AVANT la pagination (pas page par page)", async () => {
+        // Le piège classique : trier la tranche déjà découpée. La 2ᵉ page d'un
+        // tri ASC doit continuer la 1ʳᵉ, pas recommencer.
+        const p1 = await storage().listPage({
+          limit: 4,
+          offset: 0,
+          order: [["id", "ASC"]],
+        });
+        const p2 = await storage().listPage({
+          limit: 4,
+          offset: 4,
+          order: [["id", "ASC"]],
+        });
+        const all = [...p1.items, ...p2.items].map((r) => r.id);
+        assert.deepEqual(
+          all,
+          [...all].sort(),
+          "les pages se suivent dans l'ordre",
+        );
+      });
+
+      it("un store qui DÉCLARE trier expose le vocabulaire public", async () => {
+        const fields = storage().sortableFields;
+        assert.ok(
+          fields && fields.length > 0,
+          "un backend offset doit déclarer ses champs triables",
+        );
+        assert.ok(
+          fields!.includes("updatedAt"),
+          "`updatedAt` est l'axe contractuel d'une console de sessions",
+        );
+      });
+
       it("offset au-delà de la fin → page vide, hasNext false", async () => {
         const page = await storage().listPage({ limit: 5, offset: 999 });
         assert.equal(page.items.length, 0);
@@ -300,6 +376,19 @@ export function runSessionPaginationContract(
       });
     } else {
       // ── Mode CURSEUR : capacité réduite ANNONCÉE ────────────────────────────
+      it("un store à curseur NE DÉCLARE PAS de tri (il n'en a pas)", async () => {
+        // `SCAN` parcourt le keyspace dans un ordre non spécifié : il n'existe
+        // aucun tri global à offrir. Le déclarer quand même serait la seule
+        // faute possible ici — le data plane exposerait alors un tri qui ne
+        // trierait rien, et personne ne le verrait. L'absence de déclaration
+        // fait refuser tout `?order=` en 400, ce qui est la vérité.
+        const fields = storage().sortableFields;
+        assert.ok(
+          !fields || fields.length === 0,
+          "un backend curseur ne doit annoncer aucun champ triable",
+        );
+      });
+
       it("curseur : nextCursor est posé tant qu'il reste à scanner, null à la fin", async () => {
         let cursor: string | undefined;
         let sawCursor = false;
