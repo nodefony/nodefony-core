@@ -100,16 +100,33 @@ describe("bearerToken — extraction du porteur (RFC 9110 §5.6.3)", () => {
         `arrière y met des centaines de millisecondes`,
     ).to.be.below(50);
 
-    const simple = mesure(200_000);
-    const double = mesure(400_000);
-    const facteur = double / simple;
-    // Mesuré : 1,95 sur cette implémentation, 3,89 sur l'ancien motif. Le seuil
+    // Le ratio MINIMAL sur plusieurs PAIRES, et non le ratio d'une seule.
+    //
+    // Le minimum interne à `mesure` ne suffit pas : il écarte une préemption
+    // ponctuelle, pas une machine lente pendant toute la série. Vécu en
+    // intégration — ×4,05 (1,146 → 4,639 ms) sur ubuntu/Node 24 quand les
+    // cinq autres cases de la matrice passaient, et ×2,00 stable sur dix
+    // passes en local. Une implémentation à retour arrière, elle, est lente à
+    // CHAQUE paire : prendre la meilleure ne peut donc pas l'innocenter.
+    // Contrôlé sur le témoin fautif (l'ancien motif, aux mêmes conditions) :
+    // ×3,88 — la sonde mord encore, le seuil reste entre les deux.
+    let facteur = Infinity;
+    let meilleur = { simple: 0, double: 0 };
+    for (let paire = 0; paire < 5; paire++) {
+      const simple = mesure(200_000);
+      const double = mesure(400_000);
+      if (double / simple < facteur) {
+        facteur = double / simple;
+        meilleur = { simple, double };
+      }
+    }
+    // Mesuré : 2,00 sur cette implémentation, 3,88 sur l'ancien motif. Le seuil
     // se pose entre les deux, et le quadratique s'en éloigne encore quand la
     // taille monte — la marge ne se referme jamais du mauvais côté.
     expect(
       facteur,
-      `×${facteur.toFixed(2)} en doublant l'entrée ` +
-        `(${simple.toFixed(3)} ms → ${double.toFixed(3)} ms) — ` +
+      `×${facteur.toFixed(2)} en doublant l'entrée, meilleure de 5 paires ` +
+        `(${meilleur.simple.toFixed(3)} ms → ${meilleur.double.toFixed(3)} ms) — ` +
         `linéaire ≈ 2, quadratique ≈ 4`,
     ).to.be.below(3);
   });
