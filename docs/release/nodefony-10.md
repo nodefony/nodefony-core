@@ -396,7 +396,7 @@ ses tarballs.
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **R2.1** ✅ | `smoke-docker.sh` : `nodefony create app` **remplace** la copie de `examples/minimal-app` (`APP_SRC`)                                                                                                                                                                |
 | **R2.2** ✅ | Étapes **nommées séparément** — « scaffold en échec » ne doit jamais se lire comme « tarballs en échec »                                                                                                                                                             |
-| **R2.3**    | Étendre aux 3 scénarios front que le §6bis réclame déjà : **(a)** app à front → tags `/_assets/…` ; **(b)** `public/dist` supprimé → auto-build annoncé, et ERROR nommée dans l'image sans devDependencies ; **(c)** Studio `static` + `mandatory` → `/nodefony` 200 |
+| **R2.3** 🔶 | Étendre aux 3 scénarios front que le §6bis réclame déjà : **(a)** app à front → tags `/_assets/…` ; **(b)** `public/dist` supprimé → auto-build annoncé, et ERROR nommée dans l'image sans devDependencies ; **(c)** Studio `static` + `mandatory` → `/nodefony` 200 |
 
 Bénéfice structurel : le smoke éprouve alors **le générateur** — c'est-à-dire ce que reçoit
 réellement un nouvel utilisateur — et les variantes qu'exige R2.3 sont impossibles avec un dossier
@@ -419,9 +419,34 @@ tarballs. La forme exec est en outre **constatée à l'exécution** (`/api/hello
 Gate vu MORDRE : gabarit `Dockerfile.tpl` retiré → le smoke échoue à l'étape **« create app »**
 en nommant le gabarit absent, et non à `docker build` — ce que le lot R2.2 demandait exactement.
 
-Reste **R2.3** (les trois scénarios front : tags `/_assets/…`, `public/dist` supprimé, Studio en
-`static` + `mandatory`), désormais faisable puisque le décor est paramétrable par preset et par
-choix de frontend.
+**R2.3 fait, sauf une moitié de cas — et c'est un résultat.** Le script porte trois scénarios
+sélectionnables (`--scenario base|front|studio`) :
+
+| Scénario | Verdict    | Ce qu'il a établi                                                                                 |
+| -------- | ---------- | ------------------------------------------------------------------------------------------------- |
+| `base`   | ✅         | sondes, node en PID 1 constaté, drain sous `docker stop`, sortie 0                                |
+| `front`  | ✅ (a)(b1) | tags `/_assets/…` servis · `public/dist` effacé avec Vite présent → reconstruit ET annoncé        |
+| `studio` | ✅         | `/nodefony` 200 **et** un asset pris DANS la page en 200 → l'UI pré-buildée voyage dans le paquet |
+
+**(b2) est INATTEIGNABLE, mesuré.** Le cahier réclamait « image sans devDependencies → ERREUR
+nommée ». Cette image n'existe pas : le plugin Vite est une devDependency, il SATISFAIT la
+dépendance de pair optionnelle de `@nodefony/frontend`, donc `npm prune --omit=dev` le garde et tire
+Vite. Refaire l'arbre depuis zéro n'y change rien — le `package-lock.json` l'a figé : **161 Mo dans
+les deux cas**. Le script ANNONCE ce trou au lieu de le taire (règle : un gate qui rétrécit le dit).
+
+➡️ **Dette produit ouverte — symétrie des drivers et de Vite.** Deux déclarations mentent
+aujourd'hui : `better-sqlite3` est une dépendance DURE de `@nodefony/drizzle` importée
+STATIQUEMENT (`DrizzleOrm.ts:4`) pendant que `pg` et `mysql2`, chargés dynamiquement, ne sont
+déclarés NULLE PART — npm n'avertit donc personne de leur absence ; et Vite est une dépendance de
+pair de `@nodefony/frontend` que rien ne rend optionnelle à la source. SQLite en production est un
+choix légitime (mono-pod, edge, embarqué) : il ne s'agit pas de le sortir, mais de rendre les trois
+dialectes symétriques — pair optionnelle + import dynamique pour chacun. C'est ce qui rendrait (b2)
+atteignable et allégerait les images.
+
+**Podman** : le Dockerfile généré s'y construit et s'y exécute tel quel (build 0, `readyz` 200,
+`pid: 1`, `podman stop` en 0 avec drain). Une seule perte, SILENCIEUSE : `HEALTHCHECK` est une
+extension du format _Docker_ absente de la spec **OCI**, que Podman produit par défaut — la sonde
+disparaît sans erreur. Remède vérifié `--format docker`, avertissement écrit dans le gabarit.
 
 ### 10.5 R3 — `examples/` disparaît (après R2 vert, jamais avant)
 

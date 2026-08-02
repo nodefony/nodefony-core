@@ -32,8 +32,15 @@ RUN --mount=type=cache,target=/root/.npm npm install --no-audit --no-fund
 
 # Le build passe par le script de l'application (`rolldown`, plus le build du
 # frontend quand il y en a un) : ce Dockerfile n'a donc jamais à connaître la
-# forme de la compilation. `prune` retire ensuite tout ce qui n'est que du
+# forme de la compilation. `prune` retire ensuite ce qui n'est que du
 # développement — la toolchain a fini son travail.
+#
+# ⚠️ Une application à FRONTEND garde malgré tout Vite : son plugin est une
+# devDependency, et `prune` ne retire pas ce qui satisfait la dépendance de
+# pair (optionnelle) d'un paquet de production. Refaire l'arbre depuis zéro
+# n'y change rien — le `package-lock.json` l'a figé, et c'est mesuré : 161 Mo
+# dans les deux cas. Le jour où cela se corrige, ce sera en amont, dans la
+# façon dont `@nodefony/frontend` déclare Vite.
 RUN npm run build && npm prune --omit=dev
 
 # ── Étape d'exécution : minimale, non-root ───────────────────────────────────
@@ -57,6 +64,12 @@ EXPOSE 5151
 # Sonde de Docker / compose / Swarm sur `/readyz`, la route native du framework.
 # ⚠️ k8s IGNORE HEALTHCHECK : y déclarer `livenessProbe: /livez` (le process
 # est-il vivant ?) et `readinessProbe: /readyz` (peut-il recevoir du trafic ?).
+# ⚠️ PODMAN construit en format OCI par défaut, et l'OCI ne porte PAS cette
+# directive : la sonde est retirée de l'image SANS erreur (`podman inspect
+# --format '{{.HealthCheck}}'` rend alors `<nil>`). Constaté, avec son remède :
+#   podman build --format docker -t <image> .
+# Le reste passe tel quel sous Podman — cache monté, forme exec, node en PID 1,
+# arrêt gracieux en 0.
 HEALTHCHECK --interval=10s --timeout=2s --start-period=20s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:5151/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
 

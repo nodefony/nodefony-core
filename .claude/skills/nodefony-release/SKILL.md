@@ -39,9 +39,14 @@ compile une application témoin contre lui.
 ## 2. La chaîne, dans l'ordre
 
 ```bash
-# Tout d'un coup : pack → attw → scaffolder installé du tarball → app GÉNÉRÉE →
-# conteneur → install vierge → arrêt gracieux
+# Tout d'un coup : pack → attw → scaffolder installé du tarball → apps GÉNÉRÉES →
+# conteneurs → install vierge → arrêt gracieux → frontend → Studio
 bash .claude/skills/nodefony-release/scripts/smoke-docker.sh
+
+# Un scénario à la fois (itération : les trois se paient en minutes de docker build)
+bash .claude/skills/nodefony-release/scripts/smoke-docker.sh --scenario base
+bash .claude/skills/nodefony-release/scripts/smoke-docker.sh --scenario front
+bash .claude/skills/nodefony-release/scripts/smoke-docker.sh --scenario studio
 
 # Ou étape par étape
 node .claude/skills/nodefony-release/scripts/pack-all.mjs            # les tarballs
@@ -65,6 +70,48 @@ d'aucune autre façon —, et le smoke suit le générateur au lieu de dériver 
 `docker build` en échec parce que le scaffold a produit une app muette envoie chercher la panne
 dans les tarballs. Les gardes posées après `create app` (Dockerfile présent, `CMD` en forme exec,
 manifeste réécrit) sont là pour attribuer la faute au bon maillon.
+
+### Les trois scénarios, et ce que chacun seul peut voir
+
+| Scénario | Décor                          | Ce qu'il prouve                                                                                                                                                                              |
+| -------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `base`   | `minimal`, sans front          | Sondes `/readyz` `/livez`, **node en PID 1** constaté à l'exécution, requête en vol drainée pendant `docker stop`, sortie 0, `SHUTDOWN` journalisé                                           |
+| `front`  | `minimal` + React              | (a) `GET /` porte les tags `/_assets/…` du build · (b1) `public/dist` effacé **avec** vite → reconstruit au boot et ANNONCÉ · (b2) même absence **sans** devDeps → ERROR nommée, API vivante |
+| `studio` | `complete`, Studio `mandatory` | L'UI **pré-buildée** du paquet est servie : `/nodefony` 200 puis un asset **pris dans la page** en 200 — un 404 ici = `dist/frontend` absent du tarball                                      |
+
+`front` est le seul à booter **hors conteneur** (poste de dev, devDependencies présentes) : la
+différence entre (b1) et (b2) EST le scénario. Le dépôt self-hosted ne peut voir ni l'un ni
+l'autre — il a toujours vite sous la main. Le trou d'origine était une **page blanche muette** en
+production, sans une ligne de journal.
+
+Sur `studio`, l'URL de l'asset n'est jamais écrite à la main : elle est extraite de la page servie.
+Une URL littérale deviendrait fausse au premier changement de nommage, et le test accuserait le
+tarball pour un motif sans rapport.
+
+**Ce que `front` NE couvre PAS, et le script le dit à voix haute** : la seconde issue d'un front non
+construit — « Vite absent → ERREUR nommée » — est **inatteignable**. Le plugin Vite est une
+devDependency, il SATISFAIT la dépendance de pair optionnelle de `@nodefony/frontend`, donc
+`npm prune --omit=dev` le garde et tire Vite avec lui ; refaire l'arbre n'y change rien, le
+`package-lock.json` l'a figé (mesuré : 161 Mo dans les deux cas). Conséquence à porter au produit :
+la garde de `setupProd` contre la page blanche muette ne peut pas servir tant que Vite voyage dans
+l'image. Le remède est en amont, dans la façon dont `@nodefony/frontend` déclare Vite.
+
+### Podman — compatible, sauf une perte SILENCIEUSE
+
+Constaté (Podman 5.6, image générée telle quelle) : `podman build` sort en 0, `--mount=type=cache`
+est accepté par Buildah, `/readyz` répond 200, `/api/hello` rend `pid: 1` (forme exec respectée), et
+`podman stop -t 12` sort en 0 avec le drain journalisé.
+
+⚠️ **`HEALTHCHECK` est retiré de l'image, sans erreur** — Podman construit en format **OCI**, or la
+directive est une extension du format _Docker_ que la spec OCI ne porte pas :
+
+```
+warning: HEALTHCHECK is not supported for OCI image format and will be ignored
+podman inspect <image> --format '{{.HealthCheck}}'   →  <nil>
+```
+
+Remède vérifié : `podman build --format docker`. Le gabarit généré porte l'avertissement — c'est là
+qu'on le lit au moment utile.
 
 ⚠️ **`create controller` est IN-PROJECT** : il remonte au `nodefony.config.ts` le plus proche.
 Lancé depuis la racine du dépôt, il écrirait DANS le dépôt — le script l'ancre dans l'app témoin
