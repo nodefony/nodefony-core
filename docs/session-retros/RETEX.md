@@ -212,6 +212,14 @@ install`.** Et `npm run build` vert ne dit rien du chemin réel qu'emprunte l'ut
 
 ## 🗣️ Quand le user REPOSE la question, c'est ma réponse qui est fausse
 
+- `[1× — 2026-08-02j]` 🔴 **« kit en 8 étapes !!! »** — un plan dont plusieurs « lots » sont la
+  MANIÈRE d'écrire les autres n'est pas un plan, c'est une checklist administrative. Sur 8 : 3
+  étaient la manière (le parseur pur, le réalignement d'un endpoint, une correction de TSDoc), 2
+  des conséquences conditionnelles, 1 une garde qu'**aucune mesure ne justifiait**. Ramené à 3
+  gestes. Le test avant d'écrire un lot : **est-ce un RÉSULTAT, ou la façon d'en atteindre un ?**
+  Le réflexe de complétude produit des plans que personne ne lit — et le premier symptôme est
+  qu'ils impressionnent au lieu d'orienter.
+
 - `[1× — 2026-07-27i]` ⭐⭐ **Trois fois la même question** — « comment tu fais pour que le code
   s'améliore ? ». Une reformulation n'est pas une demande de précision : c'est un signal que la
   réponse n'a pas répondu.
