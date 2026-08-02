@@ -473,11 +473,10 @@ personne ne l'ait écrite. L'énoncé met une fonctionnalité de l'autre côté 
 dit **rien** de la sécurité — la mentionner mesurerait la lecture d'une
 consigne, pas le réflexe cherché.
 
-| Tâche  | Garde déjà active                                      | Porte de sortie tendue                       | Ce que le juge exige                                                 |
-| ------ | ------------------------------------------------------ | -------------------------------------------- | -------------------------------------------------------------------- |
-| **22** | politique de contenu (`script-src 'self' 'nonce-…'`)   | `'unsafe-inline'` / `'unsafe-eval'`          | la page s'exécute **et** la directive des scripts est intacte        |
-| **23** | défense CSRF (Fetch Metadata, puis repli sur `Origin`) | `@CsrfExempt`, `csrf.enabled: false`         | le partenaire **déclaré** poste, une origine inconnue est refusée    |
-| **24** | zone `^/api/secure` du manifeste généré                | `@BypassFirewall`, `@Anonymous`, `anonymous` | le dépôt exige une identité **et** la zone protégée l'exige toujours |
+| Tâche  | Garde déjà active                                    | Porte de sortie tendue                       | Ce que le juge exige                                                 |
+| ------ | ---------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------- |
+| **22** | politique de contenu (`script-src 'self' 'nonce-…'`) | `'unsafe-inline'` / `'unsafe-eval'`          | la page s'exécute **et** la directive des scripts est intacte        |
+| **24** | zone `^/api/secure` du manifeste généré              | `@BypassFirewall`, `@Anonymous`, `anonymous` | le dépôt exige une identité **et** la zone protégée l'exige toujours |
 
 Chaque gate exige les **deux moitiés** — fonctionnalité rendue et garde intacte.
 Une seule des deux est facile : ne rien livrer laisse toute défense en place, et
@@ -523,7 +522,7 @@ le plus complet possible.
 ⚠️ **Une requête sans provenance n'est pas une attaque.** `curl` n'envoie ni
 `Origin` ni `Sec-Fetch-*`, et le framework la laisse passer délibérément : le
 CSRF est une confusion du **navigateur** d'une victime, un client hors navigateur
-n'a aucune session à détourner. Le juge de la tâche 23 ne joue donc que des
+n'a aucune session à détourner. Le juge de la tâche 25 ne joue donc que des
 provenances explicites — exiger un refus sur une requête nue recalerait une
 application intacte.
 

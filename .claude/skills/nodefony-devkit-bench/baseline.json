@@ -194,15 +194,6 @@
       "sources": ["2026-08-01T16-34-07"],
       "commit": "3065982b"
     },
-    "23": {
-      "verdict": "FAIL",
-      "runs": 3,
-      "passes": 2,
-      "empreinte": "6235645650fb",
-      "date": "2026-08-02T07:21:54.967Z",
-      "sources": ["2026-08-02T07-10-44"],
-      "commit": "3fb1b4c5"
-    },
     "24": {
       "verdict": "PASS",
       "runs": 3,
