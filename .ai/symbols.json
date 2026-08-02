@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-02T15:00:24.321Z",
+  "generated": "2026-08-02T16:25:34.461Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 661,
-    "symbols": 2644,
+    "symbols": 2681,
     "classes": 341,
     "interfaces": 800,
     "types": 344,
     "enums": 4,
     "functions": 973,
-    "constants": 182
+    "constants": 219
   },
   "symbols": {
     "Cli": {
@@ -201,6 +201,20 @@
       "extends": null,
       "description": "Résultat de {@link Event.emitAsyncGuarded}."
     },
+    "create": {
+      "name": "create",
+      "kind": "const",
+      "file": "src/nodefony/src/Event.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "notification": {
+      "name": "notification",
+      "kind": "const",
+      "file": "src/nodefony/src/Event.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
     "FileClass": {
       "name": "FileClass",
       "kind": "class",
@@ -243,6 +257,109 @@
       ],
       "decorators": [],
       "description": "Brique de base de tout composant Nodefony — câble un nom, un {@link Container} DI, un {@link Syslog} et un bus d'événements {@link Event} (notificationsCenter). Tous les services, modules, kernels …"
+    },
+    "isArray": {
+      "name": "isArray",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Alias direct de `Array.isArray` — exporté pour usage cohérent dans les modules."
+    },
+    "isFunction": {
+      "name": "isFunction",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Type guard — `true` si `value` est une fonction (incluant arrow et classes)."
+    },
+    "isRegExp": {
+      "name": "isRegExp",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Type guard — `true` si `value` est une instance `RegExp`."
+    },
+    "isPlainObject": {
+      "name": "isPlainObject",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Vérifie qu'un objet est un \"plain object\" — `{}` ou `Object.create(null)`. Rejette les instances de classes, les `Array`, `Date`, `RegExp`, etc. Implémentation alignée sur jQuery.isPlainObject (com…"
+    },
+    "isUndefined": {
+      "name": "isUndefined",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Type guard — `true` si `value === undefined` (strict, jamais `null`)."
+    },
+    "isEmptyObject": {
+      "name": "isEmptyObject",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Vérifie qu'un objet existe et ne contient aucune clé propre énumérable."
+    },
+    "extend": {
+      "name": "extend",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fusionne plusieurs objets dans une cible — API compatible `jQuery.extend`. Mode `shallow` (défaut) : copie les clés du dernier au premier source. Mode `deep` (1er arg `true`) : récurse dans les pla…"
+    },
+    "typeOf": {
+      "name": "typeOf",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "isContainer": {
+      "name": "isContainer",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Type guard — `true` si la valeur est une instance de `Container` (DI)."
+    },
+    "isPromise": {
+      "name": "isPromise",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Vérifie qu'une valeur est une `Promise` ou un thenable (duck-typing `.then`). Accepte les promesses natives ET les bibliothèques tierces (Bluebird, etc.) qui implémentent le protocole Promises/A+."
+    },
+    "isSubclassOf": {
+      "name": "isSubclassOf",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Vérifie qu'une classe hérite (directement ou non) d'une autre."
+    },
+    "stripTrailingSlashes": {
+      "name": "stripTrailingSlashes",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Retire les barres obliques finales d'une chaîne, sans expression régulière. **Pourquoi pas `value.replace(/\\/+$/, \"\")`** — la forme évidente, et celle qui était recopiée à cinq endroits. Elle est Q…"
+    },
+    "escapeRegExp": {
+      "name": "escapeRegExp",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Neutralise les métacaractères d'une chaîne destinée à être insérée dans une expression régulière, pour qu'elle n'y vaille que pour elle-même. **Pourquoi c'est ici** — le même motif était recopié à …"
     },
     "Mediasoup": {
       "name": "Mediasoup",
@@ -354,6 +471,13 @@
       "decorators": [
         "services"
       ]
+    },
+    "graphql": {
+      "name": "graphql",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/index.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
     },
     "Frontend": {
       "name": "Frontend",
@@ -2163,6 +2287,13 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Variable de réglage de la durée de vie, en MINUTES (bornée par le plafond dur)."
+    },
+    "Events": {
+      "name": "Events",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core"
     },
     "CONSOLE_RUN_PROFILE": {
       "name": "CONSOLE_RUN_PROFILE",
@@ -9325,6 +9456,142 @@
       "exported": true,
       "module": "@nodefony/framework"
     },
+    "Get": {
+      "name": "Get",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Post": {
+      "name": "Post",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Put": {
+      "name": "Put",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Delete": {
+      "name": "Delete",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Patch": {
+      "name": "Patch",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Options": {
+      "name": "Options",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Head": {
+      "name": "Head",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "CsrfProtect": {
+      "name": "CsrfProtect",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "`@CsrfProtect()` — opt-IN à la défense CSRF **synchronizer token** (double-submit signé HMAC) EN PLUS de la défense globale Fetch Metadata/Origin (étape 1, toujours active). Pour les mutations à ha…"
+    },
+    "CsrfExempt": {
+      "name": "CsrfExempt",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "`@CsrfExempt()` — opt-OUT de la défense CSRF pour une route, **en conservant l'authentification et l'autorisation** (≠ `@Anonymous`/`@BypassFirewall` qui coupent l'auth). Pour un webhook ou une API…"
+    },
+    "Param": {
+      "name": "Param",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Query": {
+      "name": "Query",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Headers": {
+      "name": "Headers",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Cookie": {
+      "name": "Cookie",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Session": {
+      "name": "Session",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "CurrentUser": {
+      "name": "CurrentUser",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "`@CurrentUser() user: IUser` — injecte l'utilisateur de l'ALS (jamais le credential)."
+    },
+    "Req": {
+      "name": "Req",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Res": {
+      "name": "Res",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "UploadedFile": {
+      "name": "UploadedFile",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "UploadedFiles": {
+      "name": "UploadedFiles",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
     "IAdminRoute": {
       "name": "IAdminRoute",
       "kind": "interface",
@@ -15018,7 +15285,7 @@
       "implements": [],
       "decorators": []
     },
-    "UploadedFile": {
+    "@nodefony/http:UploadedFile": {
       "name": "UploadedFile",
       "kind": "class",
       "file": "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
@@ -15360,7 +15627,7 @@
       "module": "@nodefony/http",
       "description": "Résout l'adresse IP cliente RÉELLE à partir de la connexion socket et de la chaîne `X-Forwarded-For`, en dépouillant les proxies de confiance **de droite à gauche** (algorithme OWASP). `X-Forwarded…"
     },
-    "Cookie": {
+    "@nodefony/http:Cookie": {
       "name": "Cookie",
       "kind": "class",
       "file": "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
@@ -15682,7 +15949,7 @@
       "module": "@nodefony/http",
       "description": "Nombre de ports essayés après le désiré, en `auto`."
     },
-    "Session": {
+    "@nodefony/http:Session": {
       "name": "Session",
       "kind": "class",
       "file": "src/packages/@nodefony/http/nodefony/src/session/session.ts",
@@ -18022,6 +18289,13 @@
       "decorators": [],
       "description": "Parse un corps `application/json` (ou `*+json`) en objet → `queryPost` (source lue par le décorateur `@Body`). Reprend le rôle de l'ancien plugin `json` de formidable, supprimé avec le passage à bu…"
     },
+    "acceptParser": {
+      "name": "acceptParser",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
     "HttpRequest": {
       "name": "HttpRequest",
       "kind": "class",
@@ -19047,6 +19321,33 @@
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts"
       ],
+      "extend": [
+        "src/nodefony/src/Cli.ts",
+        "src/nodefony/src/Container.ts",
+        "src/nodefony/src/FileClass.ts",
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/command/Builder.ts",
+        "src/nodefony/src/command/Command.ts",
+        "src/nodefony/src/config/defineConfig.ts",
+        "src/nodefony/src/finder/Finder.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/Module.ts",
+        "src/nodefony/src/syslog/Syslog.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
+        "src/packages/@nodefony/framework/nodefony/service/Eta.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
+        "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+        "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http2/Response.ts"
+      ],
       "Container": [
         "src/nodefony/src/Cli.ts",
         "src/nodefony/src/Service.ts",
@@ -19357,6 +19658,16 @@
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts"
+      ],
+      "typeOf": [
+        "src/nodefony/src/Error.ts",
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/command/Builder.ts",
+        "src/nodefony/src/finder/Finder.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts"
       ],
       "inspect": [
         "src/nodefony/src/Error.ts",
@@ -20074,6 +20385,55 @@
         "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
+      "Get": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
+        "src/modules/test/nodefony/controller/AlsController.ts",
+        "src/modules/test/nodefony/controller/DbController.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/modules/test/nodefony/controller/DomainClassController.ts",
+        "src/modules/test/nodefony/controller/DomainController.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts",
+        "src/modules/test/nodefony/controller/PipelineOrderController.ts",
+        "src/modules/test/nodefony/controller/RestController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
+        "src/modules/test/nodefony/controller/WebhookSinkController.ts",
+        "src/modules/test/nodefony/secure/ApiM2mController.ts",
+        "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
+        "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
+        "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
+        "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
+      ],
+      "Post": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts",
+        "src/modules/test/nodefony/controller/WebhookSinkController.ts",
+        "src/modules/test/nodefony/secure/IdempotentDemoController.ts"
+      ],
+      "Put": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts"
+      ],
+      "Delete": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts",
+        "src/modules/test/nodefony/controller/WebhookSinkController.ts"
+      ],
+      "Patch": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts"
+      ],
+      "Options": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "Head": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
       "All": [
         "src/packages/@nodefony/framework/index.ts"
       ],
@@ -20106,9 +20466,22 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts"
       ],
+      "CsrfProtect": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts"
+      ],
+      "CsrfExempt": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts"
+      ],
       "Idempotent": [
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts"
+      ],
+      "CurrentUser": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/modules/test/nodefony/secure/SecureWsController.ts"
       ],
       "Scope": [
         "src/packages/@nodefony/framework/index.ts",
@@ -20146,12 +20519,35 @@
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts"
       ],
+      "Param": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
+        "src/modules/test/nodefony/controller/WebhookSinkController.ts",
+        "src/modules/test/nodefony/poc/PocBookController.ts",
+        "src/modules/test/nodefony/poc/PocBookResourceController.ts",
+        "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
+      ],
       "Body": [
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/WebhookSinkController.ts",
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts"
+      ],
+      "Query": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts",
+        "src/modules/test/nodefony/controller/WebhookSinkController.ts",
+        "src/modules/test/nodefony/poc/PocBookResourceController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
+      ],
+      "Headers": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts"
       ],
       "Cookie": [
         "src/packages/@nodefony/framework/index.ts",
@@ -20177,10 +20573,22 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
+      "Req": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts"
+      ],
+      "Res": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts"
+      ],
       "UploadedFile": [
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
+      "UploadedFiles": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts"
       ],
       "routeExpectsBodyStream": [
         "src/packages/@nodefony/framework/index.ts",
@@ -20843,6 +21251,33 @@
         "src/nodefony/src/client/realtime/AdaptiveRate.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
+      ],
+      "isEmptyObject": [
+        "src/nodefony/src/client/index.ts"
+      ],
+      "isUndefined": [
+        "src/nodefony/src/client/index.ts"
+      ],
+      "isRegExp": [
+        "src/nodefony/src/client/index.ts"
+      ],
+      "isContainer": [
+        "src/nodefony/src/client/index.ts"
+      ],
+      "isFunction": [
+        "src/nodefony/src/client/index.ts"
+      ],
+      "isArray": [
+        "src/nodefony/src/client/index.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "isPromise": [
+        "src/nodefony/src/client/index.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "isSubclassOf": [
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "RealtimeClient": [
         "src/nodefony/src/client/index.ts",
@@ -22352,6 +22787,16 @@
         "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
         "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts"
       ],
+      "escapeRegExp": [
+        "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/template/TemplateHelper.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/domainMatcher.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts"
+      ],
       "resolveFetch": [
         "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
         "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
@@ -22369,6 +22814,16 @@
         "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
         "src/nodefony/src/syslog/transports/LokiTransport.ts",
         "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
+      ],
+      "stripTrailingSlashes": [
+        "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
+        "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
+        "src/nodefony/src/syslog/transports/LokiTransport.ts",
+        "src/nodefony/src/syslog/transports/OpenSearchTransport.ts",
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
+        "src/packages/@nodefony/http/nodefony/src/assets/collectAssets.ts"
       ],
       "basicAuthHeader": [
         "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
@@ -25099,6 +25554,9 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
       "Parser": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
+      "acceptParser": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
       "IUploadOptions": [

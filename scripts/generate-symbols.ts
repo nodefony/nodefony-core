@@ -18,6 +18,7 @@ import {
   EnumDeclaration,
   FunctionDeclaration,
   VariableStatement,
+  SourceFile,
 } from "ts-morph";
 import fs from "node:fs";
 import path from "node:path";
@@ -313,13 +314,49 @@ function extractFunction(
   return sym;
 }
 
+/**
+ * Noms qu'un fichier exporte par une clause GROUPÉE (`export { Get, Post };`)
+ * plutôt que par le mot-clé `export` posé sur la déclaration.
+ *
+ * Sans cela, tout un pan du framework est invisible au graphe : `routerDecorators.ts`
+ * déclare `const Get = httpMethodDecorator(["GET"])` puis exporte le lot en fin de
+ * fichier. Mesuré avant correction — **16 décorateurs sur 19 absents**, dont tous
+ * les verbes HTTP et tous les extracteurs de paramètres : `nodefony symbols @Get`
+ * ne rendait rien sur les symboles les plus employés du framework.
+ *
+ * Les ré-exports depuis un AUTRE module (`export { x } from "./y"`) sont ignorés :
+ * le symbole appartient au fichier qui le déclare, et c'est là qu'il sera relevé —
+ * le compter deux fois créerait un homonyme avec lui-même.
+ *
+ * @param sf - fichier source analysé.
+ * @returns les noms exportés, sous leur nom PUBLIC (l'alias quand il y en a un).
+ */
+function groupedExportNames(sf: SourceFile): Set<string> {
+  const names = new Set<string>();
+  for (const decl of sf.getExportDeclarations()) {
+    if (decl.getModuleSpecifier()) continue;
+    for (const spec of decl.getNamedExports()) {
+      names.add(spec.getAliasNode()?.getText() ?? spec.getNameNode().getText());
+    }
+  }
+  return names;
+}
+
 function extractConsts(
   stmt: VariableStatement,
   file: string,
   module: string,
   verbose: boolean,
+  grouped: Set<string> = new Set(),
 ): SymbolDetail[] {
-  if (!stmt.isExported() && !stmt.hasModifier?.(SyntaxKind.ExportKeyword))
+  const viaClause = stmt
+    .getDeclarations()
+    .some((d) => grouped.has(d.getName()));
+  if (
+    !viaClause &&
+    !stmt.isExported() &&
+    !stmt.hasModifier?.(SyntaxKind.ExportKeyword)
+  )
     return [];
   const description = tsDocOf(stmt);
   return stmt.getDeclarations().map((d) => {
@@ -472,9 +509,10 @@ function generate(): void {
         if (verboseSym) verboseSymbols.push(verboseSym);
       }
       // Exported consts
+      const grouped = groupedExportNames(sf);
       for (const stmt of sf.getVariableStatements()) {
-        const consts = extractConsts(stmt, file, module, false);
-        const constsV = extractConsts(stmt, file, module, true);
+        const consts = extractConsts(stmt, file, module, false, grouped);
+        const constsV = extractConsts(stmt, file, module, true, grouped);
         stableSymbols.push(...consts);
         verboseSymbols.push(...constsV);
         stats.constants += consts.length;
