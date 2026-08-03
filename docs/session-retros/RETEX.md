@@ -82,8 +82,31 @@ satisfies IFilterSpec` + un générique `<const S>` fait dériver `{revoked?: bo
   **un endpoint de compteurs ne filtre pas la dimension qu'il décompose** (`facetDimensions`), et
   la spec de son endpoint est celle de la liste MOINS ces clés. Le trou était ouvert dans le lot
   précédent sans que rien ne le signale.
+- `[1× — 2026-08-03f]` 🔴 **Publier « je n'accepte aucun filtre » oblige à en REFUSER.**
+  `sessions/mine` publiait une spec vide (le self-service décide du périmètre par l'identité, pas
+  par un paramètre) et acceptait pourtant `?user=alice` — qu'il jetait. Le scope serveur n'a jamais
+  faibli (aucun IDOR), mais la réponse laissait croire qu'on avait filtré. **Une publication sans
+  refus est une déclaration d'intention, pas un contrat** : le `parseFilters(query, {})` a l'air
+  décoratif, c'est lui qui rend la publication vraie.
+- `[1× — 2026-08-03f]` **Le refus, une fois posé, DÉMASQUE les seconds lecteurs.** `webauthn/list`
+  relisait `q` à la main juste après `parsePageQuery` : invisible tant que le traducteur tolérait
+  tout, `400` immédiat dès qu'il refuse. Un durcissement de contrat ne se mesure pas au nombre de
+  lignes qu'il ajoute, mais aux appelants qu'il met en défaut — ici un test de la suite security.
+- `[1× — 2026-08-03f]` ⚠️ **Fermé par ACCIDENT ≠ fermé par décision.** Les sessions n'avaient pas de
+  `*_STATS_FILTERS` : la dimension décomposée (`authenticated`) n'était exposée nulle part, donc le
+  trou « les compteurs acceptent ce qu'ils décomposent » ne pouvait pas s'ouvrir — et un test
+  verrouillait cette coïncidence en l'affirmant comme une règle. Ouvrir le filtre sur la liste (pour
+  rendre les cartes cliquables) l'aurait rouvert du même geste. Un invariant qui tient parce qu'une
+  brique manque tombe le jour où on ajoute la brique.
 
-## 🧮 Un NOMBRE affiché sans qualificatif est lu comme un total
+## ✅ Une assertion d'ORDRE ne prouve rien sans données DISCRIMINANTES
+
+- `[1× — 2026-08-03f]` 🔴 **Un test de tri neuf est resté VERT alors que le tri était débranché.**
+  Il lisait `record.createdAt` là où la donnée vit dans `record.data` : douze `undefined` forment
+  une suite « triée » quel que soit l'ordre appliqué. Même piège avec une colonne constante. Un
+  test d'ordre doit donc affirmer TROIS choses — le champ est **présent**, ses valeurs sont
+  **distinctes**, et `DESC` est **exactement l'inverse** d'`ASC` — sinon il ne teste que sa propre
+  capacité à ne pas planter. C'est le débranchement qui l'a révélé ; le vert initial ne disait rien.
 
 - `[1× — 2026-08-03e]` **Quatre écrans d'administration calculaient leurs cartes dans le
   NAVIGATEUR, sur les lignes chargées.** Avec une fenêtre plafonnée, « 3 comptes actifs » décrivait
@@ -119,6 +142,17 @@ satisfies IFilterSpec` + un générique `<const S>` fait dériver `{revoked?: bo
   peut n'être branché qu'après le montage des routes, et un service peut devenir indisponible. Une
   valeur capturée une fois ment dans les deux cas — d'où l'évaluation à chaque lecture du catalogue,
   et un test qui change le backend entre deux lectures pour le prouver.
+- `[1× — 2026-08-03f]` 🔴 **La RECHERCHE était le troisième maillon, et le plus silencieux :
+  acceptée partout, honorée nulle part.** Deux data planes (sessions, clés d'API) recevaient `?q=`
+  sans jamais le transmettre à leur store — la collection ENTIÈRE revenait, lue comme un résultat de
+  recherche. Le tri avait son allowlist, les filtres leur vocabulaire ; `q` n'avait rien, parce
+  qu'il n'a pas de valeur à valider — seulement un destinataire. D'où la symétrie exacte avec
+  `sortable` : **défaut = REFUS**, la capacité se déclare (`searchable`) et se publie. Un `q` vide
+  (barre effacée) ne déclenche rien : personne n'a rien demandé.
+- `[1× — 2026-08-03f]` **Publier une capacité oblige à traiter « pas encore chargé ».** Le catalogue
+  admin arrive après le premier rendu : `caps === null` ne doit offrir NI tri NI filtre NI recherche,
+  jamais un défaut permissif « en attendant ». C'est le seul état qui ne promet rien qu'on ne puisse
+  tenir — et il dure quelques centaines de millisecondes à chaque ouverture d'écran.
 - `[1× — 2026-08-03d]` 🔴 **Passer une table en mode serveur casse ses AGRÉGATS, en silence.** Les
   4 vues calculent leurs cartes (`countUsers`, `countByAuth`…) sur la liste entière chargée ; avec
   une page de 25 lignes, « 12 actifs » devient un compte de page présenté comme un total. Le coût
