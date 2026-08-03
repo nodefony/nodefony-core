@@ -478,6 +478,10 @@ liste)` sans assertion sur `liste.length` est vert sur zéro itération : une r�
   rien de neuf, et j'ai lu ce vert comme une réussite. Deux règles : écrire un fichier passe par
   l'OUTIL d'édition, jamais par un heredoc ; et un compte de tests qui ne BOUGE PAS après un ajout
   est un signal, pas un détail.
+- `[1× — 2026-08-03i]` 🔴 **Vitest TRANSPILE, il ne vérifie pas les types : une suite verte peut
+  laisser `npm run typecheck` rouge.** Deux `assert.rejects` mal typés ont traversé deux commits et
+  n'ont été dits que par le hook de `pre-push`, à la clôture. Le typecheck global appartient à la
+  MÊME passe que la suite du module touché — pas au moment du push, où il bloque une sauvegarde.
 - `[1× — 2026-08-03i]` 🔴 **Un run lancé depuis la racine au lieu du module a confirmé ce faux
   vert** — vitest a résolu le chemin par motif et rejoué l'ancien fichier sans rien dire. Vérifier
   le `cwd` d'un run avant d'en tirer un verdict.
