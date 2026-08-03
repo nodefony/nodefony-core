@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-03T19:48:43.567Z",
+  "generated": "2026-08-03T20:17:41.134Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 678,
-    "symbols": 2753,
+    "files": 679,
+    "symbols": 2760,
     "classes": 343,
-    "interfaces": 806,
-    "types": 361,
+    "interfaces": 807,
+    "types": 363,
     "enums": 4,
-    "functions": 987,
-    "constants": 252
+    "functions": 988,
+    "constants": 255
   },
   "symbols": {
     "Cli": {
@@ -2854,6 +2854,15 @@
       "module": "@nodefony/core",
       "description": "Ce qu'un store rend quand il ne PEUT pas compter — convention de tous les backends du dépôt (`countSessions`, `countTokens`, `countEndpoints`). Une valeur sentinelle plutôt qu'une exception : ne pa…"
     },
+    "FilterEach": {
+      "name": "FilterEach",
+      "kind": "interface",
+      "file": "src/nodefony/src/runtime/pageFilters.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un filtre à valeurs **multiples** : la clé peut être répétée dans l'URL (`?severity=ERROR&severity=CRITIC`), chaque occurrence étant validée par `each`. C'est une AUTORISATION explicite, jamais un …"
+    },
     "IParseFiltersOptions": {
       "name": "IParseFiltersOptions",
       "kind": "interface",
@@ -2877,7 +2886,7 @@
       "file": "src/nodefony/src/runtime/pageFilters.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Définition d'UN filtre : sa nature, ou la **liste fermée** de ses valeurs. Une liste vaut énumération — `[\"auth\", \"authz\", \"token\"]` — et devient l'allowlist qui la valide, exactement comme `sortab…"
+      "description": "Définition d'UN filtre : sa nature, la **liste fermée** de ses valeurs, ou l'une des deux répétée ({@link FilterEach}). Une liste vaut énumération — `[\"auth\", \"authz\", \"token\"]` — et devient l'allo…"
     },
     "IFilterSpec": {
       "name": "IFilterSpec",
@@ -2893,7 +2902,7 @@
       "file": "src/nodefony/src/runtime/pageFilters.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Le type JavaScript qu'une définition de filtre produit une fois lue."
+      "description": "Le type JavaScript qu'une définition de filtre produit une fois lue — un **tableau** pour un filtre `{ each }`, la valeur seule sinon."
     },
     "FilterValues": {
       "name": "FilterValues",
@@ -3252,6 +3261,22 @@
       "file": "src/nodefony/src/syslog/Pdu.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "SeverityName": {
+      "name": "SeverityName",
+      "kind": "type",
+      "file": "src/nodefony/src/syslog/Pdu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un nom de sévérité RFC 5424 (hors extension `SPINNER`)."
+    },
+    "SEVERITY_NAMES": {
+      "name": "SEVERITY_NAMES",
+      "kind": "const",
+      "file": "src/nodefony/src/syslog/Pdu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les noms de sévérité RFC 5424, **dans l'ordre de l'enum** (l'index EST la valeur : `SEVERITY_NAMES[3] === \"ERROR\"`). `SPINNER` (-1) en est absent : c'est une extension d'affichage CLI, jamais un ni…"
     },
     "Syslog": {
       "name": "Syslog",
@@ -10645,6 +10670,22 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Producteur `IAdminApi` du **syslog** (core) — exposé sous `/nodefony/syslog/api/*`. 4ᵉ et dernier producteur de P10.3. Le syslog vit dans `@nodefony/core` et ne peut pas importer framework → framew…"
+    },
+    "SYSLOG_SORTABLE": {
+      "name": "SYSLOG_SORTABLE",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/src/syslogFilters.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Ce que le journal sait TRIER — un seul axe, le temps. Le nom est public (celui de la ligne rendue, `ILogRecord.timeStamp`) ; l'axe technique du driver est l'`uid` du Pdu, un compteur monotone d'émi…"
+    },
+    "SYSLOG_FILTERS": {
+      "name": "SYSLOG_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/src/syslogFilters.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Le vocabulaire de filtre du journal — une **donnée**, publiée telle quelle dans le catalogue admin. Il remplace une lecture à la main qui acceptait tout et ne validait rien : `?severity=CRITICAL` (…"
     },
     "Template": {
       "name": "Template",
@@ -21872,6 +21913,10 @@
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
       ],
+      "SEVERITY_NAMES": [
+        "src/nodefony/src/client/index.ts",
+        "src/packages/@nodefony/framework/nodefony/src/syslogFilters.ts"
+      ],
       "isEmptyObject": [
         "src/nodefony/src/client/index.ts"
       ],
@@ -21958,7 +22003,7 @@
       ],
       "FLOW_STEPS": [
         "src/nodefony/src/client/index.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+        "src/packages/@nodefony/framework/nodefony/src/syslogFilters.ts"
       ],
       "File": [
         "src/nodefony/src/command/Builder.ts",
@@ -22515,6 +22560,7 @@
       "IFilterSpec": [
         "src/nodefony/src/types/IAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/syslogFilters.ts",
         "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
         "src/packages/@nodefony/http/nodefony/src/rateLimit/rateLimitFilters.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/auditFilters.ts",
@@ -23432,7 +23478,7 @@
       ],
       "FlowStepId": [
         "src/nodefony/src/syslog/drivers/ILogDriver.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+        "src/packages/@nodefony/framework/nodefony/src/syslogFilters.ts"
       ],
       "ILogDriverProbe": [
         "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
@@ -24513,6 +24559,7 @@
       ],
       "parsePageQuery": [
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
@@ -24520,6 +24567,7 @@
       ],
       "parseFilters": [
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
@@ -24662,6 +24710,12 @@
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "getLogDriver": [
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+      ],
+      "SYSLOG_FILTERS": [
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+      ],
+      "SYSLOG_SORTABLE": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
       "frontendConfigSchema": [

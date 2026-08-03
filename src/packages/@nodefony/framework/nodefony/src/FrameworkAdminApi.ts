@@ -97,6 +97,17 @@ export function createFrameworkAdminApi(
     "module",
     "firewall",
   ] as const;
+  /**
+   * `routes/page` sait TOUJOURS chercher : sa collection est le dump du Router,
+   * en mémoire, donc `q` est un simple balayage — ce qui n'est vrai d'aucune
+   * ressource persistée, d'où la déclaration explicite plutôt qu'un défaut.
+   *
+   * Constante partagée entre la publication (`page.search`) et le handler
+   * (`parsePageQuery(..., { searchable })`) : les écrire séparément recréerait
+   * la divergence que la publication vient supprimer — une console qui affiche
+   * une barre de recherche que le serveur refuse en 400.
+   */
+  const SEARCHABLE = true;
   /** Valeur d'une colonne pour le tri/filtre serveur (clés = colonnes du front). */
   const cell = (r: RouteDump, key: string): string => {
     switch (key) {
@@ -176,14 +187,23 @@ export function createFrameworkAdminApi(
         "Routes paginées côté SERVEUR — contrat IPageQuery : ?limit&offset&order=champ:ASC&q, " +
         "plus filters(JSON) — langage d'opérateurs PROPRE à cet endpoint (collection en " +
         "mémoire), sérialisé par la vue Routes seule. Rend un IPage.",
+      // Capacités PUBLIÉES dans le catalogue admin : la console cesse de deviner
+      // quelles colonnes sont triables et si la recherche existe. Elles étaient
+      // codées en dur dans `RoutesView` — six `sortable: true` qui coïncidaient
+      // avec `SORTABLE_COLUMNS` par hasard, et que le premier renommage de
+      // colonne aurait fait diverger sans un mot (en-tête cliquable → 400).
+      // `filters` reste VIDE : le langage d'opérateurs de cet endpoint n'est pas
+      // le contrat de filtre du framework (cf `matchOp`), il ne se publie donc
+      // pas comme tel.
+      page: {
+        sortable: () => SORTABLE_COLUMNS,
+        search: () => SEARCHABLE,
+      },
       handler: (request): IPage<RouteDump> => {
         const query = parsePageQuery(request.query, {
           defaultLimit: 25,
           sortable: SORTABLE_COLUMNS,
-          // La collection est en mémoire : la recherche plein-texte est un
-          // simple balayage, donc toujours honorée — ce qui n'est vrai
-          // d'aucune ressource persistée, d'où la déclaration explicite.
-          searchable: true,
+          searchable: SEARCHABLE,
         });
         // Cet endpoint n'a pas de filtre au sens du contrat (spec vide) : il lit
         // son propre `filters`, et le déclare. L'appel sert donc à une seule
