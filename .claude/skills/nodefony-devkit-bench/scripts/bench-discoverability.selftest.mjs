@@ -32,6 +32,7 @@ import {
   TASKS,
   SONDES_QUALITE,
   evaluateProbe,
+  motifDEcartement,
   transcriptExploitable,
 } from "./bench-discoverability.mjs";
 
@@ -67,6 +68,36 @@ function verifierGardeTranscript() {
   const rates = [];
   for (const [label, texte, attendu] of cas) {
     if (transcriptExploitable(texte) !== attendu) rates.push(label);
+  }
+
+  // L'autre vacuité, et celle qui a produit un FAIL de référence : un run où
+  // l'agent n'a touché AUCUN fichier. Ses interdits ne mordent sur rien — huit
+  // sondes vertes par pure absence de matière (T10, 16 tours, 40 s).
+  const vivant = '{"type":"result","num_turns":16}';
+  const ecartements = [
+    [
+      "run à zéro fichier — abandon, pas mesure",
+      { transcript: vivant, files: [] },
+      true,
+    ],
+    [
+      "liste de fichiers absente vaut zéro fichier",
+      { transcript: vivant, files: undefined },
+      true,
+    ],
+    [
+      "transcript muet écarte même si des fichiers ont bougé",
+      { transcript: "", files: ["nodefony/entity/Product.ts"] },
+      true,
+    ],
+    [
+      "un run ordinaire n'est pas écarté",
+      { transcript: vivant, files: ["nodefony/entity/Product.ts"] },
+      false,
+    ],
+  ];
+  for (const [label, pieces, attenduEcarte] of ecartements) {
+    if (Boolean(motifDEcartement(pieces)) !== attenduEcarte) rates.push(label);
   }
   return rates;
 }
@@ -1794,7 +1825,7 @@ function main() {
   for (const w of wrong) console.log(`  ✗ ${w}`);
   for (const g of gardeRatee) {
     console.log(
-      `  ✗ garde « transcript exploitable » — cas « ${g} »\n      un transcript muet ferait rougir TOUTES les sondes transcript à la fois : le FAIL qui en sort a l'allure d'une mesure`,
+      `  ✗ garde d'écartement — cas « ${g} »\n      un run vide (transcript muet, ou zéro fichier touché) rend un FAIL qui a l'allure d'une mesure : il doit être ÉCARTÉ, pas compté`,
     );
   }
   for (const j of jugeantes) {
@@ -1813,7 +1844,7 @@ function main() {
   console.log(
     `\n━━ ${covered}/${probes.length} sonde(s) couverte(s), ${checked} cas joué(s)` +
       (prove ? ` — amputation vérifiée sur ${covered}` : "") +
-      `, garde transcript : ${gardeRatee.length === 0 ? "8 cas ✅" : `${gardeRatee.length} RATÉ(S)`}` +
+      `, garde d'écartement : ${gardeRatee.length === 0 ? "12 cas ✅" : `${gardeRatee.length} RATÉ(S)`}` +
       `${wrong.length + toothless.length + jugeantes.length + gardeRatee.length > 0 ? `, ${wrong.length + toothless.length + jugeantes.length + gardeRatee.length} DÉFAUT(S)` : ""}`,
   );
 

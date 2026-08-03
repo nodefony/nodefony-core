@@ -1189,17 +1189,35 @@ export const TASKS = [
       {
         // LE juge d'état : le conteneur de l'application EXÉCUTÉE le connaît-il ?
         // Un service écrit mais jamais enregistré compile et n'existe pas.
+        //
+        // 🔴 Il a d'abord exigé `/remise|discount/` dans le JSON ENTIER des
+        // services — donc une LOTERIE DE NOMMAGE, sur un énoncé qui ne nomme
+        // aucune brique et laisse l'agent libre de dire `Pricing`, `Tarif` ou
+        // `Promotion`. La tâche est restée FAIL 0/3 sans que rien n'instruise
+        // ce zéro, quand T13 recevait le correctif de périmètre au même moment.
+        //
+        // Le juste critère se DÉDUIT du décor plutôt que d'un vocabulaire :
+        // aucun gabarit de `create app` ne pose de service (vérifié — seul
+        // l'`AGENTS.md` en PARLE), et le décor est remis à zéro entre tâches.
+        // Tout service porté par l'application a donc été écrit pendant la
+        // tâche, et son nom n'a plus à être deviné. Périmètre déduit comme en
+        // T13 : est « à l'app » ce qui n'est pas un paquet `@nodefony/*` —
+        // ranger ses services dans un module local est une réponse juste.
         kind: "gate",
         name: "le service est réellement enregistré (inspect services)",
         cmd: [
           "sh",
           "-c",
-          `node ${JSON.stringify(BIN)} inspect services --json > .nf-services.json 2>/dev/null; node -e ` +
+          `node ${JSON.stringify(BIN)} inspect services --json > .nf-services.json 2>/dev/null; ` +
+            `node ${JSON.stringify(BIN)} inspect modules --json > .nf-modules.json 2>/dev/null; node -e ` +
             `"const fs=require('node:fs');` +
-            `const s=JSON.parse(fs.readFileSync('.nf-services.json','utf8'));` +
-            `const names=JSON.stringify(s).toLowerCase();` +
-            `if(!/remise|discount/.test(names)){` +
-            `console.error('aucun service de remise dans le conteneur');process.exit(1)}"`,
+            `const all=JSON.parse(fs.readFileSync('.nf-services.json','utf8'));` +
+            `const mods=JSON.parse(fs.readFileSync('.nf-modules.json','utf8'));` +
+            `const own=new Set(mods.filter(m=>!String(m.name||'').startsWith('@nodefony/')).map(m=>m.key));` +
+            `const mine=all.filter(x=>own.has(x.module));` +
+            `if(mine.length===0){` +
+            `console.error('aucun service porte par l app dans le conteneur (modules de l app : '+([...own].join(', ')||'aucun')+')');` +
+            `process.exit(1)}"`,
         ],
       },
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
@@ -3320,6 +3338,34 @@ export function transcriptExploitable(texte) {
   return false;
 }
 
+/**
+ * Ce run a-t-il de quoi être JUGÉ — et sinon, pourquoi ?
+ *
+ * Deux vacuités, un seul traitement : le run est ÉCARTÉ, jamais compté FAIL.
+ * Les distinguer ici plutôt que dans l'appelant garde la règle en un exemplaire
+ * et rend son libellé vérifiable sans monter de décor.
+ *
+ * - **Transcript muet** → voir {@link transcriptExploitable}.
+ * - **Aucun fichier touché** → l'agent a abandonné. C'est le symétrique du
+ *   « vert par abandon » que le banc nomme déjà, mais pour le cas TOTAL : sur un
+ *   run mesuré (T10, 16 tours, 40 s, zéro fichier), **huit sondes étaient vertes
+ *   par pure vacuité** — les interdits ne mordent sur rien quand rien n'a été
+ *   écrit. Un tel run compté FAIL ordinaire mélange « il n'a pas su » et « il
+ *   n'a rien tenté », et c'est le premier qu'on cherche à mesurer.
+ *
+ * @param {{transcript: string, files: string[]}} pieces - la matière du jugement.
+ * @returns {string|null} le motif d'écartement, ou `null` si le run est jugeable.
+ */
+export function motifDEcartement({ transcript, files }) {
+  if (!transcriptExploitable(transcript)) {
+    return `transcript illisible ou vide (${(transcript ?? "").length} octet(s), aucun objet JSON)`;
+  }
+  if (!files || files.length === 0) {
+    return "aucun fichier touché — abandon, pas mesure (les interdits ne mordent sur rien)";
+  }
+  return null;
+}
+
 function lireEffort(transcriptPath) {
   if (!existsSync(transcriptPath)) {
     return null;
@@ -3369,25 +3415,6 @@ function judgeTask(app, runDir, task, occurrence = null) {
         "utf8",
       )
     : "";
-  // Un transcript muet retire à ce run le droit de conclure — il ne le condamne
-  // pas. Toutes les sondes `transcript` y rougiraient à la fois, et le FAIL qui
-  // en sortirait aurait l'allure d'une mesure. C'est le verdict d'écartement
-  // déjà en place (`NON JUGEABLE`) qu'on emprunte : il est SEUL à savoir retirer
-  // un run du compte sans le compter PASS.
-  if (!transcriptExploitable(transcript)) {
-    console.log(
-      `  ⁉️  transcript illisible ou vide — run ÉCARTÉ, aucune sonde n'est opposable\n` +
-        `      (task-${task.id}.transcript.jsonl : ${transcript.length} octet(s), aucun objet JSON)`,
-    );
-    return {
-      id: task.id,
-      name: task.name,
-      verdict: NON_JUGEABLE,
-      guessed: 0,
-      observed: 0,
-      probes: [],
-    };
-  }
   // Le commit de la tâche se retrouve par son MESSAGE — robuste quel que soit
   // le sous-ensemble de tâches joué (--task N, run partiel). La BASE du diff
   // est le commit de HARNAIS précédent (« tâche N-1 » ou « état initial »),
@@ -3419,6 +3446,22 @@ function judgeTask(app, runDir, task, occurrence = null) {
   const files = git(app, "diff", "--name-only", `${base ?? `${hash}~1`}`, hash)
     .split("\n")
     .filter(Boolean);
+  // Un run vide retire le droit de conclure — il ne condamne pas. On emprunte le
+  // verdict d'écartement déjà en place (`NON JUGEABLE`) : il est SEUL à savoir
+  // retirer un run du compte sans le compter PASS. Le motif est calculé par une
+  // fonction pure, éprouvée par l'auto-contrôle sans qu'aucun décor soit monté.
+  const ecarte = motifDEcartement({ transcript, files });
+  if (ecarte) {
+    console.log(`  ⁉️  ${ecarte} — run ÉCARTÉ, aucune sonde n'est opposable`);
+    return {
+      id: task.id,
+      name: task.name,
+      verdict: NON_JUGEABLE,
+      guessed: 0,
+      observed: 0,
+      probes: [],
+    };
+  }
   // Le contenu tel qu'il était AU COMMIT DE LA TÂCHE, jamais tel qu'il est sur
   // le disque au moment du jugement.
   //
