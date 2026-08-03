@@ -1049,22 +1049,45 @@ export const TASKS = [
         where: "files",
       },
       {
-        // Gate d'ÉTAT, et il est double : la simulation n'a RIEN écrit (aucun
-        // fichier d'entité), et le plan cite un connecteur RÉEL du projet — donc
-        // lu, pas inventé.
+        // Gate d'ÉTAT, en trois affirmations : la simulation n'a RIEN écrit, le
+        // plan nomme le connecteur RÉEL du projet, et il porte une trace que
+        // SEULE la simulation produit.
+        //
+        // 🔴 Il cherchait `/default|sqlite|connecteur/i` dans le plan — un juge
+        // qu'on satisfait en RECOPIANT L'ÉNONCÉ, qui écrit lui-même « quels
+        // connecteurs de base de données sont déclarés ». `sqlite` était par
+        // ailleurs lisible dans un commentaire de la configuration générée. Le
+        // PASS de cette tâche ne prouvait donc pas qu'un générateur avait été
+        // appelé : il prouvait qu'un mot avait été reproduit.
+        //
+        // Le couple attendu n'est plus écrit ici : il se DEMANDE à la porte
+        // machine (`--describe-json` → `project.context.connectors`), au moment
+        // du jugement. Un littéral `default`/`sqlite` serait juste aujourd'hui
+        // et faux au premier décor qui change, sans que rien ne le dise.
+        //
+        // La trace de simulation, elle, ne se devine pas : `Invoice.schema.ts`
+        // (le schéma est un fichier SÉPARÉ de l'entité) et la réécriture
+        // `@entities([InvoiceEntity])` de l'`index.ts` ne s'inventent pas en
+        // décrivant « une entité » de mémoire — il faut avoir lu la sortie.
         kind: "gate",
-        name: "la simulation n'a rien écrit, et le plan cite le connecteur réel",
+        name: "la simulation n'a rien écrit, et le plan porte ce que seule la simulation rend",
         cmd: [
           "sh",
           "-c",
-          `node -e "const fs=require('node:fs');` +
+          `node ${JSON.stringify(BIN)} create entity --describe-json > .nf-describe.json 2>/dev/null; node -e ` +
+            `"const fs=require('node:fs');` +
             `const bad=[];` +
             `for (const d of ['nodefony/entity','modules']) {` +
             `if(fs.existsSync(d)&&JSON.stringify(fs.readdirSync(d,{recursive:true})).includes('Invoice'))` +
             `bad.push('une entité Invoice a été ÉCRITE malgré la simulation');}` +
             `const p=fs.existsSync('DISCOVERY.md')?fs.readFileSync('DISCOVERY.md','utf8'):'';` +
-            `if(!p)bad.push('DISCOVERY.md absent');` +
-            `else if(!/default|sqlite|connecteur/i.test(p))bad.push('le plan ne cite aucun connecteur réel');` +
+            `if(!p){bad.push('DISCOVERY.md absent')}else{` +
+            `let co=null;try{co=JSON.parse(fs.readFileSync('.nf-describe.json','utf8')).project.context.connectors[0]}catch{}` +
+            `if(!co){bad.push('la porte machine n a pas rendu de connecteur — gate non concluant')}` +
+            `else{if(!new RegExp(co.name,'i').test(p))bad.push('le plan ne nomme pas le connecteur reel ('+co.name+')');` +
+            `if(!new RegExp(co.dialect,'i').test(p))bad.push('le plan ne dit pas le dialecte reel ('+co.dialect+')');}` +
+            `if(!/Invoice\\.schema\\.ts|@entities\\(/.test(p))` +
+            `bad.push('le plan ne porte aucune trace de la simulation (ni Invoice.schema.ts ni @entities)');}` +
             `if(bad.length){console.error(bad.join(' | '));process.exit(1)}"`,
         ],
       },
