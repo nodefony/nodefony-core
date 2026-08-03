@@ -383,7 +383,11 @@ export type {
   IdempotentResponse,
 } from "./types/IIdempotencyStore";
 export type { IPage, IPageQuery, ISortableSource } from "./types/IPage";
-export { assertPageQuery, PaginationModeError } from "./runtime/pageGuard";
+export {
+  assertPageQuery,
+  PaginationModeError,
+  CursorOrderError,
+} from "./runtime/pageGuard";
 export type { PaginationMode } from "./runtime/pageGuard";
 export {
   parsePageQuery,

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-03T15:37:41.777Z",
+  "generated": "2026-08-03T19:48:43.567Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 678,
-    "symbols": 2748,
-    "classes": 342,
-    "interfaces": 805,
+    "symbols": 2753,
+    "classes": 343,
+    "interfaces": 806,
     "types": 361,
     "enums": 4,
-    "functions": 984,
+    "functions": 987,
     "constants": 252
   },
   "symbols": {
@@ -2922,6 +2922,17 @@
       "decorators": [],
       "description": "Erreur levée quand un `listPage` reçoit le champ de pagination du mode que son store **ne sait pas honorer** — un `cursor` pour un store offset, ou un `offset` de navigation pour un store curseur. …"
     },
+    "CursorOrderError": {
+      "name": "CursorOrderError",
+      "kind": "class",
+      "file": "src/nodefony/src/runtime/pageGuard.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "nodefonyError",
+      "implements": [],
+      "decorators": [],
+      "description": "Erreur levée quand un store paginant par **curseur** reçoit un {@link IPageQuery.order} : il ne peut pas l'honorer, et l'avaler mentirait. Ce n'est pas une limite d'implémentation, c'est la nature …"
+    },
     "PaginationMode": {
       "name": "PaginationMode",
       "kind": "type",
@@ -3943,13 +3954,28 @@
       "module": "@nodefony/core",
       "description": "Câble `this.addCommand(<Classe>)` dans le constructeur du Module d'un `index.ts` : ajoute l'import après le dernier import, insère l'appel juste après le `super(…)` du constructeur. L'ancre est le …"
     },
-    "sampleValue": {
-      "name": "sampleValue",
+    "filterProbe": {
+      "name": "filterProbe",
       "kind": "function",
       "file": "src/nodefony/src/cli/scaffold/engine.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Valeur d'exemple d'un champ — VALIDE au regard du schéma de l'entité. Un échantillon n'est pas une décoration : les tests générés s'en servent pour insérer, et la documentation pour montrer un appe…"
+    },
+    "malformedProbe": {
+      "name": "malformedProbe",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le filtre sur lequel une valeur MAL FORMÉE existe, et de quoi la fabriquer — ou `null` si aucun filtre de l'entité ne peut en refuser une. Toutes les natures ne refusent pas : un filtre `\"string\"` …"
+    },
+    "sampleValue": {
+      "name": "sampleValue",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core"
     },
     "findModuleClassAnchor": {
       "name": "findModuleClassAnchor",
@@ -12536,7 +12562,7 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "extends": "IPageQuery",
-      "description": "Requête de page pour un {@link IRepository} — le contrat de page core ({@link IPageQuery}) enrichi du `criteria` typé de l'ORM. C'est la forme que {@link paginate} consomme. Offset-first : `cursor`…"
+      "description": "Requête de page pour un {@link IRepository} — le contrat de page core ({@link IPageQuery}) enrichi du `criteria` typé de l'ORM. C'est la forme que {@link paginate} consomme. **Offset-first** : `cur…"
     },
     "FieldOperators": {
       "name": "FieldOperators",
@@ -12682,6 +12708,14 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "description": "Indique si une valeur d'écriture est un objet d'{@link UpdateOperators}. Même heuristique que {@link isFieldOperators} : objet simple, non-`null`, non-tableau, dont **toutes** les clés propres sont…"
+    },
+    "searchCriteria": {
+      "name": "searchCriteria",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Traduit un terme de recherche `?q=` en critère portable — **la** règle de recherche d'orm-core, en un seul exemplaire. Elle existe parce qu'elle était écrite plusieurs fois, presque à l'identique, …"
     },
     "OPERATOR_KEYS": {
       "name": "OPERATOR_KEYS",
@@ -12870,6 +12904,15 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "description": "Détermine si la sonde de flux ORM (`queryFlowMonitor`) doit être active : **OFF en production** (coût nul sur le hot path des requêtes), **ON sinon** (observabilité dev / Supervision). Override exp…"
+    },
+    "IPaginateOptions": {
+      "name": "IPaginateOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Réglages d'un `paginate` — ce que ce point d'entrée sait faire en plus de découper."
     },
     "paginate": {
       "name": "paginate",
@@ -19217,6 +19260,7 @@
       ],
       "nodefonyError": [
         "PaginationModeError",
+        "CursorOrderError",
         "PageQueryError",
         "AccessDeniedError",
         "ApiKeyError",
@@ -22424,7 +22468,8 @@
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "PageQueryError": [
-        "src/nodefony/src/runtime/pageFilters.ts"
+        "src/nodefony/src/runtime/pageFilters.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts"
       ],
       "PAGE_QUERY_KEYS": [
         "src/nodefony/src/runtime/pageFilters.ts"
@@ -24077,6 +24122,11 @@
       "SubjectRevocationRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
+      ],
+      "searchCriteria": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts"
       ],
       "ITotpEnrollmentSummary": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
