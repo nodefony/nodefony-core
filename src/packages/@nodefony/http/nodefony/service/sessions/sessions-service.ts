@@ -501,7 +501,7 @@ class SessionsService extends Service {
    *
    * @returns les champs triables, liste vide si le backend ne trie pas.
    */
-  sortableSessionFields(): readonly string[] {
+  sortableFields(): readonly string[] {
     return this.storage?.sortableFields ?? [];
   }
 

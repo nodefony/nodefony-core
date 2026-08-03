@@ -95,7 +95,7 @@ function makeUsers(seed: BaseUser[]) {
       map.delete(criteria.id) ? 1 : 0,
     // Capacité de tri : le double suit le contrat du service réel, sinon le
     // data plane appellerait une méthode absente (vécu — ce test l'a montré).
-    sortableUserFields: () => USER_SORTABLE_FIELDS_IN_MEMORY,
+    sortableFields: () => USER_SORTABLE_FIELDS_IN_MEMORY,
     // Pagination native (miroir du contrat `IUserRepository.listPage`) — filtre
     // role/enabled/q, tri identifier ASC, slice ; on teste les HANDLERS.
     listPage: async (query: {

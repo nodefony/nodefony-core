@@ -1,4 +1,4 @@
-import type { IPage, IPageQuery } from "nodefony";
+import type { IPage, IPageQuery, ISortableSource } from "nodefony";
 import type {
   IWebhookEndpoint,
   WebhookEndpointUpdate,
@@ -35,17 +35,10 @@ export interface IWebhookListQuery extends IPageQuery {
  * Volume attendu : faible (dizaines d'endpoints), lecture fréquente par le
  * dispatcher (qui en garde un snapshot mémoire), écriture rare (CRUD admin).
  */
-export interface IWebhookStore {
-  /**
-   * Champs que ce backend sait réellement trier, en **vocabulaire public**
-   * (`WEBHOOK_SORTABLE_FIELDS`) — la capacité se DÉCLARE, elle ne se devine pas.
-   *
-   * Le data plane admin passe cette liste en allowlist au traducteur de requête
-   * de page : un `?order=` portant un champ absent d'ici est refusé en **400**,
-   * jamais accepté puis ignoré. Un store qui laisse la propriété absente refuse
-   * donc tout tri, ce qui est la vérité de ce backend.
-   */
-  readonly sortableFields?: readonly string[];
+export interface IWebhookStore extends ISortableSource {
+  // `sortableFields` vient d'`ISortableSource` (core) : la FORME de la capacité
+  // s'écrit une fois pour toutes les ressources. Ici, seul le vocabulaire est
+  // propre aux endpoints — `WEBHOOK_SORTABLE_FIELDS` (`../src/webhook/webhookSort`).
 
   /** Insère un nouvel endpoint. */
   save(endpoint: IWebhookEndpoint): Promise<void>;

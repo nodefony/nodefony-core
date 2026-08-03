@@ -312,7 +312,7 @@ export {
   SESSION_SORTABLE_FIELDS,
   SESSION_DEFAULT_ORDER,
   SESSION_DEFAULT_ORDER_SQL,
-  translateSessionOrder,
+  SESSION_COLUMN_ALIASES,
 } from "./nodefony/src/session/storage/sessionSort";
 export type {
   IHttpRequest,

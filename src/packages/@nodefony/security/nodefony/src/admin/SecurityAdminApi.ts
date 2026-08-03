@@ -99,7 +99,7 @@ function tokenStoreDriver(
  */
 interface IApiKeyAdmin {
   isEnabled(): boolean;
-  sortableTokenFields(): readonly string[];
+  sortableFields(): readonly string[];
   listPagePat(query: ITokenListQuery): Promise<IPage<IApiKeyView>>;
   revokeAnyPat(id: string, actorId: string): Promise<IApiKeyView | null>;
 }
@@ -419,7 +419,7 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         // (rétro-compat front) ; `total`/`offset`/`nextCursor` = métadonnées pour
         // la bascule DataGrid mode="server".
         const page = await svc.listPagePat(
-          parseTokenListQuery(request.query, svc.sortableTokenFields()),
+          parseTokenListQuery(request.query, svc.sortableFields()),
         );
         return {
           keys: page.items,

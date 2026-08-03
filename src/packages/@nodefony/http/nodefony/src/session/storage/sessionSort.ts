@@ -1,3 +1,4 @@
+import { renameOrderFields } from "nodefony";
 import type { IPageQuery } from "nodefony";
 
 /**
@@ -8,7 +9,7 @@ import type { IPageQuery } from "nodefony";
  * chaque backend : c'est ce qui garantit qu'une console offre le même tri que
  * l'application tourne sur mémoire, SQLite, PostgreSQL ou Mongo. Un store qui
  * nomme ses colonnes autrement (SQL stocke l'identifiant en `session_id`)
- * **traduit chez lui** — cf `translateSessionOrder`.
+ * **traduit chez lui** — cf {@link SESSION_COLUMN_ALIASES}.
  *
  * - `updatedAt` — dernière activité (l'axe naturel d'une console de sessions).
  * - `id` — identifiant de session, utile surtout en départage.
@@ -27,29 +28,21 @@ export const SESSION_DEFAULT_ORDER: NonNullable<IPageQuery["order"]> = [
 ];
 
 /**
- * Traduit un `order` public vers les noms de colonnes d'un backend SQL/Mongo,
- * où l'identifiant de session est stocké en `session_id`.
+ * Table d'alias des backends dont le schéma nomme l'identifiant de session
+ * `session_id` (SQL comme Mongo) — à passer à `renameOrderFields` (core).
  *
- * À appeler par tout store dont le schéma nomme un champ autrement que le
- * vocabulaire public. Sans cette traduction, `?order=id:ASC` partirait vers une
- * colonne `id` inexistante — l'erreur ne se verrait qu'à l'exécution, sur le
- * backend concerné seulement.
- *
- * @param order - l'ordre demandé, en vocabulaire public.
- * @returns le même ordre, exprimé dans le schéma du store.
+ * C'est une **donnée** du schéma, pas du code : la règle « réécrire les noms »
+ * vit au core en un exemplaire, et chaque backend n'apporte que sa table. Sans
+ * cette traduction, `?order=id:ASC` partirait vers une colonne `id` inexistante
+ * — l'erreur ne se verrait qu'à l'exécution, sur le backend concerné seulement.
  */
-export function translateSessionOrder(
-  order: NonNullable<IPageQuery["order"]>,
-): NonNullable<IPageQuery["order"]> {
-  return order.map(([field, dir]) => [
-    field === "id" ? "session_id" : field,
-    dir,
-  ]);
-}
+export const SESSION_COLUMN_ALIASES: Readonly<Record<string, string>> = {
+  id: "session_id",
+};
 
 /**
  * Ordre par défaut des backends dont le schéma nomme l'identifiant
  * `session_id` — {@link SESSION_DEFAULT_ORDER} déjà traduit.
  */
 export const SESSION_DEFAULT_ORDER_SQL: NonNullable<IPageQuery["order"]> =
-  translateSessionOrder(SESSION_DEFAULT_ORDER);
+  renameOrderFields(SESSION_DEFAULT_ORDER, SESSION_COLUMN_ALIASES);

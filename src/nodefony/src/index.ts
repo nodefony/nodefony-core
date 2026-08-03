@@ -381,11 +381,15 @@ export type {
   IdempotencyOutcome,
   IdempotentResponse,
 } from "./types/IIdempotencyStore";
-export type { IPage, IPageQuery } from "./types/IPage";
+export type { IPage, IPageQuery, ISortableSource } from "./types/IPage";
 export { assertPageQuery, PaginationModeError } from "./runtime/pageGuard";
 export type { PaginationMode } from "./runtime/pageGuard";
 export { parsePageQuery, PageQueryError } from "./runtime/pageQuery";
-export { compareByOrder, pickOrder } from "./runtime/pageSort";
+export {
+  compareByOrder,
+  pickOrder,
+  renameOrderFields,
+} from "./runtime/pageSort";
 export type { FieldReader } from "./runtime/pageSort";
 export type {
   PageQuerySource,

@@ -65,6 +65,39 @@ export interface IPageQuery {
 }
 
 /**
+ * **Une capacité de tri se DÉCLARE** — le socle commun à tout ce qui rend des
+ * pages triables (stores de sessions, de jetons, d'endpoints, dépôts
+ * d'utilisateurs…).
+ *
+ * Cette interface existe pour qu'il n'y ait **qu'une** forme à connaître : le
+ * nom de la propriété, sa nullabilité et sa sémantique sont écrits ici une fois,
+ * au lieu d'être redéclarés — et de diverger — dans chaque contrat de store.
+ *
+ * Le mécanisme, identique pour toutes les ressources :
+ * 1. le store **déclare** ce qu'il sait trier, en vocabulaire public ;
+ * 2. le data plane le **demande** et le passe en allowlist à `parsePageQuery` ;
+ * 3. tout `?order=` hors de cette liste est refusé en **400** — jamais accepté
+ *    puis ignoré en silence.
+ *
+ * D'où la conséquence utile : **le refus est gratuit**. Un backend qui ne sait
+ * pas trier (un `SCAN` Redis n'a aucun ordre global) laisse simplement la
+ * propriété absente, et rien de plus n'est à écrire pour que le tri y soit
+ * refusé. Les capacités PEUVENT donc être inégales d'un backend à l'autre —
+ * elles sont alors annoncées, jamais simulées.
+ *
+ * ⚠️ Là où un backend compose du SQL à la main, cette liste est **aussi une
+ * garde de sécurité** : un nom de colonne ne se lie pas en paramètre, il se
+ * concatène. Voir `pickOrder`, qui l'applique.
+ */
+export interface ISortableSource {
+  /**
+   * Champs triables, en **noms publics** (ceux de l'URL), ou absent si ce
+   * backend ne sait pas trier.
+   */
+  readonly sortableFields?: readonly string[];
+}
+
+/**
  * Une **page** de résultats — la sortie unique de toute pagination Nodefony.
  *
  * `total` présent = mode **Page** (on a compté) ; absent = mode **Slice**. `hasNext`

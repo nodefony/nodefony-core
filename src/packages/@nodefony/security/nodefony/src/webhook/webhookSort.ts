@@ -49,21 +49,3 @@ export const WEBHOOK_DEFAULT_ORDER: NonNullable<IPageQuery["order"]> = [
   ["createdAt", "DESC"],
   ["id", "ASC"],
 ];
-
-/**
- * Traduit un `order` public vers le schéma d'un backend **Mongo**, où
- * l'identifiant d'endpoint est la clé primaire (`_id`) et où aucun champ `id`
- * n'existe au repos — `id` n'est qu'un virtuel de lecture.
- *
- * Sans cette traduction, `?order=id` partirait vers un champ absent : Mongo ne
- * lève rien, il rend simplement les documents dans un ordre arbitraire. Le tri
- * serait donc silencieusement inerte sur Mongo et correct partout ailleurs.
- *
- * @param order - l'ordre demandé, en vocabulaire public.
- * @returns le même ordre, exprimé dans le schéma du store Mongo.
- */
-export function translateWebhookOrderMongo(
-  order: NonNullable<IPageQuery["order"]>,
-): NonNullable<IPageQuery["order"]> {
-  return order.map(([field, dir]) => [field === "id" ? "_id" : field, dir]);
-}

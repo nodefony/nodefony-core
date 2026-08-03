@@ -99,7 +99,7 @@ class ApiKeyService extends Service {
    *
    * @returns les champs triables, ou un tableau vide.
    */
-  sortableTokenFields(): readonly string[] {
+  sortableFields(): readonly string[] {
     try {
       return this.#resolveStore().sortableFields ?? [];
     } catch {

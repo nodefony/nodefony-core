@@ -15,7 +15,7 @@
  *     auto-porté émis avant un instant T est rejeté → « déconnexion globale » / ban).
  */
 
-import type { IPage, IPageQuery } from "nodefony";
+import type { IPage, IPageQuery, ISortableSource } from "nodefony";
 
 /** Raison de révocation d'un jeton — tracée pour l'audit de sécurité. */
 export type TokenRevokeReason =
@@ -170,18 +170,10 @@ export interface ITokenListQuery extends IPageQuery {
  * expiré) — la **politique** (rejet, déclenchement de la détection de rejeu) est
  * du ressort de l'appelant, pas du stockage.
  */
-export interface ITokenStore {
-  /**
-   * Champs que ce backend sait réellement trier, en **vocabulaire public**
-   * (`TOKEN_SORTABLE_FIELDS`) — la capacité se DÉCLARE, elle ne se devine pas.
-   *
-   * Le data plane admin passe cette liste en allowlist au traducteur de requête
-   * de page : un `?order=` portant un champ absent d'ici est refusé en **400**,
-   * jamais accepté puis ignoré. Un store qui ne trie pas (Redis, dont le `SCAN`
-   * n'a aucun ordre global) laisse donc la propriété **absente** — et tout tri
-   * demandé est refusé, ce qui est la vérité de ce backend.
-   */
-  readonly sortableFields?: readonly string[];
+export interface ITokenStore extends ISortableSource {
+  // `sortableFields` vient d'`ISortableSource` (core) : la FORME de la capacité
+  // s'écrit une fois pour toutes les ressources. Ici, seul le vocabulaire est
+  // propre aux jetons — `TOKEN_SORTABLE_FIELDS` (`../src/token/tokenSort`).
 
   // ── Records (PAT, refresh) ──────────────────────────────────────────────────
   /** Enregistre (ou remplace) un jeton persistant. */

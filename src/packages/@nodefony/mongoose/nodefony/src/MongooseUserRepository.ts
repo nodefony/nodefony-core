@@ -18,14 +18,8 @@ import type {
   RepositoryReadOptions,
 } from "@nodefony/orm-core";
 import type { MongooseOrm } from "./orm-core/MongooseOrm";
+import { mongoOrder, toMongoSort } from "./mongoOrder";
 import type { UserRow } from "../entity/userEntity";
-
-/**
- * Colonnes autorisées au tri → clé de tri Mongo. Vient du module `user`, source
- * unique : cette copie locale avait perdu `id` en route, si bien qu'un
- * `?order=id` triait en SQL et se faisait ignorer ici, sans un mot.
- */
-const ORDERABLE = new Set<string>(USER_SORTABLE_FIELDS);
 
 /** Critère typé sur la ligne `User`. */
 type UserCriteria = Criteria<UserRow>;
@@ -275,13 +269,12 @@ export class MongooseUserRepository implements IUserRepository {
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
     const filter = this.#listFilter(query);
 
-    const sort: Record<string, 1 | -1> = {};
-    const specs = (query.order ?? []).filter(([k]) => ORDERABLE.has(k));
-    for (const [key, dir] of specs.length > 0 ? specs : USER_DEFAULT_ORDER) {
-      // Le vocabulaire de tri est PUBLIC (`id`) ; Mongo stocke la clé en `_id`
-      // → traduction ici, comme les stores SQL traduisent vers leur colonne.
-      sort[key === "id" ? "_id" : key] = dir === "DESC" ? -1 : 1;
-    }
+    // Borné à ce que ce repository DÉCLARE, puis traduit dans le schéma Mongo
+    // (`id` → `_id`) : les deux gestes sont portés par `mongoOrder`, partagé par
+    // tous les stores de cet adapter — la règle était réécrite ici.
+    const sort = toMongoSort(
+      mongoOrder(query.order, this.sortableFields, USER_DEFAULT_ORDER),
+    );
     // Tiebreaker déterministe — sauf si le tri porte DÉJÀ sur la clé, auquel cas
     // l'écraser inverserait le sens demandé.
     if (sort._id === undefined) sort._id = 1;

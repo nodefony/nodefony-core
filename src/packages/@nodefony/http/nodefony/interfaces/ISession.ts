@@ -1,4 +1,4 @@
-import type { IPage, IPageQuery } from "nodefony";
+import type { IPage, IPageQuery, ISortableSource } from "nodefony";
 import type { ICookie, ICookieOptions } from "./ICookie";
 
 export type SessionStatusType = "none" | "active" | "disabled";
@@ -122,7 +122,10 @@ export interface ISessionListQuery extends IPageQuery, ISessionListFilter {
  * Source de vérité unifiée — l'ex-doublon `sessionStorageInterface` (any) n'est plus
  * qu'un alias transitionnel. Enregistré dans le registre IoC `SessionsService.registerStorage`.
  */
-export interface ISessionStorage {
+export interface ISessionStorage extends ISortableSource {
+  // `sortableFields` vient d'`ISortableSource` (core) : la FORME de la capacité
+  // s'écrit une fois pour toutes les ressources. Ici, seul le vocabulaire est
+  // propre aux sessions — `SESSION_SORTABLE_FIELDS` (`../src/session/storage/sessionSort`).
   read(id: string): Promise<ISerializedSession>;
   write(id: string, data: ISerializedSession): Promise<ISerializedSession>;
   start(id: string): Promise<ISerializedSession>;
@@ -199,23 +202,6 @@ export interface ISessionStorage {
    * @returns la page de {@link ISessionRecord} bruts — le service les redacte.
    */
   listPage?(query: ISessionListQuery): Promise<IPage<ISessionRecord>>;
-
-  /**
-   * Champs sur lesquels ce store sait honorer {@link IPageQuery.order}, en
-   * **vocabulaire public** — celui que le client écrit dans l'URL, jamais un nom
-   * de colonne. Un store qui traduit (`id` → colonne `session_id` en SQL) le
-   * fait chez lui ; le nom exposé reste le même quel que soit le backend, sans
-   * quoi le tri offert par la console dépendrait de la base configurée.
-   *
-   * **Une capacité se CONSTATE** : un store qui ne trie pas (Redis `SCAN`, ordre
-   * de parcours du keyspace) omet cette propriété. Le data plane la transmet
-   * alors telle quelle à `parsePageQuery`, qui **refuse** (400) tout `order`
-   * reçu — plutôt que de l'accepter et de rendre une page non triée en laissant
-   * croire le contraire.
-   *
-   * @example `["updatedAt", "id"]`
-   */
-  readonly sortableFields?: readonly string[];
 
   /**
    * Compte les sessions correspondant aux filtres, **sans les énumérer** (`COUNT`

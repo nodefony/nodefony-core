@@ -74,7 +74,7 @@ function bootWebhooks(
     // Le double annonce la MÊME capacité que le store mémoire : le data plane
     // s'en sert comme allowlist de tri, et un double muet ferait passer un
     // `?order=` refusé en production pour un tri accepté.
-    sortableWebhookFields: (): readonly string[] => WEBHOOK_SORTABLE_FIELDS,
+    sortableFields: (): readonly string[] => WEBHOOK_SORTABLE_FIELDS,
     register: async (input: {
       url: string;
       events: readonly string[];

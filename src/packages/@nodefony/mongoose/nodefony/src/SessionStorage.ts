@@ -1,8 +1,8 @@
 import {
   SessionsService,
   SESSION_SORTABLE_FIELDS,
-  SESSION_DEFAULT_ORDER_SQL,
-  translateSessionOrder,
+  SESSION_DEFAULT_ORDER,
+  SESSION_COLUMN_ALIASES,
 } from "@nodefony/http";
 import type {
   ISessionStorage,
@@ -12,7 +12,7 @@ import type {
   ISessionListQuery,
 } from "@nodefony/http";
 import type { IPage } from "nodefony";
-import { assertPageQuery } from "nodefony";
+import { assertPageQuery, pickOrder, renameOrderFields } from "nodefony";
 import { ormRegistry, paginate } from "@nodefony/orm-core";
 import type { IRepository, Criteria } from "@nodefony/orm-core";
 import { SESSION_CONNECTOR, type SessionRow } from "../entity/sessionEntity";
@@ -280,11 +280,15 @@ class SessionStorage implements ISessionStorage {
       limit: query.limit,
       offset: query.offset,
       withTotal: query.withTotal,
-      // Vocabulaire de tri PUBLIC (`id`), champ stocké `session_id` → la
-      // traduction se fait ici, jamais dans l'URL.
-      order: query.order?.length
-        ? translateSessionOrder(query.order)
-        : SESSION_DEFAULT_ORDER_SQL,
+      // Borné à ce que ce store DÉCLARE, puis exprimé dans le schéma : le
+      // vocabulaire de tri est PUBLIC (`id`), le champ stocké s'appelle
+      // `session_id` → la traduction est ici, jamais dans l'URL. (La table
+      // d'alias de la session prime : ce n'est pas `_id` qui porte l'identifiant
+      // de session, donc pas `mongoOrder`.)
+      order: renameOrderFields(
+        pickOrder(query.order, this.sortableFields, SESSION_DEFAULT_ORDER),
+        SESSION_COLUMN_ALIASES,
+      ),
     });
     return {
       ...page,

@@ -54,7 +54,7 @@ interface SessionsLike {
 interface SessionsAdmin {
   supportsEnumeration(): boolean;
   /** Capacité de tri du backend configuré — vide = ce store ne trie pas. */
-  sortableSessionFields(): readonly string[];
+  sortableFields(): readonly string[];
   listSessionsPage(query: ISessionListQuery): Promise<IPage<ISessionSummary>>;
   destroyByRef(ref: string, actor?: string | null): Promise<boolean>;
   destroyByUser(identifier: string, actor?: string | null): Promise<number>;
@@ -359,7 +359,7 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         // est vide et `parsePageQuery` refuse tout `order` en 400 plutôt que de
         // rendre une page non triée.
         const pageQuery = parsePageQuery(request.query, {
-          sortable: svc.sortableSessionFields(),
+          sortable: svc.sortableFields(),
         });
         const { limit } = pageQuery;
         const offset = pageQuery.offset ?? 0;
@@ -500,7 +500,7 @@ export function createHttpAdminApi(module: Module): IAdminApi {
           return { status: 401, body: { error: "unauthenticated" } };
         }
         const ownQuery = parsePageQuery(request.query, {
-          sortable: svc.sortableSessionFields(),
+          sortable: svc.sortableFields(),
         });
         const { limit } = ownQuery;
         const offset = ownQuery.offset ?? 0;

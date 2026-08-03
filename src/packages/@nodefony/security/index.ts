@@ -186,7 +186,6 @@ export type { TokenStoreSnapshot } from "./nodefony/src/token/MemoryTokenStore";
 export {
   TOKEN_SORTABLE_FIELDS,
   TOKEN_DEFAULT_ORDER,
-  translateTokenOrderMongo,
 } from "./nodefony/src/token/tokenSort";
 export { JwtKeystore } from "./nodefony/src/token/JwtKeystore";
 export { resolveJwtRuntime } from "./nodefony/src/token/jwtRuntime";
@@ -320,7 +319,6 @@ export { MemoryWebhookStore } from "./nodefony/src/webhook/MemoryWebhookStore";
 export {
   WEBHOOK_SORTABLE_FIELDS,
   WEBHOOK_DEFAULT_ORDER,
-  translateWebhookOrderMongo,
 } from "./nodefony/src/webhook/webhookSort";
 export {
   registerWebhookStore,

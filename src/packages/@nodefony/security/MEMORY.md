@@ -153,7 +153,7 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
   Drizzle sqlite/pg/mariadb/mysql + Mongoose + Redis.
   **TRI = le store DÉCLARE, le data plane DEMANDE** : `ITokenStore.sortableFields` (vocabulaire PUBLIC
   `TOKEN_SORTABLE_FIELDS` = `createdAt|name|subjectId|id`, `src/token/tokenSort.ts` — source unique importée par
-  drizzle/mongoose, jamais recopiée) → `ApiKeyService.sortableTokenFields()` → `parseTokenListQuery(query, sortable)`
+  drizzle/mongoose, jamais recopiée) → `ApiKeyService.sortableFields()` → `parseTokenListQuery(query, sortable)`
   passe l'allowlist à `parsePageQuery` ⇒ le refus 400 d'un champ non déclaré est GRATUIT (garde du core). Redis ne
   déclare RIEN (`SCAN` sans ordre global) ⇒ tout `order` y est refusé, pas ignoré. Mémoire trie par `compareByOrder`
   (core), Mongo traduit `id`→`_id` (`translateTokenOrderMongo` — le jti EST le `_id`, aucun champ `id` au repos :

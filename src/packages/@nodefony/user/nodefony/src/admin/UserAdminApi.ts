@@ -360,7 +360,7 @@ export function createUserAdminApi(container: Container): IAdminApi {
         // tri. En appeler un second sans l'allowlist (ce que faisait `pageParams`)
         // fait refuser en 400 un `order` que le premier venait d'accepter — vécu.
         const pageQuery = parsePageQuery(request.query, {
-          sortable: users.sortableUserFields(),
+          sortable: users.sortableFields(),
         });
         const limit = pageQuery.limit;
         const offset = pageQuery.offset ?? 0;

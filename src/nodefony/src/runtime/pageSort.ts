@@ -30,6 +30,35 @@ function compareValues(a: unknown, b: unknown): number {
 }
 
 /**
+ * Réécrit les noms de champs d'un `order` selon une table d'alias — le pont
+ * entre le vocabulaire **public** (celui de l'URL) et le schéma d'un backend.
+ *
+ * Il existe parce que chaque store le refaisait : trois fonctions strictement
+ * identiques traduisaient `id` vers `_id` ou `session_id`, une par ressource.
+ * La règle (« réécrire les noms ») est la même partout ; seule la TABLE change,
+ * et c'est elle qui est une donnée du backend, pas du code.
+ *
+ * Un champ absent de la table passe inchangé — l'immense majorité des noms
+ * publics sont déjà ceux du schéma.
+ *
+ * @param order - l'ordre demandé, en vocabulaire public.
+ * @param aliases - `{ nomPublic: nomDansLeSchéma }`.
+ * @returns le même ordre, exprimé dans le schéma du backend.
+ *
+ * @example
+ * ```ts
+ * // Mongo stocke la clé primaire en `_id`, il n'existe aucun champ `id`.
+ * renameOrderFields(order, { id: "_id" });
+ * ```
+ */
+export function renameOrderFields(
+  order: NonNullable<IPageQuery["order"]>,
+  aliases: Readonly<Record<string, string>>,
+): NonNullable<IPageQuery["order"]> {
+  return order.map(([field, dir]) => [aliases[field] ?? field, dir]);
+}
+
+/**
  * Retient d'un `order` demandé les seuls couples dont le champ est **déclaré
  * triable**, et retombe sur l'ordre par défaut s'il n'en reste aucun.
  *

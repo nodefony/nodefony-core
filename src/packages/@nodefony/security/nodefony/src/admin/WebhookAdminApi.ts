@@ -66,7 +66,7 @@ interface IWebhookUpdateAdminPatch {
  */
 interface IWebhookAdmin {
   isReady(): boolean;
-  sortableWebhookFields(): readonly string[];
+  sortableFields(): readonly string[];
   register(
     input: IWebhookRegisterAdminInput,
   ): Promise<IWebhookSecretRevealView>;
@@ -249,7 +249,7 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
         // refusé — jamais accepté puis ignoré.
         const query = parseWebhookListQuery(
           request.query,
-          ready(s) ? s.sortableWebhookFields() : [],
+          ready(s) ? s.sortableFields() : [],
         );
         // Pagination SERVEUR OFFSET (jamais un listAll matérialisé : celui-ci
         // est réservé au snapshot du dispatcher). `endpoints` = LA page ;

@@ -421,7 +421,7 @@ Trois sources, et il faut connaître les limites de chacune :
    (`KEYS_MAX_LIMIT`, `SecurityAdminApi.ts:109`).
 
    Le tri n'est accepté que sur les champs que le backend branché **déclare** savoir trier
-   (`sortableTokenFields()`, `apiKeys.ts:102` → `ITokenStore.sortableFields`) : `createdAt`, `name`,
+   (`sortableFields()`, `apiKeys.ts:102` → `ITokenStore.sortableFields`) : `createdAt`, `name`,
    `subjectId`, `id` sur mémoire/SQL/Mongo (`TOKEN_SORTABLE_FIELDS`, `tokenSort.ts:27`). Tout autre
    champ est refusé en **400** — jamais accepté puis ignoré. Un backend Redis ne déclare rien (son
    `SCAN` n'a pas d'ordre global) : tout `order` y est donc refusé, ce qui est la vérité de ce

@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-03T08:21:50.257Z",
+  "generated": "2026-08-03T09:03:26.761Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 667,
-    "symbols": 2705,
+    "files": 668,
+    "symbols": 2708,
     "classes": 342,
-    "interfaces": 801,
+    "interfaces": 802,
     "types": 347,
     "enums": 4,
     "functions": 979,
-    "constants": 232
+    "constants": 234
   },
   "symbols": {
     "Cli": {
@@ -2877,6 +2877,14 @@
       "module": "@nodefony/core",
       "description": "Lit la valeur d'un champ triable sur un élément. Chaque store fournit la sienne : le nom du champ est **public** (celui de l'URL), la façon de l'atteindre est interne."
     },
+    "renameOrderFields": {
+      "name": "renameOrderFields",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/pageSort.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Réécrit les noms de champs d'un `order` selon une table d'alias — le pont entre le vocabulaire **public** (celui de l'URL) et le schéma d'un backend. Il existe parce que chaque store le refaisait :…"
+    },
     "pickOrder": {
       "name": "pickOrder",
       "kind": "function",
@@ -3448,6 +3456,15 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "**LE contrat de pagination unique de Nodefony.** Tous les stores, toutes les API (présents et futurs) paginent avec ce type — c'est un standard de développement, jamais une pagination maison au cas…"
+    },
+    "ISortableSource": {
+      "name": "ISortableSource",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IPage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "**Une capacité de tri se DÉCLARE** — le socle commun à tout ce qui rend des pages triables (stores de sessions, de jetons, d'endpoints, dépôts d'utilisateurs…). Cette interface existe pour qu'il n'…"
     },
     "IPage": {
       "name": "IPage",
@@ -11192,7 +11209,7 @@
       "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "extends": null,
+      "extends": "ISortableSource",
       "description": "Contrat **unique** d'un backend de stockage de session (File, Redis, SQL/Drizzle…). Source de vérité unifiée — l'ex-doublon `sessionStorageInterface` (any) n'est plus qu'un alias transitionnel. Enr…"
     },
     "ISession": {
@@ -12130,6 +12147,30 @@
       "implements": [],
       "decorators": [],
       "description": "Service bootable du module `@nodefony/mongoose` (driver NoSQL). Au boot du kernel (`onBoot`), instancie un {@link MongooseOrm} (adapter orm-core) **par connecteur** déclaré dans la config et le con…"
+    },
+    "mongoOrder": {
+      "name": "mongoOrder",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/mongoOrder.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Borne un `order` reçu à ce que le store DÉCLARE savoir trier, puis l'exprime dans le schéma Mongo — les deux gestes que tout store Mongo doit faire, dans cet ordre, avant de descendre le tri au dri…"
+    },
+    "toMongoSort": {
+      "name": "toMongoSort",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/mongoOrder.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Forme `{ champ: 1 | -1 }` attendue par `Model.sort()` — le dernier maillon, pour les stores qui parlent au driver Mongo directement plutôt que par `paginate()`."
+    },
+    "MONGO_ORDER_ALIASES": {
+      "name": "MONGO_ORDER_ALIASES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/mongoOrder.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "**La** table d'alias du dialecte Mongo — `id` public → `_id` au repos. Elle vit ici, chez l'adapter qui possède la convention, et non dans le vocabulaire de chaque ressource : ce n'est pas une prop…"
     },
     "MongooseTokenStore": {
       "name": "MongooseTokenStore",
@@ -13758,7 +13799,7 @@
       "file": "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "extends": null,
+      "extends": "ISortableSource",
       "description": "Contrat du store de jetons — implémentations enregistrées via `registerTokenStore`, sélectionnées par config. Toutes les opérations sont **asynchrones** (un backend ORM/Redis fait des I/O ; la réfé…"
     },
     "TokenRevokeReason": {
@@ -13908,7 +13949,7 @@
       "file": "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "extends": null,
+      "extends": "ISortableSource",
       "description": "Persistance des **endpoints webhook** (configuration durable, pas un cache). Backend interchangeable (Memory dev/test · Drizzle SQL · Mongoose) via le registre {@link ../src/webhook/webhookStoreReg…"
     },
     "AccessDeniedError": {
@@ -14678,7 +14719,7 @@
       "file": "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
       "exported": true,
       "module": "@nodefony/user",
-      "extends": "IRepository",
+      "extends": "IRepository, ISortableSource",
       "description": "Repository **spécialisé utilisateur** — `IRepository<IPasswordAuthenticatedUser>` enrichi de finders métier. Étend le contrat CRUD portable de `@nodefony/orm-core` (`find`, `create`, `withTransacti…"
     },
     "UserNotFoundError": {
@@ -17554,14 +17595,6 @@
       "module": "@nodefony/security",
       "description": "Filtre un record contre une requête de listing (portable, réutilisé par les impls)."
     },
-    "translateTokenOrderMongo": {
-      "name": "translateTokenOrderMongo",
-      "kind": "function",
-      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenSort.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "description": "Traduit un `order` public vers le schéma d'un backend **Mongo**, où le jeton est stocké avec le `jti` en clé primaire (`_id`) et où aucun champ `id` n'existe au repos — `id` n'est qu'un virtuel de …"
-    },
     "TOKEN_SORTABLE_FIELDS": {
       "name": "TOKEN_SORTABLE_FIELDS",
       "kind": "const",
@@ -18211,14 +18244,6 @@
       "module": "@nodefony/security",
       "description": "En-têtes de signature Standard Webhooks à poser sur la requête sortante."
     },
-    "translateWebhookOrderMongo": {
-      "name": "translateWebhookOrderMongo",
-      "kind": "function",
-      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookSort.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "description": "Traduit un `order` public vers le schéma d'un backend **Mongo**, où l'identifiant d'endpoint est la clé primaire (`_id`) et où aucun champ `id` n'existe au repos — `id` n'est qu'un virtuel de lectu…"
-    },
     "WEBHOOK_SORTABLE_FIELDS": {
       "name": "WEBHOOK_SORTABLE_FIELDS",
       "kind": "const",
@@ -18685,14 +18710,6 @@
       "decorators": [],
       "description": "Garde-fou de révocation **décoré au-dessus** de n'importe quel {@link ISessionStorage} (file, drizzle, redis, mongo…). Pose une « pierre tombale » sur tout id détruit et REFUSE un `write` ultérieur…"
     },
-    "translateSessionOrder": {
-      "name": "translateSessionOrder",
-      "kind": "function",
-      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionSort.ts",
-      "exported": true,
-      "module": "@nodefony/http",
-      "description": "Traduit un `order` public vers les noms de colonnes d'un backend SQL/Mongo, où l'identifiant de session est stocké en `session_id`. À appeler par tout store dont le schéma nomme un champ autrement …"
-    },
     "SESSION_SORTABLE_FIELDS": {
       "name": "SESSION_SORTABLE_FIELDS",
       "kind": "const",
@@ -18708,6 +18725,14 @@
       "exported": true,
       "module": "@nodefony/http",
       "description": "Ordre contractuel appliqué quand le client n'en demande aucun : activité la plus récente d'abord, départagée par identifiant pour rester **déterministe** à horodatage égal (sans quoi une pagination…"
+    },
+    "SESSION_COLUMN_ALIASES": {
+      "name": "SESSION_COLUMN_ALIASES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionSort.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Table d'alias des backends dont le schéma nomme l'identifiant de session `session_id` (SQL comme Mongo) — à passer à `renameOrderFields` (core). C'est une **donnée** du schéma, pas du code : la règ…"
     },
     "SESSION_DEFAULT_ORDER_SQL": {
       "name": "SESSION_DEFAULT_ORDER_SQL",
@@ -19028,6 +19053,11 @@
       "IResponse": [
         "IHttpResponse",
         "IWebsocketResponse"
+      ],
+      "ISortableSource": [
+        "ISessionStorage",
+        "ITokenStore",
+        "IWebhookStore"
       ],
       "LLMError": [
         "LLMRateLimitError",
@@ -22078,6 +22108,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/mongoOrder.ts",
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
@@ -23631,10 +23662,12 @@
       "pickOrder": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/mongoOrder.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts"
       ],
       "IAccessTokenRecord": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
@@ -23888,11 +23921,12 @@
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts"
       ],
-      "SESSION_DEFAULT_ORDER_SQL": [
+      "SESSION_DEFAULT_ORDER": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts"
       ],
-      "translateSessionOrder": [
+      "SESSION_COLUMN_ALIASES": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
       ],
@@ -23937,6 +23971,12 @@
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
+      ],
+      "renameOrderFields": [
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/mongoOrder.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionSort.ts"
       ],
       "SessionRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -24352,6 +24392,12 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
+      "ISortableSource": [
+        "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts"
+      ],
       "ICookieOptions": [
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
         "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts"
@@ -24541,8 +24587,10 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
-      "translateTokenOrderMongo": [
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
+      "mongoOrder": [
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
       ],
       "Connection": [
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
@@ -24550,12 +24598,13 @@
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
       ],
+      "toMongoSort": [
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
+      ],
       "WEBHOOK_DEFAULT_ORDER": [
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
-      ],
-      "translateWebhookOrderMongo": [
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
       ],
       "IColumnInfo": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
@@ -25898,9 +25947,6 @@
       ],
       "formatWsLogContent": [
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
-      ],
-      "SESSION_DEFAULT_ORDER": [
-        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts"
       ],
       "IOAuthProviderContext": [
         "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts"

@@ -389,7 +389,7 @@ class WebhookService extends Service {
    *
    * @returns les champs triables, ou un tableau vide.
    */
-  sortableWebhookFields(): readonly string[] {
+  sortableFields(): readonly string[] {
     return this.#store?.sortableFields ?? [];
   }
 

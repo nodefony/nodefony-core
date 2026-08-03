@@ -1,7 +1,7 @@
 import { paginate } from "@nodefony/orm-core";
 import type { Criteria, IRepository, UpdateData } from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
-import { assertPageQuery, pickOrder } from "nodefony";
+import { assertPageQuery } from "nodefony";
 // Contrat en `import type` (effacé à la compilation) ; le VOCABULAIRE DE TRI,
 // lui, est une valeur — et il s'importe au lieu de se recopier : deux listes de
 // champs triables divergent en silence, chacune passant ses propres tests. Le
@@ -14,11 +14,8 @@ import type {
   ITokenUsage,
   TokenRevokeReason,
 } from "@nodefony/security";
-import {
-  TOKEN_DEFAULT_ORDER,
-  TOKEN_SORTABLE_FIELDS,
-  translateTokenOrderMongo,
-} from "@nodefony/security";
+import { TOKEN_DEFAULT_ORDER, TOKEN_SORTABLE_FIELDS } from "@nodefony/security";
+import { mongoOrder } from "./mongoOrder";
 import type { MongooseOrm } from "./orm-core/index";
 
 /** Traduit les filtres de listing en `Criteria` portable (`id`→`_id` géré par le repo). */
@@ -192,9 +189,7 @@ export class MongooseTokenStore implements ITokenStore {
       limit: query.limit,
       offset: query.offset,
       withTotal: query.withTotal,
-      order: translateTokenOrderMongo(
-        pickOrder(query.order, this.sortableFields, TOKEN_DEFAULT_ORDER),
-      ),
+      order: mongoOrder(query.order, this.sortableFields, TOKEN_DEFAULT_ORDER),
     });
     for (const row of page.items) {
       row.id = this.#idOf(row);

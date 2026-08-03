@@ -1,4 +1,4 @@
-import { assertPageQuery, compareByOrder } from "nodefony";
+import { assertPageQuery, compareByOrder, pickOrder } from "nodefony";
 import type { IPage } from "nodefony";
 import { SESSION_DEFAULT_ORDER, SESSION_SORTABLE_FIELDS } from "./sessionSort";
 import type sessionService from "../../../service/sessions/sessions-service";
@@ -180,7 +180,14 @@ class MemorySessionStorage implements ISessionStorage {
     // vocabulaire public (`updatedAt`, `id`) que les stores SQL/Mongo, pour que
     // le tri d'une console ne change pas de sens avec le backend configuré. À
     // défaut d'`order`, l'ordre contractuel des sessions.
-    const order = query.order?.length ? query.order : SESSION_DEFAULT_ORDER;
+    // `pickOrder` borne à ce que ce store DÉCLARE : sans lui, un appelant
+    // interne trierait ici sur un champ que les backends SQL refusent, et le
+    // contrat partagé décrirait deux comportements au lieu d'un.
+    const order = pickOrder(
+      query.order,
+      this.sortableFields,
+      SESSION_DEFAULT_ORDER,
+    );
     matched.sort(
       compareByOrder(order, ([id, data], field) =>
         field === "id" ? id : data[field as keyof ISerializedSession],

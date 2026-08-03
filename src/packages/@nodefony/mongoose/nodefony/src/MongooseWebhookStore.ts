@@ -1,6 +1,6 @@
 import type { IRepository } from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
-import { assertPageQuery, escapeRegExp, pickOrder } from "nodefony";
+import { assertPageQuery, escapeRegExp } from "nodefony";
 // Contrat en `import type` (effacé à la compilation) ; le VOCABULAIRE DE TRI,
 // lui, est une valeur — et il s'importe au lieu de se recopier : deux listes de
 // champs triables divergent en silence. Le module tire déjà `@nodefony/security`
@@ -8,8 +8,8 @@ import { assertPageQuery, escapeRegExp, pickOrder } from "nodefony";
 import {
   WEBHOOK_DEFAULT_ORDER,
   WEBHOOK_SORTABLE_FIELDS,
-  translateWebhookOrderMongo,
 } from "@nodefony/security";
+import { mongoOrder, toMongoSort } from "./mongoOrder";
 import type {
   IWebhookEndpoint,
   IWebhookListQuery,
@@ -211,16 +211,16 @@ export class MongooseWebhookStore implements IWebhookStore {
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
     const model = this.#nativeModel();
     const filter = this.#listFilter(query);
-    // `pickOrder` borne à ce que ce store DÉCLARE avant de traduire : un champ
-    // non annoncé ne doit pas trier ici alors que les backends SQL le refusent.
-    const order = translateWebhookOrderMongo(
-      pickOrder(query.order, this.sortableFields, WEBHOOK_DEFAULT_ORDER),
+    // Borné à ce que ce store DÉCLARE, PUIS traduit dans le schéma Mongo — les
+    // deux gestes, dans cet ordre, sont portés par `mongoOrder`.
+    const order = mongoOrder(
+      query.order,
+      this.sortableFields,
+      WEBHOOK_DEFAULT_ORDER,
     );
-    const sort: Record<string, 1 | -1> = {};
-    for (const [field, dir] of order) sort[field] = dir === "DESC" ? -1 : 1;
     const docs = await model
       .find(filter)
-      .sort(sort)
+      .sort(toMongoSort(order))
       .skip(offset)
       .limit(limit + 1)
       .exec();

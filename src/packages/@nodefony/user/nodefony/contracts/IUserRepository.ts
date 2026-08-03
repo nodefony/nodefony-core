@@ -1,5 +1,5 @@
 import type { IRepository } from "@nodefony/orm-core";
-import type { IPage, IPageQuery } from "nodefony";
+import type { IPage, IPageQuery, ISortableSource } from "nodefony";
 import type { IPasswordAuthenticatedUser } from "./IUser";
 
 /**
@@ -39,7 +39,11 @@ export interface IUserListQuery extends IPageQuery {
  * (framework/authz reçoivent `IUser` via `IUserProvider`), pas la couche de
  * stockage qui, par nature, manipule le hash.
  */
-export interface IUserRepository extends IRepository<IPasswordAuthenticatedUser> {
+export interface IUserRepository
+  extends IRepository<IPasswordAuthenticatedUser>, ISortableSource {
+  // `sortableFields` vient d'`ISortableSource` (core) : la FORME de la capacité
+  // s'écrit une fois pour toutes les ressources. Ici, seul le vocabulaire est
+  // propre aux utilisateurs — `USER_SORTABLE_FIELDS` (`../src/userSort`).
   /**
    * Retrouve un utilisateur par son identifiant fonctionnel (email, login...).
    *
@@ -76,18 +80,6 @@ export interface IUserRepository extends IRepository<IPasswordAuthenticatedUser>
    *   `withTotal` n'est pas `false`.
    */
   listPage(query: IUserListQuery): Promise<IPage<IPasswordAuthenticatedUser>>;
-
-  /**
-   * Champs sur lesquels ce repository sait honorer {@link IPageQuery.order}, en
-   * vocabulaire public.
-   *
-   * Les trois implémentations livrées trient (`USER_SORTABLE_FIELDS`) ; la
-   * propriété reste **optionnelle** pour qu'un adapter tiers puisse annoncer
-   * qu'il ne trie pas — le data plane refuse alors tout `order` (400) au lieu de
-   * rendre une page dans un ordre arbitraire en laissant croire qu'elle est
-   * triée.
-   */
-  readonly sortableFields?: readonly string[];
 
   /**
    * Compte les administrateurs **actifs** (`isActive()` **et** porteurs de

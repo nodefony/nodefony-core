@@ -153,7 +153,7 @@ export class UserService
    *
    * @returns les champs triables, liste vide si le repository ne trie pas.
    */
-  sortableUserFields(): readonly string[] {
+  sortableFields(): readonly string[] {
     return this.repository.sortableFields ?? [];
   }
 
