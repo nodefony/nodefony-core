@@ -75,7 +75,7 @@
     "cli-table3": "0.6.5",
     "commander": "15.0.0",
     "eta": "4.6.0",
-    "figlet": "1.11.3",
+    "figlet": "1.11.4",
     "mime-types": "3.0.2",
     "reflect-metadata": "0.2.2",
     "semver": "7.8.5",
