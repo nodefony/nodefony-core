@@ -358,7 +358,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
         }
         const branches = value
           .map((branch) => this.#where(branch as Criteria<T>))
-          .filter((sql): sql is SQL => sql !== undefined);
+          .filter((branch): branch is SQL => branch !== undefined);
         if (branches.length > 0) {
           conds.push(
             branches.length === 1 ? branches[0] : (or(...branches) as SQL),

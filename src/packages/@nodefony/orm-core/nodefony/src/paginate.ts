@@ -74,7 +74,9 @@ export async function paginate<T>(
           `or build the criteria in the caller.`,
       );
     }
-    criteria = { ...(criteria ?? {}), ...recherche } as PageQuery<T>["criteria"];
+    // `...criteria` sans repli : étaler `undefined` n'ajoute rien (la garde de
+    // l'`$or` ci-dessus a déjà tranché le cas où il porte quelque chose).
+    criteria = { ...criteria, ...recherche } as PageQuery<T>["criteria"];
   } else if (page.q?.trim()) {
     // Déclarer la capacité est le seul moyen de la rendre vraie : sans champ
     // cherchable, ce helper ne PEUT pas honorer `q`, et rendre la collection
