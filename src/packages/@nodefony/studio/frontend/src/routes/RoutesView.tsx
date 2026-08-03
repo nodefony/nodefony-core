@@ -8,6 +8,7 @@ import {
   PageLayout,
   DataGrid,
   toPageParams,
+  withoutColumnFilters,
   fromPage,
   type DataGridColumn,
   type DataGridServerQuery,
@@ -69,8 +70,19 @@ export const RoutesView = observer(() => {
 
   const loader = useCallback(
     async (q: DataGridServerQuery): Promise<DataGridServerResult<RouteRow>> => {
+      // Les routes ne sont pas une ressource persistée : elles vivent en mémoire
+      // dans le Router, et `routes/page` les filtre avec son propre langage
+      // d'opérateurs (`contains`, `in`, `startsWith` — cf `matchOp` côté back).
+      // Ce langage n'est PAS le contrat de filtre du framework (`nom=valeur`,
+      // sans opérateur) : il reste donc sérialisé ICI, dans la seule vue qui le
+      // parle, au lieu d'être émis d'office vers des data planes qui le
+      // refuseraient.
+      const params = toPageParams(withoutColumnFilters(q));
+      if (q.columnFilters.length) {
+        params.set("filters", JSON.stringify(q.columnFilters));
+      }
       const page = await store.api.getAbsolute<IPage<RouteRow>>(
-        `/nodefony/framework/api/routes/page?${toPageParams(q)}`,
+        `/nodefony/framework/api/routes/page?${params}`,
       );
       return fromPage(page);
     },

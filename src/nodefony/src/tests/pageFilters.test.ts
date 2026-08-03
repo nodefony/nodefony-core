@@ -47,8 +47,8 @@ describe("parseFilters — natures", () => {
     expect(Object.hasOwn(out, "actor")).to.equal(false);
   });
 
-  it("plusieurs valeurs pour une clé → la première (query string répétée)", () => {
-    expect(parseFilters({ actor: ["a", "b"] }, SPEC).actor).to.equal("a");
+  it("tableau d'UNE valeur → lu normalement (le transport, pas l'intention)", () => {
+    expect(parseFilters({ actor: ["a"] }, SPEC).actor).to.equal("a");
   });
 });
 
@@ -59,6 +59,17 @@ describe("parseFilters — REFUSE au lieu d'accepter puis jeter", () => {
     expect(() => parseFilters({ revoked: "oui" }, SPEC)).to.throw(
       PageQueryError,
       /expected true or false/,
+    );
+  });
+
+  it("clé répétée → 400 : une page filtrée sur `a` ne répond pas à « a ou b »", () => {
+    // Le polymorphisme du transport (`string | string[]`) autorise la répétition ;
+    // aucune nature de filtre n'exprime l'appartenance à un ensemble. Prendre la
+    // première valeur rendait donc une page que le client lit comme le résultat
+    // de SES deux valeurs.
+    expect(() => parseFilters({ actor: ["a", "b"] }, SPEC)).to.throw(
+      PageQueryError,
+      /2 values/,
     );
   });
 

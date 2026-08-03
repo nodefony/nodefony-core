@@ -1,4 +1,4 @@
-import { PageQueryError, PAGE_QUERY_KEYS } from "./pageQuery";
+import { PageQueryError, PAGE_QUERY_KEYS, singleValue } from "./pageQuery";
 import type { PageQuerySource } from "./pageQuery";
 
 /**
@@ -57,13 +57,6 @@ export type FilterValue<D extends FilterDef> = D extends "string"
  */
 export type FilterValues<S extends IFilterSpec> = {
   -readonly [K in keyof S]?: FilterValue<S[K]>;
-};
-
-/** Première valeur d'une clé (une query string peut en porter plusieurs). */
-const one = (source: PageQuerySource, key: string): string | undefined => {
-  const value = source[key];
-  if (value === undefined) return undefined;
-  return Array.isArray(value) ? value[0] : value;
 };
 
 /**
@@ -129,7 +122,7 @@ export function parseFilters<const S extends IFilterSpec>(
   }
 
   for (const [name, def] of Object.entries(spec)) {
-    const raw = one(source, name);
+    const raw = singleValue(source, name);
     if (raw === undefined || raw === "") continue;
 
     if (Array.isArray(def)) {

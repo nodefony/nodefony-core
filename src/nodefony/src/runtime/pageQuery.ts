@@ -82,12 +82,41 @@ export const PAGE_QUERY_KEYS: ReadonlySet<string> = new Set([
   "tenantId",
 ]);
 
-/** Première valeur d'une clé (une query string peut en porter plusieurs). */
-const one = (source: PageQuerySource, key: string): string | undefined => {
+/**
+ * **La** lecture d'une valeur unique dans une source de page — partagée par
+ * {@link parsePageQuery} et `parseFilters`.
+ *
+ * Une {@link PageQuerySource} peut porter plusieurs valeurs par clé (query
+ * string répétée, tableau JSON d'un corps `QUERY`) : c'est le polymorphisme du
+ * transport. Aucun des deux lecteurs ne sait quoi faire d'une seconde valeur —
+ * ni le contrat de page, ni une spec de filtre n'expriment l'appartenance à un
+ * ensemble. Prendre la première et **jeter les autres en silence** rendait une
+ * page filtrée sur `a` à qui avait demandé `a` **et** `b`, sans rien dire : la
+ * faute exacte que ce contrat bannit partout ailleurs.
+ *
+ * D'où le refus. Le jour où un point d'entrée doit accepter plusieurs valeurs,
+ * ce sera une nature de filtre déclarée (`["in", …]`), pas une tolérance
+ * implicite du lecteur.
+ *
+ * @throws {@link PageQueryError} (`400`) si la clé porte plus d'une valeur.
+ */
+export const singleValue = (
+  source: PageQuerySource,
+  key: string,
+): string | undefined => {
   const value = source[key];
   if (value === undefined) return undefined;
-  return Array.isArray(value) ? value[0] : value;
+  if (!Array.isArray(value)) return value;
+  if (value.length > 1) {
+    throw new PageQueryError(
+      `Parameter "${key}" was given ${value.length} values; this endpoint reads a single value per parameter.`,
+    );
+  }
+  return value[0];
 };
+
+/** Alias interne — la lecture unique, sous le nom court du fichier. */
+const one = singleValue;
 
 /** Entier décimal strict — `undefined` si absent, vide ou non numérique. */
 const int = (source: PageQuerySource, key: string): number | undefined => {

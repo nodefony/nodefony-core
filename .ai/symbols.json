@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-03T10:32:18.528Z",
+  "generated": "2026-08-03T11:01:16.402Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 675,
-    "symbols": 2719,
+    "symbols": 2720,
     "classes": 342,
     "interfaces": 802,
     "types": 353,
     "enums": 4,
     "functions": 976,
-    "constants": 242
+    "constants": 243
   },
   "symbols": {
     "Cli": {
@@ -2924,6 +2924,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Les clés que le contrat de page revendique sur le fil — **source unique**. Elle existe pour un consommateur : `parseFilters`, qui doit distinguer un paramètre de pagination d'un filtre inconnu, et …"
+    },
+    "singleValue": {
+      "name": "singleValue",
+      "kind": "const",
+      "file": "src/nodefony/src/runtime/pageQuery.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "**La** lecture d'une valeur unique dans une source de page — partagée par {@link parsePageQuery} et `parseFilters`. Une {@link PageQuerySource} peut porter plusieurs valeurs par clé (query string r…"
     },
     "FieldReader": {
       "name": "FieldReader",
@@ -22216,6 +22224,9 @@
         "src/nodefony/src/runtime/pageFilters.ts"
       ],
       "PAGE_QUERY_KEYS": [
+        "src/nodefony/src/runtime/pageFilters.ts"
+      ],
+      "singleValue": [
         "src/nodefony/src/runtime/pageFilters.ts"
       ],
       "PageQuerySource": [

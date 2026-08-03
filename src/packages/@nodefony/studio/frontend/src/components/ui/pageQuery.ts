@@ -1,29 +1,60 @@
 import type { IPage } from "nodefony";
-import type { DataGridServerQuery, DataGridServerResult } from "./DataGrid";
+import type {
+  DataGridColumnFilter,
+  DataGridServerQuery,
+  DataGridServerResult,
+} from "./DataGrid";
+
+/**
+ * Le seul opérateur de filtre qu'un paramètre nommé porte sans mentir.
+ *
+ * Le contrat de filtre du framework (`parseFilters`, cœur) est `nom=valeur` : il
+ * n'a pas de grammaire d'opérateurs, et c'est délibéré — `contains`, `in`,
+ * `startsWith` forment un langage de requête, qui appartient au store (seul à
+ * savoir ce qu'il indexe), pas au fil. `?enabled=false` dit exactement ce qu'il
+ * demande ; `?enabled=<contains>false` ne veut rien dire pour qui le lit.
+ */
+const TRANSPORTABLE_OP = "equals";
+
+/** Tableau vide partagé — aucune allocation par requête de page. */
+const EMPTY_FILTERS: DataGridColumnFilter[] = [];
 
 /**
  * Traduit la requête d'un `<DataGrid mode="server">` en paramètres du contrat de
- * page `IPageQuery` — **le seul endroit du front qui écrit une query string de
- * pagination**.
+ * page — **le seul endroit du front qui écrit une query string de pagination**.
  *
  * Le grid raisonne en pages (`page`, `pageSize`) et en tri d'une colonne
  * (`sort`), le serveur en fenêtre (`limit`, `offset`) et en couples de tri
  * (`order`). Cette fonction est cette conversion, et rien d'autre : chaque
  * loader qui la refaisait à la main a produit un dialecte de plus.
  *
- * | Grid                    | Fil                       |
- * | ----------------------- | ------------------------- |
- * | `page` + `pageSize`     | `limit` + `offset`        |
- * | `sort: {key, dir}`      | `order=key:ASC`           |
- * | `search`                | `q`                       |
- * | `columnFilters`         | `filters` (JSON)          |
+ * | Grid                            | Fil                  | Lu par         |
+ * | ------------------------------- | -------------------- | -------------- |
+ * | `page` + `pageSize`             | `limit` + `offset`   | `parsePageQuery` |
+ * | `sort: {key, dir}`              | `order=key:ASC`      | `parsePageQuery` |
+ * | `search`                        | `q`                  | `parsePageQuery` |
+ * | `columnFilters` (`equals` seul) | `key=value`          | `parseFilters` |
  *
- * `filters` est une **extension du UI kit**, hors contrat core : les filtres par
- * colonne sont produits ici, donc leur sérialisation appartient ici. Un back qui
- * ne les implémente pas les ignore — ils ne sont émis que s'il y en a.
+ * **La clé de colonne EST le nom public du filtre.** `key: "enabled"` produit
+ * `?enabled=…`, que le back valide contre le vocabulaire déclaré de la ressource
+ * (`WEBHOOK_FILTERS`, `USER_FILTERS`…). Les deux noms doivent coïncider : s'ils
+ * divergent, le back répond `400` en nommant les filtres qu'il connaît — un
+ * écart se voit, il ne se devine pas.
+ *
+ * **Tout autre opérateur est REFUSÉ, jamais transporté approximativement.** Une
+ * colonne `filterable` en mode serveur avec `contains` produirait soit un
+ * paramètre que le back ne comprend pas, soit — pire — un `?path=/api` lu comme
+ * une égalité, donc une page vide présentée comme le résultat d'une recherche.
+ * L'erreur remonte dans le bandeau du grid, au premier filtre posé.
+ *
+ * Un data plane qui parle vraiment un langage d'opérateurs (le cas de
+ * `framework/api/routes/page`, qui implémente son propre `matchOp`) sérialise
+ * ses filtres **dans son loader** : ce dialecte lui appartient et doit se voir
+ * là où il est parlé, pas être émis par défaut pour tout le monde.
  *
  * @param q - la requête émise par le DataGrid.
  * @returns les paramètres prêts à concaténer (`?${params}`).
+ * @throws si un filtre de colonne porte un opérateur non transportable.
  *
  * @example
  * ```ts
@@ -45,10 +76,45 @@ export function toPageParams(q: DataGridServerQuery): URLSearchParams {
     params.set("order", `${q.sort.key}:${q.sort.dir.toUpperCase()}`);
   }
   if (q.search) params.set("q", q.search);
-  if (q.columnFilters.length) {
-    params.set("filters", JSON.stringify(q.columnFilters));
+  for (const f of q.columnFilters) {
+    if (f.op !== TRANSPORTABLE_OP) {
+      throw new Error(
+        `Colonne « ${f.key} » : l'opérateur « ${f.op} » ne se transporte pas ` +
+          `dans le contrat de page (qui ne connaît que l'égalité). Déclarez la ` +
+          `colonne en filterType "select" avec les valeurs du vocabulaire du ` +
+          `back, ou sérialisez ce filtre dans le loader de la vue.`,
+      );
+    }
+    params.set(f.key, f.value);
   }
   return params;
+}
+
+/**
+ * La requête de page **sans ses filtres de colonne** — pour une vue dont le back
+ * parle son propre langage de filtre et les sérialise lui-même.
+ *
+ * Elle existe pour rendre ce cas VISIBLE. Émettre les filtres d'office (ce que
+ * faisait un sac `filters` JSON posé par {@link toPageParams}) revenait à
+ * envoyer à tous les data planes un dialecte qu'un seul comprenait ; le jour où
+ * l'un d'eux valide ses paramètres, il refuse un sac qu'il n'a jamais demandé.
+ *
+ * @param q - la requête émise par le DataGrid.
+ * @returns la même requête, avec `columnFilters` vidé.
+ *
+ * @example
+ * ```ts
+ * // routes/page implémente son propre `matchOp` : le dialecte reste ici.
+ * const params = toPageParams(withoutColumnFilters(q));
+ * if (q.columnFilters.length) {
+ *   params.set("filters", JSON.stringify(q.columnFilters));
+ * }
+ * ```
+ */
+export function withoutColumnFilters(
+  q: DataGridServerQuery,
+): DataGridServerQuery {
+  return { ...q, columnFilters: EMPTY_FILTERS };
 }
 
 /**

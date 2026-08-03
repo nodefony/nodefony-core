@@ -115,7 +115,16 @@ export function createFrameworkAdminApi(
         return "";
     }
   };
-  /** Applique un opérateur de filtre (miroir serveur du DataGrid). */
+  /**
+   * Applique un opérateur de filtre (miroir serveur du DataGrid).
+   *
+   * ⚠️ **Ce langage d'opérateurs appartient à CET endpoint, pas au framework.**
+   * Le contrat de filtre (`parseFilters`, cœur) est `nom=valeur` sans opérateur ;
+   * `routes/page` peut se permettre davantage parce que sa collection est en
+   * mémoire (le dump du Router) et qu'aucun store n'a à l'indexer. Un data plane
+   * adossé à une ressource persistée déclare un `IFilterSpec` et laisse le cœur
+   * valider — il ne recopie pas ce `matchOp`.
+   */
   const matchOp = (raw: string, op: string, value: string): boolean => {
     const s = String(raw ?? "");
     const v = String(value ?? "");
@@ -164,7 +173,8 @@ export function createFrameworkAdminApi(
       path: "routes/page",
       summary:
         "Routes paginées côté SERVEUR — contrat IPageQuery : ?limit&offset&order=champ:ASC&q, " +
-        "plus filters(JSON) propre au DataGrid. Rend un IPage.",
+        "plus filters(JSON) — langage d'opérateurs PROPRE à cet endpoint (collection en " +
+        "mémoire), sérialisé par la vue Routes seule. Rend un IPage.",
       handler: (request): IPage<RouteDump> => {
         const query = parsePageQuery(request.query, {
           defaultLimit: 25,

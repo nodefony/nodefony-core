@@ -42,8 +42,17 @@ describe("parsePageQuery — bornes de limit", () => {
     );
   });
 
-  it("première valeur retenue quand la clé est répétée", () => {
-    expect(parsePageQuery({ limit: ["10", "99"] }).limit).to.equal(10);
+  it("clé répétée → 400, jamais la première valeur en silence", () => {
+    // `?limit=10&limit=99` : le client a demandé deux fenêtres. En rendre une
+    // sans le dire, c'est répondre à une question qui n'a pas été posée.
+    expect(() => parsePageQuery({ limit: ["10", "99"] })).to.throw(
+      PageQueryError,
+      /2 values/,
+    );
+  });
+
+  it("tableau d'UNE valeur → lu normalement (le transport, pas l'intention)", () => {
+    expect(parsePageQuery({ limit: ["10"] }).limit).to.equal(10);
   });
 });
 
