@@ -784,14 +784,26 @@ privilégie un adapter déjà posé au container, puis résout `auto` d'après l
 registre en RAM. Ce contrat est vérifié par un **banc unique** rejoué sur tous les backends
 (`webhookPaginationContract.ts`) : mêmes 12 endpoints de seed, mêmes assertions.
 
-- Ordre contractuel : `createdAt` DESC, départagé par `id` ASC — sans ce tiebreaker, deux endpoints
+- Ordre par défaut : `createdAt` DESC, départagé par `id` ASC — sans ce tiebreaker, deux endpoints
   créés dans la même milliseconde pourraient changer de page et l'un ne jamais apparaître.
+- Tri demandable, mais **sur un vocabulaire déclaré** : `createdAt`, `updatedAt`, `url`, `enabled`,
+  `failureCount`, `id` (`WEBHOOK_SORTABLE_FIELDS`, `webhookSort.ts:32`). Un champ hors liste est
+  refusé, pas ignoré — et le store publie ce qu'il sait trier (`ISortableSource.sortableFields`,
+  `IWebhookStore.ts:50`), plutôt que de laisser le front le deviner. Les colonnes **nullables** en
+  sont volontairement absentes : PostgreSQL range les `NULL` en tête d'un `DESC` là où
+  SQLite/MySQL/mémoire les rangent en queue — un tri dont l'ordre dépend de la base configurée ne
+  vaut pas mieux qu'un tri absent.
 - Filtres appliqués **au store**, jamais après un chargement complet : `enabled`, `event`
-  (appartenance au tableau JSON — « qui écoute `user.created` ? »), `q` (sous-chaîne insensible à la
-  casse sur `url` **ou** `description`).
+  (appartenance au tableau JSON — « qui écoute `user.created` ? »), `failing` (au moins un échec
+  consécutif courant — « qu'est-ce qui casse ? », `IWebhookStore.ts:35`), `q` (sous-chaîne
+  insensible à la casse sur `url` **ou** `description`).
 - Mode unique **offset** : tous les backends d'endpoints savent le faire, aucune capacité n'est donc
   à déclarer (`MemoryWebhookStore.listPage()`, `MemoryWebhookStore.ts:69` ;
   `DrizzleWebhookStore.ts:159` ; `MongooseWebhookStore.ts:188`).
+- **Les compteurs suivent la recherche.** `GET webhooks/stats` déclare `search`
+  (`WebhookAdminApi.ts:307`) et descend le même `q` jusqu'au store : un terme sans correspondance
+  vide les cartes autant que le tableau. Sans cela, la console afficherait « 12 endpoints » au-dessus
+  d'une liste filtrée à 2 — un chiffre qui ne répond plus à la question posée à l'écran.
 
 `IWebhookStore.listAll()` (`IWebhookStore.ts:57`) existe toujours, mais il est **réservé au snapshot
 du dispatcher** : celui-ci doit connaître tous les abonnements pour ne rater aucune livraison. C'est
