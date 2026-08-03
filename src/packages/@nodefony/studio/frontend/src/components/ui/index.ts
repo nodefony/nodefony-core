@@ -125,5 +125,12 @@ export {
   toPageParams,
   withoutColumnFilters,
   fromPage,
+  pickFilters,
   fmtFacet,
 } from "./pageQuery";
+export {
+  PageFilters,
+  type PageFiltersProps,
+  type PageFilterLabel,
+  type PageFilterLabels,
+} from "./PageFilters";

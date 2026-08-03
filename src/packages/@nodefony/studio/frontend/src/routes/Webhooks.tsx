@@ -35,7 +35,13 @@ import {
 
 import { useStore, useNotifications } from "../stores";
 import { useResource } from "../hooks";
-import { PageLayout, StatCard, DataState, fmtFacet } from "../components/ui";
+import {
+  PageLayout,
+  StatCard,
+  DataState,
+  fmtFacet,
+  pickFilters,
+} from "../components/ui";
 import { BrickStoreChip } from "./stores/BrickStoreChip";
 import {
   WEBHOOKS_ENDPOINT,
@@ -43,7 +49,6 @@ import {
   webhookEndpoint,
   webhookRotateEndpoint,
   webhookRevealEndpoint,
-  countWebhooks,
   describeWebhooksError,
   type WebhookCounts,
   type WebhookEndpoint,
@@ -81,34 +86,62 @@ export const Webhooks = observer(() => {
   /** Id de l'endpoint en cours de mutation rapide (spinner kebab). */
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const fetcher = useCallback(async (): Promise<WebhookListResponse> => {
+  // Filtres du registre — ici, parce que les cartes de tête les suivent.
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  // Compteur de version : recharge la page affichée après une mutation.
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // La liste est demandée page par page par la table. Cet appel-ci ne sert plus
+  // qu'aux MÉTADONNÉES que la même réponse porte (`enabled`, `store`, `driver`
+  // — « les webhooks sont-ils armés, et où écrit-on ? »), d'où la fenêtre d'une
+  // ligne : on ne rapatrie pas un registre entier pour lire trois champs.
+  const metaFetcher = useCallback(async (): Promise<WebhookListResponse> => {
     try {
       return await store.api.getAbsolute<WebhookListResponse>(
-        WEBHOOKS_ENDPOINT,
+        `${WEBHOOKS_ENDPOINT}?limit=1`,
       );
     } catch (e) {
       throw new Error(describeWebhooksError(e), { cause: e });
     }
   }, [store]);
-  const { data, loading, error, reload } = useResource(fetcher);
+  const { data, loading, error, reload: reloadMeta } = useResource(metaFetcher);
+  const reload = useCallback(() => {
+    reloadMeta();
+    setReloadKey((n) => n + 1);
+  }, [reloadMeta]);
 
-  const endpoints = useMemo(() => data?.endpoints ?? [], [data]);
   const configEnabled = data?.enabled ?? false;
 
   // Compteurs de tête : posés par le SERVEUR sur le registre entier. Les
   // calculer ici décrirait les endpoints chargés en ayant l'air de décrire le
   // registre — et `failing` recoupe `active` comme `disabled`, donc aucune
   // soustraction ne les rend.
-  const statsFetcher = useCallback(
-    (): Promise<WebhookCounts> =>
-      store.api.getAbsolute<WebhookCounts>(WEBHOOKS_STATS_ENDPOINT),
-    [store],
-  );
+  //
+  // Ils suivent les filtres, mais seulement ceux que l'endpoint de comptage
+  // DÉCLARE accepter : il refuse `enabled` et `failing`, les dimensions qu'il
+  // décompose — les lui envoyer lui ferait écraser sa propre ventilation.
+  const statsCaps = store.admin.pageCapabilities(WEBHOOKS_STATS_ENDPOINT);
+  const statsFilters = pickFilters(filters, statsCaps?.filters);
+  const statsSignal = JSON.stringify(statsFilters);
+  const statsFetcher = useCallback((): Promise<WebhookCounts> => {
+    const qs = new URLSearchParams(statsFilters).toString();
+    return store.api.getAbsolute<WebhookCounts>(
+      qs ? `${WEBHOOKS_STATS_ENDPOINT}?${qs}` : WEBHOOKS_STATS_ENDPOINT,
+    );
+    // `statsSignal` est la dépendance réelle (l'objet est recréé à chaque rendu).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store, statsSignal]);
   const { data: serverCounts, reload: reloadCounts } =
     useResource(statsFetcher);
   const counts = useMemo<WebhookCounts>(
-    () => serverCounts ?? countWebhooks(endpoints),
-    [serverCounts, endpoints],
+    () =>
+      serverCounts ?? {
+        total: null,
+        active: null,
+        disabled: null,
+        failing: null,
+      },
+    [serverCounts],
   );
 
   // ── Mutations rapides (kebab / détail) ──────────────────────────────────────
@@ -335,11 +368,16 @@ export const Webhooks = observer(() => {
         </Tabs.List>
 
         <Tabs.Panel value="endpoints" pt="md">
+          {/* L'état de chargement ne couvre QUE les métadonnées : la liste et
+              ses erreurs appartiennent au grid, qui recharge à chaque page,
+              tri ou filtre. */}
           <DataState loading={loading && !data} error={error} onRetry={reload}>
             <WebhooksTable
-              endpoints={endpoints}
               store={data?.store ?? "none"}
               driver={data?.driver ?? null}
+              filters={filters}
+              onFiltersChange={setFilters}
+              reloadKey={reloadKey}
               actions={actions}
               busyId={busyId}
             />

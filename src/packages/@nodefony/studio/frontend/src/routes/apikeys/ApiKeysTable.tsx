@@ -1,10 +1,20 @@
 /**
- * Table des clés API (DataGrid réutilisable + fiche détail Modal centré). Servie
- * dans les DEUX modes : « mes clés » (utilisateur) et Administration (colonne
- * Porteur via `showSubject`). La révocation est déléguée au parent (`onRevoke`)
- * qui connaît le mode → choisit le bon endpoint (DELETE self vs POST admin).
+ * Table des clés API (DataGrid + fiche détail Modal centré). Servie dans les
+ * DEUX portées, avec **deux régimes de pagination**, et c'est délibéré :
+ *
+ *  - **Administration** — le data plane admin (`apikeys`) pagine, trie et filtre
+ *    côté serveur, et publie ce qu'il sait faire. La table le lui DEMANDE.
+ *  - **Mes clés** — l'endpoint self-service (`keys`, controller framework) rend
+ *    l'intégralité du périmètre de l'appelant en un appel : ses propres clés,
+ *    une poignée. Le grid les trie en mémoire, et personne ne ment — il n'y a
+ *    pas de reste à aller chercher. Le basculer coûterait une pagination scopée
+ *    au sujet dans un controller hors broker, pour zéro gain de vérité.
+ *
+ * La révocation est déléguée au parent (`onRevoke`) qui connaît la portée →
+ * choisit le bon endpoint (DELETE self vs POST admin).
  */
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { observer } from "mobx-react-lite";
 import {
   Stack,
   Group,
@@ -16,17 +26,52 @@ import {
   Button,
 } from "@mantine/core";
 import { IconKey, IconBan, IconInfoCircle } from "@tabler/icons-react";
+import type { IPage } from "nodefony";
 
-import { DataGrid, DocHint, type DataGridColumn } from "../../components/ui";
+import {
+  DataGrid,
+  DocHint,
+  PageFilters,
+  toPageParams,
+  fromPage,
+  type DataGridColumn,
+  type DataGridServerQuery,
+  type DataGridServerResult,
+  type PageFilterLabels,
+} from "../../components/ui";
+import { useStore } from "../../stores";
 import {
   API_KEYS_DOC,
+  ADMIN_KEYS_ENDPOINT,
   fmtDate,
   fmtExpiry,
   fmtLastUsed,
   keyStatus,
+  describeApiKeysError,
   type ApiKey,
 } from "./apiKeysModel";
 import { KeyStatusBadge, ScopeChips, SubjectChip } from "./apiKeysFormat";
+
+/**
+ * Habillage des filtres publiés par `GET apikeys` (`TOKEN_FILTERS`).
+ *
+ * `status` a remplacé l'ancien `revoked` : « active » et « expirée » n'étaient
+ * pas distinguables, alors que la première ouvre l'accès et la seconde ne
+ * l'ouvre plus. La console affichait ces deux populations dans des cartes
+ * séparées sans pouvoir les demander au serveur.
+ */
+const KEY_FILTER_LABELS: PageFilterLabels = {
+  subjectId: {
+    label: "Porteur",
+    hint: "Identifiant EXACT du porteur (colonne indexée) — pas une recherche.",
+    placeholder: "identifiant exact",
+  },
+  status: {
+    label: "État",
+    hint: "Active = utilisable. Expirée = au-delà de son échéance. Révoquée = désactivée à la main. Les trois partitionnent : une clé est dans exactement une case.",
+    values: { active: "Actives", expired: "Expirées", revoked: "Révoquées" },
+  },
+};
 
 /** Une ligne label → valeur (la valeur peut être un nœud riche : badge…). */
 function Field({ k, children }: { k: string; children: React.ReactNode }) {
@@ -40,16 +85,28 @@ function Field({ k, children }: { k: string; children: React.ReactNode }) {
   );
 }
 
-export function ApiKeysTable({
+export const ApiKeysTable = observer(function ApiKeysTable({
   keys,
   showSubject,
+  filters,
+  onFiltersChange,
+  reloadKey = 0,
   onRevoke,
   onBulkRevoke,
   revokingId,
 }: {
+  /**
+   * Les clés de la portée « Mes clés » — chargées d'un bloc par le parent.
+   * Ignoré en portée Administration, où la table les demande page par page.
+   */
   keys: ApiKey[];
-  /** Mode Administration : affiche la colonne Porteur. */
+  /** Portée Administration : pagination serveur + colonne Porteur. */
   showSubject: boolean;
+  /** Filtres actifs (Administration) — tenus par la page, ses cartes les suivent. */
+  filters: Record<string, string>;
+  onFiltersChange: (next: Record<string, string>) => void;
+  /** Change de valeur pour recharger la page affichée après une révocation. */
+  reloadKey?: number;
   /** Demande la révocation d'une clé (le parent confirme + appelle le bon endpoint). */
   onRevoke: (key: ApiKey) => void;
   /**
@@ -61,14 +118,51 @@ export function ApiKeysTable({
   /** Id de la clé en cours de révocation (spinner sur le bouton). */
   revokingId: string | null;
 }) {
+  const store = useStore();
   const [selected, setSelected] = useState<ApiKey | null>(null);
+  // Les capacités ne sont lues qu'en portée Administration : l'endpoint
+  // self-service n'est pas au catalogue admin (c'est un controller framework),
+  // et il n'a rien à publier — il rend tout, sans fenêtre.
+  const caps = showSubject
+    ? store.admin.pageCapabilities(ADMIN_KEYS_ENDPOINT)
+    : null;
+  const filterSignal = JSON.stringify(filters);
+
+  const loader = useCallback(
+    async (q: DataGridServerQuery): Promise<DataGridServerResult<ApiKey>> => {
+      const params = toPageParams(q, filters);
+      try {
+        // Le data plane rend `keys` (rétro-compat) là où le contrat de page dit
+        // `items` : on recompose la page avant de la traduire, plutôt que
+        // d'apprendre au traducteur un nom propre à une ressource.
+        const res = await store.api.getAbsolute<
+          Omit<IPage<ApiKey>, "items"> & { keys: ApiKey[] }
+        >(`${ADMIN_KEYS_ENDPOINT}?${params}`);
+        return fromPage({ ...res, items: res.keys ?? [] });
+      } catch (e) {
+        throw new Error(describeApiKeysError(e), { cause: e });
+      }
+      // `reloadKey` change l'identité du loader → le grid recharge sa page.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [store, filterSignal, reloadKey],
+  );
+
+  const sortable = useMemo(
+    () => new Set(caps?.sortable ?? []),
+    [caps?.sortable],
+  );
+  // En portée « Mes clés », le tri est fait EN MÉMOIRE sur la réponse entière :
+  // toutes les colonnes scalaires sont donc triables, sans rien demander à
+  // personne. C'est la seule différence de comportement entre les deux régimes.
+  const canSort = (field: string) => !showSubject || sortable.has(field);
 
   const columns = useMemo<DataGridColumn<ApiKey>[]>(() => {
     const cols: DataGridColumn<ApiKey>[] = [
       {
         key: "name",
         header: "Nom",
-        sortable: true,
+        sortable: canSort("name"),
         value: (r) => r.name,
         render: (r) => (
           <Text fw={600} size="sm">
@@ -94,9 +188,12 @@ export function ApiKeysTable({
     ];
     if (showSubject) {
       cols.push({
-        key: "subject",
+        // La clé de colonne EST le nom du champ trié : `subject` ne voulait rien
+        // dire pour le serveur, qui publie `subjectId`. L'en-tête était
+        // cliquable et le tri partait sur un champ inexistant.
+        key: "subjectId",
         header: "Porteur",
-        sortable: true,
+        sortable: canSort("subjectId"),
         value: (r) => r.subjectId,
         render: (r) => (
           <SubjectChip subjectId={r.subjectId} subjectType={r.subjectType} />
@@ -115,7 +212,10 @@ export function ApiKeysTable({
       {
         key: "status",
         header: "Statut",
-        filterable: true,
+        // En portée Administration, l'état se filtre par la barre au-dessus
+        // (vocabulaire publié). En « Mes clés », le filtre de colonne reste
+        // local, sur une liste déjà entièrement chargée.
+        filterable: !showSubject,
         filterType: "select",
         value: (r) => keyStatus(r),
         render: (r) => <KeyStatusBadge status={keyStatus(r)} />,
@@ -124,7 +224,7 @@ export function ApiKeysTable({
       {
         key: "lastUsedAt",
         header: "Dernière utilisation",
-        sortable: true,
+        sortable: canSort("lastUsedAt"),
         value: (r) => r.lastUsedAt ?? 0,
         render: (r) => (
           <Text size="sm" c={r.lastUsedAt === null ? "dimmed" : undefined}>
@@ -136,7 +236,7 @@ export function ApiKeysTable({
       {
         key: "expiresAt",
         header: "Expiration",
-        sortable: true,
+        sortable: canSort("expiresAt"),
         value: (r) => r.expiresAt ?? Number.MAX_SAFE_INTEGER,
         render: (r) => (
           <Text size="sm" c={r.expiresAt === null ? "dimmed" : undefined}>
@@ -147,7 +247,9 @@ export function ApiKeysTable({
       },
     );
     return cols;
-  }, [showSubject]);
+    // `canSort` dérive de `showSubject` + `sortable` : les deux suffisent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSubject, sortable]);
 
   const selectedStatus = selected ? keyStatus(selected) : null;
 
@@ -155,8 +257,9 @@ export function ApiKeysTable({
     <Stack gap="md">
       <Group gap="xs">
         <Text size="sm" c="dimmed">
-          {keys.length} clé(s){showSubject ? ", tous porteurs" : ""}. Clic sur
-          une ligne pour le détail.
+          {showSubject
+            ? "Toutes les clés, tous porteurs. Clic sur une ligne pour le détail."
+            : `${keys.length} clé(s). Clic sur une ligne pour le détail.`}
         </Text>
         <DocHint
           title="Clés API personnelles (PAT)"
@@ -179,35 +282,48 @@ export function ApiKeysTable({
         />
       </Group>
 
-      {keys.length === 0 && (
+      {!showSubject && keys.length === 0 && (
         <Alert
           variant="light"
           color="gray"
           icon={<IconKey size={18} />}
           title="Aucune clé"
         >
-          {showSubject
-            ? "Aucune clé API n'existe dans le système."
-            : "Vous n'avez aucune clé API. Créez-en une avec « Nouvelle clé »."}
+          Vous n'avez aucune clé API. Créez-en une avec « Nouvelle clé ».
         </Alert>
       )}
 
+      {showSubject && (
+        <PageFilters
+          spec={caps?.filters ?? null}
+          value={filters}
+          onChange={onFiltersChange}
+          labels={KEY_FILTER_LABELS}
+        />
+      )}
+
       <DataGrid
-        mode="client"
-        data={keys}
+        {...(showSubject
+          ? ({ mode: "server", loader } as const)
+          : ({ mode: "client", data: keys } as const))}
         columns={columns}
         getRowId={(r) => r.id}
         onRowClick={(r) => setSelected(r)}
         dimRow={(r) => keyStatus(r) !== "active"}
-        initialSort={{ key: "name", dir: "asc" }}
-        searchable
+        initialSort={canSort("name") ? { key: "name", dir: "asc" } : undefined}
+        // Le store de jetons ne relaie `q` à personne : en Administration, la
+        // barre ne cherchait que dans les lignes déjà chargées. Les filtres
+        // « Porteur » et « État » ci-dessus, eux, interrogent le serveur.
+        // En « Mes clés » (liste entière en mémoire), la recherche est honnête.
+        searchable={showSubject ? (caps?.search ?? false) : true}
         searchPlaceholder="Rechercher (nom, préfixe, porteur, scope…)"
+        resetPageSignal={filterSignal}
         pageSize={25}
         persist={{
           key: showSubject ? "studio.apikeys.admin" : "studio.apikeys.mine",
           storage: "session",
         }}
-        emptyMessage="Aucune clé."
+        emptyMessage="Aucune clé ne correspond."
         selectable={onBulkRevoke !== undefined}
         bulkActions={
           onBulkRevoke
@@ -341,4 +457,4 @@ export function ApiKeysTable({
       </Modal>
     </Stack>
   );
-}
+});

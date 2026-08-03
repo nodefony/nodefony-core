@@ -52,7 +52,14 @@ const EMPTY_FILTERS: DataGridColumnFilter[] = [];
  * ses filtres **dans son loader** : ce dialecte lui appartient et doit se voir
  * là où il est parlé, pas être émis par défaut pour tout le monde.
  *
+ * **Les filtres NOMMÉS de la vue** (barre `PageFilters`, alimentée par le
+ * vocabulaire que l'endpoint publie) se passent en second argument plutôt que
+ * de se concaténer après coup : ils partent ainsi par le même chemin que le
+ * reste, et une valeur vide est écartée ici une bonne fois — `?enabled=` n'est
+ * pas « tous », c'est une valeur mal formée que le contrat refuse en `400`.
+ *
  * @param q - la requête émise par le DataGrid.
+ * @param filters - filtres nommés de la vue (nom public → valeur), facultatif.
  * @returns les paramètres prêts à concaténer (`?${params}`).
  * @throws si un filtre de colonne porte un opérateur non transportable.
  *
@@ -68,7 +75,10 @@ const EMPTY_FILTERS: DataGridColumnFilter[] = [];
  * }, [store, role]);
  * ```
  */
-export function toPageParams(q: DataGridServerQuery): URLSearchParams {
+export function toPageParams(
+  q: DataGridServerQuery,
+  filters?: Readonly<Record<string, string>>,
+): URLSearchParams {
   const params = new URLSearchParams();
   params.set("limit", String(q.pageSize));
   params.set("offset", String((q.page - 1) * q.pageSize));
@@ -86,6 +96,11 @@ export function toPageParams(q: DataGridServerQuery): URLSearchParams {
       );
     }
     params.set(f.key, f.value);
+  }
+  if (filters) {
+    for (const [name, v] of Object.entries(filters)) {
+      if (v !== "") params.set(name, v);
+    }
   }
   return params;
 }
@@ -135,6 +150,37 @@ export function fromPage<T>(page: IPage<T>): DataGridServerResult<T> {
     rows: page.items,
     total: page.total ?? (page.hasNext ? seen + page.limit : seen),
   };
+}
+
+/**
+ * Ne garde d'un jeu de filtres que ceux qu'un endpoint DÉCLARE accepter.
+ *
+ * Elle existe pour un cas précis, et fréquent : les **compteurs de tête**
+ * (`<ressource>/stats`) acceptent les filtres de la liste **moins la dimension
+ * qu'ils décomposent** — demander `?status=active` à un endpoint qui rend
+ * `{actives, expirées, révoquées}` reviendrait à lui faire écraser sa propre
+ * ventilation. La console envoie donc à `/stats` l'intersection de ce qu'a
+ * choisi l'utilisateur et de ce que cet endpoint-là publie ; le reste part à la
+ * liste seule.
+ *
+ * Renvoyer tout en bloc rendrait un `400` sur un écran par ailleurs valide ;
+ * n'envoyer rien ferait décrire la collection entière par des cartes posées
+ * au-dessus d'un tableau filtré — deux vérités contradictoires côte à côte.
+ *
+ * @param filters - les filtres actifs de la vue.
+ * @param spec - le vocabulaire publié par l'endpoint destinataire, ou `null`.
+ * @returns le sous-ensemble acceptable, vide si la spec est inconnue.
+ */
+export function pickFilters(
+  filters: Readonly<Record<string, string>>,
+  spec: Readonly<Record<string, string | string[]>> | null | undefined,
+): Record<string, string> {
+  if (!spec) return {};
+  const out: Record<string, string> = {};
+  for (const [name, value] of Object.entries(filters)) {
+    if (value !== "" && name in spec) out[name] = value;
+  }
+  return out;
 }
 
 /**

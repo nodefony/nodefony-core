@@ -99,35 +99,11 @@ export const USERS_STATUS_ENDPOINT = "/nodefony/user/api/users/status";
  */
 export const USERS_STATS_ENDPOINT = "/nodefony/user/api/users/stats";
 
-/**
- * Fenêtre de chargement par défaut = le **cap dur** du back (200). La liste est
- * exploitée côté client par le `DataGrid` (recherche/tri/filtre). Au-delà, la
- * fenêtre est tronquée → on le signale et on invite à filtrer.
- */
-export const USERS_LIST_WINDOW = 200;
-
-/**
- * Construit l'URL d'énumération. `?role&enabled&q` filtrent côté serveur ;
- * `?limit&offset` paginent (cap dur 200).
- */
-export function usersListEndpoint(
-  opts: {
-    role?: string;
-    enabled?: boolean;
-    q?: string;
-    limit?: number;
-    offset?: number;
-  } = {},
-): string {
-  const p = new URLSearchParams();
-  if (opts.role) p.set("role", opts.role);
-  if (opts.enabled !== undefined) p.set("enabled", String(opts.enabled));
-  if (opts.q) p.set("q", opts.q);
-  if (opts.limit !== undefined) p.set("limit", String(opts.limit));
-  if (opts.offset !== undefined) p.set("offset", String(opts.offset));
-  const qs = p.toString();
-  return qs ? `${USERS_LIST_ENDPOINT}?${qs}` : USERS_LIST_ENDPOINT;
-}
+// Le constructeur d'URL de liste a disparu, avec la fenêtre plafonnée qu'il
+// portait : une query string de page ne s'écrit plus qu'à UN endroit
+// (`toPageParams`, UI kit), et les filtres viennent du vocabulaire PUBLIÉ par
+// l'endpoint — pas d'une signature figée qui se périme au premier filtre ajouté
+// côté serveur.
 
 /** GET — détail d'un utilisateur par id. 404 si introuvable. */
 export function userEndpoint(id: string): string {
@@ -203,25 +179,10 @@ export interface UserCounts {
   social: number | null;
 }
 
-/**
- * Compte sur les comptes REÇUS — repli tant que les compteurs serveur ne sont
- * pas disponibles (non-administrateur). La vue consomme `users/stats`.
- */
-export function countUsers(users: UserSummary[]): UserCounts {
-  let active = 0;
-  let disabled = 0;
-  let locked = 0;
-  let admins = 0;
-  let social = 0;
-  for (const u of users) {
-    if (u.enabled && !u.locked) active++;
-    if (!u.enabled) disabled++;
-    if (u.locked) locked++;
-    if (u.roles.includes(ADMIN_ROLE)) admins++;
-    if (u.socialProviders.length > 0) social++;
-  }
-  return { total: users.length, active, disabled, locked, admins, social };
-}
+// Le comptage LOCAL a disparu avec la fenêtre qu'il décrivait : la table lit
+// désormais l'annuaire page par page, et compter les comptes reçus rendrait
+// « 25 » pour un annuaire de mille. Un compteur inconnu (non-administrateur,
+// backend qui ne compte pas) reste `null` et s'affiche « — ».
 
 // ─── Formatage des dates ─────────────────────────────────────────────────────
 

@@ -91,42 +91,11 @@ export const SESSIONS_STATUS_ENDPOINT = "/nodefony/http/api/sessions";
  */
 export const SESSIONS_STATS_ENDPOINT = "/nodefony/http/api/sessions/stats";
 
-/** Construit l'URL des compteurs, avec le MÊME filtre que la liste. */
-export function sessionsStatsEndpoint(opts: { user?: string } = {}): string {
-  const p = new URLSearchParams();
-  if (opts.user) p.set("user", opts.user);
-  const qs = p.toString();
-  return qs ? `${SESSIONS_STATS_ENDPOINT}?${qs}` : SESSIONS_STATS_ENDPOINT;
-}
-
-/**
- * Fenêtre de chargement par défaut = le **cap dur** du back (200). La liste est
- * exploitée côté client par le `DataGrid` (recherche/tri/filtre). Au-delà, la
- * fenêtre est tronquée → on le signale et on invite à filtrer par utilisateur.
- */
-export const SESSIONS_LIST_WINDOW = 200;
-
-/**
- * Construit l'URL d'énumération. `tenantId` = **slot multi-tenant** : transmis si
- * fourni, mais ignoré par le back en mono-tenant (réserve coût-0 — câblé par le
- * chantier `@nodefony/tenant`, post-10.0.0).
- */
-export function sessionsListEndpoint(
-  opts: {
-    user?: string;
-    tenantId?: string | null;
-    limit?: number;
-    offset?: number;
-  } = {},
-): string {
-  const p = new URLSearchParams();
-  if (opts.user) p.set("user", opts.user);
-  if (opts.tenantId) p.set("tenantId", opts.tenantId);
-  if (opts.limit !== undefined) p.set("limit", String(opts.limit));
-  if (opts.offset !== undefined) p.set("offset", String(opts.offset));
-  const qs = p.toString();
-  return qs ? `${SESSIONS_LIST_ENDPOINT}?${qs}` : SESSIONS_LIST_ENDPOINT;
-}
+// Les constructeurs d'URL de LISTE ont disparu — avec la fenêtre plafonnée
+// qu'ils portaient. Une query string de page ne s'écrit plus qu'à UN endroit
+// (`toPageParams`, UI kit) : c'est en la recomposant vue par vue que deux
+// dialectes incompatibles étaient nés. Restent ici les URL de MUTATION, qui
+// n'ont ni page, ni tri, ni filtre.
 
 /** POST — révoque UNE session par sa référence publique (`sess_…`). Audité. */
 export function revokeSessionEndpoint(ref: string): string {
@@ -145,17 +114,6 @@ export function revokeUserSessionsEndpoint(identifier: string): string {
 
 /** GET — self-service paginé : MES sessions (scopées serveur à l'appelant). */
 export const SESSIONS_MINE_ENDPOINT = "/nodefony/http/api/sessions/mine";
-
-/** Construit l'URL self-service paginée (`?limit&offset`). Pas de `?user=` (anti-IDOR). */
-export function sessionsMineEndpoint(
-  opts: { limit?: number; offset?: number } = {},
-): string {
-  const p = new URLSearchParams();
-  if (opts.limit !== undefined) p.set("limit", String(opts.limit));
-  if (opts.offset !== undefined) p.set("offset", String(opts.offset));
-  const qs = p.toString();
-  return qs ? `${SESSIONS_MINE_ENDPOINT}?${qs}` : SESSIONS_MINE_ENDPOINT;
-}
 
 /** POST — self-service : révoque UNE de MES sessions (404 si elle n'est pas à moi). */
 export function revokeSessionMineEndpoint(ref: string): string {
@@ -189,31 +147,9 @@ export interface SessionCounts {
   users: number | null;
 }
 
-/**
- * Compte sur les sessions REÇUES — réservé au mode « Mes sessions », où la
- * réponse est déjà l'intégralité du périmètre (le serveur la scope à
- * l'appelant, anti-IDOR).
- *
- * ⚠️ Ne pas l'employer sur l'énumération d'administration : elle est fenêtrée,
- * et compter dessus décrirait l'échantillon affiché en ayant l'air de décrire
- * le parc. C'est précisément ce que `sessions/stats` corrige.
- */
-export function countByAuth(sessions: SessionSummary[]): SessionCounts {
-  let authenticated = 0;
-  const userSet = new Set<string>();
-  for (const s of sessions) {
-    if (s.authenticated) {
-      authenticated++;
-      if (s.user) userSet.add(s.user);
-    }
-  }
-  return {
-    total: sessions.length,
-    authenticated,
-    anonymous: sessions.length - authenticated,
-    users: userSet.size,
-  };
-}
+// Le comptage LOCAL a disparu : la table ne charge plus qu'une page, même en
+// « Mes sessions », et compter ses lignes décrirait 25 sessions pour qui en a
+// 60. Un compteur que le serveur ne rend pas reste `null` → « — » à l'écran.
 
 // ─── User-Agent (parsing léger, 0 dépendance) ────────────────────────────────
 

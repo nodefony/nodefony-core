@@ -361,6 +361,68 @@ export function runSessionPaginationContract(
         );
       });
 
+      it("`order` sur `createdAt` et `user` — tout champ DÉCLARÉ est honoré", async () => {
+        // Le vocabulaire ne se croit pas sur parole : chaque champ qu'un store
+        // annonce doit produire un ordre RÉEL, sur tous les backends. Un champ
+        // déclaré mais ignoré rendrait une page dans l'ordre par défaut, que la
+        // console présenterait comme triée — le mensonge exact que la
+        // publication des capacités vient supprimer.
+        const fields = storage().sortableFields ?? [];
+        if (fields.includes("createdAt")) {
+          const asc = await storage().listPage({
+            limit: 12,
+            order: [["createdAt", "ASC"]],
+          });
+          const stamps = asc.items.map((r) => Number(r.data.createdAt));
+          // Une donnée absente rendrait ce test complaisant : douze `undefined`
+          // forment une suite « triée » quel que soit le tri appliqué. Un champ
+          // déclaré triable DOIT donc être présent et discriminant, sinon c'est
+          // la déclaration qui est fausse.
+          assert.ok(
+            stamps.every((s) => Number.isFinite(s)),
+            "`createdAt` est déclaré triable : il doit être porté par chaque record",
+          );
+          assert.ok(
+            new Set(stamps).size > 1,
+            "le seed doit produire des `createdAt` distincts, sinon l'ordre ne prouve rien",
+          );
+          assert.deepEqual(
+            stamps,
+            [...stamps].sort((a, b) => a - b),
+            "createdAt ASC doit rendre les sessions de la plus ancienne à la plus récente",
+          );
+          const desc = await storage().listPage({
+            limit: 12,
+            order: [["createdAt", "DESC"]],
+          });
+          assert.deepEqual(
+            desc.items.map((r) => Number(r.data.createdAt)),
+            [...stamps].reverse(),
+            "DESC doit être exactement l'inverse d'ASC — sinon l'`order` est ignoré",
+          );
+        }
+        if (fields.includes("user")) {
+          const asc = await storage().listPage({
+            limit: 12,
+            order: [["user", "ASC"]],
+          });
+          // Les sessions anonymes portent `user: null` : on ne compare que les
+          // porteurs renseignés, l'ordre des NULL relevant de chaque dialecte.
+          const users = asc.items
+            .map((r) => r.data.user)
+            .filter((u): u is string => typeof u === "string" && u !== "");
+          assert.ok(
+            new Set(users).size > 1,
+            "le seed doit porter plusieurs utilisateurs, sinon le tri ne prouve rien",
+          );
+          assert.deepEqual(
+            users,
+            [...users].sort(),
+            "user ASC doit grouper les sessions par porteur, dans l'ordre",
+          );
+        }
+      });
+
       it("un store qui DÉCLARE trier expose le vocabulaire public", async () => {
         const fields = storage().sortableFields;
         assert.ok(

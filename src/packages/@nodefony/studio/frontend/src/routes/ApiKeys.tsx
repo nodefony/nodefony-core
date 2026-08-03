@@ -48,11 +48,11 @@ import {
   DataState,
   DocHint,
   fmtFacet,
+  pickFilters,
 } from "../components/ui";
 import {
   KEYS_ENDPOINT,
   KEYS_CAPABILITIES_ENDPOINT,
-  ADMIN_KEYS_ENDPOINT,
   API_KEYS_STATUS_ENDPOINT,
   API_KEYS_STATS_ENDPOINT,
   ADMIN_ROLE,
@@ -91,18 +91,33 @@ export const ApiKeys = observer(() => {
   } | null>(null);
   const [bulkRevoking, setBulkRevoking] = useState(false);
 
-  const endpoint = mode === "admin" ? ADMIN_KEYS_ENDPOINT : KEYS_ENDPOINT;
+  // Filtres de la portée Administration — ici, parce que les cartes de tête les
+  // suivent : « 538 clés » au-dessus d'un tableau filtré sur « révoquées »
+  // serait deux vérités contradictoires dans le même écran.
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  // Compteur de version : recharge la page affichée après une révocation.
+  const [reloadKey, setReloadKey] = useState(0);
 
+  // Seule la portée « Mes clés » charge une liste ici — l'endpoint self-service
+  // rend tout le périmètre de l'appelant d'un bloc. En Administration, c'est la
+  // table qui demande sa page au data plane admin.
   const fetcher = useCallback(async (): Promise<ApiKey[]> => {
+    if (mode === "admin") return [];
     try {
-      const res = await store.api.getAbsolute<{ keys: ApiKey[] }>(endpoint);
+      const res = await store.api.getAbsolute<{ keys: ApiKey[] }>(
+        KEYS_ENDPOINT,
+      );
       return res.keys ?? [];
     } catch (e) {
       throw new Error(describeApiKeysError(e), { cause: e });
     }
-  }, [store, endpoint]);
-  const { data, loading, error, reload } = useResource(fetcher);
+  }, [store, mode]);
+  const { data, loading, error, reload: reloadMine } = useResource(fetcher);
   const keys = useMemo(() => data ?? [], [data]);
+  const reload = useCallback(() => {
+    reloadMine();
+    setReloadKey((n) => n + 1);
+  }, [reloadMine]);
 
   // Capacités d'émission (formulaire + onglet aide) — chargées une fois.
   const capFetcher = useCallback(async (): Promise<ApiKeyCapabilities> => {
@@ -128,19 +143,38 @@ export const ApiKeys = observer(() => {
   // Administration. La portée « Mes clés » reste cliente — sa réponse EST déjà
   // tout le périmètre de l'appelant, et l'endpoint de statistiques est réservé
   // aux administrateurs (un non-admin y récolterait un 403).
-  const statsFetcher = useCallback(
-    (): Promise<ApiKeyCounts | null> =>
-      mode === "admin" && isAdmin
-        ? store.api.getAbsolute<ApiKeyCounts>(API_KEYS_STATS_ENDPOINT)
-        : Promise.resolve(null),
-    [store, mode, isAdmin],
-  );
+  //
+  // Les compteurs suivent les filtres, mais seulement ceux que l'endpoint de
+  // comptage DÉCLARE accepter : il refuse `status`, la dimension qu'il
+  // décompose — la lui envoyer lui ferait écraser sa propre ventilation.
+  const statsCaps = store.admin.pageCapabilities(API_KEYS_STATS_ENDPOINT);
+  const statsFilters = pickFilters(filters, statsCaps?.filters);
+  const statsSignal = JSON.stringify(statsFilters);
+  const statsFetcher = useCallback((): Promise<ApiKeyCounts | null> => {
+    if (mode !== "admin" || !isAdmin) return Promise.resolve(null);
+    const qs = new URLSearchParams(statsFilters).toString();
+    return store.api.getAbsolute<ApiKeyCounts>(
+      qs ? `${API_KEYS_STATS_ENDPOINT}?${qs}` : API_KEYS_STATS_ENDPOINT,
+    );
+    // `statsSignal` est la dépendance réelle (l'objet est recréé à chaque rendu).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store, mode, isAdmin, statsSignal]);
   const { data: serverCounts, reload: reloadCounts } =
     useResource(statsFetcher);
 
+  // En Administration, les compteurs viennent du serveur ou valent « — ». En
+  // « Mes clés », la réponse EST tout le périmètre : compter dessus est exact.
   const counts = useMemo<ApiKeyCounts>(
-    () => serverCounts ?? countByStatus(keys),
-    [serverCounts, keys],
+    () =>
+      mode === "admin"
+        ? (serverCounts ?? {
+            total: null,
+            active: null,
+            expired: null,
+            revoked: null,
+          })
+        : countByStatus(keys),
+    [mode, serverCounts, keys],
   );
 
   const modeData = useMemo(
@@ -346,10 +380,20 @@ export const ApiKeys = observer(() => {
         </Tabs.List>
 
         <Tabs.Panel value="keys" pt="md">
-          <DataState loading={loading && !data} error={error} onRetry={reload}>
+          {/* L'état de chargement n'englobe que la portée « Mes clés » : en
+              Administration, il appartient au grid, qui recharge à chaque page,
+              tri ou filtre — l'englober masquerait la table à chaque tour. */}
+          <DataState
+            loading={mode === "user" && loading && !data}
+            error={mode === "user" ? error : null}
+            onRetry={reload}
+          >
             <ApiKeysTable
               keys={keys}
               showSubject={mode === "admin"}
+              filters={filters}
+              onFiltersChange={setFilters}
+              reloadKey={reloadKey}
               onRevoke={(k) => setConfirmRevoke(k)}
               onBulkRevoke={(k, clear) => setConfirmBulk({ keys: k, clear })}
               revokingId={revokingId}

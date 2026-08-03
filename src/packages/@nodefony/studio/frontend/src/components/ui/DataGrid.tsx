@@ -550,6 +550,11 @@ export function DataGrid<T>(props: DataGridProps<T>) {
   // Injecte le style de la poignée de resize une seule fois (CSS hover/drag).
   useEffect(ensureResizerStyle, []);
 
+  // Hissé AVANT le chargement serveur : une recherche persistée en storage
+  // survivrait à la disparition de la barre (capacité de recherche retirée, ou
+  // backend qui ne cherche pas) et repartirait au serveur, qui la refuse en
+  // 400 — un écran mort qu'aucune action de l'utilisateur n'explique.
+  const searchable = props.searchable ?? true;
   const loader = isServer ? props.loader : null;
   const [serverRows, setServerRows] = useState<T[]>([]);
   const [serverTotal, setServerTotal] = useState(0);
@@ -572,7 +577,7 @@ export function DataGrid<T>(props: DataGridProps<T>) {
       page: pagination.pageIndex + 1,
       pageSize: pagination.pageSize,
       sort,
-      search: globalFilter,
+      search: searchable ? globalFilter : "",
       columnFilters: cf,
     })
       .then((res) => {
@@ -593,6 +598,7 @@ export function DataGrid<T>(props: DataGridProps<T>) {
     };
   }, [
     loader,
+    searchable,
     sorting,
     columnFilters,
     globalFilter,
@@ -737,7 +743,6 @@ export function DataGrid<T>(props: DataGridProps<T>) {
     total === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1;
   const end = Math.min((pagination.pageIndex + 1) * pagination.pageSize, total);
 
-  const searchable = props.searchable ?? true;
   const filterable = columns.some((c) => c.filterable);
   const activeCount = columnFilters.length;
   const hasActive = globalFilter.trim().length > 0 || activeCount > 0;

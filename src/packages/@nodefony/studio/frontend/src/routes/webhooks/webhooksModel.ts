@@ -244,26 +244,10 @@ export interface WebhookCounts {
   disabled: number | null;
 }
 
-/**
- * Compte sur les endpoints REÇUS.
- *
- * ⚠️ Ne subsiste que comme repli tant que la réponse n'est pas fenêtrée ; la
- * vue consomme `webhooks/stats`. Compter la page en la présentant comme le
- * registre est exactement le mensonge que cet endpoint corrige.
- */
-export function countWebhooks(endpoints: WebhookEndpoint[]): WebhookCounts {
-  // Accumulateurs locaux : la forme rendue admet `null` (« le backend ne sait
-  // pas »), mais un comptage local sait toujours — il n'a rien à ignorer.
-  let active = 0;
-  let disabled = 0;
-  let failing = 0;
-  for (const ep of endpoints) {
-    if (ep.enabled) active++;
-    else disabled++;
-    if (ep.failureCount > 0) failing++;
-  }
-  return { total: endpoints.length, active, disabled, failing };
-}
+// Le comptage LOCAL a disparu avec le repli qui le justifiait : la réponse est
+// désormais fenêtrée (la table demande une page), et compter ses lignes en les
+// présentant comme le registre est exactement le mensonge que `webhooks/stats`
+// corrige. Un compteur que le serveur ne rend pas vaut `null` → « — ».
 
 // ─── Validation de formulaire (le back re-valide anti-SSRF — ceci = garde-fou UX) ─
 

@@ -524,6 +524,19 @@ export function createHttpAdminApi(module: Module): IAdminApi {
       summary:
         "MES sessions (self-service) — ref/ip/ua/dates, scopées à l'appelant. " +
         "Paginé côté serveur : ?limit&offset.",
+      // Le tri est publié comme sur l'énumération admin — c'est le même store, et
+      // la console sert les deux portées avec la MÊME table. **Aucun filtre** en
+      // revanche, et c'est le fond du self-service : le périmètre est décidé par
+      // le serveur à partir de l'identité de l'appelant. Un `?user=` accepté ici
+      // serait un IDOR ; publier une spec vide dit au client qu'il n'a rien à
+      // choisir, au lieu de le laisser essayer.
+      page: {
+        sortable: () => {
+          const svc = module.get("sessions") as SessionsAdmin | undefined;
+          return svc?.supportsEnumeration() ? svc.sortableFields() : [];
+        },
+        filters: {},
+      },
       handler: async (
         request: IAdminRequest,
       ): Promise<
@@ -556,6 +569,12 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         const ownQuery = parsePageQuery(request.query, {
           sortable: svc.sortableFields(),
         });
+        // Spec VIDE, et l'appel n'est pas décoratif : `?user=alice` était accepté
+        // puis jeté, et le self-service rendait MES sessions sous l'étiquette
+        // « sessions d'alice ». Le scope serveur (anti-IDOR) n'a jamais faibli —
+        // c'est la réponse qui mentait sur ce qu'elle montrait. Le refus (400)
+        // dit ce que la publication annonce : ici, rien ne se filtre.
+        parseFilters(request.query, {});
         const { limit } = ownQuery;
         const offset = ownQuery.offset ?? 0;
         const page = await svc.listOwnSessionsPage(identifier, {

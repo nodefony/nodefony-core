@@ -36,7 +36,9 @@ function seed(): InMemoryUserRepository {
       identifier: "chloe",
       roles: [],
       password: null,
-      socialProviders: [{ provider: "github", providerId: "g1", createdAt: 1 }],
+      socialProviders: [
+        { provider: "github", providerId: "g1", createdAt: new Date(0) },
+      ],
     },
     { id: "u4", identifier: "dan", roles: [], password: null },
     {
@@ -46,7 +48,9 @@ function seed(): InMemoryUserRepository {
       password: null,
       enabled: false,
       locked: true,
-      socialProviders: [{ provider: "google", providerId: "g2", createdAt: 1 }],
+      socialProviders: [
+        { provider: "google", providerId: "g2", createdAt: new Date(0) },
+      ],
     },
     { id: "u6", identifier: "fred", roles: [], password: null, locked: true },
   ]);

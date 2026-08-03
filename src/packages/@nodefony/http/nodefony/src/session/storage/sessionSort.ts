@@ -12,9 +12,22 @@ import type { IPageQuery } from "nodefony";
  * **traduit chez lui** — cf {@link SESSION_COLUMN_ALIASES}.
  *
  * - `updatedAt` — dernière activité (l'axe naturel d'une console de sessions).
+ * - `createdAt` — ouverture de la session (« qui s'est connecté en premier »).
+ * - `user` — porteur, pour regrouper les sessions d'un même compte à l'œil.
  * - `id` — identifiant de session, utile surtout en départage.
+ *
+ * Ce que la liste n'inclut PAS, et pourquoi : `ip` et `ua` ne sont **pas des
+ * champs** mais des entrées du sac de métadonnées (`metaBag`, sérialisé en
+ * JSON). Aucun backend ne peut les ordonner sans matérialiser la collection —
+ * la console les affiche donc en colonnes non triables, au lieu d'offrir un
+ * tri qui serait refusé (SQL) ou coûteux (mémoire).
  */
-export const SESSION_SORTABLE_FIELDS = ["updatedAt", "id"] as const;
+export const SESSION_SORTABLE_FIELDS = [
+  "updatedAt",
+  "createdAt",
+  "user",
+  "id",
+] as const;
 
 /**
  * Ordre contractuel appliqué quand le client n'en demande aucun : activité la
