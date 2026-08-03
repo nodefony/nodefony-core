@@ -384,7 +384,11 @@ export type {
 export type { IPage, IPageQuery, ISortableSource } from "./types/IPage";
 export { assertPageQuery, PaginationModeError } from "./runtime/pageGuard";
 export type { PaginationMode } from "./runtime/pageGuard";
-export { parsePageQuery, PageQueryError } from "./runtime/pageQuery";
+export {
+  parsePageQuery,
+  PageQueryError,
+  PAGE_QUERY_KEYS,
+} from "./runtime/pageQuery";
 export {
   compareByOrder,
   pickOrder,
@@ -395,6 +399,14 @@ export type {
   PageQuerySource,
   IParsePageQueryOptions,
 } from "./runtime/pageQuery";
+export { parseFilters } from "./runtime/pageFilters";
+export type {
+  FilterKind,
+  FilterDef,
+  IFilterSpec,
+  FilterValue,
+  FilterValues,
+} from "./runtime/pageFilters";
 export type { ISyslog } from "./types/ISyslog";
 export type { ITransport } from "./types/ITransport";
 export type { EnvironmentType, DebugType } from "./types/globals";

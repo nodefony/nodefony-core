@@ -1,4 +1,4 @@
-import { parsePageQuery } from "nodefony";
+import { parsePageQuery, parseFilters } from "nodefony";
 import type { Container } from "nodefony";
 import type {
   IAdminApi,
@@ -13,6 +13,7 @@ import type { IUserProfile } from "../../contracts/IUserProfile";
 import type { UserService } from "../../service/UserService";
 import { WeakPasswordError } from "../../errors/WeakPasswordError";
 import { listUserStores } from "../userStoreRegistry";
+import { USER_FILTERS } from "../userFilters";
 import {
   validateProfilePatch,
   projectProfile,
@@ -129,16 +130,6 @@ function adminActor(user: unknown): { id: string | null; label: string } {
     return { id, label };
   }
   return { id: null, label: "admin" };
-}
-
-/** Premier param d'une clé de query (peut être `string | string[]`). */
-function one(
-  query: Readonly<Record<string, string | string[]>>,
-  key: string,
-): string | undefined {
-  const value = query[key];
-  if (value === undefined) return undefined;
-  return Array.isArray(value) ? value[0] : value;
 }
 
 /** Vue minimale du journal d'audit security — résolu par nom au runtime. */
@@ -353,15 +344,14 @@ export function createUserAdminApi(container: Container): IAdminApi {
         if (!users) {
           return { status: 503, body: { error: "user service unavailable" } };
         }
-        const role = one(request.query, "role");
-        const enabled = one(request.query, "enabled");
-        const q = one(request.query, "q");
-        // UN SEUL traducteur pour toute la requête de page : limit, offset ET
-        // tri. En appeler un second sans l'allowlist (ce que faisait `pageParams`)
-        // fait refuser en 400 un `order` que le premier venait d'accepter — vécu.
+        // UN SEUL traducteur par dimension : `parsePageQuery` pour limit/offset
+        // et le tri, `parseFilters` pour role/enabled. En appeler un second sans
+        // son allowlist (ce que faisait `pageParams`) fait refuser en 400 ce que
+        // le premier venait d'accepter — vécu.
         const pageQuery = parsePageQuery(request.query, {
           sortable: users.sortableFields(),
         });
+        const filters = parseFilters(request.query, USER_FILTERS);
         const limit = pageQuery.limit;
         const offset = pageQuery.offset ?? 0;
         // Pagination NATIVE au store — JAMAIS un `find()` complet matérialisé en
@@ -370,10 +360,9 @@ export function createUserAdminApi(container: Container): IAdminApi {
         const page = await users.listPage({
           limit,
           offset,
+          ...filters,
           ...(pageQuery.order ? { order: pageQuery.order } : {}),
-          ...(role !== undefined ? { role } : {}),
-          ...(enabled !== undefined ? { enabled: enabled === "true" } : {}),
-          ...(q !== undefined && q.length > 0 ? { q } : {}),
+          ...(pageQuery.q !== undefined ? { q: pageQuery.q } : {}),
         });
         return {
           items: page.items.map(toUserSummary),

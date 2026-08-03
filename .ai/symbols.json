@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-03T09:03:26.761Z",
+  "generated": "2026-08-03T10:32:18.528Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 668,
-    "symbols": 2708,
+    "files": 675,
+    "symbols": 2719,
     "classes": 342,
     "interfaces": 802,
-    "types": 347,
+    "types": 353,
     "enums": 4,
-    "functions": 979,
-    "constants": 234
+    "functions": 976,
+    "constants": 242
   },
   "symbols": {
     "Cli": {
@@ -2806,6 +2806,54 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "FilterKind": {
+      "name": "FilterKind",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageFilters.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nature d'un filtre — ce qui suffit à le lire depuis une source clé→valeur. Volontairement CLOS et minuscule : ces trois natures couvrent la totalité des filtres exposés par les data planes du dépôt…"
+    },
+    "FilterDef": {
+      "name": "FilterDef",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageFilters.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Définition d'UN filtre : sa nature, ou la **liste fermée** de ses valeurs. Une liste vaut énumération — `[\"auth\", \"authz\", \"token\"]` — et devient l'allowlist qui la valide, exactement comme `sortab…"
+    },
+    "IFilterSpec": {
+      "name": "IFilterSpec",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageFilters.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'un point d'entrée sait filtrer : nom public → définition. C'est une **donnée**, pas un comportement — une constante par ressource, à côté de son contrat. Elle ne vit pas sur le store : contra…"
+    },
+    "FilterValue": {
+      "name": "FilterValue",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageFilters.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le type JavaScript qu'une définition de filtre produit une fois lue."
+    },
+    "FilterValues": {
+      "name": "FilterValues",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageFilters.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les filtres lus, **typés depuis la spec** : une énumération rend son union de littéraux, `boolean` rend un booléen, `int` un nombre. C'est ce qui permet de composer directement avec un `IXListQuery…"
+    },
+    "parseFilters": {
+      "name": "parseFilters",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/pageFilters.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "**Le** lecteur de filtres : transforme une source clé→valeur en filtres validés, selon la spec déclarée par la ressource. Fonction **pure**. Il remplace les lectures `one(query, \"x\")` que chaque da…"
+    },
     "PaginationModeError": {
       "name": "PaginationModeError",
       "kind": "class",
@@ -2868,6 +2916,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "**Le** traducteur d'une requête de page : transforme une source clé→valeur en {@link IPageQuery} borné et validé. Fonction **pure** — aucun accès au kernel, à l'ALS ni à la requête HTTP. Il remplac…"
+    },
+    "PAGE_QUERY_KEYS": {
+      "name": "PAGE_QUERY_KEYS",
+      "kind": "const",
+      "file": "src/nodefony/src/runtime/pageQuery.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les clés que le contrat de page revendique sur le fil — **source unique**. Elle existe pour un consommateur : `parseFilters`, qui doit distinguer un paramètre de pagination d'un filtre inconnu, et …"
     },
     "FieldReader": {
       "name": "FieldReader",
@@ -14840,6 +14896,14 @@
       "decorators": [],
       "description": "Annuaire d'utilisateurs **en mémoire** — implémentation de référence du contrat {@link IUserRepository} sur une `Map` (aucun ORM). Trois usages : - **tests de charge** : zéro I/O (pas de sync SQLit…"
     },
+    "USER_FILTERS": {
+      "name": "USER_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "**Le vocabulaire de filtre des utilisateurs**, en noms PUBLICS — ceux qu'un administrateur écrit dans l'URL (`?role=ROLE_ADMIN&enabled=false`). Frère de `USER_SORTABLE_FIELDS` (`userSort.ts`), et p…"
+    },
     "ProfileField": {
       "name": "ProfileField",
       "kind": "type",
@@ -16028,6 +16092,14 @@
       "decorators": [],
       "description": "Store de rate-limit **en mémoire** — algorithme *fixed window* par clé (IP). Une entrée par IP `{ count, resetAt }` ; à l'expiration de la fenêtre le compteur repart à zéro (mutation in-place, 0 al…"
     },
+    "RATE_LIMIT_FILTERS": {
+      "name": "RATE_LIMIT_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/rateLimit/rateLimitFilters.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "**Le vocabulaire de filtre du registre de rate-limit**, en noms PUBLICS — celui que la console écrit dans l'URL (`?limited=true`). `limited` répond à la seule question qu'on pose à ce registre en e…"
+    },
     "WsConnectionCounter": {
       "name": "WsConnectionCounter",
       "kind": "class",
@@ -16828,7 +16900,7 @@
       "file": "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Traduit la query string admin en {@link ITokenListQuery} bornée (`limit` par défaut 50, cap 200 ; `subjectId`/`revoked`/`offset`/`cursor`/`order`). Filtre inconnu ignoré (permissif — endpoint déjà …"
+      "description": "Traduit la query string admin en {@link ITokenListQuery} bornée (`limit` par défaut 50, cap 200 ; pagination, tri et filtres de {@link TOKEN_FILTERS}). **UN SEUL traducteur par dimension, jamais de…"
     },
     "parseAuditQuery": {
       "name": "parseAuditQuery",
@@ -16836,7 +16908,7 @@
       "file": "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Traduit la query string admin en {@link IAuditListQuery} typée. Un filtre `category`/`outcome` **inconnu est ignoré** (permissif — l'endpoint est déjà gardé `ROLE_NODEFONY_ADMIN`, renvoyer plus lar…"
+      "description": "Traduit la query string admin en {@link IAuditListQuery} typée — pagination par curseur, plus les filtres de {@link AUDIT_FILTERS}. Un filtre inconnu ou mal formé est **refusé** (400). Il était aup…"
     },
     "createSecurityAdminApi": {
       "name": "createSecurityAdminApi",
@@ -16876,7 +16948,7 @@
       "file": "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Traduit la query string admin en {@link IWebhookListQuery} **bornée** (`limit` défaut 50, cap 200 ; `offset`/`enabled`/`event`/`q`/`order`). Un filtre inconnu est ignoré (permissif — l'endpoint est…"
+      "description": "Traduit la query string admin en {@link IWebhookListQuery} **bornée** (`limit` défaut 50, cap 200 ; pagination, tri, et les filtres de {@link WEBHOOK_FILTERS}). Pagination **offset uniquement** : l…"
     },
     "webhookAdminEndpoints": {
       "name": "webhookAdminEndpoints",
@@ -16978,6 +17050,22 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Canal WS du flux live d'audit (P6.14 lot 4). Le préfixe `security:` le place sous le plancher `SECURITY_CHANNEL_POLICY` (ROLE_NODEFONY_ADMIN) du verrou de frame — un user lambda ne peut pas s'y abo…"
+    },
+    "AUDIT_FILTERS": {
+      "name": "AUDIT_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/auditFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "**Le vocabulaire de filtre du journal d'audit**, en noms PUBLICS — ceux qu'un auditeur écrit dans l'URL (`?category=authz&outcome=denied&since=…`). Les deux énumérations y sont écrites en toutes le…"
+    },
+    "AUDIT_FILTER_VOCABULARY_IS_COMPLETE": {
+      "name": "AUDIT_FILTER_VOCABULARY_IS_COMPLETE",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/auditFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Preuve **à la compilation** que le vocabulaire ci-dessus est exactement celui des types du contrat. Elle remplace la discipline humaine « penser à mettre les deux à jour », qui avait échoué en sile…"
     },
     "IAuditStoreFactoryContext": {
       "name": "IAuditStoreFactoryContext",
@@ -17594,6 +17682,14 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Filtre un record contre une requête de listing (portable, réutilisé par les impls)."
+    },
+    "TOKEN_FILTERS": {
+      "name": "TOKEN_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "**Le vocabulaire de filtre des jetons**, en noms PUBLICS — ceux qu'un client écrit dans l'URL (`?revoked=true`), jamais des noms de colonne. Frère de `TOKEN_SORTABLE_FIELDS`, et posé pour la même r…"
     },
     "TOKEN_SORTABLE_FIELDS": {
       "name": "TOKEN_SORTABLE_FIELDS",
@@ -18212,6 +18308,14 @@
       "module": "@nodefony/security",
       "description": "Backoff exponentiel déterministe (jitter cross-pod = slice Redis cluster)."
     },
+    "WEBHOOK_FILTERS": {
+      "name": "WEBHOOK_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "**Le vocabulaire de filtre des endpoints webhook**, en noms PUBLICS — ceux qu'un client écrit dans l'URL (`?enabled=false&event=user.created`). Frère de `WEBHOOK_SORTABLE_FIELDS`, et posé au même e…"
+    },
     "parseWebhookSecret": {
       "name": "parseWebhookSecret",
       "kind": "function",
@@ -18709,6 +18813,14 @@
       ],
       "decorators": [],
       "description": "Garde-fou de révocation **décoré au-dessus** de n'importe quel {@link ISessionStorage} (file, drizzle, redis, mongo…). Pose une « pierre tombale » sur tout id détruit et REFUSE un `write` ultérieur…"
+    },
+    "SESSION_FILTERS": {
+      "name": "SESSION_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "**Le vocabulaire de filtre des sessions**, en noms PUBLICS — celui que la console d'administration écrit dans l'URL (`?user=alice`). Frère de `SESSION_SORTABLE_FIELDS` (`sessionSort.ts`), posé au m…"
     },
     "SESSION_SORTABLE_FIELDS": {
       "name": "SESSION_SORTABLE_FIELDS",
@@ -22100,6 +22212,15 @@
         "src/nodefony/src/realtime/JsonRpcPeer.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
+      "PageQueryError": [
+        "src/nodefony/src/runtime/pageFilters.ts"
+      ],
+      "PAGE_QUERY_KEYS": [
+        "src/nodefony/src/runtime/pageFilters.ts"
+      ],
+      "PageQuerySource": [
+        "src/nodefony/src/runtime/pageFilters.ts"
+      ],
       "IPageQuery": [
         "src/nodefony/src/runtime/pageGuard.ts",
         "src/nodefony/src/runtime/pageQuery.ts",
@@ -23452,12 +23573,12 @@
       "AuditCategory": [
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+        "src/packages/@nodefony/security/nodefony/src/audit/auditFilters.ts"
       ],
       "AuditOutcome": [
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+        "src/packages/@nodefony/security/nodefony/src/audit/auditFilters.ts"
       ],
       "IAuditEventFlags": [
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
@@ -24479,6 +24600,18 @@
       "IHttpKernel": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
+      "parseFilters": [
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "SESSION_FILTERS": [
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
+      ],
+      "RATE_LIMIT_FILTERS": [
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
+      ],
       "ISessionSummary": [
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
@@ -25383,6 +25516,14 @@
       "USER_SORTABLE_FIELDS_IN_MEMORY": [
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
       ],
+      "IFilterSpec": [
+        "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/rateLimitFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/auditFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
+      ],
       "IUserProfile": [
         "src/packages/@nodefony/user/nodefony/src/userProfile.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
@@ -25747,6 +25888,12 @@
       "WsBackpressurePolicy": [
         "src/packages/@nodefony/realtime/nodefony/src/transport/WsConnectionTransport.ts"
       ],
+      "TOKEN_FILTERS": [
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+      ],
+      "AUDIT_FILTERS": [
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+      ],
       "adminActor": [
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
@@ -25763,6 +25910,9 @@
       ],
       "IUserRevokedEvent": [
         "src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts"
+      ],
+      "WEBHOOK_FILTERS": [
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
       ],
       "MemoryAuditStore": [
         "src/packages/@nodefony/security/nodefony/src/audit/auditStoreRegistry.ts"
@@ -25874,6 +26024,9 @@
         "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts"
       ],
       "listUserStores": [
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "USER_FILTERS": [
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "validateProfilePatch": [

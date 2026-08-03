@@ -1,4 +1,4 @@
-import { parsePageQuery } from "nodefony";
+import { parsePageQuery, parseFilters } from "nodefony";
 import type { Container, IPage } from "nodefony";
 import type {
   IAdminApi,
@@ -9,15 +9,13 @@ import type {
   IAdminResponse,
 } from "nodefony";
 import type { ITokenListQuery } from "../../contracts/ITokenStore";
+import { TOKEN_FILTERS } from "../token/tokenFilters";
+import { AUDIT_FILTERS } from "../audit/auditFilters";
 import type {
   ITotpEnrollmentSummary,
   ITotpListQuery,
 } from "../../contracts/ITotpSecretStore";
-import type {
-  AuditCategory,
-  AuditOutcome,
-  IAuditEvent,
-} from "../../contracts/IAuditEvent";
+import type { IAuditEvent } from "../../contracts/IAuditEvent";
 import type { IAuditListQuery } from "../../contracts/IAuditStore";
 import type { IFirewall } from "../../contracts/IFirewall";
 import type {
@@ -110,13 +108,16 @@ const KEYS_MAX_LIMIT = 200;
 
 /**
  * Traduit la query string admin en {@link ITokenListQuery} bornée (`limit` par
- * défaut 50, cap 200 ; `subjectId`/`revoked`/`offset`/`cursor`/`order`). Filtre
- * inconnu ignoré (permissif — endpoint déjà gardé `ROLE_NODEFONY_ADMIN`).
+ * défaut 50, cap 200 ; pagination, tri et filtres de {@link TOKEN_FILTERS}).
  *
- * **UN SEUL traducteur pour toute la requête de page**, tri compris : en appeler
- * un second sans l'allowlist ferait refuser en 400 un `order` que le premier
- * venait d'accepter, et aucun test unitaire ne le verrait (chaque appel est
- * correct isolément).
+ * **UN SEUL traducteur par dimension, jamais deux.** Pour la page et le tri,
+ * `parsePageQuery` ; pour les filtres, `parseFilters`. En appeler un second sans
+ * son allowlist ferait refuser en 400 ce que le premier venait d'accepter, et
+ * aucun test unitaire ne le verrait (chaque appel est correct isolément).
+ *
+ * Un filtre inconnu ou mal formé est désormais **refusé** (400) au lieu d'être
+ * ignoré : `?revoked=oui` rendait la liste ENTIÈRE, que la console affichait
+ * comme le résultat du filtre demandé.
  *
  * @param query - `request.query` du broker admin.
  * @param sortable - champs que le backend branché sait trier ; un `?order=`
@@ -132,35 +133,13 @@ export function parseTokenListQuery(
     maxLimit: KEYS_MAX_LIMIT,
     sortable,
   });
-  const out: ITokenListQuery = { limit: page.limit };
+  const filters = parseFilters(query, TOKEN_FILTERS);
+  const out: ITokenListQuery = { limit: page.limit, ...filters };
   if (page.offset !== undefined) out.offset = page.offset;
   if (page.cursor !== undefined) out.cursor = page.cursor;
   if (page.order !== undefined) out.order = page.order;
-  const subjectId = one(query, "subjectId");
-  if (subjectId !== undefined) out.subjectId = subjectId;
-  const revoked = one(query, "revoked");
-  if (revoked === "true") out.revoked = true;
-  else if (revoked === "false") out.revoked = false;
   return out;
 }
-
-const CATEGORIES: ReadonlySet<string> = new Set<AuditCategory>([
-  "auth",
-  "authz",
-  "token",
-  "session",
-  "oauth",
-  "webauthn",
-  "csrf",
-  "cors",
-  "ws",
-  "webhook",
-]);
-const OUTCOMES: ReadonlySet<string> = new Set<AuditOutcome>([
-  "success",
-  "failure",
-  "denied",
-]);
 
 /** Premier param d'une clé (la query admin peut être `string | string[]`). */
 function one(
@@ -175,22 +154,16 @@ function one(
 /** Taille de page du journal d'audit quand l'appelant n'en demande pas. */
 const AUDIT_DEFAULT_LIMIT = 100;
 
-/** Entier positif d'un param, ou `undefined` si absent/non numérique. */
-function intParam(
-  query: Readonly<Record<string, string | string[]>>,
-  key: string,
-): number | undefined {
-  const raw = one(query, key);
-  if (raw === undefined) return undefined;
-  const n = Number.parseInt(raw, 10);
-  return Number.isNaN(n) ? undefined : n;
-}
-
 /**
- * Traduit la query string admin en {@link IAuditListQuery} typée. Un filtre
- * `category`/`outcome` **inconnu est ignoré** (permissif — l'endpoint est déjà
- * gardé `ROLE_NODEFONY_ADMIN`, renvoyer plus large à un admin est sûr) plutôt
- * que de renvoyer une 400 (robustesse de la console).
+ * Traduit la query string admin en {@link IAuditListQuery} typée — pagination
+ * par curseur, plus les filtres de {@link AUDIT_FILTERS}.
+ *
+ * Un filtre inconnu ou mal formé est **refusé** (400). Il était auparavant
+ * ignoré, au nom de la robustesse de la console : mais un journal d'audit rendu
+ * ENTIER à qui demandait `?outcome=deneid` n'est pas robuste — c'est la pire
+ * réponse possible à un auditeur, qui lit l'absence de refus comme l'absence
+ * d'incident. Le typage suit la même source : les valeurs viennent de la spec,
+ * il n'y a plus de `as AuditCategory` à écrire ici.
  *
  * Le `limit` est **toujours posé** (défaut {@link AUDIT_DEFAULT_LIMIT}, cap du
  * traducteur) : le contrat de page n'admet pas « tout » ; le store applique en
@@ -199,6 +172,7 @@ function intParam(
  *
  * @param query - `request.query` du broker admin.
  * @returns filtre prêt pour `auditService.listPage`.
+ * @throws `PageQueryError` (400) sur un filtre inconnu ou mal formé.
  */
 export function parseAuditQuery(
   query: Readonly<Record<string, string | string[]>>,
@@ -208,26 +182,11 @@ export function parseAuditQuery(
   // insertion concurrente), pas de `q` (aucun store d'audit ne le sait, et un
   // filtre accepté puis ignoré ment au client).
   const page = parsePageQuery(query, { defaultLimit: AUDIT_DEFAULT_LIMIT });
-  const filter: IAuditListQuery = { limit: page.limit };
+  const filter: IAuditListQuery = {
+    limit: page.limit,
+    ...parseFilters(query, AUDIT_FILTERS),
+  };
   if (page.cursor !== undefined) filter.cursor = page.cursor;
-  const category = one(query, "category");
-  if (category !== undefined && CATEGORIES.has(category)) {
-    filter.category = category as AuditCategory;
-  }
-  const outcome = one(query, "outcome");
-  if (outcome !== undefined && OUTCOMES.has(outcome)) {
-    filter.outcome = outcome as AuditOutcome;
-  }
-  const actor = one(query, "actor");
-  if (actor !== undefined) filter.actor = actor;
-  const action = one(query, "action");
-  if (action !== undefined) filter.action = action;
-  const requestId = one(query, "requestId");
-  if (requestId !== undefined) filter.requestId = requestId;
-  const since = intParam(query, "since");
-  if (since !== undefined) filter.since = since;
-  const until = intParam(query, "until");
-  if (until !== undefined) filter.until = until;
   return filter;
 }
 

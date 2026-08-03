@@ -1,4 +1,4 @@
-import { parsePageQuery } from "nodefony";
+import { parsePageQuery, parseFilters } from "nodefony";
 import type {
   Container,
   IAdminEndpoint,
@@ -11,6 +11,7 @@ import type {
   IWebhookDelivery,
 } from "../../contracts/IWebhookEndpoint";
 import type { IWebhookListQuery } from "../../contracts/IWebhookStore";
+import { WEBHOOK_FILTERS } from "../webhook/webhookFilters";
 import { adminActor, auditAdmin } from "./adminAudit";
 
 /**
@@ -130,26 +131,19 @@ const ENDPOINTS_DEFAULT_LIMIT = 50;
 /** Plafond dur : un client ne peut pas demander « tout » via `?limit=`. */
 const ENDPOINTS_MAX_LIMIT = 200;
 
-/** Premier param d'une clé (la query admin peut être `string | string[]`). */
-function queryOne(
-  query: Readonly<Record<string, string | string[]>>,
-  key: string,
-): string | undefined {
-  const raw = query[key];
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
 /**
  * Traduit la query string admin en {@link IWebhookListQuery} **bornée**
- * (`limit` défaut 50, cap 200 ; `offset`/`enabled`/`event`/`q`/`order`). Un
- * filtre inconnu est ignoré (permissif — l'endpoint est déjà gardé
- * `ROLE_NODEFONY_ADMIN`). Pagination **offset uniquement** : les trois stores
+ * (`limit` défaut 50, cap 200 ; pagination, tri, et les filtres de
+ * {@link WEBHOOK_FILTERS}). Pagination **offset uniquement** : les trois stores
  * webhook (memory/drizzle/mongoose) sont offset-pur — aucun curseur ici.
  *
- * **UN SEUL traducteur pour toute la requête de page**, tri compris : en appeler
- * un second sans l'allowlist ferait refuser en 400 un `order` que le premier
- * venait d'accepter, et aucun test unitaire ne le verrait.
+ * **UN SEUL traducteur par dimension, jamais deux** : `parsePageQuery` pour la
+ * page et le tri, `parseFilters` pour les filtres. En appeler un second sans son
+ * allowlist ferait refuser en 400 ce que le premier venait d'accepter, et aucun
+ * test unitaire ne le verrait.
+ *
+ * Un filtre inconnu ou mal formé est **refusé** (400) et non plus ignoré :
+ * `?enabled=oui` rendait la liste entière, lue comme « aucun endpoint désactivé ».
  *
  * @param query - `request.query` du broker admin.
  * @param sortable - champs que le backend branché sait trier ; un `?order=`
@@ -164,15 +158,13 @@ export function parseWebhookListQuery(
     maxLimit: ENDPOINTS_MAX_LIMIT,
     sortable,
   });
-  const out: IWebhookListQuery = { limit: page.limit };
+  const out: IWebhookListQuery = {
+    limit: page.limit,
+    ...parseFilters(query, WEBHOOK_FILTERS),
+  };
   if (page.offset !== undefined) out.offset = page.offset;
   if (page.q !== undefined) out.q = page.q;
   if (page.order !== undefined) out.order = page.order;
-  const enabled = queryOne(query, "enabled");
-  if (enabled === "true") out.enabled = true;
-  else if (enabled === "false") out.enabled = false;
-  const event = queryOne(query, "event");
-  if (event !== undefined) out.event = event;
   return out;
 }
 

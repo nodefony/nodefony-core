@@ -61,6 +61,27 @@ export class PageQueryError extends nodefonyError {
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
+/**
+ * Les clés que le contrat de page revendique sur le fil — **source unique**.
+ *
+ * Elle existe pour un consommateur : `parseFilters`, qui doit distinguer un
+ * paramètre de pagination d'un filtre inconnu, et refuse le second. Recopier
+ * cette liste là-bas aurait suffi à ce qu'un `?tenantId=` légitime devienne un
+ * `400` le jour où le contrat gagne une clé ici et pas là.
+ *
+ * `tenantId` y figure bien qu'il ne soit pas encore lu (réserve multi-tenant du
+ * contrat, `IPageQuery.tenantId`) : le front l'émet déjà sur les sessions.
+ */
+export const PAGE_QUERY_KEYS: ReadonlySet<string> = new Set([
+  "limit",
+  "offset",
+  "cursor",
+  "order",
+  "withTotal",
+  "q",
+  "tenantId",
+]);
+
 /** Première valeur d'une clé (une query string peut en porter plusieurs). */
 const one = (source: PageQuerySource, key: string): string | undefined => {
   const value = source[key];

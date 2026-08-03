@@ -184,17 +184,40 @@ describe("parseAuditQuery", () => {
     assert.deepEqual(parseAuditQuery({}), { limit: 100 });
   });
 
-  it("ignore category/outcome inconnus (permissif, admin only)", () => {
-    assert.deepEqual(parseAuditQuery({ category: "xxx", outcome: "yyy" }), {
+  // Doctrine INVERSÉE : ces valeurs étaient ignorées « par permissivité, admin
+  // only ». Mais le journal rendu ENTIER à qui demandait `?outcome=deneid` est
+  // la pire réponse possible à un auditeur — il lit l'absence de refus comme
+  // l'absence d'incident. Un filtre non honoré se REFUSE.
+  it("refuse une category/outcome hors vocabulaire, au lieu de tout rendre", () => {
+    assert.throws(() => parseAuditQuery({ category: "xxx" }), /Invalid value/);
+    assert.throws(() => parseAuditQuery({ outcome: "yyy" }), /Invalid value/);
+  });
+
+  it("refuse un paramètre que personne ne reconnaît (faute de frappe)", () => {
+    assert.throws(
+      () => parseAuditQuery({ catgory: "auth" }),
+      /Unknown parameter/,
+    );
+  });
+
+  it("honore `config`, que l'ancienne liste recopiée avait perdu", () => {
+    // Le type `AuditCategory` la déclarait, le `Set` du data plane non : la
+    // catégorie était donc refusée en silence, journal entier à la clé.
+    assert.deepEqual(parseAuditQuery({ category: "config" }), {
+      category: "config",
       limit: 100,
     });
   });
 
-  it("prend le 1er d'un param multi-valué et ignore un entier non numérique", () => {
-    assert.deepEqual(parseAuditQuery({ actor: ["a", "b"], since: "abc" }), {
+  it("prend le 1er d'un param multi-valué ; un entier non numérique est refusé", () => {
+    assert.deepEqual(parseAuditQuery({ actor: ["a", "b"] }), {
       actor: "a",
       limit: 100,
     });
+    assert.throws(
+      () => parseAuditQuery({ since: "abc" }),
+      /expected an integer/,
+    );
   });
 });
 

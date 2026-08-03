@@ -1,4 +1,6 @@
-import { parsePageQuery } from "nodefony";
+import { parsePageQuery, parseFilters } from "nodefony";
+import { SESSION_FILTERS } from "../src/session/storage/sessionFilters";
+import { RATE_LIMIT_FILTERS } from "../src/rateLimit/rateLimitFilters";
 import type { Module, IPage } from "nodefony";
 import type {
   IAdminApi,
@@ -70,16 +72,6 @@ interface SessionsAdmin {
   ): Promise<boolean>;
 }
 
-/** Premier param d'une clé de query (peut être `string | string[]`). */
-function one(
-  query: Readonly<Record<string, string | string[]>>,
-  key: string,
-): string | undefined {
-  const value = query[key];
-  if (value === undefined) return undefined;
-  return Array.isArray(value) ? value[0] : value;
-}
-
 /**
  * `limit`/`offset` du contrat de page, avec l'`offset` **matérialisé** : ces
  * endpoints le renvoient dans leur réponse, où l'absence n'a pas de sens (le
@@ -89,9 +81,17 @@ function one(
 function pageParams(query: Readonly<Record<string, string | string[]>>): {
   limit: number;
   offset: number;
+  q?: string;
 } {
   const parsed = parsePageQuery(query);
-  return { limit: parsed.limit, offset: parsed.offset ?? 0 };
+  // `q` vient d'ICI et de nulle part ailleurs : le handler le relisait à la main
+  // juste après, ce qui faisait deux lecteurs du même paramètre — le motif exact
+  // qui a déjà produit un 400 sur un tri accepté par le premier appel.
+  return {
+    limit: parsed.limit,
+    offset: parsed.offset ?? 0,
+    ...(parsed.q !== undefined ? { q: parsed.q } : {}),
+  };
 }
 
 /**
@@ -233,7 +233,7 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         limit: number;
         offset: number;
       }> => {
-        const { limit, offset } = pageParams(request.query);
+        const { limit, offset, q } = pageParams(request.query);
         const store = (module.get(HTTP_KERNEL_SERVICE) as HttpKernelLike)
           ?.rateLimitStore;
         // Lecture DÉFENSIVE : rate-limit désactivé (défaut) → état honnête,
@@ -249,16 +249,10 @@ export function createHttpAdminApi(module: Module): IAdminApi {
             offset,
           };
         }
-        const limitedRaw = one(request.query, "limited");
-        const q = one(request.query, "q");
         const page = await store.listPage({
           limit,
           offset,
-          ...(limitedRaw === "true"
-            ? { limited: true }
-            : limitedRaw === "false"
-              ? { limited: false }
-              : {}),
+          ...parseFilters(request.query, RATE_LIMIT_FILTERS),
           ...(q !== undefined ? { q } : {}),
         });
         return {
@@ -353,7 +347,6 @@ export function createHttpAdminApi(module: Module): IAdminApi {
             body: { error: "session enumeration not supported by storage" },
           };
         }
-        const user = one(request.query, "user");
         // Le tri traverse jusqu'au store, avec l'allowlist DÉCLARÉE par le
         // backend configuré : sur un store qui ne trie pas (Redis SCAN), elle
         // est vide et `parsePageQuery` refuse tout `order` en 400 plutôt que de
@@ -368,8 +361,8 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         const page = await svc.listSessionsPage({
           limit,
           offset,
+          ...parseFilters(request.query, SESSION_FILTERS),
           ...(pageQuery.order ? { order: pageQuery.order } : {}),
-          ...(user !== undefined ? { user } : {}),
         });
         // `total` est REPORTÉ tel quel : absent sur un backend à curseur, où le
         // déduire de `items.length` mentirait sur le périmètre.
