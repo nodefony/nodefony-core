@@ -1,12 +1,12 @@
 {
-  "generated": "2026-08-03T11:01:16.402Z",
+  "generated": "2026-08-03T11:18:16.161Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 675,
-    "symbols": 2720,
+    "symbols": 2721,
     "classes": 342,
-    "interfaces": 802,
+    "interfaces": 803,
     "types": 353,
     "enums": 4,
     "functions": 976,
@@ -2805,6 +2805,15 @@
       "file": "src/nodefony/src/runtime/loadEnv.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "IParseFiltersOptions": {
+      "name": "IParseFiltersOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/runtime/pageFilters.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réglages de lecture d'un point d'entrée qui porte plus que des filtres."
     },
     "FilterKind": {
       "name": "FilterKind",
@@ -24246,6 +24255,13 @@
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
+      "parseFilters": [
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
       "IAdminDescriptor": [
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
@@ -24610,12 +24626,6 @@
       ],
       "IHttpKernel": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
-      ],
-      "parseFilters": [
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "SESSION_FILTERS": [
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"

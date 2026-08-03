@@ -162,6 +162,42 @@ describe("parseFilters — cohabite avec le contrat de page", () => {
     expect(category).to.equal("auth");
   });
 
+  it("`accepts` laisse passer ce que l'appelant lit lui-même (projection)", () => {
+    // Sans cette liste, un endpoint qui expose `?include=author` devrait
+    // renoncer au refus de l'inconnu pour ne pas refuser sa propre projection.
+    expect(() =>
+      parseFilters({ include: "author", actor: "alice" }, SPEC, {
+        accepts: ["include"],
+      }),
+    ).to.not.throw();
+  });
+
+  it("`accepts` ne rend PAS la clé — elle reste à l'appelant", () => {
+    const out = parseFilters({ include: "author" }, SPEC, {
+      accepts: ["include"],
+    });
+    expect(out).to.deep.equal({});
+  });
+
+  it("une clé HORS `accepts` est toujours refusée", () => {
+    expect(() =>
+      parseFilters({ format: "csv" }, SPEC, { accepts: ["include"] }),
+    ).to.throw(/Unknown parameter "format"/);
+  });
+
+  it("les filtres lus sont des CRITÈRES de store, sans cast", () => {
+    // Ce test ne vaut qu'à la COMPILATION, et il couvre le code que le devkit
+    // GÉNÈRE : `criteria: parseFilters(query, FILTERS)`. Si la sortie perdait sa
+    // signature d'index implicite (une interface à la place du mapped type),
+    // toute application générée cesserait de compiler — et aucune assertion de
+    // chaîne dans un fichier rendu ne le verrait.
+    const criteria: Record<string, unknown> = parseFilters(
+      { revoked: "true" },
+      SPEC,
+    );
+    expect(criteria.revoked).to.equal(true);
+  });
+
   it("la spec est une DONNÉE : la parcourir suffit à connaître l'endpoint", () => {
     // Publiable telle quelle (endpoint de capacités, front) — ce qui serait
     // impossible si elle portait des fonctions de lecture.

@@ -168,6 +168,51 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
     expect(page.limit).toBeLessThanOrEqual(100);
   });
 
+  it("un tri sur un champ non déclaré est REFUSÉ, pas ignoré", async () => {
+    // Le pire n'est pas le refus, c'est son absence : une page rendue dans un
+    // ordre qui n'est pas celui demandé, avec un 200, ne se voit nulle part.
+    const res = await fetch(`${BASE}${ROUTE}?order=champInexistant:ASC`, {
+      headers: AUTH,
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("un paramètre que PERSONNE ne reconnaît est REFUSÉ", async () => {
+    // La faute de frappe est le cas réel : sans ce refus, `?<%= it.filters.length ? it.filters[0].name.slice(0, -1) : "actf" %>=…` rend la
+    // collection ENTIÈRE, et le client la lit comme le résultat de son filtre.
+    const res = await fetch(`${BASE}${ROUTE}?<%= it.filters.length ? it.filters[0].name.slice(0, -1) : "actf" %>=x`, {
+      headers: AUTH,
+    });
+    expect(res.status).toBe(400);
+  });
+<% if (it.filters.length) { %>
+  it("une valeur mal formée pour un filtre déclaré est REFUSÉE", async () => {
+    // `?<%= it.filters[0].name %>=nimportequoi` : le filtre existe, sa valeur ne convient pas.
+    // Le poser à « absent » rendrait une page non filtrée sous un 200.
+    const res = await fetch(`${BASE}${ROUTE}?<%= it.filters[0].name %>=<%= it.filters[0].def === '"boolean"' ? "oui" : (it.filters[0].def === '"int"' ? "abc" : "valeur-hors-domaine") %>`, {
+      headers: AUTH,
+    });
+    expect(res.status).toBe(400);
+  });
+<% } %><% if (it.relations.length) { %>
+  it("une relation inconnue dans ?include= est REFUSÉE", async () => {
+    // Charger l'enregistrement SANS la relation demandée, sous un 200, laisse
+    // croire que la relation est vide alors que le nom était mal écrit.
+    // `?include=` se lit sur la fiche, pas sur la liste : la liste, qui ne le
+    // lit pas, le refuse comme paramètre inconnu — et c'est cohérent.
+    const created = await fetch(`${BASE}${ROUTE}`, {
+      method: "POST",
+      headers: entetes(),
+      body: JSON.stringify(sample(300)),
+    });
+    const id = String((await json(created)).id);
+    const res = await fetch(
+      `${BASE}${ROUTE}/${id}?include=relationQuiNexistePas`,
+      { headers: AUTH },
+    );
+    expect(res.status).toBe(400);
+  });
+<% } %>
   it("DELETE → 204, et l'enregistrement n'est plus lisible", async () => {
     const created = await fetch(`${BASE}${ROUTE}`, {
       method: "POST",

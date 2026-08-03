@@ -3144,7 +3144,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // applications générées. Il a déjà porté le sien (`?sort=-champ`, JSON:API)
       // pendant que le framework parlait `?order=champ:SENS` — deux dialectes,
       // dont un seul documenté, et rien pour le signaler.
-      assert.include(src, 'import { parsePageQuery } from "nodefony"');
+      assert.include(
+        src,
+        'import { parsePageQuery, parseFilters } from "nodefony"',
+      );
       assert.include(src, "sortable: SORTABLE");
       assert.notInclude(
         src,
@@ -3156,6 +3159,62 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         '@Query("sort")',
         "le dialecte JSON:API `?sort=-champ` a été remplacé par `?order=champ:SENS`",
       );
+    });
+
+    it("le vocabulaire de FILTRE est déclaré, et il traverse jusqu'au store", () => {
+      const dest = app("eapp4bis");
+      entity(dest, { name: "Author", fields: "email:string!" });
+      entity(dest, {
+        name: "Post",
+        fields:
+          "title:string published:bool status:enum(draft,live) author:ref:Author",
+      });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "controllers", "PostController.ts"),
+        "utf8",
+      );
+      // Les trois natures où l'ÉGALITÉ veut dire quelque chose — et elles seules.
+      assert.include(src, 'published: "boolean"');
+      assert.include(src, 'status: ["draft", "live"]');
+      assert.include(src, 'author: "string"');
+      // Une chaîne libre n'est PAS un filtre : l'égalité stricte sur un titre
+      // n'est jamais ce qu'on cherche, `?q=` répond à ça.
+      assert.notInclude(src, 'title: "string"');
+      assert.include(src, "as const satisfies IFilterSpec");
+      // Déclaré ⇒ honoré : le filtre devient un critère de store, il n'est pas
+      // appliqué après découpage (ce qui rendrait des pages incomplètes).
+      assert.include(src, "parseFilters(query, FILTERS)");
+      assert.include(src, "criteria: filters");
+    });
+
+    it("sans champ filtrable, la spec reste VIDE — et refuse quand même l'inconnu", () => {
+      const dest = app("eapp4ter");
+      entity(dest, { name: "Post", fields: "title:string" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "controllers", "PostController.ts"),
+        "utf8",
+      );
+      // Le refus du paramètre inventé ne dépend d'aucun filtre déclaré : c'est
+      // lui qui empêche `?titre=x` de rendre la collection entière sous un 200.
+      assert.match(
+        src,
+        /const FILTERS = \{\s*\} as const satisfies IFilterSpec/u,
+      );
+      assert.include(src, "parseFilters(query, FILTERS)");
+    });
+
+    it("une relation inconnue dans ?include= est refusée, pas ignorée", () => {
+      const dest = app("eapp4quater");
+      entity(dest, { name: "Author", fields: "email:string!" });
+      entity(dest, { name: "Post", fields: "title:string author:ref:Author" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "controllers", "PostController.ts"),
+        "utf8",
+      );
+      // Le `.filter(INCLUDABLE.has)` d'origine rendait la fiche SANS la relation
+      // demandée, sous un 200 : le client lit « relation vide », pas « nom faux ».
+      assert.notInclude(src, "filter((name) => INCLUDABLE.has(name))");
+      assert.include(src, "Relation « ${name} » inconnue");
     });
 
     it("sans horodatage, l'ordre par défaut retombe sur l'id (jamais rien)", () => {

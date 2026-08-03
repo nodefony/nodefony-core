@@ -2703,6 +2703,25 @@ function runEntityScaffold(
     ...fields.filter((f) => f.type !== "json").map((f) => f.name),
     ...(timestamps ? ["createdAt", "updatedAt"] : []),
   ];
+  // Vocabulaire de FILTRE de la route de liste — le frère du tri, et sa règle est
+  // l'inverse : le tri est une capacité (le store sait-il ordonner ?), un filtre
+  // est une OBLIGATION (l'endpoint le déclare, donc il l'honore). Trois natures y
+  // entrent, parce que ce sont les trois où l'ÉGALITÉ veut dire quelque chose :
+  // un booléen, une énumération (son domaine EST son allowlist) et une clé
+  // étrangère (« les commentaires de cet article » — le filtre le plus demandé).
+  // Une chaîne libre n'y entre pas : l'égalité stricte sur un titre n'est jamais
+  // ce qu'on cherche, c'est `?q=` qui répond. Une date non plus : on veut un
+  // intervalle, que `nom=valeur` n'exprime pas — le promettre serait mentir.
+  const filterDef = (f: (typeof fields)[number]): string | null => {
+    if (f.type === "bool") return '"boolean"';
+    if (f.type === "enum" && f.values?.length)
+      return JSON.stringify(f.values).replace(/","/g, '", "');
+    if (f.type === "ref") return id === "serial" ? '"int"' : '"string"';
+    return null;
+  };
+  const filters = fields
+    .map((f) => ({ name: f.name, def: filterDef(f) }))
+    .filter((e): e is { name: string; def: string } => e.def !== null);
   // Tri PAR DÉFAUT — une liste sans ordre déterministe rend la pagination fausse
   // par intermittence : deux pages consécutives peuvent montrer la même ligne, ou
   // en sauter une, sans que rien ne le signale. `id` départage les ex æquo (uuid7
@@ -2812,6 +2831,7 @@ function runEntityScaffold(
     timestamps,
     softDelete,
     sortable,
+    filters,
     defaultOrder,
     relations,
     // Le CRUD généré porte la seule route DESTRUCTRICE que produise le devkit.

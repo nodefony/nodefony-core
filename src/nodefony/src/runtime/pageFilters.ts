@@ -35,6 +35,26 @@ export type FilterDef = FilterKind | readonly string[];
  */
 export type IFilterSpec = Readonly<Record<string, FilterDef>>;
 
+/** Réglages de lecture d'un point d'entrée qui porte plus que des filtres. */
+export interface IParseFiltersOptions {
+  /**
+   * Paramètres que ce point d'entrée lit **lui-même**, hors filtres — une
+   * projection (`?include=author`), un format de sortie, une clé propre au
+   * transport.
+   *
+   * Ils sont laissés passer sans être validés ni rendus : c'est l'appelant qui
+   * s'en occupe. Les déclarer ici est le seul moyen de garder le refus de
+   * l'inconnu — sans cette liste, `?include=author` deviendrait un `400` sur un
+   * paramètre parfaitement légitime, et la seule échappatoire serait de ne plus
+   * refuser du tout.
+   *
+   * @remarks Une clé énoncée ici est un **engagement de l'appelant** à la
+   *   traiter. L'y mettre pour faire taire un refus, sans la lire ensuite,
+   *   recrée exactement le paramètre accepté puis jeté que ce contrat bannit.
+   */
+  accepts?: readonly string[];
+}
+
 /** Le type JavaScript qu'une définition de filtre produit une fois lue. */
 export type FilterValue<D extends FilterDef> = D extends "string"
   ? string
@@ -87,6 +107,8 @@ export type FilterValues<S extends IFilterSpec> = {
  *
  * @param source - la query string parsée, ou le corps d'une requête `QUERY`.
  * @param spec - ce que ce point d'entrée sait filtrer.
+ * @param options - paramètres que l'appelant lit lui-même (voir
+ *   {@link IParseFiltersOptions.accepts}).
  * @returns les filtres présents et valides (les absents ne sont pas posés).
  * @throws {@link PageQueryError} (`code` 400) sur l'un des trois cas ci-dessus.
  *
@@ -106,11 +128,14 @@ export type FilterValues<S extends IFilterSpec> = {
 export function parseFilters<const S extends IFilterSpec>(
   source: PageQuerySource,
   spec: S,
+  options: IParseFiltersOptions = {},
 ): FilterValues<S> {
   const out: Record<string, string | boolean | number> = {};
+  const accepts = options.accepts;
 
   for (const key of Object.keys(source)) {
     if (PAGE_QUERY_KEYS.has(key)) continue;
+    if (accepts?.includes(key)) continue;
     if (!Object.hasOwn(spec, key)) {
       const known = Object.keys(spec);
       throw new PageQueryError(

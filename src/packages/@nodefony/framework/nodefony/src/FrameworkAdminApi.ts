@@ -1,4 +1,4 @@
-import { parsePageQuery } from "nodefony";
+import { parsePageQuery, parseFilters } from "nodefony";
 import type {
   IAdminApi,
   IAdminEndpoint,
@@ -180,6 +180,12 @@ export function createFrameworkAdminApi(
           defaultLimit: 25,
           sortable: SORTABLE_COLUMNS,
         });
+        // Cet endpoint n'a pas de filtre au sens du contrat (spec vide) : il lit
+        // son propre `filters`, et le déclare. L'appel sert donc à une seule
+        // chose, mais elle manquait — refuser un paramètre que personne ne lit.
+        // Sans lui, `?bypassFirewal=true` rendait TOUTES les routes sous un 200,
+        // que l'administrateur lit comme « aucune route ne contourne le firewall ».
+        parseFilters(request.query, {}, { accepts: ["filters"] });
         const search = query.q?.toLowerCase() ?? "";
         let filters: { key: string; op: string; value: string }[] = [];
         try {

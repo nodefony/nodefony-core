@@ -15,10 +15,11 @@ import {
 <% } %>} from "@nodefony/framework";
 import { HttpError } from "@nodefony/http";
 import type { ContextType } from "@nodefony/http";
-// LE traducteur de requête de page du framework — jamais un parseur maison :
-// deux dialectes de pagination dans une même application finissent par diverger,
-// et c'est le client qui l'apprend.
-import { parsePageQuery } from "nodefony";
+// LES deux lecteurs de requête du framework — jamais un parseur maison : deux
+// dialectes de pagination dans une même application finissent par diverger, et
+// c'est le client qui l'apprend.
+import { parsePageQuery, parseFilters } from "nodefony";
+import type { IFilterSpec } from "nodefony";
 import type { <%= it.pascal %>Row } from "../entity/<%= it.pascal %>";
 import { get<%= it.pascal %>Service } from "../service/<%= it.pascal %>Service";
 
@@ -39,6 +40,30 @@ const PAGE_MAX = 100;
 const SORTABLE = <%= JSON.stringify(it.sortable) %> as const;
 
 /**
+ * Ce que cette route sait FILTRER — nom public → nature, et rien d'autre.
+ *
+ * C'est le frère de `SORTABLE`, avec une règle inverse : un tri est une capacité
+ * (le backend sait-il ordonner ?), un filtre déclaré ici est une **obligation** —
+ * la route promet de l'honorer, et `parseFilters` la tient.
+ *
+ * Trois refus, tous en **400** : une valeur mal formée (`?<%= it.filters.length ? it.filters[0].name : "actif" %>=oui`),
+ * une valeur hors énumération, et — le plus important — un paramètre que
+ * **personne** ne reconnaît (`?titre=x` au lieu de `?title=x`). Sans ce dernier,
+ * une faute de frappe dans une URL rend la collection ENTIÈRE, que le client lit
+ * comme le résultat de son filtre : c'est la façon la plus discrète de mentir.
+ *
+ * Une valeur est une liste ⇒ elle vaut allowlist. Ajouter un filtre ici, c'est
+ * ajouter une ligne — et le TYPE des filtres lus suit tout seul.
+<% if (!it.filters.length) { %> *
+ * Aucun champ de cette entité ne se prête à l'égalité (ni booléen, ni
+ * énumération, ni référence) : la spec est vide, et elle sert quand même — elle
+ * refuse tout paramètre inventé. Déclare ici ce que tu veux filtrer.
+<% } %> */
+const FILTERS = {
+<% for (const f of it.filters) { %>  <%= f.name %>: <%= f.def %>,
+<% } %>} as const satisfies IFilterSpec;
+
+/**
  * Ordre par défaut — **il n'est pas décoratif**.
  *
  * Sans ordre déterministe, la base rend les lignes dans l'ordre qui l'arrange, et
@@ -56,13 +81,29 @@ const DEFAULT_ORDER: Array<[string, "ASC" | "DESC"]> = <%= it.defaultOrder %>;
  */
 const INCLUDABLE = new Set<string>(<%= JSON.stringify(it.relations.map((r) => r.field)) %>);
 
-/** Traduit `?include=<%= it.relations[0].field %>` en liste de relations à charger. */
+/**
+ * Traduit `?include=<%= it.relations[0].field %>` en liste de relations à charger.
+ *
+ * Une relation inconnue est **refusée**, jamais ignorée : rendre l'enregistrement
+ * sans la relation demandée, avec un `200`, laisse le client croire que la
+ * relation est vide alors qu'il a simplement mal écrit son nom. Le tri et les
+ * filtres refusent pour la même raison — une seule doctrine dans cette route.
+ */
 function parseInclude(include?: string): string[] {
   if (!include) return [];
-  return include
+  const names = include
     .split(",")
     .map((raw) => raw.trim())
-    .filter((name) => INCLUDABLE.has(name));
+    .filter((name) => name !== "");
+  for (const name of names) {
+    if (!INCLUDABLE.has(name)) {
+      throw new HttpError(
+        `Relation « ${name} » inconnue. Relations chargeables : ${[...INCLUDABLE].join(", ")}.`,
+        400,
+      );
+    }
+  }
+  return names;
 }
 <% } %>
 
@@ -106,11 +147,18 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
    * accepté puis ignoré. `?withTotal=false` économise le `COUNT(*)` quand le client
    * n'affiche pas de numéros de page.
    *
-   * `parsePageQuery` est le **seul** traducteur : il lit `limit`, `offset`, `order`,
-   * `withTotal` et `q` d'un coup. N'en écris jamais un second dans cette méthode — deux
-   * traducteurs dans un même handler, dont un seul connaît l'allowlist, font refuser en
-   * 400 ce que l'autre vient d'accepter, et aucun test unitaire ne le voit.
+   * Deux lecteurs, deux domaines qui ne se recouvrent pas : `parsePageQuery` lit le
+   * contrat de page (`limit`, `offset`, `order`, `withTotal`, `q`), `parseFilters` lit
+   * ce que `FILTERS` déclare — et refuse tout le reste. N'écris jamais un troisième
+   * parseur dans cette méthode : deux traducteurs du MÊME paramètre, dont un seul
+   * connaît l'allowlist, font refuser en 400 ce que l'autre vient d'accepter, et aucun
+   * test unitaire ne le voit.
    *
+<% if (it.filters.length) { %>   * Les filtres traversent jusqu'à la base (`criteria` → `WHERE`), ils ne sont pas
+   * appliqués après découpage : filtrer une page déjà tranchée rendrait des pages
+   * incomplètes, et un `total` qui ne correspond à rien.
+   *
+<% } %>
    * ⚠️ `offset` se dégrade sur les grandes tables (la base doit compter les lignes
    * sautées) et peut sauter des enregistrements si des insertions ont lieu pendant la
    * pagination. Un curseur opaque viendra le remplacer.
@@ -129,13 +177,19 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
       maxLimit: PAGE_MAX,
       sortable: SORTABLE,
     });
-    // Aucun filtre de la requête n'est transmis au service automatiquement : exposer
-    // un critère de recherche est une décision, jamais un effet de bord.
+    // Les filtres DÉCLARÉS, et eux seuls. Ce que `FILTERS` ne nomme pas est refusé
+    // en 400 plutôt que rendu non filtré : un critère accepté puis jeté produit une
+    // réponse que le client prend pour le résultat de sa demande.
+    const filters = parseFilters(query, FILTERS);
     return this.listPageResource({
       limit: page.limit,
       offset: page.offset ?? 0,
       order: page.order?.length ? page.order : DEFAULT_ORDER,
       withTotal: page.withTotal !== false,
+      // Les filtres deviennent les critères du store : `?<%= it.filters.length ? it.filters[0].name + "=" : "" %>…` se
+      // traduit en `WHERE`, il n'est pas appliqué après coup sur une page déjà
+      // découpée — filtrer APRÈS avoir paginé rend des pages incomplètes.
+      criteria: filters,
     });
   }
 

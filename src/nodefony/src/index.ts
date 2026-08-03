@@ -406,6 +406,7 @@ export type {
   IFilterSpec,
   FilterValue,
   FilterValues,
+  IParseFiltersOptions,
 } from "./runtime/pageFilters";
 export type { ISyslog } from "./types/ISyslog";
 export type { ITransport } from "./types/ITransport";
