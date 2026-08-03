@@ -358,6 +358,17 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         "au store (?subjectId&revoked&limit&offset|cursor&order=champ:ASC). Tri " +
         "limité aux champs que le backend branché déclare savoir trier. Vue " +
         "publique, sans secret.",
+      // Publiée dans le catalogue admin : le store Redis de jetons ne déclare
+      // aucun tri, une base SQL en déclare quatre. La console lit ce que le
+      // backend RÉPOND, au lieu de coder en dur une liste qui serait juste
+      // pour un déploiement et fausse pour le suivant.
+      page: {
+        sortable: () => {
+          const svc = container.get("apiKeys") as IApiKeyAdmin | undefined;
+          return svc?.isEnabled() ? svc.sortableFields() : [];
+        },
+        filters: TOKEN_FILTERS,
+      },
       handler: async (
         request: IAdminRequest,
       ): Promise<

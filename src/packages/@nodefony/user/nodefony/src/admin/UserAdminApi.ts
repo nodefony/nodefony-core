@@ -329,6 +329,15 @@ export function createUserAdminApi(container: Container): IAdminApi {
       summary:
         "Utilisateurs (DTO redacté, jamais le hash). Filtres : " +
         "?role&enabled&q (identifier) ; pagination ?limit&offset.",
+      // Publiée dans le catalogue admin — la console cesse de deviner ce que
+      // l'annuaire branché sait faire. Le tri est ÉVALUÉ (l'annuaire en mémoire
+      // ne connaît ni `createdAt` ni `updatedAt`, une base SQL oui), les filtres
+      // sont la donnée que le handler lit deux lignes plus bas : une seule
+      // déclaration, deux lectures, aucune divergence possible.
+      page: {
+        sortable: () => resolveUsers()?.sortableFields() ?? [],
+        filters: USER_FILTERS,
+      },
       handler: async (
         request: IAdminRequest,
       ): Promise<

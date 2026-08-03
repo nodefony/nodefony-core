@@ -221,6 +221,16 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
       summary:
         "Endpoints webhook sortants (registre) + backend du store (« où on " +
         "écrit » : memory/orm). Secrets EXCLUS (chiffrés au repos, jamais ici).",
+      // Publiée dans le catalogue admin. `sortable` est évalué à la lecture et
+      // rend une liste VIDE quand les webhooks sont coupés — la console n'offre
+      // alors aucun tri, au lieu d'en proposer un qui répondrait 400.
+      page: {
+        sortable: () => {
+          const s = svc();
+          return ready(s) ? s.sortableFields() : [];
+        },
+        filters: WEBHOOK_FILTERS,
+      },
       handler: async (
         request: IAdminRequest,
       ): Promise<{

@@ -3,6 +3,7 @@ import type {
   IAdminApi,
   IAdminEndpoint,
   IAdminDescriptor,
+  IFilterSpec,
   IPage,
 } from "nodefony";
 import Router from "../service/router";
@@ -274,6 +275,7 @@ export function createFrameworkAdminApi(
             path: string;
             role: string;
             summary: string | null;
+            page?: { sortable: readonly string[]; filters: IFilterSpec };
           }[]
         >();
         for (const r of broker.routes()) {
@@ -282,11 +284,25 @@ export function createFrameworkAdminApi(
             arr = [];
             byNs.set(r.namespace, arr);
           }
+          const caps = r.endpoint.page;
           arr.push({
             method: r.method,
             path: r.path,
             role: r.role,
             summary: r.endpoint.summary ?? null,
+            // Les capacités de page sont publiées ICI parce que la console lit
+            // déjà ce catalogue au démarrage : un endpoint « capabilities » par
+            // ressource aurait coûté une requête par vue pour la même donnée.
+            // `sortable` est ÉVALUÉ maintenant — c'est le store branché qui
+            // répond, pas une constante de compilation.
+            ...(caps
+              ? {
+                  page: {
+                    sortable: caps.sortable?.() ?? [],
+                    filters: caps.filters ?? {},
+                  },
+                }
+              : {}),
           });
         }
         const producers = [...byNs.keys()]

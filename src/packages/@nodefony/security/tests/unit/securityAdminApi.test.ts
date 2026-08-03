@@ -209,8 +209,14 @@ describe("parseAuditQuery", () => {
     });
   });
 
-  it("prend le 1er d'un param multi-valué ; un entier non numérique est refusé", () => {
-    assert.deepEqual(parseAuditQuery({ actor: ["a", "b"] }), {
+  it("un param multi-valué est REFUSÉ ; un entier non numérique aussi", () => {
+    // `?actor=a&actor=b` : filtrer sur `a` seul et jeter `b` sans le dire rend
+    // un journal d'audit que le lecteur prend pour la réponse à ses DEUX
+    // valeurs. Aucune nature de filtre n'exprime l'appartenance à un ensemble,
+    // donc la seule réponse honnête est le refus.
+    assert.throws(() => parseAuditQuery({ actor: ["a", "b"] }), /2 values/);
+    // Un tableau d'UNE valeur reste lu : c'est le transport, pas l'intention.
+    assert.deepEqual(parseAuditQuery({ actor: ["a"] }), {
       actor: "a",
       limit: 100,
     });

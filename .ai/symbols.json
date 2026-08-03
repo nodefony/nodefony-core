@@ -1,12 +1,12 @@
 {
-  "generated": "2026-08-03T11:18:16.161Z",
+  "generated": "2026-08-03T11:35:36.103Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 675,
-    "symbols": 2721,
+    "symbols": 2722,
     "classes": 342,
-    "interfaces": 803,
+    "interfaces": 804,
     "types": 353,
     "enums": 4,
     "functions": 976,
@@ -3310,6 +3310,15 @@
       "extends": null,
       "description": "Enveloppe de réponse d'un endpoint admin. Un handler peut renvoyer directement sa donnée (`T`) — le broker assume `{ status: 200, body: T }` — ou cette enveloppe pour piloter le statut et les en-tê…"
     },
+    "IAdminPageCapabilities": {
+      "name": "IAdminPageCapabilities",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'un endpoint paginé sait faire — **publié**, pour que son client cesse de le deviner. Une console d'administration doit savoir quelles colonnes proposer au tri et quels filtres offrir. Sans ce…"
+    },
     "IAdminEndpoint": {
       "name": "IAdminEndpoint",
       "kind": "interface",
@@ -3352,7 +3361,7 @@
       "file": "src/nodefony/src/types/IAdminApi.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Contrat d'exposition d'admin (Studio data plane) — défini dans le CORE. Vit dans `@nodefony/core` (et non dans framework/http) pour une raison d'architecture : la donnée d'admin peut être produite …"
+      "description": "Méthodes HTTP supportées par le data plane admin."
     },
     "AdminHandler": {
       "name": "AdminHandler",
@@ -22273,6 +22282,16 @@
       "isLogColorEnabled": [
         "src/nodefony/src/syslog/Syslog.ts"
       ],
+      "IFilterSpec": [
+        "src/nodefony/src/types/IAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/rateLimitFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/auditFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
+      ],
       "IPage": [
         "src/nodefony/src/types/IIdempotencyStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
@@ -25536,14 +25555,6 @@
       ],
       "USER_SORTABLE_FIELDS_IN_MEMORY": [
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
-      ],
-      "IFilterSpec": [
-        "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
-        "src/packages/@nodefony/http/nodefony/src/rateLimit/rateLimitFilters.ts",
-        "src/packages/@nodefony/security/nodefony/src/audit/auditFilters.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
-        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
       ],
       "IUserProfile": [
         "src/packages/@nodefony/user/nodefony/src/userProfile.ts",

@@ -368,6 +368,7 @@ export type {
   IAdminApi,
   IAdminRegistry,
   IAdminEndpoint,
+  IAdminPageCapabilities,
   IAdminDescriptor,
   IAdminRequest,
   IAdminResponse,

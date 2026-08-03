@@ -322,6 +322,18 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         "Sessions actives (ref/user/ip/ua/dates — jamais l'id de session). " +
         "Paginé côté serveur : ?user&limit&offset. `total` absent et " +
         "`nextCursor` présent sur un backend à curseur (Redis).",
+      // Publiée dans le catalogue admin. C'est la ressource où l'écart entre
+      // backends est le plus franc : le store Redis énumère par `SCAN` et ne
+      // trie RIEN, là où mémoire, SQL et Mongo trient sur `updatedAt`/`id`. Une
+      // console qui coderait le tri en dur afficherait des en-têtes cliquables
+      // qui répondraient 400 — ici elle n'affiche que ce que le store annonce.
+      page: {
+        sortable: () => {
+          const svc = module.get("sessions") as SessionsAdmin | undefined;
+          return svc?.supportsEnumeration() ? svc.sortableFields() : [];
+        },
+        filters: SESSION_FILTERS,
+      },
       handler: async (
         request: IAdminRequest,
       ): Promise<
