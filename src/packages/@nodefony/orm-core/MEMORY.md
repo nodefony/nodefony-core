@@ -9,9 +9,14 @@ Fondation multi-ORM. Contrats + registre + base classes. Lib pure (pas Module, p
 - `IOrm`: name, connect/disconnect, isConnected, getRepository<T>(name), transaction<R>(work), `getNativeConnection<C>()` (trappe SQL brut).
 - `IEntity<S,M>`: name, orm, schema, model? (post-connect), relations? `IEntityRelation` (type/target/field).
 - `IRepository<T>` — **il n'y a PAS de `update()`** (piège : le tutoriel historique l'enseignait).
-  Lecture : `find`/`findOne`/`count`/`exists`. Écriture : `create`/`createMany`/`updateOne`/
+  Lecture : `find`/`findOne`/`count`/`countDistinct`/`exists`. Écriture : `create`/`createMany`/`updateOne`/
   `updateMany`/`upsert`/`increment`. Suppression : `delete`/`deleteOne`/`findOneAndDelete`.
   Plus **`withTransaction(tx)`** (vue liée à une tx, résout la fuite repo-non-tx-aware).
+  **`countDistinct(champ, critère?)`** = `COUNT(DISTINCT col)` SQL / `$match`+`$group`+`$count` Mongo
+  / `Set` en mémoire — la déduplication reste dans le moteur (compter côté appelant supposerait de
+  rapatrier la colonne entière). **`NULL`/absent non compté**, comme en SQL : l'absence de valeur
+  n'est pas une valeur distincte. Répond à « combien de personnes derrière ces sessions ? », que
+  `count` ne sait pas poser. Garde dans le banc de contrat des 3 dialectes (`repository-contract.ts`).
   Contrat : `nodefony/interfaces/IRepository.ts`. `find/findOne(criteria, options?)` avec `RepositoryReadOptions` = `{relations?[], limit?, offset?, order?}` (eager-load portable des assos déclarées). `OrmCriteria` = Record<string,unknown> (brut) ; **`Criteria<T>` = `Partial<T> & OrmCriteria`** (égalité type-checkée + échappatoire ; opérateurs riches → Drizzle P7.4). `IEntityRelation.foreignKey?` optionnel.
 - `ITransaction`: commit/rollback/savepoint/rollbackTo/getNative<C>.
 - ✅ (P5.2, `nodefony/src/`) `OrmRegistry` class + instance `ormRegistry` (singleton process-wide, Map lazy): register/get/has/list/unregister, doublon=throw. `EntityRegistry` class + `entityRegistry` (lazy `Object.create(null)`, `entities[name][connector]`): get(name,connector?) ambigu si l'entité vit sur plusieurs connecteurs sans `connector`. `Orm` abstract extends Service: template `connect()`=`onConnect()`+`fire('onOrmReady',this)`, auto-register au ctor (`ormRegistry.register(this.name,this)`); abstract = onConnect/disconnect/isConnected/getRepository/transaction/getNativeConnection. `Entity` abstract: abstract name/connector/getSchema(), getter `schema`=getSchema(), `register()` (PAS auto au ctor).
