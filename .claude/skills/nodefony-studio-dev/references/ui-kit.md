@@ -14,6 +14,7 @@
 - 5. Recette — ajouter un écran (étapes déterministes)
 - 6. Squelettes copier-coller (DONNÉES / LIVE / DÉTAIL)
 - 7. Ergonomie — divulgation progressive
+- 8. Une liste servie par le SERVEUR — capacités publiées, filtres, facettes cliquables
 
 ## 1. API exacte — UI kit
 
@@ -60,7 +61,18 @@ useResource<T>(fetcher: () => Promise<T>): { data: T|null; loading: boolean; err
 // Inclus : recherche globale, filtres par colonne à OPÉRATEURS (inline, contains/=/≥/vide…),
 // masquer des colonnes (menu Colonnes), tri, pagination client+serveur, persistance + clear.
 // En mode serveur, l'état persisté est restauré AVANT la 1ʳᵉ requête (pas de double-fetch).
-// Réf client : routes/Database.tsx (vue Liste). Réf serveur : routes/RoutesView.tsx + back FrameworkAdminApi `routes/page`.
+// Réf client : routes/Database.tsx (vue Liste). Réf serveur : routes/Sessions.tsx (le cas courant,
+// § 8 ci-dessous). routes/RoutesView.tsx est le cas SPÉCIAL — son back parle un dialecte d'opérateurs.
+
+// PageFilters — la barre de filtres NOMMÉS, rendue depuis le vocabulaire que le back PUBLIE.
+// Les filtres d'une ressource ne sont pas toujours des colonnes (`failing`, `hasSocial`, un
+// « état » qui mêle enabled+locked) : ils vivent ici, pas dans les en-têtes de la grille.
+<PageFilters
+  spec={caps?.filters ?? null}        // AdminPageCapabilities["filters"] — null ⇒ ne rend RIEN
+  value={filters} onChange={setFilters}
+  labels?={{ enabled: { label:"État", values:{ "true":"Actif" }, hint? } }}
+  omit?={["userId"]} debounceMs?={300}
+/>
 ```
 
 > 🚨 **MANDATORY — hauteur des grilles.** Le défaut `height="auto"`
@@ -270,3 +282,90 @@ différenciateur Studio est la **lisibilité pro**, pas la densité.
 - **Terme explicite FR + tech en second** (« Source consultée · relecture », pas « relu » seul) ;
   **chips** pour « où / combien » (destinations actives surlignées).
 - **Test du 1ᵉʳ regard** : « je vois SEULEMENT l'essentiel ET je comprends sans pavé ? » sinon découpe.
+
+## 8. Une liste servie par le SERVEUR — capacités publiées, filtres, facettes cliquables
+
+> Le contrat côté BACK (`parsePageQuery`, `parseFilters`, `countFacets`, `IAdminPageCapabilities`)
+> vit dans `nodefony-framework-dev` → `references/pagination.md`. Ici : ce que le front en fait.
+
+**La règle qui gouverne l'écran : la console DEMANDE la capacité, elle ne l'invente pas.**
+Une en-tête triable codée en dur répond `400` selon le déploiement (les sessions ne trient pas sur
+Redis, trient `updatedAt` sur SQL) ; une barre de recherche que le serveur ignore présente la
+collection **entière** comme un résultat de recherche.
+
+### Les briques
+
+```ts
+// stores/AdminStore.ts — le catalogue est DÉJÀ chargé, aucune requête de plus.
+store.admin.pageCapabilities(path, method = "GET"): AdminPageCapabilities | null
+//   → { sortable: string[], filters: {...}, search: boolean, facets: {...} }
+//   `null` = catalogue pas encore chargé, OU endpoint qui ne publie rien
+//   ⇒ n'offrir NI tri NI filtre plutôt que d'en inventer. C'est le seul défaut qui ne ment pas.
+
+// components/ui/pageQuery.ts — le SEUL endroit du front qui écrit une query string de page.
+toPageParams(q: DataGridServerQuery, filters?: Record<string,string>): URLSearchParams
+withoutColumnFilters(q): DataGridServerQuery   // pour un back à dialecte propre (RoutesView)
+fromPage<T>(page: IPage<T>): { rows, total }   // total absent (mode Slice) → minorant honnête
+pickFilters(filters, spec): Record<string,string>   // n'envoie à /stats que ce qu'il DÉCLARE
+isFacetActive(filters, criteria): boolean
+toggleFacet(filters, criteria, allFacets): Record<string,string>
+fmtFacet(n: number | null | undefined): string      // `null` → « — », JAMAIS « 0 »
+
+// hooks/useFacetCards.ts — rend les cartes de tête cliquables depuis les facettes PUBLIÉES.
+useFacetCards(caps, filters, onFiltersChange): (name, what) => FacetCardProps
+//   → { onClick?, active?, actionLabel? } à étaler sur <StatCard>. Facette non publiée → {} (carte inerte).
+```
+
+### Le squelette
+
+```tsx
+const ENDPOINT = "/nodefony/http/api/sessions";
+const STATS = "/nodefony/http/api/sessions/stats";
+
+const [filters, setFilters] = useState<Record<string, string>>({});
+const caps = store.admin.pageCapabilities(ENDPOINT);
+const statsCaps = store.admin.pageCapabilities(STATS);
+
+// /stats accepte les filtres de la liste MOINS la dimension qu'il décompose.
+const statsFilters = pickFilters(filters, statsCaps?.filters);
+const facetCard = useFacetCards(statsCaps, filters, setFilters);
+
+const loader = useCallback(async (q: DataGridServerQuery) => {
+  const page = await store.api.getAbsolute<IPage<Row>>(
+    `${ENDPOINT}?${toPageParams(q, filters)}`,
+  );
+  return fromPage(page);
+}, [store, filters]);          // ⚠️ loader MÉMOÏSÉ, et `filters` en dépendance
+
+<Grid>
+  <StatCard label="Anonymes" {...facetCard("anonymous", "les sessions anonymes")}>
+    {fmtFacet(counts.anonymous)}
+  </StatCard>
+</Grid>
+<PageFilters spec={caps?.filters ?? null} value={filters} onChange={setFilters} />
+<DataGrid mode="server" loader={loader}
+  columns={cols.map((c) => ({ ...c, sortable: caps?.sortable.includes(c.key) }))}
+  searchable={caps?.search ?? false} />
+```
+
+### Ce qui se décide ici, et pourquoi
+
+- **`sortable` par colonne se DÉRIVE de `caps.sortable`**, jamais d'une constante de la vue.
+  Mesuré sur serveur réel avant correction : une vue offrait 5 en-têtes cliquables pour 2 champs
+  honorés, une autre triait sur `subject` quand le serveur publie `subjectId`.
+- **`fmtFacet` : `null` n'est pas `0`.** Un backend en curseur ne sait pas compter et le dit ;
+  l'afficher en `0` transforme une ignorance en absence — « 0 session » là où il y en a des milliers.
+- **Le clic d'une carte FUSIONNE, il ne remplace pas.** Filtrer sur un utilisateur puis cliquer
+  « Anonymes » pose « ce compte a-t-il des sessions anonymes ? ». Remplacer aurait effacé la moitié
+  de la question. « Total » retire les clés de facettes et **laisse** ce qui a été saisi à la main.
+- **`pickFilters` avant d'appeler `/stats`.** Tout envoyer rend un `400` sur un écran valide ;
+  n'envoyer rien fait décrire la collection entière par des cartes posées au-dessus d'un tableau
+  filtré — deux vérités contradictoires côte à côte.
+- **Un opérateur non transportable est REFUSÉ, pas approximé.** `toPageParams` ne connaît que
+  l'égalité : une colonne `filterable` en mode serveur avec `contains` **lève**, et l'erreur remonte
+  dans le bandeau du grid au premier filtre posé. Un `?path=/api` lu comme une égalité rendrait une
+  page vide présentée comme un résultat de recherche. Back à dialecte propre ⇒
+  `withoutColumnFilters(q)` + sérialisation **dans le loader de cette vue-là**.
+- **Ne pas basculer en `mode="server"` une liste bornée par construction** : un endpoint
+  self-service dont la réponse EST déjà tout le périmètre de l'appelant, et dont le volume est
+  plafonné en amont (« Mes clés » : 100 par porteur), n'a rien à y gagner.
