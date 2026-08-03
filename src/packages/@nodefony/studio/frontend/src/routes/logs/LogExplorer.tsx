@@ -229,12 +229,17 @@ export const LogExplorer = observer(
         q: DataGridServerQuery,
       ): Promise<DataGridServerResult<LogRecord>> => {
         const params = toPageParams(q);
-        // ⚠️ Le `order` du data plane syslog est un SENS de lecture sur un axe
-        // implicite (uid), PAS le `order=champ:ASC` du contrat de page. Aucune
-        // colonne de ce grid n'est `sortable`, donc `toPageParams` n'en émet
-        // jamais et les deux ne se marchent pas dessus — rendre une colonne
-        // triable exige d'abord d'aligner le syslog sur le contrat.
-        params.set("order", order);
+        // Le sens de lecture s'exprime désormais dans la grammaire du contrat
+        // (`champ:SENS`), comme partout ailleurs : le data plane syslog a cessé
+        // d'être le second dialecte. `timeStamp` est le seul champ que le
+        // journal déclare triable — son axe technique est l'`uid` du Pdu, qui
+        // départage deux logs de la même milliseconde.
+        //
+        // Ce `set` écrase ce que `toPageParams` aurait pu émettre : le sens est
+        // piloté par le sélecteur dédié de la barre, pas par un en-tête de
+        // colonne (aucune colonne de ce grid n'est `sortable` — deux commandes
+        // pour le même réglage se contrediraient).
+        params.set("order", `timeStamp:${order === "asc" ? "ASC" : "DESC"}`);
         if (requestId.trim()) params.set("requestId", requestId.trim());
         // Filtres EXPLICITES de la barre dédiée (le back applique l'inclusion via
         // filterPdus : severity = OU entre niveaux, module/msgid = égalité,

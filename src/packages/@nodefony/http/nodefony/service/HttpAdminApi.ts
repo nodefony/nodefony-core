@@ -440,6 +440,13 @@ export function createHttpAdminApi(module: Module): IAdminApi {
             body: { error: "session enumeration not supported by storage" },
           };
         }
+        // Un décompte n'a ni fenêtre ni ordre : ce que le contrat de page
+        // porte encore doit être REFUSÉ, pas admis puis ignoré. `order` ne
+        // changerait rien au nombre rendu, mais `q` SI — l'accepter sans
+        // l'honorer ferait annoncer aux cartes une population que le tableau
+        // filtré ne montre pas. Sans `sortable` ni `searchable`, le
+        // traducteur refuse les deux (défaut REFUS).
+        parsePageQuery(request.query, {});
         return svc.countSessionFacets(
           parseFilters(request.query, SESSION_STATS_FILTERS),
         );

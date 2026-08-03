@@ -13,12 +13,32 @@ import type { PageQuerySource } from "./pageQuery";
 export type FilterKind = "string" | "boolean" | "int";
 
 /**
- * Définition d'UN filtre : sa nature, ou la **liste fermée** de ses valeurs.
+ * Un filtre à valeurs **multiples** : la clé peut être répétée dans l'URL
+ * (`?severity=ERROR&severity=CRITIC`), chaque occurrence étant validée par
+ * `each`.
+ *
+ * C'est une AUTORISATION explicite, jamais un hasard de query string : hors
+ * `{ each }`, un paramètre répété est refusé en `400` (`singleValue`). Le sens
+ * du OU entre les valeurs appartient au store, pas au lecteur.
+ *
+ * @remarks Une valeur invalide fait échouer la LISTE ENTIÈRE. Le réflexe
+ *   inverse — garder les valeurs valides et jeter les autres — est celui que
+ *   les data planes appliquaient à la main, et il ment : `?flow=nimporte`
+ *   laissait le critère vide, donc rendait le journal ENTIER sous un `200`.
+ */
+export interface FilterEach {
+  /** La nature de CHAQUE valeur : une liste fermée, ou un type scalaire. */
+  readonly each: FilterKind | readonly string[];
+}
+
+/**
+ * Définition d'UN filtre : sa nature, la **liste fermée** de ses valeurs, ou
+ * l'une des deux répétée ({@link FilterEach}).
  *
  * Une liste vaut énumération — `["auth", "authz", "token"]` — et devient
  * l'allowlist qui la valide, exactement comme `sortable` pour le tri.
  */
-export type FilterDef = FilterKind | readonly string[];
+export type FilterDef = FilterKind | readonly string[] | FilterEach;
 
 /**
  * Ce qu'un point d'entrée sait filtrer : nom public → définition.
@@ -55,8 +75,8 @@ export interface IParseFiltersOptions {
   accepts?: readonly string[];
 }
 
-/** Le type JavaScript qu'une définition de filtre produit une fois lue. */
-export type FilterValue<D extends FilterDef> = D extends "string"
+/** Le type d'UNE valeur, sans la répétition — brique de {@link FilterValue}. */
+type ScalarFilterValue<D> = D extends "string"
   ? string
   : D extends "boolean"
     ? boolean
@@ -65,6 +85,14 @@ export type FilterValue<D extends FilterDef> = D extends "string"
       : D extends readonly (infer V)[]
         ? V
         : never;
+
+/**
+ * Le type JavaScript qu'une définition de filtre produit une fois lue — un
+ * **tableau** pour un filtre `{ each }`, la valeur seule sinon.
+ */
+export type FilterValue<D extends FilterDef> = D extends { each: infer E }
+  ? ScalarFilterValue<E>[]
+  : ScalarFilterValue<D>;
 
 /**
  * Les filtres lus, **typés depuis la spec** : une énumération rend son union de
@@ -78,6 +106,58 @@ export type FilterValue<D extends FilterDef> = D extends "string"
 export type FilterValues<S extends IFilterSpec> = {
   -readonly [K in keyof S]?: FilterValue<S[K]>;
 };
+
+/** Une définition est-elle répétable ? (discriminant de {@link FilterEach}) */
+const isEach = (def: FilterDef): def is FilterEach =>
+  typeof def === "object" && !Array.isArray(def);
+
+/**
+ * Valide et convertit UNE valeur brute selon une nature scalaire — le cœur de
+ * la lecture, partagé par les filtres simples et par chaque occurrence d'un
+ * filtre `{ each }`. Les écrire deux fois les aurait fait diverger : c'est
+ * exactement ce qui s'était produit dans les data planes, où la variante
+ * multi-valeurs validait moins que la variante simple.
+ *
+ * @throws {@link PageQueryError} (`code` 400) si la valeur ne correspond pas.
+ */
+function coerce(
+  raw: string,
+  def: FilterKind | readonly string[],
+  name: string,
+): string | boolean | number {
+  if (Array.isArray(def)) {
+    if (!def.includes(raw)) {
+      throw new PageQueryError(
+        `Invalid value "${raw}" for "${name}". Accepted: ${def.join(", ")}.`,
+      );
+    }
+    return raw;
+  }
+
+  if (def === "boolean") {
+    if (raw !== "true" && raw !== "false") {
+      throw new PageQueryError(
+        `Invalid value "${raw}" for "${name}" (expected true or false).`,
+      );
+    }
+    return raw === "true";
+  }
+
+  if (def === "int") {
+    const n = Number.parseInt(raw, 10);
+    // `Number.parseInt("12abc")` rend 12 : comparer la forme rendue à
+    // l'entrée est le seul moyen de refuser une valeur à moitié numérique,
+    // qui filtrerait sur autre chose que ce qui a été demandé.
+    if (!Number.isFinite(n) || String(n) !== raw.trim()) {
+      throw new PageQueryError(
+        `Invalid value "${raw}" for "${name}" (expected an integer).`,
+      );
+    }
+    return n;
+  }
+
+  return raw;
+}
 
 /**
  * **Le** lecteur de filtres : transforme une source clé→valeur en filtres
@@ -130,7 +210,10 @@ export function parseFilters<const S extends IFilterSpec>(
   spec: S,
   options: IParseFiltersOptions = {},
 ): FilterValues<S> {
-  const out: Record<string, string | boolean | number> = {};
+  const out: Record<
+    string,
+    string | boolean | number | (string | boolean | number)[]
+  > = {};
   const accepts = options.accepts;
 
   for (const key of Object.keys(source)) {
@@ -147,44 +230,22 @@ export function parseFilters<const S extends IFilterSpec>(
   }
 
   for (const [name, def] of Object.entries(spec)) {
+    // Filtre RÉPÉTABLE : la clé est lue en entier, chaque occurrence passant la
+    // MÊME validation qu'une valeur seule (`coerce`) — une règle, un exemplaire.
+    if (isEach(def)) {
+      const raw = source[name];
+      if (raw === undefined) continue;
+      const values = (Array.isArray(raw) ? raw : [raw]).filter((v) => v !== "");
+      // Tout vide = aucune intention : la clé n'est pas posée, comme pour un
+      // filtre simple à valeur vide.
+      if (values.length === 0) continue;
+      out[name] = values.map((v) => coerce(v, def.each, name));
+      continue;
+    }
+
     const raw = singleValue(source, name);
     if (raw === undefined || raw === "") continue;
-
-    if (Array.isArray(def)) {
-      if (!def.includes(raw)) {
-        throw new PageQueryError(
-          `Invalid value "${raw}" for "${name}". Accepted: ${def.join(", ")}.`,
-        );
-      }
-      out[name] = raw;
-      continue;
-    }
-
-    if (def === "boolean") {
-      if (raw !== "true" && raw !== "false") {
-        throw new PageQueryError(
-          `Invalid value "${raw}" for "${name}" (expected true or false).`,
-        );
-      }
-      out[name] = raw === "true";
-      continue;
-    }
-
-    if (def === "int") {
-      const n = Number.parseInt(raw, 10);
-      // `Number.parseInt("12abc")` rend 12 : comparer la forme rendue à
-      // l'entrée est le seul moyen de refuser une valeur à moitié numérique,
-      // qui filtrerait sur autre chose que ce qui a été demandé.
-      if (!Number.isFinite(n) || String(n) !== raw.trim()) {
-        throw new PageQueryError(
-          `Invalid value "${raw}" for "${name}" (expected an integer).`,
-        );
-      }
-      out[name] = n;
-      continue;
-    }
-
-    out[name] = raw;
+    out[name] = coerce(raw, def, name);
   }
 
   // La sortie est construite EN SUIVANT `spec`, donc chaque clé porte déjà la

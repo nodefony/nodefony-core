@@ -10,20 +10,29 @@
  * de l'endpoint `backplane`. Toute évolution du contrat back → mettre à jour ici.
  */
 
-/** Noms de sévérité RFC 5424 (+ extension). `CRITIC`, jamais `CRITICAL`. */
-export const SEVERITIES = [
-  "DEBUG",
-  "INFO",
-  "NOTICE",
-  "WARNING",
-  "ERROR",
-  "CRITIC",
-  "ALERT",
-  "EMERGENCY",
-] as const;
+import { SEVERITY_NAMES } from "nodefony";
+import type { SeverityName } from "nodefony";
+
+/**
+ * Noms de sévérité RFC 5424, du moins au plus grave — l'ordre d'AFFICHAGE du
+ * sélecteur, **dérivé** de la source unique du cœur (`SEVERITY_NAMES`, qui va
+ * dans l'ordre inverse : son index est la valeur RFC).
+ *
+ * C'était une liste recopiée. Il y en avait une seconde, dans un autre ordre,
+ * quelques fichiers plus loin — et aucune côté serveur, si bien que le data
+ * plane n'avait rien à quoi confronter un `?severity=CRITICAL`.
+ *
+ * L'import de VALEUR depuis `nodefony` est isomorphe : c'est le même patron que
+ * `pduProtocol` ou `PLATFORM_CHANNELS`, déjà tirés du bundle client. La règle
+ * du miroir local ci-dessus vise la FORME WIRE des enregistrements, pas les
+ * vocabulaires partagés — un vocabulaire recopié se périme, un type miroir non.
+ */
+export const SEVERITIES: readonly SeverityName[] = [
+  ...SEVERITY_NAMES,
+].reverse();
 
 /** Une sévérité RFC 5424. */
-export type Severity = (typeof SEVERITIES)[number];
+export type Severity = SeverityName;
 
 /**
  * Forme **wire** d'un Pdu — miroir de `ILogRecord` (core). Produite par

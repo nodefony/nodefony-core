@@ -55,7 +55,7 @@ import {
 } from "./logFormat";
 import { SeverityBadge, SeverityCountChips } from "./LogVisuals";
 import type { LogRecord, Severity } from "./logsTypes";
-import { PLATFORM_CHANNELS } from "nodefony";
+import { PLATFORM_CHANNELS, SEVERITY_NAMES } from "nodefony";
 
 /** État du debug runtime (miroir local de `GET /kernel/api/log/level`). */
 interface DebugState {
@@ -64,17 +64,9 @@ interface DebugState {
   expiresAt: Record<string, number>;
 }
 
-/** Noms RFC 5424 par index (miroir local — l'override stocke un numéro). */
-const SEVERITY_NAMES = [
-  "EMERGENCY",
-  "ALERT",
-  "CRITIC",
-  "ERROR",
-  "WARNING",
-  "NOTICE",
-  "INFO",
-  "DEBUG",
-] as const;
+// `SEVERITY_NAMES` (cœur) est indexée par la VALEUR RFC : `[3] === "ERROR"`.
+// C'est exactement ce que cet override stocke — un numéro. La liste était
+// recopiée ici, et une seconde fois dans `logsTypes`, dans l'ordre inverse.
 const sevName = (n: number): string => SEVERITY_NAMES[n] ?? String(n);
 const moduleLabel = (m: string): string =>
   m === "*" ? "Tous les modules (*)" : m;

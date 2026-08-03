@@ -139,9 +139,11 @@ export const PduDetailDrawer = observer(
       setTlLoading(true);
       store.api
         .getAbsolute<LogQueryResult>(
+          // Lecture CHRONOLOGIQUE d'une trace (du plus ancien au plus récent) —
+          // exprimée dans la grammaire du contrat, `champ:SENS`.
           `/nodefony/syslog/api/logs/search?requestId=${encodeURIComponent(
             requestId,
-          )}&order=asc&limit=300`,
+          )}&order=timeStamp:ASC&limit=300`,
         )
         .then((res) => setTimeline(res.rows ?? []))
         .catch(() => setTimeline([]))

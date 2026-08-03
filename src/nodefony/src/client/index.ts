@@ -1,7 +1,7 @@
 import Container from "../Container";
 import Service from "../Service";
 import Syslog from "../syslog/Syslog";
-import Pdu from "../syslog/Pdu";
+import Pdu, { SEVERITY_NAMES } from "../syslog/Pdu";
 import {
   extend,
   isEmptyObject,
@@ -40,6 +40,9 @@ export type {
   IRealtimeDenied,
 } from "./realtime/RealtimeClient";
 export type { NodefonyNotice, NoticeLevel } from "./realtime/notice";
+// Vocabulaire des sévérités RFC 5424 — isomorphe : la console
+// d'administration en tirait deux copies locales, dans deux ordres.
+export type { Severity, SeverityName } from "../syslog/Pdu";
 export type {
   IRealtimePeer,
   RpcActionHandler,
@@ -84,6 +87,7 @@ export {
   Service,
   Container,
   Pdu,
+  SEVERITY_NAMES,
   Syslog,
   extend,
   isEmptyObject,

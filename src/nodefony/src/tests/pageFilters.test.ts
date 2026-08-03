@@ -209,3 +209,61 @@ describe("parseFilters — cohabite avec le contrat de page", () => {
     });
   });
 });
+
+describe("parseFilters — la nature MULTI-valeurs (`{ each }`)", () => {
+  const MULTI = {
+    severity: { each: ["ERROR", "WARNING", "INFO"] },
+    tag: { each: "string" },
+    level: { each: "int" },
+    module: "string",
+  } as const satisfies IFilterSpec;
+
+  it("lit TOUTES les valeurs d'une clé répétée", () => {
+    const out = parseFilters({ severity: ["ERROR", "WARNING"] }, MULTI);
+    expect(out.severity).to.deep.equal(["ERROR", "WARNING"]);
+  });
+
+  it("accepte une valeur unique — même forme rendue (un tableau)", () => {
+    const out = parseFilters({ severity: "ERROR" }, MULTI);
+    expect(out.severity).to.deep.equal(["ERROR"]);
+  });
+
+  it("refuse dès qu'UNE valeur sort de l'énumération", () => {
+    // C'était le défaut vécu : les valeurs invalides étaient FILTRÉES en
+    // silence, si bien que `?flow=nimporte` rendait le journal entier.
+    expect(() => parseFilters({ severity: ["ERROR", "ZZZ"] }, MULTI)).to.throw(
+      /Invalid value "ZZZ" for "severity"/,
+    );
+  });
+
+  it("applique la nature à CHAQUE valeur (`int`)", () => {
+    expect(parseFilters({ level: ["3", "7"] }, MULTI).level).to.deep.equal([
+      3, 7,
+    ]);
+    expect(() => parseFilters({ level: ["3", "sept"] }, MULTI)).to.throw(
+      /expected an integer/,
+    );
+  });
+
+  it("ignore les valeurs VIDES, et ne pose pas la clé si tout est vide", () => {
+    expect(parseFilters({ tag: ["a", ""] }, MULTI).tag).to.deep.equal(["a"]);
+    expect(parseFilters({ tag: ["", ""] }, MULTI)).to.deep.equal({});
+  });
+
+  it("une clé NON multi refuse toujours la répétition", () => {
+    // Le défaut du contrat reste « une valeur par paramètre » : le multi
+    // s'AUTORISE dans la spec, il ne s'attrape pas au hasard de la query.
+    expect(() => parseFilters({ module: ["a", "b"] }, MULTI)).to.throw(
+      /reads a single value per parameter/,
+    );
+  });
+
+  it("reste une DONNÉE sérialisable — publiable telle quelle", () => {
+    expect(JSON.parse(JSON.stringify(MULTI))).to.deep.equal({
+      severity: { each: ["ERROR", "WARNING", "INFO"] },
+      tag: { each: "string" },
+      level: { each: "int" },
+      module: "string",
+    });
+  });
+});

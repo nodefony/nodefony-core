@@ -416,6 +416,13 @@ export function createUserAdminApi(container: Container): IAdminApi {
         if (!users) {
           return { status: 503, body: { error: "user service unavailable" } };
         }
+        // Un décompte n'a ni fenêtre ni ordre : ce que le contrat de page
+        // porte encore doit être REFUSÉ, pas admis puis ignoré. `order` ne
+        // changerait rien au nombre rendu, mais `q` SI — l'accepter sans
+        // l'honorer ferait annoncer aux cartes une population que le tableau
+        // filtré ne montre pas. Sans `sortable` ni `searchable`, le
+        // traducteur refuse les deux (défaut REFUS).
+        parsePageQuery(request.query, {});
         return users.countUserFacets(
           ADMIN_ROLE,
           parseFilters(request.query, USER_STATS_FILTERS),

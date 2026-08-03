@@ -989,3 +989,174 @@ describe("Admin data plane — le tri des utilisateurs traverse", () => {
     expect(seq).to.deep.equal([...seq].sort((a, b) => a.localeCompare(b)));
   });
 });
+
+// ── CAPACITÉS PUBLIÉES — ce que le catalogue annonce, l'endpoint l'HONORE ─────
+// La console lit ces capacités pour décider quelles colonnes sont cliquables et
+// si une barre de recherche existe. Une capacité publiée mais refusée par le
+// handler produit le pire symptôme possible : un en-tête qui répond 400 au
+// premier clic, sur un écran d'administration. Ce banc est GÉNÉRIQUE — il
+// parcourt le catalogue, donc il couvre les endpoints qui n'existent pas encore.
+
+interface CatalogPage {
+  sortable: string[];
+  filters: Record<string, unknown>;
+  search: boolean;
+  facets: Record<string, unknown>;
+}
+interface CatalogEndpoint {
+  method: string;
+  path: string;
+  page?: CatalogPage;
+}
+
+describe("Admin data plane — une capacité PUBLIÉE est une capacité HONORÉE", () => {
+  let paged: CatalogEndpoint[] = [];
+
+  beforeAll(async () => {
+    const r = await req("GET", "/nodefony/framework/api/admin", auth());
+    const body = r.body as { producers: { endpoints: CatalogEndpoint[] }[] };
+    paged = body.producers
+      .flatMap((p) => p.endpoints)
+      .filter((e) => e.page !== undefined && e.method === "GET");
+  });
+
+  it("le catalogue publie des capacités de page (sinon ce banc ne teste RIEN)", () => {
+    // Garde anti-banc-vide : sans elle, une régression qui SUPPRIME toute
+    // publication rendrait les tests suivants verts sur zéro itération.
+    expect(paged.length, "aucun endpoint paginé publié").to.be.greaterThan(3);
+    expect(
+      paged.map((e) => e.path),
+      "routes/page doit publier ses capacités",
+    ).to.include("/nodefony/framework/api/routes/page");
+    expect(
+      paged.map((e) => e.path),
+      "le journal doit publier les siennes",
+    ).to.include("/nodefony/syslog/api/logs/search");
+  });
+
+  it("CHAQUE champ annoncé `sortable` est accepté par son endpoint", async () => {
+    const failures: string[] = [];
+    for (const endpoint of paged) {
+      for (const field of endpoint.page!.sortable) {
+        const r = await req(
+          "GET",
+          `${endpoint.path}?limit=1&order=${encodeURIComponent(field)}:ASC`,
+          auth(),
+        );
+        if (r.status !== 200) {
+          failures.push(`${endpoint.path} order=${field} → ${r.status}`);
+        }
+      }
+    }
+    expect(failures, "capacité annoncée puis refusée").to.deep.equal([]);
+  });
+
+  it("un champ NON annoncé est refusé — l'allowlist est close", async () => {
+    const failures: string[] = [];
+    // Seuls les endpoints qui ANNONCENT un tri en ont un à refuser. Un endpoint
+    // de comptage n'a pas d'ordre du tout : `order` n'y change pas le nombre
+    // rendu, donc l'ignorer ne ment sur rien — contrairement à `?q=`, testé
+    // juste après, qui changerait la population comptée.
+    for (const endpoint of paged.filter((e) => e.page!.sortable.length > 0)) {
+      const r = await req(
+        "GET",
+        `${endpoint.path}?limit=1&order=__inexistant__:ASC`,
+        auth(),
+      );
+      if (r.status !== 400) failures.push(`${endpoint.path} → ${r.status}`);
+    }
+    expect(failures, "tri arbitraire accepté").to.deep.equal([]);
+  });
+
+  it("`search:false` et `?q=` sont cohérents dans les DEUX sens", async () => {
+    const failures: string[] = [];
+    for (const endpoint of paged) {
+      const r = await req("GET", `${endpoint.path}?limit=1&q=zz`, auth());
+      const expected = endpoint.page!.search ? 200 : 400;
+      if (r.status !== expected) {
+        failures.push(
+          `${endpoint.path} publie search=${endpoint.page!.search} et répond ${r.status}`,
+        );
+      }
+    }
+    expect(failures, "capacité de recherche incohérente").to.deep.equal([]);
+  });
+});
+
+// ── LE JOURNAL — un critère invalide se REFUSE, il ne rend pas TOUT ───────────
+// `SyslogAdminApi` était le dernier data plane à lire sa query à la main. Chaque
+// valeur qu'il ne comprenait pas laissait le critère vide : `?severity=CRITICAL`
+// (au lieu de `CRITIC`) rendait le journal ENTIER sous un 200 — la réponse qu'un
+// exploitant lit comme « aucune erreur critique ».
+
+describe("Data plane syslog — le vocabulaire est clos", () => {
+  const SEARCH = "/nodefony/syslog/api/logs/search";
+
+  const cases: [string, string][] = [
+    ["severty=ERROR", "un paramètre que personne ne lit"],
+    ["severity=CRITICAL", "CRITIC, jamais CRITICAL"],
+    ["protocol=grpc", "hors énumération"],
+    ["flow=nimporte", "étape inconnue"],
+    ["from=hier", "borne non entière"],
+    ["order=payload:ASC", "champ non triable"],
+  ];
+  for (const [query, why] of cases) {
+    it(`refuse \`?${query}\` (${why})`, async () => {
+      const r = await req("GET", `${SEARCH}?limit=5&${query}`, auth());
+      expect(r.status).to.equal(400);
+    });
+  }
+
+  it("TÉMOIN : la même lecture sans le critère fautif rend une page", async () => {
+    // Sans ce témoin, les refus ci-dessus passeraient aussi si l'endpoint était
+    // simplement cassé.
+    const r = await req("GET", `${SEARCH}?limit=5`, auth());
+    expect(r.status).to.equal(200);
+    expect((r.body as { rows: unknown[] }).rows.length).to.be.greaterThan(0);
+  });
+
+  it("multi-valeurs : les DEUX sévérités comptent, pas seulement la première", async () => {
+    // Le défaut nommé du chantier : `parseFilters` ne lisait que la première
+    // valeur. Un seul total ne le prouve pas — il faut comparer.
+    const total = async (q: string): Promise<number> => {
+      const r = await req("GET", `${SEARCH}?limit=1&${q}`, auth());
+      expect(r.status, `?${q}`).to.equal(200);
+      return (r.body as { total: number }).total;
+    };
+    const info = await total("severity=INFO");
+    const debug = await total("severity=DEBUG");
+    const both = await total("severity=INFO&severity=DEBUG");
+    expect(info, "le journal doit contenir des INFO").to.be.greaterThan(0);
+    expect(debug, "le journal doit contenir des DEBUG").to.be.greaterThan(0);
+    // Le journal VIT (chaque requête en écrit) : on ne peut pas exiger l'égalité
+    // stricte de la somme, seulement que le OU dépasse chaque terme.
+    expect(both, "le OU doit dépasser chaque sévérité seule").to.be.greaterThan(
+      Math.max(info, debug),
+    );
+  });
+
+  it("un filtre honoré RESTREINT — sinon il ne filtre rien", async () => {
+    const all = await req("GET", `${SEARCH}?limit=1`, auth());
+    const filtered = await req("GET", `${SEARCH}?limit=1&flow=ws-open`, auth());
+    expect(filtered.status).to.equal(200);
+    expect(
+      (filtered.body as { total: number }).total,
+      "un filtre qui rend autant que la collection entière ne filtre pas",
+    ).to.be.lessThan((all.body as { total: number }).total);
+  });
+
+  it("l'ordre est HONORÉ : ASC et DESC ne commencent pas au même log", async () => {
+    const first = async (dir: string): Promise<number> => {
+      const r = await req(
+        "GET",
+        `${SEARCH}?limit=1&order=timeStamp:${dir}`,
+        auth(),
+      );
+      expect(r.status).to.equal(200);
+      return (r.body as { rows: { uid: number }[] }).rows[0]!.uid;
+    };
+    const asc = await first("ASC");
+    const desc = await first("DESC");
+    expect(asc, "ASC doit partir du log le plus ANCIEN").to.be.lessThan(desc);
+  });
+});

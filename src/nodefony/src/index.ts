@@ -432,7 +432,8 @@ export type {
 } from "./Container";
 export { Scope } from "./Container";
 
-export type { Message, Msgid, Pci, Severity } from "./syslog/Pdu";
+export { SEVERITY_NAMES } from "./syslog/Pdu";
+export type { Message, Msgid, Pci, Severity, SeverityName } from "./syslog/Pdu";
 
 export type {
   FamilyType,

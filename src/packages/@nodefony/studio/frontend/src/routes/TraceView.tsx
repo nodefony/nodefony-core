@@ -9,7 +9,7 @@
  * corrélés qui s'y rapportent ; demain, les requêtes SQL du profiler ALS et les
  * décisions du firewall y seront enrichies.
  *
- * Données : `GET /nodefony/syslog/api/logs/search?requestId=…&order=asc`. Rendu
+ * Données : `GET /nodefony/syslog/api/logs/search?requestId=…&order=timeStamp:ASC`. Rendu
  * 100 % TEXTE (aucun HTML injecté). La classification d'étape vient du core
  * (`pduFlowStep` via `describeFlow`) → identique au filtre back.
  */
@@ -232,7 +232,7 @@ export const TraceView = observer(() => {
         // minutes est souvent évincée par le trafic data-plane de Studio.
         `/nodefony/syslog/api/logs/search?requestId=${encodeURIComponent(
           requestId,
-        )}&order=asc&limit=300&scope=trace`,
+        )}&order=timeStamp:ASC&limit=300&scope=trace`,
       ),
     [store, requestId],
   );
