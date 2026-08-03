@@ -38,6 +38,19 @@
 
 ## 🧾 Un paramètre ACCEPTÉ PUIS JETÉ est pire qu'un paramètre refusé
 
+- `[1× — 2026-08-03h]` 🔴 **Le dernier data plane à lire sa query à la main était celui du
+  JOURNAL** — le pire endroit possible. `?severity=CRITICAL` (au lieu de `CRITIC`),
+  `?protocol=grpc`, `?flow=nimporte` et la faute de frappe `?severty=ERROR` laissaient tous le
+  critère vide et rendaient le journal ENTIER sous un `200`, que l'exploitant lit « rien à
+  signaler ». Le vocabulaire n'existait nulle part côté serveur : il était écrit DEUX fois dans la
+  console, dans deux ORDRES différents, et zéro fois là où on aurait pu s'en servir pour refuser.
+- `[1× — 2026-08-03h]` ⭐ **Le critère qui distingue « ignorer » de « mentir » : la réponse
+  change-t-elle ?** Un `?order=` sur un endpoint de COMPTAGE ne change aucun nombre rendu →
+  l'ignorer ne ment sur rien. Un `?q=` SI → l'accepter sans l'honorer fait annoncer aux cartes une
+  population que le tableau filtré ne montre pas. Un commentaire du dépôt assumait « admis et sans
+  effet » pour les deux, sur une prémisse (« la console renvoie le même query string ») devenue
+  fausse depuis `pickFilters`. **Une décision documentée se re-vérifie contre sa prémisse**, pas
+  contre sa formulation.
 - `[1× — 2026-08-03c]` 🔴 **Vingt lectures de filtre recopiées faisaient toutes la même chose :
   rendre la collection ENTIÈRE quand le client s'était trompé.** `?revoked=oui` posait le filtre à
   `undefined`, `?category=zzz` tombait hors allowlist, `?enbaled=true` n'existait pour personne —
@@ -287,7 +300,7 @@ satisfies IFilterSpec` + un générique `<const S>` fait dériver `{revoked?: bo
   il fait « corriger » ce qui marchait. **Toute règle neuve se lance sur le dépôt ENTIER avant
   qu'on y croie** — et la résolution doit couvrir le cas croisé, pas seulement le cas local.
 - `[1× — 2026-08-03g]` 🔴 **Un test du dépôt a cassé sur un COMMENTAIRE.** `assert.notInclude(e2e,
-  "409")` cherche la chaîne brute dans TOUT le fichier généré : ma prose expliquant « la seconde
+"409")` cherche la chaîne brute dans TOUT le fichier généré : ma prose expliquant « la seconde
   insertion partait en 409 » l'a fait tomber. Une assertion qui vise un code de statut doit viser
   l'**assertion** (`toBe(409)`), pas la chaîne — sinon elle mordra le prochain qui documente.
 - `[1× — 2026-08-03c]` 🔴 **Le typecheck du cœur N'INCLUT PAS `src/tests`** — j'ai écrit un test
@@ -411,6 +424,20 @@ install`.** Et `npm run build` vert ne dit rien du chemin réel qu'emprunte l'ut
 
 ## 🚫 Prouver le REFUS ne prouve PAS la CAPACITÉ — ce sont deux tests
 
+- `[1× — 2026-08-03h]` ⭐ **Un banc GÉNÉRIQUE trouve ce qu'aucune relecture ne cherche.** Au lieu
+  de tester mes deux endpoints, j'ai fait parcourir le CATALOGUE : pour chaque capacité publiée,
+  l'endpoint l'honore-t-il ? Deux trous sont tombés que je n'aurais jamais soupçonnés — quatre
+  endpoints `*/stats` publiaient `search:false` et acceptaient `?q=` en silence. Un banc écrit
+  contre la LISTE plutôt que contre l'exemplaire couvre aussi les endpoints qui n'existent pas
+  encore, et il ne peut pas être « oublié » à la prochaine ressource.
+- `[1× — 2026-08-03h]` **Un banc qui itère a besoin d'une garde ANTI-BANC-VIDE.** `for (const x of
+liste)` sans assertion sur `liste.length` est vert sur zéro itération : une régression qui
+  SUPPRIME toute publication rendrait le banc entièrement vert. Une ligne (`length > 3` + deux
+  chemins nommés) transforme un banc décoratif en gate.
+- `[1× — 2026-08-03h]` **Accumuler les échecs, ne pas s'arrêter au premier.** Un `expect` dans une
+  boucle nomme UN fautif et masque les suivants ; pousser dans un tableau puis
+  `expect(failures).to.deep.equal([])` les nomme TOUS. C'est ce qui a montré que les quatre
+  `*/stats` partageaient le même défaut, donc qu'il fallait corriger une famille, pas un cas.
 - `[1× — 2026-08-03g]` 🔴 **Le banc du devkit éprouvait « un tri hors allowlist est refusé » et
   s'arrêtait là.** Un `ORDER BY` mort passe ce refus sans broncher : débranché dans le décor, le
   test de refus est resté **VERT**. Le générateur pouvait livrer une liste dont le tri et les
@@ -429,6 +456,15 @@ install`.** Et `npm run build` vert ne dit rien du chemin réel qu'emprunte l'ut
 
 ## 🧰 Outillage : ce qui pend, ce qui ment, ce qui lance
 
+- `[1× — 2026-08-03h]` 🔴 **`$f:ASC` en zsh n'est pas `$f` suivi de `:ASC`** — `:A` est un
+  modificateur (chemin absolu). Une boucle de vérification a donc annoncé **400 sur les six
+  champs**, y compris ceux que le serveur acceptait : la même URL, tapée à la main, rendait 200.
+  L'instrument fabriquait le verdict. Écrire `${f}:ASC` — et, devant un résultat UNIFORME et
+  inattendu, soupçonner d'abord la commande, jamais le code.
+- `[1× — 2026-08-03h]` **Commiter pendant qu'un watch reconstruit fait échouer le hook sur un
+  `ENOENT` de `dist`.** Le DevSupervisor `rimraf` puis rebâtit : le fichier existe avant et après,
+  jamais pendant. Le message accuse un fichier parfaitement présent — relancer après le build,
+  pas chercher la cause dans le diff.
 - `[1× — 2026-08-03g]` 🔴 **Trois faux diagnostics dans une seule séance, tous dus à l'outil, pas
   au code.** (a) `grep "a\|b=\{"` : `\{` ouvre un intervalle en BRE et casse TOUTE l'alternance →
   faux négatif silencieux, j'ai conclu « absent » sur du présent. (b) `rg -oh 'motif'` : `-h` c'est
