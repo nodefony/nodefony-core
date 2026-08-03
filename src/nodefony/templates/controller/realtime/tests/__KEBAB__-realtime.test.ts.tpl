@@ -1,5 +1,4 @@
 import { describe, it, expect, afterEach } from "vitest";
-import "reflect-metadata";
 import { getRealtimeHub } from "@nodefony/realtime";
 import { createRealtimeHarness } from "@nodefony/realtime/testing";
 import <%= it.nameClass %> from "../nodefony/controllers/<%= it.nameClass %>";

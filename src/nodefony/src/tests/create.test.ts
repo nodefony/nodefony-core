@@ -4255,6 +4255,83 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  describe("dépendances des GABARITS (anti-dépendance fantôme)", () => {
+    it("aucun gabarit n'importe un paquet qu'aucun manifeste généré ne déclare", async () => {
+      const { FRONTEND_PARAMS } = await import("../cli/scaffold/engine");
+      const templates = path.join(findPackageRoot(), "templates");
+
+      // Ce qu'un projet généré DÉCLARE, tous gabarits et toutes saveurs
+      // confondus : les deux manifestes (app + module) lus en TEXTE — ils
+      // portent des tags eta, donc `JSON.parse` échouerait — plus les
+      // frameworks front, qui sont ajoutés par le moteur et non par le
+      // manifeste. L'union est volontairement LARGE : ce contrôle ne juge pas
+      // qu'une saveur déclare la bonne dépendance (c'est le travail de
+      // `nodefony check` sur l'app rendue), il attrape le paquet que
+      // PERSONNE ne déclare nulle part.
+      const declared = new Set<string>();
+      for (const rel of [
+        path.join("app", "base", "package.json.tpl"),
+        path.join("module", "base", "package.json.tpl"),
+      ]) {
+        const text = readFileSync(path.join(templates, rel), "utf8");
+        for (const m of text.matchAll(
+          /"((?:@[a-z0-9-]+\/)?[a-z0-9.-]+)"\s*:/gu,
+        )) {
+          declared.add(m[1]);
+        }
+      }
+      for (const front of Object.values(FRONTEND_PARAMS)) {
+        for (const name of Object.keys({ ...front.deps, ...front.devDeps })) {
+          declared.add(name);
+        }
+      }
+
+      // Ancré en début de ligne, comme la règle `undeclared-import` de
+      // `nodefony check` : un gabarit MONTRE des imports dans son TSDoc (le
+      // snippet client de `create controller --kind realtime`), et réclamer une
+      // dépendance pour du texte d'exemple serait un faux positif.
+      const IMPORTS =
+        /^\s*(?:import|export)[^;]*?from\s+"([^".][^"]*)"|^\s*import\s+"([^".][^"]*)"/gmu;
+      const phantoms: string[] = [];
+      for (const entry of readdirSync(templates, {
+        recursive: true,
+        withFileTypes: true,
+      })) {
+        if (!entry.isFile() || !/\.(ts|tsx|vue)\.tpl$/u.test(entry.name)) {
+          continue;
+        }
+        const abs = path.join(entry.parentPath, entry.name);
+        const source = readFileSync(abs, "utf8");
+        for (const m of source.matchAll(IMPORTS)) {
+          const spec = m[1] ?? m[2];
+          if (spec.startsWith("node:")) {
+            continue;
+          }
+          // `@scope/nom/sous-chemin` → `@scope/nom` ; `nom/sous` → `nom`.
+          const parts = spec.split("/");
+          const pkg = spec.startsWith("@")
+            ? parts.slice(0, 2).join("/")
+            : parts[0];
+          if (!declared.has(pkg)) {
+            phantoms.push(`${path.relative(templates, abs)} → ${spec}`);
+          }
+        }
+      }
+
+      // Vécu : le test rendu par `create controller --kind realtime` importait
+      // `reflect-metadata`, qu'aucune application ne déclare — le polyfill est
+      // chargé par `@nodefony/realtime` lui-même. Le typecheck de l'app générée
+      // partait rouge chez qui n'a pas le hissage npm pour le sauver (`--link`,
+      // pnpm). Un gabarit distribue son dialecte ET ses dépendances : une dette
+      // écrite ici se paie chez tous ceux qui génèrent.
+      assert.deepEqual(
+        phantoms,
+        [],
+        `gabarit(s) important un paquet non déclaré :\n${phantoms.join("\n")}`,
+      );
+    });
+  });
+
   describe("moteur — garde-fous", () => {
     it("dossier non vide sans force → throw ; avec force → OK", () => {
       const dest = path.join(tmp, "occupied");
