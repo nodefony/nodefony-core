@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-03T07:58:42.717Z",
+  "generated": "2026-08-03T08:21:19.331Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 666,
-    "symbols": 2702,
+    "files": 667,
+    "symbols": 2705,
     "classes": 342,
     "interfaces": 801,
     "types": 347,
     "enums": 4,
-    "functions": 977,
-    "constants": 231
+    "functions": 979,
+    "constants": 232
   },
   "symbols": {
     "Cli": {
@@ -2876,6 +2876,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Lit la valeur d'un champ triable sur un élément. Chaque store fournit la sienne : le nom du champ est **public** (celui de l'URL), la façon de l'atteindre est interne."
+    },
+    "pickOrder": {
+      "name": "pickOrder",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/pageSort.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Retient d'un `order` demandé les seuls couples dont le champ est **déclaré triable**, et retombe sur l'ordre par défaut s'il n'en reste aucun. C'est le dernier étage d'une garde à deux niveaux, et …"
     },
     "compareByOrder": {
       "name": "compareByOrder",
@@ -8909,7 +8917,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Sélectionne les `id` d'une **page** d'endpoints webhook (filtres + `LIMIT/ OFFSET`), sans matérialiser les lignes. `limit + 1` → `hasNext` sans `COUNT`. Ordre contractuel figé (pas d'`order` client…"
+      "description": "Sélectionne les `id` d'une **page** d'endpoints webhook (filtres + tri + `LIMIT/OFFSET`), sans matérialiser les lignes. `limit + 1` → `hasNext` sans `COUNT`. Le tri descend dans le `ORDER BY` — jam…"
     },
     "countWebhookEndpoints": {
       "name": "countWebhookEndpoints",
@@ -16821,6 +16829,14 @@
       "module": "@nodefony/security",
       "description": "Abonne la cascade au bus kernel. À appeler au `onKernelBoot` d'un module bootable (ici `@nodefony/security`). **Extensible** : tout autre module (webhooks…) peut s'abonner au MÊME `USER_REVOKED_EVE…"
     },
+    "parseWebhookListQuery": {
+      "name": "parseWebhookListQuery",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Traduit la query string admin en {@link IWebhookListQuery} **bornée** (`limit` défaut 50, cap 200 ; `offset`/`enabled`/`event`/`q`/`order`). Un filtre inconnu est ignoré (permissif — l'endpoint est…"
+    },
     "webhookAdminEndpoints": {
       "name": "webhookAdminEndpoints",
       "kind": "function",
@@ -17562,14 +17578,6 @@
       "module": "@nodefony/security",
       "description": "Ordre contractuel appliqué quand le client n'en demande aucun : les clés les plus récentes d'abord, départagées par identifiant pour rester **déterministe** à horodatage égal (sans quoi une paginat…"
     },
-    "TOKEN_DEFAULT_ORDER_MONGO": {
-      "name": "TOKEN_DEFAULT_ORDER_MONGO",
-      "kind": "const",
-      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenSort.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "description": "{@link TOKEN_DEFAULT_ORDER} déjà traduit pour un backend Mongo."
-    },
     "ITokenStoreFactoryContext": {
       "name": "ITokenStoreFactoryContext",
       "kind": "interface",
@@ -18202,6 +18210,30 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "En-têtes de signature Standard Webhooks à poser sur la requête sortante."
+    },
+    "translateWebhookOrderMongo": {
+      "name": "translateWebhookOrderMongo",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookSort.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Traduit un `order` public vers le schéma d'un backend **Mongo**, où l'identifiant d'endpoint est la clé primaire (`_id`) et où aucun champ `id` n'existe au repos — `id` n'est qu'un virtuel de lectu…"
+    },
+    "WEBHOOK_SORTABLE_FIELDS": {
+      "name": "WEBHOOK_SORTABLE_FIELDS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookSort.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "**Le vocabulaire de tri des endpoints webhook**, en noms PUBLICS — ceux qu'un client écrit dans l'URL (`?order=failureCount:DESC`), jamais des noms de colonne. Il vit ici, chez le propriétaire du c…"
+    },
+    "WEBHOOK_DEFAULT_ORDER": {
+      "name": "WEBHOOK_DEFAULT_ORDER",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookSort.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Ordre contractuel appliqué quand le client n'en demande aucun : les abonnements les plus récents d'abord, départagés par identifiant pour rester **déterministe** à horodatage égal — sans ce tiebrea…"
     },
     "IWebhookStoreFactoryContext": {
       "name": "IWebhookStoreFactoryContext",
@@ -22043,6 +22075,7 @@
         "src/nodefony/src/runtime/pageQuery.ts",
         "src/nodefony/src/runtime/pageSort.ts",
         "src/nodefony/src/types/IIdempotencyStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
@@ -22055,6 +22088,7 @@
         "src/packages/@nodefony/user/nodefony/src/userSort.ts",
         "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/tokenSort.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookSort.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/sessionSort.ts"
       ],
       "ModuleName": [
@@ -23594,6 +23628,14 @@
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
+      "pickOrder": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
+      ],
       "IAccessTokenRecord": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
@@ -23636,6 +23678,7 @@
       ],
       "TOKEN_DEFAULT_ORDER": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
       "TOKEN_SORTABLE_FIELDS": [
@@ -23795,6 +23838,11 @@
       "WebAuthnCredentialRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts"
+      ],
+      "WEBHOOK_SORTABLE_FIELDS": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
       ],
       "IWebhookEndpoint": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
@@ -24493,9 +24541,6 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
-      "TOKEN_DEFAULT_ORDER_MONGO": [
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
-      ],
       "translateTokenOrderMongo": [
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
       ],
@@ -24504,6 +24549,13 @@
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
+      ],
+      "WEBHOOK_DEFAULT_ORDER": [
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
+      ],
+      "translateWebhookOrderMongo": [
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
       ],
       "IColumnInfo": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
@@ -25273,6 +25325,7 @@
       "compareByOrder": [
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts"
       ],
       "IBaseUserOptions": [

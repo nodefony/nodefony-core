@@ -1,7 +1,7 @@
 import { paginate } from "@nodefony/orm-core";
 import type { Criteria, IRepository } from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
-import { assertPageQuery } from "nodefony";
+import { assertPageQuery, pickOrder } from "nodefony";
 // Contrat en `import type` (effacé à la compilation) ; le VOCABULAIRE DE TRI,
 // lui, est une valeur — et il s'importe au lieu de se recopier : deux listes de
 // champs triables divergent en silence, chacune passant ses propres tests. Le
@@ -193,10 +193,11 @@ export class DrizzleTokenStore implements ITokenStore {
       limit: query.limit,
       offset: query.offset,
       withTotal: query.withTotal,
-      order:
-        query.order && query.order.length > 0
-          ? query.order
-          : TOKEN_DEFAULT_ORDER,
+      // `pickOrder` borne à ce que ce store DÉCLARE. Ici le nom de colonne est
+      // résolu par drizzle en OBJET colonne (pas de concaténation), donc ce
+      // n'est pas une garde d'injection — c'est la garantie que tous les
+      // backends répondent la même chose à un champ non annoncé.
+      order: pickOrder(query.order, this.sortableFields, TOKEN_DEFAULT_ORDER),
     });
   }
 

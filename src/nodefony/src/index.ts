@@ -385,7 +385,7 @@ export type { IPage, IPageQuery } from "./types/IPage";
 export { assertPageQuery, PaginationModeError } from "./runtime/pageGuard";
 export type { PaginationMode } from "./runtime/pageGuard";
 export { parsePageQuery, PageQueryError } from "./runtime/pageQuery";
-export { compareByOrder } from "./runtime/pageSort";
+export { compareByOrder, pickOrder } from "./runtime/pageSort";
 export type { FieldReader } from "./runtime/pageSort";
 export type {
   PageQuerySource,

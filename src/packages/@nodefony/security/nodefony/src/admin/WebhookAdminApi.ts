@@ -66,6 +66,7 @@ interface IWebhookUpdateAdminPatch {
  */
 interface IWebhookAdmin {
   isReady(): boolean;
+  sortableWebhookFields(): readonly string[];
   register(
     input: IWebhookRegisterAdminInput,
   ): Promise<IWebhookSecretRevealView>;
@@ -141,21 +142,32 @@ function queryOne(
 
 /**
  * Traduit la query string admin en {@link IWebhookListQuery} **bornée**
- * (`limit` défaut 50, cap 200 ; `offset`/`enabled`/`event`/`q`). Un filtre
- * inconnu est ignoré (permissif — l'endpoint est déjà gardé
+ * (`limit` défaut 50, cap 200 ; `offset`/`enabled`/`event`/`q`/`order`). Un
+ * filtre inconnu est ignoré (permissif — l'endpoint est déjà gardé
  * `ROLE_NODEFONY_ADMIN`). Pagination **offset uniquement** : les trois stores
  * webhook (memory/drizzle/mongoose) sont offset-pur — aucun curseur ici.
+ *
+ * **UN SEUL traducteur pour toute la requête de page**, tri compris : en appeler
+ * un second sans l'allowlist ferait refuser en 400 un `order` que le premier
+ * venait d'accepter, et aucun test unitaire ne le verrait.
+ *
+ * @param query - `request.query` du broker admin.
+ * @param sortable - champs que le backend branché sait trier ; un `?order=`
+ *   portant autre chose est refusé en 400 par le traducteur.
  */
-function parseWebhookListQuery(
+export function parseWebhookListQuery(
   query: Readonly<Record<string, string | string[]>>,
+  sortable: readonly string[],
 ): IWebhookListQuery {
   const page = parsePageQuery(query, {
     defaultLimit: ENDPOINTS_DEFAULT_LIMIT,
     maxLimit: ENDPOINTS_MAX_LIMIT,
+    sortable,
   });
   const out: IWebhookListQuery = { limit: page.limit };
   if (page.offset !== undefined) out.offset = page.offset;
   if (page.q !== undefined) out.q = page.q;
+  if (page.order !== undefined) out.order = page.order;
   const enabled = queryOne(query, "enabled");
   if (enabled === "true") out.enabled = true;
   else if (enabled === "false") out.enabled = false;
@@ -232,7 +244,13 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
         const store = container.get("webhookStore") as
           WebhookStoreLike | undefined;
         const className = store?.constructor?.name;
-        const query = parseWebhookListQuery(request.query);
+        // Capacité de tri demandée au service AVANT de traduire : un store
+        // absent (webhooks coupés) n'annonce rien, donc tout `?order=` est
+        // refusé — jamais accepté puis ignoré.
+        const query = parseWebhookListQuery(
+          request.query,
+          ready(s) ? s.sortableWebhookFields() : [],
+        );
         // Pagination SERVEUR OFFSET (jamais un listAll matérialisé : celui-ci
         // est réservé au snapshot du dispatcher). `endpoints` = LA page ;
         // `total`/`offset` = métadonnées du DataGrid mode="server". Les trois

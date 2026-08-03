@@ -1,5 +1,5 @@
 import type { IPage } from "nodefony";
-import { assertPageQuery, compareByOrder } from "nodefony";
+import { assertPageQuery, compareByOrder, pickOrder } from "nodefony";
 import type {
   IAccessTokenRecord,
   ITokenListQuery,
@@ -139,8 +139,14 @@ export class MemoryTokenStore implements ITokenStore {
     // local diverge du SQL sans que rien ne le signale, et un test vert en
     // mémoire ne dirait alors plus rien de la production. Défaut contractuel =
     // createdAt DESC puis id DESC (offset déterministe).
-    const order =
-      query.order && query.order.length > 0 ? query.order : TOKEN_DEFAULT_ORDER;
+    // `pickOrder` borne à ce que ce store DÉCLARE : sans lui, un appelant
+    // interne trierait ici sur un champ que les backends SQL refusent, et le
+    // contrat partagé décrirait deux comportements au lieu d'un.
+    const order = pickOrder(
+      query.order,
+      this.sortableFields,
+      TOKEN_DEFAULT_ORDER,
+    );
     filtered.sort(
       compareByOrder(
         order,

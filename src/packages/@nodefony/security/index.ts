@@ -186,7 +186,6 @@ export type { TokenStoreSnapshot } from "./nodefony/src/token/MemoryTokenStore";
 export {
   TOKEN_SORTABLE_FIELDS,
   TOKEN_DEFAULT_ORDER,
-  TOKEN_DEFAULT_ORDER_MONGO,
   translateTokenOrderMongo,
 } from "./nodefony/src/token/tokenSort";
 export { JwtKeystore } from "./nodefony/src/token/JwtKeystore";
@@ -315,6 +314,14 @@ export { deriveTotpKey } from "./nodefony/src/totp/totpCipher";
 
 // ─── Webhooks sortants (P6.13) — endpoints chiffrés + store pluggable ────────
 export { MemoryWebhookStore } from "./nodefony/src/webhook/MemoryWebhookStore";
+// Vocabulaire de tri PUBLIC des endpoints — importé par les adapters (drizzle,
+// mongoose) au lieu d'y être recopié. Côté SQL il sert AUSSI de garde : le nom
+// de colonne est concaténé dans le `ORDER BY`, aucun paramètre ne le lie.
+export {
+  WEBHOOK_SORTABLE_FIELDS,
+  WEBHOOK_DEFAULT_ORDER,
+  translateWebhookOrderMongo,
+} from "./nodefony/src/webhook/webhookSort";
 export {
   registerWebhookStore,
   getWebhookStoreFactory,

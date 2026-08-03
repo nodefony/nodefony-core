@@ -36,6 +36,17 @@ export interface IWebhookListQuery extends IPageQuery {
  * dispatcher (qui en garde un snapshot mémoire), écriture rare (CRUD admin).
  */
 export interface IWebhookStore {
+  /**
+   * Champs que ce backend sait réellement trier, en **vocabulaire public**
+   * (`WEBHOOK_SORTABLE_FIELDS`) — la capacité se DÉCLARE, elle ne se devine pas.
+   *
+   * Le data plane admin passe cette liste en allowlist au traducteur de requête
+   * de page : un `?order=` portant un champ absent d'ici est refusé en **400**,
+   * jamais accepté puis ignoré. Un store qui laisse la propriété absente refuse
+   * donc tout tri, ce qui est la vérité de ce backend.
+   */
+  readonly sortableFields?: readonly string[];
+
   /** Insère un nouvel endpoint. */
   save(endpoint: IWebhookEndpoint): Promise<void>;
   /** Charge un endpoint par id, ou `null`. */
@@ -60,10 +71,12 @@ export interface IWebhookStore {
    * jamais plus d'une page, filtres {@link IWebhookListQuery} appliqués **au
    * store** (jamais après un chargement complet).
    *
-   * Ordre contractuel : `createdAt` DESC (le plus récent d'abord), départagé par
+   * Ordre par défaut : `createdAt` DESC (le plus récent d'abord), départagé par
    * `id` ASC — sans ce tiebreaker deux endpoints créés dans la même milliseconde
    * pourraient changer de page entre deux appels et l'un d'eux ne jamais
-   * apparaître.
+   * apparaître. Un `order` explicite le remplace, dans la limite de
+   * {@link IWebhookStore.sortableFields} ; il s'applique **avant** le découpage
+   * en pages, jamais sur la tranche déjà extraite.
    */
   listPage(query: IWebhookListQuery): Promise<IPage<IWebhookEndpoint>>;
   /**

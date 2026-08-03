@@ -4,7 +4,7 @@
  */
 
 import { expect } from "chai";
-import { compareByOrder } from "../runtime/pageSort";
+import { compareByOrder, pickOrder } from "../runtime/pageSort";
 
 interface Row {
   id: string;
@@ -97,5 +97,70 @@ describe("compareByOrder — neutralité", () => {
     const [x, y] = [rows()[0]!, rows()[1]!];
     expect(cmp(x, y)).to.equal(cmp(x, y));
     expect(cmp(x, y)).to.equal(-cmp(y, x));
+  });
+});
+
+describe("pickOrder — ce qui n'est pas déclaré ne trie pas", () => {
+  const ALLOWED = ["name", "age"] as const;
+  const FALLBACK: Array<[string, "ASC" | "DESC"]> = [["id", "ASC"]];
+
+  it("absent ou vide → l'ordre par défaut", () => {
+    expect(pickOrder(undefined, ALLOWED, FALLBACK)).to.deep.equal(FALLBACK);
+    expect(pickOrder([], ALLOWED, FALLBACK)).to.deep.equal(FALLBACK);
+  });
+
+  it("ne garde que les champs DÉCLARÉS, dans l'ordre demandé", () => {
+    expect(
+      pickOrder(
+        [
+          ["age", "DESC"],
+          ["name", "ASC"],
+        ],
+        ALLOWED,
+        FALLBACK,
+      ),
+    ).to.deep.equal([
+      ["age", "DESC"],
+      ["name", "ASC"],
+    ]);
+  });
+
+  it("écarte les champs non déclarés SANS jeter le reste", () => {
+    expect(
+      pickOrder(
+        [
+          ["secret", "ASC"],
+          ["name", "DESC"],
+        ],
+        ALLOWED,
+        FALLBACK,
+      ),
+    ).to.deep.equal([["name", "DESC"]]);
+  });
+
+  it("rien de recevable → l'ordre par défaut, jamais un ordre vide", () => {
+    // C'est ce qui protège le SQL : le nom de colonne y est CONCATÉNÉ, donc un
+    // champ inventé ne doit jamais atteindre le `ORDER BY` — et une clause vide
+    // rendrait la pagination offset non déterministe.
+    const picked = pickOrder(
+      [["'; DROP TABLE x --", "ASC"]],
+      ALLOWED,
+      FALLBACK,
+    );
+    expect(picked).to.deep.equal(FALLBACK);
+    expect(picked.length).to.be.greaterThan(0);
+  });
+
+  it("une allowlist VIDE refuse tout (store qui ne déclare rien)", () => {
+    expect(pickOrder([["name", "ASC"]], [], FALLBACK)).to.deep.equal(FALLBACK);
+  });
+
+  it("ne mute pas l'ordre reçu", () => {
+    const input: Array<[string, "ASC" | "DESC"]> = [
+      ["name", "ASC"],
+      ["secret", "DESC"],
+    ];
+    pickOrder(input, ALLOWED, FALLBACK);
+    expect(input).to.have.lengthOf(2);
   });
 });

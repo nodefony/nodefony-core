@@ -378,6 +378,22 @@ class WebhookService extends Service {
   }
 
   /**
+   * Champs de tri que le backend **actuellement branché** sait honorer, en
+   * vocabulaire public. Le data plane admin les passe en allowlist au traducteur
+   * de requête de page : hors de cette liste, un `?order=` est refusé en 400.
+   *
+   * La liste vient du store, jamais d'une constante recopiée ici : un backend
+   * qui ne trierait pas refuserait alors le tri **sans qu'aucune règle
+   * supplémentaire ne soit écrite**. Store absent (webhooks désactivés) ⇒ aucune
+   * capacité annoncée, donc aucun tri promis.
+   *
+   * @returns les champs triables, ou un tableau vide.
+   */
+  sortableWebhookFields(): readonly string[] {
+    return this.#store?.sortableFields ?? [];
+  }
+
+  /**
    * Enregistre un endpoint : valide l'URL (anti-SSRF), génère un secret de
    * signature, le chiffre au repos. Retourne l'endpoint + le secret **en clair**
    * (la seule occasion de le lire pour le copier).

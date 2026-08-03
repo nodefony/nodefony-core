@@ -1,5 +1,5 @@
 import type { IPage } from "nodefony";
-import { assertPageQuery } from "nodefony";
+import { assertPageQuery, compareByOrder, pickOrder } from "nodefony";
 import type {
   IWebhookListQuery,
   IWebhookStore,
@@ -8,6 +8,7 @@ import type {
   IWebhookEndpoint,
   WebhookEndpointUpdate,
 } from "../../contracts/IWebhookEndpoint";
+import { WEBHOOK_DEFAULT_ORDER, WEBHOOK_SORTABLE_FIELDS } from "./webhookSort";
 
 /**
  * Applique les filtres d'{@link IWebhookListQuery} à un endpoint — sémantique de
@@ -42,6 +43,13 @@ export function matchesWebhookQuery(
  * store détient la vérité, un consommateur ne peut pas muter un record en place.
  */
 export class MemoryWebhookStore implements IWebhookStore {
+  /**
+   * {@inheritDoc IWebhookStore.sortableFields}
+   *
+   * Le store porte l'endpoint complet : il sait trier tout le vocabulaire
+   * public, sans réduction de capacité.
+   */
+  readonly sortableFields = WEBHOOK_SORTABLE_FIELDS;
   readonly #byId = new Map<string, IWebhookEndpoint>();
 
   async save(endpoint: IWebhookEndpoint): Promise<void> {
@@ -77,9 +85,22 @@ export class MemoryWebhookStore implements IWebhookStore {
     const filtered = [...this.#byId.values()].filter((e) =>
       matchesWebhookQuery(e, query),
     );
+    // LE tri en mémoire du framework, jamais un comparateur réécrit ici : un tri
+    // local diverge du SQL sans que rien ne le signale, et un test vert en
+    // mémoire ne dirait alors plus rien de la production. `pickOrder` borne à ce
+    // que ce store DÉCLARE : sans lui, un appelant interne trierait ici sur un
+    // champ que les backends SQL refusent — le contrat décrirait deux
+    // comportements au lieu d'un.
+    const order = pickOrder(
+      query.order,
+      this.sortableFields,
+      WEBHOOK_DEFAULT_ORDER,
+    );
     filtered.sort(
-      (a, b) =>
-        b.createdAt - a.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+      compareByOrder(
+        order,
+        (e, field) => e[field as keyof IWebhookEndpoint] as unknown,
+      ),
     );
     // oxlint-disable-next-line no-map-spread -- clonage DÉFENSIF de la page (cf ci-dessus) : muter l'élément exposerait l'entrée du store
     const items = filtered.slice(offset, offset + limit).map((e) => ({

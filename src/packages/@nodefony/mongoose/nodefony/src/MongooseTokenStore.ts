@@ -1,7 +1,7 @@
 import { paginate } from "@nodefony/orm-core";
 import type { Criteria, IRepository, UpdateData } from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
-import { assertPageQuery } from "nodefony";
+import { assertPageQuery, pickOrder } from "nodefony";
 // Contrat en `import type` (effacé à la compilation) ; le VOCABULAIRE DE TRI,
 // lui, est une valeur — et il s'importe au lieu de se recopier : deux listes de
 // champs triables divergent en silence, chacune passant ses propres tests. Le
@@ -15,7 +15,7 @@ import type {
   TokenRevokeReason,
 } from "@nodefony/security";
 import {
-  TOKEN_DEFAULT_ORDER_MONGO,
+  TOKEN_DEFAULT_ORDER,
   TOKEN_SORTABLE_FIELDS,
   translateTokenOrderMongo,
 } from "@nodefony/security";
@@ -192,10 +192,9 @@ export class MongooseTokenStore implements ITokenStore {
       limit: query.limit,
       offset: query.offset,
       withTotal: query.withTotal,
-      order:
-        query.order && query.order.length > 0
-          ? translateTokenOrderMongo(query.order)
-          : TOKEN_DEFAULT_ORDER_MONGO,
+      order: translateTokenOrderMongo(
+        pickOrder(query.order, this.sortableFields, TOKEN_DEFAULT_ORDER),
+      ),
     });
     for (const row of page.items) {
       row.id = this.#idOf(row);

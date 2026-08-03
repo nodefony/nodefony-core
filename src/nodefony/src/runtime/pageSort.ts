@@ -30,6 +30,42 @@ function compareValues(a: unknown, b: unknown): number {
 }
 
 /**
+ * Retient d'un `order` demandé les seuls couples dont le champ est **déclaré
+ * triable**, et retombe sur l'ordre par défaut s'il n'en reste aucun.
+ *
+ * C'est le dernier étage d'une garde à deux niveaux, et il n'est pas redondant :
+ * le data plane refuse déjà en 400 un champ hors allowlist, mais tout appelant
+ * interne (un autre service, un test, un futur endpoint) peut fabriquer un
+ * `IPageQuery` à la main. Sans ce filtre, deux backends répondraient
+ * différemment à la même requête — celui qui lit l'objet en mémoire trierait sur
+ * un champ jamais annoncé, celui qui compose du SQL l'ignorerait — et le contrat
+ * partagé ne décrirait plus un comportement mais deux.
+ *
+ * 🔒 Côté SQL, ce filtre est une **garde d'injection** : un nom de colonne ne se
+ * lie pas en paramètre, il se concatène dans le `ORDER BY`.
+ *
+ * @param order - l'ordre demandé (peut être absent ou vide).
+ * @param allowed - les champs que le store déclare savoir trier.
+ * @param fallback - l'ordre contractuel appliqué à défaut.
+ * @returns un ordre non vide, garanti clos sur `allowed` ∪ `fallback`.
+ *
+ * @example
+ * ```ts
+ * const order = pickOrder(query.order, this.sortableFields, DEFAULT_ORDER);
+ * rows.sort(compareByOrder(order, (r, f) => r[f as keyof Row]));
+ * ```
+ */
+export function pickOrder(
+  order: IPageQuery["order"],
+  allowed: readonly string[],
+  fallback: NonNullable<IPageQuery["order"]>,
+): NonNullable<IPageQuery["order"]> {
+  if (!order || order.length === 0) return fallback;
+  const kept = order.filter(([field]) => allowed.includes(field));
+  return kept.length > 0 ? kept : fallback;
+}
+
+/**
  * Fabrique le comparateur d'un `order` du contrat de page — **le** tri en
  * mémoire de Nodefony, partagé par tous les stores qui n'ont pas de moteur pour
  * le faire à leur place.

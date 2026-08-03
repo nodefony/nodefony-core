@@ -58,6 +58,10 @@ export function webhookSeed(): IWebhookEndpoint[] {
         description: i % 5 === 0 ? `alpha-${i}` : `beta-${i}`,
         createdAt: 1000 + i,
         updatedAt: 1000 + i,
+        // Valeurs RÉPÉTÉES volontairement (0..3) : c'est l'axe d'exploitation
+        // « qui échoue le plus », et un champ à ex æquo éprouve le tri là où des
+        // valeurs toutes distinctes le rendraient trivial.
+        failureCount: i % 4,
       }),
     );
   }
@@ -207,6 +211,110 @@ export function runWebhookPaginationContract(
       assert.equal(
         await store().countEndpoints({ limit: 1, event: "order.paid" }),
         3,
+      );
+    });
+
+    // ── TRI : ce qu'un store DÉCLARE savoir trier, il le trie VRAIMENT ───────
+    // Le vocabulaire est public et identique partout : `?order=` doit produire
+    // le même ordre sur mémoire, SQLite, PostgreSQL, MySQL et Mongo. Un store
+    // mémoire qui trierait en dur passerait tous les tests ci-dessus tout en
+    // mentant sur la production.
+    it("le store DÉCLARE son vocabulaire de tri public", async () => {
+      const fields = store().sortableFields;
+      assert.ok(
+        fields && fields.length > 0,
+        "un backend d'endpoints doit déclarer ses champs triables",
+      );
+      assert.ok(
+        fields!.includes("createdAt"),
+        "`createdAt` est l'axe par défaut du contrat",
+      );
+    });
+
+    it("`order` inverse réellement le sens (createdAt ASC)", async () => {
+      const page = await store().listPage({
+        limit: 12,
+        order: [["createdAt", "ASC"]],
+      });
+      assert.deepEqual(
+        page.items.map((e) => e.id),
+        webhookSeed().map((e) => e.id),
+        "ASC doit rendre l'ordre d'écriture du seed",
+      );
+    });
+
+    it("chaque champ DÉCLARÉ est effectivement honoré", async () => {
+      // La garde qui empêche d'annoncer une capacité qu'on n'a pas : le data
+      // plane refuse en 400 tout champ hors de cette liste, donc tout ce qui y
+      // figure DOIT trier — sans quoi la console offrirait un en-tête inerte.
+      //
+      // L'invariant vérifié est « DESC rend l'exact renversé de ASC », sur les
+      // VALEURS et non sur les identifiants. Il tient quels que soient les ex
+      // æquo (`enabled`, `failureCount`) ET quelle que soit la collation du
+      // moteur — comparer à un `Array.sort()` JS aurait fait dépendre le test
+      // du classement des tirets, qui n'est pas le même en JS et en SQL.
+      const declared = store().sortableFields ?? [];
+      // Sans cette borne, un store qui ne déclare RIEN ferait passer ce test sur
+      // une boucle vide — un test qui ne lit rien ne garantit rien.
+      assert.ok(
+        declared.length > 0,
+        "un backend d'endpoints doit déclarer au moins un champ triable",
+      );
+      for (const field of declared) {
+        const read = (e: IWebhookEndpoint): string =>
+          String(e[field as keyof IWebhookEndpoint]);
+        const asc = (
+          await store().listPage({ limit: 12, order: [[field, "ASC"]] })
+        ).items.map(read);
+        const desc = (
+          await store().listPage({ limit: 12, order: [[field, "DESC"]] })
+        ).items.map(read);
+        assert.equal(asc.length, 12, `"${field}" ASC doit rendre tout le seed`);
+        assert.deepEqual(
+          desc,
+          [...asc].reverse(),
+          `"${field}" DESC doit rendre l'exact renversé de ASC`,
+        );
+      }
+    });
+
+    it("le tri s'applique AVANT la pagination (pas page par page)", async () => {
+      // Le piège classique : trier la tranche déjà découpée. La 2ᵉ page d'un tri
+      // ASC doit continuer la 1ʳᵉ, pas recommencer.
+      const p1 = await store().listPage({
+        limit: 4,
+        offset: 0,
+        order: [["createdAt", "ASC"]],
+      });
+      const p2 = await store().listPage({
+        limit: 4,
+        offset: 4,
+        order: [["createdAt", "ASC"]],
+      });
+      assert.deepEqual(
+        [...p1.items, ...p2.items].map((e) => e.createdAt),
+        webhookSeed()
+          .slice(0, 8)
+          .map((e) => e.createdAt),
+        "les pages se suivent dans l'ordre",
+      );
+    });
+
+    it("un champ HORS vocabulaire ne trie pas en douce (garde du SQL concaténé)", async () => {
+      // Le data plane refuse déjà l'inconnu en 400. Ici on vérifie l'étage du
+      // dessous : un appelant interne qui passerait un champ non déclaré ne doit
+      // ni trier dessus, ni faire exécuter le nom — côté SQL, l'identifiant est
+      // CONCATÉNÉ dans le `ORDER BY`, aucun paramètre ne le lie. Le store doit
+      // donc retomber sur son ordre par défaut, sans lever ni corrompre.
+      const page = await store().listPage({
+        limit: 12,
+        order: [["secretEnc", "ASC"]],
+      });
+      assert.equal(page.items.length, 12);
+      assert.equal(
+        page.items[0].id,
+        "wh-11",
+        "ordre par défaut (createdAt DESC) conservé",
       );
     });
 

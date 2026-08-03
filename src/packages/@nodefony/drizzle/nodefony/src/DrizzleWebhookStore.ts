@@ -1,9 +1,12 @@
 import type { Criteria, IRepository } from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
 import { assertPageQuery } from "nodefony";
-// `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
-// dépendance runtime de l'ORM vers `@nodefony/security`. L'application câble le
-// store via `registerWebhookStore("drizzle", …)` ; le module drizzle reste pur.
+// Contrat en `import type` (effacé à la compilation) ; le VOCABULAIRE DE TRI,
+// lui, est une valeur — et il s'importe au lieu de se recopier : deux listes de
+// champs triables divergent en silence, et celle-ci garde en plus un `ORDER BY`
+// concaténé. Le module tire déjà `@nodefony/security` au runtime par son point
+// d'enregistrement (`registerStores.ts` → `registerWebhookStore`).
+import { WEBHOOK_SORTABLE_FIELDS } from "@nodefony/security";
 import type {
   IWebhookEndpoint,
   IWebhookListQuery,
@@ -40,6 +43,14 @@ import {
  * `metadata` sont copiés défensivement.
  */
 export class DrizzleWebhookStore implements IWebhookStore {
+  /**
+   * {@inheritDoc IWebhookStore.sortableFields}
+   *
+   * Le moteur SQL trie sur n'importe laquelle de ces colonnes. Cette liste sert
+   * DEUX fois : elle annonce la capacité au data plane, et elle borne le
+   * `ORDER BY` construit par le queryKit (identifiant concaténé, non liable).
+   */
+  readonly sortableFields = WEBHOOK_SORTABLE_FIELDS;
   readonly #repo: IRepository<WebhookEndpointRow>;
   readonly #location: string | undefined;
   readonly #db: DrizzleDb | null;
@@ -174,6 +185,12 @@ export class DrizzleWebhookStore implements IWebhookStore {
       {
         limit,
         offset,
+        ...(query.order ? { order: query.order } : {}),
+        // L'allowlist repasse ICI : le nom de colonne est concaténé dans le
+        // `ORDER BY` (aucun paramètre ne lie un identifiant). Le data plane a
+        // déjà refusé l'inconnu en 400 ; ce second filtre existe pour qu'un
+        // appelant interne qui l'oublierait ne puisse pas ouvrir une injection.
+        sortable: this.sortableFields,
       },
     );
     const total =

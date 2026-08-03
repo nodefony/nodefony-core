@@ -3,6 +3,7 @@ import { Container } from "nodefony";
 import type { IAdminRequest, IAdminEndpoint } from "nodefony";
 import type { IAuditEventDraft } from "../../nodefony/contracts/IAuditEvent";
 import { webhookAdminEndpoints } from "../../nodefony/src/admin/WebhookAdminApi";
+import { WEBHOOK_SORTABLE_FIELDS } from "../../nodefony/src/webhook/webhookSort";
 import { createSecurityAdminApi } from "../../nodefony/src/admin/SecurityAdminApi";
 
 /**
@@ -70,6 +71,10 @@ function bootWebhooks(
   const ready = opts.ready ?? true;
   const svc = {
     isReady: () => ready,
+    // Le double annonce la MÊME capacité que le store mémoire : le data plane
+    // s'en sert comme allowlist de tri, et un double muet ferait passer un
+    // `?order=` refusé en production pour un tri accepté.
+    sortableWebhookFields: (): readonly string[] => WEBHOOK_SORTABLE_FIELDS,
     register: async (input: {
       url: string;
       events: readonly string[];

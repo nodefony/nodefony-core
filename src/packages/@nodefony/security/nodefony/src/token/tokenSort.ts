@@ -60,9 +60,3 @@ export function translateTokenOrderMongo(
 ): NonNullable<IPageQuery["order"]> {
   return order.map(([field, dir]) => [field === "id" ? "_id" : field, dir]);
 }
-
-/**
- * {@link TOKEN_DEFAULT_ORDER} déjà traduit pour un backend Mongo.
- */
-export const TOKEN_DEFAULT_ORDER_MONGO: NonNullable<IPageQuery["order"]> =
-  translateTokenOrderMongo(TOKEN_DEFAULT_ORDER);

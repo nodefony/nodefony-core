@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
+import { pickOrder } from "nodefony";
+import type { IPageQuery } from "nodefony";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 import type { DrizzleDb } from "./orm-core/DrizzleRepository";
 import { USER_SORTABLE_FIELDS, USER_DEFAULT_ORDER } from "@nodefony/user";
@@ -210,16 +212,6 @@ export interface UserPageWindow {
   order: Array<[string, "ASC" | "DESC"]>;
 }
 
-/**
- * Colonnes autorisées au tri — **la** liste du module `user`, jamais une copie.
- *
- * Le filtre reste ici en défense en profondeur : ce nom est CONCATÉNÉ dans le
- * SQL, pas bindé. Mais il filtre désormais sur la même source que les autres
- * adapters — la copie locale avait déjà divergé (elle autorisait `id` là où
- * l'adapter Mongo ne le connaissait pas).
- */
-const ORDERABLE = new Set<string>(USER_SORTABLE_FIELDS);
-
 /** Condition `enabled = ?` — booléen natif en PG, `0/1` ailleurs (better-sqlite3/mysql2). */
 function enabledCond(dialect: SqlDialect, flag: boolean): SQL {
   const col = ident(dialect, "enabled");
@@ -262,19 +254,36 @@ function userWhere(dialect: SqlDialect, f: UserListFilters): SQL | undefined {
   return sql.join(conds, sql` AND `);
 }
 
-/** `ORDER BY` depuis l'allowlist + tiebreaker `id ASC` (pagination offset déterministe). */
-function orderBy(
+/**
+ * Compose la clause `ORDER BY` d'un listing natif, quelle que soit l'entité.
+ *
+ * 🔒 Un nom de colonne ne se lie pas en paramètre : il est **concaténé** dans la
+ * requête (`ident()` → `sql.raw`). Le tri est donc borné par `pickOrder` (core),
+ * exactement comme dans les stores mémoire et Mongo — une seconde
+ * implémentation de ce filtre divergerait sans que rien ne le signale, et ici
+ * elle ouvrirait une injection. Le data plane a déjà refusé l'inconnu en 400 ;
+ * cet étage existe pour l'appelant interne qui l'oublierait.
+ *
+ * @param allowed - les seuls champs acceptés (vocabulaire public de l'entité).
+ * @param fallback - ordre appliqué si rien de recevable n'a été demandé.
+ * @param tiebreaker - colonne ajoutée en dernier ressort quand l'ordre retenu ne
+ *   la contient pas : sans elle, deux lignes ex æquo peuvent changer de page
+ *   entre deux appels, et l'une des deux ne jamais apparaître.
+ */
+function orderBySql(
   dialect: SqlDialect,
-  order: Array<[string, "ASC" | "DESC"]>,
+  order: IPageQuery["order"],
+  allowed: readonly string[],
+  fallback: NonNullable<IPageQuery["order"]>,
+  tiebreaker?: string,
 ): SQL {
-  const specs = order.filter(([k]) => ORDERABLE.has(k));
-  const use = specs.length > 0 ? specs : USER_DEFAULT_ORDER;
-  const chunks = use.map(
-    ([k, dir]) =>
-      sql`${ident(dialect, k)} ${sql.raw(dir === "DESC" ? "DESC" : "ASC")}`,
+  const effective = pickOrder(order, allowed, fallback);
+  const chunks = effective.map(
+    ([field, dir]) =>
+      sql`${ident(dialect, field)} ${sql.raw(dir === "DESC" ? "DESC" : "ASC")}`,
   );
-  if (!use.some(([k]) => k === "id")) {
-    chunks.push(sql`${ident(dialect, "id")} ASC`);
+  if (tiebreaker !== undefined && !effective.some(([f]) => f === tiebreaker)) {
+    chunks.push(sql`${ident(dialect, tiebreaker)} ASC`);
   }
   return sql.join(chunks, sql`, `);
 }
@@ -315,7 +324,7 @@ export async function listUserIdsPage(
   const where = userWhere(dialect, filters);
   const whereSql = where ? sql` WHERE ${where}` : sql``;
   const query = sql`SELECT ${ident(dialect, "id")} AS id FROM ${ident(dialect, "User")}${whereSql}
-      ORDER BY ${orderBy(dialect, window.order)} LIMIT ${limit + 1} OFFSET ${offset}`;
+      ORDER BY ${orderBySql(dialect, window.order, USER_SORTABLE_FIELDS, USER_DEFAULT_ORDER, "id")} LIMIT ${limit + 1} OFFSET ${offset}`;
   const rows = await runSelect(db, dialect, query);
   const ids = rows
     .map((r) => r.id)
@@ -377,27 +386,46 @@ function webhookWhere(
 }
 
 /**
- * Sélectionne les `id` d'une **page** d'endpoints webhook (filtres + `LIMIT/
- * OFFSET`), sans matérialiser les lignes. `limit + 1` → `hasNext` sans `COUNT`.
+ * Sélectionne les `id` d'une **page** d'endpoints webhook (filtres + tri +
+ * `LIMIT/OFFSET`), sans matérialiser les lignes. `limit + 1` → `hasNext` sans
+ * `COUNT`.
  *
- * Ordre contractuel figé (pas d'`order` client) : `createdAt DESC, id ASC` — le
- * tiebreaker rend l'offset déterministe quand deux endpoints partagent la même
- * milliseconde de création.
+ * Le tri descend dans le `ORDER BY` — jamais appliqué après découpe, sinon la
+ * 2ᵉ page recommencerait au lieu de continuer la 1ʳᵉ. À défaut d'`order`
+ * recevable, l'ordre par défaut `createdAt DESC, id ASC` rend l'offset
+ * déterministe quand deux endpoints partagent la même milliseconde de création.
  *
+ * @param window - fenêtre de page **et** tri demandé (déjà en noms publics ; il
+ *   est re-filtré ici par l'allowlist, cf {@link orderBySql}).
  * @returns les `id` de la page (au plus `limit`, dans l'ordre) et `hasNext`.
  */
 export async function listWebhookIdsPage(
   db: DrizzleDb,
   dialect: SqlDialect,
   filters: WebhookListFilters,
-  window: { limit: number; offset: number },
+  window: {
+    limit: number;
+    offset: number;
+    order?: IPageQuery["order"];
+    sortable?: readonly string[];
+  },
 ): Promise<{ ids: string[]; hasNext: boolean }> {
   const limit = Math.max(1, Math.floor(window.limit));
   const offset = Math.max(0, Math.floor(window.offset));
   const where = webhookWhere(dialect, filters);
   const whereSql = where ? sql` WHERE ${where}` : sql``;
+  const orderSql = orderBySql(
+    dialect,
+    window.order,
+    window.sortable ?? [],
+    [
+      ["createdAt", "DESC"],
+      ["id", "ASC"],
+    ],
+    "id",
+  );
   const query = sql`SELECT ${ident(dialect, "id")} AS id FROM ${ident(dialect, "webhook_endpoint")}${whereSql}
-      ORDER BY ${ident(dialect, "createdAt")} DESC, ${ident(dialect, "id")} ASC
+      ORDER BY ${orderSql}
       LIMIT ${limit + 1} OFFSET ${offset}`;
   const rows = await runSelect(db, dialect, query);
   const ids = rows
