@@ -46,3 +46,18 @@ export const WEBHOOK_FACETS = {
 
 /** Les compteurs rendus par `GET /nodefony/security/api/webhooks/stats`. */
 export type IWebhookCounts = FacetCounts<typeof WEBHOOK_FACETS>;
+
+/**
+ * Ce que l'endpoint de COMPTEURS accepte de filtrer — `WEBHOOK_FILTERS` **moins**
+ * les champs que les facettes décomposent (`enabled`, `failing`).
+ *
+ * Les demander ici rendrait une réponse contradictoire : le total suivrait le
+ * filtre pendant que chaque facette l'écraserait par le sien. `event` reste,
+ * parce qu'il découpe une AUTRE dimension — « combien d'endpoints écoutent
+ * `user.created`, et dans quel état sont-ils ? » est une question cohérente.
+ *
+ * Un test verrouille l'accord entre cette liste et {@link WEBHOOK_FACETS}.
+ */
+export const WEBHOOK_STATS_FILTERS = {
+  event: "string",
+} as const satisfies IFilterSpec;

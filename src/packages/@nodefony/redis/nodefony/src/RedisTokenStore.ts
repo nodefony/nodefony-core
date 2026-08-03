@@ -380,6 +380,9 @@ export class RedisTokenStore implements ITokenStore {
       COUNT: limit,
     });
     const next = String(res.cursor);
+    // Une SEULE lecture d'horloge pour tout le batch : deux jetons de la même
+    // page ne peuvent pas être jugés à des instants différents.
+    const now = this.#now();
     const items: IAccessTokenRecord[] = [];
     // `consumed` compte les CLÉS parcourues (pas les items rendus) : c'est la
     // position de reprise, et le filtre en écarte une partie.
@@ -395,11 +398,19 @@ export class RedisTokenStore implements ITokenStore {
         continue;
       }
       if (query.kind !== undefined && rec.kind !== query.kind) continue;
-      if (
-        query.revoked !== undefined &&
-        (rec.revokedAt !== null) !== query.revoked
-      ) {
-        continue;
+      // État de vie. La règle est écrite DEUX fois dans le dépôt — ici et dans
+      // `tokenStatus.ts` (@nodefony/security) — parce que ce module n'importe
+      // rien de `security` au runtime (approche B, cf commentaire ci-dessus).
+      // C'est le banc de contrat PARTAGÉ, rejoué sur Redis, qui garantit que les
+      // deux disent la même chose : révoqué l'emporte sur expiré.
+      if (query.status !== undefined) {
+        const status =
+          rec.revokedAt !== null
+            ? "revoked"
+            : rec.expiresAt !== null && rec.expiresAt <= now
+              ? "expired"
+              : "active";
+        if (status !== query.status) continue;
       }
       items.push(rec);
     }

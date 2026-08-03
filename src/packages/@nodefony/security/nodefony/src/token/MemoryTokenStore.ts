@@ -8,22 +8,26 @@ import type {
   TokenRevokeReason,
 } from "../../contracts/ITokenStore";
 import { TOKEN_DEFAULT_ORDER, TOKEN_SORTABLE_FIELDS } from "./tokenSort";
+import { matchesTokenStatus } from "./tokenStatus";
 
-/** Filtre un record contre une requête de listing (portable, réutilisé par les impls). */
+/**
+ * Filtre un record contre une requête de listing — prédicat de RÉFÉRENCE du
+ * contrat, réutilisé par les implémentations qui évaluent en mémoire.
+ *
+ * @param now - instant de référence pour l'état du jeton (`status`). Requis :
+ *   « expiré » n'a pas de sens sans une horloge, et la lire ici ferait dépendre
+ *   le résultat du moment du test plutôt que de la donnée.
+ */
 export function matchesTokenQuery(
   record: IAccessTokenRecord,
   query: ITokenListQuery,
+  now: number,
 ): boolean {
   if (query.subjectId !== undefined && record.subjectId !== query.subjectId) {
     return false;
   }
   if (query.kind !== undefined && record.kind !== query.kind) return false;
-  if (
-    query.revoked !== undefined &&
-    (record.revokedAt !== null) !== query.revoked
-  ) {
-    return false;
-  }
+  if (!matchesTokenStatus(record, query.status, now)) return false;
   return true;
 }
 
@@ -132,8 +136,9 @@ export class MemoryTokenStore implements ITokenStore {
     assertPageQuery(query, "offset");
     const limit = Math.max(1, Math.floor(query.limit));
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
+    const now = this.#now();
     const filtered = [...this.#byId.values()].filter((r) =>
-      matchesTokenQuery(r, query),
+      matchesTokenQuery(r, query, now),
     );
     // LE tri en mémoire du framework, jamais un comparateur réécrit ici : un tri
     // local diverge du SQL sans que rien ne le signale, et un test vert en
@@ -165,9 +170,10 @@ export class MemoryTokenStore implements ITokenStore {
   }
 
   countTokens(query: ITokenListQuery): Promise<number> {
+    const now = this.#now();
     let n = 0;
     for (const r of this.#byId.values()) {
-      if (matchesTokenQuery(r, query)) n += 1;
+      if (matchesTokenQuery(r, query, now)) n += 1;
     }
     return Promise.resolve(n);
   }

@@ -187,6 +187,17 @@ export {
   TOKEN_SORTABLE_FIELDS,
   TOKEN_DEFAULT_ORDER,
 } from "./nodefony/src/token/tokenSort";
+// Traduction de l'état de vie d'un jeton — partagée par les adapters SQL et
+// Mongo, pour la même raison que le vocabulaire de tri : deux écritures de
+// « révoqué l'emporte sur expiré » divergeraient sans que rien ne le signale.
+export { tokenStatusCriteria } from "./nodefony/src/token/tokenCriteria";
+export {
+  tokenStatusOf,
+  matchesTokenStatus,
+} from "./nodefony/src/token/tokenStatus";
+export type { ITokenLifetime } from "./nodefony/src/token/tokenStatus";
+export { TOKEN_FACETS } from "./nodefony/src/token/tokenFilters";
+export type { ITokenCounts } from "./nodefony/src/token/tokenFilters";
 export { JwtKeystore } from "./nodefony/src/token/JwtKeystore";
 export { resolveJwtRuntime } from "./nodefony/src/token/jwtRuntime";
 export type { IJwtRuntime } from "./nodefony/src/token/jwtRuntime";
@@ -393,6 +404,7 @@ export type {
   ITokenUsage,
   IResourcePermission,
   TokenRevokeReason,
+  TokenStatus,
   IJwtKeystore,
   IJwtSigningKey,
 } from "./nodefony/contracts";

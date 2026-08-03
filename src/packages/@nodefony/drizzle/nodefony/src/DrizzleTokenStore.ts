@@ -15,20 +15,29 @@ import type {
   ITokenUsage,
   TokenRevokeReason,
 } from "@nodefony/security";
-import { TOKEN_DEFAULT_ORDER, TOKEN_SORTABLE_FIELDS } from "@nodefony/security";
+import {
+  TOKEN_DEFAULT_ORDER,
+  TOKEN_SORTABLE_FIELDS,
+  tokenStatusCriteria,
+} from "@nodefony/security";
 import type { DrizzleOrm } from "./orm-core/DrizzleOrm";
 
-/** Traduit les filtres de listing en `Criteria` portable (champs indexés/simples). */
+/**
+ * Traduit les filtres de listing en `Criteria` portable (champs indexés/simples).
+ *
+ * L'état de vie (`status`) vient de `tokenStatusCriteria`, partagé avec
+ * l'adapter Mongo : une seule écriture de la règle « révoqué l'emporte sur
+ * expiré ». Tout descend en `WHERE` natif — aucun post-filtre en mémoire.
+ */
 function tokenListCriteria(
   query: ITokenListQuery,
+  now: number,
 ): Criteria<IAccessTokenRecord> {
-  const criteria: Record<string, unknown> = {};
+  const criteria: Record<string, unknown> = {
+    ...tokenStatusCriteria(query.status, now),
+  };
   if (query.subjectId !== undefined) criteria.subjectId = query.subjectId;
   if (query.kind !== undefined) criteria.kind = query.kind;
-  // `revoked` → présence/absence de `revokedAt` (WHERE natif, pas de post-filtre).
-  if (query.revoked !== undefined) {
-    criteria.revokedAt = { $null: !query.revoked };
-  }
   return criteria as Criteria<IAccessTokenRecord>;
 }
 import {
@@ -189,7 +198,7 @@ export class DrizzleTokenStore implements ITokenStore {
   listPage(query: ITokenListQuery): Promise<IPage<IAccessTokenRecord>> {
     assertPageQuery(query, "offset");
     return paginate(this.#records, {
-      criteria: tokenListCriteria(query),
+      criteria: tokenListCriteria(query, this.#now()),
       limit: query.limit,
       offset: query.offset,
       withTotal: query.withTotal,
@@ -203,7 +212,7 @@ export class DrizzleTokenStore implements ITokenStore {
 
   /** {@inheritDoc ITokenStore.countTokens} */
   countTokens(query: ITokenListQuery): Promise<number> {
-    return this.#records.count(tokenListCriteria(query));
+    return this.#records.count(tokenListCriteria(query, this.#now()));
   }
 
   async markUsed(id: string, usage: ITokenUsage): Promise<void> {

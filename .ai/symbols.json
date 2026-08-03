@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-03T13:04:24.264Z",
+  "generated": "2026-08-03T13:49:09.212Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 676,
-    "symbols": 2732,
+    "files": 678,
+    "symbols": 2742,
     "classes": 342,
-    "interfaces": 804,
-    "types": 358,
+    "interfaces": 805,
+    "types": 360,
     "enums": 4,
-    "functions": 978,
-    "constants": 246
+    "functions": 982,
+    "constants": 249
   },
   "symbols": {
     "Cli": {
@@ -2837,6 +2837,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Compte plusieurs **facettes** d'une même collection en un seul geste. Une facette est une question fermée posée à la collection entière — « combien de sessions authentifiées ? », « combien de clés …"
+    },
+    "facetDimensions": {
+      "name": "facetDimensions",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/pageFacets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les champs qu'une table de facettes **décompose** — donc ceux qu'un client ne peut pas filtrer sur l'endpoint qui les rend. Poser `?status=active` sur un endpoint dont les facettes sont justement l…"
     },
     "UNKNOWN_COUNT": {
       "name": "UNKNOWN_COUNT",
@@ -13932,6 +13940,14 @@
       "module": "@nodefony/security",
       "description": "Raison de révocation d'un jeton — tracée pour l'audit de sécurité."
     },
+    "TokenStatus": {
+      "name": "TokenStatus",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "État de vie d'un jeton — partition exhaustive, évaluée révoqué → expiré → actif."
+    },
     "ITotpSecret": {
       "name": "ITotpSecret",
       "kind": "interface",
@@ -17747,7 +17763,23 @@
       "file": "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Filtre un record contre une requête de listing (portable, réutilisé par les impls)."
+      "description": "Filtre un record contre une requête de listing — prédicat de RÉFÉRENCE du contrat, réutilisé par les implémentations qui évaluent en mémoire."
+    },
+    "tokenStatusCriteria": {
+      "name": "tokenStatusCriteria",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenCriteria.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fragment de critère **portable** exprimant l'état de vie d'un jeton — la traduction que les adapters SQL et Mongo partagent au lieu de la réécrire. Elle tient dans le `Criteria` d'orm-core depuis q…"
+    },
+    "ITokenCounts": {
+      "name": "ITokenCounts",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Les compteurs rendus par `GET /nodefony/security/api/apikeys/stats`."
     },
     "TOKEN_FILTERS": {
       "name": "TOKEN_FILTERS",
@@ -17755,7 +17787,23 @@
       "file": "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "**Le vocabulaire de filtre des jetons**, en noms PUBLICS — ceux qu'un client écrit dans l'URL (`?revoked=true`), jamais des noms de colonne. Frère de `TOKEN_SORTABLE_FIELDS`, et posé pour la même r…"
+      "description": "**Le vocabulaire de filtre des jetons**, en noms PUBLICS — ceux qu'un client écrit dans l'URL (`?status=revoked`), jamais des noms de colonne. Frère de `TOKEN_SORTABLE_FIELDS`, et posé pour la même…"
+    },
+    "TOKEN_FACETS": {
+      "name": "TOKEN_FACETS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "**Les facettes des jetons** — les questions fermées posées à la collection ENTIÈRE pour les cartes de tête. Contrairement aux webhooks, les trois états **partitionnent** : un jeton est dans exactem…"
+    },
+    "TOKEN_STATS_FILTERS": {
+      "name": "TOKEN_STATS_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Ce que l'endpoint de COMPTEURS accepte de filtrer — `TOKEN_FILTERS` **moins** les champs que les facettes décomposent. `status` en est retiré : le demander à un endpoint dont les cartes SONT les ét…"
     },
     "TOKEN_SORTABLE_FIELDS": {
       "name": "TOKEN_SORTABLE_FIELDS",
@@ -17772,6 +17820,31 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Ordre contractuel appliqué quand le client n'en demande aucun : les clés les plus récentes d'abord, départagées par identifiant pour rester **déterministe** à horodatage égal (sans quoi une paginat…"
+    },
+    "ITokenLifetime": {
+      "name": "ITokenLifetime",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenStatus.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Ce qu'il faut d'un jeton pour en déduire l'état — deux horodatages, rien de plus. Volontairement structural : le store mémoire, le batch Redis et un test s'en servent sans partager de type d'enregi…"
+    },
+    "tokenStatusOf": {
+      "name": "tokenStatusOf",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenStatus.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "**La** définition de l'état d'un jeton — un seul exemplaire, pour les backends qui évaluent en mémoire (store mémoire, filtrage inline d'un batch `SCAN`). L'ordre d'évaluation est significatif : **…"
+    },
+    "matchesTokenStatus": {
+      "name": "matchesTokenStatus",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenStatus.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "`true` si le jeton correspond au filtre d'état demandé (`undefined` = tous)."
     },
     "ITokenStoreFactoryContext": {
       "name": "ITokenStoreFactoryContext",
@@ -18397,6 +18470,14 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "**Les facettes des endpoints** — les questions fermées que la console pose à la collection ENTIÈRE pour ses cartes de tête. Chacune est un filtre du contrat, et c'est la règle : une carte affiche u…"
+    },
+    "WEBHOOK_STATS_FILTERS": {
+      "name": "WEBHOOK_STATS_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Ce que l'endpoint de COMPTEURS accepte de filtrer — `WEBHOOK_FILTERS` **moins** les champs que les facettes décomposent (`enabled`, `failing`). Les demander ici rendrait une réponse contradictoire …"
     },
     "parseWebhookSecret": {
       "name": "parseWebhookSecret",
@@ -23915,7 +23996,9 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenCriteria.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts"
       ],
       "ITokenStore": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
@@ -23950,6 +24033,10 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
+      "tokenStatusCriteria": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
       ],
       "DeniedJtiRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
@@ -25178,6 +25265,18 @@
         "src/packages/@nodefony/security/nodefony/contracts/ITotpSecret.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
       ],
+      "countFacets": [
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "TOKEN_FACETS": [
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts"
+      ],
+      "ITokenCounts": [
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+      ],
       "defineSecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
@@ -25461,10 +25560,6 @@
       ],
       "listWebAuthnStores": [
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
-      ],
-      "countFacets": [
-        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "WEBHOOK_FACETS": [
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
@@ -26015,6 +26110,9 @@
       "TOKEN_FILTERS": [
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
+      "TOKEN_STATS_FILTERS": [
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+      ],
       "AUDIT_FILTERS": [
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
@@ -26036,6 +26134,9 @@
         "src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts"
       ],
       "WEBHOOK_FILTERS": [
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
+      ],
+      "WEBHOOK_STATS_FILTERS": [
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
       ],
       "MemoryAuditStore": [
@@ -26098,6 +26199,22 @@
       "IJwtSigningKey": [
         "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
       ],
+      "matchesTokenStatus": [
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
+      "FacetCounts": [
+        "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
+      ],
+      "IFacetSpec": [
+        "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
+      ],
+      "TokenStatus": [
+        "src/packages/@nodefony/security/nodefony/src/token/tokenStatus.ts"
+      ],
       "MemoryTokenStore": [
         "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts"
       ],
@@ -26143,14 +26260,6 @@
       ],
       "webhookSignatureHeaders": [
         "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts"
-      ],
-      "FacetCounts": [
-        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
-      ],
-      "IFacetSpec": [
-        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
       ],
       "MemoryWebhookStore": [
         "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts"

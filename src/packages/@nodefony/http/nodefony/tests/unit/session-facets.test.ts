@@ -9,7 +9,12 @@
  */
 
 import { expect } from "chai";
+import { facetDimensions } from "nodefony";
 import type { Module, IAdminEndpoint, IAdminRequest } from "nodefony";
+import {
+  SESSION_FACETS,
+  SESSION_FILTERS,
+} from "../../src/session/storage/sessionFilters.js";
 import { createHttpAdminApi } from "../../service/HttpAdminApi.js";
 import SessionsService from "../../service/sessions/sessions-service.js";
 import MemorySessionStorage from "../../src/session/storage/MemorySessionStorage.js";
@@ -272,5 +277,19 @@ describe("RevocationGuardStorage — la capacité ne se perd pas dans le décora
     expect(new RevocationGuardStorage(bare).countDistinctUsers).to.equal(
       undefined,
     );
+  });
+});
+
+describe("aucune dimension de facette n'est filtrable sur les compteurs", () => {
+  it("`authenticated` est décomposé en facettes, donc absent du vocabulaire", () => {
+    // Filtrer la dimension que les cartes décomposent rendrait une réponse qui
+    // se contredit : le total suivrait le filtre, chaque facette l'écraserait
+    // par le sien (« 5 sessions au total, dont 40 anonymes »). Ici le trou ne
+    // peut pas s'ouvrir — `SESSION_FILTERS` ne porte que `user`.
+    expect(facetDimensions(SESSION_FACETS)).to.deep.equal(["authenticated"]);
+    for (const dim of facetDimensions(SESSION_FACETS)) {
+      expect(Object.hasOwn(SESSION_FILTERS, dim), dim).to.equal(false);
+    }
+    expect(Object.hasOwn(SESSION_FILTERS, "user")).to.equal(true);
   });
 });

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Container } from "nodefony";
+import { Container, facetDimensions } from "nodefony";
 import type { Module } from "nodefony";
 import { WebhookService } from "../../nodefony/service/webhooks";
 import {
@@ -7,6 +7,14 @@ import {
   matchesWebhookQuery,
 } from "../../nodefony/src/webhook/MemoryWebhookStore";
 import type { IWebhookEndpoint } from "../../nodefony/contracts/IWebhookEndpoint";
+import {
+  WEBHOOK_FACETS,
+  WEBHOOK_STATS_FILTERS,
+} from "../../nodefony/src/webhook/webhookFilters";
+import {
+  TOKEN_FACETS,
+  TOKEN_STATS_FILTERS,
+} from "../../nodefony/src/token/tokenFilters";
 
 /**
  * Les COMPTEURS de la console webhooks — posés sur la collection entière.
@@ -187,5 +195,32 @@ describe("countWebhookFacets — les compteurs de tête", () => {
     const counts = await svc.countWebhookFacets({ event: "invoice.paid" });
     assert.equal(counts.total, 1);
     assert.equal(counts.active, 1);
+  });
+});
+
+describe("la spec de /stats ne filtre JAMAIS ce que les facettes décomposent", () => {
+  it("webhooks : `enabled` et `failing` sont exclus, `event` reste", () => {
+    const dims = facetDimensions(WEBHOOK_FACETS);
+    assert.deepEqual(dims, ["enabled", "failing"]);
+    for (const dim of dims) {
+      assert.ok(
+        !Object.hasOwn(WEBHOOK_STATS_FILTERS, dim),
+        `\`${dim}\` est décomposé en facettes : le filtrer rendrait une réponse ` +
+          `qui se contredit (un total suivant le filtre, des facettes l'écrasant).`,
+      );
+    }
+    assert.ok(
+      Object.hasOwn(WEBHOOK_STATS_FILTERS, "event"),
+      "`event` découpe une AUTRE dimension — il reste filtrable",
+    );
+  });
+
+  it("clés d'API : `status` est exclu, `subjectId` reste", () => {
+    const dims = facetDimensions(TOKEN_FACETS);
+    assert.deepEqual(dims, ["status"]);
+    for (const dim of dims) {
+      assert.ok(!Object.hasOwn(TOKEN_STATS_FILTERS, dim), dim);
+    }
+    assert.ok(Object.hasOwn(TOKEN_STATS_FILTERS, "subjectId"));
   });
 });

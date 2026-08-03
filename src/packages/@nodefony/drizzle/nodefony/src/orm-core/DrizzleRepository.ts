@@ -17,6 +17,7 @@ import {
   lte,
   ne,
   notInArray,
+  or,
   sql,
 } from "drizzle-orm";
 import type { Column, SQL } from "drizzle-orm";
@@ -340,6 +341,26 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     }
     const conds: SQL[] = [];
     for (const [field, value] of Object.entries(criteria)) {
+      // Disjonction : chaque branche est un critère complet, traduit par la même
+      // fonction (donc les opérateurs riches et le `IS NULL` y valent aussi).
+      // Une branche vide serait toujours vraie et rendrait le `OR` inutile —
+      // elle est écartée, et un `$or` entièrement vide ne pose rien.
+      if (field === "$or") {
+        if (!Array.isArray(value)) {
+          throw new Error(
+            `DrizzleRepository(${getTableName(this.#table)}): $or attend un tableau de critères.`,
+          );
+        }
+        const branches = value
+          .map((branch) => this.#where(branch as Criteria<T>))
+          .filter((sql): sql is SQL => sql !== undefined);
+        if (branches.length > 0) {
+          conds.push(
+            branches.length === 1 ? branches[0] : (or(...branches) as SQL),
+          );
+        }
+        continue;
+      }
       const col = this.#col(this.#table, field);
       if (!col) {
         // Strict (B2) : champ inconnu = erreur, pas un skip silencieux (qui

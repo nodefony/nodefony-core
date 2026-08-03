@@ -1,5 +1,13 @@
-import { Service, Module, Container, Event, type IPage } from "nodefony";
+import {
+  Service,
+  Module,
+  Container,
+  Event,
+  countFacets,
+  type IPage,
+} from "nodefony";
 import { randomUUID } from "node:crypto";
+import { TOKEN_FACETS, type ITokenCounts } from "../src/token/tokenFilters";
 import {
   defineSecurityConfig,
   type ISecurityConfig,
@@ -209,6 +217,32 @@ class ApiKeyService extends Service {
     const store = this.#resolveStore();
     const page = await store.listPage({ ...query, kind: "pat" });
     return { ...page, items: page.items.map((r) => this.#toView(r)) };
+  }
+
+  /**
+   * Les compteurs de tête de la console — posés sur la collection ENTIÈRE, pas
+   * sur la page affichée.
+   *
+   * Les trois états partitionnent, mais chacun est **compté** : une partition
+   * est une propriété du domaine d'aujourd'hui, pas une garantie du code, et un
+   * quatrième état la briserait en silence si l'un se déduisait des autres.
+   *
+   * `kind` reste forcé à `"pat"` comme pour la liste : ces cartes surplombent
+   * un tableau de clés d'API, pas de jetons de rafraîchissement.
+   *
+   * @param query - filtres à appliquer avant comptage (sans fenêtre).
+   */
+  async countKeyFacets(
+    query?: Partial<ITokenListQuery>,
+  ): Promise<ITokenCounts> {
+    const store = this.#resolveStore();
+    return countFacets(TOKEN_FACETS, (facet) =>
+      store.countTokens({
+        ...query,
+        ...facet,
+        kind: "pat",
+      } as ITokenListQuery),
+    );
   }
 
   /**

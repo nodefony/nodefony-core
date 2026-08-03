@@ -156,9 +156,34 @@ export interface ITokenListQuery extends IPageQuery {
   subjectId?: string;
   /** Restreint à une nature de jeton. Omis = PAT **et** refresh. */
   kind?: "pat" | "refresh";
-  /** `true` = révoqués seulement, `false` = non révoqués, omis = les deux. */
-  revoked?: boolean;
+  /**
+   * Restreint à un **état de vie** du jeton. Omis = tous.
+   *
+   * Les trois valeurs **partitionnent** la collection (tout jeton en a
+   * exactement un) et sont évaluées dans cet ordre : révoqué l'emporte sur
+   * expiré, comme dans la console — une clé révoquée puis arrivée à échéance
+   * reste « révoquée », c'est l'acte d'administration qui compte.
+   *
+   * | Valeur    | Signification                                      |
+   * | --------- | -------------------------------------------------- |
+   * | `revoked` | `revokedAt` renseigné                              |
+   * | `expired` | non révoqué, `expiresAt` dépassé                   |
+   * | `active`  | non révoqué, et sans échéance ou échéance à venir  |
+   *
+   * Remplace l'ancien filtre `revoked` : deux vocabulaires pour le même axe
+   * (« révoqué ou non » et « quel état ») auraient permis `?revoked=false` +
+   * `?status=revoked`, une contradiction qu'un store aurait dû arbitrer — c'est
+   * exactement le défaut qui a rendu des compteurs faux ailleurs.
+   *
+   * **Non portable au `Criteria` générique** : `active` demande « sans échéance
+   * OU échéance future », un OU que le critère AND-only n'exprime pas. Chaque
+   * backend l'implémente donc nativement, comme le filtre `event` des webhooks.
+   */
+  status?: TokenStatus;
 }
+
+/** État de vie d'un jeton — partition exhaustive, évaluée révoqué → expiré → actif. */
+export type TokenStatus = "active" | "expired" | "revoked";
 
 /**
  * Contrat du store de jetons — implémentations enregistrées via

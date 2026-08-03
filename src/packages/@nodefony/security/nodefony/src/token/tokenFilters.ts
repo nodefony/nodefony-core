@@ -1,8 +1,9 @@
-import type { IFilterSpec } from "nodefony";
+import type { FacetCounts, IFacetSpec, IFilterSpec } from "nodefony";
+import type { ITokenListQuery } from "../../contracts/ITokenStore";
 
 /**
  * **Le vocabulaire de filtre des jetons**, en noms PUBLICS — ceux qu'un client
- * écrit dans l'URL (`?revoked=true`), jamais des noms de colonne.
+ * écrit dans l'URL (`?status=revoked`), jamais des noms de colonne.
  *
  * Frère de `TOKEN_SORTABLE_FIELDS`, et posé pour la même raison : le vocabulaire
  * appartient au propriétaire du contrat (`@nodefony/security`), la mécanique de
@@ -23,6 +24,52 @@ import type { IFilterSpec } from "nodefony";
 export const TOKEN_FILTERS = {
   /** Restreint à un porteur (colonne indexée dans tous les backends SQL). */
   subjectId: "string",
-  /** `true` = révoquées seulement, `false` = actives, absent = les deux. */
-  revoked: "boolean",
+  /**
+   * État de vie de la clé — la liste fermée vaut allowlist.
+   *
+   * Remplace l'ancien `revoked: "boolean"`, qui ne distinguait pas une clé
+   * ACTIVE d'une clé ARRIVÉE À ÉCHÉANCE : les deux étaient « non révoquées »,
+   * alors que la première ouvre l'accès et la seconde ne l'ouvre plus. La
+   * console affichait ces deux populations dans des cartes séparées sans
+   * pouvoir les demander au serveur.
+   */
+  status: ["active", "expired", "revoked"],
+} as const satisfies IFilterSpec;
+
+/**
+ * **Les facettes des jetons** — les questions fermées posées à la collection
+ * ENTIÈRE pour les cartes de tête.
+ *
+ * Contrairement aux webhooks, les trois états **partitionnent** : un jeton est
+ * dans exactement une case. On les compte tout de même une par une, sans jamais
+ * soustraire — une partition est une propriété du domaine d'aujourd'hui, pas une
+ * garantie du code, et un quatrième état la briserait en silence.
+ */
+export const TOKEN_FACETS = {
+  /** Toutes les clés, quel que soit leur état. */
+  total: {},
+  /** Utilisables : ni révoquées, ni arrivées à échéance. */
+  active: { status: "active" },
+  /** Arrivées à échéance sans avoir été révoquées. */
+  expired: { status: "expired" },
+  /** Révoquées par un administrateur. */
+  revoked: { status: "revoked" },
+} as const satisfies IFacetSpec<ITokenListQuery>;
+
+/** Les compteurs rendus par `GET /nodefony/security/api/apikeys/stats`. */
+export type ITokenCounts = FacetCounts<typeof TOKEN_FACETS>;
+
+/**
+ * Ce que l'endpoint de COMPTEURS accepte de filtrer — `TOKEN_FILTERS` **moins**
+ * les champs que les facettes décomposent.
+ *
+ * `status` en est retiré : le demander à un endpoint dont les cartes SONT les
+ * états produirait une réponse qui se contredit — un total suivant le filtre, et
+ * chaque facette l'écrasant par le sien. Le refuser dit au client ce qui se
+ * passe ; l'accepter lui montrerait « 5 clés, dont 538 révoquées ».
+ *
+ * Un test verrouille l'accord entre cette liste et {@link TOKEN_FACETS}.
+ */
+export const TOKEN_STATS_FILTERS = {
+  subjectId: "string",
 } as const satisfies IFilterSpec;

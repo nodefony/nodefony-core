@@ -42,12 +42,19 @@ import { hasRole } from "nodefony/roles";
 
 import { useStore, useAuth, useNotifications } from "../stores";
 import { useResource } from "../hooks";
-import { PageLayout, StatCard, DataState, DocHint } from "../components/ui";
+import {
+  PageLayout,
+  StatCard,
+  DataState,
+  DocHint,
+  fmtFacet,
+} from "../components/ui";
 import {
   KEYS_ENDPOINT,
   KEYS_CAPABILITIES_ENDPOINT,
   ADMIN_KEYS_ENDPOINT,
   API_KEYS_STATUS_ENDPOINT,
+  API_KEYS_STATS_ENDPOINT,
   ADMIN_ROLE,
   API_KEYS_DOC,
   adminRevokeEndpoint,
@@ -55,6 +62,7 @@ import {
   countByStatus,
   describeApiKeysError,
   type ApiKey,
+  type ApiKeyCounts,
   type ApiKeyCapabilities,
   type ApiKeysStatus,
 } from "./apikeys/apiKeysModel";
@@ -116,7 +124,24 @@ export const ApiKeys = observer(() => {
   );
   const { data: status } = useResource(statusFetcher);
 
-  const counts = useMemo(() => countByStatus(keys), [keys]);
+  // Compteurs de tête : le SERVEUR les pose sur la collection entière en portée
+  // Administration. La portée « Mes clés » reste cliente — sa réponse EST déjà
+  // tout le périmètre de l'appelant, et l'endpoint de statistiques est réservé
+  // aux administrateurs (un non-admin y récolterait un 403).
+  const statsFetcher = useCallback(
+    (): Promise<ApiKeyCounts | null> =>
+      mode === "admin" && isAdmin
+        ? store.api.getAbsolute<ApiKeyCounts>(API_KEYS_STATS_ENDPOINT)
+        : Promise.resolve(null),
+    [store, mode, isAdmin],
+  );
+  const { data: serverCounts, reload: reloadCounts } =
+    useResource(statsFetcher);
+
+  const counts = useMemo<ApiKeyCounts>(
+    () => serverCounts ?? countByStatus(keys),
+    [serverCounts, keys],
+  );
 
   const modeData = useMemo(
     () => [
@@ -142,6 +167,7 @@ export const ApiKeys = observer(() => {
       });
       setConfirmRevoke(null);
       reload();
+      reloadCounts(); // une révocation déplace une clé d'une facette à l'autre
     } catch (e) {
       notifications.notify("error", describeApiKeysError(e), { source: "api" });
     } finally {
@@ -175,6 +201,7 @@ export const ApiKeys = observer(() => {
       clear();
       setConfirmBulk(null);
       reload();
+      reloadCounts();
     } catch (e) {
       notifications.notify("error", describeApiKeysError(e), { source: "api" });
     } finally {
@@ -184,8 +211,8 @@ export const ApiKeys = observer(() => {
 
   const subtitle =
     mode === "admin"
-      ? `Toutes les clés — ${counts.total} clé(s) · ${counts.active} active(s)`
-      : `Mes clés — ${counts.total} clé(s) · ${counts.active} active(s)`;
+      ? `Toutes les clés — ${fmtFacet(counts.total)} clé(s) · ${fmtFacet(counts.active)} active(s)`
+      : `Mes clés — ${fmtFacet(counts.total)} clé(s) · ${fmtFacet(counts.active)} active(s)`;
 
   return (
     <PageLayout
@@ -259,7 +286,7 @@ export const ApiKeys = observer(() => {
           hint="Nombre de clés API dans cette portée (actives + expirées + révoquées)."
         >
           <Text fz={28} fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
-            {counts.total}
+            {fmtFacet(counts.total)}
           </Text>
         </StatCard>
         <StatCard
@@ -275,7 +302,7 @@ export const ApiKeys = observer(() => {
             c="teal"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.active}
+            {fmtFacet(counts.active)}
           </Text>
         </StatCard>
         <StatCard
@@ -289,7 +316,7 @@ export const ApiKeys = observer(() => {
             c="orange"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.expired}
+            {fmtFacet(counts.expired)}
           </Text>
         </StatCard>
         <StatCard
@@ -303,7 +330,7 @@ export const ApiKeys = observer(() => {
             c="red"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.revoked}
+            {fmtFacet(counts.revoked)}
           </Text>
         </StatCard>
       </Grid>

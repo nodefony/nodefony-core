@@ -9,7 +9,11 @@ import type {
   IAdminResponse,
 } from "nodefony";
 import type { ITokenListQuery } from "../../contracts/ITokenStore";
-import { TOKEN_FILTERS } from "../token/tokenFilters";
+import {
+  TOKEN_FILTERS,
+  TOKEN_STATS_FILTERS,
+  type ITokenCounts,
+} from "../token/tokenFilters";
 import { AUDIT_FILTERS } from "../audit/auditFilters";
 import type {
   ITotpEnrollmentSummary,
@@ -99,6 +103,8 @@ interface IApiKeyAdmin {
   isEnabled(): boolean;
   sortableFields(): readonly string[];
   listPagePat(query: ITokenListQuery): Promise<IPage<IApiKeyView>>;
+  /** Compteurs de tête, posés sur la collection entière (pas sur une page). */
+  countKeyFacets(query?: Partial<ITokenListQuery>): Promise<ITokenCounts>;
   revokeAnyPat(id: string, actorId: string): Promise<IApiKeyView | null>;
 }
 
@@ -116,7 +122,7 @@ const KEYS_MAX_LIMIT = 200;
  * aucun test unitaire ne le verrait (chaque appel est correct isolément).
  *
  * Un filtre inconnu ou mal formé est désormais **refusé** (400) au lieu d'être
- * ignoré : `?revoked=oui` rendait la liste ENTIÈRE, que la console affichait
+ * ignoré : `?status=revoqué` rendait la liste ENTIÈRE, que la console affichait
  * comme le résultat du filtre demandé.
  *
  * @param query - `request.query` du broker admin.
@@ -398,6 +404,30 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
           offset: page.offset,
           nextCursor: page.nextCursor,
         };
+      },
+    },
+    {
+      // Compteurs de tête. Endpoint SÉPARÉ de la liste : ces nombres ne
+      // dépendent ni de la fenêtre ni de l'ordre — les rejouer à chaque tour de
+      // page coûterait quatre COUNT pour un résultat identique.
+      path: "apikeys/stats",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Compteurs des clés d'API sur la collection ENTIÈRE (total, actives, " +
+        "expirées, révoquées) — mêmes filtres que la liste. `null` = le backend " +
+        "ne sait pas compter (store Redis en curseur).",
+      page: { filters: TOKEN_STATS_FILTERS },
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<ITokenCounts | IAdminResponse<{ error: string }>> => {
+        const svc = container.get("apiKeys") as IApiKeyAdmin | undefined;
+        if (!svc || !svc.isEnabled()) {
+          return { status: 503, body: { error: "api keys unavailable" } };
+        }
+        return svc.countKeyFacets(
+          parseFilters(request.query, TOKEN_STATS_FILTERS),
+        );
       },
     },
     {

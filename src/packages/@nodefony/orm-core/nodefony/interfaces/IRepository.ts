@@ -140,6 +140,27 @@ export type FieldCriteria<V> = V | FieldOperators<NonNullable<V>>;
  */
 export type Criteria<T> = {
   [K in keyof T]?: FieldCriteria<T[K]>;
+} & {
+  /**
+   * **Disjonction** : au moins une des branches doit être vraie. Les champs
+   * posés à côté restent en `ET` avec l'ensemble (`{a: 1, $or: [x, y]}` =
+   * `a = 1 AND (x OR y)`).
+   *
+   * Existe parce que certaines questions du domaine ne sont PAS des
+   * conjonctions : « un jeton utilisable » = *sans échéance* **ou** *échéance à
+   * venir*. Sans elle, la seule issue était de descendre au SQL/Mongo natif dans
+   * chaque store — donc d'écrire la même règle autant de fois qu'il y a de
+   * backends, avec la divergence pour seule perspective.
+   *
+   * Volontairement limitée à `$or` : `$and` est déjà le comportement par défaut
+   * d'un critère, et `$not` demanderait de définir la négation d'un `NULL` sur
+   * trois dialectes — un piège pour zéro usage démontré.
+   *
+   * @example
+   * // les clés encore utilisables
+   * repo.count({ revokedAt: null, $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] });
+   */
+  $or?: ReadonlyArray<Criteria<T>>;
 } & OrmCriteria;
 
 /**

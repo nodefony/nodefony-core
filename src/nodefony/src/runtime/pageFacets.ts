@@ -91,6 +91,32 @@ export async function countFacets<S extends Readonly<Record<string, object>>>(
 }
 
 /**
+ * Les champs qu'une table de facettes **décompose** — donc ceux qu'un client ne
+ * peut pas filtrer sur l'endpoint qui les rend.
+ *
+ * Poser `?status=active` sur un endpoint dont les facettes sont justement les
+ * états produirait une réponse qui se contredit : le total suivrait le filtre,
+ * et chaque facette l'écraserait par le sien (« 5 clés au total, dont 538
+ * révoquées »). Ce n'est pas un cas tordu, c'est le cas NOMINAL — un client
+ * envoie naturellement le même query string à la liste et aux compteurs.
+ *
+ * Sert donc de garde : la spec de filtre d'un endpoint de statistiques ne doit
+ * contenir aucune de ces clés, ce qu'un test vérifie par ressource.
+ *
+ * @param facets - la table déclarée.
+ * @returns les noms de champs apparaissant dans au moins une facette, triés.
+ */
+export function facetDimensions(
+  facets: Readonly<Record<string, object>>,
+): string[] {
+  const out = new Set<string>();
+  for (const facet of Object.values(facets)) {
+    for (const key of Object.keys(facet)) out.add(key);
+  }
+  return [...out].sort();
+}
+
+/**
  * Déclaration des facettes d'une ressource : nom public → filtre de sa requête
  * de liste.
  *

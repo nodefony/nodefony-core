@@ -51,19 +51,33 @@ export function makeTokenRecord(
   };
 }
 
-/** Le seed déterministe partagé par tous les backends. */
+/**
+ * Le seed déterministe partagé par tous les backends — 12 jetons.
+ *
+ * Répartition des ÉTATS, qui est ce que la console compte :
+ * - **3 révoqués** (`i % 4 === 0` → 0, 4, 8) ;
+ * - **2 expirés** — les jetons 1 et 2, non révoqués, portent une échéance en
+ *   1970 (donc toujours dépassée, quelle que soit l'horloge du test) ;
+ * - **7 actifs** — le reste, sans échéance.
+ *
+ * Les deux échéances sont posées sur des jetons NON révoqués à dessein : c'est
+ * le seul moyen de distinguer « expiré » d'« actif », que l'ancien filtre
+ * booléen `revoked` mettait dans le même sac.
+ */
 export function tokenSeed(): IAccessTokenRecord[] {
   const out: IAccessTokenRecord[] = [];
   for (let i = 0; i < 12; i += 1) {
     const refresh = i % 3 === 0;
+    const revoked = i % 4 === 0;
     out.push(
       makeTokenRecord({
         id: `tok-${String(i).padStart(2, "0")}`,
         kind: refresh ? "refresh" : "pat",
         subjectId: i < 5 ? "s1" : "s2",
         createdAt: 1000 + i,
-        revokedAt: i % 4 === 0 ? 2000 + i : null,
-        revokedReason: i % 4 === 0 ? "manual" : null,
+        expiresAt: i === 1 || i === 2 ? 500 : null,
+        revokedAt: revoked ? 2000 + i : null,
+        revokedReason: revoked ? "manual" : null,
         family: refresh ? `fam-${i}` : null,
       }),
     );
@@ -169,15 +183,60 @@ export function runTokenPaginationContract(
         );
       });
 
-      it("filtre revoked (présence de revokedAt)", async () => {
+      // Les trois états PARTITIONNENT le parc (3 + 2 + 7 = 12). Le banc les
+      // vérifie séparément ET vérifie la somme : un backend qui rangerait un
+      // jeton révoqué-puis-échu dans deux populations passerait chaque cas isolé
+      // tout en faisant dépasser le total.
+      it("filtre status : révoqué / expiré / actif partitionnent le parc", async () => {
         assert.equal(
-          (await store().listPage({ limit: 100, revoked: true })).total,
+          (await store().listPage({ limit: 100, status: "revoked" })).total,
           3,
         );
         assert.equal(
-          (await store().listPage({ limit: 100, revoked: false })).total,
-          9,
+          (await store().listPage({ limit: 100, status: "expired" })).total,
+          2,
+          "échéance dépassée, jamais révoqué",
         );
+        assert.equal(
+          (await store().listPage({ limit: 100, status: "active" })).total,
+          7,
+          "ni révoqué, ni échu — sans échéance compte comme actif",
+        );
+        assert.equal(
+          (await store().listPage({ limit: 100 })).total,
+          12,
+          "3 + 2 + 7 : aucun jeton dans deux états, aucun sans état",
+        );
+      });
+
+      it("status expiré n'attrape PAS un jeton révoqué qui a aussi expiré", async () => {
+        // Le seed n'en contient pas ; on en pose un pour forcer le cas, puis on
+        // remet le parc en état — les cas suivants comptent dessus.
+        await store().put(
+          makeTokenRecord({
+            id: "tok-both",
+            kind: "pat",
+            subjectId: "s1",
+            createdAt: 999,
+            expiresAt: 500,
+            revokedAt: 1500,
+            revokedReason: "manual",
+          }),
+        );
+        try {
+          assert.equal(
+            (await store().listPage({ limit: 100, status: "expired" })).total,
+            2,
+            "révoqué l'emporte sur expiré",
+          );
+          assert.equal(
+            (await store().listPage({ limit: 100, status: "revoked" })).total,
+            4,
+          );
+        } finally {
+          await harness.clear();
+          for (const record of tokenSeed()) await harness.store().put(record);
+        }
       });
 
       it("withTotal:false → total omis, hasNext fiable", async () => {

@@ -187,6 +187,21 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     }
     const out: Record<string, unknown> = {};
     for (const [field, value] of Object.entries(criteria)) {
+      // Disjonction : chaque branche est un critère complet, traduit par la même
+      // fonction (donc `id`→`_id` et les opérateurs riches y valent aussi). Une
+      // branche vide serait toujours vraie ; un `$or` sans branche ne pose rien.
+      if (field === "$or") {
+        if (!Array.isArray(value)) {
+          throw new TypeError(
+            `MongooseRepository(${this.#model.modelName}): $or attend un tableau de critères.`,
+          );
+        }
+        const branches = value
+          .map((branch) => this.#filter(branch as Criteria<T>))
+          .filter((f) => Object.keys(f).length > 0);
+        if (branches.length > 0) out.$or = branches;
+        continue;
+      }
       const key = this.#resolveField(field);
       out[key] = isFieldOperators(value) ? this.#mongoOps(value) : value;
     }

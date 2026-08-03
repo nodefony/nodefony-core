@@ -252,18 +252,17 @@ export interface WebhookCounts {
  * registre est exactement le mensonge que cet endpoint corrige.
  */
 export function countWebhooks(endpoints: WebhookEndpoint[]): WebhookCounts {
-  const counts: WebhookCounts = {
-    total: endpoints.length,
-    active: 0,
-    failing: 0,
-    disabled: 0,
-  };
+  // Accumulateurs locaux : la forme rendue admet `null` (« le backend ne sait
+  // pas »), mais un comptage local sait toujours — il n'a rien à ignorer.
+  let active = 0;
+  let disabled = 0;
+  let failing = 0;
   for (const ep of endpoints) {
-    if (ep.enabled) counts.active++;
-    else counts.disabled++;
-    if (ep.failureCount > 0) counts.failing++;
+    if (ep.enabled) active++;
+    else disabled++;
+    if (ep.failureCount > 0) failing++;
   }
-  return counts;
+  return { total: endpoints.length, active, disabled, failing };
 }
 
 // ─── Validation de formulaire (le back re-valide anti-SSRF — ceci = garde-fou UX) ─
