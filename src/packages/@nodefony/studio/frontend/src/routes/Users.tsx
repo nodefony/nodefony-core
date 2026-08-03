@@ -47,7 +47,7 @@ import {
   StatCard,
   DocHint,
   fmtFacet,
-  pickFilters,
+  toStatsParams,
 } from "../components/ui";
 import {
   ADMIN_ROLE,
@@ -94,6 +94,11 @@ export const Users = observer(() => {
   // « 1 240 comptes » au-dessus d'un tableau filtré sur « verrouillés » serait
   // deux vérités contradictoires dans le même écran.
   const [filters, setFilters] = useState<Record<string, string>>({});
+  // Le terme cherché vit ICI pour la même raison que les filtres : c'est une
+  // dimension de la sélection, et les cartes doivent décrire ce que le tableau
+  // montre. Le grid reste propriétaire de sa barre et remonte simplement ce
+  // qu'il cherche (`onSearchChange`).
+  const [search, setSearch] = useState("");
 
   // Compte RÉEL de comptes côté serveur (`count()` du dépôt) — endpoint ADMIN,
   // donc jamais sollicité pour un utilisateur ordinaire (403 inutile). C'est la
@@ -118,19 +123,18 @@ export const Users = observer(() => {
   // comptage DÉCLARE accepter : il refuse (400) la dimension qu'il décompose —
   // lui demander `?enabled=true` reviendrait à lui faire écraser sa propre
   // ventilation « activés / désactivés ».
+  // La RECHERCHE en fait partie : l'endpoint la déclare et l'honore, donc taper
+  // dans la barre déplace les cartes autant que le tableau.
   const statsCaps = store.admin.pageCapabilities(USERS_STATS_ENDPOINT);
-  const statsFilters = pickFilters(filters, statsCaps?.filters);
-  const statsSignal = JSON.stringify(statsFilters);
+  const statsParams = toStatsParams(filters, statsCaps, search);
+  const statsSignal = statsParams.toString();
   const statsFetcher = useCallback((): Promise<UserCounts | null> => {
     if (!isAdmin) return Promise.resolve(null);
-    const params = new URLSearchParams(statsFilters);
-    const qs = params.toString();
     return store.api.getAbsolute<UserCounts>(
-      qs ? `${USERS_STATS_ENDPOINT}?${qs}` : USERS_STATS_ENDPOINT,
+      statsSignal
+        ? `${USERS_STATS_ENDPOINT}?${statsSignal}`
+        : USERS_STATS_ENDPOINT,
     );
-    // `statsSignal` est la dépendance réelle : `statsFilters` est un objet
-    // recréé à chaque rendu, qui relancerait la requête en boucle.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store, isAdmin, statsSignal]);
   const { data: serverCounts, reload: reloadCounts } =
     useResource(statsFetcher);
@@ -370,6 +374,7 @@ export const Users = observer(() => {
             onBulkDelete={(u, clear) => setConfirmBulk({ users: u, clear })}
             reloadKey={reloadKey}
             onLoaded={setPageUsers}
+            onSearchChange={setSearch}
           />
         </Tabs.Panel>
         <Tabs.Panel value="help" pt="md">

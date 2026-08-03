@@ -126,6 +126,7 @@ export {
   withoutColumnFilters,
   fromPage,
   pickFilters,
+  toStatsParams,
   isFacetActive,
   toggleFacet,
   fmtFacet,

@@ -184,6 +184,54 @@ export function pickFilters(
 }
 
 /**
+ * Ce qu'un endpoint de compteurs publie et dont la query string dépend — forme
+ * structurelle minimale, pour que le UI kit ne dépende pas du store d'admin.
+ */
+interface StatsCapabilities {
+  filters?: Readonly<Record<string, string | string[]>>;
+  search?: boolean;
+}
+
+/**
+ * Compose la query string d'un endpoint de **compteurs** (`<ressource>/stats`)
+ * — le seul endroit du front qui l'écrit.
+ *
+ * Un écran pose la même question à deux endroits : « montre-moi ces lignes » à
+ * la liste, « combien y en a-t-il » aux compteurs. Les deux doivent porter la
+ * MÊME sélection, sinon les cartes de tête décrivent une population que le
+ * tableau en dessous ne montre pas. Ce qui varie entre les deux appels n'est pas
+ * la sélection mais ce que chaque endpoint ACCEPTE :
+ *
+ * - les **filtres** : l'intersection avec ce que `/stats` publie ({@link
+ *   pickFilters}) — il refuse la dimension qu'il ventile en cartes ;
+ * - la **recherche** : envoyée seulement s'il déclare `search`, faute de quoi le
+ *   contrat la refuse en `400` (défaut REFUS, symétrique du tri).
+ *
+ * @param filters - filtres actifs de la vue.
+ * @param caps - capacités publiées par l'endpoint de compteurs, ou `null` tant
+ *   que le catalogue n'est pas chargé (→ aucun paramètre, jamais une devinette).
+ * @param search - terme cherché dans le tableau, remonté par le grid
+ *   (`onSearchChange`). Vide ou absent = pas de recherche.
+ * @returns les paramètres prêts à concaténer (vides si rien à envoyer).
+ *
+ * @example
+ * ```ts
+ * const params = toStatsParams(filters, statsCaps, search);
+ * const url = params.size ? `${STATS_ENDPOINT}?${params}` : STATS_ENDPOINT;
+ * ```
+ */
+export function toStatsParams(
+  filters: Readonly<Record<string, string>>,
+  caps: StatsCapabilities | null | undefined,
+  search?: string,
+): URLSearchParams {
+  const params = new URLSearchParams(pickFilters(filters, caps?.filters));
+  const term = search?.trim() ?? "";
+  if (term !== "" && caps?.search) params.set("q", term);
+  return params;
+}
+
+/**
  * Une facette est-elle ACTIVE dans les filtres courants ?
  *
  * Vrai quand chacune de ses paires est présente à l'identique : une carte

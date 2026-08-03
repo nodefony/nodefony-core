@@ -191,6 +191,7 @@ export const WebhooksTable = observer(function WebhooksTable({
   reloadKey = 0,
   actions,
   busyId,
+  onSearchChange,
 }: {
   /** Classe réelle du store (badge « où on écrit »). */
   store: string;
@@ -203,6 +204,12 @@ export const WebhooksTable = observer(function WebhooksTable({
   actions: WebhookActions;
   /** Id de l'endpoint en cours de mutation (spinner kebab). */
   busyId: string | null;
+  /**
+   * Remonte le terme cherché à la page, qui le pose aussi sur les compteurs :
+   * sans lui, la barre filtrerait le tableau en laissant les cartes décrire le
+   * registre entier.
+   */
+  onSearchChange?: (term: string) => void;
 }) {
   const store = useStore();
   const [selected, setSelected] = useState<WebhookEndpoint | null>(null);
@@ -378,6 +385,7 @@ export const WebhooksTable = observer(function WebhooksTable({
         // Le registre relaie `q` à son store : la recherche aboutit vraiment,
         // et le catalogue le publie (elle disparaît si les webhooks sont coupés).
         searchable={caps?.search ?? false}
+        onSearchChange={onSearchChange}
         searchPlaceholder="Rechercher (URL, description, événement…)"
         resetPageSignal={filterSignal}
         pageSize={25}

@@ -51,7 +51,7 @@ import {
   StatCard,
   DocHint,
   fmtFacet,
-  pickFilters,
+  toStatsParams,
 } from "../components/ui";
 import {
   ADMIN_ROLE,
@@ -134,17 +134,18 @@ export const Sessions = observer(() => {
   // sessions » n'en a aucun : ses compteurs sont réservés aux admins, et ses
   // cartes affichent « — », qui dit « je ne sais pas » plutôt qu'un chiffre
   // décrivant la seule page chargée.
+  // Aucune recherche ici : ni la liste ni les compteurs ne la déclarent (aucun
+  // store de sessions ne relaie `q`), donc le grid n'affiche pas de barre et le
+  // composeur n'a rien à transmettre.
   const statsCaps = store.admin.pageCapabilities(SESSIONS_STATS_ENDPOINT);
-  const statsFilters = pickFilters(filters, statsCaps?.filters);
-  const statsSignal = JSON.stringify(statsFilters);
+  const statsSignal = toStatsParams(filters, statsCaps).toString();
   const statsFetcher = useCallback((): Promise<SessionCounts | null> => {
     if (mode !== "all" || !isAdmin) return Promise.resolve(null);
-    const qs = new URLSearchParams(statsFilters).toString();
     return store.api.getAbsolute<SessionCounts>(
-      qs ? `${SESSIONS_STATS_ENDPOINT}?${qs}` : SESSIONS_STATS_ENDPOINT,
+      statsSignal
+        ? `${SESSIONS_STATS_ENDPOINT}?${statsSignal}`
+        : SESSIONS_STATS_ENDPOINT,
     );
-    // `statsSignal` est la dépendance réelle (l'objet est recréé à chaque rendu).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store, mode, isAdmin, statsSignal]);
   const { data: serverCounts, reload: reloadCounts } =
     useResource(statsFetcher);

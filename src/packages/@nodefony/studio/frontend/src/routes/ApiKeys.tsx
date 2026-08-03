@@ -48,7 +48,7 @@ import {
   DataState,
   DocHint,
   fmtFacet,
-  pickFilters,
+  toStatsParams,
 } from "../components/ui";
 import {
   KEYS_ENDPOINT,
@@ -147,17 +147,17 @@ export const ApiKeys = observer(() => {
   // Les compteurs suivent les filtres, mais seulement ceux que l'endpoint de
   // comptage DÉCLARE accepter : il refuse `status`, la dimension qu'il
   // décompose — la lui envoyer lui ferait écraser sa propre ventilation.
+  // Aucune recherche ici : le store de jetons ne relaie pas `q`, ni la liste ni
+  // les compteurs ne la déclarent — le composeur n'a donc rien à transmettre.
   const statsCaps = store.admin.pageCapabilities(API_KEYS_STATS_ENDPOINT);
-  const statsFilters = pickFilters(filters, statsCaps?.filters);
-  const statsSignal = JSON.stringify(statsFilters);
+  const statsSignal = toStatsParams(filters, statsCaps).toString();
   const statsFetcher = useCallback((): Promise<ApiKeyCounts | null> => {
     if (mode !== "admin" || !isAdmin) return Promise.resolve(null);
-    const qs = new URLSearchParams(statsFilters).toString();
     return store.api.getAbsolute<ApiKeyCounts>(
-      qs ? `${API_KEYS_STATS_ENDPOINT}?${qs}` : API_KEYS_STATS_ENDPOINT,
+      statsSignal
+        ? `${API_KEYS_STATS_ENDPOINT}?${statsSignal}`
+        : API_KEYS_STATS_ENDPOINT,
     );
-    // `statsSignal` est la dépendance réelle (l'objet est recréé à chaque rendu).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store, mode, isAdmin, statsSignal]);
   const { data: serverCounts, reload: reloadCounts } =
     useResource(statsFetcher);

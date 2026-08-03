@@ -40,7 +40,7 @@ import {
   StatCard,
   DataState,
   fmtFacet,
-  pickFilters,
+  toStatsParams,
 } from "../components/ui";
 import { BrickStoreChip } from "./stores/BrickStoreChip";
 import {
@@ -88,6 +88,10 @@ export const Webhooks = observer(() => {
 
   // Filtres du registre — ici, parce que les cartes de tête les suivent.
   const [filters, setFilters] = useState<Record<string, string>>({});
+  // Le terme cherché vit ICI, comme les filtres : les cartes de tête doivent
+  // décrire la même sélection que le tableau. Le grid reste propriétaire de sa
+  // barre et remonte simplement ce qu'il cherche.
+  const [search, setSearch] = useState("");
   // Compteur de version : recharge la page affichée après une mutation.
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -120,16 +124,17 @@ export const Webhooks = observer(() => {
   // Ils suivent les filtres, mais seulement ceux que l'endpoint de comptage
   // DÉCLARE accepter : il refuse `enabled` et `failing`, les dimensions qu'il
   // décompose — les lui envoyer lui ferait écraser sa propre ventilation.
+  // La RECHERCHE en fait partie : l'endpoint la déclare (tant que les webhooks
+  // sont branchés) et l'honore, donc la barre déplace les cartes autant que le
+  // tableau — au lieu de les figer sur le registre entier.
   const statsCaps = store.admin.pageCapabilities(WEBHOOKS_STATS_ENDPOINT);
-  const statsFilters = pickFilters(filters, statsCaps?.filters);
-  const statsSignal = JSON.stringify(statsFilters);
+  const statsSignal = toStatsParams(filters, statsCaps, search).toString();
   const statsFetcher = useCallback((): Promise<WebhookCounts> => {
-    const qs = new URLSearchParams(statsFilters).toString();
     return store.api.getAbsolute<WebhookCounts>(
-      qs ? `${WEBHOOKS_STATS_ENDPOINT}?${qs}` : WEBHOOKS_STATS_ENDPOINT,
+      statsSignal
+        ? `${WEBHOOKS_STATS_ENDPOINT}?${statsSignal}`
+        : WEBHOOKS_STATS_ENDPOINT,
     );
-    // `statsSignal` est la dépendance réelle (l'objet est recréé à chaque rendu).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store, statsSignal]);
   const { data: serverCounts, reload: reloadCounts } =
     useResource(statsFetcher);
@@ -391,6 +396,7 @@ export const Webhooks = observer(() => {
               reloadKey={reloadKey}
               actions={actions}
               busyId={busyId}
+              onSearchChange={setSearch}
             />
           </DataState>
         </Tabs.Panel>

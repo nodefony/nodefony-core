@@ -12,6 +12,7 @@ import {
   toPageParams,
   withoutColumnFilters,
   fromPage,
+  toStatsParams,
 } from "../../../frontend/src/components/ui/pageQuery";
 import type {
   DataGridColumnFilter,
@@ -178,5 +179,70 @@ describe("fromPage — total facultatif du contrat", () => {
       hasNext: true,
     });
     expect(res.total).to.equal(77);
+  });
+});
+
+// ── toStatsParams — la query string des COMPTEURS ────────────────────────────
+// Un écran pose la même sélection à DEUX endroits : la liste et les compteurs de
+// tête. Ce composeur garantit qu'ils la portent tous les deux, en n'envoyant à
+// chacun que ce qu'il DÉCLARE accepter — un paramètre non déclaré est refusé en
+// 400 par le contrat, et une sélection perdue en route fige les cartes au-dessus
+// d'un tableau filtré.
+
+describe("toStatsParams — les compteurs suivent la même sélection", () => {
+  const caps = (
+    over: Partial<{ filters: Record<string, string>; search: boolean }> = {},
+  ) => ({ filters: { role: "string" }, search: false, ...over });
+
+  it("ne garde que les filtres que l'endpoint de comptage publie", () => {
+    // `enabled` est une dimension qu'il ventile en cartes : la lui envoyer lui
+    // ferait écraser sa propre ventilation (400 côté serveur).
+    const params = toStatsParams({ role: "ROLE_X", enabled: "true" }, caps());
+    expect(params.get("role")).to.equal("ROLE_X");
+    expect(params.has("enabled")).to.equal(false);
+  });
+
+  it("transmet la recherche quand l'endpoint la DÉCLARE", () => {
+    const params = toStatsParams({}, caps({ search: true }), "alice");
+    expect(params.get("q")).to.equal("alice");
+  });
+
+  it("la RETIENT quand il ne la déclare pas — le contrat la refuserait en 400", () => {
+    // Le cas des sessions et des clés d'API : aucun store ne relaie `q`. Envoyer
+    // le terme quand même casserait un écran par ailleurs valide.
+    const params = toStatsParams({}, caps({ search: false }), "alice");
+    expect(params.has("q")).to.equal(false);
+  });
+
+  it("un terme vide ou blanc n'est pas une recherche", () => {
+    // `?q=` n'est pas « tout » : c'est une valeur mal formée que le contrat
+    // refuse. Le grid remonte la chaîne vide dès que la barre est effacée — ce
+    // cas est donc le NOMINAL, pas une curiosité.
+    expect(toStatsParams({}, caps({ search: true }), "").has("q")).to.equal(
+      false,
+    );
+    expect(toStatsParams({}, caps({ search: true }), "   ").has("q")).to.equal(
+      false,
+    );
+  });
+
+  it("catalogue pas encore chargé → AUCUN paramètre, jamais une devinette", () => {
+    // Tant que les capacités sont inconnues, émettre un filtre reviendrait à
+    // parier sur ce que l'endpoint accepte — donc à afficher un 400 au montage.
+    const params = toStatsParams({ role: "ROLE_X" }, null, "alice");
+    expect(params.toString()).to.equal("");
+  });
+
+  it("les clés émises appartiennent au contrat de page ou au vocabulaire publié", () => {
+    // Même garde que `toPageParams` : rien d'inventé sur le fil.
+    const params = toStatsParams(
+      { role: "ROLE_X" },
+      caps({ search: true }),
+      "a",
+    );
+    for (const key of params.keys()) {
+      const known = key in caps().filters || PAGE_QUERY_KEYS.has(key);
+      expect(known, `clé inconnue émise : ${key}`).to.equal(true);
+    }
   });
 });

@@ -84,6 +84,7 @@ export const UsersTable = observer(function UsersTable({
   onBulkDelete,
   reloadKey = 0,
   onLoaded,
+  onSearchChange,
 }: {
   /**
    * Filtres actifs — tenus par la PAGE, parce que les cartes de tête doivent
@@ -107,6 +108,12 @@ export const UsersTable = observer(function UsersTable({
    * seule chose honnête qu'il puisse dire.
    */
   onLoaded?: (users: UserSummary[]) => void;
+  /**
+   * Remonte le terme cherché à la page, qui le pose aussi sur les compteurs :
+   * sans lui, la barre filtrerait le tableau en laissant les cartes décrire
+   * l'annuaire entier.
+   */
+  onSearchChange?: (term: string) => void;
 }) {
   const store = useStore();
   // Ce que l'annuaire BRANCHÉ déclare savoir faire. `null` tant que le
@@ -278,6 +285,7 @@ export const UsersTable = observer(function UsersTable({
         // l'annuaire ENTIER, lu comme le résultat de la recherche.
         searchable={caps?.search ?? false}
         searchPlaceholder="Rechercher un identifiant…"
+        onSearchChange={onSearchChange}
         resetPageSignal={filterSignal}
         pageSize={25}
         persist={{ key: "studio.users", storage: "session" }}

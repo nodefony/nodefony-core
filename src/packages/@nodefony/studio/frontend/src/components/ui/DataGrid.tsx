@@ -154,6 +154,22 @@ interface BaseProps<T> {
   initialSort?: DataGridSort;
   searchable?: boolean;
   searchPlaceholder?: string;
+  /**
+   * Notifie le terme cherché — appelé au montage (valeur restaurée du storage
+   * comprise) puis à chaque frappe.
+   *
+   * Sert aux écrans dont les **cartes de tête** décrivent le même ensemble que
+   * le tableau : elles interrogent un endpoint de compteurs distinct, qui doit
+   * recevoir le même terme, sinon la barre filtre le tableau et fige les cartes
+   * au-dessus.
+   *
+   * Volontairement une NOTIFICATION, pas un état contrôlé : la barre reste la
+   * propriété du grid (persistance, remise à zéro, futur débounce), et la page
+   * n'a besoin que de SAVOIR ce qui est cherché. Un second état, côté page,
+   * devrait être resynchronisé à chaque restauration — la panne exacte qu'on
+   * corrige, mais dans l'autre sens.
+   */
+  onSearchChange?: (term: string) => void;
   /** Message affiché dans l'overlay de chargement (défaut « Chargement… »). */
   loadingMessage?: string;
   /** Sauvegarde/restaure l'état dans le storage navigateur (+ bouton « effacer »). */
@@ -640,6 +656,16 @@ export function DataGrid<T>(props: DataGridProps<T>) {
   useEffect(() => {
     setPagination((p) => (p.pageIndex === 0 ? p : { ...p, pageIndex: 0 }));
   }, [sorting, columnFilters, globalFilter]);
+
+  // Remonte le terme cherché à la page (cartes de tête). Au MONTAGE aussi : une
+  // recherche restaurée du storage filtre déjà le tableau, et des cartes qui
+  // l'ignoreraient décriraient une population que ce tableau ne montre pas.
+  // `searchable: false` remonte la chaîne vide — la barre n'existe pas, il n'y a
+  // rien de cherché, quoi que le storage porte encore.
+  const { onSearchChange } = props;
+  useEffect(() => {
+    onSearchChange?.(searchable ? globalFilter : "");
+  }, [onSearchChange, searchable, globalFilter]);
 
   // Idem pour les filtres EXTERNES (mode serveur) : un changement de signal
   // ramène page 1 ET PURGE les lignes affichées. On saute le 1ᵉʳ rendu (sinon on
