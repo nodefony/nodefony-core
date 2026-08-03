@@ -1218,6 +1218,28 @@ function finishAgent(app, runDir, transcript) {
 }
 
 /**
+ * Un fichier d'entité, où que l'agent l'ait RANGÉ.
+ *
+ * Le générateur écrit sous `nodefony/entity/`, mais le banc mesure un agent
+ * libre de ses conventions : le pluriel (`entities/`) est le premier rangement
+ * qu'il invente, et un compteur ancré sur le singulier annonce alors **zéro
+ * édition manuelle** — le chiffre exact que rendrait un générateur qui a suffi.
+ * On reconnaît donc un SEGMENT de chemin qui commence par `entit`, jamais un
+ * chemin littéral.
+ */
+const EST_ENTITE = /(?:^|\/)entit[^/]*\//iu;
+
+/** Le code que l'agent écrit — la matière du compteur, prose et JSON exclus. */
+const EST_TYPESCRIPT = /\.tsx?$/u;
+
+/**
+ * Un test écrit à la main est un travail LÉGITIME, pas une lacune de la
+ * grammaire : le compter ferait monter un chiffre dont toute la valeur est de
+ * désigner ce que le générateur n'a pas su porter.
+ */
+const EST_TEST = /(?:^|\/)tests?\/|\.(?:test|spec)\.tsx?$/u;
+
+/**
  * Compte ce que l'agent a fait DE SES MAINS sur les fichiers d'entité.
  *
  * C'est la mesure centrale : le générateur écrit ces fichiers, donc toute
@@ -1230,9 +1252,10 @@ function finishAgent(app, runDir, transcript) {
  * que l'agent a CHERCHÉ à faire — il reste utile en `--link`, où le décor est
  * ouvert et où le chiffre explique alors le verdict.
  */
-function countWork(transcript, app) {
+export function countWork(transcript, app) {
   const generated = [];
   const edits = [];
+  const editsAutres = [];
   const outside = [];
   const realApp = app && existsSync(app) ? realpathSync(app) : null;
   const realRepo = existsSync(REPO) ? realpathSync(REPO) : REPO;
@@ -1289,9 +1312,11 @@ function countWork(transcript, app) {
         (b.name === "Edit" ||
           b.name === "Write" ||
           b.name === "NotebookEdit") &&
-        /nodefony\/entity\/.*\.ts$/u.test(input.file_path ?? "")
+        EST_TYPESCRIPT.test(input.file_path ?? "") &&
+        !EST_TEST.test(input.file_path ?? "")
       ) {
-        edits.push({ tool: b.name, file: path.basename(input.file_path) });
+        const cible = EST_ENTITE.test(input.file_path) ? edits : editsAutres;
+        cible.push({ tool: b.name, file: path.basename(input.file_path) });
       }
       // Lecture d'un fichier hors de l'app, ou commande shell qui cite un
       // chemin du dépôt : les deux disent que l'agent s'est servi ailleurs.
@@ -1308,7 +1333,7 @@ function countWork(transcript, app) {
       }
     }
   }
-  return { generated, edits, outside };
+  return { generated, edits, editsAutres, outside };
 }
 
 /**
@@ -1828,6 +1853,16 @@ function report(ctx) {
   console.log(
     `    éditions d'entité à la MAIN : ${work.edits.length}` +
       (work.edits.length ? "   ← ce que la grammaire n'a pas su porter" : ""),
+  );
+  // Le zéro de la ligne au-dessus se lit « le générateur a suffi ». Il ne le
+  // prouve que si l'agent n'a pas écrit son modèle SOUS UN AUTRE NOM — un
+  // rangement qu'aucun motif de chemin ne rattrapera jamais. Ce second chiffre
+  // est ce qui distingue « rien à écrire » de « rien vu ».
+  console.log(
+    `    autres .ts écrits à la MAIN : ${work.editsAutres?.length ?? 0}` +
+      (work.edits.length === 0 && (work.editsAutres?.length ?? 0) > 0
+        ? "   ⚠️ le zéro ci-dessus ne prouve rien — vérifier où le modèle a été rangé"
+        : ""),
   );
   // Zéro en décor fermé est le résultat ATTENDU : c'est la valeur du gate qu'on
   // relit. Non nul, il faut expliquer par où l'agent est sorti.

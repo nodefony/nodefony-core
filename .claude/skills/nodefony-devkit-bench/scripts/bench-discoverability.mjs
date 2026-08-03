@@ -123,6 +123,7 @@ import {
   ecrireReference,
   fusionnerReference,
   lireReference,
+  NON_JUGEABLE,
   verdictAgrege,
 } from "./lib/reference.mjs";
 
@@ -617,7 +618,7 @@ export const TASKS = [
       {
         kind: "transcript",
         name: "a lancé create entity",
-        pattern: /create\s+entity/u,
+        pattern: commandeQuiContient("create\\s+entity\\b"),
       },
       sondeLecture("a lu AGENTS.md", /AGENTS\.md/u),
       {
@@ -718,7 +719,10 @@ export const TASKS = [
       {
         kind: "transcript",
         name: "a lancé create controller --kind realtime",
-        pattern: /create\s+controller\s+.*realtime/u,
+        // `[^"]*` et non `.*` : le motif s'insère DANS la valeur d'une clé
+        // `"command"`, et un `.*` en franchirait le guillemet fermant pour aller
+        // chercher `realtime` dans le champ voisin du même événement.
+        pattern: commandeQuiContient('create\\s+controller\\s+[^"]*realtime'),
       },
       {
         kind: "code",
@@ -766,7 +770,7 @@ export const TASKS = [
         // ne pouvait que recomposer la classe de mémoire — et il le faisait.
         kind: "transcript",
         name: "a lancé create command",
-        pattern: /create\s+command/u,
+        pattern: commandeQuiContient("create\\s+command\\b"),
       },
       sondeLecture("a lu AGENTS.md", /AGENTS\.md/u),
       {
@@ -880,7 +884,7 @@ export const TASKS = [
         // variables ne se DEVINENT pas, ils se demandent.
         kind: "transcript",
         name: "a interrogé l'environnement (nodefony env)",
-        pattern: /nodefony\s+env\b|npx nodefony env/u,
+        pattern: commandeQuiContient("nodefony\\s+env\\b"),
       },
       // ⚠️ PAS de sonde sur le diff git pour cette tâche. Vécu au premier run :
       // l'agent avait fait JUSTE — `NF_LOG_DRIVER=file` dans `.env.local`, le bon
@@ -1031,12 +1035,12 @@ export const TASKS = [
         // l'avait jamais mesuré.
         kind: "transcript",
         name: "a demandé au scaffold de se décrire (--describe-json)",
-        pattern: /--describe-json/u,
+        pattern: commandeQuiContient("--describe-json"),
       },
       {
         kind: "transcript",
         name: "a simulé au lieu d'écrire (--dry-run)",
-        pattern: /--dry-run/u,
+        pattern: commandeQuiContient("--dry-run"),
       },
       {
         kind: "code",
@@ -1094,7 +1098,9 @@ export const TASKS = [
         // `devkit:card` reste l'ALIAS de `card` (le nom d'origine, encore écrit
         // dans les AGENTS.md déjà générés) : la sonde accepte les deux, sinon
         // elle rendrait FAIL un agent qui a fait le geste juste.
-        pattern: /nodefony\s+(?:inspect\b|(?:devkit:)?card\b)/u,
+        pattern: commandeQuiContient(
+          "nodefony\\s+(?:inspect\\b|(?:devkit:)?card\\b)",
+        ),
       },
       {
         kind: "code",
@@ -1312,7 +1318,7 @@ export const TASKS = [
         // invisible au conteneur, mesurée en décor isolé).
         kind: "transcript",
         name: "a lancé create service",
-        pattern: /create\s+service/u,
+        pattern: commandeQuiContient("create\\s+service\\b"),
       },
       {
         // La CONSOMMATION, toutes voies légitimes confondues : injection
@@ -1999,7 +2005,7 @@ export const TASKS = [
       {
         kind: "transcript",
         name: "a lancé create entity",
-        pattern: /create\s+entity/u,
+        pattern: commandeQuiContient("create\\s+entity\\b"),
       },
       {
         kind: "code",
@@ -3278,6 +3284,42 @@ function runGates(app, runDir, task) {
  * @returns {{tours: number, dureeMs: number, coutUsd: number} | null} `null` si
  *   le harnais n'a rien publié (agent tué, transcript tronqué).
  */
+/**
+ * Le transcript porte-t-il de quoi JUGER — quel que soit l'agent qui l'a écrit ?
+ *
+ * Toutes les sondes `transcript` lisent cette matière. Vide, elles rougissent
+ * TOUTES, et la tâche rend un FAIL parfaitement formé : `0/6`, exactement
+ * l'allure qu'aurait un agent incapable. C'est arrivé en changeant d'agent — un
+ * drapeau transposé d'un CLI à l'autre a produit un fichier vide, et le rapport
+ * qui en est sorti était indiscernable d'une mesure.
+ *
+ * Le critère ne peut donc PAS être une clé du format Claude Code (`"type":
+ * "result"`, `num_turns`) : c'est précisément le format qui change quand on
+ * change d'agent, et une garde aveugle à l'agent qu'on vient de brancher ne
+ * garde rien. On exige le plus petit dénominateur commun de tout harnais
+ * agentique — au moins un objet JSON parsable — sans rien présumer de ses clés.
+ *
+ * Un transcript illisible n'est pas un échec de l'agent : c'est un banc qui ne
+ * sait pas lire, et il doit le DIRE plutôt que rendre un verdict.
+ *
+ * @param {string} texte - le contenu brut du transcript (JSONL attendu).
+ * @returns {boolean} `true` dès qu'une ligne porte un objet JSON.
+ */
+export function transcriptExploitable(texte) {
+  if (typeof texte !== "string") return false;
+  for (const ligne of texte.split("\n")) {
+    const l = ligne.trim();
+    if (!l.startsWith("{") && !l.startsWith("[")) continue;
+    try {
+      const v = JSON.parse(l);
+      if (v && typeof v === "object") return true;
+    } catch {
+      // Ligne tronquée : elle ne prouve rien, une autre le fera peut-être.
+    }
+  }
+  return false;
+}
+
 function lireEffort(transcriptPath) {
   if (!existsSync(transcriptPath)) {
     return null;
@@ -3327,6 +3369,25 @@ function judgeTask(app, runDir, task, occurrence = null) {
         "utf8",
       )
     : "";
+  // Un transcript muet retire à ce run le droit de conclure — il ne le condamne
+  // pas. Toutes les sondes `transcript` y rougiraient à la fois, et le FAIL qui
+  // en sortirait aurait l'allure d'une mesure. C'est le verdict d'écartement
+  // déjà en place (`NON JUGEABLE`) qu'on emprunte : il est SEUL à savoir retirer
+  // un run du compte sans le compter PASS.
+  if (!transcriptExploitable(transcript)) {
+    console.log(
+      `  ⁉️  transcript illisible ou vide — run ÉCARTÉ, aucune sonde n'est opposable\n` +
+        `      (task-${task.id}.transcript.jsonl : ${transcript.length} octet(s), aucun objet JSON)`,
+    );
+    return {
+      id: task.id,
+      name: task.name,
+      verdict: NON_JUGEABLE,
+      guessed: 0,
+      observed: 0,
+      probes: [],
+    };
+  }
   // Le commit de la tâche se retrouve par son MESSAGE — robuste quel que soit
   // le sous-ensemble de tâches joué (--task N, run partiel). La BASE du diff
   // est le commit de HARNAIS précédent (« tâche N-1 » ou « état initial »),

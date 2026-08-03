@@ -32,7 +32,44 @@ import {
   TASKS,
   SONDES_QUALITE,
   evaluateProbe,
+  transcriptExploitable,
 } from "./bench-discoverability.mjs";
+
+/**
+ * La garde qui empêche un transcript MUET de rendre un verdict.
+ *
+ * Elle vaut pour n'importe quel agent : les cas ci-dessous n'emploient donc
+ * AUCUNE clé propre au format Claude Code — c'est ce format-là qui change quand
+ * on change d'agent, et une garde qui s'y accroche s'éteint au moment précis où
+ * elle sert.
+ *
+ * @returns {string[]} les libellés des cas qui n'ont pas rendu ce qu'ils doivent.
+ */
+function verifierGardeTranscript() {
+  const cas = [
+    ["fichier absent (chaîne vide)", "", false],
+    ["blancs seuls", "\n\n   \n", false],
+    ["texte brut d'un CLI qu'on ne sait pas lire", "run terminé\nok\n", false],
+    ["JSON tronqué en plein écrit", '{"type":"tool_use","inp', false],
+    ["un scalaire n'est pas un événement", "42\ntrue\n", false],
+    ["format Claude Code", '{"type":"result","num_turns":12}', true],
+    [
+      "format inconnu mais JSONL — le banc n'a rien à présumer des clés",
+      '{"event":"tool_call","tool":"shell"}',
+      true,
+    ],
+    [
+      "une seule ligne lisible parmi des tronquées suffit",
+      '{"broken\n{"type":"assistant"}\n',
+      true,
+    ],
+  ];
+  const rates = [];
+  for (const [label, texte, attendu] of cas) {
+    if (transcriptExploitable(texte) !== attendu) rates.push(label);
+  }
+  return rates;
+}
 
 /**
  * Matières par défaut — un échantillon ne renseigne QUE ce qu'il exerce.
@@ -77,6 +114,19 @@ const SAMPLES = {
     fail: {
       transcript: `{"text":"j'écris l'entité à la main dans nodefony/entity"}`,
     },
+    extra: [
+      {
+        // Le mode de défaillance que `commandeQuiContient` ferme : l'`AGENTS.md`
+        // généré NOMME la commande, et le transcript porte le contenu de ce que
+        // l'agent lit. Une sonde qui cherche le nom nu se satisfait donc d'une
+        // LECTURE — elle mesure la documentation, pas le geste.
+        label: "AGENTS.md lu, générateur jamais lancé",
+        matter: {
+          transcript: `{"type":"tool_result","content":"## Entités\\n\\n\`npx nodefony create entity <Nom>\`"}`,
+        },
+        expect: false,
+      },
+    ],
   },
   "1 :: a lu AGENTS.md": {
     pass: { transcript: `{"file_path":"/app/AGENTS.md"}` },
@@ -158,6 +208,15 @@ const SAMPLES = {
       transcript: `{"command":"npx nodefony create controller Chat --kind realtime"}`,
     },
     fail: { transcript: `{"command":"npx nodefony create controller Chat"}` },
+    extra: [
+      {
+        label: "AGENTS.md lu, générateur jamais lancé",
+        matter: {
+          transcript: `{"type":"tool_result","content":"Temps réel : \`npx nodefony create controller <Nom> --kind realtime\`"}`,
+        },
+        expect: false,
+      },
+    ],
   },
   "3 :: façade realtime (RealtimeController/@RealtimeChannel)": {
     pass: {
@@ -185,6 +244,15 @@ const SAMPLES = {
       transcript: `{"command":"npx nodefony create command import:users"}`,
     },
     fail: { transcript: `{"command":"npx nodefony create controller Users"}` },
+    extra: [
+      {
+        label: "AGENTS.md lu, générateur jamais lancé",
+        matter: {
+          transcript: `{"type":"tool_result","content":"Commandes : \`npx nodefony create command <nom:action>\`"}`,
+        },
+        expect: false,
+      },
+    ],
   },
   "4 :: a lu AGENTS.md": {
     pass: { transcript: `{"file_path":"/app/AGENTS.md"}` },
@@ -273,6 +341,15 @@ const SAMPLES = {
   "6 :: a interrogé l'environnement (nodefony env)": {
     pass: { transcript: `{"command":"npx nodefony env --json"}` },
     fail: { transcript: `{"command":"cat .env.local"}` },
+    extra: [
+      {
+        label: "AGENTS.md lu, environnement jamais interrogé",
+        matter: {
+          transcript: `{"type":"tool_result","content":"Le catalogue des variables : \`npx nodefony env\`"}`,
+        },
+        expect: false,
+      },
+    ],
   },
   "6 :: aucune valeur en dur dans le code TypeScript": {
     // La bonne réponse vit dans `.env.local`, gitignoré : le code, lui, ne doit
@@ -312,12 +389,30 @@ const SAMPLES = {
       transcript: `{"command":"npx nodefony create entity --describe-json"}`,
     },
     fail: { transcript: `{"command":"npx nodefony create entity --help"}` },
+    extra: [
+      {
+        label: "porte machine LUE dans la doc, jamais appelée",
+        matter: {
+          transcript: `{"type":"tool_result","content":"Chaque générateur se décrit : \`--describe-json\` rend ses questions."}`,
+        },
+        expect: false,
+      },
+    ],
   },
   "8 :: a simulé au lieu d'écrire (--dry-run)": {
     pass: {
       transcript: `{"command":"npx nodefony create entity Order --dry-run"}`,
     },
     fail: { transcript: `{"command":"npx nodefony create entity Order"}` },
+    extra: [
+      {
+        label: "simulation LUE dans la doc, jamais lancée",
+        matter: {
+          transcript: `{"type":"tool_result","content":"Ajoute \`--dry-run\` pour simuler sans rien écrire."}`,
+        },
+        expect: false,
+      },
+    ],
   },
   "8 :: le plan est écrit (DISCOVERY.md)": {
     pass: { files: ["DISCOVERY.md"] },
@@ -351,6 +446,16 @@ const SAMPLES = {
         // même en prononçant le mot.
         label: "refuse le mot sans la commande",
         matter: { transcript: `{"content":"je vais inspect les controllers"}` },
+        expect: false,
+      },
+      {
+        // Le cas que le précédent ne couvrait PAS : le document lu porte la
+        // commande ENTIÈRE, `nodefony inspect` compris. C'est la forme réelle —
+        // l'`AGENTS.md` généré l'écrit — et un motif nu l'accepte.
+        label: "AGENTS.md lu, application jamais interrogée",
+        matter: {
+          transcript: `{"type":"tool_result","content":"Pour voir les routes montées : \`npx nodefony inspect routes\`"}`,
+        },
         expect: false,
       },
     ],
@@ -569,6 +674,15 @@ const SAMPLES = {
     fail: {
       transcript: `{"text":"j'écris la classe du service à la main"}`,
     },
+    extra: [
+      {
+        label: "AGENTS.md lu, générateur jamais lancé",
+        matter: {
+          transcript: `{"type":"tool_result","content":"Services : \`npx nodefony create service <Nom>\`"}`,
+        },
+        expect: false,
+      },
+    ],
   },
   "13 :: la dépendance vient du conteneur (@inject ou container.get)": {
     pass: {
@@ -965,6 +1079,15 @@ const SAMPLES = {
     fail: {
       transcript: `{"text":"j'écris l'entité et son controller à la main"}`,
     },
+    extra: [
+      {
+        label: "AGENTS.md lu, générateur jamais lancé",
+        matter: {
+          transcript: `{"type":"tool_result","content":"CRUD complet : \`npx nodefony create entity <Nom> champ:type\`"}`,
+        },
+        expect: false,
+      },
+    ],
   },
   "20 :: entité générée (nodefony/entity/)": {
     pass: { files: ["nodefony/entity/Invoice.ts"] },
@@ -1666,7 +1789,14 @@ function main() {
     if (!probe.observe) jugeantes.push(key(task, probe));
   }
 
+  const gardeRatee = verifierGardeTranscript();
+
   for (const w of wrong) console.log(`  ✗ ${w}`);
+  for (const g of gardeRatee) {
+    console.log(
+      `  ✗ garde « transcript exploitable » — cas « ${g} »\n      un transcript muet ferait rougir TOUTES les sondes transcript à la fois : le FAIL qui en sort a l'allure d'une mesure`,
+    );
+  }
   for (const j of jugeantes) {
     console.log(
       `  ✗ ${j}\n      sonde de LECTURE qui juge — exiger un chemin d'accès mesure la conformité, pas la découvrabilité : la passer par sondeLecture()`,
@@ -1683,10 +1813,16 @@ function main() {
   console.log(
     `\n━━ ${covered}/${probes.length} sonde(s) couverte(s), ${checked} cas joué(s)` +
       (prove ? ` — amputation vérifiée sur ${covered}` : "") +
-      `${wrong.length + toothless.length + jugeantes.length > 0 ? `, ${wrong.length + toothless.length + jugeantes.length} DÉFAUT(S)` : ""}`,
+      `, garde transcript : ${gardeRatee.length === 0 ? "8 cas ✅" : `${gardeRatee.length} RATÉ(S)`}` +
+      `${wrong.length + toothless.length + jugeantes.length + gardeRatee.length > 0 ? `, ${wrong.length + toothless.length + jugeantes.length + gardeRatee.length} DÉFAUT(S)` : ""}`,
   );
 
-  if (wrong.length > 0 || toothless.length > 0 || jugeantes.length > 0)
+  if (
+    wrong.length > 0 ||
+    toothless.length > 0 ||
+    jugeantes.length > 0 ||
+    gardeRatee.length > 0
+  )
     return 1;
   if (uncovered.length > 0) {
     console.log(
