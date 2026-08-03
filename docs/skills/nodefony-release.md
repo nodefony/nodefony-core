@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-02
+updated: 2026-08-03
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-release/SKILL.md"
 ---
@@ -17,7 +17,7 @@ source: ".claude/skills/nodefony-release/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **1/1** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.0.0`.
+> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **2/2** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.0.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-release/SKILL.md"
 | --- | --- |
 | Version | `1.0.0` |
 | Famille | Publier et distribuer |
-| Corps | 67 lignes |
-| Coût d'activation | ~1 235 tokens (le corps est chargé à l'invocation) |
+| Corps | 130 lignes |
+| Coût d'activation | ~2 404 tokens (le corps est chargé à l'invocation) |
 | Description | 935 / 1024 caractères |
 | Déclencheurs | 11 |
 | Ressources `references/` | 0 page(s) |
@@ -70,15 +70,15 @@ script, donc toujours à jour après régénération.
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
 | `scripts/fix-dts-extensions.mjs` | Post-processing des `.d.ts` générés : ajoute les extensions AUX SPECIFIERS | `--quiet` | — |
-| `scripts/pack-all.mjs` | Pack release des workspaces publiables (modèle B — N-packages lockstep). | `--json` `--pack-destination` `--silent` | `OUT` |
-| `scripts/smoke-docker.sh` | Smoke test release (modèle B) + preuve Dockerfile/graceful shutdown (Phase 0.7). | `--exclude-entrypoints` `--name` `--profile` `--yes` | — |
+| `scripts/pack-all.mjs` | Pack release des workspaces publiables (modèle B — N-packages lockstep). | `--json` `--omit` `--pack-destination` `--silent` | `OUT` |
+| `scripts/smoke-docker.sh` | Smoke test release (modèle B) + preuve Dockerfile/graceful shutdown/frontend. | `--detach` `--dir` `--entrypoint` `--exclude-entrypoints` `--frontend` `--help` `--kind` `--name` `--no-audit` `--no-fund` `--no-git` `--no-install` `--omit` `--preset` `--profile` `--rm` `--route` `--scenario` `--yes` | — |
 
 **Invocation telle que documentée dans chaque script :**
 
 ```bash
 Usage : node .claude/skills/nodefony-release/scripts/fix-dts-extensions.mjs <dir> [--quiet]
 Usage (racine repo) : node .claude/skills/nodefony-release/scripts/pack-all.mjs
-Usage (racine repo) : bash .claude/skills/nodefony-release/scripts/smoke-docker.sh
+bash .claude/skills/nodefony-release/scripts/smoke-docker.sh [--scenario all|base|front|studio]
 ```
 
 **Toutes les variables lues par ce skill** : `OUT`
@@ -99,7 +99,8 @@ Usage (racine repo) : bash .claude/skills/nodefony-release/scripts/smoke-docker.
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 67 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
+| corps < 500 lignes | recommandé | ✅ | 130 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

@@ -97,7 +97,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v2.4.0 · ⚙️ 7 scripts · 📎 2 réf" },
   { "icon": "⚙️", "title": "framework-dev", "href": "skills/nodefony-framework-dev.md",
     "desc": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM).",
-    "meta": "🟢 conforme v2.0.0 · 📎 9 réf" },
+    "meta": "🟢 conforme v2.0.0 · 📎 10 réf" },
   { "icon": "🎨", "title": "frontend-dev", "href": "skills/nodefony-frontend-dev.md",
     "desc": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie / temps réel…",
     "meta": "🟢 conforme v1.0.0 · 📎 6 réf" },

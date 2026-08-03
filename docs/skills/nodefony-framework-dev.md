@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-02
+updated: 2026-08-03
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 ---
@@ -17,7 +17,7 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **1/1** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.0.0`.
+> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **2/2** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.0.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -27,11 +27,11 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 | --- | --- |
 | Version | `2.0.0` |
 | Famille | Développer le framework |
-| Corps | 355 lignes |
-| Coût d'activation | ~7 507 tokens (le corps est chargé à l'invocation) |
+| Corps | 357 lignes |
+| Coût d'activation | ~7 643 tokens (le corps est chargé à l'invocation) |
 | Description | 980 / 1024 caractères |
 | Déclencheurs | 17 |
-| Ressources `references/` | 9 page(s), 82 fichiers au total |
+| Ressources `references/` | 10 page(s), 83 fichiers au total |
 | Scripts | 0 |
 | Conformité | ✅ conforme au standard |
 
@@ -73,6 +73,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/gotchas.md` | Gotchas & diagnostic — règles durables (vérité courante) | 94 |
 | `references/http.md` | @nodefony/http (pipeline/serveurs/WS/TLS) — référence complète (recettes + API + internals + gotchas) | 586 |
 | `references/orm.md` | ORM (orm-core/drizzle/mongoose) — référence complète (recettes + API + internals + gotchas) | 683 |
+| `references/pagination.md` | Pagination, tri, filtres, facettes — le contrat de page | 446 |
 | `references/portabilite.md` | Portabilité — écrire du code qui tourne sur les 3 plateformes | 141 |
 | `references/realtime.md` | Realtime (WS/hub/RealtimeService) — référence complète (recettes + API + internals + gotchas) | 593 |
 | `references/security.md` | Référence SÉCURITÉ (coder AVEC la sécurité) — intemporel | 67 |
@@ -95,7 +96,8 @@ _(+ 73 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 355 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
+| corps < 500 lignes | recommandé | ✅ | 357 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

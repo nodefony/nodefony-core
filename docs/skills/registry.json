@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-08-02",
+  "generatedAt": "2026-08-03",
   "count": 23,
   "conformant": 23,
   "skills": [
@@ -29,8 +29,8 @@
       ],
       "description": "Audite la dérive entre la liste `external` des rolldown.config.ts et les `peerDependencies` de chaque package.json Nodefony — détecte le bug « peerDep bundlée » (cause d'échecs de build type @node-rs/bcrypt) et les entrées external périmées. Anti-duplication : la même liste est maintenue à la main à deux endroits → dérive garantie. À charger avant une publication npm ou devant un échec de build qui parle d'un paquet natif ou d'un module introuvable à l'exécution. Déclencheurs : \"check externals\", \"audit externals\", \"external rolldown\", \"peerDeps externalisées\", \"duplication external\", \"vérifie les external\", \"le bundler avale un peerDep\", \"avant de publier sur npm\", \"erreur de build sur une dépendance native\", \"module introuvable au runtime\".",
       "cost": {
-        "bodyLines": 86,
-        "approxTokens": 1097
+        "bodyLines": 114,
+        "approxTokens": 1571
       },
       "requires": [],
       "resources": {
@@ -79,9 +79,15 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "86",
+            "detail": "114",
             "advisory": true
           }
         ]
@@ -159,6 +165,12 @@
           },
           {
             "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -248,6 +260,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "247",
@@ -332,6 +350,12 @@
           },
           {
             "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -438,6 +462,12 @@
           },
           {
             "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -1254,6 +1284,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "324",
@@ -1549,6 +1585,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "459",
@@ -1592,8 +1634,8 @@
       ],
       "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
       "cost": {
-        "bodyLines": 355,
-        "approxTokens": 7507
+        "bodyLines": 357,
+        "approxTokens": 7643
       },
       "requires": [],
       "resources": {
@@ -1604,11 +1646,12 @@
           "gotchas.md",
           "http.md",
           "orm.md",
+          "pagination.md",
           "portabilite.md",
           "realtime.md",
           "security.md"
         ],
-        "referenceFilesTotal": 82,
+        "referenceFilesTotal": 83,
         "scripts": []
       },
       "related": [
@@ -1666,9 +1709,15 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "355",
+            "detail": "357",
             "advisory": true
           }
         ]
@@ -1776,6 +1825,12 @@
           },
           {
             "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -1971,6 +2026,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "174",
@@ -2061,6 +2122,12 @@
           },
           {
             "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -3163,6 +3230,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "229",
@@ -3244,6 +3317,12 @@
           },
           {
             "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -3485,6 +3564,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "140",
@@ -3522,8 +3607,8 @@
       ],
       "description": "Préparer et éprouver une publication npm de Nodefony (modèle N-paquets verrouillés sur la même version). Porte la chaîne complète : empaquetage des workspaces publiables avec bascule des `exports.types` au pack, post-traitement des `.d.ts` pour la résolution ESM de Node, puis smoke test en conteneur — installation VIERGE des tarballs, compilation d'une application témoin et preuve de l'arrêt gracieux. À charger AVANT de publier ou de toucher à la surface publiée : ce qu'un dépôt voit de lui-même n'est pas ce qu'un installeur reçoit, et seul le décor jetable le montre. Le plan de version et l'état d'avancement vivent dans `docs/release/nodefony-10.md`. Déclencheurs : \"publier sur npm\", \"faire une release\", \"préparer la publication\", \"packager les paquets\", \"smoke test release\", \"tester l'installation depuis les tarballs\", \"est-ce que le paquet publié marche ?\", \"surface npm\", \"types publiés\", \"tarball\", \"avant de publier\".",
       "cost": {
-        "bodyLines": 67,
-        "approxTokens": 1235
+        "bodyLines": 130,
+        "approxTokens": 2404
       },
       "requires": [
         "docker",
@@ -3561,6 +3646,10 @@
                 "help": ""
               },
               {
+                "flag": "--omit",
+                "help": ""
+              },
+              {
                 "flag": "--pack-destination",
                 "help": ""
               },
@@ -3580,13 +3669,37 @@
           },
           {
             "path": "scripts/smoke-docker.sh",
-            "purpose": "Smoke test release (modèle B) + preuve Dockerfile/graceful shutdown (Phase 0.7).",
+            "purpose": "Smoke test release (modèle B) + preuve Dockerfile/graceful shutdown/frontend.",
             "usage": [
-              "Usage (racine repo) : bash .claude/skills/nodefony-release/scripts/smoke-docker.sh"
+              "bash .claude/skills/nodefony-release/scripts/smoke-docker.sh [--scenario all|base|front|studio]"
             ],
             "options": [
               {
+                "flag": "--detach",
+                "help": ""
+              },
+              {
+                "flag": "--dir",
+                "help": ""
+              },
+              {
+                "flag": "--entrypoint",
+                "help": ""
+              },
+              {
                 "flag": "--exclude-entrypoints",
+                "help": ""
+              },
+              {
+                "flag": "--frontend",
+                "help": ""
+              },
+              {
+                "flag": "--help",
+                "help": ""
+              },
+              {
+                "flag": "--kind",
                 "help": ""
               },
               {
@@ -3594,7 +3707,43 @@
                 "help": ""
               },
               {
+                "flag": "--no-audit",
+                "help": ""
+              },
+              {
+                "flag": "--no-fund",
+                "help": ""
+              },
+              {
+                "flag": "--no-git",
+                "help": ""
+              },
+              {
+                "flag": "--no-install",
+                "help": ""
+              },
+              {
+                "flag": "--omit",
+                "help": ""
+              },
+              {
+                "flag": "--preset",
+                "help": ""
+              },
+              {
                 "flag": "--profile",
+                "help": ""
+              },
+              {
+                "flag": "--rm",
+                "help": ""
+              },
+              {
+                "flag": "--route",
+                "help": ""
+              },
+              {
+                "flag": "--scenario",
                 "help": ""
               },
               {
@@ -3653,9 +3802,15 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "67",
+            "detail": "130",
             "advisory": true
           }
         ]
@@ -3729,6 +3884,12 @@
           },
           {
             "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -3824,6 +3985,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "117",
@@ -3913,6 +4080,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "356",
@@ -3943,8 +4116,8 @@
       ],
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear, préparer le contexte d'un module, clôturer avec retex + mémoire de reprise. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\".",
       "cost": {
-        "bodyLines": 434,
-        "approxTokens": 4637
+        "bodyLines": 444,
+        "approxTokens": 4837
       },
       "requires": [],
       "resources": {
@@ -4000,9 +4173,15 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "434",
+            "detail": "444",
             "advisory": true
           }
         ]
@@ -4163,6 +4342,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "276",
@@ -4303,6 +4488,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "246",
@@ -4404,6 +4595,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "143",
@@ -4479,6 +4676,12 @@
           },
           {
             "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
             "ok": true,
             "detail": null,
             "advisory": false
