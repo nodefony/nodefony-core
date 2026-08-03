@@ -40,6 +40,7 @@ description: >
 **CONSOMME** (l'app Studio dérive de frontend-dev). Le SEAM partagé :
 
 - **Data-plane** `/nodefony/<mod>/api/*` (back l'expose via `IAdminApi` → front via `useResource`/`ApiClient`). Recette → `references/framework.md`.
+- **Contrat de page** : le back publie ce qu'il sait faire (`IAdminEndpoint.page` → tri, filtres, recherche, facettes), le front le **demande** au lieu de l'inventer. Une capacité non déclarée est **refusée en 400**, jamais ignorée. Recette → `references/pagination.md`.
 - **Realtime** : la **socket** (`IRealtimeSocket`) = la prise métier (multiplexe des canaux) ; le **hub** (`RealtimeHub`) = broker serveur (canaux partagés + fan-out). Recette → `references/realtime.md`.
 - **Types** : exports `nodefony` (isomorphes) + `I*Controller`/`I*Api` = **source de vérité unique** du contrat (jamais une copie figée dans un skill → sinon dérive).
 
@@ -297,6 +298,7 @@ entre les deux voies → skill **`nodefony-inspect`**.
 | Endpoint HTTP/WS (Controller + `@Get`/`@Post`/`@route`), contrat RFC du cycle, certificats TLS, tests d'intégration ; + API/internals pipeline http (Context/Request/Response/sessions/trust-proxy) | `references/http.md`                                 |
 | Router/Resolver/Route, décorateurs (`@IsGranted`/`@RequireScope`/`@Idempotent`/`@Csp`/`@CsrfProtect`…), **admin data plane** (`IAdminApi`/broker) + lien full-stack, vues (Eta)                     | `references/framework.md`                            |
 | Entité `@entity`, Repository (contrat CRUD complet : `upsert`/`createMany`/`exists`/`increment`/`deleteOne`/`findOneAndDelete`…), Service CRUD, tx, data plane ORM, multi-dialecte                  | `references/orm.md`                                  |
+| **Rendre une LISTE** : contrat `IPageQuery`/`IPage`, `parsePageQuery`, `parseFilters`/`IFilterSpec`, `countFacets`/`IFacetSpec`, `pickOrder`, publier la capacité (`IAdminEndpoint.page`) — **le défaut est le REFUS**  | `references/pagination.md`                           |
 | Realtime : socket isomorphe, WS, hub, `RealtimeService`, Redis backplane, pont TCP/UDP/SIP                                                                                                          | `references/realtime.md`                             |
 | Coder AVEC la sécurité (sources normatives, `npm audit`)                                                                                                                                            | `references/security.md`                             |
 | **Normes/RFC exactes** (HTTP/WS/cookies/CORS/auth/crypto) — bundle offline                                                                                                                          | `references/rfc/` (index `references/rfc/README.md`) |
