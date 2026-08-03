@@ -13,7 +13,11 @@ import type { IUserProfile } from "../../contracts/IUserProfile";
 import type { UserService } from "../../service/UserService";
 import { WeakPasswordError } from "../../errors/WeakPasswordError";
 import { listUserStores } from "../userStoreRegistry";
-import { USER_FILTERS } from "../userFilters";
+import {
+  USER_FILTERS,
+  USER_STATS_FILTERS,
+  type IUserCounts,
+} from "../userFilters";
 import {
   validateProfilePatch,
   projectProfile,
@@ -379,6 +383,31 @@ export function createUserAdminApi(container: Container): IAdminApi {
           limit,
           offset,
         };
+      },
+    },
+    {
+      // Compteurs de tête. Endpoint SÉPARÉ de la liste : ces nombres ne dépendent
+      // ni de la fenêtre ni de l'ordre — les rejouer à chaque tour de page
+      // coûterait six COUNT pour un résultat identique. Déclaré AVANT
+      // `users/{id}` (segment littéral `stats` ≠ paramètre `{id}`).
+      path: "users/stats",
+      method: "GET",
+      summary:
+        "Compteurs sur l'annuaire ENTIER (total, actifs, désactivés, verrouillés, " +
+        "administrateurs, comptes liés à un fournisseur externe). Filtre `role` " +
+        "seulement. `null` = l'annuaire ne sait pas compter.",
+      page: { filters: USER_STATS_FILTERS },
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<IUserCounts | IAdminResponse<{ error: string }>> => {
+        const users = resolveUsers();
+        if (!users) {
+          return { status: 503, body: { error: "user service unavailable" } };
+        }
+        return users.countUserFacets(
+          ADMIN_ROLE,
+          parseFilters(request.query, USER_STATS_FILTERS),
+        );
       },
     },
     {

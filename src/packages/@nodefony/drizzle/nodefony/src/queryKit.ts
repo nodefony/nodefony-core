@@ -202,6 +202,8 @@ function ident(dialect: SqlDialect, name: string): SQL {
 export interface UserListFilters {
   role?: string;
   enabled?: boolean;
+  locked?: boolean;
+  hasSocial?: boolean;
   q?: string;
 }
 
@@ -217,6 +219,38 @@ function enabledCond(dialect: SqlDialect, flag: boolean): SQL {
   const col = ident(dialect, "enabled");
   if (dialect === "postgres") return sql`${col} = ${flag}`;
   return sql`${col} = ${flag ? 1 : 0}`;
+}
+
+/** Condition `locked = ?` — même routage booléen qu'`enabled`. */
+function lockedCond(dialect: SqlDialect, flag: boolean): SQL {
+  const col = ident(dialect, "locked");
+  if (dialect === "postgres") return sql`${col} = ${flag}`;
+  return sql`${col} = ${flag ? 1 : 0}`;
+}
+
+/**
+ * Condition « le compte a (ou n'a pas) au moins un fournisseur externe ».
+ *
+ * `socialProviders` est un tableau JSON, dont la VACUITÉ s'exprime différemment
+ * selon le dialecte — d'où le routage, comme pour le containment de `roles` :
+ * SQLite compte les éléments, PostgreSQL compare au tableau vide `jsonb`, MySQL
+ * lit la longueur native. La colonne est `NOT NULL` avec `[]` par défaut, donc
+ * aucun `NULL` à considérer.
+ */
+function hasSocialCond(dialect: SqlDialect, flag: boolean): SQL {
+  const col = ident(dialect, "socialProviders");
+  switch (dialect) {
+    case "sqlite":
+      return flag
+        ? sql`json_array_length(${col}) > 0`
+        : sql`json_array_length(${col}) = 0`;
+    case "postgres":
+      return flag
+        ? sql`jsonb_array_length(${col}) > 0`
+        : sql`jsonb_array_length(${col}) = 0`;
+    case "mysql":
+      return flag ? sql`JSON_LENGTH(${col}) > 0` : sql`JSON_LENGTH(${col}) = 0`;
+  }
 }
 
 /** Condition « le tableau JSON `roles` contient `role` » — forme native du dialecte. */
@@ -246,6 +280,9 @@ function likeIdentifierCond(dialect: SqlDialect, q: string): SQL {
 function userWhere(dialect: SqlDialect, f: UserListFilters): SQL | undefined {
   const conds: SQL[] = [];
   if (f.enabled !== undefined) conds.push(enabledCond(dialect, f.enabled));
+  if (f.locked !== undefined) conds.push(lockedCond(dialect, f.locked));
+  if (f.hasSocial !== undefined)
+    conds.push(hasSocialCond(dialect, f.hasSocial));
   if (f.role !== undefined) conds.push(roleCond(dialect, f.role));
   if (f.q !== undefined && f.q.length > 0) {
     conds.push(likeIdentifierCond(dialect, f.q));

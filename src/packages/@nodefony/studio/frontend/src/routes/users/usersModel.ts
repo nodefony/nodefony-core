@@ -91,6 +91,15 @@ export const USERS_LIST_ENDPOINT = "/nodefony/user/api/users";
 export const USERS_STATUS_ENDPOINT = "/nodefony/user/api/users/status";
 
 /**
+ * GET — **compteurs de tête**, posés par le serveur sur l'annuaire ENTIER.
+ *
+ * Endpoint distinct de la liste : ces nombres ne dépendent ni de la fenêtre ni
+ * de l'ordre, on ne les recharge donc qu'au montage et après une mutation.
+ * Réservé aux administrateurs — un autre appelant reçoit 403.
+ */
+export const USERS_STATS_ENDPOINT = "/nodefony/user/api/users/stats";
+
+/**
  * Fenêtre de chargement par défaut = le **cap dur** du back (200). La liste est
  * exploitée côté client par le `DataGrid` (recherche/tri/filtre). Au-delà, la
  * fenêtre est tronquée → on le signale et on invite à filtrer.
@@ -169,37 +178,49 @@ export const USERS_DOC = "v1.0";
 /** Rôle requis pour l'administration des utilisateurs — source unique `auth/roles`. */
 export const ADMIN_ROLE = ROLE_NODEFONY_ADMIN;
 
-// ─── Compteurs (KPIs, dérivés de la fenêtre chargée) ─────────────────────────
+// ─── Compteurs (KPIs) ────────────────────────────────────────────────────────
 
+/**
+ * Compteurs de tête — miroir de ce que rend `users/stats`.
+ *
+ * `null` = l'annuaire branché ne sait pas compter ; se rend « — » à l'écran.
+ * Les populations se **recoupent** : un compte peut être désactivé ET
+ * verrouillé, un administrateur peut avoir un lien social. Aucune n'est donc
+ * déduite d'une autre.
+ */
 export interface UserCounts {
-  /** Utilisateurs dans la fenêtre. */
-  total: number;
-  /** Comptes actifs (`enabled`). */
-  active: number;
-  /** Comptes désactivés ou verrouillés. */
-  inactive: number;
+  /** Tous les comptes de l'annuaire. */
+  total: number | null;
+  /** Comptes utilisables : activés et non verrouillés. */
+  active: number | null;
+  /** Comptes désactivés par décision d'administration. */
+  disabled: number | null;
+  /** Comptes verrouillés par la défense anti-force brute. */
+  locked: number | null;
   /** Comptes portant `ROLE_NODEFONY_ADMIN`. */
-  admins: number;
+  admins: number | null;
   /** Comptes ayant au moins un lien social (OAuth). */
-  social: number;
+  social: number | null;
 }
 
+/**
+ * Compte sur les comptes REÇUS — repli tant que les compteurs serveur ne sont
+ * pas disponibles (non-administrateur). La vue consomme `users/stats`.
+ */
 export function countUsers(users: UserSummary[]): UserCounts {
   let active = 0;
+  let disabled = 0;
+  let locked = 0;
   let admins = 0;
   let social = 0;
   for (const u of users) {
     if (u.enabled && !u.locked) active++;
+    if (!u.enabled) disabled++;
+    if (u.locked) locked++;
     if (u.roles.includes(ADMIN_ROLE)) admins++;
     if (u.socialProviders.length > 0) social++;
   }
-  return {
-    total: users.length,
-    active,
-    inactive: users.length - active,
-    admins,
-    social,
-  };
+  return { total: users.length, active, disabled, locked, admins, social };
 }
 
 // ─── Formatage des dates ─────────────────────────────────────────────────────

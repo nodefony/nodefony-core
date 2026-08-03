@@ -315,6 +315,14 @@ export class InMemoryUserRepository implements IUserRepository {
     if (query.enabled !== undefined) {
       filtered = filtered.filter((u) => u.isActive() === query.enabled);
     }
+    if (query.locked !== undefined) {
+      filtered = filtered.filter((u) => u.isLocked() === query.locked);
+    }
+    if (query.hasSocial !== undefined) {
+      filtered = filtered.filter(
+        (u) => u.socialProviders.length > 0 === query.hasSocial,
+      );
+    }
     if (q !== undefined && q.length > 0) {
       filtered = filtered.filter((u) => u.identifier.toLowerCase().includes(q));
     }
@@ -341,6 +349,17 @@ export class InMemoryUserRepository implements IUserRepository {
   }
 
   /** {@inheritDoc IUserRepository.countActiveAdmins} */
+  /**
+   * {@inheritDoc IUserRepository.countUsers}
+   *
+   * Réutilise `listPage` avec une fenêtre nulle : le filtrage est écrit une
+   * seule fois, donc compter et lister ne peuvent pas diverger.
+   */
+  async countUsers(query: IUserListQuery): Promise<number> {
+    const page = await this.listPage({ ...query, limit: 1, offset: 0 });
+    return page.total ?? 0;
+  }
+
   countActiveAdmins(adminRole: string): Promise<number> {
     let count = 0;
     for (const u of this.#store.values()) {

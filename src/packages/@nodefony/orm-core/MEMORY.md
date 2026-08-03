@@ -12,6 +12,11 @@ Fondation multi-ORM. Contrats + registre + base classes. Lib pure (pas Module, p
   Lecture : `find`/`findOne`/`count`/`countDistinct`/`exists`. Écriture : `create`/`createMany`/`updateOne`/
   `updateMany`/`upsert`/`increment`. Suppression : `delete`/`deleteOne`/`findOneAndDelete`.
   Plus **`withTransaction(tx)`** (vue liée à une tx, résout la fuite repo-non-tx-aware).
+  **`$or`** dans `Criteria` : disjonction de critères complets (`{a:1, $or:[x,y]}` = `a=1 AND (x OR y)`),
+  traduite par `or()` en Drizzle et `$or` en Mongo. Existe parce que certaines questions du domaine ne
+  sont PAS des conjonctions — « un jeton utilisable » = _sans échéance_ OU _échéance à venir_ ; sans
+  elle chaque store descendait à son SQL natif, donc la même règle écrite N fois. Limitée à `$or`
+  (`$and` = déjà le défaut ; `$not` demanderait de définir la négation d'un `NULL` sur 3 dialectes).
   **`countDistinct(champ, critère?)`** = `COUNT(DISTINCT col)` SQL / `$match`+`$group`+`$count` Mongo
   / `Set` en mémoire — la déduplication reste dans le moteur (compter côté appelant supposerait de
   rapatrier la colonne entière). **`NULL`/absent non compté**, comme en SQL : l'absence de valeur

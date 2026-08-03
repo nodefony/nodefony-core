@@ -21,6 +21,26 @@ export interface IUserListQuery extends IPageQuery {
   role?: string;
   /** Restreint à l'état actif (`isActive()`). Omis = actifs ET inactifs. */
   enabled?: boolean;
+  /**
+   * Restreint aux comptes **verrouillés** (`isLocked()`), ou aux non verrouillés.
+   * Omis = les deux.
+   *
+   * Distinct d'`enabled` : un compte désactivé l'a été par décision
+   * d'administration, un compte verrouillé l'est par un mécanisme de défense
+   * (trop d'échecs d'authentification). Les deux peuvent coexister sur le même
+   * compte — les compter séparément est le seul moyen de savoir lequel des deux
+   * bloque une population.
+   */
+  locked?: boolean;
+  /**
+   * Restreint aux comptes liés à **au moins un fournisseur d'identité externe**
+   * (OAuth), ou à ceux qui n'en ont aucun. Omis = les deux.
+   *
+   * Répond à « combien de comptes dépendent d'un fournisseur tiers ? », question
+   * de gouvernance qu'aucun filtre existant ne posait — la console la calculait
+   * en rapatriant l'annuaire.
+   */
+  hasSocial?: boolean;
 }
 
 /**
@@ -90,4 +110,16 @@ export interface IUserRepository
    * @returns le nombre d'admins actifs portant ce rôle.
    */
   countActiveAdmins(adminRole: string): Promise<number>;
+
+  /**
+   * Compte les comptes correspondant aux filtres, **sans les énumérer**.
+   *
+   * Alimente les compteurs de tête de la console d'administration, qui portent
+   * sur l'annuaire entier et non sur la page affichée. `limit`/`offset` sont
+   * ignorés : un comptage n'a pas de fenêtre.
+   *
+   * @param query - les filtres seuls ({@link IUserListQuery}).
+   * @returns le nombre de comptes correspondants.
+   */
+  countUsers(query: IUserListQuery): Promise<number>;
 }

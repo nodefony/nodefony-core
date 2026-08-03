@@ -42,7 +42,13 @@ import { useStore, useAuth, useNotifications } from "../stores";
 import { useResource } from "../hooks";
 import { useIsAdmin, STUDIO_ROLES } from "../auth/roles";
 import { RoleGate } from "../auth/RoleGate";
-import { PageLayout, StatCard, DataState, DocHint } from "../components/ui";
+import {
+  PageLayout,
+  StatCard,
+  DataState,
+  DocHint,
+  fmtFacet,
+} from "../components/ui";
 import {
   ADMIN_ROLE,
   USERS_DOC,
@@ -51,7 +57,9 @@ import {
   deleteUserEndpoint,
   USERS_STATUS_ENDPOINT,
   countUsers,
+  USERS_STATS_ENDPOINT,
   describeUsersError,
+  type UserCounts,
   type UserSummary,
   type UserListResponse,
   type UsersStatus,
@@ -105,11 +113,27 @@ export const Users = observer(() => {
   const users = useMemo(() => data?.items ?? [], [data]);
   const total = data?.total ?? users.length;
   const truncated = total > users.length;
-  const counts = useMemo(() => countUsers(users), [users]);
-  // Total affiché : le compte serveur s'il est dénombrable, sinon ce que la
-  // fenêtre montre — l'aide de la carte dit toujours laquelle des deux.
-  const serverCount = status?.count ?? null;
-  const displayedTotal = serverCount ?? counts.total;
+  // Compteurs de tête : le SERVEUR les pose sur l'annuaire entier. Les calculer
+  // ici décrirait la fenêtre chargée en ayant l'air de décrire l'annuaire. Un
+  // non-administrateur n'y a pas droit (403) → repli sur le comptage local, qui
+  // décrit alors honnêtement ce qu'il voit.
+  const statsFetcher = useCallback(
+    (): Promise<UserCounts | null> =>
+      isAdmin
+        ? store.api.getAbsolute<UserCounts>(USERS_STATS_ENDPOINT)
+        : Promise.resolve(null),
+    [store, isAdmin],
+  );
+  const { data: serverCounts, reload: reloadCounts } =
+    useResource(statsFetcher);
+  const counts = useMemo<UserCounts>(
+    () => serverCounts ?? countUsers(users),
+    [serverCounts, users],
+  );
+  // Total affiché : le compte des facettes serveur s'il existe, sinon le
+  // `count` du statut, sinon la fenêtre — l'aide de la carte dit laquelle.
+  const serverCount = counts.total ?? status?.count ?? null;
+  const displayedTotal = serverCount ?? users.length;
 
   // Suggestions de rôles : rôles connus de Studio ∪ ceux déjà portés par les
   // comptes chargés (autocomplétion honnête ; la saisie reste libre).
@@ -142,6 +166,7 @@ export const Users = observer(() => {
       clear();
       setConfirmBulk(null);
       reload();
+      reloadCounts();
     } catch (e) {
       notifications.notify("error", describeUsersError(e), { source: "api" });
     } finally {
@@ -154,7 +179,7 @@ export const Users = observer(() => {
   const bulkAdmins =
     confirmBulk?.users.filter((u) => u.roles.includes(ADMIN_ROLE)).length ?? 0;
 
-  const subtitle = `${counts.total}${truncated ? ` sur ${total}` : ""} compte(s) · ${counts.admins} admin(s)`;
+  const subtitle = `${fmtFacet(displayedTotal)} compte(s) · ${fmtFacet(counts.admins)} admin(s)`;
 
   return (
     <PageLayout
@@ -232,14 +257,16 @@ export const Users = observer(() => {
           icon={<IconUsers size={20} color="var(--mantine-color-brand-5)" />}
           hint={
             serverCount === null
-              ? `Nombre de comptes dans la fenêtre chargée (${counts.total}). Le total du serveur n'est pas affiché ici : soit vous n'êtes pas administrateur, soit le dépôt de persistance ne sait pas compter ses lignes.`
-              : serverCount > users.length
-                ? `Total réel côté serveur : ${serverCount} comptes. La table n'en affiche que ${users.length} (fenêtre plafonnée à ${USERS_LIST_WINDOW}).`
-                : `Total réel côté serveur : ${serverCount} comptes — tous affichés dans la table.`
+              ? "Le dépôt d'utilisateurs branché ne sait pas compter ses lignes — aucun total n'est affiché plutôt qu'un chiffre inventé."
+              : !isAdmin
+                ? `Nombre de comptes dans la fenêtre chargée (${users.length}). Le total de l'annuaire est réservé aux administrateurs.`
+                : serverCount > users.length
+                  ? `Total de l'annuaire, compté par le serveur : ${serverCount} comptes. La table n'en affiche que ${users.length} (fenêtre plafonnée à ${USERS_LIST_WINDOW}).`
+                  : `Total de l'annuaire, compté par le serveur : ${serverCount} comptes — tous affichés dans la table.`
           }
         >
           <Text fz={28} fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
-            {displayedTotal}
+            {fmtFacet(displayedTotal)}
           </Text>
         </StatCard>
         <StatCard
@@ -253,7 +280,7 @@ export const Users = observer(() => {
             c="teal"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.active}
+            {fmtFacet(counts.active)}
           </Text>
         </StatCard>
         <StatCard
@@ -281,7 +308,7 @@ export const Users = observer(() => {
             c="red"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.admins}
+            {fmtFacet(counts.admins)}
           </Text>
         </StatCard>
         <StatCard
@@ -297,7 +324,7 @@ export const Users = observer(() => {
             c="grape"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.social}
+            {fmtFacet(counts.social)}
           </Text>
         </StatCard>
       </Grid>

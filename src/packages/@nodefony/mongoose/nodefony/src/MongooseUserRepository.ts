@@ -257,6 +257,13 @@ export class MongooseUserRepository implements IUserRepository {
     // `roles: role` matche un ÉLÉMENT du tableau (containment natif Mongo).
     if (query.role !== undefined) filter.roles = query.role;
     if (query.enabled !== undefined) filter.enabled = query.enabled;
+    if (query.locked !== undefined) filter.locked = query.locked;
+    if (query.hasSocial !== undefined) {
+      // « Au moins un lien » = le tableau a un index 0. `$exists` sur `.0` est la
+      // forme indexable en Mongo — `$size: {$gt: 0}` n'existe pas, et compter
+      // côté client supposerait de rapatrier l'annuaire.
+      filter["socialProviders.0"] = { $exists: query.hasSocial };
+    }
     if (query.q !== undefined && query.q.length > 0) {
       filter.identifier = { $regex: escapeRegExp(query.q), $options: "i" };
     }
@@ -313,6 +320,11 @@ export class MongooseUserRepository implements IUserRepository {
   }
 
   /** {@inheritDoc IUserRepository.countActiveAdmins} */
+  /** {@inheritDoc IUserRepository.countUsers} */
+  countUsers(query: IUserListQuery): Promise<number> {
+    return this.#model.countDocuments(this.#listFilter(query)).exec();
+  }
+
   async countActiveAdmins(adminRole: string): Promise<number> {
     let countQuery = this.#model.countDocuments({
       enabled: true,

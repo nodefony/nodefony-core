@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-03T13:49:09.212Z",
+  "generated": "2026-08-03T14:04:07.912Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 678,
-    "symbols": 2742,
+    "symbols": 2747,
     "classes": 342,
     "interfaces": 805,
-    "types": 360,
+    "types": 361,
     "enums": 4,
-    "functions": 982,
-    "constants": 249
+    "functions": 984,
+    "constants": 251
   },
   "symbols": {
     "Cli": {
@@ -14978,6 +14978,14 @@
       "decorators": [],
       "description": "Annuaire d'utilisateurs **en mémoire** — implémentation de référence du contrat {@link IUserRepository} sur une `Map` (aucun ORM). Trois usages : - **tests de charge** : zéro I/O (pas de sync SQLit…"
     },
+    "IUserCounts": {
+      "name": "IUserCounts",
+      "kind": "type",
+      "file": "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Les compteurs rendus par `GET /nodefony/user/api/users/stats` — les facettes déclarées, plus `admins` que le service compose depuis le rôle configuré."
+    },
     "USER_FILTERS": {
       "name": "USER_FILTERS",
       "kind": "const",
@@ -14985,6 +14993,22 @@
       "exported": true,
       "module": "@nodefony/user",
       "description": "**Le vocabulaire de filtre des utilisateurs**, en noms PUBLICS — ceux qu'un administrateur écrit dans l'URL (`?role=ROLE_ADMIN&enabled=false`). Frère de `USER_SORTABLE_FIELDS` (`userSort.ts`), et p…"
+    },
+    "USER_FACETS": {
+      "name": "USER_FACETS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "**Les facettes des utilisateurs** — les questions fermées posées à l'annuaire ENTIER pour les cartes de tête. Les populations se **recoupent** délibérément : un compte peut être désactivé ET verrou…"
+    },
+    "USER_STATS_FILTERS": {
+      "name": "USER_STATS_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Ce que l'endpoint de COMPTEURS accepte de filtrer — `USER_FILTERS` **moins** les champs que les facettes décomposent (`enabled`, `locked`, `hasSocial`). Les demander ici rendrait une réponse contra…"
     },
     "ProfileField": {
       "name": "ProfileField",
@@ -24127,7 +24151,8 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/src/userFilters.ts"
       ],
       "IUserRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
@@ -25268,6 +25293,7 @@
       "countFacets": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "TOKEN_FACETS": [
@@ -25708,6 +25734,13 @@
       "AbstractCrudService": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
+      "USER_FACETS": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
+      ],
+      "IUserCounts": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
       "IPasswordBlocklist": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
@@ -25739,6 +25772,22 @@
       ],
       "USER_SORTABLE_FIELDS_IN_MEMORY": [
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+      ],
+      "FacetCount": [
+        "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
+      ],
+      "FacetCounts": [
+        "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
+      ],
+      "IFacetSpec": [
+        "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
       ],
       "IUserProfile": [
         "src/packages/@nodefony/user/nodefony/src/userProfile.ts",
@@ -26202,16 +26251,6 @@
       "matchesTokenStatus": [
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
-      "FacetCounts": [
-        "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
-        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
-      ],
-      "IFacetSpec": [
-        "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
-        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
-      ],
       "TokenStatus": [
         "src/packages/@nodefony/security/nodefony/src/token/tokenStatus.ts"
       ],
@@ -26268,6 +26307,9 @@
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "USER_FILTERS": [
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "USER_STATS_FILTERS": [
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "validateProfilePatch": [
@@ -26341,9 +26383,6 @@
       ],
       "formatWsLogContent": [
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
-      ],
-      "FacetCount": [
-        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
       ],
       "IOAuthProviderContext": [
         "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts"

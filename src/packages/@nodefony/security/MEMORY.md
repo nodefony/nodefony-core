@@ -277,3 +277,23 @@ redirectUri, issuer?, scopes}}}` — `issuer` requis pour keycloak (URL realm).
   `context.session = null`.
 - **macOS case-insensitif** : `securedArea.ts`→`SecuredArea.ts` via `git mv` (sinon casse Linux CI).
 - 9 slots anti-refonte + plan S1-S6 + vision Studio : mémoire `project_p6_security_kit`.
+
+## Compteurs de tête (facettes) — clés d'API & webhooks
+
+- **Endpoints** : `GET apikeys/stats` (`{total,active,expired,revoked}`) · `GET webhooks/stats`
+  (`{total,active,disabled,failing}`). **SÉPARÉS de la liste** : ces nombres ne dépendent ni de la
+  fenêtre ni de l'ordre — les embarquer dans la page rejouerait N `COUNT` à chaque tour de page.
+  `null` = le backend ne sait pas compter (Redis) ou la brique est coupée ; la console rend « — »,
+  jamais `0` (un zéro se lit « aucun », pas « je ne sais pas »).
+- 🔴 **Un endpoint de compteurs NE FILTRE PAS la dimension qu'il décompose** (`facetDimensions`,
+  cœur). `stats?status=active` rendait `{total:5 … revoked:538}` : la facette écrasait le filtre du
+  même nom. D'où `TOKEN_STATS_FILTERS` / `WEBHOOK_STATS_FILTERS` = le vocabulaire de la liste MOINS
+  ces clés (`role`/`event`/`subjectId` restent : ils découpent une AUTRE dimension). Test par ressource.
+- **`ITokenListQuery.status`** (`active|expired|revoked`) REMPLACE `revoked` : un booléen ne
+  distinguait pas une clé utilisable d'une clé échue. Partition exhaustive, **révoqué l'emporte sur
+  expiré**. Traduction unique `tokenStatusCriteria` (partagée SQL+Mongo, s'appuie sur `Criteria.$or`
+  d'orm-core) ; Redis la duplique inline (frontière de paquet — il n'importe rien de `security` au
+  runtime) et le banc de contrat garantit l'équivalence.
+- **`IWebhookListQuery.failing`** (`failureCount > 0`) au contrat : la question d'exploitation la
+  plus fréquente, et la carte qui l'affiche doit pouvoir filtrer le tableau sur la même population.
+  Les facettes webhook se **RECOUPENT** (actif ET en échec) ⇒ aucune n'est déduite par soustraction.

@@ -200,6 +200,30 @@ class MemoryUserRepo implements IUserRepository {
       ).length,
     );
   }
+
+  /** Double du COUNT filtré : applique les mêmes filtres que le vrai annuaire. */
+  countUsers(query: IUserListQuery) {
+    return Promise.resolve(
+      [...this.store.values()].filter((u) => {
+        if (query.role !== undefined && !u.roles.includes(query.role)) {
+          return false;
+        }
+        if (query.enabled !== undefined && u.isActive() !== query.enabled) {
+          return false;
+        }
+        if (query.locked !== undefined && u.isLocked() !== query.locked) {
+          return false;
+        }
+        if (
+          query.hasSocial !== undefined &&
+          u.socialProviders.length > 0 !== query.hasSocial
+        ) {
+          return false;
+        }
+        return true;
+      }).length,
+    );
+  }
 }
 
 function makeService(rounds = FAST) {

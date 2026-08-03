@@ -278,7 +278,13 @@ export class DrizzleUserRepository implements IUserRepository {
     assertPageQuery(query, "offset");
     const limit = Math.max(1, Math.floor(query.limit));
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
-    const filters = { role: query.role, enabled: query.enabled, q: query.q };
+    const filters = {
+      role: query.role,
+      enabled: query.enabled,
+      locked: query.locked,
+      hasSocial: query.hasSocial,
+      q: query.q,
+    };
     const order = query.order?.length ? query.order : USER_DEFAULT_ORDER;
 
     const { ids, hasNext } = await listUserIdsPage(
@@ -309,6 +315,17 @@ export class DrizzleUserRepository implements IUserRepository {
       .map((id) => byId.get(id))
       .filter((u): u is IPasswordAuthenticatedUser => u !== undefined);
     return { items, total, limit, offset, hasNext };
+  }
+
+  /** {@inheritDoc IUserRepository.countUsers} */
+  countUsers(query: IUserListQuery): Promise<number> {
+    return countUsers(this.#db, this.#dialect, {
+      role: query.role,
+      enabled: query.enabled,
+      locked: query.locked,
+      hasSocial: query.hasSocial,
+      q: query.q,
+    });
   }
 
   /** {@inheritDoc IUserRepository.countActiveAdmins} */

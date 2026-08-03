@@ -47,3 +47,21 @@ Contrats + `UserService` + `BcryptEncoder`. **Aucun ORM** : les deux implémenta
 passe par `UserService` lui-même : il `implements IUserProvider, IPasswordVerifier,
 IOAuthUserProvisioner` (`nodefony/service/UserService.ts:69`) — c'est lui que `@nodefony/security`
 consomme, jamais le repository directement.
+
+## Compteurs de tête (facettes) — annuaire
+
+- **`GET /nodefony/user/api/users/stats`** → `{total,active,disabled,locked,social,admins}`, chacun
+  `number | null`. Séparé de la liste (ces nombres ignorent fenêtre et ordre). `USER_STATS_FILTERS`
+  = `role` SEUL : un endpoint de compteurs ne filtre pas la dimension qu'il décompose (`enabled`,
+  `locked`, `hasSocial` restent filtrables sur la LISTE — c'est ce qui rend la carte cliquable).
+- **`IUserListQuery.locked` et `.hasSocial`** entrent au contrat (donc obligation des 3 annuaires :
+  mémoire, drizzle 3 dialectes, mongoose). `hasSocial` = tableau JSON non vide →
+  `json_array_length`/`jsonb_array_length`/`JSON_LENGTH` selon dialecte, `socialProviders.0
+$exists` en Mongo.
+- **Les populations se RECOUPENT** : un compte peut être désactivé ET verrouillé (désactivé = acte
+  d'administration, verrouillé = défense anti-force brute). Les confondre en un seul « inactifs »
+  masquait lequel des deux bloque. Aucune facette n'est déduite d'une autre.
+- **`admins` n'est PAS dans `USER_FACETS`** : le rôle d'administration est une valeur de config,
+  pas une constante du vocabulaire — le service compose la facette depuis le rôle reçu.
+- **`IUserRepository.countUsers(query)`** = COUNT filtré sans énumérer (les compteurs portent sur
+  l'annuaire entier, la fenêtre ne les concerne pas).
