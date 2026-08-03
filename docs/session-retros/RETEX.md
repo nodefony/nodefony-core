@@ -38,6 +38,22 @@
 
 ## 🧾 Un paramètre ACCEPTÉ PUIS JETÉ est pire qu'un paramètre refusé
 
+- `[1× — 2026-08-03i]` ⭐ **Une ressource se lit à DEUX endroits — sa liste et ses compteurs — et
+  le gate doit aller par PAIRES, en deux temps.** La DÉCLARATION (« si la liste cherche, ses
+  compteurs cherchent ») ne suffit pas : un endpoint peut publier `search: true`, répondre `200` et
+  jeter le terme. Il faut un second test sur l'EFFET — un terme sans correspondance doit VIDER les
+  compteurs. C'est la seule paire qui attrape le symptôme réel : la barre filtre le tableau et fige
+  les cartes au-dessus, deux vérités contradictoires dans le même écran.
+- `[1× — 2026-08-03i]` 🔴 **Un DOUBLE de test qui filtre par deux chemins ne prouve rien.** Les
+  doubles de `UserAdminApi`/`WebhookAdminApi` avaient un filtrage pour `listPage` et un autre pour
+  les compteurs — exactement la divergence que le test devait dénoncer, reproduite dans son propre
+  décor. Un seul `filterUsers`/`filterEndpoints`, partagé, comme le font les vrais dépôts.
+- `[1× — 2026-08-03i]` ⭐ **Une hypothèse notée dans un kit se re-vérifie AU CODE avant d'être
+  chiffrée.** Le kit annonçait « il faut `searchCriteria` dans les 4 chemins de comptage » : les
+  six backends savaient déjà compter avec `q`, et le trou était le data plane — le même endroit que
+  pour le tri, trois sessions plus tôt. Une demi-heure de lecture a supprimé les trois quarts du
+  chantier annoncé.
+
 - `[1× — 2026-08-03h]` 🔴 **Le dernier data plane à lire sa query à la main était celui du
   JOURNAL** — le pire endroit possible. `?severity=CRITICAL` (au lieu de `CRITIC`),
   `?protocol=grpc`, `?flow=nimporte` et la faute de frappe `?severty=ERROR` laissaient tous le
@@ -456,6 +472,16 @@ liste)` sans assertion sur `liste.length` est vert sur zéro itération : une r�
 
 ## 🧰 Outillage : ce qui pend, ce qui ment, ce qui lance
 
+- `[1× — 2026-08-03i]` 🔴 **Un hook qui refuse une commande la refuse ENTIÈREMENT — et le heredoc
+  qu'elle portait n'a jamais été écrit.** Un `cat >> banc.ts <<EOF … EOF && cd …` rejeté pour son
+  `cd` relatif : le banc est resté INCHANGÉ, le run suivant a rendu **14 verts** qui ne testaient
+  rien de neuf, et j'ai lu ce vert comme une réussite. Deux règles : écrire un fichier passe par
+  l'OUTIL d'édition, jamais par un heredoc ; et un compte de tests qui ne BOUGE PAS après un ajout
+  est un signal, pas un détail.
+- `[1× — 2026-08-03i]` 🔴 **Un run lancé depuis la racine au lieu du module a confirmé ce faux
+  vert** — vitest a résolu le chemin par motif et rejoué l'ancien fichier sans rien dire. Vérifier
+  le `cwd` d'un run avant d'en tirer un verdict.
+
 - `[1× — 2026-08-03h]` 🔴 **`$f:ASC` en zsh n'est pas `$f` suivi de `:ASC`** — `:A` est un
   modificateur (chemin absolu). Une boucle de vérification a donc annoncé **400 sur les six
   champs**, y compris ceux que le serveur acceptait : la même URL, tapée à la main, rendait 200.
@@ -525,6 +551,23 @@ liste)` sans assertion sur `liste.length` est vert sur zéro itération : une r�
 
 ## 🗄️ Concurrence & atomicité (ce que le dialecte ne dit pas) — utile pour l'ORM S5
 
+- `[1× — 2026-08-03i]` ⭐⭐ **Un contrat portable qui se TAIT n'a pas une sémantique, il en a
+  autant que de moteurs — et « changer la sémantique » n'est alors pas le bon argument pour
+  refuser.** J'avais noté la clause `ESCAPE` comme « à trancher à part, ça change `$like` pour tous
+  les appelants ». Faux : sans clause, PostgreSQL et MySQL appliquaient DÉJÀ l'antislash, SQLite le
+  cherchait littéralement, Mongo l'aplatissait en regex. L'émettre ne change pas le contrat, **elle
+  le fait exister** — et le débranchement le montre littéralement : sans la clause, le même test
+  TOMBE en SQLite et PASSE en PostgreSQL. Le critère qui tranche ce genre de décision : demander
+  d'abord **ce que font les moteurs quand on ne dit rien**, pas ce que le changement coûterait.
+- `[1× — 2026-08-03i]` ⭐ **Un adapter sans SQL doit LIRE la même grammaire, pas une
+  approximation.** La traduction d'un motif en regex vivait chez Mongo et ignorait l'échappement :
+  le même critère portable ne rendait pas le même ensemble selon le backend — la divergence la plus
+  coûteuse qui soit, puisqu'elle ne se voit qu'en changeant de base. La grammaire (caractère
+  d'échappement, neutralisation d'un littéral, lecture d'un motif) vit au socle, en un exemplaire.
+- `[1× — 2026-08-03i]` 🔴 **Trois tests du dépôt VERROUILLAIENT la limite, en la nommant** (« le
+  terme part TEL QUEL », « LIMITE CONNUE : `_` reste un joker »). Un test qui documente une
+  renonciation est un panneau, pas un mur : le renverser fait partie du geste, et son commentaire
+  doit garder le POURQUOI de la bascule — sinon quelqu'un rétablira la limite en croyant réparer.
 - `[1× — 2026-08-03g]` 🔴 **Un échappement qu'on n'ÉMET pas est pire que pas d'échappement.**
   Quatre copies de la même règle de recherche échappaient `%`/`_` avec `\` — mais `like()` n'émet
   aucune clause `ESCAPE`, et sans elle le terme est cherché **littéralement**. Mesuré sur les trois
