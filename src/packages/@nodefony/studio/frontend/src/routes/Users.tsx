@@ -39,7 +39,7 @@ import {
 } from "@tabler/icons-react";
 
 import { useStore, useAuth, useNotifications } from "../stores";
-import { useResource } from "../hooks";
+import { useResource, useFacetCards } from "../hooks";
 import { useIsAdmin, STUDIO_ROLES } from "../auth/roles";
 import { RoleGate } from "../auth/RoleGate";
 import {
@@ -134,6 +134,9 @@ export const Users = observer(() => {
   }, [store, isAdmin, statsSignal]);
   const { data: serverCounts, reload: reloadCounts } =
     useResource(statsFetcher);
+  // Les cartes deviennent cliquables — le filtre posé est celui-là même qui a
+  // produit le nombre affiché, parce qu'il vient du serveur et non d'ici.
+  const facetCard = useFacetCards(statsCaps, filters, setFilters);
   const counts = useMemo<UserCounts>(
     () =>
       serverCounts ?? {
@@ -263,6 +266,10 @@ export const Users = observer(() => {
       <Grid>
         <StatCard
           label="Total"
+          {...facetCard(
+            "total",
+            "l'annuaire entier (retire les filtres de facette)",
+          )}
           icon={<IconUsers size={20} color="var(--mantine-color-brand-5)" />}
           hint={
             !isAdmin
@@ -278,6 +285,10 @@ export const Users = observer(() => {
         </StatCard>
         <StatCard
           label="Actifs"
+          {...facetCard(
+            "active",
+            "les comptes actifs (activés et non verrouillés)",
+          )}
           icon={<IconUserCheck size={20} color="var(--mantine-color-teal-6)" />}
           hint="Comptes activés et non verrouillés (peuvent s'authentifier)."
         >
@@ -320,6 +331,7 @@ export const Users = observer(() => {
         </StatCard>
         <StatCard
           label="Comptes sociaux"
+          {...facetCard("social", "les comptes liés à un fournisseur externe")}
           icon={
             <IconPlugConnected size={20} color="var(--mantine-color-grape-6)" />
           }

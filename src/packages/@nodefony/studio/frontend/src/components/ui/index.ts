@@ -126,6 +126,8 @@ export {
   withoutColumnFilters,
   fromPage,
   pickFilters,
+  isFacetActive,
+  toggleFacet,
   fmtFacet,
 } from "./pageQuery";
 export {

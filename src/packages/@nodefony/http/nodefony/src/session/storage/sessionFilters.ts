@@ -27,6 +27,22 @@ import type { ISessionListQuery } from "../../../interfaces/ISession";
 export const SESSION_FILTERS = {
   /** Sessions d'un utilisateur donné (égalité stricte sur l'identifiant). */
   user: "string",
+  /**
+   * `true` = sessions rattachées à un utilisateur, `false` = anonymes, absent =
+   * les deux. Le contrat le définit comme « `user` non vide » — tous les stores
+   * l'honorent déjà (c'est ainsi que `sessions/stats` compte ses facettes).
+   *
+   * Il n'était pas exposé à l'URL, et la console ne pouvait donc pas MONTRER la
+   * population qu'elle affichait en carte : cliquer « Anonymes » demandait un
+   * paramètre que la liste refusait. Une facette n'existe que si le contrat de
+   * liste sait la filtrer — celle-ci le savait partout sauf sur le fil.
+   *
+   * ⚠️ Redondant avec `user` **par construction** (même donnée). Les combiner
+   * de façon contradictoire (`?user=alice&authenticated=false`) rend l'ENSEMBLE
+   * VIDE, jamais la page de l'un des deux — garde posée dans le banc de contrat
+   * partagé, donc rejouée sur les six backends.
+   */
+  authenticated: "boolean",
 } as const satisfies IFilterSpec;
 
 /**
@@ -54,6 +70,26 @@ export const SESSION_FACETS = {
   /** Sessions anonymes (aucun utilisateur rattaché). */
   anonymous: { authenticated: false },
 } as const satisfies IFacetSpec<ISessionListQuery>;
+
+/**
+ * Ce que l'endpoint de COMPTEURS accepte de filtrer — {@link SESSION_FILTERS}
+ * **moins** le champ que ses facettes décomposent (`authenticated`).
+ *
+ * Le demander ici rendrait une réponse qui se contredit : le total suivrait le
+ * filtre pendant que chaque facette l'écraserait par le sien (« 5 sessions au
+ * total, dont 40 anonymes »). `user` reste : il découpe une AUTRE dimension, et
+ * « combien de sessions pour alice, dont combien d'anonymes ? » est une question
+ * cohérente — qui rend d'ailleurs l'ensemble vide, la réponse honnête.
+ *
+ * Frère de `USER_STATS_FILTERS` / `TOKEN_STATS_FILTERS` / `WEBHOOK_STATS_FILTERS`.
+ * Les sessions n'en avaient pas : `authenticated` n'était exposé nulle part, si
+ * bien que le trou était fermé par accident plutôt que par décision. Ouvrir le
+ * filtre sur la liste — pour que les cartes deviennent cliquables — l'aurait
+ * rouvert du même geste.
+ */
+export const SESSION_STATS_FILTERS = {
+  user: "string",
+} as const satisfies IFilterSpec;
 
 /**
  * Les compteurs rendus par `GET /nodefony/http/api/sessions/stats`.

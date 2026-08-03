@@ -15,6 +15,7 @@ import { WeakPasswordError } from "../../errors/WeakPasswordError";
 import { listUserStores } from "../userStoreRegistry";
 import {
   USER_FILTERS,
+  USER_FACETS,
   USER_STATS_FILTERS,
   type IUserCounts,
 } from "../userFilters";
@@ -402,7 +403,12 @@ export function createUserAdminApi(container: Container): IAdminApi {
         "Compteurs sur l'annuaire ENTIER (total, actifs, désactivés, verrouillés, " +
         "administrateurs, comptes liés à un fournisseur externe). Filtre `role` " +
         "seulement. `null` = l'annuaire ne sait pas compter.",
-      page: { filters: USER_STATS_FILTERS },
+      // Les facettes sont publiées : les cartes de tête de la console
+      // deviennent cliquables, et le filtre qu'elles posent est EXACTEMENT
+      // celui qui a produit le nombre affiché. `admins` n'y figure pas — le
+      // rôle d'administration est une valeur de configuration, pas un mot du
+      // vocabulaire de filtre ; sa carte reste donc non cliquable.
+      page: { filters: USER_STATS_FILTERS, facets: USER_FACETS },
       handler: async (
         request: IAdminRequest,
       ): Promise<IUserCounts | IAdminResponse<{ error: string }>> => {

@@ -1,5 +1,9 @@
 import { parsePageQuery, parseFilters } from "nodefony";
-import { SESSION_FILTERS } from "../src/session/storage/sessionFilters";
+import {
+  SESSION_FILTERS,
+  SESSION_STATS_FILTERS,
+  SESSION_FACETS,
+} from "../src/session/storage/sessionFilters";
 import type { ISessionCounts } from "../src/session/storage/sessionFilters";
 import { RATE_LIMIT_FILTERS } from "../src/rateLimit/rateLimitFilters";
 import type { Module, IPage } from "nodefony";
@@ -416,7 +420,10 @@ export function createHttpAdminApi(module: Module): IAdminApi {
       // DE CE FILTRE. Les clés de fenêtre (`limit`, `offset`, `order`) sont
       // admises par le contrat de page et sans effet — un décompte n'a pas de
       // fenêtre, et ce que le client demande ici, c'est « combien en tout ».
-      page: { filters: SESSION_FILTERS },
+      // `users` (utilisateurs distincts) n'est PAS une facette : c'est une
+      // agrégation, pas un COUNT filtré — sa carte n'est donc pas cliquable,
+      // faute de filtre qui la sélectionne.
+      page: { filters: SESSION_STATS_FILTERS, facets: SESSION_FACETS },
       handler: async (
         request: IAdminRequest,
       ): Promise<ISessionCounts | IAdminResponse<{ error: string }>> => {
@@ -434,7 +441,7 @@ export function createHttpAdminApi(module: Module): IAdminApi {
           };
         }
         return svc.countSessionFacets(
-          parseFilters(request.query, SESSION_FILTERS),
+          parseFilters(request.query, SESSION_STATS_FILTERS),
         );
       },
     },

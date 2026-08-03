@@ -125,6 +125,22 @@ export interface IAdminPageCapabilities {
    * recherche, et `parsePageQuery` refuse alors `?q=` en `400`.
    */
   search?: () => boolean;
+  /**
+   * Table des **facettes** de cet endpoint — nom → jeu de filtres qui la
+   * sélectionne. Publiée pour que les cartes de tête d'une console deviennent
+   * CLIQUABLES sans redéclarer, côté client, ce que « actives » ou « en échec »
+   * veut dire.
+   *
+   * C'est la même donnée que celle passée à `countFacets` : une carte affiche
+   * un nombre, et le clic pose exactement le filtre qui l'a produit — sans quoi
+   * la liste montrerait autre chose que ce que la carte annonce. Une console
+   * qui recomposerait ce mapping de son côté divergerait au premier changement
+   * de définition (« utilisable » = sans échéance OU échéance à venir, une règle
+   * qui vit dans le vocabulaire de la ressource, pas dans l'écran).
+   *
+   * Sérialisable telle quelle : ce sont des valeurs, pas des prédicats.
+   */
+  facets?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
 }
 
 /**

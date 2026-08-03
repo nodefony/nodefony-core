@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-03T15:13:12.853Z",
+  "generated": "2026-08-03T15:37:41.777Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 678,
-    "symbols": 2747,
+    "symbols": 2748,
     "classes": 342,
     "interfaces": 805,
     "types": 361,
     "enums": 4,
     "functions": 984,
-    "constants": 251
+    "constants": 252
   },
   "symbols": {
     "Cli": {
@@ -19025,6 +19025,14 @@
       "module": "@nodefony/http",
       "description": "**Les facettes des sessions** — les questions fermées que la console pose à la collection ENTIÈRE, pour ses cartes de tête. Distinct de `SESSION_FILTERS`, qui dit ce qu'un client a le droit d'écrir…"
     },
+    "SESSION_STATS_FILTERS": {
+      "name": "SESSION_STATS_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Ce que l'endpoint de COMPTEURS accepte de filtrer — {@link SESSION_FILTERS} **moins** le champ que ses facettes décomposent (`authenticated`). Le demander ici rendrait une réponse qui se contredit …"
+    },
     "SESSION_SORTABLE_FIELDS": {
       "name": "SESSION_SORTABLE_FIELDS",
       "kind": "const",
@@ -24835,6 +24843,13 @@
       "SESSION_FILTERS": [
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
       ],
+      "SESSION_STATS_FILTERS": [
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
+      ],
+      "SESSION_FACETS": [
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
       "ISessionCounts": [
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
@@ -25297,7 +25312,8 @@
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "TOKEN_FACETS": [
-        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts"
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
       "ITokenCounts": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
@@ -25588,7 +25604,8 @@
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
       ],
       "WEBHOOK_FACETS": [
-        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
       ],
       "IWebhookCounts": [
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
@@ -25735,7 +25752,8 @@
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
       "USER_FACETS": [
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "IUserCounts": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
@@ -25898,9 +25916,6 @@
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "RevocationGuardStorage": [
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
-      ],
-      "SESSION_FACETS": [
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "IParsedUploadFile": [

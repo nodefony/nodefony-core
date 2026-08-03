@@ -45,7 +45,7 @@ import {
 import { hasRole } from "nodefony/roles";
 
 import { useStore, useAuth, useNotifications } from "../stores";
-import { useResource } from "../hooks";
+import { useResource, useFacetCards } from "../hooks";
 import {
   PageLayout,
   StatCard,
@@ -148,6 +148,11 @@ export const Sessions = observer(() => {
   }, [store, mode, isAdmin, statsSignal]);
   const { data: serverCounts, reload: reloadCounts } =
     useResource(statsFetcher);
+  // Cartes cliquables : le filtre posé vient du serveur, donc il sélectionne
+  // exactement la population comptée. « Utilisateurs » n'en est pas : c'est une
+  // agrégation (utilisateurs DISTINCTS), pas un COUNT filtré — sa carte reste
+  // un nombre, faute de filtre qui la sélectionne.
+  const facetCard = useFacetCards(statsCaps, filters, setFilters);
 
   const counts = useMemo<SessionCounts>(
     () =>
@@ -331,6 +336,10 @@ export const Sessions = observer(() => {
       <Grid>
         <StatCard
           label="Total"
+          {...facetCard(
+            "total",
+            "toutes les sessions (retire les filtres de facette)",
+          )}
           icon={<IconList size={20} color="var(--mantine-color-brand-5)" />}
           hint="Nombre TOTAL de sessions persistées (authentifiées + anonymes), compté par le serveur sur l'ensemble — pas sur les lignes affichées. « — » = le backend ne sait pas compter (store à curseur)."
         >
@@ -340,6 +349,10 @@ export const Sessions = observer(() => {
         </StatCard>
         <StatCard
           label="Authentifiées"
+          {...facetCard(
+            "authenticated",
+            "les sessions portant un utilisateur connecté",
+          )}
           icon={<IconUserCheck size={20} color="var(--mantine-color-teal-6)" />}
           hint="Sessions portant un utilisateur connecté (par opposition aux sessions anonymes)."
         >
@@ -354,6 +367,7 @@ export const Sessions = observer(() => {
         </StatCard>
         <StatCard
           label="Anonymes"
+          {...facetCard("anonymous", "les sessions sans utilisateur connecté")}
           icon={<IconUserOff size={20} color="var(--mantine-color-gray-6)" />}
           info={
             <DocHint

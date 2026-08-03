@@ -11,6 +11,7 @@ import type {
 import type { ITokenListQuery } from "../../contracts/ITokenStore";
 import {
   TOKEN_FILTERS,
+  TOKEN_FACETS,
   TOKEN_STATS_FILTERS,
   type ITokenCounts,
 } from "../token/tokenFilters";
@@ -417,7 +418,7 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         "Compteurs des clés d'API sur la collection ENTIÈRE (total, actives, " +
         "expirées, révoquées) — mêmes filtres que la liste. `null` = le backend " +
         "ne sait pas compter (store Redis en curseur).",
-      page: { filters: TOKEN_STATS_FILTERS },
+      page: { filters: TOKEN_STATS_FILTERS, facets: TOKEN_FACETS },
       handler: async (
         request: IAdminRequest,
       ): Promise<ITokenCounts | IAdminResponse<{ error: string }>> => {

@@ -94,6 +94,9 @@ describe("catalogue admin — capacités de page", () => {
       // la console doit apprendre que la recherche n'aboutira pas, plutôt que
       // d'afficher une barre dont le serveur refuse le `?q=` (400).
       search: false,
+      // Idem : sans facettes publiées, les cartes de tête de la console restent
+      // de simples nombres. Un clic devinerait le filtre à poser.
+      facets: {},
     });
   });
 
@@ -124,6 +127,7 @@ describe("catalogue admin — capacités de page", () => {
       sortable: [],
       filters: {},
       search: false,
+      facets: {},
     });
   });
 
@@ -143,12 +147,14 @@ describe("catalogue admin — capacités de page", () => {
       sortable: [],
       filters: {},
       search: false,
+      facets: {},
     });
     backend = ["name"];
     expect((await catalogEntry(broker, "things"))?.page).to.deep.equal({
       sortable: ["name"],
       filters: {},
       search: false,
+      facets: {},
     });
   });
 
@@ -171,6 +177,35 @@ describe("catalogue admin — capacités de page", () => {
     expect(
       (await catalogEntry(broker, "things"))?.page as { search: boolean },
     ).to.have.property("search", true);
+  });
+
+  it("les facettes traversent en JSON — nom → filtres qui la sélectionnent", async () => {
+    // C'est ce qui rend une carte de tête CLIQUABLE sans que la console
+    // redéfinisse « active » de son côté : elle reçoit le filtre EXACT qui a
+    // produit le nombre affiché. Ce sont des valeurs, pas des prédicats — donc
+    // elles se sérialisent telles quelles, contrairement au tri (une fonction,
+    // parce que la réponse dépend du store branché).
+    const entry = await catalogEntry(
+      brokerWith([
+        {
+          path: "things",
+          page: {
+            filters: FILTERS,
+            facets: {
+              total: {},
+              usable: { enabled: true, kind: "pat" },
+            },
+          },
+          handler: () => ({}),
+        },
+      ]),
+      "things",
+    );
+    const page = entry?.page as { facets: Record<string, unknown> };
+    expect(JSON.parse(JSON.stringify(page.facets))).to.deep.equal({
+      total: {},
+      usable: { enabled: true, kind: "pat" },
+    });
   });
 
   it("la spec de filtre traverse en JSON, telle qu'elle est déclarée", async () => {

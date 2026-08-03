@@ -184,6 +184,79 @@ export function pickFilters(
 }
 
 /**
+ * Une facette est-elle ACTIVE dans les filtres courants ?
+ *
+ * Vrai quand chacune de ses paires est présente à l'identique : une carte
+ * « Verrouillés » n'est allumée que si `locked=true` est effectivement posé,
+ * pas si un autre filtre l'englobe par hasard.
+ *
+ * @param filters - filtres actifs de la vue.
+ * @param criteria - le critère publié de la facette.
+ * @returns `false` pour un critère vide (« total » n'est jamais « actif » : il
+ *   décrit l'absence de sélection, pas une sélection).
+ */
+export function isFacetActive(
+  filters: Readonly<Record<string, string>>,
+  criteria: Readonly<Record<string, unknown>>,
+): boolean {
+  const keys = Object.keys(criteria);
+  if (keys.length === 0) return false;
+  return keys.every((k) => filters[k] === String(criteria[k]));
+}
+
+/**
+ * Bascule une facette dans les filtres — **la** règle du clic sur une carte de
+ * tête, en un seul exemplaire pour les quatre écrans.
+ *
+ * Trois comportements, et chacun répond à une question que l'écran pose déjà :
+ *
+ * | Le clic porte sur…                | Résultat                                    |
+ * | --------------------------------- | ------------------------------------------- |
+ * | une facette **déjà active**       | ses clés sont retirées (on rouvre la vue)   |
+ * | une facette **inactive**          | ses clés sont posées, les AUTRES filtres restent |
+ * | une facette **au critère vide** (`total`) | toutes les clés de facettes tombent, les filtres saisis à la main restent |
+ *
+ * Le choix de FUSIONNER plutôt que de remplacer est ce qui rend l'écran
+ * composable : filtrer sur un utilisateur puis cliquer « anonymes » pose la
+ * question « ce compte a-t-il des sessions anonymes ? », et la réponse — souvent
+ * vide — est exacte. Remplacer aurait silencieusement effacé la première moitié
+ * de la question.
+ *
+ * `total` ne touche pas aux filtres saisis à la main : sa carte annonce « tout »
+ * au sens des facettes, pas « oublie ce que tu as tapé ».
+ *
+ * @param filters - filtres actifs de la vue.
+ * @param criteria - critère de la facette cliquée.
+ * @param allFacets - toutes les facettes publiées (pour connaître les clés
+ *   qu'un retour à « total » doit effacer).
+ * @returns le nouveau jeu de filtres, à passer tel quel à l'état de la page.
+ */
+export function toggleFacet(
+  filters: Readonly<Record<string, string>>,
+  criteria: Readonly<Record<string, unknown>>,
+  allFacets: Readonly<Record<string, Readonly<Record<string, unknown>>>>,
+): Record<string, string> {
+  const next: Record<string, string> = { ...filters };
+  const keys = Object.keys(criteria);
+
+  if (keys.length === 0) {
+    // « Total » : on retire ce que les facettes savent poser, et rien d'autre.
+    for (const facet of Object.values(allFacets)) {
+      for (const k of Object.keys(facet)) delete next[k];
+    }
+    return next;
+  }
+
+  if (isFacetActive(filters, criteria)) {
+    for (const k of keys) delete next[k];
+    return next;
+  }
+
+  for (const k of keys) next[k] = String(criteria[k]);
+  return next;
+}
+
+/**
  * Rend un compteur de facette pour l'affichage — `null` devient « — ».
  *
  * Vit ici, avec le traducteur du contrat de page, parce que c'est la MÊME

@@ -41,7 +41,7 @@ import {
 import { hasRole } from "nodefony/roles";
 
 import { useStore, useAuth, useNotifications } from "../stores";
-import { useResource } from "../hooks";
+import { useResource, useFacetCards } from "../hooks";
 import {
   PageLayout,
   StatCard,
@@ -161,6 +161,13 @@ export const ApiKeys = observer(() => {
   }, [store, mode, isAdmin, statsSignal]);
   const { data: serverCounts, reload: reloadCounts } =
     useResource(statsFetcher);
+  // Cartes cliquables en portée Administration seulement : « Mes clés » n'a pas
+  // de pagination serveur, donc pas de filtre serveur à poser.
+  const facetCard = useFacetCards(
+    mode === "admin" ? statsCaps : null,
+    filters,
+    setFilters,
+  );
 
   // En Administration, les compteurs viennent du serveur ou valent « — ». En
   // « Mes clés », la réponse EST tout le périmètre : compter dessus est exact.
@@ -316,6 +323,10 @@ export const ApiKeys = observer(() => {
       <Grid>
         <StatCard
           label="Total"
+          {...facetCard(
+            "total",
+            "toutes les clés (retire les filtres de facette)",
+          )}
           icon={<IconKey size={20} color="var(--mantine-color-brand-5)" />}
           hint="Nombre de clés API dans cette portée (actives + expirées + révoquées)."
         >
@@ -325,6 +336,7 @@ export const ApiKeys = observer(() => {
         </StatCard>
         <StatCard
           label="Actives"
+          {...facetCard("active", "les clés utilisables")}
           icon={
             <IconCircleCheck size={20} color="var(--mantine-color-teal-6)" />
           }
@@ -341,6 +353,7 @@ export const ApiKeys = observer(() => {
         </StatCard>
         <StatCard
           label="Expirées"
+          {...facetCard("expired", "les clés arrivées à échéance")}
           icon={<IconClock size={20} color="var(--mantine-color-orange-6)" />}
           hint="Clés dont la date d'expiration est passée (rejetées à l'usage)."
         >
@@ -355,6 +368,7 @@ export const ApiKeys = observer(() => {
         </StatCard>
         <StatCard
           label="Révoquées"
+          {...facetCard("revoked", "les clés révoquées")}
           icon={<IconBan size={20} color="var(--mantine-color-red-6)" />}
           hint="Clés désactivées manuellement (conservées un temps pour l'audit)."
         >

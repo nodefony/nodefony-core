@@ -23,6 +23,16 @@ export interface AdminPageCapabilities {
    * et le contrat la refuse désormais en `400`.
    */
   search: boolean;
+  /**
+   * Table des facettes — nom → jeu de filtres qui la sélectionne. C'est ce qui
+   * rend une carte de tête CLIQUABLE sans que la console redéfinisse de son
+   * côté ce que « actives » ou « en échec » veut dire.
+   *
+   * Vide pour un endpoint qui n'en déclare pas : ses cartes restent alors de
+   * simples nombres, ce qui est préférable à un clic qui filtrerait autre chose
+   * que ce que la carte annonce.
+   */
+  facets: Record<string, Record<string, unknown>>;
 }
 
 /** Un endpoint admin tel que décrit par le catalogue `/framework/api/admin`. */

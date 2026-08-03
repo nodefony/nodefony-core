@@ -13,6 +13,7 @@ import type {
 import type { IWebhookListQuery } from "../../contracts/IWebhookStore";
 import {
   WEBHOOK_FILTERS,
+  WEBHOOK_FACETS,
   WEBHOOK_STATS_FILTERS,
   type IWebhookCounts,
 } from "../webhook/webhookFilters";
@@ -296,7 +297,7 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
         "Compteurs des endpoints sur la collection ENTIÈRE (total, actifs, " +
         "désactivés, en échec) — mêmes filtres que la liste. `null` = le " +
         "backend ne sait pas compter. Webhooks coupés → tous les compteurs null.",
-      page: { filters: WEBHOOK_STATS_FILTERS },
+      page: { filters: WEBHOOK_STATS_FILTERS, facets: WEBHOOK_FACETS },
       handler: async (request: IAdminRequest): Promise<IWebhookCounts> => {
         const s = svc();
         // Lecture DÉFENSIVE, comme la liste : webhooks coupés → « inconnu »,

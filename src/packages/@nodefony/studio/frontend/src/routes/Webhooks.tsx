@@ -34,7 +34,7 @@ import {
 } from "@tabler/icons-react";
 
 import { useStore, useNotifications } from "../stores";
-import { useResource } from "../hooks";
+import { useResource, useFacetCards } from "../hooks";
 import {
   PageLayout,
   StatCard,
@@ -133,6 +133,10 @@ export const Webhooks = observer(() => {
   }, [store, statsSignal]);
   const { data: serverCounts, reload: reloadCounts } =
     useResource(statsFetcher);
+  // Cartes cliquables. « En échec » se CUMULE avec « Actifs » ou « Désactivés »
+  // (un endpoint peut être actif ET en échec) : c'est précisément la question
+  // « qui est armé mais ne passe plus ? », que deux clics posent maintenant.
+  const facetCard = useFacetCards(statsCaps, filters, setFilters);
   const counts = useMemo<WebhookCounts>(
     () =>
       serverCounts ?? {
@@ -293,6 +297,10 @@ export const Webhooks = observer(() => {
       <Grid>
         <StatCard
           label="Total"
+          {...facetCard(
+            "total",
+            "tout le registre (retire les filtres de facette)",
+          )}
           icon={<IconWebhook size={20} color="var(--mantine-color-brand-5)" />}
           hint="Nombre d'endpoints enregistrés, compté par le serveur sur le registre ENTIER — pas sur les lignes affichées. « — » = webhooks coupés ou backend incapable de compter."
         >
@@ -302,6 +310,7 @@ export const Webhooks = observer(() => {
         </StatCard>
         <StatCard
           label="Actifs"
+          {...facetCard("active", "les endpoints actifs")}
           icon={
             <IconCircleCheck size={20} color="var(--mantine-color-teal-6)" />
           }
@@ -318,6 +327,7 @@ export const Webhooks = observer(() => {
         </StatCard>
         <StatCard
           label="En échec"
+          {...facetCard("failing", "les endpoints en échec de livraison")}
           icon={
             <IconAlertTriangle
               size={20}
@@ -341,6 +351,7 @@ export const Webhooks = observer(() => {
         </StatCard>
         <StatCard
           label="Désactivés"
+          {...facetCard("disabled", "les endpoints désactivés")}
           icon={
             <IconPlayerPause size={20} color="var(--mantine-color-gray-6)" />
           }

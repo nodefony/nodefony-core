@@ -14,6 +14,7 @@ import type { Module, IAdminEndpoint, IAdminRequest } from "nodefony";
 import {
   SESSION_FACETS,
   SESSION_FILTERS,
+  SESSION_STATS_FILTERS,
 } from "../../src/session/storage/sessionFilters.js";
 import { createHttpAdminApi } from "../../service/HttpAdminApi.js";
 import SessionsService from "../../service/sessions/sessions-service.js";
@@ -252,11 +253,26 @@ describe("GET sessions/stats — le data plane", () => {
     expect(await ep.handler(req())).to.deep.include({ status: 501 });
   });
 
-  it("publie son vocabulaire de filtre — le même que la liste", async () => {
+  it("publie le vocabulaire de la liste MOINS ce qu'il décompose", async () => {
+    // L'égalité stricte avec la liste a été vraie tant qu'`authenticated`
+    // n'était exposé nulle part. Elle ne l'est plus, et c'est voulu : la liste
+    // doit savoir filtrer ce que les cartes comptent (sinon elles ne se
+    // cliquent pas), mais l'endpoint de COMPTAGE doit refuser cette même
+    // dimension (sinon sa réponse se contredit). L'invariant est cette
+    // DIFFÉRENCE, pas une liste figée.
     const module = moduleWith(await adminService());
-    expect(endpointOf(module, "sessions/stats").page?.filters).to.deep.equal(
-      endpointOf(module, "sessions/list").page?.filters,
+    const list = endpointOf(module, "sessions/list").page?.filters ?? {};
+    const stats = endpointOf(module, "sessions/stats").page?.filters ?? {};
+    const dims = facetDimensions(SESSION_FACETS);
+    expect(Object.keys(stats).sort()).to.deep.equal(
+      Object.keys(list)
+        .filter((k) => !dims.includes(k))
+        .sort(),
     );
+    // …et chaque clé conservée garde sa nature (aucune redéclaration parallèle).
+    for (const k of Object.keys(stats)) {
+      expect(stats[k], k).to.deep.equal(list[k]);
+    }
   });
 });
 
@@ -281,15 +297,24 @@ describe("RevocationGuardStorage — la capacité ne se perd pas dans le décora
 });
 
 describe("aucune dimension de facette n'est filtrable sur les compteurs", () => {
-  it("`authenticated` est décomposé en facettes, donc absent du vocabulaire", () => {
+  it("`authenticated` est décomposé en facettes, donc absent des COMPTEURS", () => {
     // Filtrer la dimension que les cartes décomposent rendrait une réponse qui
     // se contredit : le total suivrait le filtre, chaque facette l'écraserait
-    // par le sien (« 5 sessions au total, dont 40 anonymes »). Ici le trou ne
-    // peut pas s'ouvrir — `SESSION_FILTERS` ne porte que `user`.
+    // par le sien (« 5 sessions au total, dont 40 anonymes »).
     expect(facetDimensions(SESSION_FACETS)).to.deep.equal(["authenticated"]);
     for (const dim of facetDimensions(SESSION_FACETS)) {
-      expect(Object.hasOwn(SESSION_FILTERS, dim), dim).to.equal(false);
+      expect(Object.hasOwn(SESSION_STATS_FILTERS, dim), dim).to.equal(false);
     }
-    expect(Object.hasOwn(SESSION_FILTERS, "user")).to.equal(true);
+    expect(Object.hasOwn(SESSION_STATS_FILTERS, "user")).to.equal(true);
+  });
+
+  it("…mais la LISTE, elle, sait le filtrer — sinon la carte ne se clique pas", () => {
+    // Les deux vocabulaires ne répondent pas à la même question. Une facette
+    // n'existe que si la LISTE sait la sélectionner : sans ça, cliquer
+    // « Anonymes » demanderait à `sessions/list` un paramètre qu'il refuse, et
+    // la carte afficherait un nombre que le tableau ne peut pas montrer.
+    for (const dim of facetDimensions(SESSION_FACETS)) {
+      expect(Object.hasOwn(SESSION_FILTERS, dim), dim).to.equal(true);
+    }
   });
 });

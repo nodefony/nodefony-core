@@ -283,6 +283,9 @@ export function createFrameworkAdminApi(
               sortable: readonly string[];
               filters: IFilterSpec;
               search: boolean;
+              facets: Readonly<
+                Record<string, Readonly<Record<string, unknown>>>
+              >;
             };
           }[]
         >();
@@ -309,6 +312,9 @@ export function createFrameworkAdminApi(
                     sortable: caps.sortable?.() ?? [],
                     filters: caps.filters ?? {},
                     search: caps.search?.() ?? false,
+                    // Les facettes sont une DONNÉE (nom → filtres), pas une
+                    // capacité à évaluer : elles traversent telles quelles.
+                    facets: caps.facets ?? {},
                   },
                 }
               : {}),
