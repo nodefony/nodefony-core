@@ -78,6 +78,18 @@ export interface IUserRepository extends IRepository<IPasswordAuthenticatedUser>
   listPage(query: IUserListQuery): Promise<IPage<IPasswordAuthenticatedUser>>;
 
   /**
+   * Champs sur lesquels ce repository sait honorer {@link IPageQuery.order}, en
+   * vocabulaire public.
+   *
+   * Les trois implémentations livrées trient (`USER_SORTABLE_FIELDS`) ; la
+   * propriété reste **optionnelle** pour qu'un adapter tiers puisse annoncer
+   * qu'il ne trie pas — le data plane refuse alors tout `order` (400) au lieu de
+   * rendre une page dans un ordre arbitraire en laissant croire qu'elle est
+   * triée.
+   */
+  readonly sortableFields?: readonly string[];
+
+  /**
    * Compte les administrateurs **actifs** (`isActive()` **et** porteurs de
    * `adminRole`) — garde-fou anti-lockout, calculé **au store** (SQL `COUNT` avec
    * containment de rôle), jamais en chargeant tous les utilisateurs.

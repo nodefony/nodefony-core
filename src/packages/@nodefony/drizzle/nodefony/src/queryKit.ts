@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 import type { DrizzleDb } from "./orm-core/DrizzleRepository";
+import { USER_SORTABLE_FIELDS, USER_DEFAULT_ORDER } from "@nodefony/user";
 
 /**
  * queryKit — les requêtes SQL **natives** des entités framework, par dialecte
@@ -209,14 +210,15 @@ export interface UserPageWindow {
   order: Array<[string, "ASC" | "DESC"]>;
 }
 
-/** Colonnes autorisées au tri (allowlist stricte — le nom est concaténé, pas bindé). */
-const ORDERABLE = new Set([
-  "identifier",
-  "enabled",
-  "createdAt",
-  "updatedAt",
-  "id",
-]);
+/**
+ * Colonnes autorisées au tri — **la** liste du module `user`, jamais une copie.
+ *
+ * Le filtre reste ici en défense en profondeur : ce nom est CONCATÉNÉ dans le
+ * SQL, pas bindé. Mais il filtre désormais sur la même source que les autres
+ * adapters — la copie locale avait déjà divergé (elle autorisait `id` là où
+ * l'adapter Mongo ne le connaissait pas).
+ */
+const ORDERABLE = new Set<string>(USER_SORTABLE_FIELDS);
 
 /** Condition `enabled = ?` — booléen natif en PG, `0/1` ailleurs (better-sqlite3/mysql2). */
 function enabledCond(dialect: SqlDialect, flag: boolean): SQL {
@@ -266,7 +268,7 @@ function orderBy(
   order: Array<[string, "ASC" | "DESC"]>,
 ): SQL {
   const specs = order.filter(([k]) => ORDERABLE.has(k));
-  const use = specs.length > 0 ? specs : [["identifier", "ASC"] as const];
+  const use = specs.length > 0 ? specs : USER_DEFAULT_ORDER;
   const chunks = use.map(
     ([k, dir]) =>
       sql`${ident(dialect, k)} ${sql.raw(dir === "DESC" ? "DESC" : "ASC")}`,

@@ -936,3 +936,56 @@ describe("Admin data plane — routes/page filtre `in` (multi-sélection)", () =
     expect((r.body as { total: number }).total).to.equal(total.total);
   });
 });
+
+// ── TRI des UTILISATEURS : la capacité déclarée par le backend fait foi ───────
+// Le tri était déjà implémenté par les trois repositories, mais le data plane ne
+// le laissait pas passer. Ce banc prouve la chaîne `?order=` → repository, et le
+// refus explicite d'un champ hors capacité.
+
+describe("Admin data plane — le tri des utilisateurs traverse", () => {
+  const USERS = "/nodefony/user/api/users";
+
+  it("`identifier` ASC et DESC rendent des ordres exactement inverses", async () => {
+    const asc = (
+      await req("GET", `${USERS}?limit=50&order=identifier:ASC`, auth())
+    ).body as { items: { identifier: string }[] };
+    const desc = (
+      await req("GET", `${USERS}?limit=50&order=identifier:DESC`, auth())
+    ).body as { items: { identifier: string }[] };
+    expect(asc.items.length).to.be.above(1);
+    expect(asc.items.map((u) => u.identifier)).to.deep.equal(
+      [...desc.items.map((u) => u.identifier)].reverse(),
+    );
+  });
+
+  it("le tri par défaut reste `identifier` ASC (sans `order`)", async () => {
+    const page = (await req("GET", `${USERS}?limit=50`, auth())).body as {
+      items: { identifier: string }[];
+    };
+    const ids = page.items.map((u) => u.identifier);
+    expect(ids).to.deep.equal([...ids].sort((a, b) => a.localeCompare(b)));
+  });
+
+  it("un champ HORS capacité est refusé (400) et la réponse NOMME les champs valides", async () => {
+    const r = await req("GET", `${USERS}?order=password:ASC`, auth());
+    expect(r.status, "jamais un tri silencieux sur un champ interdit").to.equal(
+      400,
+    );
+    const body = JSON.stringify(r.body);
+    expect(body).to.match(/password/);
+    // Un refus utile dit ce qui EST permis — sinon l'appelant devine.
+    expect(body).to.match(/identifier/);
+  });
+
+  it("le tri s'applique AVANT la pagination (page 2 prolonge page 1)", async () => {
+    const p1 = (
+      await req("GET", `${USERS}?limit=2&offset=0&order=identifier:ASC`, auth())
+    ).body as { items: { identifier: string }[]; total: number };
+    if (p1.total < 3) return; // trop peu de comptes pour deux pages
+    const p2 = (
+      await req("GET", `${USERS}?limit=2&offset=2&order=identifier:ASC`, auth())
+    ).body as { items: { identifier: string }[] };
+    const seq = [...p1.items, ...p2.items].map((u) => u.identifier);
+    expect(seq).to.deep.equal([...seq].sort((a, b) => a.localeCompare(b)));
+  });
+});

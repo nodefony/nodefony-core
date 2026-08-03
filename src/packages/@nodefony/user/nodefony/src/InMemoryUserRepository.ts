@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Criteria, ITransaction } from "@nodefony/orm-core";
-import { assertPageQuery } from "nodefony";
+import { assertPageQuery, compareByOrder } from "nodefony";
 import type { IPage } from "nodefony";
 import { BaseUser } from "./BaseUser";
 import type { IBaseUserOptions } from "./BaseUser";
@@ -10,14 +10,7 @@ import type {
   IUserListQuery,
   IUserRepository,
 } from "../contracts/index";
-
-/** Ramène une valeur de champ à une primitive comparable (tri déterministe). */
-function sortable(value: unknown): string | number {
-  if (typeof value === "number") return value;
-  if (typeof value === "boolean") return value ? 1 : 0;
-  if (value instanceof Date) return value.getTime();
-  return String(value ?? "");
-}
+import { USER_SORTABLE_FIELDS_IN_MEMORY, USER_DEFAULT_ORDER } from "./userSort";
 
 /**
  * Annuaire d'utilisateurs **en mémoire** — implémentation de référence du contrat
@@ -35,6 +28,13 @@ function sortable(value: unknown): string | number {
  */
 export class InMemoryUserRepository implements IUserRepository {
   readonly #store = new Map<string, BaseUser>();
+
+  /**
+   * Capacité RÉELLE de cet annuaire : `BaseUser` ne porte ni `createdAt` ni
+   * `updatedAt`, donc ils ne sont pas annoncés. Le data plane refuse alors ces
+   * champs en 400 au lieu de rendre un ordre arbitraire.
+   */
+  readonly sortableFields = USER_SORTABLE_FIELDS_IN_MEMORY;
 
   /**
    * @param seed - comptes initiaux (identité + rôles + hash de mot de passe
@@ -302,21 +302,15 @@ export class InMemoryUserRepository implements IUserRepository {
       filtered = filtered.filter((u) => u.identifier.toLowerCase().includes(q));
     }
 
-    const order =
-      query.order && query.order.length > 0
-        ? query.order
-        : ([["identifier", "ASC"]] as Array<[string, "ASC" | "DESC"]>);
-    filtered.sort((a, b) => {
-      for (const [key, dir] of order) {
-        const av = sortable((a as unknown as Record<string, unknown>)[key]);
-        const bv = sortable((b as unknown as Record<string, unknown>)[key]);
-        let cmp: number;
-        if (typeof av === "number" && typeof bv === "number") cmp = av - bv;
-        else cmp = String(av).localeCompare(String(bv));
-        if (cmp !== 0) return dir === "DESC" ? -cmp : cmp;
-      }
-      return 0;
-    });
+    // Comparateur PARTAGÉ du core — le même que les autres stores mémoire, pour
+    // qu'un tri rendu en RAM ne diffère pas de celui rendu par SQL ou Mongo.
+    const order = query.order?.length ? query.order : USER_DEFAULT_ORDER;
+    filtered.sort(
+      compareByOrder(
+        order,
+        (u, field) => (u as unknown as Record<string, unknown>)[field],
+      ),
+    );
 
     const items = filtered.slice(offset, offset + limit);
     const total = query.withTotal === false ? undefined : filtered.length;

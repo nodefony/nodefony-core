@@ -1,5 +1,9 @@
 import type { ClientSession, Connection, Model } from "mongoose";
-import { BaseUser } from "@nodefony/user";
+import {
+  BaseUser,
+  USER_SORTABLE_FIELDS,
+  USER_DEFAULT_ORDER,
+} from "@nodefony/user";
 import type {
   IPasswordAuthenticatedUser,
   IUserListQuery,
@@ -16,8 +20,12 @@ import type {
 import type { MongooseOrm } from "./orm-core/MongooseOrm";
 import type { UserRow } from "../entity/userEntity";
 
-/** Colonnes autorisées au tri (allowlist) → clé de tri Mongo. */
-const ORDERABLE = new Set(["identifier", "enabled", "createdAt", "updatedAt"]);
+/**
+ * Colonnes autorisées au tri → clé de tri Mongo. Vient du module `user`, source
+ * unique : cette copie locale avait perdu `id` en route, si bien qu'un
+ * `?order=id` triait en SQL et se faisait ignorer ici, sans un mot.
+ */
+const ORDERABLE = new Set<string>(USER_SORTABLE_FIELDS);
 
 /** Critère typé sur la ligne `User`. */
 type UserCriteria = Criteria<UserRow>;
@@ -40,6 +48,12 @@ type LooseModel = Model<Record<string, unknown>>;
  * **est** la frontière de persistance du hash (cf `IUserRepository`).
  */
 export class MongooseUserRepository implements IUserRepository {
+  /**
+   * Même vocabulaire public que les autres repositories — ici le tri part
+   * dans la requête, où il ne coûte qu'un index.
+   */
+  readonly sortableFields = USER_SORTABLE_FIELDS;
+
   readonly #base: IRepository<UserRow>;
   readonly #model: LooseModel;
   readonly #session: ClientSession | null;
@@ -263,12 +277,14 @@ export class MongooseUserRepository implements IUserRepository {
 
     const sort: Record<string, 1 | -1> = {};
     const specs = (query.order ?? []).filter(([k]) => ORDERABLE.has(k));
-    for (const [key, dir] of specs.length > 0
-      ? specs
-      : ([["identifier", "ASC"]] as Array<[string, "ASC" | "DESC"]>)) {
-      sort[key] = dir === "DESC" ? -1 : 1;
+    for (const [key, dir] of specs.length > 0 ? specs : USER_DEFAULT_ORDER) {
+      // Le vocabulaire de tri est PUBLIC (`id`) ; Mongo stocke la clé en `_id`
+      // → traduction ici, comme les stores SQL traduisent vers leur colonne.
+      sort[key === "id" ? "_id" : key] = dir === "DESC" ? -1 : 1;
     }
-    sort._id = 1; // tiebreaker déterministe
+    // Tiebreaker déterministe — sauf si le tri porte DÉJÀ sur la clé, auquel cas
+    // l'écraser inverserait le sens demandé.
+    if (sort._id === undefined) sort._id = 1;
 
     let cursor = this.#model
       .find(filter)

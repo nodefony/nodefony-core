@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-02T21:57:12.900Z",
+  "generated": "2026-08-03T07:27:16.164Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 664,
-    "symbols": 2696,
+    "files": 665,
+    "symbols": 2698,
     "classes": 342,
     "interfaces": 801,
     "types": 347,
     "enums": 4,
-    "functions": 978,
-    "constants": 224
+    "functions": 976,
+    "constants": 228
   },
   "symbols": {
     "Cli": {
@@ -14838,6 +14838,38 @@
       "module": "@nodefony/user",
       "description": "Logique PURE du profil utilisateur (claims OIDC stockés dans `metadata.profile`) — validation d'un patch client, projection en DTO par allowlist, fusion dans la `metadata` existante. Aucun I/O, auc…"
     },
+    "USER_SORTABLE_FIELDS": {
+      "name": "USER_SORTABLE_FIELDS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/userSort.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "**Le vocabulaire de tri des utilisateurs** — source unique, en noms publics. Il existe parce que cette liste était écrite DEUX fois, et qu'elle avait déjà divergé : l'adapter SQL autorisait `id`, l…"
+    },
+    "USER_SORTABLE_FIELDS_IN_MEMORY": {
+      "name": "USER_SORTABLE_FIELDS_IN_MEMORY",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/userSort.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Sous-ensemble réellement triable par l'annuaire **en mémoire**. `BaseUser` ne porte ni `createdAt` ni `updatedAt` — ce sont des colonnes des schémas persistants, pas des attributs du modèle. Déclar…"
+    },
+    "USER_SORTABLE_FIELDS_COMMON": {
+      "name": "USER_SORTABLE_FIELDS_COMMON",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/userSort.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Socle garanti par **tous** les backends d'utilisateurs. C'est ce sur quoi une interface peut compter sans savoir quelle base est branchée."
+    },
+    "USER_DEFAULT_ORDER": {
+      "name": "USER_DEFAULT_ORDER",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/userSort.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Ordre appliqué quand le client n'en demande aucun : par identifiant croissant — le seul champ toujours présent et unique, donc le seul qui rende une pagination offset déterministe sans départage su…"
+    },
     "registerUserStore": {
       "name": "registerUserStore",
       "kind": "function",
@@ -21980,6 +22012,7 @@
         "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/src/userSort.ts",
         "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/sessionSort.ts"
       ],
@@ -23626,6 +23659,17 @@
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
       ],
+      "USER_SORTABLE_FIELDS": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts"
+      ],
+      "USER_DEFAULT_ORDER": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+      ],
       "IPasswordAuthenticatedUser": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
@@ -25170,7 +25214,14 @@
       "profileFromClaims": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
+      "compareByOrder": [
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts"
+      ],
       "IBaseUserOptions": [
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+      ],
+      "USER_SORTABLE_FIELDS_IN_MEMORY": [
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
       ],
       "IUserProfile": [
@@ -25737,9 +25788,6 @@
       ],
       "formatWsLogContent": [
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
-      ],
-      "compareByOrder": [
-        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts"
       ],
       "SESSION_DEFAULT_ORDER": [
         "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts"

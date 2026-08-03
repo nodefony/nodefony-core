@@ -145,6 +145,19 @@ export class UserService
   }
 
   /**
+   * Champs de tri que le repository **actuellement branché** sait honorer.
+   *
+   * La capacité se CONSTATE au runtime plutôt que de se déduire : un adapter
+   * tiers qui ne trierait pas rend une liste vide, et le data plane refuse alors
+   * tout `?order=` (400) au lieu de servir une page dans un ordre arbitraire.
+   *
+   * @returns les champs triables, liste vide si le repository ne trie pas.
+   */
+  sortableUserFields(): readonly string[] {
+    return this.repository.sortableFields ?? [];
+  }
+
+  /**
    * Compte les administrateurs actifs porteurs de `adminRole` — garde-fou
    * anti-lockout calculé au store (jamais en chargeant tous les utilisateurs).
    *

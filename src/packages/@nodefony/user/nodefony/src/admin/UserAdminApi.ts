@@ -141,19 +141,6 @@ function one(
   return Array.isArray(value) ? value[0] : value;
 }
 
-/**
- * `limit`/`offset` du contrat de page, avec l'`offset` **matérialisé** : cet
- * endpoint le renvoie dans sa réponse, où l'absence n'a pas de sens. Le
- * traducteur, lui, laisse `offset` absent quand le client n'en demande pas.
- */
-function pageParams(query: Readonly<Record<string, string | string[]>>): {
-  limit: number;
-  offset: number;
-} {
-  const parsed = parsePageQuery(query);
-  return { limit: parsed.limit, offset: parsed.offset ?? 0 };
-}
-
 /** Vue minimale du journal d'audit security — résolu par nom au runtime. */
 interface IAuditSinkLike {
   record(event: {
@@ -369,13 +356,21 @@ export function createUserAdminApi(container: Container): IAdminApi {
         const role = one(request.query, "role");
         const enabled = one(request.query, "enabled");
         const q = one(request.query, "q");
-        const { limit, offset } = pageParams(request.query);
+        // UN SEUL traducteur pour toute la requête de page : limit, offset ET
+        // tri. En appeler un second sans l'allowlist (ce que faisait `pageParams`)
+        // fait refuser en 400 un `order` que le premier venait d'accepter — vécu.
+        const pageQuery = parsePageQuery(request.query, {
+          sortable: users.sortableUserFields(),
+        });
+        const limit = pageQuery.limit;
+        const offset = pageQuery.offset ?? 0;
         // Pagination NATIVE au store — JAMAIS un `find()` complet matérialisé en
         // RAM (règle perf/mémoire) : les filtres role/enabled/q descendent dans
         // le backend, qui ne renvoie qu'une page.
         const page = await users.listPage({
           limit,
           offset,
+          ...(pageQuery.order ? { order: pageQuery.order } : {}),
           ...(role !== undefined ? { role } : {}),
           ...(enabled !== undefined ? { enabled: enabled === "true" } : {}),
           ...(q !== undefined && q.length > 0 ? { q } : {}),

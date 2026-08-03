@@ -51,6 +51,14 @@ export type { IEncoderSpec } from "./nodefony/src/encoders/encoderFromConfig";
 
 // ─── Repository de référence in-memory (charge / scripts / fixtures) ─────────
 export { InMemoryUserRepository } from "./nodefony/src/InMemoryUserRepository";
+// Vocabulaire de tri des utilisateurs — partagé par TOUS les repositories
+// (mémoire, drizzle, mongoose) pour qu'un `?order=` ait le même sens partout.
+export {
+  USER_SORTABLE_FIELDS,
+  USER_SORTABLE_FIELDS_IN_MEMORY,
+  USER_SORTABLE_FIELDS_COMMON,
+  USER_DEFAULT_ORDER,
+} from "./nodefony/src/userSort";
 // Registre des backends de persistance user DISPONIBLES (Studio « Stores ») —
 // `"memory"` builtin ici, drizzle/mongoose déclarés par leur adapter au boot.
 export {
