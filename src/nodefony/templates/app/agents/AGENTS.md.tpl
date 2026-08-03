@@ -84,6 +84,42 @@ code TypeScript ne change dans aucun des trois cas — seul le SQL suit.
 `npx nodefony create entity --help` porte la grammaire de CETTE version — elle
 s'enrichit, ta mémoire non.
 
+## Où lire AVANT de coder (tâche → doc installée)
+
+La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le dossier.
+
+| Tâche | Doc |
+| --- | --- |
+| **Quel module installer pour tel besoin** (et lequel NE PAS installer) | `node_modules/nodefony/docs/catalogue.md` |
+| **Variables d'environnement** : cascade des `.env`, précédence, `NF__` | `node_modules/nodefony/docs/environnement.md` |
+| Kernel, cycle de vie, CLI | `node_modules/nodefony/docs/kernel.md` + `cli.md` |
+| Service, DI, container, scopes | `node_modules/nodefony/docs/service.md` |
+| Client isomorphe (navigateur), hooks React | `node_modules/nodefony/docs/client.md` + `react-hooks.md` |
+| Serveurs, sessions, cookies, upload, rate-limit | `node_modules/@nodefony/http/docs/` |
+| **Journaliser, corréler, tracer une requête** (identifiant de requête, trace) | `node_modules/@nodefony/http/docs/observabilite.md` |
+| Routing, controllers, décorateurs, idempotence | `node_modules/@nodefony/framework/docs/` |
+<% if (it.hasSecurity) { %>| Firewall, authenticators, CSRF, CORS, clés d'API | `node_modules/@nodefony/security/docs/firewall.md` |
+| **Protéger une action par un RÔLE** (`@IsGranted`), voters, hiérarchie | `node_modules/@nodefony/security/docs/authorization.md` |
+| **Utilisateurs** : contrat `IUser`, `UserService`, mot de passe | `node_modules/@nodefony/user/docs/index.md` |
+| **Notifier un système tiers** (webhook signé, rejeu, endpoints) | `node_modules/@nodefony/security/docs/webhooks.md` |
+<% } %><% if (it.hasOrm) { %>| Entités, repositories, requêtes (ORM) | `node_modules/@nodefony/orm-core/docs/` |
+<% } %><% if (it.hasRealtime) { %>| Canaux temps réel, actions, protocole WS | `node_modules/@nodefony/realtime/docs/` |
+<% } %><% if (it.front) { %>| Builder Vite, entries, HMR | `node_modules/@nodefony/frontend/docs/` |
+<% } %><% if (it.hasStudio) { %>| Console d'admin Studio (dev) | `node_modules/@nodefony/studio/docs/` + http://127.0.0.1:5151/nodefony |
+<% } %>
+La config de l'app vit dans `nodefony.config.ts` (modules chargés) et `env.ts`
+(variables d'environnement, seul lecteur de `process.env`) — pointe-les, ne les
+recopie pas.
+
+**Des skills d'agent sont posés dans `.agents/skills/`** — la marche à suivre
+complète pour les tâches courantes (`ls .agents/skills/` les liste ; leur
+description dit quand chacun s'applique). Ce sont des **pointeurs** vers le
+contenu installé dans `node_modules` : ils suivent la version du framework de CE
+projet, et les éditer ne servirait à rien. Si ton outil ne charge que son propre
+dossier de découverte, lis-les à la main — c'est le chemin le plus court vers la
+bonne façade. `npx nodefony ai:sync` les remet à jour après un `npm update`
+(`--dry-run` dit ce qui changerait).
+
 ## Les commandes de l'app — demande la liste, ne la devine pas
 
 ```bash
@@ -211,7 +247,8 @@ et il fait foi le jour où les deux divergent.
   pub/sub + actions RPC + policies). L'echo WS brut des exemples est une démo
   du pipeline partagé, pas un modèle à imiter.
 <% if (it.hasSecurity) { %>- **Utilisateurs et droits : tout existe, n'improvise RIEN.** Ces gestes
-  couvrent l'essentiel, et chacun a sa doc installée (cf. table ci-dessous) :
+  couvrent l'essentiel, et chacun a sa doc installée (cf. la table « Où lire
+  AVANT de coder », plus haut) :
   - **protéger un ESPACE de routes** (tout ce qui commence par un préfixe) :
     une zone de firewall dans `nodefony.config.ts`, dont le `pattern` est le
     PRÉFIXE lui-même — `pattern: "^/api/account"`, **jamais** la liste des
@@ -261,40 +298,6 @@ et il fait foi le jour où les deux divergent.
     `registerVoterFactory` ; `@IsGranted("doc.edit", { subject: "id" })` l'appelle.
     C'est le point d'extension prévu — il n'y a pas de table de permissions à
     inventer.<% } %>
-
-## Où lire AVANT de coder (tâche → doc installée)
-
-La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le dossier.
-
-| Tâche | Doc |
-| --- | --- |
-| **Quel module installer pour tel besoin** (et lequel NE PAS installer) | `node_modules/nodefony/docs/catalogue.md` |
-| **Variables d'environnement** : cascade des `.env`, précédence, `NF__` | `node_modules/nodefony/docs/environnement.md` |
-| Kernel, cycle de vie, CLI | `node_modules/nodefony/docs/kernel.md` + `cli.md` |
-| Service, DI, container, scopes | `node_modules/nodefony/docs/service.md` |
-| Client isomorphe (navigateur), hooks React | `node_modules/nodefony/docs/client.md` + `react-hooks.md` |
-| Serveurs, sessions, cookies, upload, rate-limit | `node_modules/@nodefony/http/docs/` |
-| Routing, controllers, décorateurs, idempotence | `node_modules/@nodefony/framework/docs/` |
-<% if (it.hasSecurity) { %>| Firewall, authenticators, CSRF, CORS, clés d'API | `node_modules/@nodefony/security/docs/firewall.md` |
-| **Protéger une action par un RÔLE** (`@IsGranted`), voters, hiérarchie | `node_modules/@nodefony/security/docs/authorization.md` |
-| **Utilisateurs** : contrat `IUser`, `UserService`, mot de passe | `node_modules/@nodefony/user/docs/index.md` |
-<% } %><% if (it.hasOrm) { %>| Entités, repositories, requêtes (ORM) | `node_modules/@nodefony/orm-core/docs/` |
-<% } %><% if (it.hasRealtime) { %>| Canaux temps réel, actions, protocole WS | `node_modules/@nodefony/realtime/docs/` |
-<% } %><% if (it.front) { %>| Builder Vite, entries, HMR | `node_modules/@nodefony/frontend/docs/` |
-<% } %><% if (it.hasStudio) { %>| Console d'admin Studio (dev) | `node_modules/@nodefony/studio/docs/` + http://127.0.0.1:5151/nodefony |
-<% } %>
-La config de l'app vit dans `nodefony.config.ts` (modules chargés) et `env.ts`
-(variables d'environnement, seul lecteur de `process.env`) — pointe-les, ne les
-recopie pas.
-
-**Des skills d'agent sont posés dans `.agents/skills/`** — la marche à suivre
-complète pour les tâches courantes (`ls .agents/skills/` les liste ; leur
-description dit quand chacun s'applique). Ce sont des **pointeurs** vers le
-contenu installé dans `node_modules` : ils suivent la version du framework de CE
-projet, et les éditer ne servirait à rien. Si ton outil ne charge que son propre
-dossier de découverte, lis-les à la main — c'est le chemin le plus court vers la
-bonne façade. `npx nodefony ai:sync` les remet à jour après un `npm update`
-(`--dry-run` dit ce qui changerait).
 
 ## Environnement : ne devine JAMAIS, demande
 
