@@ -1,4 +1,9 @@
-import { paginate, type Criteria, type IRepository } from "@nodefony/orm-core";
+import {
+  paginate,
+  searchCriteria,
+  type Criteria,
+  type IRepository,
+} from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
 import { assertPageQuery } from "nodefony";
 // `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
@@ -155,11 +160,14 @@ export class DrizzleWebAuthnCredentialStore implements IWebAuthnCredentialStore 
     const criteria: Record<string, unknown> = {};
     if (query.userId !== undefined) {
       criteria.userId = query.userId;
-    } else if (query.q !== undefined && query.q.length > 0) {
-      // `%`/`_` du terme saisi sont échappés : un id collé n'est pas un motif.
-      criteria.userId = {
-        $like: `${query.q.replace(/[\\%_]/g, (c) => "\\" + c)}%`,
-      };
+    } else {
+      // La règle de recherche (échappement du terme + motif ancré à gauche)
+      // vit au socle, en un exemplaire : la recopier ici l'avait déjà fait
+      // exister en double, et une seule des deux copies aurait été corrigée.
+      Object.assign(
+        criteria,
+        searchCriteria<WebAuthnCredentialRow>(query.q, ["userId"]) ?? {},
+      );
     }
     if (query.backedUp !== undefined) {
       criteria.backupState = query.backedUp;

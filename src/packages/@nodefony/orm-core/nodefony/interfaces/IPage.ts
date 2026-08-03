@@ -9,9 +9,17 @@ export type { IPage, IPageQuery } from "nodefony";
 /**
  * Requête de page pour un {@link IRepository} — le contrat de page core
  * ({@link IPageQuery}) enrichi du `criteria` typé de l'ORM. C'est la forme que
- * {@link paginate} consomme. Offset-first : `cursor`/`q` du socle restent
- * disponibles mais ne sont pas utilisés par le helper offset générique (les
- * stores à curseur ont leur propre implémentation).
+ * {@link paginate} consomme.
+ *
+ * **Offset-first** : `cursor` reste disponible mais n'est pas lu par le helper
+ * offset générique — les stores à curseur ont leur propre implémentation, et
+ * `assertPageQuery(query, "offset")` refuse un `cursor` reçu par erreur.
+ *
+ * `q` **est** honoré, mais seulement si l'appelant déclare où chercher
+ * (`paginate(repo, page, { searchable })`) ; sans cette déclaration il est
+ * refusé en `400`. Il a longtemps traversé ce type sans être lu une seule fois :
+ * un paramètre accepté puis jeté rend la collection entière à qui croit lire un
+ * résultat de recherche.
  *
  * @typeParam T - type de l'entité paginée (type le `criteria`).
  */

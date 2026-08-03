@@ -239,6 +239,52 @@ export function runTotpStoreContract(opts: ITotpStoreContractOptions): void {
     });
   });
 
+  describe("recherche `q` — préfixe indexable, terme échappé", () => {
+    // Ce comportement n'était couvert par AUCUN test, sur aucun dialecte, alors
+    // qu'il est écrit deux fois dans le dépôt (ici et dans le store WebAuthn).
+    // Il vit désormais au socle (`searchCriteria`) ; ce banc est ce qui rend
+    // l'extraction vérifiable, et il le rejoue sur les trois dialectes — le
+    // `LIKE` et son échappement sont précisément ce qui diverge entre moteurs.
+    it("filtre sur le PRÉFIXE de l'identifiant, pas sur une sous-chaîne", async () => {
+      await purge();
+      for (const userId of ["alice", "alicia", "bob", "malice"]) {
+        await store.save(makeSecret({ userId }));
+      }
+      const page = await store.listPage({ limit: 50, q: "ali" });
+      const ids = page.items.map((i) => i.userId).sort();
+      // `malice` CONTIENT « ali » mais ne COMMENCE pas par lui : l'ancrage à
+      // gauche est ce qui rend la recherche indexable, et il doit se voir.
+      assert.deepEqual(ids, ["alice", "alicia"]);
+    });
+
+    it("un terme vide ne filtre RIEN (ce n'est pas une recherche)", async () => {
+      await purge();
+      await store.save(makeSecret({ userId: "u1" }));
+      await store.save(makeSecret({ userId: "u2" }));
+      const page = await store.listPage({ limit: 50, q: "" });
+      assert.equal(page.items.length, 2);
+    });
+
+    it("LIMITE CONNUE : `_` reste un joker — un terme échappé ne trouverait RIEN", async () => {
+      await purge();
+      for (const userId of ["a_c", "abc"]) {
+        await store.save(makeSecret({ userId }));
+      }
+      // Ce test verrouille une IMPRÉCISION assumée, pas un comportement voulu :
+      // `_` élargit la recherche au lieu de la restreindre. Échapper le terme
+      // exigerait une clause `LIKE … ESCAPE '\'` que la traduction portable de
+      // `$like` n'émet pas — et sans elle, `a\_c%` est cherché LITTÉRALEMENT :
+      // la recherche ne rend plus rien du tout (mesuré ici même, en SQLite).
+      // Tant que `$like` n'émet pas `ESCAPE`, élargir est la seule dégradation
+      // qui ne fait pas MENTIR la réponse.
+      const page = await store.listPage({ limit: 50, q: "a_c" });
+      assert.deepEqual(
+        page.items.map((i) => i.userId).sort(),
+        ["a_c", "abc"],
+      );
+    });
+  });
+
   // Standard de pagination : LE banc du propriétaire du contrat
   // (`@nodefony/security`), déroulé ici sur le backend SQL du dialecte courant.
   // Déclaré en DERNIER : son seed doit survivre aux `purge()` des tests ci-dessus.

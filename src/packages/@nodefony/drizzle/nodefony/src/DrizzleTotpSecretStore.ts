@@ -1,4 +1,9 @@
-import { paginate, type Criteria, type IRepository } from "@nodefony/orm-core";
+import {
+  paginate,
+  searchCriteria,
+  type Criteria,
+  type IRepository,
+} from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
 import { assertPageQuery } from "nodefony";
 // `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
@@ -149,12 +154,10 @@ export class DrizzleTotpSecretStore implements ITotpSecretStore {
     if (query.confirmed !== undefined) {
       criteria.confirmedAt = { $null: !query.confirmed };
     }
-    if (query.q !== undefined && query.q.length > 0) {
-      // `%`/`_` du terme saisi sont échappés : un id collé n'est pas un motif.
-      criteria.userId = {
-        $like: `${query.q.replace(/[\\%_]/g, (c) => "\\" + c)}%`,
-      };
-    }
+    // La règle de recherche (échappement du terme + motif ancré à gauche) vit
+    // au socle, en un exemplaire — elle était ici en double avec le store
+    // WebAuthn, à l'identique.
+    Object.assign(criteria, searchCriteria<TotpSecretRow>(query.q, ["userId"]) ?? {});
     return criteria as unknown as Criteria<TotpSecretRow>;
   }
 

@@ -101,3 +101,50 @@ export function isUpdateOperators(
   }
   return true;
 }
+
+/**
+ * Traduit un terme de recherche `?q=` en critère portable — **la** règle de
+ * recherche d'orm-core, en un seul exemplaire.
+ *
+ * Elle existe parce qu'elle était écrite plusieurs fois, presque à l'identique,
+ * dans des stores qui n'avaient aucun test dessus.
+ *
+ * **Le motif est ANCRÉ À GAUCHE** (`préfixe%`), donc **indexable**. Une
+ * recherche `%terme%` interdit tout usage d'index et impose un balayage
+ * complet : plus « pratique » sur dix lignes, intenable sur un million. C'est un
+ * choix de conception — un besoin de sous-chaîne relève d'un index plein-texte,
+ * pas de `LIKE`.
+ *
+ * Plusieurs champs deviennent un `$or` ; un seul reste un critère plat (les
+ * deux formes sont équivalentes pour les adapters, la seconde est plus lisible
+ * dans les journaux de requêtes).
+ *
+ * ⚠️ **Les métacaractères `%` et `_` du terme restent ACTIFS**, et ce n'est pas
+ * un oubli. Les échapper exige d'émettre une clause `LIKE … ESCAPE '\'`, que la
+ * traduction portable de `$like` ne produit pas : un terme échappé sans cette
+ * clause est cherché **littéralement**, backslash compris, et la recherche ne
+ * rend alors plus RIEN. Mesuré en SQLite — un échappement qu'on n'émet pas est
+ * pire que pas d'échappement du tout, parce qu'il échoue en silence.
+ *
+ * La conséquence est une imprécision, jamais une fuite : le terme reste borné à
+ * la table interrogée et la valeur est bindée. Un point d'entrée qui a besoin
+ * d'un échappement RÉEL doit composer du SQL natif et émettre `ESCAPE`
+ * lui-même — c'est ce que fait `likeIdentifierCond` du queryKit Drizzle, seul
+ * endroit du dépôt qui le fasse complètement (dont la divergence MySQL, où le
+ * `\` d'un littéral doit être doublé).
+ *
+ * @param q - le terme saisi, déjà trimé par `parsePageQuery`.
+ * @param fields - les champs sur lesquels chercher, en noms de propriétés.
+ * @returns le critère à fusionner, ou `null` si le terme est vide ou qu'aucun
+ *   champ n'est déclaré — l'appelant décide alors quoi faire de `q`.
+ */
+export function searchCriteria<T>(
+  q: string | undefined,
+  fields: ReadonlyArray<keyof T & string>,
+): Record<string, unknown> | null {
+  const terme = q?.trim();
+  if (!terme || fields.length === 0) return null;
+  const motif = `${terme}%`;
+  if (fields.length === 1) return { [fields[0]]: { $like: motif } };
+  return { $or: fields.map((f) => ({ [f]: { $like: motif } })) };
+}

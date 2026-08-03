@@ -362,10 +362,15 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
       );
     }
     if (query.q !== undefined && query.q.length > 0) {
-      // Préfixe ancré à gauche (indexable) ; `%`/`_` du terme sont échappés.
-      conds.push(
-        like(this.#c.key, `${query.q.replace(/[\\%_]/g, (c) => "\\" + c)}%`),
-      );
+      // Préfixe ancré à gauche (indexable). Le terme part TEL QUEL : `like()`
+      // n'émet pas de clause `ESCAPE`, et sans elle un `\_` est cherché
+      // LITTÉRALEMENT — mesuré sur les trois moteurs, la même requête rendait
+      // `[]` en SQLite (le défaut de développement) et la bonne ligne en
+      // PostgreSQL et MySQL, qui traitent `\` comme échappement par défaut.
+      // Un échappement qu'on n'émet pas ne protège pas : il fait diverger les
+      // dialectes en silence. `%`/`_` restent donc des jokers, uniformément —
+      // c'est une imprécision, pas une réponse fausse.
+      conds.push(like(this.#c.key, `${query.q}%`));
     }
     const where = conds.length === 1 ? conds[0] : and(...conds);
     // `limit + 1` → `hasNext` sans dépendre du COUNT (mode Slice possible).

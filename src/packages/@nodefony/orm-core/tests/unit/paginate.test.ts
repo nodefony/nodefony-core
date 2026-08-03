@@ -12,6 +12,8 @@ interface Calls {
   find: RepositoryReadOptions[];
   findCriteria: (Criteria<Row> | undefined)[];
   count: number;
+  /** Critère reçu par le COUNT — il doit décrire la MÊME page que le FIND. */
+  countCriteria: (Criteria<Row> | undefined)[];
 }
 
 /**
@@ -21,7 +23,12 @@ interface Calls {
  * jamais touchées ici, un accès accidentel jetterait plutôt que de renvoyer un NaN.
  */
 function spyRepo(rows: Row[]): { repo: IRepository<Row>; calls: Calls } {
-  const calls: Calls = { find: [], findCriteria: [], count: 0 };
+  const calls: Calls = {
+    find: [],
+    findCriteria: [],
+    count: 0,
+    countCriteria: [],
+  };
   const filter = (c?: Criteria<Row>) =>
     !c
       ? rows
@@ -49,6 +56,7 @@ function spyRepo(rows: Row[]): { repo: IRepository<Row>; calls: Calls } {
     },
     count(criteria?: Criteria<Row>) {
       calls.count += 1;
+      calls.countCriteria.push(criteria);
       return Promise.resolve(filter(criteria).length);
     },
   } as unknown as IRepository<Row>;
@@ -166,5 +174,96 @@ describe("AbstractCrudService.findPage (délégation à paginate)", () => {
     assert.equal(page.hasNext, true);
     assert.equal(page.total, 10);
     assert.equal(calls.find[0].limit, 5); // limit+1 remonté jusqu'au repo
+  });
+});
+
+describe("paginate — la RECHERCHE `?q=` est une capacité déclarée", () => {
+  it("un `q` sans champ cherchable est REFUSÉ, jamais ignoré", async () => {
+    // Le défaut permissif rendait la collection ENTIÈRE à qui croyait lire un
+    // résultat de recherche : `q` traversait le type sans être lu une fois.
+    const { repo, calls } = spyRepo([
+      { id: 1, name: "alpha" },
+      { id: 2, name: "beta" },
+    ]);
+    await assert.rejects(
+      () => paginate(repo, { limit: 10, q: "alp" }),
+      (e: Error & { code?: number }) => e.code === 400,
+    );
+    // Et le refus tombe AVANT toute requête : rien n'est demandé au backend.
+    assert.equal(calls.find.length, 0);
+    assert.equal(calls.count, 0);
+  });
+
+  it("un `q` vide ne déclenche rien — personne n'a rien demandé", async () => {
+    const { repo, calls } = spyRepo([{ id: 1, name: "alpha" }]);
+    const page = await paginate(repo, { limit: 10, q: "   " });
+    assert.equal(page.items.length, 1);
+    assert.deepEqual(calls.findCriteria[0], undefined);
+  });
+
+  it("déclaré, `q` devient un LIKE ancré à gauche — et le TOTAL décrit la MÊME page", async () => {
+    const { repo, calls } = spyRepo([{ id: 1, name: "alpha" }]);
+    await paginate(repo, { limit: 10, q: "alp" }, { searchable: ["name"] });
+    assert.deepEqual(calls.findCriteria[0], { name: { $like: "alp%" } });
+    // Le critère du COUNT est le MÊME objet de critères que celui du FIND :
+    // deux compositions divergentes rendraient un total qui ne décrit pas la page.
+    assert.deepEqual(calls.countCriteria[0], calls.findCriteria[0]);
+  });
+
+  it("le terme part TEL QUEL — l'échapper sans clause ESCAPE ne trouverait rien", async () => {
+    // Limite assumée et documentée : `%`/`_` du terme restent des jokers.
+    // La traduction portable de `$like` n'émet pas `LIKE … ESCAPE '\'`, et sans
+    // cette clause un terme échappé est cherché LITTÉRALEMENT (backslash
+    // compris) — la recherche ne rend alors plus rien. Mesuré en SQLite.
+    // Élargir est la seule dégradation qui ne fait pas mentir la réponse.
+    const { repo, calls } = spyRepo([{ id: 1, name: "a_b" }]);
+    await paginate(repo, { limit: 10, q: "100%_x" }, { searchable: ["name"] });
+    assert.deepEqual(calls.findCriteria[0], { name: { $like: "100%_x%" } });
+  });
+
+  it("plusieurs champs cherchables deviennent un `$or`", async () => {
+    const { repo, calls } = spyRepo([{ id: 1, name: "alpha" }]);
+    await paginate(
+      repo,
+      { limit: 10, q: "al" },
+      { searchable: ["name", "id"] },
+    );
+    assert.deepEqual(calls.findCriteria[0], {
+      $or: [{ name: { $like: "al%" } }, { id: { $like: "al%" } }],
+    });
+  });
+
+  it("les filtres déjà posés sont CONSERVÉS, pas écrasés par la recherche", async () => {
+    const { repo, calls } = spyRepo([{ id: 1, name: "alpha" }]);
+    await paginate(
+      repo,
+      { limit: 10, q: "al", criteria: { id: 1 } as Criteria<Row> },
+      { searchable: ["name"] },
+    );
+    assert.deepEqual(calls.findCriteria[0], {
+      id: 1,
+      name: { $like: "al%" },
+    });
+  });
+
+  it("un critère qui porte DÉJÀ un `$or` fait REFUSER la recherche", async () => {
+    // La grammaire n'a pas de `$and` : deux `$or` au même niveau ne peuvent pas
+    // exprimer « (a ou b) ET (s1 ou s2) ». Le second écraserait le premier et
+    // rendrait des lignes que personne n'a demandées — refuser est la seule
+    // issue honnête.
+    const { repo } = spyRepo([{ id: 1, name: "alpha" }]);
+    await assert.rejects(
+      () =>
+        paginate(
+          repo,
+          {
+            limit: 10,
+            q: "al",
+            criteria: { $or: [{ id: 1 }, { id: 2 }] } as Criteria<Row>,
+          },
+          { searchable: ["name"] },
+        ),
+      (e: Error & { code?: number }) => e.code === 400,
+    );
   });
 });

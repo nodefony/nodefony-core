@@ -26,7 +26,11 @@ export type {
 } from "./nodefony/interfaces/index";
 
 // ─── Critères riches (P7.4) — helper de détection d'opérateurs (lib pure) ────
-export { OPERATOR_KEYS, isFieldOperators } from "./nodefony/src/criteria";
+export {
+  OPERATOR_KEYS,
+  isFieldOperators,
+  searchCriteria,
+} from "./nodefony/src/criteria";
 export type { OperatorKey } from "./nodefony/src/criteria";
 export {
   UPDATE_OPERATOR_KEYS,
