@@ -48,8 +48,36 @@ grep -rnE "from ['\"]<dep>['\"]|require\(['\"]<dep>" src/packages/@nodefony/<mod
 ```
 
 - **Importé côté serveur + absent de external → ⛔ BUG** (sera bundlé). À corriger (étape 3).
-- **Jamais importé côté serveur** (ex. `vite`/`@vitejs/plugin-react` = build front séparé) →
-  ⚠️ inoffensif (le bundler ne le rencontre pas), mais incohérent. Laisser OU aligner pour la propreté.
+- **Jamais importé côté serveur** → ⚠️ inoffensif pour le bundler, mais l'entrée `external` est
+  légitime dès qu'un `await import()` la vise. Un `external` **sans peer correspondante n'est donc
+  PAS une dérive** — voir la règle ci-dessous.
+
+### 🔴 Un outil de BUILD ne se déclare JAMAIS en `peerDependencies` — même optionnelle
+
+Constaté trois fois dans ce dépôt, corrigé trois fois : `vite` et ses plugins
+(`@nodefony/frontend`, `@nodefony/studio`), puis `rolldown` (`nodefony`, pour le subpath
+`nodefony/bundler`).
+
+**Le mécanisme, et pourquoi « optionnelle » ne protège pas.** Une peer est _satisfaite_ par le
+paquet que l'application installe en `devDependencies`. `npm prune --omit=dev` considère alors
+qu'il appartient à l'arbre de **production** et le garde — refaire l'arbre depuis zéro n'y change
+rien, le `package-lock.json` l'a figé. L'outil voyage donc dans l'image, et rien ne le signale.
+
+**Ce que ça coûte, mesuré** sur une image d'application à frontend : `node_modules` 161 → 106 Mo,
+image 542 → 472 Mo. Mais le vrai dégât n'est pas le poids : la garde de `FrontendService.setupProd`
+qui refuse la page blanche muette (« vite indisponible → ERREUR nommée ») était **inatteignable**,
+puisque vite était toujours là pour reconstruire en silence. Une garantie écrite, jamais exécutable.
+
+**Le test qui tranche** : le paquet importe-t-il l'outil au RUNTIME ? Si l'import n'a lieu qu'au
+build (`rolldown.config.ts`, `await import()` d'un builder), alors ni `dependencies`, ni
+`peerDependencies` — `devDependencies` du paquet pour ses propres tests, et l'application le
+déclare pour elle-même (versions : source unique `scaffold/versions.ts`). Corollaire : **aucun
+framework front** (`vue`, `react`…) dans les `dependencies` d'un builder générique — `vue` y était,
+et tirait TypeScript, 26,6 Mo dans toute application, même React.
+
+Le contrôle vit dans le smoke release (`--scenario front`) : il refuse une image contenant `vite`,
+`vue` ou `typescript`, puis vérifie que l'ERREUR nommée s'affiche. Sans lui, la régression revient
+par une ligne de manifeste — et l'image marche.
 
 ## 3. Corriger (rolldown.config.ts est PROTÉGÉ → accord user)
 

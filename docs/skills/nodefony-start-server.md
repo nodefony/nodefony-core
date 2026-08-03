@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-07-27
+updated: 2026-08-03
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-start-server/SKILL.md"
 ---
@@ -17,7 +17,7 @@ source: ".claude/skills/nodefony-start-server/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **1/1** projet · 💡 **1/1** recommandé (SHOULD).
+> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **2/2** projet · 💡 **1/1** recommandé (SHOULD).
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -68,7 +68,7 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `start.sh` | start.sh — démarre le serveur Nodefony de manière fiable. | `--all` `--cluster` `--detach` `--force-build` `--health` `--log` `--wait` `--workers` | — |
+| `start.sh` | start.sh — démarre le serveur Nodefony de manière fiable. | `--all` `--cluster` `--detach` `--force-build` `--health` `--log` `--wait` `--workers` | `NF__SECURITY__RATELIMIT__ENABLED` |
 | `stop.sh` | stop.sh — arrête le serveur Nodefony proprement (one-shot, pas de respawn). | — | — |
 
 **Invocation telle que documentée dans chaque script :**
@@ -77,6 +77,8 @@ script, donc toujours à jour après régénération.
 Usage : bash .claude/skills/nodefony-start-server/start.sh [-d] [--force-build] [--cluster [-w N]]
 Usage : bash .claude/skills/nodefony-start-server/stop.sh
 ```
+
+**Toutes les variables lues par ce skill** : `NF__SECURITY__RATELIMIT__ENABLED`
 
 ## Conformité au standard Agent Skills
 
@@ -94,6 +96,7 @@ Usage : bash .claude/skills/nodefony-start-server/stop.sh
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
+| aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | corps < 500 lignes | recommandé | ✅ | 246 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._

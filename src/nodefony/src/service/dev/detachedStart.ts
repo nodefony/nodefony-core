@@ -10,6 +10,7 @@ import { spawn } from "node:child_process";
 import https from "node:https";
 import http from "node:http";
 import { SysExit } from "../../cli/sysexits";
+import { DELEGATED_ENV } from "../../bin/resolveLocalCli";
 import {
   clearRuntimeState,
   defaultDevPorts,
@@ -97,6 +98,44 @@ export interface ParsedDetachArgs {
 
 /** Marqueur env anti-récursion : posé sur le child pour couper tout re-détachement. */
 export const DETACH_CHILD_ENV = "NODEFONY_DETACH_CHILD";
+
+/**
+ * Environnement du child détaché — hérité du parent, MOINS ce qui ne se
+ * transmet pas.
+ *
+ * `DELEGATED_ENV` est une garde **anti-boucle de process** : le CLI global la
+ * pose sur lui-même juste avant de charger le CLI de l'application, pour que
+ * celui-ci exécute au lieu de redéléguer à l'infini. Elle décrit donc un état
+ * du process COURANT, pas une intention à propager.
+ *
+ * La transmettre au child était une panne silencieuse, et coûteuse à lire : le
+ * child est relancé sur le binaire d'ENTRÉE (`argv[1]`, le CLI global), et la
+ * garde héritée lui interdit précisément la délégation qui l'aurait renvoyé
+ * vers le CLI de l'application. Le framework du CLI global bootait alors
+ * l'application locale. Mesuré sur une application installée depuis les
+ * tarballs : **un seul module chargé sur huit**, puis « profil serveur mais
+ * aucun serveur en écoute » — un diagnostic qui ne parle jamais de délégation.
+ * Invisible en monorepo lié, où les deux CLI sont le même code.
+ *
+ * Le child repart donc du binaire d'entrée SANS la garde : il refait le chemin
+ * complet du parent, redélègue de lui-même, et exécute le CLI de l'application.
+ *
+ * @param parent - environnement du process appelant (`process.env`).
+ * @param extra - variables propres au lancement (cf `DetachedStartOptions.env`).
+ * @returns l'environnement à passer au child.
+ */
+export function childEnv(
+  parent: NodeJS.ProcessEnv,
+  extra?: Record<string, string>,
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    ...parent,
+    ...extra,
+    [DETACH_CHILD_ENV]: "1",
+  };
+  delete env[DELEGATED_ENV];
+  return env;
+}
 
 /** Fenêtre de tick de la boucle d'attente (ms). */
 const TICK_MS = 500;
@@ -303,7 +342,7 @@ export async function launchDetached(
     cwd: opts.cwd ?? process.cwd(),
     stdio: ["ignore", out, out],
     detached: true,
-    env: { ...process.env, ...opts.env, [DETACH_CHILD_ENV]: "1" },
+    env: childEnv(process.env, opts.env),
   });
   // Le fd parent est dupliqué dans le child au spawn → on referme le nôtre (sinon
   // fuite d'un fd par lancement dans le process appelant). Une seule fois, quel

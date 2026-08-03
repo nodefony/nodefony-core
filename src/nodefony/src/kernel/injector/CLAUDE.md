@@ -85,9 +85,14 @@ course avec le `connect()` (raison détaillée dans le TSDoc du décorateur).
    │   ├── Lire Reflect.metadata("inject:services", Ctor)
    │   ├── Pour chaque param @inject : récupérer du container
    │   ├── new Ctor(...resolvedArgs, ...args)
-   │   ├── Property injection (Phase A) : lire metadata sur prototype, set props
-   │   └── Si .initialize() existe : appeler
+   │   └── Property injection (Phase A) : lire metadata sur prototype, set props
    └── Container.set(name, instance)
+
+   ⚠️ L'injecteur CONSTRUIT, il n'initialise pas : `injector.ts` n'appelle
+   ni `init` ni `initialize`. Le démarrage du service est déclenché par
+   l'APPELANT — `Module.addService()` (`Module.ts:377`), qui passe par
+   `Kernel.guardServiceInitialize()` (timeout + criticité) quand un kernel
+   est présent, et appelle `init(this)` directement sinon.
 
 3. Phase D (futur) : registry par module — isolation namespace
 ```

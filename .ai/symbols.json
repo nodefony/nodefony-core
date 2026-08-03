@@ -1,16 +1,16 @@
 {
-  "generated": "2026-07-27T22:38:30.850Z",
+  "generated": "2026-08-03T21:35:09.677Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 641,
-    "symbols": 2547,
-    "classes": 335,
-    "interfaces": 773,
-    "types": 335,
+    "files": 680,
+    "symbols": 2765,
+    "classes": 343,
+    "interfaces": 807,
+    "types": 363,
     "enums": 4,
-    "functions": 921,
-    "constants": 179
+    "functions": 992,
+    "constants": 256
   },
   "symbols": {
     "Cli": {
@@ -201,6 +201,20 @@
       "extends": null,
       "description": "Résultat de {@link Event.emitAsyncGuarded}."
     },
+    "create": {
+      "name": "create",
+      "kind": "const",
+      "file": "src/nodefony/src/Event.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "notification": {
+      "name": "notification",
+      "kind": "const",
+      "file": "src/nodefony/src/Event.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
     "FileClass": {
       "name": "FileClass",
       "kind": "class",
@@ -243,6 +257,109 @@
       ],
       "decorators": [],
       "description": "Brique de base de tout composant Nodefony — câble un nom, un {@link Container} DI, un {@link Syslog} et un bus d'événements {@link Event} (notificationsCenter). Tous les services, modules, kernels …"
+    },
+    "isArray": {
+      "name": "isArray",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Alias direct de `Array.isArray` — exporté pour usage cohérent dans les modules."
+    },
+    "isFunction": {
+      "name": "isFunction",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Type guard — `true` si `value` est une fonction (incluant arrow et classes)."
+    },
+    "isRegExp": {
+      "name": "isRegExp",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Type guard — `true` si `value` est une instance `RegExp`."
+    },
+    "isPlainObject": {
+      "name": "isPlainObject",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Vérifie qu'un objet est un \"plain object\" — `{}` ou `Object.create(null)`. Rejette les instances de classes, les `Array`, `Date`, `RegExp`, etc. Implémentation alignée sur jQuery.isPlainObject (com…"
+    },
+    "isUndefined": {
+      "name": "isUndefined",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Type guard — `true` si `value === undefined` (strict, jamais `null`)."
+    },
+    "isEmptyObject": {
+      "name": "isEmptyObject",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Vérifie qu'un objet existe et ne contient aucune clé propre énumérable."
+    },
+    "extend": {
+      "name": "extend",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fusionne plusieurs objets dans une cible — API compatible `jQuery.extend`. Mode `shallow` (défaut) : copie les clés du dernier au premier source. Mode `deep` (1er arg `true`) : récurse dans les pla…"
+    },
+    "typeOf": {
+      "name": "typeOf",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "isContainer": {
+      "name": "isContainer",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Type guard — `true` si la valeur est une instance de `Container` (DI)."
+    },
+    "isPromise": {
+      "name": "isPromise",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Vérifie qu'une valeur est une `Promise` ou un thenable (duck-typing `.then`). Accepte les promesses natives ET les bibliothèques tierces (Bluebird, etc.) qui implémentent le protocole Promises/A+."
+    },
+    "isSubclassOf": {
+      "name": "isSubclassOf",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Vérifie qu'une classe hérite (directement ou non) d'une autre."
+    },
+    "stripTrailingSlashes": {
+      "name": "stripTrailingSlashes",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Retire les barres obliques finales d'une chaîne, sans expression régulière. **Pourquoi pas `value.replace(/\\/+$/, \"\")`** — la forme évidente, et celle qui était recopiée à cinq endroits. Elle est Q…"
+    },
+    "escapeRegExp": {
+      "name": "escapeRegExp",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Neutralise les métacaractères d'une chaîne destinée à être insérée dans une expression régulière, pour qu'elle n'y vaille que pour elle-même. **Pourquoi c'est ici** — le même motif était recopié à …"
     },
     "Mediasoup": {
       "name": "Mediasoup",
@@ -305,6 +422,19 @@
         "controllers"
       ]
     },
+    "DevkitModule": {
+      "name": "DevkitModule",
+      "kind": "class",
+      "file": "src/packages/@nodefony/devkit/index.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "controllers",
+        "services"
+      ]
+    },
     "Documentation": {
       "name": "Documentation",
       "kind": "class",
@@ -341,6 +471,13 @@
       "decorators": [
         "services"
       ]
+    },
+    "graphql": {
+      "name": "graphql",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/index.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
     },
     "Frontend": {
       "name": "Frontend",
@@ -499,6 +636,214 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Treeshake commun : les externes sont sans effet de bord (équivalent `no-external`) SAUF `reflect-metadata`, dont le side-effect doit survivre."
+    },
+    "readSkillHeader": {
+      "name": "readSkillHeader",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSync.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La première phrase de la `description` d'un `SKILL.md`. Volontairement écrit à la main plutôt que par un analyseur YAML : le cœur ne dépend d'aucune bibliothèque pour lire deux champs, et un `SKILL…"
+    },
+    "discoverSkills": {
+      "name": "discoverSkills",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSync.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Découvre les skills livrés par les paquets installés. Un skill est un DOSSIER portant un `SKILL.md` — c'est la spécification, et c'est le seul critère retenu : ni le nom du paquet, ni un champ maison."
+    },
+    "readExistingPointers": {
+      "name": "readExistingPointers",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSync.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce que le dossier de découverte porte déjà : nom du skill → contenu."
+    },
+    "parseAiSyncArgv": {
+      "name": "parseAiSyncArgv",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSync.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Analyse les arguments de `ai:sync`."
+    },
+    "syncSkillPointers": {
+      "name": "syncSkillPointers",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSync.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Pose dans un projet les pointeurs vers les skills livrés par les paquets installés, et rend le plan de ce qui a été fait. C'est le geste ENTIER — découvrir, comparer, écrire — tel que l'exécutent s…"
+    },
+    "runAiSyncCommand": {
+      "name": "runAiSyncCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSync.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Commande `nodefony ai:sync` — pose dans le projet les pointeurs vers les skills livrés par les paquets installés. Standalone (0 boot), et il le FAUT : la commande doit répondre dans un terminal qui…"
+    },
+    "IDiscoveredSkill": {
+      "name": "IDiscoveredSkill",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Composition PURE de la synchronisation des skills d'agent. Reçoit un état déjà lu (les skills découverts, ce que le projet porte déjà) et conclut : que poser, que remplacer, que laisser. Aucune lec…"
+    },
+    "IPlannedSkill": {
+      "name": "IPlannedSkill",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le geste décidé pour un skill, prêt à être exécuté ou affiché."
+    },
+    "IAiSyncPlan": {
+      "name": "IAiSyncPlan",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le plan complet, tel qu'il s'affiche et tel qu'il s'exécute."
+    },
+    "SkillAction": {
+      "name": "SkillAction",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'il faut faire d'un skill, une fois comparé à ce que le projet porte."
+    },
+    "renderPointer": {
+      "name": "renderPointer",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le pointeur écrit dans le projet. Il ne COPIE pas le skill : il le désigne. C'est ce qui fait que le contenu se met à jour par `npm update` sans qu'aucun fichier du projet ne soit réécrit — une cop…"
+    },
+    "planSync": {
+      "name": "planSync",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Décide, pour chaque skill découvert, s'il faut poser, remplacer ou ne rien faire — et relève les pointeurs devenus orphelins. Un pointeur déjà identique n'est PAS réécrit : sans cette comparaison, …"
+    },
+    "renderPlan": {
+      "name": "renderPlan",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le plan pour un humain."
+    },
+    "SKILLS_DIR": {
+      "name": "SKILLS_DIR",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le dossier de découverte INTEROPÉRABLE. La spécification Agent Skills ne mandate AUCUN emplacement — elle ne définit que ce qu'un skill contient. La convention qui a émergé pour le partage entre cl…"
+    },
+    "parseCardArgv": {
+      "name": "parseCardArgv",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/card.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Parse l'argv après le mot `card` (ou son alias)."
+    },
+    "readColdCardInput": {
+      "name": "readColdCardInput",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/card.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose l'état de la carte à FROID : ce que des fichiers suffisent à établir. Que des lectures, aucune exécution : le `package.json` de l'application (nom, version, briques déclarées), celui du fra…"
+    },
+    "runCardCommand": {
+      "name": "runCardCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/card.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Commande `nodefony card` — orchestre : résout le projet, lit l'état statique, délègue la composition au module pur, rend."
+    },
+    "ICardAppInfo": {
+      "name": "ICardAppInfo",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/cardReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Composition de la CARTE DE VISITE d'une application — module PUR. Deux portes la servent, et c'est tout l'intérêt de vivre ici : - la CLI (`nodefony card`, standalone 0-boot — `cli/card.ts`), qui r…"
+    },
+    "ICardDoor": {
+      "name": "ICardDoor",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/cardReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une PORTE : un endroit où aller chercher la suite. Volontairement plat et ORDONNÉ (un tableau, pas un objet indexé) : ce qui est lu en premier est ce qui compte, et un lecteur qui s'arrête au milie…"
+    },
+    "ICardVerb": {
+      "name": "ICardVerb",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/cardReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un VERBE : une commande à lancer. ⚠️ Toujours préfixée `npx` — le binaire vit dans les `node_modules` de l'application, et `nodefony` nu rend 127."
+    },
+    "ICard": {
+      "name": "ICard",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/cardReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "La carte de visite complète de l'application."
+    },
+    "ICardInput": {
+      "name": "ICardInput",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/cardReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "État minimal dont {@link ICard} se dérive. INJECTÉ, jamais lu : c'est ce qui rend la construction de la carte éprouvable sans Kernel ni serveur, et ce qui l'empêche d'inventer quoi que ce soit."
+    },
+    "CardSource": {
+      "name": "CardSource",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/cardReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "D'où vient la liste de modules — et donc ce que la carte a le droit d'affirmer. `runtime` : l'application tourne, ce sont les modules CHARGÉS (le gating `policy`/`when` a déjà eu lieu). `static` : …"
+    },
+    "buildCard": {
+      "name": "buildCard",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/cardReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Construit la carte de visite d'une application à partir de son état. Fonction **PURE** : elle reçoit l'état, elle ne le lit pas. C'est ce qui la rend éprouvable sans Kernel ni serveur — et ce qui g…"
+    },
+    "renderCard": {
+      "name": "renderCard",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/cardReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend la carte pour un HUMAIN (ou un agent qui lit un terminal). PURE : elle ne touche ni au kernel ni au système de fichiers, donc elle s'éprouve seule. Écrite sur `stdout` par ses appelants plutôt…"
     },
     "ICliManifestCommand": {
       "name": "ICliManifestCommand",
@@ -708,13 +1053,20 @@
       "module": "@nodefony/core",
       "description": "Parse l'argv après le mot `env`."
     },
-    "runEnvCommand": {
-      "name": "runEnvCommand",
+    "buildProjectEnvReport": {
+      "name": "buildProjectEnvReport",
       "kind": "function",
       "file": "src/nodefony/src/cli/env.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Commande `nodefony env` — orchestre : résout le projet, lit la cascade et le catalogue, délègue le calcul au module pur, rend."
+    },
+    "runEnvCommand": {
+      "name": "runEnvCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/env.ts",
+      "exported": true,
+      "module": "@nodefony/core"
     },
     "IEnvLevel": {
       "name": "IEnvLevel",
@@ -859,6 +1211,56 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Racine du PROJET Nodefony courant (app générée / app utilisateur) : remonte depuis `from` jusqu'au premier dossier portant `nodefony.config.ts` + `package.json`. Deux consommateurs, une seule défin…"
+    },
+    "ISymbolEntry": {
+      "name": "ISymbolEntry",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/symbols.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un symbole tel que le graphe le décrit (surface utile, pas le fichier entier)."
+    },
+    "ISymbolsGraph": {
+      "name": "ISymbolsGraph",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/symbols.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le graphe contient, réduit à ce que ses lecteurs utilisent."
+    },
+    "resolveSymbolsFile": {
+      "name": "resolveSymbolsFile",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/symbols.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Trouve le graphe symbolique utilisable depuis `from`."
+    },
+    "readSymbolsGraph": {
+      "name": "readSymbolsGraph",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/symbols.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le graphe, ou `null` s'il est absent ou illisible. Ne lève jamais : un outil de découverte qui tombe sur un fichier corrompu doit le DIRE à son appelant, pas interrompre ce qu'il diagnostiquait."
+    },
+    "parseSymbolsArgv": {
+      "name": "parseSymbolsArgv",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/symbols.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Parse l'argv après le mot `symbols`."
+    },
+    "runSymbolsCommand": {
+      "name": "runSymbolsCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/symbols.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Commande `nodefony symbols` — le graphe, sans boot et sans dépôt. Trois usages, du plus fréquent au plus rare : un nom (« qu'est-ce que `AbstractCrudService` ? »), un paquet (`--module"
     },
     "SysExit": {
       "name": "SysExit",
@@ -1886,6 +2288,13 @@
       "module": "@nodefony/core",
       "description": "Variable de réglage de la durée de vie, en MINUTES (bornée par le plafond dur)."
     },
+    "Events": {
+      "name": "Events",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
     "CONSOLE_RUN_PROFILE": {
       "name": "CONSOLE_RUN_PROFILE",
       "kind": "const",
@@ -2397,6 +2806,120 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "FacetCount": {
+      "name": "FacetCount",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageFacets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Valeur d'un compteur tel qu'il traverse HTTP : un nombre, ou `null` quand le backend branché ne sait pas répondre. `null` n'est pas `0`, et c'est tout l'intérêt de ce type. Un store en curseur (Red…"
+    },
+    "FacetCounts": {
+      "name": "FacetCounts",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageFacets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les compteurs rendus, une clé par facette déclarée. Le type dérive de la déclaration : ajouter une facette à la constante ajoute sa clé ici, et le consommateur qui l'oublie ne compile plus."
+    },
+    "IFacetSpec": {
+      "name": "IFacetSpec",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageFacets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Déclaration des facettes d'une ressource : nom public → filtre de sa requête de liste. Le paramètre `Q` est le contrat de liste de la ressource (`ISessionListQuery`, `ITokenListQuery`…), ce qui int…"
+    },
+    "countFacets": {
+      "name": "countFacets",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/pageFacets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compte plusieurs **facettes** d'une même collection en un seul geste. Une facette est une question fermée posée à la collection entière — « combien de sessions authentifiées ? », « combien de clés …"
+    },
+    "facetDimensions": {
+      "name": "facetDimensions",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/pageFacets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les champs qu'une table de facettes **décompose** — donc ceux qu'un client ne peut pas filtrer sur l'endpoint qui les rend. Poser `?status=active` sur un endpoint dont les facettes sont justement l…"
+    },
+    "UNKNOWN_COUNT": {
+      "name": "UNKNOWN_COUNT",
+      "kind": "const",
+      "file": "src/nodefony/src/runtime/pageFacets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'un store rend quand il ne PEUT pas compter — convention de tous les backends du dépôt (`countSessions`, `countTokens`, `countEndpoints`). Une valeur sentinelle plutôt qu'une exception : ne pa…"
+    },
+    "FilterEach": {
+      "name": "FilterEach",
+      "kind": "interface",
+      "file": "src/nodefony/src/runtime/pageFilters.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un filtre à valeurs **multiples** : la clé peut être répétée dans l'URL (`?severity=ERROR&severity=CRITIC`), chaque occurrence étant validée par `each`. C'est une AUTORISATION explicite, jamais un …"
+    },
+    "IParseFiltersOptions": {
+      "name": "IParseFiltersOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/runtime/pageFilters.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réglages de lecture d'un point d'entrée qui porte plus que des filtres."
+    },
+    "FilterKind": {
+      "name": "FilterKind",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageFilters.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nature d'un filtre — ce qui suffit à le lire depuis une source clé→valeur. Volontairement CLOS et minuscule : ces trois natures couvrent la totalité des filtres exposés par les data planes du dépôt…"
+    },
+    "FilterDef": {
+      "name": "FilterDef",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageFilters.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Définition d'UN filtre : sa nature, la **liste fermée** de ses valeurs, ou l'une des deux répétée ({@link FilterEach}). Une liste vaut énumération — `[\"auth\", \"authz\", \"token\"]` — et devient l'allo…"
+    },
+    "IFilterSpec": {
+      "name": "IFilterSpec",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageFilters.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'un point d'entrée sait filtrer : nom public → définition. C'est une **donnée**, pas un comportement — une constante par ressource, à côté de son contrat. Elle ne vit pas sur le store : contra…"
+    },
+    "FilterValue": {
+      "name": "FilterValue",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageFilters.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le type JavaScript qu'une définition de filtre produit une fois lue — un **tableau** pour un filtre `{ each }`, la valeur seule sinon."
+    },
+    "FilterValues": {
+      "name": "FilterValues",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageFilters.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les filtres lus, **typés depuis la spec** : une énumération rend son union de littéraux, `boolean` rend un booléen, `int` un nombre. C'est ce qui permet de composer directement avec un `IXListQuery…"
+    },
+    "parseFilters": {
+      "name": "parseFilters",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/pageFilters.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "**Le** lecteur de filtres : transforme une source clé→valeur en filtres validés, selon la spec déclarée par la ressource. Fonction **pure**. Il remplace les lectures `one(query, \"x\")` que chaque da…"
+    },
     "PaginationModeError": {
       "name": "PaginationModeError",
       "kind": "class",
@@ -2407,6 +2930,17 @@
       "implements": [],
       "decorators": [],
       "description": "Erreur levée quand un `listPage` reçoit le champ de pagination du mode que son store **ne sait pas honorer** — un `cursor` pour un store offset, ou un `offset` de navigation pour un store curseur. …"
+    },
+    "CursorOrderError": {
+      "name": "CursorOrderError",
+      "kind": "class",
+      "file": "src/nodefony/src/runtime/pageGuard.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "nodefonyError",
+      "implements": [],
+      "decorators": [],
+      "description": "Erreur levée quand un store paginant par **curseur** reçoit un {@link IPageQuery.order} : il ne peut pas l'honorer, et l'avaler mentirait. Ce n'est pas une limite d'implémentation, c'est la nature …"
     },
     "PaginationMode": {
       "name": "PaginationMode",
@@ -2423,6 +2957,90 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Fait respecter le contrat « un store expose UN seul mode » au point d'entrée d'un `listPage`, sur la requête **brute** reçue de l'appelant (avant qu'elle ne soit normalisée) : rejette explicitement…"
+    },
+    "PageQueryError": {
+      "name": "PageQueryError",
+      "kind": "class",
+      "file": "src/nodefony/src/runtime/pageQuery.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "nodefonyError",
+      "implements": [],
+      "decorators": [],
+      "description": "Erreur d'une requête de page mal formée ou non honorable par le point d'entrée : `order` sur un endpoint qui ne trie pas, champ hors allowlist, sens de tri inconnu. `code = 400` : la faute est au c…"
+    },
+    "IParsePageQueryOptions": {
+      "name": "IParsePageQueryOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/runtime/pageQuery.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réglages d'un point d'entrée paginé : ses bornes et ce qu'il accepte de trier. Les défauts (`50` / `200`) sont ceux que tous les data planes admin du dépôt appliquaient déjà chacun de leur côté — i…"
+    },
+    "PageQuerySource": {
+      "name": "PageQuerySource",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageQuery.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Source d'où extraire une requête de page, **agnostique de sa provenance** : une query string déjà parsée (`?limit=20&offset=40`), le corps JSON d'une requête `QUERY` (RFC 10008), ou tout autre port…"
+    },
+    "parsePageQuery": {
+      "name": "parsePageQuery",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/pageQuery.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "**Le** traducteur d'une requête de page : transforme une source clé→valeur en {@link IPageQuery} borné et validé. Fonction **pure** — aucun accès au kernel, à l'ALS ni à la requête HTTP. Il remplac…"
+    },
+    "PAGE_QUERY_KEYS": {
+      "name": "PAGE_QUERY_KEYS",
+      "kind": "const",
+      "file": "src/nodefony/src/runtime/pageQuery.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les clés que le contrat de page revendique sur le fil — **source unique**. Elle existe pour un consommateur : `parseFilters`, qui doit distinguer un paramètre de pagination d'un filtre inconnu, et …"
+    },
+    "singleValue": {
+      "name": "singleValue",
+      "kind": "const",
+      "file": "src/nodefony/src/runtime/pageQuery.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "**La** lecture d'une valeur unique dans une source de page — partagée par {@link parsePageQuery} et `parseFilters`. Une {@link PageQuerySource} peut porter plusieurs valeurs par clé (query string r…"
+    },
+    "FieldReader": {
+      "name": "FieldReader",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageSort.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit la valeur d'un champ triable sur un élément. Chaque store fournit la sienne : le nom du champ est **public** (celui de l'URL), la façon de l'atteindre est interne."
+    },
+    "renameOrderFields": {
+      "name": "renameOrderFields",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/pageSort.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Réécrit les noms de champs d'un `order` selon une table d'alias — le pont entre le vocabulaire **public** (celui de l'URL) et le schéma d'un backend. Il existe parce que chaque store le refaisait :…"
+    },
+    "pickOrder": {
+      "name": "pickOrder",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/pageSort.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Retient d'un `order` demandé les seuls couples dont le champ est **déclaré triable**, et retombe sur l'ordre par défaut s'il n'en reste aucun. C'est le dernier étage d'une garde à deux niveaux, et …"
+    },
+    "compareByOrder": {
+      "name": "compareByOrder",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/pageSort.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fabrique le comparateur d'un `order` du contrat de page — **le** tri en mémoire de Nodefony, partagé par tous les stores qui n'ont pas de moteur pour le faire à leur place. Il existe parce que chaq…"
     },
     "redactSecrets": {
       "name": "redactSecrets",
@@ -2644,6 +3262,22 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "SeverityName": {
+      "name": "SeverityName",
+      "kind": "type",
+      "file": "src/nodefony/src/syslog/Pdu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un nom de sévérité RFC 5424 (hors extension `SPINNER`)."
+    },
+    "SEVERITY_NAMES": {
+      "name": "SEVERITY_NAMES",
+      "kind": "const",
+      "file": "src/nodefony/src/syslog/Pdu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les noms de sévérité RFC 5424, **dans l'ordre de l'enum** (l'index EST la valeur : `SEVERITY_NAMES[3] === \"ERROR\"`). `SPINNER` (-1) en est absent : c'est une extension d'affichage CLI, jamais un ni…"
+    },
     "Syslog": {
       "name": "Syslog",
       "kind": "class",
@@ -2760,6 +3394,15 @@
       "extends": null,
       "description": "Enveloppe de réponse d'un endpoint admin. Un handler peut renvoyer directement sa donnée (`T`) — le broker assume `{ status: 200, body: T }` — ou cette enveloppe pour piloter le statut et les en-tê…"
     },
+    "IAdminPageCapabilities": {
+      "name": "IAdminPageCapabilities",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'un endpoint paginé sait faire — **publié**, pour que son client cesse de le deviner. Une console d'administration doit savoir quelles colonnes proposer au tri et quels filtres offrir. Sans ce…"
+    },
     "IAdminEndpoint": {
       "name": "IAdminEndpoint",
       "kind": "interface",
@@ -2802,7 +3445,7 @@
       "file": "src/nodefony/src/types/IAdminApi.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Contrat d'exposition d'admin (Studio data plane) — défini dans le CORE. Vit dans `@nodefony/core` (et non dans framework/http) pour une raison d'architecture : la donnée d'admin peut être produite …"
+      "description": "Méthodes HTTP supportées par le data plane admin."
     },
     "AdminHandler": {
       "name": "AdminHandler",
@@ -2979,6 +3622,15 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "**LE contrat de pagination unique de Nodefony.** Tous les stores, toutes les API (présents et futurs) paginent avec ce type — c'est un standard de développement, jamais une pagination maison au cas…"
+    },
+    "ISortableSource": {
+      "name": "ISortableSource",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IPage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "**Une capacité de tri se DÉCLARE** — le socle commun à tout ce qui rend des pages triables (stores de sessions, de jetons, d'endpoints, dépôts d'utilisateurs…). Cette interface existe pour qu'il n'…"
     },
     "IPage": {
       "name": "IPage",
@@ -3208,6 +3860,14 @@
       "module": "@nodefony/core",
       "description": "Moteur de scaffold — PUR : réponses validées → fichiers écrits. Aucune I/O terminal, aucun kernel : le même moteur sert le CLI rapide (argv), le CLI interactif (readline) et Studio (endpoint data p…"
     },
+    "resolveDatabase": {
+      "name": "resolveDatabase",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose le bloc `db` offert aux gabarits — `null` pour sqlite, qui n'a ni service ni URL (le fichier vit dans `var/databases/`, l'ORM s'en charge seul)."
+    },
     "findPackageRoot": {
       "name": "findPackageRoot",
       "kind": "function",
@@ -3285,7 +3945,7 @@
       "file": "src/nodefony/src/cli/scaffold/engine.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Câble une classe générée dans le décorateur-liste de l'`index.ts` cible (`@controllers([...])`, `@entities([...])`) : ajoute l'import après le dernier import existant + insère le nom dans le tablea…"
+      "description": "Câble une classe générée dans le décorateur-liste de l'`index.ts` cible (`@controllers([...])`, `@entities([...])`, `@services([...])`) : ajoute l'import après le dernier import existant + insère l…"
     },
     "runScaffold": {
       "name": "runScaffold",
@@ -3319,13 +3979,28 @@
       "module": "@nodefony/core",
       "description": "Câble `this.addCommand(<Classe>)` dans le constructeur du Module d'un `index.ts` : ajoute l'import après le dernier import, insère l'appel juste après le `super(…)` du constructeur. L'ancre est le …"
     },
-    "sampleValue": {
-      "name": "sampleValue",
+    "filterProbe": {
+      "name": "filterProbe",
       "kind": "function",
       "file": "src/nodefony/src/cli/scaffold/engine.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Valeur d'exemple d'un champ — VALIDE au regard du schéma de l'entité. Un échantillon n'est pas une décoration : les tests générés s'en servent pour insérer, et la documentation pour montrer un appe…"
+    },
+    "malformedProbe": {
+      "name": "malformedProbe",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le filtre sur lequel une valeur MAL FORMÉE existe, et de quoi la fabriquer — ou `null` si aucun filtre de l'entité ne peut en refuser une. Toutes les natures ne refusent pas : un filtre `\"string\"` …"
+    },
+    "sampleValue": {
+      "name": "sampleValue",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core"
     },
     "findModuleClassAnchor": {
       "name": "findModuleClassAnchor",
@@ -3357,6 +4032,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Paramètres frontend par framework — type registerEntry, entry, nœud de montage, ET les dépendances npm (SOURCE UNIQUE : consommée par le `package.json.tpl` de `create app` ET par `create front` qui…"
+    },
+    "DATABASE_PARAMS": {
+      "name": "DATABASE_PARAMS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Paramètres de la base SQL retenue au scaffold — SOURCE UNIQUE du service docker, du port publié et de l'URL de connexion, consommée par les TROIS gabarits qui en parlent (`compose.yaml`, `.env`, `R…"
     },
     "EntityFieldError": {
       "name": "EntityFieldError",
@@ -3528,6 +4211,32 @@
       "module": "@nodefony/core",
       "description": "Pose les questions de la spec NON déjà répondues (les flags argv gagnent — on ne redemande jamais ce que l'utilisateur a déjà dit) et retourne les réponses fusionnées. Les questions `askIf` non sat…"
     },
+    "IRootManifest": {
+      "name": "IRootManifest",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/moduleLayout.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "OÙ les modules d'un dépôt vivent, et sous quel NOM ils naissent. ## Le problème que ça règle `create module` posait ses modules dans `modules/<nom>` en dur, avec un scope npm dérivé du nom de l'app…"
+    },
+    "IModuleLayout": {
+      "name": "IModuleLayout",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/moduleLayout.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Où poser un module, sous quel nom, et ce que le dépôt déclare déjà."
+    },
+    "resolveModuleLayout": {
+      "name": "resolveModuleLayout",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/moduleLayout.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Déduit le layout des modules à partir du manifeste de la racine. Fonction PURE (aucun accès disque) : le manifeste est lu par l'appelant, ce qui la rend éprouvable sur des dépôts qu'on n'a pas."
+    },
     "IReservedEntity": {
       "name": "IReservedEntity",
       "kind": "interface",
@@ -3584,6 +4293,13 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "TDatabaseChoice": {
+      "name": "TDatabaseChoice",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
     "TControllerKindChoice": {
       "name": "TControllerKindChoice",
       "kind": "type",
@@ -3635,6 +4351,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Presets d'app : la vitrine complète (défaut) ou la base saine http+framework."
+    },
+    "DATABASE_CHOICES": {
+      "name": "DATABASE_CHOICES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Base SQL de développement — le dialecte que l'app vise, choisi À LA CRÉATION. `sqlite` reste le défaut : c'est le seul qui n'exige aucun service, et la promesse du framework est qu'une app fraîche …"
     },
     "CONTROLLER_KIND_CHOICES": {
       "name": "CONTROLLER_KIND_CHOICES",
@@ -4483,6 +5207,56 @@
       "implements": [],
       "decorators": []
     },
+    "ILastBootBrick": {
+      "name": "ILastBootBrick",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/lastBoot.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une brique qui n'a pas été chargée, et la raison qui l'explique."
+    },
+    "ILastBoot": {
+      "name": "ILastBoot",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/lastBoot.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'on sait du dernier démarrage — abouti ou non. Chaque champ répond à une question qu'on se pose devant une application dont on n'a pas vu démarrer : QUAND (donc : est-ce encore d'actualité ?),…"
+    },
+    "writeLastBoot": {
+      "name": "writeLastBoot",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/lastBoot.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Écrit le bilan, SANS JAMAIS pouvoir aggraver la situation. Volontairement SYNCHRONE. Sur le chemin d'échec, elle est appelée juste avant que l'erreur soit relancée et que l'orchestrateur termine le…"
+    },
+    "readLastBoot": {
+      "name": "readLastBoot",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/lastBoot.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le bilan, sans exécuter quoi que ce soit."
+    },
+    "formatAge": {
+      "name": "formatAge",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/lastBoot.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend l'ancienneté d'un bilan en clair (« il y a 3 jours »). L'âge n'est pas un ornement : il décide de la conduite à tenir. Un bilan de la minute précédente décrit l'état courant ; un bilan de la s…"
+    },
+    "LAST_BOOT_FILE": {
+      "name": "LAST_BOOT_FILE",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/checks/lastBoot.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Emplacement du bilan, relatif à la racine de l'application."
+    },
     "IPackageFinding": {
       "name": "IPackageFinding",
       "kind": "interface",
@@ -4516,13 +5290,64 @@
       "module": "@nodefony/core",
       "description": "Analyse les paquets et rend les manquements trouvés."
     },
+    "IReadinessFinding": {
+      "name": "IReadinessFinding",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/readiness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un manquement qui empêche — ou empêchera — l'application de démarrer."
+    },
+    "IReadinessResult": {
+      "name": "IReadinessResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/readiness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le contrôle a pu regarder — et ce qu'il n'a PAS pu."
+    },
+    "IPortProbe": {
+      "name": "IPortProbe",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/readiness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le VERDICT d'une sonde de port, injecté — jamais mesuré ici. Une capacité se CONSTATE et se transmet ; la faire mesurer par la règle l'aurait rendue inéprouvable sans ouvrir de vrais ports, donc no…"
+    },
+    "declaredModules": {
+      "name": "declaredModules",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/readiness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Noms des briques déclarées dans le manifeste `modules` de `nodefony.config.ts`. Lecture TEXTUELLE, et c'est un choix : le manifeste est du TypeScript, il ne s'évalue pas sans construire l'applicati…"
+    },
+    "checkReadiness": {
+      "name": "checkReadiness",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/readiness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Contrôle l'état d'installation et l'environnement d'une application."
+    },
+    "parseCheckArgv": {
+      "name": "parseCheckArgv",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Parse l'argv après le mot `check` (ou son alias `doctor`). La borne est le mot de commande, pas la position : le fast-path passe `process.argv` entier (`node`, chemin du binaire, `check`, …) tandis…"
+    },
     "runCheckCommand": {
       "name": "runCheckCommand",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/runCheck.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Lance le contrôle et écrit le rapport."
+      "description": "Lance le contrôle et écrit le rapport. **La cible est l'APPLICATION, pas le dossier courant.** On remonte donc au premier dossier qui porte `nodefony.config.ts` (`findProjectRoot`, la même définiti…"
     },
     "IWiringFinding": {
       "name": "IWiringFinding",
@@ -4567,6 +5392,17 @@
       "implements": [],
       "decorators": [],
       "description": "Commande `nodefony build` (alias `compile`) — délègue à la **toolchain CLI** (`turbo run build` → chaque `rollup.config.ts` de workspace), source UNIQUE du build. Ne build PLUS via un service rollu…"
+    },
+    "Card": {
+      "name": "Card",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/CardCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony card` — la carte de visite de l'application : qui répond, où aller ensuite, quoi lancer. C'est la PREMIÈRE commande d'un agent (ou d'un humain) qui arrive dans une application qu…"
     },
     "Check": {
       "name": "Check",
@@ -4733,6 +5569,17 @@
       "implements": [],
       "decorators": [],
       "description": "Commande `nodefony stop` — arrêt PROPRE et COMPLET des process de dev (superviseur + serveur + Vite). Remplace le `pkill -9` manuel ; idempotent. **Exécutée en « standalone » (zéro boot, hors trunk…"
+    },
+    "Symbols": {
+      "name": "Symbols",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony symbols` — le graphe symbolique du framework, en O(1). Répond à « qu'est-ce que ce symbole, où est-il défini, qui l'étend » sans ouvrir un `.d.ts` ni parcourir des sources — et d…"
     },
     "services": {
       "name": "services",
@@ -5320,6 +6167,14 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Options des flags détacheur reconnues dans argv."
+    },
+    "childEnv": {
+      "name": "childEnv",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/detachedStart.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Environnement du child détaché — hérité du parent, MOINS ce qui ne se transmet pas. `DELEGATED_ENV` est une garde **anti-boucle de process** : le CLI global la pose sur lui-même juste avant de char…"
     },
     "parseDetachArgs": {
       "name": "parseDetachArgs",
@@ -7186,6 +8041,121 @@
       "implements": [],
       "decorators": []
     },
+    "DevkitConfigInput": {
+      "name": "DevkitConfigInput",
+      "kind": "type",
+      "file": "src/packages/@nodefony/devkit/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Config telle que l'APP l'écrit dans `use()` — tous les champs optionnels."
+    },
+    "DevkitConfig": {
+      "name": "DevkitConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/devkit/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Config telle que le CODE la lit — défauts appliqués, rien d'optionnel."
+    },
+    "devkitConfigSchema": {
+      "name": "devkitConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/devkit/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/devkit"
+    },
+    "defineDevkitConfig": {
+      "name": "defineDevkitConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/devkit"
+    },
+    "devkitConfigJsonSchema": {
+      "name": "devkitConfigJsonSchema",
+      "kind": "function",
+      "file": "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "JSON Schema de la config — Studio en dérive son formulaire d'édition (libellés, types, défauts, descriptions), sans une ligne d'UI écrite à la main."
+    },
+    "DevkitController": {
+      "name": "DevkitController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "La carte de visite de l'application, servie en HTTP. ## Pourquoi cette route n'est pas `/` Ce qu'elle rend — modules chargés, chemins de documentation, commandes à lancer — aide pendant le développ…"
+    },
+    "IDevkitService": {
+      "name": "IDevkitService",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": null,
+      "description": "API publique de `DevkitService` (injectable, nom `devkit`). L'interface est le CONTRAT : ce que les autres modules (et Studio) peuvent appeler. Tout ce qui n'est pas ici est un détail d'implémentat…"
+    },
+    "IDevkitCard": {
+      "name": "IDevkitCard",
+      "kind": "type",
+      "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Le contrat de la carte est celui du CŒUR — ces noms n'en sont que les alias, conservés parce qu'ils forment la surface publique de ce module. La forme de la carte ne peut avoir qu'une définition : …"
+    },
+    "IDevkitAppInfo": {
+      "name": "IDevkitAppInfo",
+      "kind": "type",
+      "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Identité de l'application qui répond."
+    },
+    "IDevkitDoor": {
+      "name": "IDevkitDoor",
+      "kind": "type",
+      "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Une PORTE : un endroit où aller chercher la suite."
+    },
+    "IDevkitVerb": {
+      "name": "IDevkitVerb",
+      "kind": "type",
+      "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Un VERBE : une commande à lancer (toujours préfixée `npx`)."
+    },
+    "IDevkitCardInput": {
+      "name": "IDevkitCardInput",
+      "kind": "type",
+      "file": "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "L'état minimal dont la carte se dérive — injecté, jamais lu."
+    },
+    "DevkitService": {
+      "name": "DevkitService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": "Service",
+      "implements": [
+        "IDevkitService"
+      ],
+      "decorators": [
+        "injectable"
+      ],
+      "description": "Service principal du module — la logique vit ici, pas dans les controllers (un controller traduit du HTTP/WS ; un service, lui, est réutilisable par la CLI, un job, un autre module). Cycle : `const…"
+    },
     "DocumentationConfig": {
       "name": "DocumentationConfig",
       "kind": "type",
@@ -8088,6 +9058,14 @@
       "decorators": [],
       "description": "Store d'endpoints webhook **Drizzle** (driver `better-sqlite3`) — implémentation SQL d'{@link IWebhookStore} au-dessus d'un unique repository `@nodefony/orm-core` (`webhook_endpoint`). Persistance …"
     },
+    "likeCond": {
+      "name": "likeCond",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/likeSql.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Compose une condition `LIKE` **avec sa clause `ESCAPE`** — le seul endroit de l'adapter Drizzle qui écrive un `LIKE`. La clause n'est pas un raffinement : sans elle, le contrat `$like` n'a pas une …"
+    },
     "UserListFilters": {
       "name": "UserListFilters",
       "kind": "interface",
@@ -8145,7 +9123,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Sélectionne les `id` d'une **page** d'endpoints webhook (filtres + `LIMIT/ OFFSET`), sans matérialiser les lignes. `limit + 1` → `hasNext` sans `COUNT`. Ordre contractuel figé (pas d'`order` client…"
+      "description": "Sélectionne les `id` d'une **page** d'endpoints webhook (filtres + tri + `LIMIT/OFFSET`), sans matérialiser les lignes. `limit + 1` → `hasNext` sans `COUNT`. Le tri descend dans le `ORDER BY` — jam…"
     },
     "countWebhookEndpoints": {
       "name": "countWebhookEndpoints",
@@ -8775,6 +9753,142 @@
       "exported": true,
       "module": "@nodefony/framework"
     },
+    "Get": {
+      "name": "Get",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Post": {
+      "name": "Post",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Put": {
+      "name": "Put",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Delete": {
+      "name": "Delete",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Patch": {
+      "name": "Patch",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Options": {
+      "name": "Options",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Head": {
+      "name": "Head",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "CsrfProtect": {
+      "name": "CsrfProtect",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "`@CsrfProtect()` — opt-IN à la défense CSRF **synchronizer token** (double-submit signé HMAC) EN PLUS de la défense globale Fetch Metadata/Origin (étape 1, toujours active). Pour les mutations à ha…"
+    },
+    "CsrfExempt": {
+      "name": "CsrfExempt",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "`@CsrfExempt()` — opt-OUT de la défense CSRF pour une route, **en conservant l'authentification et l'autorisation** (≠ `@Anonymous`/`@BypassFirewall` qui coupent l'auth). Pour un webhook ou une API…"
+    },
+    "Param": {
+      "name": "Param",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Query": {
+      "name": "Query",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Headers": {
+      "name": "Headers",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Cookie": {
+      "name": "Cookie",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Session": {
+      "name": "Session",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "CurrentUser": {
+      "name": "CurrentUser",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "`@CurrentUser() user: IUser` — injecte l'utilisateur de l'ALS (jamais le credential)."
+    },
+    "Req": {
+      "name": "Req",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "Res": {
+      "name": "Res",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "UploadedFile": {
+      "name": "UploadedFile",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "UploadedFiles": {
+      "name": "UploadedFiles",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
     "IAdminRoute": {
       "name": "IAdminRoute",
       "kind": "interface",
@@ -9131,7 +10245,7 @@
       "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "description": "Symboles TS exportés d'un module + descriptions TSDoc, lus depuis `.ai/symbols.json` (à la racine du repo, `process.cwd()`). 100 % auto-généré (jamais de `.d.ts` manuel) → zéro divergence avec le c…"
+      "description": "Symboles TS exportés d'un module + descriptions TSDoc, lus depuis `.ai/symbols.json` (à la racine de l'application, cf {@link appRoot}). 100 % auto-généré (jamais de `.d.ts` manuel) → zéro divergen…"
     },
     "readDependencies": {
       "name": "readDependencies",
@@ -9564,6 +10678,22 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Producteur `IAdminApi` du **syslog** (core) — exposé sous `/nodefony/syslog/api/*`. 4ᵉ et dernier producteur de P10.3. Le syslog vit dans `@nodefony/core` et ne peut pas importer framework → framew…"
+    },
+    "SYSLOG_SORTABLE": {
+      "name": "SYSLOG_SORTABLE",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/src/syslogFilters.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Ce que le journal sait TRIER — un seul axe, le temps. Le nom est public (celui de la ligne rendue, `ILogRecord.timeStamp`) ; l'axe technique du driver est l'`uid` du Pdu, un compteur monotone d'émi…"
+    },
+    "SYSLOG_FILTERS": {
+      "name": "SYSLOG_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/src/syslogFilters.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Le vocabulaire de filtre du journal — une **donnée**, publiée telle quelle dans le catalogue admin. Il remplace une lecture à la main qui acceptait tout et ne validait rien : `?severity=CRITICAL` (…"
     },
     "Template": {
       "name": "Template",
@@ -10284,7 +11414,7 @@
       "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "extends": null,
+      "extends": "ISortableSource",
       "description": "Contrat **unique** d'un backend de stockage de session (File, Redis, SQL/Drizzle…). Source de vérité unifiée — l'ex-doublon `sessionStorageInterface` (any) n'est plus qu'un alias transitionnel. Enr…"
     },
     "ISession": {
@@ -11223,6 +12353,30 @@
       "decorators": [],
       "description": "Service bootable du module `@nodefony/mongoose` (driver NoSQL). Au boot du kernel (`onBoot`), instancie un {@link MongooseOrm} (adapter orm-core) **par connecteur** déclaré dans la config et le con…"
     },
+    "mongoOrder": {
+      "name": "mongoOrder",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/mongoOrder.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Borne un `order` reçu à ce que le store DÉCLARE savoir trier, puis l'exprime dans le schéma Mongo — les deux gestes que tout store Mongo doit faire, dans cet ordre, avant de descendre le tri au dri…"
+    },
+    "toMongoSort": {
+      "name": "toMongoSort",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/mongoOrder.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Forme `{ champ: 1 | -1 }` attendue par `Model.sort()` — le dernier maillon, pour les stores qui parlent au driver Mongo directement plutôt que par `paginate()`."
+    },
+    "MONGO_ORDER_ALIASES": {
+      "name": "MONGO_ORDER_ALIASES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/mongoOrder.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "**La** table d'alias du dialecte Mongo — `id` public → `_id` au repos. Elle vit ici, chez l'adapter qui possède la convention, et non dans le vocabulaire de chaque ressource : ce n'est pas une prop…"
+    },
     "MongooseTokenStore": {
       "name": "MongooseTokenStore",
       "kind": "class",
@@ -11457,7 +12611,7 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "extends": "IPageQuery",
-      "description": "Requête de page pour un {@link IRepository} — le contrat de page core ({@link IPageQuery}) enrichi du `criteria` typé de l'ORM. C'est la forme que {@link paginate} consomme. Offset-first : `cursor`…"
+      "description": "Requête de page pour un {@link IRepository} — le contrat de page core ({@link IPageQuery}) enrichi du `criteria` typé de l'ORM. C'est la forme que {@link paginate} consomme. **Offset-first** : `cur…"
     },
     "FieldOperators": {
       "name": "FieldOperators",
@@ -11604,6 +12758,30 @@
       "module": "@nodefony/orm-core",
       "description": "Indique si une valeur d'écriture est un objet d'{@link UpdateOperators}. Même heuristique que {@link isFieldOperators} : objet simple, non-`null`, non-tableau, dont **toutes** les clés propres sont…"
     },
+    "escapeLikeTerm": {
+      "name": "escapeLikeTerm",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Neutralise les métacaractères d'un **texte** pour l'insérer dans un motif `$like` — `%`, `_` et l'antislash lui-même. À utiliser dès qu'un fragment de motif vient d'un humain ou d'une donnée : sans…"
+    },
+    "likePatternToRegExp": {
+      "name": "likePatternToRegExp",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Traduit un motif `$like` en expression régulière **ancrée** — pour les stores qui n'ont pas de `LIKE` (MongoDB, implémentations en mémoire). C'est la contrepartie exacte de ce qu'un moteur SQL fait…"
+    },
+    "searchCriteria": {
+      "name": "searchCriteria",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Traduit un terme de recherche `?q=` en critère portable — **la** règle de recherche d'orm-core, en un seul exemplaire. Elle existe parce qu'elle était écrite plusieurs fois, presque à l'identique, …"
+    },
     "OPERATOR_KEYS": {
       "name": "OPERATOR_KEYS",
       "kind": "const",
@@ -11619,6 +12797,14 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "description": "Liste figée des opérateurs d'**écriture** reconnus dans le `update` d'un `upsert` (cf {@link UpdateOperators}). Source de vérité unique partagée par tous les adapters — pendant, côté écriture, de {…"
+    },
+    "LIKE_ESCAPE_CHAR": {
+      "name": "LIKE_ESCAPE_CHAR",
+      "kind": "const",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Le caractère d'échappement des motifs `$like` du contrat portable. Il ne se choisit pas librement : **PostgreSQL et MySQL appliquent déjà `\\`** quand aucune clause `ESCAPE` n'est écrite, si bien qu…"
     },
     "IEntityDefinition": {
       "name": "IEntityDefinition",
@@ -11791,6 +12977,15 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "description": "Détermine si la sonde de flux ORM (`queryFlowMonitor`) doit être active : **OFF en production** (coût nul sur le hot path des requêtes), **ON sinon** (observabilité dev / Supervision). Override exp…"
+    },
+    "IPaginateOptions": {
+      "name": "IPaginateOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Réglages d'un `paginate` — ce que ce point d'entrée sait faire en plus de découper."
     },
     "paginate": {
       "name": "paginate",
@@ -12255,6 +13450,59 @@
       "module": "@nodefony/realtime",
       "extends": null,
       "description": "Jeton realtime — surface MINIMALE de l'identité d'une connexion WebSocket. Sous-ensemble STRICT de `@nodefony/security`'s `IToken` (TypeScript structural typing → toute classe `Token` security l'im…"
+    },
+    "IRealtimeFrame": {
+      "name": "IRealtimeFrame",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Frame JSON-RPC 2.0 telle qu'elle circule sur la socket, dans les deux sens. Volontairement permissive : un test lit `method`, `params`, `result` ou `error` selon ce qu'il éprouve, et le harnais ne …"
+    },
+    "IHarnessClose": {
+      "name": "IHarnessClose",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Fermeture demandée par le serveur (code RFC 6455 + raison)."
+    },
+    "IHarnessDenied": {
+      "name": "IHarnessDenied",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Refus d'abonnement notifié au client (`realtime:denied`)."
+    },
+    "IRealtimeHarnessOptions": {
+      "name": "IRealtimeHarnessOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Écart au décor par défaut du harnais."
+    },
+    "IRealtimeHarness": {
+      "name": "IRealtimeHarness",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Vue de test d'un controller temps réel connecté : ce qu'il a reçu, ce qu'il a émis, et de quoi le piloter frame par frame."
+    },
+    "createRealtimeHarness": {
+      "name": "createRealtimeHarness",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Monte un controller temps réel sur une fausse connexion et rend de quoi le piloter. La fabrique reçoit le contexte à passer au constructeur : c'est la seule chose que le harnais ne peut pas deviner…"
     },
     "RedisConfig": {
       "name": "RedisConfig",
@@ -12797,7 +14045,7 @@
       "file": "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "extends": null,
+      "extends": "ISortableSource",
       "description": "Contrat du store de jetons — implémentations enregistrées via `registerTokenStore`, sélectionnées par config. Toutes les opérations sont **asynchrones** (un backend ORM/Redis fait des I/O ; la réfé…"
     },
     "TokenRevokeReason": {
@@ -12807,6 +14055,14 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Raison de révocation d'un jeton — tracée pour l'audit de sécurité."
+    },
+    "TokenStatus": {
+      "name": "TokenStatus",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "État de vie d'un jeton — partition exhaustive, évaluée révoqué → expiré → actif."
     },
     "ITotpSecret": {
       "name": "ITotpSecret",
@@ -12947,7 +14203,7 @@
       "file": "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "extends": null,
+      "extends": "ISortableSource",
       "description": "Persistance des **endpoints webhook** (configuration durable, pas un cache). Backend interchangeable (Memory dev/test · Drizzle SQL · Mongoose) via le registre {@link ../src/webhook/webhookStoreReg…"
     },
     "AccessDeniedError": {
@@ -13717,7 +14973,7 @@
       "file": "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
       "exported": true,
       "module": "@nodefony/user",
-      "extends": "IRepository",
+      "extends": "IRepository, ISortableSource",
       "description": "Repository **spécialisé utilisateur** — `IRepository<IPasswordAuthenticatedUser>` enrichi de finders métier. Étend le contrat CRUD portable de `@nodefony/orm-core` (`find`, `create`, `withTransacti…"
     },
     "UserNotFoundError": {
@@ -13838,6 +15094,38 @@
       "decorators": [],
       "description": "Annuaire d'utilisateurs **en mémoire** — implémentation de référence du contrat {@link IUserRepository} sur une `Map` (aucun ORM). Trois usages : - **tests de charge** : zéro I/O (pas de sync SQLit…"
     },
+    "IUserCounts": {
+      "name": "IUserCounts",
+      "kind": "type",
+      "file": "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Les compteurs rendus par `GET /nodefony/user/api/users/stats` — les facettes déclarées, plus `admins` que le service compose depuis le rôle configuré."
+    },
+    "USER_FILTERS": {
+      "name": "USER_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "**Le vocabulaire de filtre des utilisateurs**, en noms PUBLICS — ceux qu'un administrateur écrit dans l'URL (`?role=ROLE_ADMIN&enabled=false`). Frère de `USER_SORTABLE_FIELDS` (`userSort.ts`), et p…"
+    },
+    "USER_FACETS": {
+      "name": "USER_FACETS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "**Les facettes des utilisateurs** — les questions fermées posées à l'annuaire ENTIER pour les cartes de tête. Les populations se **recoupent** délibérément : un compte peut être désactivé ET verrou…"
+    },
+    "USER_STATS_FILTERS": {
+      "name": "USER_STATS_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Ce que l'endpoint de COMPTEURS accepte de filtrer — `USER_FILTERS` **moins** les champs que les facettes décomposent (`enabled`, `locked`, `hasSocial`). Les demander ici rendrait une réponse contra…"
+    },
     "ProfileField": {
       "name": "ProfileField",
       "kind": "type",
@@ -13884,6 +15172,38 @@
       "exported": true,
       "module": "@nodefony/user",
       "description": "Logique PURE du profil utilisateur (claims OIDC stockés dans `metadata.profile`) — validation d'un patch client, projection en DTO par allowlist, fusion dans la `metadata` existante. Aucun I/O, auc…"
+    },
+    "USER_SORTABLE_FIELDS": {
+      "name": "USER_SORTABLE_FIELDS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/userSort.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "**Le vocabulaire de tri des utilisateurs** — source unique, en noms publics. Il existe parce que cette liste était écrite DEUX fois, et qu'elle avait déjà divergé : l'adapter SQL autorisait `id`, l…"
+    },
+    "USER_SORTABLE_FIELDS_IN_MEMORY": {
+      "name": "USER_SORTABLE_FIELDS_IN_MEMORY",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/userSort.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Sous-ensemble réellement triable par l'annuaire **en mémoire**. `BaseUser` ne porte ni `createdAt` ni `updatedAt` — ce sont des colonnes des schémas persistants, pas des attributs du modèle. Déclar…"
+    },
+    "USER_SORTABLE_FIELDS_COMMON": {
+      "name": "USER_SORTABLE_FIELDS_COMMON",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/userSort.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Socle garanti par **tous** les backends d'utilisateurs. C'est ce sur quoi une interface peut compter sans savoir quelle base est branchée."
+    },
+    "USER_DEFAULT_ORDER": {
+      "name": "USER_DEFAULT_ORDER",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/userSort.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Ordre appliqué quand le client n'en demande aucun : par identifiant croissant — le seul champ toujours présent et unique, donc le seul qui rende une pagination offset déterministe sans départage su…"
     },
     "registerUserStore": {
       "name": "registerUserStore",
@@ -14029,6 +15349,17 @@
       "exported": true,
       "module": "@nodefony/vector",
       "extends": null
+    },
+    "DevkitError": {
+      "name": "DevkitError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/errors/DevkitError.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": "Error",
+      "implements": [],
+      "decorators": [],
+      "description": "Erreur du module devkit. Deux champs qui font la différence en production : - `code` : identifiant MACHINE (stable, grep-able, consommé par Studio et l'audit) — le message, lui, peut changer sans r…"
     },
     "DocumentationError": {
       "name": "DocumentationError",
@@ -14404,7 +15735,7 @@
       "implements": [],
       "decorators": []
     },
-    "UploadedFile": {
+    "@nodefony/http:UploadedFile": {
       "name": "UploadedFile",
       "kind": "class",
       "file": "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
@@ -14746,7 +16077,7 @@
       "module": "@nodefony/http",
       "description": "Résout l'adresse IP cliente RÉELLE à partir de la connexion socket et de la chaîne `X-Forwarded-For`, en dépouillant les proxies de confiance **de droite à gauche** (algorithme OWASP). `X-Forwarded…"
     },
-    "Cookie": {
+    "@nodefony/http:Cookie": {
       "name": "Cookie",
       "kind": "class",
       "file": "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
@@ -14983,6 +16314,14 @@
       "decorators": [],
       "description": "Store de rate-limit **en mémoire** — algorithme *fixed window* par clé (IP). Une entrée par IP `{ count, resetAt }` ; à l'expiration de la fenêtre le compteur repart à zéro (mutation in-place, 0 al…"
     },
+    "RATE_LIMIT_FILTERS": {
+      "name": "RATE_LIMIT_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/rateLimit/rateLimitFilters.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "**Le vocabulaire de filtre du registre de rate-limit**, en noms PUBLICS — celui que la console écrit dans l'URL (`?limited=true`). `limited` répond à la seule question qu'on pose à ce registre en e…"
+    },
     "WsConnectionCounter": {
       "name": "WsConnectionCounter",
       "kind": "class",
@@ -15068,7 +16407,7 @@
       "module": "@nodefony/http",
       "description": "Nombre de ports essayés après le désiré, en `auto`."
     },
-    "Session": {
+    "@nodefony/http:Session": {
       "name": "Session",
       "kind": "class",
       "file": "src/packages/@nodefony/http/nodefony/src/session/session.ts",
@@ -15777,13 +17116,21 @@
       "module": "@nodefony/security",
       "description": "Émet un événement d'audit pour une mutation admin (best-effort, fire-and-forget) — l'audit ne doit jamais bloquer ni faire échouer l'action. No-op si le service `auditService` est absent. Couplage …"
     },
+    "parseTokenListQuery": {
+      "name": "parseTokenListQuery",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Traduit la query string admin en {@link ITokenListQuery} bornée (`limit` par défaut 50, cap 200 ; pagination, tri et filtres de {@link TOKEN_FILTERS}). **UN SEUL traducteur par dimension, jamais de…"
+    },
     "parseAuditQuery": {
       "name": "parseAuditQuery",
       "kind": "function",
       "file": "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Traduit la query string admin en {@link IAuditListQuery} typée. Un filtre `category`/`outcome` **inconnu est ignoré** (permissif — l'endpoint est déjà gardé `ROLE_NODEFONY_ADMIN`, renvoyer plus lar…"
+      "description": "Traduit la query string admin en {@link IAuditListQuery} typée — pagination par curseur, plus les filtres de {@link AUDIT_FILTERS}. Un filtre inconnu ou mal formé est **refusé** (400). Il était aup…"
     },
     "createSecurityAdminApi": {
       "name": "createSecurityAdminApi",
@@ -15816,6 +17163,14 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Abonne la cascade au bus kernel. À appeler au `onKernelBoot` d'un module bootable (ici `@nodefony/security`). **Extensible** : tout autre module (webhooks…) peut s'abonner au MÊME `USER_REVOKED_EVE…"
+    },
+    "parseWebhookListQuery": {
+      "name": "parseWebhookListQuery",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Traduit la query string admin en {@link IWebhookListQuery} **bornée** (`limit` défaut 50, cap 200 ; pagination, tri, et les filtres de {@link WEBHOOK_FILTERS}). Pagination **offset uniquement** : l…"
     },
     "webhookAdminEndpoints": {
       "name": "webhookAdminEndpoints",
@@ -15917,6 +17272,22 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Canal WS du flux live d'audit (P6.14 lot 4). Le préfixe `security:` le place sous le plancher `SECURITY_CHANNEL_POLICY` (ROLE_NODEFONY_ADMIN) du verrou de frame — un user lambda ne peut pas s'y abo…"
+    },
+    "AUDIT_FILTERS": {
+      "name": "AUDIT_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/auditFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "**Le vocabulaire de filtre du journal d'audit**, en noms PUBLICS — ceux qu'un auditeur écrit dans l'URL (`?category=authz&outcome=denied&since=…`). Les deux énumérations y sont écrites en toutes le…"
+    },
+    "AUDIT_FILTER_VOCABULARY_IS_COMPLETE": {
+      "name": "AUDIT_FILTER_VOCABULARY_IS_COMPLETE",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/audit/auditFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Preuve **à la compilation** que le vocabulaire ci-dessus est exactement celui des types du contrat. Elle remplace la discipline humaine « penser à mettre les deux à jour », qui avait échoué en sile…"
     },
     "IAuditStoreFactoryContext": {
       "name": "IAuditStoreFactoryContext",
@@ -16532,7 +17903,88 @@
       "file": "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Filtre un record contre une requête de listing (portable, réutilisé par les impls)."
+      "description": "Filtre un record contre une requête de listing — prédicat de RÉFÉRENCE du contrat, réutilisé par les implémentations qui évaluent en mémoire."
+    },
+    "tokenStatusCriteria": {
+      "name": "tokenStatusCriteria",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenCriteria.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Fragment de critère **portable** exprimant l'état de vie d'un jeton — la traduction que les adapters SQL et Mongo partagent au lieu de la réécrire. Elle tient dans le `Criteria` d'orm-core depuis q…"
+    },
+    "ITokenCounts": {
+      "name": "ITokenCounts",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Les compteurs rendus par `GET /nodefony/security/api/apikeys/stats`."
+    },
+    "TOKEN_FILTERS": {
+      "name": "TOKEN_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "**Le vocabulaire de filtre des jetons**, en noms PUBLICS — ceux qu'un client écrit dans l'URL (`?status=revoked`), jamais des noms de colonne. Frère de `TOKEN_SORTABLE_FIELDS`, et posé pour la même…"
+    },
+    "TOKEN_FACETS": {
+      "name": "TOKEN_FACETS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "**Les facettes des jetons** — les questions fermées posées à la collection ENTIÈRE pour les cartes de tête. Contrairement aux webhooks, les trois états **partitionnent** : un jeton est dans exactem…"
+    },
+    "TOKEN_STATS_FILTERS": {
+      "name": "TOKEN_STATS_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Ce que l'endpoint de COMPTEURS accepte de filtrer — `TOKEN_FILTERS` **moins** les champs que les facettes décomposent. `status` en est retiré : le demander à un endpoint dont les cartes SONT les ét…"
+    },
+    "TOKEN_SORTABLE_FIELDS": {
+      "name": "TOKEN_SORTABLE_FIELDS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenSort.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "**Le vocabulaire de tri des jetons**, en noms PUBLICS — ceux qu'un client écrit dans l'URL (`?order=createdAt:DESC`), jamais des noms de colonne. Il vit ici, chez le propriétaire du contrat (`@node…"
+    },
+    "TOKEN_DEFAULT_ORDER": {
+      "name": "TOKEN_DEFAULT_ORDER",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenSort.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Ordre contractuel appliqué quand le client n'en demande aucun : les clés les plus récentes d'abord, départagées par identifiant pour rester **déterministe** à horodatage égal (sans quoi une paginat…"
+    },
+    "ITokenLifetime": {
+      "name": "ITokenLifetime",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenStatus.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Ce qu'il faut d'un jeton pour en déduire l'état — deux horodatages, rien de plus. Volontairement structural : le store mémoire, le batch Redis et un test s'en servent sans partager de type d'enregi…"
+    },
+    "tokenStatusOf": {
+      "name": "tokenStatusOf",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenStatus.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "**La** définition de l'état d'un jeton — un seul exemplaire, pour les backends qui évaluent en mémoire (store mémoire, filtrage inline d'un batch `SCAN`). L'ordre d'évaluation est significatif : **…"
+    },
+    "matchesTokenStatus": {
+      "name": "matchesTokenStatus",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenStatus.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "`true` si le jeton correspond au filtre d'état demandé (`undefined` = tous)."
     },
     "ITokenStoreFactoryContext": {
       "name": "ITokenStoreFactoryContext",
@@ -17135,6 +18587,38 @@
       "module": "@nodefony/security",
       "description": "Backoff exponentiel déterministe (jitter cross-pod = slice Redis cluster)."
     },
+    "IWebhookCounts": {
+      "name": "IWebhookCounts",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Les compteurs rendus par `GET /nodefony/security/api/webhooks/stats`."
+    },
+    "WEBHOOK_FILTERS": {
+      "name": "WEBHOOK_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "**Le vocabulaire de filtre des endpoints webhook**, en noms PUBLICS — ceux qu'un client écrit dans l'URL (`?enabled=false&event=user.created`). Frère de `WEBHOOK_SORTABLE_FIELDS`, et posé au même e…"
+    },
+    "WEBHOOK_FACETS": {
+      "name": "WEBHOOK_FACETS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "**Les facettes des endpoints** — les questions fermées que la console pose à la collection ENTIÈRE pour ses cartes de tête. Chacune est un filtre du contrat, et c'est la règle : une carte affiche u…"
+    },
+    "WEBHOOK_STATS_FILTERS": {
+      "name": "WEBHOOK_STATS_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Ce que l'endpoint de COMPTEURS accepte de filtrer — `WEBHOOK_FILTERS` **moins** les champs que les facettes décomposent (`enabled`, `failing`). Les demander ici rendrait une réponse contradictoire …"
+    },
     "parseWebhookSecret": {
       "name": "parseWebhookSecret",
       "kind": "function",
@@ -17166,6 +18650,22 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "En-têtes de signature Standard Webhooks à poser sur la requête sortante."
+    },
+    "WEBHOOK_SORTABLE_FIELDS": {
+      "name": "WEBHOOK_SORTABLE_FIELDS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookSort.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "**Le vocabulaire de tri des endpoints webhook**, en noms PUBLICS — ceux qu'un client écrit dans l'URL (`?order=failureCount:DESC`), jamais des noms de colonne. Il vit ici, chez le propriétaire du c…"
+    },
+    "WEBHOOK_DEFAULT_ORDER": {
+      "name": "WEBHOOK_DEFAULT_ORDER",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookSort.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Ordre contractuel appliqué quand le client n'en demande aucun : les abonnements les plus récents d'abord, départagés par identifiant pour rester **déterministe** à horodatage égal — sans ce tiebrea…"
     },
     "IWebhookStoreFactoryContext": {
       "name": "IWebhookStoreFactoryContext",
@@ -17408,6 +18908,13 @@
       "decorators": [],
       "description": "Parse un corps `application/json` (ou `*+json`) en objet → `queryPost` (source lue par le décorateur `@Body`). Reprend le rôle de l'ancien plugin `json` de formidable, supprimé avec le passage à bu…"
     },
+    "acceptParser": {
+      "name": "acceptParser",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
     "HttpRequest": {
       "name": "HttpRequest",
       "kind": "class",
@@ -17610,6 +19117,70 @@
       "decorators": [],
       "description": "Garde-fou de révocation **décoré au-dessus** de n'importe quel {@link ISessionStorage} (file, drizzle, redis, mongo…). Pose une « pierre tombale » sur tout id détruit et REFUSE un `write` ultérieur…"
     },
+    "ISessionCounts": {
+      "name": "ISessionCounts",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Les compteurs rendus par `GET /nodefony/http/api/sessions/stats`. **Dérivé** de {@link SESSION_FACETS} : ajouter une facette ajoute son champ ici, et le front qui ne l'affiche pas ne compile plus. …"
+    },
+    "SESSION_FILTERS": {
+      "name": "SESSION_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "**Le vocabulaire de filtre des sessions**, en noms PUBLICS — celui que la console d'administration écrit dans l'URL (`?user=alice`). Frère de `SESSION_SORTABLE_FIELDS` (`sessionSort.ts`), posé au m…"
+    },
+    "SESSION_FACETS": {
+      "name": "SESSION_FACETS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "**Les facettes des sessions** — les questions fermées que la console pose à la collection ENTIÈRE, pour ses cartes de tête. Distinct de `SESSION_FILTERS`, qui dit ce qu'un client a le droit d'écrir…"
+    },
+    "SESSION_STATS_FILTERS": {
+      "name": "SESSION_STATS_FILTERS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Ce que l'endpoint de COMPTEURS accepte de filtrer — {@link SESSION_FILTERS} **moins** le champ que ses facettes décomposent (`authenticated`). Le demander ici rendrait une réponse qui se contredit …"
+    },
+    "SESSION_SORTABLE_FIELDS": {
+      "name": "SESSION_SORTABLE_FIELDS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionSort.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "**Le vocabulaire de tri des sessions**, en noms PUBLICS — ceux qu'un client écrit dans l'URL (`?order=updatedAt:DESC`), jamais des noms de colonne. Il vit ici, chez le propriétaire du contrat (`@no…"
+    },
+    "SESSION_DEFAULT_ORDER": {
+      "name": "SESSION_DEFAULT_ORDER",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionSort.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Ordre contractuel appliqué quand le client n'en demande aucun : activité la plus récente d'abord, départagée par identifiant pour rester **déterministe** à horodatage égal (sans quoi une pagination…"
+    },
+    "SESSION_COLUMN_ALIASES": {
+      "name": "SESSION_COLUMN_ALIASES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionSort.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Table d'alias des backends dont le schéma nomme l'identifiant de session `session_id` (SQL comme Mongo) — à passer à `renameOrderFields` (core). C'est une **donnée** du schéma, pas du code : la règ…"
+    },
+    "SESSION_DEFAULT_ORDER_SQL": {
+      "name": "SESSION_DEFAULT_ORDER_SQL",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionSort.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Ordre par défaut des backends dont le schéma nomme l'identifiant `session_id` — {@link SESSION_DEFAULT_ORDER} déjà traduit."
+    },
     "createGithubProvider": {
       "name": "createGithubProvider",
       "kind": "function",
@@ -17657,6 +19228,7 @@
         "Fetch",
         "Websocket",
         "Injector",
+        "DevkitService",
         "DocumentationService",
         "DrizzleService",
         "AdminBroker",
@@ -17714,6 +19286,7 @@
         "UnknownCriteriaField",
         "RagError",
         "VectorError",
+        "DevkitError",
         "FrontendError",
         "RealtimeError"
       ],
@@ -17726,6 +19299,7 @@
         "TestFrontendAngular",
         "TestFrontendReact",
         "TestFrontendVue",
+        "DevkitModule",
         "Documentation",
         "Drizzle",
         "Framework",
@@ -17759,6 +19333,8 @@
       ],
       "nodefonyError": [
         "PaginationModeError",
+        "CursorOrderError",
+        "PageQueryError",
         "AccessDeniedError",
         "ApiKeyError",
         "AuthenticationError",
@@ -17798,6 +19374,7 @@
       ],
       "Command": [
         "Build",
+        "Card",
         "Check",
         "Cluster",
         "Completion",
@@ -17811,6 +19388,7 @@
         "Start",
         "Status",
         "Stop",
+        "Symbols",
         "BatchTest",
         "DaemonTest",
         "FrontendBuild",
@@ -17864,6 +19442,7 @@
         "AngularController",
         "PocController",
         "VueController",
+        "DevkitController",
         "DocumentationController",
         "AdminApiController",
         "ApiKeyController",
@@ -17914,6 +19493,11 @@
       "IResponse": [
         "IHttpResponse",
         "IWebsocketResponse"
+      ],
+      "ISortableSource": [
+        "ISessionStorage",
+        "ITokenStore",
+        "IWebhookStore"
       ],
       "LLMError": [
         "LLMRateLimitError",
@@ -18038,6 +19622,9 @@
         "FileTransport",
         "HttpTransport",
         "SyslogTransport"
+      ],
+      "IDevkitService": [
+        "DevkitService"
       ],
       "IAuditStore": [
         "DrizzleAuditStore",
@@ -18241,11 +19828,13 @@
         "TestFrontendAngular",
         "TestFrontendReact",
         "TestFrontendVue",
+        "DevkitModule",
         "Documentation",
         "Studio"
       ],
       "services": [
         "Test",
+        "DevkitModule",
         "Documentation",
         "Drizzle",
         "Framework",
@@ -18289,6 +19878,7 @@
         "AngularController",
         "PocController",
         "VueController",
+        "DevkitController",
         "DocumentationController",
         "StudioController",
         "StudioCreateController",
@@ -18306,6 +19896,7 @@
         "DomainClassController"
       ],
       "injectable": [
+        "DevkitService",
         "AdminBroker",
         "MemoryIdempotencyStore",
         "Router",
@@ -18330,6 +19921,7 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/types/ICliKernel.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
+        "src/nodefony/src/kernel/commands/CardCommand.ts",
         "src/nodefony/src/kernel/commands/CheckCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
@@ -18343,6 +19935,7 @@
         "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
+        "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
@@ -18372,6 +19965,7 @@
         "src/nodefony/src/client/transport/websocket.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -18417,6 +20011,33 @@
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts"
       ],
+      "extend": [
+        "src/nodefony/src/Cli.ts",
+        "src/nodefony/src/Container.ts",
+        "src/nodefony/src/FileClass.ts",
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/command/Builder.ts",
+        "src/nodefony/src/command/Command.ts",
+        "src/nodefony/src/config/defineConfig.ts",
+        "src/nodefony/src/finder/Finder.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/Module.ts",
+        "src/nodefony/src/syslog/Syslog.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
+        "src/packages/@nodefony/framework/nodefony/service/Eta.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
+        "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+        "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http2/Response.ts"
+      ],
       "Container": [
         "src/nodefony/src/Cli.ts",
         "src/nodefony/src/Service.ts",
@@ -18430,6 +20051,7 @@
         "src/nodefony/src/service/fetchService.ts",
         "src/packages/@nodefony/redis/nodefony/registerStores.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -18501,6 +20123,7 @@
         "src/nodefony/src/syslog/Syslog.ts",
         "src/nodefony/src/types/IService.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
@@ -18584,6 +20207,7 @@
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
         "src/modules/test-frontend-vue/index.ts",
+        "src/packages/@nodefony/devkit/index.ts",
         "src/packages/@nodefony/documentation/index.ts",
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/framework/index.ts",
@@ -18718,11 +20342,22 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/modules/test/nodefony/controller/DiController.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts"
+      ],
+      "typeOf": [
+        "src/nodefony/src/Error.ts",
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/command/Builder.ts",
+        "src/nodefony/src/finder/Finder.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts"
       ],
       "inspect": [
         "src/nodefony/src/Error.ts",
@@ -18807,6 +20442,7 @@
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
         "src/modules/test-frontend-vue/index.ts",
+        "src/packages/@nodefony/devkit/index.ts",
         "src/packages/@nodefony/documentation/index.ts",
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/framework/index.ts",
@@ -18821,6 +20457,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/service/fetchService.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
@@ -18874,6 +20511,7 @@
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
         "src/modules/test-frontend-vue/index.ts",
+        "src/packages/@nodefony/devkit/index.ts",
         "src/packages/@nodefony/documentation/index.ts",
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/studio/index.ts"
@@ -18915,6 +20553,7 @@
       ],
       "services": [
         "src/modules/test/index.ts",
+        "src/packages/@nodefony/devkit/index.ts",
         "src/packages/@nodefony/documentation/index.ts",
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/framework/index.ts",
@@ -19039,6 +20678,19 @@
       ],
       "VueController": [
         "src/modules/test-frontend-vue/index.ts"
+      ],
+      "DevkitConfigInput": [
+        "src/packages/@nodefony/devkit/index.ts",
+        "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts"
+      ],
+      "defineDevkitConfig": [
+        "src/packages/@nodefony/devkit/index.ts"
+      ],
+      "DevkitService": [
+        "src/packages/@nodefony/devkit/index.ts"
+      ],
+      "DevkitController": [
+        "src/packages/@nodefony/devkit/index.ts"
       ],
       "GitService": [
         "src/packages/@nodefony/documentation/index.ts",
@@ -19258,6 +20910,7 @@
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
@@ -19380,6 +21033,7 @@
         "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "controller": [
@@ -19415,10 +21069,60 @@
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "Get": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
+        "src/modules/test/nodefony/controller/AlsController.ts",
+        "src/modules/test/nodefony/controller/DbController.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/modules/test/nodefony/controller/DomainClassController.ts",
+        "src/modules/test/nodefony/controller/DomainController.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts",
+        "src/modules/test/nodefony/controller/PipelineOrderController.ts",
+        "src/modules/test/nodefony/controller/RestController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
+        "src/modules/test/nodefony/controller/WebhookSinkController.ts",
+        "src/modules/test/nodefony/secure/ApiM2mController.ts",
+        "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
+        "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
+        "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
+        "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
+      ],
+      "Post": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts",
+        "src/modules/test/nodefony/controller/WebhookSinkController.ts",
+        "src/modules/test/nodefony/secure/IdempotentDemoController.ts"
+      ],
+      "Put": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts"
+      ],
+      "Delete": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts",
+        "src/modules/test/nodefony/controller/WebhookSinkController.ts"
+      ],
+      "Patch": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts"
+      ],
+      "Options": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "Head": [
+        "src/packages/@nodefony/framework/index.ts"
       ],
       "All": [
         "src/packages/@nodefony/framework/index.ts"
@@ -19452,9 +21156,22 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts"
       ],
+      "CsrfProtect": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts"
+      ],
+      "CsrfExempt": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts"
+      ],
       "Idempotent": [
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts"
+      ],
+      "CurrentUser": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/modules/test/nodefony/secure/SecureWsController.ts"
       ],
       "Scope": [
         "src/packages/@nodefony/framework/index.ts",
@@ -19492,12 +21209,35 @@
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts"
       ],
+      "Param": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
+        "src/modules/test/nodefony/controller/WebhookSinkController.ts",
+        "src/modules/test/nodefony/poc/PocBookController.ts",
+        "src/modules/test/nodefony/poc/PocBookResourceController.ts",
+        "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
+      ],
       "Body": [
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/WebhookSinkController.ts",
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts"
+      ],
+      "Query": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts",
+        "src/modules/test/nodefony/controller/WebhookSinkController.ts",
+        "src/modules/test/nodefony/poc/PocBookResourceController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
+      ],
+      "Headers": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts"
       ],
       "Cookie": [
         "src/packages/@nodefony/framework/index.ts",
@@ -19523,10 +21263,22 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
+      "Req": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts"
+      ],
+      "Res": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts"
+      ],
       "UploadedFile": [
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
+      "UploadedFiles": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts"
       ],
       "routeExpectsBodyStream": [
         "src/packages/@nodefony/framework/index.ts",
@@ -19643,6 +21395,7 @@
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
@@ -19771,6 +21524,7 @@
         "src/packages/@nodefony/realtime/index.ts",
         "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts",
         "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "ServerRealtimeSocket": [
@@ -19781,10 +21535,12 @@
       ],
       "RealtimeHub": [
         "src/packages/@nodefony/realtime/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "getRealtimeHub": [
         "src/packages/@nodefony/realtime/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts",
@@ -20010,25 +21766,34 @@
         "src/nodefony/src/bin/nodefony.ts"
       ],
       "DELEGATED_ENV": [
-        "src/nodefony/src/bin/nodefony.ts"
+        "src/nodefony/src/bin/nodefony.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts"
       ],
       "TLocalCliDecision": [
         "src/nodefony/src/bin/nodefony.ts"
       ],
       "findProjectRoot": [
         "src/nodefony/src/bin/resolveLocalCli.ts",
+        "src/nodefony/src/cli/aiSync.ts",
+        "src/nodefony/src/cli/card.ts",
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/env.ts",
+        "src/nodefony/src/cli/symbols.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "defineConfig": [
         "src/nodefony/src/bundler/index.ts"
       ],
       "SysExit": [
+        "src/nodefony/src/cli/aiSync.ts",
+        "src/nodefony/src/cli/card.ts",
         "src/nodefony/src/cli/completion.ts",
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/env.ts",
+        "src/nodefony/src/cli/symbols.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
@@ -20036,6 +21801,36 @@
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "planSync": [
+        "src/nodefony/src/cli/aiSync.ts"
+      ],
+      "renderPlan": [
+        "src/nodefony/src/cli/aiSync.ts"
+      ],
+      "SKILLS_DIR": [
+        "src/nodefony/src/cli/aiSync.ts"
+      ],
+      "IAiSyncPlan": [
+        "src/nodefony/src/cli/aiSync.ts"
+      ],
+      "IDiscoveredSkill": [
+        "src/nodefony/src/cli/aiSync.ts"
+      ],
+      "buildCard": [
+        "src/nodefony/src/cli/card.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
+      ],
+      "renderCard": [
+        "src/nodefony/src/cli/card.ts"
+      ],
+      "ICard": [
+        "src/nodefony/src/cli/card.ts",
+        "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
+      ],
+      "ICardInput": [
+        "src/nodefony/src/cli/card.ts",
+        "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
       ],
       "getScaffoldSpec": [
         "src/nodefony/src/cli/create.ts",
@@ -20048,6 +21843,9 @@
       "CONTROLLER_KIND_CHOICES": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "DATABASE_CHOICES": [
+        "src/nodefony/src/cli/create.ts"
       ],
       "ENTITY_ID_CHOICES": [
         "src/nodefony/src/cli/create.ts"
@@ -20099,6 +21897,9 @@
       "confirm": [
         "src/nodefony/src/cli/create.ts"
       ],
+      "syncSkillPointers": [
+        "src/nodefony/src/cli/create.ts"
+      ],
       "envFileOrder": [
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/scaffold/engine.ts"
@@ -20143,6 +21944,37 @@
         "src/nodefony/src/client/realtime/AdaptiveRate.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/ServerRealtimeSocket.ts"
+      ],
+      "SEVERITY_NAMES": [
+        "src/nodefony/src/client/index.ts",
+        "src/packages/@nodefony/framework/nodefony/src/syslogFilters.ts"
+      ],
+      "isEmptyObject": [
+        "src/nodefony/src/client/index.ts"
+      ],
+      "isUndefined": [
+        "src/nodefony/src/client/index.ts"
+      ],
+      "isRegExp": [
+        "src/nodefony/src/client/index.ts"
+      ],
+      "isContainer": [
+        "src/nodefony/src/client/index.ts"
+      ],
+      "isFunction": [
+        "src/nodefony/src/client/index.ts"
+      ],
+      "isArray": [
+        "src/nodefony/src/client/index.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "isPromise": [
+        "src/nodefony/src/client/index.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "isSubclassOf": [
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "RealtimeClient": [
         "src/nodefony/src/client/index.ts",
@@ -20203,7 +22035,7 @@
       ],
       "FLOW_STEPS": [
         "src/nodefony/src/client/index.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+        "src/packages/@nodefony/framework/nodefony/src/syslogFilters.ts"
       ],
       "File": [
         "src/nodefony/src/command/Builder.ts",
@@ -20222,6 +22054,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
+        "src/nodefony/src/kernel/commands/CardCommand.ts",
         "src/nodefony/src/kernel/commands/CheckCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
@@ -20236,6 +22069,7 @@
         "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
+        "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
@@ -20431,6 +22265,23 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/commands/EnvCommand.ts"
       ],
+      "Card": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "runCardCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/CardCommand.ts"
+      ],
+      "Symbols": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "runSymbolsCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/SymbolsCommand.ts"
+      ],
+      "runAiSyncCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
       "setLogColor": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
@@ -20491,6 +22342,13 @@
       "resolveModuleEntry": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
+      "writeLastBoot": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "ILastBoot": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
       "Injector": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
@@ -20545,6 +22403,7 @@
       "nodefonyError": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/runtime/pageGuard.ts",
+        "src/nodefony/src/runtime/pageQuery.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
@@ -20685,11 +22544,28 @@
         "src/nodefony/src/realtime/JsonRpcPeer.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
+      "PageQueryError": [
+        "src/nodefony/src/runtime/pageFilters.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts"
+      ],
+      "PAGE_QUERY_KEYS": [
+        "src/nodefony/src/runtime/pageFilters.ts"
+      ],
+      "singleValue": [
+        "src/nodefony/src/runtime/pageFilters.ts"
+      ],
+      "PageQuerySource": [
+        "src/nodefony/src/runtime/pageFilters.ts"
+      ],
       "IPageQuery": [
         "src/nodefony/src/runtime/pageGuard.ts",
+        "src/nodefony/src/runtime/pageQuery.ts",
+        "src/nodefony/src/runtime/pageSort.ts",
         "src/nodefony/src/types/IIdempotencyStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/mongoOrder.ts",
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
@@ -20697,7 +22573,11 @@
         "src/packages/@nodefony/security/nodefony/contracts/IWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
-        "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts"
+        "src/packages/@nodefony/user/nodefony/src/userSort.ts",
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenSort.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookSort.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionSort.ts"
       ],
       "ModuleName": [
         "src/nodefony/src/syslog/Syslog.ts"
@@ -20708,6 +22588,17 @@
       ],
       "isLogColorEnabled": [
         "src/nodefony/src/syslog/Syslog.ts"
+      ],
+      "IFilterSpec": [
+        "src/nodefony/src/types/IAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/syslogFilters.ts",
+        "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
+        "src/packages/@nodefony/http/nodefony/src/rateLimit/rateLimitFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/audit/auditFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
       ],
       "IPage": [
         "src/nodefony/src/types/IIdempotencyStore.ts",
@@ -20720,6 +22611,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
@@ -20874,6 +22766,7 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/likeSql.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts"
@@ -20986,6 +22879,12 @@
       "RedisWebAuthnCredentialStore": [
         "src/packages/@nodefony/redis/nodefony/registerStores.ts"
       ],
+      "resolveModuleLayout": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "IRootManifest": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
       "parseEntityFields": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
@@ -21043,6 +22942,9 @@
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "TControllerKindChoice": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "TDatabaseChoice": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "TFrontendChoice": [
@@ -21207,14 +23109,52 @@
       "Role": [
         "src/nodefony/src/client/roles/registry.ts"
       ],
+      "buildProjectEnvReport": [
+        "src/nodefony/src/kernel/checks/readiness.ts"
+      ],
       "checkPackageDeps": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
       "checkWiring": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
+      "readLastBoot": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "formatAge": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "LAST_BOOT_FILE": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "checkReadiness": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "IPortProbe": [
+        "src/nodefony/src/kernel/checks/runCheck.ts"
+      ],
+      "defaultDevPorts": [
+        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "probePorts": [
+        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "readRuntimeState": [
+        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
       "OptionsCommandInterface": [
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
+        "src/nodefony/src/kernel/commands/CardCommand.ts",
         "src/nodefony/src/kernel/commands/CheckCommand.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
@@ -21228,6 +23168,7 @@
         "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
+        "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
         "src/modules/test/nodefony/command/BatchTestCommand.ts",
         "src/modules/test/nodefony/command/DaemonTestCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
@@ -21416,22 +23357,6 @@
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
-      "defaultDevPorts": [
-        "src/nodefony/src/service/dev/detachedStart.ts",
-        "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts",
-        "src/nodefony/src/service/dev/DevSupervisor.ts"
-      ],
-      "probePorts": [
-        "src/nodefony/src/service/dev/detachedStart.ts",
-        "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts",
-        "src/nodefony/src/service/dev/DevSupervisor.ts"
-      ],
-      "readRuntimeState": [
-        "src/nodefony/src/service/dev/detachedStart.ts",
-        "src/nodefony/src/service/dev/DevSupervisor.ts"
-      ],
       "signalProcessGroup": [
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts",
@@ -21586,7 +23511,7 @@
       ],
       "FlowStepId": [
         "src/nodefony/src/syslog/drivers/ILogDriver.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+        "src/packages/@nodefony/framework/nodefony/src/syslogFilters.ts"
       ],
       "ILogDriverProbe": [
         "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
@@ -21596,6 +23521,15 @@
       "coerceRecord": [
         "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
         "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts"
+      ],
+      "escapeRegExp": [
+        "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/template/TemplateHelper.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/domainMatcher.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts"
       ],
       "resolveFetch": [
         "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
@@ -21614,6 +23548,16 @@
         "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
         "src/nodefony/src/syslog/transports/LokiTransport.ts",
         "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
+      ],
+      "stripTrailingSlashes": [
+        "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
+        "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
+        "src/nodefony/src/syslog/transports/LokiTransport.ts",
+        "src/nodefony/src/syslog/transports/OpenSearchTransport.ts",
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
+        "src/packages/@nodefony/http/nodefony/src/assets/collectAssets.ts"
       ],
       "basicAuthHeader": [
         "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
@@ -21716,6 +23660,7 @@
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
@@ -21732,6 +23677,7 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ISecuredArea.ts",
@@ -21861,6 +23807,39 @@
       "ToolExecutionError": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
       ],
+      "devkitConfigSchema": [
+        "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts"
+      ],
+      "DevkitConfig": [
+        "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
+      ],
+      "IDevkitService": [
+        "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
+      ],
+      "ICardAppInfo": [
+        "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
+      ],
+      "ICardDoor": [
+        "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
+      ],
+      "ICardVerb": [
+        "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
+      ],
+      "injectable": [
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/service/Eta.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/service/router.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "IDevkitCard": [
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
+      ],
       "documentationConfigSchema": [
         "src/packages/@nodefony/documentation/nodefony/config/defineModuleConfig.ts"
       ],
@@ -21941,12 +23920,12 @@
       "AuditCategory": [
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+        "src/packages/@nodefony/security/nodefony/src/audit/auditFilters.ts"
       ],
       "AuditOutcome": [
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+        "src/packages/@nodefony/security/nodefony/src/audit/auditFilters.ts"
       ],
       "IAuditEventFlags": [
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
@@ -22148,6 +24127,16 @@
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
+      "pickOrder": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/mongoOrder.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts"
+      ],
       "IAccessTokenRecord": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
@@ -22162,7 +24151,9 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenCriteria.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts"
       ],
       "ITokenStore": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
@@ -22188,6 +24179,20 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
+      "TOKEN_DEFAULT_ORDER": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
+      "TOKEN_SORTABLE_FIELDS": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
+      "tokenStatusCriteria": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
+      ],
       "DeniedJtiRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
@@ -22195,6 +24200,11 @@
       "SubjectRevocationRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
+      ],
+      "searchCriteria": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts"
       ],
       "ITotpEnrollmentSummary": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
@@ -22254,6 +24264,17 @@
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
       ],
+      "USER_SORTABLE_FIELDS": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts"
+      ],
+      "USER_DEFAULT_ORDER": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+      ],
       "IPasswordAuthenticatedUser": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
@@ -22266,7 +24287,8 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/src/userFilters.ts"
       ],
       "IUserRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
@@ -22330,6 +24352,11 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts"
       ],
+      "WEBHOOK_SORTABLE_FIELDS": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
+      ],
       "IWebhookEndpoint": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
@@ -22343,7 +24370,8 @@
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts"
       ],
       "IWebhookStore": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
@@ -22368,6 +24396,30 @@
       "WebhookEndpointRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
+      ],
+      "LIKE_ESCAPE_CHAR": [
+        "src/packages/@nodefony/drizzle/nodefony/src/likeSql.ts"
+      ],
+      "escapeLikeTerm": [
+        "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts"
+      ],
+      "likeCond": [
+        "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts"
+      ],
+      "SESSION_SORTABLE_FIELDS": [
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts"
+      ],
+      "SESSION_DEFAULT_ORDER": [
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts"
+      ],
+      "SESSION_COLUMN_ALIASES": [
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
       ],
       "ISessionStorage": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -22409,7 +24461,14 @@
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
+        "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
+      ],
+      "renameOrderFields": [
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/mongoOrder.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionSort.ts"
       ],
       "SessionRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -22529,15 +24588,6 @@
       "RouteRequirements": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts"
       ],
-      "injectable": [
-        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
-        "src/packages/@nodefony/framework/nodefony/service/Eta.ts",
-        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/service/router.ts",
-        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
-      ],
       "Template": [
         "src/packages/@nodefony/framework/nodefony/service/Eta.ts"
       ],
@@ -22545,6 +24595,25 @@
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "resolveSymbolsFile": [
+        "src/packages/@nodefony/framework/nodefony/src/docsReader.ts"
+      ],
+      "parsePageQuery": [
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "parseFilters": [
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "IAdminDescriptor": [
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
@@ -22683,6 +24752,12 @@
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "getLogDriver": [
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+      ],
+      "SYSLOG_FILTERS": [
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+      ],
+      "SYSLOG_SORTABLE": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
       "frontendConfigSchema": [
@@ -22824,6 +24899,12 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
+      "ISortableSource": [
+        "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/ITokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IWebhookStore.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts"
+      ],
       "ICookieOptions": [
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
         "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts"
@@ -22904,6 +24985,23 @@
       ],
       "IHttpKernel": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "SESSION_FILTERS": [
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
+      ],
+      "SESSION_STATS_FILTERS": [
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
+      ],
+      "SESSION_FACETS": [
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "ISessionCounts": [
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "RATE_LIMIT_FILTERS": [
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
       ],
       "ISessionSummary": [
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
@@ -23013,11 +25111,24 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
+      "mongoOrder": [
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
+      ],
       "Connection": [
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
+      ],
+      "toMongoSort": [
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
+      ],
+      "WEBHOOK_DEFAULT_ORDER": [
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
       ],
       "IColumnInfo": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
@@ -23198,6 +25309,7 @@
       ],
       "IRealtimeToken": [
         "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeAuthenticator.ts",
+        "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/AnonymousRealtimeToken.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
@@ -23221,6 +25333,17 @@
         "src/packages/@nodefony/realtime/nodefony/src/backplane/ClusterBackplane.ts",
         "src/packages/@nodefony/realtime/nodefony/src/backplane/LoopbackBackplane.ts",
         "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts"
+      ],
+      "FrameAuthorizer": [
+        "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
+        "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts"
+      ],
+      "IRealtimeAuthenticator": [
+        "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts"
       ],
       "redisConfigSchema": [
         "src/packages/@nodefony/redis/nodefony/config/defineModuleConfig.ts",
@@ -23327,6 +25450,20 @@
       "TotpAlgorithm": [
         "src/packages/@nodefony/security/nodefony/contracts/ITotpSecret.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
+      ],
+      "countFacets": [
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "TOKEN_FACETS": [
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+      ],
+      "ITokenCounts": [
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
       "defineSecurityConfig": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
@@ -23612,6 +25749,14 @@
       "listWebAuthnStores": [
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
       ],
+      "WEBHOOK_FACETS": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
+      ],
+      "IWebhookCounts": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
+      ],
       "IWebhookDelivery": [
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
@@ -23752,6 +25897,14 @@
       "AbstractCrudService": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
+      "USER_FACETS": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "IUserCounts": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
       "IPasswordBlocklist": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
@@ -23772,8 +25925,33 @@
       "profileFromClaims": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
+      "compareByOrder": [
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts"
+      ],
       "IBaseUserOptions": [
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+      ],
+      "USER_SORTABLE_FIELDS_IN_MEMORY": [
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+      ],
+      "FacetCount": [
+        "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
+      ],
+      "FacetCounts": [
+        "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
+      ],
+      "IFacetSpec": [
+        "src/packages/@nodefony/user/nodefony/src/userFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenFilters.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
       ],
       "IUserProfile": [
         "src/packages/@nodefony/user/nodefony/src/userProfile.ts",
@@ -23987,6 +26165,9 @@
       "MongooseTransaction": [
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
       ],
+      "likePatternToRegExp": [
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
       "IEntityDefinition": [
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entitiesDecorator.ts"
       ],
@@ -24120,11 +26301,6 @@
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
-      "IRealtimeAuthenticator": [
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts"
-      ],
       "ICompiledRealtimeMatcher": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
       ],
@@ -24133,10 +26309,6 @@
       ],
       "OriginGuard": [
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
-      ],
-      "FrameAuthorizer": [
-        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
-        "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts"
       ],
       "applyDeclaredBroadcastPrefixes": [
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
@@ -24147,6 +26319,15 @@
       ],
       "WsBackpressurePolicy": [
         "src/packages/@nodefony/realtime/nodefony/src/transport/WsConnectionTransport.ts"
+      ],
+      "TOKEN_FILTERS": [
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+      ],
+      "TOKEN_STATS_FILTERS": [
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
+      ],
+      "AUDIT_FILTERS": [
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
       ],
       "adminActor": [
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
@@ -24164,6 +26345,12 @@
       ],
       "IUserRevokedEvent": [
         "src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts"
+      ],
+      "WEBHOOK_FILTERS": [
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
+      ],
+      "WEBHOOK_STATS_FILTERS": [
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
       ],
       "MemoryAuditStore": [
         "src/packages/@nodefony/security/nodefony/src/audit/auditStoreRegistry.ts"
@@ -24225,6 +26412,12 @@
       "IJwtSigningKey": [
         "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
       ],
+      "matchesTokenStatus": [
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
+      "TokenStatus": [
+        "src/packages/@nodefony/security/nodefony/src/token/tokenStatus.ts"
+      ],
       "MemoryTokenStore": [
         "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts"
       ],
@@ -24277,6 +26470,12 @@
       "listUserStores": [
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
+      "USER_FILTERS": [
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "USER_STATS_FILTERS": [
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
       "validateProfilePatch": [
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
@@ -24312,6 +26511,9 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
       "Parser": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
+      "acceptParser": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
       "IUploadOptions": [

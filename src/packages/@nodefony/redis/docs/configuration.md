@@ -282,7 +282,7 @@ valeur effective diffère du schéma au démarrage — `maxRetries`, traitée da
 | `keyNamespace`  | chaîne                   | nom de l'application             | Cloison des **clés** par application sur un Redis mutualisé (cf ci-dessous).                  |
 
 Le sous-objet `connections` est un dictionnaire libre : la clé est le nom logique, la valeur décrit la
-connexion. Les trois entrées par défaut sont matérialisées dans `redisConfigSchema` (`config.ts:227`).
+connexion. Les trois entrées par défaut sont matérialisées dans `redisConfigSchema` (`config.ts:200`).
 
 #### `keyNamespace` — deux applications sur un même Redis
 
@@ -680,7 +680,7 @@ C'est un défaut de configuration : rien à chercher côté réseau.
 **Le serveur ne répond pas.** La configuration est bonne, l'ouverture échoue. Le module est déclaré
 **non critique** — `Redis.critical` (`index.ts:36`) vaut `false` — donc l'application démarre quand
 même, en état dégradé annoncé. Chaque connexion est tentée indépendamment et journalisée en `ERROR`
-par `RedisService.init()` (`redis.ts:77`) : une connexion en échec n'empêche pas les suivantes.
+par `RedisService.init()` (`redis.ts:123`) : une connexion en échec n'empêche pas les suivantes.
 
 Ce que ce démarrage dégradé implique côté appelants — pourquoi le garde `if (!client)` des stores ne
 suffit pas après une ouverture ratée, ce que devient une commande pendant une reconnexion — est
@@ -699,7 +699,7 @@ faire avant une mise en production.
 | Erreur `NOAUTH` alors que le mot de passe est configuré                 | L'URL porte des identifiants qui recouvrent `REDIS_PASSWORD`                                                 | Ne pas mélanger : l'URL **ou** hôte + mot de passe                                                                         |
 | Les sessions ont changé de magasin sans qu'on touche à la configuration | `NF_REDIS_URL` déclare une infra de cache → `resolveAutoStore()` (`infra.ts:241`) bascule les briques `auto` | Nommer le store explicitement pour un comportement identique partout                                                       |
 | Une surcharge de connexion ramène le port à `6379`                      | Un schéma partiel qui réappliquerait ses défauts — d'où `socketOverrideSchema` (`config.ts:133`) sans défaut | Ne poser que les champs voulus ; les autres héritent du socket global                                                      |
-| Le module démarre mais n'ouvre rien                                     | `enabled: false` — module chargé, inerte (`RedisService.init()` (`redis.ts:79`))                             | Le réactiver, ou retirer le module du manifeste                                                                            |
+| Le module démarre mais n'ouvre rien                                     | `enabled: false` — module chargé, inerte (`RedisService.init()` (`redis.ts:123`))                            | Le réactiver, ou retirer le module du manifeste                                                                            |
 | Le formulaire Studio annonce `maxRetries: 0` en développement           | Le JSON Schema décrit le schéma, pas la superposition d'exécution                                            | Lire la configuration effective du service                                                                                 |
 | Une valeur changée à chaud ne prend pas                                 | La configuration est **gelée** après le démarrage (`defineRedisConfig()` (`defineModuleConfig.ts:103`))      | Redémarrer le process                                                                                                      |
 | L'auto-complétion ne propose aucune clé dans `use()`                    | Le module ne s'inscrit pas au registre de types des configurations de modules                                | S'appuyer sur les tables de cette page ; une clé fautive ne sera pas signalée à la compilation                             |
@@ -743,7 +743,7 @@ rester pur.
 > **Une suite verte ne prouve rien du reste sans serveur Redis.** Les bancs d'intégration se
 > **skippent** quand l'infra manque, et un skip compte comme un succès : on peut lire « tout est
 > vert » sur une suite qui n'a rien exercé. La gate du module est déclarée une seule fois —
-> `REDIS_GATE` (`vitest.gates.ts:147`) — et la fin de run nomme la cible non exercée avec la commande
+> `REDIS_GATE` (`vitest.gates.ts:290`) — et la fin de run nomme la cible non exercée avec la commande
 > exacte pour la satisfaire. **Les variables et la commande docker se lisent là, pas ici** : les
 > recopier dans cette page les condamnerait à diverger.
 

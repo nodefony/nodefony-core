@@ -18,10 +18,10 @@
     "vite"
   ],
   "dependencies": {
-    "@angular/common": "22.0.8",
-    "@angular/compiler": "22.0.8",
-    "@angular/core": "22.0.8",
-    "@angular/platform-browser": "22.0.8",
+    "@angular/common": "22.1.0",
+    "@angular/compiler": "22.1.0",
+    "@angular/core": "22.1.0",
+    "@angular/platform-browser": "22.1.0",
     "rxjs": "^7.8.2",
     "tslib": "^2.8.1"
   },
@@ -30,12 +30,10 @@
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",
     "nodefony": "*",
-    "vite": "8.1.5"
+    "vite": "8.2.0"
   },
   "devDependencies": {
     "@analogjs/vite-plugin-angular": "^2.6.2",
-    "@angular/build": "22.0.8",
-    "@angular/compiler-cli": "22.0.8",
     "@nodefony/framework": "*",
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",

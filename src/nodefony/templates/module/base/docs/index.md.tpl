@@ -8,7 +8,9 @@ status: draft
 
 # <%= it.name %>
 
+
 > <%= it.description %>
+
 
 Cette page est **surfacée dans Studio** (onglet Docs du module) : ce que vous écrivez ici,
 l'équipe le lit dans l'admin, sans quitter l'application.

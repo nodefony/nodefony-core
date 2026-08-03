@@ -162,7 +162,9 @@ export function CreateForm({
   onChange,
 }: CreateFormProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const { main, advanced } = splitQuestions(spec, caps);
+  // `answers` entre dans le calcul : une question conditionnée par une réponse
+  // précédente (`askWhen`) apparaît et disparaît au fil du dialogue.
+  const { main, advanced } = splitQuestions(spec, caps, answers);
 
   return (
     <Stack gap="md">

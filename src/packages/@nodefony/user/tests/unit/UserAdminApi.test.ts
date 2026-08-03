@@ -6,7 +6,10 @@ import {
   type IUserRevokedEvent,
 } from "../../nodefony/src/admin/UserAdminApi";
 import { BaseUser } from "../../nodefony/src/BaseUser";
+import { USER_SORTABLE_FIELDS_IN_MEMORY } from "../../nodefony/src/userSort";
+import { USER_FACETS } from "../../nodefony/src/userFilters";
 import { WeakPasswordError } from "../../nodefony/errors/WeakPasswordError";
+import { countFacets } from "nodefony";
 import type { IAdminApi, IAdminRequest } from "nodefony";
 
 // ── fabriques d'utilisateurs ─────────────────────────────────────────────────
@@ -92,6 +95,9 @@ function makeUsers(seed: BaseUser[]) {
     },
     delete: async (criteria: { id: string }) =>
       map.delete(criteria.id) ? 1 : 0,
+    // Capacité de tri : le double suit le contrat du service réel, sinon le
+    // data plane appellerait une méthode absente (vécu — ce test l'a montré).
+    sortableFields: () => USER_SORTABLE_FIELDS_IN_MEMORY,
     // Pagination native (miroir du contrat `IUserRepository.listPage`) — filtre
     // role/enabled/q, tri identifier ASC, slice ; on teste les HANDLERS.
     listPage: async (query: {
@@ -104,17 +110,7 @@ function makeUsers(seed: BaseUser[]) {
     }) => {
       const limit = Math.max(1, Math.floor(query.limit));
       const offset = Math.max(0, Math.floor(query.offset ?? 0));
-      const q = query.q?.toLowerCase();
-      const role = query.role;
-      let filtered = [...map.values()];
-      if (role !== undefined)
-        filtered = filtered.filter((u) => u.roles.includes(role));
-      if (query.enabled !== undefined)
-        filtered = filtered.filter((u) => u.isActive() === query.enabled);
-      if (q)
-        filtered = filtered.filter((u) =>
-          u.identifier.toLowerCase().includes(q),
-        );
+      const filtered = filterUsers([...map.values()], query);
       filtered.sort((a, b) => a.identifier.localeCompare(b.identifier));
       const items = filtered.slice(offset, offset + limit);
       return {
@@ -129,7 +125,57 @@ function makeUsers(seed: BaseUser[]) {
       [...map.values()].filter(
         (u) => u.isActive() && u.roles.includes(adminRole),
       ).length,
+    // Compteurs de tête — même chaîne que `UserService.countUserFacets` : la
+    // table de facettes RÉELLE, et le MÊME filtrage que `listPage` (donc `q`
+    // inclus). Un double qui compterait sans chercher rendrait le test
+    // complaisant : il passerait alors même que le handler jette le terme.
+    countUserFacets: async (
+      adminRole: string,
+      query?: Record<string, unknown>,
+    ) => {
+      const all = [...map.values()];
+      const counts = await countFacets(
+        USER_FACETS,
+        (facet) => filterUsers(all, { ...query, ...facet }).length,
+      );
+      return {
+        ...counts,
+        admins: filterUsers(all, { ...query, role: adminRole }).length,
+      };
+    },
   };
+}
+
+/**
+ * Le filtrage de l'annuaire factice — écrit UNE fois pour la liste et pour les
+ * compteurs, comme dans les vrais dépôts (`InMemoryUserRepository.countUsers`
+ * délègue à `listPage`). Deux filtrages parallèles auraient laissé passer un
+ * data plane qui cherche dans la liste et pas dans les compteurs, ce que ce
+ * fichier éprouve précisément.
+ */
+function filterUsers(
+  users: BaseUser[],
+  query: Record<string, unknown> = {},
+): BaseUser[] {
+  let out = users;
+  if (typeof query.role === "string") {
+    const role = query.role;
+    out = out.filter((u) => u.roles.includes(role));
+  }
+  if (typeof query.enabled === "boolean") {
+    out = out.filter((u) => u.isActive() === query.enabled);
+  }
+  if (typeof query.locked === "boolean") {
+    out = out.filter((u) => u.isLocked() === query.locked);
+  }
+  if (typeof query.hasSocial === "boolean") {
+    out = out.filter((u) => u.socialProviders.length > 0 === query.hasSocial);
+  }
+  if (typeof query.q === "string" && query.q.length > 0) {
+    const needle = query.q.toLowerCase();
+    out = out.filter((u) => u.identifier.toLowerCase().includes(needle));
+  }
+  return out;
 }
 
 type AuditEvent = {
@@ -730,5 +776,84 @@ describe("UserAdminApi — me (self profile)", () => {
     assert.equal(me.socialProviders[0]?.provider, "google");
     assert.ok(!("password" in (me as object)));
     assert.ok(!JSON.stringify(me).includes("HASH_SECRET"));
+  });
+});
+
+describe("UserAdminApi — users/stats et la RECHERCHE", () => {
+  /** Annuaire où le terme « ali » ne désigne qu'un seul compte sur trois. */
+  const seed = (): BaseUser[] => [
+    admin("u1", "alice@x"),
+    member("u2", "bob@x"),
+    member("u3", "carol@x"),
+  ];
+
+  it("`?q=` déplace les compteurs — la barre de recherche ne fige plus les cartes", async () => {
+    const api = createUserAdminApi(container(makeUsers(seed())));
+
+    // TÉMOIN : sans terme, les cartes décrivent l'annuaire entier. Sans lui, un
+    // handler cassé rendant 0 partout passerait l'assertion suivante.
+    const { status: s0, body: all } = await call(api, "GET", "users/stats", {});
+    assert.equal(s0, 200);
+    assert.equal((all as { total: number }).total, 3);
+
+    const { status, body } = await call(api, "GET", "users/stats", {
+      query: { q: "ali" },
+    });
+    assert.equal(status, 200, "`q` est déclaré : il ne se refuse pas");
+    const counts = body as { total: number; active: number; admins: number };
+    assert.equal(counts.total, 1, "alice seule répond au terme");
+    assert.equal(counts.active, 1);
+    assert.equal(
+      counts.admins,
+      1,
+      "les compteurs COMPOSÉS suivent aussi le terme — sinon « 1 compte, dont " +
+        "1 administrateur » deviendrait « 1 compte, dont 1 administrateur » sur " +
+        "un annuaire de mille",
+    );
+  });
+
+  it("un terme sans correspondance rend des compteurs à ZÉRO, pas l'annuaire", async () => {
+    // Le symptôme qu'on corrige : `q` accepté puis jeté rendrait ici les mêmes
+    // nombres que sans terme, au-dessus d'un tableau vide.
+    const api = createUserAdminApi(container(makeUsers(seed())));
+    const { body } = await call(api, "GET", "users/stats", {
+      query: { q: "zzz-personne" },
+    });
+    assert.deepEqual(body, {
+      total: 0,
+      active: 0,
+      disabled: 0,
+      locked: 0,
+      social: 0,
+      admins: 0,
+    });
+  });
+
+  it("la LISTE et les COMPTEURS répondent le même nombre pour le même terme", async () => {
+    // L'invariant que voit l'utilisateur : la carte au-dessus du tableau doit
+    // décrire le tableau. Deux chemins de code distincts (`listPage` et
+    // `countUserFacets`) le tiennent — ce test est ce qui les relie.
+    const api = createUserAdminApi(container(makeUsers(seed())));
+    const { body: page } = await call(api, "GET", "users", {
+      query: { q: "ali", limit: "25" },
+    });
+    const { body: counts } = await call(api, "GET", "users/stats", {
+      query: { q: "ali" },
+    });
+    assert.equal(
+      (page as { total: number }).total,
+      (counts as { total: number }).total,
+    );
+  });
+
+  it("un filtre que les facettes DÉCOMPOSENT reste refusé, terme ou pas", async () => {
+    // La recherche s'ajoute au vocabulaire de /stats, elle ne l'ouvre pas :
+    // `enabled` est ventilé en cartes, le filtrer rendrait une réponse qui se
+    // contredit (total filtré, facettes l'écrasant).
+    const api = createUserAdminApi(container(makeUsers(seed())));
+    await assert.rejects(
+      call(api, "GET", "users/stats", { query: { q: "ali", enabled: "true" } }),
+      /enabled/,
+    );
   });
 });

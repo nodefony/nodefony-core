@@ -9,6 +9,7 @@ import { findProjectRoot } from "../projectRoot";
 // seconde lecture divergerait au premier alias ou au premier fichier ajouté.
 import { resolveInfra } from "../../config/infra";
 import { envFileOrder } from "../../runtime/loadEnv";
+import { resolveModuleLayout, type IRootManifest } from "./moduleLayout";
 import {
   parseEntityFields,
   parseEntityIndexes,
@@ -32,6 +33,7 @@ import {
   type IScaffoldTypeSpec,
   type TCommandPhaseChoice,
   type TControllerKindChoice,
+  type TDatabaseChoice,
   type TFrontendChoice,
   type TModuleControllerChoice,
   type TPresetChoice,
@@ -104,6 +106,7 @@ export interface IScaffoldRunOptions {
 /** Fichiers dont le nom rendu diffère du template (npm strip les dotfiles publiés). */
 const RENAMES: Record<string, string> = {
   gitignore: ".gitignore",
+  dockerignore: ".dockerignore",
   "oxlintrc.json": ".oxlintrc.json",
   env: ".env",
   "env.local": ".env.local",
@@ -114,6 +117,23 @@ const RENAMES: Record<string, string> = {
  * montage, ET les dépendances npm (SOURCE UNIQUE : consommée par le
  * `package.json.tpl` de `create app` ET par `create front` qui les ajoute au
  * package.json d'une cible existante — une version ne vit qu'ici).
+ *
+ * ⚠️ **Le framework front lui-même est une devDependency, et `deps` est vide.**
+ * Le test qui tranche est le même que pour la toolchain : *le paquet est-il
+ * importé au RUNTIME du serveur ?* Ici non — aucun fichier hors `frontend/`
+ * n'importe `react`/`vue`/`@angular/*` : Vite les inline dans le bundle
+ * navigateur, et c'est ce bundle que la production sert. Les déclarer en
+ * `dependencies` les faisait survivre au `npm prune --omit=dev` de l'image et
+ * embarquer un framework entier que rien ne charge (mesuré ailleurs : 26,6 Mo
+ * pour `vue` seul, y compris dans une app React).
+ *
+ * L'ordre du `Dockerfile` généré est ce qui rend la bascule sûre :
+ * `RUN npm run build && npm prune --omit=dev` — le build les a quand il en a
+ * besoin, le prune les retire ensuite. Toute recette qui élaguerait AVANT de
+ * construire casserait, et c'est vrai de n'importe quelle devDependency.
+ *
+ * `deps` reste dans le contrat : le jour où un rendu côté serveur importera
+ * vraiment le framework, c'est là que la déclaration devra revenir.
  */
 export const FRONTEND_PARAMS: Record<
   Exclude<TFrontendChoice, "none">,
@@ -129,8 +149,10 @@ export const FRONTEND_PARAMS: Record<
     type: "react19",
     entry: "./frontend/src/main.tsx",
     mountNode: '<div id="root"></div>',
-    deps: pick("react", "react-dom"),
+    deps: {},
     devDeps: pick(
+      "react",
+      "react-dom",
       "vite",
       "@vitejs/plugin-react",
       "@types/react",
@@ -141,15 +163,18 @@ export const FRONTEND_PARAMS: Record<
     type: "vue3",
     entry: "./frontend/src/main.ts",
     mountNode: '<div id="app"></div>',
-    deps: pick("vue"),
-    devDeps: pick("vite", "@vitejs/plugin-vue"),
+    deps: {},
+    devDeps: pick("vue", "vite", "@vitejs/plugin-vue"),
   },
   angular: {
     type: "angular",
     entry: "./frontend/src/main.ts",
     mountNode: "<app-root></app-root>",
-    deps: pick("@angular/core", "@angular/common", "@angular/platform-browser"),
+    deps: {},
     devDeps: pick(
+      "@angular/core",
+      "@angular/common",
+      "@angular/platform-browser",
       "vite",
       "@analogjs/vite-plugin-angular",
       "@angular/build",
@@ -157,6 +182,77 @@ export const FRONTEND_PARAMS: Record<
     ),
   },
 };
+
+/**
+ * Paramètres de la base SQL retenue au scaffold — SOURCE UNIQUE du service
+ * docker, du port publié et de l'URL de connexion, consommée par les TROIS
+ * gabarits qui en parlent (`compose.yaml`, `.env`, `README.md`).
+ *
+ * Pourquoi ici plutôt que recopié en eta : ces valeurs doivent coïncider EXACTEMENT
+ * — l'URL du `.env` joint le port que le compose publie, et le README montre la
+ * même. Trois littéraux séparés divergent au premier réglage, et l'écart ne se
+ * voit qu'à la connexion refusée.
+ *
+ * ⚠️ **MySQL est publié sur 3306, pas 3307.** Le port décalé n'existait que pour
+ * faire cohabiter MySQL et MariaDB dans un compose qui portait les deux ; une
+ * app qui retient UN dialecte n'a plus rien avec quoi cohabiter, et un port
+ * inattendu est une friction gratuite.
+ */
+export const DATABASE_PARAMS: Record<
+  Exclude<TDatabaseChoice, "sqlite">,
+  {
+    /** Nom du service dans le compose (et suffixe du container_name). */
+    service: string;
+    /** Libellé humain — README et commentaires du compose. */
+    label: string;
+    /** Scheme de `NF_DATABASE_URL` : c'est LUI qui décide du dialecte de l'ORM. */
+    scheme: string;
+    /** Port publié sur 127.0.0.1 (l'app tourne sur l'hôte). */
+    port: number;
+  }
+> = {
+  postgres: {
+    service: "postgres",
+    label: "PostgreSQL 16",
+    scheme: "postgres",
+    port: 5432,
+  },
+  mariadb: {
+    service: "mariadb",
+    label: "MariaDB 11.4",
+    scheme: "mysql",
+    port: 3306,
+  },
+  mysql: { service: "mysql", label: "MySQL 8.4", scheme: "mysql", port: 3306 },
+};
+
+/**
+ * Compose le bloc `db` offert aux gabarits — `null` pour sqlite, qui n'a ni
+ * service ni URL (le fichier vit dans `var/databases/`, l'ORM s'en charge seul).
+ */
+export function resolveDatabase(
+  choice: TDatabaseChoice,
+  appName: string,
+): {
+  choice: string;
+  service: string;
+  label: string;
+  scheme: string;
+  port: number;
+  url: string;
+} | null {
+  if (choice === "sqlite") {
+    return null;
+  }
+  const params = DATABASE_PARAMS[choice];
+  return {
+    choice,
+    ...params,
+    // Identifiants du compose généré : mêmes défauts `${VAR:-…}` que les
+    // services, donc l'URL marche sans qu'aucune variable ne soit exportée.
+    url: `${params.scheme}://${appName}:${appName}-dev@127.0.0.1:${params.port}/${appName}`,
+  };
+}
 
 /**
  * Racine du paquet `nodefony` contenant `templates/` — remontée depuis CE fichier
@@ -258,7 +354,12 @@ export function linkLocalDeps(
  * Complète et VALIDE des réponses partielles contre la spec d'un type : défauts
  * appliqués, patterns vérifiés, choix contraints à leur liste. Le contexte des
  * templates est donc complet PAR CONSTRUCTION (eta ne rend jamais un `undefined`
- * silencieux). Les questions `askIf` non satisfaites sont forcées à `false`.
+ * silencieux). Les questions `askIf` non satisfaites sont forcées à `false` ;
+ * celles dont l'`askWhen` n'est pas satisfait retombent à leur DÉFAUT — une
+ * réponse qui porte sur ce qui ne sera pas généré n'a rien à décider.
+ *
+ * L'ordre de la spec fait foi : une question `askWhen` lit la réponse DÉJÀ
+ * résolue de celle qu'elle désigne, donc cette dernière doit la précéder.
  *
  * @throws Error si une valeur viole la spec (message = libellé + attendu)
  */
@@ -269,9 +370,12 @@ export function resolveAnswers(
 ): TScaffoldAnswers {
   const answers: TScaffoldAnswers = {};
   for (const q of spec.questions) {
-    let value = partial[q.key];
+    let value: TScaffoldAnswers[string] | undefined = partial[q.key];
     if (q.askIf === "hasCheckout" && !caps.hasCheckout) {
       value = false;
+    }
+    if (q.askWhen && String(answers[q.askWhen.key]) !== q.askWhen.equals) {
+      value = undefined;
     }
     if (value === undefined) {
       value = q.default;
@@ -552,15 +656,31 @@ export function listTargets(
       return null;
     }
   };
+  let rootManifest: IRootManifest = {};
+  try {
+    rootManifest = JSON.parse(
+      writer.read(path.join(projectRoot, "package.json")),
+    ) as IRootManifest;
+  } catch {
+    // Racine sans manifeste lisible : le layout par défaut (`modules/`) reste
+    // la bonne réponse — c'est celui d'une app.
+  }
   const targets: IScaffoldTarget[] = [
     {
       kind: "app",
-      name: readName(projectRoot) ?? path.basename(projectRoot),
+      name: rootManifest.name ?? path.basename(projectRoot),
       dir: projectRoot,
     },
   ];
-  const modulesDir = path.join(projectRoot, "modules");
-  if (writer.exists(modulesDir)) {
+  // Les dossiers de modules viennent des workspaces DÉCLARÉS : un monorepo qui
+  // range ses paquets ailleurs que dans `modules/` est une cible comme une autre
+  // (c'est le cas du dépôt du framework lui-même).
+  const layout = resolveModuleLayout(rootManifest, path.basename(projectRoot));
+  for (const rel of layout.targetDirs) {
+    const modulesDir = path.join(projectRoot, ...rel.split("/"));
+    if (!writer.exists(modulesDir)) {
+      continue;
+    }
     for (const entry of writer.listDir(modulesDir)) {
       const dir = path.join(modulesDir, entry.name);
       if (!entry.isDirectory || !writer.exists(path.join(dir, "index.ts"))) {
@@ -574,6 +694,60 @@ export function listTargets(
     }
   }
   return targets;
+}
+
+/**
+ * Résout la cible d'un scaffold in-project : l'application, ou le module
+ * désigné par `--module`.
+ *
+ * Un module a DEUX identités — son **nom npm** (`@app/blog`, celui qui vit dans
+ * son manifeste et dans celui de l'app) et son **dossier** (`blog`, celui qu'on
+ * a tapé pour le créer). N'accepter que le premier faisait échouer
+ * `--module blog` juste après un `create module blog` : mesuré sur un agent
+ * tiers, trois tentatives perdues sur cette seule asymétrie, alors que le nom
+ * court est celui que l'utilisateur a en tête.
+ *
+ * Le nom court est donc accepté **quand il désigne UNE cible**. Ambigu, il est
+ * refusé en nommant les candidats plutôt qu'en en choisissant un : un dépôt à
+ * plusieurs dossiers de workspaces peut porter `packages/@x/auth` ET
+ * `modules/auth` — deux modules distincts, même nom court. Le nom npm exact
+ * l'emporte toujours, et reste la façon de lever l'ambiguïté.
+ *
+ * @param projectRoot - racine de l'application (porte `nodefony.config.ts`).
+ * @param moduleName - valeur de `--module` ; vide = l'application elle-même.
+ * @param writer - accès disque injecté (simulation `--dry-run` comprise).
+ * @returns la cible résolue.
+ * @throws si le nom ne désigne aucune cible, ou s'il en désigne plusieurs.
+ */
+function resolveScaffoldTarget(
+  projectRoot: string,
+  moduleName: string,
+  writer: ScaffoldWriter,
+): IScaffoldTarget {
+  const targets = listTargets(projectRoot, writer);
+  const app = targets[0] as IScaffoldTarget;
+  if (!moduleName) {
+    return app;
+  }
+  const modules = targets.filter((t) => t.kind === "module");
+  const exact = modules.find((t) => t.name === moduleName);
+  if (exact) {
+    return exact;
+  }
+  const short = modules.filter((t) => path.basename(t.dir) === moduleName);
+  if (short.length === 1) {
+    return short[0] as IScaffoldTarget;
+  }
+  if (short.length > 1) {
+    throw new Error(
+      `« ${moduleName} » désigne ${short.length} modules — reprends le nom ` +
+        `complet : ${short.map((t) => t.name).join(" · ")}`,
+    );
+  }
+  const known = targets.map((t) => `${t.name} (${t.kind})`).join(" · ");
+  throw new Error(
+    `module « ${moduleName} » introuvable — cibles du projet : ${known}`,
+  );
 }
 
 /** `blog-post` / `BlogPost` / `blogPost` → `BlogPost`. */
@@ -595,17 +769,30 @@ export function toKebabCase(name: string): string {
 
 /**
  * Câble une classe générée dans le décorateur-liste de l'`index.ts` cible
- * (`@controllers([...])`, `@entities([...])`) : ajoute l'import après le
- * dernier import existant + insère le nom dans le tableau du décorateur.
- * Édition TEXTUELLE gardée — toute ambiguïté = throw actionnable, jamais un
- * fichier corrompu (le fichier n'est écrit que si les DEUX insertions tiennent).
+ * (`@controllers([...])`, `@entities([...])`, `@services([...])`) : ajoute
+ * l'import après le dernier import existant + insère le nom dans le tableau du
+ * décorateur. Édition TEXTUELLE gardée — toute ambiguïté = throw actionnable,
+ * jamais un fichier corrompu (le fichier n'est écrit que si les insertions
+ * tiennent).
  *
- * @throws si la classe y est déjà, si aucun import n'ancre l'insertion, ou si
- *   le décorateur est introuvable (le message donne l'édition manuelle exacte).
+ * `controllers`/`entities` sont TOUJOURS rendus par les scaffolds qui les
+ * consomment (`@controllers([])` inconditionnel dans `app`/`module` ; les
+ * entités passent par {@link wireEntitiesDecorator}, qui crée déjà sa propre
+ * liste) — le décorateur introuvable y reste un refus. `services` diffère : le
+ * layer `module/base` ne le rend que si la question « service » a répondu
+ * `true`, et la racine d'une app n'en déclare JAMAIS un — le cas nominal d'un
+ * `create service` est donc une cible qui n'a PAS encore de `@services([...])`.
+ * Pour ce seul décorateur, l'absence n'est pas un refus : on le CRÉE, juste
+ * au-dessus de la classe (même position que le gabarit quand il le rend lui-même),
+ * en import ant `services` depuis `"nodefony"` s'il ne l'est pas déjà.
+ *
+ * @throws si la classe y est déjà, si aucun import n'ancre l'insertion, ou —
+ *   pour `controllers`/`entities` seulement — si le décorateur est introuvable
+ *   (le message donne l'édition manuelle exacte).
  */
 export function wireDecoratorList(
   indexPath: string,
-  decorator: "controllers" | "entities",
+  decorator: "controllers" | "entities" | "services",
   className: string,
   importPath: string,
   writer: ScaffoldWriter,
@@ -626,21 +813,54 @@ export function wireDecoratorList(
     );
   }
   const importAt = last.index + last[0].length;
+  // `@services(...)` peut ne pas être encore importé du tout (cible sans
+  // service) : on l'ajoute dans la MÊME passe que l'import de la classe, pour
+  // ne recalculer l'offset qu'une fois.
+  const needsServicesImport =
+    decorator === "services" &&
+    !/\bservices\b[^\n]*from "nodefony"/u.test(source);
+  const extraImport = needsServicesImport
+    ? `\nimport { services } from "nodefony";`
+    : "";
   const withImport =
-    source.slice(0, importAt) + `\n${importLine}` + source.slice(importAt);
+    source.slice(0, importAt) +
+    `\n${importLine}${extraImport}` +
+    source.slice(importAt);
   const decoRe = new RegExp(`@${decorator}\\(\\[([^\\]]*)\\]\\)`, "u");
   const match = decoRe.exec(withImport);
-  if (!match || match.index === undefined) {
+  if (match && match.index !== undefined) {
+    const list = match[1].trim();
+    const wired = withImport.replace(
+      decoRe,
+      `@${decorator}([${list ? `${list.replace(/,\s*$/u, "")}, ` : ""}${className}])`,
+    );
+    writer.write(indexPath, wired);
+    return;
+  }
+  if (decorator !== "services") {
     throw new Error(
       `@${decorator}([...]) introuvable dans ${indexPath} — ajoute à la main :\n` +
         `  ${importLine}\n  @${decorator}([${className}]) sur la classe Module`,
     );
   }
-  const list = match[1].trim();
-  const wired = withImport.replace(
-    decoRe,
-    `@${decorator}([${list ? `${list.replace(/,\s*$/u, "")}, ` : ""}${className}])`,
-  );
+  // `export` est TOLÉRÉ devant la classe : nos gabarits exportent en bas de
+  // fichier, mais `export class X extends Module` est la forme que la doc du
+  // kernel montre — et c'est celle qu'une app écrite à la main portera. Un
+  // décorateur inséré AVANT `export` reste valide (`@services([X])\nexport
+  // class …`), donc l'ancre d'insertion ne bouge pas.
+  const classRe =
+    /^(?:export\s+(?:default\s+)?)?class\s+\w+\s+extends\s+Module\b/mu;
+  const classMatch = classRe.exec(withImport);
+  if (!classMatch || classMatch.index === undefined) {
+    throw new Error(
+      `« class … extends Module » introuvable dans ${indexPath} — ajoute à la main :\n` +
+        `  ${importLine}\n  @services([${className}]) juste au-dessus de la classe`,
+    );
+  }
+  const wired =
+    withImport.slice(0, classMatch.index) +
+    `@services([${className}])\n` +
+    withImport.slice(classMatch.index);
   writer.write(indexPath, wired);
 }
 
@@ -702,6 +922,9 @@ function dispatchScaffold(
   if (request.type === "controller") {
     return runControllerScaffold(request, answers, packageRoot, writer);
   }
+  if (request.type === "service") {
+    return runServiceScaffold(request, answers, packageRoot, writer);
+  }
   if (request.type === "front") {
     return runFrontScaffold(request, answers, packageRoot, writer);
   }
@@ -720,6 +943,12 @@ function dispatchScaffold(
   const preset = answers.preset as TPresetChoice;
   const frontend = answers.frontend as TFrontendChoice;
   const front = frontend !== "none" ? FRONTEND_PARAMS[frontend] : null;
+  // `null` en sqlite — le compose ne rend alors AUCUN service SQL et le `.env`
+  // laisse l'ORM sur son fichier local.
+  const db = resolveDatabase(
+    answers.database as TDatabaseChoice,
+    String(answers.name),
+  );
   const data = {
     appName: answers.name,
     // Nom de la fonction de déclaration d'entry, et nom de l'entry Vite —
@@ -731,8 +960,18 @@ function dispatchScaffold(
     pkg: SCAFFOLD_VERSIONS,
     preset,
     complete: preset === "complete",
+    // Clé DISTINCTE de `complete`, et lue sous le MÊME nom par le gabarit
+    // d'entité : les deux sont rendus à des moments différents (l'app à sa
+    // création, l'entité plus tard), et le test e2e généré pour une entité
+    // importe un helper du décor e2e généré pour l'app. Deux noms pour la même
+    // question auraient laissé les deux gabarits diverger sans un mot — vécu à
+    // l'écriture de cette ligne : le helper n'était pas rendu, et seul le
+    // typecheck du code généré l'a dit.
+    hasSecurity: preset === "complete",
     frontend,
     front,
+    // Base SQL retenue : `null` = sqlite (aucun service, aucune URL).
+    db,
     // Secrets PAR-PROJET, générés À LA CRÉATION (jamais au build : un build
     // doit rester pur/reproductible — en CI/prod les secrets viennent du
     // secret-manager). Consommés par `complete/env.local.tpl` (gitignoré) →
@@ -830,7 +1069,7 @@ function dispatchScaffold(
       },
       written,
       writer,
-      { __NAME__: "LiveController" },
+      { __NAME__: "LiveController", __KEBAB__: "live" },
     );
   }
   if (front) {
@@ -986,12 +1225,15 @@ export function ensureWorkspaces(
  * que si l'ancre est trouvée sans ambiguïté, sinon on rend une note actionnable —
  * jamais un `nodefony.config.ts` corrompu, qui empêcherait l'app de booter.
  *
+ * @param moduleDir - dossier où le module a été créé, relatif à la racine (en
+ *   `/`) — seulement pour NOMMER le bon endroit dans le commentaire inséré.
  * @returns note à afficher si un geste manuel reste nécessaire, sinon `null`.
  */
 export function wireModuleManifest(
   configPath: string,
   pkgName: string,
   writer: ScaffoldWriter,
+  moduleDir = "modules",
 ): string | null {
   const manual = `ajoute à la main dans le manifeste modules de nodefony.config.ts :\n  use("${pkgName}", {}),`;
   if (!writer.exists(configPath)) {
@@ -1030,12 +1272,43 @@ export function wireModuleManifest(
   const hasUse = /import\s*\{[^}]*\buse\b[^}]*\}\s*from\s*"nodefony"/u.test(
     source,
   );
-  const entry = hasUse ? `  use("${pkgName}", {}),\n` : `  "${pkgName}",\n`;
-  const line =
-    `\n  // Module local du projet (modules/) — créé par \`nodefony create module\`.\n` +
-    entry;
-  writer.write(configPath, source.slice(0, close) + line + source.slice(close));
+  const entry = hasUse ? `use("${pkgName}", {}),` : `"${pkgName}",`;
+  // Le dossier est DIT, jamais supposé : `modules/` pour une app, un dossier de
+  // paquets scopés pour un monorepo — un commentaire qui nomme le mauvais
+  // endroit envoie chercher le code là où il n'est pas.
+  const comment = `// Module local du projet (${moduleDir}/) — créé par \`nodefony create module\`.`;
+  // `trimEnd` sur la partie gauche puis indentation REPOSÉE : le crochet fermant
+  // est précédé de la sienne, qui laisserait sinon une ligne blanche pleine
+  // d'espaces et un `]` en colonne 0. Un manifeste reste un fichier qu'on RELIT.
+  writer.write(
+    configPath,
+    `${source.slice(0, close).trimEnd()}\n\n    ${comment}\n    ${entry}\n  ${source.slice(close)}`,
+  );
   return null;
+}
+
+/**
+ * Noms des paquets que l'APPLICATION déclare (`dependencies` + `devDependencies`).
+ *
+ * Source unique des deux scaffolds qui doivent savoir si une brique du framework
+ * est installée : `create module` (refus AVANT écriture quand elle manque) et
+ * `create front` (qui pose la peer sur un module local quand l'app, elle, l'a).
+ *
+ * @param projectRoot - racine de l'application (porte `nodefony.config.ts`).
+ * @returns l'ensemble des noms déclarés — jamais les versions, seule la présence
+ *   est une information ici.
+ */
+function readAppDependencyNames(
+  projectRoot: string,
+  writer: ScaffoldWriter,
+): Set<string> {
+  const manifest = JSON.parse(
+    writer.read(path.join(projectRoot, "package.json")),
+  ) as Record<string, Record<string, string> | undefined>;
+  return new Set([
+    ...Object.keys(manifest.dependencies ?? {}),
+    ...Object.keys(manifest.devDependencies ?? {}),
+  ]);
 }
 
 /**
@@ -1066,31 +1339,32 @@ function runModuleScaffold(
     );
   }
   const name = toKebabCase(String(answers.name));
-  const dest = path.join(projectRoot, "modules", name);
+  const appManifestPath = path.join(projectRoot, "package.json");
+  const appManifest = JSON.parse(writer.read(appManifestPath)) as {
+    name?: string;
+    workspaces?: string[];
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+  const appName = appManifest.name ?? path.basename(projectRoot);
+  // OÙ le module naît et sous quel NOM : constaté dans les workspaces du dépôt,
+  // jamais supposé. Une app génère `modules/<nom>` ; un monorepo qui déclare un
+  // dossier de paquets scopés (le dépôt du framework en tête) y fait naître un
+  // paquet PUBLIABLE. Sans ça, l'auteur du framework écrivait à la main le
+  // squelette que sa propre commande produit — et il dérivait en silence.
+  const layout = resolveModuleLayout(appManifest, path.basename(projectRoot));
+  const dest = path.join(projectRoot, ...layout.createDir.split("/"), name);
   if (
     writer.exists(dest) &&
     writer.listDir(dest).length > 0 &&
     !request.force
   ) {
     throw new Error(
-      `le module ${name} existe déjà (modules/${name}) — choisis un autre nom, ou --force`,
+      `le module ${name} existe déjà (${layout.createDir}/${name}) — choisis un autre nom, ou --force`,
     );
   }
-  const appManifestPath = path.join(projectRoot, "package.json");
-  const appManifest = JSON.parse(writer.read(appManifestPath)) as {
-    name?: string;
-    dependencies?: Record<string, string>;
-    devDependencies?: Record<string, string>;
-  };
-  const appName = appManifest.name ?? path.basename(projectRoot);
-  // Scope npm dérivé de l'app : `mon-app` → `@mon-app/blog`. Un module naît donc
-  // paquet npm — le jour où il doit être publié ou partagé, il n'y a rien à refaire.
-  const scope = appName.replace(/^@/u, "").replaceAll("/", "-");
-  const pkgName = `@${scope}/${name}`;
-  const appDeps = new Set([
-    ...Object.keys(appManifest.dependencies ?? {}),
-    ...Object.keys(appManifest.devDependencies ?? {}),
-  ]);
+  const pkgName = `${layout.scope}/${name}`;
+  const appDeps = readAppDependencyNames(projectRoot, writer);
   const controller = String(answers.controller) as TModuleControllerChoice;
   const frontend = answers.frontend as TFrontendChoice;
   // Gardes AVANT le premier fichier écrit : une brique absente de l'app ne peut
@@ -1127,6 +1401,24 @@ function runModuleScaffold(
     needsRealtime: controller === "realtime" || controller === "duplex",
     frontend,
     front: frontend !== "none" ? FRONTEND_PARAMS[frontend] : null,
+    /**
+     * Le module naît-il paquet PUBLIABLE (surface npm : `exports`, `types`,
+     * `files`, peerDependencies, `.d.ts` générés) ou module local privé ?
+     * Décidé par le layout du dépôt, pas par une option — c'est une propriété du
+     * dossier où il atterrit.
+     */
+    publishable: layout.kind === "packages",
+    /** Dossier où le module atterrit, relatif à la racine (en `/`, il VOYAGE). */
+    moduleDir: layout.createDir,
+    /**
+     * Version de départ. Un paquet d'un monorepo suit la version de SA racine
+     * (verrouillage naturel : tous les paquets du dépôt avancent ensemble) ; un
+     * module local d'application démarre à `0.1.0`, il a sa propre vie.
+     */
+    version:
+      layout.kind === "packages"
+        ? ((appManifest as { version?: string }).version ?? "0.1.0")
+        : "0.1.0",
   };
   const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
   const templates = path.join(packageRoot, "templates", "module");
@@ -1166,6 +1458,20 @@ function runModuleScaffold(
     writer,
     tokens,
   );
+  // Layout `packages` : le module est un paquet publiable, il lui faut la
+  // surface que le layout d'app n'a pas (déclarations `.d.ts` émises, tsconfig
+  // des tests) et les deux fiches que la convention du dépôt attend.
+  if (data.publishable) {
+    renderLayer(
+      eta,
+      path.join(templates, "packages"),
+      dest,
+      data,
+      written,
+      writer,
+      tokens,
+    );
+  }
   const notes: string[] = [];
   // Le module existe sur le disque → il est désormais une CIBLE (`listTargets`) :
   // les scaffolds command/controller/front peuvent le viser, sans un template dupliqué.
@@ -1206,10 +1512,23 @@ function runModuleScaffold(
     notes.push(...(sub.notes ?? []));
   }
   if (frontend !== "none") {
+    // Le controller du module et la page du front rendent TOUS DEUX une classe
+    // `<Pascal>Controller`. Leur passer le même `name` faisait échouer la
+    // commande sur ce qu'elle venait elle-même d'écrire — `wireDecoratorList`
+    // refuse un nom déjà enregistré, et le message (« choisis un autre nom »)
+    // envoyait chercher un conflit qui n'existait pas. La page prend donc un nom
+    // DÉRIVÉ dès qu'un controller occupe déjà celui du module, et garde sa route
+    // courte : c'est la classe qui doit différer, pas l'URL.
+    const frontName = controller === "none" ? name : `${name}-page`;
     const sub = runScaffold(
       {
         type: "front",
-        answers: { name, frontend, route: "", module: pkgName },
+        answers: {
+          name: frontName,
+          frontend,
+          route: `/${toKebabCase(name)}`,
+          module: pkgName,
+        },
         dir: projectRoot,
         force: request.force,
       },
@@ -1219,7 +1538,10 @@ function runModuleScaffold(
     written.push(...sub.files);
     notes.push(...(sub.notes ?? []));
   }
-  if (ensureWorkspaces(projectRoot, writer)) {
+  // Un dépôt qui déclare DÉJÀ son dossier de modules en workspace a sa propre
+  // chaîne de construction (turbo, nx…) : y greffer `npm run … --workspaces`
+  // la doublerait. On ne câble que ce qui manque.
+  if (!layout.workspaceDeclared && ensureWorkspaces(projectRoot, writer)) {
     notes.push(
       "package.json de l'app : workspaces modules/* + scripts build/typecheck/test chaînés",
     );
@@ -1228,6 +1550,7 @@ function runModuleScaffold(
     path.join(projectRoot, "nodefony.config.ts"),
     pkgName,
     writer,
+    layout.createDir,
   );
   notes.push(
     manifestNote ??
@@ -1238,31 +1561,38 @@ function runModuleScaffold(
   // est re-DÉRIVÉ de l'état réel (deps de l'app, cibles du projet — la
   // transaction voit le module en attente) ; seule la zone `app-notes` survit.
   // Une app née avant ce mécanisme y gagne son AGENTS.md au premier module.
-  renderProjectAgents(
-    eta,
-    packageRoot,
-    projectRoot,
-    {
-      appName,
-      nodefonyVersion: version,
-      hasSecurity: appDeps.has("@nodefony/security"),
-      hasOrm: appDeps.has("@nodefony/orm-core"),
-      hasRealtime: appDeps.has("@nodefony/realtime"),
-      hasStudio: appDeps.has("@nodefony/studio"),
-      front: appDeps.has("@nodefony/frontend"),
-      modules: listTargets(projectRoot, writer)
-        .filter((t) => t.kind === "module")
-        .map((t) => ({
-          name: t.name,
-          // Ce chemin est RENDU dans `AGENTS.md` — un document que lisent des agents et
-          // des humains, pas un chemin qu'on redonne au système de fichiers. Il s'écrit
-          // donc `modules/blog` partout, jamais `modules\blog`.
-          dir: path.relative(projectRoot, t.dir).split(path.sep).join("/"),
-        })),
-    },
-    written,
-    writer,
-  );
+  //
+  // ⚠️ JAMAIS en layout `packages` : dans un monorepo établi, l'AGENTS.md de la
+  // racine est écrit à la MAIN — il décrit le dépôt, pas une app générée. Le
+  // réécrire depuis le gabarit d'app détruirait ce travail, et le scaffold n'a
+  // aucun moyen de le distinguer d'un fichier qu'il aurait lui-même produit.
+  if (!data.publishable) {
+    renderProjectAgents(
+      eta,
+      packageRoot,
+      projectRoot,
+      {
+        appName,
+        nodefonyVersion: version,
+        hasSecurity: appDeps.has("@nodefony/security"),
+        hasOrm: appDeps.has("@nodefony/orm-core"),
+        hasRealtime: appDeps.has("@nodefony/realtime"),
+        hasStudio: appDeps.has("@nodefony/studio"),
+        front: appDeps.has("@nodefony/frontend"),
+        modules: listTargets(projectRoot, writer)
+          .filter((t) => t.kind === "module")
+          .map((t) => ({
+            name: t.name,
+            // Ce chemin est RENDU dans `AGENTS.md` — un document que lisent des agents et
+            // des humains, pas un chemin qu'on redonne au système de fichiers. Il s'écrit
+            // donc `modules/blog` partout, jamais `modules\blog`.
+            dir: path.relative(projectRoot, t.dir).split(path.sep).join("/"),
+          })),
+      },
+      written,
+      writer,
+    );
+  }
   return { dest, files: written.sort(), linked: [], notes };
 }
 
@@ -1289,17 +1619,11 @@ function runControllerScaffold(
         "lance la commande depuis une app (créée par `nodefony create app`)",
     );
   }
-  const targets = listTargets(projectRoot, writer);
-  const moduleName = String(answers.module ?? "");
-  const target = moduleName
-    ? targets.find((t) => t.kind === "module" && t.name === moduleName)
-    : targets[0];
-  if (!target) {
-    const known = targets.map((t) => `${t.name} (${t.kind})`).join(" · ");
-    throw new Error(
-      `module « ${moduleName} » introuvable — cibles du projet : ${known}`,
-    );
-  }
+  const target = resolveScaffoldTarget(
+    projectRoot,
+    String(answers.module ?? ""),
+    writer,
+  );
   const kind = answers.kind as TControllerKindChoice;
   // Nom normalisé : suffixe Controller strippé s'il est déjà donné (évite
   // BlogControllerController), classe en PascalCase, route/canaux en kebab.
@@ -1354,7 +1678,10 @@ function runControllerScaffold(
     data,
     written,
     writer,
-    { __NAME__: nameClass },
+    // `__KEBAB__` sert au test généré (`tests/<kebab>-realtime.test.ts`) : un
+    // fichier de test se nomme d'après la ROUTE qu'il éprouve, pas d'après la
+    // classe — c'est ainsi qu'on le retrouve depuis un journal ou une URL.
+    { __NAME__: nameClass, __KEBAB__: kebab },
   );
   wireDecoratorList(
     path.join(target.dir, "index.ts"),
@@ -1373,6 +1700,7 @@ function runControllerScaffold(
     ],
     realtime: [
       `WS   ${route}/realtime (socket Nodefony — canal ${kebab}:ticker, action ${kebab}:ping)`,
+      `TEST tests/${kebab}-realtime.test.ts — \`npx vitest run\` (harnais @nodefony/realtime/testing, ni serveur ni navigateur)`,
     ],
     example: [
       `REST ${route} (vitrine décorateurs — voir les curl du TSDoc généré)`,
@@ -1384,6 +1712,150 @@ function runControllerScaffold(
     files: written.sort(),
     linked: [],
     notes: NOTES[kind],
+  };
+}
+
+/**
+ * Scaffold IN-PROJECT d'un service injectable : résout la cible (app racine ou
+ * module), rend la classe (`@injectable`, `extends Service`) + son interface
+ * dans `<cible>/nodefony/{service,interfaces}/`, puis câble la classe dans le
+ * `@services([...])` de l'`index.ts` cible — CRÉÉ s'il n'existe pas encore
+ * (cf {@link wireDecoratorList}, seul cas où l'absence du décorateur n'est pas
+ * un refus).
+ *
+ * Volontairement AUTONOME : contrairement au service PRINCIPAL d'un module
+ * (`create module`, gabarit `templates/module/service/`), celui-ci ne dépend
+ * d'aucun `nodefony/config/config.ts` — une cible existante (app racine, ou
+ * module créé avec `--no-service`) n'en a pas forcément un, et le résultat
+ * doit compiler tel quel, sans édition manuelle.
+ *
+ * @throws hors projet, cible inconnue (le message liste les cibles), ou nom
+ *   déjà référencé dans l'`index.ts` cible.
+ */
+function runServiceScaffold(
+  request: IScaffoldRequest,
+  answers: TScaffoldAnswers,
+  packageRoot: string,
+  writer: ScaffoldWriter,
+): IScaffoldResult {
+  const projectRoot = findProjectRoot(request.dir);
+  if (!projectRoot) {
+    throw new Error(
+      "aucun projet Nodefony ici (nodefony.config.ts introuvable en remontant) — " +
+        "lance la commande depuis une app (créée par `nodefony create app`)",
+    );
+  }
+  const target = resolveScaffoldTarget(
+    projectRoot,
+    String(answers.module ?? ""),
+    writer,
+  );
+  // Nom normalisé : suffixe Service strippé s'il est déjà donné (même
+  // tolérance que `Controller` pour `create controller`), classe en
+  // PascalCase, clé de conteneur en camelCase (`super("billing", …)`).
+  const base = String(answers.name).replace(/[-_]?[Ss]ervice$/u, "");
+  const pascal = toPascalCase(base);
+  const nameClass = `${pascal}Service`;
+  const camel = pascal[0].toLowerCase() + pascal.slice(1);
+
+  // Les services DÉJÀ présents dans la cible : ils décident de deux choses —
+  // ce que `--inject` peut viser, et la note qui apprend le geste à qui ne l'a
+  // pas demandé.
+  const existing = listTargetServices(target.dir, writer);
+  const injectName = String(answers.inject ?? "").trim();
+  let inject: {
+    pascal: string;
+    key: string;
+    camel: string;
+    method: string;
+  } | null = null;
+  if (injectName !== "") {
+    const wanted = `${toPascalCase(injectName.replace(/[-_]?[Ss]ervice$/u, ""))}Service`;
+    const found = existing.find((s) => s.pascal === wanted);
+    if (!found) {
+      // Refus AVANT écriture : produire un import vers une classe absente
+      // laisserait un projet qui ne compile plus, sur une erreur qui ne parle
+      // pas du scaffold. Même doctrine que `--service` de `create command`.
+      const known = existing.map((s) => s.pascal).join(" · ") || "aucun";
+      throw new Error(
+        `--inject : « ${injectName} » introuvable dans ${target.name} ` +
+          `(services de la cible : ${known}) — crée-le d'abord, ou relance sans --inject`,
+      );
+    }
+    if (found.pascal === nameClass) {
+      throw new Error(
+        `--inject : un service ne s'injecte pas lui-même (${nameClass})`,
+      );
+    }
+    // Une dépendance déclarée et jamais appelée ne compile pas (`noUnusedLocals`
+    // signale la propriété privée non lue) — et surtout, elle ne montrerait
+    // rien. Le gabarit produit donc un APPEL, sur une méthode CHERCHÉE dans le
+    // service visé : le même helper que `create command --service`, jamais un
+    // nom supposé.
+    const method = findCallableMethod(found.source);
+    if (method === null) {
+      throw new Error(
+        `--inject : ${found.pascal} n'expose aucune méthode publique appelable ` +
+          "sans argument obligatoire — le service injecté serait déclaré sans être appelé",
+      );
+    }
+    inject = {
+      pascal: found.pascal,
+      key: found.key,
+      camel: found.key[0].toLowerCase() + found.key.slice(1),
+      method,
+    };
+  }
+
+  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const written: string[] = [];
+  renderLayer(
+    eta,
+    path.join(packageRoot, "templates", "service"),
+    target.dir,
+    {
+      pascal,
+      camel,
+      inject,
+      description:
+        String(answers.description) || `Service ${pascal} de ${target.name}`,
+    },
+    written,
+    writer,
+    { __PASCAL__: pascal },
+  );
+  wireDecoratorList(
+    path.join(target.dir, "index.ts"),
+    "services",
+    nameClass,
+    `./nodefony/service/${nameClass}`,
+    writer,
+  );
+  written.push("index.ts");
+  const notes = [
+    `DI   container.get("${camel}")  — clé du conteneur (super("${camel}", …))`,
+    `DI   @inject("${nameClass}")    — nom de classe (@injectable)`,
+  ];
+  if (inject) {
+    notes.push(
+      `DI   ${inject.pascal} est injecté par le CONSTRUCTEUR — dépendance déclarée, ordonnée par le conteneur`,
+    );
+  } else if (existing.length > 0) {
+    // La note APPREND le geste, au seul moment où il est applicable : la cible
+    // porte déjà un service, donc l'injection a un sens ici et maintenant.
+    // Mesuré au banc : `@inject` n'existait qu'en commentaire dans les gabarits,
+    // et l'agent passait exclusivement par `container.get` — on ne prend que la
+    // voie qu'on a VUE, jamais celle qu'on a lue.
+    notes.push(
+      `DI   pour appeler ${existing[0].pascal} depuis ce service, injecte-le : ` +
+        `nodefony create service ${base} --inject ${existing[0].pascal}`,
+    );
+  }
+  return {
+    dest: target.dir,
+    files: written.sort(),
+    linked: [],
+    notes,
   };
 }
 
@@ -1406,33 +1878,105 @@ function readNodefonyName(file: string, writer: ScaffoldWriter): string | null {
 }
 
 /**
- * Service appelable de la cible : sa classe et sa clé de conteneur.
+ * Première méthode d'un service qu'une commande peut appeler SANS argument.
  *
- * `greet` est exigée parce que c'est la méthode que la commande générée appelle :
- * mieux vaut refuser l'option que produire un appel qui ne compile pas. Un
- * service écrit à la main porte d'autres méthodes — l'utilisateur adaptera le
- * fichier généré, ce qui reste plus honnête qu'un exemple faux.
+ * On cherche une méthode **publique** dont tous les paramètres sont facultatifs
+ * (aucun, ou tous avec `?`/valeur par défaut) : c'est la seule forme dont on
+ * puisse produire un appel qui compile à coup sûr. Le cycle de vie (`init`) et
+ * le constructeur sont exclus — les appeler serait un contresens.
  *
- * @returns `{ pascal, key }`, ou `null` si la cible n'a aucun service de cette forme.
+ * ⚠️ Analyse TEXTUELLE, volontairement conservatrice : à la moindre signature
+ * qu'on ne sait pas lire, on passe. Mieux vaut refuser `--service` que livrer un
+ * appel qui ne compile pas.
+ *
+ * @returns le nom de la méthode, ou `null` si aucune ne convient.
  */
-function findTargetService(
+function findCallableMethod(source: string): string | null {
+  // Méthode au premier niveau d'indentation d'une classe, non privée, non
+  // statique, éventuellement `async`. Le corps ne nous intéresse pas.
+  const re =
+    /^ {2}(?:public\s+)?(?:async\s+)?([a-z][A-Za-z0-9_]*)\s*\(([^)]*)\)/gmu;
+  for (const m of source.matchAll(re)) {
+    const [, name, params] = m;
+    if (name === "constructor" || name === "init" || name === "if") {
+      continue;
+    }
+    const args = params.trim();
+    // Tous facultatifs ? Un `=` ou un `?` par paramètre — sinon l'appel généré
+    // manquerait un argument requis.
+    const callable =
+      args === "" ||
+      args
+        .split(",")
+        .every((p) => p.includes("=") || /\?\s*:/u.test(p) || p.trim() === "");
+    if (callable) {
+      return name;
+    }
+  }
+  return null;
+}
+
+/**
+ * Les services d'une cible : classe, clé de conteneur, source.
+ *
+ * Point UNIQUE qui sait où vivent les services et comment on les nomme —
+ * `--service` de `create command` et `--inject` de `create service` en
+ * dépendent tous deux. Deux façons de « trouver les services » divergeraient en
+ * silence, chacune passant ses propres essais.
+ *
+ * Un fichier dont on ne sait pas lire le `super("…", …)` est ignoré : sans clé
+ * de conteneur, il n'est atteignable par personne, donc il n'est pas un
+ * candidat.
+ */
+function listTargetServices(
   targetDir: string,
   writer: ScaffoldWriter,
-): { pascal: string; key: string } | null {
+): Array<{ pascal: string; key: string; source: string }> {
   const dir = path.join(targetDir, "nodefony", "service");
   if (!writer.exists(dir)) {
-    return null;
+    return [];
   }
+  const found: Array<{ pascal: string; key: string; source: string }> = [];
   for (const entry of writer.listDir(dir)) {
     if (entry.isDirectory || !entry.name.endsWith("Service.ts")) {
       continue;
     }
     const file = path.join(dir, entry.name);
     const key = readNodefonyName(file, writer);
-    if (key === null || !/\bgreet\s*\(/u.test(writer.read(file))) {
+    if (key === null) {
       continue;
     }
-    return { pascal: entry.name.replace(/\.ts$/u, ""), key };
+    found.push({
+      pascal: entry.name.replace(/\.ts$/u, ""),
+      key,
+      source: writer.read(file),
+    });
+  }
+  return found;
+}
+
+/**
+ * Service appelable de la cible : sa classe, sa clé de conteneur, sa méthode.
+ *
+ * ⚠️ La méthode est CHERCHÉE, pas supposée. Elle a longtemps été exigée par son
+ * nom (`greet`, celui du gabarit) — or ce même gabarit dit « à remplacer par la
+ * vôtre » : suivre le conseil cassait `--service`, sur un message qui réclamait
+ * une méthode d'exemple. Un générateur ne doit pas exiger que son propre exemple
+ * soit resté intact.
+ *
+ * @returns `{ pascal, key, method }`, ou `null` si la cible n'a aucun service
+ *   dont une méthode soit appelable sans argument.
+ */
+function findTargetService(
+  targetDir: string,
+  writer: ScaffoldWriter,
+): { pascal: string; key: string; method: string } | null {
+  for (const svc of listTargetServices(targetDir, writer)) {
+    const method = findCallableMethod(svc.source);
+    if (method === null) {
+      continue;
+    }
+    return { pascal: svc.pascal, key: svc.key, method };
   }
   return null;
 }
@@ -1525,17 +2069,8 @@ function runCommandScaffold(
         "lance la commande depuis une app (créée par `nodefony create app`)",
     );
   }
-  const targets = listTargets(projectRoot, writer);
   const moduleName = String(answers.module ?? "");
-  const target = moduleName
-    ? targets.find((t) => t.kind === "module" && t.name === moduleName)
-    : targets[0];
-  if (!target) {
-    const known = targets.map((t) => `${t.name} (${t.kind})`).join(" · ");
-    throw new Error(
-      `module « ${moduleName} » introuvable — cibles du projet : ${known}`,
-    );
-  }
+  const target = resolveScaffoldTarget(projectRoot, moduleName, writer);
   const indexPath = path.join(target.dir, "index.ts");
   const prefix =
     readNodefonyName(indexPath, writer) ??
@@ -1569,7 +2104,8 @@ function runCommandScaffold(
   if (answers.service === true && service === null) {
     throw new Error(
       `--service : aucun service appelable dans ${target.name} ` +
-        `(attendu : nodefony/service/*Service.ts exposant greet()) — relance sans --service`,
+        `(attendu : nodefony/service/*Service.ts exposant une méthode publique ` +
+        `sans argument obligatoire) — relance sans --service`,
     );
   }
   const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
@@ -1628,6 +2164,95 @@ function runCommandScaffold(
  * @returns `fixed` pour le JSON de la documentation, `expr` pour la fabrique
  *   paramétrée des tests (une expression TypeScript où `n` varie).
  */
+/**
+ * Le filtre sur lequel le test généré peut prouver qu'un filtre FILTRE — ou
+ * `null` si aucun champ ne s'y prête.
+ *
+ * Prouver un refus (`?actf=x` → 400) et prouver un filtre sont deux choses
+ * différentes, et la seconde exige une ligne qui NE matche PAS. Sans elle,
+ * l'assertion « toutes les lignes rendues portent la valeur demandée » reste
+ * vraie quand le filtre est ignoré : tous les échantillons d'un booléen valent
+ * `true`, ceux d'une énumération valent sa première valeur ({@link sampleValue}).
+ * Le test serait vert sur un filtre débranché — exactement le défaut qu'il est
+ * censé attraper.
+ *
+ * D'où les deux seules natures retenues, celles qui offrent un contraire sûr et
+ * gratuit. Une clé étrangère en est écartée : poser une seconde valeur
+ * demanderait de créer l'entité visée, et le test parlerait d'autre chose.
+ *
+ * Deux écritures de chaque valeur, et ce n'est pas une redondance : `match` part
+ * dans l'URL (`?publie=true` — tout y est du texte), `matchJson` est la
+ * littérale TypeScript posée dans le corps envoyé (`publie: true`, un booléen —
+ * `"true"` y serait refusé par le schéma).
+ *
+ * @param fields - les champs déclarés de l'entité.
+ * @returns le nom du filtre et ses deux valeurs sous les deux écritures, ou
+ *   `null` si l'entité n'a aucun champ éprouvable.
+ */
+export function filterProbe(fields: readonly IEntityField[]): {
+  name: string;
+  match: string;
+  matchJson: string;
+  other: string;
+  otherJson: string;
+} | null {
+  for (const f of fields) {
+    // Un champ nullable n'est pas posé par l'échantillon : la ligne témoin
+    // devrait le fabriquer, ce qui sort du périmètre de cette sonde.
+    if (f.nullable) continue;
+    if (f.type === "bool") {
+      return {
+        name: f.name,
+        match: "true",
+        matchJson: "true",
+        other: "false",
+        otherJson: "false",
+      };
+    }
+    if (f.type === "enum" && (f.values?.length ?? 0) >= 2) {
+      const [a, b] = f.values as string[];
+      return {
+        name: f.name,
+        match: a,
+        matchJson: JSON.stringify(a),
+        other: b,
+        otherJson: JSON.stringify(b),
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Le filtre sur lequel une valeur MAL FORMÉE existe, et de quoi la fabriquer —
+ * ou `null` si aucun filtre de l'entité ne peut en refuser une.
+ *
+ * Toutes les natures ne refusent pas : un filtre `"string"` accepte n'importe
+ * quelle chaîne, par construction. Le test généré visait pourtant le PREMIER
+ * filtre déclaré quel qu'il soit, et attendait un `400` — sur une entité dont
+ * le seul filtre est une clé étrangère à identifiant textuel
+ * (`author:ref:Author` avec des `uuid`), il exigeait donc le refus d'une valeur
+ * parfaitement valide, et échouait sur le générateur au lieu de l'éprouver.
+ *
+ * @param filters - le vocabulaire de filtre déjà calculé (nom → littérale de sa
+ *   nature, telle qu'elle sera écrite dans le gabarit).
+ * @returns le nom du filtre et une valeur qu'il doit refuser, ou `null`.
+ */
+export function malformedProbe(
+  filters: readonly { name: string; def: string }[],
+): { name: string; value: string } | null {
+  for (const f of filters) {
+    if (f.def === '"boolean"') return { name: f.name, value: "oui" };
+    if (f.def === '"int"') return { name: f.name, value: "abc" };
+    // Une énumération est rendue comme un tableau littéral : son domaine EST
+    // son allowlist, donc tout ce qui n'y figure pas est refusé.
+    if (f.def.startsWith("[")) {
+      return { name: f.name, value: "valeur-hors-domaine" };
+    }
+  }
+  return null;
+}
+
 export function sampleValue(
   field: IEntityField,
   id: TEntityIdKind,
@@ -1988,17 +2613,11 @@ function runEntityScaffold(
         "lance la commande depuis une app (créée par `nodefony create app`)",
     );
   }
-  const targets = listTargets(projectRoot, writer);
-  const moduleName = String(answers.module ?? "");
-  const target = moduleName
-    ? targets.find((t) => t.kind === "module" && t.name === moduleName)
-    : targets[0];
-  if (!target) {
-    const known = targets.map((t) => `${t.name} (${t.kind})`).join(" · ");
-    throw new Error(
-      `module « ${moduleName} » introuvable — cibles du projet : ${known}`,
-    );
-  }
+  const target = resolveScaffoldTarget(
+    projectRoot,
+    String(answers.module ?? ""),
+    writer,
+  );
 
   // Garde ORM : générer une entité sans ORM produirait du code mort qui ne compile même
   // pas. On refuse AVANT d'écrire, avec le geste exact.
@@ -2173,6 +2792,25 @@ function runEntityScaffold(
     ...fields.filter((f) => f.type !== "json").map((f) => f.name),
     ...(timestamps ? ["createdAt", "updatedAt"] : []),
   ];
+  // Vocabulaire de FILTRE de la route de liste — le frère du tri, et sa règle est
+  // l'inverse : le tri est une capacité (le store sait-il ordonner ?), un filtre
+  // est une OBLIGATION (l'endpoint le déclare, donc il l'honore). Trois natures y
+  // entrent, parce que ce sont les trois où l'ÉGALITÉ veut dire quelque chose :
+  // un booléen, une énumération (son domaine EST son allowlist) et une clé
+  // étrangère (« les commentaires de cet article » — le filtre le plus demandé).
+  // Une chaîne libre n'y entre pas : l'égalité stricte sur un titre n'est jamais
+  // ce qu'on cherche, c'est `?q=` qui répond. Une date non plus : on veut un
+  // intervalle, que `nom=valeur` n'exprime pas — le promettre serait mentir.
+  const filterDef = (f: (typeof fields)[number]): string | null => {
+    if (f.type === "bool") return '"boolean"';
+    if (f.type === "enum" && f.values?.length)
+      return JSON.stringify(f.values).replace(/","/g, '", "');
+    if (f.type === "ref") return id === "serial" ? '"int"' : '"string"';
+    return null;
+  };
+  const filters = fields
+    .map((f) => ({ name: f.name, def: filterDef(f) }))
+    .filter((e): e is { name: string; def: string } => e.def !== null);
   // Tri PAR DÉFAUT — une liste sans ordre déterministe rend la pagination fausse
   // par intermittence : deux pages consécutives peuvent montrer la même ligne, ou
   // en sauter une, sans que rien ne le signale. `id` départage les ex æquo (uuid7
@@ -2240,6 +2878,21 @@ function runEntityScaffold(
     factory.push(`${f.name}: ${expr}`);
   }
 
+  // Un champ dont la valeur voyage telle quelle en JSON ET varie d'un
+  // échantillon à l'autre : le test HTTP généré compare ce qu'il a envoyé à ce
+  // qu'il relit. Sont exclus les dates (envoyées en `Date`, relues en chaîne
+  // ISO — l'égalité serait fausse pour une bonne raison) et les énumérations
+  // (valeur constante : comparer deux fois la même chose ne prouve rien).
+  const comparableField =
+    fields.find(
+      (f) =>
+        !f.nullable &&
+        f.type !== "date" &&
+        f.type !== "json" &&
+        f.type !== "ref" &&
+        f.type !== "enum",
+    )?.name ?? null;
+
   const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
   const written: string[] = [];
   const data = {
@@ -2253,23 +2906,35 @@ function runEntityScaffold(
     moduleName: target.kind === "app" ? "app" : String(target.name),
     curlBody: JSON.stringify(sample),
     sampleFactory: `{ ${factory.join(", ")} }`,
-    // Un champ dont la valeur voyage telle quelle en JSON ET varie d'un
-    // échantillon à l'autre : le test HTTP généré compare ce qu'il a envoyé à ce
-    // qu'il relit. Sont exclus les dates (envoyées en `Date`, relues en chaîne
-    // ISO — l'égalité serait fausse pour une bonne raison) et les énumérations
-    // (valeur constante : comparer deux fois la même chose ne prouve rien).
-    comparableField:
-      fields.find(
-        (f) =>
-          !f.nullable &&
-          f.type !== "date" &&
-          f.type !== "json" &&
-          f.type !== "ref" &&
-          f.type !== "enum",
-      )?.name ?? null,
+    comparableField,
     // Sans champ unique, aucun doublon n'est possible : le cas 409 n'existe pas
     // pour cette entité, et un test qui l'attendrait échouerait à jamais.
     hasUnique: fields.some((f) => f.unique),
+    // Le champ sur lequel le test généré éprouve que le tri ORDONNE — et pas
+    // seulement qu'il REFUSE un champ inconnu. Les deux sont des tests
+    // différents : un `ORDER BY` mort passe le second sans broncher.
+    //
+    // `comparableField` convient exactement (non nul, varie d'un échantillon à
+    // l'autre, voyage tel quel en JSON) et appartient toujours à `sortable`,
+    // qui n'exclut que le JSON. À défaut, `id` : unique par construction, donc
+    // ses valeurs sont distinctes — ce dont le test a besoin, car une colonne
+    // constante rend TOUT ordre « trié ».
+    sortProbe: comparableField ?? "id",
+    // Un filtre n'est ÉPROUVABLE que si l'on sait fabriquer une ligne qui ne
+    // matche pas. Sans elle, « toutes les lignes rendues portent la valeur
+    // demandée » est vrai même quand le filtre est ignoré — tous les
+    // échantillons d'un booléen valent `true`, ceux d'une énumération valent sa
+    // première valeur. Le test serait alors vert sur un filtre débranché.
+    //
+    // D'où les deux natures retenues, les seules qui offrent un contraire sûr :
+    // un booléen, et une énumération d'au moins deux valeurs. Une clé étrangère
+    // en est exclue — poser une seconde valeur exigerait de créer l'entité
+    // visée, et le test ne parlerait plus du filtre.
+    filterProbe: filterProbe(fields),
+    // Le filtre capable de REFUSER une valeur — toutes les natures n'en sont
+    // pas capables, et viser aveuglément le premier filtre déclaré faisait
+    // exiger le refus d'une chaîne valide.
+    malformedProbe: malformedProbe(filters),
     // Entités visées par les relations — le test généré doit les enregistrer,
     // sinon l'ORM lève en résolvant les relations au moment de se connecter.
     relationTargets: [
@@ -2282,8 +2947,17 @@ function runEntityScaffold(
     timestamps,
     softDelete,
     sortable,
+    filters,
     defaultOrder,
     relations,
+    // Le CRUD généré porte la seule route DESTRUCTRICE que produise le devkit.
+    // Sans garde, elle répond 204 à un anonyme — mesuré sur une application
+    // réelle, et c'est le défaut le plus coûteux qu'un générateur puisse livrer.
+    // Le gabarit `rest` de `create controller` protège déjà le même DELETE :
+    // deux générateurs qui produisent la même route ne peuvent pas avoir deux
+    // doctrines. Conditionné à la présence du module, faute de quoi `@IsGranted`
+    // n'existerait pas et le code généré ne compilerait pas (preset minimal).
+    hasSecurity: targetDeps.has("@nodefony/security"),
     ...codegen,
   };
 
@@ -2564,7 +3238,10 @@ export function wireEntitiesDecorator(
  *
  * @throws hors projet, cible inconnue, cible portant DÉJÀ un front
  *   (`frontend/index.html` — ce scaffold pose l'INITIAL, il ne fusionne pas),
- *   ou dep `@nodefony/frontend` absente de la cible.
+ *   ou dep `@nodefony/frontend` absente de l'APPLICATION. Absente du seul module
+ *   visé, elle y est POSÉE en peer : un workspace résout depuis l'arbre de
+ *   l'app, et exiger une édition manuelle du `package.json` revenait à demander
+ *   à la main ce que ce scaffold existe pour écrire.
  */
 function runFrontScaffold(
   request: IScaffoldRequest,
@@ -2579,17 +3256,11 @@ function runFrontScaffold(
         "lance la commande depuis une app (créée par `nodefony create app`)",
     );
   }
-  const targets = listTargets(projectRoot, writer);
-  const moduleName = String(answers.module ?? "");
-  const target = moduleName
-    ? targets.find((t) => t.kind === "module" && t.name === moduleName)
-    : targets[0];
-  if (!target) {
-    const known = targets.map((t) => `${t.name} (${t.kind})`).join(" · ");
-    throw new Error(
-      `module « ${moduleName} » introuvable — cibles du projet : ${known}`,
-    );
-  }
+  const target = resolveScaffoldTarget(
+    projectRoot,
+    String(answers.module ?? ""),
+    writer,
+  );
   if (writer.exists(path.join(target.dir, "frontend", "index.html"))) {
     throw new Error(
       `${target.name} porte déjà un front (frontend/index.html) — ce scaffold ` +
@@ -2607,11 +3278,23 @@ function runFrontScaffold(
       Object.keys(manifest[b] ?? {}),
     ),
   );
+  // `@nodefony/frontend` absent de la CIBLE n'est un refus que si l'APP ne l'a
+  // pas non plus : un module local est un workspace, il résout depuis l'arbre de
+  // l'application et rien ne s'y installe séparément. Refuser dans ce cas
+  // envoyait éditer le `package.json` à la main — exactement ce qu'un
+  // générateur existe pour éviter, et c'est ce qui a été observé au banc.
+  // La dep est alors posée plus bas, avec les autres (une seule écriture).
+  let addFrontendPeer = false;
   if (!targetDeps.has("@nodefony/frontend")) {
-    throw new Error(
-      `@nodefony/frontend manque dans ${target.name} — ajoute la dep + ` +
-        `"@nodefony/frontend" au manifeste modules de nodefony.config.ts`,
-    );
+    const appDeps = readAppDependencyNames(projectRoot, writer);
+    if (target.kind === "module" && appDeps.has("@nodefony/frontend")) {
+      addFrontendPeer = true;
+    } else {
+      throw new Error(
+        `@nodefony/frontend manque dans ${target.name} — ajoute la dep + ` +
+          `"@nodefony/frontend" au manifeste modules de nodefony.config.ts`,
+      );
+    }
   }
   const frontend = answers.frontend as Exclude<TFrontendChoice, "none">;
   const front = FRONTEND_PARAMS[frontend];
@@ -2708,6 +3391,9 @@ function runFrontScaffold(
   // (jamais de bump silencieux d'une version choisie par l'utilisateur).
   const added: string[] = [];
   const addDeps = (block: string, entries: Record<string, string>) => {
+    // Rien à poser : ne pas créer un bloc vide dans le manifeste de la cible
+    // (`deps` l'est pour les trois frameworks — cf FRONTEND_PARAMS).
+    if (Object.keys(entries).length === 0) return;
     const deps = (manifest[block] ??= {});
     for (const [name, version] of Object.entries(entries)) {
       if (!targetDeps.has(name)) {
@@ -2718,6 +3404,12 @@ function runFrontScaffold(
   };
   addDeps("dependencies", front.deps);
   addDeps("devDependencies", front.devDeps);
+  // Un module local résout depuis l'arbre de l'app : la brique s'y déclare en
+  // PEER (comme les autres du gabarit de module), jamais en dependency — rien
+  // ne s'installe dans un workspace pour son compte propre.
+  if (addFrontendPeer) {
+    addDeps("peerDependencies", { "@nodefony/frontend": "*" });
+  }
   if (added.length > 0) {
     writer.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     written.push("package.json");

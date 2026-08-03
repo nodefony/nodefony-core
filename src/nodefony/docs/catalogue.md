@@ -120,8 +120,11 @@ deux hubs temps réel qui ne se parlent pas.
 | `@nodefony/frontend`      | l'application sert une interface Vite (React, Vue, Angular), en rechargement à chaud en développement et pré-construite en production | l'application n'est qu'une API                                              |
 | `@nodefony/studio`        | tu veux voir l'intérieur en marche : routes, services, configuration, sessions, journaux, en **développement**                        | production — c'est un outil de développement, pas un tableau de bord public |
 | `@nodefony/documentation` | tu publies des pages de documentation servies par l'application elle-même                                                             | tu écris de la documentation lue seulement dans le dépôt                    |
+| `@nodefony/devkit`        | tu développes l'application **avec un agent** : carte de visite de l'application, portes de découverte de l'outillage                 | production — ce qu'il expose n'y est plus une aide, mais une divulgation    |
 
 `@nodefony/studio` tire `@nodefony/frontend` : le déclarer suffit à avoir les deux.
+
+`@nodefony/devkit` se déclare `policy: "dev"` : hors développement, il n'est même pas importé.
 
 ## 🗂️ La documentation de chaque module
 
@@ -153,7 +156,9 @@ dossier.
   { "icon": "🛠️", "title": "@nodefony/studio", "href": "../../packages/@nodefony/studio/docs/index.md",
     "desc": "L'administration web : voir l'intérieur en marche.", "meta": "développement" },
   { "icon": "📘", "title": "@nodefony/documentation", "href": "../../packages/@nodefony/documentation/docs/index.md",
-    "desc": "Le portail qui rend ces pages, et son data plane.", "meta": "méta" }
+    "desc": "Le portail qui rend ces pages, et son data plane.", "meta": "méta" },
+  { "icon": "🧰", "title": "@nodefony/devkit", "href": "../../packages/@nodefony/devkit/docs/index.md",
+    "desc": "Carte de visite de l'application, portes de découverte pour un agent.", "meta": "développement" }
 ]
 ```
 

@@ -51,19 +51,33 @@ export function makeTokenRecord(
   };
 }
 
-/** Le seed déterministe partagé par tous les backends. */
+/**
+ * Le seed déterministe partagé par tous les backends — 12 jetons.
+ *
+ * Répartition des ÉTATS, qui est ce que la console compte :
+ * - **3 révoqués** (`i % 4 === 0` → 0, 4, 8) ;
+ * - **2 expirés** — les jetons 1 et 2, non révoqués, portent une échéance en
+ *   1970 (donc toujours dépassée, quelle que soit l'horloge du test) ;
+ * - **7 actifs** — le reste, sans échéance.
+ *
+ * Les deux échéances sont posées sur des jetons NON révoqués à dessein : c'est
+ * le seul moyen de distinguer « expiré » d'« actif », que l'ancien filtre
+ * booléen `revoked` mettait dans le même sac.
+ */
 export function tokenSeed(): IAccessTokenRecord[] {
   const out: IAccessTokenRecord[] = [];
   for (let i = 0; i < 12; i += 1) {
     const refresh = i % 3 === 0;
+    const revoked = i % 4 === 0;
     out.push(
       makeTokenRecord({
         id: `tok-${String(i).padStart(2, "0")}`,
         kind: refresh ? "refresh" : "pat",
         subjectId: i < 5 ? "s1" : "s2",
         createdAt: 1000 + i,
-        revokedAt: i % 4 === 0 ? 2000 + i : null,
-        revokedReason: i % 4 === 0 ? "manual" : null,
+        expiresAt: i === 1 || i === 2 ? 500 : null,
+        revokedAt: revoked ? 2000 + i : null,
+        revokedReason: revoked ? "manual" : null,
         family: refresh ? `fam-${i}` : null,
       }),
     );
@@ -169,15 +183,60 @@ export function runTokenPaginationContract(
         );
       });
 
-      it("filtre revoked (présence de revokedAt)", async () => {
+      // Les trois états PARTITIONNENT le parc (3 + 2 + 7 = 12). Le banc les
+      // vérifie séparément ET vérifie la somme : un backend qui rangerait un
+      // jeton révoqué-puis-échu dans deux populations passerait chaque cas isolé
+      // tout en faisant dépasser le total.
+      it("filtre status : révoqué / expiré / actif partitionnent le parc", async () => {
         assert.equal(
-          (await store().listPage({ limit: 100, revoked: true })).total,
+          (await store().listPage({ limit: 100, status: "revoked" })).total,
           3,
         );
         assert.equal(
-          (await store().listPage({ limit: 100, revoked: false })).total,
-          9,
+          (await store().listPage({ limit: 100, status: "expired" })).total,
+          2,
+          "échéance dépassée, jamais révoqué",
         );
+        assert.equal(
+          (await store().listPage({ limit: 100, status: "active" })).total,
+          7,
+          "ni révoqué, ni échu — sans échéance compte comme actif",
+        );
+        assert.equal(
+          (await store().listPage({ limit: 100 })).total,
+          12,
+          "3 + 2 + 7 : aucun jeton dans deux états, aucun sans état",
+        );
+      });
+
+      it("status expiré n'attrape PAS un jeton révoqué qui a aussi expiré", async () => {
+        // Le seed n'en contient pas ; on en pose un pour forcer le cas, puis on
+        // remet le parc en état — les cas suivants comptent dessus.
+        await store().put(
+          makeTokenRecord({
+            id: "tok-both",
+            kind: "pat",
+            subjectId: "s1",
+            createdAt: 999,
+            expiresAt: 500,
+            revokedAt: 1500,
+            revokedReason: "manual",
+          }),
+        );
+        try {
+          assert.equal(
+            (await store().listPage({ limit: 100, status: "expired" })).total,
+            2,
+            "révoqué l'emporte sur expiré",
+          );
+          assert.equal(
+            (await store().listPage({ limit: 100, status: "revoked" })).total,
+            4,
+          );
+        } finally {
+          await harness.clear();
+          for (const record of tokenSeed()) await harness.store().put(record);
+        }
       });
 
       it("withTotal:false → total omis, hasNext fiable", async () => {
@@ -194,7 +253,134 @@ export function runTokenPaginationContract(
           7,
         );
       });
+
+      // ── TRI : ce qu'un store DÉCLARE savoir trier, il le trie VRAIMENT ─────
+      // Le vocabulaire (`createdAt`, `name`, `subjectId`, `id`) est public et
+      // identique partout : `?order=` doit produire le même ordre sur mémoire,
+      // SQLite, PostgreSQL, MySQL et Mongo. Un store mémoire qui trierait en dur
+      // passerait tous les tests ci-dessus tout en mentant sur la production.
+      it("un store à offset DÉCLARE son vocabulaire de tri public", async () => {
+        const fields = store().sortableFields;
+        assert.ok(
+          fields && fields.length > 0,
+          "un backend offset doit déclarer ses champs triables",
+        );
+        assert.ok(
+          fields!.includes("createdAt"),
+          "`createdAt` est l'axe contractuel d'une console de clés",
+        );
+      });
+
+      it("`order` inverse réellement le sens (createdAt ASC)", async () => {
+        const page = await store().listPage({
+          limit: 12,
+          order: [["createdAt", "ASC"]],
+        });
+        assert.deepEqual(
+          page.items.map((r) => r.id),
+          tokenSeed().map((r) => r.id),
+          "ASC doit rendre l'ordre d'écriture du seed",
+        );
+      });
+
+      it("`order` sur `id` trie par identifiant, dans les deux sens", async () => {
+        const asc = await store().listPage({
+          limit: 12,
+          order: [["id", "ASC"]],
+        });
+        const ids = asc.items.map((r) => r.id);
+        assert.deepEqual(ids, [...ids].sort());
+
+        const desc = await store().listPage({
+          limit: 12,
+          order: [["id", "DESC"]],
+        });
+        assert.deepEqual(
+          desc.items.map((r) => r.id),
+          [...ids].reverse(),
+        );
+      });
+
+      it("`order` sur `name` trie sur le libellé humain", async () => {
+        const page = await store().listPage({
+          limit: 12,
+          order: [["name", "ASC"]],
+        });
+        const names = page.items.map((r) => r.name);
+        assert.deepEqual(names, [...names].sort());
+      });
+
+      it("chaque champ DÉCLARÉ est effectivement honoré", async () => {
+        // La garde qui empêche d'annoncer une capacité qu'on n'a pas : le data
+        // plane refuse en 400 tout champ hors de cette liste, donc tout ce qui y
+        // figure DOIT trier — sans quoi la console offrirait un en-tête inerte.
+        //
+        // On vérifie la MONOTONIE de la suite de valeurs, pas l'inversion des
+        // identifiants : `subjectId` n'a que deux valeurs dans le seed, et
+        // l'ordre des ex æquo n'est garanti par aucun backend.
+        const declared = store().sortableFields ?? [];
+        // Sans cette borne, un store qui ne déclare RIEN ferait passer ce test
+        // sur une boucle vide — un test qui ne lit rien ne garantit rien.
+        assert.ok(
+          declared.length > 0,
+          "un backend offset doit déclarer au moins un champ triable",
+        );
+        for (const field of declared) {
+          const read = (r: IAccessTokenRecord): string =>
+            String(r[field as keyof IAccessTokenRecord]);
+          const asc = (
+            await store().listPage({ limit: 12, order: [[field, "ASC"]] })
+          ).items.map(read);
+          const desc = (
+            await store().listPage({ limit: 12, order: [[field, "DESC"]] })
+          ).items.map(read);
+          assert.deepEqual(
+            asc,
+            [...asc].sort(),
+            `"${field}" ASC doit rendre une suite croissante`,
+          );
+          assert.deepEqual(
+            desc,
+            [...desc].sort().reverse(),
+            `"${field}" DESC doit rendre une suite décroissante`,
+          );
+        }
+      });
+
+      it("le tri s'applique AVANT la pagination (pas page par page)", async () => {
+        // Le piège classique : trier la tranche déjà découpée. La 2ᵉ page d'un
+        // tri ASC doit continuer la 1ʳᵉ, pas recommencer.
+        const p1 = await store().listPage({
+          limit: 4,
+          offset: 0,
+          order: [["id", "ASC"]],
+        });
+        const p2 = await store().listPage({
+          limit: 4,
+          offset: 4,
+          order: [["id", "ASC"]],
+        });
+        const all = [...p1.items, ...p2.items].map((r) => r.id);
+        assert.deepEqual(
+          all,
+          [...all].sort(),
+          "les pages se suivent dans l'ordre",
+        );
+      });
     } else {
+      it("un store à curseur NE DÉCLARE PAS de tri (il n'en a pas)", async () => {
+        // `SCAN` parcourt le keyspace dans un ordre non spécifié : il n'existe
+        // aucun tri global à offrir. Le déclarer quand même serait la seule faute
+        // possible ici — le data plane exposerait alors un tri qui ne trierait
+        // rien, et personne ne le verrait. L'absence de déclaration fait refuser
+        // tout `?order=` en 400, ce qui est la vérité de ce backend.
+        const fields = store().sortableFields;
+        assert.ok(
+          !fields || fields.length === 0,
+          "un backend curseur ne doit annoncer aucun champ triable",
+        );
+      });
+
       it("curseur : collecte toutes les pages (ensemble complet)", async () => {
         const all = await collectByCursor(store(), {});
         assert.equal(all.length, 12);

@@ -48,7 +48,7 @@ flowchart TD
   S --> CTRL["→ autorisation → contrôleur"]
 ```
 
-C'est `Firewall.#authenticate()` (`firewall.ts:918`) qui déroule ce cycle pour chaque maillon de la
+C'est `Firewall.#authenticate()` (`firewall.ts:1013`) qui déroule ce cycle pour chaque maillon de la
 zone, dans l'ordre déclaré. Le succès pose l'identité dans l'ALS ; l'échec remonte au firewall qui
 pose le 401 et son challenge — l'authenticator, lui, ne touche jamais à la réponse.
 
@@ -104,14 +104,14 @@ totalement agnostique de la stratégie :
 ### Le registre pluggable
 
 Les authenticators sont résolus par **nom** : `Firewall.#instantiateAuthenticators()`
-(`firewall.ts:363`) interroge `getAuthenticatorFactory()` (`authenticatorRegistry.ts:59`) — jamais
+(`firewall.ts:402`) interroge `getAuthenticatorFactory()` (`authenticatorRegistry.ts:59`) — jamais
 un `if (name === "jwt")` dans le firewall, qui trahirait la promesse « pluggable ».
 
 - Les **cinq builtins HTTP** (`anonymous`, `userpassword`, `session`, `jwt`, `apikey`)
   s'enregistrent à l'import du module via `registerAuthenticatorFactory()`
   (`authenticatorRegistry.ts:72-125`) — donc toujours avant le boot.
-- Le sixième, `session-realtime`, n'est **pas dans le registre** : c'est le firewall qui le câble
-  lui-même au handshake WS des zones protégées (`Firewall.#wireRealtime()`, `firewall.ts:253`).
+- Le sixième, `firewall-realtime`, n'est **pas dans le registre** : c'est le firewall qui le câble
+  lui-même au handshake WS des zones protégées (`Firewall.#wireRealtime()`, `firewall.ts:268`).
 - La fabrique ne fait que **construire** ; les résolutions de services coûteuses (`users`,
   `tokenStore`, keystore) restent **lazy** dans l'instance (cold path).
 - Un nom inconnu en config = boot **fail-closed** — `#configError` posé + log CRITIC
@@ -206,14 +206,14 @@ Requête par requête, qui répond :
 
 ## 🔐 Les six authenticators intégrés
 
-| Nom                | Credential                              | Vérité     | Révocable | Pour…                             |
-| ------------------ | --------------------------------------- | ---------- | :-------: | --------------------------------- |
-| `anonymous`        | (aucun)                                 | —          |     —     | accepter l'anonymat explicitement |
-| `userpassword`     | `Authorization: Basic base64(id:mdp)`   | verifier   |    n/a    | outils/scripts, brique login      |
-| `session`          | cookie de session (identifiant en blob) | serveur    | immédiate | le **web** après login (BFF)      |
-| `jwt`              | `Authorization: Bearer <a.b.c>`         | auto-porté | via état  | API service↔service, agents       |
-| `apikey`           | `Authorization: Bearer nf_…`            | serveur    | immédiate | API/CI/scripts d'un user          |
-| `session-realtime` | identité du handshake (ALS)             | serveur    | reconnex. | le **WebSocket** d'une session    |
+| Nom                 | Credential                               | Vérité     | Révocable | Pour…                              |
+| ------------------- | ---------------------------------------- | ---------- | :-------: | ---------------------------------- |
+| `anonymous`         | (aucun)                                  | —          |     —     | accepter l'anonymat explicitement  |
+| `userpassword`      | `Authorization: Basic base64(id:mdp)`    | verifier   |    n/a    | outils/scripts, brique login       |
+| `session`           | cookie de session (identifiant en blob)  | serveur    | immédiate | le **web** après login (BFF)       |
+| `jwt`               | `Authorization: Bearer <a.b.c>`          | auto-porté | via état  | API service↔service, agents        |
+| `apikey`            | `Authorization: Bearer nf_…`             | serveur    | immédiate | API/CI/scripts d'un user           |
+| `firewall-realtime` | identité déjà résolue au handshake (ALS) | serveur    | 1 fenêtre | le **WebSocket** de toute identité |
 
 ### `anonymous` — accepter explicitement l'anonymat
 
@@ -305,22 +305,34 @@ serveur** (`ITokenStore`) → **révocable immédiatement**. Défenses :
 
 Le token promu porte `scopes`, `apiKeyId`, `tenantId` (`ApiKeyAuthenticator.ts:138-140`).
 
-### `session-realtime` — l'équivalent WebSocket de `session`
+### `firewall-realtime` — la promotion, en WebSocket, de l'identité déjà posée
+
+> [!IMPORTANT]
+> Ce n'est **pas** « l'authenticator de la session ». Il promeut **toute** identité que le firewall
+> a résolue — y compris un agent authentifié par jeton porteur, sans cookie ni session. Son nom
+> d'origine (`SessionRealtimeAuthenticator`) décrivait le premier mode branché, pas son rôle ; la
+> confusion a coûté un durcissement pensé pour la session appliqué à toutes les identités
+> (`FirewallRealtimeAuthenticator.ts:32-39`).
 
 Sur un handshake WS (une requête upgrade HTTP qui traverse **le même pipeline**), `startSession`
 puis `handleSecurity` ont **déjà** tourné : session chargée, identité re-résolue, `IUser` posé dans
-l'ALS (`SessionRealtimeAuthenticator.ts:16-25`).
+l'ALS. `FirewallRealtimeAuthenticator.supports()` ne fait que le constater
+(`FirewallRealtimeAuthenticator.ts:80`).
 
-- **Perf : il ne relit pas la base.** Il réutilise l'identité de l'ALS
-  (`SessionRealtimeAuthenticator.ts:41-43`) au lieu de refaire deux lectures base par connexion —
+- **Perf : il ne relit pas la base.** `authenticate()` réutilise l'identité de l'ALS
+  (`FirewallRealtimeAuthenticator.ts:91`) au lieu de refaire deux lectures base par connexion —
   un coût évitable sur le différenciateur temps réel.
-- **Câblé automatiquement** par `Firewall.#wireRealtime()` pour toute zone protégée
-  `realtime !== false` — une instance par zone au handshake (`firewall.ts:269`).
+- **Câblé automatiquement** par `Firewall.#wireRealtime()` (`firewall.ts:268`) pour toute zone
+  protégée `realtime !== false` — une instance par zone au handshake (`firewall.ts:289`).
+- **Le mode de preuve suit le jeton du firewall**, il n'est pas deviné : absent (zone historique),
+  on retombe sur le mode le plus strict, la session (`FirewallRealtimeAuthenticator.ts:101-103`).
 - **Filet Zero Trust** : il câble un revalidateur appelé avant chaque action data plane
-  (`SessionRealtimeAuthenticator.ts:63-66`) — la socket peut survivre à sa session (logout,
-  changement de compte). `buildSessionRevalidator()` re-lit `storage.read(id)` et compare
-  l'identifiant ; toute erreur de lecture invalide, fail-closed
-  (`SessionRealtimeAuthenticator.ts:104-110`).
+  (`FirewallRealtimeAuthenticator.ts:105-107`) — la socket peut survivre à l'identité qui l'a
+  ouverte (logout, changement de compte, `jti` denylisté). En mode session,
+  `buildSessionRevalidator()` re-lit `storage.read(id)` et compare l'identifiant ; toute erreur de
+  lecture invalide, fail-closed (`FirewallRealtimeAuthenticator.ts:227`). En mode jeton porteur, la
+  preuve est autre : `exp`, `jti` denylisté, `invalidBefore`
+  (`FirewallRealtimeAuthenticator.ts:127`).
 
 > [!NOTE]
 > **Asymétrie de révocation HTTP↔WS (assumée)** : le jeton realtime est figé au handshake (les
@@ -331,7 +343,7 @@ l'ALS (`SessionRealtimeAuthenticator.ts:16-25`).
 ## ⚙️ Composer une zone — ordre, mode, cohabitation
 
 La liste `area.authenticators` se lit **dans l'ordre**, déroulée par `Firewall.#authenticate()`
-(`firewall.ts:918`) selon le `mode` de la zone (`first` par défaut, `config.ts:87-92`).
+(`firewall.ts:1013`) selon le `mode` de la zone (`first` par défaut, `config.ts:87-92`).
 
 ### Situation 1 — humains ET machines sur la même API (`first`)
 
@@ -384,7 +396,7 @@ paresse : c'est une **défense anti-énumération / anti-oracle**.
 Distinguer « compte inconnu » de « mot de passe faux », ou « token expiré » de « signature
 invalide », donnerait à un attaquant une sonde. La cause fine part **toujours** en log d'audit ; le
 client n'obtient qu'un 401 + son challenge — posé par le firewall, premier maillon de la zone qui
-en déclare un (`Firewall.#setChallenge()`, `firewall.ts:981`).
+en déclare un (`Firewall.#setChallenge()`, `firewall.ts:1076`).
 
 ## 🧩 Ajouter un authenticator maison
 
@@ -409,7 +421,7 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 
 | Domaine                | Norme           | Ancrage                                                                                                |
 | ---------------------- | --------------- | ------------------------------------------------------------------------------------------------------ |
-| Challenge d'auth (401) | RFC 7235        | `Firewall.#setChallenge()` (`firewall.ts:981`)                                                         |
+| Challenge d'auth (401) | RFC 7235        | `Firewall.#setChallenge()` (`firewall.ts:1076`)                                                        |
 | Bearer                 | RFC 6750        | `BEARER_SCHEME` (`JwtAuthenticator.ts:14` · `ApiKeyAuthenticator.ts:12`)                               |
 | JWT (BCP)              | RFC 7519, 8725  | `jwtVerify` durci : allowlist + claims (`JwtAuthenticator.ts:103-107`)                                 |
 | HTTP Basic             | RFC 7617        | `UserPasswordAuthenticator` (`UserPasswordAuthenticator.ts:25-27`)                                     |
@@ -428,20 +440,20 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
   (`AnonymousToken.ts:9`).
 - `apikey` : écriture `lastUsedAt` **coalescée** — pas une écriture par requête
   (`ApiKeyAuthenticator.ts:127-133`).
-- `session-realtime` : **zéro lecture base** au handshake — réutilise l'ALS
-  (`SessionRealtimeAuthenticator.ts:41-43`).
+- `firewall-realtime` : **zéro lecture base** au handshake — réutilise l'ALS
+  (`FirewallRealtimeAuthenticator.ts:91`).
 - Le throttle NIST **avant** le hash : un 429 ne coûte aucun argon2.
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                           | Cause (dans le code)                                                                                                        | Correction                                                  |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| 401 systématique sur une zone protégée             | Aucune preuve + `anonymous` non listé — Zero Trust (`firewall.ts:613-626`)                                                  | Ajouter `anonymous` en dernier si l'anonymat est voulu      |
-| 401 générique + log ERROR « service `users` »      | Câblage : pas de `UserService` au container (`authenticatorRegistry.ts:85-88`)                                              | Enregistrer un `UserService` au boot de l'app               |
-| JWT rejeté alors qu'il « semble » valide           | `aud`/`iss`/`typ` non conformes, ou `alg` ≠ EdDSA (`JwtAuthenticator.ts:103-107`)                                           | Émettre via le `TokenService` (mêmes iss/aud/typ)           |
-| Clé API révoquée encore acceptée quelques secondes | Confusion avec un JWT (auto-porté) — `revokedAt` est lu à chaque requête (`ApiKeyAuthenticator.ts:110`)                     | Un PAT est révoqué immédiatement ; vérifier `revokedAt`     |
-| Révocation WS pas immédiate                        | Identité figée au handshake — asymétrie assumée du `SessionRealtimeAuthenticator` (`SessionRealtimeAuthenticator.ts:31-35`) | Attendre la reconnexion, ou utiliser JWT + canal révocation |
-| Brute-force pas ralenti                            | `loginThrottler` absent du container — `rateLimit.enabled` off (`firewall.ts:346-349`)                                      | Configurer `rateLimit` pour poser le throttler              |
+| Symptôme                                           | Cause (dans le code)                                                                                                          | Correction                                                               |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 401 systématique sur une zone protégée             | Aucune preuve + `anonymous` non listé — Zero Trust (`firewall.ts:613-626`)                                                    | Ajouter `anonymous` en dernier si l'anonymat est voulu                   |
+| 401 générique + log ERROR « service `users` »      | Câblage : pas de `UserService` au container (`authenticatorRegistry.ts:85-88`)                                                | Enregistrer un `UserService` au boot de l'app                            |
+| JWT rejeté alors qu'il « semble » valide           | `aud`/`iss`/`typ` non conformes, ou `alg` ≠ EdDSA (`JwtAuthenticator.ts:103-107`)                                             | Émettre via le `TokenService` (mêmes iss/aud/typ)                        |
+| Clé API révoquée encore acceptée quelques secondes | Confusion avec un JWT (auto-porté) — `revokedAt` est lu à chaque requête (`ApiKeyAuthenticator.ts:110`)                       | Un PAT est révoqué immédiatement ; vérifier `revokedAt`                  |
+| Révocation WS pas immédiate                        | Identité figée au handshake — asymétrie assumée du `FirewallRealtimeAuthenticator` (`FirewallRealtimeAuthenticator.ts:51-55`) | Attendre la fenêtre de re-validation, ou utiliser JWT + canal révocation |
+| Brute-force pas ralenti                            | `loginThrottler` absent du container — `rateLimit.enabled` off (`firewall.ts:346-349`)                                        | Configurer `rateLimit` pour poser le throttler                           |
 
 ## 🧪 Tests & couverture
 

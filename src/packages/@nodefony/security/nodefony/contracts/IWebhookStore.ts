@@ -1,4 +1,4 @@
-import type { IPage, IPageQuery } from "nodefony";
+import type { IPage, IPageQuery, ISortableSource } from "nodefony";
 import type {
   IWebhookEndpoint,
   WebhookEndpointUpdate,
@@ -23,6 +23,17 @@ export interface IWebhookListQuery extends IPageQuery {
    * tableau JSON) → chaque backend l'implémente nativement.
    */
   event?: string;
+  /**
+   * `true` = seulement les endpoints **en échec** (au moins un échec consécutif
+   * courant, `failureCount > 0`), `false` = seulement ceux qui vont bien, omis =
+   * les deux.
+   *
+   * Au contrat plutôt que déduit d'un `order` : c'est la question d'exploitation
+   * la plus fréquente — « qu'est-ce qui casse ? » — et la carte qui l'affiche
+   * doit pouvoir être cliquée pour filtrer le tableau sur la même population.
+   * Portable partout (comparaison sur une colonne entière indexable).
+   */
+  failing?: boolean;
 }
 
 /**
@@ -35,7 +46,11 @@ export interface IWebhookListQuery extends IPageQuery {
  * Volume attendu : faible (dizaines d'endpoints), lecture fréquente par le
  * dispatcher (qui en garde un snapshot mémoire), écriture rare (CRUD admin).
  */
-export interface IWebhookStore {
+export interface IWebhookStore extends ISortableSource {
+  // `sortableFields` vient d'`ISortableSource` (core) : la FORME de la capacité
+  // s'écrit une fois pour toutes les ressources. Ici, seul le vocabulaire est
+  // propre aux endpoints — `WEBHOOK_SORTABLE_FIELDS` (`../src/webhook/webhookSort`).
+
   /** Insère un nouvel endpoint. */
   save(endpoint: IWebhookEndpoint): Promise<void>;
   /** Charge un endpoint par id, ou `null`. */
@@ -60,10 +75,12 @@ export interface IWebhookStore {
    * jamais plus d'une page, filtres {@link IWebhookListQuery} appliqués **au
    * store** (jamais après un chargement complet).
    *
-   * Ordre contractuel : `createdAt` DESC (le plus récent d'abord), départagé par
+   * Ordre par défaut : `createdAt` DESC (le plus récent d'abord), départagé par
    * `id` ASC — sans ce tiebreaker deux endpoints créés dans la même milliseconde
    * pourraient changer de page entre deux appels et l'un d'eux ne jamais
-   * apparaître.
+   * apparaître. Un `order` explicite le remplace, dans la limite de
+   * {@link IWebhookStore.sortableFields} ; il s'applique **avant** le découpage
+   * en pages, jamais sur la tranche déjà extraite.
    */
   listPage(query: IWebhookListQuery): Promise<IPage<IWebhookEndpoint>>;
   /**

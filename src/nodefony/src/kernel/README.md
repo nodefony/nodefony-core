@@ -348,7 +348,7 @@ await cli.terminate(0);
 | ---------------------------- | -------------------------------------------- |
 | `setPath(p)`                 | Résout répertoire du module                  |
 | `setEvents()`                | Wire hooks lifecycle — appelé en constructor |
-| `addService(Ctor, ...args)`  | Instancie + initialize                       |
+| `addService(Ctor, ...args)`  | Instancie + appelle `init(module)` si défini |
 | `getPackageJson()`           | Lit package.json async                       |
 | `getDependencies()`          | deps + peerDeps (pas devDeps)                |
 | `loadJson(url, cwd?)`        | Parse JSON absolu ou relatif                 |

@@ -98,6 +98,15 @@ export const ADMIN_KEYS_ENDPOINT = "/nodefony/security/api/apikeys";
  */
 export const API_KEYS_STATUS_ENDPOINT = "/nodefony/security/api/apikeys/status";
 
+/**
+ * GET — **compteurs de tête**, posés par le serveur sur la collection ENTIÈRE
+ * (portée Administration seulement — c'est un endpoint `ROLE_NODEFONY_ADMIN`).
+ *
+ * Endpoint distinct de la liste : ces nombres ne dépendent ni de la fenêtre ni
+ * de l'ordre, on ne les recharge donc qu'au montage et après une révocation.
+ */
+export const API_KEYS_STATS_ENDPOINT = "/nodefony/security/api/apikeys/stats";
+
 /** DELETE — révocation d'UNE clé du porteur courant (mode utilisateur). */
 export function userRevokeEndpoint(id: string): string {
   return `${KEYS_ENDPOINT}/${encodeURIComponent(id)}`;
@@ -127,26 +136,40 @@ export function keyStatus(key: ApiKey, now: number = Date.now()): ApiKeyStatus {
   return "active";
 }
 
-/** Compteurs par statut (KPIs). */
+/**
+ * Compteurs par statut — miroir de ce que rend `apikeys/stats`.
+ *
+ * `null` = le backend ne sait pas compter (store Redis en curseur) ; se rend
+ * « — » à l'écran. Les trois états partitionnent le parc, mais chacun est compté
+ * séparément côté serveur : rien n'est déduit par soustraction.
+ */
 export interface ApiKeyCounts {
-  total: number;
-  active: number;
-  expired: number;
-  revoked: number;
+  total: number | null;
+  active: number | null;
+  expired: number | null;
+  revoked: number | null;
 }
 
+/**
+ * Compte sur les clés REÇUES.
+ *
+ * Reste la source des compteurs en portée « Mes clés » : la réponse y est déjà
+ * l'intégralité du périmètre de l'appelant, et l'endpoint de statistiques est
+ * réservé aux administrateurs.
+ */
 export function countByStatus(
   keys: ApiKey[],
   now: number = Date.now(),
 ): ApiKeyCounts {
-  const counts: ApiKeyCounts = {
-    total: keys.length,
+  // Accumulateurs locaux : la forme rendue admet `null` (« le backend ne sait
+  // pas »), mais un comptage local sait toujours — il n'a rien à ignorer.
+  const tally: Record<ApiKeyStatus, number> = {
     active: 0,
     expired: 0,
     revoked: 0,
   };
-  for (const key of keys) counts[keyStatus(key, now)]++;
-  return counts;
+  for (const key of keys) tally[keyStatus(key, now)]++;
+  return { total: keys.length, ...tally };
 }
 
 // ─── Formatage ───────────────────────────────────────────────────────────────

@@ -393,11 +393,18 @@ function mutilate(map) {
         // 1. une colonne disparaît · 2. les longueurs sont perdues ·
         // 3. les colonnes d'index redeviennent la chaîne brute que le pilote
         //    rend quand le cast `::text[]` manque.
-        columns: t.columns.slice(1).map((c) => ({ ...c, length: null })),
-        indexes: t.indexes.map((i) => ({
-          ...i,
-          columns: `{${(i.columns ?? []).join(",")}}`,
-        })),
+        //
+        // `Object.assign` sur un objet NEUF, jamais une mutation en place : la
+        // référence est la matière du contrôle, l'amputer pour de bon rendrait
+        // les vérifications suivantes complaisantes.
+        columns: t.columns
+          .slice(1)
+          .map((c) => Object.assign({}, c, { length: null })),
+        indexes: t.indexes.map((i) =>
+          Object.assign({}, i, {
+            columns: `{${(i.columns ?? []).join(",")}}`,
+          }),
+        ),
       },
     ],
   ]);

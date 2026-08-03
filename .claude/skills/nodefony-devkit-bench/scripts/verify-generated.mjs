@@ -20,25 +20,35 @@
  * ou du DDL de développement.
  *
  * Usage :
- *   node scripts/devkit-verify.mjs              # décor + toutes les étapes
- *   node scripts/devkit-verify.mjs --keep       # garde l'app témoin (pour fouiller)
- *   node scripts/devkit-verify.mjs --no-e2e     # saute le boot réel (plus rapide)
+ *   node scripts/verify-generated.mjs            # décor ISOLÉ + toutes les étapes
+ *   node scripts/verify-generated.mjs --link     # décor lié au checkout (boucle courte)
+ *   node scripts/verify-generated.mjs --repack   # force le re-pack des tarballs
+ *   node scripts/verify-generated.mjs --keep     # garde l'app témoin (pour fouiller)
+ *   node scripts/verify-generated.mjs --no-e2e   # saute le boot réel (plus rapide)
  *
- * Prérequis : le checkout est BUILDÉ (`npm run build`) — l'app témoin se lie au
- * `dist/` local via `--link`, donc elle teste ce que tu viens de compiler.
+ * Prérequis : le checkout est BUILDÉ (`npm run build`) — les tarballs sont
+ * fabriqués depuis le `dist/` local, donc le banc teste ce que tu viens de
+ * compiler, mais tel qu'un installeur le reçoit.
  *
  * Sortie : rapport console + code de sortie 1 à la première étape rouge.
  */
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   mkdirSync,
   rmSync,
   existsSync,
   readFileSync,
   writeFileSync,
+  copyFileSync,
 } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  assertIsolated,
+  installFromTarballs,
+  packTarballs,
+} from "./lib/isolation.mjs";
 
 /**
  * Racine du dépôt, trouvée en REMONTANT plutôt qu'en comptant les « .. ».
@@ -60,7 +70,33 @@ function findRepoRoot(from) {
 
 const REPO = findRepoRoot(path.dirname(fileURLToPath(import.meta.url)));
 const BIN = path.join(REPO, "src/nodefony/bin/nodefony");
-const ROOT = path.join(REPO, "tmp/devkit-verify");
+
+/**
+ * Décor LIÉ au checkout — boucle courte, verdict amputé.
+ *
+ * `--link` symlinke les paquets du framework depuis le dépôt : c'est rapide,
+ * mais la résolution de modules de Node remonte alors jusqu'aux `node_modules`
+ * du monorepo, et l'application témoin TROUVE des paquets qu'elle ne déclare
+ * pas. Toute la famille « dépendance manquante du gabarit » devient invisible —
+ * mesuré : l'étape production restait verte avec ET sans `@node-rs/argon2`,
+ * alors qu'une application réellement installée mourait au boot.
+ */
+const LINKED = process.argv.includes("--link");
+
+/**
+ * Où vit le décor. HORS du dépôt par défaut : la distance fait partie du
+ * verdict, elle ne s'obtient pas en interdisant un chemin.
+ *
+ * Deux gestes, tous deux nécessaires — l'un sans l'autre ne suffit pas : le
+ * décor sort du dépôt (sinon la remontée des `node_modules` y ramène) et les
+ * paquets s'installent depuis les TARBALLS (sinon le lien rebranche les sources
+ * malgré la distance). Le banc de découvrabilité l'avait appris avant nous ;
+ * l'implémentation est PARTAGÉE (`lib/isolation.mjs`) et non recopiée — deux
+ * copies de « isolé » divergent en silence, chacune passant ses propres contrôles.
+ */
+const ROOT = LINKED
+  ? path.join(REPO, "tmp", "devkit-verify")
+  : path.join(os.tmpdir(), "nodefony-devkit-verify");
 const APP = path.join(ROOT, "app");
 
 /**
@@ -73,6 +109,33 @@ const APP = path.join(ROOT, "app");
  */
 const MODULE = "blog";
 const MODULE_PKG = `@app/${MODULE}`;
+
+/**
+ * Le service témoin, la méthode qui REMPLACE son exemple, et la commande qui
+ * l'appelle.
+ *
+ * Trois générateurs sur sept n'étaient exercés par rien ici (`controller` l'est
+ * indirectement par `create module --controller rest`) — et c'est exactement par
+ * ce trou qu'un défaut est passé : `create command --service` exigeait la méthode
+ * `greet()` du gabarit, que ce même gabarit dit de remplacer. Suivre le conseil
+ * cassait la commande. Le banc fait donc le geste que le gabarit RÉCLAME.
+ *
+ * La méthode d'exemple ne se renomme pas au hasard : un générateur ne doit
+ * dépendre d'AUCUN nom de son propre exemple.
+ */
+const SERVICE = "Report";
+const SERVICE_METHOD = "bilan";
+/** Le service qui INJECTE le premier — `create service … --inject`. */
+const INJECTED_SERVICE = "Facture";
+const COMMAND_ACTION = "sync";
+const COMMAND_CLASS = "SyncCommand";
+
+/**
+ * Nom complet de la commande générée (`<module>:<action>`), DÉRIVÉ du `super(…)`
+ * de l'`index.ts` au moment de la génération — jamais écrit en dur : c'est le
+ * générateur qui décide du préfixe, et le banc ne doit pas figer sa décision.
+ */
+let commandFullName = null;
 
 const keep = process.argv.includes("--keep");
 const withE2e = !process.argv.includes("--no-e2e");
@@ -215,12 +278,12 @@ function step(label, why, run) {
 const PORTS = { NF_PORT: "5361", NF_PORT_HTTPS: "5362" };
 
 /** Exécute une commande dans l'app témoin, en faisant remonter sa sortie si elle échoue. */
-function run(cmd, args, cwd = APP) {
+function run(cmd, args, cwd = APP, env = {}) {
   const res = spawnSync(cmd, args, {
     cwd,
     encoding: "utf8",
     timeout: 600_000,
-    env: { ...process.env, ...PORTS },
+    env: { ...process.env, ...PORTS, ...env },
   });
   if (res.status !== 0) {
     const out = `${res.stdout ?? ""}${res.stderr ?? ""}`.trim();
@@ -235,9 +298,16 @@ process.stdout.write(
   "Banc de vérité du code généré — le scaffold produit-il du code qui tient ?\n",
 );
 
+/** Constat d'isolation du décor — repris dans le rapport, `null` tant qu'il n'est pas monté. */
+let isolation = null;
+
 step(
-  "décor : application témoin liée au checkout",
-  "`--link` fait pointer les dépendances vers ce que tu viens de compiler.",
+  LINKED
+    ? "décor : application témoin LIÉE au checkout"
+    : "décor : application témoin ISOLÉE, installée depuis les tarballs",
+  LINKED
+    ? "`--link` pointe vers ce que tu viens de compiler — mais masque toute dépendance manquante."
+    : "Ce qu'un installeur npm reçoit, et rien de plus : hors du dépôt, paquets dépaquetés.",
   () => {
     rmSync(ROOT, { recursive: true, force: true });
     mkdirSync(ROOT, { recursive: true });
@@ -252,16 +322,157 @@ step(
         "complete",
         "--frontend",
         "none",
-        "--link",
+        ...(LINKED ? ["--link"] : []),
         "--yes",
       ],
       ROOT,
     );
-    // `--link` symlinke les paquets du framework, mais npm ne hisse PAS leurs
-    // dépendances dans l'app : `drizzle-orm` manque, et le typecheck d'une
-    // entité échoue sur un import introuvable. Ce n'est pas un défaut du code
-    // généré — on le neutralise pour mesurer ce qu'on veut mesurer.
-    run("npm", ["install", "drizzle-orm@0.45.2", "--no-audit", "--no-fund"]);
+    if (LINKED) {
+      // `--link` symlinke les paquets du framework, mais npm ne hisse PAS leurs
+      // dépendances dans l'app : `drizzle-orm` peut manquer, et le typecheck
+      // d'une entité échoue sur un import introuvable. Ce n'est pas un défaut du
+      // code généré — on le neutralise pour mesurer ce qu'on veut mesurer.
+      run("npm", ["install", "drizzle-orm@0.45.2", "--no-audit", "--no-fund"]);
+    } else {
+      installFromTarballs(
+        APP,
+        packTarballs(REPO, process.argv.includes("--repack")),
+      );
+    }
+
+    // L'isolation se CONSTATE avant la première mesure : mieux vaut aucun
+    // verdict qu'un verdict rendu sur un décor mieux servi que l'utilisateur.
+    isolation = assertIsolated(REPO, APP);
+    for (const f of isolation.facts) process.stdout.write(`   ${f}\n`);
+    if (!LINKED && !isolation.ok) {
+      throw new Error(
+        "décor NON isolé — une dépendance manquante du gabarit resterait invisible",
+      );
+    }
+    if (LINKED) {
+      process.stdout.write(
+        "   ⚠️  décor LIÉ (--link) : les dépendances du monorepo restent " +
+          "atteignables — aucune dépendance manquante n'est détectable ici\n",
+      );
+    }
+  },
+);
+
+step(
+  "un SERVICE, puis la COMMANDE qui l'appelle — exemple REMPLACÉ",
+  "Le geste que le gabarit RÉCLAME, et qu'un générateur punissait : suivre son conseil le cassait.",
+  // Jouée AVANT les entités, et c'est ce qui la rend déterministe : `create
+  // entity` dépose lui aussi des services CRUD dans `nodefony/service/`, et
+  // `--service` prend le PREMIER service appelable qu'il y trouve. Ici le
+  // dossier n'existe pas encore — le service choisi est forcément le nôtre,
+  // donc l'assertion sur la méthode appelée dit bien ce qu'elle prétend.
+  () => {
+    run(process.execPath, [BIN, "create", "service", SERVICE, "--yes"]);
+    const svcFile = path.join(
+      APP,
+      "nodefony",
+      "service",
+      `${SERVICE}Service.ts`,
+    );
+    const ifaceFile = path.join(
+      APP,
+      "nodefony",
+      "interfaces",
+      `I${SERVICE}Service.ts`,
+    );
+    // « Exemple de méthode métier — à remplacer par la vôtre » : on le fait, dans
+    // la classe ET dans son interface — sinon ce n'est plus le même contrat, et
+    // le typecheck de l'étape suivante le dirait à notre place.
+    for (const file of [svcFile, ifaceFile]) {
+      const before = readFileSync(file, "utf8");
+      const after = before.replaceAll("greet(", `${SERVICE_METHOD}(`);
+      if (after === before) {
+        throw new Error(
+          `méthode d'exemple introuvable dans ${path.basename(file)} — ` +
+            "le gabarit a changé de forme, et cette étape ne mesure plus rien",
+        );
+      }
+      writeFileSync(file, after, "utf8");
+    }
+
+    run(process.execPath, [
+      BIN,
+      "create",
+      "command",
+      COMMAND_ACTION,
+      "--service",
+      "--yes",
+    ]);
+
+    // Un SECOND service, injecté par le premier. Le geste que le banc de
+    // découvrabilité a mesuré ROUGE : sans exemple ACTIF, l'agent passe
+    // exclusivement par `container.get`, et sa dépendance n'est ni déclarée ni
+    // ordonnée. Ici l'appel généré porte sur la méthode RENOMMÉE — donc il
+    // prouve, comme la commande, que le générateur cherche au lieu de supposer.
+    run(process.execPath, [
+      BIN,
+      "create",
+      "service",
+      INJECTED_SERVICE,
+      "--inject",
+      `${SERVICE}Service`,
+      "--yes",
+    ]);
+    const injected = readFileSync(
+      path.join(APP, "nodefony", "service", `${INJECTED_SERVICE}Service.ts`),
+      "utf8",
+    );
+    if (!injected.includes(`@inject("${SERVICE}Service")`)) {
+      throw new Error(
+        "le service généré n'injecte rien par le constructeur — `--inject` a-t-il été honoré ?",
+      );
+    }
+    if (!injected.includes(`.${SERVICE_METHOD}()`)) {
+      throw new Error(
+        `le service injecté n'est jamais APPELÉ (${SERVICE_METHOD}) — ` +
+          "une dépendance déclarée et non lue ne compile pas, et ne montre rien",
+      );
+    }
+
+    const generated = readFileSync(
+      path.join(APP, "nodefony", "command", `${COMMAND_CLASS}.ts`),
+      "utf8",
+    );
+    if (!generated.includes(`.${SERVICE_METHOD}(`)) {
+      throw new Error(
+        `la commande n'appelle pas « ${SERVICE_METHOD}() » — ` +
+          "le générateur a-t-il CHERCHÉ la méthode, ou l'a-t-il supposée ?",
+      );
+    }
+    if (/\bgreet\b/u.test(generated)) {
+      throw new Error(
+        "la commande appelle « greet » : le générateur exige encore son propre exemple",
+      );
+    }
+
+    // Le câblage, constaté sur le disque plutôt que supposé : une classe que
+    // rien n'enregistre compile parfaitement et n'existe pour personne.
+    const index = readFileSync(path.join(APP, "index.ts"), "utf8");
+    if (
+      !new RegExp(`@services\\(\\[[^\\]]*${SERVICE}Service`, "u").test(index)
+    ) {
+      throw new Error(
+        `${SERVICE}Service absent de @services([…]) — le conteneur ne le connaîtra pas`,
+      );
+    }
+    if (!index.includes(`this.addCommand(${COMMAND_CLASS})`)) {
+      throw new Error(
+        `addCommand(${COMMAND_CLASS}) absent d'index.ts — la commande ne sera jamais atteignable`,
+      );
+    }
+    // Le préfixe vient du module que l'`index.ts` DÉCLARE, pas du nom du paquet.
+    const declared = /super\(\s*"([^"]+)"/u.exec(index);
+    if (!declared) {
+      throw new Error(
+        'nom de module introuvable dans index.ts (`super("…"`) — impossible de nommer la commande',
+      );
+    }
+    commandFullName = `${declared[1]}:${COMMAND_ACTION}`;
   },
 );
 
@@ -353,6 +564,182 @@ step(
   () => run("npm", ["run", "typecheck"]),
 );
 
+/**
+ * Les expressions de code citées dans un document que l'agent lit d'office.
+ *
+ * On garde la CHAÎNE D'ACCÈS (`this.context?.cspNonce`, `this.renderJson`) en
+ * coupant à l'appel : les arguments d'un exemple (`obj`, `html`, `f`) sont des
+ * noms libres qu'aucun décor ne peut fournir, alors que le membre visé, lui,
+ * se compile tel quel — c'est là que se logent les fautes.
+ */
+function expressionsCitees(markdown) {
+  const trouvees = new Set();
+  for (const [, inline] of markdown.matchAll(/`([^`\n]+)`/gu)) {
+    for (const [expr] of inline.matchAll(/this(?:\??\.[A-Za-z_$][\w$]*)+/gu)) {
+      trouvees.add(expr);
+    }
+  }
+  return [...trouvees].sort();
+}
+
+step(
+  "le code écrit dans les AGENTS.md COMPILE",
+  "Un exemple faux AGIT : trois agents ont recopié `this.context.cspNonce` sans le `?.` — typecheck rouge 3/3.",
+  // Ce document est lu AVANT le code par tout agent qui entre dans l'app :
+  // ce qu'il montre pèse plus que ce qu'il explique. Rien ne le compilait —
+  // ni `create.test.ts` (qui cherche des chaînes) ni le typecheck de l'app
+  // (le markdown n'est pas une source). La sonde replace chaque expression
+  // dans le contexte où l'agent la recopiera, et laisse le compilateur juger.
+  () => {
+    const cibles = [
+      {
+        md: path.join(APP, "AGENTS.md"),
+        classe: "Controller",
+        depuis: 'import { Controller } from "@nodefony/framework";',
+      },
+      {
+        md: path.join(APP, "modules", MODULE, "AGENTS.md"),
+        classe: "Module",
+        depuis: 'import { Module } from "nodefony";',
+      },
+    ];
+    const imports = [];
+    const classes = [];
+    let total = 0;
+    for (const [i, cible] of cibles.entries()) {
+      if (!existsSync(cible.md)) {
+        throw new Error(`${path.relative(APP, cible.md)} n'a pas été généré`);
+      }
+      const exprs = expressionsCitees(readFileSync(cible.md, "utf8"));
+      total += exprs.length;
+      if (!exprs.length) {
+        continue;
+      }
+      imports.push(cible.depuis);
+      classes.push(
+        `class SondeAgents${i} extends ${cible.classe} {\n` +
+          `  sonde(): void {\n` +
+          exprs.map((e) => `    void (${e});`).join("\n") +
+          `\n  }\n}\nexport type _Sonde${i} = SondeAgents${i};`,
+      );
+    }
+    // Un gate qui ne trouve plus rien à compiler ne garde plus rien, et il le
+    // dit en vert. Le seuil est bas à dessein : il constate que l'extraction
+    // MORD encore, il ne juge pas la densité du document.
+    if (total < 3) {
+      throw new Error(
+        `seulement ${total} expression(s) extraites des AGENTS.md — l'extraction ne mord plus, ce gate ne prouverait rien`,
+      );
+    }
+    const sonde = path.join(APP, "tests", "agents-md.probe.ts");
+    writeFileSync(
+      sonde,
+      `// Sonde du banc — expressions citées dans les AGENTS.md générés.\n` +
+        `${[...new Set(imports)].join("\n")}\n\n${classes.join("\n\n")}\n`,
+      "utf8",
+    );
+    try {
+      run("npm", ["run", "typecheck"]);
+    } finally {
+      rmSync(sonde, { force: true });
+    }
+  },
+);
+
+/**
+ * Efface un fichier de travail du banc — et SEULEMENT s'il est dans l'app.
+ *
+ * Payé pendant l'écriture de l'étape suivante : en débranchant le gate pour le
+ * voir rouge, le chemin de la config a été pointé sur celle du DÉPÔT, et le
+ * nettoyage de fin l'a supprimée pour de bon. Un `rmSync` sur un chemin calculé
+ * doit donc être BORNÉ par construction, jamais par la prudence de qui l'édite.
+ */
+function effaceDansApp(cible) {
+  const dansApp = path.relative(APP, cible);
+  if (dansApp.startsWith("..") || path.isAbsolute(dansApp)) {
+    throw new Error(
+      `refus d'effacer hors de l'application témoin : ${cible} (le banc ne nettoie que ${APP})`,
+    );
+  }
+  rmSync(cible, { force: true });
+}
+
+/**
+ * Témoin du gate de lint : il DOIT être signalé, sinon le lint ne lit rien.
+ *
+ * Il porte la faute exacte déjà payée — une erreur re-jetée sans sa `cause`,
+ * que le gabarit de config d'un module a portée deux sessions durant.
+ */
+const OXLINT_TEMOIN = `export function temoinDuBanc(): never {
+  try {
+    throw new Error("témoin");
+  } catch (e) {
+    throw new Error(\`témoin \${String(e)}\`);
+  }
+}
+`;
+
+step(
+  "le code généré passe le LINT",
+  "Un avertissement n'est ni une erreur de type ni une chaîne absente : rien d'autre ne le voit.",
+  // Ce que cette étape protège, vécu : le gabarit `defineModuleConfig.ts.tpl`
+  // re-jetait une erreur sans sa `cause`. Ni `create.test.ts` (qui cherche des
+  // chaînes), ni le typecheck (un avertissement n'est pas un type faux), ni le
+  // lint du dépôt (un `.tpl` n'est pas du TypeScript) ne pouvaient le voir. Il
+  // a fallu qu'un module GÉNÉRÉ soit commité dans le dépôt pour que la forge
+  // le trouve — sur une machine où personne ne débogue.
+  () => {
+    // La grille est celle du dépôt, COPIÉE dans l'app — pas relue, pas
+    // réécrite : le fichier porte des commentaires (JSONC), et le dériver
+    // demanderait un parseur qu'on n'a pas. La copie règle en même temps le
+    // piège mesuré : les motifs d'exclusion sont résolus depuis le dossier de
+    // la CONFIG, si bien que le `tmp/**` du dépôt écartait tout le décor lié —
+    // oxlint répondait « No files found to lint » et l'étape rendait VERT sans
+    // avoir rien lu. Posés dans l'app, ces mêmes motifs ne désignent plus rien.
+    copyFileSync(
+      path.join(REPO, ".oxlintrc.json"),
+      path.join(APP, ".oxlintrc.banc.json"),
+    );
+    const rcPath = path.join(APP, ".oxlintrc.banc.json");
+    const bin = path.join(
+      REPO,
+      "node_modules",
+      ".bin",
+      process.platform === "win32" ? "oxlint.cmd" : "oxlint",
+    );
+    const lance = () =>
+      spawnSync(bin, ["--config", rcPath, "--deny-warnings", "."], {
+        cwd: APP,
+        encoding: "utf8",
+        timeout: 120_000,
+      });
+    const temoin = path.join(APP, "tests", "oxlint.selfcheck.ts");
+    try {
+      // 1. Le gate se prouve AVANT de juger : un témoin fautif doit tomber.
+      writeFileSync(temoin, OXLINT_TEMOIN, "utf8");
+      const preuve = lance();
+      const vu = `${preuve.stdout ?? ""}${preuve.stderr ?? ""}`;
+      effaceDansApp(temoin);
+      if (preuve.status === 0 || !vu.includes("oxlint.selfcheck")) {
+        throw new Error(
+          `le lint ne LIT PAS l'application témoin (code ${preuve.status}) — ` +
+            `un motif d'exclusion l'écarte, et ce gate rendrait vert sans rien juger :\n${vu.slice(-800)}`,
+        );
+      }
+      // 2. Verdict réel, témoin retiré.
+      const verdict = lance();
+      if (verdict.status !== 0) {
+        throw new Error(
+          `${`${verdict.stdout ?? ""}${verdict.stderr ?? ""}`.trim().slice(-1500)}`,
+        );
+      }
+    } finally {
+      effaceDansApp(temoin);
+      effaceDansApp(rcPath);
+    }
+  },
+);
+
 step(
   "les entités d'un AUTRE dialecte quittent le câblage",
   "Un schéma PostgreSQL enregistré sur un connecteur SQLite fait échouer le boot.",
@@ -405,6 +792,27 @@ step(
 );
 
 step(
+  "la COMMANDE générée s'EXÉCUTE, et son service RÉPOND",
+  "Ni le typecheck ni un test ne voient qu'un service n'est pas enregistré au conteneur.",
+  // La sonde porte sur le CONTENU de la sortie, et pas sur le code de retour :
+  // le gabarit journalise « service non enregistré » puis rend la main
+  // NORMALEMENT — un service absent du conteneur sortirait donc en 0. C'est la
+  // seule preuve que les trois maillons tiennent ensemble : la classe est
+  // enregistrée (`@services`), la commande est câblée (`addCommand`), et la clé
+  // de conteneur écrite par le générateur est bien celle du `super(…)` du
+  // service.
+  () => {
+    const out = run(process.execPath, [BIN, commandFullName, "-j"]);
+    if (!/"message"\s*:/u.test(out)) {
+      throw new Error(
+        `${commandFullName} n'a rendu aucun JSON — service « ${SERVICE.toLowerCase()} » ` +
+          "absent du conteneur, ou commande non atteignable (elle sort 0 en le journalisant)",
+      );
+    }
+  },
+);
+
+step(
   "les tests générés PASSENT",
   "Couche donnée : la table se crée, l'aller-retour marche, le schéma refuse le vide.",
   () => {
@@ -421,10 +829,74 @@ step(
 if (withE2e) {
   step(
     "la ressource RÉPOND vraiment (HTTP, serveur réel)",
-    "201+Location, 422, 409 sur doublon, page hasNext, PATCH, 204 puis 404.",
+    "201+Location, 422, 409 sur doublon, page hasNext, PATCH, 204 puis 404 — " +
+      "et la suppression EXIGE une identité : refusée sans elle, la donnée survit.",
     () => run("npm", ["run", "test:e2e"]),
   );
 }
+
+/**
+ * Le mode qu'aucune étape n'exerçait — développement partout ailleurs.
+ *
+ * Le mot de passe admin est POSÉ à dessein : sans lui le provisionnement
+ * s'arrête avant de hacher (`seedAdmin` rend la main quand aucun mot de passe
+ * n'est fourni en production), l'encodeur n'est jamais chargé, et l'étape serait
+ * verte sans avoir rien exercé. Une vraie production, elle, a un mot de passe.
+ *
+ * Elle a été écrite pour garder le défaut qu'un agent tiers venait de trouver :
+ * une application générée qui meurt au boot en production sur `Cannot find
+ * package '@node-rs/argon2'`, dépendance absente du `package.json` généré.
+ *
+ * Longtemps elle ne pouvait pas le voir, et c'était mesuré : jouée AVEC la
+ * dépendance puis SANS elle, elle était verte les deux fois. La cause était le
+ * décor, pas la sonde — monté sous le dépôt et lié au checkout, il laissait la
+ * résolution de modules de Node remonter jusqu'aux `node_modules` du monorepo,
+ * où le binding est installé. L'application trouvait une dépendance qu'elle ne
+ * déclarait pas. Le décor par défaut est désormais ISOLÉ (hors du dépôt,
+ * paquets dépaquetés depuis les tarballs), et c'est la FAMILLE entière des
+ * dépendances manquantes qui devient visible ici — pas seulement `argon2`.
+ *
+ * ⚠️ Sous `--link`, l'angle mort revient tel quel : le mode est là pour la
+ * boucle courte, et son verdict sur la production ne vaut pas preuve.
+ *
+ * Ce qu'elle garde en propre, indépendamment des dépendances : que le mode
+ * production BOOTE et SERVE — un hook de cycle de vie qui jette, une config
+ * absente en production, un service `policy:"dev"` requis au boot.
+ */
+step(
+  "l'app DÉMARRE en PRODUCTION et sert une route",
+  "Le mode que les autres étapes n'exercent jamais — un défaut de dépendance " +
+    "n'y apparaît qu'au déploiement, quand plus personne ne regarde.",
+  () => {
+    const env = { NF_ADMIN_PASSWORD: "banc-verite-admin" };
+    run(process.execPath, [BIN, "production", "--detach", "--wait"], APP, env);
+    try {
+      // `--wait` dit que le serveur écoute ; il ne dit pas qu'il RÉPOND. Le
+      // boot peut aussi échouer APRÈS l'ouverture du port (hook de cycle de
+      // vie), et c'est exactement le cas qu'on garde ici.
+      const res = execFileSync(
+        process.execPath,
+        [
+          "-e",
+          `fetch("http://127.0.0.1:${PORTS.NF_PORT}/api/posts")` +
+            `.then((r) => { if (!r.ok && r.status !== 401 && r.status !== 403) ` +
+            `{ console.error("statut " + r.status); process.exit(1); } })` +
+            `.catch((e) => { console.error(String(e.message ?? e)); process.exit(1); })`,
+        ],
+        { encoding: "utf8", timeout: 30_000 },
+      );
+      void res;
+    } finally {
+      // Toujours, même en échec : un serveur détaché qui survit au banc tient
+      // les ports et fait échouer le run SUIVANT sur un symptôme sans rapport.
+      spawnSync(process.execPath, [BIN, "stop"], {
+        cwd: APP,
+        encoding: "utf8",
+        env: { ...process.env, ...PORTS },
+      });
+    }
+  },
+);
 
 step(
   "l'app se laisse INSPECTER sans ouvrir de port",
@@ -451,7 +923,15 @@ for (const s of steps) {
     `  ${s.ok ? "✅" : "❌"} ${s.label} (${Math.round(s.ms)} ms)\n`,
   );
 }
-const report = { steps, app: APP, generatedAt: null };
+const report = {
+  steps,
+  app: APP,
+  generatedAt: null,
+  // Le décor est une VARIABLE du verdict, pas un détail d'exécution : sous
+  // `--link`, l'étape production ne prouve rien sur les dépendances déclarées.
+  decor: LINKED ? "lié au checkout (--link)" : "isolé (tarballs, hors dépôt)",
+  isolation,
+};
 if (existsSync(ROOT)) {
   writeFileSync(
     path.join(ROOT, "report.json"),

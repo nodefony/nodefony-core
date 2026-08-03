@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { entityRegistry, ormRegistry, paginate } from "@nodefony/orm-core";
-import { UnknownCriteriaField } from "@nodefony/orm-core";
+import {
+  UnknownCriteriaField,
+  LIKE_ESCAPE_CHAR,
+  escapeLikeTerm,
+} from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
 import { DrizzleOrm } from "../../nodefony/src/orm-core/index";
 import {
@@ -158,6 +162,46 @@ export function runRepositoryContract(opts: IContractRunOptions): void {
     assert.deepEqual(
       like.map((r) => r.name),
       ["alice"],
+    );
+  });
+
+  it("find : `$like` échappé — un joker rendu LITTÉRAL, même réponse sur les 3 moteurs", async () => {
+    // LE défaut cross-dialecte du contrat : sans clause `ESCAPE` émise,
+    // PostgreSQL et MySQL appliquaient déjà l'antislash quand SQLite cherchait
+    // l'antislash lui-même. Un motif échappé rendait donc la bonne ligne en
+    // production et RIEN en développement — sans erreur, sans trace.
+    await repo.createMany([
+      { name: "remise_50", age: 1, score: 1 },
+      { name: "remiseX50", age: 1, score: 1 },
+      { name: "solde 50%", age: 1, score: 1 },
+      { name: "solde 5012", age: 1, score: 1 },
+    ]);
+
+    // TÉMOIN : sans échappement, `_` est bien un joker — sinon le test suivant
+    // passerait aussi sur un moteur qui ignore les jokers.
+    const joker = await repo.find({ name: { $like: "remise_50" } });
+    assert.deepEqual(
+      joker.map((r) => r.name).sort(),
+      ["remiseX50", "remise_50"],
+      "`_` doit valoir « un caractère quelconque »",
+    );
+
+    const litteral = await repo.find({
+      name: { $like: `remise${LIKE_ESCAPE_CHAR}_50` },
+    });
+    assert.deepEqual(
+      litteral.map((r) => r.name),
+      ["remise_50"],
+      "échappé, `_` ne vaut plus que lui-même",
+    );
+
+    const pourcent = await repo.find({
+      name: { $like: `${escapeLikeTerm("solde 50%")}` },
+    });
+    assert.deepEqual(
+      pourcent.map((r) => r.name),
+      ["solde 50%"],
+      "un `%` échappé ne doit pas ramener « solde 5012 »",
     );
   });
 
@@ -486,6 +530,19 @@ export function runRepositoryContract(opts: IContractRunOptions): void {
     assert.equal(await repo.count({ age: 25 }), 2);
     assert.equal(await repo.exists({ name: "bob" }), true);
     assert.equal(await repo.exists({ name: "nobody" }), false);
+  });
+
+  it("countDistinct : compte les VALEURS, pas les lignes — et ignore les NULL", async () => {
+    await seed();
+    // 4 lignes, mais seulement 3 âges distincts (bob et dan ont 25 ans).
+    assert.equal(await repo.count(), 4);
+    assert.equal(await repo.countDistinct("age"), 3);
+    // `note` vaut NULL sur deux lignes : l'absence de valeur n'est pas une
+    // valeur distincte de plus (sémantique COUNT(DISTINCT col) des 3 dialectes).
+    assert.equal(await repo.countDistinct("note"), 2);
+    // Le critère s'applique AVANT la déduplication.
+    assert.equal(await repo.countDistinct("age", { age: 25 }), 1);
+    assert.equal(await repo.countDistinct("age", { name: "nobody" }), 0);
   });
 
   it("criteria strict : champ inconnu → UnknownCriteriaField (jamais un skip silencieux)", async () => {

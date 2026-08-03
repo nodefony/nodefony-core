@@ -6,10 +6,12 @@ import { define<%= it.pascal %>Config } from "./nodefony/config/defineModuleConf
 <% } %>
 /**
  * <%= it.pkgName %> — <%= it.description %>
+
  *
- * Module applicatif : un workspace npm à part entière (`modules/<%= it.name %>/`),
- * chargé par le manifeste `modules` de `nodefony.config.ts`. Le Kernel l'importe
- * PAR SON NOM (`<%= it.pkgName %>`) — d'où le workspace, qui le rend résolvable.
+ * Module applicatif : un workspace npm à part entière
+ * (`<%= it.moduleDir %>/<%= it.name %>/`), chargé par le manifeste `modules` de
+ * `nodefony.config.ts`. Le Kernel l'importe PAR SON NOM (`<%= it.pkgName %>`) —
+ * d'où le workspace, qui le rend résolvable.
  */
 
 /**

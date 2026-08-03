@@ -97,7 +97,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v2.4.0 · ⚙️ 7 scripts · 📎 2 réf" },
   { "icon": "⚙️", "title": "framework-dev", "href": "skills/nodefony-framework-dev.md",
     "desc": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM).",
-    "meta": "🟢 conforme v2.0.0 · 📎 9 réf" },
+    "meta": "🟢 conforme v2.0.0 · 📎 10 réf" },
   { "icon": "🎨", "title": "frontend-dev", "href": "skills/nodefony-frontend-dev.md",
     "desc": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie / temps réel…",
     "meta": "🟢 conforme v1.0.0 · 📎 6 réf" },
@@ -119,7 +119,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.1.0" },
   { "icon": "📈", "title": "load-test", "href": "skills/nodefony-load-test.md",
     "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).",
-    "meta": "🟢 conforme · ⚙️ 37 scripts · 📎 1 réf" },
+    "meta": "🟢 conforme · ⚙️ 37 scripts · 📎 4 réf" },
   { "icon": "🛰️", "title": "multipod-bench", "href": "skills/nodefony-multipod-bench.md",
     "desc": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout.",
     "meta": "🟢 conforme · ⚙️ 9 scripts · 📎 2 réf" },
@@ -182,8 +182,8 @@ serait sans effet à la régénération suivante.
 ```nodefony-cards
 [
   { "icon": "🔧", "title": "devkit-bench", "href": "skills/nodefony-devkit-bench.md",
-    "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par deux mesures — le code généré tient-il debout (il compile, ses tests passent, sa ressource répond vraiment en HTTP), et un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner.",
-    "meta": "🟢 conforme v1.0.0 · ⚙️ 2 scripts" }
+    "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 6 scripts · 📎 3 réf" }
 ]
 ```
 <!-- skills-cards:end -->

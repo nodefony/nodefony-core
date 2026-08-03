@@ -21,6 +21,15 @@ updates:
   # ordre dispersé.
   - package-ecosystem: "github-actions"
     directory: "/"
+
+    # ⚠️ La branche de TRAVAIL, pas la branche par défaut du dépôt. Sans cette
+    # ligne, Dependabot ouvre ses PR contre `main` — qui n'est ici qu'une
+    # branche de RELEASE, alimentée par fusion de `claude-ts` et distancée de
+    # plusieurs centaines de commits. Vécu : quatre PR proposant des montées
+    # DÉJÀ faites sur `claude-ts` (figlet, better-sqlite3, @tabler/icons-react,
+    # @angular/build, rolldown), donc du bruit hebdomadaire pur, et le robot
+    # aveugle à l'état réel des dépendances.
+    target-branch: "claude-ts"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -37,6 +46,15 @@ updates:
   # suffit, et déclarer chaque paquet produirait 19 fois la même pull request.
   - package-ecosystem: "npm"
     directory: "/"
+
+    # ⚠️ La branche de TRAVAIL, pas la branche par défaut du dépôt. Sans cette
+    # ligne, Dependabot ouvre ses PR contre `main` — qui n'est ici qu'une
+    # branche de RELEASE, alimentée par fusion de `claude-ts` et distancée de
+    # plusieurs centaines de commits. Vécu : quatre PR proposant des montées
+    # DÉJÀ faites sur `claude-ts` (figlet, better-sqlite3, @tabler/icons-react,
+    # @angular/build, rolldown), donc du bruit hebdomadaire pur, et le robot
+    # aveugle à l'état réel des dépendances.
+    target-branch: "claude-ts"
     schedule:
       interval: "weekly"
       day: "monday"

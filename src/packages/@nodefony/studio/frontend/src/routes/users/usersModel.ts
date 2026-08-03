@@ -91,34 +91,19 @@ export const USERS_LIST_ENDPOINT = "/nodefony/user/api/users";
 export const USERS_STATUS_ENDPOINT = "/nodefony/user/api/users/status";
 
 /**
- * Fenêtre de chargement par défaut = le **cap dur** du back (200). La liste est
- * exploitée côté client par le `DataGrid` (recherche/tri/filtre). Au-delà, la
- * fenêtre est tronquée → on le signale et on invite à filtrer.
+ * GET — **compteurs de tête**, posés par le serveur sur l'annuaire ENTIER.
+ *
+ * Endpoint distinct de la liste : ces nombres ne dépendent ni de la fenêtre ni
+ * de l'ordre, on ne les recharge donc qu'au montage et après une mutation.
+ * Réservé aux administrateurs — un autre appelant reçoit 403.
  */
-export const USERS_LIST_WINDOW = 200;
+export const USERS_STATS_ENDPOINT = "/nodefony/user/api/users/stats";
 
-/**
- * Construit l'URL d'énumération. `?role&enabled&q` filtrent côté serveur ;
- * `?limit&offset` paginent (cap dur 200).
- */
-export function usersListEndpoint(
-  opts: {
-    role?: string;
-    enabled?: boolean;
-    q?: string;
-    limit?: number;
-    offset?: number;
-  } = {},
-): string {
-  const p = new URLSearchParams();
-  if (opts.role) p.set("role", opts.role);
-  if (opts.enabled !== undefined) p.set("enabled", String(opts.enabled));
-  if (opts.q) p.set("q", opts.q);
-  if (opts.limit !== undefined) p.set("limit", String(opts.limit));
-  if (opts.offset !== undefined) p.set("offset", String(opts.offset));
-  const qs = p.toString();
-  return qs ? `${USERS_LIST_ENDPOINT}?${qs}` : USERS_LIST_ENDPOINT;
-}
+// Le constructeur d'URL de liste a disparu, avec la fenêtre plafonnée qu'il
+// portait : une query string de page ne s'écrit plus qu'à UN endroit
+// (`toPageParams`, UI kit), et les filtres viennent du vocabulaire PUBLIÉ par
+// l'endpoint — pas d'une signature figée qui se périme au premier filtre ajouté
+// côté serveur.
 
 /** GET — détail d'un utilisateur par id. 404 si introuvable. */
 export function userEndpoint(id: string): string {
@@ -169,38 +154,35 @@ export const USERS_DOC = "v1.0";
 /** Rôle requis pour l'administration des utilisateurs — source unique `auth/roles`. */
 export const ADMIN_ROLE = ROLE_NODEFONY_ADMIN;
 
-// ─── Compteurs (KPIs, dérivés de la fenêtre chargée) ─────────────────────────
+// ─── Compteurs (KPIs) ────────────────────────────────────────────────────────
 
+/**
+ * Compteurs de tête — miroir de ce que rend `users/stats`.
+ *
+ * `null` = l'annuaire branché ne sait pas compter ; se rend « — » à l'écran.
+ * Les populations se **recoupent** : un compte peut être désactivé ET
+ * verrouillé, un administrateur peut avoir un lien social. Aucune n'est donc
+ * déduite d'une autre.
+ */
 export interface UserCounts {
-  /** Utilisateurs dans la fenêtre. */
-  total: number;
-  /** Comptes actifs (`enabled`). */
-  active: number;
-  /** Comptes désactivés ou verrouillés. */
-  inactive: number;
+  /** Tous les comptes de l'annuaire. */
+  total: number | null;
+  /** Comptes utilisables : activés et non verrouillés. */
+  active: number | null;
+  /** Comptes désactivés par décision d'administration. */
+  disabled: number | null;
+  /** Comptes verrouillés par la défense anti-force brute. */
+  locked: number | null;
   /** Comptes portant `ROLE_NODEFONY_ADMIN`. */
-  admins: number;
+  admins: number | null;
   /** Comptes ayant au moins un lien social (OAuth). */
-  social: number;
+  social: number | null;
 }
 
-export function countUsers(users: UserSummary[]): UserCounts {
-  let active = 0;
-  let admins = 0;
-  let social = 0;
-  for (const u of users) {
-    if (u.enabled && !u.locked) active++;
-    if (u.roles.includes(ADMIN_ROLE)) admins++;
-    if (u.socialProviders.length > 0) social++;
-  }
-  return {
-    total: users.length,
-    active,
-    inactive: users.length - active,
-    admins,
-    social,
-  };
-}
+// Le comptage LOCAL a disparu avec la fenêtre qu'il décrivait : la table lit
+// désormais l'annuaire page par page, et compter les comptes reçus rendrait
+// « 25 » pour un annuaire de mille. Un compteur inconnu (non-administrateur,
+// backend qui ne compte pas) reste `null` et s'affiche « — ».
 
 // ─── Formatage des dates ─────────────────────────────────────────────────────
 

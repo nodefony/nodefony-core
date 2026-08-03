@@ -219,6 +219,23 @@ jobs:
         working-directory: src/packages/@nodefony/orm-core
         run: npm test
 
+      # Le JUGE du banc de schéma, éprouvé — pas le banc, qui lance de vrais
+      # agents et coûte de l'argent.
+      #
+      # Il est ICI et non dans `node.js.yml` pour une raison mécanique : son
+      # lecteur PostgreSQL ne peut s'exercer que contre une base, et sans elle il
+      # sort `2` en ANNONÇANT que le chemin qui juge les vrais runs n'a pas été
+      # couvert. Le service tourne déjà dans ce job — l'y brancher ne coûte rien
+      # et lui donne le seul décor où son vert veut dire quelque chose.
+      #
+      # Il existe parce que ce banc a rendu des verdicts faux avec l'aplomb des
+      # justes : 18 faux positifs qui noyaient le seul vrai écart, dont le tout
+      # premier était dans le CONTRÔLE et non dans le lecteur.
+      - name: Banc de schéma — auto-contrôle du juge (PostgreSQL)
+        env:
+          NF_PG_URL: postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony
+        run: node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.selftest.mjs
+
   # ─── La socket distribuée, éprouvée sur de VRAIS process ────────────────────
   #
   # C'est la promesse centrale du framework — « HTTP et WebSocket co-citoyens,

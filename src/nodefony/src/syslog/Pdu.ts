@@ -48,6 +48,34 @@ const sysLogSeverity: SysLogSeverity[] = [
   SysLogSeverity.SPINNER,
 ];
 
+/**
+ * Les noms de sévérité RFC 5424, **dans l'ordre de l'enum** (l'index EST la
+ * valeur : `SEVERITY_NAMES[3] === "ERROR"`). `SPINNER` (-1) en est absent :
+ * c'est une extension d'affichage CLI, jamais un niveau de journal.
+ *
+ * Source **unique** du vocabulaire, côté serveur comme côté navigateur (le
+ * bundle client la réexporte). Elle existe parce qu'elle était écrite trois
+ * fois — deux copies dans la console d'administration, dans deux ORDRES
+ * différents, et aucune côté data plane, si bien qu'un `?severity=CRITICAL`
+ * n'était refusé nulle part : il rendait le journal entier.
+ *
+ * Pour un sélecteur qui va du moins au plus grave, lire `[...SEVERITY_NAMES]
+ * .reverse()` — l'ordre d'affichage se dérive, il ne se redéclare pas.
+ */
+export const SEVERITY_NAMES = [
+  "EMERGENCY",
+  "ALERT",
+  "CRITIC",
+  "ERROR",
+  "WARNING",
+  "NOTICE",
+  "INFO",
+  "DEBUG",
+] as const;
+
+/** Un nom de sévérité RFC 5424 (hors extension `SPINNER`). */
+export type SeverityName = (typeof SEVERITY_NAMES)[number];
+
 const translateSeverity = function (severity: Severity = "INFO"): number {
   if (typeof severity === "number") {
     if (severity === SysLogSeverity.SPINNER) return SysLogSeverity.SPINNER;

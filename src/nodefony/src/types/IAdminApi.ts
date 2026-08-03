@@ -20,6 +20,8 @@
  * `@nodefony/http` (interdit : le core est sous http dans le graphe de deps).
  */
 
+import type { IFilterSpec } from "../runtime/pageFilters";
+
 /** Méthodes HTTP supportées par le data plane admin. */
 export type AdminHttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -84,6 +86,64 @@ export type AdminHandler<T = unknown> = (
 ) => T | IAdminResponse<T> | Promise<T | IAdminResponse<T>>;
 
 /**
+ * Ce qu'un endpoint paginé sait faire — **publié**, pour que son client cesse
+ * de le deviner.
+ *
+ * Une console d'administration doit savoir quelles colonnes proposer au tri et
+ * quels filtres offrir. Sans cette publication elle les code en dur, et se
+ * trompe forcément : le tri n'est pas une propriété de la ressource mais du
+ * **backend branché** (le store Redis des sessions ne trie rien, l'annuaire en
+ * mémoire ne connaît pas `createdAt`). Une en-tête de colonne triable qui rend
+ * un `400` au premier clic est le symptôme de cette devinette.
+ *
+ * ⚠️ **Cette déclaration et le handler doivent lire la MÊME donnée.** Écrire
+ * `sortable` ici et `parsePageQuery(..., { sortable })` là-bas avec deux
+ * expressions distinctes recrée exactement la divergence que la publication
+ * vient supprimer : déclarer une constante locale et la lire aux deux endroits.
+ */
+export interface IAdminPageCapabilities {
+  /**
+   * Champs triables — **une fonction**, parce que la réponse dépend du store
+   * effectivement branché au démarrage, pas d'une constante de compilation.
+   * Elle est évaluée à la lecture du catalogue.
+   */
+  sortable?: () => readonly string[];
+  /**
+   * Vocabulaire de filtre de l'endpoint ({@link IFilterSpec}), sérialisable tel
+   * quel : un nom → une nature (`"boolean"`, `"int"`, `"string"`) ou la liste
+   * fermée de ses valeurs, qui vaut allowlist.
+   */
+  filters?: IFilterSpec;
+  /**
+   * L'endpoint sait-il **chercher** (`?q=`) — même raison d'être que
+   * {@link IAdminPageCapabilities.sortable}, et même piège s'il manque : une
+   * console qui affiche une barre de recherche que le serveur ignore présente
+   * la collection entière comme un résultat de recherche.
+   *
+   * **Une fonction**, parce que la réponse dépend du store branché au
+   * démarrage — un backend en curseur ne balaie pas. Absente = pas de
+   * recherche, et `parsePageQuery` refuse alors `?q=` en `400`.
+   */
+  search?: () => boolean;
+  /**
+   * Table des **facettes** de cet endpoint — nom → jeu de filtres qui la
+   * sélectionne. Publiée pour que les cartes de tête d'une console deviennent
+   * CLIQUABLES sans redéclarer, côté client, ce que « actives » ou « en échec »
+   * veut dire.
+   *
+   * C'est la même donnée que celle passée à `countFacets` : une carte affiche
+   * un nombre, et le clic pose exactement le filtre qui l'a produit — sans quoi
+   * la liste montrerait autre chose que ce que la carte annonce. Une console
+   * qui recomposerait ce mapping de son côté divergerait au premier changement
+   * de définition (« utilisable » = sans échéance OU échéance à venir, une règle
+   * qui vit dans le vocabulaire de la ressource, pas dans l'écran).
+   *
+   * Sérialisable telle quelle : ce sont des valeurs, pas des prédicats.
+   */
+  facets?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+}
+
+/**
  * Définition déclarative d'un endpoint, relative au namespace du module.
  *
  * Exemple : `{ path: "sessions", method: "GET" }` sur le module `http` est
@@ -115,6 +175,11 @@ export interface IAdminEndpoint<T = unknown> {
   public?: boolean;
   /** Résumé court pour l'auto-doc Studio et l'introspection. */
   summary?: string;
+  /**
+   * Capacités de pagination publiées dans le catalogue admin — tri possible et
+   * vocabulaire de filtre. Cf {@link IAdminPageCapabilities}.
+   */
+  page?: IAdminPageCapabilities;
   /** Implémentation. */
   handler: AdminHandler<T>;
 }

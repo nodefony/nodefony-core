@@ -1,3 +1,4 @@
+import { parsePageQuery, parseFilters } from "nodefony";
 import type { Container } from "nodefony";
 import type {
   IAdminApi,
@@ -13,6 +14,12 @@ import type { UserService } from "../../service/UserService";
 import { WeakPasswordError } from "../../errors/WeakPasswordError";
 import { listUserStores } from "../userStoreRegistry";
 import {
+  USER_FILTERS,
+  USER_FACETS,
+  USER_STATS_FILTERS,
+  type IUserCounts,
+} from "../userFilters";
+import {
   validateProfilePatch,
   projectProfile,
   mergeProfileIntoMetadata,
@@ -23,8 +30,6 @@ import {
  * Les garde-fous anti-lockout protègent **ce** rôle (jamais déchoir le dernier).
  */
 const ADMIN_ROLE = "ROLE_NODEFONY_ADMIN";
-const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 200;
 /** Longueur minimale d'un mot de passe self-service (OWASP ASVS V2.1.1 — plancher). */
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -130,30 +135,6 @@ function adminActor(user: unknown): { id: string | null; label: string } {
     return { id, label };
   }
   return { id: null, label: "admin" };
-}
-
-/** Premier param d'une clé de query (peut être `string | string[]`). */
-function one(
-  query: Readonly<Record<string, string | string[]>>,
-  key: string,
-): string | undefined {
-  const value = query[key];
-  if (value === undefined) return undefined;
-  return Array.isArray(value) ? value[0] : value;
-}
-
-/** `?limit`/`?offset` bornés (défaut 50, cap dur 200 ; offset ≥ 0). */
-function pageParams(query: Readonly<Record<string, string | string[]>>): {
-  limit: number;
-  offset: number;
-} {
-  const rawLimit = Number.parseInt(one(query, "limit") ?? "", 10);
-  const rawOffset = Number.parseInt(one(query, "offset") ?? "", 10);
-  const limit = Number.isNaN(rawLimit)
-    ? DEFAULT_LIMIT
-    : Math.min(Math.max(rawLimit, 1), MAX_LIMIT);
-  const offset = Number.isNaN(rawOffset) || rawOffset < 0 ? 0 : rawOffset;
-  return { limit, offset };
 }
 
 /** Vue minimale du journal d'audit security — résolu par nom au runtime. */
@@ -353,6 +334,20 @@ export function createUserAdminApi(container: Container): IAdminApi {
       summary:
         "Utilisateurs (DTO redacté, jamais le hash). Filtres : " +
         "?role&enabled&q (identifier) ; pagination ?limit&offset.",
+      // Publiée dans le catalogue admin — la console cesse de deviner ce que
+      // l'annuaire branché sait faire. Le tri est ÉVALUÉ (l'annuaire en mémoire
+      // ne connaît ni `createdAt` ni `updatedAt`, une base SQL oui), les filtres
+      // sont la donnée que le handler lit deux lignes plus bas : une seule
+      // déclaration, deux lectures, aucune divergence possible.
+      page: {
+        sortable: () => resolveUsers()?.sortableFields() ?? [],
+        filters: USER_FILTERS,
+        // La recherche descend jusqu'au dépôt (`listPage({ q })`), qui la traduit
+        // en `LIKE` indexé ou en prédicat mémoire — jamais un balayage ici.
+        // Déclarée pour que la console n'affiche une barre de recherche que là
+        // où elle cherche vraiment.
+        search: () => true,
+      },
       handler: async (
         request: IAdminRequest,
       ): Promise<
@@ -368,19 +363,26 @@ export function createUserAdminApi(container: Container): IAdminApi {
         if (!users) {
           return { status: 503, body: { error: "user service unavailable" } };
         }
-        const role = one(request.query, "role");
-        const enabled = one(request.query, "enabled");
-        const q = one(request.query, "q");
-        const { limit, offset } = pageParams(request.query);
+        // UN SEUL traducteur par dimension : `parsePageQuery` pour limit/offset
+        // et le tri, `parseFilters` pour role/enabled. En appeler un second sans
+        // son allowlist (ce que faisait `pageParams`) fait refuser en 400 ce que
+        // le premier venait d'accepter — vécu.
+        const pageQuery = parsePageQuery(request.query, {
+          sortable: users.sortableFields(),
+          searchable: true,
+        });
+        const filters = parseFilters(request.query, USER_FILTERS);
+        const limit = pageQuery.limit;
+        const offset = pageQuery.offset ?? 0;
         // Pagination NATIVE au store — JAMAIS un `find()` complet matérialisé en
         // RAM (règle perf/mémoire) : les filtres role/enabled/q descendent dans
         // le backend, qui ne renvoie qu'une page.
         const page = await users.listPage({
           limit,
           offset,
-          ...(role !== undefined ? { role } : {}),
-          ...(enabled !== undefined ? { enabled: enabled === "true" } : {}),
-          ...(q !== undefined && q.length > 0 ? { q } : {}),
+          ...filters,
+          ...(pageQuery.order ? { order: pageQuery.order } : {}),
+          ...(pageQuery.q !== undefined ? { q: pageQuery.q } : {}),
         });
         return {
           items: page.items.map(toUserSummary),
@@ -388,6 +390,52 @@ export function createUserAdminApi(container: Container): IAdminApi {
           limit,
           offset,
         };
+      },
+    },
+    {
+      // Compteurs de tête. Endpoint SÉPARÉ de la liste : ces nombres ne dépendent
+      // ni de la fenêtre ni de l'ordre — les rejouer à chaque tour de page
+      // coûterait six COUNT pour un résultat identique. Déclaré AVANT
+      // `users/{id}` (segment littéral `stats` ≠ paramètre `{id}`).
+      path: "users/stats",
+      method: "GET",
+      summary:
+        "Compteurs sur l'annuaire ENTIER (total, actifs, désactivés, verrouillés, " +
+        "administrateurs, comptes liés à un fournisseur externe). Filtre `role` " +
+        "seulement. `null` = l'annuaire ne sait pas compter.",
+      // Les facettes sont publiées : les cartes de tête de la console
+      // deviennent cliquables, et le filtre qu'elles posent est EXACTEMENT
+      // celui qui a produit le nombre affiché. `admins` n'y figure pas — le
+      // rôle d'administration est une valeur de configuration, pas un mot du
+      // vocabulaire de filtre ; sa carte reste donc non cliquable.
+      page: {
+        filters: USER_STATS_FILTERS,
+        facets: USER_FACETS,
+        // La recherche est HONORÉE ici comme sur la liste : `countUsers`
+        // descend `q` dans les trois annuaires branchés (prédicat en mémoire,
+        // `LIKE` indexé en SQL, `$regex` en Mongo). Sans elle, taper dans la
+        // barre filtrait le tableau et FIGEAIT les cartes au-dessus — deux
+        // vérités contradictoires côte à côte, exactement ce que les compteurs
+        // serveur étaient censés supprimer.
+        search: () => true,
+      },
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<IUserCounts | IAdminResponse<{ error: string }>> => {
+        const users = resolveUsers();
+        if (!users) {
+          return { status: 503, body: { error: "user service unavailable" } };
+        }
+        // Un décompte n'a pas de fenêtre : `limit`/`offset`/`order` sont admis
+        // par le contrat de page et sans effet — ils ne changent aucun nombre
+        // rendu, donc les ignorer ne ment sur rien. `q`, LUI, change la
+        // population comptée : il est déclaré (`searchable`), lu ici une seule
+        // fois, et descendu jusqu'au dépôt.
+        const page = parsePageQuery(request.query, { searchable: true });
+        return users.countUserFacets(ADMIN_ROLE, {
+          ...parseFilters(request.query, USER_STATS_FILTERS),
+          ...(page.q !== undefined ? { q: page.q } : {}),
+        });
       },
     },
     {

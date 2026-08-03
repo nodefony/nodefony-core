@@ -100,6 +100,12 @@ export async function askMissing(
       if (q.askIf === "hasCheckout" && !caps.hasCheckout) {
         continue;
       }
+      // Dépend d'une réponse précédente : la question ne se pose que si ce
+      // qu'elle règle sera effectivement généré (`database` n'a de service à
+      // choisir qu'en preset complete).
+      if (q.askWhen && String(answers[q.askWhen.key]) !== q.askWhen.equals) {
+        continue;
+      }
       // Réglage avancé : on ne l'impose pas au dialogue (défaut sûr, option dédiée).
       if (q.advanced) {
         continue;

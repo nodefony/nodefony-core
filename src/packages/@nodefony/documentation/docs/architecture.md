@@ -605,9 +605,9 @@ dans la carte de l'aperçu, régénérés depuis les résultats réels.
 
 Le dernier mérite qu'on s'y arrête. Les autres travaillent sur un index fabriqué ; celui-là
 parcourt les vraies pages et attrape ce qu'aucun double ne peut voir : un `../` mal compté,
-une page renommée, un lien vers un fichier supprimé (`analyze()`, `corpusLinks.test.ts:77`).
+une page renommée, un lien vers un fichier supprimé (`analyze()`, `corpusLinks.test.ts:120`).
 
-Il porte un **cliquet** : `LEGACY_BROKEN_LINKS` (`corpusLinks.test.ts:104`) liste les pages
+Il porte un **cliquet** : `LEGACY_BROKEN_LINKS` (`corpusLinks.test.ts:147`) liste les pages
 pas encore reprises au standard, qui traînent des liens faux hérités. Deux assertions
 l'encadrent — les pages hors liste ne doivent avoir **aucun** lien mort, et une page de la
 liste qui a été réparée doit en **sortir**. Sans cette seconde garde, la liste se relâcherait

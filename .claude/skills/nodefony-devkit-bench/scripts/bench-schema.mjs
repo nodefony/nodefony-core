@@ -99,7 +99,7 @@
  * `dist/` local. L'agent tourne SANS garde-fou d'approbation dans un décor
  * jetable : ne jamais pointer ce banc sur un vrai projet.
  *
- * Variables : `DEVKIT_BENCH_AGENT` · `DEVKIT_BENCH_MODEL` (défaut `haiku` — le
+ * Variables : `NF_DEVKIT_BENCH_AGENT` · `NF_DEVKIT_BENCH_MODEL` (défaut `haiku` — le
  * cas le plus défavorable est le seul qui prouve : un modèle fort compense les
  * trous de la grammaire en devinant juste).
  */
@@ -119,6 +119,11 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  assertIsolated,
+  installFromTarballs,
+  packTarballs,
+} from "./lib/isolation.mjs";
 import { DatabaseSync } from "node:sqlite";
 
 /** Racine du dépôt, trouvée en REMONTANT — un skill se déplace, un `..` non. */
@@ -158,10 +163,10 @@ const LINKED = process.argv.includes("--link");
 const RUN_ROOT = LINKED
   ? path.join(REPO, "tmp", "devkit-schema")
   : path.join(os.tmpdir(), "nodefony-devkit-schema");
-const AGENT = process.env.DEVKIT_BENCH_AGENT ?? "claude";
-const MODEL = process.env.DEVKIT_BENCH_MODEL ?? "haiku";
-const AGENT_ARGS = process.env.DEVKIT_BENCH_AGENT_ARGS
-  ? process.env.DEVKIT_BENCH_AGENT_ARGS.split(" ")
+const AGENT = process.env.NF_DEVKIT_BENCH_AGENT ?? "claude";
+const MODEL = process.env.NF_DEVKIT_BENCH_MODEL ?? "haiku";
+const AGENT_ARGS = process.env.NF_DEVKIT_BENCH_AGENT_ARGS
+  ? process.env.NF_DEVKIT_BENCH_AGENT_ARGS.split(" ")
   : [
       "-p",
       "--output-format",
@@ -1043,179 +1048,6 @@ const sh = (cmd, args, opts = {}) =>
 const git = (cwd, ...args) =>
   execFileSync("git", args, { cwd, stdio: "pipe", encoding: "utf8" });
 
-/**
- * Tarballs des paquets publiables — l'outil de la RELEASE, pas un packer de plus.
- *
- * `pack-all.mjs` porte des subtilités qu'une copie perdrait sans le dire : la
- * bascule des `exports.types` du source vers les `.d.ts` générés au moment du
- * pack (sans elle, le typecheck du consommateur casse), les peers rendus
- * optionnels, la restauration des `package.json` à l'octet près.
- *
- * Re-packer coûte une minute ; on ne le refait donc que si un `dist/` a bougé
- * depuis le dernier pack — la fraîcheur se CONSTATE, elle ne se suppose pas.
- *
- * @returns {{dir: string, manifest: Record<string,string>}}
- */
-function packTarballs(force) {
-  const outDir = path.join(REPO, "release", "tarballs");
-  const manifestPath = path.join(outDir, "manifest.json");
-  const newestDist = () => {
-    let newest = 0;
-    const roots = [
-      path.join(REPO, "src", "nodefony"),
-      ...readdirSync(path.join(REPO, "src", "packages", "@nodefony"), {
-        withFileTypes: true,
-      })
-        .filter((e) => e.isDirectory())
-        .map((e) => path.join(REPO, "src", "packages", "@nodefony", e.name)),
-    ];
-    for (const r of roots) {
-      const f = path.join(r, "dist", "index.js");
-      if (existsSync(f)) newest = Math.max(newest, lstatSync(f).mtimeMs);
-    }
-    return newest;
-  };
-
-  const fresh =
-    !force &&
-    existsSync(manifestPath) &&
-    lstatSync(manifestPath).mtimeMs >= newestDist();
-  if (fresh) {
-    console.log("• tarballs à jour (aucun dist plus récent) — pack ignoré");
-  } else {
-    console.log("• npm pack des paquets publiables (release/tarballs)…");
-    sh(process.execPath, [
-      path.join(
-        REPO,
-        ".claude",
-        "skills",
-        "nodefony-release",
-        "scripts",
-        "pack-all.mjs",
-      ),
-    ]);
-  }
-  if (!existsSync(manifestPath)) {
-    throw new Error(
-      `pack : manifeste absent (${manifestPath}) — le checkout est-il bâti ? (npm run build)`,
-    );
-  }
-  return {
-    dir: outDir,
-    manifest: JSON.parse(readFileSync(manifestPath, "utf8")),
-  };
-}
-
-/**
- * Réécrit les dépendances du scope `nodefony` vers les tarballs COPIÉS dans
- * l'app, puis installe.
- *
- * Les tarballs sont copiés (et référencés en relatif) plutôt que pointés dans le
- * dépôt : un `file:` absolu vers `release/tarballs` rebrancherait l'application
- * sur le checkout par un autre chemin, ce qu'on vient précisément de couper.
- *
- * @returns les noms de paquets installés depuis un tarball.
- */
-function installFromTarballs(app, packed) {
-  const local = path.join(app, "tarballs");
-  cpSync(packed.dir, local, { recursive: true });
-  const pkgPath = path.join(app, "package.json");
-  const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
-  const installed = [];
-  for (const block of ["dependencies", "devDependencies"]) {
-    for (const name of Object.keys(pkg[block] ?? {})) {
-      if (name !== "nodefony" && !name.startsWith("@nodefony/")) continue;
-      const tgz = packed.manifest[name];
-      if (!tgz) {
-        throw new Error(
-          `tarball absent pour ${name} — le paquet est-il publiable (non private) ?`,
-        );
-      }
-      pkg[block][name] = `file:./tarballs/${tgz}`;
-      installed.push(name);
-    }
-  }
-  writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
-  console.log(`• npm install (${installed.length} paquets depuis tarballs)…`);
-  sh("npm", ["install", "--no-audit", "--no-fund"], { cwd: app });
-  return installed.sort();
-}
-
-/**
- * CONSTATE l'isolation du décor — ne la suppose pas.
- *
- * Trois faits, chacun suffisant à fausser le verdict s'il est faux : le run
- * vit hors du dépôt (sinon `../..` y ramène), aucun paquet du framework n'est
- * un lien qui sorte de l'app (sinon les sources sont à un `cd` de distance), et
- * aucun `.ts` de source n'est atteignable dans `node_modules` (un `.d.ts` l'est
- * légitimement — un installeur les reçoit).
- *
- * @returns {{ok: boolean, facts: string[]}}
- */
-function assertIsolated(app) {
-  const facts = [];
-  let ok = true;
-  const note = (good, text) => {
-    if (!good) ok = false;
-    facts.push(`${good ? "✅" : "❌"} ${text}`);
-  };
-
-  const realApp = realpathSync(app);
-  const realRepo = realpathSync(REPO);
-  note(
-    !realApp.startsWith(realRepo + path.sep),
-    `l'application vit hors du dépôt (${realApp})`,
-  );
-
-  const scopes = [
-    path.join(app, "node_modules", "nodefony"),
-    ...(existsSync(path.join(app, "node_modules", "@nodefony"))
-      ? readdirSync(path.join(app, "node_modules", "@nodefony")).map((n) =>
-          path.join(app, "node_modules", "@nodefony", n),
-        )
-      : []),
-  ].filter((p) => existsSync(p));
-
-  const escaping = scopes.filter((p) => {
-    const st = lstatSync(p);
-    return st.isSymbolicLink() && !realpathSync(p).startsWith(realApp);
-  });
-  note(
-    escaping.length === 0,
-    `aucun paquet du framework ne sort de l'app par un lien` +
-      (escaping.length ? ` (${escaping.length} en sortent)` : ""),
-  );
-
-  // Un `.ts` qui n'est pas une déclaration EST une source : sa présence dit que
-  // l'agent peut lire l'implémentation du framework, ce qu'un installeur ne
-  // peut pas.
-  let sources = 0;
-  let sample = "";
-  const walk = (dir, depth) => {
-    if (depth > 6 || sources > 0) return;
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
-      if (sources > 0) return;
-      const p = path.join(dir, e.name);
-      if (e.isSymbolicLink()) continue;
-      if (e.isDirectory()) {
-        if (e.name === "node_modules") continue;
-        walk(p, depth + 1);
-      } else if (e.name.endsWith(".ts") && !e.name.endsWith(".d.ts")) {
-        sources += 1;
-        sample = path.relative(app, p);
-      }
-    }
-  };
-  for (const s of scopes) walk(s, 0);
-  note(
-    sources === 0,
-    `aucune source .ts du framework atteignable` +
-      (sample ? ` (${sample})` : ""),
-  );
-
-  return { ok, facts };
-}
-
 /** App témoin fraîche, schéma cible déposé à sa racine. */
 function setup(runDir, target) {
   const app = path.join(runDir, "app");
@@ -1250,7 +1082,10 @@ function setup(runDir, target) {
     console.log("• npm install…");
     sh("npm", ["install", "--no-audit", "--no-fund"], { cwd: app });
   } else {
-    installFromTarballs(app, packTarballs(process.argv.includes("--repack")));
+    installFromTarballs(
+      app,
+      packTarballs(REPO, process.argv.includes("--repack")),
+    );
   }
   writeFileSync(path.join(app, "schema-cible.md"), target);
   if (!LINKED) {
@@ -2222,7 +2057,7 @@ async function main() {
     // Le décor se CONSTATE avant de servir. Un banc qui annonce mesurer un
     // installeur npm et laisse traîner les sources du framework rend un verdict
     // sur autre chose que ce qu'il prétend.
-    isolation = assertIsolated(app);
+    isolation = assertIsolated(REPO, app);
     console.log(`\n• isolation du décor`);
     for (const f of isolation.facts) console.log(`  ${f}`);
     if (!isolation.ok && !LINKED) {

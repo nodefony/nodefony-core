@@ -36,6 +36,13 @@ const OUT = path.join(ROOT, "release", "tarballs");
 // installerait react/react-dom (peers du sous-chemin client `nodefony/react`,
 // jamais requis côté serveur). Injecté au pack (pas dans le source : le repo
 // self-hosted a toujours react via le workspace Studio).
+// ⚠️ Rien pour `vite` ici, et c'est délibéré : marquer une peer optionnelle ne
+// suffit PAS à la faire sortir de l'image. Une fois INSTALLÉE (elle l'est, en
+// devDependency de l'application), elle SATISFAIT la peer d'un paquet de
+// production, et `npm prune --omit=dev` la garde — mesuré. La seule chose qui
+// marche est de ne pas déclarer la peer du tout, ce que font désormais
+// `@nodefony/frontend` et `@nodefony/studio` : Vite et ses plugins y sont
+// chargés par `await import()`, donc rien n'exige de les déclarer.
 const PACK_PEER_OPTIONAL = {
   nodefony: ["react", "react-dom"],
 };
@@ -61,6 +68,19 @@ for (const w of workspaces) {
   if (Array.isArray(pkg.files) && pkg.files.includes("dist")) {
     if (!existsSync(path.join(dir, "dist"))) {
       failures.push(`${pkg.name}: dist/ absent — lancer npm run build d'abord`);
+      continue;
+    }
+  }
+
+  // Même garde pour le graphe symbolique : il est GÉNÉRÉ (donc absent d'un
+  // checkout frais) et un `files` qui désigne un dossier inexistant ne fait pas
+  // échouer `npm pack` — il publie simplement sans lui. L'application installée
+  // lirait alors un graphe absent, exactement le trou que sa publication ferme.
+  if (Array.isArray(pkg.files) && pkg.files.includes(".ai")) {
+    if (!existsSync(path.join(dir, ".ai", "symbols.json"))) {
+      failures.push(
+        `${pkg.name}: .ai/symbols.json absent — lancer npm run generate-symbols d'abord`,
+      );
       continue;
     }
   }
@@ -141,11 +161,12 @@ for (const w of workspaces) {
       cwd: dir,
       encoding: "utf8",
     });
+    // `findLast` et non `filter(Boolean).at(-1)` : c'est la DERNIÈRE ligne non
+    // vide qui porte le nom d'archive, npm écrivant ses avertissements avant.
     const tgz = out
       .split("\n")
       .map((l) => l.trim())
-      .filter(Boolean)
-      .at(-1);
+      .findLast(Boolean);
     if (!tgz?.endsWith(".tgz")) {
       failures.push(
         `${pkg.name}: npm pack n'a pas rendu de nom d'archive (dernière ligne : « ${String(tgz).slice(0, 60)} »)`,

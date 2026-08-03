@@ -50,7 +50,14 @@ class <%= it.nameClass %> extends Command {
       this.log("service « <%= it.service.key %> » non enregistré", "ERROR");
       return this;
     }
-    const message = svc.greet(who);
+    // Remplace cet appel par le tien : ce que ces lignes MONTRENT, c'est comment
+    // on obtient le service — le reste est de la mise en forme.
+    const resultat = await svc.<%= it.service.method %>();
+    const message =
+      typeof resultat === "string" ? resultat : JSON.stringify(resultat, null, 2);
+    if (who) {
+      this.log(`argument reçu : ${who}`, "DEBUG");
+    }
 <% } else { %>    const message = `Bonjour, ${who ?? "monde"} !`;
 <% } %>    if (opts.json) {
       process.stdout.write(`${JSON.stringify({ message })}\n`);

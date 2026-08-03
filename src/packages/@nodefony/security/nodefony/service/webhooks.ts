@@ -8,7 +8,12 @@ import {
   resolveAutoStore,
   deriveStoreBackend,
   readStoreLocation,
+  countFacets,
 } from "nodefony";
+import {
+  WEBHOOK_FACETS,
+  type IWebhookCounts,
+} from "../src/webhook/webhookFilters";
 import { Buffer } from "node:buffer";
 import { randomBytes } from "node:crypto";
 import {
@@ -378,6 +383,22 @@ class WebhookService extends Service {
   }
 
   /**
+   * Champs de tri que le backend **actuellement branché** sait honorer, en
+   * vocabulaire public. Le data plane admin les passe en allowlist au traducteur
+   * de requête de page : hors de cette liste, un `?order=` est refusé en 400.
+   *
+   * La liste vient du store, jamais d'une constante recopiée ici : un backend
+   * qui ne trierait pas refuserait alors le tri **sans qu'aucune règle
+   * supplémentaire ne soit écrite**. Store absent (webhooks désactivés) ⇒ aucune
+   * capacité annoncée, donc aucun tri promis.
+   *
+   * @returns les champs triables, ou un tableau vide.
+   */
+  sortableFields(): readonly string[] {
+    return this.#store?.sortableFields ?? [];
+  }
+
+  /**
    * Enregistre un endpoint : valide l'URL (anti-SSRF), génère un secret de
    * signature, le chiffre au repos. Retourne l'endpoint + le secret **en clair**
    * (la seule occasion de le lire pour le copier).
@@ -435,6 +456,28 @@ class WebhookService extends Service {
   async countEndpoints(query: IWebhookListQuery): Promise<number> {
     this.#assertReady();
     return this.#store!.countEndpoints(query);
+  }
+
+  /**
+   * Les compteurs de tête de la console — posés sur la collection ENTIÈRE, pas
+   * sur la page affichée.
+   *
+   * Un endpoint peut être **actif ET en échec** : les facettes se recoupent, et
+   * aucune n'est déduite d'une autre par soustraction. Chaque compteur vaut
+   * `null` si le backend ne sait pas compter.
+   *
+   * @param query - filtres à appliquer avant comptage (sans fenêtre).
+   */
+  async countWebhookFacets(
+    query?: Partial<IWebhookListQuery>,
+  ): Promise<IWebhookCounts> {
+    this.#assertReady();
+    return countFacets(WEBHOOK_FACETS, (facet) =>
+      this.#store!.countEndpoints({
+        ...query,
+        ...facet,
+      } as IWebhookListQuery),
+    );
   }
 
   /** Un endpoint par id (vue publique), ou `null`. */

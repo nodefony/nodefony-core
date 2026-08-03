@@ -98,7 +98,7 @@ function getJson(path: string): Promise<{ rows?: LogRow[] }> {
 async function searchByRequestId(rid: string): Promise<LogRow[]> {
   for (let i = 0; i < 6; i++) {
     const o = await getJson(
-      `/nodefony/syslog/api/logs/search?requestId=${rid}&order=asc&limit=200`,
+      `/nodefony/syslog/api/logs/search?requestId=${rid}&order=timeStamp:ASC&limit=200`,
     );
     const rows = o.rows ?? [];
     if (rows.some((r) => r.msgid === "WS RECEIVE")) return rows;

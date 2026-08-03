@@ -72,8 +72,8 @@ qu'on imite.
 C'est une différence de nature. Un agent — ou un développeur pressé — qui imite
 un fichier existant reproduit ce que cet exemple avait de particulier, y compris
 ce qui a vieilli. Un appel, lui, part de la spec courante : `getScaffoldSpec()`
-(`spec.ts:487`) décrit les types, leurs questions et leurs valeurs permises, et
-`resolveAnswers()` (`engine.ts:241`) refuse tout ce qui sort de cette
+(`spec.ts:764`) décrit les types, leurs questions et leurs valeurs permises, et
+`resolveAnswers()` (`engine.ts:366`) refuse tout ce qui sort de cette
 description. Le générateur peut donc dire ce qu'il attend, et l'appelant n'a rien
 à deviner.
 
@@ -152,13 +152,13 @@ curl http://127.0.0.1:5151/api/blog
 
 ## Les cinq choses qu'on peut créer
 
-| Type         | Ce que ça pose                                                                                                                   | Où                        |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| `app`        | Un projet complet : configuration, environnement typé, contrôleur d'accueil, tests, outillage. Deux presets et quatre frontends. | Un dossier **neuf**       |
-| `module`     | Un workspace npm sous `modules/<nom>/`, déclaré dans les workspaces et le manifeste `modules` de l'application.                  | Dans le projet courant    |
-| `controller` | Une classe de contrôleur, dans l'une des cinq saveurs (`hello`, `rest`, `duplex`, `realtime`, `example`), câblée à sa cible.     | Application **ou** module |
-| `front`      | Un frontend Vite : coquille HTML, point de montage, contrôleur de page, déclaration d'entrée.                                    | Application **ou** module |
-| `entity`     | La chaîne de persistance complète : table du dialecte, schémas d'entrée, service CRUD, contrôleur REST + socket, tests.          | Application **ou** module |
+| Type         | Ce que ça pose                                                                                                                                   | Où                        |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------- |
+| `app`        | Un projet complet : configuration, environnement typé, contrôleur d'accueil, tests, outillage. Deux presets, quatre frontends, quatre bases SQL. | Un dossier **neuf**       |
+| `module`     | Un workspace npm sous `modules/<nom>/`, déclaré dans les workspaces et le manifeste `modules` de l'application.                                  | Dans le projet courant    |
+| `controller` | Une classe de contrôleur, dans l'une des cinq saveurs (`hello`, `rest`, `duplex`, `realtime`, `example`), câblée à sa cible.                     | Application **ou** module |
+| `front`      | Un frontend Vite : coquille HTML, point de montage, contrôleur de page, déclaration d'entrée.                                                    | Application **ou** module |
+| `entity`     | La chaîne de persistance complète : table du dialecte, schémas d'entrée, service CRUD, contrôleur REST + socket, tests.                          | Application **ou** module |
 
 Le détail des drapeaux de chaque type est dans `nodefony create --help`, et sous
 forme lisible par une machine dans `--describe-json` (voir plus bas).
@@ -214,7 +214,7 @@ npx nodefony create entity Article title:string
 ```
 
 La garantie tient à la transaction, pas à la position des vérifications dans le
-code : `runScaffold()` (`engine.ts:566`) ouvre la transaction, chaque étape y
+code : `runScaffold()` (`engine.ts:885`) ouvre la transaction, chaque étape y
 écrit, et le versement n'a lieu qu'après la dernière. Une garde ajoutée demain
 est automatiquement sûre, où qu'elle soit placée.
 
@@ -253,7 +253,7 @@ le drapeau est la retouche de l'appel.
 > `resolveAnswers()` ne conserve que les clés déclarées : un `"prest"` écrit à la
 > place de `"preset"` produirait un projet différent de celui demandé, sans un
 > mot. Une personne relit le résultat ; un appelant automatique, non
-> (`readAnswersJson()`, `create.ts:284`).
+> (`readAnswersJson()`, `create.ts:336`).
 
 Combinés, ces trois drapeaux forment une boucle sûre pour un agent : se décrire
 (`--describe-json`), proposer (`--answers-json … --dry-run`), puis exécuter.

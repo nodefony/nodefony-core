@@ -61,7 +61,7 @@ pas deux mondes séparés.
 <% if (it.front) { %>| `frontend/src/`            | Ton app <%= it.frontend %> — servie par Vite (HMR dev, build prod)          |
 <% } %>| `tests/`                   | Tests vitest — unitaires (`npm test`) + e2e réel (`npm run test:e2e`)       |
 | `AGENTS.md`                | Instructions pour un agent IA — 100 % généré (régénéré par `create`), tes notes vivent dans sa zone préservée |
-<% if (it.complete) { %>| `compose.yaml`             | Infra de dev docker : Redis, Postgres, MariaDB, MySQL, Loki/Grafana (profils) |
+<% if (it.complete) { %>| `compose.yaml`             | Infra de dev docker : Redis<% if (it.db) { %>, <%= it.db.label %><% } %>, Loki/Grafana (profil) |
 <% } %>| `rolldown.config.ts`       | Build — 3 lignes, délègue tout au socle publié `nodefony/bundler`           |
 | `.oxlintrc.json`           | Lint non-intrusif (warn) ; le style est délégué à Prettier                  |
 | `vitest.config.ts`         | Tests unitaires — porte le bloc `oxc` décorateurs (OBLIGATOIRE, commenté)   |
@@ -70,27 +70,48 @@ pas deux mondes séparés.
 <% if (it.complete) { %>
 ## 4. Infra de développement (docker)
 
-L'app démarre **sans docker** (sqlite locale). Le `compose.yaml` fournit l'infra
-du cran au-dessus, par **profils** — rien ne tourne « au cas où » :
+<% if (it.db) { %>Tu as retenu **<%= it.db.label %>** à la création : le `compose.yaml` ne porte que
+ce service (plus Redis), et `.env` déclare déjà `NF_DATABASE_URL` dessus. Lance
+l'infra **avant** l'app :
 
 ```bash
-npm run infra:up                          # Redis seul (sessions partagées, realtime multi-process)
-docker compose --profile postgres up -d   # + PostgreSQL
+npm run infra:up     # docker : Redis + <%= it.db.label %> (le compose ne porte qu'eux)
+npm run dev
+npm run infra:down   # arrêt (les volumes survivent)
+```
+
+Redis n'est utilisé que si `NF_REDIS_URL` est déclarée — sinon l'app reste en
+mémoire de process, ce qui suffit tant qu'elle tourne en un seul exemplaire :
+
+```bash
+NF_REDIS_URL="redis://:<%= it.appName %>-dev@127.0.0.1:6379"   # dans .env
+```
+
+Repasser en **sqlite locale** : commente `NF_DATABASE_URL` dans `.env`, rien
+d'autre. Le dialecte SQL est déduit du **scheme de l'URL** (`postgres://`,
+`mysql://`, `sqlite:`) — changer de base ne change **rien d'autre** dans l'app.
+Les mots de passe par défaut du compose sont publics, pour le dev local uniquement.
+<% } else { %>L'app démarre **sans docker** : la base est une **sqlite locale** (`var/databases/`),
+retenue à la création. Le `compose.yaml` fournit le cran au-dessus :
+
+```bash
+npm run infra:up                          # Redis (sessions partagées, realtime multi-process)
 docker compose --profile loki up -d       # + Loki + Grafana (logs centralisés)
 npm run infra:down                        # arrêt (les volumes survivent)
 ```
 
-Câblage côté app — deux variables, tout le reste se dérive (`store: "auto"`) :
+Câblage côté app — une variable, tout le reste se dérive (`store: "auto"`) :
 
 ```bash
-export NF_REDIS_URL="redis://:<%= it.appName %>-dev@127.0.0.1:6379"
-export NF_DATABASE_URL="postgres://<%= it.appName %>:<%= it.appName %>-dev@127.0.0.1:5432/<%= it.appName %>"
-npm run dev
+NF_REDIS_URL="redis://:<%= it.appName %>-dev@127.0.0.1:6379"   # dans .env
 ```
 
-Le dialecte SQL est déduit du **scheme de l'URL** (`postgres://`, `mysql://`,
-`sqlite:`) — changer de base ne change **rien d'autre** dans l'app. Les mots de
-passe par défaut du compose sont publics, pour le dev local uniquement.
+Pour passer sur une vraie base SQL : déclare `NF_DATABASE_URL`. Le dialecte est
+déduit du **scheme de l'URL** (`postgres://`, `mysql://`, `sqlite:`) — changer de
+base ne change **rien d'autre** dans l'app. Le service docker correspondant n'est
+pas dans ce `compose.yaml` (une app y retient un seul dialecte) : ajoute-le, ou
+recrée une app avec `nodefony create app <nom> --database postgres`.
+<% } %>
 <% } %>
 ## 5. Tests — `npm test` est ton PREMIER diagnostic
 
@@ -163,6 +184,23 @@ npm start            # nodefony production — bind 0.0.0.0, logs stdout, probes
 > ERROR.
 <% } %>
 
+### Image de container
+
+`Dockerfile` et `.dockerignore` sont générés avec l'app ; la doctrine y est
+commentée ligne à ligne (multi-stage, `USER node`, sonde sur `/readyz`, forme
+exec du `CMD`).
+
+```bash
+docker build -t <%= it.appName %> .
+docker run -p 5151:5151 <%= it.appName %>
+docker stop -t 20 <container>   # SIGTERM → drain → exit 0
+```
+
+> ⚠️ **La période de grâce doit rester au-dessus de `shutdownDeadline`** (15 s
+> par défaut) : `docker stop` n'attend que 10 s sans `-t`, et k8s 30 s. En
+> dessous, le drain est coupé par un SIGKILL et les requêtes en vol meurent —
+> sans erreur ni trace, à chaque déploiement.
+
 Un process Node = un pod/container ; le scaling horizontal vient de
 l'orchestrateur (k8s, Swarm, Cloud Run…).<% if (it.complete) { %> Studio est chargé en dev seulement
 (`policy: "dev"`) — pour l'exposer en production, protège `/nodefony` par une
@@ -181,7 +219,8 @@ framework, tu rebuilds le checkout, ton app le voit. Ne publie pas ce
 
 - **Ajouter une route** : une méthode décorée `@route` dans un controller — c'est tout.
 - **Régénérer autrement** : `nodefony create app` (interactif) ou
-  `--preset <complete|minimal> --frontend <none|react|vue|angular>` (scriptable).
+  `--preset <complete|minimal> --frontend <none|react|vue|angular>`
+  `--database <sqlite|postgres|mariadb|mysql>` (scriptable).
 <% if (it.complete) { %>- **Protéger une zone** : `use("@nodefony/security", { firewalls: { … } })` dans
   `nodefony.config.ts` (validée Zod au boot, config invalide = échec franc).
 - **Canaux temps réel** : le module realtime multiplexe N canaux duplex sur une

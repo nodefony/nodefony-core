@@ -198,9 +198,9 @@ Le tableau ci-dessous donne la séquence exacte, avec l'ancre qui la prouve :
 | 1   | Appariement de la route                 | `router.resolve()` (`http-kernel.ts:1183`)          |
 | 2   | En-têtes de sécurité applicatifs        | `applySecurityHeaders()` (`http-kernel.ts:1194`)    |
 | 3   | Parse du corps (sauf `@Body({stream})`) | `http-kernel.ts:1224`                               |
-| 4   | Armement de la route (sans instance)    | `prepareFrontController()` (`http-kernel.ts:652`)   |
+| 4   | Armement de la route (sans instance)    | `prepareFrontController()` (`http-kernel.ts:695`)   |
 | 5   | CSRF                                    | `firewall.enforceCsrf()` (`http-kernel.ts:1290`)    |
-| 6   | Session (reprise ou ouverture)          | `HttpKernel.startSession()` (`http-kernel.ts:1295`) |
+| 6   | Session (reprise ou ouverture)          | `HttpKernel.startSession()` (`http-kernel.ts:1059`) |
 | 7   | Firewall — **authentification**         | `firewall.handleSecurity()` (`http-kernel.ts:1301`) |
 | 8   | Autorisation `@IsGranted`               | `Resolver.executeAction()` (`Resolver.ts:334`)      |
 | 9   | **Instanciation DI + `initialize()`**   | `Resolver.executeAction()` (`Resolver.ts:349`)      |
@@ -311,7 +311,7 @@ action se tromperait d'objet.
 
 Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:1515`)
 appelle `handleFrontController()` (donc `initialize()`) **avant** `startSession()`
-(`http-kernel.ts:1550`), avant l'acceptation de la socket, et avant le firewall
+(`http-kernel.ts:1059`), avant l'acceptation de la socket, et avant le firewall
 (`http-kernel.ts:1457`).
 
 ## 🧠 D'où viennent `request`, `response`, `session`
@@ -487,11 +487,11 @@ throw new nodefonyError("Article introuvable", 404); // statut porté par l'erre
 throw new HttpError("Not Found", 404, this.context); // variante enrichie du contexte
 ```
 
-L'exception remonte jusqu'à `HttpKernel.onError()` (`http-kernel.ts:746`), qui délègue la mise en
+L'exception remonte jusqu'à `HttpKernel.onError()` (`http-kernel.ts:802`), qui délègue la mise en
 forme au rendeur d'erreurs. Ce qui en sort :
 
 - **statut normalisé** — un code absent (ou l'ancien quirk `200`) devient **500**
-  (`normalizeHttpStatus()`, `error-renderer.ts:182`) ;
+  (`normalizeHttpStatus()`, `error-renderer.ts:355`) ;
 - **corps structuré** : `{ code, message, result: null, error: {…}, nodefony: {…} }`, l'enveloppe
   `nodefony` portant l'environnement, l'URL et l'**identifiant de requête** — de quoi retrouver la
   trace complète dans les logs ;
@@ -578,11 +578,11 @@ code du framework applique — et attend de toi — les règles suivantes :
 | -------------------------------- | ------------------------ | -------------------------------------------------------------- |
 | Statuts sans corps (204/205/304) | RFC 9110 §15.3.5/§15.4.5 | `NO_BODY_STATUS` (`Resolver.ts:817`)                           |
 | Requêtes par plage               | RFC 9110 §14.1.2, §14.2  | `parseByteRange()` (`Controller.ts:73`)                        |
-| Plage insatisfiable → 416        | RFC 9110 §15.5.17        | `renderResponse()` avec 416 (`Controller.ts:643`)              |
+| Plage insatisfiable → 416        | RFC 9110 §15.5.17        | `renderResponse()` avec 416 (`Controller.ts:304`)              |
 | Redirections                     | RFC 9110 §15.4           | Liste blanche + repli 302 (`Response.ts:534`)                  |
 | Média JSON sans `charset`        | RFC 8259 §11             | Auto-JSON (`Resolver.ts:760`), vérifié par le banc `auto-json` |
 | Scalaire JSON de premier niveau  | RFC 8259 §2              | `number`/`boolean` rendus (`Resolver.ts:734`)                  |
-| Codes de fermeture WebSocket     | RFC 6455 §7.4            | `renderWebsocket()` (`error-renderer.ts:136`)                  |
+| Codes de fermeture WebSocket     | RFC 6455 §7.4            | `renderWebsocket()` (`error-renderer.ts:264`)                  |
 
 ## 📡 Observabilité — Studio
 

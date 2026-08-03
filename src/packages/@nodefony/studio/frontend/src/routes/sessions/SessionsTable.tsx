@@ -1,11 +1,19 @@
 /**
- * Table des sessions actives (DataGrid réutilisable + fiche détail Modal centré).
- * La référence publique (`sess_…`) est affichée — **jamais** l'id de session brut.
- * Les actions destructives (révoquer une session, déconnecter tout un utilisateur)
- * sont déléguées au parent (`onRevoke`/`onRevokeUser`) qui confirme puis appelle
- * le bon endpoint HTTP (pipeline CSRF — la Socket reste GET-only).
+ * Table des sessions actives — **pagination, tri et filtres côté SERVEUR**
+ * (DataGrid + fiche détail Modal centré). La référence publique (`sess_…`) est
+ * affichée — **jamais** l'id de session brut. Les actions destructives (révoquer
+ * une session, déconnecter tout un utilisateur) sont déléguées au parent
+ * (`onRevoke`/`onRevokeUser`) qui confirme puis appelle le bon endpoint HTTP
+ * (pipeline CSRF — la Socket reste GET-only).
+ *
+ * C'est la ressource où l'écart entre backends est le plus franc, et donc celle
+ * où **deviner** coûtait le plus cher : le store Redis énumère par `SCAN` et ne
+ * trie RIEN, là où mémoire, SQL et Mongo trient sur `updatedAt`. Cinq en-têtes
+ * étaient cliquables ; le serveur n'en honore que deux. Ce que la table propose
+ * vient donc du catalogue (`AdminStore.pageCapabilities`), jamais d'ici.
  */
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { observer } from "mobx-react-lite";
 import {
   Stack,
   Group,
@@ -16,21 +24,46 @@ import {
   Box,
   Button,
 } from "@mantine/core";
-import {
-  IconList,
-  IconBan,
-  IconLogout,
-  IconInfoCircle,
-} from "@tabler/icons-react";
+import { IconBan, IconLogout, IconInfoCircle } from "@tabler/icons-react";
+import type { IPage } from "nodefony";
 
-import { DataGrid, DocHint, type DataGridColumn } from "../../components/ui";
+import {
+  DataGrid,
+  DocHint,
+  PageFilters,
+  toPageParams,
+  fromPage,
+  type DataGridColumn,
+  type DataGridServerQuery,
+  type DataGridServerResult,
+  type PageFilterLabels,
+} from "../../components/ui";
+import { useStore } from "../../stores";
 import {
   SESSIONS_DOC,
+  SESSIONS_LIST_ENDPOINT,
+  SESSIONS_MINE_ENDPOINT,
   fmtDate,
   fmtSince,
+  describeSessionsError,
   type SessionSummary,
 } from "./sessionsModel";
 import { AuthBadge, TenantChip, ClientChip } from "./sessionsFormat";
+
+/**
+ * Habillage des filtres publiés par `GET sessions/list` (`SESSION_FILTERS`).
+ *
+ * En portée « Mes sessions », le serveur publie une spec **vide** : rien ne
+ * s'affiche, et c'est le fond du self-service — le périmètre est décidé par
+ * l'identité de l'appelant, pas choisi par lui (anti-IDOR).
+ */
+const SESSION_FILTER_LABELS: PageFilterLabels = {
+  user: {
+    label: "Utilisateur",
+    hint: "Identifiant EXACT du porteur de la session (pas une recherche : le store compare à l'identique, sur une colonne indexée).",
+    placeholder: "identifiant exact",
+  },
+};
 
 /** Une ligne label → valeur (la valeur peut être un nœud riche : badge…). */
 function Field({ k, children }: { k: string; children: React.ReactNode }) {
@@ -44,20 +77,28 @@ function Field({ k, children }: { k: string; children: React.ReactNode }) {
   );
 }
 
-export function SessionsTable({
-  sessions,
+export const SessionsTable = observer(function SessionsTable({
+  mode,
+  filters,
+  onFiltersChange,
   currentUser,
-  showUser,
   onRevoke,
   onRevokeUser,
   onBulkRevoke,
   revokingRef,
+  reloadKey = 0,
 }: {
-  sessions: SessionSummary[];
+  /**
+   * Portée. `"all"` interroge l'énumération d'administration, `"mine"`
+   * l'endpoint self-service scopé CÔTÉ SERVEUR à l'appelant — deux surfaces
+   * distinctes, jamais un `?user=<moi>` qui serait un IDOR déguisé.
+   */
+  mode: "all" | "mine";
+  /** Filtres actifs — tenus par la page, qui en fait suivre ses cartes de tête. */
+  filters: Record<string, string>;
+  onFiltersChange: (next: Record<string, string>) => void;
   /** Identifiant de l'admin courant (garde-fou « c'est vous » sur logout-everywhere). */
   currentUser: string | null;
-  /** Mode Administration : affiche la colonne Utilisateur (cachée en « Mes sessions »). */
-  showUser: boolean;
   /** Demande la révocation d'UNE session (le parent confirme + appelle l'endpoint). */
   onRevoke: (session: SessionSummary) => void;
   /** Demande la déconnexion de TOUTES les sessions d'un utilisateur. */
@@ -69,15 +110,51 @@ export function SessionsTable({
   ) => void;
   /** Référence de la session en cours de révocation (spinner sur le bouton). */
   revokingRef: string | null;
+  /**
+   * Change de valeur pour recharger la page courante après une mutation faite
+   * par le parent (révocation unitaire, en masse, logout everywhere).
+   */
+  reloadKey?: number;
 }) {
+  const store = useStore();
   const [selected, setSelected] = useState<SessionSummary | null>(null);
+  const showUser = mode === "all";
+  const endpoint = showUser ? SESSIONS_LIST_ENDPOINT : SESSIONS_MINE_ENDPOINT;
+  const caps = store.admin.pageCapabilities(endpoint);
+  const filterSignal = JSON.stringify(filters);
+
+  const loader = useCallback(
+    async (
+      q: DataGridServerQuery,
+    ): Promise<DataGridServerResult<SessionSummary>> => {
+      const params = toPageParams(q, filters);
+      try {
+        const page = await store.api.getAbsolute<IPage<SessionSummary>>(
+          `${endpoint}?${params}`,
+        );
+        return fromPage(page);
+      } catch (e) {
+        throw new Error(describeSessionsError(e), { cause: e });
+      }
+      // `reloadKey` change l'identité du loader → le grid recharge sa page.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [store, endpoint, filterSignal, reloadKey],
+  );
+
+  const sortable = useMemo(
+    () => new Set(caps?.sortable ?? []),
+    [caps?.sortable],
+  );
 
   const columns = useMemo<DataGridColumn<SessionSummary>[]>(() => {
     const cols: DataGridColumn<SessionSummary>[] = [
       {
         key: "ref",
         header: "Référence",
-        sortable: true,
+        // Non triable : `ref` est un HMAC calculé à l'affichage, pas une
+        // colonne du store — le champ trié serait `id`, que l'on n'expose
+        // justement jamais. Trier ici aurait produit un ordre au hasard.
         value: (r) => r.ref,
         render: (r) => <Code>{r.ref}</Code>,
         size: 150,
@@ -87,7 +164,7 @@ export function SessionsTable({
       cols.push({
         key: "user",
         header: "Utilisateur",
-        sortable: true,
+        sortable: sortable.has("user"),
         value: (r) => r.user || "",
         render: (r) =>
           r.user ? (
@@ -106,8 +183,10 @@ export function SessionsTable({
       {
         key: "auth",
         header: "Statut",
-        filterable: true,
-        filterType: "select",
+        // Ni triable ni filtrable : « authentifiée » est une propriété DÉRIVÉE
+        // (`user` non vide) que le contrat de liste n'expose pas en filtre — le
+        // vocabulaire publié n'a que `user`. Un filtre ici demanderait au
+        // serveur un paramètre qu'il refuse (400).
         value: (r) => (r.authenticated ? "Authentifiée" : "Anonyme"),
         render: (r) => <AuthBadge authenticated={r.authenticated} />,
         size: 130,
@@ -122,7 +201,7 @@ export function SessionsTable({
       {
         key: "ip",
         header: "IP",
-        sortable: true,
+        sortable: sortable.has("ip"),
         value: (r) => r.ip ?? "",
         render: (r) =>
           r.ip ? (
@@ -144,7 +223,7 @@ export function SessionsTable({
       {
         key: "createdAt",
         header: "Créée",
-        sortable: true,
+        sortable: sortable.has("createdAt"),
         value: (r) => r.createdAt ?? 0,
         render: (r) => (
           <Text size="sm" c={r.createdAt === null ? "dimmed" : undefined}>
@@ -156,7 +235,7 @@ export function SessionsTable({
       {
         key: "updatedAt",
         header: "Dernière activité",
-        sortable: true,
+        sortable: sortable.has("updatedAt"),
         value: (r) => r.updatedAt ?? 0,
         render: (r) => (
           <Text size="sm" c={r.updatedAt === null ? "dimmed" : undefined}>
@@ -167,7 +246,7 @@ export function SessionsTable({
       },
     );
     return cols;
-  }, [showUser]);
+  }, [showUser, sortable]);
 
   const isSelf =
     selected !== null &&
@@ -179,16 +258,22 @@ export function SessionsTable({
     <Stack gap="md">
       <Group gap="xs">
         <Text size="sm" c="dimmed">
-          {sessions.length} session(s). Clic sur une ligne pour le détail.
+          Clic sur une ligne pour le détail.
         </Text>
         <DocHint
           title="Sessions actives"
           version={SESSIONS_DOC}
-          summary="Une session relie un navigateur (ou un client) au serveur via un cookie opaque (auth web BFF). Cette console liste les sessions persistées et permet de les révoquer."
+          summary="Une session relie un navigateur (ou un client) au serveur via un cookie opaque (auth web BFF). Cette console lit les sessions persistées page par page — le serveur pagine, trie et filtre."
           sections={[
             {
+              label: "Ce qui est proposé",
+              body: caps
+                ? `Le store de sessions branché déclare savoir trier sur ${caps.sortable.length} champ(s)${caps.sortable.length ? ` (${caps.sortable.join(", ")})` : ""}. Un store à curseur (Redis, SCAN) n'en déclare aucun : les en-têtes restent alors inertes plutôt que de répondre 400.`
+                : "Les capacités du store ne sont pas encore connues (catalogue d'administration en cours de chargement) : ni tri ni filtre ne sont proposés tant qu'on ignore ce que le serveur honore.",
+            },
+            {
               label: "Référence (sess_…)",
-              body: "L'id de session brut (= la valeur du cookie) n'est JAMAIS exposé : le posséder suffirait à usurper la session. On affiche une référence HMAC non réversible, comme « appareils connectés » chez GitHub/Google.",
+              body: "L'id de session brut (= la valeur du cookie) n'est JAMAIS exposé : le posséder suffirait à usurper la session. On affiche une référence HMAC non réversible, comme « appareils connectés » chez GitHub/Google. C'est aussi pourquoi la colonne ne se trie pas : elle n'existe pas dans le store.",
             },
             {
               label: "Révocation",
@@ -202,29 +287,32 @@ export function SessionsTable({
         />
       </Group>
 
-      {sessions.length === 0 && (
-        <Alert
-          variant="light"
-          color="gray"
-          icon={<IconList size={18} />}
-          title="Aucune session"
-        >
-          Aucune session active n'est persistée actuellement.
-        </Alert>
-      )}
+      <PageFilters
+        spec={caps?.filters ?? null}
+        value={filters}
+        onChange={onFiltersChange}
+        labels={SESSION_FILTER_LABELS}
+      />
 
       <DataGrid
-        mode="client"
-        data={sessions}
+        mode="server"
+        loader={loader}
         columns={columns}
         getRowId={(r) => r.ref}
         onRowClick={(r) => setSelected(r)}
-        initialSort={{ key: "updatedAt", dir: "desc" }}
-        searchable
-        searchPlaceholder="Rechercher (utilisateur, référence, IP, client…)"
+        initialSort={
+          sortable.has("updatedAt")
+            ? { key: "updatedAt", dir: "desc" }
+            : undefined
+        }
+        // Aucun store de sessions ne relaie `q` : la barre de recherche
+        // parcourait les 200 lignes chargées et ne trouvait rien au-delà.
+        // Le filtre « Utilisateur » ci-dessus, lui, interroge le serveur.
+        searchable={caps?.search ?? false}
+        resetPageSignal={filterSignal}
         pageSize={25}
-        persist={{ key: "studio.sessions", storage: "session" }}
-        emptyMessage="Aucune session."
+        persist={{ key: `studio.sessions.${mode}`, storage: "session" }}
+        emptyMessage="Aucune session ne correspond."
         selectable
         bulkActions={(rows, clear) => (
           <Button
@@ -361,4 +449,4 @@ export function SessionsTable({
       </Modal>
     </Stack>
   );
-}
+});

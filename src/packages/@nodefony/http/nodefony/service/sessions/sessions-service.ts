@@ -15,6 +15,7 @@ import {
   EMPTY_INFRA,
   resolveAutoStore,
   readStoreLocation,
+  countFacets,
 } from "nodefony";
 import type { IPage } from "nodefony";
 import type {
@@ -38,6 +39,8 @@ import Certificate from "../../service/certificates";
 import { createHash, createHmac } from "node:crypto";
 import MemorySessionStorage from "../../src/session/storage/MemorySessionStorage";
 import RevocationGuardStorage from "../../src/session/storage/RevocationGuardStorage";
+import { SESSION_FACETS } from "../../src/session/storage/sessionFilters";
+import type { ISessionCounts } from "../../src/session/storage/sessionFilters";
 
 export type sessionStrategyType = "none" | "migrate" | "invalidate";
 
@@ -490,6 +493,22 @@ class SessionsService extends Service {
   }
 
   /**
+   * Champs de tri que le backend de session **actuellement configuré** sait
+   * honorer, en vocabulaire public.
+   *
+   * La capacité se CONSTATE au runtime : la même application rend `["updatedAt",
+   * "id"]` sur SQLite et `[]` sur Redis (`SCAN` ne donne aucun ordre global).
+   * Le data plane transmet cette liste à `parsePageQuery`, qui **refuse** (400)
+   * un `order` qu'aucun store ne pourrait honorer — au lieu de rendre une page
+   * non triée en laissant croire le contraire.
+   *
+   * @returns les champs triables, liste vide si le backend ne trie pas.
+   */
+  sortableFields(): readonly string[] {
+    return this.storage?.sortableFields ?? [];
+  }
+
+  /**
    * Dérive le pseudonyme public d'une session — `HMAC-SHA256(secret, id)` tronqué,
    * préfixé `sess_`. **Non réversible** : exposer ce `ref` ne révèle pas l'id de
    * session (= le jeton du cookie). Le secret HMAC = celui de la couche session
@@ -535,10 +554,53 @@ class SessionsService extends Service {
    * si le backend ne sait pas compter à coût raisonnable (Redis) — l'appelant
    * affiche alors l'inconnu plutôt qu'un chiffre inventé.
    */
-  async countSessions(query?: ISessionListQuery): Promise<number> {
+  async countSessions(query?: Partial<ISessionListQuery>): Promise<number> {
     const storage = this.enumerable();
     if (typeof storage.countSessions !== "function") return -1;
     return storage.countSessions(query);
+  }
+
+  /**
+   * Compte les utilisateurs **distincts** ayant une session — le second nombre
+   * de la console, celui que `countSessions` ne dit pas (« 400 sessions » n'est
+   * pas « 400 personnes »).
+   *
+   * @returns le nombre d'utilisateurs distincts, ou **`-1`** si le backend ne
+   *   sait pas agréger (Redis).
+   */
+  async countDistinctUsers(
+    query?: Partial<ISessionListQuery>,
+  ): Promise<number> {
+    const storage = this.enumerable();
+    if (typeof storage.countDistinctUsers !== "function") return -1;
+    return storage.countDistinctUsers(query);
+  }
+
+  /**
+   * Les compteurs de tête de la console — posés sur la collection ENTIÈRE, pas
+   * sur la page affichée.
+   *
+   * C'est la correction d'un mensonge d'affichage : les cartes étaient calculées
+   * dans le navigateur à partir des sessions chargées, donc bornées par la
+   * fenêtre du tableau. Elles décrivaient l'échantillon visible en ayant l'air
+   * de décrire le parc.
+   *
+   * Chaque compteur vaut `null` quand le backend ne sait pas répondre — la
+   * console affiche alors l'inconnu (« — ») plutôt qu'un zéro qui se lirait
+   * comme une absence.
+   *
+   * @param query - filtres à appliquer avant comptage (sans fenêtre).
+   */
+  async countSessionFacets(
+    query?: Partial<ISessionListQuery>,
+  ): Promise<ISessionCounts> {
+    const [facets, users] = await Promise.all([
+      countFacets(SESSION_FACETS, (facet) =>
+        this.countSessions({ ...query, ...facet }),
+      ),
+      this.countDistinctUsers(query),
+    ]);
+    return { ...facets, users: users >= 0 ? users : null };
   }
 
   /**

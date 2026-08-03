@@ -1,5 +1,5 @@
 import type { IPage } from "nodefony";
-import { assertPageQuery } from "nodefony";
+import { assertPageQuery, compareByOrder, pickOrder } from "nodefony";
 import type {
   IAccessTokenRecord,
   ITokenListQuery,
@@ -7,22 +7,27 @@ import type {
   ITokenUsage,
   TokenRevokeReason,
 } from "../../contracts/ITokenStore";
+import { TOKEN_DEFAULT_ORDER, TOKEN_SORTABLE_FIELDS } from "./tokenSort";
+import { matchesTokenStatus } from "./tokenStatus";
 
-/** Filtre un record contre une requête de listing (portable, réutilisé par les impls). */
+/**
+ * Filtre un record contre une requête de listing — prédicat de RÉFÉRENCE du
+ * contrat, réutilisé par les implémentations qui évaluent en mémoire.
+ *
+ * @param now - instant de référence pour l'état du jeton (`status`). Requis :
+ *   « expiré » n'a pas de sens sans une horloge, et la lire ici ferait dépendre
+ *   le résultat du moment du test plutôt que de la donnée.
+ */
 export function matchesTokenQuery(
   record: IAccessTokenRecord,
   query: ITokenListQuery,
+  now: number,
 ): boolean {
   if (query.subjectId !== undefined && record.subjectId !== query.subjectId) {
     return false;
   }
   if (query.kind !== undefined && record.kind !== query.kind) return false;
-  if (
-    query.revoked !== undefined &&
-    (record.revokedAt !== null) !== query.revoked
-  ) {
-    return false;
-  }
+  if (!matchesTokenStatus(record, query.status, now)) return false;
   return true;
 }
 
@@ -53,6 +58,13 @@ export interface TokenStoreSnapshot {
  * Horloge injectable (`now`) pour des tests déterministes (pattern `LoginThrottler`).
  */
 export class MemoryTokenStore implements ITokenStore {
+  /**
+   * {@inheritDoc ITokenStore.sortableFields}
+   *
+   * Le store mémoire porte l'enregistrement complet : il sait donc trier tout le
+   * vocabulaire public, sans réduction de capacité.
+   */
+  readonly sortableFields = TOKEN_SORTABLE_FIELDS;
   /** id → enregistrement (source de vérité). */
   readonly #byId = new Map<string, IAccessTokenRecord>();
   /** hash de secret → id (recherche au login). */
@@ -124,13 +136,27 @@ export class MemoryTokenStore implements ITokenStore {
     assertPageQuery(query, "offset");
     const limit = Math.max(1, Math.floor(query.limit));
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
+    const now = this.#now();
     const filtered = [...this.#byId.values()].filter((r) =>
-      matchesTokenQuery(r, query),
+      matchesTokenQuery(r, query, now),
     );
-    // Tri createdAt DESC, id DESC (déterministe pour l'offset — parité avec le SQL).
+    // LE tri en mémoire du framework, jamais un comparateur réécrit ici : un tri
+    // local diverge du SQL sans que rien ne le signale, et un test vert en
+    // mémoire ne dirait alors plus rien de la production. Défaut contractuel =
+    // createdAt DESC puis id DESC (offset déterministe).
+    // `pickOrder` borne à ce que ce store DÉCLARE : sans lui, un appelant
+    // interne trierait ici sur un champ que les backends SQL refusent, et le
+    // contrat partagé décrirait deux comportements au lieu d'un.
+    const order = pickOrder(
+      query.order,
+      this.sortableFields,
+      TOKEN_DEFAULT_ORDER,
+    );
     filtered.sort(
-      (a, b) =>
-        b.createdAt - a.createdAt || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0),
+      compareByOrder(
+        order,
+        (r, field) => r[field as keyof IAccessTokenRecord] as unknown,
+      ),
     );
     const items = filtered.slice(offset, offset + limit);
     const total = query.withTotal === false ? undefined : filtered.length;
@@ -144,9 +170,10 @@ export class MemoryTokenStore implements ITokenStore {
   }
 
   countTokens(query: ITokenListQuery): Promise<number> {
+    const now = this.#now();
     let n = 0;
     for (const r of this.#byId.values()) {
-      if (matchesTokenQuery(r, query)) n += 1;
+      if (matchesTokenQuery(r, query, now)) n += 1;
     }
     return Promise.resolve(n);
   }

@@ -79,3 +79,7 @@ realtime.txt
 *.discussion.txt
 vite.config.generated.mjs
 /release/
+
+# Graphe symbolique publie par le paquet nodefony — GENERE (npm run generate-symbols),
+# comme dist/ : il part dans le tarball, il ne se versionne pas (le .ai/ RACINE, lui, est commite).
+src/nodefony/.ai/

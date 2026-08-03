@@ -1,4 +1,9 @@
-import { SessionsService } from "@nodefony/http";
+import {
+  SessionsService,
+  SESSION_SORTABLE_FIELDS,
+  SESSION_DEFAULT_ORDER,
+  SESSION_COLUMN_ALIASES,
+} from "@nodefony/http";
 import type {
   ISessionStorage,
   ISerializedSession,
@@ -7,7 +12,7 @@ import type {
   ISessionListQuery,
 } from "@nodefony/http";
 import type { IPage } from "nodefony";
-import { assertPageQuery } from "nodefony";
+import { assertPageQuery, pickOrder, renameOrderFields } from "nodefony";
 import { ormRegistry, paginate } from "@nodefony/orm-core";
 import type { IRepository, Criteria } from "@nodefony/orm-core";
 import { SESSION_CONNECTOR, type SessionRow } from "../entity/sessionEntity";
@@ -26,6 +31,12 @@ class SessionStorage implements ISessionStorage {
   manager: SessionsService;
   idleTimeoutS: number;
   absoluteTimeoutS: number;
+
+  /**
+   * Même vocabulaire public que les autres backends — le tri part dans le
+   * `ORDER BY`, donc il ne coûte rien de plus qu'un index bien posé.
+   */
+  readonly sortableFields = SESSION_SORTABLE_FIELDS;
 
   constructor(manager: SessionsService) {
     this.manager = manager;
@@ -246,26 +257,39 @@ class SessionStorage implements ISessionStorage {
   /**
    * Traduit les filtres du contrat en `Criteria` orm-core — **portables** (égalité
    * + `IS [NOT] NULL`), donc indexables par le SQL et jamais ré-appliqués en
-   * mémoire. Source unique du périmètre : {@link listPage} et
-   * {@link countSessions} le partagent, ils ne peuvent pas diverger. `user`
-   * explicite l'emporte sur `authenticated` (un critère AND-only ne porte qu'une
-   * condition par champ ; les combiner donnerait un ensemble vide ou redondant).
+   * mémoire. Source unique du périmètre : {@link listPage}, {@link countSessions}
+   * et {@link countDistinctUsers} le partagent, ils ne peuvent pas diverger.
+   *
+   * Les deux filtres portent la **même colonne** (`authenticated` signifie
+   * « `user` non nul »), donc un critère AND-only ne peut en porter qu'une
+   * condition. Quand ils se contredisent — un identifiant nommé qu'on demande
+   * anonyme, ou l'inverse — la réponse honnête est **l'ensemble vide**, et c'est
+   * ce que dit `null`. En jeter un silencieusement rendait un compteur faux :
+   * `?user=alice` + `authenticated:false` répondait « 1 session anonyme »
+   * en désignant la session authentifiée d'alice.
+   *
+   * @returns `undefined` (aucun filtre), le critère, ou **`null`** si les
+   *   filtres sont contradictoires — l'appelant court-circuite alors sa requête.
    */
   static #criteria(
-    query?: ISessionListQuery,
-  ): Criteria<SessionRow> | undefined {
+    query?: Partial<ISessionListQuery>,
+  ): Criteria<SessionRow> | undefined | null {
     if (!query) return undefined;
-    const criteria: Record<string, unknown> = {};
-    if (query.user !== undefined) {
+    const { user, authenticated } = query;
+    if (user !== undefined) {
       // `write` normalise l'anonyme en NULL : filtrer sur "" ne trouverait rien.
-      criteria.user = query.user === "" ? { $null: true } : query.user;
+      const anonymous = user === "";
+      if (authenticated !== undefined && authenticated === anonymous) {
+        return null;
+      }
+      return {
+        user: anonymous ? { $null: true } : user,
+      } as Criteria<SessionRow>;
     }
-    if (query.authenticated !== undefined && query.user === undefined) {
-      criteria.user = { $null: !query.authenticated };
+    if (authenticated !== undefined) {
+      return { user: { $null: !authenticated } } as Criteria<SessionRow>;
     }
-    return Object.keys(criteria).length > 0
-      ? (criteria as Criteria<SessionRow>)
-      : undefined;
+    return undefined;
   }
 
   /**
@@ -286,15 +310,30 @@ class SessionStorage implements ISessionStorage {
         hasNext: false,
       };
     }
+    const criteria = SessionStorage.#criteria(query);
+    if (criteria === null) {
+      // Filtres contradictoires : rien ne peut correspondre, inutile d'aller
+      // en base — mais la forme de la page reste celle du contrat.
+      return {
+        items: [],
+        total: query.withTotal === false ? undefined : 0,
+        limit: query.limit,
+        offset: query.offset ?? 0,
+        hasNext: false,
+      };
+    }
     const page = await paginate(repo, {
-      criteria: SessionStorage.#criteria(query),
+      criteria,
       limit: query.limit,
       offset: query.offset,
       withTotal: query.withTotal,
-      order: query.order ?? [
-        ["updatedAt", "DESC"],
-        ["session_id", "ASC"],
-      ],
+      // Borné à ce que ce store DÉCLARE, puis exprimé dans le schéma : le
+      // vocabulaire de tri est PUBLIC (`id`), la colonne s'appelle `session_id`
+      // → la traduction est chez le store, jamais dans l'URL.
+      order: renameOrderFields(
+        pickOrder(query.order, this.sortableFields, SESSION_DEFAULT_ORDER),
+        SESSION_COLUMN_ALIASES,
+      ),
     });
     return {
       ...page,
@@ -303,12 +342,30 @@ class SessionStorage implements ISessionStorage {
   }
 
   /** `COUNT(*)` natif filtré — aucune ligne matérialisée. ORM déconnecté → 0. */
-  async countSessions(query?: ISessionListQuery): Promise<number> {
+  async countSessions(query?: Partial<ISessionListQuery>): Promise<number> {
     const repo = this.#repo();
     if (!repo) {
       return 0;
     }
-    return repo.count(SessionStorage.#criteria(query));
+    const criteria = SessionStorage.#criteria(query);
+    return criteria === null ? 0 : repo.count(criteria);
+  }
+
+  /**
+   * `COUNT(DISTINCT user)` natif filtré. `write` normalise l'anonyme en `NULL`,
+   * et `COUNT(DISTINCT …)` ignore les `NULL` : les sessions anonymes ne forment
+   * donc pas un « utilisateur » de plus, sans filtre supplémentaire.
+   * ORM déconnecté → 0 (même dégradation que {@link countSessions}).
+   */
+  async countDistinctUsers(
+    query?: Partial<ISessionListQuery>,
+  ): Promise<number> {
+    const repo = this.#repo();
+    if (!repo) {
+      return 0;
+    }
+    const criteria = SessionStorage.#criteria(query);
+    return criteria === null ? 0 : repo.countDistinct("user", criteria);
   }
 }
 

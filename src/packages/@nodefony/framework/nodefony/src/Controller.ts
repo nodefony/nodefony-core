@@ -28,6 +28,7 @@ import {
   WebsocketResponse,
   //HttpKernel,
   HttpContext,
+  HttpError,
 } from "@nodefony/http";
 
 //import { runInThisContext } from "node:vm";
@@ -457,27 +458,66 @@ class Controller extends Service implements IController {
    * Variante **async** de `getFile()` — résout les stats via `FileClass.from`
    * (pas de `lstatSync` bloquant). À préférer dans le pipeline (render/stream).
    *
+   * Un chemin qui ne désigne aucun fichier rend **404**, pas 500 : la RFC 9110
+   * §15.5.5 définit le 404 comme l'absence de « représentation courante pour la
+   * ressource cible », alors que le 500 (§15.6.1) suppose une condition
+   * **inattendue**. Or le chemin vient presque toujours d'un paramètre d'URL :
+   * un nom qui ne correspond à rien est une entrée client banale, pas une panne.
+   * Un dossier reçoit le même traitement — il n'est pas servable comme fichier.
+   *
+   * Les autres échecs d'accès (permissions, E/S) remontent INCHANGÉS et valent
+   * 500 : là, la condition est bien inattendue. Le 403 ne conviendrait pas, la
+   * RFC le réservant à un refus « compris et délibéré » (§15.5.4).
+   *
+   * Le message rendu au client ne cite JAMAIS le chemin — la même section
+   * autorise le serveur à ne pas divulguer l'existence d'une ressource, et un
+   * chemin serveur dans un corps d'erreur est une fuite d'information. Le chemin
+   * va dans le journal, à la disposition de qui exploite l'application.
+   *
    * @param file - `FileClass` déjà hydraté OU chemin string.
    * @returns le `FileClass` (type `"File"` validé).
-   * @throws Si le type n'est pas `"File"` ou si le chemin est invalide.
+   * @throws {HttpError} 404 si le chemin ne désigne aucun fichier.
+   * @throws Si le type de l'argument est invalide (bug d'appel, pas d'entrée client).
    */
   async getFileAsync(file: FileClass | string): Promise<FileClass> {
     let File: FileClass;
     if (file instanceof FileClass) {
       File = file;
     } else if (typeof file === "string") {
-      File = await FileClass.from(file);
+      try {
+        File = await FileClass.from(file);
+      } catch (e) {
+        const code = (e as NodeJS.ErrnoException).code;
+        if (code !== "ENOENT" && code !== "ENOTDIR") {
+          throw e;
+        }
+        this.log(`fichier introuvable : ${file}`, "DEBUG");
+        throw new HttpError("Not Found", 404, this.context);
+      }
     } else {
       throw new Error(
         `File argument bad type for getFileAsync :${typeof file}`,
       );
     }
     if (File.type !== "File") {
-      throw new Error(`getFileAsync bad type for  :${file}`);
+      this.log(`ce chemin n'est pas un fichier : ${file}`, "DEBUG");
+      throw new HttpError("Not Found", 404, this.context);
     }
     return File;
   }
 
+  /**
+   * Sert un fichier en TÉLÉCHARGEMENT (`Content-Disposition: attachment`).
+   *
+   * Comme {@link Controller.streamFile} dont il est l'habillage, il envoie le
+   * fichier ENTIER et n'honore pas `Range` — c'est le comportement voulu pour un
+   * téléchargement. Pour un média seekable, voir {@link Controller.renderMediaStream}.
+   *
+   * @param file - chemin ou `FileClass` du fichier à servir.
+   * @param options - options de `createReadStream`.
+   * @param headers - en-têtes ajoutés (écrasent ceux posés par défaut).
+   * @returns le flux de lecture, une fois la réponse écoulée.
+   */
   async renderFileDownload(
     file: FileClass | string,
     options?: ReadStreamOptions,
@@ -501,6 +541,27 @@ class Controller extends Service implements IController {
     }
   }
 
+  /**
+   * Envoie un fichier en FLUX, du disque vers la réponse, sans jamais le charger
+   * en mémoire.
+   *
+   * ⚠️ **N'honore PAS l'en-tête `Range`** : le fichier part toujours en entier,
+   * avec un statut 200. Pour un média dans lequel un lecteur doit pouvoir sauter
+   * (vidéo, audio, gros PDF), utiliser {@link Controller.renderMediaStream} —
+   * seul à implémenter les requêtes par plage (RFC 9110 §14 : 206, 416,
+   * `Content-Range`). Annoncer `Accept-Ranges: bytes` depuis ici est un piège :
+   * le client croit pouvoir se déplacer et reçoit tout le fichier.
+   *
+   * Ce que cette méthode garantit et qui justifie son existence : le NETTOYAGE.
+   * Le flux est ouvert en `autoClose: false` ; un client qui raccroche en plein
+   * téléchargement laisserait sinon un descripteur ouvert et une promesse pendue.
+   *
+   * @param file - chemin ou `FileClass` du fichier à servir.
+   * @param headers - en-têtes ajoutés à la réponse (le type MIME est déduit si absent).
+   * @param options - options de `createReadStream` (`start`/`end` pour un extrait).
+   * @returns le flux de lecture, une fois la réponse écoulée.
+   * @throws Si la réponse n'est pas disponible, ou si le fichier est illisible.
+   */
   async streamFile(
     file: FileClass | string,
     headers?: OutgoingHttpHeaders,

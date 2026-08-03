@@ -124,6 +124,28 @@ export function runAuditPaginationContract(
       assert.match((thrown as Error).message, /pagination mode/i);
     });
 
+    it("refuse un `order` (400) — l'ordre appartient au curseur", async () => {
+      // Le tri n'est pas « pas encore implémenté » : le jeton encode une
+      // position dans l'ordre total du store. L'avaler rendrait les pages
+      // suivantes fausses SANS erreur. Un test témoin suit : la même requête
+      // sans `order` doit passer, sinon ce refus ne prouverait rien.
+      let thrown: unknown;
+      try {
+        await store().listPage({ limit: 4, order: [["ts", "ASC"]] });
+      } catch (e) {
+        thrown = e;
+      }
+      assert.ok(thrown, "un `order` sur un store curseur doit être refusé");
+      assert.equal((thrown as { code?: unknown }).code, 400);
+      assert.match((thrown as Error).message, /sorting is not supported/i);
+      // TÉMOIN : sans `order`, la même lecture aboutit.
+      const page = await store().listPage({ limit: 4 });
+      assert.equal(page.items.length, 4);
+      // Un `order` VIDE n'exprime aucune intention → toléré, comme `offset: 0`.
+      const neutral = await store().listPage({ limit: 4, order: [] });
+      assert.equal(neutral.items.length, 4);
+    });
+
     it("borne : une page ne rend jamais plus que `limit`", async () => {
       const page = await store().listPage({ limit: 5 });
       assert.equal(page.items.length, 5);

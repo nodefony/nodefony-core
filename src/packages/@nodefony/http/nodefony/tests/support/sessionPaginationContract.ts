@@ -221,6 +221,46 @@ export function runSessionPaginationContract(
       assert.equal(records.length, 0);
     });
 
+    // Les deux filtres portent la MÊME donnée (`authenticated` = « user non
+    // vide »). Un store qui n'en applique qu'un rend la page de l'autre — et le
+    // client lit ce résultat comme celui de sa demande complète. Vécu : les
+    // stores SQL et Mongo jetaient `authenticated` dès que `user` était fourni,
+    // là où le store mémoire appliquait les deux. Même question, deux réponses
+    // selon le backend branché.
+    it("filtres CONTRADICTOIRES : ensemble vide, jamais la page de l'un des deux", async () => {
+      const named = await collectAll(
+        storage(),
+        { user: "alice", authenticated: false },
+        5,
+      );
+      assert.equal(
+        named.records.length,
+        0,
+        "un identifiant nommé n'est jamais une session anonyme",
+      );
+
+      const anon = await collectAll(
+        storage(),
+        { user: "", authenticated: true },
+        5,
+      );
+      assert.equal(
+        anon.records.length,
+        0,
+        "une session anonyme ne porte pas d'utilisateur authentifié",
+      );
+    });
+
+    it("filtres COMBINÉS et cohérents : les deux s'appliquent", async () => {
+      const both = await collectAll(
+        storage(),
+        { user: "alice", authenticated: true },
+        5,
+      );
+      assert.equal(both.records.length, 5);
+      assert.ok(both.records.every((r) => r.data.user === "alice"));
+    });
+
     it("rejette le mode de pagination que le store ne supporte pas (400)", async () => {
       const adverse =
         harness.mode === "offset"
@@ -255,6 +295,144 @@ export function runSessionPaginationContract(
         const last = await storage().listPage({ limit: 5, offset: 10 });
         assert.equal(last.items.length, 2);
         assert.equal(last.hasNext, false);
+      });
+
+      // ── TRI : ce qu'un store DÉCLARE savoir trier, il le trie VRAIMENT ─────
+      // C'est le cœur de la parité : le vocabulaire (`updatedAt`, `id`) est
+      // public et identique partout, donc `?order=` doit produire le même ordre
+      // sur mémoire, SQLite, PostgreSQL et Mongo. Un store mémoire qui trierait
+      // en dur passerait les tests ci-dessus tout en mentant sur la production.
+      it("l'ordre par défaut est updatedAt DESC (contrat, sans `order`)", async () => {
+        const page = await storage().listPage({ limit: 12 });
+        assert.deepEqual(
+          page.items.map((r) => r.id),
+          [...orderedIds].reverse(),
+        );
+      });
+
+      it("`order` inverse réellement le sens (updatedAt ASC)", async () => {
+        const page = await storage().listPage({
+          limit: 12,
+          order: [["updatedAt", "ASC"]],
+        });
+        assert.deepEqual(
+          page.items.map((r) => r.id),
+          orderedIds,
+          "ASC doit rendre l'ordre d'écriture du seed",
+        );
+      });
+
+      it("`order` sur `id` trie par identifiant, dans les deux sens", async () => {
+        const asc = await storage().listPage({
+          limit: 12,
+          order: [["id", "ASC"]],
+        });
+        const ids = asc.items.map((r) => r.id);
+        assert.deepEqual(ids, [...ids].sort());
+
+        const desc = await storage().listPage({
+          limit: 12,
+          order: [["id", "DESC"]],
+        });
+        assert.deepEqual(
+          desc.items.map((r) => r.id),
+          [...ids].reverse(),
+        );
+      });
+
+      it("le tri s'applique AVANT la pagination (pas page par page)", async () => {
+        // Le piège classique : trier la tranche déjà découpée. La 2ᵉ page d'un
+        // tri ASC doit continuer la 1ʳᵉ, pas recommencer.
+        const p1 = await storage().listPage({
+          limit: 4,
+          offset: 0,
+          order: [["id", "ASC"]],
+        });
+        const p2 = await storage().listPage({
+          limit: 4,
+          offset: 4,
+          order: [["id", "ASC"]],
+        });
+        const all = [...p1.items, ...p2.items].map((r) => r.id);
+        assert.deepEqual(
+          all,
+          [...all].sort(),
+          "les pages se suivent dans l'ordre",
+        );
+      });
+
+      it("`order` sur `createdAt` et `user` — tout champ DÉCLARÉ est honoré", async () => {
+        // Le vocabulaire ne se croit pas sur parole : chaque champ qu'un store
+        // annonce doit produire un ordre RÉEL, sur tous les backends. Un champ
+        // déclaré mais ignoré rendrait une page dans l'ordre par défaut, que la
+        // console présenterait comme triée — le mensonge exact que la
+        // publication des capacités vient supprimer.
+        const fields = storage().sortableFields ?? [];
+        if (fields.includes("createdAt")) {
+          const asc = await storage().listPage({
+            limit: 12,
+            order: [["createdAt", "ASC"]],
+          });
+          const stamps = asc.items.map((r) => Number(r.data.createdAt));
+          // Une donnée absente rendrait ce test complaisant : douze `undefined`
+          // forment une suite « triée » quel que soit le tri appliqué. Un champ
+          // déclaré triable DOIT donc être présent et discriminant, sinon c'est
+          // la déclaration qui est fausse.
+          assert.ok(
+            stamps.every((s) => Number.isFinite(s)),
+            "`createdAt` est déclaré triable : il doit être porté par chaque record",
+          );
+          assert.ok(
+            new Set(stamps).size > 1,
+            "le seed doit produire des `createdAt` distincts, sinon l'ordre ne prouve rien",
+          );
+          assert.deepEqual(
+            stamps,
+            [...stamps].sort((a, b) => a - b),
+            "createdAt ASC doit rendre les sessions de la plus ancienne à la plus récente",
+          );
+          const desc = await storage().listPage({
+            limit: 12,
+            order: [["createdAt", "DESC"]],
+          });
+          assert.deepEqual(
+            desc.items.map((r) => Number(r.data.createdAt)),
+            [...stamps].reverse(),
+            "DESC doit être exactement l'inverse d'ASC — sinon l'`order` est ignoré",
+          );
+        }
+        if (fields.includes("user")) {
+          const asc = await storage().listPage({
+            limit: 12,
+            order: [["user", "ASC"]],
+          });
+          // Les sessions anonymes portent `user: null` : on ne compare que les
+          // porteurs renseignés, l'ordre des NULL relevant de chaque dialecte.
+          const users = asc.items
+            .map((r) => r.data.user)
+            .filter((u): u is string => typeof u === "string" && u !== "");
+          assert.ok(
+            new Set(users).size > 1,
+            "le seed doit porter plusieurs utilisateurs, sinon le tri ne prouve rien",
+          );
+          assert.deepEqual(
+            users,
+            [...users].sort(),
+            "user ASC doit grouper les sessions par porteur, dans l'ordre",
+          );
+        }
+      });
+
+      it("un store qui DÉCLARE trier expose le vocabulaire public", async () => {
+        const fields = storage().sortableFields;
+        assert.ok(
+          fields && fields.length > 0,
+          "un backend offset doit déclarer ses champs triables",
+        );
+        assert.ok(
+          fields!.includes("updatedAt"),
+          "`updatedAt` est l'axe contractuel d'une console de sessions",
+        );
       });
 
       it("offset au-delà de la fin → page vide, hasNext false", async () => {
@@ -297,9 +475,55 @@ export function runSessionPaginationContract(
           await storage().countSessions({ limit: 1, authenticated: false }),
           3,
         );
+        // Le compteur suit le même périmètre que la liste — sinon la carte de
+        // tête et le tableau qu'elle surplombe racontent deux histoires.
+        assert.equal(
+          await storage().countSessions({
+            user: "alice",
+            authenticated: false,
+          }),
+          0,
+          "filtres contradictoires : zéro, pas les 5 sessions d'alice",
+        );
+        assert.equal(
+          await storage().countSessions({ user: "alice", authenticated: true }),
+          5,
+        );
+      });
+
+      it("countDistinctUsers = les PERSONNES, pas les sessions", async () => {
+        const store = storage();
+        if (typeof store.countDistinctUsers !== "function") return; // capacité optionnelle
+        // 12 sessions, 9 authentifiées, mais moins d'utilisateurs distincts :
+        // alice en porte 5 à elle seule.
+        const people = await store.countDistinctUsers();
+        const sessions = await store.countSessions({ authenticated: true });
+        assert.ok(
+          people > 0 && people < sessions,
+          `déduplication attendue (${people} personnes pour ${sessions} sessions)`,
+        );
+        assert.equal(await store.countDistinctUsers({ user: "alice" }), 1);
+        assert.equal(
+          await store.countDistinctUsers({ authenticated: false }),
+          0,
+          "les sessions anonymes ne forment aucun utilisateur",
+        );
       });
     } else {
       // ── Mode CURSEUR : capacité réduite ANNONCÉE ────────────────────────────
+      it("un store à curseur NE DÉCLARE PAS de tri (il n'en a pas)", async () => {
+        // `SCAN` parcourt le keyspace dans un ordre non spécifié : il n'existe
+        // aucun tri global à offrir. Le déclarer quand même serait la seule
+        // faute possible ici — le data plane exposerait alors un tri qui ne
+        // trierait rien, et personne ne le verrait. L'absence de déclaration
+        // fait refuser tout `?order=` en 400, ce qui est la vérité.
+        const fields = storage().sortableFields;
+        assert.ok(
+          !fields || fields.length === 0,
+          "un backend curseur ne doit annoncer aucun champ triable",
+        );
+      });
+
       it("curseur : nextCursor est posé tant qu'il reste à scanner, null à la fin", async () => {
         let cursor: string | undefined;
         let sawCursor = false;

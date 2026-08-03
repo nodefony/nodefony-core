@@ -15,6 +15,9 @@
     "test:e2e": "npm run build && vitest run -c vitest.e2e.config.ts",
     "typecheck": "tsgo --noEmit",
     "check": "nodefony check",
+    "inspect": "nodefony inspect",
+    "ai:sync": "nodefony ai:sync",
+    "clean": "node --eval \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "lint": "oxlint",
     "format": "prettier --write ."<% if (it.complete) { %>,
     "infra:up": "docker compose up -d",
@@ -28,6 +31,7 @@
     "@nodefony/drizzle": "^<%= it.nodefonyVersion %>",
     "drizzle-orm": "<%= it.pkg["drizzle-orm"] %>",
     "@nodefony/user": "^<%= it.nodefonyVersion %>",
+    "@node-rs/argon2": "<%= it.pkg["@node-rs/argon2"] %>",
     "@nodefony/realtime": "^<%= it.nodefonyVersion %>",
     "@nodefony/security": "^<%= it.nodefonyVersion %>",
     "@nodefony/frontend": "^<%= it.nodefonyVersion %>",
@@ -38,6 +42,7 @@
 <% } } %>    "zod": "<%= it.pkg["zod"] %>"
   },
   "devDependencies": {
+    "@nodefony/devkit": "^<%= it.nodefonyVersion %>",
     "@types/node": "<%= it.pkg["@types/node"] %>",
     "@typescript/native-preview": "<%= it.pkg["@typescript/native-preview"] %>",
     "oxlint": "<%= it.pkg["oxlint"] %>",

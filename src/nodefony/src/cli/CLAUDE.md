@@ -163,20 +163,25 @@ Utilisé dans Kernel.memoryUsage() pour afficher RSS/heap.
 
 Filet d'intégration : `CliIntegration.test.ts` (`RUN_CLI_BOOT=1` pour les boots réels).
 
-| Command      | Alias     | Fichier                | Note                                                      |
-| ------------ | --------- | ---------------------- | --------------------------------------------------------- |
-| `Start`      | —         | `StartCommand.ts`      | menu interactif (TTY)                                     |
-| `Dev`        | `dev`     | `DevCommand.ts`        | + `--detach/--wait/--health/--log` (fast-path standalone) |
-| `Build`      | `compile` | `BuildCommand.ts`      | point d'arrêt `onRegister`                                |
-| `Prod`       | `prod`    | `ProdCommand.ts`       | foreground cloud-native, `--workers`, `--detach`          |
-| `Cluster`    | —         | `ClusterCommand.ts`    | `--workers`, `--detach`                                   |
-| `Install`    | —         | `InstallCommand.ts`    |                                                           |
-| `Outdated`   | —         | `OutdatedCommand.ts`   | `-j/--json`, `-a/--all` (cf § outdated)                   |
-| `Status`     | —         | `StatusCommand.ts`     | **standalone** (0 boot)                                   |
-| `Stop`       | —         | `StopCommand.ts`       | **standalone** (0 boot)                                   |
-| `Completion` | —         | `CompletionCommand.ts` | **standalone** — script bash/zsh/fish (cf § Complétion)   |
-| `Create`     | —         | `CreateCommand.ts`     | **standalone** — scaffold projet (cf § Scaffold)          |
-| `Env`        | —         | `EnvCommand.ts`        | **standalone** — cascade `.env` + provenance (cf § env)   |
+| Command      | Alias         | Fichier                | Note                                                          |
+| ------------ | ------------- | ---------------------- | ------------------------------------------------------------- |
+| `Start`      | —             | `StartCommand.ts`      | menu interactif (TTY)                                         |
+| `Dev`        | `dev`         | `DevCommand.ts`        | + `--detach/--wait/--health/--log` (fast-path standalone)     |
+| `Build`      | `compile`     | `BuildCommand.ts`      | point d'arrêt `onRegister`                                    |
+| `Prod`       | `prod`        | `ProdCommand.ts`       | foreground cloud-native, `--workers`, `--detach`              |
+| `Cluster`    | —             | `ClusterCommand.ts`    | `--workers`, `--detach`                                       |
+| `Install`    | —             | `InstallCommand.ts`    |                                                               |
+| `Outdated`   | —             | `OutdatedCommand.ts`   | `-j/--json`, `-a/--all` (cf § outdated)                       |
+| `Status`     | —             | `StatusCommand.ts`     | **standalone** (0 boot)                                       |
+| `Stop`       | —             | `StopCommand.ts`       | **standalone** (0 boot)                                       |
+| `Completion` | —             | `CompletionCommand.ts` | **standalone** — script bash/zsh/fish (cf § Complétion)       |
+| `Create`     | —             | `CreateCommand.ts`     | **standalone** — scaffold projet (cf § Scaffold)              |
+| `Env`        | —             | `EnvCommand.ts`        | **standalone** — cascade `.env` + provenance (cf § env)       |
+| `Card`       | `devkit:card` | `CardCommand.ts`       | **standalone** — carte de visite de l'app (cf § card)         |
+| `Check`      | `doctor`      | `CheckCommand.ts`      | **standalone** — diagnostic STATIQUE (cf § check)             |
+| `Inspect`    | —             | `InspectCommand.ts`    | état RÉEL de l'app, `onPostReady` sans serveur (cf § inspect) |
+| `Symbols`    | —             | `SymbolsCommand.ts`    | **standalone** — signature + TSDoc depuis le graphe publié    |
+| `ai:sync`    | —             | `cli/aiSync.ts`        | **standalone** — pointeurs de skills (cf § ai:sync)           |
 
 Les commandes de MODULE (`http:network`, `proxy:generate`, `frontend:build`…) passent par le
 dispatch différé de `CliKernel` — happy-path couvert e2e (exit 0, 1 Kernel, 0 serveur).
@@ -261,6 +266,118 @@ inconnues** (faute de frappe → suggestion par `closestMatch`, la brique de `en
 **surcharges `NF__<MODULE>__<CHEMIN>`** distinguées des variables déclarées, et les **requises
 manquantes**. Secrets jamais rendus en clair (`pathLooksSecret` — même regex que partout).
 
+## `nodefony card` — la carte de visite (standalone 0-boot)
+
+`nodefony card [--json] [--cwd <path>]`, alias **`devkit:card`** (son nom
+d'origine, écrit dans les `AGENTS.md` déjà générés — et l'alias partage le
+fast-path, sinon il partirait en dispatch différé, donc en boot). Rend l'identité
+de l'application, ses modules, **où aller** (`AGENTS.md`, catalogue, docs des
+modules, console d'admin) et **quoi lancer**.
+
+⚠️ **C'est la première commande d'un arrivant : elle ne peut avoir AUCUNE
+condition d'accès.** Elle en avait deux, toutes deux constatées sur une app
+fraîchement générée : (1) l'app n'était pas encore CONSTRUITE, et
+`diagnoseUnbootableProject` répond « lance `npm run build` » à tout ce qui exige
+un Kernel ; (2) portée par une commande du module `@nodefony/devkit`
+(`policy: "dev"`), elle **n'existait pas** sans `NODE_ENV=development` — le CLI
+répondait `unknown command`, sans piste.
+
+Architecture en deux morceaux, comme `env` : `cli/cardReport.ts` = composition
+**PURE** (`buildCard` — reçoit l'état, ne le lit pas) + rendu (`renderCard`) ;
+`cli/card.ts` = adaptateur (lecture des fichiers, exit codes). Le module
+`@nodefony/devkit` importe les deux pour sa route HTTP : **une composition, deux
+portes**, aucune divergence possible.
+
+**Ce qu'elle ne peut pas savoir, elle le DIT** : sans boot, la liste est celle
+des modules **installés** (`node_modules/@nodefony/*` + `modules/*` + deps
+déclarées — le disque fait foi, sinon un dépôt en espaces de travail rend « 0
+module »), pas des modules **chargés**. La ligne le mentionne et renvoie à
+`npx nodefony inspect modules`. Sort en 66 (`EX_NOINPUT`) hors projet.
+
+## `nodefony check` / `doctor` — le diagnostic STATIQUE (standalone 0-boot)
+
+`nodefony check [--json] [--cwd <path>]`, alias **`doctor`**. Ne lit que des fichiers
+(`package.json` + sources) — donc il fonctionne sur une application **qui ne démarre plus**, et
+c'est sa raison d'être. Fast-path `CliKernel.ts:230` : le faire booter coûterait un démarrage
+complet pour une réponse qui n'en dépend pas, et noierait le rapport sous le journal du Kernel.
+
+⚠️ **La cible est l'APPLICATION, pas le dossier où l'on a tapé.** La commande remonte au premier
+dossier portant `nodefony.config.ts` (`findProjectRoot` — la MÊME définition de « où commence
+l'app » que le lanceur et les scaffolds), et **annonce cette racine** quand elle diffère du dossier
+de départ. Sans cette remontée, un `check` lancé dans `modules/blog/` — le cas courant, on est dans
+le module qu'on développe — ne trouvait ni le manifeste ni `var/last-boot.json`, et concluait
+« rien à signaler » : un outil de diagnostic silencieux, et rassurant à tort. Hors projet, le
+dossier de départ reste la cible (ce dépôt-ci, un dossier de paquets). `--cwd` déplace le point de
+départ de la remontée, comme pour `env`.
+
+⚠️ **L'alias DOIT partager le fast-path.** Sans l'entrée `requested === "doctor"`, commander ne le
+voit pas parmi les intégrées avant le chargement des modules → dispatch différé → boot, exactement
+ce que le raccourci évite.
+
+**Neuf règles**, en deux familles :
+
+- **Câblage** (`kernel/checks/wiring.ts`, 6) — `orphan-entity` / `orphan-controller` /
+  `orphan-service` (classe écrite que rien n'enregistre : ni la compilation ni un test ne le
+  voient) · `reserved-entity` · `missing-brick` · `route-colon-param` (un segment `/api/x/:id`
+  compile, se monte, s'affiche dans `inspect routes` — et ne correspond à AUCUNE URL, Nodefony
+  écrit `{id}`).
+- **Dépendances** (`kernel/checks/packageDeps.ts`, 3) — `undeclared-import` (paquet importé sans
+  être déclaré) · `unreachable-types` · `stale-exception` (une exception de la liste qui ne
+  correspond plus à rien — la liste se périme, donc elle se contrôle).
+
+> **Le contre-exemple à garder** : la règle `route-colon-param` a d'abord lu `path:` PARTOUT et
+> accusé les cinq routes react-router du frontend Studio, où `:id` est la syntaxe JUSTE. Un contrôle
+> qui accuse du code correct est le pire mode de défaillance — il fait « corriger » ce qui marchait.
+> D'où le bornage à `@route(`. **Une règle neuve se lance sur le dépôt entier avant qu'on y croie** :
+> une garde « surface réservée de `Service` » écrite dans le même esprit a rendu **37 signalements,
+> tous sur du code qui compile**, et a été abandonnée (redéfinir un nom hérité est légal tant que la
+> signature reste assignable).
+
+## `nodefony inspect` — l'état RÉEL de l'app (boot console, 0 serveur)
+
+`nodefony inspect <sujet> [--json]` — sujets : `routes` · `modules` · `services` · `config` ·
+`stores` · `entities` · `graph`. Appelle les **mêmes** handlers que le data plane d'administration
+(une source, deux portes). C'est le verbe qui répond à « qu'est-ce qui est VRAIMENT monté ? » quand
+le code laisse croire autre chose.
+
+⚠️ **`kernelEvent: "onPostReady"`, et pas `onReady` malgré les apparences** (`InspectCommand.ts:11`) :
+le plan d'administration est monté PAR un écouteur de `onReady` (`Framework.onKernelReady`), or
+l'action d'une commande intégrée est branchée avant que le moindre module n'existe. À `onReady` elle
+passerait AVANT celui qui peuple le registre, et ne trouverait rien à inspecter. Aucun serveur
+n'écoute pour autant : le profil console (`servers: false`) est respecté par `Kernel.initServers`.
+
+> **Deux verbes, une frontière** : `check` est STATIQUE (des fichiers, marche sur une app cassée),
+> `inspect` est RUNTIME (elle boote, sans port). Un agent n'a que ces deux-là à retenir.
+
+## `nodefony ai:sync` — les skills d'agent livrés par les paquets (standalone 0-boot)
+
+`nodefony ai:sync [--dry-run] [--json] [--cwd <path>]` — pose dans `.agents/skills/` un
+**pointeur** par skill trouvé dans les paquets installés (`node_modules/@nodefony/*/skills/`
+**et** les modules locaux `modules/*/skills/` : rien dans la mécanique n'est propre à un paquet,
+et un module tiers doit être servi par la même commande). Standalone pour la raison qui a fait
+remonter `card` au cœur : portée par un module `policy: "dev"`, elle répondrait
+`unknown command` dans un terminal sans `NODE_ENV`.
+
+Architecture en deux morceaux, comme `env` et `card` : `cli/aiSyncReport.ts` = composition **PURE**
+(`planSync` — reçoit les skills découverts et ce que le projet porte déjà, conclut `pose` /
+`remplace` / `inchange` + les orphelins ; `renderPointer`, `renderPlan`) ; `cli/aiSync.ts` =
+adaptateur (découverte disque, écriture, exit codes) et porte **`syncSkillPointers`**, le geste
+entier appelé par ses DEUX consommateurs — la commande et `create app`. Une seule implémentation :
+recopier la boucle d'écriture dans le scaffold aurait produit deux gestes divergeant au premier
+réglage, chacun vert sur ses propres tests.
+
+**Le contenu n'est jamais COPIÉ** — il vit dans le paquet et suit `npm update`. Un skill dont le
+`name` ne correspond pas à son dossier est ÉCARTÉ (les clients l'écarteraient : poser un pointeur
+vers un skill que personne n'activera est pire que rien). Idempotence au sens FORT : un pointeur
+identique n'est pas réécrit, l'horodatage ne bouge pas — une commande de synchronisation qui salit
+l'arbre est une commande qu'on hésite à lancer. Un pointeur orphelin est **nommé**, jamais
+supprimé. Sort en 66 (`EX_NOINPUT`) hors projet.
+
+⚠️ **Aucun `postinstall`**, volontairement : `--ignore-scripts` est courant, les scripts
+d'installation sont un vecteur d'attaque connu de l'écosystème npm, et écrire dans un dossier
+VERSIONNÉ à chaque installation produirait des différences surprises. `create app` pose une fois
+(après l'install, avant le premier commit) ; cette commande remet à jour quand on le demande.
+
 ## Scaffold — `cli/scaffold/` + `cli/create.ts` (3 fronts, UN moteur)
 
 `nodefony create app [name] [--dir <path>] [--force] [--yes] [--preset <complete|minimal>]
@@ -268,7 +385,11 @@ manquantes**. Secrets jamais rendus en clair (`pathLooksSecret` — même regex 
 (fast-path `CliKernel.start`, cas nominal HORS projet : `npx nodefony create app`).
 L'app naît **agent-ready** : `AGENTS.md` racine (devise + générateurs + table
 tâche→doc dérivée des deps réelles + gates + zone préservée `<!-- app-notes:start/end -->`)
-avec `CLAUDE.md` pointeur (écrit seulement s'il n'existe pas). Régénération BORNÉE :
+avec `CLAUDE.md` pointeur (écrit seulement s'il n'existe pas), **et les pointeurs de
+skills dans `.agents/skills/`** (`syncSkillPointers`, appelé APRÈS l'install — les skills
+vivent dans `node_modules` — et AVANT `git init`, parce que ces fichiers sont faits pour
+être versionnés). Sans ce geste, le lot ne servirait qu'à qui connaît déjà `ai:sync` :
+personne n'apprend un verbe absent. Régénération BORNÉE :
 `create module` réécrit l'`AGENTS.md` depuis l'état réel (inventaire `modules/*`)
 en réinjectant la seule zone `app-notes` (`renderProjectAgents`/`preserveAppNotes`,
 `engine.ts`). Sans frontend, `GET /` répond (HomeController JSON accueil — avec
@@ -292,7 +413,13 @@ registrar `register<Name>Entry` (fichier dédié documenté) ; wiring AUTO
 `@controllers` + hook `onKernelBoot` (inséré si absent — un hook EXISTANT n'est
 jamais édité : note actionnable) ; deps du framework ajoutées au package.json si
 absentes. Gardes : cible avec `frontend/index.html` → throw ; `@nodefony/frontend`
-manquant → throw actionnable.
+absent de l'**APPLICATION** → throw actionnable. Absent du seul **module** visé, il
+y est POSÉ en peer : un module local est un workspace, rien ne s'y installe pour
+son compte propre, et exiger une édition manuelle du `package.json` revenait à
+réclamer à la main ce que ce scaffold existe pour écrire (mesuré sur un agent
+tiers). Le framework front (`react`/`vue`/`@angular/*`) part en
+**`devDependencies`** — aucun fichier hors `frontend/` ne l'importe, Vite l'inline
+dans le bundle, et `npm prune --omit=dev` doit pouvoir le retirer de l'image.
 
 **Versions npm des templates** : les paquets `nodefony`/`@nodefony/*` sont émis en
 `^<%= it.nodefonyVersion %>` (version du paquet qui scaffolde — une release ne
@@ -324,7 +451,12 @@ Puis `npm install` (le symlink de workspace **est** ce qui rend le module charge
 [--module <nom>]` — scaffold **IN-PROJECT** (lancé DANS une app : `findProjectRoot`
 remonte au `nodefony.config.ts`, refus propre hors projet). Cible = app racine ou un
 module local (`listTargets` : app + `modules/*/` — consommé par le CLI ET le futur
-formulaire Studio). Saveurs : `hello` = GET + WS echo MÊME classe (défaut — le
+formulaire Studio). **`--module` accepte le nom npm (`@app/blog`) ET le nom court
+du dossier (`blog`)** — celui qu'on a tapé pour créer le module ; ambigu (deux
+dossiers de workspaces, même nom court), il est refusé en NOMMANT les candidats.
+Une seule implémentation, `resolveScaffoldTarget`, appelée par les cinq scaffolds
+in-project : la résolution y était recopiée à l'identique, donc corrigeable cinq
+fois. Saveurs : `hello` = GET + WS echo MÊME classe (défaut — le
 différenciateur) ; `realtime` = sous-classe `RealtimeController` (@nodefony/realtime :
 canal `<nom>:ticker` décoré `@RealtimeChannel` + action `<nom>:ping`, TSDoc = snippet
 client `RealtimeClient`) — garde actionnable si la dep manque (preset minimal) ;
@@ -334,6 +466,27 @@ l'`index.ts` cible (`wireDecoratorList` : import + insertion `@controllers([...]
 corrompu). Nom normalisé (`blog-post`→`BlogPostController`, suffixe strippé) ; route
 défaut `/api/<kebab>` (couverte par la zone firewall du manifeste généré). Noms de
 fichiers de templates : token `__NAME__` (`templates/controller/<kind>/.../__NAME__.ts.tpl`).
+
+`nodefony create service <Nom> [--description "…"] [--module <nom>]` — scaffold
+**IN-PROJECT** d'un service injectable dans `<cible>/nodefony/service/<Nom>Service.ts`,
+accompagné de son interface (`nodefony/interfaces/I<Nom>Service.ts`). Classe
+`@injectable()` `extends Service`, avec les DEUX noms explicités en TSDoc : le décorateur
+nomme la CLASSE (`@inject("…")`), le `super("nom", …)` nomme l'INSTANCE
+(`container.get("…")`). Gabarit `templates/service/` **autonome** — aucune dépendance à un
+`config/config.ts`, contrairement au service rendu par `create module`
+(`templates/module/service/`), qui lui vit toujours à côté de son schéma Zod : une cible
+in-project n'en a pas forcément. Wiring : `wireDecoratorList(…, "services")` — **seul
+décorateur que le moteur CRÉE quand il manque** (`app/base` ne rend jamais
+`@services([...])`, donc refuser aurait rendu la commande inutilisable à la racine d'une
+app) ; l'import `{ services }` est posé dans la même passe, et l'ancre tolère
+`export class X extends Module`.
+
+> **Pourquoi cette commande existe** : mesuré au banc de découvrabilité — en décor
+> ISOLÉ (sans accès aux sources du framework), un agent chargé d'écrire un service
+> produit une classe à méthodes `static`. Elle compile, elle marche, et elle reste
+> invisible au conteneur. La cause n'était pas un défaut de documentation mais une
+> ABSENCE : `@injectable` n'apparaissait nulle part dans une app fraîche, et
+> `nodefony/service/` n'était atteignable que comme sous-produit de `create entity`.
 
 `nodefony create command <action> [--phase <onReady|onRegister|onPostReady>]
 [--description "…"] [--service] [--module <nom>]` — scaffold **IN-PROJECT**
@@ -401,7 +554,16 @@ homonyme dépossède le module et l'app ne démarre plus sur un message de « co
 table tenue honnête par le gate `RUN_CLI_BOOT=1` de `CliIntegration.test.ts` qui la confronte à
 `nodefony inspect entities --json`) · champ invalide. Ajoute `drizzle-orm` au `package.json` de
 l'app si absent (le code produit l'importe EN DIRECT — sans la dep, seul le hissage npm sauvait
-la résolution, absent en `--link`) et l'ANNONCE (`npm install` requis). **Dit la vérité** : la
+la résolution, absent en `--link`) et l'ANNONCE (`npm install` requis). **La SUPPRESSION naît gardée** : `@IsGranted("ROLE_ADMIN")` sur `destroy` dès que
+`@nodefony/security` est dans les deps de la cible — le gabarit `rest` de `create controller`
+protège déjà le même DELETE, et deux générateurs qui produisent la même route destructrice ne
+peuvent pas avoir deux doctrines. Sans le module, la garde n'est pas émise (le décorateur
+n'existerait pas) et le TSDoc DIT que la route n'est protégée par rien, avec le geste pour la
+protéger. Le décor e2e généré fournit l'identité qui va avec (`connexionAdmin`, `NF_ADMIN_PASSWORD`
+posé pour la suite seule : la production ne sème aucun compte sans mot de passe explicite), et le
+test e2e d'entité éprouve les DEUX faces — l'admin supprime, l'anonyme est refusé et la donnée
+survit. Mesuré avant correction, sur une application réelle : le CRUD généré répondait **204 à un
+DELETE anonyme** (banc de découvrabilité, tâche 20). **Dit la vérité** : la
 table naît au prochain boot dev (`CREATE TABLE IF NOT EXISTS`), la **modifier n'altère RIEN**
 (pas d'`ALTER`), aucune migration n'est produite. Design + alternatives rejetées :
 `create-entity-design-2026-07` (mémoire IA `core-dev/audits/`).
@@ -426,9 +588,11 @@ l'admin web) :
 `preset × frontend` impossibles en overlays purs) : `base/` (commun : controller
 Hello HTTP+WS même classe, tests vitest unit+e2e `--detach --wait`, eslint flat +
 prettier + `typescript@6` API-JS-pour-eslint (typecheck = tsgo), vitest bloc oxc
-décorateurs, `nodefony.config.ts`/`package.json`/`README` conditionnels) ·
-`complete/` (compose.yaml redis+profils postgres/mariadb/mysql/tools/loki+grafana,
-préfixé `<appName>`) · `frontend/shared/` (AppController : `renderTags(name,
+décorateurs, `nodefony.config.ts`/`package.json`/`README` conditionnels,
+**`Dockerfile` + `.dockerignore`** — cf § ci-dessous) ·
+`complete/` (compose.yaml redis + **la SEULE base retenue** + profils
+tools/loki+grafana, préfixé `<appName>` — cf § base SQL ci-dessous) ·
+`frontend/shared/` (AppController : `renderTags(name,
 this.context?.cspNonce)` — la CSP est émise par le firewall, le controller ne
 fait que propager le nonce ; `getCspDirectives` N'EXISTE PAS) · `frontend/{react,
 vue,angular}/` (entry+App par framework, `registerEntry` type `react19|vue3|
@@ -437,6 +601,23 @@ jsx pour react, `tsconfig.app.json` pour angular). Presets : `complete` = vitrin
 totale (drizzle sqlite auto, realtime, security, frontend+studio dev, redis gated) ;
 `minimal` = http+framework (+ `@nodefony/frontend` si un framework front est choisi).
 
+**Base SQL — `--database <sqlite|postgres|mariadb|mysql>` (défaut `sqlite`)** : le
+générateur connaît le dialecte, donc l'app ne reçoit ni les deux services qu'elle
+n'utilisera pas, ni une URL à recomposer. `DATABASE_PARAMS` + `resolveDatabase`
+(`engine.ts`) sont la SOURCE UNIQUE du service, du port publié et de
+`NF_DATABASE_URL` — trois gabarits en parlent (`compose.yaml`, `.env`,
+`README.md`) et un écart entre eux ne se voit qu'à la connexion refusée. Le
+service retenu est rendu **sans `profiles:`** (ce n'est pas une option : `docker
+compose up -d` doit le monter), et `.env` porte l'URL **active** — donc le récap
+de `create app` place `npm run infra:up` AVANT `npm run dev`. En `sqlite` :
+aucun service SQL, URL commentée, l'app démarre sans rien allumer.
+
+> La question porte `askWhen: { key: "preset", equals: "complete" }` — condition
+> sur une RÉPONSE précédente, là où `askIf` interroge l'environnement. Non
+> satisfaite, la valeur retombe au DÉFAUT (le layer `complete` porte le
+> `compose.yaml` : en minimal il n'y aurait aucun fichier où l'écrire). Le récap
+> interactif applique le même filtre, sinon il annoncerait un choix ignoré.
+
 **link (dev framework, AVANT release npm)** : réécrit les deps `nodefony`/
 `@nodefony/*` en `file:<workspace>` vers le checkout (`resolveLocalWorkspaces` ;
 hors checkout → erreur claire). `npm install` réel symlinke + installe les
@@ -444,8 +625,24 @@ transitives — app contrôlable bout en bout sans publication. Défaut spec =
 `false` : un moteur ne câble JAMAIS file: sans demande explicite (interactif :
 question posée si checkout ; API/flags : `--link`).
 
+**L'image de container naît avec l'app** (`base/`, donc les DEUX presets — la doctrine
+cloud-native n'est pas une option de la vitrine). Ce que ces lignes tiennent ne produit
+aucune erreur quand il disparaît : **forme EXEC** du `CMD` (sinon `/bin/sh` est PID 1, ne
+transmet pas le SIGTERM, et chaque déploiement tue les requêtes en vol), `USER node`,
+sonde sur `/readyz`, et un `.dockerignore` qui écarte `*.local` — un secret entré dans une
+couche y reste, même effacé par la suivante. Un test de FORME les contrôle en ligne entière
+(un `include` se serait contenté de `**/*.local` pour prouver `*.local`).
+
+⚠️ **Le `COPY . ./` précède l'installation**, contre le patron canonique du monde Node. Une
+dépendance ici peut être LOCALE — workspaces `modules/*`, archive `file:` avant publication —
+et installer avant de l'avoir copiée échoue sur elle. Le cache de couche perdu est repris par
+un **cache mount npm** (`--mount=type=cache,target=/root/.npm`), qui laisse l'installation
+vierge. Le stage d'exécution copie `/app` d'un seul geste : nommer les chemins ferait échouer
+la construction sur le premier dossier absent (`modules/`, `public/`), inconnus à la génération.
+
 Tag eta résiduel dans un rendu = throw (projet corrompu refusé). Renames :
-`gitignore.tpl` → `.gitignore` (npm strip les dotfiles publiés). Exit codes :
+`gitignore.tpl` → `.gitignore`, `dockerignore.tpl` → `.dockerignore` (npm strip les
+dotfiles publiés). Exit codes :
 `OK`/`USAGE`/`CANTCREAT`/`SOFTWARE`. Tests `create.test.ts` (parse + spec +
 moteur 2 presets × 4 fronts + interactif sur streams + e2e bin gate
 `RUN_CLI_BOOT=1`). Preuves terrain : complete+react (install→build→tsgo→lint→

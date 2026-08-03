@@ -1,4 +1,11 @@
-import type { IAdminApi, IAdminEndpoint, IAdminDescriptor } from "nodefony";
+import { parsePageQuery, parseFilters } from "nodefony";
+import type {
+  IAdminApi,
+  IAdminEndpoint,
+  IAdminDescriptor,
+  IFilterSpec,
+  IPage,
+} from "nodefony";
 import Router from "../service/router";
 import type Route from "./Route";
 import type { IAdminBroker } from "../interfaces/IAdminBroker";
@@ -76,6 +83,31 @@ export function createFrameworkAdminApi(
   /** Premier param d'une query (string|string[]). */
   const one = (v: string | string[] | undefined): string | undefined =>
     Array.isArray(v) ? v[0] : v;
+  /**
+   * Colonnes sur lesquelles `routes/page` sait trier — l'allowlist que
+   * `parsePageQuery` fait respecter. Elle a exactement les clés que {@link cell}
+   * sait rendre : un `order` sur autre chose est refusé (400) au lieu de trier
+   * sur une chaîne vide, ce qui rendait l'ordre arbitraire sans le dire.
+   */
+  const SORTABLE_COLUMNS = [
+    "methods",
+    "path",
+    "name",
+    "controller",
+    "module",
+    "firewall",
+  ] as const;
+  /**
+   * `routes/page` sait TOUJOURS chercher : sa collection est le dump du Router,
+   * en mémoire, donc `q` est un simple balayage — ce qui n'est vrai d'aucune
+   * ressource persistée, d'où la déclaration explicite plutôt qu'un défaut.
+   *
+   * Constante partagée entre la publication (`page.search`) et le handler
+   * (`parsePageQuery(..., { searchable })`) : les écrire séparément recréerait
+   * la divergence que la publication vient supprimer — une console qui affiche
+   * une barre de recherche que le serveur refuse en 400.
+   */
+  const SEARCHABLE = true;
   /** Valeur d'une colonne pour le tri/filtre serveur (clés = colonnes du front). */
   const cell = (r: RouteDump, key: string): string => {
     switch (key) {
@@ -95,7 +127,16 @@ export function createFrameworkAdminApi(
         return "";
     }
   };
-  /** Applique un opérateur de filtre (miroir serveur du DataGrid). */
+  /**
+   * Applique un opérateur de filtre (miroir serveur du DataGrid).
+   *
+   * ⚠️ **Ce langage d'opérateurs appartient à CET endpoint, pas au framework.**
+   * Le contrat de filtre (`parseFilters`, cœur) est `nom=valeur` sans opérateur ;
+   * `routes/page` peut se permettre davantage parce que sa collection est en
+   * mémoire (le dump du Router) et qu'aucun store n'a à l'indexer. Un data plane
+   * adossé à une ressource persistée déclare un `IFilterSpec` et laisse le cœur
+   * valider — il ne recopie pas ce `matchOp`.
+   */
   const matchOp = (raw: string, op: string, value: string): boolean => {
     const s = String(raw ?? "");
     const v = String(value ?? "");
@@ -105,6 +146,21 @@ export function createFrameworkAdminApi(
         return s.toLowerCase().includes(v.toLowerCase());
       case "equals":
         return s === v;
+      // « est l'un de » (filtre multi-sélection du DataGrid) : la valeur porte
+      // une liste séparée par des virgules, et la cellule est découpée pareil —
+      // une route `GET,POST` matche dès qu'UNE des méthodes choisies y figure.
+      // Miroir EXACT de `matchFilter` côté grid, sinon le mode serveur et le
+      // mode client ne filtreraient pas la même chose.
+      case "in": {
+        const split = (list: string) =>
+          list
+            .split(",")
+            .map((t) => t.trim())
+            .filter((t) => t !== "");
+        const wanted = split(v);
+        if (wanted.length === 0) return true;
+        return split(s).some((c) => wanted.includes(c));
+      }
       case "startsWith":
         return s.toLowerCase().startsWith(v.toLowerCase());
       case "endsWith":
@@ -128,20 +184,37 @@ export function createFrameworkAdminApi(
     {
       path: "routes/page",
       summary:
-        "Routes paginées côté SERVEUR — query: page, pageSize, sort, dir, q, filters(JSON)",
-      handler: (request) => {
-        const q = request.query;
-        const page = Math.max(1, parseInt(one(q.page) ?? "1", 10) || 1);
-        const pageSize = Math.min(
-          200,
-          Math.max(1, parseInt(one(q.pageSize) ?? "25", 10) || 25),
-        );
-        const search = (one(q.q) ?? "").trim().toLowerCase();
-        const sortKey = one(q.sort) ?? "";
-        const dir = (one(q.dir) ?? "asc") === "desc" ? -1 : 1;
+        "Routes paginées côté SERVEUR — contrat IPageQuery : ?limit&offset&order=champ:ASC&q, " +
+        "plus filters(JSON) — langage d'opérateurs PROPRE à cet endpoint (collection en " +
+        "mémoire), sérialisé par la vue Routes seule. Rend un IPage.",
+      // Capacités PUBLIÉES dans le catalogue admin : la console cesse de deviner
+      // quelles colonnes sont triables et si la recherche existe. Elles étaient
+      // codées en dur dans `RoutesView` — six `sortable: true` qui coïncidaient
+      // avec `SORTABLE_COLUMNS` par hasard, et que le premier renommage de
+      // colonne aurait fait diverger sans un mot (en-tête cliquable → 400).
+      // `filters` reste VIDE : le langage d'opérateurs de cet endpoint n'est pas
+      // le contrat de filtre du framework (cf `matchOp`), il ne se publie donc
+      // pas comme tel.
+      page: {
+        sortable: () => SORTABLE_COLUMNS,
+        search: () => SEARCHABLE,
+      },
+      handler: (request): IPage<RouteDump> => {
+        const query = parsePageQuery(request.query, {
+          defaultLimit: 25,
+          sortable: SORTABLE_COLUMNS,
+          searchable: SEARCHABLE,
+        });
+        // Cet endpoint n'a pas de filtre au sens du contrat (spec vide) : il lit
+        // son propre `filters`, et le déclare. L'appel sert donc à une seule
+        // chose, mais elle manquait — refuser un paramètre que personne ne lit.
+        // Sans lui, `?bypassFirewal=true` rendait TOUTES les routes sous un 200,
+        // que l'administrateur lit comme « aucune route ne contourne le firewall ».
+        parseFilters(request.query, {}, { accepts: ["filters"] });
+        const search = query.q?.toLowerCase() ?? "";
         let filters: { key: string; op: string; value: string }[] = [];
         try {
-          const raw = one(q.filters);
+          const raw = one(request.query.filters);
           if (raw) filters = JSON.parse(raw) as typeof filters;
         } catch {
           filters = [];
@@ -169,13 +242,25 @@ export function createFrameworkAdminApi(
           rows = rows.filter((r) => matchOp(cell(r, f.key), f.op, f.value));
         }
         const total = rows.length;
-        if (sortKey) {
-          rows = [...rows].sort(
-            (a, b) => cell(a, sortKey).localeCompare(cell(b, sortKey)) * dir,
-          );
+        if (query.order?.length) {
+          // Tri multi-champs : le premier couple qui départage l'emporte.
+          const order = query.order;
+          rows = [...rows].sort((a, b) => {
+            for (const [key, dir] of order) {
+              const cmp = cell(a, key).localeCompare(cell(b, key));
+              if (cmp !== 0) return dir === "DESC" ? -cmp : cmp;
+            }
+            return 0;
+          });
         }
-        const start = (page - 1) * pageSize;
-        return { rows: rows.slice(start, start + pageSize), total };
+        const offset = query.offset ?? 0;
+        return {
+          items: rows.slice(offset, offset + query.limit),
+          total,
+          limit: query.limit,
+          offset,
+          hasNext: offset + query.limit < total,
+        };
       },
     },
     {
@@ -214,6 +299,14 @@ export function createFrameworkAdminApi(
             path: string;
             role: string;
             summary: string | null;
+            page?: {
+              sortable: readonly string[];
+              filters: IFilterSpec;
+              search: boolean;
+              facets: Readonly<
+                Record<string, Readonly<Record<string, unknown>>>
+              >;
+            };
           }[]
         >();
         for (const r of broker.routes()) {
@@ -222,11 +315,29 @@ export function createFrameworkAdminApi(
             arr = [];
             byNs.set(r.namespace, arr);
           }
+          const caps = r.endpoint.page;
           arr.push({
             method: r.method,
             path: r.path,
             role: r.role,
             summary: r.endpoint.summary ?? null,
+            // Les capacités de page sont publiées ICI parce que la console lit
+            // déjà ce catalogue au démarrage : un endpoint « capabilities » par
+            // ressource aurait coûté une requête par vue pour la même donnée.
+            // `sortable` et `search` sont ÉVALUÉS maintenant — c'est le store
+            // branché qui répond, pas une constante de compilation.
+            ...(caps
+              ? {
+                  page: {
+                    sortable: caps.sortable?.() ?? [],
+                    filters: caps.filters ?? {},
+                    search: caps.search?.() ?? false,
+                    // Les facettes sont une DONNÉE (nom → filtres), pas une
+                    // capacité à évaluer : elles traversent telles quelles.
+                    facets: caps.facets ?? {},
+                  },
+                }
+              : {}),
           });
         }
         const producers = [...byNs.keys()]

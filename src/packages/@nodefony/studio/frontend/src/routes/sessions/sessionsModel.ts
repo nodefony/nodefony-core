@@ -83,33 +83,19 @@ export const SESSIONS_LIST_ENDPOINT = "/nodefony/http/api/sessions/list";
 export const SESSIONS_STATUS_ENDPOINT = "/nodefony/http/api/sessions";
 
 /**
- * Fenêtre de chargement par défaut = le **cap dur** du back (200). La liste est
- * exploitée côté client par le `DataGrid` (recherche/tri/filtre). Au-delà, la
- * fenêtre est tronquée → on le signale et on invite à filtrer par utilisateur.
+ * GET — **compteurs de tête**, posés par le serveur sur la collection ENTIÈRE.
+ *
+ * Endpoint distinct de la liste : ces nombres ne dépendent ni de la fenêtre ni
+ * de l'ordre, donc on ne les recharge pas à chaque tour de page — seulement au
+ * montage, au changement de filtre, et après une révocation.
  */
-export const SESSIONS_LIST_WINDOW = 200;
+export const SESSIONS_STATS_ENDPOINT = "/nodefony/http/api/sessions/stats";
 
-/**
- * Construit l'URL d'énumération. `tenantId` = **slot multi-tenant** : transmis si
- * fourni, mais ignoré par le back en mono-tenant (réserve coût-0 — câblé par le
- * chantier `@nodefony/tenant`, post-10.0.0).
- */
-export function sessionsListEndpoint(
-  opts: {
-    user?: string;
-    tenantId?: string | null;
-    limit?: number;
-    offset?: number;
-  } = {},
-): string {
-  const p = new URLSearchParams();
-  if (opts.user) p.set("user", opts.user);
-  if (opts.tenantId) p.set("tenantId", opts.tenantId);
-  if (opts.limit !== undefined) p.set("limit", String(opts.limit));
-  if (opts.offset !== undefined) p.set("offset", String(opts.offset));
-  const qs = p.toString();
-  return qs ? `${SESSIONS_LIST_ENDPOINT}?${qs}` : SESSIONS_LIST_ENDPOINT;
-}
+// Les constructeurs d'URL de LISTE ont disparu — avec la fenêtre plafonnée
+// qu'ils portaient. Une query string de page ne s'écrit plus qu'à UN endroit
+// (`toPageParams`, UI kit) : c'est en la recomposant vue par vue que deux
+// dialectes incompatibles étaient nés. Restent ici les URL de MUTATION, qui
+// n'ont ni page, ni tri, ni filtre.
 
 /** POST — révoque UNE session par sa référence publique (`sess_…`). Audité. */
 export function revokeSessionEndpoint(ref: string): string {
@@ -129,17 +115,6 @@ export function revokeUserSessionsEndpoint(identifier: string): string {
 /** GET — self-service paginé : MES sessions (scopées serveur à l'appelant). */
 export const SESSIONS_MINE_ENDPOINT = "/nodefony/http/api/sessions/mine";
 
-/** Construit l'URL self-service paginée (`?limit&offset`). Pas de `?user=` (anti-IDOR). */
-export function sessionsMineEndpoint(
-  opts: { limit?: number; offset?: number } = {},
-): string {
-  const p = new URLSearchParams();
-  if (opts.limit !== undefined) p.set("limit", String(opts.limit));
-  if (opts.offset !== undefined) p.set("offset", String(opts.offset));
-  const qs = p.toString();
-  return qs ? `${SESSIONS_MINE_ENDPOINT}?${qs}` : SESSIONS_MINE_ENDPOINT;
-}
-
 /** POST — self-service : révoque UNE de MES sessions (404 si elle n'est pas à moi). */
 export function revokeSessionMineEndpoint(ref: string): string {
   return `/nodefony/http/api/sessions/mine/${encodeURIComponent(ref)}/revoke`;
@@ -151,35 +126,30 @@ export const SESSIONS_DOC = "v1.1";
 /** Rôle requis pour l'administration des sessions — source unique `auth/roles`. */
 export { ROLE_NODEFONY_ADMIN as ADMIN_ROLE } from "../../auth/roles";
 
-// ─── Compteurs (KPIs, dérivés de la fenêtre chargée) ─────────────────────────
+// ─── Compteurs (KPIs) ────────────────────────────────────────────────────────
 
+/**
+ * Les compteurs de tête — miroir exact de ce que rend `sessions/stats`.
+ *
+ * `null` signifie « le backend ne sait pas le calculer » (un store en curseur
+ * comme Redis refuse un comptage exact) et se rend « — » à l'écran. C'est ce
+ * qui interdit d'afficher un zéro là où l'on ne sait rien : une carte à zéro se
+ * lit comme une absence, pas comme une ignorance.
+ */
 export interface SessionCounts {
-  /** Sessions dans la fenêtre. */
-  total: number;
+  /** Sessions persistées. */
+  total: number | null;
   /** Sessions portant un utilisateur authentifié. */
-  authenticated: number;
+  authenticated: number | null;
   /** Sessions anonymes (aucun utilisateur). */
-  anonymous: number;
+  anonymous: number | null;
   /** Nombre d'utilisateurs **distincts** authentifiés. */
-  users: number;
+  users: number | null;
 }
 
-export function countByAuth(sessions: SessionSummary[]): SessionCounts {
-  let authenticated = 0;
-  const userSet = new Set<string>();
-  for (const s of sessions) {
-    if (s.authenticated) {
-      authenticated++;
-      if (s.user) userSet.add(s.user);
-    }
-  }
-  return {
-    total: sessions.length,
-    authenticated,
-    anonymous: sessions.length - authenticated,
-    users: userSet.size,
-  };
-}
+// Le comptage LOCAL a disparu : la table ne charge plus qu'une page, même en
+// « Mes sessions », et compter ses lignes décrirait 25 sessions pour qui en a
+// 60. Un compteur que le serveur ne rend pas reste `null` → « — » à l'écran.
 
 // ─── User-Agent (parsing léger, 0 dépendance) ────────────────────────────────
 

@@ -34,6 +34,7 @@ import { DebugType, EnvironmentType } from "../types/globals";
 import CliKernel from "./CliKernel";
 import Module from "./Module";
 import { resolveModuleEntry, toImportSpecifier } from "./resolveModuleEntry";
+import { writeLastBoot, type ILastBoot } from "./checks/lastBoot";
 //import Fetch from "../service/fetchService";
 // Type SEUL (`this.get<HttpKernel>(…)`) : le cœur ne dépend pas de `@nodefony/http`
 // à l'exécution — l'inverse serait un cycle, http déclarant `nodefony`.
@@ -588,7 +589,147 @@ class Kernel extends Service implements IKernel {
   }
 
   /**
-   * Point d'entrée du boot. Fire `"onPreStart"` puis `"onStart"`, charge l'application
+   * Point d'entrée du boot — et POINT DE PASSAGE UNIQUE de l'échec de démarrage.
+   *
+   * Le déroulé vit dans {@link startBoot} ; cette enveloppe ne fait qu'une
+   * chose : figer le bilan (`var/last-boot.json`) quand le démarrage est
+   * abandonné, puis relancer l'erreur inchangée. Le bilan d'un démarrage
+   * ABOUTI est écrit ailleurs — au moment où il est complet (cf
+   * {@link captureBootServers} / `onPostReady`), pas ici.
+   *
+   * Pourquoi l'échec ICI et pas dans les `catch` du pipeline : ils sont une
+   * douzaine, et chacun relance. Y répartir l'écriture donnerait autant
+   * d'implémentations d'une même règle — dont certaines seraient oubliées au
+   * premier ajout de phase, sans que rien ne le signale. Un seul point ne peut
+   * pas diverger de lui-même.
+   *
+   * Et pourquoi RIEN n'est effacé sur un succès : une commande console
+   * (`inspect`, une commande de module) démarre et réussit sans jamais monter
+   * de serveur. Effacer ici ferait disparaître le bilan d'un échec applicatif
+   * au premier `nodefony inspect` lancé pour le diagnostiquer — l'outil de
+   * diagnostic détruirait la preuve qu'il vient chercher.
+   *
+   * @returns `this` après boot complet.
+   * @throws Toute exception du pipeline est loggée CRITIC puis re-throw — le
+   *         bilan n'en absorbe aucune.
+   */
+  async start(): Promise<this> {
+    try {
+      return await this.startBoot();
+    } catch (e) {
+      this.traceFatalBootFailure(e);
+      throw e;
+    }
+  }
+
+  /**
+   * Traduit le bitmask {@link progress} en NOM de la dernière phase atteinte.
+   *
+   * C'est l'information la plus discriminante d'une trace d'échec : elle situe
+   * le défaut dans le cycle de vie (« mort à `onBoot` » désigne les modules,
+   * « mort à `onReady` » désigne les serveurs) sans qu'on ait à lire une pile.
+   *
+   * @returns le nom de la phase la plus avancée, `"onInit"` par défaut.
+   */
+  private lastReachedPhase(): string {
+    let reached = "onInit";
+    for (const [name, bit] of Object.entries(Events)) {
+      if (this.progress & bit) reached = name;
+    }
+    return reached;
+  }
+
+  /**
+   * Socle commun des deux bilans (abouti et abandonné) — ce qui est vrai dans
+   * les deux cas se remplit ICI, une seule fois.
+   *
+   * @param status - issue du démarrage.
+   * @returns le bilan, prêt à être complété par l'appelant.
+   */
+  private baseLastBoot(status: ILastBoot["status"]): ILastBoot {
+    return {
+      status,
+      timestamp: new Date().toISOString(),
+      environment: this.environment ?? "unknown",
+      pid: process.pid,
+      node: process.version,
+      phase: this.lastReachedPhase(),
+    };
+  }
+
+  /**
+   * Fige le bilan d'un démarrage ABOUTI.
+   *
+   * Ce n'est pas une redondance avec le journal : le bilan retient ce que le
+   * terminal a montré une fois puis perdu — les briques ignorées AVEC leur
+   * raison, celles que le gating a écartées, les comptes d'avertissements. Une
+   * application qui démarre amputée ne se signale plus après sa première
+   * seconde de vie ; c'est justement le cas que personne ne diagnostique.
+   *
+   * @param report - bilan de boot figé (serveurs capturés).
+   */
+  private writeBootSummary(report: IBootReport): void {
+    const entry = this.baseLastBoot("ok");
+    entry.durationMs = report.durationMs;
+    entry.healthy = report.healthy;
+    entry.modulesLoaded = report.modulesLoaded;
+    entry.warnings = report.warnings;
+    entry.errors = report.errors;
+    entry.remediation = report.remediation ?? undefined;
+    if (report.modulesSkipped.length) {
+      entry.bricksSkipped = report.modulesSkipped.map((f) => ({
+        module: f.module,
+        reason: f.reason,
+        phase: f.phase,
+      }));
+    }
+    if (report.modulesGated.length) {
+      entry.bricksGated = report.modulesGated.map((g) => ({
+        module: g.module,
+        reason: g.reason,
+      }));
+    }
+    if (report.serversListening.length) {
+      entry.serversListening = report.serversListening.map(
+        (s) => `${s.type}${s.port ? `:${s.port}` : ""}`,
+      );
+    }
+    writeLastBoot(this.path, entry);
+  }
+
+  /**
+   * Consigne le démarrage ABANDONNÉ, sans jamais pouvoir aggraver la panne.
+   *
+   * À ne pas confondre avec {@link recordBootFailure}, qui collecte les échecs
+   * **non fatals** (fail-soft) d'un boot qui, lui, continue. Les deux se
+   * complètent, et c'est pourquoi le bilan embarque le second : quand le boot
+   * meurt, savoir quelles briques avaient DÉJÀ été ignorées avant désigne
+   * souvent la cause réelle — un module optionnel tombé emporte plus loin celle
+   * qui en dépendait, et seul le premier incident l'explique.
+   *
+   * @param e - l'erreur qui a fait abandonner le boot.
+   */
+  private traceFatalBootFailure(e: unknown): void {
+    const err = e instanceof Error ? e : new Error(String(e));
+    const entry = this.baseLastBoot("failed");
+    entry.error = {
+      message: err.message,
+      name: err.name,
+      exitCode: (err as { exitCode?: number }).exitCode,
+      stack: err.stack,
+    };
+    if (this.bootFailures?.length) {
+      entry.bricksSkipped = this.bootFailures.map((f) => ({
+        module: f.module,
+        reason: f.reason,
+        phase: f.phase,
+      }));
+    }
+    writeLastBoot(this.path, entry);
+  }
+
+  /**
+   * Déroulé du boot. Fire `"onPreStart"` puis `"onStart"`, charge l'application
    * (`loadApp()`), instancie services kernel (Rollup), puis enchaîne sur
    * `preRegister()` → `boot()` → `onReady()` → `initServers()`.
    *
@@ -596,10 +737,12 @@ class Kernel extends Service implements IKernel {
    * (la command a fini son boulot : terminate one-shot OU park daemon long-running) —
    * même sémantique de sortie à TOUTES les phases d'arrêt.
    *
+   * Appelé UNIQUEMENT par {@link start}, qui porte la trace d'échec.
+   *
    * @returns `this` après boot complet.
    * @throws Toute exception du pipeline est loggée CRITIC puis re-throw.
    */
-  async start(): Promise<this> {
+  private async startBoot(): Promise<this> {
     if (this.bootStartedAt === 0) {
       this.bootStartedAt = Date.now();
     }
@@ -899,6 +1042,10 @@ class Kernel extends Service implements IKernel {
           this.captureBootServers(servers);
           const report = this.getBootReport();
           this.logBootVerdict(report);
+          // Le journal dit ce bilan une fois, au terminal de celui qui lance.
+          // Le fichier le rend lisible ensuite — par un agent, une tâche
+          // d'intégration continue, ou quiconque arrive après coup.
+          this.writeBootSummary(report);
           if (global && global.gc) {
             this.memoryUsage("MEMORY POST READY ");
             setTimeout(() => {
@@ -2508,9 +2655,13 @@ class Kernel extends Service implements IKernel {
     // runtime) ; à la volée tant que le boot est en cours.
     const { warnings, errors } =
       this.bootLogCounts ?? this.countBootLogIssues();
+    const manifestEntries = Array.isArray(this.options.modules)
+      ? this.options.modules.length
+      : 0;
     return {
       durationMs: this.bootStartedAt > 0 ? Date.now() - this.bootStartedAt : 0,
       modulesLoaded: Object.keys(this.modules),
+      manifestEntries,
       modulesSkipped,
       modulesGated: this.modulesGated ?? [],
       warnings,
@@ -2521,7 +2672,12 @@ class Kernel extends Service implements IKernel {
       // n'a pas constaté d'absence → pas encore « unhealthy » (le garde-fou de `onReady`
       // lit le report APRÈS `captureBootServers`, donc `measured` y est vrai → inchangé).
       healthy: !(serversExpected && measured && serversListening.length === 0),
-      remediation: this.bootRemediationHint(modulesSkipped) ?? undefined,
+      remediation:
+        this.bootRemediationHint(
+          modulesSkipped,
+          manifestEntries,
+          serversExpected,
+        ) ?? undefined,
     };
   }
 
@@ -2600,10 +2756,33 @@ class Kernel extends Service implements IKernel {
    * verdict (écran + log). Heuristique : un `import()` qui échoue (« Cannot find
    * package/module ») pointe presque toujours un `dist/` périmé après pull/merge.
    *
+   * Le manifeste VIDE est traité en premier parce qu'il ne produit aucune raison
+   * d'échec : rien n'ayant été tenté, `skipped` est vide et l'heuristique
+   * suivante n'a rien à lire. C'est précisément l'état qui laissait le diagnostic
+   * muet — il faut donc le nommer ici, à défaut de pouvoir le déduire.
+   *
+   * Le manifeste vide n'est signalé que sous un profil SERVEUR : une commande
+   * batch ou un test qui boote sans manifeste est un cas nominal, et une
+   * remédiation posée là serait un faux diagnostic recopié partout où le rapport
+   * est lu.
+   *
    * @param skipped - modules ignorés.
+   * @param manifestEntries - entrées déclarées au manifeste `config.modules`.
+   * @param serversExpected - le profil d'exécution attendait-il des serveurs.
    * @returns une phrase d'action, ou `null`.
    */
-  private bootRemediationHint(skipped: IBootFailure[]): string | null {
+  private bootRemediationHint(
+    skipped: IBootFailure[],
+    manifestEntries: number,
+    serversExpected: boolean,
+  ): string | null {
+    if (serversExpected && manifestEntries === 0) {
+      return (
+        "la configuration LUE ne déclare aucun module (`modules: []`) ⇒ " +
+        "vérifier `nodefony.config` et l'exécutable employé " +
+        "(`nodefony inspect config` dit la config effective et sa provenance)"
+      );
+    }
     const moduleNotFound = skipped.some((f) =>
       /Cannot find package|Cannot find module|ERR_MODULE_NOT_FOUND/i.test(
         f.reason,
@@ -2629,8 +2808,14 @@ class Kernel extends Service implements IKernel {
       const reasons = skipped
         .map((f) => `${f.module}: ${f.reason}`)
         .join(" · ");
+      // Ce que la config DEMANDAIT, toujours — pas seulement ce qui a raté. Un
+      // boot où rien n'a été tenté ne remplit aucune des listes d'échec : sans ce
+      // décompte, le verdict décrit une absence de serveurs sans jamais dire que
+      // le manifeste était vide, et l'enquête part vers les serveurs.
       this.log(
         `BOOT ÉCHEC — profil serveur mais aucun serveur en écoute` +
+          ` · manifeste : ${report.manifestEntries} module(s) déclaré(s), ` +
+          `${report.modulesLoaded.length} chargé(s)` +
           (skipped.length
             ? ` · ${skipped.length} module(s) en échec : ${reasons}`
             : "") +

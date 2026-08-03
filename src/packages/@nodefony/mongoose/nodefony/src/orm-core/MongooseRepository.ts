@@ -1,8 +1,9 @@
 import type { ClientSession, QueryFilter, Model } from "mongoose";
-import { RequestContext, redactSecrets, escapeRegExp } from "nodefony";
+import { RequestContext, redactSecrets } from "nodefony";
 import {
   isFieldOperators,
   isUpdateOperators,
+  likePatternToRegExp,
   queryFlowMonitor,
   UnknownCriteriaField,
 } from "@nodefony/orm-core";
@@ -18,15 +19,11 @@ import type {
 /** Modèle Mongoose à document libre (boundary — typé finement côté repo). */
 type LooseModel = Model<Record<string, unknown>>;
 
-/**
- * Traduit un motif SQL `LIKE` (`%` = n caractères, `_` = un caractère) en RegExp
- * ancrée — `$like` portable n'a pas d'équivalent natif MongoDB.
- */
-function sqlLikeToRegex(pattern: string): RegExp {
-  // 1) échappe les méta-caractères regex, 2) traduit les jokers SQL.
-  const escaped = escapeRegExp(pattern);
-  return new RegExp(`^${escaped.replace(/%/g, ".*").replace(/_/g, ".")}$`);
-}
+// La traduction d'un motif `$like` en expression régulière vit au SOCLE
+// (`likePatternToRegExp`) : elle DOIT rendre le même ensemble de lignes que le
+// `LIKE … ESCAPE '\'` émis côté SQL, sinon changer de backend changerait les
+// résultats. Elle était écrite ici, et elle ignorait l'échappement — un `a\_b`
+// y devenait `a\.b`, c'est-à-dire un motif qui ne matche rien.
 
 /**
  * Repository portable (contrat {@link IRepository}) au-dessus d'un modèle Mongoose.
@@ -128,7 +125,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     const out: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(ops)) {
       if (key === "$like") {
-        out.$regex = sqlLikeToRegex(value as string);
+        out.$regex = likePatternToRegExp(value as string);
       } else if (key === "$null") {
         const target = value ? "$eq" : "$ne";
         if (target in out) {
@@ -187,6 +184,21 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     }
     const out: Record<string, unknown> = {};
     for (const [field, value] of Object.entries(criteria)) {
+      // Disjonction : chaque branche est un critère complet, traduit par la même
+      // fonction (donc `id`→`_id` et les opérateurs riches y valent aussi). Une
+      // branche vide serait toujours vraie ; un `$or` sans branche ne pose rien.
+      if (field === "$or") {
+        if (!Array.isArray(value)) {
+          throw new TypeError(
+            `MongooseRepository(${this.#model.modelName}): $or attend un tableau de critères.`,
+          );
+        }
+        const branches = value
+          .map((branch) => this.#filter(branch as Criteria<T>))
+          .filter((f) => Object.keys(f).length > 0);
+        if (branches.length > 0) out.$or = branches;
+        continue;
+      }
       const key = this.#resolveField(field);
       out[key] = isFieldOperators(value) ? this.#mongoOps(value) : value;
     }
@@ -470,6 +482,45 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
         this.#model.countDocuments(filter, {
           session: this.#session ?? undefined,
         }),
+    );
+  }
+
+  /**
+   * `COUNT(DISTINCT …)` en agrégation — `$group` puis `$count`, donc la
+   * déduplication reste dans le serveur. `Model.distinct()` aurait rapatrié
+   * toutes les valeurs pour n'en mesurer que la longueur.
+   *
+   * `{$ne: null}` écarte à la fois la valeur nulle et le champ absent, ce qui
+   * aligne le résultat sur le `COUNT(DISTINCT col)` SQL — sans lui, les
+   * documents sans valeur formeraient un groupe `null` compté comme une valeur.
+   */
+  async countDistinct(
+    field: keyof T & string,
+    criteria?: Criteria<T>,
+  ): Promise<number> {
+    const filter = this.#filter(criteria);
+    const path = this.#resolveField(field);
+    return this.#prof(
+      () => this.#descr("countDistinct", filter),
+      async () => {
+        // DEUX `$match` successifs, jamais un objet fusionné : le critère peut
+        // déjà porter une condition sur CE champ (`countDistinct("user", {user:
+        // "alice"})`), et `{...filter, [path]: …}` l'écraserait en silence — on
+        // compterait alors tous les utilisateurs au lieu du seul demandé. Deux
+        // étages se composent en ET sans se marcher dessus.
+        const pipeline = [
+          { $match: filter },
+          { $match: { [path]: { $ne: null } } },
+          { $group: { _id: `$${path}` } },
+          { $count: "n" },
+        ];
+        const agg = this.#model.aggregate<{ n: number }>(pipeline);
+        if (this.#session) {
+          agg.session(this.#session);
+        }
+        const rows = await agg.exec();
+        return rows[0]?.n ?? 0;
+      },
     );
   }
 

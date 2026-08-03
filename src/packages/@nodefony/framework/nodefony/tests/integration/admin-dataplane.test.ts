@@ -754,3 +754,506 @@ describe("Admin data plane — mode de pagination invalide → 400", () => {
     expect(r.status, "cas nominal offset intact").to.equal(200);
   });
 });
+
+// ── CONTRAT DE PAGE sur le wire — `routes/page` parle IPageQuery ──────────────
+// Cet endpoint portait le SECOND dialecte de pagination du dépôt
+// (`page`/`pageSize`/`sort`/`dir`, réponse `{rows,total}`) et n'avait AUCUN
+// test. Il consomme désormais `parsePageQuery` et rend un `IPage`, comme tout
+// le reste. Ce banc verrouille les deux bouts de la traduction.
+
+describe("Admin data plane — routes/page parle le contrat IPageQuery", () => {
+  it("rend un IPage (items/limit/offset/hasNext), plus `rows`", async () => {
+    const r = await req(
+      "GET",
+      "/nodefony/framework/api/routes/page?limit=5",
+      auth(),
+    );
+    expect(r.status).to.equal(200);
+    const page = r.body as {
+      items?: unknown[];
+      rows?: unknown[];
+      total?: number;
+      limit?: number;
+      offset?: number;
+      hasNext?: boolean;
+    };
+    expect(page.items, "le contrat nomme la collection `items`").to.be.an(
+      "array",
+    );
+    expect(
+      page.rows,
+      "`rows` était le dialecte — il ne doit plus exister",
+    ).to.equal(undefined);
+    expect(page.items!.length).to.be.at.most(5);
+    expect(page.limit).to.equal(5);
+    expect(page.offset).to.equal(0);
+    expect(page.hasNext, "le dépôt a plus de 5 routes").to.equal(true);
+    expect(page.total).to.be.a("number");
+  });
+
+  it("`offset` décale la fenêtre (deux pages disjointes)", async () => {
+    const first = (
+      await req("GET", "/nodefony/framework/api/routes/page?limit=3", auth())
+    ).body as { items: { name: string }[] };
+    const second = (
+      await req(
+        "GET",
+        "/nodefony/framework/api/routes/page?limit=3&offset=3",
+        auth(),
+      )
+    ).body as { items: { name: string }[] };
+    const firstNames = first.items.map((r) => r.name);
+    for (const row of second.items) {
+      expect(firstNames, "page 2 ne rejoue pas la page 1").to.not.include(
+        row.name,
+      );
+    }
+  });
+
+  it("`order=path:DESC` trie — et l'inverse de `path:ASC`", async () => {
+    const asc = (
+      await req(
+        "GET",
+        "/nodefony/framework/api/routes/page?limit=10&order=path:ASC",
+        auth(),
+      )
+    ).body as { items: { path: string | null }[] };
+    const desc = (
+      await req(
+        "GET",
+        "/nodefony/framework/api/routes/page?limit=10&order=path:DESC",
+        auth(),
+      )
+    ).body as { items: { path: string | null }[] };
+    expect(asc.items[0]?.path).to.not.equal(desc.items[0]?.path);
+    const paths = asc.items.map((r) => r.path ?? "");
+    expect(paths, "ASC = ordre lexicographique croissant").to.deep.equal(
+      [...paths].sort((a, b) => a.localeCompare(b)),
+    );
+  });
+
+  it("un champ de tri HORS allowlist → 400, jamais un tri silencieusement inerte", async () => {
+    const r = await req(
+      "GET",
+      "/nodefony/framework/api/routes/page?order=secretColumn:ASC",
+      auth(),
+    );
+    expect(r.status).to.equal(400);
+    expect(JSON.stringify(r.body)).to.match(/sortable|secretColumn/i);
+  });
+
+  it("`limit` au-delà du cap est ramené, jamais refusé", async () => {
+    const r = await req(
+      "GET",
+      "/nodefony/framework/api/routes/page?limit=99999",
+      auth(),
+    );
+    expect(r.status).to.equal(200);
+    expect((r.body as { limit: number }).limit).to.equal(200);
+  });
+
+  it("`q` filtre, et `total` reflète le filtre (pas le dump entier)", async () => {
+    const all = (
+      await req("GET", "/nodefony/framework/api/routes/page?limit=1", auth())
+    ).body as { total: number };
+    const filtered = (
+      await req(
+        "GET",
+        "/nodefony/framework/api/routes/page?limit=100&q=nodefony",
+        auth(),
+      )
+    ).body as { total: number; items: { path: string | null }[] };
+    expect(filtered.total).to.be.below(all.total);
+    expect(filtered.items.length).to.be.above(0);
+  });
+});
+
+// ── Filtre MULTI-SÉLECTION (opérateur `in`) sur routes/page ───────────────────
+// La colonne « Méthodes » est multi-valeur (`GET,POST`) : « est l'un de » doit
+// matcher par INTERSECTION, pas par égalité de chaîne. Le miroir client de cette
+// règle vit dans `matchFilter` (DataGrid) — les deux doivent filtrer pareil.
+
+describe("Admin data plane — routes/page filtre `in` (multi-sélection)", () => {
+  /** Construit l'URL d'un filtre colonne tel que le DataGrid le sérialise. */
+  const withFilter = (key: string, op: string, value: string) =>
+    `/nodefony/framework/api/routes/page?limit=200&filters=${encodeURIComponent(
+      JSON.stringify([{ key, op, value }]),
+    )}`;
+
+  it("`in` avec une seule méthode ne rend que des routes qui la portent", async () => {
+    const r = await req("GET", withFilter("methods", "in", "POST"), auth());
+    expect(r.status).to.equal(200);
+    const { items } = r.body as { items: { methods: string[] }[] };
+    expect(items.length, "le dépôt expose des routes POST").to.be.above(0);
+    for (const row of items) {
+      expect(row.methods).to.include("POST");
+    }
+  });
+
+  it("`in` avec deux méthodes rend l'UNION (jamais l'intersection)", async () => {
+    const only = (m: string) =>
+      req("GET", withFilter("methods", "in", m), auth()).then(
+        (r) => (r.body as { total: number }).total,
+      );
+    const [get, post, both] = await Promise.all([
+      only("GET"),
+      only("POST"),
+      req("GET", withFilter("methods", "in", "GET,POST"), auth()).then(
+        (r) => (r.body as { total: number }).total,
+      ),
+    ]);
+    expect(both).to.be.at.least(Math.max(get, post));
+    expect(
+      both,
+      "union ≤ somme (une route peut porter les deux)",
+    ).to.be.at.most(get + post);
+  });
+
+  it("une route MULTI-méthode matche via UNE seule des valeurs choisies", async () => {
+    const all = await req(
+      "GET",
+      "/nodefony/framework/api/routes/page?limit=200",
+      auth(),
+    );
+    const multi = (all.body as { items: { methods: string[] }[] }).items.find(
+      (r) => r.methods.length > 1,
+    );
+    if (!multi) return; // aucune route multi-méthode montée : rien à prouver
+    const one = multi.methods[0]!;
+    const r = await req("GET", withFilter("methods", "in", one), auth());
+    const names = (r.body as { items: { methods: string[] }[] }).items;
+    expect(
+      names.some((x) => x.methods.join(",") === multi.methods.join(",")),
+      `une route ${multi.methods.join(",")} doit sortir sur ?in=${one}`,
+    ).to.equal(true);
+  });
+
+  it("`in` vide ne filtre RIEN (pas de page vide sur un filtre non renseigné)", async () => {
+    const total = (
+      await req("GET", "/nodefony/framework/api/routes/page?limit=1", auth())
+    ).body as { total: number };
+    const r = await req("GET", withFilter("methods", "in", ""), auth());
+    expect((r.body as { total: number }).total).to.equal(total.total);
+  });
+});
+
+// ── TRI des UTILISATEURS : la capacité déclarée par le backend fait foi ───────
+// Le tri était déjà implémenté par les trois repositories, mais le data plane ne
+// le laissait pas passer. Ce banc prouve la chaîne `?order=` → repository, et le
+// refus explicite d'un champ hors capacité.
+
+describe("Admin data plane — le tri des utilisateurs traverse", () => {
+  const USERS = "/nodefony/user/api/users";
+
+  it("`identifier` ASC et DESC rendent des ordres exactement inverses", async () => {
+    const asc = (
+      await req("GET", `${USERS}?limit=50&order=identifier:ASC`, auth())
+    ).body as { items: { identifier: string }[] };
+    const desc = (
+      await req("GET", `${USERS}?limit=50&order=identifier:DESC`, auth())
+    ).body as { items: { identifier: string }[] };
+    expect(asc.items.length).to.be.above(1);
+    expect(asc.items.map((u) => u.identifier)).to.deep.equal(
+      desc.items.map((u) => u.identifier).reverse(),
+    );
+  });
+
+  it("le tri par défaut reste `identifier` ASC (sans `order`)", async () => {
+    const page = (await req("GET", `${USERS}?limit=50`, auth())).body as {
+      items: { identifier: string }[];
+    };
+    const ids = page.items.map((u) => u.identifier);
+    expect(ids).to.deep.equal([...ids].sort((a, b) => a.localeCompare(b)));
+  });
+
+  it("un champ HORS capacité est refusé (400) et la réponse NOMME les champs valides", async () => {
+    const r = await req("GET", `${USERS}?order=password:ASC`, auth());
+    expect(r.status, "jamais un tri silencieux sur un champ interdit").to.equal(
+      400,
+    );
+    const body = JSON.stringify(r.body);
+    expect(body).to.match(/password/);
+    // Un refus utile dit ce qui EST permis — sinon l'appelant devine.
+    expect(body).to.match(/identifier/);
+  });
+
+  it("le tri s'applique AVANT la pagination (page 2 prolonge page 1)", async () => {
+    const p1 = (
+      await req("GET", `${USERS}?limit=2&offset=0&order=identifier:ASC`, auth())
+    ).body as { items: { identifier: string }[]; total: number };
+    if (p1.total < 3) return; // trop peu de comptes pour deux pages
+    const p2 = (
+      await req("GET", `${USERS}?limit=2&offset=2&order=identifier:ASC`, auth())
+    ).body as { items: { identifier: string }[] };
+    const seq = [...p1.items, ...p2.items].map((u) => u.identifier);
+    expect(seq).to.deep.equal([...seq].sort((a, b) => a.localeCompare(b)));
+  });
+});
+
+// ── CAPACITÉS PUBLIÉES — ce que le catalogue annonce, l'endpoint l'HONORE ─────
+// La console lit ces capacités pour décider quelles colonnes sont cliquables et
+// si une barre de recherche existe. Une capacité publiée mais refusée par le
+// handler produit le pire symptôme possible : un en-tête qui répond 400 au
+// premier clic, sur un écran d'administration. Ce banc est GÉNÉRIQUE — il
+// parcourt le catalogue, donc il couvre les endpoints qui n'existent pas encore.
+
+interface CatalogPage {
+  sortable: string[];
+  filters: Record<string, unknown>;
+  search: boolean;
+  facets: Record<string, unknown>;
+}
+interface CatalogEndpoint {
+  method: string;
+  path: string;
+  page?: CatalogPage;
+}
+
+describe("Admin data plane — une capacité PUBLIÉE est une capacité HONORÉE", () => {
+  let paged: CatalogEndpoint[] = [];
+
+  beforeAll(async () => {
+    const r = await req("GET", "/nodefony/framework/api/admin", auth());
+    const body = r.body as { producers: { endpoints: CatalogEndpoint[] }[] };
+    paged = body.producers
+      .flatMap((p) => p.endpoints)
+      .filter((e) => e.page !== undefined && e.method === "GET");
+  });
+
+  it("le catalogue publie des capacités de page (sinon ce banc ne teste RIEN)", () => {
+    // Garde anti-banc-vide : sans elle, une régression qui SUPPRIME toute
+    // publication rendrait les tests suivants verts sur zéro itération.
+    expect(paged.length, "aucun endpoint paginé publié").to.be.greaterThan(3);
+    expect(
+      paged.map((e) => e.path),
+      "routes/page doit publier ses capacités",
+    ).to.include("/nodefony/framework/api/routes/page");
+    expect(
+      paged.map((e) => e.path),
+      "le journal doit publier les siennes",
+    ).to.include("/nodefony/syslog/api/logs/search");
+  });
+
+  it("CHAQUE champ annoncé `sortable` est accepté par son endpoint", async () => {
+    const failures: string[] = [];
+    for (const endpoint of paged) {
+      for (const field of endpoint.page!.sortable) {
+        const r = await req(
+          "GET",
+          `${endpoint.path}?limit=1&order=${encodeURIComponent(field)}:ASC`,
+          auth(),
+        );
+        if (r.status !== 200) {
+          failures.push(`${endpoint.path} order=${field} → ${r.status}`);
+        }
+      }
+    }
+    expect(failures, "capacité annoncée puis refusée").to.deep.equal([]);
+  });
+
+  it("un champ NON annoncé est refusé — l'allowlist est close", async () => {
+    const failures: string[] = [];
+    // Seuls les endpoints qui ANNONCENT un tri en ont un à refuser. Un endpoint
+    // de comptage n'a pas d'ordre du tout : `order` n'y change pas le nombre
+    // rendu, donc l'ignorer ne ment sur rien — contrairement à `?q=`, testé
+    // juste après, qui changerait la population comptée.
+    for (const endpoint of paged.filter((e) => e.page!.sortable.length > 0)) {
+      const r = await req(
+        "GET",
+        `${endpoint.path}?limit=1&order=__inexistant__:ASC`,
+        auth(),
+      );
+      if (r.status !== 400) failures.push(`${endpoint.path} → ${r.status}`);
+    }
+    expect(failures, "tri arbitraire accepté").to.deep.equal([]);
+  });
+
+  it("`search:false` et `?q=` sont cohérents dans les DEUX sens", async () => {
+    const failures: string[] = [];
+    for (const endpoint of paged) {
+      const r = await req("GET", `${endpoint.path}?limit=1&q=zz`, auth());
+      const expected = endpoint.page!.search ? 200 : 400;
+      if (r.status !== expected) {
+        failures.push(
+          `${endpoint.path} publie search=${endpoint.page!.search} et répond ${r.status}`,
+        );
+      }
+    }
+    expect(failures, "capacité de recherche incohérente").to.deep.equal([]);
+  });
+
+  // Une ressource se lit à DEUX endpoints : sa liste, et ses compteurs de tête.
+  // Que l'un cherche et pas l'autre est le pire cas de la console : taper dans
+  // la barre filtre le tableau et FIGE les cartes au-dessus, qui continuent de
+  // décrire la collection entière — deux vérités contradictoires côte à côte.
+  // Convention de nommage du dépôt : les compteurs de `P` vivent en `P/stats`,
+  // et sa liste est `P` ou `P/list`.
+  const statsOf = (
+    all: CatalogEndpoint[],
+  ): Array<[CatalogEndpoint, CatalogEndpoint | undefined]> =>
+    all
+      .filter((e) => e.path.endsWith("/stats"))
+      .map((stats) => {
+        const base = stats.path.slice(0, -"/stats".length);
+        return [
+          stats,
+          all.find((e) => e.path === base) ??
+            all.find((e) => e.path === `${base}/list`),
+        ];
+      });
+
+  it("une ressource qui CHERCHE dans sa liste cherche aussi dans ses compteurs", () => {
+    const failures: string[] = [];
+    const pairs = statsOf(paged);
+    for (const [stats, list] of pairs) {
+      if (!list) {
+        failures.push(
+          `${stats.path} : aucune liste appariée (attendu ${stats.path.slice(0, -6)} ou …/list)`,
+        );
+        continue;
+      }
+      if (list.page!.search && !stats.page!.search) {
+        failures.push(
+          `${list.path} cherche, ${stats.path} non — la barre filtrerait le tableau en figeant les cartes`,
+        );
+      }
+    }
+    expect(failures, "liste et compteurs désaccordés").to.deep.equal([]);
+    // Garde anti-banc-vide : sans elle, une régression qui casse l'appariement
+    // rendrait ce test vert sur zéro itération.
+    expect(
+      pairs.length,
+      "aucun endpoint de compteurs publié",
+    ).to.be.greaterThan(3);
+  });
+
+  it("la RECHERCHE déplace les compteurs — un `q` accepté n'est jamais JETÉ", async () => {
+    // Le test précédent vérifie la DÉCLARATION, celui-ci l'EFFET : un endpoint
+    // peut publier `search: true`, répondre 200 et jeter le terme. Un terme sans
+    // correspondance doit vider les compteurs, pas les laisser inchangés.
+    const IMPROBABLE = "zzz-aucune-correspondance-zzz";
+    const failures: string[] = [];
+    let proven = 0;
+    for (const endpoint of paged) {
+      if (!endpoint.page!.search) continue;
+      if (Object.keys(endpoint.page!.facets).length === 0) continue;
+      const before = await req("GET", endpoint.path, auth());
+      const total = (before.body as { total?: number | null })?.total;
+      // Ressource vide, ou backend qui ne sait pas compter (`null`) : rien à
+      // prouver ici — le comptage n'a pas de valeur à faire bouger.
+      if (before.status !== 200 || typeof total !== "number" || total === 0) {
+        continue;
+      }
+      const after = await req(
+        "GET",
+        `${endpoint.path}?q=${IMPROBABLE}`,
+        auth(),
+      );
+      if (after.status !== 200) {
+        failures.push(
+          `${endpoint.path} publie search=true et répond ${after.status}`,
+        );
+        continue;
+      }
+      const counts = after.body as Record<string, number | null>;
+      // `null` = « ce backend ne sait pas compter » — une réponse honnête, pas
+      // un compteur sourd. Seul un nombre non nul dénonce un terme jeté.
+      const restants = Object.entries(counts).filter(
+        ([, v]) => v !== 0 && v !== null,
+      );
+      if (restants.length > 0) {
+        failures.push(
+          `${endpoint.path} : ${total} avant, et ${restants
+            .map(([k, v]) => `${k}=${v}`)
+            .join(", ")} sur un terme sans correspondance`,
+        );
+        continue;
+      }
+      proven += 1;
+    }
+    expect(failures, "compteurs sourds à la recherche").to.deep.equal([]);
+    expect(
+      proven,
+      "aucun endpoint de compteurs n'a pu être ÉPROUVÉ (collections vides ?) — " +
+        "ce test ne prouve alors rien",
+    ).to.be.greaterThan(0);
+  });
+});
+
+// ── LE JOURNAL — un critère invalide se REFUSE, il ne rend pas TOUT ───────────
+// `SyslogAdminApi` était le dernier data plane à lire sa query à la main. Chaque
+// valeur qu'il ne comprenait pas laissait le critère vide : `?severity=CRITICAL`
+// (au lieu de `CRITIC`) rendait le journal ENTIER sous un 200 — la réponse qu'un
+// exploitant lit comme « aucune erreur critique ».
+
+describe("Data plane syslog — le vocabulaire est clos", () => {
+  const SEARCH = "/nodefony/syslog/api/logs/search";
+
+  const cases: [string, string][] = [
+    ["severty=ERROR", "un paramètre que personne ne lit"],
+    ["severity=CRITICAL", "CRITIC, jamais CRITICAL"],
+    ["protocol=grpc", "hors énumération"],
+    ["flow=nimporte", "étape inconnue"],
+    ["from=hier", "borne non entière"],
+    ["order=payload:ASC", "champ non triable"],
+  ];
+  for (const [query, why] of cases) {
+    it(`refuse \`?${query}\` (${why})`, async () => {
+      const r = await req("GET", `${SEARCH}?limit=5&${query}`, auth());
+      expect(r.status).to.equal(400);
+    });
+  }
+
+  it("TÉMOIN : la même lecture sans le critère fautif rend une page", async () => {
+    // Sans ce témoin, les refus ci-dessus passeraient aussi si l'endpoint était
+    // simplement cassé.
+    const r = await req("GET", `${SEARCH}?limit=5`, auth());
+    expect(r.status).to.equal(200);
+    expect((r.body as { rows: unknown[] }).rows.length).to.be.greaterThan(0);
+  });
+
+  it("multi-valeurs : les DEUX sévérités comptent, pas seulement la première", async () => {
+    // Le défaut nommé du chantier : `parseFilters` ne lisait que la première
+    // valeur. Un seul total ne le prouve pas — il faut comparer.
+    const total = async (q: string): Promise<number> => {
+      const r = await req("GET", `${SEARCH}?limit=1&${q}`, auth());
+      expect(r.status, `?${q}`).to.equal(200);
+      return (r.body as { total: number }).total;
+    };
+    const info = await total("severity=INFO");
+    const debug = await total("severity=DEBUG");
+    const both = await total("severity=INFO&severity=DEBUG");
+    expect(info, "le journal doit contenir des INFO").to.be.greaterThan(0);
+    expect(debug, "le journal doit contenir des DEBUG").to.be.greaterThan(0);
+    // Le journal VIT (chaque requête en écrit) : on ne peut pas exiger l'égalité
+    // stricte de la somme, seulement que le OU dépasse chaque terme.
+    expect(both, "le OU doit dépasser chaque sévérité seule").to.be.greaterThan(
+      Math.max(info, debug),
+    );
+  });
+
+  it("un filtre honoré RESTREINT — sinon il ne filtre rien", async () => {
+    const all = await req("GET", `${SEARCH}?limit=1`, auth());
+    const filtered = await req("GET", `${SEARCH}?limit=1&flow=ws-open`, auth());
+    expect(filtered.status).to.equal(200);
+    expect(
+      (filtered.body as { total: number }).total,
+      "un filtre qui rend autant que la collection entière ne filtre pas",
+    ).to.be.lessThan((all.body as { total: number }).total);
+  });
+
+  it("l'ordre est HONORÉ : ASC et DESC ne commencent pas au même log", async () => {
+    const first = async (dir: string): Promise<number> => {
+      const r = await req(
+        "GET",
+        `${SEARCH}?limit=1&order=timeStamp:${dir}`,
+        auth(),
+      );
+      expect(r.status).to.equal(200);
+      return (r.body as { rows: { uid: number }[] }).rows[0]!.uid;
+    };
+    const asc = await first("ASC");
+    const desc = await first("DESC");
+    expect(asc, "ASC doit partir du log le plus ANCIEN").to.be.lessThan(desc);
+  });
+});

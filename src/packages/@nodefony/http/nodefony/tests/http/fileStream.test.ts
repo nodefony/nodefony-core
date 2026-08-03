@@ -195,6 +195,42 @@ describe("HTTP STREAM Range — conformité RFC 9110 (416 / ignore / clamp)", ()
     });
   }
 
+  // RFC 9110 §15.5.5 — le 404 est l'absence de « représentation courante pour la
+  // ressource cible » ; le 500 (§15.6.1) suppose une condition INATTENDUE. Un
+  // chemin de média qui ne désigne aucun fichier n'a rien d'inattendu : il vient
+  // d'une entrée. Ce cas passe par le pipeline COMPLET, seul endroit où se voit
+  // ce que le client reçoit vraiment — le test unitaire ne prouve que le code
+  // porté par l'erreur.
+  it("média ABSENT → 404, et le chemin serveur ne fuit pas", async () => {
+    const { status, bytes } = await new Promise<{
+      status: number;
+      bytes: string;
+    }>((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: "localhost",
+          port: 5152,
+          path: "/nodefony/test/html/media-missing",
+          method: "GET",
+          rejectUnauthorized: false,
+        },
+        (res) => {
+          let corps = "";
+          res.on("data", (c: Buffer) => (corps += c.toString()));
+          res.on("end", () =>
+            resolve({ status: res.statusCode!, bytes: corps }),
+          );
+        },
+      );
+      req.on("error", reject);
+      req.end();
+    });
+    expect(status).to.equal(404);
+    // La même section autorise à ne pas divulguer l'existence d'une ressource :
+    // un chemin de système de fichiers dans le corps est une fuite.
+    expect(bytes).to.not.include("aucun-media-ici");
+  });
+
   it("Range hors représentation → 416 + Content-Range: bytes */<len>", async () => {
     const { status, headers } = await getMedia("bytes=999999999999-");
     expect(status).to.equal(416);

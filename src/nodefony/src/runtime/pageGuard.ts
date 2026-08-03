@@ -36,6 +36,34 @@ export class PaginationModeError extends nodefonyError {
 }
 
 /**
+ * Erreur levée quand un store paginant par **curseur** reçoit un
+ * {@link IPageQuery.order} : il ne peut pas l'honorer, et l'avaler mentirait.
+ *
+ * Ce n'est pas une limite d'implémentation, c'est la nature du curseur : le
+ * jeton encode une **position dans un ordre total**, celui-là même que le store
+ * applique. Le rendre paramétrable rendrait tout jeton déjà émis ininterprétable
+ * — la page suivante sauterait ou répéterait des lignes, silencieusement, ce qui
+ * est le pire défaut possible sur un journal d'audit.
+ *
+ * `code = 400` : c'est le client qui demande une capacité que ce point d'entrée
+ * n'a pas. Un backend curseur qui saurait trier devrait d'abord embarquer
+ * l'ordre DANS son curseur ; il déclarerait alors `sortableFields` et cette
+ * garde serait à revoir avec lui — pas avant.
+ */
+export class CursorOrderError extends nodefonyError {
+  /** @param fields - les champs de tri demandés, dans l'ordre reçu. */
+  constructor(fields: readonly string[]) {
+    super(
+      `Sorting is not supported by a cursor-paginated store (requested: ` +
+        `${fields.join(", ")}). The cursor encodes a position in the store's ` +
+        `own total order; changing that order would invalidate every token ` +
+        `already issued. Drop "order", or use an offset-paginated backend.`,
+      400,
+    );
+  }
+}
+
+/**
  * Fait respecter le contrat « un store expose UN seul mode » au point d'entrée
  * d'un `listPage`, sur la requête **brute** reçue de l'appelant (avant qu'elle ne
  * soit normalisée) : rejette explicitement le champ du mode non supporté plutôt
@@ -52,10 +80,19 @@ export class PaginationModeError extends nodefonyError {
  * ne trahissent aucune intention du mauvais mode et ne sont donc pas rejetés. Seule
  * une vraie navigation du mode adverse (`cursor` non vide, `offset > 0`) lève.
  *
+ * **Le mode curseur refuse aussi le TRI** ({@link CursorOrderError}) : son ordre
+ * est imposé par le jeton, pas choisi par l'appelant. Le data plane le refuse
+ * déjà en amont (aucun endpoint curseur ne déclare `sortable`), mais un appelant
+ * interne — un autre service, un test, un futur endpoint — fabrique son
+ * `IPageQuery` à la main ; sans cette ligne, son `order` était ignoré sans un
+ * mot par les six stores curseur du dépôt.
+ *
  * @param query - la requête de page brute reçue par le store.
  * @param mode - le mode que le store sait honorer.
  * @throws {@link PaginationModeError} (`code` 400) si le champ du mode adverse est
  *   présent avec une valeur de navigation.
+ * @throws {@link CursorOrderError} (`code` 400) si un `order` non vide est fourni
+ *   à un store curseur.
  */
 export function assertPageQuery(query: IPageQuery, mode: PaginationMode): void {
   if (mode === "offset") {
@@ -67,5 +104,9 @@ export function assertPageQuery(query: IPageQuery, mode: PaginationMode): void {
   // mode === "cursor"
   if (typeof query.offset === "number" && query.offset > 0) {
     throw new PaginationModeError("offset", "cursor");
+  }
+  // Un `order` VIDE n'exprime aucune intention (comme `offset: 0`) → toléré.
+  if (query.order && query.order.length > 0) {
+    throw new CursorOrderError(query.order.map(([field]) => field));
   }
 }

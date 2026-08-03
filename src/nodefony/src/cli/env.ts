@@ -205,6 +205,39 @@ function render(report: IEnvReport, projectRoot: string | null): string {
  *
  * @returns exit code sémantique (`OK`, `USAGE`, `CONFIG` si une requise manque)
  */
+/**
+ * Compose le rapport d'environnement d'un projet — la MÊME donnée pour tous ses
+ * lecteurs.
+ *
+ * Extraite de {@link runEnvCommand} pour que `nodefony check` puisse dire « il
+ * manque une variable REQUISE » sans réimplémenter la cascade : deux définitions
+ * de « quelle valeur est effective » divergeraient, et chacune passerait ses
+ * propres tests. Le second lecteur ne rend d'ailleurs pas le rapport, il n'en
+ * lit que les manquantes — raison de plus pour qu'il ne le RECALCULE pas.
+ *
+ * @param projectRoot - racine de l'application, ou `null` hors projet (le
+ *   catalogue des variables déclarées est alors inconnu : il se lit dans le
+ *   `dist/` de l'application).
+ * @param cwd - dossier de départ, utilisé comme racine hors projet.
+ * @returns le rapport complet (fichiers lus, variables, provenance, notes).
+ */
+export async function buildProjectEnvReport(
+  projectRoot: string | null,
+  cwd: string,
+): Promise<IEnvReport> {
+  const runtimeEnv = process.env.NODE_ENV ?? "development";
+  const rawAppEnv = process.env.APP_ENV ?? process.env.NODEFONY_ENV ?? null;
+  const appEnv = rawAppEnv && rawAppEnv !== runtimeEnv ? rawAppEnv : null;
+  const root = projectRoot ?? cwd;
+  return buildEnvReport({
+    runtimeEnv,
+    appEnv,
+    processEnv: process.env,
+    files: readLevels(root, runtimeEnv, appEnv),
+    catalog: projectRoot ? await readCatalog(projectRoot) : null,
+  });
+}
+
 export async function runEnvCommand(argv: string[]): Promise<number> {
   const parsed = parseEnvArgv(argv);
   if ("error" in parsed) {
@@ -212,17 +245,7 @@ export async function runEnvCommand(argv: string[]): Promise<number> {
     return SysExit.USAGE;
   }
   const projectRoot = findProjectRoot(parsed.cwd);
-  const runtimeEnv = process.env.NODE_ENV ?? "development";
-  const rawAppEnv = process.env.APP_ENV ?? process.env.NODEFONY_ENV ?? null;
-  const appEnv = rawAppEnv && rawAppEnv !== runtimeEnv ? rawAppEnv : null;
-  const root = projectRoot ?? parsed.cwd;
-  const report = buildEnvReport({
-    runtimeEnv,
-    appEnv,
-    processEnv: process.env,
-    files: readLevels(root, runtimeEnv, appEnv),
-    catalog: projectRoot ? await readCatalog(projectRoot) : null,
-  });
+  const report = await buildProjectEnvReport(projectRoot, parsed.cwd);
   if (projectRoot === null) {
     report.notes.push(
       "aucun projet Nodefony ici (nodefony.config.ts introuvable en remontant) — " +

@@ -82,6 +82,14 @@ export class MemoryAuditStore implements IAuditStore {
     // d'insertion ne suffit PAS : deux événements de la même milliseconde
     // (rafale de login) doivent être départagés par leur id, sinon le curseur
     // composite pourrait sauter ou répéter l'un d'eux.
+    //
+    // Cet ordre est IMPOSÉ, pas un défaut : c'est celui qu'encode le curseur.
+    // Un `order` reçu est donc refusé en amont par `assertPageQuery(…,
+    // "cursor")` — jamais avalé en silence. Et il ne passe PAS par
+    // `compareByOrder` du cœur : celui-ci compare les chaînes en
+    // `localeCompare`, là où `#parseCursor` départage les id en comparaison
+    // BRUTE (`<`). Deux ordres différents pour la même page feraient sauter des
+    // lignes au tour suivant — les deux comparaisons doivent rester identiques.
     matched.sort((a, b) =>
       a.ts !== b.ts ? b.ts - a.ts : a.id < b.id ? 1 : -1,
     );

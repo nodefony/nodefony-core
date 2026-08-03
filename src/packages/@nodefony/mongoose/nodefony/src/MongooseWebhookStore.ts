@@ -1,9 +1,15 @@
 import type { IRepository } from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
 import { assertPageQuery, escapeRegExp } from "nodefony";
-// `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
-// dépendance runtime de l'ORM vers `@nodefony/security`. L'application câble le
-// store via `registerWebhookStore("mongoose", …)`.
+// Contrat en `import type` (effacé à la compilation) ; le VOCABULAIRE DE TRI,
+// lui, est une valeur — et il s'importe au lieu de se recopier : deux listes de
+// champs triables divergent en silence. Le module tire déjà `@nodefony/security`
+// au runtime par son point d'enregistrement (`registerWebhookStore`).
+import {
+  WEBHOOK_DEFAULT_ORDER,
+  WEBHOOK_SORTABLE_FIELDS,
+} from "@nodefony/security";
+import { mongoOrder, toMongoSort } from "./mongoOrder";
 import type {
   IWebhookEndpoint,
   IWebhookListQuery,
@@ -39,6 +45,13 @@ import {
  * `events`/`metadata` sont copiés défensivement.
  */
 export class MongooseWebhookStore implements IWebhookStore {
+  /**
+   * {@inheritDoc IWebhookStore.sortableFields}
+   *
+   * Capacité pleine : le vocabulaire public entier est trié par Mongo, `id`
+   * compris — traduit en `_id` au moment de la requête.
+   */
+  readonly sortableFields = WEBHOOK_SORTABLE_FIELDS;
   readonly #repo: IRepository<WebhookEndpointRow>;
   readonly #model: LooseModel | null;
 
@@ -168,6 +181,11 @@ export class MongooseWebhookStore implements IWebhookStore {
   #listFilter(query: IWebhookListQuery): Record<string, unknown> {
     const filter: Record<string, unknown> = {};
     if (query.enabled !== undefined) filter.enabled = query.enabled;
+    if (query.failing !== undefined) {
+      // « En échec » = au moins un échec consécutif courant. La forme Mongo est
+      // une comparaison, pas un booléen stocké : `failureCount` est un compteur.
+      filter.failureCount = query.failing ? { $gt: 0 } : 0;
+    }
     if (query.event !== undefined) filter.events = query.event;
     if (query.q !== undefined && query.q.length > 0) {
       // Échappe les métacaractères : une recherche utilisateur n'est PAS une regex.
@@ -183,8 +201,14 @@ export class MongooseWebhookStore implements IWebhookStore {
   /**
    * {@inheritDoc IWebhookStore.listPage}
    *
-   * Query native : `find(filter).sort({createdAt:-1, _id:1}).skip().limit(limit+1)`
-   * — une page, jamais la collection. Le `limit + 1` donne `hasNext` sans compter.
+   * Query native : `find(filter).sort(…).skip().limit(limit+1)` — une page,
+   * jamais la collection. Le `limit + 1` donne `hasNext` sans compter.
+   *
+   * Le tri demandé est **traduit** avant de descendre : au repos, l'endpoint n'a
+   * pas de champ `id` (l'identifiant EST le `_id`), et Mongo ne se plaint pas
+   * d'un tri sur un champ absent — il rend un ordre arbitraire. Sans traduction,
+   * un `?order=id` serait donc inerte ici et correct partout ailleurs. À défaut
+   * d'`order`, l'ordre par défaut `createdAt DESC, _id ASC` reste déterministe.
    */
   async listPage(query: IWebhookListQuery): Promise<IPage<IWebhookEndpoint>> {
     assertPageQuery(query, "offset");
@@ -192,9 +216,16 @@ export class MongooseWebhookStore implements IWebhookStore {
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
     const model = this.#nativeModel();
     const filter = this.#listFilter(query);
+    // Borné à ce que ce store DÉCLARE, PUIS traduit dans le schéma Mongo — les
+    // deux gestes, dans cet ordre, sont portés par `mongoOrder`.
+    const order = mongoOrder(
+      query.order,
+      this.sortableFields,
+      WEBHOOK_DEFAULT_ORDER,
+    );
     const docs = await model
       .find(filter)
-      .sort({ createdAt: -1, _id: 1 }) // tiebreaker déterministe
+      .sort(toMongoSort(order))
       .skip(offset)
       .limit(limit + 1)
       .exec();

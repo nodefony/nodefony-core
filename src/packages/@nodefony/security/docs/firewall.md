@@ -275,24 +275,26 @@ en dernier : « le canal doit être prouvé (ex. mTLS), l'identité utilisateur 
 nul : `supports()` accepte tout, le token porte le singleton gelé `anonymousUser` (0 allocation).
 Sans lui, zone protégée + aucune preuve = 401.
 
-### `session-realtime` — la session, côté WebSocket (câblé auto)
+### `firewall-realtime` — l'identité du firewall, côté WebSocket (câblé auto)
 
-Équivalent WS de `session`, **enregistré automatiquement** par `Firewall.#wireRealtime()` au
-handshake des zones protégées `realtime` (`firewall.ts:269`).
+Il promeut en jeton realtime **toute** identité que le firewall a résolue — session BFF comme jeton
+porteur (JWT, clé d'API). **Enregistré automatiquement** par `Firewall.#wireRealtime()` au
+handshake des zones protégées `realtime` (`firewall.ts:289`).
 
 - **Perf : il ne relit pas la base.** Handshake et frames tournent dans la même bulle ALS —
   l'identité déjà posée est réutilisée, 2 lectures base économisées par connexion
-  (`SessionRealtimeAuthenticator.ts:16-25`).
+  (`FirewallRealtimeAuthenticator.ts:24-30`).
 - **Asymétrie HTTP↔WS assumée** : le jeton est **figé au handshake** (les frames lisent un cache
-  O(1)) → une révocation prend effet **à la reconnexion**, pas à la frame suivante. C'est l'état de
-  l'art (Socket.IO et Phoenix figent aussi).
+  O(1)) → une révocation prend effet **en une fenêtre** (tick du hub, et devant chaque
+  `api.request`), pas à la frame suivante (`FirewallRealtimeAuthenticator.ts:51-55`). C'est l'état
+  de l'art (Socket.IO et Phoenix figent aussi).
 - **Filet** : un revalidator re-lit la session avant chaque action data plane ; fail-closed →
   fermeture 4001.
 
 ## ⚙️ Ordre et modes (`mode: "first"` vs `"all"`)
 
 La liste `area.authenticators` se lit **dans l'ordre**, déroulée par `Firewall.#authenticate()`
-(`firewall.ts:918`). Le `mode` dit comment la parcourir. Trois situations concrètes :
+(`firewall.ts:1013`). Le `mode` dit comment la parcourir. Trois situations concrètes :
 
 ### Situation 1 — humains ET machines sur la même API (`first`, le mode courant)
 
@@ -348,7 +350,7 @@ Basic …`). Une seule manque → 401. Le **dernier** token de la chaîne porte 
 
 > [!TIP]
 > Un nom d'authenticator inconnu en config **fait échouer le boot** —
-> `Firewall.#instantiateAuthenticators()` est fail-closed (`firewall.ts:363`) : jamais de zone
+> `Firewall.#instantiateAuthenticators()` est fail-closed (`firewall.ts:402`) : jamais de zone
 > « protégée » silencieusement ouverte à cause d'une faute de frappe.
 
 ## 🧑‍⚖️ Autorisation — rôles, scopes, voters (« as-tu le droit ? »)
@@ -433,33 +435,33 @@ scopes, métier), un même jury, combinables.
 
 ## 🔌 HTTP et WebSocket — le même firewall
 
-`Firewall.#wireRealtime()` (`firewall.ts:253`) câble, pour toute zone protégée `realtime !== false`
-(opt-out, `firewall.ts:262`), le `SessionRealtimeAuthenticator` au handshake (`firewall.ts:269`)
-**et** un `frameAuthorizer` (RBAC par canal, `firewall.ts:297`). Même résolution de zone que HTTP.
+`Firewall.#wireRealtime()` (`firewall.ts:268`) câble, pour toute zone protégée `realtime !== false`
+(opt-out, `firewall.ts:277`), le `FirewallRealtimeAuthenticator` au handshake (`firewall.ts:289`)
+**et** un `frameAuthorizer` (RBAC par canal, `firewall.ts:337`). Même résolution de zone que HTTP.
 Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setChallenge()`,
-`firewall.ts:981`) : le **code de fermeture** suffit.
+`firewall.ts:1076`) : le **code de fermeture** suffit.
 
 ## 🛡️ En-têtes de sécurité, CSRF, CORS
 
 - **`Firewall.applySecurityHeaders()`** (`firewall.ts:835`) : CSP, Referrer-Policy, COOP/COEP/CORP
   au-dessus du socle transport de `@nodefony/http`. **Nonce CSP paresseux** (`hasNonce`, `firewall.ts:855`) :
   alloué seulement si une directive en a besoin.
-- **`Firewall.enforceCsrf()`** (défense en profondeur, `firewall.ts:741`) : Fetch Metadata
+- **`Firewall.enforceCsrf()`** (défense en profondeur, `firewall.ts:833`) : Fetch Metadata
   (`Sec-Fetch-Site`) + garde `Origin` (`firewall.ts:764`), puis double-submit `x-csrf-token` ≡
   cookie + HMAC (`firewall.ts:778`).
-- **`Firewall.handleCors()`** : preflight `OPTIONS` → 204 (`firewall.ts:797`).
+- **`Firewall.handleCors()`** : preflight `OPTIONS` → 204 (`firewall.ts:892`).
 
 ## 📜 Normes appliquées
 
 | Domaine                | Norme           | Ancrage                                                |
 | ---------------------- | --------------- | ------------------------------------------------------ |
-| Challenge d'auth (401) | RFC 7235        | `Firewall.#setChallenge()` (`firewall.ts:981`)         |
+| Challenge d'auth (401) | RFC 7235        | `Firewall.#setChallenge()` (`firewall.ts:1076`)        |
 | Bearer                 | RFC 6750        | `JwtAuthenticator.ts:13` · `ApiKeyAuthenticator.ts:11` |
 | JWT (BCP)              | RFC 7519, 8725  | `JwtAuthenticator.ts:33-44,104-108`                    |
 | HTTP Basic             | RFC 7617        | `UserPasswordAuthenticator.ts:10-28`                   |
 | Rate limit (429)       | RFC 6585        | 429 + `Retry-After` (`firewall.ts:585`)                |
 | Backoff de login       | NIST SP 800-63B | `UserPasswordAuthenticator.ts:43-46,101-104`           |
-| CSRF                   | Fetch Metadata  | `Firewall.enforceCsrf()` (`firewall.ts:741`)           |
+| CSRF                   | Fetch Metadata  | `Firewall.enforceCsrf()` (`firewall.ts:833`)           |
 | Modèle                 | Zero Trust      | `firewall.ts:611` (aucune preuve → 401)                |
 
 ## ⚡ Performance & mémoire

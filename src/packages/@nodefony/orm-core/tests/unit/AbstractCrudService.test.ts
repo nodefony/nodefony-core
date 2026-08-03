@@ -80,6 +80,15 @@ class MemoryRepo implements IRepository<Widget> {
     return this.find(criteria).then((r) => r.length);
   }
 
+  countDistinct(field: keyof Widget & string, criteria?: Criteria<Widget>) {
+    return this.find(criteria).then(
+      (r) =>
+        new Set(
+          r.map((w) => w[field]).filter((v) => v !== null && v !== undefined),
+        ).size,
+    );
+  }
+
   createMany(data: Partial<Widget>[]) {
     return Promise.all(data.map((d) => this.create(d)));
   }
@@ -94,7 +103,11 @@ class MemoryRepo implements IRepository<Widget> {
       Object.assign(found, update);
       return Promise.resolve(found);
     }
-    return this.create({ ...criteria, ...insertOnly, ...update } as Partial<Widget>);
+    return this.create({
+      ...criteria,
+      ...insertOnly,
+      ...update,
+    } as Partial<Widget>);
   }
 
   increment(

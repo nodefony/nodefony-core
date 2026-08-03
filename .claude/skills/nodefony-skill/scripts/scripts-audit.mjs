@@ -99,31 +99,50 @@ function protocolSignals(path) {
 
 const rows = [];
 const rootScripts = collect(ROOT_SCRIPTS);
-// Un script IMPORTÉ par un autre script est appelé — même si aucun texte ne le mentionne.
-// Sans ça, un fichier de configuration importé par son outil passe pour un orphelin.
-const allScriptSources = rootScripts
-  .concat(
-    ...[...skillTexts.keys()].flatMap((n) => collect(join(SKILLS_DIR, n))),
-  )
-  .map((p) => {
-    try {
-      return readFileSync(p, "utf8");
-    } catch {
-      return "";
-    }
-  })
-  .join("\n");
+const sourcesByPath = new Map(
+  rootScripts
+    .concat(
+      ...[...skillTexts.keys()].flatMap((n) => collect(join(SKILLS_DIR, n))),
+    )
+    .map((p) => {
+      try {
+        return [p, readFileSync(p, "utf8")];
+      } catch {
+        return [p, ""];
+      }
+    }),
+);
+
+/**
+ * Un script IMPORTÉ par un autre script est appelé — même si aucun texte ne le
+ * mentionne. Sans cette règle, un fichier de configuration importé par son
+ * outil passe pour un orphelin, et les juges d'un banc — chacun appelé par le
+ * banc ET par son auto-contrôle — sont déclarés morts par paquets de huit.
+ *
+ * L'appelant doit être un AUTRE fichier : un script qui se nomme lui-même dans
+ * son propre en-tête ne prouve rien. Une seule implémentation pour les deux
+ * zones (racine et skills) : la même règle écrite deux fois divergerait, et
+ * c'est exactement ce qui s'était produit — les scripts de skill n'en
+ * bénéficiaient pas.
+ */
+const importeAilleurs = (p) => {
+  const base = p.split("/").pop();
+  for (const [autre, src] of sourcesByPath) {
+    if (autre === p) continue;
+    if (src.includes(`/${base}`) || src.includes(`"${base}`)) return true;
+  }
+  return false;
+};
 
 for (const p of rootScripts) {
   const base = p.split("/").pop();
   const inPkg = pkg.includes(p) || pkg.includes(base);
   // Le nom du fichier apparaît tel quel dans un `import "./x.ts"` — inutile de construire une
   // expression : la première tentative l'a fait, et son échappement produisait un `\\` littéral.
-  const importedByScript =
-    allScriptSources.includes(`/${base}`) ||
-    allScriptSources.includes(`"${base}`);
   const inSkill =
-    allSkillText.includes(p) || allSkillText.includes(base) || importedByScript;
+    allSkillText.includes(p) ||
+    allSkillText.includes(base) ||
+    importeAilleurs(p);
   const inDocs = docsText.includes(p);
   const signals = protocolSignals(p);
   let verdict, why;
@@ -150,22 +169,28 @@ for (const [name, text] of skillTexts) {
   for (const p of collect(dir)) {
     const rel = p.slice(dir.length + 1);
     const base = p.split("/").pop();
-    const cited = text.includes(rel) || text.includes(base);
+    const nomme = text.includes(rel) || text.includes(base);
+    const appele = nomme || importeAilleurs(p);
     rows.push({
       zone: name,
       path: p,
-      verdict: cited ? "✅ bien placé" : "⚠️  non cité par son skill",
-      why: cited
+      verdict: appele ? "✅ bien placé" : "⚠️  non cité par son skill",
+      why: nomme
         ? "cité par le skill qui le porte"
-        : "présent mais jamais mentionné — mort, ou à documenter",
+        : appele
+          ? "importé par un autre script du dépôt"
+          : "présent mais jamais mentionné — mort, ou à documenter",
     });
   }
-  // Renvois vers des scripts qui n'existent pas. Deux pièges déjà payés :
+  // Renvois vers des scripts qui n'existent pas. Trois pièges déjà payés :
   //   — `\.js` capture le `.js` de `test-map.json` : exiger une frontière de mot ;
   //   — un renvoi peut viser la RACINE ou un AUTRE skill : chercher ailleurs avant de crier au mort.
   //   — `es5.d.ts` est une DÉCLARATION de types, jamais un script : l'écarter.
+  //   — un chemin peut porter un SOUS-DOSSIER (`scripts/lib/isolation.mjs`) : sans
+  //     le segment intermédiaire, le motif repartait à `lib/…` et déclarait mort un
+  //     fichier bien présent. Un gate qui crie au loup finit par ne plus être lu.
   for (const m of text.matchAll(
-    /(?:scripts|lib)\/[\w.-]+\.(?:mjs|js|sh|py|ts)(?![\w.])/g,
+    /(?:scripts|lib)(?:\/[\w.-]+)*\/[\w.-]+\.(?:mjs|js|sh|py|ts)(?![\w.])/g,
   )) {
     const ref = m[0];
     if (ref.endsWith(".d.ts")) continue;

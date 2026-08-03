@@ -391,7 +391,7 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:334-390`) et `token
 
 | Option                | Type               | Défaut   | Effet                                                                                    |
 | --------------------- | ------------------ | -------- | ---------------------------------------------------------------------------------------- |
-| `enabled`             | boolean            | `true`   | Active signature + refresh (`config.ts:336`)                                             |
+| `enabled`             | boolean            | `true`   | Active signature + refresh (`config.ts:317`)                                             |
 | `alg`                 | `EdDSA` \| `RS256` | `EdDSA`  | `RS256` = slot non câblé (`jwtRuntime.ts:21`)                                            |
 | `accessTtlS`          | number (s)         | `900`    | TTL de l'access token — 15 min (`config.ts:338-342`)                                     |
 | `refreshTtlS`         | number (s)         | `604800` | TTL du refresh — 7 jours (`config.ts:343-347`)                                           |

@@ -38,7 +38,9 @@ nodefony create module blog --controller hello --command   # + --frontend react,
 
 Elle pose un **workspace npm** (`modules/blog/`), câble les workspaces + les scripts de
 l'app, ajoute `use("@<app>/blog", {})` au manifeste `modules`, délègue le controller/front
-aux scaffolds `create controller` / `create front`, installe et construit. Templates réels :
+aux scaffolds `create controller` / `create front`, installe et construit. Un service
+s'ajoute ensuite par `nodefony create service <Nom> --module <nom>` (il câble le
+`@services([…])` seul, et le CRÉE si la cible n'en avait pas). Templates réels :
 `src/nodefony/templates/module/` ; moteur : `src/nodefony/src/cli/scaffold/engine.ts`.
 
 Ce que l'IA apporte **en plus** de la commande (c'est ça, la valeur du skill) : le choix des

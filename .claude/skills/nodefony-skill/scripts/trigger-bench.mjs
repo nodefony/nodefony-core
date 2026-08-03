@@ -115,6 +115,21 @@ const CASES = [
   ["créer un skill", "nodefony-skill"],
   ["mon skill ne se déclenche jamais", "nodefony-skill"],
   ["fusionner deux skills en un", "nodefony-skill"],
+  // — skills LIVRÉS PAR NPM (`@nodefony/devkit/skills/`), destinés à l'auteur
+  //   d'une application, pas au développeur du framework. Ce sont des phrases
+  //   d'utilisateur : « je veux stocker des articles », pas « scaffolder une
+  //   entité ». C'est précisément cette formulation-là qui doit mordre, puisque
+  //   c'est la seule que l'utilisateur emploiera.
+  ["je veux stocker des articles dans mon app", "add-crud"],
+  ["ajoute une entité avec un CRUD", "add-crud"],
+  ["comment définir une relation entre deux entités", "add-crud"],
+  ["crée un service métier partagé", "add-service"],
+  ["mon service est undefined dans le conteneur", "add-service"],
+  ["protège cette route", "protect-route"],
+  ["un partenaire doit pouvoir poster chez moi", "protect-route"],
+  ["réserver cette page aux administrateurs", "protect-route"],
+  ["ajoute un flux temps réel", "add-realtime-channel"],
+  ["mon canal websocket est public", "add-realtime-channel"],
 ];
 
 /**
@@ -189,10 +204,36 @@ const words = (s) =>
     .split(" ")
     .filter((w) => w.length > 2 && !STOP.has(w));
 
+/**
+ * Les dossiers où vivent des skills de ce dépôt.
+ *
+ * Les skills du REPO (`.claude/skills/`) servent à développer le framework ; ceux
+ * des PAQUETS (`src/packages/@nodefony/<m>/skills/`) partent sur npm et servent à
+ * développer AVEC. Les seconds sont exposés au même risque que les premiers — une
+ * description resserrée, et le skill cesse de se déclencher sans que rien ne le
+ * dise — sauf qu'ils sont chez des utilisateurs, où personne ne peut plus le
+ * corriger. Ils sont donc mesurés ici, par le même banc : une capacité livrée à
+ * un agent arrive AVEC sa mesure, et cette règle vaut aussi pour les skills.
+ */
+function skillDirs() {
+  const dirs = [SKILLS_DIR];
+  const packages = "src/packages/@nodefony";
+  for (const pkg of existsSync(packages) ? readdirSync(packages).sort() : []) {
+    const d = join(packages, pkg, "skills");
+    if (existsSync(d)) dirs.push(d);
+  }
+  return dirs;
+}
+
 function loadSkills() {
   const out = [];
-  for (const name of readdirSync(SKILLS_DIR).sort()) {
-    const f = join(SKILLS_DIR, name, "SKILL.md");
+  const entries = skillDirs().flatMap((dir) =>
+    readdirSync(dir)
+      .sort()
+      .map((name) => ({ dir, name })),
+  );
+  for (const { dir, name } of entries) {
+    const f = join(dir, name, "SKILL.md");
     if (!existsSync(f)) continue;
     const raw = readFileSync(f, "utf8").split(/^---$/m)[1] || "";
     const lines = raw.split("\n");
@@ -210,7 +251,21 @@ function loadSkills() {
     }
     const after = desc.split(/D[ée]clencheurs?\s*(?:étroits[^:]*)?:/i);
     const trig = [...(after[1] || "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-    out.push({ name, desc, prose: after[0], triggers: trig });
+    // La PORTÉE, et elle change le verdict : les skills du dépôt et ceux livrés
+    // par un paquet ne se rencontrent JAMAIS. Un développeur du framework a les
+    // premiers ; l'auteur d'une application n'a que les seconds, posés par
+    // `ai:sync`. Les faire concourir ensemble fabriquerait des recouvrements qui
+    // n'existent pour personne — « websocket » réclamé par `nodefony-rfc` face à
+    // un skill que l'utilisateur d'app est le seul à posséder — et on
+    // apprendrait à ignorer un avertissement, ce qui est pire que ne pas
+    // l'émettre.
+    out.push({
+      name,
+      desc,
+      prose: after[0],
+      triggers: trig,
+      scope: dir === SKILLS_DIR ? "repo" : "package",
+    });
   }
   return out;
 }
@@ -251,10 +306,25 @@ if (LIST_ONLY) {
   process.exit(0);
 }
 
-const rank = (phrase) =>
+/**
+ * Classe les skills d'une PORTÉE pour une phrase.
+ *
+ * L'élection se fait entre skills qui coexistent réellement chez le même
+ * utilisateur — cf `scope` dans `loadSkills`. Sans portée, un skill de paquet
+ * serait jugé face à vingt-trois skills que son utilisateur n'aura jamais.
+ *
+ * @param {string} phrase - la demande, telle qu'elle serait formulée.
+ * @param {"repo"|"package"} scope - le corpus dans lequel élire.
+ * @returns {{name: string, sc: number}[]} les skills, du plus au moins probable.
+ */
+const rank = (phrase, scope = "repo") =>
   skills
+    .filter((s) => s.scope === scope)
     .map((s) => ({ name: s.name, sc: score(phrase, s) }))
     .sort((a, b) => b.sc - a.sc);
+
+/** La portée d'un skill par son nom — les cas ne la déclarent pas. */
+const scopeOf = (name) => skills.find((s) => s.name === name)?.scope ?? "repo";
 
 const FRAGILE_MARGIN = 0.15; // marge relative sous laquelle un cas vert tient à peu de chose
 
@@ -263,7 +333,7 @@ const failures = [];
 const fragile = [];
 
 for (const [phrase, expected] of CASES) {
-  const ranked = rank(phrase);
+  const ranked = rank(phrase, scopeOf(expected));
   const [first, second] = ranked;
   const ok = first.sc > 0 && first.name === expected;
   if (ok) {
@@ -297,7 +367,7 @@ for (const [phrase, expected] of CASES) {
 // ————————————————————————————————————————————————————————— cas négatifs (ne DOIT pas élire)
 const negFail = [];
 for (const [phrase, mustNot] of NEGATIVE_CASES) {
-  const top = rank(phrase)[0];
+  const top = rank(phrase, scopeOf(mustNot))[0];
   if (top.sc > 0 && top.name === mustNot) negFail.push({ phrase, mustNot });
 }
 
@@ -311,7 +381,7 @@ const tArbitrated = []; // recouvrement documenté dans ACCEPTED_OVERLAPS
 const tOpen = []; // recouvrement NON tranché — le vrai signal
 for (const s of skills) {
   for (const t of s.triggers) {
-    const got = rank(t)[0];
+    const got = rank(t, s.scope)[0];
     if (got.sc > 0 && got.name === s.name) {
       tPass++;
       continue;

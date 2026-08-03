@@ -15,16 +15,28 @@
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
 <% if (it.frontend === "react") { %>    "jsx": "react-jsx",
-<% } %>    "noEmit": true
-  },
+<% } %><% if (it.publishable) { %>    "stripInternal": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "declaration": true,
+    "declarationDir": "./dist/types"
+<% } else { %>    "noEmit": true
+<% } %>  },
   "include": [
     "index.ts",
     "rolldown.config.ts",
-    "vitest.config.ts",
-    "nodefony/**/*.ts",
-<% if (it.frontend === "react") { %>    "frontend/src/**/*",
-<% } %><% if (it.frontend === "vue" || it.frontend === "angular") { %>    "frontend/src/**/*.ts",
-<% } %>    "tests/**/*.ts"
+<% if (!it.publishable) { %>    "vitest.config.ts",
+<% } %>    "nodefony/**/*.ts"<% if (it.frontend === "react") { %>,
+    "frontend/src/**/*"<% } %><% if (it.frontend === "vue" || it.frontend === "angular") { %>,
+    "frontend/src/**/*.ts"<% } %><% if (!it.publishable) { %>,
+    "tests/**/*.ts"<% } %>
   ],
-  "exclude": ["node_modules", "dist"]
-}
+<% if (it.publishable) { %>  "exclude": [
+    "node_modules",
+    "dist",
+    "tests/**",
+    "**/*.test.ts",
+    "vitest.config.ts"
+  ]
+<% } else { %>  "exclude": ["node_modules", "dist"]
+<% } %>}

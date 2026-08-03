@@ -1,12 +1,48 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import type { ApiClient } from "../services/ApiClient";
 
+/**
+ * Ce qu'un endpoint paginé DÉCLARE savoir faire — miroir de
+ * `IAdminPageCapabilities` (core), tel que le catalogue le sérialise.
+ *
+ * Type MIROIR volontaire (frontière isomorphe : le bundle client n'importe
+ * aucun module serveur). Il ne porte que du JSON : `sortable` a déjà été évalué
+ * côté serveur par le store branché.
+ */
+export interface AdminPageCapabilities {
+  /** Champs que le backend BRANCHÉ sait trier — vide = aucun tri possible. */
+  sortable: string[];
+  /** Nom public → nature (`"boolean"`, `"int"`, `"string"`) ou liste fermée. */
+  filters: Record<string, string | string[]>;
+  /**
+   * Le backend branché sait-il **chercher** (`?q=`) — déjà évalué côté serveur.
+   *
+   * `false` → la vue n'affiche AUCUNE barre de recherche. Elle en affichait une
+   * partout : sur les sessions et les clés d'API, le serveur n'a jamais relayé
+   * `q` à son store, si bien qu'une recherche rendait la collection entière —
+   * et le contrat la refuse désormais en `400`.
+   */
+  search: boolean;
+  /**
+   * Table des facettes — nom → jeu de filtres qui la sélectionne. C'est ce qui
+   * rend une carte de tête CLIQUABLE sans que la console redéfinisse de son
+   * côté ce que « actives » ou « en échec » veut dire.
+   *
+   * Vide pour un endpoint qui n'en déclare pas : ses cartes restent alors de
+   * simples nombres, ce qui est préférable à un clic qui filtrerait autre chose
+   * que ce que la carte annonce.
+   */
+  facets: Record<string, Record<string, unknown>>;
+}
+
 /** Un endpoint admin tel que décrit par le catalogue `/framework/api/admin`. */
 export interface AdminEndpointMeta {
   method: string;
   path: string;
   role: string;
   summary: string | null;
+  /** Capacités de page, absentes si l'endpoint n'est pas paginé. */
+  page?: AdminPageCapabilities;
 }
 
 /** Un producteur (module) du data plane admin + son descriptor. */
@@ -140,5 +176,32 @@ export class AdminStore {
   /** Total d'endpoints exposés (tous producteurs confondus). */
   get endpointCount(): number {
     return this.producers.reduce((n, p) => n + p.endpoints.length, 0);
+  }
+
+  /**
+   * Ce que le serveur DÉCLARE savoir trier et filtrer sur cet endpoint.
+   *
+   * C'est ce qui remplace la devinette : une vue ne décide pas qu'une colonne
+   * est triable, elle le DEMANDE. Le tri dépend du store branché — les sessions
+   * sur Redis n'en offrent aucun, sur SQL elles trient `updatedAt` — donc une
+   * en-tête cliquable codée en dur répondrait `400` selon le déploiement.
+   *
+   * `null` tant que le catalogue n'est pas chargé, ou si l'endpoint ne publie
+   * rien : l'appelant doit alors n'offrir NI tri NI filtre plutôt que d'en
+   * inventer — c'est le seul défaut qui ne ment pas.
+   *
+   * @param path - chemin absolu monté, ex. `/nodefony/user/api/users`.
+   * @param method - méthode HTTP, défaut `GET`.
+   * @returns les capacités publiées, ou `null`.
+   */
+  pageCapabilities(path: string, method = "GET"): AdminPageCapabilities | null {
+    for (const producer of this.producers) {
+      for (const endpoint of producer.endpoints) {
+        if (endpoint.path === path && endpoint.method === method) {
+          return endpoint.page ?? null;
+        }
+      }
+    }
+    return null;
   }
 }

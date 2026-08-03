@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-07-27",
+  "generatedAt": "2026-08-03",
   "count": 23,
   "conformant": 23,
   "skills": [
@@ -29,8 +29,8 @@
       ],
       "description": "Audite la dérive entre la liste `external` des rolldown.config.ts et les `peerDependencies` de chaque package.json Nodefony — détecte le bug « peerDep bundlée » (cause d'échecs de build type @node-rs/bcrypt) et les entrées external périmées. Anti-duplication : la même liste est maintenue à la main à deux endroits → dérive garantie. À charger avant une publication npm ou devant un échec de build qui parle d'un paquet natif ou d'un module introuvable à l'exécution. Déclencheurs : \"check externals\", \"audit externals\", \"external rolldown\", \"peerDeps externalisées\", \"duplication external\", \"vérifie les external\", \"le bundler avale un peerDep\", \"avant de publier sur npm\", \"erreur de build sur une dépendance native\", \"module introuvable au runtime\".",
       "cost": {
-        "bodyLines": 86,
-        "approxTokens": 1097
+        "bodyLines": 114,
+        "approxTokens": 1571
       },
       "requires": [],
       "resources": {
@@ -79,9 +79,15 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "86",
+            "detail": "114",
             "advisory": true
           }
         ]
@@ -159,6 +165,12 @@
           },
           {
             "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -248,6 +260,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "247",
@@ -282,8 +300,8 @@
       ],
       "description": "Scaffold d'un package @nodefony/* du REPO FRAMEWORK (src/packages/) — package.json, tsconfig, rolldown, structure nodefony/{interfaces,service,command,src,config}/, index.ts (Module + @services + exports), CLAUDE.md, MEMORY.md, README.md, peerDeps, manifeste `modules`. Dans une APPLICATION, le scaffold d'un module est une commande — `nodefony create module <nom>` — et ce skill s'y délègue au lieu de la réimplémenter (une seule source de templates). À charger AVANT d'écrire le moindre fichier d'un module neuf : recomposer le squelette à la main produit un module non conforme (types, exports, config, docs) que rien ne signale. Déclencheurs : \"crée un module\", \"scaffold module\", \"nouveau module nodefony\", \"génère un module\", \"create module\", \"bootstrap module\", \"module @nodefony/...\", \"j'ai besoin d'un nouveau paquet\", \"ajouter un module au framework\", \"structure d'un module neuf\".",
       "cost": {
-        "bodyLines": 276,
-        "approxTokens": 4970
+        "bodyLines": 278,
+        "approxTokens": 5009
       },
       "requires": [],
       "resources": {
@@ -337,9 +355,15 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "276",
+            "detail": "278",
             "advisory": true
           }
         ]
@@ -384,8 +408,8 @@
       ],
       "description": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une baseline stashée, échec d'intégration dont la première hypothèse est un serveur éteint, dépendance implicite à `delete`, faux ENOSPC du harnais. Délègue à `nodefony-tail-error-logs`, `nodefony-check-memory-health`, `nodefony-load-test`, `nodefony-frontend-dev` ; la doctrine préventive vit dans `nodefony-framework-dev`. Déclencheurs : \"ça crash\", \"stack trace\", \"unhandledRejection\", \"fuite mémoire\", \"memory leak\", \"race condition\", \"reproduire\", \"ne démarre plus\", \"test rouge inexpliqué\", \"test flake\", \"vert isolé rouge en suite\", \"ce test passe seul mais pas en suite\", \"diagnostic régression\", \"baseline stash\", \"est-ce ma régression ?\", \"404 inexpliqué\", \"ECONNREFUSED tests\", \"ENOSPC\".",
       "cost": {
-        "bodyLines": 220,
-        "approxTokens": 3747
+        "bodyLines": 254,
+        "approxTokens": 4165
       },
       "requires": [],
       "resources": {
@@ -443,9 +467,15 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "220",
+            "detail": "254",
             "advisory": true
           }
         ]
@@ -457,27 +487,33 @@
     },
     {
       "name": "nodefony-devkit-bench",
-      "summary": "Éprouve ce que le scaffold de Nodefony PRODUIT, par deux mesures — le code généré tient-il debout (il compile, ses tests passent, sa ressource répond vraiment en HTTP), et un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner.",
+      "summary": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs.",
       "family": "Autres",
-      "version": "1.0.0",
+      "version": "1.3.0",
       "keywords": [],
       "triggers": [],
-      "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par deux mesures — le code généré tient-il debout (il compile, ses tests passent, sa ressource répond vraiment en HTTP), et un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner. À charger AVANT de déclarer finie une évolution des gabarits, de la grammaire de champs, du moteur de génération ou du contrat de ressource : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un échantillon viole son propre schéma, qu'une relation déclarée fait lever l'ORM au démarrage, ou qu'un type généré ne compile pas. Porte l'interprétation des échecs et les pièges de décor. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"prouver qu'une vague devkit est finie\", \"tester une app témoin\".",
+      "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\".",
       "cost": {
-        "bodyLines": 200,
-        "approxTokens": 3079
+        "bodyLines": 353,
+        "approxTokens": 5831
       },
       "requires": [
         "serveur UP",
-        "base de données"
+        "base de données",
+        "docker",
+        "redis"
       ],
       "resources": {
-        "references": [],
-        "referenceFilesTotal": 0,
+        "references": [
+          "banc-decouvrabilite-lecons.md",
+          "banc-schema-etudes-de-cas.md",
+          "methode-de-mesure.md"
+        ],
+        "referenceFilesTotal": 3,
         "scripts": [
           {
             "path": "scripts/bench-discoverability.mjs",
-            "purpose": "Banc de DÉCOUVRABILITÉ du devkit — les 9 tâches (gate de la release 10.0.0).",
+            "purpose": "Banc de DÉCOUVRABILITÉ du devkit — ses 25 tâches (gate de la release 10.0.0).",
             "usage": [],
             "options": [
               {
@@ -489,11 +525,19 @@
                 "help": ""
               },
               {
+                "flag": "--check-port-free",
+                "help": ""
+              },
+              {
                 "flag": "--command",
                 "help": ""
               },
               {
                 "flag": "--dangerously-skip-permissi",
+                "help": ""
+              },
+              {
+                "flag": "--depistage",
                 "help": ""
               },
               {
@@ -505,11 +549,19 @@
                 "help": ""
               },
               {
+                "flag": "--diff-filter",
+                "help": ""
+              },
+              {
                 "flag": "--dir",
                 "help": ""
               },
               {
                 "flag": "--dry-run",
+                "help": ""
+              },
+              {
+                "flag": "--enregistrer-reference",
                 "help": ""
               },
               {
@@ -521,7 +573,15 @@
                 "help": ""
               },
               {
+                "flag": "--hard",
+                "help": ""
+              },
+              {
                 "flag": "--help",
+                "help": ""
+              },
+              {
+                "flag": "--ignored",
                 "help": ""
               },
               {
@@ -553,7 +613,15 @@
                 "help": ""
               },
               {
+                "flag": "--no-check",
+                "help": ""
+              },
+              {
                 "flag": "--no-fund",
+                "help": ""
+              },
+              {
+                "flag": "--no-install",
                 "help": ""
               },
               {
@@ -561,7 +629,43 @@
                 "help": ""
               },
               {
+                "flag": "--porcelain",
+                "help": ""
+              },
+              {
+                "flag": "--porteur-args",
+                "help": ""
+              },
+              {
                 "flag": "--preset",
+                "help": ""
+              },
+              {
+                "flag": "--repack",
+                "help": ""
+              },
+              {
+                "flag": "--reset",
+                "help": ""
+              },
+              {
+                "flag": "--rest",
+                "help": ""
+              },
+              {
+                "flag": "--roles",
+                "help": ""
+              },
+              {
+                "flag": "--route",
+                "help": ""
+              },
+              {
+                "flag": "--runs",
+                "help": ""
+              },
+              {
+                "flag": "--selftest",
                 "help": ""
               },
               {
@@ -569,7 +673,15 @@
                 "help": ""
               },
               {
+                "flag": "--short",
+                "help": ""
+              },
+              {
                 "flag": "--task",
+                "help": ""
+              },
+              {
+                "flag": "--temoin-args",
                 "help": ""
               },
               {
@@ -591,15 +703,143 @@
             ],
             "env": [
               {
-                "name": "DEVKIT_BENCH_AGENT",
+                "name": "AGENT",
                 "help": ""
               },
               {
-                "name": "DEVKIT_BENCH_AGENT_ARGS",
+                "name": "CANAL_OPS_ALERTES",
                 "help": ""
               },
               {
-                "name": "DEVKIT_BENCH_MODEL",
+                "name": "JUGE_CSP",
+                "help": ""
+              },
+              {
+                "name": "JUGE_CSRF_PARTENAIRE",
+                "help": ""
+              },
+              {
+                "name": "JUGE_ENTITY_DELETE",
+                "help": ""
+              },
+              {
+                "name": "JUGE_LISTE",
+                "help": ""
+              },
+              {
+                "name": "JUGE_M2M",
+                "help": ""
+              },
+              {
+                "name": "JUGE_MEDIA",
+                "help": ""
+              },
+              {
+                "name": "JUGE_MODULE",
+                "help": ""
+              },
+              {
+                "name": "JUGE_PARAM",
+                "help": ""
+              },
+              {
+                "name": "JUGE_PREFIXE",
+                "help": ""
+              },
+              {
+                "name": "JUGE_REALTIME_CHANNEL",
+                "help": ""
+              },
+              {
+                "name": "JUGE_ROLE_HIERARCHY",
+                "help": ""
+              },
+              {
+                "name": "JUGE_SECURE",
+                "help": ""
+              },
+              {
+                "name": "JUGE_SESSION",
+                "help": ""
+              },
+              {
+                "name": "JUGE_THROTTLE",
+                "help": ""
+              },
+              {
+                "name": "JUGE_ZONE",
+                "help": ""
+              },
+              {
+                "name": "LINKED",
+                "help": ""
+              },
+              {
+                "name": "NF_DEVKIT_BENCH_AGENT",
+                "help": ""
+              },
+              {
+                "name": "NF_DEVKIT_BENCH_AGENT_ARGS",
+                "help": ""
+              },
+              {
+                "name": "NF_DEVKIT_BENCH_MODEL",
+                "help": ""
+              },
+              {
+                "name": "ORIGINE_PARTENAIRE",
+                "help": ""
+              },
+              {
+                "name": "PAGE_WIDGET",
+                "help": ""
+              },
+              {
+                "name": "PREPARE_MODULE_ABSENT",
+                "help": ""
+              },
+              {
+                "name": "PREPARE_ROLE_HIERARCHY",
+                "help": ""
+              },
+              {
+                "name": "REPERE_PREFIXE_COMPTE",
+                "help": ""
+              },
+              {
+                "name": "ROLE_FACTURATION",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_CATALOGUE",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_COMMANDES",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_COMPTE_FACTURES",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_COMPTE_PROFIL",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_FACTURATION",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_IMPORT",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_MACHINE",
+                "help": ""
+              },
+              {
+                "name": "ROUTE_SYNTHESE",
                 "help": ""
               }
             ],
@@ -607,12 +847,277 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/bench-discoverability.selftest.mjs",
+            "purpose": "Auto-contrôle des sondes du banc de découvrabilité — le juge, AVANT le verdict.",
+            "usage": [
+              "node bench-discoverability.selftest.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--describe-json",
+                "help": ""
+              },
+              {
+                "flag": "--detach",
+                "help": ""
+              },
+              {
+                "flag": "--dry-run",
+                "help": ""
+              },
+              {
+                "flag": "--help",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--kind",
+                "help": ""
+              },
+              {
+                "flag": "--no-check",
+                "help": ""
+              },
+              {
+                "flag": "--prove",
+                "help": ""
+              },
+              {
+                "flag": "--yes",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "NF_CLE",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/bench-schema.mjs",
+            "purpose": "Banc de SCHÉMA — ce que la grammaire de champs ne sait pas exprimer.",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--allow-empty",
+                "help": ""
+              },
+              {
+                "flag": "--analyze-only",
+                "help": ""
+              },
+              {
+                "flag": "--dangerously-skip-permissi",
+                "help": ""
+              },
+              {
+                "flag": "--detach",
+                "help": ""
+              },
+              {
+                "flag": "--dialect",
+                "help": ""
+              },
+              {
+                "flag": "--dir",
+                "help": ""
+              },
+              {
+                "flag": "--dump-only",
+                "help": ""
+              },
+              {
+                "flag": "--frontend",
+                "help": ""
+              },
+              {
+                "flag": "--jq",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--link",
+                "help": ""
+              },
+              {
+                "flag": "--model",
+                "help": ""
+              },
+              {
+                "flag": "--no-audit",
+                "help": ""
+              },
+              {
+                "flag": "--no-fund",
+                "help": ""
+              },
+              {
+                "flag": "--no-install",
+                "help": ""
+              },
+              {
+                "flag": "--output-format",
+                "help": ""
+              },
+              {
+                "flag": "--preset",
+                "help": ""
+              },
+              {
+                "flag": "--repack",
+                "help": ""
+              },
+              {
+                "flag": "--schema",
+                "help": ""
+              },
+              {
+                "flag": "--schema-only",
+                "help": ""
+              },
+              {
+                "flag": "--setup-only",
+                "help": ""
+              },
+              {
+                "flag": "--verbose",
+                "help": ""
+              },
+              {
+                "flag": "--wait",
+                "help": ""
+              },
+              {
+                "flag": "--yes",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "AGENT",
+                "help": ""
+              },
+              {
+                "name": "DIALECT",
+                "help": ""
+              },
+              {
+                "name": "LINKED",
+                "help": ""
+              },
+              {
+                "name": "MODEL",
+                "help": ""
+              },
+              {
+                "name": "NF_DEVKIT_BENCH_AGENT",
+                "help": ""
+              },
+              {
+                "name": "NF_DEVKIT_BENCH_AGENT_ARGS",
+                "help": ""
+              },
+              {
+                "name": "NF_DEVKIT_BENCH_MODEL",
+                "help": ""
+              },
+              {
+                "name": "NF_MYSQL_URL",
+                "help": ""
+              },
+              {
+                "name": "NF_PG_URL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/bench-schema.selftest.mjs",
+            "purpose": "Éprouve le BANC lui-même — avant qu'il ne juge quoi que ce soit.",
+            "usage": [
+              "node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.selftest.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--allow-no-pg",
+                "help": ""
+              },
+              {
+                "flag": "--dump-only",
+                "help": ""
+              },
+              {
+                "flag": "--prove",
+                "help": ""
+              },
+              {
+                "flag": "--schema",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "JUDGE_TABLE",
+                "help": ""
+              },
+              {
+                "name": "NF_PG_URL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/reinit-decor.selftest.mjs",
+            "purpose": "Auto-contrôle de la remise à zéro du décor — le mécanisme, AVANT de payer un",
+            "usage": [
+              "node reinit-decor.selftest.mjs <runDir d'un run précédent>"
+            ],
+            "options": [
+              {
+                "flag": "--allow-empty",
+                "help": ""
+              },
+              {
+                "flag": "--format",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/verify-generated.mjs",
             "purpose": "Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? »",
             "usage": [
-              "node scripts/devkit-verify.mjs              # décor + toutes les étapes"
+              "node scripts/verify-generated.mjs            # décor ISOLÉ + toutes les étapes"
             ],
             "options": [
+              {
+                "flag": "--config",
+                "help": ""
+              },
+              {
+                "flag": "--controller",
+                "help": ""
+              },
+              {
+                "flag": "--deny-warnings",
+                "help": ""
+              },
               {
                 "flag": "--detach",
                 "help": ""
@@ -630,6 +1135,10 @@
                 "help": ""
               },
               {
+                "flag": "--inject",
+                "help": ""
+              },
+              {
                 "flag": "--json",
                 "help": ""
               },
@@ -639,6 +1148,10 @@
               },
               {
                 "flag": "--link",
+                "help": ""
+              },
+              {
+                "flag": "--module",
                 "help": ""
               },
               {
@@ -666,6 +1179,14 @@
                 "help": ""
               },
               {
+                "flag": "--repack",
+                "help": ""
+              },
+              {
+                "flag": "--service",
+                "help": ""
+              },
+              {
                 "flag": "--unique",
                 "help": ""
               },
@@ -681,6 +1202,34 @@
             "env": [
               {
                 "name": "APP",
+                "help": ""
+              },
+              {
+                "name": "COMMAND_ACTION",
+                "help": ""
+              },
+              {
+                "name": "COMMAND_CLASS",
+                "help": ""
+              },
+              {
+                "name": "INJECTED_SERVICE",
+                "help": ""
+              },
+              {
+                "name": "MODULE",
+                "help": ""
+              },
+              {
+                "name": "MODULE_PKG",
+                "help": ""
+              },
+              {
+                "name": "SERVICE",
+                "help": ""
+              },
+              {
+                "name": "SERVICE_METHOD",
                 "help": ""
               }
             ],
@@ -707,7 +1256,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "939",
+            "detail": "1016",
             "advisory": false
           },
           {
@@ -735,9 +1284,15 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "200",
+            "detail": "353",
             "advisory": true
           }
         ]
@@ -1030,6 +1585,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "459",
@@ -1073,8 +1634,8 @@
       ],
       "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
       "cost": {
-        "bodyLines": 354,
-        "approxTokens": 7478
+        "bodyLines": 357,
+        "approxTokens": 7643
       },
       "requires": [],
       "resources": {
@@ -1085,11 +1646,12 @@
           "gotchas.md",
           "http.md",
           "orm.md",
+          "pagination.md",
           "portabilite.md",
           "realtime.md",
           "security.md"
         ],
-        "referenceFilesTotal": 82,
+        "referenceFilesTotal": 83,
         "scripts": []
       },
       "related": [
@@ -1147,9 +1709,15 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "354",
+            "detail": "357",
             "advisory": true
           }
         ]
@@ -1257,6 +1825,12 @@
           },
           {
             "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -1452,6 +2026,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "174",
@@ -1547,6 +2127,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "258",
@@ -1583,8 +2169,8 @@
       ],
       "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"quel est l'impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"prouver que c'est plus rapide\".",
       "cost": {
-        "bodyLines": 541,
-        "approxTokens": 8464
+        "bodyLines": 229,
+        "approxTokens": 3566
       },
       "requires": [
         "serveur UP",
@@ -1594,9 +2180,12 @@
       ],
       "resources": {
         "references": [
-          "catalogue.md"
+          "ab-perf-mono-prod.md",
+          "catalogue.md",
+          "protocoles-bancs-charge.md",
+          "reperes-empiriques.md"
         ],
-        "referenceFilesTotal": 1,
+        "referenceFilesTotal": 4,
         "scripts": [
           {
             "path": "scripts/aimd-demo.mjs",
@@ -2641,9 +3230,15 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
-            "ok": false,
-            "detail": "541",
+            "ok": true,
+            "detail": "229",
             "advisory": true
           }
         ]
@@ -2722,6 +3317,12 @@
           },
           {
             "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -2963,6 +3564,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "140",
@@ -3000,8 +3607,8 @@
       ],
       "description": "Préparer et éprouver une publication npm de Nodefony (modèle N-paquets verrouillés sur la même version). Porte la chaîne complète : empaquetage des workspaces publiables avec bascule des `exports.types` au pack, post-traitement des `.d.ts` pour la résolution ESM de Node, puis smoke test en conteneur — installation VIERGE des tarballs, compilation d'une application témoin et preuve de l'arrêt gracieux. À charger AVANT de publier ou de toucher à la surface publiée : ce qu'un dépôt voit de lui-même n'est pas ce qu'un installeur reçoit, et seul le décor jetable le montre. Le plan de version et l'état d'avancement vivent dans `docs/release/nodefony-10.md`. Déclencheurs : \"publier sur npm\", \"faire une release\", \"préparer la publication\", \"packager les paquets\", \"smoke test release\", \"tester l'installation depuis les tarballs\", \"est-ce que le paquet publié marche ?\", \"surface npm\", \"types publiés\", \"tarball\", \"avant de publier\".",
       "cost": {
-        "bodyLines": 67,
-        "approxTokens": 1235
+        "bodyLines": 130,
+        "approxTokens": 2404
       },
       "requires": [
         "docker",
@@ -3039,6 +3646,10 @@
                 "help": ""
               },
               {
+                "flag": "--omit",
+                "help": ""
+              },
+              {
                 "flag": "--pack-destination",
                 "help": ""
               },
@@ -3058,13 +3669,37 @@
           },
           {
             "path": "scripts/smoke-docker.sh",
-            "purpose": "Smoke test release (modèle B) + preuve Dockerfile/graceful shutdown (Phase 0.7).",
+            "purpose": "Smoke test release (modèle B) + preuve Dockerfile/graceful shutdown/frontend.",
             "usage": [
-              "Usage (racine repo) : bash .claude/skills/nodefony-release/scripts/smoke-docker.sh"
+              "bash .claude/skills/nodefony-release/scripts/smoke-docker.sh [--scenario all|base|front|studio]"
             ],
             "options": [
               {
+                "flag": "--detach",
+                "help": ""
+              },
+              {
+                "flag": "--dir",
+                "help": ""
+              },
+              {
+                "flag": "--entrypoint",
+                "help": ""
+              },
+              {
                 "flag": "--exclude-entrypoints",
+                "help": ""
+              },
+              {
+                "flag": "--frontend",
+                "help": ""
+              },
+              {
+                "flag": "--help",
+                "help": ""
+              },
+              {
+                "flag": "--kind",
                 "help": ""
               },
               {
@@ -3072,7 +3707,43 @@
                 "help": ""
               },
               {
+                "flag": "--no-audit",
+                "help": ""
+              },
+              {
+                "flag": "--no-fund",
+                "help": ""
+              },
+              {
+                "flag": "--no-git",
+                "help": ""
+              },
+              {
+                "flag": "--no-install",
+                "help": ""
+              },
+              {
+                "flag": "--omit",
+                "help": ""
+              },
+              {
+                "flag": "--preset",
+                "help": ""
+              },
+              {
                 "flag": "--profile",
+                "help": ""
+              },
+              {
+                "flag": "--rm",
+                "help": ""
+              },
+              {
+                "flag": "--route",
+                "help": ""
+              },
+              {
+                "flag": "--scenario",
                 "help": ""
               },
               {
@@ -3131,9 +3802,15 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "67",
+            "detail": "130",
             "advisory": true
           }
         ]
@@ -3207,6 +3884,12 @@
           },
           {
             "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -3302,6 +3985,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "117",
@@ -3391,6 +4080,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "356",
@@ -3421,8 +4116,8 @@
       ],
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear, préparer le contexte d'un module, clôturer avec retex + mémoire de reprise. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\".",
       "cost": {
-        "bodyLines": 434,
-        "approxTokens": 4637
+        "bodyLines": 444,
+        "approxTokens": 4837
       },
       "requires": [],
       "resources": {
@@ -3478,9 +4173,15 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "434",
+            "detail": "444",
             "advisory": true
           }
         ]
@@ -3641,6 +4342,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "276",
@@ -3718,7 +4425,12 @@
                 "help": ""
               }
             ],
-            "env": [],
+            "env": [
+              {
+                "name": "NF__SECURITY__RATELIMIT__ENABLED",
+                "help": ""
+              }
+            ],
             "output": "",
             "selfDocumented": false
           },
@@ -3771,6 +4483,12 @@
           },
           {
             "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -3877,6 +4595,12 @@
             "advisory": false
           },
           {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "143",
@@ -3952,6 +4676,12 @@
           },
           {
             "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
             "ok": true,
             "detail": null,
             "advisory": false

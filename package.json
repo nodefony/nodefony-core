@@ -34,7 +34,7 @@
     "test:boot": "turbo run build && turbo run test:boot --continue",
     "dev": "npm run dev --workspace=src/nodefony",
     "typecheck": "turbo run typecheck",
-    "lint": "oxlint",
+    "lint": "oxlint --deny-warnings",
     "certificates": "bash bin/generateCertificates.sh",
     "generate-symbols": "tsx scripts/generate-symbols.ts",
     "skills:check": "node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check && node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs && node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs --strict",
@@ -52,16 +52,16 @@
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "@vitest/coverage-v8": "4.1.10",
     "husky": "9.1.7",
-    "lint-staged": "17.2.0",
+    "lint-staged": "17.3.0",
     "nodemon": "3.1.14",
-    "oxlint": "^1.76.0",
+    "oxlint": "^1.77.0",
     "prettier": "3.9.6",
     "rimraf": "6.1.3",
-    "rolldown": "1.2.0",
+    "rolldown": "1.2.2",
     "ts-morph": "28.0.0",
     "tslib": "2.8.1",
-    "tsx": "4.23.1",
-    "turbo": "2.10.7",
+    "tsx": "4.23.5",
+    "turbo": "2.10.8",
     "typescript": "6.0.3"
   },
   "repository": {
@@ -101,9 +101,11 @@
   },
   "dependencies": {
     "@analogjs/vite-plugin-angular": "2.6.4",
-    "@vitejs/plugin-react": "6.0.4",
+    "@angular/build": "22.1.2",
+    "@angular/compiler-cli": "22.1.0",
+    "@vitejs/plugin-react": "6.0.5",
     "@vitejs/plugin-vue": "6.0.8",
-    "vite": "8.1.5"
+    "vite": "8.2.0"
   },
   "overrides": {
     "brace-expansion": "^5.0.8"

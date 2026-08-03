@@ -116,7 +116,7 @@ attendre trop longtemps et repartir.
 
 Techniquement, ce numéro est le champ `id` de la frame JSON-RPC 2.0. Le pair l'attribue, garde
 l'appel en attente dans une table, arme une minuterie, et résout la `Promise` quand la réponse
-portant cet `id` revient (`JsonRpcPeer.handleResponse()`, `JsonRpcPeer.ts:530`). Une frame sans
+portant cet `id` revient (`JsonRpcPeer.handleResponse()`, `JsonRpcPeer.ts:556`). Une frame sans
 `id` ne crée aucune de ces trois choses — c'est pourquoi une publication ne coûte rien au repos.
 
 ## La vision Nodefony — un nom, un handler, une découverte
@@ -136,7 +136,7 @@ connexion sans élargir le contrat.
 
 **L'endpoint s'annonce lui-même.** La liste des actions exposées voyage dans la frame d'accueil —
 `IRealtimeWelcome` (`RealtimeController.ts:8`) — et se lit côté client par
-`RealtimeClient.serverMethods` (`RealtimeClient.ts:476`). Une interface n'écrit donc jamais un nom d'action en dur : elle
+`RealtimeClient.serverMethods` (`RealtimeClient.ts:501`). Une interface n'écrit donc jamais un nom d'action en dur : elle
 n'active un bouton que si le serveur a déclaré savoir le servir.
 
 **Le compromis, dit franchement** : une action est **un aller-retour**, point. Elle ne diffuse pas,
@@ -415,7 +415,7 @@ Trois leviers existent, et ils ne font pas la même chose :
 
 1. **Le délai d'expiration** — libère le client, laisse le serveur travailler.
 2. **La fermeture de la connexion** — `dispose()` rejette **tous** les appels en attente d'un
-   coup (`JsonRpcPeer.ts:433`), appelé au nettoyage de la socket
+   coup (`JsonRpcPeer.ts:453`), appelé au nettoyage de la socket
    (`RealtimeController.ts:553`). Là encore : côté client seulement.
 3. **Une action compagnon** — la seule vraie annulation. On expose une seconde action qui prend
    l'identifiant du travail et l'interrompt côté serveur. Le modèle du dépôt est
@@ -437,8 +437,8 @@ fois ? »**.
 | une mutation (`socket.mutate`) | **non** par nature             | oui, **avec une clé d'idempotence**  |
 
 Pour les mutations passant par le pont API, la clé n'est pas une convention : elle est **exigée
-par la signature** de `mutate()` (`RealtimeClient.ts:639`), et c'est la garde `@Idempotent`
-(`routerDecorators.ts:924`) qui, côté serveur, reconnaît le rejeu et rend la réponse déjà calculée
+par la signature** de `mutate()` (`RealtimeClient.ts:664`), et c'est la garde `@Idempotent`
+(`routerDecorators.ts:1103`) qui, côté serveur, reconnaît le rejeu et rend la réponse déjà calculée
 au lieu de refaire l'effet.
 
 ```ts ignore
@@ -478,7 +478,7 @@ prudente est donc de **s'abonner avant** de lancer l'appel.
 
 Nodefony a choisi la garantie côté serveur plutôt que la discipline côté client : le producteur du
 canal **rejoue son historique** au nouvel abonné, de sorte qu'un arrivant tardif voit tout depuis
-le début (`ScaffoldService.subscribe()`, `ScaffoldService.ts:364`). C'est ce qui autorise le front
+le début (`ScaffoldService.subscribe()`, `ScaffoldService.ts:425`). C'est ce qui autorise le front
 à faire l'appel d'abord et à s'abonner ensuite, sans rien perdre.
 
 > [!TIP]
@@ -503,7 +503,7 @@ il sera conçu avec son premier consommateur réel.
 Un cas particulier mérite d'être connu avant d'écrire une action : **elle existe peut-être déjà en
 HTTP**. Le pont API expose la méthode `api.request`, qui rejoue une route de contrôleur sur la
 socket, avec la même garde et le même résultat qu'en REST — `invokeApiRequest()`
-(`RealtimeController.ts:741`). Il est **désactivé par défaut** et s'active en surchargeant
+(`RealtimeController.ts:766`). Il est **désactivé par défaut** et s'active en surchargeant
 `realtimeApiRequest()` (`RealtimeController.ts:219`).
 
 ```ts ignore

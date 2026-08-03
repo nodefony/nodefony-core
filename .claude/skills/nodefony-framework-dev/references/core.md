@@ -24,6 +24,14 @@
 
 ### Service injectable (DI)
 
+> **Dans une APPLICATION, ne l'écris pas à la main : `nodefony create service <Nom>
+[--module <m>]`.** Il pose la classe + son interface et câble le `@services([…])`
+> (qu'il CRÉE si la cible n'en a pas). La forme ci-dessous reste la référence pour le
+> REPO framework, où le CLI ne scaffolde pas. Mesuré au banc : sans ce générateur, un
+> agent écrit une classe à méthodes `static` — elle compile, elle marche, et elle reste
+> invisible au conteneur. `nodefony check` attrape le cas inverse (service `@injectable`
+> que personne ne déclare).
+
 ```typescript
 import { injectable, inject, Module, Service, Container } from "nodefony";
 
@@ -430,6 +438,15 @@ Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
   `:226`/`:231` (= `console.debug`/`trace`). Fallback Pdu standalone si `syslog===null`.
 - **Cycle de vie** : `initSyslog(env, debug, opts?)` `:159` · `clean(syslog=false)` `:179` (null toutes les refs ;
   `clean(true)` → `syslog.reset()`). `clean()` appelle `clean()` sur les enfants `instanceof Service`.
+- ⚠️ **SURFACE RÉSERVÉE — 13 noms qu'un service métier ne peut pas redéfinir librement** :
+  `get set has remove clean log trace on off once emit fire listen`. Ce sont des méthodes de `Service`
+  (`get<T>(name): T|null` `:442` est l'accès au CONTENEUR, pas un accesseur métier). Redéfinir l'une
+  d'elles avec une autre signature casse l'assignabilité de la classe — et le symptôme est
+  **trompeur** : l'IDE souligne le décorateur `@services([X])` du module qui l'enregistre, alors que
+  l'erreur (`TS2416`) porte sur la LIGNE DE LA MÉTHODE du service. Vécu : le gate `nodefony check`
+  réclame `@services([X])`, l'ajouter ne compile plus, et on cherche le défaut dans le décorateur.
+  Un `get(key)` métier se nomme donc autrement (`find`, `fetch`, `lookup`) — **un geste exigé par un
+  gate doit compiler.**
 
 ### `Container` / `Scope`
 

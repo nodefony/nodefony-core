@@ -64,7 +64,7 @@ function makeOffsetStore(entries: Array<[string, ISerializedSession]>): {
 } {
   const map = new Map(entries);
   const trace: Trace = { limits: [], calls: 0 };
-  const matching = (query?: ISessionListQuery): ISessionRecord[] => {
+  const matching = (query?: Partial<ISessionListQuery>): ISessionRecord[] => {
     const out: ISessionRecord[] = [];
     for (const [id, data] of map) {
       if (query?.user !== undefined && data.user !== query.user) continue;

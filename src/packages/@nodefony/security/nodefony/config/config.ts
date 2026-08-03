@@ -82,7 +82,7 @@ const areaSchema = z.object({
     .boolean()
     .default(false)
     .describe(
-      "Stratégie d'identité AU-DESSUS du protocole (HTTP reste stateless par nature). false (défaut) : la zone PEUT tenir un registre serveur — la session n'est créée qu'AU LOGIN (jamais pour un anonyme, zéro alloc), cookie opaque révocable (BFF). true : aucun registre — chaque requête porte sa preuve complète (JWT/clé API), la session est ignorée même si un cookie est présent.",
+      "Stratégie d'identité AU-DESSUS du protocole (HTTP reste stateless par nature). false (défaut) : la zone PEUT tenir un registre serveur — la session n'est créée qu'AU LOGIN (jamais pour un anonyme, zéro alloc), cookie opaque révocable (BFF). true : aucun registre — chaque requête porte sa preuve complète (JWT/clé API), la session est ignorée même si un cookie est présent. ⚠️ Une zone destinée à un appelant NON-NAVIGATEUR (service partenaire, script, agent) doit être `true` : laissée à `false`, elle marche à l'essai — un navigateur ou un `curl -c` renvoie le cookie posé — puis échoue chez le vrai client, qui ne stocke rien et repart anonyme à chaque requête. Le symptôme est un 401 intermittent en production, que rien dans le code ne montre.",
     ),
   mode: z
     .enum(["first", "all"])

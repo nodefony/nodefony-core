@@ -6,6 +6,7 @@ import {
   Loader,
   LoadingOverlay,
   Menu,
+  MultiSelect,
   Pagination,
   Paper,
   ScrollArea,
@@ -50,12 +51,13 @@ import { DataState } from "./DataState";
 import { InfoHint } from "./StatCard";
 
 /** Type de filtre d'une colonne → opérateurs + saisie disponibles. */
-export type DataGridFilterType = "text" | "number" | "select";
+export type DataGridFilterType = "text" | "number" | "select" | "multiselect";
 
 /** Opérateur de filtre. */
 export type DataGridFilterOp =
   | "contains"
   | "equals"
+  | "in"
   | "startsWith"
   | "endsWith"
   | "isEmpty"
@@ -88,9 +90,17 @@ export interface DataGridColumn<T> {
   sortable?: boolean;
   /** Active le filtre par colonne (ligne de filtres inline sous l'en-tête). */
   filterable?: boolean;
-  /** Type de filtre (défaut `"text"`). `"select"` → liste de valeurs. */
+  /**
+   * Type de filtre (défaut `"text"`). `"select"` → une valeur ;
+   * `"multiselect"` → plusieurs (opérateur « est l'un de »), pour une colonne
+   * dont le domaine est fermé et court : méthodes HTTP, statuts, sévérités.
+   */
   filterType?: DataGridFilterType;
-  /** Options du filtre `select` — REQUIS en mode serveur ; déduit (faceting) en client. */
+  /**
+   * Options des filtres `select`/`multiselect` — REQUIS en mode serveur (le
+   * grid n'a qu'une page, il ne peut pas déduire le domaine) ; déduit par
+   * faceting en mode client.
+   */
   filterOptions?: string[];
   hint?: string;
   render?: (row: T) => ReactNode;
@@ -144,6 +154,22 @@ interface BaseProps<T> {
   initialSort?: DataGridSort;
   searchable?: boolean;
   searchPlaceholder?: string;
+  /**
+   * Notifie le terme cherché — appelé au montage (valeur restaurée du storage
+   * comprise) puis à chaque frappe.
+   *
+   * Sert aux écrans dont les **cartes de tête** décrivent le même ensemble que
+   * le tableau : elles interrogent un endpoint de compteurs distinct, qui doit
+   * recevoir le même terme, sinon la barre filtre le tableau et fige les cartes
+   * au-dessus.
+   *
+   * Volontairement une NOTIFICATION, pas un état contrôlé : la barre reste la
+   * propriété du grid (persistance, remise à zéro, futur débounce), et la page
+   * n'a besoin que de SAVOIR ce qui est cherché. Un second état, côté page,
+   * devrait être resynchronisé à chaque restauration — la panne exacte qu'on
+   * corrige, mais dans l'autre sens.
+   */
+  onSearchChange?: (term: string) => void;
   /** Message affiché dans l'overlay de chargement (défaut « Chargement… »). */
   loadingMessage?: string;
   /** Sauvegarde/restaure l'état dans le storage navigateur (+ bouton « effacer »). */
@@ -253,6 +279,9 @@ const NUMBER_OPS: { value: DataGridFilterOp; label: string }[] = [
 const SELECT_OPS: { value: DataGridFilterOp; label: string }[] = [
   { value: "equals", label: "est" },
 ];
+const MULTISELECT_OPS: { value: DataGridFilterOp; label: string }[] = [
+  { value: "in", label: "est l'un de" },
+];
 const VALUELESS: ReadonlySet<DataGridFilterOp> = new Set([
   "isEmpty",
   "notEmpty",
@@ -261,8 +290,20 @@ const VALUELESS: ReadonlySet<DataGridFilterOp> = new Set([
 function opsFor(type: DataGridFilterType | undefined) {
   if (type === "number") return NUMBER_OPS;
   if (type === "select") return SELECT_OPS;
+  if (type === "multiselect") return MULTISELECT_OPS;
   return TEXT_OPS;
 }
+
+/**
+ * Sépare la valeur d'un filtre `in` — une liste est transportée comme UNE
+ * chaîne (`"GET,POST"`), parce que `DataGridColumnFilter.value` est un `string`
+ * qui doit traverser une query string. Les jetons vides sont écartés.
+ */
+const tokens = (raw: string): string[] =>
+  raw
+    .split(",")
+    .map((t) => t.trim())
+    .filter((t) => t !== "");
 
 const NUM_OPS: ReadonlySet<DataGridFilterOp> = new Set([
   "=",
@@ -284,6 +325,16 @@ function matchFilter(raw: unknown, f: FilterValue): boolean {
       return s.toLowerCase().includes(v.toLowerCase());
     case "equals":
       return s === v;
+    // « est l'un de » : la cellule est elle aussi découpée en jetons, si bien
+    // qu'une colonne multi-valeur (`GET,POST`) matche dès qu'UNE des méthodes
+    // choisies s'y trouve. Une cellule mono-valeur ne donne qu'un jeton — la
+    // même règle y produit le « est l'un de » attendu, sans second cas.
+    case "in": {
+      const wanted = tokens(v);
+      if (wanted.length === 0) return true;
+      const cell = tokens(s);
+      return cell.some((c) => wanted.includes(c));
+    }
     case "startsWith":
       return s.toLowerCase().startsWith(v.toLowerCase());
     case "endsWith":
@@ -356,6 +407,40 @@ function FilterCell<T>({
   const value = fv?.value ?? "";
   const valueless = VALUELESS.has(op);
   const header = String(column.columnDef.header ?? column.id);
+
+  if (type === "multiselect") {
+    // Domaine fermé : en mode serveur il est DÉCLARÉ (le grid n'a qu'une page,
+    // il ne peut rien déduire) ; en client il vient du faceting. Une cellule
+    // multi-valeur (`GET,POST`) est éclatée en jetons, sinon la liste proposerait
+    // des combinaisons au lieu des valeurs.
+    const options = isServer
+      ? (meta?.filterOptions ?? [])
+      : [
+          ...new Set(
+            [...column.getFacetedUniqueValues().keys()].flatMap((v) =>
+              tokens(String(v)),
+            ),
+          ),
+        ].sort();
+    return (
+      <MultiSelect
+        size="xs"
+        placeholder="filtrer"
+        data={options}
+        value={tokens(value)}
+        clearable
+        searchable
+        hidePickedOptions
+        comboboxProps={{ withinPortal: true }}
+        onChange={(vals) =>
+          column.setFilterValue(
+            vals.length ? { op: "in", value: vals.join(",") } : undefined,
+          )
+        }
+        aria-label={`filtrer ${header}`}
+      />
+    );
+  }
 
   if (type === "select") {
     const options = isServer
@@ -481,6 +566,11 @@ export function DataGrid<T>(props: DataGridProps<T>) {
   // Injecte le style de la poignée de resize une seule fois (CSS hover/drag).
   useEffect(ensureResizerStyle, []);
 
+  // Hissé AVANT le chargement serveur : une recherche persistée en storage
+  // survivrait à la disparition de la barre (capacité de recherche retirée, ou
+  // backend qui ne cherche pas) et repartirait au serveur, qui la refuse en
+  // 400 — un écran mort qu'aucune action de l'utilisateur n'explique.
+  const searchable = props.searchable ?? true;
   const loader = isServer ? props.loader : null;
   const [serverRows, setServerRows] = useState<T[]>([]);
   const [serverTotal, setServerTotal] = useState(0);
@@ -503,7 +593,7 @@ export function DataGrid<T>(props: DataGridProps<T>) {
       page: pagination.pageIndex + 1,
       pageSize: pagination.pageSize,
       sort,
-      search: globalFilter,
+      search: searchable ? globalFilter : "",
       columnFilters: cf,
     })
       .then((res) => {
@@ -524,6 +614,7 @@ export function DataGrid<T>(props: DataGridProps<T>) {
     };
   }, [
     loader,
+    searchable,
     sorting,
     columnFilters,
     globalFilter,
@@ -565,6 +656,16 @@ export function DataGrid<T>(props: DataGridProps<T>) {
   useEffect(() => {
     setPagination((p) => (p.pageIndex === 0 ? p : { ...p, pageIndex: 0 }));
   }, [sorting, columnFilters, globalFilter]);
+
+  // Remonte le terme cherché à la page (cartes de tête). Au MONTAGE aussi : une
+  // recherche restaurée du storage filtre déjà le tableau, et des cartes qui
+  // l'ignoreraient décriraient une population que ce tableau ne montre pas.
+  // `searchable: false` remonte la chaîne vide — la barre n'existe pas, il n'y a
+  // rien de cherché, quoi que le storage porte encore.
+  const { onSearchChange } = props;
+  useEffect(() => {
+    onSearchChange?.(searchable ? globalFilter : "");
+  }, [onSearchChange, searchable, globalFilter]);
 
   // Idem pour les filtres EXTERNES (mode serveur) : un changement de signal
   // ramène page 1 ET PURGE les lignes affichées. On saute le 1ᵉʳ rendu (sinon on
@@ -668,7 +769,6 @@ export function DataGrid<T>(props: DataGridProps<T>) {
     total === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1;
   const end = Math.min((pagination.pageIndex + 1) * pagination.pageSize, total);
 
-  const searchable = props.searchable ?? true;
   const filterable = columns.some((c) => c.filterable);
   const activeCount = columnFilters.length;
   const hasActive = globalFilter.trim().length > 0 || activeCount > 0;

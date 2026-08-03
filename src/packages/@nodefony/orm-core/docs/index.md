@@ -202,7 +202,7 @@ condition disparaît, la requête rend **toute** la table — et **conservé** p
 portabilité s'effondre en silence. D'où `UnknownCriteriaField` (`errors.ts:23`), levée **par les deux
 drivers** : on échoue tôt, et pareil.
 
-**4. Le contrat va plus loin que le CRUD scolaire.** `IRepository` (`IRepository.ts:176`) porte
+**4. Le contrat va plus loin que le CRUD scolaire.** `IRepository` (`IRepository.ts:197`) porte
 quinze verbes, pas cinq : les opérations **atomiques** (`upsert`, `increment`, `updateOne`,
 `findOneAndDelete`) sont dans le contrat parce qu'un `SELECT` suivi d'un `UPDATE` est une **course**,
 et qu'une course en base ne se rattrape pas côté application.
@@ -407,23 +407,23 @@ lieu d'échouer : `describeEntity()` (`IOrm.ts:61`, colonnes pour l'ERD), `descr
 
 ### [`IRepository`](tutorial-entity.md) — les quinze verbes
 
-`IRepository<T>` (`IRepository.ts:176`) est la seule surface que ton métier devrait connaître. Les
+`IRepository<T>` (`IRepository.ts:197`) est la seule surface que ton métier devrait connaître. Les
 verbes se choisissent sur **la garantie** qu'ils apportent, pas sur leur nom.
 
 | Verbe                 | Ce qu'il garantit                                                    | Ancre                        |
 | --------------------- | -------------------------------------------------------------------- | ---------------------------- |
-| `find` / `findOne`    | lecture filtrée + eager-load + tri + bornes                          | `IRepository.ts:184`         |
-| `count` / `exists`    | compter, ou juste savoir s'il y en a un (sans charger de colonne)    | `IRepository.ts:324`, `:335` |
-| `create`              | insertion d'une ligne, rend la version persistée (id, défauts)       | `IRepository.ts:202`         |
-| `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots       | `IRepository.ts:214`         |
+| `find` / `findOne`    | lecture filtrée + eager-load + tri + bornes                          | `IRepository.ts:213`         |
+| `count` / `exists`    | compter, ou juste savoir s'il y en a un (sans charger de colonne)    | `IRepository.ts:378`, `:335` |
+| `create`              | insertion d'une ligne, rend la version persistée (id, défauts)       | `IRepository.ts:223`         |
+| `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots       | `IRepository.ts:235`         |
 | `updateOne`           | met à jour **au plus une** ligne, **atomiquement**, et la rend       | `IRepository.ts:231`         |
-| `updateMany`          | met à jour toutes les lignes du critère, rend le **nombre**          | `IRepository.ts:274`         |
+| `updateMany`          | met à jour toutes les lignes du critère, rend le **nombre**          | `IRepository.ts:295`         |
 | `upsert`              | insère **ou** met à jour sur conflit de clé, en **une** instruction  | `IRepository.ts:258`         |
 | `increment`           | `SET f = f + ?` atomique — compteurs, quotas, rate-limit             | `IRepository.ts:287`         |
 | `delete`              | supprime tout ce qui matche, rend le nombre                          | `IRepository.ts:298`         |
-| `deleteOne`           | supprime **au plus une** ligne, rend un booléen                      | `IRepository.ts:307`         |
+| `deleteOne`           | supprime **au plus une** ligne, rend un booléen                      | `IRepository.ts:328`         |
 | `findOneAndDelete`    | supprime **et rend** la ligne — file de jobs, outbox, `pop` atomique | `IRepository.ts:317`         |
-| `withTransaction(tx)` | une **vue** du repository liée à une transaction                     | `IRepository.ts:346`         |
+| `withTransaction(tx)` | une **vue** du repository liée à une transaction                     | `IRepository.ts:389`         |
 
 > [!IMPORTANT]
 > `updateOne` est atomique **par construction** : une seule requête (`UPDATE … RETURNING` en SQL,
@@ -534,7 +534,7 @@ de frappe).
 
 ## 📄 Pagination portable
 
-`paginate()` (`paginate.ts:21`) construit une page **au-dessus** des primitives que tout adapter
+`paginate()` (`paginate.ts:47`) construit une page **au-dessus** des primitives que tout adapter
 implémente déjà (`find` avec `limit`/`offset`/`order`, et `count`). Aucun driver n'a eu à changer.
 
 Deux décisions le rendent utilisable sur une grosse table :
@@ -549,7 +549,7 @@ ramené dans le domaine valide (`paginate.ts:28`) — un `find({ limit: 0 })` a 
 dépend du dialecte, donc on ne le laisse pas sortir.
 
 Le contrat de page lui-même (`IPage`, `IPageQuery`) vit dans le **cœur**
-(`src/nodefony/src/types/IPage.ts:71`), pas ici : il est partagé par tous les stores paginés du
+(`src/nodefony/src/types/IPage.ts:22`), pas ici : il est partagé par tous les stores paginés du
 framework (sessions HTTP, jetons, audit…). `orm-core` ne fait que l'enrichir du `criteria` typé, sous
 le nom `PageQuery` (`IPage.ts:18`).
 
@@ -596,7 +596,7 @@ d'administration : elle ne charge qu'une page, quelle que soit la taille de la t
 
 Deux drivers implémentent les contrats. Le contrat `IRepository` est tenu **en entier** par les
 deux : les quinze verbes existent des deux côtés — par exemple l'upsert, avec
-`DrizzleRepository.upsert()` (`DrizzleRepository.ts:595`) et `MongooseRepository.upsert()`
+`DrizzleRepository.upsert()` (`DrizzleRepository.ts:627`) et `MongooseRepository.upsert()`
 (`MongooseRepository.ts:314`).
 
 | Capacité                               | `@nodefony/drizzle`                 | `@nodefony/mongoose`               |
@@ -607,7 +607,7 @@ deux : les quinze verbes existent des deux côtés — par exemple l'upsert, ave
 | Transactions + savepoints              | oui                                 | oui (replica set requis par Mongo) |
 | Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:801`)           | oui (`MongooseOrm.ts:274`)         |
 | Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`   | non câblée                         |
-| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:703`)           | oui (`MongooseOrm.ts:245`)         |
+| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:813`)           | oui (`MongooseOrm.ts:245`)         |
 
 **Les « stores » du framework, eux, ne sont pas alignés — et c'est un choix.** Un adapter déclare ce
 qu'il porte dans son `package.json`, clé `nodefony.stores` :
@@ -722,7 +722,7 @@ deux, et pas de course).
 | « entity "User" exists on multiple connectors … specify one » | la même entité vit sur plusieurs connecteurs                                                       | préciser le connecteur : `entityRegistry.get("User", "analytics")` (`EntityRegistry.ts:69`) |
 | Un filtre « champ vide » ne remonte jamais rien               | `colonne = NULL` est toujours faux en SQL                                                          | `{ champ: { $null: true } }` ou la valeur nue `{ champ: null }` (`IRepository.ts:65`)       |
 | `UnknownCriteriaField` sur un champ qui existe « pourtant »   | faute de frappe, ou champ calculé absent du schéma                                                 | lire les champs connus dans le message ; pour du natif, passer par `getNativeConnection()`  |
-| `updateOne` rend `null` alors que la ligne a bien changé      | ancien réflexe `UPDATE` + relecture (le critère porte sur le champ modifié)                        | utiliser `updateOne`, atomique par construction (`IRepository.ts:221`)                      |
+| `updateOne` rend `null` alors que la ligne a bien changé      | ancien réflexe `UPDATE` + relecture (le critère porte sur le champ modifié)                        | utiliser `updateOne`, atomique par construction (`IRepository.ts:252`)                      |
 | Un `upsert` écrase une valeur qui devait progresser           | le `DO UPDATE` est inconditionnel (contrainte MySQL)                                               | poser la condition **dans** la valeur : `{ seuil: { $max: v } }` (`IRepository.ts:94`)      |
 | Un objet de critère est pris pour une égalité (colonne JSON)  | comportement **voulu** : une valeur n'est un filtre que si **toutes** ses clés sont des opérateurs | c'est la protection ; pour filtrer dedans, passer au natif (`criteria.ts:42`)               |
 | `onOrmReady` ne part plus après un ajout dans l'adapter       | `connect()` a été surchargé                                                                        | surcharger `onConnect()` (`Orm.ts:74`), jamais `connect()`                                  |

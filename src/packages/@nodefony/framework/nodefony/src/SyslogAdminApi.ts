@@ -7,7 +7,8 @@ import {
   getLogDriver,
   setActiveLogDriver,
   listLogDrivers,
-  FLOW_STEPS,
+  parseFilters,
+  parsePageQuery,
 } from "nodefony";
 import type {
   ISyslog,
@@ -18,8 +19,8 @@ import type {
   IAdminResponse,
   ILogQueryCriteria,
   ILogDriverProbe,
-  FlowStepId,
 } from "nodefony";
+import { SYSLOG_FILTERS, SYSLOG_SORTABLE } from "./syslogFilters";
 
 /** Options du producteur syslog — viewer de fichiers (DEV only). */
 export interface SyslogAdminApiOptions {
@@ -130,52 +131,55 @@ export function createSyslogAdminApi(
     return Array.isArray(raw) ? raw[0] : raw;
   };
 
-  /** Param entier positif optionnel (epoch ms, offset…) — `undefined` si absent/invalide. */
-  const intOpt = (req: IAdminRequest, key: string): number | undefined => {
-    const v = oneParam(req, key);
-    if (v === undefined || !/^\d+$/.test(v)) return undefined;
-    return Number(v);
-  };
-
   /**
    * Construit un {@link ILogQueryCriteria} depuis la query string — la traduction
    * HTTP→backplane partagée par `logs` (array, rétrocompat) et `logs/search`
-   * (paginé). `severity` accepte multi-valeurs (`?severity=ERROR&severity=CRITIC`).
-   * `text` alias `q`. Bornes `from`/`to` = epoch ms.
+   * (paginé).
+   *
+   * Elle passe par les DEUX lecteurs du contrat de page : `parsePageQuery` pour
+   * la fenêtre, l'ordre et la recherche, `parseFilters` pour le vocabulaire de
+   * {@link SYSLOG_FILTERS}. Ce qu'ils remplacent n'était pas seulement une
+   * lecture à la main, c'était un **accepter puis jeter** systématique : chaque
+   * valeur invalide (`?severity=CRITICAL`, `?protocol=grpc`, `?flow=nimporte`)
+   * et chaque faute de frappe (`?severty=ERROR`) laissait le critère vide et
+   * rendait le journal ENTIER sous un `200`. Sur un journal d'exploitation,
+   * c'est la réponse qui se lit « rien à signaler ».
+   *
+   * @param req - la requête admin (query string déjà parsée).
+   * @param accepts - paramètres que l'appelant lit LUI-MÊME (`driver`, `scope`) ;
+   *   sans cette déclaration, le refus de l'inconnu les rejetterait à tort.
+   * @throws `PageQueryError` (400) sur un paramètre, une valeur ou un tri
+   *   qu'aucune partie de cet endpoint ne sait honorer.
    */
-  const buildCriteria = (req: IAdminRequest): ILogQueryCriteria => {
+  const buildCriteria = (
+    req: IAdminRequest,
+    accepts: readonly string[] = [],
+  ): ILogQueryCriteria => {
+    const page = parsePageQuery(req.query, {
+      defaultLimit: 200,
+      maxLimit: 1000,
+      sortable: SYSLOG_SORTABLE,
+      // La recherche plein-texte est un balayage du driver (payload + msg +
+      // module + msgid) : toujours disponible, et déclarée pour que la console
+      // n'ait pas à le deviner.
+      searchable: true,
+    });
+    const filters = parseFilters(req.query, SYSLOG_FILTERS, { accepts });
     const criteria: ILogQueryCriteria = {
-      limit: intParam(req, "limit", 200, 1000),
+      limit: page.limit,
+      ...filters,
     };
-    const sev = req.query.severity;
-    if (sev !== undefined) criteria.severity = sev as string | string[];
-    const requestId = oneParam(req, "requestId");
-    if (requestId) criteria.requestId = requestId;
-    const module = oneParam(req, "module");
-    if (module) criteria.module = module;
-    const msgid = oneParam(req, "msgid");
-    if (msgid) criteria.msgid = msgid;
-    const text = oneParam(req, "text") ?? oneParam(req, "q");
-    if (text) criteria.text = text;
-    const protocol = oneParam(req, "protocol");
-    if (protocol === "ws" || protocol === "http") criteria.protocol = protocol;
-    // Étape(s) du cycle de vie — multi-valeurs (`?flow=ws-open&flow=ws-message`).
-    // Validées contre la table des étapes (pas de critère arbitraire injecté).
-    const flowRaw = req.query.flow;
-    if (flowRaw !== undefined) {
-      const flows = (Array.isArray(flowRaw) ? flowRaw : [flowRaw]).filter(
-        (f): f is FlowStepId => typeof f === "string" && f in FLOW_STEPS,
-      );
-      if (flows.length) criteria.flow = flows;
+    if (page.offset !== undefined && page.offset > 0) {
+      criteria.offset = page.offset;
     }
-    const from = intOpt(req, "from");
-    if (from !== undefined) criteria.from = from;
-    const to = intOpt(req, "to");
-    if (to !== undefined) criteria.to = to;
-    const offset = intOpt(req, "offset");
-    if (offset !== undefined) criteria.offset = offset;
-    const order = oneParam(req, "order");
-    if (order === "asc" || order === "desc") criteria.order = order;
+    // `q` du contrat → `text` du backplane : le driver nomme ainsi son balayage.
+    if (page.q !== undefined) criteria.text = page.q;
+    // Le contrat exprime l'ordre en `champ:sens` ; le backplane n'a qu'un axe et
+    // ne connaît qu'un SENS. La traduction se fait ici, une fois — c'est le prix
+    // d'avoir un seul dialecte sur le fil, et il est payé par le data plane, pas
+    // par chaque appelant.
+    const dir = page.order?.[0]?.[1];
+    if (dir !== undefined) criteria.order = dir === "ASC" ? "asc" : "desc";
     return criteria;
   };
 
@@ -246,7 +250,12 @@ export function createSyslogAdminApi(
     {
       path: "logs",
       summary:
-        "Logs récents via le driver backplane actif — ?severity=&module=&requestId=&text=&limit=N (renvoie un ARRAY, rétrocompat).",
+        "Logs récents via le driver backplane actif — ?severity=&module=&requestId=&q=&limit=N (renvoie un ARRAY, rétrocompat).",
+      page: {
+        sortable: () => SYSLOG_SORTABLE,
+        filters: SYSLOG_FILTERS,
+        search: () => true,
+      },
       handler: async (request) => {
         // Délègue au driver de relecture ACTIF (memory par défaut). Renvoie un
         // tableau (récents d'abord) — forme rétrocompatible attendue par le front.
@@ -261,6 +270,11 @@ export function createSyslogAdminApi(
       path: "logs/search",
       summary:
         "Query paginée du backplane → { rows, total, truncated } (DataGrid Studio). Mêmes critères que logs + offset.",
+      page: {
+        sortable: () => SYSLOG_SORTABLE,
+        filters: SYSLOG_FILTERS,
+        search: () => true,
+      },
       handler: async (
         request,
       ): Promise<
@@ -281,7 +295,9 @@ export function createSyslogAdminApi(
             body: { queryable: false, driver: driver?.name ?? wanted ?? null },
           };
         }
-        return await driver.query(buildCriteria(request));
+        // `driver` et `scope` sont lus JUSTE AU-DESSUS : les déclarer ici est la
+        // contrepartie du refus de l'inconnu, et l'engagement de les traiter.
+        return await driver.query(buildCriteria(request, ["driver", "scope"]));
       },
     },
     {

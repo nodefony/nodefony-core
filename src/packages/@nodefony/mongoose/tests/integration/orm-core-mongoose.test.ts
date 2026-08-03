@@ -5,6 +5,7 @@ import {
   entityRegistry,
   ormRegistry,
   paginate,
+  LIKE_ESCAPE_CHAR,
 } from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
 import { MongooseOrm } from "../../nodefony/src/orm-core/index";
@@ -283,6 +284,30 @@ describe.skipIf(!URI)(
       assert.equal((await users.find({ age: { $ne: 30 } })).length, 2);
       // $like SQL (`%`) traduit en RegExp ancrée côté adapter Mongo.
       assert.equal((await users.find({ email: { $like: "u2%" } })).length, 1);
+    });
+
+    it("$like : un joker ÉCHAPPÉ est littéral — même réponse que les moteurs SQL", async () => {
+      // Le motif porte le MÊME échappement qu'en SQL (`\`), et l'adapter doit le
+      // lire : un backend documentaire qui l'ignorerait rendrait un autre
+      // ensemble de lignes pour le même critère portable — une divergence qui ne
+      // se voit qu'en changeant de base de données.
+      await users.delete({});
+      await users.create({ email: "remise_50@x.c", age: 1 });
+      await users.create({ email: "remiseX50@x.c", age: 1 });
+
+      // TÉMOIN : non échappé, `_` reste un joker (sinon le cas suivant passerait
+      // aussi sur un adapter qui ne traduit rien du tout).
+      assert.equal(
+        (await users.find({ email: { $like: "remise_50%" } })).length,
+        2,
+      );
+      const litteral = await users.find({
+        email: { $like: `remise${LIKE_ESCAPE_CHAR}_50%` },
+      });
+      assert.deepEqual(
+        litteral.map((u) => u.email),
+        ["remise_50@x.c"],
+      );
     });
 
     it("$null / valeur nue null : « le champ est vide » (parité stricte avec Drizzle)", async () => {

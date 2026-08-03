@@ -44,6 +44,11 @@ import { runCreateCommand } from "../cli/create";
 import { runCheckCommand } from "./checks/runCheck";
 import Env from "./commands/EnvCommand";
 import { runEnvCommand } from "../cli/env";
+import Card from "./commands/CardCommand";
+import { runCardCommand } from "../cli/card";
+import Symbols from "./commands/SymbolsCommand";
+import { runSymbolsCommand } from "../cli/symbols";
+import { runAiSyncCommand } from "../cli/aiSync";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import { HelpContext, Command as commanderCommand } from "commander";
@@ -223,8 +228,12 @@ class CliKernel extends Cli {
     // coûtait un démarrage complet pour une réponse qui n'en dépend pas, noyait
     // le rapport sous le journal du Kernel, et le rendait inutilisable sur une
     // application qui justement ne démarre plus.
-    if (requested === "check") {
-      return process.exit(runCheckCommand(process.argv));
+    // `doctor` est l'ALIAS de `check` (cf `CheckCommand`) : il doit prendre le
+    // même fast-path, sinon commander ne le voit pas parmi les built-ins avant
+    // le chargement des modules et il partirait en dispatch différé — donc en
+    // boot, précisément ce que ce raccourci évite.
+    if (requested === "check" || requested === "doctor") {
+      return process.exit(await runCheckCommand(process.argv));
     }
 
     // ─── `env` : la cascade des `.env` + les variables déclarées — même famille ─
@@ -234,6 +243,47 @@ class CliKernel extends Cli {
     // moment où elle sert.
     if (requested === "env") {
       return process.exit(await runEnvCommand(process.argv));
+    }
+
+    // ─── `card` : la carte de visite — même famille, et pour DEUX raisons ─────
+    // C'est la première commande lancée dans une application qu'on ne connaît
+    // pas : elle ne peut avoir aucune condition d'accès. Or elle en avait deux,
+    // toutes deux constatées sur une app fraîchement générée.
+    //   1. L'app n'est pas encore CONSTRUITE — `diagnoseUnbootableProject` répond
+    //      « lance npm run build » à toute commande qui exige un Kernel, donc
+    //      exactement au moment où l'on cherche par où commencer.
+    //   2. Le terminal n'a pas posé `NODE_ENV` — la carte était portée par une
+    //      commande du module `@nodefony/devkit`, `policy: "dev"` : hors
+    //      développement le module n'est pas chargé, la commande n'EXISTE pas et
+    //      le CLI répond `unknown command`, sans piste.
+    // Ne lisant que des fichiers, ce fast-path répond dans les quatre cas (app
+    // construite ou non, environnement posé ou non) — et il DIT ce qu'il ne peut
+    // pas savoir sans boot : installés ≠ chargés (cf `renderCard`).
+    // `devkit:card` reste reconnu : c'est le nom d'origine, déjà écrit dans les
+    // `AGENTS.md` générés. Comme `doctor` pour `check`, l'alias DOIT partager le
+    // fast-path, sinon il partirait en dispatch différé — donc en boot.
+    if (requested === "card" || requested === "devkit:card") {
+      return process.exit(runCardCommand(process.argv, version));
+    }
+
+    // ─── `symbols` : le graphe symbolique — même famille ──────────────────────
+    // C'est une lecture de JSON. La faire passer par un boot coûterait un
+    // démarrage complet pour répondre « où est défini ce symbole ? », et
+    // rendrait muette la question précisément quand l'application ne démarre
+    // plus — le moment où l'on cherche justement ce que fait une classe.
+    if (requested === "symbols") {
+      return process.exit(runSymbolsCommand(process.argv));
+    }
+
+    // ─── `ai:sync` : les skills d'agent livrés par les paquets — même famille ──
+    // Elle ne lit et n'écrit que des fichiers. Et surtout, elle DOIT répondre
+    // dans un terminal qui n'a pas posé `NODE_ENV` : portée par une commande du
+    // module `@nodefony/devkit` (`policy: "dev"`), elle n'aurait pas existé là —
+    // le CLI aurait répondu `unknown command`, exactement le défaut qui a fait
+    // remonter `card` dans le cœur. Le CONTENU des skills reste dans les
+    // paquets (il se met à jour par npm) ; seul le VERBE vit ici.
+    if (requested === "ai:sync") {
+      return process.exit(runAiSyncCommand(process.argv));
     }
 
     // ─── Lancement DÉTACHÉ (`<runtime> --detach`) : même famille standalone ────
@@ -271,7 +321,17 @@ class CliKernel extends Cli {
           //sortSubcommands: true,
           sortOptions: true,
           showGlobalOptions: true,
-          subcommandTerm: (cmd) => cmd.name(), // Just show the name, instead of short usage.
+          // Le nom, et SES ALIAS — jamais la « short usage » de commander, qui
+          // ajoute les arguments et élargit la colonne. Rendre `cmd.name()` seul
+          // rendait tous les alias INVISIBLES (`check|doctor`, et les autres
+          // avant lui) : un alias qui n'apparaît nulle part n'existe pas pour
+          // celui qui lit l'aide — c'est le seul endroit où il se découvre.
+          subcommandTerm: (cmd) => {
+            const aliases = cmd.aliases?.() ?? [];
+            return aliases.length
+              ? `${cmd.name()}|${aliases.join("|")}`
+              : cmd.name();
+          },
           // formatHelp: (cmd, help) => {
           //   return cmd.helpInformation();
           //   //return this.cli?.commander?.help();
@@ -370,6 +430,8 @@ class CliKernel extends Cli {
     this.addCommand(Create);
     this.addCommand(Check);
     this.addCommand(Env);
+    this.addCommand(Card);
+    this.addCommand(Symbols);
     this.addCommand(Inspect);
   }
 

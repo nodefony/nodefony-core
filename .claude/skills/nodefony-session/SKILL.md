@@ -224,11 +224,18 @@ SEULEMENT :
 
 3 canaux, 1 seul relu à chaque session : `CLAUDE.md`/skills + `MEMORY.md` (✅ relus) vs
 `session-retros/<id>.md` bruts (❌ jamais relus seuls → inertes). **`RETEX.md` comble le trou** :
-digest par thème, lu au START/RESUME. Cycle de vie d'une leçon : **friction (RETEX.md, sas)** → vue
-**≥3×** → **graduée en `feedback_*`** (durable) + **retirée de RETEX.md**. Règle anti-doublon : une
-leçon est dans RETEX.md **OU** `feedback_*`, **jamais les deux** (sinon dérive, cf l'anti-pattern
-« liste dupliquée » de `nodefony-check-externals`). CONSOLIDATE gère graduation + archivage pour
-borner la taille de RETEX.md (~1 écran).
+digest par thème, lu au START/RESUME. Cycle de vie d'une leçon : **friction (RETEX.md, sas)** →
+**thème atteignant ~5 frictions distinctes** → **gradué en `feedback_*`** (durable) + **retiré de
+RETEX.md**. Règle anti-doublon : une leçon est dans RETEX.md **OU** `feedback_*`, **jamais les deux**
+(sinon dérive, cf l'anti-pattern « liste dupliquée » de `nodefony-check-externals`). CONSOLIDATE gère
+graduation + archivage pour borner la taille de RETEX.md (~1 écran).
+
+> 🔴 **Le seuil porte sur le THÈME, pas sur le compteur `[N×]` d'un bullet.** L'ancienne règle
+> « friction vue ≥3× » n'a **jamais** déclenché : sur 135 frictions accumulées, 121 étaient à `1×`,
+> 14 à `2×`, **zéro à `3×`** — chaque session écrit un bullet NEUF plutôt que d'incrémenter, car les
+> formulations diffèrent. Un thème à **35 frictions en dix jours** n'a donc jamais été gradué. Le
+> `[N×]` ne sert plus qu'à repérer une répétition à l'identique ; il ne déclenche rien.
+> (Constat et chiffres : `docs/session-retros/CONSOLIDATION-2026-08-02.md`.)
 
 ## Boîte à outils CONSOLIDATE — déportée
 
@@ -365,15 +372,18 @@ Déclencheurs : "consolide les retex", "plan d'amélioration IA".
 > **CONSOLIDATE porte les tâches LOURDES déplacées du END** (stats tool_use / coût € / allowlist via
 > **`references/consolidate-toolkit.md`**) **+ la maintenance du SAS `RETEX.md`** qui borne sa taille :
 >
-> 1. **Graduer** : toute friction de `RETEX.md` atteignant **≥3×** → la promouvoir en **mémoire
->    `feedback_*`** (durable, indexée dans `MEMORY.md`) PUIS **la retirer de `RETEX.md`** (règle
->    anti-doublon : jamais dans les deux). Une friction vue 1-2× reste dans le sas.
-> 2. **Archiver** : déplacer les retex bruts consolidés vers `docs/session-retros/archive/`, et dans
->    `RETEX.md` remplacer leurs lignes d'index par 1 résumé par thème (pointeur). `RETEX.md` reste ~1 écran.
-> 3. **Nettoyer** : retirer de `RETEX.md` les frictions devenues obsolètes (corrigées dans le code/skill).
->
-> ⚠️ **57 retex accumulés au 2026-05-31, jamais consolidés** → CONSOLIDATE est LARGEMENT dû. À lancer
-> en session dédiée (gros lot : grader les patterns ≥3× récurrents sur 2 mois, archiver, seeder RETEX.md).
+> 1. **Graduer** : tout **THÈME** de `RETEX.md` portant **~5 frictions distinctes** → le promouvoir
+>    en **mémoire `feedback_*`** (durable, indexée dans `MEMORY.md`) PUIS **le retirer de
+>    `RETEX.md`** (règle anti-doublon : jamais dans les deux), en laissant une ligne de renvoi vers
+>    la mémoire pour qu'aucune leçon ne devienne introuvable.
+> 2. **Vérifier le RETRAIT des graduations déjà faites** — c'est le pas qu'on saute, et c'est lui qui
+>    gonfle le sas : `git -C "$MEM" log --diff-filter=A --since=<dernier CONSOLIDATE> --name-only
+--format="" -- 'feedback_*.md'` liste les mémoires créées entre-temps ; chacune doit avoir vidé
+>    son thème du SAS.
+> 3. **Archiver** : déplacer les retex bruts consolidés vers `docs/session-retros/archive/` (`git mv`,
+>    l'historique suit), et snapshoter `RETEX.md` AVANT coupe
+>    (`archive/RETEX-snapshot-<date>.md`). `RETEX.md` reste ~1 écran.
+> 4. **Nettoyer** : retirer de `RETEX.md` les frictions devenues obsolètes (corrigées dans le code/skill).
 
 ## 1. Compter les retex
 

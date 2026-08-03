@@ -5,7 +5,7 @@ audience: humain
 topic: skills
 tests: none
 status: stable
-updated: 2026-07-27
+updated: 2026-08-03
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -60,7 +60,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v2.4.0 · ⚙️ 7 scripts · 📎 2 réf" },
   { "icon": "⚙️", "title": "framework-dev", "href": "nodefony-framework-dev.md",
     "desc": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM).",
-    "meta": "🟢 conforme v2.0.0 · 📎 9 réf" },
+    "meta": "🟢 conforme v2.0.0 · 📎 10 réf" },
   { "icon": "🎨", "title": "frontend-dev", "href": "nodefony-frontend-dev.md",
     "desc": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie / temps réel…",
     "meta": "🟢 conforme v1.0.0 · 📎 6 réf" },
@@ -82,7 +82,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.1.0" },
   { "icon": "📈", "title": "load-test", "href": "nodefony-load-test.md",
     "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).",
-    "meta": "🟢 conforme · ⚙️ 37 scripts · 📎 1 réf" },
+    "meta": "🟢 conforme · ⚙️ 37 scripts · 📎 4 réf" },
   { "icon": "🛰️", "title": "multipod-bench", "href": "nodefony-multipod-bench.md",
     "desc": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout.",
     "meta": "🟢 conforme · ⚙️ 9 scripts · 📎 2 réf" },
@@ -145,8 +145,8 @@ source: "docs/skills/index.md"
 ```nodefony-cards
 [
   { "icon": "🔧", "title": "devkit-bench", "href": "nodefony-devkit-bench.md",
-    "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par deux mesures — le code généré tient-il debout (il compile, ses tests passent, sa ressource répond vraiment en HTTP), et un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner.",
-    "meta": "🟢 conforme v1.0.0 · ⚙️ 2 scripts" }
+    "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 6 scripts · 📎 3 réf" }
 ]
 ```
 
@@ -154,25 +154,25 @@ source: "docs/skills/index.md"
 
 | Skill | Version | Corps | Réf. | Scripts | Conforme |
 | --- | --- | ---: | ---: | ---: | :---: |
-| [`nodefony-check-externals`](nodefony-check-externals.md) | — | 86 | 0 | 0 | ✅ |
+| [`nodefony-check-externals`](nodefony-check-externals.md) | — | 114 | 0 | 0 | ✅ |
 | [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | — | 83 | 0 | 0 | ✅ |
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 247 | 1 | 0 | ✅ |
-| [`nodefony-create-module`](nodefony-create-module.md) | — | 276 | 1 | 0 | ✅ |
-| [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 220 | 0 | 0 | ✅ |
-| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.0.0 | 200 | 0 | 2 | ✅ |
+| [`nodefony-create-module`](nodefony-create-module.md) | — | 278 | 1 | 0 | ✅ |
+| [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 254 | 0 | 0 | ✅ |
+| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.3.0 | 353 | 3 | 6 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 2.4.0 | 459 | 2 | 7 | ✅ |
-| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 354 | 9 | 0 | ✅ |
+| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 357 | 10 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 101 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 174 | 3 | 3 | ✅ |
 | [`nodefony-inspect`](nodefony-inspect.md) | 1.0.0 | 258 | 0 | 0 | ✅ |
-| [`nodefony-load-test`](nodefony-load-test.md) | — | 541 | 1 | 37 | ✅ |
+| [`nodefony-load-test`](nodefony-load-test.md) | — | 229 | 4 | 37 | ✅ |
 | [`nodefony-migration-audit`](nodefony-migration-audit.md) | — | 357 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 140 | 2 | 9 | ✅ |
-| [`nodefony-release`](nodefony-release.md) | 1.0.0 | 67 | 0 | 3 | ✅ |
+| [`nodefony-release`](nodefony-release.md) | 1.0.0 | 130 | 0 | 3 | ✅ |
 | [`nodefony-rfc`](nodefony-rfc.md) | — | 68 | 0 | 0 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 356 | 0 | 0 | ✅ |
-| [`nodefony-session`](nodefony-session.md) | — | 434 | 1 | 0 | ✅ |
+| [`nodefony-session`](nodefony-session.md) | — | 444 | 1 | 0 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 276 | 0 | 3 | ✅ |
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 246 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 143 | 6 | 0 | ✅ |

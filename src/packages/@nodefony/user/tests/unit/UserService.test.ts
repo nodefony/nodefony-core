@@ -94,6 +94,18 @@ class MemoryUserRepo implements IUserRepository {
     return this.find(criteria).then((r) => r.length);
   }
 
+  countDistinct(
+    field: keyof IPasswordAuthenticatedUser & string,
+    criteria?: Criteria<IPasswordAuthenticatedUser>,
+  ) {
+    return this.find(criteria).then(
+      (r) =>
+        new Set(
+          r.map((u) => u[field]).filter((v) => v !== null && v !== undefined),
+        ).size,
+    );
+  }
+
   createMany(data: Partial<IPasswordAuthenticatedUser>[]) {
     return Promise.all(data.map((d) => this.create(d)));
   }
@@ -186,6 +198,30 @@ class MemoryUserRepo implements IUserRepository {
       [...this.store.values()].filter(
         (u) => u.isActive() && u.roles.includes(adminRole),
       ).length,
+    );
+  }
+
+  /** Double du COUNT filtré : applique les mêmes filtres que le vrai annuaire. */
+  countUsers(query: IUserListQuery) {
+    return Promise.resolve(
+      [...this.store.values()].filter((u) => {
+        if (query.role !== undefined && !u.roles.includes(query.role)) {
+          return false;
+        }
+        if (query.enabled !== undefined && u.isActive() !== query.enabled) {
+          return false;
+        }
+        if (query.locked !== undefined && u.isLocked() !== query.locked) {
+          return false;
+        }
+        if (
+          query.hasSocial !== undefined &&
+          u.socialProviders.length > 0 !== query.hasSocial
+        ) {
+          return false;
+        }
+        return true;
+      }).length,
     );
   }
 }

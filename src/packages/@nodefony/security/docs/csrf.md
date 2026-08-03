@@ -240,7 +240,7 @@ autorisation :
 ```
 
 > [!WARNING]
-> `@CsrfExempt` (`routerDecorators.ts:895`) est un opt-out **ciblé CSRF**. Ne jamais « débloquer un
+> `@CsrfExempt` (`routerDecorators.ts:1074`) est un opt-out **ciblé CSRF**. Ne jamais « débloquer un
 > webhook » avec `@BypassFirewall`/`@Anonymous` : eux désactivent l'authentification de la zone.
 
 Cas voisin — **façade multi-domaine** (`www.example.com` poste vers l'API d'un autre domaine à toi) :
@@ -297,7 +297,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 2. Au match de la route, `Resolver.match()` recopie les marqueurs sur le contexte
    (`Resolver.ts:152-153`) — champs portés par le `Context` de base, HTTP comme WS
    (`Context.ts:181-183`).
-3. `Firewall.enforceCsrf()` (`firewall.ts:741`) fait les trois rôles : **émission** du token sur
+3. `Firewall.enforceCsrf()` (`firewall.ts:833`) fait les trois rôles : **émission** du token sur
    requête sûre `@CsrfProtect`, **couche 1** sur toute mutation, **couche 2** en plus si
    `@CsrfProtect`. Les routes `bypassFirewall` (callbacks OAuth) sont exemptées
    (`firewall.ts:743-745`), les `@CsrfExempt` sortent après la barrière méthode sûre
@@ -313,7 +313,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 | `fetchMetadata`  | boolean · `true`     | Défense primaire `Sec-Fetch-Site` (`config.ts:157-162`).                                                                                                   |
 | `checkOrigin`    | boolean · `true`     | Repli `Origin`/`Referer` same-host pour les navigateurs sans `Sec-Fetch-*` (`config.ts:164-169`).                                                          |
 | `strictSameSite` | boolean · `false`    | `true` = refuser aussi `same-site` (sous-domaine non maîtrisé / multi-tenant) — distinct de l'attribut cookie (`config.ts:170-175`).                       |
-| `sameSite`       | enum · `Lax`         | **Déclaratif** : surfacé dans l'introspection (`firewall.ts:468`) ; l'attribut effectif du cookie `csrf-token` est `Strict` en dur (`HttpContext.ts:428`). |
+| `sameSite`       | enum · `Lax`         | **Déclaratif** : surfacé dans l'introspection (`firewall.ts:554`) ; l'attribut effectif du cookie `csrf-token` est `Strict` en dur (`HttpContext.ts:428`). |
 | `trustedOrigins` | string[] · `[]`      | Alias **exacts** (`scheme://host[:port]`) autorisés même cross-site — sans ouvrir la lecture CORS (`config.ts:176-181`).                                   |
 | `secret`         | string ≥ 16 car. · — | Secret HMAC du synchronizer — PROD : via env, **partagé cluster** ; absent = éphémère dev (`config.ts:182-188`).                                           |
 
@@ -343,8 +343,8 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 
 L'écran **Firewall** de Studio expose la défense dans son onglet Défenses (`FirewallDefenses`,
 `Firewall.tsx:313-314`). La projection est **sans secret par construction** :
-`Firewall.#describeDefenses()` (`firewall.ts:461`) publie la config résolue, et `synchronizerToken`
-n'est que la **présence** du secret armé — jamais sa valeur (`firewall.ts:471`).
+`Firewall.#describeDefenses()` (`firewall.ts:547`) publie la config résolue, et `synchronizerToken`
+n'est que la **présence** du secret armé — jamais sa valeur (`firewall.ts:557`).
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 

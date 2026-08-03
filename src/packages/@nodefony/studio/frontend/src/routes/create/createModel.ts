@@ -35,6 +35,15 @@ export interface IScaffoldQuestion {
   patternHint?: string;
   /** Capacité d'environnement exigée pour poser la question (cf {@link FRONT_CAPABILITIES}). */
   askIf?: string;
+  /**
+   * Réponse PRÉCÉDENTE exigée pour poser la question — là où `askIf` interroge
+   * l'environnement, celle-ci exprime une dépendance entre deux choix du même
+   * formulaire (la base SQL n'a de service à choisir qu'en preset `complete`).
+   *
+   * Non satisfaite, le moteur ramène la valeur au défaut : l'afficher
+   * annoncerait un choix que la génération ignore.
+   */
+  askWhen?: { key: string; equals: string };
   /** Réglage avancé — replié par défaut (son défaut est sûr). */
   advanced?: boolean;
 }
@@ -269,23 +278,39 @@ export function defaultRootId(roots: IScaffoldRoot[]): string | null {
   return roots[0]?.id ?? null;
 }
 
-/** Une question n'est posée que si le SERVEUR déclare vraie la capacité qu'elle exige. */
+/**
+ * Une question n'est posée que si le SERVEUR déclare vraie la capacité qu'elle
+ * exige (`askIf`) ET si la réponse dont elle dépend a la valeur attendue
+ * (`askWhen`).
+ *
+ * Les deux conditions sont celles du MOTEUR (`resolveAnswers`, core) : une
+ * question qu'il ramènerait au défaut ne doit pas être offerte ici, sinon le
+ * formulaire annonce un choix que la génération ignore.
+ */
 export function isQuestionVisible(
   q: IScaffoldQuestion,
   caps: IScaffoldCaps,
+  answers: TAnswers = {},
 ): boolean {
-  return !q.askIf || caps[q.askIf] === true;
+  if (q.askIf && caps[q.askIf] !== true) return false;
+  if (q.askWhen && String(answers[q.askWhen.key]) !== q.askWhen.equals) {
+    return false;
+  }
+  return true;
 }
 
 /** Questions visibles, ventilées : celles du dialogue et celles du repli « avancé ». */
 export function splitQuestions(
   spec: IScaffoldTypeSpec,
   caps: IScaffoldCaps,
+  answers: TAnswers = {},
 ): {
   main: IScaffoldQuestion[];
   advanced: IScaffoldQuestion[];
 } {
-  const visible = spec.questions.filter((q) => isQuestionVisible(q, caps));
+  const visible = spec.questions.filter((q) =>
+    isQuestionVisible(q, caps, answers),
+  );
   return {
     main: visible.filter((q) => !q.advanced),
     advanced: visible.filter((q) => q.advanced === true),
@@ -310,7 +335,10 @@ export function defaultAnswers(
 ): TAnswers {
   const answers: TAnswers = {};
   for (const q of spec.questions) {
-    if (!isQuestionVisible(q, caps)) continue;
+    // `answers` en cours de construction : une question `askWhen` lit la réponse
+    // DÉJÀ posée de celle dont elle dépend — l'ordre de la spec fait foi, comme
+    // dans le moteur.
+    if (!isQuestionVisible(q, caps, answers)) continue;
     answers[q.key] =
       q.key === LINK_KEY && spec.type === APP_TYPE && caps.hasCheckout === true
         ? true

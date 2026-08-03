@@ -184,17 +184,46 @@ describe("parseAuditQuery", () => {
     assert.deepEqual(parseAuditQuery({}), { limit: 100 });
   });
 
-  it("ignore category/outcome inconnus (permissif, admin only)", () => {
-    assert.deepEqual(parseAuditQuery({ category: "xxx", outcome: "yyy" }), {
+  // Doctrine INVERSÉE : ces valeurs étaient ignorées « par permissivité, admin
+  // only ». Mais le journal rendu ENTIER à qui demandait `?outcome=deneid` est
+  // la pire réponse possible à un auditeur — il lit l'absence de refus comme
+  // l'absence d'incident. Un filtre non honoré se REFUSE.
+  it("refuse une category/outcome hors vocabulaire, au lieu de tout rendre", () => {
+    assert.throws(() => parseAuditQuery({ category: "xxx" }), /Invalid value/);
+    assert.throws(() => parseAuditQuery({ outcome: "yyy" }), /Invalid value/);
+  });
+
+  it("refuse un paramètre que personne ne reconnaît (faute de frappe)", () => {
+    assert.throws(
+      () => parseAuditQuery({ catgory: "auth" }),
+      /Unknown parameter/,
+    );
+  });
+
+  it("honore `config`, que l'ancienne liste recopiée avait perdu", () => {
+    // Le type `AuditCategory` la déclarait, le `Set` du data plane non : la
+    // catégorie était donc refusée en silence, journal entier à la clé.
+    assert.deepEqual(parseAuditQuery({ category: "config" }), {
+      category: "config",
       limit: 100,
     });
   });
 
-  it("prend le 1er d'un param multi-valué et ignore un entier non numérique", () => {
-    assert.deepEqual(parseAuditQuery({ actor: ["a", "b"], since: "abc" }), {
+  it("un param multi-valué est REFUSÉ ; un entier non numérique aussi", () => {
+    // `?actor=a&actor=b` : filtrer sur `a` seul et jeter `b` sans le dire rend
+    // un journal d'audit que le lecteur prend pour la réponse à ses DEUX
+    // valeurs. Aucune nature de filtre n'exprime l'appartenance à un ensemble,
+    // donc la seule réponse honnête est le refus.
+    assert.throws(() => parseAuditQuery({ actor: ["a", "b"] }), /2 values/);
+    // Un tableau d'UNE valeur reste lu : c'est le transport, pas l'intention.
+    assert.deepEqual(parseAuditQuery({ actor: ["a"] }), {
       actor: "a",
       limit: 100,
     });
+    assert.throws(
+      () => parseAuditQuery({ since: "abc" }),
+      /expected an integer/,
+    );
   });
 });
 

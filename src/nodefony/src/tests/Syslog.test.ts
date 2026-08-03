@@ -15,7 +15,7 @@ import Syslog, {
   SyslogDefaultSettings,
 } from "../syslog/Syslog";
 //import nodefony  from "../Nodefony"
-import Pdu from "../syslog/Pdu";
+import Pdu, { SEVERITY_NAMES } from "../syslog/Pdu";
 import RequestContext from "../runtime/RequestContext";
 import assert from "node:assert";
 import { ConsoleTransport } from "../syslog/transports/ConsoleTransport";
@@ -2289,5 +2289,25 @@ describe("SYSLOG — per-module debug override (runtime, hot)", () => {
     assert.strictEqual(sl.log("w", "WARNING", "NOISY").status, "ACCEPTED");
     // les autres modules suivent toujours '*'
     assert.strictEqual(sl.log("d", "DEBUG", "ANY").status, "ACCEPTED");
+  });
+});
+
+describe("SEVERITY_NAMES — le vocabulaire des sévérités", () => {
+  it("l'INDEX est la valeur RFC 5424 de la sévérité", () => {
+    // Gate anti-divergence : la liste et l'enum sont deux écritures de la même
+    // chose. Sans lui, insérer un niveau décalerait tout l'affichage indexé
+    // (« ERROR » rendu pour un WARNING) sans qu'aucun test ne bronche.
+    SEVERITY_NAMES.forEach((name, index) => {
+      const pdu = new Pdu("x", name);
+      expect(pdu.severity, `${name} doit valoir ${index}`).to.equal(index);
+      expect(pdu.severityName).to.equal(name);
+    });
+  });
+
+  it("couvre TOUTE l'échelle 0→7, sans `SPINNER` (extension CLI)", () => {
+    expect(SEVERITY_NAMES.length).to.equal(8);
+    expect(SEVERITY_NAMES).to.not.include("SPINNER");
+    // `CRITIC`, jamais `CRITICAL` — le nom de l'enum fait foi.
+    expect(SEVERITY_NAMES[2]).to.equal("CRITIC");
   });
 });

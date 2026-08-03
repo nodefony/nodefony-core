@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import type { IUserRepository } from "../../index";
+import { USER_SORTABLE_FIELDS, USER_SORTABLE_FIELDS_COMMON } from "../../index";
 
 /**
  * **Banc de contrat UNIQUE** du standard de pagination utilisateur
@@ -121,6 +122,81 @@ export function runUserPaginationContract(
       assert.deepEqual(
         page.items.map((u) => u.identifier),
         ["user24@x", "user23@x", "user22@x"],
+      );
+    });
+
+    // ── CAPACITÉ DE TRI : ce qui est DÉCLARÉ doit être HONORÉ ────────────────
+    // L'allowlist était écrite deux fois — une par adapter — et avait divergé
+    // (`id` autorisé côté SQL, inconnu côté Mongo). Ces cas la ramènent à une
+    // source unique en vérifiant que chaque backend honore ce qu'il annonce.
+
+    it("le repository DÉCLARE au moins le socle commun", () => {
+      const fields = repo().sortableFields;
+      assert.ok(
+        fields && fields.length > 0,
+        "les repositories livrés savent tous trier",
+      );
+      // La parité ne porte PAS sur des capacités identiques : les backends
+      // persistants trient aussi sur `createdAt`/`updatedAt`, colonnes que le
+      // modèle en mémoire ne porte pas. Ce qui doit être garanti partout, c'est
+      // ce socle — le reste s'ANNONCE, et le cas suivant vérifie que tout ce qui
+      // est annoncé trie réellement.
+      for (const expected of USER_SORTABLE_FIELDS_COMMON) {
+        assert.ok(
+          fields!.includes(expected),
+          `"${expected}" doit être annoncé par TOUS les backends`,
+        );
+      }
+      for (const field of fields!) {
+        assert.ok(
+          (USER_SORTABLE_FIELDS as readonly string[]).includes(field),
+          `"${field}" n'appartient pas au vocabulaire public des utilisateurs`,
+        );
+      }
+    });
+
+    it("chaque champ DÉCLARÉ trie réellement, dans les deux sens", async () => {
+      for (const field of repo().sortableFields ?? []) {
+        const asc = await repo().listPage({
+          limit: 25,
+          order: [[field, "ASC"]],
+        });
+        const desc = await repo().listPage({
+          limit: 25,
+          order: [[field, "DESC"]],
+        });
+        const ids = (p: { items: { identifier: string }[] }) =>
+          p.items.map((u) => u.identifier);
+        assert.equal(ids(asc).length, 25, `${field} : page complète attendue`);
+        // Un champ annoncé mais ignoré rendrait DEUX fois le même ordre : c'est
+        // exactement ce que le filtre silencieux produisait.
+        assert.notDeepEqual(
+          ids(asc),
+          ids(desc),
+          `"${field}" est annoncé triable mais ASC et DESC rendent le même ordre`,
+        );
+      }
+    });
+
+    it("le tri s'applique AVANT la pagination (page 2 prolonge page 1)", async () => {
+      const p1 = await repo().listPage({
+        limit: 5,
+        offset: 0,
+        order: [["identifier", "DESC"]],
+      });
+      const p2 = await repo().listPage({
+        limit: 5,
+        offset: 5,
+        order: [["identifier", "DESC"]],
+      });
+      const all = await repo().listPage({
+        limit: 10,
+        order: [["identifier", "DESC"]],
+      });
+      assert.deepEqual(
+        [...p1.items, ...p2.items].map((u) => u.identifier),
+        all.items.map((u) => u.identifier),
+        "deux pages consécutives doivent reconstituer le préfixe du tri global",
       );
     });
 

@@ -64,7 +64,7 @@ Trois idées portent tout le reste :
 1. **Le `Content-Type` décide, pas la méthode.** `parseRequest()` (`context/http/Request.ts:292`)
    aiguille vers `ParserJson` / `ParserQs` / `ParserXml` / **busboy** / parser brut selon l'en-tête.
 2. **Seul le multipart écrit sur disque.** Les fichiers sont **streamés** au fil de l'eau vers un
-   fichier temporaire (`parseMultipart()`, `context/http/Request.ts:362`) — jamais bufferisés en RAM.
+   fichier temporaire (`parseMultipart()`, `context/http/Request.ts:388`) — jamais bufferisés en RAM.
    JSON / urlencoded / XML restent en mémoire (petits corps).
 3. **Deux budgets distincts, jamais confondus.** Le corps **non-multipart** est borné par `maxBodySize`
    (défaut **1 MiB**) ; le multipart a **ses propres** limites busboy (`maxFileSize`, `maxTotalFileSize`,
@@ -262,7 +262,7 @@ Les points d'implémentation qui expliquent des comportements surprenants :
    (`context/http/Request.ts:400`) accumule les `Promise` d'écriture disque et ne résout `{ fields, files }`
    qu'une fois tous les fichiers fermés (`context/http/Request.ts:538`).
 3. **Une limite dépassée nettoie les temporaires déjà posés** — `abort()`
-   (`context/http/Request.ts:420`) délie le flux, détruit les write-streams ouverts et `unlink` les temp
+   (`context/http/Request.ts:446`) délie le flux, détruit les write-streams ouverts et `unlink` les temp
    déjà écrits (`context/http/Request.ts:431`) avant de rejeter en `413` : pas d'orphelins sur le disque.
 4. **Les autres formats drainent AVANT de concaténer** — la base `Parser.parse()` attend `end`
    (`context/http/parser.ts:111`) avant `Buffer.concat` : sans ce drain, `ParserQs`/`ParserXml`
@@ -282,7 +282,7 @@ non-multipart n'écoute pas `upload.*`.
 | `maxBodySize` | octets | `1_048_576` (1 MiB) | Plafond d'un corps **JSON / urlencoded / XML / brut** → `413`. `0` = illimité. |
 
 Deux rideaux, tous deux `runtimeMutable` (éditable à chaud) : un **pré-check** sur `Content-Length`
-qui rejette **avant** de lire (`enforceBodyLimit()`, `context/http/Request.ts:270`), puis un **compteur
+qui rejette **avant** de lire (`enforceBodyLimit()`, `context/http/Request.ts:296`), puis un **compteur
 en streaming** qui coupe le socket si le corps déborde sans `Content-Length` honnête — chunked ou
 menteur (`Parser.write()`, `context/http/parser.ts:33`, dépassement `context/http/parser.ts:44`).
 Champ `maxBodySize` du schéma : `config/config.ts:984`.
@@ -315,11 +315,11 @@ recommandé) et les **getters** de `Controller` (impératif). Les signatures exa
 
 | Accès                                              | Source lue                           | Ancrage                                                             |
 | -------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------- |
-| `@UploadedFiles() f: IUploadedFile[]`              | tous les fichiers (`queryFile`)      | `resolveParamArg` `"files"` (`routerDecorators.ts:1092`)            |
-| `@UploadedFile() f: IUploadedFile`                 | le **premier** fichier               | `resolveParamArg` `"file"` (`routerDecorators.ts:1090`)             |
-| `@Body() body`                                     | tous les champs parsés (`queryPost`) | `resolveParamArg` `"body"` (`routerDecorators.ts:1074`)             |
-| `@Body("label") v`                                 | un seul champ du body                | même source, clé (`routerDecorators.ts:974`)                        |
-| `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté**    | `resolveParamArg` stream (`routerDecorators.ts:1060`)               |
+| `@UploadedFiles() f: IUploadedFile[]`              | tous les fichiers (`queryFile`)      | `resolveParamArg` `"files"` (`routerDecorators.ts:1184`)            |
+| `@UploadedFile() f: IUploadedFile`                 | le **premier** fichier               | `resolveParamArg` `"file"` (`routerDecorators.ts:1183`)             |
+| `@Body() body`                                     | tous les champs parsés (`queryPost`) | `resolveParamArg` `"body"` (`routerDecorators.ts:1153`)             |
+| `@Body("label") v`                                 | un seul champ du body                | même source, clé (`routerDecorators.ts:1153`)                       |
+| `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté**    | `resolveParamArg` stream (`routerDecorators.ts:1227`)               |
 | `this.queryFile`                                   | équivalent getter des fichiers       | `Controller.queryFile` (`framework/nodefony/src/Controller.ts:205`) |
 | `this.queryPost`                                   | équivalent getter des champs         | `Controller.queryPost` (`framework/nodefony/src/Controller.ts:214`) |
 
@@ -350,7 +350,7 @@ destination est bâtie avec `filename` — d'où l'avertissement de sécurité c
 Pour piper directement un très gros corps (vidéo, backup) vers le disque ou S3 sans passer par busboy ni
 par la RAM, `@Body({ stream: true })` court-circuite le parse et injecte l'`IncomingMessage` brut (un
 `Readable`). Le pipeline sait le sauter en amont via `routeExpectsBodyStream()`
-(`routerDecorators.ts:1130`), mémoïsé sur la route.
+(`routerDecorators.ts:1309`), mémoïsé sur la route.
 
 ```ts
 // fragment — le contrôleur pipe le flux lui-même (0 parse, 0 pic RAM)
@@ -371,7 +371,7 @@ piégé. Les défenses en place, et **ce qui reste à ta charge**.
 | **Path traversal** (chemin d'écriture) | Le temp est nommé `randomUUID()` + extension — jamais le nom client (`context/http/Request.ts:458`).                      | La **destination** de `move()` (voir avertissement).          |
 | **Saturation RAM**                     | Multipart streamé (jamais bufferisé) ; corps non-multipart borné (`maxBodySize`).                                         | Resserrer `maxBodySize` selon l'endpoint.                     |
 | **Saturation disque**                  | `maxFileSize` + `maxTotalFileSize` + `maxFiles` ; `abort()` nettoie les temp à l'abandon (`context/http/Request.ts:420`). | Purger les temp non déplacés (TTL / cron).                    |
-| **DoS par quantité**                   | `maxFields` / `maxFiles` / `parts` → `413` (`context/http/Request.ts:526`).                                               | —                                                             |
+| **DoS par quantité**                   | `maxFields` / `maxFiles` / `parts` → `413` (`context/http/Request.ts:610`).                                               | —                                                             |
 | **Type de fichier hostile**            | `mimeType` **déclaré** est exposé tel quel.                                                                               | Valider le type/contenu réel (le MIME client est déclaratif). |
 
 > [!WARNING]
@@ -405,11 +405,11 @@ pipeline : `npm run test:memory` (skill `nodefony-check-memory-health`).
 | Domaine                            | Norme                            | Ancrage                                                       |
 | ---------------------------------- | -------------------------------- | ------------------------------------------------------------- |
 | Formulaire avec fichiers           | RFC 7578 (`multipart/form-data`) | `parseMultipart()` via busboy (`context/http/Request.ts:365`) |
-| Corps trop gros → 413              | RFC 9110 §15.5.14                | `enforceBodyLimit()` (`context/http/Request.ts:270`)          |
+| Corps trop gros → 413              | RFC 9110 §15.5.14                | `enforceBodyLimit()` (`context/http/Request.ts:296`)          |
 | 413 en streaming (chunked/menteur) | RFC 9110 §15.5.14                | `Parser.write()` (`context/http/parser.ts:33`)                |
 | Bornes multipart → 413             | RFC 9110 §15.5.14                | `stream.on("limit")` (`context/http/Request.ts:481`)          |
 | Défense path traversal (nom temp)  | OWASP — File Upload              | `randomUUID()` (`context/http/Request.ts:458`)                |
-| Charset du corps honoré            | RFC 9110 (Content-Type)          | `getCharset()` (`context/http/Request.ts:665`)                |
+| Charset du corps honoré            | RFC 9110 (Content-Type)          | `getCharset()` (`context/http/Request.ts:688`)                |
 
 ## ⚠️ Pièges
 

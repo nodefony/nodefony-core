@@ -1,3 +1,4 @@
+import { parsePageQuery, parseFilters } from "nodefony";
 import type {
   Container,
   IAdminEndpoint,
@@ -10,6 +11,12 @@ import type {
   IWebhookDelivery,
 } from "../../contracts/IWebhookEndpoint";
 import type { IWebhookListQuery } from "../../contracts/IWebhookStore";
+import {
+  WEBHOOK_FILTERS,
+  WEBHOOK_FACETS,
+  WEBHOOK_STATS_FILTERS,
+  type IWebhookCounts,
+} from "../webhook/webhookFilters";
 import { adminActor, auditAdmin } from "./adminAudit";
 
 /**
@@ -65,6 +72,7 @@ interface IWebhookUpdateAdminPatch {
  */
 interface IWebhookAdmin {
   isReady(): boolean;
+  sortableFields(): readonly string[];
   register(
     input: IWebhookRegisterAdminInput,
   ): Promise<IWebhookSecretRevealView>;
@@ -78,6 +86,10 @@ interface IWebhookAdmin {
   revealSecret(id: string): Promise<string | null>;
   delete(id: string): Promise<boolean>;
   listDeliveries(id: string): IWebhookDelivery[];
+  /** Compteurs de tête, posés sur la collection entière (pas sur une page). */
+  countWebhookFacets(
+    query?: Partial<IWebhookListQuery>,
+  ): Promise<IWebhookCounts>;
 }
 
 /**
@@ -128,41 +140,44 @@ const ENDPOINTS_DEFAULT_LIMIT = 50;
 /** Plafond dur : un client ne peut pas demander « tout » via `?limit=`. */
 const ENDPOINTS_MAX_LIMIT = 200;
 
-/** Premier param d'une clé (la query admin peut être `string | string[]`). */
-function queryOne(
-  query: Readonly<Record<string, string | string[]>>,
-  key: string,
-): string | undefined {
-  const raw = query[key];
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
 /**
  * Traduit la query string admin en {@link IWebhookListQuery} **bornée**
- * (`limit` défaut 50, cap 200 ; `offset`/`enabled`/`event`/`q`). Un filtre
- * inconnu est ignoré (permissif — l'endpoint est déjà gardé
- * `ROLE_NODEFONY_ADMIN`). Pagination **offset uniquement** : les trois stores
+ * (`limit` défaut 50, cap 200 ; pagination, tri, et les filtres de
+ * {@link WEBHOOK_FILTERS}). Pagination **offset uniquement** : les trois stores
  * webhook (memory/drizzle/mongoose) sont offset-pur — aucun curseur ici.
+ *
+ * **UN SEUL traducteur par dimension, jamais deux** : `parsePageQuery` pour la
+ * page et le tri, `parseFilters` pour les filtres. En appeler un second sans son
+ * allowlist ferait refuser en 400 ce que le premier venait d'accepter, et aucun
+ * test unitaire ne le verrait.
+ *
+ * Un filtre inconnu ou mal formé est **refusé** (400) et non plus ignoré :
+ * `?enabled=oui` rendait la liste entière, lue comme « aucun endpoint désactivé ».
+ *
+ * @param query - `request.query` du broker admin.
+ * @param sortable - champs que le backend branché sait trier ; un `?order=`
+ *   portant autre chose est refusé en 400 par le traducteur.
  */
-function parseWebhookListQuery(
+export function parseWebhookListQuery(
   query: Readonly<Record<string, string | string[]>>,
+  sortable: readonly string[],
 ): IWebhookListQuery {
-  const rawLimit = Number.parseInt(queryOne(query, "limit") ?? "", 10);
+  const page = parsePageQuery(query, {
+    defaultLimit: ENDPOINTS_DEFAULT_LIMIT,
+    maxLimit: ENDPOINTS_MAX_LIMIT,
+    sortable,
+    // Le registre relaie `q` au store (`IWebhookListQuery.q`) — déclaré ici, et
+    // publié au catalogue par le même endpoint : la console n'offre la
+    // recherche que là où elle aboutit.
+    searchable: true,
+  });
   const out: IWebhookListQuery = {
-    limit: Number.isFinite(rawLimit)
-      ? Math.min(Math.max(rawLimit, 1), ENDPOINTS_MAX_LIMIT)
-      : ENDPOINTS_DEFAULT_LIMIT,
+    limit: page.limit,
+    ...parseFilters(query, WEBHOOK_FILTERS),
   };
-  const rawOffset = Number.parseInt(queryOne(query, "offset") ?? "", 10);
-  if (Number.isFinite(rawOffset) && rawOffset >= 0) out.offset = rawOffset;
-  const enabled = queryOne(query, "enabled");
-  if (enabled === "true") out.enabled = true;
-  else if (enabled === "false") out.enabled = false;
-  const event = queryOne(query, "event");
-  if (event !== undefined) out.event = event;
-  const q = queryOne(query, "q");
-  if (q !== undefined) out.q = q;
+  if (page.offset !== undefined) out.offset = page.offset;
+  if (page.q !== undefined) out.q = page.q;
+  if (page.order !== undefined) out.order = page.order;
   return out;
 }
 
@@ -219,6 +234,18 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
       summary:
         "Endpoints webhook sortants (registre) + backend du store (« où on " +
         "écrit » : memory/orm). Secrets EXCLUS (chiffrés au repos, jamais ici).",
+      // Publiée dans le catalogue admin. `sortable` est évalué à la lecture et
+      // rend une liste VIDE quand les webhooks sont coupés — la console n'offre
+      // alors aucun tri, au lieu d'en proposer un qui répondrait 400.
+      page: {
+        sortable: () => {
+          const s = svc();
+          return ready(s) ? s.sortableFields() : [];
+        },
+        filters: WEBHOOK_FILTERS,
+        // Même condition que le tri : coupés, les webhooks ne cherchent rien.
+        search: () => ready(svc()),
+      },
       handler: async (
         request: IAdminRequest,
       ): Promise<{
@@ -234,7 +261,13 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
         const store = container.get("webhookStore") as
           WebhookStoreLike | undefined;
         const className = store?.constructor?.name;
-        const query = parseWebhookListQuery(request.query);
+        // Capacité de tri demandée au service AVANT de traduire : un store
+        // absent (webhooks coupés) n'annonce rien, donc tout `?order=` est
+        // refusé — jamais accepté puis ignoré.
+        const query = parseWebhookListQuery(
+          request.query,
+          ready(s) ? s.sortableFields() : [],
+        );
         // Pagination SERVEUR OFFSET (jamais un listAll matérialisé : celui-ci
         // est réservé au snapshot du dispatcher). `endpoints` = LA page ;
         // `total`/`offset` = métadonnées du DataGrid mode="server". Les trois
@@ -251,6 +284,51 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
           limit: query.limit,
           offset: page?.offset,
         };
+      },
+    },
+    {
+      // Compteurs de tête. Endpoint SÉPARÉ de la liste : ces nombres ne
+      // dépendent ni de la fenêtre ni de l'ordre, les rejouer à chaque tour de
+      // page coûterait quatre COUNT pour un résultat identique.
+      path: "webhooks/stats",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Compteurs des endpoints sur la collection ENTIÈRE (total, actifs, " +
+        "désactivés, en échec) — mêmes filtres que la liste. `null` = le " +
+        "backend ne sait pas compter. Webhooks coupés → tous les compteurs null.",
+      page: {
+        filters: WEBHOOK_STATS_FILTERS,
+        facets: WEBHOOK_FACETS,
+        // Même condition que sur la liste : coupés, les webhooks ne cherchent
+        // rien. Branchés, `countEndpoints` descend `q` dans les trois stores
+        // (prédicat en mémoire, `LIKE` en SQL, `$regex` en Mongo) — la barre de
+        // recherche déplace donc les cartes autant que le tableau.
+        search: () => ready(svc()),
+      },
+      handler: async (request: IAdminRequest): Promise<IWebhookCounts> => {
+        const s = svc();
+        // Capacité de recherche demandée au service AVANT de traduire — même
+        // geste que la liste. Un décompte n'a pas de fenêtre (`limit`/`offset`/
+        // `order` sont admis et sans effet : ils ne changent aucun nombre), mais
+        // `q` change la population comptée, donc il se déclare et se refuse en
+        // 400 quand le backend ne peut pas l'honorer.
+        const page = parsePageQuery(request.query, { searchable: ready(s) });
+        // Lecture DÉFENSIVE, comme la liste : webhooks coupés → « inconnu »,
+        // jamais un 503 qui ferait disparaître les cartes de la console, et
+        // jamais des zéros qui se liraient « aucun endpoint configuré ».
+        if (!ready(s)) {
+          return {
+            total: null,
+            active: null,
+            disabled: null,
+            failing: null,
+          };
+        }
+        return s.countWebhookFacets({
+          ...parseFilters(request.query, WEBHOOK_STATS_FILTERS),
+          ...(page.q !== undefined ? { q: page.q } : {}),
+        });
       },
     },
     {

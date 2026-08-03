@@ -204,7 +204,7 @@ curl -si http://localhost:5151/api/articles -H 'Origin: https://evil.com'
 ## ⚙️ Configuration et mises en situation
 
 La section `cors` de la config du module (`corsSchema`, `config.ts:117` ; branchée à la racine en
-`config.ts:913`). Toutes les clés ont un défaut sûr — une section omise donne une politique **fermée**.
+`config.ts:117`). Toutes les clés ont un défaut sûr — une section omise donne une politique **fermée**.
 
 | Option           | Type       | Défaut                                          | Effet                                                                           |
 | ---------------- | ---------- | ----------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -320,8 +320,8 @@ sequenceDiagram
   R-->>B: 200 + Access-Control-*
 ```
 
-`Firewall.handleCors()` (`firewall.ts:797`) est appelé **en tête de** `HttpKernel.handleHttp()`
-(`http-kernel.ts:1117`), à la ligne `http-kernel.ts:1168` — **avant le routing**. La raison est
+`Firewall.handleCors()` (`firewall.ts:892`) est appelé **en tête de** `HttpKernel.handleHttp()`
+(`http-kernel.ts:1171`), à la ligne `http-kernel.ts:1168` — **avant le routing**. La raison est
 concrète : un preflight `OPTIONS /api/articles` n'a **pas de route déclarée** ; s'il traversait le
 router, il repartirait en 405. Et selon le Fetch Standard, un preflight ne transporte jamais de
 credentials — il ne doit donc ni s'authentifier, ni exécuter le moindre code applicatif.
@@ -329,7 +329,7 @@ credentials — il ne doit donc ni s'authentifier, ni exécuter le moindre code 
 Quatre sorties en no-op, dans cet ordre (`firewall.ts:797`) :
 
 1. CORS désactivé ⇒ `#cors` est `null`, retour immédiat ;
-2. pas d'en-tête `Origin` ⇒ requête same-origin ou client non-navigateur (`firewall.ts:803`) ;
+2. pas d'en-tête `Origin` ⇒ requête same-origin ou client non-navigateur (`firewall.ts:898`) ;
 3. la réponse n'expose pas `setHeader` ⇒ c'est un **WebSocket**, il n'y a pas d'en-tête HTTP à poser
    (`firewall.ts:806`) ;
 4. origine hors allowlist ⇒ la table est `null`, aucun en-tête n'est posé — mais un preflight reste
@@ -382,7 +382,7 @@ origine (`config.ts:180`). Ajouter une origine à `cors.origins` est **plus** pe
 **Les navigateurs n'appliquent pas CORS aux WebSockets.** Une page tierce peut ouvrir un
 `new WebSocket("wss://api.example.com/…")` et le handshake partira **avec le cookie de session de la
 victime** : c'est le CSWSH. C'est pourquoi `handleCors` s'arrête net sur un contexte WS
-(`firewall.ts:806`) — il n'y aurait rien à protéger avec des en-têtes que personne ne lit.
+(`firewall.ts:892`) — il n'y aurait rien à protéger avec des en-têtes que personne ne lit.
 
 La garde équivalente vit dans le transport : `HttpKernel.checkWebsocketOrigin()`
 (`http-kernel.ts:509`) valide l'`Origin` **au handshake**, avant l'accept, et ferme en code WS `1008`
@@ -407,7 +407,7 @@ Deux réglages distincts, parce que deux mécanismes navigateur distincts.
 | `*` incompatible avec credentials | Fetch Standard · OWASP CORS | rejet au boot (`config.ts:144`) + reflet défensif (`cors.ts:58`)            |
 | Correction de cache               | RFC 9110 (`Vary`)           | `Vary: Origin` dès que l'origine est reflétée (`cors.ts:81`, `cors.ts:94`)  |
 | Comparaison d'origines            | RFC 6454 (Web Origin)       | match **exact** `scheme://host:port` — `Cors.#allowOrigin()` (`cors.ts:57`) |
-| Anti-CSWSH                        | OWASP WSTG-CLNT-10          | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:509`)                  |
+| Anti-CSWSH                        | OWASP WSTG-CLNT-10          | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:535`)                  |
 
 ## ⚡ Performance & mémoire
 
@@ -426,8 +426,8 @@ Le coût par requête est donc :
 ## 📡 Observabilité — Studio
 
 La configuration CORS **résolue** (celle qui tourne réellement, pas le fichier source) est exposée par
-`Firewall.describe()` (`firewall.ts:419`), qui délègue à `Firewall.#describeDefenses()`
-(`firewall.ts:461`). La projection CORS y expose `origins`, `credentials`, `methods`,
+`Firewall.describe()` (`firewall.ts:505`), qui délègue à `Firewall.#describeDefenses()`
+(`firewall.ts:547`). La projection CORS y expose `origins`, `credentials`, `methods`,
 `allowedHeaders`, `exposedHeaders` et `maxAgeS` (`firewall.ts:473`) — aucun secret ne transite par
 cette surface.
 

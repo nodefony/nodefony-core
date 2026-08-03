@@ -2,6 +2,7 @@ import {
   and,
   asc,
   count,
+  countDistinct,
   desc,
   eq,
   getTableColumns,
@@ -11,11 +12,11 @@ import {
   inArray,
   isNotNull,
   isNull,
-  like,
   lt,
   lte,
   ne,
   notInArray,
+  or,
   sql,
 } from "drizzle-orm";
 import type { Column, SQL } from "drizzle-orm";
@@ -34,6 +35,7 @@ import {
   UnknownCriteriaField,
 } from "@nodefony/orm-core";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
+import { likeCond } from "../likeSql";
 import type {
   Criteria,
   FieldOperators,
@@ -325,7 +327,12 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     if (ops.$lte !== undefined) conds.push(lte(col, ops.$lte));
     if (ops.$in !== undefined) conds.push(inArray(col, [...ops.$in]));
     if (ops.$nin !== undefined) conds.push(notInArray(col, [...ops.$nin]));
-    if (ops.$like !== undefined) conds.push(like(col, ops.$like));
+    // `LIKE … ESCAPE '\'` plutôt que le `like()` de Drizzle, qui n'émet aucune
+    // clause : sans elle, un motif portant un antislash se comporte de trois
+    // façons selon le moteur (cf `likeCond`).
+    if (ops.$like !== undefined) {
+      conds.push(likeCond(this.#dialect, sql`${col}`, ops.$like));
+    }
     // `!== undefined` et pas de test de vérité : `$null: false` = IS NOT NULL.
     if (ops.$null !== undefined) {
       conds.push(ops.$null ? isNull(col) : isNotNull(col));
@@ -339,6 +346,26 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     }
     const conds: SQL[] = [];
     for (const [field, value] of Object.entries(criteria)) {
+      // Disjonction : chaque branche est un critère complet, traduit par la même
+      // fonction (donc les opérateurs riches et le `IS NULL` y valent aussi).
+      // Une branche vide serait toujours vraie et rendrait le `OR` inutile —
+      // elle est écartée, et un `$or` entièrement vide ne pose rien.
+      if (field === "$or") {
+        if (!Array.isArray(value)) {
+          throw new Error(
+            `DrizzleRepository(${getTableName(this.#table)}): $or attend un tableau de critères.`,
+          );
+        }
+        const branches = value
+          .map((branch) => this.#where(branch as Criteria<T>))
+          .filter((branch): branch is SQL => branch !== undefined);
+        if (branches.length > 0) {
+          conds.push(
+            branches.length === 1 ? branches[0] : (or(...branches) as SQL),
+          );
+        }
+        continue;
+      }
       const col = this.#col(this.#table, field);
       if (!col) {
         // Strict (B2) : champ inconnu = erreur, pas un skip silencieux (qui
@@ -900,6 +927,28 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     const where = this.#where(criteria);
     const builder = this.#db
       .select({ value: count() })
+      .from(execTable(this.#table))
+      .$dynamic();
+    const rows = (await this.#prof(
+      (where ? builder.where(where) : builder) as unknown as ProfiledQuery<
+        Array<{ value: number }>
+      >,
+    )) as Array<{ value: number }>;
+    return Number(rows[0]?.value ?? 0);
+  }
+
+  /**
+   * `COUNT(DISTINCT col)` natif — la déduplication reste dans le moteur, aucune
+   * ligne n'est rapatriée. `COUNT(DISTINCT …)` ignore les `NULL` sur les trois
+   * dialectes, ce qui donne au contrat sa sémantique sans clause supplémentaire.
+   */
+  async countDistinct(
+    field: keyof T & string,
+    criteria?: Criteria<T>,
+  ): Promise<number> {
+    const where = this.#where(criteria);
+    const builder = this.#db
+      .select({ value: countDistinct(this.#col(this.#table, field)) })
       .from(execTable(this.#table))
       .$dynamic();
     const rows = (await this.#prof(

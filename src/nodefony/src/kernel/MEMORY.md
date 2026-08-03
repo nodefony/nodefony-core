@@ -29,6 +29,32 @@ started → preRegistered → registered → booted → ready → postReady
 - `ready` : set après `onReady` (dans `onReady()`)
 - `postReady` : set après `onPostReady` (dans `onReady()`)
 
+**Bilan de boot persisté** — `var/last-boot.json` (`checks/lastBoot.ts` = source
+UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
+
+- `start()` = enveloppe MINCE autour de `startBoot()` : son seul rôle est
+  `traceFatalBootFailure` au `catch` (`status:"failed"` + phase via
+  `lastReachedPhase()` sur le bitmask `progress`). Les ~12 `catch` internes
+  relancent — y répartir l'écriture donnerait 12 implémentations d'une règle.
+- Succès : `writeBootSummary(report)` au point où le bilan est FIGÉ (après
+  `captureBootServers` + `getBootReport()`, avant `onPostReady`) → `status:"ok"`
+  - `bricksSkipped` (fail-soft AVEC raison), `bricksGated` (`policy`/`when`),
+    warnings/errors, serveurs, remédiation.
+- 🔴 **Rien n'est EFFACÉ sur un succès** : une commande console (`inspect`)
+  démarre et réussit sans serveur ; effacer ferait disparaître le bilan d'un
+  échec applicatif au premier `inspect` lancé pour le diagnostiquer.
+- Lecture : `check` remonte à la racine de l'app (`findProjectRoot`) avant de
+  lire, et l'ANNONCE si elle diffère du dossier de départ (`--cwd` déplace ce
+  départ). Lu depuis `process.cwd()`, le bilan était introuvable dès qu'on
+  lançait la commande dans un module — et l'absence se rendait « rien à
+  signaler ». Même remontée dans `docsReader` du framework (`.ai/symbols.json`,
+  `node_modules` hissés, docs du core, dépôt git).
+- Écriture SYNCHRONE (chemin de mort du process) et best-effort — toute
+  défaillance est avalée : une trace impossible à écrire ne doit pas masquer
+  l'erreur de boot. Coût : 1 write par démarrage applicatif, hors hot path.
+- ⚠️ `recordBootFailure(IBootFailure)` (existant) = échecs NON fatals d'un boot
+  qui continue. Ne pas confondre avec `traceFatalBootFailure`.
+
 > ⚠️ `booted=true` **précède** `captureBootServers()` (qui tourne dans `onReady`→`initServers`). Donc
 > `booted:true` ≠ « serveurs prêts ». `getBootReport()` distingue `bootServers===null` (pas mesuré,
 > boot en cours) de `[]` (mesuré, 0 serveur = vrai échec) via le flag `measured` → sinon `healthy`
@@ -117,7 +143,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 
 **Registre modules**:
 
-- `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.initialize(this)` si présente.
+- `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.init(this)` si présente, sous `guardInitialize` (`Kernel.ts:1340`).
 - `getModule(name)` / `getModules()`.
 - `addKernelService(Ctor, ...args)` → instancie directement sur container kernel (pas sur module).
 - `loadModule(name, build?)` → `import(resolveModuleEntry(this.path, name))` + addModule.
@@ -169,12 +195,17 @@ hors `setEvents` — services (`this.module.hookKernel("onBoot", …)`), décora
 async onKernelRegister(): Promise<this> { ... }
 async onKernelBoot(): Promise<this> { ... }
 async onKernelReady(): Promise<this> { ... }
-async initialize?(kernel?: IKernel): Promise<this> { ... }
+async init?(kernel?: IKernel): Promise<this> { ... }
 ```
+
+⚠️ `init`, PAS `initialize`. `initialize()` est le hook du **Controller** (appelé
+sans argument à CHAQUE requête, `Resolver.ts:293`) ; `init(owner)` est celui du
+Module et du Service (une fois au démarrage, sous garde de boot). Deux cycles de
+vie, deux noms.
 
 **readOverrideModuleConfig(deep?)**: keys `Module-<name>` dans `this.options` → `extend(mod.options, override)`. Warn si module inconnu.
 
-**addService(Ctor, ...args)**: `Injector.instantiate(svc, this, ...args)` → container → `initialize(module)` si présente.
+**addService(Ctor, ...args)**: `Injector.instantiate(svc, this, ...args)` → container → `init(module)` si présente (`Module.ts:377`), sous `guardServiceInitialize` quand un kernel est présent. L'injecteur CONSTRUIT seulement — il n'appelle aucun hook.
 
 **getDependencies()**: `dependencies + peerDependencies` (PAS devDependencies). Pas de dedup — doublon possible si présent dans les deux.
 

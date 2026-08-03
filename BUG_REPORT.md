@@ -1,5 +1,81 @@
 # BUG_REPORT — Nodefony Core
 
+## BUG-2 — Angular monté en 22.1.0 : le lockfile imbriquait l'arbre au lieu de le hisser
+
+**Statut.** Résolu. Les six paquets `@angular/*` de `src/modules/test-frontend-angular` sont en
+`22.1.0` (`@angular/build` en `22.1.1`) ; `npm install` est vert, `npm ls` ne montre plus aucun
+`22.0.8` ni `UNMET`/`invalid`, et le `build` du module passe.
+
+**Cause réelle de l'ERESOLVE.** Ce n'était pas un conflit de versions (`@angular/build@22.1.1`
+déclare `^22.0.0` sur toute la famille — cohérent avec `22.1.0`). `npm install` comparait la
+nouvelle demande à un `node_modules` déjà présent sur disque en `22.0.8`, imbriqué sous
+`src/modules/test-frontend-angular/node_modules/@angular/*` — et `package-lock.json` gardait ces
+mêmes chemins imbriqués en clé, donc les recréait à l'identique même après une purge du dossier
+seul.
+
+**Fix ERESOLVE.** Retirer du `package-lock.json` les 5 entrées
+`src/modules/test-frontend-angular/node_modules/@angular/{common,compiler,compiler-cli,core,platform-browser}`
+(supprimées, pas éditées en place) + purger le dossier physique correspondant, puis
+`npm install --workspace=@nodefony/test-frontend-angular`. npm recalcule alors une résolution
+propre, sans référence à l'ancien arbre.
+
+**Deuxième trou, découvert en vérifiant le build réel (pas juste le script `build` du module).**
+Après ce premier passage, `npm ls` était propre et `npm run build` (rolldown, wrapper serveur)
+passait — mais `npx vite build --config frontend/vite.config.generated.mjs` (le chemin réellement
+emprunté par `ViteProcessSupervisor` au démarrage du dev server) échouait :
+`Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@angular/compiler-cli' imported from
+node_modules/@analogjs/vite-plugin-angular/src/lib/angular-vite-plugin.js`. Raison : cette
+première résolution avait choisi d'imbriquer toute la famille `@angular/*` sous le workspace
+plutôt que de la hisser à la racine — et `@analogjs/vite-plugin-angular` (dépendance directe de la
+racine `nodefony-core`, hissée dans `node_modules/`) importe `@angular/compiler-cli` puis
+`@angular/build/private` par résolution ESM Node **relative à son propre emplacement**, qui ne
+remonte jamais dans le `node_modules` imbriqué d'un workspace frère. Ce n'est pas une régression de
+la montée de version : en `22.0.8`, un artefact périmé (un pair optionnel auto-installé par npm à
+une version dépareillée, `@angular/compiler-cli@22.0.6`, resté à la racine depuis une résolution
+antérieure) masquait accidentellement ce même trou — `@nodefony/frontend` déclare
+`@analogjs/vite-plugin-angular` en peer optionnel (correct), mais rien ne garantit que la famille
+`@angular/*` concrète d'un module consommateur soit résolvable depuis la racine, l'ancêtre commun
+réel de `@nodefony/frontend` et de tout module frontend Angular.
+
+**Fix du deuxième trou.** Déplacé les 6 paquets (`build` inclus) de
+`src/modules/test-frontend-angular/node_modules/@angular/*` vers `node_modules/@angular/*`
+(racine) + rebasé les clés correspondantes dans `package-lock.json`, puis rejoué
+`npm install --workspace=...` : npm a accepté ce placement et l'a conservé (dédupliqué proprement —
+`@analogjs/vite-plugin-angular@2.6.4 -> @angular/build@22.1.1` apparaît comme une arête normale
+dans `npm ls`). `npx vite build` compile alors réellement l'app Angular (253 modules, bundle émis
+dans `public/dist/`).
+
+**Le lock est REPRODUCTIBLE — prouvé, pas supposé.** Le fix a déplacé des dossiers à la main dans
+`node_modules` : un arbre qui ne marche que sur la machine où il a été fabriqué aurait la même
+apparence. `npm ci` (node_modules RASÉ, réinstallation stricte depuis `package-lock.json`) rend
+exactement le même arbre — 6 paquets `@angular/*` à la racine, **0** imbriqué, `22.1.0`/`22.1.1` —
+et `npx vite build` compile derrière (bundle émis). Ce qui est commité vaut donc pour un clone
+neuf, pas seulement ici.
+
+**Le hissage est désormais STRUCTUREL — le résiduel ci-dessous est fermé.** Il s'est d'ailleurs
+rouvert au premier install suivant (montée de `@angular/build` en `22.1.2`) : npm a ré-imbriqué le
+paquet sous le module et `vite build` est retombé. La cause n'était pas le lockfile mais une
+divergence de configuration — le dépôt de développement déclarait `@analogjs/vite-plugin-angular`
+à la RACINE (c'est de là que `@nodefony/frontend` l'importe, `presets/angular-vite.ts:25`) tout en
+laissant `@angular/build` et `@angular/compiler-cli`, ses **peers**, dans le module. npm ne les
+faisait coïncider que tant que les versions coïncidaient. Or le générateur, lui, place les quatre
+au MÊME niveau (`scaffold/engine.ts` : `devDeps: vite, @analogjs/vite-plugin-angular,
+@angular/build, @angular/compiler-cli`) — le dépôt ne reproduisait donc pas la configuration que
+son propre `create app` produit. `@angular/build` et `@angular/compiler-cli` déplacés vers la
+racine : une seule déclaration chacun, à l'endroit où le générateur les met. Effet de bord utile —
+ces deux paquets entrent enfin dans le champ du banc anti-dérive (`create.test.ts` ne lit que
+racine + core + studio + frontend + drizzle, jamais `src/modules/*`).
+
+**Résiduel — hors du périmètre accordé pour cette tâche (implique `package.json` racine ou de
+`@nodefony/frontend`, non touchés ici).** Rien ne garantit STRUCTURELLEMENT que la famille
+`@angular/*` d'un module consommateur reste hissée à la racine : un futur `npm install` qui
+retoucherait les pins `@angular/*` (ou un `dedupe`/install complet) peut retomber sur un arbre
+imbriqué et recasser silencieusement `vite build`/le dev server Angular — aucun banc actuel ne
+lance réellement `vite build` sur ce module pour le détecter. Deux pistes de fermeture durable,
+toutes deux hors périmètre ici : (a) déclarer `@angular/compiler-cli` comme dépendance directe de
+la racine, pour forcer le hissage à chaque install ; (b) un test d'intégration qui lance
+`vite build` sur `test-frontend-angular` et échoue si ça régresse.
+
 ## BUG-1 — un échec de connexion à la base fait sortir `inspect` en 1, sans un mot
 
 **Symptôme.** Dans une application dont la base configurée est injoignable

@@ -158,6 +158,8 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
    - **(a) VOLUME — LIRE BEAUCOUP pour rendre PEU** : inventaire, tri, audit, recherche
      multi-modules, revue d'un corpus. Le gain n'est pas la parallélisation : c'est que les 300
      fichiers lus n'entrent JAMAIS dans le contexte principal, seule la conclusion revient.
+     **Cette règle a un agent : `nodefony-repo-inventory`** (`haiku`, lecture seule) — le
+     nommer, sinon le réflexe retombe sur `Explore` et la règle ne mord pas.
    - **(b) NATURE — TOUTE LISTE D'AFFIRMATIONS À CONFRONTER AU TERRAIN part en `haiku`, même si
      ça tient en cinq `rg`.** À reconnaître : « ces N corrections annoncées sont-elles en place
      dans le code ? », « ces ancrages `fichier:ligne` sont-ils encore justes ? », « ce document
@@ -166,9 +168,15 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
      une preuve, aucun jugement n'est requis** — c'est exactement le travail que le modèle le moins
      cher rend à l'identique. Consigne à donner : « pour chaque affirmation → VRAI/FAUX → ancrage
      `fichier:ligne` ACTUEL » ; le principal ne récupère que le tableau et tranche dessus.
+     **Cette règle a un agent : `nodefony-check-claims`** (`haiku`, lecture seule) — il porte
+     déjà cette consigne ; `@agent-nodefony-check-claims` GARANTIT le run, le nommer en prose
+     ne fait qu'en augmenter la probabilité.
      Vécu (2026-07-25) : 8 résolutions de `BUG_REPORT.md` vérifiées à la main en `opus` alors que
      la tâche était mécanique de bout en bout — le déclencheur « volume » ne mordait pas, et le
      plancher « ne pas déléguer ce qui tient en deux `rg` » achevait de m'en dissuader.
+     ⚠️ Ce cas reste un ratage APRÈS le relèvement du plancher (§ ci-dessous) : **8 affirmations >
+     le seuil de ~6**, la délégation devait avoir lieu. Un plancher chiffré ne dissuade que sous
+     son seuil — il ne couvre pas un lot qui le dépasse.
 
    Le gain de (b) n'est pas le prix du run : c'est que **le contexte principal reste sur la
    décision** au lieu de se remplir de sorties de `grep`.
@@ -200,15 +208,25 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
      approximatif envoie chercher au mauvais endroit (vécu : 250 retex archivés hors du dossier
      que j'avais indiqué) ; et un sous-agent peut AFFIRMER un fichier qui n'existe pas — toute
      affirmation d'inventaire se recontrôle d'un `ls`/`grep` avant d'entrer dans une synthèse.
-   - **Le plancher est un COMPTE, pas une impression : ≥ 2 vérifications indépendantes du même
-     type → déléguer.** Abaissé de 3 à 2 après l'avoir enfreint sans m'en apercevoir : trois
-     trous d'un kit ont été vérifiés à la main (lire le code, lancer la commande, conclure
-     VRAI/FAUX) alors que chacun avait un verdict binaire et une preuve — le travail que le
-     modèle le moins cher rend à l'identique. Le déclencheur ne se voit pas au nombre de
-     fichiers : il se voit à ce qu'on est en train de FAIRE.
-     **Le doute tranche POUR la délégation** : un run `haiku` inutile coûte l'équivalent d'une
-     poignée de `grep` ; la même vérification faite dans le contexte principal le remplit de
-     sorties d'outils pour le reste de la session, et ça, ça se paie à chaque tour suivant.
+   - **Le plancher est un COÛT, pas un compte : une délégation custom coûte ~33 k tokens AVANT
+     d'avoir lu quoi que ce soit.** Mesuré sur les transcripts : un sous-agent lancé sur un
+     fichier de 2 403 caractères (~600 tokens de matière) a consommé **33 897 tokens**. Ce
+     plancher, c'est la hiérarchie `CLAUDE.md` rechargée EN ENTIER (~15 k), le prompt système de
+     l'agent et l'écriture de cache — et il ne se supprime pas : la doc Anthropic est explicite,
+     _« There is no frontmatter field or per-agent setting to change which agents skip them »_ ;
+     seuls les agents intégrés `Explore` et `Plan` en sont dispensés. **Déléguer devient rentable
+     au-delà de ~15 lectures, ou ~6 affirmations à confronter** — en deçà, faire soi-même.
+     ⚠️ Les deux formulations précédentes étaient fausses d'un ordre de grandeur : « ≥ 2
+     vérifications → déléguer », et « un run `haiku` inutile coûte l'équivalent d'une poignée de
+     `grep` ». Un run inutile coûte ~33 k tokens, pas trois `grep`. **Corollaire de dimensionnement** :
+     tout agent maison porte `effort: low` et un `maxTurns` large (le premier attaque le plancher,
+     le second borne une boucle sans tronquer un travail normal).
+     **Ce qui joue en sens inverse, et qui doit être pesé** : une sortie d'outil gardée dans le
+     contexte principal s'y **repaie à CHAQUE tour suivant** (~72 % du coût = relecture, croissance
+     quadratique), quand la délégation se paie UNE fois. C'est ce qui maintient le seuil à ~15
+     lectures plutôt qu'à cent. Le déclencheur ne se voit donc ni au nombre de fichiers ni au seul
+     compte d'items : il se voit à ce qu'on est en train de FAIRE, et à ce que ça laissera dans le
+     contexte.
      **Mais un sous-agent n'est pas gratuit non plus** — il faut l'énoncer, attendre, puis
      VÉRIFIER ce qu'il affirme. Trois cas où déléguer coûte plus que faire, et où il ne faut
      donc pas : (a) un **automate rend la réponse** — c'est la QUESTION ZÉRO ci-dessous, un `rg`
@@ -553,6 +571,17 @@ const tmp = Nodefony.getKernel()?.tmpDir?.path ?? "/tmp";
 - **Avant « fait / vert / livré » : nommer ce qui n'a PAS été lancé**, ce qui est supposé plutôt
   que vérifié, les chemins restés hors preuve. Une phrase suffit (« non lancé : X »). C'est le
   motif n°1 des rattrapages.
+- **🔴 Une preuve porte sur l'artefact REÇU, et sur une sortie ENTIÈRE.** Ce que j'écris n'est pas
+  ce que le consommateur exécute — tarball (pas le `package.json` du dépôt), `dist` rebâti
+  COMPLÈTEMENT (pas `--filter`), app générée, fichier relu APRÈS le formateur. Vérifier d'abord que
+  la transformation a EU LIEU (empreinte/date) : un maillon en échec dans une chaîne `&&` laisse
+  mesurer l'ancienne version et « prouver » qu'un correctif ne change rien. Et toute sortie qui
+  nourrit une décision se capture ENTIÈRE dans un fichier, puis se filtre : la troncature ne
+  s'annonce jamais (`tail`, un reporter qui REMPLACE la sortie lisible, une API qui pagine à 30,
+  `rg` sans `-a`). Mémoires : `feedback_prove_on_received_artifact`, `feedback_shell_false_diagnostics`.
+  **Le filtrage a un agent : `nodefony-run-log-report`** (`haiku`, lecture seule) — lui passer le
+  chemin du fichier capturé au lieu d'y faire un `tail` : il lit TOUT et rend l'exit code, les
+  rouges nommés et les SKIPS, que la troncature efface sans le dire.
 - Valider : `npm run build` (0 erreur TS) + `npm run test` (tous verts)
 
 **FIN :**
@@ -680,13 +709,14 @@ Deux niveaux de docs IA — **lire AVANT de toucher au code du module** :
 
 ### Modules applicatifs (packages + modules)
 
-| Module                | CLAUDE.md                                                                                  | MEMORY.md                                                                                  | Contenu                                                                    |
-| --------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| `@nodefony/http`      | [`src/packages/@nodefony/http/CLAUDE.md`](src/packages/@nodefony/http/CLAUDE.md)           | [`src/packages/@nodefony/http/MEMORY.md`](src/packages/@nodefony/http/MEMORY.md)           | Serveurs, Contextes, WS, pipeline, requestId                               |
-| `@nodefony/framework` | [`src/packages/@nodefony/framework/CLAUDE.md`](src/packages/@nodefony/framework/CLAUDE.md) | [`src/packages/@nodefony/framework/MEMORY.md`](src/packages/@nodefony/framework/MEMORY.md) | Router, Controller, Resolver, décorateurs                                  |
-| `@nodefony/frontend`  | [`src/packages/@nodefony/frontend/CLAUDE.md`](src/packages/@nodefony/frontend/CLAUDE.md)   | [`src/packages/@nodefony/frontend/MEMORY.md`](src/packages/@nodefony/frontend/MEMORY.md)   | Vite builder, ViteSupervisor, FrontendService, HMR, multi-bundle           |
-| `@nodefony/studio`    | [`src/packages/@nodefony/studio/CLAUDE.md`](src/packages/@nodefony/studio/CLAUDE.md)       | [`src/packages/@nodefony/studio/MEMORY.md`](src/packages/@nodefony/studio/MEMORY.md)       | Admin web Studio (P10), routes `/nodefony`, controller + frontend React 19 |
-| Module `test`         | [`src/modules/test/CLAUDE.md`](src/modules/test/CLAUDE.md)                                 | [`src/modules/test/MEMORY.md`](src/modules/test/MEMORY.md)                                 | Routes d'intégration HTTP+WS, controllers, statics                         |
+| Module                | CLAUDE.md                                                                                  | MEMORY.md                                                                                  | Contenu                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `@nodefony/http`      | [`src/packages/@nodefony/http/CLAUDE.md`](src/packages/@nodefony/http/CLAUDE.md)           | [`src/packages/@nodefony/http/MEMORY.md`](src/packages/@nodefony/http/MEMORY.md)           | Serveurs, Contextes, WS, pipeline, requestId                                          |
+| `@nodefony/framework` | [`src/packages/@nodefony/framework/CLAUDE.md`](src/packages/@nodefony/framework/CLAUDE.md) | [`src/packages/@nodefony/framework/MEMORY.md`](src/packages/@nodefony/framework/MEMORY.md) | Router, Controller, Resolver, décorateurs                                             |
+| `@nodefony/frontend`  | [`src/packages/@nodefony/frontend/CLAUDE.md`](src/packages/@nodefony/frontend/CLAUDE.md)   | [`src/packages/@nodefony/frontend/MEMORY.md`](src/packages/@nodefony/frontend/MEMORY.md)   | Vite builder, ViteSupervisor, FrontendService, HMR, multi-bundle                      |
+| `@nodefony/studio`    | [`src/packages/@nodefony/studio/CLAUDE.md`](src/packages/@nodefony/studio/CLAUDE.md)       | [`src/packages/@nodefony/studio/MEMORY.md`](src/packages/@nodefony/studio/MEMORY.md)       | Admin web Studio (P10), routes `/nodefony`, controller + frontend React 19            |
+| `@nodefony/devkit`    | [`src/packages/@nodefony/devkit/CLAUDE.md`](src/packages/@nodefony/devkit/CLAUDE.md)       | [`src/packages/@nodefony/devkit/MEMORY.md`](src/packages/@nodefony/devkit/MEMORY.md)       | Porte HTTP de la carte de visite, `policy:"dev"` (la CLI `nodefony card` vit au cœur) |
+| Module `test`         | [`src/modules/test/CLAUDE.md`](src/modules/test/CLAUDE.md)                                 | [`src/modules/test/MEMORY.md`](src/modules/test/MEMORY.md)                                 | Routes d'intégration HTTP+WS, controllers, statics                                    |
 
 ### Core (`@nodefony/core` workspace `src/nodefony`)
 

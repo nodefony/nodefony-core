@@ -1,4 +1,4 @@
-import type { IPage, IPageQuery } from "nodefony";
+import type { IPage, IPageQuery, ISortableSource } from "nodefony";
 import type { ICookie, ICookieOptions } from "./ICookie";
 
 export type SessionStatusType = "none" | "active" | "disabled";
@@ -122,7 +122,10 @@ export interface ISessionListQuery extends IPageQuery, ISessionListFilter {
  * Source de vérité unifiée — l'ex-doublon `sessionStorageInterface` (any) n'est plus
  * qu'un alias transitionnel. Enregistré dans le registre IoC `SessionsService.registerStorage`.
  */
-export interface ISessionStorage {
+export interface ISessionStorage extends ISortableSource {
+  // `sortableFields` vient d'`ISortableSource` (core) : la FORME de la capacité
+  // s'écrit une fois pour toutes les ressources. Ici, seul le vocabulaire est
+  // propre aux sessions — `SESSION_SORTABLE_FIELDS` (`../src/session/storage/sessionSort`).
   read(id: string): Promise<ISerializedSession>;
   write(id: string, data: ISerializedSession): Promise<ISerializedSession>;
   start(id: string): Promise<ISerializedSession>;
@@ -205,11 +208,34 @@ export interface ISessionStorage {
    * natif SQL/Mongo). Alimente les KPI de la console (total, authentifiées vs
    * anonymes) sans jamais charger de collection.
    *
+   * @param query - les **filtres** seuls. Un comptage n'a pas de fenêtre : `limit`
+   *   et `offset` n'y ont aucun sens, d'où le `Partial` (le contrat de page rend
+   *   `limit` obligatoire, ce qui obligerait l'appelant à inventer une valeur
+   *   ignorée).
    * @returns le total exact, ou **`-1`** si le backend ne sait pas compter à coût
    *   raisonnable (Redis : compter = re-`SCAN` tout le keyspace). `-1` est un
    *   « je ne sais pas » explicite — l'appelant affiche l'inconnu, il ne l'invente pas.
    */
-  countSessions?(query?: ISessionListQuery): Promise<number>;
+  countSessions?(query?: Partial<ISessionListQuery>): Promise<number>;
+
+  /**
+   * Compte les utilisateurs **distincts** portant au moins une session active.
+   *
+   * Ce n'est pas un {@link countSessions} avec un filtre de plus : dédupliquer
+   * exige de regrouper, là où compter n'exige que de parcourir. C'est pourquoi
+   * la capacité vit ici, sur le store, et non dans la table de facettes de la
+   * ressource — un `COUNT(DISTINCT …)` est trivial en SQL, direct en Mongo, et
+   * hors de portée d'un backend en curseur.
+   *
+   * Sépare deux nombres que la console confondrait sinon : « 400 sessions » et
+   * « 12 personnes connectées » ne racontent pas la même chose sur un parc.
+   *
+   * @param query - mêmes filtres que {@link countSessions} ; le décompte porte
+   *   sur le sous-ensemble filtré.
+   * @returns le nombre d'utilisateurs distincts, ou **`-1`** si le backend ne
+   *   sait pas agréger (même convention que {@link countSessions}).
+   */
+  countDistinctUsers?(query?: Partial<ISessionListQuery>): Promise<number>;
 }
 
 export interface ISession {

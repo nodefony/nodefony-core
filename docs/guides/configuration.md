@@ -105,6 +105,47 @@ export const env = defineEnv({
 5. **Lire une variable d'env** → la déclarer dans `env.ts`, lire `ctx.env.X` (jamais `process.env`).
 6. **Extraire un domaine** quand un bloc grossit → `import { servers } from "./config/servers"` (un CHOIX, pas une obligation).
 
+## L'écoute : ports et TLS
+
+`servers` ne porte que des **écarts** ; laissé vide, le framework écoute en 5151 (HTTP) et 5152
+(HTTPS, en HTTP/2).
+
+**Un port appartient au DÉPLOIEMENT, pas au code.** En PaaS (Cloud Run, Heroku, Railway) la
+plateforme IMPOSE le sien via `PORT` : un port écrit en dur donne un service qui écoute là où
+personne n'appelle. D'où la lecture par l'environnement (`NF_PORT`, `NF_PORT_HTTPS`, `PORT`).
+En développement, deux applications Nodefony peuvent tourner côte à côte : un port déjà pris
+**glisse au suivant** et le décalage est ANNONCÉ (`portPolicy: "auto"`, défaut hors production).
+En production et en test, `portPolicy: "strict"` → échec franc plutôt que port surprise.
+
+**HTTPS est actif par défaut, même en développement.** Ce n'est pas du zèle : les API navigateur
+modernes exigent un contexte sécurisé — WebRTC/`getUserMedia`, presse-papiers, service workers,
+notifications. Un projet démarré en clair découvre le problème le jour où il ajoute la première de
+ces fonctionnalités.
+
+Au premier boot, un certificat de développement est généré tout seul : via **mkcert** s'il est
+installé (autorité locale de confiance, zéro avertissement navigateur), sinon auto-signé.
+Inspection et regénération : `npx nodefony http:certificates`.
+
+En production, deux voies : fournir un vrai certificat, ou **terminer le TLS à l'ingress / au load
+balancer** et n'exposer qu'un port en clair — `https: false` dans `servers` (HTTPS et WSS en
+héritent tous deux). C'est le cas nominal en cloud.
+
+## La console Studio en production
+
+Studio est déclaré `policy: "dev"` par le scaffold : c'est une surface d'**administration**
+(introspection de la config, des sessions, des logs), et elle disparaît de la production.
+
+L'y garder est un choix **assumé**, en deux gestes qui vont ensemble : protéger `/nodefony` par une
+zone du firewall, **puis** passer la policy à `"mandatory"`. Un `"optional"` fonctionnerait aussi,
+mais dirait moins l'intention — une console d'admin volontairement exposée n'est pas un défaut de
+configuration.
+
+La molette `ui` décide de la livraison de l'interface : `"static"` (épinglé par le scaffold) sert
+les assets pré-buildés du paquet npm — Studio marche sans rien recompiler. `"auto"` / `"vite"`
+feraient passer l'UI Studio (React) par **ton** serveur Vite : utile uniquement pour développer
+Studio lui-même, et cela exigerait ses plugins dans **tes** devDependencies — une application
+Vue ou Angular n'a pas `@vitejs/plugin-react`.
+
 ## Le manifeste `modules`
 
 L'ordre du tableau = **ordre (priorité) de chargement**. Trois formes :

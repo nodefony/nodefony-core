@@ -26,7 +26,15 @@
 # ── Persistance (infra déclarée → stores dérivés automatiquement) ───────────
 # URL unique, dialecte déduit du scheme. ABSENTE = profil solo : sqlite local
 # (var/databases/) — l'app persiste out-of-the-box (users, sessions, jetons).
-# NF_DATABASE_URL=postgres://user:pass@localhost:5432/<%= it.appName %>
+<% if (it.db) { %># Tu as retenu <%= it.db.label %> à la création : l'URL ci-dessous joint le service
+# du `compose.yaml` généré. Lance-le avant l'app — `npm run infra:up`.
+# (Repasser en sqlite local : commente cette ligne, rien d'autre à changer.)
+# Elle joint le service `<%= it.db.service %>` du compose, avec ses identifiants de dev.
+NF_DATABASE_URL=<%= it.db.url %>
+
+<% } else { %># NF_DATABASE_URL=postgres://user:pass@localhost:5432/<%= it.appName %> (exemple)
+
+<% } %>
 
 # Cache/éphémère partagé : sa présence CHARGE @nodefony/redis (sessions,
 # idempotence, backplane realtime cross-pod).

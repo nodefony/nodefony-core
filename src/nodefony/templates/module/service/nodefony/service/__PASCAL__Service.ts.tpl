@@ -7,7 +7,7 @@ import defaultConfig, { type <%= it.pascal %>Config } from "../config/config";
  * (un controller traduit du HTTP/WS ; un service, lui, est réutilisable par la
  * CLI, un job, un autre module).
  *
- * Cycle : `constructor` (fusion défauts + config de l'app) → `initialize`
+ * Cycle : `constructor` (fusion défauts + config de l'app) → `init`
  * (branchements kernel) → méthodes métier.
  *
  * Un service porte DEUX noms, et c'est normal :
@@ -22,6 +22,28 @@ import defaultConfig, { type <%= it.pascal %>Config } from "../config/config";
  * ⚠️ Ne JAMAIS redéclarer `options` comme propriété : la classe `Service` parente
  * l'assigne déjà via le 4ᵉ argument du `super()`. On garde une référence typée
  * `cfg` pour lire la config sans se battre avec TypeScript.
+ *
+ * POUR L'UTILISER AILLEURS, deux voies, toutes deux légales :
+ *
+ * ```ts
+ * // 1. INJECTION par le constructeur — la dépendance est DÉCLARÉE, donc le
+ * //    conteneur l'ordonnance et elle se voit dans la signature (nom de CLASSE).
+ * import { inject, injectable, Service, Module } from "nodefony";
+ *
+ * @injectable()
+ * class ReportService extends Service {
+ *   constructor(
+ *     module: Module,
+ *     @inject("<%= it.pascal %>Service") private <%= it.name %>: <%= it.pascal %>Service,
+ *   ) {
+ *     super("report", module.container, module.notificationsCenter);
+ *   }
+ * }
+ *
+ * // 2. RÉSOLUTION par le conteneur, pour une dépendance tardive ou optionnelle
+ * //    (nom d'INSTANCE).
+ * const <%= it.name %> = this.container.get("<%= it.name %>");
+ * ```
  */
 @injectable()
 class <%= it.pascal %>Service extends Service implements I<%= it.pascal %>Service {
@@ -46,11 +68,17 @@ class <%= it.pascal %>Service extends Service implements I<%= it.pascal %>Servic
   }
 
   /**
-   * Appelé une fois par le conteneur, au démarrage. C'est ici qu'on s'abonne aux
-   * événements du kernel — jamais dans le constructeur, où le kernel n'est pas
-   * encore prêt.
+   * Hook de démarrage d'un service : appelé UNE fois par le kernel, après la
+   * construction. C'est ici qu'on s'abonne aux événements du kernel — jamais
+   * dans le constructeur, où le kernel n'est pas encore prêt.
+   *
+   * ⚠️ Il s'appelle `init`, pas `initialize`. Le kernel ne cherche que `init`
+   * (`guardServiceInitialize`) : une méthode nommée `initialize` sur un service
+   * n'est JAMAIS appelée, et rien ne le signale — le code y dort en silence.
+   * (`initialize` existe bien, mais sur un CONTROLLER, où il tourne à CHAQUE
+   * requête : deux cycles de vie distincts, d'où deux noms.)
    */
-  async initialize(): Promise<this> {
+  async init(): Promise<this> {
     this.log("service <%= it.name %> initialisé", "DEBUG");
     return this;
   }

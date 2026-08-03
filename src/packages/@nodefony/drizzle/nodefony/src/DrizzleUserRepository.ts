@@ -4,7 +4,11 @@ import type {
   ITransaction,
   RepositoryReadOptions,
 } from "@nodefony/orm-core";
-import { BaseUser } from "@nodefony/user";
+import {
+  BaseUser,
+  USER_SORTABLE_FIELDS,
+  USER_DEFAULT_ORDER,
+} from "@nodefony/user";
 import type {
   IPasswordAuthenticatedUser,
   IUserListQuery,
@@ -41,6 +45,12 @@ type UserCriteria = Criteria<UserRow>;
  * repository **est** la frontière de persistance du hash (cf `IUserRepository`).
  */
 export class DrizzleUserRepository implements IUserRepository {
+  /**
+   * Même vocabulaire public que les autres repositories — ici le tri part
+   * dans la requête, où il ne coûte qu'un index.
+   */
+  readonly sortableFields = USER_SORTABLE_FIELDS;
+
   readonly #base: IRepository<UserRow>;
   readonly #db: DrizzleDb;
   readonly #dialect: SqlDialect;
@@ -205,6 +215,16 @@ export class DrizzleUserRepository implements IUserRepository {
     return this.#base.count(criteria as unknown as UserCriteria);
   }
 
+  countDistinct(
+    field: keyof IPasswordAuthenticatedUser & string,
+    criteria?: Criteria<IPasswordAuthenticatedUser>,
+  ): Promise<number> {
+    return this.#base.countDistinct(
+      field as keyof UserRow & string,
+      criteria as unknown as UserCriteria,
+    );
+  }
+
   withTransaction(tx: ITransaction): IUserRepository {
     return new DrizzleUserRepository(
       this.#base.withTransaction(tx),
@@ -258,11 +278,14 @@ export class DrizzleUserRepository implements IUserRepository {
     assertPageQuery(query, "offset");
     const limit = Math.max(1, Math.floor(query.limit));
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
-    const filters = { role: query.role, enabled: query.enabled, q: query.q };
-    const order =
-      query.order && query.order.length > 0
-        ? query.order
-        : ([["identifier", "ASC"]] as Array<[string, "ASC" | "DESC"]>);
+    const filters = {
+      role: query.role,
+      enabled: query.enabled,
+      locked: query.locked,
+      hasSocial: query.hasSocial,
+      q: query.q,
+    };
+    const order = query.order?.length ? query.order : USER_DEFAULT_ORDER;
 
     const { ids, hasNext } = await listUserIdsPage(
       this.#db,
@@ -292,6 +315,17 @@ export class DrizzleUserRepository implements IUserRepository {
       .map((id) => byId.get(id))
       .filter((u): u is IPasswordAuthenticatedUser => u !== undefined);
     return { items, total, limit, offset, hasNext };
+  }
+
+  /** {@inheritDoc IUserRepository.countUsers} */
+  countUsers(query: IUserListQuery): Promise<number> {
+    return countUsers(this.#db, this.#dialect, {
+      role: query.role,
+      enabled: query.enabled,
+      locked: query.locked,
+      hasSocial: query.hasSocial,
+      q: query.q,
+    });
   }
 
   /** {@inheritDoc IUserRepository.countActiveAdmins} */

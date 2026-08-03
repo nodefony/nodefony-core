@@ -1,3 +1,4 @@
+import { parsePageQuery, parseFilters } from "nodefony";
 import type { Container, IPage } from "nodefony";
 import type {
   IAdminApi,
@@ -8,15 +9,18 @@ import type {
   IAdminResponse,
 } from "nodefony";
 import type { ITokenListQuery } from "../../contracts/ITokenStore";
+import {
+  TOKEN_FILTERS,
+  TOKEN_FACETS,
+  TOKEN_STATS_FILTERS,
+  type ITokenCounts,
+} from "../token/tokenFilters";
+import { AUDIT_FILTERS } from "../audit/auditFilters";
 import type {
   ITotpEnrollmentSummary,
   ITotpListQuery,
 } from "../../contracts/ITotpSecretStore";
-import type {
-  AuditCategory,
-  AuditOutcome,
-  IAuditEvent,
-} from "../../contracts/IAuditEvent";
+import type { IAuditEvent } from "../../contracts/IAuditEvent";
 import type { IAuditListQuery } from "../../contracts/IAuditStore";
 import type { IFirewall } from "../../contracts/IFirewall";
 import type {
@@ -98,7 +102,10 @@ function tokenStoreDriver(
  */
 interface IApiKeyAdmin {
   isEnabled(): boolean;
+  sortableFields(): readonly string[];
   listPagePat(query: ITokenListQuery): Promise<IPage<IApiKeyView>>;
+  /** Compteurs de tête, posés sur la collection entière (pas sur une page). */
+  countKeyFacets(query?: Partial<ITokenListQuery>): Promise<ITokenCounts>;
   revokeAnyPat(id: string, actorId: string): Promise<IApiKeyView | null>;
 }
 
@@ -108,48 +115,38 @@ const KEYS_MAX_LIMIT = 200;
 
 /**
  * Traduit la query string admin en {@link ITokenListQuery} bornée (`limit` par
- * défaut 50, cap 200 ; `subjectId`/`revoked`/`offset`/`cursor`). Filtre inconnu
- * ignoré (permissif — endpoint déjà gardé `ROLE_NODEFONY_ADMIN`).
+ * défaut 50, cap 200 ; pagination, tri et filtres de {@link TOKEN_FILTERS}).
+ *
+ * **UN SEUL traducteur par dimension, jamais deux.** Pour la page et le tri,
+ * `parsePageQuery` ; pour les filtres, `parseFilters`. En appeler un second sans
+ * son allowlist ferait refuser en 400 ce que le premier venait d'accepter, et
+ * aucun test unitaire ne le verrait (chaque appel est correct isolément).
+ *
+ * Un filtre inconnu ou mal formé est désormais **refusé** (400) au lieu d'être
+ * ignoré : `?status=revoqué` rendait la liste ENTIÈRE, que la console affichait
+ * comme le résultat du filtre demandé.
+ *
+ * @param query - `request.query` du broker admin.
+ * @param sortable - champs que le backend branché sait trier ; un `?order=`
+ *   portant autre chose est refusé en 400 par le traducteur. Liste vide (store à
+ *   curseur, store absent) ⇒ tout tri est refusé, ce qui est la vérité du backend.
  */
-function parseTokenListQuery(
+export function parseTokenListQuery(
   query: Readonly<Record<string, string | string[]>>,
+  sortable: readonly string[],
 ): ITokenListQuery {
-  const rawLimit = intParam(query, "limit");
-  const out: ITokenListQuery = {
-    limit:
-      rawLimit === undefined
-        ? KEYS_DEFAULT_LIMIT
-        : Math.min(Math.max(rawLimit, 1), KEYS_MAX_LIMIT),
-  };
-  const offset = intParam(query, "offset");
-  if (offset !== undefined && offset >= 0) out.offset = offset;
-  const cursor = one(query, "cursor");
-  if (cursor !== undefined) out.cursor = cursor;
-  const subjectId = one(query, "subjectId");
-  if (subjectId !== undefined) out.subjectId = subjectId;
-  const revoked = one(query, "revoked");
-  if (revoked === "true") out.revoked = true;
-  else if (revoked === "false") out.revoked = false;
+  const page = parsePageQuery(query, {
+    defaultLimit: KEYS_DEFAULT_LIMIT,
+    maxLimit: KEYS_MAX_LIMIT,
+    sortable,
+  });
+  const filters = parseFilters(query, TOKEN_FILTERS);
+  const out: ITokenListQuery = { limit: page.limit, ...filters };
+  if (page.offset !== undefined) out.offset = page.offset;
+  if (page.cursor !== undefined) out.cursor = page.cursor;
+  if (page.order !== undefined) out.order = page.order;
   return out;
 }
-
-const CATEGORIES: ReadonlySet<string> = new Set<AuditCategory>([
-  "auth",
-  "authz",
-  "token",
-  "session",
-  "oauth",
-  "webauthn",
-  "csrf",
-  "cors",
-  "ws",
-  "webhook",
-]);
-const OUTCOMES: ReadonlySet<string> = new Set<AuditOutcome>([
-  "success",
-  "failure",
-  "denied",
-]);
 
 /** Premier param d'une clé (la query admin peut être `string | string[]`). */
 function one(
@@ -164,56 +161,39 @@ function one(
 /** Taille de page du journal d'audit quand l'appelant n'en demande pas. */
 const AUDIT_DEFAULT_LIMIT = 100;
 
-/** Entier positif d'un param, ou `undefined` si absent/non numérique. */
-function intParam(
-  query: Readonly<Record<string, string | string[]>>,
-  key: string,
-): number | undefined {
-  const raw = one(query, key);
-  if (raw === undefined) return undefined;
-  const n = Number.parseInt(raw, 10);
-  return Number.isNaN(n) ? undefined : n;
-}
-
 /**
- * Traduit la query string admin en {@link IAuditListQuery} typée. Un filtre
- * `category`/`outcome` **inconnu est ignoré** (permissif — l'endpoint est déjà
- * gardé `ROLE_NODEFONY_ADMIN`, renvoyer plus large à un admin est sûr) plutôt
- * que de renvoyer une 400 (robustesse de la console).
+ * Traduit la query string admin en {@link IAuditListQuery} typée — pagination
+ * par curseur, plus les filtres de {@link AUDIT_FILTERS}.
  *
- * Le `limit` est **toujours posé** (défaut {@link AUDIT_DEFAULT_LIMIT}) : le
- * contrat de page n'admet pas « tout » ; le store applique en plus son propre
- * plafond, l'appelant ne peut donc pas s'en servir pour tirer un journal entier.
+ * Un filtre inconnu ou mal formé est **refusé** (400). Il était auparavant
+ * ignoré, au nom de la robustesse de la console : mais un journal d'audit rendu
+ * ENTIER à qui demandait `?outcome=deneid` n'est pas robuste — c'est la pire
+ * réponse possible à un auditeur, qui lit l'absence de refus comme l'absence
+ * d'incident. Le typage suit la même source : les valeurs viennent de la spec,
+ * il n'y a plus de `as AuditCategory` à écrire ici.
+ *
+ * Le `limit` est **toujours posé** (défaut {@link AUDIT_DEFAULT_LIMIT}, cap du
+ * traducteur) : le contrat de page n'admet pas « tout » ; le store applique en
+ * plus son propre plafond, l'appelant ne peut donc pas s'en servir pour tirer un
+ * journal entier.
  *
  * @param query - `request.query` du broker admin.
  * @returns filtre prêt pour `auditService.listPage`.
+ * @throws `PageQueryError` (400) sur un filtre inconnu ou mal formé.
  */
 export function parseAuditQuery(
   query: Readonly<Record<string, string | string[]>>,
 ): IAuditListQuery {
-  const filter: IAuditListQuery = { limit: AUDIT_DEFAULT_LIMIT };
-  const category = one(query, "category");
-  if (category !== undefined && CATEGORIES.has(category)) {
-    filter.category = category as AuditCategory;
-  }
-  const outcome = one(query, "outcome");
-  if (outcome !== undefined && OUTCOMES.has(outcome)) {
-    filter.outcome = outcome as AuditOutcome;
-  }
-  const actor = one(query, "actor");
-  if (actor !== undefined) filter.actor = actor;
-  const action = one(query, "action");
-  if (action !== undefined) filter.action = action;
-  const requestId = one(query, "requestId");
-  if (requestId !== undefined) filter.requestId = requestId;
-  const since = intParam(query, "since");
-  if (since !== undefined) filter.since = since;
-  const until = intParam(query, "until");
-  if (until !== undefined) filter.until = until;
-  const limit = intParam(query, "limit");
-  if (limit !== undefined) filter.limit = limit;
-  const cursor = one(query, "cursor");
-  if (cursor !== undefined) filter.cursor = cursor;
+  // Le journal d'audit pagine par CURSEUR : on ne retient du contrat de page que
+  // `limit` et `cursor` — pas d'`offset` (il ferait sauter des lignes sous
+  // insertion concurrente), pas de `q` (aucun store d'audit ne le sait, et un
+  // filtre accepté puis ignoré ment au client).
+  const page = parsePageQuery(query, { defaultLimit: AUDIT_DEFAULT_LIMIT });
+  const filter: IAuditListQuery = {
+    limit: page.limit,
+    ...parseFilters(query, AUDIT_FILTERS),
+  };
+  if (page.cursor !== undefined) filter.cursor = page.cursor;
   return filter;
 }
 
@@ -382,7 +362,20 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
       role: "ROLE_NODEFONY_ADMIN",
       summary:
         "Clés API (PAT) du système — gouvernance cross-porteur, pagination NATIVE " +
-        "au store (?subjectId&revoked&limit&offset|cursor). Vue publique, sans secret.",
+        "au store (?subjectId&revoked&limit&offset|cursor&order=champ:ASC). Tri " +
+        "limité aux champs que le backend branché déclare savoir trier. Vue " +
+        "publique, sans secret.",
+      // Publiée dans le catalogue admin : le store Redis de jetons ne déclare
+      // aucun tri, une base SQL en déclare quatre. La console lit ce que le
+      // backend RÉPOND, au lieu de coder en dur une liste qui serait juste
+      // pour un déploiement et fausse pour le suivant.
+      page: {
+        sortable: () => {
+          const svc = container.get("apiKeys") as IApiKeyAdmin | undefined;
+          return svc?.isEnabled() ? svc.sortableFields() : [];
+        },
+        filters: TOKEN_FILTERS,
+      },
       handler: async (
         request: IAdminRequest,
       ): Promise<
@@ -402,7 +395,9 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         // Pagination serveur (jamais un listAll matérialisé). `keys` = LA page
         // (rétro-compat front) ; `total`/`offset`/`nextCursor` = métadonnées pour
         // la bascule DataGrid mode="server".
-        const page = await svc.listPagePat(parseTokenListQuery(request.query));
+        const page = await svc.listPagePat(
+          parseTokenListQuery(request.query, svc.sortableFields()),
+        );
         return {
           keys: page.items,
           total: page.total,
@@ -410,6 +405,37 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
           offset: page.offset,
           nextCursor: page.nextCursor,
         };
+      },
+    },
+    {
+      // Compteurs de tête. Endpoint SÉPARÉ de la liste : ces nombres ne
+      // dépendent ni de la fenêtre ni de l'ordre — les rejouer à chaque tour de
+      // page coûterait quatre COUNT pour un résultat identique.
+      path: "apikeys/stats",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Compteurs des clés d'API sur la collection ENTIÈRE (total, actives, " +
+        "expirées, révoquées) — mêmes filtres que la liste. `null` = le backend " +
+        "ne sait pas compter (store Redis en curseur).",
+      page: { filters: TOKEN_STATS_FILTERS, facets: TOKEN_FACETS },
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<ITokenCounts | IAdminResponse<{ error: string }>> => {
+        const svc = container.get("apiKeys") as IApiKeyAdmin | undefined;
+        if (!svc || !svc.isEnabled()) {
+          return { status: 503, body: { error: "api keys unavailable" } };
+        }
+        // Un décompte n'a ni fenêtre ni ordre : ce que le contrat de page
+        // porte encore doit être REFUSÉ, pas admis puis ignoré. `order` ne
+        // changerait rien au nombre rendu, mais `q` SI — l'accepter sans
+        // l'honorer ferait annoncer aux cartes une population que le tableau
+        // filtré ne montre pas. Sans `sortable` ni `searchable`, le
+        // traducteur refuse les deux (défaut REFUS).
+        parsePageQuery(request.query, {});
+        return svc.countKeyFacets(
+          parseFilters(request.query, TOKEN_STATS_FILTERS),
+        );
       },
     },
     {
@@ -488,14 +514,18 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         offset: number;
       }> => {
         const svc = container.get("webauthn") as IWebAuthnAdmin | undefined;
-        const rawLimit = intParam(request.query, "limit");
-        const limit =
-          rawLimit === undefined
-            ? KEYS_DEFAULT_LIMIT
-            : Math.min(Math.max(rawLimit, 1), KEYS_MAX_LIMIT);
-        const offsetRaw = intParam(request.query, "offset");
-        const offset =
-          offsetRaw !== undefined && offsetRaw >= 0 ? offsetRaw : 0;
+        const pageQuery = parsePageQuery(request.query, {
+          defaultLimit: KEYS_DEFAULT_LIMIT,
+          maxLimit: KEYS_MAX_LIMIT,
+          // Le store des passkeys filtre bien sur `q` (il le reçoit plus bas) :
+          // la capacité se déclare, et `q` se lit UNE fois — ici. Le handler le
+          // relisait à la main juste après, ce qui en faisait le second lecteur
+          // du même paramètre, le motif qui a déjà produit un 400 sur une valeur
+          // que le premier appel venait d'accepter.
+          searchable: true,
+        });
+        const limit = pageQuery.limit;
+        const offset = pageQuery.offset ?? 0;
         // Lecture DÉFENSIVE : passkeys désactivés → état honnête, jamais un 503
         // (la console doit afficher « passkeys désactivés », pas une erreur).
         if (!svc) {
@@ -503,7 +533,7 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         }
         const userId = one(request.query, "userId");
         const backedUp = one(request.query, "backedUp");
-        const q = one(request.query, "q");
+        const q = pageQuery.q;
         const page = await svc.listCredentialsPage({
           limit,
           offset,
@@ -620,14 +650,12 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         offset: number;
       }> => {
         const svc = container.get("totp") as ITotpAdmin | undefined;
-        const rawLimit = intParam(request.query, "limit");
-        const limit =
-          rawLimit === undefined
-            ? KEYS_DEFAULT_LIMIT
-            : Math.min(Math.max(rawLimit, 1), KEYS_MAX_LIMIT);
-        const offsetRaw = intParam(request.query, "offset");
-        const offset =
-          offsetRaw !== undefined && offsetRaw >= 0 ? offsetRaw : 0;
+        const pageQuery = parsePageQuery(request.query, {
+          defaultLimit: KEYS_DEFAULT_LIMIT,
+          maxLimit: KEYS_MAX_LIMIT,
+        });
+        const limit = pageQuery.limit;
+        const offset = pageQuery.offset ?? 0;
         // Lecture DÉFENSIVE : 2FA désactivé → état honnête, jamais un 503 (la
         // console doit pouvoir afficher « 2FA désactivé » plutôt qu'une erreur).
         if (!svc) {

@@ -18,7 +18,7 @@
  *
  * Les mutations passent en **POST HTTP** (pipeline CSRF — la Socket reste GET-only).
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
 import {
   Stack,
@@ -28,10 +28,8 @@ import {
   Text,
   Button,
   SegmentedControl,
-  TextInput,
   Modal,
   Alert,
-  CloseButton,
 } from "@mantine/core";
 import {
   IconList,
@@ -39,7 +37,6 @@ import {
   IconUserCheck,
   IconUserOff,
   IconUsers,
-  IconSearch,
   IconHelpCircle,
   IconBan,
   IconLogout,
@@ -48,22 +45,25 @@ import {
 import { hasRole } from "nodefony/roles";
 
 import { useStore, useAuth, useNotifications } from "../stores";
-import { useResource } from "../hooks";
-import { PageLayout, StatCard, DataState, DocHint } from "../components/ui";
+import { useResource, useFacetCards } from "../hooks";
+import {
+  PageLayout,
+  StatCard,
+  DocHint,
+  fmtFacet,
+  toStatsParams,
+} from "../components/ui";
 import {
   ADMIN_ROLE,
   SESSIONS_DOC,
-  SESSIONS_LIST_WINDOW,
-  sessionsListEndpoint,
-  sessionsMineEndpoint,
   revokeSessionEndpoint,
   revokeSessionMineEndpoint,
   revokeUserSessionsEndpoint,
-  countByAuth,
   describeSessionsError,
   SESSIONS_STATUS_ENDPOINT,
+  SESSIONS_STATS_ENDPOINT,
+  type SessionCounts,
   type SessionSummary,
-  type SessionListResponse,
   type SessionsStatus,
 } from "./sessions/sessionsModel";
 import { SessionsTable } from "./sessions/SessionsTable";
@@ -83,9 +83,15 @@ export const Sessions = observer(() => {
 
   const [mode, setMode] = useState<Mode>(isAdmin && canMine ? "all" : "mine");
   const [tab, setTab] = useState<string>("list");
-  // Filtre serveur par utilisateur (mode Administration uniquement) — debounced.
-  const [userInput, setUserInput] = useState("");
-  const [userFilter, setUserFilter] = useState("");
+  // Filtres serveur — le champ « utilisateur » maison a disparu : c'est
+  // maintenant le vocabulaire PUBLIÉ par l'endpoint qui décide de ce qui est
+  // filtrable, rendu par la barre générique. Il vivait ici avec son propre
+  // debounce, sa propre validation et sa propre idée de ce que le serveur
+  // acceptait — trois copies de règles que le catalogue porte désormais seul.
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  // Rechargement de la page affichée après une mutation (révocation).
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = useCallback(() => setReloadKey((n) => n + 1), []);
   const [confirmRevoke, setConfirmRevoke] = useState<SessionSummary | null>(
     null,
   );
@@ -101,31 +107,9 @@ export const Sessions = observer(() => {
   } | null>(null);
   const [bulkRevoking, setBulkRevoking] = useState(false);
 
-  useEffect(() => {
-    const t = setTimeout(() => setUserFilter(userInput.trim()), 300);
-    return () => clearTimeout(t);
-  }, [userInput]);
-
-  // Mode « Mes sessions » : endpoint self-service `sessions/mine` (scopé serveur,
-  // PAS de ?user= — anti-IDOR). Mode Administration : énumération globale filtrée
-  // par l'utilisateur saisi (ou rien = toutes).
-  const adminUserFilter = userFilter || undefined;
-
-  const fetcher = useCallback(async (): Promise<SessionListResponse> => {
-    try {
-      const url =
-        mode === "mine"
-          ? sessionsMineEndpoint({ limit: SESSIONS_LIST_WINDOW })
-          : sessionsListEndpoint({
-              user: adminUserFilter,
-              limit: SESSIONS_LIST_WINDOW,
-            });
-      return await store.api.getAbsolute<SessionListResponse>(url);
-    } catch (e) {
-      throw new Error(describeSessionsError(e), { cause: e });
-    }
-  }, [store, mode, adminUserFilter]);
-  const { data, loading, error, reload } = useResource(fetcher);
+  // La liste n'est plus chargée ici : la table la demande page par page, à
+  // l'endpoint que dicte la portée — `sessions/mine` (scopé serveur, PAS de
+  // ?user= : anti-IDOR) ou l'énumération d'administration.
 
   // Politique de session (garde-fou de révocation + délais d'expiration) =
   // endpoint ADMIN → on ne le sollicite QUE pour un admin, sinon on provoque un
@@ -144,10 +128,43 @@ export const Sessions = observer(() => {
   const revokeOneEndpoint =
     mode === "mine" ? revokeSessionMineEndpoint : revokeSessionEndpoint;
 
-  const sessions = useMemo(() => data?.items ?? [], [data]);
-  const total = data?.total ?? sessions.length;
-  const truncated = total > sessions.length;
-  const counts = useMemo(() => countByAuth(sessions), [sessions]);
+  // Compteurs de tête : le SERVEUR les pose sur la collection entière, avec les
+  // mêmes filtres que la liste — mais seulement ceux que l'endpoint de comptage
+  // DÉCLARE accepter (il refuse la dimension qu'il décompose). Le mode « Mes
+  // sessions » n'en a aucun : ses compteurs sont réservés aux admins, et ses
+  // cartes affichent « — », qui dit « je ne sais pas » plutôt qu'un chiffre
+  // décrivant la seule page chargée.
+  // Aucune recherche ici : ni la liste ni les compteurs ne la déclarent (aucun
+  // store de sessions ne relaie `q`), donc le grid n'affiche pas de barre et le
+  // composeur n'a rien à transmettre.
+  const statsCaps = store.admin.pageCapabilities(SESSIONS_STATS_ENDPOINT);
+  const statsSignal = toStatsParams(filters, statsCaps).toString();
+  const statsFetcher = useCallback((): Promise<SessionCounts | null> => {
+    if (mode !== "all" || !isAdmin) return Promise.resolve(null);
+    return store.api.getAbsolute<SessionCounts>(
+      statsSignal
+        ? `${SESSIONS_STATS_ENDPOINT}?${statsSignal}`
+        : SESSIONS_STATS_ENDPOINT,
+    );
+  }, [store, mode, isAdmin, statsSignal]);
+  const { data: serverCounts, reload: reloadCounts } =
+    useResource(statsFetcher);
+  // Cartes cliquables : le filtre posé vient du serveur, donc il sélectionne
+  // exactement la population comptée. « Utilisateurs » n'en est pas : c'est une
+  // agrégation (utilisateurs DISTINCTS), pas un COUNT filtré — sa carte reste
+  // un nombre, faute de filtre qui la sélectionne.
+  const facetCard = useFacetCards(statsCaps, filters, setFilters);
+
+  const counts = useMemo<SessionCounts>(
+    () =>
+      serverCounts ?? {
+        total: null,
+        authenticated: null,
+        anonymous: null,
+        users: null,
+      },
+    [serverCounts],
+  );
 
   const modeData = useMemo(
     () => [
@@ -169,6 +186,7 @@ export const Sessions = observer(() => {
       });
       setConfirmRevoke(null);
       reload();
+      reloadCounts(); // une session révoquée change les compteurs, pas que la liste
     } catch (e) {
       notifications.notify("error", describeSessionsError(e), {
         source: "api",
@@ -193,6 +211,7 @@ export const Sessions = observer(() => {
       );
       setConfirmRevokeUser(null);
       reload();
+      reloadCounts();
     } catch (e) {
       notifications.notify("error", describeSessionsError(e), {
         source: "api",
@@ -224,6 +243,7 @@ export const Sessions = observer(() => {
       clear();
       setConfirmBulk(null);
       reload();
+      reloadCounts();
     } catch (e) {
       notifications.notify("error", describeSessionsError(e), {
         source: "api",
@@ -243,8 +263,8 @@ export const Sessions = observer(() => {
 
   const subtitle =
     mode === "mine"
-      ? `Mes sessions — ${counts.total} active(s)`
-      : `Toutes les sessions — ${counts.total}${truncated ? ` sur ${total}` : ""} · ${counts.authenticated} authentifiée(s)`;
+      ? "Mes sessions — mes appareils et onglets connectés"
+      : `Toutes les sessions — ${fmtFacet(counts.total)} · ${fmtFacet(counts.authenticated)} authentifiée(s)`;
 
   return (
     <PageLayout
@@ -255,8 +275,10 @@ export const Sessions = observer(() => {
         <Button
           variant="light"
           leftSection={<IconRefresh size={16} />}
-          loading={loading}
-          onClick={reload}
+          onClick={() => {
+            reload();
+            reloadCounts();
+          }}
         >
           Recharger
         </Button>
@@ -306,53 +328,32 @@ export const Sessions = observer(() => {
             />
           )}
         </Group>
-        {mode === "all" && (
-          <TextInput
-            leftSection={<IconSearch size={15} />}
-            placeholder="Filtrer par utilisateur (serveur)…"
-            value={userInput}
-            onChange={(e) => setUserInput(e.currentTarget.value)}
-            aria-label="Filtrer les sessions par identifiant d'utilisateur"
-            rightSection={
-              userInput ? (
-                <CloseButton
-                  size="sm"
-                  aria-label="Effacer le filtre utilisateur"
-                  onClick={() => setUserInput("")}
-                />
-              ) : null
-            }
-            style={{ minWidth: 260 }}
-          />
-        )}
       </Group>
 
-      {truncated && (
-        <Alert
-          variant="light"
-          color="yellow"
-          icon={<IconAlertTriangle size={16} />}
-        >
-          <Text size="sm">
-            {total} sessions au total — seules les {sessions.length} premières
-            sont affichées (fenêtre plafonnée à {SESSIONS_LIST_WINDOW}). Filtrez
-            par utilisateur pour cibler.
-          </Text>
-        </Alert>
-      )}
+      {/* Plus de bandeau « fenêtre plafonnée » : il n'y a plus de fenêtre. Le
+          parc entier est atteignable page après page, et les cartes ci-dessous
+          comptent dessus — pas sur les lignes affichées. */}
 
       <Grid>
         <StatCard
           label="Total"
+          {...facetCard(
+            "total",
+            "toutes les sessions (retire les filtres de facette)",
+          )}
           icon={<IconList size={20} color="var(--mantine-color-brand-5)" />}
-          hint="Nombre de sessions persistées dans la fenêtre chargée (authentifiées + anonymes)."
+          hint="Nombre TOTAL de sessions persistées (authentifiées + anonymes), compté par le serveur sur l'ensemble — pas sur les lignes affichées. « — » = le backend ne sait pas compter (store à curseur)."
         >
           <Text fz={28} fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
-            {counts.total}
+            {fmtFacet(counts.total)}
           </Text>
         </StatCard>
         <StatCard
           label="Authentifiées"
+          {...facetCard(
+            "authenticated",
+            "les sessions portant un utilisateur connecté",
+          )}
           icon={<IconUserCheck size={20} color="var(--mantine-color-teal-6)" />}
           hint="Sessions portant un utilisateur connecté (par opposition aux sessions anonymes)."
         >
@@ -362,11 +363,12 @@ export const Sessions = observer(() => {
             c="teal"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.authenticated}
+            {fmtFacet(counts.authenticated)}
           </Text>
         </StatCard>
         <StatCard
           label="Anonymes"
+          {...facetCard("anonymous", "les sessions sans utilisateur connecté")}
           icon={<IconUserOff size={20} color="var(--mantine-color-gray-6)" />}
           info={
             <DocHint
@@ -388,16 +390,16 @@ export const Sessions = observer(() => {
             c="dimmed"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.anonymous}
+            {fmtFacet(counts.anonymous)}
           </Text>
         </StatCard>
         <StatCard
           label="Utilisateurs"
           icon={<IconUsers size={20} color="var(--mantine-color-brand-5)" />}
-          hint="Nombre d'utilisateurs distincts ayant au moins une session authentifiée (un même utilisateur peut avoir plusieurs sessions / appareils)."
+          hint="Nombre d'utilisateurs DISTINCTS ayant au moins une session (un même utilisateur peut en avoir plusieurs — plusieurs appareils). « 400 sessions » n'est pas « 400 personnes ». « — » = le backend ne sait pas dédupliquer."
         >
           <Text fz={28} fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
-            {counts.users}
+            {fmtFacet(counts.users)}
           </Text>
         </StatCard>
       </Grid>
@@ -413,19 +415,20 @@ export const Sessions = observer(() => {
         </Tabs.List>
 
         <Tabs.Panel value="list" pt="md">
-          <DataState loading={loading && !data} error={error} onRetry={reload}>
-            <SessionsTable
-              sessions={sessions}
-              currentUser={currentUser}
-              showUser={mode === "all"}
-              onRevoke={(s) => setConfirmRevoke(s)}
-              onRevokeUser={(id) => setConfirmRevokeUser(id)}
-              onBulkRevoke={(s, clear) =>
-                setConfirmBulk({ sessions: s, clear })
-              }
-              revokingRef={revokingRef}
-            />
-          </DataState>
+          {/* Le chargement et l'erreur appartiennent au grid, qui recharge à
+              chaque page, tri ou filtre — un état englobant masquerait la table
+              entière à chaque tour de page. */}
+          <SessionsTable
+            mode={mode}
+            filters={filters}
+            onFiltersChange={setFilters}
+            currentUser={currentUser}
+            onRevoke={(s) => setConfirmRevoke(s)}
+            onRevokeUser={(id) => setConfirmRevokeUser(id)}
+            onBulkRevoke={(s, clear) => setConfirmBulk({ sessions: s, clear })}
+            revokingRef={revokingRef}
+            reloadKey={reloadKey}
+          />
         </Tabs.Panel>
         <Tabs.Panel value="help" pt="md">
           {tab === "help" && <SessionsHelp />}

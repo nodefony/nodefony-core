@@ -1,5 +1,9 @@
 import type { ClientSession, Connection, Model } from "mongoose";
-import { BaseUser } from "@nodefony/user";
+import {
+  BaseUser,
+  USER_SORTABLE_FIELDS,
+  USER_DEFAULT_ORDER,
+} from "@nodefony/user";
 import type {
   IPasswordAuthenticatedUser,
   IUserListQuery,
@@ -14,10 +18,8 @@ import type {
   RepositoryReadOptions,
 } from "@nodefony/orm-core";
 import type { MongooseOrm } from "./orm-core/MongooseOrm";
+import { mongoOrder, toMongoSort } from "./mongoOrder";
 import type { UserRow } from "../entity/userEntity";
-
-/** Colonnes autorisées au tri (allowlist) → clé de tri Mongo. */
-const ORDERABLE = new Set(["identifier", "enabled", "createdAt", "updatedAt"]);
 
 /** Critère typé sur la ligne `User`. */
 type UserCriteria = Criteria<UserRow>;
@@ -40,6 +42,12 @@ type LooseModel = Model<Record<string, unknown>>;
  * **est** la frontière de persistance du hash (cf `IUserRepository`).
  */
 export class MongooseUserRepository implements IUserRepository {
+  /**
+   * Même vocabulaire public que les autres repositories — ici le tri part
+   * dans la requête, où il ne coûte qu'un index.
+   */
+  readonly sortableFields = USER_SORTABLE_FIELDS;
+
   readonly #base: IRepository<UserRow>;
   readonly #model: LooseModel;
   readonly #session: ClientSession | null;
@@ -196,6 +204,16 @@ export class MongooseUserRepository implements IUserRepository {
     return this.#base.count(criteria as unknown as UserCriteria);
   }
 
+  countDistinct(
+    field: keyof IPasswordAuthenticatedUser & string,
+    criteria?: Criteria<IPasswordAuthenticatedUser>,
+  ): Promise<number> {
+    return this.#base.countDistinct(
+      field as keyof UserRow & string,
+      criteria as unknown as UserCriteria,
+    );
+  }
+
   withTransaction(tx: ITransaction): IUserRepository {
     return new MongooseUserRepository(
       this.#base.withTransaction(tx),
@@ -239,6 +257,13 @@ export class MongooseUserRepository implements IUserRepository {
     // `roles: role` matche un ÉLÉMENT du tableau (containment natif Mongo).
     if (query.role !== undefined) filter.roles = query.role;
     if (query.enabled !== undefined) filter.enabled = query.enabled;
+    if (query.locked !== undefined) filter.locked = query.locked;
+    if (query.hasSocial !== undefined) {
+      // « Au moins un lien » = le tableau a un index 0. `$exists` sur `.0` est la
+      // forme indexable en Mongo — `$size: {$gt: 0}` n'existe pas, et compter
+      // côté client supposerait de rapatrier l'annuaire.
+      filter["socialProviders.0"] = { $exists: query.hasSocial };
+    }
     if (query.q !== undefined && query.q.length > 0) {
       filter.identifier = { $regex: escapeRegExp(query.q), $options: "i" };
     }
@@ -261,14 +286,15 @@ export class MongooseUserRepository implements IUserRepository {
     const offset = Math.max(0, Math.floor(query.offset ?? 0));
     const filter = this.#listFilter(query);
 
-    const sort: Record<string, 1 | -1> = {};
-    const specs = (query.order ?? []).filter(([k]) => ORDERABLE.has(k));
-    for (const [key, dir] of specs.length > 0
-      ? specs
-      : ([["identifier", "ASC"]] as Array<[string, "ASC" | "DESC"]>)) {
-      sort[key] = dir === "DESC" ? -1 : 1;
-    }
-    sort._id = 1; // tiebreaker déterministe
+    // Borné à ce que ce repository DÉCLARE, puis traduit dans le schéma Mongo
+    // (`id` → `_id`) : les deux gestes sont portés par `mongoOrder`, partagé par
+    // tous les stores de cet adapter — la règle était réécrite ici.
+    const sort = toMongoSort(
+      mongoOrder(query.order, this.sortableFields, USER_DEFAULT_ORDER),
+    );
+    // Tiebreaker déterministe — sauf si le tri porte DÉJÀ sur la clé, auquel cas
+    // l'écraser inverserait le sens demandé.
+    if (sort._id === undefined) sort._id = 1;
 
     let cursor = this.#model
       .find(filter)
@@ -294,6 +320,11 @@ export class MongooseUserRepository implements IUserRepository {
   }
 
   /** {@inheritDoc IUserRepository.countActiveAdmins} */
+  /** {@inheritDoc IUserRepository.countUsers} */
+  countUsers(query: IUserListQuery): Promise<number> {
+    return this.#model.countDocuments(this.#listFilter(query)).exec();
+  }
+
   async countActiveAdmins(adminRole: string): Promise<number> {
     let countQuery = this.#model.countDocuments({
       enabled: true,

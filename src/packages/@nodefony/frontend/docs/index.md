@@ -586,7 +586,7 @@ incompréhensibles :
   ne se déclenchait jamais, et la seconde application perdait toute son interface.
 
 Les écouteurs attachés au processus enfant sont suivis puis retirés à chaque mort
-(`cleanupChildListeners()`, `ViteProcessSupervisor.ts:746`) : sans cela, les relances successives les
+(`cleanupChildListeners()`, `ViteProcessSupervisor.ts:793`) : sans cela, les relances successives les
 accumuleraient jusqu'à l'avertissement de fuite.
 
 ## 🧰 API publique
@@ -821,7 +821,7 @@ Sur le chemin chaud du rendu, trois précautions :
 - le **manifeste** est lu une fois par dossier de sortie, jamais par requête ;
 - l'**`index.html`** est mis en cache en production (relu en développement, où la fraîcheur prime) ;
 - les **écouteurs** du processus enfant sont suivis et retirés à chaque mort
-  (`trackListener()`, `ViteProcessSupervisor.ts:737`) — sans quoi les relances les accumuleraient.
+  (`trackListener()`, `ViteProcessSupervisor.ts:783`) — sans quoi les relances les accumuleraient.
 
 La sonde de vie coûte une requête HTTP toutes les trente secondes par famille. Elle est désactivable
 (`healthCheckIntervalMs: 0`) si ce budget te gêne, au prix de la détection d'un Vite gelé.

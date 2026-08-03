@@ -1,6 +1,8 @@
 import { AbstractCrudService } from "@nodefony/orm-core";
 import type { Criteria, ServiceWiring } from "@nodefony/orm-core";
+import { countFacets } from "nodefony";
 import type { IPage } from "nodefony";
+import { USER_FACETS, type IUserCounts } from "../src/userFilters";
 import type {
   IUser,
   IPasswordAuthenticatedUser,
@@ -145,6 +147,19 @@ export class UserService
   }
 
   /**
+   * Champs de tri que le repository **actuellement branché** sait honorer.
+   *
+   * La capacité se CONSTATE au runtime plutôt que de se déduire : un adapter
+   * tiers qui ne trierait pas rend une liste vide, et le data plane refuse alors
+   * tout `?order=` (400) au lieu de servir une page dans un ordre arbitraire.
+   *
+   * @returns les champs triables, liste vide si le repository ne trie pas.
+   */
+  sortableFields(): readonly string[] {
+    return this.repository.sortableFields ?? [];
+  }
+
+  /**
    * Compte les administrateurs actifs porteurs de `adminRole` — garde-fou
    * anti-lockout calculé au store (jamais en chargeant tous les utilisateurs).
    *
@@ -153,6 +168,36 @@ export class UserService
    */
   countActiveAdmins(adminRole: string): Promise<number> {
     return this.repository.countActiveAdmins(adminRole);
+  }
+
+  /**
+   * Les compteurs de tête de la console — posés sur l'annuaire ENTIER, pas sur
+   * la page affichée.
+   *
+   * Les populations se **recoupent** (un compte peut être désactivé ET
+   * verrouillé, un administrateur peut avoir un lien social) : chacune est
+   * comptée, aucune n'est déduite d'une autre.
+   *
+   * `admins` est composé ici et non déclaré dans {@link USER_FACETS} : le rôle
+   * d'administration est une valeur de configuration, pas une constante du
+   * vocabulaire — l'inscrire dans la table figerait `ROLE_NODEFONY_ADMIN` pour
+   * une plateforme qui peut le renommer.
+   *
+   * @param adminRole - rôle d'administration à dénombrer.
+   * @param query - filtres à appliquer avant comptage (sans fenêtre).
+   */
+  async countUserFacets(
+    adminRole: string,
+    query?: Partial<IUserListQuery>,
+  ): Promise<IUserCounts> {
+    const repo = this.repository;
+    const [facets, admins] = await Promise.all([
+      countFacets(USER_FACETS, (facet) =>
+        repo.countUsers({ ...query, ...facet } as IUserListQuery),
+      ),
+      repo.countUsers({ ...query, role: adminRole } as IUserListQuery),
+    ]);
+    return { ...facets, admins: admins >= 0 ? admins : null };
   }
 
   /**

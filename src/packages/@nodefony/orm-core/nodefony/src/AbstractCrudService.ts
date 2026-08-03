@@ -106,10 +106,37 @@ export abstract class AbstractCrudService<
    * @param page - requête de page ({@link PageQuery} : `limit` obligatoire,
    *   `offset`/`order`/`criteria`/`withTotal` optionnels).
    * @returns une {@link Page} : au plus `limit` items, `hasNext`, et `total` si demandé.
+   * @throws `PageQueryError` (`400`) si un `?q=` est reçu alors que
+   *   {@link AbstractCrudService.searchableFields} est vide.
    */
   findPage(page: PageQuery<T>): Promise<IPage<T>> {
-    return paginate(this.repository, page);
+    return paginate(this.repository, page, {
+      searchable: this.searchableFields,
+    });
   }
+
+  /**
+   * Champs sur lesquels `?q=` cherche — **vide par défaut, donc `q` est refusé**.
+   *
+   * Un service CRUD générique ne peut pas deviner ce qui, dans une entité, se
+   * cherche : un titre oui, une clé étrangère ou un horodatage non. Le défaut
+   * vide n'est donc pas une lacune mais la seule réponse honnête — et il refuse
+   * plutôt qu'il n'ignore, sans quoi une recherche non honorée rendrait toute la
+   * table sous un `200`.
+   *
+   * L'activer tient en une ligne dans le service concret, et la recherche
+   * devient alors réelle de bout en bout (`?q=` → `LIKE` ancré, indexable) :
+   *
+   * ```ts
+   * protected override readonly searchableFields = ["title", "slug"] as const;
+   * ```
+   *
+   * ⚠️ Le déclarer ici ne suffit PAS à ouvrir la route : le contrat de page
+   * refuse `q` en amont tant que le point d'entrée HTTP ne passe pas
+   * `searchable: true` à `parsePageQuery`. Les deux se déclarent, pour la même
+   * raison — une capacité se constate à chaque étage qu'elle traverse.
+   */
+  protected readonly searchableFields: ReadonlyArray<keyof T & string> = [];
 
   // ─── Mutations — hooks template-method + events de cycle de vie ─────────────
 

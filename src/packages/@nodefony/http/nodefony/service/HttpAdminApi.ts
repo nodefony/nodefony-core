@@ -1,3 +1,11 @@
+import { parsePageQuery, parseFilters } from "nodefony";
+import {
+  SESSION_FILTERS,
+  SESSION_STATS_FILTERS,
+  SESSION_FACETS,
+} from "../src/session/storage/sessionFilters";
+import type { ISessionCounts } from "../src/session/storage/sessionFilters";
+import { RATE_LIMIT_FILTERS } from "../src/rateLimit/rateLimitFilters";
 import type { Module, IPage } from "nodefony";
 import type {
   IAdminApi,
@@ -52,7 +60,13 @@ interface SessionsLike {
  */
 interface SessionsAdmin {
   supportsEnumeration(): boolean;
+  /** Capacité de tri du backend configuré — vide = ce store ne trie pas. */
+  sortableFields(): readonly string[];
   listSessionsPage(query: ISessionListQuery): Promise<IPage<ISessionSummary>>;
+  /** Compteurs de tête, posés sur la collection entière (pas sur une page). */
+  countSessionFacets(
+    query?: Partial<ISessionListQuery>,
+  ): Promise<ISessionCounts>;
   destroyByRef(ref: string, actor?: string | null): Promise<boolean>;
   destroyByUser(identifier: string, actor?: string | null): Promise<number>;
   // Self-service (scopé à l'appelant — anti-IDOR).
@@ -67,31 +81,30 @@ interface SessionsAdmin {
   ): Promise<boolean>;
 }
 
-const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 200;
-
-/** Premier param d'une clé de query (peut être `string | string[]`). */
-function one(
-  query: Readonly<Record<string, string | string[]>>,
-  key: string,
-): string | undefined {
-  const value = query[key];
-  if (value === undefined) return undefined;
-  return Array.isArray(value) ? value[0] : value;
-}
-
-/** `?limit`/`?offset` bornés (défaut 50, cap dur 200 ; offset ≥ 0). */
+/**
+ * `limit`/`offset` du contrat de page, avec l'`offset` **matérialisé** : ces
+ * endpoints le renvoient dans leur réponse, où l'absence n'a pas de sens (le
+ * client lit « page 1 », pas « pas de décalage »). Le traducteur, lui, laisse
+ * `offset` absent quand le client n'en demande pas — c'est le contrat.
+ */
 function pageParams(query: Readonly<Record<string, string | string[]>>): {
   limit: number;
   offset: number;
+  q?: string;
 } {
-  const rawLimit = Number.parseInt(one(query, "limit") ?? "", 10);
-  const rawOffset = Number.parseInt(one(query, "offset") ?? "", 10);
-  const limit = Number.isNaN(rawLimit)
-    ? DEFAULT_LIMIT
-    : Math.min(Math.max(rawLimit, 1), MAX_LIMIT);
-  const offset = Number.isNaN(rawOffset) || rawOffset < 0 ? 0 : rawOffset;
-  return { limit, offset };
+  // `searchable` : le seul appelant de ce helper est `rate-limit/list`, qui
+  // filtre lui-même ses clés sur `q` (collection en mémoire). Un endpoint qui
+  // ne relaierait pas `q` doit au contraire l'omettre, pour que la recherche
+  // soit refusée en 400 plutôt qu'acceptée puis jetée.
+  const parsed = parsePageQuery(query, { searchable: true });
+  // `q` vient d'ICI et de nulle part ailleurs : le handler le relisait à la main
+  // juste après, ce qui faisait deux lecteurs du même paramètre — le motif exact
+  // qui a déjà produit un 400 sur un tri accepté par le premier appel.
+  return {
+    limit: parsed.limit,
+    offset: parsed.offset ?? 0,
+    ...(parsed.q !== undefined ? { q: parsed.q } : {}),
+  };
 }
 
 /**
@@ -233,7 +246,7 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         limit: number;
         offset: number;
       }> => {
-        const { limit, offset } = pageParams(request.query);
+        const { limit, offset, q } = pageParams(request.query);
         const store = (module.get(HTTP_KERNEL_SERVICE) as HttpKernelLike)
           ?.rateLimitStore;
         // Lecture DÉFENSIVE : rate-limit désactivé (défaut) → état honnête,
@@ -249,16 +262,10 @@ export function createHttpAdminApi(module: Module): IAdminApi {
             offset,
           };
         }
-        const limitedRaw = one(request.query, "limited");
-        const q = one(request.query, "q");
         const page = await store.listPage({
           limit,
           offset,
-          ...(limitedRaw === "true"
-            ? { limited: true }
-            : limitedRaw === "false"
-              ? { limited: false }
-              : {}),
+          ...parseFilters(request.query, RATE_LIMIT_FILTERS),
           ...(q !== undefined ? { q } : {}),
         });
         return {
@@ -328,6 +335,18 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         "Sessions actives (ref/user/ip/ua/dates — jamais l'id de session). " +
         "Paginé côté serveur : ?user&limit&offset. `total` absent et " +
         "`nextCursor` présent sur un backend à curseur (Redis).",
+      // Publiée dans le catalogue admin. C'est la ressource où l'écart entre
+      // backends est le plus franc : le store Redis énumère par `SCAN` et ne
+      // trie RIEN, là où mémoire, SQL et Mongo trient sur `updatedAt`/`id`. Une
+      // console qui coderait le tri en dur afficherait des en-têtes cliquables
+      // qui répondraient 400 — ici elle n'affiche que ce que le store annonce.
+      page: {
+        sortable: () => {
+          const svc = module.get("sessions") as SessionsAdmin | undefined;
+          return svc?.supportsEnumeration() ? svc.sortableFields() : [];
+        },
+        filters: SESSION_FILTERS,
+      },
       handler: async (
         request: IAdminRequest,
       ): Promise<
@@ -353,14 +372,22 @@ export function createHttpAdminApi(module: Module): IAdminApi {
             body: { error: "session enumeration not supported by storage" },
           };
         }
-        const user = one(request.query, "user");
-        const { limit, offset } = pageParams(request.query);
+        // Le tri traverse jusqu'au store, avec l'allowlist DÉCLARÉE par le
+        // backend configuré : sur un store qui ne trie pas (Redis SCAN), elle
+        // est vide et `parsePageQuery` refuse tout `order` en 400 plutôt que de
+        // rendre une page non triée.
+        const pageQuery = parsePageQuery(request.query, {
+          sortable: svc.sortableFields(),
+        });
+        const { limit } = pageQuery;
+        const offset = pageQuery.offset ?? 0;
         // Pagination SERVEUR : le store ne rend qu'une page (LIMIT/OFFSET, SCAN).
         // Le coût de cet endpoint ne dépend plus du nombre de sessions.
         const page = await svc.listSessionsPage({
           limit,
           offset,
-          ...(user !== undefined ? { user } : {}),
+          ...parseFilters(request.query, SESSION_FILTERS),
+          ...(pageQuery.order ? { order: pageQuery.order } : {}),
         });
         // `total` est REPORTÉ tel quel : absent sur un backend à curseur, où le
         // déduire de `items.length` mentirait sur le périmètre.
@@ -373,6 +400,56 @@ export function createHttpAdminApi(module: Module): IAdminApi {
             ? { nextCursor: page.nextCursor }
             : {}),
         };
+      },
+    },
+    {
+      // Compteurs de tête de la page Sessions. Endpoint SÉPARÉ de `sessions/list`
+      // à dessein : ces nombres ne dépendent ni de la fenêtre ni de l'ordre, donc
+      // les recalculer à chaque tour de page coûterait trois `COUNT` pour un
+      // résultat identique. Déclaré AVANT `sessions/{ref}/revoke` (segment
+      // littéral `stats` ≠ paramètre `{ref}`).
+      path: "sessions/stats",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Compteurs des sessions sur la collection ENTIÈRE (total, authentifiées, " +
+        "anonymes, utilisateurs distincts) — mêmes filtres que sessions/list. " +
+        "Un compteur `null` = le backend ne sait pas le calculer (Redis).",
+      // Mêmes filtres que la liste, et c'est le but : la console envoie ici le
+      // query string qu'elle envoie à `sessions/list`, et obtient les compteurs
+      // DE CE FILTRE. Les clés de fenêtre (`limit`, `offset`, `order`) sont
+      // admises par le contrat de page et sans effet — un décompte n'a pas de
+      // fenêtre, et ce que le client demande ici, c'est « combien en tout ».
+      // `users` (utilisateurs distincts) n'est PAS une facette : c'est une
+      // agrégation, pas un COUNT filtré — sa carte n'est donc pas cliquable,
+      // faute de filtre qui la sélectionne.
+      page: { filters: SESSION_STATS_FILTERS, facets: SESSION_FACETS },
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<ISessionCounts | IAdminResponse<{ error: string }>> => {
+        const svc = module.get("sessions") as SessionsAdmin | undefined;
+        if (!svc) {
+          return {
+            status: 503,
+            body: { error: "session service unavailable" },
+          };
+        }
+        if (!svc.supportsEnumeration()) {
+          return {
+            status: 501,
+            body: { error: "session enumeration not supported by storage" },
+          };
+        }
+        // Un décompte n'a ni fenêtre ni ordre : ce que le contrat de page
+        // porte encore doit être REFUSÉ, pas admis puis ignoré. `order` ne
+        // changerait rien au nombre rendu, mais `q` SI — l'accepter sans
+        // l'honorer ferait annoncer aux cartes une population que le tableau
+        // filtré ne montre pas. Sans `sortable` ni `searchable`, le
+        // traducteur refuse les deux (défaut REFUS).
+        parsePageQuery(request.query, {});
+        return svc.countSessionFacets(
+          parseFilters(request.query, SESSION_STATS_FILTERS),
+        );
       },
     },
     {
@@ -461,6 +538,19 @@ export function createHttpAdminApi(module: Module): IAdminApi {
       summary:
         "MES sessions (self-service) — ref/ip/ua/dates, scopées à l'appelant. " +
         "Paginé côté serveur : ?limit&offset.",
+      // Le tri est publié comme sur l'énumération admin — c'est le même store, et
+      // la console sert les deux portées avec la MÊME table. **Aucun filtre** en
+      // revanche, et c'est le fond du self-service : le périmètre est décidé par
+      // le serveur à partir de l'identité de l'appelant. Un `?user=` accepté ici
+      // serait un IDOR ; publier une spec vide dit au client qu'il n'a rien à
+      // choisir, au lieu de le laisser essayer.
+      page: {
+        sortable: () => {
+          const svc = module.get("sessions") as SessionsAdmin | undefined;
+          return svc?.supportsEnumeration() ? svc.sortableFields() : [];
+        },
+        filters: {},
+      },
       handler: async (
         request: IAdminRequest,
       ): Promise<
@@ -490,10 +580,21 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         if (!identifier) {
           return { status: 401, body: { error: "unauthenticated" } };
         }
-        const { limit, offset } = pageParams(request.query);
+        const ownQuery = parsePageQuery(request.query, {
+          sortable: svc.sortableFields(),
+        });
+        // Spec VIDE, et l'appel n'est pas décoratif : `?user=alice` était accepté
+        // puis jeté, et le self-service rendait MES sessions sous l'étiquette
+        // « sessions d'alice ». Le scope serveur (anti-IDOR) n'a jamais faibli —
+        // c'est la réponse qui mentait sur ce qu'elle montrait. Le refus (400)
+        // dit ce que la publication annonce : ici, rien ne se filtre.
+        parseFilters(request.query, {});
+        const { limit } = ownQuery;
+        const offset = ownQuery.offset ?? 0;
         const page = await svc.listOwnSessionsPage(identifier, {
           limit,
           offset,
+          ...(ownQuery.order ? { order: ownQuery.order } : {}),
         });
         return {
           items: page.items,

@@ -2,9 +2,11 @@ import { paginate } from "@nodefony/orm-core";
 import type { Criteria, IRepository, UpdateData } from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
 import { assertPageQuery } from "nodefony";
-// `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
-// dépendance runtime de l'ORM vers `@nodefony/security`. L'application câble le
-// store via `registerTokenStore("mongoose", …)`.
+// Contrat en `import type` (effacé à la compilation) ; le VOCABULAIRE DE TRI,
+// lui, est une valeur — et il s'importe au lieu de se recopier : deux listes de
+// champs triables divergent en silence, chacune passant ses propres tests. Le
+// module tire déjà `@nodefony/security` au runtime par son point
+// d'enregistrement (`registerStores.ts` → `registerTokenStore`).
 import type {
   IAccessTokenRecord,
   ITokenListQuery,
@@ -12,18 +14,31 @@ import type {
   ITokenUsage,
   TokenRevokeReason,
 } from "@nodefony/security";
+import {
+  TOKEN_DEFAULT_ORDER,
+  TOKEN_SORTABLE_FIELDS,
+  tokenStatusCriteria,
+} from "@nodefony/security";
+import { mongoOrder } from "./mongoOrder";
 import type { MongooseOrm } from "./orm-core/index";
 
-/** Traduit les filtres de listing en `Criteria` portable (`id`→`_id` géré par le repo). */
+/**
+ * Traduit les filtres de listing en `Criteria` portable (`id`→`_id` géré par le
+ * repo).
+ *
+ * L'état de vie (`status`) vient de `tokenStatusCriteria`, partagé avec
+ * l'adapter SQL : une seule écriture de la règle « révoqué l'emporte sur
+ * expiré », donc aucune divergence possible entre les deux backends.
+ */
 function tokenListCriteria(
   query: ITokenListQuery,
+  now: number,
 ): Criteria<IAccessTokenRecord> {
-  const criteria: Record<string, unknown> = {};
+  const criteria: Record<string, unknown> = {
+    ...tokenStatusCriteria(query.status, now),
+  };
   if (query.subjectId !== undefined) criteria.subjectId = query.subjectId;
   if (query.kind !== undefined) criteria.kind = query.kind;
-  if (query.revoked !== undefined) {
-    criteria.revokedAt = { $null: !query.revoked };
-  }
   return criteria as Criteria<IAccessTokenRecord>;
 }
 import {
@@ -53,6 +68,13 @@ const DEFAULT_RETENTION_REVOKED_MS = 30 * 24 * 3_600_000;
  * par read-then-write.
  */
 export class MongooseTokenStore implements ITokenStore {
+  /**
+   * {@inheritDoc ITokenStore.sortableFields}
+   *
+   * Capacité pleine : le vocabulaire public entier est trié par Mongo, `id`
+   * compris — traduit en `_id` au moment de la requête.
+   */
+  readonly sortableFields = TOKEN_SORTABLE_FIELDS;
   readonly #records: IRepository<IAccessTokenRecord>;
   readonly #denied: IRepository<DeniedJtiRow>;
   readonly #revocations: IRepository<SubjectRevocationRow>;
@@ -165,21 +187,20 @@ export class MongooseTokenStore implements ITokenStore {
    *
    * `paginate()` d'orm-core (skip/limit + countDocuments) sur un filtre portable ;
    * les `id` sont re-normalisés (`_id` → `id`) comme dans {@link listAll}.
+   *
+   * Le tri demandé est **traduit** avant de descendre : au repos, le jeton n'a
+   * pas de champ `id` (le `jti` EST le `_id`), et Mongo ne se plaint pas d'un tri
+   * sur un champ absent — il rend un ordre arbitraire. Sans traduction, un
+   * `?order=id` serait donc inerte ici et correct partout ailleurs.
    */
   async listPage(query: ITokenListQuery): Promise<IPage<IAccessTokenRecord>> {
     assertPageQuery(query, "offset");
     const page = await paginate(this.#records, {
-      criteria: tokenListCriteria(query),
+      criteria: tokenListCriteria(query, this.#now()),
       limit: query.limit,
       offset: query.offset,
       withTotal: query.withTotal,
-      order:
-        query.order && query.order.length > 0
-          ? query.order
-          : [
-              ["createdAt", "DESC"],
-              ["id", "DESC"],
-            ],
+      order: mongoOrder(query.order, this.sortableFields, TOKEN_DEFAULT_ORDER),
     });
     for (const row of page.items) {
       row.id = this.#idOf(row);
@@ -189,7 +210,7 @@ export class MongooseTokenStore implements ITokenStore {
 
   /** {@inheritDoc ITokenStore.countTokens} */
   countTokens(query: ITokenListQuery): Promise<number> {
-    return this.#records.count(tokenListCriteria(query));
+    return this.#records.count(tokenListCriteria(query, this.#now()));
   }
 
   async markUsed(id: string, usage: ITokenUsage): Promise<void> {

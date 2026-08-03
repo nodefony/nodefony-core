@@ -66,6 +66,18 @@ export interface IBootReport {
   durationMs: number;
   /** Modules effectivement chargés et enregistrés. */
   modulesLoaded: string[];
+  /**
+   * Nombre d'entrées DÉCLARÉES au manifeste `config.modules`, avant tout gating.
+   *
+   * Distinct de `modulesLoaded` (ce qui a été chargé), de `modulesSkipped` (ce qui
+   * a échoué) et de `modulesGated` (ce qui a été écarté à dessein) : c'est ce que
+   * la configuration LUE demandait. Un manifeste à `0` alors que le profil attend
+   * des serveurs est un état muet — aucune de ces trois listes ne le contient, et
+   * rien n'a été tenté. Vécu : une application dont le manifeste résolu était vide
+   * bootait avec son seul module local puis échouait sur « aucun serveur en
+   * écoute », un diagnostic qui ne menait nulle part.
+   */
+  manifestEntries: number;
   /** Modules ignorés/échoués en fail-soft (avec la raison). */
   modulesSkipped: IBootFailure[];
   /** Modules volontairement non chargés (gating `policy`/`when`) — pas des échecs. */

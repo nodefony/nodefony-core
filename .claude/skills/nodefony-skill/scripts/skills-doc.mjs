@@ -300,17 +300,19 @@ const NON_SKILL_TERMS = new Set([
 ]);
 
 /**
- * Les skills nommés par un skill : uniquement les occurrences entourées d'accents graves, dans le
- * SKILL.md et ses `references/`. Les scripts en sont exclus — ils citent des conteneurs et des
- * titres de processus qui portent le même préfixe.
+ * Ce qu'un skill NOMME entre accents graves, dans son SKILL.md et ses `references/` — le parcours
+ * unique des deux contrôles de renvoi (skills cités, ressources citées).
+ *
+ * Les scripts en sont exclus : ils citent des conteneurs et des titres de processus qui portent le
+ * même préfixe que les skills.
+ *
+ * @param dir - dossier du skill.
+ * @param re - motif GLOBAL dont la capture 1 est la valeur retenue.
+ * @returns les valeurs distinctes citées.
  */
-function collectSkillRefs(dir) {
-  const found = new Set();
+function eachSkillDocLine(dir, fn) {
   const scan = (p) => {
-    for (const m of readFileSync(p, "utf8").match(/`nodefony-[a-z][a-z-]*`/g) ||
-      []) {
-      found.add(m.slice(1, -1));
-    }
+    for (const line of readFileSync(p, "utf8").split("\n")) fn(line);
   };
   const skillFile = join(dir, "SKILL.md");
   if (existsSync(skillFile)) scan(skillFile);
@@ -323,7 +325,61 @@ function collectSkillRefs(dir) {
     }
   };
   walk(join(dir, "references"));
+}
+
+/**
+ * Les valeurs citées entre accents graves, tous fichiers de doc du skill confondus.
+ *
+ * @param dir - dossier du skill.
+ * @param re - motif GLOBAL dont la capture 1 est la valeur retenue.
+ */
+function scanSkillDocs(dir, re) {
+  const found = new Set();
+  eachSkillDocLine(dir, (line) => {
+    for (const m of line.matchAll(re)) found.add(m[1]);
+  });
   return found;
+}
+
+/** Les skills nommés par un skill. */
+function collectSkillRefs(dir) {
+  return scanSkillDocs(dir, /`(nodefony-[a-z][a-z-]*)`/g);
+}
+
+/**
+ * Les renvois `references/…` d'un skill qui ne mènent NULLE PART.
+ *
+ * Ce contrôle manquait, et son absence ne se voyait pas : un renvoi vers un `references/*.md`
+ * supprimé — ou jamais écrit — laissait la passe VERTE, alors qu'un agent qui le suit ne trouve
+ * rien. Constaté en retirant un fichier fraîchement ajouté : la passe restait verte.
+ *
+ * Un renvoi peut être **croisé** : « `nodefony-frontend-dev` §4 → `references/build-hmr.md` » cite
+ * la ressource d'un AUTRE skill, et c'est légitime. La résolution se fait donc contre le skill
+ * courant **ou** contre tout skill nommé sur la même ligne — sans quoi le contrôle crierait sur des
+ * renvois parfaitement valides (c'est arrivé au premier jet, sur ce renvoi précis).
+ *
+ * `existsSync` répond aussi bien pour un dossier (`references/rfc/`) que pour un fichier.
+ *
+ * @param dir - dossier du skill.
+ * @returns les chemins cités qu'aucun skill ne porte, triés.
+ */
+function deadResourceRefsOf(dir) {
+  const dead = new Set();
+  eachSkillDocLine(dir, (line) => {
+    const paths = [...line.matchAll(/`(references\/[a-zA-Z0-9._/-]+)`/g)].map(
+      (m) => m[1],
+    );
+    if (paths.length === 0) return;
+    const owners = [dir];
+    for (const m of line.matchAll(/`(nodefony-[a-z][a-z-]*)`/g)) {
+      const other = join(SKILLS_DIR, m[1]);
+      if (existsSync(other)) owners.push(other);
+    }
+    for (const p of paths) {
+      if (!owners.some((o) => existsSync(join(o, p)))) dead.add(p);
+    }
+  });
+  return [...dead].sort();
 }
 
 /** Les déclencheurs cités dans la description — ce qui décide de l'invocation. */
@@ -369,6 +425,11 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
         !NON_SKILL_TERMS.has(n),
     )
     .sort();
+
+  // Même règle appliquée aux RESSOURCES : un renvoi « le détail est dans
+  // references/x.md » vers un fichier absent envoie l'agent dans le vide, sans
+  // que rien ne le signale.
+  const deadResourceRefs = deadResourceRefsOf(dir);
 
   const compat = fields.compatibility || "";
   // `nature` : normatif = MUST du standard · recommandé = SHOULD (best-practices) · projet =
@@ -416,6 +477,13 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
       detail: deadSkillRefs.join(", "),
       nature: "projet",
       ref: "Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide",
+    },
+    {
+      key: "aucun renvoi vers une ressource inexistante",
+      ok: deadResourceRefs.length === 0,
+      detail: deadResourceRefs.join(", "),
+      nature: "projet",
+      ref: "Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide",
     },
     {
       key: `corps < ${MAX_BODY_LINES} lignes`,

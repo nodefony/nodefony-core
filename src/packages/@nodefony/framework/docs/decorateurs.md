@@ -123,7 +123,7 @@ Trois partis pris expliquent la forme de cette surface, et un développeur qui l
 jamais surprendre.
 
 **1 — Un décorateur n'écrit QUE des métadonnées.** Aucun décorateur du framework ne contient de
-logique de sécurité, de session ou d'idempotence. `IsGranted()` (`routerDecorators.ts:663`) pose une
+logique de sécurité, de session ou d'idempotence. `IsGranted()` (`routerDecorators.ts:839`) pose une
 clause ; c'est le `Resolver` qui appellera le moteur d'autorisation, **résolu par son nom** dans le
 conteneur (`Resolver._enforceSecurity()`, `Resolver.ts:576`). Pourquoi ce détour : `@nodefony/framework`
 ne dépend **pas** de `@nodefony/security` — sans ça, les deux modules formeraient un cycle. Le prix à
@@ -131,8 +131,8 @@ payer est visible : une route gardée alors que le module `security` est absent 
 une erreur de démarrage (fail-closed, `Resolver.ts:582`).
 
 **2 — Tout est figé une fois, puis relu en O(1).** Les métadonnées de l'action sont consolidées au
-premier passage dans `computeActionMeta()` (`routerDecorators.ts:1345`) puis gelées sur la route.
-L'objet `RouteActionMeta` (`routerDecorators.ts:1157`) est **partagé par toutes les requêtes** — le
+premier passage dans `computeActionMeta()` (`routerDecorators.ts:1524`) puis gelées sur la route.
+L'objet `RouteActionMeta` (`routerDecorators.ts:1336`) est **partagé par toutes les requêtes** — le
 framework ne le mute jamais, et ton code non plus. Une action non décorée obtient des champs à `null`,
 ce qui vaut **zéro branche** dans le chemin chaud.
 
@@ -284,13 +284,13 @@ Six familles, **36 décorateurs**, un seul fichier source. Le tableau de synthè
 | `@controllers([…])`        | **module** | Rattache des contrôleurs au module sur le hook `onBoot` ; sans lui, aucune route n'est servie (`controllers()`, `routerDecorators.ts:18`) | `@controllers([BookController])`                                                 |
 | `@controller("/prefix")`   | **classe** | Pose le préfixe d'URL **et déclenche la création des routes** de la classe (`controller()`, `routerDecorators.ts:75`)                     | `@controller("/api/books")`                                                      |
 | `@route(nom, options)`     | méthode    | Forme complète : nom explicite, chemin, `requirements`, `defaults`, hôte (`route()`, `routerDecorators.ts:157`)                           | `@route("ws-echo", { path: "/echo", requirements: { methods: ["WEBSOCKET"] } })` |
-| `@Domain(motif \| motifs)` | **dual**   | Restreint la route (ou la classe) à un ou plusieurs vhosts ; hors domaine → **403** (`Domain()`, `routerDecorators.ts:448`)               | `@Domain("*.cdn.example.com")`                                                   |
-| `@Scope("singleton")`      | **classe** | Une seule instance de contrôleur partagée par toutes les requêtes (`Scope()`, `routerDecorators.ts:552`)                                  | `@Scope("singleton")`                                                            |
+| `@Domain(motif \| motifs)` | **dual**   | Restreint la route (ou la classe) à un ou plusieurs vhosts ; hors domaine → **403** (`Domain()`, `routerDecorators.ts:625`)               | `@Domain("*.cdn.example.com")`                                                   |
+| `@Scope("singleton")`      | **classe** | Une seule instance de contrôleur partagée par toutes les requêtes (`Scope()`, `routerDecorators.ts:729`)                                  | `@Scope("singleton")`                                                            |
 
 **`@controller` est le déclencheur.** Il relit les métadonnées posées par `@route`/`@Get`/… puis les
 **efface** (`Reflect.deleteMetadata`, `routerDecorators.ts:135`) : une classe ne se monte qu'une
 fois. Il traite au passage la route « magique » `path: "*"` en **dernier**, quel que soit son ordre
-d'écriture (`routerDecorators.ts:122`) — sinon un attrape-tout masquerait les routes précises.
+d'écriture (`routerDecorators.ts:281`) — sinon un attrape-tout masquerait les routes précises.
 
 **`@Scope("singleton")` est un contrat, pas une optimisation.** L'instance étant partagée, l'action
 ne doit lire ni écrire **aucun** état de requête sur `this` : tout passe par les arguments décorés et
@@ -304,17 +304,17 @@ instance par requête (`ControllerScope`, `Controller.ts:110`).
 
 ### Méthodes HTTP
 
-Toutes les fabriques sortent du même moule, `httpMethodDecorator()` (`routerDecorators.ts:340`) :
+Toutes les fabriques sortent du même moule, `httpMethodDecorator()` (`routerDecorators.ts:455`) :
 elles nomment la route automatiquement `ClasseName::methode` et posent `requirements.methods`.
 
 | Décorateur               | Méthode filtrée | Ancre                                 | Exemple             |
 | ------------------------ | --------------- | ------------------------------------- | ------------------- |
-| `@Get(path?, opts?)`     | `GET`           | `Get` (`routerDecorators.ts:361`)     | `@Get("/{id}")`     |
-| `@Post(path?, opts?)`    | `POST`          | `Post` (`routerDecorators.ts:362`)    | `@Post("")`         |
-| `@Put(path?, opts?)`     | `PUT`           | `Put` (`routerDecorators.ts:363`)     | `@Put("/{id}")`     |
-| `@Delete(path?, opts?)`  | `DELETE`        | `Delete` (`routerDecorators.ts:364`)  | `@Delete("/{id}")`  |
-| `@Patch(path?, opts?)`   | `PATCH`         | `Patch` (`routerDecorators.ts:365`)   | `@Patch("/{id}")`   |
-| `@Options(path?, opts?)` | `OPTIONS`       | `Options` (`routerDecorators.ts:366`) | `@Options("/{id}")` |
+| `@Get(path?, opts?)`     | `GET`           | `Get` (`routerDecorators.ts:476`)     | `@Get("/{id}")`     |
+| `@Post(path?, opts?)`    | `POST`          | `Post` (`routerDecorators.ts:477`)    | `@Post("")`         |
+| `@Put(path?, opts?)`     | `PUT`           | `Put` (`routerDecorators.ts:478`)     | `@Put("/{id}")`     |
+| `@Delete(path?, opts?)`  | `DELETE`        | `Delete` (`routerDecorators.ts:479`)  | `@Delete("/{id}")`  |
+| `@Patch(path?, opts?)`   | `PATCH`         | `Patch` (`routerDecorators.ts:480`)   | `@Patch("/{id}")`   |
+| `@Options(path?, opts?)` | `OPTIONS`       | `Options` (`routerDecorators.ts:481`) | `@Options("/{id}")` |
 | `@Head(path?, opts?)`    | `HEAD`          | `Head` (`routerDecorators.ts:367`)    | `@Head("/{id}")`    |
 | `@All(path?, opts?)`     | **aucune**      | `All()` (`routerDecorators.ts:374`)   | `@All("/proxy/*")`  |
 
@@ -338,42 +338,42 @@ async index(@Param("page") page: string) { /* … */ }
 
 ### Paramètres — ce que l'action reçoit
 
-Onze décorateurs, tous produits par `paramDecoratorFactory()` (`routerDecorators.ts:944`) sauf
+Onze décorateurs, tous produits par `paramDecoratorFactory()` (`routerDecorators.ts:1123`) sauf
 `@Body`, qui accepte une option supplémentaire. Chacun pose `{ source, key, index }` ; la valeur est
 calculée par `resolveParamArg()` (`routerDecorators.ts:1048`), une fonction **pure** — ce qui la rend
 testable sans démarrer de serveur.
 
 | Décorateur          | Sans clé renvoie…                    | Avec clé renvoie…                          | Ancre                                        |
 | ------------------- | ------------------------------------ | ------------------------------------------ | -------------------------------------------- |
-| `@Param("id")`      | toutes les variables d'URL (objet)   | la variable d'URL nommée                   | `Param` (`routerDecorators.ts:964`)          |
-| `@Query("q")`       | toute la query string                | un paramètre de la query string            | `Query` (`routerDecorators.ts:965`)          |
-| `@Body("field")`    | le corps parsé entier                | un champ du corps parsé                    | `Body()` (`routerDecorators.ts:974`)         |
-| `@Headers("x-foo")` | tous les en-têtes de requête         | un en-tête (**lookup en minuscules**)      | `Headers` (`routerDecorators.ts:997`)        |
-| `@Cookie("sid")`    | la map des cookies                   | un cookie (objet `Cookie`, champ `.value`) | `Cookie` (`routerDecorators.ts:998`)         |
+| `@Param("id")`      | toutes les variables d'URL (objet)   | la variable d'URL nommée                   | `Param` (`routerDecorators.ts:1143`)         |
+| `@Query("q")`       | toute la query string                | un paramètre de la query string            | `Query` (`routerDecorators.ts:1144`)         |
+| `@Body("field")`    | le corps parsé entier                | un champ du corps parsé                    | `Body()` (`routerDecorators.ts:1153`)        |
+| `@Headers("x-foo")` | tous les en-têtes de requête         | un en-tête (**lookup en minuscules**)      | `Headers` (`routerDecorators.ts:1176`)       |
+| `@Cookie("sid")`    | la map des cookies                   | un cookie (objet `Cookie`, champ `.value`) | `Cookie` (`routerDecorators.ts:1177`)        |
 | `@Session("user")`  | l'objet `Session` vivant             | `session.get(clé)`                         | `Session` (`routerDecorators.ts:999`)        |
-| `@CurrentUser()`    | l'utilisateur résolu par le firewall | —                                          | `CurrentUser` (`routerDecorators.ts:1001`)   |
-| `@Req()`            | la requête brute du contexte         | —                                          | `Req` (`routerDecorators.ts:1002`)           |
-| `@Res()`            | la réponse du contexte               | —                                          | `Res` (`routerDecorators.ts:1003`)           |
-| `@UploadedFile()`   | le **premier** fichier téléversé     | —                                          | `UploadedFile` (`routerDecorators.ts:1004`)  |
-| `@UploadedFiles()`  | tous les fichiers téléversés         | —                                          | `UploadedFiles` (`routerDecorators.ts:1005`) |
+| `@CurrentUser()`    | l'utilisateur résolu par le firewall | —                                          | `CurrentUser` (`routerDecorators.ts:1180`)   |
+| `@Req()`            | la requête brute du contexte         | —                                          | `Req` (`routerDecorators.ts:1181`)           |
+| `@Res()`            | la réponse du contexte               | —                                          | `Res` (`routerDecorators.ts:1182`)           |
+| `@UploadedFile()`   | le **premier** fichier téléversé     | —                                          | `UploadedFile` (`routerDecorators.ts:1183`)  |
+| `@UploadedFiles()`  | tous les fichiers téléversés         | —                                          | `UploadedFiles` (`routerDecorators.ts:1184`) |
 
-La liste des sources possibles est fermée et typée : `ParamSource` (`routerDecorators.ts:250`).
+La liste des sources possibles est fermée et typée : `ParamSource` (`routerDecorators.ts:365`).
 
 #### Trois comportements à connaître
 
 **`@CurrentUser` lit l'ALS, jamais un argument caché.** La valeur vient de `RequestContext.getUser()`
-(`routerDecorators.ts:1097`) : l'utilisateur posé par le firewall. C'est **l'utilisateur**, jamais le
+(`routerDecorators.ts:1180`) : l'utilisateur posé par le firewall. C'est **l'utilisateur**, jamais le
 justificatif (mot de passe, jeton). Hors zone authentifiée, la valeur est `undefined` — le décorateur
 n'authentifie rien, il expose ce qui a déjà été prouvé.
 
 **`@Session` active la session à lui seul.** La simple présence d'un paramètre `@Session` vaut
-déclaration d'intention : `resolveSessionIntent()` (`routerDecorators.ts:618`) la détecte et pose
+déclaration d'intention : `resolveSessionIntent()` (`routerDecorators.ts:794`) la détecte et pose
 l'intent, exactement comme `@UseSession()`. Une route sans l'un ni l'autre ne paie aucune session.
 
 **`@Body({ stream: true })` court-circuite le parsing.** Pour un gros téléversement (vidéo,
 sauvegarde), on injecte le **flux brut** de la requête au lieu du corps chargé en mémoire ; le
 pipeline saute alors le parsing pour cette route, décision prise en amont par
-`routeExpectsBodyStream()` (`routerDecorators.ts:1130`) :
+`routeExpectsBodyStream()` (`routerDecorators.ts:1309`) :
 
 ```typescript
 @Post("/upload")
@@ -385,16 +385,16 @@ async upload(@Body({ stream: true }) stream: NodeJS.ReadableStream) {
 
 > [!TIP]
 > L'ordre d'écriture des paramètres décorés n'a aucune importance : chaque valeur est placée à son
-> **index déclaré** par `buildParamArgs()` (`routerDecorators.ts:1112`), et les trous restent
+> **index déclaré** par `buildParamArgs()` (`routerDecorators.ts:1291`), et les trous restent
 > `undefined`. Tu peux mélanger décorés et non décorés — les non décorés reçoivent `undefined`.
 
 ### Réponse — statut, en-têtes, redirection
 
 | Décorateur                | Cible   | Effet                                                                                      | Exemple                               |
 | ------------------------- | ------- | ------------------------------------------------------------------------------------------ | ------------------------------------- |
-| `@HttpCode(201)`          | méthode | Fixe le statut **avant** l'exécution de l'action (`HttpCode()`, `routerDecorators.ts:387`) | `@HttpCode(204)`                      |
-| `@Header("X-Foo", "bar")` | méthode | Ajoute un en-tête ; **s'empile** (plusieurs `@Header` cumulent, `routerDecorators.ts:398`) | `@Header("Cache-Control","no-store")` |
-| `@Redirect("/url", 302)`  | méthode | Redirige **si** l'action ne renvoie rien (`Redirect()`, `routerDecorators.ts:412`)         | `@Redirect("/login", 302)`            |
+| `@HttpCode(201)`          | méthode | Fixe le statut **avant** l'exécution de l'action (`HttpCode()`, `routerDecorators.ts:523`) | `@HttpCode(204)`                      |
+| `@Header("X-Foo", "bar")` | méthode | Ajoute un en-tête ; **s'empile** (plusieurs `@Header` cumulent, `routerDecorators.ts:555`) | `@Header("Cache-Control","no-store")` |
+| `@Redirect("/url", 302)`  | méthode | Redirige **si** l'action ne renvoie rien (`Redirect()`, `routerDecorators.ts:589`)         | `@Redirect("/login", 302)`            |
 
 Les deux premiers sont appliqués par `Resolver._applyResponseMeta()` (`Resolver.ts:650`) **avant**
 l'appel de l'action : ton code peut donc les écraser ensuite (`this.renderJson(data, 202)` gagne).
@@ -423,18 +423,18 @@ Sept décorateurs, **tous duals** (classe ou méthode) et **tous sans logique** 
 
 | Décorateur                               | Effet                                                                                                    | Ancre                                        |
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `@IsGranted(attr \| attrs, { subject })` | Exige un attribut (rôle `ROLE_*` ou règle métier). Tableau = **OU** ; empilés = **ET** ; refus → **403** | `IsGranted()` (`routerDecorators.ts:663`)    |
-| `@RequireScope(scope \| scopes)`         | Exige un scope `api:action` d'un **jeton machine** ; no-op pour une session humaine                      | `RequireScope()` (`routerDecorators.ts:760`) |
-| `@Anonymous()`                           | Rend l'action publique : annule l'autorisation **et** l'authentification (le « permitAll »)              | `Anonymous()` (`routerDecorators.ts:711`)    |
-| `@BypassFirewall`                        | Court-circuite le firewall (sonde de liveness, webhook signé, endpoint de login). **Sans parenthèses**   | `BypassFirewall` (`routerDecorators.ts:509`) |
-| `@Csp({ "frame-src": [...] })`           | Ajoute des directives CSP **à cette réponse** ; classe + méthode fusionnent additivement                 | `Csp()` (`routerDecorators.ts:825`)          |
-| `@CsrfProtect()`                         | Opt-**in** au jeton anti-CSRF (double-submit signé) en plus de la défense globale                        | `CsrfProtect` (`routerDecorators.ts:886`)    |
-| `@CsrfExempt()`                          | Opt-**out** de la défense CSRF **en gardant** l'authentification (webhook, POST cross-origin légitime)   | `CsrfExempt` (`routerDecorators.ts:895`)     |
+| `@IsGranted(attr \| attrs, { subject })` | Exige un attribut (rôle `ROLE_*` ou règle métier). Tableau = **OU** ; empilés = **ET** ; refus → **403** | `IsGranted()` (`routerDecorators.ts:839`)    |
+| `@RequireScope(scope \| scopes)`         | Exige un scope `api:action` d'un **jeton machine** ; no-op pour une session humaine                      | `RequireScope()` (`routerDecorators.ts:936`) |
+| `@Anonymous()`                           | Rend l'action publique : annule l'autorisation **et** l'authentification (le « permitAll »)              | `Anonymous()` (`routerDecorators.ts:887`)    |
+| `@BypassFirewall`                        | Court-circuite le firewall (sonde de liveness, webhook signé, endpoint de login). **Sans parenthèses**   | `BypassFirewall` (`routerDecorators.ts:686`) |
+| `@Csp({ "frame-src": [...] })`           | Ajoute des directives CSP **à cette réponse** ; classe + méthode fusionnent additivement                 | `Csp()` (`routerDecorators.ts:1001`)         |
+| `@CsrfProtect()`                         | Opt-**in** au jeton anti-CSRF (double-submit signé) en plus de la défense globale                        | `CsrfProtect` (`routerDecorators.ts:1065`)   |
+| `@CsrfExempt()`                          | Opt-**out** de la défense CSRF **en gardant** l'authentification (webhook, POST cross-origin légitime)   | `CsrfExempt` (`routerDecorators.ts:1074`)    |
 
 #### Rôles et scopes — deux axes, un seul verdict
 
 `@IsGranted` et `@RequireScope` écrivent dans **deux jeux de métadonnées distincts**, puis
-`computeSecurityRequirement()` (`routerDecorators.ts:1265`) les fusionne en une exigence unique dont
+`computeSecurityRequirement()` (`routerDecorators.ts:1444`) les fusionne en une exigence unique dont
 toutes les clauses sont en **ET**. Une seule chaîne d'application côté `Resolver`, deux jurés
 différents côté `security` (le voteur de rôles, le voteur de scopes).
 
@@ -483,8 +483,8 @@ héritées de la classe.
 
 | Décorateur                           | Cible | Effet                                                                                                      | Ancre                             |
 | ------------------------------------ | ----- | ---------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `@UseSession({ readOnly?, eager? })` | dual  | Déclare le besoin d'une session serveur ; **méthode > classe** (`UseSession()`, `routerDecorators.ts:585`) | `@UseSession({ readOnly: true })` |
-| `@Idempotent({ required? })`         | dual  | Protège une mutation du double effet via `Idempotency-Key` (`Idempotent()`, `routerDecorators.ts:924`)     | `@Idempotent()`                   |
+| `@UseSession({ readOnly?, eager? })` | dual  | Déclare le besoin d'une session serveur ; **méthode > classe** (`UseSession()`, `routerDecorators.ts:761`) | `@UseSession({ readOnly: true })` |
+| `@Idempotent({ required? })`         | dual  | Protège une mutation du double effet via `Idempotency-Key` (`Idempotent()`, `routerDecorators.ts:1103`)    | `@Idempotent()`                   |
 
 **`@UseSession` est la seule façon d'ouvrir une session** (avec un paramètre `@Session`, ou la reprise
 d'un cookie existant). Il n'existe plus de « démarrer partout » global : une route qui ne déclare rien
@@ -506,7 +506,7 @@ recherches inutiles.
 | Décorateur                          | Paquet               | Rôle                                                                                           |
 | ----------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------- |
 | `@services([…])`                    | `nodefony`           | Déclare les services d'un module (`services()`, `kernelDecorator.ts:24`)                       |
-| `@injectable()`                     | `nodefony`           | Rend une classe résoluble par le conteneur (`injectable()`, `kernelDecorator.ts:82`)           |
+| `@injectable()`                     | `nodefony`           | Rend une classe résoluble par le conteneur (`injectable()`, `kernelDecorator.ts:135`)          |
 | `@inject("nom")`                    | `nodefony`           | Injecte un service à une position de constructeur (`inject()`, `kernelDecorator.ts:114`)       |
 | `@Inject("nom")`                    | `nodefony`           | Idem, sur une propriété (`Inject()`, `kernelDecorator.ts:143`)                                 |
 | `@RealtimeAction("méthode")`        | `@nodefony/realtime` | Expose une action JSON-RPC sur socket (`RealtimeAction()`, `realtimeDecorators.ts:101`)        |
@@ -557,10 +557,10 @@ Trois faits à retenir :
 - **Il n'existe pas de décorateur `@Ws`.** Le transport se déclare dans les `requirements` — via
   `@route`, ou via `@All("/x", { requirements: { methods: ["WEBSOCKET"] } })` si tu préfères la forme
   courte (les fabriques `@Get`/`@Post` écrasent, elles, `requirements.methods` par leur propre méthode,
-  `routerDecorators.ts:352`).
+  `routerDecorators.ts:476`).
 - **Les décorateurs de paramètre fonctionnent pareil.** Pour une invocation par socket, le corps de
   la mutation voyage dans l'ALS et **prime** sur le corps HTTP (vide dans ce cas) — c'est traité dans
-  `resolveParamArg()` (`routerDecorators.ts:1065`), et `@Query` lit la query du chemin **invoqué**,
+  `resolveParamArg()` (`routerDecorators.ts:1227`), et `@Query` lit la query du chemin **invoqué**,
   pas celle du handshake (`Resolver._buildParamArgs()`, `Resolver.ts:637`).
 - **Les gardes s'appliquent identiquement.** `@IsGranted` protège une action joignable par socket
   exactement comme une action HTTP : la décision est prise avant l'instanciation, quel que soit le
@@ -577,15 +577,15 @@ pas toutes identiques — c'est la source d'erreur n°1.
 | Sujet                          | Règle                                                                    | Ancre                                                       |
 | ------------------------------ | ------------------------------------------------------------------------ | ----------------------------------------------------------- |
 | `@Domain`                      | option `host` de la route > méthode > classe                             | `controller()` (`routerDecorators.ts:88`)                   |
-| `@BypassFirewall`              | **cumulatif** : `true` de la route, de la méthode ou de la classe suffit | `routerDecorators.ts:108`                                   |
-| `@UseSession`                  | méthode > classe (fusion des champs)                                     | `resolveSessionIntent()` (`routerDecorators.ts:631`)        |
-| `@Idempotent`                  | méthode > classe                                                         | `computeIdempotent()` (`routerDecorators.ts:1341`)          |
-| `@IsGranted` / `@RequireScope` | **cumul en ET** : classe **plus** méthode                                | `computeSecurityRequirement()` (`routerDecorators.ts:1265`) |
-| `@Anonymous`                   | méthode → annule tout ce que la classe a posé                            | `routerDecorators.ts:1270`                                  |
-| `@Csp`                         | fusion **additive** classe + méthode (sources concaténées)               | `mergeCspDirectives()` (`routerDecorators.ts:799`)          |
+| `@BypassFirewall`              | **cumulatif** : `true` de la route, de la méthode ou de la classe suffit | `routerDecorators.ts:686`                                   |
+| `@UseSession`                  | méthode > classe (fusion des champs)                                     | `resolveSessionIntent()` (`routerDecorators.ts:794`)        |
+| `@Idempotent`                  | méthode > classe                                                         | `computeIdempotent()` (`routerDecorators.ts:1505`)          |
+| `@IsGranted` / `@RequireScope` | **cumul en ET** : classe **plus** méthode                                | `computeSecurityRequirement()` (`routerDecorators.ts:1444`) |
+| `@Anonymous`                   | méthode → annule tout ce que la classe a posé                            | `routerDecorators.ts:887`                                   |
+| `@Csp`                         | fusion **additive** classe + méthode (sources concaténées)               | `mergeCspDirectives()` (`routerDecorators.ts:975`)          |
 | `@CsrfProtect` / `@CsrfExempt` | OU logique : classe **ou** méthode suffit                                | `computeActionMeta()` (`routerDecorators.ts:1370`)          |
-| `@Header`                      | s'empile (plusieurs en-têtes) ; même clé → dernier écrit gagne           | `Header()` (`routerDecorators.ts:404`)                      |
-| `@HttpCode`                    | un seul par action (le dernier posé écrase)                              | `HttpCode()` (`routerDecorators.ts:393`)                    |
+| `@Header`                      | s'empile (plusieurs en-têtes) ; même clé → dernier écrit gagne           | `Header()` (`routerDecorators.ts:555`)                      |
+| `@HttpCode`                    | un seul par action (le dernier posé écrase)                              | `HttpCode()` (`routerDecorators.ts:523`)                    |
 
 ### Où placer les décorateurs de classe
 
@@ -628,7 +628,7 @@ sequenceDiagram
   RS->>RS: requêtes suivantes : lecture O(1), 0 Reflect
 ```
 
-Le snapshot `RouteActionMeta` (`routerDecorators.ts:1157`) regroupe **tout** ce que les décorateurs
+Le snapshot `RouteActionMeta` (`routerDecorators.ts:1336`) regroupe **tout** ce que les décorateurs
 ont dit de l'action :
 
 | Champ                        | Vient de                       | `null`/`false` quand                   |
@@ -650,7 +650,7 @@ contrôleur et n'exécute pas son `initialize()`. Puis viennent les arguments
 (`_buildParamArgs()`, `Resolver.ts:619`), les métadonnées de réponse
 (`_applyResponseMeta()`, `Resolver.ts:650`), l'action, et enfin la redirection éventuelle.
 
-Un usage cold path mérite d'être connu : `extractActionScopes()` (`routerDecorators.ts:1241`) parcourt
+Un usage cold path mérite d'être connu : `extractActionScopes()` (`routerDecorators.ts:1420`) parcourt
 les routes au démarrage pour bâtir le **catalogue des scopes déclarés** — le formulaire de création
 de clés API dans Studio propose les scopes réellement utilisés par le code, jamais une liste
 maintenue à part.
@@ -662,7 +662,7 @@ Un décorateur non employé doit coûter **zéro**. C'est tenu par trois mécani
 - **Lecture unique.** `resolveActionMeta()` (`routerDecorators.ts:1389`) mémorise le snapshot sur la
   route au premier passage — ensuite, plus aucun appel `Reflect.getMetadata` ni `Object.entries` par
   requête. Le même schéma vaut pour la détection du flux brut
-  (`routeExpectsBodyStream()`, `routerDecorators.ts:1135`).
+  (`routeExpectsBodyStream()`, `routerDecorators.ts:1309`).
 - **`null` plutôt que structure vide.** Une action sans garde a `security: null` : le `Resolver` teste
   un `null` et passe — ni résolution de service, ni `await`, ni allocation (`Resolver.ts:334`). Idem
   pour `idempotent`, `cspDirectives`, `paramsMeta`.
@@ -678,7 +678,7 @@ route, jamais pendant une requête.
 
 Le module montre le patron à suivre : un décorateur maison **ne fait qu'écrire une métadonnée**, et
 un point du pipeline la relit. Pour un simple drapeau dual (classe + méthode), le framework fournit
-déjà la fabrique `booleanMarkerDecorator()` (`routerDecorators.ts:861`), dont `@CsrfProtect` et
+déjà la fabrique `booleanMarkerDecorator()` (`routerDecorators.ts:1040`), dont `@CsrfProtect` et
 `@CsrfExempt` sont les deux usages.
 
 Le squelette d'un drapeau maison, en dehors du framework :

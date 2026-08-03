@@ -298,7 +298,7 @@ Les couches supérieures exposent ces clés sous une forme **typée**, à préf�
 
 | Tu veux…                     | Écris plutôt                                              | Ancre                      |
 | ---------------------------- | --------------------------------------------------------- | -------------------------- |
-| l'utilisateur, en contrôleur | le paramètre décoré `@CurrentUser()`                      | `routerDecorators.ts:1097` |
+| l'utilisateur, en contrôleur | le paramètre décoré `@CurrentUser()`                      | `routerDecorators.ts:1180` |
 | le contexte, en contrôleur   | le getter `Controller.context`                            | `Controller.ts:147`        |
 | les droits (rôles, scopes)   | `@IsGranted` / `@RequireScope` — jamais une lecture brute | `Resolver.ts:579`          |
 
@@ -313,7 +313,7 @@ qui ouvre quoi.
 | ------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | HTTP / HTTP2             | `HttpKernel.handleHttp()` (`http-kernel.ts:1174`)                                                 | CORS, routage, firewall, ton action, rendu                    |
 | WebSocket — connexion    | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1465`)                                            | poignée de main, firewall, **et toutes les trames**           |
-| WebSocket — trame RPC    | `RequestContext.run()` dans `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:741`) | **une** invocation : corps, clé d'idempotence, profil         |
+| WebSocket — trame RPC    | `RequestContext.run()` dans `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:766`) | **une** invocation : corps, clé d'idempotence, profil         |
 | Fin de réponse (journal) | `Context.log()` (`Context.ts:459`)                                                                | micro-bulle rouverte pour que les logs de fin soient corrélés |
 
 Deux points méritent d'être connus.
@@ -454,7 +454,7 @@ ou une minuterie, la règle est à toi de l'appliquer.
 | Une mesure ORM disparaît sans erreur                               | ALS relue **après** un `await` traversant un pool → `isProfiling()` faux             | capturer `get()?.queries` **avant** l'`await`, puis pousser dans la référence        |
 | `set()` n'a aucun effet                                            | appelé hors bulle : c'est un no-op délibéré (`RequestContext.ts:164`)                | vérifier `get()` d'abord, ou ouvrir une bulle avec `run()`                           |
 | `getUser()` vide alors que l'utilisateur est connecté              | la route n'est dans aucune zone du firewall, ou lecture **avant** le firewall        | placer la route dans une zone ; lire dans l'action, pas dans un hook amont           |
-| `getUser()` refusé par TypeScript                                  | le cœur type `user` en `unknown` (pas de dépendance vers la sécurité)                | rétrécir soi-même, ou préférer `@CurrentUser()` (`routerDecorators.ts:1097`)         |
+| `getUser()` refusé par TypeScript                                  | le cœur type `user` en `unknown` (pas de dépendance vers la sécurité)                | rétrécir soi-même, ou préférer `@CurrentUser()` (`routerDecorators.ts:1180`)         |
 | `isProfiling()` faux en développement                              | le profiler n'est pas actif → aucun buffer `queries` alloué (`RequestContext.ts:57`) | comportement normal : la mesure doit rester gratuite quand personne n'observe        |
 | Un log de fin de requête sans `requestId`                          | le teardown s'exécute après la fermeture de la bulle                                 | déjà traité pour les contextes (`Context.ts:459`) ; pour ton code, `run()` à nouveau |
 | Le travail continue après `run()`, logs décorrélés                 | `run()` renvoie la promesse sans l'attendre                                          | `await RequestContext.run(...)` — la bulle suit l'`await`, pas l'appel               |

@@ -238,7 +238,7 @@ une route que d'anciens clients appellent déjà sans clé, le temps de la migra
 async subscribe(@Body() body: SubscribeInput) { /* … */ }
 ```
 
-Précédence **méthode > classe** (`computeIdempotent()`, `routerDecorators.ts:1326`), comme
+Précédence **méthode > classe** (`computeIdempotent()`, `routerDecorators.ts:1505`), comme
 `@UseSession`. Poser `@Idempotent()` sur la **classe** couvre toutes les mutations du controller ;
 une méthode peut resserrer ou relâcher le mode. Les méthodes sûres (GET…) restent des no-op même
 sous une classe décorée.
@@ -431,7 +431,7 @@ au chargement du module framework (`index.ts:119`).
   `SET NX` gagne.
 - **TTL natif** sur le bail _et_ sur la réponse mémorisée → `gc()` **superflu**, donc **non
   implémenté** : rien à planifier.
-- **Empreinte préservée à la complétion** : `complete()` (`RedisIdempotencyStore.ts:278`) **relit**
+- **Empreinte préservée à la complétion** : `complete()` (`RedisIdempotencyStore.ts:300`) **relit**
   l'entrée in-flight pour reporter son empreinte dans l'entrée `done`. Sans cela, un rejeu de la clé
   avec un autre payload **après** complétion ne serait plus détecté (le 422 serait perdu).
 - **Course rare gérée** : si la clé expire entre le `SET NX` échoué et le `GET`, la réservation est
@@ -533,8 +533,8 @@ Signatures complètes : `.ai/symbols.json`. Ce qui compte à l'usage :
 
 ### Le décorateur
 
-`@Idempotent(options?)` (`routerDecorators.ts:924`) — dual **classe + méthode**. N'écrit que des
-métadonnées (`IdempotentMeta`, `routerDecorators.ts:328`), zéro import de `@nodefony/security`, zéro
+`@Idempotent(options?)` (`routerDecorators.ts:1103`) — dual **classe + méthode**. N'écrit que des
+métadonnées (`IdempotentMeta`, `routerDecorators.ts:443`), zéro import de `@nodefony/security`, zéro
 cycle. La porte est appliquée par le Resolver.
 
 ### Le contrat de store
@@ -573,7 +573,7 @@ que le code fait, store par store — à lire avant d'écrire un client :
 
 Le mode **curseur** de Redis mérite une explication, parce qu'il piège : `SCAN COUNT` **n'est pas un
 plafond** mais un indice d'effort — Redis peut rendre plus de clés que demandé. Sans précaution, la
-page dépasserait `limit` et violerait le contrat `IPage` (`src/nodefony/src/types/IPage.ts:71`). D'où
+page dépasserait `limit` et violerait le contrat `IPage` (`src/nodefony/src/types/IPage.ts:108`). D'où
 le **curseur composite** `"<consommé>:<curseurRedis>"` (`encodeCursor()`,
 `RedisIdempotencyStore.ts:57`) : on ne rend que `limit` éléments et on mémorise combien de clés du
 lot ont été consommées ; la page suivante rejoue le **même** `SCAN` et reprend là.
@@ -638,7 +638,7 @@ pour l'affichage Studio, `idempotencyStoreRegistry.ts:81`).
 ## ⚡ Performance et mémoire
 
 Le coût est **nul hors mutations décorées**. Sans `@Idempotent`, `RouteActionMeta.idempotent` vaut
-`null` (`routerDecorators.ts:1188`) : `callController()` fait **une comparaison** et repart en flux
+`null` (`routerDecorators.ts:1103`) : `callController()` fait **une comparaison** et repart en flux
 normal — zéro lookup de container, zéro `await` supplémentaire, zéro allocation (`Resolver.ts:396`).
 La métadonnée est **figée par route** et mémoïsée : aucune lecture `Reflect` par requête.
 

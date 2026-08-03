@@ -103,7 +103,7 @@ Le branchement est **délibérément minimal** :
 
 > [!NOTE]
 > Le rendu **d'erreurs** ne passe **pas** par les templates : une exception devient un corps **JSON
-> structuré** (`ErrorRenderer.renderHttp()`, `error-renderer.ts:109`), jamais une page Eta. Le moteur
+> structuré** (`ErrorRenderer.renderHttp()`, `error-renderer.ts:227`), jamais une page Eta. Le moteur
 > de vues ne sert que le HTML **que tu rends explicitement**.
 
 ## 🚀 Démarrage rapide
@@ -186,7 +186,7 @@ curl -s 'http://localhost:5151/hello/%3Cb%3Ex%3C%2Fb%3E'
 > [!TIP]
 > Tu n'as écrit **aucun** appel d'envoi (`send`, `res.end`). `renderView()` produit le corps **et**
 > l'envoie. Pour piloter l'envoi toi-même, retourne plutôt une chaîne via `render()`
-> (`Controller.render()`, `Controller.ts:273`).
+> (`Controller.render()`, `Controller.ts:290`).
 
 ## 🏗️ Architecture interne — le parcours d'un `renderView()`
 

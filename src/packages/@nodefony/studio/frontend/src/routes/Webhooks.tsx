@@ -34,16 +34,23 @@ import {
 } from "@tabler/icons-react";
 
 import { useStore, useNotifications } from "../stores";
-import { useResource } from "../hooks";
-import { PageLayout, StatCard, DataState } from "../components/ui";
+import { useResource, useFacetCards } from "../hooks";
+import {
+  PageLayout,
+  StatCard,
+  DataState,
+  fmtFacet,
+  toStatsParams,
+} from "../components/ui";
 import { BrickStoreChip } from "./stores/BrickStoreChip";
 import {
   WEBHOOKS_ENDPOINT,
+  WEBHOOKS_STATS_ENDPOINT,
   webhookEndpoint,
   webhookRotateEndpoint,
   webhookRevealEndpoint,
-  countWebhooks,
   describeWebhooksError,
+  type WebhookCounts,
   type WebhookEndpoint,
   type WebhookListResponse,
   type WebhookSecretReveal,
@@ -79,20 +86,72 @@ export const Webhooks = observer(() => {
   /** Id de l'endpoint en cours de mutation rapide (spinner kebab). */
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const fetcher = useCallback(async (): Promise<WebhookListResponse> => {
+  // Filtres du registre — ici, parce que les cartes de tête les suivent.
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  // Le terme cherché vit ICI, comme les filtres : les cartes de tête doivent
+  // décrire la même sélection que le tableau. Le grid reste propriétaire de sa
+  // barre et remonte simplement ce qu'il cherche.
+  const [search, setSearch] = useState("");
+  // Compteur de version : recharge la page affichée après une mutation.
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // La liste est demandée page par page par la table. Cet appel-ci ne sert plus
+  // qu'aux MÉTADONNÉES que la même réponse porte (`enabled`, `store`, `driver`
+  // — « les webhooks sont-ils armés, et où écrit-on ? »), d'où la fenêtre d'une
+  // ligne : on ne rapatrie pas un registre entier pour lire trois champs.
+  const metaFetcher = useCallback(async (): Promise<WebhookListResponse> => {
     try {
       return await store.api.getAbsolute<WebhookListResponse>(
-        WEBHOOKS_ENDPOINT,
+        `${WEBHOOKS_ENDPOINT}?limit=1`,
       );
     } catch (e) {
       throw new Error(describeWebhooksError(e), { cause: e });
     }
   }, [store]);
-  const { data, loading, error, reload } = useResource(fetcher);
+  const { data, loading, error, reload: reloadMeta } = useResource(metaFetcher);
+  const reload = useCallback(() => {
+    reloadMeta();
+    setReloadKey((n) => n + 1);
+  }, [reloadMeta]);
 
-  const endpoints = useMemo(() => data?.endpoints ?? [], [data]);
-  const counts = useMemo(() => countWebhooks(endpoints), [endpoints]);
   const configEnabled = data?.enabled ?? false;
+
+  // Compteurs de tête : posés par le SERVEUR sur le registre entier. Les
+  // calculer ici décrirait les endpoints chargés en ayant l'air de décrire le
+  // registre — et `failing` recoupe `active` comme `disabled`, donc aucune
+  // soustraction ne les rend.
+  //
+  // Ils suivent les filtres, mais seulement ceux que l'endpoint de comptage
+  // DÉCLARE accepter : il refuse `enabled` et `failing`, les dimensions qu'il
+  // décompose — les lui envoyer lui ferait écraser sa propre ventilation.
+  // La RECHERCHE en fait partie : l'endpoint la déclare (tant que les webhooks
+  // sont branchés) et l'honore, donc la barre déplace les cartes autant que le
+  // tableau — au lieu de les figer sur le registre entier.
+  const statsCaps = store.admin.pageCapabilities(WEBHOOKS_STATS_ENDPOINT);
+  const statsSignal = toStatsParams(filters, statsCaps, search).toString();
+  const statsFetcher = useCallback((): Promise<WebhookCounts> => {
+    return store.api.getAbsolute<WebhookCounts>(
+      statsSignal
+        ? `${WEBHOOKS_STATS_ENDPOINT}?${statsSignal}`
+        : WEBHOOKS_STATS_ENDPOINT,
+    );
+  }, [store, statsSignal]);
+  const { data: serverCounts, reload: reloadCounts } =
+    useResource(statsFetcher);
+  // Cartes cliquables. « En échec » se CUMULE avec « Actifs » ou « Désactivés »
+  // (un endpoint peut être actif ET en échec) : c'est précisément la question
+  // « qui est armé mais ne passe plus ? », que deux clics posent maintenant.
+  const facetCard = useFacetCards(statsCaps, filters, setFilters);
+  const counts = useMemo<WebhookCounts>(
+    () =>
+      serverCounts ?? {
+        total: null,
+        active: null,
+        disabled: null,
+        failing: null,
+      },
+    [serverCounts],
+  );
 
   // ── Mutations rapides (kebab / détail) ──────────────────────────────────────
   const toggle = useCallback(
@@ -108,6 +167,7 @@ export const Webhooks = observer(() => {
           { source: "api" },
         );
         reload();
+        reloadCounts();
       } catch (e) {
         notifications.notify("error", describeWebhooksError(e), {
           source: "api",
@@ -116,7 +176,7 @@ export const Webhooks = observer(() => {
         setBusyId(null);
       }
     },
-    [store, notifications, reload],
+    [store, notifications, reload, reloadCounts],
   );
 
   const rotate = useCallback(
@@ -128,6 +188,7 @@ export const Webhooks = observer(() => {
         );
         setReveal({ context: "rotated", secret: res.secret, url: ep.url });
         reload();
+        reloadCounts();
       } catch (e) {
         notifications.notify("error", describeWebhooksError(e), {
           source: "api",
@@ -136,7 +197,7 @@ export const Webhooks = observer(() => {
         setBusyId(null);
       }
     },
-    [store, notifications, reload],
+    [store, notifications, reload, reloadCounts],
   );
 
   const revealSecret = useCallback(
@@ -167,6 +228,7 @@ export const Webhooks = observer(() => {
       notifications.notify("success", "Webhook supprimé.", { source: "api" });
       setConfirmDelete(null);
       reload();
+      reloadCounts();
     } catch (e) {
       notifications.notify("error", describeWebhooksError(e), {
         source: "api",
@@ -187,8 +249,12 @@ export const Webhooks = observer(() => {
     [toggle, rotate, revealSecret],
   );
 
-  const subtitle = `${counts.total} endpoint(s) · ${counts.active} actif(s)${
-    counts.failing > 0 ? ` · ${counts.failing} en échec` : ""
+  const subtitle = `${fmtFacet(counts.total)} endpoint(s) · ${fmtFacet(
+    counts.active,
+  )} actif(s)${
+    counts.failing !== null && counts.failing > 0
+      ? ` · ${counts.failing} en échec`
+      : ""
   }`;
 
   return (
@@ -236,15 +302,20 @@ export const Webhooks = observer(() => {
       <Grid>
         <StatCard
           label="Total"
+          {...facetCard(
+            "total",
+            "tout le registre (retire les filtres de facette)",
+          )}
           icon={<IconWebhook size={20} color="var(--mantine-color-brand-5)" />}
-          hint="Nombre d'endpoints webhook enregistrés."
+          hint="Nombre d'endpoints enregistrés, compté par le serveur sur le registre ENTIER — pas sur les lignes affichées. « — » = webhooks coupés ou backend incapable de compter."
         >
           <Text fz={28} fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
-            {counts.total}
+            {fmtFacet(counts.total)}
           </Text>
         </StatCard>
         <StatCard
           label="Actifs"
+          {...facetCard("active", "les endpoints actifs")}
           icon={
             <IconCircleCheck size={20} color="var(--mantine-color-teal-6)" />
           }
@@ -256,30 +327,36 @@ export const Webhooks = observer(() => {
             c="teal"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.active}
+            {fmtFacet(counts.active)}
           </Text>
         </StatCard>
         <StatCard
           label="En échec"
+          {...facetCard("failing", "les endpoints en échec de livraison")}
           icon={
             <IconAlertTriangle
               size={20}
               color="var(--mantine-color-orange-6)"
             />
           }
-          hint="Endpoints avec au moins un échec de livraison consécutif courant (auto-désactivation au-delà du seuil)."
+          hint="Endpoints avec au moins un échec de livraison consécutif courant (auto-désactivation au-delà du seuil). Recoupe « Actifs » et « Désactivés » : un endpoint peut être actif ET en échec."
         >
           <Text
             fz={28}
             fw={700}
-            c={counts.failing > 0 ? "orange" : undefined}
+            c={
+              counts.failing !== null && counts.failing > 0
+                ? "orange"
+                : undefined
+            }
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.failing}
+            {fmtFacet(counts.failing)}
           </Text>
         </StatCard>
         <StatCard
           label="Désactivés"
+          {...facetCard("disabled", "les endpoints désactivés")}
           icon={
             <IconPlayerPause size={20} color="var(--mantine-color-gray-6)" />
           }
@@ -291,7 +368,7 @@ export const Webhooks = observer(() => {
             c="dimmed"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.disabled}
+            {fmtFacet(counts.disabled)}
           </Text>
         </StatCard>
       </Grid>
@@ -307,13 +384,19 @@ export const Webhooks = observer(() => {
         </Tabs.List>
 
         <Tabs.Panel value="endpoints" pt="md">
+          {/* L'état de chargement ne couvre QUE les métadonnées : la liste et
+              ses erreurs appartiennent au grid, qui recharge à chaque page,
+              tri ou filtre. */}
           <DataState loading={loading && !data} error={error} onRetry={reload}>
             <WebhooksTable
-              endpoints={endpoints}
               store={data?.store ?? "none"}
               driver={data?.driver ?? null}
+              filters={filters}
+              onFiltersChange={setFilters}
+              reloadKey={reloadKey}
               actions={actions}
               busyId={busyId}
+              onSearchChange={setSearch}
             />
           </DataState>
         </Tabs.Panel>

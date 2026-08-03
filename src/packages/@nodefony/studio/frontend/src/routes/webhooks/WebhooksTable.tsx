@@ -1,10 +1,18 @@
 /**
- * Table des endpoints webhook (DataGrid réutilisable + fiche détail Modal
- * centré). Admin-only (gouvernance plateforme). Les actions (modifier, activer/
- * désactiver, tourner/révéler le secret, supprimer) sont déléguées au parent qui
- * confirme et appelle le bon endpoint du data plane.
+ * Table des endpoints webhook — **pagination, tri, filtres et recherche côté
+ * SERVEUR** (DataGrid + fiche détail Modal centré). Admin-only (gouvernance
+ * plateforme). Les actions (modifier, activer/désactiver, tourner/révéler le
+ * secret, supprimer) sont déléguées au parent qui confirme et appelle le bon
+ * endpoint du data plane.
+ *
+ * Ce qui est triable, filtrable et cherchable vient du catalogue
+ * (`AdminStore.pageCapabilities`) : le registre des webhooks peut vivre en
+ * mémoire ou en base, et un store coupé ne déclare plus rien — les en-têtes
+ * deviennent alors inertes au lieu de répondre `400`.
  */
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { observer } from "mobx-react-lite";
+import type { IPage } from "nodefony";
 import {
   Stack,
   Group,
@@ -33,12 +41,25 @@ import {
   IconHistory,
 } from "@tabler/icons-react";
 
-import { DataGrid, DocHint, type DataGridColumn } from "../../components/ui";
+import {
+  DataGrid,
+  DocHint,
+  PageFilters,
+  toPageParams,
+  fromPage,
+  type DataGridColumn,
+  type DataGridServerQuery,
+  type DataGridServerResult,
+  type PageFilterLabels,
+} from "../../components/ui";
+import { useStore } from "../../stores";
 import { DeliveriesPanel } from "./DeliveriesPanel";
 import {
   WEBHOOKS_DOC,
+  WEBHOOKS_ENDPOINT,
   fmtDate,
   fmtSince,
+  describeWebhooksError,
   type WebhookEndpoint,
 } from "./webhooksModel";
 import {
@@ -137,30 +158,100 @@ function RowActions({
   );
 }
 
-export function WebhooksTable({
-  endpoints,
-  store,
+/**
+ * Habillage des filtres publiés par `GET webhooks` (`WEBHOOK_FILTERS`).
+ *
+ * `failing` recoupe volontairement `enabled` : un endpoint peut être actif ET
+ * en échec. Les deux filtres se cumulent donc au lieu de s'exclure — c'est ce
+ * qui permet de poser la question « qui est actif mais ne passe plus ? ».
+ */
+const WEBHOOK_FILTER_LABELS: PageFilterLabels = {
+  enabled: {
+    label: "État",
+    hint: "Actif = le dispatcher lui livre. Désactivé = à la main, ou par le coupe-circuit après trop d'échecs consécutifs.",
+    values: { true: "Actifs", false: "Désactivés" },
+  },
+  event: {
+    label: "Événement",
+    hint: "Endpoints ABONNÉS à cet événement — « qui écoute user.created ? ». Nom exact de l'événement.",
+    placeholder: "user.created",
+  },
+  failing: {
+    label: "Livraison",
+    hint: "En échec = compteur d'échecs consécutifs non nul. Se cumule avec l'état : un endpoint actif peut être en échec.",
+    values: { true: "En échec", false: "Sains" },
+  },
+};
+
+export const WebhooksTable = observer(function WebhooksTable({
+  store: storeLabel,
   driver,
+  filters,
+  onFiltersChange,
+  reloadKey = 0,
   actions,
   busyId,
+  onSearchChange,
 }: {
-  endpoints: WebhookEndpoint[];
   /** Classe réelle du store (badge « où on écrit »). */
   store: string;
+  /** Filtres actifs — tenus par la page, dont les cartes de tête les suivent. */
+  filters: Record<string, string>;
+  onFiltersChange: (next: Record<string, string>) => void;
+  /** Change de valeur pour recharger la page affichée après une mutation. */
+  reloadKey?: number;
   driver: "memory" | "orm" | null;
   actions: WebhookActions;
   /** Id de l'endpoint en cours de mutation (spinner kebab). */
   busyId: string | null;
+  /**
+   * Remonte le terme cherché à la page, qui le pose aussi sur les compteurs :
+   * sans lui, la barre filtrerait le tableau en laissant les cartes décrire le
+   * registre entier.
+   */
+  onSearchChange?: (term: string) => void;
 }) {
+  const store = useStore();
   const [selected, setSelected] = useState<WebhookEndpoint | null>(null);
   const [detailTab, setDetailTab] = useState<string | null>("infos");
+  const caps = store.admin.pageCapabilities(WEBHOOKS_ENDPOINT);
+  const filterSignal = JSON.stringify(filters);
+
+  const loader = useCallback(
+    async (
+      q: DataGridServerQuery,
+    ): Promise<DataGridServerResult<WebhookEndpoint>> => {
+      const params = toPageParams(q, filters);
+      try {
+        // Le data plane rend `endpoints` là où le contrat de page dit `items` :
+        // on recompose la page ici, sans apprendre au traducteur un nom propre
+        // à une ressource.
+        const res = await store.api.getAbsolute<
+          Omit<IPage<WebhookEndpoint>, "items"> & {
+            endpoints: WebhookEndpoint[];
+          }
+        >(`${WEBHOOKS_ENDPOINT}?${params}`);
+        return fromPage({ ...res, items: res.endpoints ?? [] });
+      } catch (e) {
+        throw new Error(describeWebhooksError(e), { cause: e });
+      }
+      // `reloadKey` change l'identité du loader → le grid recharge sa page.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [store, filterSignal, reloadKey],
+  );
+
+  const sortable = useMemo(
+    () => new Set(caps?.sortable ?? []),
+    [caps?.sortable],
+  );
 
   const columns = useMemo<DataGridColumn<WebhookEndpoint>[]>(
     () => [
       {
         key: "url",
         header: "URL",
-        sortable: true,
+        sortable: sortable.has("url"),
         value: (r) => r.url,
         render: (r) => (
           <Text size="sm" style={{ wordBreak: "break-all" }}>
@@ -172,7 +263,9 @@ export function WebhooksTable({
       {
         key: "description",
         header: "Description",
-        sortable: true,
+        // Le registre ne déclare pas ce champ triable (il n'est indexé nulle
+        // part) : l'en-tête était cliquable et le tri partait en 400.
+        sortable: sortable.has("description"),
         value: (r) => r.description ?? "",
         render: (r) =>
           r.description ? (
@@ -196,16 +289,19 @@ export function WebhooksTable({
       {
         key: "enabled",
         header: "État",
-        filterable: true,
-        filterType: "select",
+        // Le filtre est passé dans la barre au-dessus, alimentée par le
+        // vocabulaire publié — le même filtre à deux endroits divergerait.
+        sortable: sortable.has("enabled"),
         value: (r) => (r.enabled ? "Actif" : "Désactivé"),
         render: (r) => <EnabledBadge enabled={r.enabled} />,
         size: 110,
       },
       {
         key: "lastDelivery",
+        // Non déclaré triable : l'horodatage de dernière livraison n'est pas
+        // une colonne du registre mais un état de livraison.
         header: "Dernière livraison",
-        sortable: true,
+        sortable: sortable.has("lastDelivery"),
         value: (r) => r.lastDeliveryAt ?? 0,
         render: (r) => (
           <Group gap={6} wrap="nowrap">
@@ -220,7 +316,7 @@ export function WebhooksTable({
       {
         key: "failureCount",
         header: "Échecs",
-        sortable: true,
+        sortable: sortable.has("failureCount"),
         align: "right",
         value: (r) => r.failureCount,
         render: (r) => <FailureBadge count={r.failureCount} />,
@@ -234,14 +330,14 @@ export function WebhooksTable({
         size: 60,
       },
     ],
-    [actions, busyId],
+    [actions, busyId, sortable],
   );
 
   return (
     <Stack gap="md">
       <Group gap="xs">
         <Text size="sm" c="dimmed">
-          {endpoints.length} endpoint(s). Clic sur une ligne pour le détail.
+          Clic sur une ligne pour le détail.
         </Text>
         <DocHint
           title="Webhooks sortants"
@@ -263,24 +359,19 @@ export function WebhooksTable({
           ]}
         />
         <Box style={{ flex: 1 }} />
-        <StorageBadge store={store} driver={driver} />
+        <StorageBadge store={storeLabel} driver={driver} />
       </Group>
 
-      {endpoints.length === 0 && (
-        <Alert
-          variant="light"
-          color="gray"
-          icon={<IconWebhook size={18} />}
-          title="Aucun webhook"
-        >
-          Aucun endpoint webhook n'est enregistré. Créez-en un avec « Nouveau
-          webhook ».
-        </Alert>
-      )}
+      <PageFilters
+        spec={caps?.filters ?? null}
+        value={filters}
+        onChange={onFiltersChange}
+        labels={WEBHOOK_FILTER_LABELS}
+      />
 
       <DataGrid
-        mode="client"
-        data={endpoints}
+        mode="server"
+        loader={loader}
         columns={columns}
         getRowId={(r) => r.id}
         onRowClick={(r) => {
@@ -288,12 +379,18 @@ export function WebhooksTable({
           setDetailTab("infos");
         }}
         dimRow={(r) => !r.enabled}
-        initialSort={{ key: "url", dir: "asc" }}
-        searchable
+        initialSort={
+          sortable.has("url") ? { key: "url", dir: "asc" } : undefined
+        }
+        // Le registre relaie `q` à son store : la recherche aboutit vraiment,
+        // et le catalogue le publie (elle disparaît si les webhooks sont coupés).
+        searchable={caps?.search ?? false}
+        onSearchChange={onSearchChange}
         searchPlaceholder="Rechercher (URL, description, événement…)"
+        resetPageSignal={filterSignal}
         pageSize={25}
         persist={{ key: "studio.webhooks", storage: "session" }}
-        emptyMessage="Aucun webhook."
+        emptyMessage="Aucun webhook ne correspond."
       />
 
       <Modal
@@ -464,4 +561,4 @@ export function WebhooksTable({
       </Modal>
     </Stack>
   );
-}
+});

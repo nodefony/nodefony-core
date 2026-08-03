@@ -140,6 +140,27 @@ export type FieldCriteria<V> = V | FieldOperators<NonNullable<V>>;
  */
 export type Criteria<T> = {
   [K in keyof T]?: FieldCriteria<T[K]>;
+} & {
+  /**
+   * **Disjonction** : au moins une des branches doit être vraie. Les champs
+   * posés à côté restent en `ET` avec l'ensemble (`{a: 1, $or: [x, y]}` =
+   * `a = 1 AND (x OR y)`).
+   *
+   * Existe parce que certaines questions du domaine ne sont PAS des
+   * conjonctions : « un jeton utilisable » = *sans échéance* **ou** *échéance à
+   * venir*. Sans elle, la seule issue était de descendre au SQL/Mongo natif dans
+   * chaque store — donc d'écrire la même règle autant de fois qu'il y a de
+   * backends, avec la divergence pour seule perspective.
+   *
+   * Volontairement limitée à `$or` : `$and` est déjà le comportement par défaut
+   * d'un critère, et `$not` demanderait de définir la négation d'un `NULL` sur
+   * trois dialectes — un piège pour zéro usage démontré.
+   *
+   * @example
+   * // les clés encore utilisables
+   * repo.count({ revokedAt: null, $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] });
+   */
+  $or?: ReadonlyArray<Criteria<T>>;
 } & OrmCriteria;
 
 /**
@@ -322,6 +343,28 @@ export interface IRepository<T = unknown> {
    * @param criteria - filtre optionnel.
    */
   count(criteria?: Criteria<T>): Promise<number>;
+
+  /**
+   * Compte les **valeurs distinctes** d'un champ parmi les entités qui
+   * correspondent au critère (`COUNT(DISTINCT col)` SQL / agrégation Mongo).
+   *
+   * Répond à une question que `count` ne sait pas poser : « combien de personnes
+   * distinctes derrière ces sessions ? », « combien de comptes touchés par ces
+   * échecs ? ». La compter côté appelant supposerait de rapatrier la colonne
+   * entière pour la dédupliquer en mémoire — soit exactement l'énumération que
+   * ces compteurs existent pour éviter.
+   *
+   * Les valeurs nulles ne sont pas comptées, comme en SQL : l'absence de valeur
+   * n'est pas une valeur distincte de plus.
+   *
+   * @param field - champ dont on compte les valeurs distinctes.
+   * @param criteria - filtre optionnel, appliqué avant la déduplication.
+   * @returns le nombre de valeurs distinctes et non nulles.
+   */
+  countDistinct(
+    field: keyof T & string,
+    criteria?: Criteria<T>,
+  ): Promise<number>;
 
   /**
    * Indique si **au moins une** entité correspond au critère, sans rapatrier la

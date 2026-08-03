@@ -49,6 +49,7 @@ import {
   DataGrid,
   DocHint,
   InfoHint,
+  toPageParams,
   type DataGridColumn,
   type DataGridServerQuery,
   type DataGridServerResult,
@@ -224,12 +225,21 @@ export const LogExplorer = observer(
     }, [traceRequestId]);
 
     const loader = useCallback(
-      async (q: DataGridServerQuery): Promise<DataGridServerResult<LogRecord>> => {
-        const params = new URLSearchParams();
-        params.set("limit", String(q.pageSize));
-        params.set("offset", String((q.page - 1) * q.pageSize));
-        params.set("order", order);
-        if (q.search) params.set("q", q.search);
+      async (
+        q: DataGridServerQuery,
+      ): Promise<DataGridServerResult<LogRecord>> => {
+        const params = toPageParams(q);
+        // Le sens de lecture s'exprime désormais dans la grammaire du contrat
+        // (`champ:SENS`), comme partout ailleurs : le data plane syslog a cessé
+        // d'être le second dialecte. `timeStamp` est le seul champ que le
+        // journal déclare triable — son axe technique est l'`uid` du Pdu, qui
+        // départage deux logs de la même milliseconde.
+        //
+        // Ce `set` écrase ce que `toPageParams` aurait pu émettre : le sens est
+        // piloté par le sélecteur dédié de la barre, pas par un en-tête de
+        // colonne (aucune colonne de ce grid n'est `sortable` — deux commandes
+        // pour le même réglage se contrediraient).
+        params.set("order", `timeStamp:${order === "asc" ? "ASC" : "DESC"}`);
         if (requestId.trim()) params.set("requestId", requestId.trim());
         // Filtres EXPLICITES de la barre dédiée (le back applique l'inclusion via
         // filterPdus : severity = OU entre niveaux, module/msgid = égalité,
@@ -246,7 +256,17 @@ export const LogExplorer = observer(
       },
       // refreshKey force la régénération du loader (→ refetch) après un switch ;
       // order/filtres → refetch au changement.
-      [store, requestId, order, refreshKey, protocol, flows, severities, moduleF, msgidF],
+      [
+        store,
+        requestId,
+        order,
+        refreshKey,
+        protocol,
+        flows,
+        severities,
+        moduleF,
+        msgidF,
+      ],
     );
 
     const columns = useMemo<DataGridColumn<LogRecord>[]>(
@@ -275,7 +295,11 @@ export const LogExplorer = observer(
           hint: "Horodatage à la milliseconde. À débit élevé, plusieurs logs partagent la même ms → se fier au # (séquence) pour l'ordre exact.",
           value: (r) => r.timeStamp,
           render: (r) => (
-            <Text size="xs" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <Text
+              size="xs"
+              c="dimmed"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
               {fmtClock(r.timeStamp)}
               <Text span size="xs" opacity={0.6}>
                 .{fmtMillis(r.timeStamp)}
@@ -370,7 +394,11 @@ export const LogExplorer = observer(
           render: (r) => (
             <Text
               size="xs"
-              style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+              style={{
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
             >
               {ansiToReact(recordMessage(r))}
             </Text>
@@ -392,12 +420,12 @@ export const LogExplorer = observer(
           title={`Le driver « ${driverName ?? "?"} » ne permet pas la recherche`}
         >
           Ce driver de logs ne sait pas <b>fouiller l'historique</b> : il
-          transmet les logs (ici, vers la console) sans les conserver d'une façon
-          interrogeable. Seul l'onglet <b>Live</b> reste disponible. Pour explorer
-          le passé, choisis un driver avec la capacité <b>Recherche</b>
-          (<Code>mémoire</Code>, <Code>fichier</Code>/<Code>cluster-file</Code>, ou{" "}
-          <Code>Loki</Code>/<Code>OpenSearch</Code> à venir) dans le sélecteur du
-          bandeau.
+          transmet les logs (ici, vers la console) sans les conserver d'une
+          façon interrogeable. Seul l'onglet <b>Live</b> reste disponible. Pour
+          explorer le passé, choisis un driver avec la capacité <b>Recherche</b>
+          (<Code>mémoire</Code>, <Code>fichier</Code>/<Code>cluster-file</Code>,
+          ou <Code>Loki</Code>/<Code>OpenSearch</Code> à venir) dans le
+          sélecteur du bandeau.
         </Alert>
       );
     }
@@ -406,7 +434,12 @@ export const LogExplorer = observer(
     return (
       <Stack gap="sm">
         {/* CE QUE J'EXPLORE — la destination de lecture active (recherche froide). */}
-        <Paper withBorder radius="md" p="sm" bg="var(--mantine-color-default-hover)">
+        <Paper
+          withBorder
+          radius="md"
+          p="sm"
+          bg="var(--mantine-color-default-hover)"
+        >
           <Group justify="space-between" wrap="wrap" gap="sm">
             <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
               <DriverIcon name={driverName ?? "generic"} />
@@ -466,244 +499,244 @@ export const LogExplorer = observer(
         />
         <Paper withBorder radius="md" p="sm">
           {/* Barre de trace full-stack. */}
-        <Group gap="xs" mb="xs" wrap="nowrap">
-          <TextInput
-            size="xs"
-            leftSection={<IconRoute2 size={14} />}
-            placeholder="requestId — trace full-stack d'une requête (tous modules)"
-            value={requestId}
-            onChange={(e) => setRequestId(e.currentTarget.value)}
-            style={{ flex: 1, maxWidth: 460, fontFamily: "monospace" }}
-            aria-label="tracer une requête par requestId"
-            rightSection={
-              requestId ? (
-                <ActionIcon
-                  size="sm"
-                  variant="subtle"
-                  color="gray"
-                  onClick={() => setRequestId("")}
-                  aria-label="effacer la trace"
-                >
-                  <IconX size={14} />
-                </ActionIcon>
-              ) : null
-            }
-          />
-          {requestId && (
-            <Badge variant="light" color="grape" size="sm">
-              trace active
-            </Badge>
-          )}
-          {/* Sens chronologique — s'appuie sur l'uid (séquence), pas l'horloge. */}
-          <Tooltip
-            label={
-              order === "desc"
-                ? "Récent → ancien (défaut)"
-                : "Ancien → récent (lecture chronologique)"
-            }
-          >
+          <Group gap="xs" mb="xs" wrap="nowrap">
+            <TextInput
+              size="xs"
+              leftSection={<IconRoute2 size={14} />}
+              placeholder="requestId — trace full-stack d'une requête (tous modules)"
+              value={requestId}
+              onChange={(e) => setRequestId(e.currentTarget.value)}
+              style={{ flex: 1, maxWidth: 460, fontFamily: "monospace" }}
+              aria-label="tracer une requête par requestId"
+              rightSection={
+                requestId ? (
+                  <ActionIcon
+                    size="sm"
+                    variant="subtle"
+                    color="gray"
+                    onClick={() => setRequestId("")}
+                    aria-label="effacer la trace"
+                  >
+                    <IconX size={14} />
+                  </ActionIcon>
+                ) : null
+              }
+            />
+            {requestId && (
+              <Badge variant="light" color="grape" size="sm">
+                trace active
+              </Badge>
+            )}
+            {/* Sens chronologique — s'appuie sur l'uid (séquence), pas l'horloge. */}
+            <Tooltip
+              label={
+                order === "desc"
+                  ? "Récent → ancien (défaut)"
+                  : "Ancien → récent (lecture chronologique)"
+              }
+            >
+              <SegmentedControl
+                size="xs"
+                value={order}
+                onChange={(v) => setOrder(v as "asc" | "desc")}
+                data={[
+                  {
+                    value: "desc",
+                    label: (
+                      <Group gap={4} wrap="nowrap">
+                        <IconSortDescending size={14} />
+                        <Text size="xs">récent</Text>
+                      </Group>
+                    ),
+                  },
+                  {
+                    value: "asc",
+                    label: (
+                      <Group gap={4} wrap="nowrap">
+                        <IconSortAscending size={14} />
+                        <Text size="xs">chrono</Text>
+                      </Group>
+                    ),
+                  },
+                ]}
+                aria-label="ordre chronologique des logs"
+              />
+            </Tooltip>
+            <DocHint
+              title="Explorer (requête froide du backplane)"
+              version={LOGS_DOC}
+              summary="Interroge le driver de relecture actif. Pagination et filtres côté serveur — supporte des milliers de logs sans charger la page."
+              sections={[
+                {
+                  label: "Trace full-stack",
+                  body: "Un requestId corrèle tous les logs d'UNE requête (ALS) — appel base de données inclus. Clique un badge requestId ou colle-en un ici pour suivre une requête de bout en bout. Essaie GET /nodefony/test/db/trace.",
+                },
+                {
+                  label: "Trouver une requête par URL",
+                  body: "Tape l'URL ou la route dans la barre de RECHERCHE (ex. « GET /api/users ») : tu retrouves le bilan de la/les requête(s) correspondante(s) ; clique alors son requestId pour dérouler toute sa trace.",
+                },
+                {
+                  label: "Ordre & chronologie",
+                  body: "Bascule récent↔chrono. L'ordre s'appuie sur le # (uid, séquence d'émission monotone), pas sur l'horloge ms — donc l'ordre reste exact même quand plusieurs logs tombent dans la même milliseconde.",
+                },
+              ]}
+            />
+          </Group>
+
+          {/* Barre de FILTRES explicites — clairs, au-dessus de la grille.
+            Protocole EN TÊTE (vision « protocole d'abord, puis cycle de vie »). */}
+          <Group gap="sm" wrap="wrap" align="center">
+            <Group gap={6} wrap="nowrap">
+              <IconPlugConnected size={14} />
+              <Text size="xs" fw={600} c="dimmed">
+                Protocole
+              </Text>
+              <InfoHint text="WS = logs des connexions WebSocket (msgid « WEBSOCKET CONTEXT » : handshake, messages, fermeture). HTTP = tout le reste du pipeline (requête, routage, firewall, applicatif). Critère appliqué côté serveur (pduProtocol)." />
+            </Group>
             <SegmentedControl
               size="xs"
-              value={order}
-              onChange={(v) => setOrder(v as "asc" | "desc")}
+              value={protocol}
+              onChange={(v) => setProtocol(v as "all" | "ws" | "http")}
               data={[
+                { value: "all", label: "Tous" },
                 {
-                  value: "desc",
+                  value: "http",
                   label: (
                     <Group gap={4} wrap="nowrap">
-                      <IconSortDescending size={14} />
-                      <Text size="xs">récent</Text>
+                      <IconWorld size={13} />
+                      <Text size="xs">HTTP</Text>
                     </Group>
                   ),
                 },
                 {
-                  value: "asc",
+                  value: "ws",
                   label: (
                     <Group gap={4} wrap="nowrap">
-                      <IconSortAscending size={14} />
-                      <Text size="xs">chrono</Text>
+                      <IconArrowsLeftRight size={13} />
+                      <Text size="xs">WS</Text>
                     </Group>
                   ),
                 },
               ]}
-              aria-label="ordre chronologique des logs"
+              aria-label="filtrer par protocole"
             />
-          </Tooltip>
-          <DocHint
-            title="Explorer (requête froide du backplane)"
-            version={LOGS_DOC}
-            summary="Interroge le driver de relecture actif. Pagination et filtres côté serveur — supporte des milliers de logs sans charger la page."
-            sections={[
-              {
-                label: "Trace full-stack",
-                body: "Un requestId corrèle tous les logs d'UNE requête (ALS) — appel base de données inclus. Clique un badge requestId ou colle-en un ici pour suivre une requête de bout en bout. Essaie GET /nodefony/test/db/trace.",
-              },
-              {
-                label: "Trouver une requête par URL",
-                body: "Tape l'URL ou la route dans la barre de RECHERCHE (ex. « GET /api/users ») : tu retrouves le bilan de la/les requête(s) correspondante(s) ; clique alors son requestId pour dérouler toute sa trace.",
-              },
-              {
-                label: "Ordre & chronologie",
-                body: "Bascule récent↔chrono. L'ordre s'appuie sur le # (uid, séquence d'émission monotone), pas sur l'horloge ms — donc l'ordre reste exact même quand plusieurs logs tombent dans la même milliseconde.",
-              },
-            ]}
-          />
-        </Group>
-
-        {/* Barre de FILTRES explicites — clairs, au-dessus de la grille.
-            Protocole EN TÊTE (vision « protocole d'abord, puis cycle de vie »). */}
-        <Group gap="sm" wrap="wrap" align="center">
-          <Group gap={6} wrap="nowrap">
-            <IconPlugConnected size={14} />
-            <Text size="xs" fw={600} c="dimmed">
-              Protocole
-            </Text>
-            <InfoHint text="WS = logs des connexions WebSocket (msgid « WEBSOCKET CONTEXT » : handshake, messages, fermeture). HTTP = tout le reste du pipeline (requête, routage, firewall, applicatif). Critère appliqué côté serveur (pduProtocol)." />
-          </Group>
-          <SegmentedControl
-            size="xs"
-            value={protocol}
-            onChange={(v) => setProtocol(v as "all" | "ws" | "http")}
-            data={[
-              { value: "all", label: "Tous" },
-              {
-                value: "http",
-                label: (
-                  <Group gap={4} wrap="nowrap">
-                    <IconWorld size={13} />
-                    <Text size="xs">HTTP</Text>
-                  </Group>
-                ),
-              },
-              {
-                value: "ws",
-                label: (
-                  <Group gap={4} wrap="nowrap">
-                    <IconArrowsLeftRight size={13} />
-                    <Text size="xs">WS</Text>
-                  </Group>
-                ),
-              },
-            ]}
-            aria-label="filtrer par protocole"
-          />
-          {/* Étape du cycle de vie — s'adapte au protocole (« protocole d'abord »). */}
-          <Group gap={6} wrap="nowrap">
-            <IconTimeline size={14} />
-            <Text size="xs" fw={600} c="dimmed">
-              Étape
-            </Text>
-            <InfoHint text="Étape du cycle de vie de la requête/connexion — critère structuré (≠ recherche texte). Les options s'adaptent au protocole choisi. Les jalons notables sont en INFO/NOTICE (requête entrante, route trouvée, réponse, ouverture/fermeture WS) ; les étapes techniques (message reçu, corps reçu, dispatch, fin) restent en DEBUG → si tu les filtres en cochant INFO+, elles seront masquées." />
-          </Group>
-          <MultiSelect
-            size="xs"
-            w={250}
-            data={flowData}
-            value={flows}
-            onChange={(v) => setFlows(v as FlowStepId[])}
-            placeholder={flows.length ? undefined : "Toutes les étapes"}
-            clearable
-            searchable
-            nothingFoundMessage="Aucune étape"
-            comboboxProps={{ withinPortal: true }}
-            aria-label="filtrer par étape du cycle de vie"
-          />
-          <Group gap={6} wrap="nowrap">
-            <IconFilter size={14} />
-            <Text size="xs" fw={600} c="dimmed">
-              Sévérité
-            </Text>
-          </Group>
-          <Chip.Group
-            multiple
-            value={[...severities]}
-            onChange={(vals) => setSeverities(new Set(vals as Severity[]))}
-          >
-            <Group gap={4} wrap="wrap">
-              {SEVERITIES.map((s) => (
-                <Chip key={s} value={s} size="xs" color={severityColor(s)}>
-                  {s}
-                </Chip>
-              ))}
+            {/* Étape du cycle de vie — s'adapte au protocole (« protocole d'abord »). */}
+            <Group gap={6} wrap="nowrap">
+              <IconTimeline size={14} />
+              <Text size="xs" fw={600} c="dimmed">
+                Étape
+              </Text>
+              <InfoHint text="Étape du cycle de vie de la requête/connexion — critère structuré (≠ recherche texte). Les options s'adaptent au protocole choisi. Les jalons notables sont en INFO/NOTICE (requête entrante, route trouvée, réponse, ouverture/fermeture WS) ; les étapes techniques (message reçu, corps reçu, dispatch, fin) restent en DEBUG → si tu les filtres en cochant INFO+, elles seront masquées." />
             </Group>
-          </Chip.Group>
-          <TextInput
-            size="xs"
-            w={150}
-            placeholder="Module…"
-            value={moduleF}
-            onChange={(e) => setModuleF(e.currentTarget.value)}
-            aria-label="filtrer par module"
-          />
-          <TextInput
-            size="xs"
-            w={150}
-            placeholder="msgid…"
-            value={msgidF}
-            onChange={(e) => setMsgidF(e.currentTarget.value)}
-            aria-label="filtrer par msgid"
-          />
-          {filtersActive && (
-            <Button
-              size="compact-xs"
-              variant="subtle"
-              color="gray"
-              leftSection={<IconFilterOff size={14} />}
-              onClick={clearFilters}
+            <MultiSelect
+              size="xs"
+              w={250}
+              data={flowData}
+              value={flows}
+              onChange={(v) => setFlows(v as FlowStepId[])}
+              placeholder={flows.length ? undefined : "Toutes les étapes"}
+              clearable
+              searchable
+              nothingFoundMessage="Aucune étape"
+              comboboxProps={{ withinPortal: true }}
+              aria-label="filtrer par étape du cycle de vie"
+            />
+            <Group gap={6} wrap="nowrap">
+              <IconFilter size={14} />
+              <Text size="xs" fw={600} c="dimmed">
+                Sévérité
+              </Text>
+            </Group>
+            <Chip.Group
+              multiple
+              value={[...severities]}
+              onChange={(vals) => setSeverities(new Set(vals as Severity[]))}
             >
-              Effacer
-            </Button>
-          )}
-          <DocHint
-            title="Filtres"
-            version={LOGS_DOC}
-            summary="Filtres appliqués CÔTÉ SERVEUR (sur TOUT l'historique du driver, pas seulement la page affichée). La sévérité est multi-sélection : coche plusieurs niveaux pour les cumuler."
-            sections={[
-              {
-                label: "Comment ils se combinent",
-                body: "Protocole (WS ou HTTP) ET étape(s) du cycle de vie (OU entre étapes) ET sévérité (OU entre les niveaux cochés) ET module ET msgid ET recherche plein-texte — tout se cumule. La page repart à 1 à chaque changement.",
-              },
-              {
-                label: "Protocole, puis cycle de vie",
-                body: "1) Sépare WS / HTTP à la source (WS = contexte socket : ouverture, messages, fermeture ; HTTP = le reste). 2) Le sélecteur Étape s'adapte alors au protocole et cible un jalon précis (requête entrante, route trouvée, réponse… ou ouverture/message/fermeture en WS).",
-              },
-              {
-                label: "Étapes & sévérité",
-                body: "Les jalons notables sont en INFO/NOTICE (requête entrante, route trouvée, réponse envoyée, ouverture/fermeture WebSocket) → visibles sans DEBUG. Les étapes techniques (message reçu, corps reçu, dispatch kernel, fin) restent en DEBUG : si tu les filtres en cochant INFO+, elles seront masquées. Pour les suivre, laisse la sévérité libre ou inclus DEBUG.",
-              },
-            ]}
+              <Group gap={4} wrap="wrap">
+                {SEVERITIES.map((s) => (
+                  <Chip key={s} value={s} size="xs" color={severityColor(s)}>
+                    {s}
+                  </Chip>
+                ))}
+              </Group>
+            </Chip.Group>
+            <TextInput
+              size="xs"
+              w={150}
+              placeholder="Module…"
+              value={moduleF}
+              onChange={(e) => setModuleF(e.currentTarget.value)}
+              aria-label="filtrer par module"
+            />
+            <TextInput
+              size="xs"
+              w={150}
+              placeholder="msgid…"
+              value={msgidF}
+              onChange={(e) => setMsgidF(e.currentTarget.value)}
+              aria-label="filtrer par msgid"
+            />
+            {filtersActive && (
+              <Button
+                size="compact-xs"
+                variant="subtle"
+                color="gray"
+                leftSection={<IconFilterOff size={14} />}
+                onClick={clearFilters}
+              >
+                Effacer
+              </Button>
+            )}
+            <DocHint
+              title="Filtres"
+              version={LOGS_DOC}
+              summary="Filtres appliqués CÔTÉ SERVEUR (sur TOUT l'historique du driver, pas seulement la page affichée). La sévérité est multi-sélection : coche plusieurs niveaux pour les cumuler."
+              sections={[
+                {
+                  label: "Comment ils se combinent",
+                  body: "Protocole (WS ou HTTP) ET étape(s) du cycle de vie (OU entre étapes) ET sévérité (OU entre les niveaux cochés) ET module ET msgid ET recherche plein-texte — tout se cumule. La page repart à 1 à chaque changement.",
+                },
+                {
+                  label: "Protocole, puis cycle de vie",
+                  body: "1) Sépare WS / HTTP à la source (WS = contexte socket : ouverture, messages, fermeture ; HTTP = le reste). 2) Le sélecteur Étape s'adapte alors au protocole et cible un jalon précis (requête entrante, route trouvée, réponse… ou ouverture/message/fermeture en WS).",
+                },
+                {
+                  label: "Étapes & sévérité",
+                  body: "Les jalons notables sont en INFO/NOTICE (requête entrante, route trouvée, réponse envoyée, ouverture/fermeture WebSocket) → visibles sans DEBUG. Les étapes techniques (message reçu, corps reçu, dispatch kernel, fin) restent en DEBUG : si tu les filtres en cochant INFO+, elles seront masquées. Pour les suivre, laisse la sévérité libre ou inclus DEBUG.",
+                },
+              ]}
+            />
+          </Group>
+
+          {/* Sens de lecture explicite — répond à « je comprends pas la chronologie ». */}
+          <Text size="xs" c="dimmed" mb="xs">
+            {order === "asc" ? (
+              <>
+                <b>Ordre chronologique</b> : 1ʳᵉ étape en haut, réponse en bas —
+                on lit la requête du début à la fin.
+              </>
+            ) : (
+              <>
+                <b>Plus récent en haut</b> : la dernière ligne émise est en tête
+                (on remonte le temps en descendant).
+              </>
+            )}{" "}
+            L'ordre exact est donné par le <b>#</b> (séquence d'émission), pas
+            par l'heure (plusieurs logs partagent souvent la même milliseconde).
+          </Text>
+
+          <DataGrid
+            mode="server"
+            loader={loader}
+            columns={columns}
+            getRowId={(r) => `${r.uid}-${r.timeStamp}`}
+            onRowClick={onSelect}
+            pageSize={50}
+            resetPageSignal={filterSignal}
+            searchPlaceholder="Recherche : URL/route (ex. GET /api/x), payload, module, msgid…"
+            emptyMessage="Aucun log ne correspond aux critères."
+            persist={{ key: "studio.logs.explorer.v2", storage: "session" }}
           />
-        </Group>
-
-        {/* Sens de lecture explicite — répond à « je comprends pas la chronologie ». */}
-        <Text size="xs" c="dimmed" mb="xs">
-          {order === "asc" ? (
-            <>
-              <b>Ordre chronologique</b> : 1ʳᵉ étape en haut, réponse en bas — on
-              lit la requête du début à la fin.
-            </>
-          ) : (
-            <>
-              <b>Plus récent en haut</b> : la dernière ligne émise est en tête (on
-              remonte le temps en descendant).
-            </>
-          )}{" "}
-          L'ordre exact est donné par le <b>#</b> (séquence d'émission), pas par
-          l'heure (plusieurs logs partagent souvent la même milliseconde).
-        </Text>
-
-        <DataGrid
-          mode="server"
-          loader={loader}
-          columns={columns}
-          getRowId={(r) => `${r.uid}-${r.timeStamp}`}
-          onRowClick={onSelect}
-          pageSize={50}
-          resetPageSignal={filterSignal}
-          searchPlaceholder="Recherche : URL/route (ex. GET /api/x), payload, module, msgid…"
-          emptyMessage="Aucun log ne correspond aux critères."
-          persist={{ key: "studio.logs.explorer.v2", storage: "session" }}
-        />
         </Paper>
       </Stack>
     );

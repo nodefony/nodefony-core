@@ -1,4 +1,10 @@
-import { route, controller, Controller, CurrentUser } from "@nodefony/framework";
+import {
+  route,
+  controller,
+  Controller,
+  CurrentUser,
+  Param,
+} from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 
 /**
@@ -55,6 +61,29 @@ class <%= it.nameClass %> extends Controller {
       pid: process.pid,
       who: authenticated ? user!.identifier! : "anonyme",
     });
+  }
+
+  /**
+   * Une valeur PORTÉE PAR LE CHEMIN — et c'est la seule syntaxe de Nodefony qui
+   * diffère de ce que tu connais ailleurs.
+   *
+   * Le segment variable s'écrit **`{name}`**, entre accolades. `:name` — la
+   * forme d'Express, de Nest et de Fastify — compile, se monte, s'affiche dans
+   * `nodefony inspect routes`… et ne correspond à AUCUNE URL réelle : il est
+   * pris pour un segment littéral. Le symptôme est un 404 sur une route qu'on
+   * VOIT dans le code. (`nodefony doctor` nomme ce cas et rend le chemin
+   * corrigé.)
+   *
+   * La valeur se lit avec `@Param("name")`. Elle arrive aussi en argument
+   * positionnel, dans l'ordre des variables du chemin, mais le décorateur
+   * nomme ce qu'il injecte : il survit à un segment ajouté devant.
+   *
+   * Contraindre le format se fait dans le chemin : `{id}(\d+)` n'accepte que
+   * des chiffres, et `/{slug}?` rend le segment optionnel.
+   */
+  @route("<%= it.kebab %>-greet", { path: "/hello/{name}", method: "GET" })
+  async greet(@Param("name") name: string) {
+    return this.renderJson({ hello: name, pid: process.pid });
   }
 
 <% if (it.secureRoute) { %>  /**

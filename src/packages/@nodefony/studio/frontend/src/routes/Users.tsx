@@ -39,21 +39,25 @@ import {
 } from "@tabler/icons-react";
 
 import { useStore, useAuth, useNotifications } from "../stores";
-import { useResource } from "../hooks";
+import { useResource, useFacetCards } from "../hooks";
 import { useIsAdmin, STUDIO_ROLES } from "../auth/roles";
 import { RoleGate } from "../auth/RoleGate";
-import { PageLayout, StatCard, DataState, DocHint } from "../components/ui";
+import {
+  PageLayout,
+  StatCard,
+  DocHint,
+  fmtFacet,
+  toStatsParams,
+} from "../components/ui";
 import {
   ADMIN_ROLE,
   USERS_DOC,
-  USERS_LIST_WINDOW,
-  usersListEndpoint,
   deleteUserEndpoint,
   USERS_STATUS_ENDPOINT,
-  countUsers,
+  USERS_STATS_ENDPOINT,
   describeUsersError,
+  type UserCounts,
   type UserSummary,
-  type UserListResponse,
   type UsersStatus,
 } from "./users/usersModel";
 import { UsersTable } from "./users/UsersTable";
@@ -78,16 +82,23 @@ export const Users = observer(() => {
   } | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  const fetcher = useCallback(async (): Promise<UserListResponse> => {
-    try {
-      return await store.api.getAbsolute<UserListResponse>(
-        usersListEndpoint({ limit: USERS_LIST_WINDOW }),
-      );
-    } catch (e) {
-      throw new Error(describeUsersError(e), { cause: e });
-    }
-  }, [store]);
-  const { data, loading, error, reload } = useResource(fetcher);
+  // La liste n'est plus chargée ICI : la table la demande page par page au
+  // serveur (`<DataGrid mode="server">`). Le parent n'en garde qu'un compteur
+  // de version, changé après chaque mutation pour forcer le rechargement de la
+  // page affichée — et les comptes de la page courante, seule chose qu'il
+  // puisse encore affirmer sur l'annuaire.
+  const [reloadKey, setReloadKey] = useState(0);
+  const [pageUsers, setPageUsers] = useState<UserSummary[]>([]);
+  const reload = useCallback(() => setReloadKey((n) => n + 1), []);
+  // Les filtres vivent ICI parce que les cartes de tête les suivent : afficher
+  // « 1 240 comptes » au-dessus d'un tableau filtré sur « verrouillés » serait
+  // deux vérités contradictoires dans le même écran.
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  // Le terme cherché vit ICI pour la même raison que les filtres : c'est une
+  // dimension de la sélection, et les cartes doivent décrire ce que le tableau
+  // montre. Le grid reste propriétaire de sa barre et remonte simplement ce
+  // qu'il cherche (`onSearchChange`).
+  const [search, setSearch] = useState("");
 
   // Compte RÉEL de comptes côté serveur (`count()` du dépôt) — endpoint ADMIN,
   // donc jamais sollicité pour un utilisateur ordinaire (403 inutile). C'est la
@@ -102,22 +113,58 @@ export const Users = observer(() => {
   );
   const { data: status } = useResource(statusFetcher);
 
-  const users = useMemo(() => data?.items ?? [], [data]);
-  const total = data?.total ?? users.length;
-  const truncated = total > users.length;
-  const counts = useMemo(() => countUsers(users), [users]);
-  // Total affiché : le compte serveur s'il est dénombrable, sinon ce que la
-  // fenêtre montre — l'aide de la carte dit toujours laquelle des deux.
-  const serverCount = status?.count ?? null;
-  const displayedTotal = serverCount ?? counts.total;
+  // Compteurs de tête : le SERVEUR les pose sur l'annuaire entier. Les calculer
+  // ici décrirait la page affichée en ayant l'air de décrire l'annuaire. Un
+  // non-administrateur n'y a pas droit (403) : ses cartes affichent alors « — »,
+  // qui dit « je ne sais pas » — le comptage local aurait dit « il n'y en a
+  // que 25 », ce qui est faux.
+  //
+  // Les compteurs suivent la sélection, mais seulement par ce que l'endpoint de
+  // comptage DÉCLARE accepter : il refuse (400) la dimension qu'il décompose —
+  // lui demander `?enabled=true` reviendrait à lui faire écraser sa propre
+  // ventilation « activés / désactivés ».
+  // La RECHERCHE en fait partie : l'endpoint la déclare et l'honore, donc taper
+  // dans la barre déplace les cartes autant que le tableau.
+  const statsCaps = store.admin.pageCapabilities(USERS_STATS_ENDPOINT);
+  const statsParams = toStatsParams(filters, statsCaps, search);
+  const statsSignal = statsParams.toString();
+  const statsFetcher = useCallback((): Promise<UserCounts | null> => {
+    if (!isAdmin) return Promise.resolve(null);
+    return store.api.getAbsolute<UserCounts>(
+      statsSignal
+        ? `${USERS_STATS_ENDPOINT}?${statsSignal}`
+        : USERS_STATS_ENDPOINT,
+    );
+  }, [store, isAdmin, statsSignal]);
+  const { data: serverCounts, reload: reloadCounts } =
+    useResource(statsFetcher);
+  // Les cartes deviennent cliquables — le filtre posé est celui-là même qui a
+  // produit le nombre affiché, parce qu'il vient du serveur et non d'ici.
+  const facetCard = useFacetCards(statsCaps, filters, setFilters);
+  const counts = useMemo<UserCounts>(
+    () =>
+      serverCounts ?? {
+        total: null,
+        active: null,
+        disabled: null,
+        locked: null,
+        admins: null,
+        social: null,
+      },
+    [serverCounts],
+  );
+  // Total affiché : le compte des facettes serveur s'il existe, sinon le
+  // `count` du statut — jamais une taille de page. L'aide de la carte dit laquelle.
+  const serverCount = counts.total ?? status?.count ?? null;
 
-  // Suggestions de rôles : rôles connus de Studio ∪ ceux déjà portés par les
-  // comptes chargés (autocomplétion honnête ; la saisie reste libre).
+  // Suggestions de rôles : rôles connus de Studio ∪ ceux portés par les comptes
+  // de la page AFFICHÉE. Le parent n'a plus l'annuaire entier — et ne fait donc
+  // plus croire que cette liste est exhaustive ; la saisie reste libre.
   const roleSuggestions = useMemo(() => {
     const set = new Set<string>(STUDIO_ROLES);
-    for (const u of users) for (const r of u.roles) set.add(r);
+    for (const u of pageUsers) for (const r of u.roles) set.add(r);
     return [...set].sort();
-  }, [users]);
+  }, [pageUsers]);
 
   // Supprime en masse : boucle sur l'endpoint unitaire (idempotent, ordre libre)
   // — 0 endpoint batch côté back, feedback agrégé réussis/échecs. Les garde-fous
@@ -142,6 +189,7 @@ export const Users = observer(() => {
       clear();
       setConfirmBulk(null);
       reload();
+      reloadCounts();
     } catch (e) {
       notifications.notify("error", describeUsersError(e), { source: "api" });
     } finally {
@@ -154,7 +202,7 @@ export const Users = observer(() => {
   const bulkAdmins =
     confirmBulk?.users.filter((u) => u.roles.includes(ADMIN_ROLE)).length ?? 0;
 
-  const subtitle = `${counts.total}${truncated ? ` sur ${total}` : ""} compte(s) · ${counts.admins} admin(s)`;
+  const subtitle = `${fmtFacet(serverCount)} compte(s) · ${fmtFacet(counts.admins)} admin(s)`;
 
   return (
     <PageLayout
@@ -174,8 +222,10 @@ export const Users = observer(() => {
           <Button
             variant="light"
             leftSection={<IconRefresh size={16} />}
-            loading={loading}
-            onClick={reload}
+            onClick={() => {
+              reload();
+              reloadCounts();
+            }}
           >
             Recharger
           </Button>
@@ -212,38 +262,37 @@ export const Users = observer(() => {
         </Group>
       </Group>
 
-      {truncated && (
-        <Alert
-          variant="light"
-          color="yellow"
-          icon={<IconAlertTriangle size={16} />}
-        >
-          <Text size="sm">
-            {total} comptes au total — seuls les {users.length} premiers sont
-            affichés (fenêtre plafonnée à {USERS_LIST_WINDOW}). Affinez la
-            recherche pour cibler.
-          </Text>
-        </Alert>
-      )}
+      {/* Plus de bandeau « fenêtre plafonnée » : il n'y a plus de fenêtre. La
+          table demande la page qu'elle affiche, l'annuaire entier est
+          atteignable page après page, et les cartes ci-dessous comptent sur
+          l'annuaire entier — pas sur ce qui est chargé. */}
 
       <Grid>
         <StatCard
           label="Total"
+          {...facetCard(
+            "total",
+            "l'annuaire entier (retire les filtres de facette)",
+          )}
           icon={<IconUsers size={20} color="var(--mantine-color-brand-5)" />}
           hint={
-            serverCount === null
-              ? `Nombre de comptes dans la fenêtre chargée (${counts.total}). Le total du serveur n'est pas affiché ici : soit vous n'êtes pas administrateur, soit le dépôt de persistance ne sait pas compter ses lignes.`
-              : serverCount > users.length
-                ? `Total réel côté serveur : ${serverCount} comptes. La table n'en affiche que ${users.length} (fenêtre plafonnée à ${USERS_LIST_WINDOW}).`
-                : `Total réel côté serveur : ${serverCount} comptes — tous affichés dans la table.`
+            !isAdmin
+              ? "Le total de l'annuaire est réservé aux administrateurs — « — » signifie « je ne sais pas », pas « aucun compte »."
+              : serverCount === null
+                ? "Le dépôt d'utilisateurs branché ne sait pas compter ses lignes — aucun total n'est affiché plutôt qu'un chiffre inventé."
+                : `Total de l'annuaire, compté par le serveur : ${serverCount} comptes. La table les parcourt page par page.`
           }
         >
           <Text fz={28} fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
-            {displayedTotal}
+            {fmtFacet(serverCount)}
           </Text>
         </StatCard>
         <StatCard
           label="Actifs"
+          {...facetCard(
+            "active",
+            "les comptes actifs (activés et non verrouillés)",
+          )}
           icon={<IconUserCheck size={20} color="var(--mantine-color-teal-6)" />}
           hint="Comptes activés et non verrouillés (peuvent s'authentifier)."
         >
@@ -253,7 +302,7 @@ export const Users = observer(() => {
             c="teal"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.active}
+            {fmtFacet(counts.active)}
           </Text>
         </StatCard>
         <StatCard
@@ -281,11 +330,12 @@ export const Users = observer(() => {
             c="red"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.admins}
+            {fmtFacet(counts.admins)}
           </Text>
         </StatCard>
         <StatCard
           label="Comptes sociaux"
+          {...facetCard("social", "les comptes liés à un fournisseur externe")}
           icon={
             <IconPlugConnected size={20} color="var(--mantine-color-grape-6)" />
           }
@@ -297,7 +347,7 @@ export const Users = observer(() => {
             c="grape"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.social}
+            {fmtFacet(counts.social)}
           </Text>
         </StatCard>
       </Grid>
@@ -313,13 +363,19 @@ export const Users = observer(() => {
         </Tabs.List>
 
         <Tabs.Panel value="list" pt="md">
-          <DataState loading={loading && !data} error={error} onRetry={reload}>
-            <UsersTable
-              users={users}
-              onEdit={(u) => navigate(`/nodefony/users/${u.id}`)}
-              onBulkDelete={(u, clear) => setConfirmBulk({ users: u, clear })}
-            />
-          </DataState>
+          {/* Plus de `DataState` ici : le chargement et l'erreur appartiennent
+              désormais au grid, qui recharge à chaque page, tri ou filtre — un
+              état de page englobant aurait masqué la table entière à chaque
+              tour de page. */}
+          <UsersTable
+            filters={filters}
+            onFiltersChange={setFilters}
+            onEdit={(u) => navigate(`/nodefony/users/${u.id}`)}
+            onBulkDelete={(u, clear) => setConfirmBulk({ users: u, clear })}
+            reloadKey={reloadKey}
+            onLoaded={setPageUsers}
+            onSearchChange={setSearch}
+          />
         </Tabs.Panel>
         <Tabs.Panel value="help" pt="md">
           {tab === "help" && <UsersHelp />}

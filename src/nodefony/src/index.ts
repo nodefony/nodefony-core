@@ -368,6 +368,7 @@ export type {
   IAdminApi,
   IAdminRegistry,
   IAdminEndpoint,
+  IAdminPageCapabilities,
   IAdminDescriptor,
   IAdminRequest,
   IAdminResponse,
@@ -381,9 +382,43 @@ export type {
   IdempotencyOutcome,
   IdempotentResponse,
 } from "./types/IIdempotencyStore";
-export type { IPage, IPageQuery } from "./types/IPage";
-export { assertPageQuery, PaginationModeError } from "./runtime/pageGuard";
+export type { IPage, IPageQuery, ISortableSource } from "./types/IPage";
+export {
+  assertPageQuery,
+  PaginationModeError,
+  CursorOrderError,
+} from "./runtime/pageGuard";
 export type { PaginationMode } from "./runtime/pageGuard";
+export {
+  parsePageQuery,
+  PageQueryError,
+  PAGE_QUERY_KEYS,
+} from "./runtime/pageQuery";
+export {
+  compareByOrder,
+  pickOrder,
+  renameOrderFields,
+} from "./runtime/pageSort";
+export type { FieldReader } from "./runtime/pageSort";
+export type {
+  PageQuerySource,
+  IParsePageQueryOptions,
+} from "./runtime/pageQuery";
+export { parseFilters } from "./runtime/pageFilters";
+export type {
+  FilterKind,
+  FilterDef,
+  IFilterSpec,
+  FilterValue,
+  FilterValues,
+  IParseFiltersOptions,
+} from "./runtime/pageFilters";
+export {
+  countFacets,
+  facetDimensions,
+  UNKNOWN_COUNT,
+} from "./runtime/pageFacets";
+export type { FacetCount, FacetCounts, IFacetSpec } from "./runtime/pageFacets";
 export type { ISyslog } from "./types/ISyslog";
 export type { ITransport } from "./types/ITransport";
 export type { EnvironmentType, DebugType } from "./types/globals";
@@ -397,7 +432,8 @@ export type {
 } from "./Container";
 export { Scope } from "./Container";
 
-export type { Message, Msgid, Pci, Severity } from "./syslog/Pdu";
+export { SEVERITY_NAMES } from "./syslog/Pdu";
+export type { Message, Msgid, Pci, Severity, SeverityName } from "./syslog/Pdu";
 
 export type {
   FamilyType,
@@ -519,6 +555,33 @@ export {
   isScaffoldStep,
 } from "./cli/scaffold/steps";
 export type { TScaffoldStep } from "./cli/scaffold/steps";
+
+// ─── Carte de visite de l'application : UNE composition, DEUX portes ──────────
+// La CLI (`nodefony card`, standalone 0-boot) et le module `@nodefony/devkit`
+// (route HTTP, Kernel en marche) rendent la MÊME carte. Elle vit au cœur parce
+// qu'elle doit répondre sur une application non construite ou lancée sans
+// `NODE_ENV` — une capacité qui doit tenir sans installation ne peut pas
+// dépendre d'un module.
+// Le graphe symbolique : UNE résolution (projet, puis framework installé) pour
+// tous ses lecteurs — la commande `symbols` et le data plane doc du framework.
+// Un chemin en dur de chaque côté est ce qui l'avait rendu introuvable dans une
+// application installée depuis npm.
+export {
+  resolveSymbolsFile,
+  readSymbolsGraph,
+  runSymbolsCommand,
+} from "./cli/symbols";
+export type { ISymbolEntry, ISymbolsGraph } from "./cli/symbols";
+
+export { buildCard, renderCard } from "./cli/cardReport";
+export type {
+  ICard,
+  ICardAppInfo,
+  ICardDoor,
+  ICardInput,
+  ICardVerb,
+  CardSource,
+} from "./cli/cardReport";
 
 // ─── Branchement Node-only : ALS → Pdu.requestId (corrélation log↔requête) ────
 // Le bundle browser/client (src/client/index.ts) NE RÉ-EXPORTE PAS ce fichier

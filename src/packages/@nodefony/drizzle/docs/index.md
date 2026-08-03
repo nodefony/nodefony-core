@@ -462,12 +462,12 @@ En MySQL, les verbes « qui rendent la ligne écrite » (`create`, `updateOne`, 
 `findOneAndDelete`) se décomposent en sélection de la cible → mutation bornée par la clé primaire **avec
 le critère revérifié dans le `WHERE`** → relecture. Deux à trois allers-retours au lieu d'un : c'est le
 prix du dialecte, payé **uniquement** en MySQL. Une course perdue rend `null`, jamais une mutation hors
-critère (`#mysqlInsertReturning()`, `DrizzleRepository.ts:865`).
+critère (`#mysqlInsertReturning()`, `DrizzleRepository.ts:897`).
 
 Le SQL brut nécessaire aux entités du framework est lui aussi routé par dialecte, dans un seul fichier
 (`queryKit.ts`) : recherche dans une colonne JSON (`findUserIdBySocialProvider()`, `queryKit.ts:76`),
 réservation atomique d'idempotence en MySQL (`reserveIdempotencyKeyMysql()`, `queryKit.ts:152`),
-pagination des utilisateurs (`listUserIdsPage()`, `queryKit.ts:305`). Toutes ces requêtes sont
+pagination des utilisateurs (`listUserIdsPage()`, `queryKit.ts:352`). Toutes ces requêtes sont
 **paramétrées** — jamais de concaténation.
 
 ## 🏗️ Architecture interne
@@ -538,6 +538,7 @@ await posts.find({ title: "Bonjour" });
 await posts.find({ views: { $gte: 10, $lt: 1000 } }); // plusieurs opérateurs = AND
 await posts.find({ id: { $in: ids } });
 await posts.find({ title: { $like: "Bon%" } }); // sémantique SQL (`%`, `_`)
+await posts.find({ title: { $like: escapeLikeTerm("100%") } }); // `%` littéral
 await posts.find({}, { order: [["views", "DESC"]], limit: 20, offset: 40 });
 await posts.find({}, { relations: ["comments"] }); // associations déclarées
 
@@ -552,9 +553,14 @@ await posts.count({ views: { $gte: 10 } });
 ```
 
 Les opérateurs (`$eq $ne $gt $gte $lt $lte $in $nin $like`) sont **ceux d'orm-core**, identiques sur
-tous les drivers ; la traduction en `eq()`/`inArray()`/`like()` se fait dans `#where()`
+tous les drivers ; la traduction en `eq()`/`inArray()` se fait dans `#where()`
 (`DrizzleRepository.ts:331`). Leur référence complète est dans
 [la page d'orm-core](../../orm-core/docs/index.md).
+
+`$like` est émis avec sa clause `ESCAPE '\'` (`likeSql.ts`), ce qui rend un `%` ou un `_` **littéral**
+exprimable : passez le fragment par `escapeLikeTerm` (orm-core) plutôt que de composer le motif à la
+main. Sans cette clause — c'était le cas — un antislash valait échappement en PostgreSQL et MySQL, et
+lui-même en SQLite : le même critère ne rendait pas les mêmes lignes selon la base.
 
 Deux points de comportement qui évitent des surprises :
 
@@ -563,7 +569,7 @@ Deux points de comportement qui évitent des surprises :
   `UPDATE` (`#pickOne()`, `DrizzleRepository.ts:213`). C'est ce qui rend ces verbes portables — MySQL
   interdit la forme naïve.
 - **l'eager-load est manuel** : une requête `IN (…)` par relation déclarée, puis regroupement en
-  mémoire (`#populate()`, `DrizzleRepository.ts:410`). Choix assumé — pas de couche de relations à
+  mémoire (`#populate()`, `DrizzleRepository.ts:442`). Choix assumé — pas de couche de relations à
   déclarer une seconde fois, et le comportement est le même sur les trois dialectes.
 
 ### Transactions — une connexion dédiée, jamais le pool
@@ -616,7 +622,7 @@ const rows = await db.all(sql`
 `);
 ```
 
-C'est l'**anti-blocage** du modèle Repository (`getNativeConnection()`, `DrizzleOrm.ts:658`) : CTE,
+C'est l'**anti-blocage** du modèle Repository (`getNativeConnection()`, `DrizzleOrm.ts:768`) : CTE,
 fonctions de fenêtre, sous-requêtes corrélées, jointures arbitraires. Deux contreparties assumées :
 ce SQL n'est plus portable entre dialectes, et il **ne passe pas** par la sonde de profilage des
 requêtes.
@@ -775,7 +781,7 @@ faire lui-même).
 Côté écrans : **Database**, **ORM (vue d'ensemble et par entité)** et **Stores** — ce dernier répond à
 la question « où sont écrites mes données ? » pour chaque brique.
 
-La sonde d'un connecteur s'adapte au dialecte (`probe()`, `DrizzleOrm.ts:703`) :
+La sonde d'un connecteur s'adapte au dialecte (`probe()`, `DrizzleOrm.ts:813`) :
 
 - **SQLite** → `storage` : taille du fichier, mode de journal, pages libres (lus par `PRAGMA`) ;
 - **PostgreSQL / MySQL** → `pool` : taille, connexions libres, empruntées, en attente — **compteurs en

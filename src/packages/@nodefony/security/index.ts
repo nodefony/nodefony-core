@@ -181,6 +181,23 @@ export type {
 // ─── Store de jetons (PAT / refresh / denylist) + registre pluggable ─────────
 export { MemoryTokenStore } from "./nodefony/src/token/MemoryTokenStore";
 export type { TokenStoreSnapshot } from "./nodefony/src/token/MemoryTokenStore";
+// Vocabulaire de tri PUBLIC des jetons — importé par les adapters (drizzle,
+// mongoose) au lieu d'y être recopié : une seule liste, donc aucune divergence.
+export {
+  TOKEN_SORTABLE_FIELDS,
+  TOKEN_DEFAULT_ORDER,
+} from "./nodefony/src/token/tokenSort";
+// Traduction de l'état de vie d'un jeton — partagée par les adapters SQL et
+// Mongo, pour la même raison que le vocabulaire de tri : deux écritures de
+// « révoqué l'emporte sur expiré » divergeraient sans que rien ne le signale.
+export { tokenStatusCriteria } from "./nodefony/src/token/tokenCriteria";
+export {
+  tokenStatusOf,
+  matchesTokenStatus,
+} from "./nodefony/src/token/tokenStatus";
+export type { ITokenLifetime } from "./nodefony/src/token/tokenStatus";
+export { TOKEN_FACETS } from "./nodefony/src/token/tokenFilters";
+export type { ITokenCounts } from "./nodefony/src/token/tokenFilters";
 export { JwtKeystore } from "./nodefony/src/token/JwtKeystore";
 export { resolveJwtRuntime } from "./nodefony/src/token/jwtRuntime";
 export type { IJwtRuntime } from "./nodefony/src/token/jwtRuntime";
@@ -307,6 +324,13 @@ export { deriveTotpKey } from "./nodefony/src/totp/totpCipher";
 
 // ─── Webhooks sortants (P6.13) — endpoints chiffrés + store pluggable ────────
 export { MemoryWebhookStore } from "./nodefony/src/webhook/MemoryWebhookStore";
+// Vocabulaire de tri PUBLIC des endpoints — importé par les adapters (drizzle,
+// mongoose) au lieu d'y être recopié. Côté SQL il sert AUSSI de garde : le nom
+// de colonne est concaténé dans le `ORDER BY`, aucun paramètre ne le lie.
+export {
+  WEBHOOK_SORTABLE_FIELDS,
+  WEBHOOK_DEFAULT_ORDER,
+} from "./nodefony/src/webhook/webhookSort";
 export {
   registerWebhookStore,
   getWebhookStoreFactory,
@@ -380,6 +404,7 @@ export type {
   ITokenUsage,
   IResourcePermission,
   TokenRevokeReason,
+  TokenStatus,
   IJwtKeystore,
   IJwtSigningKey,
 } from "./nodefony/contracts";

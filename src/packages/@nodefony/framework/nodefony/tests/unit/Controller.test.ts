@@ -371,6 +371,39 @@ describe("Controller — getFileAsync()", () => {
     }
     expect(threw).to.be.true;
   });
+
+  // RFC 9110 §15.5.5 : le 404 est l'absence de « représentation courante pour la
+  // ressource cible ». Le 500 (§15.6.1) suppose une condition INATTENDUE — or le
+  // chemin vient d'un paramètre d'URL, donc un nom qui ne correspond à rien est
+  // une entrée client ordinaire. Sans ce contrat, un lecteur vidéo demandant un
+  // fichier supprimé faisait rendre 500 à l'application.
+  it("fichier ABSENT → 404, et le chemin ne fuit pas dans le message", async () => {
+    const { c } = makeController();
+    const absent = path.join(DIR, "aucun-fichier-ici-9110.bin");
+    let code: unknown = null;
+    let message = "";
+    try {
+      await c.getFileAsync(absent);
+    } catch (e) {
+      code = (e as { code?: unknown }).code;
+      message = (e as Error).message;
+    }
+    expect(code).to.equal(404);
+    // La même section autorise le serveur à ne pas divulguer l'existence d'une
+    // ressource : un chemin serveur dans un corps d'erreur est une fuite.
+    expect(message).to.not.include("aucun-fichier-ici");
+  });
+
+  it("DOSSIER → 404 aussi : il n'est pas servable comme fichier", async () => {
+    const { c } = makeController();
+    let code: unknown = null;
+    try {
+      await c.getFileAsync(DIR);
+    } catch (e) {
+      code = (e as { code?: unknown }).code;
+    }
+    expect(code).to.equal(404);
+  });
 });
 
 // ─── streaming (renderFileDownload / streamFile / renderMediaStream) ────────────

@@ -33,6 +33,23 @@ env:
   # Sortie non interactive
   CI: true
   FORCE_COLOR: 1
+  # Turbo lance par défaut jusqu'à DIX tâches de front, sur des runners qui ont
+  # QUATRE cœurs — chacune démarrant un binaire natif (rolldown en Rust, tsgo en
+  # Go). Sous Windows, ces démarrages simultanés ont fait tomber des jobs entiers
+  # avec le code 3221225794 (0xC0000142, STATUS_DLL_INIT_FAILED) : le process ne
+  # démarre pas, il n'échoue pas à compiler. Constaté sur trois runs distincts,
+  # sur `rolldown` ET sur `tsgo`, et sur Windows seulement.
+  #
+  # Aligner la concurrence sur les cœurs réels supprime la sur-souscription sans
+  # rien coûter : ces tâches sont limitées par le CPU, pas par l'attente.
+  #
+  # ⚠️ C'est une ATTÉNUATION RAISONNÉE, pas une correction prouvée — elle ne peut
+  # pas l'être sans machine Windows. Si 3221225794 revient malgré cette valeur,
+  # l'hypothèse « sur-souscription » est fausse : chercher alors du côté de la
+  # mémoire du runner ou d'un binaire natif précis, et ne pas baisser davantage.
+  # (`TURBO_CONCURRENCY` est bien lu par turbo 2.10 — vérifié : une valeur
+  # invalide fait échouer la commande.)
+  TURBO_CONCURRENCY: 4
 
 jobs:
   # ─── Vérifications statiques — multi-plateformes ────────────────────────────
@@ -94,8 +111,13 @@ jobs:
       # Conséquence assumée : un avertissement neuf CASSE la demande de fusion.
       # C'est le but — une règle qu'on décide d'ignorer se désactive dans
       # `.oxlintrc.json`, où la décision se lit et se discute.
+      #
+      # L'option vit dans le script `lint` du manifeste racine, pas ici : quand
+      # elle n'était posée QUE dans cette marche, le lint local rendait 0 sur un
+      # avertissement que la forge refusait — la panne n'apparaissait qu'après
+      # le `push`, sur une machine où personne ne débogue. Une seule écriture.
       - name: Lint (oxlint)
-        run: npm run lint -- --deny-warnings
+        run: npm run lint
 
       # Bloquant à partir de « high ». `npm ci` tourne avec `--no-audit` (l'audit
       # à l'installation ralentit sans rien bloquer) — la vérification est donc
@@ -113,6 +135,32 @@ jobs:
       - name: Conformité des skills
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         run: npm run skills:check
+
+      # Les JUGES du banc devkit, éprouvés — pas le banc lui-même.
+      #
+      # Le banc lance de vrais agents et coûte de l'argent : il n'a rien à faire
+      # dans une passe automatique. Ses auto-contrôles, eux, ne lancent aucun
+      # agent, ne montent aucun décor, et tournent en quelques secondes pour zéro
+      # jeton — or c'est EUX qui décident si un verdict de banc veut dire quelque
+      # chose. Ils vivaient en local sans que rien ne les déclenche : exactement
+      # le motif qui a laissé le lint dériver jusqu'à 263 avertissements.
+      #
+      # `--prove` ampute chaque sonde et exige qu'un cas tombe : une sonde qui
+      # reste verte amputée n'est pas exercée par ses échantillons. Sortie `2` =
+      # couverture incomplète (sonde ajoutée sans son échantillon) — bloquante
+      # ici, parce qu'un vert incomplet lu comme un vert complet est le piège
+      # maison numéro un.
+      #
+      # NON couvert par cette étape : `bench-schema.selftest.mjs`, qui exige une
+      # base PostgreSQL pour exercer son lecteur et sort `2` sans elle. Il est
+      # lancé dans `orm.yml`, là où le service existe déjà.
+      - name: Auto-contrôle des juges du banc devkit
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        run: |
+          node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs
+          node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs --prove
+          node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-route-param.selftest.mjs
+          node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-session-csrf.selftest.mjs
 
   # ─── Tests unit — toutes les plateformes, pas besoin du serveur ─────────────
   #

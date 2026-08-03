@@ -1,7 +1,7 @@
 import Container from "../Container";
 import Service from "../Service";
 import Syslog from "../syslog/Syslog";
-import Pdu from "../syslog/Pdu";
+import Pdu, { SEVERITY_NAMES } from "../syslog/Pdu";
 import {
   extend,
   isEmptyObject,
@@ -40,6 +40,9 @@ export type {
   IRealtimeDenied,
 } from "./realtime/RealtimeClient";
 export type { NodefonyNotice, NoticeLevel } from "./realtime/notice";
+// Vocabulaire des sévérités RFC 5424 — isomorphe : la console
+// d'administration en tirait deux copies locales, dans deux ordres.
+export type { Severity, SeverityName } from "../syslog/Pdu";
 export type {
   IRealtimePeer,
   RpcActionHandler,
@@ -84,6 +87,7 @@ export {
   Service,
   Container,
   Pdu,
+  SEVERITY_NAMES,
   Syslog,
   extend,
   isEmptyObject,
@@ -111,6 +115,10 @@ export {
   pduFlowStep,
   FLOW_STEPS,
 };
+// Le contrat de pagination est ISOMORPHE : le serveur rend des `IPage`, le
+// navigateur les consomme. Types purs — zéro octet de runtime côté client, et
+// une seule définition des deux côtés du fil (une copie front dériverait).
+export type { IPage, IPageQuery } from "../types/IPage";
 export type { LogProtocol } from "../syslog/drivers/pduProtocol";
 export type { FlowStepId, FlowStepMeta } from "../syslog/drivers/pduFlow";
 export type { RateBounds } from "../realtime/channelRate";

@@ -7,6 +7,7 @@ import {
   getScaffoldSpec,
   COMMAND_PHASE_CHOICES,
   CONTROLLER_KIND_CHOICES,
+  DATABASE_CHOICES,
   ENTITY_ID_CHOICES,
   FRONTEND_CHOICES,
   MODULE_CONTROLLER_CHOICES,
@@ -23,6 +24,7 @@ import {
 } from "./scaffold/engine";
 import { diffLines, type IScaffoldChange } from "./scaffold/writer";
 import { askMissing, confirm } from "./scaffold/interactive";
+import { syncSkillPointers } from "./aiSync";
 
 /**
  * Adaptateur CLI du scaffold `nodefony create <type> [name]` — front n°1 et n°2
@@ -44,6 +46,7 @@ export const CREATE_TYPES = [
   "app",
   "module",
   "controller",
+  "service",
   "front",
   "entity",
   "command",
@@ -117,6 +120,8 @@ export function parseCreateArgv(
       answers.preset = rest[++i];
     } else if (word === "--frontend") {
       answers.frontend = rest[++i];
+    } else if (word === "--database") {
+      answers.database = rest[++i];
     } else if (word === "--kind") {
       answers.kind = rest[++i];
     } else if (word === "--controller") {
@@ -137,6 +142,11 @@ export function parseCreateArgv(
       answers.route = rest[++i];
     } else if (word === "--module") {
       answers.module = rest[++i];
+      // ─── `create service` ───────────────────────────────────────────────────
+      // Injection par le CONSTRUCTEUR — le service visé doit exister dans la
+      // cible, sinon le scaffold refuse avant d'écrire.
+    } else if (word === "--inject") {
+      answers.inject = rest[++i];
       // ─── `create entity` ────────────────────────────────────────────────────
       // `--controller` est déjà un flag À VALEUR (`create module --controller hello`) :
       // pour une entité, le booléen s'exprime donc par sa négation, jamais par
@@ -233,10 +243,14 @@ export function parseCreateArgv(
 const USAGE =
   `usage : nodefony create <${CREATE_TYPES.join("|")}> [name] [--dir <path>] [--force] [--yes] [--dry-run|-n]\n` +
   `  app        : [--preset <${PRESET_CHOICES.join("|")}>] [--frontend <${FRONTEND_CHOICES.join("|")}>]\n` +
+  `               [--database <${DATABASE_CHOICES.join("|")}>] — le compose ne porte QUE ce service\n` +
   `               [--link|--no-link] [--no-install] [--no-git]\n` +
   `  module     : [--controller <${MODULE_CONTROLLER_CHOICES.join("|")}>] [--no-service] [--command]\n` +
   `               [--frontend <${FRONTEND_CHOICES.join("|")}>] [--description "…"] [--no-install]\n` +
   `  controller : [--kind <${CONTROLLER_KIND_CHOICES.join("|")}>] [--route </api/x>] [--module <nom>]\n` +
+  `  service    : [--inject <AutreService>] [--description "…"] [--module <nom>]\n` +
+  `               classe @injectable, sans dépendance à un config.ts — pour la découvrir, imite-la\n` +
+  `               --inject : dépendance déclarée au CONSTRUCTEUR (@inject + appel), pas container.get\n` +
   `  front      : [--frontend <react|vue|angular>] [--route </page>] [--module <nom>]\n` +
   `  entity     : [champs…] [--id <${ENTITY_ID_CHOICES.join("|")}>] [--soft-delete] [--no-timestamps]\n` +
   `               [--no-controller] [--no-service] [--no-tests] [--route </api/x>] [--module <nom>]\n` +
@@ -251,7 +265,7 @@ const USAGE =
   `               ex : nodefony create entity Event siteId:uuid path:string --index "siteId,createdAt"\n` +
   `  command    : [--phase <${COMMAND_PHASE_CHOICES.join("|")}>] [--description "…"] [--service] [--module <nom>]\n` +
   `               nom = l'ACTION ; la commande vaut <module>:<action> (ex : blog:publish)\n` +
-  `               (types controller/front/entity/command : dans un projet existant — app racine ou module)\n` +
+  `               (types controller/service/front/entity/command : dans un projet existant — app racine ou module)\n` +
   `  Sans flags dans un terminal → mode interactif (questions + récap).\n` +
   `  Mode machine (agents, scripts) :\n` +
   `    --describe-json                  types, questions, valeurs permises et cibles du projet, en JSON\n` +
@@ -416,6 +430,43 @@ function runBuild(dest: string): boolean {
 }
 
 /**
+ * Pose les pointeurs vers les skills d'agent livrés par les paquets installés.
+ *
+ * **Pourquoi ici, et pas par un `postinstall`** : `--ignore-scripts` est courant
+ * (intégration continue, politiques d'entreprise), les scripts d'installation
+ * sont un vecteur d'attaque connu de l'écosystème npm, et écrire dans un dossier
+ * VERSIONNÉ à chaque installation produirait des différences surprises. Le
+ * scaffold pose une fois, `npx nodefony ai:sync` remet à jour quand on le
+ * demande.
+ *
+ * **Pourquoi APRÈS l'install et AVANT le premier commit** : les skills vivent
+ * dans `node_modules`, il n'y a rien à découvrir tant qu'il n'existe pas ; et
+ * ces pointeurs sont faits pour être VERSIONNÉS — l'équipe et l'intégration
+ * continue disposent alors des mêmes skills que celui qui a créé l'app.
+ *
+ * Sans ce geste, le lot ne servirait qu'à celui qui connaît déjà `ai:sync` — or
+ * personne n'apprend un verbe absent.
+ *
+ * @param dest - racine de l'app générée.
+ * @returns la note à afficher. Ne lève JAMAIS : une application entièrement
+ *   générée ne s'annule pas parce qu'un dossier de skills est illisible.
+ */
+function poseSkillPointers(dest: string): string {
+  try {
+    const plan = syncSkillPointers(dest);
+    if (plan.skills.length === 0) {
+      return `aucun skill livré par les paquets installés → npx nodefony ai:sync après un npm install`;
+    }
+    return (
+      `${plan.skills.length} dans ${plan.directory}/ ` +
+      `(${plan.skills.map((s) => s.name).join(", ")}) — commite-les`
+    );
+  } catch (e) {
+    return `non posés (${(e as Error).message}) → npx nodefony ai:sync`;
+  }
+}
+
+/**
  * `git init` + first commit dans l'app générée — SEULEMENT si git est
  * disponible ET que le dossier n'est pas déjà couvert par un repo (une app de
  * banc dans le checkout du framework ne doit pas créer un repo imbriqué).
@@ -501,7 +552,21 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     // pas été posée (réglage `advanced`). Sans ce repli, un booléen non répondu
     // s'affichait « non » alors que son défaut est `true` — le récap annonçait
     // « service : non » puis le service était généré (vécu).
+    // Valeur EFFECTIVE de chaque question (réponse, sinon défaut de la spec) —
+    // c'est elle que lit la condition `askWhen`, comme le fait le moteur.
+    const effective = new Map(
+      spec.questions.map((q) => [q.key, answers[q.key] ?? q.default]),
+    );
     const lines = spec.questions
+      // Une question dont l'`askWhen` n'est pas satisfait ne sera PAS honorée
+      // (le moteur la ramène à son défaut) : l'afficher annoncerait un choix
+      // que la génération ignore — exactement le contresens que ce récap existe
+      // pour éviter.
+      .filter(
+        (q) =>
+          !q.askWhen ||
+          String(effective.get(q.askWhen.key)) === q.askWhen.equals,
+      )
       .map((q) => {
         const value = answers[q.key] ?? q.default;
         const shown =
@@ -575,9 +640,15 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     // module chargeable. Le build suit : le runtime charge `dist/index.js`.
     const projectRoot = findProjectRoot(process.cwd());
     if (!parsed.install) {
+      // Le chemin annoncé est celui où le module a RÉELLEMENT atterri (il dépend
+      // du layout du dépôt) — pas `modules/` en dur, qui enverrait chercher un
+      // dossier inexistant dans un monorepo.
+      const where = projectRoot
+        ? path.relative(projectRoot, result.dest).split(path.sep).join("/")
+        : String(answers.name);
       process.stdout.write(
         `\nProchaines étapes (--no-install) :\n` +
-          `  npm install        # symlinke modules/${String(answers.name)} (workspace)\n` +
+          `  npm install        # symlinke ${where} (workspace)\n` +
           `  npm run build\n`,
       );
       return SysExit.OK;
@@ -636,15 +707,29 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       `⚠ npm run build a échoué — relance-le à la main dans ${relDest}/\n`,
     );
   }
+  // AVANT git : ces pointeurs entrent dans le premier commit, comme le lockfile.
+  process.stdout.write(
+    `\n🤖 skills d'agent : ${poseSkillPointers(result.dest)}\n`,
+  );
   const gitNote = parsed.git
     ? runGitInit(result.dest, String(answers.name))
     : "sauté (--no-git)";
-  process.stdout.write(`\n🌱 git : ${gitNote}\n`);
+  process.stdout.write(`🌱 git : ${gitNote}\n`);
+  // Une base docker a été retenue : `.env` déclare `NF_DATABASE_URL` dessus, donc
+  // le premier `npm run dev` échoue tant que le service n'écoute pas. L'étape est
+  // dans la séquence, pas en note de bas de page.
+  const needsInfra =
+    answers.preset !== "minimal" &&
+    answers.database !== undefined &&
+    answers.database !== "sqlite";
   process.stdout.write(
     `\nProchaines étapes :\n` +
       `  cd ${relDest}\n` +
       (installed ? "" : `  npm install\n`) +
       (built ? "" : `  npm run build\n`) +
+      (needsInfra
+        ? `  npm run infra:up   # docker : ${String(answers.database)} + Redis (NF_DATABASE_URL pointe dessus)\n`
+        : "") +
       `  npm run dev        # → https://127.0.0.1:5152 (admin : /nodefony — admin/admin en dev)\n`,
   );
   return SysExit.OK;

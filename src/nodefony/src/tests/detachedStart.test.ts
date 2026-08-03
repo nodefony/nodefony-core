@@ -13,11 +13,13 @@ import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
 import {
+  childEnv,
   launchDetached,
   parseDetachArgs,
   isDetachRequested,
   DETACH_CHILD_ENV,
 } from "../service/dev/detachedStart";
+import { DELEGATED_ENV } from "../bin/resolveLocalCli";
 import { signalProcessGroup, waitAllDead } from "../service/dev/devProcess";
 import { isWatchDisabled } from "../kernel/commands/DevCommand";
 
@@ -574,6 +576,78 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
       // a SURVÉCU — le laisser en vie doublerait le dégât.
       await killDetached(childPid);
       fs.rmSync(log, { force: true });
+    }
+  });
+});
+
+/*
+ * Ce que le child NE DOIT PAS hériter.
+ *
+ * Défaut vécu, et invisible partout où le CLI global et le CLI local sont le
+ * même code (monorepo, `create app --link`) : sur une application installée
+ * depuis les tarballs, `nodefony production --detach` bootait le framework du
+ * CLI GLOBAL contre l'application locale — un seul module chargé sur huit, puis
+ * « profil serveur mais aucun serveur en écoute », sans un mot sur la cause.
+ *
+ * La garde de délégation décrit l'état du process COURANT (« j'ai déjà chargé
+ * le CLI de l'app, je n'ai plus à déléguer ») ; héritée par un child relancé
+ * sur le binaire d'ENTRÉE, elle lui interdit la délégation qui l'aurait renvoyé
+ * vers le CLI de l'application.
+ */
+describe("l'environnement du child détaché — ce qui ne franchit PAS le spawn", () => {
+  it("childEnv : garde de délégation retirée, marqueur anti-récursion posé", () => {
+    const env = childEnv(
+      { PATH: "/bin", [DELEGATED_ENV]: "1" },
+      { NF_PORT: "1234" },
+    );
+    assert.strictEqual(
+      env[DELEGATED_ENV],
+      undefined,
+      "la garde de délégation ne se propage pas : le child doit pouvoir redéléguer",
+    );
+    assert.strictEqual(env[DETACH_CHILD_ENV], "1");
+    assert.strictEqual(env.NF_PORT, "1234");
+    assert.strictEqual(env.PATH, "/bin", "le reste de l'environnement passe");
+  });
+
+  it("au SPAWN réel : le child ne voit pas la garde que porte le parent", async () => {
+    const p1 = await freePort();
+    const log = tmpLog("delegated");
+    let childPid: number | undefined;
+    const saved = process.env[DELEGATED_ENV];
+    // Le parent est dans l'état exact du CLI global ayant délégué au CLI local.
+    process.env[DELEGATED_ENV] = "1";
+    try {
+      // Le child RAPPORTE ce qu'il a reçu — c'est son env constaté qui juge,
+      // pas la façon dont on l'a composé.
+      const script = `
+        const net = require("node:net");
+        console.log("DELEGATED=" + String(process.env.${DELEGATED_ENV}));
+        console.log("DETACH_CHILD=" + String(process.env.${DETACH_CHILD_ENV}));
+        net.createServer().listen(${p1}, "127.0.0.1");
+        setInterval(() => {}, 1 << 30);
+      `;
+      const r = await launchDetached({
+        spawnCmd: process.execPath,
+        spawnArgs: ["-e", script],
+        logFile: log,
+        ports: [p1],
+        waitSec: 15,
+      });
+      childPid = r.pid as number;
+      assert.strictEqual(r.ok, true, `attendu ok — reason: ${r.reason}`);
+      const journal = fs.readFileSync(log, "utf8");
+      assert.ok(
+        journal.includes("DELEGATED=undefined"),
+        `le child a hérité la garde de délégation — il exécutera le CLI global ` +
+          `contre l'application locale.\njournal du child :\n${journal}`,
+      );
+      assert.ok(journal.includes("DETACH_CHILD=1"));
+    } finally {
+      await killDetached(childPid);
+      fs.rmSync(log, { force: true });
+      if (saved === undefined) delete process.env[DELEGATED_ENV];
+      else process.env[DELEGATED_ENV] = saved;
     }
   });
 });

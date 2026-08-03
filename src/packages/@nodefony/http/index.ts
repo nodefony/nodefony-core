@@ -306,6 +306,14 @@ export type {
   FlashBagType,
   MetaBagType,
 } from "./nodefony/interfaces/ISession";
+// Vocabulaire de tri des sessions — partagé par TOUS les backends (mémoire,
+// drizzle, mongoose, redis), pour qu'un `?order=` ait le même sens partout.
+export {
+  SESSION_SORTABLE_FIELDS,
+  SESSION_DEFAULT_ORDER,
+  SESSION_DEFAULT_ORDER_SQL,
+  SESSION_COLUMN_ALIASES,
+} from "./nodefony/src/session/storage/sessionSort";
 export type {
   IHttpRequest,
   IHttp2Request,

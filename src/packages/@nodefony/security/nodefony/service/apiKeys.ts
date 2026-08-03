@@ -1,5 +1,13 @@
-import { Service, Module, Container, Event, type IPage } from "nodefony";
+import {
+  Service,
+  Module,
+  Container,
+  Event,
+  countFacets,
+  type IPage,
+} from "nodefony";
 import { randomUUID } from "node:crypto";
+import { TOKEN_FACETS, type ITokenCounts } from "../src/token/tokenFilters";
 import {
   defineSecurityConfig,
   type ISecurityConfig,
@@ -85,6 +93,28 @@ class ApiKeyService extends Service {
   /** `true` si les clés API sont activées en config. */
   isEnabled(): boolean {
     return this.#enabled;
+  }
+
+  /**
+   * Champs de tri que le backend **actuellement branché** sait honorer, en
+   * vocabulaire public. Le data plane admin les passe en allowlist au traducteur
+   * de requête de page : hors de cette liste, un `?order=` est refusé en 400.
+   *
+   * La liste vient du store, jamais d'une constante recopiée ici : c'est ce qui
+   * fait qu'un backend à capacité réduite (Redis, dont le `SCAN` n'a pas d'ordre
+   * global) refuse le tri **sans qu'aucune règle supplémentaire ne soit écrite**.
+   * Store absent ou indisponible → aucune capacité annoncée, donc aucun tri promis.
+   *
+   * @returns les champs triables, ou un tableau vide.
+   */
+  sortableFields(): readonly string[] {
+    try {
+      return this.#resolveStore().sortableFields ?? [];
+    } catch {
+      // `#resolveStore` lève 503 quand rien n'est branché : l'introspection d'une
+      // capacité ne doit jamais casser la page qui l'interroge.
+      return [];
+    }
   }
 
   /**
@@ -187,6 +217,32 @@ class ApiKeyService extends Service {
     const store = this.#resolveStore();
     const page = await store.listPage({ ...query, kind: "pat" });
     return { ...page, items: page.items.map((r) => this.#toView(r)) };
+  }
+
+  /**
+   * Les compteurs de tête de la console — posés sur la collection ENTIÈRE, pas
+   * sur la page affichée.
+   *
+   * Les trois états partitionnent, mais chacun est **compté** : une partition
+   * est une propriété du domaine d'aujourd'hui, pas une garantie du code, et un
+   * quatrième état la briserait en silence si l'un se déduisait des autres.
+   *
+   * `kind` reste forcé à `"pat"` comme pour la liste : ces cartes surplombent
+   * un tableau de clés d'API, pas de jetons de rafraîchissement.
+   *
+   * @param query - filtres à appliquer avant comptage (sans fenêtre).
+   */
+  async countKeyFacets(
+    query?: Partial<ITokenListQuery>,
+  ): Promise<ITokenCounts> {
+    const store = this.#resolveStore();
+    return countFacets(TOKEN_FACETS, (facet) =>
+      store.countTokens({
+        ...query,
+        ...facet,
+        kind: "pat",
+      } as ITokenListQuery),
+    );
   }
 
   /**

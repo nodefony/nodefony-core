@@ -38,6 +38,21 @@ export interface IScaffoldQuestion {
    */
   askIf?: "hasCheckout";
   /**
+   * Condition d'affichage par RÉPONSE PRÉCÉDENTE (JSON-able) : la question n'est
+   * posée que si `key` a déjà pour valeur `equals`. Distinct d'`askIf`, qui
+   * interroge l'ENVIRONNEMENT (un checkout est-il là ?) là où celle-ci exprime
+   * une dépendance entre deux choix de la même création.
+   *
+   * Non satisfaite, la question n'est ni posée ni honorée : sa valeur retombe au
+   * DÉFAUT de la spec. Une réponse portant sur ce qui ne sera pas généré n'a pas
+   * de sens à conserver — `--database postgres --preset minimal` ne rend aucun
+   * `compose.yaml` où mettre un service.
+   *
+   * La question référencée doit précéder celle-ci : le moteur comme le dialogue
+   * résolvent les questions dans l'ordre de la spec.
+   */
+  askWhen?: { key: string; equals: string };
+  /**
    * Source des choix RÉELS de cette question, dans le projet courant (JSON-able,
    * même esprit qu'`askIf`).
    *
@@ -79,6 +94,23 @@ export type TFrontendChoice = (typeof FRONTEND_CHOICES)[number];
 export const PRESET_CHOICES = ["complete", "minimal"] as const;
 export type TPresetChoice = (typeof PRESET_CHOICES)[number];
 
+/**
+ * Base SQL de développement — le dialecte que l'app vise, choisi À LA CRÉATION.
+ *
+ * `sqlite` reste le défaut : c'est le seul qui n'exige aucun service, et la
+ * promesse du framework est qu'une app fraîche démarre sans rien allumer. Les
+ * trois autres ne changent RIEN dans le code de l'app (l'ORM déduit le dialecte
+ * du scheme de `NF_DATABASE_URL`) — ils décident du service que l'infra de dev
+ * fournit, et de l'URL qui la joint.
+ */
+export const DATABASE_CHOICES = [
+  "sqlite",
+  "postgres",
+  "mariadb",
+  "mysql",
+] as const;
+export type TDatabaseChoice = (typeof DATABASE_CHOICES)[number];
+
 const APP_SPEC: IScaffoldTypeSpec = {
   type: "app",
   description: "Application Nodefony autonome (hors du repo framework)",
@@ -109,6 +141,37 @@ const APP_SPEC: IScaffoldTypeSpec = {
         },
       ],
       default: "complete",
+    },
+    {
+      key: "database",
+      label: "Base SQL de développement",
+      type: "choice",
+      choices: [
+        {
+          value: "sqlite",
+          label: "sqlite (recommandé pour démarrer)",
+          hint: "aucun service à lancer — le fichier vit dans var/databases/",
+        },
+        {
+          value: "postgres",
+          label: "PostgreSQL 16",
+          hint: "service docker + NF_DATABASE_URL posée",
+        },
+        {
+          value: "mariadb",
+          label: "MariaDB 11.4",
+          hint: "fork libre de MySQL — même dialecte",
+        },
+        {
+          value: "mysql",
+          label: "MySQL 8.4",
+          hint: "service docker + NF_DATABASE_URL posée",
+        },
+      ],
+      default: "sqlite",
+      // L'infra de dev et le catalogue `.env` vivent dans le layer `complete` :
+      // en preset minimal il n'y a ni compose.yaml ni ORM, donc rien à décider.
+      askWhen: { key: "preset", equals: "complete" },
     },
     {
       key: "frontend",
@@ -213,6 +276,53 @@ const CONTROLLER_SPEC: IScaffoldTypeSpec = {
       default: "",
       pattern: "^$|^/[A-Za-z0-9/_-]*$",
       patternHint: "chemin absolu (ex : /api/blog) ou vide pour le défaut",
+    },
+    {
+      key: "module",
+      label: "Cible (vide = app racine, sinon nom d'un module du projet)",
+      type: "string",
+      default: "",
+      pattern: "^$|^[@A-Za-z][@A-Za-z0-9/_-]*$",
+      patternHint: "nom d'un module du projet (dossier modules/<nom>) ou vide",
+    },
+  ],
+};
+
+const SERVICE_SPEC: IScaffoldTypeSpec = {
+  type: "service",
+  description:
+    "Service injectable (@injectable) dans le projet courant (app racine ou module) — la logique métier, réutilisable par un controller, une commande CLI ou un autre module",
+  questions: [
+    {
+      key: "name",
+      label:
+        "Nom du service (ex : billing ou Billing — suffixe Service ajouté)",
+      type: "string",
+      default: "",
+      pattern: "^[A-Za-z][A-Za-z0-9-]*$",
+      patternHint:
+        "lettres/chiffres/tirets, commence par une lettre (ex : billing, UserBilling)",
+    },
+    {
+      key: "description",
+      label: "Description courte (TSDoc du service)",
+      type: "string",
+      default: "",
+    },
+    {
+      // Le geste que le banc a mesuré ROUGE : sans exemple ACTIF, l'agent passe
+      // par `container.get` partout — la dépendance n'est alors pas déclarée,
+      // donc ni ordonnée par le conteneur ni visible dans la signature. Le
+      // scaffold refuse un nom qu'il ne trouve pas dans la cible : mieux vaut
+      // pas d'injection qu'un import vers une classe absente.
+      key: "inject",
+      label:
+        "Injecter un service existant de la cible (nom de classe, ex : BillingService)",
+      type: "string",
+      default: "",
+      pattern: "^$|^[A-Za-z][A-Za-z0-9-]*$",
+      patternHint:
+        "nom d'un service de la cible (nodefony/service/<Nom>Service.ts) ou vide",
     },
     {
       key: "module",
@@ -641,6 +751,7 @@ const SPECS: Record<string, IScaffoldTypeSpec> = {
   app: APP_SPEC,
   module: MODULE_SPEC,
   controller: CONTROLLER_SPEC,
+  service: SERVICE_SPEC,
   front: FRONT_SPEC,
   entity: ENTITY_SPEC,
   command: COMMAND_SPEC,

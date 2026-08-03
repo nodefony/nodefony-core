@@ -1,5 +1,5 @@
 import type { IRepository } from "@nodefony/orm-core";
-import type { IPage, IPageQuery } from "nodefony";
+import type { IPage, IPageQuery, ISortableSource } from "nodefony";
 import type { IPasswordAuthenticatedUser } from "./IUser";
 
 /**
@@ -21,6 +21,26 @@ export interface IUserListQuery extends IPageQuery {
   role?: string;
   /** Restreint à l'état actif (`isActive()`). Omis = actifs ET inactifs. */
   enabled?: boolean;
+  /**
+   * Restreint aux comptes **verrouillés** (`isLocked()`), ou aux non verrouillés.
+   * Omis = les deux.
+   *
+   * Distinct d'`enabled` : un compte désactivé l'a été par décision
+   * d'administration, un compte verrouillé l'est par un mécanisme de défense
+   * (trop d'échecs d'authentification). Les deux peuvent coexister sur le même
+   * compte — les compter séparément est le seul moyen de savoir lequel des deux
+   * bloque une population.
+   */
+  locked?: boolean;
+  /**
+   * Restreint aux comptes liés à **au moins un fournisseur d'identité externe**
+   * (OAuth), ou à ceux qui n'en ont aucun. Omis = les deux.
+   *
+   * Répond à « combien de comptes dépendent d'un fournisseur tiers ? », question
+   * de gouvernance qu'aucun filtre existant ne posait — la console la calculait
+   * en rapatriant l'annuaire.
+   */
+  hasSocial?: boolean;
 }
 
 /**
@@ -39,7 +59,11 @@ export interface IUserListQuery extends IPageQuery {
  * (framework/authz reçoivent `IUser` via `IUserProvider`), pas la couche de
  * stockage qui, par nature, manipule le hash.
  */
-export interface IUserRepository extends IRepository<IPasswordAuthenticatedUser> {
+export interface IUserRepository
+  extends IRepository<IPasswordAuthenticatedUser>, ISortableSource {
+  // `sortableFields` vient d'`ISortableSource` (core) : la FORME de la capacité
+  // s'écrit une fois pour toutes les ressources. Ici, seul le vocabulaire est
+  // propre aux utilisateurs — `USER_SORTABLE_FIELDS` (`../src/userSort`).
   /**
    * Retrouve un utilisateur par son identifiant fonctionnel (email, login...).
    *
@@ -86,4 +110,16 @@ export interface IUserRepository extends IRepository<IPasswordAuthenticatedUser>
    * @returns le nombre d'admins actifs portant ce rôle.
    */
   countActiveAdmins(adminRole: string): Promise<number>;
+
+  /**
+   * Compte les comptes correspondant aux filtres, **sans les énumérer**.
+   *
+   * Alimente les compteurs de tête de la console d'administration, qui portent
+   * sur l'annuaire entier et non sur la page affichée. `limit`/`offset` sont
+   * ignorés : un comptage n'a pas de fenêtre.
+   *
+   * @param query - les filtres seuls ({@link IUserListQuery}).
+   * @returns le nombre de comptes correspondants.
+   */
+  countUsers(query: IUserListQuery): Promise<number>;
 }

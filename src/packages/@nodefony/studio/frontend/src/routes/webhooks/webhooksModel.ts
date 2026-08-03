@@ -111,6 +111,15 @@ export interface WebhookDelivery {
 /** Base du data plane webhooks (broker `security`, RBAC `ROLE_NODEFONY_ADMIN`). */
 export const WEBHOOKS_ENDPOINT = "/nodefony/security/api/webhooks";
 
+/**
+ * GET — **compteurs de tête**, posés par le serveur sur le registre ENTIER.
+ *
+ * Endpoint distinct de la liste : ces nombres ne dépendent ni de la fenêtre ni
+ * de l'ordre, on ne les recharge donc qu'au montage, au changement de filtre et
+ * après une mutation.
+ */
+export const WEBHOOKS_STATS_ENDPOINT = `${WEBHOOKS_ENDPOINT}/stats`;
+
 /** PATCH/DELETE/GET sur un endpoint par id. */
 export function webhookEndpoint(id: string): string {
   return `${WEBHOOKS_ENDPOINT}/${encodeURIComponent(id)}`;
@@ -215,31 +224,30 @@ export function deliveryHealth(ep: WebhookEndpoint): DeliveryHealth {
   return "failing";
 }
 
-/** Compteurs (KPIs). */
+/**
+ * Compteurs de tête — miroir de ce que rend `webhooks/stats`.
+ *
+ * `null` = le backend ne sait pas compter, ou les webhooks sont coupés ; se rend
+ * « — » à l'écran. Un `0` se lirait « aucun endpoint configuré », ce qui est une
+ * information, alors qu'on n'en a aucune.
+ *
+ * Les populations se **recoupent** : un endpoint peut être actif ET en échec.
+ * Aucune n'est donc déduite d'une autre par soustraction.
+ */
 export interface WebhookCounts {
-  total: number;
+  total: number | null;
   /** Actifs (enabled). */
-  active: number;
-  /** En échec (au moins un échec consécutif courant). */
-  failing: number;
+  active: number | null;
+  /** En échec (au moins un échec consécutif courant), actifs ou non. */
+  failing: number | null;
   /** Désactivés (enabled = false, dont auto-désactivés). */
-  disabled: number;
+  disabled: number | null;
 }
 
-export function countWebhooks(endpoints: WebhookEndpoint[]): WebhookCounts {
-  const counts: WebhookCounts = {
-    total: endpoints.length,
-    active: 0,
-    failing: 0,
-    disabled: 0,
-  };
-  for (const ep of endpoints) {
-    if (ep.enabled) counts.active++;
-    else counts.disabled++;
-    if (ep.failureCount > 0) counts.failing++;
-  }
-  return counts;
-}
+// Le comptage LOCAL a disparu avec le repli qui le justifiait : la réponse est
+// désormais fenêtrée (la table demande une page), et compter ses lignes en les
+// présentant comme le registre est exactement le mensonge que `webhooks/stats`
+// corrige. Un compteur que le serveur ne rend pas vaut `null` → « — ».
 
 // ─── Validation de formulaire (le back re-valide anti-SSRF — ceci = garde-fou UX) ─
 

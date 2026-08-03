@@ -113,6 +113,40 @@ bash .claude/skills/nodefony-start-server/stop.sh    # 3. couper
 
 Avec serveur up → 59/59 verts.
 
+### Recette C-bis — LIRE LE BILAN DU DERNIER BOOT avant de reproduire quoi que ce soit
+
+**Symptôme** : l'application ne démarre plus et tu n'as pas la sortie (démarrage
+détaché par le `DevSupervisor`, conteneur qui sort en 78, job de CI) — ou pire,
+elle démarre et « tout a l'air normal » alors qu'une brique manque.
+
+**Le premier geste n'est pas de relancer**, c'est de lire ce que le dernier
+démarrage a laissé :
+
+```bash
+npx nodefony check                       # rapport lisible, en tête
+cat var/last-boot.json                   # le bilan brut
+npx nodefony check --json | jq .lastBoot # pour un agent
+```
+
+Le Kernel écrit `var/last-boot.json` aux **deux** issues : `status: "failed"`
+avec la phase atteinte (`onPreStart`, `onBoot`, `onReady`…) et la cause ; ou
+`status: "ok"` avec le bilan — `bricksSkipped` (tombées en fail-soft, AVEC la
+raison), `bricksGated` (écartées volontairement par `policy`/`when`), les
+comptes d'avertissements, les serveurs en écoute, la remédiation suggérée.
+
+**Pourquoi ça change le diagnostic** : un boot qui ÉCHOUE est visible par
+construction. Un boot qui **réussit en dégradé** ne l'est pas — le journal le
+dit une fois, puis le terminal se ferme et l'application tourne amputée. C'est
+le cas qu'on ne diagnostique jamais parce que rien ne le signale.
+
+⚠️ **Lis l'ÂGE que `check` affiche** (« il y a 3 jours ») : le bilan décrit le
+dernier démarrage, pas l'instant présent. Un bilan périmé fait chercher un
+défaut déjà réparé.
+
+⚠️ Une commande console (`inspect`, une commande de module) démarre sans monter
+de serveur : elle n'écrase PAS le bilan. C'est voulu — sinon l'outil de
+diagnostic détruirait la preuve qu'il vient chercher.
+
 ### Recette D — `vi.useFakeTimers()` plante en mocha (mélange runners) — ⚠️ HISTORIQUE (mocha SUPPRIMÉ 2026-06-05, runner unique = vitest ; gardé comme leçon)
 
 **Symptôme** : `Error: Vitest failed to access its internal state` lors de `npm run test:integration`. Stack trace pointe `getWorkerState()` → `useFakeTimers()`.

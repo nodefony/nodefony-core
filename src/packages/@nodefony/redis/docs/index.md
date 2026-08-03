@@ -227,7 +227,7 @@ et un ré-export de la bibliothèque `redis` elle-même pour qui a besoin de ses
 
 Charger le module suffit : `registerRedisFrameworkStores()` (`registerStores.ts:46`) inscrit les
 fabriques `redis` dans les registres de `@nodefony/security`, et le store de session s'auto-déclare
-(`SessionStorage.ts:327`). Aucun câblage applicatif — il ne reste qu'à nommer le store, ou à laisser
+(`SessionStorage.ts:323`). Aucun câblage applicatif — il ne reste qu'à nommer le store, ou à laisser
 `auto` faire.
 
 Les signatures exactes vivent dans le graphe généré (`jq '.symbols.RedisService' .ai/symbols.json`),
@@ -271,7 +271,7 @@ chose**.
 > [!IMPORTANT]
 > **Une suite verte ne prouve rien sans serveur Redis.** Les bancs d'intégration se **skippent** quand
 > l'infra manque, et un skip compte comme un succès : on peut lire « tout est vert » sur une suite qui
-> n'a rien exercé. Le module déclare donc sa gate — `REDIS_GATE` dans `vitest.gates.ts:147` — et la
+> n'a rien exercé. Le module déclare donc sa gate — `REDIS_GATE` dans `vitest.gates.ts:290` — et la
 > fin de run nomme la cible non testée avec la commande exacte pour la satisfaire. **Lis ce bloc avant
 > de conclure.** Les variables et la commande docker viennent de là, pas de cette page : les recopier
 > ici les condamnerait à diverger.

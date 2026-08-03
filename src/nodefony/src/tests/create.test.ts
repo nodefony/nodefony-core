@@ -28,6 +28,8 @@ import {
   runScaffold,
   getScaffoldContext,
   findModuleClassAnchor,
+  filterProbe,
+  malformedProbe,
 } from "../cli/scaffold/engine";
 import { ScaffoldWriter, diffLines } from "../cli/scaffold/writer";
 import { askMissing } from "../cli/scaffold/interactive";
@@ -107,6 +109,20 @@ function assertNoEtaResidue(dest: string): void {
         "utf8",
       );
       assert.notInclude(content, "<%", `tag eta résiduel dans ${entry.name}`);
+      // Eta AVALE le saut de ligne qui suit un tag placé en FIN de ligne : la
+      // ligne suivante se recolle à la précédente. Le rendu reste valide (aucun
+      // résidu `<%`), mais le fichier part avec un TSDoc recousu ou un type
+      // coupé en deux. Le contrôle vivait sur deux scaffolds seulement — et le
+      // défaut est réapparu ailleurs le jour où un troisième gabarit a rendu la
+      // même forme. Il est donc ici, avec le contrôle frère : un rendu eta se
+      // vérifie au même endroit, quel que soit le scaffold.
+      if (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) {
+        assert.notMatch(
+          content,
+          /^ \*.*\S \*$/mu,
+          `ligne de TSDoc recollée dans ${entry.name} — tag eta en fin de ligne`,
+        );
+      }
     }
   }
 }
@@ -258,9 +274,32 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const pkg = readJson(path.join(dest, "package.json"));
       assert.equal(pkg["dependencies"]["nodefony"], `^${version}`);
       assert.property(pkg["dependencies"], "@nodefony/drizzle");
+      // Le hachage de mot de passe est un chemin PAR DÉFAUT (argon2id, RFC
+      // 9106) et le provisionnement seede un compte au boot. `@nodefony/user`
+      // déclare le binding en peer OPTIONNELLE — pour la bibliothèque, pas pour
+      // l'application. Sans cette dépendance, une app générée démarre en
+      // développement et meurt en production sur `Cannot find package
+      // '@node-rs/argon2'` : trouvé par un agent tiers, jamais par nos tests,
+      // parce qu'aucun d'eux ne démarrait l'app en production.
+      assert.property(pkg["dependencies"], "@node-rs/argon2");
       assert.property(pkg["scripts"], "infra:up");
       // Sans front, le build reste back seul (pas de frontend:build fantôme).
       assert.notInclude(pkg["scripts"]["build"], "frontend:build");
+      // Les DEUX verbes de diagnostic, jamais l'un sans l'autre : `check` est
+      // statique (répond sur une app cassée), `inspect` est runtime (ce qui est
+      // VRAIMENT monté). Un agent les apprend ensemble, et n'en exposer qu'un
+      // laisse croire que l'autre n'existe pas.
+      assert.property(pkg["scripts"], "check");
+      assert.property(pkg["scripts"], "inspect");
+      // `ai:sync` pose les skills livrés par les paquets. Sans cette ligne, le
+      // verbe existe et personne ne l'apprend — le défaut mesuré au banc sur
+      // les commandes maison (`nodefony check` employé 5 fois sur 63).
+      assert.property(pkg["scripts"], "ai:sync");
+      // `clean` ne peut PAS s'appuyer sur `rimraf` : il n'est pas dans les
+      // devDependencies du gabarit, et un script qui échoue au premier usage
+      // est pire qu'un script absent.
+      assert.property(pkg["scripts"], "clean");
+      assert.notInclude(pkg["scripts"]["clean"], "rimraf");
       assertNoEtaResidue(dest);
       assert.isEmpty(r.linked);
     });
@@ -349,6 +388,228 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  /**
+   * L'outillage de développement arrive AVEC l'application, dans les deux
+   * presets — mais jamais en production.
+   *
+   * Les deux moitiés comptent, et séparément : en `devDependencies` pour qu'un
+   * `npm ci --omit=dev` ne l'installe pas, et `policy: "dev"` pour qu'un
+   * déploiement qui installerait tout ne le charge pas quand même. Personne
+   * n'apprend un verbe absent : s'il fallait l'ajouter à la main, il n'existerait
+   * pour personne.
+   */
+  describe("devkit — l'outillage de dev naît avec l'app, et pas en prod", () => {
+    for (const preset of ["complete", "minimal"]) {
+      it(`preset ${preset} : devDependency + policy dev au manifeste`, () => {
+        const dest = path.join(tmp, `dk-${preset}`);
+        scaffold(dest, { name: `dk${preset}`, preset, frontend: "none" });
+        const pkg = readJson(path.join(dest, "package.json"));
+        assert.property(
+          pkg["devDependencies"] as unknown as Record<string, string>,
+          "@nodefony/devkit",
+        );
+        // …et SURTOUT pas en dependencies : ce serait installé en production.
+        assert.notProperty(
+          pkg["dependencies"] as unknown as Record<string, string>,
+          "@nodefony/devkit",
+        );
+        const config = readFileSync(
+          path.join(dest, "nodefony.config.ts"),
+          "utf8",
+        );
+        assert.include(
+          config.replace(/\s+/gu, " "),
+          'use("@nodefony/devkit", {}, { policy: "dev" })',
+        );
+      });
+    }
+
+    it("pose les pointeurs de skills des paquets installés, AVANT le premier commit", async () => {
+      const dest = path.join(tmp, "skills-app");
+      // Décor : le paquet est DÉJÀ installé — cas réel d'un re-scaffold sur un
+      // dossier qui porte ses node_modules. Sans ce raccourci, prouver le
+      // câblage exigerait un `npm install` réel (une minute et le réseau) pour
+      // une ligne d'orchestration ; la mécanique de découverte, elle, est
+      // éprouvée par `aiSync.test.ts`.
+      const skill = path.join(
+        dest,
+        "node_modules",
+        "@nodefony",
+        "devkit",
+        "skills",
+        "add-crud",
+      );
+      mkdirSync(skill, { recursive: true });
+      writeFileSync(
+        path.join(skill, "SKILL.md"),
+        "---\nname: add-crud\ndescription: Crée une ressource REST complète. Détail ignoré.\n---\n\ncorps\n",
+      );
+      const code = await runCreateCommand(
+        argv(
+          "create",
+          "app",
+          "skills-app",
+          "--dir",
+          dest,
+          "--force",
+          "--no-install",
+          "--no-git",
+        ),
+      );
+      assert.equal(code, SysExit.OK);
+      const pointeur = path.join(
+        dest,
+        ".agents",
+        "skills",
+        "add-crud",
+        "SKILL.md",
+      );
+      assert.isTrue(
+        existsSync(pointeur),
+        "create app n'a posé aucun pointeur — le lot ne sert alors qu'à qui connaît déjà ai:sync",
+      );
+      const contenu = readFileSync(pointeur, "utf8");
+      // Un POINTEUR, pas une copie : il DÉSIGNE la source installée.
+      assert.include(
+        contenu,
+        "node_modules/@nodefony/devkit/skills/add-crud/SKILL.md",
+      );
+      assert.notInclude(contenu, "corps");
+      // Le dossier est fait pour être VERSIONNÉ — un .gitignore qui l'exclurait
+      // le ferait disparaître du premier commit sans qu'on le voie.
+      const ignore = readFileSync(path.join(dest, ".gitignore"), "utf8");
+      assert.notInclude(ignore, ".agents");
+    });
+
+    it("l'AGENTS.md DIT que ces skills existent — une capacité absente d'ici n'existe pour personne", () => {
+      const dest = path.join(tmp, "dk-agents");
+      scaffold(dest, {
+        name: "dkagents",
+        preset: "complete",
+        frontend: "none",
+      });
+      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      assert.include(agents, ".agents/skills/");
+      assert.include(agents, "ai:sync");
+    });
+  });
+
+  describe("base SQL retenue à la création (compose ↔ .env ↔ README)", () => {
+    /**
+     * Ce que ces contrôles tiennent : le générateur CONNAÎT le dialecte, donc
+     * l'app ne reçoit ni les deux services qu'elle n'utilisera pas, ni une URL à
+     * recomposer à la main. Trois fichiers en parlent (`compose.yaml`, `.env`,
+     * `README.md`) et ils doivent coïncider EXACTEMENT — c'est le seul défaut
+     * qui ne se voit qu'à la connexion refusée, jamais au rendu.
+     */
+    const composeOf = (dest: string) =>
+      readFileSync(path.join(dest, "compose.yaml"), "utf8");
+    const envOf = (dest: string) =>
+      readFileSync(path.join(dest, ".env"), "utf8");
+
+    it("défaut sqlite : AUCUN service SQL, et l'URL reste commentée", () => {
+      const dest = path.join(tmp, "solo");
+      scaffold(dest, { name: "solo" });
+      const compose = composeOf(dest);
+      // Redis et l'observabilité restent — c'est la base SQL qui disparaît.
+      assert.include(compose, "\n  redis:\n");
+      for (const service of ["postgres", "mariadb", "mysql"]) {
+        assert.notInclude(
+          compose,
+          `\n  ${service}:\n`,
+          `service ${service} rendu alors que l'app est en sqlite`,
+        );
+        assert.notInclude(compose, `  ${service}-data:`);
+      }
+      // Commentée : une app qui n'a rien demandé démarre sans rien allumer.
+      assert.notMatch(envOf(dest), /^NF_DATABASE_URL=/mu);
+      assert.include(envOf(dest), "# NF_DATABASE_URL=");
+      assertNoEtaResidue(dest);
+    });
+
+    for (const [database, service, port, scheme] of [
+      ["postgres", "postgres", "5432", "postgres"],
+      ["mariadb", "mariadb", "3306", "mysql"],
+      // 3306 aussi : le port décalé n'existait que pour faire cohabiter MySQL
+      // et MariaDB dans un compose qui portait les deux.
+      ["mysql", "mysql", "3306", "mysql"],
+    ] as const) {
+      it(`--database ${database} : ce service SEUL, sans profil, et l'URL posée dessus`, () => {
+        const dest = path.join(tmp, database);
+        scaffold(dest, { name: "demo", database });
+        const compose = composeOf(dest);
+        assert.include(compose, `\n  ${service}:\n`);
+        assert.include(compose, `  ${service}-data:`);
+        for (const other of ["postgres", "mariadb", "mysql"].filter(
+          (s) => s !== service,
+        )) {
+          assert.notInclude(
+            compose,
+            `\n  ${other}:\n`,
+            `${other} rendu alors que ${database} a été retenu`,
+          );
+          assert.notInclude(compose, `  ${other}-data:`);
+        }
+        // Sans profil : la base n'est pas une option, `up -d` doit la monter.
+        assert.notInclude(compose, `profiles: ["${service}"]`);
+        // Le port PUBLIÉ par le compose et celui de l'URL sont le même — c'est
+        // ce couple qui casse en silence si les deux gabarits divergent.
+        assert.include(
+          compose,
+          `127.0.0.1:\${${service.toUpperCase()}_PORT:-${port}}`,
+        );
+        assert.include(
+          envOf(dest),
+          `\nNF_DATABASE_URL=${scheme}://demo:demo-dev@127.0.0.1:${port}/demo\n`,
+        );
+        // Le README parle de LA base retenue, et met l'infra avant le dev.
+        const readme = readFileSync(path.join(dest, "README.md"), "utf8");
+        assert.include(readme, "npm run infra:up");
+        assert.notInclude(readme, "--profile postgres up -d");
+        assertNoEtaResidue(dest);
+      });
+    }
+
+    it("preset minimal : la question ne s'applique pas → la réponse retombe à sqlite", () => {
+      const [spec] = getScaffoldSpec("app");
+      const answers = resolveAnswers(
+        spec,
+        { name: "x", preset: "minimal", database: "postgres" },
+        { hasCheckout: false },
+      );
+      // Ni compose.yaml ni ORM en minimal : honorer « postgres » n'aurait aucun
+      // fichier où s'écrire, et laisserait croire à un choix appliqué.
+      assert.equal(answers.database, "sqlite");
+      assert.equal(
+        resolveAnswers(spec, { name: "x" }, { hasCheckout: false }).database,
+        "sqlite",
+      );
+    });
+
+    it("--database inconnu → refus AVANT écriture", () => {
+      const [spec] = getScaffoldSpec("app");
+      assert.throws(
+        () =>
+          resolveAnswers(
+            spec,
+            { name: "x", database: "oracle" },
+            { hasCheckout: false },
+          ),
+        /database invalide/u,
+      );
+      const dest = path.join(tmp, "refus");
+      assert.throws(() => scaffold(dest, { name: "x", database: "oracle" }));
+      assert.isFalse(existsSync(dest));
+    });
+
+    it("flag --database → answers", () => {
+      const req = parseCreateArgv(
+        argv("create", "app", "x", "--database", "mariadb"),
+      );
+      assert.equal((req as ICreateRequest).answers.database, "mariadb");
+    });
+  });
+
   describe("moteur — preset minimal", () => {
     it("base saine : http+framework seuls, PAS d'infra docker", () => {
       const dest = path.join(tmp, "mini");
@@ -376,6 +637,67 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assertNoEtaResidue(dest);
     });
+  });
+
+  describe("Docker — la doctrine cloud-native naît AVEC l'application", () => {
+    /**
+     * Ces contrôles portent sur des lignes dont l'absence ne produit AUCUNE
+     * erreur : l'image se construit, le container démarre, les requêtes
+     * passent. Ce qui disparaît est le dialogue avec l'orchestrateur — un
+     * déploiement sur deux tue des requêtes en vol, et rien ne le dit.
+     */
+    for (const preset of ["complete", "minimal"] as const) {
+      it(`preset ${preset} : Dockerfile + .dockerignore, doctrine entière`, () => {
+        const dest = path.join(tmp, `docker-${preset}`);
+        scaffold(dest, { name: `docker-${preset}`, preset });
+        const dockerfile = readFileSync(path.join(dest, "Dockerfile"), "utf8");
+
+        // Multi-stage : la chaîne de compilation ne descend pas en production.
+        assert.match(dockerfile, /^FROM \S+ AS build$/mu);
+        assert.equal(dockerfile.match(/^FROM /gmu)?.length, 2);
+
+        // Forme EXEC obligatoire. En forme shell, /bin/sh devient PID 1 et ne
+        // transmet PAS le SIGTERM de `docker stop` : plus jamais de drain,
+        // SIGKILL à chaque déploiement — et l'image marche parfaitement.
+        assert.match(dockerfile, /^CMD \["/mu);
+        assert.notMatch(dockerfile, /^CMD [^[]/mu);
+
+        // Jamais root — les ports Nodefony n'exigent aucun privilège.
+        assert.match(dockerfile, /^USER node$/mu);
+
+        // La sonde de l'orchestrateur passe par la route NATIVE du framework.
+        assert.match(dockerfile, /^HEALTHCHECK /mu);
+        assert.include(dockerfile, "/readyz");
+
+        // Le build de l'image passe par le script de l'app : un jour où
+        // `npm run build` changera (front, modules), le Dockerfile suivra
+        // sans qu'on y touche.
+        assert.include(dockerfile, "npm run build");
+
+        const ignore = readFileSync(path.join(dest, ".dockerignore"), "utf8");
+        // Motifs contrôlés en LIGNE ENTIÈRE : `assert.include` se contenterait
+        // de `**/*.local` pour prouver `*.local`, et un retrait partiel
+        // resterait vert — le mode de défaillance classique d'un gate.
+        //
+        // `.env.local` porte les clés générées à la création. Entré dans une
+        // image, un secret y reste : les couches sont lisibles par qui la
+        // télécharge, et une couche suivante ne l'efface pas.
+        assert.match(ignore, /^\*\.local$/mu);
+        assert.match(ignore, /^\*\*\/\*\.local$/mu);
+        assert.match(ignore, /^\*\*\/node_modules$/mu);
+        // `dist/` de l'hôte : entré dans le contexte, il masquerait le build
+        // du stage et l'image partirait avec le code de la veille.
+        assert.match(ignore, /^\*\*\/dist$/mu);
+
+        // Un agent qui ignore que ce fichier existe en écrit un de mémoire —
+        // sans multi-stage, en root, en forme shell. La capacité doit donc
+        // être nommée là où il lit AVANT d'agir, pas seulement exister.
+        const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+        assert.include(agents, "docker build");
+        assert.include(agents, "Dockerfile");
+        assertNoEtaResidue(dest);
+      });
+    }
   });
 
   describe("controller d'accueil — un seul gabarit pour l'app et la commande", () => {
@@ -459,7 +781,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         ),
       );
       const pkg = readJson(path.join(dest, "package.json"));
-      assert.property(pkg["dependencies"], "react");
+      // Le framework front est une devDependency : rien hors `frontend/` ne
+      // l'importe, Vite l'inline dans le bundle, et `npm prune --omit=dev`
+      // doit pouvoir le retirer de l'image. En `dependencies` il survivait au
+      // prune et embarquait un framework entier que rien ne charge.
+      assert.property(pkg["devDependencies"], "react");
+      assert.notProperty(pkg["dependencies"], "react");
+      assert.notProperty(pkg["dependencies"], "react-dom");
+      // `@nodefony/frontend`, LUI, est chargé par le Kernel en production.
       assert.property(pkg["dependencies"], "@nodefony/frontend");
       assert.property(pkg["devDependencies"], "@vitejs/plugin-react");
       // `npm run build` produit l'app ENTIÈRE : back (rolldown) + front (vite
@@ -550,7 +879,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       scaffold(vdest, { name: "vapp", frontend: "vue" });
       assert.isTrue(existsSync(path.join(vdest, "frontend", "src", "App.vue")));
       const vpkg = readJson(path.join(vdest, "package.json"));
-      assert.property(vpkg["dependencies"], "vue");
+      assert.property(vpkg["devDependencies"], "vue");
+      assert.notProperty(vpkg["dependencies"], "vue");
       assert.include(
         readFileSync(
           path.join(vdest, "nodefony", "frontend", "registerVappEntry.ts"),
@@ -704,6 +1034,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "npm run typecheck",
         "<!-- app-notes:start -->",
         "<!-- app-notes:end -->",
+        // Les verbes qui répondent SANS boot : ce sont les seuls utilisables au
+        // moment où l'agent arrive (rien n'est construit) ou quand plus rien ne
+        // démarre. Une capacité absente d'ici est une capacité ABSENTE : le banc
+        // a mesuré que ce fichier est le canal qui déplace un agent, là où le
+        // TSDoc et la doc ne le déplacent pas.
+        "nodefony card",
+        "nodefony symbols",
       ]) {
         assert.include(agents, needle, `AGENTS.md sans « ${needle} »`);
       }
@@ -754,15 +1091,60 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // décorateurs, d'un manifeste et d'un ordre de chargement.
       assert.include(agents, "nodefony inspect routes --json");
       assert.include(agents, "nodefony inspect config --json");
+      // POINTER `inspect` ne suffit pas — mesuré au banc : la tâche l'a lancé
+      // CINQ fois et a quand même rendu le compte de ses propres sources (13
+      // routes au lieu des 124 montées). Deux repères manquaient, donc deux
+      // gates : l'écart d'un ordre de grandeur est NORMAL (les modules
+      // installés montent l'essentiel), et un outil qui résiste se RÉPARE — le
+      // repli sur les fichiers rend une réponse d'allure normale à une autre
+      // question que celle posée.
+      assert.include(agents, "ENGLOBE tes sources");
+      assert.include(agents, "écart d'un ordre de grandeur");
+      assert.include(agents, "ne te rabats pas sur les sources");
       // Où sont les CLÉS de config d'un module — le pointage qui manquait.
       assert.include(agents, "dist/nodefony/config/config.js");
-      // Les 2 savoirs fondamentaux que tout agent doit avoir AVANT d'écrire :
+      // Les 3 savoirs fondamentaux que tout agent doit avoir AVANT d'écrire :
       // le cœur est ISOMORPHE (jamais un client WS/type dupliqué à la main),
-      // le container DI est PROTOTYPAL (scopes par héritage, zéro copie).
+      // le container DI est PROTOTYPAL (scopes par héritage, zéro copie),
+      // et un SERVICE n'est pas une classe utilitaire — mesuré au banc : sans
+      // ce repère, l'agent écrit une classe à méthodes `static`, qui compile,
+      // qui marche, et qui reste invisible au conteneur.
+      // ⚠️ Ancrer sur la PHRASE et sur le couple `@injectable`/`extends
+      // Service`, jamais sur le mot « service » seul : il apparaît dans dix
+      // phrases voisines, donc un gate posé dessus resterait vert une fois la
+      // règle retirée (le piège déjà rencontré plus bas avec `@IsGranted`).
       assert.include(agents, "ISOMORPHE");
       assert.include(agents, "PROTOTYPAL");
+      assert.include(agents, "Un service n'est pas une classe utilitaire");
+      assert.include(agents, "`@injectable()` qui `extends Service`");
+      assert.include(agents, "nodefony create service");
       assert.include(agents, "nodefony/docs/client.md");
       assert.include(agents, "nodefony/docs/service.md");
+      // Grammaire des champs : le défaut et l'énumération manquaient à l'appel.
+      // Mesuré au banc avec un agent TIERS (`vibe`) : faute de les voir, il a
+      // INVENTÉ un flag `--default "price:0"` (refusé, exit 64) et écrit
+      // `status:enum:draft,published` — deux tours perdus pour une grammaire
+      // que le générateur sait lire depuis S4. Ancrer sur l'EXEMPLE, pas sur le
+      // mot « enum » : il apparaît dans la phrase d'explication juste après.
+      assert.include(agents, "views:int=0");
+      assert.include(agents, "status:enum(draft,published)");
+      // Le 409 : la capacité existe (le rendu d'erreur mappe les codes pilote),
+      // mais RIEN ne le disait — même banc, même agent : il a réécrit un
+      // `throw new HttpError(…, 409)` dans le service généré, avec son TSDoc.
+      // Une capacité que l'app n'ANNONCE pas est une capacité absente.
+      assert.include(agents, "sont DÉJÀ traduites en HTTP");
+      assert.include(agents, "SQLITE_CONSTRAINT_UNIQUE");
+      // Toute commande MONTRÉE se préfixe `npx` : le binaire n'est pas dans le
+      // PATH d'une app, et un agent tape ce qu'on lui montre. Mesuré au banc :
+      // le gabarit portait 39 formes nues contre 2 préfixées ; l'agent a suivi
+      // la majorité, s'est pris un 127 et a brûlé deux tours à chercher où
+      // vivait le binaire. Ce n'était pas son réflexe — c'était notre exemple.
+      const nues = [...agents.matchAll(/`nodefony [a-z]/gu)];
+      assert.equal(
+        nues.length,
+        0,
+        `commandes montrées sans « npx » (${nues.length}) — l'agent les copiera telles quelles`,
+      );
       // Utilisateurs et droits : sans ces repères, un agent réinvente un lecteur
       // de session, teste l'appartenance à un rôle à la main, ou insère un
       // utilisateur en base sans passer par l'encodeur de mot de passe. Les
@@ -784,24 +1166,36 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         assert.include(agents, needle, `AGENTS.md sans « ${needle} »`);
       }
       // Aucun module encore : l'état vide DIT quoi faire.
-      assert.include(agents, "Aucun — `nodefony create module");
-      // CLAUDE.md = pointeur + les QUATRE réflexes (auto-chargé à chaque tour
-      // par l'outil agent, contrairement à AGENTS.md — mesuré au banc : la
-      // règle doit vivre dans le contexte au moment d'ÉCRIRE). Reste court.
+      assert.include(agents, "Aucun — `npx nodefony create module");
+      // CLAUDE.md = un POINTEUR, et rien d'autre. Il n'a qu'un seul contenu
+      // propre : le renvoi à `create --help`, qui ne peut pas se périmer —
+      // contrairement à une liste de générateurs, qui avait déjà dérivé
+      // (`create command` y manquait), et l'agent qui ne l'y trouvait pas
+      // écrivait à la main.
       //
-      // Il n'ÉNUMÈRE PLUS les générateurs : la liste avait dérivé (`create
-      // command` manquait), et l'agent qui ne l'y trouvait pas écrivait à la
-      // main. On vérifie donc ce qui ne peut pas se périmer — le renvoi à
-      // `create --help` et les CHEMINS interdits d'écriture manuelle.
+      // La règle qui vaut la garde de TAILLE ci-dessous : tout ce qu'on
+      // recopierait ici existe dans `AGENTS.md` et en divergerait en silence.
+      // Ce fichier s'est déjà rempli par ajouts successifs — il annonçait
+      // « les trois réflexes » alors qu'il en portait quatre. Le seuil est
+      // donc serré exprès : il fait échouer le prochain ajout, pas le dixième.
       const claude = readFileSync(path.join(dest, "CLAUDE.md"), "utf8");
       assert.include(claude, "AGENTS.md");
       assert.include(claude, "nodefony create --help");
-      assert.include(claude, "nodefony/command/");
-      assert.include(claude, "nodefony env");
-      assert.include(claude, "nodefony stop");
-      assert.include(claude, "isomorphe");
-      assert.include(claude, "RealtimeClient");
-      assert.isBelow(claude.split("\n").length, 40);
+      assert.isBelow(
+        claude.split("\n").length,
+        15,
+        "CLAUDE.md se remplit : ce qui doit être lu vit dans AGENTS.md",
+      );
+      // Ces sujets sont traités par AGENTS.md — les redire ici crée deux
+      // versions dont une seule sera corrigée.
+      for (const recopie of [
+        "nodefony env",
+        "nodefony stop",
+        "RealtimeClient",
+      ]) {
+        assert.notInclude(claude, recopie);
+        assert.include(agents, recopie);
+      }
     });
 
     it("minimal : la table des docs dit la vérité des briques réellement installées", () => {
@@ -860,7 +1254,23 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "utf8",
       );
       assert.include(home, 'path: "/"');
-      assert.include(home, "/api/hello");
+      // La racine dit QUI répond, et rien de plus : cette réponse part en
+      // production, vers n'importe qui. Énumérer les routes internes, la console
+      // d'administration ou les chemins de documentation décrirait
+      // l'architecture à qui la demande. Ces informations vivent dans
+      // `@nodefony/devkit` (policy dev), pas dans la racine de l'app.
+      for (const fuite of [
+        "/api/hello",
+        "/nodefony",
+        "node_modules",
+        "AGENTS",
+      ]) {
+        assert.notInclude(
+          home,
+          fuite,
+          `la racine générée divulgue « ${fuite} » — en production, c'est offert à tout le monde`,
+        );
+      }
       const index = readFileSync(path.join(none, "index.ts"), "utf8");
       assert.include(index, "HomeController");
 
@@ -883,6 +1293,19 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // `npm test` ne montre que ce qu'il exécute — plus de skipped-vert.
       const unit = readFileSync(path.join(dest, "vitest.config.ts"), "utf8");
       assert.include(unit, '"tests/e2e.test.ts"');
+      // …et il DIT ce qu'il n'a pas exercé : un vert muet a déjà fait conclure
+      // « les tests passent » sur une route qui rendait 500 et ne répondait
+      // jamais, les tests justes vivant dans le fichier que ce glob exclut.
+      // La parenthèse d'appel, pas le nom nu : le gabarit NOMME `onTestRunEnd`
+      // dans un commentaire (pour dire que `onFinished` subsiste dans les types
+      // de vitest 4 sans plus être appelé), et une sonde sur le nom seul passait
+      // donc grâce au commentaire, hook amputé compris.
+      assert.match(
+        unit,
+        /onTestRunEnd\s*\(/,
+        "le rappel doit être branché sur onTestRunEnd — onFinished ne serait jamais appelé",
+      );
+      assert.include(unit, "npm run test:e2e");
       // `create entity` ajoute un `*.e2e.test.ts` par ressource : eux aussi
       // doivent rester hors du glob par défaut, sinon `npm test` les lance sans
       // serveur et échoue pour une raison sans rapport avec le code testé.
@@ -900,12 +1323,145 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         existsSync(path.join(dest, "tests", "e2e.setup.ts")),
         "le setup global e2e doit être généré",
       );
+      // La suite tourne sur une base À ELLE. Partagée avec le développement,
+      // elle y sème un compte `admin` au mot de passe publié dans ce fichier ;
+      // le seed étant idempotent, `admin` / `admin` cesse ensuite de marcher
+      // pour toujours — et l'inverse (un admin de dev déjà là) fait échouer
+      // `connexionAdmin()`. Mesuré sur une application réelle, pas déduit.
+      const e2eSetup = readFileSync(
+        path.join(dest, "tests", "e2e.setup.ts"),
+        "utf8",
+      );
+      assert.match(
+        e2eSetup,
+        /NF_DATABASE_URL:\s*URL_BASE_E2E/,
+        "le serveur de test doit recevoir une base dédiée, jamais celle du développement",
+      );
+      assert.include(e2eSetup, "NF_E2E_DATABASE_URL");
+      // Le mot `stateless` n'existait NULLE PART dans une application générée.
+      // Un agent à qui on demande une API pour un programme n'avait donc aucun
+      // chemin vers la troisième nature de zone : il posait une zone à session,
+      // et un client machine devait gérer des cookies. Le vocabulaire vit aux
+      // deux endroits où on le cherche — la config qu'on édite, et le fichier
+      // que l'agent lit par défaut.
+      const configGeneree = readFileSync(
+        path.join(dest, "nodefony.config.ts"),
+        "utf8",
+      );
+      assert.include(
+        configGeneree,
+        "stateless",
+        "la config générée doit nommer la zone stateless (appelants non-navigateur)",
+      );
+      // Le mot seul ne suffit pas, et cette assertion l'a prouvé en passant au
+      // vert pendant que le trou restait ouvert : `stateless` vivait dans un
+      // COMMENTAIRE, avec son exemple complet — et sur trois agents mesurés,
+      // deux ont écrit `stateless: false` en ayant ce texte sous les yeux, dont
+      // un en reprenant le nom et le pattern de l'exemple. On recopie le code
+      // ACTIF, pas celui qu'on lit à côté : c'est donc lui qu'on vérifie.
+      const codeActif = configGeneree
+        .split("\n")
+        .filter((l) => !/^\s*(\*|\/\/|\/\*)/u.test(l))
+        .join("\n");
+      assert.match(
+        codeActif,
+        /stateless:\s*true/u,
+        "la config générée doit porter une zone stateless ACTIVE, pas un exemple commenté",
+      );
+      assert.match(
+        codeActif,
+        /authenticators:\s*\[\s*"apikey"\s*\]/u,
+        "cette zone doit montrer l'authentificateur de porteur SEUL — ajouter " +
+          '"session" à côté rouvre exactement le défaut qu\'elle illustre',
+      );
+      const agentsMd = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      assert.include(
+        agentsMd,
+        "stateless",
+        "AGENTS.md doit donner le geste M2M — c'est le fichier lu par défaut",
+      );
+      // La zone est écrite DEUX fois — dans la config qu'on édite, et dans le
+      // fichier que l'agent lit par défaut. La frontière est réelle (l'un est
+      // du code, l'autre de la doc), donc la duplication reste ; ce qui ne
+      // reste pas, c'est la possibilité qu'elles divergent en silence. Une
+      // consigne qui dirait `stateless: false` pendant que la config dit
+      // `true` fabriquerait exactement le défaut qu'elles décrivent.
+      const zone = (texte: string) => {
+        const m =
+          /machine:\s*\{[^}]*?pattern:\s*"([^"]+)"[^}]*?authenticators:\s*\[([^\]]*)\][^}]*?stateless:\s*(true|false)/u.exec(
+            texte,
+          );
+        return m
+          ? { pattern: m[1], auth: m[2].replace(/\s/gu, ""), stateless: m[3] }
+          : null;
+      };
+      const zoneConfig = zone(configGeneree);
+      const zoneAgents = zone(agentsMd);
+      assert.isNotNull(
+        zoneConfig,
+        "zone machine introuvable dans la config générée",
+      );
+      assert.isNotNull(zoneAgents, "zone machine introuvable dans AGENTS.md");
+      assert.deepEqual(
+        zoneAgents,
+        zoneConfig,
+        "AGENTS.md et nodefony.config.ts doivent montrer la MÊME zone machine",
+      );
       const pkg = readJson(path.join(dest, "package.json"));
       assert.include(pkg["scripts"]["test:e2e"], "-c vitest.e2e.config.ts");
       // Le test e2e n'a plus AUCUNE gate d'environnement : invoqué = exécuté.
       const e2e = readFileSync(path.join(dest, "tests", "e2e.test.ts"), "utf8");
       assert.notInclude(e2e, "RUN_E2E");
       assert.notInclude(e2e, "describe.skip");
+    });
+
+    // Mesuré au banc de découvrabilité (tâche 23, 3 runs) : pour faire aboutir
+    // les envois d'un partenaire, DEUX agents sur trois DÉMONTENT la défense
+    // CSRF — une origine inconnue obtient alors 201. Aucun ne déclare l'origine,
+    // aucun n'ouvre la doc du module. La cause n'est pas le jugement de l'agent
+    // mais le placement du savoir : `@CsrfExempt` porte un nom qui se devine,
+    // `trustedOrigins` n'était écrit nulle part où l'agent lit d'office.
+    it("csrf : l'AGENTS.md donne le geste (trustedOrigins) et son bloc reste recopiable", () => {
+      const dest = path.join(tmp, "csrf-agents");
+      scaffold(dest, {
+        name: "csrf-agents",
+        preset: "complete",
+        frontend: "none",
+      });
+      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      assert.include(
+        agents,
+        "trustedOrigins",
+        "AGENTS.md doit nommer la clé qui DÉCLARE une origine partenaire",
+      );
+      // Nommer la bonne réponse ne suffit pas : la porte de sortie se devine
+      // sans documentation, il faut donc la citer POUR la désigner comme fausse.
+      assert.include(
+        agents,
+        "@CsrfExempt",
+        "AGENTS.md doit nommer le réflexe (@CsrfExempt) pour le récuser",
+      );
+      // Le bloc montré est fait pour être recopié dans `nodefony.config.ts`. S'il
+      // perdait la clé `secret` que la config y pose, le recopier couperait le
+      // token synchronizer — en silence, tests verts.
+      const config = readFileSync(
+        path.join(dest, "nodefony.config.ts"),
+        "utf8",
+      );
+      const bloc = (texte: string) =>
+        /csrf:\s*\{[^}]*?secret:\s*([^,\n}]+)/u.exec(texte)?.[1].trim() ?? null;
+      const secretConfig = bloc(config);
+      const secretAgents = bloc(agents);
+      assert.isNotNull(
+        secretConfig,
+        "bloc csrf introuvable dans la config générée",
+      );
+      assert.isNotNull(secretAgents, "bloc csrf introuvable dans l'AGENTS.md");
+      assert.equal(
+        secretAgents,
+        secretConfig,
+        "le bloc csrf de l'AGENTS.md doit reprendre le secret de la config — sinon le recopier le supprime",
+      );
     });
   });
 
@@ -987,6 +1543,19 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // dans un exemple coûte plus cher qu'aucun exemple).
       assert.include(src, "RealtimeClient.shared");
       assert.include(src, "useNodefonyChannelData");
+
+      // Le controller naît avec SON test, nommé d'après la route qu'il éprouve.
+      // Le nom est vérifié parce qu'un token non substitué produit un fichier
+      // `__KEBAB__-realtime.test.ts` qui PASSE : le contenu est correct, le nom
+      // seul est faux — aucune assertion de contenu ne l'aurait vu.
+      const rtTest = readFileSync(
+        path.join(full, "tests", "pulse-realtime.test.ts"),
+        "utf8",
+      );
+      assert.include(rtTest, '"@nodefony/realtime/testing"');
+      assert.include(rtTest, "createRealtimeHarness");
+      assert.include(rtTest, '"pulse:ping"');
+      assert.notInclude(rtTest, "__KEBAB__");
 
       const mini = path.join(tmp, "rtmini");
       scaffold(mini, { name: "rtmini", preset: "minimal" });
@@ -1186,6 +1755,67 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.throws(() => controller(dest, { name: "dup" }), /déjà référencé/u);
     });
 
+    it("--module accepte le nom COURT du module, pas seulement son nom npm", () => {
+      // Un module a deux identités : `@app/blog` (manifeste) et `blog` (dossier,
+      // celui qu'on a tapé pour le créer). N'accepter que la première faisait
+      // échouer `--module blog` juste après `create module blog` — trois
+      // tentatives perdues par un agent tiers sur cette seule asymétrie.
+      const dest = path.join(tmp, "shortapp");
+      scaffold(dest, { name: "shortapp", preset: "minimal" });
+      runScaffold(
+        {
+          type: "module",
+          answers: { name: "blog", controller: "none" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      controller(dest, { name: "post", module: "blog" });
+      assert.isTrue(
+        existsSync(
+          path.join(
+            dest,
+            "modules",
+            "blog",
+            "nodefony",
+            "controllers",
+            "PostController.ts",
+          ),
+        ),
+      );
+      // Le nom npm exact reste évidemment accepté.
+      controller(dest, { name: "tag", module: "@shortapp/blog" });
+    });
+
+    it("nom court AMBIGU : refus qui nomme les candidats, jamais un choix arbitraire", () => {
+      // Deux dossiers de workspaces peuvent porter le même nom court — c'est le
+      // cas d'un monorepo (`packages/@x/auth` ET `modules/auth`). On ne devine
+      // pas : on rend les deux noms complets.
+      const dest = path.join(tmp, "ambigu");
+      scaffold(dest, { name: "ambigu", preset: "minimal" });
+      const pkgPath = path.join(dest, "package.json");
+      const pkg = readJson(pkgPath) as unknown as Record<string, unknown>;
+      pkg["workspaces"] = ["modules/*", "packages/@x/*"];
+      writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
+      for (const [rel, name] of [
+        [path.join("modules", "auth"), "@ambigu/auth"],
+        [path.join("packages", "@x", "auth"), "@x/auth"],
+      ] as const) {
+        const dir = path.join(dest, rel);
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(
+          path.join(dir, "package.json"),
+          `${JSON.stringify({ name, version: "0.1.0" }, null, 2)}\n`,
+        );
+        writeFileSync(path.join(dir, "index.ts"), "export default {};\n");
+      }
+      assert.throws(
+        () => controller(dest, { name: "x", module: "auth" }),
+        /désigne 2 modules[\s\S]*@ambigu\/auth[\s\S]*@x\/auth/u,
+      );
+    });
+
     it("nom en double : refus SANS toucher au projet", () => {
       const dest = path.join(tmp, "cintact");
       scaffold(dest, { name: "cintact", preset: "minimal" });
@@ -1242,6 +1872,299 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         kind: "realtime",
         route: "/api/live",
         module: "@x/shop",
+      });
+    });
+  });
+
+  describe("moteur — create service (in-project)", () => {
+    /** Scaffold service depuis `from` (détection racine = comme le CLI). */
+    const service = (from: string, answers: Record<string, string | boolean>) =>
+      runScaffold(
+        { type: "service", answers, dir: from, force: false },
+        version,
+      );
+
+    it("app racine SANS @services([...]) : le décorateur est CRÉÉ, pas refusé", () => {
+      // Le gabarit `app/base` ne rend JAMAIS @services([...]) — c'est le cas
+      // nominal du bug rapporté (un agent ne trouve @injectable nulle part).
+      const dest = path.join(tmp, "svcapp");
+      scaffold(dest, { name: "svcapp", preset: "minimal" });
+      const indexBefore = readFileSync(path.join(dest, "index.ts"), "utf8");
+      assert.notInclude(indexBefore, "@services");
+      const r = service(dest, {
+        name: "billing",
+        description: "Facturation de démonstration",
+      });
+      const file = path.join(dest, "nodefony", "service", "BillingService.ts");
+      const itf = path.join(
+        dest,
+        "nodefony",
+        "interfaces",
+        "IBillingService.ts",
+      );
+      assert.isTrue(existsSync(file));
+      assert.isTrue(existsSync(itf));
+      const src = readFileSync(file, "utf8");
+      assert.include(src, "@injectable()");
+      assert.include(
+        src,
+        "class BillingService extends Service implements IBillingService",
+      );
+      assert.include(src, 'super(\n      "billing",');
+      assert.include(src, "Facturation de démonstration.");
+      // Le hook de démarrage d'un SERVICE s'appelle `init` — le kernel ne
+      // cherche que celui-là (`guardServiceInitialize` : `if (!serviceInit.init)
+      // return`). Une méthode `initialize` sur un service n'est JAMAIS appelée,
+      // et RIEN ne le signale : un abonnement kernel écrit dedans dort en
+      // silence. Prouvé à l'exécution (marqueurs dans les deux méthodes : seul
+      // `init` sort). `initialize` appartient au CONTROLLER, où il tourne à
+      // chaque requête — deux cycles de vie, deux noms.
+      assert.include(src, "async init(): Promise<this>");
+      assert.notMatch(
+        src,
+        /\basync initialize\s*\(/u,
+        "le gabarit de service rend une méthode `initialize` — elle ne sera jamais appelée",
+      );
+      // Aucune dépendance à un config.ts — le point dur du kit : une cible
+      // in-project n'en a pas forcément un.
+      assert.notInclude(src, "config/config");
+      assert.notMatch(
+        src,
+        /^ \*.*\S \*$/mu,
+        "ligne de TSDoc recollée — tag eta en fin de ligne",
+      );
+      const index = readFileSync(path.join(dest, "index.ts"), "utf8");
+      assert.include(
+        index,
+        'import BillingService from "./nodefony/service/BillingService";',
+      );
+      assert.include(index, 'import { services } from "nodefony";');
+      assert.match(index, /@services\(\[BillingService\]\)\nclass App\b/u);
+      assert.include((r.notes ?? []).join("\n"), 'container.get("billing")');
+      assertNoEtaResidue(dest);
+    });
+
+    it("--inject : la dépendance est DÉCLARÉE au constructeur, et APPELÉE", () => {
+      // Le geste mesuré ROUGE au banc de découvrabilité : `@inject` n'existait
+      // en code ACTIF dans AUCUN gabarit (uniquement des commentaires), et
+      // l'agent passait exclusivement par `container.get`. On ne prend que la
+      // voie qu'on a VUE.
+      const dest = path.join(tmp, "svcinject");
+      scaffold(dest, { name: "svcinject", preset: "minimal" });
+      service(dest, { name: "billing" });
+      const r = service(dest, { name: "invoice", inject: "BillingService" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "service", "InvoiceService.ts"),
+        "utf8",
+      );
+      // L'import est une VALEUR : `@inject` nomme la classe, et le paramètre
+      // décoré porte son type — un `import type` effacerait la métadonnée.
+      assert.include(src, 'import BillingService from "./BillingService";');
+      assert.include(
+        src,
+        '@inject("BillingService") private readonly billing: BillingService,',
+      );
+      // Une dépendance déclarée et jamais lue ne compile pas (`noUnusedLocals`)
+      // — et ne montrerait rien. L'appel porte sur une méthode CHERCHÉE dans le
+      // service visé, jamais sur un nom supposé.
+      assert.include(src, "return this.billing.greet();");
+      assert.notMatch(
+        src,
+        /^ \*.*\S \*$/mu,
+        "ligne de TSDoc recollée — tag eta en fin de ligne",
+      );
+      const itf = readFileSync(
+        path.join(dest, "nodefony", "interfaces", "IInvoiceService.ts"),
+        "utf8",
+      );
+      assert.include(itf, "depuisBillingService(): Promise<unknown>;");
+      assert.include(
+        (r.notes ?? []).join("\n"),
+        "BillingService est injecté par le CONSTRUCTEUR",
+      );
+      assertNoEtaResidue(dest);
+    });
+
+    it("--inject : la note APPREND le geste quand la cible a déjà un service", () => {
+      // La note est le canal : elle est lue au moment exact où le geste
+      // s'applique. Sans elle, `--inject` n'existe que dans une aide que
+      // personne n'ouvre.
+      const dest = path.join(tmp, "svcnote");
+      scaffold(dest, { name: "svcnote", preset: "minimal" });
+      const first = service(dest, { name: "billing" });
+      assert.notInclude((first.notes ?? []).join("\n"), "--inject");
+      const second = service(dest, { name: "invoice" });
+      assert.include(
+        (second.notes ?? []).join("\n"),
+        "create service invoice --inject BillingService",
+      );
+    });
+
+    it("--inject : un service absent est REFUSÉ avant écriture", () => {
+      const dest = path.join(tmp, "svcinjectko");
+      scaffold(dest, { name: "svcinjectko", preset: "minimal" });
+      assert.throws(
+        () => service(dest, { name: "invoice", inject: "GhostService" }),
+        /--inject.*Ghost.*introuvable/u,
+      );
+      // Rien n'a été écrit : un import vers une classe absente casserait la
+      // compilation de toute l'app, sur une erreur qui ne parle pas du scaffold.
+      assert.isFalse(
+        existsSync(path.join(dest, "nodefony", "service", "InvoiceService.ts")),
+      );
+    });
+
+    it("index.ts écrit à la MAIN en `export class` : le décorateur est posé quand même", () => {
+      // Nos gabarits exportent en bas de fichier, donc la classe s'y déclare
+      // nue (`class App extends Module`). Mais `export class X extends Module`
+      // est la forme que montre la doc du kernel — c'est donc celle qu'une app
+      // reprise à la main portera, et une ancre en `^class` la manquait : le
+      // scaffold refusait un projet parfaitement valide.
+      const dest = path.join(tmp, "svcexport");
+      scaffold(dest, { name: "svcexport", preset: "minimal" });
+      const indexPath = path.join(dest, "index.ts");
+      const before = readFileSync(indexPath, "utf8").replace(
+        /^class App extends Module\b/mu,
+        "export class App extends Module",
+      );
+      assert.include(before, "export class App extends Module");
+      writeFileSync(indexPath, before);
+      service(dest, { name: "billing", description: "Facturation" });
+      const index = readFileSync(indexPath, "utf8");
+      // Décorateur AVANT `export` — la forme valide en TypeScript.
+      assert.match(
+        index,
+        /@services\(\[BillingService\]\)\nexport class App\b/u,
+        "décorateur non posé sur une classe exportée en tête",
+      );
+      assertNoEtaResidue(dest);
+    });
+
+    it("@services([...]) déjà présent (module --service) : la liste s'ÉTEND", () => {
+      const dest = path.join(tmp, "svcmod");
+      scaffold(dest, { name: "svcmod", preset: "minimal" });
+      runScaffold(
+        {
+          type: "module",
+          answers: { name: "blog", controller: "none", service: true },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const modIndex = path.join(dest, "modules", "blog", "index.ts");
+      assert.match(
+        readFileSync(modIndex, "utf8"),
+        /@services\(\[BlogService\]\)/u,
+      );
+      service(dest, { name: "tax", module: "@svcmod/blog" });
+      const after = readFileSync(modIndex, "utf8");
+      assert.match(after, /@services\(\[BlogService, TaxService\]\)/u);
+      // `services` était déjà importé (module `--service` : `import { Kernel,
+      // Module, services } from "nodefony";`) — pas de DEUXIÈME import ajouté.
+      assert.equal(
+        (after.match(/\bservices\b[^\n]*from "nodefony"/gu) ?? []).length,
+        1,
+      );
+    });
+
+    it("module créé avec --no-service : le décorateur est CRÉÉ là aussi", () => {
+      const dest = path.join(tmp, "svcnosvc");
+      scaffold(dest, { name: "svcnosvc", preset: "minimal" });
+      runScaffold(
+        {
+          type: "module",
+          answers: { name: "shop", controller: "none", service: false },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const modIndex = path.join(dest, "modules", "shop", "index.ts");
+      assert.notInclude(readFileSync(modIndex, "utf8"), "@services");
+      service(dest, { name: "invoice", module: "@svcnosvc/shop" });
+      const after = readFileSync(modIndex, "utf8");
+      assert.match(
+        after,
+        /@services\(\[InvoiceService\]\)\nclass ShopModule\b/u,
+      );
+      assert.isTrue(
+        existsSync(
+          path.join(
+            dest,
+            "modules",
+            "shop",
+            "nodefony",
+            "service",
+            "InvoiceService.ts",
+          ),
+        ),
+      );
+    });
+
+    it("normalisation : billing-planService → BillingPlanService, clé camelCase", () => {
+      const dest = path.join(tmp, "svcnorm");
+      scaffold(dest, { name: "svcnorm", preset: "minimal" });
+      service(dest, { name: "billing-planService" });
+      const file = path.join(
+        dest,
+        "nodefony",
+        "service",
+        "BillingPlanService.ts",
+      );
+      assert.isTrue(existsSync(file));
+      assert.include(
+        readFileSync(file, "utf8"),
+        'super(\n      "billingPlan",',
+      );
+    });
+
+    it("garde-fous : hors projet / module inconnu / nom en double", () => {
+      assert.throws(
+        () => service(os.tmpdir(), { name: "x" }),
+        /aucun projet Nodefony/u,
+      );
+      const dest = path.join(tmp, "svcguard");
+      scaffold(dest, { name: "svcguard", preset: "minimal" });
+      assert.throws(
+        () => service(dest, { name: "x", module: "ghost" }),
+        /introuvable — cibles du projet/u,
+      );
+      service(dest, { name: "dup" });
+      assert.throws(() => service(dest, { name: "dup" }), /déjà référencé/u);
+    });
+
+    it("nom en double : refus SANS toucher au projet", () => {
+      const dest = path.join(tmp, "svcintact");
+      scaffold(dest, { name: "svcintact", preset: "minimal" });
+      service(dest, { name: "billing" });
+      const before = snapshotTree(dest);
+      assert.throws(
+        () => service(dest, { name: "billing" }),
+        /déjà référencé/u,
+      );
+      assertTreeUnchanged(before, dest);
+    });
+
+    it("parseCreateArgv : --module --description", () => {
+      const p = parseCreateArgv(
+        argv(
+          "create",
+          "service",
+          "billing",
+          "--module",
+          "@x/shop",
+          "--description",
+          "Facturation",
+        ),
+      );
+      assert.notProperty(p, "error");
+      const req = p as Exclude<typeof p, { error: string }>;
+      assert.equal(req.type, "service");
+      assert.deepInclude(req.answers, {
+        name: "billing",
+        module: "@x/shop",
+        description: "Facturation",
       });
     });
   });
@@ -1344,6 +2267,154 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(config, 'use("@mapp/shop", {})');
     });
 
+    /**
+     * Le layout des modules se CONSTATE dans les workspaces du dépôt.
+     *
+     * Motif : le dépôt du framework range ses paquets dans
+     * `src/packages/@nodefony/*` — la commande y visait quand même `modules/`,
+     * si bien que l'auteur écrivait à la main le squelette que sa propre
+     * commande produit. Un générateur qui ne sert pas le dépôt qui le publie
+     * dérive sans que personne le voie.
+     */
+    describe("monorepo de paquets scopés (le dépôt hérite de son générateur)", () => {
+      /** App de fixture RE-DÉCLARÉE en monorepo de paquets, avec témoins. */
+      const mono = (name: string): string => {
+        const dest = app(name);
+        const manifestPath = path.join(dest, "package.json");
+        const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+          workspaces?: string[];
+          scripts?: Record<string, string>;
+          version?: string;
+        };
+        manifest.workspaces = ["src/packages/@acme/*", "src/modules/*"];
+        manifest.version = "7.3.1";
+        manifest.scripts = { ...manifest.scripts, build: "turbo run build" };
+        writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+        // AGENTS.md ÉCRIT À LA MAIN — celui d'un dépôt, pas d'une app générée.
+        writeFileSync(path.join(dest, "AGENTS.md"), "# le mien\n");
+        return dest;
+      };
+
+      it("pose le module dans le dossier DÉCLARÉ, sous le scope déclaré", () => {
+        const dest = mono("mono");
+        const r = mod(dest, { name: "blog", controller: "none" });
+        assert.equal(
+          r.dest,
+          path.join(dest, "src", "packages", "@acme", "blog"),
+        );
+        const pkg = readJson(path.join(r.dest, "package.json"));
+        assert.equal(pkg["name"] as unknown as string, "@acme/blog");
+        assertNoEtaResidue(r.dest);
+      });
+
+      it("le module naît PUBLIABLE : exports, types générés, files, déclarations", () => {
+        const dest = mono("mono");
+        const r = mod(dest, { name: "blog", controller: "none" });
+        const pkg = readJson(path.join(r.dest, "package.json"));
+        // Les types pointent du GÉNÉRÉ — jamais un .d.ts écrit à la main.
+        assert.equal(
+          pkg["types"] as unknown as string,
+          "./dist/types/index.d.ts",
+        );
+        assert.deepEqual(pkg["files"] as unknown as string[], ["dist", "docs"]);
+        assert.isUndefined(
+          pkg["private"],
+          "un paquet publiable n'est pas privé",
+        );
+        // La version suit celle de la RACINE : les paquets d'un dépôt avancent
+        // ensemble, ils ne démarrent pas chacun à 0.1.0.
+        assert.equal(pkg["version"] as unknown as string, "7.3.1");
+        assert.include(
+          (pkg["scripts"] as unknown as Record<string, string>)["build"],
+          "tsconfig.declarations.json",
+        );
+        for (const f of [
+          "tsconfig.declarations.json",
+          "tsconfig.tests.json",
+          "CLAUDE.md",
+          "MEMORY.md",
+        ]) {
+          assert.isTrue(existsSync(path.join(r.dest, f)), `manque ${f}`);
+        }
+      });
+
+      /**
+       * Motif payé en CI : `@nodefony/devkit`, né de cette commande, ne
+       * déclarait ses frères qu'en `peerDependencies`. Or un orchestrateur de
+       * monorepo (turbo, nx) construit son graphe sur `dependencies` +
+       * `devDependencies` : sans arête, le module se construisait AVANT
+       * `nodefony`, et son `rolldown.config.ts` importait un
+       * `nodefony/bundler` qui n'existait pas encore. Quatre workflows rouges,
+       * le même `Cannot find module … dist/node/bundler/index.js`.
+       *
+       * Ne vaut QUE pour un paquet du dépôt : dans une application, `nodefony`
+       * vient de npm déjà construit — il n'y a rien à ordonner.
+       */
+      it("déclare ses frères LOCAUX en devDependencies (l'ordre de build en dépend)", () => {
+        const dest = mono("mono");
+        const r = mod(dest, { name: "blog", controller: "none" });
+        const pkg = readJson(path.join(r.dest, "package.json"));
+        const peer = (pkg["peerDependencies"] ?? {}) as unknown as Record<
+          string,
+          string
+        >;
+        const dev = (pkg["devDependencies"] ?? {}) as unknown as Record<
+          string,
+          string
+        >;
+        const locaux = Object.keys(peer).filter(
+          (n) => n === "nodefony" || n.startsWith("@nodefony/"),
+        );
+        assert.isNotEmpty(
+          locaux,
+          "un module Nodefony dépend au minimum de `nodefony`",
+        );
+        for (const nom of locaux) {
+          assert.property(
+            dev,
+            nom,
+            `« ${nom} » est un workspace du dépôt cité en peerDependencies mais absent des devDependencies : turbo ne verra aucune arête et pourra construire ce module AVANT lui`,
+          );
+        }
+      });
+
+      it("ne touche NI aux workspaces NI aux scripts d'un dépôt qui les déclare", () => {
+        const dest = mono("mono");
+        mod(dest, { name: "blog", controller: "none" });
+        const pkg = JSON.parse(
+          readFileSync(path.join(dest, "package.json"), "utf8"),
+        ) as { workspaces: string[]; scripts: Record<string, string> };
+        assert.deepEqual(pkg.workspaces, [
+          "src/packages/@acme/*",
+          "src/modules/*",
+        ]);
+        // Un dépôt établi a sa propre chaîne (turbo, nx…) : la doubler la casse.
+        assert.equal(pkg.scripts["build"], "turbo run build");
+        assert.notInclude(pkg.scripts["build"], "--workspaces");
+      });
+
+      it("n'écrase JAMAIS l'AGENTS.md de la racine (il est écrit à la main)", () => {
+        const dest = mono("mono");
+        mod(dest, { name: "blog", controller: "none" });
+        assert.equal(
+          readFileSync(path.join(dest, "AGENTS.md"), "utf8"),
+          "# le mien\n",
+        );
+      });
+
+      it("le manifeste reçoit le module, et le commentaire nomme le BON dossier", () => {
+        const dest = mono("mono");
+        mod(dest, { name: "blog", controller: "none" });
+        const config = readFileSync(
+          path.join(dest, "nodefony.config.ts"),
+          "utf8",
+        );
+        assert.include(config, 'use("@acme/blog", {})');
+        assert.include(config, "src/packages/@acme/");
+        assert.notInclude(config, "(modules/) — créé par");
+      });
+    });
+
     it("délègue le controller au scaffold controller (0 template dupliqué)", () => {
       const dest = app("mapp");
       const r = mod(dest, { name: "blog", controller: "hello" });
@@ -1394,6 +2465,15 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "utf8",
       );
       assert.include(svc, "@injectable()");
+      // Même règle que pour `create service` : le hook de démarrage d'un service
+      // s'appelle `init`. Le kernel ne cherche que celui-là — une `initialize`
+      // rendue ici serait du code mort silencieux dans CHAQUE module généré.
+      assert.include(svc, "async init(): Promise<this>");
+      assert.notMatch(
+        svc,
+        /\basync initialize\s*\(/u,
+        "le service du module rend une méthode `initialize` — jamais appelée",
+      );
       // Vise le CODE, pas la prose. Le fichier généré DOCUMENTE les deux noms en
       // commentaire (« super("blog", …) ») : un `include('"blog"')` — et même un
       // `/super\(\s*"blog",/` — reste donc vert avec un `super()` cassé, en
@@ -1460,11 +2540,16 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(agents, "@plain/blog");
       assert.include(agents, "proche gagne");
       assert.include(agents, "source unique des défauts");
-      // Les 2 savoirs fondamentaux, portés AUSSI au niveau module (le fichier
-      // le plus proche est celui que l'agent lit) : DI prototypal + isomorphisme.
+      // Les savoirs fondamentaux, portés AUSSI au niveau module (le fichier
+      // le plus proche est celui que l'agent lit) : DI prototypal, isomorphisme,
+      // et l'ajout d'un service — la liste des ajouts d'un module couvrait
+      // controller/front/command, jamais le service, alors qu'il s'y ajoute
+      // exactement pareil (et se câble dans le `@services([…])`).
       assert.include(agents, "PROTOTYPAL");
       assert.include(agents, "nodefony/docs/service.md");
       assert.include(agents, "nodefony/docs/client.md");
+      assert.include(agents, "nodefony create service");
+      assert.include(agents, "extends Service");
       assert.include(agents, "--kind realtime --module blog");
       // Sans controller demandé, l'inventaire n'en promet aucun.
       assert.notInclude(agents, "BlogController");
@@ -1526,6 +2611,34 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.isFalse(existsSync(path.join(dest, "modules", "blog")));
     });
 
+    it("controller ET frontend cohabitent — la page ne réclame pas le nom du module", () => {
+      // Régression mesurée sur un agent tiers : les deux scaffolds délégués
+      // rendaient `<Pascal>Controller`. Avec le même nom, la commande échouait
+      // sur ce qu'elle venait ELLE-MÊME d'écrire (« déjà référencé — choisis un
+      // autre nom »), pour TOUT nom — donc `create module --frontend <fw>`
+      // était inutilisable telle que l'`AGENTS.md` généré l'annonce.
+      const dest = app("cohab");
+      mod(dest, { name: "shop", controller: "hello", frontend: "vue" });
+      const controllers = path.join(
+        dest,
+        "modules",
+        "shop",
+        "nodefony",
+        "controllers",
+      );
+      assert.isTrue(existsSync(path.join(controllers, "ShopController.ts")));
+      assert.isTrue(
+        existsSync(path.join(controllers, "ShopPageController.ts")),
+      );
+      // La CLASSE diffère, l'URL reste courte : c'est le nom qui gênait, pas
+      // la route (le controller du module vit sous /api/…).
+      const page = readFileSync(
+        path.join(controllers, "ShopPageController.ts"),
+        "utf8",
+      );
+      assert.include(page, 'path: "/shop"');
+    });
+
     it("spec module : questions JSON-able, défauts sûrs (contrat des 3 fronts)", () => {
       const [spec] = getScaffoldSpec("module");
       assert.equal(spec.type, "module");
@@ -1583,9 +2696,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.match(index, /@controllers\(\[[^\]]*DashboardController\]\)/u);
       assert.include(index, "registerDashboardEntry(this);");
       assert.include(index, "override async onKernelBoot()");
-      // Deps du framework ajoutées au package.json (catalogue unique).
+      // Deps du framework ajoutées au package.json (catalogue unique) — le
+      // framework front en dev, pour que `npm prune --omit=dev` le retire.
       const pkg = readJson(path.join(dest, "package.json"));
-      assert.property(pkg["dependencies"], "react");
+      assert.property(pkg["devDependencies"], "react");
+      assert.notProperty(pkg["dependencies"], "react");
       assert.property(pkg["devDependencies"], "@vitejs/plugin-react");
       assert.include((r.notes ?? []).join("\n"), "npm install");
       // Le controller de page rend l'entry du BON nom.
@@ -1596,6 +2711,53 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(ctrl, 'renderDocument("dashboard"');
       assert.include(ctrl, 'path: "/dashboard"');
       assertNoEtaResidue(dest);
+    });
+
+    it("module local : la brique de l'app est POSÉE en peer, pas réclamée à la main", () => {
+      // Régression mesurée sur un agent tiers : la garde refusait dès que
+      // `@nodefony/frontend` manquait à la CIBLE. Un module local est un
+      // workspace — rien ne s'y installe pour son compte propre — et l'agent a
+      // dû éditer le package.json à la main, ce qu'un générateur existe pour
+      // éviter. Le registrar rendu importe le type `FrontendService` : la
+      // dépendance est réelle (typecheck), d'où la peer, comme `@nodefony/http`.
+      const dest = path.join(tmp, "fmod");
+      scaffold(dest, { name: "fmod", preset: "complete", frontend: "none" });
+      runScaffold(
+        {
+          type: "module",
+          answers: { name: "blog", controller: "none" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const r = front(dest, {
+        name: "page",
+        frontend: "vue",
+        module: "@fmod/blog",
+      });
+      const pkg = readJson(path.join(dest, "modules", "blog", "package.json"));
+      assert.property(pkg["peerDependencies"], "@nodefony/frontend");
+      assert.include((r.notes ?? []).join("\n"), "@nodefony/frontend");
+    });
+
+    it("app SANS la brique : la garde mord toujours (rien à poser depuis rien)", () => {
+      const dest = path.join(tmp, "fmini");
+      scaffold(dest, { name: "fmini", preset: "minimal", frontend: "none" });
+      runScaffold(
+        {
+          type: "module",
+          answers: { name: "blog", controller: "none" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      assert.throws(
+        () =>
+          front(dest, { name: "page", frontend: "vue", module: "@fmini/blog" }),
+        /@nodefony\/frontend manque/u,
+      );
     });
 
     it("app-avec-front et front-ajouté partagent la MÊME source", () => {
@@ -1976,10 +3138,85 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Tri par défaut : sans lui, deux pages consécutives peuvent montrer la
       // même ligne ou en sauter une, sans que rien ne le signale.
       assert.include(src, '[["createdAt", "DESC"], ["id", "DESC"]]');
-      // Allowlist de tri : un `?sort=` libre laisserait le client nommer une
+      // Allowlist de tri : un `?order=` libre laisserait le client nommer une
       // colonne inconnue, et l'ORM lèverait — un 500 offert à qui tape au hasard.
-      assert.match(src, /const SORTABLE = new Set<string>\(\[[^\]]*"title"/u);
-      assert.include(src, "SORTABLE.has(field)");
+      assert.match(src, /const SORTABLE = \[[^\]]*"title"/u);
+      // 🔴 LE contrat de page du framework, pas un parseur maison. Un gabarit
+      // est DISTRIBUÉ : le dialecte qu'il porte devient celui de toutes les
+      // applications générées. Il a déjà porté le sien (`?sort=-champ`, JSON:API)
+      // pendant que le framework parlait `?order=champ:SENS` — deux dialectes,
+      // dont un seul documenté, et rien pour le signaler.
+      assert.include(
+        src,
+        'import { parsePageQuery, parseFilters } from "nodefony"',
+      );
+      assert.include(src, "sortable: SORTABLE");
+      assert.notInclude(
+        src,
+        "function parseSort",
+        "le controller généré ne réécrit PAS un lecteur de tri",
+      );
+      assert.notInclude(
+        src,
+        '@Query("sort")',
+        "le dialecte JSON:API `?sort=-champ` a été remplacé par `?order=champ:SENS`",
+      );
+    });
+
+    it("le vocabulaire de FILTRE est déclaré, et il traverse jusqu'au store", () => {
+      const dest = app("eapp4bis");
+      entity(dest, { name: "Author", fields: "email:string!" });
+      entity(dest, {
+        name: "Post",
+        fields:
+          "title:string published:bool status:enum(draft,live) author:ref:Author",
+      });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "controllers", "PostController.ts"),
+        "utf8",
+      );
+      // Les trois natures où l'ÉGALITÉ veut dire quelque chose — et elles seules.
+      assert.include(src, 'published: "boolean"');
+      assert.include(src, 'status: ["draft", "live"]');
+      assert.include(src, 'author: "string"');
+      // Une chaîne libre n'est PAS un filtre : l'égalité stricte sur un titre
+      // n'est jamais ce qu'on cherche, `?q=` répond à ça.
+      assert.notInclude(src, 'title: "string"');
+      assert.include(src, "as const satisfies IFilterSpec");
+      // Déclaré ⇒ honoré : le filtre devient un critère de store, il n'est pas
+      // appliqué après découpage (ce qui rendrait des pages incomplètes).
+      assert.include(src, "parseFilters(query, FILTERS)");
+      assert.include(src, "criteria: filters");
+    });
+
+    it("sans champ filtrable, la spec reste VIDE — et refuse quand même l'inconnu", () => {
+      const dest = app("eapp4ter");
+      entity(dest, { name: "Post", fields: "title:string" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "controllers", "PostController.ts"),
+        "utf8",
+      );
+      // Le refus du paramètre inventé ne dépend d'aucun filtre déclaré : c'est
+      // lui qui empêche `?titre=x` de rendre la collection entière sous un 200.
+      assert.match(
+        src,
+        /const FILTERS = \{\s*\} as const satisfies IFilterSpec/u,
+      );
+      assert.include(src, "parseFilters(query, FILTERS)");
+    });
+
+    it("une relation inconnue dans ?include= est refusée, pas ignorée", () => {
+      const dest = app("eapp4quater");
+      entity(dest, { name: "Author", fields: "email:string!" });
+      entity(dest, { name: "Post", fields: "title:string author:ref:Author" });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "controllers", "PostController.ts"),
+        "utf8",
+      );
+      // Le `.filter(INCLUDABLE.has)` d'origine rendait la fiche SANS la relation
+      // demandée, sous un 200 : le client lit « relation vide », pas « nom faux ».
+      assert.notInclude(src, "filter((name) => INCLUDABLE.has(name))");
+      assert.include(src, "Relation « ${name} » inconnue");
     });
 
     it("sans horodatage, l'ordre par défaut retombe sur l'id (jamais rien)", () => {
@@ -2334,6 +3571,76 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(index, "PostController");
     });
 
+    describe("sondes des tests générés (tri et filtre ÉPROUVABLES)", () => {
+      // Ces deux sondes décident si un test e2e est ÉMIS. Se tromper ne casse
+      // pas la génération : elle émet un test qui échoue sur du code correct
+      // (le cas vécu), ou n'en émet aucun là où il en fallait un. Ni le
+      // typecheck ni les assertions de chaînes ne le voient.
+      const champ = (o: object) => ({ nullable: false, ...o }) as never;
+
+      it("un booléen offre son contraire — de quoi prouver que le filtre FILTRE", () => {
+        const probe = filterProbe([champ({ name: "publie", type: "bool" })]);
+        assert.deepStrictEqual(probe, {
+          name: "publie",
+          match: "true",
+          matchJson: "true",
+          other: "false",
+          otherJson: "false",
+        });
+      });
+
+      it("une énumération à DEUX valeurs les offre ; à UNE seule, elle ne prouve rien", () => {
+        const deux = filterProbe([
+          champ({ name: "statut", type: "enum", values: ["draft", "published"] }),
+        ]);
+        assert.strictEqual(deux?.name, "statut");
+        assert.strictEqual(deux?.match, "draft");
+        assert.strictEqual(deux?.otherJson, '"published"');
+        // Une seule valeur : aucune ligne témoin n'est fabricable, donc
+        // « toutes les lignes portent la valeur demandée » serait vrai même
+        // avec le filtre débranché.
+        assert.isNull(
+          filterProbe([champ({ name: "statut", type: "enum", values: ["draft"] })]),
+        );
+      });
+
+      it("une clé étrangère seule ne se prête PAS au test — poser une 2ᵉ valeur sortirait du sujet", () => {
+        assert.isNull(
+          filterProbe([
+            champ({ name: "titre", type: "string" }),
+            champ({ name: "auteur", type: "ref", target: "Author" }),
+          ]),
+        );
+      });
+
+      it("un filtre `string` ne peut REFUSER aucune valeur — aucun test de rejet n'est émis", () => {
+        // Le défaut vécu : le test visait le premier filtre déclaré quel qu'il
+        // soit et exigeait un 400. Sur une entité dont le seul filtre est une
+        // clé étrangère à identifiant textuel, il réclamait le refus d'une
+        // valeur parfaitement valide — et mettait en défaut le générateur.
+        assert.isNull(malformedProbe([{ name: "auteur", def: '"string"' }]));
+      });
+
+      it("booléen, entier et énumération savent refuser — chacun sa valeur fautive", () => {
+        assert.deepStrictEqual(malformedProbe([{ name: "actif", def: '"boolean"' }]), {
+          name: "actif",
+          value: "oui",
+        });
+        assert.deepStrictEqual(malformedProbe([{ name: "auteur", def: '"int"' }]), {
+          name: "auteur",
+          value: "abc",
+        });
+        // Le premier filtre RÉFUTABLE est retenu, pas le premier déclaré.
+        assert.deepStrictEqual(
+          malformedProbe([
+            { name: "auteur", def: '"string"' },
+            { name: "statut", def: '["draft", "published"]' },
+          ]),
+          { name: "statut", value: "valeur-hors-domaine" },
+        );
+      });
+    });
+
     describe("ancre de la classe Module (findModuleClassAnchor)", () => {
       it("remonte les décorateurs de classe, parenthèses imbriquées comprises", () => {
         const source =
@@ -2672,7 +3979,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "utf8",
       );
       assert.include(src, 'get("blog")');
-      assert.include(src, "svc.greet(who)");
+      // La méthode est CHERCHÉE dans le service, pas supposée par son nom.
+      assert.include(src, "await svc.greet()");
       // Eta AVALE le saut de ligne qui suit un tag placé en fin de ligne : la
       // ligne suivante se recolle à la précédente, et le fichier part avec un
       // TSDoc recousu ou un type coupé en deux. Vu sur pièce en écrivant ce
@@ -2688,6 +3996,71 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // on refuse AVANT d'écrire plutôt que de livrer du code cassé.
       assert.throws(
         () => command(dest, { name: "greet", service: true }),
+        /aucun service appelable/u,
+      );
+    });
+
+    /**
+     * Le gabarit de service dit « Exemple de méthode métier — à remplacer par la
+     * vôtre ». La garde de `--service`, elle, exigeait cette méthode par son NOM
+     * (`greet`) : suivre le conseil du gabarit cassait l'option, sur un message
+     * qui réclamait une méthode d'exemple. Trouvé en dogfoodant sur un vrai
+     * module. Un générateur ne peut pas exiger que son propre exemple soit resté
+     * intact — c'est même l'inverse de ce qu'on lui demande.
+     */
+    it("--service : marche encore quand la méthode d'exemple a été REMPLACÉE", () => {
+      const dest = appWithModule("cmdrenamed");
+      const svcPath = path.join(
+        dest,
+        "modules",
+        "blog",
+        "nodefony",
+        "service",
+        "BlogService.ts",
+      );
+      const rewritten = readFileSync(svcPath, "utf8").replace(
+        /greet\(who = "monde"\): string \{/u,
+        "publier(): string {",
+      );
+      assert.notInclude(rewritten, "greet(", "réécriture du service ratée");
+      writeFileSync(svcPath, rewritten);
+
+      const r = command(dest, {
+        name: "publish",
+        service: true,
+        module: "@cmdrenamed/blog",
+      });
+      const src = readFileSync(
+        path.join(r.dest, "nodefony", "command", "PublishCommand.ts"),
+        "utf8",
+      );
+      assert.include(src, "await svc.publier()");
+    });
+
+    it("--service : refuse une méthode qui exige un argument (l'appel ne compilerait pas)", () => {
+      const dest = appWithModule("cmdargs");
+      const svcPath = path.join(
+        dest,
+        "modules",
+        "blog",
+        "nodefony",
+        "service",
+        "BlogService.ts",
+      );
+      const rewritten = readFileSync(svcPath, "utf8")
+        .replace(/greet\(who = "monde"\): string \{/u, "publier(id: string) {")
+        .replace(
+          /status\(\): \{ ready: boolean \} \{/u,
+          "etat(flag: boolean) {",
+        );
+      writeFileSync(svcPath, rewritten);
+      assert.throws(
+        () =>
+          command(dest, {
+            name: "publish",
+            service: true,
+            module: "@cmdargs/blog",
+          }),
         /aucun service appelable/u,
       );
     });
@@ -2744,7 +4117,15 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       };
       assert.sameMembers(
         doc.types.map((t) => t.type),
-        ["app", "module", "controller", "front", "entity", "command"],
+        [
+          "app",
+          "module",
+          "controller",
+          "service",
+          "front",
+          "entity",
+          "command",
+        ],
       );
       // Ce que l'agent doit pouvoir apprendre sans lire une ligne de source.
       const entity = doc.types.find((t) => t.type === "entity");
@@ -3001,6 +4382,83 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         drifts,
         [],
         `catalogue scaffold (versions.ts) en dérive de MAJEURE vs le repo :\n${drifts.join("\n")}`,
+      );
+    });
+  });
+
+  describe("dépendances des GABARITS (anti-dépendance fantôme)", () => {
+    it("aucun gabarit n'importe un paquet qu'aucun manifeste généré ne déclare", async () => {
+      const { FRONTEND_PARAMS } = await import("../cli/scaffold/engine");
+      const templates = path.join(findPackageRoot(), "templates");
+
+      // Ce qu'un projet généré DÉCLARE, tous gabarits et toutes saveurs
+      // confondus : les deux manifestes (app + module) lus en TEXTE — ils
+      // portent des tags eta, donc `JSON.parse` échouerait — plus les
+      // frameworks front, qui sont ajoutés par le moteur et non par le
+      // manifeste. L'union est volontairement LARGE : ce contrôle ne juge pas
+      // qu'une saveur déclare la bonne dépendance (c'est le travail de
+      // `nodefony check` sur l'app rendue), il attrape le paquet que
+      // PERSONNE ne déclare nulle part.
+      const declared = new Set<string>();
+      for (const rel of [
+        path.join("app", "base", "package.json.tpl"),
+        path.join("module", "base", "package.json.tpl"),
+      ]) {
+        const text = readFileSync(path.join(templates, rel), "utf8");
+        for (const m of text.matchAll(
+          /"((?:@[a-z0-9-]+\/)?[a-z0-9.-]+)"\s*:/gu,
+        )) {
+          declared.add(m[1]);
+        }
+      }
+      for (const front of Object.values(FRONTEND_PARAMS)) {
+        for (const name of Object.keys({ ...front.deps, ...front.devDeps })) {
+          declared.add(name);
+        }
+      }
+
+      // Ancré en début de ligne, comme la règle `undeclared-import` de
+      // `nodefony check` : un gabarit MONTRE des imports dans son TSDoc (le
+      // snippet client de `create controller --kind realtime`), et réclamer une
+      // dépendance pour du texte d'exemple serait un faux positif.
+      const IMPORTS =
+        /^\s*(?:import|export)[^;]*?from\s+"([^".][^"]*)"|^\s*import\s+"([^".][^"]*)"/gmu;
+      const phantoms: string[] = [];
+      for (const entry of readdirSync(templates, {
+        recursive: true,
+        withFileTypes: true,
+      })) {
+        if (!entry.isFile() || !/\.(ts|tsx|vue)\.tpl$/u.test(entry.name)) {
+          continue;
+        }
+        const abs = path.join(entry.parentPath, entry.name);
+        const source = readFileSync(abs, "utf8");
+        for (const m of source.matchAll(IMPORTS)) {
+          const spec = m[1] ?? m[2];
+          if (spec.startsWith("node:")) {
+            continue;
+          }
+          // `@scope/nom/sous-chemin` → `@scope/nom` ; `nom/sous` → `nom`.
+          const parts = spec.split("/");
+          const pkg = spec.startsWith("@")
+            ? parts.slice(0, 2).join("/")
+            : parts[0];
+          if (!declared.has(pkg)) {
+            phantoms.push(`${path.relative(templates, abs)} → ${spec}`);
+          }
+        }
+      }
+
+      // Vécu : le test rendu par `create controller --kind realtime` importait
+      // `reflect-metadata`, qu'aucune application ne déclare — le polyfill est
+      // chargé par `@nodefony/realtime` lui-même. Le typecheck de l'app générée
+      // partait rouge chez qui n'a pas le hissage npm pour le sauver (`--link`,
+      // pnpm). Un gabarit distribue son dialecte ET ses dépendances : une dette
+      // écrite ici se paie chez tous ceux qui génèrent.
+      assert.deepEqual(
+        phantoms,
+        [],
+        `gabarit(s) important un paquet non déclaré :\n${phantoms.join("\n")}`,
       );
     });
   });

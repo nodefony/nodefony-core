@@ -76,10 +76,29 @@ class RevocationGuardStorage implements ISessionStorage {
   listPage?: (query: ISessionListQuery) => Promise<IPage<ISessionRecord>>;
 
   /** `COUNT` filtré — (ré)assigné seulement si le backend décoré le supporte. */
-  countSessions?: (query?: ISessionListQuery) => Promise<number>;
+  countSessions?: (query?: Partial<ISessionListQuery>) => Promise<number>;
+
+  /**
+   * `COUNT(DISTINCT user)` — (ré)assigné seulement si le backend décoré le
+   * supporte, même raison que {@link countSessions} : une capacité perdue dans
+   * le décorateur ferait afficher « inconnu » là où la base sait répondre.
+   */
+  countDistinctUsers?: (query?: Partial<ISessionListQuery>) => Promise<number>;
+
+  /**
+   * Capacité de tri du backend décoré, relayée telle quelle.
+   *
+   * Une capacité qui se PERD dans un décorateur est pire qu'une capacité
+   * absente : elle est déclarée par le store réel, invisible au-dessus, et le
+   * data plane refuse alors (400) un tri que la base sait parfaitement faire.
+   * Comme ce décorateur est posé en production dès qu'une révocation est
+   * possible, l'oubli aurait désactivé le tri **partout**.
+   */
+  readonly sortableFields?: readonly string[];
 
   constructor(inner: ISessionStorage) {
     this.inner = inner;
+    this.sortableFields = inner.sortableFields;
     if (typeof inner.listAll === "function") {
       this.listAll = (filter?: ISessionListFilter) => inner.listAll!(filter);
     }
@@ -87,8 +106,12 @@ class RevocationGuardStorage implements ISessionStorage {
       this.listPage = (query: ISessionListQuery) => inner.listPage!(query);
     }
     if (typeof inner.countSessions === "function") {
-      this.countSessions = (query?: ISessionListQuery) =>
+      this.countSessions = (query?: Partial<ISessionListQuery>) =>
         inner.countSessions!(query);
+    }
+    if (typeof inner.countDistinctUsers === "function") {
+      this.countDistinctUsers = (query?: Partial<ISessionListQuery>) =>
+        inner.countDistinctUsers!(query);
     }
     if (typeof inner.touch === "function") {
       this.touch = (id: string, idleSeconds?: number) => {
