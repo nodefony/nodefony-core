@@ -257,6 +257,22 @@ satisfies IFilterSpec` + un générique `<const S>` fait dériver `{revoked?: bo
   rapporté est indicatif — seul le nombre de TOURS borne réellement).
 - `[1× — 2026-07-31d]` ⭐ **La valeur d'un agent tiers n'est pas sa force, c'est son ÉTRANGETÉ** :
   il ne connaît ni nos skills ni nos conventions, donc il mesure ce que l'app dit VRAIMENT.
+- `[1× — 2026-08-04]` 🔴 **Transposer les drapeaux d'un CLI agentique sur un autre est un
+  DEVINEMENT, et il produit un faux verdict complet.** `-p` mis en tête (réflexe Claude Code) alors
+  que `vibe` colle le texte au drapeau → `No prompt provided`, transcript VIDE, et le banc publie
+  `0/6 tables · 0/83 colonnes` — indiscernable d'un agent incapable. Puis la doc a démenti deux
+  autres suppositions : `--auto-approve` est le DÉFAUT du mode programmatique, et `--trust` ne
+  restreint aucun outil (il ne gouverne que la config de projet). **Lire le `--help` ET la doc
+  AVANT le premier run** — un run raté coûte le prix du run et la confiance dans le chiffre.
+- `[1× — 2026-08-04]` 🔴 **Une garde écrite pour UN format d'agent ne protège que celui-là.** La
+  garde « agent jamais démarré » du banc teste `"terminal_reason":"api_error"`, champ propre à
+  Claude Code : avec tout autre agent elle ne mord pas. Le signe qui détrompe doit être une
+  propriété du RÉSULTAT, pas du transport — ici **« 0 appel au générateur ET 0 édition à la main »**,
+  impossible pour un agent qui a tourné.
+- `[1× — 2026-08-04]` 🔴 **Un compteur ne voit que là où il regarde.** « éditions à la MAIN : 0 »
+  pendant que l'agent avait écrit des dizaines de fichiers — dans `nodefony/entities/` (PLURIEL),
+  quand la sonde lit `nodefony/entity/`. L'agent inventant une arborescence plausible est
+  précisément le cas que le banc existe pour attraper, et c'est celui qu'il compte à zéro.
 
 ## 📦 Surface npm & publication (chantier release en cours)
 
@@ -286,6 +302,24 @@ satisfies IFilterSpec` + un générique `<const S>` fait dériver `{revoked?: bo
   affirmations fausses sur 15 dans la doc d'un module dont le lot venait d'être livré.
 - `[1× — 2026-08-02f]` **Le `CLAUDE.md` généré annonçait « les trois réflexes » en en portant
   quatre** : un fichier pointeur grossit sans que personne ne relise ce qu'il annonce.
+- `[1× — 2026-08-04]` 🔴 **Un RENOMMAGE n'atteint jamais la doc — et il y laisse le CADRAGE FAUX
+  qui a causé le bug.** `SessionRealtimeAuthenticator` → `FirewallRealtimeAuthenticator` (juillet)
+  vivait encore dans trois pages, qui le présentaient en plus comme « l'équivalent WebSocket de
+  session ». Le TSDoc du code dit que cette lecture a coûté un durcissement pensé pour la session
+  appliqué à TOUTES les identités, révoquant des connexions JWT valides : **la doc reconduisait la
+  confusion qui avait produit le défaut**. Corollaire : après un renommage, `grep` le corpus ENTIER
+  — et relire la phrase, pas seulement le nom.
+- `[1× — 2026-08-04]` 🔴 **Un correctif automatique de doc se trompe une fois sur deux sur les gros
+  écarts.** `anchor-fix` a recalé 373 ancres ; sur les 24 à fort saut vers le haut, **11 étaient
+  fausses** (une propriété `run:` prise pour `RequestContext.run`, `function controller` pris pour
+  `UseSession`, cinq `class X` pris pour la méthode citée). Le tri qui les isole : **le sens et
+  l'amplitude du déplacement** — un recalage qui remonte de plusieurs centaines de lignes a
+  attrapé la classe englobante. Sans ce tri, on remplace 531 ancres fausses par 40 ancres fausses
+  ET vertes au gate.
+- `[1× — 2026-08-04]` 🔴 **Mon propre remplacement global a cassé trois ancres justes** : la valeur
+  `sessions-service.ts:808` désignait DEUX symboles après recalage. Un `replace` sur une chaîne
+  `fichier:ligne` n'est pas sûr — remplacer par NUMÉRO DE LIGNE de la page, ou vérifier le compte
+  d'occurrences avant.
 
 ## 🧩 Une capacité arrive AVEC sa tâche, sinon son absence de mesure ressemble à un rejet
 
