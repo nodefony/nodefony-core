@@ -68,6 +68,44 @@ satisfies IFilterSpec` + un générique `<const S>` fait dériver `{revoked?: bo
   paramètre accepté puis jeté, avec en plus le confort d'avoir l'air correct. Toute clé mise dans
   une liste d'exemption est un ENGAGEMENT à la lire, vérifiable en une recherche.
 
+- `[1× — 2026-08-03e]` 🔴 **Deux filtres sur la MÊME donnée : le SQL en jetait un, la mémoire les
+  appliquait tous les deux.** `authenticated` signifie « `user` non nul » — même colonne que le
+  filtre `user`. Les stores SQL/Mongo gardaient `user` et jetaient `authenticated` (leur commentaire
+  l'assumait : « un critère AND-only ne porte qu'une condition par champ ») ; le store mémoire, lui,
+  honorait les deux. Même question, DEUX réponses selon le backend branché — et
+  `?user=alice&authenticated=false` rendait les sessions d'alice sous l'étiquette « anonymes ». Quand
+  deux filtres se contredisent, la réponse honnête est l'ENSEMBLE VIDE, pas la page de l'un des deux.
+- `[1× — 2026-08-03e]` 🔴 **Une facette ÉCRASE le filtre du même nom, et la réponse se contredit
+  toute seule.** `stats?status=active` rendait `{total:5 … revoked:538}` : le total suivait la
+  sélection, chaque carte l'ignorait. Ce n'est pas un cas tordu — c'est le cas NOMINAL, un client
+  envoyant naturellement le même query string à la liste et aux compteurs. Règle qui manquait :
+  **un endpoint de compteurs ne filtre pas la dimension qu'il décompose** (`facetDimensions`), et
+  la spec de son endpoint est celle de la liste MOINS ces clés. Le trou était ouvert dans le lot
+  précédent sans que rien ne le signale.
+
+## 🧮 Un NOMBRE affiché sans qualificatif est lu comme un total
+
+- `[1× — 2026-08-03e]` **Quatre écrans d'administration calculaient leurs cartes dans le
+  NAVIGATEUR, sur les lignes chargées.** Avec une fenêtre plafonnée, « 3 comptes actifs » décrivait
+  trois lignes visibles en ayant l'air de décrire l'annuaire. Corriger par une mention en petits
+  caractères (« sur la fenêtre chargée ») ne rend pas le chiffre vrai — c'est le même mensonge, avec
+  une note de bas de page. Le compteur doit venir du serveur, ou ne pas être affiché.
+- `[1× — 2026-08-03e]` ⭐ **`0` et « je ne sais pas » ne sont pas le même nombre.** Un store en
+  curseur (Redis) refuse le comptage exact et rend `-1` ; sans canal distinct pour l'inconnu, cette
+  réponse arrive au navigateur en `0` — et une carte à zéro se lit « aucun », pas « ignorance ».
+  D'où `number | null` jusqu'à l'écran, et « — » à l'affichage.
+- `[1× — 2026-08-03e]` ⭐ **Le critère qui décide si une facette EXISTE** : une facette n'est
+  légitime que si le contrat de liste sait déjà la filtrer. Sinon ce n'est pas une facette — c'est
+  soit une EXTENSION du contrat (`failing`, `locked`, `hasSocial`, `status` : exactement les filtres
+  que la carte cliquable posera sur le tableau), soit une CAPACITÉ de backend déclarée (compter des
+  valeurs DISTINCTES : SQL et Mongo savent, Redis non). Les coder pour les seules cartes puis les
+  recoder pour les filtres aurait fait deux implémentations de la même règle.
+- `[1× — 2026-08-03e]` **Ne JAMAIS déduire une facette d'une autre par soustraction.** Les
+  populations se recoupent plus souvent qu'on ne croit : un webhook actif ET en échec, un compte
+  désactivé ET verrouillé (4 + 1 + 2 = 7 pour 6 comptes au banc). Et même quand elles partitionnent
+  vraiment (les trois états d'une clé), la partition est une propriété du domaine d'AUJOURD'HUI —
+  un quatrième état la briserait en silence.
+
 ## 🎛️ Une CAPACITÉ appartient au store branché — la coder au front, c'est deviner
 
 - `[1× — 2026-08-03d]` ⭐ **Le front ne décide pas qu'une colonne est triable, il le DEMANDE.** Les
