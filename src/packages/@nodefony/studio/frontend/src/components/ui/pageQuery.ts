@@ -136,3 +136,20 @@ export function fromPage<T>(page: IPage<T>): DataGridServerResult<T> {
     total: page.total ?? (page.hasNext ? seen + page.limit : seen),
   };
 }
+
+/**
+ * Rend un compteur de facette pour l'affichage — `null` devient « — ».
+ *
+ * Vit ici, avec le traducteur du contrat de page, parce que c'est la MÊME
+ * convention qui traverse : un data plane rend `null` quand le backend branché
+ * ne sait pas compter (`FacetCount`, cœur), et une console qui l'afficherait en
+ * `0` transformerait une ignorance en absence — « aucune session » là où il y en
+ * a des milliers. Une seule fonction pour les quatre écrans, sinon le troisième
+ * réinventera le tiret.
+ *
+ * @param n - le compteur reçu, ou `null` si le backend ne sait pas.
+ * @returns le nombre en clair (séparateurs de milliers) ou « — ».
+ */
+export function fmtFacet(n: number | null | undefined): string {
+  return n === null || n === undefined ? "—" : n.toLocaleString("fr-FR");
+}

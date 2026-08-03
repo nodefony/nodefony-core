@@ -49,7 +49,13 @@ import { hasRole } from "nodefony/roles";
 
 import { useStore, useAuth, useNotifications } from "../stores";
 import { useResource } from "../hooks";
-import { PageLayout, StatCard, DataState, DocHint } from "../components/ui";
+import {
+  PageLayout,
+  StatCard,
+  DataState,
+  DocHint,
+  fmtFacet,
+} from "../components/ui";
 import {
   ADMIN_ROLE,
   SESSIONS_DOC,
@@ -62,6 +68,8 @@ import {
   countByAuth,
   describeSessionsError,
   SESSIONS_STATUS_ENDPOINT,
+  sessionsStatsEndpoint,
+  type SessionCounts,
   type SessionSummary,
   type SessionListResponse,
   type SessionsStatus,
@@ -147,7 +155,28 @@ export const Sessions = observer(() => {
   const sessions = useMemo(() => data?.items ?? [], [data]);
   const total = data?.total ?? sessions.length;
   const truncated = total > sessions.length;
-  const counts = useMemo(() => countByAuth(sessions), [sessions]);
+
+  // Compteurs de tête : le SERVEUR les pose sur la collection entière, avec le
+  // même filtre que la liste. Les calculer ici reviendrait à décrire la fenêtre
+  // chargée en ayant l'air de décrire le parc. Le mode « Mes sessions » reste
+  // client : sa réponse EST déjà tout le périmètre de l'appelant, et aucun
+  // endpoint de statistiques ne lui est ouvert (il est réservé aux admins).
+  const statsFetcher = useCallback(
+    (): Promise<SessionCounts | null> =>
+      mode === "all" && isAdmin
+        ? store.api.getAbsolute<SessionCounts>(
+            sessionsStatsEndpoint({ user: adminUserFilter }),
+          )
+        : Promise.resolve(null),
+    [store, mode, isAdmin, adminUserFilter],
+  );
+  const { data: serverCounts, reload: reloadCounts } =
+    useResource(statsFetcher);
+
+  const counts = useMemo<SessionCounts>(
+    () => serverCounts ?? countByAuth(sessions),
+    [serverCounts, sessions],
+  );
 
   const modeData = useMemo(
     () => [
@@ -169,6 +198,7 @@ export const Sessions = observer(() => {
       });
       setConfirmRevoke(null);
       reload();
+      reloadCounts(); // une session révoquée change les compteurs, pas que la liste
     } catch (e) {
       notifications.notify("error", describeSessionsError(e), {
         source: "api",
@@ -193,6 +223,7 @@ export const Sessions = observer(() => {
       );
       setConfirmRevokeUser(null);
       reload();
+      reloadCounts();
     } catch (e) {
       notifications.notify("error", describeSessionsError(e), {
         source: "api",
@@ -224,6 +255,7 @@ export const Sessions = observer(() => {
       clear();
       setConfirmBulk(null);
       reload();
+      reloadCounts();
     } catch (e) {
       notifications.notify("error", describeSessionsError(e), {
         source: "api",
@@ -345,10 +377,10 @@ export const Sessions = observer(() => {
         <StatCard
           label="Total"
           icon={<IconList size={20} color="var(--mantine-color-brand-5)" />}
-          hint="Nombre de sessions persistées dans la fenêtre chargée (authentifiées + anonymes)."
+          hint="Nombre TOTAL de sessions persistées (authentifiées + anonymes), compté par le serveur sur l'ensemble — pas sur les lignes affichées. « — » = le backend ne sait pas compter (store à curseur)."
         >
           <Text fz={28} fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
-            {counts.total}
+            {fmtFacet(counts.total)}
           </Text>
         </StatCard>
         <StatCard
@@ -362,7 +394,7 @@ export const Sessions = observer(() => {
             c="teal"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.authenticated}
+            {fmtFacet(counts.authenticated)}
           </Text>
         </StatCard>
         <StatCard
@@ -388,16 +420,16 @@ export const Sessions = observer(() => {
             c="dimmed"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.anonymous}
+            {fmtFacet(counts.anonymous)}
           </Text>
         </StatCard>
         <StatCard
           label="Utilisateurs"
           icon={<IconUsers size={20} color="var(--mantine-color-brand-5)" />}
-          hint="Nombre d'utilisateurs distincts ayant au moins une session authentifiée (un même utilisateur peut avoir plusieurs sessions / appareils)."
+          hint="Nombre d'utilisateurs DISTINCTS ayant au moins une session (un même utilisateur peut en avoir plusieurs — plusieurs appareils). « 400 sessions » n'est pas « 400 personnes ». « — » = le backend ne sait pas dédupliquer."
         >
           <Text fz={28} fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
-            {counts.users}
+            {fmtFacet(counts.users)}
           </Text>
         </StatCard>
       </Grid>

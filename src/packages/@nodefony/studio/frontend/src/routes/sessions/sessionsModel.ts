@@ -83,6 +83,23 @@ export const SESSIONS_LIST_ENDPOINT = "/nodefony/http/api/sessions/list";
 export const SESSIONS_STATUS_ENDPOINT = "/nodefony/http/api/sessions";
 
 /**
+ * GET — **compteurs de tête**, posés par le serveur sur la collection ENTIÈRE.
+ *
+ * Endpoint distinct de la liste : ces nombres ne dépendent ni de la fenêtre ni
+ * de l'ordre, donc on ne les recharge pas à chaque tour de page — seulement au
+ * montage, au changement de filtre, et après une révocation.
+ */
+export const SESSIONS_STATS_ENDPOINT = "/nodefony/http/api/sessions/stats";
+
+/** Construit l'URL des compteurs, avec le MÊME filtre que la liste. */
+export function sessionsStatsEndpoint(opts: { user?: string } = {}): string {
+  const p = new URLSearchParams();
+  if (opts.user) p.set("user", opts.user);
+  const qs = p.toString();
+  return qs ? `${SESSIONS_STATS_ENDPOINT}?${qs}` : SESSIONS_STATS_ENDPOINT;
+}
+
+/**
  * Fenêtre de chargement par défaut = le **cap dur** du back (200). La liste est
  * exploitée côté client par le `DataGrid` (recherche/tri/filtre). Au-delà, la
  * fenêtre est tronquée → on le signale et on invite à filtrer par utilisateur.
@@ -151,19 +168,36 @@ export const SESSIONS_DOC = "v1.1";
 /** Rôle requis pour l'administration des sessions — source unique `auth/roles`. */
 export { ROLE_NODEFONY_ADMIN as ADMIN_ROLE } from "../../auth/roles";
 
-// ─── Compteurs (KPIs, dérivés de la fenêtre chargée) ─────────────────────────
+// ─── Compteurs (KPIs) ────────────────────────────────────────────────────────
 
+/**
+ * Les compteurs de tête — miroir exact de ce que rend `sessions/stats`.
+ *
+ * `null` signifie « le backend ne sait pas le calculer » (un store en curseur
+ * comme Redis refuse un comptage exact) et se rend « — » à l'écran. C'est ce
+ * qui interdit d'afficher un zéro là où l'on ne sait rien : une carte à zéro se
+ * lit comme une absence, pas comme une ignorance.
+ */
 export interface SessionCounts {
-  /** Sessions dans la fenêtre. */
-  total: number;
+  /** Sessions persistées. */
+  total: number | null;
   /** Sessions portant un utilisateur authentifié. */
-  authenticated: number;
+  authenticated: number | null;
   /** Sessions anonymes (aucun utilisateur). */
-  anonymous: number;
+  anonymous: number | null;
   /** Nombre d'utilisateurs **distincts** authentifiés. */
-  users: number;
+  users: number | null;
 }
 
+/**
+ * Compte sur les sessions REÇUES — réservé au mode « Mes sessions », où la
+ * réponse est déjà l'intégralité du périmètre (le serveur la scope à
+ * l'appelant, anti-IDOR).
+ *
+ * ⚠️ Ne pas l'employer sur l'énumération d'administration : elle est fenêtrée,
+ * et compter dessus décrirait l'échantillon affiché en ayant l'air de décrire
+ * le parc. C'est précisément ce que `sessions/stats` corrige.
+ */
 export function countByAuth(sessions: SessionSummary[]): SessionCounts {
   let authenticated = 0;
   const userSet = new Set<string>();

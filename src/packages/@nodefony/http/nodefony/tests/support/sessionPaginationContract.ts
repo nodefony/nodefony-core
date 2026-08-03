@@ -221,6 +221,46 @@ export function runSessionPaginationContract(
       assert.equal(records.length, 0);
     });
 
+    // Les deux filtres portent la MÊME donnée (`authenticated` = « user non
+    // vide »). Un store qui n'en applique qu'un rend la page de l'autre — et le
+    // client lit ce résultat comme celui de sa demande complète. Vécu : les
+    // stores SQL et Mongo jetaient `authenticated` dès que `user` était fourni,
+    // là où le store mémoire appliquait les deux. Même question, deux réponses
+    // selon le backend branché.
+    it("filtres CONTRADICTOIRES : ensemble vide, jamais la page de l'un des deux", async () => {
+      const named = await collectAll(
+        storage(),
+        { user: "alice", authenticated: false },
+        5,
+      );
+      assert.equal(
+        named.records.length,
+        0,
+        "un identifiant nommé n'est jamais une session anonyme",
+      );
+
+      const anon = await collectAll(
+        storage(),
+        { user: "", authenticated: true },
+        5,
+      );
+      assert.equal(
+        anon.records.length,
+        0,
+        "une session anonyme ne porte pas d'utilisateur authentifié",
+      );
+    });
+
+    it("filtres COMBINÉS et cohérents : les deux s'appliquent", async () => {
+      const both = await collectAll(
+        storage(),
+        { user: "alice", authenticated: true },
+        5,
+      );
+      assert.equal(both.records.length, 5);
+      assert.ok(both.records.every((r) => r.data.user === "alice"));
+    });
+
     it("rejette le mode de pagination que le store ne supporte pas (400)", async () => {
       const adverse =
         harness.mode === "offset"
@@ -372,6 +412,39 @@ export function runSessionPaginationContract(
         assert.equal(
           await storage().countSessions({ limit: 1, authenticated: false }),
           3,
+        );
+        // Le compteur suit le même périmètre que la liste — sinon la carte de
+        // tête et le tableau qu'elle surplombe racontent deux histoires.
+        assert.equal(
+          await storage().countSessions({
+            user: "alice",
+            authenticated: false,
+          }),
+          0,
+          "filtres contradictoires : zéro, pas les 5 sessions d'alice",
+        );
+        assert.equal(
+          await storage().countSessions({ user: "alice", authenticated: true }),
+          5,
+        );
+      });
+
+      it("countDistinctUsers = les PERSONNES, pas les sessions", async () => {
+        const store = storage();
+        if (typeof store.countDistinctUsers !== "function") return; // capacité optionnelle
+        // 12 sessions, 9 authentifiées, mais moins d'utilisateurs distincts :
+        // alice en porte 5 à elle seule.
+        const people = await store.countDistinctUsers();
+        const sessions = await store.countSessions({ authenticated: true });
+        assert.ok(
+          people > 0 && people < sessions,
+          `déduplication attendue (${people} personnes pour ${sessions} sessions)`,
+        );
+        assert.equal(await store.countDistinctUsers({ user: "alice" }), 1);
+        assert.equal(
+          await store.countDistinctUsers({ authenticated: false }),
+          0,
+          "les sessions anonymes ne forment aucun utilisateur",
         );
       });
     } else {

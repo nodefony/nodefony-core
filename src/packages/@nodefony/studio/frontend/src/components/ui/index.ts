@@ -121,4 +121,9 @@ export {
   type DataGridFilterType,
   type DataGridPersist,
 } from "./DataGrid";
-export { toPageParams, withoutColumnFilters, fromPage } from "./pageQuery";
+export {
+  toPageParams,
+  withoutColumnFilters,
+  fromPage,
+  fmtFacet,
+} from "./pageQuery";

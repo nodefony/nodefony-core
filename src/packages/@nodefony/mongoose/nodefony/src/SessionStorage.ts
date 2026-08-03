@@ -235,26 +235,37 @@ class SessionStorage implements ISessionStorage {
   /**
    * Traduit les filtres du contrat en `Criteria` orm-core — **portables** (égalité
    * + test de nullité), donc poussés dans le `find` Mongo et jamais ré-appliqués
-   * en mémoire. Source unique du périmètre de {@link listPage} et
-   * {@link countSessions}. `user` explicite l'emporte sur `authenticated` (un
-   * critère AND-only ne porte qu'une condition par champ ; les combiner donnerait
-   * de toute façon un ensemble vide ou redondant).
+   * en mémoire. Source unique du périmètre de {@link listPage},
+   * {@link countSessions} et {@link countDistinctUsers}.
+   *
+   * Les deux filtres portent la **même** propriété (`authenticated` signifie
+   * « `user` non nul »). Quand ils se contredisent — un identifiant nommé qu'on
+   * demande anonyme, ou l'inverse — la réponse honnête est l'ensemble vide, et
+   * c'est ce que dit `null`. Parité stricte avec le store Drizzle et le store
+   * mémoire, qui appliquent les deux conditions.
+   *
+   * @returns `undefined` (aucun filtre), le critère, ou **`null`** si les
+   *   filtres sont contradictoires.
    */
   static #criteria(
     query?: Partial<ISessionListQuery>,
-  ): Criteria<SessionRow> | undefined {
+  ): Criteria<SessionRow> | undefined | null {
     if (!query) return undefined;
-    const criteria: Record<string, unknown> = {};
-    if (query.user !== undefined) {
+    const { user, authenticated } = query;
+    if (user !== undefined) {
       // `write` normalise l'anonyme en `null` : filtrer sur "" ne trouverait rien.
-      criteria.user = query.user === "" ? { $null: true } : query.user;
+      const anonymous = user === "";
+      if (authenticated !== undefined && authenticated === anonymous) {
+        return null;
+      }
+      return {
+        user: anonymous ? { $null: true } : user,
+      } as Criteria<SessionRow>;
     }
-    if (query.authenticated !== undefined && query.user === undefined) {
-      criteria.user = { $null: !query.authenticated };
+    if (authenticated !== undefined) {
+      return { user: { $null: !authenticated } } as Criteria<SessionRow>;
     }
-    return Object.keys(criteria).length > 0
-      ? (criteria as Criteria<SessionRow>)
-      : undefined;
+    return undefined;
   }
 
   /**
@@ -275,8 +286,20 @@ class SessionStorage implements ISessionStorage {
         hasNext: false,
       };
     }
+    const criteria = SessionStorage.#criteria(query);
+    if (criteria === null) {
+      // Filtres contradictoires : rien ne peut correspondre, inutile d'interroger
+      // Mongo — mais la forme de la page reste celle du contrat.
+      return {
+        items: [],
+        total: query.withTotal === false ? undefined : 0,
+        limit: query.limit,
+        offset: query.offset ?? 0,
+        hasNext: false,
+      };
+    }
     const page = await paginate(repo, {
-      criteria: SessionStorage.#criteria(query),
+      criteria,
       limit: query.limit,
       offset: query.offset,
       withTotal: query.withTotal,
@@ -302,7 +325,8 @@ class SessionStorage implements ISessionStorage {
     if (!repo) {
       return 0;
     }
-    return repo.count(SessionStorage.#criteria(query));
+    const criteria = SessionStorage.#criteria(query);
+    return criteria === null ? 0 : repo.count(criteria);
   }
 
   /**
@@ -318,7 +342,8 @@ class SessionStorage implements ISessionStorage {
     if (!repo) {
       return 0;
     }
-    return repo.countDistinct("user", SessionStorage.#criteria(query));
+    const criteria = SessionStorage.#criteria(query);
+    return criteria === null ? 0 : repo.countDistinct("user", criteria);
   }
 }
 
