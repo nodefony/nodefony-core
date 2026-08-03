@@ -131,8 +131,8 @@ export function createFrameworkAdminApi(
       // Miroir EXACT de `matchFilter` côté grid, sinon le mode serveur et le
       // mode client ne filtreraient pas la même chose.
       case "in": {
-        const split = (raw: string) =>
-          raw
+        const split = (list: string) =>
+          list
             .split(",")
             .map((t) => t.trim())
             .filter((t) => t !== "");

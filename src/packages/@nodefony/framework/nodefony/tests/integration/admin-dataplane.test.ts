@@ -954,7 +954,7 @@ describe("Admin data plane — le tri des utilisateurs traverse", () => {
     ).body as { items: { identifier: string }[] };
     expect(asc.items.length).to.be.above(1);
     expect(asc.items.map((u) => u.identifier)).to.deep.equal(
-      [...desc.items.map((u) => u.identifier)].reverse(),
+      desc.items.map((u) => u.identifier).reverse(),
     );
   });
 
