@@ -114,6 +114,17 @@ export interface IAdminPageCapabilities {
    * fermée de ses valeurs, qui vaut allowlist.
    */
   filters?: IFilterSpec;
+  /**
+   * L'endpoint sait-il **chercher** (`?q=`) — même raison d'être que
+   * {@link IAdminPageCapabilities.sortable}, et même piège s'il manque : une
+   * console qui affiche une barre de recherche que le serveur ignore présente
+   * la collection entière comme un résultat de recherche.
+   *
+   * **Une fonction**, parce que la réponse dépend du store branché au
+   * démarrage — un backend en curseur ne balaie pas. Absente = pas de
+   * recherche, et `parsePageQuery` refuse alors `?q=` en `400`.
+   */
+  search?: () => boolean;
 }
 
 /**

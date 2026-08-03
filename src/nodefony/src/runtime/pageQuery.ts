@@ -41,6 +41,21 @@ export interface IParsePageQueryOptions {
    *   un store — un nom de champ arbitraire n'a rien à faire dans une requête.
    */
   sortable?: readonly string[];
+
+  /**
+   * Ce point d'entrée sait-il **chercher** (`?q=`) — c'est-à-dire relayer `q`
+   * jusqu'à un store qui l'honore. Défaut `false`.
+   *
+   * @remarks Défaut symétrique de {@link IParsePageQueryOptions.sortable} : non
+   *   déclarée, la recherche est **refusée** (`400`) au lieu d'être ignorée. Le
+   *   défaut inverse aurait été le péché habituel — deux data planes du dépôt
+   *   acceptaient `?q=` sans jamais le transmettre à leur store, et rendaient
+   *   donc la collection ENTIÈRE à qui croyait lire un résultat de recherche.
+   *   Comme le tri, la recherche est une capacité du **backend branché** (un
+   *   store en curseur ne balaie pas), donc elle se constate et se déclare —
+   *   jamais elle ne se suppose.
+   */
+  searchable?: boolean;
 }
 
 /**
@@ -185,7 +200,7 @@ const parseOrder = (
  * | `cursor`     | `?cursor=abc`               | posé si non vide                            |
  * | `order`      | `?order=name:ASC,age:DESC`  | validé contre `sortable`                    |
  * | `withTotal`  | `?withTotal=false`          | posé **seulement** si `false` (défaut `true`) |
- * | `q`          | `?q=jean`                   | trimé, posé si non vide                     |
+ * | `q`          | `?q=jean`                   | trimé, posé si non vide — **refusé** sans `searchable` |
  *
  * `offset` et `cursor` peuvent tous deux être présents ici : ce n'est pas à ce
  * traducteur d'arbitrer, mais au store, qui seul connaît son mode — il l'énonce
@@ -241,7 +256,15 @@ export function parsePageQuery(
   if (one(source, "withTotal") === "false") query.withTotal = false;
 
   const q = one(source, "q")?.trim();
-  if (q) query.q = q;
+  if (q) {
+    if (!options.searchable) {
+      throw new PageQueryError(
+        `This endpoint does not support full-text search ("q"). ` +
+          `Use the declared filters instead.`,
+      );
+    }
+    query.q = q;
+  }
 
   return query;
 }

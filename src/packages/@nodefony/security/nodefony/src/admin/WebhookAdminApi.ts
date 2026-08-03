@@ -165,6 +165,10 @@ export function parseWebhookListQuery(
     defaultLimit: ENDPOINTS_DEFAULT_LIMIT,
     maxLimit: ENDPOINTS_MAX_LIMIT,
     sortable,
+    // Le registre relaie `q` au store (`IWebhookListQuery.q`) — déclaré ici, et
+    // publié au catalogue par le même endpoint : la console n'offre la
+    // recherche que là où elle aboutit.
+    searchable: true,
   });
   const out: IWebhookListQuery = {
     limit: page.limit,
@@ -238,6 +242,8 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
           return ready(s) ? s.sortableFields() : [];
         },
         filters: WEBHOOK_FILTERS,
+        // Même condition que le tri : coupés, les webhooks ne cherchent rien.
+        search: () => ready(svc()),
       },
       handler: async (
         request: IAdminRequest,

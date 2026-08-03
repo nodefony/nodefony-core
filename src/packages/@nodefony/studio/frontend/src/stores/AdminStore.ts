@@ -14,6 +14,15 @@ export interface AdminPageCapabilities {
   sortable: string[];
   /** Nom public → nature (`"boolean"`, `"int"`, `"string"`) ou liste fermée. */
   filters: Record<string, string | string[]>;
+  /**
+   * Le backend branché sait-il **chercher** (`?q=`) — déjà évalué côté serveur.
+   *
+   * `false` → la vue n'affiche AUCUNE barre de recherche. Elle en affichait une
+   * partout : sur les sessions et les clés d'API, le serveur n'a jamais relayé
+   * `q` à son store, si bien qu'une recherche rendait la collection entière —
+   * et le contrat la refuse désormais en `400`.
+   */
+  search: boolean;
 }
 
 /** Un endpoint admin tel que décrit par le catalogue `/framework/api/admin`. */

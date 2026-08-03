@@ -88,7 +88,11 @@ function pageParams(query: Readonly<Record<string, string | string[]>>): {
   offset: number;
   q?: string;
 } {
-  const parsed = parsePageQuery(query);
+  // `searchable` : le seul appelant de ce helper est `rate-limit/list`, qui
+  // filtre lui-même ses clés sur `q` (collection en mémoire). Un endpoint qui
+  // ne relaierait pas `q` doit au contraire l'omettre, pour que la recherche
+  // soit refusée en 400 plutôt qu'acceptée puis jetée.
+  const parsed = parsePageQuery(query, { searchable: true });
   // `q` vient d'ICI et de nulle part ailleurs : le handler le relisait à la main
   // juste après, ce qui faisait deux lecteurs du même paramètre — le motif exact
   // qui a déjà produit un 400 sur un tri accepté par le premier appel.

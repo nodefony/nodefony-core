@@ -341,6 +341,11 @@ export function createUserAdminApi(container: Container): IAdminApi {
       page: {
         sortable: () => resolveUsers()?.sortableFields() ?? [],
         filters: USER_FILTERS,
+        // La recherche descend jusqu'au dépôt (`listPage({ q })`), qui la traduit
+        // en `LIKE` indexé ou en prédicat mémoire — jamais un balayage ici.
+        // Déclarée pour que la console n'affiche une barre de recherche que là
+        // où elle cherche vraiment.
+        search: () => true,
       },
       handler: async (
         request: IAdminRequest,
@@ -363,6 +368,7 @@ export function createUserAdminApi(container: Container): IAdminApi {
         // le premier venait d'accepter — vécu.
         const pageQuery = parsePageQuery(request.query, {
           sortable: users.sortableFields(),
+          searchable: true,
         });
         const filters = parseFilters(request.query, USER_FILTERS);
         const limit = pageQuery.limit;

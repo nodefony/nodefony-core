@@ -90,6 +90,10 @@ describe("catalogue admin — capacités de page", () => {
     expect(entry?.page).to.deep.equal({
       sortable: ["createdAt", "id"],
       filters: { enabled: "boolean", kind: ["pat", "refresh"] },
+      // Non déclarée par l'endpoint → publiée à `false`, comme le tri vide :
+      // la console doit apprendre que la recherche n'aboutira pas, plutôt que
+      // d'afficher une barre dont le serveur refuse le `?q=` (400).
+      search: false,
     });
   });
 
@@ -116,7 +120,11 @@ describe("catalogue admin — capacités de page", () => {
       ]),
       "sessions",
     );
-    expect(entry?.page).to.deep.equal({ sortable: [], filters: {} });
+    expect(entry?.page).to.deep.equal({
+      sortable: [],
+      filters: {},
+      search: false,
+    });
   });
 
   it("`sortable` est ÉVALUÉ à chaque lecture, jamais figé au démarrage", async () => {
@@ -134,12 +142,35 @@ describe("catalogue admin — capacités de page", () => {
     expect((await catalogEntry(broker, "things"))?.page).to.deep.equal({
       sortable: [],
       filters: {},
+      search: false,
     });
     backend = ["name"];
     expect((await catalogEntry(broker, "things"))?.page).to.deep.equal({
       sortable: ["name"],
       filters: {},
+      search: false,
     });
+  });
+
+  it("`search` est publié et ÉVALUÉ, comme le tri", async () => {
+    // La recherche est une capacité du store branché, pas de la ressource : un
+    // backend en curseur ne balaie pas. Elle se lit donc à chaque lecture du
+    // catalogue, et non une fois pour toutes au montage des routes.
+    let canSearch = false;
+    const broker = brokerWith([
+      {
+        path: "things",
+        page: { filters: {}, search: () => canSearch },
+        handler: () => ({}),
+      },
+    ]);
+    expect(
+      (await catalogEntry(broker, "things"))?.page as { search: boolean },
+    ).to.have.property("search", false);
+    canSearch = true;
+    expect(
+      (await catalogEntry(broker, "things"))?.page as { search: boolean },
+    ).to.have.property("search", true);
   });
 
   it("la spec de filtre traverse en JSON, telle qu'elle est déclarée", async () => {

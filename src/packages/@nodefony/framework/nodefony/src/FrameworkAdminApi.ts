@@ -180,6 +180,10 @@ export function createFrameworkAdminApi(
         const query = parsePageQuery(request.query, {
           defaultLimit: 25,
           sortable: SORTABLE_COLUMNS,
+          // La collection est en mémoire : la recherche plein-texte est un
+          // simple balayage, donc toujours honorée — ce qui n'est vrai
+          // d'aucune ressource persistée, d'où la déclaration explicite.
+          searchable: true,
         });
         // Cet endpoint n'a pas de filtre au sens du contrat (spec vide) : il lit
         // son propre `filters`, et le déclare. L'appel sert donc à une seule
@@ -275,7 +279,11 @@ export function createFrameworkAdminApi(
             path: string;
             role: string;
             summary: string | null;
-            page?: { sortable: readonly string[]; filters: IFilterSpec };
+            page?: {
+              sortable: readonly string[];
+              filters: IFilterSpec;
+              search: boolean;
+            };
           }[]
         >();
         for (const r of broker.routes()) {
@@ -293,13 +301,14 @@ export function createFrameworkAdminApi(
             // Les capacités de page sont publiées ICI parce que la console lit
             // déjà ce catalogue au démarrage : un endpoint « capabilities » par
             // ressource aurait coûté une requête par vue pour la même donnée.
-            // `sortable` est ÉVALUÉ maintenant — c'est le store branché qui
-            // répond, pas une constante de compilation.
+            // `sortable` et `search` sont ÉVALUÉS maintenant — c'est le store
+            // branché qui répond, pas une constante de compilation.
             ...(caps
               ? {
                   page: {
                     sortable: caps.sortable?.() ?? [],
                     filters: caps.filters ?? {},
+                    search: caps.search?.() ?? false,
                   },
                 }
               : {}),

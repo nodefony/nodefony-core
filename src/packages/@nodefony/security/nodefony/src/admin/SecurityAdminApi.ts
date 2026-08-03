@@ -509,6 +509,12 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         const pageQuery = parsePageQuery(request.query, {
           defaultLimit: KEYS_DEFAULT_LIMIT,
           maxLimit: KEYS_MAX_LIMIT,
+          // Le store des passkeys filtre bien sur `q` (il le reçoit plus bas) :
+          // la capacité se déclare, et `q` se lit UNE fois — ici. Le handler le
+          // relisait à la main juste après, ce qui en faisait le second lecteur
+          // du même paramètre, le motif qui a déjà produit un 400 sur une valeur
+          // que le premier appel venait d'accepter.
+          searchable: true,
         });
         const limit = pageQuery.limit;
         const offset = pageQuery.offset ?? 0;
@@ -519,7 +525,7 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         }
         const userId = one(request.query, "userId");
         const backedUp = one(request.query, "backedUp");
-        const q = one(request.query, "q");
+        const q = pageQuery.q;
         const page = await svc.listCredentialsPage({
           limit,
           offset,

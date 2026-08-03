@@ -154,10 +154,30 @@ describe("parsePageQuery — withTotal et q", () => {
     expect(parsePageQuery({}).withTotal).to.equal(undefined);
   });
 
-  it("q trimé, vide ignoré", () => {
-    expect(parsePageQuery({ q: "  jean  " }).q).to.equal("jean");
+  it("q trimé, vide ignoré — quand la recherche est déclarée", () => {
+    const searchable = true;
+    expect(parsePageQuery({ q: "  jean  " }, { searchable }).q).to.equal(
+      "jean",
+    );
+    expect(parsePageQuery({ q: "   " }, { searchable }).q).to.equal(undefined);
+    expect(parsePageQuery({}, { searchable }).q).to.equal(undefined);
+  });
+
+  it("REFUSE q quand le point d'entrée ne cherche pas", () => {
+    // Symétrique du tri : sans capacité déclarée, la recherche est refusée et
+    // non ignorée. Un `q` accepté puis jeté rend la collection ENTIÈRE, que le
+    // client lit comme le résultat de sa recherche.
+    expect(() => parsePageQuery({ q: "jean" })).to.throw(/does not support/);
+    expect(() => parsePageQuery({ q: "jean" }, { searchable: false })).to.throw(
+      /does not support/,
+    );
+  });
+
+  it("un q VIDE ne déclenche pas le refus (rien n'a été demandé)", () => {
+    // Une barre de recherche vidée par l'utilisateur envoie souvent `?q=` :
+    // refuser là dessus transformerait un écran normal en erreur 400.
+    expect(parsePageQuery({ q: "" }).q).to.equal(undefined);
     expect(parsePageQuery({ q: "   " }).q).to.equal(undefined);
-    expect(parsePageQuery({}).q).to.equal(undefined);
   });
 });
 
@@ -169,7 +189,7 @@ describe("parsePageQuery — pureté", () => {
 
   it("ne mute pas la source", () => {
     const source = { limit: "10", q: "  x  " };
-    parsePageQuery(source);
+    parsePageQuery(source, { searchable: true });
     expect(source).to.deep.equal({ limit: "10", q: "  x  " });
   });
 });
