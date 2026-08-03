@@ -56,6 +56,36 @@
 satisfies IFilterSpec` + un générique `<const S>` fait dériver `{revoked?: boolean, category?:
 "auth"|…}` de la donnée elle-même — les `as AuditCategory` des data planes disparaissent, et une
   valeur ajoutée à une énumération met à jour les deux d'un seul geste.
+- `[1× — 2026-08-03d]` 🔴 **La tolérance survivait dans la LECTURE, sous le refus qu'on venait
+  d'écrire.** `one()` — dupliqué dans `pageQuery.ts` et `pageFilters.ts` — prenait la première
+  valeur d'une clé répétée et jetait les autres : `?actor=a&actor=b` rendait une page filtrée sur
+  `a` seul, exactement le mensonge que le fichier bannissait dix lignes plus haut. **Deux tests la
+  codifiaient**, écrits la veille par la même main que le refus. La leçon n'est pas « il restait un
+  cas » : c'est qu'une doctrine s'applique d'abord aux fonctions qu'on ne regarde plus.
+- `[1× — 2026-08-03d]` ⚠️ **Une échappatoire au refus (`accepts`) redevient le péché si on la pose
+  au mauvais endroit.** Le gabarit allait déclarer `accepts: ["include"]` sur `list` — or `include`
+  est lu par `show`. Un paramètre listé comme « traité par l'appelant » et jamais lu redevient un
+  paramètre accepté puis jeté, avec en plus le confort d'avoir l'air correct. Toute clé mise dans
+  une liste d'exemption est un ENGAGEMENT à la lire, vérifiable en une recherche.
+
+## 🎛️ Une CAPACITÉ appartient au store branché — la coder au front, c'est deviner
+
+- `[1× — 2026-08-03d]` ⭐ **Le front ne décide pas qu'une colonne est triable, il le DEMANDE.** Les
+  4 tables Studio codaient `sortable: true` en dur ; or le tri est publié par le store branché à
+  l'exécution — Redis n'en offre aucun (énumération par `SCAN`), l'annuaire en mémoire ignore
+  `createdAt`, une base SQL le connaît. La même page rend donc 200 ou 400 selon le déploiement, et
+  rien côté front ne peut le prévoir. Réponse : `IAdminEndpoint.page` publie `{sortable, filters}`
+  dans le catalogue **que la console charge déjà** — zéro requête en plus, là où un endpoint
+  `capabilities` par ressource en aurait coûté une par vue.
+- `[1× — 2026-08-03d]` **Une capacité se publie en FONCTION, jamais en constante figée** : le store
+  peut n'être branché qu'après le montage des routes, et un service peut devenir indisponible. Une
+  valeur capturée une fois ment dans les deux cas — d'où l'évaluation à chaque lecture du catalogue,
+  et un test qui change le backend entre deux lectures pour le prouver.
+- `[1× — 2026-08-03d]` 🔴 **Passer une table en mode serveur casse ses AGRÉGATS, en silence.** Les
+  4 vues calculent leurs cartes (`countUsers`, `countByAuth`…) sur la liste entière chargée ; avec
+  une page de 25 lignes, « 12 actifs » devient un compte de page présenté comme un total. Le coût
+  réel d'une bascule client→serveur n'est pas la prop `mode`, c'est le sort de tout ce que la vue
+  dérivait de la collection complète — à repérer AVANT de promettre la bascule.
 
 ## 🥫 Un outil qui ne sert pas le dépôt qui le publie n'est éprouvé par personne
 
@@ -181,6 +211,12 @@ satisfies IFilterSpec` + un générique `<const S>` fait dériver `{revoked?: bo
   type exprès — `tsgo --noEmit` restait vert, `-p tsconfig.tests.json` sortait l'erreur. **Un gate
   neuf se lance sur la CONFIG qui voit le fichier**, et la seule façon de savoir laquelle c'est,
   c'est de casser le fichier.
+- `[1× — 2026-08-03d]` 🔴 **Une suite de paquet frère peut être VERTE sur l'ancien code du cœur.**
+  J'ai modifié `pageQuery.ts` (source), lancé `security` → 914 verts, commité. Au rebuild suivant,
+  un test tombait : `security` importe `nodefony` depuis son **dist**, que je n'avais pas rebâti —
+  la suite avait éprouvé la version d'avant. Le typecheck ne le voit pas (les `types` pointent la
+  SOURCE, l'`import` pointe le `dist`). Toute modif du cœur se rejoue chez ses consommateurs
+  **après** `npm run build`, jamais avant. → [[feedback_prove_on_received_artifact]]
 - `[1× — 2026-08-03c]` **Un fichier NEUF ne se prouve pas débranché par `git diff --stat`** — il
   est untracked, le diff est vide, et l'on croirait n'avoir rien débranché. Le contrôle qui marche
   dans les deux cas : `grep` du débranchement dans le fichier (`if (false &&`).
