@@ -20,7 +20,31 @@
 
 ---
 
+## 🧬 Appliquer un patron N fois n'est PAS le factoriser
+
+- `[1× — 2026-08-03b]` 🔴 **J'ai répliqué « le store déclare, le data plane demande » sur quatre
+  ressources en croyant appliquer « 1 règle = 1 implémentation » — et j'ai produit 15 concepts
+  pour un.** Quatre noms de méthode (`sortableSessionFields`, `sortableUserFields`,
+  `sortableTokenFields`, `sortableWebhookFields`), quatre redéclarations de la même propriété avec
+  quatre TSDoc, **trois copies du même `map`** de traduction. C'est le USER qui l'a vu, en une
+  question : « il faut 15 méthodes de tri ? ». Le critère qui tranche, et qui manquait :
+  **l'ALGORITHME se factorise (un exemplaire), la FORME s'impose par une interface, la DONNÉE se
+  déclare par ressource.** Le signe distinctif d'une règle dupliquée dans un fichier de
+  vocabulaire : il contient une FONCTION au lieu d'une liste.
+- `[1× — 2026-08-03b]` **Le refactor a trouvé ce que la réplication avait caché** : quatre stores
+  ne filtraient pas l'ordre du tout (ils triaient sur un champ jamais déclaré, là où les autres
+  refusaient), et le queryKit portait DEUX fonctions `ORDER BY` — dont celle que je venais
+  d'écrire. Factoriser n'est pas cosmétique : c'est ce qui met les divergences côte à côte.
+
 ## 🥫 Un outil qui ne sert pas le dépôt qui le publie n'est éprouvé par personne
+
+- `[1× — 2026-08-03b]` 🔴 **On unifie le dépôt, et le GÉNÉRATEUR continue de distribuer l'ancien
+  dialecte.** Cinq parseurs de page supprimés du dépôt… pendant que le gabarit `create entity`
+  produisait `?sort=-champ` (JSON:API) avec son propre `Number(limit) || 25`, et **ignorait** un
+  champ non triable là où le framework le REFUSE. Chaque application générée en héritait. Un
+  gabarit n'est pas du code du dépôt : c'est du code **distribué**, donc le dialecte qu'il porte
+  gagne. Réflexe : après avoir unifié quoi que ce soit, `rg` dans `templates/` et dans les skills
+  publiés AVANT de considérer le geste fini.
 
 - `[1× — 2026-08-02h]` 🔴 **Un agent ÉTRANGER a trouvé en 15 minutes et 0,04 $ ce que 30 tâches de
   banc et deux passes complètes n'avaient jamais vu** — trois défauts produits, dont un qui rendait
@@ -123,6 +147,16 @@
 
 - `[1× — 2026-08-01]` 🔴 **Le dépistage du banc couvrait 7 tâches sur 28 et rendait « rien à
   signaler »** — un filet partiel se lit comme un filet.
+- `[1× — 2026-08-03b]` 🔴 **Un test qui BOUCLE sur une liste vide passe au vert sans rien lire.**
+  « chaque champ déclaré est effectivement honoré » itérait sur `sortableFields` : store qui ne
+  déclare rien → zéro tour de boucle → ✓. Vu SEULEMENT parce que j'avais débranché le câblage pour
+  regarder les rouges — les cinq autres tombaient, celui-là restait vert. Toute boucle d'assertions
+  a besoin d'une borne (`assert(liste.length > 0)`) AVANT d'itérer. Vaut aussi pour un `filter`
+  qui rendrait zéro élément.
+- `[1× — 2026-08-03b]` **Comparer un tri à `[...x].sort()` fait dépendre le test de la
+  COLLATION** — celle de JS n'est pas celle de SQLite, ni celle de PostgreSQL (tirets, casse).
+  L'invariant qui tient partout et malgré les ex æquo : **« DESC rend l'exact renversé de ASC »,
+  sur les VALEURS et non sur les identifiants.**
 - `[1× — 2026-08-02j]` 🔴 **Le contrôle anti-recollement eta ne regarde que les `.ts`** — or le
   défaut (« tag en FIN de ligne avale le saut suivant ») frappe pareil un YAML, un `.env`, un
   Markdown. Reproduit **trois fois** dans la même passe sur des gabarits non couverts, chaque fois
@@ -231,6 +265,18 @@ install`.** Et `npm run build` vert ne dit rien du chemin réel qu'emprunte l'ut
   diff en cours. Deux réflexes : la forme du verdict trahit la cause (**fichiers rouges sans
   test rouge = décor, pas code**), et on **attend la disponibilité** (`until pg_isready`) au lieu
   de supposer qu'un `up -d` réussi vaut pour toute la durée du run.
+- `[1× — 2026-08-03b]` 🔴 **`types` pointe la SOURCE, `import` pointe le `dist` — donc une valeur
+  importée EXISTE pour TypeScript et vaut `undefined` à l'exécution.** Les paquets consommés en
+  source (`security`, `http`, `user`…) déclarent `exports["."] = { types: "./index.ts", import:
+"./dist/index.js" }`. J'ai ajouté une constante, importée depuis drizzle : typecheck vert, trois
+  tests rouges, et le symptôme (`sortableFields` absent, tri par défaut disparu) accusait le
+  contrat. **Une valeur neuve exportée par un paquet consommé en source exige son `npm run build`
+  avant que le moindre consommateur ne la voie** — le type ne le dira jamais.
+- `[1× — 2026-08-03b]` **`cmd | tail` rend le code de sortie de `tail`.** J'ai annoncé trois
+  typechecks « exit=0 » qui mesuraient le filtre, pas `tsgo` — l'un des trois avait une vraie
+  erreur, affichée à l'écran, avec « exit=0 » juste dessous. Capturer dans un fichier, lire
+  `$?` de la commande SEULE. (Déjà gradué → [[feedback_shell_false_diagnostics]] ; noté ici pour
+  la forme précise, qui n'y figurait pas.)
 - `[1× — 2026-08-02b]` **Un script maison ne connaît pas `--help` : il LANCE le travail.** Les
   options se lisent au source.
 - `[1× — 2026-07-30b]` **`spawnSync` BLOQUE la boucle du parent** — mortel dans un harnais qui
