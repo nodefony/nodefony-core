@@ -339,7 +339,20 @@ export async function listUserIdsPage(
 export interface WebhookListFilters {
   enabled?: boolean;
   event?: string;
+  failing?: boolean;
   q?: string;
+}
+
+/**
+ * Condition « endpoint en échec » — `failureCount > 0` (ou `= 0` pour les sains).
+ *
+ * Même forme sur les trois dialectes : la colonne est un entier, la comparaison
+ * est indexable, et aucun `NULL` n'est possible (`failureCount` est `NOT NULL`,
+ * initialisé à 0 à la création).
+ */
+function failingCond(dialect: SqlDialect, flag: boolean): SQL {
+  const col = ident(dialect, "failureCount");
+  return flag ? sql`${col} > 0` : sql`${col} = 0`;
 }
 
 /** Condition « le tableau JSON `events` contient `event` » — forme native du dialecte. */
@@ -377,6 +390,7 @@ function webhookWhere(
 ): SQL | undefined {
   const conds: SQL[] = [];
   if (f.enabled !== undefined) conds.push(enabledCond(dialect, f.enabled));
+  if (f.failing !== undefined) conds.push(failingCond(dialect, f.failing));
   if (f.event !== undefined) conds.push(eventCond(dialect, f.event));
   if (f.q !== undefined && f.q.length > 0) {
     conds.push(likeWebhookCond(dialect, f.q));

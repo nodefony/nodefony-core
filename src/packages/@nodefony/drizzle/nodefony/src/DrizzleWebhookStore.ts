@@ -176,6 +176,7 @@ export class DrizzleWebhookStore implements IWebhookStore {
     const filters = {
       enabled: query.enabled,
       event: query.event,
+      failing: query.failing,
       q: query.q,
     };
     const { ids, hasNext } = await listWebhookIdsPage(
@@ -216,6 +217,7 @@ export class DrizzleWebhookStore implements IWebhookStore {
     return countWebhookEndpoints(this.#nativeDb(), this.#dialect, {
       enabled: query.enabled,
       event: query.event,
+      failing: query.failing,
       q: query.q,
     });
   }

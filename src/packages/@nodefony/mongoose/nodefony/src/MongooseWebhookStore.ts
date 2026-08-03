@@ -181,6 +181,11 @@ export class MongooseWebhookStore implements IWebhookStore {
   #listFilter(query: IWebhookListQuery): Record<string, unknown> {
     const filter: Record<string, unknown> = {};
     if (query.enabled !== undefined) filter.enabled = query.enabled;
+    if (query.failing !== undefined) {
+      // « En échec » = au moins un échec consécutif courant. La forme Mongo est
+      // une comparaison, pas un booléen stocké : `failureCount` est un compteur.
+      filter.failureCount = query.failing ? { $gt: 0 } : 0;
+    }
     if (query.event !== undefined) filter.events = query.event;
     if (query.q !== undefined && query.q.length > 0) {
       // Échappe les métacaractères : une recherche utilisateur n'est PAS une regex.

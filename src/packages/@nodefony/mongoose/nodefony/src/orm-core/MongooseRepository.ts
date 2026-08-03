@@ -491,8 +491,14 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     return this.#prof(
       () => this.#descr("countDistinct", filter),
       async () => {
+        // DEUX `$match` successifs, jamais un objet fusionné : le critère peut
+        // déjà porter une condition sur CE champ (`countDistinct("user", {user:
+        // "alice"})`), et `{...filter, [path]: …}` l'écraserait en silence — on
+        // compterait alors tous les utilisateurs au lieu du seul demandé. Deux
+        // étages se composent en ET sans se marcher dessus.
         const pipeline = [
-          { $match: { ...filter, [path]: { $ne: null } } },
+          { $match: filter },
+          { $match: { [path]: { $ne: null } } },
           { $group: { _id: `$${path}` } },
           { $count: "n" },
         ];

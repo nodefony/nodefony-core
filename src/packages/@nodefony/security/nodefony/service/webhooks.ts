@@ -8,7 +8,12 @@ import {
   resolveAutoStore,
   deriveStoreBackend,
   readStoreLocation,
+  countFacets,
 } from "nodefony";
+import {
+  WEBHOOK_FACETS,
+  type IWebhookCounts,
+} from "../src/webhook/webhookFilters";
 import { Buffer } from "node:buffer";
 import { randomBytes } from "node:crypto";
 import {
@@ -451,6 +456,28 @@ class WebhookService extends Service {
   async countEndpoints(query: IWebhookListQuery): Promise<number> {
     this.#assertReady();
     return this.#store!.countEndpoints(query);
+  }
+
+  /**
+   * Les compteurs de tête de la console — posés sur la collection ENTIÈRE, pas
+   * sur la page affichée.
+   *
+   * Un endpoint peut être **actif ET en échec** : les facettes se recoupent, et
+   * aucune n'est déduite d'une autre par soustraction. Chaque compteur vaut
+   * `null` si le backend ne sait pas compter.
+   *
+   * @param query - filtres à appliquer avant comptage (sans fenêtre).
+   */
+  async countWebhookFacets(
+    query?: Partial<IWebhookListQuery>,
+  ): Promise<IWebhookCounts> {
+    this.#assertReady();
+    return countFacets(WEBHOOK_FACETS, (facet) =>
+      this.#store!.countEndpoints({
+        ...query,
+        ...facet,
+      } as IWebhookListQuery),
+    );
   }
 
   /** Un endpoint par id (vue publique), ou `null`. */

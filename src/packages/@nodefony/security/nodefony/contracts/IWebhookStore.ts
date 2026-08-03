@@ -23,6 +23,17 @@ export interface IWebhookListQuery extends IPageQuery {
    * tableau JSON) → chaque backend l'implémente nativement.
    */
   event?: string;
+  /**
+   * `true` = seulement les endpoints **en échec** (au moins un échec consécutif
+   * courant, `failureCount > 0`), `false` = seulement ceux qui vont bien, omis =
+   * les deux.
+   *
+   * Au contrat plutôt que déduit d'un `order` : c'est la question d'exploitation
+   * la plus fréquente — « qu'est-ce qui casse ? » — et la carte qui l'affiche
+   * doit pouvoir être cliquée pour filtrer le tableau sur la même population.
+   * Portable partout (comparaison sur une colonne entière indexable).
+   */
+  failing?: boolean;
 }
 
 /**

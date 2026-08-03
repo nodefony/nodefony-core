@@ -220,10 +220,13 @@ async function seed(container: Container, url = "https://hook.example.com") {
 
 // ════════════════════════════════════════════════════════════════════════════
 describe("WebhookAdminApi — déclaration & composition", () => {
-  it("expose 8 endpoints, tous ROLE_NODEFONY_ADMIN, bonnes méthodes", () => {
+  it("expose 9 endpoints, tous ROLE_NODEFONY_ADMIN, bonnes méthodes", () => {
     const eps = webhookAdminEndpoints(new Container());
     const expected: Array<[string, string]> = [
       ["webhooks", "GET"],
+      // Compteurs de tête — segment littéral `stats`, déclaré AVANT `{id}`
+      // pour qu'il ne soit pas capté comme un identifiant.
+      ["webhooks/stats", "GET"],
       ["webhooks", "POST"],
       ["webhooks/{id}", "GET"],
       ["webhooks/{id}", "PATCH"],

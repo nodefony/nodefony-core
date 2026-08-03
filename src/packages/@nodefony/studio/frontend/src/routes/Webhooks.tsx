@@ -35,15 +35,17 @@ import {
 
 import { useStore, useNotifications } from "../stores";
 import { useResource } from "../hooks";
-import { PageLayout, StatCard, DataState } from "../components/ui";
+import { PageLayout, StatCard, DataState, fmtFacet } from "../components/ui";
 import { BrickStoreChip } from "./stores/BrickStoreChip";
 import {
   WEBHOOKS_ENDPOINT,
+  WEBHOOKS_STATS_ENDPOINT,
   webhookEndpoint,
   webhookRotateEndpoint,
   webhookRevealEndpoint,
   countWebhooks,
   describeWebhooksError,
+  type WebhookCounts,
   type WebhookEndpoint,
   type WebhookListResponse,
   type WebhookSecretReveal,
@@ -91,8 +93,23 @@ export const Webhooks = observer(() => {
   const { data, loading, error, reload } = useResource(fetcher);
 
   const endpoints = useMemo(() => data?.endpoints ?? [], [data]);
-  const counts = useMemo(() => countWebhooks(endpoints), [endpoints]);
   const configEnabled = data?.enabled ?? false;
+
+  // Compteurs de tête : posés par le SERVEUR sur le registre entier. Les
+  // calculer ici décrirait les endpoints chargés en ayant l'air de décrire le
+  // registre — et `failing` recoupe `active` comme `disabled`, donc aucune
+  // soustraction ne les rend.
+  const statsFetcher = useCallback(
+    (): Promise<WebhookCounts> =>
+      store.api.getAbsolute<WebhookCounts>(WEBHOOKS_STATS_ENDPOINT),
+    [store],
+  );
+  const { data: serverCounts, reload: reloadCounts } =
+    useResource(statsFetcher);
+  const counts = useMemo<WebhookCounts>(
+    () => serverCounts ?? countWebhooks(endpoints),
+    [serverCounts, endpoints],
+  );
 
   // ── Mutations rapides (kebab / détail) ──────────────────────────────────────
   const toggle = useCallback(
@@ -108,6 +125,7 @@ export const Webhooks = observer(() => {
           { source: "api" },
         );
         reload();
+        reloadCounts();
       } catch (e) {
         notifications.notify("error", describeWebhooksError(e), {
           source: "api",
@@ -116,7 +134,7 @@ export const Webhooks = observer(() => {
         setBusyId(null);
       }
     },
-    [store, notifications, reload],
+    [store, notifications, reload, reloadCounts],
   );
 
   const rotate = useCallback(
@@ -128,6 +146,7 @@ export const Webhooks = observer(() => {
         );
         setReveal({ context: "rotated", secret: res.secret, url: ep.url });
         reload();
+        reloadCounts();
       } catch (e) {
         notifications.notify("error", describeWebhooksError(e), {
           source: "api",
@@ -136,7 +155,7 @@ export const Webhooks = observer(() => {
         setBusyId(null);
       }
     },
-    [store, notifications, reload],
+    [store, notifications, reload, reloadCounts],
   );
 
   const revealSecret = useCallback(
@@ -167,6 +186,7 @@ export const Webhooks = observer(() => {
       notifications.notify("success", "Webhook supprimé.", { source: "api" });
       setConfirmDelete(null);
       reload();
+      reloadCounts();
     } catch (e) {
       notifications.notify("error", describeWebhooksError(e), {
         source: "api",
@@ -187,8 +207,12 @@ export const Webhooks = observer(() => {
     [toggle, rotate, revealSecret],
   );
 
-  const subtitle = `${counts.total} endpoint(s) · ${counts.active} actif(s)${
-    counts.failing > 0 ? ` · ${counts.failing} en échec` : ""
+  const subtitle = `${fmtFacet(counts.total)} endpoint(s) · ${fmtFacet(
+    counts.active,
+  )} actif(s)${
+    counts.failing !== null && counts.failing > 0
+      ? ` · ${counts.failing} en échec`
+      : ""
   }`;
 
   return (
@@ -237,10 +261,10 @@ export const Webhooks = observer(() => {
         <StatCard
           label="Total"
           icon={<IconWebhook size={20} color="var(--mantine-color-brand-5)" />}
-          hint="Nombre d'endpoints webhook enregistrés."
+          hint="Nombre d'endpoints enregistrés, compté par le serveur sur le registre ENTIER — pas sur les lignes affichées. « — » = webhooks coupés ou backend incapable de compter."
         >
           <Text fz={28} fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
-            {counts.total}
+            {fmtFacet(counts.total)}
           </Text>
         </StatCard>
         <StatCard
@@ -256,7 +280,7 @@ export const Webhooks = observer(() => {
             c="teal"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.active}
+            {fmtFacet(counts.active)}
           </Text>
         </StatCard>
         <StatCard
@@ -267,15 +291,19 @@ export const Webhooks = observer(() => {
               color="var(--mantine-color-orange-6)"
             />
           }
-          hint="Endpoints avec au moins un échec de livraison consécutif courant (auto-désactivation au-delà du seuil)."
+          hint="Endpoints avec au moins un échec de livraison consécutif courant (auto-désactivation au-delà du seuil). Recoupe « Actifs » et « Désactivés » : un endpoint peut être actif ET en échec."
         >
           <Text
             fz={28}
             fw={700}
-            c={counts.failing > 0 ? "orange" : undefined}
+            c={
+              counts.failing !== null && counts.failing > 0
+                ? "orange"
+                : undefined
+            }
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.failing}
+            {fmtFacet(counts.failing)}
           </Text>
         </StatCard>
         <StatCard
@@ -291,7 +319,7 @@ export const Webhooks = observer(() => {
             c="dimmed"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {counts.disabled}
+            {fmtFacet(counts.disabled)}
           </Text>
         </StatCard>
       </Grid>

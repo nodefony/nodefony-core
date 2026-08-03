@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-03T12:43:52.950Z",
+  "generated": "2026-08-03T13:04:24.264Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 676,
-    "symbols": 2729,
+    "symbols": 2732,
     "classes": 342,
     "interfaces": 804,
-    "types": 357,
+    "types": 358,
     "enums": 4,
-    "functions": 977,
-    "constants": 245
+    "functions": 978,
+    "constants": 246
   },
   "symbols": {
     "Cli": {
@@ -18374,6 +18374,14 @@
       "module": "@nodefony/security",
       "description": "Backoff exponentiel déterministe (jitter cross-pod = slice Redis cluster)."
     },
+    "IWebhookCounts": {
+      "name": "IWebhookCounts",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Les compteurs rendus par `GET /nodefony/security/api/webhooks/stats`."
+    },
     "WEBHOOK_FILTERS": {
       "name": "WEBHOOK_FILTERS",
       "kind": "const",
@@ -18381,6 +18389,14 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "**Le vocabulaire de filtre des endpoints webhook**, en noms PUBLICS — ceux qu'un client écrit dans l'URL (`?enabled=false&event=user.created`). Frère de `WEBHOOK_SORTABLE_FIELDS`, et posé au même e…"
+    },
+    "WEBHOOK_FACETS": {
+      "name": "WEBHOOK_FACETS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "**Les facettes des endpoints** — les questions fermées que la console pose à la collection ENTIÈRE pour ses cartes de tête. Chacune est un filtre du contrat, et c'est la règle : une carte affiche u…"
     },
     "parseWebhookSecret": {
       "name": "parseWebhookSecret",
@@ -24106,7 +24122,8 @@
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
+        "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts"
       ],
       "IWebhookStore": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
@@ -25445,6 +25462,17 @@
       "listWebAuthnStores": [
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
       ],
+      "countFacets": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "WEBHOOK_FACETS": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
+      ],
+      "IWebhookCounts": [
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
+      ],
       "IWebhookDelivery": [
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts"
@@ -25718,9 +25746,6 @@
       "IWsHeartbeatOptions": [
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts"
-      ],
-      "countFacets": [
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "OptionsSessionType": [
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
@@ -26119,6 +26144,14 @@
       "webhookSignatureHeaders": [
         "src/packages/@nodefony/security/nodefony/src/webhook/WebhookDispatcher.ts"
       ],
+      "FacetCounts": [
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
+      ],
+      "IFacetSpec": [
+        "src/packages/@nodefony/security/nodefony/src/webhook/webhookFilters.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
+      ],
       "MemoryWebhookStore": [
         "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts"
       ],
@@ -26201,12 +26234,6 @@
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "FacetCount": [
-        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
-      ],
-      "FacetCounts": [
-        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
-      ],
-      "IFacetSpec": [
         "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
       ],
       "IOAuthProviderContext": [

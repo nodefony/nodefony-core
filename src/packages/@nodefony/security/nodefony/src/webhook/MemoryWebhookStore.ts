@@ -23,6 +23,9 @@ export function matchesWebhookQuery(
   query: IWebhookListQuery,
 ): boolean {
   if (query.enabled !== undefined && e.enabled !== query.enabled) return false;
+  if (query.failing !== undefined && e.failureCount > 0 !== query.failing) {
+    return false;
+  }
   if (query.event !== undefined && !e.events.includes(query.event)) {
     return false;
   }

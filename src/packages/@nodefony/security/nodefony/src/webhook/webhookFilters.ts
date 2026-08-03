@@ -1,4 +1,5 @@
-import type { IFilterSpec } from "nodefony";
+import type { FacetCounts, IFacetSpec, IFilterSpec } from "nodefony";
+import type { IWebhookListQuery } from "../../contracts/IWebhookStore";
 
 /**
  * **Le vocabulaire de filtre des endpoints webhook**, en noms PUBLICS — ceux
@@ -19,4 +20,29 @@ export const WEBHOOK_FILTERS = {
   enabled: "boolean",
   /** Endpoints abonnés à CET événement (« qui écoute `user.created` ? »). */
   event: "string",
+  /** `true` = en échec (`failureCount > 0`), `false` = sains, absent = les deux. */
+  failing: "boolean",
 } as const satisfies IFilterSpec;
+
+/**
+ * **Les facettes des endpoints** — les questions fermées que la console pose à
+ * la collection ENTIÈRE pour ses cartes de tête.
+ *
+ * Chacune est un filtre du contrat, et c'est la règle : une carte affiche un
+ * nombre que le tableau doit pouvoir montrer. `failing` recoupe volontairement
+ * `active` et `disabled` — un endpoint peut être actif ET en échec — d'où
+ * l'interdiction de déduire une facette d'une autre par soustraction.
+ */
+export const WEBHOOK_FACETS = {
+  /** Tous les endpoints configurés. */
+  total: {},
+  /** Endpoints actifs (le dispatcher leur livre). */
+  active: { enabled: true },
+  /** Endpoints désactivés — à la main ou par coupe-circuit. */
+  disabled: { enabled: false },
+  /** Endpoints en échec, actifs ou non. */
+  failing: { failing: true },
+} as const satisfies IFacetSpec<IWebhookListQuery>;
+
+/** Les compteurs rendus par `GET /nodefony/security/api/webhooks/stats`. */
+export type IWebhookCounts = FacetCounts<typeof WEBHOOK_FACETS>;

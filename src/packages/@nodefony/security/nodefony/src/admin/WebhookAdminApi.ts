@@ -11,7 +11,10 @@ import type {
   IWebhookDelivery,
 } from "../../contracts/IWebhookEndpoint";
 import type { IWebhookListQuery } from "../../contracts/IWebhookStore";
-import { WEBHOOK_FILTERS } from "../webhook/webhookFilters";
+import {
+  WEBHOOK_FILTERS,
+  type IWebhookCounts,
+} from "../webhook/webhookFilters";
 import { adminActor, auditAdmin } from "./adminAudit";
 
 /**
@@ -81,6 +84,10 @@ interface IWebhookAdmin {
   revealSecret(id: string): Promise<string | null>;
   delete(id: string): Promise<boolean>;
   listDeliveries(id: string): IWebhookDelivery[];
+  /** Compteurs de tête, posés sur la collection entière (pas sur une page). */
+  countWebhookFacets(
+    query?: Partial<IWebhookListQuery>,
+  ): Promise<IWebhookCounts>;
 }
 
 /**
@@ -269,6 +276,36 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
           limit: query.limit,
           offset: page?.offset,
         };
+      },
+    },
+    {
+      // Compteurs de tête. Endpoint SÉPARÉ de la liste : ces nombres ne
+      // dépendent ni de la fenêtre ni de l'ordre, les rejouer à chaque tour de
+      // page coûterait quatre COUNT pour un résultat identique.
+      path: "webhooks/stats",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Compteurs des endpoints sur la collection ENTIÈRE (total, actifs, " +
+        "désactivés, en échec) — mêmes filtres que la liste. `null` = le " +
+        "backend ne sait pas compter. Webhooks coupés → tous les compteurs null.",
+      page: { filters: WEBHOOK_FILTERS },
+      handler: async (request: IAdminRequest): Promise<IWebhookCounts> => {
+        const s = svc();
+        // Lecture DÉFENSIVE, comme la liste : webhooks coupés → « inconnu »,
+        // jamais un 503 qui ferait disparaître les cartes de la console, et
+        // jamais des zéros qui se liraient « aucun endpoint configuré ».
+        if (!ready(s)) {
+          return {
+            total: null,
+            active: null,
+            disabled: null,
+            failing: null,
+          };
+        }
+        return s.countWebhookFacets(
+          parseFilters(request.query, WEBHOOK_FILTERS),
+        );
       },
     },
     {
