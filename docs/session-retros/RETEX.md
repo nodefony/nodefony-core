@@ -276,6 +276,20 @@ satisfies IFilterSpec` + un générique `<const S>` fait dériver `{revoked?: bo
 
 - `[1× — 2026-08-01]` 🔴 **Le dépistage du banc couvrait 7 tâches sur 28 et rendait « rien à
   signaler »** — un filet partiel se lit comme un filet.
+- `[1× — 2026-08-03g]` 🔴 **Le gate `skills:check` ne mordait PAS sur ce qu'il prétend garder.**
+  J'ai retiré un `references/*.md` fraîchement ajouté : passe **verte, exit 0**. Son « renvois
+  morts : 0 » ne concernait que les scripts, jamais les renvois `references/` d'un SKILL.md — soit
+  exactement le piège que le skill d'écriture documente. Un gate se vérifie en **supprimant sa
+  cible**, pas en lisant son libellé.
+- `[1× — 2026-08-03g]` ⚠️ **Le premier jet du gate neuf criait sur du code JUSTE** — un renvoi
+  **croisé** (« `nodefony-frontend-dev` §4 → `references/build-hmr.md` ») cite légitimement la
+  ressource d'un AUTRE skill. Un contrôle qui accuse le correct est le pire mode de défaillance :
+  il fait « corriger » ce qui marchait. **Toute règle neuve se lance sur le dépôt ENTIER avant
+  qu'on y croie** — et la résolution doit couvrir le cas croisé, pas seulement le cas local.
+- `[1× — 2026-08-03g]` 🔴 **Un test du dépôt a cassé sur un COMMENTAIRE.** `assert.notInclude(e2e,
+  "409")` cherche la chaîne brute dans TOUT le fichier généré : ma prose expliquant « la seconde
+  insertion partait en 409 » l'a fait tomber. Une assertion qui vise un code de statut doit viser
+  l'**assertion** (`toBe(409)`), pas la chaîne — sinon elle mordra le prochain qui documente.
 - `[1× — 2026-08-03c]` 🔴 **Le typecheck du cœur N'INCLUT PAS `src/tests`** — j'ai écrit un test
   d'assertions de TYPES (« le générique rend bien `boolean`, pas `any` »), lancé `tsgo --noEmit`,
   vert. Il ne prouvait rien : `tsconfig.json` **exclut** `src/tests/**`, et c'est
@@ -395,7 +409,37 @@ install`.** Et `npm run build` vert ne dit rien du chemin réel qu'emprunte l'ut
   faux, `node:util.parseEnv` coupe au `#` (prouvé en une commande). Un commentaire de gabarit part
   chez tous ceux qui génèrent une app — il se vérifie comme du code, jamais « au raisonnable ».
 
+## 🚫 Prouver le REFUS ne prouve PAS la CAPACITÉ — ce sont deux tests
+
+- `[1× — 2026-08-03g]` 🔴 **Le banc du devkit éprouvait « un tri hors allowlist est refusé » et
+  s'arrêtait là.** Un `ORDER BY` mort passe ce refus sans broncher : débranché dans le décor, le
+  test de refus est resté **VERT**. Le générateur pouvait livrer une liste dont le tri et les
+  filtres ne font rien, sur un banc intégralement vert. Le refus mesure l'HONNÊTETÉ, pas la
+  capacité — et c'est la capacité que l'utilisateur achète.
+- `[1× — 2026-08-03g]` ⭐ **Un test de tri se durcit en TROIS affirmations, un test de filtre exige
+  une ligne TÉMOIN.** Le champ doit être PRÉSENT (sinon on ordonne des `undefined`, suite triée
+  dans les deux sens), les valeurs DISTINCTES (une colonne constante rend « trié » l'ordre que la
+  base a choisi seule), et `DESC` l'inverse EXACT d'`ASC` sur une page qui contient tout. Pour le
+  filtre : sans une ligne qui NE matche pas, « toutes les lignes portent la valeur demandée » reste
+  vrai filtre débranché — **c'est le témoin qui fait le test, pas l'assertion**.
+- `[1× — 2026-08-03g]` **Une sonde qui vise « le premier déclaré » met en défaut le générateur au
+  lieu de l'éprouver.** Le test de rejet visait `filters[0]` quel qu'il soit : sur une entité dont
+  le seul filtre est une clé étrangère textuelle, il exigeait le refus d'une valeur **valide**.
+  Toutes les natures ne refusent pas — un `"string"` accepte tout, par construction.
+
 ## 🧰 Outillage : ce qui pend, ce qui ment, ce qui lance
+
+- `[1× — 2026-08-03g]` 🔴 **Trois faux diagnostics dans une seule séance, tous dus à l'outil, pas
+  au code.** (a) `grep "a\|b=\{"` : `\{` ouvre un intervalle en BRE et casse TOUTE l'alternance →
+  faux négatif silencieux, j'ai conclu « absent » sur du présent. (b) `rg -oh 'motif'` : `-h` c'est
+  `--help`, ripgrep a imprimé son aide et je l'ai lue comme un résultat. (c) Rejeu d'une suite e2e
+  **sans la variable d'environnement du banc** (`NF_PORT=5361`) → l'app du décor est retombée sur
+  le port par défaut, occupé par le serveur de dev du dépôt, et **12 tests sont tombés en 404**.
+  J'ai failli conclure à une régression massive. Le signe qui trahit : un test SANS RAPPORT avec le
+  diff échoue aussi (`GET /api/hello`) — c'est le décor, jamais le code.
+- `[1× — 2026-08-03g]` **Le banc TRONQUE sa propre sortie** (`[1/3]` affiché, 3 échecs réels). Pour
+  savoir ce qui est rouge, rejouer la commande sous-jacente **avec l'environnement du banc**, et
+  capturer en entier — pas lire le résumé du banc.
 
 - `[1× — 2026-08-02g]` 🔴 **`timeout` n'existe pas sur macOS** — un chien de garde s'écrit
   `( sleep N; kill -9 $PID ) &`.
@@ -444,6 +488,21 @@ install`.** Et `npm run build` vert ne dit rien du chemin réel qu'emprunte l'ut
   réponse n'a pas répondu.
 
 ## 🗄️ Concurrence & atomicité (ce que le dialecte ne dit pas) — utile pour l'ORM S5
+
+- `[1× — 2026-08-03g]` 🔴 **Un échappement qu'on n'ÉMET pas est pire que pas d'échappement.**
+  Quatre copies de la même règle de recherche échappaient `%`/`_` avec `\` — mais `like()` n'émet
+  aucune clause `ESCAPE`, et sans elle le terme est cherché **littéralement**. Mesuré sur les trois
+  moteurs réels : `a\_c%` rend **`[]` en SQLite**, la bonne ligne en PostgreSQL et MySQL (qui
+  traitent `\` comme échappement par défaut). Le même code, deux comportements — et **SQLite est le
+  défaut de développement** : on cherche en vain en dev, ça marche en production. Une protection
+  qui échoue en silence ne protège pas ; retirée, les jokers restent actifs **uniformément** (une
+  imprécision, jamais une réponse fausse). Le seul site correct compose du SQL natif et émet
+  `ESCAPE` — avec sa divergence MySQL (`\` doublé dans un littéral).
+- `[1× — 2026-08-03g]` ⭐ **La question « ce bug existe-t-il sur les autres dialectes ? » se
+  MESURE, elle ne se déduit pas.** Ma lecture des specs disait « PG et MySQL honorent `\` par
+  défaut » — c'était juste, mais je ne pouvais pas l'affirmer avec 573 tests skippés. Un docker
+  compose, un test jetable de trois lignes par moteur, et la réponse est tombée en deux minutes,
+  avec le tableau des trois verdicts. Le test jetable se supprime après ; le tableau reste.
 
 - `[1× — 2026-07-17]` **Un pool FROID masque les races** : le 1ᵉʳ écrivain finit avant que les
   autres aient leur TCP+auth.
