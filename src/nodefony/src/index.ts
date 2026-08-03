@@ -409,6 +409,8 @@ export type {
   FilterValues,
   IParseFiltersOptions,
 } from "./runtime/pageFilters";
+export { countFacets, UNKNOWN_COUNT } from "./runtime/pageFacets";
+export type { FacetCount, FacetCounts, IFacetSpec } from "./runtime/pageFacets";
 export type { ISyslog } from "./types/ISyslog";
 export type { ITransport } from "./types/ITransport";
 export type { EnvironmentType, DebugType } from "./types/globals";

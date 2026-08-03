@@ -263,7 +263,7 @@ class SessionStorage implements ISessionStorage {
    * condition par champ ; les combiner donnerait un ensemble vide ou redondant).
    */
   static #criteria(
-    query?: ISessionListQuery,
+    query?: Partial<ISessionListQuery>,
   ): Criteria<SessionRow> | undefined {
     if (!query) return undefined;
     const criteria: Record<string, unknown> = {};
@@ -317,12 +317,28 @@ class SessionStorage implements ISessionStorage {
   }
 
   /** `COUNT(*)` natif filtré — aucune ligne matérialisée. ORM déconnecté → 0. */
-  async countSessions(query?: ISessionListQuery): Promise<number> {
+  async countSessions(query?: Partial<ISessionListQuery>): Promise<number> {
     const repo = this.#repo();
     if (!repo) {
       return 0;
     }
     return repo.count(SessionStorage.#criteria(query));
+  }
+
+  /**
+   * `COUNT(DISTINCT user)` natif filtré. `write` normalise l'anonyme en `NULL`,
+   * et `COUNT(DISTINCT …)` ignore les `NULL` : les sessions anonymes ne forment
+   * donc pas un « utilisateur » de plus, sans filtre supplémentaire.
+   * ORM déconnecté → 0 (même dégradation que {@link countSessions}).
+   */
+  async countDistinctUsers(
+    query?: Partial<ISessionListQuery>,
+  ): Promise<number> {
+    const repo = this.#repo();
+    if (!repo) {
+      return 0;
+    }
+    return repo.countDistinct("user", SessionStorage.#criteria(query));
   }
 }
 

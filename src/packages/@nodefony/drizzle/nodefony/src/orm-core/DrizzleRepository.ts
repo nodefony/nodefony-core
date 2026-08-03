@@ -2,6 +2,7 @@ import {
   and,
   asc,
   count,
+  countDistinct,
   desc,
   eq,
   getTableColumns,
@@ -900,6 +901,28 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     const where = this.#where(criteria);
     const builder = this.#db
       .select({ value: count() })
+      .from(execTable(this.#table))
+      .$dynamic();
+    const rows = (await this.#prof(
+      (where ? builder.where(where) : builder) as unknown as ProfiledQuery<
+        Array<{ value: number }>
+      >,
+    )) as Array<{ value: number }>;
+    return Number(rows[0]?.value ?? 0);
+  }
+
+  /**
+   * `COUNT(DISTINCT col)` natif — la déduplication reste dans le moteur, aucune
+   * ligne n'est rapatriée. `COUNT(DISTINCT …)` ignore les `NULL` sur les trois
+   * dialectes, ce qui donne au contrat sa sémantique sans clause supplémentaire.
+   */
+  async countDistinct(
+    field: keyof T & string,
+    criteria?: Criteria<T>,
+  ): Promise<number> {
+    const where = this.#where(criteria);
+    const builder = this.#db
+      .select({ value: countDistinct(this.#col(this.#table, field)) })
       .from(execTable(this.#table))
       .$dynamic();
     const rows = (await this.#prof(

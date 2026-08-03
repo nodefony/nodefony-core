@@ -324,6 +324,28 @@ export interface IRepository<T = unknown> {
   count(criteria?: Criteria<T>): Promise<number>;
 
   /**
+   * Compte les **valeurs distinctes** d'un champ parmi les entités qui
+   * correspondent au critère (`COUNT(DISTINCT col)` SQL / agrégation Mongo).
+   *
+   * Répond à une question que `count` ne sait pas poser : « combien de personnes
+   * distinctes derrière ces sessions ? », « combien de comptes touchés par ces
+   * échecs ? ». La compter côté appelant supposerait de rapatrier la colonne
+   * entière pour la dédupliquer en mémoire — soit exactement l'énumération que
+   * ces compteurs existent pour éviter.
+   *
+   * Les valeurs nulles ne sont pas comptées, comme en SQL : l'absence de valeur
+   * n'est pas une valeur distincte de plus.
+   *
+   * @param field - champ dont on compte les valeurs distinctes.
+   * @param criteria - filtre optionnel, appliqué avant la déduplication.
+   * @returns le nombre de valeurs distinctes et non nulles.
+   */
+  countDistinct(
+    field: keyof T & string,
+    criteria?: Criteria<T>,
+  ): Promise<number>;
+
+  /**
    * Indique si **au moins une** entité correspond au critère, sans rapatrier la
    * ligne (`SELECT 1 … LIMIT 1` SQL / `exists` Mongo). Préférer à
    * `findOne(...) !== null` (aucune colonne chargée) et à `count(...) > 0` (pas de

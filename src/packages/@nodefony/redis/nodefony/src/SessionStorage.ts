@@ -300,7 +300,18 @@ class RedisSessionStorage implements ISessionStorage {
    * cold-path admin : renvoie **`-1`** (« inconnu », capacité réduite Redis
    * assumée). L'appelant affiche l'inconnu, il ne l'invente pas.
    */
-  countSessions(_query?: ISessionListQuery): Promise<number> {
+  countSessions(_query?: Partial<ISessionListQuery>): Promise<number> {
+    return Promise.resolve(-1);
+  }
+
+  /**
+   * {@inheritDoc ISessionStorage.countDistinctUsers}
+   *
+   * Dédupliquer exige d'avoir tout vu : c'est le `SCAN` complet que
+   * {@link countSessions} refuse déjà, plus un ensemble à retenir en mémoire.
+   * Renvoie **`-1`** — la console affiche « — », elle n'invente pas un chiffre.
+   */
+  countDistinctUsers(_query?: Partial<ISessionListQuery>): Promise<number> {
     return Promise.resolve(-1);
   }
 }

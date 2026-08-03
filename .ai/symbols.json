@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-03T11:35:36.103Z",
+  "generated": "2026-08-03T12:27:29.320Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 675,
-    "symbols": 2722,
+    "files": 676,
+    "symbols": 2729,
     "classes": 342,
     "interfaces": 804,
-    "types": 353,
+    "types": 357,
     "enums": 4,
-    "functions": 976,
-    "constants": 243
+    "functions": 977,
+    "constants": 245
   },
   "symbols": {
     "Cli": {
@@ -2805,6 +2805,46 @@
       "file": "src/nodefony/src/runtime/loadEnv.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "FacetCount": {
+      "name": "FacetCount",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageFacets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Valeur d'un compteur tel qu'il traverse HTTP : un nombre, ou `null` quand le backend branché ne sait pas répondre. `null` n'est pas `0`, et c'est tout l'intérêt de ce type. Un store en curseur (Red…"
+    },
+    "FacetCounts": {
+      "name": "FacetCounts",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageFacets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les compteurs rendus, une clé par facette déclarée. Le type dérive de la déclaration : ajouter une facette à la constante ajoute sa clé ici, et le consommateur qui l'oublie ne compile plus."
+    },
+    "IFacetSpec": {
+      "name": "IFacetSpec",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/pageFacets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Déclaration des facettes d'une ressource : nom public → filtre de sa requête de liste. Le paramètre `Q` est le contrat de liste de la ressource (`ISessionListQuery`, `ITokenListQuery`…), ce qui int…"
+    },
+    "countFacets": {
+      "name": "countFacets",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/pageFacets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compte plusieurs **facettes** d'une même collection en un seul geste. Une facette est une question fermée posée à la collection entière — « combien de sessions authentifiées ? », « combien de clés …"
+    },
+    "UNKNOWN_COUNT": {
+      "name": "UNKNOWN_COUNT",
+      "kind": "const",
+      "file": "src/nodefony/src/runtime/pageFacets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'un store rend quand il ne PEUT pas compter — convention de tous les backends du dépôt (`countSessions`, `countTokens`, `countEndpoints`). Une valeur sentinelle plutôt qu'une exception : ne pa…"
     },
     "IParseFiltersOptions": {
       "name": "IParseFiltersOptions",
@@ -18840,6 +18880,14 @@
       "decorators": [],
       "description": "Garde-fou de révocation **décoré au-dessus** de n'importe quel {@link ISessionStorage} (file, drizzle, redis, mongo…). Pose une « pierre tombale » sur tout id détruit et REFUSE un `write` ultérieur…"
     },
+    "ISessionCounts": {
+      "name": "ISessionCounts",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Les compteurs rendus par `GET /nodefony/http/api/sessions/stats`. **Dérivé** de {@link SESSION_FACETS} : ajouter une facette ajoute son champ ici, et le front qui ne l'affiche pas ne compile plus. …"
+    },
     "SESSION_FILTERS": {
       "name": "SESSION_FILTERS",
       "kind": "const",
@@ -18847,6 +18895,14 @@
       "exported": true,
       "module": "@nodefony/http",
       "description": "**Le vocabulaire de filtre des sessions**, en noms PUBLICS — celui que la console d'administration écrit dans l'URL (`?user=alice`). Frère de `SESSION_SORTABLE_FIELDS` (`sessionSort.ts`), posé au m…"
+    },
+    "SESSION_FACETS": {
+      "name": "SESSION_FACETS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "**Les facettes des sessions** — les questions fermées que la console pose à la collection ENTIÈRE, pour ses cartes de tête. Distinct de `SESSION_FILTERS`, qui dit ce qu'un client a le droit d'écrir…"
     },
     "SESSION_SORTABLE_FIELDS": {
       "name": "SESSION_SORTABLE_FIELDS",
@@ -24130,7 +24186,8 @@
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
+        "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
       ],
       "renameOrderFields": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -24648,6 +24705,10 @@
       ],
       "SESSION_FILTERS": [
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
+      ],
+      "ISessionCounts": [
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "RATE_LIMIT_FILTERS": [
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
@@ -25658,6 +25719,9 @@
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts"
       ],
+      "countFacets": [
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
       "OptionsSessionType": [
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
@@ -25665,6 +25729,9 @@
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "RevocationGuardStorage": [
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "SESSION_FACETS": [
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "IParsedUploadFile": [
@@ -26132,6 +26199,15 @@
       ],
       "formatWsLogContent": [
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "FacetCount": [
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
+      ],
+      "FacetCounts": [
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
+      ],
+      "IFacetSpec": [
+        "src/packages/@nodefony/http/nodefony/src/session/storage/sessionFilters.ts"
       ],
       "IOAuthProviderContext": [
         "src/packages/@nodefony/security/nodefony/src/oauth/providers/github.ts"

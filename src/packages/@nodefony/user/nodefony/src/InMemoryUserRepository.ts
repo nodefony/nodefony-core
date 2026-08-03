@@ -251,6 +251,23 @@ export class InMemoryUserRepository implements IUserRepository {
     return (await this.find(criteria)).length;
   }
 
+  /**
+   * Déduplication en mémoire — l'annuaire est déjà entièrement chargé, il n'y a
+   * donc pas de parcours à éviter comme en SQL. `null`/`undefined` sont écartés
+   * pour tenir la même sémantique que `COUNT(DISTINCT col)`.
+   */
+  async countDistinct(
+    field: keyof IPasswordAuthenticatedUser & string,
+    criteria?: Criteria<IPasswordAuthenticatedUser>,
+  ): Promise<number> {
+    const seen = new Set<unknown>();
+    for (const user of await this.find(criteria)) {
+      const value = user[field];
+      if (value !== null && value !== undefined) seen.add(value);
+    }
+    return seen.size;
+  }
+
   /** In-memory : pas de transaction — le repository est sa propre unité. */
   withTransaction(_tx: ITransaction): IUserRepository {
     return this;

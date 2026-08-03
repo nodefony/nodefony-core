@@ -1,5 +1,6 @@
 import { parsePageQuery, parseFilters } from "nodefony";
 import { SESSION_FILTERS } from "../src/session/storage/sessionFilters";
+import type { ISessionCounts } from "../src/session/storage/sessionFilters";
 import { RATE_LIMIT_FILTERS } from "../src/rateLimit/rateLimitFilters";
 import type { Module, IPage } from "nodefony";
 import type {
@@ -58,6 +59,10 @@ interface SessionsAdmin {
   /** Capacité de tri du backend configuré — vide = ce store ne trie pas. */
   sortableFields(): readonly string[];
   listSessionsPage(query: ISessionListQuery): Promise<IPage<ISessionSummary>>;
+  /** Compteurs de tête, posés sur la collection entière (pas sur une page). */
+  countSessionFacets(
+    query?: Partial<ISessionListQuery>,
+  ): Promise<ISessionCounts>;
   destroyByRef(ref: string, actor?: string | null): Promise<boolean>;
   destroyByUser(identifier: string, actor?: string | null): Promise<number>;
   // Self-service (scopé à l'appelant — anti-IDOR).
@@ -387,6 +392,46 @@ export function createHttpAdminApi(module: Module): IAdminApi {
             ? { nextCursor: page.nextCursor }
             : {}),
         };
+      },
+    },
+    {
+      // Compteurs de tête de la page Sessions. Endpoint SÉPARÉ de `sessions/list`
+      // à dessein : ces nombres ne dépendent ni de la fenêtre ni de l'ordre, donc
+      // les recalculer à chaque tour de page coûterait trois `COUNT` pour un
+      // résultat identique. Déclaré AVANT `sessions/{ref}/revoke` (segment
+      // littéral `stats` ≠ paramètre `{ref}`).
+      path: "sessions/stats",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Compteurs des sessions sur la collection ENTIÈRE (total, authentifiées, " +
+        "anonymes, utilisateurs distincts) — mêmes filtres que sessions/list. " +
+        "Un compteur `null` = le backend ne sait pas le calculer (Redis).",
+      // Mêmes filtres que la liste, et c'est le but : la console envoie ici le
+      // query string qu'elle envoie à `sessions/list`, et obtient les compteurs
+      // DE CE FILTRE. Les clés de fenêtre (`limit`, `offset`, `order`) sont
+      // admises par le contrat de page et sans effet — un décompte n'a pas de
+      // fenêtre, et ce que le client demande ici, c'est « combien en tout ».
+      page: { filters: SESSION_FILTERS },
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<ISessionCounts | IAdminResponse<{ error: string }>> => {
+        const svc = module.get("sessions") as SessionsAdmin | undefined;
+        if (!svc) {
+          return {
+            status: 503,
+            body: { error: "session service unavailable" },
+          };
+        }
+        if (!svc.supportsEnumeration()) {
+          return {
+            status: 501,
+            body: { error: "session enumeration not supported by storage" },
+          };
+        }
+        return svc.countSessionFacets(
+          parseFilters(request.query, SESSION_FILTERS),
+        );
       },
     },
     {

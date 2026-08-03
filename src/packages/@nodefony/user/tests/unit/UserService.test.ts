@@ -94,6 +94,18 @@ class MemoryUserRepo implements IUserRepository {
     return this.find(criteria).then((r) => r.length);
   }
 
+  countDistinct(
+    field: keyof IPasswordAuthenticatedUser & string,
+    criteria?: Criteria<IPasswordAuthenticatedUser>,
+  ) {
+    return this.find(criteria).then(
+      (r) =>
+        new Set(
+          r.map((u) => u[field]).filter((v) => v !== null && v !== undefined),
+        ).size,
+    );
+  }
+
   createMany(data: Partial<IPasswordAuthenticatedUser>[]) {
     return Promise.all(data.map((d) => this.create(d)));
   }

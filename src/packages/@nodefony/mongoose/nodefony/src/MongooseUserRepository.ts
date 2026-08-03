@@ -204,6 +204,16 @@ export class MongooseUserRepository implements IUserRepository {
     return this.#base.count(criteria as unknown as UserCriteria);
   }
 
+  countDistinct(
+    field: keyof IPasswordAuthenticatedUser & string,
+    criteria?: Criteria<IPasswordAuthenticatedUser>,
+  ): Promise<number> {
+    return this.#base.countDistinct(
+      field as keyof UserRow & string,
+      criteria as unknown as UserCriteria,
+    );
+  }
+
   withTransaction(tx: ITransaction): IUserRepository {
     return new MongooseUserRepository(
       this.#base.withTransaction(tx),

@@ -473,6 +473,39 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     );
   }
 
+  /**
+   * `COUNT(DISTINCT …)` en agrégation — `$group` puis `$count`, donc la
+   * déduplication reste dans le serveur. `Model.distinct()` aurait rapatrié
+   * toutes les valeurs pour n'en mesurer que la longueur.
+   *
+   * `{$ne: null}` écarte à la fois la valeur nulle et le champ absent, ce qui
+   * aligne le résultat sur le `COUNT(DISTINCT col)` SQL — sans lui, les
+   * documents sans valeur formeraient un groupe `null` compté comme une valeur.
+   */
+  async countDistinct(
+    field: keyof T & string,
+    criteria?: Criteria<T>,
+  ): Promise<number> {
+    const filter = this.#filter(criteria);
+    const path = this.#resolveField(field);
+    return this.#prof(
+      () => this.#descr("countDistinct", filter),
+      async () => {
+        const pipeline = [
+          { $match: { ...filter, [path]: { $ne: null } } },
+          { $group: { _id: `$${path}` } },
+          { $count: "n" },
+        ];
+        const agg = this.#model.aggregate<{ n: number }>(pipeline);
+        if (this.#session) {
+          agg.session(this.#session);
+        }
+        const rows = await agg.exec();
+        return rows[0]?.n ?? 0;
+      },
+    );
+  }
+
   async exists(criteria: Criteria<T>): Promise<boolean> {
     const filter = this.#filter(criteria);
     return this.#prof(

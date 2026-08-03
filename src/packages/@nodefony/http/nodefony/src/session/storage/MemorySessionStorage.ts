@@ -145,7 +145,10 @@ class MemorySessionStorage implements ISessionStorage {
    * et {@link countSessions} (une seule définition du périmètre : compter et
    * lister ne peuvent pas diverger).
    */
-  #matches(data: ISerializedSession, query?: ISessionListQuery): boolean {
+  #matches(
+    data: ISerializedSession,
+    query?: Partial<ISessionListQuery>,
+  ): boolean {
     if (!query) return true;
     if (query.user !== undefined && data.user !== query.user) return false;
     if (query.authenticated !== undefined) {
@@ -211,12 +214,26 @@ class MemorySessionStorage implements ISessionStorage {
   }
 
   /** `COUNT` filtré — parcourt sans allouer (aucun record matérialisé). */
-  countSessions(query?: ISessionListQuery): Promise<number> {
+  countSessions(query?: Partial<ISessionListQuery>): Promise<number> {
     let count = 0;
     for (const data of this.#sessions.values()) {
       if (this.#matches(data, query)) count++;
     }
     return Promise.resolve(count);
+  }
+
+  /**
+   * `COUNT(DISTINCT user)` en mémoire. Le `Set` est alloué à l'appel et relâché
+   * aussitôt : c'est un chemin d'administration, appelé à l'ouverture d'un
+   * écran, jamais dans le pipeline de requête.
+   */
+  countDistinctUsers(query?: Partial<ISessionListQuery>): Promise<number> {
+    const users = new Set<string>();
+    for (const data of this.#sessions.values()) {
+      if (!this.#matches(data, query)) continue;
+      if (typeof data.user === "string" && data.user) users.add(data.user);
+    }
+    return Promise.resolve(users.size);
   }
 }
 

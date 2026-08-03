@@ -488,6 +488,19 @@ export function runRepositoryContract(opts: IContractRunOptions): void {
     assert.equal(await repo.exists({ name: "nobody" }), false);
   });
 
+  it("countDistinct : compte les VALEURS, pas les lignes — et ignore les NULL", async () => {
+    await seed();
+    // 4 lignes, mais seulement 3 âges distincts (bob et dan ont 25 ans).
+    assert.equal(await repo.count(), 4);
+    assert.equal(await repo.countDistinct("age"), 3);
+    // `note` vaut NULL sur deux lignes : l'absence de valeur n'est pas une
+    // valeur distincte de plus (sémantique COUNT(DISTINCT col) des 3 dialectes).
+    assert.equal(await repo.countDistinct("note"), 2);
+    // Le critère s'applique AVANT la déduplication.
+    assert.equal(await repo.countDistinct("age", { age: 25 }), 1);
+    assert.equal(await repo.countDistinct("age", { name: "nobody" }), 0);
+  });
+
   it("criteria strict : champ inconnu → UnknownCriteriaField (jamais un skip silencieux)", async () => {
     await assert.rejects(
       repo.find({ ghost: 1 } as never),
