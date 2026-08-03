@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { Container } from "nodefony";
+import { Container, countFacets } from "nodefony";
 import type { IAdminRequest, IAdminEndpoint } from "nodefony";
 import type { IAuditEventDraft } from "../../nodefony/contracts/IAuditEvent";
 import { webhookAdminEndpoints } from "../../nodefony/src/admin/WebhookAdminApi";
+import { WEBHOOK_FACETS } from "../../nodefony/src/webhook/webhookFilters";
 import { WEBHOOK_SORTABLE_FIELDS } from "../../nodefony/src/webhook/webhookSort";
 import { createSecurityAdminApi } from "../../nodefony/src/admin/SecurityAdminApi";
 
@@ -104,8 +105,15 @@ function bootWebhooks(
       store.set(id, ep);
       return { endpoint: summary(ep), secret: `whsec_${id}` };
     },
-    listPage: async (query: { limit: number; offset?: number }) => {
-      const all = [...store.values()].map(summary);
+    listPage: async (query: {
+      limit: number;
+      offset?: number;
+      q?: string;
+      enabled?: boolean;
+      failing?: boolean;
+      event?: string;
+    }) => {
+      const all = filterEndpoints([...store.values()], query).map(summary);
       const limit = query.limit;
       const offset = query.offset ?? 0;
       const items = all.slice(offset, offset + limit);
@@ -117,6 +125,14 @@ function bootWebhooks(
         hasNext: offset + items.length < all.length,
       };
     },
+    // Compteurs de tête — même chaîne que le vrai service (`countFacets` sur la
+    // table RÉELLE) et même filtrage que `listPage`, `q` compris. Un double qui
+    // compterait sans chercher rendrait le test complaisant.
+    countWebhookFacets: async (query?: Record<string, unknown>) =>
+      countFacets(WEBHOOK_FACETS, (facet) => {
+        const all = [...store.values()];
+        return filterEndpoints(all, { ...query, ...facet }).length;
+      }),
     getEndpoint: async (id: string) => {
       const ep = store.get(id);
       return ep ? summary(ep) : null;
@@ -199,14 +215,46 @@ function endpoint(
 function req(
   params: Record<string, string> = {},
   body: unknown = null,
+  query: Record<string, string | string[]> = {},
 ): IAdminRequest {
   return {
     params,
-    query: {},
+    query,
     body,
     user: { username: "admin1" },
     roles: ["ROLE_NODEFONY_ADMIN"],
   };
+}
+
+/**
+ * Le filtrage du registre factice — écrit UNE fois pour la liste et pour les
+ * compteurs, comme dans les trois vrais stores (`matchesWebhookQuery` en
+ * mémoire, `webhookWhere` en SQL, `#listFilter` en Mongo). Deux filtrages
+ * parallèles laisseraient passer un data plane qui cherche dans la liste et pas
+ * dans les compteurs, ce que ce fichier éprouve précisément.
+ */
+function filterEndpoints(
+  endpoints: FakeEndpoint[],
+  query: Record<string, unknown> = {},
+): FakeEndpoint[] {
+  let out = endpoints;
+  if (typeof query.enabled === "boolean") {
+    out = out.filter((e) => e.enabled === query.enabled);
+  }
+  if (typeof query.failing === "boolean") {
+    out = out.filter((e) => e.failureCount > 0 === query.failing);
+  }
+  if (typeof query.event === "string") {
+    const event = query.event;
+    out = out.filter((e) => e.events.includes(event));
+  }
+  if (typeof query.q === "string" && query.q.length > 0) {
+    const needle = query.q.toLowerCase();
+    out = out.filter((e) =>
+      `${e.url}\n${e.description ?? ""}`.toLowerCase().includes(needle),
+    );
+  }
+  return out;
 }
 
 /** Crée un endpoint et renvoie son id (helper de fixture). */
@@ -486,5 +534,73 @@ describe("POST webhooks/{id}/reveal", () => {
       status: number;
     };
     assert.equal(miss.status, 404);
+  });
+});
+
+describe("GET webhooks/stats — la RECHERCHE déplace les compteurs", () => {
+  /** Trois endpoints dont un seul porte « paie » dans son URL. */
+  async function seedThree(container: Container): Promise<void> {
+    await seed(container, "https://paiement.example.com/hook");
+    await seed(container, "https://logs.example.com/hook");
+    await seed(container, "https://alerte.example.com/hook");
+  }
+
+  it("`?q=` compte la population cherchée, pas le registre entier", async () => {
+    const { container } = bootWebhooks();
+    await seedThree(container);
+    const stats = endpoint(container, "webhooks/stats");
+
+    // TÉMOIN : sans terme, les cartes décrivent le registre entier. Sans lui,
+    // un handler cassé rendant 0 partout passerait l'assertion suivante.
+    const all = (await stats.handler(req())) as { total: number };
+    assert.equal(all.total, 3);
+
+    const found = (await stats.handler(req({}, null, { q: "paie" }))) as {
+      total: number;
+      active: number;
+      failing: number;
+    };
+    assert.equal(found.total, 1, "un seul endpoint porte le terme");
+    assert.equal(found.active, 1);
+    assert.equal(found.failing, 0);
+  });
+
+  it("la LISTE et les COMPTEURS répondent le même nombre pour le même terme", async () => {
+    // L'invariant que voit l'utilisateur : la carte au-dessus du tableau décrit
+    // le tableau. Deux chemins de code distincts le tiennent.
+    const { container } = bootWebhooks();
+    await seedThree(container);
+    const list = (await endpoint(container, "webhooks").handler(
+      req({}, null, { q: "paie", limit: "25" }),
+    )) as { total: number };
+    const counts = (await endpoint(container, "webhooks/stats").handler(
+      req({}, null, { q: "paie" }),
+    )) as { total: number };
+    assert.equal(list.total, counts.total);
+  });
+
+  it("webhooks COUPÉS : `?q=` est refusé, jamais admis puis ignoré", async () => {
+    // La capacité se lit sur le service branché, comme le tri : un registre
+    // éteint ne cherche rien, donc la console ne doit pas croire qu'il le fait.
+    const { container } = bootWebhooks({ ready: false });
+    const stats = endpoint(container, "webhooks/stats");
+    await assert.rejects(stats.handler(req({}, null, { q: "paie" })), /q/);
+    // …et la lecture DÉFENSIVE tient toujours sans terme : « inconnu », pas 503.
+    assert.deepEqual(await stats.handler(req()), {
+      total: null,
+      active: null,
+      disabled: null,
+      failing: null,
+    });
+  });
+
+  it("un filtre que les facettes DÉCOMPOSENT reste refusé, terme ou pas", async () => {
+    const { container } = bootWebhooks();
+    await seedThree(container);
+    const stats = endpoint(container, "webhooks/stats");
+    await assert.rejects(
+      stats.handler(req({}, null, { q: "paie", enabled: "true" })),
+      /enabled/,
+    );
   });
 });

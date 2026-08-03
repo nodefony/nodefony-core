@@ -1081,6 +1081,103 @@ describe("Admin data plane — une capacité PUBLIÉE est une capacité HONORÉE
     }
     expect(failures, "capacité de recherche incohérente").to.deep.equal([]);
   });
+
+  // Une ressource se lit à DEUX endpoints : sa liste, et ses compteurs de tête.
+  // Que l'un cherche et pas l'autre est le pire cas de la console : taper dans
+  // la barre filtre le tableau et FIGE les cartes au-dessus, qui continuent de
+  // décrire la collection entière — deux vérités contradictoires côte à côte.
+  // Convention de nommage du dépôt : les compteurs de `P` vivent en `P/stats`,
+  // et sa liste est `P` ou `P/list`.
+  const statsOf = (
+    all: CatalogEndpoint[],
+  ): Array<[CatalogEndpoint, CatalogEndpoint | undefined]> =>
+    all
+      .filter((e) => e.path.endsWith("/stats"))
+      .map((stats) => {
+        const base = stats.path.slice(0, -"/stats".length);
+        return [
+          stats,
+          all.find((e) => e.path === base) ??
+            all.find((e) => e.path === `${base}/list`),
+        ];
+      });
+
+  it("une ressource qui CHERCHE dans sa liste cherche aussi dans ses compteurs", () => {
+    const failures: string[] = [];
+    const pairs = statsOf(paged);
+    for (const [stats, list] of pairs) {
+      if (!list) {
+        failures.push(
+          `${stats.path} : aucune liste appariée (attendu ${stats.path.slice(0, -6)} ou …/list)`,
+        );
+        continue;
+      }
+      if (list.page!.search && !stats.page!.search) {
+        failures.push(
+          `${list.path} cherche, ${stats.path} non — la barre filtrerait le tableau en figeant les cartes`,
+        );
+      }
+    }
+    expect(failures, "liste et compteurs désaccordés").to.deep.equal([]);
+    // Garde anti-banc-vide : sans elle, une régression qui casse l'appariement
+    // rendrait ce test vert sur zéro itération.
+    expect(
+      pairs.length,
+      "aucun endpoint de compteurs publié",
+    ).to.be.greaterThan(3);
+  });
+
+  it("la RECHERCHE déplace les compteurs — un `q` accepté n'est jamais JETÉ", async () => {
+    // Le test précédent vérifie la DÉCLARATION, celui-ci l'EFFET : un endpoint
+    // peut publier `search: true`, répondre 200 et jeter le terme. Un terme sans
+    // correspondance doit vider les compteurs, pas les laisser inchangés.
+    const IMPROBABLE = "zzz-aucune-correspondance-zzz";
+    const failures: string[] = [];
+    let proven = 0;
+    for (const endpoint of paged) {
+      if (!endpoint.page!.search) continue;
+      if (Object.keys(endpoint.page!.facets).length === 0) continue;
+      const before = await req("GET", endpoint.path, auth());
+      const total = (before.body as { total?: number | null })?.total;
+      // Ressource vide, ou backend qui ne sait pas compter (`null`) : rien à
+      // prouver ici — le comptage n'a pas de valeur à faire bouger.
+      if (before.status !== 200 || typeof total !== "number" || total === 0) {
+        continue;
+      }
+      const after = await req(
+        "GET",
+        `${endpoint.path}?q=${IMPROBABLE}`,
+        auth(),
+      );
+      if (after.status !== 200) {
+        failures.push(
+          `${endpoint.path} publie search=true et répond ${after.status}`,
+        );
+        continue;
+      }
+      const counts = after.body as Record<string, number | null>;
+      // `null` = « ce backend ne sait pas compter » — une réponse honnête, pas
+      // un compteur sourd. Seul un nombre non nul dénonce un terme jeté.
+      const restants = Object.entries(counts).filter(
+        ([, v]) => v !== 0 && v !== null,
+      );
+      if (restants.length > 0) {
+        failures.push(
+          `${endpoint.path} : ${total} avant, et ${restants
+            .map(([k, v]) => `${k}=${v}`)
+            .join(", ")} sur un terme sans correspondance`,
+        );
+        continue;
+      }
+      proven += 1;
+    }
+    expect(failures, "compteurs sourds à la recherche").to.deep.equal([]);
+    expect(
+      proven,
+      "aucun endpoint de compteurs n'a pu être ÉPROUVÉ (collections vides ?) — " +
+        "ce test ne prouve alors rien",
+    ).to.be.greaterThan(0);
+  });
 });
 
 // ── LE JOURNAL — un critère invalide se REFUSE, il ne rend pas TOUT ───────────

@@ -297,9 +297,23 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
         "Compteurs des endpoints sur la collection ENTIÈRE (total, actifs, " +
         "désactivés, en échec) — mêmes filtres que la liste. `null` = le " +
         "backend ne sait pas compter. Webhooks coupés → tous les compteurs null.",
-      page: { filters: WEBHOOK_STATS_FILTERS, facets: WEBHOOK_FACETS },
+      page: {
+        filters: WEBHOOK_STATS_FILTERS,
+        facets: WEBHOOK_FACETS,
+        // Même condition que sur la liste : coupés, les webhooks ne cherchent
+        // rien. Branchés, `countEndpoints` descend `q` dans les trois stores
+        // (prédicat en mémoire, `LIKE` en SQL, `$regex` en Mongo) — la barre de
+        // recherche déplace donc les cartes autant que le tableau.
+        search: () => ready(svc()),
+      },
       handler: async (request: IAdminRequest): Promise<IWebhookCounts> => {
         const s = svc();
+        // Capacité de recherche demandée au service AVANT de traduire — même
+        // geste que la liste. Un décompte n'a pas de fenêtre (`limit`/`offset`/
+        // `order` sont admis et sans effet : ils ne changent aucun nombre), mais
+        // `q` change la population comptée, donc il se déclare et se refuse en
+        // 400 quand le backend ne peut pas l'honorer.
+        const page = parsePageQuery(request.query, { searchable: ready(s) });
         // Lecture DÉFENSIVE, comme la liste : webhooks coupés → « inconnu »,
         // jamais un 503 qui ferait disparaître les cartes de la console, et
         // jamais des zéros qui se liraient « aucun endpoint configuré ».
@@ -311,16 +325,10 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
             failing: null,
           };
         }
-        // Un décompte n'a ni fenêtre ni ordre : ce que le contrat de page
-        // porte encore doit être REFUSÉ, pas admis puis ignoré. `order` ne
-        // changerait rien au nombre rendu, mais `q` SI — l'accepter sans
-        // l'honorer ferait annoncer aux cartes une population que le tableau
-        // filtré ne montre pas. Sans `sortable` ni `searchable`, le
-        // traducteur refuse les deux (défaut REFUS).
-        parsePageQuery(request.query, {});
-        return s.countWebhookFacets(
-          parseFilters(request.query, WEBHOOK_STATS_FILTERS),
-        );
+        return s.countWebhookFacets({
+          ...parseFilters(request.query, WEBHOOK_STATS_FILTERS),
+          ...(page.q !== undefined ? { q: page.q } : {}),
+        });
       },
     },
     {

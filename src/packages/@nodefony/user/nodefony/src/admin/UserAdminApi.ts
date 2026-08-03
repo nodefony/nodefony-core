@@ -408,7 +408,17 @@ export function createUserAdminApi(container: Container): IAdminApi {
       // celui qui a produit le nombre affiché. `admins` n'y figure pas — le
       // rôle d'administration est une valeur de configuration, pas un mot du
       // vocabulaire de filtre ; sa carte reste donc non cliquable.
-      page: { filters: USER_STATS_FILTERS, facets: USER_FACETS },
+      page: {
+        filters: USER_STATS_FILTERS,
+        facets: USER_FACETS,
+        // La recherche est HONORÉE ici comme sur la liste : `countUsers`
+        // descend `q` dans les trois annuaires branchés (prédicat en mémoire,
+        // `LIKE` indexé en SQL, `$regex` en Mongo). Sans elle, taper dans la
+        // barre filtrait le tableau et FIGEAIT les cartes au-dessus — deux
+        // vérités contradictoires côte à côte, exactement ce que les compteurs
+        // serveur étaient censés supprimer.
+        search: () => true,
+      },
       handler: async (
         request: IAdminRequest,
       ): Promise<IUserCounts | IAdminResponse<{ error: string }>> => {
@@ -416,17 +426,16 @@ export function createUserAdminApi(container: Container): IAdminApi {
         if (!users) {
           return { status: 503, body: { error: "user service unavailable" } };
         }
-        // Un décompte n'a ni fenêtre ni ordre : ce que le contrat de page
-        // porte encore doit être REFUSÉ, pas admis puis ignoré. `order` ne
-        // changerait rien au nombre rendu, mais `q` SI — l'accepter sans
-        // l'honorer ferait annoncer aux cartes une population que le tableau
-        // filtré ne montre pas. Sans `sortable` ni `searchable`, le
-        // traducteur refuse les deux (défaut REFUS).
-        parsePageQuery(request.query, {});
-        return users.countUserFacets(
-          ADMIN_ROLE,
-          parseFilters(request.query, USER_STATS_FILTERS),
-        );
+        // Un décompte n'a pas de fenêtre : `limit`/`offset`/`order` sont admis
+        // par le contrat de page et sans effet — ils ne changent aucun nombre
+        // rendu, donc les ignorer ne ment sur rien. `q`, LUI, change la
+        // population comptée : il est déclaré (`searchable`), lu ici une seule
+        // fois, et descendu jusqu'au dépôt.
+        const page = parsePageQuery(request.query, { searchable: true });
+        return users.countUserFacets(ADMIN_ROLE, {
+          ...parseFilters(request.query, USER_STATS_FILTERS),
+          ...(page.q !== undefined ? { q: page.q } : {}),
+        });
       },
     },
     {
