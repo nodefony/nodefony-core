@@ -424,21 +424,21 @@ message. Mieux vaut un 2FA absent et bruyant qu'un 2FA qui casse silencieusement
 Un second facteur crée un risque neuf : **s'enfermer dehors**. Les codes de récupération sont la
 sortie de secours — le NIST les classe comme _look-up secrets_ (SP 800-63B §5.1.2).
 
-**Comment ils sont fabriqués** (`generateRecoveryCodes()`, `totpCrypto.ts:281`) :
+**Comment ils sont fabriqués** (`generateRecoveryCodes()`, `totpCrypto.ts:330`) :
 
 - 10 codes par défaut (`totp.recoveryCodes`), au format lisible `XXXXX-XXXXX` ;
 - alphabet **sans caractères ambigus** — ni `I`, ni `L`, ni `O`, ni `U` (`totpCrypto.ts:269`) : on les
   recopie à la main, souvent sous stress ;
 - ~50 bits d'aléa chacun — non devinable, mais ce n'est **pas** un mot de passe humain.
 
-**Comment ils sont stockés** : en condensat `sha256` (`hashRecoveryCode()`, `totpCrypto.ts:299`),
+**Comment ils sont stockés** : en condensat `sha256` (`hashRecoveryCode()`, `totpCrypto.ts:347`),
 jamais en clair. Un `sha256` simple suffit ici, précisément parce que l'entrée est **aléatoire** (une
 attaque par dictionnaire n'a rien à mordre) — contrairement à un mot de passe, qui exige Argon2id.
 
 **Comment ils sont consommés** : au login, si le code présenté n'est pas un TOTP valide,
 `verifyTotpLogin()` cherche une correspondance parmi les condensats — **en temps constant sur chaque
 entrée**, et sans court-circuit à la première trouvaille (`matchRecoveryCode()`,
-`totpCrypto.ts:308`). Le code trouvé est **retiré de la liste** (`totpOperations.ts:186`) : usage
+`totpCrypto.ts:356`). Le code trouvé est **retiré de la liste** (`totpOperations.ts:186`) : usage
 unique, strictement.
 
 La saisie est tolérante — casse et tirets ignorés à la normalisation (`totpCrypto.ts:272`) :
@@ -451,20 +451,20 @@ La saisie est tolérante — casse et tirets ignorés à la normalisation (`totp
 
 ## ⚙️ Configuration et mises en situation
 
-La section `totp` du schéma Zod (`config.ts:503`) — validée au boot, donc une valeur hors bornes
+La section `totp` du schéma Zod (`config.ts:982`) — validée au boot, donc une valeur hors bornes
 échoue **au démarrage**, pas au premier login :
 
 | Option          | Type                         | Défaut | Effet                                                             |
 | --------------- | ---------------------------- | ------ | ----------------------------------------------------------------- |
 | `enabled`       | `boolean`                    | `true` | Coupe le 2FA : service inerte, routes non montées (`totp.ts:98`). |
 | `issuer`        | `string?`                    | —      | Nom affiché dans l'app d'authentification. Omis = nom de l'app.   |
-| `algorithm`     | `"SHA1"\|"SHA256"\|"SHA512"` | `SHA1` | Fonction HMAC. `SHA1` = compat maximale (`config.ts:517`).        |
+| `algorithm`     | `"SHA1"\|"SHA256"\|"SHA512"` | `SHA1` | Fonction HMAC. `SHA1` = compat maximale (`config.ts:537`).        |
 | `digits`        | `int` 6–8                    | `6`    | Longueur du code (RFC 4226 §5.3 : 6 minimum).                     |
 | `period`        | `int` > 0                    | `30`   | Durée de vie d'un code, en secondes.                              |
 | `window`        | `int` ≥ 0                    | `1`    | Tolérance de dérive, en pas (`config.ts:538`).                    |
 | `recoveryCodes` | `int` > 0                    | `10`   | Nombre de codes générés à l'activation (`config.ts:546`).         |
-| `encryptionKey` | `string?`                    | —      | Clé de chiffrement du secret au repos (`config.ts:554`).          |
-| `store`         | `string`                     | `auto` | Backend de persistance du secret (`config.ts:560`).               |
+| `encryptionKey` | `string?`                    | —      | Clé de chiffrement du secret au repos (`config.ts:574`).          |
+| `store`         | `string`                     | `auto` | Backend de persistance du secret (`config.ts:580`).               |
 
 ### Situation 1 — un utilisateur active la 2FA sur son compte
 
@@ -696,7 +696,7 @@ vérifie que ta projection n'expose ni secret ni condensat.
 | Encodage du secret          | RFC 4648 (base32)        | `base32Encode()` (`totpCrypto.ts:58`)                  |
 | Dérivation de clé           | RFC 5869 (HKDF)          | `deriveKey()` (`secretCipher.ts:54`)                   |
 | Nonce GCM 96 bits           | NIST SP 800-38D §5.2.1.1 | `IV_BYTES` (`secretCipher.ts:30`)                      |
-| Codes de secours            | NIST SP 800-63B §5.1.2   | `generateRecoveryCodes()` (`totpCrypto.ts:281`)        |
+| Codes de secours            | NIST SP 800-63B §5.1.2   | `generateRecoveryCodes()` (`totpCrypto.ts:330`)        |
 | Backoff des tentatives      | NIST SP 800-63B          | `AuthFlow.completeMfaLogin()` (`authFlow.ts:264`)      |
 | Rate limit (429)            | RFC 6585                 | `429` + `Retry-After` (`SessionAuthController.ts:145`) |
 

@@ -204,7 +204,7 @@ Autour de ce cœur, le kernel orchestre le cycle de vie :
 
 - **Construction / reconfiguration** : `configureRateLimit()` (`http-kernel.ts:322`) instancie le store
   depuis la config (`windowMs = windowS × 1000`, `http-kernel.ts:331`) et arme un `GcScheduler`
-  (`http-kernel.ts:338`) qui **purge les fenêtres expirées** hors du chemin chaud.
+  (`http-kernel.ts:358`) qui **purge les fenêtres expirées** hors du chemin chaud.
 - **Émission HTTP** : sous le quota, les en-têtes `X-RateLimit-*` sont posés (`http-kernel.ts:875`) et
   la requête continue ; au-delà, `Retry-After` (`http-kernel.ts:882`) puis `writeHead(429)`
   (`http-kernel.ts:887`) — corps vide, on ne journalise pas chaque rejet (amplificateur sous flood).

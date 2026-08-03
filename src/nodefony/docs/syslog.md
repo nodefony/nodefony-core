@@ -115,7 +115,7 @@ Nodefony répond à chacun de ces points par un mécanisme précis, pas par un r
   `Syslog.ts:937`) court-circuite le log **avant** toute allocation, et le coalescing regroupe les
   écritures d'un tick en un seul `write()` (`writeOut`, `Syslog.ts:162`).
 - **La ligne perdue** : les sévérités graves (≤ 3) contournent le buffer et partent en écriture
-  durable immédiate (`FileSink.writeErr()`, `FileSink.ts:94`) ; un filet de sortie vide ce qui reste
+  durable immédiate (`FileSink.writeErr()`, `FileSink.ts:115`) ; un filet de sortie vide ce qui reste
   au `exit` du process (`Syslog.ts:192`).
 - **La vue tronquée** : le driver `cluster-file` agrège les JSONL de **tous** les workers et les
   trie chronologiquement (`createClusterFileLogDriver()`, `ClusterFileLogDriver.ts:59`).
@@ -271,7 +271,7 @@ Le parcours du schéma d'ouverture, étape par étape et ancré :
    fenêtre passent ; les autres incrémentent `missed` et repartent en `DROPPED`.
 4. **Création du `Pdu`** (`Pdu.ts:132`) — horodatage `Date.now()` sans objet `Date`, `uid`
    incrémental, `pid` constant capturé une seule fois au chargement (`Pdu.ts:98`), type du payload
-   déduit par un `fastTypeOf()` inline (`Pdu.ts:101`), et `requestId` lu via un fournisseur
+   déduit par un `fastTypeOf()` inline (`Pdu.ts:129`), et `requestId` lu via un fournisseur
    injectable (`Pdu.ts:169`).
 5. **Ring buffer** — `pushStack()` (`Syslog.ts:1133`) range le Pdu dans le `CircularBuffer`
    (`Syslog.ts:273`) et incrémente les compteurs de santé (`valid`, `errorTotal`, `criticTotal`).
@@ -289,7 +289,7 @@ avance la tête (`Syslog.ts:284`), `toArray()` restitue l'ordre FIFO du plus anc
 
 - Capacité par défaut **100** (`defaultSettings`, `Syslog.ts:364`) ; le Kernel la porte à **2000 en
   développement** pour qu'une requête complète tienne dans la fenêtre malgré le bruit
-  (`maxStack` résolu au boot, `Kernel.ts:1886`).
+  (`maxStack` résolu au boot, `Kernel.ts:2165`).
 - Redimensionner = **au boot uniquement** : `setMaxStack()` (`Syslog.ts:799`) reconstruit le buffer
   en préservant les Pdu existants.
 - Le stockage lui-même se coupe à chaud (`setRingEnabled()`, `Syslog.ts:764`) : les compteurs de
@@ -406,7 +406,7 @@ en retirant les codes ANSI — c'est ce qui rend le cœur réellement isomorphe.
 
 #### `file` — un descripteur par worker
 
-`FileSink` (`FileSink.ts:32`) ouvre le fichier en **ajout** (`O_APPEND`) et garde le descripteur.
+`FileSink` (`FileSink.ts:50`) ouvre le fichier en **ajout** (`O_APPEND`) et garde le descripteur.
 Un fichier par worker signifie **zéro verrou d'inode partagé** entre process. Deux modes :
 
 - **asynchrone** (défaut) : buffer applicatif borné, une seule écriture en vol pour garantir
@@ -416,7 +416,7 @@ Un fichier par worker signifie **zéro verrou d'inode partagé** entre process. 
   compte en microsecondes et où le tick a **déjà** coalescé — c'est le bon réglage : pas de
   threadpool, rien à perdre.
 
-Dans les deux cas, **stderr est toujours durable** : `writeErr()` (`FileSink.ts:94`) écrit en
+Dans les deux cas, **stderr est toujours durable** : `writeErr()` (`FileSink.ts:115`) écrit en
 synchrone même en mode asynchrone, pour qu'une erreur fatale survive à un `SIGKILL`. Compromis
 assumé et documenté au code : un morceau stdout encore en vol n'est pas réémis (ce serait un
 doublon système non annulable), donc un fatal peut précéder un `INFO` plus ancien — les horodatages
@@ -558,14 +558,14 @@ liste vide. Chacun expose une `probe()` : joignabilité, latence, informations d
 ### Le registre — comment un driver est monté
 
 Aucun `if (nom === …)` dans le Kernel. `registerBuiltinLogDrivers()` (`builtinLogDrivers.ts:86`)
-enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:1833`) résout le driver
+enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:2112`) résout le driver
 demandé, monte `memory` en filet de sécurité, et — **en développement seulement** — tente de monter
 **tous** les drivers enregistrés pour permettre la bascule à chaud depuis Studio. Chaque fabrique
 s'auto-écarte si sa configuration manque (Loki sans URL, par exemple) : zéro I/O « au cas où ». En
 production, c'est strictement ce qui est demandé.
 
 Si le driver configuré n'est pas enregistré, le Kernel **ne plante pas** : il retombe sur `memory`
-et l'annonce par un `WARNING` (`Kernel.ts:1912`) — le principe « pas de dégradation silencieuse ».
+et l'annonce par un `WARNING` (`Kernel.ts:3104`) — le principe « pas de dégradation silencieuse ».
 
 ## 🧰 API publique
 

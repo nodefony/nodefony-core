@@ -416,19 +416,19 @@ Exemple réel et sans réseau dans le dépôt : `src/modules/test/nodefony/secur
 
 ## ⚙️ Configuration
 
-Section `oauth2` du schéma Zod (`config.ts:814`), branchée sur la config du module
-(`config.ts:928`). Table dérivée du schéma — les défauts sont ceux du code.
+Section `oauth2` du schéma Zod (`config.ts:990`), branchée sur la config du module
+(`config.ts:990`). Table dérivée du schéma — les défauts sont ceux du code.
 
 | Option            | Type                 | Défaut          | Effet                                                     |
 | ----------------- | -------------------- | --------------- | --------------------------------------------------------- |
 | `enabled`         | booléen              | `true`          | Coupe le social login ; les routes ne montent pas.        |
-| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]` | Rôles du Shadow User **à la création** (`config.ts:822`). |
-| `allowSignup`     | booléen              | `true`          | `false` = compte préexistant lié exigé (`config.ts:828`). |
+| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]` | Rôles du Shadow User **à la création** (`config.ts:864`). |
+| `allowSignup`     | booléen              | `true`          | `false` = compte préexistant lié exigé (`config.ts:890`). |
 | `successRedirect` | chemin               | `/`             | Où revient l'utilisateur après succès.                    |
 | `failureRedirect` | chemin               | `/login`        | Où il revient après échec (uniforme, sans détail).        |
-| `providers`       | dictionnaire par nom | `{}`            | Fournisseurs activés (`config.ts:844`).                   |
+| `providers`       | dictionnaire par nom | `{}`            | Fournisseurs activés (`config.ts:906`).                   |
 
-Par fournisseur (`oauthProviderSchema`, `config.ts:761`) :
+Par fournisseur (`oauthProviderSchema`, `config.ts:823`) :
 
 | Option                                                 |      Requis      | Effet                                                                        |
 | ------------------------------------------------------ | :--------------: | ---------------------------------------------------------------------------- |

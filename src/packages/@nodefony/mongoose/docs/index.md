@@ -629,12 +629,12 @@ devient alors un pur driver de données, sans schéma framework.
 
 Trois comportements valent d'être connus :
 
-- **Purge à deux bornes** — `idleTimeoutS` et `absoluteTimeoutS` (`SessionStorage.gc()` (`SessionStorage.ts:144`)) :
+- **Purge à deux bornes** — `idleTimeoutS` et `absoluteTimeoutS` (`SessionStorage.gc()` (`SessionStorage.ts:156`)) :
   l'inactivité (depuis la dernière activité) et l'âge absolu (depuis la création, **jamais prolongé** —
   la ré-authentification finit par être imposée, conformément aux recommandations NIST/OWASP).
 - **Prolongation sans réécriture** (`SessionStorage.touch()` (`SessionStorage.ts:174`)) : rafraîchir
   l'activité ne réécrit pas le contenu de la session, juste son horodatage.
-- **Écran d'administration redacté par construction** (`SessionStorage.listPage()` (`SessionStorage.ts:254`)) :
+- **Écran d'administration redacté par construction** (`SessionStorage.listPage()` (`SessionStorage.ts:277`)) :
   le contenu applicatif et les messages flash **ne sortent pas de la base**. Studio affiche qui est
   connecté, jamais ce qu'il y a dans sa session.
 
@@ -656,7 +656,7 @@ pas des documents nus. Deux recherches lui sont propres :
   native bornée (`skip`/`limit + 1`), tri sur liste blanche, `_id` en départage. Une page est une page,
   jamais la collection entière rapatriée en mémoire.
 
-Le comptage des administrateurs actifs (`MongooseUserRepository.countActiveAdmins()` (`MongooseUserRepository.ts:300`))
+Le comptage des administrateurs actifs (`MongooseUserRepository.countActiveAdmins()` (`MongooseUserRepository.ts:328`))
 compte côté serveur — c'est le garde-fou qui empêche de supprimer le dernier administrateur.
 
 ### Jetons
@@ -667,12 +667,12 @@ Deux invariants de sécurité sont tenus **par la requête**, pas par du code Ja
 - **Révocation idempotente** (`MongooseTokenStore.revoke()` (`MongooseTokenStore.ts:215`)) : la
   condition « pas encore révoqué » est dans le filtre. Deux révocations simultanées ne se recouvrent
   pas ; la première date et la première raison sont conservées.
-- **Seuil monotone** (`MongooseTokenStore.revokeAllForSubject()` (`MongooseTokenStore.ts:274`)) : le
+- **Seuil monotone** (`MongooseTokenStore.revokeAllForSubject()` (`MongooseTokenStore.ts:297`)) : le
   « déconnecte-moi de partout » utilise `$max`. Avec une lecture suivie d'une écriture, deux
   déconnexions simultanées pourraient reposer un seuil **plus ancien** — et des jetons révoqués
   redeviendraient valides. Ici, c'est structurellement impossible.
 
-La purge, bornée par `retentionRevokedMs` (`MongooseTokenStore.gc()` (`MongooseTokenStore.ts:290`)), s'appuie sur une particularité utile
+La purge, bornée par `retentionRevokedMs` (`MongooseTokenStore.gc()` (`MongooseTokenStore.ts:313`)), s'appuie sur une particularité utile
 de Mongo : une comparaison numérique **ignore** les documents dont le champ est `null`. Les jetons sans
 expiration ne sont donc jamais balayés par erreur ; ils partent par une règle de rétention distincte.
 

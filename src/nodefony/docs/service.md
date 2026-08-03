@@ -509,7 +509,7 @@ mesurables :
   n'écoute ne coûte rien. Le test compte les allocations, pas les intentions : `listenerCount` n'alloue
   pas, là où `rawListeners` **copie** le tableau interne à chaque appel.
 - **Pas d'`await` gratuit** — `emitAsync` n'attend que si l'écouteur renvoie réellement un thenable
-  (`Event.ts:220`) : un hook synchrone ne paie aucune microtask, et l'ordre séquentiel reste garanti.
+  (`Event.ts:209`) : un hook synchrone ne paie aucune microtask, et l'ordre séquentiel reste garanti.
 - **Timers seulement si demandés** — `emitAsyncGuarded` n'alloue 1 timer + 1 promesse de course par
   écouteur que si `timeoutMs > 0` ; le timer est `unref()` (`Event.ts:291`) et un rejet arrivant après
   la course perdue est neutralisé (`Event.ts:280`) pour ne pas devenir un rejet non géré.

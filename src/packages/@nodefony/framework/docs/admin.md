@@ -109,7 +109,7 @@ le broker la monte.
 
 Nodefony sépare **deux rôles** par inversion de dépendance :
 
-- **Producteur** (`IAdminApi`, dans le core `IAdminApi.ts:147`) : un module dit _quoi_ il expose —
+- **Producteur** (`IAdminApi`, dans le core `IAdminApi.ts:212`) : un module dit _quoi_ il expose —
   son `adminNamespace` et ses `adminEndpoints()` — **sans importer `@nodefony/framework`**. Le
   contrat vit au plus bas niveau commun pour qu'un adapter ORM, un service IA ou le kernel lui-même
   puissent l'implémenter.
@@ -117,7 +117,7 @@ Nodefony sépare **deux rôles** par inversion de dépendance :
   Router. Il collecte les producteurs et monte `/nodefony/<ns>/api/*`.
 
 Pour s'enregistrer sans dépendre du framework, un producteur récupère le broker via sa **vue
-minimale** `IAdminRegistry` (`IAdminApi.ts:178`) — juste `register()` — depuis le container. Le
+minimale** `IAdminRegistry` (`IAdminApi.ts:243`) — juste `register()` — depuis le container. Le
 kernel n'étant **pas** un `Module`, c'est le framework qui construit et enregistre l'`IAdminApi` du
 kernel à sa place (`createKernelAdminApi()`, cité plus bas).
 
@@ -308,8 +308,8 @@ La décision est **fail-closed** : un authentifié **sans** le rôle requis — 
 laissez-passer.
 
 - **Rôle par défaut** : sans `role` explicite, un endpoint exige `ROLE_NODEFONY_ADMIN`
-  (`AdminBroker.ts:112` ; défaut du champ `IAdminEndpoint.role`, `IAdminApi.ts:106`).
-- **Endpoint public** : `public: true` (`IAdminApi.ts:115`) → le RBAC du broker est court-circuité
+  (`AdminBroker.ts:112` ; défaut du champ `IAdminEndpoint.role`, `IAdminApi.ts:152`).
+- **Endpoint public** : `public: true` (`IAdminApi.ts:152`) → le RBAC du broker est court-circuité
   (`role === ""`, `adminRbac.ts:26`). À réserver aux sondes cloud-native (liveness/readiness) et à
   placer hors d'une zone fermée — sinon le firewall verrouille en amont. Exemple réel :
   `GET /nodefony/kernel/api/livez` (`KernelAdminApi.ts:615`), sorti de `nodefony-admin` par la zone
@@ -343,10 +343,10 @@ le seam `@Idempotent` des controllers userland — voir [Idempotence](idempotenc
 Trois pas, du point de vue d'un module :
 
 1. **Écrire un `IAdminApi`** : `adminNamespace` (url-safe, stable), `adminDescriptor()` (sidebar
-   Studio, `IAdminApi.ts:125`) et `adminEndpoints()` (`IAdminApi.ts:157`). Un endpoint peut renvoyer
+   Studio, `IAdminApi.ts:220`) et `adminEndpoints()` (`IAdminApi.ts:222`). Un endpoint peut renvoyer
    la donnée brute (assumée `{status:200, body}`) ou une `IAdminResponse` pour piloter statut/en-têtes
    (`IAdminApi.ts:67`).
-2. **S'enregistrer au `onKernelBoot`** via `IAdminRegistry.register()` (`IAdminApi.ts:184`), récupéré
+2. **S'enregistrer au `onKernelBoot`** via `IAdminRegistry.register()` (`IAdminApi.ts:249`), récupéré
    par `container.get("adminBroker")`. Rendre l'appel **idempotent** (`registry.has(ns)` avant
    `register`) — modèle de tous les producteurs.
 3. **Laisser le framework monter** : à `onKernelReady`, `Framework.onKernelReady()` enregistre les
@@ -362,9 +362,9 @@ sont enregistrés au `onKernelReady` du framework :
 
 | Namespace   | Producteur                                            | Rôle                                              |
 | ----------- | ----------------------------------------------------- | ------------------------------------------------- |
-| `kernel`    | `createKernelAdminApi` (`KernelAdminApi.ts:1390`)     | modules, process, uptime, `livez`                 |
+| `kernel`    | `createKernelAdminApi` (`KernelAdminApi.ts:468`)      | modules, process, uptime, `livez`                 |
 | `framework` | `createFrameworkAdminApi` (`FrameworkAdminApi.ts:40`) | dump du Router + **catalogue** + Playground (dev) |
-| `syslog`    | `createSyslogAdminApi` (`SyslogAdminApi.ts:647`)      | viewer de logs (dev)                              |
+| `syslog`    | `createSyslogAdminApi` (`SyslogAdminApi.ts:95`)       | viewer de logs (dev)                              |
 
 Les modules externes s'enregistrent depuis leur propre `onKernelBoot` :
 

@@ -109,7 +109,7 @@ banc de non-régression : un refacto du routeur doit le repasser à l'identique.
 
 **Une seule table pour HTTP et WebSocket.** Il n'y a pas de « routeur WS » séparé : une action WS est
 une route dont les méthodes déclarées contiennent `WEBSOCKET` (`Route.matchRequirements()`,
-`Route.ts:526`). C'est le différenciateur du framework — le même contrôleur, le même contexte, les
+`Route.ts:649`). C'est le différenciateur du framework — le même contrôleur, le même contexte, les
 mêmes décorateurs.
 
 **Le routeur passe avant les fichiers statiques.** Une requête qui correspond à une route ne paie
@@ -298,7 +298,7 @@ Et trois comportements qui surprennent la première fois :
   (`Route.cleanPathname()`, `Route.ts:204`). Corollaire : `/files/*` ne matche pas `/files/`, qui a été
   normalisé en `/files`.
 - **Les valeurs sont URL-décodées** — `%C3%A9t%C3%A9` arrive dans l'action comme `été`
-  (`decode()`, `Route.ts:254`).
+  (`decode()`, `Route.ts:79`).
 - **La query string n'entre jamais dans le matching** — seul le `pathname` est comparé. Les paramètres
   de query se lisent avec `@Query` (voir [decorateurs](./decorateurs.md)).
 
@@ -306,8 +306,8 @@ Et trois comportements qui surprennent la première fois :
 
 C'est le mécanisme le moins évident, et le plus utile. Déclarer un `defaults` pour une variable change
 le motif compilé : le segment devient facultatif (`[^/]*`) **et son slash aussi** (`/?`), puis la valeur
-par défaut est réinjectée quand la capture est vide (`checkDefaultParameters()`, `Route.ts:73` ·
-`Route.hydrateDefaultParameters()`, `Route.ts:361`).
+par défaut est réinjectée quand la capture est vide (`checkDefaultParameters()`, `Route.ts:99` ·
+`Route.hydrateDefaultParameters()`, `Route.ts:469`).
 
 ```ts ignore
 @route("route-page", { path: "/page/{slug}", defaults: { slug: "home" } })
@@ -360,7 +360,7 @@ le suit — un `@All("*")` déclaré tôt masque le reste du contrôleur.
 > [!TIP]
 > Une exception utile : dans un contrôleur, une route dont le chemin vaut **exactement** `"*"` est
 > repoussée **en dernier** au moment du montage — la capture-tout d'un contrôleur ne masque donc jamais
-> ses propres routes, quel que soit l'ordre d'écriture (`hasMagic`, `routerDecorators.ts:122`). Ça ne
+> ses propres routes, quel que soit l'ordre d'écriture (`hasMagic`, `routerDecorators.ts:237`). Ça ne
 > vaut **que** pour `"*"` seul : `/files/*` reste ordonné comme les autres.
 
 ### Situation 2 — le même chemin, deux méthodes
@@ -470,7 +470,7 @@ vhosts, et ne coûte rien au matching (`hostRegexp` absent → aucun test, `Rout
 > [!WARNING]
 > `@Domain` déclare quels vhosts une route **sert** ; il ne remplace pas la barrière d'entrée. Un
 > `Host` inconnu du serveur est rejeté en amont (421 Misdirected Request, `checkValidDomain()`,
-> `http-kernel.ts:1558`) via la liste `trustedHosts` de `@nodefony/http`.
+> `http-kernel.ts:1610`) via la liste `trustedHosts` de `@nodefony/http`.
 
 ## Préfixes — contrôleur, module, data plane
 
@@ -478,7 +478,7 @@ Trois niveaux de préfixe coexistent, et un seul est à ta main.
 
 1. **Le préfixe de contrôleur** — `@controller("/api/catalog")` est concaténé devant le chemin de
    chaque route de la classe, puis le chemin est normalisé : les `//` sont réduits et le slash final
-   retiré (`Route.setPattern()`, `Route.ts:443`). Un chemin vide (`@Get("")`) désigne donc le préfixe
+   retiré (`Route.setPattern()`, `Route.ts:551`). Un chemin vide (`@Get("")`) désigne donc le préfixe
    lui-même.
 2. **Le module propriétaire** — il n'ajoute **aucun** préfixe d'URL. `@controllers([…])` enregistre la
    classe au boot et propage le nom du module sur les routes déjà créées, pour l'introspection et les
@@ -569,9 +569,9 @@ alloué par requête.
 | Cible identifiée par l'URI, hôte compris | RFC 9110 §7.2     | hôte vérifié avant la méthode (`Route.match()`, `Route.ts:232`) |
 | 403 sur ressource d'un autre vhost       | RFC 9110 §15.5.4  | `Route.matchHostname()` (`Route.ts:489`)                        |
 | 404 quand rien ne correspond             | RFC 9110 §15.5.5  | après repli statique (`http-kernel.ts:688`)                     |
-| 421 sur `Host` non servi                 | RFC 9110 §15.5.20 | `checkValidDomain()` (`http-kernel.ts:1558`)                    |
-| Erreur de sous-protocole WS = 1002       | RFC 6455 §7.4     | `Route.matchRequirements()` (`Route.ts:526`)                    |
-| Décodage pourcent des segments           | RFC 3986 §2.1     | `decode()` (`Route.ts:22`)                                      |
+| 421 sur `Host` non servi                 | RFC 9110 §15.5.20 | `checkValidDomain()` (`http-kernel.ts:1610`)                    |
+| Erreur de sous-protocole WS = 1002       | RFC 6455 §7.4     | `Route.matchRequirements()` (`Route.ts:649`)                    |
+| Décodage pourcent des segments           | RFC 3986 §2.1     | `decode()` (`Route.ts:79`)                                      |
 
 ## 📡 Observabilité — Studio
 

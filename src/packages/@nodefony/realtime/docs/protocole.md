@@ -290,7 +290,7 @@ L'accueil porte **cinq** champs : `ts`, `protocol`, `channels`, `methods`, `iden
 > [!IMPORTANT]
 > Le pair accepte un `id` **chaîne** en entrée (conforme à la norme), mais il n'attribue jamais que
 > des `id` **numériques** à ses propres appels sortants. Une réponse portant un `id` chaîne est donc
-> ignorée sans erreur (`JsonRpcPeer.handleResponse()`, `JsonRpcPeer.ts:530`) : elle ne peut, par
+> ignorée sans erreur (`JsonRpcPeer.handleResponse()`, `JsonRpcPeer.ts:556`) : elle ne peut, par
 > construction, correspondre à aucune requête émise par ce pair.
 
 ### La réponse — `result` ou `error`, jamais les deux
@@ -336,7 +336,7 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 | ------------------ | ------------- | :-----: | --------------------------------------------------------------------- | --------------------------- |
 | `subscribe`        | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:592` |
 | `unsubscribe`      | client→server |   non   | « arrête » — dernier abonné, le producteur est libéré                 | `RealtimeController.ts:599` |
-| `ping`             | client→server |   non   | Battement de cœur — **no-op serveur**, aucun pong                     | `RealtimeClient.ts:716`     |
+| `ping`             | client→server |   non   | Battement de cœur — **no-op serveur**, aucun pong                     | `RealtimeClient.ts:740`     |
 | `<canal>`          | server→client |   non   | Push d'un message : le **nom du canal est la `method`**               | `RealtimeController.ts:612` |
 | `<canal entrant>`  | client→server |   non   | Le client pousse sur un canal déclaré entrant                         | `RealtimeController.ts:608` |
 | `realtime:welcome` | server→client |   non   | L'accueil : 5 champs, dont l'identité résolue                         | `RealtimeController.ts:579` |
@@ -356,7 +356,7 @@ Les quatre formes de frame circulent en permanence sous tes yeux — ce schéma 
 > `nodefony:kernel:ping` et `nodefony:kernel:gc` (`StudioRealtimeController.ts:114`) sont des exemples d'actions,
 > **pas des méthodes du cœur temps réel** : elles sont déclarées par le contrôleur
 > d'administration de `@nodefony/studio`. Un endpoint applicatif ne les expose pas. Le helper
-> `RealtimeClient.ping()` (`RealtimeClient.ts:715`) mesure le RTT en les appelant — il suppose donc
+> `RealtimeClient.ping()` (`RealtimeClient.ts:740`) mesure le RTT en les appelant — il suppose donc
 > un endpoint qui les déclare, contrairement à la notification `ping` du battement de cœur, qui
 > n'attend jamais de réponse.
 
@@ -473,7 +473,7 @@ décrits dans [la page sécurité](./securite.md).
 | L'exception du serveur n'arrive jamais au client                 | Zero Trust : tout throw ordinaire devient `-32603` générique (`JsonRpcPeer.ts:528`)                             | Lever une `RpcError` pour exposer volontairement code et `data`                   |
 | Une notification refusée disparaît sans trace côté client        | Sans `id`, aucune réponse possible (`beforeDispatch`, `JsonRpcPeer.ts:391`)                                     | Écouter `realtime:denied` via `onDenied()` (`RealtimeClient.ts:386`)              |
 | `nodefony:kernel:ping` répond `-32601` sur mon endpoint          | L'action `nodefony:kernel:ping` est déclarée par `@nodefony/studio` (`StudioRealtimeController.ts:114`)         | Déclarer la sienne, ou lire `serverMethods` avant d'appeler                       |
-| Le battement de cœur ne renvoie aucun pong                       | La notification `ping` est un no-op serveur (`RealtimeController.ts:614`)                                       | Pour mesurer un RTT, utiliser une action RPC — `ping()` (`RealtimeClient.ts:715`) |
+| Le battement de cœur ne renvoie aucun pong                       | La notification `ping` est un no-op serveur (`RealtimeController.ts:614`)                                       | Pour mesurer un RTT, utiliser une action RPC — `ping()` (`RealtimeClient.ts:740`) |
 | Une réponse reçue est ignorée sans message                       | Corrélation sur `id` **numériques** seulement (`JsonRpcPeer.ts:537`)                                            | Ne pas fabriquer soi-même de réponse à `id` chaîne                                |
 | Les premières frames envoyées après `connect()` semblent perdues | Le transport n'est branché qu'une fois le handshake terminé                                                     | Attendre `realtime:welcome` — le client le fait déjà                              |
 

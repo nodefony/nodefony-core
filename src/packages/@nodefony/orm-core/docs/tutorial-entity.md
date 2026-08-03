@@ -347,18 +347,18 @@ apportent, jamais sur leur nom.
 
 | Verbe                 | Ce qu'il garantit                                                  | Ancre                        |
 | --------------------- | ------------------------------------------------------------------ | ---------------------------- |
-| `find` / `findOne`    | lecture filtrée, avec tri, bornes et eager-load                    | `IRepository.ts:184`, `:192` |
-| `create`              | insère une ligne et rend sa version persistée (id, défauts)        | `IRepository.ts:202`         |
-| `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots     | `IRepository.ts:214`         |
+| `find` / `findOne`    | lecture filtrée, avec tri, bornes et eager-load                    | `IRepository.ts:213`, `:192` |
+| `create`              | insère une ligne et rend sa version persistée (id, défauts)        | `IRepository.ts:223`         |
+| `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots     | `IRepository.ts:235`         |
 | `updateOne`           | modifie **au plus une** ligne, **atomiquement**, et la rend        | `IRepository.ts:231`         |
-| `updateMany`          | modifie toutes les lignes du critère, rend le **nombre**           | `IRepository.ts:274`         |
+| `updateMany`          | modifie toutes les lignes du critère, rend le **nombre**           | `IRepository.ts:295`         |
 | `upsert`              | insère **ou** met à jour sur conflit de clé, en une instruction    | `IRepository.ts:258`         |
 | `increment`           | `SET f = f + ?` atomique — compteurs, quotas, limitation de débit  | `IRepository.ts:287`         |
 | `delete`              | supprime tout ce qui matche, rend le nombre                        | `IRepository.ts:298`         |
-| `deleteOne`           | supprime **au plus une** ligne, rend un booléen                    | `IRepository.ts:307`         |
+| `deleteOne`           | supprime **au plus une** ligne, rend un booléen                    | `IRepository.ts:328`         |
 | `findOneAndDelete`    | supprime **et rend** la ligne — file de jobs, `pop` atomique       | `IRepository.ts:317`         |
-| `count` / `exists`    | compter, ou juste savoir s'il y en a une (sans charger de colonne) | `IRepository.ts:324`, `:335` |
-| `withTransaction(tx)` | une **vue** du repository liée à une transaction                   | `IRepository.ts:346`         |
+| `count` / `exists`    | compter, ou juste savoir s'il y en a une (sans charger de colonne) | `IRepository.ts:378`, `:335` |
+| `withTransaction(tx)` | une **vue** du repository liée à une transaction                   | `IRepository.ts:389`         |
 
 > [!IMPORTANT]
 > **Il n'existe pas de méthode `update()`.** Le choix est explicite et il est intentionnel :
@@ -472,7 +472,7 @@ champs connus — le diagnostic d'une faute de frappe est immédiat.
 
 `find()` avec `limit`/`offset`/`order` (`RepositoryReadOptions`, `IRepository.ts:153`) suffit pour
 une tranche. Pour une vraie page — celle qui sait s'il y a une suite — utilise `paginate()`
-(`paginate.ts:21`) :
+(`paginate.ts:47`) :
 
 ```ts ignore
 const page = await paginate(posts, {

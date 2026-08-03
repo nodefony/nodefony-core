@@ -94,7 +94,7 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour le détail.
     "desc": "Le pare-feu applicatif : trois questions pour chaque requête — est-ce une zone protégée ? qui es-tu ? as-tu le droit ? Le chemin chaud (détecter) est séparé du chemin froid (décider), donc une route publique ne paie rien.",
     "meta": "à lire en premier — toutes les autres briques s'y branchent" },
   { "icon": "🪪", "title": "authenticators", "href": "authenticators.md",
-    "desc": "Prouver qui appelle : six stratégies au même contrat — session, userpassword, jwt, apikey, anonymous, session-realtime — qui se composent dans l'ordre au sein d'une zone.",
+    "desc": "Prouver qui appelle : six stratégies au même contrat — session, userpassword, jwt, apikey, anonymous, firewall-realtime — qui se composent dans l'ordre au sein d'une zone.",
     "meta": "commence par « Ordre et modes » : les pièges de configuration sont là" },
   { "icon": "⚖️", "title": "authorization", "href": "authorization.md",
     "desc": "Décider des droits : rôles hiérarchisés, scopes, et voters métier qui portent le vrai pouvoir applicatif. Le jury vote, la stratégie tranche.",

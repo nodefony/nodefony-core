@@ -128,7 +128,7 @@ lui, reste monté et servi. On perd la vue, jamais la donnée.
 **Il se protège avec le pare-feu de l'application.** Studio n'a pas d'authentification à lui : la
 connexion passe par `@nodefony/security` (session serveur, cookie opaque), et chaque endpoint
 d'administration porte un rôle minimum appliqué par le courtier (`IAdminEndpoint.role`,
-`IAdminApi.ts:106`). Un administrateur de plateforme voit tout ; un développeur voit
+`IAdminApi.ts:152`). Un administrateur de plateforme voit tout ; un développeur voit
 l'introspection ; un simple compte ne voit que son espace.
 
 ## 🏛️ Place dans le framework
@@ -241,7 +241,7 @@ masquerait les vraies routes que d'autres modules montent sous `/nodefony/<x>/<y
 
 ## 🧩 Publier ses écrans et ses données
 
-Un module devient administrable en publiant un objet `IAdminApi` (`IAdminApi.ts:147`) — un
+Un module devient administrable en publiant un objet `IAdminApi` (`IAdminApi.ts:212`) — un
 **producteur de données**, qui ne connaît ni le routeur, ni le contexte HTTP, ni la sérialisation.
 
 ```ts ignore
@@ -316,7 +316,7 @@ Deux autres formes de trafic circulent sur la même connexion :
   `StudioRealtimeController.ts:112`) — mesurer la latence, déclencher un ramasse-miettes, piloter le
   générateur de code ;
 - le **pont d'API** (`StudioRealtimeController.realtimeApiRequest()`,
-  `StudioRealtimeController.ts:173`), qui permet d'appeler un endpoint du data plane **par la
+  `StudioRealtimeController.ts:202`), qui permet d'appeler un endpoint du data plane **par la
   socket** plutôt qu'en HTTP, avec exactement la même réponse.
 
 > [!WARNING]

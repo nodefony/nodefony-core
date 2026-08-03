@@ -284,7 +284,7 @@ use("@nodefony/security", {
 
 > [!NOTE]
 > Sans section `encoders`, le défaut du schéma Zod est **déjà** un Argon2id sûr
-> (`security/nodefony/config/config.ts:892`). Tu ne déclares cette section que pour ajouter un format
+> (`security/nodefony/config/config.ts:954`). Tu ne déclares cette section que pour ajouter un format
 > legacy, ou pour ajuster les coûts.
 
 ### 2. Déclarer le service `users` (`nodefony/security/provisionUsers.ts`)
@@ -490,7 +490,7 @@ et ne sont jamais recopiées ici (elles divergeraient). Ce tableau donne l'**usa
 | `IUser`                      | identité + rôles plats, sans credential                       | `IUser.ts:31`                 |
 | `IPasswordAuthenticatedUser` | idem + `password: string \| null`                             | `IUser.ts:72`                 |
 | `ISocialProvider`            | un lien vers un compte externe (`provider`/`providerId`)      | `IUser.ts:9`                  |
-| `IUserRepository`            | CRUD portable + finders métier + pagination native            | `IUserRepository.ts:42`       |
+| `IUserRepository`            | CRUD portable + finders métier + pagination native            | `IUserRepository.ts:62`       |
 | `IUserListQuery`             | filtres de listing (`role`, `enabled`, `q`) + fenêtre de page | `IUserRepository.ts:19`       |
 | `IUserProvider`              | source d'identité : **lève** si introuvable, jamais `null`    | `IUserProvider.ts:14`         |
 | `IPasswordVerifier`          | valide un couple identifiant/mot de passe, rend un verdict    | `IPasswordVerifier.ts:15`     |
@@ -506,12 +506,12 @@ et ne sont jamais recopiées ici (elles divergeraient). Ce tableau donne l'**usa
 `IUserRepository` étend `IRepository` d'[`@nodefony/orm-core`](../../orm-core/docs/index.md) et
 ajoute quatre accès que le `Criteria` générique ne sait pas exprimer.
 
-| Méthode                  | Rôle                                                            | Ancre                   |
-| ------------------------ | --------------------------------------------------------------- | ----------------------- |
-| `findByIdentifier()`     | retrouver par email/login — le chemin du login                  | `IUserRepository.ts:49` |
-| `findBySocialProvider()` | retrouver par lien externe — le chemin OAuth                    | `IUserRepository.ts:60` |
-| `listPage()`             | listing **paginé au store** (jamais un `find()` complet en RAM) | `IUserRepository.ts:78` |
-| `countActiveAdmins()`    | `COUNT` natif — le garde-fou anti-verrouillage                  | `IUserRepository.ts:88` |
+| Méthode                  | Rôle                                                            | Ancre                    |
+| ------------------------ | --------------------------------------------------------------- | ------------------------ |
+| `findByIdentifier()`     | retrouver par email/login — le chemin du login                  | `IUserRepository.ts:73`  |
+| `findBySocialProvider()` | retrouver par lien externe — le chemin OAuth                    | `IUserRepository.ts:84`  |
+| `listPage()`             | listing **paginé au store** (jamais un `find()` complet en RAM) | `IUserRepository.ts:78`  |
+| `countActiveAdmins()`    | `COUNT` natif — le garde-fou anti-verrouillage                  | `IUserRepository.ts:112` |
 
 > [!IMPORTANT]
 > `listPage()` n'est pas un confort : c'est la règle mémoire du framework appliquée aux utilisateurs.
@@ -526,11 +526,11 @@ ajoute quatre accès que le `Criteria` générique ne sait pas exprimer.
 | `createUser()`                       | hache le clair puis délègue au `create` générique             | `UserService.ts:106` |
 | `findByIdentifier()`                 | lecture directe par identifiant fonctionnel                   | `UserService.ts:129` |
 | `listPage()` / `countActiveAdmins()` | façades vers le dépôt (pagination et garde-fou)               | `UserService.ts:143` |
-| `changePassword()`                   | hache et persiste, émet `onPasswordChanged`                   | `UserService.ts:168` |
-| `authenticate()`                     | vérifie, nivelle le temps, re-hache si besoin                 | `UserService.ts:198` |
-| `loadUserByIdentifier()`             | `IUserProvider` — **lève** `UserNotFoundError` si absent      | `UserService.ts:256` |
-| `loadUserByOAuth()`                  | `IUserProvider` — lit un lien social, ne crée jamais          | `UserService.ts:271` |
-| `refreshUser()`                      | recharge depuis la source (rôles frais, révocation immédiate) | `UserService.ts:285` |
+| `changePassword()`                   | hache et persiste, émet `onPasswordChanged`                   | `UserService.ts:213` |
+| `authenticate()`                     | vérifie, nivelle le temps, re-hache si besoin                 | `UserService.ts:243` |
+| `loadUserByIdentifier()`             | `IUserProvider` — **lève** `UserNotFoundError` si absent      | `UserService.ts:301` |
+| `loadUserByOAuth()`                  | `IUserProvider` — lit un lien social, ne crée jamais          | `UserService.ts:317` |
+| `refreshUser()`                      | recharge depuis la source (rôles frais, révocation immédiate) | `UserService.ts:331` |
 | `provisionOAuthUser()`               | Shadow User : lit, ou crée si la politique l'autorise         | `UserService.ts:306` |
 | `passwordBlocklist`                  | champ opt-in — branche ta liste de mots de passe compromis    | `UserService.ts:83`  |
 
