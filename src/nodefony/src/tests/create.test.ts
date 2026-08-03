@@ -3136,10 +3136,26 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Tri par défaut : sans lui, deux pages consécutives peuvent montrer la
       // même ligne ou en sauter une, sans que rien ne le signale.
       assert.include(src, '[["createdAt", "DESC"], ["id", "DESC"]]');
-      // Allowlist de tri : un `?sort=` libre laisserait le client nommer une
+      // Allowlist de tri : un `?order=` libre laisserait le client nommer une
       // colonne inconnue, et l'ORM lèverait — un 500 offert à qui tape au hasard.
-      assert.match(src, /const SORTABLE = new Set<string>\(\[[^\]]*"title"/u);
-      assert.include(src, "SORTABLE.has(field)");
+      assert.match(src, /const SORTABLE = \[[^\]]*"title"/u);
+      // 🔴 LE contrat de page du framework, pas un parseur maison. Un gabarit
+      // est DISTRIBUÉ : le dialecte qu'il porte devient celui de toutes les
+      // applications générées. Il a déjà porté le sien (`?sort=-champ`, JSON:API)
+      // pendant que le framework parlait `?order=champ:SENS` — deux dialectes,
+      // dont un seul documenté, et rien pour le signaler.
+      assert.include(src, 'import { parsePageQuery } from "nodefony"');
+      assert.include(src, "sortable: SORTABLE");
+      assert.notInclude(
+        src,
+        "function parseSort",
+        "le controller généré ne réécrit PAS un lecteur de tri",
+      );
+      assert.notInclude(
+        src,
+        '@Query("sort")',
+        "le dialecte JSON:API `?sort=-champ` a été remplacé par `?order=champ:SENS`",
+      );
     });
 
     it("sans horodatage, l'ordre par défaut retombe sur l'id (jamais rien)", () => {

@@ -29,8 +29,8 @@ Une seule commande produit la chaîne entière : la table, son interface de lign
 validation d'entrée, le service CRUD, le controller (REST **et** WebSocket dans la même méthode)
 et les tests. **N'écris aucun de ces fichiers à la main** — non par principe, mais parce que le
 gabarit porte des détails qui ne se devinent pas : le repository résolu au premier usage (l'ORM ne
-se connecte qu'au démarrage), la pagination bornée, les codes 201/204/404/409/422, et l'en-tête
-`Location`.
+se connecte qu'au démarrage), la pagination bornée **et son tri déclaré**, les codes
+201/204/404/409/422, et l'en-tête `Location`.
 
 ## La grammaire de champs
 
@@ -79,6 +79,45 @@ npx nodefony create entity Session token:string! \
 
 Faire suivre le TypeScript aurait transformé un réglage de nommage en refonte : le service, le
 controller, le tri par défaut et les tests générés nomment tous la propriété, pas la colonne.
+
+## La liste rend une PAGE — et il n'y a qu'un dialecte
+
+La route de liste ne rend pas un tableau : elle rend
+`{ items, limit, offset, hasNext, total? }`. Un tableau ne dit pas s'il en reste — le client qui
+reçoit 25 lignes ne peut pas distinguer « c'est tout » de « demande la suite ».
+
+Quatre paramètres, les mêmes **partout** dans Nodefony (tes routes, celles du framework, la console
+d'administration) :
+
+| Paramètre         | Exemple                        | Effet                                                              |
+| ----------------- | ------------------------------ | ------------------------------------------------------------------ |
+| `limit`           | `?limit=50`                    | taille de page, bornée par le plafond de la route                  |
+| `offset`          | `?offset=100`                  | décalage                                                           |
+| **`order`**       | `?order=createdAt:DESC,id:ASC` | tri, plusieurs champs, sens explicite                              |
+| `withTotal=false` | `?withTotal=false`             | économise le `COUNT(*)` quand on n'affiche pas les numéros de page |
+
+**Un champ non triable est refusé par un 400**, jamais accepté puis ignoré : une page rendue dans
+un ordre qui n'est pas celui demandé, sans un mot, est un mensonge que personne ne voit. Les champs
+acceptés sont la constante `SORTABLE` en tête du controller généré — c'est là qu'on en ajoute ou
+qu'on en retire un.
+
+> 🔴 **N'écris JAMAIS ton propre lecteur de `limit`/`offset`/`sort`.** `parsePageQuery` (exporté par
+> `nodefony`) est LE traducteur : il lit tout d'un coup et applique l'allowlist. Deux dialectes dans
+> une même application divergent, et c'est le client qui l'apprend. Pire, **deux appels dans le
+> MÊME handler** dont un seul connaît l'allowlist font refuser en 400 ce que l'autre vient
+> d'accepter — aucun test unitaire ne le voit, chaque appel étant correct isolément.
+
+```ts
+const page = parsePageQuery(query, {
+  defaultLimit: 25,
+  maxLimit: 100,
+  sortable: SORTABLE,
+});
+```
+
+Ce contrat vaut aussi quand tu écris une liste **à la main** (un endpoint d'administration, un
+listing filtré) : le côté serveur déclare ce qu'il sait trier, le point d'entrée le demande, et le
+refus tombe tout seul.
 
 ## Les trois vérités à savoir avant de livrer
 

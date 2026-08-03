@@ -15,6 +15,10 @@ import {
 <% } %>} from "@nodefony/framework";
 import { HttpError } from "@nodefony/http";
 import type { ContextType } from "@nodefony/http";
+// LE traducteur de requête de page du framework — jamais un parseur maison :
+// deux dialectes de pagination dans une même application finissent par diverger,
+// et c'est le client qui l'apprend.
+import { parsePageQuery } from "nodefony";
 import type { <%= it.pascal %>Row } from "../entity/<%= it.pascal %>";
 import { get<%= it.pascal %>Service } from "../service/<%= it.pascal %>Service";
 
@@ -23,14 +27,16 @@ const PAGE_SIZE = 25;
 const PAGE_MAX = 100;
 
 /**
- * Colonnes qu'un client a le droit de trier.
+ * Colonnes qu'un client a le droit de trier — **la capacité de cette route**.
  *
- * Une **allowlist**, pas la liste des colonnes : un tri libre laisse le client
- * nommer n'importe quoi, et l'ORM lève sur un nom inconnu — un 500 offert à qui
- * tape au hasard. Ce qui n'est pas dans cette liste est ignoré, pas refusé : le
- * client reçoit la liste triée par défaut plutôt qu'une erreur.
+ * Une allowlist, pas la liste des colonnes : sans elle, le client nomme
+ * n'importe quoi et l'ORM lève sur un nom inconnu — un 500 offert à qui tape au
+ * hasard. Elle est passée à `parsePageQuery`, qui refuse un champ hors liste par
+ * un **400** explicite. Refuser plutôt qu'ignorer : une page rendue dans un
+ * ordre qui n'est pas celui demandé, sans un mot, est un mensonge que personne
+ * ne voit — ni le client, ni les journaux.
  */
-const SORTABLE = new Set<string>(<%= JSON.stringify(it.sortable) %>);
+const SORTABLE = <%= JSON.stringify(it.sortable) %> as const;
 
 /**
  * Ordre par défaut — **il n'est pas décoratif**.
@@ -40,26 +46,6 @@ const SORTABLE = new Set<string>(<%= JSON.stringify(it.sortable) %>);
  * vue, ou en saute une, sans que rien ne le signale. L'`id` départage les ex æquo.
  */
 const DEFAULT_ORDER: Array<[string, "ASC" | "DESC"]> = <%= it.defaultOrder %>;
-
-/**
- * Traduit `?sort=-<%= it.timestamps ? "createdAt" : "id" %>` en ordre de tri.
- *
- * Convention JSON:API : un `-` devant le nom inverse le sens. Les colonnes
- * inconnues sont écartées ; si rien ne subsiste, l'ordre par défaut s'applique —
- * on ne rend jamais une liste non ordonnée.
- */
-function parseSort(sort?: string): Array<[string, "ASC" | "DESC"]> {
-  if (!sort) return DEFAULT_ORDER;
-  const parsed = sort
-    .split(",")
-    .map((raw) => raw.trim())
-    .filter(Boolean)
-    .map((raw): [string, "ASC" | "DESC"] =>
-      raw.startsWith("-") ? [raw.slice(1), "DESC"] : [raw, "ASC"],
-    )
-    .filter(([field]) => SORTABLE.has(field));
-  return parsed.length > 0 ? parsed : DEFAULT_ORDER;
-}
 <% if (it.relations.length) { %>
 /**
  * Relations chargeables par `?include=` — **allowlist**, comme le tri.
@@ -114,37 +100,42 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
    * lignes, il ne rend pas une erreur. Ce plafond est ce qui empêche un client d'user
    * de charger la table entière en mémoire.
    *
-   * `?sort=-<%= it.timestamps ? "createdAt" : "id" %>` trie (le `-` inverse le sens) ;
-   * seules les colonnes de `SORTABLE` sont acceptées. `?withTotal=false` économise le
-   * `COUNT(*)` quand le client n'affiche pas de numéros de page.
+   * `?order=<%= it.timestamps ? "createdAt" : "id" %>:DESC` trie — c'est **le** dialecte
+   * de pagination de Nodefony, le même pour toutes les routes du framework et de ta
+   * propre application. Un champ absent de `SORTABLE` est refusé par un **400**, jamais
+   * accepté puis ignoré. `?withTotal=false` économise le `COUNT(*)` quand le client
+   * n'affiche pas de numéros de page.
+   *
+   * `parsePageQuery` est le **seul** traducteur : il lit `limit`, `offset`, `order`,
+   * `withTotal` et `q` d'un coup. N'en écris jamais un second dans cette méthode — deux
+   * traducteurs dans un même handler, dont un seul connaît l'allowlist, font refuser en
+   * 400 ce que l'autre vient d'accepter, et aucun test unitaire ne le voit.
    *
    * ⚠️ `offset` se dégrade sur les grandes tables (la base doit compter les lignes
    * sautées) et peut sauter des enregistrements si des insertions ont lieu pendant la
    * pagination. Un curseur opaque viendra le remplacer.
    *
    * ```bash
-   * curl -k "https://127.0.0.1:5152<%= it.route %>?limit=10&sort=-<%= it.timestamps ? "createdAt" : "id" %>"
+   * curl -k "https://127.0.0.1:5152<%= it.route %>?limit=10&order=<%= it.timestamps ? "createdAt" : "id" %>:DESC"
    * ```
    */
   @route("<%= it.kebab %>-list", {
     path: "",
     requirements: { methods: ["GET", "WEBSOCKET"] },
   })
-  list(
-    @Query("limit") limit?: string,
-    @Query("offset") offset?: string,
-    @Query("sort") sort?: string,
-    @Query("withTotal") withTotal?: string,
-  ) {
-    const take = Math.min(Number(limit) || PAGE_SIZE, PAGE_MAX);
-    const skip = Math.max(Number(offset) || 0, 0);
+  list(@Query() query: Record<string, string | string[] | undefined> = {}) {
+    const page = parsePageQuery(query, {
+      defaultLimit: PAGE_SIZE,
+      maxLimit: PAGE_MAX,
+      sortable: SORTABLE,
+    });
     // Aucun filtre de la requête n'est transmis au service automatiquement : exposer
     // un critère de recherche est une décision, jamais un effet de bord.
     return this.listPageResource({
-      limit: take,
-      offset: skip,
-      order: parseSort(sort),
-      withTotal: withTotal !== "false",
+      limit: page.limit,
+      offset: page.offset ?? 0,
+      order: page.order?.length ? page.order : DEFAULT_ORDER,
+      withTotal: page.withTotal !== false,
     });
   }
 
