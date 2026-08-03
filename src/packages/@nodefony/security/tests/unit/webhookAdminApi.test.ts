@@ -584,7 +584,12 @@ describe("GET webhooks/stats — la RECHERCHE déplace les compteurs", () => {
     // éteint ne cherche rien, donc la console ne doit pas croire qu'il le fait.
     const { container } = bootWebhooks({ ready: false });
     const stats = endpoint(container, "webhooks/stats");
-    await assert.rejects(stats.handler(req({}, null, { q: "paie" })), /q/);
+    // Forme FONCTION : le handler du contrat peut rendre une valeur nue, et
+    // `assert.rejects` n'accepte qu'une promesse — la lambda couvre les deux.
+    await assert.rejects(
+      async () => stats.handler(req({}, null, { q: "paie" })),
+      /q/,
+    );
     // …et la lecture DÉFENSIVE tient toujours sans terme : « inconnu », pas 503.
     assert.deepEqual(await stats.handler(req()), {
       total: null,
@@ -599,7 +604,7 @@ describe("GET webhooks/stats — la RECHERCHE déplace les compteurs", () => {
     await seedThree(container);
     const stats = endpoint(container, "webhooks/stats");
     await assert.rejects(
-      stats.handler(req({}, null, { q: "paie", enabled: "true" })),
+      async () => stats.handler(req({}, null, { q: "paie", enabled: "true" })),
       /enabled/,
     );
   });
