@@ -88,6 +88,28 @@ class ApiKeyService extends Service {
   }
 
   /**
+   * Champs de tri que le backend **actuellement branché** sait honorer, en
+   * vocabulaire public. Le data plane admin les passe en allowlist au traducteur
+   * de requête de page : hors de cette liste, un `?order=` est refusé en 400.
+   *
+   * La liste vient du store, jamais d'une constante recopiée ici : c'est ce qui
+   * fait qu'un backend à capacité réduite (Redis, dont le `SCAN` n'a pas d'ordre
+   * global) refuse le tri **sans qu'aucune règle supplémentaire ne soit écrite**.
+   * Store absent ou indisponible → aucune capacité annoncée, donc aucun tri promis.
+   *
+   * @returns les champs triables, ou un tableau vide.
+   */
+  sortableTokenFields(): readonly string[] {
+    try {
+      return this.#resolveStore().sortableFields ?? [];
+    } catch {
+      // `#resolveStore` lève 503 quand rien n'est branché : l'introspection d'une
+      // capacité ne doit jamais casser la page qui l'interroge.
+      return [];
+    }
+  }
+
+  /**
    * Émet une nouvelle clé API pour un porteur — renvoie sa vue publique **+ le
    * token en clair** (affiché une seule fois).
    *

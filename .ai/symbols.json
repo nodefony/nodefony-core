@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-03T07:27:16.164Z",
+  "generated": "2026-08-03T07:58:42.717Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 665,
-    "symbols": 2698,
+    "files": 666,
+    "symbols": 2702,
     "classes": 342,
     "interfaces": 801,
     "types": 347,
     "enums": 4,
-    "functions": 976,
-    "constants": 228
+    "functions": 977,
+    "constants": 231
   },
   "symbols": {
     "Cli": {
@@ -16773,6 +16773,14 @@
       "module": "@nodefony/security",
       "description": "Émet un événement d'audit pour une mutation admin (best-effort, fire-and-forget) — l'audit ne doit jamais bloquer ni faire échouer l'action. No-op si le service `auditService` est absent. Couplage …"
     },
+    "parseTokenListQuery": {
+      "name": "parseTokenListQuery",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Traduit la query string admin en {@link ITokenListQuery} bornée (`limit` par défaut 50, cap 200 ; `subjectId`/`revoked`/`offset`/`cursor`/`order`). Filtre inconnu ignoré (permissif — endpoint déjà …"
+    },
     "parseAuditQuery": {
       "name": "parseAuditQuery",
       "kind": "function",
@@ -17529,6 +17537,38 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Filtre un record contre une requête de listing (portable, réutilisé par les impls)."
+    },
+    "translateTokenOrderMongo": {
+      "name": "translateTokenOrderMongo",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenSort.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Traduit un `order` public vers le schéma d'un backend **Mongo**, où le jeton est stocké avec le `jti` en clé primaire (`_id`) et où aucun champ `id` n'existe au repos — `id` n'est qu'un virtuel de …"
+    },
+    "TOKEN_SORTABLE_FIELDS": {
+      "name": "TOKEN_SORTABLE_FIELDS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenSort.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "**Le vocabulaire de tri des jetons**, en noms PUBLICS — ceux qu'un client écrit dans l'URL (`?order=createdAt:DESC`), jamais des noms de colonne. Il vit ici, chez le propriétaire du contrat (`@node…"
+    },
+    "TOKEN_DEFAULT_ORDER": {
+      "name": "TOKEN_DEFAULT_ORDER",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenSort.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Ordre contractuel appliqué quand le client n'en demande aucun : les clés les plus récentes d'abord, départagées par identifiant pour rester **déterministe** à horodatage égal (sans quoi une paginat…"
+    },
+    "TOKEN_DEFAULT_ORDER_MONGO": {
+      "name": "TOKEN_DEFAULT_ORDER_MONGO",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/tokenSort.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "{@link TOKEN_DEFAULT_ORDER} déjà traduit pour un backend Mongo."
     },
     "ITokenStoreFactoryContext": {
       "name": "ITokenStoreFactoryContext",
@@ -22014,6 +22054,7 @@
         "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
         "src/packages/@nodefony/user/nodefony/src/userSort.ts",
         "src/packages/@nodefony/http/nodefony/src/rateLimit/IRateLimitStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/tokenSort.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/sessionSort.ts"
       ],
       "ModuleName": [
@@ -23593,6 +23634,15 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
       ],
+      "TOKEN_DEFAULT_ORDER": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
+      "TOKEN_SORTABLE_FIELDS": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
       "DeniedJtiRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
@@ -24443,6 +24493,12 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
+      "TOKEN_DEFAULT_ORDER_MONGO": [
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
+      ],
+      "translateTokenOrderMongo": [
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
+      ],
       "Connection": [
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
@@ -25216,6 +25272,7 @@
       ],
       "compareByOrder": [
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts"
       ],
       "IBaseUserOptions": [

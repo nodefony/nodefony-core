@@ -99,6 +99,7 @@ function tokenStoreDriver(
  */
 interface IApiKeyAdmin {
   isEnabled(): boolean;
+  sortableTokenFields(): readonly string[];
   listPagePat(query: ITokenListQuery): Promise<IPage<IApiKeyView>>;
   revokeAnyPat(id: string, actorId: string): Promise<IApiKeyView | null>;
 }
@@ -109,19 +110,32 @@ const KEYS_MAX_LIMIT = 200;
 
 /**
  * Traduit la query string admin en {@link ITokenListQuery} bornée (`limit` par
- * défaut 50, cap 200 ; `subjectId`/`revoked`/`offset`/`cursor`). Filtre inconnu
- * ignoré (permissif — endpoint déjà gardé `ROLE_NODEFONY_ADMIN`).
+ * défaut 50, cap 200 ; `subjectId`/`revoked`/`offset`/`cursor`/`order`). Filtre
+ * inconnu ignoré (permissif — endpoint déjà gardé `ROLE_NODEFONY_ADMIN`).
+ *
+ * **UN SEUL traducteur pour toute la requête de page**, tri compris : en appeler
+ * un second sans l'allowlist ferait refuser en 400 un `order` que le premier
+ * venait d'accepter, et aucun test unitaire ne le verrait (chaque appel est
+ * correct isolément).
+ *
+ * @param query - `request.query` du broker admin.
+ * @param sortable - champs que le backend branché sait trier ; un `?order=`
+ *   portant autre chose est refusé en 400 par le traducteur. Liste vide (store à
+ *   curseur, store absent) ⇒ tout tri est refusé, ce qui est la vérité du backend.
  */
-function parseTokenListQuery(
+export function parseTokenListQuery(
   query: Readonly<Record<string, string | string[]>>,
+  sortable: readonly string[],
 ): ITokenListQuery {
   const page = parsePageQuery(query, {
     defaultLimit: KEYS_DEFAULT_LIMIT,
     maxLimit: KEYS_MAX_LIMIT,
+    sortable,
   });
   const out: ITokenListQuery = { limit: page.limit };
   if (page.offset !== undefined) out.offset = page.offset;
   if (page.cursor !== undefined) out.cursor = page.cursor;
+  if (page.order !== undefined) out.order = page.order;
   const subjectId = one(query, "subjectId");
   if (subjectId !== undefined) out.subjectId = subjectId;
   const revoked = one(query, "revoked");
@@ -382,7 +396,9 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
       role: "ROLE_NODEFONY_ADMIN",
       summary:
         "Clés API (PAT) du système — gouvernance cross-porteur, pagination NATIVE " +
-        "au store (?subjectId&revoked&limit&offset|cursor). Vue publique, sans secret.",
+        "au store (?subjectId&revoked&limit&offset|cursor&order=champ:ASC). Tri " +
+        "limité aux champs que le backend branché déclare savoir trier. Vue " +
+        "publique, sans secret.",
       handler: async (
         request: IAdminRequest,
       ): Promise<
@@ -402,7 +418,9 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
         // Pagination serveur (jamais un listAll matérialisé). `keys` = LA page
         // (rétro-compat front) ; `total`/`offset`/`nextCursor` = métadonnées pour
         // la bascule DataGrid mode="server".
-        const page = await svc.listPagePat(parseTokenListQuery(request.query));
+        const page = await svc.listPagePat(
+          parseTokenListQuery(request.query, svc.sortableTokenFields()),
+        );
         return {
           keys: page.items,
           total: page.total,

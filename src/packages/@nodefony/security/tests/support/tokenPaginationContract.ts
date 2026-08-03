@@ -194,7 +194,134 @@ export function runTokenPaginationContract(
           7,
         );
       });
+
+      // ── TRI : ce qu'un store DÉCLARE savoir trier, il le trie VRAIMENT ─────
+      // Le vocabulaire (`createdAt`, `name`, `subjectId`, `id`) est public et
+      // identique partout : `?order=` doit produire le même ordre sur mémoire,
+      // SQLite, PostgreSQL, MySQL et Mongo. Un store mémoire qui trierait en dur
+      // passerait tous les tests ci-dessus tout en mentant sur la production.
+      it("un store à offset DÉCLARE son vocabulaire de tri public", async () => {
+        const fields = store().sortableFields;
+        assert.ok(
+          fields && fields.length > 0,
+          "un backend offset doit déclarer ses champs triables",
+        );
+        assert.ok(
+          fields!.includes("createdAt"),
+          "`createdAt` est l'axe contractuel d'une console de clés",
+        );
+      });
+
+      it("`order` inverse réellement le sens (createdAt ASC)", async () => {
+        const page = await store().listPage({
+          limit: 12,
+          order: [["createdAt", "ASC"]],
+        });
+        assert.deepEqual(
+          page.items.map((r) => r.id),
+          tokenSeed().map((r) => r.id),
+          "ASC doit rendre l'ordre d'écriture du seed",
+        );
+      });
+
+      it("`order` sur `id` trie par identifiant, dans les deux sens", async () => {
+        const asc = await store().listPage({
+          limit: 12,
+          order: [["id", "ASC"]],
+        });
+        const ids = asc.items.map((r) => r.id);
+        assert.deepEqual(ids, [...ids].sort());
+
+        const desc = await store().listPage({
+          limit: 12,
+          order: [["id", "DESC"]],
+        });
+        assert.deepEqual(
+          desc.items.map((r) => r.id),
+          [...ids].reverse(),
+        );
+      });
+
+      it("`order` sur `name` trie sur le libellé humain", async () => {
+        const page = await store().listPage({
+          limit: 12,
+          order: [["name", "ASC"]],
+        });
+        const names = page.items.map((r) => r.name);
+        assert.deepEqual(names, [...names].sort());
+      });
+
+      it("chaque champ DÉCLARÉ est effectivement honoré", async () => {
+        // La garde qui empêche d'annoncer une capacité qu'on n'a pas : le data
+        // plane refuse en 400 tout champ hors de cette liste, donc tout ce qui y
+        // figure DOIT trier — sans quoi la console offrirait un en-tête inerte.
+        //
+        // On vérifie la MONOTONIE de la suite de valeurs, pas l'inversion des
+        // identifiants : `subjectId` n'a que deux valeurs dans le seed, et
+        // l'ordre des ex æquo n'est garanti par aucun backend.
+        const declared = store().sortableFields ?? [];
+        // Sans cette borne, un store qui ne déclare RIEN ferait passer ce test
+        // sur une boucle vide — un test qui ne lit rien ne garantit rien.
+        assert.ok(
+          declared.length > 0,
+          "un backend offset doit déclarer au moins un champ triable",
+        );
+        for (const field of declared) {
+          const read = (r: IAccessTokenRecord): string =>
+            String(r[field as keyof IAccessTokenRecord]);
+          const asc = (
+            await store().listPage({ limit: 12, order: [[field, "ASC"]] })
+          ).items.map(read);
+          const desc = (
+            await store().listPage({ limit: 12, order: [[field, "DESC"]] })
+          ).items.map(read);
+          assert.deepEqual(
+            asc,
+            [...asc].sort(),
+            `"${field}" ASC doit rendre une suite croissante`,
+          );
+          assert.deepEqual(
+            desc,
+            [...desc].sort().reverse(),
+            `"${field}" DESC doit rendre une suite décroissante`,
+          );
+        }
+      });
+
+      it("le tri s'applique AVANT la pagination (pas page par page)", async () => {
+        // Le piège classique : trier la tranche déjà découpée. La 2ᵉ page d'un
+        // tri ASC doit continuer la 1ʳᵉ, pas recommencer.
+        const p1 = await store().listPage({
+          limit: 4,
+          offset: 0,
+          order: [["id", "ASC"]],
+        });
+        const p2 = await store().listPage({
+          limit: 4,
+          offset: 4,
+          order: [["id", "ASC"]],
+        });
+        const all = [...p1.items, ...p2.items].map((r) => r.id);
+        assert.deepEqual(
+          all,
+          [...all].sort(),
+          "les pages se suivent dans l'ordre",
+        );
+      });
     } else {
+      it("un store à curseur NE DÉCLARE PAS de tri (il n'en a pas)", async () => {
+        // `SCAN` parcourt le keyspace dans un ordre non spécifié : il n'existe
+        // aucun tri global à offrir. Le déclarer quand même serait la seule faute
+        // possible ici — le data plane exposerait alors un tri qui ne trierait
+        // rien, et personne ne le verrait. L'absence de déclaration fait refuser
+        // tout `?order=` en 400, ce qui est la vérité de ce backend.
+        const fields = store().sortableFields;
+        assert.ok(
+          !fields || fields.length === 0,
+          "un backend curseur ne doit annoncer aucun champ triable",
+        );
+      });
+
       it("curseur : collecte toutes les pages (ensemble complet)", async () => {
         const all = await collectByCursor(store(), {});
         assert.equal(all.length, 12);

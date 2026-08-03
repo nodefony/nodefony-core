@@ -181,6 +181,14 @@ export type {
 // ─── Store de jetons (PAT / refresh / denylist) + registre pluggable ─────────
 export { MemoryTokenStore } from "./nodefony/src/token/MemoryTokenStore";
 export type { TokenStoreSnapshot } from "./nodefony/src/token/MemoryTokenStore";
+// Vocabulaire de tri PUBLIC des jetons — importé par les adapters (drizzle,
+// mongoose) au lieu d'y être recopié : une seule liste, donc aucune divergence.
+export {
+  TOKEN_SORTABLE_FIELDS,
+  TOKEN_DEFAULT_ORDER,
+  TOKEN_DEFAULT_ORDER_MONGO,
+  translateTokenOrderMongo,
+} from "./nodefony/src/token/tokenSort";
 export { JwtKeystore } from "./nodefony/src/token/JwtKeystore";
 export { resolveJwtRuntime } from "./nodefony/src/token/jwtRuntime";
 export type { IJwtRuntime } from "./nodefony/src/token/jwtRuntime";

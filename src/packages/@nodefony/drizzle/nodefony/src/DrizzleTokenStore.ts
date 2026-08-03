@@ -2,9 +2,12 @@ import { paginate } from "@nodefony/orm-core";
 import type { Criteria, IRepository } from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
 import { assertPageQuery } from "nodefony";
-// `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
-// dépendance runtime de l'ORM vers `@nodefony/security`. L'application câble le
-// store via `registerTokenStore("drizzle", …)` ; le module drizzle reste pur.
+// Contrat en `import type` (effacé à la compilation) ; le VOCABULAIRE DE TRI,
+// lui, est une valeur — et il s'importe au lieu de se recopier : deux listes de
+// champs triables divergent en silence, chacune passant ses propres tests. Le
+// module tire déjà `@nodefony/security` au runtime par son point
+// d'enregistrement (`registerStores.ts` → `registerTokenStore`), donc rien n'est
+// ajouté à l'arbre de dépendances ici.
 import type {
   IAccessTokenRecord,
   ITokenListQuery,
@@ -12,6 +15,7 @@ import type {
   ITokenUsage,
   TokenRevokeReason,
 } from "@nodefony/security";
+import { TOKEN_DEFAULT_ORDER, TOKEN_SORTABLE_FIELDS } from "@nodefony/security";
 import type { DrizzleOrm } from "./orm-core/DrizzleOrm";
 
 /** Traduit les filtres de listing en `Criteria` portable (champs indexés/simples). */
@@ -57,6 +61,12 @@ const DEFAULT_RETENTION_REVOKED_MS = 30 * 24 * 3_600_000;
  * Horloge injectable (`now`) pour des tests déterministes.
  */
 export class DrizzleTokenStore implements ITokenStore {
+  /**
+   * {@inheritDoc ITokenStore.sortableFields}
+   *
+   * Le moteur SQL trie sur n'importe laquelle de ces colonnes : capacité pleine.
+   */
+  readonly sortableFields = TOKEN_SORTABLE_FIELDS;
   readonly #records: IRepository<IAccessTokenRecord>;
   readonly #denied: IRepository<DeniedJtiRow>;
   readonly #revocations: IRepository<SubjectRevocationRow>;
@@ -170,8 +180,11 @@ export class DrizzleTokenStore implements ITokenStore {
    * {@inheritDoc ITokenStore.listPage}
    *
    * Portable à 100 % : le helper `paginate()` d'orm-core (LIMIT/OFFSET + COUNT
-   * optionnel) sur un `Criteria` simple — ne matérialise qu'une page. Tri défaut
-   * `createdAt DESC, id DESC` (offset déterministe).
+   * optionnel) sur un `Criteria` simple — ne matérialise qu'une page. Le tri
+   * demandé descend dans le `ORDER BY` (jamais de tri après découpe : la 2ᵉ page
+   * doit continuer la 1ʳᵉ) ; à défaut, l'ordre contractuel `createdAt DESC, id
+   * DESC` rend l'offset déterministe. Les noms de colonnes SQL sont ceux du
+   * vocabulaire public — aucune traduction n'est nécessaire ici.
    */
   listPage(query: ITokenListQuery): Promise<IPage<IAccessTokenRecord>> {
     assertPageQuery(query, "offset");
@@ -183,10 +196,7 @@ export class DrizzleTokenStore implements ITokenStore {
       order:
         query.order && query.order.length > 0
           ? query.order
-          : [
-              ["createdAt", "DESC"],
-              ["id", "DESC"],
-            ],
+          : TOKEN_DEFAULT_ORDER,
     });
   }
 

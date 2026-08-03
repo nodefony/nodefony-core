@@ -150,7 +150,16 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
   countTokens=-1, capacité réduite annoncée), mémoire = slice. `listAll()` GARDÉ = dump incident (cold-path).
   Façade `ApiKeyService.listPagePat`, `SecurityAdminApi GET apikeys` paginé serveur (fin du listAll O(N)). Banc de
   contrat UNIQUE `tests/support/tokenPaginationContract.ts` (modes offset/cursor), cross-package : prouvé mémoire +
-  Drizzle sqlite/pg/mariadb/mysql + Mongoose + Redis. **Pagination native du JOURNAL (même standard)** :
+  Drizzle sqlite/pg/mariadb/mysql + Mongoose + Redis.
+  **TRI = le store DÉCLARE, le data plane DEMANDE** : `ITokenStore.sortableFields` (vocabulaire PUBLIC
+  `TOKEN_SORTABLE_FIELDS` = `createdAt|name|subjectId|id`, `src/token/tokenSort.ts` — source unique importée par
+  drizzle/mongoose, jamais recopiée) → `ApiKeyService.sortableTokenFields()` → `parseTokenListQuery(query, sortable)`
+  passe l'allowlist à `parsePageQuery` ⇒ le refus 400 d'un champ non déclaré est GRATUIT (garde du core). Redis ne
+  déclare RIEN (`SCAN` sans ordre global) ⇒ tout `order` y est refusé, pas ignoré. Mémoire trie par `compareByOrder`
+  (core), Mongo traduit `id`→`_id` (`translateTokenOrderMongo` — le jti EST le `_id`, aucun champ `id` au repos :
+  sans traduction Mongo trie sur un champ absent SANS erreur). Nullables (`lastUsedAt`/`expiresAt`/`revokedAt`) HORS
+  vocabulaire : placement des NULL divergent PG (tête en DESC) vs SQLite/MySQL/mémoire (queue) — à ouvrir quand le
+  helper de pagination normalisera « absents en queue ». **Pagination native du JOURNAL (même standard)** :
   `IAuditStore.listPage(IAuditListQuery extends IPageQuery)` → `IPage<IAuditEvent>` — **curseur EXCLUSIVEMENT**
   (un journal reçoit des écritures pendant qu'on le parcourt : un `offset` glisserait). Curseur **composite
   auto-portant `<ts>:<id>`** (séparateur `:` = convention des curseurs Redis frères), donc : 0 SELECT de

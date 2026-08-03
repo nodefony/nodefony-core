@@ -2,15 +2,22 @@ import { paginate } from "@nodefony/orm-core";
 import type { Criteria, IRepository, UpdateData } from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
 import { assertPageQuery } from "nodefony";
-// `import type` UNIQUEMENT (approche B) → effacé à la compilation : aucune
-// dépendance runtime de l'ORM vers `@nodefony/security`. L'application câble le
-// store via `registerTokenStore("mongoose", …)`.
+// Contrat en `import type` (effacé à la compilation) ; le VOCABULAIRE DE TRI,
+// lui, est une valeur — et il s'importe au lieu de se recopier : deux listes de
+// champs triables divergent en silence, chacune passant ses propres tests. Le
+// module tire déjà `@nodefony/security` au runtime par son point
+// d'enregistrement (`registerStores.ts` → `registerTokenStore`).
 import type {
   IAccessTokenRecord,
   ITokenListQuery,
   ITokenStore,
   ITokenUsage,
   TokenRevokeReason,
+} from "@nodefony/security";
+import {
+  TOKEN_DEFAULT_ORDER_MONGO,
+  TOKEN_SORTABLE_FIELDS,
+  translateTokenOrderMongo,
 } from "@nodefony/security";
 import type { MongooseOrm } from "./orm-core/index";
 
@@ -53,6 +60,13 @@ const DEFAULT_RETENTION_REVOKED_MS = 30 * 24 * 3_600_000;
  * par read-then-write.
  */
 export class MongooseTokenStore implements ITokenStore {
+  /**
+   * {@inheritDoc ITokenStore.sortableFields}
+   *
+   * Capacité pleine : le vocabulaire public entier est trié par Mongo, `id`
+   * compris — traduit en `_id` au moment de la requête.
+   */
+  readonly sortableFields = TOKEN_SORTABLE_FIELDS;
   readonly #records: IRepository<IAccessTokenRecord>;
   readonly #denied: IRepository<DeniedJtiRow>;
   readonly #revocations: IRepository<SubjectRevocationRow>;
@@ -165,6 +179,11 @@ export class MongooseTokenStore implements ITokenStore {
    *
    * `paginate()` d'orm-core (skip/limit + countDocuments) sur un filtre portable ;
    * les `id` sont re-normalisés (`_id` → `id`) comme dans {@link listAll}.
+   *
+   * Le tri demandé est **traduit** avant de descendre : au repos, le jeton n'a
+   * pas de champ `id` (le `jti` EST le `_id`), et Mongo ne se plaint pas d'un tri
+   * sur un champ absent — il rend un ordre arbitraire. Sans traduction, un
+   * `?order=id` serait donc inerte ici et correct partout ailleurs.
    */
   async listPage(query: ITokenListQuery): Promise<IPage<IAccessTokenRecord>> {
     assertPageQuery(query, "offset");
@@ -175,11 +194,8 @@ export class MongooseTokenStore implements ITokenStore {
       withTotal: query.withTotal,
       order:
         query.order && query.order.length > 0
-          ? query.order
-          : [
-              ["createdAt", "DESC"],
-              ["id", "DESC"],
-            ],
+          ? translateTokenOrderMongo(query.order)
+          : TOKEN_DEFAULT_ORDER_MONGO,
     });
     for (const row of page.items) {
       row.id = this.#idOf(row);

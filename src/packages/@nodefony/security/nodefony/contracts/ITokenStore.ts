@@ -171,6 +171,18 @@ export interface ITokenListQuery extends IPageQuery {
  * du ressort de l'appelant, pas du stockage.
  */
 export interface ITokenStore {
+  /**
+   * Champs que ce backend sait réellement trier, en **vocabulaire public**
+   * (`TOKEN_SORTABLE_FIELDS`) — la capacité se DÉCLARE, elle ne se devine pas.
+   *
+   * Le data plane admin passe cette liste en allowlist au traducteur de requête
+   * de page : un `?order=` portant un champ absent d'ici est refusé en **400**,
+   * jamais accepté puis ignoré. Un store qui ne trie pas (Redis, dont le `SCAN`
+   * n'a aucun ordre global) laisse donc la propriété **absente** — et tout tri
+   * demandé est refusé, ce qui est la vérité de ce backend.
+   */
+  readonly sortableFields?: readonly string[];
+
   // ── Records (PAT, refresh) ──────────────────────────────────────────────────
   /** Enregistre (ou remplace) un jeton persistant. */
   put(record: IAccessTokenRecord): Promise<void>;

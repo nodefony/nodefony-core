@@ -415,10 +415,20 @@ servi et qui les a révoquées.
 Trois sources, et il faut connaître les limites de chacune :
 
 1. **L'état** — le listing d'administration paginé, tous porteurs confondus : `GET
-/nodefony/security/api/apikeys` (`SecurityAdminApi.ts:380`), servi par `listPagePat()`
-   (`apiKeys.ts:186`). Filtres `subjectId`, `revoked`, fenêtre `limit`/`offset`/`cursor`
-   (`parseTokenListQuery()`, `SecurityAdminApi.ts:114`), plafonnée à 200 entrées
-   (`KEYS_MAX_LIMIT`, `SecurityAdminApi.ts:107`).
+/nodefony/security/api/apikeys` (`SecurityAdminApi.ts:394`), servi par `listPagePat()`
+   (`apiKeys.ts:208`). Filtres `subjectId`, `revoked`, fenêtre `limit`/`offset`/`cursor` et tri
+   `order=champ:ASC` (`parseTokenListQuery()`, `SecurityAdminApi.ts:126`), plafonnée à 200 entrées
+   (`KEYS_MAX_LIMIT`, `SecurityAdminApi.ts:109`).
+
+   Le tri n'est accepté que sur les champs que le backend branché **déclare** savoir trier
+   (`sortableTokenFields()`, `apiKeys.ts:102` → `ITokenStore.sortableFields`) : `createdAt`, `name`,
+   `subjectId`, `id` sur mémoire/SQL/Mongo (`TOKEN_SORTABLE_FIELDS`, `tokenSort.ts:27`). Tout autre
+   champ est refusé en **400** — jamais accepté puis ignoré. Un backend Redis ne déclare rien (son
+   `SCAN` n'a pas d'ordre global) : tout `order` y est donc refusé, ce qui est la vérité de ce
+   store. Les champs _nullables_ (`lastUsedAt`, `expiresAt`, `revokedAt`) sont volontairement hors
+   du vocabulaire : le placement des valeurs absentes diffère d'un moteur à l'autre, et un tri dont
+   l'ordre dépend de la base configurée ne vaut pas mieux qu'un tri absent.
+
 2. **Le journal** — les événements d'audit `apikey.created` (`apiKeys.ts:153`) et `apikey.revoked`
    (`apiKeys.ts:212` côté admin, `apiKeys.ts:255` côté porteur), catégorie `token`. La révocation
    admin trace **l'acteur ET le porteur cible** — voir [audit](./audit.md).
