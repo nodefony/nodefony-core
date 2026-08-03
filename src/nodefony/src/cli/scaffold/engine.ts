@@ -2164,6 +2164,95 @@ function runCommandScaffold(
  * @returns `fixed` pour le JSON de la documentation, `expr` pour la fabrique
  *   paramétrée des tests (une expression TypeScript où `n` varie).
  */
+/**
+ * Le filtre sur lequel le test généré peut prouver qu'un filtre FILTRE — ou
+ * `null` si aucun champ ne s'y prête.
+ *
+ * Prouver un refus (`?actf=x` → 400) et prouver un filtre sont deux choses
+ * différentes, et la seconde exige une ligne qui NE matche PAS. Sans elle,
+ * l'assertion « toutes les lignes rendues portent la valeur demandée » reste
+ * vraie quand le filtre est ignoré : tous les échantillons d'un booléen valent
+ * `true`, ceux d'une énumération valent sa première valeur ({@link sampleValue}).
+ * Le test serait vert sur un filtre débranché — exactement le défaut qu'il est
+ * censé attraper.
+ *
+ * D'où les deux seules natures retenues, celles qui offrent un contraire sûr et
+ * gratuit. Une clé étrangère en est écartée : poser une seconde valeur
+ * demanderait de créer l'entité visée, et le test parlerait d'autre chose.
+ *
+ * Deux écritures de chaque valeur, et ce n'est pas une redondance : `match` part
+ * dans l'URL (`?publie=true` — tout y est du texte), `matchJson` est la
+ * littérale TypeScript posée dans le corps envoyé (`publie: true`, un booléen —
+ * `"true"` y serait refusé par le schéma).
+ *
+ * @param fields - les champs déclarés de l'entité.
+ * @returns le nom du filtre et ses deux valeurs sous les deux écritures, ou
+ *   `null` si l'entité n'a aucun champ éprouvable.
+ */
+export function filterProbe(fields: readonly IEntityField[]): {
+  name: string;
+  match: string;
+  matchJson: string;
+  other: string;
+  otherJson: string;
+} | null {
+  for (const f of fields) {
+    // Un champ nullable n'est pas posé par l'échantillon : la ligne témoin
+    // devrait le fabriquer, ce qui sort du périmètre de cette sonde.
+    if (f.nullable) continue;
+    if (f.type === "bool") {
+      return {
+        name: f.name,
+        match: "true",
+        matchJson: "true",
+        other: "false",
+        otherJson: "false",
+      };
+    }
+    if (f.type === "enum" && (f.values?.length ?? 0) >= 2) {
+      const [a, b] = f.values as string[];
+      return {
+        name: f.name,
+        match: a,
+        matchJson: JSON.stringify(a),
+        other: b,
+        otherJson: JSON.stringify(b),
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Le filtre sur lequel une valeur MAL FORMÉE existe, et de quoi la fabriquer —
+ * ou `null` si aucun filtre de l'entité ne peut en refuser une.
+ *
+ * Toutes les natures ne refusent pas : un filtre `"string"` accepte n'importe
+ * quelle chaîne, par construction. Le test généré visait pourtant le PREMIER
+ * filtre déclaré quel qu'il soit, et attendait un `400` — sur une entité dont
+ * le seul filtre est une clé étrangère à identifiant textuel
+ * (`author:ref:Author` avec des `uuid`), il exigeait donc le refus d'une valeur
+ * parfaitement valide, et échouait sur le générateur au lieu de l'éprouver.
+ *
+ * @param filters - le vocabulaire de filtre déjà calculé (nom → littérale de sa
+ *   nature, telle qu'elle sera écrite dans le gabarit).
+ * @returns le nom du filtre et une valeur qu'il doit refuser, ou `null`.
+ */
+export function malformedProbe(
+  filters: readonly { name: string; def: string }[],
+): { name: string; value: string } | null {
+  for (const f of filters) {
+    if (f.def === '"boolean"') return { name: f.name, value: "oui" };
+    if (f.def === '"int"') return { name: f.name, value: "abc" };
+    // Une énumération est rendue comme un tableau littéral : son domaine EST
+    // son allowlist, donc tout ce qui n'y figure pas est refusé.
+    if (f.def.startsWith("[")) {
+      return { name: f.name, value: "valeur-hors-domaine" };
+    }
+  }
+  return null;
+}
+
 export function sampleValue(
   field: IEntityField,
   id: TEntityIdKind,
@@ -2789,6 +2878,21 @@ function runEntityScaffold(
     factory.push(`${f.name}: ${expr}`);
   }
 
+  // Un champ dont la valeur voyage telle quelle en JSON ET varie d'un
+  // échantillon à l'autre : le test HTTP généré compare ce qu'il a envoyé à ce
+  // qu'il relit. Sont exclus les dates (envoyées en `Date`, relues en chaîne
+  // ISO — l'égalité serait fausse pour une bonne raison) et les énumérations
+  // (valeur constante : comparer deux fois la même chose ne prouve rien).
+  const comparableField =
+    fields.find(
+      (f) =>
+        !f.nullable &&
+        f.type !== "date" &&
+        f.type !== "json" &&
+        f.type !== "ref" &&
+        f.type !== "enum",
+    )?.name ?? null;
+
   const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
   const written: string[] = [];
   const data = {
@@ -2802,23 +2906,35 @@ function runEntityScaffold(
     moduleName: target.kind === "app" ? "app" : String(target.name),
     curlBody: JSON.stringify(sample),
     sampleFactory: `{ ${factory.join(", ")} }`,
-    // Un champ dont la valeur voyage telle quelle en JSON ET varie d'un
-    // échantillon à l'autre : le test HTTP généré compare ce qu'il a envoyé à ce
-    // qu'il relit. Sont exclus les dates (envoyées en `Date`, relues en chaîne
-    // ISO — l'égalité serait fausse pour une bonne raison) et les énumérations
-    // (valeur constante : comparer deux fois la même chose ne prouve rien).
-    comparableField:
-      fields.find(
-        (f) =>
-          !f.nullable &&
-          f.type !== "date" &&
-          f.type !== "json" &&
-          f.type !== "ref" &&
-          f.type !== "enum",
-      )?.name ?? null,
+    comparableField,
     // Sans champ unique, aucun doublon n'est possible : le cas 409 n'existe pas
     // pour cette entité, et un test qui l'attendrait échouerait à jamais.
     hasUnique: fields.some((f) => f.unique),
+    // Le champ sur lequel le test généré éprouve que le tri ORDONNE — et pas
+    // seulement qu'il REFUSE un champ inconnu. Les deux sont des tests
+    // différents : un `ORDER BY` mort passe le second sans broncher.
+    //
+    // `comparableField` convient exactement (non nul, varie d'un échantillon à
+    // l'autre, voyage tel quel en JSON) et appartient toujours à `sortable`,
+    // qui n'exclut que le JSON. À défaut, `id` : unique par construction, donc
+    // ses valeurs sont distinctes — ce dont le test a besoin, car une colonne
+    // constante rend TOUT ordre « trié ».
+    sortProbe: comparableField ?? "id",
+    // Un filtre n'est ÉPROUVABLE que si l'on sait fabriquer une ligne qui ne
+    // matche pas. Sans elle, « toutes les lignes rendues portent la valeur
+    // demandée » est vrai même quand le filtre est ignoré — tous les
+    // échantillons d'un booléen valent `true`, ceux d'une énumération valent sa
+    // première valeur. Le test serait alors vert sur un filtre débranché.
+    //
+    // D'où les deux natures retenues, les seules qui offrent un contraire sûr :
+    // un booléen, et une énumération d'au moins deux valeurs. Une clé étrangère
+    // en est exclue — poser une seconde valeur exigerait de créer l'entité
+    // visée, et le test ne parlerait plus du filtre.
+    filterProbe: filterProbe(fields),
+    // Le filtre capable de REFUSER une valeur — toutes les natures n'en sont
+    // pas capables, et viser aveuglément le premier filtre déclaré faisait
+    // exiger le refus d'une chaîne valide.
+    malformedProbe: malformedProbe(filters),
     // Entités visées par les relations — le test généré doit les enregistrer,
     // sinon l'ORM lève en résolvant les relations au moment de se connecter.
     relationTargets: [

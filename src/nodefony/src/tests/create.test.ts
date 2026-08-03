@@ -28,6 +28,8 @@ import {
   runScaffold,
   getScaffoldContext,
   findModuleClassAnchor,
+  filterProbe,
+  malformedProbe,
 } from "../cli/scaffold/engine";
 import { ScaffoldWriter, diffLines } from "../cli/scaffold/writer";
 import { askMissing } from "../cli/scaffold/interactive";
@@ -3567,6 +3569,76 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const index = readFileSync(path.join(dest, "index.ts"), "utf8");
       assert.match(index, /@entities\(\[PostEntity\]\)/u);
       assert.notInclude(index, "PostController");
+    });
+
+    describe("sondes des tests générés (tri et filtre ÉPROUVABLES)", () => {
+      // Ces deux sondes décident si un test e2e est ÉMIS. Se tromper ne casse
+      // pas la génération : elle émet un test qui échoue sur du code correct
+      // (le cas vécu), ou n'en émet aucun là où il en fallait un. Ni le
+      // typecheck ni les assertions de chaînes ne le voient.
+      const champ = (o: object) => ({ nullable: false, ...o }) as never;
+
+      it("un booléen offre son contraire — de quoi prouver que le filtre FILTRE", () => {
+        const probe = filterProbe([champ({ name: "publie", type: "bool" })]);
+        assert.deepStrictEqual(probe, {
+          name: "publie",
+          match: "true",
+          matchJson: "true",
+          other: "false",
+          otherJson: "false",
+        });
+      });
+
+      it("une énumération à DEUX valeurs les offre ; à UNE seule, elle ne prouve rien", () => {
+        const deux = filterProbe([
+          champ({ name: "statut", type: "enum", values: ["draft", "published"] }),
+        ]);
+        assert.strictEqual(deux?.name, "statut");
+        assert.strictEqual(deux?.match, "draft");
+        assert.strictEqual(deux?.otherJson, '"published"');
+        // Une seule valeur : aucune ligne témoin n'est fabricable, donc
+        // « toutes les lignes portent la valeur demandée » serait vrai même
+        // avec le filtre débranché.
+        assert.isNull(
+          filterProbe([champ({ name: "statut", type: "enum", values: ["draft"] })]),
+        );
+      });
+
+      it("une clé étrangère seule ne se prête PAS au test — poser une 2ᵉ valeur sortirait du sujet", () => {
+        assert.isNull(
+          filterProbe([
+            champ({ name: "titre", type: "string" }),
+            champ({ name: "auteur", type: "ref", target: "Author" }),
+          ]),
+        );
+      });
+
+      it("un filtre `string` ne peut REFUSER aucune valeur — aucun test de rejet n'est émis", () => {
+        // Le défaut vécu : le test visait le premier filtre déclaré quel qu'il
+        // soit et exigeait un 400. Sur une entité dont le seul filtre est une
+        // clé étrangère à identifiant textuel, il réclamait le refus d'une
+        // valeur parfaitement valide — et mettait en défaut le générateur.
+        assert.isNull(malformedProbe([{ name: "auteur", def: '"string"' }]));
+      });
+
+      it("booléen, entier et énumération savent refuser — chacun sa valeur fautive", () => {
+        assert.deepStrictEqual(malformedProbe([{ name: "actif", def: '"boolean"' }]), {
+          name: "actif",
+          value: "oui",
+        });
+        assert.deepStrictEqual(malformedProbe([{ name: "auteur", def: '"int"' }]), {
+          name: "auteur",
+          value: "abc",
+        });
+        // Le premier filtre RÉFUTABLE est retenu, pas le premier déclaré.
+        assert.deepStrictEqual(
+          malformedProbe([
+            { name: "auteur", def: '"string"' },
+            { name: "statut", def: '["draft", "published"]' },
+          ]),
+          { name: "statut", value: "valeur-hors-domaine" },
+        );
+      });
     });
 
     describe("ancre de la classe Module (findModuleClassAnchor)", () => {

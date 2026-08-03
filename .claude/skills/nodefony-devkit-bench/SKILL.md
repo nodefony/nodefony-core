@@ -135,7 +135,10 @@ Les étapes, dans l'ordre, et ce que chacune protège :
     lue ;
 12. **tests générés** — couche donnée ;
 13. **HTTP réel** — 201 + `Location`, 422, 409 sur doublon, page `hasNext`,
-    PATCH, 204 puis 404 ;
+    PATCH, 204 puis 404 ; et, pour la liste, les deux faces de chaque
+    capacité : le **refus** (tri hors allowlist, paramètre inconnu, valeur mal
+    formée) **et l'effet** (le tri ordonne, le filtre filtre) — voir l'encadré
+    ci-dessous, un `ORDER BY` mort passait les refus sans broncher ;
 14. **production** — l'app démarre dans le mode qu'aucune autre étape n'exerce ;
 15. **inspection** — l'application se laisse lire sans ouvrir de port.
 
@@ -155,6 +158,32 @@ Les étapes, dans l'ordre, et ce que chacune protège :
 > débranchant `@services([…])` — la commande sort **0** sans écrire une ligne de
 > JSON. Un banc qui aurait lu le code de retour aurait été vert sur une
 > application dont le service n'existe pour personne.
+
+> **Prouver un REFUS ne prouve pas la CAPACITÉ — ce sont deux tests.** La suite
+> générée éprouvait « un tri sur un champ non déclaré est refusé » et « une
+> valeur de filtre mal formée est refusée », et s'arrêtait là. Un `ORDER BY`
+> mort passe ces deux-là sans broncher : mesuré en débranchant le tri dans le
+> décor, le test de refus est resté **vert**. D'où deux assertions de plus, et
+> la façon de les écrire, qui n'est pas évidente :
+>
+> - **le tri** se lit en trois affirmations, pas une — le champ est PRÉSENT
+>   dans la réponse (sinon on ordonne des `undefined`, qui forment une suite
+>   parfaitement triée dans les deux sens — vécu sur une autre suite), ses
+>   valeurs sont DISTINCTES (une colonne constante rend « trié » l'ordre que la
+>   base a choisi seule), et `DESC` est l'inverse EXACT d'`ASC` sur une page qui
+>   contient tout (`hasNext === false`, sinon les deux sens portent sur des
+>   ensembles différents) ;
+> - **le filtre** exige une ligne TÉMOIN qui ne matche pas. Sans elle,
+>   « toutes les lignes rendues portent la valeur demandée » reste vrai avec le
+>   filtre débranché, puisque tous les échantillons portent la même valeur.
+>   C'est le témoin qui fait le test, pas l'assertion.
+>
+> Les deux ne sont donc émis que si l'entité s'y prête (`filterProbe`,
+> `malformedProbe`, `sortProbe` — moteur) : un booléen ou une énumération à deux
+> valeurs offrent un contraire, un filtre `"string"` ne refuse RIEN. Viser
+> aveuglément le premier filtre déclaré faisait exiger le refus d'une valeur
+> valide sur toute entité dont le seul filtre est une clé étrangère textuelle —
+> le banc mettait alors en défaut le générateur au lieu de l'éprouver.
 
 > **Une sonde de type doit porter sur un moteur qui DISTINGUE les types.** La
 > cohérence FK ↔ PK a d'abord été écrite sur les entités SQLite du banc, et elle

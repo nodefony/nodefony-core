@@ -177,6 +177,47 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
     expect(res.status).toBe(400);
   });
 
+  it("le tri ORDONNE : DESC est l'inverse EXACT d'ASC", async () => {
+    // Refuser un champ inconnu ne prouve PAS que le tri trie — un `ORDER BY`
+    // mort passe ce refus sans broncher. Ce sont deux tests, pas un.
+    //
+    // Et un test de tri est complaisant par défaut : lu sur un champ absent de
+    // la réponse, il compare des `undefined`, qui forment une suite
+    // parfaitement triée dans les deux sens. D'où trois affirmations.
+    for (const n of [201, 202, 203]) {
+      await fetch(`${BASE}${ROUTE}`, {
+        method: "POST",
+        headers: entetes(),
+        body: JSON.stringify(sample(n)),
+      });
+    }
+    const lire = async (dir: string): Promise<unknown[]> => {
+      const res = await fetch(
+        `${BASE}${ROUTE}?order=<%= it.sortProbe %>:${dir}&limit=100`,
+        { headers: AUTH },
+      );
+      expect(res.status).toBe(200);
+      const page = (await res.json()) as {
+        items: Record<string, unknown>[];
+        hasNext: boolean;
+      };
+      // ASC et DESC doivent porter sur le MÊME ensemble : au-delà d'une page,
+      // l'un rend les plus petits et l'autre les plus grands, et les comparer
+      // ne veut plus rien dire.
+      expect(page.hasNext).toBe(false);
+      return page.items.map((r) => r["<%= it.sortProbe %>"]);
+    };
+    const asc = await lire("ASC");
+    const desc = await lire("DESC");
+    // 1. le champ est PRÉSENT — sans quoi on ordonne des `undefined` ;
+    expect(asc.every((v) => v !== undefined)).toBe(true);
+    // 2. ses valeurs sont DISTINCTES — une colonne constante rend « trié » tout
+    //    ordre, y compris celui que la base a choisi toute seule ;
+    expect(new Set(asc).size).toBe(asc.length);
+    // 3. l'ordre S'INVERSE — le seul point qu'un tri débranché ne simule pas.
+    expect(desc).toEqual([...asc].reverse());
+  });
+
   it("un paramètre que PERSONNE ne reconnaît est REFUSÉ", async () => {
     // La faute de frappe est le cas réel : sans ce refus, `?<%= it.filters.length ? it.filters[0].name.slice(0, -1) : "actf" %>=…` rend la
     // collection ENTIÈRE, et le client la lit comme le résultat de son filtre.
@@ -185,14 +226,55 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
     });
     expect(res.status).toBe(400);
   });
-<% if (it.filters.length) { %>
+<% if (it.malformedProbe) { %>
   it("une valeur mal formée pour un filtre déclaré est REFUSÉE", async () => {
-    // `?<%= it.filters[0].name %>=nimportequoi` : le filtre existe, sa valeur ne convient pas.
+    // `?<%= it.malformedProbe.name %>=<%= it.malformedProbe.value %>` : le filtre existe, sa valeur ne convient pas.
     // Le poser à « absent » rendrait une page non filtrée sous un 200.
-    const res = await fetch(`${BASE}${ROUTE}?<%= it.filters[0].name %>=<%= it.filters[0].def === '"boolean"' ? "oui" : (it.filters[0].def === '"int"' ? "abc" : "valeur-hors-domaine") %>`, {
+    //
+    // Toutes les natures ne peuvent pas refuser : un filtre `"string"` accepte
+    // n'importe quelle chaîne. Ce test n'est donc émis que pour un booléen, un
+    // entier ou une énumération — sinon il exigerait le refus d'une valeur
+    // valide, et c'est le générateur qu'il mettrait en défaut.
+    const res = await fetch(`${BASE}${ROUTE}?<%= it.malformedProbe.name %>=<%= it.malformedProbe.value %>`, {
       headers: AUTH,
     });
     expect(res.status).toBe(400);
+  });
+<% } %><% if (it.filterProbe) { %>
+  it("le filtre FILTRE : la valeur exclue ne remonte pas", async () => {
+    // Refuser une valeur mal formée ne prouve PAS qu'une valeur VALIDE réduit
+    // l'ensemble — encore deux tests, pas un.
+    //
+    // Et il faut une ligne TÉMOIN, qui ne matche pas : tous les échantillons
+    // portent la même valeur pour ce champ, donc sans elle « toutes les lignes
+    // rendues portent la valeur demandée » resterait vrai avec le filtre
+    // débranché. C'est le témoin qui fait le test, pas l'assertion.
+    for (const [n, valeur] of [
+      [401, <%= it.filterProbe.matchJson %>],
+      [402, <%= it.filterProbe.otherJson %>],
+    ] as const) {
+      await fetch(`${BASE}${ROUTE}`, {
+        method: "POST",
+        headers: entetes(),
+        body: JSON.stringify({ ...sample(n), <%= it.filterProbe.name %>: valeur }),
+      });
+    }
+    const lire = async (url: string): Promise<unknown[]> => {
+      const res = await fetch(url, { headers: AUTH });
+      expect(res.status).toBe(200);
+      const page = (await res.json()) as { items: Record<string, unknown>[] };
+      return page.items.map((r) => r["<%= it.filterProbe.name %>"]);
+    };
+    // Le témoin est bien LÀ, et remonte quand on ne filtre pas — sinon
+    // l'assertion suivante serait vraie pour une raison sans rapport.
+    const tout = await lire(`${BASE}${ROUTE}?limit=100`);
+    expect(tout).toContain(<%= it.filterProbe.otherJson %>);
+    // Filtré, il disparaît — et il ne reste QUE la valeur demandée.
+    const filtre = await lire(
+      `${BASE}${ROUTE}?<%= it.filterProbe.name %>=<%= it.filterProbe.match %>&limit=100`,
+    );
+    expect(filtre.length).toBeGreaterThan(0);
+    expect(filtre.every((v) => v === <%= it.filterProbe.matchJson %>)).toBe(true);
   });
 <% } %><% if (it.relations.length) { %>
   it("une relation inconnue dans ?include= est REFUSÉE", async () => {
@@ -244,10 +326,15 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
   });
 <% if (it.hasSecurity) { %>
   it("DELETE sans identité → refusé, et l'enregistrement survit", async () => {
+    // Échantillon PROPRE à ce test : `300` sert déjà au test d'`?include=`.
+    // Sur une entité qui porte une relation ET un champ unique, la seconde
+    // insertion était refusée comme doublon, `id` valait « undefined », et
+    // c'est une absence que ce test lisait — il accusait la garde qu'il mesure
+    // au lieu de son décor.
     const created = await fetch(`${BASE}${ROUTE}`, {
       method: "POST",
       headers: entetes(),
-      body: JSON.stringify(sample(300)),
+      body: JSON.stringify(sample(301)),
     });
     const id = String((await json(created)).id);
 
