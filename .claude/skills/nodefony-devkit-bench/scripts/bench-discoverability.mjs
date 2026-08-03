@@ -3251,6 +3251,38 @@ function runTask(app, runDir, task) {
  * GITIGNORÉ (`.env.local`), qu'aucun `checkout` ne restaure. Le seul instant où
  * l'état est fidèle, suivi ou non, est la seconde qui suit la tâche.
  */
+/**
+ * Ce qu'un gate rouge a DIT, quand il n'a pas dit de `CAUSE=`.
+ *
+ * Les juges dédiés (`lib/gate-*.mjs`) nomment leur cause dans une ligne que
+ * {@link lireCause} sait lire. Les gates ÉCRITS EN LIGNE — la majorité — se
+ * contentent d'un `console.error` : leur `evidence` valait donc « exit 1 », et
+ * rien d'autre. Un rouge relu une heure plus tard obligeait alors à rouvrir le
+ * dépôt du décor pour savoir ce qui avait lâché — vécu deux fois de suite sur
+ * la même tâche, alors que le gate l'avait écrit noir sur blanc au moment de
+ * tomber.
+ *
+ * La PREMIÈRE ligne du canal d'erreur, et non la dernière : c'est là qu'un
+ * `console.error` unique se trouve, et là que la première erreur d'un outil
+ * bavard apparaît — sa dernière ligne est presque toujours « un journal complet
+ * est disponible dans… ». Bornée, parce qu'une trace entière dans un rapport
+ * JSON le rend illisible sans rien apprendre de plus.
+ *
+ * @param {string} stderr - le canal d'erreur du gate.
+ * @param {string} stdout - sa sortie standard, si le canal d'erreur est muet.
+ * @returns {string} l'explication, ou une chaîne vide si le gate s'est tu.
+ */
+export function expliquerEchec(stderr, stdout) {
+  for (const flux of [stderr ?? "", stdout ?? ""]) {
+    const ligne = flux.split("\n").find((l) => l.trim().length > 0);
+    if (ligne) {
+      const propre = ligne.trim();
+      return propre.length > 200 ? `${propre.slice(0, 197)}…` : propre;
+    }
+  }
+  return "";
+}
+
 function runGates(app, runDir, task) {
   const gates = sondesDe(task).filter((p) => p.kind === "gate");
   if (!gates.length) return;
@@ -3278,17 +3310,21 @@ function runGates(app, runDir, task) {
     // cause, au moment où la mesure est fidèle.
     const cause = lireCause(`${r.stderr ?? ""}\n${r.stdout ?? ""}`);
     const ecarte = !pass && cause && !estOpposable(cause.imputation);
+    // Une cause NOMMÉE porte son imputation et prime ; à défaut, on rend au
+    // moins ce que le gate a écrit. Un rouge doit s'expliquer du premier coup,
+    // qu'il vienne d'un juge dédié ou d'une commande écrite en ligne.
+    const dit =
+      cause?.ligne ||
+      (pass ? "" : expliquerEchec(r.stderr ?? "", r.stdout ?? ""));
     console.log(
       `  ${pass ? "✅" : ecarte ? "⁉️ " : "❌"} [gate] ${p.name} (exit ${r.status})` +
-        (cause ? `\n       ${cause.ligne}` : "") +
+        (dit ? `\n       ${dit}` : "") +
         (ecarte ? `\n       ${motifNonOpposable(cause.imputation)}` : ""),
     );
     return {
       name: p.name,
       pass,
-      evidence: pass
-        ? "exit 0"
-        : `exit ${r.status}${cause ? ` — ${cause.ligne}` : ""}`,
+      evidence: pass ? "exit 0" : `exit ${r.status}${dit ? ` — ${dit}` : ""}`,
       cause: cause?.nom ?? null,
       imputation: cause?.imputation ?? null,
     };

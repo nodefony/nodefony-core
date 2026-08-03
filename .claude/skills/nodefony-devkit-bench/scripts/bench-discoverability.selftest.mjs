@@ -32,9 +32,51 @@ import {
   TASKS,
   SONDES_QUALITE,
   evaluateProbe,
+  expliquerEchec,
   motifDEcartement,
   transcriptExploitable,
 } from "./bench-discoverability.mjs";
+
+/**
+ * Un gate rouge doit s'expliquer du premier coup.
+ *
+ * @returns {string[]} les libellés des cas qui n'ont pas rendu ce qu'ils doivent.
+ */
+function verifierExplicationGate() {
+  const rates = [];
+  const cas = [
+    [
+      "le message d'un gate écrit en ligne",
+      ["aucun service porte par l app dans le conteneur\n", ""],
+      "aucun service porte par l app dans le conteneur",
+    ],
+    [
+      "canal d'erreur muet — on se rabat sur la sortie standard",
+      ["", "\n\nDISCOVERY.md absent\n"],
+      "DISCOVERY.md absent",
+    ],
+    [
+      // La dernière ligne d'un outil bavard est « un journal complet est
+      // disponible dans… » : c'est la PREMIÈRE qui porte l'erreur.
+      "outil bavard — la première ligne, pas la dernière",
+      [
+        "FAIL tests/invoice.test.ts\nnpm ERR! code 1\nnpm ERR! journal complet\n",
+        "",
+      ],
+      "FAIL tests/invoice.test.ts",
+    ],
+    ["un gate parfaitement muet", ["", "   \n\n"], ""],
+  ];
+  for (const [label, [err, out], attendu] of cas) {
+    if (expliquerEchec(err, out) !== attendu) rates.push(label);
+  }
+  // Une trace entière rendrait le rapport JSON illisible sans rien apprendre.
+  const long = expliquerEchec("x".repeat(500), "");
+  if (long.length > 200 || !long.endsWith("…")) {
+    rates.push("une ligne démesurée est bornée");
+  }
+  return rates;
+}
 
 /**
  * La garde qui empêche un transcript MUET de rendre un verdict.
@@ -1820,13 +1862,23 @@ function main() {
     if (!probe.observe) jugeantes.push(key(task, probe));
   }
 
-  const gardeRatee = verifierGardeTranscript();
+  // Deux familles, deux motifs : les fondre sous un seul message ferait
+  // annoncer « run vide » à un défaut d'explication de gate. Un instrument qui
+  // se trompe de cause est précisément ce que cette session corrige.
+  const gardeRatee = [
+    ...verifierGardeTranscript().map((c) => [
+      c,
+      "un run vide (transcript muet, ou zéro fichier touché) rend un FAIL qui a l'allure d'une mesure : il doit être ÉCARTÉ, pas compté",
+    ]),
+    ...verifierExplicationGate().map((c) => [
+      c,
+      "un gate rouge qui ne rend que « exit 1 » oblige à rouvrir le décor pour savoir ce qui a lâché — il l'avait pourtant écrit en tombant",
+    ]),
+  ];
 
   for (const w of wrong) console.log(`  ✗ ${w}`);
-  for (const g of gardeRatee) {
-    console.log(
-      `  ✗ garde d'écartement — cas « ${g} »\n      un run vide (transcript muet, ou zéro fichier touché) rend un FAIL qui a l'allure d'une mesure : il doit être ÉCARTÉ, pas compté`,
-    );
+  for (const [cas, motif] of gardeRatee) {
+    console.log(`  ✗ garde du juge — cas « ${cas} »\n      ${motif}`);
   }
   for (const j of jugeantes) {
     console.log(
@@ -1844,7 +1896,7 @@ function main() {
   console.log(
     `\n━━ ${covered}/${probes.length} sonde(s) couverte(s), ${checked} cas joué(s)` +
       (prove ? ` — amputation vérifiée sur ${covered}` : "") +
-      `, garde d'écartement : ${gardeRatee.length === 0 ? "12 cas ✅" : `${gardeRatee.length} RATÉ(S)`}` +
+      `, gardes du juge : ${gardeRatee.length === 0 ? "17 cas ✅" : `${gardeRatee.length} RATÉ(S)`}` +
       `${wrong.length + toothless.length + jugeantes.length + gardeRatee.length > 0 ? `, ${wrong.length + toothless.length + jugeantes.length + gardeRatee.length} DÉFAUT(S)` : ""}`,
   );
 
