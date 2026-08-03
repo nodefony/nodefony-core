@@ -36,6 +36,27 @@
   refusaient), et le queryKit portait DEUX fonctions `ORDER BY` — dont celle que je venais
   d'écrire. Factoriser n'est pas cosmétique : c'est ce qui met les divergences côte à côte.
 
+## 🧾 Un paramètre ACCEPTÉ PUIS JETÉ est pire qu'un paramètre refusé
+
+- `[1× — 2026-08-03c]` 🔴 **Vingt lectures de filtre recopiées faisaient toutes la même chose :
+  rendre la collection ENTIÈRE quand le client s'était trompé.** `?revoked=oui` posait le filtre à
+  `undefined`, `?category=zzz` tombait hors allowlist, `?enbaled=true` n'existait pour personne —
+  et dans les trois cas la réponse était une page non filtrée, que le client lit comme le RÉSULTAT
+  de son filtre. Le pire cas est un journal d'audit : rendu entier à qui demandait
+  `?outcome=deneid`, il se lit « aucun incident ». Le TSDoc appelait ça « permissif — l'endpoint est
+  déjà gardé », ce qui confond **autorisation** (qui a le droit de lire) et **honnêteté** (ce que la
+  réponse prétend être). Le refus de l'inconnu n'est pas une sévérité, c'est la seule façon de ne
+  pas mentir.
+- `[1× — 2026-08-03c]` ⭐ **Le critère qui range une capacité au STORE ou à la RESSOURCE** : le tri
+  est une capacité de backend (Redis ne trie pas ⇒ `sortableFields` par store), un filtre inscrit
+  dans un `IXListQuery` est une OBLIGATION de tous les backends (Redis l'honore inline dans son
+  batch `SCAN`). Répliquer le patron du tri sur les filtres aurait refait l'erreur de la veille —
+  déclarer par store aurait laissé croire qu'un filtre du contrat est facultatif.
+- `[1× — 2026-08-03c]` **Une spec DÉCLARATIVE peut porter la validation ET le type** : `as const
+satisfies IFilterSpec` + un générique `<const S>` fait dériver `{revoked?: boolean, category?:
+"auth"|…}` de la donnée elle-même — les `as AuditCategory` des data planes disparaissent, et une
+  valeur ajoutée à une énumération met à jour les deux d'un seul geste.
+
 ## 🥫 Un outil qui ne sert pas le dépôt qui le publie n'est éprouvé par personne
 
 - `[1× — 2026-08-03b]` 🔴 **On unifie le dépôt, et le GÉNÉRATEUR continue de distribuer l'ancien
@@ -45,6 +66,12 @@
   gabarit n'est pas du code du dépôt : c'est du code **distribué**, donc le dialecte qu'il porte
   gagne. Réflexe : après avoir unifié quoi que ce soit, `rg` dans `templates/` et dans les skills
   publiés AVANT de considérer le geste fini.
+
+- `[1× — 2026-08-03c]` 🔴 **Un gabarit distribue aussi ses DÉPENDANCES.** Le test rendu par
+  `create controller --kind realtime` importait `reflect-metadata`, qu'aucune application générée ne
+  déclare — le polyfill est chargé par `@nodefony/realtime` lui-même. Invisible partout où le
+  hissage npm sauve la résolution, rouge en `--link` et sous pnpm. La classe de défaut se contrôle
+  d'un balayage statique (imports bare des `.tpl` ∩ manifestes générés), pas d'une relecture.
 
 - `[1× — 2026-08-02h]` 🔴 **Un agent ÉTRANGER a trouvé en 15 minutes et 0,04 $ ce que 30 tâches de
   banc et deux passes complètes n'avaient jamais vu** — trois défauts produits, dont un qui rendait
@@ -147,6 +174,16 @@
 
 - `[1× — 2026-08-01]` 🔴 **Le dépistage du banc couvrait 7 tâches sur 28 et rendait « rien à
   signaler »** — un filet partiel se lit comme un filet.
+- `[1× — 2026-08-03c]` 🔴 **Le typecheck du cœur N'INCLUT PAS `src/tests`** — j'ai écrit un test
+  d'assertions de TYPES (« le générique rend bien `boolean`, pas `any` »), lancé `tsgo --noEmit`,
+  vert. Il ne prouvait rien : `tsconfig.json` **exclut** `src/tests/**`, et c'est
+  `tsconfig.tests.json` (2ᵉ maillon du script `typecheck`) qui les couvre. Constaté en cassant le
+  type exprès — `tsgo --noEmit` restait vert, `-p tsconfig.tests.json` sortait l'erreur. **Un gate
+  neuf se lance sur la CONFIG qui voit le fichier**, et la seule façon de savoir laquelle c'est,
+  c'est de casser le fichier.
+- `[1× — 2026-08-03c]` **Un fichier NEUF ne se prouve pas débranché par `git diff --stat`** — il
+  est untracked, le diff est vide, et l'on croirait n'avoir rien débranché. Le contrôle qui marche
+  dans les deux cas : `grep` du débranchement dans le fichier (`if (false &&`).
 - `[1× — 2026-08-03b]` 🔴 **Un test qui BOUCLE sur une liste vide passe au vert sans rien lire.**
   « chaque champ déclaré est effectivement honoré » itérait sur `sortableFields` : store qui ne
   déclare rien → zéro tour de boucle → ✓. Vu SEULEMENT parce que j'avais débranché le câblage pour
