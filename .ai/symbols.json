@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-03T20:59:30.848Z",
+  "generated": "2026-08-03T21:32:02.820Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 679,
-    "symbols": 2760,
+    "files": 680,
+    "symbols": 2765,
     "classes": 343,
     "interfaces": 807,
     "types": 363,
     "enums": 4,
-    "functions": 988,
-    "constants": 255
+    "functions": 992,
+    "constants": 256
   },
   "symbols": {
     "Cli": {
@@ -9058,6 +9058,14 @@
       "decorators": [],
       "description": "Store d'endpoints webhook **Drizzle** (driver `better-sqlite3`) — implémentation SQL d'{@link IWebhookStore} au-dessus d'un unique repository `@nodefony/orm-core` (`webhook_endpoint`). Persistance …"
     },
+    "likeCond": {
+      "name": "likeCond",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/likeSql.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Compose une condition `LIKE` **avec sa clause `ESCAPE`** — le seul endroit de l'adapter Drizzle qui écrive un `LIKE`. La clause n'est pas un raffinement : sans elle, le contrat `$like` n'a pas une …"
+    },
     "UserListFilters": {
       "name": "UserListFilters",
       "kind": "interface",
@@ -12750,6 +12758,22 @@
       "module": "@nodefony/orm-core",
       "description": "Indique si une valeur d'écriture est un objet d'{@link UpdateOperators}. Même heuristique que {@link isFieldOperators} : objet simple, non-`null`, non-tableau, dont **toutes** les clés propres sont…"
     },
+    "escapeLikeTerm": {
+      "name": "escapeLikeTerm",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Neutralise les métacaractères d'un **texte** pour l'insérer dans un motif `$like` — `%`, `_` et l'antislash lui-même. À utiliser dès qu'un fragment de motif vient d'un humain ou d'une donnée : sans…"
+    },
+    "likePatternToRegExp": {
+      "name": "likePatternToRegExp",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Traduit un motif `$like` en expression régulière **ancrée** — pour les stores qui n'ont pas de `LIKE` (MongoDB, implémentations en mémoire). C'est la contrepartie exacte de ce qu'un moteur SQL fait…"
+    },
     "searchCriteria": {
       "name": "searchCriteria",
       "kind": "function",
@@ -12773,6 +12797,14 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "description": "Liste figée des opérateurs d'**écriture** reconnus dans le `update` d'un `upsert` (cf {@link UpdateOperators}). Source de vérité unique partagée par tous les adapters — pendant, côté écriture, de {…"
+    },
+    "LIKE_ESCAPE_CHAR": {
+      "name": "LIKE_ESCAPE_CHAR",
+      "kind": "const",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Le caractère d'échappement des motifs `$like` du contrat portable. Il ne se choisit pas librement : **PostgreSQL et MySQL appliquent déjà `\\`** quand aucune clause `ESCAPE` n'est écrite, si bien qu…"
     },
     "IEntityDefinition": {
       "name": "IEntityDefinition",
@@ -22734,6 +22766,7 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/likeSql.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts"
@@ -23496,7 +23529,6 @@
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
         "src/packages/@nodefony/frontend/nodefony/src/template/TemplateHelper.ts",
         "src/packages/@nodefony/http/nodefony/src/context/domainMatcher.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts"
       ],
       "resolveFetch": [
@@ -24364,6 +24396,16 @@
       "WebhookEndpointRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
+      ],
+      "LIKE_ESCAPE_CHAR": [
+        "src/packages/@nodefony/drizzle/nodefony/src/likeSql.ts"
+      ],
+      "escapeLikeTerm": [
+        "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts"
+      ],
+      "likeCond": [
+        "src/packages/@nodefony/drizzle/nodefony/src/queryKit.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts"
       ],
       "SESSION_SORTABLE_FIELDS": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -26122,6 +26164,9 @@
       ],
       "MongooseTransaction": [
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
+      ],
+      "likePatternToRegExp": [
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "IEntityDefinition": [
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entitiesDecorator.ts"

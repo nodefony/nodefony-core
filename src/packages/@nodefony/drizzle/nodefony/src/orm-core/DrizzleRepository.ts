@@ -12,7 +12,6 @@ import {
   inArray,
   isNotNull,
   isNull,
-  like,
   lt,
   lte,
   ne,
@@ -36,6 +35,7 @@ import {
   UnknownCriteriaField,
 } from "@nodefony/orm-core";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
+import { likeCond } from "../likeSql";
 import type {
   Criteria,
   FieldOperators,
@@ -327,7 +327,12 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     if (ops.$lte !== undefined) conds.push(lte(col, ops.$lte));
     if (ops.$in !== undefined) conds.push(inArray(col, [...ops.$in]));
     if (ops.$nin !== undefined) conds.push(notInArray(col, [...ops.$nin]));
-    if (ops.$like !== undefined) conds.push(like(col, ops.$like));
+    // `LIKE … ESCAPE '\'` plutôt que le `like()` de Drizzle, qui n'émet aucune
+    // clause : sans elle, un motif portant un antislash se comporte de trois
+    // façons selon le moteur (cf `likeCond`).
+    if (ops.$like !== undefined) {
+      conds.push(likeCond(this.#dialect, sql`${col}`, ops.$like));
+    }
     // `!== undefined` et pas de test de vérité : `$null: false` = IS NOT NULL.
     if (ops.$null !== undefined) {
       conds.push(ops.$null ? isNull(col) : isNotNull(col));

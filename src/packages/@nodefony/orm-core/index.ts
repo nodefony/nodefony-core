@@ -30,6 +30,13 @@ export {
   OPERATOR_KEYS,
   isFieldOperators,
   searchCriteria,
+  // La grammaire des motifs `$like` : le caractère d'échappement, la
+  // neutralisation d'un littéral, et sa lecture là où il n'y a pas de SQL. Les
+  // trois vont ensemble — un motif échappé sans clause `ESCAPE` émise ne rend
+  // plus rien, en silence.
+  LIKE_ESCAPE_CHAR,
+  escapeLikeTerm,
+  likePatternToRegExp,
 } from "./nodefony/src/criteria";
 export type { OperatorKey } from "./nodefony/src/criteria";
 export {

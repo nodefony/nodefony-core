@@ -1,8 +1,9 @@
 import type { ClientSession, QueryFilter, Model } from "mongoose";
-import { RequestContext, redactSecrets, escapeRegExp } from "nodefony";
+import { RequestContext, redactSecrets } from "nodefony";
 import {
   isFieldOperators,
   isUpdateOperators,
+  likePatternToRegExp,
   queryFlowMonitor,
   UnknownCriteriaField,
 } from "@nodefony/orm-core";
@@ -18,15 +19,11 @@ import type {
 /** Modèle Mongoose à document libre (boundary — typé finement côté repo). */
 type LooseModel = Model<Record<string, unknown>>;
 
-/**
- * Traduit un motif SQL `LIKE` (`%` = n caractères, `_` = un caractère) en RegExp
- * ancrée — `$like` portable n'a pas d'équivalent natif MongoDB.
- */
-function sqlLikeToRegex(pattern: string): RegExp {
-  // 1) échappe les méta-caractères regex, 2) traduit les jokers SQL.
-  const escaped = escapeRegExp(pattern);
-  return new RegExp(`^${escaped.replace(/%/g, ".*").replace(/_/g, ".")}$`);
-}
+// La traduction d'un motif `$like` en expression régulière vit au SOCLE
+// (`likePatternToRegExp`) : elle DOIT rendre le même ensemble de lignes que le
+// `LIKE … ESCAPE '\'` émis côté SQL, sinon changer de backend changerait les
+// résultats. Elle était écrite ici, et elle ignorait l'échappement — un `a\_b`
+// y devenait `a\.b`, c'est-à-dire un motif qui ne matche rien.
 
 /**
  * Repository portable (contrat {@link IRepository}) au-dessus d'un modèle Mongoose.
@@ -128,7 +125,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     const out: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(ops)) {
       if (key === "$like") {
-        out.$regex = sqlLikeToRegex(value as string);
+        out.$regex = likePatternToRegExp(value as string);
       } else if (key === "$null") {
         const target = value ? "$eq" : "$ne";
         if (target in out) {

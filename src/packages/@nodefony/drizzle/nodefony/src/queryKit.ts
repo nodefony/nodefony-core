@@ -2,6 +2,8 @@ import { sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { pickOrder } from "nodefony";
 import type { IPageQuery } from "nodefony";
+import { escapeLikeTerm } from "@nodefony/orm-core";
+import { likeCond } from "./likeSql";
 import type { SqlDialect } from "../interfaces/IDrizzleConfig";
 import type { DrizzleDb } from "./orm-core/DrizzleRepository";
 import { USER_SORTABLE_FIELDS, USER_DEFAULT_ORDER } from "@nodefony/user";
@@ -269,11 +271,8 @@ function roleCond(dialect: SqlDialect, role: string): SQL {
 /** Condition `LOWER(identifier) LIKE %q%` (sous-chaîne insensible à la casse, `%`/`_` échappés). */
 function likeIdentifierCond(dialect: SqlDialect, q: string): SQL {
   const idCol = ident(dialect, "identifier");
-  const escaped = q.toLowerCase().replace(/[\\%_]/g, (c) => "\\" + c);
-  const pattern = `%${escaped}%`;
-  // MySQL réinterprète `\` dans les littéraux → doubler ; ailleurs `\` est littéral.
-  const esc = dialect === "mysql" ? sql.raw("'\\\\'") : sql.raw("'\\'");
-  return sql`LOWER(${idCol}) LIKE ${pattern} ESCAPE ${esc}`;
+  const pattern = `%${escapeLikeTerm(q.toLowerCase())}%`;
+  return likeCond(dialect, sql`LOWER(${idCol})`, pattern);
 }
 
 /** Compose la clause WHERE des filtres actifs (undefined si aucun filtre). */
@@ -413,11 +412,14 @@ function eventCond(dialect: SqlDialect, event: string): SQL {
 function likeWebhookCond(dialect: SqlDialect, q: string): SQL {
   const url = ident(dialect, "url");
   const description = ident(dialect, "description");
-  const escaped = q.toLowerCase().replace(/[\\%_]/g, (c) => "\\" + c);
-  const pattern = `%${escaped}%`;
-  // MySQL réinterprète `\` dans les littéraux → doubler ; ailleurs `\` est littéral.
-  const esc = dialect === "mysql" ? sql.raw("'\\\\'") : sql.raw("'\\'");
-  return sql`(LOWER(${url}) LIKE ${pattern} ESCAPE ${esc} OR LOWER(COALESCE(${description}, '')) LIKE ${pattern} ESCAPE ${esc})`;
+  const pattern = `%${escapeLikeTerm(q.toLowerCase())}%`;
+  const onUrl = likeCond(dialect, sql`LOWER(${url})`, pattern);
+  const onDescription = likeCond(
+    dialect,
+    sql`LOWER(COALESCE(${description}, ''))`,
+    pattern,
+  );
+  return sql`(${onUrl} OR ${onDescription})`;
 }
 
 /** Compose la clause WHERE des filtres actifs (undefined si aucun filtre). */

@@ -210,15 +210,17 @@ describe("paginate — la RECHERCHE `?q=` est une capacité déclarée", () => {
     assert.deepEqual(calls.countCriteria[0], calls.findCriteria[0]);
   });
 
-  it("le terme part TEL QUEL — l'échapper sans clause ESCAPE ne trouverait rien", async () => {
-    // Limite assumée et documentée : `%`/`_` du terme restent des jokers.
-    // La traduction portable de `$like` n'émet pas `LIKE … ESCAPE '\'`, et sans
-    // cette clause un terme échappé est cherché LITTÉRALEMENT (backslash
-    // compris) — la recherche ne rend alors plus rien. Mesuré en SQLite.
-    // Élargir est la seule dégradation qui ne fait pas mentir la réponse.
+  it("le terme est ÉCHAPPÉ — un `%` saisi se cherche lui-même", async () => {
+    // Ce test verrouillait l'inverse, et le disait : le terme partait TEL QUEL
+    // parce que la traduction de `$like` n'émettait aucune clause `ESCAPE`, si
+    // bien qu'un terme échappé était cherché littéralement (antislash compris)
+    // et ne rendait plus rien. La clause est désormais émise — les deux gestes
+    // étaient indissociables, et c'est le second qui débloque celui-ci.
     const { repo, calls } = spyRepo([{ id: 1, name: "a_b" }]);
     await paginate(repo, { limit: 10, q: "100%_x" }, { searchable: ["name"] });
-    assert.deepEqual(calls.findCriteria[0], { name: { $like: "100%_x%" } });
+    assert.deepEqual(calls.findCriteria[0], {
+      name: { $like: "100\\%\\_x%" },
+    });
   });
 
   it("plusieurs champs cherchables deviennent un `$or`", async () => {

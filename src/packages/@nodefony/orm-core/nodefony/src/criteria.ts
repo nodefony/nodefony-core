@@ -103,6 +103,87 @@ export function isUpdateOperators(
 }
 
 /**
+ * Le caractère d'échappement des motifs `$like` du contrat portable.
+ *
+ * Il ne se choisit pas librement : **PostgreSQL et MySQL appliquent déjà `\`**
+ * quand aucune clause `ESCAPE` n'est écrite, si bien qu'un motif portant un
+ * antislash se comportait DÉJÀ différemment selon le moteur (SQLite, lui, n'a
+ * aucun échappement par défaut : il cherchait l'antislash littéral). Fixer `\`
+ * et l'émettre explicitement ne change donc pas la sémantique du contrat — cela
+ * la fait exister, en alignant les trois moteurs sur celui des deux
+ * comportements qui était déjà majoritaire.
+ *
+ * @see {@link escapeLikeTerm} pour construire un motif, {@link likePatternToRegExp}
+ *   pour l'interpréter là où il n'y a pas de SQL (Mongo, mémoire).
+ */
+export const LIKE_ESCAPE_CHAR = "\\";
+
+/**
+ * Neutralise les métacaractères d'un **texte** pour l'insérer dans un motif
+ * `$like` — `%`, `_` et l'antislash lui-même.
+ *
+ * À utiliser dès qu'un fragment de motif vient d'un humain ou d'une donnée :
+ * sans elle, chercher `50%` demande « 50 suivi de n'importe quoi », et chercher
+ * `a_b` ramène `axb`. L'utilisateur ne lit pas ça comme une imprécision, il le
+ * lit comme un résultat.
+ *
+ * L'échappement n'a de valeur que si la clause `ESCAPE` correspondante est
+ * ÉMISE : un motif échappé sans elle est cherché littéralement, antislash
+ * compris, et ne rend plus rien — en silence. C'est pourquoi les deux vont
+ * ensemble et vivent ici, et non chez chaque appelant.
+ *
+ * @param text - le fragment littéral à insérer dans un motif.
+ * @returns le même texte, ses métacaractères neutralisés.
+ *
+ * @example
+ * ```ts
+ * { discount: { $like: `${escapeLikeTerm("50%")}%` } }  // → "50\%%"
+ * ```
+ */
+export function escapeLikeTerm(text: string): string {
+  return text.replace(/[\\%_]/g, (c) => LIKE_ESCAPE_CHAR + c);
+}
+
+/**
+ * Traduit un motif `$like` en expression régulière **ancrée** — pour les stores
+ * qui n'ont pas de `LIKE` (MongoDB, implémentations en mémoire).
+ *
+ * C'est la contrepartie exacte de ce qu'un moteur SQL fait avec
+ * `LIKE … ESCAPE '\'` : `%` vaut « n'importe quelle suite », `_` « un
+ * caractère », et un caractère précédé de {@link LIKE_ESCAPE_CHAR} vaut
+ * lui-même. Sans cette lecture, un adapter documentaire rendrait des résultats
+ * différents d'un adapter SQL pour le même critère portable — la divergence la
+ * plus coûteuse qui soit, puisqu'elle ne se voit qu'en changeant de backend.
+ *
+ * Un antislash final sans caractère à échapper est traité comme un antislash
+ * littéral, comme le font les moteurs SQL.
+ *
+ * @param pattern - le motif du contrat (`préfixe%`, `a\_b`…).
+ * @returns une `RegExp` ancrée aux deux bouts.
+ */
+export function likePatternToRegExp(pattern: string): RegExp {
+  let source = "";
+  for (let i = 0; i < pattern.length; i++) {
+    const c = pattern[i];
+    if (c === LIKE_ESCAPE_CHAR && i + 1 < pattern.length) {
+      source += escapeRegExpChar(pattern[++i]);
+    } else if (c === "%") {
+      source += ".*";
+    } else if (c === "_") {
+      source += ".";
+    } else {
+      source += escapeRegExpChar(c);
+    }
+  }
+  return new RegExp(`^${source}$`);
+}
+
+/** Neutralise UN caractère pour l'insérer dans une expression régulière. */
+function escapeRegExpChar(c: string): string {
+  return /[.*+?^${}()|[\]\\]/.test(c) ? `\\${c}` : c;
+}
+
+/**
  * Traduit un terme de recherche `?q=` en critère portable — **la** règle de
  * recherche d'orm-core, en un seul exemplaire.
  *
@@ -119,19 +200,12 @@ export function isUpdateOperators(
  * deux formes sont équivalentes pour les adapters, la seconde est plus lisible
  * dans les journaux de requêtes).
  *
- * ⚠️ **Les métacaractères `%` et `_` du terme restent ACTIFS**, et ce n'est pas
- * un oubli. Les échapper exige d'émettre une clause `LIKE … ESCAPE '\'`, que la
- * traduction portable de `$like` ne produit pas : un terme échappé sans cette
- * clause est cherché **littéralement**, backslash compris, et la recherche ne
- * rend alors plus RIEN. Mesuré en SQLite — un échappement qu'on n'émet pas est
- * pire que pas d'échappement du tout, parce qu'il échoue en silence.
- *
- * La conséquence est une imprécision, jamais une fuite : le terme reste borné à
- * la table interrogée et la valeur est bindée. Un point d'entrée qui a besoin
- * d'un échappement RÉEL doit composer du SQL natif et émettre `ESCAPE`
- * lui-même — c'est ce que fait `likeIdentifierCond` du queryKit Drizzle, seul
- * endroit du dépôt qui le fasse complètement (dont la divergence MySQL, où le
- * `\` d'un littéral doit être doublé).
+ * Le terme est **échappé** ({@link escapeLikeTerm}) : chercher `50%` cherche
+ * « 50% », et `a_b` ne ramène pas `axb`. Ça n'a été possible qu'une fois la
+ * clause `ESCAPE` émise par la traduction de `$like` — auparavant un terme
+ * échappé était cherché littéralement, antislash compris, et ne rendait plus
+ * rien du tout, en silence. Les deux gestes sont indissociables : c'est pourquoi
+ * ils vivent dans le même fichier.
  *
  * @param q - le terme saisi, déjà trimé par `parsePageQuery`.
  * @param fields - les champs sur lesquels chercher, en noms de propriétés.
@@ -144,7 +218,7 @@ export function searchCriteria<T>(
 ): Record<string, unknown> | null {
   const terme = q?.trim();
   if (!terme || fields.length === 0) return null;
-  const motif = `${terme}%`;
+  const motif = `${escapeLikeTerm(terme)}%`;
   if (fields.length === 1) return { [fields[0]]: { $like: motif } };
   return { $or: fields.map((f) => ({ [f]: { $like: motif } })) };
 }

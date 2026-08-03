@@ -538,6 +538,7 @@ await posts.find({ title: "Bonjour" });
 await posts.find({ views: { $gte: 10, $lt: 1000 } }); // plusieurs opérateurs = AND
 await posts.find({ id: { $in: ids } });
 await posts.find({ title: { $like: "Bon%" } }); // sémantique SQL (`%`, `_`)
+await posts.find({ title: { $like: escapeLikeTerm("100%") } }); // `%` littéral
 await posts.find({}, { order: [["views", "DESC"]], limit: 20, offset: 40 });
 await posts.find({}, { relations: ["comments"] }); // associations déclarées
 
@@ -552,9 +553,14 @@ await posts.count({ views: { $gte: 10 } });
 ```
 
 Les opérateurs (`$eq $ne $gt $gte $lt $lte $in $nin $like`) sont **ceux d'orm-core**, identiques sur
-tous les drivers ; la traduction en `eq()`/`inArray()`/`like()` se fait dans `#where()`
+tous les drivers ; la traduction en `eq()`/`inArray()` se fait dans `#where()`
 (`DrizzleRepository.ts:331`). Leur référence complète est dans
 [la page d'orm-core](../../orm-core/docs/index.md).
+
+`$like` est émis avec sa clause `ESCAPE '\'` (`likeSql.ts`), ce qui rend un `%` ou un `_` **littéral**
+exprimable : passez le fragment par `escapeLikeTerm` (orm-core) plutôt que de composer le motif à la
+main. Sans cette clause — c'était le cas — un antislash valait échappement en PostgreSQL et MySQL, et
+lui-même en SQLite : le même critère ne rendait pas les mêmes lignes selon la base.
 
 Deux points de comportement qui évitent des surprises :
 

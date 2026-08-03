@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { entityRegistry, ormRegistry, paginate } from "@nodefony/orm-core";
-import { UnknownCriteriaField } from "@nodefony/orm-core";
+import {
+  UnknownCriteriaField,
+  LIKE_ESCAPE_CHAR,
+  escapeLikeTerm,
+} from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
 import { DrizzleOrm } from "../../nodefony/src/orm-core/index";
 import {
@@ -158,6 +162,46 @@ export function runRepositoryContract(opts: IContractRunOptions): void {
     assert.deepEqual(
       like.map((r) => r.name),
       ["alice"],
+    );
+  });
+
+  it("find : `$like` échappé — un joker rendu LITTÉRAL, même réponse sur les 3 moteurs", async () => {
+    // LE défaut cross-dialecte du contrat : sans clause `ESCAPE` émise,
+    // PostgreSQL et MySQL appliquaient déjà l'antislash quand SQLite cherchait
+    // l'antislash lui-même. Un motif échappé rendait donc la bonne ligne en
+    // production et RIEN en développement — sans erreur, sans trace.
+    await repo.createMany([
+      { name: "remise_50", age: 1, score: 1 },
+      { name: "remiseX50", age: 1, score: 1 },
+      { name: "solde 50%", age: 1, score: 1 },
+      { name: "solde 5012", age: 1, score: 1 },
+    ]);
+
+    // TÉMOIN : sans échappement, `_` est bien un joker — sinon le test suivant
+    // passerait aussi sur un moteur qui ignore les jokers.
+    const joker = await repo.find({ name: { $like: "remise_50" } });
+    assert.deepEqual(
+      joker.map((r) => r.name).sort(),
+      ["remiseX50", "remise_50"],
+      "`_` doit valoir « un caractère quelconque »",
+    );
+
+    const litteral = await repo.find({
+      name: { $like: `remise${LIKE_ESCAPE_CHAR}_50` },
+    });
+    assert.deepEqual(
+      litteral.map((r) => r.name),
+      ["remise_50"],
+      "échappé, `_` ne vaut plus que lui-même",
+    );
+
+    const pourcent = await repo.find({
+      name: { $like: `${escapeLikeTerm("solde 50%")}` },
+    });
+    assert.deepEqual(
+      pourcent.map((r) => r.name),
+      ["solde 50%"],
+      "un `%` échappé ne doit pas ramener « solde 5012 »",
     );
   });
 

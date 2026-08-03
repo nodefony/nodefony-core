@@ -26,7 +26,11 @@ Consommé par les **deux** drivers existants (`@nodefony/drizzle` — défaut �
   reconnus dans le `update` d'un `upsert`.
   Source unique des deux familles : `nodefony/src/criteria.ts`. `OrmCriteria`
   (`Record<string,unknown>`) reste l'échappatoire. Chaque adapter traduit
-  (`Op.*` / `$`+`$regex` / `eq()/inArray()`). `$like` = SQL.
+  (`Op.*` / `$`+`$regex` / `eq()/inArray()`). `$like` = SQL, **échappement `\`**
+  (`LIKE_ESCAPE_CHAR`) : neutraliser un littéral = `escapeLikeTerm`, le lire sans
+  SQL = `likePatternToRegExp` (Mongo, mémoire). Un adapter SQL DOIT émettre la
+  clause `ESCAPE` — sans elle, PG/MySQL appliquent déjà `\` et SQLite non, soit
+  trois sémantiques pour un opérateur portable.
 
 ## Interdits
 

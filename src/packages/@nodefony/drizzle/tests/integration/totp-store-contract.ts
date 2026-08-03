@@ -265,22 +265,20 @@ export function runTotpStoreContract(opts: ITotpStoreContractOptions): void {
       assert.equal(page.items.length, 2);
     });
 
-    it("LIMITE CONNUE : `_` reste un joker — un terme échappé ne trouverait RIEN", async () => {
+    it("un `_` SAISI se cherche lui-même — il n'élargit plus la recherche", async () => {
       await purge();
       for (const userId of ["a_c", "abc"]) {
         await store.save(makeSecret({ userId }));
       }
-      // Ce test verrouille une IMPRÉCISION assumée, pas un comportement voulu :
-      // `_` élargit la recherche au lieu de la restreindre. Échapper le terme
-      // exigerait une clause `LIKE … ESCAPE '\'` que la traduction portable de
-      // `$like` n'émet pas — et sans elle, `a\_c%` est cherché LITTÉRALEMENT :
-      // la recherche ne rend plus rien du tout (mesuré ici même, en SQLite).
-      // Tant que `$like` n'émet pas `ESCAPE`, élargir est la seule dégradation
-      // qui ne fait pas MENTIR la réponse.
+      // Ce test verrouillait l'inverse, et le disait : `_` élargissait au lieu
+      // de restreindre, faute de clause `LIKE … ESCAPE '\'` émise — sans elle un
+      // terme échappé était cherché littéralement et ne rendait plus rien. La
+      // clause est désormais posée par l'adapter, donc `searchCriteria` échappe
+      // le terme, et la réponse est enfin celle qu'on lit dans la barre.
       const page = await store.listPage({ limit: 50, q: "a_c" });
       assert.deepEqual(
-        page.items.map((i) => i.userId).sort(),
-        ["a_c", "abc"],
+        page.items.map((i) => i.userId),
+        ["a_c"],
       );
     });
   });

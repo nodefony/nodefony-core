@@ -34,7 +34,11 @@ Deux usages :
   la **prod = `drizzle-kit`** (migrations).
 - **Opérateurs riches** (ADR-0003 risque #3 — tranché ici) : objet `$`-préfixé
   typé (`FieldOperators<V>` de orm-core) → traduit en `eq()/gt()/inArray()/like()`.
-  `$like` reste sémantique **SQL** (`%`/`_`), natif Drizzle.
+  `$like` reste sémantique **SQL** (`%`/`_`), avec sa clause `ESCAPE '\'` émise
+  par `likeSql.ts` (`likeCond`) — jamais le `like()` nu de Drizzle, qui n'en pose
+  aucune : sans elle, PG et MySQL appliquent déjà l'antislash quand SQLite le
+  cherche littéralement, soit trois sémantiques pour un opérateur portable.
+  Neutraliser un littéral = `escapeLikeTerm` (orm-core), jamais un `replace` local.
 - **Eager-load manuel** (`options.relations`) : 1 requête `IN (...)` par relation
   déclarée + regroupement mémoire. Volontairement **sans** la couche `relations()`
   de Drizzle (générique cross-entités, pas de double déclaration).
