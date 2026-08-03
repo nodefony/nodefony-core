@@ -110,6 +110,14 @@
 - `[1× — 2026-08-02]` 🔴 **La règle du banc enfreinte par ses propres auteurs** : trois verbes
   livrés sans aucune tâche pour les mesurer. **Concevoir la tâche a trouvé un défaut que la
   relecture n'avait pas vu.**
+- `[1× — 2026-08-03]` 🔴 **Une capacité se PERD dans un décorateur, et le refus qui en découle
+  a l'air légitime.** `RevocationGuardStorage` relayait `listPage`, `listAll`, `countSessions` —
+  mais pas le `sortableFields` que je venais d'ajouter. Le décorateur étant posé en production
+  dès qu'une révocation est possible, le tri aurait été refusé **partout**, y compris sur une
+  base qui sait parfaitement trier ; et le 400 rendu ressemblait à un refus normal. Motif à
+  reconnaître : **tout wrapper qui ré-expose sélectivement une interface est un point de perte
+  silencieuse** — la nouvelle capacité doit être ajoutée AU DÉCORATEUR dans le même geste, et
+  c'est un banc de contrat partagé qui l'attrape, jamais une relecture.
 
 ## 🕳️ Un filet anti-régression ne couvre que ce qu'on y a MIS, et il ne le dit pas
 
@@ -120,6 +128,20 @@
   Markdown. Reproduit **trois fois** dans la même passe sur des gabarits non couverts, chaque fois
   invisible aux assertions de contenu. Un contrôle de FORME doit porter sur la classe de défaut,
   pas sur l'extension où on l'a rencontré la première fois.
+
+## 🔀 DEUX appels au même traducteur, un seul informé — le second annule le premier
+
+- `[1× — 2026-08-03]` 🔴 **Le même handler appelait `parsePageQuery` deux fois** : une fois avec
+  l'allowlist de tri, une fois sans (via un helper hérité du lot précédent). Le second refusait
+  en 400 ce que le premier venait d'accepter. **Aucun test unitaire ne pouvait le voir** — les
+  deux appels sont corrects isolément, c'est leur COEXISTENCE qui est le défaut ; seul le wire
+  l'a montré. Ce qui a tranché en un cycle : **instrumenter le point de passage** (afficher la
+  valeur réelle au goulot) après trois hypothèses fausses d'affilée — cache turbo, dist périmé,
+  mauvaise instance. Le signe distinctif était dans les messages : deux champs refusés avec
+  **deux messages différents** disaient qu'il y avait deux chemins de refus.
+- `[1× — 2026-08-03]` **Corollaire d'écriture** : quand un lot introduit un traducteur unique,
+  le lot suivant doit SUPPRIMER les helpers qu'il remplace, pas cohabiter avec eux. Un helper
+  laissé en place n'est pas du code mort — c'est un second chemin qui décide.
 
 ## 🎭 Le DÉCOR d'un banc doit être celui de l'utilisateur, sinon la mesure ment sur son objet
 
@@ -203,6 +225,12 @@ install`.** Et `npm run build` vert ne dit rien du chemin réel qu'emprunte l'ut
   typé du tout, et je l'aurais cru vert. Pire, l'erreur affichée venait d'un **`dist` périmé**
   (types absents) et accusait un paquet tiers. Deux faux diagnostics dans une seule commande :
   lancer le maillon VISÉ séparément, et rebâtir avant de conclure sur des types.
+- `[1× — 2026-08-03]` 🔴 **Une infra docker peut MOURIR en cours de suite** — PostgreSQL et
+  MariaDB, démarrés et vérifiés, sont tombés pendant le run : **22 fichiers rouges d'un coup**,
+  avec 0 test en échec (erreurs de collecte). Lu trop vite, ça ressemble à une régression du
+  diff en cours. Deux réflexes : la forme du verdict trahit la cause (**fichiers rouges sans
+  test rouge = décor, pas code**), et on **attend la disponibilité** (`until pg_isready`) au lieu
+  de supposer qu'un `up -d` réussi vaut pour toute la durée du run.
 - `[1× — 2026-08-02b]` **Un script maison ne connaît pas `--help` : il LANCE le travail.** Les
   options se lisent au source.
 - `[1× — 2026-07-30b]` **`spawnSync` BLOQUE la boucle du parent** — mortel dans un harnais qui
