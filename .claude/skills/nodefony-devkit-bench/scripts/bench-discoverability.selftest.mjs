@@ -345,33 +345,52 @@ const SAMPLES = {
   },
 
   // ── T5 ────────────────────────────────────────────────────────────────────
-  "5 :: a démarré par le framework (npm run dev / nodefony development)": {
-    pass: { transcript: `{"command":"npm run dev"}` },
-    fail: { transcript: `{"command":"node dist/index.js"}` },
-    extra: [
-      {
-        // LE cas qui manquait, et qui rendait la tâche satisfiable par ABANDON.
-        // Le transcript porte le contenu des fichiers lus ; l'`AGENTS.md`
-        // généré écrit `npm run dev` noir sur blanc. Un agent qui l'ouvre et
-        // raconte ce qu'il ferait doit être REFUSÉ : lire n'est pas démarrer.
-        label: "AGENTS.md lu, rien lancé",
-        matter: {
-          transcript: `{"type":"tool_result","content":"## Démarrer\\n\\n\`\`\`bash\\nnpm run dev\\n\`\`\`"}`,
+  "5 :: a démarré par le framework (npm run dev / npm start / nodefony development)":
+    {
+      pass: { transcript: `{"command":"npm run dev"}` },
+      fail: { transcript: `{"command":"node dist/index.js"}` },
+      extra: [
+        {
+          // LE cas du terrain : trois runs sur trois ont démarré par ce script,
+          // que le gabarit déclare `nodefony production`. La sonde le refusait,
+          // et la tâche sortait FAIL 0/3 alors que tous ses gates étaient verts.
+          label: "démarrage par le script npm du gabarit",
+          matter: {
+            transcript: `{"command":"npm start > /tmp/server.log 2>&1 &"}`,
+          },
+          expect: true,
         },
-        expect: false,
-      },
-      {
-        // Symétrique : la commande passée à un shell imbriqué reste une
-        // invocation, et les guillemets échappés ne doivent pas l'y cacher.
-        label: "démarrage via un shell imbriqué",
-        matter: {
-          transcript: `{"command":"sh -c \\"npx nodefony development --detach\\""}`,
+        {
+          // Un script npm qui ne lance PAS le serveur ne doit rien satisfaire :
+          // sans quoi l'élargissement rendrait la sonde vraie sur toute la vie
+          // de l'application.
+          label: "un autre script npm ne démarre pas",
+          matter: { transcript: `{"command":"npm run build"}` },
+          expect: false,
         },
-        expect: true,
-      },
-    ],
-  },
-  "5 :: a employé nodefony status ou nodefony stop": {
+        {
+          // LE cas qui manquait, et qui rendait la tâche satisfiable par ABANDON.
+          // Le transcript porte le contenu des fichiers lus ; l'`AGENTS.md`
+          // généré écrit `npm run dev` noir sur blanc. Un agent qui l'ouvre et
+          // raconte ce qu'il ferait doit être REFUSÉ : lire n'est pas démarrer.
+          label: "AGENTS.md lu, rien lancé",
+          matter: {
+            transcript: `{"type":"tool_result","content":"## Démarrer\\n\\n\`\`\`bash\\nnpm run dev\\n\`\`\`"}`,
+          },
+          expect: false,
+        },
+        {
+          // Symétrique : la commande passée à un shell imbriqué reste une
+          // invocation, et les guillemets échappés ne doivent pas l'y cacher.
+          label: "démarrage via un shell imbriqué",
+          matter: {
+            transcript: `{"command":"sh -c \\"npx nodefony development --detach\\""}`,
+          },
+          expect: true,
+        },
+      ],
+    },
+  "5 :: a employé nodefony status ou stop (directement ou par npm)": {
     pass: { transcript: `{"command":"npx nodefony stop"}` },
     fail: { transcript: `{"command":"npx nodefony development"}` },
     extra: [
@@ -380,6 +399,20 @@ const SAMPLES = {
         matter: {
           transcript: `{"type":"tool_result","content":"Arrêt propre : \`npx nodefony stop\`"}`,
         },
+        expect: false,
+      },
+      {
+        // Le geste du terrain : `npm stop` est `nodefony stop`, par la porte
+        // que le gabarit ouvre. `npm run stop` aussi — npm accepte les deux.
+        label: "arrêt par le script npm du gabarit",
+        matter: { transcript: `{"command":"npm stop 2>&1"}` },
+        expect: true,
+      },
+      {
+        // La borne : démarrer n'est pas arrêter, même par npm. Sans ce cas,
+        // l'élargissement pourrait rendre la sonde vraie sur `npm start`.
+        label: "le script de démarrage ne vaut pas un arrêt",
+        matter: { transcript: `{"command":"npm start"}` },
         expect: false,
       },
     ],

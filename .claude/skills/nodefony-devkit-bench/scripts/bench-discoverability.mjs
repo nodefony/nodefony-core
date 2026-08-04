@@ -426,6 +426,63 @@ function interrupteurPattern() {
 const commandeQuiContient = (motif) =>
   new RegExp(`"command"\\s*:\\s*"(?:[^"\\\\]|\\\\.)*?(?:${motif})`, "u");
 
+/**
+ * Le motif d'une commande du framework, **avec les scripts npm qui la lancent**.
+ *
+ * Une sonde qui n'accepte que la forme littérale (`nodefony development`) mesure
+ * une ORTHOGRAPHE d'invocation, pas le geste. Le `package.json` que le gabarit
+ * dépose est lui aussi l'outillage du framework : `npm start` y VAUT
+ * `nodefony production`, et c'est la première voie que l'agent trouve, puisqu'il
+ * lit ce fichier avant tout le reste. Vécu sur la tâche 5, trois runs sur trois :
+ * les agents pilotaient le serveur par `npm start` puis `npm stop`, tous les
+ * gates étaient verts — ports rendus, aucun bricolage — et la tâche sortait
+ * `FAIL 0/3` sur les deux seules sondes qui exigeaient la forme longue.
+ *
+ * La liste des scripts n'est donc pas écrite ici : elle est **dérivée du
+ * gabarit**, seule source de vérité. Recopier `start|dev` en dur créerait une
+ * deuxième liste, qui mentirait le jour où le gabarit renomme un script — et ce
+ * jour est annoncé.
+ *
+ * @param {string[]} verbes - les verbes `nodefony` visés (`development`, `stop`…).
+ * @returns {string} une alternative de sous-motifs, en source d'expression
+ *   régulière, à passer à {@link commandeQuiContient}.
+ * @throws Si le gabarit est introuvable ou si aucun script ne lance ces verbes —
+ *   un motif amputé rendrait la sonde étroite en silence, et un motif VIDE la
+ *   rendrait vraie sur tout.
+ */
+export const invocationDuFramework = (verbes) => {
+  const gabarit = path.join(
+    REPO,
+    "src",
+    "nodefony",
+    "templates",
+    "app",
+    "base",
+    "package.json.tpl",
+  );
+  if (!existsSync(gabarit)) {
+    throw new Error(
+      `sonde impossible à construire : gabarit introuvable (${gabarit})`,
+    );
+  }
+  const alternative = verbes.join("|");
+  const scripts = [
+    ...readFileSync(gabarit, "utf8").matchAll(
+      /"([\w:-]+)"\s*:\s*"(?:npx\s+)?nodefony\s+([\w:-]+)/gu,
+    ),
+  ]
+    .filter(([, , verbe]) => verbes.includes(verbe))
+    .map(([, nom]) => nom);
+  if (!scripts.length) {
+    throw new Error(
+      `sonde impossible à construire : aucun script du gabarit ne lance \`nodefony ${alternative}\``,
+    );
+  }
+  // `start`/`stop`/`test` s'invoquent sans `run` — accepter les deux formes.
+  const parNpm = `npm\\s+(?:run\\s+)?(?:${scripts.join("|")})\\b`;
+  return `${parNpm}|(?:npx\\s+)?nodefony\\s+(?:${alternative})\\b`;
+};
+
 const INTERRUPTEUR_DE_SECURITE = {
   kind: "code",
   name: "aucune brique de sécurité éteinte en configuration",
@@ -825,18 +882,21 @@ export const TASKS = [
         // gate de ports (vert quand rien n'a démarré), la tâche entière était
         // alors satisfaite par ABANDON.
         kind: "transcript",
-        name: "a démarré par le framework (npm run dev / nodefony development)",
+        name: "a démarré par le framework (npm run dev / npm start / nodefony development)",
         pattern: commandeQuiContient(
-          "npm run dev\\b|nodefony\\s+(?:development|dev|production)\\b",
+          invocationDuFramework(["development", "dev", "production"]),
         ),
       },
       {
         // Les deux commandes standalone que l'AGENTS.md généré lui donne — et
         // dont RIEN ne prouvait qu'un agent s'en sert. Même ancrage, même
         // raison : ce fichier les nomme, donc les mentionner ne prouve rien.
+        // Les scripts `npm stop`/`npm run status` du gabarit les lancent et
+        // comptent donc autant : c'est la MÊME commande, par la porte que
+        // l'application ouvre.
         kind: "transcript",
-        name: "a employé nodefony status ou nodefony stop",
-        pattern: commandeQuiContient("nodefony\\s+(?:status|stop)\\b"),
+        name: "a employé nodefony status ou stop (directement ou par npm)",
+        pattern: commandeQuiContient(invocationDuFramework(["status", "stop"])),
       },
       {
         kind: "transcript",
