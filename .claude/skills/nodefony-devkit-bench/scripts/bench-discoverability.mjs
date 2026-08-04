@@ -115,7 +115,7 @@ import {
   lireCause,
   motifNonOpposable,
 } from "./lib/imputation.mjs";
-import { indiceDeLaPasse } from "./lib/passes.mjs";
+import { commitsDuHarnais, indiceDeLaPasse } from "./lib/passes.mjs";
 import {
   CHEMIN_REFERENCE,
   depister,
@@ -3494,7 +3494,12 @@ function judgeTask(app, runDir, task, occurrence = null) {
   // pas `hash~1` : un agent peut committer LUI-MÊME en cours de tâche (vécu au
   // premier run réel), et son travail vivrait entre les deux commits de
   // harnais — un diff d'un seul cran le raterait entièrement.
-  const log = git(app, "log", "--format=%H %s").split("\n");
+  // L'AUTEUR fait partie de la lecture : un agent qui commite lui-même imite la
+  // convention de messages qu'il lit dans l'historique, et ses commits se
+  // mettraient à compter comme des passes (cf `commitsDuHarnais`).
+  const log = commitsDuHarnais(
+    git(app, "log", "--format=%H\t%an\t%s").split("\n"),
+  );
   // La sélection vit dans `lib/passes.mjs`, PURE et éprouvée sur un historique
   // fabriqué : c'est un `endsWith` qui a fait juger deux commits de DÉCOR pour
   // des passes d'agent, et rien dans un verdict plausible ne l'aurait dit.

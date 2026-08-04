@@ -23,7 +23,7 @@ const MODULE =
   process.argv.indexOf("--module") === -1
     ? "./passes.mjs"
     : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
-const { indiceDeLaPasse, passesDe } = await import(MODULE);
+const { indiceDeLaPasse, passesDe, commitsDuHarnais } = await import(MODULE);
 
 // Trois répétitions de la tâche 26, telles que le banc les écrit — décor et
 // remise à zéro compris, dans l'ordre de `git log` (plus récent d'abord).
@@ -46,6 +46,42 @@ const echec = (msg) => {
   console.log(`  ❌ ${msg}`);
 };
 const hash = (i) => (i === -1 ? "(aucune)" : LOG[i].split(" ")[0]);
+
+console.log(
+  "• un commit de l'AGENT n'est pas une passe, même s'il en a le nom",
+);
+// Le cas RÉEL, relevé sur une passe complète : lâché dans un dépôt dont
+// l'historique est fait de « tâche 10 », l'agent IMITE la convention et écrit
+// son propre commit `tâche 10`. Le banc comptait alors quatre passes pour trois
+// jouées — une passe jugée sur le commit partiel de l'agent, une comptée deux
+// fois, la dernière jamais jugée.
+const LOG_AVEC_AUTEURS = [
+  "aaa3333\tbench\ttâche 10",
+  "fff2222\tChristophe CAMENSULI\ttâche 10",
+  "aaa2222\tbench\ttâche 10",
+  "ddd2222\tbench\tremise à zéro avant la tâche 10 — état initial",
+  "aaa1111\tbench\ttâche 10",
+  "eee0000\tbench\tétat initial",
+];
+const duHarnais = commitsDuHarnais(LOG_AVEC_AUTEURS);
+if (passesDe(duHarnais, 10).length !== 3) {
+  echec(
+    `${passesDe(duHarnais, 10).length} passes trouvées, 3 attendues — le commit ` +
+      `de l'agent est compté comme une passe du harnais`,
+  );
+}
+if (duHarnais.some((l) => l.includes("fff2222"))) {
+  echec("le commit de l'agent a survécu au filtre d'auteur");
+}
+// La forme rendue doit rester celle qu'attend le reste du banc.
+if (duHarnais[0] !== "aaa3333 tâche 10") {
+  echec(`format inattendu après filtrage : « ${duHarnais[0]} »`);
+}
+// Un journal SANS auteur (rapport d'archive relu par --analyze-only) reste
+// lisible : on ne jette pas des lignes qu'on ne sait pas qualifier.
+if (commitsDuHarnais(LOG).length !== LOG.length) {
+  echec("un journal sans colonne d'auteur a été amputé");
+}
 
 console.log("• un commit de DÉCOR n'est pas une passe");
 const passes = passesDe(LOG, 26);
@@ -106,6 +142,11 @@ if (process.argv.includes("--prove") && MODULE === "./passes.mjs") {
       regle: "rang compté depuis le plus ANCIEN",
       de: "return passes[passes.length - 1 - occurrence] ?? -1;",
       vers: "return passes[occurrence] ?? -1;",
+    },
+    {
+      regle: "l'AUTEUR distingue le harnais de l'agent",
+      de: 'if (an === auteur) retenus.push(`${hash} ${reste.join("\\t")}`);',
+      vers: 'retenus.push(`${hash} ${reste.join("\\t")}`);',
     },
   ];
   const tmp = mkdtempSync(path.join(os.tmpdir(), "nf-passes-prove-"));

@@ -20,6 +20,53 @@
  */
 
 /**
+ * L'auteur sous lequel le HARNAIS commite. Un agent commite, lui, sous
+ * l'identité git de la machine — c'est ce qui les distingue.
+ */
+export const AUTEUR_HARNAIS = "bench";
+
+/**
+ * Ne garder que les commits ÉCRITS PAR LE HARNAIS.
+ *
+ * Un agent peut committer lui-même — et il le fait : lâché dans un dépôt dont
+ * l'historique est fait de « tâche 10 », « tâche 11 », il IMITE la convention
+ * qu'il lit. Mesuré sur une passe complète : un agent a écrit un commit
+ * `tâche 10`, portant donc exactement le message que le banc emploie pour
+ * repérer ses propres passes.
+ *
+ * L'effet est silencieux et faux dans les deux sens : le banc compte QUATRE
+ * passes là où il en a joué trois, les rangs se décalent, une passe est jugée
+ * sur le commit partiel de l'agent, une autre est comptée deux fois, et la
+ * dernière n'est jamais jugée. Le verdict qui en sort a l'allure d'une mesure —
+ * sur T10, un `FAIL 0/3` dont le gate d'état disait pourtant `exit 0`, la
+ * contradiction étant le seul indice.
+ *
+ * Le message ne peut donc pas suffire à identifier une passe : l'agent a le
+ * droit d'écrire ce qu'il veut dans le sien. L'AUTEUR, lui, ne se devine pas —
+ * le harnais pose le sien explicitement à chaque commit.
+ *
+ * @param {string[]} log - lignes `<hash>\t<auteur>\t<message>`.
+ * @param {string} [auteur] - l'auteur du harnais.
+ * @returns {string[]} les lignes retenues, au format `<hash> <message>` attendu
+ *   par le reste du banc.
+ */
+export function commitsDuHarnais(log, auteur = AUTEUR_HARNAIS) {
+  const retenus = [];
+  for (const ligne of log) {
+    const [hash, an, ...reste] = ligne.split("\t");
+    // Ligne sans auteur (journal d'un ancien run, relu par `--analyze-only`) :
+    // on la garde telle quelle plutôt que de la jeter — un rapport d'archive
+    // doit rester lisible, quitte à porter le défaut de son époque.
+    if (reste.length === 0) {
+      retenus.push(ligne);
+      continue;
+    }
+    if (an === auteur) retenus.push(`${hash} ${reste.join("\t")}`);
+  }
+  return retenus;
+}
+
+/**
  * Indices des commits de TRAVAIL d'une tâche, du plus récent au plus ancien.
  *
  * @param {string[]} log - lignes `<hash> <message>`, ordre de `git log`.
