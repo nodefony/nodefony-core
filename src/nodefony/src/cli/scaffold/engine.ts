@@ -790,6 +790,30 @@ export function toKebabCase(name: string): string {
  *   pour `controllers`/`entities` seulement — si le décorateur est introuvable
  *   (le message donne l'édition manuelle exacte).
  */
+/**
+ * L'expression d'un décorateur-liste RÉEL — jamais sa mention dans un commentaire.
+ *
+ * `String.replace` sans `g` réécrit la PREMIÈRE occurrence trouvée. Un `index.ts`
+ * dont le TSDoc cite `@services([…])` au-dessus de la classe — ce que fait le
+ * gabarit d'application, pour expliquer à quoi sert la liste — voyait donc sa
+ * PROSE réécrite : `@services([…, DiscountService]) est ce qui fait EXISTER un
+ * service`, phrase absurde qui s'allongeait à chaque service créé, pendant que
+ * le vrai décorateur, lui, était bien étendu (constaté sur un run du banc).
+ *
+ * L'ancre `^[ \t]*@` suffit à trancher : une ligne de TSDoc commence par ` * `.
+ * Le premier groupe capture l'indentation pour la rendre telle quelle — un
+ * décorateur de classe imbriquée n'a pas à être désaligné par sa réécriture.
+ *
+ * @param decorator - le décorateur-liste visé.
+ * @returns l'expression, multi-lignes, avec l'indentation en groupe 1 et le
+ *   contenu de la liste en groupe 2.
+ */
+function decoratorListRe(
+  decorator: "controllers" | "entities" | "services",
+): RegExp {
+  return new RegExp(`^([ \\t]*)@${decorator}\\(\\[([^\\]]*)\\]\\)`, "mu");
+}
+
 export function wireDecoratorList(
   indexPath: string,
   decorator: "controllers" | "entities" | "services",
@@ -826,13 +850,13 @@ export function wireDecoratorList(
     source.slice(0, importAt) +
     `\n${importLine}${extraImport}` +
     source.slice(importAt);
-  const decoRe = new RegExp(`@${decorator}\\(\\[([^\\]]*)\\]\\)`, "u");
+  const decoRe = decoratorListRe(decorator);
   const match = decoRe.exec(withImport);
   if (match && match.index !== undefined) {
-    const list = match[1].trim();
+    const list = match[2].trim();
     const wired = withImport.replace(
       decoRe,
-      `@${decorator}([${list ? `${list.replace(/,\s*$/u, "")}, ` : ""}${className}])`,
+      `$1@${decorator}([${list ? `${list.replace(/,\s*$/u, "")}, ` : ""}${className}])`,
     );
     writer.write(indexPath, wired);
     return;
@@ -3178,14 +3202,16 @@ export function wireEntitiesDecorator(
   const importAt = last.index + last[0].length;
 
   // Le décorateur existe déjà (une entité a précédé) → compléter SA liste.
-  const listRe = /@entities\(\[([^\]]*)\]\)/u;
+  // Même règle que `wireDecoratorList` : le décorateur RÉEL, pas sa mention dans
+  // un commentaire — une seule implémentation, `decoratorListRe`.
+  const listRe = decoratorListRe("entities");
   if (listRe.test(source)) {
     const withImport =
       source.slice(0, importAt) + `\n${importLine}` + source.slice(importAt);
-    const current = (listRe.exec(withImport) as RegExpExecArray)[1].trim();
+    const current = (listRe.exec(withImport) as RegExpExecArray)[2].trim();
     const wired = withImport.replace(
       listRe,
-      `@entities([${current ? `${current.replace(/,\s*$/u, "")}, ` : ""}${className}])`,
+      `$1@entities([${current ? `${current.replace(/,\s*$/u, "")}, ` : ""}${className}])`,
     );
     writer.write(indexPath, wired);
     return;

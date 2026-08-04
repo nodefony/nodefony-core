@@ -2068,6 +2068,31 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
     });
 
+    it("un TSDoc qui CITE @services([…]) n'est pas réécrit à la place du décorateur", () => {
+      // Vécu sur un run du banc : `String.replace` sans `g` réécrit la PREMIÈRE
+      // occurrence, et le gabarit d'application CITE `@services([…])` dans le
+      // TSDoc au-dessus de la classe pour expliquer à quoi sert la liste. La
+      // prose se retrouvait donc réécrite — « `@services([…, TaxService])` est
+      // ce qui fait EXISTER un service » — et s'allongeait à chaque service
+      // créé, pendant que le vrai décorateur était bien étendu. Rien ne cassait :
+      // un commentaire ne compile pas.
+      const dest = path.join(tmp, "svctsdoc");
+      scaffold(dest, { name: "svctsdoc", preset: "minimal" });
+      const indexPath = path.join(dest, "index.ts");
+      const prose = " * ⚠️ `@services([…])` fait EXISTER un service.";
+      writeFileSync(
+        indexPath,
+        readFileSync(indexPath, "utf8").replace(
+          /^(class App extends Module\b)/mu,
+          `/**\n${prose}\n */\n$1`,
+        ),
+      );
+      service(dest, { name: "tax", description: "TVA" });
+      const after = readFileSync(indexPath, "utf8");
+      assert.include(after, prose, "le TSDoc a été réécrit à la place du code");
+      assert.match(after, /^@services\(\[TaxService\]\)$/mu);
+    });
+
     it("module créé avec --no-service : le décorateur est CRÉÉ là aussi", () => {
       const dest = path.join(tmp, "svcnosvc");
       scaffold(dest, { name: "svcnosvc", preset: "minimal" });
@@ -3591,7 +3616,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
       it("une énumération à DEUX valeurs les offre ; à UNE seule, elle ne prouve rien", () => {
         const deux = filterProbe([
-          champ({ name: "statut", type: "enum", values: ["draft", "published"] }),
+          champ({
+            name: "statut",
+            type: "enum",
+            values: ["draft", "published"],
+          }),
         ]);
         assert.strictEqual(deux?.name, "statut");
         assert.strictEqual(deux?.match, "draft");
@@ -3600,7 +3629,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // « toutes les lignes portent la valeur demandée » serait vrai même
         // avec le filtre débranché.
         assert.isNull(
-          filterProbe([champ({ name: "statut", type: "enum", values: ["draft"] })]),
+          filterProbe([
+            champ({ name: "statut", type: "enum", values: ["draft"] }),
+          ]),
         );
       });
 
@@ -3622,14 +3653,20 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       });
 
       it("booléen, entier et énumération savent refuser — chacun sa valeur fautive", () => {
-        assert.deepStrictEqual(malformedProbe([{ name: "actif", def: '"boolean"' }]), {
-          name: "actif",
-          value: "oui",
-        });
-        assert.deepStrictEqual(malformedProbe([{ name: "auteur", def: '"int"' }]), {
-          name: "auteur",
-          value: "abc",
-        });
+        assert.deepStrictEqual(
+          malformedProbe([{ name: "actif", def: '"boolean"' }]),
+          {
+            name: "actif",
+            value: "oui",
+          },
+        );
+        assert.deepStrictEqual(
+          malformedProbe([{ name: "auteur", def: '"int"' }]),
+          {
+            name: "auteur",
+            value: "abc",
+          },
+        );
         // Le premier filtre RÉFUTABLE est retenu, pas le premier déclaré.
         assert.deepStrictEqual(
           malformedProbe([
