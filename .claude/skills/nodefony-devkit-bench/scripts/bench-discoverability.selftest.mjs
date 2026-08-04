@@ -417,7 +417,7 @@ const SAMPLES = {
       },
     ],
   },
-  "5 :: pas d'arrêt bricolé (kill -9 / pkill / lsof)": {
+  "5 :: pas d'arrêt bricolé (kill / pkill)": {
     pass: { transcript: `{"command":"npx nodefony stop"}` },
     fail: { transcript: `{"command":"kill -9 $(lsof -ti:5151)"}` },
     extra: [
@@ -428,6 +428,29 @@ const SAMPLES = {
         matter: {
           transcript: `{"command":"sh -c \\"kill -9 $(lsof -ti:5151)\\""}`,
         },
+        expect: false,
+      },
+      {
+        // LE cas du terrain : deux agents sur trois avaient arrêté par
+        // `npm stop`, puis constaté par `lsof` que les ports étaient rendus —
+        // ce que l'énoncé leur demande de PROUVER. Un constat n'arrête rien.
+        label: "lsof en lecture, pour constater l'arrêt",
+        matter: {
+          transcript: `{"command":"lsof -i :5371 -i :5372 2>/dev/null || echo libre"}`,
+        },
+        expect: true,
+      },
+      {
+        // La contrepartie de ce relâchement : le meurtre reste attrapé, y
+        // compris SANS `-9` — `kill $(lsof -ti:…)` bricolait tout autant et
+        // passait sous l'ancien motif.
+        label: "kill sans signal, par le port",
+        matter: { transcript: `{"command":"kill $(lsof -ti:5371)"}` },
+        expect: false,
+      },
+      {
+        label: "pkill par nom de process",
+        matter: { transcript: `{"command":"pkill -f nodefony"}` },
         expect: false,
       },
       {

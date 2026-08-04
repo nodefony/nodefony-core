@@ -900,7 +900,7 @@ export const TASKS = [
       },
       {
         kind: "transcript",
-        name: "pas d'arrêt bricolé (kill -9 / pkill / lsof)",
+        name: "pas d'arrêt bricolé (kill / pkill)",
         // Le motif vise une INVOCATION, pas une mention : il exige la clé
         // `"command"` d'un appel d'outil. Vécu — la version qui cherchait les
         // noms nus rougissait sur l'`AGENTS.md` de l'application, qui INTERDIT
@@ -908,7 +908,19 @@ export const TASKS = [
         // l'agent lisait la règle, le fichier entrait au transcript, et la
         // sonde comptait la règle comme sa violation. Un texte lu n'est pas un
         // geste posé.
-        pattern: commandeQuiContient("kill\\s+-9|pkill|lsof"),
+        //
+        // `lsof` a été RETIRÉ du motif, et c'est le même travers vu une
+        // troisième fois : il n'arrête rien. Mesuré — deux agents sur trois
+        // avaient démarré par `npm start`, arrêté par `npm stop`, puis lancé
+        // `lsof -i :5371` pour CONSTATER que les ports étaient rendus, ce que
+        // l'énoncé leur demande explicitement de prouver. Le gate d'état
+        // confirmait l'arrêt, et la tâche sortait quand même rouge. Le geste
+        // fautif n'est pas le constat, c'est le meurtre : `kill -9 $(lsof …)`
+        // reste attrapé par `kill`, qui est la seule moitié qui tue.
+        //
+        // Le motif s'ouvre en échange à TOUT `kill`, plus seulement `-9` :
+        // `kill $(lsof -ti:5371)` bricolait tout autant et passait.
+        pattern: commandeQuiContient("\\bp?kill(?:all)?\\s"),
         invert: true,
       },
       {
