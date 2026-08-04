@@ -2,8 +2,8 @@
   "model": "claude-haiku-4-5-20251001",
   "decor": "isolé (tarballs, hors dépôt)",
   "agent": "claude",
-  "date": "2026-08-02T16:07:11.958Z",
-  "commit": "b4890e6e",
+  "date": "2026-08-04T00:23:19.509Z",
+  "commit": "8e20a712",
   "verdicts": {
     "1": {
       "verdict": "PASS",
@@ -72,10 +72,10 @@
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "empreinte": "a31f3ba7327b",
-      "date": "2026-08-02T07:01:29.077Z",
-      "sources": ["2026-08-02T00-49-56"],
-      "commit": "4e0f9bdd"
+      "empreinte": "d2989a1d9f97",
+      "date": "2026-08-04T00:23:19.509Z",
+      "sources": ["2026-08-03T23-52-22"],
+      "commit": "8e20a712"
     },
     "9": {
       "verdict": "PASS",
@@ -87,13 +87,13 @@
       "commit": "4e0f9bdd"
     },
     "10": {
-      "verdict": "FAIL",
+      "verdict": "PASS",
       "runs": 3,
-      "passes": 0,
+      "passes": 3,
       "empreinte": "5d19b03716d5",
-      "date": "2026-08-02T07:01:29.077Z",
-      "sources": ["2026-08-02T00-49-56"],
-      "commit": "4e0f9bdd"
+      "date": "2026-08-04T00:23:13.283Z",
+      "sources": ["2026-08-04T00-10-33"],
+      "commit": "f9e916c4"
     },
     "11": {
       "verdict": "PASS",
