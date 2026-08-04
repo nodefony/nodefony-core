@@ -399,6 +399,28 @@ satisfies IFilterSpec` + un générique `<const S>` fait dériver `{revoked?: bo
   le lot suivant doit SUPPRIMER les helpers qu'il remplace, pas cohabiter avec eux. Un helper
   laissé en place n'est pas du code mort — c'est un second chemin qui décide.
 
+## ⚖️ Un JUGE peut être satisfait par ce qu'il a FOURNI lui-même
+
+- `[1× — 2026-08-04]` 🔴 **Le juge de T8 cherchait « connecteur » dans la réponse — un mot ÉCRIT
+  DANS SON PROPRE ÉNONCÉ** (« quels connecteurs de base de données sont déclarés »), et `sqlite`
+  était lisible dans un commentaire de la config générée. Sur la tâche dont l'objet est « appeler
+  le générateur au lieu de l'imiter », le PASS ne prouvait pas qu'un générateur avait été appelé :
+  il prouvait qu'un mot avait été reproduit. Le test qui tranche : **retirer du juge tout ce que
+  la question, le décor ou la doc fournissent déjà** — il ne doit rester que ce qui EXIGE le
+  geste. Ici : le couple nom/dialecte DEMANDÉ à la porte machine au moment du jugement, et une
+  trace que seule la simulation rend (`Invoice.schema.ts`, la réécriture `@entities([…])`).
+- `[1× — 2026-08-04]` 🔴 **Un gate ancré sur un NOM est une loterie quand l'énoncé reste métier.**
+  T10 exigeait `/remise|discount/` dans le conteneur, sur un énoncé qui ne nomme aucune brique et
+  laisse l'agent dire `Pricing` ou `Tarif`. Elle est restée `FAIL 0/3` sans que ce zéro soit
+  jamais instruit. Le critère juste se DÉDUIT du décor (aucun service dans une app fraîche ⇒ tout
+  service porté par l'app a été écrit pendant la tâche), il ne se devine pas d'un vocabulaire.
+- `[1× — 2026-08-04]` ⭐ **Un correctif produit peut rendre COMPLAISANT le gate qui le mesure — à
+  refermer dans le MÊME geste.** Poser un service d'exemple dans le gabarit rendait vrai « au
+  moins un service au conteneur » sans que l'agent fasse quoi que ce soit. Le gate exige donc un
+  service AUTRE que celui du décor — et, l'exclusion par nom se retournant en silence dès qu'on
+  renomme l'exemple, il exige d'ABORD de RETROUVER l'exemple : absent, il annonce « décor
+  inattendu » au lieu de juger l'agent.
+
 ## 🎭 Le DÉCOR d'un banc doit être celui de l'utilisateur, sinon la mesure ment sur son objet
 
 - `[1× — 2026-08-02h]` 🔴 **Le décor privait l'agent des skills que l'`AGENTS.md` lui ANNONCE.**
@@ -412,6 +434,20 @@ satisfies IFilterSpec` + un générique `<const S>` fait dériver `{revoked?: bo
   « seul vrai défaut produit restant » à 1/3, rend **3/3 sans qu'aucun commit de l'intervalle ne
   touche son sujet**. Remesurer coûte moins cher qu'instruire — et l'ordre inverse fait chercher
   la cause d'un défaut qui n'existe pas. À appliquer aux quatre instables à 2/3.
+- `[1× — 2026-08-04]` 🔴 **L'agent IMITE la convention de commit du dépôt où on le lâche — y
+  compris celle par laquelle le harnais se repère.** Un agent a écrit `tâche 10`, le message exact
+  que le banc cherche : QUATRE passes comptées pour trois jouées, rangs décalés, une passe jugée
+  sur son commit partiel, une comptée deux fois, la dernière jamais jugée. Verdict `FAIL 0/3`
+  parfaitement formé, sur une tâche qui passait. **Le seul indice était une CONTRADICTION entre
+  deux sondes** : le gate d'état rendait `exit 0` pendant que les sondes de code lisaient un diff
+  qui n'était pas celui de la tâche. Règle : ce qu'un agent peut ÉCRIRE ne peut pas servir à
+  l'identifier — le harnais se reconnaît à ce qu'il pose lui-même (ici l'AUTEUR git).
+- `[1× — 2026-08-04]` ⭐ **L'agent imite ce qu'il VOIT : une capacité sans exemplaire dans le
+  décor est une capacité absente.** L'app naissait avec trois controllers d'exemple et AUCUN
+  service — pas même un `@services([…])` prouvant que le décorateur existe. Trois runs sur trois,
+  l'agent écrivait une classe ordinaire. L'exemple posé, il n'a PAS recopié le fichier : il a
+  cherché et lancé `create service`. **Un exemple ne sert pas de modèle à copier, il sert de
+  PREUVE qu'une façade existe** — et ça suffit à déclencher la recherche du générateur.
 
 ## 📏 Une sonde de PERFORMANCE juge la machine avant de juger le code
 
