@@ -1219,13 +1219,21 @@ export const TASKS = [
         // `Promotion`. La tâche est restée FAIL 0/3 sans que rien n'instruise
         // ce zéro, quand T13 recevait le correctif de périmètre au même moment.
         //
-        // Le juste critère se DÉDUIT du décor plutôt que d'un vocabulaire :
-        // aucun gabarit de `create app` ne pose de service (vérifié — seul
-        // l'`AGENTS.md` en PARLE), et le décor est remis à zéro entre tâches.
-        // Tout service porté par l'application a donc été écrit pendant la
-        // tâche, et son nom n'a plus à être deviné. Périmètre déduit comme en
-        // T13 : est « à l'app » ce qui n'est pas un paquet `@nodefony/*` —
-        // ranger ses services dans un module local est une réponse juste.
+        // Le juste critère se DÉDUIT du décor plutôt que d'un vocabulaire.
+        // Périmètre déduit comme en T13 : est « à l'app » ce qui n'est pas un
+        // paquet `@nodefony/*` — ranger ses services dans un module local est
+        // une réponse juste.
+        //
+        // 🔴 Le gabarit `--preset complete` pose DÉSORMAIS un service d'exemple
+        // (`AppInfoService`) — c'est précisément le correctif produit de cette
+        // tâche, l'agent n'avait aucun service à imiter. Compter « au moins un
+        // service » rendrait donc ce gate VERT sans que l'agent ait rien fait :
+        // il faut un service qui ne soit pas celui du décor.
+        //
+        // Et l'exclusion par le nom se retourne dès qu'on renomme l'exemple —
+        // en silence, dans le sens de la complaisance. Le gate exige donc
+        // d'ABORD de retrouver l'exemple : absent, ce n'est pas un verdict sur
+        // l'agent, c'est un décor qu'on ne reconnaît plus, et il le dit.
         kind: "gate",
         name: "le service est réellement enregistré (inspect services)",
         cmd: [
@@ -1238,8 +1246,14 @@ export const TASKS = [
             `const mods=JSON.parse(fs.readFileSync('.nf-modules.json','utf8'));` +
             `const own=new Set(mods.filter(m=>!String(m.name||'').startsWith('@nodefony/')).map(m=>m.key));` +
             `const mine=all.filter(x=>own.has(x.module));` +
-            `if(mine.length===0){` +
-            `console.error('aucun service porte par l app dans le conteneur (modules de l app : '+([...own].join(', ')||'aucun')+')');` +
+            `const nom=x=>((x.name||'')+' '+(x.class||'')).toLowerCase();` +
+            `const exemple=mine.filter(x=>/appinfo/.test(nom(x)));` +
+            `const sien=mine.filter(x=>!/appinfo/.test(nom(x)));` +
+            `if(exemple.length===0){` +
+            `console.error('DECOR INATTENDU : le service d exemple du gabarit est absent — ce gate ne mesure plus ce qu il croit');` +
+            `process.exit(1)}` +
+            `if(sien.length===0){` +
+            `console.error('aucun service ECRIT PAR L AGENT au conteneur — seul celui du gabarit y est (services de l app : '+mine.map(nom).join(', ')+')');` +
             `process.exit(1)}"`,
         ],
       },
