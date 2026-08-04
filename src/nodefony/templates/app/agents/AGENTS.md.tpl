@@ -183,7 +183,8 @@ et il fait foi le jour où les deux divergent.
   confondre avec `cors.origins`, qui autorise EN PLUS le JS du tiers à **lire**
   tes réponses : un partenaire qui POSTE n'en a pas besoin, et les deux
   traversent la défense. Détail :
-  `node_modules/@nodefony/security/docs/csrf.md`.
+  `node_modules/@nodefony/security/docs/csrf.md` ; geste complet et pièges :
+  skill **`protect-route`**.
 <% } %>
 - **Un adaptateur de données ne remplace pas l'autre : ils se COMPLÈTENT.** Chacun
   déclare les _stores_ qu'il sait tenir (`nodefony.stores` de son `package.json`) —
@@ -248,7 +249,8 @@ et il fait foi le jour où les deux divergent.
   du pipeline partagé, pas un modèle à imiter.
 <% if (it.hasSecurity) { %>- **Utilisateurs et droits : tout existe, n'improvise RIEN.** Ces gestes
   couvrent l'essentiel, et chacun a sa doc installée (cf. la table « Où lire
-  AVANT de coder », plus haut) :
+  AVANT de coder », plus haut) ; le geste détaillé et ses pièges vivent dans le
+  skill **`protect-route`** :
   - **protéger un ESPACE de routes** (tout ce qui commence par un préfixe) :
     une zone de firewall dans `nodefony.config.ts`, dont le `pattern` est le
     PRÉFIXE lui-même — `pattern: "^/api/account"`, **jamais** la liste des

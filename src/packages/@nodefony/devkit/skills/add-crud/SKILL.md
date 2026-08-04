@@ -80,6 +80,28 @@ npx nodefony create entity Session token:string! \
 Faire suivre le TypeScript aurait transformé un réglage de nommage en refonte : le service, le
 controller, le tri par défaut et les tests générés nomment tous la propriété, pas la colonne.
 
+## Toute lecture de liste se BORNE
+
+Avant le format, la règle qui décide si l'application tient en production : **un `find` sans
+borne matérialise la table ENTIÈRE.** Indolore sur les quelques lignes du poste de développement,
+fatal sur les dizaines de milliers de la production — et le code est identique dans les deux cas,
+donc rien ne prévient.
+
+Le service d'une entité hérite `findPage({ limit: 25 })` : il ne charge que **`limit + 1`** lignes
+et rend `{ items, hasNext }` — la ligne excédentaire est ce qui répond « il en reste », sans
+compter la table. Sinon `find(criteria, { limit })`.
+
+Il te faut une projection de colonnes, une CTE, une agrégation ? Descends au natif **avec son
+type** :
+
+```ts
+import type { DrizzleDb } from "@nodefony/drizzle";
+const db = orm.getNativeConnection<DrizzleDb>();
+```
+
+Sans le paramètre de type tu reçois `unknown`, et il ne te reste qu'un `as any` — que le contrôle
+refuse.
+
 ## La liste rend une PAGE — et il n'y a qu'un dialecte
 
 La route de liste ne rend pas un tableau : elle rend
