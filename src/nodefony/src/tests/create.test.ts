@@ -233,7 +233,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         /preset invalide/,
       );
       assert.throws(
-        () => resolveAnswers(spec, { name: "x", frontend: "svelte" }, caps),
+        // `solid` est déclaré dans les presets @nodefony/frontend mais n'a pas
+        // (encore) de scaffold — le contrat refuse ce que le moteur ne rend pas.
+        () => resolveAnswers(spec, { name: "x", frontend: "solid" }, caps),
         /frontend invalide/,
       );
     });
@@ -924,6 +926,69 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const apkg = readJson(path.join(adest, "package.json"));
       assert.property(apkg["devDependencies"], "@analogjs/vite-plugin-angular");
       assertNoEtaResidue(adest);
+    });
+
+    it("svelte : App.svelte (runes) + shim + plugin en devDeps — complete ET minimal", () => {
+      // Vitrine complète — mêmes preuves que vue (façade realtime, pas de
+      // WebSocket à la main), en syntaxe runes ($state) + mount() Svelte 5.
+      const sdest = path.join(tmp, "slive");
+      scaffold(sdest, {
+        name: "slive",
+        preset: "complete",
+        frontend: "svelte",
+      });
+      const sapp = readFileSync(
+        path.join(sdest, "frontend", "src", "App.svelte"),
+        "utf8",
+      );
+      assert.include(
+        sapp,
+        'RealtimeClient.shared({ url: "/api/live/realtime" })',
+      );
+      assert.include(sapp, 'live.on("live:ticker"');
+      assert.include(sapp, 'live.subscribe("live:ticker")');
+      assert.include(sapp, "$state");
+      assert.notInclude(sapp, "new WebSocket(");
+      const sentry = readFileSync(
+        path.join(sdest, "frontend", "src", "main.ts"),
+        "utf8",
+      );
+      assert.include(sentry, 'import { mount } from "svelte"');
+      // Shim TS : sans lui, tsgo ne résout pas l'import ./App.svelte.
+      assert.include(
+        readFileSync(path.join(sdest, "frontend", "src", "env.d.ts"), "utf8"),
+        'declare module "*.svelte"',
+      );
+      // tsgo checke le TS du front (main.ts + shim) — même règle que vue.
+      assert.include(
+        readFileSync(path.join(sdest, "tsconfig.json"), "utf8"),
+        "frontend/src/**/*.ts",
+      );
+      const spkg = readJson(path.join(sdest, "package.json"));
+      assert.property(spkg["devDependencies"], "svelte");
+      assert.property(spkg["devDependencies"], "@sveltejs/vite-plugin-svelte");
+      assert.notProperty(spkg["dependencies"] ?? {}, "svelte");
+      assert.include(
+        readFileSync(
+          path.join(sdest, "nodefony", "frontend", "registerSliveEntry.ts"),
+          "utf8",
+        ),
+        'type: "svelte5"',
+      );
+      assertNoEtaResidue(sdest);
+
+      // Minimal — echo WS brut (pas de realtime), compteur HMR.
+      const mdest = path.join(tmp, "sapp");
+      scaffold(mdest, { name: "sapp", preset: "minimal", frontend: "svelte" });
+      const mapp = readFileSync(
+        path.join(mdest, "frontend", "src", "App.svelte"),
+        "utf8",
+      );
+      assert.include(mapp, "new WebSocket(");
+      // La façade n'est pas IMPORTÉE en minimal (le commentaire du gabarit la
+      // MENTIONNE — c'est voulu : il pointe vers `create controller --kind realtime`).
+      assert.notInclude(mapp, "import { RealtimeClient }");
+      assertNoEtaResidue(mdest);
     });
 
     it("la feuille de style de la vitrine est PARTAGÉE, l'accent seul est local", () => {

@@ -181,6 +181,13 @@ export const FRONTEND_PARAMS: Record<
       "@angular/compiler-cli",
     ),
   },
+  svelte: {
+    type: "svelte5",
+    entry: "./frontend/src/main.ts",
+    mountNode: '<div id="app"></div>',
+    deps: {},
+    devDeps: pick("svelte", "vite", "@sveltejs/vite-plugin-svelte"),
+  },
 };
 
 /**
@@ -1165,6 +1172,16 @@ function dispatchScaffold(
       renderLayer(
         eta,
         path.join(packageRoot, "templates", "shared", "vue-shim"),
+        dest,
+        data,
+        written,
+        writer,
+      );
+    }
+    if (frontend === "svelte") {
+      renderLayer(
+        eta,
+        path.join(packageRoot, "templates", "shared", "svelte-shim"),
         dest,
         data,
         written,
@@ -3485,6 +3502,17 @@ function runFrontScaffold(
     renderLayer(
       eta,
       path.join(packageRoot, "templates", "shared", "vue-shim"),
+      target.dir,
+      data,
+      written,
+      writer,
+      tokens,
+    );
+  }
+  if (frontend === "svelte") {
+    renderLayer(
+      eta,
+      path.join(packageRoot, "templates", "shared", "svelte-shim"),
       target.dir,
       data,
       written,

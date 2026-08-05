@@ -9,6 +9,7 @@ import react19Preset from "../presets/react19-vite";
 import vue3Preset from "../presets/vue3-vite";
 import angularPreset from "../presets/angular-vite";
 import vanillaPreset from "../presets/vanilla-vite";
+import svelte5Preset from "../presets/svelte5-vite";
 
 /**
  * Construit la config Vite finale à partir des entrées résolues et des presets.
@@ -24,6 +25,7 @@ export class ViteBuilder implements IFrontBuilder {
     this.registerPreset(vue3Preset);
     this.registerPreset(angularPreset);
     this.registerPreset(vanillaPreset);
+    this.registerPreset(svelte5Preset);
   }
 
   listPresets(): ReadonlyArray<IFrontPreset> {

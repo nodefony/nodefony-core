@@ -87,7 +87,13 @@ export interface IScaffoldTypeSpec {
 }
 
 /** Frameworks front supportés par `@nodefony/frontend` (builder Vite multi-framework). */
-export const FRONTEND_CHOICES = ["none", "react", "vue", "angular"] as const;
+export const FRONTEND_CHOICES = [
+  "none",
+  "react",
+  "vue",
+  "angular",
+  "svelte",
+] as const;
 export type TFrontendChoice = (typeof FRONTEND_CHOICES)[number];
 
 /** Presets d'app : la vitrine complète (défaut) ou la base saine http+framework. */
@@ -193,6 +199,11 @@ const APP_SPEC: IScaffoldTypeSpec = {
           value: "angular",
           label: "Angular (standalone, zoneless)",
           hint: "via AnalogJS",
+        },
+        {
+          value: "svelte",
+          label: "Svelte 5",
+          hint: "runes + HMR (plugin officiel)",
         },
       ],
       default: "none",
@@ -364,6 +375,11 @@ const FRONT_SPEC: IScaffoldTypeSpec = {
           value: "angular",
           label: "Angular (standalone, zoneless)",
           hint: "via AnalogJS",
+        },
+        {
+          value: "svelte",
+          label: "Svelte 5",
+          hint: "runes + HMR (plugin officiel)",
         },
       ],
       default: "react",

@@ -1,12 +1,12 @@
 ---
 name: nodefony-create-frontend-module
 description: >
-  Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21) servi par @nodefony/frontend via
+  Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21, Svelte 5) servi par @nodefony/frontend via
   Vite, DANS LE REPO FRAMEWORK (src/modules/). Dans une APPLICATION, le scaffold est une commande —
   `nodefony create module <nom> --frontend <fw>` — et ce skill se contente d'y renvoyer : il ne
   réimplémente pas le CLI. Wrapper de nodefony-create-module : délègue le squelette puis enrichit le
   spécifique frontend (controller HTML+CSP, registerEntry, entry+App du framework, peerDeps).
-  Déclencheurs : "crée un module frontend", "module react", "module vue", "module angular",
+  Déclencheurs : "crée un module frontend", "module react", "module vue", "module angular", "module svelte",
   "scaffold module avec front", "nouveau front nodefony", "module vite".
 ---
 
@@ -30,7 +30,7 @@ deux scaffolders qui divergent, c'est le bug que ce projet a déjà payé.
 **Cas APP — une seule commande, tout est câblé (module + front + wiring) :**
 
 ```bash
-nodefony create module shop --frontend react     # ou vue | angular
+nodefony create module shop --frontend react     # ou vue | angular | svelte
 nodefony create front dashboard --module shop    # une page de plus, sur un module existant
 ```
 
@@ -52,7 +52,7 @@ hard-reload), et l'explication du POURQUOI. Jamais la mécanique.
 
 ## Phase 0 — Choisir le framework + variables
 
-1. **Framework** = arg ou question : `react` (défaut) · `vue` · `angular`. Charge la colonne correspondante
+1. **Framework** = arg ou question : `react` (défaut) · `vue` · `angular` · `svelte`. Charge la colonne correspondante
    de la table ci-dessous + `references/frameworks.md`.
 2. Variables (calculées une fois) :
    - `MOD` = nom kebab-case (ex `shop-front`)
@@ -62,16 +62,16 @@ hard-reload), et l'explication du POURQUOI. Jamais la mécanique.
 
 ## Table de paramètres par framework (LE cœur)
 
-| Aspect                 | `react`                           | `vue`                           | `angular`                                                |
-| ---------------------- | --------------------------------- | ------------------------------- | -------------------------------------------------------- |
-| `type` registerEntry   | `react19`                         | `vue3`                          | `angular`                                                |
-| `entry`                | `./frontend/src/main.tsx`         | `./frontend/src/main.ts`        | `./frontend/src/main.ts`                                 |
-| Nœud de montage (HTML) | `<div id="root"></div>`           | `<div id="app"></div>`          | `<app-root></app-root>`                                  |
-| Plugin Vite            | `@vitejs/plugin-react`            | `@vitejs/plugin-vue`            | `@analogjs/vite-plugin-angular`                          |
-| peerDeps à ajouter     | `react`, `react-dom`              | `vue`, `@vitejs/plugin-vue`     | _(voir reference — devDeps)_                             |
-| Fichiers frontend      | `main.tsx` + `App.tsx`            | `main.ts` + `App.vue`           | `main.ts` + `app/app.component.ts` + `tsconfig.app.json` |
-| Preamble HMR injecté   | **oui** (auto via `renderTags`)   | non                             | non (HMR = reload)                                       |
-| Module de référence    | `src/modules/test-frontend-react` | `src/modules/test-frontend-vue` | `src/modules/test-frontend-angular`                      |
+| Aspect                 | `react`                           | `vue`                           | `angular`                                                | `svelte`                                                                           |
+| ---------------------- | --------------------------------- | ------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `type` registerEntry   | `react19`                         | `vue3`                          | `angular`                                                | `svelte5`                                                                          |
+| `entry`                | `./frontend/src/main.tsx`         | `./frontend/src/main.ts`        | `./frontend/src/main.ts`                                 | `./frontend/src/main.ts`                                                           |
+| Nœud de montage (HTML) | `<div id="root"></div>`           | `<div id="app"></div>`          | `<app-root></app-root>`                                  | `<div id="app"></div>`                                                             |
+| Plugin Vite            | `@vitejs/plugin-react`            | `@vitejs/plugin-vue`            | `@analogjs/vite-plugin-angular`                          | `@sveltejs/vite-plugin-svelte` (export NOMMÉ `{ svelte }`)                         |
+| peerDeps à ajouter     | `react`, `react-dom`              | `vue`, `@vitejs/plugin-vue`     | _(voir reference — devDeps)_                             | `svelte`, `@sveltejs/vite-plugin-svelte`                                           |
+| Fichiers frontend      | `main.tsx` + `App.tsx`            | `main.ts` + `App.vue`           | `main.ts` + `app/app.component.ts` + `tsconfig.app.json` | `main.ts` (`mount(App, { target })`) + `App.svelte` + `env.d.ts` (shim `*.svelte`) |
+| Preamble HMR injecté   | **oui** (auto via `renderTags`)   | non                             | non (HMR = reload)                                       | non                                                                                |
+| Module de référence    | `src/modules/test-frontend-react` | `src/modules/test-frontend-vue` | `src/modules/test-frontend-angular`                      | `src/modules/test-frontend-svelte`                                                 |
 
 > Détails (templates entry/App, tsconfig Angular, gotchas Angular) → **[`references/frameworks.md`](references/frameworks.md)**.
 > Les 3 modules de référence sont **canoniques** : toujours s'en inspirer pour le résultat attendu.
@@ -83,6 +83,7 @@ hard-reload), et l'explication du POURQUOI. Jamais la mécanique.
   - react : `npm i -D vite @vitejs/plugin-react react react-dom`
   - vue : `npm i -D vite @vitejs/plugin-vue vue`
   - angular : `npm i -D vite @analogjs/vite-plugin-angular @angular/build @angular/compiler-cli @angular/core @angular/common @angular/platform-browser --legacy-peer-deps`
+  - svelte : `npm i -D vite @sveltejs/vite-plugin-svelte svelte`
 
 ## Phase 1 — Déléguer à `nodefony-create-module`
 
@@ -153,12 +154,13 @@ class {MOD_PASCAL}Controller extends Controller {
   renderApp(): unknown {
     this.setContextHtml();
     const svc = this.context?.container?.get("frontend") as FrontendService | undefined;
-    // Helmet pose `script-src 'self'` → bloque les scripts Vite cross-origin.
-    // TODO migrer dans @nodefony/security (cf project-csp-vite-security-todo).
-    if (svc) {
-      this.context?.response?.setHeader("Content-Security-Policy", svc.getCspDirectives());
-    }
-    const viteTags = svc?.renderTags("{MOD}") ?? "<!-- @nodefony/frontend not ready -->";
+    // CSP : émise par le FIREWALL (@nodefony/security) — le service frontend
+    // déclare ses origines Vite via `registerCspOrigins` au démarrage. Le
+    // controller ne pose AUCUN header : il propage le NONCE de la requête aux
+    // <script> injectés. (`getCspDirectives()` n'existe plus — supprimé.)
+    const viteTags =
+      svc?.renderTags("{MOD}", this.context?.cspNonce) ??
+      "<!-- @nodefony/frontend not ready -->";
     return this.render(`<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -229,7 +231,7 @@ path.join(this.path, "dist", "frontend") }).mount(container, kernel)` + exposer
 ## Checklist finale
 
 - [ ] `index.ts` : `apiProxyPaths` présent dans `registerEntry`
-- [ ] Controller : `setHeader("Content-Security-Policy", svc.getCspDirectives())` AVANT `render`
+- [ ] Controller : nonce propagé — `renderTags("{MOD}", this.context?.cspNonce)` (JAMAIS de header CSP posé à la main)
 - [ ] Nœud de montage HTML = celui du framework (table)
 - [ ] `module-frontend.https` = choix user
 - [ ] manifeste `modules` (nodefony.config.ts) : `@nodefony/frontend` AVANT `@nodefony/{MOD}` (ordre boot critique)
@@ -241,7 +243,7 @@ path.join(this.path, "dist", "frontend") }).mount(container, kernel)` + exposer
 
 1. **Ordre du manifeste `modules`** : frontend AVANT le module → sinon `@nodefony/frontend service unavailable` au boot.
 2. **`apiProxyPaths` manquant** : `Unexpected token '<'` sur `fetch("{ROUTE}/api/...")` (Vite renvoie le SPA-fallback HTML).
-3. **CSP** : page blanche + `blocked:csp` → controller doit poser `svc.getCspDirectives()`.
+3. **CSP** : page blanche + `blocked:csp` → nonce non propagé (`renderTags` sans `cspNonce`), ou origine Vite absente du CSP (firewall pas encore `ready` → recharger après le boot complet).
 4. **Cache navigateur HMR** : après changement CSP/manifest → **Cmd+Shift+R**.
 5. **Cert HTTPS Vite** (si HTTPS) : accepter le cert sur `:5173` ET `:5152` (origines distinctes), ou installer la CA Nodefony.
 6. **Placeholders** : remplacer `{MOD}`, `{MOD_PASCAL}`, `{ROUTE}`, `{TYPE}`, `{ENTRY}`, `{MOUNT_NODE}`, `{HTTPS_VITE}` AVANT le Write.
@@ -254,4 +256,4 @@ path.join(this.path, "dist", "frontend") }).mount(container, kernel)` + exposer
 - `nodefony-create-module` — délégué Phase 1 (squelette)
 - `nodefony-start-server` — lancer après scaffold
 - `src/packages/@nodefony/frontend/README.md` — doc complète
-- Modules canoniques : `src/modules/test-frontend-{react,vue,angular}/`
+- Modules canoniques : `src/modules/test-frontend-{react,vue,angular,svelte}/`
