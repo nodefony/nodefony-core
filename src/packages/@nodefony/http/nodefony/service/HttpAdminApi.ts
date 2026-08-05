@@ -386,6 +386,10 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         const page = await svc.listSessionsPage({
           limit,
           offset,
+          // Backend à curseur (SCAN Redis) : sans le `cursor` entrant, le store
+          // repart du début à CHAQUE appel et renvoie indéfiniment la même page
+          // avec le même `nextCursor` — la pagination boucle sans jamais avancer.
+          ...(pageQuery.cursor ? { cursor: pageQuery.cursor } : {}),
           ...parseFilters(request.query, SESSION_FILTERS),
           ...(pageQuery.order ? { order: pageQuery.order } : {}),
         });

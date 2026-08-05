@@ -227,6 +227,42 @@ describe("Révocation de session — cycle de vie (3 chemins admin + logout)", (
 // `toSessionSummary` (déjà unit-testé). Ici la preuve WIRE : un login avec un
 // User-Agent connu le retrouve dans `sessions/list`, + une ip non nulle (loopback).
 
+// Garde le fix HttpAdminApi : le `cursor` entrant doit être TRANSMIS au store.
+// Sans lui, un backend à curseur (SCAN Redis) repart du début à chaque appel et
+// renvoie indéfiniment la même page avec le même `nextCursor` : la pagination
+// boucle sans avancer (vécu : 31 pages identiques, listing jamais complet).
+// Sur un backend à offset (SQL/mémoire), `nextCursor` est absent → sortie
+// immédiate, le test reste inoffensif.
+describe("Pagination à curseur du listing de sessions", () => {
+  it("le curseur AVANCE et la pagination se TERMINE", async () => {
+    const admin = await loginAs("admin", "secret");
+    const seen = new Set<string>();
+    let cursor: string | undefined;
+    let pages = 0;
+    // limit large : le nombre de pages d'un SCAN dépend du keyspace ENTIER du
+    // store (un serveur de dev porte des centaines de sessions résiduelles) —
+    // avec un limit de 5 le parcours légitime dépassait déjà 40 pages.
+    for (; pages < 60; pages += 1) {
+      const params = new URLSearchParams({ limit: "100" });
+      if (cursor) params.set("cursor", cursor);
+      const res = await get(`${LIST}?${params.toString()}`, { cookie: admin });
+      expect(res.status, "list sessions (admin)").to.equal(200);
+      const page = res.body as { nextCursor?: string | null };
+      if (!page.nextCursor) break; // fin de scan, ou backend à offset
+      expect(
+        seen.has(page.nextCursor),
+        `nextCursor "${page.nextCursor}" déjà vu — le cursor entrant est ignoré, la pagination boucle`,
+      ).to.equal(false);
+      seen.add(page.nextCursor);
+      cursor = page.nextCursor;
+    }
+    expect(
+      pages,
+      "la pagination doit se terminer avant le garde-fou",
+    ).to.be.below(60);
+  });
+});
+
 describe("Provenance de session — ip/ua capturés au login (console Sessions)", () => {
   it("login avec un User-Agent connu → surfacé dans sessions/list (+ ip)", async () => {
     const admin = await loginAs("admin", "secret");
