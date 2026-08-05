@@ -685,6 +685,65 @@ Ces thèmes ont quitté le sas pour des mémoires durables. Ne pas les réécrir
 | 📦🔗🔬 Ce qui est COPIÉ ne se met pas à jour (4)        | `feedback_single_source_rule`                                           |
 | 🧨 Commande composée refusée (1)                        | `feedback_shell_false_diagnostics`                                      |
 
+## 🎯 Une sonde qui juge le MOYEN condamne un objet ATTEINT
+
+- `[1× — 2026-08-05]` 🔴 **Six verdicts sur sept examinés venaient de l'instrument, pas du
+  produit.** Trois sondes de la tâche 5 jugeaient une ORTHOGRAPHE d'invocation là où elles
+  annoncent un geste : `npm start` **est** `nodefony production` (le gabarit le déclare), `npm stop`
+  **est** `nodefony stop`, et `lsof` en lecture n'arrête rien — c'est `kill` qui tue. Les tâches 3
+  et 6 tombaient sur un générateur non appelé alors que **toutes** leurs sondes de résultat étaient
+  vertes, gate d'état compris. Le critère qui tranche : **quand un juge d'ÉTAT déclare l'objet
+  atteint, une sonde de moyen ne peut plus faire échouer** — elle devient une observation. Preuve
+  la plus nette obtenue : rejouer les MÊMES transcripts (`--analyze-only`, zéro agent relancé) fait
+  passer 3 et 6 à `3/3`. → [[feedback_bench_probe_false_verdicts]]
+- `[1× — 2026-08-05]` ⭐ **Le bénéfice qu'on croit mesurer se vérifie avant de sanctionner.** La
+  tâche 3 punissait de ne pas appeler `create controller --kind realtime` ; le run qui l'appelait a
+  coûté **40 tours / 273 s / 0,52 $** contre **32 / 158 s / 0,30 $** pour celui qui écrivait la
+  façade à la main — même code produit. Le banc sanctionnait le chemin le moins cher. Là où
+  ignorer le générateur fait un **dommage réel** (tâche 13 : pas d'injection, typecheck rouge), ce
+  sont les sondes de résultat qui rougissent, et elles jugent.
+
+## 🧹 Une remise à zéro qui ne rend que les FICHIERS n'en est pas une
+
+- `[1× — 2026-08-05]` 🔴 **Le décor du banc revenait à l'état initial par git, et laissait les
+  PROCESS vivants.** Un agent qui ne range pas son serveur fait échouer la tâche **suivante** :
+  port 5371 tenu, le juge interroge une application qui n'est pas celle qu'il éprouve. La garde a
+  mordu (`CAUSE=port-deja-tenu`, run écarté) — mais la tâche s'est retrouvée à deux runs retenus,
+  donc **non prouvée, pour une faute étrangère**. Le gabarit dit bien « arrête ce que tu
+  démarres » : compter là-dessus, c'est mesurer sa propre consigne.
+- `[1× — 2026-08-05]` 🔴 **Le harnais est mort en lisant l'artefact que sa propre tâche
+  réclame.** La tâche 14 demande de servir un GROS média ; l'agent en fabrique un ;
+  `execFileSync` plafonne à 1 Mio et **lève** (`ENOBUFS`) au lieu de tronquer. La passe s'est
+  arrêtée là, emportant les répétitions déjà jouées de trois autres tâches. Deux bornes, pas une :
+  un `maxBuffer` large **et** une borne PAR FICHIER — au-delà, c'est une pièce jointe, pas du code,
+  et son contenu ne peut rien apprendre à une sonde. L'écart s'ANNONCE.
+
+## 📚 La doc officielle périme la mémoire — deux fois dans la même session
+
+- `[1× — 2026-08-05]` 🔴 **« Prends un token npm Automation » : ces jetons N'EXISTENT PLUS.** La
+  doc npm (`about-access-tokens`) est explicite — _« As of November 2025, only Granular access
+  tokens are supported. Legacy access tokens have been removed. »_ Et elle pousse ailleurs :
+  trusted publishing (OIDC), aucun secret. J'aurais écrit le contraire de mémoire, avec aplomb.
+- `[1× — 2026-08-05]` 🔴 **Une matrice dynamique GitHub sans parenthèses rend `true`, pas une
+  liste.** La table des opérateurs donne `&&` prioritaire sur `||` : `A || B && X || Y` s'évalue
+  `A || (B && X) || Y`, et `fromJSON` échoue sur un booléen — pour un motif sans rapport avec le
+  sujet. Trouvé en TÉLÉCHARGEANT la doc, pas en relisant. Éprouvé sans pousser, en simulant la
+  sémantique (comparaison lâche, opérateurs qui rendent une valeur), avec la preuve négative.
+- `[1× — 2026-08-05]` ⚠️ **Deux étapes de CI écrites « au bon sens » étaient fausses.** Un
+  `npm run check:externals --if-present` — le script **n'existe pas**, c'est un SKILL, donc un
+  contrôle imaginaire qui serait resté vert pour toujours. Et un `paths-ignore: ['**/*.md']`, la
+  forme évidente, aurait **désactivé `skills:check`** — dont la matière EST faite de `SKILL.md`.
+  Économiser du runner en désarmant un gate est le pire des deux échanges.
+
+## 🔴 Un gate rouge en PERMANENCE est un gate mort
+
+- `[1× — 2026-08-05]` **La CI était rouge depuis sept runs consécutifs, ~15 h, et personne ne
+  pouvait le voir** : un job sur dix-sept, noyé dans seize verts et trois autres workflows au vert.
+  La cause tenait en une ligne — un test exigeait des entrées `DEBUG` qu'il n'écrit pas et que le
+  mode production n'émet jamais ; le même cas passait en `development` **dans le même run**. La
+  contradiction était lisible dès le premier rapport. Corollaire de méthode : quand deux sondes du
+  même run se contredisent, c'est l'instrument qu'on ouvre en premier, pas le code.
+
 ## 🗄️ Archivé au CONSOLIDATE du 2026-07-30 — 59 thèmes, 190 frictions
 
 Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
