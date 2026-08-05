@@ -272,6 +272,13 @@ satisfies IFilterSpec` + un générique `<const S>` fait dériver `{revoked?: bo
 
 ## 🛡️ Mesurer qu'on POSE une garde ne dit rien sur celle qu'on RETIRE
 
+- `[1× — 08-05g]` ⭐ **La garde anti-stash du dépôt a mordu sur l'agent principal — et le
+  contournement PROPRE existait.** Le flip old/new d'un banc A/B voulait `git stash push` sur
+  arbre sale : REFUS (c'est sa raison d'être). Remplacement sans geste git destructeur :
+  backup `cp` au scratchpad + `git show HEAD:<fichier> >` pour poser l'ancien contenu, rebuild
+  après CHAQUE flip, et grep d'un MARQUEUR du diff dans le dist avant chaque mesure (preuve
+  que la version benchée est celle qu'on croit). Protocole noté dans le kit perf.
+
 - `[1× — 2026-07-31]` 🔴 **Le témoin d'un « ne pas affaiblir » doit être HORS de l'énoncé** — sinon
   l'agent le lit et le respecte pour de mauvaises raisons. Et **l'échantillon vertueux d'une sonde
   de sécurité se copie du DÉFAUT du produit**, jamais réécrit à la main.
@@ -524,6 +531,18 @@ audit` dans un `cat <<EOF`. Le prédicat se gardait déjà de deux pièges — l
   débranché ne se signale jamais par un rouge, seulement par un chiffre qu'on croit vrai.
 
 ## 📏 Une sonde de PERFORMANCE juge la machine avant de juger le code
+
+- `[1× — 08-05g]` 🔴 **Un micro-bench sans le DÉCOR du pipeline réel inverse le verdict.** Le
+  fast path `writeHead(obj)` mesurait −38 % (2,8 vs 4,5 µs)… sur un handler nu. Avec DEUX
+  `setHeader` préalables (cookie + trace — l'état RÉEL de toute requête du pipeline), il
+  retombe à 5,0 µs, PIRE que la pose individuelle : node ne prend ce fast path que
+  `kOutHeaders` vide. La contre-épreuve « rejouer avec l'état que le produit a VRAIMENT » a
+  transformé un geste planifié (A3 du kit perf) en rejet prouvé — avant de l'avoir codé.
+- `[1× — 08-05g]` **L'épreuve du débranchement, faite AVANT d'écrire le test, dit s'il faut
+  l'écrire.** Filet Content-Type coupé → 70 verts sur les 6 suites en-têtes : le comportement
+  par défaut (réponse sans type choisi → octet-stream) n'était couvert par RIEN. Le test neuf
+  du filet est né du trou constaté, pas d'un zèle de couverture — et il est tombé ROUGE du
+  premier coup sur le débranchement, preuve qu'il mord.
 
 - `[1× — 2026-08-02f]` ⭐ **Juger la FORME de la courbe, pas la durée** : doubler l'entrée doit
   doubler le temps. Un seuil de durée rouge sur UNE seule case d'une matrice de six désigne la
