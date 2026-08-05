@@ -28,14 +28,28 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import {
+  columnFacetingFeature,
+  columnFilteringFeature,
+  columnResizingFeature,
+  columnSizingFeature,
+  columnVisibilityFeature,
+  createFacetedRowModel,
+  createFacetedUniqueValues,
+  createFilteredRowModel,
+  createPaginatedRowModel,
+  createSortedRowModel,
+  filterFn_includesString,
   flexRender,
-  getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
+  globalFilteringFeature,
+  rowPaginationFeature,
+  rowSelectionFeature,
+  rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_basic,
+  sortFn_datetime,
+  sortFn_text,
+  tableFeatures,
+  useTable,
   type Column,
   type ColumnDef,
   type ColumnFiltersState,
@@ -45,7 +59,8 @@ import {
   type RowData,
   type RowSelectionState,
   type SortingState,
-  type VisibilityState,
+  type TableFeatures,
+  type ColumnVisibilityState,
 } from "@tanstack/react-table";
 import { DataState } from "./DataState";
 import { InfoHint } from "./StatCard";
@@ -217,7 +232,7 @@ interface PersistedState {
   sorting: SortingState;
   columnFilters: ColumnFiltersState;
   globalFilter: string;
-  columnVisibility: VisibilityState;
+  columnVisibility: ColumnVisibilityState;
   columnSizing: ColumnSizingState;
   pageIndex: number;
   pageSize: number;
@@ -249,10 +264,66 @@ function loadPersisted(p?: DataGridPersist): Partial<PersistedState> | null {
   }
 }
 
+/**
+ * Les capacités que CETTE grille utilise, et elles seules.
+ *
+ * En v8 toutes les fonctions du moteur étaient embarquées d'office ; en v9 on
+ * déclare ce dont on se sert, et le reste sort du bundle. L'objet est construit
+ * UNE fois au niveau du module, jamais dans le composant : sa forme décide des
+ * types de toute la grille, et la recréer à chaque rendu ferait repartir le
+ * moteur de zéro.
+ *
+ * ⚠️ Chaque capacité doit précéder le modèle de lignes qui en dépend — l'ordre
+ * dans cet objet est vérifié par les types.
+ *
+ * ⚠️ Les modèles de lignes CLIENT sont déclarés même en mode serveur : ce sont
+ * `manualSorting`/`manualFiltering`/`manualPagination` qui les court-circuitent
+ * au moment voulu. En v8 on les omettait pour économiser ; en v9 l'économie se
+ * fait à l'IMPORT (arbre secoué au build), plus au montage — deux jeux de
+ * capacités selon le mode ne gagneraient rien et donneraient deux formes de
+ * types à la même grille.
+ */
+const features = tableFeatures({
+  columnFilteringFeature,
+  globalFilteringFeature,
+  rowSortingFeature,
+  rowPaginationFeature,
+  columnVisibilityFeature,
+  columnSizingFeature,
+  columnResizingFeature,
+  rowSelectionFeature,
+  columnFacetingFeature,
+  filteredRowModel: createFilteredRowModel(),
+  sortedRowModel: createSortedRowModel(),
+  paginatedRowModel: createPaginatedRowModel(),
+  facetedRowModel: createFacetedRowModel(),
+  facetedUniqueValues: createFacetedUniqueValues(),
+  // Les fonctions désignées par un NOM ne sont résolues que si elles sont
+  // enregistrées ici — y compris le `auto` que le tri choisit par défaut quand
+  // une colonne n'impose rien. Sans ces quatre-là, cliquer un en-tête ne
+  // trierait plus rien, sans la moindre erreur.
+  sortFns: {
+    alphanumeric: sortFn_alphanumeric,
+    text: sortFn_text,
+    datetime: sortFn_datetime,
+    basic: sortFn_basic,
+  },
+  // La recherche globale demande `includesString` par son nom (voir plus bas) ;
+  // les filtres par colonne, eux, passent une fonction en direct.
+  filterFns: { includesString: filterFn_includesString },
+});
+
+/** Les capacités déclarées ci-dessus, pour typer colonnes, filtres et grille. */
+type GridFeatures = typeof features;
+
 // Métadonnées portées par chaque colonne TanStack (align/filtre/aide).
 declare module "@tanstack/react-table" {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface ColumnMeta<TData extends RowData, TValue> {
+  interface ColumnMeta<
+    TFeatures extends TableFeatures,
+    TData extends RowData,
+    TValue,
+  > {
     align?: "left" | "right";
     filterType?: DataGridFilterType;
     filterOptions?: string[];
@@ -361,7 +432,11 @@ function matchFilter(raw: unknown, f: FilterValue): boolean {
 }
 
 // filterFn TanStack : applique l'opérateur stocké à la valeur de cellule.
-const operatorFilter: FilterFn<unknown> = (row, columnId, filterValue) => {
+const operatorFilter: FilterFn<GridFeatures, RowData> = (
+  row,
+  columnId,
+  filterValue,
+) => {
   const f = filterValue as FilterValue | undefined;
   if (!f) return true;
   return matchFilter(row.getValue(columnId), f);
@@ -392,11 +467,11 @@ function ensureResizerStyle() {
 }
 
 /** Filtre INLINE d'une colonne (sous l'en-tête) — opérateur + valeur, sans popover. */
-function FilterCell<T>({
+function FilterCell<T extends RowData>({
   column,
   isServer,
 }: {
-  column: Column<T, unknown>;
+  column: Column<GridFeatures, T, unknown>;
   isServer: boolean;
 }) {
   const meta = column.columnDef.meta;
@@ -511,7 +586,9 @@ function FilterCell<T>({
  *
  * Colonnes déclaratives (`render`/`value`/`sortable`/`filterable`/`filterType`/`hint`).
  */
-export function DataGrid<T>(props: DataGridProps<T>) {
+// `T extends RowData` : la v9 exige que la donnée d'une ligne soit un objet ou
+// un tableau — plus de `unknown`. Les dix-sept écrans passent déjà des objets.
+export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
   const {
     columns,
     getRowId,
@@ -549,9 +626,8 @@ export function DataGrid<T>(props: DataGridProps<T>) {
     pageIndex: persisted?.pageIndex ?? 0,
     pageSize: persisted?.pageSize ?? props.pageSize ?? 25,
   }));
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
-    () => persisted?.columnVisibility ?? {},
-  );
+  const [columnVisibility, setColumnVisibility] =
+    useState<ColumnVisibilityState>(() => persisted?.columnVisibility ?? {});
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(
     () => persisted?.columnSizing ?? {},
   );
@@ -692,7 +768,7 @@ export function DataGrid<T>(props: DataGridProps<T>) {
       ? props.data
       : [];
 
-  const tableColumns = useMemo<ColumnDef<T>[]>(
+  const tableColumns = useMemo<ColumnDef<GridFeatures, T, unknown>[]>(
     () =>
       columns.map((col) => ({
         id: col.key,
@@ -701,7 +777,7 @@ export function DataGrid<T>(props: DataGridProps<T>) {
         enableSorting: col.sortable ?? false,
         enableColumnFilter: col.filterable ?? false,
         size: col.size,
-        filterFn: operatorFilter as FilterFn<T>,
+        filterFn: operatorFilter as FilterFn<GridFeatures, T>,
         cell: (ctx) =>
           col.render
             ? col.render(ctx.row.original)
@@ -716,7 +792,8 @@ export function DataGrid<T>(props: DataGridProps<T>) {
     [columns],
   );
 
-  const table = useReactTable<T>({
+  const table = useTable<GridFeatures, T>({
+    features,
     data,
     columns: tableColumns,
     state: {
@@ -740,20 +817,16 @@ export function DataGrid<T>(props: DataGridProps<T>) {
     columnResizeMode: "onChange",
     getRowId: (row) => getRowId(row),
     globalFilterFn: "includesString",
-    getCoreRowModel: getCoreRowModel(),
+    // Le modèle de lignes de base est implicite en v9 ; les cinq autres sont
+    // déclarés une fois pour toutes dans `features`, en tête de fichier. Ici il
+    // ne reste que les interrupteurs qui disent QUI fait le travail : en mode
+    // serveur, le tri, le filtre et la pagination viennent de l'API, et ces
+    // trois `manual*` empêchent le moteur de refaire côté client ce qui est déjà
+    // fait — c'est la seule différence entre les deux modes.
     manualPagination: isServer,
     manualSorting: isServer,
     manualFiltering: isServer,
     rowCount: isServer ? serverTotal : undefined,
-    ...(isServer
-      ? {}
-      : {
-          getSortedRowModel: getSortedRowModel(),
-          getFilteredRowModel: getFilteredRowModel(),
-          getPaginationRowModel: getPaginationRowModel(),
-          getFacetedRowModel: getFacetedRowModel(),
-          getFacetedUniqueValues: getFacetedUniqueValues(),
-        }),
   });
 
   const loading = isServer ? serverLoading : (props.loading ?? false);
@@ -986,7 +1059,14 @@ export function DataGrid<T>(props: DataGridProps<T>) {
                           size="xs"
                           aria-label="Tout sélectionner"
                           checked={table.getIsAllPageRowsSelected()}
-                          indeterminate={table.getIsSomePageRowsSelected()}
+                          // `getIsSomePageRowsSelected()` veut dire « au moins
+                          // une » depuis la v9 — TOUTES sélectionnées y répond
+                          // désormais vrai. Sans la seconde moitié, la case
+                          // resterait barrée alors qu'elle doit être cochée.
+                          indeterminate={
+                            table.getIsSomePageRowsSelected() &&
+                            !table.getIsAllPageRowsSelected()
+                          }
                           onChange={table.getToggleAllPageRowsSelectedHandler()}
                         />
                       </Table.Th>

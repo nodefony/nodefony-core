@@ -37,6 +37,18 @@
       "error",
       {
         "paths": [
+          // UN SEUL fichier du dépôt connaît TanStack Table, et c'est ce qui rend
+          // ses montées de version majeures abordables : la v9 (sortie le
+          // 2026-08-04, après quatre-vingts betas) est une réécriture d'API, et
+          // elle ne touchera qu'un fichier tant que cette garde tient. Le jour où
+          // un écran importe `useReactTable` en direct, ce coût se multiplie par
+          // le nombre d'écrans — silencieusement, puisque rien ne casse sur le
+          // moment. La garde n'est donc pas stylistique : elle protège la
+          // prochaine migration. Dérogation dans `overrides`, pour DataGrid seul.
+          {
+            "name": "@tanstack/react-table",
+            "message": "Passe par le composant DataGrid (components/ui/DataGrid.tsx) — il est le SEUL point de contact du dépôt avec TanStack Table, et c'est ce qui garde ses montées de version majeures à un seul fichier. Un besoin non couvert par DataGrid s'ajoute À DataGrid."
+          },
           {
             "name": "assert",
             "message": "Préfixe Node obligatoire : importe \"node:assert\"."
@@ -196,6 +208,15 @@
     "promise/no-multiple-resolved": "warn"
   },
   "overrides": [
+    {
+      // Le point de contact UNIQUE avec TanStack Table — la seule dérogation à la
+      // garde posée plus haut. `off` en entier plutôt qu'une liste réduite : la
+      // redonner amputée d'une entrée recopierait les vingt règles `node:` juste
+      // à côté de leur original, et deux listes divergent toujours. Un composant
+      // React n'a de toute façon aucun module Node à importer.
+      "files": ["**/components/ui/DataGrid.tsx"],
+      "rules": { "no-restricted-imports": "off" }
+    },
     {
       "files": [
         "**/*.test.ts",
