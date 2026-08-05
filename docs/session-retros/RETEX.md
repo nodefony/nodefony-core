@@ -153,6 +153,12 @@ satisfies IFilterSpec` + un générique `<const S>` fait dériver `{revoked?: bo
 
 ## ✅ Une assertion d'ORDRE ne prouve rien sans données DISCRIMINANTES
 
+- `[1× — 08-05e]` 🔴 **Filtre watch débranché exprès : AUCUN des 13 tests du banc ne tombait.**
+  Tous les cas « frontend ignoré » utilisaient des `.tsx`/`.svelte` — rattrapés par la règle
+  voisine « non-`.ts` ignoré », qui satisfaisait l'assertion à la place de la règle testée. Le
+  cas discriminant (un `.ts` CLIENT, `frontend/src/main.ts`) n'existait pas. Généralisation du
+  thème : quand DEUX règles peuvent rendre le même verdict, le banc doit porter au moins un cas
+  que SEULE la règle visée satisfait — sinon il teste l'union, pas la règle (`890827aa`).
 - `[1× — 2026-08-03f]` 🔴 **Un test de tri neuf est resté VERT alors que le tri était débranché.**
   Il lisait `record.createdAt` là où la donnée vit dans `record.data` : douze `undefined` forment
   une suite « triée » quel que soit l'ordre appliqué. Même piège avec une colonne constante. Un
@@ -321,6 +327,12 @@ satisfies IFilterSpec` + un générique `<const S>` fait dériver `{revoked?: bo
 
 ## 📄 Un fichier « pointeur » se remplit tout seul, et une livraison n'entraîne pas sa doc
 
+- `[1× — 08-05e]` **P14.17 livrée, DEUX composes restés à la doctrine d'avant** — le gabarit d'app
+  et le compose du repo imposaient encore « pré-bâti obligatoire / HMR = chantier ouvert » alors
+  que l'`AGENTS.md` généré dans la MÊME app donnait le remède : les satellites d'une livraison
+  (composes, commentaires d'infra) ne sont pas dans le rayon du grep qui met à jour la doc. Et la
+  démo svelte promettait « état conservé » — jamais vu à l'écran avant ce jour (`ed00a6ff`,
+  `a182e618`).
 - `[1× — 2026-08-02f]` 🔴 **Un lot livré ne met pas à jour la doc du paquet qu'il justifie** — 13
   affirmations fausses sur 15 dans la doc d'un module dont le lot venait d'être livré.
 - `[1× — 2026-08-02f]` **Le `CLAUDE.md` généré annonçait « les trois réflexes » en en portant
@@ -561,6 +573,12 @@ install`.** Et `npm run build` vert ne dit rien du chemin réel qu'emprunte l'ut
 
 - `[1× — 2026-08-01f]` 🔴 **« Depuis les derniers changements, les agents ne sont plus appelés »** —
   la prémisse était fausse ; chercher la cause d'un fait inexistant coûte une séance.
+- `[1× — 08-05e]` 🔴 **La « Priorité 1 » d'un `_state` était un diagnostic jamais reproduit** —
+  « le watch backend redémarre sur `frontend/**` » : le filtre existait depuis 3 semaines, testé ;
+  le restart vécu venait des `.ts` écrits pendant le scaffold dans la même rafale. Reproduire
+  (édition seule → 0 restart, contre-épreuve `.ts` → restart) a coûté 5 min et évité un chantier.
+  Un constat de session sous pression entre au `_state` comme un FAIT — le RESUME suivant doit le
+  traiter comme une hypothèse à reproduire, pas comme un backlog.
 
 ## 📖 L'API d'une bibliothèque maison se LIT — la supposer produit un vide silencieux
 
