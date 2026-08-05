@@ -146,7 +146,7 @@ cd src/packages/@nodefony/studio && npm run typecheck     # gate front = exit 0 
 4. **Vérif sans navigateur** : curl le data plane (`curl -sk https://127.0.0.1:5152/nodefony/<m>/api/...`) + le transform
    Vite (`https://127.0.0.1:5173/@fs/<abs>.tsx` → 200). Modif **front** = HMR (0 restart) ; modif **back** Studio =
    `npm run build` (rolldown) + restart.
-5. **Hard-reload** `https://127.0.0.1:5152/nodefony` (cache React) → confirmation **visuelle user** (pas de headless — règle projet).
+5. **Voir l'écran** : navigateur en CONTENEUR (`--profile browser` ; console + a11y + requêtes réelles, jamais de Chromium sur le poste) → recette et ses 3 contraintes dans `nodefony-frontend-dev` (`build-hmr.md` §9). Pour le HMR et le rendu fin : **hard-reload** `https://127.0.0.1:5152/nodefony` (cache React) + confirmation visuelle user.
 
 > Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. **Fin de session Studio** : fondre les nouvelles
 > leçons en règles dans `references/gotchas-studio.md` (jamais un journal daté) ; un fait isolé → mémoire IA dédiée.

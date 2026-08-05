@@ -7,8 +7,9 @@ description: >
   front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR
   (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC
   isomorphe, ergonomie / temps réel « calme » / a11y / perf (bundlés offline), et **vérification
-  d'une modif front sans navigateur** (transform Vite en `curl`, purge du prébundle, rechargement
-  forcé) — la règle projet interdit le navigateur headless.
+  d'une modif front** — sans navigateur (transform Vite en `curl`, purge du prébundle, rechargement
+  forcé) ou en OBSERVANT l'écran depuis un navigateur en CONTENEUR (console, arbre d'accessibilité,
+  requêtes réelles ; jamais de Chromium à nu sur le poste).
   App admin Studio → `nodefony-studio-dev` ; scaffold d'un module front →
   `nodefony-create-frontend-module` ; le back → `nodefony-framework-dev`.
   Déclencheurs : "dev front nodefony", "isomorphisme", "socket client", "RealtimeClient",
@@ -88,17 +89,18 @@ ici un appel `ApiClient`/un hook/un canal consommé → vérifier/MAJ la section
 > Trouve ta tâche → lis le fichier indiqué (lui seul). Chaque fichier = API + mécanismes + gotchas, vérité
 > courante, ancrés au source. `references/specs/` = best practices **bundlées offline** (0 réseau requis).
 
-| Ta tâche                                                                                       | Lis ce fichier                                  |
-| ---------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Isomorphisme (`nodefony` front/back, `customConditions`, subpaths), `nodefony/roles` RBAC      | `references/isomorphic.md`                      |
-| Socket client `RealtimeClient` + hooks `nodefony/react` (`useNodefony*`, canaux, identité)     | `references/realtime-client.md`                 |
-| Builder Vite + HMR (`@nodefony/frontend`, `registerEntry`, multi-bundle, prod, CDN)            | `references/build-hmr.md`                       |
-| Consommer le data-plane BFF (`ApiClient`, `useResource`, session, RBAC, mutations)             | `references/data-bff.md`                        |
-| Patterns d'écran (data-driven, live ref-compté, détail/drill) — framework-agnostique           | `references/patterns.md`                        |
-| Ergonomie / temps réel calme / perf CSS / a11y / sécu front                                    | `references/front-quality.md`                   |
-| Prouver une modif front **sans navigateur** (transform Vite, purge du prébundle, rechargement) | `references/build-hmr.md` §8                    |
-| Gotchas front (HMR, prébundle `.vite`, isomorphisme, socket)                                   | section _Gotchas_ dans chaque fichier ci-dessus |
-| **Best practices bundlées OFFLINE** (ergonomie, a11y, perf)                                    | `references/specs/` (voir liste ci-dessous)     |
+| Ta tâche                                                                                          | Lis ce fichier                                  |
+| ------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Isomorphisme (`nodefony` front/back, `customConditions`, subpaths), `nodefony/roles` RBAC         | `references/isomorphic.md`                      |
+| Socket client `RealtimeClient` + hooks `nodefony/react` (`useNodefony*`, canaux, identité)        | `references/realtime-client.md`                 |
+| Builder Vite + HMR (`@nodefony/frontend`, `registerEntry`, multi-bundle, prod, CDN)               | `references/build-hmr.md`                       |
+| Consommer le data-plane BFF (`ApiClient`, `useResource`, session, RBAC, mutations)                | `references/data-bff.md`                        |
+| Patterns d'écran (data-driven, live ref-compté, détail/drill) — framework-agnostique              | `references/patterns.md`                        |
+| Ergonomie / temps réel calme / perf CSS / a11y / sécu front                                       | `references/front-quality.md`                   |
+| Prouver une modif front **sans navigateur** (transform Vite, purge du prébundle, rechargement)    | `references/build-hmr.md` §8                    |
+| **Voir l'écran soi-même** — navigateur en conteneur (console, a11y, requêtes) + ses 3 contraintes | `references/build-hmr.md` §9                    |
+| Gotchas front (HMR, prébundle `.vite`, isomorphisme, socket)                                      | section _Gotchas_ dans chaque fichier ci-dessus |
+| **Best practices bundlées OFFLINE** (ergonomie, a11y, perf)                                       | `references/specs/` (voir liste ci-dessous)     |
 
 **`references/specs/` (offline, ~870 Ko)** : `w3c-wcag22.md` (WCAG 2.2 complet) · `w3c-aria-apg-patterns.md`
 (ARIA Authoring Practices) · `nng-10-heuristics.md` (Nielsen Norman — 10 heuristiques d'ergonomie) ·
@@ -109,7 +111,17 @@ ici un appel `ApiClient`/un hook/un canal consommé → vérifier/MAJ la section
 
 1. **`npm run typecheck`** du module front (esbuild/Vite n'attrape QUE la syntaxe, PAS les types).
 2. **Transform Vite 200** : `curl -sk "https://<viteHost>/@fs/<abs>/src/<fichier>.tsx"` → vérifie résolution + transpilation. Purger `node_modules/.vite` si un import/subpath a changé. **Protocole complet, symptômes et limites → `references/build-hmr.md` §8.**
-3. **Hard-reload** navigateur (cache React) après modif → demander la confirmation visuelle au user (règle projet : jamais de navigateur headless).
+3. **Voir l'écran** — deux voies, dans cet ordre :
+   - **Navigateur en CONTENEUR** (`docker compose -f docker/docker-compose.yml --profile browser up -d`) :
+     lit la console, l'arbre d'accessibilité et les requêtes réelles, sans rien installer sur le poste.
+     C'est l'« environnement isolé » que la règle anti-headless exigeait — Chromium n'y tourne pas
+     à nu sur la machine, il est borné (2 CPU / 2 Go) et meurt au `down`. **Trois contraintes, toutes
+     structurelles** → `references/build-hmr.md` §9 : joindre l'hôte par `host.docker.internal` (jamais
+     `localhost`, qui désigne le conteneur) ; passer par **HTTPS 5152** car le cookie de session est
+     `secure` et serait jeté sur une origine `http://` non-`localhost` ; et servir l'UI en
+     `NF_STUDIO_UI=static`, **le HMR n'étant pas joignable depuis un conteneur** (P14.17).
+   - **Hard-reload** dans le navigateur du développeur (cache React) → confirmation visuelle.
+     Reste nécessaire pour juger le HMR, l'animation et le rendu fin.
 4. Modif d'un **contrat partagé** (canal/endpoint/type) → MAJ `nodefony-framework-dev`.
 
 ## Réfs

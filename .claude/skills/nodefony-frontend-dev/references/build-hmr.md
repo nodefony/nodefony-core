@@ -29,6 +29,7 @@ sans lire le source.
 - [6. Gotchas front-build](#6-gotchas-front-build)
 - [7. Commandes CLI](#7-commandes-cli)
 - [8. Vérifier une modif front SANS navigateur](#8-vérifier-une-modif-front-sans-navigateur)
+- [9. Voir l'écran soi-même — le navigateur en conteneur](#9-voir-lécran-soi-même--le-navigateur-en-conteneur)
 
 ---
 
@@ -651,3 +652,43 @@ serveur (le subpath neuf force de toute façon une ré-optimisation au boot).
 
 > Grouper les modifs front avant de demander **une** vérification visuelle, plutôt que d'enchaîner
 > les allers-retours.
+
+## 9. Voir l'écran soi-même — le navigateur en conteneur
+
+La règle « pas de navigateur headless » vient d'un incident : Chromium lancé **sur le poste** l'a figé.
+Elle prévoyait son exception — accord du développeur et **environnement isolé**. Un conteneur borné
+est cet environnement : Chromium n'y tourne pas à nu, il est plafonné (2 CPU / 2 Go) et disparaît au
+`down`. Ce que ça débloque : lire la **console**, l'**arbre d'accessibilité** et les **requêtes
+réelles** sans faire jouer à quelqu'un le rôle de sonde.
+
+```bash
+docker compose -f docker/docker-compose.yml --profile browser up -d
+# serveur MCP : 127.0.0.1:3001 · artefacts (captures, console, snapshots) : tmp/browser/
+```
+
+### 9.1 Trois contraintes, toutes structurelles
+
+| Contrainte                                                                | Pourquoi, et le geste                                                                                                                                                                                                                             |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Joindre l'hôte par **`host.docker.internal`**                             | `localhost` désigne le CONTENEUR. Le nom doit aussi figurer dans `trustedHosts` (posé en dev), sinon la barrière Host répond **`421`** alors que le réseau, lui, passe.                                                                           |
+| Passer par **HTTPS 5152**                                                 | Le cookie de session est `secure` par défaut : sur une origine `http://` **non-`localhost`** le navigateur le **jette**, et tout le data plane revient en `401` — ce qui se lit à tort comme un échec du login. Le certificat de dev est accepté. |
+| Servir l'UI en **`NF_STUDIO_UI=static`** (+ `npm run build:ui` du module) | En mode Vite la page annonce ses assets en `https://127.0.0.1:5173` — le `127.0.0.1` du NAVIGATEUR, donc du conteneur, qui n'héberge aucun Vite : page blanche alors que le HTML est bien servi. **Le HMR n'est pas joignable ainsi** (P14.17).   |
+
+### 9.2 Ce qu'il faut savoir avant de piloter
+
+- **Attendre par un APPEL, jamais par une pause.** Une attente inactive laisse expirer la session MCP,
+  et l'appel suivant revient `404 Session not found` — qu'on impute alors au navigateur.
+- **Attendre un texte qui DISCRIMINE.** « Nodefony Studio » s'affiche aussi bien sur l'écran de
+  connexion que dans l'application : l'attendre aboutit dans les deux cas et ne prouve rien. Se
+  repérer sur l'**URL** (`/login` vs la page visée) ou sur un texte propre à l'état voulu.
+- **Le SPA monte APRÈS la navigation.** Un sélecteur joué trop tôt échoue en « aucun élément » —
+  symptôme qui ressemble à un mauvais sélecteur. Attendre un texte de l'écran d'abord.
+- **Une capture ne s'écrase pas.** Réutiliser un nom de fichier laisse l'ancienne image en place
+  pendant que l'appel répond « OK » : on lit alors un écran périmé et on en tire des conclusions
+  fausses. Nom neuf à chaque fois, ou vérifier la date avant de regarder.
+
+### 9.3 Ce que ce conteneur ne remplace pas
+
+Le **HMR**, l'animation et le rendu fin (polices, sous-pixel) se jugent dans le navigateur du
+développeur. Le conteneur sert à constater qu'un écran **se monte, s'alimente et ne crie pas** —
+pas à valider une esthétique.
