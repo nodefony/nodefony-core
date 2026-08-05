@@ -9,7 +9,6 @@ import {
   Title,
   Badge,
   Button,
-  Table,
   ScrollArea,
   SegmentedControl,
   Switch,
@@ -54,6 +53,7 @@ import {
 import type { RealtimeFrame, NoticeLevel, NodefonyNotice } from "nodefony";
 import type { ReactNode } from "react";
 import { useConnection, useNotifications, useStore, useUi } from "../stores";
+import type { SubscriptionStats } from "../stores/ConnectionStore";
 import { useResource } from "../hooks";
 import {
   PageLayout,
@@ -339,6 +339,179 @@ function backpressureHealth(bp: RealtimeHealth["backpressure"]): {
     return { label: "À surveiller", color: "yellow" };
   return { label: "Sain", color: "teal" };
 }
+
+/**
+ * Colonnes des canaux auxquels CETTE page est abonnée. Hors composant : cette
+ * table se rafraîchit chaque seconde (débit échantillonné par le store) — des
+ * colonnes recréées à chaque rendu remettraient le tri à zéro en continu.
+ *
+ * Tri initial par débit décroissant : le canal le plus bavard est celui qui
+ * explique une charge, et c'est la question qu'on se pose en ouvrant ce panneau.
+ */
+const SUBSCRIPTION_COLUMNS: DataGridColumn<SubscriptionStats>[] = [
+  {
+    key: "channel",
+    header: "Canal",
+    sortable: true,
+    filterable: true,
+    value: (s) => s.channel,
+    render: (s) => <Code>{s.channel}</Code>,
+  },
+  {
+    key: "protocol",
+    header: "Protocole",
+    sortable: true,
+    value: (s) => s.protocol ?? "json-rpc-2.0",
+    render: (s) => (
+      <Badge size="xs" variant="light" color="grape">
+        {s.protocol ?? "json-rpc-2.0"}
+      </Badge>
+    ),
+    size: 140,
+  },
+  {
+    key: "transport",
+    header: "Transport",
+    sortable: true,
+    value: (s) => s.transport ?? "ws",
+    render: (s) => (
+      <Group gap={4} wrap="nowrap">
+        <Badge size="xs" variant="light" color="gray">
+          {s.transport ?? "ws"}
+        </Badge>
+        {s.peer && (
+          <Text size="xs" c="dimmed">
+            {s.peer}
+          </Text>
+        )}
+      </Group>
+    ),
+    size: 160,
+  },
+  {
+    key: "msgCount",
+    header: "Messages",
+    align: "right",
+    sortable: true,
+    value: (s) => s.msgCount,
+    size: 110,
+  },
+  {
+    key: "rate",
+    header: "Débit",
+    align: "right",
+    sortable: true,
+    value: (s) => s.rate,
+    render: (s) => `${s.rate}/s`,
+    hint: "Messages par seconde, échantillonné une fois par seconde. Trié décroissant : en tête, le canal qui parle le plus.",
+    size: 100,
+  },
+  {
+    key: "series",
+    header: "Activité",
+    // Un sparkline ne se trie ni ne se cherche : pas de `value`, donc pas de
+    // tri — déclarer une valeur ici donnerait une colonne triable dont le
+    // classement ne voudrait rien dire.
+    render: (s) =>
+      s.series.length > 1 ? (
+        <MiniChart
+          height={32}
+          series={[
+            {
+              data: s.series,
+              color: "var(--mantine-color-teal-6)",
+              label: s.channel,
+            },
+          ]}
+        />
+      ) : (
+        <Text size="xs" c="dimmed">
+          —
+        </Text>
+      ),
+    size: 160,
+  },
+];
+
+/**
+ * Colonnes du détail par worker (mode cluster). Tri initial sur les
+ * consommateurs lents : ce tableau sert à trouver LE worker qui souffre, et un
+ * `slowConsumers > 0` est le signe le plus net qu'il faut regarder celui-là.
+ */
+const WORKER_COLUMNS: DataGridColumn<InstanceHealth>[] = [
+  {
+    key: "instanceId",
+    header: "Worker (pid)",
+    sortable: true,
+    filterable: true,
+    value: (i) => i.instanceId,
+    render: (i) => <Code>{i.instanceId}</Code>,
+  },
+  {
+    key: "connectionCount",
+    header: "Connexions",
+    align: "right",
+    sortable: true,
+    value: (i) => i.connectionCount,
+    render: (i) => <span style={TNUM}>{i.connectionCount}</span>,
+    size: 120,
+  },
+  {
+    key: "channelCount",
+    header: "Canaux",
+    align: "right",
+    sortable: true,
+    value: (i) => i.channelCount,
+    render: (i) => <span style={TNUM}>{i.channelCount}</span>,
+    size: 100,
+  },
+  {
+    key: "bytesSentTotal",
+    header: "Octets envoyés",
+    align: "right",
+    sortable: true,
+    // Trier sur les OCTETS bruts, jamais sur « 1,2 MB » : un tri sur le texte
+    // formaté placerait 900 kB après 1,2 MB.
+    value: (i) => i.bytesSentTotal,
+    render: (i) => <span style={TNUM}>{fmtBytes(i.bytesSentTotal)}</span>,
+    size: 140,
+  },
+  {
+    key: "maxBufferedAmount",
+    header: "Pire file",
+    align: "right",
+    sortable: true,
+    value: (i) => i.backpressure.maxBufferedAmount,
+    render: (i) => (
+      <Badge
+        size="sm"
+        variant="light"
+        color={backpressureHealth(i.backpressure).color}
+      >
+        {fmtBytes(i.backpressure.maxBufferedAmount)}
+      </Badge>
+    ),
+    hint: "Plus grande file d'envoi observée sur ce worker. Une file qui gonfle signale un client qui n'absorbe pas ce qu'on lui pousse.",
+    size: 140,
+  },
+  {
+    key: "slowConsumers",
+    header: "Slow-cons.",
+    align: "right",
+    sortable: true,
+    value: (i) => i.backpressure.slowConsumers,
+    render: (i) => (
+      <Text
+        span
+        style={TNUM}
+        c={i.backpressure.slowConsumers > 0 ? "red" : undefined}
+      >
+        {i.backpressure.slowConsumers}
+      </Text>
+    ),
+    size: 120,
+  },
+];
 
 /** Historiques (séries temporelles) du panneau Hub — bornés à {@link HEALTH_HISTORY}. */
 interface HubHist {
@@ -1396,64 +1569,14 @@ export const RealtimeConsole = observer(() => {
                     t'abonner.
                   </Text>
                 ) : (
-                  <Table highlightOnHover>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>Canal</Table.Th>
-                        <Table.Th>Protocole</Table.Th>
-                        <Table.Th>Transport</Table.Th>
-                        <Table.Th>Messages</Table.Th>
-                        <Table.Th>Débit</Table.Th>
-                        <Table.Th w={140}>Activité</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {subs.map((s) => (
-                        <Table.Tr key={s.channel}>
-                          <Table.Td>
-                            <Code>{s.channel}</Code>
-                          </Table.Td>
-                          <Table.Td>
-                            <Badge size="xs" variant="light" color="grape">
-                              {s.protocol ?? "json-rpc-2.0"}
-                            </Badge>
-                          </Table.Td>
-                          <Table.Td>
-                            <Group gap={4} wrap="nowrap">
-                              <Badge size="xs" variant="light" color="gray">
-                                {s.transport ?? "ws"}
-                              </Badge>
-                              {s.peer && (
-                                <Text size="xs" c="dimmed">
-                                  {s.peer}
-                                </Text>
-                              )}
-                            </Group>
-                          </Table.Td>
-                          <Table.Td>{s.msgCount}</Table.Td>
-                          <Table.Td>{s.rate}/s</Table.Td>
-                          <Table.Td>
-                            {s.series.length > 1 ? (
-                              <MiniChart
-                                height={32}
-                                series={[
-                                  {
-                                    data: s.series,
-                                    color: "var(--mantine-color-teal-6)",
-                                    label: s.channel,
-                                  },
-                                ]}
-                              />
-                            ) : (
-                              <Text size="xs" c="dimmed">
-                                —
-                              </Text>
-                            )}
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
+                  <DataGrid
+                    mode="client"
+                    data={subs}
+                    columns={SUBSCRIPTION_COLUMNS}
+                    getRowId={(s) => s.channel}
+                    initialSort={{ key: "rate", dir: "desc" }}
+                    emptyMessage="Aucun canal actif."
+                  />
                 )}
               </Card>
             </Stack>
@@ -1485,52 +1608,14 @@ export const RealtimeConsole = observer(() => {
                     ]}
                   />
                 </Group>
-                <Table highlightOnHover>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Worker (pid)</Table.Th>
-                      <Table.Th w={110}>Connexions</Table.Th>
-                      <Table.Th w={90}>Canaux</Table.Th>
-                      <Table.Th w={130}>Octets envoyés</Table.Th>
-                      <Table.Th w={130}>Pire file</Table.Th>
-                      <Table.Th w={110}>Slow-cons.</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {cluster.instances.map((inst) => {
-                      const h = backpressureHealth(inst.backpressure);
-                      return (
-                        <Table.Tr key={inst.instanceId}>
-                          <Table.Td>
-                            <Code>{inst.instanceId}</Code>
-                          </Table.Td>
-                          <Table.Td style={TNUM}>
-                            {inst.connectionCount}
-                          </Table.Td>
-                          <Table.Td style={TNUM}>{inst.channelCount}</Table.Td>
-                          <Table.Td style={TNUM}>
-                            {fmtBytes(inst.bytesSentTotal)}
-                          </Table.Td>
-                          <Table.Td style={TNUM}>
-                            <Badge size="sm" variant="light" color={h.color}>
-                              {fmtBytes(inst.backpressure.maxBufferedAmount)}
-                            </Badge>
-                          </Table.Td>
-                          <Table.Td
-                            style={TNUM}
-                            c={
-                              inst.backpressure.slowConsumers > 0
-                                ? "red"
-                                : undefined
-                            }
-                          >
-                            {inst.backpressure.slowConsumers}
-                          </Table.Td>
-                        </Table.Tr>
-                      );
-                    })}
-                  </Table.Tbody>
-                </Table>
+                <DataGrid
+                  mode="client"
+                  data={cluster.instances}
+                  columns={WORKER_COLUMNS}
+                  getRowId={(inst) => inst.instanceId}
+                  initialSort={{ key: "slowConsumers", dir: "desc" }}
+                  emptyMessage="Aucun worker rapporté par la sonde."
+                />
               </Card>
             </Tabs.Panel>
           )}

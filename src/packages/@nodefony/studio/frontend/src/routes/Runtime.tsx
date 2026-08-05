@@ -15,7 +15,6 @@ import {
   Paper,
   SimpleGrid,
   Stack,
-  Table,
   Tabs,
   Text,
   ThemeIcon,
@@ -48,7 +47,9 @@ import {
   KeyValue,
   DefinitionList,
   DocHint,
+  DataGrid,
 } from "../components/ui";
+import type { DataGridColumn } from "../components/ui";
 
 /** Version de la doc des fiches d'aide (`DocHint`) de la vue Runtime. */
 const RT_DOC = "v2.0";
@@ -174,6 +175,86 @@ function fmtRss(kb: number): string {
 function roleColor(role: DevProcessRole): string {
   return role === "supervisor" ? "cyan" : role === "server" ? "teal" : "gray";
 }
+
+/**
+ * Colonnes de l'arbre des process de développement. Hors composant : recréées à
+ * chaque rendu, elles réinitialiseraient le tri à chaque rafraîchissement — et
+ * cette table se rafraîchit, c'est tout son intérêt.
+ *
+ * Aucun tri initial : l'ordre rendu par la sonde est l'ordre de PARENTÉ
+ * (superviseur, puis son serveur, puis les Vite). Le trier d'office casserait la
+ * seule lecture qui donne la topologie d'un coup d'œil ; trier par RSS ou %CPU
+ * reste à un clic, et c'est le geste qu'on fait quand un process s'emballe.
+ */
+const PROCESS_COLUMNS: DataGridColumn<DevProcessInfo>[] = [
+  {
+    key: "role",
+    header: "Rôle",
+    sortable: true,
+    filterable: true,
+    value: (p) => p.label,
+    render: (p) => (
+      <Group gap={6} wrap="nowrap">
+        <Badge variant="light" color={roleColor(p.role)} size="sm">
+          {p.label}
+        </Badge>
+        {p.detail ? (
+          <Tooltip label={p.detail.replace(/\+/g, ", ")} multiline w={260}>
+            <Text size="xs" c="dimmed" truncate maw={220}>
+              ↳ {p.detail.replace(/\+/g, ", ")}
+            </Text>
+          </Tooltip>
+        ) : null}
+      </Group>
+    ),
+    size: 300,
+  },
+  { key: "pid", header: "PID", sortable: true, value: (p) => p.pid, size: 90 },
+  {
+    key: "ppid",
+    header: "PPID",
+    sortable: true,
+    value: (p) => p.ppid,
+    render: (p) => (
+      <Text size="sm" c="dimmed">
+        {p.ppid}
+      </Text>
+    ),
+    hint: "Process parent. Trier dessus regroupe les enfants d'un même superviseur — c'est ainsi qu'on repère un orphelin, dont le parent a disparu.",
+    size: 90,
+  },
+  {
+    key: "uptimeSec",
+    header: "Uptime",
+    align: "right",
+    sortable: true,
+    // Trier sur les SECONDES, pas sur « 2h 15m » : un tri sur le texte formaté
+    // classerait « 9m » après « 10h ».
+    value: (p) => p.uptimeSec,
+    render: (p) => fmtUptime(p.uptimeSec),
+    size: 110,
+  },
+  {
+    key: "rssKb",
+    header: "RSS",
+    align: "right",
+    sortable: true,
+    value: (p) => p.rssKb,
+    render: (p) => fmtRss(p.rssKb),
+    hint: "Mémoire résidente. Trier décroissant met en tête le process qui consomme le plus — le premier geste quand la machine peine.",
+    size: 110,
+  },
+  {
+    key: "cpu",
+    header: "%CPU",
+    align: "right",
+    sortable: true,
+    value: (p) => p.cpu,
+    render: (p) => p.cpu.toFixed(1),
+    hint: "Part d'UN cœur, pas du total machine : 100 % signifie un cœur saturé, pas la machine.",
+    size: 90,
+  },
+];
 
 /**
  * Déduit le mode courant des données runtime déjà exposées : un snapshot
@@ -578,61 +659,13 @@ function ProcessTopology({
         {data && data.running ? (
           <Stack gap="md">
             <Paper withBorder radius="md" p={0} style={{ overflow: "hidden" }}>
-              <Table
-                striped
-                highlightOnHover
-                verticalSpacing="xs"
-                horizontalSpacing="md"
-                style={{ fontVariantNumeric: "tabular-nums" }}
-              >
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Rôle</Table.Th>
-                    <Table.Th>PID</Table.Th>
-                    <Table.Th>PPID</Table.Th>
-                    <Table.Th>Uptime</Table.Th>
-                    <Table.Th>RSS</Table.Th>
-                    <Table.Th>%CPU</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {data.processes.map((p) => (
-                    <Table.Tr key={p.pid}>
-                      <Table.Td>
-                        <Group gap={6} wrap="nowrap">
-                          <Badge
-                            variant="light"
-                            color={roleColor(p.role)}
-                            size="sm"
-                          >
-                            {p.label}
-                          </Badge>
-                          {p.detail ? (
-                            <Tooltip
-                              label={p.detail.replace(/\+/g, ", ")}
-                              multiline
-                              w={260}
-                            >
-                              <Text size="xs" c="dimmed" truncate maw={220}>
-                                ↳ {p.detail.replace(/\+/g, ", ")}
-                              </Text>
-                            </Tooltip>
-                          ) : null}
-                        </Group>
-                      </Table.Td>
-                      <Table.Td>{p.pid}</Table.Td>
-                      <Table.Td>
-                        <Text size="sm" c="dimmed">
-                          {p.ppid}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>{fmtUptime(p.uptimeSec)}</Table.Td>
-                      <Table.Td>{fmtRss(p.rssKb)}</Table.Td>
-                      <Table.Td>{p.cpu.toFixed(1)}</Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
+              <DataGrid
+                mode="client"
+                data={data.processes}
+                columns={PROCESS_COLUMNS}
+                getRowId={(p) => String(p.pid)}
+                emptyMessage="Aucun process de développement détecté."
+              />
             </Paper>
 
             {/* Ports serveur + synthèse. */}

@@ -456,12 +456,13 @@ services:
       # Profil en mémoire : rien n'est écrit sur le disque du conteneur, et un
       # `down` efface l'état d'authentification avec lui.
       - "--isolated"
-      # UN SEUL contexte de navigation pour tous les clients connectés : une session
-      # ouverte dans un script reste ouverte pour le suivant (vérifié — un client
-      # neuf retrouve la page authentifiée sans repasser par la connexion). Sans
-      # cette option chaque client repart d'un contexte vierge, donc déconnecté.
-      # Compromis assumé : ce conteneur sert à OBSERVER, pas à paralléliser des
-      # tests, où un état partagé serait au contraire une source de faux verdicts.
+      # UN SEUL contexte de navigation pour tous les clients connectés — ce qui
+      # ÉVITE que chaque client reparte d'un contexte vierge, donc déconnecté.
+      # ⚠️ Ne SURVIT PAS à un redémarrage du conteneur : `--isolated` garde le
+      # profil en mémoire, donc `docker restart` efface la session applicative et
+      # il faut se reconnecter. Compromis assumé : ce conteneur sert à OBSERVER,
+      # pas à paralléliser des tests, où un état partagé serait au contraire une
+      # source de faux verdicts.
       - "--shared-browser-context"
       - "--viewport-size=1440x900"
     volumes:
