@@ -510,6 +510,24 @@ l'**arbre d'accessibilité** et les **requêtes réelles** de la page.
 Une capture **n'écrase pas** un fichier existant : réutiliser un nom te fait relire
 une image périmée pendant que l'appel répond « OK ». Nom neuf, ou vérifie la date.
 
+**🔴 AVANT d'accuser ton code : le bundle SERVI est-il celui que tu as bâti ?** En
+front pré-bâti, trois mécanismes indépendants te font observer du code que la source
+ne contient plus — un build partiel qui ne purge pas la sortie (deux générations de
+chunks, l'`index.html` pouvant désigner l'ancienne), un cache de build qui RESTAURE
+un ancien `dist` par-dessus le tien, et le service d'assets qui lit l'`index.html`
+au démarrage seulement. Le symptôme est traître : l'écran montre un composant que tu
+as remplacé.
+
+```bash
+curl -sk https://127.0.0.1:5152/ | grep -o 'index-[A-Za-z0-9_-]*\.js'   # servi
+grep -o 'index-[A-Za-z0-9_-]*\.js' <module>/dist/frontend/index.html    # bâti
+```
+
+Deux valeurs différentes ⇒ le défaut n'est pas dans ton code. Rebâtis en forçant
+(cache invalidé), redémarre le serveur, PUIS redémarre le conteneur navigateur —
+son cache HTTP survit à un simple rechargement. Aucun de ces trois pas n'est
+facultatif.
+
 Ce que ce navigateur ne remplace pas : le rechargement à chaud, l'animation et le
 rendu fin — ça se juge dans un vrai navigateur. Lui répond à « l'écran se monte-t-il,
 s'alimente-t-il, et crie-t-il dans la console ? ».

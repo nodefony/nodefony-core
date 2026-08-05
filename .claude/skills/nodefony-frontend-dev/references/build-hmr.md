@@ -674,7 +674,30 @@ docker compose -f docker/docker-compose.yml --profile browser up -d
 | Passer par **HTTPS 5152**                                                 | Le cookie de session est `secure` par défaut : sur une origine `http://` **non-`localhost`** le navigateur le **jette**, et tout le data plane revient en `401` — ce qui se lit à tort comme un échec du login. Le certificat de dev est accepté. |
 | Servir l'UI en **`NF_STUDIO_UI=static`** (+ `npm run build:ui` du module) | En mode Vite la page annonce ses assets en `https://127.0.0.1:5173` — le `127.0.0.1` du NAVIGATEUR, donc du conteneur, qui n'héberge aucun Vite : page blanche alors que le HTML est bien servi. **Le HMR n'est pas joignable ainsi** (P14.17).   |
 
-### 9.2 Ce qu'il faut savoir avant de piloter
+### 9.2 🔴 AVANT de conclure quoi que ce soit : le bundle SERVI est-il celui que tu as bâti ?
+
+**C'est le premier contrôle, pas le dernier.** En mode pré-bâti, trois mécanismes indépendants
+peuvent te faire observer du code que la source ne contient plus — et chacun, seul, est inoffensif :
+
+1. un build partiel (`build:ui`) **ne purge pas** le dossier de sortie : deux générations de chunks
+   cohabitent et l'`index.html` peut désigner l'ancienne ;
+2. le lancement du serveur déclenche `turbo run build`, qui **restaure un `dist` depuis son cache** —
+   écrasant le build qu'on venait de faire à la main ;
+3. le service d'assets lit l'`index.html` **au démarrage** : un build postérieur au boot n'est pas vu.
+
+Le symptôme est traître : l'écran montre un composant qu'on a REMPLACÉ, et l'on accuse son propre
+code. Vécu — quatre tours de vérification perdus à soupçonner une migration qui était juste.
+
+```bash
+curl -sk https://127.0.0.1:5152/nodefony | grep -o 'index-[A-Za-z0-9_-]*\.js'   # ce qui est SERVI
+grep -o 'index-[A-Za-z0-9_-]*\.js' <module>/dist/frontend/index.html            # ce qui est BÂTI
+```
+
+Deux valeurs différentes ⇒ **le défaut n'est pas dans ton code**. Remède, dans cet ordre, aucun pas
+n'étant facultatif : `npx turbo run build --filter=<paquet> --force` → **redémarrer le serveur** →
+**redémarrer le conteneur navigateur** (son cache HTTP survit à un rechargement).
+
+### 9.3 Ce qu'il faut savoir avant de piloter
 
 - **Attendre par un APPEL, jamais par une pause.** Une attente inactive laisse expirer la session MCP,
   et l'appel suivant revient `404 Session not found` — qu'on impute alors au navigateur.
@@ -687,7 +710,7 @@ docker compose -f docker/docker-compose.yml --profile browser up -d
   pendant que l'appel répond « OK » : on lit alors un écran périmé et on en tire des conclusions
   fausses. Nom neuf à chaque fois, ou vérifier la date avant de regarder.
 
-### 9.3 Ce que ce conteneur ne remplace pas
+### 9.4 Ce que ce conteneur ne remplace pas
 
 Le **HMR**, l'animation et le rendu fin (polices, sous-pixel) se jugent dans le navigateur du
 développeur. Le conteneur sert à constater qu'un écran **se monte, s'alimente et ne crie pas** —

@@ -581,6 +581,27 @@ liste)` sans assertion sur `liste.length` est vert sur zéro itération : une r�
 
 ## 🧰 Outillage : ce qui pend, ce qui ment, ce qui lance
 
+- `[1× — 2026-08-05c]` 🔴🔴 **LE BUNDLE SERVI N'EST PAS CELUI QU'ON VIENT DE BÂTIR — et l'écran
+  montre alors du code QUI N'EXISTE PLUS dans la source.** Quatre tours de vérification passés à
+  soupçonner une migration qui était juste. Trois mécanismes indépendants, chacun inoffensif seul :
+  `build:ui` **ne purge pas** `dist/frontend/` (deux générations de chunks, `index.html` désignant
+  l'ancienne) · `start.sh` déclenche `turbo run build` qui **RESTAURE un dist depuis son cache**,
+  écrasant le build manuel · `PrebuiltUi` lit `index.html` **au démarrage** seulement. Le
+  diagnostic tient en deux lignes et doit être le PREMIER réflexe, pas le dernier : comparer
+  `curl … | grep -o 'index-[hash].js'` (SERVI) à la même chaîne dans `dist/frontend/index.html`
+  (BÂTI). Différent ⇒ le défaut n'est pas dans le code. Remède ORDONNÉ, aucun pas facultatif :
+  `turbo run build --filter=… --force` → redémarrer le serveur → redémarrer le conteneur
+  navigateur (son cache HTTP survit au rechargement). Gradué dans `gotchas-studio.md` §1 et
+  `build-hmr.md` §9.2 ; porté aussi à l'`AGENTS.md` des apps générées.
+- `[1× — 2026-08-05c]` ⭐ **Un serveur MCP peut TUER la session parce que le CLIENT ne répond pas à
+  ses pings.** `mcp/playwright` lance un heartbeat (`server.ping()` toutes les 3 s) qui ne part que
+  sur le flux GET SSE standalone ; sans ce flux ouvert **et lu en boucle**, `send()` retourne
+  silencieusement, le ping expire à 5 s et le serveur ferme la session — d'où un `404 Session not
+found` à l'appel 6, toujours au même instant (t+5,7 s), ce qui ressemble à un quota d'appels et
+  n'en est pas. Un protocole bidirectionnel impose des DEVOIRS au client : ouvrir le canal retour,
+  le lire, et RÉPONDRE. Diagnostic obtenu en lisant le code du serveur DANS le conteneur, pas en
+  raisonnant sur les symptômes.
+
 - `[1× — 2026-08-05c]` 🔴 **RÉIMPLÉMENTER UN CLIENT DE PROTOCOLE À LA MAIN COÛTE PLUS QUE LA TÂCHE
   QU'IL SERT.** Un conteneur exposait un serveur MCP ; au lieu de le brancher au harnais (une
   commande, `claude mcp add`), j'ai écrit six clients HTTP successifs — parsing SSE, gestion de
