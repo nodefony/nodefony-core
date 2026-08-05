@@ -153,7 +153,21 @@ export default defineConfig<Env>((ctx) => ({
         // l'accès par NOM DE DOMAINE — en dev via `/etc/hosts` (nodefony.com →
         // 127.0.0.1), en prod via le vrai DNS. Le port est strippé avant le match
         // (cf domainMatcher) → `nodefony.com:5151` matche `nodefony.com`.
-        trustedHosts: ["localhost", "127.0.0.1", "nodefony.com"],
+        //
+        // DEV UNIQUEMENT — `host.docker.internal` : un navigateur qui tourne DANS un
+        // conteneur (banc Playwright, cf docker-compose.yml service `browser`) ne peut
+        // pas dire « localhost » — ce nom y désigne le conteneur lui-même. Docker
+        // Desktop lui donne `host.docker.internal` pour joindre la machine hôte, et
+        // c'est ce nom qui arrive dans l'en-tête `Host` : sans lui dans l'allowlist, la
+        // barrière répond `421 Misdirected Request` alors que le réseau, lui, passe.
+        // Hors dev on ne l'ajoute PAS : en production ce nom n'a aucun sens et
+        // élargirait l'allowlist pour rien.
+        trustedHosts: [
+          "localhost",
+          "127.0.0.1",
+          "nodefony.com",
+          ...(ctx.isDev ? ["host.docker.internal"] : []),
+        ],
         // trustProxy : n'honore les en-têtes forwarded que derrière un proxy de
         // confiance. Activé via NF_BIND_ALL (banc reverse-proxy Docker : IP source
         // des conteneurs = réseau privé 172.16/12, 192.168/16, 10/8). En prod,
@@ -280,8 +294,15 @@ export default defineConfig<Env>((ctx) => ({
     // ── Doc transverse AVANT Studio.
     "@nodefony/documentation",
 
-    // Studio admin — console d'administration du framework.
-    { name: "@nodefony/studio", policy: "mandatory" },
+    // Studio admin — console d'administration du framework. `ui` reste sur `auto`
+    // (→ Vite/HMR dans ce dépôt) sauf décor contraire : `NF_STUDIO_UI=static` sert
+    // le pré-buildé, seul mode joignable depuis un navigateur en conteneur (le
+    // pourquoi est dans ./env.ts).
+    use(
+      "@nodefony/studio",
+      { ui: ctx.env.NF_STUDIO_UI },
+      { policy: "mandatory" },
+    ),
 
     // ── Accès Redis générique — chargé par la DÉCLARATION de l'infra cache :
     //    `NF_REDIS_URL` présente ⇔ module chargé (un seul signal, pas de magie

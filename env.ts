@@ -151,6 +151,32 @@ export const env = defineEnv({
     description: "DEV : bind 0.0.0.0 + trustProxy (banc reverse-proxy Docker).",
   }),
 
+  /**
+   * Livraison de l'UI Studio — molette `ui` de `@nodefony/studio`, exposée ici
+   * pour qu'un décor puisse la poser sans éditer la config.
+   *
+   * - `auto` (défaut) : dans CE dépôt, résout vers `vite` → HMR, sources vivantes.
+   * - `static` : sert les assets pré-buildés (`dist/frontend/`, produits par
+   *   `npm run build:ui`). **Aucune dépendance au dev-server Vite.**
+   * - `vite` : force le dev-server.
+   *
+   * POURQUOI cette molette existe pour un banc en CONTENEUR : en `auto`/`vite`, la
+   * page Studio annonce ses assets en URL ABSOLUE (`https://127.0.0.1:5173/...`,
+   * cf `TemplateHelper.renderDevTags`). Ce `127.0.0.1` est celui du NAVIGATEUR :
+   * dans un conteneur il désigne le conteneur lui-même, qui n'héberge aucun Vite
+   * → page blanche et `ERR_CONNECTION_REFUSED`, alors que le HTML, lui, est bien
+   * servi. En `static`, les assets sont same-origin sous `/_assets/studio/` : la
+   * page se charge quel que soit le nom par lequel on est entré. C'est en prime le
+   * mode que voient les applications qui installent Studio depuis npm.
+   *
+   * ⚠️ En `static` on perd le HMR — c'est un mode d'OBSERVATION, pas de dev front.
+   */
+  NF_STUDIO_UI: envEnum(["auto", "static", "vite"], {
+    default: "auto",
+    description:
+      "Livraison de l'UI Studio : auto (défaut) | static (pré-buildé, sans Vite) | vite.",
+  }),
+
   // ── Social login OAuth 2.0 (P6 J9) ─────────────────────────────────────────
   // Secrets délivrés par les fournisseurs (Google Cloud Console / GitHub
   // Developer Settings › OAuth Apps). OPTIONNELS : un fournisseur n'est monté
