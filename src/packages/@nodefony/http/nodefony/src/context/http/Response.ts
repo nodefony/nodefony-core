@@ -29,6 +29,10 @@ const stripAinsi = function (val: string): string {
 // (0 alloc par appel).
 const REDIRECT_STATUS_CODES = new Set<number>([301, 302, 303, 307, 308]);
 
+// Sets module-level pour `setLength()` (0 alloc par requête).
+const NO_CONTENT_LENGTH_METHODS = new Set(["HEAD", "OPTIONS", "TRACE"]);
+const NO_CONTENT_LENGTH_STATUS = new Set([204, 304]);
+
 class HttpResponse {
   context: HttpContext;
   response: http.ServerResponse | http2.Http2ServerResponse | null;
@@ -51,7 +55,23 @@ class HttpResponse {
       this.context?.httpKernel?.responseTimeout[
         this.context.type as responseTimeoutType
       ];
-    this.setContentTypeByExtension("bin");
+    // Pas de `setHeader("Content-Type", "application/octet-stream")` ici : le
+    // chemin nominal (JSON/HTML) le remplacerait aussitôt (1 set + 2 remove
+    // gaspillés par requête). Le défaut vit dans `this.contentType` et n'est
+    // émis QUE si personne n'a rien posé au moment du writeHead
+    // (cf `ensureContentTypeHeader()`), même résultat sur le fil.
+  }
+
+  /**
+   * Filet posé juste avant l'émission des en-têtes : si aucun `Content-Type`
+   * n'a été choisi (ni négociation, ni `render`, ni controller), émet le défaut
+   * `this.contentType` (application/octet-stream) — comportement identique à
+   * l'ancienne pose au constructeur, sans le ping-pong set/remove/re-set.
+   */
+  protected ensureContentTypeHeader(): void {
+    if (this.response && !this.response.hasHeader("content-type")) {
+      this.response.setHeader("content-type", this.contentType);
+    }
   }
 
   clean() {
@@ -210,8 +230,8 @@ class HttpResponse {
   }
 
   setContentType(type?: string, encoding?: BufferEncoding) {
-    this.response?.removeHeader("content-type");
-    this.response?.removeHeader("Content-Type");
+    // Pas de `removeHeader` préalable : `setHeader` natif écrase (node indexe
+    // les en-têtes sortants en minuscules, la casse ne crée pas de doublon).
     if (type && encoding) {
       let mytype = mime.contentType(type);
       // Get the MIME type without charset
@@ -367,43 +387,28 @@ class HttpResponse {
       throw new Error("Headers already sended");
     }
     const actualBody = body || this.body;
-    const noContentLengthMethods = ["HEAD", "OPTIONS", "TRACE"];
-    const noContentLengthStatusCodes = new Set([204, 304]);
     // Ne pas définir Content-Length si Transfer-Encoding est chunked
     const isChunked = this.getHeader("Transfer-Encoding") === "chunked";
-    // Vérifier si Content-Length doit être défini
-    let actualContentLength = null;
-    if (this.hasHeader("Content-Length")) {
-      actualContentLength = this.getHeader("Content-Length");
-    }
     if (
-      //actualBody &&
-      !noContentLengthMethods.includes(this.context?.method as string) &&
-      !noContentLengthStatusCodes.has(this.statusCode) &&
+      !NO_CONTENT_LENGTH_METHODS.has(this.context?.method as string) &&
+      !NO_CONTENT_LENGTH_STATUS.has(this.statusCode) &&
       !isChunked
     ) {
-      // Calculer la longueur du corps
-
-      // Vérifier si Content-Length est déjà défini
-      if (!actualContentLength) {
-        this.response?.removeHeader("Content-Length");
-      }
-      let length = 0;
       if (actualBody) {
-        length = Buffer.byteLength(actualBody);
-        this.setHeader("Content-Length", length.toString());
+        const length = Buffer.byteLength(actualBody);
+        this.setHeader("Content-Length", String(length));
+        return length;
       }
-      return length;
-    } else {
-      // Ne pas définir Content-Length pour les réponses sans corps
-      if (!noContentLengthStatusCodes.has(this.statusCode)) {
-        if (actualContentLength) {
-          this.response?.removeHeader("Content-Length");
-        }
-        this.setHeader("Content-Length", "0");
-        return 0;
-      }
+      // Corps absent (streaming différé) : un Content-Length posé par le
+      // producteur du stream est conservé tel quel.
+      return 0;
     }
+    // HEAD/OPTIONS/TRACE ou chunked (hors 204/304) : longueur forcée à 0
+    // (`setHeader` écrase un éventuel Content-Length préexistant).
+    if (!NO_CONTENT_LENGTH_STATUS.has(this.statusCode)) {
+      this.setHeader("Content-Length", "0");
+    }
+    // 204/304 : aucun en-tête touché (RFC 9110 — pas de Content-Length).
     return 0;
   }
 
@@ -433,15 +438,27 @@ class HttpResponse {
         this.response.setHeader("traceparent", this.context.traceparent);
       }
       this.setLength();
-      // RFC 7230 §3.1.2 — status-message must be printable US-ASCII
-      const safeMsg =
-        this.statusMessage.replace(/[^\x20-\x7E]/g, "").trim() ||
-        (http.STATUS_CODES[this.statusCode] ?? "Unknown Error");
-      (this.response as http.ServerResponse).writeHead(
-        this.statusCode,
-        safeMsg,
-        headers as http.OutgoingHttpHeaders,
-      );
+      this.ensureContentTypeHeader();
+      const std = http.STATUS_CODES[this.statusCode];
+      if (this.statusMessage === std) {
+        // Message standard (cas nominal) : ne PAS le passer à node — un
+        // statusMessage custom force le slow path de composition de la ligne
+        // de statut, et le message standard n'a rien à assainir.
+        (this.response as http.ServerResponse).writeHead(
+          this.statusCode,
+          headers as http.OutgoingHttpHeaders,
+        );
+      } else {
+        // RFC 7230 §3.1.2 — status-message must be printable US-ASCII
+        const safeMsg =
+          this.statusMessage.replace(/[^\x20-\x7E]/g, "").trim() ||
+          (std ?? "Unknown Error");
+        (this.response as http.ServerResponse).writeHead(
+          this.statusCode,
+          safeMsg,
+          headers as http.OutgoingHttpHeaders,
+        );
+      }
     } else {
       this.log("Headers already sent !!", "WARNING");
       throw new Error(`Headers already sent !!`);
@@ -564,11 +581,9 @@ class HttpResponse {
 
   hasHeader(name: string): boolean {
     if (this.response) {
-      const headers = this.response.getHeaders();
-      if (name.toLocaleLowerCase() in headers) {
-        return true;
-      }
-      return false;
+      // `hasHeader` natif : lookup O(1), sans la copie complète que
+      // `getHeaders()` matérialise à chaque appel.
+      return this.response.hasHeader(name);
     }
     throw new Error(`Respose not foud`);
   }
