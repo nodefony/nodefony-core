@@ -71,11 +71,14 @@
   doubles de `UserAdminApi`/`WebhookAdminApi` avaient un filtrage pour `listPage` et un autre pour
   les compteurs — exactement la divergence que le test devait dénoncer, reproduite dans son propre
   décor. Un seul `filterUsers`/`filterEndpoints`, partagé, comme le font les vrais dépôts.
-- `[1× — 2026-08-03i]` ⭐ **Une hypothèse notée dans un kit se re-vérifie AU CODE avant d'être
+- `[2× — 08-05h]` ⭐ **Une hypothèse notée dans un kit se re-vérifie AU CODE avant d'être
   chiffrée.** Le kit annonçait « il faut `searchCriteria` dans les 4 chemins de comptage » : les
   six backends savaient déjà compter avec `q`, et le trou était le data plane — le même endroit que
   pour le tri, trois sessions plus tôt. Une demi-heure de lecture a supprimé les trois quarts du
-  chantier annoncé.
+  chantier annoncé. Rebelote au kit perf : le lot D3 prescrivait de supprimer un `delete` que le
+  code EXIGE (commentaire + [[feedback_service_options_delete]]) et le lot C annonçait 3-5 µs pour
+  des fires dont la boucle était DÉJÀ court-circuitée (la garde vivait dans `emitAsync`) — le
+  gain réel : ~0,4 µs.
 
 - `[1× — 2026-08-03h]` 🔴 **Le dernier data plane à lire sa query à la main était celui du
   JOURNAL** — le pire endroit possible. `?severity=CRITICAL` (au lieu de `CRITIC`),
@@ -532,6 +535,18 @@ audit` dans un `cat <<EOF`. Le prédicat se gardait déjà de deux pièges — l
 
 ## 📏 Une sonde de PERFORMANCE juge la machine avant de juger le code
 
+- `[1× — 08-05h]` 🔴 **Un banc a une RÉSOLUTION, et tout verdict la cite.** 3 paires A/B
+  alternées sur un diff qui fait strictement MOINS de travail (prouvé au micro-bench isolé
+  584→190 ns/op) ont rendu −3,4 / −2,2 / **+3,2 %** : ce banc, ce soir-là, fabriquait ±3,4 % de
+  bruit pur. Un gain annoncé SOUS ce plancher est une opinion. Le micro-bench du point précis
+  donne la DIRECTION ; le banc ne donne l'amplitude que si elle dépasse son bruit — sinon le
+  verdict honnête est « structurel, gardé en le disant ».
+- `[1× — 08-05h]` 🔴 **L'ABSOLU d'un i9 mobile varie de 30 % d'un soir à l'autre** (throttling —
+  `cpu_thermal_level: 4`) : 9 813 RPS la veille, ~7 000 le soir même, même script, même cible.
+  Seul le relatif intra-fenêtre compte ; l'état thermique se note AVANT/APRÈS chaque série.
+- `[1× — 08-05h]` **Le run 1 d'une série wrk est presque toujours le plus bas** (10 séries sur 12) : deux `curl` ne chauffent pas un JIT. Warmup wrk NON compté, sinon la médiane de 3 traîne
+  un run froid.
+
 - `[1× — 08-05g]` 🔴 **Un micro-bench sans le DÉCOR du pipeline réel inverse le verdict.** Le
   fast path `writeHead(obj)` mesurait −38 % (2,8 vs 4,5 µs)… sur un handler nu. Avec DEUX
   `setHeader` préalables (cookie + trace — l'état RÉEL de toute requête du pipeline), il
@@ -651,6 +666,11 @@ liste)` sans assertion sur `liste.length` est vert sur zéro itération : une r�
 
 ## 🧰 Outillage : ce qui pend, ce qui ment, ce qui lance
 
+- `[1× — 08-05h]` **Le kill du banc ne voit pas le DevSupervisor** : `pkill -f bin/nodefony`
+  rate le titre de process RENOMMÉ (`nodefony-dev-supervisor`), le superviseur survit, relance
+  son enfant pendant le spawn prod du banc → BOOT FAIL par course sur le port 5151 (2× ce soir).
+  `npx nodefony stop` AVANT tout banc — le kill par motif est un filet, pas un arrêt.
+
 - `[1× — 2026-08-05c]` 🔴🔴 **LE BUNDLE SERVI N'EST PAS CELUI QU'ON VIENT DE BÂTIR — et l'écran
   montre alors du code QUI N'EXISTE PLUS dans la source.** Quatre tours de vérification passés à
   soupçonner une migration qui était juste. Trois mécanismes indépendants, chacun inoffensif seul :
@@ -762,6 +782,12 @@ found` à l'appel 6, toujours au même instant (t+5,7 s), ce qui ressemble à un
   elle a eu raison à chaque fois.
 
 ## 🗣️ Quand le user REPOSE la question, c'est ma réponse qui est fausse
+
+- `[1× — 08-05h]` **« Tu es sûr de ton calcul de RPS ? »** — j'avais publié « +3-4 %, séparation
+  nette » : les MÉDIANES étaient séparées, mais les runs individuels se chevauchaient et une
+  paire était SOUS le seuil de bruit du protocole (+2,8 % < ±3 %). L'audit demandé a requalifié
+  le verdict en « signal probable, amplitude incertaine » et listé 5 défauts du banc. Un chiffre
+  publié se re-audite volontiers — le défendre n'est pas une option.
 
 - `[1× — 2026-08-02j]` 🔴 **« kit en 8 étapes !!! »** — un plan dont plusieurs « lots » sont la
   MANIÈRE d'écrire les autres n'est pas un plan, c'est une checklist administrative. Sur 8 : 3
