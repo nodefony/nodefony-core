@@ -420,6 +420,16 @@ satisfies IFilterSpec` + un générique `<const S>` fait dériver `{revoked?: bo
   service AUTRE que celui du décor — et, l'exclusion par nom se retournant en silence dès qu'on
   renomme l'exemple, il exige d'ABORD de RETROUVER l'exemple : absent, il annonce « décor
   inattendu » au lieu de juger l'agent.
+- `[1× — 2026-08-05b]` 🔴 **Un agent valide une sonde en RACONTANT le geste qu'il n'a pas fait.**
+  La sonde « a lancé `create module` » était VERTE alors que le générateur n'avait jamais été
+  appelé : l'agent avait affiché un récapitulatif décoratif contenant `npx nodefony create module
+audit` dans un `cat <<EOF`. Le prédicat se gardait déjà de deux pièges — le CONTENU d'un fichier
+  ouvert, une commande CITÉE dans un document lu —, tous deux du texte ENTRANT, écartés en exigeant
+  la clé `"command"` d'un appel d'outil. Restait le troisième, SORTANT : le texte que l'agent écrit
+  lui-même DANS une commande. C'est le pire des trois, un faux VERT que personne ne vient
+  contester, et **vingt sondes** reposaient dessus. Élagage à un point unique (corps de heredoc et
+  littéraux `echo`/`printf` retirés des commandes avant jugement), les sondes de LECTURE gardant le
+  transcript entier. Règle : **ce qu'une commande AFFICHE n'est pas ce qu'elle FAIT.**
 
 ## 🎭 Le DÉCOR d'un banc doit être celui de l'utilisateur, sinon la mesure ment sur son objet
 
@@ -448,6 +458,35 @@ satisfies IFilterSpec` + un générique `<const S>` fait dériver `{revoked?: bo
   l'agent écrivait une classe ordinaire. L'exemple posé, il n'a PAS recopié le fichier : il a
   cherché et lancé `create service`. **Un exemple ne sert pas de modèle à copier, il sert de
   PREUVE qu'une façade existe** — et ça suffit à déclencher la recherche du générateur.
+
+- `[1× — 2026-08-05b]` 🔴 **Un dossier EXCLU du nettoyage protège tous ses parents.** La remise à
+  zéro du décor faisait `git clean -xdfq -e node_modules` : sans barre oblique de tête, l'exclusion
+  est un motif gitignore qui mord à TOUTE profondeur. Or `create module` fait naître un workspace
+  npm — donc `modules/<nom>/node_modules/` — et son bundler dépose `dist/node_modules/`. Git ne
+  supprimant pas un dossier dont il doit préserver le contenu, le squelette du module SURVIVAIT
+  d'une répétition à l'autre, et la suivante se faisait refuser son propre générateur (« le module
+  existe déjà »). Correctif d'un caractère : `-e /node_modules`. Règle : **une exclusion de
+  nettoyage s'ANCRE**, sinon elle protège ce qu'on croyait effacer.
+
+## ⚙️ Une montée d'OUTIL change le verdict sans qu'une ligne du dépôt bouge
+
+- `[1× — 2026-08-05b]` 🔴 **Un linter en plage `^` rougit un dépôt inchangé.** Le lot de
+  dépendances de la veille a monté oxlint de 1.76 à 1.77, qui apporte `no-map-spread` : CI rouge
+  pendant six runs sur un fichier vieux de plusieurs semaines. **Aucun contrôle sur les fichiers
+  STAGÉS ne pouvait l'attraper** — le commit déclencheur ne touchait que le verrou de dépendances.
+  Deux gestes : le linter passe en version EXACTE (la montée redevient délibérée : on monte, on
+  lance le lint complet, on corrige dans le même commit), et `oxlint` entre dans `lint-staged`
+  pour l'autre moitié des cas (une ligne qu'on vient d'écrire, verdict identique en local, 200 ms).
+- `[1× — 2026-08-05b]` 🔴 **Un réglage de MESURE qui n'est plus lu ne dit rien — et son banc reste
+  vert.** `execArgv` est passé au premier niveau en Vitest 4 ; la config portait encore
+  `poolOptions: { forks: { execArgv: ["--expose-gc"] } }`. Vitest 4 l'ignore **sans échouer** : les
+  huit tests passent, et `globalThis.gc` vaut simplement `undefined`. La sonde cesse alors de
+  forcer le ramassage et mesure les déchets en attente — soit autre chose que ce dont le seuil
+  parle. Résultat en CI : « fuite mémoire suspectée : heapΔ 47.5MB (seuil 40MB) » sur un dépôt sans
+  fuite. Après correction : **0,3 MB**, la valeur que le `CLAUDE.md` du module documentait depuis
+  toujours — facteur 158. **Le seul indice était une ligne `DEPRECATED` noyée dans la sortie.**
+  Réflexe : après une montée majeure de runner, relire les options de MESURE une par une ; un flag
+  débranché ne se signale jamais par un rouge, seulement par un chiffre qu'on croit vrai.
 
 ## 📏 Une sonde de PERFORMANCE juge la machine avant de juger le code
 
