@@ -446,6 +446,18 @@ corriger. Message = résumé lisible (le message zod natif est un JSON verbeux) 
 
 ## Gotchas critiques
 
+**`originUrl` = ACCESSOR, pas un champ** : backing `_originUrl` dans `Context`, getter PARESSEUX
+dans `HttpContext` (construit à la 1ʳᵉ lecture — loggers ; `Origin: null`/malformé → repli
+`new URL(this.url)`, jamais de throw : un `Origin: null` au ctor pendait la requête). NE PAS
+redéclarer `originUrl` en champ d'instance dans une sous-classe : il masquerait le getter du
+prototype. WS assigne via le setter (repli try/catch propre dans `WebsocketContext`).
+
+**Hooks contexte gardés zéro-listener** : `onSend`/`onClose` (`HttpContext`), `onRequestEnd`
+(`Request.fireRequestEnd`) ne paient l'appel `fireAsync` que si `listenerCount > 0` — le nom
+d'event de la garde doit rester EXACT (une typo éteint le hook en silence ; verrous :
+`unit/requestEndGuard`, `integration/context-hooks`). `#doSend` saute aussi `saveSession()`
+sans session démarrée. `acceptParser` sans en-tête → singleton `ACCEPT_ANY` (lecture seule).
+
 **IWsRequestExtension** : `IncomingMessage.url` = string. `Route.match()` fait `.pathname`. Fix : `WsIncomingMessage = IncomingMessage & { url: URL; query; queryGet; path }` — assigné dans `WebsocketContext` constructor.
 
 **ERR_INVALID_CHAR** : Node.js set `ServerResponse.statusMessage` natif AVANT validation → char invalide persiste même si `writeHead()` throw. Tous les writes suivants échouent en cascade (y compris timeout 30s). Fix : `safeMsg = statusMessage.replace(/[^\x20-\x7E]/g, "")` juste avant `ServerResponse.writeHead()` dans `Response.ts`.
