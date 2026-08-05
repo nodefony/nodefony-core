@@ -3228,6 +3228,30 @@ function sauverIgnoresInitiaux(app, runDir) {
  * @param {number} id - la tâche sur le point d'être jouée (pour le message).
  */
 export function reinitialiserDecor(app, runDir, id) {
+  // AVANT les fichiers, les PROCESS — sinon la remise à zéro n'en est pas une.
+  //
+  // Ce décor remettait l'arbre git à l'état initial et s'arrêtait là. Or une
+  // tâche peut laisser un serveur derrière elle : l'`AGENTS.md` généré dit bien
+  // « arrête ce que tu démarres », mais ce banc existe précisément pour mesurer
+  // des agents qui ne le font pas toujours — compter sur leur discipline, c'est
+  // mesurer sa propre consigne.
+  //
+  // Vécu sur la tâche 27 : un serveur survivant tenait le port 5371, et le juge
+  // a interrogé une application qui n'était pas celle qu'il éprouvait. Le run a
+  // été écarté (`CAUSE=port-deja-tenu`) — la garde a bien mordu — mais la tâche
+  // s'est retrouvée à DEUX runs retenus, donc non prouvée, pour une faute qui
+  // ne lui appartenait pas.
+  //
+  // `npm run stop` plutôt que le binaire : le gabarit déclare ce script
+  // (`"stop": "nodefony stop"`), npm le résout de façon portable, et l'on ne
+  // recopie pas ici une connaissance qui vit déjà dans l'application. Silencieux
+  // et sans conséquence quand rien ne tourne — c'est le cas courant.
+  try {
+    sh("npm", ["run", "stop"], { cwd: app, stdio: "ignore" });
+  } catch {
+    // Rien à arrêter, ou le script absent d'un décor plus ancien : dans les deux
+    // cas, la remise à zéro des fichiers reste la bonne suite.
+  }
   // Le commit d'ORIGINE, pas la remise à zéro précédente : `git log` va du plus
   // récent au plus ancien, et les remises à zéro portent le même suffixe — le
   // dernier de la liste est donc la création de l'app.
