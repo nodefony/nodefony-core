@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:e2e": "npm run build && vitest run -c vitest.e2e.config.ts",
     "typecheck": "tsgo --noEmit",
+    "verify": "npm run typecheck && npm run lint && npm test && npm run check",
     "check": "nodefony check",
     "inspect": "nodefony inspect",
     "ai:sync": "nodefony ai:sync",

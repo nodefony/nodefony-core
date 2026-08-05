@@ -300,6 +300,28 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // est pire qu'un script absent.
       assert.property(pkg["scripts"], "clean");
       assert.notInclude(pkg["scripts"]["clean"], "rimraf");
+      // `verify` : UNE commande qui enchaîne les gates. Mesuré au banc de
+      // découvrabilité (tâche 13) — un agent a livré du code qui ne compilait
+      // pas sans avoir lancé le typecheck une seule fois, alors que les quatre
+      // gates étaient documentés séparément. Quatre commandes à composer, c'est
+      // zéro commande lancée ; le gate oublié était toujours `typecheck`, le
+      // seul que le build ne fait pas.
+      assert.property(pkg["scripts"], "verify");
+      for (const gate of ["typecheck", "lint", "test", "check"]) {
+        assert.include(
+          pkg["scripts"]["verify"],
+          gate,
+          `verify doit enchaîner « ${gate} »`,
+        );
+        assert.property(
+          pkg["scripts"],
+          gate,
+          `verify appelle « ${gate} », qui doit exister`,
+        );
+      }
+      // Le gate LENT reste dehors : un `verify` qui boote l'app ne serait plus
+      // lancé, et on aurait remplacé quatre gates oubliés par un seul.
+      assert.notInclude(pkg["scripts"]["verify"], "e2e");
       assertNoEtaResidue(dest);
       assert.isEmpty(r.linked);
     });

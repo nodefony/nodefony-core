@@ -404,10 +404,23 @@ milieu, et tu passes l'heure suivante sur des 404 fantômes.
 ## Gates — vérifier avant de dire « fait »
 
 ```bash
-npm test              # 1ᵉʳ diagnostic — unitaires, rapides, zéro serveur
-npm run typecheck     # le bundler ne type-check PAS : gate séparé, obligatoire
-npm run test:e2e      # boot RÉEL de l'app + HTTP/WS (build inclus)
+npm run verify        # ⬅ LA commande. typecheck + lint + tests + check, dans cet ordre
+```
+
+**Une seule à retenir, et c'est délibéré.** Les quatre gates ci-dessous existent
+séparément pour qu'on puisse en relancer un ; mais tant qu'ils n'étaient QUE
+séparés, il fallait penser à les enchaîner — et le premier oublié était toujours
+le même, `typecheck`, celui que rien d'autre ne remplace : **le bundler ne
+type-check pas**, ton code peut être bâti, servi, et ne pas compiler.
+
+`verify` s'arrête au premier rouge, et ce rouge est ta tâche suivante.
+
+```bash
+npm run typecheck     # types — le seul gate que le build ne fait PAS à ta place
+npm run lint          # style et pièges
+npm test              # unitaires, rapides, zéro serveur
 npm run check         # cohérence, ce qui MANQUE à l'install, + BILAN du dernier démarrage
+npm run test:e2e      # boot RÉEL + HTTP/WS (build inclus) — HORS `verify` : c'est le gate LENT
 ```
 
 **`check` nomme d'abord ce qui empêche de DÉMARRER**, et il le fait sans rien
