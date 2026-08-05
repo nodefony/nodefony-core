@@ -31,11 +31,75 @@
 import {
   TASKS,
   SONDES_QUALITE,
+  elaguerAffichage,
   evaluateProbe,
   expliquerEchec,
   motifDEcartement,
   transcriptExploitable,
 } from "./bench-discoverability.mjs";
+
+/**
+ * Ce qu'une commande AFFICHE ne compte pas pour un geste — les deux sens.
+ *
+ * La garde a un coût si elle se trompe, et il est asymétrique : élaguer TROP
+ * fait rater un vrai appel de générateur (rouge visible, corrigé au run
+ * suivant), élaguer TROP PEU laisse un agent valider une sonde en RACONTANT ce
+ * qu'il n'a pas fait (vert que personne ne conteste). Les deux moitiés sont
+ * donc éprouvées ici : six formes d'affichage doivent disparaître, cinq
+ * invocations réelles doivent survivre — dont celles qui SUIVENT un affichage
+ * dans la même commande, le cas où un élagage trop gourmand emporterait le
+ * geste avec le décor.
+ *
+ * @returns {string[]} les libellés des cas qui n'ont pas rendu ce qu'ils doivent.
+ */
+function verifierElagageAffichage() {
+  const rates = [];
+  const cas = [
+    // Ce que l'agent ÉCRIT — doit disparaître.
+    [
+      "heredoc décoratif (le cas vécu, tâche 28)",
+      "cat << 'EOF'\n  Ou créer un module Nodefony distinct :\n    npx nodefony create module audit\nEOF",
+      false,
+    ],
+    [
+      "heredoc sans quotes",
+      "cat <<EOF\nlance npx nodefony create module blog\nEOF",
+      false,
+    ],
+    [
+      "heredoc indenté (<<-)",
+      "cat <<-FIN\n\tnpx nodefony create module blog\n\tFIN",
+      false,
+    ],
+    ["echo littéral", 'echo "npx nodefony create module blog"', false],
+    ["echo avec drapeau", 'echo -e "npx nodefony create module blog"', false],
+    ["printf littéral", "printf 'npx nodefony create module blog'", false],
+    // Ce que l'agent FAIT — doit survivre.
+    ["invocation nue", "npx nodefony create module audit", true],
+    ["invocation chaînée", "cd /app && npx nodefony create module audit", true],
+    [
+      "invocation APRÈS un heredoc refermé",
+      "cat << 'EOF'\nbla\nEOF\nnpx nodefony create module audit",
+      true,
+    ],
+    [
+      "invocation dans un sh -c",
+      'sh -c "npx nodefony create module audit"',
+      true,
+    ],
+    [
+      "invocation précédée d'un echo décoratif",
+      'echo "on y va" && npx nodefony create module audit',
+      true,
+    ],
+  ];
+  for (const [label, cmd, doitSurvivre] of cas) {
+    if (/create\s+module\b/u.test(elaguerAffichage(cmd)) !== doitSurvivre) {
+      rates.push(label);
+    }
+  }
+  return rates;
+}
 
 /**
  * Un gate rouge doit s'expliquer du premier coup.
@@ -1930,6 +1994,10 @@ function main() {
       c,
       "un gate rouge qui ne rend que « exit 1 » oblige à rouvrir le décor pour savoir ce qui a lâché — il l'avait pourtant écrit en tombant",
     ]),
+    ...verifierElagageAffichage().map((c) => [
+      c,
+      "ce qu'une commande AFFICHE n'est pas ce qu'elle FAIT : un agent qui RACONTE un générateur qu'il n'a pas lancé ne doit pas en valider la sonde — et un vrai appel ne doit pas être élagué avec le décor",
+    ]),
   ];
 
   for (const w of wrong) console.log(`  ✗ ${w}`);
@@ -1952,7 +2020,7 @@ function main() {
   console.log(
     `\n━━ ${covered}/${probes.length} sonde(s) couverte(s), ${checked} cas joué(s)` +
       (prove ? ` — amputation vérifiée sur ${covered}` : "") +
-      `, gardes du juge : ${gardeRatee.length === 0 ? "17 cas ✅" : `${gardeRatee.length} RATÉ(S)`}` +
+      `, gardes du juge : ${gardeRatee.length === 0 ? "28 cas ✅" : `${gardeRatee.length} RATÉ(S)`}` +
       `${wrong.length + toothless.length + jugeantes.length + gardeRatee.length > 0 ? `, ${wrong.length + toothless.length + jugeantes.length + gardeRatee.length} DÉFAUT(S)` : ""}`,
   );
 

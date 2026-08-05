@@ -427,6 +427,104 @@ const commandeQuiContient = (motif) =>
   new RegExp(`"command"\\s*:\\s*"(?:[^"\\\\]|\\\\.)*?(?:${motif})`, "u");
 
 /**
+ * Ce qu'une commande AFFICHE n'est pas ce qu'elle FAIT — élagage du texte.
+ *
+ * Troisième piège de la famille, et le seul qui restait ouvert. Les deux autres
+ * sont déjà fermés par {@link commandeQuiContient} (le CONTENU d'un fichier que
+ * l'agent ouvre, et une commande CITÉE dans un document lu) : tous deux sont du
+ * texte ENTRANT, et exiger la clé `"command"` les écarte. Celui-ci est sortant —
+ * l'agent écrit lui-même, DANS une commande, le nom de l'outil qu'il n'a pas
+ * lancé :
+ *
+ * ```sh
+ * cat << 'EOF'
+ *   Ou créer un module Nodefony distinct :
+ *     npx nodefony create module audit
+ * EOF
+ * ```
+ *
+ * Constaté sur la tâche 28 : l'agent a rendu un récapitulatif décoratif de son
+ * travail, la sonde « a lancé create module » est passée au VERT, et il n'avait
+ * jamais appelé le générateur. Un agent produit ainsi la preuve de son propre
+ * geste en le RACONTANT — et c'est un faux VERT, le seul défaut du banc qui ne
+ * se voit pas.
+ *
+ * L'élagage se fait sur la commande DÉCODÉE (le JSONL est reparsé plutôt que
+ * tordu à la regex : dans le brut, les guillemets sont échappés et les sauts de
+ * ligne sont deux caractères — toute expression écrite là-dessus se casse au
+ * premier cas tordu). Deux formes portent du texte destiné à être lu :
+ * le corps d'un heredoc, et l'argument littéral d'un `echo`/`printf`.
+ *
+ * En cas de doute, on élague : rater un vrai geste produit un rouge VISIBLE,
+ * qu'un run suivant corrige ; laisser passer du texte produit un vert que
+ * personne ne vient jamais contester.
+ *
+ * @param {string} cmd - la commande telle que l'agent l'a lancée.
+ * @returns {string} la même, privée de ce qu'elle ne fait qu'écrire.
+ */
+export const elaguerAffichage = (cmd) =>
+  cmd
+    // Corps de heredoc : du délimiteur ouvrant jusqu'à sa reprise en début de
+    // ligne. `<<-` (qui autorise l'indentation du délimiteur) compris.
+    .replace(
+      /<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1\n[\s\S]*?\n[ \t]*\2(?=\s|$)/gu,
+      "<<$2",
+    )
+    // Argument littéral d'un `echo`/`printf` — la version courte du même geste.
+    .replace(
+      /\b(echo|printf)\b((?:\s+-[A-Za-z]+)*)\s+(['"])(?:[^\\]|\\.)*?\3/gu,
+      "$1$2",
+    );
+
+/**
+ * Le transcript, privé de ce que les commandes se contentent d'AFFICHER.
+ *
+ * Point d'application UNIQUE (`judgeTask`) : les vingt sondes bâties sur
+ * {@link commandeQuiContient} en bénéficient sans qu'aucune ne soit retouchée,
+ * et les sondes de LECTURE continuent de voir le transcript entier — c'est bien
+ * dans le texte lu qu'elles cherchent leur preuve.
+ *
+ * Une ligne illisible est laissée telle quelle : un transcript tronqué (le
+ * dernier événement d'un run interrompu) ne doit pas faire échouer le jugement
+ * du reste.
+ *
+ * @param {string} transcript - le JSONL brut du run.
+ * @returns {string} le même JSONL, commandes élaguées.
+ */
+const sansTexteAffiche = (transcript) =>
+  transcript
+    .split("\n")
+    .map((ligne) => {
+      if (!ligne.trim()) {
+        return ligne;
+      }
+      let event;
+      try {
+        event = JSON.parse(ligne);
+      } catch {
+        return ligne;
+      }
+      const blocs = event?.message?.content;
+      if (!Array.isArray(blocs)) {
+        return ligne;
+      }
+      let touche = false;
+      for (const bloc of blocs) {
+        const cmd = bloc?.input?.command;
+        if (typeof cmd !== "string") {
+          continue;
+        }
+        const elague = elaguerAffichage(cmd);
+        if (elague !== cmd) {
+          bloc.input.command = elague;
+          touche = true;
+        }
+      }
+      return touche ? JSON.stringify(event) : ligne;
+    })
+    .join("\n");
+
+/**
  * Le motif d'une commande du framework, **avec les scripts npm qui la lancent**.
  *
  * Une sonde qui n'accepte que la forme littérale (`nodefony development`) mesure
@@ -3673,14 +3771,14 @@ function lireEffort(transcriptPath) {
  *   ne prouverait rien.
  */
 function judgeTask(app, runDir, task, occurrence = null) {
-  const transcript = existsSync(
-    path.join(runDir, `task-${task.id}.transcript.jsonl`),
-  )
-    ? readFileSync(
-        path.join(runDir, `task-${task.id}.transcript.jsonl`),
-        "utf8",
-      )
-    : "";
+  const transcript = sansTexteAffiche(
+    existsSync(path.join(runDir, `task-${task.id}.transcript.jsonl`))
+      ? readFileSync(
+          path.join(runDir, `task-${task.id}.transcript.jsonl`),
+          "utf8",
+        )
+      : "",
+  );
   // Le commit de la tâche se retrouve par son MESSAGE — robuste quel que soit
   // le sous-ensemble de tâches joué (--task N, run partiel). La BASE du diff
   // est le commit de HARNAIS précédent (« tâche N-1 » ou « état initial »),
