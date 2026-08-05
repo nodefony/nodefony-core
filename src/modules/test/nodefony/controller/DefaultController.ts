@@ -64,6 +64,15 @@ export const securityHooksState = {
   lastHook: "" as "beforeResolve" | "afterAuth" | "onAuthFailure" | "",
 };
 
+// Context hooks (onSend/onClose) observation state — garde que les gardes
+// zéro-listener du pipeline (HttpContext #doSend/close) n'éteignent PAS un
+// hook réellement écouté. Singleton module-level : les controllers sont
+// scopés par requête.
+const contextHooksState = {
+  onSendCount: 0,
+  onCloseCount: 0,
+};
+
 @controller("/nodefony/test")
 @UseSession()
 class DefaultController extends Controller {
@@ -399,6 +408,37 @@ class DefaultController extends Controller {
     securityHooksState.onAuthFailureCount = 0;
     securityHooksState.lastAuthFailureReason = "";
     securityHooksState.lastHook = "";
+    return this.renderJson({ ok: true });
+  }
+
+  // ── Context hooks probes (onSend/onClose sous gardes zéro-listener) ────
+  // L'action attache les listeners sur le CONTEXTE (per-request, détruit avec
+  // lui). `onSend` fire AVANT writeHead → le header posé par le listener DOIT
+  // partir dans la réponse : preuve par le fil, pas par un état interne.
+  @route("hooks-context", { path: "/hooks/context" })
+  hooksContext() {
+    this.context!.on("onSend", () => {
+      contextHooksState.onSendCount++;
+      this.context!.response?.setHeader("x-hook-onsend", "fired");
+    });
+    this.context!.on("onClose", () => {
+      contextHooksState.onCloseCount++;
+    });
+    return this.renderJson({ armed: true });
+  }
+
+  @route("hooks-context-state", { path: "/hooks/context/state" })
+  hooksContextState() {
+    return this.renderJson({
+      onSendCount: contextHooksState.onSendCount,
+      onCloseCount: contextHooksState.onCloseCount,
+    });
+  }
+
+  @route("hooks-context-reset", { path: "/hooks/context/reset" })
+  hooksContextReset() {
+    contextHooksState.onSendCount = 0;
+    contextHooksState.onCloseCount = 0;
     return this.renderJson({ ok: true });
   }
 

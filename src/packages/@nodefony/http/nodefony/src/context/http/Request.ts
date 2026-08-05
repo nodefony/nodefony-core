@@ -225,8 +225,15 @@ class HttpRequest {
    * Il porte le CORPS (`queryPost`), pas la fusion `query` : un seul sens de
    * `body` dans tout le framework, celui de l'écosystème et d'`IAdminRequest`.
    */
-  private fireRequestEnd(): Promise<unknown> {
+  private fireRequestEnd(): Promise<unknown> | false {
     this.request.body = this.queryPost;
+    // Hook utilisateur (le pipeline kernel appelle sa MÉTHODE `onRequestEnd`
+    // directement, pas cet événement) : 0 listener nominal → le check évite
+    // l'appel async (2 Promises/req). `false` = contrat « aucun listener »
+    // d'`emitAsync`, awaitable sans coût par les appelants.
+    if (this.context.listenerCount("onRequestEnd") === 0) {
+      return false;
+    }
     return this.context.fireAsync("onRequestEnd", this);
   }
 

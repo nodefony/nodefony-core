@@ -365,49 +365,40 @@ class HttpContext extends Context implements IHttpContextInterface {
     }
   }
 
-  #doSend(
+  async #doSend(
     chunk?: unknown,
     encoding?: BufferEncoding,
   ): Promise<Http2Response | HttpResponse> {
-    return this.saveSession()
-      .then(async (_session: Session | null) => {
-        // if (session) {
-        //   //this.log(`SAVE SESSION ID : ${session.id}`, "DEBUG");
-        // }
-        if (chunk) {
-          this.response?.setBody(chunk);
-        }
+    try {
+      // Sans session démarrée, il n'y a rien à sauver : sauter l'aller-retour
+      // service (2 Promises/req sur le chemin anonyme). Le service refait le
+      // même check (`sessions-service.ts` saveSession) — lui reste la source
+      // de la logique dirty/touch, ici on évite seulement l'appel à vide.
+      if (this.session != null) {
+        await this.saveSession();
+      }
+      if (chunk) {
+        this.response?.setBody(chunk);
+      }
+      // Hook utilisateur — aucun listener dans le cas nominal : le check évite
+      // l'appel async lui-même (fireAsync + emitAsync = 2 Promises), pas
+      // seulement la boucle (déjà court-circuitée dans Event.emitAsync).
+      if (this.listenerCount("onSend") > 0) {
         await this.fireAsync("onSend", this.response, this);
-        try {
-          this.writeHead();
-        } catch (e) {
-          this.log(e, "WARNING");
-        }
-        if (this.isRedirect) {
-          return this.close().catch((e) => {
-            throw e;
-          });
-        }
-        return this.write(chunk, encoding).catch((e) => {
-          throw e;
-        });
-      })
-      .catch(async (error) => {
-        this.log(error, "ERROR");
-        // try {
-        //   if (!this.response.isHeaderSent()) {
-        //     this.writeHead(error.code || 500);
-        //     await this.write(error.message, encoding).catch((e) => {
-        //       throw e;
-        //     });
-        //   } else {
-        //     return this.close().catch((e) => {
-        //       throw e;
-        //     });
-        //   }
-        // } catch {}
-        throw error;
-      });
+      }
+      try {
+        this.writeHead();
+      } catch (e) {
+        this.log(e, "WARNING");
+      }
+      if (this.isRedirect) {
+        return await this.close();
+      }
+      return await this.write(chunk, encoding);
+    } catch (error) {
+      this.log(error, "ERROR");
+      throw error;
+    }
   }
 
   writeHead(
@@ -466,7 +457,10 @@ class HttpContext extends Context implements IHttpContextInterface {
     //http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
     Http2Response | HttpResponse
   > {
-    await this.fireAsync("onClose", this);
+    // Même garde que `onSend` (#doSend) : hook utilisateur, 0 listener nominal.
+    if (this.listenerCount("onClose") > 0) {
+      await this.fireAsync("onClose", this);
+    }
     // END REQUEST
     return this.response
       .end()
