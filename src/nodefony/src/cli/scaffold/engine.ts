@@ -2037,12 +2037,16 @@ function findTargetService(
   writer: ScaffoldWriter,
   wanted?: string,
 ): { pascal: string; key: string; method: string } | null {
-  const callables = listTargetServices(targetDir, writer)
-    .map((svc) => ({ ...svc, method: findCallableMethod(svc.source) }))
-    .filter(
-      (svc): svc is typeof svc & { method: string } => svc.method !== null,
-    )
-    .map(({ pascal, key, method }) => ({ pascal, key, method }));
+  // Une seule passe, et l'objet final construit directement : la chaîne
+  // map/filter/map recopiait `source` — le fichier ENTIER de chaque service —
+  // dans un objet intermédiaire que le dernier maillon jetait aussitôt.
+  const callables: Array<{ pascal: string; key: string; method: string }> = [];
+  for (const { pascal, key, source } of listTargetServices(targetDir, writer)) {
+    const method = findCallableMethod(source);
+    if (method !== null) {
+      callables.push({ pascal, key, method });
+    }
+  }
   if (callables.length === 0) {
     return null;
   }
