@@ -484,6 +484,36 @@ ouvertes en production pendant des mois. Règle le délai AVANT une mesure longu
 serveur qui tombe au milieu ne rend pas une mesure fausse, il en rend une qu'on
 croira vraie.
 
+## Voir un écran toi-même — le navigateur du compose
+
+Un `curl` prouve qu'une route répond ; il ne dit pas si l'écran **se monte**. Pour
+ça, le compose fournit un navigateur jetable, que tu pilotes toi-même :
+
+```bash
+docker compose --profile browser up -d      # MCP sur 127.0.0.1:3001, sorties dans tmp/browser/
+```
+
+Le conteneur EST un serveur MCP — branche-t-y ton client (Claude Code :
+`claude mcp add --transport http browser http://127.0.0.1:3001/mcp`, les outils
+apparaissent au démarrage de session suivant). Tu obtiens alors la **console**,
+l'**arbre d'accessibilité** et les **requêtes réelles** de la page.
+
+**Quatre règles, sinon tu diagnostiqueras le vide** :
+
+| Règle                                                                | Pourquoi                                                                                                                                                              |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Joins l'app par **`host.docker.internal`**                           | `localhost` désigne le conteneur, pas ta machine. Si tu as activé `domainCheck`, ajoute ce nom aux `trustedHosts` en développement, sinon la barrière répond `421`.    |
+| Passe par **HTTPS**                                                  | Le cookie de session est `secure` : sur une origine `http://` non-`localhost` le navigateur le **jette**, et tout revient en `401` — on croit alors que le login rate. |
+| Front en **pré-bâti** (pas Vite)                                     | En mode Vite la page annonce ses assets sur `127.0.0.1:5173` : l'adresse du NAVIGATEUR, donc du conteneur, où aucun Vite ne tourne. Écran blanc, HTML pourtant servi.  |
+| **Attends un texte propre à l'écran visé** avant de lire ou capturer | Le SPA se monte APRÈS la navigation. Et attendre un texte présent aussi sur la page de connexion (le nom de l'app…) aboutit dans les deux cas : ça ne prouve rien.     |
+
+Une capture **n'écrase pas** un fichier existant : réutiliser un nom te fait relire
+une image périmée pendant que l'appel répond « OK ». Nom neuf, ou vérifie la date.
+
+Ce que ce navigateur ne remplace pas : le rechargement à chaud, l'animation et le
+rendu fin — ça se juge dans un vrai navigateur. Lui répond à « l'écran se monte-t-il,
+s'alimente-t-il, et crie-t-il dans la console ? ».
+
 ## Demander à l'app, plutôt que déduire du code
 
 **Perdu ? Commence par ici** — la carte de visite dit qui répond, ce qui est
