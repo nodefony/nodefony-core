@@ -780,6 +780,23 @@ export const TASKS = [
         // `"command"`, et un `.*` en franchirait le guillemet fermant pour aller
         // chercher `realtime` dans le champ voisin du même événement.
         pattern: commandeQuiContient('create\\s+controller\\s+[^"]*realtime'),
+        // OBSERVATION, pas jugement — même raison que la sonde de lecture, et
+        // mesuré ici sur trois runs : les DEUX qui n'ont pas appelé le
+        // générateur rendaient toutes leurs sondes de RÉSULTAT vertes (façade
+        // `RealtimeController`/`@RealtimeChannel` employée, aucun WS bricolé,
+        // client isomorphe, tests + typecheck + `check` à 0). L'objet de la
+        // tâche était tenu ; seul le chemin différait.
+        //
+        // Et le bénéfice qu'on croyait mesurer n'existe pas : le run qui A
+        // employé le générateur a coûté PLUS cher — 40 tours / 273 s / 0,52 $
+        // contre 32 tours / 158 s / 0,30 $. Faire échouer sur ce moyen revenait
+        // à sanctionner le run le moins cher pour arriver au même code.
+        //
+        // Ce que le banc mesure reste mesuré : là où ignorer le générateur fait
+        // un DOMMAGE (tâche 13 — pas d'injection par le conteneur, code qui ne
+        // compile pas), ce sont les sondes de résultat qui rougissent, et elles
+        // jugent.
+        observe: true,
       },
       {
         kind: "code",
@@ -954,9 +971,19 @@ export const TASKS = [
       {
         // Le chemin qu'on vient d'ouvrir : la cascade et le catalogue des
         // variables ne se DEVINENT pas, ils se demandent.
+        //
+        // OBSERVATION, pas jugement. Cette tâche a le meilleur juge du banc —
+        // un gate qui lit l'état EFFECTIF (valeur, provenance, variables
+        // inconnues) — et sur trois runs il a rendu `exit 0` trois fois, la
+        // sonde de code avec. L'application était configurée par
+        // l'environnement, au bon endroit, prouvé. La tâche tombait à 1/3 pour
+        // n'avoir pas emprunté UN chemin, alors que son objet était tenu par
+        // tout le monde. Un moyen ne fait pas échouer ce qu'un juge d'état
+        // déclare atteint.
         kind: "transcript",
         name: "a interrogé l'environnement (nodefony env)",
         pattern: commandeQuiContient("nodefony\\s+env\\b"),
+        observe: true,
       },
       // ⚠️ PAS de sonde sur le diff git pour cette tâche. Vécu au premier run :
       // l'agent avait fait JUSTE — `NF_LOG_DRIVER=file` dans `.env.local`, le bon
