@@ -531,6 +531,16 @@ audit` dans un `cat <<EOF`. Le prédicat se gardait déjà de deux pièges — l
   préemption ne peut qu'AJOUTER du temps). ⚠️ Le minimum n'écarte qu'une préemption PONCTUELLE.
 - `[1× — 2026-08-02f]` ⭐ **Avant d'accuser la mesure, lire la STRUCTURE — et inversement** : un
   scan sans retour arrière ne PEUT pas être quadratique, le chronomètre avait tort.
+- `[1× — 2026-08-05f]` 🔴 **Un conteneur « idle » n'est pas innocent** : mongo au repos consommait
+  64 % CPU (healthchecks en boucle, 78 000+ connexions au journal) et chargeait la VM Docker à
+  91 % — couper Docker AVANT toute campagne de mesure, et le CONSTATER (`ps` top CPU), pas le
+  supposer.
+- `[1× — 2026-08-05f]` ⭐ **`--cpu-prof` couvre le process ENTIER, boot inclus** : fenêtrer
+  l'analyse sur la seule période de charge (détection par l'activité `parserOnIncoming`), sinon un
+  poste de boot (`package_json_reader`, résolution ESM) passe pour un poste par requête.
+- `[1× — 2026-08-05f]` ⭐ **Un compteur CONSTATE, une contre-épreuve PROUVE** : faire BOUGER le
+  compteur par la config (3→2 `setTimeout`/req en alignant `responseTimeout` par override
+  `NF__…`) transforme une corrélation en cause — et valide l'override env au passage.
 
 ## ⚖️ Documenter un geste que l'OUTIL punit ne change rien
 
