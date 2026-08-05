@@ -1884,6 +1884,25 @@ function runServiceScaffold(
 }
 
 /**
+ * Retire commentaires de bloc et de ligne d'une source TypeScript.
+ *
+ * ⚠️ Approximation assumée — une chaîne contenant `//` (une URL) perd sa fin.
+ * C'est sans effet ici : les lecteurs ci-dessous cherchent une FORME de code
+ * (`super("…"`, une signature de méthode), jamais le contenu d'une chaîne.
+ * L'inverse, lui, s'est produit : un TSDoc qui CITE `super("autreService", …)`
+ * pour expliquer la clé d'un voisin faisait lire cette clé-là. Un fichier bien
+ * documenté est le cas NORMAL, pas le cas tordu.
+ *
+ * @param source - le contenu du fichier.
+ * @returns la même source, commentaires blanchis.
+ */
+function stripComments(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//gu, "")
+    .replace(/(^|[^:])\/\/[^\n]*/gu, "$1");
+}
+
+/**
  * Nom Nodefony déclaré par le premier `super("…", …)` d'un fichier — celui d'un
  * `Module` (`index.ts`) ou d'un `Service`.
  *
@@ -1891,11 +1910,18 @@ function runServiceScaffold(
  * (`<module>:<action>`). Elle ne se déduit ni du nom npm du paquet ni du nom de
  * la classe : les trois peuvent différer, et seule celle-ci existe au runtime.
  *
+ * Lue sur le CODE seul : un `super("…")` cité dans un TSDoc pour documenter un
+ * autre service faisait rendre la clé du voisin — la commande générée importait
+ * alors une classe et résolvait l'instance d'une autre.
+ *
  * @returns le nom déclaré, ou `null` si le fichier ne suit pas la forme attendue.
  */
 function readNodefonyName(file: string, writer: ScaffoldWriter): string | null {
   try {
-    return /\bsuper\(\s*"([^"]+)"/u.exec(writer.read(file))?.[1] ?? null;
+    return (
+      /\bsuper\(\s*"([^"]+)"/u.exec(stripComments(writer.read(file)))?.[1] ??
+      null
+    );
   } catch {
     return null;
   }
@@ -1988,21 +2014,63 @@ function listTargetServices(
  * une méthode d'exemple. Un générateur ne doit pas exiger que son propre exemple
  * soit resté intact.
  *
+ * ⚠️ **Le premier venu n'est une réponse que s'il est le SEUL.** Sans `wanted`,
+ * cette fonction rendait le premier service de l'ordre du disque — donc le
+ * premier alphabétiquement. Tant qu'une application n'avait qu'un service
+ * d'exemple, le hasard tombait juste ; dès le deuxième, la commande générée
+ * appelait un service que personne n'avait demandé, et rien ne le disait. Une
+ * application réelle en a dix.
+ *
+ * @param targetDir - racine de la cible (app ou module).
+ * @param writer - accès disque injecté.
+ * @param wanted - nom du service voulu : classe (`ReportService`, `Report`) ou
+ *   clé de conteneur (`report`). Omis, la cible ne doit en avoir qu'un.
  * @returns `{ pascal, key, method }`, ou `null` si la cible n'a aucun service
  *   dont une méthode soit appelable sans argument.
+ * @throws Si `wanted` ne correspond à rien, ou si plusieurs services sont
+ *   appelables et qu'aucun n'est désigné — dans les deux cas en NOMMANT les
+ *   candidats : refuser en donnant le choix coûte un essai, produire un appel
+ *   vers le mauvais service coûte un débogage.
  */
 function findTargetService(
   targetDir: string,
   writer: ScaffoldWriter,
+  wanted?: string,
 ): { pascal: string; key: string; method: string } | null {
-  for (const svc of listTargetServices(targetDir, writer)) {
-    const method = findCallableMethod(svc.source);
-    if (method === null) {
-      continue;
-    }
-    return { pascal: svc.pascal, key: svc.key, method };
+  const callables = listTargetServices(targetDir, writer)
+    .map((svc) => ({ ...svc, method: findCallableMethod(svc.source) }))
+    .filter(
+      (svc): svc is typeof svc & { method: string } => svc.method !== null,
+    )
+    .map(({ pascal, key, method }) => ({ pascal, key, method }));
+  if (callables.length === 0) {
+    return null;
   }
-  return null;
+  const noms = callables
+    .map((s) => `${s.pascal} (clé « ${s.key} »)`)
+    .join(", ");
+  if (wanted !== undefined) {
+    const cherche = wanted.toLowerCase().replace(/service$/u, "");
+    const trouve = callables.find(
+      (s) =>
+        s.pascal.toLowerCase().replace(/service$/u, "") === cherche ||
+        s.key.toLowerCase() === wanted.toLowerCase(),
+    );
+    if (trouve === undefined) {
+      throw new Error(
+        `--service ${wanted} : aucun service de ce nom dans ${targetDir} — ` +
+          `services appelables : ${noms}`,
+      );
+    }
+    return trouve;
+  }
+  if (callables.length > 1) {
+    throw new Error(
+      `--service : ${callables.length} services appelables, précise lequel ` +
+        `(--service <Nom>) — ${noms}`,
+    );
+  }
+  return callables[0];
 }
 
 /**
@@ -2123,8 +2191,15 @@ function runCommandScaffold(
   const phase = String(answers.phase) as TCommandPhaseChoice;
   const commandName = `${prefix}:${action}`;
   const nameClass = `${toPascalCase(action.replaceAll(":", "-"))}Command`;
+  const serviceName = String(answers.serviceName ?? "").trim();
   const service =
-    answers.service === true ? findTargetService(target.dir, writer) : null;
+    answers.service === true
+      ? findTargetService(
+          target.dir,
+          writer,
+          serviceName === "" ? undefined : serviceName,
+        )
+      : null;
   if (answers.service === true && service === null) {
     throw new Error(
       `--service : aucun service appelable dans ${target.name} ` +

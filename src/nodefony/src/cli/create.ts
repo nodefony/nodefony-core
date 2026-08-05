@@ -129,7 +129,15 @@ export function parseCreateArgv(
     } else if (word === "--description") {
       answers.description = rest[++i];
     } else if (word === "--service") {
+      // Valeur OPTIONNELLE : `--service` seul garde son sens booléen (« appelle
+      // le service de la cible »), `--service <Nom>` désigne LEQUEL. Le mot
+      // suivant n'est consommé que s'il n'est pas une autre option — sans quoi
+      // `--service --module blog` avalerait `--module`.
+      const next = rest[i + 1];
       answers.service = true;
+      if (next !== undefined && !next.startsWith("-")) {
+        answers.serviceName = rest[++i];
+      }
     } else if (word === "--no-service") {
       answers.service = false;
     } else if (word === "--command") {

@@ -573,6 +573,22 @@ const COMMAND_SPEC: IScaffoldTypeSpec = {
       default: false,
       advanced: true,
     },
+    {
+      // LEQUEL. Séparé du booléen ci-dessus parce que la spec est le contrat des
+      // trois fronts : un champ à deux types (oui/non OU un nom) obligerait
+      // chacun à le désambiguïser pour son compte. Ici Studio affichera une
+      // liste déroulante, le CLI accepte `--service <Nom>`.
+      //
+      // Vide, la cible ne doit avoir QU'UN service appelable — sinon le scaffold
+      // refuse en nommant les candidats. Il choisissait auparavant le premier de
+      // l'ordre du disque, donc le premier alphabétiquement : juste tant qu'une
+      // application n'avait qu'un service, faux dès le deuxième, et silencieux.
+      key: "serviceName",
+      label: "Quel service appeler (vide = le seul de la cible)",
+      type: "string",
+      default: "",
+      advanced: true,
+    },
   ],
 };
 
