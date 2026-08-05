@@ -107,11 +107,17 @@ class HttpContext extends Context implements IHttpContextInterface {
       this.response = new HttpResponse(response as http.ServerResponse, this);
     }
     //this.router = this.get("router");
-    this.url = url.format(this.request.url);
+    // `href` : même sérialisation que `url.format(URL)` sans options, sans le
+    // branchement d'options par requête.
+    this.url = this.request.url.href;
     this.scheme = this.setScheme();
     this.method = this.request.getMethod();
     this.remoteAddress = this.request.remoteAddress;
-    this.originUrl = new URL(this.request.origin || this.url);
+    // `originUrl` n'est PLUS construit ici : getter paresseux (plus bas) — ses
+    // seuls lecteurs sont les loggers, et `new URL` par requête se payait même
+    // logger éteint. Corrige AU PASSAGE un vrai bug : `Origin: null` (RFC 6454,
+    // iframe sandboxée/redirect cross-origin) faisait THROW ce constructeur →
+    // requête SANS réponse (socket pendu). Le repli = même pattern que le WS.
     // Détection proxy — uniquement derrière un proxy de CONFIANCE (sinon les
     // X-Forwarded-* sont forgeables → IP/scheme spoofing ; cf trustProxy).
     // `this.proxy` = métadonnées de topologie INTERNE (noms/IP de serveurs
@@ -168,6 +174,25 @@ class HttpContext extends Context implements IHttpContextInterface {
     // Nom effectif selon le transport (`__Host-` sur TLS) — même calcul à
     // l'écriture (session.setCookieSession) → reprise L1 cohérente.
     this.cookieSession = this.getCookieSession(this.getSessionCookieName());
+  }
+
+  /**
+   * URL d'origine effective, construite À LA DEMANDE (1ʳᵉ lecture, puis
+   * mémoïsée). `Origin` invalide ou `null` (RFC 6454) → repli sur l'URL de la
+   * requête, comme le WS — jamais de throw.
+   */
+  override get originUrl(): URL | undefined | null {
+    if (this._originUrl === null) {
+      try {
+        this._originUrl = new URL(this.request.origin || this.url);
+      } catch {
+        this._originUrl = new URL(this.url);
+      }
+    }
+    return this._originUrl;
+  }
+  override set originUrl(value: URL | undefined | null) {
+    this._originUrl = value;
   }
 
   /**

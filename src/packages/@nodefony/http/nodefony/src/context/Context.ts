@@ -176,7 +176,16 @@ class Context extends Service implements IContextInterface {
   url: string = "";
   method: HTTPMethod | null = null;
   remoteAddress: string | undefined | null = null;
-  originUrl: URL | undefined | null = null;
+  // Backing d'`originUrl` — accessors (et non champ) pour que HttpContext
+  // puisse le rendre PARESSEUX : construit à la 1ʳᵉ lecture (loggers), pas à
+  // chaque requête. Un champ d'instance masquerait le getter du prototype.
+  protected _originUrl: URL | undefined | null = null;
+  get originUrl(): URL | undefined | null {
+    return this._originUrl;
+  }
+  set originUrl(value: URL | undefined | null) {
+    this._originUrl = value;
+  }
   cookies: Cookies = {};
   error: Error | HttpError | nodefonyError | null | undefined = null;
   sessionService?: SessionsService | null;

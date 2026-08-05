@@ -42,6 +42,16 @@ describe("acceptParser — négociation de contenu (Accept header)", () => {
     expect(r[0].subtype.test("html")).to.equal(true);
   });
 
+  it("sans argument → SINGLETON (0 alloc/req, lot D) : même référence à chaque appel", () => {
+    // wrk et bien des clients n'envoient pas d'Accept → ce chemin est le hot
+    // path du banc. Le singleton est en lecture seule chez tous les
+    // consommateurs (accepts() ne fait que .test()).
+    expect(acceptParser()).to.equal(acceptParser());
+    // Le repli « accepte tout » (Accept dont AUCUN segment n'est exploitable,
+    // ex. virgules nues) rend la MÊME instance.
+    expect(acceptParser(",")).to.equal(acceptParser());
+  });
+
   it("type/subtype concret → regex correspondantes", () => {
     const r = acceptParser("text/html");
     expect(r[0].type.test("text")).to.equal(true);
