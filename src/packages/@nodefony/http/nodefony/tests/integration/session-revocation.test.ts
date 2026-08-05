@@ -261,6 +261,33 @@ describe("Pagination à curseur du listing de sessions", () => {
       "la pagination doit se terminer avant le garde-fou",
     ).to.be.below(60);
   });
+
+  it("le curseur de /sessions/mine AVANCE aussi (même exigence, autre handler)", async () => {
+    const cookie = await loginAs("user", "secret");
+    const seen = new Set<string>();
+    let cursor: string | undefined;
+    let pages = 0;
+    for (; pages < 60; pages += 1) {
+      const params = new URLSearchParams({ limit: "100" });
+      if (cursor) params.set("cursor", cursor);
+      const res = await get(`/nodefony/http/api/sessions/mine?${params}`, {
+        cookie,
+      });
+      expect(res.status, "mes sessions (self-service)").to.equal(200);
+      const page = res.body as { nextCursor?: string | null };
+      if (!page.nextCursor) break;
+      expect(
+        seen.has(page.nextCursor),
+        `nextCursor "${page.nextCursor}" déjà vu — le cursor entrant est ignoré, la pagination boucle`,
+      ).to.equal(false);
+      seen.add(page.nextCursor);
+      cursor = page.nextCursor;
+    }
+    expect(
+      pages,
+      "la pagination doit se terminer avant le garde-fou",
+    ).to.be.below(60);
+  });
 });
 
 describe("Provenance de session — ip/ua capturés au login (console Sessions)", () => {

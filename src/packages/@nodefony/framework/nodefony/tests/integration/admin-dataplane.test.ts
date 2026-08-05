@@ -145,6 +145,35 @@ async function loginCookie(
   return typeof first === "string" ? (first.split(";")[0] ?? "") : "";
 }
 
+/**
+ * TOUTES les pages de /sessions/mine — jamais la seule page 1 : sur un backend
+ * à curseur (SCAN Redis, aucun tri), un serveur qui porte plus d'une page de
+ * sessions rend une page 1 où MA session peut manquer ; le diff/`items[0]` sur
+ * cette page conclut à tort (vécu : rouge probabiliste dès que le parc grossit).
+ */
+async function allMySessions(
+  cookie: string,
+): Promise<Array<Record<string, unknown> & { ref: string }>> {
+  const byRef = new Map<string, Record<string, unknown> & { ref: string }>();
+  let cursor: string | undefined;
+  for (let guard = 0; guard < 60; guard += 1) {
+    const params = new URLSearchParams({ limit: "100" });
+    if (cursor) params.set("cursor", cursor);
+    const r = await req("GET", `/nodefony/http/api/sessions/mine?${params}`, {
+      cookie,
+    });
+    expect(r.status, "self-service /sessions/mine").to.equal(200);
+    const page = r.body as {
+      items?: Array<Record<string, unknown> & { ref: string }>;
+      nextCursor?: string | null;
+    };
+    for (const it of page.items ?? []) byRef.set(it.ref, it);
+    if (!page.nextCursor) break;
+    cursor = page.nextCursor;
+  }
+  return [...byRef.values()];
+}
+
 describe("Admin data plane — RBAC : authentifié NON-admin REJETÉ (403)", () => {
   // Un endpoint par producteur (rôle effectif = défaut broker ROLE_NODEFONY_ADMIN).
   const PROTECTED = [
@@ -391,11 +420,7 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
 
   it("ne renvoie QUE mes sessions + DTO redacté (jamais id/Attributes)", async () => {
     const userCookie = await loginCookie("user", "secret");
-    const r = await req("GET", "/nodefony/http/api/sessions/mine", {
-      cookie: userCookie,
-    });
-    expect(r.status).to.equal(200);
-    const items = (r.body as { items: Array<Record<string, unknown>> }).items;
+    const items = await allMySessions(userCookie);
     expect(items.length, "au moins la session courante").to.be.greaterThan(0);
     items.forEach((s) => {
       expect(s.user, "scope identité — jamais la session d'autrui").to.equal(
@@ -447,10 +472,7 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
 
   it("je peux révoquer UNE de MES sessions par son ref (déconnexion d'appareil)", async () => {
     const userCookie = await loginCookie("user", "secret");
-    const list = await req("GET", "/nodefony/http/api/sessions/mine", {
-      cookie: userCookie,
-    });
-    const items = (list.body as { items: Array<{ ref: string }> }).items;
+    const items = await allMySessions(userCookie);
     expect(items.length).to.be.greaterThan(0);
     const myRef = items[0]!.ref;
     const revoke = await req(

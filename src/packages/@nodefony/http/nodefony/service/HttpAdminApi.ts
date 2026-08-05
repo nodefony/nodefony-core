@@ -598,6 +598,9 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         const page = await svc.listOwnSessionsPage(identifier, {
           limit,
           offset,
+          // Même exigence que `sessions/list` : sans le `cursor` entrant, un
+          // backend SCAN rejoue la première page à l'infini (même nextCursor).
+          ...(ownQuery.cursor ? { cursor: ownQuery.cursor } : {}),
           ...(ownQuery.order ? { order: ownQuery.order } : {}),
         });
         return {
