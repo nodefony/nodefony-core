@@ -1,0 +1,153 @@
+# Préflight de publication — les ACCÈS répondent-ils, avant qu'on en ait besoin ?
+#
+# Un jeton expiré ne se découvre jamais au bon moment : il se découvre au
+# `npm publish`, après le pack, après le smoke, quand la version est estampillée
+# partout et qu'il ne reste plus qu'à envoyer. Ce workflow pose la question
+# AVANT, et il ne publie rien.
+#
+# Constat qui l'a fait écrire : `docs/release/nodefony-10.md:229` réclame le
+# secret `NPM_TOKEN`, et ce secret N'EXISTE PAS sur le dépôt (seuls
+# `SONAR_HOST_URL` et `SONAR_TOKEN` y sont, depuis février 2025). Le plan de
+# version repose donc aujourd'hui sur un accès que personne n'a posé.
+#
+# 🔴 DEUX EXIGENCES, DEUX TRAITEMENTS — et la différence est voulue :
+#
+#   npm    → BLOQUANT. Sans lui, la publication est impossible. Son absence
+#            doit faire rougir, sinon ce préflight ne préflighte rien.
+#   docker → AVERTISSEMENT. Aucune image n'est publiée par ce projet ; le
+#            login ne sert qu'à desserrer le quota de pull anonyme de Docker
+#            Hub, dont dépend `smoke-docker.sh` (le gabarit d'application tire
+#            `node:24-slim`, cf `templates/app/base/Dockerfile.tpl:17`). Faire
+#            échouer là-dessus rendrait rouge un workflow qui n'a rien à
+#            signaler.
+#
+# Voisin : `release-smoke.yml` éprouve les TARBALLS (ce qu'un installeur
+# reçoit). Celui-ci éprouve les ACCÈS. Aucun des deux ne publie.
+
+name: Préflight de publication (accès)
+
+on:
+  workflow_dispatch:
+  # Mensuel : les jetons expirent sans prévenir, et on ne s'en aperçoit que le
+  # jour où l'on publie. Le premier de chaque mois, tôt.
+  schedule:
+    - cron: "0 5 1 * *"
+
+concurrency:
+  group: release-preflight
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  npm:
+    name: npm — jeton, identité, droits sur le scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "26.x"
+          registry-url: "https://registry.npmjs.org"
+
+      # Le secret manquant est LA panne la plus probable, et la plus bête. On la
+      # nomme au lieu de laisser `npm whoami` répondre « ENEEDAUTH », qui envoie
+      # chercher du côté du réseau.
+      - name: Le secret est-il seulement posé ?
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NPM_TOKEN}" ]; then
+            echo "::error title=NPM_TOKEN absent::Le plan de version (docs/release/nodefony-10.md) en dépend. À poser dans Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          echo "secret présent (valeur jamais affichée)"
+
+      - name: Identité — le jeton est-il encore valide ?
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          who=$(npm whoami --registry=https://registry.npmjs.org) || {
+            echo "::error title=Jeton npm refusé::whoami a échoué — jeton expiré, révoqué, ou d'un type qui ne permet pas la lecture."
+            exit 1
+          }
+          echo "authentifié comme : ${who}"
+          echo "npm-user=${who}" >> "$GITHUB_OUTPUT"
+
+      # Le piège qui coûte une release : un compte en 2FA « auth and writes »
+      # exige un OTP à CHAQUE publication. Aucun jeton d'automatisation ne le
+      # fournit — seul un jeton « Automation » y échappe. On le CONSTATE ici,
+      # pas le jour J.
+      - name: 2FA — la publication automatisée est-elle seulement possible ?
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          profil=$(npm profile get --json 2>/dev/null || echo '{}')
+          mode=$(echo "$profil" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const p=JSON.parse(s);console.log(p.tfa?.mode ?? p.tfa ?? 'inconnu')}catch{console.log('illisible')}})")
+          echo "2FA déclarée : ${mode}"
+          case "$mode" in
+            auth-and-writes)
+              echo "::warning title=2FA sur les écritures::Ce compte exige un OTP à chaque publication. Un jeton « Automation » (npm) est requis, sinon `npm publish` échouera en CI." ;;
+            auth-only|false|null|inconnu|illisible)
+              echo "publication automatisée compatible (ou indéterminée — vérifier à la main si doute)" ;;
+          esac
+
+      # Publier `@nodefony/*` exige des droits sur le scope. Un jeton valide qui
+      # n'a PAS ces droits passe whoami et échoue au publish.
+      - name: Droits sur le scope @nodefony
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if npm access list packages @nodefony >/dev/null 2>&1; then
+            echo "accès au scope @nodefony confirmé"
+            npm access list packages @nodefony 2>/dev/null | head -20
+          else
+            echo "::warning title=Scope @nodefony non lisible::Soit aucun paquet n'y est encore publié (normal avant la première release), soit le jeton n'a pas les droits. À lever avant de publier."
+          fi
+
+  docker:
+    name: docker — accès au registre et quota de pull
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Volontairement NON bloquant : ce projet ne publie aucune image. Le login
+      # ne sert qu'au quota, et son absence ne compromet aucune release.
+      - name: Login Docker Hub (si les identifiants existent)
+        id: login
+        env:
+          USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -z "${USER}" ] || [ -z "${TOKEN}" ]; then
+            echo "::warning title=Identifiants Docker Hub absents::Le smoke de release tirera node:24-slim en ANONYME, soumis au quota par IP partagée des runners. Poser DOCKERHUB_USERNAME et DOCKERHUB_TOKEN desserre cette limite."
+            echo "authentifie=non" >> "$GITHUB_OUTPUT"
+          else
+            echo "${TOKEN}" | docker login -u "${USER}" --password-stdin
+            echo "authentifie=oui" >> "$GITHUB_OUTPUT"
+          fi
+
+      # L'image que le gabarit d'application utilise réellement. Un pull qui
+      # échoue ici, c'est un `smoke-docker.sh` qui échouera pour une raison sans
+      # rapport avec les tarballs — et on chercherait la panne au mauvais
+      # endroit.
+      - name: L'image de base du gabarit se tire-t-elle ?
+        run: |
+          docker pull node:24-slim
+          docker image inspect node:24-slim --format 'node:24-slim présente ({{.Os}}/{{.Architecture}}, {{.Size}} octets)'
+
+      # Le quota restant ne se lit pas dans `docker pull` : il faut interroger
+      # le registre. Chiffre utile quand un run échoue en « toomanyrequests »
+      # sans que rien d'autre n'ait changé.
+      - name: Quota de pull restant
+        run: |
+          jeton=$(curl -sS "https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/node:pull" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).token)}catch{console.log('')}})")
+          if [ -z "$jeton" ]; then
+            echo "::warning title=Quota illisible::Le registre n'a pas rendu de jeton anonyme ; sans lui, pas de compteur. Sans conséquence sur ce run."
+            exit 0
+          fi
+          entetes=$(curl -sS -I -H "Authorization: Bearer ${jeton}" \
+            "https://registry-1.docker.io/v2/library/node/manifests/24-slim" \
+            -H "Accept: application/vnd.oci.image.index.v1+json" | tr -d '\r')
+          echo "$entetes" | grep -i "^ratelimit" || echo "aucun en-tête de quota (compte authentifié sans limite, ou registre silencieux)"
