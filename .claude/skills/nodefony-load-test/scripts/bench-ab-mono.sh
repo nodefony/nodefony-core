@@ -10,10 +10,26 @@
 # Usage :
 #   bash bench-ab-mono.sh <label> [KEY=VAL ...]
 #     <label>   nom du run → médiane écrite dans /tmp/nf-bench-<label>.med
+#               (+ détail min/méd/max/dispersion/thermal dans …-<label>.json)
 #     KEY=VAL   env vars passées AU SERVEUR (toggles A/B ; ex NF_BENCH_NO_QP=1)
+#   bash bench-ab-mono.sh purge
+#     supprime TOUS les /tmp/nf-bench-*.{med,json} — À FAIRE entre deux lots :
+#     un .med survivant d'un lot précédent entre dans une comparaison qui ne le
+#     concerne pas (vécu : 7 survivants de 3 lots différents dans /tmp).
 #   Variables d'ajustement (env du script) :
-#     BENCH_URL (défaut http://127.0.0.1:5151/nodefony/test/als-test/state)
+#     BENCH_URL (défaut http://127.0.0.1:5151/nodefony/kernel/bench)
 #     BENCH_DUR (défaut 10 s par run wrk) · BENCH_CONN (128) · BENCH_THREADS (4)
+#     BENCH_WARMUP (défaut 5 s de wrk NON compté — le run 1 d'une série froide
+#     est presque toujours le plus bas, 10 séries sur 12 : deux `curl` ne
+#     chauffent pas un JIT)
+#
+# VALIDITÉ (en plus de « cible 200 + 0 erreur ») :
+#   - dispersion (max-min)/méd des 3 runs > 3 % → fenêtre instable, mesure
+#     REFUSÉE (exit 1, .med supprimé). Le seuil de décision A/B est ±3 % : une
+#     série plus dispersée que le seuil ne peut trancher personne.
+#   - thermal level macOS noté AVANT/APRÈS (sysctl machdep.xcpm.cpu_thermal_level) :
+#     l'ABSOLU d'un i9 mobile varie de 30 % selon l'état thermique — deux séries
+#     à thermal très différents ne se comparent pas entre elles.
 #
 # A/B ATOMIQUE (annule la dérive thermique) : lancer en paires ALTERNÉES, ex.
 #   bash bench-ab-mono.sh old1 NF_BENCH_X=0 ; bash bench-ab-mono.sh new1 NF_BENCH_X=1
@@ -31,9 +47,47 @@
 #   - Prérequis : `wrk` (brew install wrk) + build à jour (`npm run build`).
 # ─────────────────────────────────────────────────────────────────────────────
 set -u
+# LC_ALL=C : en locale fr, printf awk rend « 4,1 » (virgule) → la comparaison
+# numérique de la garde dispersion lit « 3 » et ne mord plus entre 3 et 4 %,
+# et le JSON compagnon devient invalide. Vu mordre au test du 08-05.
+export LC_ALL=C
 ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 LABEL="${1:-run}"; shift || true
 EXTRA_ENV="$*"
+
+# purge : à lancer ENTRE deux lots — aucun .med/.json d'un lot précédent ne doit
+# survivre dans une comparaison qui ne le concerne pas.
+if [ "$LABEL" = "purge" ]; then
+  rm -f /tmp/nf-bench-*.med /tmp/nf-bench-*.json
+  echo "purge: /tmp/nf-bench-*.{med,json} supprimés"
+  exit 0
+fi
+
+# thermal level macOS (n/a ailleurs) — l'absolu d'un i9 mobile varie de 30 %
+# selon l'état thermique ; noter AVANT/APRÈS rend la fenêtre comparable ou non.
+therm() { sysctl -n machdep.xcpm.cpu_thermal_level 2>/dev/null || echo "n/a"; }
+
+# cooldown : attendre que le CPU repasse sous BENCH_THERM_TARGET — UNE fois,
+# AVANT la série (chaque label part du même état thermique). ⚠️ JAMAIS entre les
+# runs d'une série : une pause > ~2 min endort le serveur détaché idle (App Nap /
+# idle states macOS) et le run suivant paie le réveil — reproduit 3/3 : −13 à
+# −15 % sur le run d'après (8209/8302/8502 vs ~9800), température pourtant basse.
+# Entre les runs : pause courte FIXE (10 s) — machine calme, la rampe thermique
+# intra-série est faible (28→35 sur 2 runs). no-op si sysctl absent (Linux).
+THERM_TARGET="${BENCH_THERM_TARGET:-45}"
+COOLED=0
+cooldown() {
+  local t; t=$(therm); [ "$t" = "n/a" ] && return 0
+  local waited=0
+  while [ "$t" -gt "$THERM_TARGET" ] && [ "$waited" -lt 180 ]; do
+    sleep 10; waited=$((waited+10)); t=$(therm)
+  done
+  if [ "$waited" -gt 0 ]; then
+    echo "  (cooldown ${waited}s → thermal $t)"
+    COOLED=1   # la pause a endormi le serveur → le warmup devra absorber le réveil
+  fi
+  return 0
+}
 # 🎯 UNE SEULE CIBLE DE BANC APPLICATIF : `/nodefony/kernel/bench`
 # (`BenchController`, module `@nodefony/framework`), qui n'existe que sous
 # `NF_BENCH_ROUTE=1` — drapeau posé automatiquement au spawn, plus bas.
@@ -78,7 +132,7 @@ c.unref();fs.writeFileSync('/tmp/nf-bench.pid',String(c.pid));process.exit(0);
 "
 
 # 3. attendre le boot (poll port 5151)
-node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.connect(5151,'127.0.0.1');s.on('error',()=>{s.destroy();if(Date.now()-t0>35000){console.log('BOOT TIMEOUT — voir /tmp/nf-bench.log');process.exit(1)}setTimeout(p,400)});s.on('connect',()=>{s.destroy();process.exit(0)})})();" || { echo "$LABEL: BOOT FAIL"; exit 1; }
+node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.connect(5151,'127.0.0.1');s.on('error',()=>{s.destroy();if(Date.now()-t0>35000){console.log('BOOT TIMEOUT — voir /tmp/nf-bench.log');process.exit(1)}setTimeout(p,400)});s.on('connect',()=>{s.destroy();process.exit(0)})})();" || { echo "$LABEL: BOOT FAIL"; rm -f "/tmp/nf-bench-$LABEL.med" "/tmp/nf-bench-$LABEL.json"; exit 1; }
 
 # 4. VÉRIFICATION DE LA CIBLE (avant toute mesure)
 # 🚨 wrk compte les 404/500 dans son `Requests/sec`. Or une erreur répond PLUS VITE
@@ -92,14 +146,28 @@ if [ "$CODE" != "200" ]; then
   echo "   URL: $URL"
   echo "   Si c'est un 404 : le module @nodefony/test est en policy:\"dev\" donc absent"
   echo "   en production → passer temporairement à policy:\"optional\" + npm run build."
+  rm -f "/tmp/nf-bench-$LABEL.med" "/tmp/nf-bench-$LABEL.json"
   kill -INT "$(cat /tmp/nf-bench.pid)" 2>/dev/null
   exit 1
 fi
-curl -s -o /dev/null "$URL"   # 2ᵉ warmup, cible déjà validée
 
 echo "=== $LABEL ($EXTRA_ENV) ==="
+cooldown
+THERM_BEFORE=$(therm)
+
+# warmup wrk NON compté : chauffe le JIT (inlining, hidden classes, caches du
+# resolver) — sans lui le run 1 est presque toujours le plus bas et tire la
+# médiane de 3 vers le bas. Si un cooldown a eu lieu, la pause a endormi le
+# serveur (App Nap/idle) : doubler le warmup pour absorber AUSSI le réveil
+# (vécu : 5 s insuffisant après 130 s de pause → run 1 à −11 %).
+WARMUP="${BENCH_WARMUP:-5}"
+[ "$COOLED" = "1" ] && WARMUP=$((WARMUP * 2))
+wrk -t"$THREADS" -c"$CONN" -d"${WARMUP}s" "$URL" >/dev/null 2>&1
+echo "  warmup: ${WARMUP}s wrk non compté · thermal avant: $THERM_BEFORE"
+
 RPS=(); BAD=0
 for i in 1 2 3; do
+  [ "$i" -gt 1 ] && sleep 10
   OUT=$(wrk -t"$THREADS" -c"$CONN" -d"${DUR}s" "$URL" 2>/dev/null)
   R=$(printf '%s' "$OUT" | grep "Requests/sec" | awk '{print $2}')
   # wrk n'affiche cette ligne QUE s'il y a eu des réponses hors 2xx/3xx.
@@ -113,15 +181,35 @@ for i in 1 2 3; do
   fi
   RPS+=("$R")
 done
+THERM_AFTER=$(therm)
 if [ "$BAD" = "1" ]; then
   echo "  ✖ $LABEL: run(s) pollué(s) par des erreurs — médiane NON enregistrée."
   echo "    Un débit mesuré sous erreurs n'est comparable à rien."
+  rm -f "/tmp/nf-bench-$LABEL.med" "/tmp/nf-bench-$LABEL.json"
   kill -INT "$(cat /tmp/nf-bench.pid)" 2>/dev/null
   exit 1
 fi
+MIN=$(printf '%s\n' "${RPS[@]}" | sort -n | sed -n '1p')
 MED=$(printf '%s\n' "${RPS[@]}" | sort -n | sed -n '2p')
-echo "  MÉDIANE: $MED RPS  (cible vérifiée 200, 0 erreur)"
+MAX=$(printf '%s\n' "${RPS[@]}" | sort -n | sed -n '3p')
+DISP=$(awk -v min="$MIN" -v max="$MAX" -v med="$MED" 'BEGIN{printf "%.1f", (max-min)/med*100}')
+echo "  min/méd/max: $MIN / $MED / $MAX RPS · dispersion ${DISP} % · thermal avant/après: $THERM_BEFORE/$THERM_AFTER"
+
+# Dispersion > 3 % = la fenêtre est plus bruyante que le seuil de décision A/B :
+# cette série ne peut trancher AUCUNE comparaison — la refuser, pas la publier.
+if awk -v d="$DISP" 'BEGIN{exit !(d > 3)}'; then
+  echo "  ✖ $LABEL: dispersion ${DISP} % > 3 % — fenêtre instable, mesure NON enregistrée."
+  echo "    (autre process sur la machine ? throttling ? relancer sur fenêtre calme)"
+  rm -f "/tmp/nf-bench-$LABEL.med" "/tmp/nf-bench-$LABEL.json"
+  kill -INT "$(cat /tmp/nf-bench.pid)" 2>/dev/null
+  exit 1
+fi
+echo "  MÉDIANE: $MED RPS  (cible vérifiée 200, 0 erreur, dispersion ≤ 3 %)"
 echo "$MED" > "/tmp/nf-bench-$LABEL.med"
+printf '{"label":"%s","env":"%s","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"thermalBefore":"%s","thermalAfter":"%s","warmupSec":%s,"durSec":%s,"conn":%s,"threads":%s,"url":"%s"}\n' \
+  "$LABEL" "$EXTRA_ENV" "$(printf '%s,' "${RPS[@]}" | sed 's/,$//')" \
+  "$MIN" "$MED" "$MAX" "$DISP" "$THERM_BEFORE" "$THERM_AFTER" \
+  "$WARMUP" "$DUR" "$CONN" "$THREADS" "$URL" > "/tmp/nf-bench-$LABEL.json"
 
 # 5. arrêt gracieux (flush + libère les ports)
 kill -INT "$(cat /tmp/nf-bench.pid)" 2>/dev/null

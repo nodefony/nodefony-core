@@ -92,9 +92,14 @@ bash $S old2 NF_BENCH_X=0 ; bash $S new2 NF_BENCH_X=1
 
 Le script (`bench-ab-mono.sh`) : banc propre (kill ports + Vite, attend la libération) →
 spawn mono `production` **detached** (`NODE_ENV=production`, `NF_LOG_DRIVER=null`,
-`NF_BENCH_ROUTE=1` FORCÉS) → attend le boot → **vérifie que la cible répond 200** → 3× `wrk` →
-**médiane** → arrêt gracieux. Toggles A/B = env vars passées au serveur (`KEY=VAL`), à lire **1× au
-boot** côté code (jamais `process.env` dans le hot path).
+`NF_BENCH_ROUTE=1` FORCÉS) → attend le boot → **vérifie que la cible répond 200** → cooldown
+thermique pré-série + **warmup wrk NON compté** (JIT) → 3× `wrk` enchaînés (pause fixe 10 s —
+jamais de longue pause intra-série : elle endort le serveur idle et le run suivant paie −13 %) →
+**min/méd/max + REFUS si dispersion > 3 %** (le seuil de décision A/B ne peut trancher sous une
+fenêtre plus bruyante que lui) → arrêt gracieux. Sortie : `.med` (médiane) + `.json` (détail
+runs/dispersion/thermal pour le rapport). `bench-ab-mono.sh purge` entre deux lots — un `.med`
+survivant entre dans une comparaison qui ne le concerne pas. Toggles A/B = env vars passées au
+serveur (`KEY=VAL`), à lire **1× au boot** côté code (jamais `process.env` dans le hot path).
 
 **Détail : [`references/ab-perf-mono-prod.md`](references/ab-perf-mono-prod.md)** — la cible de
 banc dédiée (`/nodefony/kernel/bench`) et ce qu'il ne faut pas lui substituer, la méthode du diff
