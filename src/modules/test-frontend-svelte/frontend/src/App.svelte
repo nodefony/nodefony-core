@@ -65,8 +65,9 @@
       <h2>♻️ HMR check</h2>
       <button class="counter" onclick={() => count++}>count is {count}</button>
       <p class="hint">
-        Édite <code>frontend/src/App.svelte</code> — Vite recompile, l'état du
-        compteur est conservé.
+        Édite <code>frontend/src/App.svelte</code> — Vite recompile et remplace
+        le composant <em>sans recharger la page</em> (l'état local repart à
+        zéro : comportement svelte-hmr par défaut).
       </p>
     </section>
 

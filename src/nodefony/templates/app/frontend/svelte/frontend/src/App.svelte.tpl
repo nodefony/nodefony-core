@@ -351,12 +351,12 @@
     </div>
 <% } %>
     <div class="nf-card">
-      <h2><%= it.complete ? 4 : 3 %>. ♻️ HMR check — état Svelte préservé</h2>
+      <h2><%= it.complete ? 4 : 3 %>. ♻️ HMR check — remplacement à chaud</h2>
       <button onclick={() => count++}>count is {count}</button>
       <p class="nf-dim">
         Édite le markup de <code>frontend/src/App.svelte</code> —
         Vite recompile à la volée, la page se met à jour <em>sans recharger</em>
-        et le compteur est conservé.
+        (l'état local repart à zéro : comportement svelte-hmr par défaut).
       </p>
     </div>
 
