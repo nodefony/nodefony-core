@@ -21,7 +21,7 @@ import { WebSocketServer } from "ws";
 import http2 from "node:http2";
 import http from "node:http";
 import https from "node:https";
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID, randomFillSync } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { AsyncResource } from "node:async_hooks";
 import HttpKernel, {
@@ -120,6 +120,37 @@ import type {
 } from "../../interfaces/IContext";
 import type { SessionIntent } from "../../interfaces/ISession";
 
+// Pool CSPRNG amorti pour le nonce CSP (lot B perf) : `randomFillSync` remplit
+// 4 Ko en un appel système (~1 syscall / 256 nonces) au lieu d'un `randomBytes`
+// par requête. MÊME garantie crypto que le cache interne de `randomUUID` (node
+// amortit exactement ainsi) : chaque nonce = 16 octets CSPRNG jamais relus
+// (l'offset avance, le refill écrase). `allocUnsafe` est sûr : l'offset initial
+// force un remplissage complet AVANT toute lecture.
+const NONCE_POOL_SIZE = 4096;
+const NONCE_BYTES = 16;
+const noncePool = Buffer.allocUnsafe(NONCE_POOL_SIZE);
+let noncePoolOffset = NONCE_POOL_SIZE; // force le fill au premier usage
+
+/**
+ * Rend le prochain nonce CSP (16 octets CSPRNG, base64) depuis le pool amorti.
+ *
+ * Exporté UNIQUEMENT pour le banc d'épuisement du pool (unicité à travers
+ * plusieurs refills) — le code produit passe par `context.cspNonce`.
+ */
+export function nextCspNonce(): string {
+  if (noncePoolOffset + NONCE_BYTES > NONCE_POOL_SIZE) {
+    randomFillSync(noncePool);
+    noncePoolOffset = 0;
+  }
+  const nonce = noncePool.toString(
+    "base64",
+    noncePoolOffset,
+    noncePoolOffset + NONCE_BYTES,
+  );
+  noncePoolOffset += NONCE_BYTES;
+  return nonce;
+}
+
 class Context extends Service implements IContextInterface {
   secure: boolean = false;
   security?: SecuredArea | null = null;
@@ -183,14 +214,15 @@ class Context extends Service implements IContextInterface {
   csrfToken: string | null = null;
   requestId: string = randomUUID();
   // Nonce CSP par-requête (P6 J5 étape B) — généré PARESSEUSEMENT à la 1ʳᵉ lecture
-  // (`randomBytes(16)` = 128 bits CSPRNG, base64). Mémoïsé : le header CSP
-  // (`'nonce-X'`, posé par le firewall via `applySecurityHeaders`) et le
-  // `<script nonce="X">` (template Vite) lisent la MÊME valeur. Jamais lu (réponse
-  // sans inline à signer) → 0 coût crypto. Aucun setter : un nonce serveur-only doit
-  // rester imprévisible (jamais piloté par le client, contrairement à `requestId`).
+  // (16 octets = 128 bits CSPRNG, base64, servis par le pool amorti module-level).
+  // Mémoïsé : le header CSP (`'nonce-X'`, posé par le firewall via
+  // `applySecurityHeaders`) et le `<script nonce="X">` (template Vite) lisent la
+  // MÊME valeur. Jamais lu (réponse sans inline à signer) → 0 coût crypto. Aucun
+  // setter : un nonce serveur-only doit rester imprévisible (jamais piloté par le
+  // client, contrairement à `requestId`).
   #cspNonce: string | null = null;
   get cspNonce(): string {
-    return (this.#cspNonce ??= randomBytes(16).toString("base64"));
+    return (this.#cspNonce ??= nextCspNonce());
   }
   // P2.7 — W3C Trace Context. Set by HttpKernel at request entry to the
   // resolved traceparent (honored incoming header or freshly generated).

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-05T18:35:57.871Z",
+  "generated": "2026-08-05T18:46:50.254Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 685,
-    "symbols": 2778,
+    "symbols": 2779,
     "classes": 345,
     "interfaces": 809,
     "types": 363,
     "enums": 4,
-    "functions": 1000,
+    "functions": 1001,
     "constants": 257
   },
   "symbols": {
@@ -15985,6 +15985,14 @@
       "exported": true,
       "module": "@nodefony/http",
       "description": "Bascule runtime du gate des logs d'events lifecycle. Réservé HORS hot path : tests et futur « Audit à chaud » (fenêtre bornée prod→verbeux, auto-revert serveur) — le canal Studio `nodefony:syslog` …"
+    },
+    "nextCspNonce": {
+      "name": "nextCspNonce",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Rend le prochain nonce CSP (16 octets CSPRNG, base64) depuis le pool amorti. Exporté UNIQUEMENT pour le banc d'épuisement du pool (unicité à travers plusieurs refills) — le code produit passe par `…"
     },
     "DomainPattern": {
       "name": "DomainPattern",
