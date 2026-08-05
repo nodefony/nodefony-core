@@ -51,7 +51,7 @@ import {
   useNodefonyChannel,
   useNodefonyAdaptiveChannelData,
 } from "nodefony/react";
-import type { RealtimeFrame, NoticeLevel } from "nodefony";
+import type { RealtimeFrame, NoticeLevel, NodefonyNotice } from "nodefony";
 import type { ReactNode } from "react";
 import { useConnection, useNotifications, useStore, useUi } from "../stores";
 import { useResource } from "../hooks";
@@ -62,6 +62,8 @@ import {
   MiniChart,
   DocHint,
   ensureLiveStyles,
+  DataGrid,
+  type DataGridColumn,
 } from "../components/ui";
 import { PLATFORM_CHANNELS } from "nodefony";
 
@@ -77,6 +79,105 @@ const NOTICE_COLOR: Record<NoticeLevel, string> = {
 };
 
 const MAX = 300;
+
+/** Ligne du tableau « Canaux du Hub » (`ChannelStat`, `channel` unique). */
+const channelColumns: DataGridColumn<ChannelStat>[] = [
+  {
+    key: "channel",
+    header: "Canal",
+    sortable: true,
+    value: (c) => c.channel,
+    render: (c) => <Code>{c.channel}</Code>,
+  },
+  {
+    key: "subscribers",
+    header: "Abonnés",
+    align: "right",
+    sortable: true,
+    size: 120,
+    value: (c) => c.subscribers,
+    render: (c) => (
+      <span style={{ fontVariantNumeric: "tabular-nums" }}>
+        {c.subscribers}
+      </span>
+    ),
+  },
+  {
+    key: "messages",
+    header: "Publications",
+    align: "right",
+    sortable: true,
+    size: 160,
+    value: (c) => c.messages,
+    render: (c) => (
+      <span style={{ fontVariantNumeric: "tabular-nums" }}>
+        {c.messages.toLocaleString()}
+      </span>
+    ),
+  },
+];
+
+/** Ligne du tableau « Incidents temps réel » — `_rowId` dédoublonne `ts` (non unique). */
+interface IncidentRow extends NodefonyNotice {
+  _rowId: string;
+}
+
+const incidentColumns: DataGridColumn<IncidentRow>[] = [
+  {
+    key: "level",
+    header: "Niveau",
+    sortable: true,
+    filterable: true,
+    filterType: "multiselect",
+    size: 100,
+    value: (n) => n.level,
+    render: (n) => (
+      <Badge size="xs" variant="light" color={NOTICE_COLOR[n.level]}>
+        {n.level}
+      </Badge>
+    ),
+  },
+  {
+    key: "message",
+    header: "Message",
+    value: (n) => n.message,
+    render: (n) => <Text size="sm">{n.message}</Text>,
+  },
+  {
+    key: "source",
+    header: "Source",
+    sortable: true,
+    filterable: true,
+    filterType: "multiselect",
+    size: 100,
+    value: (n) => n.source,
+    render: (n) => (
+      <Badge size="xs" variant="outline" color="gray">
+        {n.source}
+      </Badge>
+    ),
+  },
+  {
+    key: "code",
+    header: "Code",
+    sortable: true,
+    size: 80,
+    value: (n) => n.code ?? null,
+    render: (n) => n.code ?? "—",
+  },
+  {
+    key: "ts",
+    header: "Heure",
+    sortable: true,
+    size: 110,
+    value: (n) => n.ts,
+    render: (n) => (
+      <Text size="xs" c="dimmed">
+        {new Date(n.ts).toLocaleTimeString()}
+      </Text>
+    ),
+  },
+];
 
 function clock(ts: number): string {
   const d = new Date(ts);
@@ -470,6 +571,12 @@ export const RealtimeConsole = observer(() => {
   const conn = useConnection();
   const ui = useUi();
   const incidents = useNotifications().realtimeIncidents;
+  // `ts` n'est pas unique (2 notices dans la même milliseconde) → clé de ligne
+  // composite pour `getRowId`, sans muter la forme `NodefonyNotice` consommée ailleurs.
+  const incidentRows = useMemo<IncidentRow[]>(
+    () => incidents.map((n, i) => ({ ...n, _rowId: `${n.ts}-${i}` })),
+    [incidents],
+  );
 
   useEffect(ensureLiveStyles, []);
 
@@ -1261,34 +1368,15 @@ export const RealtimeConsole = observer(() => {
                     Aucun canal actif sur le hub (aucun abonné).
                   </Text>
                 ) : (
-                  <Table highlightOnHover>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>Canal</Table.Th>
-                        <Table.Th w={120}>Abonnés</Table.Th>
-                        <Table.Th w={160}>Publications</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {channels.map((c) => (
-                        <Table.Tr key={c.channel}>
-                          <Table.Td>
-                            <Code>{c.channel}</Code>
-                          </Table.Td>
-                          <Table.Td
-                            style={{ fontVariantNumeric: "tabular-nums" }}
-                          >
-                            {c.subscribers}
-                          </Table.Td>
-                          <Table.Td
-                            style={{ fontVariantNumeric: "tabular-nums" }}
-                          >
-                            {c.messages.toLocaleString()}
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
+                  <DataGrid
+                    mode="client"
+                    data={channels}
+                    columns={channelColumns}
+                    getRowId={(c) => c.channel}
+                    initialSort={{ key: "subscribers", dir: "desc" }}
+                    searchable
+                    searchPlaceholder="Rechercher un canal…"
+                  />
                 )}
               </Card>
 
@@ -1685,46 +1773,14 @@ export const RealtimeConsole = observer(() => {
                   <Code>nodefonyNotify("error", "test")</Code>).
                 </Text>
               ) : (
-                <Table>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th w={90}>Niveau</Table.Th>
-                      <Table.Th>Message</Table.Th>
-                      <Table.Th w={90}>Source</Table.Th>
-                      <Table.Th w={70}>Code</Table.Th>
-                      <Table.Th w={110}>Heure</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {incidents.slice(0, 30).map((n, i) => (
-                      <Table.Tr key={`${n.ts}-${i}`}>
-                        <Table.Td>
-                          <Badge
-                            size="xs"
-                            variant="light"
-                            color={NOTICE_COLOR[n.level]}
-                          >
-                            {n.level}
-                          </Badge>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm">{n.message}</Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Badge size="xs" variant="outline" color="gray">
-                            {n.source}
-                          </Badge>
-                        </Table.Td>
-                        <Table.Td>{n.code ?? "—"}</Table.Td>
-                        <Table.Td>
-                          <Text size="xs" c="dimmed">
-                            {new Date(n.ts).toLocaleTimeString()}
-                          </Text>
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
+                <DataGrid
+                  mode="client"
+                  data={incidentRows}
+                  columns={incidentColumns}
+                  getRowId={(n) => n._rowId}
+                  searchable
+                  searchPlaceholder="Rechercher un message…"
+                />
               )}
             </Card>
           </Tabs.Panel>

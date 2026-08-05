@@ -20,7 +20,6 @@ import {
   Code,
   Divider,
   ScrollArea,
-  Table,
   Tabs,
   Anchor,
   Switch,
@@ -61,6 +60,8 @@ import {
   KeyValue,
   DefinitionList,
   MiniChart,
+  DataGrid,
+  type DataGridColumn,
 } from "../../components/ui";
 import { DbLogo, hasDbLogo } from "../../components/DbLogo";
 import {
@@ -108,6 +109,60 @@ function storageOf(driver: string, target?: string) {
     icon: <IconServer size={14} />,
     color: "teal" as const,
   };
+}
+
+/** Ligne du tableau « Entités » d'un connecteur (`ConnectorCard.own.rowList`). */
+interface EntityRow {
+  name: string;
+  domain: string;
+  /** `-1` = comptage indisponible (pas encore compté / erreur COUNT). */
+  rows: number;
+}
+
+/** Colonnes du tableau « Entités » — `connectorName` pilote le lien vers le détail. */
+function entityColumns(connectorName: string): DataGridColumn<EntityRow>[] {
+  return [
+    {
+      key: "name",
+      header: "Entité",
+      sortable: true,
+      value: (e) => e.name,
+      render: (e) => (
+        <Anchor
+          component={Link}
+          to={`/nodefony/orm-entity?name=${encodeURIComponent(
+            e.name,
+          )}&connector=${encodeURIComponent(connectorName)}`}
+          size="xs"
+        >
+          {e.name}
+        </Anchor>
+      ),
+    },
+    {
+      key: "domain",
+      header: "Domaine",
+      sortable: true,
+      value: (e) => e.domain,
+      render: (e) => (
+        <Text size="xs" c="dimmed">
+          {e.domain}
+        </Text>
+      ),
+    },
+    {
+      key: "rows",
+      header: "Lignes",
+      align: "right",
+      sortable: true,
+      value: (e) => e.rows,
+      render: (e) => (
+        <Text size="xs" ff="monospace">
+          {fmtNum(e.rows)}
+        </Text>
+      ),
+    },
+  ];
 }
 
 /** Mini-statistique encadrée — icône + label + bulle ⓘ + valeur colorée. */
@@ -725,44 +780,16 @@ export function ConnectorCard({
               Aucune entité sur ce connecteur.
             </Text>
           ) : (
-            <ScrollArea h={300} type="auto" offsetScrollbars="y">
-              <Table stickyHeader highlightOnHover>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Entité</Table.Th>
-                    <Table.Th>Domaine</Table.Th>
-                    <Table.Th style={{ textAlign: "right" }}>Lignes</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {own.rowList.map((e) => (
-                    <Table.Tr key={e.name}>
-                      <Table.Td>
-                        <Anchor
-                          component={Link}
-                          to={`/nodefony/orm-entity?name=${encodeURIComponent(
-                            e.name,
-                          )}&connector=${encodeURIComponent(orm.name)}`}
-                          size="xs"
-                        >
-                          {e.name}
-                        </Anchor>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="xs" c="dimmed">
-                          {e.domain}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td style={{ textAlign: "right" }}>
-                        <Text size="xs" ff="monospace">
-                          {fmtNum(e.rows)}
-                        </Text>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </ScrollArea>
+            <DataGrid
+              mode="client"
+              data={own.rowList}
+              columns={entityColumns(orm.name)}
+              getRowId={(e) => e.name}
+              initialSort={{ key: "rows", dir: "desc" }}
+              searchable
+              searchPlaceholder="Rechercher une entité…"
+              height={300}
+            />
           )}
         </Tabs.Panel>
       </Tabs>
