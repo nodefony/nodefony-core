@@ -225,8 +225,9 @@ mince.** Jamais de boîte noire « ça ne marche qu'en CI » (même philosophie 
 - **Node ≫ bash pour CE job** : lire/fusionner des `package.json`, **ordre topologique** des deps
   internes, **assembler `dist/` + `dist/types/`** dans la mono-distrib, **générer la map `exports`**
   (+ `types` par subpath), **estampiller UNE version** partout → manipulation JSON/graphe = Node/TS.
-- **Action mince** : `checkout → setup-node → npm ci → node scripts/release.mjs --publish` + secret
-  `NPM_TOKEN`. Tout le reste dans le script.
+- **Action mince** : `checkout → setup-node → npm ci → node scripts/release.mjs --publish`, avec
+  `permissions: id-token: write` (trusted publishing) et **aucun secret npm** — cf §7.3bis. Tout le
+  reste dans le script.
 
 ### 7.2 Étapes du script (= le pipeline)
 
@@ -249,6 +250,90 @@ mince.** Jamais de boîte noire « ça ne marche qu'en CI » (même philosophie 
   (on veut version **unique**). ⚠️ **Quel que soit l'outil, l'ASSEMBLAGE N-packages → 1 distrib avec
   types par subpath reste MAISON** (aucun outil du marché ne le fait).
 
+### 7.3bis Authentification — la publication ne passe PAS par un jeton
+
+**Constat de terrain (relevé sur le registre, pas supposé)** : le scope `@nodefony` existe et
+porte déjà **15 paquets historiques** ; `nodefony` y est publié en **7.0.2**, mainteneur
+`ccamensuli`. Les **13 `@nodefony/*` de la 10 sont NEUFS** — aucun n'a jamais été publié.
+
+**Ce qui a changé chez npm, et qui périme le plan initial** : depuis **novembre 2025**, seuls les
+**granular access tokens** existent — les jetons « Automation » ont été retirés. Un jeton d'écriture
+utilisable en CI suppose donc l'option **Bypass 2FA**, devant laquelle npm affiche :
+
+> There are security risks with this option. For automation or CI/CD uses, please use Trusted
+> Publishing instead.
+
+L'avertissement est fondé : un tel jeton **annule la 2FA du compte pour lui-même**, vit dans les
+secrets, transite par chaque action tierce du workflow — et quiconque le vole publie sous l'identité
+du mainteneur. C'est le vecteur des attaques de chaîne d'approvisionnement npm.
+
+**Cible : trusted publishing (OIDC).** GitHub prouve à npm que la publication vient de ce dépôt et
+de ce workflow ; npm délivre un jeton valable quelques minutes. Rien à stocker, rien à faire
+tourner, rien à révoquer — et la provenance est signée automatiquement.
+
+⚠️ **Sauf pour la PREMIÈRE publication.** Le publieur de confiance se déclare dans les réglages
+d'un paquet **qui existe déjà**, et npm n'a pas de « publieur en attente » (contrairement à PyPI —
+vérifié dans la doc). Les 13 paquets neufs ne peuvent donc pas naître par OIDC.
+
+**Ordre retenu** :
+
+1. publier les 13 neufs + `nodefony@10` **à la main**, depuis le poste du mainteneur, avec le code
+   2FA interactif — c'est ce pour quoi la 2FA est faite, et **aucun jeton n'a besoin d'exister** ;
+   le script d'assemblage fait tout le reste (versions, ordre, pack), seul le `publish` est manuel ;
+2. déclarer un publieur de confiance sur **chacun des 14** — même dépôt, même **nom de fichier** de
+   workflow (saisi seul, extension incluse, **sensible à la casse** : première cause d'`ENEEDAUTH`
+   citée par la doc) ; un seul publieur par paquet ;
+3. `Settings → Publishing access → Require two-factor authentication and disallow tokens`.
+
+Contraintes à respecter : npm CLI **≥ 11.5.1**, Node **≥ 22.14.0**, runners **hébergés** GitHub
+(pas de self-hosted), `permissions: id-token: write` dans le workflow.
+
+Confort : si le compte est en `auth-only`, un `npm login` suffit pour enchaîner les 13 ; en
+`auth-and-writes`, npm réclame un code à chaque publication (`npm profile get` le dit).
+
+Le workflow `.github/workflows/release-preflight.yml` vérifie tout ceci **avant** d'en avoir besoin,
+et rend les valeurs exactes à recopier sur npmjs.com. `npm whoami` ne reflète jamais une
+authentification OIDC — ne pas s'en servir comme preuve que la chaîne fonctionne.
+
+### 7.3ter Paquets historiques — déprécier APRÈS avoir publié
+
+Les paquets de l'ère « Bundle » restent installables et sans successeur annoncé. Ils se déprécient
+par `npm deprecate <paquet> "<message>"` — un message affiché à l'installation, **réversible**
+(message vide) et sans effet sur les installations existantes. `npm unpublish` est hors sujet
+(fenêtre de 72 h).
+
+🔴 **L'ordre n'est pas indifférent** : déprécier AVANT la publication renverrait les gens vers des
+paquets qui n'existent pas encore. Cette table s'applique **une fois la 10 en ligne**.
+
+| Historique (dernière version)           | Successeur en 10          | Nature                           |
+| --------------------------------------- | ------------------------- | -------------------------------- |
+| `@nodefony/http-bundle` (7.0.2)         | `@nodefony/http`          | renommage                        |
+| `@nodefony/framework-bundle` (7.0.2)    | `@nodefony/framework`     | renommage                        |
+| `@nodefony/security-bundle` (7.0.2)     | `@nodefony/security`      | renommage                        |
+| `@nodefony/realtime-bundle` (7.0.2)     | `@nodefony/realtime`      | renommage                        |
+| `@nodefony/redis-bundle` (7.0.2)        | `@nodefony/redis`         | renommage                        |
+| `@nodefony/mongoose-bundle` (7.0.2)     | `@nodefony/mongoose`      | renommage                        |
+| `@nodefony/mongo-bundle` (6.8.1)        | `@nodefony/mongoose`      | fusion                           |
+| `@nodefony/documentation-bundle` (6.12) | `@nodefony/documentation` | renommage                        |
+| `@nodefony/sequelize-bundle` (7.0.2)    | `@nodefony/drizzle`       | **changement de moteur**         |
+| `@nodefony/unittests-bundle` (7.0.2)    | — (vitest)                | fin de vie                       |
+| `@nodefony/mail-bundle` (7.0.2)         | **à trancher**            | aucun module mail en 10          |
+| `@nodefony/elastic-bundle` (7.0.2)      | **à trancher**            | aucun équivalent publié          |
+| `@nodefony/monitoring-bundle` (7.0.2)   | **à trancher**            | `@nodefony/studio` ? à décider   |
+| `@nodefony/demo-bundle` (4.3.1)         | — (`create app`)          | fin de vie                       |
+| `@nodefony/stage` (0.2.4)               | **à trancher**            | —                                |
+| `@nodefony/passport-wrapper` (4.0.0)    | **à trancher**            | `@nodefony/security` ? à décider |
+
+**Deux exclusions, à ne pas déprécier** :
+
+- **`nodefony-client` (6.0.3)** — en PRODUCTION sur du télécom (SIP + médias). Ce n'est pas un
+  vestige ; il a sa propre trajectoire (P15).
+- **`nodefony` (7.0.2)** — même nom, nouvelle majeure : c'est `10.0.0` qui le remplace, npm s'en
+  charge. Déprécier le paquet déprécierait aussi la 10.
+
+Un message de dépréciation dit **où aller**, pas seulement que c'est fini. Pour un renommage :
+`npm deprecate @nodefony/http-bundle "Nodefony 10 : ce paquet devient @nodefony/http (voir https://github.com/nodefony/nodefony-core)"`.
+
 ### 7.4 Squelette (à titre indicatif)
 
 ```yaml
@@ -257,17 +342,21 @@ on: { push: { tags: ["v10.*"] }, workflow_dispatch: {} }
 jobs:
   release:
     runs-on: ubuntu-latest
+    # `id-token: write` est CE qui remplace le jeton npm : sans elle, aucune
+    # assertion d'identité n'est délivrée et le publish répond « ENEEDAUTH ».
+    permissions: { contents: read, id-token: write }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22, registry-url: "https://registry.npmjs.org" }
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24 # trusted publishing exige Node >= 22.14.0
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false # jamais de cache dans un build de release
       - run: npm ci
+      # AUCUN NODE_AUTH_TOKEN : le CLI (>= 11.5.1) détecte l'environnement OIDC
+      # et échange une assertion signée contre un jeton de quelques minutes.
       - run: node scripts/release.mjs --publish
-        env:
-          {
-            NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}",
-            GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}",
-          }
+        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
 ```
 
 ---
@@ -498,7 +587,8 @@ tag v10.x ─► build + tests ─► pack (14 tarballs) ─► smoke sur app G�
           └─► gh release + changelog
 ```
 
-Secrets : `NPM_TOKEN`, jeton d'écriture sur la vitrine, identifiants du registre d'images.
+Secrets : **aucun pour npm** (trusted publishing, §7.3bis), jeton d'écriture sur la vitrine,
+identifiants du registre d'images.
 **Manque criant que ce lot comble** : aucun job ne construit l'image aujourd'hui, et
 `smoke-docker.sh` n'est déclenché par aucun automate — la preuve la plus proche de la production
 n'existe que si quelqu'un pense à la taper.
