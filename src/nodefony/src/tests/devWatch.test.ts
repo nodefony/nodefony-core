@@ -72,6 +72,29 @@ describe("DevSupervisor — isIgnoredWatchPath (ce que le watch regarde)", () =>
       );
     });
 
+    it("un composant .svelte d'un module dont le NOM contient « frontend » (cas suspecté à tort de redémarrer le serveur)", () => {
+      assert.strictEqual(
+        isIgnoredWatchPath(
+          "src/modules/test-frontend-svelte/frontend/src/App.svelte",
+          true,
+        ),
+        true,
+      );
+    });
+
+    // ⚠️ Cas DISCRIMINANT — le seul de ce bloc que la règle « non-.ts ignoré »
+    // ne rattrape pas : un entry point .ts CLIENT n'est exclu QUE par la règle
+    // frontend. Les .tsx/.svelte ci-dessus resteraient verts même sans elle.
+    it("un entry point .ts CLIENT (frontend/src/main.ts) est exclu par la règle frontend seule", () => {
+      assert.strictEqual(
+        isIgnoredWatchPath(
+          "src/modules/test-frontend-svelte/frontend/src/main.ts",
+          true,
+        ),
+        true,
+      );
+    });
+
     it("… mais le BACK de ce même paquet reste surveillé", () => {
       assert.strictEqual(
         isIgnoredWatchPath(
