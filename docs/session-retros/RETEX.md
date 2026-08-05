@@ -581,6 +581,28 @@ liste)` sans assertion sur `liste.length` est vert sur zéro itération : une r�
 
 ## 🧰 Outillage : ce qui pend, ce qui ment, ce qui lance
 
+- `[1× — 2026-08-05c]` 🔴 **RÉIMPLÉMENTER UN CLIENT DE PROTOCOLE À LA MAIN COÛTE PLUS QUE LA TÂCHE
+  QU'IL SERT.** Un conteneur exposait un serveur MCP ; au lieu de le brancher au harnais (une
+  commande, `claude mcp add`), j'ai écrit six clients HTTP successifs — parsing SSE, gestion de
+  session, canal keep-alive — pour finir sur `404 Session not found` à chaque séquence de plus de
+  six appels. Le service, lui, marchait dès le premier essai. Le signal à reconnaître : **quand on
+  débogue le TRANSPORT et non le sujet, on a pris le mauvais chemin** ; chercher le client existant
+  avant d'en écrire un.
+- `[1× — 2026-08-05c]` 🔴 **Une capture d'écran NE S'ÉCRASE PAS : réutiliser un nom de fichier fait
+  relire une image PÉRIMÉE pendant que l'appel répond « OK ».** J'ai failli conclure « le login ne
+  mène pas au tableau de bord » sur une image du run précédent, alors que l'URL disait `/workspace`.
+  Seul le `mtime` a démasqué le décalage. Nom neuf à chaque prise, ou vérifier la date AVANT de
+  regarder — le corollaire exact de `feedback_prove_on_received_artifact`, appliqué à une image.
+- `[1× — 2026-08-05c]` 🔴 **Une sonde qui attend un texte présent dans DEUX états ne discrimine
+  rien.** Attendre « Nodefony Studio » pour savoir si l'on est connecté : ce titre s'affiche aussi
+  sur l'écran de connexion, donc l'attente aboutit toujours et la branche de reconnexion ne part
+  jamais. Se repérer sur ce qui DIFFÈRE entre les deux états (l'URL, un texte propre à l'écran visé).
+- `[1× — 2026-08-05c]` 🔴 **Pire qu'une sonde fausse : une sonde qui RÉPOND alors qu'elle n'a rien
+  mesuré.** Mon contrôleur d'écrans a imprimé trois lignes de verdict (`attendu:vu grille:non`)
+  pendant que la session était morte et qu'aucune capture n'était produite — j'ai d'abord cru à un
+  défaut du code migré. Toute sonde doit rendre l'échec de son PROPRE canal distinct d'un verdict
+  négatif : sans `result` NI `error`, afficher le brut, jamais « non ».
+
 - `[1× — 2026-08-03i]` 🔴 **Un hook qui refuse une commande la refuse ENTIÈREMENT — et le heredoc
   qu'elle portait n'a jamais été écrit.** Un `cat >> banc.ts <<EOF … EOF && cd …` rejeté pour son
   `cd` relatif : le banc est resté INCHANGÉ, le run suivant a rendu **14 verts** qui ne testaient
@@ -756,6 +778,18 @@ Ces thèmes ont quitté le sas pour des mémoires durables. Ne pas les réécrir
   arrêtée là, emportant les répétitions déjà jouées de trois autres tâches. Deux bornes, pas une :
   un `maxBuffer` large **et** une borne PAR FICHIER — au-delà, c'est une pièce jointe, pas du code,
   et son contenu ne peut rien apprendre à une sonde. L'écart s'ANNONCE.
+
+## 🧬 Une contrainte de CE dépôt n'est pas une contrainte de l'app GÉNÉRÉE
+
+- `[1× — 2026-08-05c]` 🔴 **J'ai écrit dans le gabarit d'`AGENTS.md` qu'un nom d'hôte « doit
+  figurer dans `trustedHosts` » : vrai ICI, où `domainCheck: true`, FAUX dans une app générée qui
+  ne l'active pas.** La consigne aurait envoyé chercher une panne inexistante. Rattrapé en ouvrant
+  le gabarit de config de l'app — pas en relisant ma phrase. Toute règle destinée à un gabarit se
+  vérifie dans le gabarit VOISIN, jamais transposée depuis le dépôt où on l'a apprise.
+- `[1× — 2026-08-05c]` 🔴 **Le compose généré montait `./tmp/browser` alors que `tmp/` n'était pas
+  dans le `.gitignore` généré** (il n'y avait que `var/`) : les captures d'écran seraient entrées
+  dans l'historique de toute app créée. Ajouter un volume à un gabarit oblige à vérifier ce que le
+  gabarit VOISIN ignore.
 
 ## 📚 La doc officielle périme la mémoire — deux fois dans la même session
 
