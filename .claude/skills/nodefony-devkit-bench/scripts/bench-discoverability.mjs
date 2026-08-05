@@ -2973,10 +2973,70 @@ const sh = (cmd, args, opts = {}) =>
   execFileSync(cmd, args, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+    // Le défaut de Node est 1 Mio, et il ne tronque pas : il LÈVE `ENOBUFS`.
+    // Vécu — la tâche 14 demande de servir un GROS média, l'agent en fabrique
+    // un, et le harnais mourait en lisant son propre diff, emportant la passe
+    // entière. Une ceinture large ; la vraie borne est par fichier, ci-dessous.
+    maxBuffer: 256 * 1024 * 1024,
     ...opts,
   });
 
 const git = (dir, ...args) => sh("git", ["-C", dir, ...args]).trim();
+
+/** Au-delà, un fichier n'est plus du code : c'est une pièce jointe. */
+const DIFF_LIGNES_MAX = 5000;
+
+/**
+ * Le diff des lignes AJOUTÉES, **borné par fichier** — et qui DIT ce qu'il écarte.
+ *
+ * Une tâche du banc demande explicitement de servir un gros média : l'agent en
+ * fabrique un, le commite, et le diff du commit porte alors le fichier ENTIER.
+ * Deux dégâts, dont le second est le pire : le harnais tombait sur `ENOBUFS`
+ * (emportant les répétitions restantes), et même relevé, ce contenu ne peut rien
+ * apprendre à une sonde — un million de `x` ne contient ni `@injectable`, ni
+ * `any`, ni `new WebSocket`. Il ne fait que noyer la matière utile.
+ *
+ * L'écart est ANNONCÉ, jamais silencieux : une troncature qui ne se voit pas se
+ * lit « rien à signaler », et c'est ainsi qu'un banc rend un vert qu'il n'a pas
+ * mesuré.
+ *
+ * @param {string} app - dépôt de l'application témoin.
+ * @param {string} from - révision de base.
+ * @param {string} to - révision jugée.
+ * @returns {string} les lignes `+` des fichiers de taille raisonnable.
+ */
+export const lignesAjoutees = (app, from, to) => {
+  const fichiers = git(app, "diff", "--numstat", from, to)
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => {
+      const [ajouts, , chemin] = l.split("\t");
+      // `-` marque un binaire : git n'en rendra pas le contenu de toute façon.
+      return { ajouts: Number(ajouts) || 0, chemin };
+    })
+    .filter((f) => f.chemin);
+  const ecartes = fichiers.filter((f) => f.ajouts > DIFF_LIGNES_MAX);
+  const retenus = fichiers.filter((f) => f.ajouts <= DIFF_LIGNES_MAX);
+  if (ecartes.length) {
+    console.log(
+      `  · diff écarté (pièce jointe, pas du code) : ` +
+        ecartes.map((f) => `${f.chemin} (+${f.ajouts} l.)`).join(", "),
+    );
+  }
+  if (!retenus.length) return "";
+  return git(
+    app,
+    "diff",
+    "--unified=0",
+    from,
+    to,
+    "--",
+    ...retenus.map((f) => f.chemin),
+  )
+    .split("\n")
+    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
+    .join("\n");
+};
 
 /**
  * Décor : app témoin sous git (le diff = la pièce à conviction).
@@ -3643,10 +3703,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
   // 6/6 côté fond, recalé parce qu'il avait touché l'e2e généré qui porte le
   // `new WebSocket` du test echo). On ne juge un interdit que sur ce que
   // l'agent a ÉCRIT.
-  const added = git(app, "diff", "--unified=0", `${base ?? `${hash}~1`}`, hash)
-    .split("\n")
-    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
-    .join("\n");
+  const added = lignesAjoutees(app, `${base ?? `${hash}~1`}`, hash);
   // Lignes ajoutées dans le CODE seul. Une valeur peut être légitime dans un
   // `.env` (c'est même là qu'on la veut) et fautive dans un `.ts` : sans cette
   // restriction, une sonde « pas de valeur en dur » rougirait sur la bonne
