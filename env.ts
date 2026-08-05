@@ -177,6 +177,22 @@ export const env = defineEnv({
       "Livraison de l'UI Studio : auto (défaut) | static (pré-buildé, sans Vite) | vite.",
   }),
 
+  /**
+   * Origine PUBLIQUE du dev-server Vite (P14.17) — celle que le NAVIGATEUR
+   * utilise quand elle diffère de l'adresse d'écoute. `{port}` est substitué
+   * par le port réel de chaque famille Vite (suit les retries de port).
+   * Le cas d'usage local : le navigateur en CONTENEUR (`--profile browser`)
+   * qui doit joindre Vite via la passerelle Docker →
+   * `NF_FRONTEND_PUBLIC_ORIGIN=https://host.docker.internal:{port}`.
+   * Codespaces/Gitpod n'en ont pas besoin : détection automatique.
+   * Absente = dérivation locale `devHost:port` (comportement historique).
+   */
+  NF_FRONTEND_PUBLIC_ORIGIN: envString({
+    optional: true,
+    description:
+      "Origine publique Vite (scheme://host[:port|:{port}]) — dev déporté/conteneur.",
+  }),
+
   // ── Social login OAuth 2.0 (P6 J9) ─────────────────────────────────────────
   // Secrets délivrés par les fournisseurs (Google Cloud Console / GitHub
   // Developer Settings › OAuth Apps). OPTIONNELS : un fournisseur n'est monté

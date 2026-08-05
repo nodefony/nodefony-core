@@ -163,7 +163,13 @@ ${tags}
     if (!entry) {
       return `<!-- @nodefony/frontend: unknown entry "${entryName}" -->`;
     }
-    const baseUrl = `${status.https ? "https" : "http"}://${status.host}:${status.port}`;
+    // Origine PUBLIQUE calculée par le superviseur (P14.17) — verbatim : port
+    // inclus seulement s'il y figure (forwarder Codespaces/Gitpod = 443
+    // implicite). Le fallback recomposé ne sert qu'aux doubles de test qui ne
+    // renseignent pas encore `origin`.
+    const baseUrl =
+      status.origin ??
+      `${status.https ? "https" : "http"}://${status.host}:${status.port}`;
     // Multi-bundle (P14.6) : URL via `/@fs/<absolute>` plutôt que relative au
     // root Vite unique. Sans ça, deux consumers qui ont chacun `frontend/src/main.tsx`
     // produisent la même URL `${baseUrl}/src/main.tsx` et Vite résout contre le

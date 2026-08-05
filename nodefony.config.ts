@@ -284,11 +284,17 @@ export default defineConfig<Env>((ctx) => ({
     // ── Démo / tests d'intégration — hors production.
     { name: "@nodefony/test", policy: "dev" },
 
-    // Frontend AVANT ses consumers.
-    "@nodefony/frontend",
+    // Frontend AVANT ses consumers. `publicOrigin` (P14.17) dissocie ce que
+    // Vite ÉCOUTE de ce que le NAVIGATEUR appelle — posée seulement via l'env
+    // (dev en conteneur : `NF_FRONTEND_PUBLIC_ORIGIN=https://host.docker.internal:{port}`) ;
+    // vide = dérivation locale, et Codespaces/Gitpod se détectent tout seuls.
+    use("@nodefony/frontend", {
+      publicOrigin: ctx.env.NF_FRONTEND_PUBLIC_ORIGIN ?? "",
+    }),
     { name: "@nodefony/test-frontend-react", policy: "dev" },
     { name: "@nodefony/test-frontend-vue", policy: "dev" },
     { name: "@nodefony/test-frontend-angular", policy: "dev" },
+    { name: "@nodefony/test-frontend-svelte", policy: "dev" },
     { name: "@nodefony/mediasoup", policy: "dev" },
 
     // ── Doc transverse AVANT Studio.

@@ -1,4 +1,4 @@
-import { defineEnv, envEnum, envNumber<% if (it.complete) { %>, envString<% } %> } from "nodefony";
+import { defineEnv, envEnum, envNumber<% if (it.complete || it.front) { %>, envString<% } %> } from "nodefony";
 
 /**
  * Catalogue typé des variables d'environnement — SEUL lecteur de `process.env`.
@@ -96,5 +96,19 @@ export const env = defineEnv({
   NF_ADMIN_PASSWORD: envString({
     optional: true,
     description: "Mot de passe du compte admin seedé au 1er boot (obligatoire en production).",
+  }),
+<% } %><% if (it.complete || it.front) { %>
+  /**
+   * Origine PUBLIQUE du dev-server Vite — celle que le NAVIGATEUR utilise
+   * quand elle diffère de l'adresse d'écoute : dev dans un conteneur
+   * (`https://host.docker.internal:{port}` — `{port}` suit le port réel),
+   * tunnel, machine distante. ABSENTE = dérivation locale (le cas nominal) ;
+   * Codespaces/Gitpod se détectent automatiquement. Consommée par
+   * `use("@nodefony/frontend", { publicOrigin })` dans `nodefony.config.ts`.
+   */
+  NF_FRONTEND_PUBLIC_ORIGIN: envString({
+    optional: true,
+    description:
+      "Origine publique Vite (scheme://host[:port|:{port}]) — dev déporté/conteneur.",
   }),
 <% } %>});

@@ -91,6 +91,8 @@ interface ViteInstanceView {
   family: string;
   state: string;
   host: string;
+  /** Origine PUBLIQUE effective (P14.17 — dev déporté/conteneur), absente des vieux back. */
+  origin?: string | null;
   port: number | null;
   pid: number | null;
   https: boolean;
@@ -785,6 +787,7 @@ function ViteServers({
             </Group>
             <Group gap="xl" mb="sm">
               <ViteStat label="Port" value={b.port ?? "—"} />
+              {b.origin ? <ViteStat label="Origine" value={b.origin} /> : null}
               <ViteStat label="PID" value={b.pid ?? "—"} />
               <ViteStat label="Protocole" value={b.https ? "https" : "http"} />
               <ViteStat label="Restarts" value={b.restartCount} />

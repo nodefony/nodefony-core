@@ -36,6 +36,24 @@ export interface ViteConfigGeneratorOptions {
     readonly keyPath: string;
     readonly certPath: string;
   };
+  /**
+   * Hôtes acceptés dans le header `Host` (`server.allowedHosts`, Vite ≥6).
+   * `true` = tous. Un motif `.suffixe` couvre le domaine et ses sous-domaines.
+   * Les IP et `localhost` sont toujours acceptés par Vite — cette liste ne
+   * sert que les NOMS (vhosts, `host.docker.internal`, forwarders).
+   */
+  readonly allowedHosts?: true | ReadonlyArray<string>;
+  /**
+   * Config `server.hmr` CLIENTE — où le navigateur ouvre le WebSocket HMR
+   * quand un intermédiaire (forwarder TLS, passerelle conteneur) sépare
+   * l'origine publique de l'adresse d'écoute. Absent = fallback client Vite
+   * (`location.hostname` + port d'écoute), correct en local.
+   */
+  readonly hmr?: {
+    readonly host: string;
+    readonly clientPort: number;
+    readonly protocol: "ws" | "wss";
+  };
 }
 
 /**
@@ -111,6 +129,14 @@ export class ViteConfigGenerator {
           );
           break;
         }
+        case "svelte5":
+          // Export NOMMÉ (`{ svelte }`) — seul plugin de la liste sans default.
+          imports.push(
+            `import { svelte } from "@sveltejs/vite-plugin-svelte";`,
+          );
+          pluginsExprs.push(`svelte()`);
+          optimizeInclude.push("svelte");
+          break;
         case "vanilla":
           // Pas de plugin.
           break;
@@ -210,19 +236,32 @@ ${fsAllowLines}
       ],
     },
 `;
+    // P14.17 — dev déporté : hôtes nommés autorisés + WS HMR routé vers
+    // l'origine PUBLIQUE. Émis seulement si fournis (défauts Vite sinon).
+    const allowedHostsLine =
+      opts.allowedHosts === true
+        ? `    allowedHosts: true,\n`
+        : opts.allowedHosts && opts.allowedHosts.length > 0
+          ? `    allowedHosts: ${JSON.stringify(opts.allowedHosts)},\n`
+          : "";
+    const hmrLine = opts.hmr
+      ? `    hmr: { host: ${JSON.stringify(opts.hmr.host)}, clientPort: ${
+          opts.hmr.clientPort
+        }, protocol: ${JSON.stringify(opts.hmr.protocol)} },\n`
+      : "";
     const serverBlock =
       proxyPaths.size > 0
         ? `  server: {
     strictPort: ${strictPort},
     cors: true,
-${httpsLines}${fsBlock}    proxy: {
+${allowedHostsLine}${hmrLine}${httpsLines}${fsBlock}    proxy: {
 ${proxyLines}
     },
   },`
         : `  server: {
     strictPort: ${strictPort},
     cors: true,
-${httpsLines}${fsBlock}  },`;
+${allowedHostsLine}${hmrLine}${httpsLines}${fsBlock}  },`;
 
     // `base` est inclus seulement si l'origin Vite est fournie en dev. En prod,
     // Vite préfixe avec le `base` standard "/" (assets relatifs).
@@ -239,6 +278,7 @@ ${httpsLines}${fsBlock}  },`;
     const dedupe: string[] = [];
     if (usedTypes.has("react19")) dedupe.push("react", "react-dom");
     if (usedTypes.has("vue3")) dedupe.push("vue");
+    if (usedTypes.has("svelte5")) dedupe.push("svelte");
     if (usedTypes.has("angular"))
       dedupe.push(
         "@angular/core",

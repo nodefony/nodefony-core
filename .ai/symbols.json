@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-05T11:13:00.895Z",
+  "generated": "2026-08-05T16:14:55.953Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 680,
-    "symbols": 2767,
-    "classes": 343,
-    "interfaces": 807,
+    "files": 685,
+    "symbols": 2778,
+    "classes": 345,
+    "interfaces": 809,
     "types": 363,
     "enums": 4,
-    "functions": 994,
-    "constants": 256
+    "functions": 1000,
+    "constants": 257
   },
   "symbols": {
     "Cli": {
@@ -404,6 +404,18 @@
       "file": "src/modules/test-frontend-react/index.ts",
       "exported": true,
       "module": "modules/test-frontend-react",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "controllers"
+      ]
+    },
+    "TestFrontendSvelte": {
+      "name": "TestFrontendSvelte",
+      "kind": "class",
+      "file": "src/modules/test-frontend-svelte/index.ts",
+      "exported": true,
+      "module": "modules/test-frontend-svelte",
       "extends": "Module",
       "implements": [],
       "decorators": [
@@ -7900,6 +7912,19 @@
       ],
       "description": "Controller POC : - GET /react/app → page HTML qui charge le bundle React via Vite - GET /react/api/data → endpoint léger pour bench p99 backend (autocannon/curl) - GET /react/api/burn → endpoint qu…"
     },
+    "SvelteController": {
+      "name": "SvelteController",
+      "kind": "class",
+      "file": "src/modules/test-frontend-svelte/nodefony/controller/SvelteController.ts",
+      "exported": true,
+      "module": "modules/test-frontend-svelte",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Controller POC Svelte : - GET /svelte/app → page HTML qui charge le bundle Svelte 5 via Vite - GET /svelte/api/data → endpoint léger (ping backend) consommé par l'app Svelte"
+    },
     "VueController": {
       "name": "VueController",
       "kind": "class",
@@ -11000,6 +11025,80 @@
       "exported": true,
       "module": "@nodefony/frontend",
       "description": "Famille servie sur le port de base (`devPort`). Les autres familles prennent les blocs de ports suivants. Garder `default` ici garantit que l'instance principale (React/Vue/Studio) reste sur le por…"
+    },
+    "IResolvedPublicOrigin": {
+      "name": "IResolvedPublicOrigin",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "description": "Résultat d'un template résolu contre un port réel."
+    },
+    "IRemoteDevDetection": {
+      "name": "IRemoteDevDetection",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "description": "Environnement de dev déporté détecté depuis les variables de la plateforme."
+    },
+    "browserReachableHost": {
+      "name": "browserReachableHost",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Hôte utilisable par un NAVIGATEUR pour une adresse d'écoute donnée. `0.0.0.0`/`::` sont des adresses d'ÉCOUTE (toutes interfaces), pas des destinations : dérivées telles quelles dans une URL, elles…"
+    },
+    "isValidOriginTemplate": {
+      "name": "isValidOriginTemplate",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Un template d'origine est-il syntaxiquement valide ? (autorité unique)"
+    },
+    "resolveOriginTemplate": {
+      "name": "resolveOriginTemplate",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Résout un template d'origine contre le port RÉEL du spawn. Pure."
+    },
+    "allowedHostPatternForTemplate": {
+      "name": "allowedHostPatternForTemplate",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Motif `server.allowedHosts` couvrant TOUTES les origines qu'un template peut produire. `{port}` dans l'hôte → le sous-domaine varie avec le port : motif `.suffixe` (wildcard Vite = domaine + sous-d…"
+    },
+    "viteAllowedHostFromPattern": {
+      "name": "viteAllowedHostFromPattern",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Motif Vite `allowedHosts` équivalent d'un pattern `trustedHosts` http. `*.suffixe` (wildcard un-label de la barrière Host) → `.suffixe` (wildcard Vite). Un `*` ailleurs n'est pas exprimable chez Vi…"
+    },
+    "detectRemoteDev": {
+      "name": "detectRemoteDev",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Détecte un environnement de dev déporté depuis les variables de plateforme (variables qu'on ne possède pas — elles se lisent, ne se renomment pas). Ordre : Codespaces puis Gitpod (jamais les deux p…"
+    },
+    "PORT_PLACEHOLDER": {
+      "name": "PORT_PLACEHOLDER",
+      "kind": "const",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Dev déporté (P14.17) — calculs PURS d'origine publique du dev server Vite. Le problème résolu : `devHost` est une adresse d'ÉCOUTE ; l'origine que le NAVIGATEUR utilise peut être toute autre chose …"
     },
     "AssetsPublish": {
       "name": "AssetsPublish",
@@ -19297,6 +19396,7 @@
         "Test",
         "TestFrontendAngular",
         "TestFrontendReact",
+        "TestFrontendSvelte",
         "TestFrontendVue",
         "DevkitModule",
         "Documentation",
@@ -19440,6 +19540,7 @@
         "SecureWsController",
         "AngularController",
         "PocController",
+        "SvelteController",
         "VueController",
         "DevkitController",
         "DocumentationController",
@@ -19826,6 +19927,7 @@
         "Test",
         "TestFrontendAngular",
         "TestFrontendReact",
+        "TestFrontendSvelte",
         "TestFrontendVue",
         "DevkitModule",
         "Documentation",
@@ -19876,6 +19978,7 @@
         "TestM2mRealtimeController",
         "AngularController",
         "PocController",
+        "SvelteController",
         "VueController",
         "DevkitController",
         "DocumentationController",
@@ -20205,6 +20308,7 @@
         "src/modules/test/index.ts",
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
+        "src/modules/test-frontend-svelte/index.ts",
         "src/modules/test-frontend-vue/index.ts",
         "src/packages/@nodefony/devkit/index.ts",
         "src/packages/@nodefony/documentation/index.ts",
@@ -20440,6 +20544,7 @@
         "src/modules/test/index.ts",
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
+        "src/modules/test-frontend-svelte/index.ts",
         "src/modules/test-frontend-vue/index.ts",
         "src/packages/@nodefony/devkit/index.ts",
         "src/packages/@nodefony/documentation/index.ts",
@@ -20509,6 +20614,7 @@
         "src/modules/test/index.ts",
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
+        "src/modules/test-frontend-svelte/index.ts",
         "src/modules/test-frontend-vue/index.ts",
         "src/packages/@nodefony/devkit/index.ts",
         "src/packages/@nodefony/documentation/index.ts",
@@ -20519,12 +20625,14 @@
         "src/modules/mediasoup/index.ts",
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
+        "src/modules/test-frontend-svelte/index.ts",
         "src/modules/test-frontend-vue/index.ts",
         "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/studio/index.ts",
         "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/modules/test-frontend-svelte/nodefony/controller/SvelteController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
@@ -20674,6 +20782,9 @@
       ],
       "PocController": [
         "src/modules/test-frontend-react/index.ts"
+      ],
+      "SvelteController": [
+        "src/modules/test-frontend-svelte/index.ts"
       ],
       "VueController": [
         "src/modules/test-frontend-vue/index.ts"
@@ -20908,6 +21019,7 @@
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/modules/test-frontend-svelte/nodefony/controller/SvelteController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
@@ -21067,6 +21179,7 @@
         "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/modules/test-frontend-svelte/nodefony/controller/SvelteController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
@@ -21092,6 +21205,7 @@
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/modules/test-frontend-svelte/nodefony/controller/SvelteController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
@@ -21376,6 +21490,7 @@
         "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/modules/test-frontend-svelte/nodefony/controller/SvelteController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
@@ -24767,6 +24882,7 @@
         "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts",
         "src/packages/@nodefony/frontend/nodefony/src/presets/angular-vite.ts",
         "src/packages/@nodefony/frontend/nodefony/src/presets/react19-vite.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/presets/svelte5-vite.ts",
         "src/packages/@nodefony/frontend/nodefony/src/presets/vanilla-vite.ts",
         "src/packages/@nodefony/frontend/nodefony/src/presets/vue3-vite.ts"
       ],
@@ -24824,6 +24940,22 @@
       "PRIMARY_FAMILY": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
+      "detectRemoteDev": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "allowedHostPatternForTemplate": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "viteAllowedHostFromPattern": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "isValidOriginTemplate": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "PORT_PLACEHOLDER": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
+      ],
       "FrontendPresetUnknownError": [
         "src/packages/@nodefony/frontend/nodefony/service/ViteConfigGenerator.ts",
         "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts"
@@ -24835,6 +24967,12 @@
         "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
       ],
       "ViteConfigGenerator": [
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
+      ],
+      "browserReachableHost": [
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
+      ],
+      "resolveOriginTemplate": [
         "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
       ],
       "planAssetPublish": [

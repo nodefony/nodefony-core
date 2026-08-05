@@ -125,6 +125,26 @@ export const frontendConfigSchema = z
           "occupé, Vite incrémente jusqu'à un port libre ; le superviseur détecte " +
           "le port réel dans son stdout et met à jour son `status()`.",
       ),
+    publicOrigin: z
+      .string()
+      .default("")
+      .refine((v) => v === "" || /^https?:\/\/[^/\s]+$/.test(v), {
+        message:
+          "publicOrigin doit être une origine (`scheme://host[:port]`), sans chemin",
+      })
+      .describe(
+        "Origine PUBLIQUE du dev server Vite — celle que le NAVIGATEUR utilise, " +
+          "quand elle diffère de l'adresse d'écoute (`devHost`) : dev container " +
+          "(`https://host.docker.internal:5173`), Codespaces/Gitpod (URL du " +
+          "forwarder, port encodé dans le sous-domaine, ex. " +
+          "`https://xxx-5173.app.github.dev`), ports remappés. Utilisée telle " +
+          "quelle (port inclus SEULEMENT si écrit) dans les `<script>` injectés, " +
+          "le `base` Vite et le WebSocket HMR (`hmr.host`/`clientPort`, dérivés). " +
+          "Vide (défaut) = dérivée de `devHost:devPort` (comportement local). " +
+          "L'hôte de cette origine est automatiquement autorisé par Vite " +
+          "(`server.allowedHosts`) — les autres hôtes légitimes viennent de la " +
+          "liste `trustedHosts` de @nodefony/http (une seule liste à maintenir).",
+      ),
     autoStartInDevelopment: z
       .boolean()
       .default(true)

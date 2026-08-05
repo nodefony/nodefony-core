@@ -171,8 +171,16 @@ export default defineConfig<typeof env>((ctx) => ({
       },
     }),
 
-    /** Builder Vite + statics : sert le frontend de l'app (HMR en dev). */
-    "@nodefony/frontend",
+    /**
+     * Builder Vite + statics : sert le frontend de l'app (HMR en dev).
+     * `publicOrigin` (vide = dérivation locale) : l'origine que le NAVIGATEUR
+     * utilise quand elle diffère de l'adresse d'écoute — dev en conteneur
+     * (`NF_FRONTEND_PUBLIC_ORIGIN=https://host.docker.internal:{port}`),
+     * tunnel, machine distante. Codespaces/Gitpod : détection automatique.
+     */
+    use("@nodefony/frontend", {
+      publicOrigin: ctx.env.NF_FRONTEND_PUBLIC_ORIGIN ?? "",
+    }),
 
     /**
      * Console d'administration → `/nodefony` : modules chargés, routes, config
@@ -201,9 +209,15 @@ export default defineConfig<typeof env>((ctx) => ({
 <% } else if (it.front) { %>
     /**
      * Builder Vite + statics : sert le frontend <%= it.frontend %> de l'app
-     * (HMR en dev, build pré-compilé en prod).
+     * (HMR en dev, build pré-compilé en prod). `publicOrigin` (vide =
+     * dérivation locale) : l'origine que le NAVIGATEUR utilise quand elle
+     * diffère de l'adresse d'écoute — dev en conteneur
+     * (`NF_FRONTEND_PUBLIC_ORIGIN=https://host.docker.internal:{port}`),
+     * tunnel, machine distante. Codespaces/Gitpod : détection automatique.
      */
-    "@nodefony/frontend",
+    use("@nodefony/frontend", {
+      publicOrigin: ctx.env.NF_FRONTEND_PUBLIC_ORIGIN ?? "",
+    }),
 <% } %>
     /**
      * Outillage de DÉVELOPPEMENT — la porte HTTP de la carte de visite de cette
