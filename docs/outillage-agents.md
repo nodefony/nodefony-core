@@ -194,6 +194,17 @@ Les deux colonnes de droite sont **mesurées** sur l'ensemble des transcrits du 
 sessions) : _invocations_ = passages par l'outil `Skill` ; _lectures_ = accès directs à ses
 fichiers. Un skill peut être très lu sans jamais être invoqué — c'est un signal, pas un défaut.
 
+> 🔴 **Ces chiffres ne comptent que l'agent principal, et une part du silence s'explique là :
+> un sous-agent n'ouvre jamais un skill de lui-même.** Il reçoit pourtant la liste entière —
+> descriptions, déclencheurs — et l'outil pour les charger. Mesuré sur deux délégations : sans
+> mention du skill dans le prompt, **0 appel `Skill` sur 28 appels d'outils** ; avec « charge
+> d'abord le skill `X` », il le charge en premier et applique sa méthode — le run instruit de
+> `nodefony-inspect` a interrogé `.ai/symbols.json` au `jq` au lieu d'ouvrir des fichiers un par
+> un. C'est le mécanisme déjà connu de `@agent-<nom>` : la disponibilité ne déclenche rien,
+> seule la mention garantit. Conséquence pratique — **toute délégation qui touche un domaine
+> couvert nomme son skill en toutes lettres** ; sinon on croit avoir délégué sous les règles du
+> projet à quelqu'un qui ne voit que le prompt.
+
 ### Cycle de session
 
 | Skill              | Rôle                                                                              | Invoc. | Lect. |

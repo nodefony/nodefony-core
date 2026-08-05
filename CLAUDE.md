@@ -239,6 +239,18 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
      Ne PAS déléguer, en revanche : **éditer du code** au milieu d'une session (le coût
      d'explication dépasse le gain, et deux mains sur les mêmes fichiers finissent par se
      marcher dessus). Déléguer la VÉRIFICATION et la MESURE, appliquer soi-même.
+   - **🔴 UN SOUS-AGENT N'OUVRE JAMAIS UN SKILL DE LUI-MÊME — le NOMMER dans le prompt.**
+     Il reçoit pourtant la liste complète des skills, descriptions et déclencheurs compris, et
+     l'outil `Skill` pour les charger. **Mesuré, deux runs** : sans mention, **0 appel `Skill`
+     sur 28 appels d'outils** ; avec « charge d'abord le skill `X` », **il le charge en premier
+     et applique sa méthode** (le run instruit de `nodefony-inspect` a interrogé
+     `.ai/symbols.json` au `jq` au lieu d'ouvrir des fichiers). C'est le même mécanisme que
+     `@agent-<nom>` face à la prose : la disponibilité ne déclenche rien, seule la mention
+     garantit. Sans elle, on croit avoir délégué SOUS les règles du projet à quelqu'un qui ne
+     voit que le prompt. Donc : toute délégation dont la tâche touche un domaine couvert par un
+     skill écrit, en toutes lettres, « charge d'abord le skill `<nom>` ». Ce que ce fichier ne
+     recopie pas — c'est bien le but — n'atteint le délégué QUE par cette phrase.
+     [[feedback_subagent_skills_must_be_named]]
 
 6. **🔴 QUESTION ZÉRO — FAUT-IL UN MODÈLE ? Puis SEULEMENT : lequel ?** Avant de choisir un modèle,
    chercher l'**automate déterministe** qui fait le travail : `rg`, `jq`, `git log -S`, un
