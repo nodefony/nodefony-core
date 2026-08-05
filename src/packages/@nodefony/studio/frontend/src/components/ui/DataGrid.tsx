@@ -845,6 +845,33 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
   const filterable = columns.some((c) => c.filterable);
   const activeCount = columnFilters.length;
   const hasActive = globalFilter.trim().length > 0 || activeCount > 0;
+  /**
+   * Les critères actifs, en toutes lettres — pour le corps vide.
+   *
+   * Un tableau que la persistance a filtré ne dit rien de plus qu'« aucun
+   * résultat » : les critères viennent du storage, personne ne les a tapés dans
+   * CETTE session, et rien à l'écran ne fait le lien. Vécu sur cette grille — un
+   * `ssss` restauré d'une session précédente a été cherché comme un bug pendant
+   * plusieurs allers-retours, jusqu'à ce qu'une sonde affiche la requête.
+   *
+   * On NOMME donc chaque critère, avec le libellé de sa colonne et l'opérateur
+   * tel que la liste déroulante l'écrit (« contient », « égal à ») — jamais la
+   * clé technique, que l'utilisateur n'a jamais vue.
+   */
+  const criteresActifs: string[] = [];
+  if (globalFilter.trim().length > 0) {
+    criteresActifs.push(`recherche « ${globalFilter.trim()} »`);
+  }
+  for (const f of columnFilters) {
+    const col = columns.find((c) => c.key === f.id);
+    const v = f.value as FilterValue | undefined;
+    const ops = opsFor(col?.filterType);
+    const opLabel = ops.find((o) => o.value === v?.op)?.label ?? v?.op ?? "";
+    const valeur = v?.value ?? "";
+    criteresActifs.push(
+      `${col?.header ?? f.id} ${opLabel}${valeur ? ` « ${valeur} »` : ""}`.trim(),
+    );
+  }
   const reset = () => {
     setGlobalFilter("");
     setColumnFilters([]);
@@ -1169,9 +1196,28 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
                       }
                       style={{ textAlign: "center", padding: 24 }}
                     >
-                      <Text size="sm" c="dimmed">
-                        {emptyMessage}
-                      </Text>
+                      {hasActive ? (
+                        <Stack gap={8} align="center">
+                          <Text size="sm">
+                            Aucun résultat pour les critères actifs.
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            {criteresActifs.join(" · ")}
+                          </Text>
+                          <Button
+                            size="xs"
+                            variant="light"
+                            leftSection={<IconFilterOff size={14} />}
+                            onClick={reset}
+                          >
+                            Effacer les critères
+                          </Button>
+                        </Stack>
+                      ) : (
+                        <Text size="sm" c="dimmed">
+                          {emptyMessage}
+                        </Text>
+                      )}
                     </Table.Td>
                   </Table.Tr>
                 )}
