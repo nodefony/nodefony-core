@@ -20,6 +20,29 @@
 
 ---
 
+## 🎚️ Un DÉCOR posé pour un observateur casse l'autre — et un run partagé n'est pas un décor stable
+
+- [1× — 08-05] `NF_FRONTEND_PUBLIC_ORIGIN=host.docker.internal` laissé sur le serveur après la
+  session d'observation conteneur → TOUTES les pages du POSTE en écran vide (nom irrésolvable hors
+  Docker). Une origine publique FIGÉE sert UN public : c'est une molette de décor d'observation,
+  jamais un réglage qui reste. La poser = prévoir de la retirer.
+- [1× — 08-05] `npm install` + rebuild du dist racine lancés PENDANT `test:all` → 9 rouges
+  fantômes (les tests du BINAIRE réel ont vu `dist/node/*.js` à moitié réécrit) ; rejoués sur
+  arbre stable : 111/111 verts. La règle « ne pas éditer pendant un run » couvre AUSSI les builds
+  et l'install — tout ce qui touche ce que la suite exécute.
+
+## 🔗 « Valider la chaîne » = EXÉCUTER la chaîne, pas recomposer son résultat
+
+- [1× — 08-05] Module test svelte d'abord composé À LA MAIN (conforme au canonique) alors que la
+  mission était de valider la CHAÎNE de création — rappel user. Quand le but est la chaîne, on
+  lance la commande/le skill, et l'artefact rendu EST la preuve.
+- [1× — 08-05] Le skill `create-frontend-module` prescrivait `getCspDirectives()` — API SUPPRIMÉE
+  du code : un skill jamais rejoué depuis un refactor ment avec assurance. Corrigé (nonce). Rejouer
+  un skill = le seul test qu'il ait.
+- [1× — 08-05] Page blanche Vite « Failed to resolve ./App.svelte » : le fichier a été créé APRÈS
+  le boot du dev-server (optimisation figée au démarrage) — restart Vite AVANT tout diagnostic
+  quand un fichier neuf n'est pas vu.
+
 ## 🧬 Appliquer un patron N fois n'est PAS le factoriser
 
 - `[1× — 2026-08-03b]` 🔴 **J'ai répliqué « le store déclare, le data plane demande » sur quatre
