@@ -209,13 +209,14 @@ Cartographie **par sujet** (pour trouver où poser un test, ou où un comporteme
 
 ## Bugs corrigés (cas limites connus)
 
-| Bug                                                  | Fichier                   | Fix                                                                                                               |
-| ---------------------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `ERR_INVALID_CHAR` sur statusMessage                 | `Response.ts:writeHead()` | `safeMsg.replace(/[^\x20-\x7E]/g,"")` avant `ServerResponse.writeHead()` — Node.js poison le natif avant de throw |
-| `url.parse()` deprecation                            | `sessions-service.ts`     | Remplacé par `new URL(context.url, "http://localhost")`                                                           |
-| `HttpError.controller/action/jsonResponse` undefined | `httpError.ts`            | Extraits de `(context as any)?.resolver` dans le constructeur                                                     |
-| Cookie `Expires` overflow                            | `cookie.ts`               | `maxAge * 1000` → `maxAge` déjà en ms                                                                             |
-| `maxAge=0` session cookie                            | `cookie.ts`               | Cas 0 traité séparément                                                                                           |
+| Bug                                                  | Fichier                   | Fix                                                                                                                                                                                                                                     |
+| ---------------------------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ERR_INVALID_CHAR` sur statusMessage                 | `Response.ts:writeHead()` | `safeMsg.replace(/[^\x20-\x7E]/g,"")` avant `ServerResponse.writeHead()` — Node.js poison le natif avant de throw                                                                                                                       |
+| `url.parse()` deprecation                            | `sessions-service.ts`     | Remplacé par `new URL(context.url, "http://localhost")`                                                                                                                                                                                 |
+| `HttpError.controller/action/jsonResponse` undefined | `httpError.ts`            | Extraits de `(context as any)?.resolver` dans le constructeur                                                                                                                                                                           |
+| Cookie `Expires` overflow                            | `cookie.ts`               | `maxAge * 1000` → `maxAge` déjà en ms                                                                                                                                                                                                   |
+| `maxAge=0` session cookie                            | `cookie.ts`               | Cas 0 traité séparément                                                                                                                                                                                                                 |
+| Pagination sessions bouclait sur la page 1 (Redis)   | `HttpAdminApi.ts`         | `sessions/list` ET `sessions/mine` ne transmettaient pas le `cursor` entrant → backend SCAN rejouait la même page avec le même `nextCursor` ; fix = spread `cursor` (pattern SecurityAdminApi), gardé par 2 tests « le curseur AVANCE » |
 
 ---
 

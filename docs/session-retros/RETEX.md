@@ -61,6 +61,14 @@
 
 ## 🧾 Un paramètre ACCEPTÉ PUIS JETÉ est pire qu'un paramètre refusé
 
+- `[1× — 08-06]` 🔴 **`parsePageQuery` parse `cursor`, DEUX handlers le jetaient — la pagination
+  bouclait à l'infini en 200.** `sessions/list` et `sessions/mine` construisaient `{limit, offset,
+order}` sans reprendre `pageQuery.cursor` : sur backend SCAN Redis, chaque appel repartait du
+  début et renvoyait la MÊME page avec le MÊME `nextCursor` (sonde : 31 pages identiques). Aucun
+  test ne l'attrapait : tous lisaient la page 1, et le parc de dev tenait dedans. Le pattern
+  correct existait dans `SecurityAdminApi` (`filter.cursor = page.cursor`) — l'oubli est né d'une
+  recomposition à la main du même mapping (1 RÈGLE = 1 implémentation). Gate : un test « le
+  curseur AVANCE » par handler paginé, vu ROUGE fix débranché (`00ad1a6c`, `7802b2bd`).
 - `[1× — 2026-08-03i]` ⭐ **Une ressource se lit à DEUX endroits — sa liste et ses compteurs — et
   le gate doit aller par PAIRES, en deux temps.** La DÉCLARATION (« si la liste cherche, ses
   compteurs cherchent ») ne suffit pas : un endpoint peut publier `search: true`, répondre `200` et
@@ -535,6 +543,15 @@ audit` dans un `cat <<EOF`. Le prédicat se gardait déjà de deux pièges — l
 
 ## 📏 Une sonde de PERFORMANCE juge la machine avant de juger le code
 
+- `[1× — 08-06]` 🔴 **Une pause > ~2 min endort le serveur détaché idle (App Nap macOS) : le run
+  suivant paie le réveil, −13 à −15 %, reproduit 3/3.** Mon « cooldown thermique entre les runs »
+  — ajouté pour STABILISER — fabriquait l'instabilité qu'il combattait. Gravé dans le banc :
+  cooldown UNE fois AVANT la série, pause fixe 10 s entre runs, warmup doublé après cooldown.
+  Corollaire chiffré : machine libérée (Brave/VSCode fermés), les runs enchaînés tiennent 0,6-1,5 %
+  de dispersion — la garde à 3 % devient tenable.
+- `[1× — 08-06]` **Locale fr : `printf "%.1f"` d'awk rend « 4,1 » — la garde `d > 3` lisait « 4 »
+  et devenait muette entre 3 et 4 %, et le JSON compagnon était invalide.** `export LC_ALL=C` en
+  tête de tout script de banc qui compare des décimaux ou émet du JSON.
 - `[1× — 08-05h]` 🔴 **Un banc a une RÉSOLUTION, et tout verdict la cite.** 3 paires A/B
   alternées sur un diff qui fait strictement MOINS de travail (prouvé au micro-bench isolé
   584→190 ns/op) ont rendu −3,4 / −2,2 / **+3,2 %** : ce banc, ce soir-là, fabriquait ±3,4 % de
@@ -666,6 +683,20 @@ liste)` sans assertion sur `liste.length` est vert sur zéro itération : une r�
 
 ## 🧰 Outillage : ce qui pend, ce qui ment, ce qui lance
 
+- `[1× — 08-06]` 🔴 **Un Docker tué brutalement laisse ses port-forwarders VIVANTS : les ports
+  répondent à l'accept puis PENDENT** (conteneurs morts derrière) — pire qu'un port fermé, qui
+  refuse net. Toute sonde/login vers 6379/5432 pendait 10 s, fabriquant des « timeouts de tests »
+  qui ressemblaient à une régression. Et un `docker info` peut pendre 120 s sur un daemon zombie.
+  Ne jamais quitter Docker pendant que des conteneurs tournent ; après un état sale, vérifier les
+  ports (`nc -z`) avant d'interpréter le moindre timeout.
+- `[1× — 08-06]` **`test:all` laisse son serveur dev UP en sortie d'échec** (vu : 25 min après le
+  run) — toute relance isolée « pour vérifier » tape alors un serveur au décor d'HIER (variables
+  d'infra du run) et rend des verdicts sans rapport avec le code. `npx nodefony stop --all` avant
+  toute relance de diagnostic.
+- `[1× — 08-06]` **Les stores PERSISTANTS accumulent les sessions de TOUS les runs** (4 392 clés
+  redis, 724 317 audit_event, 215 Mo de sqlite) : les suites ralentissent, et tout test qui lit
+  « la page 1 » devient probabiliste. La règle du skill load-test (« nettoyer avant de rejouer »)
+  vaut pour test:all AUSSI — et un test d'intégration ne doit JAMAIS supposer un store vide.
 - `[1× — 08-05h]` **Le kill du banc ne voit pas le DevSupervisor** : `pkill -f bin/nodefony`
   rate le titre de process RENOMMÉ (`nodefony-dev-supervisor`), le superviseur survit, relance
   son enfant pendant le spawn prod du banc → BOOT FAIL par course sur le port 5151 (2× ce soir).
