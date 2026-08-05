@@ -3273,7 +3273,17 @@ export function reinitialiserDecor(app, runDir, id) {
   // commits des tâches déjà jouées — ceux-là mêmes que `judgeTask` retrouve par
   // leur message.
   git(app, "read-tree", "-u", "--reset", initial);
-  git(app, "clean", "-xdfq", "-e", "node_modules");
+  // `/node_modules` — ANCRÉ à la racine, et c'est tout l'écart. L'exclusion de
+  // `git clean` est un motif gitignore : sans barre oblique de tête, elle mord à
+  // TOUTE profondeur. Or `create module` fait naître un workspace npm — donc un
+  // `modules/<nom>/node_modules/`, et un `dist/node_modules/` déposé par son
+  // bundler. Git ne supprimant pas un dossier dont il doit préserver le contenu,
+  // le squelette du module SURVIVAIT à la remise à zéro : la tâche suivante
+  // trouvait `modules/audit/` déjà là et son propre générateur le lui refusait
+  // (« le module existe déjà », `scaffold/engine.ts:1381`). Verdict FAIL rendu
+  // sur un décor sale, sans qu'aucune sonde ne puisse le dire. Seule
+  // l'installation de l'application, à la racine, doit être épargnée.
+  git(app, "clean", "-xdfq", "-e", "/node_modules");
   const manifeste = path.join(runDir, "decor-initial.json");
   if (existsSync(manifeste)) {
     for (const { chemin, contenu } of JSON.parse(
