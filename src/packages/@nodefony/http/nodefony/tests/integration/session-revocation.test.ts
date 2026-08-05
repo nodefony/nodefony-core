@@ -97,13 +97,60 @@ async function meStatus(cookie: string): Promise<number> {
 }
 
 /** Refs (HMAC public) des sessions d'un user — énumération admin (cookie admin). */
+interface ISessionListItem {
+  ref: string;
+  ip: string | null;
+  ua: string | null;
+}
+
+async function listAllSessions(
+  adminCookie: string,
+  user: string,
+): Promise<ISessionListItem[]> {
+  // TOUTES les pages, pas la première : le listing est paginé et l'ordre du
+  // store peut être arbitraire (SCAN Redis, qui ne trie rien). Sur un serveur
+  // qui porte déjà plus d'une page de sessions du même user (suite complète,
+  // bancs), la session fraîche manque à la page 1 et le diff avant/après
+  // conclut à tort « aucune session créée » — vécu : rouge probabiliste en
+  // suite, vert isolé. Contrat de l'endpoint : backend à curseur (Redis) →
+  // `nextCursor` (suivi via ?cursor=), backend offset (SQL/mémoire) → `total`.
+  const byRef = new Map<string, ISessionListItem>();
+  const limit = 100;
+  let cursor: string | undefined;
+  let offset = 0;
+  for (let guard = 0; guard < 100; guard += 1) {
+    const params = new URLSearchParams({ user, limit: String(limit) });
+    if (cursor) params.set("cursor", cursor);
+    else if (offset > 0) params.set("offset", String(offset));
+    const res = await get(`${LIST}?${params.toString()}`, {
+      cookie: adminCookie,
+    });
+    expect(res.status, "list sessions (admin)").to.equal(200);
+    const page = res.body as {
+      items?: ISessionListItem[];
+      nextCursor?: string | null;
+      total?: number;
+    };
+    const items = page.items ?? [];
+    const sizeBefore = byRef.size;
+    for (const it of items) byRef.set(it.ref, it);
+    if (page.nextCursor) {
+      cursor = page.nextCursor;
+      continue;
+    }
+    if (page.nextCursor === null) break; // curseur épuisé (fin de SCAN)
+    if (items.length === 0) break; // offset épuisé
+    offset += items.length;
+    if (page.total !== undefined && offset >= page.total) break;
+    // Ni curseur ni progression : une page identique en boucle (backend qui
+    // ignore l'offset) s'arrête ici plutôt que de tourner jusqu'au guard.
+    if (byRef.size === sizeBefore) break;
+  }
+  return [...byRef.values()];
+}
+
 async function refsOf(adminCookie: string, user: string): Promise<string[]> {
-  const res = await get(`${LIST}?user=${encodeURIComponent(user)}`, {
-    cookie: adminCookie,
-  });
-  expect(res.status, "list sessions (admin)").to.equal(200);
-  const items = (res.body as { items?: { ref: string }[] }).items ?? [];
-  return items.map((i) => i.ref);
+  return (await listAllSessions(adminCookie, user)).map((i) => i.ref);
 }
 
 /**
@@ -195,18 +242,7 @@ describe("Provenance de session — ip/ua capturés au login (console Sessions)"
     expect(res.status, "login user").to.equal(200);
     const cookie = sessionCookieOf(res);
     try {
-      const list = await get(`${LIST}?user=user`, { cookie: admin });
-      expect(list.status, "list sessions (admin)").to.equal(200);
-      const items =
-        (
-          list.body as {
-            items?: Array<{
-              ref: string;
-              ip: string | null;
-              ua: string | null;
-            }>;
-          }
-        ).items ?? [];
+      const items = await listAllSessions(admin, "user");
       const fresh = items.filter((i) => !before.has(i.ref));
       expect(fresh.length, "1 session fraîche isolée").to.equal(1);
       const s = fresh[0]!;
