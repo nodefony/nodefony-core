@@ -226,9 +226,13 @@ services:
   #      origine `http://` qui n'est pas `localhost` — toutes les requêtes
   #      authentifiées reviendraient en `401`, ce qui se lit à tort comme un échec
   #      de connexion. Le certificat auto-signé de développement est accepté ici.
-  #   3. Servir le front en mode PRÉ-BÂTI : en mode Vite la page annonce ses assets
-  #      sur `127.0.0.1:5173` — l'adresse du NAVIGATEUR, donc du conteneur, où
-  #      aucun Vite ne tourne. Le rechargement à chaud n'est pas joignable ainsi.
+  #   3. Rendre Vite JOIGNABLE — ou servir le front pré-bâti : en mode Vite la
+  #      page annonce ses assets sur `127.0.0.1:5173` — l'adresse du NAVIGATEUR,
+  #      donc du conteneur, où aucun Vite ne tourne. Remède avec HMR : lancer le
+  #      serveur avec `NF_FRONTEND_PUBLIC_ORIGIN=https://host.docker.internal:{port}`
+  #      (origine des assets, allowlist Vite et WebSocket HMR suivent). ⚠️ C'est un
+  #      décor d'OBSERVATION : restée posée, cette variable casse le navigateur du
+  #      POSTE — la retirer en fin d'observation. Sans HMR : le pré-bâti.
   #
   # Le conteneur EST un serveur MCP : un agent s'y branche par
   # `http://127.0.0.1:${BROWSER_PORT:-3001}/mcp` (il imprime la config à coller
