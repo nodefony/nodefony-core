@@ -153,6 +153,11 @@ check:externals --if-present` sur un script qui n'existe pas → contrôle imagi
 - `[1× — 08-06]` **Un `.mjs` posé au scratchpad ne résout aucun paquet npm** (résolution ESM depuis
   l'URL du module, pas le cwd) — un harnais qui importe `ws` se pose dans `tmp/` du repo, qui
   remonte vers les node_modules racine.
+- `[1× — 08-06]` **Prouver « 0 écriture en base » = `PRAGMA data_version` depuis une connexion
+  readonly ouverte PENDANT toute la fenêtre** (bouge à chaque commit d'une AUTRE connexion, toutes
+  tables — là où les counts par table ne couvrent que ce qu'on a pensé à compter). Deux invocations
+  sqlite3 CLI ne se comparent PAS (valeur par connexion). Ajouter une fenêtre de repos témoin pour
+  discriminer un écrivain périodique. Instrument utilisé : `express-fair-proof.mjs` (catalogué).
 
 - `[1× — 2026-08-05c]` ⭐ **Un serveur MCP peut TUER la session parce que le CLIENT ne répond pas à
   ses pings** (heartbeat sur le flux GET SSE : sans canal retour ouvert ET lu, le serveur ferme —
