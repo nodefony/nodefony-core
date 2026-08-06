@@ -3,15 +3,14 @@ name: nodefony-frontend-dev
 metadata:
   version: 1.0.0
 description: >
-  Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé
+  Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé
   front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR
   (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC
-  isomorphe, ergonomie / temps réel « calme » / a11y / perf (bundlés offline), et **vérification
-  d'une modif front** — sans navigateur (transform Vite en `curl`, purge du prébundle, rechargement
-  forcé) ou en OBSERVANT l'écran depuis un navigateur en CONTENEUR (console, arbre d'accessibilité,
-  requêtes réelles ; jamais de Chromium à nu sur le poste).
-  App admin Studio → `nodefony-studio-dev` ; scaffold d'un module front →
-  `nodefony-create-frontend-module` ; le back → `nodefony-framework-dev`.
+  isomorphe, ergonomie/a11y/perf (bundlés offline), et vérification d'une modif front — sans
+  navigateur (transform Vite en `curl`, purge du prébundle) ou en OBSERVANT l'écran depuis un
+  navigateur en CONTENEUR (console, a11y, requêtes réelles ; jamais de Chromium nu sur le poste).
+  Studio → `nodefony-studio-dev` ; scaffold front → `nodefony-create-frontend-module` ;
+  back → `nodefony-framework-dev`.
   Déclencheurs : "dev front nodefony", "isomorphisme", "socket client", "RealtimeClient",
   "useNodefony", "hooks realtime", "HMR", "Vite nodefony", "ApiClient",
   "useResource", "data plane front", "BFF", "RBAC front", "accessibilité front", "WCAG",
