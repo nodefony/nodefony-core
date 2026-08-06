@@ -123,6 +123,25 @@ outdated` NU les montre). Corollaire : **un sous-agent hérite de la cécité de
   RÉSULTAT, ou la façon d'en atteindre un ?**
 - `[1× — 2026-07-27i]` ⭐⭐ **Trois fois la même question** — une reformulation n'est pas une
   demande de précision : c'est un signal que la réponse n'a pas répondu.
+- `[1× — 08-06j]` **« C'est donc du CACHE ?! » — l'inquiétude était légitime et évitable** : au
+  moment d'ANNONCER une mémoïsation, dire d'emblée ce qu'elle ne cache PAS (forme de requête,
+  jamais les données ; valeurs re-bindées, résultats toujours lus en base) et livrer le test
+  anti-staleness AVEC le lot, pas après la question. Le mot « cache » sans son périmètre déclenche
+  à raison la peur des effets de bord.
+- `[1× — 08-06j]` **Un refus de garde de banc ≠ un chiffre faux, = un chiffre non PROUVABLE** :
+  old2 refusé 5× (dispersion 3,2-4,9 %, rampe thermique) avec des médianes à ±1 % des retenues —
+  ne pas négocier la garde ni publier « quand même » ; la fenêtre s'est stabilisée seule plus
+  tard dans la soirée. Bonus observé : les fenêtres du code RAPIDE sont plus stables (moins de
+  chauffe par requête) — l'instabilité asymétrique old/new est un artefact thermique, pas un
+  signal.
+
+## 🪞 Un serveur TOLÉRANT rend VERT ce qu'un serveur STRICT refuse
+
+- `[1× — 08-06j]` 🔴 **La table `session` stale (user TEXT d'avant le fix colKit) était VERTE sur
+  MariaDB — qui créait l'index en auto-préfixant `user(768)` — et ROUGE sur MySQL 8.4, qui refuse.**
+  Pas un rouge de décor : un VERT menteur, durable, sur le serveur quotidien. C'est la passe
+  séparée MYSQL_COMMUNITY (serveur de preuve, volume plus jeune) qui l'a révélé. Angle neuf de
+  [[feedback_stale_decor_poisons_verdicts]] : le décor sale peut aussi fabriquer du VERT.
 
 ## 📚 La doc officielle périme la mémoire — deux fois dans la même session
 
@@ -136,6 +155,13 @@ outdated` NU les montre). Corollaire : **un sous-agent hérite de la cécité de
 check:externals --if-present` sur un script qui n'existe pas → contrôle imaginaire vert pour
   toujours ; `paths-ignore: ['**/*.md']` aurait désactivé `skills:check` dont la matière EST des
   `SKILL.md`).
+- `[1× — 08-06j]` ⭐ **Lire le SOURCE de la lib (node_modules) pour CHAQUE méthode du chemin
+  neuf — exigé par le user — a rendu 2 découvertes que la doc web ne dit pas** :
+  `bindIfParam` drizzle EXCLUT les Placeholder (→ `eq(col, placeholder)` nu saute
+  `mapToDriverValue`, RangeError sur json — d'où `sql.param(placeholder, col)`) ; et
+  drizzle+mysql2 passe par `client.query()`, JAMAIS `execute()` → « prepared » mysql =
+  gain JS seul, aucun prepare protocole. La doc officielle (perf-queries) montre l'API,
+  pas ces deux contrats.
 
 ## 🔴 Un gate rouge en PERMANENCE est un gate mort
 
