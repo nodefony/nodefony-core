@@ -218,8 +218,16 @@ export const barChart = (
     220,
     Math.max(...rows.map((r) => r.label.length)) * 7 + 12,
   );
+  // Un label plus long que la réserve (plafonnée) passerait SOUS la barre — le
+  // SVG ne clippe pas le texte. Tronquer avec ellipse ; le libellé complet reste
+  // dans la <desc> ARIA (et un label long est un défaut à corriger côté données).
+  const maxLbl = Math.floor((padL - 12) / 7);
+  const lbl = (s) => (s.length > maxLbl ? `${s.slice(0, maxLbl - 1)}…` : s);
   const max = Math.max(...rows.map((r) => r.value), 1);
-  const usable = width - padL - 110;
+  // Réserve droite dimensionnée sur la valeur formatée la plus large + l'unité :
+  // une unité longue débordait du cadre avec la réserve fixe historique (110).
+  const padR = Math.max(110, (f(max).length + unit.length + 2) * 7 + 16);
+  const usable = width - padL - padR;
   // Les barres partent TOUJOURS de zéro : une barre encode une LONGUEUR, un axe
   // tronqué ment. (Une ligne, qui encode une pente, peut légitimement être
   // tronquée — mais il faut alors l'annoncer.) Pas d'option pour désactiver.
@@ -234,7 +242,7 @@ export const barChart = (
       // Liseré de la couleur de la SURFACE : c'est lui qui sépare deux aplats de
       // couleurs voisines pour un œil daltonien (aucune palette de 8 couleurs ne
       // peut garantir 3:1 entre séries — le bord, si).
-      return `<text x="0" y="${y + 15}" class="lbl">${esc(r.label)}</text>
+      return `<text x="0" y="${y + 15}" class="lbl">${esc(lbl(r.label))}</text>
       <rect x="${padL}" y="${y + 3}" width="${w}" height="16" rx="3" fill="${r.color ?? COLORS.accent}"
         stroke="var(--bg)" stroke-width="1"/>
       <text x="${padL + w + 8}" y="${y + 16}" class="val">${f(r.value)} ${esc(unit)}${r.note ? ` <tspan class="dim">${esc(r.note)}</tspan>` : ""}</text>`;
