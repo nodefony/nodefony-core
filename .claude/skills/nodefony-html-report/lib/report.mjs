@@ -332,30 +332,72 @@ export const lineChart = (
   { width = 640, height = 220, xLabel = "", yLabel = "" } = {},
 ) => {
   const padL = 52;
-  const padB = 26;
+  // Bande de titre en HAUT (yLabel) et bande basse (graduations X + xLabel) :
+  // le yLabel était dessiné DANS la zone de tracé et chevauchait graduations et
+  // courbes dès qu'il dépassait quelques caractères (vécu, rapport perf PG).
+  const padT = yLabel ? 22 : 8;
+  const padB = 40;
   const xs = seriesList.flatMap((s) => s.points.map((p) => p.x));
   const ys = seriesList.flatMap((s) => s.points.map((p) => p.y));
   const [minX, maxX] = [Math.min(...xs), Math.max(...xs)];
   const maxY = Math.max(...ys, 1);
   const sx = (x) =>
-    padL + ((x - minX) / (maxX - minX || 1)) * (width - padL - 12);
-  const sy = (y) => height - padB - (y / maxY) * (height - padB - 14);
+    padL + ((x - minX) / (maxX - minX || 1)) * (width - padL - 16);
+  const sy = (y) => height - padB - (y / maxY) * (height - padB - padT);
   const grid = [0, 0.5, 1]
     .map((f) => {
       const y = sy(f * maxY);
-      return `<line x1="${padL}" y1="${y}" x2="${width - 12}" y2="${y}" class="grid"/>
+      return `<line x1="${padL}" y1="${y}" x2="${width - 16}" y2="${y}" class="grid"/>
         <text x="${padL - 8}" y="${y + 4}" class="axis" text-anchor="end">${fmt.int(f * maxY)}</text>`;
     })
     .join("");
+  // Graduations X aux abscisses réelles des points — sans elles, une courbe ne
+  // se lit pas (on voyait des lignes sans savoir où tombaient 25/50/100).
+  // Au-delà de 8 valeurs uniques : 5 repères répartis, sinon illisible.
+  let xvals = [...new Set(xs)].sort((a, b) => a - b);
+  if (xvals.length > 8) {
+    const last = xvals.length - 1;
+    xvals = [0, 0.25, 0.5, 0.75, 1].map((f) => xvals[Math.round(f * last)]);
+  }
+  const xticks = xvals
+    .map(
+      (
+        x,
+      ) => `<line x1="${sx(x)}" y1="${height - padB}" x2="${sx(x)}" y2="${height - padB + 4}" class="grid"/>
+      <text x="${sx(x)}" y="${height - padB + 16}" class="axis" text-anchor="middle">${fmt.int(x)}</text>`,
+    )
+    .join("");
+  // Marqueurs aux points de données : avec peu de points, une ligne nue ne
+  // montre pas OÙ on a mesuré (le reste est interpolé).
   const paths = seriesList
     .map(
       (s) =>
-        `<path d="${s.points.map((p, i) => `${i ? "L" : "M"}${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(" ")}" fill="none" stroke="${s.color}" stroke-width="2"/>`,
+        `<path d="${s.points.map((p, i) => `${i ? "L" : "M"}${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(" ")}" fill="none" stroke="${s.color}" stroke-width="2"/>` +
+        s.points
+          .map(
+            (p) =>
+              `<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="3.5" fill="${s.color}" stroke="var(--bg)" stroke-width="1"/>`,
+          )
+          .join(""),
     )
     .join("");
-  return `<svg viewBox="0 0 ${width} ${height}" class="chart" role="img">${grid}${paths}
+  return svgFigure(
+    `<svg viewBox="0 0 ${width} ${height}" class="chart" role="img" %ARIA%>%TD%${grid}${xticks}${paths}
     <text x="${(width + padL) / 2}" y="${height - 4}" class="axis" text-anchor="middle">${esc(xLabel)}</text>
-    <text x="4" y="12" class="axis">${esc(yLabel)}</text></svg>`;
+    <text x="4" y="13" class="axis">${esc(yLabel)}</text></svg>`,
+    {
+      title:
+        yLabel || xLabel
+          ? `${yLabel}${yLabel && xLabel ? " selon " : ""}${xLabel}`
+          : "Courbes",
+      desc: seriesList
+        .map(
+          (s) =>
+            `${s.label ?? ""} : ${s.points.map((p) => `${fmt.int(p.x)} → ${fmt.int(p.y)}`).join(", ")}`,
+        )
+        .join(" · "),
+    },
+  );
 };
 
 /** Légende de séries. */
