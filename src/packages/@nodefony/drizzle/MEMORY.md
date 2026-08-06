@@ -112,6 +112,7 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 - OFFSET sans LIMIT → routé par `#dialect` : fragment `sql\`-1\``sqlite / rien pg /`MAX_SAFE_INTEGER`mysql. ⚠️ drizzle 0.45 IGNORE silencieusement`limit(-1)` NUMÉRIQUE (émet OFFSET seul).
 - JSON dialecte mysql : `mysqlJsonCompat` (customType colKit) — MariaDB rend une STRING (LONGTEXT), MySQL un objet → parse-si-string. Ne pas revenir au `json()` natif drizzle.
 - mysql2 = flag `CLIENT_FOUND_ROWS` actif : `affectedRows` d'un UPDATE = lignes MATCHED (parité sqlite/pg) mais rend le verdict ODKU ambigu (cf idempotence).
+- **Table STALE = schéma d'avant un fix de spec, pour toujours** (pas de migrations avant le chantier DDL drizzle-kit) : `CREATE TABLE IF NOT EXISTS` ne modifie jamais une table existante. Vécu : `session.user` en TEXT (d'avant la règle varchar-si-indexé du colKit) — **MariaDB MASQUE** (crée l'index en auto-préfixant `user(768)`, tout vert) là où **MySQL 8.4 RÉVÈLE** (`BLOB/TEXT column used in key specification` à CHAQUE connect). Un e2e mysql rouge au DDL sur base ancienne → comparer `SHOW CREATE TABLE` au spec colKit ; décor docker = DROP la table, elle renaît au schéma courant. C'est la démonstration du POURQUOI du gate MYSQL_COMMUNITY (même dialecte ≠ même serveur).
 - Node 26: better-sqlite3 12.10 OK (prebuild). drizzle-orm 0.45.2. mysql2 3.22.
 
 ## Config
