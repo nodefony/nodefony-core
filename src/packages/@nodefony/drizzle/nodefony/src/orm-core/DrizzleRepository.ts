@@ -81,6 +81,35 @@ export function execTable(table: DrizzleTable): SQLiteTable {
 type ProfiledQuery<R> = PromiseLike<R> & { toSQL: () => { sql: string } };
 
 /**
+ * Borne du cache de formes préparées d'un repository — au-delà, les formes
+ * excédentaires s'exécutent par le chemin non préparé (repli, jamais d'éviction :
+ * une entrée retient un statement natif, l'éviction re-préparerait en boucle).
+ */
+const PREPARED_CACHE_MAX = 128;
+
+/** Séquence des noms de prepared statements (PG les exige uniques par process). */
+let preparedNameSeq = 0;
+
+/**
+ * Surface d'exécution d'un SELECT préparé — commune aux trois dialectes :
+ * `execute(placeholderValues)` résout les `sql.placeholder()` via
+ * `fillPlaceholders`, qui applique le `mapToDriverValue` de la colonne aux
+ * valeurs bindées (le mapping json/bool/date du chemin non préparé est donc
+ * conservé à l'identique).
+ */
+interface IPreparedSelect {
+  execute(
+    placeholderValues: Record<string, unknown>,
+  ): Promise<Record<string, unknown>[]>;
+}
+
+/** Entrée du cache de formes : requête préparée + SQL paramétré déjà redacté. */
+interface IPreparedSelectEntry {
+  prepared: IPreparedSelect;
+  sqlSafe: string;
+}
+
+/**
  * Relation résolue au boot de l'ORM, prête pour l'eager-load manuel (sans la
  * couche `relations()` de Drizzle, pour rester générique cross-entités).
  */
@@ -129,6 +158,15 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
    * encore résolu. Rien d'alloué au constructeur (règle perf).
    */
   #pk: DrizzleColumn[] | null | undefined;
+  /**
+   * Cache des `SELECT` préparés, indexé par FORME de requête (lazy — alloué au
+   * premier `find` mémoïsable, règle perf). Vit aussi longtemps que le
+   * repository — que `DrizzleOrm.getRepository` mémoïse et jette au
+   * `disconnect()` avec les statements qu'il retient.
+   */
+  #preparedSelects: Map<string, IPreparedSelectEntry> | null = null;
+  /** `true` = repository lié à une transaction : mémoïsation coupée (cf ctor). */
+  readonly #transactional: boolean;
 
   /**
    * @param db - handle Drizzle (instance racine ou transaction).
@@ -136,6 +174,10 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
    * @param relations - relations résolues (eager-load), indexées par champ.
    * @param connector - nom de la connexion (clé du registre) — défaut `"default"`.
    * @param dialect - dialecte SQL du connecteur — défaut `"sqlite"`.
+   * @param transactional - `true` quand `db` est un handle de transaction :
+   *   l'instance est jetable (une par `withTransaction`) et, en pg, sa connexion
+   *   dédiée est rendue au commit — préparer dessus coûterait sans jamais
+   *   s'amortir. Les transactions gardent le chemin non préparé.
    */
   constructor(
     db: DrizzleDb,
@@ -143,12 +185,14 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     relations: Record<string, DrizzleResolvedRelation>,
     connector = "default",
     dialect: SqlDialect = "sqlite",
+    transactional = false,
   ) {
     this.#db = db;
     this.#table = table;
     this.#relations = relations;
     this.#connector = connector;
     this.#dialect = dialect;
+    this.#transactional = transactional;
   }
 
   /** Colonne Drizzle d'une table par nom logique. */
@@ -284,26 +328,59 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
    * @returns le résultat de la requête.
    */
   async #prof<R>(builder: ProfiledQuery<R>): Promise<R> {
-    const buf = RequestContext.get()?.queries;
-    const flow = queryFlowMonitor.enabled;
-    if (!buf && !flow) {
+    if (!RequestContext.get()?.queries && !queryFlowMonitor.enabled) {
       return builder;
     }
+    // Les closures ne sont allouées QUE sur le chemin observé (dev) — et
+    // `#safeSql` (toSQL) n'est payé que si une sonde consomme le texte.
+    return this.#measure(
+      () => builder,
+      () => this.#safeSql(builder),
+    );
+  }
+
+  /**
+   * Tap des `SELECT` préparés — même contrat que {@link DrizzleRepository.#prof}
+   * (mêmes deux sondes, mêmes drapeaux), le SQL redacté étant ici précalculé à
+   * la construction de l'entrée (zéro `toSQL()` par requête).
+   */
+  async #profPrepared(
+    entry: IPreparedSelectEntry,
+    params: Record<string, unknown>,
+  ): Promise<Record<string, unknown>[]> {
+    if (!RequestContext.get()?.queries && !queryFlowMonitor.enabled) {
+      return entry.prepared.execute(params);
+    }
+    return this.#measure(
+      () => entry.prepared.execute(params),
+      () => entry.sqlSafe,
+    );
+  }
+
+  /**
+   * Cœur de mesure partagé des deux taps : exécute, chronomètre, alimente le
+   * flux agrégé ({@link queryFlowMonitor} — texte SQL sur le chemin lent
+   * seulement) et le buffer par-requête (ALS, debug bar). N'est appelé QUE
+   * quand une sonde est active — il peut donc relire les deux drapeaux sans
+   * coût pour le chemin nominal.
+   */
+  async #measure<R>(
+    run: () => PromiseLike<R>,
+    sqlSafe: () => string,
+  ): Promise<R> {
+    const buf = RequestContext.get()?.queries;
+    const flow = queryFlowMonitor.enabled;
     const start = performance.now();
-    const result = await builder;
+    const result = await run();
     const durationMs = performance.now() - start;
     if (flow) {
-      // toSQL UNIQUEMENT sur le chemin lent (rare) — l'agrégat ne paie jamais
-      // la sérialisation du texte au cas nominal.
       const statement =
-        durationMs >= queryFlowMonitor.slowMs
-          ? this.#safeSql(builder)
-          : undefined;
+        durationMs >= queryFlowMonitor.slowMs ? sqlSafe() : undefined;
       queryFlowMonitor.record(this.#connector, durationMs, statement);
     }
     if (buf) {
       buf.push({
-        sql: this.#safeSql(builder),
+        sql: sqlSafe(),
         startMs: start,
         durationMs,
         rows: Array.isArray(result) ? result.length : undefined,
@@ -395,11 +472,175 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     return conds.length === 1 ? conds[0] : (and(...conds) as SQL);
   }
 
+  /**
+   * FORME d'un `SELECT` mémoïsable + valeurs à binder, ou `null` si la requête
+   * doit rester sur le chemin non préparé.
+   *
+   * La forme = ce qui décide du TEXTE SQL : champs du critère dans l'ordre
+   * (un `null` y est marqué à part — `IS NULL` n'est pas paramétrable), tri,
+   * présence de limit/offset. Les VALEURS n'en font jamais partie : elles
+   * deviennent des placeholders (`p<i>`, `lim`, `off`) bindés à l'exécution.
+   *
+   * Repli (`null`) par construction : `$or` et opérateurs riches (le SQL varie
+   * avec la cardinalité — `$in` — ou la combinaison d'opérateurs), valeur
+   * `undefined` (le chemin actuel la rejette, même contrat), transaction
+   * (cf ctor), cache plein ({@link PREPARED_CACHE_MAX}).
+   */
+  #selectShape(
+    criteria?: Criteria<T>,
+    options?: RepositoryReadOptions,
+  ): { key: string; params: Record<string, unknown> } | null {
+    let key = "";
+    const params: Record<string, unknown> = {};
+    if (criteria) {
+      let i = 0;
+      for (const [field, value] of Object.entries(criteria)) {
+        if (field === "$or" || value === undefined || isFieldOperators(value)) {
+          return null;
+        }
+        if (value === null) {
+          key += `${field}\x01\x00`;
+        } else {
+          key += `${field}\x00`;
+          params[`p${i}`] = value;
+        }
+        i++;
+      }
+    }
+    if (options?.order?.length) {
+      key += "\x02";
+      for (const [field, dir] of options.order) {
+        key += `${field}\x03${dir}\x00`;
+      }
+    }
+    if (options?.limit !== undefined) {
+      key += "L";
+      params["lim"] = options.limit;
+    }
+    if (options?.offset !== undefined) {
+      key += "O";
+      params["off"] = options.offset;
+    }
+    return { key, params };
+  }
+
+  /**
+   * Construit puis PRÉPARE le `SELECT` d'une forme — même composition que le
+   * chemin non préparé de {@link DrizzleRepository.#runSelect}, les valeurs
+   * remplacées par `sql.placeholder()`. Payé UNE fois par forme :
+   * - sqlite : le statement natif better-sqlite3 est compilé ici et réutilisé
+   *   (`client.prepare` dans le `prepareQuery` du driver) ;
+   * - postgres : requête NOMMÉE node-postgres → plan caché par connexion du
+   *   pool (le nom, unique par process, est exigé par `prepare(name)`) ;
+   * - mysql : drizzle passe par `client.query()` (jamais de prepare protocole)
+   *   → le gain se limite à ne plus refaire `sqlToQuery` à chaque requête.
+   */
+  #buildPreparedSelect(
+    criteria?: Criteria<T>,
+    options?: RepositoryReadOptions,
+  ): IPreparedSelectEntry {
+    let query = this.#db.select().from(execTable(this.#table)).$dynamic();
+    if (criteria) {
+      const conds: SQL[] = [];
+      let i = 0;
+      for (const [field, value] of Object.entries(criteria)) {
+        const col = this.#col(this.#table, field);
+        if (!col) {
+          throw new UnknownCriteriaField(
+            field,
+            getTableName(this.#table),
+            Object.keys(getTableColumns(this.#table)),
+          );
+        }
+        // `sql.param(placeholder, col)` et JAMAIS `eq(col, placeholder)` nu :
+        // `bindIfParam` EXCLUT les Placeholder du wrapping Param, donc le nu
+        // serait résolu SANS le `mapToDriverValue` de la colonne (un array json
+        // partirait brut au driver — RangeError better-sqlite3, vu rouge). Le
+        // Param enveloppant force la branche encodée de `fillPlaceholders`.
+        conds.push(
+          value === null
+            ? isNull(col)
+            : eq(col, sql.param(sql.placeholder(`p${i}`), col)),
+        );
+        i++;
+      }
+      if (conds.length > 0) {
+        query = query.where(
+          conds.length === 1 ? conds[0] : (and(...conds) as SQL),
+        );
+      }
+    }
+    if (options?.order?.length) {
+      query = query.orderBy(
+        ...options.order.map(([field, dir]) =>
+          dir === "DESC"
+            ? desc(this.#col(this.#table, field))
+            : asc(this.#col(this.#table, field)),
+        ),
+      );
+    }
+    if (options?.limit !== undefined) {
+      query = query.limit(sql.placeholder("lim") as unknown as number);
+    } else if (options?.offset !== undefined && this.#dialect === "sqlite") {
+      // Mêmes hacks OFFSET-sans-LIMIT que le chemin non préparé (cf #runSelect).
+      query = query.limit(sql`-1` as unknown as number);
+    } else if (options?.offset !== undefined && this.#dialect === "mysql") {
+      query = query.limit(Number.MAX_SAFE_INTEGER);
+    }
+    if (options?.offset !== undefined) {
+      query = query.offset(sql.placeholder("off") as unknown as number);
+    }
+    const sqlSafe = this.#safeSql(
+      query as unknown as ProfiledQuery<Record<string, unknown>[]>,
+    );
+    const prepared = (
+      query as unknown as { prepare(name: string): IPreparedSelect }
+    ).prepare(`nf_ps_${++preparedNameSeq}`);
+    return { prepared, sqlSafe };
+  }
+
+  /**
+   * Entrée préparée d'un `SELECT` + valeurs à binder, ou `null` (repli chemin
+   * non préparé). C'est LE remède au goulot mesuré du cycle ORM : drizzle
+   * refabriquait (`build` ~39 % du CPU du chemin read) et re-préparait (~9 %)
+   * la MÊME requête à chaque requête HTTP — la forme ne changeait jamais, seules
+   * les valeurs bindées changeaient.
+   */
+  #preparedSelect(
+    criteria?: Criteria<T>,
+    options?: RepositoryReadOptions,
+  ): { entry: IPreparedSelectEntry; params: Record<string, unknown> } | null {
+    if (this.#transactional) {
+      return null;
+    }
+    const shape = this.#selectShape(criteria, options);
+    if (shape === null) {
+      return null;
+    }
+    let cache = this.#preparedSelects;
+    if (cache === null) {
+      cache = this.#preparedSelects = new Map();
+    }
+    let entry = cache.get(shape.key);
+    if (entry === undefined) {
+      if (cache.size >= PREPARED_CACHE_MAX) {
+        return null;
+      }
+      entry = this.#buildPreparedSelect(criteria, options);
+      cache.set(shape.key, entry);
+    }
+    return { entry, params: shape.params };
+  }
+
   /** Exécute le `SELECT` (critère + pagination + tri), retourne des objets plats. */
   async #runSelect(
     criteria?: Criteria<T>,
     options?: RepositoryReadOptions,
   ): Promise<Record<string, unknown>[]> {
+    const memo = this.#preparedSelect(criteria, options);
+    if (memo !== null) {
+      return this.#profPrepared(memo.entry, memo.params);
+    }
     let query = this.#db.select().from(execTable(this.#table)).$dynamic();
     const where = this.#where(criteria);
     if (where) {
@@ -982,6 +1223,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       this.#relations,
       this.#connector,
       this.#dialect,
+      true,
     );
   }
 }
