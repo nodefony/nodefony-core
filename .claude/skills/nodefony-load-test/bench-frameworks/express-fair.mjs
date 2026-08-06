@@ -13,10 +13,16 @@
  * le framework. L'écart restant face à Nodefony = le vrai surcoût d'implémentation.
  *
  * Ce qui n'est PAS ajouté (car Nodefony ne le fait pas non plus sur cette route) :
- *   - session : elle est PARESSEUSE et cette route n'en demande pas (vérifié : 0 Set-Cookie,
- *     0 octet écrit en base sur 200 requêtes) ;
+ *   - session : elle est PARESSEUSE et cette route n'en demande pas (prouvé : 0 Set-Cookie
+ *     sur 1 000 requêtes) ;
  *   - audit nominal : coupé au boot par le levier T1 quand le sink de log est `null`
- *     (NF_LOG_DRIVER=null), ce que le banc positionne.
+ *     (NF_LOG_DRIVER=null), ce que le banc positionne (prouvé : 0 commit sqlite sur la
+ *     fenêtre de 1 000 requêtes — `PRAGMA data_version` stable depuis une connexion
+ *     readonly ouverte pendant toute la fenêtre, deltas 0 sur les tables framework) ;
+ *   - profiler/timing : dev-only, non montés en production (data plane profiler → 404 ;
+ *     `Context` pose le tableau `phases` figé partagé hors dev).
+ * Preuve rejouable : `node .claude/skills/nodefony-load-test/bench-frameworks/express-fair-proof.mjs`
+ * depuis la racine du repo (serveur mono prod au décor du banc lancé au préalable).
  *
  * Usage : NODE_ENV=production PORT=5164 node express-fair.mjs
  */

@@ -99,14 +99,15 @@ Un décor à part, avec son propre `node_modules` (16 Mo, **non versionné**) : 
 des serveurs nus pour situer le coût du pipeline. Le résultat de Nodefony vient de
 `scripts/bench-ab-mono.sh`, pas d'ici.
 
-| Fichier            | Rôle                                                                                  |
-| ------------------ | ------------------------------------------------------------------------------------- |
-| `bench.sh`         | orchestre la comparaison des trois cibles et rend le tableau                          |
-| `bare.mjs`         | serveur `node:http` nu — le plancher absolu, sans routeur ni middleware               |
-| `express.mjs`      | Express avec sa configuration usuelle                                                 |
-| `express-fair.mjs` | Express **à parité de fonctionnalités** — c'est celui qui rend la comparaison honnête |
-| `fastify.mjs`      | Fastify avec sa configuration usuelle                                                 |
-| `payload.mjs`      | la charge utile commune, pour que les trois répondent exactement la même chose        |
+| Fichier                  | Rôle                                                                                                                                                                                                                                                     |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bench.sh`               | orchestre la comparaison des trois cibles et rend le tableau                                                                                                                                                                                             |
+| `bare.mjs`               | serveur `node:http` nu — le plancher absolu, sans routeur ni middleware                                                                                                                                                                                  |
+| `express.mjs`            | Express avec sa configuration usuelle                                                                                                                                                                                                                    |
+| `express-fair.mjs`       | Express **à parité de fonctionnalités** — c'est celui qui rend la comparaison honnête                                                                                                                                                                    |
+| `express-fair-proof.mjs` | **preuve d'équité** : la cible de banc ne traverse rien de dormant — 1 000 req → 0 Set-Cookie, 0 commit sqlite (`PRAGMA data_version` + counts), profiler 404. À rejouer depuis la RACINE du repo, serveur mono prod au décor du banc lancé au préalable |
+| `fastify.mjs`            | Fastify avec sa configuration usuelle                                                                                                                                                                                                                    |
+| `payload.mjs`            | la charge utile commune, pour que les trois répondent exactement la même chose                                                                                                                                                                           |
 
 > Comparer un framework à un serveur nu ne dit presque rien : `express-fair.mjs` existe parce
 > qu'une comparaison sans parité de fonctionnalités mesure surtout ce qu'on a oublié de brancher.
