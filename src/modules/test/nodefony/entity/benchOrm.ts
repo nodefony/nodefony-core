@@ -31,9 +31,10 @@ interface IBenchCorpus {
 /**
  * Sous-ensemble structurel du db Drizzle natif (`getNativeConnection`) utilisé
  * par le seed — évite toute dépendance de type sur `drizzle-orm` (qui n'est pas
- * une dépendance déclarée de ce module, le corpus vit hors du repo).
+ * une dépendance déclarée de ce module, le corpus vit hors du repo). Même
+ * surface en sqlite et en postgres (insert/values/onConflictDoNothing).
  */
-interface INativeSqliteDb {
+interface INativeInsertDb {
   insert(table: unknown): {
     values(rows: Record<string, unknown>[]): PromiseLike<unknown> & {
       onConflictDoNothing(): PromiseLike<unknown>;
@@ -43,13 +44,47 @@ interface INativeSqliteDb {
 
 let corpus: IBenchCorpus | null = null;
 
+/**
+ * Dialecte du connecteur `default`, déduit du scheme de l'infra database —
+ * même règle que `defineDrizzleConfig` (le décor du banc suit le connecteur
+ * primaire, il ne décide pas à sa place).
+ */
+function benchDialect(): "sqlite" | "postgres" | "mysql" {
+  const url = process.env.NF_DATABASE_URL ?? process.env.DATABASE_URL ?? "";
+  if (url.startsWith("postgres")) {
+    return "postgres";
+  }
+  if (url.startsWith("mysql")) {
+    return "mysql";
+  }
+  return "sqlite";
+}
+
 /** Charge le corpus Dolibarr local (dist voisin) — fail-loud s'il n'existe pas. */
 async function loadCorpus(): Promise<IBenchCorpus> {
   if (corpus) {
     return corpus;
   }
+  const dialect = benchDialect();
+  if (dialect === "mysql") {
+    throw new Error(
+      "bench-orm : variante mysql du corpus non générée (gen-bench-pg.mjs ne " +
+        "couvre que postgres) — banc à jouer en sqlite ou postgres.",
+    );
+  }
   const base = new URL("./dolibarr/", import.meta.url).href;
   try {
+    if (dialect === "postgres") {
+      // Variante pg-core des 3 tables (fichier unique, généré par
+      // `dolibarr/gen-bench-pg.mjs` — même dossier gitignoré que le corpus).
+      const pg = await import(/* @vite-ignore */ `${base}bench-pg.js`);
+      corpus = {
+        llx_user: pg.llx_user,
+        llx_societe: pg.llx_societe,
+        llx_facture: pg.llx_facture,
+      };
+      return corpus;
+    }
     const [u, s, f] = await Promise.all([
       import(/* @vite-ignore */ `${base}llx_user.js`),
       import(/* @vite-ignore */ `${base}llx_societe.js`),
@@ -65,7 +100,11 @@ async function loadCorpus(): Promise<IBenchCorpus> {
     throw new Error(
       "bench-orm : corpus dolibarr introuvable (dossier gitignoré, généré " +
         "localement — jamais dans un clone frais). NF_BENCH_ORM=1 exige une " +
-        "machine qui porte le corpus + un build local du module test.",
+        "machine qui porte le corpus + un build local du module test" +
+        (dialect === "postgres"
+          ? " (variante postgres : node nodefony/entity/dolibarr/gen-bench-pg.mjs)"
+          : "") +
+        ".",
       { cause: e },
     );
   }
@@ -107,7 +146,7 @@ export async function seedBenchOrm(log: (msg: string) => void): Promise<void> {
     log(`bench-orm : seed déjà en place (${present} factures)`);
     return;
   }
-  const db = orm.getNativeConnection<INativeSqliteDb>();
+  const db = orm.getNativeConnection<INativeInsertDb>();
 
   const users = Array.from({ length: BENCH_ORM_USERS }, (_, i) => ({
     rowid: i + 1,
