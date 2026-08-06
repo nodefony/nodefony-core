@@ -143,7 +143,27 @@ check:externals --if-present` sur un script qui n'existe pas → contrôle imagi
   verts). La contradiction était lisible au premier rapport (même cas vert en `development` dans le
   même run) : quand deux sondes du même run se contredisent, on ouvre l'instrument en premier.
 
+## 🕳️ Un import qui compile chez MOI peut casser TOUT clone
+
+- `[1× — 08-06i]` 🔴 **Le décor de banc importait statiquement le corpus dolibarr GITIGNORÉ** :
+  build et CI verts sur ma machine, TS2307 garanti sur tout clone frais. Le signal qui a sauvé :
+  `git add <dossier>` n'a PAS stagé le nouveau fichier — un fichier qui manque au `git status`
+  après un add se qualifie par `git check-ignore -v` AVANT de forcer. Remède : import dynamique
+  par URL construite (hors graphe statique rolldown/tsgo) + fail-loud, et la preuve dans les
+  DEUX mondes (corpus masqué : build vert, boot nominal vert, flag banc rouge exit 1 ; corpus
+  rendu : banc vert). Angle neuf de [[feedback_gitignored_breaks_clone]] : le danger n'est pas
+  seulement CONSOMMER un fichier ignoré, c'est en faire la CIBLE d'un import qu'on committe.
+
 ## 🧰 Outillage : ce qui pend, ce qui ment, ce qui lance
+
+- `[1× — 08-06i]` **`timeout` n'existe pas sur macOS nu → rc 127 lu comme verdict, DEUX faux
+  d'un coup** (boot nominal « mort » 000 + fail-loud « confirmé » rc 127). rc=127 = « command
+  not found » : c'est l'INSTRUMENT qui manque, jamais un verdict du code — rejouer au spawn
+  éprouvé avant de conclure quoi que ce soit.
+- `[1× — 08-06i]` **L'agent qui pilote un banc fait partie du décor machine** : contrôle
+  sandwich r0b refusé 3× (disp 4,9-8,5 %) — le pollueur était MON propre process (32 % CPU).
+  Seules les marches CPU-bound le voient (les marches I/O-sérialisées restent à ≤ 3 %) ; filet
+  de secours = l'additivité interne de l'escalier (vérifiée ici à ~1 %).
 
 - `[1× — 08-06]` 🔴 **Une leçon gravée dans UN artefact ne protège pas le script NEUF** : la garde
   locale-fr (`awk printf` → `0,0`) était écrite au kit perf ET dans `bench-ab-mono.sh` — et j'ai
