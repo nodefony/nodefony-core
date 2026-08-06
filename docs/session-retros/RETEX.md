@@ -145,6 +145,15 @@ check:externals --if-present` sur un script qui n'existe pas → contrôle imagi
 
 ## 🧰 Outillage : ce qui pend, ce qui ment, ce qui lance
 
+- `[1× — 08-06]` 🔴 **Une leçon gravée dans UN artefact ne protège pas le script NEUF** : la garde
+  locale-fr (`awk printf` → `0,0`) était écrite au kit perf ET dans `bench-ab-mono.sh` — et j'ai
+  reproduit le bug à l'identique dans une garde de banc écrite from scratch (boucle infinie
+  d'attente sur décor parfait). `export LC_ALL=C` en tête de TOUT script de banc, réflexe
+  d'ouverture, pas correctif.
+- `[1× — 08-06]` **Un `.mjs` posé au scratchpad ne résout aucun paquet npm** (résolution ESM depuis
+  l'URL du module, pas le cwd) — un harnais qui importe `ws` se pose dans `tmp/` du repo, qui
+  remonte vers les node_modules racine.
+
 - `[1× — 2026-08-05c]` ⭐ **Un serveur MCP peut TUER la session parce que le CLIENT ne répond pas à
   ses pings** (heartbeat sur le flux GET SSE : sans canal retour ouvert ET lu, le serveur ferme —
   `404 Session not found` à t+5,7 s, qui ressemble à un quota). Un protocole bidirectionnel impose
