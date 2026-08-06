@@ -543,6 +543,14 @@ audit` dans un `cat <<EOF`. Le prédicat se gardait déjà de deux pièges — l
 
 ## 📏 Une sonde de PERFORMANCE juge la machine avant de juger le code
 
+- `[1× — 08-06]` 🔴 **Le cooldown INTERNE du banc (plafond 180 s, cible 45) ne suffit jamais après
+  un `turbo --force` : thermal 66-75 au départ du run → 3 mesures sur 7 jetées.** La méthode qui
+  tient : boucle d'attente HORS script (`thermal ≤ 43`, 3-10 min) AVANT de lancer — le script
+  trouve alors une machine froide et les 4 mesures retenues ont fait 0,2-2,6 % de dispersion.
+- `[1× — 08-06]` 🔴 **Deux runs à thermal de départ non comparable INVERSENT un verdict A/B** :
+  new à th. 72 rendait −2 % vs old à th. 42, quand la même paire à froid (41/42) disait +10 %.
+  Corollaire : le MÊME code varie de +5,8 % entre deux séries valides (old 10 932 → 11 566) —
+  seules des paires alternées à fenêtres thermiques comparables tranchent un gain de ~7 %.
 - `[1× — 08-06]` 🔴 **Une pause > ~2 min endort le serveur détaché idle (App Nap macOS) : le run
   suivant paie le réveil, −13 à −15 %, reproduit 3/3.** Mon « cooldown thermique entre les runs »
   — ajouté pour STABILISER — fabriquait l'instabilité qu'il combattait. Gravé dans le banc :
