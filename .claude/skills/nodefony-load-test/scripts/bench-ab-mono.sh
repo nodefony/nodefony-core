@@ -36,6 +36,11 @@
 #   bash bench-ab-mono.sh old2 NF_BENCH_X=0 ; bash bench-ab-mono.sh new2 NF_BENCH_X=1
 # puis comparer les médianes old* vs new*. Ne garder un gain que s'il DÉPASSE le
 # bruit (±~3 %) ET que les deux new > les deux old (séparation nette).
+# 🔌 AVANT de comparer deux médianes : vérifier que leur `cpuRegime` (JSON
+#    compagnon) est IDENTIQUE. Batterie ↔ secteur change les absolus de ~60 %
+#    sans toucher ni au code ni à la dispersion — l'écart se lit alors comme un
+#    gain spectaculaire. Une série qui change de régime en cours de route est à
+#    JETER en entier, pas à rattraper.
 #
 # 🚨 BANC PROPRE (sinon mesures FAUSSES) :
 #   - NODE_ENV=production est FORCÉ ici (sinon NODE_ENV ambient → dev+Vite+throttle
@@ -67,6 +72,37 @@ fi
 # selon l'état thermique ; noter AVANT/APRÈS rend la fenêtre comparable ou non.
 therm() { sysctl -n machdep.xcpm.cpu_thermal_level 2>/dev/null || echo "n/a"; }
 
+# ⚡ RÉGIME CPU — le thermal ne dit RIEN du plafond de fréquence, et c'est le
+# piège le plus coûteux du banc : macOS active `lowpowermode` TOUT SEUL sur
+# batterie (`pmset -g custom`), ce qui bride le Turbo Boost. Mesuré le 08-06 sur
+# un code IDENTIQUE : 7 800 RPS sur batterie contre 12 600 sur secteur, soit
+# ×1,62 — avec des dispersions intra-série PARFAITES des deux côtés (0,4 % et
+# 1,6 %). Un CPU bridé tient un plafond bas sans effort : la fenêtre la plus
+# STABLE était la plus FAUSSE, et aucune garde existante ne la voyait.
+#
+# Le régime est donc noté dans le JSON compagnon, et un run lancé bridé
+# l'ANNONCE — ses absolus ne se comparent à aucune fenêtre débridée. On lit
+# `lowpowermode` et pas seulement la prise : il peut être forcé à la main SUR
+# secteur, auquel cas la source d'alimentation seule mentirait.
+power_source() {
+  pmset -g ps 2>/dev/null | head -1 | grep -o "AC Power\|Battery Power" || echo "n/a"
+}
+low_power() { pmset -g 2>/dev/null | awk '/lowpowermode/{print $2}'; }
+# Régime compact « AC Power/lpm=0 » — à comparer entre DEUX labels d'un même
+# A/B : s'ils diffèrent, les médianes ne sont pas comparables (cf en-tête A/B).
+cpu_regime() {
+  local p l; p=$(power_source); l=$(low_power)
+  [ "$p" = "n/a" ] && { echo "n/a"; return 0; }
+  echo "$p/lpm=${l:-?}"
+}
+warn_if_throttled() {
+  local p l; p=$(power_source); l=$(low_power)
+  if [ "$p" = "Battery Power" ] || [ "$l" = "1" ]; then
+    echo "  ⚠️  CPU BRIDÉ ($(cpu_regime)) — Turbo limité, absolus NON publiables."
+    echo "      Un A/B dont les deux côtés ne partagent pas ce régime est FAUX (~60 %)."
+  fi
+}
+
 # cooldown : attendre que le CPU repasse sous BENCH_THERM_TARGET — UNE fois,
 # AVANT la série (chaque label part du même état thermique). ⚠️ JAMAIS entre les
 # runs d'une série : une pause > ~2 min endort le serveur détaché idle (App Nap /
@@ -74,6 +110,12 @@ therm() { sysctl -n machdep.xcpm.cpu_thermal_level 2>/dev/null || echo "n/a"; }
 # −15 % sur le run d'après (8209/8302/8502 vs ~9800), température pourtant basse.
 # Entre les runs : pause courte FIXE (10 s) — machine calme, la rampe thermique
 # intra-série est faible (28→35 sur 2 runs). no-op si sysctl absent (Linux).
+#
+# ⚠️ Cible 45 = point de DÉPART, pas une garantie : sur SECTEUR (turbo débridé),
+# la rampe intra-série atteint ~20 points en trois runs de 10 s — partie de 43,
+# la série finit à 60 et le 3ᵉ run décroche (dispersion 4,6 puis 13,6 % le
+# 08-06, mesures refusées). Repartir de 35 AVEC des runs plus courts a rendu
+# 0,9 % et 0,4 % sur la même machine : `BENCH_THERM_TARGET=35 BENCH_DUR=7`.
 THERM_TARGET="${BENCH_THERM_TARGET:-45}"
 COOLED=0
 cooldown() {
@@ -154,6 +196,8 @@ fi
 echo "=== $LABEL ($EXTRA_ENV) ==="
 cooldown
 THERM_BEFORE=$(therm)
+REGIME=$(cpu_regime)
+warn_if_throttled
 
 # warmup wrk NON compté : chauffe le JIT (inlining, hidden classes, caches du
 # resolver) — sans lui le run 1 est presque toujours le plus bas et tire la
@@ -163,7 +207,7 @@ THERM_BEFORE=$(therm)
 WARMUP="${BENCH_WARMUP:-5}"
 [ "$COOLED" = "1" ] && WARMUP=$((WARMUP * 2))
 wrk -t"$THREADS" -c"$CONN" -d"${WARMUP}s" "$URL" >/dev/null 2>&1
-echo "  warmup: ${WARMUP}s wrk non compté · thermal avant: $THERM_BEFORE"
+echo "  warmup: ${WARMUP}s wrk non compté · thermal avant: $THERM_BEFORE · régime: $REGIME"
 
 RPS=(); BAD=0
 for i in 1 2 3; do
@@ -206,9 +250,9 @@ if awk -v d="$DISP" 'BEGIN{exit !(d > 3)}'; then
 fi
 echo "  MÉDIANE: $MED RPS  (cible vérifiée 200, 0 erreur, dispersion ≤ 3 %)"
 echo "$MED" > "/tmp/nf-bench-$LABEL.med"
-printf '{"label":"%s","env":"%s","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"thermalBefore":"%s","thermalAfter":"%s","warmupSec":%s,"durSec":%s,"conn":%s,"threads":%s,"url":"%s"}\n' \
+printf '{"label":"%s","env":"%s","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"thermalBefore":"%s","thermalAfter":"%s","cpuRegime":"%s","warmupSec":%s,"durSec":%s,"conn":%s,"threads":%s,"url":"%s"}\n' \
   "$LABEL" "$EXTRA_ENV" "$(printf '%s,' "${RPS[@]}" | sed 's/,$//')" \
-  "$MIN" "$MED" "$MAX" "$DISP" "$THERM_BEFORE" "$THERM_AFTER" \
+  "$MIN" "$MED" "$MAX" "$DISP" "$THERM_BEFORE" "$THERM_AFTER" "$REGIME" \
   "$WARMUP" "$DUR" "$CONN" "$THREADS" "$URL" > "/tmp/nf-bench-$LABEL.json"
 
 # 5. arrêt gracieux (flush + libère les ports)

@@ -219,6 +219,32 @@ Plafond de trafic **par IP** sur TOUTES les routes HTTP — **≠ `security.rate
 - ⚠️ **`ProfileEntry.user` ne peut PAS venir de `context.user`** en zone : le token vit dans l'ALS, illisible au teardown où `collect()` tourne → `readUser()` retombe sur `securityTrace.user` (sinon une requête authentifiée s'affiche « anonyme » tout en portant des rôles).
 - `ProfileQuery.startMs` (posé par les adapters drizzle/mongoose, même horloge que `PhaseTiming.startMs`) → le SQL se PLACE dans le waterfall (une requête de session apparaît DANS la barre `firewall`), au lieu de flotter en liste.
 
+## URL de requête — objet PARESSEUX + fast-path (`src/context/http/urlFastPath.ts`)
+
+- **`request.url` est un GETTER** : l'objet `URL` n'est construit qu'au premier accès. Le ctor ne
+  parse plus rien sur le chemin nominal (le double parse — concat `scheme://host/target` puis
+  `new URL` — coûtait **3,6 µs/req**, 1ᵉʳ poste après F-A/F-F/F-C).
+- **Ce que le hot path lit à la place** : `request.pathname` et `request.search` (strings),
+  `request.href` (sérialisation, = `sUrl` sur le fast-path), `request.scheme` (posé par
+  `getFullUrl`, plus par `url.protocol`). `request.hasParsedUrl` dit si l'objet existe.
+  Consommateurs migrés : `Route.cleanPathname` + `Router.resolve` (routing), `Firewall.isSecure` +
+  `SecuredArea.match` (zones), `HttpContext.url`/`setScheme`, `buildMetaData` (`href` d'abord).
+- **🔴 CONTRAT DE SÉCURITÉ** : `pathname` porte TOUJOURS la forme normalisée WHATWG. `splitTarget`
+  n'accepte la découpe que si elle est prouvablement l'IDENTITÉ du parse (whitelist par composant) ;
+  tout ce que WHATWG transformerait fait **bail-out** → `new URL` immédiat au ctor. Refusés :
+  dot-segments et leurs formes `%2e`, `\`, `//`, `%`, non-ASCII, et côté autorité
+  (`isCanonicalAuthority`) majuscules, IPv6, formes IPv4-like (`127.1`, `0x7f.0.0.1`, `2130706433`),
+  punycode, label vide, port par défaut ou à zéro de tête.
+- **Pourquoi ce niveau d'exigence** : la normalisation est ce qui protège le matching de zones. Une
+  découpe laxiste ferait lire au firewall un chemin brut que le router résout — la requête
+  atteindrait la route protégée en échappant à sa zone. Preuves : `tests/unit/urlFastPath.test.ts`
+  (équivalence exhaustive par caractère vs `new URL`) + `tests/http/url-fastpath.attack.test.ts`
+  (red-team : 7 formes d'évasion → 401 exact, réciproque liveness → 200).
+- **Écrire une URL** : passer par `setUrl()`, qui resynchronise `sUrl`/`pathname`/`search`/`scheme`.
+  Poser `request.url` seul laisserait le routing sur l'ancien chemin.
+- **HTTP/2** : `getRawTarget()` (`:path`) et `resolveScheme()` (`:scheme`) sont les deux seuls
+  overrides — `getFullUrl` est commun.
+
 ## Sonde perf in-situ — `NF_PERF_PROBE=1` (outillage banc)
 
 - Compteurs hrtime cumulés par requête HTTP : `enterScope` / `new HttpContext` / `leaveScope` + tranches internes fabrique (ctor `Service`, queue ctor `Context`, lookup `upload`, `new Request`+`Response`, queue ctor `HttpContext`). Flag lu 1× au chargement (`http-kernel.ts` module-level) ; éteinte = branche morte, 0 coût. Canal = `globalThis.__nfPerfProbe` (sous-marques dans `Context.ts`/`HttpContext.ts`, `t0` posé/effacé par la fenêtre — WS hors fenêtre ne compte pas).

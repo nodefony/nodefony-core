@@ -543,6 +543,29 @@ audit` dans un `cat <<EOF`. Le prédicat se gardait déjà de deux pièges — l
 
 ## 📏 Une sonde de PERFORMANCE juge la machine avant de juger le code
 
+- [1× — 08-06b] 🔴 **`lowpowermode` (activé TOUT SEUL par macOS sur batterie) bride le turbo :
+  7 800 vs 12 600 RPS sur un code IDENTIQUE, ×1,62** — et les deux fenêtres avaient des
+  dispersions PARFAITES (0,4 % et 1,6 %). Un CPU bridé tient un plafond bas sans effort : **la
+  fenêtre la plus STABLE était la plus FAUSSE**, et la garde de dispersion aurait préféré la
+  mauvaise. Le thermal ne le voit pas (les deux paires partaient à 40) — il mesure la chaleur,
+  pas le plafond de fréquence. Se CONSTATE en une commande (`pmset -g` / `-g custom`), ne se
+  déduit pas. Gravé : `cpu_regime()` dans `bench-ab-mono.sh` (prise ET `lowpowermode`, qui peut
+  être forcé à la main SUR secteur), noté en `cpuRegime` au JSON compagnon.
+- [1× — 08-06b] 🔴 **Une bascule d'alimentation EN COURS de série ne s'annonce nulle part** : la
+  paire 1 sur batterie, la paire 2 sur secteur, chacune cohérente en interne — seule leur
+  COMPARAISON était fausse, et de 60 %. Toute grandeur qui change le régime de la machine doit
+  être figée au 1ᵉʳ run et re-vérifiée à chaque run, sinon elle passe pour un gain.
+- [1× — 08-06b] ⭐ **Sur secteur (turbo débridé) la rampe thermique INTRA-série atteint ~20
+  points en 3 runs de 10 s** → partir de 43 finit à 60 et le 3ᵉ run décroche (4,6 % puis 13,6 %
+  de dispersion, mesures refusées). `BENCH_THERM_TARGET=35 BENCH_DUR=7` a rendu 0,9 % et 0,4 %
+  sur la même machine. Le réglage de cooldown se choisit avec le RÉGIME, pas une fois pour
+  toutes — et jamais en desserrant le seuil de dispersion, qui est ce qui protège le verdict.
+- [1× — 08-06b] 🔴 **Mon harnais de test de garde était faux, pas la garde** : deux plages `sed`
+  qui se chevauchaient ont extrait `cpu_regime()` DEUX fois, produisant une fonction imbriquée
+  dans elle-même qui rendait une chaîne vide. J'ai failli « corriger » du code sain. Extraire du
+  shell par motif de début/fin est fragile dès que deux motifs se recouvrent — vérifier ce que
+  l'extraction a produit (`grep -c` de la signature) avant d'accuser le sujet.
+
 - `[1× — 08-06]` 🔴 **Le cooldown INTERNE du banc (plafond 180 s, cible 45) ne suffit jamais après
   un `turbo --force` : thermal 66-75 au départ du run → 3 mesures sur 7 jetées.** La méthode qui
   tient : boucle d'attente HORS script (`thermal ≤ 43`, 3-10 min) AVANT de lancer — le script
