@@ -132,6 +132,13 @@ Dolibarr (entités `llx_user`/`llx_societe`/`llx_facture` enregistrées sur le c
 seed idempotent 50/200/10 000 au boot — `entity/benchOrm.ts` (corpus dolibarr gitignoré chargé dynamiquement)). Tout traverse la couche
 repository framework (orm-core → Drizzle), jamais le driver nu. Routes en GET (wrk sans script Lua).
 
+**Multi-dialecte** : le décor suit le connector `default` — `NF_DATABASE_URL=postgres://…` charge
+la variante pg-core du corpus (`dolibarr/bench-pg.js`, générée localement par
+`dolibarr/gen-bench-pg.mjs` avec son DDL PG complet `bench-pg.sql` à poser AVANT le boot : le DDL
+dérivé dev n'émet ni `DEFAULT` ni identity). `mysql` → fail-loud (variante non générée). En prod,
+`NF_ADMIN_PASSWORD` est requis pour la route secure (aucun compte seedé sinon), et le login doit
+se faire sur le MÊME canal (http/https) que le banc.
+
 | Route                                  | Description                                                            |
 | -------------------------------------- | ---------------------------------------------------------------------- |
 | `/read`                                | 20 factures `WHERE fk_user_author = 7`, rows entières                  |
