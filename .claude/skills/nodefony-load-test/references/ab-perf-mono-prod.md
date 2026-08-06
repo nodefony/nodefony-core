@@ -11,6 +11,7 @@
 ## Table des matières
 
 - [La cible de banc applicatif](#-la-cible-de-banc-applicatif--une-seule-et-elle-est-faite-pour-ça)
+- [Sonde in-situ scope/fabrique](#sonde-in-situ-scopefabrique--nf_perf_probe1)
 - [Matrice store — memory vs sqlite](#matrice-store--memory-vs-sqlite-coût-du-backend-sur-route-authentifiée)
 - [Banc comparatif frameworks](#banc-comparatif-frameworks-bench-frameworks-nodefony-vs-expressfastifynu)
 
@@ -33,6 +34,31 @@ Le script la pose par défaut, avec son drapeau. **Ne pas lui substituer** :
 Seule exception : la comparaison **inter-frameworks** (`bench-frameworks/`), dont les apps
 bare/express/fastify répliquent ce même payload et le décor de routing (186 routes, cible en #31) —
 passer alors `BENCH_URL` explicitement.
+
+### Sonde in-situ scope/fabrique — `NF_PERF_PROBE=1`
+
+Quand un **profil échantillonné** impute un poste au pipeline (scope DI, fabrique de contexte),
+sa répartition interne peut mentir (code inliné, builtins imputés à l'appelant) — et un
+**micro-bench isolé** ment dans l'autre sens (heap froid, IC monomorphes). L'arbitre est la
+**sonde in-situ** : des compteurs hrtime cumulés DANS le serveur réel sous wrk.
+
+- **Activation** : `NF_PERF_PROBE=1` au spawn (flag lu 1× au chargement de `http-kernel.ts` ;
+  éteinte = branche morte, zéro coût). Se combine au décor mono prod habituel.
+- **Ce qu'elle mesure, par requête HTTP** : `enterScope`, `new HttpContext` (fenêtre totale),
+  `leaveScope` — plus les **tranches internes de la fabrique** via des sous-marques dans les
+  ctors `Context`/`HttpContext` : ctor `Service`, queue du ctor `Context`, lookup DI `upload`,
+  `new Request`+`new Response`, queue du ctor `HttpContext`.
+- **Lecture** : `GET /nodefony/kernel/bench/probe` (JSON, µs moyens) — `?reset=1` remet à zéro.
+  **Toujours reset APRÈS le warmup wrk** pour ne pas diluer la mesure avec le code froid.
+- **Overhead mesuré** : ~3 % de RPS sonde allumée ; chaque tranche inclut ~0,1 µs de borne hrtime.
+- **Piège batterie** : les µs absolus se dilatent sur batterie (CPU bridé — RPS −25 % constatés
+  à thermal 0) ; les **proportions** entre tranches restent décisionnelles, les absolus se
+  publient depuis une fenêtre sur secteur.
+
+Verdict de référence (celui qui a suspendu S2/S3 et réorienté D4) : poste total ~18,7 µs/req —
+le profil avait raison sur le TOTAL, faux sur la répartition (`enterScope` réel ~2 µs, pas 17 % ;
+les vrais postes : `new Request`+`new Response` ~47 % et ctor `Service` ~36 % de la fabrique).
+`%HasFastProperties` innocente le dictionary mode du `protoService` (fast à 100 services).
 
 **Diff STRUCTUREL sans toggle env** (RETEX 06-11) : flipper par
 `git stash push -- <fichiers du diff>` / `git stash pop` — ⚠️ **le dist ne suit PAS le stash** →

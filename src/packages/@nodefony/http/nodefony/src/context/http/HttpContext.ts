@@ -72,6 +72,11 @@ export type HttpRsponseType = Http2Response | HttpResponse;
 const socketActiveContext = new WeakMap<object, HttpContext>();
 const socketTimeoutArmed = new WeakSet<object>();
 
+// Sonde perf in-situ (cf http-kernel.ts) — flag lu 1× ; éteinte, les
+// sous-marques de ce fichier ne coûtent rien (branche morte).
+const PERF_PROBE_SUB = process.env.NF_PERF_PROBE === "1";
+type PerfSubMarks = { t0: bigint; uploadNs: number; reqResNs: number };
+
 import type { IHttpContext as IHttpContextInterface } from "../../../interfaces/IContext";
 
 class HttpContext extends Context implements IHttpContextInterface {
@@ -93,6 +98,14 @@ class HttpContext extends Context implements IHttpContextInterface {
   ) {
     super(container, type);
     this.uploadService = this.get<uploadService>("upload");
+    // Sous-marque sonde perf : t0 → après le lookup DI "upload".
+    const perfSub = PERF_PROBE_SUB
+      ? ((globalThis as unknown as Record<string, unknown>).__nfPerfProbe as
+          PerfSubMarks | undefined)
+      : undefined;
+    if (perfSub && perfSub.t0 !== 0n) {
+      perfSub.uploadNs += Number(process.hrtime.bigint() - perfSub.t0);
+    }
     if (this.type === "http2") {
       this.request = new Http2Request(
         request as http2.Http2ServerRequest,
@@ -105,6 +118,10 @@ class HttpContext extends Context implements IHttpContextInterface {
     } else {
       this.request = new HttpRequest(request as http.IncomingMessage, this);
       this.response = new HttpResponse(response as http.ServerResponse, this);
+    }
+    // Sous-marque sonde perf : t0 → après new Request + new Response.
+    if (perfSub && perfSub.t0 !== 0n) {
+      perfSub.reqResNs += Number(process.hrtime.bigint() - perfSub.t0);
     }
     //this.router = this.get("router");
     // `href` : même sérialisation que `url.format(URL)` sans options, sans le

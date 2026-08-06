@@ -57,6 +57,70 @@ class BenchController extends Controller {
   index() {
     return this.renderJson(BENCH_PAYLOAD);
   }
+
+  /**
+   * Dump de la sonde perf in-situ du http-kernel (`NF_PERF_PROBE=1`) : µs
+   * moyens par requête des postes enterScope / new HttpContext / leaveScope.
+   * Vit ICI (et pas dans `@nodefony/test`, `policy:"dev"`) parce que le décor
+   * de mesure est le mono `production` du banc — où le module test n'existe
+   * pas. `?reset=1` remet les compteurs à zéro (à faire après le warmup, pour
+   * ne pas diluer la mesure avec le code froid).
+   */
+  probe() {
+    const probe = (globalThis as unknown as Record<string, unknown>)
+      .__nfPerfProbe as
+      | {
+          count: number;
+          enterScopeNs: number;
+          ctxNs: number;
+          leaveScopeNs: number;
+          svcNs: number;
+          ctxBaseNs: number;
+          uploadNs: number;
+          reqResNs: number;
+        }
+      | undefined;
+    if (!probe) {
+      return this.renderJson({ enabled: false });
+    }
+    const url = this.context?.request?.url;
+    const reset =
+      url instanceof URL ? url.searchParams.get("reset") === "1" : false;
+    const n = probe.count || 1;
+    const out = {
+      enabled: true,
+      count: probe.count,
+      avgUs: {
+        enterScope: probe.enterScopeNs / n / 1000,
+        ctx: probe.ctxNs / n / 1000,
+        leaveScope: probe.leaveScopeNs / n / 1000,
+        total:
+          (probe.enterScopeNs + probe.ctxNs + probe.leaveScopeNs) / n / 1000,
+      },
+      // Tranches internes de la fabrique (différences des marques cumulées) :
+      // svc = ctor Service · ctxTail = reste du ctor Context · upload = lookup
+      // DI · reqRes = new Request+Response · httpTail = queue du ctor
+      // HttpContext (url/forwarded/domain/cookies).
+      ctxSlicesUs: {
+        svc: probe.svcNs / n / 1000,
+        ctxTail: (probe.ctxBaseNs - probe.svcNs) / n / 1000,
+        upload: (probe.uploadNs - probe.ctxBaseNs) / n / 1000,
+        reqRes: (probe.reqResNs - probe.uploadNs) / n / 1000,
+        httpTail: (probe.ctxNs - probe.reqResNs) / n / 1000,
+      },
+    };
+    if (reset) {
+      probe.count = 0;
+      probe.enterScopeNs = 0;
+      probe.ctxNs = 0;
+      probe.leaveScopeNs = 0;
+      probe.svcNs = 0;
+      probe.ctxBaseNs = 0;
+      probe.uploadNs = 0;
+      probe.reqResNs = 0;
+    }
+    return this.renderJson(out);
+  }
 }
 
 /**
@@ -73,6 +137,12 @@ export function mountBenchRoutes(frameworkModule: Module): void {
     // Hors aire data plane : aucune zone ne matche ce chemin. Le `bypassFirewall`
     // reste inutile — on ne veut pas non plus le poser, pour que la mesure passe
     // par le MÊME chemin qu'une route applicative ordinaire non protégée.
+  });
+  Router.createRoute("framework.bench.probe", {
+    path: "/nodefony/kernel/bench/probe",
+    constructor: BenchController as unknown as Controller["constructor"],
+    classMethod: "probe",
+    requirements: { methods: ["GET"] },
   });
   if (
     !Object.prototype.hasOwnProperty.call(BenchController.prototype, "module")

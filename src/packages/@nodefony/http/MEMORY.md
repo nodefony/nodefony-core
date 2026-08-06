@@ -219,6 +219,11 @@ Plafond de trafic **par IP** sur TOUTES les routes HTTP — **≠ `security.rate
 - ⚠️ **`ProfileEntry.user` ne peut PAS venir de `context.user`** en zone : le token vit dans l'ALS, illisible au teardown où `collect()` tourne → `readUser()` retombe sur `securityTrace.user` (sinon une requête authentifiée s'affiche « anonyme » tout en portant des rôles).
 - `ProfileQuery.startMs` (posé par les adapters drizzle/mongoose, même horloge que `PhaseTiming.startMs`) → le SQL se PLACE dans le waterfall (une requête de session apparaît DANS la barre `firewall`), au lieu de flotter en liste.
 
+## Sonde perf in-situ — `NF_PERF_PROBE=1` (outillage banc)
+
+- Compteurs hrtime cumulés par requête HTTP : `enterScope` / `new HttpContext` / `leaveScope` + tranches internes fabrique (ctor `Service`, queue ctor `Context`, lookup `upload`, `new Request`+`Response`, queue ctor `HttpContext`). Flag lu 1× au chargement (`http-kernel.ts` module-level) ; éteinte = branche morte, 0 coût. Canal = `globalThis.__nfPerfProbe` (sous-marques dans `Context.ts`/`HttpContext.ts`, `t0` posé/effacé par la fenêtre — WS hors fenêtre ne compte pas).
+- Dump : `GET /nodefony/kernel/bench/probe` (`BenchController`, monté sous `NF_BENCH_ROUTE=1` — vit dans framework car `@nodefony/test` absent en prod), `?reset=1` = RAZ (à faire APRÈS warmup). Protocole + verdict de référence : skill `nodefony-load-test` → `references/ab-perf-mono-prod.md`.
+
 ## PrettyRequestLogger
 
 - `PrettyRequestLogger implements IRequestLogger` (`service/pretty-request-logger.ts`)

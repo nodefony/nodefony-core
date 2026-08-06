@@ -101,6 +101,45 @@ const HEALTH_HEADERS = {
 const HEALTH_BODY_OK = '{"status":"ok"}';
 const HEALTH_BODY_UNREADY = '{"status":"unready"}';
 
+// Sonde perf IN SITU (opt-in `NF_PERF_PROBE=1`, flag lu 1× au chargement) —
+// cumule en ns le coût RÉEL par requête des postes que le profil échantillonné
+// impute au scope DI : enterScope / new HttpContext / leaveScope, sous charge
+// réelle (wrk). Le micro-bench isolé les mesure à ~557 ns quand le profil dit
+// ~19 µs : cette sonde tranche. Exposée sur `globalThis.__nfPerfProbe` (lue
+// par la route de dump du module test). Éteinte : `perfProbe === null`, zéro
+// coût ni alloc sur le hot path.
+interface IPerfProbe {
+  count: number;
+  enterScopeNs: number;
+  ctxNs: number;
+  leaveScopeNs: number;
+  // Sous-marques de la fabrique : temps CUMULÉS depuis `t0` (posé ici juste
+  // avant `new HttpContext`, lu par les ctors Context/HttpContext via
+  // globalThis). Les tranches se déduisent par différences au dump.
+  t0: bigint;
+  svcNs: number; // t0 → fin ctor Service (super de Context)
+  ctxBaseNs: number; // t0 → fin ctor Context
+  uploadNs: number; // t0 → après lookup DI "upload" (HttpContext)
+  reqResNs: number; // t0 → après new Request + new Response (HttpContext)
+}
+const perfProbe: IPerfProbe | null =
+  process.env.NF_PERF_PROBE === "1"
+    ? {
+        count: 0,
+        enterScopeNs: 0,
+        ctxNs: 0,
+        leaveScopeNs: 0,
+        t0: 0n,
+        svcNs: 0,
+        ctxBaseNs: 0,
+        uploadNs: 0,
+        reqResNs: 0,
+      }
+    : null;
+if (perfProbe) {
+  (globalThis as unknown as Record<string, unknown>).__nfPerfProbe = perfProbe;
+}
+
 export type ProtocolType = "1.1" | "2.0" | "3.0";
 export type httpRequest = http.IncomingMessage | http2.Http2ServerRequest;
 export type httpResponse = http.ServerResponse | http2.Http2ServerResponse;
@@ -659,7 +698,15 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     response: httpResponse | null,
     type: ServerType,
   ): Promise<HttpContext> {
-    const scope = this.container?.enterScope("request");
+    let scope: Scope | undefined;
+    if (perfProbe) {
+      const t0 = process.hrtime.bigint();
+      scope = this.container?.enterScope("request");
+      perfProbe.enterScopeNs += Number(process.hrtime.bigint() - t0);
+      perfProbe.count++;
+    } else {
+      scope = this.container?.enterScope("request");
+    }
     // Perf (L1) — debug off (prod / dev sans -d) : ne RIEN allouer par requête.
     // `this.log(...)` construit TOUJOURS un Pdu et `logColor.cyanBgBlue(url)` une
     // string + 2 templates — tous jetés si DEBUG n'est pas affiché. Guard sur
@@ -1113,7 +1160,13 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       if (context.listenerCount("onFinish"))
         await context.fireAsync("onFinish", context);
       context.finished = true;
-      this.container?.leaveScope(scope);
+      if (perfProbe) {
+        const t0 = process.hrtime.bigint();
+        this.container?.leaveScope(scope);
+        perfProbe.leaveScopeNs += Number(process.hrtime.bigint() - t0);
+      } else {
+        this.container?.leaveScope(scope);
+      }
       context.clean();
     } catch (e) {
       // R2 — teardown est fire-and-forget (`void this.teardownHttp(...)`) : un
@@ -1136,7 +1189,16 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     type: ServerType,
   ): HttpContext {
     try {
-      const context = new HttpContext(scope, request, response, type);
+      let context: HttpContext;
+      if (perfProbe) {
+        const t0 = process.hrtime.bigint();
+        perfProbe.t0 = t0; // lu par les sous-marques des ctors
+        context = new HttpContext(scope, request, response, type);
+        perfProbe.ctxNs += Number(process.hrtime.bigint() - t0);
+        perfProbe.t0 = 0n; // un contexte créé HORS fenêtre (WS) ne compte pas
+      } else {
+        context = new HttpContext(scope, request, response, type);
+      }
       // T4 — UN SEUL listener post-réponse par requête. Node garantit `close`
       // sur TOUTE réponse (h1 + compat h2) : après `finish` quand elle aboutit
       // (nextTick), seul quand le client part avant la fin. L'ancien pair

@@ -52,6 +52,10 @@ import WebsocketSecure from "../../service/servers/server-websocket-secure";
 // Tag d'event — couleur gatée au boot (gratuit hors TTY).
 const colorLogEvent = (): string => logColor.cyanBgBlack("EVENT CONTEXT");
 
+// Sonde perf in-situ (cf http-kernel.ts) — flag lu 1× ; éteinte, les
+// sous-marques de ce fichier ne coûtent rien (branche morte).
+const PERF_PROBE_SUB = process.env.NF_PERF_PROBE === "1";
+
 // Sévérité de log par **jalon notable** du cycle de vie. Les events techniques
 // (tout le reste) restent DEBUG ; les jalons de session — requête entrante,
 // réponse envoyée, connexion WS ouverte/fermée — montent à INFO pour être
@@ -277,6 +281,15 @@ class Context extends Service implements IContextInterface {
   webSocketState: WebSocketState = null;
   constructor(container: Container | Scope, type: ServerType) {
     super(`${type}`, container);
+    // Sous-marque de la sonde perf in-situ (NF_PERF_PROBE=1) : t0 → fin du
+    // ctor Service. Guard t0 ≠ 0n : seul le chemin HTTP instrumenté compte.
+    if (PERF_PROBE_SUB) {
+      const p = (globalThis as unknown as Record<string, unknown>)
+        .__nfPerfProbe as { t0: bigint; svcNs: number } | undefined;
+      if (p && p.t0 !== 0n) {
+        p.svcNs += Number(process.hrtime.bigint() - p.t0);
+      }
+    }
     this.type = type;
     this.set("context", this);
     this.httpKernel = this.get("HttpKernel");
@@ -351,6 +364,14 @@ class Context extends Service implements IContextInterface {
     // this.once("onRequest", () => {
     //   this.requested = true;
     // });
+    // Sous-marque sonde perf : t0 → fin du ctor Context.
+    if (PERF_PROBE_SUB) {
+      const p = (globalThis as unknown as Record<string, unknown>)
+        .__nfPerfProbe as { t0: bigint; ctxBaseNs: number } | undefined;
+      if (p && p.t0 !== 0n) {
+        p.ctxBaseNs += Number(process.hrtime.bigint() - p.t0);
+      }
+    }
   }
 
   /**
