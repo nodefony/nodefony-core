@@ -69,7 +69,7 @@ class BenchController extends Controller {
   probe() {
     const probe = (globalThis as unknown as Record<string, unknown>)
       .__nfPerfProbe as
-      | {
+      | ({
           count: number;
           enterScopeNs: number;
           ctxNs: number;
@@ -78,7 +78,7 @@ class BenchController extends Controller {
           ctxBaseNs: number;
           uploadNs: number;
           reqResNs: number;
-        }
+        } & Record<string, number | bigint>)
       | undefined;
     if (!probe) {
       return this.renderJson({ enabled: false });
@@ -87,6 +87,8 @@ class BenchController extends Controller {
     const reset =
       url instanceof URL ? url.searchParams.get("reset") === "1" : false;
     const n = probe.count || 1;
+    const num = (v: number | bigint | undefined): number =>
+      typeof v === "number" ? v : 0;
     const out = {
       enabled: true,
       count: probe.count,
@@ -108,16 +110,35 @@ class BenchController extends Controller {
         reqRes: (probe.reqResNs - probe.uploadNs) / n / 1000,
         httpTail: (probe.ctxNs - probe.reqResNs) / n / 1000,
       },
+      // 2ᵉ vague — tranches internes du ctor Service (marques cumulées) :
+      // entry = entrée + field inits (Map trackedListeners) · opts = spread
+      // defaults · lookups = get(kernel)+get(syslog) · event = new Event +
+      // setMaxListeners + set(nc) · tail = delete options.events + sortie.
+      svcSlicesUs: {
+        entry: num(probe.svcStartNs) / n / 1000,
+        opts: (num(probe.svcOptsNs) - num(probe.svcStartNs)) / n / 1000,
+        lookups: (num(probe.svcLookupsNs) - num(probe.svcOptsNs)) / n / 1000,
+        event: (num(probe.svcEventNs) - num(probe.svcLookupsNs)) / n / 1000,
+        tail: (probe.svcNs - num(probe.svcEventNs)) / n / 1000,
+      },
+      // 2ᵉ vague — tranches internes du ctor Request. entry est relatif à la
+      // marque uploadNs (fin de la tranche précédente de ctxSlicesUs) ; resp =
+      // fin ctor Request → fin new Response (fenêtre reqResNs existante).
+      reqSlicesUs: {
+        entry: (num(probe.reqStartNs) - probe.uploadNs) / n / 1000,
+        inits: (num(probe.reqProxyNs) - num(probe.reqStartNs)) / n / 1000,
+        url: (num(probe.reqUrlNs) - num(probe.reqProxyNs)) / n / 1000,
+        query: (num(probe.reqQueryNs) - num(probe.reqUrlNs)) / n / 1000,
+        meta: (num(probe.reqMetaNs) - num(probe.reqQueryNs)) / n / 1000,
+        accept: (num(probe.reqAcceptNs) - num(probe.reqMetaNs)) / n / 1000,
+        resp: (probe.reqResNs - num(probe.reqAcceptNs)) / n / 1000,
+      },
     };
     if (reset) {
-      probe.count = 0;
-      probe.enterScopeNs = 0;
-      probe.ctxNs = 0;
-      probe.leaveScopeNs = 0;
-      probe.svcNs = 0;
-      probe.ctxBaseNs = 0;
-      probe.uploadNs = 0;
-      probe.reqResNs = 0;
+      for (const k of Object.keys(probe)) {
+        if (k === "t0") continue;
+        if (typeof probe[k] === "number") probe[k] = 0;
+      }
     }
     return this.renderJson(out);
   }

@@ -99,6 +99,17 @@ declare module "http2" {
 
 type ParserType = ParserXml | ParserQs | Parser | BodyHandled;
 
+// Sonde perf in-situ (cf http-kernel.ts) — flag lu 1× ; éteinte, les marques
+// de ce fichier ne coûtent rien (branche morte). t0 posé par la fenêtre HTTP.
+const PERF_PROBE_SUB = process.env.NF_PERF_PROBE === "1";
+function perfMark(field: string): void {
+  const p = (globalThis as unknown as Record<string, unknown>).__nfPerfProbe as
+    ({ t0: bigint } & Record<string, number | bigint>) | undefined;
+  if (p && p.t0 !== 0n) {
+    (p[field] as number) += Number(process.hrtime.bigint() - p.t0);
+  }
+}
+
 class HttpRequest {
   context: HttpContext;
   request: http.IncomingMessage | http2.Http2ServerRequest;
@@ -158,6 +169,7 @@ class HttpRequest {
     request: http.IncomingMessage | http2.Http2ServerRequest,
     context: HttpContext,
   ) {
+    if (PERF_PROBE_SUB) perfMark("reqStartNs");
     this.request = request;
     this.context = context;
     this.request.body = null;
@@ -177,11 +189,13 @@ class HttpRequest {
     if (this.trustedProxy && checker && hasForwardingHeaders(this.headers)) {
       this.forwarded = resolveForwarded(this.headers, socketAddress, checker);
     }
+    if (PERF_PROBE_SUB) perfMark("reqProxyNs");
     this.method = this.getMethod();
     this.host = this.getHost();
     this.hostname = this.getHostName(this.host);
     this.sUrl = this.getFullUrl(request);
     this.url = this.getUrl(this.sUrl);
+    if (PERF_PROBE_SUB) perfMark("reqUrlNs");
     this.queryStringOptions =
       this.context?.httpKernel?.module.options.queryString || {};
     this.uploadOption = this.context?.httpKernel?.module.options.upload || {};
@@ -201,6 +215,7 @@ class HttpRequest {
     // seul. `request.body` est ensuite aliasé sur `query` final (onRequestEnd).
     this.queryGet = this.url.query;
     this.query = this.url.query;
+    if (PERF_PROBE_SUB) perfMark("reqQueryNs");
     // ORDRE CRITIQUE : getContentType() remplit this.rawContentType (dont
     // charset=…) ; getCharset() le lit. L'inverse laissait charset toujours
     // "utf8" → le `charset=` du Content-Type n'était jamais honoré.
@@ -208,12 +223,14 @@ class HttpRequest {
     this.charset = this.getCharset();
     this.domain = this.getDomain();
     this.remoteAddress = this.getRemoteAddress();
+    if (PERF_PROBE_SUB) perfMark("reqMetaNs");
     try {
       this.accept = acceptParser(this.headers?.accept);
       this.acceptHtml = this.accepts("html");
     } catch (e) {
       this.log(e, "WARNING");
     }
+    if (PERF_PROBE_SUB) perfMark("reqAcceptNs");
   }
 
   /**

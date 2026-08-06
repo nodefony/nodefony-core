@@ -20,6 +20,20 @@ const defaultOptions: DefaultOptionsService = {
   },
 };
 
+// Sonde perf in-situ (cf @nodefony/http http-kernel.ts) — flag lu 1× ;
+// éteinte, les marques de ce fichier ne coûtent rien (branche morte). La
+// fenêtre (t0) n'est posée que par le chemin HTTP instrumenté : tout autre
+// new Service (boot, modules) tombe sur t0 = 0n et ne compte pas.
+const PERF_PROBE_SUB = process.env.NF_PERF_PROBE === "1";
+type PerfSvcMarks = { t0: bigint } & Record<string, number | bigint>;
+function perfMark(field: string): void {
+  const p = (globalThis as unknown as Record<string, unknown>).__nfPerfProbe as
+    PerfSvcMarks | undefined;
+  if (p && p.t0 !== 0n) {
+    (p[field] as number) += Number(process.hrtime.bigint() - p.t0);
+  }
+}
+
 const defaultSyslogSettings: SyslogDefaultSettings = {
   moduleName: "SERVICE ",
   defaultSeverity: "INFO",
@@ -82,6 +96,7 @@ class Service implements IService {
     notificationsCenter?: Event | false | null,
     options: DefaultOptionsService = {},
   ) {
+    if (PERF_PROBE_SUB) perfMark("svcStartNs");
     this.name = name;
     this.container =
       container instanceof Container ? container : new Container();
@@ -89,8 +104,10 @@ class Service implements IService {
       notificationsCenter === false
         ? { ...options }
         : { ...defaultOptions, ...options };
+    if (PERF_PROBE_SUB) perfMark("svcOptsNs");
     this.kernel = this.container.get<IKernel>("kernel");
     this.syslog = this.container.get<Syslog>("syslog");
+    if (PERF_PROBE_SUB) perfMark("svcLookupsNs");
 
     if (!this.syslog) {
       // Variable locale — pas besoin d'un champ d'instance.
@@ -138,6 +155,7 @@ class Service implements IService {
       }
     }
 
+    if (PERF_PROBE_SUB) perfMark("svcEventNs");
     // `delete` (et non `= undefined`) — `server-static.ts:initStaticFiles`
     // itère `for (... in this.options)` et appelle `.path` sur chaque valeur
     // (suppose la clé `events` ABSENTE après ctor). Le supposé gain V8 hidden

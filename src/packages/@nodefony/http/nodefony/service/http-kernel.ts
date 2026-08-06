@@ -121,6 +121,18 @@ interface IPerfProbe {
   ctxBaseNs: number; // t0 → fin ctor Context
   uploadNs: number; // t0 → après lookup DI "upload" (HttpContext)
   reqResNs: number; // t0 → après new Request + new Response (HttpContext)
+  // 2ᵉ vague — décomposition interne du ctor Service (core) :
+  svcStartNs: number; // t0 → début corps ctor Service (entrée + field inits, dont la Map)
+  svcOptsNs: number; // t0 → après spread {...defaultOptions, ...options}
+  svcLookupsNs: number; // t0 → après get(kernel) + get(syslog)
+  svcEventNs: number; // t0 → après new Event + setMaxListeners + set(nc)
+  // 2ᵉ vague — décomposition interne du ctor Request (http) :
+  reqStartNs: number; // t0 → début corps ctor Request (entrée + field inits)
+  reqProxyNs: number; // t0 → après trustedProxy + resolveForwarded
+  reqUrlNs: number; // t0 → après getFullUrl + new URL
+  reqQueryNs: number; // t0 → après QS.parse / url.query
+  reqMetaNs: number; // t0 → après contentType/charset/domain/remoteAddress
+  reqAcceptNs: number; // t0 → fin ctor Request (acceptParser + accepts)
 }
 const perfProbe: IPerfProbe | null =
   process.env.NF_PERF_PROBE === "1"
@@ -134,6 +146,16 @@ const perfProbe: IPerfProbe | null =
         ctxBaseNs: 0,
         uploadNs: 0,
         reqResNs: 0,
+        svcStartNs: 0,
+        svcOptsNs: 0,
+        svcLookupsNs: 0,
+        svcEventNs: 0,
+        reqStartNs: 0,
+        reqProxyNs: 0,
+        reqUrlNs: 0,
+        reqQueryNs: 0,
+        reqMetaNs: 0,
+        reqAcceptNs: 0,
       }
     : null;
 if (perfProbe) {
