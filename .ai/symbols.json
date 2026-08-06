@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-06T09:57:33.451Z",
+  "generated": "2026-08-06T11:26:53.347Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 685,
-    "symbols": 2784,
+    "files": 686,
+    "symbols": 2788,
     "classes": 345,
-    "interfaces": 810,
+    "interfaces": 811,
     "types": 365,
     "enums": 4,
-    "functions": 1003,
+    "functions": 1006,
     "constants": 257
   },
   "symbols": {
@@ -19041,6 +19041,31 @@
       "implements": [],
       "decorators": []
     },
+    "ISplitTarget": {
+      "name": "ISplitTarget",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/urlFastPath.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Fast-path d'analyse du request-target — évite le `new URL` (parse WHATWG complet) sur le chemin nominal, où le target est déjà sous sa forme canonique et où pathname/search s'extraient par simple d…"
+    },
+    "splitTarget": {
+      "name": "splitTarget",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/urlFastPath.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Découpe un request-target origin-form (`/path[?query]`) en pathname/search SI — et seulement si — le parse WHATWG serait l'identité."
+    },
+    "isCanonicalAuthority": {
+      "name": "isCanonicalAuthority",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/urlFastPath.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "L'autorité (`host[:port]` brut de l'en-tête `Host` / `:authority`) est-elle déjà sous la forme exacte que le parseur WHATWG rendrait ? Refusé (→ bail-out) : majuscules (lowercase WHATWG), IPv6 (`[`…"
+    },
     "Http2Request": {
       "name": "Http2Request",
       "kind": "class",
@@ -26659,6 +26684,12 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
       "acceptParser": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
+      "splitTarget": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
+      "isCanonicalAuthority": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
       "IUploadOptions": [

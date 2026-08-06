@@ -196,7 +196,10 @@ export interface RouteMetaData {
 export interface MetaData {
   name?: string;
   version?: string;
-  url?: URL;
+  // F-B : string (le `href`) côté HTTP — l'URL n'est plus construite pour la
+  // metaData ; le WS continue de fournir son objet URL (wire identique :
+  // `URL.toJSON()` sérialisait déjà en href).
+  url?: URL | string;
   environment?: EnvironmentType;
   debug?: DebugType;
   token?: string;

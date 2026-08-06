@@ -24,7 +24,8 @@ export interface IMetaDataSource {
     environment?: MetaData["environment"];
     debug?: MetaData["debug"];
   } | null;
-  request?: { url?: URL } | null;
+  // `href` (string, HTTP — 0 parse) prioritaire ; `url` (objet, WS) en repli.
+  request?: { url?: URL; href?: string } | null;
   scheme: MetaData["scheme"];
   requestId: string;
   resolver?: {
@@ -63,7 +64,11 @@ export function buildMetaData(
   const nf = target.nodefony;
   nf.name = src.kernel?.projectName;
   nf.version = src.kernel?.version;
-  nf.url = src.request?.url;
+  // F-B : `href` d'abord — lire `request.url` (getter paresseux côté HTTP)
+  // aurait construit l'URL à CHAQUE setMetaData (2×/req). Le WS, qui pose un
+  // objet URL sur sa requête, passe par le repli ; le wire JSON est identique
+  // (`URL.toJSON()` rend le href).
+  nf.url = src.request?.href ?? src.request?.url;
   nf.environment = src.kernel?.environment;
   nf.debug = src.kernel?.debug;
   nf.scheme = src.scheme;

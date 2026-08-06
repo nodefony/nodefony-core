@@ -124,9 +124,10 @@ class HttpContext extends Context implements IHttpContextInterface {
       perfSub.reqResNs += Number(process.hrtime.bigint() - perfSub.t0);
     }
     //this.router = this.get("router");
-    // `href` : même sérialisation que `url.format(URL)` sans options, sans le
-    // branchement d'options par requête.
-    this.url = this.request.url.href;
+    // F-B : `request.href` — la sérialisation SANS construire l'URL (fast-path
+    // : sUrl, identique au href par contrat canonique ; bail-out : le vrai
+    // href de l'URL déjà parsée).
+    this.url = this.request.href;
     this.scheme = this.setScheme();
     this.method = this.request.getMethod();
     this.remoteAddress = this.request.remoteAddress;
@@ -238,7 +239,15 @@ class HttpContext extends Context implements IHttpContextInterface {
   }
 
   override setScheme(): SchemeType {
-    return this.request.url.protocol.replace(":", "") as SchemeType;
+    // F-B : le scheme effectif est posé par `Request.getFullUrl` (résolution
+    // Forwarded/transport) — le lire n'exige plus l'URL. Si l'URL a été
+    // construite (bail-out, ex. proto `Forwarded` exotique), sa forme
+    // normalisée (lowercase WHATWG) reste la référence, comme avant.
+    const req = this.request;
+    if (req.hasParsedUrl) {
+      return req.url.protocol.replace(":", "") as SchemeType;
+    }
+    return req.scheme as SchemeType;
   }
 
   // P7 — fonction async directe (plus de `new Promise(async executor)` : un

@@ -263,10 +263,11 @@ class Router extends Service {
     // de la dernière route scannée. Le hostname étant vérifié AVANT les methods
     // (Route.match), toute 405 de pass 1 vient d'une route de CE vhost → la
     // pass 2 retrouve toujours ≥ 1 méthode : le 405 HTTP sort TOUJOURS d'ici.
-    if (context.method !== "WEBSOCKET" && context.request?.url) {
-      // Réutilise le pathname déjà normalisé (cleanPath) — défini ici car le
-      // garde `context.request?.url` ci-dessus implique une URL présente.
-      const path = (cleanPath ?? "") || "/";
+    // F-B : garde sur `cleanPath` (undefined ⇔ pas d'URL/pathname) — lire
+    // `context.request?.url` déclencherait le getter paresseux HTTP (parse
+    // WHATWG) sur chaque 404/405.
+    if (context.method !== "WEBSOCKET" && cleanPath !== undefined) {
+      const path = cleanPath || "/";
       const allowed = new Set<string>();
       for (const route of routes) {
         // Une route restreinte à un autre vhost (@Domain) ne SERT pas cette

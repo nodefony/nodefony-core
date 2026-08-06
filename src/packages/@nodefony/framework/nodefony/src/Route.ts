@@ -272,7 +272,19 @@ class Route implements IRoute {
    * @returns le pathname sans slash final, ou `undefined` si la requête n'a pas d'URL.
    */
   static cleanPathname(context: ContextType): string | undefined {
-    const reqUrl = context.request?.url;
+    const req = context.request;
+    if (!req) {
+      return undefined;
+    }
+    // F-B perf : `request.pathname` (string, déjà normalisée WHATWG — découpe
+    // fast-path ou URL parsée) évite de toucher `request.url`, dont le getter
+    // HTTP construirait l'objet URL pour rien. Le WS (requête étendue d'une
+    // URL, sans `pathname`) passe par la branche historique.
+    const p = (req as { pathname?: unknown }).pathname;
+    if (typeof p === "string") {
+      return stripTrailingSlashes(p);
+    }
+    const reqUrl = req.url;
     if (!reqUrl) {
       return undefined;
     }
@@ -285,7 +297,10 @@ class Route implements IRoute {
 
   match(context: ContextType, cleanPath?: string, methodOverride?: string) {
     let res;
-    if (context.request && context.request.url && this.pattern) {
+    // F-B : plus de lecture `context.request.url` en garde — l'accès (getter
+    // paresseux HTTP) construirait l'URL à chaque Route.match. L'absence
+    // d'URL est déjà le contrat de `cleanPathname` (→ undefined → no match).
+    if (context.request && this.pattern) {
       // L5a perf : réutilise le pathname normalisé UNE fois par requête
       // (Router.resolve) au lieu de le recalculer pour CHAQUE route scannée.
       const url =

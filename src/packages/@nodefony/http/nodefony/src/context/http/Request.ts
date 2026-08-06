@@ -18,6 +18,7 @@ import {
   Parser,
   acceptParser,
 } from "./parser";
+import { splitTarget, isCanonicalAuthority } from "./urlFastPath";
 import { UploadedFile } from "../../../service/upload/upload-service";
 import type {
   IParsedUploadFile,
@@ -113,7 +114,14 @@ function perfMark(field: string): void {
 class HttpRequest {
   context: HttpContext;
   request: http.IncomingMessage | http2.Http2ServerRequest;
-  url: URL;
+  // F-B : l'objet URL est PARESSEUX. Sur le chemin nominal (target déjà
+  // canonique — cf urlFastPath), pathname/search sont extraits par découpe et
+  // le parse WHATWG complet (`new URL`, ~3,6 µs/req mesurés à la sonde) ne se
+  // paie qu'au premier accès userland à `request.url`. Tout target ou host
+  // que WHATWG transformerait (dot-segments, `%`, `\`, `//`, casse/forme du
+  // host…) force la construction IMMÉDIATE au ctor — le routing et le
+  // firewall ne matchent alors que la forme normalisée, comme avant.
+  #url: URL | null = null;
   headers: http.IncomingHttpHeaders = {};
   host: string | undefined = "";
   method: HTTPMethod;
@@ -123,6 +131,50 @@ class HttpRequest {
   remoteAddress: string | null | undefined = "";
   hostname: string;
   sUrl: string;
+  /**
+   * Scheme effectif côté client (`http` | `https`, ou le proto `Forwarded`
+   * brut derrière un proxy de confiance) — posé par {@link getFullUrl}, seule
+   * source de cette décision. `HttpContext.setScheme` le lit sans toucher à
+   * l'URL.
+   */
+  scheme: string = "http";
+  /**
+   * Pathname de la requête, TOUJOURS sous forme normalisée WHATWG : découpe
+   * du target quand elle est prouvablement identique au parse (fast-path),
+   * `URL.pathname` sinon. C'est la valeur que consomment le router et le
+   * matching de zones du firewall — sans jamais construire l'URL.
+   */
+  pathname: string = "";
+  /** Query string au format `URL.search` (`?…`, ou `""`) — même provenance. */
+  search: string = "";
+  /** L'objet {@link url} a-t-il déjà été construit ? (diagnostic/sonde). */
+  get hasParsedUrl(): boolean {
+    return this.#url !== null;
+  }
+  /**
+   * Sérialisation de l'URL de la requête — `URL.href` si l'objet existe,
+   * sinon `sUrl` (identique par construction sur le fast-path). Les lecteurs
+   * descriptifs (logs, profiler, `context.url`) passent par ici : 0 parse.
+   */
+  get href(): string {
+    return this.#url === null ? this.sUrl : this.#url.href;
+  }
+  /**
+   * URL WHATWG complète de la requête, construite au premier accès (fast-path)
+   * ou dès le ctor (bail-out). Porte `query` (le GET parsé) comme toujours.
+   */
+  get url(): URL {
+    let u = this.#url;
+    if (u === null) {
+      u = this.getUrl(this.sUrl);
+      u.query = this.queryGet as QS.ParsedQs;
+      this.#url = u;
+    }
+    return u;
+  }
+  set url(u: URL) {
+    this.#url = u;
+  }
   parser: ParserType | null = null;
   queryPost: Record<string, unknown> = {};
   queryGet: Record<string, unknown> = {};
@@ -210,28 +262,46 @@ class HttpRequest {
     this.method = this.getMethod();
     this.host = this.getHost();
     this.hostname = this.getHostName(this.host);
-    this.sUrl = this.getFullUrl(request);
-    this.url = this.getUrl(this.sUrl);
+    this.sUrl = this.getFullUrl(request); // pose aussi this.scheme
+    // F-B : découpe fast-path — admise SEULEMENT si scheme, autorité ET target
+    // traversent le parse WHATWG à l'identique (cf urlFastPath). Sinon, vrai
+    // `new URL` immédiat : le routing/firewall ne lit que la forme normalisée.
+    const fast =
+      (this.scheme === "http" || this.scheme === "https") &&
+      isCanonicalAuthority(this.host, this.scheme)
+        ? splitTarget(this.getRawTarget())
+        : null;
+    if (fast !== null) {
+      this.pathname = fast.pathname;
+      this.search = fast.search;
+    } else {
+      const u = this.getUrl(this.sUrl);
+      this.#url = u;
+      this.pathname = u.pathname;
+      this.search = u.search;
+    }
     if (PERF_PROBE_SUB) perfMark("reqUrlNs");
     this.queryStringOptions =
       this.context?.httpKernel?.module.options.queryString || {};
     this.uploadOption = this.context?.httpKernel?.module.options.upload || {};
     this.maxBodySize =
       this.context?.httpKernel?.module.options.maxBodySize ?? 0;
-    if (this.url.search) {
-      this.url.query = QS.parse(
-        this.url.search.slice(1),
-        this.queryStringOptions || {},
-      );
+    let query: QS.ParsedQs;
+    if (this.search) {
+      query = QS.parse(this.search.slice(1), this.queryStringOptions || {});
     } else {
-      this.url.query = {};
+      query = {};
+    }
+    if (this.#url !== null) {
+      this.#url.query = query;
     }
     // ALIASING : `queryGet` et `query` pointent d'abord le MÊME objet
-    // (`url.query` = GET). Sur POST/PUT/DELETE, `query` est RÉASSIGNÉ par
-    // `extend({}, query, queryPost)` (nouvel objet) — `queryGet` reste le GET
-    // seul. `request.body` est ensuite aliasé sur `query` final (onRequestEnd).
-    this.queryGet = this.url.query;
-    this.query = this.url.query;
+    // (le GET parsé — exposé aussi en `url.query`). Sur POST/PUT/DELETE,
+    // `query` est RÉASSIGNÉ par `extend({}, query, queryPost)` (nouvel objet)
+    // — `queryGet` reste le GET seul. `request.body` est ensuite aliasé sur
+    // `query` final (onRequestEnd).
+    this.queryGet = query;
+    this.query = query;
     if (PERF_PROBE_SUB) perfMark("reqQueryNs");
     // ORDRE CRITIQUE : getContentType() remplit this.rawContentType (dont
     // charset=…) ; getCharset() le lit. L'inverse laissait charset toujours
@@ -741,8 +811,11 @@ class HttpRequest {
   }
 
   getHostName(host?: string): string {
-    if (this.url && this.url.hostname) {
-      return this.url.hostname;
+    // N'utilise que l'URL DÉJÀ construite (jamais le getter, qui parserait) :
+    // sur le fast-path, le host brut est canonique par contrat → le split
+    // rend la même valeur que `URL.hostname`.
+    if (this.#url?.hostname) {
+      return this.#url.hostname;
     }
     if (host) {
       return host.split(":")[0];
@@ -768,17 +841,37 @@ class HttpRequest {
     return this.request.socket?.remoteAddress ?? null;
   }
 
-  getFullUrl(request: http.IncomingMessage | http2.Http2ServerRequest) {
-    const myurl = `://${this.host}${request.url}`;
-    // Scheme effectif côté client : `Forwarded`/`X-Forwarded-*` résolu de façon
-    // canonique (this.forwarded, gated proxy de confiance) ; sinon le transport réel.
+  /**
+   * Request-target brut (origin-form) tel que reçu du transport — SOURCE
+   * UNIQUE partagée par la concaténation de {@link getFullUrl} et la découpe
+   * fast-path du ctor. HTTP/2 lit le pseudo-header `:path` (override).
+   */
+  getRawTarget(): string | undefined {
+    return (this.request as http.IncomingMessage).url;
+  }
+
+  /**
+   * Scheme effectif côté client : `Forwarded`/`X-Forwarded-*` résolu de façon
+   * canonique (this.forwarded, gated proxy de confiance) ; sinon le transport
+   * réel. HTTP/2 remplace la lecture du socket par le pseudo-header `:scheme`.
+   */
+  protected resolveScheme(
+    request: http.IncomingMessage | http2.Http2ServerRequest,
+  ): string {
     if (this.forwarded?.proto) {
-      return `${this.forwarded.proto}${myurl}`;
+      return this.forwarded.proto;
     }
     if ("encrypted" in request.socket && request.socket.encrypted) {
-      return `https${myurl}`;
+      return "https";
     }
-    return `http${myurl}`;
+    return "http";
+  }
+
+  getFullUrl(
+    request: http.IncomingMessage | http2.Http2ServerRequest = this.request,
+  ) {
+    this.scheme = this.resolveScheme(request);
+    return `${this.scheme}://${this.host}${this.getRawTarget()}`;
   }
 
   getHeader(name: string) {
@@ -789,7 +882,16 @@ class HttpRequest {
   }
 
   setUrl(Url: string): URL {
-    return (this.url = this.getUrl(Url));
+    // Resynchronise TOUTES les vues dérivées (sUrl/pathname/search/scheme) :
+    // le routing et le firewall lisent `pathname` sans repasser par l'URL —
+    // une réécriture qui ne les alignerait pas ferait matcher l'ancien chemin.
+    const u = this.getUrl(Url);
+    this.#url = u;
+    this.sUrl = u.href;
+    this.pathname = u.pathname;
+    this.search = u.search;
+    this.scheme = u.protocol.replace(":", "");
+    return u;
   }
 
   getUrl(sUrl: string, baseUrl?: string): URL {
