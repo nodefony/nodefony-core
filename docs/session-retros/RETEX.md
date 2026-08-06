@@ -84,6 +84,16 @@
 
 - `[1× — 2026-07-26]` ⭐ **`--json` rendait une commande MUETTE sur échec** : 0 octet, stderr vide,
   code 1. Un mode machine doit garder un canal d'erreur.
+- `[1× — 08-07]` **`NF_LOG_DRIVER=null` a rendu MUET un crash au boot** (banc PG : seed en échec,
+  2 lignes de log, process mort sans un mot) — diagnostic = rebooter SANS le driver null. Un décor
+  de banc se boote d'abord AVEC journal ; on ne coupe le log qu'au moment de mesurer.
+
+## 🚦 Un contrôle de cible ROUGE arrête la série — il ne se commente pas
+
+- `[1× — 08-07]` 🔴 **« cible: 401 » affiché, puis 6 runs wrk lancés quand même** : un escalier
+  entier a mesuré ~5 500 réponses 401 par run (cookie de session expiré par le timeout d'inactivité
+  NIST pendant la campagne Express intercalée). Le check de cible doit faire `exit`, pas imprimer.
+  Corollaire : campagne longue + route authentifiée = **re-login au début de CHAQUE phase**.
 
 ## 🔎 Ce que le journal des commits CACHE
 
