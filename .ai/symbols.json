@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-06T11:26:53.347Z",
+  "generated": "2026-08-06T18:34:05.014Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 686,
-    "symbols": 2788,
-    "classes": 345,
-    "interfaces": 811,
+    "files": 688,
+    "symbols": 2801,
+    "classes": 347,
+    "interfaces": 813,
     "types": 365,
     "enums": 4,
-    "functions": 1006,
-    "constants": 257
+    "functions": 1010,
+    "constants": 262
   },
   "symbols": {
     "Cli": {
@@ -7483,6 +7483,32 @@
       ],
       "description": "Décor de banc — endpoint realtime capable de **pousser du volume à la demande**, pour éprouver la contre-pression WebSocket sur une VRAIE socket. Pourquoi il existe : la contre-pression (jeter une …"
     },
+    "BenchOrmController": {
+      "name": "BenchOrmController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/BenchOrmController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Banc du cycle ORM (opt-in `NF_BENCH_ORM=1`, monté par l'index du module) — traverse la couche framework complète (repository orm-core → Drizzle → better-sqlite3) sur le corpus Dolibarr seedé, JAMAI…"
+    },
+    "SecureBenchOrmController": {
+      "name": "SecureBenchOrmController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/BenchOrmController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Même lecture DERRIÈRE le firewall : le préfixe `/nodefony/test/secure` tombe dans la zone `test-secure` (session BFF) → mesure le cycle utilisateur COMPLET (reprise de session + requête entité) sur…"
+    },
     "DbController": {
       "name": "DbController",
       "kind": "class",
@@ -7724,6 +7750,58 @@
       "decorators": [
         "controller"
       ]
+    },
+    "registerBenchOrmEntities": {
+      "name": "registerBenchOrmEntities",
+      "kind": "function",
+      "file": "src/modules/test/nodefony/entity/benchOrm.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Enregistre les entités du banc dans le `entityRegistry` (connector `default`). À appeler à `onKernelRegister` — AVANT le `connect()` du DrizzleService (hook `onBoot`), qui matérialise les tables de…"
+    },
+    "seedBenchOrm": {
+      "name": "seedBenchOrm",
+      "kind": "function",
+      "file": "src/modules/test/nodefony/entity/benchOrm.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Seed déterministe du décor (idempotent : ne fait rien si le volume est déjà présent). Insertion par batchs via le db Drizzle natif — 10 000 `create()` unitaires hors transaction paieraient un fsync…"
+    },
+    "BENCH_ORM_CONNECTOR": {
+      "name": "BENCH_ORM_CONNECTOR",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/benchOrm.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "BENCH_ORM_USERS": {
+      "name": "BENCH_ORM_USERS",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/benchOrm.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "BENCH_ORM_SOCIETES": {
+      "name": "BENCH_ORM_SOCIETES",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/benchOrm.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "BENCH_ORM_FACTURES": {
+      "name": "BENCH_ORM_FACTURES",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/benchOrm.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "BENCH_READ_USER": {
+      "name": "BENCH_READ_USER",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/benchOrm.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "User ciblé par la route de lecture du banc : ~200 factures seedées portent `fk_user_author = 7` (répartition modulo) — le SELECT filtré rend toujours des lignes, jamais un résultat vide (un banc qu…"
     },
     "PocBookController": {
       "name": "PocBookController",
@@ -19548,6 +19626,8 @@
       "Controller": [
         "MediasoupController",
         "AlsController",
+        "BenchOrmController",
+        "SecureBenchOrmController",
         "DbController",
         "DecoratorController",
         "DefaultController",
@@ -19984,6 +20064,8 @@
         "MediasoupController",
         "AlsController",
         "BackpressureRealtimeController",
+        "BenchOrmController",
+        "SecureBenchOrmController",
         "DbController",
         "DecoratorController",
         "DefaultController",
@@ -20798,6 +20880,18 @@
       "BackpressureRealtimeController": [
         "src/modules/test/index.ts"
       ],
+      "BenchOrmController": [
+        "src/modules/test/index.ts"
+      ],
+      "SecureBenchOrmController": [
+        "src/modules/test/index.ts"
+      ],
+      "registerBenchOrmEntities": [
+        "src/modules/test/index.ts"
+      ],
+      "seedBenchOrm": [
+        "src/modules/test/index.ts"
+      ],
       "SecureWsController": [
         "src/modules/test/index.ts"
       ],
@@ -21027,6 +21121,7 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
+        "src/modules/test/nodefony/controller/BenchOrmController.ts",
         "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
@@ -21185,6 +21280,7 @@
         "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts",
+        "src/modules/test/nodefony/controller/BenchOrmController.ts",
         "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
@@ -21224,6 +21320,7 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
+        "src/modules/test/nodefony/controller/BenchOrmController.ts",
         "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/DomainClassController.ts",
@@ -21502,6 +21599,7 @@
         "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts",
+        "src/modules/test/nodefony/controller/BenchOrmController.ts",
         "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/DiController.ts",
@@ -22815,6 +22913,7 @@
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
         "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
         "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/modules/test/nodefony/entity/benchOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
@@ -22837,7 +22936,9 @@
       "ormRegistry": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
         "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+        "src/modules/test/nodefony/controller/BenchOrmController.ts",
         "src/modules/test/nodefony/controller/DbController.ts",
+        "src/modules/test/nodefony/entity/benchOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/buildOrmLeanHealth.ts",
@@ -23800,6 +23901,35 @@
       "IProbedTransport": [
         "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts"
       ],
+      "IRepository": [
+        "src/modules/test/nodefony/controller/BenchOrmController.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
+      "BENCH_ORM_CONNECTOR": [
+        "src/modules/test/nodefony/controller/BenchOrmController.ts"
+      ],
+      "BENCH_READ_USER": [
+        "src/modules/test/nodefony/controller/BenchOrmController.ts"
+      ],
       "ContextType": [
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/PipelineOrderController.ts",
@@ -24250,28 +24380,6 @@
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
-      ],
-      "IRepository": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts",
-        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "pickOrder": [

@@ -40,6 +40,11 @@ Module Nodefony d'intégration. Expose routes de test pour valider le pipeline H
 - `/stream` → stream JSON | `/download` → tsconfig.json attachment | `/media` → video/webm + Range
 - `/upload` GET form | `/upload` POST formidable
 
+**BenchOrmController** (`/nodefony/test/bench-orm`, OPT-IN `NF_BENCH_ORM=1`) :
+
+- `/read` · `/read-lean` · `/write` · `/reset` · `/status` — cycle ORM sur corpus dolibarr (connector `default`, seed 50/200/10 k, `entity/benchOrm.ts`)
+- `/nodefony/test/secure/bench-orm/read` — même lecture en zone `test-secure` (cycle session+entité)
+
 ## Statics — préfixe natif `/test/`
 
 `public/` auto-monté sous `/test/` (server-static `mountModulePublics`, basename `@nodefony/test`). PLUS de `statics.test` ; fichiers à la RACINE de `public/` (pas `public/test/`).

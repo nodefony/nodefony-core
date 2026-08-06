@@ -35,6 +35,14 @@ import SecureController from "./nodefony/secure/SecureController";
 import PipelineOrderController from "./nodefony/controller/PipelineOrderController";
 // Décor de banc contre-pression WS — monté SEULEMENT sous interrupteur (voir plus bas).
 import BackpressureRealtimeController from "./nodefony/controller/BackpressureRealtimeController";
+
+import BenchOrmController, {
+  SecureBenchOrmController,
+} from "./nodefony/controller/BenchOrmController";
+import {
+  registerBenchOrmEntities,
+  seedBenchOrm,
+} from "./nodefony/entity/benchOrm";
 // P6 J8 — banc preuve garde @IsGranted côté WS via api.request (/nodefony/test/api/*).
 import SecureWsController from "./nodefony/secure/SecureWsController";
 // P6 J8 (volet b) — endpoint realtime JWT Bearer (zone test-api) pour prouver la
@@ -58,6 +66,12 @@ import DaemonTestCommand from "./nodefony/command/DaemonTestCommand";
  * qui la demande : il n'existe que le temps d'une mesure, jamais par défaut.
  */
 const BENCH_WS_BACKPRESSURE = process.env.NF_BENCH_WS_BACKPRESSURE === "1";
+
+/**
+ * Décor du banc du cycle ORM (routes + entités Dolibarr + seed) — opt-in
+ * `NF_BENCH_ORM=1` : il n'existe que le temps d'une mesure, jamais par défaut.
+ */
+const BENCH_ORM = process.env.NF_BENCH_ORM === "1";
 
 @services([])
 @controllers([
@@ -94,6 +108,8 @@ const BENCH_WS_BACKPRESSURE = process.env.NF_BENCH_WS_BACKPRESSURE === "1";
   IdempotentDemoController,
   // Décor du banc de contre-pression WS (opt-in `NF_BENCH_WS_BACKPRESSURE=1`)
   ...(BENCH_WS_BACKPRESSURE ? [BackpressureRealtimeController] : []),
+  // Décor du banc du cycle ORM (opt-in `NF_BENCH_ORM=1`)
+  ...(BENCH_ORM ? [BenchOrmController, SecureBenchOrmController] : []),
   // POC API souveraine (JETABLE)
   PocBookController,
   PocInvokeController,
@@ -110,6 +126,15 @@ class Test extends Module {
       this.addCommand(DaemonTestCommand);
     }
   }
+  // Entités du banc ORM : enregistrées AVANT le `connect()` du DrizzleService
+  // (hook `onBoot`) — l'adapter matérialise les tables des entités connues.
+  override async onKernelRegister(): Promise<this> {
+    if (BENCH_ORM) {
+      await registerBenchOrmEntities();
+    }
+    return this;
+  }
+
   // P6.8 — enregistre le producteur admin de TEST (banc idempotence) AVANT le
   // `mountAll()` du framework (à onKernelReady) → la mutation
   // `POST /nodefony/test/api/idem-probe` est montée (+ transport WEBSOCKET).
@@ -124,6 +149,10 @@ class Test extends Module {
 
   // P1.7 — register security hooks listeners for integration tests.
   override async onKernelReady(): Promise<this> {
+    // Seed du banc ORM : APRÈS le connect (onBoot) — idempotent.
+    if (BENCH_ORM) {
+      await seedBenchOrm((m) => this.log(m, "INFO"));
+    }
     // NOTE — le service "users" (source d'identité du firewall : comptes admin/user
     // de la zone test-secure) n'est PLUS posé ici. C'est désormais l'APP racine qui
     // le provisionne au boot, en dev ET en prod, via `nodefony/security/provisionUsers.ts`
