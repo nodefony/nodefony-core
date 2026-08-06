@@ -28,7 +28,7 @@
     "@nodefony/http": "*",
     "@vitejs/plugin-react": "6.0.5",
     "nodefony": "*",
-    "vite": "8.2.0"
+    "vite": "8.2.1"
   },
   "devDependencies": {
     "@nodefony/framework": "*",

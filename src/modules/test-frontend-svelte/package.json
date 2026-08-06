@@ -27,7 +27,7 @@
     "@nodefony/http": "*",
     "@sveltejs/vite-plugin-svelte": ">=7.0.0",
     "nodefony": "*",
-    "vite": "8.2.0"
+    "vite": "8.2.1"
   },
   "devDependencies": {
     "@nodefony/framework": "*",
