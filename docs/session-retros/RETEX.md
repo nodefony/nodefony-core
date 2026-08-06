@@ -974,6 +974,16 @@ Ces thèmes ont quitté le sas pour des mémoires durables. Ne pas les réécrir
   pour rien. La séquence qui protège : profil → micro-bench isolé → si écart, INSTRUMENTER IN SITU
   (hrtime sous wrk) avant toute ligne de code. Un self-time V8 sur du code inliné + builtins C++
   s'impute à l'appelant — il DÉSIGNE un poste, il ne le CHIFFRE pas.
+- `[2× — 08-06]` **L'in-situ a tranché : le profil avait raison sur le TOTAL (~19 µs confirmés
+  à 18,7) et TORT sur l'attribution** (enterScope réel ~2 µs, pas 17 % self — le poste vivait
+  dans les ctors Request/Service). Les deux instruments se trompaient CHACUN dans un sens :
+  micro-bench isolé trop optimiste (×4-5 sous le réel), profil mal attribué. Seule la sonde
+  in-situ (compteurs hrtime dans le serveur sous wrk) rend à la fois le total ET la répartition.
+- `[1× — 08-06]` ⚠️ **Les field initializers d'une classe dérivée s'exécutent APRÈS super() et
+  AVANT le corps du ctor** — une marque hrtime posée « première ligne du corps » les INCLUT dans
+  la tranche précédente. Vécu : la tranche « delete options.events » contenait aussi
+  `requestId = randomUUID()` et `router = this.get("router")` (inits de Context). Toute
+  instrumentation de ctor doit cartographier les inits AVANT d'attribuer.
 
 ## 🌡️ La fenêtre de banc se GAGNE à froid réel — et un gate qui refuse a RAISON
 
@@ -986,6 +996,12 @@ Ces thèmes ont quitté le sas pour des mémoires durables. Ne pas les réécrir
   même l'ordre de grandeur** : express-fair 3 séries refusées (5,2-6 %) mais médianes à ≤ 1,8 %
   l'une de l'autre → ~14,9 k solide pour décider, PAS publiable comme banc propre. Le dire tel
   quel (« indicatif, gate non passé ») au lieu de forcer un 4e run.
+- `[2× — 08-06]` 🔴 **La BATTERIE fait partie du décor : −25 % de RPS à thermal 0** (7 300 vs
+  ~9 800 secteur), dispersion pourtant ≤ 0,8 % — la fenêtre est STABLE et FAUSSE en absolu.
+  `pmset -g batt` AVANT toute série ; sur batterie, seules les PROPORTIONS entre tranches se
+  publient. Corollaire banc propre : le DevSupervisor résiduel a un TITRE nommé
+  (`nodefony-dev-supervisor`) invisible au `pkill -f bin/nodefony` — il bloque le boot
+  production par son state file ; le kill de banc doit viser AUSSI `nodefony-dev`.
 
 ## 🗄️ Archivé au CONSOLIDATE du 2026-07-30 — 59 thèmes, 190 frictions
 
