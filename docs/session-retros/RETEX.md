@@ -965,6 +965,28 @@ Ces thèmes ont quitté le sas pour des mémoires durables. Ne pas les réécrir
   contradiction était lisible dès le premier rapport. Corollaire de méthode : quand deux sondes du
   même run se contredisent, c'est l'instrument qu'on ouvre en premier, pas le code.
 
+## 🔬 Le profil DÉSIGNE, le micro-bench DISCULPE — instrumenter in situ avant de coder
+
+- `[1× — 08-06]` 🔴 **Le goulot n°1 du profil (scope DI 21,6 % du busy) coûte 557 ns au
+  micro-bench isolé — 0,7 % du budget requête.** Écart ×25-30 entre l'attribution du profil et le
+  coût mécanique mesuré (`tmp/micro-enterscope.mjs`). Coder les optimisations « évidentes »
+  (Set au lieu de Map, params lazy) aurait gagné ~100 ns invisibles et payé gates + risque cœur
+  pour rien. La séquence qui protège : profil → micro-bench isolé → si écart, INSTRUMENTER IN SITU
+  (hrtime sous wrk) avant toute ligne de code. Un self-time V8 sur du code inliné + builtins C++
+  s'impute à l'appelant — il DÉSIGNE un poste, il ne le CHIFFRE pas.
+
+## 🌡️ La fenêtre de banc se GAGNE à froid réel — et un gate qui refuse a RAISON
+
+- `[1× — 08-06]` **3 refus dispersion d'affilée = arrêter de marteler le même geste.** La fenêtre
+  du soir ne descendait pas sous ~3,5 % : ni cooldown 180 s (part à 73), ni fenêtre chaude forcée
+  (thermal 100, 15,2 %), ni warmup 45 s. Ce qui a marché : attente À VIDE jusqu'à thermal ≤ 42
+  (boucle sleep), départ vraiment froid → express passe à 2,4 %. Le cooldown borné du script ne
+  suffit pas quand la machine accumule ; la boucle d'attente externe, si.
+- `[1× — 08-06]` **Quand le gate intra-série refuse N fois, l'INTER-séries concordante donne quand
+  même l'ordre de grandeur** : express-fair 3 séries refusées (5,2-6 %) mais médianes à ≤ 1,8 %
+  l'une de l'autre → ~14,9 k solide pour décider, PAS publiable comme banc propre. Le dire tel
+  quel (« indicatif, gate non passé ») au lieu de forcer un 4e run.
+
 ## 🗄️ Archivé au CONSOLIDATE du 2026-07-30 — 59 thèmes, 190 frictions
 
 Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
