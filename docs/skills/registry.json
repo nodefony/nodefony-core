@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-08-03",
+  "generatedAt": "2026-08-06",
   "count": 23,
   "conformant": 23,
   "skills": [
@@ -190,7 +190,7 @@
     },
     {
       "name": "nodefony-create-frontend-module",
-      "summary": "Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21) servi par @nodefony/frontend via Vite, DANS LE REPO FRAMEWORK (src/modules/).",
+      "summary": "Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21, Svelte 5) servi par @nodefony/frontend via Vite, DANS LE REPO FRAMEWORK (src/modules/).",
       "family": "Développer le framework",
       "version": null,
       "keywords": [],
@@ -199,14 +199,15 @@
         "module react",
         "module vue",
         "module angular",
+        "module svelte",
         "scaffold module avec front",
         "nouveau front nodefony",
         "module vite"
       ],
-      "description": "Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21) servi par @nodefony/frontend via Vite, DANS LE REPO FRAMEWORK (src/modules/). Dans une APPLICATION, le scaffold est une commande — `nodefony create module <nom> --frontend <fw>` — et ce skill se contente d'y renvoyer : il ne réimplémente pas le CLI. Wrapper de nodefony-create-module : délègue le squelette puis enrichit le spécifique frontend (controller HTML+CSP, registerEntry, entry+App du framework, peerDeps). Déclencheurs : \"crée un module frontend\", \"module react\", \"module vue\", \"module angular\", \"scaffold module avec front\", \"nouveau front nodefony\", \"module vite\".",
+      "description": "Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21, Svelte 5) servi par @nodefony/frontend via Vite, DANS LE REPO FRAMEWORK (src/modules/). Dans une APPLICATION, le scaffold est une commande — `nodefony create module <nom> --frontend <fw>` — et ce skill se contente d'y renvoyer : il ne réimplémente pas le CLI. Wrapper de nodefony-create-module : délègue le squelette puis enrichit le spécifique frontend (controller HTML+CSP, registerEntry, entry+App du framework, peerDeps). Déclencheurs : \"crée un module frontend\", \"module react\", \"module vue\", \"module angular\", \"module svelte\", \"scaffold module avec front\", \"nouveau front nodefony\", \"module vite\".",
       "cost": {
-        "bodyLines": 247,
-        "approxTokens": 3770
+        "bodyLines": 249,
+        "approxTokens": 4060
       },
       "requires": [],
       "resources": {
@@ -232,7 +233,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "642",
+            "detail": "669",
             "advisory": false
           },
           {
@@ -268,7 +269,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "247",
+            "detail": "249",
             "advisory": true
           }
         ]
@@ -622,6 +623,10 @@
               },
               {
                 "flag": "--no-install",
+                "help": ""
+              },
+              {
+                "flag": "--numstat",
                 "help": ""
               },
               {
@@ -1729,7 +1734,7 @@
     },
     {
       "name": "nodefony-frontend-dev",
-      "summary": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie / temps réel « calme » / a11y / perf (bundlés offline), et vérification d'une modif front sans navigateur (transform Vite en `curl`, purge du prébundle, rechargement forcé) — la règle projet interdit le navigateur headless.",
+      "summary": "Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie/a11y/perf (bundlés offline), et vérification d'une modif front — sans navigateur (transform Vite en `curl`, purge du prébundle) ou en OBSERVANT l'écran depuis un navigateur en CONTENEUR (console, a11y, requêtes réelles ; jamais de Chromium nu sur le poste).",
       "family": "Développer le framework",
       "version": "1.0.0",
       "keywords": [
@@ -1765,10 +1770,10 @@
         "transform Vite",
         "prébundle Vite périmé"
       ],
-      "description": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie / temps réel « calme » / a11y / perf (bundlés offline), et **vérification d'une modif front sans navigateur** (transform Vite en `curl`, purge du prébundle, rechargement forcé) — la règle projet interdit le navigateur headless. App admin Studio → `nodefony-studio-dev` ; scaffold d'un module front → `nodefony-create-frontend-module` ; le back → `nodefony-framework-dev`. Déclencheurs : \"dev front nodefony\", \"isomorphisme\", \"socket client\", \"RealtimeClient\", \"useNodefony\", \"hooks realtime\", \"HMR\", \"Vite nodefony\", \"ApiClient\", \"useResource\", \"data plane front\", \"BFF\", \"RBAC front\", \"accessibilité front\", \"WCAG\", \"perf front\", \"vérifie le front\", \"ma modif front passe ?\", \"transform Vite\", \"prébundle Vite périmé\".",
+      "description": "Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie/a11y/perf (bundlés offline), et vérification d'une modif front — sans navigateur (transform Vite en `curl`, purge du prébundle) ou en OBSERVANT l'écran depuis un navigateur en CONTENEUR (console, a11y, requêtes réelles ; jamais de Chromium nu sur le poste). Studio → `nodefony-studio-dev` ; scaffold front → `nodefony-create-frontend-module` ; back → `nodefony-framework-dev`. Déclencheurs : \"dev front nodefony\", \"isomorphisme\", \"socket client\", \"RealtimeClient\", \"useNodefony\", \"hooks realtime\", \"HMR\", \"Vite nodefony\", \"ApiClient\", \"useResource\", \"data plane front\", \"BFF\", \"RBAC front\", \"accessibilité front\", \"WCAG\", \"perf front\", \"vérifie le front\", \"ma modif front passe ?\", \"transform Vite\", \"prébundle Vite périmé\".",
       "cost": {
-        "bodyLines": 101,
-        "approxTokens": 2568
+        "bodyLines": 112,
+        "approxTokens": 2831
       },
       "requires": [],
       "resources": {
@@ -1802,7 +1807,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "1003",
+            "detail": "1005",
             "advisory": false
           },
           {
@@ -1838,7 +1843,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "101",
+            "detail": "112",
             "advisory": true
           }
         ]
@@ -1871,8 +1876,8 @@
       ],
       "description": "Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés. Fournit une bibliothèque de rendu (`lib/report.mjs`) : graphes SVG (barres, courbes, nuage+régression, waterfall, heatmap, jauge, donut, sparkline), tableaux triables/filtrables, calculateurs interactifs, listes réordonnables par glisser-déposer, onglets, mode présentation, export CSV — et une impression PDF soignée (sauts de page maîtrisés, en-têtes de tableau répétés, hypothèses figées). À utiliser dès qu'un livrable doit être LU, MANIPULÉ ou IMPRIMÉ par une personne, plutôt que relu par un outil. Déclencheurs : \"rapport HTML\", \"générer un rapport\", \"rapport imprimable\", \"rapport PDF\", \"dashboard statique\", \"restituer des mesures\", \"page de résultats\", \"graphe sans dépendance\", \"calculateur interactif\", \"deck de présentation\", \"export CSV\".",
       "cost": {
-        "bodyLines": 174,
-        "approxTokens": 3017
+        "bodyLines": 198,
+        "approxTokens": 3438
       },
       "requires": [
         "redis",
@@ -2034,7 +2039,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "174",
+            "detail": "198",
             "advisory": true
           }
         ]
@@ -2169,8 +2174,8 @@
       ],
       "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"quel est l'impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"prouver que c'est plus rapide\".",
       "cost": {
-        "bodyLines": 229,
-        "approxTokens": 3566
+        "bodyLines": 234,
+        "approxTokens": 3692
       },
       "requires": [
         "serveur UP",
@@ -2234,11 +2239,23 @@
                 "help": ""
               },
               {
+                "name": "BENCH_HEADER",
+                "help": ""
+              },
+              {
+                "name": "BENCH_THERM_TARGET",
+                "help": ""
+              },
+              {
                 "name": "BENCH_THREADS",
                 "help": ""
               },
               {
                 "name": "BENCH_URL",
+                "help": ""
+              },
+              {
+                "name": "BENCH_WARMUP",
                 "help": ""
               }
             ],
@@ -3238,7 +3255,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "229",
+            "detail": "234",
             "advisory": true
           }
         ]
@@ -4531,7 +4548,7 @@
       "description": "Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du framework. Construire un écran (page / dashboard / panneau / onglet) vite et bien en réutilisant le UI kit (PageHeader, PageLayout, DataGrid, DataState, StatCard, KpiCard, JsonViewer, MiniChart, DocHint), le hook useResource, les stores MobX et les hooks temps réel nodefony/react. Donne la recette (route + lazy + navConfig + fallback deep-link + data plane), des squelettes copier-coller, le Jumeau Vivant (Twin), la debug bar, le back-end Studio (controller + data plane + realtime), et les règles qualité (a11y, sécu, perf, gate tsc). DÉRIVE de nodefony-frontend-dev (mécanismes front généraux). Déclencheurs : \"dev studio\", \"page studio\", \"dashboard studio\", \"écran studio\", \"panneau studio\", \"composant studio\", \"page /nodefony\", \"comment coder dans studio\", \"Twin\", \"jumeau vivant\", \"debug bar\", \"debugbar\", \"barre de debug\", \"WDT\".",
       "cost": {
         "bodyLines": 143,
-        "approxTokens": 3532
+        "approxTokens": 3584
       },
       "requires": [],
       "resources": {

@@ -88,6 +88,30 @@ comportement + style).
 | **Marque (logo en en-tête et en pied)**                  | `doc({ brand })` — défaut `NODEFONY_BRAND`                |
 | Formatage FR + palette                                   | `fmt.int/dec/pct/bytes/ms` · `COLORS` · `series(i)`       |
 
+### Formes de données (cheat-sheet — évite de relire `lib/report.mjs`)
+
+Vérifiées au source ; en cas de doute, le source fait foi.
+
+- `cards([{ k, v, unit?, sub? }])` — `v` arrive déjà formaté (string/HTML).
+- `table(cols, rows, { sortable?, id? })` — `cols: [{ label, align?: "right", strong?, dim? }]`,
+  `rows: string[][]` (cellules HTML autorisées, échapper soi-même les données externes).
+- `barChart([{ label, value, color?, note? }], { unit?, logScale?, fmt?, title?, desc? })` —
+  barres toujours depuis zéro (pas d'option contraire).
+- `lineChart([{ label, color, points: [{ x, y }] }], { xLabel?, yLabel? })` ·
+  `scatterFit` = même forme + `fit(x)` par série.
+- `waterfall([{ label, start, duration, color? }])` — durées rendues en `fmt.ms`.
+- `heatmap(rows, cols, values, { cell?, color? })` · `donut([{ label, value, color? }])` ·
+  `gauge(ratio, { label?, warn: 0.7, danger: 0.85 })` · `sparkline(number[])`.
+- `calculator({ id, inputs: [{ id, label, value, min?, step?, type?: "checkbox" }], constants, compute })`
+  — ⚠️ `compute` est une **STRING** de JS injectée telle quelle : `(v, K) => ({ html, alerts?: string[] })`
+  (`v` = valeurs des champs par id, `K` = `constants`).
+- `doc({ title, subtitle?, sections, footer?, data?, brand? })` — `data` = objet embarqué en JSON
+  dans la page (c'est lui qui rend le rapport rejouable/ré-ingérable).
+- `COLORS` : `accent/blue · vermillion/red · green · pink/magenta/purple · amber · skyblue ·
+yellow · grey` — **pas de `muted`** (une clé absente rend `undefined` → barre invisible, sans
+  erreur). `series(i)` = palette cyclique sûre.
+- `fmt.int · dec(x, n) · pct(ratio) · bytes · ms` — rendent `—` sur `null`/`NaN`.
+
 Squelette minimal :
 
 ```js

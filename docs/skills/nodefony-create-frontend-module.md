@@ -4,14 +4,14 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-03
+updated: 2026-08-06
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-create-frontend-module/SKILL.md"
 ---
 
 # `nodefony-create-frontend-module`
 
-> Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21) servi par @nodefony/frontend via Vite, DANS LE REPO FRAMEWORK (src/modules/).
+> Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21, Svelte 5) servi par @nodefony/frontend via Vite, DANS LE REPO FRAMEWORK (src/modules/).
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-create-frontend-module**
 
@@ -27,17 +27,17 @@ source: ".claude/skills/nodefony-create-frontend-module/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Développer le framework |
-| Corps | 247 lignes |
-| Coût d'activation | ~3 770 tokens (le corps est chargé à l'invocation) |
-| Description | 642 / 1024 caractères |
-| Déclencheurs | 7 |
+| Corps | 249 lignes |
+| Coût d'activation | ~4 060 tokens (le corps est chargé à l'invocation) |
+| Description | 669 / 1024 caractères |
+| Déclencheurs | 8 |
 | Ressources `references/` | 1 page(s) |
 | Scripts | 0 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21) servi par @nodefony/frontend via Vite, DANS LE REPO FRAMEWORK (src/modules/). Dans une APPLICATION, le scaffold est une commande — `nodefony create module <nom> --frontend <fw>` — et ce skill se contente d'y renvoyer : il ne réimplémente pas le CLI. Wrapper de nodefony-create-module : délègue le squelette puis enrichit le spécifique frontend (controller HTML+CSP, registerEntry, entry+App du framework, peerDeps).
+Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21, Svelte 5) servi par @nodefony/frontend via Vite, DANS LE REPO FRAMEWORK (src/modules/). Dans une APPLICATION, le scaffold est une commande — `nodefony create module <nom> --frontend <fw>` — et ce skill se contente d'y renvoyer : il ne réimplémente pas le CLI. Wrapper de nodefony-create-module : délègue le squelette puis enrichit le spécifique frontend (controller HTML+CSP, registerEntry, entry+App du framework, peerDeps).
 
 ## Skills voisins
 
@@ -49,7 +49,7 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`crée un module frontend` · `module react` · `module vue` · `module angular` · `scaffold module avec front` · `nouveau front nodefony` · `module vite`
+`crée un module frontend` · `module react` · `module vue` · `module angular` · `module svelte` · `scaffold module avec front` · `nouveau front nodefony` · `module vite`
 
 ## Ce que contient le corps
 
@@ -72,7 +72,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/frameworks.md` | Spécifique par framework — nodefony-create-frontend-module | 247 |
+| `references/frameworks.md` | Spécifique par framework — nodefony-create-frontend-module | 296 |
 
 
 ## Conformité au standard Agent Skills
@@ -86,13 +86,13 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Contrôle | Nature | État | Mesure | Règle (source) |
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 642 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 669 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 247 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 249 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
