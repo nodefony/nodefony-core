@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import path from "node:path";
 import { expect } from "chai";
 import TemplateHelper from "../../src/template/TemplateHelper.js";
 import type {
@@ -93,8 +94,14 @@ describe("TemplateHelper — origine publique des tags dev (P14.17)", () => {
       "development",
     );
     const tags = helper.renderTags("studio");
+    // Axiome portabilité n°10 : l'attendu se COMPOSE, ne se littéralise pas —
+    // `path.resolve("/abs/…")` rend `/abs/…` sur Unix mais `D:\abs\…` sur
+    // Windows (lecteur du cwd ajouté), et l'URL émise devient `/@fs/D:/abs/…`.
+    const abs = path.resolve(entry.root, entry.entryFile).replace(/\\/g, "/");
     expect(tags).to.include(
-      "https://host.docker.internal:5173/@fs/abs/studio/frontend/src/main.tsx",
+      `https://host.docker.internal:5173/@fs${abs.startsWith("/") ? "" : "/"}${abs}`,
     );
+    // Quelle que soit la plateforme, aucune URL émise ne porte de backslash.
+    expect(tags).to.not.include("\\");
   });
 });
