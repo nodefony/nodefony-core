@@ -998,6 +998,14 @@ Ces thèmes ont quitté le sas pour des mémoires durables. Ne pas les réécrir
 
 ## 🔬 Le profil DÉSIGNE, le micro-bench DISCULPE — instrumenter in situ avant de coder
 
+- `[1× — 08-06]` **Un critère de conservation PRÉ-ENGAGÉ protège du biais d'attachement au code
+  déjà écrit.** F-D (wiring figé, 6 lookups/req supprimés) : implémentation propre, tests vus
+  rouges, toutes suites vertes — et A/B dans le bruit (new1 −1,7 %, new2 +0,9 %, moyenne
+  −0,4 %). Le kit avait écrit AVANT la session « ne garder que si l'A/B sort du bruit » : le
+  revert s'est décidé en une minute, sans marchander avec le travail investi. Sans ce critère
+  écrit à froid, un lot vert et testé se garde « puisqu'il est là » — et le cœur accumule des
+  indirections que rien ne paie.
+
 - `[1× — 08-06]` 🔴 **Le goulot n°1 du profil (scope DI 21,6 % du busy) coûte 557 ns au
   micro-bench isolé — 0,7 % du budget requête.** Écart ×25-30 entre l'attribution du profil et le
   coût mécanique mesuré (`tmp/micro-enterscope.mjs`). Coder les optimisations « évidentes »
@@ -1017,6 +1025,14 @@ Ces thèmes ont quitté le sas pour des mémoires durables. Ne pas les réécrir
   instrumentation de ctor doit cartographier les inits AVANT d'attribuer.
 
 ## 🌡️ La fenêtre de banc se GAGNE à froid réel — et un gate qui refuse a RAISON
+
+- `[1× — 08-06]` 🔴 **Spotlight (`mds`) réindexe les milliers de fichiers dist après CHAQUE
+  rebuild `--force` — et pollue la série qui suit.** 3 refus dispersion sur 7 séries (4,7-6 %)
+  avec un thermal de départ pourtant parfait (33-36) ; `mds` montait à 11-22 % de CPU par
+  vagues. Le froid thermique ne suffit pas : la garde d'attente doit exiger AUSSI
+  `mds ≤ 2 %` sur DEUX checks espacés (une vague repart d'un coup) — avec cette double garde,
+  les mêmes mesures rendent 0,7-1,0 % de dispersion. Un banc A/B qui flippe + rebuild crée
+  lui-même son pollueur.
 
 - `[1× — 08-06]` **3 refus dispersion d'affilée = arrêter de marteler le même geste.** La fenêtre
   du soir ne descendait pas sous ~3,5 % : ni cooldown 180 s (part à 73), ni fenêtre chaude forcée
