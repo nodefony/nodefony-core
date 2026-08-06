@@ -198,7 +198,23 @@ class Context extends Service implements IContextInterface {
   user: unknown = null;
   waitAsync: boolean = false;
   isJson: boolean = false;
-  isHtml: boolean = false;
+  // F-C : backing lazy d'`isHtml` — `null` = pas encore résolu. La résolution
+  // (parse de l'en-tête Accept côté HTTP) ne se paie qu'au premier accès ;
+  // toute écriture (setContextJson/setContextHtml) fige la valeur.
+  protected _isHtml: boolean | null = null;
+  get isHtml(): boolean {
+    return this._isHtml ?? (this._isHtml = this.resolveIsHtml());
+  }
+  set isHtml(value: boolean) {
+    this._isHtml = value;
+  }
+  /**
+   * Défaut paresseux d'{@link isHtml} — overridé par HttpContext (négociation
+   * `Accept`). Base et WS : jamais HTML.
+   */
+  protected resolveIsHtml(): boolean {
+    return false;
+  }
   crossDomain: boolean = false;
   router: Router | null = this.get("router");
   resolver: Resolver | null = null;

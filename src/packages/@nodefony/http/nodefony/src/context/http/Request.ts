@@ -155,8 +155,25 @@ class HttpRequest {
   // Content-Length (enforceBodyLimit) et le compteur streaming (Parser.write).
   maxBodySize: number = 0;
   data: Buffer = Buffer.alloc(0);
-  accept: ReturnType<typeof acceptParser> = [];
-  acceptHtml: boolean = false;
+  // F-C : parse d'`Accept` À LA DEMANDE — le chemin JSON nominal ne lit
+  // jamais ces valeurs, le parse (regex par media-range) ne se paie qu'au
+  // premier accès (négociation de contenu, error renderer).
+  #accept: ReturnType<typeof acceptParser> | null = null;
+  #acceptHtml: boolean | null = null;
+  /** Media-ranges de l'en-tête `Accept`, parsés au premier accès (mémoïsé). */
+  get accept(): ReturnType<typeof acceptParser> {
+    if (this.#accept === null) {
+      this.#accept = acceptParser(this.headers?.accept);
+    }
+    return this.#accept;
+  }
+  /** `true` si le client accepte `text/html` — résolu au premier accès (mémoïsé). */
+  get acceptHtml(): boolean {
+    if (this.#acceptHtml === null) {
+      this.#acceptHtml = this.accepts("html");
+    }
+    return this.#acceptHtml;
+  }
   origin: string | undefined;
   // La connexion (socket) provient-elle d'un reverse-proxy de confiance ?
   // Décide si les en-têtes X-Forwarded-* sont honorés (cf config trustProxy).
@@ -224,12 +241,8 @@ class HttpRequest {
     this.domain = this.getDomain();
     this.remoteAddress = this.getRemoteAddress();
     if (PERF_PROBE_SUB) perfMark("reqMetaNs");
-    try {
-      this.accept = acceptParser(this.headers?.accept);
-      this.acceptHtml = this.accepts("html");
-    } catch (e) {
-      this.log(e, "WARNING");
-    }
+    // F-C : plus AUCUN parse d'Accept ici (getters lazy `accept`/`acceptHtml`).
+    // La marque reste pour la comparabilité des tranches de la sonde.
     if (PERF_PROBE_SUB) perfMark("reqAcceptNs");
   }
 

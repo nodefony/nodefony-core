@@ -175,7 +175,6 @@ class HttpContext extends Context implements IHttpContextInterface {
         "DEBUG",
       );
     }
-    this.isHtml = this.request.acceptHtml;
     // Zero Trust : le X-Request-Id client est réfléchi en réponse + logué + en
     // ALS → on n'adopte que s'il est sûr, sinon on garde l'UUID serveur.
     const incomingId = sanitizeRequestId(
@@ -599,6 +598,12 @@ class HttpContext extends Context implements IHttpContextInterface {
 
   setContentType(type?: string, encoding?: BufferEncoding) {
     return this.response.setContentType(type, encoding);
+  }
+
+  // F-C : `isHtml` se résout contre l'en-tête Accept au PREMIER accès (getter
+  // lazy de Context) — le chemin JSON nominal ne parse jamais Accept.
+  protected override resolveIsHtml(): boolean {
+    return this.request?.acceptHtml ?? false;
   }
 
   setDefaultContentType() {

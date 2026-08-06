@@ -111,9 +111,10 @@ class BenchController extends Controller {
         httpTail: (probe.ctxNs - probe.reqResNs) / n / 1000,
       },
       // 2ᵉ vague — tranches internes du ctor Service (marques cumulées) :
-      // entry = entrée + field inits (Map trackedListeners) · opts = spread
-      // defaults · lookups = get(kernel)+get(syslog) · event = new Event +
-      // setMaxListeners + set(nc) · tail = delete options.events + sortie.
+      // entry = entrée + field inits (Map trackedListeners) · opts =
+      // rest-destructuring (F-A : ex-spread defaults) · lookups =
+      // get(kernel)+get(syslog) · event = new Event + setMaxListeners +
+      // set(nc) · tail = sortie ctor (F-A : delete supprimé) + inits Context.
       svcSlicesUs: {
         entry: num(probe.svcStartNs) / n / 1000,
         opts: (num(probe.svcOptsNs) - num(probe.svcStartNs)) / n / 1000,
