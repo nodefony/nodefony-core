@@ -24,7 +24,11 @@ const defaultOptions: DefaultOptionsService = {
 // éteinte, les marques de ce fichier ne coûtent rien (branche morte). La
 // fenêtre (t0) n'est posée que par le chemin HTTP instrumenté : tout autre
 // new Service (boot, modules) tombe sur t0 = 0n et ne compte pas.
-const PERF_PROBE_SUB = process.env.NF_PERF_PROBE === "1";
+// ⚠️ Ce fichier est ISOMORPHE (réexporté par src/client/index.ts → dist/client) :
+// `process` n'existe pas dans un navigateur, et une lecture nue ici tue le
+// bundle entier au chargement (ReferenceError avant le premier import applicatif).
+const PERF_PROBE_SUB =
+  typeof process !== "undefined" && process.env?.NF_PERF_PROBE === "1";
 type PerfSvcMarks = { t0: bigint } & Record<string, number | bigint>;
 function perfMark(field: string): void {
   const p = (globalThis as unknown as Record<string, unknown>).__nfPerfProbe as
