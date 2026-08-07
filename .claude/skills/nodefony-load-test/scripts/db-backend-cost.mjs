@@ -275,10 +275,17 @@ console.log(
     `  fils, GC compris) : c'est un MAJORANT du travail de boucle, jamais le\n` +
     `  plafond de débit.\n` +
     `⚠️ Le plafond RÉEL ne se déduit pas d'ici : il se mesure sous charge, avec un\n` +
-    `  Pool, en augmentant sa taille jusqu'à ce que le débit cesse de suivre. Fait\n` +
-    `  une fois sur ce dépôt : plafond ~4 400 req/s atteint dès Pool(20), Node à\n` +
-    `  58 % d'un cœur pendant que le conteneur PostgreSQL en consommait 450 % —\n` +
-    `  c'était la BASE qui saturait, ni le pilote ni la frontière du conteneur.\n`,
+    `  Pool, en augmentant sa taille jusqu'à ce que le débit cesse de suivre.\n` +
+    `  Éprouvé sur ce dépôt (macOS, Docker Desktop), et riche en fausses pistes :\n` +
+    `  le débit plafonne mollement entre 4 400 et 6 500 req/s selon le jour, Node\n` +
+    `  n'y consomme que ~50 % d'un cœur, et le conteneur ~460 %. Il est tentant d'en\n` +
+    `  conclure que la base sature : c'est FAUX. Trois instruments le réfutent —\n` +
+    `  \`pg_stat_activity\` montre les backends en \`ClientRead\` (ils ATTENDENT le\n` +
+    `  client), \`pgbench\` dans le conteneur atteint ~14 400 tps sur la même requête\n` +
+    `  et le même mode protocole, et un PostgreSQL réellement saturé fait monter le\n` +
+    `  conteneur à ~800 %. Ce qui borne ici est le coût CPU du chemin réseau\n` +
+    `  VIRTUALISÉ (VM + proxy de publication de port) dans une enveloppe hôte déjà\n` +
+    `  pleine. Sur un déploiement Linux natif, ce plafond-là n'existe pas.\n`,
 );
 
 // Comparaison amputée = résultat partiel, jamais un succès silencieux.
