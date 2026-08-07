@@ -75,6 +75,7 @@ Node ESM purs (`ws` + builtins), **lancés depuis la racine du repo**, paramétr
 > | `scripts/boot-bench.mjs`      | temps de boot d'un mode, du spawn jusqu'à l'écoute des serveurs + nombre de `new Kernel()` |
 > | `scripts/poc-hmr-perf.mjs`    | délai de bout en bout entre le `touch` d'un fichier surveillé et le rechargement Vite      |
 > | `scripts/route-scan-cost.mjs` | ce que la résolution de route coûte à une app, et sa sensibilité au NOMBRE de routes       |
+> | `scripts/db-backend-cost.mjs` | ce qu'un pilote de base coûte au serveur : latence, blocage de la boucle, plafond réel     |
 >
 > **`route-scan-cost.mjs` répond à une question qu'aucun banc de charge ne pose** : l'index de
 > routes livré en juin (+15,3 % RPS) porte sur les routes **littérales** (Map par chemin exact) —
@@ -162,6 +163,58 @@ chiffres deviennent des constantes de dimensionnement de pod).
 
 Reste à durcir (chiffres publiés, contrôle partiel ou absent) : `hub-load.mjs`,
 `supervision-stress.mjs`, `cluster-ipc.mjs`, `aimd-demo.mjs`, `ws-connections.mjs`.
+
+## 🚨 RÈGLE N°1 bis — LATENCE et BLOCAGE sont deux grandeurs ; une seule plafonne un process
+
+Payé cher : **quatre instruments faux d'affilée** sur cette seule question, et **deux explications
+successives réfutées**. Ce qui suit évite de le repayer.
+
+**Le fait, prouvé** — on arme un rappel (`setImmediate`) JUSTE AVANT la requête et on regarde quand
+il part. L'effet est à l'échelle de la centaine de millisecondes, donc insensible aux erreurs de
+mesure fine :
+
+| pilote                       | durée requête | retard du rappel | verdict              |
+| ---------------------------- | ------------- | ---------------- | -------------------- |
+| SQLite (`better-sqlite3`)    | 133 ms        | **134 ms**       | **bloque** la boucle |
+| PostgreSQL (`pg_sleep(0.5)`) | 503 ms        | **0,22 ms**      | ne bloque **pas**    |
+
+Un pilote **synchrone** exécute la requête sur le fil unique : sa latence EST son blocage, et c'est
+ce blocage qui borne le débit d'un process (et fait exploser le p99 dès que la concurrence dépasse
+ce qu'un fil sérialise — d'où les timeouts à c128 sur les bancs ORM). Un pilote **asynchrone** rend
+la main : son attente ne coûte aucun débit tant qu'il reste du travail à servir.
+
+**Les quatre instruments qui ont menti** — à ne pas réessayer :
+
+1. `setInterval(2ms)` + `setTimeout(0)` entre les requêtes : Node borne un délai de 0 à ~1 ms → on
+   mesure la granularité du minuteur. Verdict produit : « SQLite bloque 0,43 ms » pour une requête
+   de 33 µs (**×13**).
+2. `monitorEventLoopDelay` : résolution de l'ordre de la milliseconde → **aveugle** à un blocage de
+   quelques dizaines de µs ; il rendait son propre plancher pour les DEUX pilotes.
+3. Une colonne « bloque la boucle ? **non** » : une assertion **jamais mesurée** présentée comme un
+   résultat. **Un banc qui n'a pas mesuré doit se taire, pas répondre « non ».**
+4. `process.cpuUsage()` lu comme « CPU du fil principal » : il compte **tous** les fils (GC compris)
+   — c'est un MAJORANT, jamais un plafond de débit. Sur une réponse volumineuse il a rendu 110 % du
+   temps mural.
+
+**🔴 Et le piège qui a réfuté deux explications de suite : sur macOS, le plafond mesuré n'est ni la
+base ni le framework, c'est Docker Desktop.** Symptôme trompeur : le conteneur PostgreSQL à ~460 %
+de CPU « concorde » avec un `EXPLAIN ANALYZE` à ~1 ms — coïncidence de deux erreurs (ce 1 ms est le
+PREMIER plan d'une session neuve ; à chaud c'est 0,02–0,06 ms). Contre-mesures, toutes rapides :
+
+```bash
+docker info --format '{{.NCPU}}'          # combien de vCPU la VM a-t-elle VRAIMENT ?
+sysctl -n hw.physicalcpu hw.logicalcpu    # et combien de cœurs PHYSIQUES dessous ?
+# les backends attendent-ils le client (ClientRead) plutôt que de travailler ?
+docker exec -i <pg> psql -U <u> -d <db> -c "SELECT state, wait_event FROM pg_stat_activity"
+# la base est-elle vraiment au bout ? même requête, même mode protocole, DANS le conteneur :
+docker exec -i <pg> pgbench -n -c 20 -j 4 -T 6 -M extended -f /tmp/q.sql <db> -U <u>
+```
+
+Mesuré ici : **16 222 tps dans le conteneur contre ~4 400 depuis l'hôte — facteur 3,7 pour le seul
+chemin virtualisé** (VM ~685 % côté hôte, proxy `com.docker.backend` ~152 %, Node ~50 %, sur
+6 cœurs physiques). **Conséquence : aucun ABSOLU mesuré derrière Docker Desktop n'est
+transposable.** Les A/B intra-fenêtre restent valides (même décor des deux côtés) ; les comparaisons
+entre moteurs, non.
 
 ## 🚨 RÈGLE N°2 — un banc e2e a un DÉCOR ; décor manquant ≠ échec
 
