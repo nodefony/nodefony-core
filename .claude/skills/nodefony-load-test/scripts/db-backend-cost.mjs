@@ -218,7 +218,7 @@ if (!results.sqlite && !results.pg) {
 }
 
 console.log(
-  `pilote                latence (méd/p99)   CPU de boucle/req   plafond d'un process`,
+  `pilote                latence (méd/p99)   CPU process/req   borne HAUTE côté Node`,
 );
 console.log("─".repeat(88));
 const verdicts = {};
@@ -265,12 +265,20 @@ for (const k of ["sqlite", "pg"]) {
 }
 
 console.log(
-  `\nLire ces chiffres. La colonne qui plafonne un process est le CPU DE BOUCLE,\n` +
-    `pas la latence : SQLite le paie en un bloc (sa latence EST son blocage),\n` +
-    `PostgreSQL en miettes (écriture puis analyse du protocole) pendant que\n` +
-    `l'attente réseau, elle, se masque par la concurrence. Un pilote synchrone\n` +
-    `très court peut donc rendre plus de RPS qu'un pilote asynchrone coûteux, et\n` +
-    `s'effondrer en p99 dès que la concurrence dépasse ce qu'un thread sérialise.\n`,
+  `\nLire ces chiffres, et surtout ce qu'ils NE disent pas.\n` +
+    `• SQLite : sa latence EST son blocage (travail synchrone sur le fil unique).\n` +
+    `  Sa borne est donc réelle — prouvée en armant un rappel avant la requête :\n` +
+    `  il part avec un retard égal à la durée de celle-ci.\n` +
+    `• PostgreSQL : l'attente réseau ne bloque RIEN (même preuve, retard ~0 sur un\n` +
+    `  pg_sleep de 500 ms). Le pilote consomme bien du CPU pour analyser le\n` +
+    `  protocole, mais la colonne ci-dessus mesure le CPU du PROCESS (plusieurs\n` +
+    `  fils, GC compris) : c'est un MAJORANT du travail de boucle, jamais le\n` +
+    `  plafond de débit.\n` +
+    `⚠️ Le plafond RÉEL ne se déduit pas d'ici : il se mesure sous charge, avec un\n` +
+    `  Pool, en augmentant sa taille jusqu'à ce que le débit cesse de suivre. Fait\n` +
+    `  une fois sur ce dépôt : plafond ~4 400 req/s atteint dès Pool(20), Node à\n` +
+    `  58 % d'un cœur pendant que le conteneur PostgreSQL en consommait 450 % —\n` +
+    `  c'était la BASE qui saturait, ni le pilote ni la frontière du conteneur.\n`,
 );
 
 // Comparaison amputée = résultat partiel, jamais un succès silencieux.
