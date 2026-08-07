@@ -6,7 +6,7 @@ topic: perf-index
 section: "Performance"
 audience: [developer, devops]
 tags: [performance, benchmark, mesure, methode, orm, express]
-status: stable
+status: draft
 updated: "2026-08-07"
 source: "docs/performance/"
 ---
@@ -17,6 +17,13 @@ source: "docs/performance/"
 > Nodefony : ce qui a été profilé, ce qui a été gagné, **ce qui a été annulé après avoir été
 > écrit**, et les instruments qui ont menti avant qu'on s'en aperçoive. Il est écrit pour être
 > contesté : chaque chiffre porte son décor, son protocole et le script qui le rejoue.
+
+> 🔴 **Dossier en `draft` — défaut connu, à corriger avant toute publication.** Les chiffres
+> viennent de fenêtres de mesure prises sur des **états de code différents**, et ce rattachement
+> n'est pas porté par chaque tableau. Conséquence : un « avant/après » ne peut pas être vérifié
+> par le lecteur. La chronologie de ce qui est rattaché — et de ce qui ne l'est pas — est en tête
+> de [Méthode de mesure](methode.md#-chronologie-des-mesures--à-quel-état-du-code-correspond-chaque-chiffre).
+> **Ne pas citer un chiffre de ce dossier avant que son bloc porte son commit.**
 
 ## Par où commencer
 

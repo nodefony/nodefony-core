@@ -6,7 +6,7 @@ topic: perf-instruments
 section: "Performance"
 audience: [developer]
 tags: [performance, mesure, instrumentation, docker, thermal, faux-positifs]
-status: stable
+status: draft
 updated: "2026-08-07"
 source: ".claude/skills/nodefony-load-test/"
 tests: none

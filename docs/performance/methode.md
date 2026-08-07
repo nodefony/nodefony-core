@@ -6,7 +6,7 @@ topic: perf-methode
 section: "Performance"
 audience: [developer]
 tags: [performance, methode, benchmark, protocole, mesure]
-status: stable
+status: draft
 updated: "2026-08-07"
 source: ".claude/skills/nodefony-load-test/"
 tests: none
@@ -83,6 +83,42 @@ l'intérieur d'une famille :
 > la concurrence supplémentaire ne produit plus du débit mais de la file d'attente — et sur un
 > magasin synchrone, elle produit des expirations. Mesurer une route ORM à 128 connexions revient
 > à mesurer une file. Le détail est dans [la boucle d'événements](boucle-evenements.md).
+
+## 🔴 Chronologie des mesures — à quel état du code correspond chaque chiffre
+
+**C'est le trou le plus grave de ce dossier dans sa forme actuelle, et il est ouvert.** Les
+chiffres publiés viennent de **fenêtres de mesure différentes**, prises sur des **états de code
+différents**. Tant que chaque bloc n'est pas rattaché à son commit, un « avant/après » ne prouve
+pas ce qu'il paraît prouver — et le lecteur ne peut pas le vérifier.
+
+Ce qui est rattaché aujourd'hui :
+
+| Fenêtre    | État du code                          | Ce qui a été mesuré dans cette fenêtre                               | Où c'est publié                                                                                      |
+| ---------- | ------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 2026-07-23 | avant **tout** lot                    | analyse statique + comparatif `node:http`/Fastify/Express            | page archivée du 23-07                                                                               |
+| 2026-08-05 | avant le lot A                        | profilage runtime, comptes par requête                               | [pipeline](pipeline-http.md), colonne « avant »                                                      |
+| 2026-08-05 | lots A→D livrés (`724f25d1`)          | A/B cumulé **+8,9 %**, comparatif de frameworks, re-profil, capacité | [pipeline](pipeline-http.md), [comparaisons](comparaisons.md), [dimensionnement](dimensionnement.md) |
+| 2026-08-05 | idem                                  | Express « équipé » (~14 891)                                         | [comparaisons](comparaisons.md), niveau 2                                                            |
+| 2026-08-06 | après `ba1f0d17` et `5fa6ee7a`        | lots F (~+7 % et +4 à +10 %), sonde in-situ                          | [pipeline](pipeline-http.md)                                                                         |
+| 2026-08-06 | arbre revenu à `5bba2436`             | lot F-D **mesuré puis annulé**                                       | [pipeline](pipeline-http.md)                                                                         |
+| 2026-08-06 | `8d2942f3` (avant tout) vs `f6a4e302` | non-régression WebSocket                                             | [pipeline](pipeline-http.md)                                                                         |
+| 2026-08-06 | avant le lot ORM                      | escalier ORM, profilage par couche                                   | [ORM](orm.md)                                                                                        |
+| 2026-08-07 | lot ORM `1f1926a7`, décor `8121bef1`  | A/B SQLite et PostgreSQL, parité Express                             | [ORM](orm.md), [comparaisons](comparaisons.md) niveau 3                                              |
+| 2026-08-07 | `a42512e3`                            | routeur : comptes de motifs, courbe                                  | [pipeline](pipeline-http.md)                                                                         |
+
+**Ce que cette table rend visible, et qu'il faut lire avant tout le reste** :
+
+- le **comparatif de frameworks** et la **capacité** datent de l'état `724f25d1` — donc **avant**
+  les lots F. Ils sous-estiment l'état livré, et ne se comparent à aucune mesure postérieure ;
+- le **re-profil « après »** du pipeline est lui aussi antérieur aux lots F ;
+- l'**escalier ORM** décrit l'état d'avant le lot de requêtes préparées ;
+- deux blocs ne sont **pas** rattachés à un commit précis : les mesures de transport HTTP et les
+  plafonds WebSocket de [Dimensionnement](dimensionnement.md). Ils sont à re-mesurer avant d'être
+  cités.
+
+**Tant que ce rattachement n'est pas complet et vérifié, ce dossier est en `draft`.** La règle qui
+s'impose pour la suite : **aucun chiffre n'entre ici sans son commit**, au même titre que sa
+machine et son protocole.
 
 ## Les contrôles de validité
 

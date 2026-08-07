@@ -7,7 +7,7 @@ coverageModule: drizzle
 section: "Performance"
 audience: [developer]
 tags: [performance, orm, drizzle, sqlite, postgresql, mysql, prepared-statement]
-status: stable
+status: draft
 updated: "2026-08-07"
 source: "src/packages/@nodefony/drizzle, src/packages/@nodefony/orm-core"
 tests: none

@@ -131,6 +131,80 @@ const schemaBoucle = () => {
 /* ────────────────────────────── DONNÉES ────────────────────────────── */
 
 const DATA = {
+  // 🔴 LE RATTACHEMENT DES MESURES À L'ÉTAT DU CODE.
+  // Sans cette table, le rapport juxtapose des chiffres pris sur des commits
+  // différents et un « avant/après » ne prouve rien de vérifiable. Elle passe
+  // AVANT tout le reste, et tout bloc non rattaché s'annonce comme tel.
+  chronologie: [
+    {
+      fenetre: "2026-07-23",
+      etat: "avant TOUT lot",
+      mesure: "analyse statique + comparatif node:http / Fastify / Express",
+      ou: "page archivée du 23-07",
+    },
+    {
+      fenetre: "2026-08-05",
+      etat: "avant le lot A",
+      mesure: "profilage runtime, comptes exacts par requête",
+      ou: "§3, colonne « avant »",
+    },
+    {
+      fenetre: "2026-08-05",
+      etat: "lots A→D livrés (724f25d1)",
+      mesure:
+        "A/B cumulé +8,9 %, comparatif de frameworks, re-profil, capacité",
+      ou: "§1 niveau 1, §2, §3, §8",
+    },
+    {
+      fenetre: "2026-08-05",
+      etat: "lots A→D livrés (724f25d1)",
+      mesure: "Express « équipé » — parité de travail",
+      ou: "§1 niveau 2",
+    },
+    {
+      fenetre: "2026-08-06",
+      etat: "après ba1f0d17 et 5fa6ee7a",
+      mesure: "lots F (~+7 % et +4 à +10 %), sonde in-situ",
+      ou: "§2",
+    },
+    {
+      fenetre: "2026-08-06",
+      etat: "arbre revenu à 5bba2436",
+      mesure: "lot F-D mesuré puis ANNULÉ",
+      ou: "§2",
+    },
+    {
+      fenetre: "2026-08-06",
+      etat: "8d2942f3 (avant tout) vs f6a4e302",
+      mesure: "non-régression WebSocket",
+      ou: "§9",
+    },
+    {
+      fenetre: "2026-08-06",
+      etat: "AVANT le lot ORM",
+      mesure: "escalier ORM, profilage par couche",
+      ou: "§5",
+    },
+    {
+      fenetre: "2026-08-07",
+      etat: "lot ORM 1f1926a7, décor 8121bef1",
+      mesure: "A/B SQLite et PostgreSQL, parité Express",
+      ou: "§1 niveau 3, §6",
+    },
+    {
+      fenetre: "2026-08-07",
+      etat: "a42512e3",
+      mesure: "routeur : comptes de motifs, courbe",
+      ou: "§4",
+    },
+    {
+      fenetre: "non rattaché",
+      etat: "— à re-mesurer —",
+      mesure: "transports HTTP et plafonds WebSocket",
+      ou: "§9",
+    },
+  ],
+
   decor: {
     machine:
       "MacBook Pro — Intel Core i9-8950HK @ 2,90 GHz, 6 cœurs physiques / 12 logiques, 32 Go",
@@ -744,6 +818,35 @@ const sections = [
          <strong>rapports</strong> sont exploitables, à décor identique et dans la même fenêtre. Les mesures
          PostgreSQL portent une réserve supplémentaire : elles sont prises derrière une virtualisation
          réseau qui coûte un facteur 3,7 — <strong>aucun absolu PostgreSQL n'est transposable</strong>.`,
+      ),
+    { break: "avoid" },
+  ),
+
+  /* 1bis — LA CHRONOLOGIE : sans elle, rien de ce qui suit n'est vérifiable */
+  section(
+    "0 · À quel état du code correspond chaque chiffre",
+    warn(
+      `<strong>Défaut connu de ce rapport, et raison pour laquelle le dossier est en « brouillon ».</strong>
+       Les chiffres ci-dessous viennent de <strong>fenêtres de mesure différentes, prises sur des états
+       de code différents</strong>. Tant que chaque tableau ne porte pas son commit, un « avant/après »
+       ne peut pas être vérifié par le lecteur — il doit être lu à travers cette table, pas seul.`,
+    ) +
+      table(
+        [
+          { label: "Fenêtre" },
+          { label: "État du code", strong: true },
+          { label: "Ce qui a été mesuré" },
+          { label: "Où c'est publié", dim: true },
+        ],
+        DATA.chronologie.map((c) => [c.fenetre, c.etat, c.mesure, c.ou]),
+        { sortable: true, id: "t-chrono" },
+      ) +
+      note(
+        `<strong>Ce que cette table rend visible :</strong> le comparatif de frameworks (§1 niveau 1)
+         et la capacité (§8) datent de l'état <code>724f25d1</code> — donc <strong>avant</strong> les
+         lots F ; le re-profil « après » (§3) aussi ; l'escalier ORM (§5) décrit l'état d'<strong>avant</strong>
+         le lot de requêtes préparées. Et deux blocs ne sont rattachés à <strong>aucun</strong> commit :
+         les transports HTTP et les plafonds WebSocket, à re-mesurer avant d'être cités.`,
       ),
     { break: "avoid" },
   ),
@@ -1671,7 +1774,7 @@ node .claude/skills/nodefony-load-test/scripts/db-backend-cost.mjs --prove</code
 const html = doc({
   title: "Nodefony — dossier de performance",
   subtitle:
-    "Où part le temps, ce que le chantier a rendu, ce qu'il a annulé, et ce que le décor interdit de conclure.",
+    "BROUILLON — lire d'abord la section 0 : chaque chiffre vient d'une fenêtre de mesure prise sur un état de code donné, et ce rattachement n'est pas encore porté par chaque tableau.",
   sections,
   data: DATA,
   footer:
