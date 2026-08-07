@@ -152,18 +152,18 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
 2. **Mini-cahier des charges en amont** d'un gros écran/feature : lister (ou valider en 1 question) ce qui doit apparaître/se comporter AVANT de coder → 1 passe au lieu de N petits Edits. **S'applique AUSSI aux GROS artefacts non-écran** (> ~150 lignes, widget visuel, skill/doc/CLAUDE.md/README) : lister sections/panneaux/contrôles puis **figer la structure** AVANT d'écrire (éviter renumérotations `cf §N`). Vécu : `DebugBar.ts` 27→50 edits, `SKILL.md` 49 edits — improviser la structure coûte en allers-retours.
 3. **Avant de dire « fait » :** après une modif **frontend** → annoncer la vérif (curl transform Vite) puis **REGARDER L'ÉCRAN SOI-MÊME** (voir ci-dessous) ; **lancer la suite de tests impactée** + **suspecter son propre diff** avant de qualifier un échec de « pré-existant ».
 
-   > 🔴 **IL Y A UN NAVIGATEUR — `nodefony-browser`, déclaré dans `docker/docker-compose.yml`.**
-   > `docker compose -f docker/docker-compose.yml --profile browser up -d` — il lit la **console**,
-   > l'arbre d'accessibilité et les **requêtes réelles**, et écrit ses captures dans `tmp/browser/`.
+   > 🔴 **IL Y A UN NAVIGATEUR, et il MESURE — skill `nodefony-browser`.**
+   > Il ne fait pas que capturer : il rend les **contrastes et tailles CALCULÉS** par le moteur de
+   > rendu, l'arbre d'accessibilité, la console et les requêtes réelles — de quoi valider une
+   > correction de palette sans attendre un audit, et sans rien installer sur le poste.
    > **Ne JAMAIS demander au user de jouer la sonde** (« fais un hard-reload et dis-moi la console ») :
-   > c'est le réflexe que la règle « pas de Chrome headless » a laissé derrière elle, et il est
-   > périmé — l'exception qu'elle prévoyait (environnement isolé) EST ce conteneur. Le hard-reload du
-   > développeur ne reste utile que pour juger le HMR, l'animation et le rendu fin.
-   > **Le mode d'emploi n'est pas ici** — décor, contraintes et pièges de pilotage :
-   > skill **`nodefony-frontend-dev`** → `references/build-hmr.md` §9. Le charger AVANT de piloter ;
-   > trois contraintes structurelles (hôte, HTTPS, Vite joignable) font échouer toute improvisation.
-   > ⚠️ Le conteneur que lance l'outillage MCP de l'éditeur n'est **PAS** celui-ci : il n'a pas
-   > `--ignore-https-errors`, donc il refuse le certificat de dev et ne peut pas observer le mode Vite.
+   > ce réflexe vient de la règle « pas de Chrome headless », dont l'exception — un environnement
+   > isolé — EST ce conteneur. Le hard-reload du développeur ne sert plus qu'au HMR, à l'animation
+   > et au rendu fin.
+   > **Le mode d'emploi n'est PAS ici** (le recopier rendrait le skill inatteignable) : le charger
+   > AVANT de vouloir constater quoi que ce soit à l'écran — trois contraintes structurelles (nom
+   > d'hôte, HTTPS, Vite joignable) font échouer toute improvisation, et deux pièges font conclure
+   > FAUX : mesurer avant que l'écran soit peuplé, et observer un bundle qui n'est pas celui bâti.
 
 4. **Batcher les edits backend avant UN SEUL `rebuild + restart`** (coût #1 mesuré sur 8/8 retex : 10→23 restarts/session, souvent fusionnables). Regrouper TOUTES les modifs serveur d'une feature (controllers, services, config), PUIS un seul cycle `stop.sh → build → start.sh`. Ne PAS faire stop/build/start après chaque petit Edit. Les modifs **frontend** passent en **HMR Vite** → 0 restart. Réserver les restarts intermédiaires aux vrais points de mesure (diagnostic).
 5. **DÉLÉGUER sur DEUX déclencheurs — le VOLUME, mais aussi la NATURE de la tâche.** Le second est

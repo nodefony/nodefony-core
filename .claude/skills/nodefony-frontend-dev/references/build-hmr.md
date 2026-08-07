@@ -653,72 +653,20 @@ serveur (le subpath neuf force de toute façon une ré-optimisation au boot).
 > Grouper les modifs front avant de demander **une** vérification visuelle, plutôt que d'enchaîner
 > les allers-retours.
 
-## 9. Voir l'écran soi-même — le navigateur en conteneur
+## 9. Voir l'écran soi-même → skill `nodefony-browser`
 
-La règle « pas de navigateur headless » vient d'un incident : Chromium lancé **sur le poste** l'a figé.
-Elle prévoyait son exception — accord du développeur et **environnement isolé**. Un conteneur borné
-est cet environnement : Chromium n'y tourne pas à nu, il est plafonné (2 CPU / 2 Go) et disparaît au
-`down`. Ce que ça débloque : lire la **console**, l'**arbre d'accessibilité** et les **requêtes
-réelles** sans faire jouer à quelqu'un le rôle de sonde.
+Un navigateur en conteneur (service `browser` du `docker-compose.yml`) lit la **console**, l'arbre
+d'accessibilité, les **requêtes réelles**, et **MESURE** les couleurs et tailles calculées — sans
+rien installer sur le poste. C'est l'environnement isolé que l'exception à la règle « pas de
+Chromium sur le poste » prévoyait.
 
-```bash
-docker compose -f docker/docker-compose.yml --profile browser up -d
-# serveur MCP : 127.0.0.1:3001 · artefacts (captures, console, snapshots) : tmp/browser/
-```
+> 🔴 **Ne jamais demander au développeur de jouer la sonde** (« recharge et dis-moi la console »).
 
-### 9.1 Trois contraintes, toutes structurelles
+Le décor, le pilotage, les trois contraintes structurelles (joindre l'hôte par
+`host.docker.internal`, passer par HTTPS 5152, rendre Vite joignable) et les pièges qui font
+conclure faux vivent dans le skill **`nodefony-browser`** — ils ne sont pas recopiés ici : une règle
+écrite à deux endroits diverge, et la copie empêche d'atteindre le skill qui porte le diagnostic.
 
-| Contrainte                                     | Pourquoi, et le geste                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Joindre l'hôte par **`host.docker.internal`**  | `localhost` désigne le CONTENEUR. Le nom doit aussi figurer dans `trustedHosts` (posé en dev), sinon la barrière Host répond **`421`** alors que le réseau, lui, passe.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Passer par **HTTPS 5152**                      | Le cookie de session est `secure` par défaut : sur une origine `http://` **non-`localhost`** le navigateur le **jette**, et tout le data plane revient en `401` — ce qui se lit à tort comme un échec du login. Le certificat de dev est accepté.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Rendre **Vite joignable** — ou passer statique | En mode Vite la page annonce ses assets à l'origine PUBLIQUE du superviseur — par défaut `https://127.0.0.1:5173`, le `127.0.0.1` du NAVIGATEUR, donc du conteneur, qui n'héberge aucun Vite : page blanche alors que le HTML est bien servi. **Deux remèdes** (P14.17 livrée) : `NF_FRONTEND_PUBLIC_ORIGIN=https://host.docker.internal:{port}` → origine, `allowedHosts` et WS HMR suivent, le **HMR marche depuis le conteneur** (prouvé : `hot updated` reçu en wss, DOM à jour sans reload, 0 restart backend) ; ou `NF_STUDIO_UI=static` (+ `npm run build:ui`) pour OBSERVER sans HMR. ⚠️ **La variable est un DÉCOR d'observation, pas un réglage** : restée posée, elle casse le POSTE (le navigateur local ne résout pas `host.docker.internal`) — la poser = prévoir de la retirer, et relancer le serveur SANS elle en fin d'observation. |
-
-> **Dev déporté sans conteneur** (Codespaces, Gitpod) : RIEN à poser — la plateforme est détectée
-> (`CODESPACE_NAME` / `GITPOD_WORKSPACE_URL`) et l'origine publique, `allowedHosts` et le WS HMR
-> (443/`wss`) sont dérivés automatiquement. VS Code Remote / dev containers / WSL2 forwardent
-> `localhost` : les défauts locaux suffisent. Le calcul vit dans
-> `@nodefony/frontend/nodefony/src/remoteDev.ts` (pur, testé) ; chaque adaptation est journalisée
-> au boot (`origine publique Vite (…)`), et une config invalide est ANNONCÉE puis ignorée.
-
-### 9.2 🔴 AVANT de conclure quoi que ce soit : le bundle SERVI est-il celui que tu as bâti ?
-
-**C'est le premier contrôle, pas le dernier.** En mode pré-bâti, trois mécanismes indépendants
-peuvent te faire observer du code que la source ne contient plus — et chacun, seul, est inoffensif :
-
-1. un build partiel (`build:ui`) **ne purge pas** le dossier de sortie : deux générations de chunks
-   cohabitent et l'`index.html` peut désigner l'ancienne ;
-2. le lancement du serveur déclenche `turbo run build`, qui **restaure un `dist` depuis son cache** —
-   écrasant le build qu'on venait de faire à la main ;
-3. le service d'assets lit l'`index.html` **au démarrage** : un build postérieur au boot n'est pas vu.
-
-Le symptôme est traître : l'écran montre un composant qu'on a REMPLACÉ, et l'on accuse son propre
-code. Vécu — quatre tours de vérification perdus à soupçonner une migration qui était juste.
-
-```bash
-curl -sk https://127.0.0.1:5152/nodefony | grep -o 'index-[A-Za-z0-9_-]*\.js'   # ce qui est SERVI
-grep -o 'index-[A-Za-z0-9_-]*\.js' <module>/dist/frontend/index.html            # ce qui est BÂTI
-```
-
-Deux valeurs différentes ⇒ **le défaut n'est pas dans ton code**. Remède, dans cet ordre, aucun pas
-n'étant facultatif : `npx turbo run build --filter=<paquet> --force` → **redémarrer le serveur** →
-**redémarrer le conteneur navigateur** (son cache HTTP survit à un rechargement).
-
-### 9.3 Ce qu'il faut savoir avant de piloter
-
-- **Attendre par un APPEL, jamais par une pause.** Une attente inactive laisse expirer la session MCP,
-  et l'appel suivant revient `404 Session not found` — qu'on impute alors au navigateur.
-- **Attendre un texte qui DISCRIMINE.** « Nodefony Studio » s'affiche aussi bien sur l'écran de
-  connexion que dans l'application : l'attendre aboutit dans les deux cas et ne prouve rien. Se
-  repérer sur l'**URL** (`/login` vs la page visée) ou sur un texte propre à l'état voulu.
-- **Le SPA monte APRÈS la navigation.** Un sélecteur joué trop tôt échoue en « aucun élément » —
-  symptôme qui ressemble à un mauvais sélecteur. Attendre un texte de l'écran d'abord.
-- **Une capture ne s'écrase pas.** Réutiliser un nom de fichier laisse l'ancienne image en place
-  pendant que l'appel répond « OK » : on lit alors un écran périmé et on en tire des conclusions
-  fausses. Nom neuf à chaque fois, ou vérifier la date avant de regarder.
-
-### 9.4 Ce que ce conteneur ne remplace pas
-
-Le **HMR**, l'animation et le rendu fin (polices, sous-pixel) se jugent dans le navigateur du
-développeur. Le conteneur sert à constater qu'un écran **se monte, s'alimente et ne crie pas** —
-pas à valider une esthétique.
+Ce qui reste PROPRE au front et vit donc ci-dessus (§8) : prouver une modif **sans** navigateur
+(transform Vite en `curl`, purge du prébundle). Le HMR, l'animation et le rendu fin se jugent dans
+le navigateur du développeur — le conteneur constate qu'un écran se monte, s'alimente et ne crie pas.

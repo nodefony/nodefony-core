@@ -2,10 +2,214 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-08-06",
-  "count": 23,
-  "conformant": 23,
+  "generatedAt": "2026-08-07",
+  "count": 24,
+  "conformant": 24,
   "skills": [
+    {
+      "name": "nodefony-browser",
+      "summary": "Ouvre une page réelle dans un navigateur en conteneur pour la VOIR et surtout la MESURER — contrastes et tailles calculés, arbre d'accessibilité, erreurs de console, requêtes réseau — sans installer de navigateur sur le poste.",
+      "family": "Autres",
+      "version": "1.0.0",
+      "keywords": [],
+      "triggers": [
+        "regarde l'écran",
+        "vérifie l'affichage",
+        "est-ce que ça s'affiche ?",
+        "montre-moi la page",
+        "lis la console",
+        "y a-t-il des erreurs JS ?",
+        "mesure le contraste",
+        "cette couleur est-elle lisible ?",
+        "capture d'écran",
+        "l'application générée fonctionne-t-elle ?",
+        "vérifie l'accessibilité",
+        "audit lighthouse",
+        "quelles requêtes fait la page ?"
+      ],
+      "description": "Ouvre une page réelle dans un navigateur en conteneur pour la VOIR et surtout la MESURER — contrastes et tailles calculés, arbre d'accessibilité, erreurs de console, requêtes réseau — sans installer de navigateur sur le poste. Vaut pour toute page servie par Nodefony : console d'administration, module à frontend, application produite par le scaffold. Porte le décor, le pilotage de Playwright et les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, joindre l'hôte par le mauvais nom, observer un bundle qui n'est pas celui qu'on a bâti. À charger AVANT de constater quoi que ce soit à l'écran. Déclencheurs : \"regarde l'écran\", \"vérifie l'affichage\", \"est-ce que ça s'affiche ?\", \"montre-moi la page\", \"lis la console\", \"y a-t-il des erreurs JS ?\", \"mesure le contraste\", \"cette couleur est-elle lisible ?\", \"capture d'écran\", \"l'application générée fonctionne-t-elle ?\", \"vérifie l'accessibilité\", \"audit lighthouse\", \"quelles requêtes fait la page ?\".",
+      "cost": {
+        "bodyLines": 163,
+        "approxTokens": 2731
+      },
+      "requires": [
+        "docker"
+      ],
+      "resources": {
+        "references": [
+          "pilotage-mcp.md"
+        ],
+        "referenceFilesTotal": 9,
+        "scripts": [
+          {
+            "path": "scripts/inspect.mjs",
+            "purpose": "Ouvre une page dans le navigateur en conteneur, la MESURE et la capture.",
+            "usage": [
+              "`@usage` docker cp <ce-fichier> nodefony-browser:/app/inspect.mjs && docker exec nodefony-browser node /app/inspect.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--no-sandbox",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "BASE",
+                "help": ""
+              },
+              {
+                "name": "NF_BROWSER_BASE",
+                "help": ""
+              },
+              {
+                "name": "NF_BROWSER_EXPECT",
+                "help": ""
+              },
+              {
+                "name": "NF_BROWSER_PAGE",
+                "help": ""
+              },
+              {
+                "name": "NF_BROWSER_PASSWORD",
+                "help": ""
+              },
+              {
+                "name": "NF_BROWSER_PROBES",
+                "help": ""
+              },
+              {
+                "name": "NF_BROWSER_USER",
+                "help": ""
+              },
+              {
+                "name": "PAGE",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/watch.mjs",
+            "purpose": "Observe une page VIVANTE : trafic WebSocket, requêtes réseau, console, et",
+            "usage": [
+              "`@usage` docker exec nodefony-browser node /app/watch.mjs /nodefony/supervision 8000"
+            ],
+            "options": [
+              {
+                "flag": "--no-sandbox",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "BASE",
+                "help": ""
+              },
+              {
+                "name": "DURATION",
+                "help": ""
+              },
+              {
+                "name": "NF_BROWSER_BASE",
+                "help": ""
+              },
+              {
+                "name": "NF_BROWSER_MAXFRAMES",
+                "help": ""
+              },
+              {
+                "name": "NF_BROWSER_PASSWORD",
+                "help": ""
+              },
+              {
+                "name": "NF_BROWSER_UNTIL",
+                "help": ""
+              },
+              {
+                "name": "NF_BROWSER_USER",
+                "help": ""
+              },
+              {
+                "name": "PAGE",
+                "help": ""
+              },
+              {
+                "name": "UNTIL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          }
+        ]
+      },
+      "related": [
+        "nodefony-debug",
+        "nodefony-frontend-dev",
+        "nodefony-html-report",
+        "nodefony-start-server",
+        "nodefony-studio-dev"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "977",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "163",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-browser/SKILL.md",
+        "doc": "docs/skills/nodefony-browser.md"
+      }
+    },
     {
       "name": "nodefony-check-externals",
       "summary": "Audite la dérive entre la liste `external` des rolldown.config.ts et les `peerDependencies` de chaque package.json Nodefony — détecte le bug « peerDep bundlée » (cause d'échecs de build type @node-rs/bcrypt) et les entrées external périmées.",
@@ -1772,8 +1976,8 @@
       ],
       "description": "Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie/a11y/perf (bundlés offline), et vérification d'une modif front — sans navigateur (transform Vite en `curl`, purge du prébundle) ou en OBSERVANT l'écran depuis un navigateur en CONTENEUR (console, a11y, requêtes réelles ; jamais de Chromium nu sur le poste). Studio → `nodefony-studio-dev` ; scaffold front → `nodefony-create-frontend-module` ; back → `nodefony-framework-dev`. Déclencheurs : \"dev front nodefony\", \"isomorphisme\", \"socket client\", \"RealtimeClient\", \"useNodefony\", \"hooks realtime\", \"HMR\", \"Vite nodefony\", \"ApiClient\", \"useResource\", \"data plane front\", \"BFF\", \"RBAC front\", \"accessibilité front\", \"WCAG\", \"perf front\", \"vérifie le front\", \"ma modif front passe ?\", \"transform Vite\", \"prébundle Vite périmé\".",
       "cost": {
-        "bodyLines": 112,
-        "approxTokens": 2831
+        "bodyLines": 109,
+        "approxTokens": 2740
       },
       "requires": [],
       "resources": {
@@ -1789,6 +1993,7 @@
         "scripts": []
       },
       "related": [
+        "nodefony-browser",
         "nodefony-create-frontend-module",
         "nodefony-framework-dev",
         "nodefony-rfc",
@@ -1843,7 +2048,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "112",
+            "detail": "109",
             "advisory": true
           }
         ]
@@ -2174,8 +2379,8 @@
       ],
       "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"quel est l'impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"prouver que c'est plus rapide\".",
       "cost": {
-        "bodyLines": 234,
-        "approxTokens": 3692
+        "bodyLines": 330,
+        "approxTokens": 5407
       },
       "requires": [
         "serveur UP",
@@ -2579,6 +2784,65 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/db-backend-cost.mjs",
+            "purpose": "db-backend-cost — ce qu'un backend de base de données coûte AU SERVEUR, et non",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--ceiling",
+                "help": ""
+              },
+              {
+                "flag": "--prove",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "CONC",
+                "help": ""
+              },
+              {
+                "name": "JSON_OUT",
+                "help": ""
+              },
+              {
+                "name": "LIMIT",
+                "help": ""
+              },
+              {
+                "name": "NF_DATABASE_URL",
+                "help": ""
+              },
+              {
+                "name": "NF_PG_URL",
+                "help": ""
+              },
+              {
+                "name": "PG_CONTAINER",
+                "help": ""
+              },
+              {
+                "name": "REPS",
+                "help": ""
+              },
+              {
+                "name": "ROWS",
+                "help": ""
+              },
+              {
+                "name": "SEC",
+                "help": ""
+              },
+              {
+                "name": "SERIES",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/debug-runtime-e2e.mjs",
             "purpose": "Banc e2e TERRAIN — debug runtime par-module à chaud — sans navigateur.",
             "usage": [
@@ -2802,6 +3066,27 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/perf-dossier-report.mjs",
+            "purpose": "Rapport HTML de synthèse — dossier Performance de Nodefony.",
+            "usage": [
+              "Usage :  node .claude/skills/nodefony-load-test/scripts/perf-dossier-report.mjs [sortie.html]"
+            ],
+            "options": [
+              {
+                "flag": "--prove",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "OUT",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/poc-bench.mjs",
             "purpose": "POC bench — mesure la latence p50/p95/p99 du backend Nodefony",
             "usage": [
@@ -2883,6 +3168,51 @@
               },
               {
                 "name": "URL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/route-scan-cost.mjs",
+            "purpose": "route-scan-cost — ce que la RÉSOLUTION DE ROUTE coûte à une application, et",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/route-scan-cost.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--diagnostic",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--measure",
+                "help": ""
+              },
+              {
+                "flag": "--reps",
+                "help": ""
+              },
+              {
+                "flag": "--routes",
+                "help": ""
+              },
+              {
+                "flag": "--scale",
+                "help": ""
+              },
+              {
+                "flag": "--target",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "JSON_OUT",
                 "help": ""
               }
             ],
@@ -3255,7 +3585,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "234",
+            "detail": "330",
             "advisory": true
           }
         ]
@@ -4548,7 +4878,7 @@
       "description": "Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du framework. Construire un écran (page / dashboard / panneau / onglet) vite et bien en réutilisant le UI kit (PageHeader, PageLayout, DataGrid, DataState, StatCard, KpiCard, JsonViewer, MiniChart, DocHint), le hook useResource, les stores MobX et les hooks temps réel nodefony/react. Donne la recette (route + lazy + navConfig + fallback deep-link + data plane), des squelettes copier-coller, le Jumeau Vivant (Twin), la debug bar, le back-end Studio (controller + data plane + realtime), et les règles qualité (a11y, sécu, perf, gate tsc). DÉRIVE de nodefony-frontend-dev (mécanismes front généraux). Déclencheurs : \"dev studio\", \"page studio\", \"dashboard studio\", \"écran studio\", \"panneau studio\", \"composant studio\", \"page /nodefony\", \"comment coder dans studio\", \"Twin\", \"jumeau vivant\", \"debug bar\", \"debugbar\", \"barre de debug\", \"WDT\".",
       "cost": {
         "bodyLines": 143,
-        "approxTokens": 3584
+        "approxTokens": 3608
       },
       "requires": [],
       "resources": {
@@ -4564,6 +4894,7 @@
         "scripts": []
       },
       "related": [
+        "nodefony-browser",
         "nodefony-create-frontend-module",
         "nodefony-documentation",
         "nodefony-framework-dev",

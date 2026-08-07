@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-06
+updated: 2026-08-07
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-load-test/SKILL.md"
 ---
@@ -27,12 +27,12 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Exécuter, diagnostiquer, mesurer |
-| Corps | 234 lignes |
-| Coût d'activation | ~3 692 tokens (le corps est chargé à l'invocation) |
+| Corps | 330 lignes |
+| Coût d'activation | ~5 407 tokens (le corps est chargé à l'invocation) |
 | Description | 878 / 1024 caractères |
 | Déclencheurs | 14 |
 | Ressources `references/` | 4 page(s) |
-| Scripts | 37 |
+| Scripts | 40 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -62,6 +62,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - Niveau 3 — A/B perf MONO PROD (coût du pipeline par requête)
 - Repères empiriques (loopback, machine 32 GB) — pour situer un résultat
 - 🚨 RÈGLE N°1 — aucun chiffre sans contrôle de validité
+- 🚨 RÈGLE N°1 bis — LATENCE et BLOCAGE sont deux grandeurs ; une seule plafonne un process
 - 🚨 RÈGLE N°2 — un banc e2e a un DÉCOR ; décor manquant ≠ échec
 - Publier les résultats (HTML) — et la question à poser AVANT
 - Gotchas (vécus — ne pas réapprendre)
@@ -75,7 +76,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/ab-perf-mono-prod.md` | Niveau 3 — A/B perf mono prod : détails | 139 |
-| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 158 |
+| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 162 |
 | `references/protocoles-bancs-charge.md` | Protocoles détaillés des bancs de charge les plus utilisés | 237 |
 | `references/reperes-empiriques.md` | Repères empiriques — pour situer un résultat | 30 |
 
@@ -101,6 +102,7 @@ script, donc toujours à jour après régénération.
 | `scripts/cluster-probe-e2e.mjs` | Preuve BOUT-EN-BOUT de la SONDE AGRÉGÉE pod (cluster sans PM2) — Phase 4c, mode push. | — | `E2E_ROLE` `SETTLE` |
 | `scripts/cluster-realtime-e2e.mjs` | Preuve BOUT-EN-BOUT du realtime cross-process Nodefony (cluster sans PM2) — Phase 4b. | — | `E2E_ROLE` `SETTLE` |
 | `scripts/config-env-override-e2e.mjs` | Banc e2e TERRAIN — override de config par variable d'environnement (ADR-0006) — sans navigateur. | — | `BOOT_TIMEOUT_MS` `FAIL_TIMEOUT_MS` `HTTPS_PORT` `HTTP_PORT` |
+| `scripts/db-backend-cost.mjs` | db-backend-cost — ce qu'un backend de base de données coûte AU SERVEUR, et non | `--ceiling` `--prove` | `CONC` `JSON_OUT` `LIMIT` `NF_DATABASE_URL` `NF_PG_URL` `PG_CONTAINER` `REPS` `ROWS` `SEC` `SERIES` |
 | `scripts/debug-runtime-e2e.mjs` | Banc e2e TERRAIN — debug runtime par-module à chaud — sans navigateur. | — | — |
 | `scripts/graceful-shutdown-e2e.mjs` | Banc e2e du GRACEFUL SHUTDOWN (@nodefony/http, trous 1+3 revue 0.7) — sans navigateur. | — | `HTTP_SLOW_URL` `PORT` `WS_URL` |
 | `scripts/http-load.mjs` | Stress HTTP — N requêtes avec concurrence C sur une route Nodefony. | — | `BODY` `METHOD` `URL` `URL_STR` |
@@ -109,9 +111,11 @@ script, donc toujours à jour après régénération.
 | `scripts/idempotency-postgres-e2e.mjs` | Banc CROSS-POD de l'idempotence distribuée Drizzle/PostgreSQL (axe 3, P6.8) — sans navigateur. | `--profile` | `CONC` `PG_URL` `ROUNDS` |
 | `scripts/idempotency-userland-e2e.mjs` | Banc e2e USERLAND @Idempotent contre un VRAI Redis (single-pod, P6.8) — sans navigateur. | — | — |
 | `scripts/log-sink-contention.mjs` | Microbench ISOLÉ du driver de sink de log (LB.W / axe W2). | — | `DIR` `JSON_OUT` `LINES` `ONLY` `RUNS` `VARIANT` `WARMUP` `WID` `WORKERS` |
+| `scripts/perf-dossier-report.mjs` | Rapport HTML de synthèse — dossier Performance de Nodefony. | `--prove` | `OUT` |
 | `scripts/poc-bench.mjs` | POC bench — mesure la latence p50/p95/p99 du backend Nodefony | `--concurrency` `--duration` `--label` `--touch` `--touch-delay` `--url` | — |
 | `scripts/poc-hmr-perf.mjs` | POC HMR perf — mesure le délai end-to-end entre : | `--file` `--gap-ms` `--iterations` `--vite-url` | — |
 | `scripts/ratelimit-e2e.mjs` | Banc e2e du RATE-LIMIT GÉNÉRAL par IP (@nodefony/http, P0.3) — sans navigateur. | — | `MAX` `RL_URL` `URL` |
+| `scripts/route-scan-cost.mjs` | route-scan-cost — ce que la RÉSOLUTION DE ROUTE coûte à une application, et | `--diagnostic` `--json` `--measure` `--reps` `--routes` `--scale` `--target` | `JSON_OUT` |
 | `scripts/run.sh` | Wrapper unique du skill load-test. Route vers les suites vitest VERSIONNÉES | `--config` `--rupture` | — |
 | `scripts/scaffold-ws-probe.mjs` | Sonde : prouve que le job de scaffold est bien streamé sur la socket Nodefony. | — | `NF_STEPS` `NF_WAIT` |
 | `scripts/supervision-stress.mjs` | STRESS COMBINÉ « supervision » — pousse SIMULTANÉMENT 3 lanes (HTTP + WebSocket | — | `BATCH` `ERR_RUPTURE` `HOST` `HTTP_PATH` `HTTP_STEP` `MSG_HZ` `ORM_PATH` `ORM_STEP` `PORT` `STAGES` `STAGE_MS` `WS_PATH` `WS_STEP` |
@@ -148,9 +152,11 @@ node .claude/skills/nodefony-load-test/scripts/idempotency-cluster-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/idempotency-postgres-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/idempotency-userland-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/log-sink-contention.mjs
+Usage :  node .claude/skills/nodefony-load-test/scripts/perf-dossier-report.mjs [sortie.html]
 node scripts/poc-bench.mjs [--url http://127.0.0.1:5151/poc/api/data]
 node scripts/poc-hmr-perf.mjs --file /abs/path/to/App.tsx
 bash .claude/skills/nodefony-start-server/start.sh
+node .claude/skills/nodefony-load-test/scripts/route-scan-cost.mjs
 Usage : node scaffold-ws-probe.mjs <cookie> [type] [name]
 node .claude/skills/nodefony-load-test/scripts/supervision-stress.mjs
 Lancement : node .claude/skills/nodefony-load-test/scripts/totp-mfa-attack-e2e.mjs
@@ -164,7 +170,7 @@ bash .claude/skills/nodefony-start-server/start.sh
 node .claude/skills/load-test/scripts/ws-messages.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `BASE` · `BATCH` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_HEADER` · `BENCH_ROLE` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAP` · `CHANNEL` · `CLIENTS` · `CONC` · `DIR` · `DIST` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `LINES` · `MAX` · `METHOD` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_HOST` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_STEPS` · `NF_WAIT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAYLOAD` · `PCLR` · `PG_URL` · `PORT` · `PTLS` · `RATE` · `REPEAT` · `RL_URL` · `ROUNDS` · `ROUTE` · `RUNS` · `SETTLE` · `STAGES` · `STAGE_MS` · `STEP` · `TIMEOUT_MS` · `URL` · `URL_STR` · `VARIANT` · `WARMUP` · `WID` · `WORKERS` · `WS_PATH` · `WS_STEP` · `WS_URL`
+**Toutes les variables lues par ce skill** : `BASE` · `BATCH` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_HEADER` · `BENCH_ROLE` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAP` · `CHANNEL` · `CLIENTS` · `CONC` · `DIR` · `DIST` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `LIMIT` · `LINES` · `MAX` · `METHOD` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_DATABASE_URL` · `NF_HOST` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_STEPS` · `NF_WAIT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `STAGES` · `STAGE_MS` · `STEP` · `TIMEOUT_MS` · `URL` · `URL_STR` · `VARIANT` · `WARMUP` · `WID` · `WORKERS` · `WS_PATH` · `WS_STEP` · `WS_URL`
 
 ## Conformité au standard Agent Skills
 
@@ -183,7 +189,7 @@ node .claude/skills/load-test/scripts/ws-messages.mjs
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 234 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 330 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

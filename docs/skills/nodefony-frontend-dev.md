@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-06
+updated: 2026-08-07
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 ---
@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 | --- | --- |
 | Version | `1.0.0` |
 | Famille | Développer le framework |
-| Corps | 112 lignes |
-| Coût d'activation | ~2 831 tokens (le corps est chargé à l'invocation) |
+| Corps | 109 lignes |
+| Coût d'activation | ~2 740 tokens (le corps est chargé à l'invocation) |
 | Description | 1005 / 1024 caractères |
 | Déclencheurs | 20 |
 | Ressources `references/` | 6 page(s), 14 fichiers au total |
@@ -43,7 +43,7 @@ Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodef
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`create-frontend-module`](nodefony-create-frontend-module.md) · [`framework-dev`](nodefony-framework-dev.md) · [`rfc`](nodefony-rfc.md) · [`security-review`](nodefony-security-review.md) · [`studio-dev`](nodefony-studio-dev.md)
+[`browser`](nodefony-browser.md) · [`create-frontend-module`](nodefony-create-frontend-module.md) · [`framework-dev`](nodefony-framework-dev.md) · [`rfc`](nodefony-rfc.md) · [`security-review`](nodefony-security-review.md) · [`studio-dev`](nodefony-studio-dev.md)
 
 ## Quand il se déclenche
 
@@ -66,7 +66,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/build-hmr.md` | Référence — Builder & HMR Vite (@nodefony/frontend) | 725 |
+| `references/build-hmr.md` | Référence — Builder & HMR Vite (@nodefony/frontend) | 673 |
 | `references/data-bff.md` | Consommer le data-plane BFF (front Nodefony) | 243 |
 | `references/front-quality.md` | Qualité front (Nodefony) — temps réel calme · perf CSS · a11y · sécu | 154 |
 | `references/isomorphic.md` | Cœur isomorphe nodefony côté navigateur | 269 |
@@ -92,7 +92,7 @@ _(+ 8 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 112 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 109 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

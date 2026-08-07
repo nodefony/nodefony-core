@@ -5,7 +5,7 @@ audience: humain
 topic: skills
 tests: none
 status: stable
-updated: 2026-08-06
+updated: 2026-08-07
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -19,7 +19,7 @@ source: "docs/skills/index.md"
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **Fiches des skills**
 
-**23 skills** · **23/23 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
+**24 skills** · **24/24 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
 
 ## 🧭 Par où commencer
 
@@ -82,7 +82,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.1.0" },
   { "icon": "📈", "title": "load-test", "href": "nodefony-load-test.md",
     "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).",
-    "meta": "🟢 conforme · ⚙️ 37 scripts · 📎 4 réf" },
+    "meta": "🟢 conforme · ⚙️ 40 scripts · 📎 4 réf" },
   { "icon": "🛰️", "title": "multipod-bench", "href": "nodefony-multipod-bench.md",
     "desc": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout.",
     "meta": "🟢 conforme · ⚙️ 9 scripts · 📎 2 réf" },
@@ -144,6 +144,9 @@ source: "docs/skills/index.md"
 
 ```nodefony-cards
 [
+  { "icon": "🔧", "title": "browser", "href": "nodefony-browser.md",
+    "desc": "Ouvre une page réelle dans un navigateur en conteneur pour la VOIR et surtout la MESURER — contrastes et tailles calculés, arbre d'accessibilité, erreurs de console, requêtes réseau — sans installer de navigateur sur le poste.",
+    "meta": "🟢 conforme v1.0.0 · ⚙️ 2 scripts · 📎 1 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "nodefony-devkit-bench.md",
     "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
     "meta": "🟢 conforme v1.3.0 · ⚙️ 6 scripts · 📎 3 réf" }
@@ -154,6 +157,7 @@ source: "docs/skills/index.md"
 
 | Skill | Version | Corps | Réf. | Scripts | Conforme |
 | --- | --- | ---: | ---: | ---: | :---: |
+| [`nodefony-browser`](nodefony-browser.md) | 1.0.0 | 163 | 1 | 2 | ✅ |
 | [`nodefony-check-externals`](nodefony-check-externals.md) | — | 114 | 0 | 0 | ✅ |
 | [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | — | 83 | 0 | 0 | ✅ |
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 249 | 1 | 0 | ✅ |
@@ -162,10 +166,10 @@ source: "docs/skills/index.md"
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.3.0 | 353 | 3 | 6 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 2.4.0 | 459 | 2 | 7 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 357 | 10 | 0 | ✅ |
-| [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 112 | 6 | 0 | ✅ |
+| [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 109 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 198 | 3 | 3 | ✅ |
 | [`nodefony-inspect`](nodefony-inspect.md) | 1.0.0 | 258 | 0 | 0 | ✅ |
-| [`nodefony-load-test`](nodefony-load-test.md) | — | 234 | 4 | 37 | ✅ |
+| [`nodefony-load-test`](nodefony-load-test.md) | — | 330 | 4 | 40 | ✅ |
 | [`nodefony-migration-audit`](nodefony-migration-audit.md) | — | 357 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 140 | 2 | 9 | ✅ |
 | [`nodefony-release`](nodefony-release.md) | 1.0.0 | 130 | 0 | 3 | ✅ |

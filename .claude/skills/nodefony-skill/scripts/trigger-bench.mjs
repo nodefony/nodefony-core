@@ -130,6 +130,12 @@ const CASES = [
   ["réserver cette page aux administrateurs", "protect-route"],
   ["ajoute un flux temps réel", "add-realtime-channel"],
   ["mon canal websocket est public", "add-realtime-channel"],
+  // — observer un écran RÉEL (le décor navigateur, pas le dev front)
+  ["regarde l'écran", "nodefony-browser"],
+  ["lis la console du navigateur", "nodefony-browser"],
+  ["mesure le contraste de cette couleur", "nodefony-browser"],
+  ["est-ce que la page s'affiche ?", "nodefony-browser"],
+  ["prends une capture d'écran de la page", "nodefony-browser"],
 ];
 
 /**
@@ -143,6 +149,11 @@ const NEGATIVE_CASES = [
   ["lance un test de charge", "nodefony-check-memory-health"], // charge ≠ gate mémoire
   ["écris une page de doc de référence", "nodefony-studio-dev"], // doc ≠ écran générique
   ["démarre le serveur de dev", "nodefony-debug"], // démarrer ≠ diagnostiquer
+  // Observer un écran ≠ coder le front. `nodefony-browser` porte des mots très
+  // attractifs (« affichage », « page », « accessibilité ») : ces deux cas
+  // gardent la frontière, faute de quoi il capterait les demandes de dev front.
+  ["mon prébundle Vite est périmé", "nodefony-browser"],
+  ["comment brancher le socket client ?", "nodefony-browser"],
 ];
 
 /**

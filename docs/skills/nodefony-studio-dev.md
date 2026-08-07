@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-06
+updated: 2026-08-07
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-studio-dev/SKILL.md"
 ---
@@ -28,7 +28,7 @@ source: ".claude/skills/nodefony-studio-dev/SKILL.md"
 | Version | `2.0.0` |
 | Famille | Développer le framework |
 | Corps | 143 lignes |
-| Coût d'activation | ~3 584 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~3 608 tokens (le corps est chargé à l'invocation) |
 | Description | 935 / 1024 caractères |
 | Déclencheurs | 14 |
 | Ressources `references/` | 6 page(s) |
@@ -43,7 +43,7 @@ Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`create-frontend-module`](nodefony-create-frontend-module.md) · [`documentation`](nodefony-documentation.md) · [`framework-dev`](nodefony-framework-dev.md) · [`frontend-dev`](nodefony-frontend-dev.md) · [`rfc`](nodefony-rfc.md) · [`security-review`](nodefony-security-review.md) · [`start-server`](nodefony-start-server.md)
+[`browser`](nodefony-browser.md) · [`create-frontend-module`](nodefony-create-frontend-module.md) · [`documentation`](nodefony-documentation.md) · [`framework-dev`](nodefony-framework-dev.md) · [`frontend-dev`](nodefony-frontend-dev.md) · [`rfc`](nodefony-rfc.md) · [`security-review`](nodefony-security-review.md) · [`start-server`](nodefony-start-server.md)
 
 ## Quand il se déclenche
 
