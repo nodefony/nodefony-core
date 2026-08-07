@@ -9,7 +9,7 @@ import { RouterProvider } from "react-router/dom";
 import { NodefonyProvider } from "nodefony/react";
 import { StoreProvider, RootStore, useAuth } from "./stores";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { buildStudioTheme } from "./theme";
+import { buildStudioTheme, studioCssVariablesResolver } from "./theme";
 import { AuthGuard } from "./components/AuthGuard";
 import { RoleGuardOutlet } from "./components/RoleGuard";
 import { VIEW_ROLES } from "./auth/roles";
@@ -286,7 +286,11 @@ const SessionBootstrap = observer(
 export const App = observer(() => {
   const theme = buildStudioTheme(rootStore.ui.palette);
   return (
-    <MantineProvider theme={theme} defaultColorScheme="dark">
+    <MantineProvider
+      theme={theme}
+      defaultColorScheme="dark"
+      cssVariablesResolver={studioCssVariablesResolver}
+    >
       {/* limit borne la pile visible (le reste passe en file d'attente) → pas de
           flood ; autoClose défaut = filet de sécurité si un appel oublie le sien. */}
       <Notifications position="top-right" limit={5} autoClose={4000} />

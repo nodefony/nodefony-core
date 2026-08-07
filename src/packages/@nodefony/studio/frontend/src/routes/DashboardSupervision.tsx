@@ -1337,19 +1337,40 @@ export const DashboardSupervision = observer(() => {
               openDelay={120}
               closeDelay={120}
             >
-              <HoverCard.Target>
-                <div>
-                  <Switch
+              {/*
+                La cible du HoverCard est un BOUTON, pas le conteneur du Switch.
+                Mantine injecte `aria-haspopup` + `aria-expanded` sur l'enfant du
+                Target, inconditionnellement : sur un `<div>` nu (rôle générique)
+                `aria-expanded` est INVALIDE — l'arbre d'accessibilité annonce un
+                contrôle dépliable qui n'existe pas. Ça cassait `aria-allowed-attr`
+                ET `agent-accessibility-tree` (catégorie Agentic Browsing), un
+                agent lisant alors une structure incohérente.
+                Second gain, invisible dans l'audit : l'aide était SURVOL SEUL,
+                donc inatteignable au clavier. Une icône focusable la rend
+                accessible. C'est le patron déjà éprouvé de `DocHint`.
+              */}
+              <Group gap={6} wrap="nowrap">
+                <Switch
+                  size="sm"
+                  checked={live}
+                  onChange={(e) => ui.setRealtimeLive(e.currentTarget.checked)}
+                  label="Temps réel"
+                  aria-label="abonnement temps réel (socket Nodefony) des sondes de supervision"
+                />
+                <HoverCard.Target>
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
                     size="sm"
-                    checked={live}
-                    onChange={(e) =>
-                      ui.setRealtimeLive(e.currentTarget.checked)
-                    }
-                    label="Temps réel"
-                    aria-label="abonnement temps réel (socket Nodefony) des sondes de supervision"
-                  />
-                </div>
-              </HoverCard.Target>
+                    radius="xl"
+                    w={24}
+                    h={24}
+                    aria-label="aide : temps réel et granularité des sondes"
+                  >
+                    <IconInfoCircle size={15} stroke={1.6} />
+                  </ActionIcon>
+                </HoverCard.Target>
+              </Group>
               <HoverCard.Dropdown>
                 <Group gap={6} mb={6}>
                   <IconBolt size={14} />
@@ -1442,7 +1463,15 @@ export const DashboardSupervision = observer(() => {
             />
             <Stack gap={8} style={{ flex: 1, minWidth: 0 }}>
               <Group gap={8} wrap="nowrap">
-                <Title order={3} size="h4">
+                {/*
+                  `order` = niveau SÉMANTIQUE, `size` = apparence : garder
+                  `size="h4"` laisse le rendu identique. En `order={3}` ce titre
+                  sautait un niveau — la page pose un `h1` (PageHeader) et les
+                  `MiniChart` un `h2`, mais celui-ci les PRÉCÈDE : h1 → h3.
+                  Un plan de document troué se parcourt mal au lecteur d'écran,
+                  et un agent qui se repère aux titres perd la hiérarchie.
+                */}
+                <Title order={2} size="h4">
                   {isCluster
                     ? `Santé du worker · pid ${targetPid}`
                     : "Santé du framework"}
@@ -1633,7 +1662,37 @@ export const DashboardSupervision = observer(() => {
 
       {/* ── Bandeau état global / alertes ── */}
       {waiting ? (
-        <Skeleton h={56} radius="md" />
+        /*
+          Le squelette REPRODUIT la structure de l'alerte qu'il remplace, au lieu
+          d'être un rectangle d'une hauteur devinée.
+
+          Pourquoi : `<Skeleton h={56}>` était plus court que TOUTES les
+          variantes réelles (une `Alert` avec titre + corps en fait bien plus).
+          À la substitution, tout ce qui suit descendait d'un coup — mesuré,
+          ce bandeau pesait **0,151 des 0,219 de CLS** de la page, soit le
+          premier contributeur. Un squelette qui ne fait pas la taille de ce
+          qu'il remplace ne réserve rien : il déplace le décalage.
+
+          Deviner la bonne hauteur ne corrigerait rien durablement (elle change
+          avec le contenu). Garder la MÊME enveloppe — même `Alert`, même
+          padding, même titre, même nombre de lignes — rend la réservation
+          exacte par construction. L'état affiché au premier rendu est toujours
+          « en pause » (le temps réel est OFF au chargement, par choix de perf) :
+          c'est donc cette variante-là, à trois lignes, que l'on calque.
+        */
+        <Alert
+          variant="light"
+          color="gray"
+          icon={<IconPlayerPause size={18} />}
+          title="Lecture de l'état…"
+          role="status"
+        >
+          <Stack gap={6}>
+            <Skeleton h={9} w="92%" />
+            <Skeleton h={9} w="88%" />
+            <Skeleton h={9} w="40%" />
+          </Stack>
+        </Alert>
       ) : !live ? (
         <Alert
           variant="light"

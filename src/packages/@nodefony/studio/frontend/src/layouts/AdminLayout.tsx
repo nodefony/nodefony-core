@@ -390,7 +390,27 @@ export const AdminLayout = observer(() => {
               <HoverCard.Target>
                 <UnstyledButton
                   onClick={() => navigate("/nodefony/hub")}
-                  aria-label="Realtime Hub — ouvrir le hub temps réel"
+                  // WCAG 2.5.3 (Label in Name) — le nom accessible doit CONTENIR
+                  // le texte visible, sinon une commande vocale « clique sur
+                  // CONNECTED » ne trouve pas la cible. Le libellé visible est
+                  // l'état de connexion (dynamique) : on le compose dans le nom
+                  // au lieu de le remplacer par une formule fixe.
+                  // Le texte visible est l'état PUIS le compteur d'abonnements
+                  // (« CONNECTED 3 ») : le nom accessible doit le contenir DANS
+                  // CET ORDRE, pas seulement en contenir les morceaux. Première
+                  // tentative : le compteur était rejeté en fin de phrase
+                  // (« … hub temps réel (3 abonnements) ») — la séquence était
+                  // rompue et l'audit tombait encore.
+                  // `.toUpperCase()` : le Badge rend son libellé en capitales
+                  // (`text-transform`), donc le texte VISIBLE est « CONNECTED »
+                  // quand la donnée vaut « connected ». L'audit compare au texte
+                  // rendu, pas au contenu du DOM — un nom accessible en
+                  // minuscules ne correspondait toujours pas.
+                  aria-label={`${conn.state.toUpperCase()}${
+                    conn.subscriptionCount > 0
+                      ? ` ${conn.subscriptionCount}`
+                      : ""
+                  } — Realtime Hub, ouvrir le hub temps réel`}
                 >
                   <Badge
                     leftSection={
@@ -478,17 +498,25 @@ export const AdminLayout = observer(() => {
                 <ActionIcon
                   variant="subtle"
                   radius="xl"
-                  aria-label="Mon compte"
+                  // WCAG 2.5.3 — l'avatar rend les INITIALES, du texte visible
+                  // qui ne figurait pas dans le nom accessible. Les initiales
+                  // sont une représentation graphique de l'identité, pas un
+                  // libellé : on les retire de l'arbre (`aria-hidden`) et on
+                  // nomme le bouton entièrement. Un lecteur d'écran — comme un
+                  // agent — entend « Mon compte, admin » plutôt que « AD ».
+                  aria-label={`Mon compte — ${auth.displayName}`}
                 >
-                  <UserAvatar
-                    profile={
-                      meProfile?.profile ?? {
-                        email: auth.user?.email ?? undefined,
+                  <span aria-hidden="true">
+                    <UserAvatar
+                      profile={
+                        meProfile?.profile ?? {
+                          email: auth.user?.email ?? undefined,
+                        }
                       }
-                    }
-                    identifier={auth.displayName}
-                    size={28}
-                  />
+                      identifier={auth.displayName}
+                      size={28}
+                    />
+                  </span>
                 </ActionIcon>
               </HoverCard.Target>
               <HoverCard.Dropdown p={0} style={{ overflow: "hidden" }}>

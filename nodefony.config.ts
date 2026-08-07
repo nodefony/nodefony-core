@@ -154,19 +154,41 @@ export default defineConfig<Env>((ctx) => ({
         // 127.0.0.1), en prod via le vrai DNS. Le port est strippé avant le match
         // (cf domainMatcher) → `nodefony.com:5151` matche `nodefony.com`.
         //
-        // DEV UNIQUEMENT — `host.docker.internal` : un navigateur qui tourne DANS un
-        // conteneur (banc Playwright, cf docker-compose.yml service `browser`) ne peut
-        // pas dire « localhost » — ce nom y désigne le conteneur lui-même. Docker
-        // Desktop lui donne `host.docker.internal` pour joindre la machine hôte, et
-        // c'est ce nom qui arrive dans l'en-tête `Host` : sans lui dans l'allowlist, la
-        // barrière répond `421 Misdirected Request` alors que le réseau, lui, passe.
-        // Hors dev on ne l'ajoute PAS : en production ce nom n'a aucun sens et
-        // élargirait l'allowlist pour rien.
+        // `host.docker.internal` : un navigateur qui tourne DANS un conteneur (le
+        // service `browser` de docker-compose.yml) ne peut pas dire « localhost »
+        // — ce nom y désigne le conteneur lui-même. Docker Desktop lui donne
+        // `host.docker.internal` pour joindre la machine hôte, et c'est ce nom qui
+        // arrive dans l'en-tête `Host` : sans lui dans l'allowlist, la barrière
+        // répond `421 Misdirected Request` alors que le réseau, lui, passe.
+        //
+        // 🔴 EXCEPTION ASSUMÉE, PROPRE À CE DÉPÔT — inconditionnelle, y compris en
+        // production. Elle était auparavant limitée au développement, ce qui
+        // paraissait plus sûr et rendait en fait le navigateur en conteneur
+        // INUTILISABLE là où l'on en a le plus besoin : les audits (Lighthouse,
+        // accessibilité, agentic) se mènent sur un runtime `production`, et le
+        // conteneur y recevait `421` dès la connexion — donc aucune page derrière
+        // authentification n'était observable, ni par un humain ni par un agent.
+        //
+        // Pourquoi c'est acceptable ICI : ce dépôt est le banc de développement du
+        // framework, jamais un déploiement exposé. `host.docker.internal` n'est
+        // d'ailleurs pas un nom résolvable publiquement — c'est une convention
+        // Docker Desktop, absente d'internet et des clusters. L'élargissement porte
+        // donc sur un nom que seul un conteneur local peut présenter.
+        //
+        // 🔴 CE QUI NE DOIT PAS ESSAIMER : le SCAFFOLD ne pose pas cette entrée, et
+        // ne doit jamais la poser. Une application générée n'a aucune raison de
+        // faire confiance à ce nom en production — sa configuration ne mentionne
+        // `host.docker.internal` que dans la documentation de
+        // `NF_FRONTEND_PUBLIC_ORIGIN` (gabarits `nodefony.config.ts.tpl`,
+        // `compose.yaml.tpl`, `AGENTS.md.tpl`), là où c'est un conseil de dev et
+        // non une règle de sécurité. Vérifié : aucun gabarit n'écrit
+        // `trustedHosts`. Si un jour l'un d'eux le fait, cette entrée reste
+        // conditionnée au développement CHEZ LUI.
         trustedHosts: [
           "localhost",
           "127.0.0.1",
           "nodefony.com",
-          ...(ctx.isDev ? ["host.docker.internal"] : []),
+          "host.docker.internal",
         ],
         // trustProxy : n'honore les en-têtes forwarded que derrière un proxy de
         // confiance. Activé via NF_BIND_ALL (banc reverse-proxy Docker : IP source
