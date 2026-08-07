@@ -95,6 +95,46 @@
   NIST pendant la campagne Express intercalée). Le check de cible doit faire `exit`, pas imprimer.
   Corollaire : campagne longue + route authentifiée = **re-login au début de CHAQUE phase**.
 
+## 📐 Un POURCENTAGE de profil n'est pas un pourcentage de budget
+
+- `[3× — 08-07]` 🔴 **Trois pistes ouvertes sur le même malentendu, écart ×25-30 à chaque fois** :
+  le profil imputait 18 µs à `Tools.extend` (réel : 1,3 µs), 31 µs à `Route.match` (réel : 1,15 µs),
+  21,6 % au scope DI (réel : 0,7 %). Un % de CPU **busy** n'est pas un % du budget de requête quand
+  le temps part en attente I/O, et le % d'une fonction agrège TOUS ses sites (boot compris) plus ses
+  frames enfants. **Conduite : convertir tout % de profil en ns par un micro-bench AVANT d'ouvrir un
+  lot.** Trois lots l'auraient été pour rien.
+- `[1× — 08-07]` **Le compte, lui, ne ment pas** : 43 `Route.match` par requête sur `auth/me` est
+  exact et déterministe (aucune mesure de temps). Quand un diagnostic peut se poser en COMPTE plutôt
+  qu'en durée, le préférer — il survit au bruit, à la machine et à l'instrument.
+
+## 🔬 Quatre instruments faux d'affilée sur UNE seule question
+
+- `[4× — 08-07]` 🔴 « Qui bloque la boucle d'événements ? » a produit : `setInterval`+`setTimeout(0)`
+  (Node borne un délai de 0 à ~1 ms → on mesure le minuteur : « SQLite bloque 0,43 ms » pour 33 µs) ·
+  `monitorEventLoopDelay` (résolution ~1 ms → rend son propre plancher pour les DEUX pilotes) ·
+  une colonne **« bloque la boucle ? non »** qui AFFIRMAIT sans avoir mesuré · `process.cpuUsage()`
+  lu comme « CPU du fil principal » alors qu'il compte tous les fils (110 % du temps mural observé).
+  **Règle qui en sort : un banc qui n'a pas mesuré doit SE TAIRE, pas répondre « non ».**
+- `[1× — 08-07]` ⭐ **Ce qui a fini par trancher : chercher un effet MACROSCOPIQUE.** Armer un rappel
+  avant la requête et regarder quand il part → SQLite retarde de 134 ms pour 133 ms de travail,
+  PostgreSQL de 0,22 ms pour 503 ms d'attente. À cette échelle, aucun instrument fin n'intervient.
+  Quand quatre mesures fines se contredisent, changer d'ORDRE DE GRANDEUR plutôt que d'instrument.
+- `[1× — 08-07]` 🔴 **Deux explications successives réfutées, dont ma « correction »** : « le
+  round-trip Docker est incompressible » (faux : l'attente ne consomme pas la boucle), puis « c'est
+  PostgreSQL qui sature » (faux : coïncidence de deux erreurs — un `EXPLAIN ANALYZE` à froid et
+  460 % de CPU lus comme une saturation alors que la VM a 8 vCPU). Le vrai coupable — le chemin
+  réseau VIRTUALISÉ — ne s'est montré qu'en DEMANDANT à la base : `pg_stat_activity` pendant la
+  charge (40 backends sur 40 en `ClientRead`) et `pgbench` dans le conteneur (11-12,9 k tps contre
+  ~5 400 depuis l'hôte).
+
+## 🧭 Une leçon gravée dans UN artefact ne protège pas le suivant
+
+- `[1× — 08-07]` 🔴 **Le script portait les quatre pièges dans son en-tête ; le `SKILL.md` n'en
+  disait rien** — donc invisible à qui lit le skill sans ouvrir le dossier `scripts/`. Et sa ligne
+  de catalogue portait encore l'affirmation qui venait d'être réfutée. **Après toute correction
+  d'un artefact, chercher les AUTRES endroits qui répètent la même affirmation** (même motif que
+  `feedback_single_source_rule`, mais côté documentation d'outil).
+
 ## 🔎 Ce que le journal des commits CACHE
 
 - `[1× — 2026-07-30]` 🔴 **Un correctif logé dans un commit au sujet étranger est invisible, et on
