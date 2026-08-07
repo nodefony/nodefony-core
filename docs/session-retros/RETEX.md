@@ -161,11 +161,56 @@
 
 ## 🧭 Une leçon gravée dans UN artefact ne protège pas le suivant
 
+- `[2× — 08-07d]` 🔴 **J'ai écrit la règle, puis je l'ai enfreinte dans l'heure — et c'est le user
+  qui l'a payé.** Le skill que je venais de rédiger disait, en toutes lettres, que
+  `NF_FRONTEND_PUBLIC_ORIGIN` est un _décor d'observation, pas un réglage_ : « la poser, c'est
+  prévoir de la retirer ». Posée pour observer Studio depuis le conteneur, oubliée en sortant →
+  **Studio mort sur le poste du user**, sans la moindre erreur côté serveur (la page annonce ses
+  assets sur un nom que seul un conteneur résout). **Une variable dont l'oubli casse
+  l'environnement n'a pas besoin d'un rappel écrit : elle a besoin de DISPARAÎTRE** — d'où le lot
+  B (dériver l'origine du `Host` de la requête). Corollaire général : quand une consigne dit
+  « pense à défaire X », c'est le signe que X ne devrait pas exister.
 - `[1× — 08-07]` 🔴 **Le script portait les quatre pièges dans son en-tête ; le `SKILL.md` n'en
   disait rien** — donc invisible à qui lit le skill sans ouvrir le dossier `scripts/`. Et sa ligne
   de catalogue portait encore l'affirmation qui venait d'être réfutée. **Après toute correction
   d'un artefact, chercher les AUTRES endroits qui répètent la même affirmation** (même motif que
   `feedback_single_source_rule`, mais côté documentation d'outil).
+
+## 🔦 Une capacité qu'on n'ATTEINT pas n'existe pas
+
+- `[1× — 08-07d]` 🔴 **J'ai fait jouer la sonde au user pendant des heures alors qu'un navigateur
+  en conteneur était déclaré depuis longtemps.** Il a fallu qu'il s'énerve — « oui tu as un
+  navigateur, j'arrête pas de le dire » — pour que je l'atteigne. La capacité vivait dans un
+  `references/` d'un skill front, chargé à la demande, qui ne se déclenche que sur du dev front.
+  **Une capacité TRANSVERSE rangée dans un artefact THÉMATIQUE est morte** : ses déclencheurs ne
+  sont jamais ceux du contexte où on en a besoin. Réparé par un skill dédié (`nodefony-browser`)
+  - un pointeur au `CLAUDE.md`. Test à s'appliquer : « si j'avais besoin de ça sans le savoir,
+    quel mot de ma demande m'y amènerait ? » — s'il n'y en a aucun, la porte n'existe pas.
+- `[1× — 08-07d]` **Et ce qu'elle apportait dépassait ce que j'en attendais** : pas seulement des
+  captures — `getComputedStyle` rend les contrastes CALCULÉS, ce qui valide une correction de
+  palette sans attendre un audit. On sous-estime un outil qu'on n'a jamais ouvert.
+
+## 🕵️ Deux symptômes sans rapport ⇒ soupçonner une cause TEMPORELLE commune
+
+- `[1× — 08-07d]` 🔴 **« Le `fetch` tue la session » et « le formulaire React résiste au
+  pilotage » : deux fausses pistes, une seule cause.** Le serveur MCP envoie un `ping` au CLIENT
+  toutes les 3 s et ferme la session s'il ne répond pas en 5 s ; un `curl` one-shot ne lit pas le
+  flux et ne répond jamais. Tout appel un peu long franchissait l'échéance que les appels rapides
+  passaient de justesse — **c'était le temps, pas le code**. Symptômes trompeurs : `HTTP 200` au
+  corps VIDE, puis `404 Session not found`, qu'on impute à l'inactivité alors que c'est
+  l'INVERSE. Deux heures perdues. **Quand deux symptômes sans lien apparent surgissent ensemble,
+  chercher d'abord ce qui court en arrière-plan.**
+
+## 🧪 Un gate ne prouve rien tant qu'on ne l'a pas vu ROUGE — deux faux verts le même jour
+
+- `[1× — 08-07d]` 🔴 **Une chaîne passée à `waitForFunction` est évaluée comme une EXPRESSION** :
+  donner `() => x` y DÉFINIT une fonction sans jamais l'appeler ; l'objet fonction est truthy,
+  donc l'attente réussit **toujours**, même sur une condition impossible. Trouvé uniquement en
+  testant une condition qui NE POUVAIT PAS être vraie. Toute condition d'arrêt se vérifie ainsi.
+- `[1× — 08-07d]` **Un squelette de chargement plus court que ce qu'il remplace ne réserve rien**
+  — il déplace le décalage au moment de la substitution (0,151 des 0,219 de CLS de la page).
+  Et deviner « la bonne hauteur » ne tient pas : elle change avec le contenu. Le correctif est
+  structurel — garder la MÊME enveloppe et n'en remplir que l'intérieur.
 
 ## 🔎 Ce que le journal des commits CACHE
 
