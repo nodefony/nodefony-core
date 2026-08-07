@@ -98,17 +98,10 @@ export const env = defineEnv({
     description: "Mot de passe du compte admin seedé au 1er boot (obligatoire en production).",
   }),
 <% } %><% if (it.complete || it.front) { %>
-  /**
-   * Origine PUBLIQUE du dev-server Vite — celle que le NAVIGATEUR utilise
-   * quand elle diffère de l'adresse d'écoute : dev dans un conteneur
-   * (`https://host.docker.internal:{port}` — `{port}` suit le port réel),
-   * tunnel, machine distante. ABSENTE = dérivation locale (le cas nominal) ;
-   * Codespaces/Gitpod se détectent automatiquement. Consommée par
-   * `use("@nodefony/frontend", { publicOrigin })` dans `nodefony.config.ts`.
-   */
-  NF_FRONTEND_PUBLIC_ORIGIN: envString({
-    optional: true,
-    description:
-      "Origine publique Vite (scheme://host[:port|:{port}]) — dev déporté/conteneur.",
-  }),
+  // L'origine publique du dev-server Vite n'est PAS une variable
+  // d'environnement : elle se dérive du `Host` de chaque requête, si bien que
+  // ton poste et un navigateur en conteneur chargent la même page en même
+  // temps, sans rien à poser. Pour un besoin durable — tunnel, proxy frontal —
+  // écris `publicOrigin` dans `nodefony.config.ts` : c'est un réglage, il gagne
+  // sur la dérivation, et il ne s'oublie pas dans un shell.
 <% } %>});

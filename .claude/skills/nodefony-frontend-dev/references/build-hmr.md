@@ -112,8 +112,8 @@ types `IFrontendConfigInput`/`FrontendConfig`).
 | `startDev`       | `() => Promise<void>`                                                          | Démarre Vite (1 instance/famille). Idempotent. Auto au boot. | `:289`                   |
 | `stopDev`        | `() => Promise<void>`                                                          | Stoppe toutes les instances (SIGINT→SIGKILL).                | `:495`                   |
 | `build`          | `(opts?: { force?: boolean }) => Promise<IFrontendBuildResult>`                | Build prod `vite.build()` par entry.                         | `:525`                   |
-| `renderTags`     | `(entryName: string, nonce?: string) => string`                                | Balises `<script>`/`<link>` à injecter.                      | `:630`                   |
-| `renderDocument` | `(entryName: string, nonce?: string) => string`                                | Document HTML complet (index.html du module + tags).         | `:618`                   |
+| `renderTags`     | `(entryName, nonce?, requestHost?) => string`                                  | Balises `<script>`/`<link>` à injecter.                      | `:630`                   |
+| `renderDocument` | `(entryName, nonce?, requestHost?) => string`                                  | Document HTML complet (index.html du module + tags).         | `:618`                   |
 | `assetUrl`       | `(p: string) => string`                                                        | Résout l'URL publique d'un asset (préfixe CDN si configuré). | `:114`                   |
 
 `IFrontendBuildResult` (`IFrontendService.ts:5`) : `{ built: string[]; skipped: string[];
@@ -163,6 +163,35 @@ Source unique des balises = `TemplateHelper` (`src/template/TemplateHelper.ts`).
 
 Le `nonce` (issu de `Context.cspNonce`) est posé sur les `<script>` (preamble inline dev + entrée)
 pour satisfaire `script-src 'nonce-…'` sans `'unsafe-inline'` (`TemplateHelper.ts:185`).
+
+**`requestHost` (issu de `Context.domain`, sans port) — l'origine des assets SUIT la requête.**
+En développement, la page annonce ses assets sur l'hôte par lequel le client est arrivé : un poste
+(`127.0.0.1`) et un navigateur en conteneur (`host.docker.internal`) chargent la même page **en
+même temps**, servis par une seule instance Vite, sans variable d'environnement ni `/etc/hosts`.
+Seul le NOM change — le scheme et le port restent ceux de Vite (une page servie en clair sur 5151
+charge donc légitimement ses assets en TLS sur 5173).
+
+Trois gardes, chacune protégeant un cas réel (`FrontendService.derivableHost`) :
+
+1. **origine non épinglée** — une `frontend.publicOrigin` explicite, ou une plateforme de dev
+   déporté détectée, gagne toujours : un réglage voulu prime sur une déduction ;
+2. **`trustedHosts` franchie** — le `Host` est une donnée CLIENTE ; sans ce filtre, une requête
+   forgée ferait émettre `<script src="https://attaquant:5173/…">`. La règle est celle du kernel
+   HTTP (`HttpKernel.isTrustedHostname`, résolu PAR NOM — pas d'import, pas de cycle), jamais une
+   seconde copie ;
+3. **barrière non déléguée** (`trustedHosts !== true`) — le bypass total ne dit plus rien d'un nom,
+   et le CSP émis ne couvrirait alors que loopback + domaine canonique.
+
+Un nom inexploitable (port, chemin, `@`, espace) laisse l'origine résolue : jamais d'URL bancale.
+En **production**, `requestHost` est ignoré — les URLs du manifest sont relatives au document,
+elles suivent déjà l'hôte de la page.
+
+> ⚠️ **Vite ne monte le contrôle `allowedHosts` HTTP que si le dev server n'est PAS en HTTPS**
+> (`vite/dist/node/chunks/node.js:26556`). Le **WebSocket du HMR**, lui, l'applique toujours. Un
+> hôte absent d'`allowedHosts` donne donc une page qui s'affiche et un HMR **muet** — le symptôme
+> le plus trompeur du domaine. Comme `allowedHosts`, le CSP et la dérivation viennent tous de
+> `trustedHosts`, ouvrir un hôte à un endroit l'ouvre partout : c'est voulu, et c'est ce qui rend
+> l'invariant tenable.
 
 **Helpers de template** (façon Symfony `encore_entry_script_tags`), même source `renderTags`/
 `renderDocument` :

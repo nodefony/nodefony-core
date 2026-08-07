@@ -28,8 +28,11 @@ class SvelteController extends Controller {
     // CSP émis par le firewall (@nodefony/security) : on propage le nonce de la
     // requête aux <script> (origines Vite déclarées via registerCspOrigins).
     const viteTags =
-      svc?.renderTags("test-frontend-svelte", this.context?.cspNonce) ??
-      "<!-- @nodefony/frontend: service unavailable -->";
+      svc?.renderTags(
+        "test-frontend-svelte",
+        this.context?.cspNonce,
+        this.context?.domain,
+      ) ?? "<!-- @nodefony/frontend: service unavailable -->";
     const html = `<!DOCTYPE html>
 <html lang="en">
   <head>

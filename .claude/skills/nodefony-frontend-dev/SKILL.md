@@ -101,10 +101,15 @@ ici un appel `ApiClient`/un hook/un canal consommé → vérifier/MAJ la section
 | Gotchas front (HMR, prébundle `.vite`, isomorphisme, socket)                                   | section _Gotchas_ dans chaque fichier ci-dessus |
 | **Best practices bundlées OFFLINE** (ergonomie, a11y, perf)                                    | `references/specs/` (voir liste ci-dessous)     |
 
-**`references/specs/` (offline, ~870 Ko)** : `w3c-wcag22.md` (WCAG 2.2 complet) · `w3c-aria-apg-patterns.md`
+**`references/specs/` (offline, ~900 Ko)** : `w3c-wcag22.md` (WCAG 2.2 complet) · `w3c-aria-apg-patterns.md`
 (ARIA Authoring Practices) · `nng-10-heuristics.md` (Nielsen Norman — 10 heuristiques d'ergonomie) ·
 `webdev-animations-perf.md` (web.dev — animations performantes) · MDN CSS perf : `mdn-css-will-change.md`,
-`mdn-css-contain.md`, `mdn-css-content-visibility.md`, `mdn-prefers-reduced-motion.md`.
+`mdn-css-contain.md`, `mdn-css-content-visibility.md`, `mdn-prefers-reduced-motion.md` ·
+**Vite** : `vite-guide-backend-integration.md` (le montage EXACT de Nodefony — un backend rend le
+HTML, Vite sert les assets), `vite-config-server-options.md` (`origin`, `cors`, `allowedHosts`,
+`hmr`, `fs.allow`), `vite-config-shared-options.md` (`base`, `resolve.dedupe`, `optimizeDeps`).
+Chaque fichier porte la version de Vite installée au moment du figeage — la relire avant de
+conclure qu'une option se comporte autrement.
 
 ## 4. Gates qualité front (AVANT de dire « fait »)
 

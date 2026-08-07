@@ -17,7 +17,7 @@ import type { FrontendService } from "@nodefony/frontend";
  *  - `root`   : racine Vite du module (contient index.html + src/) ;
  *  - `outDir` : sortie du build prod (montée en statique par le framework) ;
  *  - `name`   : nom de l'entry — le MÊME que celui passé à
- *    `renderDocument("<%= it.entryName %>", nonce)` par le controller de page ;
+ *    `renderDocument("<%= it.entryName %>", nonce, hôte)` par le controller ;
  *  - `apiProxyPaths` : chemins re-proxifiés de Vite vers Nodefony en dev —
  *    sans eux, un `fetch("/api/…")` depuis la page servie par Vite reçoit le
  *    SPA-fallback HTML de Vite au lieu du JSON (piège n°1 du multi-origine).

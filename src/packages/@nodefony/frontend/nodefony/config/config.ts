@@ -134,16 +134,20 @@ export const frontendConfigSchema = z
       })
       .describe(
         "Origine PUBLIQUE du dev server Vite — celle que le NAVIGATEUR utilise, " +
-          "quand elle diffère de l'adresse d'écoute (`devHost`) : dev container " +
-          "(`https://host.docker.internal:5173`), Codespaces/Gitpod (URL du " +
-          "forwarder, port encodé dans le sous-domaine, ex. " +
-          "`https://xxx-5173.app.github.dev`), ports remappés. Utilisée telle " +
-          "quelle (port inclus SEULEMENT si écrit) dans les `<script>` injectés, " +
-          "le `base` Vite et le WebSocket HMR (`hmr.host`/`clientPort`, dérivés). " +
-          "Vide (défaut) = dérivée de `devHost:devPort` (comportement local). " +
-          "L'hôte de cette origine est automatiquement autorisé par Vite " +
-          "(`server.allowedHosts`) — les autres hôtes légitimes viennent de la " +
-          "liste `trustedHosts` de @nodefony/http (une seule liste à maintenir).",
+          "quand elle diffère de l'adresse d'écoute (`devHost`). ÉPINGLE le " +
+          "rendu sur une origine unique : à réserver aux cas où un frontal la " +
+          "réécrit (tunnel, proxy, port remappé). Utilisée telle quelle (port " +
+          "inclus SEULEMENT si écrit) dans les `<script>` injectés, le `base` " +
+          "Vite et le WebSocket HMR (`hmr.host`/`clientPort`, dérivés). " +
+          "Vide (défaut, RECOMMANDÉ) = chaque page annonce l'origine par " +
+          "laquelle le client est arrivé (`Host` de la requête, scheme et port " +
+          "de Vite) : un poste et un navigateur en conteneur sont servis EN " +
+          "MÊME TEMPS par la même instance, sans configuration — et " +
+          "Codespaces/Gitpod restent détectés automatiquement. " +
+          "L'hôte d'une origine épinglée est automatiquement autorisé par Vite " +
+          "(`server.allowedHosts`) ; les hôtes suivis par la dérivation sont " +
+          "ceux de `trustedHosts` de @nodefony/http (une seule liste à " +
+          "maintenir : elle ouvre la barrière 421, Vite, le CSP et le rendu).",
       ),
     autoStartInDevelopment: z
       .boolean()

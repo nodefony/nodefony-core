@@ -415,14 +415,13 @@ services:
   # Deux prérequis côté application, sinon la page reste blanche ou refusée :
   #   1. `trustedHosts` doit contenir `host.docker.internal` (posé en dev dans
   #      `nodefony.config.ts`) — sinon la barrière Host répond `421`, réseau OK.
-  #   2. Rendre Vite joignable — ou observer en statique : en mode Vite, la page
-  #      annonce ses assets en `https://127.0.0.1:5173` — ce `127.0.0.1` est celui
-  #      du NAVIGATEUR, donc du conteneur, qui n'héberge aucun Vite. Remède avec
-  #      HMR (P14.17, prouvé depuis le conteneur) : lancer le serveur avec
-  #      `NF_FRONTEND_PUBLIC_ORIGIN=https://host.docker.internal:{port}`. ⚠️ Décor
-  #      d'OBSERVATION : restée posée, la variable casse le navigateur du POSTE —
-  #      la retirer en fin d'observation. Sans HMR : `NF_STUDIO_UI=static`
-  #      (+ `npm run build:ui`). Le pourquoi complet est dans `env.ts`.
+  #   2. Rien à poser pour Vite : l'origine des assets se DÉRIVE du `Host` de la
+  #      requête. Arriver par `host.docker.internal` suffit — l'allowlist Vite et
+  #      le WebSocket du HMR suivent le même nom, et le poste reste servi en même
+  #      temps sur `127.0.0.1`. (Il a existé une variable pour figer cette
+  #      origine ; oubliée en place, elle rendait le poste inutilisable. Elle a
+  #      été retirée — le pourquoi est dans `env.ts`.) Alternative sans Vite :
+  #      `NF_STUDIO_UI=static` (+ `npm run build:ui`).
   #
   # Usage :
   #   docker compose -f docker/docker-compose.yml --profile browser up -d

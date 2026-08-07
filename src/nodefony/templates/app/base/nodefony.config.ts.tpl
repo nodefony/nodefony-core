@@ -173,13 +173,18 @@ export default defineConfig<typeof env>((ctx) => ({
 
     /**
      * Builder Vite + statics : sert le frontend de l'app (HMR en dev).
-     * `publicOrigin` (vide = dérivation locale) : l'origine que le NAVIGATEUR
-     * utilise quand elle diffère de l'adresse d'écoute — dev en conteneur
-     * (`NF_FRONTEND_PUBLIC_ORIGIN=https://host.docker.internal:{port}`),
-     * tunnel, machine distante. Codespaces/Gitpod : détection automatique.
+     *
+     * L'origine que le NAVIGATEUR utilise pour les assets se dérive du `Host`
+     * de la requête : rien à configurer pour développer depuis une autre
+     * machine, un conteneur ou un tunnel — chacun reçoit l'origine par
+     * laquelle il est arrivé. Codespaces/Gitpod : détection automatique.
+     *
+     * `publicOrigin: "https://mon-proxy.example.com:{port}"` force une origine
+     * unique quand un frontal la réécrit ; `{port}` suit le port réel de Vite.
+     * Un réglage explicite gagne toujours sur la dérivation.
      */
     use("@nodefony/frontend", {
-      publicOrigin: ctx.env.NF_FRONTEND_PUBLIC_ORIGIN ?? "",
+      publicOrigin: "",
     }),
 
     /**
@@ -209,14 +214,19 @@ export default defineConfig<typeof env>((ctx) => ({
 <% } else if (it.front) { %>
     /**
      * Builder Vite + statics : sert le frontend <%= it.frontend %> de l'app
-     * (HMR en dev, build pré-compilé en prod). `publicOrigin` (vide =
-     * dérivation locale) : l'origine que le NAVIGATEUR utilise quand elle
-     * diffère de l'adresse d'écoute — dev en conteneur
-     * (`NF_FRONTEND_PUBLIC_ORIGIN=https://host.docker.internal:{port}`),
-     * tunnel, machine distante. Codespaces/Gitpod : détection automatique.
+     * (HMR en dev, build pré-compilé en prod).
+     *
+     * L'origine que le NAVIGATEUR utilise pour les assets se dérive du `Host`
+     * de la requête : rien à configurer pour développer depuis une autre
+     * machine, un conteneur ou un tunnel — chacun reçoit l'origine par
+     * laquelle il est arrivé. Codespaces/Gitpod : détection automatique.
+     *
+     * `publicOrigin: "https://mon-proxy.example.com:{port}"` force une origine
+     * unique quand un frontal la réécrit ; `{port}` suit le port réel de Vite.
+     * Un réglage explicite gagne toujours sur la dérivation.
      */
     use("@nodefony/frontend", {
-      publicOrigin: ctx.env.NF_FRONTEND_PUBLIC_ORIGIN ?? "",
+      publicOrigin: "",
     }),
 <% } %>
     /**

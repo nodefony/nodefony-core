@@ -88,6 +88,93 @@ describe("TemplateHelper — origine publique des tags dev (P14.17)", () => {
     expect(tags).to.include('src="https://127.0.0.1:5173/@vite/client"');
   });
 
+  it("dérive l'origine du Host de la REQUÊTE — deux hôtes, deux origines", () => {
+    // Le cœur du lot : une seule instance Vite sert le poste ET le conteneur.
+    // La MÊME entrée, demandée par deux noms, annonce deux origines.
+    const helper = new TemplateHelper(
+      supervisorWith({ origin: "https://127.0.0.1:5173" }),
+      "development",
+    );
+    const fromPoste = helper.renderTags("studio", undefined, "127.0.0.1");
+    const fromContainer = helper.renderTags(
+      "studio",
+      undefined,
+      "host.docker.internal",
+    );
+    expect(fromPoste).to.include('src="https://127.0.0.1:5173/@vite/client"');
+    expect(fromContainer).to.include(
+      'src="https://host.docker.internal:5173/@vite/client"',
+    );
+    // Aucune trace de l'hôte de démarrage dans la page servie au conteneur :
+    // c'est CE reliquat qui a cassé Studio (un `<script>` sur un nom que seul
+    // l'autre monde résout, sans la moindre erreur côté serveur).
+    expect(fromContainer).to.not.include("127.0.0.1");
+  });
+
+  it("dérive dans TOUS les tags, pas seulement le premier", () => {
+    // Un seul tag laissé sur l'ancienne origine suffit à casser la page :
+    // le preamble React, le pont HMR et la debug bar importent AUSSI depuis
+    // Vite. On compte les origines émises plutôt que d'en vérifier une.
+    const helper = new TemplateHelper(
+      supervisorWith({ origin: "https://127.0.0.1:5173" }),
+      "development",
+    );
+    const tags = helper.renderTags("studio", "N0NCE", "host.docker.internal");
+    const origins = new Set(
+      [...tags.matchAll(/https?:\/\/[A-Za-z0-9._-]+:\d+/g)].map((m) => m[0]),
+    );
+    expect([...origins]).to.deep.equal(["https://host.docker.internal:5173"]);
+    // Le preamble React est bien présent (sinon le compte ci-dessus serait
+    // trivialement vrai sur une page vide de scripts).
+    expect(tags).to.include("__vite_plugin_react_preamble_installed__");
+    expect(tags).to.include('nonce="N0NCE"');
+  });
+
+  it("le scheme et le port restent ceux de VITE, jamais ceux de la page", () => {
+    // Une page servie en clair (http://…:5151) charge légitimement ses assets
+    // en https://…:5173 si Vite est en TLS. Déduire le scheme de la page
+    // produirait un `http://…` que le serveur TLS ne sert pas.
+    const helper = new TemplateHelper(
+      supervisorWith({ origin: "https://127.0.0.1:5173" }),
+      "development",
+    );
+    const tags = helper.renderTags("studio", undefined, "host.docker.internal");
+    expect(tags).to.include("https://host.docker.internal:5173/");
+    expect(tags).to.not.include("http://host.docker.internal");
+    // Et l'inverse : un Vite en clair reste en clair.
+    const plain = new TemplateHelper(
+      supervisorWith({ origin: "http://127.0.0.1:5173", https: false }),
+      "development",
+    );
+    expect(plain.renderTags("studio", undefined, "poste.local")).to.include(
+      'src="http://poste.local:5173/@vite/client"',
+    );
+  });
+
+  it("un Host inexploitable laisse l'origine du superviseur (jamais d'URL bancale)", () => {
+    const helper = new TemplateHelper(
+      supervisorWith({ origin: "https://127.0.0.1:5173" }),
+      "development",
+    );
+    for (const forged of ["evil.com/x", "evil.com:1", "a@b", "a b", ""]) {
+      const tags = helper.renderTags("studio", undefined, forged);
+      expect(tags, forged).to.include(
+        'src="https://127.0.0.1:5173/@vite/client"',
+      );
+      expect(tags, forged).to.not.include("evil.com");
+    }
+  });
+
+  it("PROD : le Host est ignoré — les URLs du manifest sont relatives", () => {
+    // Non-régression du mode statique : la prod ne dépend d'aucune origine
+    // absolue, elle suit déjà l'hôte de la page. Rien ne doit y changer.
+    const prod = new TemplateHelper(null, "production", [entry]);
+    const withHost = prod.renderTags("studio", undefined, "autre.example.com");
+    const without = prod.renderTags("studio");
+    expect(withHost).to.equal(without);
+    expect(withHost).to.not.include("autre.example.com");
+  });
+
   it("l'entry est servie via /@fs sur la MÊME origine publique", () => {
     const helper = new TemplateHelper(
       supervisorWith({ origin: "https://host.docker.internal:5173" }),

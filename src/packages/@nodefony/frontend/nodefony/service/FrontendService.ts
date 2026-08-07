@@ -89,6 +89,13 @@ class FrontendService extends Service implements IFrontendService {
   private readonly entryFamily = new Map<string, string>();
   /** Helper prod unique (lit les manifests) — `null` tant qu'on n'est pas en prod. */
   private prodHelper: TemplateHelper | null = null;
+  /**
+   * L'origine publique est-elle ÉPINGLÉE par une décision explicite
+   * (`frontend.publicOrigin` en config, ou plateforme de dev déporté détectée) ?
+   * `true` → la dérivation par `Host` est désactivée : un réglage voulu gagne
+   * toujours sur une déduction (cf ordre de priorité, README du module).
+   */
+  private originPinned = false;
 
   constructor(module: Module) {
     const merged = extend(
@@ -314,6 +321,10 @@ class FrontendService extends Service implements IFrontendService {
     // plateforme de dev déporté (Codespaces/Gitpod), sinon dérivation locale
     // dans le superviseur. Toujours ANNONCÉ (jamais d'adaptation silencieuse).
     const publicOriginTemplate = this.resolvePublicOriginTemplate();
+    // Une origine explicite (config/plateforme) ÉPINGLE le rendu : plus de
+    // dérivation par `Host`. Sans elle, chaque page annonce ses assets sur
+    // l'hôte par lequel le client est arrivé (poste ET conteneur servis).
+    this.originPinned = publicOriginTemplate !== undefined;
     const allowedHosts = this.viteAllowedHosts(publicOriginTemplate);
     // Propage l'environnement Nodefony à Vite :
     //  - NODE_ENV = kernel.environment (lu par les plugins Vite via process.env)
@@ -801,7 +812,11 @@ class FrontendService extends Service implements IFrontendService {
    * Le controller renvoie : `this.render(svc.renderDocument("x", this.context.cspNonce))`.
    * @param nonce nonce CSP de la requête (`Context.cspNonce`) — propagé aux `<script>`.
    */
-  renderDocument(entryName: string, nonce?: string): string {
+  renderDocument(
+    entryName: string,
+    nonce?: string,
+    requestHost?: string,
+  ): string {
     if (this.prodHelper) {
       return this.prodHelper.renderDocument(entryName, nonce);
     }
@@ -810,10 +825,14 @@ class FrontendService extends Service implements IFrontendService {
     if (!helper) {
       return `<!-- @nodefony/frontend: helper not initialized for "${entryName}" -->`;
     }
-    return helper.renderDocument(entryName, nonce);
+    return helper.renderDocument(
+      entryName,
+      nonce,
+      this.derivableHost(requestHost),
+    );
   }
 
-  renderTags(entryName: string, nonce?: string): string {
+  renderTags(entryName: string, nonce?: string, requestHost?: string): string {
     // Prod : helper unique qui lit les manifests (Vite ne tourne pas).
     if (this.prodHelper) {
       return this.prodHelper.renderTags(entryName, nonce);
@@ -823,7 +842,40 @@ class FrontendService extends Service implements IFrontendService {
     if (!helper) {
       return `<!-- @nodefony/frontend: helper not initialized for "${entryName}" -->`;
     }
-    return helper.renderTags(entryName, nonce);
+    return helper.renderTags(entryName, nonce, this.derivableHost(requestHost));
+  }
+
+  /**
+   * Le `Host` de la requête peut-il servir à dériver l'origine des assets ?
+   *
+   * Trois conditions, dans cet ordre — chacune protège un cas RÉEL :
+   *  1. **origine non épinglée** : un `frontend.publicOrigin` explicite (ou une
+   *     plateforme de dev déporté détectée) est une décision de l'auteur, elle
+   *     gagne toujours sur une déduction ;
+   *  2. **barrière `trustedHosts` franchie** : le `Host` est une donnée
+   *     CLIENTE. Sans ce filtre, un `Host` forgé ferait émettre des
+   *     `<script src="https://attaquant:5173/…">` dans une page de dev ;
+   *  3. **barrière non déléguée** (`trustedHosts !== true`) : le bypass total
+   *     ne dit plus rien de la légitimité d'un nom, et surtout le CSP émis par
+   *     le firewall (`#viteCspFragment`) ne couvre alors QUE loopback +
+   *     domaine canonique — dériver ailleurs produirait une page dont les
+   *     scripts sont bloqués. Les deux listes doivent rester la même liste.
+   *
+   * @returns le nom d'hôte à employer, ou `undefined` pour garder l'origine
+   *   résolue au démarrage (comportement d'avant la dérivation).
+   */
+  private derivableHost(requestHost?: string): string | undefined {
+    if (!requestHost || this.originPinned) return undefined;
+    const httpKernel = this.container?.get?.("HttpKernel") as
+      | {
+          trustedHosts?: unknown;
+          isTrustedHostname?: (hostname: string) => boolean;
+        }
+      | undefined;
+    if (!httpKernel || httpKernel.trustedHosts === true) return undefined;
+    return httpKernel.isTrustedHostname?.(requestHost) === true
+      ? requestHost
+      : undefined;
   }
 
   /**

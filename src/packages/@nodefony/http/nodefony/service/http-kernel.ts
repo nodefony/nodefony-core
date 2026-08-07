@@ -1706,7 +1706,25 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
 
   isValidDomain(context: ContextType): boolean {
-    return isDomainAllowed(this.regAlias, context.domain);
+    return this.isTrustedHostname(context.domain);
+  }
+
+  /**
+   * Ce nom d'hôte franchit-il la barrière `trustedHosts` ? Même liste compilée
+   * que `isValidDomain`, mais interrogeable **sans contexte** — un module qui
+   * doit décider si un `Host` reçu est légitime (ex. `@nodefony/frontend`, qui
+   * en dérive l'origine des assets Vite) appelle CETTE méthode plutôt que de
+   * recompiler les motifs de son côté : deux copies divergeraient en silence.
+   *
+   * Résolution par NOM (`container.get("HttpKernel")`) chez l'appelant — aucun
+   * import de `@nodefony/http`, donc aucun cycle.
+   *
+   * @param hostname - nom d'hôte SANS port (`Context.domain`).
+   * @returns `true` si un motif de `trustedHosts` (ou le domaine canonique)
+   *   couvre ce nom.
+   */
+  isTrustedHostname(hostname: string): boolean {
+    return isDomainAllowed(this.regAlias, hostname);
   }
 }
 

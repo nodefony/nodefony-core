@@ -139,17 +139,26 @@ automatisé.
 
 Elles ne se contournent pas : chacune produit un symptôme qui ressemble à un bug applicatif.
 
-| Contrainte                                    | Ce qui arrive sinon                                                                                                                                                                                |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Joindre l'hôte par **`host.docker.internal`** | `localhost` désigne le CONTENEUR. Le nom doit aussi figurer dans `trustedHosts`, sinon la barrière Host répond **`421`** alors que le réseau passe. Posé sans condition dans ce dépôt.             |
-| Passer par **HTTPS 5152**                     | Le cookie de session est `secure` : sur une origine `http://` non-`localhost` le navigateur le **jette**, et tout le plan de données revient en `401` — ce qui se lit à tort comme un login KO.    |
-| Rendre **Vite joignable**, ou servir statique | En mode Vite la page annonce ses assets sur l'origine publique du superviseur (`127.0.0.1:5173` par défaut) — le `127.0.0.1` du NAVIGATEUR, donc du conteneur : page blanche, HTML pourtant servi. |
+| Contrainte                                    | Ce qui arrive sinon                                                                                                                                                                             |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Joindre l'hôte par **`host.docker.internal`** | `localhost` désigne le CONTENEUR. Le nom doit aussi figurer dans `trustedHosts`, sinon la barrière Host répond **`421`** alors que le réseau passe. Posé sans condition dans ce dépôt.          |
+| Passer par **HTTPS 5152**                     | Le cookie de session est `secure` : sur une origine `http://` non-`localhost` le navigateur le **jette**, et tout le plan de données revient en `401` — ce qui se lit à tort comme un login KO. |
+| Rendre **Vite joignable**, ou servir statique | En mode Vite, la page annonce ses assets sur une origine dérivée du `Host` de la requête : arriver par `host.docker.internal` suffit. Servir l'interface pré-bâtie reste l'autre voie.          |
 
-Pour la troisième, deux remèdes : `NF_FRONTEND_PUBLIC_ORIGIN=https://host.docker.internal:{port}`
-(l'origine, `allowedHosts` et le WebSocket du HMR suivent), ou servir l'interface pré-bâtie.
-⚠️ Cette variable est un **décor d'observation, pas un réglage** : laissée en place, elle casse le
-poste (un navigateur local ne résout pas `host.docker.internal`). La poser, c'est prévoir de la
-retirer.
+Pour la troisième, **il n'y a plus rien à poser**. L'origine des assets — et avec elle
+`allowedHosts` et le WebSocket du HMR — suit le nom par lequel le client est arrivé : le poste et
+le conteneur sont servis EN MÊME TEMPS par la même instance Vite.
+
+> Il a existé une variable d'observation (`NF_FRONTEND_PUBLIC_ORIGIN`) pour figer cette origine sur
+> `host.docker.internal`. Elle a **cassé le poste du développeur** le jour où on a oublié de la
+> retirer — un navigateur local ne résout pas ce nom, et rien ne le signalait côté serveur. Elle
+> n'existe plus : une variable dont l'oubli casse un environnement n'avait pas besoin d'un rappel,
+> elle avait besoin de disparaître. Le réglage durable, lui, reste `frontend.publicOrigin` dans
+> `nodefony.config.ts` — pour un tunnel ou un proxy frontal, pas pour observer un écran.
+>
+> Deux conditions à la dérivation, qui expliquent un éventuel retour à `127.0.0.1` : le nom doit
+> franchir `trustedHosts` (il y est, sans condition, dans ce dépôt), et aucune `publicOrigin` ne
+> doit être configurée — un réglage explicite gagne toujours sur une déduction.
 
 ## 5. Pièges — chacun a déjà fait conclure faux
 

@@ -7,6 +7,7 @@ import {
   allowedHostPatternForTemplate,
   viteAllowedHostFromPattern,
   detectRemoteDev,
+  originWithHostname,
 } from "../../src/remoteDev.js";
 
 /**
@@ -184,6 +185,70 @@ describe("remoteDev — origine publique du dev server", () => {
     it("environnement local (VS Code Remote/WSL2 inclus) → null", () => {
       expect(detectRemoteDev({})).to.be.null;
       expect(detectRemoteDev({ TERM_PROGRAM: "vscode" })).to.be.null;
+    });
+  });
+
+  describe("originWithHostname — dérivation par Host de la requête", () => {
+    it("remplace le NOM, garde le scheme et le port", () => {
+      expect(
+        originWithHostname("https://127.0.0.1:5173", "host.docker.internal"),
+      ).to.equal("https://host.docker.internal:5173");
+      expect(
+        originWithHostname("http://127.0.0.1:5173", "poste.local"),
+      ).to.equal("http://poste.local:5173");
+      // Famille non-primaire (Angular sur son propre port) : le port de CETTE
+      // instance suit, pas celui de la famille par défaut.
+      expect(originWithHostname("https://127.0.0.1:5177", "autre")).to.equal(
+        "https://autre:5177",
+      );
+    });
+
+    it("origine SANS port (forwarder TLS) : aucun port inventé", () => {
+      expect(
+        originWithHostname("https://mona-5173.app.github.dev", "autre.dev"),
+      ).to.equal("https://autre.dev");
+    });
+
+    it("IPv6 : forme canonique entre crochets, des deux côtés", () => {
+      // `Context.domain` sérialise toute IPv6 loopback en `[::1]` (WHATWG).
+      expect(originWithHostname("https://127.0.0.1:5173", "[::1]")).to.equal(
+        "https://[::1]:5173",
+      );
+      expect(originWithHostname("http://[::1]:5173", "127.0.0.1")).to.equal(
+        "http://127.0.0.1:5173",
+      );
+    });
+
+    it("REJETTE tout nom qui n'est pas un hôte nu (Host est une donnée CLIENTE)", () => {
+      // Un `Host:` forgé ne doit JAMAIS pouvoir fabriquer l'URL d'un script :
+      // la page rendue chargerait du code depuis un serveur tiers. La barrière
+      // `trustedHosts` filtre déjà en amont — ceci est la seconde ceinture,
+      // celle qui tient même quand la barrière est déléguée.
+      for (const forged of [
+        "evil.com/x", //   chemin
+        "evil.com:1", //   port injecté
+        "a@b", //          userinfo
+        "a b", //          espace
+        "", //             vide
+        "//evil.com", //   origine relative au protocole
+        "https://evil.com", // origine complète
+        "x\nHost: y", //   injection d'en-tête
+      ]) {
+        expect(originWithHostname("https://127.0.0.1:5173", forged), forged).to
+          .be.null;
+      }
+    });
+
+    it("REJETTE une origine qui n'est pas une origine http(s) nue", () => {
+      for (const bad of [
+        "ftp://x:5173",
+        "https://a/b", //     chemin
+        "127.0.0.1:5173", //  sans scheme
+        "https://a:5173/", // slash final
+        "",
+      ]) {
+        expect(originWithHostname(bad, "autre"), bad).to.be.null;
+      }
     });
   });
 });

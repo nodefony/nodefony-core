@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-07T12:07:30.122Z",
+  "generated": "2026-08-07T19:04:36.700Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 688,
-    "symbols": 2805,
+    "symbols": 2806,
     "classes": 347,
     "interfaces": 815,
     "types": 365,
     "enums": 4,
-    "functions": 1012,
+    "functions": 1013,
     "constants": 262
   },
   "symbols": {
@@ -11137,6 +11137,14 @@
       "exported": true,
       "module": "@nodefony/frontend",
       "description": "Un template d'origine est-il syntaxiquement valide ? (autorité unique)"
+    },
+    "originWithHostname": {
+      "name": "originWithHostname",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Rejoue une origine résolue sur un AUTRE nom d'hôte, en conservant le scheme et le port. Pure. C'est le cœur de la dérivation par requête : le scheme et le port sont ceux du serveur Vite (il écoute …"
     },
     "resolveOriginTemplate": {
       "name": "resolveOriginTemplate",
@@ -26288,6 +26296,9 @@
       ],
       "IFrontBuilder": [
         "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts"
+      ],
+      "originWithHostname": [
+        "src/packages/@nodefony/frontend/nodefony/src/template/TemplateHelper.ts"
       ],
       "FamilyType": [
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",

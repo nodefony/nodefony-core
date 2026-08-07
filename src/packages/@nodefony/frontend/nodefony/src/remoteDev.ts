@@ -77,6 +77,46 @@ export function isValidOriginTemplate(template: string): boolean {
 }
 
 /**
+ * Origine RÉSOLUE (scheme + hôte + port), telle qu'elle sort du superviseur :
+ * `https://127.0.0.1:5173`, `https://x.app.github.dev` (port implicite),
+ * `http://[::1]:5173`. Pas de `{port}` ici — le template est déjà substitué.
+ */
+const RESOLVED_ORIGIN_RE = /^(https?:\/\/)(\[[^\]/]+\]|[^/:\s]+)(:\d+)?$/;
+
+/**
+ * Rejoue une origine résolue sur un AUTRE nom d'hôte, en conservant le scheme
+ * et le port. Pure.
+ *
+ * C'est le cœur de la dérivation par requête : le scheme et le port sont ceux
+ * du serveur Vite (il écoute où il écoute), seul le NOM change — celui par
+ * lequel le client est arrivé. Une page servie sur `http://poste:5151` charge
+ * donc `https://poste:5173` si Vite est en TLS : le scheme ne se déduit JAMAIS
+ * de la page.
+ *
+ * `new URL()` est volontairement évité (une allocation par page rendue, pour
+ * une chaîne dont nous produisons nous-mêmes la grammaire).
+ *
+ * @param origin - origine résolue (`scheme://hôte[:port]`).
+ * @param hostname - nom d'hôte de remplacement, SANS port (`Context.domain`) ;
+ *   une IPv6 est acceptée sous sa forme canonique entre crochets (`[::1]`).
+ * @returns l'origine réécrite, ou `null` si l'un des deux est inexploitable
+ *   (l'appelant garde alors l'origine d'origine — jamais d'URL bancale émise).
+ */
+export function originWithHostname(
+  origin: string,
+  hostname: string,
+): string | null {
+  const m = RESOLVED_ORIGIN_RE.exec(origin);
+  if (!m) return null;
+  // Le nom doit être un hôte NU : ni port, ni chemin, ni scheme, ni espace.
+  // Un `Host:` forgé (`evil.com/x`, `a:1@b`) ne doit pas pouvoir fabriquer une
+  // URL d'asset arbitraire — même si la barrière `trustedHosts` l'a laissé
+  // passer (`trustedHosts: true` délègue au reverse-proxy).
+  if (!/^(\[[^\]/]+\]|[A-Za-z0-9._-]+)$/.test(hostname)) return null;
+  return `${m[1]}${hostname}${m[3] ?? ""}`;
+}
+
+/**
  * Résout un template d'origine contre le port RÉEL du spawn. Pure.
  *
  * @returns origine + config HMR cliente, ou `null` si le template est invalide

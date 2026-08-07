@@ -42,14 +42,30 @@ export interface IFrontendService {
    * @param opts.force rebuild même si le manifest est plus récent que les sources.
    */
   build(opts?: { force?: boolean }): Promise<IFrontendBuildResult>;
-  /** Helper template — retourne les balises `<script>` à injecter dans une page. */
-  renderTags(entryName: string): string;
+  /**
+   * Helper template — retourne les balises `<script>` à injecter dans une page.
+   *
+   * @param nonce nonce CSP de la requête (`Context.cspNonce`).
+   * @param requestHost nom d'hôte par lequel le client a demandé la page
+   *   (`Context.domain`, sans port). En développement, l'origine des assets
+   *   Vite est dérivée de ce nom — le scheme et le port restent ceux de Vite —
+   *   de sorte qu'un poste et un conteneur soient servis en même temps sans
+   *   configuration. Ignoré si `frontend.publicOrigin` est configurée, si
+   *   l'hôte ne franchit pas `trustedHosts`, et en production.
+   */
+  renderTags(entryName: string, nonce?: string, requestHost?: string): string;
   /**
    * Document HTML complet : `index.html` du module + tags injectés. Pour les
    * controllers qui veulent déléguer toute la coquille (le dev contrôle le
    * `<head>` via son `index.html`).
+   *
+   * @param requestHost cf {@link IFrontendService.renderTags}.
    */
-  renderDocument(entryName: string): string;
+  renderDocument(
+    entryName: string,
+    nonce?: string,
+    requestHost?: string,
+  ): string;
   /**
    * Résout l'URL publique d'un asset : préfixe `p` par `assetBaseUrl` (CDN) si
    * configuré, sinon chemin relatif inchangé. URLs absolues renvoyées telles

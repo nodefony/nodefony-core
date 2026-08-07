@@ -177,13 +177,17 @@ export default defineConfig<Env>((ctx) => ({
         //
         // 🔴 CE QUI NE DOIT PAS ESSAIMER : le SCAFFOLD ne pose pas cette entrée, et
         // ne doit jamais la poser. Une application générée n'a aucune raison de
-        // faire confiance à ce nom en production — sa configuration ne mentionne
-        // `host.docker.internal` que dans la documentation de
-        // `NF_FRONTEND_PUBLIC_ORIGIN` (gabarits `nodefony.config.ts.tpl`,
-        // `compose.yaml.tpl`, `AGENTS.md.tpl`), là où c'est un conseil de dev et
-        // non une règle de sécurité. Vérifié : aucun gabarit n'écrit
-        // `trustedHosts`. Si un jour l'un d'eux le fait, cette entrée reste
-        // conditionnée au développement CHEZ LUI.
+        // faire confiance à ce nom en production — ses gabarits ne mentionnent
+        // `host.docker.internal` que dans la marche à suivre pour observer un
+        // écran depuis un conteneur (`compose.yaml.tpl`, `AGENTS.md.tpl`), là où
+        // c'est un conseil de dev et non une règle de sécurité. Vérifié : aucun
+        // gabarit n'écrit `trustedHosts`. Si un jour l'un d'eux le fait, cette
+        // entrée reste conditionnée au développement CHEZ LUI.
+        //
+        // Cette liste porte AUSSI, depuis la dérivation d'origine par `Host`, la
+        // décision « quels noms le rendu a le droit de suivre » : y ajouter un
+        // hôte ouvre à la fois la barrière 421, l'allowlist Vite, le CSP et
+        // l'origine des assets. Une seule liste, quatre effets — c'est voulu.
         trustedHosts: [
           "localhost",
           "127.0.0.1",
@@ -306,13 +310,15 @@ export default defineConfig<Env>((ctx) => ({
     // ── Démo / tests d'intégration — hors production.
     { name: "@nodefony/test", policy: "dev" },
 
-    // Frontend AVANT ses consumers. `publicOrigin` (P14.17) dissocie ce que
-    // Vite ÉCOUTE de ce que le NAVIGATEUR appelle — posée seulement via l'env
-    // (dev en conteneur : `NF_FRONTEND_PUBLIC_ORIGIN=https://host.docker.internal:{port}`) ;
-    // vide = dérivation locale, et Codespaces/Gitpod se détectent tout seuls.
-    use("@nodefony/frontend", {
-      publicOrigin: ctx.env.NF_FRONTEND_PUBLIC_ORIGIN ?? "",
-    }),
+    // Frontend AVANT ses consumers. Ce que Vite ÉCOUTE et ce que le NAVIGATEUR
+    // appelle restent deux choses distinctes — mais la seconde se DÉRIVE
+    // désormais du `Host` de chaque requête : le poste (`127.0.0.1`) et un
+    // navigateur en conteneur (`host.docker.internal`) chargent la même page,
+    // en même temps, sans rien à configurer. Codespaces/Gitpod se détectent
+    // toujours seuls. `publicOrigin` reste disponible pour un tunnel ou un
+    // proxy frontal — c'est alors un réglage durable, qui gagne sur la
+    // dérivation, jamais un décor d'observation qu'on oublierait de retirer.
+    { name: "@nodefony/frontend" },
     { name: "@nodefony/test-frontend-react", policy: "dev" },
     { name: "@nodefony/test-frontend-vue", policy: "dev" },
     { name: "@nodefony/test-frontend-angular", policy: "dev" },
