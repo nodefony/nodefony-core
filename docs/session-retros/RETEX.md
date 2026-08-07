@@ -20,6 +20,38 @@
 
 ---
 
+## 📌 Un chiffre publié sans son COMMIT n'est pas vérifiable
+
+- `[1× — 08-07b]` 🔴 **Rendu REFUSÉ par le user, et à raison : « les données sont assemblées de
+  manière aléatoire ».** J'ai publié un dossier de perf entier — 9 pages + un rapport HTML — en
+  portant scrupuleusement machine, protocole, dispersion et gardes… **sans jamais dire à quel état
+  du CODE chaque bloc correspondait.** Or les mesures venaient de 6 fenêtres et d'autant de
+  commits : le comparatif de frameworks datait d'avant les lots F, l'escalier ORM d'avant le lot
+  prepared. Côte à côte, ces tableaux **suggèrent** une comparaison qu'aucun d'eux ne permet.
+  Le décor ne suffit pas : **machine + protocole + COMMIT**, sinon un « avant/après » n'est pas
+  réfutable. Corrigé par une table de chronologie (fenêtre → état du code → où c'est publié) et
+  retour du dossier en `draft`. Coût de l'omission : la confiance dans tout le livrable.
+- `[1× — 08-07b]` **Un livrable dérivé DIVERGE de sa source sans prévenir** : le HTML généré et le
+  Markdown disaient 0,98 % et 0,93 % du même poste (deux instruments différents). Trouvé en
+  comparant mécaniquement les 35 chiffres structurants des deux côtés — pas à la relecture.
+- `[1× — 08-07b]` **Un générateur de rapport n'est PAS une photo** : le mien vivait dans `tmp/`,
+  qu'on s'apprêtait à vider — le ménage aurait emporté la seule façon de reproduire la page. La
+  sortie va dans `tmp/`, le code qui la produit se versionne. Même piège pour 4 micro-bancs que le
+  kit perf référençait dans `tmp/`. Et vider `tmp/` a cassé les compteurs de `doc-lint` : un
+  dossier « temporaire » peut porter un état dont un gate dépend (régénérables ici).
+
+## 🤖 `haiku` s'est trompé DEUX fois sur DEUX runs — le recontrôle n'est pas optionnel
+
+- `[2× — 08-07b]` 🔴 **Deux délégations, deux erreurs, toutes deux invisibles dans la forme du
+  rendu** : (1) « `bench-frameworks/` ne contient que des node_modules, aucun script » — le dossier
+  contient 8 bancs, il ne les avait pas ouverts ; (2) verdict **FAUX** sur une affirmation vraie,
+  parce qu'il a lu le test _unitaire_ (`urlFastPath.test.ts`) au lieu du banc d'_attaque_
+  (`url-fastpath.attack.test.ts`) — deux fichiers, un seul porte les 401. Le recontrôle par `rg` a
+  tranché en deux commandes. **Ce qu'un sous-agent affirme ne devient un fait qu'après vérification
+  — a fortiori quand ça part en publication.** Et quand le user conteste le choix du modèle sur un
+  livrable public, il a raison de le faire : la QUESTION ZÉRO (un `rg` répond-il ?) valait mieux
+  que la délégation ici.
+
 ## 🔗 « Valider la chaîne » = EXÉCUTER la chaîne, pas recomposer son résultat
 
 - [1× — 08-05] Le skill `create-frontend-module` prescrivait `getCspDirectives()` — API SUPPRIMÉE
