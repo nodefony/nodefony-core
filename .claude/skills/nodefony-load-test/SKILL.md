@@ -77,6 +77,28 @@ Node ESM purs (`ws` + builtins), **lancés depuis la racine du repo**, paramétr
 > | `scripts/route-scan-cost.mjs` | ce que la résolution de route coûte à une app, et sa sensibilité au NOMBRE de routes       |
 > | `scripts/db-backend-cost.mjs` | ce qu'un pilote de base coûte au serveur : latence, blocage de la boucle, plafond réel     |
 >
+> **Micro-bancs isolés — `scripts/micro/`** : ils mesurent UN mécanisme hors du serveur, pour
+> convertir en nanosecondes un poste qu'un profil désigne en pourcentage. C'est le geste qui a
+> évité trois chantiers ouverts pour rien (écart ×25-30 entre l'attribution d'un profil et le
+> coût réel) — **tout % de profil se convertit en ns AVANT d'ouvrir un lot**. Ils mentent dans
+> l'autre sens (tas froid, sites d'appel monomorphes) : l'arbitre reste la sonde in-situ.
+>
+> | Micro-banc                    | Ce qu'il isole                                                       |
+> | ----------------------------- | -------------------------------------------------------------------- |
+> | `micro/micro-enterscope.mjs`  | entrée/sortie d'une portée DI sur un conteneur peuplé (dist du cœur) |
+> | `micro/micro-extend.mjs`      | le coût de `Tools.extend` face au spread et à une version mémoïsée   |
+> | `micro/micro-route-scan.mjs`  | le scan des motifs sur la table RÉELLE de l'app (`NF_ROUTES_JSON`)   |
+> | `micro/micro-route-scale.mjs` | la même chose à N croissant : la COURBE, de 136 à 2 400 routes       |
+>
+> **Rapport du dossier de performance** : `scripts/perf-dossier-report.mjs` rend en une page HTML
+> autonome ce que `docs/performance/` établit en Markdown (graphes, schémas, calculateur de pods).
+> Les données sont déclarées dans le script et embarquées dans la page.
+>
+> 🔴 **Un instrument ne vit jamais dans `tmp/`.** Le rapport est une photo — il s'écrit dans `tmp/`
+> et se refabrique ; le script qui le produit est du CODE, et un ménage de `tmp/` emporterait la
+> seule façon de le reproduire. Même règle pour les micro-bancs : ils ont été rapatriés ici après
+> avoir failli disparaître avec le dossier qui les hébergeait.
+>
 > **`route-scan-cost.mjs` répond à une question qu'aucun banc de charge ne pose** : l'index de
 > routes livré en juin (+15,3 % RPS) porte sur les routes **littérales** (Map par chemin exact) —
 > la résolution est donc `O(dynamiques)`, pas `O(1)`. Les routes à variable ou wildcard restent

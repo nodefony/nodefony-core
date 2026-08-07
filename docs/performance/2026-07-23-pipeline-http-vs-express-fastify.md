@@ -8,11 +8,27 @@ coverageFiles: "http-kernel.ts,HttpContext.ts,Response.ts,Request.ts,Resolver.ts
 section: "Performance"
 audience: [developer]
 tags: [performance, http, pipeline, benchmark, express, fastify, profilage]
-status: stable
+status: superseded
 last-updated: 2026-07-23
+updated: "2026-07-23"
+source: "docs/performance/pipeline-http.md"
+tests: none
 ---
 
+📍 [Documentation](../index.md) › [Performance](index.md) › **Archive — rapport du 23 juillet**
+
 # Pipeline HTTP — où part le temps
+
+> ⚠️ **Page remplacée — conservée comme point de départ historique.**
+> Ce document est l'**analyse statique** qui a ouvert le chantier de performance : elle a été
+> produite par lecture du chemin chaud, sans exécuter le serveur. Le profilage runtime qui a suivi
+> l'a **en partie contredite** — un poste sous-estimé d'un facteur 5, une hypothèse réfutée, un
+> coût entièrement découvert, et 8 ancrages sur 22 inexacts. Les corrections qu'elle propose ont
+> depuis été livrées ou rejetées par la mesure.
+>
+> **Ses chiffres ne sont plus une référence.** L'état actuel, la méthode et les résultats vivent
+> dans le [dossier Performance](index.md) ; ce que cette page a eu juste et faux est raconté dans
+> [Le pipeline HTTP](pipeline-http.md).
 
 Mesure comparée de Nodefony face à Express, Fastify et un serveur `node:http` nu, puis
 analyse des goulots par lecture du chemin chaud. Objectif : savoir **ce que coûte chaque
@@ -232,3 +248,35 @@ le prix du contexte riche, de l'injection de dépendances et du firewall. Un obj
 défendable, après le lot de gains rapides, l'allocation paresseuse et les controllers en
 singleton, se situe autour de **12 000 à 16 000 RPS** — à valider au banc. Au-delà, ce n'est
 plus de l'optimisation mais un choix d'architecture : contexte allégé, ou mis en réserve.
+
+## Lexique
+
+| Terme                    | Ce qu'il désigne dans cette page                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| **Structurel**           | Coût qui découle du design. On l'assume, ou l'on change d'architecture.                                      |
+| **Accidentel**           | Travail fait pour rien. Cible légitime d'une optimisation.                                                   |
+| **Estimation raisonnée** | Coût déduit d'une lecture du code, **jamais mesuré**. Signalé comme tel à l'époque — et souvent faux depuis. |
+| **Goulot** (G1 à G5)     | Regroupement de postes proposé par cette analyse. La numérotation ne vaut que dans cette page.               |
+
+## Pièges — ce que cette analyse a eu faux
+
+C'est la raison pour laquelle cette page est conservée. Le profilage runtime a tranché ainsi :
+
+| Affirmation de cette page                | Verdict de la mesure                                              |
+| ---------------------------------------- | ----------------------------------------------------------------- |
+| En-têtes : 1,5–3 µs par requête          | **Sous-estimé d'un facteur 5** — ≈13–14 µs, c'était le levier n°1 |
+| « Le reste est vraisemblablement le GC » | **Réfuté** — 0,93 %, sur trois instruments concordants            |
+| Trois gardes zéro-listener côté kernel   | **Faux** — il n'y en avait qu'une                                 |
+| Trois `Reflect.getMetadata` par requête  | **Faux** — deux                                                   |
+| Nonce CSP                                | **Absent de cette page** — découvert au profilage, ≈1,7 % du CPU  |
+| 22 ancrages `fichier:ligne`              | **14 exacts, 5 déplacés, 2 faux**                                 |
+
+La leçon générale a été gravée dans la méthode : **une analyse sans exécution oriente, elle ne
+prouve pas** — et tout pourcentage estimé se convertit en nanosecondes par une mesure avant
+d'ouvrir un chantier.
+
+## Pour aller plus loin
+
+- ⬆️ **Retour au hub** : [Performance](index.md)
+- 🔬 [Le pipeline HTTP](pipeline-http.md) — ce qui a été livré, mesuré, et rejeté depuis
+- 📏 [Méthode de mesure](methode.md) — le protocole né de ce chantier
