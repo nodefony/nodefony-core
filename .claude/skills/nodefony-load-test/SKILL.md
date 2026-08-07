@@ -70,10 +70,31 @@ Node ESM purs (`ws` + builtins), **lancés depuis la racine du repo**, paramétr
 > **Mesures hors requête** — deux bancs mesurent autre chose que le trafic, avec le même protocole
 > (plusieurs runs, médiane, décor maîtrisé) :
 >
-> | Script                     | Ce qu'il mesure                                                                            |
-> | -------------------------- | ------------------------------------------------------------------------------------------ |
-> | `scripts/boot-bench.mjs`   | temps de boot d'un mode, du spawn jusqu'à l'écoute des serveurs + nombre de `new Kernel()` |
-> | `scripts/poc-hmr-perf.mjs` | délai de bout en bout entre le `touch` d'un fichier surveillé et le rechargement Vite      |
+> | Script                        | Ce qu'il mesure                                                                            |
+> | ----------------------------- | ------------------------------------------------------------------------------------------ |
+> | `scripts/boot-bench.mjs`      | temps de boot d'un mode, du spawn jusqu'à l'écoute des serveurs + nombre de `new Kernel()` |
+> | `scripts/poc-hmr-perf.mjs`    | délai de bout en bout entre le `touch` d'un fichier surveillé et le rechargement Vite      |
+> | `scripts/route-scan-cost.mjs` | ce que la résolution de route coûte à une app, et sa sensibilité au NOMBRE de routes       |
+>
+> **`route-scan-cost.mjs` répond à une question qu'aucun banc de charge ne pose** : l'index de
+> routes livré en juin (+15,3 % RPS) porte sur les routes **littérales** (Map par chemin exact) —
+> la résolution est donc `O(dynamiques)`, pas `O(1)`. Les routes à variable ou wildcard restent
+> scannées une à une à chaque requête. Ce banc chiffre ce résidu : invisible sur le dépôt
+> (136 routes, 47 dynamiques → ~1 µs, 1,3 % d'un budget de requête), franchement cher sur une app
+> qui déclare mille routes (~26 µs, 30 %). C'est la mesure qui dit si l'étape suivante
+> (bucketisation des dynamiques) se justifie pour une application donnée. Trois sorties indépendantes : `--diagnostic` (le
+> compte de `Route.match` par requête, exact et sans mesure), `--measure` (le coût en ns, médiane
+> de N runs, avec refus sous variance), `--scale` (la courbe à 136 → 2400 routes).
+>
+> ```bash
+> node .claude/skills/nodefony-load-test/scripts/route-scan-cost.mjs             # app courante
+> node …/route-scan-cost.mjs --measure --target /nodefony/security/api/auth/me
+> node …/route-scan-cost.mjs --scale                                            # la courbe
+> ```
+>
+> ⚠️ Il recompile les motifs depuis `nodefony inspect routes --json` : ce n'est pas le motif de
+> production, et il ne mesure que le scan (pas hostname/requirements, payés une fois sur la route
+> qui matche). Le chiffre est une **borne basse**, le compte de `--diagnostic` est exact.
 
 ## Niveau 3 — A/B perf MONO PROD (coût du pipeline par requête)
 
