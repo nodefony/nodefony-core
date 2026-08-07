@@ -1,5 +1,8 @@
 import { IconActivityHeartbeat, type Icon } from "@tabler/icons-react";
-import { ROLE_SUPERVISOR } from "./roles";
+// `./roleNames` et NON `./roles` : ce module est chargé au top-level par
+// `AuthStore`, et `roles.ts` importe les stores — y passer refermerait le cycle
+// `dashboards → roles → stores → AuthStore → dashboards`.
+import { ROLE_SUPERVISOR } from "./roleNames";
 
 /** Définition d'un dashboard conditionné par un rôle. */
 export interface DashboardDef {

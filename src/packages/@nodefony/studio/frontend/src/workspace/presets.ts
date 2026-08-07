@@ -8,7 +8,10 @@
  * Bureaux sans `roles` (« Mon compte », « Vierge ») = visibles par tous.
  */
 import type { WorkspacePreset } from "./types";
-import { VIEW_ROLES, isVisibleForRoles } from "../auth/roles";
+// `roleNames` et NON `roles` : ce module est atteint au top-level depuis les
+// stores (`RootStore` → `WorkspaceStore` → ici), et `roles.ts` importe les
+// stores — y passer refermerait un cycle d'imports.
+import { VIEW_ROLES, isVisibleForRoles } from "../auth/roleNames";
 
 export const WORKSPACE_PRESETS: readonly WorkspacePreset[] = [
   {
