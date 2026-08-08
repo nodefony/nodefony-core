@@ -37,10 +37,30 @@ C'est tout. Les sondes **constatent** où elles s'exécutent : sur ta machine el
 `https://127.0.0.1:5152` et déposent leurs captures dans `tmp/browser/`. Rien à configurer tant que
 tu ne changes pas de port — et `NF_BROWSER_BASE` est là si tu le changes.
 
-Playwright est un **pair optionnel** : il porte un navigateur de plus de cent mégaoctets, qu'il
-serait déraisonnable d'imposer à qui n'a pas besoin de regarder un écran. Tant qu'il manque, les
+Playwright est un **pair optionnel** — quelques mégaoctets, pas cent : il serait déraisonnable
+d'imposer un navigateur complet à qui n'a pas besoin de regarder un écran. Tant qu'il manque, les
 sondes s'arrêtent en le disant, avec la commande exacte à taper — jamais sur un « module
 introuvable » nu.
+
+### Le navigateur : celui que tu as déjà, avant d'en télécharger un
+
+Les sondes essaient, dans l'ordre : le **`chromium`** du pilote, puis **`chrome`**, puis
+**`msedge`** — les deux derniers étant ceux DÉJÀ installés sur la machine. Sous Windows, Edge est
+préinstallé : rien à télécharger. Le champ **`navigateur`** de la sortie dit lequel a servi, parce
+que deux mesures faites par des navigateurs différents ne se comparent pas.
+
+Si aucun ne répond, la sonde s'arrête (code 69) en donnant la commande — le téléchargement se fait
+**une fois par machine**, dans un cache utilisateur partagé par tous tes projets, jamais dans
+`node_modules` :
+
+```bash
+npx playwright install chromium
+```
+
+`NF_BROWSER_ENGINE=chrome` (ou `msedge`, `chromium`) impose un navigateur précis. Un choix explicite
+n'est **jamais** complété par un repli : se rabattre en silence attribuerait la mesure au mauvais
+moteur. ⚠️ À ne pas confondre avec `NF_BROWSER_CHANNEL`, qui désigne le canal d'un socket
+applicatif — le mot « canal » sert aux deux dans des mondes différents.
 
 ## L'autre voie — en conteneur, et QUAND s'en servir
 

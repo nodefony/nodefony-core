@@ -484,12 +484,34 @@ ouvertes en production pendant des mois. Règle le délai AVANT une mesure longu
 serveur qui tombe au milieu ne rend pas une mesure fausse, il en rend une qu'on
 croira vraie.
 
-## Voir un écran toi-même — le navigateur du compose
+## Voir un écran toi-même — un navigateur, pas un `curl`
 
-Un `curl` prouve qu'une route répond ; il ne dit pas si l'écran **se monte**. Pour
-ça, le compose fournit un navigateur jetable, et le devkit deux sondes prêtes à
-l'emploi — trois commandes, chacune sur une ligne, valables aussi bien dans un
-terminal Linux ou macOS que dans PowerShell ou `cmd.exe` :
+Un `curl` prouve qu'une route répond ; il ne dit pas si l'écran **se monte**. Le
+devkit porte des sondes prêtes à l'emploi, qui s'exécutent de deux façons.
+
+**Sur cette machine** — le plus court :
+
+```bash
+npm run see:setup
+node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /
+```
+
+`see:setup` n'installe **rien de lourd par défaut** : le pilote pèse quelques
+mégaoctets, et il essaie d'abord les navigateurs **déjà présents** sur la machine —
+Chrome, puis Edge, qui est préinstallé sur tout Windows. Le navigateur complet
+n'est téléchargé que si aucun ne répond, une seule fois par machine (cache
+utilisateur partagé par tous tes projets, jamais dans `node_modules`) :
+
+```bash
+npx playwright install chromium
+```
+
+Le champ `navigateur` de la sortie dit lequel a servi — deux mesures faites avec
+des navigateurs différents ne se comparent pas.
+
+**En conteneur** — quand tu veux une mesure **comparable** dans le temps (image
+épinglée, donc version figée), de l'**isolation** (le navigateur ne voit ni ton
+disque ni ton réseau), ou que tu ne veux **rien** installer :
 
 ```bash
 docker compose --profile browser up -d
@@ -515,6 +537,26 @@ Il s'arrête sur une **condition applicative** (`NF_BROWSER_UNTIL`) plutôt que 
 une durée — mais **éprouve toute condition d'arrêt avec une condition IMPOSSIBLE**
 avant de lui faire confiance : tant qu'elle n'a pas échoué une fois, rien ne dit
 qu'elle discrimine.
+
+### Auditer, pas seulement regarder
+
+```bash
+npm run audit:setup
+npm run audit:web -- /tableau-de-bord
+```
+
+Lighthouse complet **sur une page authentifiée** — ce que l'extension du navigateur
+ne sait pas faire. Cinq catégories, dont **`agentic-browsing`** : ce qu'un agent
+d'intelligence artificielle trouve en arrivant sur ta page (arbre d'accessibilité,
+stabilité visuelle, annotations WebMCP de tes formulaires, `llms.txt`).
+
+`audit:setup` est **séparé** de `see:setup` parce que Lighthouse pèse une
+vingtaine de mégaoctets : tu ne le paies que si tu audites.
+
+⚠️ **Ne juge pas la note de performance sur le serveur de développement** :
+modules servis un par un, sources non minifiées, rechargement à chaud. Elle
+s'effondre pour des raisons qui n'existent pas en production. Cette catégorie
+ne se mesure que sur une version bâtie.
 
 Le mode d'emploi complet est le skill **`nodefony-browser`** du devkit (`ai:sync` en pose
 le pointeur dans `.agents/skills/`).

@@ -365,3 +365,35 @@ export function resumeLighthouse(lhr, seuil = 0.9) {
     auditsRates: { total: rates.length, exemples: rates.slice(0, 12) },
   };
 }
+
+/**
+ * L'ordre dans lequel essayer les navigateurs — et pourquoi celui-là.
+ *
+ * ⚠️ Ne pas confondre avec le CANAL d'un socket applicatif (`NF_BROWSER_CHANNEL`),
+ * qui désigne tout autre chose : le mot « canal » est celui du pilote pour
+ * nommer une variante de navigateur, et le réutiliser ici a déjà provoqué une
+ * collision — un nom de canal temps réel interprété comme un navigateur.
+ *
+ * Le but est de **ne rien télécharger quand ce n'est pas nécessaire**. Un poste
+ * de développement a presque toujours un navigateur ; sous Windows, Edge est
+ * même préinstallé. Exiger cent mégaoctets avant de pouvoir regarder un écran
+ * est une barrière que rien ne justifie.
+ *
+ * L'ordre place quand même `chromium` en tête : c'est celui que le pilote
+ * installe et dont il connaît la version, donc le plus reproductible. Les
+ * navigateurs du système sont un repli — parfaitement bon pour REGARDER, moins
+ * pour COMPARER une mesure dans le temps, puisque leur version bouge sans
+ * prévenir. C'est la même distinction que local / conteneur.
+ *
+ * Un navigateur demandé EXPLICITEMENT n'est jamais complété par un repli : se
+ * rabattre en silence sur un autre navigateur que celui exigé rendrait une
+ * mesure attribuée au mauvais moteur.
+ *
+ * @param {string|undefined} explicite - navigateur imposé (`NF_BROWSER_ENGINE`).
+ * @returns {string[]} les navigateurs à essayer, dans l'ordre.
+ */
+export function ordreNavigateurs(explicite) {
+  const v = String(explicite ?? "").trim();
+  if (v) return [v];
+  return ["chromium", "chrome", "msedge"];
+}

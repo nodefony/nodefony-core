@@ -52,8 +52,20 @@ node src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /
 
 Les sondes **constatent** où elles s'exécutent (`/.dockerenv`) et en déduisent l'origine à joindre
 et le dossier de sortie : `https://127.0.0.1:5152` et `tmp/browser/` en local. Prérequis :
-`npm i -D playwright && npx playwright install chromium` — Playwright est un **pair optionnel**, et
-son absence s'annonce avec la commande à taper, jamais par un « module introuvable ».
+`npm i -D playwright` — pair **optionnel**, dont l'absence s'annonce avec la commande à taper,
+jamais par un « module introuvable ».
+
+**Le navigateur n'est pas forcément à télécharger.** L'ordre essayé est `chromium` (celui du
+pilote), puis `chrome`, puis `msedge` — les deux derniers étant ceux DÉJÀ posés sur la machine
+(Edge est préinstallé sur tout Windows). `npx playwright install chromium` n'est nécessaire que si
+aucun ne répond, et il écrit dans un cache utilisateur partagé, pas dans `node_modules`. Le champ
+**`navigateur`** de la sortie dit lequel a servi : deux mesures faites par des moteurs différents ne
+se comparent pas. `NF_BROWSER_ENGINE` en impose un, sans repli.
+
+> ⚠️ **`NF_BROWSER_ENGINE`, pas `NF_BROWSER_CHANNEL`.** Ce dernier existe déjà et désigne le CANAL
+> d'un socket applicatif (`socket.mjs`). Le mot « canal » sert aux deux dans des mondes différents ;
+> avoir réutilisé le nom a fait interpréter `nodefony:supervision` comme un navigateur, et le banc
+> fonctionnel est tombé. Une collision de variable ne lève aucune erreur — elle change le sens.
 
 ```bash
 # En conteneur — pour une mesure COMPARABLE (image épinglée par empreinte) ou de l'ISOLATION

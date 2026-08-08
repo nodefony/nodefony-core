@@ -16,6 +16,7 @@
  * `@env` NF_BROWSER_PAGE chemin de la page à ouvrir (défaut /)
  * `@env` NF_BROWSER_EXPECT texte DISCRIMINANT attendu avant de mesurer (défaut : aucun, on mesure après domcontentloaded)
  * `@env` NF_BROWSER_FAMILIES familles de sondes à activer, séparées par des virgules (a11y, axe, rendu, reseau, perf, stockage, responsive — ou « toutes ») ; défaut : aucune, le socle seul
+ * `@env` NF_BROWSER_ENGINE navigateur imposé (chromium, chrome, msedge) ; sans lui, le premier qui répond
  * `@env` NF_BROWSER_COLOR_SCHEME schéma de couleurs émulé (light, dark, no-preference) — un défaut peut n'exister que dans UN thème
  * `@env` NF_BROWSER_STORAGE entrées de stockage local posées AVANT chargement (`clé=valeur`) — pour une application qui MÉMORISE son thème
  * `@env` NF_BROWSER_LOGIN chemin du formulaire de connexion de TON application — requis dès qu'un identifiant est donné, aucun défaut n'est deviné
@@ -31,6 +32,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import * as decor from "./lib/browser.mjs";
 import { open, goTo, LOGIN, SORTIE } from "./lib/browser.mjs";
 import { sourceWcag } from "./lib/wcag.mjs";
 import {
@@ -753,6 +755,9 @@ console.log(
   JSON.stringify(
     {
       url: page.url(),
+      // Le navigateur qui a produit ces chiffres — un Chrome de système et le
+      // Chromium du pilote n'ont pas la même version.
+      navigateur: decor.navigateurUtilise,
       ...measured,
       erreursConsole,
       erreursNonCapturees,

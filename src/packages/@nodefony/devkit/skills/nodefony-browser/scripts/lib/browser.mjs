@@ -12,12 +12,18 @@
  * `@env` NF_BROWSER_LOGIN chemin du formulaire de connexion — REQUIS dès qu'un identifiant est donné, aucun défaut n'est deviné
  * `@env` NF_BROWSER_USER identifiant ; sans lui, aucune authentification n'est tentée
  * `@env` NF_BROWSER_PASSWORD mot de passe associé
+ * `@env` NF_BROWSER_ENGINE navigateur imposé (chromium, chrome, msedge) ; sans lui, le premier qui répond
  * `@env` NF_BROWSER_COLOR_SCHEME schéma de couleurs émulé (light, dark, no-preference) ; sans lui, celui du navigateur
  * `@env` NF_BROWSER_STORAGE entrées de stockage local posées AVANT chargement (`clé=valeur`, séparées par des virgules)
  */
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
-import { defautsDecor, parseColorScheme, parseStorage } from "./probes.mjs";
+import {
+  defautsDecor,
+  ordreNavigateurs,
+  parseColorScheme,
+  parseStorage,
+} from "./probes.mjs";
 
 /**
  * Playwright — chargé À LA DEMANDE, pour pouvoir expliquer son absence.
@@ -63,6 +69,18 @@ const { base: baseDecor, out: OUT } = defautsDecor({
 /** Où atterrissent captures et état d'authentification. */
 export const SORTIE = OUT;
 export const BASE = baseDecor;
+
+/** Les navigateurs à essayer, dans l'ordre — voir `ordreNavigateurs`. */
+const NAVIGATEURS = ordreNavigateurs(process.env.NF_BROWSER_ENGINE);
+
+/**
+ * Le navigateur RÉELLEMENT utilisé, renseigné à l'ouverture.
+ *
+ * Rendu avec la mesure, parce que le décor en fait partie : un Chrome de
+ * système et le Chromium du pilote ne sont pas la même version, et deux
+ * chiffres de rendu comparés sans savoir cela ne comparent rien.
+ */
+export let navigateurUtilise = null;
 export const USER = process.env.NF_BROWSER_USER ?? "";
 export const PASSWORD = process.env.NF_BROWSER_PASSWORD ?? "";
 
@@ -142,16 +160,39 @@ if (storageRejetees.length > 0) {
  *   d'authentification a été repris, ce qui décide s'il faut se connecter.
  */
 export async function open() {
-  // `channel: "chromium"` demande le Chromium COMPLET plutôt que le
-  // `chrome-headless-shell` que Playwright lance par défaut en mode sans
-  // interface. Les deux décors y gagnent, pour des raisons opposées : une image
-  // de conteneur n'embarque souvent que le premier (sans ce paramètre, elle
-  // réclame une installation qui n'a pas lieu d'être), et sur un poste c'est le
-  // navigateur qui rend le plus fidèlement ce qu'un utilisateur verra.
-  const browser = await chromium.launch({
-    channel: "chromium",
-    args: ["--no-sandbox"],
-  });
+  // On CONSTATE quel navigateur répond, au lieu de supposer lequel est là.
+  //
+  // `channel` demande un navigateur COMPLET plutôt que le
+  // `chrome-headless-shell` que le pilote lance par défaut sans interface — une
+  // image de conteneur n'embarque souvent que le premier, et sur un poste c'est
+  // lui qui rend le plus fidèlement ce qu'un utilisateur verra.
+  //
+  // L'ordre essaie d'abord celui que le pilote installe, puis ceux DÉJÀ posés
+  // sur la machine : la plupart des postes n'ont alors rien à télécharger.
+  let browser = null;
+  const echecs = [];
+  for (const canal of NAVIGATEURS) {
+    try {
+      browser = await chromium.launch({
+        channel: canal,
+        args: ["--no-sandbox"],
+      });
+      navigateurUtilise = canal;
+      break;
+    } catch (e) {
+      echecs.push(`  ${canal} — ${String(e).split("\n")[0].slice(0, 120)}`);
+    }
+  }
+  if (!browser) {
+    console.error(
+      `Aucun navigateur utilisable parmi : ${NAVIGATEURS.join(", ")}.\n\n` +
+        `${echecs.join("\n")}\n\n` +
+        "Installer celui du pilote (une fois par machine, partagé par tous tes projets) :\n\n" +
+        "  npx playwright install chromium\n\n" +
+        "Ou viser un navigateur déjà présent : NF_BROWSER_ENGINE=chrome (ou msedge).",
+    );
+    process.exit(69); // EX_UNAVAILABLE
+  }
   const options = {
     ignoreHTTPSErrors: true, // certificat de développement auto-signé
     viewport: { width: 1440, height: 900 },

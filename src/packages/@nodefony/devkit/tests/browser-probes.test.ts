@@ -47,6 +47,9 @@ const mediane = fonctionDe<(valeurs: number[]) => number | null>(
   probes,
   "mediane",
 );
+const ordreNavigateurs = fonctionDe<
+  (explicite: string | undefined) => string[]
+>(probes, "ordreNavigateurs");
 const defautsDecor = fonctionDe<
   (decor: { dansConteneur: boolean; base?: string; out?: string }) => {
     base: string;
@@ -475,5 +478,37 @@ describe("resumeLighthouse — un rapport d'un mégaoctet, rendu lisible", () =>
   it("un rapport vide ou absent ne fait pas planter le résumé", () => {
     expect(resumeLighthouse(undefined).verdict).toBe("OK");
     expect(resumeLighthouse({}).scores).toEqual({});
+  });
+});
+
+/**
+ * Ce que ces tests prouvent : on ne télécharge un navigateur qu'en dernier
+ * recours, et un choix EXPLICITE ne se contourne jamais.
+ *
+ * Le premier point est une question de barrière à l'entrée : exiger cent
+ * mégaoctets avant de pouvoir regarder un écran décourage l'usage. La plupart
+ * des postes ont déjà un navigateur — et sous Windows, Edge est préinstallé.
+ *
+ * Le second est une question de vérité de la mesure : se rabattre en silence
+ * sur un autre navigateur que celui demandé attribuerait des chiffres au
+ * mauvais moteur.
+ */
+describe("ordreNavigateurs — ne rien télécharger sans nécessité", () => {
+  it("essaie d'abord celui du pilote, puis ceux DÉJÀ posés sur la machine", () => {
+    expect(ordreNavigateurs(undefined)).toEqual([
+      "chromium",
+      "chrome",
+      "msedge",
+    ]);
+  });
+
+  it("inclut Edge — préinstallé sur Windows, donc zéro téléchargement là-bas", () => {
+    expect(ordreNavigateurs("")).toContain("msedge");
+  });
+
+  it("sens négatif : un navigateur EXPLICITE n'est jamais complété par un repli", () => {
+    // Se rabattre ici rendrait une mesure attribuée au mauvais navigateur.
+    expect(ordreNavigateurs("chrome")).toEqual(["chrome"]);
+    expect(ordreNavigateurs("  msedge  ")).toEqual(["msedge"]);
   });
 });
