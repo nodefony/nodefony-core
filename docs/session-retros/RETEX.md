@@ -307,6 +307,27 @@ check:externals --if-present` sur un script qui n'existe pas → contrôle imagi
   rendu : banc vert). Angle neuf de [[feedback_gitignored_breaks_clone]] : le danger n'est pas
   seulement CONSOMMER un fichier ignoré, c'est en faire la CIBLE d'un import qu'on committe.
 
+## 🚚 Déménager un artefact vers un AUTRE public révèle ce qu'il supposait
+
+- `[1× — 08-08]` 🔴 **Le user a attrapé à l'œil ce qu'aucun de mes contrôles ne voyait** : une
+  sonde promue « générique » et distribuée par npm lisait encore l'attribut de thème d'une
+  bibliothèque que seule notre console d'administration emploie, et devinait une route de
+  connexion qui n'existe que chez elle. Rien ne pouvait le signaler — un skill part sur npm
+  **sans compilation ni exécution**, et le code « marche » : il marche ICI. En cherchant les
+  frères du défaut signalé, j'en ai trouvé un pire (le chemin de connexion deviné faisait
+  mesurer une page d'erreur en croyant s'être authentifié). **Un artefact qui change de public
+  se relit ligne à ligne en se demandant « qu'est-ce que ça suppose de MON décor ? »** — et la
+  réponse se grave en gate, sinon elle se reperd.
+- `[1× — 08-08]` **Ce qui est HORS du périmètre d'un sous-agent reste à faire, et c'est le user
+  qui l'a vu.** J'avais bien borné la délégation (deux dossiers, interdiction du reste) ; l'agent
+  a respecté, et signalé lui-même ce qu'il n'avait pas pu toucher. Mais je suis passé à la
+  vérification sans traiter cette liste. **Un périmètre strict CRÉE une dette de répercussion :
+  elle se traite au retour de l'agent, pas « plus tard ».**
+- `[1× — 08-08]` **La précision doit vivre dans l'ARGUMENT, pas dans le code.** Le correctif
+  n'était pas de retirer la mesure spécifique mais de la sortir en paramètre (`NF_BROWSER_PROBES`,
+  `NF_BROWSER_LOGIN` sans défaut). Le dépôt retrouve son comportement exact en passant ses
+  valeurs ; le code, lui, ne suppose plus rien.
+
 ## 🧰 Outillage : ce qui pend, ce qui ment, ce qui lance
 
 - `[1× — 08-06i]` **`timeout` n'existe pas sur macOS nu → rc 127 lu comme verdict, DEUX faux
@@ -317,6 +338,22 @@ check:externals --if-present` sur un script qui n'existe pas → contrôle imagi
   sandwich r0b refusé 3× (disp 4,9-8,5 %) — le pollueur était MON propre process (32 % CPU).
   Seules les marches CPU-bound le voient (les marches I/O-sérialisées restent à ≤ 3 %) ; filet
   de secours = l'additivité interne de l'escalier (vérifiée ici à ~1 %).
+- `[1× — 08-08]` 🔴 **`docker cp <dossier> <cible>` IMBRIQUE quand la cible existe** — il ne
+  remplace pas. La deuxième copie crée `cible/dossier`, et l'on exécute la version PRÉCÉDENTE
+  du script en croyant l'avoir mise à jour, sans le moindre message : j'ai mesuré une sortie
+  périmée et cru à un bug. La forme juste est `<dossier>/.` (copie le CONTENU). Corollaire du
+  « prouver sur l'artefact REÇU » : vérifier que la transformation a EU LIEU (`grep` d'un
+  marqueur du diff dans la copie) avant de mesurer.
+- `[1× — 08-08]` **Un lint CIBLÉ ne voit pas ce que le lint GLOBAL voit** : j'ai lancé oxlint sur
+  le seul fichier signalé par le hook, le user a lancé `npm run lint` et trouvé une erreur de
+  plus dans un AUTRE fichier — le hook s'était arrêté au premier échec, laissant croire à une
+  liste complète. Après un lot écrit par un sous-agent (qui n'a jamais déclenché le hook),
+  passer le lint du DÉPÔT, pas celui du fichier.
+- `[2× — 08-08]` **Le cwd persiste entre appels et fabrique des verdicts faux** : `skills:check`
+  rendu « exit 1 » depuis un sous-dossier, puis `npx vitest run tests/` lancé depuis la racine
+  ratissant tout le monorepo (« 437 fichiers en échec » — aucun rapport avec mon diff). Déjà
+  gradué en [[feedback_bash_cwd_drift]] ; ce qui manque c'est le RÉFLEXE : un résultat surprenant
+  se relit d'abord en se demandant « depuis OÙ ai-je lancé ça ? ».
 
 - `[1× — 08-06]` 🔴 **Une leçon gravée dans UN artefact ne protège pas le script NEUF** : la garde
   locale-fr (`awk printf` → `0,0`) était écrite au kit perf ET dans `bench-ab-mono.sh` — et j'ai
