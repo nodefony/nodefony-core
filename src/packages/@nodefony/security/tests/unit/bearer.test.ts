@@ -68,8 +68,23 @@ describe("bearerToken — extraction du porteur (RFC 9110 §5.6.3)", () => {
     // agent d'intégration saturé une préemption de 90 ms au milieu d'un chrono
     // de 0,3 ms est ordinaire. Vécu : rouge sur macOS à 96 ms pendant que les
     // cinq autres cases de la matrice passaient.
+    // Les entrées se construisent UNE fois. `" ".repeat(1_600_000)` alloue plus
+    // d'un mégaoctet ; le refaire à chaque appel plaçait une allocation — donc
+    // un passage possible du ramasse-miettes — juste avant la fenêtre
+    // chronométrée, et la paire la plus grande en payait deux fois plus que la
+    // petite. Le ratio mesurait alors le ramasse-miettes autant que le motif.
+    const entrees = new Map<number, string>();
+    const entree = (taille: number): string => {
+      let hostile = entrees.get(taille);
+      if (hostile === undefined) {
+        hostile = `Bearer ${" ".repeat(taille)}\n`;
+        entrees.set(taille, hostile);
+      }
+      return hostile;
+    };
+
     const mesure = (taille: number, essais = 5): number => {
-      const hostile = `Bearer ${" ".repeat(taille)}\n`;
+      const hostile = entree(taille);
       expect(bearerToken(hostile)).to.equal(null);
       // Chauffe : le premier appel s'exécute avant que la machine virtuelle
       // n'ait compilé la fonction — il mesure la montée en régime.
@@ -103,26 +118,37 @@ describe("bearerToken — extraction du porteur (RFC 9110 §5.6.3)", () => {
     // Le ratio MINIMAL sur plusieurs PAIRES, et non le ratio d'une seule.
     //
     // Le minimum interne à `mesure` ne suffit pas : il écarte une préemption
-    // ponctuelle, pas une machine lente pendant toute la série. Vécu en
-    // intégration — ×4,05 (1,146 → 4,639 ms) sur ubuntu/Node 24 quand les
-    // cinq autres cases de la matrice passaient, et ×2,00 stable sur dix
-    // passes en local. Une implémentation à retour arrière, elle, est lente à
-    // CHAQUE paire : prendre la meilleure ne peut donc pas l'innocenter.
-    // Contrôlé sur le témoin fautif (l'ancien motif, aux mêmes conditions) :
-    // ×3,88 — la sonde mord encore, le seuil reste entre les deux.
+    // ponctuelle, pas une machine lente pendant toute la série. Une
+    // implémentation à retour arrière, elle, est lente à CHAQUE paire :
+    // prendre la meilleure ne peut donc pas l'innocenter.
+    //
+    // Les tailles ne sont pas cosmétiques, c'est ce qui décide si le cas tient.
+    // À 200 k/400 k le travail utile durait ~1 ms, soit l'ORDRE DE GRANDEUR du
+    // bruit d'un agent partagé : une préemption de 1,2 ms sur la grande moitié
+    // suffisait à afficher un ratio de 3, sans qu'aucune courbe ait changé.
+    // Vécu deux fois, sur deux cases différentes de la matrice — ×4,05
+    // (1,146 → 4,639 ms) sur ubuntu/Node 24, puis ×3,03 (1,181 → 3,582 ms) sur
+    // ubuntu/Node 26. Le remède n'est pas de relever le seuil, qui grignoterait
+    // la marge du côté fautif : c'est de porter le SIGNAL au-dessus du bruit.
+    // À 800 k/1,6 M le travail dure ~2 et ~4 ms, et la même préemption ne
+    // déplace plus le ratio que de 2,0 à 2,6 — sous le seuil.
     let facteur = Infinity;
     let meilleur = { simple: 0, double: 0 };
     for (let paire = 0; paire < 5; paire++) {
-      const simple = mesure(200_000);
-      const double = mesure(400_000);
+      const simple = mesure(800_000);
+      const double = mesure(1_600_000);
       if (double / simple < facteur) {
         facteur = double / simple;
         meilleur = { simple, double };
       }
     }
-    // Mesuré : 2,00 sur cette implémentation, 3,88 sur l'ancien motif. Le seuil
-    // se pose entre les deux, et le quadratique s'en éloigne encore quand la
-    // taille monte — la marge ne se referme jamais du mauvais côté.
+    // Mesuré sur cette implémentation : ×1,95 (1,876 → 3,651 ms). Le témoin
+    // fautif ne se mesure PAS ici — il quadruple à chaque doublement (×4,01 à
+    // 8 k, ×4,07 à 16 k, ×4,06 à 32 k) et mettrait une trentaine de secondes sur
+    // 800 k. C'est la garde de terminaison ci-dessus qui l'arrête : 868 ms
+    // relevées à 32 k, quand elle refuse au-delà de 50 ms à 25 k. Ce second
+    // filet vise donc la régression DISCRÈTE, celle qui resterait sous la garde
+    // de terminaison tout en cessant d'être linéaire.
     expect(
       facteur,
       `×${facteur.toFixed(2)} en doublant l'entrée, meilleure de 5 paires ` +
