@@ -95,13 +95,6 @@ function lancer(
 }
 
 /**
- * Playwright manque-t-il ? Les sondes le disent alors en code 69, AVANT tout
- * contrôle d'usage — et aucun refus 64 ne peut être observé.
- *
- * On le CONSTATE en lançant, plutôt que de le déduire d'un `require.resolve` :
- * c'est le verdict du script lui-même qui décide, dans le décor où il tourne.
- */
-/**
  * Budget de temps d'un cas — explicite, parce que celui de vitest ne l'est pas.
  *
  * Un lancement coûte ~0,2 s ici et **2,3 à 2,7 s sur un exécuteur Windows**
@@ -116,6 +109,13 @@ function lancer(
  */
 const BUDGET_MS = 60000;
 
+/**
+ * Playwright manque-t-il ? Les sondes le disent alors en code 69, AVANT tout
+ * contrôle d'usage — et aucun refus 64 ne peut être observé.
+ *
+ * On le CONSTATE en lançant, plutôt que de le déduire d'un `require.resolve` :
+ * c'est le verdict du script lui-même qui décide, dans le décor où il tourne.
+ */
 const sansPlaywright = lancer("socket.mjs", [], {}).code === 69;
 if (sansPlaywright) {
   process.stderr.write(

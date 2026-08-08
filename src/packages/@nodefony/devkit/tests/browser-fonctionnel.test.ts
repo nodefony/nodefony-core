@@ -27,6 +27,22 @@ const nomEtatAuth = fonctionDe<(identifiant: string) => string>(
  * qu'une application générée ; les défauts sont ceux de ce dépôt. Quand le
  * décor manque, la suite SAUTE en le DISANT — jamais un vert silencieux sur un
  * banc qui n'a rien exercé.
+ *
+ * Viser une application produite par `nodefony create app` — décor VÉRIFIÉ, et
+ * ce que chaque écart enseigne :
+ *
+ *     NF_BROWSER_TEST_BASE=https://127.0.0.1:5154
+ *     NF_BROWSER_TEST_BASE_CONTENEUR=https://host.docker.internal:5154
+ *     NF_BROWSER_TEST_USER=admin  NF_BROWSER_TEST_PASSWORD=admin
+ *     NF_BROWSER_TEST_SOCKET=/api/live/realtime
+ *     NF_BROWSER_TEST_CHANNEL=live:ticker
+ *     NF_BROWSER_TEST_ACTION=live:ping
+ *     NF_BROWSER_TEST_API=            (le pont n'existe que côté administration)
+ *     NF_BROWSER_TEST_CHANNEL_REFUSE= (une app fraîche n'a qu'un seul compte)
+ *
+ * Les ports ne sont pas ceux de la configuration : une seconde application
+ * prend les premiers ports libres quand une autre tient déjà les siens. Lire
+ * ceux qu'elle ANNONCE au démarrage plutôt que ceux qu'on croit.
  */
 const BASE_HOTE = process.env.NF_BROWSER_TEST_BASE ?? "https://127.0.0.1:5152";
 const BASE_CONTENEUR =
@@ -45,8 +61,22 @@ const SOCKET =
   process.env.NF_BROWSER_TEST_SOCKET ?? "/nodefony/studio/api/realtime";
 const PAGE_SOCKET = process.env.NF_BROWSER_TEST_PAGE_SOCKET ?? "/nodefony";
 const CANAL = process.env.NF_BROWSER_TEST_CHANNEL ?? "nodefony:supervision";
+/**
+ * Le pont `api.request` et l'action RPC — deux façons de mesurer un aller-retour
+ * CORRÉLÉ, et aucune n'est universelle.
+ *
+ * Le pont qui rejoue une route HTTP sur le socket est une capacité du plan
+ * d'administration : un contrôleur temps réel d'application ne l'expose pas, et
+ * l'exiger fait rendre `method not found: api.request` — un rouge qui n'accuse
+ * que l'hypothèse du banc. Constaté en jouant ce banc, pour la première fois,
+ * ailleurs que sur ce dépôt.
+ *
+ * Chacune se désactive par une chaîne VIDE, et une action déclarée par le
+ * contrôleur (`NF_BROWSER_TEST_ACTION`) prend le relais pour la latence.
+ */
 const CHEMIN_API =
   process.env.NF_BROWSER_TEST_API ?? "/nodefony/kernel/api/info";
+const ACTION = process.env.NF_BROWSER_TEST_ACTION ?? "";
 
 /**
  * Le décor du REFUS : un canal réellement protégé, et un compte authentifié qui
@@ -355,7 +385,8 @@ describe.skipIf(raisons.length > 0)("sondes navigateur — fonctionnel", () => {
       ...ENV_AUTH,
       NF_BROWSER_PAGE: PAGE_SOCKET,
       NF_BROWSER_CHANNEL: CANAL,
-      NF_BROWSER_API: CHEMIN_API,
+      ...(CHEMIN_API ? { NF_BROWSER_API: CHEMIN_API } : {}),
+      ...(ACTION ? { NF_BROWSER_ACTION: ACTION } : {}),
     });
     expect(r.code, r.stderr).toBe(0);
     const d = sortieJson(r);
@@ -366,11 +397,18 @@ describe.skipIf(raisons.length > 0)("sondes navigateur — fonctionnel", () => {
     const abonnement = commeObjet(d["abonnement"], "abonnement");
     expect(abonnement["verdict"]).toBe("OK");
     expect(Number(abonnement["total"])).toBeGreaterThan(0);
+    // La latence exige une méthode CORRÉLÉE — une action déclarée par le
+    // contrôleur, ou le pont API. Sans l'une ni l'autre il n'y a rien à
+    // mesurer, et exiger un chiffre reviendrait à en inventer un.
     const latence = commeObjet(d["latence"], "latence");
-    expect(latence["verdict"]).toBe("OK");
-    expect(Number(latence["medianeMs"])).toBeGreaterThan(0);
-    const api = commeObjet(d["api"], "api");
-    expect(api["verdict"]).toBe("OK");
+    if (ACTION || CHEMIN_API) {
+      expect(latence["verdict"]).toBe("OK");
+      expect(Number(latence["medianeMs"])).toBeGreaterThan(0);
+    }
+    if (CHEMIN_API) {
+      const api = commeObjet(d["api"], "api");
+      expect(api["verdict"]).toBe("OK");
+    }
     const reconnexion = commeObjet(d["reconnexion"], "reconnexion");
     expect(reconnexion["verdict"]).toBe("OK");
     expect(reconnexion["memeIdentite"]).toBe(true);
