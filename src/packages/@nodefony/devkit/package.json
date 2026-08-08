@@ -26,7 +26,8 @@
     "@nodefony/http": "*",
     "nodefony": "*",
     "zod": "^4.4.3",
-    "playwright": "^1.50.0"
+    "playwright": "^1.50.0",
+    "lighthouse": "^13.0.0"
   },
   "devDependencies": {
     "@nodefony/framework": "*",
@@ -39,6 +40,9 @@
   },
   "peerDependenciesMeta": {
     "playwright": {
+      "optional": true
+    },
+    "lighthouse": {
       "optional": true
     }
   }

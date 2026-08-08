@@ -291,3 +291,77 @@ export function resumeAxe(rapport) {
     })),
   };
 }
+
+/**
+ * Résume un rapport Lighthouse — le tri éditorial, pas la mesure.
+ *
+ * Un rapport brut pèse près d'un mégaoctet : le rendre tel quel, c'est garantir
+ * que personne ne le lise. On en tire les scores par catégorie et les audits
+ * RATÉS, du plus lourd au plus léger, avec ce qui les explique.
+ *
+ * Deux pièges de lecture, encodés ici :
+ *  • un audit dont le score est `null` n'a PAS échoué — il ne s'applique pas
+ *    (rien à mesurer) ou n'est qu'informatif. Le compter en échec ferait crier
+ *    le rapport sur des pages saines ;
+ *  • un score de catégorie est une moyenne pondérée : il peut rester flatteur
+ *    alors qu'un audit important est au plus bas. On rend donc les DEUX.
+ *
+ * @param {object} lhr - le rapport (`runnerResult.lhr`).
+ * @param {number} [seuil] - score en deçà duquel un audit est retenu (0–1).
+ * @returns {object} scores par catégorie, audits ratés, et le décor de mesure.
+ */
+export function resumeLighthouse(lhr, seuil = 0.9) {
+  const audits = lhr?.audits ?? {};
+  const categories = Object.values(lhr?.categories ?? {});
+  const scores = {};
+  for (const c of categories) {
+    // `null` se distingue de 0 : « pas de score » n'est pas « score nul ».
+    scores[c.id] =
+      c.score === null || c.score === undefined
+        ? null
+        : +(c.score * 100).toFixed(0);
+  }
+  const rates = [];
+  for (const c of categories) {
+    for (const ref of c.auditRefs ?? []) {
+      const a = audits[ref.id];
+      if (!a || a.score === null || a.score === undefined) continue;
+      if (a.score >= seuil) continue;
+      rates.push({
+        categorie: c.id,
+        audit: ref.id,
+        titre: a.title,
+        score: +(a.score * 100).toFixed(0),
+        // Le poids dans la note : un audit à 0 qui pèse 0 ne coûte rien, et
+        // c'est ce qui explique un score élevé malgré des rouges.
+        poids: ref.weight ?? 0,
+        valeur: a.displayValue ?? null,
+        details: (a.description ?? "")
+          .replace(/\s*\[.*?\]\(.*?\)/gu, "")
+          .trim()
+          .slice(0, 180),
+      });
+    }
+  }
+  // Trié par poids décroissant puis score croissant : ce qui coûte le plus, en
+  // premier — un tri par score seul remonterait des broutilles sans influence.
+  rates.sort((a, b) => b.poids - a.poids || a.score - b.score);
+  return {
+    verdict: rates.length === 0 ? "OK" : "ALERTE",
+    moteur: `lighthouse ${lhr?.lighthouseVersion ?? "?"}`,
+    url: lhr?.finalDisplayedUrl ?? lhr?.finalUrl ?? null,
+    // Le DÉCOR fait partie de la mesure : un score de performance n'a aucun
+    // sens sans savoir quel appareil et quel réseau ont été simulés.
+    decor: {
+      appareil: lhr?.configSettings?.formFactor ?? "?",
+      bridage: lhr?.configSettings?.throttlingMethod ?? "?",
+    },
+    scores,
+    // Les catégories SANS score sont dites : elles n'ont pas été évaluées, ce
+    // qui n'est pas la même chose qu'un score parfait.
+    nonNotees: Object.entries(scores)
+      .filter(([, v]) => v === null)
+      .map(([k]) => k),
+    auditsRates: { total: rates.length, exemples: rates.slice(0, 12) },
+  };
+}

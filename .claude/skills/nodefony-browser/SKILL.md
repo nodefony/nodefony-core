@@ -218,6 +218,30 @@ six canaux (`nodefony:syslog`, `supervision`, `debugbar`, `orm:health`, `orm:flo
 Grammaire des frames, verdicts (dont `SILENCIEUX`, qui ne veut **pas** dire cassé) et pièges :
 `src/packages/@nodefony/devkit/skills/nodefony-browser/references/socket.md`.
 
+## 3 quinquies. L'audit complet — `audit.mjs` (Lighthouse par le port CDP)
+
+Les cinq catégories de Lighthouse sur une page **authentifiée** — dont
+**`agentic-browsing`**, qui note ce qu'un agent trouve en arrivant : arbre d'accessibilité,
+stabilité visuelle, annotations **WebMCP** des formulaires, outils déclarés, `llms.txt`.
+
+```bash
+NF_BROWSER_LOGIN=/nodefony/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=secret node src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/audit.mjs /nodefony/documentation
+```
+
+Mesuré sur ce dépôt (mode développement) : `accessibility` 93 · `best-practices` 100 · `seo` 91 ·
+**`agentic-browsing` 96** · `performance` 30. Les trois audits WebMCP et `llms-txt` sortent **sans
+score** — le dépôt ne les implémente pas ; c'est une indication, pas un échec.
+
+- **Le `performance` d'un serveur de développement ne veut rien dire** (modules servis un par un,
+  sources non minifiées, rechargement à chaud). Ne le mesurer que sur une version bâtie.
+- **Le `decor` est rendu avec les scores** (`desktop`/`mobile`, méthode de bridage) : sans lui, un
+  chiffre de performance n'est rattachable à rien.
+- **Pourquoi la session survit** : profil PERSISTANT + port de débogage, et `disableStorageReset`
+  posé — sans ce dernier, Lighthouse VIDE le stockage avant de mesurer et audite l'écran de
+  connexion sans le dire. C'est le piège central d'un audit derrière authentification.
+- Le rapport COMPLET est déposé dans `tmp/browser/` : ouvrable dans une visionneuse Lighthouse,
+  comparable dans le temps. Le résumé sert à décider, l'original à vérifier.
+
 ## 3 quater. Observer ce qui se PASSE — `watch.mjs`
 
 `inspect.mjs` photographie un instant ; celui-ci regarde le temps qui coule. Indispensable pour un

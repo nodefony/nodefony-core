@@ -68,6 +68,10 @@ const parseStorage = fonctionDe<
 // Le rapport d'axe-core est une structure ouverte et versionnée par son
 // éditeur : la modéliser en détail ici périmerait au premier changement de
 // leur schéma. Le contrat qu'on éprouve est celui de NOTRE résumé.
+const resumeLighthouse = fonctionDe<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- forme externe
+  (lhr: any, seuil?: number) => any
+>(probes, "resumeLighthouse");
 const resumeAxe = fonctionDe<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- forme externe
   (rapport: any) => any
@@ -375,5 +379,101 @@ describe("defautsDecor — constater l'endroit, pas le supposer", () => {
       base: "https://127.0.0.1:5152",
       out: "tmp/browser",
     });
+  });
+});
+
+/**
+ * Ce que ces tests prouvent : un rapport Lighthouse ne se résume pas naïvement.
+ *
+ * Deux confusions rendraient le résumé MENTEUR, et toutes deux sont faciles à
+ * commettre : traiter un audit sans score comme un échec (il y en a plusieurs
+ * par page — ils ne s'appliquent simplement pas), et classer les échecs par
+ * score plutôt que par POIDS, ce qui remonte des broutilles sans influence
+ * pendant qu'un audit décisif reste plus bas.
+ */
+describe("resumeLighthouse — un rapport d'un mégaoctet, rendu lisible", () => {
+  const rapport = (audits, categories) => ({
+    lighthouseVersion: "13.4.1",
+    finalDisplayedUrl: "https://exemple.test/x",
+    configSettings: { formFactor: "desktop", throttlingMethod: "simulate" },
+    audits,
+    categories,
+  });
+
+  it("rend les scores en pourcentage, et distingue « non noté » de zéro", () => {
+    const r = resumeLighthouse(
+      rapport(
+        {},
+        {
+          perf: { id: "perf", score: 0.3, auditRefs: [] },
+          agentic: { id: "agentic", score: null, auditRefs: [] },
+        },
+      ),
+    );
+    expect(r.scores).toEqual({ perf: 30, agentic: null });
+    expect(r.nonNotees).toEqual(["agentic"]);
+  });
+
+  it("sens négatif : un audit SANS score n'est pas un échec", () => {
+    // Vécu : les audits WebMCP et llms.txt sortent à `null` sur une page qui
+    // ne les implémente pas. Les compter en échec ferait crier le rapport.
+    const r = resumeLighthouse(
+      rapport(
+        { "llms-txt": { score: null, title: "llms.txt" } },
+        {
+          agentic: {
+            id: "agentic",
+            score: 1,
+            auditRefs: [{ id: "llms-txt", weight: 0 }],
+          },
+        },
+      ),
+    );
+    expect(r.auditsRates.total).toBe(0);
+    expect(r.verdict).toBe("OK");
+  });
+
+  it("un audit au-dessus du seuil n'est pas retenu", () => {
+    const r = resumeLighthouse(
+      rapport(
+        { bon: { score: 0.95, title: "Bon" } },
+        { c: { id: "c", score: 0.95, auditRefs: [{ id: "bon", weight: 5 }] } },
+      ),
+    );
+    expect(r.auditsRates.total).toBe(0);
+  });
+
+  it("classe par POIDS d'abord — un rouge sans influence ne passe pas devant", () => {
+    const r = resumeLighthouse(
+      rapport(
+        {
+          broutille: { score: 0, title: "Broutille" },
+          decisif: { score: 0.5, title: "Décisif" },
+        },
+        {
+          c: {
+            id: "c",
+            score: 0.4,
+            auditRefs: [
+              { id: "broutille", weight: 0 },
+              { id: "decisif", weight: 10 },
+            ],
+          },
+        },
+      ),
+    );
+    expect(
+      r.auditsRates.exemples.map((a: { audit: string }) => a.audit),
+    ).toEqual(["decisif", "broutille"]);
+  });
+
+  it("rend le DÉCOR — un score de performance sans son appareil ne veut rien dire", () => {
+    const r = resumeLighthouse(rapport({}, {}));
+    expect(r.decor).toEqual({ appareil: "desktop", bridage: "simulate" });
+  });
+
+  it("un rapport vide ou absent ne fait pas planter le résumé", () => {
+    expect(resumeLighthouse(undefined).verdict).toBe("OK");
+    expect(resumeLighthouse({}).scores).toEqual({});
   });
 });
