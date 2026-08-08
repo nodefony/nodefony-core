@@ -135,11 +135,17 @@ export function buildStudioTheme(palette: StudioPalette = "nodefony") {
       // locale. On la pose donc une fois, pour tous les menus.
       NavLink: NavLink.extend({
         defaultProps: { color: "brand.7" },
-        vars: (_theme, props) => ({
-          root: props.active
-            ? { "--nl-color": "var(--mantine-color-white)" }
+        // Par `styles` et non `vars` : le résolveur de variables exige une
+        // valeur pour CHAQUE état, or il n'existe pas de chaîne signifiant
+        // « laisse la valeur par défaut » — et poser une variable vide
+        // écraserait ce que la bibliothèque calcule pour l'état inactif.
+        styles: (_theme, props) =>
+          props.active
+            ? {
+                root: { color: "var(--mantine-color-white)" },
+                label: { color: "var(--mantine-color-white)" },
+              }
             : {},
-        }),
       }),
       // Fenêtres (Modal) à deux tons, esprit bulles d'aide (DocHint) — sens
       // OPPOSÉ selon le schéma (validé visuellement) :
