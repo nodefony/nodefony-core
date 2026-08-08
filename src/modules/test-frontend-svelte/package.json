@@ -34,7 +34,7 @@
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
-    "@types/node": "26.1.2",
+    "@types/node": "26.2.0",
     "nodefony": "*",
     "rimraf": "6.1.3"
   },
