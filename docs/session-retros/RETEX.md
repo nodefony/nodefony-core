@@ -139,6 +139,58 @@
   exact et déterministe (aucune mesure de temps). Quand un diagnostic peut se poser en COMPTE plutôt
   qu'en durée, le préférer — il survit au bruit, à la machine et à l'instrument.
 
+## 🧰 Réécrire ce dont c'est le MÉTIER d'un outil — 41 faux positifs contre 7 vrais
+
+- `[1× — 08-08c]` 🔴 **Sonde de contraste écrite à la main : trois bugs en vingt lignes**, et le
+  défaut qu'on CHERCHAIT noyé dessous. (a) les couleurs CSS modernes comptent en 0–1
+  (`color(srgb 0 0.4 0.73 / .13)`) et la même expression régulière que `rgb(0, 87, 156)` les lit
+  comme du 0–255 → un bleu rendu presque noir ; (b) un fond semi-transparent doit être COMPOSÉ sur
+  ce qu'il y a dessous, sinon on mesure une couleur que personne ne voit ; (c) les emoji sont
+  peints par une police EN COULEURS — leur `color` calculée (noire, héritée) ne décrit rien, et les
+  juger fabrique des échecs à 1:1. Résultat : **41 signalements, 7 réels**. Remplacée par
+  `axe-core` — le moteur qu'embarque Lighthouse pour ce volet. Le user avait raison avant la
+  mesure : « il y a des outils dont c'est le métier ; le nôtre c'est de voir et corriger ».
+- `[1× — 08-08c]` **La QUESTION ZÉRO a une deuxième face.** Elle dit « un automate plutôt qu'un
+  modèle » ; elle vaut aussi **« une dépendance de référence plutôt que du code maison »** dès que
+  le domaine a des cas particuliers qu'on ne devine pas avant de les avoir vus. Le critère n'est
+  pas la difficulté apparente (un rapport de contraste tient en trois lignes) mais le nombre de cas
+  limites que dix ans d'usage ont révélés à quelqu'un d'autre.
+- `[1× — 08-08c]` 🔴 **J'ai affirmé de mémoire qu'un outil externe n'avait pas telle fonction** —
+  « Lighthouse n'a pas d'audit agentic ». Faux : la catégorie `agentic-browsing` existe depuis la
+  13, et les rapports du user la contenaient. Sur une capacité d'un outil TIERS, la connaissance
+  se périme sans prévenir : vérifier au source, ou dire qu'on ne sait pas.
+
+## 🏭 Le GABARIT n'est pas ce qu'il PRODUIT — six défauts invisibles à la lecture
+
+- `[1× — 08-08c]` 🔴 **Première application réellement générée et regardée : six défauts**, dont
+  aucun ne se voyait en lisant les gabarits. Le pire : un lien « console d'administration :
+  `/nodefony` » en pied de page ET dans le message de fin de création, alors que la console n'est
+  installée QUE par le préset complet — une application minimale envoyait donc son auteur sur un
+  **404 dès sa première minute**. Puis un `<input>` sans nom accessible (manquement critique,
+  poids 10, qui faisait aussi tomber le score `agentic-browsing` à 50), deux contrastes sous le
+  seuil, `lang="en"` sur du contenu français, et deux `<h1>` par page.
+- `[1× — 08-08c]` **Un test de scaffold vert ne prouve que le RENDU.** 179 tests passaient : ils
+  lisent des chaînes dans des fichiers rendus, ils ne démarrent pas l'application et ne regardent
+  pas son écran. Ce que le gabarit PROMET (une route, une console) n'est vérifié par personne.
+- `[1× — 08-08c]` 🔴 **Propager un gabarit à la main le CASSE.** Pour montrer l'après sans
+  régénérer, j'ai rendu les `<% %>` par une expression régulière : une variable a disparu au milieu
+  d'un appel (`JSON.stringify(, null, 2)`), et l'application ne compilait plus. La seule
+  propagation juste est de RE-GÉNÉRER — « prouver sur l'artefact reçu » s'applique aussi aux
+  raccourcis qu'on s'accorde pour aller vite.
+- `[1× — 08-08c]` **Le port n'est pas prévisible** : `portPolicy: "auto"` prend le suivant libre.
+  Cinq applications ont démarré sur 5154, 5156, 5158, 5160, 5162 — et le défaut codé en dur de la
+  sonde (`5152`) a mesuré **une autre application**, en rendant un résultat parfaitement crédible.
+  Un défaut commode sur une valeur non déterministe est un générateur de faux verdicts.
+
+## 🏷️ Un nom de variable DÉJÀ pris ne lève aucune erreur — il change le sens
+
+- `[1× — 08-08c]` 🔴 J'ai nommé `NF_BROWSER_CHANNEL` un réglage de NAVIGATEUR ; le nom désignait
+  déjà le CANAL d'un socket applicatif dans un script voisin. Le banc fonctionnel a passé
+  `nodefony:supervision` et le script l'a cherché comme un navigateur. Aucune erreur de
+  compilation, aucun avertissement : juste un test rouge et un message absurde. Renommé
+  `NF_BROWSER_ENGINE`. **Avant de poser une variable, `rg` son nom dans le paquet** — le vocabulaire
+  se recoupe (« canal » sert au socket ET au navigateur), et c'est justement là que ça mord.
+
 ## 🔬 Quatre instruments faux d'affilée sur UNE seule question
 
 - `[4× — 08-07]` 🔴 « Qui bloque la boucle d'événements ? » a produit : `setInterval`+`setTimeout(0)`
