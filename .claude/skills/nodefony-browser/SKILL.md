@@ -3,15 +3,13 @@ name: nodefony-browser
 metadata:
   version: 1.1.0
 description: >
-  Ouvre une page réelle dans un navigateur piloté — sur le poste ou en conteneur, au choix — pour
-  la VOIR et surtout la MESURER : contrastes calculés, audit WCAG par axe-core, Web Vitals, réseau,
-  console, débordements ; et pilote un socket applicatif de bout en bout (accueil, abonnement,
-  action, latence, reconnexion) depuis la page elle-même, donc avec ses cookies et son origine.
-  Sait demander le thème CLAIR ou SOMBRE — un défaut d'affichage n'existe souvent que dans l'un des
-  deux. Porte le décor et les pièges qui font conclure FAUX : mesurer avant que l'écran soit
-  peuplé, joindre l'hôte par le mauvais nom, observer un bundle qui n'est pas celui qu'on a bâti,
-  croire une mesure de contraste écrite à la main. À charger AVANT de constater quoi que ce soit à
-  l'écran. Déclencheurs : "regarde l'écran", "vérifie l'affichage",
+  Ouvre une page réelle dans un navigateur piloté — poste ou conteneur — pour la VOIR et surtout la
+  MESURER : contrastes calculés, WCAG par axe-core, Web Vitals, réseau, console, débordements ; et
+  pilote un socket depuis la page, avec ses cookies et son origine. Sait imposer le thème clair ou
+  sombre. Porte les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, viser le
+  mauvais hôte, observer un autre bundle que celui qu'on a bâti. À charger AVANT de constater quoi
+  que ce soit à l'écran.
+  Déclencheurs : "regarde l'écran", "vérifie l'affichage",
   "est-ce que ça s'affiche ?", "lis la console", "y a-t-il des erreurs JS ?", "mesure le contraste",
   "cette couleur est-elle lisible ?", "capture d'écran", "vérifie l'accessibilité", "audit WCAG",
   "en mode clair", "en mode sombre", "le thème sombre casse quelque chose ?",
@@ -194,7 +192,9 @@ longues) · `stockage` (attributs des cookies, inventaire du Web Storage — **j
 
 ```bash
 NF_BROWSER_COLOR_SCHEME=light NF_BROWSER_STORAGE="mantine-color-scheme-value=light" \
-  NF_BROWSER_FAMILIES=axe node .../scripts/inspect.mjs /nodefony/documentation "Documentation"
+  NF_BROWSER_FAMILIES=axe \
+  node src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs \
+  /nodefony/documentation "Documentation"
 ```
 
 `NF_BROWSER_COLOR_SCHEME` émule `prefers-color-scheme` (standard) ; `NF_BROWSER_STORAGE` pose la

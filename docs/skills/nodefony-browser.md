@@ -4,20 +4,20 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-07
+updated: 2026-08-08
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-browser/SKILL.md"
 ---
 
 # `nodefony-browser`
 
-> Ouvre une page réelle dans un navigateur en conteneur pour la VOIR et surtout la MESURER — contrastes et tailles calculés, arbre d'accessibilité, erreurs de console, requêtes réseau — sans installer de navigateur sur le poste.
+> Ouvre une page réelle dans un navigateur piloté — poste ou conteneur — pour la VOIR et surtout la MESURER : contrastes calculés, WCAG par axe-core, Web Vitals, réseau, console, débordements ; et pilote un socket depuis la page, avec ses cookies et son origine.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-browser**
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **2/2** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.0.0`.
+> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **2/2** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.1.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -25,23 +25,19 @@ source: ".claude/skills/nodefony-browser/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `1.0.0` |
+| Version | `1.1.0` |
 | Famille | Autres |
-| Corps | 163 lignes |
-| Coût d'activation | ~2 731 tokens (le corps est chargé à l'invocation) |
-| Description | 977 / 1024 caractères |
-| Déclencheurs | 13 |
+| Corps | 357 lignes |
+| Coût d'activation | ~6 004 tokens (le corps est chargé à l'invocation) |
+| Description | 1008 / 1024 caractères |
+| Déclencheurs | 18 |
 | Ressources `references/` | 1 page(s), 9 fichiers au total |
-| Scripts | 2 |
+| Scripts | 0 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Ouvre une page réelle dans un navigateur en conteneur pour la VOIR et surtout la MESURER — contrastes et tailles calculés, arbre d'accessibilité, erreurs de console, requêtes réseau — sans installer de navigateur sur le poste. Vaut pour toute page servie par Nodefony : console d'administration, module à frontend, application produite par le scaffold. Porte le décor, le pilotage de Playwright et les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, joindre l'hôte par le mauvais nom, observer un bundle qui n'est pas celui qu'on a bâti. À charger AVANT de constater quoi que ce soit à l'écran.
-
-## Prérequis
-
-Ce que le décor doit fournir pour que ses scripts disent quelque chose : **docker**.
+Ouvre une page réelle dans un navigateur piloté — poste ou conteneur — pour la VOIR et surtout la MESURER : contrastes calculés, WCAG par axe-core, Web Vitals, réseau, console, débordements ; et pilote un socket depuis la page, avec ses cookies et son origine. Sait imposer le thème clair ou sombre. Porte les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, viser le mauvais hôte, observer un autre bundle que celui qu'on a bâti. À charger AVANT de constater quoi que ce soit à l'écran.
 
 ## Skills voisins
 
@@ -53,14 +49,16 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`regarde l'écran` · `vérifie l'affichage` · `est-ce que ça s'affiche ?` · `montre-moi la page` · `lis la console` · `y a-t-il des erreurs JS ?` · `mesure le contraste` · `cette couleur est-elle lisible ?` · `capture d'écran` · `l'application générée fonctionne-t-elle ?` · `vérifie l'accessibilité` · `audit lighthouse` · `quelles requêtes fait la page ?`
+`regarde l'écran` · `vérifie l'affichage` · `est-ce que ça s'affiche ?` · `lis la console` · `y a-t-il des erreurs JS ?` · `mesure le contraste` · `cette couleur est-elle lisible ?` · `capture d'écran` · `vérifie l'accessibilité` · `audit WCAG` · `en mode clair` · `en mode sombre` · `le thème sombre casse quelque chose ?` · `quelles requêtes fait la page ?` · `le temps réel arrive-t-il à l'écran ?` · `teste le websocket` · `quelle latence sur le socket ?` · `la page déborde-t-elle sur mobile ?`
 
 ## Ce que contient le corps
 
 - 1. Quand m'utiliser / quand passer la main
-- 2. Le décor — un service, déjà déclaré
-- 3. Voir ET mesurer — `scripts/inspect.mjs`
-- 3 bis. Observer ce qui se PASSE — `scripts/watch.mjs`
+- 2. Le décor — deux voies, la locale d'abord
+- 3. Voir ET mesurer — `inspect.mjs`
+- 3 ter. Piloter le socket de bout en bout — `socket.mjs`
+- 3 quinquies. L'audit complet — `audit.mjs` (Lighthouse par le port CDP)
+- 3 quater. Observer ce qui se PASSE — `watch.mjs`
 - 4. Les trois contraintes structurelles
 - 5. Pièges — chacun a déjà fait conclure faux
 - 6. Ce que le conteneur ne remplace pas
@@ -72,28 +70,9 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/pilotage-mcp.md` | Référence — l'autre voie : le serveur MCP du conteneur | 101 |
+| `references/pilotage-mcp.md` | Référence — l'autre voie : le serveur MCP du conteneur | 107 |
 
 _(+ 8 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
-
-## Scripts embarqués
-
-Rôle, invocation, options et variables d'environnement — **extraits du source** de chaque
-script, donc toujours à jour après régénération.
-
-| Script | Rôle | Options | Variables d'environnement |
-| --- | --- | --- | --- |
-| `scripts/inspect.mjs` | Ouvre une page dans le navigateur en conteneur, la MESURE et la capture. | `--no-sandbox` | `BASE` `NF_BROWSER_BASE` `NF_BROWSER_EXPECT` `NF_BROWSER_PAGE` `NF_BROWSER_PASSWORD` `NF_BROWSER_PROBES` `NF_BROWSER_USER` `PAGE` |
-| `scripts/watch.mjs` | Observe une page VIVANTE : trafic WebSocket, requêtes réseau, console, et | `--no-sandbox` | `BASE` `DURATION` `NF_BROWSER_BASE` `NF_BROWSER_MAXFRAMES` `NF_BROWSER_PASSWORD` `NF_BROWSER_UNTIL` `NF_BROWSER_USER` `PAGE` `UNTIL` |
-
-**Invocation telle que documentée dans chaque script :**
-
-```bash
-`@usage` docker cp <ce-fichier> nodefony-browser:/app/inspect.mjs && docker exec nodefony-browser node /app/inspect.mjs
-`@usage` docker exec nodefony-browser node /app/watch.mjs /nodefony/supervision 8000
-```
-
-**Toutes les variables lues par ce skill** : `BASE` · `DURATION` · `NF_BROWSER_BASE` · `NF_BROWSER_EXPECT` · `NF_BROWSER_MAXFRAMES` · `NF_BROWSER_PAGE` · `NF_BROWSER_PASSWORD` · `NF_BROWSER_PROBES` · `NF_BROWSER_UNTIL` · `NF_BROWSER_USER` · `PAGE` · `UNTIL`
 
 ## Conformité au standard Agent Skills
 
@@ -106,13 +85,13 @@ script, donc toujours à jour après régénération.
 | Contrôle | Nature | État | Mesure | Règle (source) |
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 977 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1008 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 163 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 357 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

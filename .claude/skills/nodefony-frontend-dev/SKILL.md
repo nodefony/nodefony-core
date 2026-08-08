@@ -8,12 +8,12 @@ description: >
   (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC
   isomorphe, ergonomie/a11y/perf (bundlés offline), et vérification d'une modif front — sans
   navigateur (transform Vite en `curl`, purge du prébundle) ou en OBSERVANT l'écran depuis un
-  navigateur en CONTENEUR (console, a11y, requêtes réelles ; jamais de Chromium nu sur le poste).
+  navigateur piloté — console, requêtes réelles, mesures d'accessibilité → `nodefony-browser`.
   Studio → `nodefony-studio-dev` ; scaffold front → `nodefony-create-frontend-module` ;
   back → `nodefony-framework-dev`.
   Déclencheurs : "dev front nodefony", "isomorphisme", "socket client", "RealtimeClient",
   "useNodefony", "hooks realtime", "HMR", "Vite nodefony", "ApiClient",
-  "useResource", "data plane front", "BFF", "RBAC front", "accessibilité front", "WCAG",
+  "useResource", "data plane front", "BFF", "RBAC front", "accessibilité front",
   "perf front", "vérifie le front", "ma modif front passe ?", "transform Vite",
   "prébundle Vite périmé".
 ---
