@@ -494,3 +494,114 @@ describe("Combined decorators — @Post + @HttpCode + @Header", () => {
     expect(headers).to.deep.equal({ "Cache-Control": "no-cache" });
   });
 });
+
+/**
+ * Ce que ces tests prouvent : un transport déclaré par l'appelant est HONORÉ.
+ *
+ * Le défaut corrigé n'était pas une omission mais un piège : la signature
+ * accepte `requirements.methods` (le type autorise `"WEBSOCKET"`), le code se
+ * lit comme une déclaration — et la fabrique l'écrasait, en silence. Un
+ * paramètre accepté puis jeté est pire qu'un refus : rien ne le signale, et l'on
+ * cherche le défaut partout ailleurs.
+ *
+ * Conséquence mesurée : une route d'administration en `@Get` restait
+ * injoignable par le pont `api.request`, qui résout sur le transport WEBSOCKET.
+ */
+describe("HTTP method decorators — transports déclarés par l'appelant", () => {
+  afterEach(() => {
+    while (Router.routes.length) Router.routes.pop();
+  });
+
+  it("@Get + WEBSOCKET déclaré → la route porte les DEUX", () => {
+    @controller("/pont")
+    class PontCtrl extends StubCtrl {
+      @Get("/stats", { requirements: { methods: ["WEBSOCKET"] } })
+      stats() {
+        return null;
+      }
+    }
+    void PontCtrl;
+    const r = Router.routes.find((r) => r.name === "PontCtrl::stats");
+    expect(r?.requirements?.methods).to.have.members(["GET", "WEBSOCKET"]);
+  });
+
+  it("la route répond RÉELLEMENT aux deux transports", () => {
+    // L'assertion qui compte n'est pas la forme du tableau mais le MATCH : c'est
+    // lui que le pont interroge, et lui qui rendait 405.
+    @controller("/pont2")
+    class Pont2Ctrl extends StubCtrl {
+      @Get("/stats", { requirements: { methods: ["WEBSOCKET"] } })
+      stats() {
+        return null;
+      }
+    }
+    void Pont2Ctrl;
+    const r = Router.routes.find((r) => r.name === "Pont2Ctrl::stats");
+    expect(r?.match(ctx("/pont2/stats", "GET"))).to.be.ok;
+    expect(r?.match(ctx("/pont2/stats", "WEBSOCKET"))).to.be.ok;
+  });
+
+  it("sens négatif : un transport NON déclaré reste refusé", () => {
+    // L'union élargit ce que l'auteur a écrit — elle n'ouvre rien d'autre.
+    //
+    // Le refus se manifeste par une LEVÉE (`Method X Unauthorized`), pas par un
+    // retour vide : c'est exactement l'erreur que le pont `api.request`
+    // remontait en `-32000 / 405`, ce qui ancre ce test au symptôme d'origine.
+    @controller("/pont3")
+    class Pont3Ctrl extends StubCtrl {
+      @Get("/stats", { requirements: { methods: ["WEBSOCKET"] } })
+      stats() {
+        return null;
+      }
+    }
+    void Pont3Ctrl;
+    const r = Router.routes.find((r) => r.name === "Pont3Ctrl::stats");
+    expect(() => r?.match(ctx("/pont3/stats", "POST"))).to.throw(
+      /Method POST Unauthorized/,
+    );
+  });
+
+  it("la méthode du décorateur survit à une déclaration qui l'omet", () => {
+    // `@Get` répond à GET, quoi que l'appelant ajoute : l'union ne retire rien.
+    @controller("/pont4")
+    class Pont4Ctrl extends StubCtrl {
+      @Post("/mutation", { requirements: { methods: ["WEBSOCKET"] } })
+      mutation() {
+        return null;
+      }
+    }
+    void Pont4Ctrl;
+    const r = Router.routes.find((r) => r.name === "Pont4Ctrl::mutation");
+    expect(r?.requirements?.methods).to.have.members(["POST", "WEBSOCKET"]);
+  });
+
+  it("un transport déclaré au SCALAIRE est honoré, pas découpé en lettres", () => {
+    // `RouteRequirements.methods` accepte aussi un scalaire. Étalé tel quel, il
+    // aurait produit une méthode par LETTRE — la route aurait alors accepté « W »
+    // et refusé « WEBSOCKET », sans que rien ne le signale.
+    @controller("/pont6")
+    class Pont6Ctrl extends StubCtrl {
+      @Get("/stats", { requirements: { methods: "WEBSOCKET" } })
+      stats() {
+        return null;
+      }
+    }
+    void Pont6Ctrl;
+    const r = Router.routes.find((r) => r.name === "Pont6Ctrl::stats");
+    expect(r?.requirements?.methods).to.have.members(["GET", "WEBSOCKET"]);
+    expect(r?.match(ctx("/pont6/stats", "WEBSOCKET"))).to.be.ok;
+  });
+
+  it("sans déclaration, rien ne change — le cas courant reste intact", () => {
+    @controller("/pont5")
+    class Pont5Ctrl extends StubCtrl {
+      @Get("/simple")
+      simple() {
+        return null;
+      }
+    }
+    void Pont5Ctrl;
+    const r = Router.routes.find((r) => r.name === "Pont5Ctrl::simple");
+    expect(r?.requirements?.methods).to.deep.equal(["GET"]);
+  });
+});

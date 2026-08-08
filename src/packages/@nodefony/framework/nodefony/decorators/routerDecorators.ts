@@ -461,12 +461,37 @@ function httpMethodDecorator(methods: HTTPMethod[]) {
     ): PropertyDescriptor {
       const proto = target as Record<string, unknown>;
       const name = `${(proto.constructor as { name: string }).name}::${propertyKey}`;
+      // Les transports déclarés par l'appelant s'AJOUTENT à celui du décorateur,
+      // ils ne le remplacent pas — et l'écrasement silencieux qui précédait était
+      // pire qu'un refus : `@Get(p, { requirements: { methods: ["WEBSOCKET"] } })`
+      // compile (le type l'autorise), se lit comme une déclaration, et disparaît.
+      // Vécu : une route d'administration restait injoignable par le pont
+      // `api.request`, et le seul recours était d'abandonner `@Get` pour `@route`.
+      //
+      // L'union ne peut qu'ÉLARGIR, jamais retirer la méthode du décorateur :
+      // `@Get` répond toujours à GET, quoi qu'on ajoute. Alloue seulement quand
+      // l'appelant a déclaré quelque chose — le cas courant garde le tableau figé
+      // de la fabrique.
+      // `methods` accepte un tableau OU un scalaire (`RouteRequirements`) : un
+      // étalement direct découperait la chaîne en LETTRES. On normalise donc
+      // avant de fusionner — le compilateur a attrapé ce cas, pas la relecture.
+      const declares = options.requirements?.methods;
+      const ajouts: HTTPMethod[] =
+        declares === undefined
+          ? []
+          : Array.isArray(declares)
+            ? declares
+            : [declares];
+      const fusion =
+        ajouts.length > 0
+          ? [...new Set<HTTPMethod>([...methods, ...ajouts])]
+          : methods;
       return route(name, {
         ...options,
         path,
         requirements: {
           ...options.requirements,
-          methods,
+          methods: fusion,
         },
       })(target, propertyKey, descriptor);
     };

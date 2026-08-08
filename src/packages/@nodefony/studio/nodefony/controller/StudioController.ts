@@ -197,8 +197,13 @@ class StudioController extends Controller {
   // « Supervision », bundle ops) ; ROLE_NODEFONY_ADMIN l'a par hiérarchie. Un
   // ROLE_USER simple n'a PAS accès (était lisible par tout authentifié — oubli
   // pré-P6 : monté hors broker, donc sans le RBAC du data plane).
+  // Le transport WEBSOCKET est déclaré EN PLUS de GET : la console appelle cette
+  // route par le pont `api.request`, qui résout sur le transport de la socket.
+  // Sans cette déclaration, le Router refuse (« Method WEBSOCKET Unauthorized »,
+  // 405) et le panneau perd son instantané — le RBAC ci-dessus reste évalué à
+  // l'identique, le pont ne contourne aucune garde.
   @IsGranted("ROLE_SUPERVISOR")
-  @Get("/studio/api/stats")
+  @Get("/studio/api/stats", { requirements: { methods: ["WEBSOCKET"] } })
   async apiStats() {
     const k = this.kernel;
     const meta: AppMeta = {
