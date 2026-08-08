@@ -101,6 +101,21 @@ function lancer(
  * On le CONSTATE en lançant, plutôt que de le déduire d'un `require.resolve` :
  * c'est le verdict du script lui-même qui décide, dans le décor où il tourne.
  */
+/**
+ * Budget de temps d'un cas — explicite, parce que celui de vitest ne l'est pas.
+ *
+ * Un lancement coûte ~0,2 s ici et **2,3 à 2,7 s sur un exécuteur Windows**
+ * (mesuré) : démarrage du processus, résolution ESM et analyse antivirus n'y ont
+ * pas le même prix. Le défaut de 5 s laissait donc une marge de deux, et le seul
+ * cas qui enchaîne DEUX lancements a expiré à 5 041 ms — un rouge qui accusait
+ * la portabilité des sondes alors qu'il ne mesurait que l'impatience du test.
+ *
+ * La leçon dépasse ce fichier : un budget de temps calibré sur la machine du
+ * développeur n'est pas portable, et il tombe sur la plateforme la plus lente —
+ * celle qu'on éprouve justement le moins souvent.
+ */
+const BUDGET_MS = 60000;
+
 const sansPlaywright = lancer("socket.mjs", [], {}).code === 69;
 if (sansPlaywright) {
   process.stderr.write(
@@ -110,61 +125,89 @@ if (sansPlaywright) {
 }
 
 describe.skipIf(sansPlaywright)("sondes publiées — démarrage et refus", () => {
-  it("socket.mjs — sans endpoint : refus 64, rien n'est deviné", () => {
-    const r = lancer("socket.mjs", [], {});
-    expect(r.code).toBe(64);
-    expect(r.stderr).toContain("NF_BROWSER_SOCKET");
-  });
+  it(
+    "socket.mjs — sans endpoint : refus 64, rien n'est deviné",
+    () => {
+      const r = lancer("socket.mjs", [], {});
+      expect(r.code).toBe(64);
+      expect(r.stderr).toContain("NF_BROWSER_SOCKET");
+    },
+    BUDGET_MS,
+  );
 
-  it("socket.mjs — des paramètres d'action illisibles sont refusés, pas ignorés", () => {
-    const r = lancer("socket.mjs", ["/temps-reel"], {
-      NF_BROWSER_ACTION_PARAMS: "{ceci nest pas du json",
-    });
-    expect(r.code).toBe(64);
-    expect(r.stderr).toContain("NF_BROWSER_ACTION_PARAMS");
-  });
+  it(
+    "socket.mjs — des paramètres d'action illisibles sont refusés, pas ignorés",
+    () => {
+      const r = lancer("socket.mjs", ["/temps-reel"], {
+        NF_BROWSER_ACTION_PARAMS: "{ceci nest pas du json",
+      });
+      expect(r.code).toBe(64);
+      expect(r.stderr).toContain("NF_BROWSER_ACTION_PARAMS");
+    },
+    BUDGET_MS,
+  );
 
-  it("inspect.mjs — une famille inconnue est refusée, avec la liste", () => {
-    const r = lancer("inspect.mjs", ["/"], {
-      NF_BROWSER_FAMILIES: "inexistante",
-    });
-    expect(r.code).toBe(64);
-    expect(r.stderr).toContain("inexistante");
-    expect(r.stderr).toContain("a11y");
-  });
+  it(
+    "inspect.mjs — une famille inconnue est refusée, avec la liste",
+    () => {
+      const r = lancer("inspect.mjs", ["/"], {
+        NF_BROWSER_FAMILIES: "inexistante",
+      });
+      expect(r.code).toBe(64);
+      expect(r.stderr).toContain("inexistante");
+      expect(r.stderr).toContain("a11y");
+    },
+    BUDGET_MS,
+  );
 
-  it("un identifiant SANS chemin de connexion s'arrête — aucun écran n'est deviné", () => {
-    // Deviner ferait « se connecter » sur une page inexistante, puis mesurer un
-    // écran d'erreur en croyant tenir une session.
-    const r = lancer("inspect.mjs", ["/"], { NF_BROWSER_USER: "quelquun" });
-    expect(r.code).toBe(64);
-    expect(r.stderr).toContain("NF_BROWSER_LOGIN");
-  });
+  it(
+    "un identifiant SANS chemin de connexion s'arrête — aucun écran n'est deviné",
+    () => {
+      // Deviner ferait « se connecter » sur une page inexistante, puis mesurer un
+      // écran d'erreur en croyant tenir une session.
+      const r = lancer("inspect.mjs", ["/"], { NF_BROWSER_USER: "quelquun" });
+      expect(r.code).toBe(64);
+      expect(r.stderr).toContain("NF_BROWSER_LOGIN");
+    },
+    BUDGET_MS,
+  );
 
-  it("un schéma de couleurs inconnu est refusé — on ne mesure pas l'autre thème", () => {
-    const r = lancer("inspect.mjs", ["/"], {
-      NF_BROWSER_COLOR_SCHEME: "sombre",
-    });
-    expect(r.code).toBe(64);
-    expect(r.stderr).toContain("sombre");
-  });
+  it(
+    "un schéma de couleurs inconnu est refusé — on ne mesure pas l'autre thème",
+    () => {
+      const r = lancer("inspect.mjs", ["/"], {
+        NF_BROWSER_COLOR_SCHEME: "sombre",
+      });
+      expect(r.code).toBe(64);
+      expect(r.stderr).toContain("sombre");
+    },
+    BUDGET_MS,
+  );
 
-  it("une entrée de stockage malformée est refusée, jamais avalée", () => {
-    const r = lancer("inspect.mjs", ["/"], {
-      NF_BROWSER_STORAGE: "sansEgal",
-    });
-    expect(r.code).toBe(64);
-    expect(r.stderr).toContain("sansEgal");
-  });
+  it(
+    "une entrée de stockage malformée est refusée, jamais avalée",
+    () => {
+      const r = lancer("inspect.mjs", ["/"], {
+        NF_BROWSER_STORAGE: "sansEgal",
+      });
+      expect(r.code).toBe(64);
+      expect(r.stderr).toContain("sansEgal");
+    },
+    BUDGET_MS,
+  );
 
-  it("watch.mjs et audit.mjs démarrent aussi — les quatre sondes se chargent", () => {
-    // Le seul défaut qu'on cherche ici est structurel : un import qui ne se
-    // résout pas (spécificateur qui n'est pas une URL de fichier, séparateur de
-    // chemin), et il ferait échouer le chargement AVANT tout contrôle d'usage.
-    // Le refus d'usage est donc la PREUVE que le module s'est chargé.
-    for (const sonde of ["watch.mjs", "audit.mjs"]) {
-      const r = lancer(sonde, ["/"], { NF_BROWSER_COLOR_SCHEME: "sombre" });
-      expect(r.code, `${sonde} : ${r.stderr.slice(0, 300)}`).toBe(64);
-    }
-  });
+  it(
+    "watch.mjs et audit.mjs démarrent aussi — les quatre sondes se chargent",
+    () => {
+      // Le seul défaut qu'on cherche ici est structurel : un import qui ne se
+      // résout pas (spécificateur qui n'est pas une URL de fichier, séparateur de
+      // chemin), et il ferait échouer le chargement AVANT tout contrôle d'usage.
+      // Le refus d'usage est donc la PREUVE que le module s'est chargé.
+      for (const sonde of ["watch.mjs", "audit.mjs"]) {
+        const r = lancer(sonde, ["/"], { NF_BROWSER_COLOR_SCHEME: "sombre" });
+        expect(r.code, `${sonde} : ${r.stderr.slice(0, 300)}`).toBe(64);
+      }
+    },
+    BUDGET_MS * 2,
+  );
 });
