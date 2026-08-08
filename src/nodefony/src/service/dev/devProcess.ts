@@ -158,8 +158,18 @@ export function writeRuntimeState(
  *
  * **Un state file dont le process est MORT est ignoré** (et purgé) : sinon un
  * `status` lirait les ports d'un serveur d'hier et sonderait dans le vide.
+ *
+ * @param cwd - racine du projet à interroger.
+ * @param opts.purgeStale - retirer le fichier d'un process mort (défaut `true`).
+ *   À passer `false` pour lire l'état d'un projet ÉTRANGER : on interroge son canal
+ *   pour savoir à qui appartient un port, on ne fait pas son ménage. Purger le décor
+ *   d'un autre projet depuis une commande scopée à celui-ci serait un effet de bord
+ *   hors périmètre — et le voisin perdrait la trace de ses propres ports.
  */
-export function readRuntimeState(cwd: string): RuntimeState | null {
+export function readRuntimeState(
+  cwd: string,
+  opts: { purgeStale?: boolean } = {},
+): RuntimeState | null {
   try {
     const file = runtimeStateFile(cwd);
     if (!existsSync(file)) return null;
@@ -170,7 +180,8 @@ export function readRuntimeState(cwd: string): RuntimeState | null {
       : [];
     if (ports.length === 0) return null;
     if (pid > 0 && !isPidAlive(pid)) {
-      clearRuntimeState(cwd); // reliquat d'un run mort — ne jamais s'y fier
+      // reliquat d'un run mort — ne jamais s'y fier
+      if (opts.purgeStale !== false) clearRuntimeState(cwd);
       return null;
     }
     return {
@@ -822,13 +833,93 @@ export function isNodefonyProjectDir(cwd: string): boolean {
 }
 
 /**
+ * Racines de projet des runtimes ÉTRANGERS = cwd des rôles racine
+ * (supervisor/master/server/worker), toujours spawnés à la racine de leur projet.
+ * Un Vite, lui, peut travailler dans un sous-dossier : il se rattache par préfixe.
+ *
+ * Fonction PURE, partagée par le groupement d'affichage
+ * ({@link formatForeignRuntimes}) et l'attribution des ports
+ * ({@link foreignPortOwners}) — deux lectures du même découpage, une seule règle.
+ */
+export function foreignProjectRoots(
+  foreign: readonly DevProcessWithCwd[],
+): string[] {
+  return [
+    ...new Set(
+      foreign
+        .filter((p) => p.role !== "vite" && p.cwd)
+        .map((p) => p.cwd as string),
+    ),
+  ];
+}
+
+/**
+ * À QUI appartient chaque port occupé, quand ce n'est pas à nous.
+ *
+ * Un port tenu par le voisin n'est pas un arrêt qui a échoué : `stop` marquait
+ * `✗ encore occupé` les ports 5151/5152 juste après avoir annoncé lui-même que ces
+ * runtimes appartenaient à un AUTRE projet — la croix suggérait un échec là où il
+ * n'y avait rien à arrêter. Et `status`, faute de cette distinction, annonçait
+ * « 2/2 ports UP » à une application qui ne tournait pas.
+ *
+ * On interroge le canal que chaque projet publie sur lui-même
+ * ({@link readRuntimeState}) : c'est la seule source qui dise les ports EFFECTIFS
+ * quand `portPolicy: "auto"` les a décalés. Lecture SANS purge — le ménage d'un
+ * projet étranger ne nous appartient pas.
+ *
+ * @param foreign - runtimes d'autres projets (sortie `splitByProject().foreign`).
+ * @param readState - lecture d'un état de projet (injectable pour les tests).
+ * @returns port → racine du projet qui le tient (objet nu : sérialisable JSON,
+ *   donc transportable tel quel par le data plane, là où une `Map` se perdrait).
+ */
+export function foreignPortOwners(
+  foreign: readonly DevProcessWithCwd[],
+  readState: (cwd: string) => RuntimeState | null = (cwd) =>
+    readRuntimeState(cwd, { purgeStale: false }),
+): Record<number, string> {
+  const owners: Record<number, string> = {};
+  for (const root of foreignProjectRoots(foreign)) {
+    const state = readState(root);
+    if (!state) continue;
+    for (const port of state.ports) {
+      // Premier propriétaire déclaré gagne : deux projets ne peuvent pas écouter
+      // le même port, et un état périmé ne doit pas déloger un état vivant.
+      if (owners[port] === undefined) owners[port] = root;
+    }
+  }
+  return owners;
+}
+
+/** Appartenance d'un port sondé — ce que le symbole affiché doit distinguer. */
+export type PortOwnership =
+  /** Personne n'écoute. */
+  | "free"
+  /** Occupé par un projet Nodefony IDENTIFIÉ, qui n'est pas le nôtre. */
+  | "foreign"
+  /** Occupé sans propriétaire identifié (notre runtime, ou un tiers quelconque). */
+  | "occupied";
+
+/**
+ * Qualifie un port sondé à partir des propriétaires connus
+ * ({@link foreignPortOwners}). Fonction PURE : c'est LA règle « pas à moi ≠ pas
+ * mort », et elle vit à un seul endroit pour que `status` et `stop` la lisent pareil.
+ */
+export function portOwnership(
+  state: PortState,
+  owners: Record<number, string> = {},
+): PortOwnership {
+  if (!state.listening) return "free";
+  return owners[state.port] === undefined ? "occupied" : "foreign";
+}
+
+/**
  * Met en forme les runtimes ÉTRANGERS (autre projet) en bloc multi-lignes AÉRÉ :
  * groupés par racine de projet (un Vite au cwd sous-dossier est rattaché à la
  * racine qui le préfixe, affiché en relatif), un process par ligne (pid + rôle),
  * puis les commandes EXACTES à copier-coller pour les arrêter. Partagé par le
- * refus de boot (`DevSupervisor`), `nodefony dev --detach` et `nodefony stop` —
- * même pédagogie partout (vécu : un pavé mono-ligne de 4 pids, dev bloqué sans
- * savoir QUOI taper).
+ * refus de boot (`DevSupervisor`), `nodefony dev --detach`, `nodefony stop` et
+ * `nodefony status` — même pédagogie partout (vécu : un pavé mono-ligne de 4 pids,
+ * dev bloqué sans savoir QUOI taper).
  *
  * @param foreign - runtimes d'autres projets (sortie `splitByProject().foreign`).
  * @returns lignes prêtes à afficher (sans couleur ; l'appelant préfixe/colore).
@@ -836,15 +927,7 @@ export function isNodefonyProjectDir(cwd: string): boolean {
 export function formatForeignRuntimes(
   foreign: readonly DevProcessWithCwd[],
 ): string[] {
-  // Racines = cwd des rôles racine (supervisor/master/server/worker) — toujours
-  // spawnés à la racine de leur projet. Les Vite s'y rattachent par préfixe.
-  const roots = [
-    ...new Set(
-      foreign
-        .filter((p) => p.role !== "vite" && p.cwd)
-        .map((p) => p.cwd as string),
-    ),
-  ];
+  const roots = foreignProjectRoots(foreign);
   const projectOf = (p: DevProcessWithCwd): string => {
     if (!p.cwd) return "(dossier inconnu)";
     return (
@@ -1052,6 +1135,23 @@ export interface DiscoverOptions {
    * le rôle « server » manquerait à la topologie rapportée.
    */
   readonly includeSelf?: boolean;
+}
+
+/**
+ * Sondes système d'un rapport de process (`nodefony status`, `nodefony stop`),
+ * INJECTABLES. Les trois valeurs par défaut sont les vraies sondes ; les fournir
+ * permet d'éprouver un rapport complet — y compris ses libellés — sans dépendre de
+ * ce qui tourne sur la machine, et sans jamais risquer de signaler un process réel.
+ */
+export interface DevObservationDeps {
+  /** Observation externe des process (défaut : {@link discoverDevProcessesDetailed}). */
+  readonly discover?: (opts: DiscoverOptions) => ProcessDiscovery;
+  /** Répertoire courant d'un pid (défaut : {@link processCwd}) — clé du scoping projet. */
+  readonly getCwd?: (pid: number) => string | null;
+  /** Sonde TCP des ports (défaut : {@link probePorts}). */
+  readonly probe?: (ports: readonly number[]) => Promise<PortState[]>;
+  /** Écriture du rapport (défaut : `writeSync(1, …)` — un seul écrit, jamais tronqué). */
+  readonly write?: (chunk: string) => void;
 }
 
 /** Résultat d'une tentative d'observation externe — le VERDICT avec la liste. */

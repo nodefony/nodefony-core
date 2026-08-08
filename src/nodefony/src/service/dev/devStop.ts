@@ -7,13 +7,17 @@ import {
   detectRuntimeMode,
   discoverDevProcessesDetailed,
   discoverFromRuntimeState,
+  foreignPortOwners,
   formatForeignRuntimes,
   isNodefonyProjectDir,
+  portOwnership,
   probePorts,
   processCwd,
   splitByProject,
   terminateDevProcesses,
+  type DevObservationDeps,
   type DevProcessInfo,
+  type DevProcessWithCwd,
   type PortState,
   type RuntimeMode,
 } from "./devProcess";
@@ -65,26 +69,51 @@ const delay = (ms: number): Promise<void> =>
 async function waitPortsFree(
   ports: readonly number[],
   timeoutMs: number,
+  probe: (ports: readonly number[]) => Promise<PortState[]> = probePorts,
 ): Promise<PortState[]> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
-    const states = await probePorts(ports);
+    const states = await probe(ports);
     if (states.every((s) => !s.listening)) return states;
     if (Date.now() >= deadline) return states;
     await delay(150);
   }
 }
 
-const portsLine = (states: readonly PortState[], freeLabel: string): string =>
+/**
+ * Ligne d'état des ports après (ou faute d') arrêt.
+ *
+ * `✗ encore occupé` est un VERDICT D'ÉCHEC : il dit « je n'ai pas réussi à libérer
+ * ce port ». Il ne doit donc jamais tomber sur un port qui n'est pas le nôtre —
+ * `stop` venait d'annoncer lui-même que ces runtimes appartenaient à un AUTRE projet,
+ * puis marquait leurs ports en rouge : deux phrases qui se contredisent dans le même
+ * rapport. Un propriétaire identifié ({@link foreignPortOwners}) est donc NOMMÉ, et
+ * un port occupé sans propriétaire connu reste un échec quand on a tué quelque chose.
+ *
+ * @param states - ports sondés.
+ * @param freeLabel - libellé (déjà coloré) d'un port que personne ne tient.
+ * @param occupiedLabel - libellé d'un port tenu par un propriétaire INCONNU. C'est
+ *   l'appelant qui sait s'il s'agit d'un échec : après avoir tué nos process, oui ;
+ *   avant d'avoir tué quoi que ce soit, non.
+ * @param owners - port → projet étranger qui le tient.
+ */
+const portsLine = (
+  states: readonly PortState[],
+  freeLabel: string,
+  occupiedLabel: string,
+  owners: Record<number, string> = {},
+): string =>
   states
-    .map(
-      (p) =>
-        `${p.port} ${
-          p.listening
-            ? `${ANSI.red}✗ encore occupé${ANSI.reset}`
-            : `${ANSI.green}${freeLabel}${ANSI.reset}`
-        }`,
-    )
+    .map((p) => {
+      switch (portOwnership(p, owners)) {
+        case "free":
+          return `${p.port} ${freeLabel}`;
+        case "foreign":
+          return `${p.port} ${ANSI.yellow}occupé par ${owners[p.port]}${ANSI.reset}`;
+        default:
+          return `${p.port} ${occupiedLabel}`;
+      }
+    })
     .join("   ");
 
 /**
@@ -140,11 +169,11 @@ export function scopeAllToNodefonyProjects(
 /** Applique {@link scopeAllToNodefonyProjects} et ANNONCE les process épargnés. */
 function allRuntimesOfThisPoste(
   procs: readonly DevProcessInfo[],
+  write: (chunk: string) => void,
 ): DevProcessInfo[] {
   const { kept, rejected } = scopeAllToNodefonyProjects(procs);
   if (rejected.length > 0) {
-    writeSync(
-      1,
+    write(
       `${ANSI.dim}[stop]${ANSI.reset} ${rejected.length} process au titre Nodefony NON confirmé(s), épargné(s) :\n` +
         rejected
           .map((r) => `  pid ${r.proc.pid} (${r.proc.label}) — ${r.why}`)
@@ -158,14 +187,19 @@ function allRuntimesOfThisPoste(
 /** Découvre, tue (SIGTERM→SIGKILL) et nettoie ; écrit un rapport sur stdout. */
 export async function runStopReport(
   cwd: string,
-  opts: { all?: boolean } = {},
+  opts: { all?: boolean } & DevObservationDeps = {},
 ): Promise<void> {
   const tag = `${ANSI.dim}[stop]${ANSI.reset}`;
-  const observed = discoverDevProcessesDetailed();
+  const write = opts.write ?? ((chunk: string) => writeSync(1, chunk));
+  const probe = opts.probe ?? probePorts;
+  const observed = (opts.discover ?? discoverDevProcessesDetailed)({});
   const discovered = observed.procs;
   const scoped = opts.all
-    ? { mine: allRuntimesOfThisPoste(discovered), foreign: [] }
-    : splitByProject(discovered, cwd);
+    ? {
+        mine: allRuntimesOfThisPoste(discovered, write),
+        foreign: [] as DevProcessWithCwd[],
+      }
+    : splitByProject(discovered, cwd, opts.getCwd);
   // Quand `ps` n'a pas pu répondre — Windows, mais AUSSI une image Node mince où
   // `procps` n'est pas installé, ce qui est le cas de déploiement nominal — la
   // découverte rend une liste vide qu'on ne peut pas distinguer de « rien ne tourne » :
@@ -173,8 +207,7 @@ export async function runStopReport(
   // Le fichier d'état du projet, lui, dit la vérité — et ne désigne QUE ce projet.
   const byState = observed.supported ? [] : discoverFromRuntimeState(cwd);
   if (byState.length > 0) {
-    writeSync(
-      1,
+    write(
       `${tag} observation des process indisponible ici — runtime retrouvé par son fichier d'état (pid ${byState[0].pid}).\n`,
     );
   }
@@ -184,31 +217,43 @@ export async function runStopReport(
   // où aller — jamais un « pourquoi mon port est pris ? » sans réponse).
   if (scoped.foreign.length > 0) {
     // Bloc aéré partagé (1 process/ligne, groupé par projet, commandes exactes).
-    writeSync(
-      1,
+    write(
       `${tag} ${scoped.foreign.length} runtime(s) d'un AUTRE projet non touché(s) :\n` +
         formatForeignRuntimes(scoped.foreign).join("\n") +
         "\n",
     );
   }
 
+  // À QUI sont les ports que nous allons sonder, si ce n'est pas à nous. Calculé une
+  // fois, servi aux deux issues (rien à arrêter / arrêt effectué).
+  const owners = foreignPortOwners(scoped.foreign);
+
   // Idempotent : rien à tuer → on nettoie un éventuel pidfile résiduel et on le dit.
   if (before.length === 0) {
     clearSupervisorPidFile(cwd);
-    const ports = await probePorts(defaultDevPorts(cwd));
+    const ports = await probe(defaultDevPorts(cwd));
     // « Rien trouvé » ne vaut « déjà arrêté » que si l'on POUVAIT chercher. Là où les
     // process ne s'observent pas et où aucun fichier d'état ne subsiste, un port encore
     // tenu est la seule preuve qui reste — l'annoncer plutôt que déclarer le calme.
     const occupied = ports.filter((p) => p.listening).map((p) => p.port);
     const blind = !observed.supported && occupied.length > 0;
-    writeSync(
-      1,
+    write(
       [
         "",
         blind
           ? `${tag} ${ANSI.bold}Nodefony — process non observables ici, mais ${occupied.join(", ")} répond(ent) encore${ANSI.reset}`
           : `${tag} ${ANSI.bold}Nodefony — aucune instance de ce projet en cours (déjà arrêté)${ANSI.reset}`,
-        `  ${ANSI.dim}ports${ANSI.reset} : ${portsLine(ports, blind ? "occupé" : "libre")}`,
+        // Rien n'a été tué ici : un port occupé n'est donc l'échec de RIEN — sauf
+        // là où l'on ne peut pas observer les process, où il reste la seule preuve
+        // qu'un runtime à nous tourne encore (cas `blind`, annoncé au-dessus).
+        `  ${ANSI.dim}ports${ANSI.reset} : ${portsLine(
+          ports,
+          `${ANSI.green}libre${ANSI.reset}`,
+          blind
+            ? `${ANSI.yellow}occupé — un runtime répond encore${ANSI.reset}`
+            : `${ANSI.yellow}occupé (pas par ce projet)${ANSI.reset}`,
+          owners,
+        )}`,
         ...(blind
           ? [
               `  ${ANSI.dim}un runtime tourne sans fichier d'état — l'arrêter par son PID (Get-Process node)${ANSI.reset}`,
@@ -243,8 +288,7 @@ export async function runStopReport(
     if (n) seg.push(`${n} ${word}`);
   }
   // Annonce l'intention AVANT de tuer (l'arrêt peut prendre quelques secondes).
-  writeSync(
-    1,
+  write(
     `\n${tag} ${ANSI.bold}arrêt de ${before.length} process ${mode}${ANSI.reset}` +
       ` (${seg.join(" · ")})…\n`,
   );
@@ -257,17 +301,21 @@ export async function runStopReport(
 
   clearSupervisorPidFile(cwd);
   clearRuntimeState(cwd); // plus personne n'écoute : le canal ne doit plus rien dire
-  const ports = await waitPortsFree(ourPorts, PORTS_WAIT_MS);
+  const ports = await waitPortsFree(ourPorts, PORTS_WAIT_MS, probe);
 
   const verdict =
     alive.length === 0
       ? `${ANSI.green}✓ arrêté proprement${ANSI.reset}`
       : `${ANSI.red}⚠ ${alive.length} process survivent (pid ${alive.join(", ")}) — relance \`nodefony stop\`${ANSI.reset}`;
-  writeSync(
-    1,
+  write(
     [
       `  ${verdict}`,
-      `  ${ANSI.dim}ports${ANSI.reset} : ${portsLine(ports, "libéré")}`,
+      `  ${ANSI.dim}ports${ANSI.reset} : ${portsLine(
+        ports,
+        `${ANSI.green}libéré${ANSI.reset}`,
+        `${ANSI.red}✗ encore occupé${ANSI.reset}`,
+        owners,
+      )}`,
       "",
     ].join("\n") + "\n",
   );
