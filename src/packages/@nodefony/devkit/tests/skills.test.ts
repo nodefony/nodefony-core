@@ -30,7 +30,10 @@ const skills = readdirSync(SKILLS, { withFileTypes: true })
 
 /**
  * Tout ce qui est publié et destiné à être LU ou EXÉCUTÉ dans une application :
- * le `SKILL.md` et, s'il y en a, les scripts qu'il fait lancer.
+ * le `SKILL.md`, les `references/*.md` chargées à la demande, et les scripts
+ * que le skill fait lancer. Les références sont contrôlées comme le SKILL.md :
+ * elles partent sur npm au même titre, et c'est dans le DÉTAIL qu'un
+ * vocabulaire de dépôt se glisse le plus volontiers.
  *
  * @param nom - le dossier du skill.
  * @returns les chemins absolus des fichiers à contrôler.
@@ -38,6 +41,13 @@ const skills = readdirSync(SKILLS, { withFileTypes: true })
 function fichiersDe(nom: string): string[] {
   const base = path.join(SKILLS, nom);
   const out = [path.join(base, "SKILL.md")];
+  const references = path.join(base, "references");
+  if (existsSync(references)) {
+    for (const e of readdirSync(references, { withFileTypes: true })) {
+      if (e.isFile() && e.name.endsWith(".md"))
+        out.push(path.join(references, e.name));
+    }
+  }
   const scripts = path.join(base, "scripts");
   if (!existsSync(scripts)) return out;
   const parcourir = (dir: string): void => {
@@ -155,11 +165,14 @@ describe("skills publiés", () => {
 
   it("n'emploie que des commandes qui passent aussi sous Windows", () => {
     for (const nom of skills) {
-      const src = blocsDeCode(
-        readFileSync(path.join(SKILLS, nom, "SKILL.md"), "utf8"),
-      );
-      for (const { motif, pourquoi } of NON_PORTABLE) {
-        expect(motif.test(src), `${nom}/SKILL.md — ${pourquoi}`).toBe(false);
+      for (const fichier of fichiersDe(nom).filter((f) => f.endsWith(".md"))) {
+        const src = blocsDeCode(readFileSync(fichier, "utf8"));
+        for (const { motif, pourquoi } of NON_PORTABLE) {
+          expect(
+            motif.test(src),
+            `${path.relative(SKILLS, fichier)} — ${pourquoi}`,
+          ).toBe(false);
+        }
       }
     }
   });
@@ -169,13 +182,15 @@ describe("skills publiés", () => {
     // cible existe déjà : on relance alors la version précédente du script en
     // croyant l'avoir mise à jour, sans le moindre message. Vécu.
     for (const nom of skills) {
-      const src = readFileSync(path.join(SKILLS, nom, "SKILL.md"), "utf8");
-      for (const ligne of src.split("\n")) {
-        if (!ligne.includes("docker cp")) continue;
-        expect(
-          /docker cp \S+\/\.\s/u.test(ligne),
-          `${nom} : ${ligne.trim()}`,
-        ).toBe(true);
+      for (const fichier of fichiersDe(nom).filter((f) => f.endsWith(".md"))) {
+        const src = readFileSync(fichier, "utf8");
+        for (const ligne of src.split("\n")) {
+          if (!ligne.includes("docker cp")) continue;
+          expect(
+            /docker cp \S+\/\.\s/u.test(ligne),
+            `${path.relative(SKILLS, fichier)} : ${ligne.trim()}`,
+          ).toBe(true);
+        }
       }
     }
   });

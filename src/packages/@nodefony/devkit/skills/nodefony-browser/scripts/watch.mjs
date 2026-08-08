@@ -33,6 +33,7 @@ const at = () => Date.now() - t0;
 const sockets = [];
 const httpErrors = [];
 const consoleErrors = [];
+const uncaughtErrors = [];
 
 // Les frames sont TRONQUÉES et PLAFONNÉES : un canal temps réel pousse plus vite
 // qu'on ne lit, et une sortie de plusieurs mégaoctets serait illisible — donc
@@ -63,6 +64,12 @@ page.on("response", (r) => {
 page.on("console", (m) => {
   if (m.type() === "error")
     consoleErrors.push({ a: at(), texte: m.text().slice(0, 200) });
+});
+// `pageerror` en plus de la console : une exception non capturée qui tue
+// l'application ne passe pas toujours par console.error.
+page.on("pageerror", (e) => {
+  if (uncaughtErrors.length < 20)
+    uncaughtErrors.push({ a: at(), texte: String(e).slice(0, 200) });
 });
 
 await goTo(page, ctx, PAGE, reuse);
@@ -109,6 +116,7 @@ console.log(
       ),
       httpErrors,
       consoleErrors,
+      erreursNonCapturees: uncaughtErrors,
     },
     null,
     2,

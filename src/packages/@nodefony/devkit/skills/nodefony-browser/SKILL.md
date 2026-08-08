@@ -7,12 +7,15 @@ description: >
   machine. Porte les deux sondes prêtes à l'emploi, les trois contraintes de réseau qui font
   répondre `421` ou `401` à une application pourtant saine, et les pièges qui font conclure FAUX :
   mesurer avant que l'écran soit peuplé, observer un bundle qui n'est plus celui du code, prendre
-  une condition d'arrêt qui réussit toujours. À charger AVANT de conclure quoi que ce soit sur un
-  écran.
+  une condition d'arrêt qui réussit toujours. Sait aussi piloter un socket temps réel de bout en
+  bout : accueil, abonnement à un canal, action, latence médiane, pont API, reconnexion. À charger
+  AVANT de conclure quoi que ce soit sur un écran.
   Déclencheurs : "regarde l'écran", "vérifie l'affichage", "est-ce que ça s'affiche ?",
   "montre-moi la page", "lis la console", "y a-t-il des erreurs JS ?", "mesure le contraste",
   "cette couleur est-elle lisible ?", "capture d'écran", "vérifie l'accessibilité",
+  "audit accessibilité", "la page est-elle rapide ?", "temps de chargement", "responsive ?",
   "quelles requêtes fait la page ?", "le temps réel arrive-t-il jusqu'à l'écran ?",
+  "teste le socket", "mesure la latence du websocket", "le canal pousse-t-il ?",
   "l'application démarre-t-elle vraiment ?".
 ---
 
@@ -97,7 +100,8 @@ composants.
 
 Réglages par variables d'environnement : `NF_BROWSER_BASE`, `NF_BROWSER_PAGE`, `NF_BROWSER_EXPECT`,
 `NF_BROWSER_LOGIN`, `NF_BROWSER_USER`, `NF_BROWSER_PASSWORD`, `NF_BROWSER_PROBES`
-(`libellé=sélecteur`, séparés par des virgules). Le détail vit dans l'en-tête de chaque script.
+(`libellé=sélecteur`, séparés par des virgules), `NF_BROWSER_FAMILIES`, `NF_BROWSER_WIDTHS`,
+`NF_BROWSER_SEUIL_LOURD`, `NF_BROWSER_SEUIL_LENT`. Le détail vit dans l'en-tête de chaque script.
 
 **`NF_BROWSER_LOGIN` n'a pas de défaut** : c'est le chemin du formulaire de connexion de **ton**
 application. Il n'en existe pas d'universel, et deviner enverrait la sonde sur une page inexistante,
@@ -107,6 +111,28 @@ fait s'arrêter la sonde avec un message — jamais une mesure fausse.
 Les sondes de couleur cherchent tes sélecteurs, pas ceux d'une bibliothèque : le thème est lu sur le
 `color-scheme` **calculé** (ce que le moteur applique) et sur `data-theme`. Si ton application marque
 son thème autrement, sonde-le comme n'importe quel autre élément.
+
+## Les familles de sondes — activables, jamais un mur de JSON
+
+Le socle ci-dessus sort toujours. Le reste s'active par famille, chacune rendant un **verdict**
+(`OK`/`ALERTE`) et des données bornées — comptes et 3 exemples, jamais l'inventaire :
+
+```bash
+docker exec -e "NF_BROWSER_FAMILIES=a11y,perf,reseau" mon-app-browser node /app/see-screen/inspect.mjs /tableau-de-bord "Chiffre d affaires"
+```
+
+| Famille      | Question à laquelle elle répond                                                            |
+| ------------ | ------------------------------------------------------------------------------------------ |
+| `a11y`       | Étiquettes, noms accessibles, hiérarchie des titres, cibles < 24 px, arbre d'accessibilité |
+| `rendu`      | Débordement horizontal, éléments hors viewport, polices RÉELLEMENT chargées                |
+| `reseau`     | Requêtes, échecs, ressources lourdes et lentes, octets réellement transférés               |
+| `perf`       | TTFB, FCP, LCP, CLS, tâches longues — verdict sur les seuils Web Vitals                    |
+| `stockage`   | Attributs des cookies et inventaire du Web Storage — **jamais les valeurs**                |
+| `responsive` | Le débordement horizontal rejoué à plusieurs largeurs (`NF_BROWSER_WIDTHS`)                |
+
+`NF_BROWSER_FAMILIES=toutes` active tout ; un nom inconnu est **refusé** (code 64), jamais ignoré.
+Ce que chaque champ veut dire, comment lire un verdict, et **quand chaque famille se trompe** :
+[`references/sondes.md`](references/sondes.md) — à lire avant de conclure sur un `ALERTE`.
 
 ## Observer ce qui se PASSE — `watch.mjs`
 
@@ -132,6 +158,26 @@ en bout : le message part-il, revient-il, et l'écran le reçoit-il ?
 > condition qui ne peut pas être vraie. La sonde invoque désormais les formes fonction ; le principe,
 > lui, vaut pour toute attente que tu écriras : tant qu'elle n'a pas échoué une fois, elle ne
 > discrimine rien.
+
+## Piloter le socket de bout en bout — `socket.mjs`
+
+`watch.mjs` regarde le trafic d'une page ; celui-ci **conduit** : il ouvre un socket temps réel
+depuis la page (cookies et `Origin` réels), attend l'accueil, s'abonne à un canal, appelle une
+action, mesure la latence médiane, rejoue une route par le pont API, ferme et se reconnecte — un
+verdict par étape.
+
+```bash
+docker exec -e NF_BROWSER_API=/api/sante mon-app-browser node /app/see-screen/socket.mjs /chat/realtime
+```
+
+Le chemin du endpoint est **requis** (1er argument ou `NF_BROWSER_SOCKET`) : c'est une route de ton
+application, rien n'est deviné. `NF_BROWSER_CHANNEL` choisit le canal (défaut : le premier annoncé
+par l'accueil) ; `NF_BROWSER_ACTION` une action RPC ; sans méthode corrélée la latence est
+`NON MESURÉE` — jamais un zéro inventé, car la notification `ping` n'a pas de pong.
+
+Le protocole du fil (les quatre formes de frame), la lecture de chaque verdict — dont
+`SILENCIEUX`, qui n'est **pas** « cassé » — et les pièges :
+[`references/socket.md`](references/socket.md).
 
 ## Trois contraintes de réseau — chacune imite un bug applicatif
 

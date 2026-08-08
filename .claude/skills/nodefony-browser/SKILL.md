@@ -4,16 +4,16 @@ metadata:
   version: 1.0.0
 description: >
   Ouvre une page réelle dans un navigateur en conteneur pour la VOIR et surtout la MESURER —
-  contrastes et tailles calculés, arbre d'accessibilité, erreurs de console, requêtes réseau — sans
-  installer de navigateur sur le poste. Vaut pour toute page servie par Nodefony : console
-  d'administration, module à frontend, application produite par le scaffold. Porte le décor, le
-  pilotage de Playwright et les pièges qui font conclure FAUX : mesurer avant que l'écran soit
-  peuplé, joindre l'hôte par le mauvais nom, observer un bundle qui n'est pas celui qu'on a bâti.
-  À charger AVANT de constater quoi que ce soit à l'écran. Déclencheurs : "regarde l'écran",
-  "vérifie l'affichage", "est-ce que ça s'affiche ?", "montre-moi la page", "lis la console",
-  "y a-t-il des erreurs JS ?", "mesure le contraste", "cette couleur est-elle lisible ?",
-  "capture d'écran", "l'application générée fonctionne-t-elle ?", "vérifie l'accessibilité",
-  "audit lighthouse", "quelles requêtes fait la page ?".
+  contrastes calculés, accessibilité, Web Vitals, réseau, console, débordements — et pilote un
+  socket applicatif de bout en bout (accueil, abonnement, action, latence, reconnexion) depuis la
+  page elle-même, donc avec ses cookies et son origine. Sans navigateur sur le poste. Porte le
+  décor et les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, joindre
+  l'hôte par le mauvais nom, observer un bundle qui n'est pas celui qu'on a bâti. À charger AVANT
+  de constater quoi que ce soit à l'écran. Déclencheurs : "regarde l'écran", "vérifie l'affichage",
+  "est-ce que ça s'affiche ?", "lis la console", "y a-t-il des erreurs JS ?", "mesure le contraste",
+  "cette couleur est-elle lisible ?", "capture d'écran", "vérifie l'accessibilité",
+  "quelles requêtes fait la page ?", "le temps réel arrive-t-il à l'écran ?", "teste le websocket",
+  "quelle latence sur le socket ?", "la page déborde-t-elle sur mobile ?".
 ---
 
 # nodefony-browser — voir et MESURER une page, sans navigateur sur le poste
@@ -124,7 +124,50 @@ Options par variables d'environnement : `NF_BROWSER_BASE`, `NF_BROWSER_PAGE`, `N
 **`NF_BROWSER_LOGIN` n'a pas de défaut** — la sonde ne devine aucun écran de connexion, elle
 s'arrête (code 64) si on lui donne un identifiant sans chemin. Pour Studio : `/nodefony/login`.
 
-## 3 bis. Observer ce qui se PASSE — `watch.mjs`
+### Les familles de sondes — `NF_BROWSER_FAMILIES`
+
+Le socle ci-dessus sort toujours. Le reste s'active par famille, chacune rendant un **verdict**
+(`OK`/`ALERTE`) et des données bornées — comptes et trois exemples, jamais l'inventaire :
+
+```bash
+docker exec -e "NF_BROWSER_FAMILIES=a11y,perf,reseau" \
+  -e NF_BROWSER_LOGIN=/nodefony/login -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret \
+  nodefony-browser node /app/see-screen/inspect.mjs /nodefony/supervision "Santé du framework"
+```
+
+`a11y` (étiquettes, noms accessibles, hiérarchie des titres, cibles < 24 px, arbre d'accessibilité) ·
+`rendu` (débordement, hors-viewport, polices réellement chargées) · `reseau` (échecs, ressources
+lourdes et lentes, octets transférés) · `perf` (TTFB, FCP, LCP, CLS, tâches longues) · `stockage`
+(attributs des cookies, inventaire du Web Storage — **jamais les valeurs**) · `responsive` (le
+débordement rejoué à plusieurs largeurs). `toutes` active tout ; un nom inconnu est **refusé**
+(code 64), jamais ignoré.
+
+**Avant de conclure sur un `ALERTE`, lis quand la famille se trompe** :
+`src/packages/@nodefony/devkit/skills/nodefony-browser/references/sondes.md`. En mode développement,
+`perf` et `reseau` mesurent Vite autant que l'application — un `ALERTE` y est attendu.
+
+## 3 ter. Piloter le socket de bout en bout — `socket.mjs`
+
+Le scénario s'exécute **dans la page**, donc avec les cookies et l'`Origin` réels : un client Node
+« à côté » n'aurait ni l'un ni l'autre, et l'on croirait à un refus d'authentification là où il n'y
+a qu'un décor faux. L'endpoint est **requis** — rien n'est deviné.
+
+```bash
+docker exec -e NF_BROWSER_PAGE=/nodefony/supervision \
+  -e NF_BROWSER_LOGIN=/nodefony/login -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret \
+  -e NF_BROWSER_API=/nodefony/kernel/api/stats \
+  nodefony-browser node /app/see-screen/socket.mjs /nodefony/studio/api/realtime
+```
+
+Il rend, étape par étape : l'accueil (canaux et méthodes annoncés, identité et rôles reçus),
+l'abonnement et les poussées horodatées, une action RPC, la **latence médiane** aller-retour, le
+pont `api.request`, et une reconnexion avec comparaison d'identité. Sur Studio, l'accueil annonce
+six canaux (`nodefony:syslog`, `supervision`, `debugbar`, `orm:health`, `orm:flow`, `socket`).
+
+Grammaire des frames, verdicts (dont `SILENCIEUX`, qui ne veut **pas** dire cassé) et pièges :
+`src/packages/@nodefony/devkit/skills/nodefony-browser/references/socket.md`.
+
+## 3 quater. Observer ce qui se PASSE — `watch.mjs`
 
 `inspect.mjs` photographie un instant ; celui-ci regarde le temps qui coule. Indispensable pour un
 framework dont le temps réel est le cœur : une frame qui n'arrive pas, un canal qui pousse trop, une
@@ -221,13 +264,21 @@ en tirer des nombres — pas à valider une esthétique.
 ## 7. Références
 
 - **Les sondes**, dans le paquet qui les publie :
-  - `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs` — photographie et mesure ;
-  - `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/watch.mjs` — le temps réel ;
-  - `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs` — lancement, connexion, ouverture garantie de la bonne page.
+  - `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs` — photographie, mesure, familles de sondes ;
+  - `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/watch.mjs` — le temps réel observé ;
+  - `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs` — le socket applicatif piloté de bout en bout ;
+  - `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs` — lancement, connexion, ouverture garantie de la bonne page ;
+  - `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/wcag.mjs` — luminances, rapport de contraste, seuils ;
+  - `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/probes.mjs` — analyse des sondes, allowlist des familles, médiane.
+
+  Leurs deux références détaillées — champ par champ, et **quand chaque mesure se trompe** :
+  - `src/packages/@nodefony/devkit/skills/nodefony-browser/references/sondes.md`
+  - `src/packages/@nodefony/devkit/skills/nodefony-browser/references/socket.md`
 
   Le `SKILL.md` voisin est celui que reçoit l'utilisateur d'une application : les corriger corrige
   les deux publics d'un coup. Leur gate (`devkit/tests/skills.test.ts`) refuse tout retour du
-  vocabulaire de ce dépôt dans ces fichiers.
+  vocabulaire de ce dépôt dans ces fichiers, et `devkit/tests/browser-*.test.ts` éprouve la logique
+  pure (seuils WCAG, allowlist) plus un banc fonctionnel paramétré par `NF_BROWSER_TEST_*`.
 
 - `references/playwright/` — documentation Playwright hors ligne (guides `locators`, `auth`,
   `input`, `screenshots`, `docker` ; API `class-page`, `class-locator`). À consulter avant d'écrire

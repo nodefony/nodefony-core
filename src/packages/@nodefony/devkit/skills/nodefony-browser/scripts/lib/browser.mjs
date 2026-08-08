@@ -13,7 +13,7 @@
  * `@env` NF_BROWSER_PASSWORD mot de passe associé
  */
 import { chromium } from "playwright";
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 
 export const BASE =
   process.env.NF_BROWSER_BASE ?? "https://host.docker.internal:5152";
@@ -61,12 +61,27 @@ export async function open() {
     channel: "chromium",
     args: ["--no-sandbox"],
   });
-  const reuse = Boolean(USER) && existsSync(STATE);
-  const ctx = await browser.newContext({
+  const options = {
     ignoreHTTPSErrors: true, // certificat de développement auto-signé
     viewport: { width: 1440, height: 900 },
-    ...(reuse ? { storageState: STATE } : {}),
-  });
+  };
+  let reuse = Boolean(USER) && existsSync(STATE);
+  let ctx = null;
+  if (reuse) {
+    try {
+      ctx = await browser.newContext({ ...options, storageState: STATE });
+    } catch (e) {
+      // Un fichier d'état corrompu (tronqué, schéma inattendu) ne doit jamais
+      // valoir un crash : on le dit, on le jette, et on rejoue le parcours de
+      // connexion complet — l'ignorance ne passe pas pour un contrôle réussi.
+      console.error(
+        `État d'authentification illisible — il est supprimé et le parcours de connexion est rejoué.\n${String(e).slice(0, 200)}`,
+      );
+      rmSync(STATE, { force: true });
+      reuse = false;
+    }
+  }
+  if (!ctx) ctx = await browser.newContext(options);
   return { browser, ctx, page: await ctx.newPage(), reuse };
 }
 
@@ -92,11 +107,19 @@ export async function signIn(page, ctx) {
   const id = page.getByRole("textbox", {
     name: /identifiant|utilisateur|username|e-?mail/i,
   });
-  await id.fill(USER);
-  await id.press("Enter");
   const pw = page.getByRole("textbox", {
     name: /mot de passe|password/i,
   });
+  // Un écran de connexion en deux étapes peut MÉMORISER l'identifiant (stockage
+  // local) et présenter directement le mot de passe : exiger l'étape 1 faisait
+  // expirer la sonde sur un parcours parfaitement sain. On attend la PREMIÈRE
+  // des deux étapes qui se présente, et on ne remplit l'identifiant que si son
+  // champ existe.
+  await id.or(pw).first().waitFor({ timeout: 15000 });
+  if ((await id.count()) > 0) {
+    await id.fill(USER);
+    await id.press("Enter");
+  }
   await pw.fill(PASSWORD, { timeout: 15000 });
   await pw.press("Enter");
   await page.waitForURL((u) => !u.pathname.endsWith(LOGIN), { timeout: 20000 });
@@ -120,15 +143,36 @@ export async function signIn(page, ctx) {
 export async function goTo(page, ctx, chemin, reuse) {
   if (USER && !reuse) await signIn(page, ctx);
   await page.goto(`${BASE}${chemin}`, { waitUntil: "domcontentloaded" });
-  if (USER && new URL(page.url()).pathname.endsWith(LOGIN)) {
-    // 🔴 Repartir d'un contexte VIERGE avant de rejouer le parcours. Refaire le
-    // formulaire en gardant les cookies de la session morte ne suffit pas : le
-    // jeton anti-CSRF est lié à cette session, le serveur refuse la soumission,
-    // et la sonde conclut « identifiants refusés » sur des identifiants
-    // parfaitement valides. Vécu — un état vieux d'un jour a fait accuser le
-    // mot de passe pendant plusieurs essais.
-    await ctx.clearCookies();
-    await signIn(page, ctx);
-    await page.goto(`${BASE}${chemin}`, { waitUntil: "domcontentloaded" });
+  if (USER && reuse) {
+    // 🔴 L'URL au `domcontentloaded` MENT sur une application à rendu client :
+    // le serveur répond 200 sur toutes les routes, et c'est le code de la
+    // page qui, une fois monté, constate la session invalide et renvoie vers
+    // le formulaire. Tester l'URL immédiatement laissait donc passer TOUT
+    // état périmé — la sonde restait sur l'écran de connexion et concluait
+    // « identifiants refusés » sur des identifiants valides. On accorde à ce
+    // détour le temps d'avoir lieu ; la fenêtre couvre aussi la redirection
+    // serveur (déjà sur le formulaire ⇒ résolue immédiatement), et ne se paie
+    // que sur une session REPRISE — jamais après une connexion fraîche.
+    const detourne = await page
+      .waitForURL((u) => u.pathname.endsWith(LOGIN), { timeout: 3000 })
+      .then(
+        () => true,
+        () => false,
+      );
+    if (detourne) {
+      // Repartir d'un contexte VIERGE avant de rejouer le parcours — cookies
+      // ET stockage web. Les cookies : le jeton anti-CSRF est lié à la session
+      // morte, la garder fait refuser la soumission et accuser le mot de
+      // passe. Le stockage : l'application peut y avoir MÉMORISÉ l'identifiant
+      // et présenter un formulaire raccourci — voire connecter un AUTRE
+      // utilisateur que celui demandé. Vécu, les deux.
+      await ctx.clearCookies();
+      await page.evaluate(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+      });
+      await signIn(page, ctx);
+      await page.goto(`${BASE}${chemin}`, { waitUntil: "domcontentloaded" });
+    }
   }
 }
