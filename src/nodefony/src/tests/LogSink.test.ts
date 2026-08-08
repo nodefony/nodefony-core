@@ -13,6 +13,54 @@ import { FileSink } from "../syslog/sinks/FileSink";
 
 const wait = (ms = 30): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Rend la CONFIRMATION d'écriture observable, au lieu de la parier sur un délai.
+ *
+ * Un `writeOut` remet son chunk au pool de threads et le garde dans `#inFlight`
+ * tant que le rappel n'a pas tourné. Attendre un délai fixe suppose que le pool
+ * a répondu : sur une machine chargée il n'a pas répondu, `close()` déclenche le
+ * secours synchrone, et celui-ci réécrit un chunk DÉJÀ sur le disque. Le sink
+ * assume ce doublon — il le préfère à une perte (`FileSink.flushSync`) — donc ce
+ * qu'un délai fixe finit par mesurer, c'est la vitesse du pool, pas le sink.
+ * Constaté en intégration : `a\na\nb\nc\n` là où le banc attendait `a\nb\nc\n`.
+ *
+ * L'enveloppe compte les écritures NON confirmées. Le compteur ne retombe à zéro
+ * qu'une fois la chaîne entière éteinte : le rappel du sink relance un drain pour
+ * ce qui s'est accumulé pendant le vol, et cette relance incrémente avant que la
+ * précédente ne décrémente. C'est ce que `FileSinkOptions.write` existe pour
+ * permettre — le banc du descripteur en vol s'en sert déjà.
+ */
+const sondeDeDrain = (): {
+  write: typeof fs.write;
+  auRepos: () => Promise<void>;
+} => {
+  let enVol = 0;
+  let reveiller: (() => void) | null = null;
+  const write = ((
+    fd: number,
+    data: string,
+    cb: (err: NodeJS.ErrnoException | null) => void,
+  ): void => {
+    enVol++;
+    fs.write(fd, data, (err) => {
+      cb(err); // le sink peut relancer un drain ICI — donc avant le décompte
+      enVol--;
+      if (enVol === 0 && reveiller) {
+        const r = reveiller;
+        reveiller = null;
+        r();
+      }
+    });
+  }) as unknown as typeof fs.write;
+  const auRepos = (): Promise<void> =>
+    enVol === 0
+      ? Promise.resolve()
+      : new Promise<void>((r) => {
+          reveiller = r;
+        });
+  return { write, auRepos };
+};
+
 describe("Log sink driver (LB.W)", () => {
   describe("FileSink", () => {
     let tmpDir: string;
@@ -33,12 +81,15 @@ describe("Log sink driver (LB.W)", () => {
     });
 
     it("écrit les lignes en async sur le fichier (FIFO préservé)", async () => {
-      const sink = new FileSink({ path: tmpFile });
+      const { write, auRepos } = sondeDeDrain();
+      const sink = new FileSink({ path: tmpFile, write });
       sink.writeOut("a\n");
       sink.writeOut("b\n");
       sink.writeOut("c\n");
-      await wait();
-      sink.close();
+      // Le premier chunk part seul ; `b` et `c` s'accumulent derrière lui et
+      // partent au rappel. On attend l'extinction de la CHAÎNE, pas un délai.
+      await auRepos();
+      sink.close(); // plus rien en vol → le secours synchrone n'a rien à réécrire
       assert.strictEqual(fs.readFileSync(tmpFile, "utf8"), "a\nb\nc\n");
     });
 
@@ -64,9 +115,14 @@ describe("Log sink driver (LB.W)", () => {
     });
 
     it("writeErr après un stdout drainé → ordre causal out→err préservé", async () => {
-      const sink = new FileSink({ path: tmpFile });
+      // Ce cas porte la MÊME fragilité que le précédent, et elle s'y voit moins :
+      // si le rappel n'a pas tourné, `out` reste en vol, `err` part en synchrone,
+      // puis `close()` réécrit `out` PAR-DESSUS — l'ordre lu devient `out err out`.
+      // Ce que le cas veut établir suppose donc un drain CONFIRMÉ, pas espéré.
+      const { write, auRepos } = sondeDeDrain();
+      const sink = new FileSink({ path: tmpFile, write });
       sink.writeOut("out\n");
-      await wait(); // laisse le stdout async se drainer (plus de write en vol)
+      await auRepos(); // plus aucune écriture en vol — le fait, pas le pari
       sink.writeErr("err\n"); // pending vide → writeSync direct, ordonné après "out"
       sink.close();
       assert.strictEqual(fs.readFileSync(tmpFile, "utf8"), "out\nerr\n");
