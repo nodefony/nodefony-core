@@ -204,6 +204,20 @@
   `NF_BROWSER_ENGINE`. **Avant de poser une variable, `rg` son nom dans le paquet** — le vocabulaire
   se recoupe (« canal » sert au socket ET au navigateur), et c'est justement là que ça mord.
 
+## ⛓️ Un gate en CHAÎNE ne dit pas combien de défauts restent DERRIÈRE le premier
+
+- `[1× — 08-08d]` 🔴 **La forge était rouge sur `skills:check` ; corriger le défaut annoncé en a
+  révélé DEUX autres** — l'étape enchaîne ses trois contrôles par `&&`, donc le premier échec
+  masquait un renvoi mort et un recouvrement de déclencheurs. Un rapport de gate se lit comme « le
+  premier défaut rencontré », jamais comme un inventaire. **Corollaire opératoire** : après avoir
+  corrigé le défaut nommé, RELANCER avant de conclure — et considérer que l'étape suivante du job
+  (ici les 4 auto-contrôles du banc devkit) n'a peut-être JAMAIS tourné, donc n'a jamais rien prouvé.
+- `[1× — 08-08d]` ⭐ **Le premier réflexe sur un recouvrement était de le DÉCLARER accepté** — écrire
+  une dérogation coûte une ligne, retirer le déclencheur en trop demande de trancher. Le user a
+  tranché : `frontend-dev` ne porte aucun outil de mesure a11y, seulement la spec. Une demande qui
+  n'a qu'une réponse n'a besoin que d'une porte. **Une table de dérogations qui grossit est le
+  symptôme d'arbitrages qu'on n'a pas faits.**
+
 ## 🔬 Quatre instruments faux d'affilée sur UNE seule question
 
 - `[4× — 08-07]` 🔴 « Qui bloque la boucle d'événements ? » a produit : `setInterval`+`setTimeout(0)`
@@ -212,6 +226,18 @@
   une colonne **« bloque la boucle ? non »** qui AFFIRMAIT sans avoir mesuré · `process.cpuUsage()`
   lu comme « CPU du fil principal » alors qu'il compte tous les fils (110 % du temps mural observé).
   **Règle qui en sort : un banc qui n'a pas mesuré doit SE TAIRE, pas répondre « non ».**
+- `[1× — 08-08d]` 🔴 **Un verdict de CI se lit avec son HORODATAGE et son SHA, sinon il parle du
+  passé.** Après un rebase dependabot, `gh pr checks` rendait « 7 fail » — des runs de **08:20 UTC**,
+  antérieurs à toute la session. J'allais annoncer « la PR échoue encore ». Le SHA n'avait pas bougé
+  parce que le rebase avait CONCLU autre chose (« no longer updatable » → PR fermée d'elle-même).
+  Un tableau de checks est un cache d'états, pas une mesure fraîche.
+- `[1× — 08-08d]` 🔴 **`git diff A...B` (trois points) ne compare PAS deux branches** : il compare la
+  BASE COMMUNE à `B`. J'en ai conclu que `main` était en avance sur `claude-ts` (`@v7` contre `@v5`)
+  et j'ai failli annoncer une régression d'actions au merge — les deux branches étaient déjà en
+  `@v7`. Pour l'écart réel entre deux têtes : deux points, ou lire chaque côté (`git show B:fichier`).
+- `[1× — 08-08d]` **`ps -A | grep -c "motif"` se compte LUI-MÊME** (« 2 process résiduels » après un
+  arrêt parfait). Ajouter `| grep -v grep`, ou mieux : afficher les lignes plutôt qu'un compte —
+  un compte ne se relit pas, une liste vide se constate.
 - `[1× — 08-07]` ⭐ **Ce qui a fini par trancher : chercher un effet MACROSCOPIQUE.** Armer un rappel
   avant la requête et regarder quand il part → SQLite retarde de 134 ms pour 133 ms de travail,
   PostgreSQL de 0,22 ms pour 503 ms d'attente. À cette échelle, aucun instrument fin n'intervient.
@@ -322,6 +348,15 @@ outdated` NU les montre). Corollaire : **un sous-agent hérite de la cécité de
   que l'outil choisit de montrer. Script : `scratchpad/audit-pins.mjs` — mériterait `scripts/`.
 - `[1× — 2026-08-02i]` **Une dépendance déclarée à N endroits ne se monte pas à N−1** (`tsx` dans
   3 workspaces ET à la racine). Relever TOUS les sites déclarants avant d'éditer le premier.
+- `[1× — 08-08d]` 🔴 **`devDependencies` ne protège RIEN d'un paquet que le bundler INLINE.** J'avais
+  qualifié une alerte de sécurité de « jamais embarquée en production » parce que `mermaid` est en
+  devDep de Studio ; le user a corrigé. Studio publie son UI **pré-buildée** (`files: ["dist",
+"public"]`), `MarkdownDoc.tsx` fait `await import("mermaid")`, et le bundle contient bien
+  `mermaid.core-*.js` + un chunk `DOMPurify` — donc du code exécuté dans le navigateur d'un
+  administrateur. **Le classement d'une dépendance dit ce que npm INSTALLE chez le consommateur, pas
+  ce que Vite a mis dans l'artefact qu'on lui sert.** Ce qui protège ici est ailleurs : le `prepack`
+  qui reconstruit le bundle — sans lui, `npm pack` embarquerait le bundle du DISQUE (gitignoré ou
+  non, dès que `files` le liste), vieux de cinq semaines, sans qu'aucun `npm audit` ne le voie.
 
 ## 🧭 La PRÉMISSE d'une question se vérifie avant d'en chercher la cause
 
