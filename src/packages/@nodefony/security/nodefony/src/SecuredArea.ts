@@ -44,7 +44,14 @@ export class SecuredArea implements ISecuredArea {
   /** La requête tombe-t-elle dans cette zone ? (host éventuel + pathname). */
   match(context: ContextType): boolean {
     const req = context.request;
-    if (!req || !req.url) return false;
+    if (!req) return false;
+    // F-B : même lecture que `Firewall.isSecure` — `request.pathname` (string
+    // normalisée) d'abord, pour ne pas déclencher le getter URL paresseux.
+    const rp = (req as { pathname?: unknown }).pathname;
+    if (typeof rp === "string") {
+      return this.matchPath(rp, (context as { domain?: string }).domain);
+    }
+    if (!req.url) return false;
     const pathname =
       req.url instanceof URL ? req.url.pathname : String(req.url);
     return this.matchPath(pathname, (context as { domain?: string }).domain);

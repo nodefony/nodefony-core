@@ -145,6 +145,35 @@ async function loginCookie(
   return typeof first === "string" ? (first.split(";")[0] ?? "") : "";
 }
 
+/**
+ * TOUTES les pages de /sessions/mine — jamais la seule page 1 : sur un backend
+ * à curseur (SCAN Redis, aucun tri), un serveur qui porte plus d'une page de
+ * sessions rend une page 1 où MA session peut manquer ; le diff/`items[0]` sur
+ * cette page conclut à tort (vécu : rouge probabiliste dès que le parc grossit).
+ */
+async function allMySessions(
+  cookie: string,
+): Promise<Array<Record<string, unknown> & { ref: string }>> {
+  const byRef = new Map<string, Record<string, unknown> & { ref: string }>();
+  let cursor: string | undefined;
+  for (let guard = 0; guard < 60; guard += 1) {
+    const params = new URLSearchParams({ limit: "100" });
+    if (cursor) params.set("cursor", cursor);
+    const r = await req("GET", `/nodefony/http/api/sessions/mine?${params}`, {
+      cookie,
+    });
+    expect(r.status, "self-service /sessions/mine").to.equal(200);
+    const page = r.body as {
+      items?: Array<Record<string, unknown> & { ref: string }>;
+      nextCursor?: string | null;
+    };
+    for (const it of page.items ?? []) byRef.set(it.ref, it);
+    if (!page.nextCursor) break;
+    cursor = page.nextCursor;
+  }
+  return [...byRef.values()];
+}
+
 describe("Admin data plane — RBAC : authentifié NON-admin REJETÉ (403)", () => {
   // Un endpoint par producteur (rôle effectif = défaut broker ROLE_NODEFONY_ADMIN).
   const PROTECTED = [
@@ -391,11 +420,7 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
 
   it("ne renvoie QUE mes sessions + DTO redacté (jamais id/Attributes)", async () => {
     const userCookie = await loginCookie("user", "secret");
-    const r = await req("GET", "/nodefony/http/api/sessions/mine", {
-      cookie: userCookie,
-    });
-    expect(r.status).to.equal(200);
-    const items = (r.body as { items: Array<Record<string, unknown>> }).items;
+    const items = await allMySessions(userCookie);
     expect(items.length, "au moins la session courante").to.be.greaterThan(0);
     items.forEach((s) => {
       expect(s.user, "scope identité — jamais la session d'autrui").to.equal(
@@ -447,10 +472,7 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
 
   it("je peux révoquer UNE de MES sessions par son ref (déconnexion d'appareil)", async () => {
     const userCookie = await loginCookie("user", "secret");
-    const list = await req("GET", "/nodefony/http/api/sessions/mine", {
-      cookie: userCookie,
-    });
-    const items = (list.body as { items: Array<{ ref: string }> }).items;
+    const items = await allMySessions(userCookie);
     expect(items.length).to.be.greaterThan(0);
     const myRef = items[0]!.ref;
     const revoke = await req(
@@ -1215,16 +1237,42 @@ describe("Data plane syslog — le vocabulaire est clos", () => {
   it("multi-valeurs : les DEUX sévérités comptent, pas seulement la première", async () => {
     // Le défaut nommé du chantier : `parseFilters` ne lisait que la première
     // valeur. Un seul total ne le prouve pas — il faut comparer.
+    //
+    // ⚠️ Les deux sévérités sont DÉCOUVERTES dans le journal, jamais supposées.
+    // La version qui exigeait `INFO` et `DEBUG` en dur comptait sur des entrées
+    // écrites INCIDEMMENT par les autres cas de la suite : en développement il y
+    // en a, en PRODUCTION le niveau de journal n'émet aucun `DEBUG`. Le job
+    // « Tests intégration (Node 26.x / production) » est resté rouge SEPT runs
+    // d'affilée sur cette seule ligne — invisible à côté de seize jobs verts, ce
+    // qui en faisait un gate que plus personne ne lisait. Un test ne se fonde
+    // pas sur une donnée qu'il ne produit pas et ne constate pas.
     const total = async (q: string): Promise<number> => {
       const r = await req("GET", `${SEARCH}?limit=1&${q}`, auth());
       expect(r.status, `?${q}`).to.equal(200);
       return (r.body as { total: number }).total;
     };
-    const info = await total("severity=INFO");
-    const debug = await total("severity=DEBUG");
-    const both = await total("severity=INFO&severity=DEBUG");
-    expect(info, "le journal doit contenir des INFO").to.be.greaterThan(0);
-    expect(debug, "le journal doit contenir des DEBUG").to.be.greaterThan(0);
+    const page = await req("GET", `${SEARCH}?limit=100`, auth());
+    expect(page.status).to.equal(200);
+    const presentes = [
+      ...new Set(
+        (page.body as { rows: { severityName: string }[] }).rows.map(
+          (r) => r.severityName,
+        ),
+      ),
+    ];
+    // Moins de deux sévérités distinctes : le OU n'a rien à unir, et un vert
+    // n'aurait rien mesuré. On ÉCHOUE en nommant ce qu'on a trouvé — un décor
+    // muet se diagnostique, il ne se contourne pas.
+    expect(
+      presentes.length,
+      `le OU exige deux sévérités distinctes ; trouvé : ${presentes.join(", ") || "aucune"}`,
+    ).to.be.at.least(2);
+    const [a, b] = presentes as [string, string];
+    const info = await total(`severity=${a}`);
+    const debug = await total(`severity=${b}`);
+    const both = await total(`severity=${a}&severity=${b}`);
+    expect(info, `le journal doit contenir des ${a}`).to.be.greaterThan(0);
+    expect(debug, `le journal doit contenir des ${b}`).to.be.greaterThan(0);
     // Le journal VIT (chaque requête en écrit) : on ne peut pas exiger l'égalité
     // stricte de la somme, seulement que le OU dépasse chaque terme.
     expect(both, "le OU doit dépasser chaque sévérité seule").to.be.greaterThan(

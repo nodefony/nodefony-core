@@ -1,4 +1,4 @@
-import { defineEnv, envEnum, envNumber<% if (it.complete) { %>, envString<% } %> } from "nodefony";
+import { defineEnv, envEnum, envNumber<% if (it.complete || it.front) { %>, envString<% } %> } from "nodefony";
 
 /**
  * Catalogue typé des variables d'environnement — SEUL lecteur de `process.env`.
@@ -97,4 +97,11 @@ export const env = defineEnv({
     optional: true,
     description: "Mot de passe du compte admin seedé au 1er boot (obligatoire en production).",
   }),
+<% } %><% if (it.complete || it.front) { %>
+  // L'origine publique du dev-server Vite n'est PAS une variable
+  // d'environnement : elle se dérive du `Host` de chaque requête, si bien que
+  // ton poste et un navigateur en conteneur chargent la même page en même
+  // temps, sans rien à poser. Pour un besoin durable — tunnel, proxy frontal —
+  // écris `publicOrigin` dans `nodefony.config.ts` : c'est un réglage, il gagne
+  // sur la dérivation, et il ne s'oublie pas dans un shell.
 <% } %>});

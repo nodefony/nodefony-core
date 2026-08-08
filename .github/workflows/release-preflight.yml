@@ -1,0 +1,230 @@
+# Préflight de publication — la CHAÎNE d'accès répond-elle, avant qu'on en ait
+# besoin ? Ce workflow ne publie rien.
+#
+# 🔴 IL N'EXIGE PLUS DE JETON npm, ET C'EST LE SUJET. La doc npm est explicite :
+# « As of November 2025, only Granular access tokens are supported. Legacy
+# access tokens have been removed. » Il n'y a donc plus de jeton « Automation »,
+# et un jeton d'écriture utilisable en CI suppose l'option **Bypass 2FA** —
+# celle devant laquelle npm affiche « There are security risks with this option.
+# For automation or CI/CD uses, please use Trusted Publishing instead. »
+#
+# L'avertissement est fondé : un tel jeton ANNULE la 2FA du compte pour
+# lui-même. Il vit dans les secrets, transite par chaque action tierce du
+# workflow, et quiconque le vole publie sous l'identité du mainteneur — c'est le
+# vecteur des attaques de chaîne d'approvisionnement npm, où l'on ne pirate pas
+# la personne mais son jeton de CI.
+#
+# Trusted publishing (OIDC) supprime le secret : GitHub PROUVE à npm que la
+# publication vient de ce dépôt et de ce workflow, npm délivre un jeton valable
+# quelques minutes. Rien à stocker, rien à faire tourner, rien à révoquer.
+#
+# ⚠️ Une seule chose qu'OIDC ne peut pas faire : la PREMIÈRE publication d'un
+# paquet. Le publieur de confiance se déclare dans les réglages d'un paquet qui
+# EXISTE déjà — et les treize paquets de Nodefony n'existent pas encore. Cette
+# première fois se fait donc À LA MAIN, depuis le poste du mainteneur, avec le
+# code 2FA interactif : c'est précisément ce pour quoi la 2FA est faite, et
+# aucun jeton n'a besoin d'exister.
+#
+# Ce que ce préflight vérifie, dans l'ordre de ce qui coûte cher à découvrir
+# tard :
+#
+#   oidc   → BLOQUANT. Le jeton d'identité s'obtient-il, et QUE contient-il ?
+#            Ses claims sont exactement les champs à recopier sur npmjs.com ;
+#            un seul caractère de travers et le publish répond « ENEEDAUTH ».
+#   outils → BLOQUANT. Les versions minimales exigées par la fonctionnalité.
+#   jeton  → INFORMATIF. Aucun n'est requis ; s'il en existe un (transition,
+#            ou paquet privé), on dit ce qu'il vaut.
+#   docker → AVERTISSEMENT. Aucune image n'est publiée ici ; le login ne sert
+#            qu'à desserrer le quota de pull dont dépend `smoke-docker.sh`.
+#
+# Voisin : `release-smoke.yml` éprouve les TARBALLS (ce qu'un installeur
+# reçoit). Celui-ci éprouve les ACCÈS. Aucun des deux ne publie.
+
+name: Préflight de publication (accès)
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow_publieur:
+        description: "Nom du fichier de workflow qui publiera (à déclarer chez npm)"
+        type: string
+        default: release-publish.yml
+  # Mensuel : une exigence de version monte, un réglage change, et on ne s'en
+  # aperçoit que le jour de la release.
+  schedule:
+    - cron: "0 5 1 * *"
+
+concurrency:
+  group: release-preflight
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  oidc:
+    name: OIDC — l'identité de publication, et ce qu'il faut déclarer
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # LA permission de trusted publishing. Sans elle, aucun jeton d'identité
+      # n'est délivré — et c'est la première cause d'« Unable to authenticate »
+      # citée par la doc npm.
+      id-token: write
+    steps:
+      - name: Le runner peut-il obtenir un jeton d'identité ?
+        id: jeton
+        run: |
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+            echo "::error title=Pas de jeton OIDC::La permission \`id-token: write\` manque, ou ce runner n'est pas hébergé par GitHub. Trusted publishing ne fonctionne QUE sur des runners hébergés."
+            exit 1
+          fi
+          # L'audience est imposée par npm. Une autre valeur produit un jeton
+          # que le registre refusera, sans dire pourquoi.
+          reponse=$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=npm:registry.npmjs.org")
+          jwt=$(echo "$reponse" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).value??'')}catch{console.log('')}})")
+          if [ -z "$jwt" ]; then
+            echo "::error title=Jeton d'identité refusé::Le service a répondu sans jeton."
+            exit 1
+          fi
+          echo "jeton d'identité obtenu (jamais affiché)"
+          # Seul le PAYLOAD est décodé, et il ne porte aucun secret : c'est une
+          # assertion signée sur l'origine du run. La signature n'est pas
+          # vérifiée ici — c'est le travail du registre, pas le nôtre.
+          echo "$jwt" | node -e "
+            let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{
+              const p=JSON.parse(Buffer.from(s.trim().split('.')[1],'base64url').toString());
+              const out=(k,v)=>console.log('  '+k.padEnd(22)+': '+v);
+              console.log('Ce que npm verra de ce dépôt :');
+              out('repository', p.repository ?? '?');
+              out('repository_owner', p.repository_owner ?? '?');
+              out('workflow_ref', p.workflow_ref ?? '?');
+              out('environment', p.environment ?? '(aucun)');
+              out('audience', [].concat(p.aud ?? '?').join(', '));
+            })"
+
+      - name: Ce qu'il faut saisir sur npmjs.com
+        env:
+          PUBLIEUR: ${{ github.event.inputs.workflow_publieur || 'release-publish.yml' }}
+        run: |
+          {
+            echo "### Publieur de confiance — à déclarer sur chacun des paquets"
+            echo
+            echo "Réglages → **Trusted Publisher** → GitHub Actions :"
+            echo
+            echo "| Champ | Valeur |"
+            echo "| --- | --- |"
+            echo "| Organization or user | \`${GITHUB_REPOSITORY%%/*}\` |"
+            echo "| Repository | \`${GITHUB_REPOSITORY##*/}\` |"
+            echo "| Workflow filename | \`${PUBLIEUR}\` |"
+            echo "| Environment name | *(vide, sauf si un environnement GitHub est utilisé)* |"
+            echo
+            echo "Le nom du fichier se saisit **seul** (pas le chemin), **avec** son extension,"
+            echo "et il est **sensible à la casse** : c'est la première cause d'échec citée par la doc npm."
+            echo
+            echo "Un publieur de confiance **par paquet** — un seul autorisé à la fois."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  outils:
+    name: Outils — versions minimales exigées par trusted publishing
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "26.x"
+
+      # Exigences DOCUMENTÉES : npm CLI >= 11.5.1 et Node >= 22.14.0. En dessous,
+      # le CLI ne détecte pas l'environnement OIDC et retombe silencieusement sur
+      # l'authentification par jeton — donc sur une absence de jeton.
+      - name: npm >= 11.5.1 et Node >= 22.14.0
+        run: |
+          node -e '
+            const {execSync}=require("node:child_process");
+            const npm=execSync("npm --version").toString().trim();
+            const node=process.versions.node;
+            const cmp=(a,b)=>{const x=a.split(".").map(Number),y=b.split(".").map(Number);
+              for(let i=0;i<3;i++){if((x[i]||0)!==(y[i]||0))return (x[i]||0)-(y[i]||0)}return 0};
+            let ko=0;
+            for (const [nom,vu,mini] of [["npm",npm,"11.5.1"],["node",node,"22.14.0"]]) {
+              const ok=cmp(vu,mini)>=0;
+              console.log(`${ok?"✅":"❌"} ${nom} ${vu} (minimum ${mini})`);
+              if(!ok)ko++;
+            }
+            if(ko){console.log(`::error title=Version trop basse::trusted publishing exige npm >= 11.5.1 et Node >= 22.14.0 ; en dessous, le CLI ignore l environnement OIDC sans le dire.`);process.exit(1)}
+          '
+
+  jeton:
+    name: Jeton npm — informatif, aucun n'est requis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "26.x"
+          registry-url: "https://registry.npmjs.org"
+
+      # NON bloquant, à l'inverse de la version précédente de ce fichier. La
+      # cible est OIDC ; un jeton n'est là que pour une transition, ou pour les
+      # commandes qu'OIDC ne couvre pas (`install`, `view`, `access` — la doc
+      # est explicite, et `npm whoami` ne reflète JAMAIS une auth OIDC).
+      - name: Y a-t-il un jeton, et que vaut-il ?
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NPM_TOKEN}" ]; then
+            echo "aucun jeton configuré — c'est l'état ATTENDU avec trusted publishing."
+            echo "Rappel : la première publication d'un paquet neuf se fait à la main, avec le code 2FA."
+            exit 0
+          fi
+          echo "::warning title=Un jeton npm existe::Avec trusted publishing, aucun jeton d'écriture n'est nécessaire. S'il porte « Bypass 2FA », il annule la 2FA du compte pour lui-même — à révoquer dès la bascule OIDC faite."
+          who=$(npm whoami --registry=https://registry.npmjs.org 2>/dev/null) \
+            && echo "jeton valide, identité : ${who}" \
+            || echo "::warning title=Jeton refusé::Il est expiré ou révoqué. Sans conséquence si la publication passe par OIDC."
+
+  docker:
+    name: docker — accès au registre et quota de pull
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Volontairement NON bloquant : ce projet ne publie aucune image. Le login
+      # ne sert qu'au quota, et son absence ne compromet aucune release.
+      - name: Login Docker Hub (si les identifiants existent)
+        env:
+          USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -z "${USER}" ] || [ -z "${TOKEN}" ]; then
+            echo "::warning title=Identifiants Docker Hub absents::Le smoke de release tirera node:24-slim en ANONYME, soumis au quota par IP partagée des runners. Poser DOCKERHUB_USERNAME et DOCKERHUB_TOKEN desserre cette limite."
+          else
+            echo "${TOKEN}" | docker login -u "${USER}" --password-stdin
+          fi
+
+      # L'image que le gabarit d'application utilise réellement. Un pull qui
+      # échoue ici, c'est un `smoke-docker.sh` qui échouera pour une raison sans
+      # rapport avec les tarballs — et on chercherait au mauvais endroit.
+      - name: L'image de base du gabarit se tire-t-elle ?
+        run: |
+          docker pull node:24-slim
+          docker image inspect node:24-slim --format 'node:24-slim présente ({{.Os}}/{{.Architecture}}, {{.Size}} octets)'
+
+      # Le quota restant ne se lit pas dans `docker pull` : il faut interroger le
+      # registre. Mesuré depuis un poste : 100 tirages par heure et par IP — les
+      # runners GitHub PARTAGENT leurs adresses, d'où l'intérêt du login.
+      - name: Quota de pull restant
+        run: |
+          jeton=$(curl -sS "https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/node:pull" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).token)}catch{console.log('')}})")
+          if [ -z "$jeton" ]; then
+            echo "::warning title=Quota illisible::Le registre n'a pas rendu de jeton anonyme ; sans lui, pas de compteur. Sans conséquence sur ce run."
+            exit 0
+          fi
+          curl -sS -I -H "Authorization: Bearer ${jeton}" \
+            "https://registry-1.docker.io/v2/library/node/manifests/24-slim" \
+            -H "Accept: application/vnd.oci.image.index.v1+json" \
+            | tr -d '\r' | grep -i "^ratelimit" \
+            || echo "aucun en-tête de quota (compte authentifié sans limite, ou registre silencieux)"

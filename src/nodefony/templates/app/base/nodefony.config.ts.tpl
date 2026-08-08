@@ -171,8 +171,21 @@ export default defineConfig<typeof env>((ctx) => ({
       },
     }),
 
-    /** Builder Vite + statics : sert le frontend de l'app (HMR en dev). */
-    "@nodefony/frontend",
+    /**
+     * Builder Vite + statics : sert le frontend de l'app (HMR en dev).
+     *
+     * L'origine que le NAVIGATEUR utilise pour les assets se dérive du `Host`
+     * de la requête : rien à configurer pour développer depuis une autre
+     * machine, un conteneur ou un tunnel — chacun reçoit l'origine par
+     * laquelle il est arrivé. Codespaces/Gitpod : détection automatique.
+     *
+     * `publicOrigin: "https://mon-proxy.example.com:{port}"` force une origine
+     * unique quand un frontal la réécrit ; `{port}` suit le port réel de Vite.
+     * Un réglage explicite gagne toujours sur la dérivation.
+     */
+    use("@nodefony/frontend", {
+      publicOrigin: "",
+    }),
 
     /**
      * Console d'administration → `/nodefony` : modules chargés, routes, config
@@ -202,8 +215,19 @@ export default defineConfig<typeof env>((ctx) => ({
     /**
      * Builder Vite + statics : sert le frontend <%= it.frontend %> de l'app
      * (HMR en dev, build pré-compilé en prod).
+     *
+     * L'origine que le NAVIGATEUR utilise pour les assets se dérive du `Host`
+     * de la requête : rien à configurer pour développer depuis une autre
+     * machine, un conteneur ou un tunnel — chacun reçoit l'origine par
+     * laquelle il est arrivé. Codespaces/Gitpod : détection automatique.
+     *
+     * `publicOrigin: "https://mon-proxy.example.com:{port}"` force une origine
+     * unique quand un frontal la réécrit ; `{port}` suit le port réel de Vite.
+     * Un réglage explicite gagne toujours sur la dérivation.
      */
-    "@nodefony/frontend",
+    use("@nodefony/frontend", {
+      publicOrigin: "",
+    }),
 <% } %>
     /**
      * Outillage de DÉVELOPPEMENT — la porte HTTP de la carte de visite de cette

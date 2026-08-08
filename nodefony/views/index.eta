@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="<%= nodefony.locale %>">
+<html lang="<%= nodefony.locale || "fr" %>">
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
@@ -7,162 +7,415 @@
     <meta name="generator" content="Nodefony (https://nodefony.net)" />
     <meta
       name="description"
-      content="Nodefony — framework Node.js fullstack pour applications temps réel et agents IA, sécurisé par conception (HTTP + WebSocket natifs)."
+      content="Nodefony — le framework Node.js fullstack : temps réel natif, développement agentic-ready, sur un socle TypeScript isomorphe."
     />
-    <title><%= nodefony.name %> — accueil</title>
+    <title><%= nodefony.name %> — framework Node.js fullstack</title>
     <style>
+      /* ─── Design tokens — les 3 couleurs du logo Nodefony ─────────────── */
       :root {
-        --bg: #0b1020; --bg2: #131a31; --fg: #e7ecf6; --muted: #9aa6c2;
-        --brand: #0067ba; --brand2: #ff8a3d; --card: #161d33; --border: #263150;
+        --blue: #096bbf;
+        --cyan: #1ea0ec;
+        --green: #4a8b3e;
+        --bg: #fafbfd;
+        --bg-soft: #f1f5fa;
+        --fg: #0e1726;
+        --muted: #5b6b84;
+        --card: #ffffff;
+        --border: #e3e9f2;
+        --code-bg: #0e1726;
+        --code-fg: #d9e6f5;
+        --shadow: 0 1px 2px rgba(14, 23, 38, 0.05), 0 8px 24px rgba(14, 23, 38, 0.06);
+        --shadow-hover: 0 2px 4px rgba(14, 23, 38, 0.06), 0 14px 34px rgba(9, 107, 191, 0.14);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0a0f1c;
+          --bg-soft: #0e1524;
+          --fg: #e8edf6;
+          --muted: #93a1ba;
+          --card: #111828;
+          --border: #223046;
+          --code-bg: #0b1220;
+          --code-fg: #cfe0f2;
+          --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+          --shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.3), 0 14px 34px rgba(30, 160, 236, 0.18);
+        }
       }
       * { box-sizing: border-box; }
-      html, body { margin: 0; padding: 0; }
+      html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+      @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
       body {
+        margin: 0;
         font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         color: var(--fg);
         background:
-          radial-gradient(1200px 600px at 50% -10%, rgba(0,103,186,.25), transparent 60%),
-          radial-gradient(900px 500px at 88% 8%, rgba(255,138,61,.12), transparent 55%),
-          linear-gradient(180deg, var(--bg), var(--bg2));
-        min-height: 100vh; display: flex; flex-direction: column; align-items: center;
-        justify-content: center; padding: 48px 20px;
+          radial-gradient(1100px 480px at 50% -14%, rgba(9, 107, 191, 0.07), transparent 60%),
+          var(--bg);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
       }
-      .hero { text-align: center; max-width: 820px; }
-      .logo { height: 92px; width: auto; filter: drop-shadow(0 6px 22px rgba(0,103,186,.45)); }
-      h1 {
-        font-size: clamp(2.2rem, 5vw, 3.4rem); margin: 16px 0 6px; letter-spacing: -.02em;
-        background: linear-gradient(90deg, var(--brand), var(--brand2));
-        -webkit-background-clip: text; background-clip: text; color: transparent;
+      a { color: var(--blue); }
+      a:focus-visible, button:focus-visible {
+        outline: 2px solid var(--cyan);
+        outline-offset: 3px;
+        border-radius: 4px;
       }
-      .version {
-        display: inline-block; font-size: .78rem; color: var(--muted);
-        border: 1px solid var(--border); border-radius: 999px; padding: 3px 12px; margin-bottom: 14px;
+
+      /* ─── Topbar ───────────────────────────────────────────────────────── */
+      .topbar {
+        position: sticky; top: 0; z-index: 20;
+        display: flex; align-items: center; gap: 18px;
+        padding: 12px clamp(18px, 4vw, 40px);
+        background: color-mix(in srgb, var(--bg) 78%, transparent);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--border);
       }
-      .tagline { color: var(--muted); font-size: 1.05rem; margin: 0 auto 8px; line-height: 1.6; }
-      .pillars {
-        display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 16px; width: min(880px, 100%); margin-top: 30px;
+      .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--fg); font-weight: 700; letter-spacing: -0.01em; }
+      .brand img { height: 30px; width: auto; }
+      .brand .v {
+        font-size: 0.72rem; font-weight: 600; color: var(--muted);
+        border: 1px solid var(--border); border-radius: 999px; padding: 1px 9px;
       }
-      .pillar {
-        background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-        padding: 22px 20px; text-align: left;
+      .topnav { margin-left: auto; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+      .topnav a {
+        text-decoration: none; color: var(--muted); font-size: 0.9rem; font-weight: 500;
+        padding: 7px 12px; border-radius: 8px; transition: color 0.15s ease, background 0.15s ease;
       }
-      .pillar .pic { color: var(--accent); height: 28px; width: 28px; }
-      .pillar h3 { margin: 12px 0 6px; font-size: 1.1rem; }
-      .pillar p { margin: 0; color: var(--muted); font-size: .88rem; line-height: 1.55; }
-      .label {
-        text-transform: uppercase; letter-spacing: .14em; font-size: .72rem; color: var(--muted);
-        margin: 40px 0 14px; font-weight: 600;
+      .topnav a:hover { color: var(--fg); background: var(--bg-soft); }
+      .topnav a.gh { color: var(--fg); border: 1px solid var(--border); display: inline-flex; align-items: center; gap: 7px; }
+      .topnav a.gh svg { height: 16px; width: 16px; }
+
+      main { max-width: 1080px; margin: 0 auto; padding: 0 clamp(18px, 4vw, 40px) 40px; }
+
+      /* ─── Hero ─────────────────────────────────────────────────────────── */
+      .hero { text-align: center; padding: clamp(56px, 9vw, 96px) 0 clamp(40px, 6vw, 64px); }
+      .hero img.logo { height: 80px; width: auto; }
+      .hero h1 {
+        margin: 20px auto 10px; max-width: 900px;
+        font-size: clamp(2.1rem, 5vw, 3.4rem); line-height: 1.12; letter-spacing: -0.028em;
       }
-      .grid {
-        display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-        gap: 16px; width: min(880px, 100%);
+      .hero .sub {
+        color: var(--fg); opacity: 0.82; font-size: clamp(1rem, 2vw, 1.2rem);
+        font-weight: 500; margin: 0 auto 10px; max-width: 720px;
       }
+      .hero .sig { color: var(--muted); font-size: 1rem; max-width: 640px; margin: 0 auto; }
+      .badges { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 22px 0 0; }
+      .badge {
+        font-size: 0.76rem; font-weight: 600; color: var(--muted);
+        border: 1px solid var(--border); background: var(--card);
+        border-radius: 999px; padding: 4px 12px;
+      }
+      .badge.agentic { color: var(--green); border-color: color-mix(in srgb, var(--green) 45%, var(--border)); }
+      .install {
+        display: inline-flex; align-items: center; gap: 12px; margin: 26px auto 0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.95rem; color: var(--code-fg); background: var(--code-bg);
+        border: 1px solid var(--border); border-radius: 12px; padding: 13px 22px;
+        box-shadow: var(--shadow);
+      }
+      .install .p { color: var(--cyan); user-select: none; }
+      .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 26px; }
+      .btn {
+        display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+        font-weight: 600; font-size: 0.95rem; border-radius: 10px; padding: 11px 22px;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      }
+      .btn.primary { color: #fff; background: var(--blue); box-shadow: 0 4px 14px rgba(9, 107, 191, 0.25); }
+      .btn.primary:hover { background: color-mix(in srgb, var(--blue) 88%, #000); }
+      .btn.ghost { color: var(--fg); border: 1px solid var(--border); background: var(--card); }
+      .btn.ghost:hover { border-color: var(--cyan); }
+      @media (prefers-reduced-motion: no-preference) { .btn:hover { transform: translateY(-2px); } }
+
+      /* ─── Sections ─────────────────────────────────────────────────────── */
+      section { padding: clamp(34px, 5vw, 54px) 0; }
+      .sec-head { max-width: 720px; margin: 0 0 28px; }
+      .kicker {
+        text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.72rem;
+        font-weight: 700; color: var(--accent, var(--blue)); margin: 0 0 8px;
+      }
+      .sec-head h2 { margin: 0 0 8px; font-size: clamp(1.4rem, 2.8vw, 1.9rem); letter-spacing: -0.02em; }
+      .sec-head p { margin: 0; color: var(--muted); }
+
+      .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+      .feature {
+        background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+        padding: 22px; box-shadow: var(--shadow);
+      }
+      .feature .ic {
+        display: inline-flex; align-items: center; justify-content: center;
+        height: 40px; width: 40px; border-radius: 10px;
+        color: var(--accent, var(--blue));
+        background: color-mix(in srgb, var(--accent, var(--blue)) 12%, transparent);
+      }
+      .feature .ic svg { height: 22px; width: 22px; }
+      .feature h3 { margin: 14px 0 6px; font-size: 1.05rem; letter-spacing: -0.01em; }
+      .feature p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+
+      /* ─── Agentic ready ────────────────────────────────────────────────── */
+      .agentic-panel {
+        border: 1px solid color-mix(in srgb, var(--green) 34%, var(--border));
+        border-radius: 18px; padding: clamp(24px, 4vw, 40px);
+        background:
+          radial-gradient(560px 280px at 12% 0%, rgba(74, 139, 62, 0.05), transparent 60%),
+          var(--card);
+        box-shadow: var(--shadow);
+      }
+      .agentic-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-top: 22px; }
+      .agentic-item { border: 1px solid var(--border); border-radius: 12px; padding: 18px; background: color-mix(in srgb, var(--bg) 55%, transparent); }
+      .agentic-item h3 { margin: 0 0 6px; font-size: 0.98rem; display: flex; align-items: center; gap: 8px; }
+      .agentic-item h3 svg { height: 17px; width: 17px; color: var(--green); flex: none; }
+      .agentic-item p { margin: 0; color: var(--muted); font-size: 0.88rem; }
+      .agentic-item code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.82em; background: var(--bg-soft); border: 1px solid var(--border);
+        border-radius: 6px; padding: 1px 6px;
+      }
+      .agentic-link { margin-top: 20px; font-size: 0.9rem; }
+      .agentic-link a { font-weight: 600; text-decoration: none; }
+      .agentic-link a:hover { text-decoration: underline; }
+
+      /* ─── Cartes lien (démos, studio) ──────────────────────────────────── */
       .card {
-        display: block; text-decoration: none; color: var(--fg); background: var(--card);
-        border: 1px solid var(--border); border-radius: 16px; padding: 20px;
-        transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+        display: block; text-decoration: none; color: var(--fg);
+        background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+        padding: 20px; box-shadow: var(--shadow);
+        transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
       }
-      @media (prefers-reduced-motion: no-preference) { .card:hover { transform: translateY(-4px); } }
-      .card:hover { border-color: var(--accent); box-shadow: 0 12px 30px rgba(0,0,0,.35); }
-      .card .ic { color: var(--accent); display: inline-flex; height: 34px; align-items: center; }
-      .card .ic svg { height: 32px; width: 32px; }
-      .card h3 { margin: 10px 0 6px; font-size: 1.15rem; }
-      .card p { margin: 0; color: var(--muted); font-size: .88rem; line-height: 1.5; }
-      .card .go { margin-top: 14px; font-size: .82rem; color: var(--accent); font-weight: 600; }
-      .chips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; width: min(880px, 100%); }
+      .card:hover { border-color: var(--accent, var(--cyan)); box-shadow: var(--shadow-hover); }
+      @media (prefers-reduced-motion: no-preference) { .card:hover { transform: translateY(-3px); } }
+      .card .ic { color: var(--accent, var(--blue)); display: inline-flex; height: 34px; align-items: center; }
+      .card .ic svg, .card .ic img { height: 30px; width: 30px; }
+      .card h3 { margin: 10px 0 4px; font-size: 1.08rem; }
+      .card p { margin: 0; color: var(--muted); font-size: 0.88rem; }
+      .card .go { margin-top: 12px; font-size: 0.82rem; color: var(--accent, var(--blue)); font-weight: 600; }
+      .card.wide { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+      .card.wide .body { flex: 1 1 320px; }
+      .card.wide h3 { margin-top: 0; }
+
+      /* ─── Footer ───────────────────────────────────────────────────────── */
+      footer { border-top: 1px solid var(--border); margin-top: 30px; padding: 34px 0 10px; }
+      .chips { display: flex; flex-wrap: wrap; gap: 10px; }
       .chip {
         display: inline-flex; align-items: center; gap: 8px; text-decoration: none; color: var(--fg);
         background: var(--card); border: 1px solid var(--border); border-radius: 999px;
-        padding: 8px 16px 8px 12px; font-size: .9rem; transition: border-color .15s ease, color .15s ease;
+        padding: 7px 15px 7px 11px; font-size: 0.88rem;
+        transition: border-color 0.15s ease;
       }
-      .chip:hover { border-color: var(--accent); }
-      .chip svg { height: 18px; width: 18px; color: var(--accent); }
-      footer { margin-top: 44px; color: var(--muted); font-size: .85rem; }
-      footer a { color: var(--brand2); text-decoration: none; }
+      .chip:hover { border-color: var(--accent, var(--cyan)); }
+      .chip svg { height: 17px; width: 17px; color: var(--muted); transition: color 0.15s ease; }
+      .chip:hover svg { color: var(--accent, var(--blue)); }
+      .foot-note { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; justify-content: space-between; margin-top: 26px; color: var(--muted); font-size: 0.85rem; }
+      .foot-note a { color: var(--blue); text-decoration: none; }
+      .foot-note a:hover { text-decoration: underline; }
     </style>
   </head>
 
   <body>
-    <main class="hero">
-      <img class="logo" src="data:image/png;base64,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" alt="Nodefony" draggable="false" />
-      <h1><%= nodefony.name %></h1>
-      <div class="version">v<%= nodefony.version %></div>
-      <p class="tagline">
-        Framework Node.js fullstack pour bâtir des applications temps réel
-        et des agents IA — sécurisées par conception.
-      </p>
-
-      <section class="pillars">
-        <div class="pillar" style="--accent:#ff8a3d">
-          <svg class="pic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          <h3>Temps réel</h3>
-          <p>HTTP et WebSocket citoyens de première classe dans le même
-             contexte controller. Hub realtime, fan-out cluster Redis.</p>
-        </div>
-        <div class="pillar" style="--accent:#4FC08D">
-          <svg class="pic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-          <h3>Sécurité</h3>
-          <p>Zero Trust par défaut, conformité OWASP &amp; RFC, JWT stateless,
-             firewall applicatif. Sécurisé par conception.</p>
-        </div>
-        <div class="pillar" style="--accent:#a78bfa">
-          <svg class="pic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg>
-          <h3>IA agentique</h3>
-          <p>Plateforme d'agents métier : orchestration LLM, RAG, sous-agents,
-             mémoire court/long terme. Observabilité IA-first.</p>
-        </div>
-      </section>
-
-      <div class="label">Frontends de démo</div>
-      <section class="grid">
-        <a class="card" style="--accent:#61DAFB" href="/react/app">
-          <span class="ic"><svg class="vlogo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14.23 12.004a2.236 2.236 0 0 1-2.235 2.236 2.236 2.236 0 0 1-2.236-2.236 2.236 2.236 0 0 1 2.235-2.236 2.236 2.236 0 0 1 2.236 2.236zm2.648-10.69c-1.346 0-3.107.96-4.888 2.622-1.78-1.653-3.542-2.602-4.887-2.602-.41 0-.783.093-1.106.278-1.375.793-1.683 3.264-.973 6.365C1.98 8.917 0 10.42 0 12.004c0 1.59 1.99 3.097 5.043 4.03-.704 3.113-.39 5.588.988 6.38.32.187.69.275 1.102.275 1.345 0 3.107-.96 4.888-2.624 1.78 1.654 3.542 2.603 4.887 2.603.41 0 .783-.09 1.106-.275 1.374-.792 1.683-3.263.973-6.365C22.02 15.096 24 13.59 24 12.004c0-1.59-1.99-3.097-5.043-4.032.704-3.11.39-5.587-.988-6.38-.318-.184-.688-.277-1.092-.278zm-.005 1.09v.006c.225 0 .406.044.558.127.666.382.955 1.835.73 3.704-.054.46-.142.945-.25 1.44-.96-.236-2.006-.417-3.107-.534-.66-.905-1.345-1.727-2.035-2.447 1.592-1.48 3.087-2.292 4.105-2.295zm-9.77.02c1.012 0 2.514.808 4.11 2.28-.686.72-1.37 1.537-2.02 2.442-1.107.117-2.154.298-3.113.538-.112-.49-.195-.964-.254-1.42-.23-1.868.054-3.32.714-3.707.19-.09.4-.127.563-.132zm4.882 3.05c.455.468.91.992 1.36 1.564-.44-.02-.89-.034-1.345-.034-.46 0-.915.01-1.36.034.44-.572.895-1.096 1.345-1.565zM12 8.1c.74 0 1.477.034 2.202.093.406.582.802 1.203 1.183 1.86.372.64.71 1.29 1.018 1.946-.308.655-.646 1.31-1.013 1.95-.38.66-.773 1.288-1.18 1.87-.728.063-1.466.098-2.21.098-.74 0-1.477-.035-2.202-.093-.406-.582-.802-1.204-1.183-1.86-.372-.64-.71-1.29-1.018-1.946.303-.657.646-1.313 1.013-1.954.38-.66.773-1.286 1.18-1.868.728-.064 1.466-.098 2.21-.098zm-3.635.254c-.24.377-.48.763-.704 1.16-.225.39-.435.782-.635 1.174-.265-.656-.49-1.31-.676-1.947.64-.15 1.315-.283 2.015-.386zm7.26 0c.695.103 1.365.23 2.006.387-.18.632-.405 1.282-.66 1.933-.2-.39-.41-.783-.64-1.174-.225-.392-.465-.774-.705-1.146zm3.063.675c.484.15.944.317 1.375.498 1.732.74 2.852 1.708 2.852 2.476-.005.768-1.125 1.74-2.857 2.475-.42.18-.88.342-1.355.493-.28-.958-.646-1.956-1.1-2.98.45-1.017.81-2.01 1.085-2.964zm-13.395.004c.278.96.645 1.957 1.1 2.98-.45 1.017-.812 2.01-1.086 2.964-.484-.15-.944-.318-1.37-.5-1.732-.737-2.852-1.706-2.852-2.474 0-.768 1.12-1.742 2.852-2.476.42-.18.88-.342 1.356-.494zm11.678 4.28c.265.657.49 1.312.676 1.948-.64.157-1.316.29-2.016.39.24-.375.48-.762.705-1.158.225-.39.435-.788.636-1.18zm-9.945.02c.2.392.41.783.64 1.175.23.39.465.772.705 1.143-.695-.102-1.365-.23-2.006-.386.18-.63.406-1.282.66-1.933zM17.92 16.32c.112.493.2.968.254 1.423.23 1.868-.054 3.32-.714 3.708-.147.09-.338.128-.563.128-1.012 0-2.514-.807-4.11-2.28.686-.72 1.37-1.536 2.02-2.44 1.107-.118 2.154-.3 3.113-.54zm-11.83.01c.96.234 2.006.415 3.107.532.66.905 1.345 1.727 2.035 2.446-1.595 1.483-3.092 2.295-4.11 2.295-.22-.005-.406-.05-.553-.132-.666-.38-.955-1.834-.73-3.703.054-.46.142-.944.25-1.438zm4.56.64c.44.02.89.034 1.345.034.46 0 .915-.01 1.36-.034-.44.572-.895 1.095-1.345 1.565-.455-.47-.91-.993-1.36-1.565z"/></svg></span>
-          <h3>React 19</h3>
-          <p>Module front React (Vite + HMR)</p>
-          <div class="go">Ouvrir /react/app →</div>
-        </a>
-        <a class="card" style="--accent:#4FC08D" href="/vue/app">
-          <span class="ic"><svg class="vlogo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24,1.61H14.06L12,5.16,9.94,1.61H0L12,22.39ZM12,14.08,5.16,2.23H9.59L12,6.41l2.41-4.18h4.43Z"/></svg></span>
-          <h3>Vue 3</h3>
-          <p>Module front Vue 3 (Vite + HMR)</p>
-          <div class="go">Ouvrir /vue/app →</div>
-        </a>
-        <a class="card" style="--accent:#DD0031" href="/angular/app">
-          <span class="ic"><svg class="vlogo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.712 17.711H7.288l-1.204 2.916L12 24l5.916-3.373-1.204-2.916ZM14.692 0l7.832 16.855.814-12.856L14.692 0ZM9.308 0 .662 3.999l.814 12.856L9.308 0Zm-.405 13.93h6.198L12 6.396 8.903 13.93Z"/></svg></span>
-          <h3>Angular</h3>
-          <p>Module front Angular (Vite + HMR)</p>
-          <div class="go">Ouvrir /angular/app →</div>
-        </a>
-        <a class="card" style="--accent:#0067ba" href="/nodefony">
-          <span class="ic"><img src="data:image/png;base64,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" alt="" height="30" /></span>
-          <h3>Studio</h3>
-          <p>Console d'administration &amp; observabilité.</p>
-          <div class="go">Ouvrir /nodefony →</div>
-        </a>
-      </section>
-
-      <div class="label">Construit avec</div>
-      <nav class="chips">
-        <a class="chip" style="--accent:#5FA04E" href="https://nodejs.org" target="_blank" rel="noreferrer noopener">
-          <svg class="vlogo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.998,24c-0.321,0-0.641-0.084-0.922-0.247l-2.936-1.737c-0.438-0.245-0.224-0.332-0.08-0.383 c0.585-0.203,0.703-0.25,1.328-0.604c0.065-0.037,0.151-0.023,0.218,0.017l2.256,1.339c0.082,0.045,0.197,0.045,0.272,0l8.795-5.076 c0.082-0.047,0.134-0.141,0.134-0.238V6.921c0-0.099-0.053-0.192-0.137-0.242l-8.791-5.072c-0.081-0.047-0.189-0.047-0.271,0 L3.075,6.68C2.99,6.729,2.936,6.825,2.936,6.921v10.15c0,0.097,0.054,0.189,0.139,0.235l2.409,1.392 c1.307,0.654,2.108-0.116,2.108-0.89V7.787c0-0.142,0.114-0.253,0.256-0.253h1.115c0.139,0,0.255,0.112,0.255,0.253v10.021 c0,1.745-0.95,2.745-2.604,2.745c-0.508,0-0.909,0-2.026-0.551L2.28,18.675c-0.57-0.329-0.922-0.945-0.922-1.604V6.921 c0-0.659,0.353-1.275,0.922-1.603l8.795-5.082c0.557-0.315,1.296-0.315,1.848,0l8.794,5.082c0.57,0.329,0.924,0.944,0.924,1.603 v10.15c0,0.659-0.354,1.273-0.924,1.604l-8.794,5.078C12.643,23.916,12.324,24,11.998,24z M19.099,13.993 c0-1.9-1.284-2.406-3.987-2.763c-2.731-0.361-3.009-0.548-3.009-1.187c0-0.528,0.235-1.233,2.258-1.233 c1.807,0,2.473,0.389,2.747,1.607c0.024,0.115,0.129,0.199,0.247,0.199h1.141c0.071,0,0.138-0.031,0.186-0.081 c0.048-0.054,0.074-0.123,0.067-0.196c-0.177-2.098-1.571-3.076-4.388-3.076c-2.508,0-4.004,1.058-4.004,2.833 c0,1.925,1.488,2.457,3.895,2.695c2.88,0.282,3.103,0.703,3.103,1.269c0,0.983-0.789,1.402-2.642,1.402 c-2.327,0-2.839-0.584-3.011-1.742c-0.02-0.124-0.126-0.215-0.253-0.215h-1.137c-0.141,0-0.254,0.112-0.254,0.253 c0,1.482,0.806,3.248,4.655,3.248C17.501,17.007,19.099,15.91,19.099,13.993z"/></svg><span>Node.js</span>
-        </a>
-        <a class="chip" style="--accent:#3178C6" href="https://www.typescriptlang.org" target="_blank" rel="noreferrer noopener">
-          <svg class="vlogo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M1.125 0C.502 0 0 .502 0 1.125v21.75C0 23.498.502 24 1.125 24h21.75c.623 0 1.125-.502 1.125-1.125V1.125C24 .502 23.498 0 22.875 0zm17.363 9.75c.612 0 1.154.037 1.627.111a6.38 6.38 0 0 1 1.306.34v2.458a3.95 3.95 0 0 0-.643-.361 5.093 5.093 0 0 0-.717-.26 5.453 5.453 0 0 0-1.426-.2c-.3 0-.573.028-.819.086a2.1 2.1 0 0 0-.623.242c-.17.104-.3.229-.393.374a.888.888 0 0 0-.14.49c0 .196.053.373.156.529.104.156.252.304.443.444s.423.276.696.41c.273.135.582.274.926.416.47.197.892.407 1.266.628.374.222.695.473.963.753.268.279.472.598.614.957.142.359.214.776.214 1.253 0 .657-.125 1.21-.373 1.656a3.033 3.033 0 0 1-1.012 1.085 4.38 4.38 0 0 1-1.487.596c-.566.12-1.163.18-1.79.18a9.916 9.916 0 0 1-1.84-.164 5.544 5.544 0 0 1-1.512-.493v-2.63a5.033 5.033 0 0 0 3.237 1.2c.333 0 .624-.03.872-.09.249-.06.456-.144.623-.25.166-.108.29-.234.373-.38a1.023 1.023 0 0 0-.074-1.089 2.12 2.12 0 0 0-.537-.5 5.597 5.597 0 0 0-.807-.444 27.72 27.72 0 0 0-1.007-.436c-.918-.383-1.602-.852-2.053-1.405-.45-.553-.676-1.222-.676-2.005 0-.614.123-1.141.369-1.582.246-.441.58-.804 1.004-1.089a4.494 4.494 0 0 1 1.47-.629 7.536 7.536 0 0 1 1.77-.201zm-15.113.188h9.563v2.166H9.506v9.646H6.789v-9.646H3.375z"/></svg><span>TypeScript</span>
-        </a>
-        <a class="chip" style="--accent:#646CFF" href="https://vite.dev" target="_blank" rel="noreferrer noopener">
-          <svg class="vlogo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.056 23.238a.57.57 0 0 1-1.02-.355v-5.202c0-.63-.512-1.143-1.144-1.143H5.148a.57.57 0 0 1-.464-.903l3.777-5.29c.54-.753 0-1.804-.93-1.804H.57a.574.574 0 0 1-.543-.746.6.6 0 0 1 .08-.157L5.008.78a.57.57 0 0 1 .467-.24h14.589a.57.57 0 0 1 .466.903l-3.778 5.29c-.54.755 0 1.806.93 1.806h5.745c.238 0 .424.138.513.322a.56.56 0 0 1-.063.603z"/></svg><span>Vite</span>
-        </a>
-        <a class="chip" style="--accent:#EC4A3F" href="https://rollupjs.org" target="_blank" rel="noreferrer noopener">
-          <svg class="vlogo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.42.0002a.37.37 0 00-.369.37V19.885c.577-1.488 1.557-3.6168 3.1378-6.5297C11.8885 2.876 12.6355 1.8191 15.6043 1.8191c1.56 0 3.1338.704 4.1518 1.9549A7.9616 7.9616 0 0013.1014.0002zM16.1393 2.544c-1.19.01-2.257.466-2.6979 1.498-.967 2.2558 1.624 4.7667 2.7569 4.5677 1.4419-.255-.255-3.5628-.255-3.5628 2.2049 4.1558 1.6969 2.8838-2.2899 6.6996C9.6666 15.5623 5.596 23.6188 5.002 23.9568a.477.477 0 01-.08.043H20.558a.373.373 0 00.33-.538l-4.0878-8.0915a.37.37 0 01.144-.488 7.9596 7.9596 0 004.0048-6.9126c0-1.4249-.373-2.7608-1.03-3.9198-.9269-.9519-2.4298-1.5159-3.7787-1.5059z"/></svg><span>Rollup</span>
-        </a>
-        <a class="chip" style="--accent:#c4b04f" href="https://eta.js.org" target="_blank" rel="noreferrer noopener">
-          <span>Eta</span>
+    <header class="topbar">
+      <a class="brand" href="/">
+        <img src="/nodefony-logo.png" alt="" draggable="false" />
+        <span><%= nodefony.name %></span>
+        <span class="v">v<%= nodefony.version %></span>
+      </a>
+      <nav class="topnav" aria-label="Navigation principale">
+        <a href="#fonctionnalites">Fonctionnalités</a>
+        <a href="#agentic">Agentic</a>
+        <a href="#demos">Démos</a>
+        <a href="#studio">Studio</a>
+        <a class="gh" href="https://github.com/nodefony/nodefony-core" target="_blank" rel="noreferrer noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+          <span>GitHub</span>
         </a>
       </nav>
+    </header>
 
+    <main>
+      <!-- ─── Hero ─────────────────────────────────────────────────────── -->
+      <div class="hero">
+        <img class="logo" src="/nodefony-logo.png" alt="Logo Nodefony" draggable="false" />
+        <h1>Le framework Node.js fullstack</h1>
+        <p class="sub">Temps réel natif&nbsp;· développement agentic-ready&nbsp;· socle TypeScript isomorphe</p>
+        <p class="sig">Une action de contrôleur. Deux transports. La même session, la même sécurité, le même code.</p>
+        <div class="badges">
+          <span class="badge agentic">Agentic ready</span>
+          <span class="badge">Node.js ≥ 24</span>
+          <span class="badge">TypeScript strict</span>
+          <span class="badge">ESM only</span>
+          <span class="badge">Licence CeCILL-B</span>
+        </div>
+        <div class="install" role="img" aria-label="Commande d'installation : npx nodefony create app">
+          <span class="p">$</span><span>npx nodefony create app</span>
+        </div>
+        <div class="cta">
+          <a class="btn primary" href="/nodefony">Ouvrir Studio</a>
+          <a class="btn ghost" href="#demos">Voir les démos</a>
+        </div>
+      </div>
+
+      <!-- ─── Fonctionnalités ──────────────────────────────────────────── -->
+      <section id="fonctionnalites">
+        <div class="sec-head">
+          <p class="kicker">Fonctionnalités</p>
+          <h2>Bâti sur les modules natifs de la plateforme</h2>
+          <p><code>node:http</code>, <code>node:http2</code>, WebSocket — un noyau à injection de
+             dépendances, un système de modules, un pare-feu applicatif.</p>
+        </div>
+        <div class="grid">
+          <div class="feature">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+            <h3>Temps réel natif</h3>
+            <p>Le WebSocket n'est pas un ajout&nbsp;: même pipeline, même table de routes, même
+               sécurité que le HTTP. Hub realtime, fan-out cluster Redis.</p>
+          </div>
+          <div class="feature">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span>
+            <h3>Sécurité par conception</h3>
+            <p>Pare-feu applicatif par zones, Zero Trust, CSRF Fetch Metadata, conformité
+               OWASP &amp; RFC, sessions hybrides, WebAuthn.</p>
+          </div>
+          <div class="feature">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+            <h3>DI &amp; modules</h3>
+            <p>Injection de dépendances par décorateurs TypeScript, modules autonomes,
+               configuration validée au boot — une clé mal orthographiée ne passe pas.</p>
+          </div>
+          <div class="feature">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg></span>
+            <h3>Persistance portable</h3>
+            <p>ORM multi-dialecte — Drizzle par défaut (SQLite, PostgreSQL, MySQL), Mongoose
+               pour le documentaire. Entités par décorateurs, migrations.</p>
+          </div>
+          <div class="feature">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-9 5 9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/><path d="m3 18 9 5 9-5" opacity=".4"/></svg></span>
+            <h3>Frontends Vite</h3>
+            <p>Le framework pilote Vite&nbsp;: dev servers HMR en développement, bundles en
+               production. React, Vue, Angular, Svelte — plusieurs par application.</p>
+          </div>
+          <div class="feature">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 4 5.7 4 9s-1.5 6.4-4 9c-2.5-2.6-4-5.7-4-9s1.5-6.4 4-9z"/></svg></span>
+            <h3>Socle isomorphe</h3>
+            <p>Le même paquet s'importe côté serveur et côté navigateur — client temps réel,
+               règles d'autorisation et types écrits une fois.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Agentic ready ────────────────────────────────────────────── -->
+      <section id="agentic" style="--accent: var(--green)">
+        <div class="agentic-panel">
+          <div class="sec-head" style="margin-bottom: 0">
+            <p class="kicker">Agentic ready</p>
+            <h2>Un framework qui se décrit aux agents IA</h2>
+            <p>Nodefony est conçu pour être développé <em>avec</em> un agent&nbsp;: l'outillage,
+               la connaissance et l'introspection sont livrés avec le framework — pas à deviner.</p>
+          </div>
+          <div class="agentic-grid">
+            <div class="agentic-item">
+              <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Skills livrées par npm</h3>
+              <p>Chaque paquet embarque ses skills agent (Claude Code, …) et
+                 <code>nodefony ai:sync</code> les installe dans l'application — l'agent connaît
+                 les conventions du framework dès le premier prompt.</p>
+            </div>
+            <div class="agentic-item">
+              <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h6M7 13h10"/></svg>Carte de visite machine-lisible</h3>
+              <p>L'application se présente elle-même&nbsp;: routes montées, services, config
+                 effective, générateurs disponibles — via la CLI (<code>nodefony card</code>)
+                 et le devkit HTTP.</p>
+            </div>
+            <div class="agentic-item">
+              <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M7 7l4 9M17 7l-4 9"/></svg>Introspection &amp; graphe symbolique</h3>
+              <p><code>nodefony inspect</code> et le graphe des symboles répondent sans ouvrir
+                 les sources&nbsp;: qui étend quoi, quelles routes existent, d'où vient chaque
+                 valeur de config.</p>
+            </div>
+            <div class="agentic-item">
+              <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg>Couche IA en approche</h3>
+              <p>Agents métier dans l'application&nbsp;: orchestration LLM, RAG, mémoire,
+                 garde-fous — <code>@nodefony/agent</code> et sa constellation, sur la roadmap.</p>
+            </div>
+          </div>
+          <p class="agentic-link">
+            → Carte de visite&nbsp;: <code>npx nodefony card</code> en CLI, ou
+            <a href="/nodefony/devkit/api/card">/nodefony/devkit/api/card</a>
+            <span style="color: var(--muted)">(data plane admin — authentification requise&nbsp;:
+            Zero Trust, même en développement)</span>
+          </p>
+        </div>
+      </section>
+
+      <!-- ─── Démos ────────────────────────────────────────────────────── -->
+      <section id="demos">
+        <div class="sec-head">
+          <p class="kicker">Frontends de démo</p>
+          <h2>Quatre frameworks, un seul serveur</h2>
+          <p>Chaque module front est construit et servi par <code>@nodefony/frontend</code>
+             (Vite + HMR), monté sur sa route.</p>
+        </div>
+        <div class="grid">
+          <a class="card" style="--accent: #61dafb" href="/react/app">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14.23 12.004a2.236 2.236 0 0 1-2.235 2.236 2.236 2.236 0 0 1-2.236-2.236 2.236 2.236 0 0 1 2.235-2.236 2.236 2.236 0 0 1 2.236 2.236zm2.648-10.69c-1.346 0-3.107.96-4.888 2.622-1.78-1.653-3.542-2.602-4.887-2.602-.41 0-.783.093-1.106.278-1.375.793-1.683 3.264-.973 6.365C1.98 8.917 0 10.42 0 12.004c0 1.59 1.99 3.097 5.043 4.03-.704 3.113-.39 5.588.988 6.38.32.187.69.275 1.102.275 1.345 0 3.107-.96 4.888-2.624 1.78 1.654 3.542 2.603 4.887 2.603.41 0 .783-.09 1.106-.275 1.374-.792 1.683-3.263.973-6.365C22.02 15.096 24 13.59 24 12.004c0-1.59-1.99-3.097-5.043-4.032.704-3.11.39-5.587-.988-6.38-.318-.184-.688-.277-1.092-.278zm-.005 1.09v.006c.225 0 .406.044.558.127.666.382.955 1.835.73 3.704-.054.46-.142.945-.25 1.44-.96-.236-2.006-.417-3.107-.534-.66-.905-1.345-1.727-2.035-2.447 1.592-1.48 3.087-2.292 4.105-2.295zm-9.77.02c1.012 0 2.514.808 4.11 2.28-.686.72-1.37 1.537-2.02 2.442-1.107.117-2.154.298-3.113.538-.112-.49-.195-.964-.254-1.42-.23-1.868.054-3.32.714-3.707.19-.09.4-.127.563-.132zm4.882 3.05c.455.468.91.992 1.36 1.564-.44-.02-.89-.034-1.345-.034-.46 0-.915.01-1.36.034.44-.572.895-1.096 1.345-1.565zM12 8.1c.74 0 1.477.034 2.202.093.406.582.802 1.203 1.183 1.86.372.64.71 1.29 1.018 1.946-.308.655-.646 1.31-1.013 1.95-.38.66-.773 1.288-1.18 1.87-.728.063-1.466.098-2.21.098-.74 0-1.477-.035-2.202-.093-.406-.582-.802-1.204-1.183-1.86-.372-.64-.71-1.29-1.018-1.946.303-.657.646-1.313 1.013-1.954.38-.66.773-1.286 1.18-1.868.728-.064 1.466-.098 2.21-.098zm-3.635.254c-.24.377-.48.763-.704 1.16-.225.39-.435.782-.635 1.174-.265-.656-.49-1.31-.676-1.947.64-.15 1.315-.283 2.015-.386zm7.26 0c.695.103 1.365.23 2.006.387-.18.632-.405 1.282-.66 1.933-.2-.39-.41-.783-.64-1.174-.225-.392-.465-.774-.705-1.146zm3.063.675c.484.15.944.317 1.375.498 1.732.74 2.852 1.708 2.852 2.476-.005.768-1.125 1.74-2.857 2.475-.42.18-.88.342-1.355.493-.28-.958-.646-1.956-1.1-2.98.45-1.017.81-2.01 1.085-2.964zm-13.395.004c.278.96.645 1.957 1.1 2.98-.45 1.017-.812 2.01-1.086 2.964-.484-.15-.944-.318-1.37-.5-1.732-.737-2.852-1.706-2.852-2.474 0-.768 1.12-1.742 2.852-2.476.42-.18.88-.342 1.356-.494zm11.678 4.28c.265.657.49 1.312.676 1.948-.64.157-1.316.29-2.016.39.24-.375.48-.762.705-1.158.225-.39.435-.788.636-1.18zm-9.945.02c.2.392.41.783.64 1.175.23.39.465.772.705 1.143-.695-.102-1.365-.23-2.006-.386.18-.63.406-1.282.66-1.933zM17.92 16.32c.112.493.2.968.254 1.423.23 1.868-.054 3.32-.714 3.708-.147.09-.338.128-.563.128-1.012 0-2.514-.807-4.11-2.28.686-.72 1.37-1.536 2.02-2.44 1.107-.118 2.154-.3 3.113-.54zm-11.83.01c.96.234 2.006.415 3.107.532.66.905 1.345 1.727 2.035 2.446-1.595 1.483-3.092 2.295-4.11 2.295-.22-.005-.406-.05-.553-.132-.666-.38-.955-1.834-.73-3.703.054-.46.142-.944.25-1.438zm4.56.64c.44.02.89.034 1.345.034.46 0 .915-.01 1.36-.034-.44.572-.895 1.095-1.345 1.565-.455-.47-.91-.993-1.36-1.565z"/></svg></span>
+            <h3>React 19</h3>
+            <p>Module front React (Vite + HMR)</p>
+            <div class="go">Ouvrir /react/app →</div>
+          </a>
+          <a class="card" style="--accent: #4fc08d" href="/vue/app">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24,1.61H14.06L12,5.16,9.94,1.61H0L12,22.39ZM12,14.08,5.16,2.23H9.59L12,6.41l2.41-4.18h4.43Z"/></svg></span>
+            <h3>Vue 3</h3>
+            <p>Module front Vue 3 (Vite + HMR)</p>
+            <div class="go">Ouvrir /vue/app →</div>
+          </a>
+          <a class="card" style="--accent: #dd0031" href="/angular/app">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.712 17.711H7.288l-1.204 2.916L12 24l5.916-3.373-1.204-2.916ZM14.692 0l7.832 16.855.814-12.856L14.692 0ZM9.308 0 .662 3.999l.814 12.856L9.308 0Zm-.405 13.93h6.198L12 6.396 8.903 13.93Z"/></svg></span>
+            <h3>Angular</h3>
+            <p>Module front Angular (Vite + HMR)</p>
+            <div class="go">Ouvrir /angular/app →</div>
+          </a>
+          <a class="card" style="--accent: #ff3e00" href="/svelte/app">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10.354 21.125a4.44 4.44 0 0 1-4.765-1.767 4.109 4.109 0 0 1-.703-3.107 3.898 3.898 0 0 1 .134-.522l.105-.321.287.21a7.21 7.21 0 0 0 2.186 1.092l.208.063-.02.208a1.253 1.253 0 0 0 .226.83 1.337 1.337 0 0 0 1.435.533 1.231 1.231 0 0 0 .343-.15l5.59-3.562a1.164 1.164 0 0 0 .524-.778 1.242 1.242 0 0 0-.211-.937 1.338 1.338 0 0 0-1.435-.533 1.23 1.23 0 0 0-.343.15l-2.133 1.36a4.078 4.078 0 0 1-1.135.499 4.44 4.44 0 0 1-4.765-1.766 4.108 4.108 0 0 1-.702-3.108 3.855 3.855 0 0 1 1.742-2.582l5.589-3.563a4.072 4.072 0 0 1 1.135-.499 4.44 4.44 0 0 1 4.765 1.767 4.109 4.109 0 0 1 .703 3.107 3.943 3.943 0 0 1-.134.522l-.105.321-.286-.21a7.204 7.204 0 0 0-2.187-1.093l-.208-.063.02-.207a1.255 1.255 0 0 0-.226-.831 1.337 1.337 0 0 0-1.435-.532 1.231 1.231 0 0 0-.343.15L8.62 9.368a1.162 1.162 0 0 0-.524.778 1.24 1.24 0 0 0 .211.937 1.338 1.338 0 0 0 1.435.533 1.235 1.235 0 0 0 .344-.151l2.132-1.36a4.067 4.067 0 0 1 1.135-.498 4.44 4.44 0 0 1 4.765 1.766 4.108 4.108 0 0 1 .702 3.108 3.857 3.857 0 0 1-1.742 2.583l-5.589 3.562a4.072 4.072 0 0 1-1.135.499m10.358-17.95C18.484-.015 14.082-.96 10.9 1.068L5.31 4.63a6.412 6.412 0 0 0-2.896 4.295 6.753 6.753 0 0 0 .666 4.336 6.43 6.43 0 0 0-.96 2.396 6.833 6.833 0 0 0 1.168 5.167c2.229 3.19 6.63 4.135 9.812 2.108l5.59-3.562a6.41 6.41 0 0 0 2.896-4.295 6.756 6.756 0 0 0-.666-4.336 6.429 6.429 0 0 0 .96-2.396 6.831 6.831 0 0 0-1.167-5.168"/></svg></span>
+            <h3>Svelte 5</h3>
+            <p>Module front Svelte 5 — runes (Vite + HMR)</p>
+            <div class="go">Ouvrir /svelte/app →</div>
+          </a>
+        </div>
+      </section>
+
+      <!-- ─── Studio ───────────────────────────────────────────────────── -->
+      <section id="studio">
+        <a class="card wide" style="--accent: var(--blue)" href="/nodefony">
+          <span class="ic"><img src="/nodefony-logo.png" alt="" /></span>
+          <span class="body">
+            <h3>Studio — console d'administration</h3>
+            <p>Observabilité, routes, services, config effective et provenance, sessions,
+               documentation des modules — l'état réel de l'application, en direct.</p>
+          </span>
+          <span class="go">Ouvrir /nodefony →</span>
+        </a>
+      </section>
+
+      <!-- ─── Footer ───────────────────────────────────────────────────── -->
       <footer>
-        Propulsé par <a href="https://nodefony.net" target="_blank" rel="noreferrer noopener">nodefony.net</a>
+        <div class="chips">
+          <a class="chip" style="--accent: #5fa04e" href="https://nodejs.org" target="_blank" rel="noreferrer noopener">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.998,24c-0.321,0-0.641-0.084-0.922-0.247l-2.936-1.737c-0.438-0.245-0.224-0.332-0.08-0.383 c0.585-0.203,0.703-0.25,1.328-0.604c0.065-0.037,0.151-0.023,0.218,0.017l2.256,1.339c0.082,0.045,0.197,0.045,0.272,0l8.795-5.076 c0.082-0.047,0.134-0.141,0.134-0.238V6.921c0-0.099-0.053-0.192-0.137-0.242l-8.791-5.072c-0.081-0.047-0.189-0.047-0.271,0 L3.075,6.68C2.99,6.729,2.936,6.825,2.936,6.921v10.15c0,0.097,0.054,0.189,0.139,0.235l2.409,1.392 c1.307,0.654,2.108-0.116,2.108-0.89V7.787c0-0.142,0.114-0.253,0.256-0.253h1.115c0.139,0,0.255,0.112,0.255,0.253v10.021 c0,1.745-0.95,2.745-2.604,2.745c-0.508,0-0.909,0-2.026-0.551L2.28,18.675c-0.57-0.329-0.922-0.945-0.922-1.604V6.921 c0-0.659,0.353-1.275,0.922-1.603l8.795-5.082c0.557-0.315,1.296-0.315,1.848,0l8.794,5.082c0.57,0.329,0.924,0.944,0.924,1.603 v10.15c0,0.659-0.354,1.273-0.924,1.604l-8.794,5.078C12.643,23.916,12.324,24,11.998,24z M19.099,13.993 c0-1.9-1.284-2.406-3.987-2.763c-2.731-0.361-3.009-0.548-3.009-1.187c0-0.528,0.235-1.233,2.258-1.233 c1.807,0,2.473,0.389,2.747,1.607c0.024,0.115,0.129,0.199,0.247,0.199h1.141c0.071,0,0.138-0.031,0.186-0.081 c0.048-0.054,0.074-0.123,0.067-0.196c-0.177-2.098-1.571-3.076-4.388-3.076c-2.508,0-4.004,1.058-4.004,2.833 c0,1.925,1.488,2.457,3.895,2.695c2.88,0.282,3.103,0.703,3.103,1.269c0,0.983-0.789,1.402-2.642,1.402 c-2.327,0-2.839-0.584-3.011-1.742c-0.02-0.124-0.126-0.215-0.253-0.215h-1.137c-0.141,0-0.254,0.112-0.254,0.253 c0,1.482,0.806,3.248,4.655,3.248C17.501,17.007,19.099,15.91,19.099,13.993z"/></svg><span>Node.js</span>
+          </a>
+          <a class="chip" style="--accent: #3178c6" href="https://www.typescriptlang.org" target="_blank" rel="noreferrer noopener">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M1.125 0C.502 0 0 .502 0 1.125v21.75C0 23.498.502 24 1.125 24h21.75c.623 0 1.125-.502 1.125-1.125V1.125C24 .502 23.498 0 22.875 0zm17.363 9.75c.612 0 1.154.037 1.627.111a6.38 6.38 0 0 1 1.306.34v2.458a3.95 3.95 0 0 0-.643-.361 5.093 5.093 0 0 0-.717-.26 5.453 5.453 0 0 0-1.426-.2c-.3 0-.573.028-.819.086a2.1 2.1 0 0 0-.623.242c-.17.104-.3.229-.393.374a.888.888 0 0 0-.14.49c0 .196.053.373.156.529.104.156.252.304.443.444s.423.276.696.41c.273.135.582.274.926.416.47.197.892.407 1.266.628.374.222.695.473.963.753.268.279.472.598.614.957.142.359.214.776.214 1.253 0 .657-.125 1.21-.373 1.656a3.033 3.033 0 0 1-1.012 1.085 4.38 4.38 0 0 1-1.487.596c-.566.12-1.163.18-1.79.18a9.916 9.916 0 0 1-1.84-.164 5.544 5.544 0 0 1-1.512-.493v-2.63a5.033 5.033 0 0 0 3.237 1.2c.333 0 .624-.03.872-.09.249-.06.456-.144.623-.25.166-.108.29-.234.373-.38a1.023 1.023 0 0 0-.074-1.089 2.12 2.12 0 0 0-.537-.5 5.597 5.597 0 0 0-.807-.444 27.72 27.72 0 0 0-1.007-.436c-.918-.383-1.602-.852-2.053-1.405-.45-.553-.676-1.222-.676-2.005 0-.614.123-1.141.369-1.582.246-.441.58-.804 1.004-1.089a4.494 4.494 0 0 1 1.47-.629 7.536 7.536 0 0 1 1.77-.201zm-15.113.188h9.563v2.166H9.506v9.646H6.789v-9.646H3.375z"/></svg><span>TypeScript</span>
+          </a>
+          <a class="chip" style="--accent: #646cff" href="https://vite.dev" target="_blank" rel="noreferrer noopener">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.056 23.238a.57.57 0 0 1-1.02-.355v-5.202c0-.63-.512-1.143-1.144-1.143H5.148a.57.57 0 0 1-.464-.903l3.777-5.29c.54-.753 0-1.804-.93-1.804H.57a.574.574 0 0 1-.543-.746.6.6 0 0 1 .08-.157L5.008.78a.57.57 0 0 1 .467-.24h14.589a.57.57 0 0 1 .466.903l-3.778 5.29c-.54.755 0 1.806.93 1.806h5.745c.238 0 .424.138.513.322a.56.56 0 0 1-.063.603z"/></svg><span>Vite</span>
+          </a>
+          <a class="chip" href="https://rolldown.rs" target="_blank" rel="noreferrer noopener">
+            <span>Rolldown</span>
+          </a>
+          <a class="chip" style="--accent: #c4b04f" href="https://eta.js.org" target="_blank" rel="noreferrer noopener">
+            <span>Eta</span>
+          </a>
+        </div>
+        <div class="foot-note">
+          <span>Propulsé par <a href="https://nodefony.net" target="_blank" rel="noreferrer noopener">nodefony.net</a> — licence CeCILL-B, open source depuis 2017.</span>
+          <span>v<%= nodefony.version %></span>
+        </div>
       </footer>
     </main>
 

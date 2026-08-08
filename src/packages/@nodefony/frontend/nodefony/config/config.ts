@@ -121,9 +121,36 @@ export const frontendConfigSchema = z
       .positive()
       .default(5173)
       .describe(
-        "Port d'écoute du dev server Vite (Vite démarre sur 5173 par défaut). Si " +
-          "occupé, Vite incrémente jusqu'à un port libre ; le superviseur détecte " +
-          "le port réel dans son stdout et met à jour son `status()`.",
+        "Port d'écoute du dev server Vite (5173 par défaut) — port de BASE : chaque " +
+          "famille de frontends prend le bloc suivant. Si occupé, c'est le " +
+          "SUPERVISEUR qui relance sur le port suivant (`resilience.portRetryAttempts` " +
+          "essais) et publie le port réel dans son `status()` — Vite, lui, ne se " +
+          "décale jamais seul : le fichier généré porte `strictPort` pour que " +
+          "l'origine annoncée au navigateur soit toujours celle qui sert.",
+      ),
+    publicOrigin: z
+      .string()
+      .default("")
+      .refine((v) => v === "" || /^https?:\/\/[^/\s]+$/.test(v), {
+        message:
+          "publicOrigin doit être une origine (`scheme://host[:port]`), sans chemin",
+      })
+      .describe(
+        "Origine PUBLIQUE du dev server Vite — celle que le NAVIGATEUR utilise, " +
+          "quand elle diffère de l'adresse d'écoute (`devHost`). ÉPINGLE le " +
+          "rendu sur une origine unique : à réserver aux cas où un frontal la " +
+          "réécrit (tunnel, proxy, port remappé). Utilisée telle quelle (port " +
+          "inclus SEULEMENT si écrit) dans les `<script>` injectés, le `base` " +
+          "Vite et le WebSocket HMR (`hmr.host`/`clientPort`, dérivés). " +
+          "Vide (défaut, RECOMMANDÉ) = chaque page annonce l'origine par " +
+          "laquelle le client est arrivé (`Host` de la requête, scheme et port " +
+          "de Vite) : un poste et un navigateur en conteneur sont servis EN " +
+          "MÊME TEMPS par la même instance, sans configuration — et " +
+          "Codespaces/Gitpod restent détectés automatiquement. " +
+          "L'hôte d'une origine épinglée est automatiquement autorisé par Vite " +
+          "(`server.allowedHosts`) ; les hôtes suivis par la dérivation sont " +
+          "ceux de `trustedHosts` de @nodefony/http (une seule liste à " +
+          "maintenir : elle ouvre la barrière 421, Vite, le CSP et le rendu).",
       ),
     autoStartInDevelopment: z
       .boolean()

@@ -9,8 +9,19 @@
  * `computeWaterfall` du Core isomorphe (`nodefony/debugbar`) — même fonction pure
  * que la debug bar par-page (0 duplication).
  */
-import { Badge, Box, Code, Group, SimpleGrid, Stack, Table, Text } from "@mantine/core";
+import {
+  Badge,
+  Box,
+  Code,
+  Group,
+  SimpleGrid,
+  Stack,
+  Text,
+} from "@mantine/core";
 import { computeWaterfall } from "nodefony/debugbar";
+import { useMemo } from "react";
+import { DataGrid } from "../../components/ui/DataGrid";
+import type { DataGridColumn } from "../../components/ui/DataGrid";
 import type { ProfileEntry, ProfileQuery } from "../../stores/ProfilerStore";
 
 /** Couleur de badge par méthode HTTP. */
@@ -224,9 +235,101 @@ export function ProfileMeta({ profile }: { profile: ProfileEntry }) {
   );
 }
 
-/** Tableau des requêtes ORM mesurées par le profiler (vraies SQL + durée). */
+/**
+ * Colonnes des requêtes ORM d'une trace. Hors composant : une définition
+ * recréée à chaque rendu ferait remonter un tableau neuf au grid, qui
+ * réinitialiserait tri et filtres à la moindre mise à jour du profil.
+ */
+/** Requête + son rang dans la trace, qui lui sert d'identité (cf `QueryTable`). */
+type IndexedQuery = ProfileQuery & { readonly rank: number };
+
+const QUERY_COLUMNS: DataGridColumn<IndexedQuery>[] = [
+  {
+    key: "sql",
+    header: "SQL",
+    sortable: true,
+    filterable: true,
+    value: (q) => q.sql,
+    render: (q) => (
+      <Text
+        size="xs"
+        style={{
+          wordBreak: "break-word",
+          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+        }}
+      >
+        {q.sql}
+      </Text>
+    ),
+    hint: "Requête telle qu'exécutée. Filtrer sur un nom de table isole les accès à une entité — c'est ainsi qu'on reconnaît un N+1 : la même requête répétée.",
+  },
+  {
+    key: "connector",
+    header: "Connecteur",
+    sortable: true,
+    filterable: true,
+    filterType: "select",
+    value: (q) => q.connector ?? "",
+    render: (q) =>
+      q.connector ? (
+        <Badge size="xs" variant="light">
+          {q.connector}
+        </Badge>
+      ) : (
+        "—"
+      ),
+    size: 130,
+  },
+  {
+    key: "rows",
+    header: "Lignes",
+    align: "right",
+    sortable: true,
+    // `null` et non 0 : une requête qui ne rapporte pas son nombre de lignes
+    // n'en a pas ramené zéro — le tri doit les distinguer.
+    value: (q) => q.rows ?? null,
+    render: (q) => (
+      <Text size="xs" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>
+        {q.rows ?? "—"}
+      </Text>
+    ),
+    size: 90,
+  },
+  {
+    key: "durationMs",
+    header: "Durée",
+    align: "right",
+    sortable: true,
+    value: (q) => q.durationMs,
+    render: (q) => (
+      <Text size="xs" style={{ fontVariantNumeric: "tabular-nums" }}>
+        {q.durationMs}ms
+      </Text>
+    ),
+    hint: "Temps passé dans le pilote. Trié décroissant par défaut : la requête à corriger est en haut.",
+    size: 100,
+  },
+];
+
+/**
+ * Tableau des requêtes ORM mesurées par le profiler (vraies SQL + durée).
+ *
+ * Trié par durée décroissante d'entrée de jeu : sur une trace lente, ce qu'on
+ * cherche est la requête la plus coûteuse, et la lire ne doit demander aucun
+ * geste. Le tri par SQL, lui, regroupe les requêtes identiques — la signature
+ * visuelle d'un N+1.
+ */
 export function QueryTable({ queries }: { queries: ProfileQuery[] }) {
   const total = queries.reduce((s, q) => s + (q.durationMs || 0), 0);
+  // Le profiler ne donne pas d'identifiant de requête : le rang dans la trace
+  // EST l'identité (deux requêtes identiques restent distinctes). Calculé UNE
+  // fois — le chercher par `indexOf` dans `getRowId` coûterait un balayage par
+  // ligne, soit un coût quadratique sur les traces les plus chargées, celles
+  // qu'on ouvre précisément parce qu'elles vont mal.
+  const rows = useMemo<IndexedQuery[]>(
+    () => queries.map((q, rank) => ({ ...q, rank })),
+    [queries],
+  );
   return (
     <Stack gap={6}>
       <Group gap="xs">
@@ -237,56 +340,17 @@ export function QueryTable({ queries }: { queries: ProfileQuery[] }) {
           cumul {fmtMs(total)}
         </Text>
       </Group>
-      <Table
-        highlightOnHover
-        verticalSpacing={4}
-        striped
-        styles={{
-          td: { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" },
-        }}
-      >
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>SQL</Table.Th>
-            <Table.Th>Connecteur</Table.Th>
-            <Table.Th ta="right">Lignes</Table.Th>
-            <Table.Th ta="right">Durée</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {queries.map((q, i) => (
-            <Table.Tr key={i}>
-              <Table.Td>
-                <Text size="xs" style={{ wordBreak: "break-word" }}>
-                  {q.sql}
-                </Text>
-              </Table.Td>
-              <Table.Td>
-                {q.connector ? (
-                  <Badge size="xs" variant="light">
-                    {q.connector}
-                  </Badge>
-                ) : (
-                  "—"
-                )}
-              </Table.Td>
-              <Table.Td ta="right">
-                <Text size="xs" c="dimmed">
-                  {q.rows ?? "—"}
-                </Text>
-              </Table.Td>
-              <Table.Td ta="right">
-                <Text
-                  size="xs"
-                  style={{ fontVariantNumeric: "tabular-nums" }}
-                >
-                  {q.durationMs}ms
-                </Text>
-              </Table.Td>
-            </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
+      <DataGrid
+        mode="client"
+        data={rows}
+        columns={QUERY_COLUMNS}
+        getRowId={(q) => String(q.rank)}
+        initialSort={{ key: "durationMs", dir: "desc" }}
+        searchable
+        searchPlaceholder="Rechercher dans les requêtes…"
+        emptyMessage="Aucune requête ORM sur cette trace."
+        pageSize={25}
+      />
     </Stack>
   );
 }

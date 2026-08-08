@@ -10,6 +10,7 @@ export default defineNodefonyRolldownConfig({
     "@vitejs/plugin-react",
     "@vitejs/plugin-vue",
     "@analogjs/vite-plugin-angular",
+    "@sveltejs/vite-plugin-svelte",
     "@angular",
     "tslib",
   ],

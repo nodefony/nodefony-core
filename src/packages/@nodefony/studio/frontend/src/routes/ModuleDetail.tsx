@@ -66,7 +66,9 @@ import {
   KeyValue,
   MarkdownDoc,
   TABS_PANEL_HEIGHT,
+  DataGrid,
   type ConfigField,
+  type DataGridColumn,
   type EditResult,
 } from "../components/ui";
 import { ModuleSymbolGraph } from "../components/SymbolGraph";
@@ -196,6 +198,150 @@ const KIND_COLORS: Record<string, string> = {
   type: "grape",
   enum: "yellow",
 };
+
+/** Colonnes du tableau « Routes » d'un module (onglet Routes). */
+const routeColumns: DataGridColumn<RouteRow>[] = [
+  {
+    key: "methods",
+    header: "Méthodes",
+    filterable: true,
+    filterType: "multiselect",
+    value: (r) => r.methods.join(","),
+    render: (r) => (
+      <Group gap={4}>
+        {r.methods.map((m) => (
+          <Badge
+            key={m}
+            size="xs"
+            color={METHOD_COLORS[m] ?? "gray"}
+            variant="light"
+          >
+            {m}
+          </Badge>
+        ))}
+      </Group>
+    ),
+  },
+  {
+    key: "path",
+    header: "Chemin",
+    sortable: true,
+    value: (r) => r.path ?? "",
+    render: (r) => <Code>{r.path}</Code>,
+  },
+  {
+    key: "controller",
+    header: "Controller",
+    sortable: true,
+    value: (r) => r.controller ?? "",
+    render: (r) => <Text size="xs">{r.controller ?? "—"}</Text>,
+  },
+  {
+    key: "action",
+    header: "Action",
+    sortable: true,
+    value: (r) => r.action ?? "",
+    render: (r) => (
+      <Text size="xs" c="dimmed">
+        {r.action ?? "—"}
+      </Text>
+    ),
+  },
+];
+
+/** Colonnes du tableau « API » (symboles TS d'un module, `.ai/symbols.json`). */
+const symbolColumns: DataGridColumn<ModuleSymbol>[] = [
+  {
+    key: "kind",
+    header: "Kind",
+    size: 110,
+    sortable: true,
+    filterable: true,
+    filterType: "multiselect",
+    value: (s) => s.kind,
+    render: (s) => (
+      <Badge size="xs" variant="light" color={KIND_COLORS[s.kind] ?? "gray"}>
+        {s.kind}
+      </Badge>
+    ),
+  },
+  {
+    key: "name",
+    header: "Nom",
+    sortable: true,
+    value: (s) => s.name,
+    render: (s) => (
+      <>
+        <Code>{s.name}</Code>
+        {s.extends && (
+          <Text span size="xs" c="dimmed" ml={6}>
+            extends {s.extends}
+          </Text>
+        )}
+      </>
+    ),
+  },
+  {
+    key: "description",
+    header: "Description",
+    value: (s) => s.description ?? "",
+    render: (s) => (
+      <Text size="xs" c={s.description ? undefined : "dimmed"}>
+        {s.description ?? "—"}
+      </Text>
+    ),
+  },
+];
+
+/** Colonnes du tableau « Couverture par fichier » (onglet Coverage). */
+const coverageColumns: DataGridColumn<CoverageFileRow>[] = [
+  {
+    key: "file",
+    header: "Fichier",
+    sortable: true,
+    value: (f) => f.file,
+    render: (f) => <Code>{f.file}</Code>,
+  },
+  {
+    key: "lines",
+    header: "Lines",
+    sortable: true,
+    size: 190,
+    value: (f) => f.lines,
+    render: (f) => (
+      <Group gap="xs" wrap="nowrap">
+        <Progress value={f.lines} color={covColor(f.lines)} w={110} size="sm" />
+        <Text size="xs" w={34} ta="right">
+          {Math.round(f.lines)}%
+        </Text>
+      </Group>
+    ),
+  },
+  {
+    key: "functions",
+    header: "Funcs",
+    sortable: true,
+    size: 80,
+    value: (f) => f.functions,
+    render: (f) => (
+      <Text size="xs" c={covColor(f.functions)}>
+        {Math.round(f.functions)}%
+      </Text>
+    ),
+  },
+  {
+    key: "branches",
+    header: "Branches",
+    sortable: true,
+    size: 90,
+    value: (f) => f.branches,
+    render: (f) => (
+      <Text size="xs" c={covColor(f.branches)}>
+        {Math.round(f.branches)}%
+      </Text>
+    ),
+  },
+];
 
 /** Message lisible d'un refus d'édition config (priorité au détail serveur + recette). */
 function configErrorMessage(e: unknown): string {
@@ -673,49 +819,14 @@ export const ModuleDetail = observer(() => {
 
           {hasRoutes && (
             <Tabs.Panel value="routes">
-              <Table.ScrollContainer minWidth={560}>
-                <Table striped highlightOnHover withRowBorders={false}>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Méthodes</Table.Th>
-                      <Table.Th>Chemin</Table.Th>
-                      <Table.Th>Controller</Table.Th>
-                      <Table.Th>Action</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {routes.map((r) => (
-                      <Table.Tr key={r.name}>
-                        <Table.Td>
-                          <Group gap={4}>
-                            {r.methods.map((m) => (
-                              <Badge
-                                key={m}
-                                size="xs"
-                                color={METHOD_COLORS[m] ?? "gray"}
-                                variant="light"
-                              >
-                                {m}
-                              </Badge>
-                            ))}
-                          </Group>
-                        </Table.Td>
-                        <Table.Td>
-                          <Code>{r.path}</Code>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="xs">{r.controller ?? "—"}</Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="xs" c="dimmed">
-                            {r.action ?? "—"}
-                          </Text>
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              </Table.ScrollContainer>
+              <DataGrid
+                mode="client"
+                data={routes}
+                columns={routeColumns}
+                getRowId={(r) => r.name}
+                searchable
+                searchPlaceholder="Rechercher une route…"
+              />
             </Tabs.Panel>
           )}
 
@@ -974,45 +1085,14 @@ function DocsPanel({
 /** ApiPanel — référence API auto (kind/nom/description) depuis `.ai/symbols.json`. */
 function ApiPanel({ symbols }: { symbols: ModuleSymbol[] }) {
   return (
-    <Table.ScrollContainer minWidth={620}>
-      <Table striped highlightOnHover withRowBorders={false}>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th w={110}>Kind</Table.Th>
-            <Table.Th>Nom</Table.Th>
-            <Table.Th>Description</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {symbols.map((s) => (
-            <Table.Tr key={`${s.kind}:${s.name}`}>
-              <Table.Td>
-                <Badge
-                  size="xs"
-                  variant="light"
-                  color={KIND_COLORS[s.kind] ?? "gray"}
-                >
-                  {s.kind}
-                </Badge>
-              </Table.Td>
-              <Table.Td>
-                <Code>{s.name}</Code>
-                {s.extends && (
-                  <Text span size="xs" c="dimmed" ml={6}>
-                    extends {s.extends}
-                  </Text>
-                )}
-              </Table.Td>
-              <Table.Td>
-                <Text size="xs" c={s.description ? undefined : "dimmed"}>
-                  {s.description ?? "—"}
-                </Text>
-              </Table.Td>
-            </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
-    </Table.ScrollContainer>
+    <DataGrid
+      mode="client"
+      data={symbols}
+      columns={symbolColumns}
+      getRowId={(s) => `${s.kind}:${s.name}`}
+      searchable
+      searchPlaceholder="Rechercher un symbole…"
+    />
   );
 }
 
@@ -1560,50 +1640,14 @@ function CoveragePanel({ report }: { report: CoverageReport }) {
         Couverture des tests <b>unit</b> (vitest + @vitest/coverage-v8).
         L'intégration tape un serveur séparé → non mesurée ici.
       </Text>
-      <Table.ScrollContainer minWidth={560}>
-        <Table striped highlightOnHover withRowBorders={false}>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Fichier</Table.Th>
-              <Table.Th w={190}>Lines</Table.Th>
-              <Table.Th w={80}>Funcs</Table.Th>
-              <Table.Th w={90}>Branches</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {files.map((f) => (
-              <Table.Tr key={f.file}>
-                <Table.Td>
-                  <Code>{f.file}</Code>
-                </Table.Td>
-                <Table.Td>
-                  <Group gap="xs" wrap="nowrap">
-                    <Progress
-                      value={f.lines}
-                      color={covColor(f.lines)}
-                      w={110}
-                      size="sm"
-                    />
-                    <Text size="xs" w={34} ta="right">
-                      {Math.round(f.lines)}%
-                    </Text>
-                  </Group>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="xs" c={covColor(f.functions)}>
-                    {Math.round(f.functions)}%
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="xs" c={covColor(f.branches)}>
-                    {Math.round(f.branches)}%
-                  </Text>
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      </Table.ScrollContainer>
+      <DataGrid
+        mode="client"
+        data={files}
+        columns={coverageColumns}
+        getRowId={(f) => f.file}
+        searchable
+        searchPlaceholder="Rechercher un fichier…"
+      />
     </Stack>
   );
 }

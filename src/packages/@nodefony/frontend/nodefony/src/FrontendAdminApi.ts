@@ -22,7 +22,9 @@ function pkgVersion(pkg: string): string | undefined {
   let v: string | null = null;
   try {
     const p = requireFrom.resolve(`${pkg}/package.json`);
-    v = (JSON.parse(readFileSync(p, "utf8")) as { version?: string }).version ?? null;
+    v =
+      (JSON.parse(readFileSync(p, "utf8")) as { version?: string }).version ??
+      null;
   } catch {
     try {
       let dir = path.dirname(requireFrom.resolve(pkg));
@@ -80,8 +82,10 @@ export interface IViteInstanceView {
   family: string;
   /** État du superviseur (`ready` = HMR actif). */
   state: string;
-  /** Hôte du serveur Vite (dev). */
+  /** Hôte d'ÉCOUTE du serveur Vite (dev). */
   host: string;
+  /** Origine PUBLIQUE effective (celle que le navigateur utilise) — `null` si non démarré. */
+  origin: string | null;
   /** Port RÉEL résolu (Vite incrémente si occupé) — `null` si non démarré. */
   port: number | null;
   /** PID du process enfant Vite — `null` hors dev. */
@@ -109,11 +113,15 @@ export interface IFrontendStatusView {
 }
 
 /** Mappe un statut superviseur vers la vue sûre (sans paths) + versions framework. */
-function toView(family: string, status: IViteSupervisorStatus): IViteInstanceView {
+function toView(
+  family: string,
+  status: IViteSupervisorStatus,
+): IViteInstanceView {
   return {
     family,
     state: status.state,
     host: status.host,
+    origin: status.origin,
     port: status.port,
     pid: status.pid,
     https: status.https,

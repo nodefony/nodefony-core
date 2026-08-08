@@ -23,34 +23,42 @@ const fakeReq = (socket: object, url = "/p"): http.IncomingMessage =>
   ({ url, socket }) as unknown as http.IncomingMessage;
 
 describe("HttpRequest.getFullUrl — scheme effectif ← forwarded", () => {
+  // F-B : `getRawTarget()` lit `this.request` (source unique partagée avec la
+  // découpe fast-path) → le stub porte la même requête que celle passée à
+  // `getFullUrl` — comme le fait le ctor réel (`this.request = request`).
+  // `getFullUrl` POSE aussi `this.scheme` (consommé par HttpContext.setScheme
+  // sans construire l'URL) : asserté ici, c'est le câblage.
   it("forwarded.proto présent → scheme proxifié (https)", () => {
+    const nodeReq = fakeReq({ encrypted: false });
     const req = stub<HttpRequest>(HttpRequest.prototype, {
       host: "example.com",
       forwarded: fwd({ proto: "https" }),
+      request: nodeReq,
     });
-    expect(req.getFullUrl(fakeReq({ encrypted: false }))).to.equal(
-      "https://example.com/p",
-    );
+    expect(req.getFullUrl(nodeReq)).to.equal("https://example.com/p");
+    expect(req.scheme).to.equal("https");
   });
 
   it("sans forwarded → transport réel (socket.encrypted=true → https)", () => {
+    const nodeReq = fakeReq({ encrypted: true });
     const req = stub<HttpRequest>(HttpRequest.prototype, {
       host: "example.com",
       forwarded: null,
+      request: nodeReq,
     });
-    expect(req.getFullUrl(fakeReq({ encrypted: true }))).to.equal(
-      "https://example.com/p",
-    );
+    expect(req.getFullUrl(nodeReq)).to.equal("https://example.com/p");
+    expect(req.scheme).to.equal("https");
   });
 
   it("sans forwarded + socket clair → http", () => {
+    const nodeReq = fakeReq({ encrypted: false });
     const req = stub<HttpRequest>(HttpRequest.prototype, {
       host: "example.com",
       forwarded: null,
+      request: nodeReq,
     });
-    expect(req.getFullUrl(fakeReq({ encrypted: false }))).to.equal(
-      "http://example.com/p",
-    );
+    expect(req.getFullUrl(nodeReq)).to.equal("http://example.com/p");
+    expect(req.scheme).to.equal("http");
   });
 });
 

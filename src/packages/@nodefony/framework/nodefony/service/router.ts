@@ -69,6 +69,9 @@ const serviceName: string = "router";
 interface IndexedRoute {
   route: Route;
   pos: number;
+  // Préfixe littéral du chemin, en minuscules ASCII (voir `literalPrefix`) —
+  // `""` quand il n'est pas exploitable. Sert de pré-filtre au scan dynamique.
+  prefix: string;
 }
 
 interface RouteIndex {
@@ -86,6 +89,36 @@ interface RouteIndex {
 const REG_NON_LITERAL = /[{}*+?()[\]^$|\\]/;
 // Liste vide partagée — évite 1 alloc par resolve sans candidate littérale.
 const NO_LITERALS: IndexedRoute[] = [];
+
+/**
+ * Préfixe LITTÉRAL d'un chemin de route : tout ce qui précède son premier
+ * caractère non littéral, en minuscules. Le motif compilé étant ancré (`^…$`),
+ * un chemin que cette route peut servir commence FORCÉMENT par ce préfixe —
+ * c'est ce qui autorise à écarter la route sans exécuter son motif.
+ *
+ * ⚠️ Garde ASCII. Le pré-filtre compare `cleanPath.toLowerCase()` à ce préfixe,
+ * or `toLowerCase()` (repli Unicode complet) et le drapeau `i` du motif (repli
+ * simple) ne traitent PAS la casse de la même façon hors ASCII : comparer les
+ * deux pourrait écarter une route qui matche — un 404 à la place d'une réponse.
+ * On tronque donc le préfixe au premier caractère non ASCII : filtrer moins est
+ * toujours correct, filtrer à tort ne l'est jamais.
+ *
+ * @param path - chemin déclaré de la route (`undefined` pour une route sans chemin).
+ * @returns le préfixe exploitable, ou `""` quand il n'y en a pas (route jamais filtrée).
+ */
+function literalPrefix(path: string | undefined): string {
+  if (path === undefined) {
+    return "";
+  }
+  const cut = path.search(REG_NON_LITERAL);
+  const head = cut === -1 ? path : path.slice(0, cut);
+  for (let i = 0; i < head.length; i++) {
+    if (head.charCodeAt(i) > 0x7f) {
+      return head.slice(0, i).toLowerCase();
+    }
+  }
+  return head.toLowerCase();
+}
 
 // `null` = index à (re)construire — posé par toute mutation API de la table.
 let routeIndex: RouteIndex | null = null;
@@ -111,9 +144,11 @@ function buildRouteIndex(): RouteIndex {
         list = [];
         statics.set(key, list);
       }
-      list.push({ route, pos: i });
+      // Une littérale est déjà trouvée par son chemin exact : son préfixe ne
+      // sert à rien, et le pré-filtre ne s'applique pas à elle.
+      list.push({ route, pos: i, prefix: "" });
     } else {
-      dynamics.push({ route, pos: i });
+      dynamics.push({ route, pos: i, prefix: literalPrefix(path) });
     }
   }
   return (routeIndex = {
@@ -212,9 +247,14 @@ class Router extends Service {
     ) {
       index = buildRouteIndex();
     }
+    // Minuscule calculée UNE fois : elle sert au lookup des littérales ET au
+    // pré-filtre des dynamiques (aucune allocation nouvelle — ce `toLowerCase()`
+    // existait déjà pour le lookup, et V8 rend la même chaîne si rien ne change).
+    const cleanPathLower =
+      cleanPath !== undefined ? cleanPath.toLowerCase() : undefined;
     const literals =
-      cleanPath !== undefined
-        ? (index.statics.get(cleanPath.toLowerCase()) ?? NO_LITERALS)
+      cleanPathLower !== undefined
+        ? (index.statics.get(cleanPathLower) ?? NO_LITERALS)
         : NO_LITERALS;
     const dynamics = index.dynamics;
     const litCount = literals.length;
@@ -224,10 +264,29 @@ class Router extends Service {
     // Pass 1 : match path + method — merge ordonné littérales(path) ∪ dynamiques,
     // séquence identique au scan linéaire de la table complète.
     while (li < litCount || di < dynCount) {
-      const route =
-        li < litCount && (di >= dynCount || literals[li].pos < dynamics[di].pos)
-          ? literals[li++].route
-          : dynamics[di++].route;
+      let route: Route;
+      if (
+        li < litCount &&
+        (di >= dynCount || literals[li].pos < dynamics[di].pos)
+      ) {
+        route = literals[li++].route;
+      } else {
+        const candidate = dynamics[di++];
+        // Pré-filtre O(longueur du préfixe) : le motif étant ancré, une route
+        // dont le préfixe littéral ne débute pas le chemin ne peut PAS matcher.
+        // `startsWith` coûte quelques nanosecondes là où `exec` en coûte une
+        // vingtaine — sur une table où les dynamiques dominent, c'est le scan
+        // entier qui change d'échelle. On SAUTE une candidate, on n'en réordonne
+        // aucune : la séquence reste celle de l'insertion (invariant A).
+        if (
+          candidate.prefix !== "" &&
+          cleanPathLower !== undefined &&
+          !cleanPathLower.startsWith(candidate.prefix)
+        ) {
+          continue;
+        }
+        route = candidate.route;
+      }
       try {
         if (resolver.match(route, context, cleanPath)) {
           // « route trouvée » = jalon notable (NOTICE hors prod). En prod :
@@ -263,10 +322,11 @@ class Router extends Service {
     // de la dernière route scannée. Le hostname étant vérifié AVANT les methods
     // (Route.match), toute 405 de pass 1 vient d'une route de CE vhost → la
     // pass 2 retrouve toujours ≥ 1 méthode : le 405 HTTP sort TOUJOURS d'ici.
-    if (context.method !== "WEBSOCKET" && context.request?.url) {
-      // Réutilise le pathname déjà normalisé (cleanPath) — défini ici car le
-      // garde `context.request?.url` ci-dessus implique une URL présente.
-      const path = (cleanPath ?? "") || "/";
+    // F-B : garde sur `cleanPath` (undefined ⇔ pas d'URL/pathname) — lire
+    // `context.request?.url` déclencherait le getter paresseux HTTP (parse
+    // WHATWG) sur chaque 404/405.
+    if (context.method !== "WEBSOCKET" && cleanPath !== undefined) {
+      const path = cleanPath || "/";
       const allowed = new Set<string>();
       for (const route of routes) {
         // Une route restreinte à un autre vhost (@Domain) ne SERT pas cette

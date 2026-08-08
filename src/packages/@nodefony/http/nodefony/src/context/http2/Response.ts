@@ -57,6 +57,7 @@ class Http2Response extends HttpResponse {
         }
         this.statusMessage = this.getStatusMessage();
         this.setLength();
+        this.ensureContentTypeHeader();
         this.headers = extend(
           true,
           { "X-Status-Message": this.statusMessage },

@@ -31,8 +31,182 @@
 import {
   TASKS,
   SONDES_QUALITE,
+  elaguerAffichage,
   evaluateProbe,
+  expliquerEchec,
+  motifDEcartement,
+  transcriptExploitable,
 } from "./bench-discoverability.mjs";
+
+/**
+ * Ce qu'une commande AFFICHE ne compte pas pour un geste — les deux sens.
+ *
+ * La garde a un coût si elle se trompe, et il est asymétrique : élaguer TROP
+ * fait rater un vrai appel de générateur (rouge visible, corrigé au run
+ * suivant), élaguer TROP PEU laisse un agent valider une sonde en RACONTANT ce
+ * qu'il n'a pas fait (vert que personne ne conteste). Les deux moitiés sont
+ * donc éprouvées ici : six formes d'affichage doivent disparaître, cinq
+ * invocations réelles doivent survivre — dont celles qui SUIVENT un affichage
+ * dans la même commande, le cas où un élagage trop gourmand emporterait le
+ * geste avec le décor.
+ *
+ * @returns {string[]} les libellés des cas qui n'ont pas rendu ce qu'ils doivent.
+ */
+function verifierElagageAffichage() {
+  const rates = [];
+  const cas = [
+    // Ce que l'agent ÉCRIT — doit disparaître.
+    [
+      "heredoc décoratif (le cas vécu, tâche 28)",
+      "cat << 'EOF'\n  Ou créer un module Nodefony distinct :\n    npx nodefony create module audit\nEOF",
+      false,
+    ],
+    [
+      "heredoc sans quotes",
+      "cat <<EOF\nlance npx nodefony create module blog\nEOF",
+      false,
+    ],
+    [
+      "heredoc indenté (<<-)",
+      "cat <<-FIN\n\tnpx nodefony create module blog\n\tFIN",
+      false,
+    ],
+    ["echo littéral", 'echo "npx nodefony create module blog"', false],
+    ["echo avec drapeau", 'echo -e "npx nodefony create module blog"', false],
+    ["printf littéral", "printf 'npx nodefony create module blog'", false],
+    // Ce que l'agent FAIT — doit survivre.
+    ["invocation nue", "npx nodefony create module audit", true],
+    ["invocation chaînée", "cd /app && npx nodefony create module audit", true],
+    [
+      "invocation APRÈS un heredoc refermé",
+      "cat << 'EOF'\nbla\nEOF\nnpx nodefony create module audit",
+      true,
+    ],
+    [
+      "invocation dans un sh -c",
+      'sh -c "npx nodefony create module audit"',
+      true,
+    ],
+    [
+      "invocation précédée d'un echo décoratif",
+      'echo "on y va" && npx nodefony create module audit',
+      true,
+    ],
+  ];
+  for (const [label, cmd, doitSurvivre] of cas) {
+    if (/create\s+module\b/u.test(elaguerAffichage(cmd)) !== doitSurvivre) {
+      rates.push(label);
+    }
+  }
+  return rates;
+}
+
+/**
+ * Un gate rouge doit s'expliquer du premier coup.
+ *
+ * @returns {string[]} les libellés des cas qui n'ont pas rendu ce qu'ils doivent.
+ */
+function verifierExplicationGate() {
+  const rates = [];
+  const cas = [
+    [
+      "le message d'un gate écrit en ligne",
+      ["aucun service porte par l app dans le conteneur\n", ""],
+      "aucun service porte par l app dans le conteneur",
+    ],
+    [
+      "canal d'erreur muet — on se rabat sur la sortie standard",
+      ["", "\n\nDISCOVERY.md absent\n"],
+      "DISCOVERY.md absent",
+    ],
+    [
+      // La dernière ligne d'un outil bavard est « un journal complet est
+      // disponible dans… » : c'est la PREMIÈRE qui porte l'erreur.
+      "outil bavard — la première ligne, pas la dernière",
+      [
+        "FAIL tests/invoice.test.ts\nnpm ERR! code 1\nnpm ERR! journal complet\n",
+        "",
+      ],
+      "FAIL tests/invoice.test.ts",
+    ],
+    ["un gate parfaitement muet", ["", "   \n\n"], ""],
+  ];
+  for (const [label, [err, out], attendu] of cas) {
+    if (expliquerEchec(err, out) !== attendu) rates.push(label);
+  }
+  // Une trace entière rendrait le rapport JSON illisible sans rien apprendre.
+  const long = expliquerEchec("x".repeat(500), "");
+  if (long.length > 200 || !long.endsWith("…")) {
+    rates.push("une ligne démesurée est bornée");
+  }
+  return rates;
+}
+
+/**
+ * La garde qui empêche un transcript MUET de rendre un verdict.
+ *
+ * Elle vaut pour n'importe quel agent : les cas ci-dessous n'emploient donc
+ * AUCUNE clé propre au format Claude Code — c'est ce format-là qui change quand
+ * on change d'agent, et une garde qui s'y accroche s'éteint au moment précis où
+ * elle sert.
+ *
+ * @returns {string[]} les libellés des cas qui n'ont pas rendu ce qu'ils doivent.
+ */
+function verifierGardeTranscript() {
+  const cas = [
+    ["fichier absent (chaîne vide)", "", false],
+    ["blancs seuls", "\n\n   \n", false],
+    ["texte brut d'un CLI qu'on ne sait pas lire", "run terminé\nok\n", false],
+    ["JSON tronqué en plein écrit", '{"type":"tool_use","inp', false],
+    ["un scalaire n'est pas un événement", "42\ntrue\n", false],
+    ["format Claude Code", '{"type":"result","num_turns":12}', true],
+    [
+      "format inconnu mais JSONL — le banc n'a rien à présumer des clés",
+      '{"event":"tool_call","tool":"shell"}',
+      true,
+    ],
+    [
+      "une seule ligne lisible parmi des tronquées suffit",
+      '{"broken\n{"type":"assistant"}\n',
+      true,
+    ],
+  ];
+  const rates = [];
+  for (const [label, texte, attendu] of cas) {
+    if (transcriptExploitable(texte) !== attendu) rates.push(label);
+  }
+
+  // L'autre vacuité, et celle qui a produit un FAIL de référence : un run où
+  // l'agent n'a touché AUCUN fichier. Ses interdits ne mordent sur rien — huit
+  // sondes vertes par pure absence de matière (T10, 16 tours, 40 s).
+  const vivant = '{"type":"result","num_turns":16}';
+  const ecartements = [
+    [
+      "run à zéro fichier — abandon, pas mesure",
+      { transcript: vivant, files: [] },
+      true,
+    ],
+    [
+      "liste de fichiers absente vaut zéro fichier",
+      { transcript: vivant, files: undefined },
+      true,
+    ],
+    [
+      "transcript muet écarte même si des fichiers ont bougé",
+      { transcript: "", files: ["nodefony/entity/Product.ts"] },
+      true,
+    ],
+    [
+      "un run ordinaire n'est pas écarté",
+      { transcript: vivant, files: ["nodefony/entity/Product.ts"] },
+      false,
+    ],
+  ];
+  for (const [label, pieces, attenduEcarte] of ecartements) {
+    if (Boolean(motifDEcartement(pieces)) !== attenduEcarte) rates.push(label);
+  }
+  return rates;
+}
 
 /**
  * Matières par défaut — un échantillon ne renseigne QUE ce qu'il exerce.
@@ -77,6 +251,19 @@ const SAMPLES = {
     fail: {
       transcript: `{"text":"j'écris l'entité à la main dans nodefony/entity"}`,
     },
+    extra: [
+      {
+        // Le mode de défaillance que `commandeQuiContient` ferme : l'`AGENTS.md`
+        // généré NOMME la commande, et le transcript porte le contenu de ce que
+        // l'agent lit. Une sonde qui cherche le nom nu se satisfait donc d'une
+        // LECTURE — elle mesure la documentation, pas le geste.
+        label: "AGENTS.md lu, générateur jamais lancé",
+        matter: {
+          transcript: `{"type":"tool_result","content":"## Entités\\n\\n\`npx nodefony create entity <Nom>\`"}`,
+        },
+        expect: false,
+      },
+    ],
   },
   "1 :: a lu AGENTS.md": {
     pass: { transcript: `{"file_path":"/app/AGENTS.md"}` },
@@ -158,6 +345,15 @@ const SAMPLES = {
       transcript: `{"command":"npx nodefony create controller Chat --kind realtime"}`,
     },
     fail: { transcript: `{"command":"npx nodefony create controller Chat"}` },
+    extra: [
+      {
+        label: "AGENTS.md lu, générateur jamais lancé",
+        matter: {
+          transcript: `{"type":"tool_result","content":"Temps réel : \`npx nodefony create controller <Nom> --kind realtime\`"}`,
+        },
+        expect: false,
+      },
+    ],
   },
   "3 :: façade realtime (RealtimeController/@RealtimeChannel)": {
     pass: {
@@ -185,6 +381,15 @@ const SAMPLES = {
       transcript: `{"command":"npx nodefony create command import:users"}`,
     },
     fail: { transcript: `{"command":"npx nodefony create controller Users"}` },
+    extra: [
+      {
+        label: "AGENTS.md lu, générateur jamais lancé",
+        matter: {
+          transcript: `{"type":"tool_result","content":"Commandes : \`npx nodefony create command <nom:action>\`"}`,
+        },
+        expect: false,
+      },
+    ],
   },
   "4 :: a lu AGENTS.md": {
     pass: { transcript: `{"file_path":"/app/AGENTS.md"}` },
@@ -204,33 +409,52 @@ const SAMPLES = {
   },
 
   // ── T5 ────────────────────────────────────────────────────────────────────
-  "5 :: a démarré par le framework (npm run dev / nodefony development)": {
-    pass: { transcript: `{"command":"npm run dev"}` },
-    fail: { transcript: `{"command":"node dist/index.js"}` },
-    extra: [
-      {
-        // LE cas qui manquait, et qui rendait la tâche satisfiable par ABANDON.
-        // Le transcript porte le contenu des fichiers lus ; l'`AGENTS.md`
-        // généré écrit `npm run dev` noir sur blanc. Un agent qui l'ouvre et
-        // raconte ce qu'il ferait doit être REFUSÉ : lire n'est pas démarrer.
-        label: "AGENTS.md lu, rien lancé",
-        matter: {
-          transcript: `{"type":"tool_result","content":"## Démarrer\\n\\n\`\`\`bash\\nnpm run dev\\n\`\`\`"}`,
+  "5 :: a démarré par le framework (npm run dev / npm start / nodefony development)":
+    {
+      pass: { transcript: `{"command":"npm run dev"}` },
+      fail: { transcript: `{"command":"node dist/index.js"}` },
+      extra: [
+        {
+          // LE cas du terrain : trois runs sur trois ont démarré par ce script,
+          // que le gabarit déclare `nodefony production`. La sonde le refusait,
+          // et la tâche sortait FAIL 0/3 alors que tous ses gates étaient verts.
+          label: "démarrage par le script npm du gabarit",
+          matter: {
+            transcript: `{"command":"npm start > /tmp/server.log 2>&1 &"}`,
+          },
+          expect: true,
         },
-        expect: false,
-      },
-      {
-        // Symétrique : la commande passée à un shell imbriqué reste une
-        // invocation, et les guillemets échappés ne doivent pas l'y cacher.
-        label: "démarrage via un shell imbriqué",
-        matter: {
-          transcript: `{"command":"sh -c \\"npx nodefony development --detach\\""}`,
+        {
+          // Un script npm qui ne lance PAS le serveur ne doit rien satisfaire :
+          // sans quoi l'élargissement rendrait la sonde vraie sur toute la vie
+          // de l'application.
+          label: "un autre script npm ne démarre pas",
+          matter: { transcript: `{"command":"npm run build"}` },
+          expect: false,
         },
-        expect: true,
-      },
-    ],
-  },
-  "5 :: a employé nodefony status ou nodefony stop": {
+        {
+          // LE cas qui manquait, et qui rendait la tâche satisfiable par ABANDON.
+          // Le transcript porte le contenu des fichiers lus ; l'`AGENTS.md`
+          // généré écrit `npm run dev` noir sur blanc. Un agent qui l'ouvre et
+          // raconte ce qu'il ferait doit être REFUSÉ : lire n'est pas démarrer.
+          label: "AGENTS.md lu, rien lancé",
+          matter: {
+            transcript: `{"type":"tool_result","content":"## Démarrer\\n\\n\`\`\`bash\\nnpm run dev\\n\`\`\`"}`,
+          },
+          expect: false,
+        },
+        {
+          // Symétrique : la commande passée à un shell imbriqué reste une
+          // invocation, et les guillemets échappés ne doivent pas l'y cacher.
+          label: "démarrage via un shell imbriqué",
+          matter: {
+            transcript: `{"command":"sh -c \\"npx nodefony development --detach\\""}`,
+          },
+          expect: true,
+        },
+      ],
+    },
+  "5 :: a employé nodefony status ou stop (directement ou par npm)": {
     pass: { transcript: `{"command":"npx nodefony stop"}` },
     fail: { transcript: `{"command":"npx nodefony development"}` },
     extra: [
@@ -241,9 +465,23 @@ const SAMPLES = {
         },
         expect: false,
       },
+      {
+        // Le geste du terrain : `npm stop` est `nodefony stop`, par la porte
+        // que le gabarit ouvre. `npm run stop` aussi — npm accepte les deux.
+        label: "arrêt par le script npm du gabarit",
+        matter: { transcript: `{"command":"npm stop 2>&1"}` },
+        expect: true,
+      },
+      {
+        // La borne : démarrer n'est pas arrêter, même par npm. Sans ce cas,
+        // l'élargissement pourrait rendre la sonde vraie sur `npm start`.
+        label: "le script de démarrage ne vaut pas un arrêt",
+        matter: { transcript: `{"command":"npm start"}` },
+        expect: false,
+      },
     ],
   },
-  "5 :: pas d'arrêt bricolé (kill -9 / pkill / lsof)": {
+  "5 :: pas d'arrêt bricolé (kill / pkill)": {
     pass: { transcript: `{"command":"npx nodefony stop"}` },
     fail: { transcript: `{"command":"kill -9 $(lsof -ti:5151)"}` },
     extra: [
@@ -254,6 +492,29 @@ const SAMPLES = {
         matter: {
           transcript: `{"command":"sh -c \\"kill -9 $(lsof -ti:5151)\\""}`,
         },
+        expect: false,
+      },
+      {
+        // LE cas du terrain : deux agents sur trois avaient arrêté par
+        // `npm stop`, puis constaté par `lsof` que les ports étaient rendus —
+        // ce que l'énoncé leur demande de PROUVER. Un constat n'arrête rien.
+        label: "lsof en lecture, pour constater l'arrêt",
+        matter: {
+          transcript: `{"command":"lsof -i :5371 -i :5372 2>/dev/null || echo libre"}`,
+        },
+        expect: true,
+      },
+      {
+        // La contrepartie de ce relâchement : le meurtre reste attrapé, y
+        // compris SANS `-9` — `kill $(lsof -ti:…)` bricolait tout autant et
+        // passait sous l'ancien motif.
+        label: "kill sans signal, par le port",
+        matter: { transcript: `{"command":"kill $(lsof -ti:5371)"}` },
+        expect: false,
+      },
+      {
+        label: "pkill par nom de process",
+        matter: { transcript: `{"command":"pkill -f nodefony"}` },
         expect: false,
       },
       {
@@ -273,6 +534,15 @@ const SAMPLES = {
   "6 :: a interrogé l'environnement (nodefony env)": {
     pass: { transcript: `{"command":"npx nodefony env --json"}` },
     fail: { transcript: `{"command":"cat .env.local"}` },
+    extra: [
+      {
+        label: "AGENTS.md lu, environnement jamais interrogé",
+        matter: {
+          transcript: `{"type":"tool_result","content":"Le catalogue des variables : \`npx nodefony env\`"}`,
+        },
+        expect: false,
+      },
+    ],
   },
   "6 :: aucune valeur en dur dans le code TypeScript": {
     // La bonne réponse vit dans `.env.local`, gitignoré : le code, lui, ne doit
@@ -312,12 +582,30 @@ const SAMPLES = {
       transcript: `{"command":"npx nodefony create entity --describe-json"}`,
     },
     fail: { transcript: `{"command":"npx nodefony create entity --help"}` },
+    extra: [
+      {
+        label: "porte machine LUE dans la doc, jamais appelée",
+        matter: {
+          transcript: `{"type":"tool_result","content":"Chaque générateur se décrit : \`--describe-json\` rend ses questions."}`,
+        },
+        expect: false,
+      },
+    ],
   },
   "8 :: a simulé au lieu d'écrire (--dry-run)": {
     pass: {
       transcript: `{"command":"npx nodefony create entity Order --dry-run"}`,
     },
     fail: { transcript: `{"command":"npx nodefony create entity Order"}` },
+    extra: [
+      {
+        label: "simulation LUE dans la doc, jamais lancée",
+        matter: {
+          transcript: `{"type":"tool_result","content":"Ajoute \`--dry-run\` pour simuler sans rien écrire."}`,
+        },
+        expect: false,
+      },
+    ],
   },
   "8 :: le plan est écrit (DISCOVERY.md)": {
     pass: { files: ["DISCOVERY.md"] },
@@ -351,6 +639,16 @@ const SAMPLES = {
         // même en prononçant le mot.
         label: "refuse le mot sans la commande",
         matter: { transcript: `{"content":"je vais inspect les controllers"}` },
+        expect: false,
+      },
+      {
+        // Le cas que le précédent ne couvrait PAS : le document lu porte la
+        // commande ENTIÈRE, `nodefony inspect` compris. C'est la forme réelle —
+        // l'`AGENTS.md` généré l'écrit — et un motif nu l'accepte.
+        label: "AGENTS.md lu, application jamais interrogée",
+        matter: {
+          transcript: `{"type":"tool_result","content":"Pour voir les routes montées : \`npx nodefony inspect routes\`"}`,
+        },
         expect: false,
       },
     ],
@@ -569,6 +867,15 @@ const SAMPLES = {
     fail: {
       transcript: `{"text":"j'écris la classe du service à la main"}`,
     },
+    extra: [
+      {
+        label: "AGENTS.md lu, générateur jamais lancé",
+        matter: {
+          transcript: `{"type":"tool_result","content":"Services : \`npx nodefony create service <Nom>\`"}`,
+        },
+        expect: false,
+      },
+    ],
   },
   "13 :: la dépendance vient du conteneur (@inject ou container.get)": {
     pass: {
@@ -965,6 +1272,15 @@ const SAMPLES = {
     fail: {
       transcript: `{"text":"j'écris l'entité et son controller à la main"}`,
     },
+    extra: [
+      {
+        label: "AGENTS.md lu, générateur jamais lancé",
+        matter: {
+          transcript: `{"type":"tool_result","content":"CRUD complet : \`npx nodefony create entity <Nom> champ:type\`"}`,
+        },
+        expect: false,
+      },
+    ],
   },
   "20 :: entité générée (nodefony/entity/)": {
     pass: { files: ["nodefony/entity/Invoice.ts"] },
@@ -1666,7 +1982,28 @@ function main() {
     if (!probe.observe) jugeantes.push(key(task, probe));
   }
 
+  // Deux familles, deux motifs : les fondre sous un seul message ferait
+  // annoncer « run vide » à un défaut d'explication de gate. Un instrument qui
+  // se trompe de cause est précisément ce que cette session corrige.
+  const gardeRatee = [
+    ...verifierGardeTranscript().map((c) => [
+      c,
+      "un run vide (transcript muet, ou zéro fichier touché) rend un FAIL qui a l'allure d'une mesure : il doit être ÉCARTÉ, pas compté",
+    ]),
+    ...verifierExplicationGate().map((c) => [
+      c,
+      "un gate rouge qui ne rend que « exit 1 » oblige à rouvrir le décor pour savoir ce qui a lâché — il l'avait pourtant écrit en tombant",
+    ]),
+    ...verifierElagageAffichage().map((c) => [
+      c,
+      "ce qu'une commande AFFICHE n'est pas ce qu'elle FAIT : un agent qui RACONTE un générateur qu'il n'a pas lancé ne doit pas en valider la sonde — et un vrai appel ne doit pas être élagué avec le décor",
+    ]),
+  ];
+
   for (const w of wrong) console.log(`  ✗ ${w}`);
+  for (const [cas, motif] of gardeRatee) {
+    console.log(`  ✗ garde du juge — cas « ${cas} »\n      ${motif}`);
+  }
   for (const j of jugeantes) {
     console.log(
       `  ✗ ${j}\n      sonde de LECTURE qui juge — exiger un chemin d'accès mesure la conformité, pas la découvrabilité : la passer par sondeLecture()`,
@@ -1683,10 +2020,16 @@ function main() {
   console.log(
     `\n━━ ${covered}/${probes.length} sonde(s) couverte(s), ${checked} cas joué(s)` +
       (prove ? ` — amputation vérifiée sur ${covered}` : "") +
-      `${wrong.length + toothless.length + jugeantes.length > 0 ? `, ${wrong.length + toothless.length + jugeantes.length} DÉFAUT(S)` : ""}`,
+      `, gardes du juge : ${gardeRatee.length === 0 ? "28 cas ✅" : `${gardeRatee.length} RATÉ(S)`}` +
+      `${wrong.length + toothless.length + jugeantes.length + gardeRatee.length > 0 ? `, ${wrong.length + toothless.length + jugeantes.length + gardeRatee.length} DÉFAUT(S)` : ""}`,
   );
 
-  if (wrong.length > 0 || toothless.length > 0 || jugeantes.length > 0)
+  if (
+    wrong.length > 0 ||
+    toothless.length > 0 ||
+    jugeantes.length > 0 ||
+    gardeRatee.length > 0
+  )
     return 1;
   if (uncovered.length > 0) {
     console.log(

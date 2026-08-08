@@ -87,16 +87,18 @@ Kernel onTerminate
 
 ## Décisions techniques figées
 
-| Sujet                      | Décision                                                                           |
-| -------------------------- | ---------------------------------------------------------------------------------- |
-| Builder                    | **Vite** — ESM natif, HMR rapide, cohérence rolldown backend (même moteur oxc)     |
-| Supervisor (cette branche) | `child_process.spawn("npx vite ...")` — process système isolé                      |
-| Config Vite                | Fichier `.mjs` GÉNÉRÉ au boot dans `${root}/vite.config.generated.mjs`             |
-| Plugins                    | Hardcodés dans le `.mjs` généré selon les preset types détectés                    |
-| Logs                       | `child.stdout.pipe → syslog Nodefony` (pas de sérialisation JSON)                  |
-| Cleanup                    | `SIGINT` puis `SIGKILL` timeout 3s — évite zombies bloquant 5173                   |
-| Multi-bundles              | **Une seule instance Vite multi-entry** (rolldown-style `input` map)               |
-| Outils Vite                | **Ni deps NI peers** — `await import()` seul ; l'app les déclare (cf § ci-dessous) |
+| Sujet                      | Décision                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Builder                    | **Vite** — ESM natif, HMR rapide, cohérence rolldown backend (même moteur oxc)                                                                                                                                                                                                                                                                                   |
+| Supervisor (cette branche) | `child_process.spawn("npx vite ...")` — process système isolé                                                                                                                                                                                                                                                                                                    |
+| Config Vite                | Fichier `.mjs` GÉNÉRÉ au boot dans `${root}/vite.config.generated.mjs`                                                                                                                                                                                                                                                                                           |
+| Plugins                    | Hardcodés dans le `.mjs` généré selon les preset types détectés                                                                                                                                                                                                                                                                                                  |
+| Logs                       | `child.stdout.pipe → syslog Nodefony` (pas de sérialisation JSON)                                                                                                                                                                                                                                                                                                |
+| Cleanup                    | `SIGINT` puis `SIGKILL` timeout 3s — évite zombies bloquant 5173                                                                                                                                                                                                                                                                                                 |
+| Multi-bundles              | **Une seule instance Vite multi-entry** (rolldown-style `input` map)                                                                                                                                                                                                                                                                                             |
+| Dev déporté (P14.17)       | `devHost` = ÉCOUTE seulement ; l'origine PUBLIQUE (assets, `base`, WS HMR, `allowedHosts`) vient de `frontend.publicOrigin` (template `{port}`) ou de la détection Codespaces/Gitpod — calcul pur `nodefony/src/remoteDev.ts`, source unique = `status().origin`                                                                                                 |
+| Origine dérivée du `Host`  | Défaut en dev quand aucune origine n'est épinglée : chaque page annonce l'origine par laquelle le client est arrivé (NOM seul ; scheme et port restent ceux de Vite). Poste et conteneur servis en même temps, sans variable. Gardé par `trustedHosts` (`HttpKernel.isTrustedHostname`) — la MÊME liste qui nourrit le CSP et `allowedHosts`. PROD : sans objet. |
+| Outils Vite                | **Ni deps NI peers** — `await import()` seul ; l'app les déclare (cf § ci-dessous)                                                                                                                                                                                                                                                                               |
 
 ## Mode prod (build + renderProdTags)
 
@@ -162,7 +164,9 @@ dérive ici — l'audit `nodefony-check-externals` doit lire ce paragraphe avant
 ## Surface réelle
 
 - **Presets** (`nodefony/src/presets/`) : `react19-vite`, `vue3-vite`, `angular-vite`,
-  `vanilla-vite`. Svelte et Solid n'existent pas.
+  `vanilla-vite`, `svelte5-vite` (spécificateur d'import par VARIABLE : le plugin
+  `@sveltejs/vite-plugin-svelte` n'est pas installé dans CE dépôt — l'app le porte).
+  Solid n'existe pas.
 - **Commandes** (`nodefony/command/`) : `frontend:build`, `frontend:dev`, `frontend:status`.
   Il n'y a **pas** de `frontend:create` — le scaffold d'un module à front passe par
   `nodefony create module <nom> --frontend <fw>`.

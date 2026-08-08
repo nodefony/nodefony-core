@@ -121,6 +121,54 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
     }
   });
 
+  it("port de base OCCUPÉ → la 2ᵉ instance se décale et annonce son port réel", async () => {
+    // Le cas d'une SECONDE application Nodefony lancée sur le même poste : le
+    // serveur HTTP se décale tout seul (`portPolicy: "auto"`), et le schéma de
+    // `devPort` promet le même repli côté Vite. Une promesse de configuration
+    // qui ne s'exécute pas est pire qu'un silence — le frontend de la 2ᵉ app
+    // reste mort et l'on cherche la panne ailleurs. Le config généré porte
+    // TOUJOURS `strictPort: true` (il est lié à l'origine publique) : Vite ne
+    // se décalera donc jamais de lui-même, c'est le superviseur qui doit relancer.
+    const port = freePort();
+    const first = new ViteProcessSupervisor({
+      devHost: "127.0.0.1",
+      devPort: port,
+      startupTimeoutMs: 20_000,
+      pipeLogs: false,
+      cwd: FIXTURE_ROOT,
+      logger: silentLogger,
+      healthCheckIntervalMs: 0,
+      autoRestart: false,
+    });
+    const second = new ViteProcessSupervisor({
+      devHost: "127.0.0.1",
+      devPort: port, // MÊME port de base : le conflit est le sujet du test
+      startupTimeoutMs: 20_000,
+      pipeLogs: false,
+      cwd: FIXTURE_ROOT,
+      logger: silentLogger,
+      healthCheckIntervalMs: 0,
+      autoRestart: false,
+    });
+    try {
+      await first.start([makeEntry()], {});
+      expect(first.status().port).to.equal(port);
+
+      await second.start([makeEntry()], {});
+      const status = second.status();
+      expect(status.state).to.equal("ready");
+      // Décalé — et le port annoncé est le port RÉEL, pas celui demandé : c'est
+      // lui que le HTML servira au navigateur.
+      expect(status.port).to.be.greaterThan(port);
+      expect(await httpPing("127.0.0.1", status.port!)).to.be.greaterThan(0);
+      // Les deux répondent : la 1ʳᵉ app n'a pas été délogée au passage.
+      expect(await httpPing("127.0.0.1", port)).to.be.greaterThan(0);
+    } finally {
+      await second.stop();
+      await first.stop();
+    }
+  });
+
   it("auto-restart sur crash inattendu (SIGKILL)", async () => {
     const port = freePort();
     const sup = new ViteProcessSupervisor({
@@ -165,4 +213,98 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
       await sup.stop();
     }
   });
+
+  // ── P14.17 — dev déporté : le banc se prouve LUI-MÊME en deux faces.
+  // Face A (témoin) : SANS allowedHosts, Vite refuse un Host nommé inconnu
+  // (403, barrière CVE) — prouve que la barrière existe et que le test mord.
+  // Face B : AVEC le câblage (template {port} → allowedHosts + origin résolu),
+  // le même Host passe, et status().origin suit le port RÉEL du spawn.
+  it("Host étranger refusé SANS allowedHosts (témoin — la barrière existe)", async () => {
+    const port = freePort();
+    const sup = new ViteProcessSupervisor({
+      devHost: "127.0.0.1",
+      devPort: port,
+      startupTimeoutMs: 20_000,
+      pipeLogs: false,
+      cwd: FIXTURE_ROOT,
+      logger: silentLogger,
+      healthCheckIntervalMs: 0,
+      autoRestart: false,
+    });
+    try {
+      await sup.start([makeEntry()], {});
+      const code = await httpPingHost(
+        "127.0.0.1",
+        sup.status().port!,
+        "host.docker.internal",
+      );
+      expect(code).to.equal(403);
+    } finally {
+      await sup.stop();
+    }
+  });
+
+  it("publicOrigin {port} : origin suit le port réel, allowedHosts ouvre le Host étranger", async () => {
+    const port = freePort();
+    const sup = new ViteProcessSupervisor({
+      devHost: "127.0.0.1",
+      devPort: port,
+      publicOriginTemplate: "http://host.docker.internal:{port}",
+      allowedHosts: ["host.docker.internal"],
+      startupTimeoutMs: 20_000,
+      pipeLogs: false,
+      cwd: FIXTURE_ROOT,
+      logger: silentLogger,
+      healthCheckIntervalMs: 0,
+      autoRestart: false,
+    });
+    try {
+      await sup.start([makeEntry()], {});
+      const status = sup.status();
+      expect(status.state).to.equal("ready");
+      // L'origine publique est RÉSOLUE contre le port réel du spawn.
+      expect(status.origin).to.equal(
+        `http://host.docker.internal:${status.port}`,
+      );
+      // Et Vite ACCEPTE désormais ce Host nommé (allowedHosts émis).
+      const code = await httpPingHost(
+        "127.0.0.1",
+        status.port!,
+        "host.docker.internal",
+      );
+      expect(code).to.be.greaterThan(0);
+      expect(code).to.not.equal(403);
+    } finally {
+      await sup.stop();
+    }
+  });
 });
+
+/** Ping avec un header `Host` imposé (simule l'accès par nom via passerelle). */
+async function httpPingHost(
+  connectHost: string,
+  port: number,
+  hostHeader: string,
+): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        hostname: connectHost,
+        port,
+        path: "/",
+        timeout: 3000,
+        headers: { Host: hostHeader },
+      },
+      (res) => {
+        res.resume();
+        resolve(res.statusCode ?? 0);
+      },
+    );
+    req.on("error", reject);
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error("timeout"));
+    });
+    req.end();
+  });
+}

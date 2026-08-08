@@ -2,6 +2,7 @@ import {
   SegmentedControl,
   Tooltip,
   Center,
+  VisuallyHidden,
   type MantineSize,
 } from "@mantine/core";
 import {
@@ -49,6 +50,18 @@ export function RoleSwitch({ value, onChange, size = "xs" }: RoleSwitchProps) {
             <Tooltip label={o.label} withinPortal>
               <Center style={{ gap: 6 }}>
                 <I size={16} aria-hidden />
+                {/*
+                  L'icône est `aria-hidden` (décorative) et le tooltip n'apparaît
+                  qu'au SURVOL : sans ce libellé, chaque bouton radio n'a AUCUN
+                  nom accessible — quatre choix anonymes pour un lecteur d'écran
+                  comme pour un agent. L'`aria-label` porté par le
+                  SegmentedControl nomme le GROUPE, jamais ses options.
+                  Mesuré : c'est ce qui faisait tomber `label` (4 nœuds) ET
+                  `agent-accessibility-tree` (catégorie Agentic Browsing) sur le
+                  portail Documentation.
+                  `VisuallyHidden` donne le nom sans rien changer au rendu.
+                */}
+                <VisuallyHidden>{o.label}</VisuallyHidden>
               </Center>
             </Tooltip>
           ),

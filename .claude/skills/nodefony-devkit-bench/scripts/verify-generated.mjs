@@ -361,11 +361,13 @@ step(
 step(
   "un SERVICE, puis la COMMANDE qui l'appelle — exemple REMPLACÉ",
   "Le geste que le gabarit RÉCLAME, et qu'un générateur punissait : suivre son conseil le cassait.",
-  // Jouée AVANT les entités, et c'est ce qui la rend déterministe : `create
-  // entity` dépose lui aussi des services CRUD dans `nodefony/service/`, et
-  // `--service` prend le PREMIER service appelable qu'il y trouve. Ici le
-  // dossier n'existe pas encore — le service choisi est forcément le nôtre,
-  // donc l'assertion sur la méthode appelée dit bien ce qu'elle prétend.
+  // Le service visé est DÉSIGNÉ (`--service <Nom>`), il n'est plus déduit de
+  // l'ordre du disque. Cette étape reposait sur « le dossier n'existe pas
+  // encore, donc le premier service trouvé est forcément le nôtre » — un
+  // présupposé que la première application livrant deux services d'exemple a
+  // suffi à casser : le générateur choisissait alors le premier
+  // ALPHABÉTIQUEMENT, et l'assertion ci-dessous ne mesurait plus rien de ce
+  // qu'elle prétend. Un banc ne doit pas dépendre d'un ordre de répertoire.
   () => {
     run(process.execPath, [BIN, "create", "service", SERVICE, "--yes"]);
     const svcFile = path.join(
@@ -401,6 +403,7 @@ step(
       "command",
       COMMAND_ACTION,
       "--service",
+      `${SERVICE}Service`,
       "--yes",
     ]);
 

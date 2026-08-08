@@ -2,6 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import { PLATFORM_EVENTS, escapeRegExp } from "nodefony";
+import { originWithHostname } from "../remoteDev";
 import type { IViteSupervisor } from "../../interfaces/IViteSupervisor";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder";
 
@@ -62,10 +63,15 @@ export class TemplateHelper {
    * @param entryName nom logique de l'entrée (matche `entryName` dans IResolvedFrontendEntry)
    * @param nonce nonce CSP de la requête (`Context.cspNonce`) — posé sur les `<script>`
    *   pour satisfaire `script-src 'nonce-…'` (preamble inline dev + entrée prod).
+   * @param requestHost nom d'hôte par lequel le client a demandé la PAGE
+   *   (`Context.domain`, sans port). Dev : l'origine des assets est réécrite
+   *   sur ce nom (scheme et port restent ceux de Vite) → poste et conteneur
+   *   servis par la même instance. Prod : **ignoré** — les URLs du manifest
+   *   sont relatives au document, elles suivent déjà l'hôte de la page.
    */
-  renderTags(entryName: string, nonce?: string): string {
+  renderTags(entryName: string, nonce?: string, requestHost?: string): string {
     if (this.mode === "development") {
-      return this.renderDevTags(entryName, nonce);
+      return this.renderDevTags(entryName, nonce, requestHost);
     }
     return this.renderProdTags(entryName, nonce);
   }
@@ -79,8 +85,12 @@ export class TemplateHelper {
    *
    * @param entryName nom logique de l'entrée
    */
-  renderDocument(entryName: string, nonce?: string): string {
-    const tags = this.renderTags(entryName, nonce);
+  renderDocument(
+    entryName: string,
+    nonce?: string,
+    requestHost?: string,
+  ): string {
+    const tags = this.renderTags(entryName, nonce, requestHost);
     const entry =
       this.entries.find((e) => e.entryName === entryName) ??
       this.supervisor?.status().entries.find((e) => e.entryName === entryName);
@@ -150,7 +160,11 @@ ${tags}
     return html;
   }
 
-  private renderDevTags(entryName: string, nonce?: string): string {
+  private renderDevTags(
+    entryName: string,
+    nonce?: string,
+    requestHost?: string,
+  ): string {
     if (!this.supervisor) {
       return `<!-- @nodefony/frontend: no vite supervisor (dev) -->`;
     }
@@ -163,7 +177,23 @@ ${tags}
     if (!entry) {
       return `<!-- @nodefony/frontend: unknown entry "${entryName}" -->`;
     }
-    const baseUrl = `${status.https ? "https" : "http"}://${status.host}:${status.port}`;
+    // Origine PUBLIQUE calculée par le superviseur (P14.17) — verbatim : port
+    // inclus seulement s'il y figure (forwarder Codespaces/Gitpod = 443
+    // implicite). Le fallback recomposé ne sert qu'aux doubles de test qui ne
+    // renseignent pas encore `origin`.
+    const resolvedOrigin =
+      status.origin ??
+      `${status.https ? "https" : "http"}://${status.host}:${status.port}`;
+    // Dérivation par requête : le client reçoit l'origine par laquelle IL est
+    // arrivé (nom seul — scheme et port restent ceux de Vite). Poste et
+    // conteneur sont ainsi servis SIMULTANÉMENT par une seule instance, sans
+    // variable d'environnement à poser puis à ne pas oublier de retirer.
+    // Le service ne transmet `requestHost` que si la dérivation est permise
+    // (origine non épinglée) et l'hôte de confiance ; un nom inexploitable
+    // laisse `originWithHostname` renvoyer `null` → on garde l'origine résolue.
+    const baseUrl = requestHost
+      ? (originWithHostname(resolvedOrigin, requestHost) ?? resolvedOrigin)
+      : resolvedOrigin;
     // Multi-bundle (P14.6) : URL via `/@fs/<absolute>` plutôt que relative au
     // root Vite unique. Sans ça, deux consumers qui ont chacun `frontend/src/main.tsx`
     // produisent la même URL `${baseUrl}/src/main.tsx` et Vite résout contre le

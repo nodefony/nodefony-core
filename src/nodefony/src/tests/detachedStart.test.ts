@@ -142,7 +142,19 @@ async function killDetached(pid: number | undefined): Promise<void> {
   if (!pid) return;
   // Même implémentation que le reste du dépôt : groupe POSIX / `taskkill /T` Windows.
   signalProcessGroup(pid, "SIGKILL");
-  await waitAllDead([pid], 5000);
+  // `waitAllDead` RETOURNE les survivants — il ne lève rien. Ignorer sa valeur
+  // faisait rendre la main comme si la mort était acquise : le nettoyage partait
+  // sur un répertoire encore tenu, et rougissait en `EPERM` sous Windows pour une
+  // faute qui n'était pas la sienne. Un process qui survit à SIGKILL est le VRAI
+  // danger que ce nettoyage existe pour éviter (un immortel sur la machine) : il
+  // se dit, fort, au lieu de se déduire d'un `EPERM` deux lignes plus bas.
+  const survivants = await waitAllDead([pid], 5000);
+  if (survivants.length > 0) {
+    console.warn(
+      `[detachedStart] process ${survivants.join(", ")} survit à SIGKILL après 5 s — ` +
+        `le répertoire de travail restera probablement verrouillé (Windows).`,
+    );
+  }
 }
 
 /**
@@ -159,12 +171,28 @@ async function killDetached(pid: number | undefined): Promise<void> {
  * couvrent — en ceinture. Sans effet sous POSIX, où la suppression passe du premier coup.
  */
 function removeWorkDir(dir: string): void {
-  fs.rmSync(dir, {
-    recursive: true,
-    force: true,
-    maxRetries: 20,
-    retryDelay: 50,
-  });
+  try {
+    fs.rmSync(dir, {
+      recursive: true,
+      force: true,
+      maxRetries: 20,
+      retryDelay: 50,
+    });
+  } catch (e) {
+    // 🔴 Un NETTOYAGE qui échoue ne doit jamais invalider des assertions qui sont
+    // passées. C'est exactement ce qui rougissait la plateforme Windows en
+    // intégration continue : le test avait tout vérifié, et tombait dans son
+    // `finally` sur un verrou que le système n'avait pas encore relâché.
+    //
+    // Le dossier vit dans le temporaire de la machine — l'y laisser coûte un
+    // répertoire vide que l'OS balaiera, quand faire échouer le run coûte un
+    // diagnostic entier sur une piste fausse. On AVERTIT (le résidu se constate)
+    // sans transformer un ménage imparfait en échec de mesure.
+    console.warn(
+      `[detachedStart] répertoire de travail non supprimé : ${dir} — ` +
+        `${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
 }
 
 describe("development --no-watch — la sortie explicite du superviseur", () => {

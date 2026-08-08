@@ -47,6 +47,8 @@ lancement depuis un sous-dossier, qui ferait booter un « projet fantôme ».
 | `cluster-ipc.mjs`         | `cluster-ipc` | coût réel du fan-out cross-process worker → maître → workers, **avant** Redis                           |
 | `log-sink-contention.mjs` | `log-sink`    | microbanc isolé du driver de journal, sans le bruit du RPS HTTP                                         |
 | `aimd-demo.mjs`           | `aimd`        | démonstration lisible et déterministe de la cadence adaptative, difficile à observer au navigateur      |
+| `route-scan-cost.mjs`     | —             | combien de `Route.match` chaque requête paie, ce que ce scan coûte, et comment il grandit à N routes    |
+| `db-backend-cost.mjs`     | —             | ce qu'un pilote de base coûte au serveur : latence, blocage de la boucle, et ce qui plafonne vraiment   |
 | `boot-bench.mjs`          | —             | temps de démarrage d'un mode, du spawn à l'écoute, et nombre de kernels instanciés                      |
 | `boot-profile.mjs`        | —             | le même démarrage, mais **détaillé** : la sortie horodatée jusqu'à l'écoute, pour voir où part le temps |
 | `poc-hmr-perf.mjs`        | —             | délai de bout en bout entre le `touch` d'un fichier surveillé et le rechargement Vite                   |
@@ -99,14 +101,17 @@ Un décor à part, avec son propre `node_modules` (16 Mo, **non versionné**) : 
 des serveurs nus pour situer le coût du pipeline. Le résultat de Nodefony vient de
 `scripts/bench-ab-mono.sh`, pas d'ici.
 
-| Fichier            | Rôle                                                                                  |
-| ------------------ | ------------------------------------------------------------------------------------- |
-| `bench.sh`         | orchestre la comparaison des trois cibles et rend le tableau                          |
-| `bare.mjs`         | serveur `node:http` nu — le plancher absolu, sans routeur ni middleware               |
-| `express.mjs`      | Express avec sa configuration usuelle                                                 |
-| `express-fair.mjs` | Express **à parité de fonctionnalités** — c'est celui qui rend la comparaison honnête |
-| `fastify.mjs`      | Fastify avec sa configuration usuelle                                                 |
-| `payload.mjs`      | la charge utile commune, pour que les trois répondent exactement la même chose        |
+| Fichier                    | Rôle                                                                                                                                                                                                                                                                                                       |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bench.sh`                 | orchestre la comparaison des trois cibles et rend le tableau                                                                                                                                                                                                                                               |
+| `bare.mjs`                 | serveur `node:http` nu — le plancher absolu, sans routeur ni middleware                                                                                                                                                                                                                                    |
+| `express.mjs`              | Express avec sa configuration usuelle                                                                                                                                                                                                                                                                      |
+| `express-fair.mjs`         | Express **à parité de fonctionnalités** — c'est celui qui rend la comparaison honnête                                                                                                                                                                                                                      |
+| `express-fair-proof.mjs`   | **preuve d'équité** : la cible de banc ne traverse rien de dormant — 1 000 req → 0 Set-Cookie, 0 commit sqlite (`PRAGMA data_version` + counts), profiler 404. À rejouer depuis la RACINE du repo, serveur mono prod au décor du banc lancé au préalable                                                   |
+| `fastify.mjs`              | Fastify avec sa configuration usuelle                                                                                                                                                                                                                                                                      |
+| `payload.mjs`              | la charge utile commune, pour que les trois répondent exactement la même chose                                                                                                                                                                                                                             |
+| `express-drizzle.mjs`      | Express + Drizzle à **parité ORM** avec le banc `NF_BENCH_ORM` (même schéma pg-core via le dist du module test, même version drizzle par résolution racine, même PG). `DRIZZLE_MODE=naive` (build/req, le code idiomatique) ou `prepared` (mémoïsé = le lot du framework). Recoupement croisé d'un A/B ORM |
+| `express-fair-drizzle.mjs` | le duel complet : middlewares d'`express-fair` **plus** la même requête Drizzle — l'écart restant face à Nodefony est le vrai surcoût à parité de travail ET d'ORM (mesuré ×1,07)                                                                                                                          |
 
 > Comparer un framework à un serveur nu ne dit presque rien : `express-fair.mjs` existe parce
 > qu'une comparaison sans parité de fonctionnalités mesure surtout ce qu'on a oublié de brancher.

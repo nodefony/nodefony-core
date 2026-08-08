@@ -27,14 +27,16 @@ class PocController extends Controller {
   renderReact(): unknown {
     this.setContextHtml();
     const svc = this.context?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
+      FrontendService | undefined;
     // CSP : le firewall (@nodefony/security) émet désormais le CSP (nonce + origines
     // Vite déclarées via registerCspOrigins). On ne fait que propager le nonce de la
     // requête aux <script> rendus → satisfait `script-src 'nonce-…'`.
     const viteTags =
-      svc?.renderTags("test-frontend-react", this.context?.cspNonce) ??
-      "<!-- @nodefony/frontend: service unavailable -->";
+      svc?.renderTags(
+        "test-frontend-react",
+        this.context?.cspNonce,
+        this.context?.domain,
+      ) ?? "<!-- @nodefony/frontend: service unavailable -->";
     const html = `<!DOCTYPE html>
 <html lang="en">
   <head>

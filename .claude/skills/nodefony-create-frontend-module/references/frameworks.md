@@ -244,3 +244,52 @@ const external = [
 4. **HMR = page reload** (état perdu), pas hot-swap comme React/Vue.
 5. `--legacy-peer-deps` ne réinstalle PAS les peers optionnels → vérifier que `@vitejs/plugin-react`
    des autres bundles n'a pas sauté.
+
+## Svelte 5 (runes)
+
+Preset `svelte5` (@nodefony/frontend) — famille d'isolation `default` (cohabite avec
+React/Vue : extensions `.svelte` disjointes). Plugin `@sveltejs/vite-plugin-svelte`,
+**export NOMMÉ** (`import { svelte } from …` — seul plugin de la liste sans default).
+
+### Entry — `frontend/src/main.ts`
+
+```typescript
+import { mount } from "svelte";
+import App from "./App.svelte";
+
+const el = document.getElementById("app");
+if (!el) throw new Error("#app not found");
+mount(App, { target: el });
+```
+
+`mount()` est l'API Svelte 5 — pas `new App({ target })` (Svelte 4, supprimée).
+
+### Shim TS — `frontend/env.d.ts`
+
+Sans lui, tsgo ne résout pas `import App from "./App.svelte"` :
+
+```typescript
+/// <reference types="vite/client" />
+declare module "*.svelte" {
+  import type { Component } from "svelte";
+  const component: Component;
+  export default component;
+}
+```
+
+Le typecheck de l'INTÉRIEUR des `.svelte` relève de `svelte-check` (hors scope tsgo).
+
+### App — `frontend/src/App.svelte`
+
+État en runes : `let count = $state(0)` ; handlers `onclick={...}` (pas `on:click`,
+déprécié en 5). Cycle de vie : `onMount`/`onDestroy` de `"svelte"`.
+Copier/adapter depuis `src/modules/test-frontend-svelte/frontend/` (canonique).
+
+### Pièges Svelte
+
+1. **Dans le REPO framework**, le plugin n'est PAS aux devDeps racine (contrairement à
+   react/vue/angular) : il vient du `package.json` du module test (workspace, hissé par
+   `npm install`). Dans une APP, le scaffold le pose en devDependencies.
+2. **App `--link`** : le preset (dist du CHECKOUT) ne résout pas le plugin de l'APP par
+   import relatif — `svelte5-vite.ts` porte un fallback `createRequire(cwd)` +
+   `pathToFileURL`. Ne pas le « simplifier ».

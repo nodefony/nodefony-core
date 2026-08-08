@@ -87,7 +87,13 @@ export interface IScaffoldTypeSpec {
 }
 
 /** Frameworks front supportés par `@nodefony/frontend` (builder Vite multi-framework). */
-export const FRONTEND_CHOICES = ["none", "react", "vue", "angular"] as const;
+export const FRONTEND_CHOICES = [
+  "none",
+  "react",
+  "vue",
+  "angular",
+  "svelte",
+] as const;
 export type TFrontendChoice = (typeof FRONTEND_CHOICES)[number];
 
 /** Presets d'app : la vitrine complète (défaut) ou la base saine http+framework. */
@@ -193,6 +199,11 @@ const APP_SPEC: IScaffoldTypeSpec = {
           value: "angular",
           label: "Angular (standalone, zoneless)",
           hint: "via AnalogJS",
+        },
+        {
+          value: "svelte",
+          label: "Svelte 5",
+          hint: "runes + HMR (plugin officiel)",
         },
       ],
       default: "none",
@@ -364,6 +375,11 @@ const FRONT_SPEC: IScaffoldTypeSpec = {
           value: "angular",
           label: "Angular (standalone, zoneless)",
           hint: "via AnalogJS",
+        },
+        {
+          value: "svelte",
+          label: "Svelte 5",
+          hint: "runes + HMR (plugin officiel)",
         },
       ],
       default: "react",
@@ -571,6 +587,22 @@ const COMMAND_SPEC: IScaffoldTypeSpec = {
       label: "Appeler le service du module (exemple de délégation)",
       type: "boolean",
       default: false,
+      advanced: true,
+    },
+    {
+      // LEQUEL. Séparé du booléen ci-dessus parce que la spec est le contrat des
+      // trois fronts : un champ à deux types (oui/non OU un nom) obligerait
+      // chacun à le désambiguïser pour son compte. Ici Studio affichera une
+      // liste déroulante, le CLI accepte `--service <Nom>`.
+      //
+      // Vide, la cible ne doit avoir QU'UN service appelable — sinon le scaffold
+      // refuse en nommant les candidats. Il choisissait auparavant le premier de
+      // l'ordre du disque, donc le premier alphabétiquement : juste tant qu'une
+      // application n'avait qu'un service, faux dès le deuxième, et silencieux.
+      key: "serviceName",
+      label: "Quel service appeler (vide = le seul de la cible)",
+      type: "string",
+      default: "",
       advanced: true,
     },
   ],

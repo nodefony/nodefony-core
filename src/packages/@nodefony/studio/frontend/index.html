@@ -1,10 +1,22 @@
 <!doctype html>
-<html lang="en">
+<!--
+  `lang` déclare la langue du CONTENU, pas celle du code : l'interface de Studio
+  est rédigée en français, et un `lang="en"` fait lire l'écran par une voix
+  anglaise au lecteur d'écran. Aucun audit ne l'a signalé — `html-has-lang` ne
+  vérifie que la PRÉSENCE de l'attribut, jamais sa justesse.
+-->
+<html lang="fr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="color-scheme" content="dark light" />
     <title>Nodefony Studio</title>
+    <!-- Décrit la page aux moteurs ET aux agents : c'est la première phrase
+         qu'un modèle lit pour savoir sur quoi il vient d'atterrir. -->
+    <meta
+      name="description"
+      content="Console d'administration de Nodefony — supervision temps réel, journaux, modules, routes, base de données et sécurité d'une application Nodefony."
+    />
     <!-- favicon inline (hexagone brand #0067ba) — sans lui le navigateur
          demande /favicon.ico → 404 dans la console à chaque page Studio -->
     <link

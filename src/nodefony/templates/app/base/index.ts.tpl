@@ -1,6 +1,9 @@
-import { Module } from "nodefony";
+import { Module<% if (it.complete) { %>, services<% } %> } from "nodefony";
 import type { Kernel } from "nodefony";
 import { controllers } from "@nodefony/framework";
+<% if (it.complete) { %>import AppInfoService from "./nodefony/service/AppInfoService";
+import AppBannerService from "./nodefony/service/AppBannerService";
+<% } %>
 <% if (it.front) { %>import { register<%= it.pascal %>Entry } from "./nodefony/frontend/register<%= it.pascal %>Entry";
 <% } %>import config from "./nodefony.config";
 import HelloController from "./nodefony/controllers/HelloController";
@@ -17,10 +20,18 @@ export { env } from "./env";
 
 /**
  * Point d'entrée de l'application (chargé par le Kernel : `dist/index.js`).
- * L'app ne déclare ici que ce qui lui est INTRINSÈQUE : ses controllers.
- * Les modules chargés vivent dans `nodefony.config.ts` (manifeste `modules`).
- */
-@controllers([HelloController<% if (it.complete) { %>, LiveController<% } %><% if (it.front) { %>, AppController<% } else { %>, HomeController<% } %>])
+ * L'app ne déclare ici que ce qui lui est INTRINSÈQUE : ses controllers et ses
+ * services. Les modules chargés vivent dans `nodefony.config.ts` (manifeste
+ * `modules`).
+ *
+<% if (it.complete) { %> *
+ * ⚠️ `@services([…])` est ce qui fait EXISTER un service : écrire une classe
+ * `@injectable()` sans l'ajouter ici la laisse invisible au conteneur. Tout
+ * service que tu ajoutes — le tien, ou celui que `nodefony create service`
+ * génère — se déclare dans cette liste.
+<% } %> */
+<% if (it.complete) { %>@services([AppInfoService, AppBannerService])
+<% } %>@controllers([HelloController<% if (it.complete) { %>, LiveController<% } %><% if (it.front) { %>, AppController<% } else { %>, HomeController<% } %>])
 class App extends Module {
   constructor(kernel: Kernel) {
     super("app", kernel, import.meta.url, config);

@@ -329,3 +329,74 @@ describe("HttpResponse — Vary ne s'écrase pas (F12)", () => {
     expect(got).to.equal("deux");
   });
 });
+
+describe("writeHead() — filet Content-Type + ligne de statut standard", () => {
+  // Harnais dédié : capture les arguments du writeHead natif pour prouver
+  // le fast path (message standard NON transmis) et le filet Content-Type.
+  function makeCapturingResponse(): {
+    r: HttpResponse;
+    headers: Record<string, number | string | string[]>;
+    writeHeadCalls: unknown[][];
+  } {
+    const headers: Record<string, number | string | string[]> = {};
+    const writeHeadCalls: unknown[][] = [];
+    const mockServerResponse = {
+      headersSent: false,
+      statusMessage: "",
+      setHeader: (name: string, value: number | string | string[]) => {
+        headers[name.toLowerCase()] = value;
+      },
+      getHeader: (name: string) => headers[name.toLowerCase()],
+      getHeaders: () => ({ ...headers }),
+      hasHeader: (name: string) => name.toLowerCase() in headers,
+      removeHeader: (name: string) => {
+        delete headers[name.toLowerCase()];
+      },
+      writeHead: (...args: unknown[]) => {
+        writeHeadCalls.push(args);
+      },
+      addTrailers: () => {},
+    } as unknown as http.ServerResponse;
+    const ctx = {
+      type: "http",
+      method: "GET",
+      log: () => undefined,
+    } as unknown as HttpContext;
+    return {
+      r: new HttpResponse(mockServerResponse, ctx),
+      headers,
+      writeHeadCalls,
+    };
+  }
+
+  it("émet application/octet-stream quand AUCUN Content-Type n'a été choisi", () => {
+    const { r, headers } = makeCapturingResponse();
+    r.writeHead(200);
+    expect(headers["content-type"]).to.equal("application/octet-stream");
+  });
+
+  it("ne touche PAS à un Content-Type déjà choisi", () => {
+    const { r, headers } = makeCapturingResponse();
+    r.setContentType("application/json", "utf-8");
+    r.writeHead(200);
+    expect(headers["content-type"]).to.equal("application/json");
+  });
+
+  it("message STANDARD : la ligne de statut n'est pas recomposée (2 args)", () => {
+    const { r, writeHeadCalls } = makeCapturingResponse();
+    r.writeHead(404);
+    expect(writeHeadCalls).to.have.length(1);
+    // (statusCode, headers) — pas de statusMessage custom transmis à node
+    expect(writeHeadCalls[0][0]).to.equal(404);
+    expect(writeHeadCalls[0][1]).to.not.be.a("string");
+  });
+
+  it("message CUSTOM : transmis assaini (3 args)", () => {
+    const { r, writeHeadCalls } = makeCapturingResponse();
+    r.setStatusCode(403, "Access Denied");
+    r.writeHead();
+    expect(writeHeadCalls).to.have.length(1);
+    expect(writeHeadCalls[0][0]).to.equal(403);
+    expect(writeHeadCalls[0][1]).to.equal("Access Denied");
+  });
+});

@@ -233,7 +233,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         /preset invalide/,
       );
       assert.throws(
-        () => resolveAnswers(spec, { name: "x", frontend: "svelte" }, caps),
+        // `solid` est déclaré dans les presets @nodefony/frontend mais n'a pas
+        // (encore) de scaffold — le contrat refuse ce que le moteur ne rend pas.
+        () => resolveAnswers(spec, { name: "x", frontend: "solid" }, caps),
         /frontend invalide/,
       );
     });
@@ -300,6 +302,28 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // est pire qu'un script absent.
       assert.property(pkg["scripts"], "clean");
       assert.notInclude(pkg["scripts"]["clean"], "rimraf");
+      // `verify` : UNE commande qui enchaîne les gates. Mesuré au banc de
+      // découvrabilité (tâche 13) — un agent a livré du code qui ne compilait
+      // pas sans avoir lancé le typecheck une seule fois, alors que les quatre
+      // gates étaient documentés séparément. Quatre commandes à composer, c'est
+      // zéro commande lancée ; le gate oublié était toujours `typecheck`, le
+      // seul que le build ne fait pas.
+      assert.property(pkg["scripts"], "verify");
+      for (const gate of ["typecheck", "lint", "test", "check"]) {
+        assert.include(
+          pkg["scripts"]["verify"],
+          gate,
+          `verify doit enchaîner « ${gate} »`,
+        );
+        assert.property(
+          pkg["scripts"],
+          gate,
+          `verify appelle « ${gate} », qui doit exister`,
+        );
+      }
+      // Le gate LENT reste dehors : un `verify` qui boote l'app ne serait plus
+      // lancé, et on aurait remplacé quatre gates oubliés par un seul.
+      assert.notInclude(pkg["scripts"]["verify"], "e2e");
       assertNoEtaResidue(dest);
       assert.isEmpty(r.linked);
     });
@@ -902,6 +926,69 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const apkg = readJson(path.join(adest, "package.json"));
       assert.property(apkg["devDependencies"], "@analogjs/vite-plugin-angular");
       assertNoEtaResidue(adest);
+    });
+
+    it("svelte : App.svelte (runes) + shim + plugin en devDeps — complete ET minimal", () => {
+      // Vitrine complète — mêmes preuves que vue (façade realtime, pas de
+      // WebSocket à la main), en syntaxe runes ($state) + mount() Svelte 5.
+      const sdest = path.join(tmp, "slive");
+      scaffold(sdest, {
+        name: "slive",
+        preset: "complete",
+        frontend: "svelte",
+      });
+      const sapp = readFileSync(
+        path.join(sdest, "frontend", "src", "App.svelte"),
+        "utf8",
+      );
+      assert.include(
+        sapp,
+        'RealtimeClient.shared({ url: "/api/live/realtime" })',
+      );
+      assert.include(sapp, 'live.on("live:ticker"');
+      assert.include(sapp, 'live.subscribe("live:ticker")');
+      assert.include(sapp, "$state");
+      assert.notInclude(sapp, "new WebSocket(");
+      const sentry = readFileSync(
+        path.join(sdest, "frontend", "src", "main.ts"),
+        "utf8",
+      );
+      assert.include(sentry, 'import { mount } from "svelte"');
+      // Shim TS : sans lui, tsgo ne résout pas l'import ./App.svelte.
+      assert.include(
+        readFileSync(path.join(sdest, "frontend", "src", "env.d.ts"), "utf8"),
+        'declare module "*.svelte"',
+      );
+      // tsgo checke le TS du front (main.ts + shim) — même règle que vue.
+      assert.include(
+        readFileSync(path.join(sdest, "tsconfig.json"), "utf8"),
+        "frontend/src/**/*.ts",
+      );
+      const spkg = readJson(path.join(sdest, "package.json"));
+      assert.property(spkg["devDependencies"], "svelte");
+      assert.property(spkg["devDependencies"], "@sveltejs/vite-plugin-svelte");
+      assert.notProperty(spkg["dependencies"] ?? {}, "svelte");
+      assert.include(
+        readFileSync(
+          path.join(sdest, "nodefony", "frontend", "registerSliveEntry.ts"),
+          "utf8",
+        ),
+        'type: "svelte5"',
+      );
+      assertNoEtaResidue(sdest);
+
+      // Minimal — echo WS brut (pas de realtime), compteur HMR.
+      const mdest = path.join(tmp, "sapp");
+      scaffold(mdest, { name: "sapp", preset: "minimal", frontend: "svelte" });
+      const mapp = readFileSync(
+        path.join(mdest, "frontend", "src", "App.svelte"),
+        "utf8",
+      );
+      assert.include(mapp, "new WebSocket(");
+      // La façade n'est pas IMPORTÉE en minimal (le commentaire du gabarit la
+      // MENTIONNE — c'est voulu : il pointe vers `create controller --kind realtime`).
+      assert.notInclude(mapp, "import { RealtimeClient }");
+      assertNoEtaResidue(mdest);
     });
 
     it("la feuille de style de la vitrine est PARTAGÉE, l'accent seul est local", () => {
@@ -2068,6 +2155,31 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
     });
 
+    it("un TSDoc qui CITE @services([…]) n'est pas réécrit à la place du décorateur", () => {
+      // Vécu sur un run du banc : `String.replace` sans `g` réécrit la PREMIÈRE
+      // occurrence, et le gabarit d'application CITE `@services([…])` dans le
+      // TSDoc au-dessus de la classe pour expliquer à quoi sert la liste. La
+      // prose se retrouvait donc réécrite — « `@services([…, TaxService])` est
+      // ce qui fait EXISTER un service » — et s'allongeait à chaque service
+      // créé, pendant que le vrai décorateur était bien étendu. Rien ne cassait :
+      // un commentaire ne compile pas.
+      const dest = path.join(tmp, "svctsdoc");
+      scaffold(dest, { name: "svctsdoc", preset: "minimal" });
+      const indexPath = path.join(dest, "index.ts");
+      const prose = " * ⚠️ `@services([…])` fait EXISTER un service.";
+      writeFileSync(
+        indexPath,
+        readFileSync(indexPath, "utf8").replace(
+          /^(class App extends Module\b)/mu,
+          `/**\n${prose}\n */\n$1`,
+        ),
+      );
+      service(dest, { name: "tax", description: "TVA" });
+      const after = readFileSync(indexPath, "utf8");
+      assert.include(after, prose, "le TSDoc a été réécrit à la place du code");
+      assert.match(after, /^@services\(\[TaxService\]\)$/mu);
+    });
+
     it("module créé avec --no-service : le décorateur est CRÉÉ là aussi", () => {
       const dest = path.join(tmp, "svcnosvc");
       scaffold(dest, { name: "svcnosvc", preset: "minimal" });
@@ -2708,7 +2820,16 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(dest, "nodefony", "controllers", "DashboardController.ts"),
         "utf8",
       );
-      assert.include(ctrl, 'renderDocument("dashboard"');
+      assert.include(ctrl, '"dashboard"');
+      assert.include(ctrl, "renderDocument(");
+      // Les DEUX données de la requête sont propagées au rendu : le nonce CSP
+      // (sans lui, `script-src 'nonce-…'` bloque les balises émises) ET l'hôte
+      // (sans lui, l'application générée annonce ses assets sur l'hôte du
+      // démarrage — un poste et un conteneur ne peuvent plus être servis
+      // ensemble, panne vécue sur Studio). Un gabarit est du code DISTRIBUÉ :
+      // ce qu'il n'écrit pas, aucune application ne l'aura.
+      assert.include(ctrl, "this.context?.cspNonce");
+      assert.include(ctrl, "this.context?.domain");
       assert.include(ctrl, 'path: "/dashboard"');
       assertNoEtaResidue(dest);
     });
@@ -3591,7 +3712,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
       it("une énumération à DEUX valeurs les offre ; à UNE seule, elle ne prouve rien", () => {
         const deux = filterProbe([
-          champ({ name: "statut", type: "enum", values: ["draft", "published"] }),
+          champ({
+            name: "statut",
+            type: "enum",
+            values: ["draft", "published"],
+          }),
         ]);
         assert.strictEqual(deux?.name, "statut");
         assert.strictEqual(deux?.match, "draft");
@@ -3600,7 +3725,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // « toutes les lignes portent la valeur demandée » serait vrai même
         // avec le filtre débranché.
         assert.isNull(
-          filterProbe([champ({ name: "statut", type: "enum", values: ["draft"] })]),
+          filterProbe([
+            champ({ name: "statut", type: "enum", values: ["draft"] }),
+          ]),
         );
       });
 
@@ -3622,14 +3749,20 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       });
 
       it("booléen, entier et énumération savent refuser — chacun sa valeur fautive", () => {
-        assert.deepStrictEqual(malformedProbe([{ name: "actif", def: '"boolean"' }]), {
-          name: "actif",
-          value: "oui",
-        });
-        assert.deepStrictEqual(malformedProbe([{ name: "auteur", def: '"int"' }]), {
-          name: "auteur",
-          value: "abc",
-        });
+        assert.deepStrictEqual(
+          malformedProbe([{ name: "actif", def: '"boolean"' }]),
+          {
+            name: "actif",
+            value: "oui",
+          },
+        );
+        assert.deepStrictEqual(
+          malformedProbe([{ name: "auteur", def: '"int"' }]),
+          {
+            name: "auteur",
+            value: "abc",
+          },
+        );
         // Le premier filtre RÉFUTABLE est retenu, pas le premier déclaré.
         assert.deepStrictEqual(
           malformedProbe([

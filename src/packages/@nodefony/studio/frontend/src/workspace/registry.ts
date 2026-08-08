@@ -3,7 +3,9 @@
  * premier `import "./widgets"`. Lookup O(1) par id ; liste filtrée par rôle.
  */
 import type { IWidgetDef, WidgetCategory } from "./types";
-import { isVisibleForRoles, VIEW_ROLES } from "../auth/roles";
+// `roleNames` et NON `roles` : le catalogue est atteint au top-level depuis les
+// stores, et `roles.ts` importe les stores — y passer refermerait un cycle.
+import { isVisibleForRoles, VIEW_ROLES } from "../auth/roleNames";
 
 const REGISTRY = new Map<string, IWidgetDef>();
 

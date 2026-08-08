@@ -7,14 +7,19 @@ import {
   devSupervisorPidFile,
   discoverDevProcessesDetailed,
   discoverFromRuntimeState,
+  foreignPortOwners,
+  formatForeignRuntimes,
   formatUptime,
   isNodefonyProjectDir,
   isPidAlive,
+  portOwnership,
   probePorts,
   readSupervisorPid,
   runtimeModes,
   splitByProject,
+  type DevObservationDeps,
   type DevProcessInfo,
+  type DevProcessWithCwd,
   type DiscoverOptions,
   type PortState,
   type RuntimeMode,
@@ -113,6 +118,20 @@ export interface DevStatusReport {
    * (un dev perdu hors projet croyait l'app simplement arrêtée, vécu).
    */
   readonly inProject: boolean;
+  /**
+   * Runtimes des AUTRES projets du poste — jamais comptés dans {@link processes},
+   * jamais tus. `status` s'attribuait ces process : une application arrêtée
+   * s'entendait dire « 4 process · 2/2 ports UP », diagnostic faux et rassurant à
+   * tort. Ils sont NOMMÉS avec leur dossier, exactement comme `nodefony stop` le
+   * fait — un dev qui cherche qui tient son port a besoin de la réponse.
+   */
+  readonly foreign: readonly DevProcessWithCwd[];
+  /**
+   * Ports occupés par un projet identifié qui n'est PAS le nôtre (port → racine).
+   * Sépare « pas à moi » de « pas mort » : sans cette table, un port du voisin se
+   * lit comme un serveur à nous, ou comme un arrêt qui a échoué.
+   */
+  readonly portOwners: Readonly<Record<number, string>>;
 }
 
 /**
@@ -134,6 +153,18 @@ export function buildDevStatus(
    * depuis n'importe quel système ce que dit un rapport privé d'observation.
    */
   discoverySupported = true,
+  /**
+   * Runtimes des AUTRES projets, déjà écartés de `procs` par l'appelant — la
+   * partition coûte un `lsof` par pid hors Linux (mesuré à plus d'une seconde pour
+   * un seul process), elle se fait donc UNE fois, là où les syscalls ont lieu.
+   */
+  foreign: readonly DevProcessWithCwd[] = [],
+  /**
+   * `true` si le rattachement au projet n'a pas pu être établi (répertoire courant
+   * des pids illisible) : `procs` est alors la liste GLOBALE du poste, et le rapport
+   * doit l'annoncer plutôt que laisser croire à un décompte scopé.
+   */
+  projectScopeBlind = false,
 ): DevStatusReport {
   const nSup = procs.filter((p) => p.role === "supervisor").length;
   const nSrv = procs.filter((p) => p.role === "server").length;
@@ -150,15 +181,14 @@ export function buildDevStatus(
   // ports) — la 1ʳᵉ cause du bug « dev démarré par-dessus prod ». À signaler en priorité.
   // Restreint à CE projet : un dev ici + un prod dans le dossier d'à côté n'a rien
   // d'anormal (chacun ses ports, cf `servers.portPolicy: "auto"`).
-  // Une SEULE partition pour tout le rapport. `splitByProject` demande au système
-  // le répertoire courant de chaque process, ce qui coûte un `lsof` par pid hors
-  // Linux — mesuré à plus d'une seconde pour un seul process. Ce calcul était fait
-  // deux fois avec les mêmes arguments : le rapport payait donc deux fois le prix
-  // d'une réponse identique, et `nodefony status` avec un superviseur, un serveur,
-  // Vite et des workers en payait une dizaine.
-  const mine = splitByProject(procs, cwd).mine;
-
-  const modes = runtimeModes(mine);
+  //
+  // `procs` NE CONTIENT QUE nos process — la partition par projet est faite par
+  // l'appelant, une seule fois : `splitByProject` demande au système le répertoire
+  // courant de chaque pid, ce qui coûte un `lsof` hors Linux (mesuré à plus d'une
+  // seconde pour un seul process). La faire ICI, en plus, coûtait deux fois le même
+  // prix — et surtout n'écartait les étrangers QUE des avertissements : le décompte,
+  // les ports et le drapeau `running`, eux, comptaient l'application du voisin.
+  const modes = runtimeModes(procs);
   if (modes.size > 1)
     warnings.push(
       `${modes.size} runtimes Nodefony cohabitent sur CE projet ` +
@@ -168,13 +198,7 @@ export function buildDevStatus(
   // « Empilement » = plusieurs runtimes DE CE PROJET. Depuis que les ports se
   // replient tout seuls (`servers.portPolicy: "auto"`), faire tourner deux apps
   // Nodefony en parallèle est NORMAL — `ps` voit alors 2 superviseurs et 2
-  // serveurs, et le compte global criait « anormal » sur une situation saine.
-  // Une alerte qui se déclenche sur le cas nominal ne se lit plus du tout : on
-  // ne compte donc que NOS process.
-  const nSupMine = mine.filter((p) => p.role === "supervisor").length;
-  const nSrvMine = mine.filter((p) => p.role === "server").length;
-  const nMasterMine = mine.filter((p) => p.role === "master").length;
-
+  // serveurs, et un compte GLOBAL criait « anormal » sur une situation saine.
   const supPids = procs
     .filter((p) => p.role === "supervisor")
     .map((p) => p.pid);
@@ -195,19 +219,19 @@ export function buildDevStatus(
     warnings.push(
       "process dev orphelins (serveur/Vite sans superviseur) — `nodefony stop` les nettoiera",
     );
-  if (nSupMine > 1)
+  if (nSup > 1)
     warnings.push(
-      `${nSupMine} superviseurs simultanés sur CE projet — empilement anormal`,
+      `${nSup} superviseurs simultanés sur CE projet — empilement anormal`,
     );
-  if (nMasterMine > 1)
+  if (nMaster > 1)
     warnings.push(
-      `${nMasterMine} masters cluster simultanés sur CE projet — empilement anormal`,
+      `${nMaster} masters cluster simultanés sur CE projet — empilement anormal`,
     );
   // Plusieurs `server` (rôle prod/dev mono) = empilement ; les workers cluster (rôle
   // distinct) sont, eux, attendus en nombre → exclus de ce contrôle.
-  if (nSrvMine > 1)
+  if (nSrv > 1)
     warnings.push(
-      `${nSrvMine} serveurs simultanés sur CE projet — empilement anormal`,
+      `${nSrv} serveurs simultanés sur CE projet — empilement anormal`,
     );
 
   // Dire d'OÙ vient l'information : un tableau sans mémoire ni CPU, affiché sans un mot,
@@ -215,6 +239,12 @@ export function buildDevStatus(
   if (!discoverySupported && procs.length > 0)
     warnings.push(
       "process non observables ici (`ps` indisponible) — topologie lue dans le pidfile et le fichier d'état (ni RSS, ni %CPU, ni Vite)",
+    );
+  // Fail-loud : mieux vaut une liste trop large ANNONCÉE qu'un « aucune instance »
+  // faux. Le décompte ci-dessous porte sur tout le poste, pas sur ce projet.
+  if (projectScopeBlind)
+    warnings.push(
+      "appartenance au projet indéterminable (répertoire courant des process illisible — `lsof` absent ?) — liste GLOBALE du poste, `nodefony stop` n'agira que sur ce projet",
     );
 
   return {
@@ -239,6 +269,8 @@ export function buildDevStatus(
       alive: pidAlive,
     },
     inProject,
+    foreign,
+    portOwners: foreignPortOwners(foreign),
   };
 }
 
@@ -250,36 +282,59 @@ export function buildDevStatus(
  */
 export async function collectDevStatus(
   cwd: string,
-  opts: DiscoverOptions = {},
+  opts: DiscoverOptions & DevObservationDeps = {},
 ): Promise<DevStatusReport> {
   const pid = readSupervisorPid(cwd);
   // Là où les process ne s'observent pas, on ne rend plus un rapport VIDE : c'était se
   // taire au moment précis où l'on a besoin de savoir ce qui tourne. Le pidfile, le
   // fichier d'état et la sonde TCP ne dépendent d'aucun `ps` — ils répondent partout.
-  const observed = discoverDevProcessesDetailed(opts);
-  const procs = observed.supported
-    ? observed.procs
-    : discoverFromRuntimeState(cwd);
-  const ports = await probePorts(defaultDevPorts(cwd));
+  const observed = (opts.discover ?? discoverDevProcessesDetailed)(opts);
+  // Le balayage `ps` est GLOBAL au poste : il faut le ramener à CE projet, sinon on
+  // rapporte l'application du voisin comme la sienne. Le repli par fichier d'état,
+  // lui, est déjà scopé par construction (le fichier vit sous notre racine).
+  const scoped = observed.supported
+    ? splitByProject(observed.procs, cwd, opts.getCwd)
+    : {
+        mine: discoverFromRuntimeState(cwd),
+        foreign: [] as DevProcessWithCwd[],
+      };
+  // Le rattachement à un projet repose sur le répertoire courant d'un pid — une
+  // capacité qui se CONSTATE : `lsof` peut manquer (image mince), le lien
+  // `/proc/<pid>/cwd` être refusé. Aucun process rattaché alors qu'il en tourne =
+  // l'attribution est AVEUGLE, pas « rien à moi ». Écarter dans ce cas serait
+  // annoncer « aucune instance » pendant que le serveur répond — un mensonge pire
+  // que celui qu'on corrige. On rend alors la liste GLOBALE et on le DIT (warning).
+  const cwdBlind =
+    observed.procs.length > 0 &&
+    scoped.mine.length === 0 &&
+    scoped.foreign.every((p) => p.cwd === null);
+  const ports = await (opts.probe ?? probePorts)(defaultDevPorts(cwd));
   return buildDevStatus(
     cwd,
     pid,
     pid !== null && isPidAlive(pid),
-    procs,
+    cwdBlind ? observed.procs : scoped.mine,
     ports,
     isNodefonyProjectDir(cwd),
     observed.supported,
+    cwdBlind ? [] : scoped.foreign,
+    cwdBlind,
   );
 }
 
 /** Collecte (ps + ports + pidfile) puis écrit le rapport status sur stdout. */
-export async function runStatusReport(cwd: string): Promise<void> {
+export async function runStatusReport(
+  cwd: string,
+  deps: DevObservationDeps = {},
+): Promise<void> {
   // CLI standalone : le process appelant n'est PAS un process dev → `includeSelf` neutre.
-  const report = await collectDevStatus(cwd);
+  const report = await collectDevStatus(cwd, deps);
   const lines: string[] = [];
   renderStatus(lines, report);
   // UN écrit synchrone (writeSync) → jamais tronqué par l'exit qui suit.
-  writeSync(1, lines.join("\n") + "\n");
+  (deps.write ?? ((chunk: string) => writeSync(1, chunk)))(
+    lines.join("\n") + "\n",
+  );
 }
 
 /**
@@ -322,10 +377,51 @@ export function renderProcessTable(
   }
 }
 
+/**
+ * Bloc des runtimes ÉTRANGERS — même mise en forme que `nodefony stop` (une seule
+ * implémentation, `formatForeignRuntimes`), y compris les commandes exactes pour
+ * aller les arrêter. `status` les taisait tout en les COMPTANT comme les siens : le
+ * dev voyait « 4 process » sans savoir qu'aucun n'était à lui.
+ */
+function renderForeign(lines: string[], report: DevStatusReport): void {
+  if (report.foreign.length === 0) return;
+  lines.push(
+    `  ${ANSI.dim}${report.foreign.length} runtime(s) d'un AUTRE projet sur ce poste (non comptés ci-dessus) :${ANSI.reset}`,
+    ...formatForeignRuntimes(report.foreign).map(
+      (l) => `${ANSI.dim}${l}${ANSI.reset}`,
+    ),
+  );
+}
+
+/**
+ * Ligne d'état des ports. `listening` seul ne dit pas à QUI : un port tenu par le
+ * projet voisin s'affichait `✓ UP` sous le titre de notre application. Le
+ * propriétaire connu est donc nommé, et un port étranger n'est jamais un verdict
+ * sur notre runtime.
+ */
+function portsLine(
+  report: DevStatusReport,
+  upLabel: string,
+  freeLabel: string,
+): string {
+  return report.ports
+    .map((p) => {
+      switch (portOwnership(p, report.portOwners)) {
+        case "free":
+          return `${p.port} ${freeLabel}`;
+        case "foreign":
+          return `${p.port} ${ANSI.yellow}occupé par ${report.portOwners[p.port]}${ANSI.reset}`;
+        default:
+          return `${p.port} ${upLabel}`;
+      }
+    })
+    .join("   ");
+}
+
 /** Rend le {@link DevStatusReport} en ANSI (tableau + ports + synthèse + warnings) dans `lines`. */
 function renderStatus(lines: string[], report: DevStatusReport): void {
   const tag = `${ANSI.dim}[status]${ANSI.reset}`;
-  const { processes: procs, ports } = report;
+  const { processes: procs } = report;
 
   // VÉRITÉ = `ps` (process réels), pas le pidfile : un PID recyclé ferait croire le
   // superviseur vivant. Aucun process dev réel → état « repos », et le pidfile n'est
@@ -340,26 +436,22 @@ function renderStatus(lines: string[], report: DevStatusReport): void {
           : `${ANSI.yellow}périmé (pid ${pid} mort)${ANSI.reset}`;
     lines.push(
       "",
-      `${tag} ${ANSI.bold}Nodefony dev — aucune instance en cours${ANSI.reset}`,
+      `${tag} ${ANSI.bold}Nodefony dev — aucune instance de ce projet en cours${ANSI.reset}`,
       `  ${ANSI.dim}pidfile${ANSI.reset}  ${report.pidfile.path} — ${pidNote}`,
-      `  ${ANSI.dim}ports${ANSI.reset}    ${ports
-        .map(
-          (p) =>
-            `${p.port} ${
-              p.listening
-                ? `${ANSI.yellow}occupé${ANSI.reset}`
-                : `${ANSI.dim}libre${ANSI.reset}`
-            }`,
-        )
-        .join("   ")}`,
+      `  ${ANSI.dim}ports${ANSI.reset}    ${portsLine(
+        report,
+        `${ANSI.yellow}occupé${ANSI.reset}`,
+        `${ANSI.dim}libre${ANSI.reset}`,
+      )}`,
       // Hors projet, « lance nodefony dev » serait un conseil voué à l'échec →
       // dire la vraie situation (dossier sans app Nodefony) + les 2 sorties.
       report.inProject
         ? `  ${ANSI.dim}→ lance ${ANSI.reset}${ANSI.cyan}nodefony dev${ANSI.reset}${ANSI.dim} pour démarrer${ANSI.reset}`
         : `  ${ANSI.yellow}⚠ ce dossier n'est pas un projet Nodefony${ANSI.reset}${ANSI.dim} (aucun package.json avec la dépendance « nodefony »)${ANSI.reset}\n` +
             `  ${ANSI.dim}→ place-toi à la racine d'une app, ou crée-en une : ${ANSI.reset}${ANSI.cyan}nodefony create app${ANSI.reset}`,
-      "",
     );
+    renderForeign(lines, report);
+    lines.push("");
     return;
   }
 
@@ -380,20 +472,16 @@ function renderStatus(lines: string[], report: DevStatusReport): void {
 
   lines.push(
     "",
-    `  ${ANSI.dim}ports serveur${ANSI.reset} : ${ports
-      .map(
-        (p) =>
-          `${p.port} ${
-            p.listening
-              ? `${ANSI.green}✓ UP${ANSI.reset}`
-              : `${ANSI.red}✗ DOWN${ANSI.reset}`
-          }`,
-      )
-      .join("   ")}`,
+    `  ${ANSI.dim}ports serveur${ANSI.reset} : ${portsLine(
+      report,
+      `${ANSI.green}✓ UP${ANSI.reset}`,
+      `${ANSI.red}✗ DOWN${ANSI.reset}`,
+    )}`,
     `  ${ANSI.dim}synthèse${ANSI.reset}      : ${summaryLine(report)}`,
   );
   for (const w of report.warnings)
     lines.push(`  ${ANSI.yellow}⚠ ${w}${ANSI.reset}`);
+  renderForeign(lines, report);
   lines.push("");
 }
 

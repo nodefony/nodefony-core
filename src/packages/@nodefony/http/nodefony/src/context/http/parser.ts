@@ -313,7 +313,9 @@ const acceptMatcher = (token: string | undefined): RegExp =>
 
 const acceptParser = function (acc?: string): AcceptEntry[] {
   if (!acc) {
-    return [{ type: /.*/, subtype: /.*/ }];
+    // Singleton (lecture seule chez tous les consommateurs) — pas d'array +
+    // 2 regex neufs par requête sans en-tête Accept.
+    return ACCEPT_ANY;
   }
   const arr = [];
   try {

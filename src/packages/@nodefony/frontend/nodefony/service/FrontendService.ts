@@ -34,6 +34,13 @@ import {
 import defaultConfig, { type FrontendConfig } from "../config/config";
 import { stripTrailingSlashes } from "nodefony";
 import path from "node:path";
+import {
+  detectRemoteDev,
+  allowedHostPatternForTemplate,
+  viteAllowedHostFromPattern,
+  isValidOriginTemplate,
+  PORT_PLACEHOLDER,
+} from "../src/remoteDev";
 
 /**
  * Vue minimale du service statique de `@nodefony/http` (résolu par nom via le
@@ -82,6 +89,13 @@ class FrontendService extends Service implements IFrontendService {
   private readonly entryFamily = new Map<string, string>();
   /** Helper prod unique (lit les manifests) — `null` tant qu'on n'est pas en prod. */
   private prodHelper: TemplateHelper | null = null;
+  /**
+   * L'origine publique est-elle ÉPINGLÉE par une décision explicite
+   * (`frontend.publicOrigin` en config, ou plateforme de dev déporté détectée) ?
+   * `true` → la dérivation par `Host` est désactivée : un réglage voulu gagne
+   * toujours sur une déduction (cf ordre de priorité, README du module).
+   */
+  private originPinned = false;
 
   constructor(module: Module) {
     const merged = extend(
@@ -162,7 +176,8 @@ class FrontendService extends Service implements IFrontendService {
             if (st.state !== "ready") continue;
             ready++;
             const scheme = st.https ? "https" : "http";
-            const url = `${scheme}://${st.host}:${st.port}/`;
+            // Origine publique du superviseur (P14.17) — l'URL que le dev OUVRE.
+            const url = `${st.origin ?? `${scheme}://${st.host}:${st.port}`}/`;
             for (const e of st.entries) {
               const fw = e.type.replace(/[0-9]+$/, ""); // react19 → react
               this.kernel?.reportBootLine(
@@ -257,6 +272,7 @@ class FrontendService extends Service implements IFrontendService {
       return {
         state: "idle",
         host: this.cfg.devHost,
+        origin: null,
         port: null,
         pid: null,
         https: !!this.cfg.https,
@@ -301,6 +317,15 @@ class FrontendService extends Service implements IFrontendService {
 
     const backendOrigin = `${this.cfg.backendProtocol}://${this.cfg.backendHost}:${this.resolveBackendPort()}`;
     const https = this.resolveHttps();
+    // P14.17 — origine PUBLIQUE : config explicite, sinon détection de la
+    // plateforme de dev déporté (Codespaces/Gitpod), sinon dérivation locale
+    // dans le superviseur. Toujours ANNONCÉ (jamais d'adaptation silencieuse).
+    const publicOriginTemplate = this.resolvePublicOriginTemplate();
+    // Une origine explicite (config/plateforme) ÉPINGLE le rendu : plus de
+    // dérivation par `Host`. Sans elle, chaque page annonce ses assets sur
+    // l'hôte par lequel le client est arrivé (poste ET conteneur servis).
+    this.originPinned = publicOriginTemplate !== undefined;
+    const allowedHosts = this.viteAllowedHosts(publicOriginTemplate);
     // Propage l'environnement Nodefony à Vite :
     //  - NODE_ENV = kernel.environment (lu par les plugins Vite via process.env)
     //  - extraEnv = config.viteEnv → variables VITE_* exposées au browser
@@ -315,6 +340,22 @@ class FrontendService extends Service implements IFrontendService {
       this.cfg.resilience?.portRetryAttempts ?? 3,
     );
     const families = [...portPlan.keys()];
+    // Origine FIGÉE (sans `{port}`) × plusieurs familles (ex. React + Angular,
+    // chacune son instance Vite sur SON port) : une seule famille peut être
+    // derrière cette origine — les autres émettraient des URLs fausses. Énoncé
+    // AVANT le boot, pas découvert écran blanc par écran blanc.
+    if (
+      publicOriginTemplate &&
+      !publicOriginTemplate.includes(PORT_PLACEHOLDER) &&
+      families.length > 1
+    ) {
+      this.log(
+        `publicOrigin figée (« ${publicOriginTemplate} ») avec ${families.length} familles Vite ` +
+          `(${families.join(", ")}) — une origine ne peut en servir qu'UNE : ` +
+          `utiliser {port} (ex. https://host:{port}) pour suivre chaque famille`,
+        "WARNING",
+      );
+    }
 
     this.fire("frontend:starting", { backendOrigin, entries: this.entries });
 
@@ -331,7 +372,14 @@ class FrontendService extends Service implements IFrontendService {
           family,
           groups.get(family)!,
           portPlan.get(family)!,
-          { backendOrigin, https, nodeEnv, extraEnv },
+          {
+            backendOrigin,
+            https,
+            nodeEnv,
+            extraEnv,
+            publicOriginTemplate,
+            allowedHosts,
+          },
         ).finally(() => {
           done += famSize;
           this.kernel?.fire("onFrontendProgress", { ready: done, total });
@@ -411,6 +459,82 @@ class FrontendService extends Service implements IFrontendService {
     return { keyPath: certs.privateKeyPath, certPath: certs.certPath };
   }
 
+  /**
+   * Template d'origine publique Vite (P14.17). Priorité : `frontend.publicOrigin`
+   * (config, validée — invalide = ERROR + ignorée, jamais un boot cassé) puis
+   * détection de plateforme (Codespaces/Gitpod — variables documentées de la
+   * plateforme, qu'on lit sans les posséder). `undefined` = dérivation locale.
+   * Chaque adaptation est JOURNALISÉE : on doit pouvoir lire dans le boot
+   * pourquoi les `<script>` pointent où ils pointent.
+   */
+  private resolvePublicOriginTemplate(): string | undefined {
+    const cfgOrigin = this.cfg.publicOrigin;
+    if (cfgOrigin) {
+      if (!isValidOriginTemplate(cfgOrigin)) {
+        this.log(
+          `frontend.publicOrigin invalide (« ${cfgOrigin} ») — attendu ` +
+            `scheme://host[:port|:{port}] sans chemin ; origine locale utilisée`,
+          "ERROR",
+        );
+        return undefined;
+      }
+      this.log(`origine publique Vite (config) : ${cfgOrigin}`, "INFO");
+      return cfgOrigin;
+    }
+    const detected = detectRemoteDev(process.env);
+    if (detected) {
+      this.log(
+        `dev déporté détecté (${detected.provider}) — origine publique Vite : ` +
+          detected.originTemplate,
+        "INFO",
+      );
+      return detected.originTemplate;
+    }
+    return undefined;
+  }
+
+  /**
+   * `server.allowedHosts` pour Vite. Vite accepte d'office IP et `localhost` ;
+   * cette liste ne porte que les NOMS. Source des noms légitimes = la MÊME que
+   * la barrière Host de Nodefony (`kernel.domain` + `trustedHosts` http) — une
+   * seule liste à maintenir : autoriser un hôte dans `trustedHosts` ouvre à la
+   * fois la barrière 421 ET Vite. S'y ajoute l'hôte du template d'origine
+   * publique. `trustedHosts: true` (barrière déléguée au reverse-proxy) →
+   * `true` (même délégation). Un pattern non exprimable chez Vite est ANNONCÉ.
+   */
+  private viteAllowedHosts(
+    publicOriginTemplate: string | undefined,
+  ): true | string[] | undefined {
+    const th = (
+      this.container?.get?.("HttpKernel") as
+        | { trustedHosts?: boolean | string | RegExp | (string | RegExp)[] }
+        | undefined
+    )?.trustedHosts;
+    if (th === true) return true;
+    const hosts = new Set<string>();
+    if (this.kernel?.domain) {
+      const d = viteAllowedHostFromPattern(this.kernel.domain);
+      if (d) hosts.add(d);
+    }
+    const patterns = Array.isArray(th) ? th : th ? [th] : [];
+    for (const p of patterns) {
+      if (typeof p !== "string") continue; // RegExp : non exprimable chez Vite
+      const v = viteAllowedHostFromPattern(p);
+      if (v) hosts.add(v);
+      else
+        this.log(
+          `trustedHosts « ${p} » non exprimable en allowedHosts Vite — ` +
+            `cet hôte passera la barrière Nodefony mais Vite le refusera`,
+          "WARNING",
+        );
+    }
+    if (publicOriginTemplate) {
+      const v = allowedHostPatternForTemplate(publicOriginTemplate);
+      if (v) hosts.add(v);
+    }
+    return hosts.size > 0 ? [...hosts] : undefined;
+  }
+
   /** Regroupe les entries par famille d'isolation + remplit l'index inverse. */
   private groupEntriesByFamily(): Map<string, IResolvedFrontendEntry[]> {
     const groups = new Map<string, IResolvedFrontendEntry[]>();
@@ -439,12 +563,16 @@ class FrontendService extends Service implements IFrontendService {
       https: { keyPath: string; certPath: string } | undefined;
       nodeEnv: string | undefined;
       extraEnv: Record<string, string>;
+      publicOriginTemplate: string | undefined;
+      allowedHosts: true | string[] | undefined;
     },
   ): Promise<void> {
     const r = this.cfg.resilience ?? {};
     const supervisor = new ViteProcessSupervisor({
       devHost: this.cfg.devHost,
       devPort: port,
+      publicOriginTemplate: ctx.publicOriginTemplate,
+      allowedHosts: ctx.allowedHosts,
       startupTimeoutMs: this.cfg.startupTimeoutMs,
       pipeLogs: this.cfg.pipeViteLogs,
       cwd: entries[0]!.root,
@@ -684,7 +812,11 @@ class FrontendService extends Service implements IFrontendService {
    * Le controller renvoie : `this.render(svc.renderDocument("x", this.context.cspNonce))`.
    * @param nonce nonce CSP de la requête (`Context.cspNonce`) — propagé aux `<script>`.
    */
-  renderDocument(entryName: string, nonce?: string): string {
+  renderDocument(
+    entryName: string,
+    nonce?: string,
+    requestHost?: string,
+  ): string {
     if (this.prodHelper) {
       return this.prodHelper.renderDocument(entryName, nonce);
     }
@@ -693,10 +825,14 @@ class FrontendService extends Service implements IFrontendService {
     if (!helper) {
       return `<!-- @nodefony/frontend: helper not initialized for "${entryName}" -->`;
     }
-    return helper.renderDocument(entryName, nonce);
+    return helper.renderDocument(
+      entryName,
+      nonce,
+      this.derivableHost(requestHost),
+    );
   }
 
-  renderTags(entryName: string, nonce?: string): string {
+  renderTags(entryName: string, nonce?: string, requestHost?: string): string {
     // Prod : helper unique qui lit les manifests (Vite ne tourne pas).
     if (this.prodHelper) {
       return this.prodHelper.renderTags(entryName, nonce);
@@ -706,7 +842,40 @@ class FrontendService extends Service implements IFrontendService {
     if (!helper) {
       return `<!-- @nodefony/frontend: helper not initialized for "${entryName}" -->`;
     }
-    return helper.renderTags(entryName, nonce);
+    return helper.renderTags(entryName, nonce, this.derivableHost(requestHost));
+  }
+
+  /**
+   * Le `Host` de la requête peut-il servir à dériver l'origine des assets ?
+   *
+   * Trois conditions, dans cet ordre — chacune protège un cas RÉEL :
+   *  1. **origine non épinglée** : un `frontend.publicOrigin` explicite (ou une
+   *     plateforme de dev déporté détectée) est une décision de l'auteur, elle
+   *     gagne toujours sur une déduction ;
+   *  2. **barrière `trustedHosts` franchie** : le `Host` est une donnée
+   *     CLIENTE. Sans ce filtre, un `Host` forgé ferait émettre des
+   *     `<script src="https://attaquant:5173/…">` dans une page de dev ;
+   *  3. **barrière non déléguée** (`trustedHosts !== true`) : le bypass total
+   *     ne dit plus rien de la légitimité d'un nom, et surtout le CSP émis par
+   *     le firewall (`#viteCspFragment`) ne couvre alors QUE loopback +
+   *     domaine canonique — dériver ailleurs produirait une page dont les
+   *     scripts sont bloqués. Les deux listes doivent rester la même liste.
+   *
+   * @returns le nom d'hôte à employer, ou `undefined` pour garder l'origine
+   *   résolue au démarrage (comportement d'avant la dérivation).
+   */
+  private derivableHost(requestHost?: string): string | undefined {
+    if (!requestHost || this.originPinned) return undefined;
+    const httpKernel = this.container?.get?.("HttpKernel") as
+      | {
+          trustedHosts?: unknown;
+          isTrustedHostname?: (hostname: string) => boolean;
+        }
+      | undefined;
+    if (!httpKernel || httpKernel.trustedHosts === true) return undefined;
+    return httpKernel.isTrustedHostname?.(requestHost) === true
+      ? requestHost
+      : undefined;
   }
 
   /**
@@ -761,6 +930,16 @@ class FrontendService extends Service implements IFrontendService {
         httpSrc.push(`${scheme}://${h}:${p}`);
         wsSrc.push(`${wsScheme}://${h}:${p}`);
       }
+    // Origines PUBLIQUES effectives (P14.17) — verbatim + variante WS (le WS
+    // HMR suit le même chemin que les assets). Un forwarder TLS (port 443
+    // implicite) n'est couvert par AUCUN produit croisé hôte×port local.
+    for (const s of this.supervisors.values()) {
+      const o = s.status().origin;
+      if (!o) continue;
+      if (!httpSrc.includes(o)) httpSrc.push(o);
+      const w = o.replace(/^http/, "ws");
+      if (!wsSrc.includes(w)) wsSrc.push(w);
+    }
     return {
       "script-src": ["'self'", "'unsafe-eval'", ...httpSrc],
       "style-src": ["'self'", "'unsafe-inline'", ...httpSrc],

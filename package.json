@@ -48,20 +48,22 @@
   "devDependencies": {
     "@commitlint/cli": "21.2.1",
     "@commitlint/config-conventional": "21.2.0",
-    "@types/node": "26.1.2",
+    "@types/node": "26.2.0",
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "@vitest/coverage-v8": "4.1.10",
     "husky": "9.1.7",
+    "lighthouse": "13.4.1",
     "lint-staged": "17.3.0",
     "nodemon": "3.1.14",
-    "oxlint": "^1.77.0",
+    "oxlint": "1.77.0",
+    "playwright": "1.62.1",
     "prettier": "3.9.6",
     "rimraf": "6.1.3",
-    "rolldown": "1.2.2",
+    "rolldown": "1.2.3",
     "ts-morph": "28.0.0",
     "tslib": "2.8.1",
-    "tsx": "4.23.5",
-    "turbo": "2.10.8",
+    "tsx": "4.23.11",
+    "turbo": "2.10.9",
     "typescript": "6.0.3"
   },
   "repository": {
@@ -101,11 +103,11 @@
   },
   "dependencies": {
     "@analogjs/vite-plugin-angular": "2.6.4",
-    "@angular/build": "22.1.2",
-    "@angular/compiler-cli": "22.1.0",
+    "@angular/build": "22.1.3",
+    "@angular/compiler-cli": "22.1.1",
     "@vitejs/plugin-react": "6.0.5",
     "@vitejs/plugin-vue": "6.0.8",
-    "vite": "8.2.0"
+    "vite": "8.2.1"
   },
   "overrides": {
     "brace-expansion": "^5.0.8"

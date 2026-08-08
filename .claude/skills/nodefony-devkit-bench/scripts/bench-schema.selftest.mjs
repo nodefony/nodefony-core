@@ -25,6 +25,7 @@ import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  countWork,
   pgMismatch,
   readKnex,
   readPostgres,
@@ -215,6 +216,66 @@ function verify(key, { breakReader = false } = {}) {
  * Contrôles de FORME que le comptage ne couvre pas — chacun ancré sur un défaut
  * réellement rencontré, pas sur une inquiétude théorique.
  */
+/**
+ * Le COMPTEUR de travail manuel — la mesure centrale du banc, et celle dont un
+ * zéro se lit « le générateur a suffi ».
+ *
+ * Vécu : un agent avait rangé ses entités sous `nodefony/entities/` (pluriel) et
+ * les avait écrites à la main, des dizaines de fichiers. Le compteur, ancré sur
+ * le seul `nodefony/entity/`, a annoncé **0 édition** — le chiffre exact qu'aurait
+ * rendu un générateur qui suffit. Un compteur ne voit que là où il regarde, et
+ * son zéro ne dit rien de ce qu'il ne regarde pas.
+ *
+ * Les échantillons sont des transcripts de trois lignes : aucun agent lancé.
+ */
+function verifyCountWork() {
+  console.log(`\n━━ compteur de travail manuel`);
+  const ev = (name, input) =>
+    JSON.stringify({
+      message: { content: [{ type: "tool_use", name, input }] },
+    });
+
+  // Le cas vécu : le pluriel, et le travail à la main entièrement invisible.
+  const pluriel = [
+    ev("Write", { file_path: "/app/nodefony/entities/Booking.ts" }),
+    ev("Edit", { file_path: "/app/nodefony/entities/Account.ts" }),
+  ].join("\n");
+  check(
+    "entités rangées au pluriel — éditions vues",
+    countWork(pluriel, null).edits.length,
+    2,
+    "ancré sur `nodefony/entity/` seul, ce compteur rend 0 sur un agent qui a tout écrit à la main",
+  );
+
+  // La forme canonique ne doit rien perdre en s'élargissant.
+  const singulier = ev("Write", { file_path: "/app/nodefony/entity/Order.ts" });
+  check(
+    "entités au singulier — toujours vues",
+    countWork(singulier, null).edits.length,
+    1,
+  );
+
+  // Le modèle rangé hors de toute arborescence d'entité : aucun motif de chemin
+  // ne l'attrapera jamais. C'est `editsAutres` qui empêche le zéro de mentir.
+  const ailleurs = [
+    ev("Write", { file_path: "/app/src/models/Invoice.ts" }),
+    ev("Edit", { file_path: "/app/nodefony/controller/HomeController.ts" }),
+  ].join("\n");
+  const w = countWork(ailleurs, null);
+  check("modèle rangé ailleurs — entités vues", w.edits.length, 0);
+  check("modèle rangé ailleurs — autres .ts vus", w.editsAutres.length, 2);
+
+  // Les tests écrits à la main sont un travail LÉGITIME : les compter ferait
+  // monter un chiffre qui doit désigner ce que la grammaire n'a pas porté.
+  const tests = [
+    ev("Write", { file_path: "/app/tests/booking.test.ts" }),
+    ev("Write", { file_path: "/app/nodefony/entity/Booking.spec.ts" }),
+  ].join("\n");
+  const t = countWork(tests, null);
+  check("les tests ne comptent pas — entités", t.edits.length, 0);
+  check("les tests ne comptent pas — autres", t.editsAutres.length, 0);
+}
+
 function verifyShape() {
   console.log(`\n━━ forme`);
 
@@ -526,6 +587,7 @@ console.log(
 
 for (const key of Object.keys(SCHEMAS)) verify(key, { breakReader: prove });
 if (!prove) verifyShape();
+if (!prove) verifyCountWork();
 const judgeExercised = await verifyPostgresJudge({ prove });
 
 console.log(

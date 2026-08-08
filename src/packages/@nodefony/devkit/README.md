@@ -86,13 +86,20 @@ npx nodefony ai:sync            # --dry-run pour voir sans écrire, --json pour 
 ```
   Skills d'agent — .agents/skills
 
-  = add-crud                 @nodefony/devkit
-  = add-realtime-channel     @nodefony/devkit
-  = add-service              @nodefony/devkit
-  = protect-route            @nodefony/devkit
+  = nodefony-add-crud              @nodefony/devkit
+  = nodefony-add-realtime-channel  @nodefony/devkit
+  = nodefony-add-service           @nodefony/devkit
+  = nodefony-protect-route         @nodefony/devkit
+  = nodefony-browser            @nodefony/devkit
 
-  0 posé(s) · 0 mis à jour · 4 inchangé(s)
+  0 posé(s) · 0 mis à jour · 5 inchangé(s)
 ```
+
+**Le préfixe `nodefony-` vous laisse la place.** Ces pointeurs arrivent dans
+`.agents/skills/`, le dossier où vous écrivez aussi les vôtres : sans namespace,
+un `add-crud` propre à votre métier et le nôtre se disputeraient un nom — et
+c'est `ai:sync` qui écraserait le vôtre à la synchronisation suivante. Vos skills
+n'ont donc aucune contrainte de nommage, sauf à commencer par `nodefony-`.
 
 **Ce qui est écrit chez vous est un POINTEUR, pas une copie.** Le contenu reste
 dans le paquet et suit vos montées de version ; un skill recopié dans le projet

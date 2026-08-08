@@ -24,17 +24,20 @@ class Http2Request extends HttpRequest {
     return this.headers[":method"] as HTTPMethod;
   }
 
-  override getFullUrl(): string {
-    const myurl = `://${this.host}${this.headers[":path"]}`;
-    // Scheme effectif côté client : `Forwarded`/`X-Forwarded-*` résolu de façon
-    // canonique (this.forwarded, gated proxy de confiance) ; sinon le pseudo-header.
+  override getRawTarget(): string | undefined {
+    return this.headers[":path"] as string | undefined;
+  }
+
+  // Scheme effectif côté client : `Forwarded`/`X-Forwarded-*` résolu de façon
+  // canonique (this.forwarded, gated proxy de confiance) ; sinon le pseudo-header.
+  protected override resolveScheme(): string {
     if (this.forwarded?.proto) {
-      return `${this.forwarded.proto}${myurl}`;
+      return this.forwarded.proto;
     }
     if (this.headers[":scheme"] === "https") {
-      return `https${myurl}`;
+      return "https";
     }
-    return `http${myurl}`;
+    return "http";
   }
 }
 

@@ -84,6 +84,42 @@ code TypeScript ne change dans aucun des trois cas — seul le SQL suit.
 `npx nodefony create entity --help` porte la grammaire de CETTE version — elle
 s'enrichit, ta mémoire non.
 
+## Où lire AVANT de coder (tâche → doc installée)
+
+La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le dossier.
+
+| Tâche | Doc |
+| --- | --- |
+| **Quel module installer pour tel besoin** (et lequel NE PAS installer) | `node_modules/nodefony/docs/catalogue.md` |
+| **Variables d'environnement** : cascade des `.env`, précédence, `NF__` | `node_modules/nodefony/docs/environnement.md` |
+| Kernel, cycle de vie, CLI | `node_modules/nodefony/docs/kernel.md` + `cli.md` |
+| Service, DI, container, scopes | `node_modules/nodefony/docs/service.md` |
+| Client isomorphe (navigateur), hooks React | `node_modules/nodefony/docs/client.md` + `react-hooks.md` |
+| Serveurs, sessions, cookies, upload, rate-limit | `node_modules/@nodefony/http/docs/` |
+| **Journaliser, corréler, tracer une requête** (identifiant de requête, trace) | `node_modules/@nodefony/http/docs/observabilite.md` |
+| Routing, controllers, décorateurs, idempotence | `node_modules/@nodefony/framework/docs/` |
+<% if (it.hasSecurity) { %>| Firewall, authenticators, CSRF, CORS, clés d'API | `node_modules/@nodefony/security/docs/firewall.md` |
+| **Protéger une action par un RÔLE** (`@IsGranted`), voters, hiérarchie | `node_modules/@nodefony/security/docs/authorization.md` |
+| **Utilisateurs** : contrat `IUser`, `UserService`, mot de passe | `node_modules/@nodefony/user/docs/index.md` |
+| **Notifier un système tiers** (webhook signé, rejeu, endpoints) | `node_modules/@nodefony/security/docs/webhooks.md` |
+<% } %><% if (it.hasOrm) { %>| Entités, repositories, requêtes (ORM) | `node_modules/@nodefony/orm-core/docs/` |
+<% } %><% if (it.hasRealtime) { %>| Canaux temps réel, actions, protocole WS | `node_modules/@nodefony/realtime/docs/` |
+<% } %><% if (it.front) { %>| Builder Vite, entries, HMR | `node_modules/@nodefony/frontend/docs/` |
+<% } %><% if (it.hasStudio) { %>| Console d'admin Studio (dev) | `node_modules/@nodefony/studio/docs/` + http://127.0.0.1:5151/nodefony |
+<% } %>
+La config de l'app vit dans `nodefony.config.ts` (modules chargés) et `env.ts`
+(variables d'environnement, seul lecteur de `process.env`) — pointe-les, ne les
+recopie pas.
+
+**Des skills d'agent sont posés dans `.agents/skills/`** — la marche à suivre
+complète pour les tâches courantes (`ls .agents/skills/` les liste ; leur
+description dit quand chacun s'applique). Ce sont des **pointeurs** vers le
+contenu installé dans `node_modules` : ils suivent la version du framework de CE
+projet, et les éditer ne servirait à rien. Si ton outil ne charge que son propre
+dossier de découverte, lis-les à la main — c'est le chemin le plus court vers la
+bonne façade. `npx nodefony ai:sync` les remet à jour après un `npm update`
+(`--dry-run` dit ce qui changerait).
+
 ## Les commandes de l'app — demande la liste, ne la devine pas
 
 ```bash
@@ -147,7 +183,8 @@ et il fait foi le jour où les deux divergent.
   confondre avec `cors.origins`, qui autorise EN PLUS le JS du tiers à **lire**
   tes réponses : un partenaire qui POSTE n'en a pas besoin, et les deux
   traversent la défense. Détail :
-  `node_modules/@nodefony/security/docs/csrf.md`.
+  `node_modules/@nodefony/security/docs/csrf.md` ; geste complet et pièges :
+  skill **`nodefony-protect-route`**.
 <% } %>
 - **Un adaptateur de données ne remplace pas l'autre : ils se COMPLÈTENT.** Chacun
   déclare les _stores_ qu'il sait tenir (`nodefony.stores` de son `package.json`) —
@@ -211,7 +248,9 @@ et il fait foi le jour où les deux divergent.
   pub/sub + actions RPC + policies). L'echo WS brut des exemples est une démo
   du pipeline partagé, pas un modèle à imiter.
 <% if (it.hasSecurity) { %>- **Utilisateurs et droits : tout existe, n'improvise RIEN.** Ces gestes
-  couvrent l'essentiel, et chacun a sa doc installée (cf. table ci-dessous) :
+  couvrent l'essentiel, et chacun a sa doc installée (cf. la table « Où lire
+  AVANT de coder », plus haut) ; le geste détaillé et ses pièges vivent dans le
+  skill **`nodefony-protect-route`** :
   - **protéger un ESPACE de routes** (tout ce qui commence par un préfixe) :
     une zone de firewall dans `nodefony.config.ts`, dont le `pattern` est le
     PRÉFIXE lui-même — `pattern: "^/api/account"`, **jamais** la liste des
@@ -261,40 +300,6 @@ et il fait foi le jour où les deux divergent.
     `registerVoterFactory` ; `@IsGranted("doc.edit", { subject: "id" })` l'appelle.
     C'est le point d'extension prévu — il n'y a pas de table de permissions à
     inventer.<% } %>
-
-## Où lire AVANT de coder (tâche → doc installée)
-
-La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le dossier.
-
-| Tâche | Doc |
-| --- | --- |
-| **Quel module installer pour tel besoin** (et lequel NE PAS installer) | `node_modules/nodefony/docs/catalogue.md` |
-| **Variables d'environnement** : cascade des `.env`, précédence, `NF__` | `node_modules/nodefony/docs/environnement.md` |
-| Kernel, cycle de vie, CLI | `node_modules/nodefony/docs/kernel.md` + `cli.md` |
-| Service, DI, container, scopes | `node_modules/nodefony/docs/service.md` |
-| Client isomorphe (navigateur), hooks React | `node_modules/nodefony/docs/client.md` + `react-hooks.md` |
-| Serveurs, sessions, cookies, upload, rate-limit | `node_modules/@nodefony/http/docs/` |
-| Routing, controllers, décorateurs, idempotence | `node_modules/@nodefony/framework/docs/` |
-<% if (it.hasSecurity) { %>| Firewall, authenticators, CSRF, CORS, clés d'API | `node_modules/@nodefony/security/docs/firewall.md` |
-| **Protéger une action par un RÔLE** (`@IsGranted`), voters, hiérarchie | `node_modules/@nodefony/security/docs/authorization.md` |
-| **Utilisateurs** : contrat `IUser`, `UserService`, mot de passe | `node_modules/@nodefony/user/docs/index.md` |
-<% } %><% if (it.hasOrm) { %>| Entités, repositories, requêtes (ORM) | `node_modules/@nodefony/orm-core/docs/` |
-<% } %><% if (it.hasRealtime) { %>| Canaux temps réel, actions, protocole WS | `node_modules/@nodefony/realtime/docs/` |
-<% } %><% if (it.front) { %>| Builder Vite, entries, HMR | `node_modules/@nodefony/frontend/docs/` |
-<% } %><% if (it.hasStudio) { %>| Console d'admin Studio (dev) | `node_modules/@nodefony/studio/docs/` + http://127.0.0.1:5151/nodefony |
-<% } %>
-La config de l'app vit dans `nodefony.config.ts` (modules chargés) et `env.ts`
-(variables d'environnement, seul lecteur de `process.env`) — pointe-les, ne les
-recopie pas.
-
-**Des skills d'agent sont posés dans `.agents/skills/`** — la marche à suivre
-complète pour les tâches courantes (`ls .agents/skills/` les liste ; leur
-description dit quand chacun s'applique). Ce sont des **pointeurs** vers le
-contenu installé dans `node_modules` : ils suivent la version du framework de CE
-projet, et les éditer ne servirait à rien. Si ton outil ne charge que son propre
-dossier de découverte, lis-les à la main — c'est le chemin le plus court vers la
-bonne façade. `npx nodefony ai:sync` les remet à jour après un `npm update`
-(`--dry-run` dit ce qui changerait).
 
 ## Environnement : ne devine JAMAIS, demande
 
@@ -399,10 +404,23 @@ milieu, et tu passes l'heure suivante sur des 404 fantômes.
 ## Gates — vérifier avant de dire « fait »
 
 ```bash
-npm test              # 1ᵉʳ diagnostic — unitaires, rapides, zéro serveur
-npm run typecheck     # le bundler ne type-check PAS : gate séparé, obligatoire
-npm run test:e2e      # boot RÉEL de l'app + HTTP/WS (build inclus)
+npm run verify        # ⬅ LA commande. typecheck + lint + tests + check, dans cet ordre
+```
+
+**Une seule à retenir, et c'est délibéré.** Les quatre gates ci-dessous existent
+séparément pour qu'on puisse en relancer un ; mais tant qu'ils n'étaient QUE
+séparés, il fallait penser à les enchaîner — et le premier oublié était toujours
+le même, `typecheck`, celui que rien d'autre ne remplace : **le bundler ne
+type-check pas**, ton code peut être bâti, servi, et ne pas compiler.
+
+`verify` s'arrête au premier rouge, et ce rouge est ta tâche suivante.
+
+```bash
+npm run typecheck     # types — le seul gate que le build ne fait PAS à ta place
+npm run lint          # style et pièges
+npm test              # unitaires, rapides, zéro serveur
 npm run check         # cohérence, ce qui MANQUE à l'install, + BILAN du dernier démarrage
+npm run test:e2e      # boot RÉEL + HTTP/WS (build inclus) — HORS `verify` : c'est le gate LENT
 ```
 
 **`check` nomme d'abord ce qui empêche de DÉMARRER**, et il le fait sans rien
@@ -465,6 +483,120 @@ variable oubliée dans une image ou un manifeste de laisser des routes de banc
 ouvertes en production pendant des mois. Règle le délai AVANT une mesure longue — un
 serveur qui tombe au milieu ne rend pas une mesure fausse, il en rend une qu'on
 croira vraie.
+
+## Voir un écran toi-même — un navigateur, pas un `curl`
+
+Un `curl` prouve qu'une route répond ; il ne dit pas si l'écran **se monte**. Le
+devkit porte des sondes prêtes à l'emploi, qui s'exécutent de deux façons.
+
+**Sur cette machine** — le plus court :
+
+```bash
+npm run see:setup
+node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /
+```
+
+`see:setup` n'installe **rien de lourd par défaut** : le pilote pèse quelques
+mégaoctets, et il essaie d'abord les navigateurs **déjà présents** sur la machine —
+Chrome, puis Edge, qui est préinstallé sur tout Windows. Le navigateur complet
+n'est téléchargé que si aucun ne répond, une seule fois par machine (cache
+utilisateur partagé par tous tes projets, jamais dans `node_modules`) :
+
+```bash
+npx playwright install chromium
+```
+
+Le champ `navigateur` de la sortie dit lequel a servi — deux mesures faites avec
+des navigateurs différents ne se comparent pas.
+
+**En conteneur** — quand tu veux une mesure **comparable** dans le temps (image
+épinglée, donc version figée), de l'**isolation** (le navigateur ne voit ni ton
+disque ni ton réseau), ou que tu ne veux **rien** installer :
+
+```bash
+docker compose --profile browser up -d
+docker cp node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/. <%= it.appName %>-browser:/app/see-screen
+docker exec <%= it.appName %>-browser node /app/see-screen/inspect.mjs /
+```
+
+Le **`/.`** de la copie n'est pas décoratif : sans lui, une seconde copie imbrique
+un dossier de plus au lieu de remplacer, et tu relances une version périmée des
+sondes sans le moindre message.
+
+Tu obtiens un JSON : le titre, la langue, le thème, les **scripts réellement
+servis**, les erreurs de console, une capture horodatée — et surtout des **mesures**
+que ni une capture ni un `curl` ne donnent : la couleur, le fond effectif, le
+**contraste calculé** (luminances WCAG) et la taille de chaque élément que tu
+sondes (`-e "NF_BROWSER_PROBES=libellé=sélecteur,…"`). C'est la différence entre
+« ça me paraît lisible » et « 7,39:1, donc AAA ».
+
+`watch.mjs`, à côté, regarde le temps qui coule plutôt qu'un instant : frames
+WebSocket horodatées dans les deux sens, réponses ≥ 400, erreurs de console. C'est
+la seule façon de voir une frame qui n'arrive pas ou une reconnexion en boucle.
+Il s'arrête sur une **condition applicative** (`NF_BROWSER_UNTIL`) plutôt que sur
+une durée — mais **éprouve toute condition d'arrêt avec une condition IMPOSSIBLE**
+avant de lui faire confiance : tant qu'elle n'a pas échoué une fois, rien ne dit
+qu'elle discrimine.
+
+### Auditer, pas seulement regarder
+
+```bash
+npm run audit:setup
+npm run audit:web -- /tableau-de-bord
+```
+
+Lighthouse complet **sur une page authentifiée** — ce que l'extension du navigateur
+ne sait pas faire. Cinq catégories, dont **`agentic-browsing`** : ce qu'un agent
+d'intelligence artificielle trouve en arrivant sur ta page (arbre d'accessibilité,
+stabilité visuelle, annotations WebMCP de tes formulaires, `llms.txt`).
+
+`audit:setup` est **séparé** de `see:setup` parce que Lighthouse pèse une
+vingtaine de mégaoctets : tu ne le paies que si tu audites.
+
+⚠️ **Ne juge pas la note de performance sur le serveur de développement** :
+modules servis un par un, sources non minifiées, rechargement à chaud. Elle
+s'effondre pour des raisons qui n'existent pas en production. Cette catégorie
+ne se mesure que sur une version bâtie.
+
+Le mode d'emploi complet est le skill **`nodefony-browser`** du devkit (`ai:sync` en pose
+le pointeur dans `.agents/skills/`).
+
+**Quatre règles, sinon tu diagnostiqueras le vide** :
+
+| Règle                                                                | Pourquoi                                                                                                                                                              |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Joins l'app par **`host.docker.internal`**                           | `localhost` désigne le conteneur, pas ta machine. Si tu as activé `domainCheck`, ajoute ce nom aux `trustedHosts` en développement, sinon la barrière répond `421`.    |
+| Passe par **HTTPS**                                                  | Le cookie de session est `secure` : sur une origine `http://` non-`localhost` le navigateur le **jette**, et tout revient en `401` — on croit alors que le login rate. |
+| **Rien à poser** pour rendre Vite joignable                          | L'origine des assets se dérive du `Host` de ta requête : arriver par `host.docker.internal` suffit, l'allowlist Vite et le WebSocket du HMR suivent le même nom, et le poste reste servi sur `127.0.0.1` en même temps. Si la page annonce quand même `127.0.0.1:5173` depuis le conteneur, c'est que le nom ne franchit pas `trustedHosts`, ou qu'une `publicOrigin` explicite est configurée (elle gagne toujours). |
+| **Attends un texte propre à l'écran visé** avant de lire ou capturer | Le SPA se monte APRÈS la navigation. Et attendre un texte présent aussi sur la page de connexion (le nom de l'app…) aboutit dans les deux cas : ça ne prouve rien.     |
+
+Une capture **n'écrase pas** un fichier existant : réutiliser un nom te fait relire
+une image périmée pendant que l'appel répond « OK ». Nom neuf, ou vérifie la date.
+
+**🔴 AVANT d'accuser ton code : le bundle SERVI est-il celui que tu as bâti ?** En
+front pré-bâti, trois mécanismes indépendants te font observer du code que la source
+ne contient plus — un build partiel qui ne purge pas la sortie (deux générations de
+chunks, l'`index.html` pouvant désigner l'ancienne), un cache de build qui RESTAURE
+un ancien `dist` par-dessus le tien, et le service d'assets qui lit l'`index.html`
+au démarrage seulement. Le symptôme est traître : l'écran montre un composant que tu
+as remplacé.
+
+Le champ **`scripts`** rendu par `inspect.mjs` liste les fichiers servis à la page :
+compare-les à ceux que désigne l'`index.html` produit dans `<module>/dist/frontend/`.
+Deux valeurs différentes ⇒ le défaut n'est pas dans ton code. Rebâtis en forçant
+(cache invalidé), redémarre le serveur, PUIS redémarre le conteneur navigateur —
+son cache HTTP survit à un simple rechargement. Aucun de ces trois pas n'est
+facultatif.
+
+**L'autre voie — le serveur MCP.** Le même conteneur expose un serveur MCP
+(`claude mcp add --transport http browser http://127.0.0.1:3001/mcp`) : prends-le
+pour **explorer** une page interactivement, et les sondes ci-dessus pour tout le
+reste. Le protocole intermédiaire coûte plusieurs fois le temps d'un appel direct,
+ne rend rien qu'un script puisse exploiter, et sa session peut tomber sous toi.
+
+Ce que ce navigateur ne remplace pas : le rechargement à chaud, l'animation et le
+rendu fin — ça se juge dans un vrai navigateur. Lui répond à « l'écran se monte-t-il,
+s'alimente-t-il, et crie-t-il dans la console ? ».
 
 ## Demander à l'app, plutôt que déduire du code
 

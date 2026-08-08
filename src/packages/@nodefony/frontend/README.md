@@ -121,17 +121,22 @@ class MyController extends Controller {
     const svc = this.context?.container?.get("frontend") as
       FrontendService | undefined;
 
-    // En développement, la CSP doit autoriser les origines Vite cross-origin :
-    // le controller surcharge l'en-tête via les directives du service.
-    if (svc) {
-      this.context?.response?.setHeader(
-        "Content-Security-Policy",
-        svc.getCspDirectives(),
-      );
-    }
+    // Rien à faire pour la CSP : en développement, le service déclare les
+    // origines Vite au firewall (`@nodefony/security`), qui émet UN seul
+    // en-tête. Un controller qui le réécrirait écraserait le nonce.
 
+    // Deux données de la requête sont propagées au rendu :
+    //  - le nonce CSP, sans lequel `script-src 'nonce-…'` bloque les balises ;
+    //  - l'hôte, dont l'origine des assets Vite est dérivée en développement —
+    //    la page annonce l'origine par laquelle le client est arrivé, si bien
+    //    qu'un poste et un navigateur en conteneur sont servis en même temps,
+    //    sans configuration. Scheme et port restent ceux de Vite.
     const viteTags =
-      svc?.renderTags("my-module") ?? "<!-- @nodefony/frontend not started -->";
+      svc?.renderTags(
+        "my-module",
+        this.context?.cspNonce,
+        this.context?.domain,
+      ) ?? "<!-- @nodefony/frontend not started -->";
 
     return this.render(`<!DOCTYPE html>
 <html lang="en">
@@ -240,8 +245,11 @@ interface IFrontendService {
   startDev(): Promise<void>; // appelé auto par onServersReady
   stopDev(): Promise<void>;
   build(): Promise<void>; // vite.build() in-proc
-  renderTags(entryName): string;
-  getCspDirectives(): string; // CSP custom pour helmet override
+  // `nonce` = `Context.cspNonce` ; `requestHost` = `Context.domain` (sans port),
+  // dont l'origine des assets est dérivée en développement.
+  renderTags(entryName, nonce?, requestHost?): string;
+  renderDocument(entryName, nonce?, requestHost?): string;
+  assetUrl(path): string;
 }
 ```
 

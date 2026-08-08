@@ -101,6 +101,67 @@ const HEALTH_HEADERS = {
 const HEALTH_BODY_OK = '{"status":"ok"}';
 const HEALTH_BODY_UNREADY = '{"status":"unready"}';
 
+// Sonde perf IN SITU (opt-in `NF_PERF_PROBE=1`, flag lu 1× au chargement) —
+// cumule en ns le coût RÉEL par requête des postes que le profil échantillonné
+// impute au scope DI : enterScope / new HttpContext / leaveScope, sous charge
+// réelle (wrk). Le micro-bench isolé les mesure à ~557 ns quand le profil dit
+// ~19 µs : cette sonde tranche. Exposée sur `globalThis.__nfPerfProbe` (lue
+// par la route de dump du module test). Éteinte : `perfProbe === null`, zéro
+// coût ni alloc sur le hot path.
+interface IPerfProbe {
+  count: number;
+  enterScopeNs: number;
+  ctxNs: number;
+  leaveScopeNs: number;
+  // Sous-marques de la fabrique : temps CUMULÉS depuis `t0` (posé ici juste
+  // avant `new HttpContext`, lu par les ctors Context/HttpContext via
+  // globalThis). Les tranches se déduisent par différences au dump.
+  t0: bigint;
+  svcNs: number; // t0 → fin ctor Service (super de Context)
+  ctxBaseNs: number; // t0 → fin ctor Context
+  uploadNs: number; // t0 → après lookup DI "upload" (HttpContext)
+  reqResNs: number; // t0 → après new Request + new Response (HttpContext)
+  // 2ᵉ vague — décomposition interne du ctor Service (core) :
+  svcStartNs: number; // t0 → début corps ctor Service (entrée + field inits, dont la Map)
+  svcOptsNs: number; // t0 → après spread {...defaultOptions, ...options}
+  svcLookupsNs: number; // t0 → après get(kernel) + get(syslog)
+  svcEventNs: number; // t0 → après new Event + setMaxListeners + set(nc)
+  // 2ᵉ vague — décomposition interne du ctor Request (http) :
+  reqStartNs: number; // t0 → début corps ctor Request (entrée + field inits)
+  reqProxyNs: number; // t0 → après trustedProxy + resolveForwarded
+  reqUrlNs: number; // t0 → après getFullUrl + new URL
+  reqQueryNs: number; // t0 → après QS.parse / url.query
+  reqMetaNs: number; // t0 → après contentType/charset/domain/remoteAddress
+  reqAcceptNs: number; // t0 → fin ctor Request (acceptParser + accepts)
+}
+const perfProbe: IPerfProbe | null =
+  process.env.NF_PERF_PROBE === "1"
+    ? {
+        count: 0,
+        enterScopeNs: 0,
+        ctxNs: 0,
+        leaveScopeNs: 0,
+        t0: 0n,
+        svcNs: 0,
+        ctxBaseNs: 0,
+        uploadNs: 0,
+        reqResNs: 0,
+        svcStartNs: 0,
+        svcOptsNs: 0,
+        svcLookupsNs: 0,
+        svcEventNs: 0,
+        reqStartNs: 0,
+        reqProxyNs: 0,
+        reqUrlNs: 0,
+        reqQueryNs: 0,
+        reqMetaNs: 0,
+        reqAcceptNs: 0,
+      }
+    : null;
+if (perfProbe) {
+  (globalThis as unknown as Record<string, unknown>).__nfPerfProbe = perfProbe;
+}
+
 export type ProtocolType = "1.1" | "2.0" | "3.0";
 export type httpRequest = http.IncomingMessage | http2.Http2ServerRequest;
 export type httpResponse = http.ServerResponse | http2.Http2ServerResponse;
@@ -135,7 +196,10 @@ export interface RouteMetaData {
 export interface MetaData {
   name?: string;
   version?: string;
-  url?: URL;
+  // F-B : string (le `href`) côté HTTP — l'URL n'est plus construite pour la
+  // metaData ; le WS continue de fournir son objet URL (wire identique :
+  // `URL.toJSON()` sérialisait déjà en href).
+  url?: URL | string;
   environment?: EnvironmentType;
   debug?: DebugType;
   token?: string;
@@ -659,7 +723,15 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     response: httpResponse | null,
     type: ServerType,
   ): Promise<HttpContext> {
-    const scope = this.container?.enterScope("request");
+    let scope: Scope | undefined;
+    if (perfProbe) {
+      const t0 = process.hrtime.bigint();
+      scope = this.container?.enterScope("request");
+      perfProbe.enterScopeNs += Number(process.hrtime.bigint() - t0);
+      perfProbe.count++;
+    } else {
+      scope = this.container?.enterScope("request");
+    }
     // Perf (L1) — debug off (prod / dev sans -d) : ne RIEN allouer par requête.
     // `this.log(...)` construit TOUJOURS un Pdu et `logColor.cyanBgBlue(url)` une
     // string + 2 templates — tous jetés si DEBUG n'est pas affiché. Guard sur
@@ -1113,7 +1185,13 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       if (context.listenerCount("onFinish"))
         await context.fireAsync("onFinish", context);
       context.finished = true;
-      this.container?.leaveScope(scope);
+      if (perfProbe) {
+        const t0 = process.hrtime.bigint();
+        this.container?.leaveScope(scope);
+        perfProbe.leaveScopeNs += Number(process.hrtime.bigint() - t0);
+      } else {
+        this.container?.leaveScope(scope);
+      }
       context.clean();
     } catch (e) {
       // R2 — teardown est fire-and-forget (`void this.teardownHttp(...)`) : un
@@ -1136,7 +1214,16 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     type: ServerType,
   ): HttpContext {
     try {
-      const context = new HttpContext(scope, request, response, type);
+      let context: HttpContext;
+      if (perfProbe) {
+        const t0 = process.hrtime.bigint();
+        perfProbe.t0 = t0; // lu par les sous-marques des ctors
+        context = new HttpContext(scope, request, response, type);
+        perfProbe.ctxNs += Number(process.hrtime.bigint() - t0);
+        perfProbe.t0 = 0n; // un contexte créé HORS fenêtre (WS) ne compte pas
+      } else {
+        context = new HttpContext(scope, request, response, type);
+      }
       // T4 — UN SEUL listener post-réponse par requête. Node garantit `close`
       // sur TOUTE réponse (h1 + compat h2) : après `finish` quand elle aboutit
       // (nextTick), seul quand le client part avant la fin. L'ancien pair
@@ -1619,7 +1706,25 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
 
   isValidDomain(context: ContextType): boolean {
-    return isDomainAllowed(this.regAlias, context.domain);
+    return this.isTrustedHostname(context.domain);
+  }
+
+  /**
+   * Ce nom d'hôte franchit-il la barrière `trustedHosts` ? Même liste compilée
+   * que `isValidDomain`, mais interrogeable **sans contexte** — un module qui
+   * doit décider si un `Host` reçu est légitime (ex. `@nodefony/frontend`, qui
+   * en dérive l'origine des assets Vite) appelle CETTE méthode plutôt que de
+   * recompiler les motifs de son côté : deux copies divergeraient en silence.
+   *
+   * Résolution par NOM (`container.get("HttpKernel")`) chez l'appelant — aucun
+   * import de `@nodefony/http`, donc aucun cycle.
+   *
+   * @param hostname - nom d'hôte SANS port (`Context.domain`).
+   * @returns `true` si un motif de `trustedHosts` (ou le domaine canonique)
+   *   couvre ce nom.
+   */
+  isTrustedHostname(hostname: string): boolean {
+    return isDomainAllowed(this.regAlias, hostname);
   }
 }
 

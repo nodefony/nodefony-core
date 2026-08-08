@@ -631,10 +631,20 @@ class Firewall extends Service implements IFirewall {
     if (this.#configError) return true; // fail-closed : tout capturer
     if (!this.#areas) return false; // aucune zone → court-circuit hot-path
     // Pathname extrait UNE fois (vs N fois si chaque area.match le recalculait).
+    // F-B : `request.pathname` (string, forme normalisée WHATWG garantie —
+    // découpe canonique ou URL parsée) en premier : lire `req.url` sur le
+    // getter paresseux HTTP construirait l'URL à CHAQUE requête. WS (URL
+    // posée sur la requête, pas de pathname) → branche historique.
     const req = context.request;
-    if (!req || !req.url) return false;
-    const pathname =
-      req.url instanceof URL ? req.url.pathname : String(req.url);
+    if (!req) return false;
+    const rp = (req as { pathname?: unknown }).pathname;
+    let pathname: string;
+    if (typeof rp === "string") {
+      pathname = rp;
+    } else {
+      if (!req.url) return false;
+      pathname = req.url instanceof URL ? req.url.pathname : String(req.url);
+    }
     const area = this.matchPath(
       pathname,
       (context as { domain?: string }).domain,

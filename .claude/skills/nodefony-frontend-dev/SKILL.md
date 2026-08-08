@@ -3,17 +3,17 @@ name: nodefony-frontend-dev
 metadata:
   version: 1.0.0
 description: >
-  Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé
+  Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé
   front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR
   (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC
-  isomorphe, ergonomie / temps réel « calme » / a11y / perf (bundlés offline), et **vérification
-  d'une modif front sans navigateur** (transform Vite en `curl`, purge du prébundle, rechargement
-  forcé) — la règle projet interdit le navigateur headless.
-  App admin Studio → `nodefony-studio-dev` ; scaffold d'un module front →
-  `nodefony-create-frontend-module` ; le back → `nodefony-framework-dev`.
+  isomorphe, ergonomie/a11y/perf (bundlés offline), et vérification d'une modif front — sans
+  navigateur (transform Vite en `curl`, purge du prébundle) ou en OBSERVANT l'écran depuis un
+  navigateur piloté — console, requêtes réelles, mesures d'accessibilité → `nodefony-browser`.
+  Studio → `nodefony-studio-dev` ; scaffold front → `nodefony-create-frontend-module` ;
+  back → `nodefony-framework-dev`.
   Déclencheurs : "dev front nodefony", "isomorphisme", "socket client", "RealtimeClient",
   "useNodefony", "hooks realtime", "HMR", "Vite nodefony", "ApiClient",
-  "useResource", "data plane front", "BFF", "RBAC front", "accessibilité front", "WCAG",
+  "useResource", "data plane front", "BFF", "RBAC front", "accessibilité front",
   "perf front", "vérifie le front", "ma modif front passe ?", "transform Vite",
   "prébundle Vite périmé".
 ---
@@ -97,19 +97,32 @@ ici un appel `ApiClient`/un hook/un canal consommé → vérifier/MAJ la section
 | Patterns d'écran (data-driven, live ref-compté, détail/drill) — framework-agnostique           | `references/patterns.md`                        |
 | Ergonomie / temps réel calme / perf CSS / a11y / sécu front                                    | `references/front-quality.md`                   |
 | Prouver une modif front **sans navigateur** (transform Vite, purge du prébundle, rechargement) | `references/build-hmr.md` §8                    |
+| **Voir et MESURER l'écran** — navigateur en conteneur (console, a11y, contrastes calculés)     | skill **`nodefony-browser`**                    |
 | Gotchas front (HMR, prébundle `.vite`, isomorphisme, socket)                                   | section _Gotchas_ dans chaque fichier ci-dessus |
 | **Best practices bundlées OFFLINE** (ergonomie, a11y, perf)                                    | `references/specs/` (voir liste ci-dessous)     |
 
-**`references/specs/` (offline, ~870 Ko)** : `w3c-wcag22.md` (WCAG 2.2 complet) · `w3c-aria-apg-patterns.md`
+**`references/specs/` (offline, ~900 Ko)** : `w3c-wcag22.md` (WCAG 2.2 complet) · `w3c-aria-apg-patterns.md`
 (ARIA Authoring Practices) · `nng-10-heuristics.md` (Nielsen Norman — 10 heuristiques d'ergonomie) ·
 `webdev-animations-perf.md` (web.dev — animations performantes) · MDN CSS perf : `mdn-css-will-change.md`,
-`mdn-css-contain.md`, `mdn-css-content-visibility.md`, `mdn-prefers-reduced-motion.md`.
+`mdn-css-contain.md`, `mdn-css-content-visibility.md`, `mdn-prefers-reduced-motion.md` ·
+**Vite** : `vite-guide-backend-integration.md` (le montage EXACT de Nodefony — un backend rend le
+HTML, Vite sert les assets), `vite-config-server-options.md` (`origin`, `cors`, `allowedHosts`,
+`hmr`, `fs.allow`), `vite-config-shared-options.md` (`base`, `resolve.dedupe`, `optimizeDeps`).
+Chaque fichier porte la version de Vite installée au moment du figeage — la relire avant de
+conclure qu'une option se comporte autrement.
 
 ## 4. Gates qualité front (AVANT de dire « fait »)
 
 1. **`npm run typecheck`** du module front (esbuild/Vite n'attrape QUE la syntaxe, PAS les types).
 2. **Transform Vite 200** : `curl -sk "https://<viteHost>/@fs/<abs>/src/<fichier>.tsx"` → vérifie résolution + transpilation. Purger `node_modules/.vite` si un import/subpath a changé. **Protocole complet, symptômes et limites → `references/build-hmr.md` §8.**
-3. **Hard-reload** navigateur (cache React) après modif → demander la confirmation visuelle au user (règle projet : jamais de navigateur headless).
+3. **Voir l'écran** — deux voies, dans cet ordre :
+   - **Navigateur en CONTENEUR** → skill **`nodefony-browser`** : il lit la console, l'arbre
+     d'accessibilité, les requêtes réelles, et **MESURE** les contrastes et tailles calculés, sans
+     rien installer sur le poste. Décor, pilotage et les trois contraintes structurelles y vivent —
+     **non recopiés ici**, sinon la copie diverge et empêche d'atteindre le skill.
+     🔴 Ne jamais demander au développeur de jouer la sonde.
+   - **Hard-reload** dans le navigateur du développeur (cache React) → confirmation visuelle.
+     Reste nécessaire pour juger le HMR, l'animation et le rendu fin.
 4. Modif d'un **contrat partagé** (canal/endpoint/type) → MAJ `nodefony-framework-dev`.
 
 ## Réfs

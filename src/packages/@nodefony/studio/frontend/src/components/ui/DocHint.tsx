@@ -140,6 +140,12 @@ export function Hint({
             color={kind === "doc" ? "gray" : cfg.accent}
             size="sm"
             radius="xl"
+            // WCAG 2.5.8 (AA) — cible de pointage ≥ 24×24 px. `size="sm"` de
+            // Mantine rend 22 px : sous le seuil, et ces fiches vont souvent par
+            // grappes (une par métrique), donc l'espacement ne rattrape pas non
+            // plus. 24 px est le minimum conforme et reste visuellement identique.
+            w={24}
+            h={24}
             aria-label={`${cfg.badge} : ${title}`}
           >
             <Trigger size={15} stroke={1.6} />

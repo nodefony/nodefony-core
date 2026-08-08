@@ -1,8 +1,4 @@
-import {
-  OptionsCommandInterface,
-  CliKernel,
-  Command,
-} from "nodefony";
+import { OptionsCommandInterface, CliKernel, Command } from "nodefony";
 import type FrontendService from "../service/FrontendService";
 
 const options: OptionsCommandInterface = {
@@ -22,10 +18,12 @@ class FrontendStatus extends Command {
     this.addOption("-j, --json", "output as JSON");
   }
 
-  override async generate(_arg: string, opts: { json: boolean }): Promise<this> {
+  override async generate(
+    _arg: string,
+    opts: { json: boolean },
+  ): Promise<this> {
     const svc = this.kernel?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
+      FrontendService | undefined;
     if (!svc) {
       this.log("service `frontend` not registered", "ERROR");
       return this;
@@ -36,6 +34,11 @@ class FrontendStatus extends Command {
     } else {
       console.log(`state    : ${st.state}`);
       console.log(`endpoint : ${st.host}:${st.port}`);
+      // Origine PUBLIQUE (P14.17) — celle que le navigateur utilise. Affichée
+      // seulement quand elle diffère de l'endpoint d'écoute (dev déporté).
+      if (st.origin && !st.origin.endsWith(`://${st.host}:${st.port}`)) {
+        console.log(`public   : ${st.origin}`);
+      }
       console.log(`pid      : ${st.pid ?? "-"}`);
       console.log(`entries  : ${st.entries.length}`);
       for (const e of st.entries) {

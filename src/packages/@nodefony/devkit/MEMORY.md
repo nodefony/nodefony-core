@@ -17,16 +17,19 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
 
 ## Core Components
 
-| Symbole              | Fichier                                 | Rôle                                                                                   |
-| -------------------- | --------------------------------------- | -------------------------------------------------------------------------------------- |
-| `DevkitModule`       | `index.ts`                              | `@services` + `@controllers` — AUCUNE commande CLI                                     |
-| `buildCard`          | `nodefony/src/card.ts`                  | ré-export du cœur (`nodefony` → `cli/cardReport.ts`)                                   |
-| `DevkitService`      | `nodefony/service/DevkitService.ts`     | `getCard()` — dérive du Kernel, `source: "runtime"`                                    |
-| `DevkitController`   | `nodefony/controllers/DevkitController` | `GET /nodefony/devkit/api/card` — mince, délègue                                       |
-| `devkitConfigSchema` | `nodefony/config/config.ts`             | `{ enabled }` — source unique des défauts                                              |
-| `defineDevkitConfig` | `nodefony/config/defineModuleConfig.ts` | parse + freeze au boot                                                                 |
-| `DevkitError`        | `nodefony/src/errors/DevkitError.ts`    | erreurs typées du module                                                               |
-| 4 skills             | `skills/<nom>/SKILL.md`                 | `add-crud`, `add-service`, `protect-route`, `add-realtime-channel` — publiés (`files`) |
+| Symbole                   | Fichier                                 | Rôle                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DevkitModule`            | `index.ts`                              | `@services` + `@controllers` — AUCUNE commande CLI                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `buildCard`               | `nodefony/src/card.ts`                  | ré-export du cœur (`nodefony` → `cli/cardReport.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `DevkitService`           | `nodefony/service/DevkitService.ts`     | `getCard()` — dérive du Kernel, `source: "runtime"`                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `DevkitController`        | `nodefony/controllers/DevkitController` | `GET /nodefony/devkit/api/card` — mince, délègue                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `devkitConfigSchema`      | `nodefony/config/config.ts`             | `{ enabled }` — source unique des défauts                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `defineDevkitConfig`      | `nodefony/config/defineModuleConfig.ts` | parse + freeze au boot                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `DevkitError`             | `nodefony/src/errors/DevkitError.ts`    | erreurs typées du module                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 5 skills                  | `skills/<nom>/SKILL.md`                 | `nodefony-add-crud`, `nodefony-add-service`, `nodefony-protect-route`, `nodefony-add-realtime-channel`, `nodefony-browser` — publiés (`files`)                                                                                                                                                                                                                                                                                                                                                |
+| Sondes `nodefony-browser` | `skills/nodefony-browser/scripts/`      | `inspect.mjs` (socle + 6 familles par `NF_BROWSER_FAMILIES` — a11y, rendu, reseau, perf, stockage, responsive ; verdict par famille, nom inconnu REFUSÉ en 64) · `watch.mjs` (frames WS, réponses ≥ 400) · `socket.mjs` (socket A→Z : accueil, abonnement, action, latence médiane, `api.request`, reconnexion — joué DANS la page, donc cookies et Origin réels) · `lib/{browser,wcag,probes}.mjs`. Exécutés DANS le conteneur `<app>-browser` — chemins POSIX, aucun problème de plateforme |
+| Doc des sondes            | `skills/nodefony-browser/references/`   | `sondes.md` (chaque champ, lecture des verdicts, QUAND chaque famille se trompe) · `socket.md` (grammaire des frames, verdicts dont `SILENCIEUX` ≠ cassé). Chargées à la demande — le `SKILL.md` reste un index                                                                                                                                                                                                                                                                               |
+| Tests des sondes          | `tests/browser-*.test.ts`               | logique PURE sans navigateur (`wcag`, `probes`, importés via `browser-outils.ts`) + banc fonctionnel paramétré `NF_BROWSER_TEST_*` qui SKIPPE en DISANT pourquoi quand le décor manque — visable sur ce dépôt comme sur une app générée                                                                                                                                                                                                                                                       |
 
 ## Config
 
@@ -71,11 +74,36 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
 - **Les skills sont du CONTENU, pas du code** : ni import, ni build, ni test
   d'exécution — `files` les publie tels quels. Un skill se corrige ICI et la
   correction part par `npm update`. Ne JAMAIS le recopier dans une app.
+  Exception d'un `scripts/` : il n'entre ni au build ni au `tsconfig` (`.mjs`,
+  hors `include`), et s'éprouve en l'EXÉCUTANT dans le conteneur — c'est sa
+  seule preuve.
+- **Ce que le skill décrit doit valoir pour une app QUELCONQUE**, jamais pour ce
+  dépôt : pas de sélecteur d'une bibliothèque de composants, pas de route de
+  Studio, aucun chemin de connexion deviné (`NF_BROWSER_LOGIN` n'a **pas** de
+  défaut — deviner enverrait la sonde mesurer une page d'erreur en croyant
+  s'être authentifiée). Les skills du dépôt (`.claude/skills/`) sont un AUTRE
+  public : ils restent à eux, on ne les fusionne pas avec ceux-ci.
+- **Les commandes d'un skill s'écrivent pour les TROIS plateformes** : une ligne
+  chacune, sans substitution `$(…)`, sans tube, sans continuation `\`, sans
+  `grep` — rien de tout cela n'existe dans `cmd.exe`. Ce qui doit être extrait
+  d'une page l'est par la sonde elle-même (champ `scripts`), pas par un
+  `curl | grep` que Windows ne sait pas exécuter.
+- **`docker cp <dossier>/. <cible>` — le `/.` est OBLIGATOIRE** : sans lui, une
+  seconde copie IMBRIQUE un dossier de plus au lieu de remplacer, et l'on
+  exécute une version périmée sans aucun message. Vécu en écrivant ce skill.
 - **Le verbe qui les pose vit au CŒUR** (`nodefony ai:sync` →
   `src/nodefony/src/cli/aiSync.ts`, fast-path standalone). Même motif que
   `card` : porté ici (`policy: "dev"`), il répondrait « unknown command » dans un
   terminal sans `NODE_ENV`. `create app` appelle `syncSkillPointers` après
   l'install et avant `git init`.
+- **🔴 Tout skill publié se PRÉFIXE `nodefony-`** — dossier ET `name:` du
+  frontmatter (les deux, sinon la découverte l'écarte). Le motif n'est pas
+  l'esthétique : les pointeurs atterrissent dans le `.agents/skills/` de
+  l'application, **le même dossier où l'utilisateur écrit les SIENS**. Sans
+  namespace, son `add-crud` métier et le nôtre se disputent un nom — et c'est
+  `ai:sync` qui écraserait le sien à la prochaine synchronisation. Le préfixe dit
+  à qui appartient le skill ; c'est sa seule raison d'être, et elle suffit.
+  Même convention que les skills du dépôt, pour la même raison de namespace.
 - **La découverte ne connaît PAS ce paquet** : elle scanne tout
   `node_modules/@nodefony/*` **et** `modules/*` de l'app, et retient tout dossier
   portant un `SKILL.md`. Un module tiers livre ses skills sans qu'on touche au

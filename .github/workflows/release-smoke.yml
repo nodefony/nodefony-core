@@ -1,0 +1,115 @@
+# Banc de release — éprouve ce qu'un installeur RECEVRA. Ne publie rien.
+#
+# Ce fichier remplace le gabarit `npm-publish-github-packages.yml` d'origine,
+# qui n'a jamais tourné et n'aurait pas pu : il faisait `npm publish` sur le
+# paquet racine, déclaré `"private": true`, et visait GitHub Packages alors que
+# Nodefony publie N paquets verrouillés sur npm. Un workflow qui ne peut pas
+# fonctionner occupe l'inventaire en donnant l'illusion d'une couverture.
+#
+# 🔴 LA PUBLICATION N'EST PAS CÂBLÉE ICI, ET C'EST VOLONTAIRE. Elle se met en
+# place avec le plan de version (`docs/release/nodefony-10.md`) : versions
+# verrouillées, ordre de publication, jetons. Ce workflow fait la moitié qui a
+# du sens tout de suite — prouver que les tarballs s'installent et tiennent
+# debout. Publier viendra après, et s'ajoutera ici.
+#
+# Ce qu'il éprouve, et que rien d'autre dans cette forge ne peut voir : les
+# paquets du cœur pointent leurs types vers la SOURCE (`exports["."].types →
+# ./index.ts`) pour éviter une course au build, et cette source est ABSENTE du
+# tarball. Tant qu'on ne dépaquette pas, tout va bien — et rien ne marche chez
+# celui qui installe. Six paquets ont publié des semaines dans cet état.
+#
+# Le décor est GÉNÉRÉ, jamais copié : le scaffolder est installé DEPUIS son
+# tarball, et c'est lui qui produit les applications témoins. Un fichier oublié
+# dans `files` ne se voit d'aucune autre façon.
+#
+# Protocole, pièges et interprétation des échecs : skill `nodefony-release`.
+
+name: Banc de release (mode test)
+
+on:
+  # Manuel d'abord : ce banc construit des images docker. On le lance quand on
+  # en a besoin — avant une publication, ou après avoir touché à la surface
+  # publiée (`exports`, `files`, `peerDependencies`, gabarits `templates/`).
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "Scénario à jouer"
+        type: choice
+        default: all
+        options: [all, base, front, studio]
+  # Et une passe hebdomadaire : un gate qu'on ne lance que « quand on y pense »
+  # est un gate qui pourrit — celui-ci éprouve une surface qui dérive sans
+  # qu'aucun test du dépôt ne s'en aperçoive.
+  schedule:
+    - cron: "0 6 * * 1"
+
+concurrency:
+  group: release-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Installation vierge — ${{ matrix.scenario }}
+    runs-on: ubuntu-latest
+    # Les images se construisent : large, mais borné. Un banc qui pend est un
+    # banc qu'on annule à la main, donc qu'on cesse de lancer.
+    timeout-minutes: 45
+    strategy:
+      # Chaque scénario dit sa PROPRE vérité — `front` voit ce que `base` ne
+      # peut pas voir, et réciproquement. S'arrêter au premier rouge coûterait
+      # un second run pour apprendre le reste.
+      fail-fast: false
+      matrix:
+        # Matrice dynamique : un `workflow_dispatch` ciblé ne joue QUE le
+        # scénario demandé ; `all` et la passe programmée les jouent tous les
+        # trois, en parallèle plutôt qu'en série — le pack se refait par job et
+        # coûte des secondes, là où `docker build` coûte des minutes.
+        #
+        # ⚠️ Les parenthèses ne sont pas décoratives. `&&` lie plus fort que
+        # `||` (table des opérateurs de la doc GitHub), donc sans elles
+        # `A || B && X || Y` s'évalue `A || (B && X) || Y` et rend le BOOLÉEN
+        # `true` au lieu de la liste — `fromJSON` échoue alors sur une valeur
+        # qui n'a rien à voir avec le sujet.
+        #
+        # Sur `schedule`, `github.event.inputs.scenario` est nul ; la
+        # comparaison lâche de GitHub coerce nul et chaîne vide vers 0, si bien
+        # que les deux passent par la même branche « tous ».
+        scenario: >-
+          ${{ fromJSON(
+            (github.event.inputs.scenario == null || github.event.inputs.scenario == 'all')
+              && '["base","front","studio"]'
+              || format('["{0}"]', github.event.inputs.scenario)
+          ) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "26.x"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      # Prérequis EXPLICITE du banc : il empaquette depuis `dist/`. Sans build,
+      # il éprouverait un artefact périmé et rendrait un vert sans valeur — le
+      # mode de défaillance le plus coûteux de toute cette chaîne.
+      - name: Build workspaces (turbo)
+        run: npm run build
+
+      - name: Smoke test — pack, install vierge, conteneur
+        run: bash .claude/skills/nodefony-release/scripts/smoke-docker.sh --scenario ${{ matrix.scenario }}
+
+      # Le décor est jetable, son journal ne l'est pas : distinguer un
+      # `docker build` en échec d'une app témoin muette décide où chercher.
+      - name: État du décor (si échec)
+        if: failure()
+        run: |
+          echo "::group::images"
+          docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' | head -20
+          echo "::endgroup::"
+          echo "::group::conteneurs"
+          docker ps -a --format '{{.Names}} {{.Status}}' | head -20
+          echo "::endgroup::"

@@ -274,8 +274,14 @@ const httpServerSchema = z
       .number()
       .int()
       .nonnegative()
-      .default(120_000)
-      .describe("Timeout global de la socket (ms). 0 = désactivé."),
+      .default(30_000)
+      .describe(
+        "Timeout global de la socket (ms). 0 = désactivé. Aligné sur " +
+          "responseTimeout : node arme ce timer à la connexion, et le framework " +
+          "ne ré-arme que si la valeur diffère (`socket.timeout !== ms`) — " +
+          "l'alignement économise 1 setTimeout par requête sans changer le " +
+          "comportement effectif (l'arm framework 30 s dominait déjà).",
+      ),
     requestTimeout: z
       .number()
       .int()

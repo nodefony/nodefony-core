@@ -34,12 +34,14 @@
     "vitest.config.ts",
     "nodefony/**/*.ts",
 <% if (it.frontend === "react") { %>    "frontend/src/**/*",
-<% } %><% if (it.frontend === "vue" || it.frontend === "angular") { %>    "frontend/src/**/*.ts",
+<% } %><% if (it.frontend === "vue" || it.frontend === "angular" || it.frontend === "svelte") { %>    "frontend/src/**/*.ts",
 <% } %>    "tests/**/*.ts"
   ],
 <% if (it.frontend === "angular") { %>  // tsgo checke le TS du front ; les TEMPLATES Angular sont vérifiés par ngtsc
   // au build Vite (plugin AnalogJS, cf frontend/tsconfig.app.json strictTemplates).
 <% } %><% if (it.frontend === "vue") { %>  // tsgo checke le TS du front (main.ts + shim env.d.ts) ; l'INTÉRIEUR des SFC
   // .vue relève de vue-tsc (hors scope tsgo backend).
+<% } %><% if (it.frontend === "svelte") { %>  // tsgo checke le TS du front (main.ts + shim env.d.ts) ; l'INTÉRIEUR des
+  // .svelte relève de svelte-check (hors scope tsgo backend).
 <% } %>  "exclude": ["node_modules", "dist"]
 }

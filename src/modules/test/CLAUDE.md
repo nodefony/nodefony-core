@@ -125,6 +125,29 @@ unitaire ne peut faire, puisqu'ils simulent `bufferedAmount`.
 > l'action pour une connexion anonyme, cause non isolée. Détail et conduite à tenir
 > dans le SKILL.md du banc — ne pas désarmer la garde pour faire passer la mesure.
 
+### BenchOrmController (`/nodefony/test/bench-orm`) — décor de banc, OPT-IN
+
+Monté **uniquement** si `NF_BENCH_ORM=1` (voir `index.ts`) : profil du cycle ORM sur le corpus
+Dolibarr (entités `llx_user`/`llx_societe`/`llx_facture` enregistrées sur le connector `default`,
+seed idempotent 50/200/10 000 au boot — `entity/benchOrm.ts` (corpus dolibarr gitignoré chargé dynamiquement)). Tout traverse la couche
+repository framework (orm-core → Drizzle), jamais le driver nu. Routes en GET (wrk sans script Lua).
+
+**Multi-dialecte** : le décor suit le connector `default` — `NF_DATABASE_URL=postgres://…` charge
+la variante pg-core du corpus (`dolibarr/bench-pg.js`, générée localement par
+`dolibarr/gen-bench-pg.mjs` avec son DDL PG complet `bench-pg.sql` à poser AVANT le boot : le DDL
+dérivé dev n'émet ni `DEFAULT` ni identity). `mysql` → fail-loud (variante non générée). En prod,
+`NF_ADMIN_PASSWORD` est requis pour la route secure (aucun compte seedé sinon), et le login doit
+se faire sur le MÊME canal (http/https) que le banc.
+
+| Route                                  | Description                                                            |
+| -------------------------------------- | ---------------------------------------------------------------------- |
+| `/read`                                | 20 factures `WHERE fk_user_author = 7`, rows entières                  |
+| `/read-lean`                           | même SELECT, réponse `{n}` — isole le coût JSON par soustraction       |
+| `/write`                               | INSERT facture FK user+societe (`ref: BENCH-<seq>`)                    |
+| `/reset`                               | DELETE des `BENCH-%` — AVANT chaque run d'écriture                     |
+| `/status`                              | comptes (preuve « cible valide » avant mesure)                         |
+| `/nodefony/test/secure/bench-orm/read` | même lecture DERRIÈRE le firewall (zone `test-secure`) = cycle complet |
+
 ### RestController (`/nodefony/test/rest`)
 
 | Route                          | Méthode | Description                               |

@@ -72,6 +72,11 @@ export type HttpRsponseType = Http2Response | HttpResponse;
 const socketActiveContext = new WeakMap<object, HttpContext>();
 const socketTimeoutArmed = new WeakSet<object>();
 
+// Sonde perf in-situ (cf http-kernel.ts) — flag lu 1× ; éteinte, les
+// sous-marques de ce fichier ne coûtent rien (branche morte).
+const PERF_PROBE_SUB = process.env.NF_PERF_PROBE === "1";
+type PerfSubMarks = { t0: bigint; uploadNs: number; reqResNs: number };
+
 import type { IHttpContext as IHttpContextInterface } from "../../../interfaces/IContext";
 
 class HttpContext extends Context implements IHttpContextInterface {
@@ -93,6 +98,14 @@ class HttpContext extends Context implements IHttpContextInterface {
   ) {
     super(container, type);
     this.uploadService = this.get<uploadService>("upload");
+    // Sous-marque sonde perf : t0 → après le lookup DI "upload".
+    const perfSub = PERF_PROBE_SUB
+      ? ((globalThis as unknown as Record<string, unknown>).__nfPerfProbe as
+          PerfSubMarks | undefined)
+      : undefined;
+    if (perfSub && perfSub.t0 !== 0n) {
+      perfSub.uploadNs += Number(process.hrtime.bigint() - perfSub.t0);
+    }
     if (this.type === "http2") {
       this.request = new Http2Request(
         request as http2.Http2ServerRequest,
@@ -106,12 +119,23 @@ class HttpContext extends Context implements IHttpContextInterface {
       this.request = new HttpRequest(request as http.IncomingMessage, this);
       this.response = new HttpResponse(response as http.ServerResponse, this);
     }
+    // Sous-marque sonde perf : t0 → après new Request + new Response.
+    if (perfSub && perfSub.t0 !== 0n) {
+      perfSub.reqResNs += Number(process.hrtime.bigint() - perfSub.t0);
+    }
     //this.router = this.get("router");
-    this.url = url.format(this.request.url);
+    // F-B : `request.href` — la sérialisation SANS construire l'URL (fast-path
+    // : sUrl, identique au href par contrat canonique ; bail-out : le vrai
+    // href de l'URL déjà parsée).
+    this.url = this.request.href;
     this.scheme = this.setScheme();
     this.method = this.request.getMethod();
     this.remoteAddress = this.request.remoteAddress;
-    this.originUrl = new URL(this.request.origin || this.url);
+    // `originUrl` n'est PLUS construit ici : getter paresseux (plus bas) — ses
+    // seuls lecteurs sont les loggers, et `new URL` par requête se payait même
+    // logger éteint. Corrige AU PASSAGE un vrai bug : `Origin: null` (RFC 6454,
+    // iframe sandboxée/redirect cross-origin) faisait THROW ce constructeur →
+    // requête SANS réponse (socket pendu). Le repli = même pattern que le WS.
     // Détection proxy — uniquement derrière un proxy de CONFIANCE (sinon les
     // X-Forwarded-* sont forgeables → IP/scheme spoofing ; cf trustProxy).
     // `this.proxy` = métadonnées de topologie INTERNE (noms/IP de serveurs
@@ -152,7 +176,6 @@ class HttpContext extends Context implements IHttpContextInterface {
         "DEBUG",
       );
     }
-    this.isHtml = this.request.acceptHtml;
     // Zero Trust : le X-Request-Id client est réfléchi en réponse + logué + en
     // ALS → on n'adopte que s'il est sûr, sinon on garde l'UUID serveur.
     const incomingId = sanitizeRequestId(
@@ -168,6 +191,25 @@ class HttpContext extends Context implements IHttpContextInterface {
     // Nom effectif selon le transport (`__Host-` sur TLS) — même calcul à
     // l'écriture (session.setCookieSession) → reprise L1 cohérente.
     this.cookieSession = this.getCookieSession(this.getSessionCookieName());
+  }
+
+  /**
+   * URL d'origine effective, construite À LA DEMANDE (1ʳᵉ lecture, puis
+   * mémoïsée). `Origin` invalide ou `null` (RFC 6454) → repli sur l'URL de la
+   * requête, comme le WS — jamais de throw.
+   */
+  override get originUrl(): URL | undefined | null {
+    if (this._originUrl === null) {
+      try {
+        this._originUrl = new URL(this.request.origin || this.url);
+      } catch {
+        this._originUrl = new URL(this.url);
+      }
+    }
+    return this._originUrl;
+  }
+  override set originUrl(value: URL | undefined | null) {
+    this._originUrl = value;
   }
 
   /**
@@ -197,7 +239,15 @@ class HttpContext extends Context implements IHttpContextInterface {
   }
 
   override setScheme(): SchemeType {
-    return this.request.url.protocol.replace(":", "") as SchemeType;
+    // F-B : le scheme effectif est posé par `Request.getFullUrl` (résolution
+    // Forwarded/transport) — le lire n'exige plus l'URL. Si l'URL a été
+    // construite (bail-out, ex. proto `Forwarded` exotique), sa forme
+    // normalisée (lowercase WHATWG) reste la référence, comme avant.
+    const req = this.request;
+    if (req.hasParsedUrl) {
+      return req.url.protocol.replace(":", "") as SchemeType;
+    }
+    return req.scheme as SchemeType;
   }
 
   // P7 — fonction async directe (plus de `new Promise(async executor)` : un
@@ -365,49 +415,40 @@ class HttpContext extends Context implements IHttpContextInterface {
     }
   }
 
-  #doSend(
+  async #doSend(
     chunk?: unknown,
     encoding?: BufferEncoding,
   ): Promise<Http2Response | HttpResponse> {
-    return this.saveSession()
-      .then(async (_session: Session | null) => {
-        // if (session) {
-        //   //this.log(`SAVE SESSION ID : ${session.id}`, "DEBUG");
-        // }
-        if (chunk) {
-          this.response?.setBody(chunk);
-        }
+    try {
+      // Sans session démarrée, il n'y a rien à sauver : sauter l'aller-retour
+      // service (2 Promises/req sur le chemin anonyme). Le service refait le
+      // même check (`sessions-service.ts` saveSession) — lui reste la source
+      // de la logique dirty/touch, ici on évite seulement l'appel à vide.
+      if (this.session != null) {
+        await this.saveSession();
+      }
+      if (chunk) {
+        this.response?.setBody(chunk);
+      }
+      // Hook utilisateur — aucun listener dans le cas nominal : le check évite
+      // l'appel async lui-même (fireAsync + emitAsync = 2 Promises), pas
+      // seulement la boucle (déjà court-circuitée dans Event.emitAsync).
+      if (this.listenerCount("onSend") > 0) {
         await this.fireAsync("onSend", this.response, this);
-        try {
-          this.writeHead();
-        } catch (e) {
-          this.log(e, "WARNING");
-        }
-        if (this.isRedirect) {
-          return this.close().catch((e) => {
-            throw e;
-          });
-        }
-        return this.write(chunk, encoding).catch((e) => {
-          throw e;
-        });
-      })
-      .catch(async (error) => {
-        this.log(error, "ERROR");
-        // try {
-        //   if (!this.response.isHeaderSent()) {
-        //     this.writeHead(error.code || 500);
-        //     await this.write(error.message, encoding).catch((e) => {
-        //       throw e;
-        //     });
-        //   } else {
-        //     return this.close().catch((e) => {
-        //       throw e;
-        //     });
-        //   }
-        // } catch {}
-        throw error;
-      });
+      }
+      try {
+        this.writeHead();
+      } catch (e) {
+        this.log(e, "WARNING");
+      }
+      if (this.isRedirect) {
+        return await this.close();
+      }
+      return await this.write(chunk, encoding);
+    } catch (error) {
+      this.log(error, "ERROR");
+      throw error;
+    }
   }
 
   writeHead(
@@ -466,7 +507,10 @@ class HttpContext extends Context implements IHttpContextInterface {
     //http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
     Http2Response | HttpResponse
   > {
-    await this.fireAsync("onClose", this);
+    // Même garde que `onSend` (#doSend) : hook utilisateur, 0 listener nominal.
+    if (this.listenerCount("onClose") > 0) {
+      await this.fireAsync("onClose", this);
+    }
     // END REQUEST
     return this.response
       .end()
@@ -563,6 +607,12 @@ class HttpContext extends Context implements IHttpContextInterface {
 
   setContentType(type?: string, encoding?: BufferEncoding) {
     return this.response.setContentType(type, encoding);
+  }
+
+  // F-C : `isHtml` se résout contre l'en-tête Accept au PREMIER accès (getter
+  // lazy de Context) — le chemin JSON nominal ne parse jamais Accept.
+  protected override resolveIsHtml(): boolean {
+    return this.request?.acceptHtml ?? false;
   }
 
   setDefaultContentType() {

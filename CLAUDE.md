@@ -150,7 +150,21 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
    session = un module ». Corollaire : réduire les fichiers d'instructions est un **faux** levier
    (le contexte FIXE pèse quelques pourcents du contexte relu) — c'est la LONGUEUR qu'il faut couper.
 2. **Mini-cahier des charges en amont** d'un gros écran/feature : lister (ou valider en 1 question) ce qui doit apparaître/se comporter AVANT de coder → 1 passe au lieu de N petits Edits. **S'applique AUSSI aux GROS artefacts non-écran** (> ~150 lignes, widget visuel, skill/doc/CLAUDE.md/README) : lister sections/panneaux/contrôles puis **figer la structure** AVANT d'écrire (éviter renumérotations `cf §N`). Vécu : `DebugBar.ts` 27→50 edits, `SKILL.md` 49 edits — improviser la structure coûte en allers-retours.
-3. **Avant de dire « fait » :** après une modif **frontend** → annoncer la vérif (curl transform Vite) + demander un **hard-reload** (cache React) ; **lancer la suite de tests impactée** + **suspecter son propre diff** avant de qualifier un échec de « pré-existant ».
+3. **Avant de dire « fait » :** après une modif **frontend** → annoncer la vérif (curl transform Vite) puis **REGARDER L'ÉCRAN SOI-MÊME** (voir ci-dessous) ; **lancer la suite de tests impactée** + **suspecter son propre diff** avant de qualifier un échec de « pré-existant ».
+
+   > 🔴 **IL Y A UN NAVIGATEUR, et il MESURE — skill `nodefony-browser`.**
+   > Il ne fait pas que capturer : il rend les **contrastes et tailles CALCULÉS** par le moteur de
+   > rendu, l'arbre d'accessibilité, la console et les requêtes réelles — de quoi valider une
+   > correction de palette sans attendre un audit, et sans rien installer sur le poste.
+   > **Ne JAMAIS demander au user de jouer la sonde** (« fais un hard-reload et dis-moi la console ») :
+   > ce réflexe vient de la règle « pas de Chrome headless », dont l'exception — un environnement
+   > isolé — EST ce conteneur. Le hard-reload du développeur ne sert plus qu'au HMR, à l'animation
+   > et au rendu fin.
+   > **Le mode d'emploi n'est PAS ici** (le recopier rendrait le skill inatteignable) : le charger
+   > AVANT de vouloir constater quoi que ce soit à l'écran — trois contraintes structurelles (nom
+   > d'hôte, HTTPS, Vite joignable) font échouer toute improvisation, et deux pièges font conclure
+   > FAUX : mesurer avant que l'écran soit peuplé, et observer un bundle qui n'est pas celui bâti.
+
 4. **Batcher les edits backend avant UN SEUL `rebuild + restart`** (coût #1 mesuré sur 8/8 retex : 10→23 restarts/session, souvent fusionnables). Regrouper TOUTES les modifs serveur d'une feature (controllers, services, config), PUIS un seul cycle `stop.sh → build → start.sh`. Ne PAS faire stop/build/start après chaque petit Edit. Les modifs **frontend** passent en **HMR Vite** → 0 restart. Réserver les restarts intermédiaires aux vrais points de mesure (diagnostic).
 5. **DÉLÉGUER sur DEUX déclencheurs — le VOLUME, mais aussi la NATURE de la tâche.** Le second est
    celui qu'on rate : il ne se voit pas au nombre de fichiers.
@@ -239,6 +253,18 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
      Ne PAS déléguer, en revanche : **éditer du code** au milieu d'une session (le coût
      d'explication dépasse le gain, et deux mains sur les mêmes fichiers finissent par se
      marcher dessus). Déléguer la VÉRIFICATION et la MESURE, appliquer soi-même.
+   - **🔴 UN SOUS-AGENT N'OUVRE JAMAIS UN SKILL DE LUI-MÊME — le NOMMER dans le prompt.**
+     Il reçoit pourtant la liste complète des skills, descriptions et déclencheurs compris, et
+     l'outil `Skill` pour les charger. **Mesuré, deux runs** : sans mention, **0 appel `Skill`
+     sur 28 appels d'outils** ; avec « charge d'abord le skill `X` », **il le charge en premier
+     et applique sa méthode** (le run instruit de `nodefony-inspect` a interrogé
+     `.ai/symbols.json` au `jq` au lieu d'ouvrir des fichiers). C'est le même mécanisme que
+     `@agent-<nom>` face à la prose : la disponibilité ne déclenche rien, seule la mention
+     garantit. Sans elle, on croit avoir délégué SOUS les règles du projet à quelqu'un qui ne
+     voit que le prompt. Donc : toute délégation dont la tâche touche un domaine couvert par un
+     skill écrit, en toutes lettres, « charge d'abord le skill `<nom>` ». Ce que ce fichier ne
+     recopie pas — c'est bien le but — n'atteint le délégué QUE par cette phrase.
+     [[feedback_subagent_skills_must_be_named]]
 
 6. **🔴 QUESTION ZÉRO — FAUT-IL UN MODÈLE ? Puis SEULEMENT : lequel ?** Avant de choisir un modèle,
    chercher l'**automate déterministe** qui fait le travail : `rg`, `jq`, `git log -S`, un

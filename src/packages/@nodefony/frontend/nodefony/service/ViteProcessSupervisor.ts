@@ -13,6 +13,11 @@ import type {
 import type { IResolvedFrontendEntry } from "../interfaces/IFrontBuilder";
 import { FrontendSupervisorStartError } from "../src/errors/FrontendError";
 import ViteConfigGenerator from "./ViteConfigGenerator";
+import {
+  browserReachableHost,
+  resolveOriginTemplate,
+  PORT_PLACEHOLDER,
+} from "../src/remoteDev";
 
 /**
  * Résout le binaire Vite **une seule fois** (mis en cache module-level).
@@ -59,6 +64,19 @@ export interface IViteSupervisorLogger {
 export interface ViteSupervisorOptions {
   readonly devHost: string;
   readonly devPort: number;
+  /**
+   * Template d'origine PUBLIQUE du dev server (P14.17) — `{port}` substitué au
+   * port RÉEL de chaque spawn (suit les retries de port). Vide/absent = dérivé
+   * de `devHost:port`. Dissocie ce que Vite ÉCOUTE de ce que le navigateur
+   * APPELLE (forwarder Codespaces/Gitpod, `host.docker.internal`, remap).
+   */
+  readonly publicOriginTemplate?: string;
+  /**
+   * Hôtes que Vite doit accepter dans le header `Host` (`server.allowedHosts`).
+   * `true` = tous. Dérivé par FrontendService de la liste `trustedHosts` http —
+   * jamais maintenu ici (1 règle = 1 implémentation).
+   */
+  readonly allowedHosts?: true | ReadonlyArray<string>;
   readonly startupTimeoutMs: number;
   readonly pipeLogs: boolean;
   readonly cwd: string;
@@ -152,6 +170,36 @@ export function isPortInUseMessage(text: string): boolean {
 }
 
 /**
+ * Message d'échec d'un boot qui n'a jamais rendu la main dans le temps imparti —
+ * en y REPORTANT ce que vite avait déjà dit.
+ *
+ * Le conflit de port ne se voit que dans la sortie du child. Le rejet par
+ * échéance ne portait que la durée : un boot qui annonçait « Port 5173 is
+ * already in use » puis restait pendu (vite ne meurt pas toujours, et sur une
+ * application réelle le pré-bundling tient l'échéance) sortait sous le libellé
+ * `timeout after …`, que le détecteur de port occupé ne reconnaît pas. Le repli
+ * sur `port+1` existait et n'était jamais atteint — la sortie d'échec choisie
+ * décidait à elle seule si la 2ᵉ application aurait un frontend.
+ *
+ * Fonction PURE : la règle « ce qu'on a OBSERVÉ prime sur la façon dont on a
+ * échoué » se teste sans spawn, donc sans dépendre d'une course entre l'écriture
+ * de l'erreur et la mort du process.
+ *
+ * @param timeoutMs - échéance dépassée.
+ * @param observed - sortie brute accumulée du child (stdout + stderr).
+ * @returns message d'erreur, préfixé `EADDRINUSE:` si un port occupé est dénoncé.
+ */
+export function startupTimeoutMessage(
+  timeoutMs: number,
+  observed: string,
+): string {
+  const base = `timeout after ${timeoutMs}ms`;
+  return isPortInUseMessage(observed)
+    ? `EADDRINUSE: ${base} — vite a annoncé un port occupé sans rendre la main`
+    : base;
+}
+
+/**
  * Superviseur Vite résilient — branche POC `poc/frontend-child`.
  *
  * Garanties :
@@ -172,6 +220,8 @@ export class ViteProcessSupervisor implements IViteSupervisor {
   private child: ChildProcess | null = null;
   private state: ViteSupervisorState = "idle";
   private resolvedPort: number | null = null;
+  /** Origine publique du spawn courant (source unique des URLs — cf status). */
+  private resolvedOrigin: string | null = null;
   private lastError: string | null = null;
   private entries: ReadonlyArray<IResolvedFrontendEntry> = [];
   private configFilePath: string | null = null;
@@ -273,6 +323,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
     return {
       state: this.state,
       host: this.opts.devHost,
+      origin: this.resolvedOrigin,
       port: this.resolvedPort ?? this.opts.devPort,
       pid: this.child?.pid ?? null,
       lastError: this.lastError,
@@ -320,16 +371,48 @@ export class ViteProcessSupervisor implements IViteSupervisor {
   /** Spawn Vite sur un port donné et attend le ready. */
   private async attemptSpawn(port: number): Promise<void> {
     this.state = "starting";
+    // Drain des écouteurs d'une tentative PRÉCÉDENTE (retry de port : le child
+    // mort de l'essai N-1 laissait ses handlers dans le registre — bornés mais
+    // inutiles, et un `removeListener` tardif sur le mauvais child est un piège).
+    this.cleanupChildListeners();
 
     // 1. Génère + écrit `vite.config.generated.mjs` à côté de l'index.html.
     const moduleRoot = this.entries[0]!.root;
     this.configFilePath = path.resolve(moduleRoot, "vite.config.generated.mjs");
     const scheme = this.opts.https ? "https" : "http";
-    const viteOrigin = `${scheme}://${this.opts.devHost}:${port}`;
+    // Origine PUBLIQUE (P14.17) : template résolu contre le port RÉEL de CETTE
+    // tentative, sinon dérivation locale. Un template invalide est ANNONCÉ puis
+    // ignoré (fail-soft dispo, fail-loud dégradation — jamais en silence).
+    const tpl = this.opts.publicOriginTemplate;
+    const resolved = tpl ? resolveOriginTemplate(tpl, port) : null;
+    if (tpl && !resolved) {
+      this.opts.logger.error(
+        `publicOrigin invalide (« ${tpl} ») — attendu scheme://host[:port|:{port}] ; ` +
+          `origine locale dérivée utilisée à la place`,
+      );
+    }
+    // Template SANS `{port}` + port décalé par le retry : l'origine publique
+    // figée ne suit pas — le mapping externe peut être périmé. On l'énonce.
+    if (
+      resolved &&
+      !tpl!.includes(PORT_PLACEHOLDER) &&
+      port !== this.opts.devPort
+    ) {
+      this.opts.logger.error(
+        `publicOrigin figée (« ${tpl} ») mais Vite écoute sur ${port} (≠ ${this.opts.devPort}) — ` +
+          `ajouter {port} au template ou libérer le port d'origine`,
+      );
+    }
+    const viteOrigin =
+      resolved?.origin ??
+      `${scheme}://${browserReachableHost(this.opts.devHost)}:${port}`;
+    this.resolvedOrigin = viteOrigin;
     const content = this.generator.toMjs(this.entries, "development", {
       backendOrigin: this.opts.backendOrigin,
       viteOrigin,
       https: this.opts.https,
+      allowedHosts: this.opts.allowedHosts,
+      hmr: resolved?.hmr,
     });
     writeFileSync(this.configFilePath, content, "utf8");
     this.opts.logger.debug?.(`vite config written: ${this.configFilePath}`);
@@ -350,6 +433,18 @@ export class ViteProcessSupervisor implements IViteSupervisor {
     // false` = Vite reste dans le groupe de process du serveur → un Ctrl+C terminal
     // (SIGINT au groupe foreground) l'atteint AUSSI directement (kill propre, 0 orphelin).
     const viteBin = resolveViteBin();
+    // Windows : le fallback `npx` est un `.cmd` — le spawn sans shell le refuse
+    // (EINVAL, durcissement Node CVE-2024-27980) et `shell:true` réintroduit le
+    // quoting cmd.exe sur des chemins à espaces. Pas de demi-mesure : on ÉNONCE
+    // le verdict (axiome 6 — pas de masque) au lieu de laisser un EINVAL cryptique.
+    if (!viteBin && process.platform === "win32") {
+      this.state = "errored";
+      this.lastError = "vite binary unresolved (win32)";
+      throw new FrontendSupervisorStartError(
+        "binaire vite irrésoluble et fallback npx non portable sous Windows — " +
+          "installer vite en devDependency de l'application",
+      );
+    }
     const spawnCmd = viteBin ? process.execPath : "npx";
     const spawnArgs = viteBin ? [viteBin, ...args.slice(1)] : args;
     // Titre lisible dans `ps` : sinon `node …/vite/bin/vite.js --config <long path>`,
@@ -400,12 +495,19 @@ export class ViteProcessSupervisor implements IViteSupervisor {
         if (resolved) return;
         resolved = true;
         this.state = "errored";
-        this.lastError = "startup timeout";
-        reject(
-          new FrontendSupervisorStartError(
-            `timeout after ${this.opts.startupTimeoutMs}ms`,
-          ),
-        );
+        // Le child est peut-être VIVANT (boot interminable, pas mort) : sans ce
+        // kill il devenait un ORPHELIN hors machine à états — aucun handler
+        // runtime attaché, aucun restart, un Vite fantôme qui squatte le port
+        // jusqu'à l'arrêt du kernel. On emporte l'arbre entier (esbuild inclus).
+        if (child.exitCode === null && child.signalCode === null) {
+          this.signalTree(child, "SIGKILL");
+        }
+        // Ce que vite a DIT prime sur la façon dont on a cessé de l'attendre :
+        // un port occupé annoncé puis un boot pendu doit rester rattrapable par
+        // le retry de port (cf startupTimeoutMessage).
+        const msg = startupTimeoutMessage(this.opts.startupTimeoutMs, buffer);
+        this.lastError = msg;
+        reject(new FrontendSupervisorStartError(msg));
       }, this.opts.startupTimeoutMs);
 
       const localRe = /Local:\s+https?:\/\/([^:\s]+):(\d+)/;
@@ -471,6 +573,19 @@ export class ViteProcessSupervisor implements IViteSupervisor {
         if (!resolved) {
           resolved = true;
           clearTimeout(timeout);
+          // Arrêt DEMANDÉ pendant le boot (stop() ou signal process) : ce n'est
+          // pas une panne — l'état et le message le disent, sinon le shutdown
+          // normal se journalise en « family failed to start » (bruit trompeur).
+          if (this.willingShutdown) {
+            this.state = "stopped";
+            this.lastError = null;
+            reject(
+              new FrontendSupervisorStartError(
+                "arrêt demandé pendant le boot de vite (shutdown, pas une panne)",
+              ),
+            );
+            return;
+          }
           // Conflit de port → `spawnWithPortRetry` réessaiera sur port+1. MÊME
           // détecteur que `isPortInUseError` (une 2ᵉ regex divergeait : celle-ci
           // cherchait « Port X is in use » quand Vite écrit « Port X is ALREADY
@@ -610,6 +725,17 @@ export class ViteProcessSupervisor implements IViteSupervisor {
             );
           }
           this.healthFailures = 0;
+          // Stabilité PROUVÉE (un ping réussi = un intervalle complet vécu) →
+          // budget de restarts rendu. Sans ça, 5 crashs ÉPARS sur une longue
+          // session de dev épuisaient `maxRestarts` et condamnaient le frontend
+          // en `errored` définitif — le plafond ne doit compter que les crashs
+          // en RAFALE (boucle), pas la vie entière du superviseur.
+          if (this.restartCount > 0 && this.state === "ready") {
+            this.opts.logger.info(
+              `vite stable après restart — budget de restarts réarmé (était ${this.restartCount}/${this.cfg.maxRestarts})`,
+            );
+            this.restartCount = 0;
+          }
         })
         .catch((e) => {
           this.healthFailures++;
@@ -650,7 +776,10 @@ export class ViteProcessSupervisor implements IViteSupervisor {
       const scheme = this.opts.https ? https : http;
       const req = scheme.request(
         {
-          hostname: this.opts.devHost,
+          // `0.0.0.0`/`::` sont des adresses d'ÉCOUTE : s'y CONNECTER échoue
+          // sous Windows (axiome 4 — la capacité se constate). Le superviseur
+          // ping depuis la même machine → loopback toujours correct.
+          hostname: browserReachableHost(this.opts.devHost),
           port,
           path: "/",
           method: "GET",

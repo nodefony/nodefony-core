@@ -20,6 +20,24 @@ const defaultOptions: DefaultOptionsService = {
   },
 };
 
+// Sonde perf in-situ (cf @nodefony/http http-kernel.ts) — flag lu 1× ;
+// éteinte, les marques de ce fichier ne coûtent rien (branche morte). La
+// fenêtre (t0) n'est posée que par le chemin HTTP instrumenté : tout autre
+// new Service (boot, modules) tombe sur t0 = 0n et ne compte pas.
+// ⚠️ Ce fichier est ISOMORPHE (réexporté par src/client/index.ts → dist/client) :
+// `process` n'existe pas dans un navigateur, et une lecture nue ici tue le
+// bundle entier au chargement (ReferenceError avant le premier import applicatif).
+const PERF_PROBE_SUB =
+  typeof process !== "undefined" && process.env?.NF_PERF_PROBE === "1";
+type PerfSvcMarks = { t0: bigint } & Record<string, number | bigint>;
+function perfMark(field: string): void {
+  const p = (globalThis as unknown as Record<string, unknown>).__nfPerfProbe as
+    PerfSvcMarks | undefined;
+  if (p && p.t0 !== 0n) {
+    (p[field] as number) += Number(process.hrtime.bigint() - p.t0);
+  }
+}
+
 const defaultSyslogSettings: SyslogDefaultSettings = {
   moduleName: "SERVICE ",
   defaultSeverity: "INFO",
@@ -49,8 +67,11 @@ class Service implements IService {
 
   // Backing field privé — lecture externe via getter notificationsCenter.
   #nc: Event | undefined;
-  // Listeners enregistrés via l'API de ce service — retirés de l'Event partagé à clean().
-  #trackedListeners: Map<string | symbol, EventListener[]> = new Map();
+  // Listeners enregistrés via l'API de ce service — retirés de l'Event partagé
+  // à clean(). Lazy (F-F, règle absolue perf) : null tant qu'aucun listener
+  // n'est tracké — la majorité des Service construits par requête n'en
+  // tracke jamais, la Map ne s'alloue qu'au premier track.
+  #trackedListeners: Map<string | symbol, EventListener[]> | null = null;
   // true si #nc est un Event externe partagé (pas auto-créé).
   #sharedNc = false;
 
@@ -82,15 +103,24 @@ class Service implements IService {
     notificationsCenter?: Event | false | null,
     options: DefaultOptionsService = {},
   ) {
+    if (PERF_PROBE_SUB) perfMark("svcStartNs");
     this.name = name;
     this.container =
       container instanceof Container ? container : new Container();
-    this.options =
-      notificationsCenter === false
-        ? { ...options }
-        : { ...defaultOptions, ...options };
+    // `events` ne rejoint JAMAIS this.options : server-static.ts:initStaticFiles
+    // itère `for (... in this.options)` et appelle `.path` sur chaque valeur
+    // (il suppose la clé `events` absente après ctor). L'écarter ICI par
+    // rest-destructuring remplace l'ancien `delete this.options.events`
+    // post-ctor (mutation de hidden class V8) ET le spread des défauts :
+    // l'écrasement shallow du défaut (`events` fourni remplace TOUT le défaut)
+    // est reproduit par `effectiveEvents` chez les deux lecteurs plus bas.
+    const { events: evOpts, ...svcOptions } = options;
+    const effectiveEvents = evOpts ?? defaultOptions.events;
+    this.options = svcOptions;
+    if (PERF_PROBE_SUB) perfMark("svcOptsNs");
     this.kernel = this.container.get<IKernel>("kernel");
     this.syslog = this.container.get<Syslog>("syslog");
+    if (PERF_PROBE_SUB) perfMark("svcLookupsNs");
 
     if (!this.syslog) {
       // Variable locale — pas besoin d'un champ d'instance.
@@ -112,8 +142,8 @@ class Service implements IService {
       this.attachConfiguredListeners(options);
       // Bus PARTAGÉ : on ne peut que RELEVER son plafond, jamais l'abaisser.
       //
-      // `this.options` (fusionné avec `defaultOptions`), PAS le paramètre brut :
-      // lire `options` ignorait le défaut `nbListeners: 20` dès que l'appelant
+      // `effectiveEvents` (défaut compris), PAS `evOpts` brut : lire le seul
+      // paramètre ignorait le défaut `nbListeners: 20` dès que l'appelant
       // n'en passait pas — c'est-à-dire presque toujours.
       //
       // Mais appliquer ce défaut tel quel sur un bus qu'on ne possède PAS le
@@ -124,26 +154,21 @@ class Service implements IService {
       // `MaxListenersExceededWarning` sur `onPreBoot`/`onBoot` alors que rien
       // ne fuyait : le plafond avait simplement été écrasé par un invité.
       const shared = this.#nc.getMaxListeners();
-      const wanted = this.options.events?.nbListeners ?? 0;
+      const wanted = effectiveEvents?.nbListeners ?? 0;
       if (wanted > shared) {
         this.#nc.setMaxListeners(wanted);
       }
     } else if (notificationsCenter !== false) {
       this.#nc = new Event(this.options, this, this.options);
-      if (this.options.events?.nbListeners) {
-        this.#nc.setMaxListeners(this.options.events.nbListeners);
+      if (effectiveEvents?.nbListeners) {
+        this.#nc.setMaxListeners(effectiveEvents.nbListeners);
       }
       if (!this.kernel || this.kernel.container !== this.container) {
         this.container.set("notificationsCenter", this.#nc);
       }
     }
 
-    // `delete` (et non `= undefined`) — `server-static.ts:initStaticFiles`
-    // itère `for (... in this.options)` et appelle `.path` sur chaque valeur
-    // (suppose la clé `events` ABSENTE après ctor). Le supposé gain V8 hidden
-    // class de `= undefined` est annulé par les `if (!v) continue` à ajouter
-    // chez tous les consommateurs (pattern `for...in` répandu).
-    delete this.options.events;
+    if (PERF_PROBE_SUB) perfMark("svcEventNs");
   }
 
   /**
@@ -193,14 +218,14 @@ class Service implements IService {
    */
   clean(syslog = false): void {
     // Retire les listeners de l'Event partagé pour éviter les fuites mémoire.
-    if (this.#nc && this.#sharedNc) {
+    if (this.#nc && this.#sharedNc && this.#trackedListeners) {
       for (const [event, listeners] of this.#trackedListeners) {
         for (const listener of listeners) {
           this.#nc.removeListener(event, listener);
         }
       }
     }
-    this.#trackedListeners.clear();
+    this.#trackedListeners = null;
     this.#sharedNc = false;
     if (this.syslog && syslog) {
       this.syslog.reset();
@@ -258,6 +283,9 @@ class Service implements IService {
     eventName: string | symbol,
     listener: EventListener,
   ): void {
+    if (this.#trackedListeners === null) {
+      this.#trackedListeners = new Map();
+    }
     const list = this.#trackedListeners.get(eventName) ?? [];
     list.push(listener);
     this.#trackedListeners.set(eventName, list);
@@ -267,11 +295,13 @@ class Service implements IService {
     eventName: string | symbol,
     listener: EventListener,
   ): void {
-    const list = this.#trackedListeners.get(eventName);
+    const map = this.#trackedListeners;
+    if (!map) return;
+    const list = map.get(eventName);
     if (!list) return;
     const idx = list.indexOf(listener);
     if (idx !== -1) list.splice(idx, 1);
-    if (list.length === 0) this.#trackedListeners.delete(eventName);
+    if (list.length === 0) map.delete(eventName);
   }
 
   // ─── Events — délégation vers #nc ──────────────────────────────────────────
@@ -388,10 +418,10 @@ class Service implements IService {
   /** Retire tous les listeners (ou ceux d'un événement précis si fourni). */
   removeAllListeners(eventName?: string | symbol): this {
     if (eventName !== undefined) {
-      this.#trackedListeners.delete(eventName);
+      this.#trackedListeners?.delete(eventName);
       this.nc.removeAllListeners(eventName);
     } else {
-      this.#trackedListeners.clear();
+      this.#trackedListeners = null;
       this.nc.removeAllListeners();
     }
     return this;

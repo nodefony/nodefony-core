@@ -44,6 +44,21 @@
   Causes vécues : module turbo-caché sans la nouvelle route, `dist` manquant (crash boot `ERR_MODULE_NOT_FOUND`),
   front HMR en avance sur le back (widgets fantômes). Fix : `npm run build -- --force` puis restart. **Back Studio /
   core modifié = rebuild + restart** (le `start.sh` ne rebuild QUE le module test). Vérifier : `grep <chaîne> dist/`.
+- **🔴 UI PRÉ-BÂTIE (`NF_STUDIO_UI=static`) : l'écran peut montrer du code QUI N'EXISTE PLUS dans la source.**
+  Le piège se referme en TROIS temps, et chacun seul est inoffensif : (1) `npm run build:ui` **ne purge pas**
+  `dist/frontend/` → deux générations de chunks cohabitent et `index.html` peut désigner l'ANCIENNE ; (2) le
+  `start.sh` déclenche `#ensureBuilt` → `turbo run build`, qui **RESTAURE un `dist` depuis son cache** et écrase
+  le build qu'on venait de faire à la main ; (3) `PrebuiltUi` lit `index.html` **au démarrage** — un build
+  postérieur au boot n'est pas vu. Symptôme : on lit à l'écran une table Mantine qu'on a REMPLACÉE, et l'on
+  accuse son propre composant. **Diagnostic en une commande — comparer ce qui est SERVI à ce qui est BÂTI :**
+  ```bash
+  curl -sk https://127.0.0.1:5152/nodefony | grep -o 'index-[A-Za-z0-9_-]*\.js'   # servi
+  grep -o 'index-[A-Za-z0-9_-]*\.js' dist/frontend/index.html                      # bâti
+  ```
+  Deux valeurs différentes ⇒ le problème n'est PAS dans le code. **Remède, dans cet ordre** :
+  `npx turbo run build --filter=@nodefony/studio --force` (le `--force` est indispensable : sans lui turbo
+  rejoue son cache), **puis** redémarrer le serveur, **puis** purger le navigateur (`docker restart` du
+  conteneur d'observation — son cache HTTP survit à un simple rechargement).
 - **🔑 `createContext` (StoreContext, ...) = ÉPINGLER sur `globalThis`, jamais une `const` de module nue.** En dev,
   Vite **réévalue** un module (HMR `?t=…`, ou duplication de graphe quand Studio est servi par le serveur Vite d'un
   AUTRE bundle React — Studio n'a pas toujours son propre serveur). Une `const Ctx = createContext()` recrée alors un

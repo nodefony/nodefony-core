@@ -115,7 +115,7 @@ import {
   lireCause,
   motifNonOpposable,
 } from "./lib/imputation.mjs";
-import { indiceDeLaPasse } from "./lib/passes.mjs";
+import { commitsDuHarnais, indiceDeLaPasse } from "./lib/passes.mjs";
 import {
   CHEMIN_REFERENCE,
   depister,
@@ -123,6 +123,7 @@ import {
   ecrireReference,
   fusionnerReference,
   lireReference,
+  NON_JUGEABLE,
   verdictAgrege,
 } from "./lib/reference.mjs";
 
@@ -425,6 +426,161 @@ function interrupteurPattern() {
 const commandeQuiContient = (motif) =>
   new RegExp(`"command"\\s*:\\s*"(?:[^"\\\\]|\\\\.)*?(?:${motif})`, "u");
 
+/**
+ * Ce qu'une commande AFFICHE n'est pas ce qu'elle FAIT — élagage du texte.
+ *
+ * Troisième piège de la famille, et le seul qui restait ouvert. Les deux autres
+ * sont déjà fermés par {@link commandeQuiContient} (le CONTENU d'un fichier que
+ * l'agent ouvre, et une commande CITÉE dans un document lu) : tous deux sont du
+ * texte ENTRANT, et exiger la clé `"command"` les écarte. Celui-ci est sortant —
+ * l'agent écrit lui-même, DANS une commande, le nom de l'outil qu'il n'a pas
+ * lancé :
+ *
+ * ```sh
+ * cat << 'EOF'
+ *   Ou créer un module Nodefony distinct :
+ *     npx nodefony create module audit
+ * EOF
+ * ```
+ *
+ * Constaté sur la tâche 28 : l'agent a rendu un récapitulatif décoratif de son
+ * travail, la sonde « a lancé create module » est passée au VERT, et il n'avait
+ * jamais appelé le générateur. Un agent produit ainsi la preuve de son propre
+ * geste en le RACONTANT — et c'est un faux VERT, le seul défaut du banc qui ne
+ * se voit pas.
+ *
+ * L'élagage se fait sur la commande DÉCODÉE (le JSONL est reparsé plutôt que
+ * tordu à la regex : dans le brut, les guillemets sont échappés et les sauts de
+ * ligne sont deux caractères — toute expression écrite là-dessus se casse au
+ * premier cas tordu). Deux formes portent du texte destiné à être lu :
+ * le corps d'un heredoc, et l'argument littéral d'un `echo`/`printf`.
+ *
+ * En cas de doute, on élague : rater un vrai geste produit un rouge VISIBLE,
+ * qu'un run suivant corrige ; laisser passer du texte produit un vert que
+ * personne ne vient jamais contester.
+ *
+ * @param {string} cmd - la commande telle que l'agent l'a lancée.
+ * @returns {string} la même, privée de ce qu'elle ne fait qu'écrire.
+ */
+export const elaguerAffichage = (cmd) =>
+  cmd
+    // Corps de heredoc : du délimiteur ouvrant jusqu'à sa reprise en début de
+    // ligne. `<<-` (qui autorise l'indentation du délimiteur) compris.
+    .replace(
+      /<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1\n[\s\S]*?\n[ \t]*\2(?=\s|$)/gu,
+      "<<$2",
+    )
+    // Argument littéral d'un `echo`/`printf` — la version courte du même geste.
+    .replace(
+      /\b(echo|printf)\b((?:\s+-[A-Za-z]+)*)\s+(['"])(?:[^\\]|\\.)*?\3/gu,
+      "$1$2",
+    );
+
+/**
+ * Le transcript, privé de ce que les commandes se contentent d'AFFICHER.
+ *
+ * Point d'application UNIQUE (`judgeTask`) : les vingt sondes bâties sur
+ * {@link commandeQuiContient} en bénéficient sans qu'aucune ne soit retouchée,
+ * et les sondes de LECTURE continuent de voir le transcript entier — c'est bien
+ * dans le texte lu qu'elles cherchent leur preuve.
+ *
+ * Une ligne illisible est laissée telle quelle : un transcript tronqué (le
+ * dernier événement d'un run interrompu) ne doit pas faire échouer le jugement
+ * du reste.
+ *
+ * @param {string} transcript - le JSONL brut du run.
+ * @returns {string} le même JSONL, commandes élaguées.
+ */
+const sansTexteAffiche = (transcript) =>
+  transcript
+    .split("\n")
+    .map((ligne) => {
+      if (!ligne.trim()) {
+        return ligne;
+      }
+      let event;
+      try {
+        event = JSON.parse(ligne);
+      } catch {
+        return ligne;
+      }
+      const blocs = event?.message?.content;
+      if (!Array.isArray(blocs)) {
+        return ligne;
+      }
+      let touche = false;
+      for (const bloc of blocs) {
+        const cmd = bloc?.input?.command;
+        if (typeof cmd !== "string") {
+          continue;
+        }
+        const elague = elaguerAffichage(cmd);
+        if (elague !== cmd) {
+          bloc.input.command = elague;
+          touche = true;
+        }
+      }
+      return touche ? JSON.stringify(event) : ligne;
+    })
+    .join("\n");
+
+/**
+ * Le motif d'une commande du framework, **avec les scripts npm qui la lancent**.
+ *
+ * Une sonde qui n'accepte que la forme littérale (`nodefony development`) mesure
+ * une ORTHOGRAPHE d'invocation, pas le geste. Le `package.json` que le gabarit
+ * dépose est lui aussi l'outillage du framework : `npm start` y VAUT
+ * `nodefony production`, et c'est la première voie que l'agent trouve, puisqu'il
+ * lit ce fichier avant tout le reste. Vécu sur la tâche 5, trois runs sur trois :
+ * les agents pilotaient le serveur par `npm start` puis `npm stop`, tous les
+ * gates étaient verts — ports rendus, aucun bricolage — et la tâche sortait
+ * `FAIL 0/3` sur les deux seules sondes qui exigeaient la forme longue.
+ *
+ * La liste des scripts n'est donc pas écrite ici : elle est **dérivée du
+ * gabarit**, seule source de vérité. Recopier `start|dev` en dur créerait une
+ * deuxième liste, qui mentirait le jour où le gabarit renomme un script — et ce
+ * jour est annoncé.
+ *
+ * @param {string[]} verbes - les verbes `nodefony` visés (`development`, `stop`…).
+ * @returns {string} une alternative de sous-motifs, en source d'expression
+ *   régulière, à passer à {@link commandeQuiContient}.
+ * @throws Si le gabarit est introuvable ou si aucun script ne lance ces verbes —
+ *   un motif amputé rendrait la sonde étroite en silence, et un motif VIDE la
+ *   rendrait vraie sur tout.
+ */
+export const invocationDuFramework = (verbes) => {
+  const gabarit = path.join(
+    REPO,
+    "src",
+    "nodefony",
+    "templates",
+    "app",
+    "base",
+    "package.json.tpl",
+  );
+  if (!existsSync(gabarit)) {
+    throw new Error(
+      `sonde impossible à construire : gabarit introuvable (${gabarit})`,
+    );
+  }
+  const alternative = verbes.join("|");
+  const scripts = [
+    ...readFileSync(gabarit, "utf8").matchAll(
+      /"([\w:-]+)"\s*:\s*"(?:npx\s+)?nodefony\s+([\w:-]+)/gu,
+    ),
+  ]
+    .filter(([, , verbe]) => verbes.includes(verbe))
+    .map(([, nom]) => nom);
+  if (!scripts.length) {
+    throw new Error(
+      `sonde impossible à construire : aucun script du gabarit ne lance \`nodefony ${alternative}\``,
+    );
+  }
+  // `start`/`stop`/`test` s'invoquent sans `run` — accepter les deux formes.
+  const parNpm = `npm\\s+(?:run\\s+)?(?:${scripts.join("|")})\\b`;
+  return `${parNpm}|(?:npx\\s+)?nodefony\\s+(?:${alternative})\\b`;
+};
+
 const INTERRUPTEUR_DE_SECURITE = {
   kind: "code",
   name: "aucune brique de sécurité éteinte en configuration",
@@ -617,7 +773,7 @@ export const TASKS = [
       {
         kind: "transcript",
         name: "a lancé create entity",
-        pattern: /create\s+entity/u,
+        pattern: commandeQuiContient("create\\s+entity\\b"),
       },
       sondeLecture("a lu AGENTS.md", /AGENTS\.md/u),
       {
@@ -718,7 +874,27 @@ export const TASKS = [
       {
         kind: "transcript",
         name: "a lancé create controller --kind realtime",
-        pattern: /create\s+controller\s+.*realtime/u,
+        // `[^"]*` et non `.*` : le motif s'insère DANS la valeur d'une clé
+        // `"command"`, et un `.*` en franchirait le guillemet fermant pour aller
+        // chercher `realtime` dans le champ voisin du même événement.
+        pattern: commandeQuiContient('create\\s+controller\\s+[^"]*realtime'),
+        // OBSERVATION, pas jugement — même raison que la sonde de lecture, et
+        // mesuré ici sur trois runs : les DEUX qui n'ont pas appelé le
+        // générateur rendaient toutes leurs sondes de RÉSULTAT vertes (façade
+        // `RealtimeController`/`@RealtimeChannel` employée, aucun WS bricolé,
+        // client isomorphe, tests + typecheck + `check` à 0). L'objet de la
+        // tâche était tenu ; seul le chemin différait.
+        //
+        // Et le bénéfice qu'on croyait mesurer n'existe pas : le run qui A
+        // employé le générateur a coûté PLUS cher — 40 tours / 273 s / 0,52 $
+        // contre 32 tours / 158 s / 0,30 $. Faire échouer sur ce moyen revenait
+        // à sanctionner le run le moins cher pour arriver au même code.
+        //
+        // Ce que le banc mesure reste mesuré : là où ignorer le générateur fait
+        // un DOMMAGE (tâche 13 — pas d'injection par le conteneur, code qui ne
+        // compile pas), ce sont les sondes de résultat qui rougissent, et elles
+        // jugent.
+        observe: true,
       },
       {
         kind: "code",
@@ -766,7 +942,7 @@ export const TASKS = [
         // ne pouvait que recomposer la classe de mémoire — et il le faisait.
         kind: "transcript",
         name: "a lancé create command",
-        pattern: /create\s+command/u,
+        pattern: commandeQuiContient("create\\s+command\\b"),
       },
       sondeLecture("a lu AGENTS.md", /AGENTS\.md/u),
       {
@@ -821,22 +997,25 @@ export const TASKS = [
         // gate de ports (vert quand rien n'a démarré), la tâche entière était
         // alors satisfaite par ABANDON.
         kind: "transcript",
-        name: "a démarré par le framework (npm run dev / nodefony development)",
+        name: "a démarré par le framework (npm run dev / npm start / nodefony development)",
         pattern: commandeQuiContient(
-          "npm run dev\\b|nodefony\\s+(?:development|dev|production)\\b",
+          invocationDuFramework(["development", "dev", "production"]),
         ),
       },
       {
         // Les deux commandes standalone que l'AGENTS.md généré lui donne — et
         // dont RIEN ne prouvait qu'un agent s'en sert. Même ancrage, même
         // raison : ce fichier les nomme, donc les mentionner ne prouve rien.
+        // Les scripts `npm stop`/`npm run status` du gabarit les lancent et
+        // comptent donc autant : c'est la MÊME commande, par la porte que
+        // l'application ouvre.
         kind: "transcript",
-        name: "a employé nodefony status ou nodefony stop",
-        pattern: commandeQuiContient("nodefony\\s+(?:status|stop)\\b"),
+        name: "a employé nodefony status ou stop (directement ou par npm)",
+        pattern: commandeQuiContient(invocationDuFramework(["status", "stop"])),
       },
       {
         kind: "transcript",
-        name: "pas d'arrêt bricolé (kill -9 / pkill / lsof)",
+        name: "pas d'arrêt bricolé (kill / pkill)",
         // Le motif vise une INVOCATION, pas une mention : il exige la clé
         // `"command"` d'un appel d'outil. Vécu — la version qui cherchait les
         // noms nus rougissait sur l'`AGENTS.md` de l'application, qui INTERDIT
@@ -844,7 +1023,19 @@ export const TASKS = [
         // l'agent lisait la règle, le fichier entrait au transcript, et la
         // sonde comptait la règle comme sa violation. Un texte lu n'est pas un
         // geste posé.
-        pattern: commandeQuiContient("kill\\s+-9|pkill|lsof"),
+        //
+        // `lsof` a été RETIRÉ du motif, et c'est le même travers vu une
+        // troisième fois : il n'arrête rien. Mesuré — deux agents sur trois
+        // avaient démarré par `npm start`, arrêté par `npm stop`, puis lancé
+        // `lsof -i :5371` pour CONSTATER que les ports étaient rendus, ce que
+        // l'énoncé leur demande explicitement de prouver. Le gate d'état
+        // confirmait l'arrêt, et la tâche sortait quand même rouge. Le geste
+        // fautif n'est pas le constat, c'est le meurtre : `kill -9 $(lsof …)`
+        // reste attrapé par `kill`, qui est la seule moitié qui tue.
+        //
+        // Le motif s'ouvre en échange à TOUT `kill`, plus seulement `-9` :
+        // `kill $(lsof -ti:5371)` bricolait tout autant et passait.
+        pattern: commandeQuiContient("\\bp?kill(?:all)?\\s"),
         invert: true,
       },
       {
@@ -878,9 +1069,19 @@ export const TASKS = [
       {
         // Le chemin qu'on vient d'ouvrir : la cascade et le catalogue des
         // variables ne se DEVINENT pas, ils se demandent.
+        //
+        // OBSERVATION, pas jugement. Cette tâche a le meilleur juge du banc —
+        // un gate qui lit l'état EFFECTIF (valeur, provenance, variables
+        // inconnues) — et sur trois runs il a rendu `exit 0` trois fois, la
+        // sonde de code avec. L'application était configurée par
+        // l'environnement, au bon endroit, prouvé. La tâche tombait à 1/3 pour
+        // n'avoir pas emprunté UN chemin, alors que son objet était tenu par
+        // tout le monde. Un moyen ne fait pas échouer ce qu'un juge d'état
+        // déclare atteint.
         kind: "transcript",
         name: "a interrogé l'environnement (nodefony env)",
-        pattern: /nodefony\s+env\b|npx nodefony env/u,
+        pattern: commandeQuiContient("nodefony\\s+env\\b"),
+        observe: true,
       },
       // ⚠️ PAS de sonde sur le diff git pour cette tâche. Vécu au premier run :
       // l'agent avait fait JUSTE — `NF_LOG_DRIVER=file` dans `.env.local`, le bon
@@ -1031,12 +1232,12 @@ export const TASKS = [
         // l'avait jamais mesuré.
         kind: "transcript",
         name: "a demandé au scaffold de se décrire (--describe-json)",
-        pattern: /--describe-json/u,
+        pattern: commandeQuiContient("--describe-json"),
       },
       {
         kind: "transcript",
         name: "a simulé au lieu d'écrire (--dry-run)",
-        pattern: /--dry-run/u,
+        pattern: commandeQuiContient("--dry-run"),
       },
       {
         kind: "code",
@@ -1045,22 +1246,45 @@ export const TASKS = [
         where: "files",
       },
       {
-        // Gate d'ÉTAT, et il est double : la simulation n'a RIEN écrit (aucun
-        // fichier d'entité), et le plan cite un connecteur RÉEL du projet — donc
-        // lu, pas inventé.
+        // Gate d'ÉTAT, en trois affirmations : la simulation n'a RIEN écrit, le
+        // plan nomme le connecteur RÉEL du projet, et il porte une trace que
+        // SEULE la simulation produit.
+        //
+        // 🔴 Il cherchait `/default|sqlite|connecteur/i` dans le plan — un juge
+        // qu'on satisfait en RECOPIANT L'ÉNONCÉ, qui écrit lui-même « quels
+        // connecteurs de base de données sont déclarés ». `sqlite` était par
+        // ailleurs lisible dans un commentaire de la configuration générée. Le
+        // PASS de cette tâche ne prouvait donc pas qu'un générateur avait été
+        // appelé : il prouvait qu'un mot avait été reproduit.
+        //
+        // Le couple attendu n'est plus écrit ici : il se DEMANDE à la porte
+        // machine (`--describe-json` → `project.context.connectors`), au moment
+        // du jugement. Un littéral `default`/`sqlite` serait juste aujourd'hui
+        // et faux au premier décor qui change, sans que rien ne le dise.
+        //
+        // La trace de simulation, elle, ne se devine pas : `Invoice.schema.ts`
+        // (le schéma est un fichier SÉPARÉ de l'entité) et la réécriture
+        // `@entities([InvoiceEntity])` de l'`index.ts` ne s'inventent pas en
+        // décrivant « une entité » de mémoire — il faut avoir lu la sortie.
         kind: "gate",
-        name: "la simulation n'a rien écrit, et le plan cite le connecteur réel",
+        name: "la simulation n'a rien écrit, et le plan porte ce que seule la simulation rend",
         cmd: [
           "sh",
           "-c",
-          `node -e "const fs=require('node:fs');` +
+          `node ${JSON.stringify(BIN)} create entity --describe-json > .nf-describe.json 2>/dev/null; node -e ` +
+            `"const fs=require('node:fs');` +
             `const bad=[];` +
             `for (const d of ['nodefony/entity','modules']) {` +
             `if(fs.existsSync(d)&&JSON.stringify(fs.readdirSync(d,{recursive:true})).includes('Invoice'))` +
             `bad.push('une entité Invoice a été ÉCRITE malgré la simulation');}` +
             `const p=fs.existsSync('DISCOVERY.md')?fs.readFileSync('DISCOVERY.md','utf8'):'';` +
-            `if(!p)bad.push('DISCOVERY.md absent');` +
-            `else if(!/default|sqlite|connecteur/i.test(p))bad.push('le plan ne cite aucun connecteur réel');` +
+            `if(!p){bad.push('DISCOVERY.md absent')}else{` +
+            `let co=null;try{co=JSON.parse(fs.readFileSync('.nf-describe.json','utf8')).project.context.connectors[0]}catch{}` +
+            `if(!co){bad.push('la porte machine n a pas rendu de connecteur — gate non concluant')}` +
+            `else{if(!new RegExp(co.name,'i').test(p))bad.push('le plan ne nomme pas le connecteur reel ('+co.name+')');` +
+            `if(!new RegExp(co.dialect,'i').test(p))bad.push('le plan ne dit pas le dialecte reel ('+co.dialect+')');}` +
+            `if(!/Invoice\\.schema\\.ts|@entities\\(/.test(p))` +
+            `bad.push('le plan ne porte aucune trace de la simulation (ni Invoice.schema.ts ni @entities)');}` +
             `if(bad.length){console.error(bad.join(' | '));process.exit(1)}"`,
         ],
       },
@@ -1094,7 +1318,9 @@ export const TASKS = [
         // `devkit:card` reste l'ALIAS de `card` (le nom d'origine, encore écrit
         // dans les AGENTS.md déjà générés) : la sonde accepte les deux, sinon
         // elle rendrait FAIL un agent qui a fait le geste juste.
-        pattern: /nodefony\s+(?:inspect\b|(?:devkit:)?card\b)/u,
+        pattern: commandeQuiContient(
+          "nodefony\\s+(?:inspect\\b|(?:devkit:)?card\\b)",
+        ),
       },
       {
         kind: "code",
@@ -1183,17 +1409,49 @@ export const TASKS = [
       {
         // LE juge d'état : le conteneur de l'application EXÉCUTÉE le connaît-il ?
         // Un service écrit mais jamais enregistré compile et n'existe pas.
+        //
+        // 🔴 Il a d'abord exigé `/remise|discount/` dans le JSON ENTIER des
+        // services — donc une LOTERIE DE NOMMAGE, sur un énoncé qui ne nomme
+        // aucune brique et laisse l'agent libre de dire `Pricing`, `Tarif` ou
+        // `Promotion`. La tâche est restée FAIL 0/3 sans que rien n'instruise
+        // ce zéro, quand T13 recevait le correctif de périmètre au même moment.
+        //
+        // Le juste critère se DÉDUIT du décor plutôt que d'un vocabulaire.
+        // Périmètre déduit comme en T13 : est « à l'app » ce qui n'est pas un
+        // paquet `@nodefony/*` — ranger ses services dans un module local est
+        // une réponse juste.
+        //
+        // 🔴 Le gabarit `--preset complete` pose DÉSORMAIS un service d'exemple
+        // (`AppInfoService`) — c'est précisément le correctif produit de cette
+        // tâche, l'agent n'avait aucun service à imiter. Compter « au moins un
+        // service » rendrait donc ce gate VERT sans que l'agent ait rien fait :
+        // il faut un service qui ne soit pas celui du décor.
+        //
+        // Et l'exclusion par le nom se retourne dès qu'on renomme l'exemple —
+        // en silence, dans le sens de la complaisance. Le gate exige donc
+        // d'ABORD de retrouver l'exemple : absent, ce n'est pas un verdict sur
+        // l'agent, c'est un décor qu'on ne reconnaît plus, et il le dit.
         kind: "gate",
         name: "le service est réellement enregistré (inspect services)",
         cmd: [
           "sh",
           "-c",
-          `node ${JSON.stringify(BIN)} inspect services --json > .nf-services.json 2>/dev/null; node -e ` +
+          `node ${JSON.stringify(BIN)} inspect services --json > .nf-services.json 2>/dev/null; ` +
+            `node ${JSON.stringify(BIN)} inspect modules --json > .nf-modules.json 2>/dev/null; node -e ` +
             `"const fs=require('node:fs');` +
-            `const s=JSON.parse(fs.readFileSync('.nf-services.json','utf8'));` +
-            `const names=JSON.stringify(s).toLowerCase();` +
-            `if(!/remise|discount/.test(names)){` +
-            `console.error('aucun service de remise dans le conteneur');process.exit(1)}"`,
+            `const all=JSON.parse(fs.readFileSync('.nf-services.json','utf8'));` +
+            `const mods=JSON.parse(fs.readFileSync('.nf-modules.json','utf8'));` +
+            `const own=new Set(mods.filter(m=>!String(m.name||'').startsWith('@nodefony/')).map(m=>m.key));` +
+            `const mine=all.filter(x=>own.has(x.module));` +
+            `const nom=x=>((x.name||'')+' '+(x.class||'')).toLowerCase();` +
+            `const exemple=mine.filter(x=>/appinfo/.test(nom(x)));` +
+            `const sien=mine.filter(x=>!/appinfo/.test(nom(x)));` +
+            `if(exemple.length===0){` +
+            `console.error('DECOR INATTENDU : le service d exemple du gabarit est absent — ce gate ne mesure plus ce qu il croit');` +
+            `process.exit(1)}` +
+            `if(sien.length===0){` +
+            `console.error('aucun service ECRIT PAR L AGENT au conteneur — seul celui du gabarit y est (services de l app : '+mine.map(nom).join(', ')+')');` +
+            `process.exit(1)}"`,
         ],
       },
       { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
@@ -1312,7 +1570,7 @@ export const TASKS = [
         // invisible au conteneur, mesurée en décor isolé).
         kind: "transcript",
         name: "a lancé create service",
-        pattern: /create\s+service/u,
+        pattern: commandeQuiContient("create\\s+service\\b"),
       },
       {
         // La CONSOMMATION, toutes voies légitimes confondues : injection
@@ -1999,7 +2257,7 @@ export const TASKS = [
       {
         kind: "transcript",
         name: "a lancé create entity",
-        pattern: /create\s+entity/u,
+        pattern: commandeQuiContient("create\\s+entity\\b"),
       },
       {
         kind: "code",
@@ -2840,10 +3098,70 @@ const sh = (cmd, args, opts = {}) =>
   execFileSync(cmd, args, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+    // Le défaut de Node est 1 Mio, et il ne tronque pas : il LÈVE `ENOBUFS`.
+    // Vécu — la tâche 14 demande de servir un GROS média, l'agent en fabrique
+    // un, et le harnais mourait en lisant son propre diff, emportant la passe
+    // entière. Une ceinture large ; la vraie borne est par fichier, ci-dessous.
+    maxBuffer: 256 * 1024 * 1024,
     ...opts,
   });
 
 const git = (dir, ...args) => sh("git", ["-C", dir, ...args]).trim();
+
+/** Au-delà, un fichier n'est plus du code : c'est une pièce jointe. */
+const DIFF_LIGNES_MAX = 5000;
+
+/**
+ * Le diff des lignes AJOUTÉES, **borné par fichier** — et qui DIT ce qu'il écarte.
+ *
+ * Une tâche du banc demande explicitement de servir un gros média : l'agent en
+ * fabrique un, le commite, et le diff du commit porte alors le fichier ENTIER.
+ * Deux dégâts, dont le second est le pire : le harnais tombait sur `ENOBUFS`
+ * (emportant les répétitions restantes), et même relevé, ce contenu ne peut rien
+ * apprendre à une sonde — un million de `x` ne contient ni `@injectable`, ni
+ * `any`, ni `new WebSocket`. Il ne fait que noyer la matière utile.
+ *
+ * L'écart est ANNONCÉ, jamais silencieux : une troncature qui ne se voit pas se
+ * lit « rien à signaler », et c'est ainsi qu'un banc rend un vert qu'il n'a pas
+ * mesuré.
+ *
+ * @param {string} app - dépôt de l'application témoin.
+ * @param {string} from - révision de base.
+ * @param {string} to - révision jugée.
+ * @returns {string} les lignes `+` des fichiers de taille raisonnable.
+ */
+export const lignesAjoutees = (app, from, to) => {
+  const fichiers = git(app, "diff", "--numstat", from, to)
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => {
+      const [ajouts, , chemin] = l.split("\t");
+      // `-` marque un binaire : git n'en rendra pas le contenu de toute façon.
+      return { ajouts: Number(ajouts) || 0, chemin };
+    })
+    .filter((f) => f.chemin);
+  const ecartes = fichiers.filter((f) => f.ajouts > DIFF_LIGNES_MAX);
+  const retenus = fichiers.filter((f) => f.ajouts <= DIFF_LIGNES_MAX);
+  if (ecartes.length) {
+    console.log(
+      `  · diff écarté (pièce jointe, pas du code) : ` +
+        ecartes.map((f) => `${f.chemin} (+${f.ajouts} l.)`).join(", "),
+    );
+  }
+  if (!retenus.length) return "";
+  return git(
+    app,
+    "diff",
+    "--unified=0",
+    from,
+    to,
+    "--",
+    ...retenus.map((f) => f.chemin),
+  )
+    .split("\n")
+    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
+    .join("\n");
+};
 
 /**
  * Décor : app témoin sous git (le diff = la pièce à conviction).
@@ -3008,6 +3326,30 @@ function sauverIgnoresInitiaux(app, runDir) {
  * @param {number} id - la tâche sur le point d'être jouée (pour le message).
  */
 export function reinitialiserDecor(app, runDir, id) {
+  // AVANT les fichiers, les PROCESS — sinon la remise à zéro n'en est pas une.
+  //
+  // Ce décor remettait l'arbre git à l'état initial et s'arrêtait là. Or une
+  // tâche peut laisser un serveur derrière elle : l'`AGENTS.md` généré dit bien
+  // « arrête ce que tu démarres », mais ce banc existe précisément pour mesurer
+  // des agents qui ne le font pas toujours — compter sur leur discipline, c'est
+  // mesurer sa propre consigne.
+  //
+  // Vécu sur la tâche 27 : un serveur survivant tenait le port 5371, et le juge
+  // a interrogé une application qui n'était pas celle qu'il éprouvait. Le run a
+  // été écarté (`CAUSE=port-deja-tenu`) — la garde a bien mordu — mais la tâche
+  // s'est retrouvée à DEUX runs retenus, donc non prouvée, pour une faute qui
+  // ne lui appartenait pas.
+  //
+  // `npm run stop` plutôt que le binaire : le gabarit déclare ce script
+  // (`"stop": "nodefony stop"`), npm le résout de façon portable, et l'on ne
+  // recopie pas ici une connaissance qui vit déjà dans l'application. Silencieux
+  // et sans conséquence quand rien ne tourne — c'est le cas courant.
+  try {
+    sh("npm", ["run", "stop"], { cwd: app, stdio: "ignore" });
+  } catch {
+    // Rien à arrêter, ou le script absent d'un décor plus ancien : dans les deux
+    // cas, la remise à zéro des fichiers reste la bonne suite.
+  }
   // Le commit d'ORIGINE, pas la remise à zéro précédente : `git log` va du plus
   // récent au plus ancien, et les remises à zéro portent le même suffixe — le
   // dernier de la liste est donc la création de l'app.
@@ -3029,7 +3371,17 @@ export function reinitialiserDecor(app, runDir, id) {
   // commits des tâches déjà jouées — ceux-là mêmes que `judgeTask` retrouve par
   // leur message.
   git(app, "read-tree", "-u", "--reset", initial);
-  git(app, "clean", "-xdfq", "-e", "node_modules");
+  // `/node_modules` — ANCRÉ à la racine, et c'est tout l'écart. L'exclusion de
+  // `git clean` est un motif gitignore : sans barre oblique de tête, elle mord à
+  // TOUTE profondeur. Or `create module` fait naître un workspace npm — donc un
+  // `modules/<nom>/node_modules/`, et un `dist/node_modules/` déposé par son
+  // bundler. Git ne supprimant pas un dossier dont il doit préserver le contenu,
+  // le squelette du module SURVIVAIT à la remise à zéro : la tâche suivante
+  // trouvait `modules/audit/` déjà là et son propre générateur le lui refusait
+  // (« le module existe déjà », `scaffold/engine.ts:1381`). Verdict FAIL rendu
+  // sur un décor sale, sans qu'aucune sonde ne puisse le dire. Seule
+  // l'installation de l'application, à la racine, doit être épargnée.
+  git(app, "clean", "-xdfq", "-e", "/node_modules");
   const manifeste = path.join(runDir, "decor-initial.json");
   if (existsSync(manifeste)) {
     for (const { chemin, contenu } of JSON.parse(
@@ -3204,6 +3556,38 @@ function runTask(app, runDir, task) {
  * GITIGNORÉ (`.env.local`), qu'aucun `checkout` ne restaure. Le seul instant où
  * l'état est fidèle, suivi ou non, est la seconde qui suit la tâche.
  */
+/**
+ * Ce qu'un gate rouge a DIT, quand il n'a pas dit de `CAUSE=`.
+ *
+ * Les juges dédiés (`lib/gate-*.mjs`) nomment leur cause dans une ligne que
+ * {@link lireCause} sait lire. Les gates ÉCRITS EN LIGNE — la majorité — se
+ * contentent d'un `console.error` : leur `evidence` valait donc « exit 1 », et
+ * rien d'autre. Un rouge relu une heure plus tard obligeait alors à rouvrir le
+ * dépôt du décor pour savoir ce qui avait lâché — vécu deux fois de suite sur
+ * la même tâche, alors que le gate l'avait écrit noir sur blanc au moment de
+ * tomber.
+ *
+ * La PREMIÈRE ligne du canal d'erreur, et non la dernière : c'est là qu'un
+ * `console.error` unique se trouve, et là que la première erreur d'un outil
+ * bavard apparaît — sa dernière ligne est presque toujours « un journal complet
+ * est disponible dans… ». Bornée, parce qu'une trace entière dans un rapport
+ * JSON le rend illisible sans rien apprendre de plus.
+ *
+ * @param {string} stderr - le canal d'erreur du gate.
+ * @param {string} stdout - sa sortie standard, si le canal d'erreur est muet.
+ * @returns {string} l'explication, ou une chaîne vide si le gate s'est tu.
+ */
+export function expliquerEchec(stderr, stdout) {
+  for (const flux of [stderr ?? "", stdout ?? ""]) {
+    const ligne = flux.split("\n").find((l) => l.trim().length > 0);
+    if (ligne) {
+      const propre = ligne.trim();
+      return propre.length > 200 ? `${propre.slice(0, 197)}…` : propre;
+    }
+  }
+  return "";
+}
+
 function runGates(app, runDir, task) {
   const gates = sondesDe(task).filter((p) => p.kind === "gate");
   if (!gates.length) return;
@@ -3231,17 +3615,21 @@ function runGates(app, runDir, task) {
     // cause, au moment où la mesure est fidèle.
     const cause = lireCause(`${r.stderr ?? ""}\n${r.stdout ?? ""}`);
     const ecarte = !pass && cause && !estOpposable(cause.imputation);
+    // Une cause NOMMÉE porte son imputation et prime ; à défaut, on rend au
+    // moins ce que le gate a écrit. Un rouge doit s'expliquer du premier coup,
+    // qu'il vienne d'un juge dédié ou d'une commande écrite en ligne.
+    const dit =
+      cause?.ligne ||
+      (pass ? "" : expliquerEchec(r.stderr ?? "", r.stdout ?? ""));
     console.log(
       `  ${pass ? "✅" : ecarte ? "⁉️ " : "❌"} [gate] ${p.name} (exit ${r.status})` +
-        (cause ? `\n       ${cause.ligne}` : "") +
+        (dit ? `\n       ${dit}` : "") +
         (ecarte ? `\n       ${motifNonOpposable(cause.imputation)}` : ""),
     );
     return {
       name: p.name,
       pass,
-      evidence: pass
-        ? "exit 0"
-        : `exit ${r.status}${cause ? ` — ${cause.ligne}` : ""}`,
+      evidence: pass ? "exit 0" : `exit ${r.status}${dit ? ` — ${dit}` : ""}`,
       cause: cause?.nom ?? null,
       imputation: cause?.imputation ?? null,
     };
@@ -3278,6 +3666,70 @@ function runGates(app, runDir, task) {
  * @returns {{tours: number, dureeMs: number, coutUsd: number} | null} `null` si
  *   le harnais n'a rien publié (agent tué, transcript tronqué).
  */
+/**
+ * Le transcript porte-t-il de quoi JUGER — quel que soit l'agent qui l'a écrit ?
+ *
+ * Toutes les sondes `transcript` lisent cette matière. Vide, elles rougissent
+ * TOUTES, et la tâche rend un FAIL parfaitement formé : `0/6`, exactement
+ * l'allure qu'aurait un agent incapable. C'est arrivé en changeant d'agent — un
+ * drapeau transposé d'un CLI à l'autre a produit un fichier vide, et le rapport
+ * qui en est sorti était indiscernable d'une mesure.
+ *
+ * Le critère ne peut donc PAS être une clé du format Claude Code (`"type":
+ * "result"`, `num_turns`) : c'est précisément le format qui change quand on
+ * change d'agent, et une garde aveugle à l'agent qu'on vient de brancher ne
+ * garde rien. On exige le plus petit dénominateur commun de tout harnais
+ * agentique — au moins un objet JSON parsable — sans rien présumer de ses clés.
+ *
+ * Un transcript illisible n'est pas un échec de l'agent : c'est un banc qui ne
+ * sait pas lire, et il doit le DIRE plutôt que rendre un verdict.
+ *
+ * @param {string} texte - le contenu brut du transcript (JSONL attendu).
+ * @returns {boolean} `true` dès qu'une ligne porte un objet JSON.
+ */
+export function transcriptExploitable(texte) {
+  if (typeof texte !== "string") return false;
+  for (const ligne of texte.split("\n")) {
+    const l = ligne.trim();
+    if (!l.startsWith("{") && !l.startsWith("[")) continue;
+    try {
+      const v = JSON.parse(l);
+      if (v && typeof v === "object") return true;
+    } catch {
+      // Ligne tronquée : elle ne prouve rien, une autre le fera peut-être.
+    }
+  }
+  return false;
+}
+
+/**
+ * Ce run a-t-il de quoi être JUGÉ — et sinon, pourquoi ?
+ *
+ * Deux vacuités, un seul traitement : le run est ÉCARTÉ, jamais compté FAIL.
+ * Les distinguer ici plutôt que dans l'appelant garde la règle en un exemplaire
+ * et rend son libellé vérifiable sans monter de décor.
+ *
+ * - **Transcript muet** → voir {@link transcriptExploitable}.
+ * - **Aucun fichier touché** → l'agent a abandonné. C'est le symétrique du
+ *   « vert par abandon » que le banc nomme déjà, mais pour le cas TOTAL : sur un
+ *   run mesuré (T10, 16 tours, 40 s, zéro fichier), **huit sondes étaient vertes
+ *   par pure vacuité** — les interdits ne mordent sur rien quand rien n'a été
+ *   écrit. Un tel run compté FAIL ordinaire mélange « il n'a pas su » et « il
+ *   n'a rien tenté », et c'est le premier qu'on cherche à mesurer.
+ *
+ * @param {{transcript: string, files: string[]}} pieces - la matière du jugement.
+ * @returns {string|null} le motif d'écartement, ou `null` si le run est jugeable.
+ */
+export function motifDEcartement({ transcript, files }) {
+  if (!transcriptExploitable(transcript)) {
+    return `transcript illisible ou vide (${(transcript ?? "").length} octet(s), aucun objet JSON)`;
+  }
+  if (!files || files.length === 0) {
+    return "aucun fichier touché — abandon, pas mesure (les interdits ne mordent sur rien)";
+  }
+  return null;
+}
+
 function lireEffort(transcriptPath) {
   if (!existsSync(transcriptPath)) {
     return null;
@@ -3319,21 +3771,26 @@ function lireEffort(transcriptPath) {
  *   ne prouverait rien.
  */
 function judgeTask(app, runDir, task, occurrence = null) {
-  const transcript = existsSync(
-    path.join(runDir, `task-${task.id}.transcript.jsonl`),
-  )
-    ? readFileSync(
-        path.join(runDir, `task-${task.id}.transcript.jsonl`),
-        "utf8",
-      )
-    : "";
+  const transcript = sansTexteAffiche(
+    existsSync(path.join(runDir, `task-${task.id}.transcript.jsonl`))
+      ? readFileSync(
+          path.join(runDir, `task-${task.id}.transcript.jsonl`),
+          "utf8",
+        )
+      : "",
+  );
   // Le commit de la tâche se retrouve par son MESSAGE — robuste quel que soit
   // le sous-ensemble de tâches joué (--task N, run partiel). La BASE du diff
   // est le commit de HARNAIS précédent (« tâche N-1 » ou « état initial »),
   // pas `hash~1` : un agent peut committer LUI-MÊME en cours de tâche (vécu au
   // premier run réel), et son travail vivrait entre les deux commits de
   // harnais — un diff d'un seul cran le raterait entièrement.
-  const log = git(app, "log", "--format=%H %s").split("\n");
+  // L'AUTEUR fait partie de la lecture : un agent qui commite lui-même imite la
+  // convention de messages qu'il lit dans l'historique, et ses commits se
+  // mettraient à compter comme des passes (cf `commitsDuHarnais`).
+  const log = commitsDuHarnais(
+    git(app, "log", "--format=%H\t%an\t%s").split("\n"),
+  );
   // La sélection vit dans `lib/passes.mjs`, PURE et éprouvée sur un historique
   // fabriqué : c'est un `endsWith` qui a fait juger deux commits de DÉCOR pour
   // des passes d'agent, et rien dans un verdict plausible ne l'aurait dit.
@@ -3358,6 +3815,22 @@ function judgeTask(app, runDir, task, occurrence = null) {
   const files = git(app, "diff", "--name-only", `${base ?? `${hash}~1`}`, hash)
     .split("\n")
     .filter(Boolean);
+  // Un run vide retire le droit de conclure — il ne condamne pas. On emprunte le
+  // verdict d'écartement déjà en place (`NON JUGEABLE`) : il est SEUL à savoir
+  // retirer un run du compte sans le compter PASS. Le motif est calculé par une
+  // fonction pure, éprouvée par l'auto-contrôle sans qu'aucun décor soit monté.
+  const ecarte = motifDEcartement({ transcript, files });
+  if (ecarte) {
+    console.log(`  ⁉️  ${ecarte} — run ÉCARTÉ, aucune sonde n'est opposable`);
+    return {
+      id: task.id,
+      name: task.name,
+      verdict: NON_JUGEABLE,
+      guessed: 0,
+      observed: 0,
+      probes: [],
+    };
+  }
   // Le contenu tel qu'il était AU COMMIT DE LA TÂCHE, jamais tel qu'il est sur
   // le disque au moment du jugement.
   //
@@ -3389,10 +3862,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
   // 6/6 côté fond, recalé parce qu'il avait touché l'e2e généré qui porte le
   // `new WebSocket` du test echo). On ne juge un interdit que sur ce que
   // l'agent a ÉCRIT.
-  const added = git(app, "diff", "--unified=0", `${base ?? `${hash}~1`}`, hash)
-    .split("\n")
-    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
-    .join("\n");
+  const added = lignesAjoutees(app, `${base ?? `${hash}~1`}`, hash);
   // Lignes ajoutées dans le CODE seul. Une valeur peut être légitime dans un
   // `.env` (c'est même là qu'on la veut) et fautive dans un `.ts` : sans cette
   // restriction, une sonde « pas de valeur en dur » rougirait sur la bonne

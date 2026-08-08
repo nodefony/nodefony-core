@@ -7,7 +7,7 @@
  * application : la tâche 6 posait une base de données injoignable — la bonne
  * réponse à son énoncé — et les gates des tâches suivantes rougissaient sur un
  * décor qu'elles n'avaient pas sali. Un mécanisme censé fermer ce canal ne vaut
- * que si on l'a vu FERMER quelque chose : ce contrôle salit un décor de cinq
+ * que si on l'a vu FERMER quelque chose : ce contrôle salit un décor de six
  * façons distinctes, chacune correspondant à un canal réel de contamination,
  * puis vérifie que chacune a disparu.
  *
@@ -45,7 +45,7 @@ if (!/état initial$/mu.test(git("log", "--format=%s"))) {
   process.exit(2);
 }
 
-// ── Les cinq saletés, une par canal de contamination réellement observé ──────
+// ── Les six saletés, une par canal de contamination réellement observé ──────
 const envLocal = path.join(app, ".env.local");
 const secretInitial = existsSync(envLocal)
   ? readFileSync(envLocal, "utf8")
@@ -135,6 +135,32 @@ const salissures = [
       writeFileSync(path.join(app, "dist", "sale.js"), "// périmé\n");
     },
     survit: () => existsSync(path.join(app, "dist", "sale.js")),
+  },
+  {
+    // Le canal qui a coûté un verdict : `create module` fait naître un WORKSPACE
+    // npm, donc un `node_modules/` À L'INTÉRIEUR du module, et son bundler y
+    // dépose un `dist/node_modules/`. L'exclusion du nettoyage étant un motif
+    // gitignore SANS ancrage, elle protégeait ces deux-là aussi — et git ne peut
+    // pas supprimer un dossier dont il doit préserver le contenu. Le squelette
+    // `modules/<nom>/` survivait donc à la remise à zéro, et la tâche suivante
+    // se voyait refuser son propre générateur (« le module existe déjà »,
+    // `scaffold/engine.ts:1381`) sans qu'aucune sonde ne le dise.
+    nom: "module créé par une tâche (workspace + node_modules imbriqués)",
+    salir: () => {
+      const mod = path.join(app, "modules", "sale-module");
+      mkdirSync(path.join(mod, "node_modules", "dep"), { recursive: true });
+      mkdirSync(path.join(mod, "dist", "node_modules", "drizzle-orm"), {
+        recursive: true,
+      });
+      writeFileSync(path.join(mod, "package.json"), '{"name":"@app/sale"}\n');
+      writeFileSync(path.join(mod, "index.ts"), "export const x = 1;\n");
+      writeFileSync(path.join(mod, "node_modules", "dep", "y.js"), "//\n");
+      writeFileSync(
+        path.join(mod, "dist", "node_modules", "drizzle-orm", "sel.js"),
+        "//\n",
+      );
+    },
+    survit: () => existsSync(path.join(app, "modules", "sale-module")),
   },
 ];
 

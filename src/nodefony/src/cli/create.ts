@@ -129,7 +129,15 @@ export function parseCreateArgv(
     } else if (word === "--description") {
       answers.description = rest[++i];
     } else if (word === "--service") {
+      // Valeur OPTIONNELLE : `--service` seul garde son sens booléen (« appelle
+      // le service de la cible »), `--service <Nom>` désigne LEQUEL. Le mot
+      // suivant n'est consommé que s'il n'est pas une autre option — sans quoi
+      // `--service --module blog` avalerait `--module`.
+      const next = rest[i + 1];
       answers.service = true;
+      if (next !== undefined && !next.startsWith("-")) {
+        answers.serviceName = rest[++i];
+      }
     } else if (word === "--no-service") {
       answers.service = false;
     } else if (word === "--command") {
@@ -251,7 +259,7 @@ const USAGE =
   `  service    : [--inject <AutreService>] [--description "…"] [--module <nom>]\n` +
   `               classe @injectable, sans dépendance à un config.ts — pour la découvrir, imite-la\n` +
   `               --inject : dépendance déclarée au CONSTRUCTEUR (@inject + appel), pas container.get\n` +
-  `  front      : [--frontend <react|vue|angular>] [--route </page>] [--module <nom>]\n` +
+  `  front      : [--frontend <react|vue|angular|svelte>] [--route </page>] [--module <nom>]\n` +
   `  entity     : [champs…] [--id <${ENTITY_ID_CHOICES.join("|")}>] [--soft-delete] [--no-timestamps]\n` +
   `               [--no-controller] [--no-service] [--no-tests] [--route </api/x>] [--module <nom>]\n` +
   `               [--connector <nom>] [--dialect <sqlite|postgres|mysql>]\n` +
@@ -730,7 +738,14 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       (needsInfra
         ? `  npm run infra:up   # docker : ${String(answers.database)} + Redis (NF_DATABASE_URL pointe dessus)\n`
         : "") +
-      `  npm run dev        # → https://127.0.0.1:5152 (admin : /nodefony — admin/admin en dev)\n`,
+      // La console d'administration n'existe QUE si le préset l'a installée, et
+      // le port n'est pas garanti : `portPolicy: "auto"` prend le suivant libre
+      // quand 5152 est occupé — annoncer une adresse fixe et une console absente
+      // envoie l'utilisateur sur deux 404 dès sa première minute.
+      `  npm run dev        # → https://127.0.0.1:5152 (ou le port libre suivant, annoncé au démarrage)\n` +
+      (answers.preset === "complete"
+        ? `                     # console d'administration : /nodefony — admin/admin en dev\n`
+        : ""),
   );
   return SysExit.OK;
 }

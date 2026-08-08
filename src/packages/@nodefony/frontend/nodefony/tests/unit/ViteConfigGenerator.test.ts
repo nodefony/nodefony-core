@@ -231,4 +231,89 @@ describe("ViteConfigGenerator — toMjs()", () => {
     // Aucun backslash brut ne doit survivre dans la sortie.
     expect(out).to.not.include("C:\\\\Users");
   });
+
+  // --- P14.17 — dev déporté : allowedHosts + hmr ---------------------------
+  // Vite refuse un header `Host` nommé inconnu (barrière CVE) et le client WS
+  // HMR doit suivre l'origine PUBLIQUE quand un forwarder/passerelle sépare
+  // écoute et accès. Les deux blocs ne sont émis QUE si fournis : la config
+  // locale historique ne doit pas changer d'un octet.
+  it("émet server.allowedHosts (liste) quand fourni", () => {
+    const out = gen.toMjs([baseEntry], "development", {
+      allowedHosts: ["host.docker.internal", ".app.github.dev"],
+    });
+    expect(out).to.include(
+      'allowedHosts: ["host.docker.internal",".app.github.dev"],',
+    );
+  });
+
+  it("émet server.allowedHosts: true (barrière déléguée au reverse-proxy)", () => {
+    const out = gen.toMjs([baseEntry], "development", {
+      allowedHosts: true,
+    });
+    expect(out).to.include("allowedHosts: true,");
+  });
+
+  it("émet server.hmr (host/clientPort/protocol) quand fourni", () => {
+    const out = gen.toMjs([baseEntry], "development", {
+      hmr: {
+        host: "mona-5173.app.github.dev",
+        clientPort: 443,
+        protocol: "wss",
+      },
+    });
+    expect(out).to.include(
+      'hmr: { host: "mona-5173.app.github.dev", clientPort: 443, protocol: "wss" },',
+    );
+  });
+
+  it("SANS options dev déporté : ni allowedHosts ni hmr (défauts Vite intacts)", () => {
+    const out = gen.toMjs([baseEntry], "development", {
+      backendOrigin: "http://127.0.0.1:5151",
+      viteOrigin: "https://127.0.0.1:5173",
+    });
+    expect(out).to.not.include("allowedHosts");
+    expect(out).to.not.include("hmr:");
+  });
+
+  it("allowedHosts vide → non émis (pas de [] qui écraserait le défaut Vite)", () => {
+    const out = gen.toMjs([baseEntry], "development", { allowedHosts: [] });
+    expect(out).to.not.include("allowedHosts");
+  });
+
+  it("allowedHosts + hmr coexistent avec proxy et https", () => {
+    const out = gen.toMjs(
+      [{ ...baseEntry, apiProxyPaths: ["/api"] }],
+      "development",
+      {
+        backendOrigin: "https://127.0.0.1:5152",
+        viteOrigin: "https://host.docker.internal:5173",
+        https: { keyPath: "/pem/key.pem", certPath: "/pem/cert.pem" },
+        allowedHosts: ["host.docker.internal"],
+        hmr: {
+          host: "host.docker.internal",
+          clientPort: 5173,
+          protocol: "wss",
+        },
+      },
+    );
+    expect(out).to.include('allowedHosts: ["host.docker.internal"],');
+    expect(out).to.include("hmr: {");
+    expect(out).to.include("proxy: {");
+    expect(out).to.include("https: {");
+  });
+
+  // --- Preset svelte5 — preuve d'extensibilité (famille `default`) ---------
+  it("émet le plugin svelte (export NOMMÉ) + dedupe pour svelte5", () => {
+    const out = gen.toMjs(
+      [{ ...baseEntry, type: "svelte5", entryFile: "src/main.ts" }],
+      "development",
+    );
+    expect(out).to.include(
+      'import { svelte } from "@sveltejs/vite-plugin-svelte"',
+    );
+    expect(out).to.include("plugins: [svelte()]");
+    expect(out).to.include('"svelte",'); // optimizeDeps
+    expect(out).to.include('resolve: { dedupe: ["svelte"] }');
+    expect(out).to.not.include("@vitejs/plugin-react");
+  });
 });

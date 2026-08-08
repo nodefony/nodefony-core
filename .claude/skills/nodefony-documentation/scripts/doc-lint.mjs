@@ -144,7 +144,14 @@ for (const f of files) {
   // sert le dossier (intro), et POINTER JUSTE (liens vivants), son unique travail.
   const isIndexReadme = path.basename(f) === "README.md";
   // Un ADR se reconnaît à son numéro d'ordre (`NNNN-titre.md`) ou au champ `adr:`.
-  const isAdr = /^\d{4}-/.test(path.basename(f)) || /^adr:\s*\d+/im.test(src);
+  // ⚠️ Une page DATÉE (`2026-07-23-titre.md`) commence elle aussi par quatre chiffres et un
+  // tiret : sans l'exclusion ci-dessous, elle se voyait réclamer `adr`/`date`/`deciders` et les
+  // quatre sections Nygard — un rouge permanent pour une page qui n'a jamais prétendu être un
+  // ADR, donc un gate qu'on finit par ignorer. Une année suivie d'un mois et d'un jour n'est pas
+  // un numéro d'ordre : `2026-07-23-` est écarté, `0007-` reste un ADR.
+  const isAdr =
+    /^\d{4}-(?!\d{2}-\d{2}-)/.test(path.basename(f)) ||
+    /^adr:\s*\d+/im.test(src);
 
   // 1) Frontmatter minimal (convention A). Un index de dossier ne porte pas les champs de
   // publication (`title`/`updated`/`source`) : il n'est ni rendu, ni versionné comme une page.

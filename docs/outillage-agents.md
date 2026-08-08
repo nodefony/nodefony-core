@@ -87,7 +87,7 @@ serait sans effet à la régénération suivante.
 ```nodefony-cards
 [
   { "icon": "🖼️", "title": "create-frontend-module", "href": "skills/nodefony-create-frontend-module.md",
-    "desc": "Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21) servi par @nodefony/frontend via Vite, DANS LE REPO FRAMEWORK (src/modules/). Dans une APPLICATION, le scaffold est une commande — `nodefony create module <nom> --frontend <fw>` — et ce skill se contente d'y renvoyer : il ne…",
+    "desc": "Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21, Svelte 5) servi par @nodefony/frontend via Vite, DANS LE REPO FRAMEWORK (src/modules/). Dans une APPLICATION, le scaffold est une commande — `nodefony create module <nom> --frontend <fw>` — et ce skill se contente d'y renvoyer :…",
     "meta": "🟢 conforme · 📎 1 réf" },
   { "icon": "📦", "title": "create-module", "href": "skills/nodefony-create-module.md",
     "desc": "Scaffold d'un package @nodefony/* du REPO FRAMEWORK (src/packages/) — package.json, tsconfig, rolldown, structure nodefony/{interfaces,service,command,src,config}/, index.ts (Module + @services + exports), CLAUDE.md, MEMORY.md, README.md, peerDeps, manifeste `modules`.",
@@ -99,7 +99,7 @@ serait sans effet à la régénération suivante.
     "desc": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM).",
     "meta": "🟢 conforme v2.0.0 · 📎 10 réf" },
   { "icon": "🎨", "title": "frontend-dev", "href": "skills/nodefony-frontend-dev.md",
-    "desc": "Kit de dev FRONT de Nodefony — le full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie / temps réel…",
+    "desc": "Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie/a11y/perf…",
     "meta": "🟢 conforme v1.0.0 · 📎 6 réf" },
   { "icon": "🖥️", "title": "studio-dev", "href": "skills/nodefony-studio-dev.md",
     "desc": "Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du framework. Construire un écran (page / dashboard / panneau / onglet) vite et bien en réutilisant le UI kit (PageHeader, PageLayout, DataGrid, DataState, StatCard, KpiCard, JsonViewer, MiniChart,…",
@@ -119,7 +119,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.1.0" },
   { "icon": "📈", "title": "load-test", "href": "skills/nodefony-load-test.md",
     "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).",
-    "meta": "🟢 conforme · ⚙️ 37 scripts · 📎 4 réf" },
+    "meta": "🟢 conforme · ⚙️ 40 scripts · 📎 4 réf" },
   { "icon": "🛰️", "title": "multipod-bench", "href": "skills/nodefony-multipod-bench.md",
     "desc": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout.",
     "meta": "🟢 conforme · ⚙️ 9 scripts · 📎 2 réf" },
@@ -181,6 +181,9 @@ serait sans effet à la régénération suivante.
 
 ```nodefony-cards
 [
+  { "icon": "🔧", "title": "browser", "href": "skills/nodefony-browser.md",
+    "desc": "Ouvre une page réelle dans un navigateur piloté — poste ou conteneur — pour la VOIR et surtout la MESURER : contrastes calculés, WCAG par axe-core, Web Vitals, réseau, console, débordements ; et pilote un socket depuis la page, avec ses cookies et son origine.",
+    "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "skills/nodefony-devkit-bench.md",
     "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
     "meta": "🟢 conforme v1.3.0 · ⚙️ 6 scripts · 📎 3 réf" }
@@ -193,6 +196,17 @@ serait sans effet à la régénération suivante.
 Les deux colonnes de droite sont **mesurées** sur l'ensemble des transcrits du projet (~194
 sessions) : _invocations_ = passages par l'outil `Skill` ; _lectures_ = accès directs à ses
 fichiers. Un skill peut être très lu sans jamais être invoqué — c'est un signal, pas un défaut.
+
+> 🔴 **Ces chiffres ne comptent que l'agent principal, et une part du silence s'explique là :
+> un sous-agent n'ouvre jamais un skill de lui-même.** Il reçoit pourtant la liste entière —
+> descriptions, déclencheurs — et l'outil pour les charger. Mesuré sur deux délégations : sans
+> mention du skill dans le prompt, **0 appel `Skill` sur 28 appels d'outils** ; avec « charge
+> d'abord le skill `X` », il le charge en premier et applique sa méthode — le run instruit de
+> `nodefony-inspect` a interrogé `.ai/symbols.json` au `jq` au lieu d'ouvrir des fichiers un par
+> un. C'est le mécanisme déjà connu de `@agent-<nom>` : la disponibilité ne déclenche rien,
+> seule la mention garantit. Conséquence pratique — **toute délégation qui touche un domaine
+> couvert nomme son skill en toutes lettres** ; sinon on croit avoir délégué sous les règles du
+> projet à quelqu'un qui ne voit que le prompt.
 
 ### Cycle de session
 

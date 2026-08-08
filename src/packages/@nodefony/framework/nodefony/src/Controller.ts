@@ -360,14 +360,29 @@ class Controller extends Service implements IController {
     param: Record<string, unknown>,
   ): Record<string, unknown> {
     const fe = this.get<{
-      renderTags?: (entry: string) => string;
-      renderDocument?: (entry: string) => string;
+      renderTags?: (
+        entry: string,
+        nonce?: string,
+        requestHost?: string,
+      ) => string;
+      renderDocument?: (
+        entry: string,
+        nonce?: string,
+        requestHost?: string,
+      ) => string;
       assetUrl?: (p: string) => string;
     }>("frontend");
     if (!fe?.renderTags) return param;
+    // Nonce CSP et hôte de la REQUÊTE : le helper de vue a le contexte sous la
+    // main, l'auteur du gabarit n'a donc rien à propager (`<%~ frontendTags("x") %>`).
+    // L'hôte fait suivre l'origine des assets Vite à celui par lequel le client
+    // est arrivé ; le nonce satisfait `script-src 'nonce-…'`.
+    const nonce = this.context?.cspNonce;
+    const host = this.context?.domain;
     return {
-      frontendTags: (entry: string) => fe.renderTags!(entry),
-      frontendDocument: (entry: string) => fe.renderDocument!(entry),
+      frontendTags: (entry: string) => fe.renderTags!(entry, nonce, host),
+      frontendDocument: (entry: string) =>
+        fe.renderDocument!(entry, nonce, host),
       // `asset('/x')` → URL CDN (assetBaseUrl) en prod, sinon chemin relatif.
       asset: (p: string) => (fe.assetUrl ? fe.assetUrl(p) : p),
       ...param,

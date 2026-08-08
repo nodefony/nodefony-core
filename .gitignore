@@ -70,8 +70,12 @@ temp/
 # généré puis commité, qui doit l'exclure de son scan (cf generate-symbols.config).
 src/modules/test/nodefony/entity/dolibarr/
 
+# Un seul gestionnaire fait foi (packageManager: npm) — un lock étranger commité
+# divergerait en silence du package-lock.json testé. bun.lock = format texte bun ≥ 1.2.
 yarn.lock
 bun.lockb
+bun.lock
+pnpm-lock.yaml
 
 # Discussions de travail (décisions captées dans MIGRATION_STATUS + mémoire IA)
 analyse.txt

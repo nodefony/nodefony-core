@@ -146,7 +146,7 @@ cd src/packages/@nodefony/studio && npm run typecheck     # gate front = exit 0 
 4. **Vérif sans navigateur** : curl le data plane (`curl -sk https://127.0.0.1:5152/nodefony/<m>/api/...`) + le transform
    Vite (`https://127.0.0.1:5173/@fs/<abs>.tsx` → 200). Modif **front** = HMR (0 restart) ; modif **back** Studio =
    `npm run build` (rolldown) + restart.
-5. **Hard-reload** `https://127.0.0.1:5152/nodefony` (cache React) → confirmation **visuelle user** (pas de headless — règle projet).
+5. **Voir et MESURER l'écran** : skill **`nodefony-browser`** — navigateur en conteneur, console, arbre d'accessibilité, requêtes réelles, et contrastes/tailles CALCULÉS (de quoi valider une correction de palette sans attendre un audit). 🔴 Ne jamais faire jouer la sonde au user. Pour le HMR et le rendu fin, qui ne se jugent pas en conteneur : **hard-reload** `https://127.0.0.1:5152/nodefony` (cache React) + confirmation visuelle user.
 
 > Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. **Fin de session Studio** : fondre les nouvelles
 > leçons en règles dans `references/gotchas-studio.md` (jamais un journal daté) ; un fait isolé → mémoire IA dédiée.

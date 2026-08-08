@@ -142,17 +142,21 @@ class ShopFrontController extends Controller {
     const svc = this.context?.container?.get("frontend") as
       FrontendService | undefined;
 
-    // ⚠️ CSP — helmet bloque les scripts Vite cross-origin par défaut.
-    // Override avec la CSP du FrontendService (TODO : migrer dans security).
-    if (svc) {
-      this.context?.response?.setHeader(
-        "Content-Security-Policy",
-        svc.getCspDirectives(),
-      );
-    }
+    // Rien à faire pour la CSP : le service déclare les origines Vite au
+    // firewall (`@nodefony/security`), qui émet UN seul en-tête. Réécrire
+    // l'en-tête ici écraserait le nonce de la requête.
 
+    // On propage deux données de la requête : le nonce CSP (sans lui, les
+    // balises émises sont bloquées) et l'hôte — en développement, l'origine
+    // des assets Vite est dérivée de ce nom, si bien que votre poste et un
+    // navigateur en conteneur (ou une machine distante) chargent la même page
+    // en même temps, sans rien à configurer.
     const viteTags =
-      svc?.renderTags("shop-front") ?? "<!-- @nodefony/frontend not ready -->";
+      svc?.renderTags(
+        "shop-front",
+        this.context?.cspNonce,
+        this.context?.domain,
+      ) ?? "<!-- @nodefony/frontend not ready -->";
 
     return this.render(`<!DOCTYPE html>
 <html lang="en">
@@ -297,7 +301,8 @@ Génère `src/modules/shop-front/public/dist/manifest.json` + assets fingerprint
 | Symptôme                                               | Cause                           | Fix                                                            |
 | ------------------------------------------------------ | ------------------------------- | -------------------------------------------------------------- |
 | `ERROR @nodefony/frontend service unavailable`         | Ordre `@modules` racine         | Déclarer `@nodefony/frontend` AVANT le module consumer         |
-| Page blanche, `Refused to load script ... blocked:csp` | Helmet bloque scripts Vite      | `setHeader("Content-Security-Policy", svc.getCspDirectives())` |
+| Page blanche, `Refused to load script ... blocked:csp` | Un controller réécrit le CSP    | Le laisser au firewall : il déclare déjà les origines Vite     |
+| Assets sur `127.0.0.1` depuis une AUTRE machine        | Hôte hors `trustedHosts`        | L'y ajouter en dev : la même liste ouvre 421, Vite, CSP, rendu |
 | `Unexpected token '<'` sur `fetch("/api/...")`         | Vite sert SPA-fallback HTML     | Déclarer `apiProxyPaths` dans `registerEntry`                  |
 | `@vitejs/plugin-react can't detect preamble`           | Preamble manquant               | Toujours utiliser `svc.renderTags(name)`                       |
 | Cache navigateur après modif CSP                       | Browser cache                   | **Cmd+Shift+R** (hard reload)                                  |

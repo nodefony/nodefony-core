@@ -50,6 +50,8 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@types/react-dom": "^19.2.3",
   vue: "^3.5.39",
   "@vitejs/plugin-vue": "^6.0.7",
+  svelte: "^5.56.8",
+  "@sveltejs/vite-plugin-svelte": "^7.3.0",
   "@angular/core": "^22.0.6",
   "@angular/common": "^22.0.6",
   "@angular/platform-browser": "^22.0.6",

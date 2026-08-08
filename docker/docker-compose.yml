@@ -21,6 +21,7 @@
 #   docker compose -f docker/docker-compose.yml --profile opensearch up -d# + OpenSearch + Dashboards
 #   docker compose -f docker/docker-compose.yml --profile loki --profile opensearch up -d
 #   docker compose -f docker/docker-compose.yml --profile proxy up -d     # + nginx + haproxy (test forwarded)
+#   docker compose -f docker/docker-compose.yml --profile browser up -d   # + navigateur jetable (observer l'UI)
 #   docker compose -f docker/docker-compose.yml down                      # arrêt (volumes conservés)
 #   docker compose -f docker/docker-compose.yml down -v                   # arrêt + purge données
 #
@@ -392,6 +393,108 @@ services:
       - "host.docker.internal:host-gateway"
       # Idem nginx : Nodefony joignable par son nom de domaine dans le conteneur.
       - "nodefony.com:host-gateway"
+
+  # --- browser (profile browser — OBSERVER l'UI, sans Chromium sur le poste) ---
+  #
+  # POURQUOI ce service existe. Vérifier une page se faisait jusqu'ici en deux temps :
+  # `curl` pour le backend, puis demander au développeur de regarder son navigateur
+  # pour le rendu. Le chaînon manquant — lire la console, l'arbre d'accessibilité et
+  # les requêtes réelles d'une page — imposait un Chromium headless SUR le poste, ce
+  # qui a déjà figé la machine (règle `feedback_no_headless_chrome`, qui prévoyait
+  # explicitement l'exception : accord du développeur + ENVIRONNEMENT ISOLÉ). Ce
+  # conteneur EST cet environnement : borné en CPU/RAM, jetable, tué d'un `down`.
+  #
+  # ⚠️ Ce service n'est PAS celui que pilote l'extension MCP de l'éditeur — celle-ci
+  # lance son propre conteneur, à la demande, avec ses propres options. Les deux
+  # coexistent sans se voir. L'intérêt PROPRE de celui-ci : il est déclaré (donc
+  # reproductible), et son `--output-dir` est monté sur l'hôte — les captures et les
+  # journaux SORTENT du conteneur, ce que la variante à la demande ne permet pas.
+  #
+  # Parler à Nodefony depuis ce conteneur : `http://host.docker.internal:5151` (ou
+  # `https://…:5152`). JAMAIS `localhost` — dans un conteneur ce nom le désigne LUI.
+  # Deux prérequis côté application, sinon la page reste blanche ou refusée :
+  #   1. `trustedHosts` doit contenir `host.docker.internal` (posé en dev dans
+  #      `nodefony.config.ts`) — sinon la barrière Host répond `421`, réseau OK.
+  #   2. Rien à poser pour Vite : l'origine des assets se DÉRIVE du `Host` de la
+  #      requête. Arriver par `host.docker.internal` suffit — l'allowlist Vite et
+  #      le WebSocket du HMR suivent le même nom, et le poste reste servi en même
+  #      temps sur `127.0.0.1`. (Il a existé une variable pour figer cette
+  #      origine ; oubliée en place, elle rendait le poste inutilisable. Elle a
+  #      été retirée — le pourquoi est dans `env.ts`.) Alternative sans Vite :
+  #      `NF_STUDIO_UI=static` (+ `npm run build:ui`).
+  #
+  # Usage :
+  #   docker compose -f docker/docker-compose.yml --profile browser up -d
+  #   # → serveur MCP en SSE sur 127.0.0.1:3001, captures dans tmp/browser/
+  browser:
+    # Épinglée par DIGEST : cette image n'est pas taguée localement, et un `latest`
+    # mouvant sous un banc d'observation ferait varier le rendu sans qu'on le sache.
+    image: mcp/playwright@sha256:097d978439237cc9b12e10825836a97245add2be0479272cce9d98c368f024d1
+    container_name: nodefony-browser
+    restart: unless-stopped
+    profiles: ["browser"]
+    networks: [nodefony]
+    ports:
+      - "127.0.0.1:${BROWSER_PORT:-3001}:3000"
+    # L'ENTRYPOINT de l'image fixe déjà `--headless --browser chromium --no-sandbox`.
+    # On ne le remplace pas : on COMPLÈTE par la commande, qui lui est concaténée.
+    command:
+      # Transport SSE : sans `--port`, le serveur parle en stdio et un service
+      # long-running n'aurait personne au bout.
+      - "--port=3000"
+      # Bind toutes interfaces DANS le conteneur — le défaut `localhost` ne serait
+      # pas atteignable depuis l'hôte, même avec la publication de port ci-dessus.
+      - "--host=0.0.0.0"
+      # Le port est publié sur 127.0.0.1 uniquement : la vérification d'hôte de
+      # Playwright ferait doublon et refuserait l'accès par le nom du service.
+      - "--allowed-hosts=*"
+      # Certificat de développement auto-signé (5152, généré par Nodefony) : sans
+      # ceci, toute navigation HTTPS échoue avant d'avoir rendu quoi que ce soit.
+      # Acceptable ICI parce que ce conteneur ne sert qu'à observer du localhost.
+      - "--ignore-https-errors"
+      # Captures, journaux console et réseau écrits en FICHIERS dans le volume
+      # ci-dessous → récupérables sur l'hôte. C'est l'apport de ce service.
+      - "--output-dir=/output"
+      - "--output-mode=file"
+      # Profil en mémoire : rien n'est écrit sur le disque du conteneur, et un
+      # `down` efface l'état d'authentification avec lui.
+      - "--isolated"
+      # UN SEUL contexte de navigation pour tous les clients connectés — ce qui
+      # ÉVITE que chaque client reparte d'un contexte vierge, donc déconnecté.
+      # ⚠️ Ne SURVIT PAS à un redémarrage du conteneur : `--isolated` garde le
+      # profil en mémoire, donc `docker restart` efface la session applicative et
+      # il faut se reconnecter. Compromis assumé : ce conteneur sert à OBSERVER,
+      # pas à paralléliser des tests, où un état partagé serait au contraire une
+      # source de faux verdicts.
+      - "--shared-browser-context"
+      - "--viewport-size=1440x900"
+    volumes:
+      # `tmp/` est gitignoré — les captures sont des PHOTOS, jamais du versionné.
+      - ../tmp/browser:/output
+    # Le répertoire courant, PAS seulement `--output-dir`. Vérifié en exerçant le
+    # service : `--output-dir` gouverne les instantanés, la console et le réseau,
+    # mais une capture demandée sous un nom relatif (`./page.png`) est résolue par
+    # Playwright contre le RÉPERTOIRE COURANT — elle restait donc dans `/home/node`,
+    # invisible de l'hôte, pendant que l'appel répondait « OK ». Aligner le courant
+    # sur le volume fait tout sortir par la même porte.
+    working_dir: /output
+    extra_hosts:
+      # Le nom par lequel le conteneur joint l'application qui tourne sur l'hôte.
+      - "host.docker.internal:host-gateway"
+      # Cohérent avec nginx/haproxy : accès par nom de domaine (cert SAN NF_BIND_ALL).
+      - "nodefony.com:host-gateway"
+    # Précaution, NON éprouvée ici : le `/dev/shm` par défaut de Docker (64 Mo) est
+    # connu pour faire mourir un onglet Chromium sans message sur une page lourde.
+    # Les pages observées jusqu'ici sont légères — si on la retire un jour, c'est ce
+    # symptôme-là qu'il faudra reconnaître.
+    shm_size: "1gb"
+    # Bornes de ressources : c'est ce qui rend le mot « isolé » vérifiable. Un
+    # navigateur emballé ne peut plus prendre la machine, il se fait tuer.
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2g
 
 # Réseau unique de l'infra dev. Bridge nommé explicitement (`nodefony-net`) → résolution DNS
 # par nom de service entre conteneurs, isolation vis-à-vis du bridge `default` de Docker, et

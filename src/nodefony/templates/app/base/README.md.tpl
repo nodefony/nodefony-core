@@ -219,7 +219,7 @@ framework, tu rebuilds le checkout, ton app le voit. Ne publie pas ce
 
 - **Ajouter une route** : une méthode décorée `@route` dans un controller — c'est tout.
 - **Régénérer autrement** : `nodefony create app` (interactif) ou
-  `--preset <complete|minimal> --frontend <none|react|vue|angular>`
+  `--preset <complete|minimal> --frontend <none|react|vue|angular|svelte>`
   `--database <sqlite|postgres|mariadb|mysql>` (scriptable).
 <% if (it.complete) { %>- **Protéger une zone** : `use("@nodefony/security", { firewalls: { … } })` dans
   `nodefony.config.ts` (validée Zod au boot, config invalide = échec franc).

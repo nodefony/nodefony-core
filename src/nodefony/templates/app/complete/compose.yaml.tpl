@@ -11,6 +11,7 @@
 #   docker compose up -d                          # Redis<%= it.db ? " + " + it.db.label : "" %> (ce qu'il faut à l'app)
 #   docker compose --profile tools up -d          # + RedisInsight (UI Redis)
 #   docker compose --profile loki up -d           # + Loki + Grafana (logs)
+#   docker compose --profile browser up -d        # + navigateur jetable (voir tes écrans)
 #   docker compose down                           # arrêt (volumes conservés)
 #   docker compose down -v                        # arrêt + PURGE des données
 #
@@ -203,6 +204,97 @@ services:
       # service_started (pas healthy) : Loki est distroless, pas de healthcheck.
       loki:
         condition: service_started
+
+  # --- browser (profil browser — VOIR tes écrans, sans navigateur sur ta machine) ---
+  #
+  # Un navigateur jetable, piloté par un agent (ou par un script) : il ouvre une
+  # page, lit la CONSOLE, l'arbre d'ACCESSIBILITÉ et les REQUÊTES réelles, et
+  # dépose captures et journaux dans `tmp/browser/`. Sert à répondre « l'écran se
+  # monte-t-il et s'alimente-t-il ? » sans que quelqu'un ait à regarder pour toi.
+  #
+  # Pourquoi en conteneur plutôt que sur le poste : un navigateur automatisé lancé
+  # à nu peut saturer une machine de développement. Ici il est plafonné et meurt
+  # au `down`. Rien à installer non plus : ni Chromium, ni pilote.
+  #
+  # TROIS RÈGLES qui ne se devinent pas — sans elles la page reste blanche ou
+  # refusée, alors que le réseau, lui, passe :
+  #   1. Joindre ton app par `host.docker.internal`, JAMAIS `localhost` : dans un
+  #      conteneur ce nom désigne le conteneur lui-même. Si tu actives la barrière
+  #      Host (`domainCheck`), ajoute ce nom aux `trustedHosts` en développement —
+  #      sinon elle répond `421` alors que le réseau, lui, passe.
+  #   2. Passer par HTTPS : le cookie de session est `secure`, donc IGNORÉ sur une
+  #      origine `http://` qui n'est pas `localhost` — toutes les requêtes
+  #      authentifiées reviendraient en `401`, ce qui se lit à tort comme un échec
+  #      de connexion. Le certificat auto-signé de développement est accepté ici.
+  #   3. Rien à poser pour Vite : l'origine des assets se DÉRIVE du `Host` de la
+  #      requête. Arriver par `host.docker.internal` suffit — l'allowlist Vite et
+  #      le WebSocket du HMR suivent le même nom, et ton poste continue d'être
+  #      servi sur `127.0.0.1` en même temps. Pour forcer une origine unique
+  #      (proxy frontal), écris `publicOrigin` dans `nodefony.config.ts`.
+  #
+  # DEUX façons de s'en servir, et elles ne se valent pas :
+  #   - PILOTER directement — l'image embarque Chromium ET Playwright, on y copie
+  #     un script et on l'exécute (`docker cp … && docker exec … node …`). C'est
+  #     la voie normale : une commande, un JSON, un code de retour, quelques
+  #     secondes. Le devkit livre deux sondes prêtes (voir `AGENTS.md`), dont la
+  #     MESURE des contrastes et tailles réellement calculés par le moteur.
+  #   - EXPLORER par MCP — le conteneur est aussi un serveur MCP, joignable sur
+  #     `http://127.0.0.1:${BROWSER_PORT:-3001}/mcp` (il imprime la config à
+  #     coller dans ses journaux au démarrage). Utile pour fouiller une page à la
+  #     main ; plus lent et non scriptable pour tout le reste.
+  browser:
+    # Épinglée par empreinte : un `latest` mouvant sous un banc d'observation
+    # ferait varier le rendu sans qu'on le sache.
+    image: mcp/playwright@sha256:097d978439237cc9b12e10825836a97245add2be0479272cce9d98c368f024d1
+    container_name: <%= it.appName %>-browser
+    restart: unless-stopped
+    profiles: ["browser"]
+    networks: [<%= it.appName %>]
+    ports:
+      - "127.0.0.1:${BROWSER_PORT:-3001}:3000"
+    # L'ENTRYPOINT de l'image fixe déjà `--headless --browser chromium
+    # --no-sandbox` ; la commande le COMPLÈTE, elle ne le remplace pas.
+    command:
+      # Sans `--port`, le serveur parle en stdio : personne au bout d'un service.
+      - "--port=3000"
+      # Le défaut `localhost` ne serait pas joignable depuis l'hôte, même avec la
+      # publication de port ci-dessus.
+      - "--host=0.0.0.0"
+      # Le port n'est publié que sur 127.0.0.1 : la vérification d'hôte ferait
+      # doublon et refuserait l'accès par le nom du service.
+      - "--allowed-hosts=*"
+      # Certificat de développement auto-signé (cf règle 2 ci-dessus).
+      - "--ignore-https-errors"
+      # Captures, console et arbres écrits en FICHIERS dans le volume monté.
+      - "--output-dir=/output"
+      - "--output-mode=file"
+      # Profil en mémoire : rien sur le disque du conteneur, et un `down` efface
+      # l'état d'authentification avec lui.
+      - "--isolated"
+      # Un seul contexte pour tous les clients : une session ouverte reste ouverte
+      # d'un appel à l'autre. Ne survit pas à un `restart` (profil en mémoire).
+      - "--shared-browser-context"
+      - "--viewport-size=1440x900"
+    volumes:
+      # `tmp/` est ignoré par git — une capture est une PHOTO, jamais du versionné.
+      - ./tmp/browser:/output
+    # Le répertoire courant, pas seulement `--output-dir` : une capture demandée
+    # sous un nom relatif est résolue par Playwright contre le répertoire COURANT.
+    # Sans cette ligne elle reste dans le conteneur pendant que l'appel répond OK.
+    working_dir: /output
+    extra_hosts:
+      # Le nom par lequel le conteneur joint l'app qui tourne sur l'hôte.
+      - "host.docker.internal:host-gateway"
+    # Précaution : le `/dev/shm` par défaut de Docker (64 Mo) est connu pour faire
+    # mourir un onglet Chromium sans message sur une page lourde.
+    shm_size: "1gb"
+    # Bornes de ressources : c'est ce qui rend « jetable » vérifiable — un
+    # navigateur emballé ne peut pas prendre la machine, il se fait tuer.
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2g
 
 # Bridge nommé explicite : résolution DNS par nom de service, isolation des autres
 # projets compose, nettoyage propre au down. Pas de sous-réseau figé (anti-collision).

@@ -70,10 +70,54 @@ Node ESM purs (`ws` + builtins), **lancés depuis la racine du repo**, paramétr
 > **Mesures hors requête** — deux bancs mesurent autre chose que le trafic, avec le même protocole
 > (plusieurs runs, médiane, décor maîtrisé) :
 >
-> | Script                     | Ce qu'il mesure                                                                            |
-> | -------------------------- | ------------------------------------------------------------------------------------------ |
-> | `scripts/boot-bench.mjs`   | temps de boot d'un mode, du spawn jusqu'à l'écoute des serveurs + nombre de `new Kernel()` |
-> | `scripts/poc-hmr-perf.mjs` | délai de bout en bout entre le `touch` d'un fichier surveillé et le rechargement Vite      |
+> | Script                        | Ce qu'il mesure                                                                            |
+> | ----------------------------- | ------------------------------------------------------------------------------------------ |
+> | `scripts/boot-bench.mjs`      | temps de boot d'un mode, du spawn jusqu'à l'écoute des serveurs + nombre de `new Kernel()` |
+> | `scripts/poc-hmr-perf.mjs`    | délai de bout en bout entre le `touch` d'un fichier surveillé et le rechargement Vite      |
+> | `scripts/route-scan-cost.mjs` | ce que la résolution de route coûte à une app, et sa sensibilité au NOMBRE de routes       |
+> | `scripts/db-backend-cost.mjs` | ce qu'un pilote de base coûte au serveur : latence, blocage de la boucle, plafond réel     |
+>
+> **Micro-bancs isolés — `scripts/micro/`** : ils mesurent UN mécanisme hors du serveur, pour
+> convertir en nanosecondes un poste qu'un profil désigne en pourcentage. C'est le geste qui a
+> évité trois chantiers ouverts pour rien (écart ×25-30 entre l'attribution d'un profil et le
+> coût réel) — **tout % de profil se convertit en ns AVANT d'ouvrir un lot**. Ils mentent dans
+> l'autre sens (tas froid, sites d'appel monomorphes) : l'arbitre reste la sonde in-situ.
+>
+> | Micro-banc                    | Ce qu'il isole                                                       |
+> | ----------------------------- | -------------------------------------------------------------------- |
+> | `micro/micro-enterscope.mjs`  | entrée/sortie d'une portée DI sur un conteneur peuplé (dist du cœur) |
+> | `micro/micro-extend.mjs`      | le coût de `Tools.extend` face au spread et à une version mémoïsée   |
+> | `micro/micro-route-scan.mjs`  | le scan des motifs sur la table RÉELLE de l'app (`NF_ROUTES_JSON`)   |
+> | `micro/micro-route-scale.mjs` | la même chose à N croissant : la COURBE, de 136 à 2 400 routes       |
+>
+> **Rapport du dossier de performance** : `scripts/perf-dossier-report.mjs` rend en une page HTML
+> autonome ce que `docs/performance/` établit en Markdown (graphes, schémas, calculateur de pods).
+> Les données sont déclarées dans le script et embarquées dans la page.
+>
+> 🔴 **Un instrument ne vit jamais dans `tmp/`.** Le rapport est une photo — il s'écrit dans `tmp/`
+> et se refabrique ; le script qui le produit est du CODE, et un ménage de `tmp/` emporterait la
+> seule façon de le reproduire. Même règle pour les micro-bancs : ils ont été rapatriés ici après
+> avoir failli disparaître avec le dossier qui les hébergeait.
+>
+> **`route-scan-cost.mjs` répond à une question qu'aucun banc de charge ne pose** : l'index de
+> routes livré en juin (+15,3 % RPS) porte sur les routes **littérales** (Map par chemin exact) —
+> la résolution est donc `O(dynamiques)`, pas `O(1)`. Les routes à variable ou wildcard restent
+> scannées une à une à chaque requête. Ce banc chiffre ce résidu : invisible sur le dépôt
+> (136 routes, 47 dynamiques → ~1 µs, 1,3 % d'un budget de requête), franchement cher sur une app
+> qui déclare mille routes (~26 µs, 30 %). C'est la mesure qui dit si l'étape suivante
+> (bucketisation des dynamiques) se justifie pour une application donnée. Trois sorties indépendantes : `--diagnostic` (le
+> compte de `Route.match` par requête, exact et sans mesure), `--measure` (le coût en ns, médiane
+> de N runs, avec refus sous variance), `--scale` (la courbe à 136 → 2400 routes).
+>
+> ```bash
+> node .claude/skills/nodefony-load-test/scripts/route-scan-cost.mjs             # app courante
+> node …/route-scan-cost.mjs --measure --target /nodefony/security/api/auth/me
+> node …/route-scan-cost.mjs --scale                                            # la courbe
+> ```
+>
+> ⚠️ Il recompile les motifs depuis `nodefony inspect routes --json` : ce n'est pas le motif de
+> production, et il ne mesure que le scan (pas hostname/requirements, payés une fois sur la route
+> qui matche). Le chiffre est une **borne basse**, le compte de `--diagnostic` est exact.
 
 ## Niveau 3 — A/B perf MONO PROD (coût du pipeline par requête)
 
@@ -92,9 +136,14 @@ bash $S old2 NF_BENCH_X=0 ; bash $S new2 NF_BENCH_X=1
 
 Le script (`bench-ab-mono.sh`) : banc propre (kill ports + Vite, attend la libération) →
 spawn mono `production` **detached** (`NODE_ENV=production`, `NF_LOG_DRIVER=null`,
-`NF_BENCH_ROUTE=1` FORCÉS) → attend le boot → **vérifie que la cible répond 200** → 3× `wrk` →
-**médiane** → arrêt gracieux. Toggles A/B = env vars passées au serveur (`KEY=VAL`), à lire **1× au
-boot** côté code (jamais `process.env` dans le hot path).
+`NF_BENCH_ROUTE=1` FORCÉS) → attend le boot → **vérifie que la cible répond 200** → cooldown
+thermique pré-série + **warmup wrk NON compté** (JIT) → 3× `wrk` enchaînés (pause fixe 10 s —
+jamais de longue pause intra-série : elle endort le serveur idle et le run suivant paie −13 %) →
+**min/méd/max + REFUS si dispersion > 3 %** (le seuil de décision A/B ne peut trancher sous une
+fenêtre plus bruyante que lui) → arrêt gracieux. Sortie : `.med` (médiane) + `.json` (détail
+runs/dispersion/thermal pour le rapport). `bench-ab-mono.sh purge` entre deux lots — un `.med`
+survivant entre dans une comparaison qui ne le concerne pas. Toggles A/B = env vars passées au
+serveur (`KEY=VAL`), à lire **1× au boot** côté code (jamais `process.env` dans le hot path).
 
 **Détail : [`references/ab-perf-mono-prod.md`](references/ab-perf-mono-prod.md)** — la cible de
 banc dédiée (`/nodefony/kernel/bench`) et ce qu'il ne faut pas lui substituer, la méthode du diff
@@ -136,6 +185,58 @@ chiffres deviennent des constantes de dimensionnement de pod).
 
 Reste à durcir (chiffres publiés, contrôle partiel ou absent) : `hub-load.mjs`,
 `supervision-stress.mjs`, `cluster-ipc.mjs`, `aimd-demo.mjs`, `ws-connections.mjs`.
+
+## 🚨 RÈGLE N°1 bis — LATENCE et BLOCAGE sont deux grandeurs ; une seule plafonne un process
+
+Payé cher : **quatre instruments faux d'affilée** sur cette seule question, et **deux explications
+successives réfutées**. Ce qui suit évite de le repayer.
+
+**Le fait, prouvé** — on arme un rappel (`setImmediate`) JUSTE AVANT la requête et on regarde quand
+il part. L'effet est à l'échelle de la centaine de millisecondes, donc insensible aux erreurs de
+mesure fine :
+
+| pilote                       | durée requête | retard du rappel | verdict              |
+| ---------------------------- | ------------- | ---------------- | -------------------- |
+| SQLite (`better-sqlite3`)    | 133 ms        | **134 ms**       | **bloque** la boucle |
+| PostgreSQL (`pg_sleep(0.5)`) | 503 ms        | **0,22 ms**      | ne bloque **pas**    |
+
+Un pilote **synchrone** exécute la requête sur le fil unique : sa latence EST son blocage, et c'est
+ce blocage qui borne le débit d'un process (et fait exploser le p99 dès que la concurrence dépasse
+ce qu'un fil sérialise — d'où les timeouts à c128 sur les bancs ORM). Un pilote **asynchrone** rend
+la main : son attente ne coûte aucun débit tant qu'il reste du travail à servir.
+
+**Les quatre instruments qui ont menti** — à ne pas réessayer :
+
+1. `setInterval(2ms)` + `setTimeout(0)` entre les requêtes : Node borne un délai de 0 à ~1 ms → on
+   mesure la granularité du minuteur. Verdict produit : « SQLite bloque 0,43 ms » pour une requête
+   de 33 µs (**×13**).
+2. `monitorEventLoopDelay` : résolution de l'ordre de la milliseconde → **aveugle** à un blocage de
+   quelques dizaines de µs ; il rendait son propre plancher pour les DEUX pilotes.
+3. Une colonne « bloque la boucle ? **non** » : une assertion **jamais mesurée** présentée comme un
+   résultat. **Un banc qui n'a pas mesuré doit se taire, pas répondre « non ».**
+4. `process.cpuUsage()` lu comme « CPU du fil principal » : il compte **tous** les fils (GC compris)
+   — c'est un MAJORANT, jamais un plafond de débit. Sur une réponse volumineuse il a rendu 110 % du
+   temps mural.
+
+**🔴 Et le piège qui a réfuté deux explications de suite : sur macOS, le plafond mesuré n'est ni la
+base ni le framework, c'est Docker Desktop.** Symptôme trompeur : le conteneur PostgreSQL à ~460 %
+de CPU « concorde » avec un `EXPLAIN ANALYZE` à ~1 ms — coïncidence de deux erreurs (ce 1 ms est le
+PREMIER plan d'une session neuve ; à chaud c'est 0,02–0,06 ms). Contre-mesures, toutes rapides :
+
+```bash
+docker info --format '{{.NCPU}}'          # combien de vCPU la VM a-t-elle VRAIMENT ?
+sysctl -n hw.physicalcpu hw.logicalcpu    # et combien de cœurs PHYSIQUES dessous ?
+# les backends attendent-ils le client (ClientRead) plutôt que de travailler ?
+docker exec -i <pg> psql -U <u> -d <db> -c "SELECT state, wait_event FROM pg_stat_activity"
+# la base est-elle vraiment au bout ? même requête, même mode protocole, DANS le conteneur :
+docker exec -i <pg> pgbench -n -c 20 -j 4 -T 6 -M extended -f /tmp/q.sql <db> -U <u>
+```
+
+Mesuré ici : **16 222 tps dans le conteneur contre ~4 400 depuis l'hôte — facteur 3,7 pour le seul
+chemin virtualisé** (VM ~685 % côté hôte, proxy `com.docker.backend` ~152 %, Node ~50 %, sur
+6 cœurs physiques). **Conséquence : aucun ABSOLU mesuré derrière Docker Desktop n'est
+transposable.** Les A/B intra-fenêtre restent valides (même décor des deux côtés) ; les comparaisons
+entre moteurs, non.
 
 ## 🚨 RÈGLE N°2 — un banc e2e a un DÉCOR ; décor manquant ≠ échec
 

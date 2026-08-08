@@ -97,13 +97,60 @@ async function meStatus(cookie: string): Promise<number> {
 }
 
 /** Refs (HMAC public) des sessions d'un user — énumération admin (cookie admin). */
+interface ISessionListItem {
+  ref: string;
+  ip: string | null;
+  ua: string | null;
+}
+
+async function listAllSessions(
+  adminCookie: string,
+  user: string,
+): Promise<ISessionListItem[]> {
+  // TOUTES les pages, pas la première : le listing est paginé et l'ordre du
+  // store peut être arbitraire (SCAN Redis, qui ne trie rien). Sur un serveur
+  // qui porte déjà plus d'une page de sessions du même user (suite complète,
+  // bancs), la session fraîche manque à la page 1 et le diff avant/après
+  // conclut à tort « aucune session créée » — vécu : rouge probabiliste en
+  // suite, vert isolé. Contrat de l'endpoint : backend à curseur (Redis) →
+  // `nextCursor` (suivi via ?cursor=), backend offset (SQL/mémoire) → `total`.
+  const byRef = new Map<string, ISessionListItem>();
+  const limit = 100;
+  let cursor: string | undefined;
+  let offset = 0;
+  for (let guard = 0; guard < 100; guard += 1) {
+    const params = new URLSearchParams({ user, limit: String(limit) });
+    if (cursor) params.set("cursor", cursor);
+    else if (offset > 0) params.set("offset", String(offset));
+    const res = await get(`${LIST}?${params.toString()}`, {
+      cookie: adminCookie,
+    });
+    expect(res.status, "list sessions (admin)").to.equal(200);
+    const page = res.body as {
+      items?: ISessionListItem[];
+      nextCursor?: string | null;
+      total?: number;
+    };
+    const items = page.items ?? [];
+    const sizeBefore = byRef.size;
+    for (const it of items) byRef.set(it.ref, it);
+    if (page.nextCursor) {
+      cursor = page.nextCursor;
+      continue;
+    }
+    if (page.nextCursor === null) break; // curseur épuisé (fin de SCAN)
+    if (items.length === 0) break; // offset épuisé
+    offset += items.length;
+    if (page.total !== undefined && offset >= page.total) break;
+    // Ni curseur ni progression : une page identique en boucle (backend qui
+    // ignore l'offset) s'arrête ici plutôt que de tourner jusqu'au guard.
+    if (byRef.size === sizeBefore) break;
+  }
+  return [...byRef.values()];
+}
+
 async function refsOf(adminCookie: string, user: string): Promise<string[]> {
-  const res = await get(`${LIST}?user=${encodeURIComponent(user)}`, {
-    cookie: adminCookie,
-  });
-  expect(res.status, "list sessions (admin)").to.equal(200);
-  const items = (res.body as { items?: { ref: string }[] }).items ?? [];
-  return items.map((i) => i.ref);
+  return (await listAllSessions(adminCookie, user)).map((i) => i.ref);
 }
 
 /**
@@ -180,6 +227,69 @@ describe("Révocation de session — cycle de vie (3 chemins admin + logout)", (
 // `toSessionSummary` (déjà unit-testé). Ici la preuve WIRE : un login avec un
 // User-Agent connu le retrouve dans `sessions/list`, + une ip non nulle (loopback).
 
+// Garde le fix HttpAdminApi : le `cursor` entrant doit être TRANSMIS au store.
+// Sans lui, un backend à curseur (SCAN Redis) repart du début à chaque appel et
+// renvoie indéfiniment la même page avec le même `nextCursor` : la pagination
+// boucle sans avancer (vécu : 31 pages identiques, listing jamais complet).
+// Sur un backend à offset (SQL/mémoire), `nextCursor` est absent → sortie
+// immédiate, le test reste inoffensif.
+describe("Pagination à curseur du listing de sessions", () => {
+  it("le curseur AVANCE et la pagination se TERMINE", async () => {
+    const admin = await loginAs("admin", "secret");
+    const seen = new Set<string>();
+    let cursor: string | undefined;
+    let pages = 0;
+    // limit large : le nombre de pages d'un SCAN dépend du keyspace ENTIER du
+    // store (un serveur de dev porte des centaines de sessions résiduelles) —
+    // avec un limit de 5 le parcours légitime dépassait déjà 40 pages.
+    for (; pages < 60; pages += 1) {
+      const params = new URLSearchParams({ limit: "100" });
+      if (cursor) params.set("cursor", cursor);
+      const res = await get(`${LIST}?${params.toString()}`, { cookie: admin });
+      expect(res.status, "list sessions (admin)").to.equal(200);
+      const page = res.body as { nextCursor?: string | null };
+      if (!page.nextCursor) break; // fin de scan, ou backend à offset
+      expect(
+        seen.has(page.nextCursor),
+        `nextCursor "${page.nextCursor}" déjà vu — le cursor entrant est ignoré, la pagination boucle`,
+      ).to.equal(false);
+      seen.add(page.nextCursor);
+      cursor = page.nextCursor;
+    }
+    expect(
+      pages,
+      "la pagination doit se terminer avant le garde-fou",
+    ).to.be.below(60);
+  });
+
+  it("le curseur de /sessions/mine AVANCE aussi (même exigence, autre handler)", async () => {
+    const cookie = await loginAs("user", "secret");
+    const seen = new Set<string>();
+    let cursor: string | undefined;
+    let pages = 0;
+    for (; pages < 60; pages += 1) {
+      const params = new URLSearchParams({ limit: "100" });
+      if (cursor) params.set("cursor", cursor);
+      const res = await get(`/nodefony/http/api/sessions/mine?${params}`, {
+        cookie,
+      });
+      expect(res.status, "mes sessions (self-service)").to.equal(200);
+      const page = res.body as { nextCursor?: string | null };
+      if (!page.nextCursor) break;
+      expect(
+        seen.has(page.nextCursor),
+        `nextCursor "${page.nextCursor}" déjà vu — le cursor entrant est ignoré, la pagination boucle`,
+      ).to.equal(false);
+      seen.add(page.nextCursor);
+      cursor = page.nextCursor;
+    }
+    expect(
+      pages,
+      "la pagination doit se terminer avant le garde-fou",
+    ).to.be.below(60);
+  });
+});
+
 describe("Provenance de session — ip/ua capturés au login (console Sessions)", () => {
   it("login avec un User-Agent connu → surfacé dans sessions/list (+ ip)", async () => {
     const admin = await loginAs("admin", "secret");
@@ -195,18 +305,7 @@ describe("Provenance de session — ip/ua capturés au login (console Sessions)"
     expect(res.status, "login user").to.equal(200);
     const cookie = sessionCookieOf(res);
     try {
-      const list = await get(`${LIST}?user=user`, { cookie: admin });
-      expect(list.status, "list sessions (admin)").to.equal(200);
-      const items =
-        (
-          list.body as {
-            items?: Array<{
-              ref: string;
-              ip: string | null;
-              ua: string | null;
-            }>;
-          }
-        ).items ?? [];
+      const items = await listAllSessions(admin, "user");
       const fresh = items.filter((i) => !before.has(i.ref));
       expect(fresh.length, "1 session fraîche isolée").to.equal(1);
       const s = fresh[0]!;

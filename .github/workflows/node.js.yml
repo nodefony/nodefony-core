@@ -3,8 +3,21 @@ name: nodefony-core
 on:
   push:
     branches: ["main", "claude-ts"]
+    paths-ignore: &prose
+      # Ce workflow est le SEUL sans filtre, et il est le plus cher : 17 jobs
+      # sur trois systèmes. Mesuré — le commit `90497f81`, qui ne touchait que
+      # `MIGRATION_STATUS.md` et des retex, a fait tourner les 17, soit ~35 min
+      # de runner pour de la prose. Les quatre autres workflows filtrent déjà.
+      #
+      # 🔴 La liste est CIBLÉE, et surtout PAS `**/*.md` : ce workflow lance
+      # `skills:check`, dont la matière EST faite de `SKILL.md`. Le filtre
+      # évident aurait éteint ce gate sans que rien ne le signale — un gate
+      # qu'on désactive en croyant économiser du runner est le pire des deux.
+      - "docs/**"
+      - "MIGRATION_STATUS.md"
   pull_request:
     branches: ["main", "claude-ts"]
+    paths-ignore: *prose
   workflow_dispatch:
 
 # Annule les runs précédents sur la même branche / PR si un nouveau push arrive.

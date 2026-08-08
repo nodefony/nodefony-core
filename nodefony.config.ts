@@ -153,7 +153,47 @@ export default defineConfig<Env>((ctx) => ({
         // l'accès par NOM DE DOMAINE — en dev via `/etc/hosts` (nodefony.com →
         // 127.0.0.1), en prod via le vrai DNS. Le port est strippé avant le match
         // (cf domainMatcher) → `nodefony.com:5151` matche `nodefony.com`.
-        trustedHosts: ["localhost", "127.0.0.1", "nodefony.com"],
+        //
+        // `host.docker.internal` : un navigateur qui tourne DANS un conteneur (le
+        // service `browser` de docker-compose.yml) ne peut pas dire « localhost »
+        // — ce nom y désigne le conteneur lui-même. Docker Desktop lui donne
+        // `host.docker.internal` pour joindre la machine hôte, et c'est ce nom qui
+        // arrive dans l'en-tête `Host` : sans lui dans l'allowlist, la barrière
+        // répond `421 Misdirected Request` alors que le réseau, lui, passe.
+        //
+        // 🔴 EXCEPTION ASSUMÉE, PROPRE À CE DÉPÔT — inconditionnelle, y compris en
+        // production. Elle était auparavant limitée au développement, ce qui
+        // paraissait plus sûr et rendait en fait le navigateur en conteneur
+        // INUTILISABLE là où l'on en a le plus besoin : les audits (Lighthouse,
+        // accessibilité, agentic) se mènent sur un runtime `production`, et le
+        // conteneur y recevait `421` dès la connexion — donc aucune page derrière
+        // authentification n'était observable, ni par un humain ni par un agent.
+        //
+        // Pourquoi c'est acceptable ICI : ce dépôt est le banc de développement du
+        // framework, jamais un déploiement exposé. `host.docker.internal` n'est
+        // d'ailleurs pas un nom résolvable publiquement — c'est une convention
+        // Docker Desktop, absente d'internet et des clusters. L'élargissement porte
+        // donc sur un nom que seul un conteneur local peut présenter.
+        //
+        // 🔴 CE QUI NE DOIT PAS ESSAIMER : le SCAFFOLD ne pose pas cette entrée, et
+        // ne doit jamais la poser. Une application générée n'a aucune raison de
+        // faire confiance à ce nom en production — ses gabarits ne mentionnent
+        // `host.docker.internal` que dans la marche à suivre pour observer un
+        // écran depuis un conteneur (`compose.yaml.tpl`, `AGENTS.md.tpl`), là où
+        // c'est un conseil de dev et non une règle de sécurité. Vérifié : aucun
+        // gabarit n'écrit `trustedHosts`. Si un jour l'un d'eux le fait, cette
+        // entrée reste conditionnée au développement CHEZ LUI.
+        //
+        // Cette liste porte AUSSI, depuis la dérivation d'origine par `Host`, la
+        // décision « quels noms le rendu a le droit de suivre » : y ajouter un
+        // hôte ouvre à la fois la barrière 421, l'allowlist Vite, le CSP et
+        // l'origine des assets. Une seule liste, quatre effets — c'est voulu.
+        trustedHosts: [
+          "localhost",
+          "127.0.0.1",
+          "nodefony.com",
+          "host.docker.internal",
+        ],
         // trustProxy : n'honore les en-têtes forwarded que derrière un proxy de
         // confiance. Activé via NF_BIND_ALL (banc reverse-proxy Docker : IP source
         // des conteneurs = réseau privé 172.16/12, 192.168/16, 10/8). En prod,
@@ -270,18 +310,33 @@ export default defineConfig<Env>((ctx) => ({
     // ── Démo / tests d'intégration — hors production.
     { name: "@nodefony/test", policy: "dev" },
 
-    // Frontend AVANT ses consumers.
-    "@nodefony/frontend",
+    // Frontend AVANT ses consumers. Ce que Vite ÉCOUTE et ce que le NAVIGATEUR
+    // appelle restent deux choses distinctes — mais la seconde se DÉRIVE
+    // désormais du `Host` de chaque requête : le poste (`127.0.0.1`) et un
+    // navigateur en conteneur (`host.docker.internal`) chargent la même page,
+    // en même temps, sans rien à configurer. Codespaces/Gitpod se détectent
+    // toujours seuls. `publicOrigin` reste disponible pour un tunnel ou un
+    // proxy frontal — c'est alors un réglage durable, qui gagne sur la
+    // dérivation, jamais un décor d'observation qu'on oublierait de retirer.
+    { name: "@nodefony/frontend" },
     { name: "@nodefony/test-frontend-react", policy: "dev" },
     { name: "@nodefony/test-frontend-vue", policy: "dev" },
     { name: "@nodefony/test-frontend-angular", policy: "dev" },
+    { name: "@nodefony/test-frontend-svelte", policy: "dev" },
     { name: "@nodefony/mediasoup", policy: "dev" },
 
     // ── Doc transverse AVANT Studio.
     "@nodefony/documentation",
 
-    // Studio admin — console d'administration du framework.
-    { name: "@nodefony/studio", policy: "mandatory" },
+    // Studio admin — console d'administration du framework. `ui` reste sur `auto`
+    // (→ Vite/HMR dans ce dépôt) sauf décor contraire : `NF_STUDIO_UI=static` sert
+    // le pré-buildé, seul mode joignable depuis un navigateur en conteneur (le
+    // pourquoi est dans ./env.ts).
+    use(
+      "@nodefony/studio",
+      { ui: ctx.env.NF_STUDIO_UI },
+      { policy: "mandatory" },
+    ),
 
     // ── Accès Redis générique — chargé par la DÉCLARATION de l'infra cache :
     //    `NF_REDIS_URL` présente ⇔ module chargé (un seul signal, pas de magie

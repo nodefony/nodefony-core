@@ -18,18 +18,19 @@ import {
   Group,
   Paper,
   Stack,
-  Table,
   Text,
   Tooltip,
 } from "@mantine/core";
 import { IconCheck, IconCopy } from "@tabler/icons-react";
 import {
   ConfigLayout,
+  DataGrid,
   DocHint,
   TipHint,
   type ConfigSchemaStatus,
   type ConfigSection,
   type ConfigField,
+  type DataGridColumn,
   type EditResult,
 } from "../../components/ui";
 import {
@@ -111,6 +112,59 @@ function CopyRecipe({ value }: { value: string }) {
   );
 }
 
+/**
+ * Colonnes des surcharges actives. Hors composant (recréées à chaque rendu,
+ * elles réinitialiseraient tri et filtres à chaque édition à chaud).
+ *
+ * Le filtre sur la provenance est le geste utile : « montre-moi ce qui vient de
+ * l'ENV » répond à la question qu'on se pose devant un déploiement qui ne se
+ * comporte pas comme le fichier de config le laisse croire.
+ */
+const OVERRIDE_COLUMNS: DataGridColumn<FieldOverride>[] = [
+  {
+    key: "field",
+    header: "Réglage",
+    sortable: true,
+    filterable: true,
+    value: (o) => o.field,
+    render: (o) => <Code style={{ fontSize: 12 }}>{o.field}</Code>,
+  },
+  {
+    key: "source",
+    header: "Provenance",
+    sortable: true,
+    filterable: true,
+    filterType: "select",
+    // Domaine FERMÉ et court (app/env/runtime) → `select` plutôt que texte
+    // libre : on choisit dans ce qui existe au lieu de deviner l'orthographe.
+    filterOptions: Object.keys(SRC),
+    value: (o) => o.source,
+    render: (o) => (
+      <Badge size="sm" variant="light" color={SRC[o.source].color} tt="none">
+        {SRC[o.source].label}
+      </Badge>
+    ),
+    size: 130,
+  },
+  {
+    key: "where",
+    header: "Surchargé par / recette",
+    sortable: true,
+    filterable: true,
+    // Trie et cherche sur ce qui est LISIBLE (la vraie variable, le fichier),
+    // pas sur la recette `NF__…` que la colonne n'affiche qu'en `runtime`.
+    value: (o) => o.where,
+    render: (o) =>
+      o.source === "runtime" ? (
+        <Text size="xs" c="dimmed">
+          {o.where}
+        </Text>
+      ) : (
+        <CopyRecipe value={o.overrideKey} />
+      ),
+  },
+];
+
 /** Table compacte des surcharges actives du module (les écarts au défaut). */
 function OverridesCard({ overrides }: { overrides: FieldOverride[] }) {
   return (
@@ -127,43 +181,16 @@ function OverridesCard({ overrides }: { overrides: FieldOverride[] }) {
           summary="Les réglages de ce module qui DIFFÈRENT du défaut du framework — d'où vient la valeur (app/env/runtime) et la recette 12-factor pour la piloter. C'est l'identité de ce module dans CE déploiement."
         />
       </Group>
-      <Table verticalSpacing={6} horizontalSpacing="md" withRowBorders={false}>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Réglage</Table.Th>
-            <Table.Th style={{ width: 110 }}>Provenance</Table.Th>
-            <Table.Th>Surchargé par / recette</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {overrides.map((o) => (
-            <Table.Tr key={o.field}>
-              <Table.Td>
-                <Code style={{ fontSize: 12 }}>{o.field}</Code>
-              </Table.Td>
-              <Table.Td>
-                <Badge
-                  size="sm"
-                  variant="light"
-                  color={SRC[o.source].color}
-                  tt="none"
-                >
-                  {SRC[o.source].label}
-                </Badge>
-              </Table.Td>
-              <Table.Td>
-                {o.source === "runtime" ? (
-                  <Text size="xs" c="dimmed">
-                    {o.where}
-                  </Text>
-                ) : (
-                  <CopyRecipe value={o.overrideKey} />
-                )}
-              </Table.Td>
-            </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
+      <DataGrid
+        mode="client"
+        data={overrides}
+        columns={OVERRIDE_COLUMNS}
+        getRowId={(o) => o.field}
+        initialSort={{ key: "field", dir: "asc" }}
+        searchable
+        searchPlaceholder="Rechercher un réglage…"
+        emptyMessage="Aucune surcharge : ce module tourne entièrement sur les défauts du framework."
+      />
     </Paper>
   );
 }

@@ -27,7 +27,7 @@
     "rolldown.config.ts",
 <% if (!it.publishable) { %>    "vitest.config.ts",
 <% } %>    "nodefony/**/*.ts"<% if (it.frontend === "react") { %>,
-    "frontend/src/**/*"<% } %><% if (it.frontend === "vue" || it.frontend === "angular") { %>,
+    "frontend/src/**/*"<% } %><% if (it.frontend === "vue" || it.frontend === "angular" || it.frontend === "svelte") { %>,
     "frontend/src/**/*.ts"<% } %><% if (!it.publishable) { %>,
     "tests/**/*.ts"<% } %>
   ],

@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-03T21:35:09.677Z",
+  "generated": "2026-08-08T12:25:48.816Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 680,
-    "symbols": 2765,
-    "classes": 343,
-    "interfaces": 807,
-    "types": 363,
+    "files": 688,
+    "symbols": 2814,
+    "classes": 347,
+    "interfaces": 816,
+    "types": 366,
     "enums": 4,
-    "functions": 992,
-    "constants": 256
+    "functions": 1019,
+    "constants": 262
   },
   "symbols": {
     "Cli": {
@@ -404,6 +404,18 @@
       "file": "src/modules/test-frontend-react/index.ts",
       "exported": true,
       "module": "modules/test-frontend-react",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "controllers"
+      ]
+    },
+    "TestFrontendSvelte": {
+      "name": "TestFrontendSvelte",
+      "kind": "class",
+      "file": "src/modules/test-frontend-svelte/index.ts",
+      "exported": true,
+      "module": "modules/test-frontend-svelte",
       "extends": "Module",
       "implements": [],
       "decorators": [
@@ -3944,8 +3956,7 @@
       "kind": "function",
       "file": "src/nodefony/src/cli/scaffold/engine.ts",
       "exported": true,
-      "module": "@nodefony/core",
-      "description": "Câble une classe générée dans le décorateur-liste de l'`index.ts` cible (`@controllers([...])`, `@entities([...])`, `@services([...])`) : ajoute l'import après le dernier import existant + insère l…"
+      "module": "@nodefony/core"
     },
     "runScaffold": {
       "name": "runScaffold",
@@ -6288,6 +6299,15 @@
       "extends": null,
       "description": "Options de {@link discoverDevProcesses}."
     },
+    "DevObservationDeps": {
+      "name": "DevObservationDeps",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Sondes système d'un rapport de process (`nodefony status`, `nodefony stop`), INJECTABLES. Les trois valeurs par défaut sont les vraies sondes ; les fournir permet d'éprouver un rapport complet — y …"
+    },
     "ProcessDiscovery": {
       "name": "ProcessDiscovery",
       "kind": "interface",
@@ -6328,6 +6348,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Un process découvert, enrichi du cwd résolu (`null` = irrésolu)."
+    },
+    "PortOwnership": {
+      "name": "PortOwnership",
+      "kind": "type",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Appartenance d'un port sondé — ce que le symbole affiché doit distinguer."
     },
     "devSupervisorPidFile": {
       "name": "devSupervisorPidFile",
@@ -6519,6 +6547,30 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "`true` si `cwd` ressemble à un projet Nodefony : `package.json` déclarant la dépendance `nodefony`, OU `node_modules/nodefony` présent (app installée sans la déclarer). MÊME heuristique que `Kernel…"
+    },
+    "foreignProjectRoots": {
+      "name": "foreignProjectRoots",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Racines de projet des runtimes ÉTRANGERS = cwd des rôles racine (supervisor/master/server/worker), toujours spawnés à la racine de leur projet. Un Vite, lui, peut travailler dans un sous-dossier : …"
+    },
+    "foreignPortOwners": {
+      "name": "foreignPortOwners",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "À QUI appartient chaque port occupé, quand ce n'est pas à nous. Un port tenu par le voisin n'est pas un arrêt qui a échoué : `stop` marquait `✗ encore occupé` les ports 5151/5152 juste après avoir …"
+    },
+    "portOwnership": {
+      "name": "portOwnership",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Qualifie un port sondé à partir des propriétaires connus ({@link foreignPortOwners}). Fonction PURE : c'est LA règle « pas à moi ≠ pas mort », et elle vit à un seul endroit pour que `status` et `st…"
     },
     "formatForeignRuntimes": {
       "name": "formatForeignRuntimes",
@@ -7472,6 +7524,32 @@
       ],
       "description": "Décor de banc — endpoint realtime capable de **pousser du volume à la demande**, pour éprouver la contre-pression WebSocket sur une VRAIE socket. Pourquoi il existe : la contre-pression (jeter une …"
     },
+    "BenchOrmController": {
+      "name": "BenchOrmController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/BenchOrmController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Banc du cycle ORM (opt-in `NF_BENCH_ORM=1`, monté par l'index du module) — traverse la couche framework complète (repository orm-core → Drizzle → better-sqlite3) sur le corpus Dolibarr seedé, JAMAI…"
+    },
+    "SecureBenchOrmController": {
+      "name": "SecureBenchOrmController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/BenchOrmController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Même lecture DERRIÈRE le firewall : le préfixe `/nodefony/test/secure` tombe dans la zone `test-secure` (session BFF) → mesure le cycle utilisateur COMPLET (reprise de session + requête entité) sur…"
+    },
     "DbController": {
       "name": "DbController",
       "kind": "class",
@@ -7714,6 +7792,58 @@
         "controller"
       ]
     },
+    "registerBenchOrmEntities": {
+      "name": "registerBenchOrmEntities",
+      "kind": "function",
+      "file": "src/modules/test/nodefony/entity/benchOrm.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Enregistre les entités du banc dans le `entityRegistry` (connector `default`). À appeler à `onKernelRegister` — AVANT le `connect()` du DrizzleService (hook `onBoot`), qui matérialise les tables de…"
+    },
+    "seedBenchOrm": {
+      "name": "seedBenchOrm",
+      "kind": "function",
+      "file": "src/modules/test/nodefony/entity/benchOrm.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Seed déterministe du décor (idempotent : ne fait rien si le volume est déjà présent). Insertion par batchs via le db Drizzle natif — 10 000 `create()` unitaires hors transaction paieraient un fsync…"
+    },
+    "BENCH_ORM_CONNECTOR": {
+      "name": "BENCH_ORM_CONNECTOR",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/benchOrm.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "BENCH_ORM_USERS": {
+      "name": "BENCH_ORM_USERS",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/benchOrm.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "BENCH_ORM_SOCIETES": {
+      "name": "BENCH_ORM_SOCIETES",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/benchOrm.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "BENCH_ORM_FACTURES": {
+      "name": "BENCH_ORM_FACTURES",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/benchOrm.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "BENCH_READ_USER": {
+      "name": "BENCH_READ_USER",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/benchOrm.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "User ciblé par la route de lecture du banc : ~200 factures seedées portent `fk_user_author = 7` (répartition modulo) — le SELECT filtré rend toujours des lignes, jamais un résultat vide (un banc qu…"
+    },
     "PocBookController": {
       "name": "PocBookController",
       "kind": "class",
@@ -7900,6 +8030,19 @@
         "controller"
       ],
       "description": "Controller POC : - GET /react/app → page HTML qui charge le bundle React via Vite - GET /react/api/data → endpoint léger pour bench p99 backend (autocannon/curl) - GET /react/api/burn → endpoint qu…"
+    },
+    "SvelteController": {
+      "name": "SvelteController",
+      "kind": "class",
+      "file": "src/modules/test-frontend-svelte/nodefony/controller/SvelteController.ts",
+      "exported": true,
+      "module": "modules/test-frontend-svelte",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Controller POC Svelte : - GET /svelte/app → page HTML qui charge le bundle Svelte 5 via Vite - GET /svelte/api/data → endpoint léger (ping backend) consommé par l'app Svelte"
     },
     "VueController": {
       "name": "VueController",
@@ -10936,6 +11079,14 @@
       "module": "@nodefony/frontend",
       "description": "Un texte (message d'erreur OU sortie brute de Vite) dénonce-t-il un port occupé ? **Source UNIQUE** de cette décision. Elle était dupliquée en deux regex qui ont divergé : l'une cherchait `port X i…"
     },
+    "startupTimeoutMessage": {
+      "name": "startupTimeoutMessage",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Message d'échec d'un boot qui n'a jamais rendu la main dans le temps imparti — en y REPORTANT ce que vite avait déjà dit. Le conflit de port ne se voit que dans la sortie du child. Le rejet par éch…"
+    },
     "IViteInstanceView": {
       "name": "IViteInstanceView",
       "kind": "interface",
@@ -11001,6 +11152,88 @@
       "exported": true,
       "module": "@nodefony/frontend",
       "description": "Famille servie sur le port de base (`devPort`). Les autres familles prennent les blocs de ports suivants. Garder `default` ici garantit que l'instance principale (React/Vue/Studio) reste sur le por…"
+    },
+    "IResolvedPublicOrigin": {
+      "name": "IResolvedPublicOrigin",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "description": "Résultat d'un template résolu contre un port réel."
+    },
+    "IRemoteDevDetection": {
+      "name": "IRemoteDevDetection",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "description": "Environnement de dev déporté détecté depuis les variables de la plateforme."
+    },
+    "browserReachableHost": {
+      "name": "browserReachableHost",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Hôte utilisable par un NAVIGATEUR pour une adresse d'écoute donnée. `0.0.0.0`/`::` sont des adresses d'ÉCOUTE (toutes interfaces), pas des destinations : dérivées telles quelles dans une URL, elles…"
+    },
+    "isValidOriginTemplate": {
+      "name": "isValidOriginTemplate",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Un template d'origine est-il syntaxiquement valide ? (autorité unique)"
+    },
+    "originWithHostname": {
+      "name": "originWithHostname",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Rejoue une origine résolue sur un AUTRE nom d'hôte, en conservant le scheme et le port. Pure. C'est le cœur de la dérivation par requête : le scheme et le port sont ceux du serveur Vite (il écoute …"
+    },
+    "resolveOriginTemplate": {
+      "name": "resolveOriginTemplate",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Résout un template d'origine contre le port RÉEL du spawn. Pure."
+    },
+    "allowedHostPatternForTemplate": {
+      "name": "allowedHostPatternForTemplate",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Motif `server.allowedHosts` couvrant TOUTES les origines qu'un template peut produire. `{port}` dans l'hôte → le sous-domaine varie avec le port : motif `.suffixe` (wildcard Vite = domaine + sous-d…"
+    },
+    "viteAllowedHostFromPattern": {
+      "name": "viteAllowedHostFromPattern",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Motif Vite `allowedHosts` équivalent d'un pattern `trustedHosts` http. `*.suffixe` (wildcard un-label de la barrière Host) → `.suffixe` (wildcard Vite). Un `*` ailleurs n'est pas exprimable chez Vi…"
+    },
+    "detectRemoteDev": {
+      "name": "detectRemoteDev",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Détecte un environnement de dev déporté depuis les variables de plateforme (variables qu'on ne possède pas — elles se lisent, ne se renomment pas). Ordre : Codespaces puis Gitpod (jamais les deux p…"
+    },
+    "PORT_PLACEHOLDER": {
+      "name": "PORT_PLACEHOLDER",
+      "kind": "const",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Dev déporté (P14.17) — calculs PURS d'origine publique du dev server Vite. Le problème résolu : `devHost` est une adresse d'ÉCOUTE ; l'origine que le NAVIGATEUR utilise peut être toute autre chose …"
     },
     "AssetsPublish": {
       "name": "AssetsPublish",
@@ -15888,6 +16121,14 @@
       "module": "@nodefony/http",
       "description": "Bascule runtime du gate des logs d'events lifecycle. Réservé HORS hot path : tests et futur « Audit à chaud » (fenêtre bornée prod→verbeux, auto-revert serveur) — le canal Studio `nodefony:syslog` …"
     },
+    "nextCspNonce": {
+      "name": "nextCspNonce",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Rend le prochain nonce CSP (16 octets CSPRNG, base64) depuis le pool amorti. Exporté UNIQUEMENT pour le banc d'épuisement du pool (unicité à travers plusieurs refills) — le code produit passe par `…"
+    },
     "DomainPattern": {
       "name": "DomainPattern",
       "kind": "type",
@@ -18935,6 +19176,31 @@
       "implements": [],
       "decorators": []
     },
+    "ISplitTarget": {
+      "name": "ISplitTarget",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/urlFastPath.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Fast-path d'analyse du request-target — évite le `new URL` (parse WHATWG complet) sur le chemin nominal, où le target est déjà sous sa forme canonique et où pathname/search s'extraient par simple d…"
+    },
+    "splitTarget": {
+      "name": "splitTarget",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/urlFastPath.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Découpe un request-target origin-form (`/path[?query]`) en pathname/search SI — et seulement si — le parse WHATWG serait l'identité."
+    },
+    "isCanonicalAuthority": {
+      "name": "isCanonicalAuthority",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/urlFastPath.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "L'autorité (`host[:port]` brut de l'en-tête `Host` / `:authority`) est-elle déjà sous la forme exacte que le parseur WHATWG rendrait ? Refusé (→ bail-out) : majuscules (lowercase WHATWG), IPv6 (`[`…"
+    },
     "Http2Request": {
       "name": "Http2Request",
       "kind": "class",
@@ -19298,6 +19564,7 @@
         "Test",
         "TestFrontendAngular",
         "TestFrontendReact",
+        "TestFrontendSvelte",
         "TestFrontendVue",
         "DevkitModule",
         "Documentation",
@@ -19416,6 +19683,8 @@
       "Controller": [
         "MediasoupController",
         "AlsController",
+        "BenchOrmController",
+        "SecureBenchOrmController",
         "DbController",
         "DecoratorController",
         "DefaultController",
@@ -19441,6 +19710,7 @@
         "SecureWsController",
         "AngularController",
         "PocController",
+        "SvelteController",
         "VueController",
         "DevkitController",
         "DocumentationController",
@@ -19827,6 +20097,7 @@
         "Test",
         "TestFrontendAngular",
         "TestFrontendReact",
+        "TestFrontendSvelte",
         "TestFrontendVue",
         "DevkitModule",
         "Documentation",
@@ -19850,6 +20121,8 @@
         "MediasoupController",
         "AlsController",
         "BackpressureRealtimeController",
+        "BenchOrmController",
+        "SecureBenchOrmController",
         "DbController",
         "DecoratorController",
         "DefaultController",
@@ -19877,6 +20150,7 @@
         "TestM2mRealtimeController",
         "AngularController",
         "PocController",
+        "SvelteController",
         "VueController",
         "DevkitController",
         "DocumentationController",
@@ -20206,6 +20480,7 @@
         "src/modules/test/index.ts",
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
+        "src/modules/test-frontend-svelte/index.ts",
         "src/modules/test-frontend-vue/index.ts",
         "src/packages/@nodefony/devkit/index.ts",
         "src/packages/@nodefony/documentation/index.ts",
@@ -20441,6 +20716,7 @@
         "src/modules/test/index.ts",
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
+        "src/modules/test-frontend-svelte/index.ts",
         "src/modules/test-frontend-vue/index.ts",
         "src/packages/@nodefony/devkit/index.ts",
         "src/packages/@nodefony/documentation/index.ts",
@@ -20510,6 +20786,7 @@
         "src/modules/test/index.ts",
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
+        "src/modules/test-frontend-svelte/index.ts",
         "src/modules/test-frontend-vue/index.ts",
         "src/packages/@nodefony/devkit/index.ts",
         "src/packages/@nodefony/documentation/index.ts",
@@ -20520,12 +20797,14 @@
         "src/modules/mediasoup/index.ts",
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
+        "src/modules/test-frontend-svelte/index.ts",
         "src/modules/test-frontend-vue/index.ts",
         "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/studio/index.ts",
         "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/modules/test-frontend-svelte/nodefony/controller/SvelteController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
@@ -20658,6 +20937,18 @@
       "BackpressureRealtimeController": [
         "src/modules/test/index.ts"
       ],
+      "BenchOrmController": [
+        "src/modules/test/index.ts"
+      ],
+      "SecureBenchOrmController": [
+        "src/modules/test/index.ts"
+      ],
+      "registerBenchOrmEntities": [
+        "src/modules/test/index.ts"
+      ],
+      "seedBenchOrm": [
+        "src/modules/test/index.ts"
+      ],
       "SecureWsController": [
         "src/modules/test/index.ts"
       ],
@@ -20675,6 +20966,9 @@
       ],
       "PocController": [
         "src/modules/test-frontend-react/index.ts"
+      ],
+      "SvelteController": [
+        "src/modules/test-frontend-svelte/index.ts"
       ],
       "VueController": [
         "src/modules/test-frontend-vue/index.ts"
@@ -20884,6 +21178,7 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
+        "src/modules/test/nodefony/controller/BenchOrmController.ts",
         "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
@@ -20909,6 +21204,7 @@
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/modules/test-frontend-svelte/nodefony/controller/SvelteController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
@@ -21041,6 +21337,7 @@
         "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts",
+        "src/modules/test/nodefony/controller/BenchOrmController.ts",
         "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
@@ -21068,6 +21365,7 @@
         "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/modules/test-frontend-svelte/nodefony/controller/SvelteController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
@@ -21079,6 +21377,7 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
+        "src/modules/test/nodefony/controller/BenchOrmController.ts",
         "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/DomainClassController.ts",
@@ -21093,6 +21392,7 @@
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/modules/test-frontend-svelte/nodefony/controller/SvelteController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
@@ -21356,6 +21656,7 @@
         "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts",
+        "src/modules/test/nodefony/controller/BenchOrmController.ts",
         "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/DiController.ts",
@@ -21377,6 +21678,7 @@
         "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/modules/test-frontend-svelte/nodefony/controller/SvelteController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
@@ -22668,6 +22970,7 @@
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
         "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
         "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/modules/test/nodefony/entity/benchOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
@@ -22690,7 +22993,9 @@
       "ormRegistry": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
         "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+        "src/modules/test/nodefony/controller/BenchOrmController.ts",
         "src/modules/test/nodefony/controller/DbController.ts",
+        "src/modules/test/nodefony/entity/benchOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/buildOrmLeanHealth.ts",
@@ -23364,6 +23669,7 @@
       ],
       "formatForeignRuntimes": [
         "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
@@ -23388,6 +23694,10 @@
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts"
       ],
+      "foreignPortOwners": [
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
+      ],
       "isNodefonyProjectDir": [
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts"
@@ -23396,11 +23706,23 @@
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
+      "portOwnership": [
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
+      ],
       "readSupervisorPid": [
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "runtimeModes": [
         "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
+      "DevObservationDeps": [
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
+      ],
+      "DevProcessWithCwd": [
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
       ],
       "DiscoverOptions": [
         "src/nodefony/src/service/dev/devStatusReport.ts"
@@ -23652,6 +23974,35 @@
       ],
       "IProbedTransport": [
         "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts"
+      ],
+      "IRepository": [
+        "src/modules/test/nodefony/controller/BenchOrmController.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
+      "BENCH_ORM_CONNECTOR": [
+        "src/modules/test/nodefony/controller/BenchOrmController.ts"
+      ],
+      "BENCH_READ_USER": [
+        "src/modules/test/nodefony/controller/BenchOrmController.ts"
       ],
       "ContextType": [
         "src/modules/test/nodefony/controller/DecoratorController.ts",
@@ -24103,28 +24454,6 @@
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
-      ],
-      "IRepository": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts",
-        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "pickOrder": [
@@ -24768,6 +25097,7 @@
         "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts",
         "src/packages/@nodefony/frontend/nodefony/src/presets/angular-vite.ts",
         "src/packages/@nodefony/frontend/nodefony/src/presets/react19-vite.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/presets/svelte5-vite.ts",
         "src/packages/@nodefony/frontend/nodefony/src/presets/vanilla-vite.ts",
         "src/packages/@nodefony/frontend/nodefony/src/presets/vue3-vite.ts"
       ],
@@ -24825,6 +25155,22 @@
       "PRIMARY_FAMILY": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
+      "detectRemoteDev": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "allowedHostPatternForTemplate": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "viteAllowedHostFromPattern": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "isValidOriginTemplate": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "PORT_PLACEHOLDER": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
+      ],
       "FrontendPresetUnknownError": [
         "src/packages/@nodefony/frontend/nodefony/service/ViteConfigGenerator.ts",
         "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts"
@@ -24836,6 +25182,12 @@
         "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
       ],
       "ViteConfigGenerator": [
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
+      ],
+      "browserReachableHost": [
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
+      ],
+      "resolveOriginTemplate": [
         "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
       ],
       "planAssetPublish": [
@@ -26011,6 +26363,9 @@
       "IFrontBuilder": [
         "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts"
       ],
+      "originWithHostname": [
+        "src/packages/@nodefony/frontend/nodefony/src/template/TemplateHelper.ts"
+      ],
       "FamilyType": [
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
@@ -26514,6 +26869,12 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
       "acceptParser": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
+      "splitTarget": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
+      "isCanonicalAuthority": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
       "IUploadOptions": [

@@ -1,6 +1,9 @@
 /// <reference types="node" />
 import { expect } from "chai";
-import { isPortInUseMessage } from "../../service/ViteProcessSupervisor";
+import {
+  isPortInUseMessage,
+  startupTimeoutMessage,
+} from "../../service/ViteProcessSupervisor";
 
 /**
  * Détection du conflit de port Vite.
@@ -60,5 +63,37 @@ describe("Vite — reconnaître un port occupé", () => {
 
   it("un port SANS numéro n'est pas un conflit de port", () => {
     expect(isPortInUseMessage("port is in a weird state")).to.equal(false);
+  });
+
+  /**
+   * Deuxième trou du même mécanisme, trouvé après coup : la détection était
+   * branchée sur la SORTIE du child, mais pas sur l'échéance de démarrage. Un
+   * vite qui annonce le port occupé puis reste pendu — ce qui arrive dès que le
+   * pré-bundling d'une application réelle tient plus longtemps que l'échéance —
+   * échouait sous un libellé neutre, et le retry de port ne se déclenchait pas.
+   * La façon dont on cesse d'attendre ne doit rien changer à ce qu'on a OBSERVÉ.
+   */
+  describe("échéance de démarrage — ce que vite a dit prime sur la façon d'échouer", () => {
+    it("un timeout APRÈS un port occupé annoncé reste rattrapable par le retry", () => {
+      const msg = startupTimeoutMessage(
+        20_000,
+        "[vite] error when starting dev server:\nError: Port 5173 is already in use",
+      );
+      expect(isPortInUseMessage(msg)).to.equal(true);
+      expect(msg).to.contain("20000ms"); // l'échéance reste dans le message
+    });
+
+    it("un timeout SANS rien d'observé n'invente pas un conflit de port", () => {
+      // Sinon un boot lent (plugin, pré-bundling) partirait en sarabande de
+      // ports au lieu d'annoncer sa vraie panne.
+      expect(isPortInUseMessage(startupTimeoutMessage(20_000, ""))).to.equal(
+        false,
+      );
+      expect(
+        isPortInUseMessage(
+          startupTimeoutMessage(20_000, "optimizing dependencies…"),
+        ),
+      ).to.equal(false);
+    });
   });
 });
