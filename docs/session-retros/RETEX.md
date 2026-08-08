@@ -139,6 +139,19 @@
   exact et déterministe (aucune mesure de temps). Quand un diagnostic peut se poser en COMPTE plutôt
   qu'en durée, le préférer — il survit au bruit, à la machine et à l'instrument.
 
+## 🧾 Le contrôle de la RACINE n'est pas celui du PAQUET
+
+- `[1× — 08-08c]` 🔴 **« Typecheck propre » annoncé deux fois, faux les deux fois.** `npx tsgo
+--noEmit` à la racine n'ouvre NI `tsconfig.tests.json` NI `frontend/tsconfig.json` ; le script
+  `typecheck` d'un espace de travail enchaîne les trois. C'est le hook de PUSH qui a tranché, après
+  que le travail a été annoncé fini — deux fois de suite, sur deux paquets différents.
+  **La commande qui fait autorité est `npm run typecheck` DANS le paquet touché.** Même famille que
+  « prouver sur l'artefact reçu » : le contrôle le plus large n'est pas le plus couvrant, il est
+  seulement le plus commode.
+- `[1× — 08-08c]` **Un correctif qui change de MÉCANISME se re-mesure.** Le typage a forcé de passer
+  de `vars` à `styles` pour la même correction de couleur ; la mesure a été rejouée plutôt que
+  supposée conservée (7,39 AAA dans les deux thèmes). Un correctif réécrit est un correctif neuf.
+
 ## 🧰 Réécrire ce dont c'est le MÉTIER d'un outil — 41 faux positifs contre 7 vrais
 
 - `[1× — 08-08c]` 🔴 **Sonde de contraste écrite à la main : trois bugs en vingt lignes**, et le
