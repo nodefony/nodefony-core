@@ -291,7 +291,7 @@ describe("resumeAxe — restituer sans perdre ni inventer", () => {
   it("« à vérifier » N'EST PAS un manquement — le moteur dit qu'il ne conclut pas", () => {
     const r = resumeAxe({
       violations: [],
-      incomplete: [violation("color-contrast", null, 3)],
+      incomplete: [violation("color-contrast", "", 3)],
     });
     expect(r.verdict).toBe("OK");
     expect(r.aVerifier).toHaveLength(1);
@@ -395,7 +395,12 @@ describe("defautsDecor — constater l'endroit, pas le supposer", () => {
  * pendant qu'un audit décisif reste plus bas.
  */
 describe("resumeLighthouse — un rapport d'un mégaoctet, rendu lisible", () => {
-  const rapport = (audits, categories) => ({
+  const rapport = (
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- forme externe
+    audits: Record<string, any>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- forme externe
+    categories: Record<string, any>,
+  ) => ({
     lighthouseVersion: "13.4.1",
     finalDisplayedUrl: "https://exemple.test/x",
     configSettings: { formFactor: "desktop", throttlingMethod: "simulate" },
