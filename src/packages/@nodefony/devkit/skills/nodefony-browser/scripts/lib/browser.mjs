@@ -20,6 +20,7 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import {
   defautsDecor,
+  nomEtatAuth,
   ordreNavigateurs,
   parseColorScheme,
   parseStorage,
@@ -109,8 +110,13 @@ if (USER && !LOGIN) {
  * survit à l'arrêt de celui-ci.
  * Sans lui, chaque inspection rejoue le parcours de connexion — quelques
  * secondes perdues et une occasion d'échec de plus à chaque exécution.
+ *
+ * Son nom porte l'IDENTIFIANT (cf {@link nomEtatAuth}) : un état est la session
+ * de quelqu'un, et le réutiliser pour un autre compte fait mesurer une identité
+ * qu'on n'a pas demandée. Effet de bord bienvenu — deux comptes gardent chacun
+ * leur session, donc aucun des deux ne se reconnecte à cause de l'autre.
  */
-const STATE = path.join(OUT, ".auth-state.json");
+const STATE = path.join(OUT, nomEtatAuth(process.env.NF_BROWSER_USER));
 // Créé AVANT la première écriture : en local, le dossier n'existe pas encore,
 // et l'échec ne surviendrait qu'à la sauvegarde — après la connexion, donc
 // après avoir fait croire que tout allait bien.

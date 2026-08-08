@@ -50,6 +50,10 @@ const mediane = fonctionDe<(valeurs: number[]) => number | null>(
 const ordreNavigateurs = fonctionDe<
   (explicite: string | undefined) => string[]
 >(probes, "ordreNavigateurs");
+const nomEtatAuth = fonctionDe<(identifiant: string | undefined) => string>(
+  probes,
+  "nomEtatAuth",
+);
 const defautsDecor = fonctionDe<
   (decor: { dansConteneur: boolean; base?: string; out?: string }) => {
     base: string;
@@ -515,5 +519,43 @@ describe("ordreNavigateurs — ne rien télécharger sans nécessité", () => {
     // Se rabattre ici rendrait une mesure attribuée au mauvais navigateur.
     expect(ordreNavigateurs("chrome")).toEqual(["chrome"]);
     expect(ordreNavigateurs("  msedge  ")).toEqual(["msedge"]);
+  });
+});
+
+/**
+ * Ce que ces tests prouvent : une session appartient à quelqu'un, et son
+ * fichier le dit.
+ *
+ * Le défaut n'est pas hypothétique — il a été mesuré : un état sauvegardé sous
+ * un nom unique était repris quel que soit le compte demandé, si bien qu'une
+ * sonde lancée pour un utilisateur de moindre privilège rendait l'identité de
+ * l'administrateur, sans un mot. Un canal refusé s'ouvrait alors, et l'on
+ * concluait que la protection ne mordait pas.
+ */
+describe("nomEtatAuth — un état d'authentification a un propriétaire", () => {
+  it("deux identifiants différents ne partagent JAMAIS un fichier", () => {
+    expect(nomEtatAuth("admin")).not.toBe(nomEtatAuth("user"));
+  });
+
+  it("le même identifiant rend le même nom — sinon on se reconnecte sans cesse", () => {
+    expect(nomEtatAuth("admin")).toBe(nomEtatAuth("admin"));
+  });
+
+  it("reste un nom de fichier utilisable, même sur un identifiant e-mail", () => {
+    const nom = nomEtatAuth("prenom.nom@example.test");
+    // Ni séparateur de chemin, ni caractère refusé par un système de fichiers :
+    // un identifiant est une donnée d'entrée, il ne compose pas un chemin.
+    expect(nom).not.toMatch(/[/\\:*?"<>|]/u);
+    expect(nom.endsWith(".json")).toBe(true);
+  });
+
+  it("sens négatif : deux identifiants qui s'assainissent PAREIL restent distincts", () => {
+    // `a@b` et `a-b` donnent le même fragment lisible ; sans empreinte, ils
+    // partageraient un fichier — exactement le trou qu'on ferme.
+    expect(nomEtatAuth("a@b")).not.toBe(nomEtatAuth("a-b"));
+  });
+
+  it("un identifiant absent ne produit pas un nom vide", () => {
+    expect(nomEtatAuth(undefined).length).toBeGreaterThan("‌.json".length);
   });
 });

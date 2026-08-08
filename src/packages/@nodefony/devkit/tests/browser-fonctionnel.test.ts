@@ -4,7 +4,18 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { request as httpsRequest } from "node:https";
-import { commeObjet } from "./browser-outils";
+import { chargerModule, commeObjet, fonctionDe } from "./browser-outils";
+
+/**
+ * Le nom du fichier d'état est lu DANS le script publié, jamais recopié : c'est
+ * lui qui décide où la sonde ira chercher une session, et une seconde
+ * définition ici déposerait un état que plus personne ne lit — un test de
+ * reprise vert qui n'aurait rien repris.
+ */
+const nomEtatAuth = fonctionDe<(identifiant: string) => string>(
+  await chargerModule("../skills/nodefony-browser/scripts/lib/probes.mjs"),
+  "nomEtatAuth",
+);
 
 /**
  * Ce que ces tests prouvent : les sondes navigateur, EXÉCUTÉES pour de vrai
@@ -36,6 +47,21 @@ const PAGE_SOCKET = process.env.NF_BROWSER_TEST_PAGE_SOCKET ?? "/nodefony";
 const CANAL = process.env.NF_BROWSER_TEST_CHANNEL ?? "nodefony:supervision";
 const CHEMIN_API =
   process.env.NF_BROWSER_TEST_API ?? "/nodefony/kernel/api/info";
+
+/**
+ * Le décor du REFUS : un canal réellement protégé, et un compte authentifié qui
+ * n'y a pas droit.
+ *
+ * Une chaîne VIDE désactive le cas — toute application n'a pas de compte de
+ * moindre privilège sous la main, et fabriquer un refus qu'on ne peut pas
+ * produire rendrait un rouge qui n'accuse que le décor. Les défauts sont ceux de
+ * ce dépôt : `nodefony:syslog` exige `ROLE_ADMIN`, le compte de fixture `user`
+ * ne porte que `ROLE_USER`.
+ */
+const CANAL_REFUSE =
+  process.env.NF_BROWSER_TEST_CHANNEL_REFUSE ?? "nodefony:syslog";
+const USER_REFUSE = process.env.NF_BROWSER_TEST_USER_REFUSE ?? "user";
+const PASSWORD_REFUSE = process.env.NF_BROWSER_TEST_PASSWORD_REFUSE ?? "secret";
 
 /** Identifiants passés aux sondes qui ouvrent une page protégée. */
 const ENV_AUTH: Record<string, string> = {
@@ -143,16 +169,46 @@ function sortieJson(r: IResultatSonde): Record<string, unknown> {
   }
 }
 
-/** Dépose un état d'authentification ARBITRAIRE dans le volume du conteneur. */
-function poserEtat(contenu: string): void {
+/**
+ * Dépose un état d'authentification ARBITRAIRE dans le volume du conteneur,
+ * SOUS LE NOM que la sonde ira lire pour l'utilisateur visé.
+ *
+ * Le nom est dérivé de l'identifiant (`nomEtatAuth`) : le poser en dur ici
+ * ferait déposer un état que plus personne ne lit, et les deux tests de reprise
+ * passeraient au vert sans avoir rien éprouvé. On appelle donc la MÊME fonction
+ * que le script — une seconde définition dériverait le jour où l'autre change.
+ *
+ * @param contenu - l'état à écrire, valide ou non.
+ * @param identifiant - le compte pour lequel la sonde le cherchera.
+ */
+function poserEtat(contenu: string, identifiant: string = USER): void {
+  const nom = nomEtatAuth(identifiant);
   const dossier = mkdtempSync(path.join(tmpdir(), "nf-browser-test-"));
-  const fichier = path.join(dossier, ".auth-state.json");
+  const fichier = path.join(dossier, nom);
   writeFileSync(fichier, contenu);
-  execFileSync(
+  execFileSync("docker", ["cp", fichier, `${CONTENEUR}:/output/${nom}`], {
+    timeout: 20000,
+  });
+}
+
+/**
+ * Relit l'état d'authentification depuis le volume du conteneur.
+ *
+ * Sert à prouver que l'état posé a bien été LU puis REMPLACÉ : sans cette
+ * vérification, un état déposé sous un nom que la sonde ne cherche pas laisse le
+ * test au vert — elle se connecte normalement et rend le résultat attendu, sans
+ * jamais avoir rencontré le cas qu'on croyait éprouver. Constaté ici.
+ *
+ * @param identifiant - le compte dont on relit l'état.
+ * @returns le contenu du fichier, ou une chaîne vide s'il n'existe plus.
+ */
+function relireEtat(identifiant: string = USER): string {
+  const res = spawnSync(
     "docker",
-    ["cp", fichier, `${CONTENEUR}:/output/.auth-state.json`],
-    { timeout: 20000 },
+    ["exec", CONTENEUR, "cat", `/output/${nomEtatAuth(identifiant)}`],
+    { encoding: "utf8", timeout: 20000 },
   );
+  return res.stdout ?? "";
 }
 
 describe.skipIf(raisons.length > 0)("sondes navigateur — fonctionnel", () => {
@@ -275,6 +331,10 @@ describe.skipIf(raisons.length > 0)("sondes navigateur — fonctionnel", () => {
     expect(r.code, r.stderr).toBe(0);
     const d = sortieJson(r);
     expect(String(d["url"])).toContain(PAGE_PROTEGEE);
+    // L'état forgé a été LU, jugé périmé, et REMPLACÉ par une session valide.
+    // Sans cette assertion le test reste vert alors même que la sonde n'a
+    // jamais vu le fichier — elle se serait contentée de se connecter.
+    expect(relireEtat()).not.toContain("nf-session-forgee");
   }, 180000);
 
   it("reprise sur un état d'authentification CORROMPU (JSON illisible)", () => {
@@ -315,6 +375,69 @@ describe.skipIf(raisons.length > 0)("sondes navigateur — fonctionnel", () => {
     expect(reconnexion["verdict"]).toBe("OK");
     expect(reconnexion["memeIdentite"]).toBe(true);
   }, 180000);
+
+  it.skipIf(CANAL_REFUSE === "")(
+    "socket.mjs — un canal REFUSÉ rend son motif, et le refus tient au RÔLE",
+    () => {
+      // Le refus d'une notification n'a pas de canal de réponse : sans la
+      // notification dédiée que le serveur pousse, « zéro poussée » se lirait
+      // comme un canal silencieux — et l'on chercherait une panne là où il y a
+      // une décision d'autorisation. C'est cette distinction qu'on éprouve.
+      //
+      // Deux passes sur le MÊME canal, parce qu'une seule ne discrimine rien :
+      // un canal fermé à tout le monde rendrait le premier verdict identique.
+      // Ce qui est prouvé ici, c'est que le refus suit le RÔLE.
+      //
+      // Ces deux passes gardent aussi le CLOISONNEMENT des états
+      // d'authentification : elles s'enchaînent sous deux comptes sans rien
+      // effacer entre les deux. Si un état redevenait commun, la seconde
+      // identité reprendrait la session de la première et ce test tomberait —
+      // c'est ainsi qu'on a trouvé le défaut qu'il garde désormais.
+      const refuse = lancerSonde("socket.mjs", [SOCKET], {
+        NF_BROWSER_LOGIN: LOGIN,
+        NF_BROWSER_USER: USER_REFUSE,
+        NF_BROWSER_PASSWORD: PASSWORD_REFUSE,
+        NF_BROWSER_PAGE: PAGE_PUBLIQUE,
+        NF_BROWSER_CHANNEL: CANAL_REFUSE,
+        NF_BROWSER_SOCKET_WAIT: "3000",
+      });
+      expect(refuse.code, refuse.stderr).toBe(0);
+      const d = sortieJson(refuse);
+      const identite = commeObjet(
+        commeObjet(d["accueil"], "accueil")["identite"],
+        "identite",
+      );
+      // Le compte de moindre privilège est bien AUTHENTIFIÉ : le refus qui suit
+      // porte donc sur le canal, pas sur un handshake anonyme.
+      expect(identite["authenticated"]).toBe(true);
+      expect(identite["userIdentifier"]).toBe(USER_REFUSE);
+      const abonnement = commeObjet(d["abonnement"], "abonnement");
+      expect(abonnement["verdict"]).toBe("REFUSÉ");
+      expect(Number(abonnement["total"])).toBe(0);
+      const motif = commeObjet(abonnement["refus"], "refus");
+      expect(motif["channel"]).toBe(CANAL_REFUSE);
+      // Le motif est GÉNÉRIQUE par doctrine (aucun oracle d'autorisation) : on
+      // exige qu'il soit nommé, jamais qu'il détaille le droit manquant.
+      expect(String(motif["reason"]).length).toBeGreaterThan(0);
+
+      const autorise = lancerSonde("socket.mjs", [SOCKET], {
+        ...ENV_AUTH,
+        NF_BROWSER_PAGE: PAGE_PUBLIQUE,
+        NF_BROWSER_CHANNEL: CANAL_REFUSE,
+        NF_BROWSER_SOCKET_WAIT: "3000",
+      });
+      expect(autorise.code, autorise.stderr).toBe(0);
+      const permis = commeObjet(
+        sortieJson(autorise)["abonnement"],
+        "abonnement",
+      );
+      // `SILENCIEUX` reste acceptable ici — un canal d'événements ne pousse que
+      // quand il se passe quelque chose. Ce qui ne l'est pas, c'est un refus.
+      expect(permis["refus"]).toBeNull();
+      expect(permis["verdict"]).not.toBe("REFUSÉ");
+    },
+    300000,
+  );
 
   it("sens négatif — socket sans endpoint : refus 64, rien n'est deviné", () => {
     const r = lancerSonde("socket.mjs", [], {});

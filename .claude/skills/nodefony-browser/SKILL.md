@@ -227,6 +227,12 @@ l'abonnement et les poussées horodatées, une action RPC, la **latence médiane
 pont `api.request`, et une reconnexion avec comparaison d'identité. Sur Studio, l'accueil annonce
 six canaux (`nodefony:syslog`, `supervision`, `debugbar`, `orm:health`, `orm:flow`, `socket`).
 
+**Prouver qu'un canal est bien PROTÉGÉ** — rejouer le même canal sous un compte qui n'y a pas
+droit : le compte de fixture `user` (`ROLE_USER` seul) contre `nodefony:syslog`, qui exige
+`ROLE_ADMIN`. L'abonnement rend alors `REFUSÉ` avec son motif (`forbidden`) au lieu de `SILENCIEUX` —
+et c'est toute la différence entre « la protection mord » et « le canal ne pousse rien ». Le refus
+d'une notification n'a aucun canal de réponse : sans cette notification dédiée, il serait invisible.
+
 Grammaire des frames, verdicts (dont `SILENCIEUX`, qui ne veut **pas** dire cassé) et pièges :
 `src/packages/@nodefony/devkit/skills/nodefony-browser/references/socket.md`.
 
@@ -341,6 +347,10 @@ le conteneur sont servis EN MÊME TEMPS par la même instance Vite.
   l'appel répond « OK » : on lit un écran périmé. Le script horodate ; ne pas le contourner.
 - **Un état d'authentification sauvegardé peut être périmé** (session expirée, serveur redémarré) :
   le script le constate et refait le parcours, plutôt que de mesurer l'écran de connexion.
+- **Chaque compte a SON état sauvegardé** (le fichier porte l'identifiant). C'est ce qui permet
+  d'enchaîner deux sondes sous deux comptes sans que la seconde reprenne la session de la première —
+  la façon de prouver qu'une protection MORD : `admin` voit, `user` se fait refuser. Un état commun
+  faisait mesurer l'administrateur alors qu'on avait demandé l'autre compte, sans aucun message.
 
 ## 6. Ce que le conteneur ne remplace pas
 

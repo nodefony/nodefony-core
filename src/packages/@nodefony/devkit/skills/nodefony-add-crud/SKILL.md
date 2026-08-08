@@ -171,7 +171,8 @@ Pour la protéger : → skill `nodefony-protect-route`.
 ## Prouver
 
 ```bash
-npm run build && npm test        # les tests générés couvrent la couche donnée
+npm run build                    # le code généré compile-t-il ?
+npm test                         # les tests générés couvrent la couche donnée
 npx nodefony check               # câblage : entité orpheline, service non listé, route en :param
 npx nodefony inspect entities    # ce que l'application enregistre VRAIMENT
 ```

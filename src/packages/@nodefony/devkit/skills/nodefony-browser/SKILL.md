@@ -29,7 +29,8 @@ description: >
 ## Le geste — sur ta machine
 
 ```bash
-npm i -D playwright && npx playwright install chromium
+npm i -D playwright
+npx playwright install chromium
 node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /
 ```
 
@@ -355,6 +356,10 @@ réglage durable gagne toujours sur une déduction.
   l'appel répond « OK » : tu lis un écran périmé. Les sondes horodatent — ne le contourne pas.
 - **Un état d'authentification sauvegardé peut être périmé** (session expirée, serveur redémarré).
   Les sondes le constatent et refont le parcours plutôt que de mesurer l'écran de connexion.
+- **Chaque compte a SON état sauvegardé** (le fichier porte l'identifiant). C'est ce qui permet
+  d'enchaîner deux sondes sous deux comptes — comparer ce que voit un administrateur et ce que voit
+  un utilisateur ordinaire — sans que la seconde reprenne la session de la première. Sans cela on
+  demande une mesure sous un compte et l'on obtient celle de l'autre, sans aucun message.
 
 ## L'autre voie : le serveur MCP du conteneur
 

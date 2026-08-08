@@ -108,12 +108,32 @@ const NON_PORTABLE: { motif: RegExp; pourquoi: string }[] = [
     pourquoi:
       "ligne continuée par `\\` : le continuateur est ` (PowerShell) ou ^ (cmd)",
   },
+  {
+    motif: /&&|\|\|/u,
+    pourquoi:
+      "enchaînement `&&` / `||` : Windows PowerShell 5.1 — le shell PRÉINSTALLÉ, " +
+      "et le seul autorisé dans bien des parcs — le refuse comme erreur de syntaxe " +
+      "(« is not a valid statement separator in this version »). Écrire une commande par ligne",
+  },
 ];
 
-/** Les blocs de code d'un markdown — c'est là, et seulement là, qu'on exige la portabilité. */
+/**
+ * Les blocs de code d'un markdown destinés à être TAPÉS DANS UN TERMINAL.
+ *
+ * La portabilité ne s'exige que là. Un bloc `ts` contient légitimement `&&` —
+ * c'est l'opérateur du langage, pas un enchaînement de commandes ; l'y refuser
+ * interdirait d'écrire du code correct dans un skill dont c'est justement le
+ * sujet. Le langage du bloc dit qui doit lire : le shell, ou un compilateur.
+ *
+ * Un bloc SANS étiquette est traité comme du shell — la convention du dépôt, et
+ * le choix prudent : une commande non étiquetée reste contrôlée.
+ */
+const LANGAGES_SHELL = new Set(["", "bash", "sh", "shell", "console", "zsh"]);
+
 function blocsDeCode(src: string): string {
-  return [...src.matchAll(/```[a-z]*\n([\s\S]*?)```/gu)]
-    .map((m) => m[1])
+  return [...src.matchAll(/```([a-z]*)\n([\s\S]*?)```/gu)]
+    .filter((m) => LANGAGES_SHELL.has(m[1] ?? ""))
+    .map((m) => m[2])
     .join("\n");
 }
 

@@ -85,9 +85,23 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
   public : ils restent à eux, on ne les fusionne pas avec ceux-ci.
 - **Les commandes d'un skill s'écrivent pour les TROIS plateformes** : une ligne
   chacune, sans substitution `$(…)`, sans tube, sans continuation `\`, sans
-  `grep` — rien de tout cela n'existe dans `cmd.exe`. Ce qui doit être extrait
-  d'une page l'est par la sonde elle-même (champ `scripts`), pas par un
-  `curl | grep` que Windows ne sait pas exécuter.
+  `grep`, **sans enchaînement `&&` / `||`** — rien de tout cela n'existe dans
+  `cmd.exe`, et `&&` est une ERREUR DE SYNTAXE pour Windows PowerShell 5.1, le
+  shell préinstallé. Ce qui doit être extrait d'une page l'est par la sonde
+  elle-même (champ `scripts`), pas par un `curl | grep` que Windows ne sait pas
+  exécuter. Le gate ne contrôle que les blocs SHELL : `&&` est légitime dans un
+  bloc `ts`, c'est l'opérateur du langage.
+- **Les sondes s'exécutent aussi HORS conteneur** — `browser-demarrage.test.ts`
+  lance les quatre scripts avec le Node de la suite et éprouve leurs chemins de
+  REFUS (codes 64), qui ne demandent ni serveur, ni docker, ni navigateur. C'est
+  la seule exécution réelle de ce code sous **Windows** et macOS : le banc
+  fonctionnel, lui, mesure toujours du Linux puisqu'il passe par le conteneur.
+- **Un état d'authentification appartient à un COMPTE** — le fichier porte
+  l'identifiant (`nomEtatAuth`, `lib/probes.mjs`). Un nom unique le faisait
+  reprendre quel que soit l'utilisateur demandé : on réclamait une mesure sous un
+  compte de moindre privilège et l'on obtenait celle de l'administrateur, sans un
+  mot — un canal pourtant refusé s'ouvrait. Mesuré, puis gardé par les deux
+  passes du test de refus de canal.
 - **`docker cp <dossier>/. <cible>` — le `/.` est OBLIGATOIRE** : sans lui, une
   seconde copie IMBRIQUE un dossier de plus au lieu de remplacer, et l'on
   exécute une version périmée sans aucun message. Vécu en écrivant ce skill.

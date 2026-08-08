@@ -8,6 +8,7 @@
  * FAUSSE en silence — exactement la classe de bug qu'une sonde ne peut pas se
  * permettre.
  */
+import { createHash } from "node:crypto";
 
 /**
  * Les familles de sondes activables — l'allowlist, et sa documentation.
@@ -167,6 +168,33 @@ export function defautsDecor({ dansConteneur, base, out } = {}) {
         : "https://127.0.0.1:5152"),
     out: out || (dansConteneur ? "/output" : "tmp/browser"),
   };
+}
+
+/**
+ * Nom du fichier d'état d'authentification, DÉRIVÉ de l'identifiant.
+ *
+ * Un état sauvegardé est réutilisé pour éviter de rejouer le parcours de
+ * connexion à chaque sonde. Tant qu'il porte un nom unique, il est repris quel
+ * que soit l'utilisateur demandé : on réclame une mesure sous un compte de
+ * moindre privilège et l'on obtient celle de l'administrateur, sans un mot.
+ * Vécu ici — un canal refusé au compte demandé s'ouvrait sous l'identité de la
+ * sonde précédente. Une session appartient à quelqu'un ; son fichier le dit.
+ *
+ * Deux parties, deux rôles : un fragment LISIBLE, pour qu'un humain reconnaisse
+ * ses fichiers dans le dossier de sortie, et une EMPREINTE de l'identifiant
+ * complet, parce que deux identifiants distincts peuvent s'assainir en un même
+ * fragment (`a@b` et `a-b`) — et une collision de nom rouvrirait exactement le
+ * trou qu'on ferme.
+ *
+ * @param {string|undefined} identifiant - l'identifiant de connexion demandé.
+ * @returns {string} le nom de fichier, sans dossier.
+ */
+export function nomEtatAuth(identifiant) {
+  const brut = String(identifiant ?? "");
+  const lisible =
+    brut.replace(/[^A-Za-z0-9._-]/gu, "_").slice(0, 40) || "anonyme";
+  const empreinte = createHash("sha256").update(brut).digest("hex").slice(0, 8);
+  return `.auth-state-${lisible}-${empreinte}.json`;
 }
 
 /**
