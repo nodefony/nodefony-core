@@ -7,16 +7,62 @@
  * ne coûte rien — et la duplication précédente avait déjà divergé en silence,
  * une seule des deux copies rattrapant un état d'authentification périmé.
  *
- * `@env` NF_BROWSER_BASE origine vue DEPUIS le conteneur (défaut https://host.docker.internal:5152 — jamais localhost)
+ * `@env` NF_BROWSER_BASE origine à joindre (défaut CONSTATÉ : 127.0.0.1 en local, host.docker.internal en conteneur)
+ * `@env` NF_BROWSER_OUT dossier des captures et de l'état d'authentification (défaut constaté de la même façon)
  * `@env` NF_BROWSER_LOGIN chemin du formulaire de connexion — REQUIS dès qu'un identifiant est donné, aucun défaut n'est deviné
  * `@env` NF_BROWSER_USER identifiant ; sans lui, aucune authentification n'est tentée
  * `@env` NF_BROWSER_PASSWORD mot de passe associé
+ * `@env` NF_BROWSER_COLOR_SCHEME schéma de couleurs émulé (light, dark, no-preference) ; sans lui, celui du navigateur
+ * `@env` NF_BROWSER_STORAGE entrées de stockage local posées AVANT chargement (`clé=valeur`, séparées par des virgules)
  */
-import { chromium } from "playwright";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
+import path from "node:path";
+import { defautsDecor, parseColorScheme, parseStorage } from "./probes.mjs";
 
-export const BASE =
-  process.env.NF_BROWSER_BASE ?? "https://host.docker.internal:5152";
+/**
+ * Playwright — chargé À LA DEMANDE, pour pouvoir expliquer son absence.
+ *
+ * Il porte un navigateur de plus de cent mégaoctets : l'imposer à toute
+ * application qui installe cet outillage serait disproportionné, alors que
+ * seuls ceux qui veulent REGARDER un écran en ont besoin. Il est donc déclaré
+ * en pair optionnel — et un `MODULE_NOT_FOUND` nu, qui ne dit ni quoi
+ * installer ni pourquoi, n'est pas une réponse acceptable.
+ */
+let chromium;
+try {
+  ({ chromium } = await import("playwright"));
+} catch {
+  console.error(
+    "Playwright est absent — c'est lui qui pilote le navigateur.\n\n" +
+      "  npm i -D playwright && npx playwright install chromium\n\n" +
+      "Autre voie, si tu préfères ne rien poser sur ta machine : exécuter ces\n" +
+      "sondes dans un conteneur qui embarque déjà navigateur et pilote.",
+  );
+  process.exit(69); // EX_UNAVAILABLE
+}
+
+/**
+ * Le décor : où joindre l'application, et où déposer ce qu'on produit.
+ *
+ * Les deux se CONSTATENT plutôt que de se supposer — `/.dockerenv` existe
+ * quand, et seulement quand, on s'exécute dans un conteneur. Le déduire de la
+ * plateforme serait faux dans les deux sens : un conteneur Linux sur un poste
+ * macOS, ou un poste Linux nu, rendraient le même `process.platform`.
+ *
+ * L'enjeu n'est pas cosmétique : `127.0.0.1` désigne le conteneur LUI-MÊME
+ * quand on y est enfermé, et la sonde mesurerait alors une connexion refusée
+ * en croyant que l'application est en panne.
+ */
+const DANS_CONTENEUR = existsSync("/.dockerenv");
+const { base: baseDecor, out: OUT } = defautsDecor({
+  dansConteneur: DANS_CONTENEUR,
+  base: process.env.NF_BROWSER_BASE,
+  out: process.env.NF_BROWSER_OUT,
+});
+
+/** Où atterrissent captures et état d'authentification. */
+export const SORTIE = OUT;
+export const BASE = baseDecor;
 export const USER = process.env.NF_BROWSER_USER ?? "";
 export const PASSWORD = process.env.NF_BROWSER_PASSWORD ?? "";
 
@@ -41,11 +87,53 @@ if (USER && !LOGIN) {
 /**
  * L'état d'authentification, SAUVEGARDÉ puis réutilisé d'une sonde à l'autre.
  *
- * Il vit dans `/output`, donc dans le volume monté : il survit au conteneur.
+ * Il vit dans le dossier de sortie — en conteneur, un volume monté, donc il
+ * survit à l'arrêt de celui-ci.
  * Sans lui, chaque inspection rejoue le parcours de connexion — quelques
  * secondes perdues et une occasion d'échec de plus à chaque exécution.
  */
-const STATE = "/output/.auth-state.json";
+const STATE = path.join(OUT, ".auth-state.json");
+// Créé AVANT la première écriture : en local, le dossier n'existe pas encore,
+// et l'échec ne surviendrait qu'à la sauvegarde — après la connexion, donc
+// après avoir fait croire que tout allait bien.
+mkdirSync(OUT, { recursive: true });
+
+/**
+ * Le schéma de couleurs à émuler, et le stockage à poser avant chargement.
+ *
+ * Deux leviers plutôt qu'un, parce qu'il existe deux façons de choisir un
+ * thème et qu'aucune ne couvre l'autre :
+ *
+ *  • `prefers-color-scheme` — la média query standard, que le navigateur
+ *    expose et que le CSS peut suivre. Générique par construction : elle ne
+ *    dépend d'aucune trousse d'interface.
+ *  • une entrée de stockage — dès que l'application MÉMORISE le choix de
+ *    l'utilisateur, la média query ne décide plus rien, et la clé employée
+ *    appartient à l'application. On la reçoit, on ne la devine pas.
+ *
+ * Un défaut qui n'existe que dans un thème est invisible tant qu'on ne peut pas
+ * demander l'autre : c'est ce qui a fait passer un menu à 1,63:1 sous le radar.
+ */
+const { schema: COLOR_SCHEME, invalide: schemaInvalide } = parseColorScheme(
+  process.env.NF_BROWSER_COLOR_SCHEME,
+);
+if (schemaInvalide) {
+  console.error(
+    `NF_BROWSER_COLOR_SCHEME inconnu : « ${schemaInvalide} ».\n` +
+      "Valeurs acceptées (celles de la média query standard) : light, dark, no-preference.",
+  );
+  process.exit(64); // EX_USAGE
+}
+const { entrees: STORAGE, rejetees: storageRejetees } = parseStorage(
+  process.env.NF_BROWSER_STORAGE,
+);
+if (storageRejetees.length > 0) {
+  console.error(
+    `NF_BROWSER_STORAGE — entrée(s) malformée(s) ignorable(s) en silence, donc REFUSÉE(S) : ${storageRejetees.join(", ")}\n` +
+      "Forme attendue : clé=valeur, séparées par des virgules.",
+  );
+  process.exit(64); // EX_USAGE
+}
 
 /**
  * Ouvre un navigateur et un contexte prêts à mesurer.
@@ -54,9 +142,12 @@ const STATE = "/output/.auth-state.json";
  *   d'authentification a été repris, ce qui décide s'il faut se connecter.
  */
 export async function open() {
-  // `channel: "chromium"` : l'image embarque le Chromium COMPLET, mais PAS le
-  // `chrome-headless-shell` que Playwright lance par défaut en headless — sans
-  // ce paramètre il réclame un `npx playwright install` qui n'a pas lieu d'être.
+  // `channel: "chromium"` demande le Chromium COMPLET plutôt que le
+  // `chrome-headless-shell` que Playwright lance par défaut en mode sans
+  // interface. Les deux décors y gagnent, pour des raisons opposées : une image
+  // de conteneur n'embarque souvent que le premier (sans ce paramètre, elle
+  // réclame une installation qui n'a pas lieu d'être), et sur un poste c'est le
+  // navigateur qui rend le plus fidèlement ce qu'un utilisateur verra.
   const browser = await chromium.launch({
     channel: "chromium",
     args: ["--no-sandbox"],
@@ -64,6 +155,7 @@ export async function open() {
   const options = {
     ignoreHTTPSErrors: true, // certificat de développement auto-signé
     viewport: { width: 1440, height: 900 },
+    ...(COLOR_SCHEME ? { colorScheme: COLOR_SCHEME } : {}),
   };
   let reuse = Boolean(USER) && existsSync(STATE);
   let ctx = null;
@@ -82,6 +174,24 @@ export async function open() {
     }
   }
   if (!ctx) ctx = await browser.newContext(options);
+  if (STORAGE.length > 0) {
+    // AVANT tout script de la page, et à CHAQUE navigation : une application
+    // lit son thème mémorisé au tout premier rendu. Poser la valeur après coup
+    // obligerait à recharger, et l'on mesurerait l'entre-deux.
+    //
+    // Cela l'emporte volontairement sur un état d'authentification réutilisé
+    // qui porterait l'ancienne valeur : ce que la ligne de commande demande
+    // prime sur ce qu'une session précédente avait laissé.
+    await ctx.addInitScript((entrees) => {
+      try {
+        for (const { cle, valeur } of entrees)
+          localStorage.setItem(cle, valeur);
+      } catch {
+        // Stockage refusé (mode privé, origine opaque) : la sonde continue —
+        // le thème sera celui par défaut, et la mesure le DIRA (champ `theme`).
+      }
+    }, STORAGE);
+  }
   return { browser, ctx, page: await ctx.newPage(), reuse };
 }
 

@@ -119,7 +119,28 @@ export function buildStudioTheme(palette: StudioPalette = "nodefony") {
       // La teinte de marque est préservée — `brand.7` est le même bleu, plus
       // profond (`#00579c` pour la palette nodefony) : on corrige la LUMINOSITÉ,
       // jamais la couleur. Le blanc y passe largement le seuil.
-      NavLink: NavLink.extend({ defaultProps: { color: "brand.7" } }),
+      //
+      // ⚠️ Le fond ne suffit PAS : il faut poser le texte AVEC lui.
+      //
+      // `color` gouverne `--nl-bg`, mais la couleur du libellé vient du
+      // `variant` — et le variant par défaut de la bibliothèque rend une
+      // nuance FONCÉE. Sur un aplat foncé, cela donne du bleu sur du bleu :
+      // mesuré à **1,62:1** en schéma clair (axe-core), quand le seuil AA est
+      // à 4,5. Le défaut n'existait qu'en clair, parce qu'en sombre la même
+      // variable rend une nuance claire — d'où une palette qui paraît saine
+      // tant qu'on ne regarde qu'un seul thème.
+      //
+      // Les sites d'appel qui passent `variant="filled"` n'étaient pas
+      // touchés : c'est bien la RÈGLE qui manquait ici, pas une négligence
+      // locale. On la pose donc une fois, pour tous les menus.
+      NavLink: NavLink.extend({
+        defaultProps: { color: "brand.7" },
+        vars: (_theme, props) => ({
+          root: props.active
+            ? { "--nl-color": "var(--mantine-color-white)" }
+            : {},
+        }),
+      }),
       // Fenêtres (Modal) à deux tons, esprit bulles d'aide (DocHint) — sens
       // OPPOSÉ selon le schéma (validé visuellement) :
       //  • CLAIR  : en-tête teinté (gris) sur corps BLANC.

@@ -177,15 +177,21 @@ describe("skills publiés", () => {
     }
   });
 
-  it("copie ses scripts avec `/.` — sinon la seconde copie imbrique", () => {
+  it("copie un DOSSIER avec `/.` — sinon la seconde copie imbrique", () => {
     // Sans le `/.`, `docker cp dossier cible` crée `cible/dossier` quand la
     // cible existe déjà : on relance alors la version précédente du script en
     // croyant l'avoir mise à jour, sans le moindre message. Vécu.
+    //
+    // La règle ne vaut QUE pour un dossier : `docker cp fichier.js cible/x.js`
+    // remplace proprement, et lui imposer un `/.` produirait une commande qui
+    // ne marche pas. On reconnaît un fichier à son extension.
+    const copieDeFichier = /docker cp \S+\.[a-z0-9]{1,5}\s/iu;
     for (const nom of skills) {
       for (const fichier of fichiersDe(nom).filter((f) => f.endsWith(".md"))) {
         const src = readFileSync(fichier, "utf8");
         for (const ligne of src.split("\n")) {
           if (!ligne.includes("docker cp")) continue;
+          if (copieDeFichier.test(ligne)) continue;
           expect(
             /docker cp \S+\/\.\s/u.test(ligne),
             `${path.relative(SKILLS, fichier)} : ${ligne.trim()}`,

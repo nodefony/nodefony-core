@@ -36,13 +36,45 @@ C'est au lecteur de juger — la sonde fournit, elle ne condamne pas ce qu'elle 
 Un sélecteur par élément (`NF_BROWSER_PROBES=libellé=sélecteur,…`) ; pour chacun : texte, couleur,
 fond effectif, rapport de contraste, police, verdict WCAG, taille rendue.
 
-- **Le fond effectif est celui du premier ancêtre non transparent.** Lire `backgroundColor` sur
-  l'élément rend `rgba(0,0,0,0)` et un contraste faux — l'erreur classique de ce genre de sonde.
+- **Le fond effectif empile TOUTES les couches** jusqu'au premier ancêtre opaque, puis les compose.
+  Deux erreurs à ne pas refaire : lire `backgroundColor` sur l'élément rend `rgba(0,0,0,0)` et un
+  contraste faux ; s'arrêter à la première couche non transparente traite un voile à 13 % comme un
+  aplat plein, c'est-à-dire comme une couleur que personne ne voit.
+- **Les couleurs modernes ne comptent pas dans la même échelle.** `rgb(0, 87, 156)` est en 0–255,
+  `color(srgb 0 0.34 0.61 / 0.13)` en 0–1. Les lire avec la même expression régulière rend un bleu
+  presque noir — et fabrique des échecs qui noient les vrais.
 - **Le verdict WCAG dépend de la POLICE** : 3:1 suffit à un texte « large » (≥ 24 px, ou 18,66 px
   en gras), 4,5:1 sinon. Un contraste rendu sans sa police ne conclut rien.
-- **Quand elle se trompe** : un fond en dégradé, une image de fond ou une superposition
-  semi-transparente ne sont pas vus — la sonde lit une COULEUR de fond, pas le pixel composité.
-  Sur ces cas, juger sur la capture.
+- **Quand elle se trompe** : un fond en dégradé ou une image de fond ne sont pas vus — la sonde lit
+  des COULEURS, pas le pixel composité. Sur ces cas, juger sur la capture.
+
+> Ces sondes visent **un** élément qu'on désigne. Pour balayer la page entière sans rien désigner,
+> prendre la famille `axe` : elle voit ce à quoi on ne pensait pas.
+
+## `axe` — l'audit WCAG par un moteur dont c'est le métier
+
+Une centaine de règles jouées par `axe-core`, dont le contraste de **tout** le texte visible. C'est
+le moteur qu'embarque Lighthouse pour son volet accessibilité.
+
+| Champ          | Ce qu'il dit                                                                                                                       |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `manquements`  | Les défauts AVÉRÉS, comptés par gravité (critique, sérieux, modéré, mineur)                                                        |
+| `plusGraves`   | Jusqu'à 8 règles, du plus grave au moins grave, avec **5 cibles** chacune et le `constat` calculé (contraste mesuré, rôle attendu) |
+| `autresCibles` | Ce qui dépasse les 5 — annoncé, jamais tronqué en silence                                                                          |
+| `aVerifier`    | Ce que le moteur REFUSE de trancher (fond en image…) — **pas** des défauts                                                         |
+| `conformes`    | Les règles passées, pour situer le reste                                                                                           |
+
+- **`aVerifier` n'est pas un manquement** et ne déclenche pas l'alerte. Le confondre ferait crier la
+  sonde sur des pages saines, et on cesserait de la lire.
+- **Cinq cibles par règle, pas une.** Une même règle couvre des défauts à des endroits différents,
+  qui ne se corrigent pas d'un seul geste ; n'en montrer qu'un fait croire le travail fini.
+- **N'écris jamais ce calcul toi-même.** Mesuré en conditions réelles : une sonde maison a rendu
+  **41 faux positifs** masquant **7 défauts réels**, dont celui qu'on cherchait — à cause de trois
+  cas particuliers (échelle des couleurs modernes, alpha non composé, emoji peints par une police en
+  couleurs) qu'on ne devine pas avant de les avoir vus.
+- **Quand elle est indisponible** : `axe-core` vit dans les dépendances du projet. En conteneur, il
+  faut le copier à part. La famille rend alors `verdict: "INDISPONIBLE"` et la commande à taper —
+  jamais un `OK` qui n'a rien mesuré.
 
 ## `a11y` — ce qu'un lecteur d'écran ou un clavier rencontrent
 

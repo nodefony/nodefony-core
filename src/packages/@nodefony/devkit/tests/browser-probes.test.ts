@@ -47,6 +47,31 @@ const mediane = fonctionDe<(valeurs: number[]) => number | null>(
   probes,
   "mediane",
 );
+const defautsDecor = fonctionDe<
+  (decor: { dansConteneur: boolean; base?: string; out?: string }) => {
+    base: string;
+    out: string;
+  }
+>(probes, "defautsDecor");
+const parseColorScheme = fonctionDe<
+  (brut: string | undefined) => {
+    schema: string | null;
+    invalide: string | null;
+  }
+>(probes, "parseColorScheme");
+const parseStorage = fonctionDe<
+  (brut: string | undefined) => {
+    entrees: { cle: string; valeur: string }[];
+    rejetees: string[];
+  }
+>(probes, "parseStorage");
+// Le rapport d'axe-core est une structure ouverte et versionnée par son
+// éditeur : la modéliser en détail ici périmerait au premier changement de
+// leur schéma. Le contrat qu'on éprouve est celui de NOTRE résumé.
+const resumeAxe = fonctionDe<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- forme externe
+  (rapport: any) => any
+>(probes, "resumeAxe");
 
 describe("parseFamilies — l'allowlist", () => {
   it("retient les familles connues, dans l'ordre demandé", () => {
@@ -149,5 +174,206 @@ describe("mediane — la statistique d'un RTT", () => {
     const serie = [3, 1, 2];
     mediane(serie);
     expect(serie).toEqual([3, 1, 2]);
+  });
+});
+
+/**
+ * Ce que ces tests prouvent : le choix du THÈME ne s'improvise pas.
+ *
+ * Un défaut d'interface peut n'exister que dans un schéma de couleurs — vécu :
+ * un libellé de menu à 1,62:1 en clair, impeccable en sombre. La sonde doit
+ * donc pouvoir DEMANDER un thème ; et si elle accepte en silence une valeur
+ * qu'elle ne sait pas appliquer, elle mesure l'autre thème en croyant tenir
+ * celui-là — le pire des verdicts, un vert qui n'a rien vu.
+ */
+describe("parseColorScheme — demander un thème, ou refuser", () => {
+  it("rien de demandé ne force rien — null, pas un défaut inventé", () => {
+    expect(parseColorScheme(undefined).schema).toBeNull();
+    expect(parseColorScheme("").schema).toBeNull();
+  });
+
+  it("accepte les valeurs de la média query standard, casse comprise", () => {
+    expect(parseColorScheme("light").schema).toBe("light");
+    expect(parseColorScheme(" DARK ").schema).toBe("dark");
+    expect(parseColorScheme("no-preference").schema).toBe("no-preference");
+  });
+
+  it("sens négatif : une valeur inconnue est RENDUE, jamais avalée", () => {
+    const r = parseColorScheme("sombre");
+    expect(r.schema).toBeNull();
+    expect(r.invalide).toBe("sombre");
+  });
+
+  it("le vocabulaire d'une bibliothèque n'est pas celui de la norme", () => {
+    // « auto » est courant dans les trousses d'interface, absent de la norme.
+    expect(parseColorScheme("auto").invalide).toBe("auto");
+  });
+});
+
+/**
+ * Ce que ces tests prouvent : la clé de stockage vient de l'APPELANT.
+ *
+ * Une application qui mémorise son thème n'obéit plus à `prefers-color-scheme`,
+ * et la clé qu'elle emploie lui appartient. Coder celle d'une bibliothèque
+ * rendrait la sonde juste pour une seule et faussement rassurante pour toutes
+ * les autres.
+ */
+describe("parseStorage — la précision vit dans l'argument", () => {
+  it("découpe des entrées clé=valeur", () => {
+    const r = parseStorage("theme=light,langue=fr");
+    expect(r.entrees).toEqual([
+      { cle: "theme", valeur: "light" },
+      { cle: "langue", valeur: "fr" },
+    ]);
+  });
+
+  it("une valeur peut contenir « = » — seul le PREMIER sépare", () => {
+    // Un jeton encodé ou un JSON en valeur : le découper au dernier « = »
+    // tronquerait la valeur sans rien dire.
+    expect(parseStorage("jeton=a=b=c").entrees).toEqual([
+      { cle: "jeton", valeur: "a=b=c" },
+    ]);
+  });
+
+  it("sens négatif : une entrée sans « = » est REJETÉE, pas devinée", () => {
+    const r = parseStorage("theme,x=1");
+    expect(r.rejetees).toEqual(["theme"]);
+    expect(r.entrees).toEqual([{ cle: "x", valeur: "1" }]);
+  });
+
+  it("une clé vide est rejetée — poser « =light » n'a aucun sens", () => {
+    expect(parseStorage("=light").rejetees).toEqual(["=light"]);
+  });
+});
+
+/**
+ * Ce que ces tests prouvent : le résumé d'un audit ne PERD pas de défauts.
+ *
+ * C'est la seule partie qu'on écrit soi-même autour du moteur, donc la seule
+ * qui puisse mentir. Deux fautes possibles, toutes deux vécues : ne montrer
+ * qu'une cible par règle (on croit le travail fini après la première), et
+ * compter comme manquement ce que le moteur a REFUSÉ de trancher.
+ */
+describe("resumeAxe — restituer sans perdre ni inventer", () => {
+  const violation = (id: string, impact: string, n: number) => ({
+    id,
+    impact,
+    help: `aide ${id}`,
+    tags: ["wcag2aa", "wcag143"],
+    helpUrl: `https://exemple.test/${id}`,
+    nodes: Array.from({ length: n }, (_, i) => ({
+      target: [`#cible-${i}`],
+      html: `<span>${i}</span>`,
+      any: [{ message: `constat ${i}` }],
+    })),
+  });
+
+  it("aucun manquement ⇒ OK", () => {
+    expect(
+      resumeAxe({ violations: [], passes: [], incomplete: [] }).verdict,
+    ).toBe("OK");
+  });
+
+  it("sens négatif : un seul manquement bascule en ALERTE", () => {
+    expect(
+      resumeAxe({ violations: [violation("color-contrast", "serious", 1)] })
+        .verdict,
+    ).toBe("ALERTE");
+  });
+
+  it("« à vérifier » N'EST PAS un manquement — le moteur dit qu'il ne conclut pas", () => {
+    const r = resumeAxe({
+      violations: [],
+      incomplete: [violation("color-contrast", null, 3)],
+    });
+    expect(r.verdict).toBe("OK");
+    expect(r.aVerifier).toHaveLength(1);
+  });
+
+  it("rend PLUSIEURS cibles par règle — huit défauts ne se corrigent pas d'un geste", () => {
+    const r = resumeAxe({
+      violations: [violation("color-contrast", "serious", 8)],
+    });
+    expect(r.plusGraves[0].exemples).toHaveLength(5);
+    expect(r.plusGraves[0].cibles).toBe(8);
+    // Ce qui dépasse est ANNONCÉ : une troncature muette se lit « tout est là ».
+    expect(r.plusGraves[0].autresCibles).toBe(3);
+  });
+
+  it("trie par gravité — le critique se lit en premier", () => {
+    const r = resumeAxe({
+      violations: [
+        violation("mineur", "minor", 1),
+        violation("critique", "critical", 1),
+        violation("serieux", "serious", 1),
+      ],
+    });
+    expect(r.plusGraves.map((v: { regle: string }) => v.regle)).toEqual([
+      "critique",
+      "serieux",
+      "mineur",
+    ]);
+    expect(r.manquements.parGravite.critical).toBe(1);
+  });
+
+  it("un rapport sans passes ni incomplete ne fait pas planter le compte", () => {
+    const r = resumeAxe({ violations: [violation("x", "moderate", 1)] });
+    expect(r.reglesJouees).toBe(1);
+    expect(r.conformes).toBe(0);
+  });
+});
+
+/**
+ * Ce que ces tests prouvent : la sonde tourne aux DEUX endroits, et le sait
+ * parce qu'on le lui dit.
+ *
+ * L'enjeu n'est pas cosmétique. `127.0.0.1` désigne le conteneur LUI-MÊME
+ * quand on s'exécute dedans : se tromper de côté fait mesurer une connexion
+ * refusée et conclure que l'application est en panne. Et le déduire de la
+ * plateforme serait faux dans les deux sens — un conteneur Linux sur un poste
+ * macOS rend le même `process.platform` qu'un poste Linux nu.
+ *
+ * Le verdict est donc INJECTÉ : c'est ce qui rend les deux côtés éprouvables
+ * ici, sans conteneur et sans toucher à l'environnement du test.
+ */
+describe("defautsDecor — constater l'endroit, pas le supposer", () => {
+  it("en local : la boucle locale, et un dossier relatif au projet", () => {
+    const d = defautsDecor({ dansConteneur: false });
+    expect(d.base).toBe("https://127.0.0.1:5152");
+    expect(d.out).toBe("tmp/browser");
+  });
+
+  it("en conteneur : le nom de l'hôte vu du dedans, et le volume monté", () => {
+    const d = defautsDecor({ dansConteneur: true });
+    expect(d.base).toBe("https://host.docker.internal:5152");
+    expect(d.out).toBe("/output");
+  });
+
+  it("les deux côtés DIFFÈRENT — sinon le constat ne servirait à rien", () => {
+    // Sens négatif du couple : une implémentation qui ignorerait le verdict
+    // passerait les deux tests précédents si elle rendait la même chose ;
+    // celui-ci l'interdit.
+    expect(defautsDecor({ dansConteneur: true }).base).not.toBe(
+      defautsDecor({ dansConteneur: false }).base,
+    );
+  });
+
+  it("une valeur explicite l'emporte TOUJOURS sur le constat", () => {
+    const d = defautsDecor({
+      dansConteneur: true,
+      base: "https://exemple.test",
+      out: "/ailleurs",
+    });
+    expect(d.base).toBe("https://exemple.test");
+    expect(d.out).toBe("/ailleurs");
+  });
+
+  it("une chaîne vide n'est pas un choix — elle ne doit pas écraser le défaut", () => {
+    // Une variable d'environnement posée puis vidée vaut « non renseignée » :
+    // la prendre au mot donnerait une origine vide et une erreur illisible.
+    expect(defautsDecor({ dansConteneur: false, base: "", out: "" })).toEqual({
+      base: "https://127.0.0.1:5152",
+      out: "tmp/browser",
+    });
   });
 });

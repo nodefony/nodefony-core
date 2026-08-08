@@ -10,11 +10,14 @@
  * découpé en FAMILLES activables — un mur de JSON que personne ne lit ne sert
  * à rien. La doc de chaque famille vit dans `references/sondes.md` du skill.
  *
- * `@usage` docker exec <app>-browser node /app/see-screen/inspect.mjs /tableau-de-bord "Chiffre d'affaires"
- * `@env` NF_BROWSER_BASE origine vue DEPUIS le conteneur (défaut https://host.docker.internal:5152 — jamais localhost)
+ * `@usage` node skills/nodefony-browser/scripts/inspect.mjs /tableau-de-bord "Chiffre d'affaires"
+ * `@env` NF_BROWSER_BASE origine à joindre (défaut CONSTATÉ : 127.0.0.1 en local, host.docker.internal en conteneur)
+ * `@env` NF_BROWSER_OUT dossier des captures et de l'état d'authentification (défaut constaté de la même façon)
  * `@env` NF_BROWSER_PAGE chemin de la page à ouvrir (défaut /)
  * `@env` NF_BROWSER_EXPECT texte DISCRIMINANT attendu avant de mesurer (défaut : aucun, on mesure après domcontentloaded)
- * `@env` NF_BROWSER_FAMILIES familles de sondes à activer, séparées par des virgules (a11y, rendu, reseau, perf, stockage, responsive — ou « toutes ») ; défaut : aucune, le socle seul
+ * `@env` NF_BROWSER_FAMILIES familles de sondes à activer, séparées par des virgules (a11y, axe, rendu, reseau, perf, stockage, responsive — ou « toutes ») ; défaut : aucune, le socle seul
+ * `@env` NF_BROWSER_COLOR_SCHEME schéma de couleurs émulé (light, dark, no-preference) — un défaut peut n'exister que dans UN thème
+ * `@env` NF_BROWSER_STORAGE entrées de stockage local posées AVANT chargement (`clé=valeur`) — pour une application qui MÉMORISE son thème
  * `@env` NF_BROWSER_LOGIN chemin du formulaire de connexion de TON application — requis dès qu'un identifiant est donné, aucun défaut n'est deviné
  * `@env` NF_BROWSER_USER identifiant de connexion ; si absent, aucune authentification n'est tentée
  * `@env` NF_BROWSER_PASSWORD mot de passe associé
@@ -26,13 +29,16 @@
  * `@output` un objet JSON sur stdout + une capture PNG horodatée dans /output
  * `@exit` 0 mesure rendue (le verdict est une DONNÉE, pas un code de retour) · 64 usage (famille inconnue, identifiant sans chemin de connexion) · 65 texte attendu jamais apparu
  */
-import { open, goTo, LOGIN } from "./lib/browser.mjs";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { open, goTo, LOGIN, SORTIE } from "./lib/browser.mjs";
 import { sourceWcag } from "./lib/wcag.mjs";
 import {
   FAMILLES,
   parseFamilies,
   parseProbes,
   parseWidths,
+  resumeAxe,
   verdictGlobal,
 } from "./lib/probes.mjs";
 
@@ -70,6 +76,26 @@ if (rejetees.length > 0) {
   console.error(
     `Sonde(s) ignorée(s), forme attendue « libellé=sélecteur » : ${rejetees.join(" · ")}`,
   );
+}
+
+/**
+ * Le code d'`axe-core`, quel que soit l'endroit d'où il est joignable.
+ *
+ * Trois voies, de la plus explicite à la plus commode — parce que le script
+ * s'exécute DANS un conteneur où l'arborescence de l'application n'est pas
+ * forcément montée, et qu'un « module introuvable » y est illisible.
+ *
+ * @returns {Promise<string>} le source complet, prêt à être évalué dans la page.
+ * @throws Si aucune des trois voies n'aboutit — dire l'indisponibilité vaut
+ *   toujours mieux que rendre un verdict sans avoir mesuré.
+ */
+async function sourceAxe() {
+  const explicite = process.env.NF_BROWSER_AXE;
+  if (explicite) return readFileSync(explicite, "utf8");
+  const voisin = new URL("./axe.min.js", import.meta.url);
+  if (existsSync(voisin)) return readFileSync(voisin, "utf8");
+  const { default: axe } = await import("axe-core");
+  return axe.source;
 }
 
 const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
@@ -206,6 +232,51 @@ function estVisible(el) {
   if (r.width === 0 && r.height === 0) return false;
   const cs = getComputedStyle(el);
   return cs.display !== "none" && cs.visibility !== "hidden";
+}
+
+/**
+ * Le fond RÉELLEMENT perçu derrière un élément — toutes couches EMPILÉES.
+ *
+ * Deux erreurs classiques, qui font toutes deux conclure faux :
+ *
+ *  • lire `backgroundColor` sur l'élément seul rend `rgba(0, 0, 0, 0)` presque
+ *    toujours, et le contraste calculé contre du transparent n'a aucun sens ;
+ *  • s'arrêter à la première couche NON transparente traite un voile à 13 %
+ *    comme un aplat plein — c'est-à-dire comme une couleur que personne ne voit.
+ *
+ * On empile donc les couches translucides jusqu'à la première opaque, puis on
+ * les compose de bas en haut, exactement comme le fait le moteur de rendu.
+ *
+ * @param {Element} el - l'élément dont on cherche le fond perçu.
+ * @returns {string} une couleur `rgb()` opaque, telle qu'elle est PERÇUE.
+ */
+function fondEffectif(el) {
+  const couches = [];
+  let socle = null;
+  for (let n = el; n; n = n.parentElement) {
+    const bg = getComputedStyle(n).backgroundColor;
+    if (!bg || /transparent/.test(bg)) continue;
+    const { a } = parseCouleur(bg);
+    if (a === 0) continue;
+    if (a >= 1) {
+      socle = bg;
+      break;
+    }
+    couches.push(bg);
+  }
+  // Faute de couche opaque rencontrée, le fond de la page fait socle — et à
+  // défaut le blanc, qui est ce qu'un navigateur peint sous un document nu.
+  if (socle === null) {
+    const racine = getComputedStyle(document.documentElement).backgroundColor;
+    socle =
+      racine && parseCouleur(racine).a >= 1 ? racine : "rgb(255, 255, 255)";
+  }
+  // De la plus basse à la plus haute : chacune se compose sur le résultat
+  // précédent, jamais sur le socle seul.
+  let perçu = socle;
+  for (let i = couches.length - 1; i >= 0; i--)
+    perçu = composer(couches[i], perçu);
+  return perçu;
 }
 
 /**
@@ -440,19 +511,9 @@ async function mesurePage(args) {
       const el = document.querySelector(sel);
       if (!el) return { label, absent: true, selecteur: sel };
       const cs = getComputedStyle(el);
-      // Le fond effectif est celui du premier ancêtre non transparent : lire
-      // `backgroundColor` sur l'élément rend `rgba(0,0,0,0)` et un contraste
-      // faux — l'erreur classique de ce genre de sonde.
-      let fond = getComputedStyle(document.body).backgroundColor;
-      for (let n = el; n; n = n.parentElement) {
-        const bg = getComputedStyle(n).backgroundColor;
-        if (bg && !/rgba\(0, 0, 0, 0\)|transparent/.test(bg)) {
-          fond = bg;
-          break;
-        }
-      }
+      const fond = fondEffectif(el);
       const r = el.getBoundingClientRect();
-      const contraste = contrastRatio(cs.color, fond);
+      const contraste = contrastRatio(composer(cs.color, fond), fond);
       const px = parseFloat(cs.fontSize);
       const gras = Number(cs.fontWeight) >= 700;
       return {
@@ -482,6 +543,7 @@ const expression = `((args) => {
 ${sourceWcag()}
 ${decrireElement}
 ${estVisible}
+${fondEffectif}
 ${sondeA11y}
 ${sondeRendu}
 ${sondeStockageWeb}
@@ -490,6 +552,44 @@ return (${mesurePage})(args);
 })(${JSON.stringify({ probes: PROBES, familles: [...actives] })})`;
 
 const measured = await page.evaluate(expression);
+
+// ── Famille axe — l'audit d'accessibilité par un moteur dont c'est le métier ─
+//
+// Pourquoi une dépendance plutôt qu'un calcul maison : les règles WCAG sont
+// pleines de cas particuliers qu'on ne devine pas — canaux en 0–1 des couleurs
+// modernes, fonds semi-transparents à composer, texte peint par une police en
+// couleurs, éléments masqués aux seules techniques d'assistance. Une sonde
+// écrite à la main les rate, rend des échecs inventés qui NOIENT les vrais, et
+// donne le pire des résultats : un rapport qu'on cesse de lire. `axe-core` est
+// le moteur qu'embarque Lighthouse pour ce volet ; on l'appelle directement.
+//
+// Il est ÉVALUÉ par le pilote, jamais ajouté en `<script>` : la politique de
+// sécurité de contenu d'une application sérieuse refuserait l'injection — et
+// elle aurait raison.
+if (actives.has("axe")) {
+  try {
+    const codeAxe = await sourceAxe();
+    const rapport = await page.evaluate(async (source) => {
+      // eslint-disable-next-line no-new-func -- évalué par le pilote, hors CSP
+      new Function(source)();
+      return await window.axe.run(document, {
+        resultTypes: ["violations", "incomplete"],
+        // La capture d'un nœud fautif suffit à le corriger ; l'inventaire
+        // complet gonfle la sortie sans rien apprendre.
+        elementRef: false,
+      });
+    }, codeAxe);
+    measured.axe = resumeAxe(rapport);
+  } catch (e) {
+    // Dire l'indisponibilité, ne JAMAIS rendre un verdict OK sans avoir mesuré.
+    measured.axe = {
+      verdict: "INDISPONIBLE",
+      raison: String(e).slice(0, 200),
+      remede:
+        "Copier axe.min.js à côté des sondes (docker cp node_modules/axe-core/axe.min.js <conteneur>:/app/see-screen/axe.min.js), ou donner son chemin dans NF_BROWSER_AXE.",
+    };
+  }
+}
 
 // ── Arbre d'accessibilité — la voie Playwright, hors page ───────────────────
 if (actives.has("a11y") && measured.a11y) {
@@ -594,7 +694,7 @@ if (actives.has("stockage")) {
 
 // ── Capture — AVANT la famille responsive, qui déforme le viewport ──────────
 const slug = PAGE.replace(/\//g, "-").replace(/^-/, "") || "racine";
-const shot = `/output/${slug}-${stamp}.png`;
+const shot = path.join(SORTIE, `${slug}-${stamp}.png`);
 await page.screenshot({ path: shot });
 
 if (actives.has("responsive")) {
@@ -656,7 +756,12 @@ console.log(
       ...measured,
       erreursConsole,
       erreursNonCapturees,
-      capture: shot.replace("/output", "tmp/browser"),
+      // Le chemin RENDU est celui où l'appelant trouvera l'image. Dans un
+      // conteneur, `/output` est un volume monté et ne veut rien dire au
+      // dehors : on le retraduit en son point de montage habituel. En local,
+      // le chemin est déjà le bon.
+      capture:
+        SORTIE === "/output" ? shot.replace("/output", "tmp/browser") : shot,
       // Le verdict agrège les FAMILLES actives — les erreurs de console et les
       // violations CSP restent des données : un parcours de connexion produit
       // des 401 légitimes, et trancher ici les ferait passer pour des pannes.

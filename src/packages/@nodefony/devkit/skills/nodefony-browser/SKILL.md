@@ -1,55 +1,87 @@
 ---
 name: nodefony-browser
 description: >
-  Ouvre un écran de ton application dans un navigateur jetable, en conteneur, pour le VOIR et
-  surtout le MESURER — contrastes et tailles réellement calculés par le moteur de rendu, erreurs de
-  console, requêtes HTTP, frames WebSocket — sans installer de navigateur ni de pilote sur ta
-  machine. Porte les deux sondes prêtes à l'emploi, les trois contraintes de réseau qui font
-  répondre `421` ou `401` à une application pourtant saine, et les pièges qui font conclure FAUX :
-  mesurer avant que l'écran soit peuplé, observer un bundle qui n'est plus celui du code, prendre
-  une condition d'arrêt qui réussit toujours. Sait aussi piloter un socket temps réel de bout en
-  bout : accueil, abonnement à un canal, action, latence médiane, pont API, reconnexion. À charger
-  AVANT de conclure quoi que ce soit sur un écran.
+  Ouvre un écran de ton application dans un navigateur piloté pour le VOIR et surtout le MESURER —
+  contrastes et tailles réellement calculés par le moteur de rendu, audit d'accessibilité par
+  axe-core, erreurs de console, requêtes HTTP, frames WebSocket. Fonctionne sur ta machine
+  (Playwright) ou dans un conteneur jetable, au choix. Porte les sondes prêtes à l'emploi, le choix
+  du thème clair ou sombre — un défaut d'affichage n'existe souvent que dans l'un des deux —, les
+  contraintes de réseau qui font répondre `421` ou `401` à une application pourtant saine, et les
+  pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, observer un bundle qui
+  n'est plus celui du code, prendre une condition d'arrêt qui réussit toujours. Sait aussi piloter
+  un socket temps réel de bout en bout : accueil, abonnement à un canal, action, latence médiane,
+  pont API, reconnexion. À charger AVANT de conclure quoi que ce soit sur un écran.
   Déclencheurs : "regarde l'écran", "vérifie l'affichage", "est-ce que ça s'affiche ?",
   "montre-moi la page", "lis la console", "y a-t-il des erreurs JS ?", "mesure le contraste",
   "cette couleur est-elle lisible ?", "capture d'écran", "vérifie l'accessibilité",
-  "audit accessibilité", "la page est-elle rapide ?", "temps de chargement", "responsive ?",
+  "audit accessibilité", "audit WCAG", "en mode clair", "en mode sombre", "le thème sombre",
+  "la page est-elle rapide ?", "temps de chargement", "responsive ?",
   "quelles requêtes fait la page ?", "le temps réel arrive-t-il jusqu'à l'écran ?",
   "teste le socket", "mesure la latence du websocket", "le canal pousse-t-il ?",
   "l'application démarre-t-elle vraiment ?".
 ---
 
-# see-screen — voir et MESURER un écran, sans navigateur sur ton poste
+# see-screen — voir et MESURER un écran
 
 > ⚖️ **La confiance n'exclut pas le contrôle.** Un `curl` prouve qu'une route répond ; il ne dit
 > pas si l'écran se monte, s'alimente et ne crie pas dans la console.
 
-## Le geste
+## Le geste — sur ta machine
 
-Le conteneur s'appelle **`<nom-de-ton-app>-browser`** — c'est fixé par le `compose.yaml`, tu n'as
-donc rien à chercher. Remplace-le dans les trois commandes :
+```bash
+npm i -D playwright && npx playwright install chromium
+node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /
+```
+
+C'est tout. Les sondes **constatent** où elles s'exécutent : sur ta machine elles visent
+`https://127.0.0.1:5152` et déposent leurs captures dans `tmp/browser/`. Rien à configurer tant que
+tu ne changes pas de port — et `NF_BROWSER_BASE` est là si tu le changes.
+
+Playwright est un **pair optionnel** : il porte un navigateur de plus de cent mégaoctets, qu'il
+serait déraisonnable d'imposer à qui n'a pas besoin de regarder un écran. Tant qu'il manque, les
+sondes s'arrêtent en le disant, avec la commande exacte à taper — jamais sur un « module
+introuvable » nu.
+
+## L'autre voie — en conteneur, et QUAND s'en servir
+
+Le conteneur n'est pas « la bonne façon » : c'est un compromis, et il se choisit sur ce que tu es en
+train de faire.
+
+| Ce que tu fais                                                         | La voie       | Pourquoi                                                                                                                                                                                      |
+| ---------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Corriger un écran et vérifier ta correction                            | **locale**    | la boucle est bien plus courte — pas de copie vers un conteneur entre deux essais                                                                                                             |
+| Regarder une page vite fait, lire la console                           | **locale**    | une commande, rien à démarrer                                                                                                                                                                 |
+| **Comparer une mesure** dans le temps ou entre machines                | **conteneur** | l'image est épinglée par empreinte : le même navigateur aujourd'hui et dans six mois. Un contraste ne bouge pas d'une version de navigateur à l'autre — un temps de rendu ou un Web Vital, si |
+| **Intégration continue**                                               | **conteneur** | un exécuteur sans interface graphique a déjà tout ; même décor qu'en local                                                                                                                    |
+| Piloter une session authentifiée avec des identifiants **sensibles**   | **conteneur** | le navigateur n'y voit ni ton disque ni ton réseau local                                                                                                                                      |
+| Tu ne veux **rien** installer, ou ta machine n'a pas les bibliothèques | **conteneur** | l'image porte navigateur, pilote et dépendances système                                                                                                                                       |
+
+Ce que le conteneur coûte, en revanche : le démarrer, recopier les sondes à chaque modification,
+joindre ton application par un nom particulier (ci-dessous), et publier les ports. Sur une boucle de
+correction, cela se paie à chaque tour.
 
 ```bash
 docker compose --profile browser up -d
 docker cp node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/. mon-app-browser:/app/see-screen
+docker cp node_modules/axe-core/axe.min.js mon-app-browser:/app/see-screen/axe.min.js
 docker exec mon-app-browser node /app/see-screen/inspect.mjs /
 ```
 
-> Le **`/.`** de la deuxième commande n'est pas décoratif : il copie le CONTENU du dossier. Sans lui,
-> une seconde copie **imbrique** un dossier de plus au lieu de remplacer, et tu relances alors une
+Le conteneur s'appelle **`<nom-de-ton-app>-browser`** — fixé par le `compose.yaml`, rien à chercher.
+
+> Le **`/.`** de la copie n'est pas décoratif : il copie le CONTENU du dossier. Sans lui, une
+> seconde copie **imbrique** un dossier de plus au lieu de remplacer, et tu relances alors une
 > version périmée des sondes en croyant les avoir mises à jour — sans le moindre message.
+
+La troisième ligne emporte `axe-core`, qui vit dans les dépendances de ton projet et n'est donc pas
+dans le dossier des sondes. Sans elle, la famille `axe` s'annonce **indisponible** et te donne cette
+commande — elle ne rend jamais un verdict qu'elle n'a pas mesuré.
 
 Ces commandes tiennent chacune sur **une ligne** et n'emploient ni substitution, ni tube, ni
 continuation : elles passent telles quelles dans un terminal Linux, macOS, PowerShell ou `cmd.exe`.
-Les chemins que voient les scripts (`/app/see-screen`, `/output`) sont ceux du conteneur — donc
-toujours POSIX, quelle que soit ta machine.
-
-Le conteneur meurt au `down`, est plafonné en ressources, et dépose ses captures dans `tmp/browser/`
-grâce au volume monté. **Rien à installer sur ta machine** : ni Chromium, ni pilote.
 
 > **Ne demande jamais à l'utilisateur de jouer la sonde** (« recharge et dis-moi ce que dit la
-> console »). Ce réflexe vient de la règle « pas de navigateur automatisé sur le poste », dont
-> l'exception — un environnement isolé — est précisément ce conteneur.
+> console »). C'est le travail de cet outil, quelle que soit la voie choisie.
 
 ## Ce que la sonde rend, et qu'une capture ne dit pas
 
@@ -112,27 +144,67 @@ Les sondes de couleur cherchent tes sélecteurs, pas ceux d'une bibliothèque : 
 `color-scheme` **calculé** (ce que le moteur applique) et sur `data-theme`. Si ton application marque
 son thème autrement, sonde-le comme n'importe quel autre élément.
 
+### Mesurer dans le thème que tu veux — pas seulement celui par défaut
+
+**Un défaut d'affichage n'existe souvent que dans UN des deux thèmes.** Vécu : un libellé de menu
+actif à **1,62:1** en clair — illisible — et impeccable en sombre, où la même variable de couleur
+rend une nuance opposée. Tant qu'on ne regarde qu'un seul thème, la palette paraît saine.
+
+```bash
+NF_BROWSER_COLOR_SCHEME=light NF_BROWSER_FAMILIES=axe node .../scripts/inspect.mjs /tableau-de-bord "Chiffre d affaires"
+```
+
+`NF_BROWSER_COLOR_SCHEME` émule `prefers-color-scheme` — la média query standard, comprise quelle
+que soit ta trousse d'interface. Valeurs : `light`, `dark`, `no-preference` ; toute autre est
+**refusée** (code 64), car l'accepter ferait mesurer le thème par défaut en croyant tenir l'autre.
+
+Si ton application **mémorise** le choix de l'utilisateur, elle n'obéit plus à cette média query :
+donne alors la clé de stockage, qui t'appartient — le code ne la devine pas.
+
+```bash
+NF_BROWSER_STORAGE="ma-cle-de-theme=light" node .../scripts/inspect.mjs /
+```
+
+Le champ `theme` de la sortie dit ce qui a été RÉELLEMENT appliqué. Vérifie-le : c'est ainsi qu'on
+sait qu'on a mesuré le bon écran.
+
 ## Les familles de sondes — activables, jamais un mur de JSON
 
 Le socle ci-dessus sort toujours. Le reste s'active par famille, chacune rendant un **verdict**
 (`OK`/`ALERTE`) et des données bornées — comptes et 3 exemples, jamais l'inventaire :
 
 ```bash
-docker exec -e "NF_BROWSER_FAMILIES=a11y,perf,reseau" mon-app-browser node /app/see-screen/inspect.mjs /tableau-de-bord "Chiffre d affaires"
+NF_BROWSER_FAMILIES=axe,perf,reseau node .../scripts/inspect.mjs /tableau-de-bord "Chiffre d affaires"
 ```
 
-| Famille      | Question à laquelle elle répond                                                            |
-| ------------ | ------------------------------------------------------------------------------------------ |
-| `a11y`       | Étiquettes, noms accessibles, hiérarchie des titres, cibles < 24 px, arbre d'accessibilité |
-| `rendu`      | Débordement horizontal, éléments hors viewport, polices RÉELLEMENT chargées                |
-| `reseau`     | Requêtes, échecs, ressources lourdes et lentes, octets réellement transférés               |
-| `perf`       | TTFB, FCP, LCP, CLS, tâches longues — verdict sur les seuils Web Vitals                    |
-| `stockage`   | Attributs des cookies et inventaire du Web Storage — **jamais les valeurs**                |
-| `responsive` | Le débordement horizontal rejoué à plusieurs largeurs (`NF_BROWSER_WIDTHS`)                |
+| Famille      | Question à laquelle elle répond                                                                    |
+| ------------ | -------------------------------------------------------------------------------------------------- |
+| **`axe`**    | **Audit WCAG complet par `axe-core` — une centaine de règles, dont le contraste de TOUT le texte** |
+| `a11y`       | Étiquettes, noms accessibles, hiérarchie des titres, cibles < 24 px, arbre d'accessibilité         |
+| `rendu`      | Débordement horizontal, éléments hors viewport, polices RÉELLEMENT chargées                        |
+| `reseau`     | Requêtes, échecs, ressources lourdes et lentes, octets réellement transférés                       |
+| `perf`       | TTFB, FCP, LCP, CLS, tâches longues — verdict sur les seuils Web Vitals                            |
+| `stockage`   | Attributs des cookies et inventaire du Web Storage — **jamais les valeurs**                        |
+| `responsive` | Le débordement horizontal rejoué à plusieurs largeurs (`NF_BROWSER_WIDTHS`)                        |
 
 `NF_BROWSER_FAMILIES=toutes` active tout ; un nom inconnu est **refusé** (code 64), jamais ignoré.
 Ce que chaque champ veut dire, comment lire un verdict, et **quand chaque famille se trompe** :
 [`references/sondes.md`](references/sondes.md) — à lire avant de conclure sur un `ALERTE`.
+
+> 🔴 **Pour l'accessibilité, prends `axe` — pas `a11y` seule, et n'écris JAMAIS ton propre calcul.**
+> Les règles WCAG sont pleines de cas particuliers qu'on ne devine pas : canaux en 0–1 des
+> couleurs CSS modernes, fonds semi-transparents à composer sur ce qu'il y a dessous, texte peint
+> par une police en couleurs, éléments masqués aux seules techniques d'assistance. Une sonde écrite
+> à la main les rate et produit des échecs inventés **qui noient les vrais** — mesuré : quarante et
+> un faux positifs contre sept défauts réels, dont celui qu'on cherchait, invisible au milieu.
+> `axe-core` est le moteur qu'embarque Lighthouse pour ce volet ; `a11y` reste utile pour ce qu'il
+> ne fait pas — l'arbre d'accessibilité brut et les cibles trop petites.
+>
+> `axe` distingue trois choses, et la nuance compte : les **manquements** (avérés, ils font
+> l'alerte), les cas **à vérifier** (le moteur refuse de trancher — un fond en image, par exemple —
+> et ce n'est PAS un défaut), et les règles **conformes**. Chaque manquement rend jusqu'à cinq
+> cibles distinctes plus le compte des autres : une même règle couvre des défauts à des endroits
+> différents, qui ne se corrigent pas d'un seul geste.
 
 ## Observer ce qui se PASSE — `watch.mjs`
 

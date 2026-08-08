@@ -385,7 +385,13 @@ export const Documentation = observer(() => {
                               size="xs"
                               fw={700}
                               tt="uppercase"
-                              c="dimmed"
+                              // Estompé au repos, mais JAMAIS sur l'entrée
+                              // active : le gris `dimmed` posé sur l'aplat de
+                              // marque tombait à 1,11:1 — un libellé de section
+                              // devenu invisible au moment précis où il compte.
+                              // `inherit` reprend la couleur que le thème pose
+                              // pour l'état actif, quelle que soit la palette.
+                              c={onHub ? "inherit" : "dimmed"}
                               style={{ letterSpacing: "0.04em" }}
                             >
                               {s.label}

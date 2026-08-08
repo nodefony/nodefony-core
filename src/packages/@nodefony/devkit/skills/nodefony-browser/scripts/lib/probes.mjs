@@ -17,6 +17,7 @@
  */
 export const FAMILLES = Object.freeze({
   a11y: "accessibilité — étiquettes, noms accessibles, titres, cibles, arbre ARIA",
+  axe: "audit WCAG complet par axe-core — une centaine de règles, dont le contraste de tout le texte",
   rendu:
     "rendu — débordement horizontal, éléments hors viewport, polices réellement chargées",
   reseau: "réseau — requêtes, échecs, ressources lourdes, temps de réponse",
@@ -83,6 +84,92 @@ export function parseProbes(brut) {
 }
 
 /**
+ * Analyse le schéma de couleurs demandé (`NF_BROWSER_COLOR_SCHEME`).
+ *
+ * Les valeurs sont celles de la MÉDIA QUERY standard, jamais le vocabulaire
+ * d'une bibliothèque : `prefers-color-scheme` est ce que tout moteur de rendu
+ * comprend, quelle que soit la trousse d'interface au-dessus.
+ *
+ * Une valeur inconnue est REFUSÉE : silencieusement ignorée, elle ferait
+ * mesurer le thème par défaut en croyant tenir l'autre — le faux vert dont un
+ * défaut visible dans UN SEUL thème est le cas d'école.
+ *
+ * @param {string|undefined} brut - valeur brute (`"light"`, `"dark"`, vide).
+ * @returns {{ schema: "light"|"dark"|"no-preference"|null, invalide: string|null }}
+ *   `schema` à null quand rien n'est demandé (on ne force rien).
+ */
+export function parseColorScheme(brut) {
+  const v = String(brut ?? "")
+    .trim()
+    .toLowerCase();
+  if (!v) return { schema: null, invalide: null };
+  if (v === "light" || v === "dark" || v === "no-preference")
+    return { schema: v, invalide: null };
+  return { schema: null, invalide: v };
+}
+
+/**
+ * Analyse les entrées de stockage à poser avant chargement (`NF_BROWSER_STORAGE`).
+ *
+ * Pourquoi ce détour plutôt qu'un réglage de thème tout fait : une application
+ * qui MÉMORISE son thème ne suit plus `prefers-color-scheme`, et la clé qu'elle
+ * emploie lui appartient. Chaque trousse d'interface a la sienne, et elles
+ * changent d'une version à l'autre ; en coder une rendrait la sonde juste pour
+ * cette trousse-là et faussement rassurante pour toutes les autres. La
+ * précision vit donc dans l'ARGUMENT, jamais dans le code — c'est celui qui
+ * connaît son application qui donne la clé.
+ *
+ * Forme `clé=valeur`, séparées par des virgules. Une valeur peut contenir `=`
+ * (jeton, JSON) : seul le PREMIER `=` sépare.
+ *
+ * @param {string|undefined} brut - entrées séparées par des virgules.
+ * @returns {{ entrees: { cle: string, valeur: string }[], rejetees: string[] }}
+ */
+export function parseStorage(brut) {
+  const entrees = [];
+  const rejetees = [];
+  for (const morceau of String(brut ?? "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean)) {
+    const i = morceau.indexOf("=");
+    const cle = i > 0 ? morceau.slice(0, i).trim() : "";
+    const valeur = i > 0 ? morceau.slice(i + 1).trim() : "";
+    if (cle && valeur) entrees.push({ cle, valeur });
+    else rejetees.push(morceau);
+  }
+  return { entrees, rejetees };
+}
+
+/**
+ * Les deux réglages qui dépendent de l'ENDROIT d'où la sonde s'exécute.
+ *
+ * Le navigateur tourne soit sur la machine du développeur, soit dans un
+ * conteneur — et les deux ne voient pas le même monde : `127.0.0.1` désigne le
+ * CONTENEUR lui-même quand on y est enfermé, et le dossier de sortie n'est un
+ * volume monté que là-bas.
+ *
+ * Le verdict est INJECTÉ, jamais déduit d'une plateforme ni lu ici : c'est ce
+ * qui rend cette fonction éprouvable des deux côtés sans conteneur, et ce qui
+ * évite de faire dire à `process.platform` une chose qu'il ne sait pas. Une
+ * capacité se constate ; c'est l'appelant qui constate, cette fonction décide.
+ *
+ * @param {{dansConteneur: boolean, base?: string, out?: string}} decor -
+ *   le constat, et les valeurs explicites qui l'emportent toujours.
+ * @returns {{ base: string, out: string }} origine à joindre, dossier de sortie.
+ */
+export function defautsDecor({ dansConteneur, base, out } = {}) {
+  return {
+    base:
+      base ||
+      (dansConteneur
+        ? "https://host.docker.internal:5152"
+        : "https://127.0.0.1:5152"),
+    out: out || (dansConteneur ? "/output" : "tmp/browser"),
+  };
+}
+
+/**
  * Analyse les largeurs d'écran de la famille `responsive` (`NF_BROWSER_WIDTHS`).
  *
  * Bornes 240–4000 : en deçà aucun navigateur réel, au-delà on ne mesure plus un
@@ -136,4 +223,71 @@ export function mediane(valeurs) {
   const tri = [...valeurs].sort((a, b) => a - b);
   const m = Math.floor(tri.length / 2);
   return tri.length % 2 === 1 ? tri[m] : (tri[m - 1] + tri[m]) / 2;
+}
+/**
+ * Résume un rapport axe-core en un bloc lisible — le tri éditorial, pas la mesure.
+ *
+ * Rendue à part et PURE pour être éprouvée sans navigateur : c'est la seule
+ * partie qu'on écrit soi-même, donc la seule qui puisse être fausse.
+ *
+ * @param {{violations: object[], passes?: object[], incomplete?: object[]}} rapport
+ *   ce que rend `axe.run()`.
+ * @returns {object} verdict, comptes par gravité, et les manquements les plus
+ *   graves avec un exemple de cible chacun.
+ */
+export function resumeAxe(rapport) {
+  const violations = rapport.violations ?? [];
+  const parGravite = { critical: 0, serious: 0, moderate: 0, minor: 0 };
+  for (const v of violations)
+    if (Object.hasOwn(parGravite, v.impact ?? "")) parGravite[v.impact] += 1;
+  const rang = { critical: 0, serious: 1, moderate: 2, minor: 3 };
+  const graves = [...violations].sort(
+    (a, b) => (rang[a.impact] ?? 9) - (rang[b.impact] ?? 9),
+  );
+  return {
+    // Un manquement AVÉRÉ vaut alerte ; `incomplete` ne suffit pas — ce sont
+    // les cas qu'axe refuse de trancher seul (fond en image, par exemple), pas
+    // des défauts. Les compter comme tels ferait crier la sonde à tort.
+    verdict: violations.length === 0 ? "OK" : "ALERTE",
+    moteur: `axe-core ${rapport.testEngine?.version ?? "?"}`,
+    reglesJouees:
+      violations.length +
+      (rapport.passes?.length ?? 0) +
+      (rapport.incomplete?.length ?? 0),
+    conformes: rapport.passes?.length ?? 0,
+    manquements: { total: violations.length, parGravite },
+    // À trancher à la main — axe dit qu'il ne peut pas conclure, il ne dit pas
+    // que c'est bon.
+    aVerifier: (rapport.incomplete ?? []).slice(0, 5).map((v) => ({
+      regle: v.id,
+      description: v.help,
+      cibles: v.nodes.length,
+    })),
+    plusGraves: graves.slice(0, 8).map((v) => ({
+      regle: v.id,
+      gravite: v.impact,
+      description: v.help,
+      criteres: (v.tags ?? []).filter((t) => /^wcag\d|^best-practice$/.test(t)),
+      cibles: v.nodes.length,
+      // Jusqu'à CINQ cibles par règle, pas une seule : une même règle couvre
+      // des défauts DISTINCTS à des endroits distincts — huit contrastes ratés
+      // dans huit composants différents ne se corrigent pas d'un seul geste.
+      // N'en montrer qu'un ferait croire le travail fini après le premier.
+      exemples: v.nodes.slice(0, 5).map((n) => ({
+        cible: n.target?.join(" ") ?? "",
+        // Le « pourquoi » calculé par axe : contraste mesuré, rôle attendu…
+        constat: (
+          n.any?.[0]?.message ??
+          n.all?.[0]?.message ??
+          n.failureSummary ??
+          ""
+        )
+          .replace(/\s+/g, " ")
+          .slice(0, 200),
+        extrait: (n.html ?? "").slice(0, 120),
+      })),
+      autresCibles: Math.max(0, v.nodes.length - 5),
+      documentation: v.helpUrl,
+    })),
+  };
 }

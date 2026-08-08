@@ -1,22 +1,25 @@
 ---
 name: nodefony-browser
 metadata:
-  version: 1.0.0
+  version: 1.1.0
 description: >
-  Ouvre une page réelle dans un navigateur en conteneur pour la VOIR et surtout la MESURER —
-  contrastes calculés, accessibilité, Web Vitals, réseau, console, débordements — et pilote un
-  socket applicatif de bout en bout (accueil, abonnement, action, latence, reconnexion) depuis la
-  page elle-même, donc avec ses cookies et son origine. Sans navigateur sur le poste. Porte le
-  décor et les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, joindre
-  l'hôte par le mauvais nom, observer un bundle qui n'est pas celui qu'on a bâti. À charger AVANT
-  de constater quoi que ce soit à l'écran. Déclencheurs : "regarde l'écran", "vérifie l'affichage",
+  Ouvre une page réelle dans un navigateur piloté — sur le poste ou en conteneur, au choix — pour
+  la VOIR et surtout la MESURER : contrastes calculés, audit WCAG par axe-core, Web Vitals, réseau,
+  console, débordements ; et pilote un socket applicatif de bout en bout (accueil, abonnement,
+  action, latence, reconnexion) depuis la page elle-même, donc avec ses cookies et son origine.
+  Sait demander le thème CLAIR ou SOMBRE — un défaut d'affichage n'existe souvent que dans l'un des
+  deux. Porte le décor et les pièges qui font conclure FAUX : mesurer avant que l'écran soit
+  peuplé, joindre l'hôte par le mauvais nom, observer un bundle qui n'est pas celui qu'on a bâti,
+  croire une mesure de contraste écrite à la main. À charger AVANT de constater quoi que ce soit à
+  l'écran. Déclencheurs : "regarde l'écran", "vérifie l'affichage",
   "est-ce que ça s'affiche ?", "lis la console", "y a-t-il des erreurs JS ?", "mesure le contraste",
-  "cette couleur est-elle lisible ?", "capture d'écran", "vérifie l'accessibilité",
+  "cette couleur est-elle lisible ?", "capture d'écran", "vérifie l'accessibilité", "audit WCAG",
+  "en mode clair", "en mode sombre", "le thème sombre casse quelque chose ?",
   "quelles requêtes fait la page ?", "le temps réel arrive-t-il à l'écran ?", "teste le websocket",
   "quelle latence sur le socket ?", "la page déborde-t-elle sur mobile ?".
 ---
 
-# nodefony-browser — voir et MESURER une page, sans navigateur sur le poste
+# nodefony-browser — voir et MESURER une page
 
 > **Maintenance** : vérité courante, jamais un journal. Éditer en place ; l'historique vit dans
 > `git log`. Une leçon durable devient une règle d'une section, pas une entrée datée.
@@ -40,16 +43,39 @@ cible, vérifier qu'une application générée démarre, prendre une capture pou
 | Diagnostiquer un symptôme runtime côté serveur         | `nodefony-debug`        |
 | Restituer des mesures à un humain (rapport)            | `nodefony-html-report`  |
 
-## 2. Le décor — un service, déjà déclaré
+## 2. Le décor — deux voies, la locale d'abord
 
 ```bash
+# Sur le poste — le plus court, et ce que fait l'utilisateur d'une application
+node src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /nodefony/login "Connexion"
+```
+
+Les sondes **constatent** où elles s'exécutent (`/.dockerenv`) et en déduisent l'origine à joindre
+et le dossier de sortie : `https://127.0.0.1:5152` et `tmp/browser/` en local. Prérequis :
+`npm i -D playwright && npx playwright install chromium` — Playwright est un **pair optionnel**, et
+son absence s'annonce avec la commande à taper, jamais par un « module introuvable ».
+
+```bash
+# En conteneur — pour une mesure COMPARABLE (image épinglée par empreinte) ou de l'ISOLATION
 docker compose -f docker/docker-compose.yml --profile browser up -d
 docker ps --filter name=nodefony-browser --format '{{.Status}}'
 ```
 
 Le conteneur `nodefony-browser` embarque Chromium et Playwright, est plafonné (2 CPU / 2 Go),
-disparaît au `down`, et monte `tmp/browser/` du dépôt sur son `/output` — **les captures et les
-mesures sortent du conteneur**, c'est tout l'intérêt du service déclaré.
+disparaît au `down`, et monte `tmp/browser/` du dépôt sur son `/output`.
+
+**Laquelle prendre** — le conteneur n'est pas « la bonne façon », c'est un compromis :
+
+| Ce qu'on fait                                              | Voie          | Pourquoi                                                                                                                                          |
+| ---------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Corriger un écran, vérifier la correction, lire la console | **locale**    | la boucle est bien plus courte — aucune copie entre deux essais (cette session en a payé sept)                                                    |
+| **Comparer** une mesure dans le temps ou entre machines    | **conteneur** | image épinglée par empreinte : même navigateur aujourd'hui et dans six mois. Un contraste ne bouge pas d'une version à l'autre — un Web Vital, si |
+| **Intégration continue**                                   | **conteneur** | un exécuteur sans interface graphique a déjà tout, et c'est le même décor qu'en local                                                             |
+| Session authentifiée avec des identifiants **sensibles**   | **conteneur** | le navigateur n'y voit ni le disque du poste ni son réseau local                                                                                  |
+| Ne rien vouloir installer sur le poste                     | **conteneur** | l'image porte navigateur, pilote et bibliothèques système                                                                                         |
+
+Le coût du conteneur, lui, se paie à CHAQUE tour de boucle : le démarrer, recopier les sondes après
+chaque modification, joindre l'application par `host.docker.internal` (§4), publier les ports.
 
 ## 3. Voir ET mesurer — `inspect.mjs`
 
@@ -135,12 +161,37 @@ docker exec -e "NF_BROWSER_FAMILIES=a11y,perf,reseau" \
   nodefony-browser node /app/see-screen/inspect.mjs /nodefony/supervision "Santé du framework"
 ```
 
-`a11y` (étiquettes, noms accessibles, hiérarchie des titres, cibles < 24 px, arbre d'accessibilité) ·
-`rendu` (débordement, hors-viewport, polices réellement chargées) · `reseau` (échecs, ressources
-lourdes et lentes, octets transférés) · `perf` (TTFB, FCP, LCP, CLS, tâches longues) · `stockage`
-(attributs des cookies, inventaire du Web Storage — **jamais les valeurs**) · `responsive` (le
-débordement rejoué à plusieurs largeurs). `toutes` active tout ; un nom inconnu est **refusé**
-(code 64), jamais ignoré.
+**`axe`** (audit WCAG complet par `axe-core` — une centaine de règles, dont le contraste de TOUT le
+texte visible) · `a11y` (étiquettes, noms accessibles, hiérarchie des titres, cibles < 24 px, arbre
+d'accessibilité) · `rendu` (débordement, hors-viewport, polices réellement chargées) · `reseau`
+(échecs, ressources lourdes et lentes, octets transférés) · `perf` (TTFB, FCP, LCP, CLS, tâches
+longues) · `stockage` (attributs des cookies, inventaire du Web Storage — **jamais les valeurs**) ·
+`responsive` (le débordement rejoué à plusieurs largeurs). `toutes` active tout ; un nom inconnu est
+**refusé** (code 64), jamais ignoré.
+
+> 🔴 **Accessibilité : `axe`, et jamais un calcul maison.** Écrire soi-même une mesure de contraste
+> paraît trivial et ne l'est pas — canaux en 0–1 des couleurs CSS modernes, fonds semi-transparents
+> à composer, emoji peints par une police en couleurs. Mesuré dans ce dépôt : une sonde maison a
+> rendu **41 faux positifs** qui masquaient **7 défauts réels**, dont celui qu'on cherchait.
+> `axe-core` est le moteur qu'embarque Lighthouse pour ce volet. Il vient des dépendances du projet,
+> donc en conteneur il faut le copier À PART :
+> `docker cp node_modules/axe-core/axe.min.js nodefony-browser:/app/see-screen/axe.min.js` — sans
+> quoi la famille s'annonce `INDISPONIBLE` plutôt que de rendre un verdict non mesuré.
+
+### Choisir le THÈME — un défaut n'existe souvent que dans l'un des deux
+
+```bash
+NF_BROWSER_COLOR_SCHEME=light NF_BROWSER_STORAGE="mantine-color-scheme-value=light" \
+  NF_BROWSER_FAMILIES=axe node .../scripts/inspect.mjs /nodefony/documentation "Documentation"
+```
+
+`NF_BROWSER_COLOR_SCHEME` émule `prefers-color-scheme` (standard) ; `NF_BROWSER_STORAGE` pose la
+clé de stockage quand l'application MÉMORISE le choix — ce qui est le cas de la console
+d'administration, dont le thème ne suit alors plus la média query. Toujours **relire le champ
+`theme`** de la sortie : c'est lui qui dit quel écran a réellement été mesuré.
+
+Vécu ici : le libellé actif du menu de documentation était à **1,62:1** en clair et parfait en
+sombre — invisible tant qu'on ne demandait pas explicitement le thème clair.
 
 **Avant de conclure sur un `ALERTE`, lis quand la famille se trompe** :
 `src/packages/@nodefony/devkit/skills/nodefony-browser/references/sondes.md`. En mode développement,
