@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-08T11:55:34.956Z",
+  "generated": "2026-08-08T12:02:38.694Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 688,
-    "symbols": 2813,
+    "symbols": 2814,
     "classes": 347,
     "interfaces": 816,
     "types": 366,
     "enums": 4,
-    "functions": 1018,
+    "functions": 1019,
     "constants": 262
   },
   "symbols": {
@@ -11078,6 +11078,14 @@
       "exported": true,
       "module": "@nodefony/frontend",
       "description": "Un texte (message d'erreur OU sortie brute de Vite) dénonce-t-il un port occupé ? **Source UNIQUE** de cette décision. Elle était dupliquée en deux regex qui ont divergé : l'une cherchait `port X i…"
+    },
+    "startupTimeoutMessage": {
+      "name": "startupTimeoutMessage",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Message d'échec d'un boot qui n'a jamais rendu la main dans le temps imparti — en y REPORTANT ce que vite avait déjà dit. Le conflit de port ne se voit que dans la sortie du child. Le rejet par éch…"
     },
     "IViteInstanceView": {
       "name": "IViteInstanceView",

@@ -121,9 +121,12 @@ export const frontendConfigSchema = z
       .positive()
       .default(5173)
       .describe(
-        "Port d'écoute du dev server Vite (Vite démarre sur 5173 par défaut). Si " +
-          "occupé, Vite incrémente jusqu'à un port libre ; le superviseur détecte " +
-          "le port réel dans son stdout et met à jour son `status()`.",
+        "Port d'écoute du dev server Vite (5173 par défaut) — port de BASE : chaque " +
+          "famille de frontends prend le bloc suivant. Si occupé, c'est le " +
+          "SUPERVISEUR qui relance sur le port suivant (`resilience.portRetryAttempts` " +
+          "essais) et publie le port réel dans son `status()` — Vite, lui, ne se " +
+          "décale jamais seul : le fichier généré porte `strictPort` pour que " +
+          "l'origine annoncée au navigateur soit toujours celle qui sert.",
       ),
     publicOrigin: z
       .string()

@@ -170,6 +170,36 @@ export function isPortInUseMessage(text: string): boolean {
 }
 
 /**
+ * Message d'échec d'un boot qui n'a jamais rendu la main dans le temps imparti —
+ * en y REPORTANT ce que vite avait déjà dit.
+ *
+ * Le conflit de port ne se voit que dans la sortie du child. Le rejet par
+ * échéance ne portait que la durée : un boot qui annonçait « Port 5173 is
+ * already in use » puis restait pendu (vite ne meurt pas toujours, et sur une
+ * application réelle le pré-bundling tient l'échéance) sortait sous le libellé
+ * `timeout after …`, que le détecteur de port occupé ne reconnaît pas. Le repli
+ * sur `port+1` existait et n'était jamais atteint — la sortie d'échec choisie
+ * décidait à elle seule si la 2ᵉ application aurait un frontend.
+ *
+ * Fonction PURE : la règle « ce qu'on a OBSERVÉ prime sur la façon dont on a
+ * échoué » se teste sans spawn, donc sans dépendre d'une course entre l'écriture
+ * de l'erreur et la mort du process.
+ *
+ * @param timeoutMs - échéance dépassée.
+ * @param observed - sortie brute accumulée du child (stdout + stderr).
+ * @returns message d'erreur, préfixé `EADDRINUSE:` si un port occupé est dénoncé.
+ */
+export function startupTimeoutMessage(
+  timeoutMs: number,
+  observed: string,
+): string {
+  const base = `timeout after ${timeoutMs}ms`;
+  return isPortInUseMessage(observed)
+    ? `EADDRINUSE: ${base} — vite a annoncé un port occupé sans rendre la main`
+    : base;
+}
+
+/**
  * Superviseur Vite résilient — branche POC `poc/frontend-child`.
  *
  * Garanties :
@@ -465,7 +495,6 @@ export class ViteProcessSupervisor implements IViteSupervisor {
         if (resolved) return;
         resolved = true;
         this.state = "errored";
-        this.lastError = "startup timeout";
         // Le child est peut-être VIVANT (boot interminable, pas mort) : sans ce
         // kill il devenait un ORPHELIN hors machine à états — aucun handler
         // runtime attaché, aucun restart, un Vite fantôme qui squatte le port
@@ -473,11 +502,12 @@ export class ViteProcessSupervisor implements IViteSupervisor {
         if (child.exitCode === null && child.signalCode === null) {
           this.signalTree(child, "SIGKILL");
         }
-        reject(
-          new FrontendSupervisorStartError(
-            `timeout after ${this.opts.startupTimeoutMs}ms`,
-          ),
-        );
+        // Ce que vite a DIT prime sur la façon dont on a cessé de l'attendre :
+        // un port occupé annoncé puis un boot pendu doit rester rattrapable par
+        // le retry de port (cf startupTimeoutMessage).
+        const msg = startupTimeoutMessage(this.opts.startupTimeoutMs, buffer);
+        this.lastError = msg;
+        reject(new FrontendSupervisorStartError(msg));
       }, this.opts.startupTimeoutMs);
 
       const localRe = /Local:\s+https?:\/\/([^:\s]+):(\d+)/;
