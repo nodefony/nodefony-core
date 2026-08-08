@@ -33,6 +33,7 @@ devkit/
 │   ├── interfaces/IDevkitService.ts              ← contrat public
 │   └── src/errors/DevkitError.ts                 ← erreurs typées
 ├── skills/<nom>/SKILL.md                         ← CONTENU des skills d'agent (publié tel quel)
+│   └── scripts/                                  ← outils que le skill fait EXÉCUTER (see-screen : sondes Playwright)
 ├── tests/                                        ← vitest
 └── docs/                                         ← doc du module (surfacée dans Studio)
 ```

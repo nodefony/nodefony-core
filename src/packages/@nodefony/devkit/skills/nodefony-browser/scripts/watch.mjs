@@ -7,38 +7,24 @@
  * une frame qui n'arrive pas, un canal qui pousse trop, une reconnexion en
  * boucle ne se voient sur aucune capture d'écran.
  *
- * `@usage` docker exec nodefony-browser node /app/watch.mjs /nodefony/supervision 8000
+ * `@usage` docker exec <app>-browser node /app/watch.mjs /tableau-de-bord 8000
  * `@env` NF_BROWSER_BASE origine vue DEPUIS le conteneur (défaut https://host.docker.internal:5152)
+ * `@env` NF_BROWSER_LOGIN chemin du formulaire de connexion de TON application — requis dès qu'un identifiant est donné, aucun défaut n'est deviné
  * `@env` NF_BROWSER_USER identifiant ; sans lui, aucune authentification n'est tentée
  * `@env` NF_BROWSER_PASSWORD mot de passe associé
  * `@env` NF_BROWSER_UNTIL expression JS évaluée DANS la page ; l'observation s'arrête dès qu'elle est vraie (point d'arrêt applicatif)
  * `@env` NF_BROWSER_MAXFRAMES nombre de frames WebSocket conservées par sens (défaut 12)
- * `@requires` conteneur `nodefony-browser` démarré · serveur Nodefony joignable
+ * `@requires` conteneur du profil `browser` démarré · serveur Nodefony joignable
  * `@output` JSON : sockets et leurs frames (horodatées), requêtes non-2xx, erreurs console, verdict de la condition
  */
-import { chromium } from "playwright";
-import { existsSync } from "node:fs";
+import { open, goTo } from "./lib/browser.mjs";
 
-const BASE = process.env.NF_BROWSER_BASE ?? "https://host.docker.internal:5152";
-const PAGE = process.argv[2] ?? "/nodefony";
+const PAGE = process.argv[2] ?? process.env.NF_BROWSER_PAGE ?? "/";
 const DURATION = Number(process.argv[3] ?? 8000);
-const USER = process.env.NF_BROWSER_USER ?? "";
-const PASSWORD = process.env.NF_BROWSER_PASSWORD ?? "";
 const UNTIL = process.env.NF_BROWSER_UNTIL ?? "";
 const MAX = Number(process.env.NF_BROWSER_MAXFRAMES ?? 12);
 
-const browser = await chromium.launch({
-  channel: "chromium",
-  args: ["--no-sandbox"],
-});
-const STATE = "/output/.auth-state.json";
-const reuse = USER && existsSync(STATE);
-const ctx = await browser.newContext({
-  ignoreHTTPSErrors: true,
-  viewport: { width: 1440, height: 900 },
-  ...(reuse ? { storageState: STATE } : {}),
-});
-const page = await ctx.newPage();
+const { browser, ctx, page, reuse } = await open();
 
 const t0 = Date.now();
 const at = () => Date.now() - t0;
@@ -79,22 +65,7 @@ page.on("console", (m) => {
     consoleErrors.push({ a: at(), texte: m.text().slice(0, 200) });
 });
 
-// ── Connexion éventuelle ────────────────────────────────────────────────────
-if (USER && !reuse) {
-  await page.goto(`${BASE}/nodefony/login`, { waitUntil: "domcontentloaded" });
-  const id = page.getByRole("textbox", { name: /identifiant|username/i });
-  await id.fill(USER);
-  await id.press("Enter");
-  const pw = page.getByRole("textbox", { name: /mot de passe|password/i });
-  await pw.fill(PASSWORD, { timeout: 15000 });
-  await pw.press("Enter");
-  await page.waitForURL((u) => !u.pathname.endsWith("/login"), {
-    timeout: 20000,
-  });
-  await ctx.storageState({ path: STATE });
-}
-
-await page.goto(`${BASE}${PAGE}`, { waitUntil: "domcontentloaded" });
+await goTo(page, ctx, PAGE, reuse);
 
 // ── Le « point d'arrêt » : une CONDITION, pas une ligne de code ──────────────
 // `waitForFunction` réévalue l'expression dans la page à chaque animation frame.

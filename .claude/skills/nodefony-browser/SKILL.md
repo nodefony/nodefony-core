@@ -51,32 +51,47 @@ Le conteneur `nodefony-browser` embarque Chromium et Playwright, est plafonné (
 disparaît au `down`, et monte `tmp/browser/` du dépôt sur son `/output` — **les captures et les
 mesures sortent du conteneur**, c'est tout l'intérêt du service déclaré.
 
-## 3. Voir ET mesurer — `scripts/inspect.mjs`
+## 3. Voir ET mesurer — `inspect.mjs`
 
-Le script est copié dans le conteneur puis exécuté. Il rend un objet JSON sur la sortie standard
-et écrit une capture horodatée dans `tmp/browser/`.
+> 🔴 **Les sondes vivent dans le PAQUET**, pas ici :
+> `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/`. Elles partent sur npm avec le
+> devkit, et **un seul exemplaire** sert les deux publics — l'auteur du framework ici, l'utilisateur
+> d'une application là-bas. C'est ce qui garantit qu'une sonde cassée se voit le jour même, chez
+> quelqu'un qui peut la corriger. Ne pas en réintroduire une copie dans ce dossier.
+>
+> Corollaire : leurs défauts visent une application QUELCONQUE (page `/`, sondes `h1`/`body`, aucun
+> chemin de connexion deviné). Pour Studio, ce sont les réglages ci-dessous qui rétablissent le
+> décor — ils ne sont pas facultatifs.
+
+Les scripts sont copiés dans le conteneur puis exécutés. Ils rendent un objet JSON sur la sortie
+standard, et `inspect.mjs` écrit une capture horodatée dans `tmp/browser/`.
 
 ```bash
-docker cp .claude/skills/nodefony-browser/scripts/inspect.mjs nodefony-browser:/app/inspect.mjs
+docker cp src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/. nodefony-browser:/app/see-screen
 
 # une page publique
-docker exec nodefony-browser node /app/inspect.mjs /nodefony/login
+docker exec nodefony-browser node /app/see-screen/inspect.mjs /nodefony/login "Connexion"
 
 # une page derrière authentification, avec des sondes de style
 docker exec \
+  -e NF_BROWSER_LOGIN=/nodefony/login \
   -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret \
   -e "NF_BROWSER_PROBES=menu actif=[class*='NavLink-root'][data-active]" \
-  nodefony-browser node /app/inspect.mjs /nodefony/supervision "Santé du framework"
+  nodefony-browser node /app/see-screen/inspect.mjs /nodefony/supervision "Santé du framework"
 ```
+
+Le **`/.`** de la copie n'est pas décoratif : sans lui, une seconde copie imbrique un dossier de plus
+au lieu de remplacer, et l'on relance une version périmée des sondes sans aucun message.
 
 Ce qu'il rend, et qu'une capture d'écran ne dit pas :
 
 ```json
 {
   "url": "https://host.docker.internal:5152/nodefony/supervision",
-  "schema": "dark",
+  "theme": "dark",
   "lang": "fr",
   "titre": "Nodefony Studio",
+  "scripts": ["https://host.docker.internal:5173/@vite/client", "…/main.tsx"],
   "sondes": [
     {
       "label": "menu actif",
@@ -84,6 +99,8 @@ Ce qu'il rend, et qu'une capture d'écran ne dit pas :
       "couleur": "rgb(255, 255, 255)",
       "fond": "rgb(0, 87, 156)",
       "contraste": 7.39,
+      "police": "16px",
+      "wcag": "AAA",
       "taille": "243×41"
     }
   ],
@@ -94,28 +111,38 @@ Ce qu'il rend, et qu'une capture d'écran ne dit pas :
 
 **Le contraste est calculé, pas estimé.** C'est ce qui permet de valider une correction de palette
 sans attendre un audit complet — et de distinguer « ça me paraît lisible » de « 7,39:1, donc AAA ».
+Le verdict `wcag` tient compte de la POLICE, car c'est elle qui décide du seuil : 3:1 pour un texte
+large (≥ 24 px, ou ≥ 18,66 px en gras), 4,5:1 sinon. Un contraste rendu sans sa police ne conclut
+rien.
+
+`scripts` liste les fichiers réellement servis à la page — à comparer au `dist/frontend/index.html`
+bâti quand on soupçonne d'observer une génération précédente (cf §5).
 
 Options par variables d'environnement : `NF_BROWSER_BASE`, `NF_BROWSER_PAGE`, `NF_BROWSER_EXPECT`,
-`NF_BROWSER_USER`, `NF_BROWSER_PASSWORD`, `NF_BROWSER_PROBES` (`libellé=sélecteur`, séparés par des
-virgules). Le détail vit dans l'en-tête du script.
+`NF_BROWSER_LOGIN`, `NF_BROWSER_USER`, `NF_BROWSER_PASSWORD`, `NF_BROWSER_PROBES`
+(`libellé=sélecteur`, séparés par des virgules). Le détail vit dans l'en-tête du script.
+**`NF_BROWSER_LOGIN` n'a pas de défaut** — la sonde ne devine aucun écran de connexion, elle
+s'arrête (code 64) si on lui donne un identifiant sans chemin. Pour Studio : `/nodefony/login`.
 
-## 3 bis. Observer ce qui se PASSE — `scripts/watch.mjs`
+## 3 bis. Observer ce qui se PASSE — `watch.mjs`
 
 `inspect.mjs` photographie un instant ; celui-ci regarde le temps qui coule. Indispensable pour un
 framework dont le temps réel est le cœur : une frame qui n'arrive pas, un canal qui pousse trop, une
 reconnexion en boucle ne se voient sur **aucune** capture.
 
 ```bash
-docker cp .claude/skills/nodefony-browser/scripts/watch.mjs nodefony-browser:/app/watch.mjs
+# la copie du §3 a déjà posé les deux sondes dans /app/see-screen
 
 # observer 7 s de trafic sur une page authentifiée
-docker exec -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret \
-  nodefony-browser node /app/watch.mjs /nodefony/supervision 7000
+docker exec -e NF_BROWSER_LOGIN=/nodefony/login \
+  -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret \
+  nodefony-browser node /app/see-screen/watch.mjs /nodefony/supervision 7000
 
 # s'arrêter sur une CONDITION applicative plutôt que sur une durée
-docker exec -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret \
+docker exec -e NF_BROWSER_LOGIN=/nodefony/login \
+  -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret \
   -e 'NF_BROWSER_UNTIL=() => document.body.innerText.includes("Santé du framework")' \
-  nodefony-browser node /app/watch.mjs /nodefony/supervision 8000
+  nodefony-browser node /app/see-screen/watch.mjs /nodefony/supervision 8000
 ```
 
 Il rend les **sockets et leurs frames horodatées** (dans les deux sens), les réponses HTTP ≥ 400, les
@@ -168,7 +195,9 @@ le conteneur sont servis EN MÊME TEMPS par la même instance Vite.
   réseau, et pas un texte présent aussi bien sur l'écran de connexion (« Nodefony Studio » ne prouve
   rien).
 - **🔴 Le bundle SERVI n'est pas toujours celui qu'on a bâti.** À contrôler AVANT toute conclusion,
-  sinon on accuse son propre code d'un défaut appartenant à une génération précédente :
+  sinon on accuse son propre code d'un défaut appartenant à une génération précédente. Le champ
+  **`scripts`** rendu par `inspect.mjs` donne les fichiers réellement servis à la page — c'est la
+  voie courte, puisqu'on vient de la mesurer. Sinon, à la main :
   ```bash
   curl -sk https://127.0.0.1:5152/nodefony | grep -o 'index-[A-Za-z0-9_-]*\.js'
   grep -o 'index-[A-Za-z0-9_-]*\.js' <module>/dist/frontend/index.html
@@ -190,6 +219,15 @@ développeur. Ce conteneur sert à constater qu'un écran **se monte, s'alimente
 en tirer des nombres — pas à valider une esthétique.
 
 ## 7. Références
+
+- **Les sondes**, dans le paquet qui les publie :
+  - `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs` — photographie et mesure ;
+  - `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/watch.mjs` — le temps réel ;
+  - `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs` — lancement, connexion, ouverture garantie de la bonne page.
+
+  Le `SKILL.md` voisin est celui que reçoit l'utilisateur d'une application : les corriger corrige
+  les deux publics d'un coup. Leur gate (`devkit/tests/skills.test.ts`) refuse tout retour du
+  vocabulaire de ce dépôt dans ces fichiers.
 
 - `references/playwright/` — documentation Playwright hors ligne (guides `locators`, `auth`,
   `input`, `screenshots`, `docker` ; API `class-page`, `class-locator`). À consulter avant d'écrire

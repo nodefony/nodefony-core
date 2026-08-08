@@ -189,15 +189,24 @@ for (const [name, text] of skillTexts) {
   //   — un chemin peut porter un SOUS-DOSSIER (`scripts/lib/isolation.mjs`) : sans
   //     le segment intermédiaire, le motif repartait à `lib/…` et déclarait mort un
   //     fichier bien présent. Un gate qui crie au loup finit par ne plus être lu.
+  //   — un skill peut renvoyer vers un script qui vit AILLEURS dans le dépôt (un
+  //     paquet qui le publie) : capturer le chemin AVEC son préfixe de dossiers,
+  //     sinon on ne teste que `scripts/x.mjs` et l'on déclare mort un fichier
+  //     parfaitement présent sous `src/packages/…`.
   for (const m of text.matchAll(
-    /(?:scripts|lib)(?:\/[\w.-]+)*\/[\w.-]+\.(?:mjs|js|sh|py|ts)(?![\w.])/g,
+    /(?:[\w.@-]+\/)*(?:scripts|lib)(?:\/[\w.-]+)*\/[\w.-]+\.(?:mjs|js|sh|py|ts)(?![\w.])/g,
   )) {
     const ref = m[0];
     if (ref.endsWith(".d.ts")) continue;
+    // Le renvoi peut avoir été capturé avec son préfixe : on teste aussi la
+    // partie qui commence à `scripts/` ou `lib/`, seule forme valable pour un
+    // renvoi INTERNE au skill.
+    const court = ref.replace(/^.*?(?=(?:scripts|lib)\/)/u, "");
     const candidates = [
-      join(dir, ref), // dans ce skill
-      ref, // à la racine du dépôt
-      ...[...skillTexts.keys()].map((other) => join(SKILLS_DIR, other, ref)), // dans un skill voisin
+      ref, // chemin complet depuis la racine du dépôt
+      join(dir, court), // dans ce skill
+      court, // à la racine du dépôt
+      ...[...skillTexts.keys()].map((other) => join(SKILLS_DIR, other, court)), // dans un skill voisin
     ];
     if (!candidates.some((c) => existsSync(c)))
       deadRefs.push({ skill: name, ref });

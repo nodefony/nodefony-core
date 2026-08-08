@@ -184,7 +184,7 @@ et il fait foi le jour où les deux divergent.
   tes réponses : un partenaire qui POSTE n'en a pas besoin, et les deux
   traversent la défense. Détail :
   `node_modules/@nodefony/security/docs/csrf.md` ; geste complet et pièges :
-  skill **`protect-route`**.
+  skill **`nodefony-protect-route`**.
 <% } %>
 - **Un adaptateur de données ne remplace pas l'autre : ils se COMPLÈTENT.** Chacun
   déclare les _stores_ qu'il sait tenir (`nodefony.stores` de son `package.json`) —
@@ -250,7 +250,7 @@ et il fait foi le jour où les deux divergent.
 <% if (it.hasSecurity) { %>- **Utilisateurs et droits : tout existe, n'improvise RIEN.** Ces gestes
   couvrent l'essentiel, et chacun a sa doc installée (cf. la table « Où lire
   AVANT de coder », plus haut) ; le geste détaillé et ses pièges vivent dans le
-  skill **`protect-route`** :
+  skill **`nodefony-protect-route`** :
   - **protéger un ESPACE de routes** (tout ce qui commence par un préfixe) :
     une zone de firewall dans `nodefony.config.ts`, dont le `pattern` est le
     PRÉFIXE lui-même — `pattern: "^/api/account"`, **jamais** la liste des
@@ -487,16 +487,37 @@ croira vraie.
 ## Voir un écran toi-même — le navigateur du compose
 
 Un `curl` prouve qu'une route répond ; il ne dit pas si l'écran **se monte**. Pour
-ça, le compose fournit un navigateur jetable, que tu pilotes toi-même :
+ça, le compose fournit un navigateur jetable, et le devkit deux sondes prêtes à
+l'emploi — trois commandes, chacune sur une ligne, valables aussi bien dans un
+terminal Linux ou macOS que dans PowerShell ou `cmd.exe` :
 
 ```bash
-docker compose --profile browser up -d      # MCP sur 127.0.0.1:3001, sorties dans tmp/browser/
+docker compose --profile browser up -d
+docker cp node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/. <%= it.appName %>-browser:/app/see-screen
+docker exec <%= it.appName %>-browser node /app/see-screen/inspect.mjs /
 ```
 
-Le conteneur EST un serveur MCP — branche-t-y ton client (Claude Code :
-`claude mcp add --transport http browser http://127.0.0.1:3001/mcp`, les outils
-apparaissent au démarrage de session suivant). Tu obtiens alors la **console**,
-l'**arbre d'accessibilité** et les **requêtes réelles** de la page.
+Le **`/.`** de la copie n'est pas décoratif : sans lui, une seconde copie imbrique
+un dossier de plus au lieu de remplacer, et tu relances une version périmée des
+sondes sans le moindre message.
+
+Tu obtiens un JSON : le titre, la langue, le thème, les **scripts réellement
+servis**, les erreurs de console, une capture horodatée — et surtout des **mesures**
+que ni une capture ni un `curl` ne donnent : la couleur, le fond effectif, le
+**contraste calculé** (luminances WCAG) et la taille de chaque élément que tu
+sondes (`-e "NF_BROWSER_PROBES=libellé=sélecteur,…"`). C'est la différence entre
+« ça me paraît lisible » et « 7,39:1, donc AAA ».
+
+`watch.mjs`, à côté, regarde le temps qui coule plutôt qu'un instant : frames
+WebSocket horodatées dans les deux sens, réponses ≥ 400, erreurs de console. C'est
+la seule façon de voir une frame qui n'arrive pas ou une reconnexion en boucle.
+Il s'arrête sur une **condition applicative** (`NF_BROWSER_UNTIL`) plutôt que sur
+une durée — mais **éprouve toute condition d'arrêt avec une condition IMPOSSIBLE**
+avant de lui faire confiance : tant qu'elle n'a pas échoué une fois, rien ne dit
+qu'elle discrimine.
+
+Le mode d'emploi complet est le skill **`nodefony-browser`** du devkit (`ai:sync` en pose
+le pointeur dans `.agents/skills/`).
 
 **Quatre règles, sinon tu diagnostiqueras le vide** :
 
@@ -518,15 +539,18 @@ un ancien `dist` par-dessus le tien, et le service d'assets qui lit l'`index.htm
 au démarrage seulement. Le symptôme est traître : l'écran montre un composant que tu
 as remplacé.
 
-```bash
-curl -sk https://127.0.0.1:5152/ | grep -o 'index-[A-Za-z0-9_-]*\.js'   # servi
-grep -o 'index-[A-Za-z0-9_-]*\.js' <module>/dist/frontend/index.html    # bâti
-```
-
+Le champ **`scripts`** rendu par `inspect.mjs` liste les fichiers servis à la page :
+compare-les à ceux que désigne l'`index.html` produit dans `<module>/dist/frontend/`.
 Deux valeurs différentes ⇒ le défaut n'est pas dans ton code. Rebâtis en forçant
 (cache invalidé), redémarre le serveur, PUIS redémarre le conteneur navigateur —
 son cache HTTP survit à un simple rechargement. Aucun de ces trois pas n'est
 facultatif.
+
+**L'autre voie — le serveur MCP.** Le même conteneur expose un serveur MCP
+(`claude mcp add --transport http browser http://127.0.0.1:3001/mcp`) : prends-le
+pour **explorer** une page interactivement, et les sondes ci-dessus pour tout le
+reste. Le protocole intermédiaire coûte plusieurs fois le temps d'un appel direct,
+ne rend rien qu'un script puisse exploiter, et sa session peut tomber sous toi.
 
 Ce que ce navigateur ne remplace pas : le rechargement à chaud, l'animation et le
 rendu fin — ça se juge dans un vrai navigateur. Lui répond à « l'écran se monte-t-il,

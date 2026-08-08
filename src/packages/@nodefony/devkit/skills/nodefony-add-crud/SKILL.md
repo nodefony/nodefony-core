@@ -1,5 +1,5 @@
 ---
-name: add-crud
+name: nodefony-add-crud
 description: >
   Crée une ressource complète dans une application Nodefony — table, schémas de validation,
   service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`,
@@ -61,8 +61,7 @@ n'atteindrait jamais une base déjà en place. C'est le domaine des migrations.
 **Un index de table** porte plusieurs colonnes, et c'est le seul à le pouvoir :
 
 ```bash
-npx nodefony create entity Visit siteId:uuid path:string at:date \
-  --index "siteId,at" --unique "siteId,path"
+npx nodefony create entity Visit siteId:uuid path:string at:date --index "siteId,at" --unique "siteId,path"
 ```
 
 Les deux options sont **répétables** — un couple par index. Sur un schéma réel, la majorité des
@@ -73,8 +72,7 @@ index utiles sont composites : c'est ainsi qu'une table est réellement interrog
 Trois réglages, et ils ne touchent **que** le SQL — la propriété TypeScript reste `id`, `siteId` :
 
 ```bash
-npx nodefony create entity Session token:string! \
-  --table user_sessions --column-case snake --id-name session_id
+npx nodefony create entity Session token:string! --table user_sessions --column-case snake --id-name session_id
 ```
 
 Faire suivre le TypeScript aurait transformé un réglage de nommage en refonte : le service, le
@@ -168,7 +166,7 @@ Si `@nodefony/security` est dans les dépendances, l'action de suppression porte
 fichier généré le dit. Mesuré sur une application réelle avant correction : le CRUD répondait
 **204 à un DELETE anonyme**.
 
-Pour la protéger : → skill `protect-route`.
+Pour la protéger : → skill `nodefony-protect-route`.
 
 ## Prouver
 
@@ -182,8 +180,8 @@ npx nodefony inspect entities    # ce que l'application enregistre VRAIMENT
 
 ## Voisins
 
-| Besoin                                   | Skill                  |
-| ---------------------------------------- | ---------------------- |
-| Un service métier injectable             | `add-service`          |
-| Réserver une route à certaines personnes | `protect-route`        |
-| Un flux temps réel                       | `add-realtime-channel` |
+| Besoin                                   | Skill                           |
+| ---------------------------------------- | ------------------------------- |
+| Un service métier injectable             | `nodefony-add-service`          |
+| Réserver une route à certaines personnes | `nodefony-protect-route`        |
+| Un flux temps réel                       | `nodefony-add-realtime-channel` |

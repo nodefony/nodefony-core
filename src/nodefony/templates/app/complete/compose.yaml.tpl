@@ -232,9 +232,16 @@ services:
   #      servi sur `127.0.0.1` en même temps. Pour forcer une origine unique
   #      (proxy frontal), écris `publicOrigin` dans `nodefony.config.ts`.
   #
-  # Le conteneur EST un serveur MCP : un agent s'y branche par
-  # `http://127.0.0.1:${BROWSER_PORT:-3001}/mcp` (il imprime la config à coller
-  # dans ses journaux au démarrage). Détail : `AGENTS.md`.
+  # DEUX façons de s'en servir, et elles ne se valent pas :
+  #   - PILOTER directement — l'image embarque Chromium ET Playwright, on y copie
+  #     un script et on l'exécute (`docker cp … && docker exec … node …`). C'est
+  #     la voie normale : une commande, un JSON, un code de retour, quelques
+  #     secondes. Le devkit livre deux sondes prêtes (voir `AGENTS.md`), dont la
+  #     MESURE des contrastes et tailles réellement calculés par le moteur.
+  #   - EXPLORER par MCP — le conteneur est aussi un serveur MCP, joignable sur
+  #     `http://127.0.0.1:${BROWSER_PORT:-3001}/mcp` (il imprime la config à
+  #     coller dans ses journaux au démarrage). Utile pour fouiller une page à la
+  #     main ; plus lent et non scriptable pour tout le reste.
   browser:
     # Épinglée par empreinte : un `latest` mouvant sous un banc d'observation
     # ferait varier le rendu sans qu'on le sache.

@@ -7,10 +7,10 @@ transport HTTP streamable). C'est son interface native — mais **ce n'est pas l
 
 ## 1. Quand cette voie a un sens — et quand elle n'en a pas
 
-| Situation                                                            | Voie                               |
-| -------------------------------------------------------------------- | ---------------------------------- |
-| « Ouvre cette page, mesure, capture » — une intention connue         | **`scripts/inspect.mjs`** (direct) |
-| Explorer sans savoir d'avance : cliquer, revenir, suivre un parcours | MCP                                |
+| Situation                                                            | Voie                                    |
+| -------------------------------------------------------------------- | --------------------------------------- |
+| « Ouvre cette page, mesure, capture » — une intention connue         | **`inspect.mjs`** (direct, cf SKILL §3) |
+| Explorer sans savoir d'avance : cliquer, revenir, suivre un parcours | MCP                                     |
 
 Le MCP apporte la **découverte d'outils** à un agent qui décide au fil de l'eau. Pour un geste
 déterministe, il n'ajoute qu'un protocole, des sessions et un heartbeat — de la complexité pure.
@@ -22,7 +22,7 @@ Mesuré sur ce dépôt : pilotage direct **~8 s** et un code de sortie ; par MCP
 C'est le piège qui a coûté le plus cher, et il se présente sous un déguisement parfait.
 
 Playwright MCP démarre un **heartbeat au PREMIER `tools/call`** de chaque session
-(`startHeartbeat`, dans `playwright-core/lib/coreBundle.js` du conteneur) :
+(`startHeartbeat`, dans le module `playwright-core` du conteneur — fichier `coreBundle.js`) :
 
 ```js
 startHeartbeat = (server) => {

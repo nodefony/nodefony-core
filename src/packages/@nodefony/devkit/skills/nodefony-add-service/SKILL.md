@@ -1,5 +1,5 @@
 ---
-name: add-service
+name: nodefony-add-service
 description: >
   Crée un service injectable dans une application Nodefony par `nodefony create service`, et le
   fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la
@@ -83,8 +83,8 @@ du conteneur — les tests l'instancient eux-mêmes.
 
 ## Voisins
 
-| Besoin                         | Skill                  |
-| ------------------------------ | ---------------------- |
-| Une ressource complète stockée | `add-crud`             |
-| Réserver une route             | `protect-route`        |
-| Un flux temps réel             | `add-realtime-channel` |
+| Besoin                         | Skill                           |
+| ------------------------------ | ------------------------------- |
+| Une ressource complète stockée | `nodefony-add-crud`             |
+| Réserver une route             | `nodefony-protect-route`        |
+| Un flux temps réel             | `nodefony-add-realtime-channel` |

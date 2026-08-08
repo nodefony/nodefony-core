@@ -120,16 +120,16 @@ const CASES = [
   //   d'utilisateur : « je veux stocker des articles », pas « scaffolder une
   //   entité ». C'est précisément cette formulation-là qui doit mordre, puisque
   //   c'est la seule que l'utilisateur emploiera.
-  ["je veux stocker des articles dans mon app", "add-crud"],
-  ["ajoute une entité avec un CRUD", "add-crud"],
-  ["comment définir une relation entre deux entités", "add-crud"],
-  ["crée un service métier partagé", "add-service"],
-  ["mon service est undefined dans le conteneur", "add-service"],
-  ["protège cette route", "protect-route"],
-  ["un partenaire doit pouvoir poster chez moi", "protect-route"],
-  ["réserver cette page aux administrateurs", "protect-route"],
-  ["ajoute un flux temps réel", "add-realtime-channel"],
-  ["mon canal websocket est public", "add-realtime-channel"],
+  ["je veux stocker des articles dans mon app", "nodefony-add-crud"],
+  ["ajoute une entité avec un CRUD", "nodefony-add-crud"],
+  ["comment définir une relation entre deux entités", "nodefony-add-crud"],
+  ["crée un service métier partagé", "nodefony-add-service"],
+  ["mon service est undefined dans le conteneur", "nodefony-add-service"],
+  ["protège cette route", "nodefony-protect-route"],
+  ["un partenaire doit pouvoir poster chez moi", "nodefony-protect-route"],
+  ["réserver cette page aux administrateurs", "nodefony-protect-route"],
+  ["ajoute un flux temps réel", "nodefony-add-realtime-channel"],
+  ["mon canal websocket est public", "nodefony-add-realtime-channel"],
   // — observer un écran RÉEL (le décor navigateur, pas le dev front)
   ["regarde l'écran", "nodefony-browser"],
   ["lis la console du navigateur", "nodefony-browser"],

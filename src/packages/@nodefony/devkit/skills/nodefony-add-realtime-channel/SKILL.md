@@ -1,5 +1,5 @@
 ---
-name: add-realtime-channel
+name: nodefony-add-realtime-channel
 description: >
   Ajoute un flux temps réel à une application Nodefony par la bonne couche — un
   `RealtimeController` et ses décorateurs de canal — au lieu de recomposer un WebSocket à la main.
@@ -88,8 +88,8 @@ toujours** (s'il s'est fermé, une politique a débordé).
 
 ## Voisins
 
-| Besoin                         | Skill           |
-| ------------------------------ | --------------- |
-| Réserver une route HTTP        | `protect-route` |
-| Une ressource complète stockée | `add-crud`      |
-| Un service métier injectable   | `add-service`   |
+| Besoin                         | Skill                    |
+| ------------------------------ | ------------------------ |
+| Réserver une route HTTP        | `nodefony-protect-route` |
+| Une ressource complète stockée | `nodefony-add-crud`      |
+| Un service métier injectable   | `nodefony-add-service`   |

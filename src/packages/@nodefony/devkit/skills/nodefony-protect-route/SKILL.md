@@ -1,5 +1,5 @@
 ---
-name: protect-route
+name: nodefony-protect-route
 description: >
   Réserve une route d'une application Nodefony aux personnes habilitées, par les briques du
   framework plutôt que par un contrôle écrit à la main dans l'action. Porte les deux étages
@@ -182,8 +182,8 @@ npx nodefony inspect routes --json        # la garde est-elle sur la route qu'on
 
 ## Voisins
 
-| Besoin                         | Skill                  |
-| ------------------------------ | ---------------------- |
-| Une ressource complète stockée | `add-crud`             |
-| Un service métier injectable   | `add-service`          |
-| Un flux temps réel réservé     | `add-realtime-channel` |
+| Besoin                         | Skill                           |
+| ------------------------------ | ------------------------------- |
+| Une ressource complète stockée | `nodefony-add-crud`             |
+| Un service métier injectable   | `nodefony-add-service`          |
+| Un flux temps réel réservé     | `nodefony-add-realtime-channel` |
