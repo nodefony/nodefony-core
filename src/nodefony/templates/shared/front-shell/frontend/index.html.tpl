@@ -5,11 +5,27 @@
   (entry Vite + HMR en dev, bundle fingerprinté en prod, nonce CSP propagé)
   au marqueur ci-dessous — laisse-le en place.
 -->
-<html lang="en">
+<!--
+  `lang` n'est pas décoratif : il décide de l'accent avec lequel une synthèse
+  vocale lit ta page, et de la langue que déclare ton document aux moteurs de
+  recherche. Il valait `en` sur une page dont le contenu est en français —
+  change-le pour la langue de TON application, ne le laisse jamais mentir.
+-->
+<html lang="fr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title><%= it.appName %></title>
+    <!-- Résumé affiché par les moteurs de recherche sous ton titre. Sans lui,
+         ils en fabriquent un depuis le texte de la page — rarement à ton avantage. -->
+    <meta
+      name="description"
+      content="<%= it.appName %> — application Nodefony."
+    />
+    <!-- Dit au navigateur que la page sait s'afficher dans les deux thèmes :
+         sans cela, les contrôles natifs (champs, barres) restent clairs sur un
+         fond sombre. -->
+    <meta name="color-scheme" content="light dark" />
     <!-- favicon inline (⬡) : remplace par ton fichier — évite le 404 /favicon.ico -->
     <link
       rel="icon"

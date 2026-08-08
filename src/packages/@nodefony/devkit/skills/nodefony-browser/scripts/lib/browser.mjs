@@ -266,7 +266,29 @@ export async function signIn(page, ctx) {
   // expirer la sonde sur un parcours parfaitement sain. On attend la PREMIÈRE
   // des deux étapes qui se présente, et on ne remplit l'identifiant que si son
   // champ existe.
-  await id.or(pw).first().waitFor({ timeout: 15000 });
+  // Aucun champ trouvé : dire CE QU'ON A CHERCHÉ et où, plutôt que de laisser
+  // remonter un dépassement de délai brut. Les deux causes réelles sont
+  // banales — le chemin donné n'est pas un écran de connexion (une page
+  // d'erreur en rend un 404 tout aussi silencieux), ou les libellés du
+  // formulaire ne sont pas ceux qu'on reconnaît. L'un et l'autre se corrigent
+  // en une seconde quand on les lit, et coûtent un quart d'heure sinon.
+  try {
+    await id.or(pw).first().waitFor({ timeout: 15000 });
+  } catch {
+    const titre = await page.title().catch(() => "");
+    console.error(
+      `Aucun champ de connexion trouvé sur ${BASE}${LOGIN}\n` +
+        `  page réellement ouverte : ${page.url()}${titre ? ` (« ${titre} »)` : ""}\n\n` +
+        "Deux causes, à vérifier dans cet ordre :\n" +
+        "  1. ce chemin n'est pas ton écran de connexion — une route absente rend\n" +
+        "     une page d'erreur, où la sonde attendrait indéfiniment ;\n" +
+        "  2. tes champs ne portent pas les libellés reconnus (identifiant,\n" +
+        "     utilisateur, e-mail / mot de passe) — la sonde vise le LIBELLÉ\n" +
+        "     visible, pas un sélecteur, parce que c'est lui le contrat avec\n" +
+        "     l'utilisateur. Ajoute un `aria-label` si ton champ n'en a pas.",
+    );
+    process.exit(65); // EX_DATAERR — l'écran attendu n'est jamais apparu
+  }
   if ((await id.count()) > 0) {
     await id.fill(USER);
     await id.press("Enter");

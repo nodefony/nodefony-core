@@ -14,6 +14,10 @@
 
 :root {
   --nf-accent: #149eca;
+  /* Encre : la MÊME teinte, assez foncée pour être lue SUR le lavis.
+     La couleur de marque ne se négocie pas ; sa luminosité, si — écrire
+     `--nf-accent` sur `--nf-accent-wash` donnait 2,78:1, sous le seuil AA. */
+  --nf-accent-ink: #0b6a8a;
   --nf-accent-glow: rgba(97, 218, 251, 0.35);
   --nf-accent-wash: rgba(97, 218, 251, 0.14);
   --nf-accent-line: rgba(97, 218, 251, 0.35);

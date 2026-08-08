@@ -202,7 +202,7 @@ onUnmounted(() => {
       </div>
 
       <div style="max-width: 480px; position: relative">
-        <h1>Le temps réel, nativement.</h1>
+        <h2>Le temps réel, nativement.</h2>
         <p class="nf-sub">
           Observez, comprenez et contrôlez chaque sous-système de Nodefony —
           en direct.
@@ -338,7 +338,11 @@ onUnmounted(() => {
           <code>HelloController</code> porte la route GET <em>et</em> la route
           WEBSOCKET : un seul pipeline (firewall, audit, logs).
         </p>
-        <input v-model="wsInput" @keydown.enter="sendWs" />
+        <input
+          v-model="wsInput"
+          @keydown.enter="sendWs"
+          aria-label="message à envoyer"
+        />
         <button @click="sendWs">Envoyer en WS</button>
         <pre>{{ wsLog.join("\n") || "(envoie un message)" }}</pre>
       </div>
@@ -354,9 +358,9 @@ onUnmounted(() => {
         </p>
       </div>
 
-      <p class="nf-dim">
+<% if (it.complete) { %>      <p class="nf-dim">
         Console d'administration : <a href="/nodefony">/nodefony</a> (Studio, en dev)
       </p>
-    </main>
+<% } %>    </main>
   </div>
 </template>

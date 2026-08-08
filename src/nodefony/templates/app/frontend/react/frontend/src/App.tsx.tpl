@@ -231,7 +231,7 @@ function LiveCard() {
         </div>
 
         <div style={{ maxWidth: 480, position: "relative" }}>
-          <h1>Le temps réel, nativement.</h1>
+          <h2>Le temps réel, nativement.</h2>
           <p className="nf-sub">
             Observez, comprenez et contrôlez chaque sous-système de Nodefony —
             en direct.
@@ -358,6 +358,7 @@ function LiveCard() {
             value={wsInput}
             onChange={(e) => setWsInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendWs()}
+            aria-label="message à envoyer"
           />{" "}
           <button onClick={sendWs}>Envoyer en WS</button>
           <pre>{wsLog.join("\n") || "(envoie un message)"}</pre>
@@ -374,10 +375,10 @@ function LiveCard() {
           </p>
         </div>
 
-        <p className="nf-dim">
+<% if (it.complete) { %>        <p className="nf-dim">
           Console d'administration : <a href="/nodefony">/nodefony</a> (Studio, en dev)
         </p>
-      </main>
+<% } %>      </main>
     </div>
   );
 }

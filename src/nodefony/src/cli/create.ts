@@ -738,7 +738,14 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       (needsInfra
         ? `  npm run infra:up   # docker : ${String(answers.database)} + Redis (NF_DATABASE_URL pointe dessus)\n`
         : "") +
-      `  npm run dev        # → https://127.0.0.1:5152 (admin : /nodefony — admin/admin en dev)\n`,
+      // La console d'administration n'existe QUE si le préset l'a installée, et
+      // le port n'est pas garanti : `portPolicy: "auto"` prend le suivant libre
+      // quand 5152 est occupé — annoncer une adresse fixe et une console absente
+      // envoie l'utilisateur sur deux 404 dès sa première minute.
+      `  npm run dev        # → https://127.0.0.1:5152 (ou le port libre suivant, annoncé au démarrage)\n` +
+      (answers.preset === "complete"
+        ? `                     # console d'administration : /nodefony — admin/admin en dev\n`
+        : ""),
   );
   return SysExit.OK;
 }

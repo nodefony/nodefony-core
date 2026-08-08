@@ -201,7 +201,7 @@
     </div>
 
     <div style="max-width: 480px; position: relative">
-      <h1>Le temps réel, nativement.</h1>
+      <h2>Le temps réel, nativement.</h2>
       <p class="nf-sub">
         Observez, comprenez et contrôlez chaque sous-système de Nodefony —
         en direct.
@@ -345,7 +345,11 @@
         <code>HelloController</code> porte la route GET <em>et</em> la route
         WEBSOCKET : un seul pipeline (firewall, audit, logs).
       </p>
-      <input bind:value={wsInput} onkeydown={(e) => e.key === "Enter" && sendWs()} />
+      <input
+        bind:value={wsInput}
+        onkeydown={(e) => e.key === "Enter" && sendWs()}
+        aria-label="message à envoyer"
+      />
       <button onclick={sendWs}>Envoyer en WS</button>
       <pre>{wsLog.join("\n") || "(envoie un message)"}</pre>
     </div>
@@ -360,8 +364,8 @@
       </p>
     </div>
 
-    <p class="nf-dim">
+<% if (it.complete) { %>    <p class="nf-dim">
       Console d'administration : <a href="/nodefony">/nodefony</a> (Studio, en dev)
     </p>
-  </main>
+<% } %>  </main>
 </div>
