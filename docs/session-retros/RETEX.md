@@ -212,6 +212,28 @@
   Et deviner « la bonne hauteur » ne tient pas : elle change avec le contenu. Le correctif est
   structurel — garder la MÊME enveloppe et n'en remplir que l'intérieur.
 
+## ⏱️ Un test qui attend un DÉLAI FIXE mesure la machine, pas le code
+
+- `[2× — 08-08b]` 🔴 **Trois rouges d'intégration d'affilée, trois SONDES fausses — jamais le code
+  mesuré.** `bearer` (anti-ReDoS) reconstruisait une chaîne de plusieurs centaines de kilooctets
+  DANS la fenêtre chronométrée, et comparait deux durées d'~1 ms sur un agent partagé où une
+  préemption vaut 1,2 ms : ×4,05, puis ×3,03, puis ×3,23, sur trois cases différentes de la
+  matrice. `LogSink` attendait 30 ms fixes que le pool de threads confirme une écriture, puis
+  fermait — le secours synchrone réécrivait alors un chunk DÉJÀ sur le disque (`a\na\nb\nc\n`).
+- `[1× — 08-08b]` ⭐ **Le remède n'est jamais de relâcher le seuil** — il grignote la marge du côté
+  fautif. Deux formes, selon ce qu'on peut atteindre : porter le SIGNAL au-dessus du bruit quand la
+  grandeur est libre (200 k→800 k : la préemption dilate alors les deux mesures proportionnellement
+  et s'annule dans le rapport — vérifié, ratio inchangé à 0,01 près sous contention) ; ou rendre le
+  FAIT observable quand il ne l'est pas (compter les écritures non confirmées via le `write`
+  injectable que le sink exposait déjà).
+- `[1× — 08-08b]` 🔴 **Le second cas du même fichier était plus gravement atteint et n'avait jamais
+  rougi** : sous pool lent il rendait `err\nout\nout\n`, l'ordre causal INVERSÉ. Quand une sonde
+  est convaincue de parier, relire ses VOISINES — la même hypothèse temporelle y dort.
+- `[1× — 08-08b]` **Le fichier se contredisait à vingt lignes d'écart** : « le témoin fautif ne rend
+  jamais la main sur 200 k » (l.91) et « contrôlé sur le témoin, ×3,88 aux mêmes conditions »
+  (l.112) — mesuré, il quadruple dès 4 k et met 868 ms à 32 k, donc ~34 s à 200 k. Un commentaire
+  chiffré qui n'a pas été REJOUÉ vieillit comme une donnée, pas comme une intention.
+
 ## 🔎 Ce que le journal des commits CACHE
 
 - `[1× — 2026-07-30]` 🔴 **Un correctif logé dans un commit au sujet étranger est invisible, et on
@@ -221,10 +243,18 @@
 
 - `[1× — 2026-07-30]` 🔴 **Un `node_modules` remis droit à la main tient jusqu'au prochain `npm
 install`.** Et `npm run build` vert ne dit rien du chemin réel qu'emprunte l'utilisateur.
-- `[1× — 2026-08-02i]` 🔴 **`npm outdated --workspaces --include-workspace-root` ne montre PAS les
+- `[2× — 08-08b]` 🔴 **`npm outdated --workspaces --include-workspace-root` ne montre PAS les
   dépendances de la RACINE** (« 0 périmé » alors que `turbo` et `typescript` attendaient ; `npm
 outdated` NU les montre). Corollaire : **un sous-agent hérite de la cécité de la commande qu'on
   lui DICTE** — rapport exhaustif sur périmètre amputé, rien dans sa forme ne le signale.
+  **Reproduit à l'identique, `turbo` compris** : la leçon était ÉCRITE ici et je ne l'avais pas lue
+  au démarrage ; c'est le user qui a vu les manques. Le second manqué, `@angular/compiler-cli`,
+  était pire qu'un oubli — j'avais monté `@angular/core` sans son compilateur, donc **créé** une
+  incohérence de version qu'aucun outil ne signalait.
+- `[1× — 08-08b]` ⭐ **La réponse n'est pas une meilleure invocation, c'est un AUTOMATE** : lire les
+  pins exacts de tous les `package.json` versionnés et interroger le registre pour chacun (3 écarts
+  sur 95, exhaustif, reproductible). Tant qu'on cherche le bon drapeau, on reste tributaire de ce
+  que l'outil choisit de montrer. Script : `scratchpad/audit-pins.mjs` — mériterait `scripts/`.
 - `[1× — 2026-08-02i]` **Une dépendance déclarée à N endroits ne se monte pas à N−1** (`tsx` dans
   3 workspaces ET à la racine). Relever TOUS les sites déclarants avant d'éditer le premier.
 
