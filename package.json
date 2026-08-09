@@ -37,6 +37,7 @@
     "lint": "oxlint --deny-warnings",
     "certificates": "bash bin/generateCertificates.sh",
     "generate-symbols": "tsx scripts/generate-symbols.ts",
+    "deps:check": "node scripts/check-deps-latest.mjs",
     "skills:check": "node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check && node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs && node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs --strict",
     "skills:doc": "node .claude/skills/nodefony-skill/scripts/skills-doc.mjs"
   },
