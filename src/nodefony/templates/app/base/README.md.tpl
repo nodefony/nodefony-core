@@ -164,7 +164,9 @@ Dans l'ordre — chaque étape isole un étage, du moins cher au plus cher :
 2. **`npm run typecheck`** — un vert vitest ne type-check RIEN (les types sont
    effacés à la transpilation) ; `tsgo` attrape ce que le build laisse passer.
 3. **`npx nodefony status`** — un serveur tourne-t-il déjà ? (port occupé,
-   vieux process détaché). `npx nodefony stop` arrête proprement.
+   vieux process détaché). `npx nodefony stop` arrête proprement. Si le port est
+   tenu par une AUTRE application Nodefony, `status` la nomme : `npx nodefony
+   stop <nom>` l'arrête sans changer de dossier.
 4. **Rebuild** — comportement fantôme après un gros changement : `npm run build`
    puis relance (le serveur charge `dist/`, pas tes sources).
 

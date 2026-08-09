@@ -369,7 +369,7 @@ désigne jamais la cause : c'est ce qui les rend chers.
 | **Le serveur lancé en arrière-plan a disparu** | `… &` reçoit SIGHUP et meurt ; et tuer le PID du port ne tue pas le superviseur, qui respawne | `npx nodefony production --detach --wait` pour démarrer, `npx nodefony stop` pour arrêter — jamais `&`, jamais un kill par le port |
 | **Des dizaines de tests d'intégration rouges d'un coup** | ils FRAPPENT un serveur, ils ne le lancent pas : il est éteint (`ECONNREFUSED`) | `npx nodefony status` d'abord ; en e2e, laisse la commande gérer le cycle |
 | **La route existe dans le code et répond 404** | le runtime charge `dist/`, pas tes sources | `npm run build` — et en cas de doute vérifie le `dist/` par son CONTENU (`grep` du symbole), jamais par sa date |
-| **TOUT répond 404, même les routes du gabarit** | un AUTRE serveur tient les ports — ou LE TIEN a glissé sur d'autres ports, le port voulu étant pris | `npx nodefony status` : il montre les ports RÉELS, pas ceux que tu as configurés |
+| **TOUT répond 404, même les routes du gabarit** | un AUTRE serveur tient les ports — ou LE TIEN a glissé sur d'autres ports, le port voulu étant pris | `npx nodefony status` : il montre les ports RÉELS, pas ceux que tu as configurés, et NOMME le projet voisin qui tient un port ; `npx nodefony stop <nom>` l'arrête sans te déplacer |
 | **L'app démarre, et pourtant une brique manque** (base injoignable, module absent) | une brique peut tomber en fail-soft, ou être écartée par sa `policy` : le boot CONTINUE, et le journal ne le dit qu'une fois, dans le terminal de celui qui a lancé | `npm run check` — il lit `var/last-boot.json` et nomme chaque brique absente AVEC sa raison |
 | **L'app ne démarre plus et tu n'as pas la sortie** (démarrage détaché, conteneur, CI) | le journal est parti avec le terminal | `npm run check` n'exécute rien : il rapporte la phase atteinte et la cause du dernier démarrage |
 | **Ça marche en dev, c'est mort en production** | les modules `policy: dev` sont RETIRÉS en production — ce qu'ils portaient disparaît avec eux | avant de livrer, UN boot `npx nodefony production --detach --wait` et rejoue tes vérifications |
@@ -451,6 +451,7 @@ npm run dev                          # développement : rechargement auto, Ctrl+
 npx nodefony development --no-watch      # développement SANS rechargement : un seul process, stable
 npx nodefony status                      # que tourne-t-il ? ports, PID — ne boote rien
 npx nodefony stop                        # arrêt PROPRE de tout runtime de cette app
+npx nodefony stop <nom|chemin>           # arrêter un AUTRE projet, sans changer de dossier
 npx nodefony production --detach --wait  # boot réel en arrière-plan ; rend la main ports OUVERTS
 ```
 
@@ -458,6 +459,16 @@ npx nodefony production --detach --wait  # boot réel en arrière-plan ; rend la
 suivant échoue sur une erreur qui ne parle jamais de lui (`EADDRINUSE`, ou pire, un
 test qui interroge l'ANCIENNE version du code). `npx nodefony stop` est la sortie
 propre, `npx nodefony status` dit ce qui reste.
+
+**Ces deux commandes ne voient QUE cette application.** Plusieurs projets Nodefony
+peuvent tourner sur la même machine ; `status` ne compte jamais les process du
+voisin comme les tiens, il les NOMME dans une table à part (nom, ports tenus,
+racine) — et ce nom est ce que `stop` accepte. Deux conséquences pour toi :
+« aucune instance » veut dire « aucune À MOI », pas « rien ne tourne » ; et une
+cible que `stop` ne peut pas désigner sans ambiguïté est REFUSÉE, avec un code de
+sortie non nul et rien d'arrêté — **lis ce code**, un refus ressemble sinon à un
+succès. Ne prends `--all` que pour faire table rase du poste entier : il emporte
+les serveurs des autres projets, y compris ceux que tu n'as pas lancés.
 
 **Pour faire tourner une suite contre un serveur, prends `--no-watch`.** Le mode
 développement surveille les sources et relance le serveur dès qu'un fichier bouge —
