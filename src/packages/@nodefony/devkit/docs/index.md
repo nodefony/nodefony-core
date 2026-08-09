@@ -59,22 +59,54 @@ use("@nodefony/devkit", {}, { policy: "dev" }),
 Corollaire à connaître : hors développement, c'est **la route** qui n'existe pas.
 La commande, elle, répond — elle ne passe pas par ce module.
 
-## Trois portes, une seule source
+## Quatre portes, une seule source
 
-| Porte                           | Pour qui                                                   |
-| ------------------------------- | ---------------------------------------------------------- |
-| `npx nodefony card`             | un agent, un humain au terminal — servie par le cœur       |
-| `GET /nodefony/devkit/api/card` | Studio, un script authentifié — modules réellement CHARGÉS |
-| `buildCard()` (export du cœur)  | une porte de plus, à écrire — rien à réimplémenter         |
+| Porte                           | Pour qui                                                     |
+| ------------------------------- | ------------------------------------------------------------ |
+| `npx nodefony card`             | un agent, un humain au terminal — servie par le cœur         |
+| `GET /nodefony/devkit/api/card` | Studio, un script authentifié — modules réellement CHARGÉS   |
+| `POST /nodefony/mcp`            | un agent qui appelle des **outils** (Model Context Protocol) |
+| `buildCard()` (export du cœur)  | une porte de plus, à écrire — rien à réimplémenter           |
 
-**Ajouter une porte n'ajoute jamais une vérité** : les trois lisent le même
+**Ajouter une porte n'ajoute jamais une vérité** : toutes lisent le même
 service, qui dérive le même Kernel. La construction elle-même vit dans une
 fonction pure (`buildCard`) qui reçoit son état au lieu de le lire — c'est ce qui
 la rend éprouvable sans serveur, et ce qui l'empêche d'inventer quoi que ce soit.
 
-> La route HTTP vit sous `/nodefony`, que le pare-feu d'une application réelle
-> couvre : un agent qui code ne s'authentifie pas et n'a pas de navigateur. La
-> porte qui compte pour lui est la commande.
+> La route de la carte vit sous `/nodefony/<module>/api`, que le pare-feu d'une
+> application réelle couvre : un agent qui code ne s'authentifie pas et n'a pas
+> de navigateur. La porte qui compte pour lui est la commande — ou le serveur
+> MCP ci-dessous.
+
+## Le serveur MCP — les mêmes réponses, en outils
+
+```bash
+npx nodefony ai:mcp        # écrit .mcp.json ; --dry-run pour voir sans écrire
+```
+
+Quatre outils, qui sont les commandes que vous connaissez déjà :
+`nodefony_inspect` (ce qui est monté), `nodefony_check` (ce qui manque),
+`nodefony_symbols` (ce qu'une API signifie), `nodefony_card` (par où commencer).
+
+**Il n'y a pas de process à lancer.** Depuis la révision `2026-07-28` du
+transport, un serveur MCP est un endpoint `POST` sans session : c'est donc une
+route de votre application. Elle vit tant qu'elle tourne, suit chaque
+rechargement du serveur de développement, et n'a aucun cache à invalider.
+
+Trois choses à savoir avant de s'étonner d'un refus :
+
+- une **adresse non locale** reçoit `403` (`mcp.allowRemote`) ;
+- une **origine de navigateur** non déclarée reçoit `403` (`mcp.allowedOrigins`).
+  Un client MCP natif n'envoie pas d'`Origin` ; une page web en envoie toujours
+  un — c'est ce qui ferme le détournement DNS, seul vecteur réel contre un
+  serveur local ;
+- le module étant `policy: "dev"`, **la route n'existe pas en production**.
+
+> ⚠️ **Écart de conformité assumé.** La spec recommande une authentification
+> (« Servers SHOULD implement proper authentication »), que nous n'implémentons
+> pas : la faire selon la norme exigerait que Nodefony soit un serveur
+> d'autorisation OAuth 2.1 complet. Ce qui borne le risque, c'est le périmètre
+> ci-dessus. Les outils sont en lecture seule, et `mcp.tools` est une allowlist.
 
 ## Les skills d'agent — répondre à « comment fait-on ça, ici ? »
 
@@ -133,9 +165,13 @@ absente sans `NODE_ENV`) ; les skills, eux, doivent se mettre à jour par npm.
 
 ## Configuration
 
-| Clé       | Type      | Défaut | Rôle                   |
-| --------- | --------- | ------ | ---------------------- |
-| `enabled` | `boolean` | `true` | Interrupteur du module |
+| Clé                  | Type       | Défaut                                 | Rôle                                           |
+| -------------------- | ---------- | -------------------------------------- | ---------------------------------------------- |
+| `enabled`            | `boolean`  | `true`                                 | Interrupteur du module                         |
+| `mcp.enabled`        | `boolean`  | `true`                                 | Répond-on aux requêtes MCP ? Coupé → `404`     |
+| `mcp.allowedOrigins` | `string[]` | `[]`                                   | Origines de navigateur admises ; vide = aucune |
+| `mcp.allowRemote`    | `boolean`  | `false`                                | Accepter un appel d'une adresse non locale     |
+| `mcp.tools`          | `string[]` | `["inspect","check","symbols","card"]` | Allowlist des outils — lecture seule           |
 
 Les clés, leurs types et leurs défauts viennent du schéma Zod
 (`nodefony/config/config.ts`) — **source unique** dont dérivent la

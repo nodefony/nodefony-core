@@ -57,16 +57,55 @@ répond toujours — elle ne dépend pas de ce module.
 
 ## Ce qu'il expose
 
-| Porte                           | Pour qui                                                   |
-| ------------------------------- | ---------------------------------------------------------- |
-| `GET /nodefony/devkit/api/card` | Studio, un script authentifié — modules réellement CHARGÉS |
-| `buildCard()` (export du cœur)  | une porte de plus, à écrire — rien à réimplémenter         |
-| `npx nodefony card`             | un agent, un humain au terminal — **servie par le cœur**   |
-| `skills/` (dossier du paquet)   | l'agent de codage que vous utilisez déjà — voir ci-dessous |
+| Porte                           | Pour qui                                                     |
+| ------------------------------- | ------------------------------------------------------------ |
+| `GET /nodefony/devkit/api/card` | Studio, un script authentifié — modules réellement CHARGÉS   |
+| **`POST /nodefony/mcp`**        | **un agent qui appelle des outils** (Model Context Protocol) |
+| `buildCard()` (export du cœur)  | une porte de plus, à écrire — rien à réimplémenter           |
+| `npx nodefony card`             | un agent, un humain au terminal — **servie par le cœur**     |
+| `skills/` (dossier du paquet)   | l'agent de codage que vous utilisez déjà — voir ci-dessous   |
 
-La route HTTP vit sous `/nodefony`, que le pare-feu d'une application réelle
-couvre : un agent qui code ne s'authentifie pas et n'a pas de navigateur — d'où
-la commande, qui reste la porte utile.
+La route de la carte vit sous `/nodefony/<module>/api`, que le pare-feu d'une
+application réelle couvre : un agent qui code ne s'authentifie pas et n'a pas de
+navigateur — d'où la commande, qui reste la porte utile.
+
+## Le serveur MCP — les mêmes réponses, en outils
+
+```bash
+npx nodefony ai:mcp        # écrit .mcp.json ; --dry-run pour voir sans écrire
+```
+
+Quatre outils : **`nodefony_inspect`** (ce qui est monté), **`nodefony_check`**
+(ce qui manque), **`nodefony_symbols`** (ce qu'une API du framework signifie),
+**`nodefony_card`** (par où commencer). Ce sont les mêmes briques que les
+commandes du même nom — une source, plusieurs portes.
+
+**Ce n'est pas un process de plus.** Depuis la révision `2026-07-28` du transport
+« Streamable HTTP », un serveur MCP est un simple endpoint `POST` sans session :
+c'est donc une **route de votre application**. Elle n'existe que pendant qu'elle
+tourne, suit chaque rechargement du serveur de développement, et n'a aucun cache
+à invalider.
+
+**Ce qui la protège**, et il faut le savoir avant de s'étonner d'un `403` :
+
+- toute **adresse non locale** est refusée (`mcp.allowRemote`) ;
+- toute **origine de navigateur** non déclarée est refusée (`mcp.allowedOrigins`).
+  Un client MCP natif n'envoie pas d'en-tête `Origin` ; une page web en envoie
+  toujours un. C'est ce qui ferme le détournement DNS, seul vecteur réel contre
+  un serveur local ;
+- le module étant `policy: "dev"`, **la route n'existe pas en production** ;
+- les outils sont en **lecture seule**, et la liste est une allowlist
+  (`mcp.tools`).
+
+> ⚠️ **Écart de conformité assumé** : la spec recommande une authentification
+> (« Servers SHOULD implement proper authentication »). Nous ne l'implémentons
+> pas — la faire selon la norme exigerait que Nodefony soit un serveur
+> d'autorisation OAuth 2.1 complet. Ce qui borne le risque est le périmètre
+> ci-dessus, pas un jeton.
+
+Le serveur est **dual-ère** : il répond à `server/discover` et aux métadonnées
+par requête des clients modernes, **et** au handshake `initialize` des clients
+déployés aujourd'hui — ce que la spec autorise explicitement.
 
 ## Les skills d'agent
 

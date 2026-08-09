@@ -7,9 +7,10 @@
 
 ## Rôle du module
 
-Deux choses : la porte **HTTP** de la carte de visite d'une application, et **le
-CONTENU des skills d'agent** distribués par npm (`skills/`). Module
-`policy: "dev"` — il aide pendant le développement et n'existe pas en production.
+Trois choses : la porte **HTTP** de la carte de visite d'une application, **le
+CONTENU des skills d'agent** distribués par npm (`skills/`), et le **serveur
+MCP** de l'application (`POST /nodefony/mcp`). Module `policy: "dev"` — il aide
+pendant le développement et n'existe pas en production.
 
 ⚠️ **La porte CLI n'est PLUS ici.** `nodefony card` est servie par le cœur
 (fast-path standalone, `CliKernel.start` → `cli/card.ts`), qui ne lit que des
@@ -50,6 +51,20 @@ devkit/
 - **Aucune garde `@IsGranted`** sur le controller : ce serait imposer
   `@nodefony/security` à toute application qui installe le devkit. C'est la
   `policy` qui protège, pas un rôle.
+- 🔴 **Le serveur MCP est une ROUTE, jamais un process.** La révision
+  `2026-07-28` du transport a supprimé les sessions : un endpoint `POST` suffit,
+  donc il n'y a rien à lancer ni à resynchroniser quand le serveur de
+  développement recharge. Tout le protocole vit en fonctions PURES
+  (`nodefony/src/mcp/`) ; le controller ne fait que traduire HTTP ↔ JSON-RPC.
+- 🔴 **`/nodefony/mcp` échappe à la zone admin** (dont le pattern exige un
+  segment `api`). C'est nécessaire — un client MCP ne sait pas présenter une
+  session — mais cela veut dire que la garde `Origin`/localité et la `policy`
+  sont **la seule protection**. Avant d'exposer une donnée par un outil MCP,
+  se demander si elle supporterait d'être lue sans authentification.
+- **Un outil MCP n'invente rien** : il appelle la brique qui répond déjà à une
+  autre porte (`readAdminSubject`, `collectCheckReport`, `readSymbolsGraph`,
+  `buildCard` — toutes exportées par `nodefony`). Ajouter un outil qui
+  recalculerait sa réponse le ferait diverger de la commande du même nom.
 - **Ce module ne porte NI scaffold NI diagnostic** — `create`, `check` et
   `inspect` vivent dans le cœur : ils doivent répondre sans qu'aucun module soit
   installé, et quand l'application est cassée.

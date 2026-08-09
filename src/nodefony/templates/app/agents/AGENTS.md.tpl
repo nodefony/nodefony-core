@@ -655,6 +655,27 @@ la réponse ne dépend ni d'un serveur, ni d'un build, ni de ta connexion. Va y
 chercher un symbole AVANT d'ouvrir un `.d.ts` ou de parcourir `node_modules` —
 et avant, surtout, d'inventer une signature.
 
+**Tu préfères des OUTILS à des commandes ? Cette app en expose, par MCP.** Les
+mêmes réponses (`inspect`, `check`, `symbols`, `card`), servies en Model Context
+Protocol — utile si ton client sait appeler des outils mais pas lancer un
+terminal :
+
+```bash
+npx nodefony ai:mcp             # écrit .mcp.json ; --dry-run pour voir sans écrire
+```
+
+Ce n'est **pas un process de plus** : le serveur MCP est une route de cette
+application (`POST /nodefony/mcp`), donc il n'existe **que pendant que l'app
+tourne**, et il suit chaque rechargement du serveur de développement sans rien à
+resynchroniser. Après avoir écrit le fichier, **redémarre ton client** : aucun ne
+relit sa configuration en cours de route.
+
+Deux choses à savoir avant de t'étonner : la porte est **refusée à toute adresse
+non locale** et à toute origine de navigateur non déclarée (`403`) — c'est une
+protection contre une page web qui viserait ton `localhost`, pas un bogue ; et
+elle **n'existe pas en production**, le module qui la sert étant `policy: "dev"`.
+Réglages : `use("@nodefony/devkit", { mcp: { … } })`.
+
 **Ce que rend `inspect` ENGLOBE tes sources, et les dépasse de loin.** Les modules
 installés — ceux du framework compris — montent leurs propres routes, services et
 entités : une app qui ne définit qu'une poignée de routes en expose couramment plus

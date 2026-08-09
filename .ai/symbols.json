@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-09T11:46:39.241Z",
+  "generated": "2026-08-09T13:53:50.425Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 689,
-    "symbols": 2825,
-    "classes": 347,
-    "interfaces": 818,
-    "types": 367,
+    "files": 697,
+    "symbols": 2883,
+    "classes": 348,
+    "interfaces": 836,
+    "types": 372,
     "enums": 4,
-    "functions": 1027,
-    "constants": 262
+    "functions": 1051,
+    "constants": 272
   },
   "symbols": {
     "Cli": {
@@ -649,6 +649,113 @@
       "module": "@nodefony/core",
       "description": "Treeshake commun : les externes sont sans effet de bord (équivalent `no-external`) SAUF `reflect-metadata`, dont le side-effect doit survivre."
     },
+    "parseAiMcpArgv": {
+      "name": "parseAiMcpArgv",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Parse l'argv après le mot `ai:mcp`."
+    },
+    "guessOrigin": {
+      "name": "guessOrigin",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Déduit l'origine du serveur de développement. ⚠️ **Le port en clair est préféré au port TLS**, et ce n'est pas une négligence : en développement le certificat est auto-signé, et un client MCP qui l…"
+    },
+    "readMcpConfig": {
+      "name": "readMcpConfig",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le `.mcp.json` du projet, ou `null` s'il est absent ou illisible."
+    },
+    "runAiMcpCommand": {
+      "name": "runAiMcpCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Point d'entrée de la commande."
+    },
+    "IMcpServerEntry": {
+      "name": "IMcpServerEntry",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/aiMcpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une entrée de serveur MCP en transport HTTP."
+    },
+    "IMcpConfigDocument": {
+      "name": "IMcpConfigDocument",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/aiMcpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le document `.mcp.json` dans son entier."
+    },
+    "IMcpConfigPlan": {
+      "name": "IMcpConfigPlan",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/aiMcpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Résultat de la composition — ce qu'on écrira, et pourquoi."
+    },
+    "McpConfigAction": {
+      "name": "McpConfigAction",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/aiMcpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce que la commande a décidé de faire."
+    },
+    "buildMcpUrl": {
+      "name": "buildMcpUrl",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose l'URL de l'endpoint MCP."
+    },
+    "planMcpConfig": {
+      "name": "planMcpConfig",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Décide ce qu'il faut écrire dans `.mcp.json`. ⭐ **Le document existant est PRÉSERVÉ**, et pas seulement par politesse : un projet y déclare ses autres serveurs MCP, et une commande de câblage qui l…"
+    },
+    "renderMcpPlan": {
+      "name": "renderMcpPlan",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le plan pour un lecteur humain. Dit surtout **ce qui reste à faire** : écrire le fichier ne branche rien tant que l'application ne tourne pas, et un agent déjà lancé ne relit pas sa configurat…"
+    },
+    "MCP_SERVER_KEY": {
+      "name": "MCP_SERVER_KEY",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/aiMcpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Composition PURE de la configuration MCP d'un projet — `.mcp.json`. Séparée de l'écriture pour la même raison que `env`, `card` et `ai:sync` : ce qui décide (que faut-il écrire ? est-ce déjà bon ?)…"
+    },
+    "MCP_CONFIG_FILE": {
+      "name": "MCP_CONFIG_FILE",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/aiMcpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fichier de configuration, à la racine du projet."
+    },
     "readSkillHeader": {
       "name": "readSkillHeader",
       "kind": "function",
@@ -1257,6 +1364,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Lit le graphe, ou `null` s'il est absent ou illisible. Ne lève jamais : un outil de découverte qui tombe sur un fichier corrompu doit le DIRE à son appelant, pas interrompre ce qu'il diagnostiquait."
+    },
+    "lookupSymbol": {
+      "name": "lookupSymbol",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/symbols.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Trouve un symbole par son nom exact. Le graphe indexe par nom, sauf pour les **homonymes** qu'il range sous `Module:Nom` — d'où le second passage, qui les rattrape. Extrait ici parce que la command…"
     },
     "parseSymbolsArgv": {
       "name": "parseSymbolsArgv",
@@ -5344,6 +5459,15 @@
       "module": "@nodefony/core",
       "description": "Contrôle l'état d'installation et l'environnement d'une application."
     },
+    "ICheckReport": {
+      "name": "ICheckReport",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Lance le contrôle et écrit le rapport. **La cible est l'APPLICATION, pas le dossier courant.** On remonte donc au premier dossier qui porte `nodefony.config.ts` (`findProjectRoot`, la même définiti…"
+    },
     "parseCheckArgv": {
       "name": "parseCheckArgv",
       "kind": "function",
@@ -5352,13 +5476,28 @@
       "module": "@nodefony/core",
       "description": "Parse l'argv après le mot `check` (ou son alias `doctor`). La borne est le mot de commande, pas la position : le fast-path passe `process.argv` entier (`node`, chemin du binaire, `check`, …) tandis…"
     },
+    "collectCheckReport": {
+      "name": "collectCheckReport",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Collecte le diagnostic — sans rien imprimer. Séparé du rendu pour la même raison que la table des sujets d'`inspect` : dès qu'une deuxième porte existe, une collecte enfouie dans une fonction qui é…"
+    },
+    "countCheckFindings": {
+      "name": "countCheckFindings",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/runCheck.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nombre total de manquements d'un rapport — le verdict, en un endroit."
+    },
     "runCheckCommand": {
       "name": "runCheckCommand",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/runCheck.ts",
       "exported": true,
-      "module": "@nodefony/core",
-      "description": "Lance le contrôle et écrit le rapport. **La cible est l'APPLICATION, pas le dossier courant.** On remonte donc au premier dossier qui porte `nodefony.config.ts` (`findProjectRoot`, la même définiti…"
+      "module": "@nodefony/core"
     },
     "IWiringFinding": {
       "name": "IWiringFinding",
@@ -5672,6 +5811,64 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Réordonne les services d'un `@services([...])` selon leurs dépendances **déclarées**, pour que l'ordre d'écriture cesse de compter. `@services` instancie séquentiellement et pose chaque instance au…"
+    },
+    "IInspectSubject": {
+      "name": "IInspectSubject",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'un sujet inspectable désigne : où le lire dans le plan d'administration."
+    },
+    "IAdminBrokerLike": {
+      "name": "IAdminBrokerLike",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Vue minimale du broker dont cette lecture a besoin."
+    },
+    "InspectFailure": {
+      "name": "InspectFailure",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Pourquoi une lecture de sujet n'a pas abouti — chaque porte le traduit."
+    },
+    "InspectResult": {
+      "name": "InspectResult",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Résultat d'une lecture de sujet : la donnée, ou la raison de l'échec."
+    },
+    "unwrapAdminResult": {
+      "name": "unwrapAdminResult",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Extrait la donnée d'une réponse d'administration. Un handler rend soit la donnée, soit une enveloppe `{status, body}` (pour porter un 404). Même discrimination que le pont HTTP : enveloppe **si et …"
+    },
+    "readAdminSubject": {
+      "name": "readAdminSubject",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit un sujet d'inspection dans le plan d'administration. Le rôle d'administrateur est **annoncé**, pas contourné : certains producteurs graduent leur réponse selon les rôles, et un appelant qui se …"
+    },
+    "INSPECT_SUBJECTS": {
+      "name": "INSPECT_SUBJECTS",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Sujets inspectables, et l'endpoint d'administration qui les sert. **Aucune donnée n'est calculée ici.** Chaque sujet pointe le producteur qui répond déjà en HTTP : toutes les portes rendent le même…"
     },
     "ClusterManager": {
       "name": "ClusterManager",
@@ -8301,6 +8498,19 @@
       ],
       "description": "La carte de visite de l'application, servie en HTTP. ## Pourquoi cette route n'est pas `/` Ce qu'elle rend — modules chargés, chemins de documentation, commandes à lancer — aide pendant le développ…"
     },
+    "McpController": {
+      "name": "McpController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Serveur **Model Context Protocol** de l'application — la porte par laquelle un agent externe l'interroge. ## Pourquoi une route, et pas un process La révision `2026-07-28` du transport « Streamable…"
+    },
     "IDevkitService": {
       "name": "IDevkitService",
       "kind": "interface",
@@ -10675,6 +10885,14 @@
       "module": "@nodefony/framework",
       "extends": null,
       "description": "Entrée config d'un module : valeurs redactées + schéma + provenance par champ."
+    },
+    "safeConfig": {
+      "name": "safeConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Sérialisation défensive de config : borne la profondeur, neutralise les fonctions, casse les cycles, et **relativise les chemins absolus** (sécu : ne jamais exposer l'arborescence serveur). Les `op…"
     },
     "createKernelAdminApi": {
       "name": "createKernelAdminApi",
@@ -15660,6 +15878,241 @@
       "decorators": [],
       "description": "Erreur du module devkit. Deux champs qui font la différence en production : - `code` : identifiant MACHINE (stable, grep-able, consommé par Studio et l'audit) — le message, lui, peut changer sans r…"
     },
+    "IGuardInput": {
+      "name": "IGuardInput",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/guard.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": null,
+      "description": "Ce que la garde a besoin de savoir d'une requête."
+    },
+    "IGuardPolicy": {
+      "name": "IGuardPolicy",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/guard.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": null,
+      "description": "Réglages qui gouvernent les gardes (viennent de la config du module)."
+    },
+    "GuardVerdict": {
+      "name": "GuardVerdict",
+      "kind": "type",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/guard.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Gardes du transport MCP — ce qui protège une porte locale SANS authentification. Ces deux contrôles ne sont pas un pis-aller : ce sont exactement les exigences que la spec pose au transport lui-mêm…"
+    },
+    "isLocalAddress": {
+      "name": "isLocalAddress",
+      "kind": "function",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/guard.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Une adresse est-elle celle de la machine locale ? Couvre les trois formes que Node rend selon la pile réseau : IPv4 (`127.x.x.x`), IPv6 (`::1`), et l'IPv4 encapsulée en IPv6 (`::ffff:127.0.0.1`) — …"
+    },
+    "checkMcpAccess": {
+      "name": "checkMcpAccess",
+      "kind": "function",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/guard.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Décide si un appel MCP peut être servi. ⭐ **La règle sur `Origin` est contre-intuitive, et c'est elle qui protège.** Un client MCP légitime est un *process* (Cursor, Claude Code, un agent tiers) : …"
+    },
+    "IJsonRpcMessage": {
+      "name": "IJsonRpcMessage",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": null,
+      "description": "Message entrant : requête (avec `id`) ou notification (sans `id`)."
+    },
+    "IJsonRpcSuccess": {
+      "name": "IJsonRpcSuccess",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": null,
+      "description": "Réponse JSON-RPC de succès."
+    },
+    "IJsonRpcFailure": {
+      "name": "IJsonRpcFailure",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": null,
+      "description": "Réponse JSON-RPC d'erreur."
+    },
+    "IMcpHttpReply": {
+      "name": "IMcpHttpReply",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": null,
+      "description": "Ce que le serveur MCP rend, avant traduction en réponse HTTP."
+    },
+    "JsonRpcId": {
+      "name": "JsonRpcId",
+      "kind": "type",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Identifiant d'une requête JSON-RPC (jamais `null` pour une requête)."
+    },
+    "jsonRpcSuccess": {
+      "name": "jsonRpcSuccess",
+      "kind": "function",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Fabrique une réponse de succès."
+    },
+    "jsonRpcFailure": {
+      "name": "jsonRpcFailure",
+      "kind": "function",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Fabrique une réponse d'erreur."
+    },
+    "isNotification": {
+      "name": "isNotification",
+      "kind": "function",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Un message est-il une NOTIFICATION (pas d'`id`) plutôt qu'une requête ? La distinction commande le statut HTTP : une notification acceptée rend `202` **sans corps**, une requête rend son objet JSON."
+    },
+    "MCP_PROTOCOL_VERSION": {
+      "name": "MCP_PROTOCOL_VERSION",
+      "kind": "const",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Model Context Protocol — types et constantes du transport « Streamable HTTP ». Révision visée : **2026-07-28**, celle qui a supprimé les sessions de niveau protocole et le flux `GET`. C'est ce qui …"
+    },
+    "MCP_SUPPORTED_VERSIONS": {
+      "name": "MCP_SUPPORTED_VERSIONS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Versions que ce serveur sait servir — publiées par `server/discover` et listées dans l'erreur `UnsupportedProtocolVersion`. Une seule pour l'instant, et c'est délibéré : annoncer une révision qu'on…"
+    },
+    "META_PROTOCOL_VERSION": {
+      "name": "META_PROTOCOL_VERSION",
+      "kind": "const",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Clé de métadonnée par laquelle un client MODERNE déclare sa révision. ⭐ **C'est la différence d'ÈRE, et elle commande tout le reste.** Jusqu'à `2025-11-25` (ère « legacy »), un client ouvrait une s…"
+    },
+    "META_SERVER_INFO": {
+      "name": "META_SERVER_INFO",
+      "kind": "const",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Clé de métadonnée portant l'identité du serveur dans `server/discover`."
+    },
+    "MCP_ENDPOINT_PATH": {
+      "name": "MCP_ENDPOINT_PATH",
+      "kind": "const",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Chemin de l'endpoint MCP. ## Pourquoi `/nodefony/mcp`, et pas `/nodefony/devkit/api/mcp` Cette URL est un **contrat public** : elle est écrite dans le `.mcp.json` de chaque utilisateur. Y faire fig…"
+    },
+    "JsonRpcError": {
+      "name": "JsonRpcError",
+      "kind": "const",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Codes d'erreur JSON-RPC 2.0 employés par ce serveur."
+    },
+    "McpProtocolError": {
+      "name": "McpProtocolError",
+      "kind": "const",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Codes réservés par la spec MCP, hors plage JSON-RPC standard. Ils ne sont pas décoratifs : un client s'en sert pour se rattraper seul — renégocier une version sur `-32022`, relire `tools/list` puis…"
+    },
+    "IMcpServerContext": {
+      "name": "IMcpServerContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": "IMcpToolDeps",
+      "description": "Tout ce dont le traitement d'un message a besoin."
+    },
+    "IMcpHeaders": {
+      "name": "IMcpHeaders",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": null,
+      "description": "En-têtes HTTP dont le protocole se sert."
+    },
+    "handleMcpMessage": {
+      "name": "handleMcpMessage",
+      "kind": "function",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Traite UN message JSON-RPC."
+    },
+    "IMcpToolDeps": {
+      "name": "IMcpToolDeps",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": null,
+      "description": "Catalogue des outils MCP, et leur exécution. ⚠️ **Rien n'est calculé ici.** Chaque outil traduit un appel JSON-RPC vers une brique qui répond DÉJÀ à une autre porte : `inspect` lit le plan d'admini…"
+    },
+    "IMcpToolDefinition": {
+      "name": "IMcpToolDefinition",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": null,
+      "description": "Un outil tel que `tools/list` le publie."
+    },
+    "IMcpToolResult": {
+      "name": "IMcpToolResult",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": null,
+      "description": "Ce que rend `tools/call` — du contenu, et l'aveu d'un échec métier."
+    },
+    "listMcpTools": {
+      "name": "listMcpTools",
+      "kind": "function",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Outils publiés, filtrés par l'allowlist de configuration. Une clé inconnue dans la configuration est simplement ignorée : elle ne peut rien ouvrir. C'est le sens d'une allowlist — ce qui n'est pas …"
+    },
+    "callMcpTool": {
+      "name": "callMcpTool",
+      "kind": "function",
+      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "description": "Exécute un outil par son nom public. Un échec métier (sujet inconnu, module absent) rend un résultat `isError`, **pas** une erreur JSON-RPC : le protocole réserve celle-ci aux fautes de protocole. …"
+    },
     "DocumentationError": {
       "name": "DocumentationError",
       "kind": "class",
@@ -19779,6 +20232,7 @@
         "SvelteController",
         "VueController",
         "DevkitController",
+        "McpController",
         "DocumentationController",
         "AdminApiController",
         "ApiKeyController",
@@ -19878,6 +20332,9 @@
         "VectorDimensionError",
         "VectorConnectionError",
         "VectorNotInitializedError"
+      ],
+      "IMcpToolDeps": [
+        "IMcpServerContext"
       ],
       "DocumentationError": [
         "DocNotFoundError",
@@ -20219,6 +20676,7 @@
         "SvelteController",
         "VueController",
         "DevkitController",
+        "McpController",
         "DocumentationController",
         "StudioController",
         "StudioCreateController",
@@ -20683,6 +21141,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/modules/test/nodefony/controller/DiController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
@@ -21052,6 +21511,9 @@
       "DevkitController": [
         "src/packages/@nodefony/devkit/index.ts"
       ],
+      "McpController": [
+        "src/packages/@nodefony/devkit/index.ts"
+      ],
       "GitService": [
         "src/packages/@nodefony/documentation/index.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
@@ -21273,6 +21735,7 @@
         "src/modules/test-frontend-svelte/nodefony/controller/SvelteController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
@@ -21396,6 +21859,7 @@
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "controller": [
@@ -21434,6 +21898,7 @@
         "src/modules/test-frontend-svelte/nodefony/controller/SvelteController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
@@ -21591,7 +22056,8 @@
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/WebhookSinkController.ts",
-        "src/modules/test/nodefony/secure/IdempotentDemoController.ts"
+        "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
       ],
       "Query": [
         "src/packages/@nodefony/framework/index.ts",
@@ -21603,7 +22069,8 @@
       ],
       "Headers": [
         "src/packages/@nodefony/framework/index.ts",
-        "src/modules/test/nodefony/controller/DecoratorController.ts"
+        "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
       ],
       "Cookie": [
         "src/packages/@nodefony/framework/index.ts",
@@ -22142,6 +22609,7 @@
       ],
       "findProjectRoot": [
         "src/nodefony/src/bin/resolveLocalCli.ts",
+        "src/nodefony/src/cli/aiMcp.ts",
         "src/nodefony/src/cli/aiSync.ts",
         "src/nodefony/src/cli/card.ts",
         "src/nodefony/src/cli/create.ts",
@@ -22156,6 +22624,7 @@
         "src/nodefony/src/bundler/index.ts"
       ],
       "SysExit": [
+        "src/nodefony/src/cli/aiMcp.ts",
         "src/nodefony/src/cli/aiSync.ts",
         "src/nodefony/src/cli/card.ts",
         "src/nodefony/src/cli/completion.ts",
@@ -22169,6 +22638,29 @@
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "defaultDevPorts": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "buildMcpUrl": [
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "planMcpConfig": [
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "renderMcpPlan": [
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "MCP_CONFIG_FILE": [
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "IMcpConfigDocument": [
+        "src/nodefony/src/cli/aiMcp.ts"
       ],
       "planSync": [
         "src/nodefony/src/cli/aiSync.ts"
@@ -22648,6 +23140,9 @@
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts"
       ],
       "runAiSyncCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "runAiMcpCommand": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "setLogColor": [
@@ -23504,13 +23999,6 @@
       "IPortProbe": [
         "src/nodefony/src/kernel/checks/runCheck.ts"
       ],
-      "defaultDevPorts": [
-        "src/nodefony/src/kernel/checks/runCheck.ts",
-        "src/nodefony/src/service/dev/detachedStart.ts",
-        "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts",
-        "src/nodefony/src/service/dev/DevSupervisor.ts"
-      ],
       "probePorts": [
         "src/nodefony/src/kernel/checks/runCheck.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
@@ -23575,49 +24063,21 @@
       "BootReporter": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"
       ],
-      "IAdminApi": [
+      "INSPECT_SUBJECTS": [
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
-        "src/modules/test/nodefony/admin/TestAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
-        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts"
       ],
-      "IAdminEndpoint": [
+      "readAdminSubject": [
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
-        "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
-        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts"
       ],
-      "IAdminRequest": [
+      "IAdminBrokerLike": [
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
-        "src/modules/test/nodefony/admin/TestAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts"
+      ],
+      "InspectFailure": [
+        "src/nodefony/src/kernel/commands/InspectCommand.ts"
       ],
       "aggregateOutdated": [
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts"
@@ -23694,6 +24154,50 @@
       "Fetch": [
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts"
+      ],
+      "IAdminApi": [
+        "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+        "src/modules/test/nodefony/admin/TestAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "IAdminEndpoint": [
+        "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+        "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "IAdminRequest": [
+        "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+        "src/modules/test/nodefony/admin/TestAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "ClusterManager": [
         "src/nodefony/src/service/cluster/clusterMaster.ts"
@@ -23989,6 +24493,12 @@
         "src/nodefony/src/syslog/transports/LokiTransport.ts",
         "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
       ],
+      "text": [
+        "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts"
+      ],
       "IEntity": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
@@ -24098,6 +24608,7 @@
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
@@ -24249,11 +24760,31 @@
       ],
       "DevkitConfig": [
         "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
       ],
       "IDevkitService": [
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
+      ],
+      "checkMcpAccess": [
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+      ],
+      "handleMcpMessage": [
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+      ],
+      "JsonRpcError": [
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
+      ],
+      "jsonRpcFailure": [
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
+      ],
+      "IJsonRpcMessage": [
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
       ],
       "ICardAppInfo": [
         "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
@@ -26420,6 +26951,54 @@
       ],
       "VectorConnectionError": [
         "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
+      ],
+      "McpProtocolError": [
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
+      ],
+      "MCP_PROTOCOL_VERSION": [
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
+      ],
+      "MCP_SUPPORTED_VERSIONS": [
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
+      ],
+      "META_PROTOCOL_VERSION": [
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
+      ],
+      "META_SERVER_INFO": [
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
+      ],
+      "isNotification": [
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
+      ],
+      "jsonRpcSuccess": [
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
+      ],
+      "IMcpHttpReply": [
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
+      ],
+      "JsonRpcId": [
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
+      ],
+      "callMcpTool": [
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
+      ],
+      "listMcpTools": [
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
+      ],
+      "IMcpToolDeps": [
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
+      ],
+      "readSymbolsGraph": [
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts"
+      ],
+      "lookupSymbol": [
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts"
+      ],
+      "collectCheckReport": [
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts"
+      ],
+      "countCheckFindings": [
+        "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts"
       ],
       "Orm": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
