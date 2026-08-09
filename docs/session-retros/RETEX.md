@@ -20,6 +20,17 @@
 
 ---
 
+## 🕸️ Implémenter une interface sans lire OÙ l'appelant l'appelle
+
+- `[1× — 08-09f]` 🔴 **`supports()` d'un authenticator est appelé HORS du bloc de rattrapage du
+  pare-feu** (`if (!authenticator.supports(ctx))`, avant le `try` qui protège `authenticate()`).
+  Ma première version y appelait `canonicalIssuer()`, qui LÈVE sur tout ce qui n'est pas une URL
+  https — un `iss: "ftp://x"` dans un jeton non signé donnait donc une **500 provoquée par un
+  anonyme**, avec une simple chaîne. Le contrat de l'interface ne dit rien de tout ça : ni « ne
+  lève pas », ni « appelé hors rattrapage ». **Avant d'implémenter une méthode d'interface, lire
+  son SITE D'APPEL** — dans quel bloc, avec quelle protection, à quelle fréquence. Ce que le
+  contrat ne dit pas, l'appelant le décide, et c'est lui qui a raison.
+
 ## 🎲 Un banc d'agent mesure AUSSI sa propre variance
 
 - `[1× — 08-09c]` 🔴 **3 tâches sur 4 rejouées se révèlent INSTABLES** (T17 2/3, T25 1/3, T28 1/3) —
@@ -449,6 +460,21 @@
 
 ## 🧪 Un gate ne prouve rien tant qu'on ne l'a pas vu ROUGE — deux faux verts le même jour
 
+- `[1× — 08-09f]` ⭐ **Le TSDoc PROMETTAIT ce que le code ne faisait pas — et 26 unitaires verts
+  n'y voyaient rien.** J'avais écrit, dans l'en-tête de l'erreur : « le message reste générique,
+  la cause part au journal, jamais au client » — puis composé la cause DANS le message
+  (`Token verification unavailable: ${error.message}`). Le banc live l'a sorti au premier coup :
+  l'URL de l'émetteur défaillant dans le corps d'une 503, pile d'appels comprise. Une phrase
+  d'intention n'est pas une garde ; elle rend même la relecture plus difficile, parce qu'on lit
+  la promesse au lieu du code. Réflexe : quand un TSDoc affirme qu'une valeur NE fuite PAS,
+  écrire le test qui le vérifie **dans le même geste** — sinon la phrase est un vœu.
+
+- `[1× — 08-09f]` **Un test écrit contre l'ANCIEN comportement d'une brique de base est le seul
+  qui prouve la cohabitation.** `jwt` et `external-jwt` reconnaissent le même `Bearer <jws>` ;
+  débrancher la discrimination par `iss` a montré ce qui se serait passé en production — le
+  premier listé capturant les deux familles, la moitié des jetons refusés, et l'ORDRE d'une liste
+  de configuration promu au rang de décision de sécurité, sans qu'aucun test ne s'en plaigne.
+
 - `[1× — 08-09e]` ⭐ **Un débranchement ne fait pas que valider un test : il peut DÉMONTRER qu'une
   conception était fausse.** Remettre ma liste noire des pannes (la version que j'allais livrer)
   a produit 3 rouges nommés — la preuve chiffrée que trois pannes d'infrastructure auraient été
@@ -685,6 +711,21 @@ check:externals --if-present` sur un script qui n'existe pas → contrôle imagi
   valeurs ; le code, lui, ne suppose plus rien.
 
 ## 🧰 Outillage : ce qui pend, ce qui ment, ce qui lance
+
+- `[1× — 08-09f]` 🔴 **`EXIT=0` d'un typecheck ne dit pas QUELS fichiers il a regardés.** Mon
+  premier `npx tsc --noEmit` est sorti à 0 depuis un cwd qui avait dérivé (la bannière disait
+  `nodefony-core@10.0.0`, soit la RACINE) — j'allais l'annoncer comme preuve, et c'est le user
+  qui a demandé où étaient les régressions. Le geste qui tranche coûte une commande :
+  `npx tsc --noEmit --listFiles | grep -c <mes fichiers>` — si le compte n'est pas celui du diff,
+  le vert ne porte pas sur mon code. Vaut pour tout outil qui prend une racine implicite
+  (typecheck, lint, couverture) : **prouver la CIBLE avant de croire le VERDICT.**
+
+- `[1× — 08-09f]` **« Est-ce couvert par les bancs ? » est une question à `rg`, pas à
+  l'intuition.** Le user a demandé si les e2e du skill de charge concernaient la sécurité :
+  `rg -c "Bearer" scripts/*.mjs` a rendu **zéro sur ~40 scripts** en une seconde. Il y a bien
+  des e2e de sécurité (`totp-mfa`, `ratelimit`, `webhooks-dataplane`), mais aucun n'exerce le
+  chemin que je venais de modifier — donc aucun banc à rejouer, et un trou de couverture à
+  ANNONCER plutôt qu'un « c'est couvert » plausible.
 
 - `[1× — 08-06i]` **`timeout` n'existe pas sur macOS nu → rc 127 lu comme verdict, DEUX faux
   d'un coup** (boot nominal « mort » 000 + fail-loud « confirmé » rc 127). rc=127 = « command
