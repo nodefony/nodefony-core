@@ -139,7 +139,7 @@ const TOKEN_FAULT_CODES = new Set([
  * l'entremêler ici rendrait impossible d'accepter un appelant purement machine,
  * qui est précisément le cas d'usage.
  *
- * @see references/oauth/rfc8707.txt — l'audience, qui LIE un jeton à CE service
+ * @see references/rfc/ietf/rfc8707.txt — l'audience, qui LIE un jeton à CE service
  */
 export class RemoteJwtVerifier {
   readonly #issuers: Map<string, ITrustedIssuer>;

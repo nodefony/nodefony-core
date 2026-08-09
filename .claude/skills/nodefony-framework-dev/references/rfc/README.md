@@ -3,15 +3,17 @@
 > Chargé à la demande par `SKILL.md`. **Cheatsheet normatif** : pour chaque norme que le cœur Nodefony
 > implémente — le n°, les **sections exactes** utilisées, la **règle concrète** appliquée, et l'**ancrage
 > code**. But : coder/auditer la conformité **sans réseau** et **sans re-fetch** (une RFC est IMMUABLE →
-> 0 dérive). **Full-text des RFC IETF = bundlé OFFLINE** dans `ietf/rfcNNNN.txt` (38 fichiers, ~3 Mo) —
+> 0 dérive). **Full-text des RFC IETF = bundlé OFFLINE** dans `ietf/rfcNNNN.txt` (40 fichiers, ~3,3 Mo) —
+> 🔴 **corpus UNIQUE du dépôt** : aucun autre skill n'héberge de full-text RFC (`nodefony-rfc` en avait
+> gardé deux copies byte-identiques, que rien ne resynchronisait) —
 > `grep`/`awk` la section exacte **sans réseau**. Normes **non-RFC** (W3C WebAuthn/Trace Context, WHATWG
 > Fetch/URL, OWASP, NIST, Standard Webhooks) → skill `nodefony-rfc` (raw GitHub + proxy `https://r.jina.ai/`,
-> JAMAIS les sites HTML lourds). Inventaire vérifié : **37 RFC code + 25 delta mémoires**, 0 norme fantôme.
+> JAMAIS les sites HTML lourds). Inventaire vérifié : **39 RFC code + 25 delta mémoires**, 0 norme fantôme.
 > Mettre à jour = éditer en place (pas de journal).
 
 ## 0. Fichiers PRÉSENTS offline (~5,6 Mo — `grep`/`awk` sans réseau)
 
-- **`ietf/rfc<N>.txt`** — 38 RFC full-text : 1918 2818 4226 4648 5280 5424 5789 6125 6238 6265 6455 6585 6749 6750 6797 6890 7009 7118 7230 7235 7239 7519 7617 7636 7638 7692 7807 8259 8707 8725 8941 9106 9110 9112 9113 9207 9449 9700.
+- **`ietf/rfc<N>.txt`** — 40 RFC full-text : 1918 2818 4226 4648 5280 5424 5789 6125 6238 6265 6455 6585 6749 6750 6797 6890 7009 7118 7230 7235 7239 7519 7617 7636 7638 7692 7807 8259 8414 8707 8725 8941 9106 9110 9112 9113 9207 9449 9700 9728.
 - **`specs/` (non-RFC)** :
   - Cloud-native : `cloud-12factor.md`, `cloud-k8s-pod-lifecycle.md`, `cloud-k8s-probes.md`.
   - OWASP cheat sheets : `owasp-{authentication,authorization,csp,csrf,jwt,mfa,password-storage,rest-security,security-headers,session-management,ssrf-prevention,tls,xss-prevention}.md`.
@@ -74,6 +76,8 @@
 ## 9. OAuth2 / social
 
 - **RFC 6749** — §5.1 token response JSON snake_case (Bearer), jamais cookie/URL. **RFC 7636 (PKCE)** — S256 systématique, `code_verifier` obligatoire. **RFC 9700 (OAuth BCP)** — §4.14 rotation refresh + détection de rejeu (famille coupée), state anti-CSRF comparé session, callback URL **exact string match**. **RFC 9207** — `iss` anti-mix-up. **RFC 8707** — `aud` validé côté resource. → `security/service/oauth2.ts`, `tokenService.ts`, `src/oauth/providers/oidc.ts`.
+- **RFC 9728 (ressource protégée)** — `/.well-known/oauth-protected-resource` composé par **insertion** du chemin (§3.1, plusieurs ressources par hôte), `authorization_servers` non vide sinon le document ne mène nulle part, `WWW-Authenticate: Bearer resource_metadata="…"` (§5.1) — refuser en DISANT où aller. **RFC 6750** — `401 invalid_token` / `403 insufficient_scope`, jeton en en-tête seul. → `nodefony/src/oauth/protectedResource.ts`, `devkit/controllers/OAuthMetadataController.ts`.
+- **RFC 8414 (métadonnées d'émetteur)** — identifiant en **https sans requête ni fragment** (§2) ; suffixe bien connu **inséré** avant le chemin (§3.1) ; côté lecteur, **égalité stricte** du champ `issuer` reçu (§3.3 — sans elle, un document servi par un attaquant fait vérifier des jetons avec SES clés) ; `response_types_supported` REQUIS et `grant_types_supported` omis vaut `["authorization_code","implicit"]` → publier **vide** quand aucun flux n'existe. 🔴 La **publication** fait autorité, la lecture en dérive (un seul littéral de chemin). → `nodefony/src/oauth/authorizationServer.ts`, `framework/controller/IssuerMetadataController.ts`, `security/src/token/RemoteJwtVerifier.ts`.
 
 ## 10. 2FA / TOTP
 

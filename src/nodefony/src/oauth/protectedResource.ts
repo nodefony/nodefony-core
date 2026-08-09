@@ -29,9 +29,9 @@ import { bearerToken } from "../runtime/bearer";
  * serveurs d'autorisation, ses scopes et son audience — sans qu'aucune de ces
  * fonctions change.
  *
- * @see references/oauth/rfc9728.txt — métadonnées de la ressource protégée
- * @see references/oauth/rfc6750.txt — présentation du jeton, `WWW-Authenticate`
- * @see references/oauth/rfc8707.txt — l'audience, qui LIE un jeton à CE serveur
+ * @see references/rfc/ietf/rfc9728.txt — métadonnées de la ressource protégée
+ * @see references/rfc/ietf/rfc6750.txt — présentation du jeton, `WWW-Authenticate`
+ * @see references/rfc/ietf/rfc8707.txt — l'audience, qui LIE un jeton à CE serveur
  */
 
 /** Préfixe bien connu des métadonnées d'une ressource protégée (RFC 9728 §3). */
