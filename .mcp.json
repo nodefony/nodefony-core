@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "nodefony": {
+      "type": "http",
+      "url": "http://localhost:5151/nodefony/mcp"
+    }
+  }
+}

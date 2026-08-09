@@ -49,6 +49,7 @@ import { runCardCommand } from "../cli/card";
 import Symbols from "./commands/SymbolsCommand";
 import { runSymbolsCommand } from "../cli/symbols";
 import { runAiSyncCommand } from "../cli/aiSync";
+import { runAiMcpCommand } from "../cli/aiMcp";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import { HelpContext, Command as commanderCommand } from "commander";
@@ -286,6 +287,15 @@ class CliKernel extends Cli {
     // paquets (il se met à jour par npm) ; seul le VERBE vit ici.
     if (requested === "ai:sync") {
       return process.exit(runAiSyncCommand(process.argv));
+    }
+
+    // ─── `ai:mcp` : le CÂBLAGE du serveur MCP, même famille ───────────────────
+    // Elle n'écrit qu'un fichier (`.mcp.json`) et ne démarre RIEN : le serveur
+    // MCP est une route de l'application (`POST /nodefony/mcp`), pas un process.
+    // Standalone pour la même raison que `ai:sync` — la route est servie par un
+    // module `policy: "dev"`, donc invisible à un terminal sans `NODE_ENV`.
+    if (requested === "ai:mcp") {
+      return process.exit(runAiMcpCommand(process.argv));
     }
 
     // ─── Lancement DÉTACHÉ (`<runtime> --detach`) : même famille standalone ────
