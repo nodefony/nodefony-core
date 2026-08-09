@@ -20,6 +20,39 @@
 
 ---
 
+## 🧭 Annoncer une NORME sans l'avoir lue jusqu'aux ÈRES
+
+- `[1× — 08-09b]` 🔴 **« La RFC MCP est respectée à la lettre ? »** — non, et j'avais écrit un
+  serveur **legacy qui annonçait une révision moderne**. La spec `2026-07-28` définit deux ÈRES :
+  *modern* (capacités en `_meta` PAR REQUÊTE, `server/discover` obligatoire) et *legacy* (handshake
+  `initialize`, ≤ 2025-11-25). J'avais bâti sur `initialize` — donc l'ère legacy — tout en
+  répondant `protocolVersion: 2026-07-28`. Le tableau de compatibilité de la spec classe ce couple
+  « Fails ». J'avais lu le fichier `transports`, pas `versioning` : **les exigences qui comptaient
+  n'étaient pas dans la page qui parlait de mon sujet.** Trois MUST manquaient (`server/discover`,
+  `-32022`, `-32020`). Corrigé, et le dual-ère est désormais un CHOIX écrit, plus un accident.
+- `[1× — 08-09b]` **Un livrable neuf change la SURFACE d'exposition d'un défaut ancien.** Le serveur
+  MCP échappe à la zone du pare-feu (son pattern exige un segment `api`, que `/nodefony/mcp` n'a
+  pas). En le sondant, j'ai trouvé `security.totp.encryptionKey` **en clair** — un défaut
+  PRÉEXISTANT du producteur, que la console d'admin protégeait par un 401 et que ma route servait
+  à tout venant. La leçon n'est pas « corriger la porte » mais **mesurer ce qu'une porte nouvelle
+  rend accessible qui ne l'était pas** : la redaction vit dans le producteur, donc c'est là qu'on
+  répare, et toutes les portes en profitent.
+- `[1× — 08-09b]` **Deux définitions de « secret » cohabitaient** (`SECRET_KEY` du data plane vs
+  `pathLooksSecret` des journaux) : `encryptionKey` tombait entre les deux. Et **la correction
+  intuitive était pire que le mal** — élargir à `key` emportait `apiKeys.prefix`,
+  `passkeys.timeoutMs` et `key: "app"`, l'identifiant dont la console indexe ses entrées. Mesuré
+  sur les 565 clés d'une app réelle AVANT de choisir. Une règle qui rédige du non-secret finit par
+  être retirée ; la garde qui manquait est générique : **un secret est une valeur SCALAIRE**.
+- `[1× — 08-09b]` **Le user a demandé « et dans une app générée ? » — je n'y avais pas pensé.**
+  L'`AGENTS.md` généré ne parlait pas du serveur MCP : la porte existait et personne ne pouvait
+  l'apprendre. Une capacité livrée sans son point d'entrée dans le fichier que l'agent LIT n'existe
+  pas. Même famille que « une capacité arrive AVEC sa tâche ».
+- `[1× — 08-09b]` **Un choix d'URL est un choix d'ARCHITECTURE, et le user l'a vu avant moi.**
+  J'avais posé `/nodefony/devkit/api/mcp` — nom du module dans une URL qui part dans le `.mcp.json`
+  de chaque utilisateur. Un contrat public ne porte pas un détail d'implémentation qui déménagera.
+  Corrigé en `/nodefony/mcp` ; effet de bord découvert ensuite : sans segment `api`, la route sort
+  de la zone du pare-feu — ce qui était nécessaire, mais qu'il fallait CONSTATER, pas subir.
+
 ## 📌 Un chiffre publié sans son COMMIT n'est pas vérifiable
 
 - `[1× — 08-07b]` 🔴 **Rendu REFUSÉ par le user, et à raison : « les données sont assemblées de
