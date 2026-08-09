@@ -5,6 +5,7 @@ import type {
   ICardInput,
   ICardVerb,
 } from "nodefony";
+import type { DevkitConfig } from "../config/config";
 
 /**
  * Le contrat de la carte est celui du CŒUR — ces noms n'en sont que les alias,
@@ -48,4 +49,13 @@ export interface IDevkitService {
    * DIT.
    */
   getCard(): IDevkitCard;
+
+  /**
+   * Réglages effectifs du serveur MCP (défauts du schéma + surcharges de l'app).
+   *
+   * Exposé sur le contrat parce que la porte HTTP les lit : gardes d'accès et
+   * allowlist d'outils viennent d'ICI, jamais d'une seconde lecture de la
+   * configuration — deux lectures divergent.
+   */
+  mcpSettings(): DevkitConfig["mcp"];
 }

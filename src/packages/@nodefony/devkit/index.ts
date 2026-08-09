@@ -4,6 +4,7 @@ import config, { type DevkitConfigInput } from "./nodefony/config/config";
 import { defineDevkitConfig } from "./nodefony/config/defineModuleConfig";
 import DevkitService from "./nodefony/service/DevkitService";
 import DevkitController from "./nodefony/controllers/DevkitController";
+import McpController from "./nodefony/controllers/McpController";
 /**
  * @nodefony/devkit — Outillage de developpement d une application Nodefony : carte de visite et portes de decouverte pour un agent
  *
@@ -26,7 +27,7 @@ declare module "nodefony" {
 
 // Les controllers du module se déclarent ici — `nodefony create controller <nom>
 // --module devkit` les ajoute à cette liste (et à ce dossier) tout seul.
-@controllers([DevkitController])
+@controllers([DevkitController, McpController])
 @services([DevkitService])
 class DevkitModule extends Module {
   /**
@@ -61,7 +62,22 @@ class DevkitModule extends Module {
 }
 
 export default DevkitModule;
-export { DevkitService, DevkitController };
+export { DevkitService, DevkitController, McpController };
+
+// Serveur MCP — protocole et gardes en fonctions PURES, réutilisables par un
+// autre transport (`stdio`, le jour où répondre application éteinte comptera).
+export {
+  MCP_ENDPOINT_PATH,
+  MCP_PROTOCOL_VERSION,
+} from "./nodefony/src/mcp/protocol";
+export { handleMcpMessage } from "./nodefony/src/mcp/server";
+export { checkMcpAccess, isLocalAddress } from "./nodefony/src/mcp/guard";
+export { listMcpTools, callMcpTool } from "./nodefony/src/mcp/tools";
+export type { IMcpServerContext } from "./nodefony/src/mcp/server";
+export type {
+  IMcpToolDefinition,
+  IMcpToolResult,
+} from "./nodefony/src/mcp/tools";
 
 // Brique PURE, réutilisable par une autre porte (CLI, presse-papier, MCP) : la
 // carte se compose à partir d'un état injecté, pas d'un Kernel. « Une source,

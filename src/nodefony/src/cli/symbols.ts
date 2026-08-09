@@ -88,6 +88,28 @@ export function readSymbolsGraph(from: string): ISymbolsGraph | null {
   }
 }
 
+/**
+ * Trouve un symbole par son nom exact.
+ *
+ * Le graphe indexe par nom, sauf pour les **homonymes** qu'il range sous
+ * `Module:Nom` — d'où le second passage, qui les rattrape. Extrait ici parce
+ * que la commande n'est plus le seul lecteur : le serveur MCP interroge le même
+ * graphe, et deux résolutions d'homonymes finiraient par différer.
+ *
+ * @param graph - le graphe déjà lu
+ * @param name - nom exact recherché
+ * @returns l'entrée, ou `undefined`
+ */
+export function lookupSymbol(
+  graph: ISymbolsGraph,
+  name: string,
+): ISymbolEntry | undefined {
+  return (
+    graph.symbols[name] ??
+    Object.values(graph.symbols).find((s) => s.name === name)
+  );
+}
+
 /** Ce que la ligne de commande demande. */
 interface ISymbolsRequest {
   /** Nom exact d'un symbole, ou `null` pour un résumé. */
@@ -184,10 +206,7 @@ export function runSymbolsCommand(argv: string[]): number {
   }
 
   if (parsed.name !== null) {
-    const sym =
-      graph.symbols[parsed.name] ??
-      // Homonymes : le graphe les range sous `Module:Nom`.
-      Object.values(graph.symbols).find((s) => s.name === parsed.name);
+    const sym = lookupSymbol(graph, parsed.name);
     if (!sym) {
       process.stderr.write(
         `symbols: « ${parsed.name} » est introuvable dans le graphe (${Object.keys(graph.symbols).length} symboles).\n`,

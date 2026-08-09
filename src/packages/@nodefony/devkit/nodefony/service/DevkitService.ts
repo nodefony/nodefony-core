@@ -122,6 +122,17 @@ class DevkitService extends Service implements IDevkitService {
     });
   }
 
+  /**
+   * Réglages du serveur MCP, tels que l'application les a effectivement.
+   *
+   * La porte HTTP les LIT ici plutôt que de relire la configuration de son
+   * côté : les défauts du schéma sont déjà fusionnés avec ce que l'app a passé
+   * dans `use()`, une seconde lecture finirait par diverger de celle-ci.
+   */
+  mcpSettings(): DevkitConfig["mcp"] {
+    return this.cfg.mcp;
+  }
+
   status(): { ready: boolean } {
     return { ready: this.cfg.enabled };
   }

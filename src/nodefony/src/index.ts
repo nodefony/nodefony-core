@@ -375,6 +375,20 @@ export type {
   AdminHandler,
   AdminHttpMethod,
 } from "./types/IAdminApi";
+// Lecture de l'état de l'application par le plan d'administration — la table
+// des sujets et sa résolution, partagées par TOUTES les portes (commande
+// `inspect`, serveur MCP du devkit). Une seule table, sinon elles divergent.
+export {
+  INSPECT_SUBJECTS,
+  readAdminSubject,
+  unwrapAdminResult,
+} from "./kernel/inspect/adminSubjects";
+export type {
+  IInspectSubject,
+  IAdminBrokerLike,
+  InspectFailure,
+  InspectResult,
+} from "./kernel/inspect/adminSubjects";
 export type {
   IIdempotencyStore,
   IIdempotencyKeyEntry,
@@ -569,9 +583,35 @@ export type { TScaffoldStep } from "./cli/scaffold/steps";
 export {
   resolveSymbolsFile,
   readSymbolsGraph,
+  lookupSymbol,
   runSymbolsCommand,
 } from "./cli/symbols";
 export type { ISymbolEntry, ISymbolsGraph } from "./cli/symbols";
+
+// Câblage MCP — composition PURE (le fichier `.mcp.json` qu'un agent lit) et
+// son adaptateur. Le SERVEUR, lui, est une route du module `@nodefony/devkit`.
+export {
+  buildMcpUrl,
+  planMcpConfig,
+  renderMcpPlan,
+  MCP_CONFIG_FILE,
+  MCP_SERVER_KEY,
+} from "./cli/aiMcpReport";
+export type {
+  IMcpConfigDocument,
+  IMcpConfigPlan,
+  IMcpServerEntry,
+  McpConfigAction,
+} from "./cli/aiMcpReport";
+export { runAiMcpCommand, guessOrigin } from "./cli/aiMcp";
+
+// Diagnostic statique — la COLLECTE, séparée de son rendu, pour que la commande
+// `check` et le serveur MCP du devkit rendent le même document.
+export {
+  collectCheckReport,
+  countCheckFindings,
+} from "./kernel/checks/runCheck";
+export type { ICheckReport } from "./kernel/checks/runCheck";
 
 export { buildCard, renderCard } from "./cli/cardReport";
 export type {

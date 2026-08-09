@@ -273,14 +273,50 @@ export function parseCheckArgv(
  *          sur une option inconnue. La trace d'un démarrage échoué est
  *          RAPPORTÉE mais ne pèse pas sur ce code.
  */
-export async function runCheckCommand(argv: string[]): Promise<number> {
-  const parsed = parseCheckArgv(argv);
-  if ("error" in parsed) {
-    process.stderr.write(`check: ${parsed.error}\n${USAGE}`);
-    return 64;
-  }
-  const { json } = parsed;
-  const start = parsed.cwd;
+/**
+ * Rapport de diagnostic statique, tel que toutes les portes le lisent.
+ *
+ * C'est exactement le document que `check --json` imprime : la commande n'en
+ * possède aucune version privée. Ce qui compte, c'est qu'une deuxième porte
+ * (le serveur MCP) rende le MÊME objet — un diagnostic qui différerait selon
+ * l'outil qui le demande serait pire qu'aucun diagnostic.
+ */
+export interface ICheckReport {
+  /** Racine de l'application effectivement contrôlée. */
+  root: string;
+  /** Nombre de paquets parcourus. */
+  scanned: number;
+  /** Manquements de dépendances. */
+  findings: ReturnType<typeof checkPackageDeps>["findings"];
+  /** Manquements de câblage, avec le nombre de classes contrôlées. */
+  wiring: {
+    scanned: number;
+    findings: ReturnType<typeof checkWiring>["findings"];
+  };
+  /** Ce qui manque ICI et maintenant (env, modules, deps, ports). */
+  readiness: Awaited<ReturnType<typeof checkReadiness>>;
+  /** Bilan du dernier démarrage, s'il y en a un. */
+  lastBoot: ReturnType<typeof readLastBoot>;
+  /** Exceptions déclarées, comptées dans le rendu humain. */
+  exceptions: number;
+}
+
+/**
+ * Collecte le diagnostic — sans rien imprimer.
+ *
+ * Séparé du rendu pour la même raison que la table des sujets d'`inspect` :
+ * dès qu'une deuxième porte existe, une collecte enfouie dans une fonction qui
+ * écrit sur la sortie standard oblige à la réécrire, et les deux divergent.
+ *
+ * ⚠️ **La cible est l'APPLICATION, pas le dossier où l'on a tapé** : on remonte
+ * au premier dossier portant `nodefony.config.ts`. Hors projet, le dossier de
+ * départ reste la cible, et l'état d'installation n'est pas contrôlé (sans
+ * manifeste ni environnement, une sonde accuserait le premier serveur venu).
+ *
+ * @param start - dossier de départ de la remontée
+ * @returns le rapport complet, sans verdict ni code de sortie
+ */
+export async function collectCheckReport(start: string): Promise<ICheckReport> {
   const projectRoot = findProjectRoot(start);
   const cwd = projectRoot ?? start;
   const lastBoot = readLastBoot(cwd);
@@ -312,6 +348,39 @@ export async function runCheckCommand(argv: string[]): Promise<number> {
       })
     : { findings: [], catalogUnreadable: false, portsProbed: [] };
 
+  return {
+    root: cwd,
+    scanned,
+    findings,
+    wiring: { scanned: wiring.scanned, findings: wiring.findings },
+    readiness,
+    lastBoot,
+    exceptions:
+      Object.values(typeCycles ?? {}).flat().length +
+      (typesUnreachable?.length ?? 0),
+  };
+}
+
+/** Nombre total de manquements d'un rapport — le verdict, en un endroit. */
+export function countCheckFindings(report: ICheckReport): number {
+  return (
+    report.findings.length +
+    report.wiring.findings.length +
+    report.readiness.findings.length
+  );
+}
+
+export async function runCheckCommand(argv: string[]): Promise<number> {
+  const parsed = parseCheckArgv(argv);
+  if ("error" in parsed) {
+    process.stderr.write(`check: ${parsed.error}\n${USAGE}`);
+    return 64;
+  }
+  const { json } = parsed;
+  const start = parsed.cwd;
+  const report = await collectCheckReport(start);
+  const { root: cwd, scanned, findings, wiring, readiness, lastBoot } = report;
+
   if (json) {
     process.stdout.write(
       `${JSON.stringify(
@@ -319,7 +388,7 @@ export async function runCheckCommand(argv: string[]): Promise<number> {
           root: cwd,
           scanned,
           findings,
-          wiring: { scanned: wiring.scanned, findings: wiring.findings },
+          wiring,
           readiness,
           lastBoot,
         },
@@ -327,12 +396,7 @@ export async function runCheckCommand(argv: string[]): Promise<number> {
         2,
       )}\n`,
     );
-    return findings.length +
-      wiring.findings.length +
-      readiness.findings.length >
-      0
-      ? 1
-      : 0;
+    return countCheckFindings(report) > 0 ? 1 : 0;
   }
 
   // Dire QUOI a été contrôlé quand ce n'est pas là où on a tapé : un rapport
@@ -349,9 +413,7 @@ export async function runCheckCommand(argv: string[]): Promise<number> {
     wiring.findings.length === 0 &&
     readiness.findings.length === 0
   ) {
-    const exceptions =
-      Object.values(typeCycles ?? {}).flat().length +
-      (typesUnreachable?.length ?? 0);
+    const exceptions = report.exceptions;
     process.stdout.write(
       clc.green(
         `✓ ${scanned} paquet(s), ${wiring.scanned} classe(s) câblée(s) — rien à signaler` +
