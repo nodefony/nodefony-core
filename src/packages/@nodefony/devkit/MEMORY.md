@@ -102,6 +102,13 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
   compte de moindre privilège et l'on obtenait celle de l'administrateur, sans un
   mot — un canal pourtant refusé s'ouvrait. Mesuré, puis gardé par les deux
   passes du test de refus de canal.
+- **Le refus de canal se MESURE aussi sur une app générée — en deux gestes, pas
+  en le sautant.** Une application fraîche n'a qu'un compte et aucun canal fermé,
+  d'où la tentation de neutraliser le cas. `security:user:add <id> -r ROLE_USER`
+  donne le second compte, et `@RealtimeChannel(nom, { roles })` ferme un canal —
+  posé sur le MÊME endpoint que le canal ouvert, sinon les deux passes ne portent
+  pas sur des canaux comparables. Décor complet en tête de
+  `tests/browser-fonctionnel.test.ts`.
 - **`docker cp <dossier>/. <cible>` — le `/.` est OBLIGATOIRE** : sans lui, une
   seconde copie IMBRIQUE un dossier de plus au lieu de remplacer, et l'on
   exécute une version périmée sans aucun message. Vécu en écrivant ce skill.

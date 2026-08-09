@@ -38,7 +38,22 @@ const nomEtatAuth = fonctionDe<(identifiant: string) => string>(
  *     NF_BROWSER_TEST_CHANNEL=live:ticker
  *     NF_BROWSER_TEST_ACTION=live:ping
  *     NF_BROWSER_TEST_API=            (le pont n'existe que côté administration)
- *     NF_BROWSER_TEST_CHANNEL_REFUSE= (une app fraîche n'a qu'un seul compte)
+ *     NF_BROWSER_TEST_CHANNEL_REFUSE=live:admin
+ *     NF_BROWSER_TEST_USER_REFUSE=user  NF_BROWSER_TEST_PASSWORD_REFUSE=secret
+ *
+ * Le refus de canal ne se SAUTE pas faute de décor : une application fraîche
+ * n'a qu'un compte et aucun canal fermé, mais les deux s'obtiennent en deux
+ * gestes qui sont ceux d'un utilisateur, et le banc a été VÉRIFIÉ ainsi
+ * (10 verts, aucun sauté) :
+ *
+ *     npx nodefony security:user:add user -p secret -r ROLE_USER
+ *     # puis, dans le controller realtime généré, fermer UN canal du MÊME
+ *     # endpoint que le canal ouvert — sinon les deux passes ne portent pas
+ *     # sur des canaux comparables :
+ *     @RealtimeChannel("live:admin", { roles: ["ROLE_ADMIN"] })
+ *
+ * Le décor a été éprouvé en le DÉBRANCHANT : le compte autorisé mis à la place
+ * du compte refusé fait tomber le test (« expected 'OK' to be 'REFUSÉ' »).
  *
  * Les ports ne sont pas ceux de la configuration : une seconde application
  * prend les premiers ports libres quand une autre tient déjà les siens. Lire
