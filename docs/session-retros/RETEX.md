@@ -60,6 +60,15 @@
 - [1× — 08-05] Page blanche Vite « Failed to resolve ./App.svelte » : le fichier a été créé APRÈS
   le boot du dev-server (optimisation figée au démarrage) — restart Vite AVANT tout diagnostic
   quand un fichier neuf n'est pas vu.
+- `[1× — 08-09]` 🔴 **« Tu es sûr de tout ça ??? »** — j'avais annoncé un comportement corrigé en
+  m'appuyant sur UN rendu à l'écran, sans test. Le user a demandé les tests ; trois étaient rouges
+  à cet instant, cassés par mes propres changements. Un écran montre un cas, un test garde une
+  règle : tant que le second n'existe pas, « ça marche » ne vaut que pour la fois où on a regardé.
+- `[1× — 08-09]` **Un cas SAUTÉ faute de décor était un décor qu'on n'avait pas monté.** Le banc
+  désactivait son refus de canal (« une app fraîche n'a qu'un seul compte ») : vrai, et pas une
+  raison — deux gestes d'utilisateur suffisaient (`security:user:add`, puis `@RealtimeChannel(…,
+{ roles })`). 10 verts, 0 sauté. Avant de neutraliser un cas, se demander ce que coûterait de
+  MONTER ce qui lui manque.
 - `[1× — 08-08e]` 🔴 **Aucun script PUBLIÉ n'avait jamais été exécuté ailleurs que dans le
   conteneur** — donc toujours sous Linux, pendant que la portabilité était « vérifiée » par
   lecture. Le remède ne coûte rien : lancer les scripts sur leurs **chemins de REFUS** (codes de
@@ -298,6 +307,37 @@
   corps VIDE, puis `404 Session not found`, qu'on impute à l'inactivité alors que c'est
   l'INVERSE. Deux heures perdues. **Quand deux symptômes sans lien apparent surgissent ensemble,
   chercher d'abord ce qui court en arrière-plan.**
+
+## 🖼️ Un RENDU s'ajoute en REMPLAÇANT ce qu'il double — sinon il embrouille
+
+- `[1× — 08-09]` 🔴 **Rendu REFUSÉ par le user : « je comprends rien, c'était mieux avant ».** J'avais
+  ajouté une table des projets à `nodefony status` sans retirer les deux blocs qu'elle remplaçait :
+  la ligne « ports 5151 occupé par <racine> », le bloc « 4 runtime(s) d'un AUTRE projet » avec ses
+  pids, PUIS ma table. Trois endroits à recouper pour répondre à « qui tient mon port ? ». Chaque
+  bloc était juste ; c'est leur SOMME qui était illisible. Un ajout de rendu se conçoit en disant
+  d'abord **ce qu'il rend inutile** — sinon on empile des vérités.
+- `[1× — 08-09]` 🔴 **Le rapport MENTAIT sur lui-même** : il annonçait « 5153 5154 (déclarés par le
+  projet, non sondés) » pour une app dont le superviseur ET le serveur vivaient — deux lignes après
+  avoir donné 5151 « occupé par », donc sondé. Je n'avais sondé que MES ports par habitude, alors
+  qu'une sonde TCP locale coûte quasi rien. **Ne jamais afficher un doute sur ce qu'on peut
+  vérifier** : le lecteur en conclut que le service est mort.
+- `[1× — 08-09]` **Une formulation présuppose son contexte** : « aucune instance de CE PROJET »
+  s'affichait dans un dossier qui n'est pas un projet, juste avant la ligne qui l'annonçait — deux
+  phrases contradictoires dans le même écran. La supposition était à QUATRE endroits (titre, résumé,
+  le mot « voisins », et une ligne de ports sondés « par convention »). Corriger le premier ne suffit
+  pas : le vocabulaire d'un rendu se relit ENTIER sous chaque situation qu'il peut rencontrer.
+
+## 🪟 WINDOWS ne se vérifie pas « après » — le user a dû le demander
+
+- `[1× — 08-09]` 🔴 **J'ai livré `stop <projet>` sans avoir regardé Windows ; c'est la question du
+  user qui a révélé le trou.** Le rattachement d'un pid à son projet passe par `lsof` — absent
+  là-bas — donc la table est VIDE, et la commande répondait « aucun projet ne s'appelle X » :
+  affirmer une absence là où l'on n'a rien pu regarder. Un dev Windows en conclut que son app est
+  éteinte. La règle existe pourtant ([[feedback_cross_platform_axioms]]) ; ce qui a manqué, c'est de
+  l'appliquer **pendant** l'écriture, pas de la connaître.
+- `[1× — 08-09]` ⭐ **La grammaire de chemins INJECTABLE (`path.win32`) transforme une intention en
+  preuve** — et le test doit DISCRIMINER : rejoué avec la grammaire posix, il tombe. Sans ce
+  contrôle, deux de mes trois assertions Windows passaient par accident depuis macOS.
 
 ## 🧪 Un gate ne prouve rien tant qu'on ne l'a pas vu ROUGE — deux faux verts le même jour
 
