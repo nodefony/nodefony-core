@@ -60,6 +60,13 @@
 - [1× — 08-05] Page blanche Vite « Failed to resolve ./App.svelte » : le fichier a été créé APRÈS
   le boot du dev-server (optimisation figée au démarrage) — restart Vite AVANT tout diagnostic
   quand un fichier neuf n'est pas vu.
+- `[1× — 08-08e]` 🔴 **Aucun script PUBLIÉ n'avait jamais été exécuté ailleurs que dans le
+  conteneur** — donc toujours sous Linux, pendant que la portabilité était « vérifiée » par
+  lecture. Le remède ne coûte rien : lancer les scripts sur leurs **chemins de REFUS** (codes de
+  sortie attendus) avec le Node de la suite — ni serveur, ni docker, ni navigateur — pour qu'ils
+  tournent dans le job `windows-latest`. Vu rouge en cassant un import. Même session : le gate de
+  portabilité laissait passer `&&` / `||` dans les blocs SHELL publiés, que PowerShell 5.1 — le
+  shell PRÉINSTALLÉ de Windows — refuse comme erreur de syntaxe.
 
 ## 🧬 Appliquer un patron N fois n'est PAS le factoriser
 
@@ -324,6 +331,33 @@
   jamais la main sur 200 k » (l.91) et « contrôlé sur le témoin, ×3,88 aux mêmes conditions »
   (l.112) — mesuré, il quadruple dès 4 k et met 868 ms à 32 k, donc ~34 s à 200 k. Un commentaire
   chiffré qui n'a pas été REJOUÉ vieillit comme une donnée, pas comme une intention.
+- `[1× — 08-08e]` 🔴 **Un budget de temps calibré sur mon poste tombe sur la plateforme la plus
+  lente — celle qu'on éprouve le moins souvent.** Un lancement coûte ~0,2 s ici et 2 730 / 2 308 /
+  2 697 ms sur l'exécuteur Windows : le défaut vitest (5 s) ne laissait qu'une marge de deux, et le
+  seul cas enchaînant DEUX lancements a expiré à 5 041 ms. Le rouge n'accusait pas la portabilité
+  du code mesuré, mais l'impatience du test. Chaque cas porte désormais son budget explicite.
+
+## 🎭 Un état SAUVEGARDÉ sans identité répond pour quelqu'un d'autre
+
+- `[1× — 08-08e]` 🔴 **On réclame une mesure sous un compte de moindre privilège, on obtient celle
+  de l'administrateur — sans un mot, et le canal censé être refusé s'ouvre.** L'état
+  d'authentification réutilisé était repris quel que soit le compte DEMANDÉ : un fichier unique
+  pour N identités. Correctif : l'identifiant entre dans le NOM du fichier (fragment lisible +
+  empreinte anti-collision), effet de bord bienvenu — deux comptes gardent chacun leur session.
+  Le test qui gardait ce décor était complaisant : il passait **sans que l'état soit jamais lu**.
+- `[1× — 08-08e]` ⭐ **Une seule passe ne discrimine RIEN sur un refus** : un canal fermé à tout le
+  monde rendrait le verdict attendu. Deux passes sur le MÊME canal (autorisé, puis refusé), qui
+  s'enchaînent sans rien effacer — elles gardent du même coup le cloisonnement.
+
+## 🎚️ Une valeur par DÉFAUT cache une hypothèse jusqu'au premier décor étranger
+
+- `[1× — 08-08e]` **Premier passage d'un banc ailleurs que sur ce dépôt : le rouge n'accusait pas
+  l'application testée, il accusait mon défaut.** Le scénario exigeait `api.request` — une capacité
+  du plan d'ADMINISTRATION qu'un contrôleur temps réel d'application n'expose pas. L'hypothèse
+  n'était écrite nulle part : elle vivait dans une valeur par défaut. Rendue désactivable, avec un
+  relais déclaré par le contrôleur ; sans l'un ni l'autre, le banc n'exige plus un chiffre qu'il
+  faudrait inventer. **Un paramètre par défaut qui n'a jamais changé de valeur n'est pas un
+  paramètre — c'est une hypothèse non dite.**
 
 ## 🔎 Ce que le journal des commits CACHE
 
