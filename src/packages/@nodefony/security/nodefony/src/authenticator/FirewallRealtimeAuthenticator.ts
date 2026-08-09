@@ -138,13 +138,26 @@ export class FirewallRealtimeAuthenticator implements IRealtimeAuthenticator {
       (typeof claims.jti === "string" ? claims.jti : null);
     const resolveStore = this.#resolveStore;
 
-    if (expMs === null && resolveStore === null) {
-      // Ni borne ni store : rien ne pourra JAMAIS invalider cette socket. La
-      // laisser vivre, c'est une connexion éternelle adossée à une identité qu'on
-      // ne sait plus vérifier → fail-closed, et FAIL-LOUD pour qu'on le sache.
+    // Rien ne pourra JAMAIS invalider cette socket si elle n'a ni borne propre
+    // (`exp`), ni prise pour le store — lequel ne sait révoquer que par `jti`
+    // (ciblé) ou par `iat` (en masse). La laisser vivre, c'est une connexion
+    // éternelle adossée à une identité qu'on ne sait plus vérifier → fail-closed,
+    // et FAIL-LOUD pour qu'on le sache.
+    //
+    // 🔴 La condition porte sur ce qu'on PEUT vérifier, pas sur la présence d'un
+    // store. Formulée « pas de borne ET pas de store », elle laissait passer le
+    // cas réel : un store présent, et un jeton dont aucune borne n'était arrivée
+    // jusqu'ici — le store était alors interrogé avec `jti = null` et
+    // `iat = null`, donc ne pouvait répondre que « toujours valable ». C'est
+    // ainsi qu'un jeton d'un émetteur tiers ouvrait une socket immortelle.
+    const nothingCanInvalidate =
+      expMs === null &&
+      (resolveStore === null || (jti === null && iatMs === null));
+    if (nothingCanInvalidate) {
       Nodefony.getKernel()?.log?.(
-        `Realtime ${type} token "${identifier}" carries no expiry and no revocation store — ` +
-          `connection will be revoked (fail-closed). Ensure the token has an "exp" claim.`,
+        `Realtime ${type} token "${identifier}" carries neither an expiry nor any ` +
+          `revocation handle ("jti"/"iat") — connection will be revoked (fail-closed). ` +
+          `Ensure the authenticator forwards the token claims.`,
         "WARNING",
       );
       return () => Promise.resolve(false);

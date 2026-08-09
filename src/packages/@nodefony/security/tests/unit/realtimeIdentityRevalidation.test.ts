@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
-import { RequestContext } from "nodefony";
+import { ACCESS_TOKEN_VERIFIER, RequestContext } from "nodefony";
+import type { Container, IAccessPrincipal } from "nodefony";
+import type { ContextType } from "@nodefony/http";
 import type { IUser } from "@nodefony/user";
+import { ExternalJwtAuthenticator } from "../../nodefony/src/authenticator/ExternalJwtAuthenticator";
 import { FirewallRealtimeAuthenticator } from "../../nodefony/src/authenticator/FirewallRealtimeAuthenticator";
 import { UserToken } from "../../nodefony/src/token/UserToken";
 import { ScopeVoter } from "../../nodefony/src/voter/ScopeVoter";
@@ -324,5 +327,135 @@ describe("Scopes d'un agent sur la socket (downscoping des clés machine)", () =
       await voter.vote(token as never, "orders:write"),
       VoterVote.GRANT,
     );
+  });
+});
+
+/**
+ * **Un jeton émis AILLEURS ouvre une socket qui meurt avec lui.**
+ *
+ * Les cas ci-dessus fabriquent le jeton du firewall à la main, ce qui prouve le
+ * revalidateur mais suppose qu'un authenticator remplit bien son contrat. Ici on
+ * fait tourner le VRAI {@link ExternalJwtAuthenticator} : c'est la seule façon de
+ * voir ce qui manquait, car rien, dans le revalidateur, ne pouvait signaler
+ * qu'une borne n'était jamais arrivée.
+ *
+ * Le défaut trouvé en red-team : l'authenticator posait `scopes` et `subject`,
+ * mais ni `claims` ni `jti`. Le revalidateur ne trouvait donc aucune borne — et,
+ * un store étant présent, il ne tombait pas non plus dans son garde-fou
+ * fail-closed : il interrogeait le store avec `jti = null` et `iat = null`, deux
+ * questions auxquelles on ne peut répondre que « toujours valable ». **Une socket
+ * ouverte au nom d'un jeton tiers ne pouvait jamais être fermée**, ni à
+ * l'expiration, ni par une révocation en masse. Atteignable dès qu'une zone
+ * `external-jwt` garde `realtime` à son défaut, qui vaut `true`.
+ */
+describe("Identité realtime — jeton d'un émetteur TIERS (P6.9)", () => {
+  const EXT_ISSUER = "https://auth.example.com/realms/nodefony";
+  const EXT_RESOURCE = "https://app.example/nodefony/mcp";
+
+  /** Container minimal : le vérificateur est une fonction, c'est le contrat. */
+  const extContainer = (principal: IAccessPrincipal): Container =>
+    ({
+      get: (name: string): unknown =>
+        name === ACCESS_TOKEN_VERIFIER
+          ? () => Promise.resolve(principal)
+          : null,
+    }) as unknown as Container;
+
+  const extContext = (): ContextType =>
+    ({
+      request: { headers: { authorization: "Bearer a.b.c" } },
+      security: { name: "ext", resource: EXT_RESOURCE },
+    }) as unknown as ContextType;
+
+  /** Authentifie pour de vrai, puis rend le jeton tel que l'ALS le porterait. */
+  async function issuedByExternal(
+    principal: IAccessPrincipal,
+  ): Promise<UserToken> {
+    const auth = new ExternalJwtAuthenticator(extContainer(principal), {
+      issuers: [EXT_ISSUER],
+      subjectPolicy: "ephemeral",
+      ephemeralRoles: ["ROLE_AGENT"],
+    });
+    const token = await auth.createToken(extContext());
+    return (await auth.authenticate(token)) as UserToken;
+  }
+
+  it("reste valide tant que le jeton tiers n'a pas expiré", async () => {
+    const auth = new FirewallRealtimeAuthenticator();
+    const issued = await issuedByExternal({
+      subject: "agent-7",
+      scopes: ["orders:read"],
+      expiresAt: SEC(NOW) + 3600,
+    });
+    const token = await inScope({ user: alice, token: issued }, () =>
+      auth.authenticate(HANDSHAKE),
+    );
+    assert.equal(token.type, "external-jwt");
+    assert.equal(await token.isValid?.(NOW), true);
+  });
+
+  it("🔴 tombe quand le jeton tiers EXPIRE — la socket ne lui survit pas", async () => {
+    // LE vecteur. Sans la borne remontée par le vérificateur puis posée par
+    // l'authenticator, cette socket vivait indéfiniment.
+    const auth = new FirewallRealtimeAuthenticator();
+    const issued = await issuedByExternal({
+      subject: "agent-7",
+      scopes: [],
+      expiresAt: SEC(NOW) - 1,
+    });
+    const token = await inScope({ user: alice, token: issued }, () =>
+      auth.authenticate(HANDSHAKE),
+    );
+    assert.equal(await token.isValid?.(NOW), false);
+  });
+
+  it("🔴 FAIL-CLOSED : jeton tiers SANS aucune borne → révoqué, même avec un store", async () => {
+    // Le filet, distinct de la correction : un store présent ne prouve rien s'il
+    // n'a aucune prise. C'est cette formulation — « pas de borne ET pas de
+    // store » — qui laissait passer le cas réel, et elle aurait laissé passer
+    // n'importe quel futur authenticator oubliant de transmettre les claims.
+    const auth = new FirewallRealtimeAuthenticator(() => ({
+      isJtiDenied: async () => false,
+      getInvalidBefore: async () => null,
+    }));
+    const issued = await issuedByExternal({ subject: "agent-7", scopes: [] });
+    const token = await inScope({ user: alice, token: issued }, () =>
+      auth.authenticate(HANDSHAKE),
+    );
+    assert.equal(await token.isValid?.(NOW), false);
+  });
+
+  it("le `jti` de l'émetteur tiers atteint la denylist (révocation ciblée)", async () => {
+    const auth = new FirewallRealtimeAuthenticator(() => ({
+      isJtiDenied: async (jti: string) => jti === "ext-jti-9",
+      getInvalidBefore: async () => null,
+    }));
+    const issued = await issuedByExternal({
+      subject: "agent-7",
+      scopes: [],
+      expiresAt: SEC(NOW) + 3600,
+      tokenId: "ext-jti-9",
+    });
+    const token = await inScope({ user: alice, token: issued }, () =>
+      auth.authenticate(HANDSHAKE),
+    );
+    assert.equal(await token.isValid?.(NOW), false);
+  });
+
+  it("une révocation EN MASSE atteint aussi un porteur externe (`iat`)", async () => {
+    const auth = new FirewallRealtimeAuthenticator(() => ({
+      isJtiDenied: async () => false,
+      getInvalidBefore: async () => NOW,
+    }));
+    const issued = await issuedByExternal({
+      subject: "agent-7",
+      scopes: [],
+      expiresAt: SEC(NOW) + 3600,
+      issuedAt: SEC(NOW) - 60,
+    });
+    const token = await inScope({ user: alice, token: issued }, () =>
+      auth.authenticate(HANDSHAKE),
+    );
+    assert.equal(await token.isValid?.(NOW), false);
   });
 });

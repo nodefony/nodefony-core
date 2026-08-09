@@ -67,6 +67,17 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
     de comptes — l'accepter d'office ferait de l'IdP l'unique autorité d'accès, supprimant la 2ᵉ décision
     locale qui EST le firewall. JIT/provisioning = l'app pose son propre vérificateur (le contrat est une
     fonction) ou son `users` (`provisionOAuthUser` existe déjà côté `@nodefony/user`).
+  - 🔴 **La BORNE du jeton voyage avec l'identité** : `IAccessPrincipal` porte `expiresAt`/`issuedAt`
+    (**secondes** epoch, comme les claims) + `tokenId`, que `RemoteJwtVerifier` remonte du payload
+    vérifié et que l'authenticator repose sous les MÊMES noms que `JwtAuthenticator` (`claims`,
+    `jti`). Sans elle, `FirewallRealtimeAuthenticator` ne trouve aucune borne : une socket WS
+    ouverte au nom d'un jeton tiers ne peut JAMAIS être fermée (ni `exp`, ni `jti`, ni `invalidBefore`).
+    Une requête HTTP finit avant que la question se pose — une connexion durable, non. Atteignable
+    dès qu'une zone `external-jwt` garde `realtime` à son défaut, qui vaut **`true`**.
+  - 🔴 Filet frère (`FirewallRealtimeAuthenticator`) : le fail-closed porte sur ce qu'on PEUT
+    vérifier — `exp` absent **ET** (aucun store **OU** ni `jti` ni `iat`). Formulé « pas de borne ET
+    pas de store », il ne mordait pas quand un store existait mais n'avait aucune prise : interrogé
+    avec `jti = null`/`iat = null`, il ne peut répondre que « toujours valable ».
 - 🔴 **`peekIssuer(raw)`** (`src/authenticator/peekIssuer.ts`) = lecture NON vérifiée de `iss`, bornée à
   **8192 octets**, sans `jose` (`supports()` est SYNC). **AIGUILLAGE seul** : `jwt` et `external-jwt`
   reconnaissent le même `Bearer <jws>` → sans discriminant, en mode `first` le premier listé capture les

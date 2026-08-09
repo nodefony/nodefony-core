@@ -233,7 +233,18 @@ export class RemoteJwtVerifier {
           : {}),
       });
       const subject = typeof payload.sub === "string" ? payload.sub : undefined;
-      return { subject, scopes: extractScopes(payload) };
+      // La borne temporelle est REMONTÉE, pas seulement consommée. `jose` vient
+      // de vérifier `exp` pour cette requête-ci ; l'appelant, lui, peut ouvrir
+      // au nom de ce jeton quelque chose qui dure plus longtemps qu'elle — une
+      // socket. Sans ces trois valeurs, il n'a aucun moyen de savoir quand cette
+      // identité cesse d'être vraie, et la connexion survit au jeton.
+      return {
+        subject,
+        scopes: extractScopes(payload),
+        expiresAt: typeof payload.exp === "number" ? payload.exp : undefined,
+        issuedAt: typeof payload.iat === "number" ? payload.iat : undefined,
+        tokenId: typeof payload.jti === "string" ? payload.jti : undefined,
+      };
     } catch (error) {
       const code = (error as { code?: string }).code;
       if (!code || !TOKEN_FAULT_CODES.has(code)) {

@@ -214,6 +214,23 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
     ut.promote(user);
     ut.setAttribute("scopes", [...principal.scopes]);
     ut.setAttribute("subject", subject);
+    // 🔴 La borne du jeton voyage avec l'identité, sous les MÊMES noms que
+    // `JwtAuthenticator` (`claims`, `jti`). Ce n'est pas de la symétrie de
+    // confort : c'est le contrat que lit `FirewallRealtimeAuthenticator` pour
+    // savoir quand fermer une socket ouverte au nom de ce jeton. Sans ces
+    // attributs, une connexion WebSocket adossée à un jeton tiers ne pouvait
+    // JAMAIS être révoquée — ni à l'expiration, ni en masse : le revalidateur
+    // ne trouvait aucune borne, donc n'avait aucune raison de couper.
+    // Rien n'est alloué quand l'émetteur n'a fourni aucune borne.
+    if (principal.expiresAt !== undefined || principal.issuedAt !== undefined) {
+      ut.setAttribute("claims", {
+        exp: principal.expiresAt,
+        iat: principal.issuedAt,
+      });
+    }
+    if (principal.tokenId !== undefined) {
+      ut.setAttribute("jti", principal.tokenId);
+    }
     return ut;
   }
 

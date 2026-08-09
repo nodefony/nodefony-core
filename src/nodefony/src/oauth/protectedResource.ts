@@ -294,6 +294,28 @@ export interface IAccessPrincipal {
   subject?: string;
   /** Scopes réellement accordés. */
   scopes: readonly string[];
+  /**
+   * Expiration du jeton (`exp`), en **secondes** epoch — RFC 7519 §4.1.4.
+   *
+   * Elle a déjà été vérifiée au moment de la validation ; si elle est ici, c'est
+   * pour ce qui vient APRÈS. Une requête HTTP se termine avant que la question
+   * se pose, mais une connexion durable — une socket ouverte au nom de ce jeton
+   * — doit pouvoir mourir avec lui. Sans cette borne transportée jusqu'à
+   * l'appelant, une identité vérifiée une fois vaut indéfiniment : le jeton
+   * expire, la connexion reste.
+   *
+   * ⚠️ **Secondes**, comme le claim JWT dont elle vient — pas des millisecondes.
+   */
+  expiresAt?: number;
+  /** Émission du jeton (`iat`), en **secondes** epoch — révocation en masse. */
+  issuedAt?: number;
+  /**
+   * Identifiant unique du jeton (`jti`) — révocation CIBLÉE avant terme.
+   *
+   * Il vient d'un émetteur étranger : il ne désigne rien dans nos registres, et
+   * ne sert qu'à interroger une liste de révocation qui, elle, peut le connaître.
+   */
+  tokenId?: string;
 }
 
 /**
