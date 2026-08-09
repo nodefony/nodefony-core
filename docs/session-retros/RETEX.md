@@ -460,6 +460,24 @@
 
 ## 🧪 Un gate ne prouve rien tant qu'on ne l'a pas vu ROUGE — deux faux verts le même jour
 
+- `[1× — 08-10]` 🔴 **LE DÉBRANCHEMENT LUI-MÊME PEUT NE PAS COMPILER — et un build masqué fait
+  alors mesurer l'ANCIEN binaire.** `if (false) { … }` rend le bloc inatteignable : TypeScript y
+  perd le narrowing, le build échoue (TS2345) — mais j'avais écrit `npx turbo build … >/dev/null
+2>&1 && start.sh`, donc l'échec est passé inaperçu et le serveur a redémarré sur le binaire
+  PRÉCÉDENT. J'ai lu « 5 rouges » là où j'en attendais 1, et j'ai failli conclure que ma garde ne
+  mordait pas. Ce qui a sauvé : le compte de rouges annoncé AVANT de couper ne tombait pas juste →
+  interroger le SERVEUR (l'`aud` réellement inscrit dans le jeton rendu) au lieu de relire mes
+  tests. **Deux règles** : jamais `>/dev/null` sur un build dont dépend une mesure ; et un
+  débranchement se CONSTATE sur le comportement observable, pas sur le fait qu'on a édité la ligne.
+  Forme sûre quand un littéral `false` casse le typage : neutraliser la CONDITION
+  (`[x].includes(x) === false`) plutôt que le `if`.
+- `[1× — 08-10]` ⭐ **Le seul test qui discrimine est le cas POSITIF ; les tests de refus passent
+  volontiers pour la mauvaise raison.** Blue d'une faille où un jeton tiers n'apportait aucune borne
+  temporelle : sur cinq tests neufs, le débranchement de la correction n'en a fait tomber QU'UN —
+  « reste valide tant que le jeton n'a pas expiré ». Les trois « tombe quand … » restaient verts
+  parce que, sans borne, TOUT tombait en fail-closed. Sans le cas positif, j'aurais eu quatre verts
+  et zéro preuve. Réflexe : dans une matrice de refus, toujours un cas qui doit RÉUSSIR — c'est lui
+  qui distingue « la garde marche » de « rien ne passe ».
 - `[1× — 08-09g]` 🔴 **Débrancher UNE garde ne prouve QUE celle-là — un débranchement partiel se
   lit comme un débranchement.** Six tests couvraient le refus de publier un émetteur ; j'ai coupé
   le drapeau (`jwt.jwks`) et **un seul** est tombé. Lu vite, « la garde mord » — en réalité les
@@ -630,6 +648,17 @@ outdated` NU les montre). Corollaire : **un sous-agent hérite de la cécité de
   signal.
 
 ## 🪞 Un serveur TOLÉRANT rend VERT ce qu'un serveur STRICT refuse
+
+- `[1× — 08-10]` ⭐ **Un VRAI client tiers a trouvé en une tentative ce qu'aucun banc ne cherchait —
+  et mon banc de la veille testait le SYMPTÔME en le prenant pour une garantie.** Le client MCP de
+  Claude Code a refusé de se connecter : il sondait `/.well-known/oauth-authorization-server` sur
+  `http://localhost:5151` et y recevait le document qui se réclame de `https://localhost:5152`. Les
+  routes de publication étaient montées sans AUCUNE contrainte d'autorité, donc servies sur toutes
+  celles que le serveur écoute. Or mon test de la veille — « il déclare l'émetteur configuré, jamais
+  l'hôte par lequel on entre » — VÉRIFIAIT cette situation en la considérant comme correcte. La
+  question qu'il fallait poser n'était pas « quel émetteur déclare-t-il ? » mais « **a-t-il le droit
+  de répondre ici ?** ». Réflexe : pour tout document normatif servi à un chemin bien connu, se
+  demander sur quelle ORIGINE il fait autorité — et faire 404 partout ailleurs.
 
 - `[1× — 08-06j]` 🔴 **La table `session` stale (user TEXT d'avant le fix colKit) était VERTE sur
   MariaDB — qui créait l'index en auto-préfixant `user(768)` — et ROUGE sur MySQL 8.4, qui refuse.**
