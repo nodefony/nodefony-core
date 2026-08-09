@@ -468,17 +468,22 @@
   quota, filtre), relancer les suites qui TAPENT la surface armée et lire le compte de SKIPS, pas
   seulement l'exit code. Et une sonde de décor doit distinguer « la porte est muette » de « la porte
   refuse » : le second cas est un décor PRÉSENT, où c'est au banc de s'authentifier.
-- `[1× — 08-10]` 🔴 **LE DÉBRANCHEMENT LUI-MÊME PEUT NE PAS COMPILER — et un build masqué fait
-  alors mesurer l'ANCIEN binaire.** `if (false) { … }` rend le bloc inatteignable : TypeScript y
-  perd le narrowing, le build échoue (TS2345) — mais j'avais écrit `npx turbo build … >/dev/null
-2>&1 && start.sh`, donc l'échec est passé inaperçu et le serveur a redémarré sur le binaire
-  PRÉCÉDENT. J'ai lu « 5 rouges » là où j'en attendais 1, et j'ai failli conclure que ma garde ne
-  mordait pas. Ce qui a sauvé : le compte de rouges annoncé AVANT de couper ne tombait pas juste →
-  interroger le SERVEUR (l'`aud` réellement inscrit dans le jeton rendu) au lieu de relire mes
-  tests. **Deux règles** : jamais `>/dev/null` sur un build dont dépend une mesure ; et un
-  débranchement se CONSTATE sur le comportement observable, pas sur le fait qu'on a édité la ligne.
-  Forme sûre quand un littéral `false` casse le typage : neutraliser la CONDITION
-  (`[x].includes(x) === false`) plutôt que le `if`.
+- `[2× — 08-10]` 🔴 **LE DÉBRANCHEMENT LUI-MÊME PEUT NE PAS COMPILER — et un build masqué fait
+  alors mesurer l'ANCIEN binaire.** _(2ᵉ occurrence le soir même, après graduation : `start.sh
+  > /dev/null 2>&1`a caché un serveur qui n'a pas démarré → 481 rouges lus comme une régression
+massive, alors que rien n'écoutait. La règle était ÉCRITE et fraîche ; ce qui manque n'est pas la
+connaissance, c'est le réflexe de ne jamais rediriger la sortie d'une commande dont dépend l'étape
+suivante. Signe distinctif : un compte de rouges ABERRANT — 481 sur 661 ne décrit aucun défaut de
+code, seulement un décor mort.)_`if (false) { … }`rend le bloc inatteignable : TypeScript y
+perd le narrowing, le build échoue (TS2345) — mais j'avais écrit`npx turbo build … >/dev/null
+  > 2>&1 && start.sh`, donc l'échec est passé inaperçu et le serveur a redémarré sur le binaire
+PRÉCÉDENT. J'ai lu « 5 rouges » là où j'en attendais 1, et j'ai failli conclure que ma garde ne
+mordait pas. Ce qui a sauvé : le compte de rouges annoncé AVANT de couper ne tombait pas juste →
+interroger le SERVEUR (l'`aud`réellement inscrit dans le jeton rendu) au lieu de relire mes
+tests. **Deux règles** : jamais`>/dev/null`sur un build dont dépend une mesure ; et un
+débranchement se CONSTATE sur le comportement observable, pas sur le fait qu'on a édité la ligne.
+Forme sûre quand un littéral`false` casse le typage : neutraliser la CONDITION
+(`[x].includes(x) === false`) plutôt que le `if`.
 - `[1× — 08-10]` ⭐ **Le seul test qui discrimine est le cas POSITIF ; les tests de refus passent
   volontiers pour la mauvaise raison.** Blue d'une faille où un jeton tiers n'apportait aucune borne
   temporelle : sur cinq tests neufs, le débranchement de la correction n'en a fait tomber QU'UN —
