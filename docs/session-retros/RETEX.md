@@ -325,6 +325,17 @@
   charge (40 backends sur 40 en `ClientRead`) et `pgbench` dans le conteneur (11-12,9 k tps contre
   ~5 400 depuis l'hôte).
 
+## 🪦 Une phrase qui JUSTIFIE une absence devient un mensonge le jour de la livraison
+
+- `[1× — 08-09d]` **« Nous ne faisons pas X, et voici pourquoi » s'était recopié dans CINQ
+  fichiers** (TSDoc de classe, `README`, `docs/index.md`, `MEMORY.md`, `CLAUDE.md`) — livrer X les
+  a tous rendus faux d'un coup, et aucun gate ne le voit : ce sont des phrases justes hier,
+  parfaitement bien écrites, qui décrivent maintenant l'inverse du code. Le motif est propre à ce
+  type de phrase : une doc de CAPACITÉ vieillit quand le code change, une doc d'ABSENCE vieillit
+  quand le code **arrive**. Réflexe à prendre : au moment de livrer une capacité, `rg` sur la
+  justification de son absence AVANT d'écrire la nouvelle doc — la formulation est reconnaissable
+  (« écart assumé », « pas encore », « reste à faire »).
+
 ## 🧭 Une leçon gravée dans UN artefact ne protège pas le suivant
 
 - `[2× — 08-07d]` 🔴 **J'ai écrit la règle, puis je l'ai enfreinte dans l'heure — et c'est le user
@@ -408,6 +419,21 @@
   — il déplace le décalage au moment de la substitution (0,151 des 0,219 de CLS de la page).
   Et deviner « la bonne hauteur » ne tient pas : elle change avec le contenu. Le correctif est
   structurel — garder la MÊME enveloppe et n'en remplir que l'intérieur.
+- `[1× — 08-09d]` 🔴 **LE DÉBRANCHEMENT LUI-MÊME PEUT NE RIEN DÉBRANCHER, et alors le vert ment
+  DEUX fois.** Pour voir rouge un test de route, j'ai retiré le controller de
+  `@controllers([...])` — la route a continué de répondre : c'est `@controller` qui appelle
+  `Router.createRoute()` **à l'import**, `@controllers` ne fait que l'associer au module. J'ai
+  failli en conclure « le test ne mord pas » alors que je n'avais rien coupé. Corollaire : avant de
+  juger un test complaisant, **prouver que le débranchement a EU LIEU** — et le prouver autrement
+  que par `git diff --stat`, qui rend **VIDE sur un fichier neuf non tracké** (symétrique du piège
+  déjà connu du `git stash push` sur fichier commité). Ce jour-là, la seule preuve valable était
+  les rouges eux-mêmes.
+- `[1× — 08-09d]` 🔴 **Deux `404` qui se ressemblent font un test qui passerait aussi SI LE CODE
+  N'EXISTAIT PAS.** Une route « rôle éteint » et une route jamais montée rendent le même statut :
+  l'assertion `toBe(404)` ne prouve rien. Ce qui les sépare est le CORPS — objet minuscule du
+  controller contre enveloppe du framework (`nodefony`, `requestId`, `stack`). Règle : quand la
+  réponse ATTENDUE est aussi la réponse par DÉFAUT (404, `null`, tableau vide, `false`), le test
+  doit exhiber le témoin qui distingue les deux — sinon il mesure l'absence de tout.
 
 ## ⏱️ Un test qui attend un DÉLAI FIXE mesure la machine, pas le code
 
@@ -552,6 +578,20 @@ check:externals --if-present` sur un script qui n'existe pas → contrôle imagi
   drizzle+mysql2 passe par `client.query()`, JAMAIS `execute()` → « prepared » mysql =
   gain JS seul, aucun prepare protocole. La doc officielle (perf-queries) montre l'API,
   pas ces deux contrats.
+
+- `[1× — 08-09d]` 🔴 **La même spécification a été RETÉLÉCHARGÉE trois fois dans la journée**, par
+  trois sessions qui se posaient la même question — le user a dû le signaler. Une norme est le
+  contraire d'une page volatile : elle ne bouge qu'à une révision. Elle est désormais figée hors
+  ligne (`nodefony-rfc/references/`, 758 Ko : la révision MCP entière + `schema.ts` + RFC OAuth).
+  Rangée là, et pas dans un skill « devkit », parce que **le déclencheur réel est « que dit la
+  norme ? »** : un agent qui code le MCP n'ouvre pas un skill décrit comme éprouvant un scaffold,
+  et la doc y serait restée inatteignable.
+- `[1× — 08-09d]` ⚠️ **Deux exigences que j'aurais écrites FAUSSES de mémoire, sur un sujet que je
+  croyais connaître** : `invalid_request` veut **400**, pas 401 (RFC 6750 §3.1) ; et une requête
+  sans aucune information d'authentification se refuse **SANS code d'erreur** (§3) — un
+  `invalid_token` y ferait renouveler en boucle un jeton qui n'existe pas. Les deux sont ancrées
+  par un test citant la ligne. Le réflexe qui a payé : ouvrir la RFC pour les DÉTAILS aussi, pas
+  seulement pour l'architecture.
 
 ## 🔴 Un gate rouge en PERMANENCE est un gate mort
 
