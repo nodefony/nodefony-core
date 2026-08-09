@@ -13,6 +13,7 @@ import {
   portOwnership,
   probePorts,
   processCwd,
+  readRuntimeState,
   splitByProject,
   terminateDevProcesses,
   type DevObservationDeps,
@@ -171,6 +172,34 @@ export function scopeAllToNodefonyProjects(
   return { kept, rejected };
 }
 
+/**
+ * Racines des projets auxquels appartiennent `procs` — dédupliquées.
+ *
+ * Sert à `--all` pour savoir QUELS ports vérifier après un arrêt trans-projets :
+ * un port qu'on ne sonde pas ne peut ni confirmer ni infirmer l'arrêt, et le
+ * rapport concluait « ✓ arrêté proprement » sans avoir regardé les trois quarts
+ * des ports qu'il venait de libérer.
+ *
+ * Fonction PURE (lecture du cwd injectable). Les rôles Vite sont ignorés : ils
+ * travaillent parfois dans un sous-dossier, et leur parent porte déjà la racine.
+ *
+ * @param procs - runtimes sur le point d'être arrêtés.
+ * @param getCwd - lecture du répertoire courant d'un pid.
+ * @returns les racines distinctes, sans celles qu'on n'a pas pu lire.
+ */
+export function projetsDuPoste(
+  procs: readonly DevProcessInfo[],
+  getCwd: (pid: number) => string | null = processCwd,
+): string[] {
+  const racines = new Set<string>();
+  for (const p of procs) {
+    if (p.role === "vite") continue;
+    const cwd = getCwd(p.pid);
+    if (cwd) racines.add(path.resolve(cwd));
+  }
+  return [...racines];
+}
+
 /** Applique {@link scopeAllToNodefonyProjects} et ANNONCE les process épargnés. */
 function allRuntimesOfThisPoste(
   procs: readonly DevProcessInfo[],
@@ -231,6 +260,31 @@ export async function runStopReport(
         .filter((p) => p.listening)
         .map((p) => p.port),
     );
+    // Le rattachement d'un process à son projet est une CAPACITÉ, pas un acquis :
+    // il repose sur le répertoire courant d'un pid, que `lsof` fournit — absent
+    // sous Windows et sur les images Node minces. Sans lui, aucune racine n'est
+    // connue : répondre « aucun projet ne s'appelle X » serait affirmer une
+    // absence là où l'on n'a rien pu regarder, et un développeur Windows en
+    // conclurait que son application est éteinte. On ÉNONCE la cécité, et on
+    // renvoie vers les deux voies qui n'en dépendent pas.
+    const aveugle =
+      projects.length === 0 &&
+      discovered.length > 0 &&
+      here.foreign.every((p) => p.cwd === null);
+    if (aveugle) {
+      write(
+        [
+          "",
+          `${tag} ${ANSI.yellow}impossible de rattacher les process à un projet ici${ANSI.reset}`,
+          `  ${ANSI.dim}${discovered.length} runtime(s) Nodefony tournent, mais leur répertoire de travail${ANSI.reset}`,
+          `  ${ANSI.dim}n'est pas lisible (\`lsof\` absent ? Windows ?) — une cible par NOM est${ANSI.reset}`,
+          `  ${ANSI.dim}donc indécidable, et rien ne sera arrêté au hasard.${ANSI.reset}`,
+          `  ${ANSI.dim}→ ${ANSI.reset}${ANSI.bold}cd <projet> && nodefony stop${ANSI.reset}${ANSI.dim}, ou ${ANSI.reset}${ANSI.bold}nodefony stop --all${ANSI.reset}`,
+          "",
+        ].join("\n") + "\n",
+      );
+      return 1;
+    }
     const resolved = resolveProjectTarget(opts.target, projects);
     if (!resolved.ok) {
       write(
@@ -332,7 +386,22 @@ export async function runStopReport(
   // convention `[5151, 5152]` — qu'un AUTRE projet peut très bien tenir. Le
   // rapport final annoncerait alors « 5151 encore occupé » en montrant du doigt
   // le serveur du voisin, sur un arrêt pourtant impeccable.
-  const ourPorts = defaultDevPorts(cwd);
+  // `--all` tue les runtimes de TOUS les projets du poste : ne sonder que les
+  // nôtres, c'était conclure « ✓ arrêté proprement » sur une preuve partielle —
+  // mesuré, 6 process de deux projets tués et 2 ports vérifiés sur 4. Les ports
+  // des autres projets se lisent ici, TANT QUE leurs process vivent : après le
+  // kill, leur fichier d'état est parti avec eux.
+  const ourPorts = opts.all
+    ? [
+        ...new Set([
+          ...defaultDevPorts(cwd),
+          ...projetsDuPoste(before, opts.getCwd).flatMap(
+            (racine) =>
+              readRuntimeState(racine, { purgeStale: false })?.ports ?? [],
+          ),
+        ]),
+      ]
+    : defaultDevPorts(cwd);
 
   // Décompte par rôle (segments non-nuls) → message adapté à dev / prod / cluster.
   const mode = runtimeLabel(detectRuntimeMode(before));

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-09T11:17:55.757Z",
+  "generated": "2026-08-09T11:46:39.241Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 689,
-    "symbols": 2824,
+    "symbols": 2825,
     "classes": 347,
     "interfaces": 818,
     "types": 367,
     "enums": 4,
-    "functions": 1026,
+    "functions": 1027,
     "constants": 262
   },
   "symbols": {
@@ -6838,6 +6838,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Filtre de `--all` : sans projet de référence, la SEULE preuve restante serait le titre de process. C'est peu pour un `kill -9` trans-projets — un homonyme suffirait. On exige donc une SECONDE preuv…"
+    },
+    "projetsDuPoste": {
+      "name": "projetsDuPoste",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devStop.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Racines des projets auxquels appartiennent `procs` — dédupliquées. Sert à `--all` pour savoir QUELS ports vérifier après un arrêt trans-projets : un port qu'on ne sonde pas ne peut ni confirmer ni …"
     },
     "runStopReport": {
       "name": "runStopReport",
@@ -23514,6 +23522,7 @@
         "src/nodefony/src/kernel/checks/runCheck.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devProjects.ts",
+        "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "OptionsCommandInterface": [

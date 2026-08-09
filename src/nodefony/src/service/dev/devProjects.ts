@@ -207,12 +207,31 @@ export type ProjectResolution =
 export function resolveProjectTarget(
   arg: string,
   projects: readonly IProjectRuntime[],
+  /**
+   * Grammaire de chemins — INJECTABLE pour que la règle s'éprouve sous une autre
+   * plateforme que celle qui joue le test (`path.win32` depuis un poste UNIX).
+   * Sans cela, le comportement Windows ne serait jamais qu'une intention : ici,
+   * `\` est un séparateur et `C:\…` est absolu, deux faits qu'un test macOS ne
+   * rencontre jamais par lui-même.
+   */
+  grammaire: Pick<
+    typeof path,
+    "isAbsolute" | "sep" | "resolve" | "basename"
+  > = path,
 ): ProjectResolution {
+  // Un `/` reste reconnu même sous Windows : les développeurs l'y tapent, et
+  // `path.win32` le normalise sans broncher.
   const looksLikePath =
-    path.isAbsolute(arg) || arg.includes("/") || arg.includes(path.sep);
+    grammaire.isAbsolute(arg) ||
+    arg.includes("/") ||
+    arg.includes(grammaire.sep);
   const matches = looksLikePath
-    ? projects.filter((p) => path.resolve(p.root) === path.resolve(arg))
-    : projects.filter((p) => p.name === arg || path.basename(p.root) === arg);
+    ? projects.filter(
+        (p) => grammaire.resolve(p.root) === grammaire.resolve(arg),
+      )
+    : projects.filter(
+        (p) => p.name === arg || grammaire.basename(p.root) === arg,
+      );
 
   if (matches.length === 1) return { ok: true, project: matches[0] };
   if (matches.length === 0)

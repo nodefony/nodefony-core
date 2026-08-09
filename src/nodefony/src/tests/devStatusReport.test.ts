@@ -15,8 +15,9 @@ import {
   isStandaloneDevCommand,
   runStatusReport,
 } from "../service/dev/devStatusReport";
-import { runStopReport } from "../service/dev/devStop";
+import { projetsDuPoste, runStopReport } from "../service/dev/devStop";
 import {
+  readRuntimeState,
   writeRuntimeState,
   type DevProcessInfo,
   type PortState,
@@ -224,6 +225,65 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
       /Résumé/.test(plain) && /nodefony stop /.test(plain),
       `un résumé doit expliquer et donner le geste :\n${plain}`,
     );
+  });
+
+  it("`stop <nom>` DIT qu'il est aveugle plutôt que de nier le projet (Windows, images minces)", async () => {
+    // Le rattachement d'un pid à son projet passe par `lsof` — absent sous
+    // Windows. Aucune racine n'est alors connue, et la réponse « aucun projet ne
+    // s'appelle X » affirmerait une absence là où l'on n'a rien pu regarder : un
+    // développeur Windows en conclurait que son application est éteinte.
+    //
+    // Le verdict est INJECTÉ (getCwd → null), donc ce cas s'éprouve depuis
+    // n'importe quelle plateforme — c'est la seule façon de garder un
+    // comportement Windows sans machine Windows.
+    let out = "";
+    const code = await runStopReport(mine, {
+      discover: (): ProcessDiscovery => ({ supported: true, procs: theirs }),
+      getCwd: () => null,
+      probe: async (): Promise<PortState[]> => busyPorts,
+      write: (s) => (out += s),
+      target: "monapp",
+    });
+    const plain = out.replace(/\x1b\[[0-9;]*m/g, "");
+    assert.strictEqual(code, 1, "rien ne doit être arrêté au hasard");
+    assert.ok(
+      /impossible de rattacher les process à un projet/.test(plain),
+      `la cécité doit être ÉNONCÉE :\n${plain}`,
+    );
+    assert.ok(
+      !/aucun projet Nodefony en cours ne s'appelle/.test(plain),
+      `ne jamais nier un projet qu'on n'a pas pu chercher :\n${plain}`,
+    );
+    // Les deux voies qui ne dépendent PAS de cette capacité sont données.
+    assert.ok(
+      /nodefony stop --all/.test(plain) && /cd <projet>/.test(plain),
+      `donner les sorties qui marchent quand même :\n${plain}`,
+    );
+  });
+
+  it("`stop --all` SONDE les ports de tous les projets qu'il arrête", () => {
+    // Le défaut mesuré : 6 process de DEUX projets tués, et le rapport ne
+    // vérifiait que 5151/5152 avant de conclure « ✓ arrêté proprement ». Un port
+    // qu'on ne sonde pas ne peut ni confirmer ni infirmer un arrêt.
+    //
+    // Éprouvé sur la fonction PURE qui décide QUELLES racines interroger : le
+    // chemin complet TUE, il n'a pas sa place dans une suite.
+    writeRuntimeState(neighbour, { pid: process.pid, ports: [5153, 5154] });
+    const racines = projetsDuPoste(theirs, (pid: number) =>
+      theirs.some((p) => p.pid === pid) ? neighbour : null,
+    );
+    assert.deepStrictEqual(racines, [path.resolve(neighbour)]);
+    // Un Vite n'apporte pas de racine : son parent la porte déjà, et il travaille
+    // parfois dans un sous-dossier.
+    assert.strictEqual(
+      projetsDuPoste(
+        theirs.filter((p) => p.role === "vite"),
+        () => path.join(neighbour, "frontend"),
+      ).length,
+      0,
+    );
+    // Et la racine rendue mène bien aux ports que ce projet publie.
+    assert.deepStrictEqual(readRuntimeState(racines[0])?.ports, [5153, 5154]);
   });
 
   it("HORS projet, le rapport ne parle jamais de « ce projet »", async () => {

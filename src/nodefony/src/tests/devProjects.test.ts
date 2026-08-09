@@ -163,6 +163,45 @@ describe("devProjects — résolution d'une cible", () => {
     assert.strictEqual(!r.ok && r.candidates.length, 2);
   });
 
+  it("WINDOWS — la grammaire injectée décide, pas la plateforme du test", () => {
+    // Éprouvé depuis un poste UNIX en injectant `path.win32` : sans cela, le
+    // comportement Windows resterait une intention. Trois faits qu'un test macOS
+    // ne rencontre jamais seul — `\` sépare, `C:\…` est absolu, et un `/` tapé
+    // par habitude doit quand même être compris comme un chemin.
+    const racineWin = "C:\\Users\\cci\\monapp";
+    const table: IProjectRuntime[] = [
+      {
+        name: "monapp",
+        nameSource: "package",
+        root: racineWin,
+        current: false,
+        procs: [],
+        ports: [],
+      },
+    ];
+    const parChemin = resolveProjectTarget(racineWin, table, path.win32);
+    assert.strictEqual(parChemin.ok, true, "un chemin Windows doit résoudre");
+
+    const parSlash = resolveProjectTarget(
+      "C:/Users/cci/monapp",
+      table,
+      path.win32,
+    );
+    assert.strictEqual(
+      parSlash.ok,
+      true,
+      "un `/` tapé sous Windows résout aussi",
+    );
+
+    const parNom = resolveProjectTarget("monapp", table, path.win32);
+    assert.strictEqual(parNom.ok, true, "le nom reste utilisable");
+
+    // Et un chemin PARTIEL ne passe pas : la garantie ne s'affaiblit pas avec la
+    // grammaire — c'est ce qui empêcherait d'arrêter le mauvais serveur.
+    const partiel = resolveProjectTarget("cci\\monapp", table, path.win32);
+    assert.strictEqual(partiel.ok, false);
+  });
+
   it("ne confond pas un nom avec un chemin qui finit pareil", () => {
     // `stop monapp` ne doit pas viser `/srv/autre/monapp` par son suffixe : un
     // chemin se donne en entier ou pas du tout.
