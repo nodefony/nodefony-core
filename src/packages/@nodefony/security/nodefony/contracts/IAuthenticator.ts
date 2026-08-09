@@ -1,5 +1,6 @@
 import type { ContextType } from "@nodefony/http";
 import type { IToken } from "./IToken";
+import type { ISecuredArea } from "./ISecuredArea";
 
 /**
  * Stratégie d'authentification — pattern « authenticator » : une classe = une
@@ -44,4 +45,22 @@ export interface IAuthenticator {
    * Ex. `'Basic realm="nodefony", charset="UTF-8"'`, `'Bearer'`.
    */
   challenge?(): string;
+
+  /**
+   * Vérifie AU BOOT que la zone qui référence cet authenticator lui donne ce
+   * dont il a besoin — sinon `throw`, et la configuration n'existe pas.
+   *
+   * Appelée une fois par zone qui le liste, avant la première requête. C'est
+   * l'authenticator qui dit ce qu'il exige, jamais le firewall : celui-ci ne
+   * connaît aucun nom en dur, et un plugin tiers doit pouvoir poser ses propres
+   * exigences sans qu'on touche au cœur.
+   *
+   * Le contrôle vaut d'être fait ici plutôt qu'à la première requête, où il se
+   * manifesterait par un 401 sans cause visible, chez un seul appelant, un jour
+   * quelconque.
+   *
+   * @param area - la zone qui référence cet authenticator
+   * @throws Error si la zone ne remplit pas les conditions d'emploi
+   */
+  validateArea?(area: ISecuredArea): void;
 }

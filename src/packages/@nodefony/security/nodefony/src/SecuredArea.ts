@@ -18,6 +18,7 @@ export class SecuredArea implements ISecuredArea {
   readonly authenticators: readonly string[];
   readonly host?: string;
   readonly realtime: boolean;
+  readonly resource?: string;
 
   constructor(name: string, config: ISecurityAreaConfig) {
     this.name = name;
@@ -28,6 +29,7 @@ export class SecuredArea implements ISecuredArea {
     this.authenticators = config.authenticators;
     this.host = config.host;
     this.realtime = config.realtime;
+    this.resource = config.resource;
   }
 
   /**

@@ -50,6 +50,7 @@ import SecureWsController from "./nodefony/secure/SecureWsController";
 import TestM2mRealtimeController from "./nodefony/secure/TestM2mRealtimeController";
 // P6 J4 — banc ZONE API M2M (JWT Bearer, zone "test-api", /nodefony/test/m2m).
 import ApiM2mController from "./nodefony/secure/ApiM2mController";
+import ExternalJwtController from "./nodefony/secure/ExternalJwtController";
 // P6.8 — banc DÉMO idempotence userland (@Idempotent, /nodefony/test/secure/idempotent).
 import IdempotentDemoController from "./nodefony/secure/IdempotentDemoController";
 // P6 J9 — enregistre le provider OAuth de TEST (side-effect), AVANT le onBoot du
@@ -104,6 +105,8 @@ const BENCH_ORM = process.env.NF_BENCH_ORM === "1";
   TestM2mRealtimeController,
   // P6 J4 — banc zone API M2M (JWT Bearer, /nodefony/test/m2m/*)
   ApiM2mController,
+  // P6.9 — banc zone serveur de ressource (jetons TIERS, /nodefony/test/external/*)
+  ExternalJwtController,
   // P6.8 — banc démo idempotence userland (@Idempotent, /nodefony/test/secure/idempotent/*)
   IdempotentDemoController,
   // Décor du banc de contre-pression WS (opt-in `NF_BENCH_WS_BACKPRESSURE=1`)

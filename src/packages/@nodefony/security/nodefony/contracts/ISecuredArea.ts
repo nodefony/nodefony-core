@@ -39,6 +39,22 @@ export interface ISecuredArea {
   readonly host?: string;
 
   /**
+   * URI canonique de la ressource protégée par cette zone — l'**audience**
+   * qu'un jeton doit porter pour y être accepté (RFC 8707 §2).
+   *
+   * Exigée par les authenticators qui vérifient un jeton émis AILLEURS : c'est
+   * la seule chose qui empêche un jeton parfaitement valide, délivré au même
+   * porteur pour un autre service, d'être rejoué ici. Elle s'ÉCRIT et ne se
+   * dérive pas de l'en-tête `Host` — derrière un relais, ce que le processus
+   * croit être son adresse n'est pas ce que le client a demandé, et l'audience
+   * doit être celle que le serveur d'autorisation a inscrite dans le jeton.
+   *
+   * Omise, une zone reste parfaitement utilisable par les authenticators qui
+   * n'en ont pas besoin (session, mot de passe, jetons maison).
+   */
+  readonly resource?: string;
+
+  /**
    * Zone valable AUSSI pour le WebSocket (frames `api.request` + `subscribe`),
    * pas seulement HTTP. Défaut `true` (Zero Trust : une zone protégée ferme TOUS
    * ses transports) ; `false` = opt-out explicite (zone strictement HTTP). Le

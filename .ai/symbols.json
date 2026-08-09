@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-09T19:31:28.416Z",
+  "generated": "2026-08-09T20:19:27.033Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 704,
-    "symbols": 2922,
-    "classes": 351,
-    "interfaces": 848,
-    "types": 376,
+    "files": 708,
+    "symbols": 2928,
+    "classes": 354,
+    "interfaces": 849,
+    "types": 377,
     "enums": 4,
-    "functions": 1067,
+    "functions": 1068,
     "constants": 276
   },
   "symbols": {
@@ -8643,6 +8643,19 @@
       ],
       "description": "Banc d'intégration de la ZONE API M2M `test-api` (P6 J4) — JWT Bearer only. Tout `/nodefony/test/m2m/*` est capturé par la zone firewall `test-api` (authenticator `jwt`, `stateless`). Sans `Authori…"
     },
+    "ExternalJwtController": {
+      "name": "ExternalJwtController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/secure/ExternalJwtController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Banc d'intégration de la ZONE SERVEUR DE RESSOURCE `test-external` (P6.9). Tout `/nodefony/test/external/*` est capturé par une zone dont le seul authenticator est `external-jwt` : elle n'accepte q…"
+    },
     "IdempotentDemoController": {
       "name": "IdempotentDemoController",
       "kind": "class",
@@ -15261,6 +15274,17 @@
       "decorators": [],
       "description": "Tentatives de login trop rapprochées — `code = 429` (RFC 6585 §4). Levée par `UserPasswordAuthenticator` quand le backoff progressif ({@link LoginThrottler}) bloque encore l'identifiant saisi. Dist…"
     },
+    "UnverifiableTokenError": {
+      "name": "UnverifiableTokenError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/errors/UnverifiableTokenError.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "nodefonyError",
+      "implements": [],
+      "decorators": [],
+      "description": "Le jeton n'a pas pu être VÉRIFIÉ — `code = 503`, et surtout **pas 401**. Levée quand ce qui sait valider un jeton est absent ou en panne : aucun vérificateur posé au conteneur, émetteur injoignable…"
+    },
     "WebAuthnError": {
       "name": "WebAuthnError",
       "kind": "class",
@@ -18461,6 +18485,36 @@
       "module": "@nodefony/security",
       "description": "Noms enregistrés (validation boot, introspection Studio, tests)."
     },
+    "ExternalJwtAuthenticator": {
+      "name": "ExternalJwtAuthenticator",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [
+        "IAuthenticator"
+      ],
+      "decorators": [],
+      "description": "Authentification par **jeton d'accès émis par un serveur d'autorisation TIERS** (Keycloak, Auth0, Entra, ou l'émetteur d'une flotte d'agents). C'est le chaînon qui relie deux pièces déjà en place :…"
+    },
+    "IExternalJwtAuthenticatorOptions": {
+      "name": "IExternalJwtAuthenticatorOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Ce que la fabrique doit fournir à l'authenticator."
+    },
+    "ExternalSubjectPolicy": {
+      "name": "ExternalSubjectPolicy",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Comment le sujet d'un jeton devient un utilisateur de cette application."
+    },
     "FirewallRealtimeAuthenticator": {
       "name": "FirewallRealtimeAuthenticator",
       "kind": "class",
@@ -18495,6 +18549,14 @@
       ],
       "decorators": [],
       "description": "Authentification par **JWT Bearer** (RFC 6750) — réservée API service↔service / agents (le web utilise la session BFF). Vérifie un access token EdDSA signé par le {@link IJwtKeystore} du serveur. D…"
+    },
+    "peekIssuer": {
+      "name": "peekIssuer",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/peekIssuer.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Rend le claim `iss` d'un JWS compact, sans vérifier quoi que ce soit."
     },
     "SessionAuthenticator": {
       "name": "SessionAuthenticator",
@@ -20438,6 +20500,7 @@
         "CsrfError",
         "SsrfError",
         "ThrottledError",
+        "UnverifiableTokenError",
         "WebAuthnError",
         "UserNotFoundError",
         "WeakPasswordError",
@@ -20538,6 +20601,7 @@
         "PocBookController",
         "PocInvokeController",
         "ApiM2mController",
+        "ExternalJwtController",
         "IdempotentDemoController",
         "SecureController",
         "SecureWsController",
@@ -20893,6 +20957,7 @@
       "IAuthenticator": [
         "AnonymousAuthenticator",
         "ApiKeyAuthenticator",
+        "ExternalJwtAuthenticator",
         "JwtAuthenticator",
         "SessionAuthenticator",
         "UserPasswordAuthenticator"
@@ -20979,6 +21044,7 @@
         "PocBookResourceController",
         "PocInvokeController",
         "ApiM2mController",
+        "ExternalJwtController",
         "IdempotentDemoController",
         "SecureController",
         "SecureWsController",
@@ -21207,6 +21273,7 @@
         "src/packages/@nodefony/security/nodefony/src/audit/recordAudit.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/token/tokenStoreRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/totpSecretStoreRegistry.ts",
@@ -21810,6 +21877,9 @@
       "ApiM2mController": [
         "src/modules/test/index.ts"
       ],
+      "ExternalJwtController": [
+        "src/modules/test/index.ts"
+      ],
       "IdempotentDemoController": [
         "src/modules/test/index.ts"
       ],
@@ -22057,6 +22127,7 @@
         "src/modules/test/nodefony/poc/PocBookController.ts",
         "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
+        "src/modules/test/nodefony/secure/ExternalJwtController.ts",
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
@@ -22221,6 +22292,7 @@
         "src/modules/test/nodefony/poc/PocBookResourceController.ts",
         "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
+        "src/modules/test/nodefony/secure/ExternalJwtController.ts",
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
@@ -22252,6 +22324,7 @@
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebhookSinkController.ts",
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
+        "src/modules/test/nodefony/secure/ExternalJwtController.ts",
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
@@ -23616,6 +23689,7 @@
         "src/packages/@nodefony/security/nodefony/errors/CsrfError.ts",
         "src/packages/@nodefony/security/nodefony/errors/SsrfError.ts",
         "src/packages/@nodefony/security/nodefony/errors/ThrottledError.ts",
+        "src/packages/@nodefony/security/nodefony/errors/UnverifiableTokenError.ts",
         "src/packages/@nodefony/security/nodefony/errors/WebAuthnError.ts",
         "src/packages/@nodefony/user/nodefony/errors/UserNotFoundError.ts",
         "src/packages/@nodefony/user/nodefony/errors/WeakPasswordError.ts",
@@ -23764,6 +23838,7 @@
       "bearerToken": [
         "src/nodefony/src/oauth/protectedResource.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts"
       ],
       "ActionNames": [
@@ -24935,6 +25010,7 @@
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
+        "src/modules/test/nodefony/secure/ExternalJwtController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
@@ -25011,6 +25087,7 @@
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/PipelineOrderController.ts",
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
+        "src/modules/test/nodefony/secure/ExternalJwtController.ts",
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
@@ -25046,6 +25123,7 @@
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
@@ -25106,6 +25184,7 @@
       ],
       "IUser": [
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
+        "src/modules/test/nodefony/secure/ExternalJwtController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IToken.ts",
@@ -25119,6 +25198,7 @@
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/AnonymousUser.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/realtime/UserRealtimeToken.ts",
@@ -25197,11 +25277,13 @@
       ],
       "ACCESS_TOKEN_VERIFIER": [
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
-        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts"
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts"
       ],
       "IAccessTokenVerifier": [
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
-        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts"
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts"
       ],
       "MCP_ENDPOINT_PATH": [
         "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts"
@@ -25634,7 +25716,8 @@
       "BaseUser": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts"
       ],
       "USER_SORTABLE_FIELDS": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
@@ -26797,6 +26880,7 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
@@ -26813,20 +26897,23 @@
         "src/packages/@nodefony/security/nodefony/src/admin/adminAudit.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/recordAudit.ts"
       ],
+      "ISecuredArea": [
+        "src/packages/@nodefony/security/nodefony/contracts/IAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts"
+      ],
       "IAuthenticator": [
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
-      ],
-      "ISecuredArea": [
-        "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts"
       ],
       "CspFragment": [
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
@@ -26849,6 +26936,7 @@
       ],
       "IAccessPrincipal": [
         "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
       ],
       "defineSecurityConfig": [
@@ -26919,6 +27007,7 @@
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts"
       ],
@@ -26937,6 +27026,7 @@
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
         "src/packages/@nodefony/security/nodefony/src/sessionIdentity.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
@@ -27016,6 +27106,10 @@
       ],
       "SecurityHeaders": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
+      "UnverifiableTokenError": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts"
       ],
       "getAuthenticatorFactory": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
@@ -27767,6 +27861,7 @@
       ],
       "UserToken": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/UserPasswordAuthenticator.ts"
@@ -27791,6 +27886,17 @@
       ],
       "ApiKeyAuthenticator": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
+      ],
+      "ExternalJwtAuthenticator": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
+      ],
+      "canonicalIssuer": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
+      ],
+      "peekIssuer": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts"
       ],
       "anonymousUser": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts",
@@ -27817,9 +27923,6 @@
       ],
       "matchesTokenStatus": [
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
-      ],
-      "canonicalIssuer": [
-        "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
       ],
       "extractScopes": [
         "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"

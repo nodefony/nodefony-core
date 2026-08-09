@@ -175,6 +175,12 @@ export { SessionAuthenticator } from "./nodefony/src/authenticator/SessionAuthen
 export { JwtAuthenticator } from "./nodefony/src/authenticator/JwtAuthenticator";
 export { ApiKeyAuthenticator } from "./nodefony/src/authenticator/ApiKeyAuthenticator";
 export type { IApiKeyAuthenticatorRuntime } from "./nodefony/src/authenticator/ApiKeyAuthenticator";
+export { ExternalJwtAuthenticator } from "./nodefony/src/authenticator/ExternalJwtAuthenticator";
+export type {
+  ExternalSubjectPolicy,
+  IExternalJwtAuthenticatorOptions,
+} from "./nodefony/src/authenticator/ExternalJwtAuthenticator";
+export { peekIssuer } from "./nodefony/src/authenticator/peekIssuer";
 export {
   generateApiKey,
   parseApiKey,
@@ -402,6 +408,7 @@ export {
   AuthenticationError,
   AccessDeniedError,
   ThrottledError,
+  UnverifiableTokenError,
   CsrfError,
   SsrfError,
 } from "./nodefony/errors";

@@ -106,6 +106,12 @@ const areaSchema = z.object({
     .describe(
       "Domaine/vhost de la zone (ex. admin.exemple.com). Omis = tous domaines.",
     ),
+  resource: z
+    .string()
+    .optional()
+    .describe(
+      "URI canonique de la ressource protégée — l'AUDIENCE qu'un jeton doit porter pour être accepté ici (RFC 8707 §2). Obligatoire dès que la zone liste un authenticator de jetons TIERS (`external-jwt`), qui refuse de démarrer sans elle. C'est ce qui empêche un jeton valide, délivré au même porteur pour un AUTRE service, d'être rejoué sur celui-ci. Elle s'ÉCRIT et ne se dérive pas du `Host` : derrière un relais, ce que le processus croit être son adresse n'est pas ce que le client a demandé, et l'audience doit être exactement celle que le serveur d'autorisation a inscrite dans le jeton. Ex. « https://api.example.com/mcp ».",
+    ),
   realtime: z
     .boolean()
     .default(true)
@@ -648,6 +654,18 @@ const resourceServerSchema = z
       .default([])
       .describe(
         "Émetteurs dont l'application accepte les jetons. VIDE (défaut) = aucun jeton tiers n'est vérifiable, et le service `accessTokenVerifier` n'est pas posé — une porte protégée refusera alors de servir plutôt que d'accepter des porteurs qu'elle ne sait pas lire. Un seul réglage commande le rôle : pas de drapeau `enabled` qui permettrait « activé sans émetteur ».",
+      ),
+    subjectPolicy: z
+      .enum(["require", "ephemeral"])
+      .default("require")
+      .describe(
+        "Comment le sujet d'un jeton tiers (`sub`) devient un utilisateur de CETTE application. « require » (défaut) : le sujet doit correspondre à un compte local (`loadUserByIdentifier`) — absent, désactivé ou verrouillé, l'accès est refusé. « ephemeral » : aucun compte local n'est exigé ni créé, l'appelant vit le temps de la requête avec les rôles de `ephemeralRoles` — c'est le mode de l'appelant PUREMENT machine (agent, service). Le défaut est « require » parce qu'un jeton d'un annuaire d'entreprise vaut pour des milliers de comptes : l'accepter d'office ferait de cet annuaire l'unique autorité d'accès à l'application, et supprimerait la seconde décision — locale — qui est la raison d'être du pare-feu.",
+      ),
+    ephemeralRoles: z
+      .array(z.string().min(1))
+      .default([])
+      .describe(
+        "Rôles accordés à un appelant accepté en mode « ephemeral ». VIDE par défaut, et ce n'est pas une omission : sans rôle, l'appelant ne passe aucun `@IsGranted` et n'est autorisé que par ses SCOPES (`@RequireScope`), qui viennent du jeton et sont bornés par le serveur d'autorisation. Y écrire un rôle revient à accorder un pouvoir local à quiconque détient un jeton valide pour cette ressource — à faire sciemment, jamais par confort.",
       ),
     timeoutMs: z
       .number()

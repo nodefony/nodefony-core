@@ -50,6 +50,34 @@ export default {
         // realtime: armé par DÉFAUT (zone protégée → WS fermé, Zero Trust) → le
         // handshake WS JWT sous /m2m est authentifié sans flag (P6 J8 volet b).
       },
+      // P6.9 — zone SERVEUR DE RESSOURCE : jetons émis par un serveur
+      // d'autorisation TIERS. `resource` est l'audience exigée (RFC 8707 §2) ;
+      // sans elle, `external-jwt` refuse de démarrer — ce que le banc vérifie
+      // en la retirant. L'émetteur déclaré plus bas est INJOIGNABLE par
+      // construction : c'est ce qui permet d'éprouver sur le fil la seule chose
+      // qu'aucun test unitaire ne peut montrer — qu'une panne de vérification
+      // ressort en 503, et pas en 401.
+      "test-external": {
+        pattern: "^/nodefony/test/external",
+        authenticators: ["external-jwt"],
+        stateless: true,
+        realtime: false,
+        resource: "https://app.test.invalid/nodefony/test/external",
+      },
+    },
+    // P6.9 — l'émetteur du banc n'existe pas et ne peut pas exister : `.invalid`
+    // est réservé par la RFC 2606 et ne se résout nulle part. Le jeu de clés est
+    // déclaré pour supprimer la découverte (deux requêtes de moins pour le même
+    // verdict), et le délai est court pour que l'échec soit franc.
+    resourceServer: {
+      issuers: [
+        {
+          issuer: "https://auth.test.invalid/realms/nodefony",
+          jwksUri: "https://auth.test.invalid/keys",
+          algorithms: ["ES256"],
+        },
+      ],
+      timeoutMs: 1000,
     },
     // P6 J5 — CORS : une origine de confiance déterministe pour le banc
     // d'intégration `http/cors.test.ts` (preflight reflété + requête réelle).

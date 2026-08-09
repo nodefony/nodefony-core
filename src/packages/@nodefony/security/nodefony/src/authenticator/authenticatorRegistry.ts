@@ -7,6 +7,7 @@ import { SessionAuthenticator } from "./SessionAuthenticator";
 import { UserPasswordAuthenticator } from "./UserPasswordAuthenticator";
 import { JwtAuthenticator } from "./JwtAuthenticator";
 import { ApiKeyAuthenticator } from "./ApiKeyAuthenticator";
+import { ExternalJwtAuthenticator } from "./ExternalJwtAuthenticator";
 import { resolveJwtRuntime } from "../token/jwtRuntime";
 import type { LoginThrottler } from "../throttle/LoginThrottler";
 
@@ -112,6 +113,21 @@ registerAuthenticatorFactory("jwt", ({ container, config }) => {
   // lazy dans l'instance (cold path). Les paramètres iss/aud/ttl sont dérivés de
   // la config (mêmes valeurs que l'émetteur via `resolveJwtRuntime`).
   return new JwtAuthenticator(container, resolveJwtRuntime(config.jwt));
+});
+
+registerAuthenticatorFactory("external-jwt", ({ container, config }) => {
+  // Jetons émis par un serveur d'autorisation TIERS (P6.9) : la vérification
+  // est portée par le service `accessTokenVerifier`, posé au conteneur par
+  // AccessTokenVerifierService quand `resourceServer.issuers` n'est pas vide.
+  // La liste d'émetteurs sert ici UNIQUEMENT à reconnaître les jetons qui
+  // relèvent de cet authenticator — elle n'accorde rien, le vérificateur refait
+  // le contrôle sur sa propre liste.
+  const rs = config.resourceServer;
+  return new ExternalJwtAuthenticator(container, {
+    issuers: rs.issuers.map((i) => i.issuer),
+    subjectPolicy: rs.subjectPolicy,
+    ephemeralRoles: rs.ephemeralRoles,
+  });
 });
 
 registerAuthenticatorFactory("apikey", ({ container, config }) => {

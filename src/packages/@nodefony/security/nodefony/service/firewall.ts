@@ -24,6 +24,7 @@ import { Cors } from "./cors";
 import { SecurityHeaders } from "./securityHeaders";
 import { AuthenticationError } from "../errors/AuthenticationError";
 import { ThrottledError } from "../errors/ThrottledError";
+import { UnverifiableTokenError } from "../errors/UnverifiableTokenError";
 import { CsrfError } from "../errors/CsrfError";
 import {
   defineSecurityConfig,
@@ -402,25 +403,42 @@ class Firewall extends Service implements IFirewall {
   #instantiateAuthenticators(areas: SecuredArea[]): void {
     for (const area of areas) {
       for (const name of area.authenticators) {
-        if (this.#authenticators?.has(name)) continue; // plugin déjà enregistré
-        const factory = getAuthenticatorFactory(name);
-        if (!factory) {
-          this.#configError = new Error(
-            `area "${area.name}": authenticator "${name}" unknown — registered: ` +
-              `[${listAuthenticatorFactories().join(", ")}]`,
+        if (!this.#authenticators?.has(name)) {
+          const factory = getAuthenticatorFactory(name);
+          if (!factory) {
+            this.#configError = new Error(
+              `area "${area.name}": authenticator "${name}" unknown — registered: ` +
+                `[${listAuthenticatorFactories().join(", ")}]`,
+            );
+            this.log(
+              `Security configuration INVALID — ${this.#configError.message}`,
+              "CRITIC",
+            );
+            return;
+          }
+          this.registerAuthenticator(
+            factory({
+              container: this.container as Container,
+              config: this.#config as ISecurityConfig,
+            }),
           );
+        }
+        // Conditions d'emploi — l'authenticator dit lui-même ce qu'il exige de
+        // la zone (le firewall ne connaît aucun nom en dur). Contrôlé pour
+        // CHAQUE zone qui le liste, y compris quand l'instance est partagée :
+        // une seule zone mal déclarée suffit à ouvrir un trou, et deux zones
+        // ne demandent pas la même chose.
+        const authenticator = this.#authenticators?.get(name);
+        try {
+          authenticator?.validateArea?.(area);
+        } catch (error) {
+          this.#configError = error as Error;
           this.log(
-            `Security configuration INVALID — ${this.#configError.message}`,
+            `Security configuration INVALID — ${(error as Error).message}`,
             "CRITIC",
           );
           return;
         }
-        this.registerAuthenticator(
-          factory({
-            container: this.container as Container,
-            config: this.#config as ISecurityConfig,
-          }),
-        );
       }
     }
   }
@@ -693,6 +711,20 @@ class Firewall extends Service implements IFirewall {
           "auth.throttled",
           "failure",
           "throttled",
+          null,
+        );
+        throw error;
+      }
+      if (error instanceof UnverifiableTokenError) {
+        // 503 : ce n'est pas un défi. Poser un `WWW-Authenticate` inviterait le
+        // porteur à corriger quelque chose de son côté, alors que rien de ce
+        // qu'il présentera ne changera la réponse tant que la panne dure.
+        this.#recordAuth(
+          context,
+          area,
+          "auth.unverifiable",
+          "failure",
+          "verifier_unavailable",
           null,
         );
         throw error;
@@ -1063,6 +1095,22 @@ class Firewall extends Service implements IFirewall {
             `login throttled (area "${area.name}", authenticator "${name}", retry in ${error.retryAfterS}s)`,
             "WARNING",
           );
+          throw error;
+        }
+        if (error instanceof UnverifiableTokenError) {
+          // Le jeton n'est ni valide ni invalide : rien n'a PU le vérifier
+          // (aucun vérificateur posé, émetteur injoignable). L'aplatir en 401
+          // enverrait le porteur renouveler en boucle un jeton parfaitement
+          // bon, et rangerait une panne de dépendance dans la statistique des
+          // échecs d'authentification. Signal ops complet, 503 au client.
+          // La cause technique vit dans `detail` et NON dans le message, qui
+          // est rendu au client : elle doit être journalisée explicitement.
+          this.log(
+            `token unverifiable (area "${area.name}", authenticator "${name}") — ` +
+              `${error.detail ?? "cause non renseignée"}`,
+            "ERROR",
+          );
+          this.log(error, "ERROR");
           throw error;
         }
         // Erreur INTERNE (source d'identité down, câblage) : signal ops complet

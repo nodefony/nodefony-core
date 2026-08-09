@@ -59,6 +59,15 @@ rend `aud` obligatoire · allowlist d'émetteurs FERMÉE, consultée avant toute
 PANNE de l'émetteur lève (5xx) au lieu de rendre « jeton refusé » · `HS*` impossible en config (clés
 publiques) · nom de service GÉNÉRIQUE (le MCP n'est que le premier consommateur). Détail : `MEMORY.md`.
 
+✅ **Le jeton tiers ouvre le FIREWALL (P6.9b)** : `ExternalJwtAuthenticator` (zone `external-jwt`) rattache
+le sujet externe à un `IUser` local (`subjectPolicy: "require"` par défaut, `"ephemeral"` pour l'appelant
+purement machine). **Décisions à ne pas défaire** : l'audience vient de la ZONE (`area.resource`), exigée
+AU BOOT par `IAuthenticator.validateArea` (contrat — le firewall ne connaît aucun nom en dur) · `jwt` et
+`external-jwt` s'aiguillent par `iss` (`peekIssuer`), donc l'ORDRE de la zone ne décide de rien ·
+`supports()` ne lève JAMAIS (appelé hors du rattrapage du firewall = 500 offerte à un anonyme) · une PANNE
+est un **503** (`UnverifiableTokenError`), jamais un 401, et son message est CONSTANT (la cause vit dans
+`detail`, pour le journal seul). Bancs : 27 unitaires + banc live `http/external-jwt.test.ts` (6).
+
 ✅ **CSRF (J5)** : `Csrf` (Fetch Metadata `Sec-Fetch-Site` PRIMAIRE + repli `Origin`/`Referer`), flag
 `strictSameSite`, liste `trustedOrigins` (alias multi-domaine). Câblé `Firewall.enforceCsrf()` → http-kernel
 (global, rejet précoce). Gates : security 281, banc intégration live `http/csrf.test.ts` 11/11, mémoire 9/9.

@@ -18,7 +18,12 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   **Pourquoi** : le succès nominal n'émet AUCUN audit (le volume n'est pas un signal) → sans elle, une
   requête qui PASSE ne laisse aucune empreinte de sa zone. Lue par `Profiler.collect()` → Studio.
   Banc : `tests/unit/firewallSecurityTrace.test.ts` (7, dont 2 « prod = 0 alloc »).
-- `SecuredArea` : `match(ctx)` = host (`ctx.domain`) puis pattern. Champs : pattern/security/stateless/authenticators/host.
+- `SecuredArea` : `match(ctx)` = host (`ctx.domain`) puis pattern. Champs : pattern/security/stateless/authenticators/host/**resource**.
+  `resource` = URI canonique de la ressource = **audience** exigée (RFC 8707 §2) ; s'ÉCRIT, jamais dérivée du `Host`.
+- `IAuthenticator.validateArea?(area)` = **conditions d'emploi contrôlées AU BOOT**, appelé par
+  `Firewall.#instantiateAuthenticators` pour CHAQUE zone qui liste le nom (même quand l'instance est
+  partagée). L'authenticator dit ce qu'il exige ; le firewall ne connaît aucun nom en dur (un plugin
+  tiers pose donc ses propres exigences). Throw → `#configError` + CRITIC → fail-closed.
 - `RoleHierarchyWalker` : `hasRole(roles, required)` O(1) (flat précalc DFS), `#detectCycles` throw au boot.
 - `AnonymousToken` : `getUser()=anonymousUser` (gelé, 0 alloc), `isAuthenticated()=false`, `getScopes()=[]`.
 - `AuthFlow` (service "authFlow", J3) : login/logout/me session BFF. login = throttle partagé →
@@ -50,6 +55,35 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
     invalide », envoyant le client renouveler un jeton parfaitement bon.
   - Découverte lazy au 1ᵉʳ jeton, mémorisée par PROMESSE (appels concurrents = 1 découverte), entrée
     retirée en cas d'échec (une panne passagère ne condamne pas l'émetteur pour la vie du process).
+- **`ExternalJwtAuthenticator`** (nom de zone `external-jwt`) = le chaînon vérificateur → FIREWALL.
+  Le vérificateur s'arrête à `{subject, scopes}` ; rattacher ce sujet à un `IUser` est une décision
+  d'APPLICATION, portée ici seule.
+  - **Audience = celle de la ZONE** (`area.resource`), transportée par `createToken` → attribut du token
+    (`authenticate(token)` ne reçoit PAS le contexte). `validateArea` refuse au BOOT une zone sans
+    `resource` ; zone sans resource au runtime ⇒ 503 (jamais une vérif sans audience).
+  - `subjectPolicy` : **`require`** (défaut) = `loadUserByIdentifier(sub)`, absent/inactif/verrouillé ⇒ 401 ·
+    **`ephemeral`** = `BaseUser` NON persisté (`identifier = sub`, rôles = `ephemeralRoles`, vide par défaut
+    ⇒ autorisé par SCOPES seulement). Défaut `require` : un jeton d'IdP d'entreprise vaut pour des milliers
+    de comptes — l'accepter d'office ferait de l'IdP l'unique autorité d'accès, supprimant la 2ᵉ décision
+    locale qui EST le firewall. JIT/provisioning = l'app pose son propre vérificateur (le contrat est une
+    fonction) ou son `users` (`provisionOAuthUser` existe déjà côté `@nodefony/user`).
+- 🔴 **`peekIssuer(raw)`** (`src/authenticator/peekIssuer.ts`) = lecture NON vérifiée de `iss`, bornée à
+  **8192 octets**, sans `jose` (`supports()` est SYNC). **AIGUILLAGE seul** : `jwt` et `external-jwt`
+  reconnaissent le même `Bearer <jws>` → sans discriminant, en mode `first` le premier listé capture les
+  DEUX familles et refuse la moitié des jetons ⇒ l'ORDRE de la config deviendrait une décision de sécurité.
+  Chacun ne prend que SA famille (`jwt` : `iss === runtime.issuer` OU `iss` illisible ; `external-jwt` :
+  `iss` ∈ allowlist). Banc : « l'ordre de la zone ne décide de RIEN ».
+- 🔴 **`supports()` NE DOIT JAMAIS LEVER** : le firewall l'appelle **HORS** de son bloc de rattrapage →
+  une exception = **500 provoquée par un anonyme** avec une simple chaîne dans `iss`. `canonicalIssuer`
+  LÈVE sur tout ce qui n'est pas une URL https ⇒ égalité directe d'abord (0 alloc), normalisation GARDÉE
+  par try/catch ensuite. Idem au constructeur : émetteur mal formé = ignoré (le vérificateur est l'autorité
+  et loggue déjà CRITIC), pas fatal.
+- 🔴 **`UnverifiableTokenError` (503) ≠ `AuthenticationError` (401).** Le firewall le laisse remonter TEL
+  QUEL (cas spécial avant le fallback 401, comme `ThrottledError`/429) et ne pose **PAS** de
+  `WWW-Authenticate` : ce n'est pas un défi, le porteur n'a rien à corriger. Un 401 sur panne enverrait le
+  client renouveler en boucle un jeton bon et rangerait une panne d'infra dans la stat des échecs d'auth.
+  **Message CONSTANT** (rendu au client, + pile d'appels en dev) ; la cause technique vit dans `detail`,
+  journalisée par le firewall. Vécu : l'URL de l'émetteur défaillant fuyait dans le corps du 503.
 - `issuerDiscovery.ts` (PUR, 0 réseau) : `canonicalIssuer` (https, ni requête ni fragment — RFC 8414 §2) ·
   `issuerMetadataUrls` (3 URL ordre NORMATIF : insertion oauth → insertion oidc → ajout oidc ; 2 si pas de
   chemin) · `validateIssuerMetadata` (**`issuer` du document ≡ celui demandé**, RFC 8414 §3.3 — sans quoi
@@ -249,6 +283,7 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
 redirectUri, issuer?, scopes}}}` — `issuer` requis pour keycloak (URL realm).
 - `resourceServer` = **jetons émis AILLEURS** (≠ `jwt`, qui décrit ceux que Nodefony émet) :
   `{issuers:[{issuer, jwksUri?, algorithms:["RS256","ES256","EdDSA"], typ?, requiredClaims:[]}],
+subjectPolicy:"require"|"ephemeral", ephemeralRoles:[],
 timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `issuers` VIDE =
   service `accessTokenVerifier` NON posé (un seul réglage commande le rôle — pas de `enabled`).
   `algorithms` = enum ASYMÉTRIQUE seulement : les clés viennent d'un jeu public, `HS*` y ferait

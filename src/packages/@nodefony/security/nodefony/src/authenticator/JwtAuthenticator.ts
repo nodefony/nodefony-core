@@ -10,6 +10,7 @@ import { AuthenticationError } from "../../errors/AuthenticationError";
 import { UserToken } from "../token/UserToken";
 import type { IJwtRuntime } from "../token/jwtRuntime";
 import { bearerToken } from "./bearer";
+import { peekIssuer } from "./peekIssuer";
 
 // Scheme Bearer (RFC 6750 §2.1), case-insensitive, capture le token.
 
@@ -64,12 +65,28 @@ export class JwtAuthenticator implements IAuthenticator {
     this.#runtime = runtime;
   }
 
-  /** La requête porte-t-elle un `Authorization: Bearer <jws>` (structure JWT) ? */
+  /**
+   * La requête porte-t-elle un `Authorization: Bearer <jws>` émis par NOUS ?
+   *
+   * L'émetteur revendiqué est lu sans être vérifié ({@link peekIssuer}) et sert
+   * uniquement à AIGUILLER : `ExternalJwtAuthenticator` reconnaît la même forme
+   * de credential pour les jetons d'un serveur d'autorisation tiers. Sans ce
+   * discriminant, en mode `first`, le premier des deux listés dans la zone
+   * capturerait les deux familles et refuserait la moitié des jetons — l'ordre
+   * de la configuration deviendrait une décision de sécurité, dont l'erreur ne
+   * se verrait qu'en production.
+   *
+   * Un jeton dont l'émetteur est illisible reste pris en charge ici : c'est un
+   * jeton maison malformé, que la vérification refusera en le disant, plutôt
+   * qu'un credential qui disparaîtrait sans laisser de trace.
+   */
   supports(context: ContextType): boolean {
     const auth = context.request?.headers?.authorization;
     if (typeof auth !== "string") return false;
     const token = bearerToken(auth);
-    return token !== null && COMPACT_JWS.test(token);
+    if (token === null || !COMPACT_JWS.test(token)) return false;
+    const issuer = peekIssuer(token);
+    return issuer === null || issuer === this.#runtime.issuer;
   }
 
   /** Extrait le token brut (non vérifié) → porté par un `UserToken` type `"jwt"`. */
