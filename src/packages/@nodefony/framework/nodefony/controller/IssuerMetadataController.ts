@@ -55,6 +55,10 @@ let mounted = false;
  * pas** (`404`, zéro surface) : un document creux apprendrait à un client qu'il
  * y a quelque chose à découvrir sans lui donner de quoi le faire.
  *
+ * Le montage ne suffit pas : servir encore exige que la requête entre par
+ * **l'autorité de l'émetteur** ({@link IssuerMetadataController.metadata}). Un
+ * serveur écoute plusieurs adresses ; l'émetteur n'en désigne qu'une.
+ *
  * `bypassFirewall: true` : ces documents sont publics par construction. Un JWKS
  * derrière une authentification serait un non-sens — il sert précisément à
  * vérifier les jetons de ceux qui ne sont pas encore authentifiés. Ils ne
@@ -76,6 +80,52 @@ class IssuerMetadataController extends Controller {
   }
 
   /**
+   * 🔴 Ces documents ne sont servis QUE sur l'autorité de l'émetteur.
+   *
+   * Un serveur écoute presque toujours plusieurs autorités — deux ports en
+   * développement, plusieurs hôtes virtuels en production. Servir le document
+   * sur toutes revient à répondre « le serveur d'autorisation, c'est ici » à un
+   * client qui interroge une adresse dont l'émetteur ne se réclame pas : il
+   * DOIT alors rejeter le document (RFC 8414 §3.3 exige l'égalité stricte de
+   * `issuer`), et un client réel s'arrête là — il ne cherche pas ailleurs.
+   * Vécu : un client MCP sondant `http://localhost:5151` recevait le document
+   * de `https://localhost:5152` et déclarait la connexion en échec, alors que
+   * `404` l'aurait simplement fait continuer sans authentification.
+   *
+   * La comparaison porte sur l'**autorité demandée** (hôte + port, tels que le
+   * client les a écrits), jamais sur le schéma : derrière un relais qui termine
+   * TLS, le processus voit `http` pour une requête que le client a faite en
+   * `https`, et refuser là-dessus fermerait le document en production. Le port
+   * par défaut est normalisé par `URL` — `app.example:443` et `app.example`
+   * désignent le même serveur et doivent se valoir.
+   *
+   * @param issuer - émetteur canonique publié
+   * @returns `true` si la requête entre par l'autorité de l'émetteur
+   */
+  #onIssuerAuthority(issuer: string): boolean {
+    // HTTP/2 porte l'autorité dans un pseudo-en-tête, HTTP/1.1 dans `Host` —
+    // lus ici plutôt que par un accesseur de `Request`, dont le type varie selon
+    // le transport (le contexte WS n'expose qu'un `IncomingMessage`).
+    const headers = this.request?.headers;
+    const raw = headers?.[":authority"] ?? headers?.host;
+    const asked = Array.isArray(raw) ? raw[0] : raw;
+    if (typeof asked !== "string" || asked.length === 0) return false;
+    let wanted: URL;
+    try {
+      wanted = new URL(issuer);
+    } catch {
+      return false;
+    }
+    try {
+      return new URL(`${wanted.protocol}//${asked}`).host === wanted.host;
+    } catch {
+      // `Host` illisible : rien à publier pour une autorité qu'on ne sait même
+      // pas nommer.
+      return false;
+    }
+  }
+
+  /**
    * `GET /.well-known/oauth-authorization-server` — métadonnées d'émetteur.
    *
    * @returns le document RFC 8414, ou `404` si la publication a été coupée
@@ -83,7 +133,7 @@ class IssuerMetadataController extends Controller {
    */
   async metadata() {
     const issuer = this.#publisher()?.publishedIssuer() ?? null;
-    if (!issuer) {
+    if (!issuer || !this.#onIssuerAuthority(issuer)) {
       return this.renderJson({ error: "not_found" }, 404);
     }
     let document;
@@ -114,7 +164,11 @@ class IssuerMetadataController extends Controller {
    */
   async jwks() {
     const publisher = this.#publisher();
-    if (!publisher?.publishedIssuer()) {
+    const issuer = publisher?.publishedIssuer() ?? null;
+    if (!publisher || !issuer || !this.#onIssuerAuthority(issuer)) {
+      // Même règle que les métadonnées : le `jwks_uri` publié désigne CETTE
+      // autorité. Servir les clés ailleurs inviterait un client à les mettre en
+      // cache sous une origine qui n'est pas celle de l'émetteur.
       return this.renderJson({ error: "not_found" }, 404);
     }
     let keys: unknown;

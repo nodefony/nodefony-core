@@ -1,10 +1,10 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import http from "node:http";
+import https from "node:https";
 
 /**
- * Rôle ÉMETTEUR (RFC 8414) — banc d'INTÉGRATION RÉEL contre le serveur live
- * (port 5151).
+ * Rôle ÉMETTEUR (RFC 8414) — banc d'INTÉGRATION RÉEL contre le serveur live.
  *
  * Ce banc existe pour ce qu'aucun unitaire ne peut établir : les deux documents
  * sont-ils SERVIS, au chemin exact qu'un tiers va construire, et sans que le
@@ -16,12 +16,14 @@ import http from "node:http";
  * rien ».
  *
  * Décor : l'application de développement déclare `security.jwt.issuer` =
- * `https://localhost:5152` (cf `nodefony.config.ts`). Le document est donc servi
- * à la racine des chemins bien connus, et il porte cette URL — pas celle par
- * laquelle on l'interroge, ce qui est précisément la garde à vérifier.
+ * `https://localhost:5152` (cf `nodefony.config.ts`). C'est donc **sur cette
+ * autorité, et sur elle seule**, que les documents existent — un serveur écoute
+ * plusieurs adresses, l'émetteur n'en désigne qu'une. Le port `5151` sert ici de
+ * contre-épreuve : il doit rendre `404`.
  */
 
-const BASE = { hostname: "localhost", port: 5151 };
+const TLS = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
+const CLEAR = { hostname: "localhost", port: 5151 };
 const METADATA = "/.well-known/oauth-authorization-server";
 const JWKS = "/.well-known/jwks.json";
 const ISSUER = "https://localhost:5152";
@@ -32,9 +34,26 @@ type Res = {
   body: string;
 };
 
+/** Requête sur l'autorité de l'émetteur (`https://localhost:5152`). */
 function get(path: string, headers: Record<string, string> = {}): Promise<Res> {
   return new Promise((resolve, reject) => {
-    const r = http.request({ ...BASE, method: "GET", path, headers }, (res) => {
+    const r = https.request({ ...TLS, method: "GET", path, headers }, (res) => {
+      let body = "";
+      res.setEncoding("utf8");
+      res.on("data", (c: string) => (body += c));
+      res.on("end", () =>
+        resolve({ status: res.statusCode!, headers: res.headers, body }),
+      );
+    });
+    r.on("error", reject);
+    r.end();
+  });
+}
+
+/** Même chemin, mais par une autorité dont l'émetteur ne se réclame PAS. */
+function getElsewhere(path: string): Promise<Res> {
+  return new Promise((resolve, reject) => {
+    const r = http.request({ ...CLEAR, method: "GET", path }, (res) => {
       let body = "";
       res.setEncoding("utf8");
       res.on("data", (c: string) => (body += c));
@@ -58,17 +77,35 @@ describe("Émetteur — métadonnées RFC 8414", () => {
   });
 
   it("🔴 il déclare l'émetteur CONFIGURÉ, jamais l'hôte par lequel on entre", async () => {
-    // LA garde du lot. On entre par `http://localhost:5151` et le document
-    // répond `https://localhost:5152` — l'identité publiée vient de la
-    // configuration, pas de la requête. Dérivée du `Host`, elle ferait servir
-    // par le VRAI serveur un `jwks_uri` choisi par l'appelant, et empoisonnerait
-    // tout cache mutualisé.
+    // L'identité publiée vient de la configuration, pas de la requête. Dérivée
+    // du `Host`, elle ferait servir par le VRAI serveur un `jwks_uri` choisi par
+    // l'appelant, et empoisonnerait tout cache mutualisé.
     const doc = JSON.parse((await get(METADATA)).body) as Record<
       string,
       unknown
     >;
     expect(doc.issuer).to.equal(ISSUER);
     expect(String(doc.jwks_uri)).to.equal(`${ISSUER}${JWKS}`);
+  });
+
+  it("🔴 sur une AUTRE autorité que celle de l'émetteur → 404", async () => {
+    // Le corollaire du test précédent, et il a coûté un client réel. Le même
+    // serveur écoute aussi `http://localhost:5151` : y servir un document qui se
+    // réclame de `https://localhost:5152` revient à répondre « le serveur
+    // d'autorisation, c'est ici » à qui interroge une adresse dont l'émetteur ne
+    // se réclame pas. Le client DOIT alors rejeter le document (§3.3, égalité
+    // stricte) — et un client réel s'arrête là au lieu de chercher ailleurs.
+    // Vécu : un client MCP sondant 5151 déclarait la connexion en échec, quand
+    // `404` l'aurait laissé continuer sans authentification.
+    const res = await getElsewhere(METADATA);
+    expect(res.status).to.equal(404);
+  });
+
+  it("le jeu de clés suit la même règle — 404 hors de l'autorité de l'émetteur", async () => {
+    // Le `jwks_uri` publié désigne CETTE autorité : servir les clés ailleurs
+    // inviterait un client à les mettre en cache sous une autre origine.
+    const res = await getElsewhere(JWKS);
+    expect(res.status).to.equal(404);
   });
 
   it("un `Host` inconnu n'atteint même pas la route (421 en amont)", async () => {

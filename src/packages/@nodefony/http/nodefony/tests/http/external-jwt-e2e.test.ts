@@ -67,6 +67,23 @@ function get(path: string, headers: Record<string, string> = {}): Promise<Res> {
   });
 }
 
+/** Lecture sur le canal TLS — l'autorité de l'émetteur, seule à publier. */
+function getTls(path: string): Promise<Res> {
+  return new Promise((resolve, reject) => {
+    const r = https.request({ ...TLS, method: "GET", path }, (res) => {
+      let body = "";
+      res.setEncoding("utf8");
+      res.on("data", (c: string) => (body += c));
+      res.on("end", () =>
+        resolve({ status: res.statusCode!, headers: res.headers, body }),
+      );
+    });
+    r.on("error", reject);
+    r.setTimeout(TIMEOUT, () => r.destroy(new Error("http timeout")));
+    r.end();
+  });
+}
+
 /** Grant par credential — sur le canal TLS, comme les autres bancs de jetons. */
 function postJson(path: string, payload: unknown): Promise<Res> {
   return new Promise((resolve, reject) => {
@@ -120,7 +137,9 @@ describe("Jeton émis ICI, vérifié comme celui d'un TIERS (P6.9 e2e)", () => {
     // cette application inscrit dans ses jetons. Si l'émetteur publié diffère
     // (`NF_JWT_ISSUER` posé), plus rien de ce banc n'a de sens : mieux vaut le
     // dire que de rendre six rouges dont aucun ne nomme la cause.
-    const res = await get(METADATA);
+    // La lecture se fait sur l'autorité de l'émetteur — ailleurs, le document
+    // n'existe pas (404), et c'est voulu.
+    const res = await getTls(METADATA);
     expect(
       res.status,
       "l'application ne publie pas ses métadonnées (rôle émetteur éteint ?)",

@@ -1,0 +1,14 @@
+# Configuration Vibe (Mistral CLI) — PORTÉE PROJET.
+#
+# Symétrique du `.mcp.json` de Claude Code : la déclaration du serveur MCP vit
+# DANS le projet, jamais dans `~/.vibe/config.toml`. Motif : l'URL porte un
+# PORT, et deux applications Nodefony ouvertes en même temps n'écoutent pas sur
+# le même — une déclaration globale en désignerait forcément une, au hasard.
+#
+# Vibe découvre ce fichier en remontant les dossiers, à condition que le dossier
+# soit approuvé (`vibe --trust`, ou `~/.vibe/trusted_folders.toml`).
+
+[[mcp_servers]]
+name = "nodefony"
+transport = "streamable-http"
+url = "http://localhost:5151/nodefony/mcp"
