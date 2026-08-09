@@ -125,12 +125,30 @@ function isPackageInstalled(pkg: string): boolean {
 }
 
 /**
- * Clés dont la VALEUR est un secret (JWT, CSRF, OAuth client secret, clé privée).
- * Redactées dans la config exposée au data plane — Zero Trust : un secret n'est
- * JAMAIS renvoyé en clair, même à un admin (cf page Firewall qui redacte déjà).
+ * Clés dont la VALEUR est un secret (JWT, CSRF, OAuth client secret, clé de
+ * chiffrement). Redactées dans la config exposée au data plane — Zero Trust :
+ * un secret n'est JAMAIS renvoyé en clair, même à un admin.
+ *
+ * ## Pourquoi un motif de MOT ENTIER, et pas une sous-chaîne
+ *
+ * La forme précédente cherchait ces mots n'importe où dans la clé. Elle laissait
+ * passer **`encryptionKey`** — mesuré : `security.totp.encryptionKey` et
+ * `security.webhooks.encryptionKey` sortaient en clair —, et rédigeait à tort
+ * `privateKeyMode`, qui n'est qu'un MODE (`"file"`, `"env"`).
+ *
+ * L'élargir à `key` tout court n'était pas la réponse : sur une application
+ * réelle, cela emportait `apiKeys.prefix`, `passkeys.timeoutMs`,
+ * `tokenStore.gcIntervalS` et jusqu'à `key: "app"`, l'identifiant de module dont
+ * la console d'administration se sert pour indexer ses entrées. Une règle qui
+ * rédige du non-secret n'est pas « prudente » : elle rend l'écran inutilisable,
+ * donc on finit par la retirer.
+ *
+ * ⚠️ Cette liste doit rester alignée avec `pathLooksSecret`
+ * (`config/envOverride.ts`), qui rend le même jugement pour les journaux. Elles
+ * ont divergé — c'est cette divergence qui a laissé fuir `encryptionKey`.
  */
 const SECRET_KEY =
-  /secret|password|passwd|passphrase|privatekey|keysetjson|clientsecret|credential/i;
+  /(?:^|[a-z0-9])(secret|password|passwd|passphrase|credential|clientsecret|keysetjson|privatekey|encryptionkey|signingkey|accesstoken|refreshtoken)s?$/i;
 
 /**
  * Sérialisation défensive de config : borne la profondeur, neutralise les
@@ -139,7 +157,7 @@ const SECRET_KEY =
  * contenir des fonctions/refs circulaires (vers le kernel) → JSON.stringify
  * direct planterait.
  */
-function safeConfig(
+export function safeConfig(
   value: unknown,
   depth = 0,
   seen = new WeakSet<object>(),
@@ -162,11 +180,18 @@ function safeConfig(
     // Redaction des secrets AVANT sérialisation : la valeur ne quitte jamais le
     // serveur en clair. On ne redacte que les valeurs réellement posées (une clé
     // secrète vide en dev = pas un secret → laissée telle quelle).
+    //
+    // ⭐ **Un secret est une valeur SCALAIRE** — jamais un objet ni un tableau.
+    // Sans cette garde, une clé comme `apiKeys` (un bloc de configuration :
+    // `enabled`, `prefix`, `maxPerSubject`…) verrait tout son contenu remplacé
+    // par « [redacted] », et la console d'administration perdrait un écran
+    // entier pour protéger quelque chose qui n'est pas un secret.
     if (
       SECRET_KEY.test(k) &&
       raw != null &&
       raw !== "" &&
-      typeof raw !== "boolean"
+      typeof raw !== "boolean" &&
+      typeof raw !== "object"
     ) {
       out[k] = "[redacted]";
       continue;
