@@ -588,6 +588,105 @@ const totpSchema = z
     "2FA TOTP (RFC 6238) — second facteur step-up au login. Secret chiffré au repos, codes de récupération hachés.",
   );
 
+// Algorithmes de signature acceptables pour un jeton émis AILLEURS. Tous
+// asymétriques, et l'enum en est la seule garde nécessaire : les clés arrivent
+// d'un jeu PUBLIC, donc un algorithme à secret partagé (`HS*`) transformerait
+// la clé publique de l'émetteur — que tout le monde peut lire — en secret de
+// signature (RFC 8725 §2.1). Ce qui n'est pas dans cette liste n'existe pas.
+const remoteJwtAlgSchema = z.enum([
+  "RS256",
+  "RS384",
+  "RS512",
+  "PS256",
+  "PS384",
+  "PS512",
+  "ES256",
+  "ES384",
+  "ES512",
+  "EdDSA",
+  "Ed25519",
+]);
+
+const trustedIssuerSchema = z.object({
+  issuer: z
+    .string()
+    .min(1)
+    .describe(
+      "Identifiant de l'émetteur (claim `iss`), en https, sans requête ni fragment (RFC 8414 §2) — ex. « https://auth.example.com/realms/mon-royaume ». C'est une ALLOWLIST : un jeton dont l'`iss` n'est pas ici est refusé avant toute requête sortante.",
+    ),
+  jwksUri: z
+    .string()
+    .optional()
+    .describe(
+      "Jeu de clés publiques de l'émetteur. Omis = découvert par les points bien connus RFC 8414/OpenID (3 URL essayées dans l'ordre normatif). Déclaré = aucune découverte (émetteur sans métadonnées, ou démarrage à froid sans requête).",
+    ),
+  algorithms: z
+    .array(remoteJwtAlgSchema)
+    .min(1)
+    .default(["RS256", "ES256", "EdDSA"])
+    .describe(
+      "Algorithmes de signature acceptés — allowlist SERVEUR (RFC 8725 §3.1) : l'algorithme n'est jamais déduit de l'en-tête du jeton. Restreindre à ce que l'émetteur utilise réellement.",
+    ),
+  typ: z
+    .string()
+    .optional()
+    .describe(
+      "Valeur exigée de l'en-tête `typ` — « at+jwt » pour un émetteur conforme RFC 9068. Non exigé par défaut : le parc réel est inégal, et la séparation entre jetons est déjà portée par l'audience, qui n'est pas facultative.",
+    ),
+  requiredClaims: z
+    .array(z.string())
+    .default([])
+    .describe(
+      'Claims dont la PRÉSENCE est exigée, en plus de `iss`/`aud` (toujours obligatoires). Ex. `["sub"]` pour refuser un jeton sans sujet identifiable.',
+    ),
+});
+
+const resourceServerSchema = z
+  .object({
+    issuers: z
+      .array(trustedIssuerSchema)
+      .default([])
+      .describe(
+        "Émetteurs dont l'application accepte les jetons. VIDE (défaut) = aucun jeton tiers n'est vérifiable, et le service `accessTokenVerifier` n'est pas posé — une porte protégée refusera alors de servir plutôt que d'accepter des porteurs qu'elle ne sait pas lire. Un seul réglage commande le rôle : pas de drapeau `enabled` qui permettrait « activé sans émetteur ».",
+      ),
+    timeoutMs: z
+      .number()
+      .int()
+      .min(100)
+      .default(5000)
+      .describe(
+        "Délai maximal d'une requête vers l'émetteur (découverte + clés).",
+      ),
+    cooldownMs: z
+      .number()
+      .int()
+      .min(0)
+      .default(30000)
+      .describe(
+        "Fenêtre pendant laquelle le jeu de clés n'est PAS redemandé après un succès. Protège l'émetteur d'un flot de jetons portant des `kid` inconnus.",
+      ),
+    cacheMaxAgeMs: z
+      .number()
+      .int()
+      .min(0)
+      .default(600000)
+      .describe(
+        "Âge maximal du jeu de clés en cache (10 min) — au-delà, rafraîchi à la prochaine vérification. Borne le délai de prise en compte d'une rotation de clés.",
+      ),
+    clockToleranceS: z
+      .number()
+      .int()
+      .min(0)
+      .max(300)
+      .default(5)
+      .describe(
+        "Tolérance d'horloge sur `exp`/`nbf` (s). Couvre la dérive entre l'émetteur et cette machine, sans prolonger utilement un jeton expiré.",
+      ),
+  })
+  .describe(
+    "Rôle SERVEUR DE RESSOURCE — accepter des jetons émis par un serveur d'autorisation TIERS (Keycloak, Auth0, Entra, agents). Distinct de `jwt`, qui décrit les jetons que Nodefony émet lui-même. Alimente le service `accessTokenVerifier` (contrat `IAccessTokenVerifier` du cœur), consommé par toute porte protégée — serveur MCP aujourd'hui, portes agentiques ensuite.",
+  );
+
 const tokenExchangeSchema = z
   .object({
     enabled: z
@@ -980,6 +1079,9 @@ export const securityConfigSchema = z.object({
   tokenStore: tokenStoreSchema.default(() => tokenStoreSchema.parse({})),
   passkeys: passkeysSchema.default(() => passkeysSchema.parse({})),
   totp: totpSchema.default(() => totpSchema.parse({})),
+  resourceServer: resourceServerSchema.default(() =>
+    resourceServerSchema.parse({}),
+  ),
   tokenExchange: tokenExchangeSchema
     .default(() => tokenExchangeSchema.parse({}))
     .meta({

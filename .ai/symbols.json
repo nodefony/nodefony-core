@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-09T17:35:46.874Z",
+  "generated": "2026-08-09T19:31:28.416Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 701,
-    "symbols": 2910,
-    "classes": 349,
-    "interfaces": 844,
+    "files": 704,
+    "symbols": 2922,
+    "classes": 351,
+    "interfaces": 848,
     "types": 376,
     "enums": 4,
-    "functions": 1062,
-    "constants": 275
+    "functions": 1067,
+    "constants": 276
   },
   "symbols": {
     "Cli": {
@@ -2897,6 +2897,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Codes d'erreur d'un porteur — RFC 6750 §3.1."
+    },
+    "ACCESS_TOKEN_VERIFIER": {
+      "name": "ACCESS_TOKEN_VERIFIER",
+      "kind": "const",
+      "file": "src/nodefony/src/oauth/protectedResource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom sous lequel un {@link IAccessTokenVerifier} se pose dans le conteneur. ⭐ **La constante vit ICI, avec le contrat, et pas ailleurs.** Le nom est le point de rendez-vous entre deux paquets qui ne…"
     },
     "RateBounds": {
       "name": "RateBounds",
@@ -15264,6 +15272,17 @@
       "decorators": [],
       "description": "Erreur de **gestion** d'un credential WebAuthn (enrôlement) — porte un `code` HTTP que l'adaptateur framework mappe par duck-typing (il n'importe jamais les classes de `@nodefony/security`). - `409…"
     },
+    "AccessTokenVerifierService": {
+      "name": "AccessTokenVerifierService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [],
+      "description": "Pose (ou non) le vérificateur de jetons d'accès TIERS dans le conteneur. Ce service est une **décision de câblage**, pas de la cryptographie : toute la mécanique vit dans {@link RemoteJwtVerifier},…"
+    },
     "ApiKeyService": {
       "name": "ApiKeyService",
       "kind": "class",
@@ -18826,6 +18845,47 @@
       "decorators": [],
       "description": "Token du visiteur non authentifié — Zero Trust : un visiteur EST un utilisateur anonyme (jamais `null`). Porte le singleton gelé `anonymousUser` → **zéro allocation d'utilisateur** par requête non …"
     },
+    "IIssuerMetadata": {
+      "name": "IIssuerMetadata",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/issuerDiscovery.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Ce qu'on lit d'un document de métadonnées — deux champs, pas un de plus. Un serveur d'autorisation en publie une trentaine ; en accepter davantage reviendrait à laisser un document distant décider …"
+    },
+    "canonicalIssuer": {
+      "name": "canonicalIssuer",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/issuerDiscovery.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Normalise et contrôle un identifiant d'émetteur (RFC 8414 §2). La RFC est explicite : c'est une URL **en `https`**, « with no query or fragment components ». Les trois refus ci-dessous ne sont donc…"
+    },
+    "issuerMetadataUrls": {
+      "name": "issuerMetadataUrls",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/issuerDiscovery.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Compose, dans l'ORDRE NORMATIF, les URL où chercher les métadonnées. L'ordre n'est pas une préférence de goût : la spécification impose d'essayer plusieurs points, et le premier document valide gag…"
+    },
+    "validateIssuerMetadata": {
+      "name": "validateIssuerMetadata",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/issuerDiscovery.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Juge un document de métadonnées reçu. ⭐ **L'égalité stricte de l'émetteur est la garde centrale** (RFC 8414 §3.3, OIDC Discovery §4.3) : sans elle, un document servi par `attaquant.example` qui se …"
+    },
+    "extractScopes": {
+      "name": "extractScopes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/issuerDiscovery.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Extrait les scopes accordés d'une charge utile de jeton d'accès. Deux formes coexistent dans le parc réel : `scope`, chaîne séparée par des espaces (RFC 8693 §4.1, RFC 9068 §2.2 — la forme normalis…"
+    },
     "JwtKeystore": {
       "name": "JwtKeystore",
       "kind": "class",
@@ -18885,6 +18945,35 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Filtre un record contre une requête de listing — prédicat de RÉFÉRENCE du contrat, réutilisé par les implémentations qui évaluent en mémoire."
+    },
+    "RemoteJwtVerifier": {
+      "name": "RemoteJwtVerifier",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Vérificateur de jetons d'accès émis par un **serveur d'autorisation tiers**. C'est la pièce qui manquait pour que le rôle *serveur de ressource* du cœur (`nodefony/src/oauth/`) soit autre chose qu'…"
+    },
+    "ITrustedIssuer": {
+      "name": "ITrustedIssuer",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Un émetteur en qui l'application accepte de faire confiance. Le fait qu'il n'y ait pas de valeur par défaut pour `issuer` est le cœur du dispositif : **la liste des émetteurs est fermée et vient de…"
+    },
+    "IRemoteJwtVerifierOptions": {
+      "name": "IRemoteJwtVerifierOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Réglages du vérificateur — au-delà de la liste des émetteurs."
     },
     "tokenStatusCriteria": {
       "name": "tokenStatusCriteria",
@@ -20250,6 +20339,7 @@
         "Orm",
         "RedisService",
         "Connection",
+        "AccessTokenVerifierService",
         "ApiKeyService",
         "AuditService",
         "AuthFlow",
@@ -21002,6 +21092,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
@@ -21088,6 +21179,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
@@ -21158,6 +21250,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
@@ -21507,6 +21600,7 @@
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
@@ -22760,6 +22854,9 @@
       "TokenService": [
         "src/packages/@nodefony/security/index.ts"
       ],
+      "AccessTokenVerifierService": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
       "Authorization": [
         "src/packages/@nodefony/security/index.ts"
       ],
@@ -22799,6 +22896,7 @@
       "ISecurityConfigInput": [
         "src/packages/@nodefony/security/index.ts",
         "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
@@ -25097,8 +25195,13 @@
       "protectedResourceMetadataUrl": [
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
       ],
+      "ACCESS_TOKEN_VERIFIER": [
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts"
+      ],
       "IAccessTokenVerifier": [
-        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts"
       ],
       "MCP_ENDPOINT_PATH": [
         "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts"
@@ -26669,6 +26772,7 @@
       ],
       "ISecurityConfig": [
         "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -26743,6 +26847,24 @@
         "src/packages/@nodefony/security/nodefony/contracts/ITotpSecret.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
       ],
+      "IAccessPrincipal": [
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
+      ],
+      "defineSecurityConfig": [
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
+        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
+      ],
+      "RemoteJwtVerifier": [
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts"
+      ],
       "countFacets": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
@@ -26756,16 +26878,6 @@
       "ITokenCounts": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
-      ],
-      "defineSecurityConfig": [
-        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
-        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
-        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
-        "src/packages/@nodefony/security/nodefony/service/totp.ts",
-        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
-        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
       ],
       "IApiKeyView": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
@@ -27705,6 +27817,18 @@
       ],
       "matchesTokenStatus": [
         "src/packages/@nodefony/security/nodefony/src/token/MemoryTokenStore.ts"
+      ],
+      "canonicalIssuer": [
+        "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
+      ],
+      "extractScopes": [
+        "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
+      ],
+      "issuerMetadataUrls": [
+        "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
+      ],
+      "validateIssuerMetadata": [
+        "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
       ],
       "TokenStatus": [
         "src/packages/@nodefony/security/nodefony/src/token/tokenStatus.ts"

@@ -51,6 +51,14 @@ session BFF (J3) + JWT jose (J4) + WebAuthn/passkeys (J9) + OAuth2 social (J9) +
 **API Keys/PAT (P6.12)** : `ApiKeyAuthenticator` + `ApiKeyService` (bearer opaque `nf_…`+CRC, `sha256` au
 repos, store partagé JWT, endpoints session-protégés, anti-énum/anti-DoS). Détail : `MEMORY.md` + kit P6.
 
+✅ **Jetons TIERS / rôle serveur de ressource (P6.9)** : `RemoteJwtVerifier` + service
+`accessTokenVerifier` (posé au conteneur SI `security.resourceServer.issuers` est non vide). Accepte
+un jeton émis par un serveur d'autorisation externe, là où `JwtAuthenticator` ne vérifie que les
+jetons de Nodefony. **Décisions à ne pas défaire** : l'audience vient de l'APPELANT (RFC 8707) et
+rend `aud` obligatoire · allowlist d'émetteurs FERMÉE, consultée avant toute requête sortante · une
+PANNE de l'émetteur lève (5xx) au lieu de rendre « jeton refusé » · `HS*` impossible en config (clés
+publiques) · nom de service GÉNÉRIQUE (le MCP n'est que le premier consommateur). Détail : `MEMORY.md`.
+
 ✅ **CSRF (J5)** : `Csrf` (Fetch Metadata `Sec-Fetch-Site` PRIMAIRE + repli `Origin`/`Referer`), flag
 `strictSameSite`, liste `trustedOrigins` (alias multi-domaine). Câblé `Firewall.enforceCsrf()` → http-kernel
 (global, rejet précoce). Gates : security 281, banc intégration live `http/csrf.test.ts` 11/11, mémoire 9/9.

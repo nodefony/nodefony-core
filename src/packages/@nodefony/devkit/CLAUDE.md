@@ -81,7 +81,7 @@ devkit/
   (`authorizationServers` vide = porte anonyme, exactement comme avant) : deux
   interrupteurs auraient permis « protégé sans émetteur » ou « métadonnées
   publiées, jetons ignorés », des états que personne ne diagnostique.
-- 🔴 **Ce module ne valide aucun jeton** — il résout `mcpTokenVerifier` dans le
+- 🔴 **Ce module ne valide aucun jeton** — il résout `accessTokenVerifier` dans le
   conteneur (contrat `IAccessTokenVerifier`). Dépendre de `@nodefony/security`
   est exclu : elle survit à la production, pas lui. Rôle déclaré sans
   vérificateur = `503` + `CRITIC`, jamais une porte qui laisse passer.

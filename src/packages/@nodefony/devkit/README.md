@@ -136,7 +136,7 @@ est un mur — le client ignore qu'un jeton existe et où le demander.
 
 > 🔴 **La vérification du jeton est fournie par l'application.** Ce module est
 > `policy: "dev"` et ne porte aucune cryptographie : il cherche un service
-> `mcpTokenVerifier` dans le conteneur (contrat `IAccessTokenVerifier` du cœur).
+> `accessTokenVerifier` dans le conteneur (contrat `IAccessTokenVerifier` du cœur).
 > Déclarer un serveur d'autorisation **sans** ce service fait répondre `503` à
 > la porte, avec un journal `CRITIC` — accepter des porteurs sans les lire
 > serait pire que rester anonyme.

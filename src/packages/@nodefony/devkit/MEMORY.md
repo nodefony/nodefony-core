@@ -99,7 +99,7 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
   n'a été présenté, 400 `invalid_request` si l'en-tête est mal formé, 401
   `invalid_token`) · `unverifiable`. La rétention part en `DEBUG`
   (`onWithheld`), pas en `WARNING` : c'est un catalogue filtré qui fonctionne.
-- 🔴 **La vérification du jeton est un service du CONTENEUR, `mcpTokenVerifier`**
+- 🔴 **La vérification du jeton est un service du CONTENEUR, `accessTokenVerifier`**
   (contrat `IAccessTokenVerifier`, cœur). Ce module est `policy:"dev"` et ne peut
   pas dépendre de `@nodefony/security`. Rôle déclaré + service absent = `503` +
   `CRITIC`, jamais un porteur accepté sans lecture. **Aucune implémentation n'est

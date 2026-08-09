@@ -607,6 +607,7 @@ export {
   authorizeProtectedResource,
   missingScopes,
   BearerError,
+  ACCESS_TOKEN_VERIFIER,
 } from "./oauth/protectedResource";
 export type {
   IProtectedResourceMetadata,

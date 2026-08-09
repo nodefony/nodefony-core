@@ -5,6 +5,7 @@ import config from "./nodefony/config/config";
 import Firewall from "./nodefony/service/firewall";
 import AuthFlow from "./nodefony/service/authFlow";
 import TokenService from "./nodefony/service/tokenService";
+import AccessTokenVerifierService from "./nodefony/service/accessTokenVerifier";
 import Authorization from "./nodefony/service/authorization";
 import WebAuthnService from "./nodefony/service/webAuthn";
 import OAuth2Service from "./nodefony/service/oauth2";
@@ -49,6 +50,7 @@ declare module "nodefony" {
   Firewall,
   AuthFlow,
   TokenService,
+  AccessTokenVerifierService,
   ApiKeyService,
   Authorization,
   WebAuthnService,
@@ -109,6 +111,21 @@ export default Security;
 export { Firewall };
 export { AuthFlow };
 export { TokenService };
+export { AccessTokenVerifierService };
+// `ACCESS_TOKEN_VERIFIER` n'est PAS ré-exporté ici : il vit dans `nodefony`,
+// avec le contrat qu'il nomme. Le ré-exporter en ferait une seconde source.
+export { RemoteJwtVerifier } from "./nodefony/src/token/RemoteJwtVerifier";
+export type {
+  ITrustedIssuer,
+  IRemoteJwtVerifierOptions,
+} from "./nodefony/src/token/RemoteJwtVerifier";
+export {
+  canonicalIssuer,
+  issuerMetadataUrls,
+  validateIssuerMetadata,
+  extractScopes,
+} from "./nodefony/src/token/issuerDiscovery";
+export type { IIssuerMetadata } from "./nodefony/src/token/issuerDiscovery";
 export { ApiKeyService };
 export { Authorization };
 export { WebAuthnService };

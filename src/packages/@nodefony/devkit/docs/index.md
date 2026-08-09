@@ -151,7 +151,7 @@ Le serveur d'**autorisation** n'est jamais à écrire : la spécification le pla
 convient.
 
 > 🔴 **Ce module ne valide pas les jetons lui-même** — il est `policy: "dev"` et
-> ne porte aucune cryptographie. Il cherche un service `mcpTokenVerifier` dans le
+> ne porte aucune cryptographie. Il cherche un service `accessTokenVerifier` dans le
 > conteneur (contrat `IAccessTokenVerifier`, exporté par `nodefony`). Sans lui,
 > une porte déclarée protégée répond `503` et le journal le dit en `CRITIC` :
 > accepter des porteurs sans les lire serait pire que rester anonyme.

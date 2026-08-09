@@ -13,6 +13,7 @@ import {
   collectMcpTools,
   authorizeProtectedResource,
   protectedResourceMetadataUrl,
+  ACCESS_TOKEN_VERIFIER,
   JsonRpcError,
   jsonRpcFailure,
 } from "nodefony";
@@ -62,7 +63,10 @@ import type { IDevkitService } from "../interfaces/IDevkitService";
  *
  * 🔴 **La vérification du jeton est déléguée, et son absence est fatale.** Ce
  * module ne peut pas dépendre de `@nodefony/security` (il disparaît en
- * production, pas elle) : il cherche un `mcpTokenVerifier` dans le conteneur.
+ * production, pas elle) : il cherche un `accessTokenVerifier` dans le conteneur
+ * — nom GÉNÉRIQUE, car le contrat prend l'audience en paramètre : un seul
+ * vérificateur sert toutes les ressources protégées d'une application, celle-ci
+ * étant seulement la première.
  * Rôle déclaré + aucun vérificateur = `503` et journal `CRITIC`, jamais une
  * porte qui laisse passer les porteurs sans les lire.
  *
@@ -101,7 +105,7 @@ class McpController extends Controller {
    * (rôle allumé) — c'est l'appelant qui tranche, pas cette méthode.
    */
   #tokenVerifier(): IAccessTokenVerifier | undefined {
-    return this.get<IAccessTokenVerifier>("mcpTokenVerifier") ?? undefined;
+    return this.get<IAccessTokenVerifier>(ACCESS_TOKEN_VERIFIER) ?? undefined;
   }
 
   /**
@@ -185,7 +189,7 @@ class McpController extends Controller {
           this.log(
             "MCP — `mcp.authorization` déclare un serveur d'autorisation, mais " +
               "aucun service du conteneur ne sait vérifier un jeton " +
-              "(`mcpTokenVerifier`). La porte refuse de servir : accepter les " +
+              "(`accessTokenVerifier`). La porte refuse de servir : accepter les " +
               "porteurs sans les valider serait pire que rester anonyme.",
             "CRITIC",
           );

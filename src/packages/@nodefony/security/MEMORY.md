@@ -34,6 +34,28 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   allowlist `["EdDSA"]`+issuer+audience+`typ:"at+jwt"` (RFC 8725 §3.1/3.8/3.9/3.11), denylist `jti` +
   `invalidBefore` (révocation), `loadUserByIdentifier(sub)` (sub revalidé §3.10), `challenge()="Bearer"`.
   Résout `jwtKeystore`/`tokenStore`/`users` LAZY du container. **UserToken réutilisé** (pas de JwtToken).
+- **Jetons TIERS (P6.9)** — `RemoteJwtVerifier` (`src/token/RemoteJwtVerifier.ts`) : vérifie un jeton
+  émis par un serveur d'autorisation EXTERNE (Keycloak/Auth0/Entra/agents), là où `JwtAuthenticator`
+  ne connaît que le keyset LOCAL. `verify(token, audience)` = contrat `IAccessTokenVerifier` du cœur ;
+  posé au conteneur sous **`accessTokenVerifier`** par le service homonyme (nom générique : le contrat
+  prend l'audience en paramètre → 1 instance sert N ressources protégées, RFC 9728 §3.1). Consommé par
+  `McpController` de `@nodefony/devkit`.
+  - `iss` NON VÉRIFIÉ lu par `decodeJwt` → sert UNIQUEMENT à indexer une allowlist FERMÉE → émetteur
+    inconnu = refus **sans aucune requête sortante** (pas de SSRF déclenchable par un anonyme).
+  - Clés par `createRemoteJWKSet` (jamais `jku`/`jwk` d'en-tête, RFC 8725 §3.5) ; `fetch` INJECTABLE
+    (symbole `jose.customFetch`) → toute la suite tourne sans réseau.
+  - 🔴 **refus ⇒ `null` ; PANNE ⇒ `throw`.** Liste BLANCHE `TOKEN_FAULT_CODES` (7 codes jose), tout le
+    reste = panne : un JWKS en `500`, un corps non-JSON ou un `fetch` qui rejette lèvent chez jose une
+    erreur GÉNÉRIQUE (`ERR_JOSE_GENERIC`) ou SANS code — une liste noire les aurait rendues en « jeton
+    invalide », envoyant le client renouveler un jeton parfaitement bon.
+  - Découverte lazy au 1ᵉʳ jeton, mémorisée par PROMESSE (appels concurrents = 1 découverte), entrée
+    retirée en cas d'échec (une panne passagère ne condamne pas l'émetteur pour la vie du process).
+- `issuerDiscovery.ts` (PUR, 0 réseau) : `canonicalIssuer` (https, ni requête ni fragment — RFC 8414 §2) ·
+  `issuerMetadataUrls` (3 URL ordre NORMATIF : insertion oauth → insertion oidc → ajout oidc ; 2 si pas de
+  chemin) · `validateIssuerMetadata` (**`issuer` du document ≡ celui demandé**, RFC 8414 §3.3 — sans quoi
+  `attaquant.example` publie des clés au nom d'un émetteur légitime ; `jwks_uri` https mais PAS même-origine :
+  Google sert `accounts.google.com` depuis `www.googleapis.com`) · `extractScopes` (`scope` string ET `scp`
+  array — ignorer la 2ᵉ ferait paraître sans droits des jetons valides).
 - `JwtKeystore` (Ed25519) : source PRIORISÉE env (`keystore.keySetJson`) → fichier (`keystore.dir/
 keyset.json` chmod 600, généré si absent) → mémoire+WARNING (éphémère). `kid`=thumbprint RFC 7638.
   JWKS public via `createLocalJWKSet` (jamais `jku`/`jwk` header — §3.5) — JAMAIS `d`. Lazy async mémoïsé.
@@ -225,6 +247,12 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
   passkeys/totp/tokenExchange/realtimeChannels). Tout `enabled` (désactivable). `oauth2` : `{enabled, defaultRoles:
 ["ROLE_USER"], allowSignup, successRedirect, failureRedirect, providers:{<name>:{clientId, clientSecret,
 redirectUri, issuer?, scopes}}}` — `issuer` requis pour keycloak (URL realm).
+- `resourceServer` = **jetons émis AILLEURS** (≠ `jwt`, qui décrit ceux que Nodefony émet) :
+  `{issuers:[{issuer, jwksUri?, algorithms:["RS256","ES256","EdDSA"], typ?, requiredClaims:[]}],
+timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `issuers` VIDE =
+  service `accessTokenVerifier` NON posé (un seul réglage commande le rôle — pas de `enabled`).
+  `algorithms` = enum ASYMÉTRIQUE seulement : les clés viennent d'un jeu public, `HS*` y ferait
+  de la clé publique un secret de signature (RFC 8725 §2.1). Refus AU BOOT, pas à la vérif.
 - `securityConfigJsonSchema()` = `z.toJSONSchema(schema)` → **Studio génère son formulaire**.
 - `config.ts` = défauts SÛRS ENTIÈREMENT commentés (réf humaine). Zones : champ `host?` (vhost).
 - `tokenStore` (J4) : `{store:"auto", gcIntervalS:600, gcJitter:true, retentionRevokedDays:30}` —

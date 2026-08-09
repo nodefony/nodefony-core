@@ -315,6 +315,23 @@ export type IAccessTokenVerifier = (
   audience: string,
 ) => Promise<IAccessPrincipal | null>;
 
+/**
+ * Nom sous lequel un {@link IAccessTokenVerifier} se pose dans le conteneur.
+ *
+ * ⭐ **La constante vit ICI, avec le contrat, et pas ailleurs.** Le nom est le
+ * point de rendez-vous entre deux paquets qui ne se connaissent pas : celui qui
+ * POSE le vérificateur (la sécurité, qui porte la cryptographie) et ceux qui le
+ * LISENT (toute porte protégée). Écrit en dur de chaque côté, il vaut jusqu'au
+ * jour où l'un des deux le renomme — un littéral ne casse aucune compilation,
+ * et la porte cherche alors un service que personne ne pose. Importé, un
+ * renommage devient une erreur de type.
+ *
+ * Le nom est **générique** à dessein : le contrat prend l'audience en
+ * paramètre, donc une seule implémentation sert autant de ressources protégées
+ * que l'application en publie (RFC 9728 §3.1).
+ */
+export const ACCESS_TOKEN_VERIFIER = "accessTokenVerifier";
+
 /** Politique appliquée à une requête vers une ressource protégée. */
 export interface IProtectedResourcePolicy {
   /** URI canonique de la ressource — l'audience attendue. */
