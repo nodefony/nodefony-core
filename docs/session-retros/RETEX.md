@@ -22,9 +22,35 @@
 
 ## 🧭 Annoncer une NORME sans l'avoir lue jusqu'aux ÈRES
 
+- `[1× — 08-09c]` 🔴 **Un serveur PARFAITEMENT conforme à la dernière révision peut ne parler à
+  PERSONNE.** `initialize` annonçait notre révision préférée (`2026-07-28`) à tout client au lieu
+  d'ÉCHOER celle qu'il demande — or aucun SDK déployé ne la connaît (`@modelcontextprotocol/sdk@1.30.0`
+  plafonne à `LATEST = 2025-11-25`) : Claude Code raccrochait. **Aucun test ne pouvait le voir** —
+  ils validaient la conformité, pas la joignabilité. C'est un VRAI client qui l'a montré, en une
+  ligne d'erreur. Règle : **la conformité se mesure sur un client, pas sur une spec** ; et une
+  liste de versions annoncées est une PROMESSE (un test exerce désormais chacune).
+- `[1× — 08-09c]` 🔴 **Une justification d'écart NON VÉRIFIÉE devient une excuse, et se recopie.**
+  « Authentifier exigerait que Nodefony soit un serveur d'autorisation OAuth 2.1 complet » —
+  écrit dans le TSDoc, le README et la doc du module. **Faux** : la spec fait du serveur MCP un
+  simple _resource server_, et place l'AS « beyond the scope […] or a separate entity ». Le reste
+  à faire était donc un ordre de grandeur plus petit que ce qu'on s'était raconté. Une phrase qui
+  justifie de NE PAS faire quelque chose mérite la même vérification qu'une phrase qui affirme.
+- `[1× — 08-09c]` **Un catalogue filtré MENT PAR OMISSION si rien ne le dit.** Un outil retenu
+  faute d'autorisation est indistinguable d'un outil inexistant — voulu (ne pas révéler), mais
+  l'agent en conclut « rien de plus ici » et **ne demandera jamais de jeton**. Le remède est un
+  NOMBRE sans les noms, et il n'a coûté que cinq lignes. Vaut pour tout filtrage par droits :
+  décider ce qu'on cache est la moitié du travail, dire QU'ON cache est l'autre.
+- `[1× — 08-09c]` **Le filtre par droits se pose à UN seul endroit, ou c'est un rideau.** Filtrer
+  `tools/list` sans filtrer `tools/call` laisse l'outil appelable en le nommant. En filtrant à la
+  COLLECTE (en amont du protocole), les deux sont couverts par construction — et l'invariant
+  s'écrit au TSDoc de l'appelant : « ne jamais passer ici une liste non filtrée ».
+- `[1× — 08-09c]` **La CI était rouge sur 6 jobs et je ne l'avais pas regardée** — le user me l'a
+  signalé. Cause : un cas exécutant un scan de dépôt réel sous le timeout IMPLICITE de 5 s de
+  vitest. Vert en local, rouge partout ailleurs. **Un timeout jamais choisi est un seuil quand
+  même** ; tout test qui exécute un vrai balayage porte sa borne explicite.
 - `[1× — 08-09b]` 🔴 **« La RFC MCP est respectée à la lettre ? »** — non, et j'avais écrit un
   serveur **legacy qui annonçait une révision moderne**. La spec `2026-07-28` définit deux ÈRES :
-  *modern* (capacités en `_meta` PAR REQUÊTE, `server/discover` obligatoire) et *legacy* (handshake
+  _modern_ (capacités en `_meta` PAR REQUÊTE, `server/discover` obligatoire) et _legacy_ (handshake
   `initialize`, ≤ 2025-11-25). J'avais bâti sur `initialize` — donc l'ère legacy — tout en
   répondant `protocolVersion: 2026-07-28`. Le tableau de compatibilité de la spec classe ce couple
   « Fails ». J'avais lu le fichier `transports`, pas `versioning` : **les exigences qui comptaient
