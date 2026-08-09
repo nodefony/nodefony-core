@@ -90,13 +90,34 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
   disparaît en production, donc y loger le protocole obligerait tout autre
   serveur MCP (celui de P12, ou une porte authentifiée de production) à le
   redéclarer.
-- 🔴 **La porte câble un appelant ANONYME** (`{authenticated:false, scopes:[]}`)
-  — elle ne valide aucun jeton. Conséquence : tout outil déclarant `scopes`/
-  `requiresAuth` y est retenu POUR TOUJOURS (fail-closed), absent de
-  `tools/list` et inappelable. Mécanisme prêt, pas sécurité active. Pour
-  l'activer : rôle _resource server_ (P6.9), puis remplacer le littéral par le
-  résultat — rien d'autre ne bouge. La rétention part en `DEBUG`
+- 🔴 **L'appelant vient de `mcp.authorization`, et le rôle est ÉTEINT par
+  défaut.** `authorizationServers` vide → appelant anonyme
+  (`{authenticated:false, scopes:[]}`), donc tout outil déclarant `scopes`/
+  `requiresAuth` est retenu (fail-closed), absent de `tools/list` et
+  inappelable. Non vide → `authorizeProtectedResource` (cœur) tranche :
+  `anonymous` · `authenticated` · `challenge` (401 sans code d'erreur si rien
+  n'a été présenté, 400 `invalid_request` si l'en-tête est mal formé, 401
+  `invalid_token`) · `unverifiable`. La rétention part en `DEBUG`
   (`onWithheld`), pas en `WARNING` : c'est un catalogue filtré qui fonctionne.
+- 🔴 **La vérification du jeton est un service du CONTENEUR, `mcpTokenVerifier`**
+  (contrat `IAccessTokenVerifier`, cœur). Ce module est `policy:"dev"` et ne peut
+  pas dépendre de `@nodefony/security`. Rôle déclaré + service absent = `503` +
+  `CRITIC`, jamais un porteur accepté sans lecture. **Aucune implémentation n'est
+  livrée à ce jour** : `JwtAuthenticator` ne valide que les JWT émis par Nodefony
+  (`createLocalJWKSet`), pas ceux d'un émetteur tiers — il manque un JWKS
+  distant.
+- **`resource` (l'audience) s'ÉCRIT, ne se dérive JAMAIS du `Host`.** Sinon URI
+  publiée et audience attendue viennent toutes deux de la requête : un `Host`
+  forgé obtient un jeton d'audience arbitraire ET passe la vérification — la
+  liaison d'audience (RFC 8707) ne protège plus rien. Validée au boot par
+  `canonicalResourceUri`, la fonction qui composera le document.
+- **Métadonnées = `OAuthMetadataController`, préfixe VIDE** : le chemin
+  `/.well-known/…` vit hors de `/nodefony`, le document est PUBLIC (lisible
+  avant tout jeton, donc sans garde `Origin`/localité) et répond en `GET`. Son
+  chemin est **dérivé** de `MCP_ENDPOINT_PATH` par
+  `protectedResourceMetadataPath` — un littéral deviendrait faux au premier
+  déménagement, sans que rien ne le signale (404 → « pas d'autorisation ici »).
+  Rôle éteint → `404`, jamais un document sans `authorization_servers`.
 - **`mcp.tools` ne filtre QUE les outils intégrés.** Un outil déclaré par un
   module est publié sans condition : exiger qu'il soit AUSSI nommé en config en
   ferait un outil accepté puis jeté — présent dans le code, absent de

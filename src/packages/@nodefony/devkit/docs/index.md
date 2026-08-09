@@ -115,19 +115,46 @@ Trois choses à savoir avant de s'étonner d'un refus :
   serveur local ;
 - le module étant `policy: "dev"`, **la route n'existe pas en production**.
 
-> ⚠️ **Écart de conformité assumé.** La spec recommande une authentification
-> (« Servers SHOULD implement proper authentication »), que nous n'implémentons
-> pas encore. Le rôle attendu est plus modeste qu'il n'y paraît : un serveur MCP
-> est un simple **resource server** OAuth 2.1 — valider un jeton, publier ses
-> métadonnées ([RFC 9728](https://datatracker.ietf.org/doc/html/rfc9728)),
-> refuser en `401` avec `WWW-Authenticate`
-> ([RFC 6750](https://datatracker.ietf.org/doc/html/rfc6750)) et vérifier
-> l'audience ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707.html)). Le
-> serveur d'**autorisation**, lui, « may be hosted with the resource server or a
-> separate entity » et reste hors du périmètre de la spec : il n'a jamais été
-> question d'en écrire un. Ce qui borne le risque en attendant, c'est le
-> périmètre ci-dessus. Les outils intégrés sont en lecture seule, et `mcp.tools`
-> est une allowlist.
+Les outils intégrés sont en lecture seule, et `mcp.tools` est une allowlist.
+
+### Passer la porte sous autorisation OAuth 2.1
+
+Le périmètre ci-dessus suffit à un poste de développement. Dès que la porte doit
+répondre à quelqu'un d'autre, déclarez un serveur d'autorisation : elle devient
+alors un **resource server** au sens de la spécification — elle publie ses
+métadonnées ([RFC 9728](https://datatracker.ietf.org/doc/html/rfc9728)), valide
+le porteur, refuse en `401`/`WWW-Authenticate`
+([RFC 6750](https://datatracker.ietf.org/doc/html/rfc6750)) et vérifie
+l'audience ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707.html)).
+
+```ts
+use("@nodefony/devkit", {
+  mcp: {
+    authorization: {
+      authorizationServers: ["https://auth.example"],
+      resource: "https://mon-app.example/nodefony/mcp",
+      scopesSupported: ["nodefony:inspect"],
+    },
+  },
+});
+```
+
+| Ce qui se passe alors                               | Où                                                       |
+| --------------------------------------------------- | -------------------------------------------------------- |
+| Le document de métadonnées est publié               | `GET /.well-known/oauth-protected-resource/nodefony/mcp` |
+| Une requête sans jeton est refusée                  | `401` + `WWW-Authenticate: Bearer resource_metadata="…"` |
+| Un jeton d'une autre audience est refusé            | `401` + `error="invalid_token"`                          |
+| Un outil déclarant des `scopes` devient atteignable | pour qui présente **tous** ces scopes                    |
+
+Le serveur d'**autorisation** n'est jamais à écrire : la spécification le place
+« beyond the scope […] or a separate entity ». N'importe quel émetteur OAuth 2.1
+convient.
+
+> 🔴 **Ce module ne valide pas les jetons lui-même** — il est `policy: "dev"` et
+> ne porte aucune cryptographie. Il cherche un service `mcpTokenVerifier` dans le
+> conteneur (contrat `IAccessTokenVerifier`, exporté par `nodefony`). Sans lui,
+> une porte déclarée protégée répond `503` et le journal le dit en `CRITIC` :
+> accepter des porteurs sans les lire serait pire que rester anonyme.
 
 ### Ajouter VOS outils — ce que l'agent ne peut pas deviner
 

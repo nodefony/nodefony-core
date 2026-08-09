@@ -70,8 +70,21 @@ devkit/
 - 🔴 **`/nodefony/mcp` échappe à la zone admin** (dont le pattern exige un
   segment `api`). C'est nécessaire — un client MCP ne sait pas présenter une
   session — mais cela veut dire que la garde `Origin`/localité et la `policy`
-  sont **la seule protection**. Avant d'exposer une donnée par un outil MCP,
-  se demander si elle supporterait d'être lue sans authentification.
+  sont **la seule protection** tant qu'aucun serveur d'autorisation n'est
+  déclaré. Avant d'exposer une donnée par un outil MCP, se demander si elle
+  supporterait d'être lue sans authentification.
+- 🔴 **Le rôle _resource server_ OAuth 2.1 s'allume par `mcp.authorization`, et
+  son protocole vit au CŒUR** (`nodefony` → `src/oauth/`), pas ici et pas sous
+  `mcp/` : RFC 9728/6750/8707 ne doivent rien au Model Context Protocol, qui
+  n'en est que le premier consommateur — une porte agentique de P12 protégera
+  ses propres chemins avec les mêmes fonctions. Un seul réglage commande
+  (`authorizationServers` vide = porte anonyme, exactement comme avant) : deux
+  interrupteurs auraient permis « protégé sans émetteur » ou « métadonnées
+  publiées, jetons ignorés », des états que personne ne diagnostique.
+- 🔴 **Ce module ne valide aucun jeton** — il résout `mcpTokenVerifier` dans le
+  conteneur (contrat `IAccessTokenVerifier`). Dépendre de `@nodefony/security`
+  est exclu : elle survit à la production, pas lui. Rôle déclaré sans
+  vérificateur = `503` + `CRITIC`, jamais une porte qui laisse passer.
 - **Un outil MCP n'invente rien** : il appelle la brique qui répond déjà à une
   autre porte (`readAdminSubject`, `collectCheckReport`, `readSymbolsGraph`,
   `buildCard` — toutes exportées par `nodefony`). Ajouter un outil qui

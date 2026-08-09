@@ -4,7 +4,11 @@ import {
   MCP_ENDPOINT_PATH,
   MCP_PROTOCOL_VERSION,
   MCP_SUPPORTED_VERSIONS,
+  protectedResourceMetadataPath,
 } from "nodefony";
+
+/** Où la RFC 9728 fait chercher les métadonnées de CETTE porte. */
+const MCP_METADATA_PATH = protectedResourceMetadataPath(MCP_ENDPOINT_PATH);
 
 /**
  * Ce que cette suite prouve, et que rien d'autre ne prouve : la ROUTE.
@@ -75,6 +79,36 @@ function poster(
       rejeter(new Error("timeout"));
     });
     req.end(charge);
+  });
+}
+
+/** Lit un chemin en `GET` — pour les routes qui ne parlent pas JSON-RPC. */
+function lire(chemin: string): Promise<IReponse> {
+  return new Promise((resoudre, rejeter) => {
+    const req = httpsRequest(
+      `${BASE}${chemin}`,
+      { method: "GET", rejectUnauthorized: false, timeout: 8000 },
+      (res) => {
+        let texte = "";
+        res.setEncoding("utf8");
+        res.on("data", (morceau: string) => (texte += morceau));
+        res.on("end", () => {
+          let body: unknown = null;
+          try {
+            body = texte === "" ? null : JSON.parse(texte);
+          } catch {
+            body = null;
+          }
+          resoudre({ status: res.statusCode ?? 0, body, raw: texte });
+        });
+      },
+    );
+    req.on("error", rejeter);
+    req.on("timeout", () => {
+      req.destroy();
+      rejeter(new Error("timeout"));
+    });
+    req.end();
   });
 }
 
@@ -279,6 +313,38 @@ describe.skipIf(raison !== null)(
       // applications Nodefony ouvertes en même temps.
       expect(result.serverInfo.name).toBeTypeOf("string");
       expect(MCP_PROTOCOL_VERSION).not.toBe("2025-11-25");
+    });
+
+    it("le chemin des métadonnées OAuth est MONTÉ — et son 404 n'est pas celui d'une route absente", async () => {
+      // Ce dépôt ne déclare aucun serveur d'autorisation : le rôle est éteint,
+      // donc le document ne se publie pas. `404` est la bonne réponse — mais un
+      // `404` de rôle éteint et un `404` de route jamais montée se ressemblent,
+      // et un test qui ne les distingue pas ne prouve RIEN : il passerait aussi
+      // si le controller n'existait pas.
+      //
+      // Ce qui les sépare est le CORPS. Le controller rend un objet minuscule ;
+      // une route absente rend l'enveloppe d'erreur du framework
+      // (`nodefony`, `requestId`, `stack`). Cette même enveloppe est d'ailleurs
+      // ce qui cassait le parseur du SDK MCP lorsqu'il sondait des chemins
+      // OAuth inexistants — « expected string, received object ».
+      const monte = await lire(MCP_METADATA_PATH);
+      const absent = await lire("/.well-known/oauth-protected-resource/aucune");
+
+      expect(monte.status).toBe(404);
+      expect(absent.status).toBe(404);
+      expect(monte.body).toEqual({ error: "not_found" });
+      expect(absent.body).toHaveProperty("nodefony");
+      expect(monte.body).not.toHaveProperty("nodefony");
+    });
+
+    it("le chemin publié est celui que la RFC 9728 fait construire au client", async () => {
+      // Le client ne devine pas cette URL : il l'assemble par insertion du
+      // chemin de la ressource. Si la route était montée ailleurs, elle
+      // répondrait parfaitement — à personne.
+      expect(MCP_METADATA_PATH).toBe(
+        "/.well-known/oauth-protected-resource/nodefony/mcp",
+      );
+      expect(MCP_METADATA_PATH.endsWith(MCP_ENDPOINT_PATH)).toBe(true);
     });
   },
 );

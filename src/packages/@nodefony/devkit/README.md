@@ -97,14 +97,52 @@ tourne, suit chaque rechargement du serveur de développement, et n'a aucun cach
 - les outils sont en **lecture seule**, et la liste est une allowlist
   (`mcp.tools`).
 
-> ⚠️ **Écart de conformité assumé** : la spec recommande une authentification
-> (« Servers SHOULD implement proper authentication »). Elle n'est pas encore
-> livrée. Le rôle attendu reste modeste — un serveur MCP est un simple
-> **resource server** OAuth 2.1 (valider un jeton, publier ses métadonnées
-> RFC 9728, refuser en `401`/`WWW-Authenticate`, vérifier l'audience RFC 8707) ;
-> le serveur d'**autorisation** peut être une entité tierce et sort du périmètre
-> de la spec. Ce qui borne le risque en attendant est le périmètre ci-dessus,
-> pas un jeton.
+### Protéger la porte par OAuth 2.1
+
+Par défaut la porte est anonyme, et ce qui la borne est le périmètre ci-dessus.
+Déclarez un serveur d'autorisation, et elle prend son rôle de **resource
+server** : elle publie ses métadonnées, valide le porteur présenté, et refuse en
+disant où obtenir un jeton.
+
+```ts
+use("@nodefony/devkit", {
+  mcp: {
+    authorization: {
+      // Un seul réglage commande : vide = porte anonyme, comme avant.
+      authorizationServers: ["https://auth.example"],
+      // L'URI PUBLIQUE de la porte — l'audience que les jetons doivent porter.
+      // Elle s'écrit : la déduire de l'en-tête `Host` permettrait à un Host
+      // forgé d'obtenir un jeton d'audience arbitraire ET de passer la
+      // vérification.
+      resource: "https://mon-app.example/nodefony/mcp",
+      scopesSupported: ["nodefony:inspect"],
+    },
+  },
+});
+```
+
+Le document est alors servi sur
+`GET /.well-known/oauth-protected-resource/nodefony/mcp` (RFC 9728 — le suffixe
+s'**insère** entre l'hôte et le chemin, ce qui permet plusieurs ressources par
+hôte), et une requête sans jeton reçoit :
+
+```http
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer resource_metadata="https://mon-app.example/.well-known/oauth-protected-resource/nodefony/mcp", scope="nodefony:inspect"
+```
+
+C'est cet en-tête qui rend l'autorisation **apprenable** : sans lui, un refus
+est un mur — le client ignore qu'un jeton existe et où le demander.
+
+> 🔴 **La vérification du jeton est fournie par l'application.** Ce module est
+> `policy: "dev"` et ne porte aucune cryptographie : il cherche un service
+> `mcpTokenVerifier` dans le conteneur (contrat `IAccessTokenVerifier` du cœur).
+> Déclarer un serveur d'autorisation **sans** ce service fait répondre `503` à
+> la porte, avec un journal `CRITIC` — accepter des porteurs sans les lire
+> serait pire que rester anonyme.
+>
+> `anonymous: true` laisse la porte ouverte aux outils publics tout en gardant
+> les outils réservés retenus. C'est un choix qui s'écrit, jamais un défaut.
 
 Le serveur est **dual-ère** : il répond à `server/discover` et aux métadonnées
 par requête des clients modernes, **et** au handshake `initialize` des clients

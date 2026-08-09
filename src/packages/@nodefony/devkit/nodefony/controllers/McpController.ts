@@ -11,10 +11,17 @@ import {
   checkMcpAccess,
   handleMcpMessage,
   collectMcpTools,
+  authorizeProtectedResource,
+  protectedResourceMetadataUrl,
   JsonRpcError,
   jsonRpcFailure,
 } from "nodefony";
-import type { IAdminBrokerLike, IJsonRpcMessage } from "nodefony";
+import type {
+  IAdminBrokerLike,
+  IJsonRpcMessage,
+  IMcpCaller,
+  IAccessTokenVerifier,
+} from "nodefony";
 import type { IDevkitService } from "../interfaces/IDevkitService";
 
 /**
@@ -34,29 +41,30 @@ import type { IDevkitService } from "../interfaces/IDevkitService";
  *
  * ## Ce qui protège cette route
  *
- * Pas d'OAuth : l'autorisation MCP est optionnelle (« SHOULD conform »), et le
- * rôle qu'elle demande n'est pas encore livré. ⚠️ **Ce rôle est plus petit
- * qu'il n'y paraît, et l'écrire trop grand a longtemps servi d'excuse** : la
- * spec fait du serveur MCP un simple *resource server* OAuth 2.1 — valider un
- * jeton, publier ses métadonnées (RFC 9728), refuser en `401` avec
- * `WWW-Authenticate` (RFC 6750) et vérifier l'audience (RFC 8707). Le serveur
- * d'AUTORISATION, lui, « may be hosted with the resource server **or a separate
- * entity** » et reste « beyond the scope of this specification » : il n'y a
- * jamais eu besoin d'en écrire un. Nodefony a déjà de quoi valider un porteur
- * (`JwtAuthenticator`, `JwtKeystore`, `ApiKeyAuthenticator`) ; ce qui manque est
- * le rôle resource-server, inscrit au P6.9.
- *
- * Ce qui borne le risque en attendant, c'est le périmètre — ce module est
- * `policy: "dev"`, donc **cette route n'existe pas en production**. Restent les
- * deux gardes que la spec impose au transport lui-même, portées par
- * {@link checkMcpAccess} :
- * l'en-tête `Origin` et la localité de l'appelant. Elles visent le seul vecteur
- * réel contre un serveur local — une page web ouverte dans le navigateur du
+ * **Par défaut, le périmètre — et lui seul.** Ce module est `policy: "dev"`,
+ * donc cette route n'existe pas en production ; restent les deux gardes que la
+ * spec impose au transport, portées par {@link checkMcpAccess} : l'en-tête
+ * `Origin` et la localité de l'appelant. Elles visent le seul vecteur réel
+ * contre un serveur local — une page web ouverte dans le navigateur du
  * développeur.
  *
- * ⚠️ **Écart assumé** : la spec ajoute « Servers SHOULD implement proper
- * authentication for all connections ». Ce n'est pas fait, et c'est dit —
- * ici, dans la configuration, et dans la documentation du module.
+ * **Dès qu'un serveur d'autorisation est déclaré** (`mcp.authorization`), la
+ * porte prend son rôle de *resource server* OAuth 2.1 : elle publie ses
+ * métadonnées (RFC 9728, {@link OAuthMetadataController}), valide le porteur
+ * présenté, et refuse en citant `resource_metadata` — l'en-tête qui apprend au
+ * client où obtenir un jeton (RFC 6750). L'audience attendue est l'URI
+ * canonique de la porte (RFC 8707) : c'est ce qui empêche un jeton émis pour un
+ * autre service d'être rejoué ici.
+ *
+ * ⚠️ **Le serveur d'AUTORISATION n'est pas de notre ressort**, et ne l'a jamais
+ * été : la spec le place « beyond the scope […] or a separate entity ». Avoir
+ * écrit l'inverse a servi d'excuse à ne rien faire pendant tout un cycle.
+ *
+ * 🔴 **La vérification du jeton est déléguée, et son absence est fatale.** Ce
+ * module ne peut pas dépendre de `@nodefony/security` (il disparaît en
+ * production, pas elle) : il cherche un `mcpTokenVerifier` dans le conteneur.
+ * Rôle déclaré + aucun vérificateur = `503` et journal `CRITIC`, jamais une
+ * porte qui laisse passer les porteurs sans les lire.
  *
  * **Mince par design** : tout le protocole vit AU CŒUR (`nodefony`, en fonctions
  * pures) ; ce controller ne fait que traduire HTTP ↔ JSON-RPC et fournir au
@@ -81,6 +89,22 @@ class McpController extends Controller {
   }
 
   /**
+   * Ce qui, dans cette application, sait valider un jeton — ou rien.
+   *
+   * Résolu par NOM dans le conteneur, et non importé : ce module est
+   * `policy: "dev"` et ne peut pas dépendre de `@nodefony/security`, qui porte
+   * la cryptographie. Une application peut donc fournir sa propre
+   * implémentation du contrat sous ce nom, sans que cette porte en sache quoi
+   * que ce soit.
+   *
+   * L'absence est un cas NORMAL (rôle éteint) ou une faute de configuration
+   * (rôle allumé) — c'est l'appelant qui tranche, pas cette méthode.
+   */
+  #tokenVerifier(): IAccessTokenVerifier | undefined {
+    return this.get<IAccessTokenVerifier>("mcpTokenVerifier") ?? undefined;
+  }
+
+  /**
    * `POST /nodefony/mcp` — un message JSON-RPC entre, une réponse sort.
    *
    * Les trois statuts que rend cette route sont ceux que la spec impose, et pas
@@ -94,6 +118,7 @@ class McpController extends Controller {
     @Body() body: unknown,
     @Headers("origin") origin?: string,
     @Headers("mcp-protocol-version") protocolVersion?: string,
+    @Headers("authorization") authorization?: string,
   ) {
     const settings = this.#service().mcpSettings();
 
@@ -130,18 +155,78 @@ class McpController extends Controller {
       );
     }
 
+    // ─── Qui appelle ? ───────────────────────────────────────────────────────
+    // Sans serveur d'autorisation déclaré, cette porte reste ce qu'elle a
+    // toujours été : anonyme, bornée par son périmètre (`policy: "dev"`) et par
+    // les gardes de transport ci-dessus. Les outils exigeant une identité ou des
+    // scopes restent retenus — un appelant anonyme n'est pas une autorisation
+    // implicite.
+    const authz = settings.authorization;
+    let caller: IMcpCaller = { authenticated: false, scopes: [] };
+
+    if (authz.authorizationServers.length > 0) {
+      const authVerdict = await authorizeProtectedResource(
+        authorization,
+        {
+          resource: authz.resource,
+          metadataUrl: protectedResourceMetadataUrl(authz.resource),
+          scopes: authz.scopesSupported,
+          allowAnonymous: authz.anonymous,
+        },
+        this.#tokenVerifier(),
+      );
+
+      switch (authVerdict.outcome) {
+        case "unverifiable":
+          // 🔴 La porte se DIT protégée et rien ne sait vérifier un jeton.
+          // Servir reviendrait à accepter n'importe quel porteur ; se taire
+          // laisserait croire à une protection qui n'existe pas. On refuse, et
+          // on crie — c'est une faute de configuration, pas une panne passagère.
+          this.log(
+            "MCP — `mcp.authorization` déclare un serveur d'autorisation, mais " +
+              "aucun service du conteneur ne sait vérifier un jeton " +
+              "(`mcpTokenVerifier`). La porte refuse de servir : accepter les " +
+              "porteurs sans les valider serait pire que rester anonyme.",
+            "CRITIC",
+          );
+          return this.renderJson(
+            jsonRpcFailure(
+              null,
+              JsonRpcError.INTERNAL_ERROR,
+              "autorisation indisponible",
+            ),
+            503,
+          );
+        case "challenge":
+          // Le défi porte `resource_metadata` : c'est lui qui apprend au client
+          // où obtenir un jeton. Sans cet en-tête, le refus serait un mur.
+          return this.renderJson(
+            jsonRpcFailure(
+              null,
+              JsonRpcError.INVALID_REQUEST,
+              "autorisation requise",
+            ),
+            authVerdict.status,
+            { "WWW-Authenticate": authVerdict.wwwAuthenticate },
+          );
+        case "authenticated":
+          caller = {
+            authenticated: true,
+            scopes: authVerdict.principal.scopes,
+            subject: authVerdict.principal.subject,
+          };
+          break;
+        case "anonymous":
+          break;
+      }
+    }
+
     const kernel = Nodefony.getKernel();
     // Les outils sont ramassés À CHAQUE requête, jamais mémorisés : c'est ce
     // qui fait qu'un module ajouté — ou rechargé par le superviseur de
     // développement — apparaît sans qu'aucun cache soit à invalider. Le coût
     // est celui d'un parcours de `kernel.modules`, payé uniquement par les
     // requêtes MCP, sur une porte qui n'existe pas en production.
-    // ⚠️ ANONYME, et ce n'est pas un oubli : cette porte ne valide aucun jeton
-    // (le rôle *resource server* OAuth 2.1 n'est pas livré — cf le TSDoc de
-    // classe). L'annoncer explicitement plutôt que d'omettre le champ est ce
-    // qui rend le comportement PRÉVISIBLE : tout outil exigeant une identité ou
-    // des scopes est retenu ici, et le sera tant que personne ne prouve rien.
-    const caller = { authenticated: false, scopes: [] as string[] };
     // Compté pour l'annonce de `server/discover` : un agent doit pouvoir
     // apprendre qu'il EXISTE des outils réservés, sinon un catalogue filtré lui
     // fait conclure « cette application n'a rien de plus » — et il ne demandera
