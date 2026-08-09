@@ -126,8 +126,15 @@ async function scenarioSocket(conf) {
           return;
         }
         if (frame.id != null && frame.method === undefined) {
-          const attente = enAttente.get(frame.id);
-          if (attente) {
+          // `frame.id` arrive du fil : il ne sert de clé qu'après avoir été
+          // reconnu pour ce que NOUS émettons — un entier de `compteurId`. Et
+          // le rappel retrouvé n'est appelé qu'une fois CONSTATÉ appelable.
+          // Une `Map` n'expose aucun prototype, donc l'exécution ne risquait
+          // rien ; c'est l'analyse statique qui ne pouvait pas le savoir, et
+          // une garde de type dit l'intention aussi bien qu'elle la prouve.
+          const attente =
+            typeof frame.id === "number" ? enAttente.get(frame.id) : undefined;
+          if (typeof attente === "function") {
             enAttente.delete(frame.id);
             attente(frame);
           }
