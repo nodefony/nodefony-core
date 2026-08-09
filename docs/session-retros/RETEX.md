@@ -20,6 +20,29 @@
 
 ---
 
+## 🎲 Un banc d'agent mesure AUSSI sa propre variance
+
+- `[1× — 08-09c]` 🔴 **3 tâches sur 4 rejouées se révèlent INSTABLES** (T17 2/3, T25 1/3, T28 1/3) —
+  même gabarit, même décor, même modèle. Une seule était un vrai signal (T16, 0/3). Conséquence
+  qui dépasse ce run : la référence antérieure ayant été écrite sur des runs UNIQUES, une part de
+  ses futures « chutes » et « remontées » est du BRUIT, pas une dérive. Le dépistage nomme des
+  suspects ; il ne prononce rien. Corollaire adopté : enregistrer `passes/runs` et pas seulement
+  le verdict, pour que l'instabilité soit INSCRITE au lieu d'être perdue.
+- `[1× — 08-09c]` **Le coût d'une même tâche varie d'un facteur 2,7** (87 tours / 1,14 $ contre
+  32 tours / 0,45 $). C'est la source de l'instabilité, et c'est ce que le second but du banc
+  (« y arriver en un minimum de TOURS ») mesure sans qu'on ait à l'instrumenter.
+- `[1× — 08-09c]` 🔴 **Un « 0 sur 9 » partout ne dit rien de ce qu'on croit mesurer.** Le banc de
+  schéma rendait 0 colonne sur 6 tables : lu vite, « la grammaire ne sait pas exprimer umami ».
+  En réalité l'application n'avait jamais démarré — donc rien n'avait atteint la base. Un verdict
+  UNIFORMÉMENT nul est le signe d'un décor ou d'un boot cassé, pas d'un défaut de capacité :
+  vérifier que la chaîne a EU LIEU avant d'interpréter ce qu'elle rend.
+- `[1× — 08-09c]` **Un banc qui monte son décor peut ÉCRIRE dans le dépôt.** `packTarballs` re-packe
+  dès qu'une source publiable a bougé, et `pack-all.mjs` bascule les `exports.types` des
+  `package.json` du dépôt avant de les restaurer. Lancé pendant qu'une autre session code, il
+  écrase une édition concurrente. Parade employée : dater le manifeste des tarballs (gitignoré)
+  pour figer le décor — ce qui protège l'arbre ET garde la comparaison valide, puisqu'un rejeu
+  dans un décor différent ne confirme plus le run qu'il doit confirmer.
+
 ## 🧭 Annoncer une NORME sans l'avoir lue jusqu'aux ÈRES
 
 - `[1× — 08-09c]` 🔴 **Un serveur PARFAITEMENT conforme à la dernière révision peut ne parler à
@@ -409,7 +432,28 @@
   preuve** — et le test doit DISCRIMINER : rejoué avec la grammaire posix, il tombe. Sans ce
   contrôle, deux de mes trois assertions Windows passaient par accident depuis macOS.
 
+## 🤝 Un NOM partagé entre deux paquets est un contrat — et RIEN ne le teste
+
+- `[1× — 08-09e]` 🔴 **Le point de rendez-vous d'un service DI existait en deux exemplaires** : une
+  constante côté fournisseur (`security`), un littéral `"…"` côté consommateur (`devkit`, qui ne
+  peut pas dépendre de lui). Un renommage d'un seul côté ne casse **aucune compilation** et
+  **aucun test** — la porte cherche simplement un service que personne ne pose, en silence. Le
+  remède n'est pas un test : c'est de faire vivre la constante **avec le contrat qu'elle nomme**
+  (ici au cœur, à côté de `IAccessTokenVerifier`), et les deux paquets l'importent. **Le
+  compilateur remplace alors le test qui manquait.** Vaut pour tout nom de service, d'événement ou
+  de clé qui traverse une frontière de paquets. [[feedback_single_source_rule]]
+- `[1× — 08-09e]` **C'est la question du user — « qu'est-ce qui teste ce renommage ? » — qui l'a
+  révélé**, après que j'aie annoncé 969 + 117 + 2711 verts. Aucun de ces verts ne touchait la
+  chaîne renommée. Un total impressionnant ne dit rien sur le SEUL geste qu'on vient de faire.
+  [[feedback_green_covers_only_its_diff]]
+
 ## 🧪 Un gate ne prouve rien tant qu'on ne l'a pas vu ROUGE — deux faux verts le même jour
+
+- `[1× — 08-09e]` ⭐ **Un débranchement ne fait pas que valider un test : il peut DÉMONTRER qu'une
+  conception était fausse.** Remettre ma liste noire des pannes (la version que j'allais livrer)
+  a produit 3 rouges nommés — la preuve chiffrée que trois pannes d'infrastructure auraient été
+  rendues comme des refus d'authentification. Débrancher la version ANTÉRIEURE d'un correctif,
+  et pas seulement le correctif, transforme « j'ai corrigé » en « voici ce que ça coûtait ».
 
 - `[1× — 08-07d]` 🔴 **Une chaîne passée à `waitForFunction` est évaluée comme une EXPRESSION** :
   donner `() => x` y DÉFINIT une fonction sans jamais l'appeler ; l'objet fonction est truthy,
@@ -560,6 +604,15 @@ outdated` NU les montre). Corollaire : **un sous-agent hérite de la cécité de
   [[feedback_stale_decor_poisons_verdicts]] : le décor sale peut aussi fabriquer du VERT.
 
 ## 📚 La doc officielle périme la mémoire — deux fois dans la même session
+
+- `[1× — 08-09e]` ⭐ **Lire la SOURCE de `jose` a INVERSÉ une décision de conception, pas seulement
+  corrigé un détail.** J'avais classé refus/panne par liste NOIRE des pannes (`ERR_JWKS_TIMEOUT`…).
+  La source montre qu'un JWKS répondant `500`, un corps non-JSON et un `fetch` qui rejette y lèvent
+  une erreur **générique** (`ERR_JOSE_GENERIC`) ou **sans aucun code** : les trois pannes seraient
+  devenues « jeton invalide », envoyant un client renouveler un jeton parfaitement bon. Liste
+  BLANCHE des fautes du jeton, tout le reste = panne visible. **Le fait vérifié n'était pas une
+  signature d'API — c'était une TAXONOMIE d'erreurs, que rien ne documente et qu'aucun type
+  n'exprime.** Là où la doc suffit pour appeler, seule la source dit ce qui SORT quand ça rate.
 
 - `[1× — 2026-08-05]` 🔴 **« Prends un token npm Automation » : ces jetons N'EXISTENT PLUS** (doc
   npm : granular seulement, et elle pousse au trusted publishing OIDC). J'aurais écrit le contraire
