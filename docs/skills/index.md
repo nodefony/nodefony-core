@@ -5,7 +5,7 @@ audience: humain
 topic: skills
 tests: none
 status: stable
-updated: 2026-08-08
+updated: 2026-08-09
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -132,8 +132,8 @@ source: "docs/skills/index.md"
     "desc": "Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés.",
     "meta": "🟢 conforme · ⚙️ 3 scripts · 📎 3 réf" },
   { "icon": "📜", "title": "rfc", "href": "nodefony-rfc.md",
-    "desc": "Cite et applique les RFC officielles IETF et W3C pour valider la conformité HTTP/1.1, HTTP/2, WebSocket, CORS, Cookies dans Nodefony — sources brutes (TXT IETF, raw GitHub W3C) via proxy r.jina.ai, jamais les pages HTML.",
-    "meta": "🟢 conforme" },
+    "desc": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, et la spécification Model Context Protocol — depuis des sources brutes, jamais des pages HTML.",
+    "meta": "🟢 conforme v1.1.0" },
   { "icon": "🗓️", "title": "roadmap", "href": "nodefony-roadmap.md",
     "desc": "Contexte de la couche IA agentic de Nodefony (Phase 12) — la seule phase réellement future du framework : modules `@nodefony/{llm,vector,rag,memory,agent,agent-guard}`, invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket…",
     "meta": "🟢 conforme v2.0.0" }
@@ -157,7 +157,7 @@ source: "docs/skills/index.md"
 
 | Skill | Version | Corps | Réf. | Scripts | Conforme |
 | --- | --- | ---: | ---: | ---: | :---: |
-| [`nodefony-browser`](nodefony-browser.md) | 1.1.0 | 357 | 1 | 0 | ✅ |
+| [`nodefony-browser`](nodefony-browser.md) | 1.1.0 | 367 | 1 | 0 | ✅ |
 | [`nodefony-check-externals`](nodefony-check-externals.md) | — | 114 | 0 | 0 | ✅ |
 | [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | — | 83 | 0 | 0 | ✅ |
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 249 | 1 | 0 | ✅ |
@@ -173,12 +173,12 @@ source: "docs/skills/index.md"
 | [`nodefony-migration-audit`](nodefony-migration-audit.md) | — | 357 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 140 | 2 | 9 | ✅ |
 | [`nodefony-release`](nodefony-release.md) | 1.0.0 | 130 | 0 | 3 | ✅ |
-| [`nodefony-rfc`](nodefony-rfc.md) | — | 68 | 0 | 0 | ✅ |
+| [`nodefony-rfc`](nodefony-rfc.md) | 1.1.0 | 134 | 0 | 0 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 356 | 0 | 0 | ✅ |
 | [`nodefony-session`](nodefony-session.md) | — | 444 | 1 | 0 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 276 | 0 | 3 | ✅ |
-| [`nodefony-start-server`](nodefony-start-server.md) | — | 246 | 0 | 2 | ✅ |
+| [`nodefony-start-server`](nodefony-start-server.md) | — | 262 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 143 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 77 | 0 | 0 | ✅ |
 

@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-08-08",
+  "generatedAt": "2026-08-09",
   "count": 24,
   "conformant": 24,
   "skills": [
@@ -34,8 +34,8 @@
       ],
       "description": "Ouvre une page réelle dans un navigateur piloté — poste ou conteneur — pour la VOIR et surtout la MESURER : contrastes calculés, WCAG par axe-core, Web Vitals, réseau, console, débordements ; et pilote un socket depuis la page, avec ses cookies et son origine. Sait imposer le thème clair ou sombre. Porte les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, viser le mauvais hôte, observer un autre bundle que celui qu'on a bâti. À charger AVANT de constater quoi que ce soit à l'écran. Déclencheurs : \"regarde l'écran\", \"vérifie l'affichage\", \"est-ce que ça s'affiche ?\", \"lis la console\", \"y a-t-il des erreurs JS ?\", \"mesure le contraste\", \"cette couleur est-elle lisible ?\", \"capture d'écran\", \"vérifie l'accessibilité\", \"audit WCAG\", \"en mode clair\", \"en mode sombre\", \"le thème sombre casse quelque chose ?\", \"quelles requêtes fait la page ?\", \"le temps réel arrive-t-il à l'écran ?\", \"teste le websocket\", \"quelle latence sur le socket ?\", \"la page déborde-t-elle sur mobile ?\".",
       "cost": {
-        "bodyLines": 357,
-        "approxTokens": 6004
+        "bodyLines": 367,
+        "approxTokens": 6224
       },
       "requires": [],
       "resources": {
@@ -100,7 +100,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "357",
+            "detail": "367",
             "advisory": true
           }
         ]
@@ -4069,9 +4069,9 @@
     },
     {
       "name": "nodefony-rfc",
-      "summary": "Cite et applique les RFC officielles IETF et W3C pour valider la conformité HTTP/1.1, HTTP/2, WebSocket, CORS, Cookies dans Nodefony — sources brutes (TXT IETF, raw GitHub W3C) via proxy r.jina.ai, jamais les pages HTML.",
+      "summary": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, et la spécification Model Context Protocol — depuis des sources brutes, jamais des pages HTML.",
       "family": "Références et livrables",
-      "version": null,
+      "version": "1.1.0",
       "keywords": [],
       "triggers": [
         "RFC",
@@ -4082,17 +4082,30 @@
         "RFC 9110/9113/6455/6265",
         "pseudo-headers HTTP/2",
         "frame masking",
-        "SameSite cookies"
+        "SameSite cookies",
+        "spec MCP",
+        "Model Context Protocol",
+        "révision 2026-07-28",
+        "server/discover",
+        "ère legacy MCP",
+        "autorisation MCP",
+        "resource server OAuth",
+        "protected resource metadata",
+        "RFC 9728",
+        "WWW-Authenticate",
+        "jeton Bearer",
+        "audience d'un jeton",
+        "resource indicator"
       ],
-      "description": "Cite et applique les RFC officielles IETF et W3C pour valider la conformité HTTP/1.1, HTTP/2, WebSocket, CORS, Cookies dans Nodefony — sources brutes (TXT IETF, raw GitHub W3C) via proxy r.jina.ai, jamais les pages HTML. Déclencheurs : \"RFC\", \"conformité HTTP\", \"norme WebSocket\", \"CORS spec\", \"Fetch standard\", \"RFC 9110/9113/6455/6265\", \"pseudo-headers HTTP/2\", \"frame masking\", \"SameSite cookies\".",
+      "description": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, et la spécification Model Context Protocol — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE la révision MCP 2026-07-28 (transport, versioning, autorisation) et les RFC OAuth du rôle resource server (9728, 6750, 8707) : les relire coûte zéro requête. Déclencheurs : \"RFC\", \"conformité HTTP\", \"norme WebSocket\", \"CORS spec\", \"Fetch standard\", \"RFC 9110/9113/6455/6265\", \"pseudo-headers HTTP/2\", \"frame masking\", \"SameSite cookies\", \"spec MCP\", \"Model Context Protocol\", \"révision 2026-07-28\", \"server/discover\", \"ère legacy MCP\", \"autorisation MCP\", \"resource server OAuth\", \"protected resource metadata\", \"RFC 9728\", \"WWW-Authenticate\", \"jeton Bearer\", \"audience d'un jeton\", \"resource indicator\".",
       "cost": {
-        "bodyLines": 68,
-        "approxTokens": 631
+        "bodyLines": 134,
+        "approxTokens": 2100
       },
       "requires": [],
       "resources": {
         "references": [],
-        "referenceFilesTotal": 0,
+        "referenceFilesTotal": 165,
         "scripts": []
       },
       "related": [],
@@ -4108,7 +4121,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "400",
+            "detail": "801",
             "advisory": false
           },
           {
@@ -4144,7 +4157,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "68",
+            "detail": "134",
             "advisory": true
           }
         ]
@@ -4622,8 +4635,8 @@
       ],
       "description": "Lance le serveur Nodefony en mode développement pour les tests d'intégration — script unique start.sh (1 commande, 1 approbation) : build conditionnel du module test, kill ports, spawn detached du DevSupervisor (auto-restart), wait boot fail-fast, health check. Commandes natives standalone nodefony status / nodefony stop (introspection + arrêt propre, de partout). Déclencheurs : \"lance le serveur\", \"démarre nodefony\", \"relance le serveur\", \"start server\", \"redémarre le serveur\", tests d'intégration en 404 (dist périmé).",
       "cost": {
-        "bodyLines": 246,
-        "approxTokens": 4404
+        "bodyLines": 262,
+        "approxTokens": 4669
       },
       "requires": [
         "serveur UP"
@@ -4743,7 +4756,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "246",
+            "detail": "262",
             "advisory": true
           }
         ]

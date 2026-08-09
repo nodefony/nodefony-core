@@ -169,8 +169,8 @@ serait sans effet à la régénération suivante.
     "desc": "Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés.",
     "meta": "🟢 conforme · ⚙️ 3 scripts · 📎 3 réf" },
   { "icon": "📜", "title": "rfc", "href": "skills/nodefony-rfc.md",
-    "desc": "Cite et applique les RFC officielles IETF et W3C pour valider la conformité HTTP/1.1, HTTP/2, WebSocket, CORS, Cookies dans Nodefony — sources brutes (TXT IETF, raw GitHub W3C) via proxy r.jina.ai, jamais les pages HTML.",
-    "meta": "🟢 conforme" },
+    "desc": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, et la spécification Model Context Protocol — depuis des sources brutes, jamais des pages HTML.",
+    "meta": "🟢 conforme v1.1.0" },
   { "icon": "🗓️", "title": "roadmap", "href": "skills/nodefony-roadmap.md",
     "desc": "Contexte de la couche IA agentic de Nodefony (Phase 12) — la seule phase réellement future du framework : modules `@nodefony/{llm,vector,rag,memory,agent,agent-guard}`, invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket…",
     "meta": "🟢 conforme v2.0.0" }

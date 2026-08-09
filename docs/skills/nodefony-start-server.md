@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-08
+updated: 2026-08-09
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-start-server/SKILL.md"
 ---
@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-start-server/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Exécuter, diagnostiquer, mesurer |
-| Corps | 246 lignes |
-| Coût d'activation | ~4 404 tokens (le corps est chargé à l'invocation) |
+| Corps | 262 lignes |
+| Coût d'activation | ~4 669 tokens (le corps est chargé à l'invocation) |
 | Description | 525 / 1024 caractères |
 | Déclencheurs | 5 |
 | Ressources `references/` | 0 page(s) |
@@ -97,7 +97,7 @@ Usage : bash .claude/skills/nodefony-start-server/stop.sh
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 246 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 262 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
