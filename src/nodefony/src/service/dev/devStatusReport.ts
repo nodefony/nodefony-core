@@ -550,20 +550,34 @@ function renderSummary(
   lines.push(
     "",
     `  ${ANSI.bold}Résumé${ANSI.reset}`,
-    `    ce projet : ${aMoi === 0 ? `${ANSI.yellow}rien ne tourne${ANSI.reset}` : `${aMoi} process · ${portsUp}/${report.ports.length} ports en écoute`}`,
-    `    voisin${pluriel}   : ${voisins.length} projet${pluriel} · ${nVoisinProcs} process`,
+    // Hors projet, « ce projet » n'a aucun référent : le résumé dirait « rien ne
+    // tourne » d'une application qui n'existe pas, et l'on retomberait dans la
+    // contradiction que le titre vient de lever.
+    report.inProject
+      ? `    ce projet : ${aMoi === 0 ? `${ANSI.yellow}rien ne tourne${ANSI.reset}` : `${aMoi} process · ${portsUp}/${report.ports.length} ports en écoute`}`
+      : `    ici       : ${ANSI.dim}aucun projet Nodefony${ANSI.reset}`,
+    // « voisin » suppose qu'on est quelque part : hors projet, ce sont simplement
+    // les projets du poste.
+    report.inProject
+      ? `    voisin${pluriel}   : ${voisins.length} projet${pluriel} · ${nVoisinProcs} process`
+      : `    ailleurs  : ${voisins.length} projet${pluriel} · ${nVoisinProcs} process`,
     // L'explication suit la SITUATION : rappeler ce que « aucune instance » veut
     // dire à quelqu'un dont l'application tourne serait répondre à côté.
-    ...(aMoi === 0
+    ...(!report.inProject
       ? [
-          `    ${ANSI.dim}status et stop ne voient QUE ce projet : « aucune instance » signifie${ANSI.reset}`,
-          `    ${ANSI.dim}« aucune à MOI », jamais « rien ne tourne sur ce poste ».${ANSI.reset}`,
+          `    ${ANSI.dim}place-toi dans un projet pour le piloter, ou vise-le par son nom${ANSI.reset}`,
+          `    ${ANSI.dim}depuis ici — status et stop n'agissent jamais que sur UN projet.${ANSI.reset}`,
         ]
-      : [
-          `    ${ANSI.dim}les process du haut sont ceux de CE projet ; le${pluriel} voisin${pluriel} n'${voisins.length > 1 ? "en font" : "en fait"} pas partie${ANSI.reset}`,
-          `    ${ANSI.dim}et ${voisins.length > 1 ? "ne sont" : "n'est"} ni compté${pluriel} dans la synthèse, ni arrêté${pluriel} par ${ANSI.reset}${ANSI.cyan}nodefony stop${ANSI.reset}${ANSI.dim}.${ANSI.reset}`,
-        ]),
-    `    ${ANSI.dim}arrêter un voisin, sans changer de dossier : ${ANSI.reset}${ANSI.cyan}nodefony stop ${voisins[0].name}${ANSI.reset}`,
+      : aMoi === 0
+        ? [
+            `    ${ANSI.dim}status et stop ne voient QUE ce projet : « aucune instance » signifie${ANSI.reset}`,
+            `    ${ANSI.dim}« aucune à MOI », jamais « rien ne tourne sur ce poste ».${ANSI.reset}`,
+          ]
+        : [
+            `    ${ANSI.dim}les process du haut sont ceux de CE projet ; le${pluriel} voisin${pluriel} n'${voisins.length > 1 ? "en font" : "en fait"} pas partie${ANSI.reset}`,
+            `    ${ANSI.dim}et ${voisins.length > 1 ? "ne sont" : "n'est"} ni compté${pluriel} dans la synthèse, ni arrêté${pluriel} par ${ANSI.reset}${ANSI.cyan}nodefony stop${ANSI.reset}${ANSI.dim}.${ANSI.reset}`,
+          ]),
+    `    ${ANSI.dim}arrêter ${report.inProject ? "un voisin" : "l'un d'eux"}, sans changer de dossier : ${ANSI.reset}${ANSI.cyan}nodefony stop ${voisins[0].name}${ANSI.reset}`,
   );
 }
 
@@ -630,13 +644,22 @@ function renderStatus(
     const detaille = projects.some((p) => !p.current);
     lines.push(
       "",
-      `${tag} ${ANSI.bold}Nodefony dev — aucune instance de ce projet en cours${ANSI.reset}`,
+      // « aucune instance de CE PROJET » présuppose un projet — et se contredisait
+      // avec la ligne suivante, qui annonce qu'il n'y en a pas. Hors projet, le
+      // titre dit d'abord OÙ l'on est ; ce qui tourne ailleurs est rapporté après.
+      report.inProject
+        ? `${tag} ${ANSI.bold}Nodefony dev — aucune instance de ce projet en cours${ANSI.reset}`
+        : `${tag} ${ANSI.bold}Nodefony — ce dossier n'est pas un projet Nodefony${ANSI.reset}`,
       ...(report.inProject
         ? [
             `  ${ANSI.dim}pidfile${ANSI.reset}  ${report.pidfile.path} — ${pidNote}`,
           ]
         : []),
-      ...(detaille
+      // Les ports de la CONVENTION (5151/5152) ne sont ceux de personne ici : les
+      // sonder depuis un dossier quelconque et titrer « libre » laisse croire à un
+      // verdict sur une application qui n'existe pas. On ne les montre que dans un
+      // projet, et seulement si aucun bloc de projet ne les rapporte déjà.
+      ...(detaille || !report.inProject
         ? []
         : [
             `  ${ANSI.dim}ports${ANSI.reset}    ${portsLine(
@@ -647,10 +670,10 @@ function renderStatus(
             )}`,
           ]),
       // Hors projet, « lance nodefony dev » serait un conseil voué à l'échec →
-      // dire la vraie situation (dossier sans app Nodefony) + les 2 sorties.
+      // dire pourquoi (le titre l'a annoncé) puis les deux sorties.
       report.inProject
         ? `  ${ANSI.dim}→ lance ${ANSI.reset}${ANSI.cyan}nodefony dev${ANSI.reset}${ANSI.dim} pour démarrer${ANSI.reset}`
-        : `  ${ANSI.yellow}⚠ ce dossier n'est pas un projet Nodefony${ANSI.reset}${ANSI.dim} (aucun package.json avec la dépendance « nodefony »)${ANSI.reset}\n` +
+        : `  ${ANSI.dim}aucun package.json qui dépende de « nodefony » ici${ANSI.reset}\n` +
             `  ${ANSI.dim}→ place-toi à la racine d'une app, ou crée-en une : ${ANSI.reset}${ANSI.cyan}nodefony create app${ANSI.reset}`,
     );
     renderForeign(lines, report, projects, sondesVoisines);

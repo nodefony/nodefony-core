@@ -123,9 +123,13 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
     let out = "";
     await runStatusReport(mine, { ...deps(), write: (s) => (out += s) });
     const plain = out.replace(/\x1b\[[0-9;]*m/g, "");
+    // Le décor de ce test est un dossier temporaire — donc PAS un projet Nodefony.
+    // Le rapport doit dire l'absence, dans les termes qui conviennent à la
+    // situation : « aucune instance » suppose un projet, et l'écrire ici serait la
+    // contradiction que garde le test « HORS projet, … » plus bas.
     assert.ok(
-      /aucune instance/.test(plain),
-      `doit annoncer l'absence d'instance :\n${plain}`,
+      /n'est pas un projet Nodefony/.test(plain),
+      `doit annoncer l'absence, sans supposer un projet :\n${plain}`,
     );
     assert.ok(
       !/ports UP/.test(plain),
@@ -219,6 +223,29 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
     assert.ok(
       /Résumé/.test(plain) && /nodefony stop /.test(plain),
       `un résumé doit expliquer et donner le geste :\n${plain}`,
+    );
+  });
+
+  it("HORS projet, le rapport ne parle jamais de « ce projet »", async () => {
+    // Le titre disait « aucune instance de CE PROJET » juste avant d'annoncer que
+    // le dossier n'est pas un projet : deux phrases contradictoires dans le même
+    // écran, qui laissaient croire qu'on était dans une application.
+    let out = "";
+    await runStatusReport(mine, { ...deps(), write: (s) => (out += s) });
+    const plain = out.replace(/\x1b\[[0-9;]*m/g, "");
+    assert.ok(
+      !/de ce projet/.test(plain),
+      `hors projet, « ce projet » n'a pas de référent :\n${plain}`,
+    );
+    assert.ok(
+      /n'est pas un projet Nodefony/.test(plain),
+      `dire OÙ l'on est, d'abord :\n${plain}`,
+    );
+    // Les ports de la convention ne sont ceux de personne ici : les annoncer
+    // « libres » serait un verdict sur une application qui n'existe pas.
+    assert.ok(
+      !/ports\s+5151 libre/.test(plain),
+      `pas de verdict sur des ports qui n'appartiennent à aucun projet :\n${plain}`,
     );
   });
 
