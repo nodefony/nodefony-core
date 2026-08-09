@@ -676,6 +676,47 @@ protection contre une page web qui viserait ton `localhost`, pas un bogue ; et
 elle **n'existe pas en production**, le module qui la sert étant `policy: "dev"`.
 Réglages : `use("@nodefony/devkit", { mcp: { … } })`.
 
+**Ces quatre outils décrivent le FRAMEWORK. Ceux du métier, c'est toi qui les
+ajoutes** — n'importe quel module de cette application publie les siens en
+implémentant `getMcpTools()`. C'est le seul moyen qu'un agent extérieur
+interroge le domaine plutôt que la plomberie :
+
+```ts
+import { Module, mcpText, type IMcpTool } from "nodefony";
+
+class Shop extends Module {
+  getMcpTools(): IMcpTool[] {
+    return [
+      {
+        name: "shop_stock",
+        // La description est ce qui DÉCLENCHE l'outil : dire ce qu'il rend ET
+        // quand s'en servir. Un modèle n'appelle pas ce qu'il ne comprend pas.
+        description:
+          "Stock réel d'une référence produit. À utiliser avant de proposer " +
+          "une commande — la réponse vient de la base, pas d'un cache.",
+        inputSchema: {
+          type: "object",
+          properties: { sku: { type: "string", description: "Référence" } },
+          required: ["sku"],
+        },
+        handler: async (args) => mcpText(await this.stock(String(args.sku))),
+      },
+    ];
+  }
+}
+```
+
+Rien ne s'enregistre au démarrage : la liste est relue à chaque requête, donc un
+module ajouté apparaît sans rien redémarrer. `mcp.tools` ne filtre que les
+outils **intégrés** — le tien est publié dès qu'il est déclaré. Un outil écarté
+(nom hors `[a-zA-Z0-9_-]{1,64}`, nom déjà pris, handler absent) le dit en
+`WARNING` dans les journaux du serveur : s'il manque à l'appel, la raison y est
+déjà, ne la cherche pas dans ton handler — il n'a pas été appelé.
+
+⚠️ Cette porte n'est **pas authentifiée**. Avant d'exposer une donnée par un
+outil, demande-toi si elle supporterait d'être lue sans identification par qui a
+accès à la machine.
+
 **Ce que rend `inspect` ENGLOBE tes sources, et les dépasse de loin.** Les modules
 installés — ceux du framework compris — montent leurs propres routes, services et
 entités : une app qui ne définit qu'une poignée de routes en expose couramment plus

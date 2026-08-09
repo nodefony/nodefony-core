@@ -1190,6 +1190,22 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(agents, "ne te rabats pas sur les sources");
       // Où sont les CLÉS de config d'un module — le pointage qui manquait.
       assert.include(agents, "dist/nodefony/config/config.js");
+      // La porte MCP se CONSOMME (4 outils) mais s'ÉTEND aussi : une app publie
+      // les siens par `getMcpTools()`. La capacité vivait dans le README du
+      // devkit — donc nulle part, pour un agent qui lit ce fichier-ci et rien
+      // d'autre. ⚠️ Chercher « MCP » ne prouverait RIEN : le sigle apparaît
+      // dans toute la section voisine (ai:mcp, .mcp.json, mcp.tools), et
+      // retirer l'extension laisserait ce gate au vert. On ancre donc sur ce
+      // qui est PROPRE à la déclaration — le contrat, l'enveloppe de réponse,
+      // et l'avertissement qui la borne.
+      for (const needle of [
+        "getMcpTools()",
+        "type IMcpTool",
+        "mcpText(",
+        "n'est **pas authentifiée**",
+      ]) {
+        assert.include(agents, needle, `AGENTS.md sans « ${needle} »`);
+      }
       // Les 3 savoirs fondamentaux que tout agent doit avoir AVANT d'écrire :
       // le cœur est ISOMORPHE (jamais un client WS/type dupliqué à la main),
       // le container DI est PROTOTYPAL (scopes par héritage, zéro copie),
