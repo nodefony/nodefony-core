@@ -460,6 +460,14 @@
 
 ## 🧪 Un gate ne prouve rien tant qu'on ne l'a pas vu ROUGE — deux faux verts le même jour
 
+- `[1× — 08-10]` 🔴 **ALLUMER UNE GARDE PEUT ÉTEINDRE UN BANC — et un banc sauté est un vert qu'on
+  croit.** En protégeant la porte MCP, j'ai fait sauter les **13 tests** de `mcp-http.test.ts` : sa
+  sonde de décor postait un ping, recevait `401`, et en concluait « serveur absent, suite sautée ».
+  Aucun rouge, aucun signal — le fichier se déclarait simplement hors décor. Je ne l'ai vu qu'en
+  allant vérifier ce que mon changement touchait. **Réflexe** : après avoir armé une garde (auth,
+  quota, filtre), relancer les suites qui TAPENT la surface armée et lire le compte de SKIPS, pas
+  seulement l'exit code. Et une sonde de décor doit distinguer « la porte est muette » de « la porte
+  refuse » : le second cas est un décor PRÉSENT, où c'est au banc de s'authentifier.
 - `[1× — 08-10]` 🔴 **LE DÉBRANCHEMENT LUI-MÊME PEUT NE PAS COMPILER — et un build masqué fait
   alors mesurer l'ANCIEN binaire.** `if (false) { … }` rend le bloc inatteignable : TypeScript y
   perd le narrowing, le build échoue (TS2345) — mais j'avais écrit `npx turbo build … >/dev/null
