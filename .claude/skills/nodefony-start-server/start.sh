@@ -137,7 +137,20 @@ echo ">>> nodefony ${RUNTIME_ARGS[*]} --detach (natif : readiness + health + exi
 # backoff lui-même reste prouvé unitairement (`security/tests/unit/loginThrottler`,
 # 10 cas) ; son CÂBLAGE se rejoue en posant la variable à `true` puis en relançant
 # ce script — les cas concernés se réactivent seuls.
+# Ancre de confiance TLS du DÉCOR (P6.9) — pas un assouplissement.
+# Depuis qu'elle publie ses métadonnées RFC 8414 et son JWKS, l'application est
+# découvrable par un tiers qui vérifie ses jetons — et le banc du chemin du succès
+# joue ce tiers depuis le serveur lui-même : le processus va chercher son propre
+# document sur `https://localhost:5152`. Node refuse ce certificat, signé par la CA
+# de développement du dépôt, comme il refuserait n'importe quelle PKI interne.
+# `NODE_EXTRA_CA_CERTS` AJOUTE cette autorité aux ancres du système ; il ne
+# désactive aucune vérification (contrairement à `NODE_TLS_REJECT_UNAUTHORIZED`,
+# qui rendrait le banc incapable de distinguer un vrai défaut de certificat).
+# Sans lui, la zone `test-self-external` rend 503 — fidèlement : le vérificateur ne
+# PEUT pas joindre l'émetteur.
+CA_DEV="$ROOT/nodefony/config/certificates/ca/nodefony-root-ca.crt.pem"
 NF__SECURITY__RATELIMIT__ENABLED="${NF__SECURITY__RATELIMIT__ENABLED:-false}" \
+NODE_EXTRA_CA_CERTS="${NODE_EXTRA_CA_CERTS:-$([ -f "$CA_DEV" ] && echo "$CA_DEV")}" \
 NODE_OPTIONS="$(echo "${NODE_OPTIONS:-} --expose-gc" | xargs)" \
   node "$BIN" "${RUNTIME_ARGS[@]}" --detach --wait 150 \
   --health /nodefony/test/index --log "$LOG" | tee /tmp/nodefony-detach-out.$$

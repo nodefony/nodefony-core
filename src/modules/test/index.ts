@@ -51,6 +51,11 @@ import TestM2mRealtimeController from "./nodefony/secure/TestM2mRealtimeControll
 // P6 J4 — banc ZONE API M2M (JWT Bearer, zone "test-api", /nodefony/test/m2m).
 import ApiM2mController from "./nodefony/secure/ApiM2mController";
 import ExternalJwtController from "./nodefony/secure/ExternalJwtController";
+// P6.9 — banc du chemin du SUCCÈS : Nodefony est son propre émetteur découvrable.
+import {
+  SelfExternalController,
+  ForeignAudienceController,
+} from "./nodefony/secure/SelfExternalController";
 // P6.8 — banc DÉMO idempotence userland (@Idempotent, /nodefony/test/secure/idempotent).
 import IdempotentDemoController from "./nodefony/secure/IdempotentDemoController";
 // P6 J9 — enregistre le provider OAuth de TEST (side-effect), AVANT le onBoot du
@@ -107,6 +112,10 @@ const BENCH_ORM = process.env.NF_BENCH_ORM === "1";
   ApiM2mController,
   // P6.9 — banc zone serveur de ressource (jetons TIERS, /nodefony/test/external/*)
   ExternalJwtController,
+  // P6.9 — chemin du SUCCÈS (/nodefony/test/self-external/*) et son refus par
+  // AUDIENCE (/nodefony/test/foreign-audience/*)
+  SelfExternalController,
+  ForeignAudienceController,
   // P6.8 — banc démo idempotence userland (@Idempotent, /nodefony/test/secure/idempotent/*)
   IdempotentDemoController,
   // Décor du banc de contre-pression WS (opt-in `NF_BENCH_WS_BACKPRESSURE=1`)

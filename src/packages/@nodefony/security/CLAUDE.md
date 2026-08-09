@@ -66,7 +66,10 @@ AU BOOT par `IAuthenticator.validateArea` (contrat — le firewall ne connaît a
 `external-jwt` s'aiguillent par `iss` (`peekIssuer`), donc l'ORDRE de la zone ne décide de rien ·
 `supports()` ne lève JAMAIS (appelé hors du rattrapage du firewall = 500 offerte à un anonyme) · une PANNE
 est un **503** (`UnverifiableTokenError`), jamais un 401, et son message est CONSTANT (la cause vit dans
-`detail`, pour le journal seul). Bancs : 27 unitaires + banc live `http/external-jwt.test.ts` (6).
+`detail`, pour le journal seul). Bancs : 27 unitaires + **deux** bancs live, la panne
+(`http/external-jwt.test.ts`, 6) et le **succès** (`http/external-jwt-e2e.test.ts`, 6) — ce dernier joue la
+boucle entière contre un vrai serveur, l'app se déclarant elle-même émetteur de confiance (elle est
+découvrable depuis qu'elle publie RFC 8414). Détail du décor : `MEMORY.md`.
 
 ✅ **CSRF (J5)** : `Csrf` (Fetch Metadata `Sec-Fetch-Site` PRIMAIRE + repli `Origin`/`Referer`), flag
 `strictSameSite`, liste `trustedOrigins` (alias multi-domaine). Câblé `Firewall.enforceCsrf()` → http-kernel

@@ -1,11 +1,11 @@
 {
-  "generated": "2026-08-09T21:00:46.387Z",
+  "generated": "2026-08-09T21:28:41.564Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 709,
-    "symbols": 2936,
-    "classes": 355,
+    "files": 710,
+    "symbols": 2938,
+    "classes": 357,
     "interfaces": 852,
     "types": 377,
     "enums": 4,
@@ -8809,6 +8809,32 @@
         "controller"
       ],
       "description": "Banc P6 J8 — preuve que la garde `@IsGranted` s'applique AUSSI côté WebSocket via le pont `api.request` (« 1 garde = N transports »). Route WS-invocable (`methods: [\"WEBSOCKET\"]`) placée SOUS `/nod…"
+    },
+    "SelfExternalController": {
+      "name": "SelfExternalController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/secure/SelfExternalController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Banc d'intégration du **chemin du SUCCÈS** de la zone serveur de ressource (P6.9), là où {@link ExternalJwtController} n'éprouve que la panne. Le décor tient en une phrase : depuis qu'elle publie s…"
+    },
+    "ForeignAudienceController": {
+      "name": "ForeignAudienceController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/secure/SelfExternalController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Jumeau de {@link SelfExternalController} sur une zone qui exige une AUTRE ressource — il n'existe que pour être refusé. Le jeton qui ouvre `/nodefony/test/self-external` est ici rejeté sans que rie…"
     },
     "TestM2mRealtimeController": {
       "name": "TestM2mRealtimeController",
@@ -20675,6 +20701,8 @@
         "IdempotentDemoController",
         "SecureController",
         "SecureWsController",
+        "SelfExternalController",
+        "ForeignAudienceController",
         "AngularController",
         "PocController",
         "SvelteController",
@@ -21119,6 +21147,8 @@
         "IdempotentDemoController",
         "SecureController",
         "SecureWsController",
+        "SelfExternalController",
+        "ForeignAudienceController",
         "TestM2mRealtimeController",
         "AngularController",
         "PocController",
@@ -21952,6 +21982,12 @@
       "ExternalJwtController": [
         "src/modules/test/index.ts"
       ],
+      "SelfExternalController": [
+        "src/modules/test/index.ts"
+      ],
+      "ForeignAudienceController": [
+        "src/modules/test/index.ts"
+      ],
       "IdempotentDemoController": [
         "src/modules/test/index.ts"
       ],
@@ -22204,6 +22240,7 @@
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
+        "src/modules/test/nodefony/secure/SelfExternalController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-svelte/nodefony/controller/SvelteController.ts",
@@ -22379,6 +22416,7 @@
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
+        "src/modules/test/nodefony/secure/SelfExternalController.ts",
         "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
@@ -22410,6 +22448,7 @@
         "src/modules/test/nodefony/secure/ExternalJwtController.ts",
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/modules/test/nodefony/secure/SelfExternalController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-svelte/nodefony/controller/SvelteController.ts",
@@ -22467,7 +22506,8 @@
       "RequireScope": [
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
-        "src/modules/test/nodefony/secure/SecureWsController.ts"
+        "src/modules/test/nodefony/secure/SecureWsController.ts",
+        "src/modules/test/nodefony/secure/SelfExternalController.ts"
       ],
       "Anonymous": [
         "src/packages/@nodefony/framework/index.ts"
@@ -25095,6 +25135,7 @@
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
         "src/modules/test/nodefony/secure/ExternalJwtController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/modules/test/nodefony/secure/SelfExternalController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
@@ -25174,6 +25215,7 @@
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
+        "src/modules/test/nodefony/secure/SelfExternalController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts",
@@ -25271,6 +25313,7 @@
         "src/modules/test/nodefony/secure/ExternalJwtController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
+        "src/modules/test/nodefony/secure/SelfExternalController.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IToken.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",

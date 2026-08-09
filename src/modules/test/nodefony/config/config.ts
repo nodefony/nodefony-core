@@ -64,17 +64,59 @@ export default {
         realtime: false,
         resource: "https://app.test.invalid/nodefony/test/external",
       },
+      // P6.9 — zone du chemin du SUCCÈS. Elle exige l'audience que CETTE
+      // application inscrit réellement dans ses jetons : `security.jwt.audiences`
+      // est vide en dev, donc l'audience vaut l'émetteur (`resolveJwtRuntime`),
+      // soit l'URL publique déclarée par `nodefony.config.ts`. Le banc le
+      // CONSTATE au lieu de le supposer — il lit le document publié avant de
+      // conclure quoi que ce soit.
+      "test-self-external": {
+        pattern: "^/nodefony/test/self-external",
+        authenticators: ["external-jwt"],
+        stateless: true,
+        realtime: false,
+        resource: "https://localhost:5152",
+      },
+      // P6.9 — la MÊME porte, une AUTRE ressource. Son unique raison d'exister
+      // est de recevoir un jeton parfaitement valide — bon émetteur, bonne
+      // signature, bon sujet, non expiré — et de le REFUSER, parce qu'il n'a pas
+      // été délivré pour elle (RFC 8707 §2). C'est la seule garde qui empêche de
+      // rejouer d'un service à l'autre le jeton d'un porteur légitime, et elle ne
+      // se prouve qu'avec deux zones : une seule ne peut pas montrer un refus qui
+      // ne tient QU'à l'audience.
+      "test-foreign-audience": {
+        pattern: "^/nodefony/test/foreign-audience",
+        authenticators: ["external-jwt"],
+        stateless: true,
+        realtime: false,
+        resource: "https://api.foreign.example/v1",
+      },
     },
-    // P6.9 — l'émetteur du banc n'existe pas et ne peut pas exister : `.invalid`
-    // est réservé par la RFC 2606 et ne se résout nulle part. Le jeu de clés est
-    // déclaré pour supprimer la découverte (deux requêtes de moins pour le même
-    // verdict), et le délai est court pour que l'échec soit franc.
+    // P6.9 — DEUX émetteurs, pour les deux moitiés du contrat.
+    //
+    // 1. `.invalid` : un émetteur qui n'existe pas et ne peut pas exister (RFC
+    //    2606 réserve le domaine). Le jeu de clés est déclaré pour supprimer la
+    //    découverte, et le délai est court : c'est le décor de la PANNE, dont le
+    //    banc vérifie qu'elle ressort en 503 et jamais en 401.
+    // 2. `https://localhost:5152` : cette application elle-même. Nodefony publie
+    //    ses métadonnées RFC 8414 et son JWKS depuis la session 08-09g, donc elle
+    //    est découvrable — y compris par elle-même. C'est ce qui rend le chemin du
+    //    SUCCÈS jouable sur un vrai serveur sans démarrer d'IdP tiers.
+    //    `jwksUri` est VOLONTAIREMENT absent : le déclarer supprimerait la
+    //    découverte, c'est-à-dire précisément ce que ce décor doit éprouver.
+    //    ⚠️ Le processus doit faire confiance au certificat de développement pour
+    //    se joindre en https (`NODE_EXTRA_CA_CERTS`, posé par `start.sh`) — sans
+    //    quoi la découverte échoue et la zone rend 503.
     resourceServer: {
       issuers: [
         {
           issuer: "https://auth.test.invalid/realms/nodefony",
           jwksUri: "https://auth.test.invalid/keys",
           algorithms: ["ES256"],
+        },
+        {
+          issuer: "https://localhost:5152",
+          algorithms: ["EdDSA"],
         },
       ],
       timeoutMs: 1000,

@@ -260,6 +260,13 @@ sed 's/\x1b\[[0-9;]*m//g' /tmp/nodefony-server.log | grep -E "framework ready|D�
 - Si le port ou le chemin du module test change → éditer les variables en tête de `start.sh`.
 - `start.sh` **et** `stop.sh` dérivent la racine repo de **`BASH_SOURCE`** (chemin absolu) → invocables depuis n'importe quel cwd, y compris après un `cd <subdir>` (piège `feedback_cd_startsh_relative_path` corrigé 2026-05-21).
 - Les deux lancent le binaire **en direct** (`node "$ROOT/node_modules/nodefony/bin/nodefony" …`), jamais `npx` → pas de wrapper `npm exec` parasite, et économie de ~1,3 s d'overhead npx par appel.
+- **Le décor posé par `start.sh` fait partie du contrat des bancs** — trois variables, chacune surchargeable :
+  `NODE_OPTIONS=--expose-gc` (le gate mémoire mesure le heap RETENU), `NF__SECURITY__RATELIMIT__ENABLED=false`
+  (le backoff de login est global et épuiserait le compte de banc), et `NODE_EXTRA_CA_CERTS` = la CA de
+  développement du dépôt (le serveur se joint **lui-même en https** pour découvrir ses propres métadonnées
+  RFC 8414 — banc `http/external-jwt-e2e.test.ts`). C'est une ancre de confiance AJOUTÉE, jamais un
+  `NODE_TLS_REJECT_UNAUTHORIZED` : un vrai défaut de certificat reste visible. Serveur lancé autrement ⇒ la
+  zone `test-self-external` rend **503** et le banc le dit dans son message d'échec.
 
 ## Liens
 

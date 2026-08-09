@@ -92,6 +92,16 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   `attaquant.example` publie des clés au nom d'un émetteur légitime ; `jwks_uri` https mais PAS même-origine :
   Google sert `accounts.google.com` depuis `www.googleapis.com`) · `extractScopes` (`scope` string ET `scp`
   array — ignorer la 2ᵉ ferait paraître sans droits des jetons valides).
+- ⭐ **La boucle complète s'éprouve SANS IdP tiers** : une app Nodefony publiant ses métadonnées est
+  découvrable **par elle-même**. L'app de dev se déclare donc dans sa propre allowlist
+  (`resourceServer.issuers += {issuer: "https://localhost:5152", algorithms: ["EdDSA"]}`, **sans
+  `jwksUri`** → la DÉCOUVERTE est réellement exercée), et un jeton émis par
+  `/nodefony/security/api/token` entre par une zone `external-jwt`. Bancs live :
+  `http/external-jwt-e2e.test.ts` (succès, 6) + `http/external-jwt.test.ts` (panne, 6).
+  ⚠️ Le processus se joint en https : il doit faire confiance à la CA de dev
+  (`NODE_EXTRA_CA_CERTS`, posé par `start.sh`) — sinon la découverte échoue et la zone rend **503**.
+  L'audience exigée par la zone vaut `https://localhost:5152` parce que `jwt.audiences` vide ⇒
+  `[issuer]` (`resolveJwtRuntime`) : elle SUIT l'émetteur, elle ne se choisit pas.
 - `JwtKeystore` (Ed25519) : source PRIORISÉE env (`keystore.keySetJson`) → fichier (`keystore.dir/
 keyset.json` chmod 600, généré si absent) → mémoire+WARNING (éphémère). `kid`=thumbprint RFC 7638.
   JWKS public via `createLocalJWKSet` (jamais `jku`/`jwk` header — §3.5) — JAMAIS `d`. Lazy async mémoïsé.

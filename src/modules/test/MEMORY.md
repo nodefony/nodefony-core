@@ -40,6 +40,19 @@ Module Nodefony d'intégration. Expose routes de test pour valider le pipeline H
 - `/stream` → stream JSON | `/download` → tsconfig.json attachment | `/media` → video/webm + Range
 - `/upload` GET form | `/upload` POST formidable
 
+**Zones « serveur de ressource » (P6.9, jetons émis AILLEURS)** — 3 zones, 3 verdicts :
+
+- `test-external` → `/nodefony/test/external/whoami` (`ExternalJwtController`) : émetteur `.invalid`
+  INJOIGNABLE par construction ⇒ éprouve la **PANNE** (503, jamais 401).
+- `test-self-external` → `/nodefony/test/self-external/{whoami,scoped/read}` (`SelfExternalController`) :
+  l'app est son PROPRE émetteur de confiance (découvrable RFC 8414, aucun `jwksUri` déclaré ⇒ découverte
+  réelle) ⇒ éprouve le **SUCCÈS** + `@RequireScope("selfext:read")`.
+- `test-foreign-audience` → `/nodefony/test/foreign-audience/whoami` (même fichier) : `resource`
+  DIFFÉRENTE ⇒ le MÊME jeton valide est refusé (RFC 8707). Préfixe DISJOINT (deux zones qui se
+  recouvrent feraient dépendre le verdict de l'ORDRE de déclaration).
+- ⚠️ Le succès exige `NODE_EXTRA_CA_CERTS` (CA de dev, posé par `start.sh`) : le serveur se joint en
+  https pour se découvrir. Sans, 503 — fidèle mais hors sujet.
+
 **BenchOrmController** (`/nodefony/test/bench-orm`, OPT-IN `NF_BENCH_ORM=1`) :
 
 - `/read` · `/read-lean` · `/write` · `/reset` · `/status` — cycle ORM sur corpus dolibarr (connector `default`, seed 50/200/10 k, `entity/benchOrm.ts`)
