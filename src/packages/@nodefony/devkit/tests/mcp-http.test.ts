@@ -145,21 +145,33 @@ function lire(chemin: string): Promise<IReponse> {
  * @returns le jeton, ou `null` si la porte n'exige aucune autorisation
  */
 async function jetonPourLaPorte(): Promise<string | null> {
-  const metadonnees = await lire(MCP_METADATA_PATH);
-  if (metadonnees.status !== 200) return null; // porte anonyme : rien à demander
-  const doc = metadonnees.body as { resource?: unknown };
-  if (typeof doc.resource !== "string") return null;
-  // Le grant par credential de CETTE application. `resource` (RFC 8707) demande
-  // un jeton dont l'audience est la porte — sans lui, l'audience par défaut
-  // serait celle de l'application, et la porte refuserait à juste titre.
-  const reponse = await poster(
-    { username: "admin", password: "secret", resource: doc.resource },
-    {},
-    "/nodefony/security/api/token",
-  );
-  const jeton = (reponse.body as { access_token?: unknown } | null)
-    ?.access_token;
-  return typeof jeton === "string" ? jeton : null;
+  // 🔴 Tout est enveloppé : ce code s'exécute à l'IMPORT du fichier, avant que
+  // la sonde de décor ait pu conclure quoi que ce soit. Une exception ici ne
+  // ferait pas sauter la suite — elle la ferait ÉCHOUER, et sans serveur, ce qui
+  // est le cas normal d'une passe unitaire. Vécu : `ECONNREFUSED` a rendu rouges
+  // les tests unitaires du paquet sur les quatre combinaisons OS × Node de la
+  // forge, pour un fichier qui aurait dû simplement se déclarer hors décor.
+  try {
+    const metadonnees = await lire(MCP_METADATA_PATH);
+    if (metadonnees.status !== 200) return null; // porte anonyme : rien à demander
+    const doc = metadonnees.body as { resource?: unknown };
+    if (typeof doc.resource !== "string") return null;
+    // Le grant par credential de CETTE application. `resource` (RFC 8707)
+    // demande un jeton dont l'audience est la porte — sans lui, l'audience par
+    // défaut serait celle de l'application, et la porte refuserait à juste titre.
+    const reponse = await poster(
+      { username: "admin", password: "secret", resource: doc.resource },
+      {},
+      "/nodefony/security/api/token",
+    );
+    const jeton = (reponse.body as { access_token?: unknown } | null)
+      ?.access_token;
+    return typeof jeton === "string" ? jeton : null;
+  } catch {
+    // Serveur absent, injoignable, ou porte muette : il n'y a pas de jeton à
+    // obtenir. La sonde `porteMuette()` dira pourquoi la suite saute.
+    return null;
+  }
 }
 
 // Obtenu UNE fois, avant toute assertion (cf la déclaration de `JETON` plus haut).
