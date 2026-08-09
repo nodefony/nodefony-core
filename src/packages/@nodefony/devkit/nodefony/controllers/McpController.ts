@@ -142,6 +142,11 @@ class McpController extends Controller {
     // qui rend le comportement PRÉVISIBLE : tout outil exigeant une identité ou
     // des scopes est retenu ici, et le sera tant que personne ne prouve rien.
     const caller = { authenticated: false, scopes: [] as string[] };
+    // Compté pour l'annonce de `server/discover` : un agent doit pouvoir
+    // apprendre qu'il EXISTE des outils réservés, sinon un catalogue filtré lui
+    // fait conclure « cette application n'a rien de plus » — et il ne demandera
+    // jamais de jeton. Un nombre, jamais un nom.
+    let withheldCount = 0;
 
     const tools = collectMcpTools({
       builtins: settings.tools,
@@ -154,8 +159,10 @@ class McpController extends Controller {
       // Une rétention n'est PAS une faute : c'est un catalogue filtré qui
       // fonctionne. En DEBUG, donc — un WARNING par outil protégé et par
       // requête noierait le journal, et on cesserait de le lire.
-      onWithheld: (name, why) =>
-        this.log(`MCP — outil « ${name} » retenu : ${why}`, "DEBUG"),
+      onWithheld: (name, why) => {
+        withheldCount += 1;
+        this.log(`MCP — outil « ${name} » retenu : ${why}`, "DEBUG");
+      },
       deps: {
         // Le plan d'administration peut légitimement manquer (application sans
         // `@nodefony/framework` monté) : les outils le DISENT alors, ils ne
@@ -175,6 +182,7 @@ class McpController extends Controller {
       {
         tools,
         caller,
+        withheldCount,
         serverInfo: {
           name: kernel?.projectName ?? "nodefony",
           version: Nodefony.version,

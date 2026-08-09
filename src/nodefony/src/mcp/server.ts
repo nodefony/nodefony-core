@@ -67,6 +67,13 @@ export interface IMcpServerContext {
    * pour qu'un outil puisse borner ce qu'il REND à son sujet.
    */
   caller?: IMcpCaller;
+  /**
+   * Combien d'outils la collecte a RETENUS pour cet appelant.
+   *
+   * Sert uniquement à l'annonce de `server/discover` — un nombre, jamais un
+   * nom. Absent ou `0` = rien à signaler.
+   */
+  withheldCount?: number;
 }
 
 /** En-têtes HTTP dont le protocole se sert. */
@@ -87,6 +94,42 @@ function metaVersion(params: Record<string, unknown>): string | undefined {
   if (typeof meta !== "object" || meta === null) return undefined;
   const value = (meta as Record<string, unknown>)[META_PROTOCOL_VERSION];
   return typeof value === "string" ? value : undefined;
+}
+
+/**
+ * Compose les `instructions` de `server/discover`.
+ *
+ * ⭐ **Le seul endroit où un catalogue filtré peut cesser de mentir par
+ * omission.** Un outil retenu faute d'autorisation est, pour le client,
+ * indistinguable d'un outil inexistant — c'est voulu (ne pas révéler ce qu'on
+ * protège), mais pris au pied de la lettre cela ferait conclure « cette
+ * application n'a rien de plus », quand la vérité est « rien de plus POUR TOI,
+ * en l'état ». Un agent qui l'ignore ne demandera jamais de jeton.
+ *
+ * Le compromis retenu : dire qu'il EXISTE des outils réservés et combien, sans
+ * jamais les nommer ni dire ce qu'ils font. C'est strictement moins que ce
+ * qu'un `401` normalisé révélera le jour où le rôle *resource server* sera
+ * branché (RFC 6750 + RFC 9728 disent « il faut un jeton » ET où l'obtenir) —
+ * donc rien n'est concédé ici qui ne le soit déjà par la norme.
+ *
+ * Zéro outil retenu → aucune phrase : annoncer une réserve vide entraînerait un
+ * agent à chercher une porte qui n'existe pas.
+ */
+function discoverInstructions(context: IMcpServerContext): string {
+  const base =
+    "Outils d'introspection d'une application Nodefony : ce qui est " +
+    "monté (inspect), ce qui manque (check), ce qu'une API du " +
+    "framework signifie (symbols), et par où commencer (card).";
+  const withheld = context.withheldCount ?? 0;
+  if (withheld <= 0) {
+    return base;
+  }
+  return (
+    `${base} ${withheld} outil(s) supplémentaire(s) sont RÉSERVÉS et ne ` +
+    "figurent pas dans `tools/list` : ils exigent une autorisation que cette " +
+    "requête ne présente pas. Ce n'est pas une panne — inutile de les deviner " +
+    "ni de contourner."
+  );
 }
 
 /**
@@ -235,10 +278,7 @@ export async function handleMcpMessage(
           resultType: "complete",
           supportedVersions: [...MCP_SUPPORTED_VERSIONS],
           capabilities: { tools: {} },
-          instructions:
-            "Outils d'introspection d'une application Nodefony : ce qui est " +
-            "monté (inspect), ce qui manque (check), ce qu'une API du " +
-            "framework signifie (symbols), et par où commencer (card).",
+          instructions: discoverInstructions(context),
           _meta: { [META_SERVER_INFO]: context.serverInfo },
         }),
       };

@@ -646,6 +646,38 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
       const { tools } = servis();
       expect(tools[0].name).toBe("shop_stock");
     });
+
+    it("🔴 `server/discover` ANNONCE qu'il existe des réservés, sans les nommer", async () => {
+      // Sans cette phrase, un catalogue filtré ment par omission : l'agent
+      // conclut « rien de plus » et ne demandera jamais de jeton.
+      const reply = await handleMcpMessage(
+        { jsonrpc: "2.0", id: 60, method: "server/discover" },
+        {
+          tools: servis().tools,
+          withheldCount: 1,
+          serverInfo: { name: "banc", version: "0.0.0" },
+        },
+      );
+      const instructions = (reply.body as { result: { instructions: string } })
+        .result.instructions;
+      expect(instructions).toMatch(/RÉSERVÉS/u);
+      // Un NOMBRE, jamais un nom : on ne révèle pas ce qu'on protège.
+      expect(instructions).not.toMatch(/shop_invoice/u);
+    });
+
+    it("aucun réservé : aucune phrase — pas de porte imaginaire à chercher", async () => {
+      const reply = await handleMcpMessage(
+        { jsonrpc: "2.0", id: 61, method: "server/discover" },
+        {
+          tools: servis().tools,
+          serverInfo: { name: "banc", version: "0.0.0" },
+        },
+      );
+      expect(
+        (reply.body as { result: { instructions: string } }).result
+          .instructions,
+      ).not.toMatch(/RÉSERVÉS/u);
+    });
   });
 
   it("un getMcpTools() qui ne rend pas un tableau est écarté", () => {
