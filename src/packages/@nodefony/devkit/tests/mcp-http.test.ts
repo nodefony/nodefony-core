@@ -156,6 +156,39 @@ describe.skipIf(raison !== null)(
       });
     });
 
+    it("🔴 un outil PROTÉGÉ n'apparaît pas — la porte n'authentifie personne", async () => {
+      // Fail-closed sur la route RÉELLE : le controller câble un appelant
+      // anonyme (aucun jeton n'est validé ici), donc `test_probe_secret`, qui
+      // exige un scope, ne doit pas exister du point de vue du client.
+      const reponse = await poster({
+        jsonrpc: "2.0",
+        id: 20,
+        method: "tools/list",
+      });
+      const noms = outilsDe(reponse).map((t) => t.name);
+      expect(noms).toContain("test_probe");
+      expect(
+        noms,
+        "un outil à scopes ne doit pas être publié sans autorisation",
+      ).not.toContain("test_probe_secret");
+    });
+
+    it("🔴 ET il reste inappelable en le nommant — pas un simple rideau", async () => {
+      const reponse = await poster({
+        jsonrpc: "2.0",
+        id: 21,
+        method: "tools/call",
+        params: { name: "test_probe_secret", arguments: {} },
+      });
+      const error = (
+        reponse.body as { error: { code: number; message: string } }
+      ).error;
+      expect(error.code).toBe(-32602);
+      // « inconnu », pas « interdit » : l'existence même n'est pas révélée.
+      expect(error.message).toMatch(/inconnu/u);
+      expect(reponse.raw).not.toMatch(/scope|autoris/iu);
+    });
+
     it("un outil intégré traverse le controller sans se déformer", async () => {
       const reponse = await poster({
         jsonrpc: "2.0",

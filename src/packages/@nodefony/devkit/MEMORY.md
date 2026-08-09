@@ -90,6 +90,13 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
   disparaît en production, donc y loger le protocole obligerait tout autre
   serveur MCP (celui de P12, ou une porte authentifiée de production) à le
   redéclarer.
+- 🔴 **La porte câble un appelant ANONYME** (`{authenticated:false, scopes:[]}`)
+  — elle ne valide aucun jeton. Conséquence : tout outil déclarant `scopes`/
+  `requiresAuth` y est retenu POUR TOUJOURS (fail-closed), absent de
+  `tools/list` et inappelable. Mécanisme prêt, pas sécurité active. Pour
+  l'activer : rôle _resource server_ (P6.9), puis remplacer le littéral par le
+  résultat — rien d'autre ne bouge. La rétention part en `DEBUG`
+  (`onWithheld`), pas en `WARNING` : c'est un catalogue filtré qui fonctionne.
 - **`mcp.tools` ne filtre QUE les outils intégrés.** Un outil déclaré par un
   module est publié sans condition : exiger qu'il soit AUSSI nommé en config en
   ferait un outil accepté puis jeté — présent dans le code, absent de

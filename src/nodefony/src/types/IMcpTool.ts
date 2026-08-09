@@ -29,6 +29,34 @@ export interface IMcpToolResult {
   isError?: boolean;
 }
 
+/**
+ * Ce que le transport a pu ÉTABLIR de l'appelant — jamais ce qu'il prétend.
+ *
+ * La spec autorise le catalogue à varier selon l'autorisation présentée, et
+ * pose la condition qui rend cela sûr : « credentials are **per-request input,
+ * not connection state** ». D'où cet objet, construit à CHAQUE requête par la
+ * porte, et jamais mémorisé entre deux.
+ *
+ * ⚠️ **Une porte qui n'authentifie pas rend un appelant anonyme** — pas une
+ * autorisation implicite. Tant que le rôle *resource server* n'est pas branché,
+ * `authenticated` est `false` et `scopes` est vide : les outils qui exigent
+ * quoi que ce soit sont retenus, jamais servis par défaut.
+ */
+export interface IMcpCaller {
+  /**
+   * Une identité a-t-elle été PROUVÉE (jeton validé) ?
+   *
+   * `false` par défaut, et c'est le seul défaut sûr : le jour où quelqu'un
+   * branche une porte authentifiée en oubliant de poser ce drapeau, les outils
+   * protégés restent invisibles — l'inverse aurait ouvert.
+   */
+  authenticated: boolean;
+  /** Scopes réellement accordés par le serveur d'autorisation. */
+  scopes: readonly string[];
+  /** Sujet du jeton (`sub`), pour l'audit et pour filtrer les données rendues. */
+  subject?: string;
+}
+
 /** Un outil tel que `tools/list` le publie — sans son implémentation. */
 export interface IMcpToolDefinition {
   /**
@@ -81,8 +109,38 @@ export interface IMcpToolDefinition {
  * ```
  */
 export interface IMcpTool extends IMcpToolDefinition {
-  /** Implémentation. Un échec métier se rend en `isError`, pas en exception. */
+  /**
+   * Scopes OAuth exigés — **tous**, pas au moins un.
+   *
+   * Absent = outil public, servi à qui atteint la porte. Présent, l'outil est
+   * **retenu** tant que l'appelant ne les présente pas : il n'apparaît pas dans
+   * `tools/list` ET n'est pas appelable en le nommant — un catalogue filtré qui
+   * resterait appelable ne serait qu'un rideau.
+   *
+   * La spec le permet explicitement (`server/tools`) : le jeu d'outils « MAY
+   * vary by the authorization presented on the request — for example, returning
+   * only the tools the caller's granted scopes permit ». Elle interdit en
+   * revanche de le faire varier PAR CONNEXION : c'est pourquoi la décision se
+   * prend sur les identifiants de la requête, jamais sur un état retenu.
+   */
+  scopes?: readonly string[];
+  /**
+   * Exige une identité prouvée, sans scope particulier.
+   *
+   * Utile quand l'outil filtre lui-même ce qu'il rend selon
+   * {@link IMcpCaller.subject} — « mes commandes », « mes tâches ». Déclarer
+   * des {@link IMcpTool.scopes} l'implique déjà.
+   */
+  requiresAuth?: boolean;
+  /**
+   * Implémentation. Un échec métier se rend en `isError`, pas en exception.
+   *
+   * Le second paramètre porte l'appelant ÉTABLI : un outil authentifié doit
+   * pouvoir borner ce qu'il rend à son sujet, et pas seulement décider s'il
+   * répond. Un handler qui l'ignore reste parfaitement valide.
+   */
   handler: (
     args: Record<string, unknown>,
+    caller: IMcpCaller,
   ) => IMcpToolResult | Promise<IMcpToolResult>;
 }

@@ -1202,7 +1202,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "getMcpTools()",
         "type IMcpTool",
         "mcpText(",
-        "n'est **pas authentifiée**",
+        // Un outil réservé se DÉCLARE, et l'agent doit savoir que le refus est
+        // fermé par défaut — sinon il croit à une panne et contourne.
+        'scopes: ["shop:read", "shop:billing"]',
+        "inappelable en le nommant",
+        "n'authentifie PERSONNE",
       ]) {
         assert.include(agents, needle, `AGENTS.md sans « ${needle} »`);
       }

@@ -34,11 +34,22 @@ import type { IDevkitService } from "../interfaces/IDevkitService";
  *
  * ## Ce qui protège cette route
  *
- * Pas d'OAuth : l'autorisation MCP est optionnelle, et la faire selon la norme
- * exigerait que Nodefony soit un serveur d'autorisation OAuth 2.1 complet. Ce
- * qui borne le risque, c'est le périmètre — ce module est `policy: "dev"`, donc
- * **cette route n'existe pas en production**. Restent les deux gardes que la
- * spec impose au transport lui-même, portées par {@link checkMcpAccess} :
+ * Pas d'OAuth : l'autorisation MCP est optionnelle (« SHOULD conform »), et le
+ * rôle qu'elle demande n'est pas encore livré. ⚠️ **Ce rôle est plus petit
+ * qu'il n'y paraît, et l'écrire trop grand a longtemps servi d'excuse** : la
+ * spec fait du serveur MCP un simple *resource server* OAuth 2.1 — valider un
+ * jeton, publier ses métadonnées (RFC 9728), refuser en `401` avec
+ * `WWW-Authenticate` (RFC 6750) et vérifier l'audience (RFC 8707). Le serveur
+ * d'AUTORISATION, lui, « may be hosted with the resource server **or a separate
+ * entity** » et reste « beyond the scope of this specification » : il n'y a
+ * jamais eu besoin d'en écrire un. Nodefony a déjà de quoi valider un porteur
+ * (`JwtAuthenticator`, `JwtKeystore`, `ApiKeyAuthenticator`) ; ce qui manque est
+ * le rôle resource-server, inscrit au P6.9.
+ *
+ * Ce qui borne le risque en attendant, c'est le périmètre — ce module est
+ * `policy: "dev"`, donc **cette route n'existe pas en production**. Restent les
+ * deux gardes que la spec impose au transport lui-même, portées par
+ * {@link checkMcpAccess} :
  * l'en-tête `Origin` et la localité de l'appelant. Elles visent le seul vecteur
  * réel contre un serveur local — une page web ouverte dans le navigateur du
  * développeur.
@@ -125,13 +136,26 @@ class McpController extends Controller {
     // développement — apparaît sans qu'aucun cache soit à invalider. Le coût
     // est celui d'un parcours de `kernel.modules`, payé uniquement par les
     // requêtes MCP, sur une porte qui n'existe pas en production.
+    // ⚠️ ANONYME, et ce n'est pas un oubli : cette porte ne valide aucun jeton
+    // (le rôle *resource server* OAuth 2.1 n'est pas livré — cf le TSDoc de
+    // classe). L'annoncer explicitement plutôt que d'omettre le champ est ce
+    // qui rend le comportement PRÉVISIBLE : tout outil exigeant une identité ou
+    // des scopes est retenu ici, et le sera tant que personne ne prouve rien.
+    const caller = { authenticated: false, scopes: [] as string[] };
+
     const tools = collectMcpTools({
       builtins: settings.tools,
       modules: kernel?.modules,
+      caller,
       // Un outil écarté (nom hors forme, collision, déclaration en échec) se
       // DIT : sans ce journal, son auteur chercherait la faute dans un handler
       // que rien n'a jamais appelé.
       onSkip: (why) => this.log(`MCP — ${why}`, "WARNING"),
+      // Une rétention n'est PAS une faute : c'est un catalogue filtré qui
+      // fonctionne. En DEBUG, donc — un WARNING par outil protégé et par
+      // requête noierait le journal, et on cesserait de le lire.
+      onWithheld: (name, why) =>
+        this.log(`MCP — outil « ${name} » retenu : ${why}`, "DEBUG"),
       deps: {
         // Le plan d'administration peut légitimement manquer (application sans
         // `@nodefony/framework` monté) : les outils le DISENT alors, ils ne
@@ -150,6 +174,7 @@ class McpController extends Controller {
       body as IJsonRpcMessage,
       {
         tools,
+        caller,
         serverInfo: {
           name: kernel?.projectName ?? "nodefony",
           version: Nodefony.version,

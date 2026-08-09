@@ -255,6 +255,25 @@ rien à redéclarer.
   gratuite.
 - **Ordre = intégrés d'abord** → un module ne peut pas se substituer à
   `nodefony_inspect` et répondre à sa place.
+- 🔴 **Outils RÉSERVÉS** : `IMcpTool.scopes` (TOUS exigés, `every` pas `some`) et
+  `requiresAuth`, filtrés par `collectMcpTools({caller})` — donc **au seul point
+  de collecte**, ce qui couvre `tools/list` ET `tools/call` : le protocole ne
+  reçoit que les outils servis, un outil retenu lui est « inconnu » (son
+  existence n'est pas révélée). Filtrer la liste sans filtrer l'appel = rideau.
+  Le nom d'un outil retenu reste RÉSERVÉ (sinon un homonyme public le double).
+  `caller` absent = `{authenticated:false, scopes:[]}` — **fail-closed**. Le
+  handler reçoit `(args, caller)` pour borner ce qu'il REND. Rétention →
+  `onWithheld` (DEBUG, c'est normal), distinct d'`onSkip` (WARNING, c'est une
+  faute d'auteur).
+  ⚠️ La porte du devkit câble un caller ANONYME (aucun jeton validé) : tout
+  outil à scopes y est invisible pour toujours. Conforme à la spec, qui autorise
+  le catalogue à varier « by the authorization presented on the request » mais
+  l'interdit « per-connection » — d'où la collecte par requête.
+  Ce qui manque pour l'activer = rôle _resource server_ (P6.9) : valider le
+  Bearer (`JwtAuthenticator` existe), publier RFC 9728, `401`+`WWW-Authenticate`
+  (RFC 6750), audience (RFC 8707). ⚠️ L'AS peut être TIERS — « beyond the scope
+  of this specification » ; croire qu'il fallait écrire un AS OAuth 2.1 complet
+  a servi de justification à l'écart, et c'était faux.
 - **Nom d'outil** : `^[a-zA-Z0-9_-]{1,64}$`. Il voyage dans le contexte du
   modèle ; hors forme, il produit des appels que rien ne résout.
 - **Dual-ère assumé** : `initialize` (legacy) ET `server/discover` +

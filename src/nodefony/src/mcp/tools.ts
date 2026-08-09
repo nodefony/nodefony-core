@@ -12,9 +12,10 @@ import type {
   IMcpTool,
   IMcpToolDefinition,
   IMcpToolResult,
+  IMcpCaller,
 } from "../types/IMcpTool";
 
-export type { IMcpTool, IMcpToolDefinition, IMcpToolResult };
+export type { IMcpTool, IMcpToolDefinition, IMcpToolResult, IMcpCaller };
 
 /**
  * Outils MCP : le **catalogue intégré** du framework, et la **collecte** de ceux
@@ -308,6 +309,54 @@ export interface IMcpCollectOptions {
    * jamais été appelé.
    */
   onSkip?: (why: string) => void;
+  /**
+   * Ce que la porte a ÉTABLI de l'appelant. Absent = anonyme.
+   *
+   * Une porte sans authentification n'a rien à passer, et c'est le cas sûr :
+   * l'anonyme par défaut RETIENT tout outil qui exige quoi que ce soit.
+   */
+  caller?: IMcpCaller;
+  /**
+   * Appelé pour chaque outil RETENU faute d'autorisation.
+   *
+   * Distinct d'{@link IMcpCollectOptions.onSkip}, et la distinction n'est pas
+   * cosmétique : un `onSkip` dénonce une FAUTE de l'auteur (nom hors forme,
+   * handler absent) et mérite un avertissement ; une rétention est le
+   * fonctionnement NORMAL d'un catalogue filtré, et crier à chaque requête pour
+   * chaque outil protégé noierait le journal. Le rappel existe quand même,
+   * parce que sans lui un développeur qui déclare des scopes sur une porte non
+   * authentifiée chercherait son outil sans jamais comprendre.
+   */
+  onWithheld?: (name: string, why: string) => void;
+}
+
+/** Appelant anonyme — le défaut, et le seul défaut sûr. */
+const ANONYMOUS: IMcpCaller = { authenticated: false, scopes: [] };
+
+/**
+ * L'appelant satisfait-il ce que l'outil exige ?
+ *
+ * @returns `null` s'il passe, sinon le motif de la rétention
+ */
+function withholdReason(tool: IMcpTool, caller: IMcpCaller): string | null {
+  const needsScopes = tool.scopes !== undefined && tool.scopes.length > 0;
+  if (!needsScopes && tool.requiresAuth !== true) {
+    return null;
+  }
+  if (!caller.authenticated) {
+    return "exige une identité prouvée, l'appelant est anonyme";
+  }
+  if (!needsScopes) {
+    return null;
+  }
+  // TOUS les scopes, pas au moins un : « lire » n'autorise pas « écrire »
+  // parce qu'ils sont demandés ensemble.
+  const missing = (tool.scopes as readonly string[]).filter(
+    (scope) => !caller.scopes.includes(scope),
+  );
+  return missing.length === 0
+    ? null
+    : `scopes manquants : ${missing.join(", ")}`;
 }
 
 /**
@@ -322,12 +371,22 @@ export interface IMcpCollectOptions {
  *  - **déclaration en échec** — un `getMcpTools()` qui lève ne doit pas priver
  *    l'agent des outils de tous les autres modules.
  *
- * @param options - allowlist, dépendances, modules et journal des écarts
+ * Et un quatrième, qui n'est pas un refus mais une RÉTENTION : un outil dont
+ * l'appelant ne satisfait pas les exigences ({@link IMcpTool.scopes},
+ * {@link IMcpTool.requiresAuth}) ne sort pas d'ici. ⭐ **Filtrer À LA COLLECTE
+ * protège `tools/list` ET `tools/call` d'un seul geste** : le protocole ne
+ * reçoit que les outils servis, donc un outil retenu est « inconnu » pour lui —
+ * indistinguable d'un outil inexistant, ce qui ne révèle même pas son
+ * existence. Filtrer la liste sans filtrer l'appel n'aurait été qu'un rideau, et
+ * c'est l'erreur classique : deux points de décision, dont un qu'on oublie.
+ *
+ * @param options - allowlist, dépendances, modules, appelant et journaux
  * @returns les outils exécutables, dans l'ordre où ils seront publiés
  */
 export function collectMcpTools(options: IMcpCollectOptions): IMcpTool[] {
   const collected: IMcpTool[] = [];
   const seen = new Set<string>();
+  const caller = options.caller ?? ANONYMOUS;
 
   const add = (tool: IMcpTool, origin: string): void => {
     if (typeof tool?.name !== "string" || !NAME_PATTERN.test(tool.name)) {
@@ -348,7 +407,15 @@ export function collectMcpTools(options: IMcpCollectOptions): IMcpTool[] {
       );
       return;
     }
+    // Le nom est RÉSERVÉ même quand l'outil est retenu : sans cela, un module
+    // pourrait publier un homonyme public d'un outil protégé qu'il ne voit
+    // pas, et l'agent croirait appeler celui qu'il a lu dans la documentation.
     seen.add(tool.name);
+    const withheld = withholdReason(tool, caller);
+    if (withheld !== null) {
+      options.onWithheld?.(tool.name, withheld);
+      return;
+    }
     collected.push(tool);
   };
 
@@ -418,19 +485,27 @@ export function publishMcpTools(
  * recevable, voici pourquoi elle n'aboutit pas » ; c'est la seconde qu'il peut
  * corriger seul.
  *
+ * ⭐ **Aucun contrôle d'autorisation ici, et c'est voulu** : `tools` ne contient
+ * que ce que {@link collectMcpTools} a servi à CET appelant. Refaire la
+ * vérification à ce niveau créerait un second point de décision — deux copies
+ * d'une même règle, qui divergent en silence. Le corollaire tient en une
+ * phrase : **ne jamais passer ici une liste non filtrée.**
+ *
  * @param name - nom public de l'outil (`nodefony_inspect`…)
  * @param args - arguments fournis par l'agent
  * @param tools - outils servis, tels que {@link collectMcpTools} les a ramassés
+ * @param caller - appelant établi, transmis au handler (anonyme par défaut)
  * @returns le résultat de l'outil, ou `null` si le nom n'est pas exposé
  */
 export async function callMcpTool(
   name: string,
   args: Record<string, unknown>,
   tools: readonly IMcpTool[],
+  caller: IMcpCaller = ANONYMOUS,
 ): Promise<IMcpToolResult | null> {
   const tool = tools.find((candidate) => candidate.name === name);
   if (!tool) {
     return null;
   }
-  return tool.handler(args);
+  return tool.handler(args, caller);
 }

@@ -13,7 +13,12 @@ import {
   type IMcpHttpReply,
   type JsonRpcId,
 } from "./protocol";
-import { callMcpTool, publishMcpTools, type IMcpTool } from "./tools";
+import {
+  callMcpTool,
+  publishMcpTools,
+  type IMcpTool,
+  type IMcpCaller,
+} from "./tools";
 
 /**
  * Cœur du serveur MCP : un message JSON-RPC entre, une réponse HTTP sort.
@@ -54,6 +59,14 @@ export interface IMcpServerContext {
   tools: readonly IMcpTool[];
   /** Identité annoncée au client. */
   serverInfo: IServerInfo;
+  /**
+   * Appelant établi par la porte, transmis aux handlers.
+   *
+   * Le protocole ne s'en sert PAS pour décider : la décision a déjà été prise à
+   * la collecte, et `tools` ne contient que ce qui lui revient. Il le transporte
+   * pour qu'un outil puisse borner ce qu'il REND à son sujet.
+   */
+  caller?: IMcpCaller;
 }
 
 /** En-têtes HTTP dont le protocole se sert. */
@@ -279,7 +292,7 @@ export async function handleMcpMessage(
 
       let result;
       try {
-        result = await callMcpTool(name, args, context.tools);
+        result = await callMcpTool(name, args, context.tools, context.caller);
       } catch (error) {
         return {
           status: 200,

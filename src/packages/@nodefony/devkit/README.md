@@ -98,10 +98,13 @@ tourne, suit chaque rechargement du serveur de développement, et n'a aucun cach
   (`mcp.tools`).
 
 > ⚠️ **Écart de conformité assumé** : la spec recommande une authentification
-> (« Servers SHOULD implement proper authentication »). Nous ne l'implémentons
-> pas — la faire selon la norme exigerait que Nodefony soit un serveur
-> d'autorisation OAuth 2.1 complet. Ce qui borne le risque est le périmètre
-> ci-dessus, pas un jeton.
+> (« Servers SHOULD implement proper authentication »). Elle n'est pas encore
+> livrée. Le rôle attendu reste modeste — un serveur MCP est un simple
+> **resource server** OAuth 2.1 (valider un jeton, publier ses métadonnées
+> RFC 9728, refuser en `401`/`WWW-Authenticate`, vérifier l'audience RFC 8707) ;
+> le serveur d'**autorisation** peut être une entité tierce et sort du périmètre
+> de la spec. Ce qui borne le risque en attendant est le périmètre ci-dessus,
+> pas un jeton.
 
 Le serveur est **dual-ère** : il répond à `server/discover` et aux métadonnées
 par requête des clients modernes, **et** au handshake `initialize` des clients
@@ -145,7 +148,13 @@ class Shop extends Module {
 Rien ne s'enregistre au démarrage : la liste est relue à chaque requête, et
 `mcp.tools` ne filtre que les outils **intégrés** — le vôtre est publié dès qu'il
 est déclaré. Un outil écarté (nom hors forme, nom déjà pris, handler absent) le
-dit en `WARNING`, jamais en silence. Détail et pièges :
+dit en `WARNING`, jamais en silence.
+
+Un outil peut aussi se **réserver** — `scopes: ["shop:read"]` (tous exigés) ou
+`requiresAuth: true` — et son handler reçoit alors l'appelant en second
+paramètre. Il est alors absent de `tools/list` **et** inappelable en le nommant.
+🔴 Tant que la porte n'authentifie personne, un tel outil ne sortira jamais :
+c'est fermé par défaut, et c'est voulu. Détail et pièges :
 [la documentation du module](./docs/index.md).
 
 ## Les skills d'agent

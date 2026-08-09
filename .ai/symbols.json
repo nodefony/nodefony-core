@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-09T14:48:00.408Z",
+  "generated": "2026-08-09T15:08:31.577Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 698,
-    "symbols": 2890,
+    "symbols": 2892,
     "classes": 348,
-    "interfaces": 838,
+    "interfaces": 839,
     "types": 373,
     "enums": 4,
-    "functions": 1053,
+    "functions": 1054,
     "constants": 274
   },
   "symbols": {
@@ -3973,6 +3973,15 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Contrat d'un outil **Model Context Protocol** — défini dans le CORE. Vit ici, et non dans le module qui sert la porte HTTP, pour la raison qui gouverne déjà {@link IAdminApi} : un outil peut être p…"
+    },
+    "IMcpCaller": {
+      "name": "IMcpCaller",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IMcpTool.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le transport a pu ÉTABLIR de l'appelant — jamais ce qu'il prétend. La spec autorise le catalogue à varier selon l'autorisation présentée, et pose la condition qui rend cela sûr : « credentia…"
     },
     "IMcpToolDefinition": {
       "name": "IMcpToolDefinition",
@@ -23463,6 +23472,10 @@
       ],
       "publishMcpTools": [
         "src/nodefony/src/mcp/server.ts"
+      ],
+      "IMcpCaller": [
+        "src/nodefony/src/mcp/server.ts",
+        "src/nodefony/src/mcp/tools.ts"
       ],
       "INSPECT_SUBJECTS": [
         "src/nodefony/src/mcp/tools.ts",

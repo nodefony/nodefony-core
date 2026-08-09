@@ -176,6 +176,20 @@ class Test extends Module {
             echo: typeof args.message === "string" ? args.message : null,
           }),
       },
+      {
+        // Décor de la RÉTENTION : cette porte n'authentifie personne, donc cet
+        // outil ne doit JAMAIS apparaître ni répondre. C'est le seul moyen de
+        // prouver le fail-closed là où il compte — sur la route, pas dans une
+        // fonction pure qu'on nourrit soi-même.
+        name: "test_probe_secret",
+        description:
+          "Sonde RÉSERVÉE du module de test — ne doit jamais être servie tant " +
+          "que la porte MCP n'authentifie pas. Sert au banc du fail-closed.",
+        inputSchema: { type: "object", properties: {} },
+        scopes: ["test:secret"],
+        handler: (_args, caller) =>
+          mcpText({ jamais: true, sujet: caller.subject ?? null }),
+      },
     ];
   }
 

@@ -117,10 +117,17 @@ Trois choses à savoir avant de s'étonner d'un refus :
 
 > ⚠️ **Écart de conformité assumé.** La spec recommande une authentification
 > (« Servers SHOULD implement proper authentication »), que nous n'implémentons
-> pas : la faire selon la norme exigerait que Nodefony soit un serveur
-> d'autorisation OAuth 2.1 complet. Ce qui borne le risque, c'est le périmètre
-> ci-dessus. Les outils intégrés sont en lecture seule, et `mcp.tools` est une
-> allowlist.
+> pas encore. Le rôle attendu est plus modeste qu'il n'y paraît : un serveur MCP
+> est un simple **resource server** OAuth 2.1 — valider un jeton, publier ses
+> métadonnées ([RFC 9728](https://datatracker.ietf.org/doc/html/rfc9728)),
+> refuser en `401` avec `WWW-Authenticate`
+> ([RFC 6750](https://datatracker.ietf.org/doc/html/rfc6750)) et vérifier
+> l'audience ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707.html)). Le
+> serveur d'**autorisation**, lui, « may be hosted with the resource server or a
+> separate entity » et reste hors du périmètre de la spec : il n'a jamais été
+> question d'en écrire un. Ce qui borne le risque en attendant, c'est le
+> périmètre ci-dessus. Les outils intégrés sont en lecture seule, et `mcp.tools`
+> est une allowlist.
 
 ### Ajouter VOS outils — ce que l'agent ne peut pas deviner
 
@@ -164,6 +171,40 @@ Trois choses à savoir :
   absent, déclaration qui lève) le dit en `WARNING` dans les journaux du
   serveur — il ne disparaît jamais en silence. Les outils intégrés gagnent
   toute collision : personne ne peut répondre à la place de `nodefony_inspect`.
+
+### Réserver un outil à qui est autorisé
+
+Un outil peut exiger des **scopes** (tous, pas au moins un) et/ou une identité
+prouvée. Son handler reçoit alors l'appelant en second paramètre, pour borner ce
+qu'il **rend** et pas seulement décider s'il répond :
+
+```ts
+{
+  name: "shop_invoice",
+  description: "Facture d'une commande.",
+  inputSchema: { type: "object", properties: { id: { type: "string" } } },
+  scopes: ["shop:read", "shop:billing"],   // ou : requiresAuth: true
+  handler: async (args, caller) =>
+    mcpText(await this.invoice(String(args.id), caller.subject)),
+}
+```
+
+La spec le prévoit explicitement : le jeu d'outils « MAY vary by the
+authorization presented on the request — for example, returning only the tools
+the caller's granted scopes permit », précisément parce que les identifiants
+sont une **entrée de requête, pas un état de connexion**. C'est pourquoi la
+liste est recollectée à chaque appel.
+
+Le filtre s'applique **à la collecte**, donc en un seul point : un outil retenu
+est absent de `tools/list` **et** inappelable en le nommant, et le refus dit
+« outil inconnu » plutôt qu'« interdit » — son existence même n'est pas révélée.
+
+> 🔴 **Tant que la porte n'authentifie personne, un outil à scopes ne sortira
+> jamais.** C'est le comportement voulu — fermé par défaut — mais il faut le
+> savoir avant de chercher une panne : `caller` vaut `{ authenticated: false,
+scopes: [] }` tant que le rôle _resource server_ décrit plus haut n'est pas
+> branché. Le jour où il le sera, ces déclarations prendront effet sans qu'une
+> ligne d'outil change.
 
 > ⚠️ Cette porte n'est pas authentifiée (voir l'écart ci-dessus) et le module est
 > `policy: "dev"`. Avant d'exposer une donnée par un outil, se demander si elle

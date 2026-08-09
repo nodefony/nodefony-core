@@ -713,9 +713,34 @@ outils **intégrés** — le tien est publié dès qu'il est déclaré. Un outil
 `WARNING` dans les journaux du serveur : s'il manque à l'appel, la raison y est
 déjà, ne la cherche pas dans ton handler — il n'a pas été appelé.
 
-⚠️ Cette porte n'est **pas authentifiée**. Avant d'exposer une donnée par un
-outil, demande-toi si elle supporterait d'être lue sans identification par qui a
-accès à la machine.
+**Un outil qui touche à des données réservées se DÉCLARE tel** — `scopes` (tous
+exigés) et/ou `requiresAuth`, et son handler reçoit l'appelant en second
+paramètre pour borner ce qu'il rend :
+
+```ts
+{
+  name: "shop_invoice",
+  description: "Facture d'une commande.",
+  inputSchema: { type: "object", properties: { id: { type: "string" } } },
+  scopes: ["shop:read", "shop:billing"],
+  handler: async (args, caller) => mcpText(await this.invoice(args.id, caller.subject)),
+}
+```
+
+Un outil ainsi déclaré est **retenu** tant que l'appelant ne présente pas ce
+qu'il exige : absent de `tools/list`, **et** inappelable en le nommant — un
+catalogue filtré dont les outils cachés répondent quand même ne serait qu'un
+rideau. Le refus dit « outil inconnu », jamais « interdit » : son existence même
+n'est pas révélée.
+
+⚠️ **Aujourd'hui cette porte n'authentifie PERSONNE** — elle ne valide aucun
+jeton. Un outil qui exige des scopes est donc, ici et maintenant, **invisible
+pour toujours**. C'est voulu (fermé par défaut), mais retiens-en la conséquence
+pratique : tant que l'authentification n'est pas branchée, n'attends pas d'un
+outil protégé qu'il réponde — c'est le comportement normal, pas une panne.
+
+⚠️ Et pour les outils publics : avant d'exposer une donnée, demande-toi si elle
+supporterait d'être lue **sans identification** par qui a accès à la machine.
 
 **Ce que rend `inspect` ENGLOBE tes sources, et les dépasse de loin.** Les modules
 installés — ceux du framework compris — montent leurs propres routes, services et

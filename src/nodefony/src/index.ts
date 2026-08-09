@@ -634,6 +634,7 @@ export type {
   IMcpToolDefinition,
   IMcpToolResult,
   IMcpToolDeps,
+  IMcpCaller,
   IMcpCollectOptions,
   BuiltinMcpToolKey,
 } from "./mcp/tools";
