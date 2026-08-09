@@ -201,4 +201,95 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
     );
     assert.strictEqual(report.foreign.length, 4);
   });
+
+  it("`status` NOMME les projets vivants, et dit comment les arrêter", async () => {
+    let out = "";
+    await runStatusReport(mine, { ...deps(), write: (s) => (out += s) });
+    const plain = out.replace(/\x1b\[[0-9;]*m/g, "");
+    assert.ok(
+      /Projets Nodefony sur ce poste/.test(plain),
+      `la table des projets doit apparaître :\n${plain}`,
+    );
+    assert.ok(
+      plain.includes(path.basename(neighbour)),
+      `le projet voisin doit être NOMMÉ, pas seulement situé :\n${plain}`,
+    );
+    assert.ok(
+      /nodefony stop <nom\|chemin>/.test(plain),
+      `un nom affiché doit être utilisable :\n${plain}`,
+    );
+  });
+
+  // ── `stop <projet>` : ces trois cas ne tuent RIEN, et c'est le sujet. Un arrêt
+  // est irréversible : ce qui protège n'est pas la correspondance, c'est le refus.
+  // (Le chemin nominal, lui, TUE — il n'est donc pas éprouvé ici : `terminateDev
+  // Processes` n'est pas injectable et des pids fabriqués existent peut-être sur
+  // la machine qui joue la suite.)
+  it("`stop <inconnu>` REFUSE, sort en échec et n'arrête rien", async () => {
+    let out = "";
+    const code = await runStopReport(mine, {
+      ...deps(),
+      write: (s) => (out += s),
+      target: "projet-qui-nexiste-pas",
+    });
+    const plain = out.replace(/\x1b\[[0-9;]*m/g, "");
+    assert.strictEqual(code, 1, "un stop qui n'a pas compris sa cible échoue");
+    assert.ok(
+      /aucun projet Nodefony en cours ne s'appelle/.test(plain),
+      `le refus doit être explicite :\n${plain}`,
+    );
+    assert.ok(
+      !/arrêt de \d+ process/.test(plain),
+      `rien ne doit être arrêté :\n${plain}`,
+    );
+  });
+
+  it("`stop <projet> --all` REFUSE : la contradiction ne se tranche pas toute seule", async () => {
+    let out = "";
+    const code = await runStopReport(mine, {
+      ...deps(),
+      write: (s) => (out += s),
+      target: path.basename(neighbour),
+      all: true,
+    });
+    const plain = out.replace(/\x1b\[[0-9;]*m/g, "");
+    assert.strictEqual(code, 1);
+    assert.ok(
+      /contradictoires/.test(plain),
+      `dire pourquoi c'est refusé :\n${plain}`,
+    );
+  });
+
+  it("`stop <nom>` REFUSE quand deux projets portent ce nom", async () => {
+    // Deux clones du même dépôt : le nom ne suffit plus à désigner. Choisir l'un
+    // des deux arrêterait le mauvais serveur sur une faute de frappe.
+    const base = path.dirname(mine);
+    const jumeaux = [
+      path.join(base, "a", "monapp"),
+      path.join(base, "b", "monapp"),
+    ];
+    const procsJumeaux = [proc(50001, "server"), proc(50002, "server")];
+    let out = "";
+    const code = await runStopReport(mine, {
+      discover: (): ProcessDiscovery => ({
+        supported: true,
+        procs: procsJumeaux,
+      }),
+      getCwd: (pid: number) =>
+        pid === procsJumeaux[0].pid ? jumeaux[0] : jumeaux[1],
+      probe: async (): Promise<PortState[]> => busyPorts,
+      write: (s) => (out += s),
+      target: "monapp",
+    });
+    const plain = out.replace(/\x1b\[[0-9;]*m/g, "");
+    assert.strictEqual(code, 1);
+    assert.ok(
+      /désigne 2 projets/.test(plain),
+      `le refus doit compter les homonymes :\n${plain}`,
+    );
+    assert.ok(
+      plain.includes(jumeaux[0]) && plain.includes(jumeaux[1]),
+      `les deux racines doivent être données pour trancher :\n${plain}`,
+    );
+  });
 });

@@ -58,6 +58,22 @@ node node_modules/nodefony/bin/nodefony stop      # arrêt PROPRE du mode dev (g
 - `stop.sh` **délègue à `nodefony stop`** pour le mode dev, PUIS garde sa rafale `pkill` comme
   **filet** pour les modes non couverts : cluster (master/worker), server/production.
 - ⚠️ `nodefony stop` cible le **mode dev** uniquement → pour tuer un **cluster**, utiliser `stop.sh`.
+- **PLUSIEURS projets sur le poste** — le cas courant ici (le dépôt + une app générée par un banc).
+  Les deux commandes sont **scopées au projet du répertoire courant** : elles ne comptent ni
+  n'arrêtent jamais le runtime du voisin. Quand un autre projet tourne, `status` le NOMME dans une
+  table (nom du `package.json`, process, ports tenus, racine) et **ce nom est ce que `stop`
+  accepte** — inutile de se déplacer :
+
+  ```bash
+  node $BIN status                 # la table apparaît dès qu'un projet voisin tourne
+  node $BIN stop bench-app         # par nom (ou nom de dossier)
+  node $BIN stop /chemin/complet   # par chemin, quand deux projets sont homonymes
+  ```
+
+  Une cible qui ne désigne pas exactement UN projet est **refusée** (sortie `1`, rien n'est tué),
+  avec la liste pour corriger. C'est voulu : un arrêt est irréversible, et « le plus proche »
+  tuerait le mauvais serveur. Corollaire pour un agent : **ne jamais enchaîner `stop <cible>` sans
+  lire son code de sortie** — un refus n'arrête rien, et le silence ressemble à un succès.
 
 > **Modèle « 2 molettes » (2026-05-24)** : front (dev/prod) × topologie (`workers`).
 >

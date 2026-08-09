@@ -24,6 +24,11 @@ import {
   type PortState,
   type RuntimeMode,
 } from "./devProcess";
+import {
+  buildProjectTable,
+  formatProjectTable,
+  type IProjectRuntime,
+} from "./devProjects";
 import { runStopReport } from "./devStop";
 
 /**
@@ -57,11 +62,39 @@ export function isStandaloneDevCommand(name: string): boolean {
  * `CliKernel.start` (avant tout boot). N'écrit jamais via le syslog (kernel non booté).
  * `stop --all` = trans-projets explicite (défaut : scope au projet du cwd).
  */
-export async function runStandaloneDevCommand(name: string): Promise<void> {
+export async function runStandaloneDevCommand(name: string): Promise<number> {
   const cwd = process.cwd();
-  if (name === "status") return runStatusReport(cwd);
+  if (name === "status") {
+    await runStatusReport(cwd);
+    return 0;
+  }
   if (name === "stop")
-    return runStopReport(cwd, { all: process.argv.includes("--all") });
+    return runStopReport(cwd, {
+      all: process.argv.includes("--all"),
+      target: standaloneTarget("stop"),
+    });
+  return 0;
+}
+
+/**
+ * Argument positionnel d'une commande standalone, lu sur `process.argv` — le
+ * fast-path court AVANT commander, il n'a donc personne pour l'analyser.
+ *
+ * Seul le premier mot qui suit le nom de la commande et ne commence pas par `-`
+ * est retenu ; tout le reste appartient aux options. Rendre `undefined` plutôt
+ * qu'une chaîne vide garde la distinction « pas de cible » / « cible vide ».
+ *
+ * @param name - nom de la commande (`stop`).
+ * @returns la cible tapée, ou `undefined`.
+ */
+function standaloneTarget(name: string): string | undefined {
+  const argv = process.argv;
+  const at = argv.indexOf(name);
+  if (at === -1) return undefined;
+  for (const arg of argv.slice(at + 1)) {
+    if (!arg.startsWith("-")) return arg;
+  }
+  return undefined;
 }
 
 /**
@@ -330,7 +363,19 @@ export async function runStatusReport(
   // CLI standalone : le process appelant n'est PAS un process dev → `includeSelf` neutre.
   const report = await collectDevStatus(cwd, deps);
   const lines: string[] = [];
-  renderStatus(lines, report);
+  // La table n'est composée QUE pour l'affichage CLI, et seulement s'il y a un
+  // voisin : sans projet étranger elle n'apprendrait rien, et son coût (un
+  // `package.json` lu par projet) ne se paierait pour personne.
+  const projects =
+    report.foreign.length > 0
+      ? buildProjectTable(
+          cwd,
+          report.processes,
+          report.foreign,
+          report.ports.filter((p) => p.listening).map((p) => p.port),
+        )
+      : [];
+  renderStatus(lines, report, projects);
   // UN écrit synchrone (writeSync) → jamais tronqué par l'exit qui suit.
   (deps.write ?? ((chunk: string) => writeSync(1, chunk)))(
     lines.join("\n") + "\n",
@@ -383,13 +428,23 @@ export function renderProcessTable(
  * aller les arrêter. `status` les taisait tout en les COMPTANT comme les siens : le
  * dev voyait « 4 process » sans savoir qu'aucun n'était à lui.
  */
-function renderForeign(lines: string[], report: DevStatusReport): void {
+function renderForeign(
+  lines: string[],
+  report: DevStatusReport,
+  /**
+   * Table des projets vivants. Vide par défaut : un appelant qui ne la fournit
+   * pas obtient EXACTEMENT le rendu d'avant — le tableau est un ajout, jamais
+   * une réécriture de ce bloc.
+   */
+  projects: readonly IProjectRuntime[] = [],
+): void {
   if (report.foreign.length === 0) return;
   lines.push(
     `  ${ANSI.dim}${report.foreign.length} runtime(s) d'un AUTRE projet sur ce poste (non comptés ci-dessus) :${ANSI.reset}`,
     ...formatForeignRuntimes(report.foreign).map(
       (l) => `${ANSI.dim}${l}${ANSI.reset}`,
     ),
+    ...formatProjectTable(projects).map((l) => `${ANSI.dim}${l}${ANSI.reset}`),
   );
 }
 
@@ -418,8 +473,20 @@ function portsLine(
     .join("   ");
 }
 
-/** Rend le {@link DevStatusReport} en ANSI (tableau + ports + synthèse + warnings) dans `lines`. */
-function renderStatus(lines: string[], report: DevStatusReport): void {
+/**
+ * Rend le {@link DevStatusReport} en ANSI (tableau + ports + synthèse + warnings)
+ * dans `lines`.
+ *
+ * `projects` est FACULTATIF : omis, le rendu est identique à celui d'avant. Il
+ * n'entre pas dans {@link DevStatusReport} parce que le rapport est aussi le
+ * contrat du data plane — nommer les projets exige de lire un `package.json` par
+ * projet voisin, un coût que la console d'administration n'a pas demandé.
+ */
+function renderStatus(
+  lines: string[],
+  report: DevStatusReport,
+  projects: readonly IProjectRuntime[] = [],
+): void {
   const tag = `${ANSI.dim}[status]${ANSI.reset}`;
   const { processes: procs } = report;
 
@@ -450,7 +517,7 @@ function renderStatus(lines: string[], report: DevStatusReport): void {
         : `  ${ANSI.yellow}⚠ ce dossier n'est pas un projet Nodefony${ANSI.reset}${ANSI.dim} (aucun package.json avec la dépendance « nodefony »)${ANSI.reset}\n` +
             `  ${ANSI.dim}→ place-toi à la racine d'une app, ou crée-en une : ${ANSI.reset}${ANSI.cyan}nodefony create app${ANSI.reset}`,
     );
-    renderForeign(lines, report);
+    renderForeign(lines, report, projects);
     lines.push("");
     return;
   }
@@ -481,7 +548,7 @@ function renderStatus(lines: string[], report: DevStatusReport): void {
   );
   for (const w of report.warnings)
     lines.push(`  ${ANSI.yellow}⚠ ${w}${ANSI.reset}`);
-  renderForeign(lines, report);
+  renderForeign(lines, report, projects);
   lines.push("");
 }
 

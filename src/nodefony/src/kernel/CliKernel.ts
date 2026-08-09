@@ -188,8 +188,10 @@ class CliKernel extends Cli {
     // projet Nodefony inclus). Même esprit que `--version` (résolu sans boot complet).
     const requested = this.getRequestedCommandName();
     if (requested !== null && isStandaloneDevCommand(requested)) {
-      await runStandaloneDevCommand(requested);
-      return process.exit(0);
+      // Le code de sortie vient de la commande : un `stop` qui n'a pas su
+      // désigner sa cible n'a rien arrêté — un script ne doit pas le lire comme
+      // un succès.
+      return process.exit(await runStandaloneDevCommand(requested));
     }
 
     // ─── `-v` / `--version` : standalone (0 Kernel, 0 log) ─────────────────────

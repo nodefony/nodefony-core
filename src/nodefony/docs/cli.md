@@ -82,6 +82,21 @@ npx nodefony stop            # arrêt propre de tout runtime lancé depuis ce pr
 npx nodefony --help          # la liste complète, commandes de module incluses
 ```
 
+**Plusieurs applications sur le même poste.** `status` et `stop` sont scopés au projet du
+répertoire courant : ils ne comptent ni n'arrêtent jamais le runtime du voisin. Quand un autre
+projet tourne, `status` le NOMME dans une table (nom du `package.json`, ports tenus, racine),
+et ce nom est exactement ce que `stop` accepte — pas besoin de `cd` :
+
+```bash
+npx nodefony stop mon-autre-app   # par nom déclaré, ou par nom de dossier
+npx nodefony stop /chemin/complet # par chemin, quand deux projets sont homonymes
+npx nodefony stop --all           # tous les runtimes Nodefony du poste (explicite)
+```
+
+Une cible qui ne désigne pas exactement UN projet est **refusée** (code de sortie `1`), avec la
+liste pour corriger : arrêter un serveur est irréversible, et deviner « le plus proche » ferait
+tomber le mauvais.
+
 ### 2. Ajouter sa propre commande
 
 Une commande maison vit dans un **module** : on l'ajoute dans son constructeur avec `addCommand`. Le nom

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-08T13:54:42.868Z",
+  "generated": "2026-08-09T09:18:44.391Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 688,
-    "symbols": 2814,
+    "files": 689,
+    "symbols": 2822,
     "classes": 347,
-    "interfaces": 816,
-    "types": 366,
+    "interfaces": 818,
+    "types": 367,
     "enums": 4,
-    "functions": 1019,
+    "functions": 1024,
     "constants": 262
   },
   "symbols": {
@@ -6716,6 +6716,64 @@
       "module": "@nodefony/core",
       "description": "Ports Nodefony historiques — le point de départ, pas une vérité."
     },
+    "IProjectRuntime": {
+      "name": "IProjectRuntime",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devProjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un projet Nodefony vivant sur ce poste — ce que `nodefony status` affiche et ce que `nodefony stop <projet>` accepte comme cible. Les deux commandes lisent la MÊME table : publier un nom qu'on ne p…"
+    },
+    "IProjectTableDeps": {
+      "name": "IProjectTableDeps",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devProjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Dépendances injectables de {@link buildProjectTable} — aucun I/O par défaut imposé."
+    },
+    "ProjectResolution": {
+      "name": "ProjectResolution",
+      "kind": "type",
+      "file": "src/nodefony/src/service/dev/devProjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Verdict de {@link resolveProjectTarget} — jamais un « le plus proche »."
+    },
+    "readProjectName": {
+      "name": "readProjectName",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le nom d'un projet dans son `package.json`. Repli sur le nom du DOSSIER, jamais sur une chaîne inventée : un projet sans `package.json` lisible reste désignable, et l'appelant sait par `nameSou…"
+    },
+    "buildProjectTable": {
+      "name": "buildProjectTable",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose la table des projets Nodefony vivants — fonction PURE (toute lecture disque passe par {@link IProjectTableDeps}), donc éprouvable sans process ni fichier. Le projet courant figure toujours …"
+    },
+    "formatProjectTable": {
+      "name": "formatProjectTable",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Met en forme la table des projets — lignes SANS couleur (l'appelant colore et indente), colonnes alignées sur le contenu réel. Le nom du projet courant porte un repère : c'est lui qu'on cherche d'a…"
+    },
+    "resolveProjectTarget": {
+      "name": "resolveProjectTarget",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Résout une cible `nodefony stop <projet>` — par NOM ou par CHEMIN. Le refus est la règle dès que la désignation n'est pas certaine : arrêter des process est irréversible, et deviner « le plus proch…"
+    },
     "DevStatusReport": {
       "name": "DevStatusReport",
       "kind": "interface",
@@ -6787,7 +6845,7 @@
       "file": "src/nodefony/src/service/dev/devStop.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Découvre, tue (SIGTERM→SIGKILL) et nettoie ; écrit un rapport sur stdout."
+      "description": "Découvre, tue (SIGTERM→SIGKILL) et nettoie ; écrit un rapport sur stdout. `opts.target` désigne un AUTRE projet par son nom ou son chemin — strictement l'équivalent de `cd <projet> && nodefony stop…"
     },
     "DevSupervisor": {
       "name": "DevSupervisor",
@@ -23455,6 +23513,7 @@
       "readRuntimeState": [
         "src/nodefony/src/kernel/checks/runCheck.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devProjects.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "OptionsCommandInterface": [
@@ -23651,6 +23710,7 @@
       ],
       "DevProcessInfo": [
         "src/nodefony/src/service/dev/BootReporter.ts",
+        "src/nodefony/src/service/dev/devProjects.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts"
       ],
@@ -23677,6 +23737,14 @@
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts"
+      ],
+      "DevProcessWithCwd": [
+        "src/nodefony/src/service/dev/devProjects.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
+      ],
+      "foreignProjectRoots": [
+        "src/nodefony/src/service/dev/devProjects.ts"
       ],
       "detectRuntimeMode": [
         "src/nodefony/src/service/dev/devStatusReport.ts",
@@ -23720,11 +23788,18 @@
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts"
       ],
-      "DevProcessWithCwd": [
+      "DiscoverOptions": [
+        "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
+      "buildProjectTable": [
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts"
       ],
-      "DiscoverOptions": [
+      "formatProjectTable": [
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
+      ],
+      "IProjectRuntime": [
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "clearSupervisorPidFile": [
@@ -23736,6 +23811,9 @@
       "terminateDevProcesses": [
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "resolveProjectTarget": [
+        "src/nodefony/src/service/dev/devStop.ts"
       ],
       "Stats": [
         "src/nodefony/src/service/dev/DevSupervisor.ts"

@@ -21,6 +21,11 @@ import {
   type PortState,
   type RuntimeMode,
 } from "./devProcess";
+import {
+  buildProjectTable,
+  formatProjectTable,
+  resolveProjectTarget,
+} from "./devProjects";
 
 /**
  * Commande `nodefony stop` — arrêt PROPRE et COMPLET de tout runtime Nodefony (dev,
@@ -184,16 +189,73 @@ function allRuntimesOfThisPoste(
   return kept;
 }
 
-/** Découvre, tue (SIGTERM→SIGKILL) et nettoie ; écrit un rapport sur stdout. */
+/**
+ * Découvre, tue (SIGTERM→SIGKILL) et nettoie ; écrit un rapport sur stdout.
+ *
+ * `opts.target` désigne un AUTRE projet par son nom ou son chemin — strictement
+ * l'équivalent de `cd <projet> && nodefony stop`, obtenu en substituant la racine
+ * visée au répertoire courant : une seule mécanique d'arrêt, jamais deux.
+ *
+ * @returns le code de sortie — `0` si l'arrêt a eu lieu (ou n'avait rien à faire),
+ *   `1` si la cible n'a pas pu être DÉSIGNÉE sans ambiguïté. Un `stop` qui n'a rien
+ *   arrêté parce qu'il n'a pas compris la cible ne doit pas se lire comme un succès
+ *   dans un script.
+ */
 export async function runStopReport(
   cwd: string,
-  opts: { all?: boolean } & DevObservationDeps = {},
-): Promise<void> {
+  opts: { all?: boolean; target?: string } & DevObservationDeps = {},
+): Promise<number> {
   const tag = `${ANSI.dim}[stop]${ANSI.reset}`;
   const write = opts.write ?? ((chunk: string) => writeSync(1, chunk));
   const probe = opts.probe ?? probePorts;
   const observed = (opts.discover ?? discoverDevProcessesDetailed)({});
   const discovered = observed.procs;
+
+  // ── Cible explicite : la résoudre AVANT tout, et REFUSER si elle est douteuse.
+  // Rien n'est tué tant que la désignation n'est pas certaine — un arrêt est
+  // irréversible, et « le plus proche » ferait tomber le mauvais serveur.
+  let root = cwd;
+  if (opts.target !== undefined && opts.target !== "") {
+    if (opts.all) {
+      write(
+        `\n${tag} ${ANSI.yellow}\`--all\` et une cible sont contradictoires${ANSI.reset} — choisis l'un ou l'autre.\n\n`,
+      );
+      return 1;
+    }
+    const here = splitByProject(discovered, cwd, opts.getCwd);
+    const projects = buildProjectTable(
+      cwd,
+      here.mine,
+      here.foreign,
+      (await probe(defaultDevPorts(cwd)))
+        .filter((p) => p.listening)
+        .map((p) => p.port),
+    );
+    const resolved = resolveProjectTarget(opts.target, projects);
+    if (!resolved.ok) {
+      write(
+        [
+          "",
+          resolved.reason === "inconnu"
+            ? `${tag} ${ANSI.yellow}aucun projet Nodefony en cours ne s'appelle « ${opts.target} »${ANSI.reset}`
+            : `${tag} ${ANSI.yellow}« ${opts.target} » désigne ${resolved.candidates.length} projets — donne le chemin complet${ANSI.reset}`,
+          ...(resolved.candidates.length > 0
+            ? formatProjectTable(resolved.candidates)
+            : [
+                `  ${ANSI.dim}(aucun runtime Nodefony observé sur ce poste)${ANSI.reset}`,
+              ]),
+          "",
+        ].join("\n") + "\n",
+      );
+      return 1;
+    }
+    root = resolved.project.root;
+    write(
+      `${tag} cible : ${ANSI.bold}${resolved.project.name}${ANSI.reset} ${ANSI.dim}(${root})${ANSI.reset}\n`,
+    );
+  }
+  cwd = root;
+
   const scoped = opts.all
     ? {
         mine: allRuntimesOfThisPoste(discovered, write),
@@ -262,7 +324,7 @@ export async function runStopReport(
         "",
       ].join("\n") + "\n",
     );
-    return;
+    return 0;
   }
 
   // Ports de NOTRE runtime, lus TANT QU'IL EST VIVANT. Après le kill, son state
@@ -319,4 +381,5 @@ export async function runStopReport(
       "",
     ].join("\n") + "\n",
   );
+  return 0;
 }
