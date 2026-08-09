@@ -99,7 +99,15 @@ export default {
     // `test-foreign-audience`, ce qui permet de prouver la symétrie — chaque
     // jeton n'ouvre QUE la porte pour laquelle il a été demandé.
     jwt: {
-      audiences: ["https://localhost:5152", "https://api.foreign.example/v1"],
+      audiences: [
+        "https://localhost:5152",
+        "https://api.foreign.example/v1",
+        // La porte MCP. Sans cette entrée, personne ne peut demander de jeton
+        // POUR elle : la porte exige son URI en audience, l'émetteur refuserait
+        // de l'inscrire, et l'application serait protégée par une porte que
+        // rien ne sait ouvrir.
+        "http://localhost:5151/nodefony/mcp",
+      ],
     },
     // P6.9 — DEUX émetteurs, pour les deux moitiés du contrat.
     //

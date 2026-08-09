@@ -381,6 +381,55 @@ export default defineConfig<Env>((ctx) => ({
      * à lancer) aide pendant le développement et n'est, en production, qu'une
      * divulgation. Un module non chargé n'est même pas importé : coût nul.
      */
-    use("@nodefony/devkit", {}, { policy: "dev" }),
+    use(
+      "@nodefony/devkit",
+      {
+        // ── Porte MCP PROTÉGÉE (P6.9) ──────────────────────────────────────
+        // Un seul réglage commande le rôle : `authorizationServers`. Vide, la
+        // porte est anonyme ; non vide, elle exige un jeton et publie où en
+        // obtenir un (RFC 9728).
+        //
+        // Ici l'émetteur, c'est CETTE application : elle signe ses propres
+        // jetons et publie ses clés (`/.well-known/jwks.json`), donc son
+        // vérificateur sait les relire — exactement comme il relirait ceux
+        // d'un Keycloak. C'est ce qui permet un MCP authentifié SANS monter
+        // le moindre serveur d'autorisation tiers.
+        mcp: {
+          authorization: {
+            authorizationServers: [
+              ctx.env.NF_JWT_ISSUER ?? "https://localhost:5152",
+            ],
+            // 🔴 L'audience attendue des jetons — elle s'ÉCRIT, jamais dérivée
+            // du `Host` : sinon un `Host` forgé obtiendrait un jeton d'audience
+            // arbitraire ET passerait la vérification, ce qui viderait la
+            // liaison d'audience de son unique raison d'être. C'est l'adresse
+            // par laquelle un client entre réellement (cf `.mcp.json`) ; en
+            // production, l'URL publique en https.
+            resource: "http://localhost:5151/nodefony/mcp",
+            resourceName: "Nodefony — outils de développement",
+            // 🔴 LES DEUX MODES À LA FOIS, et c'est un choix de DÉVELOPPEMENT.
+            //
+            // Un client MCP conforme qui reçoit un `401` veut obtenir un jeton
+            // TOUT SEUL : il suit le défi, lit les métadonnées, trouve notre
+            // émetteur — et y cherche un `authorization_endpoint` et un
+            // `token_endpoint` que cette application n'offre pas (elle n'est pas
+            // un serveur d'autorisation OAuth ; cf P6.9d). Il s'arrête donc là,
+            // et l'outil devient inutilisable pour qui ne sait pas coller un
+            // en-tête à la main.
+            //
+            // `true` : la porte SERT les outils publics sans jeton, et retient
+            // les outils réservés (`IMcpTool.scopes` / `requiresAuth`) tant
+            // qu'une identité n'est pas prouvée. L'authentification devient un
+            // GAIN, pas un péage — et la vérification de jeton, elle, reste
+            // entièrement exercée dès qu'un porteur en présente un.
+            //
+            // En production, ce drapeau s'écrit `false` : là, une porte ouverte
+            // n'a plus d'excuse.
+            anonymous: !ctx.isProd,
+          },
+        },
+      },
+      { policy: "dev" },
+    ),
   ],
 }));

@@ -32,6 +32,14 @@ const MCP_METADATA_PATH = protectedResourceMetadataPath(MCP_ENDPOINT_PATH);
 
 const BASE = process.env.NF_MCP_TEST_BASE ?? "https://127.0.0.1:5152";
 
+/**
+ * Jeton porteur de la suite — **déclaré ici, avant `poster`**, et pas plus bas.
+ * Il est obtenu EN APPELANT `poster` : un `const` initialisé après la fonction
+ * serait lu pendant sa propre obtention (zone morte temporelle), et la suite
+ * entière tomberait sur une `ReferenceError` au lieu de sauter proprement.
+ */
+let JETON: string | null = null;
+
 /** Réponse brute d'un appel à la porte MCP. */
 interface IReponse {
   status: number;
@@ -39,15 +47,27 @@ interface IReponse {
   raw: string;
 }
 
-/** Poste un message JSON-RPC sur la porte MCP. */
+/**
+ * Poste un message JSON-RPC sur la porte MCP (ou sur `chemin`, pour le grant).
+ *
+ * Le jeton est ajouté d'office quand la porte en exige un : la spécification
+ * MCP impose l'en-tête `Authorization` sur **chaque** requête, pas seulement à
+ * la première. Un appel qui veut éprouver le refus passe `{ authorization: "" }`
+ * — la chaîne vide écrase l'en-tête sans le remplacer.
+ */
 function poster(
   message: unknown,
   headers: Record<string, string> = {},
+  chemin: string = MCP_ENDPOINT_PATH,
 ): Promise<IReponse> {
   return new Promise((resoudre, rejeter) => {
     const charge = JSON.stringify(message);
+    const porteur =
+      typeof JETON === "string" && chemin === MCP_ENDPOINT_PATH
+        ? { authorization: `Bearer ${JETON}` }
+        : {};
     const req = httpsRequest(
-      `${BASE}${MCP_ENDPOINT_PATH}`,
+      `${BASE}${chemin}`,
       {
         method: "POST",
         rejectUnauthorized: false,
@@ -55,6 +75,7 @@ function poster(
         headers: {
           "content-type": "application/json",
           "content-length": Buffer.byteLength(charge),
+          ...porteur,
           ...headers,
         },
       },
@@ -112,10 +133,52 @@ function lire(chemin: string): Promise<IReponse> {
   });
 }
 
+/**
+ * Obtient un jeton POUR cette porte, en se comportant comme un client conforme.
+ *
+ * Le chemin est celui que la RFC 9728 dessine, et il n'est pas deviné : la porte
+ * refuse, son défi `WWW-Authenticate` désigne un document de métadonnées, ce
+ * document nomme la ressource (l'audience à demander) et son serveur
+ * d'autorisation. Le banc suit ce fil plutôt que de recopier des constantes —
+ * ainsi il éprouve la boucle de découverte au lieu de la supposer.
+ *
+ * @returns le jeton, ou `null` si la porte n'exige aucune autorisation
+ */
+async function jetonPourLaPorte(): Promise<string | null> {
+  const metadonnees = await lire(MCP_METADATA_PATH);
+  if (metadonnees.status !== 200) return null; // porte anonyme : rien à demander
+  const doc = metadonnees.body as { resource?: unknown };
+  if (typeof doc.resource !== "string") return null;
+  // Le grant par credential de CETTE application. `resource` (RFC 8707) demande
+  // un jeton dont l'audience est la porte — sans lui, l'audience par défaut
+  // serait celle de l'application, et la porte refuserait à juste titre.
+  const reponse = await poster(
+    { username: "admin", password: "secret", resource: doc.resource },
+    {},
+    "/nodefony/security/api/token",
+  );
+  const jeton = (reponse.body as { access_token?: unknown } | null)
+    ?.access_token;
+  return typeof jeton === "string" ? jeton : null;
+}
+
+// Obtenu UNE fois, avant toute assertion (cf la déclaration de `JETON` plus haut).
+JETON = await jetonPourLaPorte();
+
 /** La porte répond-elle — null si oui, la raison sinon. */
 async function porteMuette(): Promise<string | null> {
   try {
     const reponse = await poster({ jsonrpc: "2.0", id: 0, method: "ping" });
+    if (reponse.status === 401) {
+      // La porte VIT, elle est protégée : ce n'est pas un décor manquant. Si le
+      // jeton n'a pas pu être obtenu, en revanche, la suite ne peut rien prouver
+      // et doit le dire au lieu de rendre des rouges qui accusent le code.
+      return JETON === null
+        ? `${BASE}${MCP_ENDPOINT_PATH} exige un jeton et le grant a échoué — ` +
+            `comptes de développement provisionnés ? \`security.jwt.audiences\` ` +
+            `contient-il l'URI de la porte ?`
+        : null;
+    }
     if (reponse.status !== 200) {
       return `${BASE}${MCP_ENDPOINT_PATH} rend ${reponse.status} sur un ping — devkit chargé ? mcp.enabled ?`;
     }
@@ -315,26 +378,68 @@ describe.skipIf(raison !== null)(
       expect(MCP_PROTOCOL_VERSION).not.toBe("2025-11-25");
     });
 
-    it("le chemin des métadonnées OAuth est MONTÉ — et son 404 n'est pas celui d'une route absente", async () => {
-      // Ce dépôt ne déclare aucun serveur d'autorisation : le rôle est éteint,
-      // donc le document ne se publie pas. `404` est la bonne réponse — mais un
-      // `404` de rôle éteint et un `404` de route jamais montée se ressemblent,
-      // et un test qui ne les distingue pas ne prouve RIEN : il passerait aussi
-      // si le controller n'existait pas.
+    it("les métadonnées de la ressource sont SERVIES — et un chemin inconnu ne leur ressemble pas", async () => {
+      // Ce dépôt déclare désormais un serveur d'autorisation (lui-même) : le
+      // rôle est allumé, donc le document existe. Il porte les deux champs dont
+      // un client a besoin pour agir — l'audience à demander (`resource`) et où
+      // la demander (`authorization_servers`, que la spécification MCP exige non
+      // vide). Sans eux, un client apprendrait qu'un jeton est nécessaire sans
+      // jamais pouvoir en obtenir un.
       //
-      // Ce qui les sépare est le CORPS. Le controller rend un objet minuscule ;
-      // une route absente rend l'enveloppe d'erreur du framework
-      // (`nodefony`, `requestId`, `stack`). Cette même enveloppe est d'ailleurs
-      // ce qui cassait le parseur du SDK MCP lorsqu'il sondait des chemins
-      // OAuth inexistants — « expected string, received object ».
+      // Le second appel garde l'enseignement du cas précédent : un chemin de
+      // ressource INCONNUE rend l'enveloppe d'erreur du framework (`nodefony`,
+      // `requestId`, `stack`) — c'est elle qui cassait le parseur du SDK MCP
+      // sondant des chemins OAuth inexistants (« expected string, received
+      // object »). Les deux réponses ne doivent jamais se confondre.
       const monte = await lire(MCP_METADATA_PATH);
       const absent = await lire("/.well-known/oauth-protected-resource/aucune");
 
-      expect(monte.status).toBe(404);
-      expect(absent.status).toBe(404);
-      expect(monte.body).toEqual({ error: "not_found" });
-      expect(absent.body).toHaveProperty("nodefony");
+      expect(monte.status).toBe(200);
+      const doc = monte.body as {
+        resource?: unknown;
+        authorization_servers?: unknown;
+      };
+      expect(doc.resource).toBeTypeOf("string");
+      expect(doc.authorization_servers).to.be.an("array").that.is.not.empty;
       expect(monte.body).not.toHaveProperty("nodefony");
+
+      expect(absent.status).toBe(404);
+      expect(absent.body).toHaveProperty("nodefony");
+    });
+
+    it("sans jeton, les outils PUBLICS restent servis (mode développement)", async () => {
+      // `mcp.authorization.anonymous` : l'ABSENCE de jeton est tolérée. Ce n'est
+      // pas un désarmement — c'est la seule façon qu'un client MCP standard
+      // reste utilisable tant que cette application n'offre aucun flux
+      // d'obtention de jeton (elle n'est pas un serveur d'autorisation OAuth).
+      // Les outils qui exigent une identité, eux, restent retenus.
+      const reponse = await poster(
+        { jsonrpc: "2.0", id: 9, method: "tools/list" },
+        { authorization: "" },
+      );
+      expect(reponse.status).toBe(200);
+      expect(outilsDe(reponse).length).toBeGreaterThan(0);
+    });
+
+    it("🔴 un jeton PRÉSENTÉ est vérifié strictement — mauvaise audience ⇒ 401", async () => {
+      // LA garde que la tolérance ne doit PAS emporter. Tolérer l'anonyme et
+      // tolérer un jeton douteux sont deux choses opposées : le premier n'a rien
+      // affirmé, le second affirme une identité. Un jeton de cette application,
+      // parfaitement signé et valide, mais délivré pour une AUTRE ressource,
+      // doit être refusé ici (RFC 8707 §2) — sinon l'audience ne lie rien.
+      const autre = await poster(
+        { username: "admin", password: "secret" }, // sans `resource` ⇒ audience par défaut
+        {},
+        "/nodefony/security/api/token",
+      );
+      const jeton = (autre.body as { access_token?: unknown } | null)
+        ?.access_token;
+      expect(jeton, "grant attendu").toBeTypeOf("string");
+      const reponse = await poster(
+        { jsonrpc: "2.0", id: 10, method: "tools/list" },
+        { authorization: `Bearer ${jeton as string}` },
+      );
+      expect(reponse.status).toBe(401);
     });
 
     it("le chemin publié est celui que la RFC 9728 fait construire au client", async () => {
