@@ -25,8 +25,12 @@ export interface IProjectRuntime {
   readonly root: string;
   /** `true` pour le projet du répertoire courant. */
   readonly current: boolean;
-  /** Nombre de runtimes observés pour ce projet. */
-  readonly processes: number;
+  /**
+   * Runtimes observés pour ce projet — la LISTE, pas un compte : `status` rend
+   * un tableau par projet (rôle, pid, uptime, mémoire), et un décompte seul
+   * obligerait à retourner chercher les process ailleurs.
+   */
+  readonly procs: readonly DevProcessInfo[];
   /** Ports que ce projet déclare tenir (triés). */
   readonly ports: readonly number[];
 }
@@ -90,7 +94,7 @@ export function buildProjectTable(
 
   const entry = (
     root: string,
-    processes: number,
+    procs: readonly DevProcessInfo[],
     ports: readonly number[],
     current: boolean,
   ): IProjectRuntime => {
@@ -100,23 +104,23 @@ export function buildProjectTable(
       nameSource: declared ? "package" : "dossier",
       root,
       current,
-      processes,
+      procs,
       ports: [...ports].sort((a, b) => a - b),
     };
   };
 
   const table: IProjectRuntime[] = [];
-  if (mine.length > 0) table.push(entry(cwd, mine.length, myPorts, true));
+  if (mine.length > 0) table.push(entry(cwd, mine, myPorts, true));
 
   const roots = foreignProjectRoots(foreign);
   const others = roots.map((root) => {
     // Un Vite travaille parfois dans un sous-dossier : il se rattache à la racine
     // qui le préfixe, exactement comme le fait l'affichage groupé des runtimes
     // étrangers — une seule règle de rattachement, pas deux.
-    const count = foreign.filter(
+    const procs = foreign.filter(
       (p) => p.cwd === root || p.cwd?.startsWith(root + path.sep),
-    ).length;
-    return entry(root, count, readPorts(root), false);
+    );
+    return entry(root, procs, readPorts(root), false);
   });
   others.sort((a, b) => a.name.localeCompare(b.name));
   return [...table, ...others];
@@ -140,7 +144,7 @@ export function formatProjectTable(
   if (projects.length === 0) return [];
   const rows = projects.map((p) => ({
     nom: `${p.name}${p.nameSource === "dossier" ? "~" : ""}${p.current ? " ▸" : ""}`,
-    proc: String(p.processes),
+    proc: String(p.procs.length),
     ports: p.ports.length > 0 ? p.ports.join(" ") : "—",
     root: p.root,
   }));

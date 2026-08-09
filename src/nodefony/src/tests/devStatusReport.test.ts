@@ -207,16 +207,49 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
     await runStatusReport(mine, { ...deps(), write: (s) => (out += s) });
     const plain = out.replace(/\x1b\[[0-9;]*m/g, "");
     assert.ok(
-      /Projets Nodefony sur ce poste/.test(plain),
-      `la table des projets doit apparaître :\n${plain}`,
-    );
-    assert.ok(
       plain.includes(path.basename(neighbour)),
       `le projet voisin doit être NOMMÉ, pas seulement situé :\n${plain}`,
     );
+    // Son bloc porte ses PROCESS, pas seulement son nom : c'est ce qui remplace
+    // la liste à plat que le lecteur devait recouper avec le reste du rapport.
     assert.ok(
-      /nodefony stop <nom\|chemin>/.test(plain),
-      `un nom affiché doit être utilisable :\n${plain}`,
+      /supervisor\s+45799/.test(plain),
+      `le bloc du voisin doit montrer ses process :\n${plain}`,
+    );
+    assert.ok(
+      /Résumé/.test(plain) && /nodefony stop /.test(plain),
+      `un résumé doit expliquer et donner le geste :\n${plain}`,
+    );
+  });
+
+  it("les ports d'un VOISIN sont SONDÉS, pas seulement « déclarés »", async () => {
+    // Le défaut corrigé : un projet dont le serveur est VIVANT voyait ses ports
+    // annoncés « déclarés, non sondés » — le rapport doutait de ce qu'il pouvait
+    // vérifier d'une connexion TCP locale, et le lecteur en concluait qu'il ne
+    // tournait pas.
+    const ailleurs = [5153, 5154];
+    writeRuntimeState(neighbour, { pid: process.pid, ports: ailleurs });
+    let out = "";
+    await runStatusReport(mine, {
+      discover: (): ProcessDiscovery => ({ supported: true, procs: theirs }),
+      getCwd: (pid: number) =>
+        theirs.some((p) => p.pid === pid) ? neighbour : null,
+      // La sonde répond pour NOS ports (libres) comme pour ceux du voisin.
+      probe: async (ports: readonly number[]): Promise<PortState[]> =>
+        ports.map((port) => ({
+          port,
+          listening: ailleurs.includes(port),
+        })),
+      write: (s) => (out += s),
+    });
+    const plain = out.replace(/\x1b\[[0-9;]*m/g, "");
+    assert.ok(
+      /5153 ✓ écoute/.test(plain) && /5154 ✓ écoute/.test(plain),
+      `les ports du voisin doivent porter un verdict SONDÉ :\n${plain}`,
+    );
+    assert.ok(
+      !/5153 déclaré/.test(plain),
+      `« déclaré » ne doit rester que pour un port qu'on n'a PAS sondé :\n${plain}`,
     );
   });
 

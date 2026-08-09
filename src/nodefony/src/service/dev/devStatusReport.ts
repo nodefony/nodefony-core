@@ -24,11 +24,7 @@ import {
   type PortState,
   type RuntimeMode,
 } from "./devProcess";
-import {
-  buildProjectTable,
-  formatProjectTable,
-  type IProjectRuntime,
-} from "./devProjects";
+import { buildProjectTable, type IProjectRuntime } from "./devProjects";
 import { runStopReport } from "./devStop";
 
 /**
@@ -375,7 +371,18 @@ export async function runStatusReport(
           report.ports.filter((p) => p.listening).map((p) => p.port),
         )
       : [];
-  renderStatus(lines, report, projects);
+  // Les ports d'un voisin se SONDENT, comme les nôtres : c'est une connexion TCP
+  // locale, et un projet dont le serveur est vivant mérite mieux qu'un « déclaré »
+  // qui laisse croire au doute. Ne restent « déclarés » que les ports qu'aucune
+  // sonde n'a pu atteindre.
+  const portsVoisins = [
+    ...new Set(projects.filter((p) => !p.current).flatMap((p) => p.ports)),
+  ].filter((port) => !report.ports.some((p) => p.port === port));
+  const sondesVoisines =
+    portsVoisins.length > 0
+      ? await (deps.probe ?? probePorts)(portsVoisins)
+      : [];
+  renderStatus(lines, report, projects, sondesVoisines);
   // UN écrit synchrone (writeSync) → jamais tronqué par l'exit qui suit.
   (deps.write ?? ((chunk: string) => writeSync(1, chunk)))(
     lines.join("\n") + "\n",
@@ -433,18 +440,130 @@ function renderForeign(
   report: DevStatusReport,
   /**
    * Table des projets vivants. Vide par défaut : un appelant qui ne la fournit
-   * pas obtient EXACTEMENT le rendu d'avant — le tableau est un ajout, jamais
-   * une réécriture de ce bloc.
+   * pas obtient EXACTEMENT le rendu d'avant — le bloc est un ajout, jamais une
+   * réécriture de ce rendu.
    */
   projects: readonly IProjectRuntime[] = [],
+  sondesVoisines: readonly PortState[] = [],
 ): void {
   if (report.foreign.length === 0) return;
+  // Un projet voisin se lit comme le nôtre : MÊME tableau, sous son nom. La liste
+  // à plat qu'affichait `status` répétait ce que les blocs disent déjà, et le
+  // lecteur devait recouper trois endroits pour répondre à « qui tient mon port ».
+  const voisins = projects.filter((p) => !p.current);
+  if (voisins.length === 0) {
+    lines.push(
+      `  ${ANSI.dim}${report.foreign.length} runtime(s) d'un AUTRE projet sur ce poste (non comptés ci-dessus) :${ANSI.reset}`,
+      ...formatForeignRuntimes(report.foreign).map(
+        (l) => `${ANSI.dim}${l}${ANSI.reset}`,
+      ),
+    );
+    return;
+  }
+  // Les sondes DÉJÀ faites sont transmises : ce sont les mêmes ports, il n'y a
+  // aucune raison de les présenter deux fois avec deux degrés de certitude.
+  for (const projet of voisins)
+    renderProjectBlock(
+      lines,
+      projet,
+      [...report.ports, ...sondesVoisines],
+      report.portOwners,
+    );
+}
+
+/**
+ * Bloc d'UN projet : son nom, sa racine, ses process, ses ports.
+ *
+ * Le projet courant et un voisin s'affichent pareil — la seule différence est le
+ * repère `▸` et le fait que NOS ports sont sondés quand ceux d'un voisin sont
+ * seulement DÉCLARÉS (il publie son état, on ne va pas frapper à sa porte). Cette
+ * nuance est écrite plutôt que gommée : un port « déclaré » n'est pas un port
+ * vérifié, et laisser croire l'inverse est le genre de raccourci qui fait
+ * chercher une panne au mauvais endroit.
+ */
+function renderProjectBlock(
+  lines: string[],
+  projet: IProjectRuntime,
+  /** États sondés — fournis pour NOTRE projet seulement. */
+  sondes: readonly PortState[] = [],
+  owners: Readonly<Record<number, string>> = {},
+): void {
+  const marque = projet.current
+    ? `${ANSI.cyan}▸ ${ANSI.bold}${projet.name}${ANSI.reset} ${ANSI.dim}— ce projet${ANSI.reset}`
+    : `  ${ANSI.bold}${projet.name}${ANSI.reset}`;
+  const source =
+    projet.nameSource === "dossier"
+      ? ` ${ANSI.dim}(nom du dossier — aucun nom dans package.json)${ANSI.reset}`
+      : "";
   lines.push(
-    `  ${ANSI.dim}${report.foreign.length} runtime(s) d'un AUTRE projet sur ce poste (non comptés ci-dessus) :${ANSI.reset}`,
-    ...formatForeignRuntimes(report.foreign).map(
-      (l) => `${ANSI.dim}${l}${ANSI.reset}`,
-    ),
-    ...formatProjectTable(projects).map((l) => `${ANSI.dim}${l}${ANSI.reset}`),
+    "",
+    `  ${marque}${source}`,
+    `    ${ANSI.dim}${projet.root}${ANSI.reset}`,
+  );
+  if (projet.procs.length > 0) renderProcessTable(lines, projet.procs, "    ");
+
+  // Un port dont la SONDE a déjà répondu ne se présente pas comme « non sondé » :
+  // le rapport porte l'état de tous les ports qu'il a interrogés, et `portOwners`
+  // dit à qui ils appartiennent. Annoncer « déclaré, non sondé » un port que la
+  // ligne du dessus donne pour occupé est un mensonge du rapport sur lui-même —
+  // exactement le genre d'écart qui fait douter de tout le reste.
+  const rendus = projet.ports.map((port) => {
+    const sonde = sondes.find((s) => s.port === port);
+    const tenuPar = owners[port];
+    // Un port déclaré par ce projet mais attribué à un AUTRE trahit un état
+    // périmé : le dire plutôt que rendre un verdict qui semblerait le sien.
+    if (tenuPar !== undefined && tenuPar !== projet.root)
+      return `${port} ${ANSI.yellow}tenu par ${tenuPar}${ANSI.reset}`;
+    if (sonde)
+      return sonde.listening
+        ? `${port} ${ANSI.green}✓ écoute${ANSI.reset}`
+        : `${port} ${ANSI.red}✗ silencieux${ANSI.reset}`;
+    return `${port} ${ANSI.dim}déclaré${ANSI.reset}`;
+  });
+  if (rendus.length > 0)
+    lines.push(`    ${ANSI.dim}ports${ANSI.reset}   ${rendus.join("   ")}`);
+  if (rendus.some((r) => r.includes("déclaré")))
+    lines.push(
+      `    ${ANSI.dim}        « déclaré » = publié par le projet, pas sondé par cette commande${ANSI.reset}`,
+    );
+}
+
+/**
+ * Résumé de fin — ce que le lecteur doit retenir, et le geste qui suit.
+ *
+ * Il n'est écrit QUE si un voisin existe : dans le cas nominal (une seule
+ * application), expliquer le cloisonnement serait du bruit. C'est l'inverse qui
+ * a coûté cher — voir « aucune instance » avec un serveur qui répond, sans que
+ * rien ne dise que les deux phrases parlent de projets différents.
+ */
+function renderSummary(
+  lines: string[],
+  report: DevStatusReport,
+  projects: readonly IProjectRuntime[],
+): void {
+  const voisins = projects.filter((p) => !p.current);
+  if (voisins.length === 0) return;
+  const nVoisinProcs = voisins.reduce((n, p) => n + p.procs.length, 0);
+  const aMoi = report.processes.length;
+  const portsUp = report.ports.filter((p) => p.listening).length;
+  const pluriel = voisins.length > 1 ? "s" : "";
+  lines.push(
+    "",
+    `  ${ANSI.bold}Résumé${ANSI.reset}`,
+    `    ce projet : ${aMoi === 0 ? `${ANSI.yellow}rien ne tourne${ANSI.reset}` : `${aMoi} process · ${portsUp}/${report.ports.length} ports en écoute`}`,
+    `    voisin${pluriel}   : ${voisins.length} projet${pluriel} · ${nVoisinProcs} process`,
+    // L'explication suit la SITUATION : rappeler ce que « aucune instance » veut
+    // dire à quelqu'un dont l'application tourne serait répondre à côté.
+    ...(aMoi === 0
+      ? [
+          `    ${ANSI.dim}status et stop ne voient QUE ce projet : « aucune instance » signifie${ANSI.reset}`,
+          `    ${ANSI.dim}« aucune à MOI », jamais « rien ne tourne sur ce poste ».${ANSI.reset}`,
+        ]
+      : [
+          `    ${ANSI.dim}les process du haut sont ceux de CE projet ; le${pluriel} voisin${pluriel} n'${voisins.length > 1 ? "en font" : "en fait"} pas partie${ANSI.reset}`,
+          `    ${ANSI.dim}et ${voisins.length > 1 ? "ne sont" : "n'est"} ni compté${pluriel} dans la synthèse, ni arrêté${pluriel} par ${ANSI.reset}${ANSI.cyan}nodefony stop${ANSI.reset}${ANSI.dim}.${ANSI.reset}`,
+        ]),
+    `    ${ANSI.dim}arrêter un voisin, sans changer de dossier : ${ANSI.reset}${ANSI.cyan}nodefony stop ${voisins[0].name}${ANSI.reset}`,
   );
 }
 
@@ -455,17 +574,18 @@ function renderForeign(
  * sur notre runtime.
  */
 function portsLine(
-  report: DevStatusReport,
+  ports: readonly PortState[],
+  owners: Readonly<Record<number, string>>,
   upLabel: string,
   freeLabel: string,
 ): string {
-  return report.ports
+  return ports
     .map((p) => {
-      switch (portOwnership(p, report.portOwners)) {
+      switch (portOwnership(p, owners)) {
         case "free":
           return `${p.port} ${freeLabel}`;
         case "foreign":
-          return `${p.port} ${ANSI.yellow}occupé par ${report.portOwners[p.port]}${ANSI.reset}`;
+          return `${p.port} ${ANSI.yellow}occupé par ${owners[p.port]}${ANSI.reset}`;
         default:
           return `${p.port} ${upLabel}`;
       }
@@ -486,6 +606,8 @@ function renderStatus(
   lines: string[],
   report: DevStatusReport,
   projects: readonly IProjectRuntime[] = [],
+  /** États des ports des projets VOISINS, réellement sondés par l'appelant. */
+  sondesVoisines: readonly PortState[] = [],
 ): void {
   const tag = `${ANSI.dim}[status]${ANSI.reset}`;
   const { processes: procs } = report;
@@ -501,15 +623,29 @@ function renderStatus(
         : alive
           ? `${ANSI.yellow}périmé (pid ${pid} vivant mais non-superviseur)${ANSI.reset}`
           : `${ANSI.yellow}périmé (pid ${pid} mort)${ANSI.reset}`;
+    // Quand des projets voisins sont détaillés plus bas, deux lignes deviennent du
+    // BRUIT et l'une d'elles trompe : le pidfile d'un dossier qui n'est pas un
+    // projet ne veut rien dire, et « 5151 occupé par <racine> » redit — moins bien
+    // — ce que le bloc de ce projet montre avec ses process et ses ports sondés.
+    const detaille = projects.some((p) => !p.current);
     lines.push(
       "",
       `${tag} ${ANSI.bold}Nodefony dev — aucune instance de ce projet en cours${ANSI.reset}`,
-      `  ${ANSI.dim}pidfile${ANSI.reset}  ${report.pidfile.path} — ${pidNote}`,
-      `  ${ANSI.dim}ports${ANSI.reset}    ${portsLine(
-        report,
-        `${ANSI.yellow}occupé${ANSI.reset}`,
-        `${ANSI.dim}libre${ANSI.reset}`,
-      )}`,
+      ...(report.inProject
+        ? [
+            `  ${ANSI.dim}pidfile${ANSI.reset}  ${report.pidfile.path} — ${pidNote}`,
+          ]
+        : []),
+      ...(detaille
+        ? []
+        : [
+            `  ${ANSI.dim}ports${ANSI.reset}    ${portsLine(
+              report.ports,
+              report.portOwners,
+              `${ANSI.yellow}occupé${ANSI.reset}`,
+              `${ANSI.dim}libre${ANSI.reset}`,
+            )}`,
+          ]),
       // Hors projet, « lance nodefony dev » serait un conseil voué à l'échec →
       // dire la vraie situation (dossier sans app Nodefony) + les 2 sorties.
       report.inProject
@@ -517,7 +653,8 @@ function renderStatus(
         : `  ${ANSI.yellow}⚠ ce dossier n'est pas un projet Nodefony${ANSI.reset}${ANSI.dim} (aucun package.json avec la dépendance « nodefony »)${ANSI.reset}\n` +
             `  ${ANSI.dim}→ place-toi à la racine d'une app, ou crée-en une : ${ANSI.reset}${ANSI.cyan}nodefony create app${ANSI.reset}`,
     );
-    renderForeign(lines, report, projects);
+    renderForeign(lines, report, projects, sondesVoisines);
+    renderSummary(lines, report, projects);
     lines.push("");
     return;
   }
@@ -540,7 +677,8 @@ function renderStatus(
   lines.push(
     "",
     `  ${ANSI.dim}ports serveur${ANSI.reset} : ${portsLine(
-      report,
+      report.ports,
+      report.portOwners,
       `${ANSI.green}✓ UP${ANSI.reset}`,
       `${ANSI.red}✗ DOWN${ANSI.reset}`,
     )}`,
@@ -548,7 +686,8 @@ function renderStatus(
   );
   for (const w of report.warnings)
     lines.push(`  ${ANSI.yellow}⚠ ${w}${ANSI.reset}`);
-  renderForeign(lines, report, projects);
+  renderForeign(lines, report, projects, sondesVoisines);
+  renderSummary(lines, report, projects);
   lines.push("");
 }
 
