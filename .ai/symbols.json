@@ -1,11 +1,11 @@
 {
-  "generated": "2026-08-09T21:58:21.234Z",
+  "generated": "2026-08-09T22:19:35.551Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 710,
-    "symbols": 2938,
-    "classes": 357,
+    "files": 711,
+    "symbols": 2939,
+    "classes": 358,
     "interfaces": 852,
     "types": 377,
     "enums": 4,
@@ -15389,6 +15389,17 @@
       "decorators": [],
       "description": "Mutation cross-site bloquée — `code = 403` (RFC 9110 §15.5.4 : le serveur a compris la requête mais refuse de l'honorer). Levée par {@link Csrf} sur une méthode state-changing (POST/PUT/PATCH/DELET…"
     },
+    "InvalidTargetError": {
+      "name": "InvalidTargetError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/errors/InvalidTargetError.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "nodefonyError",
+      "implements": [],
+      "decorators": [],
+      "description": "La ressource demandée à l'émission ne peut pas être servie — `code = 400`, code d'erreur OAuth `invalid_target` (RFC 8707 §2). Le paramètre `resource` dit POUR QUI le jeton est demandé. Trois raiso…"
+    },
     "SsrfError": {
       "name": "SsrfError",
       "kind": "class",
@@ -20594,6 +20605,7 @@
         "ApiKeyError",
         "AuthenticationError",
         "CsrfError",
+        "InvalidTargetError",
         "SsrfError",
         "ThrottledError",
         "UnverifiableTokenError",
@@ -23810,6 +23822,7 @@
         "src/packages/@nodefony/security/nodefony/errors/ApiKeyError.ts",
         "src/packages/@nodefony/security/nodefony/errors/AuthenticationError.ts",
         "src/packages/@nodefony/security/nodefony/errors/CsrfError.ts",
+        "src/packages/@nodefony/security/nodefony/errors/InvalidTargetError.ts",
         "src/packages/@nodefony/security/nodefony/errors/SsrfError.ts",
         "src/packages/@nodefony/security/nodefony/errors/ThrottledError.ts",
         "src/packages/@nodefony/security/nodefony/errors/UnverifiableTokenError.ts",
@@ -27315,6 +27328,9 @@
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
+      ],
+      "InvalidTargetError": [
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
       ],
       "listTokenStores": [
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"

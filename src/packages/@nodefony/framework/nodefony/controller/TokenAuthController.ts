@@ -16,9 +16,10 @@ export interface ITokenIssuer {
     identifier: unknown,
     password: unknown,
     scopes?: string[],
+    resource?: unknown,
   ): Promise<unknown>;
   /** Rotation d'un refresh token (nouveau couple, ancien révoqué). */
-  refresh(rawRefresh: unknown): Promise<unknown>;
+  refresh(rawRefresh: unknown, resource?: unknown): Promise<unknown>;
 }
 
 // Montage one-shot par process (même sémantique que `mountSessionAuthRoutes`).
@@ -71,12 +72,18 @@ class TokenAuthController extends Controller {
       username?: unknown;
       password?: unknown;
       scope?: unknown;
+      resource?: unknown;
     };
     try {
       const tokens = await svc.issueForCredentials(
         body.username,
         body.password,
         parseScope(body.scope),
+        // `resource` passe TEL QUEL — y compris un tableau, que le service
+        // refuse (RFC 8707 §3). Le normaliser ici transformerait une demande
+        // ambiguë en demande implicite, et ferait décider la porte à la place
+        // de l'autorité qui émet.
+        body.resource,
       );
       return this.renderJson(tokens);
     } catch (e) {
@@ -90,9 +97,16 @@ class TokenAuthController extends Controller {
     if (!svc || !svc.isEnabled()) {
       return this.renderJson({ error: "Token issuance unavailable" }, 503);
     }
-    const body = (this.queryPost ?? {}) as { refresh_token?: unknown };
+    const body = (this.queryPost ?? {}) as {
+      refresh_token?: unknown;
+      resource?: unknown;
+    };
     try {
-      const tokens = await svc.refresh(body.refresh_token);
+      // `resource` est TRANSMIS ici aussi (RFC 8707 §2.2). L'ignorer laisserait
+      // un client croire qu'il vient de restreindre la portée de son jeton alors
+      // qu'il a reçu l'ancienne — un paramètre accepté puis jeté est pire qu'un
+      // refus : la faute ne se manifeste que chez la ressource.
+      const tokens = await svc.refresh(body.refresh_token, body.resource);
       return this.renderJson(tokens);
     } catch (e) {
       return this.#renderAuthError(e);
@@ -103,10 +117,25 @@ class TokenAuthController extends Controller {
     return this.get<ITokenIssuer>("tokenService") ?? null;
   }
 
-  // 429 → Retry-After (RFC 6585) ; 401 → message uniforme (anti-énumération) ;
+  // 429 → Retry-After (RFC 6585) ; 400 → `invalid_target` (RFC 8707 §2) ;
+  // 401 → message uniforme (anti-énumération) ;
   // le reste → pipeline 500 (fail-closed, zéro fuite).
   #renderAuthError(e: unknown) {
     const code = (e as { code?: unknown }).code;
+    if (code === 400) {
+      // Forme RFC 6749 §5.2 : un client OAuth lit `error` (une CHAÎNE) puis
+      // `error_description`. Le code d'erreur vient de l'erreur elle-même —
+      // framework ne connaît pas les classes de security, il lit un contrat.
+      const oauthError = (e as { oauthError?: unknown }).oauthError;
+      return this.renderJson(
+        {
+          error:
+            typeof oauthError === "string" ? oauthError : "invalid_request",
+          error_description: (e as Error).message,
+        },
+        400,
+      );
+    }
     if (code === 429) {
       const retry = (e as { retryAfterS?: unknown }).retryAfterS;
       return this.renderJson({ error: "Too many attempts" }, 429, {

@@ -78,6 +78,15 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
     vérifier — `exp` absent **ET** (aucun store **OU** ni `jti` ni `iat`). Formulé « pas de borne ET
     pas de store », il ne mordait pas quand un store existait mais n'avait aucune prise : interrogé
     avec `jti = null`/`iat = null`, il ne peut répondre que « toujours valable ».
+- ⭐ **`resource` (RFC 8707) sur le grant** : le client NOMME sa cible, l'audience cesse d'être un défaut
+  de config. `jwt.audiences` = **liste BLANCHE de ressources demandables** (la 1ʳᵉ = défaut) ; hors liste,
+  multiple, non-URI ou fragment ⇒ **`InvalidTargetError` (400, `invalid_target`)**, jamais servi avec
+  l'audience par défaut. Une seule ressource par jeton (§3 : plusieurs destinataires ⇒ chacun peut agir
+  chez les autres). L'audience ACCORDÉE est stockée au record refresh et **rejouée à la rotation** —
+  `resource` au refresh doit l'ÉGALER (§2.2), sinon 400 : sans quoi la rotation serait la porte dérobée
+  vers une audience refusée à l'émission. 🔴 **L'ordre compte** : le credential est vérifié AVANT la
+  ressource — inversé, le point de terminaison rendrait la carte des ressources protégées à un anonyme
+  (400 vs 401). Verrouillé par banc.
 - 🔴 **`peekIssuer(raw)`** (`src/authenticator/peekIssuer.ts`) = lecture NON vérifiée de `iss`, bornée à
   **8192 octets**, sans `jose` (`supports()` est SYNC). **AIGUILLAGE seul** : `jwt` et `external-jwt`
   reconnaissent le même `Bearer <jws>` → sans discriminant, en mode `first` le premier listé capture les

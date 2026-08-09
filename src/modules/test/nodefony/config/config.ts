@@ -92,6 +92,15 @@ export default {
         resource: "https://api.foreign.example/v1",
       },
     },
+    // P6.9 — les ressources qu'un client peut NOMMER en demandant un jeton
+    // (`resource`, RFC 8707). La première est l'audience par défaut : garder
+    // l'émetteur en tête laisse inchangé tout jeton demandé sans `resource`.
+    // La seconde n'existe que pour le banc : elle est l'audience de la zone
+    // `test-foreign-audience`, ce qui permet de prouver la symétrie — chaque
+    // jeton n'ouvre QUE la porte pour laquelle il a été demandé.
+    jwt: {
+      audiences: ["https://localhost:5152", "https://api.foreign.example/v1"],
+    },
     // P6.9 — DEUX émetteurs, pour les deux moitiés du contrat.
     //
     // 1. `.invalid` : un émetteur qui n'existe pas et ne peut pas exister (RFC

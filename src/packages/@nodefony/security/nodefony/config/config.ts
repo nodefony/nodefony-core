@@ -385,7 +385,7 @@ const jwtSchema = z
       .array(z.string())
       .default([])
       .describe(
-        "Audiences acceptées (claim `aud`, RFC 8707). Vide = l'audience de l'app (= `issuer`). La validation d'audience est OBLIGATOIRE côté resource (RFC 9700).",
+        "Audiences acceptées à la vérification ET **demandables à l'émission** (claim `aud`, RFC 8707) — une liste BLANCHE de ressources, pas une simple valeur par défaut. Un client nomme sa cible par le paramètre `resource` du grant ; absente de cette liste, la demande est REFUSÉE (`invalid_target`, RFC 8707 §2) au lieu d'être servie avec l'audience par défaut — sans quoi tout porteur d'un identifiant valide obtiendrait un jeton pour la ressource de son choix. La PREMIÈRE entrée est l'audience par défaut (jeton demandé sans `resource`). Vide = l'audience de l'app (= `issuer`). Déclarer ici l'URI canonique d'une ressource protégée (porte MCP, API interne) est ce qui la rend joignable avec un jeton émis par cette application. La validation d'audience est OBLIGATOIRE côté resource (RFC 9700).",
       ),
     issuer: z
       .string()

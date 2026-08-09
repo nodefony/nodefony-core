@@ -407,6 +407,7 @@ export {
   AccessDeniedError,
   ThrottledError,
   UnverifiableTokenError,
+  InvalidTargetError,
   CsrfError,
   SsrfError,
 } from "./nodefony/errors";

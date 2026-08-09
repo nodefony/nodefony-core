@@ -21,6 +21,7 @@ import {
 } from "../config/defineModuleConfig";
 import { AuthenticationError } from "../errors/AuthenticationError";
 import { ThrottledError } from "../errors/ThrottledError";
+import { InvalidTargetError } from "../errors/InvalidTargetError";
 import type { LoginThrottler } from "../src/throttle/LoginThrottler";
 import {
   getTokenStoreFactory,
@@ -316,6 +317,7 @@ class TokenService extends Service {
     identifier: unknown,
     password: unknown,
     requestedScopes?: string[],
+    resource?: unknown,
   ): Promise<ITokenResponse> {
     if (
       typeof identifier !== "string" ||
@@ -350,7 +352,7 @@ class TokenService extends Service {
       throw new AuthenticationError("Invalid credentials");
     }
     throttler?.recordSuccess(identifier);
-    return this.issueTokens(user, requestedScopes);
+    return this.issueTokens(user, requestedScopes, resource);
   }
 
   // Journalise une tentative de grant par mot de passe (cold-path : endpoint
@@ -370,19 +372,97 @@ class TokenService extends Service {
     });
   }
 
-  /** Émet un couple access/refresh pour un utilisateur déjà authentifié. */
+  /**
+   * Résout l'audience (`aud`) d'un jeton à émettre — RFC 8707 §2.
+   *
+   * Le client dit POUR QUI il demande le jeton ; le serveur décide s'il accepte.
+   * La liste `security.jwt.audiences` est donc une **liste blanche de ressources
+   * demandables**, et non une simple valeur par défaut : sans elle, n'importe
+   * quel porteur d'un identifiant valide se ferait délivrer un jeton portant
+   * l'audience de son choix — y compris celle d'une ressource à laquelle il n'a
+   * rien à faire, dont la porte accepterait alors ce jeton sans sourciller.
+   *
+   * **Une seule ressource.** La RFC autorise plusieurs `resource` mais recommande
+   * l'inverse (§3) : « If a bearer token has multiple intended recipients […] the
+   * token is valid at more than one protected resource and can be used by any one
+   * of those resources to access any of the others », d'où « a high degree of
+   * trust between the involved parties is needed » — et elle prévoit qu'un
+   * serveur soit « unwilling or unable » de le faire. Nous le sommes : la portée
+   * minimale est le seul réglage qui ne se retourne pas contre l'application.
+   *
+   * @param requested - valeur `resource` telle que reçue, ou rien
+   * @returns l'audience à inscrire dans le jeton
+   * @throws InvalidTargetError (400) si la ressource est multiple, malformée ou
+   *         non déclarée
+   */
+  #resolveAudience(requested?: unknown): string {
+    const fallback = this.#runtime!.audiences[0]!;
+    if (requested === undefined || requested === null) return fallback;
+    if (Array.isArray(requested)) {
+      // Refus AVANT de regarder les valeurs : le motif du refus est le nombre.
+      throw new InvalidTargetError(
+        "A single `resource` is accepted — a token valid at several resources " +
+          "lets each of them act at the others (RFC 8707 §3).",
+      );
+    }
+    if (typeof requested !== "string" || requested.length === 0) {
+      throw new InvalidTargetError("`resource` must be an absolute URI.");
+    }
+    let url: URL;
+    try {
+      url = new URL(requested);
+    } catch {
+      throw new InvalidTargetError(
+        "`resource` must be an absolute URI (RFC 8707 §2).",
+        requested,
+      );
+    }
+    if (url.hash) {
+      // §2 : « The URI MUST NOT include a fragment component. » Un fragment ne
+      // voyage pas jusqu'au serveur : deux demandes qui n'en diffèrent que par
+      // lui désigneraient la même ressource tout en semblant distinctes.
+      throw new InvalidTargetError(
+        "`resource` must not include a fragment (RFC 8707 §2).",
+        requested,
+      );
+    }
+    // Comparaison sur la valeur EXACTE déclarée : c'est elle qui sera inscrite
+    // dans `aud`, et c'est elle que la ressource comparera à son propre URI
+    // canonique. Normaliser ici ferait diverger les deux extrémités.
+    if (!this.#runtime!.audiences.includes(requested)) {
+      // Le message ne nomme aucune audience acceptée : les énumérer donnerait la
+      // carte des ressources protégées à qui possède un simple identifiant.
+      throw new InvalidTargetError(
+        "The requested resource is not available to this application.",
+        requested,
+      );
+    }
+    return requested;
+  }
+
+  /**
+   * Émet un couple access/refresh pour un utilisateur déjà authentifié.
+   *
+   * @param user - porteur, déjà authentifié
+   * @param requestedScopes - scopes demandés (RFC 6749 §3.3)
+   * @param resource - ressource visée (RFC 8707) ; omise = audience par défaut
+   * @throws InvalidTargetError (400) si `resource` ne peut pas être servie
+   */
   async issueTokens(
     user: IUser,
     requestedScopes?: string[],
+    resource?: unknown,
   ): Promise<ITokenResponse> {
     this.#ensureReady();
     const scopes =
       requestedScopes && requestedScopes.length > 0 ? [...requestedScopes] : [];
-    const access = await this.#signAccess(user.identifier, scopes);
+    const audience = this.#resolveAudience(resource);
+    const access = await this.#signAccess(user.identifier, scopes, audience);
     const { record, raw } = this.#buildRefresh(
       user.identifier,
       scopes,
       this.#randomId(),
+      audience,
     );
     await this.#store!.put(record);
     // Audit (P6.14 lot 2b) : un jeton longue durée vient d'être émis (surface
@@ -408,9 +488,21 @@ class TokenService extends Service {
    * émet un nouveau couple, révoque l'ancien. Un refresh **déjà révoqué**
    * re-présenté = rejeu → toute la famille est coupée.
    *
+   * @param rawRefresh - le refresh token présenté, en clair
+   * @param resource - ressource visée (RFC 8707 §2.2). Sur un `refresh_token`,
+   *          la politique « may limit the acceptable resources to those that
+   *          were originally granted […] or a subset thereof » : un jeton ne
+   *          portant qu'une seule audience, le seul sous-ensemble possible est
+   *          elle-même. Demander autre chose est donc refusé, jamais ignoré —
+   *          sinon la rotation devient le chemin par lequel on obtient une
+   *          audience qu'on n'a pas su demander à l'émission.
    * @throws AuthenticationError (401) — refresh inconnu/expiré/révoqué, sujet banni.
+   * @throws InvalidTargetError (400) — `resource` demandée ≠ celle accordée
    */
-  async refresh(rawRefresh: unknown): Promise<ITokenResponse> {
+  async refresh(
+    rawRefresh: unknown,
+    resource?: unknown,
+  ): Promise<ITokenResponse> {
     this.#ensureReady();
     if (typeof rawRefresh !== "string" || rawRefresh.length === 0) {
       throw new AuthenticationError("Invalid token");
@@ -446,7 +538,24 @@ class TokenService extends Service {
     const user = await this.#resolveUserForRefresh(record.subjectId);
     // Downscoping : les scopes ne montent JAMAIS sur la chaîne de refresh.
     const scopes = [...record.scopes];
-    const access = await this.#signAccess(user.identifier, scopes);
+    // L'AUDIENCE non plus. Elle est reprise du record, jamais recalculée : un
+    // renouvellement qui retomberait sur l'audience par défaut élargirait la
+    // portée du jeton sans que personne ne l'ait demandé — une restriction qui
+    // s'annule au bout de quelques minutes n'est pas une restriction. Un record
+    // antérieur à ce champ (ou d'une autre origine) retombe sur le défaut.
+    const audience = record.audience?.[0] ?? this.#runtime!.audiences[0]!;
+    if (resource !== undefined && resource !== null && resource !== audience) {
+      // Le contrôle porte sur ce qui a été ACCORDÉ, pas sur la liste blanche : une
+      // audience parfaitement déclarée reste refusée ici si ce n'est pas celle de
+      // ce jeton-là. Sans cela, la rotation deviendrait une porte dérobée vers
+      // une audience qu'on n'a pas obtenue à l'émission.
+      throw new InvalidTargetError(
+        "The requested resource does not match the one granted to this token " +
+          "(RFC 8707 §2.2).",
+        typeof resource === "string" ? resource : undefined,
+      );
+    }
+    const access = await this.#signAccess(user.identifier, scopes, audience);
 
     if (!this.#runtime!.rotateRefresh) {
       // Rotation désactivée : on réémet l'access, le refresh courant reste valide.
@@ -460,7 +569,7 @@ class TokenService extends Service {
     }
     // Rotation : nouveau refresh (même famille), ancien chaîné + révoqué.
     const family = record.family ?? this.#randomId();
-    const next = this.#buildRefresh(user.identifier, scopes, family);
+    const next = this.#buildRefresh(user.identifier, scopes, family, audience);
     await store.put(next.record);
     record.replacedBy = next.record.id;
     record.revokedAt = now;
@@ -477,26 +586,42 @@ class TokenService extends Service {
 
   // ── Internes ─────────────────────────────────────────────────────────────────
 
-  async #signAccess(subject: string, scopes: string[]): Promise<string> {
+  async #signAccess(
+    subject: string,
+    scopes: string[],
+    audience: string,
+  ): Promise<string> {
     const jose = await this.#ensureJose();
     const { key, kid } = await this.#keystore!.getSigningKey();
     const rt = this.#runtime!;
-    return new jose.SignJWT({ scope: scopes.join(" ") })
-      .setProtectedHeader({ alg: "EdDSA", kid, typ: "at+jwt" })
-      .setIssuedAt()
-      .setIssuer(rt.issuer)
-      .setSubject(subject)
-      .setAudience(rt.audiences[0]!)
-      .setExpirationTime(`${rt.accessTtlS}s`)
-      .setJti(randomUUID())
-      .sign(key);
+    return (
+      new jose.SignJWT({ scope: scopes.join(" ") })
+        .setProtectedHeader({ alg: "EdDSA", kid, typ: "at+jwt" })
+        .setIssuedAt()
+        .setIssuer(rt.issuer)
+        .setSubject(subject)
+        // L'audience est celle qui a été ACCORDÉE — la ressource demandée, ou le
+        // défaut. Reprendre `audiences[0]` ici annulerait la demande sans un mot.
+        .setAudience(audience)
+        .setExpirationTime(`${rt.accessTtlS}s`)
+        .setJti(randomUUID())
+        .sign(key)
+    );
   }
 
-  /** Construit (sans persister) un record refresh + son secret opaque en clair. */
+  /**
+   * Construit (sans persister) un record refresh + son secret opaque en clair.
+   *
+   * @param audience - ressource ACCORDÉE, mémorisée pour que la rotation rende
+   *          un jeton de même portée. Sans elle, le renouvellement élargirait
+   *          silencieusement l'accès à l'audience par défaut — un downscoping
+   *          qui s'annule au bout de quelques minutes n'en est pas un.
+   */
   #buildRefresh(
     subject: string,
     scopes: string[],
     family: string,
+    audience: string,
   ): { record: IAccessTokenRecord; raw: string } {
     const raw = `nfr_${randomBytes(32).toString("base64url")}`;
     const now = Date.now();
@@ -509,7 +634,7 @@ class TokenService extends Service {
       subjectType: "user",
       tenantId: null,
       scopes: [...scopes],
-      audience: [...this.#runtime!.audiences],
+      audience: [audience],
       resources: null,
       secretHash: this.#hash(raw),
       hashAlg: "sha256",

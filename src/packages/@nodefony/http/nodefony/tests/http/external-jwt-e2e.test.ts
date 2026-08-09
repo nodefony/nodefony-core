@@ -114,16 +114,25 @@ function postJson(path: string, payload: unknown): Promise<Res> {
   });
 }
 
-async function accessToken(scope?: string): Promise<string> {
+async function accessToken(
+  scope?: string,
+  resource?: unknown,
+): Promise<string> {
   const res = await postJson(TOKEN_URL, {
     ...ADMIN,
     ...(scope ? { scope } : {}),
+    ...(resource !== undefined ? { resource } : {}),
   });
   expect(res.status, "grant credential attendu 200").to.equal(200);
   const token = (JSON.parse(res.body) as { access_token?: unknown })
     .access_token;
   expect(token, "access_token attendu").to.be.a("string");
   return token as string;
+}
+
+/** Demande de jeton dont on attend le REFUS — rend la réponse telle quelle. */
+function tokenRequest(resource: unknown): Promise<Res> {
+  return postJson(TOKEN_URL, { ...ADMIN, resource });
 }
 
 /** Aide au diagnostic : un 503 ici désigne le décor, pas le code sous test. */
@@ -218,5 +227,168 @@ describe("Jeton émis ICI, vérifié comme celui d'un TIERS (P6.9 e2e)", () => {
     const res = await get(WHOAMI);
     expect(res.status).to.equal(401);
     expect(String(res.headers["www-authenticate"] ?? "")).to.match(/Bearer/i);
+  });
+});
+
+/**
+ * **Un jeton demandé POUR une ressource n'ouvre que celle-là** — RFC 8707.
+ *
+ * Le banc ci-dessus prouve qu'un jeton est refusé par une zone dont l'audience
+ * diffère. Il ne dit rien du cas utile : obtenir un jeton pour CETTE ressource.
+ * Tant que l'audience est un défaut de configuration, une application n'a qu'une
+ * seule porte ouvrable — la porte MCP, une API interne et le reste doivent alors
+ * partager la même audience, c'est-à-dire renoncer à la garde.
+ *
+ * Le paramètre `resource` du grant renverse cela : le client nomme sa cible,
+ * l'émetteur vérifie qu'il accepte de la servir, et le jeton porte cette
+ * audience-là. Ce qui se prouve ici est la **symétrie** : le même compte, le même
+ * mot de passe, deux demandes qui ne diffèrent que par `resource` — et deux
+ * jetons dont chacun est refusé par la porte de l'autre.
+ */
+describe("Un jeton n'ouvre que la ressource pour laquelle il est demandé", () => {
+  const FOREIGN_RESOURCE = "https://api.foreign.example/v1";
+
+  it("⭐ demandé pour l'autre ressource, il ouvre CETTE porte…", async () => {
+    const token = await accessToken(undefined, FOREIGN_RESOURCE);
+    const res = await get(FOREIGN, { authorization: `Bearer ${token}` });
+    expect(res.status, decor).to.equal(200);
+    expect(
+      (JSON.parse(res.body) as { foreignAudience?: unknown }).foreignAudience,
+    ).to.equal(true);
+  });
+
+  it("⭐ …et se ferme sur celle d'à côté — la symétrie est complète", async () => {
+    // Le pendant du test d'audience plus haut. Les deux ensemble disent la
+    // règle entière : un jeton vaut pour UNE ressource, celle qui a été
+    // demandée, et pour aucune autre.
+    const token = await accessToken(undefined, FOREIGN_RESOURCE);
+    const res = await get(WHOAMI, { authorization: `Bearer ${token}` });
+    expect(res.status).to.equal(401);
+  });
+
+  it("🔴 une ressource NON déclarée est refusée à l'ÉMISSION (`invalid_target`)", async () => {
+    // Le refus tombe là où la faute est commise. Servie avec l'audience par
+    // défaut, la demande rendrait un jeton valide — pour quelqu'un d'autre — et
+    // le client ne découvrirait le problème qu'en recevant un 401 d'une porte
+    // qui, elle, n'a rien fait de mal.
+    const res = await tokenRequest("https://api.inconnue.example/v1");
+    expect(res.status).to.equal(400);
+    const body = JSON.parse(res.body) as Record<string, unknown>;
+    expect(body.error).to.equal("invalid_target");
+    // La liste des audiences acceptées ne fuit pas : ce serait la carte des
+    // ressources protégées, offerte à qui possède un simple identifiant.
+    expect(res.body).to.not.match(/foreign\.example|localhost:5152/);
+  });
+
+  it("🔴 plusieurs ressources à la fois : refusé (RFC 8707 §3)", async () => {
+    // Un jeton à plusieurs destinataires est utilisable par chacun d'eux chez
+    // les autres — la RFC prévoit explicitement qu'un serveur soit « unwilling
+    // or unable » de le délivrer.
+    const res = await tokenRequest([
+      FOREIGN_RESOURCE,
+      "https://localhost:5152",
+    ]);
+    expect(res.status).to.equal(400);
+    expect((JSON.parse(res.body) as { error?: unknown }).error).to.equal(
+      "invalid_target",
+    );
+  });
+
+  it("une valeur qui n'est pas une URI absolue est refusée", async () => {
+    const res = await tokenRequest("/nodefony/mcp");
+    expect(res.status).to.equal(400);
+    expect((JSON.parse(res.body) as { error?: unknown }).error).to.equal(
+      "invalid_target",
+    );
+  });
+
+  it("sans `resource`, rien ne change — l'audience par défaut s'applique", async () => {
+    // Contrôle positif : le paramètre est une OPTION. Une application qui ne
+    // l'emploie pas ne doit rien voir de ce lot.
+    const res = await get(WHOAMI, {
+      authorization: `Bearer ${await accessToken()}`,
+    });
+    expect(res.status, decor).to.equal(200);
+  });
+});
+
+/**
+ * **Red-team du paramètre `resource` lui-même.**
+ *
+ * Nommer sa cible est une nouvelle entrée contrôlée par le client, donc une
+ * nouvelle surface. Trois questions qu'aucun test fonctionnel ne pose : le refus
+ * renseigne-t-il un anonyme ? la rotation permet-elle d'obtenir ce que
+ * l'émission a refusé ? une valeur qui n'est pas une chaîne fait-elle tomber le
+ * serveur ?
+ */
+describe("Red-team — la demande de ressource comme surface d'attaque", () => {
+  const FOREIGN_RESOURCE = "https://api.foreign.example/v1";
+
+  it("🔴 le refus d'audience n'est PAS un oracle pour un anonyme", async () => {
+    // L'ORDRE est la garde : le credential est vérifié AVANT que la ressource
+    // soit examinée. Inversé, ce point de terminaison rendrait la carte des
+    // ressources protégées à qui n'a même pas de compte — `400` pour une
+    // audience inconnue, `401` pour une déclarée, il suffit de comparer.
+    const res = await postJson(TOKEN_URL, {
+      username: "admin",
+      password: "mauvais-mot-de-passe",
+      resource: FOREIGN_RESOURCE,
+    });
+    expect(res.status).to.equal(401);
+    expect((JSON.parse(res.body) as { error?: unknown }).error).to.equal(
+      "invalid_grant",
+    );
+  });
+
+  it("🔴 la ROTATION n'élargit pas la portée — même déclarée, une autre audience est refusée", async () => {
+    // Le chemin détourné : obtenir un jeton pour A, puis demander B au
+    // renouvellement. La RFC borne les ressources d'un `refresh_token` à celles
+    // accordées à l'origine (§2.2) ; ici une seule audience, donc elle seule.
+    const issued = await postJson(TOKEN_URL, {
+      ...ADMIN,
+      resource: FOREIGN_RESOURCE,
+    });
+    const refresh = (JSON.parse(issued.body) as { refresh_token: string })
+      .refresh_token;
+    const res = await postJson(`${TOKEN_URL}/refresh`, {
+      refresh_token: refresh,
+      resource: "https://localhost:5152",
+    });
+    expect(res.status).to.equal(400);
+    expect((JSON.parse(res.body) as { error?: unknown }).error).to.equal(
+      "invalid_target",
+    );
+  });
+
+  it("la rotation CONSERVE l'audience accordée (sans la redemander)", async () => {
+    // Le pendant positif : une portée restreinte qui s'annulerait au premier
+    // renouvellement ne serait pas une restriction. Le jeton renouvelé doit
+    // ouvrir la même porte, et elle seule.
+    const issued = await postJson(TOKEN_URL, {
+      ...ADMIN,
+      resource: FOREIGN_RESOURCE,
+    });
+    const refresh = (JSON.parse(issued.body) as { refresh_token: string })
+      .refresh_token;
+    const rotated = await postJson(`${TOKEN_URL}/refresh`, {
+      refresh_token: refresh,
+    });
+    expect(rotated.status).to.equal(200);
+    const access = (JSON.parse(rotated.body) as { access_token: string })
+      .access_token;
+    expect(
+      (await get(FOREIGN, { authorization: `Bearer ${access}` })).status,
+    ).to.equal(200);
+    expect(
+      (await get(WHOAMI, { authorization: `Bearer ${access}` })).status,
+    ).to.equal(401);
+  });
+
+  it("une `resource` qui n'est pas une chaîne est refusée, jamais une 500", async () => {
+    // Le corps est du JSON : le client choisit le TYPE autant que la valeur.
+    for (const bogus of [{}, 42, true]) {
+      const res = await tokenRequest(bogus);
+      expect(res.status, `resource = ${JSON.stringify(bogus)}`).to.equal(400);
+    }
   });
 });
