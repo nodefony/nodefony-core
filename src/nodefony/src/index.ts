@@ -588,6 +588,42 @@ export {
 } from "./cli/symbols";
 export type { ISymbolEntry, ISymbolsGraph } from "./cli/symbols";
 
+// ─── Rôle SERVEUR DE RESSOURCE OAuth 2.1 — protocole seul, aucune crypto ──────
+// Publier ce qu'on protège (RFC 9728), refuser en disant où obtenir un jeton
+// (RFC 6750), et lier ce jeton à CETTE ressource (RFC 8707). Rien ici ne valide
+// une signature : cela demande un fournisseur de clés et une politique, qui
+// vivent dans `@nodefony/security` — d'où le contrat `IAccessTokenVerifier`,
+// que la porte consomme sans connaître son implémentation.
+// ⚠️ Volontairement HORS de `mcp/` : le Model Context Protocol n'en est que le
+// premier consommateur. Une porte agentique de production ou une API d'agents
+// (P12) protégeront leurs propres chemins avec les mêmes fonctions — la RFC 9728
+// prévoit plusieurs ressources par hôte par insertion de chemin.
+export {
+  canonicalResourceUri,
+  protectedResourceMetadataPath,
+  protectedResourceMetadataUrl,
+  buildProtectedResourceMetadata,
+  buildBearerChallenge,
+  authorizeProtectedResource,
+  missingScopes,
+  BearerError,
+} from "./oauth/protectedResource";
+export type {
+  IProtectedResourceMetadata,
+  IProtectedResourceInput,
+  IProtectedResourcePolicy,
+  IAccessPrincipal,
+  IAccessTokenVerifier,
+  ProtectedResourceOutcome,
+  IBearerChallenge,
+  BearerErrorCode,
+} from "./oauth/protectedResource";
+// Lecture d'un en-tête `Authorization: Bearer` — au cœur parce que DEUX couches
+// qui ne se voient pas la partagent (les authentificateurs de `@nodefony/security`
+// et la porte MCP). Une copie n'aurait pas divergé bruyamment : elle aurait
+// divergé sur un cas limite que chaque copie continue de passer.
+export { bearerToken } from "./runtime/bearer";
+
 // ─── Model Context Protocol — le PROTOCOLE au cœur, la PORTE dans un module ───
 // Tout ce qui suit est PUR : traitement d'un message, gardes de transport,
 // catalogue intégré, collecte des outils qu'une application déclare. Rien n'y

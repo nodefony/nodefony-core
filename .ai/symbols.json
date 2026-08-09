@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-09T15:18:35.792Z",
+  "generated": "2026-08-09T17:06:29.389Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 698,
-    "symbols": 2893,
-    "classes": 348,
-    "interfaces": 839,
-    "types": 373,
+    "files": 701,
+    "symbols": 2910,
+    "classes": 349,
+    "interfaces": 844,
+    "types": 376,
     "enums": 4,
-    "functions": 1055,
-    "constants": 274
+    "functions": 1062,
+    "constants": 275
   },
   "symbols": {
     "Cli": {
@@ -2765,6 +2765,139 @@
       "module": "@nodefony/core",
       "description": "Clés des outils intégrés — ce que l'allowlist de configuration nomme. Publiée pour qu'un schéma de configuration puisse la valider au lieu de la retaper : une clé inconnue en config est silencieuse…"
     },
+    "IProtectedResourceMetadata": {
+      "name": "IProtectedResourceMetadata",
+      "kind": "interface",
+      "file": "src/nodefony/src/oauth/protectedResource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Métadonnées publiées d'une ressource protégée — RFC 9728 §2. Les noms de champs sont ceux du registre IANA, en `snake_case` : c'est un document de protocole, pas un objet interne. Le renommer « pou…"
+    },
+    "IProtectedResourceInput": {
+      "name": "IProtectedResourceInput",
+      "kind": "interface",
+      "file": "src/nodefony/src/oauth/protectedResource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "De quoi composer le document — ce que l'application, seule, connaît."
+    },
+    "IBearerChallenge": {
+      "name": "IBearerChallenge",
+      "kind": "interface",
+      "file": "src/nodefony/src/oauth/protectedResource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "De quoi composer un défi `WWW-Authenticate`."
+    },
+    "IAccessPrincipal": {
+      "name": "IAccessPrincipal",
+      "kind": "interface",
+      "file": "src/nodefony/src/oauth/protectedResource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'une vérification de jeton RÉUSSIE établit. Il n'y a pas de drapeau `authenticated` : ce type n'existe que lorsqu'une identité a été prouvée. Un booléen aurait permis de fabriquer un principal…"
+    },
+    "IProtectedResourcePolicy": {
+      "name": "IProtectedResourcePolicy",
+      "kind": "interface",
+      "file": "src/nodefony/src/oauth/protectedResource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Politique appliquée à une requête vers une ressource protégée."
+    },
+    "BearerErrorCode": {
+      "name": "BearerErrorCode",
+      "kind": "type",
+      "file": "src/nodefony/src/oauth/protectedResource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un des codes de {@link BearerError}."
+    },
+    "IAccessTokenVerifier": {
+      "name": "IAccessTokenVerifier",
+      "kind": "type",
+      "file": "src/nodefony/src/oauth/protectedResource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qui sait valider un jeton — implémenté ailleurs, jamais ici. Le cœur ne valide aucune signature : cela demande un fournisseur de clés, une dépendance cryptographique et une politique, qui vivent…"
+    },
+    "ProtectedResourceOutcome": {
+      "name": "ProtectedResourceOutcome",
+      "kind": "type",
+      "file": "src/nodefony/src/oauth/protectedResource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Verdict rendu à la porte — à elle de le traduire en réponse."
+    },
+    "canonicalResourceUri": {
+      "name": "canonicalResourceUri",
+      "kind": "function",
+      "file": "src/nodefony/src/oauth/protectedResource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Normalise et contrôle une URI canonique de ressource (RFC 8707 §2). Trois refus, tous vécus comme des sources d'erreur silencieuse ailleurs : l'absence de schéma (une audience relative ne se compar…"
+    },
+    "protectedResourceMetadataPath": {
+      "name": "protectedResourceMetadataPath",
+      "kind": "function",
+      "file": "src/nodefony/src/oauth/protectedResource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose le CHEMIN où publier les métadonnées, à partir de l'URI de la ressource (RFC 9728 §3.1). La règle est une insertion, pas une concaténation : le suffixe bien connu se place **entre l'hôte et…"
+    },
+    "protectedResourceMetadataUrl": {
+      "name": "protectedResourceMetadataUrl",
+      "kind": "function",
+      "file": "src/nodefony/src/oauth/protectedResource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose l'URL ABSOLUE des métadonnées — celle qui part dans le défi."
+    },
+    "buildProtectedResourceMetadata": {
+      "name": "buildProtectedResourceMetadata",
+      "kind": "function",
+      "file": "src/nodefony/src/oauth/protectedResource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose le document de métadonnées."
+    },
+    "buildBearerChallenge": {
+      "name": "buildBearerChallenge",
+      "kind": "function",
+      "file": "src/nodefony/src/oauth/protectedResource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose l'en-tête `WWW-Authenticate` d'un refus. ⭐ **C'est cet en-tête qui rend l'autorisation apprenable.** Sans lui, un refus est un mur : le client ignore qu'un jeton existe, où le demander et p…"
+    },
+    "authorizeProtectedResource": {
+      "name": "authorizeProtectedResource",
+      "kind": "function",
+      "file": "src/nodefony/src/oauth/protectedResource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Décide du sort d'une requête d'après l'en-tête `Authorization`. **Fonction pure** (hors l'appel au vérificateur) : elle ne touche ni au socket, ni au conteneur, ni à l'horloge — d'où le fait que ch…"
+    },
+    "missingScopes": {
+      "name": "missingScopes",
+      "kind": "function",
+      "file": "src/nodefony/src/oauth/protectedResource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "L'appelant présente-t-il TOUS les scopes exigés ? « Tous », et pas « au moins un » : un scope borne un pouvoir, et les cumuler par disjonction reviendrait à accorder le plus large de la liste."
+    },
+    "BearerError": {
+      "name": "BearerError",
+      "kind": "const",
+      "file": "src/nodefony/src/oauth/protectedResource.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Codes d'erreur d'un porteur — RFC 6750 §3.1."
+    },
     "RateBounds": {
       "name": "RateBounds",
       "kind": "interface",
@@ -3162,6 +3295,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Assertion type **compile-time** : `expectType<T>(value)` échoue à la compilation si `value` n'est pas assignable à `T`. **0 coût runtime** (fonction vide)."
+    },
+    "bearerToken": {
+      "name": "bearerToken",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/bearer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le jeton porté par un en-tête `Authorization`, ou `null`."
     },
     "GcScheduler": {
       "name": "GcScheduler",
@@ -8820,6 +8961,19 @@
         "controller"
       ],
       "description": "Serveur **Model Context Protocol** de l'application — la porte par laquelle un agent externe l'interroge. ## Pourquoi une route, et pas un process La révision `2026-07-28` du transport « Streamable…"
+    },
+    "OAuthMetadataController": {
+      "name": "OAuthMetadataController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts",
+      "exported": true,
+      "module": "@nodefony/devkit",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Métadonnées OAuth 2.1 de la porte MCP — **le seul moyen normalisé** pour qu'un agent apprenne où obtenir un jeton. ## Pourquoi un controller séparé Trois raisons, et aucune n'est esthétique. Le che…"
     },
     "IDevkitService": {
       "name": "IDevkitService",
@@ -18288,14 +18442,6 @@
       "module": "@nodefony/security",
       "description": "Noms enregistrés (validation boot, introspection Studio, tests)."
     },
-    "bearerToken": {
-      "name": "bearerToken",
-      "kind": "function",
-      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/bearer.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "description": "Rend le jeton porté par un en-tête `Authorization`, ou `null`."
-    },
     "FirewallRealtimeAuthenticator": {
       "name": "FirewallRealtimeAuthenticator",
       "kind": "class",
@@ -20311,6 +20457,7 @@
         "VueController",
         "DevkitController",
         "McpController",
+        "OAuthMetadataController",
         "DocumentationController",
         "AdminApiController",
         "ApiKeyController",
@@ -20752,6 +20899,7 @@
         "VueController",
         "DevkitController",
         "McpController",
+        "OAuthMetadataController",
         "DocumentationController",
         "StudioController",
         "StudioCreateController",
@@ -21599,6 +21747,9 @@
       "McpController": [
         "src/packages/@nodefony/devkit/index.ts"
       ],
+      "OAuthMetadataController": [
+        "src/packages/@nodefony/devkit/index.ts"
+      ],
       "GitService": [
         "src/packages/@nodefony/documentation/index.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
@@ -21821,6 +21972,7 @@
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
@@ -21945,6 +22097,7 @@
         "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "controller": [
@@ -21984,6 +22137,7 @@
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
@@ -23475,7 +23629,8 @@
       ],
       "IMcpCaller": [
         "src/nodefony/src/mcp/server.ts",
-        "src/nodefony/src/mcp/tools.ts"
+        "src/nodefony/src/mcp/tools.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
       ],
       "INSPECT_SUBJECTS": [
         "src/nodefony/src/mcp/tools.ts",
@@ -23507,6 +23662,11 @@
       ],
       "IMcpToolResult": [
         "src/nodefony/src/mcp/tools.ts"
+      ],
+      "bearerToken": [
+        "src/nodefony/src/oauth/protectedResource.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts"
       ],
       "ActionNames": [
         "src/nodefony/src/realtime/IRealtimeSocket.ts",
@@ -24758,6 +24918,7 @@
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
@@ -24904,6 +25065,9 @@
       "ToolExecutionError": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
       ],
+      "canonicalResourceUri": [
+        "src/packages/@nodefony/devkit/nodefony/config/config.ts"
+      ],
       "devkitConfigSchema": [
         "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts"
       ],
@@ -24915,6 +25079,7 @@
       "IDevkitService": [
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
       ],
       "checkMcpAccess": [
@@ -24925,6 +25090,24 @@
       ],
       "collectMcpTools": [
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+      ],
+      "authorizeProtectedResource": [
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+      ],
+      "protectedResourceMetadataUrl": [
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+      ],
+      "IAccessTokenVerifier": [
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+      ],
+      "MCP_ENDPOINT_PATH": [
+        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts"
+      ],
+      "protectedResourceMetadataPath": [
+        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts"
+      ],
+      "buildProtectedResourceMetadata": [
+        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts"
       ],
       "ICardAppInfo": [
         "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
@@ -27481,10 +27664,6 @@
       ],
       "parseApiKey": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts"
-      ],
-      "bearerToken": [
-        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts"
       ],
       "AnonymousAuthenticator": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
