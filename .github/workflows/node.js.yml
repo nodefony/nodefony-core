@@ -406,10 +406,26 @@ jobs:
       # En production, le module qui porte les routes du banc est `policy: "dev"` —
       # il n'est chargé que par la dérogation `NF_WITH_DEV_MODULES` posée plus haut,
       # sans quoi la suite entière répondrait 404.
+      # Le certificat de développement est GÉNÉRÉ, pas versionné (`.gitignore` :
+      # `**/nodefony/config/certificates/`) — sur un runner neuf, sa CA n'existe
+      # donc pas avant le premier boot. On la fabrique ICI, parce que l'étape
+      # suivante doit la NOMMER : `NODE_EXTRA_CA_CERTS` est lue par Node au
+      # démarrage du process, un fichier apparu après ne serait jamais vu.
+      - name: Générer le certificat de développement (pour l'ancre TLS ci-dessous)
+        run: node node_modules/nodefony/bin/nodefony http:certificates
+
       - name: Start Nodefony server (detached, fail-fast)
         uses: ./.github/actions/nodefony-server
         with:
           mode: ${{ matrix.mode == 'production' && 'production' || 'development --no-watch' }}
+          # Le serveur se joint LUI-MÊME en https pour découvrir ses propres
+          # métadonnées d'émetteur (RFC 8414) — c'est ce que fait la porte quand
+          # un jeton se réclame de cette application. Sans ancre de confiance, ce
+          # `fetch` échoue et la zone rend 503 : un verdict fidèle, mais qui
+          # n'éprouve rien. Ancre AJOUTÉE aux autorités du système, jamais un
+          # `NODE_TLS_REJECT_UNAUTHORIZED` — un vrai défaut de certificat doit
+          # rester visible. Même décor que `start.sh` en local.
+          env: NODE_EXTRA_CA_CERTS=${{ github.workspace }}/nodefony/config/certificates/ca/nodefony-root-ca.crt.pem
 
       - name: Run integration tests
         run: npm run test:integration
