@@ -230,6 +230,53 @@ Nodefony.getKernel();
 
 ---
 
+## Model Context Protocol (`src/mcp/`) — le protocole, pas la porte
+
+Tout est PUR : aucun socket, aucun conteneur, aucune horloge. La PORTE HTTP vit
+dans un module (`@nodefony/devkit` → `POST /nodefony/mcp`) ; le protocole vit ici
+pour qu'une seconde porte (P12, ou une porte authentifiée de production) n'ait
+rien à redéclarer.
+
+| Symbole                           | Fichier             | Rôle                                                                                                                                          |
+| --------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `handleMcpMessage`                | `src/mcp/server.ts` | 1 message JSON-RPC → `{status, body}`. Reçoit des outils **déjà résolus** (`IMcpTool[]`), jamais un catalogue                                 |
+| `checkMcpAccess`/`isLocalAddress` | `src/mcp/guard.ts`  | `Origin` (**absent = client natif → passe**) + localité. Localité jugée AVANT l'origine                                                       |
+| `builtinMcpTools(deps)`           | `src/mcp/tools.ts`  | 4 intégrés (`inspect`, `check`, `symbols`, `card`) → briques existantes (`readAdminSubject`, `collectCheckReport`, `lookupSymbol`, `getCard`) |
+| `collectMcpTools(opts)`           | `src/mcp/tools.ts`  | intégrés filtrés par allowlist **puis** `getMcpTools()` de chaque module. Écarts → `onSkip`                                                   |
+| `publishMcpTools`/`callMcpTool`   | `src/mcp/tools.ts`  | projection sans `handler` / exécution par nom                                                                                                 |
+| `mcpText`                         | `src/mcp/tools.ts`  | enveloppe `content[]` — une app en a besoin pour ses propres outils                                                                           |
+| `IMcpTool`                        | `types/IMcpTool.ts` | contrat producteur (comme `IAdminApi`) ; `IModule.getMcpTools?()`                                                                             |
+
+- **Collecte, PAS registre** — rien n'est alloué au boot, rien n'est mémorisé :
+  la liste se ramasse au moment de servir `tools/list`. Un registre serait
+  nécessaire s'il fallait MONTER quelque chose au boot (c'est le cas de
+  `IAdminRegistry`, qui crée des routes) ; un outil MCP ne monte rien.
+  Conséquences : coût nul en production, aucun ordre de `register()`, fraîcheur
+  gratuite.
+- **Ordre = intégrés d'abord** → un module ne peut pas se substituer à
+  `nodefony_inspect` et répondre à sa place.
+- **Nom d'outil** : `^[a-zA-Z0-9_-]{1,64}$`. Il voyage dans le contexte du
+  modèle ; hors forme, il produit des appels que rien ne résout.
+- **Dual-ère assumé** : `initialize` (legacy) ET `server/discover` +
+  `params._meta` (moderne). En-tête ≠ `_meta` → `400`/`-32020` ; révision
+  inconnue dans `_meta`/en-tête → `400`/`-32022` **avec la liste servie**.
+  Notification → `202` SANS corps. Méthode inconnue → `404`/`-32601`.
+- 🔴 **`initialize` ÉCHOTE la révision du client** (`negotiateVersion`), il
+  n'annonce PAS la préférée. Annoncer `2026-07-28` à tout le monde rendait la
+  porte injoignable : `@modelcontextprotocol/sdk@1.30.0` porte
+  `LATEST = 2025-11-25` et raccroche sur toute réponse hors de sa liste
+  (`SUPPORTED = 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05, 2024-10-07`).
+  Client muet → `MCP_DEFAULT_NEGOTIATED_VERSION` (`2025-03-26`, ce que la spec
+  impose de supposer). Révision inconnue en `initialize` → notre préférée, au
+  client de raccrocher (pas un refus : `initialize` PROPOSE).
+  **`MCP_SUPPORTED_VERSIONS` est une PROMESSE** — un test exerce chacune.
+  ⚠️ Défaut trouvé par un VRAI client, jamais par la suite : conforme à la
+  dernière norme et injoignable par tout le monde.
+- ⚠️ `check` scanne le dépôt réel (~4 s) : tout test qui l'exerce doit porter un
+  `timeout` explicite — le défaut vitest de 5 s tombait en CI et passait en local.
+
+---
+
 ## Event (`src/Event.ts`)
 
 → Étend `node:events` EventEmitter. Ajoute : `fire()`, `fireAsync()`, `emitAsync()`, `listen()`, `settingsToListen()`.

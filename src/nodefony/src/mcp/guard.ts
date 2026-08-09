@@ -80,7 +80,7 @@ export function checkMcpAccess(
   if (!policy.allowRemote && !isLocalAddress(input.remoteAddress)) {
     return {
       allowed: false,
-      why: `adresse non locale (${input.remoteAddress ?? "inconnue"}) — voir devkit.mcp.allowRemote`,
+      why: `adresse non locale (${input.remoteAddress ?? "inconnue"}) — voir l'option \`allowRemote\` du serveur MCP`,
     };
   }
 
@@ -88,7 +88,7 @@ export function checkMcpAccess(
     if (!policy.allowedOrigins.includes(input.origin)) {
       return {
         allowed: false,
-        why: `origine « ${input.origin} » non admise — voir devkit.mcp.allowedOrigins`,
+        why: `origine « ${input.origin} » non admise — voir l'option \`allowedOrigins\` du serveur MCP`,
       };
     }
   }

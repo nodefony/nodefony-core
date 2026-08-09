@@ -203,6 +203,13 @@ sans argument à CHAQUE requête, `Resolver.ts:293`) ; `init(owner)` est celui d
 Module et du Service (une fois au démarrage, sous garde de boot). Deux cycles de
 vie, deux noms.
 
+**getMcpTools?(): IMcpTool[]** (optionnel, prototype) : outils que le module publie sur la porte MCP
+de l'application. **Lu à la demande** par `collectMcpTools` (cœur, `src/mcp/tools.ts`) quand une
+requête `tools/list`/`tools/call` arrive — jamais au boot, rien n'est enregistré. Pas
+d'implémentation par défaut sur `Module` : une méthode rendant `[]` coûterait un appel par module et
+par requête. Handlers = fermetures sur `this`. Écart (nom hors `^[a-zA-Z0-9_-]{1,64}$`, nom déjà
+pris, handler absent, déclaration qui lève) → écarté + `onSkip`, jamais silencieux.
+
 **readOverrideModuleConfig(deep?)**: keys `Module-<name>` dans `this.options` → `extend(mod.options, override)`. Warn si module inconnu.
 
 **addService(Ctor, ...args)**: `Injector.instantiate(svc, this, ...args)` → container → `init(module)` si présente (`Module.ts:377`), sous `guardServiceInitialize` quand un kernel est présent. L'injecteur CONSTRUIT seulement — il n'appelle aucun hook.

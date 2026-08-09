@@ -64,20 +64,12 @@ class DevkitModule extends Module {
 export default DevkitModule;
 export { DevkitService, DevkitController, McpController };
 
-// Serveur MCP — protocole et gardes en fonctions PURES, réutilisables par un
-// autre transport (`stdio`, le jour où répondre application éteinte comptera).
-export {
-  MCP_ENDPOINT_PATH,
-  MCP_PROTOCOL_VERSION,
-} from "./nodefony/src/mcp/protocol";
-export { handleMcpMessage } from "./nodefony/src/mcp/server";
-export { checkMcpAccess, isLocalAddress } from "./nodefony/src/mcp/guard";
-export { listMcpTools, callMcpTool } from "./nodefony/src/mcp/tools";
-export type { IMcpServerContext } from "./nodefony/src/mcp/server";
-export type {
-  IMcpToolDefinition,
-  IMcpToolResult,
-} from "./nodefony/src/mcp/tools";
+// Serveur MCP — ce module n'expose QUE la porte (`McpController`, ci-dessus).
+// Le protocole, les gardes, le catalogue intégré et la collecte des outils
+// vivent au cœur et s'importent de `nodefony` : `handleMcpMessage`,
+// `checkMcpAccess`, `collectMcpTools`, `mcpText`, `IMcpTool`. Les republier ici
+// donnerait deux surfaces pour une même brique — et le jour où l'une bougerait,
+// l'autre continuerait de passer ses tests.
 
 // Brique PURE, réutilisable par une autre porte (CLI, presse-papier, MCP) : la
 // carte se compose à partir d'un état injecté, pas d'un Kernel. « Une source,

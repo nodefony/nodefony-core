@@ -4,6 +4,7 @@ import Kernel, { ServiceConstructor, ServiceWithInit } from "./Kernel";
 import { toImportSpecifier } from "./resolveModuleEntry";
 import type { IModule, PackageJson } from "../types/IModule";
 export type { PackageJson } from "../types/IModule";
+import type { IMcpTool } from "../types/IMcpTool";
 import type { IKernel } from "../types/IKernel";
 import { JSONObject } from "../types/globals";
 import Service, { DefaultOptionsService } from "../Service";
@@ -97,6 +98,16 @@ class Module<TConfig = Record<string, unknown>>
   public onKernelBoot?(): Promise<this>;
   public onKernelReady?(): Promise<this>;
   public init?(kernel?: IKernel): Promise<this>;
+  /**
+   * Outils que ce module ajoute à la porte MCP de l'application — cf
+   * {@link IModule.getMcpTools}.
+   *
+   * Déclaré ici **sans implémentation par défaut**, exactement comme les hooks
+   * de cycle de vie au-dessus : une méthode de base qui rendrait `[]` ferait
+   * payer un appel de fonction par module et par requête `tools/list`, pour
+   * rien. Le collecteur teste la présence avant d'appeler.
+   */
+  public getMcpTools?(): IMcpTool[];
   /**
    * Initialise le module — appelé par {@link Kernel.addModule}.
    *

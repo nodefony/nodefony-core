@@ -1,6 +1,7 @@
 import type { IService } from "./IService";
 import type { IKernel } from "./IKernel";
 import type { JSONObject } from "./globals";
+import type { IMcpTool } from "./IMcpTool";
 
 /**
  * Constructeur générique de controller — équivalent au type historique
@@ -71,6 +72,21 @@ export interface IModule extends IService {
 
   // ─── Services enregistrés par ce module (introspection admin) ────────────
   getServiceNames(): string[];
+
+  // ─── Outils MCP déclarés par ce module (agents externes) ─────────────────
+  /**
+   * Outils que ce module ajoute à la porte MCP de l'application.
+   *
+   * Optionnel et **lu à la demande** — jamais au boot : un serveur MCP les
+   * ramasse au moment de servir `tools/list`, ce qui ne coûte rien tant que
+   * personne n'appelle, et rend la liste toujours fraîche. Le module capture par
+   * fermeture ce dont ses handlers ont besoin (`this`, ses services).
+   *
+   * Une déclaration qui lève, rend autre chose qu'un tableau, porte un nom hors
+   * forme ou déjà pris est ÉCARTÉE avec un motif journalisé — jamais en silence,
+   * sinon son auteur chercherait la faute dans un handler jamais appelé.
+   */
+  getMcpTools?(): IMcpTool[];
 
   // ─── Config — JSON Schema (introspection admin / Studio) ─────────────────
   // JSON Schema (`z.toJSONSchema`) de la config du module, ou null si non migré

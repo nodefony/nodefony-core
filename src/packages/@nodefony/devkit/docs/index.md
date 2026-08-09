@@ -93,6 +93,19 @@ transport, un serveur MCP est un endpoint `POST` sans session : c'est donc une
 route de votre application. Elle vit tant qu'elle tourne, suit chaque
 rechargement du serveur de développement, et n'a aucun cache à invalider.
 
+**La déclaration reste dans VOTRE projet.** `ai:mcp` écrit `.mcp.json` à la
+racine du projet — jamais dans une configuration globale. Ce n'est pas un détail
+de rangement : l'URL porte un **port**, et deux applications Nodefony ouvertes en
+même temps n'écoutent pas sur le même. Une déclaration globale en désignerait
+forcément une, au hasard. (Pour Mistral Vibe, l'équivalent par projet est
+`.vibe/config.toml`, section `[[mcp_servers]]`.)
+
+**Cinq révisions servies** — `2026-07-28`, `2025-11-25`, `2025-06-18`,
+`2025-03-26`, `2024-11-05` — et le serveur **répond celle que le client
+demande**. Annoncer la plus récente à tout le monde rend la porte injoignable :
+un SDK qui ne connaît pas encore cette révision raccroche, et le serveur le plus
+conforme du monde ne parle alors à personne.
+
 Trois choses à savoir avant de s'étonner d'un refus :
 
 - une **adresse non locale** reçoit `403` (`mcp.allowRemote`) ;
@@ -106,7 +119,55 @@ Trois choses à savoir avant de s'étonner d'un refus :
 > (« Servers SHOULD implement proper authentication »), que nous n'implémentons
 > pas : la faire selon la norme exigerait que Nodefony soit un serveur
 > d'autorisation OAuth 2.1 complet. Ce qui borne le risque, c'est le périmètre
-> ci-dessus. Les outils sont en lecture seule, et `mcp.tools` est une allowlist.
+> ci-dessus. Les outils intégrés sont en lecture seule, et `mcp.tools` est une
+> allowlist.
+
+### Ajouter VOS outils — ce que l'agent ne peut pas deviner
+
+Les quatre outils ci-dessus décrivent le framework. Ils ne savent rien de votre
+métier — et c'est précisément ce qu'un agent invente le plus mal. N'importe quel
+module de votre application peut donc en publier :
+
+```ts
+import { Module, mcpText, type IMcpTool } from "nodefony";
+
+class Shop extends Module {
+  getMcpTools(): IMcpTool[] {
+    return [
+      {
+        name: "shop_stock",
+        // ⭐ La description est ce qui DÉCLENCHE l'outil. Dire ce qu'il rend
+        // ET quand s'en servir — un modèle n'appelle pas ce qu'il ne
+        // comprend pas.
+        description:
+          "Stock réel d'une référence produit. À utiliser avant de proposer " +
+          "une commande — la réponse vient de la base, pas d'un cache.",
+        inputSchema: {
+          type: "object",
+          properties: { sku: { type: "string", description: "Référence" } },
+          required: ["sku"],
+        },
+        handler: async (args) => mcpText(await this.stock(String(args.sku))),
+      },
+    ];
+  }
+}
+```
+
+Trois choses à savoir :
+
+- **rien ne s'enregistre au démarrage** : la liste est relue à chaque requête,
+  donc un module ajouté apparaît sans redémarrer quoi que ce soit ;
+- **`mcp.tools` ne filtre que les outils intégrés** — le vôtre est publié dès
+  qu'il est déclaré, sans ligne de configuration supplémentaire ;
+- un outil **écarté** (nom hors `[a-zA-Z0-9_-]{1,64}`, nom déjà pris, handler
+  absent, déclaration qui lève) le dit en `WARNING` dans les journaux du
+  serveur — il ne disparaît jamais en silence. Les outils intégrés gagnent
+  toute collision : personne ne peut répondre à la place de `nodefony_inspect`.
+
+> ⚠️ Cette porte n'est pas authentifiée (voir l'écart ci-dessus) et le module est
+> `policy: "dev"`. Avant d'exposer une donnée par un outil, se demander si elle
+> supporterait d'être lue **sans identification**, par qui a accès à la machine.
 
 ## Les skills d'agent — répondre à « comment fait-on ça, ici ? »
 

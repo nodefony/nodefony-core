@@ -1,5 +1,5 @@
-import { Kernel, Module, services, registerLogDriver } from "nodefony";
-import type { IAdminRegistry } from "nodefony";
+import { Kernel, Module, services, registerLogDriver, mcpText } from "nodefony";
+import type { IAdminRegistry, IMcpTool } from "nodefony";
 import type { HttpKernel } from "@nodefony/http";
 // P6.8 — banc d'idempotence des mutations socket (mutation admin à compteur).
 import { createTestAdminApi } from "./nodefony/admin/TestAdminApi";
@@ -145,6 +145,38 @@ class Test extends Module {
       broker.register(createTestAdminApi());
     }
     return this;
+  }
+
+  /**
+   * Outil MCP de ce module — le décor qui prouve qu'une APPLICATION peut
+   * ajouter le sien.
+   *
+   * Sans lui, le registre ne serait éprouvé que par des modules fabriqués dans
+   * une suite unitaire : le chemin réel — `kernel.modules` parcouru par le
+   * controller du devkit, sur un serveur qui tourne — resterait sans témoin.
+   * C'est ce que ce module existe pour faire.
+   */
+  override getMcpTools(): IMcpTool[] {
+    return [
+      {
+        name: "test_probe",
+        description:
+          "Sonde du module de test : renvoie ce qu'on lui donne, avec le nom " +
+          "du module qui a répondu. Sert aux bancs d'intégration MCP — sans " +
+          "intérêt pour une application réelle.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            message: { type: "string", description: "Texte à faire écho" },
+          },
+        },
+        handler: (args) =>
+          mcpText({
+            module: this.name,
+            echo: typeof args.message === "string" ? args.message : null,
+          }),
+      },
+    ];
   }
 
   // P1.7 — register security hooks listeners for integration tests.

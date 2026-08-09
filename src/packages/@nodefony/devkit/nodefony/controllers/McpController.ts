@@ -6,16 +6,16 @@ import {
   Headers,
 } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
-import { Nodefony } from "nodefony";
-import type { IAdminBrokerLike } from "nodefony";
-import type { IDevkitService } from "../interfaces/IDevkitService";
-import { checkMcpAccess } from "../src/mcp/guard";
-import { handleMcpMessage } from "../src/mcp/server";
 import {
+  Nodefony,
+  checkMcpAccess,
+  handleMcpMessage,
+  collectMcpTools,
   JsonRpcError,
   jsonRpcFailure,
-  type IJsonRpcMessage,
-} from "../src/mcp/protocol";
+} from "nodefony";
+import type { IAdminBrokerLike, IJsonRpcMessage } from "nodefony";
+import type { IDevkitService } from "../interfaces/IDevkitService";
 
 /**
  * Serveur **Model Context Protocol** de l'application — la porte par laquelle
@@ -47,8 +47,12 @@ import {
  * authentication for all connections ». Ce n'est pas fait, et c'est dit —
  * ici, dans la configuration, et dans la documentation du module.
  *
- * **Mince par design** : tout le protocole vit dans `src/mcp/` en fonctions
- * pures ; ce controller ne fait que traduire HTTP ↔ JSON-RPC.
+ * **Mince par design** : tout le protocole vit AU CŒUR (`nodefony`, en fonctions
+ * pures) ; ce controller ne fait que traduire HTTP ↔ JSON-RPC et fournir au
+ * collecteur ce que lui seul connaît — le service du module, le broker
+ * d'administration, la racine du projet. C'est ce qui permet à un autre module
+ * d'ouvrir la même porte ailleurs (en production, sous authentification) sans
+ * réécrire une ligne de protocole.
  */
 @controller("/nodefony")
 class McpController extends Controller {
@@ -115,14 +119,20 @@ class McpController extends Controller {
       );
     }
 
-    const reply = await handleMcpMessage(
-      body as IJsonRpcMessage,
-      {
-        tools: settings.tools,
-        serverInfo: {
-          name: Nodefony.getKernel()?.projectName ?? "nodefony",
-          version: Nodefony.version,
-        },
+    const kernel = Nodefony.getKernel();
+    // Les outils sont ramassés À CHAQUE requête, jamais mémorisés : c'est ce
+    // qui fait qu'un module ajouté — ou rechargé par le superviseur de
+    // développement — apparaît sans qu'aucun cache soit à invalider. Le coût
+    // est celui d'un parcours de `kernel.modules`, payé uniquement par les
+    // requêtes MCP, sur une porte qui n'existe pas en production.
+    const tools = collectMcpTools({
+      builtins: settings.tools,
+      modules: kernel?.modules,
+      // Un outil écarté (nom hors forme, collision, déclaration en échec) se
+      // DIT : sans ce journal, son auteur chercherait la faute dans un handler
+      // que rien n'a jamais appelé.
+      onSkip: (why) => this.log(`MCP — ${why}`, "WARNING"),
+      deps: {
         // Le plan d'administration peut légitimement manquer (application sans
         // `@nodefony/framework` monté) : les outils le DISENT alors, ils ne
         // plantent pas.
@@ -132,7 +142,18 @@ class McpController extends Controller {
         // dans le process de l'app, dont le dossier courant n'est pas garanti
         // être celui du projet — un diagnostic sur le mauvais dossier conclurait
         // « rien à signaler » avec aplomb.
-        projectRoot: Nodefony.getKernel()?.path ?? process.cwd(),
+        projectRoot: kernel?.path ?? process.cwd(),
+      },
+    });
+
+    const reply = await handleMcpMessage(
+      body as IJsonRpcMessage,
+      {
+        tools,
+        serverInfo: {
+          name: kernel?.projectName ?? "nodefony",
+          version: Nodefony.version,
+        },
       },
       // L'en-tête de révision voyage jusqu'au protocole : c'est lui qui, face
       // au `_meta` du corps, permet de refuser une requête dont deux

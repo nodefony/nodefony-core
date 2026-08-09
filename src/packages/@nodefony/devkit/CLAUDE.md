@@ -33,6 +33,7 @@ devkit/
 │   ├── controllers/DevkitController.ts           ← porte HTTP
 │   ├── interfaces/IDevkitService.ts              ← contrat public
 │   └── src/errors/DevkitError.ts                 ← erreurs typées
+├── nodefony/controllers/McpController.ts         ← POST /nodefony/mcp — SEULE pièce MCP d'ici
 ├── skills/<nom>/SKILL.md                         ← CONTENU des skills d'agent (publié tel quel)
 │   └── scripts/                                  ← outils que le skill fait EXÉCUTER (see-screen : sondes Playwright)
 ├── tests/                                        ← vitest
@@ -54,8 +55,18 @@ devkit/
 - 🔴 **Le serveur MCP est une ROUTE, jamais un process.** La révision
   `2026-07-28` du transport a supprimé les sessions : un endpoint `POST` suffit,
   donc il n'y a rien à lancer ni à resynchroniser quand le serveur de
-  développement recharge. Tout le protocole vit en fonctions PURES
-  (`nodefony/src/mcp/`) ; le controller ne fait que traduire HTTP ↔ JSON-RPC.
+  développement recharge.
+- 🔴 **Le PROTOCOLE vit au CŒUR, ce module ne porte que la PORTE.**
+  `handleMcpMessage`, `checkMcpAccess`, `collectMcpTools`, `builtinMcpTools`,
+  `mcpText`, `IMcpTool` s'importent de `nodefony` ; ce paquet n'en ré-exporte
+  rien. Un module `policy: "dev"` disparaît en production — y loger le protocole
+  obligerait toute autre porte MCP (P12, ou une porte authentifiée de prod) à le
+  redéclarer, ce que « 1 règle = 1 implémentation » interdit.
+- 🔴 **Une APPLICATION ajoute ses propres outils** : un module implémente
+  `getMcpTools(): IMcpTool[]`, le controller les ramasse à chaque requête. Rien
+  n'est enregistré au boot — pas de registre, pas d'ordre à respecter, coût nul
+  en production. `mcp.tools` ne filtre QUE les intégrés : un outil déclaré est
+  publié, sinon il serait accepté puis jeté sans un mot.
 - 🔴 **`/nodefony/mcp` échappe à la zone admin** (dont le pattern exige un
   segment `api`). C'est nécessaire — un client MCP ne sait pas présenter une
   session — mais cela veut dire que la garde `Origin`/localité et la `policy`

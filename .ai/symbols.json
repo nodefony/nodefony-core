@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-09T13:53:50.425Z",
+  "generated": "2026-08-09T14:48:00.408Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 697,
-    "symbols": 2883,
+    "files": 698,
+    "symbols": 2890,
     "classes": 348,
-    "interfaces": 836,
-    "types": 372,
+    "interfaces": 838,
+    "types": 373,
     "enums": 4,
-    "functions": 1051,
-    "constants": 272
+    "functions": 1053,
+    "constants": 274
   },
   "symbols": {
     "Cli": {
@@ -2491,6 +2491,280 @@
       "module": "@nodefony/core",
       "description": "Résout le point d'entrée d'un module Nodefony **depuis l'application**, et non depuis le paquet `nodefony`. POURQUOI cette fonction existe : un `import(\"@app/blog\")` écrit dans le code du core est …"
     },
+    "IGuardInput": {
+      "name": "IGuardInput",
+      "kind": "interface",
+      "file": "src/nodefony/src/mcp/guard.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que la garde a besoin de savoir d'une requête."
+    },
+    "IGuardPolicy": {
+      "name": "IGuardPolicy",
+      "kind": "interface",
+      "file": "src/nodefony/src/mcp/guard.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réglages qui gouvernent les gardes (viennent de la config du module)."
+    },
+    "GuardVerdict": {
+      "name": "GuardVerdict",
+      "kind": "type",
+      "file": "src/nodefony/src/mcp/guard.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Gardes du transport MCP — ce qui protège une porte locale SANS authentification. Ces deux contrôles ne sont pas un pis-aller : ce sont exactement les exigences que la spec pose au transport lui-mêm…"
+    },
+    "isLocalAddress": {
+      "name": "isLocalAddress",
+      "kind": "function",
+      "file": "src/nodefony/src/mcp/guard.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Une adresse est-elle celle de la machine locale ? Couvre les trois formes que Node rend selon la pile réseau : IPv4 (`127.x.x.x`), IPv6 (`::1`), et l'IPv4 encapsulée en IPv6 (`::ffff:127.0.0.1`) — …"
+    },
+    "checkMcpAccess": {
+      "name": "checkMcpAccess",
+      "kind": "function",
+      "file": "src/nodefony/src/mcp/guard.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Décide si un appel MCP peut être servi. ⭐ **La règle sur `Origin` est contre-intuitive, et c'est elle qui protège.** Un client MCP légitime est un *process* (Cursor, Claude Code, un agent tiers) : …"
+    },
+    "IJsonRpcMessage": {
+      "name": "IJsonRpcMessage",
+      "kind": "interface",
+      "file": "src/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Message entrant : requête (avec `id`) ou notification (sans `id`)."
+    },
+    "IJsonRpcSuccess": {
+      "name": "IJsonRpcSuccess",
+      "kind": "interface",
+      "file": "src/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réponse JSON-RPC de succès."
+    },
+    "IJsonRpcFailure": {
+      "name": "IJsonRpcFailure",
+      "kind": "interface",
+      "file": "src/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réponse JSON-RPC d'erreur."
+    },
+    "IMcpHttpReply": {
+      "name": "IMcpHttpReply",
+      "kind": "interface",
+      "file": "src/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le serveur MCP rend, avant traduction en réponse HTTP."
+    },
+    "JsonRpcId": {
+      "name": "JsonRpcId",
+      "kind": "type",
+      "file": "src/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Identifiant d'une requête JSON-RPC (jamais `null` pour une requête)."
+    },
+    "jsonRpcSuccess": {
+      "name": "jsonRpcSuccess",
+      "kind": "function",
+      "file": "src/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fabrique une réponse de succès."
+    },
+    "jsonRpcFailure": {
+      "name": "jsonRpcFailure",
+      "kind": "function",
+      "file": "src/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fabrique une réponse d'erreur."
+    },
+    "isNotification": {
+      "name": "isNotification",
+      "kind": "function",
+      "file": "src/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un message est-il une NOTIFICATION (pas d'`id`) plutôt qu'une requête ? La distinction commande le statut HTTP : une notification acceptée rend `202` **sans corps**, une requête rend son objet JSON."
+    },
+    "MCP_PROTOCOL_VERSION": {
+      "name": "MCP_PROTOCOL_VERSION",
+      "kind": "const",
+      "file": "src/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Model Context Protocol — types et constantes du transport « Streamable HTTP ». Révision visée : **2026-07-28**, celle qui a supprimé les sessions de niveau protocole et le flux `GET`. C'est ce qui …"
+    },
+    "MCP_DEFAULT_NEGOTIATED_VERSION": {
+      "name": "MCP_DEFAULT_NEGOTIATED_VERSION",
+      "kind": "const",
+      "file": "src/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Révision supposée quand un client n'en déclare AUCUNE. Ce n'est pas un choix : la spec impose de traiter une requête sans déclaration comme `2025-03-26`, et le SDK de référence en fait sa `DEFAULT_…"
+    },
+    "MCP_SUPPORTED_VERSIONS": {
+      "name": "MCP_SUPPORTED_VERSIONS",
+      "kind": "const",
+      "file": "src/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Versions que ce serveur sait servir — publiées par `server/discover`, listées dans l'erreur `UnsupportedProtocolVersion`, et candidates à l'écho d'`initialize`. De la plus récente à la plus ancienn…"
+    },
+    "META_PROTOCOL_VERSION": {
+      "name": "META_PROTOCOL_VERSION",
+      "kind": "const",
+      "file": "src/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Clé de métadonnée par laquelle un client MODERNE déclare sa révision. ⭐ **C'est la différence d'ÈRE, et elle commande tout le reste.** Jusqu'à `2025-11-25` (ère « legacy »), un client ouvrait une s…"
+    },
+    "META_SERVER_INFO": {
+      "name": "META_SERVER_INFO",
+      "kind": "const",
+      "file": "src/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Clé de métadonnée portant l'identité du serveur dans `server/discover`."
+    },
+    "MCP_ENDPOINT_PATH": {
+      "name": "MCP_ENDPOINT_PATH",
+      "kind": "const",
+      "file": "src/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Chemin de l'endpoint MCP. ## Pourquoi `/nodefony/mcp`, et pas `/nodefony/devkit/api/mcp` Cette URL est un **contrat public** : elle est écrite dans le `.mcp.json` de chaque utilisateur. Y faire fig…"
+    },
+    "JsonRpcError": {
+      "name": "JsonRpcError",
+      "kind": "const",
+      "file": "src/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Codes d'erreur JSON-RPC 2.0 employés par ce serveur."
+    },
+    "McpProtocolError": {
+      "name": "McpProtocolError",
+      "kind": "const",
+      "file": "src/nodefony/src/mcp/protocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Codes réservés par la spec MCP, hors plage JSON-RPC standard. Ils ne sont pas décoratifs : un client s'en sert pour se rattraper seul — renégocier une version sur `-32022`, relire `tools/list` puis…"
+    },
+    "IMcpServerContext": {
+      "name": "IMcpServerContext",
+      "kind": "interface",
+      "file": "src/nodefony/src/mcp/server.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Tout ce dont le traitement d'un message a besoin."
+    },
+    "IMcpHeaders": {
+      "name": "IMcpHeaders",
+      "kind": "interface",
+      "file": "src/nodefony/src/mcp/server.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "En-têtes HTTP dont le protocole se sert."
+    },
+    "handleMcpMessage": {
+      "name": "handleMcpMessage",
+      "kind": "function",
+      "file": "src/nodefony/src/mcp/server.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Traite UN message JSON-RPC."
+    },
+    "IMcpToolDeps": {
+      "name": "IMcpToolDeps",
+      "kind": "interface",
+      "file": "src/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce dont les outils INTÉGRÉS ont besoin — injecté, jamais lu ici."
+    },
+    "IMcpCollectOptions": {
+      "name": "IMcpCollectOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'il faut pour ramasser les outils d'une application."
+    },
+    "BuiltinMcpToolKey": {
+      "name": "BuiltinMcpToolKey",
+      "kind": "type",
+      "file": "src/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Clé d'un outil intégré."
+    },
+    "mcpText": {
+      "name": "mcpText",
+      "kind": "function",
+      "file": "src/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Outils MCP : le **catalogue intégré** du framework, et la **collecte** de ceux qu'une application déclare. ⚠️ **Rien n'est calculé ici.** Chaque outil intégré traduit un appel JSON-RPC vers une bri…"
+    },
+    "builtinMcpTools": {
+      "name": "builtinMcpTools",
+      "kind": "function",
+      "file": "src/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Catalogue intégré du framework, indexé par clé d'allowlist. Chaque handler capture ses dépendances par fermeture : c'est ce qui permet à ces quatre outils d'être des {@link IMcpTool} ordinaires, du…"
+    },
+    "collectMcpTools": {
+      "name": "collectMcpTools",
+      "kind": "function",
+      "file": "src/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ramasse les outils servis par cette application : les intégrés autorisés, puis ceux que les modules déclarent. Trois refus, tous énoncés par `onSkip` plutôt que silencieux : - **nom hors forme** ({…"
+    },
+    "publishMcpTools": {
+      "name": "publishMcpTools",
+      "kind": "function",
+      "file": "src/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Projette les outils pour `tools/list` — sans leur implémentation. Le `handler` est une fermeture sur l'état du serveur ; `JSON.stringify` le laisserait tomber en silence, mais compter là-dessus rev…"
+    },
+    "callMcpTool": {
+      "name": "callMcpTool",
+      "kind": "function",
+      "file": "src/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Exécute un outil par son nom public. Un échec métier (sujet inconnu, module absent) rend un résultat `isError`, **pas** une erreur JSON-RPC : le protocole réserve celle-ci aux fautes de protocole. …"
+    },
+    "BUILTIN_MCP_TOOL_KEYS": {
+      "name": "BUILTIN_MCP_TOOL_KEYS",
+      "kind": "const",
+      "file": "src/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Clés des outils intégrés — ce que l'allowlist de configuration nomme. Publiée pour qu'un schéma de configuration puisse la valider au lieu de la retaper : une clé inconnue en config est silencieuse…"
+    },
     "RateBounds": {
       "name": "RateBounds",
       "kind": "interface",
@@ -3690,6 +3964,33 @@
       "module": "@nodefony/core",
       "extends": "IService",
       "description": "Contrat public du Kernel nodefony. Utilisé comme type de IService.kernel pour éviter l'import circulaire Kernel.ts → Service.ts → IService.ts → IKernel.ts → Kernel.ts. IModule sera ajouté quand IMo…"
+    },
+    "IMcpToolResult": {
+      "name": "IMcpToolResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IMcpTool.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Contrat d'un outil **Model Context Protocol** — défini dans le CORE. Vit ici, et non dans le module qui sert la porte HTTP, pour la raison qui gouverne déjà {@link IAdminApi} : un outil peut être p…"
+    },
+    "IMcpToolDefinition": {
+      "name": "IMcpToolDefinition",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IMcpTool.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un outil tel que `tools/list` le publie — sans son implémentation."
+    },
+    "IMcpTool": {
+      "name": "IMcpTool",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IMcpTool.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "IMcpToolDefinition",
+      "description": "Un outil exécutable : ce que `tools/list` publie, plus ce qui répond. C'est le contrat qu'un module implémente pour ajouter un outil à la porte MCP de son application. Le handler ne reçoit QUE les …"
     },
     "PackageJson": {
       "name": "PackageJson",
@@ -15878,241 +16179,6 @@
       "decorators": [],
       "description": "Erreur du module devkit. Deux champs qui font la différence en production : - `code` : identifiant MACHINE (stable, grep-able, consommé par Studio et l'audit) — le message, lui, peut changer sans r…"
     },
-    "IGuardInput": {
-      "name": "IGuardInput",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/guard.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "extends": null,
-      "description": "Ce que la garde a besoin de savoir d'une requête."
-    },
-    "IGuardPolicy": {
-      "name": "IGuardPolicy",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/guard.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "extends": null,
-      "description": "Réglages qui gouvernent les gardes (viennent de la config du module)."
-    },
-    "GuardVerdict": {
-      "name": "GuardVerdict",
-      "kind": "type",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/guard.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Gardes du transport MCP — ce qui protège une porte locale SANS authentification. Ces deux contrôles ne sont pas un pis-aller : ce sont exactement les exigences que la spec pose au transport lui-mêm…"
-    },
-    "isLocalAddress": {
-      "name": "isLocalAddress",
-      "kind": "function",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/guard.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Une adresse est-elle celle de la machine locale ? Couvre les trois formes que Node rend selon la pile réseau : IPv4 (`127.x.x.x`), IPv6 (`::1`), et l'IPv4 encapsulée en IPv6 (`::ffff:127.0.0.1`) — …"
-    },
-    "checkMcpAccess": {
-      "name": "checkMcpAccess",
-      "kind": "function",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/guard.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Décide si un appel MCP peut être servi. ⭐ **La règle sur `Origin` est contre-intuitive, et c'est elle qui protège.** Un client MCP légitime est un *process* (Cursor, Claude Code, un agent tiers) : …"
-    },
-    "IJsonRpcMessage": {
-      "name": "IJsonRpcMessage",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "extends": null,
-      "description": "Message entrant : requête (avec `id`) ou notification (sans `id`)."
-    },
-    "IJsonRpcSuccess": {
-      "name": "IJsonRpcSuccess",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "extends": null,
-      "description": "Réponse JSON-RPC de succès."
-    },
-    "IJsonRpcFailure": {
-      "name": "IJsonRpcFailure",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "extends": null,
-      "description": "Réponse JSON-RPC d'erreur."
-    },
-    "IMcpHttpReply": {
-      "name": "IMcpHttpReply",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "extends": null,
-      "description": "Ce que le serveur MCP rend, avant traduction en réponse HTTP."
-    },
-    "JsonRpcId": {
-      "name": "JsonRpcId",
-      "kind": "type",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Identifiant d'une requête JSON-RPC (jamais `null` pour une requête)."
-    },
-    "jsonRpcSuccess": {
-      "name": "jsonRpcSuccess",
-      "kind": "function",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Fabrique une réponse de succès."
-    },
-    "jsonRpcFailure": {
-      "name": "jsonRpcFailure",
-      "kind": "function",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Fabrique une réponse d'erreur."
-    },
-    "isNotification": {
-      "name": "isNotification",
-      "kind": "function",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Un message est-il une NOTIFICATION (pas d'`id`) plutôt qu'une requête ? La distinction commande le statut HTTP : une notification acceptée rend `202` **sans corps**, une requête rend son objet JSON."
-    },
-    "MCP_PROTOCOL_VERSION": {
-      "name": "MCP_PROTOCOL_VERSION",
-      "kind": "const",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Model Context Protocol — types et constantes du transport « Streamable HTTP ». Révision visée : **2026-07-28**, celle qui a supprimé les sessions de niveau protocole et le flux `GET`. C'est ce qui …"
-    },
-    "MCP_SUPPORTED_VERSIONS": {
-      "name": "MCP_SUPPORTED_VERSIONS",
-      "kind": "const",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Versions que ce serveur sait servir — publiées par `server/discover` et listées dans l'erreur `UnsupportedProtocolVersion`. Une seule pour l'instant, et c'est délibéré : annoncer une révision qu'on…"
-    },
-    "META_PROTOCOL_VERSION": {
-      "name": "META_PROTOCOL_VERSION",
-      "kind": "const",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Clé de métadonnée par laquelle un client MODERNE déclare sa révision. ⭐ **C'est la différence d'ÈRE, et elle commande tout le reste.** Jusqu'à `2025-11-25` (ère « legacy »), un client ouvrait une s…"
-    },
-    "META_SERVER_INFO": {
-      "name": "META_SERVER_INFO",
-      "kind": "const",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Clé de métadonnée portant l'identité du serveur dans `server/discover`."
-    },
-    "MCP_ENDPOINT_PATH": {
-      "name": "MCP_ENDPOINT_PATH",
-      "kind": "const",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Chemin de l'endpoint MCP. ## Pourquoi `/nodefony/mcp`, et pas `/nodefony/devkit/api/mcp` Cette URL est un **contrat public** : elle est écrite dans le `.mcp.json` de chaque utilisateur. Y faire fig…"
-    },
-    "JsonRpcError": {
-      "name": "JsonRpcError",
-      "kind": "const",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Codes d'erreur JSON-RPC 2.0 employés par ce serveur."
-    },
-    "McpProtocolError": {
-      "name": "McpProtocolError",
-      "kind": "const",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/protocol.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Codes réservés par la spec MCP, hors plage JSON-RPC standard. Ils ne sont pas décoratifs : un client s'en sert pour se rattraper seul — renégocier une version sur `-32022`, relire `tools/list` puis…"
-    },
-    "IMcpServerContext": {
-      "name": "IMcpServerContext",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "extends": "IMcpToolDeps",
-      "description": "Tout ce dont le traitement d'un message a besoin."
-    },
-    "IMcpHeaders": {
-      "name": "IMcpHeaders",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "extends": null,
-      "description": "En-têtes HTTP dont le protocole se sert."
-    },
-    "handleMcpMessage": {
-      "name": "handleMcpMessage",
-      "kind": "function",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Traite UN message JSON-RPC."
-    },
-    "IMcpToolDeps": {
-      "name": "IMcpToolDeps",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "extends": null,
-      "description": "Catalogue des outils MCP, et leur exécution. ⚠️ **Rien n'est calculé ici.** Chaque outil traduit un appel JSON-RPC vers une brique qui répond DÉJÀ à une autre porte : `inspect` lit le plan d'admini…"
-    },
-    "IMcpToolDefinition": {
-      "name": "IMcpToolDefinition",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "extends": null,
-      "description": "Un outil tel que `tools/list` le publie."
-    },
-    "IMcpToolResult": {
-      "name": "IMcpToolResult",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "extends": null,
-      "description": "Ce que rend `tools/call` — du contenu, et l'aveu d'un échec métier."
-    },
-    "listMcpTools": {
-      "name": "listMcpTools",
-      "kind": "function",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Outils publiés, filtrés par l'allowlist de configuration. Une clé inconnue dans la configuration est simplement ignorée : elle ne peut rien ouvrir. C'est le sens d'une allowlist — ce qui n'est pas …"
-    },
-    "callMcpTool": {
-      "name": "callMcpTool",
-      "kind": "function",
-      "file": "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "description": "Exécute un outil par son nom public. Un échec métier (sujet inconnu, module absent) rend un résultat `isError`, **pas** une erreur JSON-RPC : le protocole réserve celle-ci aux fautes de protocole. …"
-    },
     "DocumentationError": {
       "name": "DocumentationError",
       "kind": "class",
@@ -20152,6 +20218,9 @@
         "IKernel",
         "IModule"
       ],
+      "IMcpToolDefinition": [
+        "IMcpTool"
+      ],
       "EventDefaultInterface": [
         "DefaultOptionsService"
       ],
@@ -20332,9 +20401,6 @@
         "VectorDimensionError",
         "VectorConnectionError",
         "VectorNotInitializedError"
-      ],
-      "IMcpToolDeps": [
-        "IMcpServerContext"
       ],
       "DocumentationError": [
         "DocNotFoundError",
@@ -21373,6 +21439,9 @@
         "src/modules/test/index.ts",
         "src/nodefony/src/kernel/Kernel.ts"
       ],
+      "mcpText": [
+        "src/modules/test/index.ts"
+      ],
       "IAdminRegistry": [
         "src/modules/test/index.ts",
         "src/packages/@nodefony/frontend/index.ts",
@@ -21383,6 +21452,13 @@
         "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "IMcpTool": [
+        "src/modules/test/index.ts",
+        "src/nodefony/src/kernel/Module.ts",
+        "src/nodefony/src/mcp/server.ts",
+        "src/nodefony/src/mcp/tools.ts",
+        "src/nodefony/src/types/IModule.ts"
       ],
       "HttpKernel": [
         "src/modules/test/index.ts",
@@ -23340,6 +23416,85 @@
       "tagListener": [
         "src/nodefony/src/kernel/Module.ts"
       ],
+      "JsonRpcError": [
+        "src/nodefony/src/mcp/server.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+      ],
+      "McpProtocolError": [
+        "src/nodefony/src/mcp/server.ts"
+      ],
+      "MCP_PROTOCOL_VERSION": [
+        "src/nodefony/src/mcp/server.ts"
+      ],
+      "MCP_SUPPORTED_VERSIONS": [
+        "src/nodefony/src/mcp/server.ts"
+      ],
+      "MCP_DEFAULT_NEGOTIATED_VERSION": [
+        "src/nodefony/src/mcp/server.ts"
+      ],
+      "META_PROTOCOL_VERSION": [
+        "src/nodefony/src/mcp/server.ts"
+      ],
+      "META_SERVER_INFO": [
+        "src/nodefony/src/mcp/server.ts"
+      ],
+      "isNotification": [
+        "src/nodefony/src/mcp/server.ts"
+      ],
+      "jsonRpcFailure": [
+        "src/nodefony/src/mcp/server.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+      ],
+      "jsonRpcSuccess": [
+        "src/nodefony/src/mcp/server.ts"
+      ],
+      "IJsonRpcMessage": [
+        "src/nodefony/src/mcp/server.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+      ],
+      "IMcpHttpReply": [
+        "src/nodefony/src/mcp/server.ts"
+      ],
+      "JsonRpcId": [
+        "src/nodefony/src/mcp/server.ts"
+      ],
+      "callMcpTool": [
+        "src/nodefony/src/mcp/server.ts"
+      ],
+      "publishMcpTools": [
+        "src/nodefony/src/mcp/server.ts"
+      ],
+      "INSPECT_SUBJECTS": [
+        "src/nodefony/src/mcp/tools.ts",
+        "src/nodefony/src/kernel/commands/InspectCommand.ts"
+      ],
+      "readAdminSubject": [
+        "src/nodefony/src/mcp/tools.ts",
+        "src/nodefony/src/kernel/commands/InspectCommand.ts"
+      ],
+      "IAdminBrokerLike": [
+        "src/nodefony/src/mcp/tools.ts",
+        "src/nodefony/src/kernel/commands/InspectCommand.ts",
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+      ],
+      "readSymbolsGraph": [
+        "src/nodefony/src/mcp/tools.ts"
+      ],
+      "lookupSymbol": [
+        "src/nodefony/src/mcp/tools.ts"
+      ],
+      "collectCheckReport": [
+        "src/nodefony/src/mcp/tools.ts"
+      ],
+      "countCheckFindings": [
+        "src/nodefony/src/mcp/tools.ts"
+      ],
+      "IMcpToolDefinition": [
+        "src/nodefony/src/mcp/tools.ts"
+      ],
+      "IMcpToolResult": [
+        "src/nodefony/src/mcp/tools.ts"
+      ],
       "ActionNames": [
         "src/nodefony/src/realtime/IRealtimeSocket.ts",
         "src/nodefony/src/realtime/JsonRpcPeer.ts",
@@ -24063,19 +24218,6 @@
       "BootReporter": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"
       ],
-      "INSPECT_SUBJECTS": [
-        "src/nodefony/src/kernel/commands/InspectCommand.ts",
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts"
-      ],
-      "readAdminSubject": [
-        "src/nodefony/src/kernel/commands/InspectCommand.ts",
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts"
-      ],
-      "IAdminBrokerLike": [
-        "src/nodefony/src/kernel/commands/InspectCommand.ts",
-        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts"
-      ],
       "InspectFailure": [
         "src/nodefony/src/kernel/commands/InspectCommand.ts"
       ],
@@ -24493,12 +24635,6 @@
         "src/nodefony/src/syslog/transports/LokiTransport.ts",
         "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
       ],
-      "text": [
-        "src/modules/mediasoup/nodefony/entity/schema.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts"
-      ],
       "IEntity": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
@@ -24774,17 +24910,8 @@
       "handleMcpMessage": [
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
       ],
-      "JsonRpcError": [
-        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
-      ],
-      "jsonRpcFailure": [
-        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
-      ],
-      "IJsonRpcMessage": [
-        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
+      "collectMcpTools": [
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
       ],
       "ICardAppInfo": [
         "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
@@ -26951,54 +27078,6 @@
       ],
       "VectorConnectionError": [
         "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
-      ],
-      "McpProtocolError": [
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
-      ],
-      "MCP_PROTOCOL_VERSION": [
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
-      ],
-      "MCP_SUPPORTED_VERSIONS": [
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
-      ],
-      "META_PROTOCOL_VERSION": [
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
-      ],
-      "META_SERVER_INFO": [
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
-      ],
-      "isNotification": [
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
-      ],
-      "jsonRpcSuccess": [
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
-      ],
-      "IMcpHttpReply": [
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
-      ],
-      "JsonRpcId": [
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
-      ],
-      "callMcpTool": [
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
-      ],
-      "listMcpTools": [
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
-      ],
-      "IMcpToolDeps": [
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/server.ts"
-      ],
-      "readSymbolsGraph": [
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts"
-      ],
-      "lookupSymbol": [
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts"
-      ],
-      "collectCheckReport": [
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts"
-      ],
-      "countCheckFindings": [
-        "src/packages/@nodefony/devkit/nodefony/src/mcp/tools.ts"
       ],
       "Orm": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",

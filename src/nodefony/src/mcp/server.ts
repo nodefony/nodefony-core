@@ -3,6 +3,7 @@ import {
   McpProtocolError,
   MCP_PROTOCOL_VERSION,
   MCP_SUPPORTED_VERSIONS,
+  MCP_DEFAULT_NEGOTIATED_VERSION,
   META_PROTOCOL_VERSION,
   META_SERVER_INFO,
   isNotification,
@@ -12,7 +13,7 @@ import {
   type IMcpHttpReply,
   type JsonRpcId,
 } from "./protocol";
-import { callMcpTool, listMcpTools, type IMcpToolDeps } from "./tools";
+import { callMcpTool, publishMcpTools, type IMcpTool } from "./tools";
 
 /**
  * Cœur du serveur MCP : un message JSON-RPC entre, une réponse HTTP sort.
@@ -41,9 +42,16 @@ interface IServerInfo {
 }
 
 /** Tout ce dont le traitement d'un message a besoin. */
-export interface IMcpServerContext extends IMcpToolDeps {
-  /** Allowlist des outils (`devkit.mcp.tools`). */
-  tools: readonly string[];
+export interface IMcpServerContext {
+  /**
+   * Outils SERVIS, déjà ramassés et filtrés (`collectMcpTools`).
+   *
+   * ⭐ Ce sont des outils exécutables, pas des noms : c'est ce qui rend le
+   * protocole indépendant du catalogue. Tant que cette fonction recevait une
+   * allowlist de clés, elle devait connaître le catalogue pour la résoudre —
+   * et un serveur MCP d'un autre paquet aurait dû redéclarer le sien.
+   */
+  tools: readonly IMcpTool[];
   /** Identité annoncée au client. */
   serverInfo: IServerInfo;
 }
@@ -66,6 +74,39 @@ function metaVersion(params: Record<string, unknown>): string | undefined {
   if (typeof meta !== "object" || meta === null) return undefined;
   const value = (meta as Record<string, unknown>)[META_PROTOCOL_VERSION];
   return typeof value === "string" ? value : undefined;
+}
+
+/**
+ * Choisit la révision à ANNONCER en réponse à `initialize`.
+ *
+ * 🔴 **Répondre sa propre révision préférée est un bug, pas une politesse.** La
+ * spec est explicite : si le serveur sait servir la version demandée, il DOIT
+ * répondre celle-là ; sinon, une autre qu'il sait servir — à charge pour le
+ * client de raccrocher. Ignorer `params.protocolVersion` et annoncer sa
+ * dernière révision rend la porte injoignable par tout client qui ne la connaît
+ * pas encore, ce qui est le cas de TOUS tant qu'un SDK n'a pas rattrapé la spec.
+ * Vécu : un serveur annonçant `2026-07-28` était refusé par
+ * `@modelcontextprotocol/sdk@1.30.0` (« Server's protocol version is not
+ * supported ») — conforme à la dernière norme, et parlant à personne.
+ *
+ * Un client MUET n'obtient pas notre préférée non plus, mais
+ * {@link MCP_DEFAULT_NEGOTIATED_VERSION} : c'est la révision que la spec impose
+ * de supposer en l'absence de déclaration.
+ *
+ * @param params - `params` de la requête `initialize`
+ * @returns la révision à annoncer
+ */
+function negotiateVersion(params: Record<string, unknown>): string {
+  const asked =
+    typeof params.protocolVersion === "string"
+      ? params.protocolVersion
+      : metaVersion(params);
+  if (asked === undefined) {
+    return MCP_DEFAULT_NEGOTIATED_VERSION;
+  }
+  return (MCP_SUPPORTED_VERSIONS as readonly string[]).includes(asked)
+    ? asked
+    : MCP_PROTOCOL_VERSION;
 }
 
 /**
@@ -200,7 +241,7 @@ export async function handleMcpMessage(
       return {
         status: 200,
         body: jsonRpcSuccess(id, {
-          protocolVersion: MCP_PROTOCOL_VERSION,
+          protocolVersion: negotiateVersion(params),
           // Seuls les outils sont servis : annoncer une capacité qu'on n'a pas
           // ferait porter au client des appels qui échoueraient ensuite.
           capabilities: { tools: {} },
@@ -214,7 +255,7 @@ export async function handleMcpMessage(
     case "tools/list":
       return {
         status: 200,
-        body: jsonRpcSuccess(id, { tools: listMcpTools(context.tools) }),
+        body: jsonRpcSuccess(id, { tools: publishMcpTools(context.tools) }),
       };
 
     case "tools/call": {
@@ -238,7 +279,7 @@ export async function handleMcpMessage(
 
       let result;
       try {
-        result = await callMcpTool(name, args, context.tools, context);
+        result = await callMcpTool(name, args, context.tools);
       } catch (error) {
         return {
           status: 200,

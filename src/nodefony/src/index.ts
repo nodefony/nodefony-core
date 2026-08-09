@@ -588,8 +588,58 @@ export {
 } from "./cli/symbols";
 export type { ISymbolEntry, ISymbolsGraph } from "./cli/symbols";
 
+// ─── Model Context Protocol — le PROTOCOLE au cœur, la PORTE dans un module ───
+// Tout ce qui suit est PUR : traitement d'un message, gardes de transport,
+// catalogue intégré, collecte des outils qu'une application déclare. Rien n'y
+// touche au socket. C'est ce qui permet à `@nodefony/devkit` d'exposer
+// `POST /nodefony/mcp` en développement, et à un futur module de porter la même
+// chose ailleurs — sans qu'aucun des deux ne réécrive une ligne de protocole.
+// La règle « 1 règle = 1 implémentation » n'a pas d'autre forme ici : deux
+// serveurs MCP qui redéclareraient leurs codes d'erreur divergeraient en
+// silence, chacun passant ses propres tests.
+export {
+  MCP_PROTOCOL_VERSION,
+  MCP_SUPPORTED_VERSIONS,
+  MCP_DEFAULT_NEGOTIATED_VERSION,
+  MCP_ENDPOINT_PATH,
+  META_PROTOCOL_VERSION,
+  META_SERVER_INFO,
+  JsonRpcError,
+  McpProtocolError,
+  jsonRpcSuccess,
+  jsonRpcFailure,
+  isNotification,
+} from "./mcp/protocol";
+export type {
+  IJsonRpcMessage,
+  IJsonRpcSuccess,
+  IJsonRpcFailure,
+  IMcpHttpReply,
+  JsonRpcId,
+} from "./mcp/protocol";
+export { handleMcpMessage } from "./mcp/server";
+export type { IMcpServerContext, IMcpHeaders } from "./mcp/server";
+export { checkMcpAccess, isLocalAddress } from "./mcp/guard";
+export type { GuardVerdict, IGuardInput, IGuardPolicy } from "./mcp/guard";
+export {
+  mcpText,
+  builtinMcpTools,
+  collectMcpTools,
+  publishMcpTools,
+  callMcpTool,
+  BUILTIN_MCP_TOOL_KEYS,
+} from "./mcp/tools";
+export type {
+  IMcpTool,
+  IMcpToolDefinition,
+  IMcpToolResult,
+  IMcpToolDeps,
+  IMcpCollectOptions,
+  BuiltinMcpToolKey,
+} from "./mcp/tools";
+
 // Câblage MCP — composition PURE (le fichier `.mcp.json` qu'un agent lit) et
-// son adaptateur. Le SERVEUR, lui, est une route du module `@nodefony/devkit`.
+// son adaptateur, côté CLI (`nodefony ai:mcp`).
 export {
   buildMcpUrl,
   planMcpConfig,

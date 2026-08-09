@@ -105,7 +105,48 @@ tourne, suit chaque rechargement du serveur de développement, et n'a aucun cach
 
 Le serveur est **dual-ère** : il répond à `server/discover` et aux métadonnées
 par requête des clients modernes, **et** au handshake `initialize` des clients
-déployés aujourd'hui — ce que la spec autorise explicitement.
+déployés aujourd'hui — ce que la spec autorise explicitement. Il sert cinq
+révisions (`2026-07-28`, `2025-11-25`, `2025-06-18`, `2025-03-26`,
+`2024-11-05`) et **répond celle que le client demande** : annoncer la plus
+récente à tous rendrait la porte injoignable par les clients dont le SDK ne la
+connaît pas encore.
+
+Éprouvé avec deux clients indépendants : Claude Code et Mistral Vibe.
+
+### Vos propres outils
+
+Ces quatre-là décrivent le framework ; ils ne savent rien de votre métier. Tout
+module de votre application peut publier les siens en implémentant
+`getMcpTools(): IMcpTool[]` :
+
+```ts
+import { Module, mcpText, type IMcpTool } from "nodefony";
+
+class Shop extends Module {
+  getMcpTools(): IMcpTool[] {
+    return [
+      {
+        name: "shop_stock",
+        description:
+          "Stock réel d'une référence produit. À utiliser avant de proposer " +
+          "une commande — la réponse vient de la base, pas d'un cache.",
+        inputSchema: {
+          type: "object",
+          properties: { sku: { type: "string" } },
+          required: ["sku"],
+        },
+        handler: async (args) => mcpText(await this.stock(String(args.sku))),
+      },
+    ];
+  }
+}
+```
+
+Rien ne s'enregistre au démarrage : la liste est relue à chaque requête, et
+`mcp.tools` ne filtre que les outils **intégrés** — le vôtre est publié dès qu'il
+est déclaré. Un outil écarté (nom hors forme, nom déjà pris, handler absent) le
+dit en `WARNING`, jamais en silence. Détail et pièges :
+[la documentation du module](./docs/index.md).
 
 ## Les skills d'agent
 

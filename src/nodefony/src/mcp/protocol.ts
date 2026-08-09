@@ -10,17 +10,47 @@
  * @see https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http
  */
 
-/** Révision du protocole que ce serveur annonce. */
+/** Révision PRÉFÉRÉE de ce serveur — celle qu'il met en tête de ce qu'il sait faire. */
 export const MCP_PROTOCOL_VERSION = "2026-07-28";
 
 /**
- * Versions que ce serveur sait servir — publiées par `server/discover` et
- * listées dans l'erreur `UnsupportedProtocolVersion`.
+ * Révision supposée quand un client n'en déclare AUCUNE.
  *
- * Une seule pour l'instant, et c'est délibéré : annoncer une révision qu'on
- * n'a pas éprouvée reviendrait à promettre une sémantique qu'on ne tient pas.
+ * Ce n'est pas un choix : la spec impose de traiter une requête sans
+ * déclaration comme `2025-03-26`, et le SDK de référence en fait sa
+ * `DEFAULT_NEGOTIATED_PROTOCOL_VERSION`. Répondre notre préférée à un client
+ * muet reviendrait à lui imposer une révision qu'il n'a pas demandée.
  */
-export const MCP_SUPPORTED_VERSIONS = [MCP_PROTOCOL_VERSION] as const;
+export const MCP_DEFAULT_NEGOTIATED_VERSION = "2025-03-26";
+
+/**
+ * Versions que ce serveur sait servir — publiées par `server/discover`, listées
+ * dans l'erreur `UnsupportedProtocolVersion`, et candidates à l'écho
+ * d'`initialize`. De la plus récente à la plus ancienne.
+ *
+ * 🔴 **N'en servir qu'une était un défaut, et il a coûté la connexion.** Le
+ * serveur annonçait `2026-07-28` à TOUT client, y compris à ceux qui
+ * demandaient autre chose — or aucun client déployé ne connaît cette révision :
+ * le SDK de référence (`@modelcontextprotocol/sdk@1.30.0`) porte
+ * `LATEST = 2025-11-25` et refuse net toute réponse hors de sa liste
+ * (« Server's protocol version is not supported »). Une porte parfaitement
+ * conforme à la dernière spec, et injoignable par tout le monde.
+ *
+ * Ces cinq révisions sont celles que la spec a publiées. Les servir toutes est
+ * honnête ici, et vérifiable : les quatre méthodes de ce serveur — `initialize`,
+ * `ping`, `tools/list`, `tools/call` — ont la même forme de requête et de
+ * réponse dans chacune (`content[]`, `isError`). Ce que `2026-07-28` ajoute
+ * (`server/discover`, plus de session, métadonnées par requête) s'ajoute sans
+ * rien casser pour un client plus ancien, qui ne les demande simplement pas.
+ * Un test EXERCE chacune, plutôt que de se fier à cette phrase.
+ */
+export const MCP_SUPPORTED_VERSIONS = [
+  MCP_PROTOCOL_VERSION,
+  "2025-11-25",
+  "2025-06-18",
+  MCP_DEFAULT_NEGOTIATED_VERSION,
+  "2024-11-05",
+] as const;
 
 /**
  * Clé de métadonnée par laquelle un client MODERNE déclare sa révision.
