@@ -460,6 +460,14 @@
 
 ## 🧪 Un gate ne prouve rien tant qu'on ne l'a pas vu ROUGE — deux faux verts le même jour
 
+- `[1× — 08-09g]` 🔴 **Débrancher UNE garde ne prouve QUE celle-là — un débranchement partiel se
+  lit comme un débranchement.** Six tests couvraient le refus de publier un émetteur ; j'ai coupé
+  le drapeau (`jwt.jwks`) et **un seul** est tombé. Lu vite, « la garde mord » — en réalité les
+  trois refus qui comptent (émetteur absent, non-URL, en clair) restaient verts parce que la
+  VALIDATION, elle, n'était pas débranchée. Il a fallu un second débranchement (`canonicalIssuer`
+  → identité) pour les voir rouges. **Compter les rouges attendus AVANT de couper** : un
+  débranchement qui fait tomber moins de tests que prévu n'a pas prouvé les autres, il les a
+  laissés dans l'ombre.
 - `[1× — 08-09f]` ⭐ **Le TSDoc PROMETTAIT ce que le code ne faisait pas — et 26 unitaires verts
   n'y voyaient rien.** J'avais écrit, dans l'en-tête de l'erreur : « le message reste générique,
   la cause part au journal, jamais au client » — puis composé la cause DANS le message
@@ -709,9 +717,33 @@ check:externals --if-present` sur un script qui n'existe pas → contrôle imagi
   n'était pas de retirer la mesure spécifique mais de la sortir en paramètre (`NF_BROWSER_PROBES`,
   `NF_BROWSER_LOGIN` sans défaut). Le dépôt retrouve son comportement exact en passant ses
   valeurs ; le code, lui, ne suppose plus rien.
+- `[1× — 08-09g]` 🔴 **Une liste NOIRE tient tant que l'artefact est privé ; le jour où il est
+  PUBLIÉ, elle fuit.** `JwtKeystore` retirait explicitement `d` du JWKS puis répandait le reste du
+  keyset stocké (`{...pub}`) — correct tant que ce document servait à vérifier nos propres jetons
+  EN MÉMOIRE. Exposé sur `/.well-known/jwks.json`, le même spread publiait `createdAt` (âge des
+  clés), et publierait demain tout champ interne ajouté, **sans que rien ne le signale**. Ce n'est
+  pas une inattention : la garde était juste POUR SON ANCIEN PUBLIC. Corollaire : **au moment où un
+  artefact devient public, ses filtres se relisent à l'envers** — non pas « qu'est-ce que je retire
+  ? » mais « qu'est-ce que j'autorise ? ». Trouvé par le banc LIVE (3ᵉ session d'affilée), invisible
+  aux 989 unitaires qui n'exercent pas la sérialisation de bout en bout.
 
 ## 🧰 Outillage : ce qui pend, ce qui ment, ce qui lance
 
+- `[1× — 08-09g]` 🔴 **AJOUTER une ressource à un corpus sans inventorier les AUTRES corpus
+  perpétue le doublon.** J'ai téléchargé la RFC 8414 dans `nodefony-framework-dev/references/rfc/`
+  — le bon endroit, où sont ses 38 sœurs — sans regarder que `nodefony-rfc` hébergeait un second
+  corpus. **C'est le user qui l'a vu**, à la seule lecture du chemin. Constat une fois cherché :
+  `rfc6750` et `rfc8707` y existaient en DOUBLE, **byte-identiques**, ce que rien ne
+  resynchronisait. Le réflexe manquant tient en une commande, et il ne coûte rien :
+  `find .claude/skills -name "rfc*.txt" | sed 's|.*/||' | sort | uniq -d` — le poser AVANT
+  d'ajouter, pas après. La règle graduée [[feedback_single_source_rule]] parlait de RÈGLES de
+  code ; elle vaut aussi pour les RESSOURCES bundlées, qui n'ont ni test ni compilation pour
+  révéler leur divergence.
+- `[1× — 08-09g]` **Une variable d'environnement a un artefact DÉRIVÉ, et c'est un gate qui l'a
+  rappelé.** `NF_JWT_ISSUER` ajoutée à `env.ts` → le pre-commit a refusé le commit
+  (`.env.example désynchronisé`, `gen-env-example.ts --check`). Le gate a fait exactement son
+  travail — mais il tombe APRÈS avoir rédigé le message de commit. Ajouter une variable = lancer
+  `npx tsx scripts/gen-env-example.ts` dans le même geste que l'édition d'`env.ts`.
 - `[1× — 08-09f]` 🔴 **`EXIT=0` d'un typecheck ne dit pas QUELS fichiers il a regardés.** Mon
   premier `npx tsc --noEmit` est sorti à 0 depuis un cwd qui avait dérivé (la bannière disait
   `nodefony-core@10.0.0`, soit la RACINE) — j'allais l'annoncer comme preuve, et c'est le user
