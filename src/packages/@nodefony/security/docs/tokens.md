@@ -101,6 +101,35 @@ Constat clé de cohérence : `iss`/`aud`/`ttl` sont dérivés **une seule fois**
 une divergence ferait tout rejeter. Fonction pure : les deux côtés obtiennent la même valeur sans la
 partager par référence. `issuer` omis → `"nodefony"` (`jwtRuntime.ts:31`), à surcharger en prod.
 
+### Être DÉCOUVRABLE — publier ses clés (RFC 8414)
+
+Tant que Nodefony émet **et** vérifie ses propres jetons, `iss` n'est qu'une chaîne comparée à
+elle-même. Dès qu'un **tiers** doit valider une signature émise ici (une autre application
+Nodefony, un agent, un service), il lui faut deux documents publics :
+
+| Route                                         | Contenu                                                        |
+| --------------------------------------------- | -------------------------------------------------------------- |
+| `GET /.well-known/oauth-authorization-server` | `issuer`, `jwks_uri` — RFC 8414 §2 (chemin **non négociable**) |
+| `GET /.well-known/jwks.json`                  | clés publiques de signature (jamais `d`)                       |
+
+Les deux sont montées par `@nodefony/framework` (`IssuerMetadataController.ts`) **uniquement si**
+`TokenService.publishedIssuer()` répond — soit `jwt.enabled`, `jwt.jwks`, **et** `jwt.issuer` écrit
+sous forme d'URL https. Sinon : aucune route (`404`) et un avertissement au boot.
+
+🔴 **L'URL ne se devine pas.** Derrière un relais (HAProxy, ingress, CDN), `Host` et
+`X-Forwarded-*` viennent de la requête, donc du client : un document dérivé de l'en-tête ferait
+servir, par le vrai serveur, l'identité d'un attaquant — et empoisonnerait tout cache mutualisé.
+L'exploitant l'écrit, comme il écrit son domaine (`NF_JWT_ISSUER` dans `env.ts`).
+
+```ts
+use("@nodefony/security", { jwt: { issuer: ctx.env.NF_JWT_ISSUER } });
+```
+
+Le document publié n'annonce **aucun** flux d'autorisation (`response_types_supported: []`,
+`grant_types_supported: []`) : Nodefony n'est pas un serveur d'autorisation OAuth 2.1, elle rend
+seulement ses signatures vérifiables. Omettre `grant_types_supported` annoncerait
+`["authorization_code", "implicit"]` par défaut (RFC 8414 §2) — deux flux inexistants.
+
 ## 🚀 Démarrage rapide
 
 ### Les endpoints d'émission sont FOURNIS
@@ -389,18 +418,18 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:334-390`) et `token
 
 ### `jwt.*`
 
-| Option                | Type               | Défaut   | Effet                                                                                    |
-| --------------------- | ------------------ | -------- | ---------------------------------------------------------------------------------------- |
-| `enabled`             | boolean            | `true`   | Active signature + refresh (`config.ts:317`)                                             |
-| `alg`                 | `EdDSA` \| `RS256` | `EdDSA`  | `RS256` = slot non câblé (`jwtRuntime.ts:21`)                                            |
-| `accessTtlS`          | number (s)         | `900`    | TTL de l'access token — 15 min (`config.ts:338-342`)                                     |
-| `refreshTtlS`         | number (s)         | `604800` | TTL du refresh — 7 jours (`config.ts:343-347`)                                           |
-| `rotateRefresh`       | boolean            | `true`   | Rotation du refresh à chaque usage, OWASP (`config.ts:348-351`)                          |
-| `jwks`                | boolean            | `true`   | Expose JWKS + `kid` — rotation de clés (`config.ts:352-355`)                             |
-| `audiences`           | string[]           | `[]`     | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts:356-361`)                     |
-| `issuer`              | string?            | —        | Claim `iss`, **STABLE** après émission (`config.ts:362-367`) ; omis → repli `"nodefony"` |
-| `keystore.keySetJson` | string?            | —        | JWK Set privé injecté depuis l'env — source prod, SECRET (`config.ts:370-375`)           |
-| `keystore.dir`        | string?            | —        | Dossier `keyset.json` chmod 600 — source dev/VPS (`config.ts:376-381`)                   |
+| Option                | Type               | Défaut   | Effet                                                                                                                         |
+| --------------------- | ------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`             | boolean            | `true`   | Active signature + refresh (`config.ts:317`)                                                                                  |
+| `alg`                 | `EdDSA` \| `RS256` | `EdDSA`  | `RS256` = slot non câblé (`jwtRuntime.ts:21`)                                                                                 |
+| `accessTtlS`          | number (s)         | `900`    | TTL de l'access token — 15 min (`config.ts:338-342`)                                                                          |
+| `refreshTtlS`         | number (s)         | `604800` | TTL du refresh — 7 jours (`config.ts:343-347`)                                                                                |
+| `rotateRefresh`       | boolean            | `true`   | Rotation du refresh à chaque usage, OWASP (`config.ts:348-351`)                                                               |
+| `jwks`                | boolean            | `true`   | Publie `/.well-known/jwks.json` + les métadonnées RFC 8414 — sans `issuer` en URL https, rien n'est publié                    |
+| `audiences`           | string[]           | `[]`     | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts:356-361`)                                                          |
+| `issuer`              | string?            | —        | Claim `iss`, **STABLE** après émission ; omis → repli `"nodefony"`, qui n'est PAS publiable (RFC 8414 §2 exige une URL https) |
+| `keystore.keySetJson` | string?            | —        | JWK Set privé injecté depuis l'env — source prod, SECRET (`config.ts:370-375`)                                                |
+| `keystore.dir`        | string?            | —        | Dossier `keyset.json` chmod 600 — source dev/VPS (`config.ts:376-381`)                                                        |
 
 ### `tokenStore.*`
 

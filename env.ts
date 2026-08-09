@@ -337,6 +337,29 @@ export const env = defineEnv({
   }),
 
   /**
+   * URL PUBLIQUE de cette application en tant qu'ÉMETTEUR de jetons (claim
+   * `iss`, RFC 7519 ; identifiant RFC 8414 §2 → https, ni requête ni fragment).
+   *
+   * Elle ne se DEVINE pas : derrière un relais (HAProxy, ingress, CDN), le
+   * processus n'a aucun moyen fiable de connaître son adresse publique —
+   * `Host` et `X-Forwarded-*` arrivent DANS la requête, donc du client. Un
+   * document de métadonnées dérivé de la requête ferait servir, par le vrai
+   * serveur, l'identité d'un attaquant. C'est donc l'exploitant qui l'écrit,
+   * comme il écrit déjà son domaine.
+   *
+   * Absente = repli `"nodefony"` : les jetons sont émis et vérifiés
+   * normalement (l'app est son propre émetteur ET son propre vérificateur),
+   * mais RIEN n'est publié — aucun tiers ne peut vérifier une signature émise
+   * ici. **STABLE** : gravée dans chaque jeton déjà émis, la changer les
+   * invalide.
+   */
+  NF_JWT_ISSUER: envString({
+    optional: true,
+    description:
+      "URL publique de l'app comme émetteur de jetons (https) — sans elle, aucune découverte RFC 8414.",
+  }),
+
+  /**
    * Secret des jetons anti-CSRF (synchronizer token). PROD/cluster :
    * OBLIGATOIRE et PARTAGÉ entre les process — un secret par pod ferait
    * échouer la validation d'un jeton émis par un autre pod. DEV : optionnel,

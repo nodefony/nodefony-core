@@ -266,3 +266,89 @@ describe("TokenService — doctrine d'échec store explicite", () => {
     assert.ok(b.container.get("tokenStore"));
   });
 });
+
+/**
+ * Rôle ÉMETTEUR (RFC 8414) — c'est ICI que se décide si l'application accepte
+ * d'être découverte. `@nodefony/framework` ne lit pas cette configuration : il
+ * pose la question, et monte (ou non) les deux routes bien connues.
+ *
+ * La garde qui compte est le REFUS : un émetteur qui n'est pas une URL https ne
+ * peut pas servir d'identifiant (RFC 8414 §2), et on ne le devine pas — derrière
+ * un relais, `Host`/`X-Forwarded-*` viennent du client. Publier un document
+ * dérivé de la requête ferait servir, par le vrai serveur, l'identité d'un
+ * attaquant.
+ */
+describe("TokenService — publication d'émetteur (RFC 8414)", () => {
+  const publishedFor = (jwt: Record<string, unknown>): string | null => {
+    const b = buildService({
+      jwt: { enabled: true, ...jwt },
+      tokenStore: { store: "memory", gcIntervalS: 0 },
+    });
+    b.boot();
+    return b.svc.publishedIssuer();
+  };
+
+  it("émetteur https → publiable, sous sa forme canonique", () => {
+    assert.equal(
+      publishedFor({ issuer: "https://app.example" }),
+      "https://app.example",
+    );
+    assert.equal(
+      publishedFor({ issuer: "https://app.example/tenant1/" }),
+      "https://app.example/tenant1",
+    );
+  });
+
+  it("REFUSE quand l'émetteur n'est pas une URL — le défaut « nodefony »", () => {
+    // Inoffensif tant que Nodefony émet ET vérifie ses propres jetons ; mais
+    // inutilisable comme identifiant public. Le refus est annoncé au boot.
+    assert.equal(publishedFor({}), null);
+  });
+
+  it("REFUSE un émetteur en clair (les clés transitent par ce canal)", () => {
+    assert.equal(publishedFor({ issuer: "http://app.example" }), null);
+  });
+
+  it("REFUSE ce que la configuration a explicitement coupé", () => {
+    assert.equal(
+      publishedFor({ issuer: "https://app.example", jwks: false }),
+      null,
+    );
+  });
+
+  it("REFUSE quand la capacité JWT elle-même est éteinte", () => {
+    const b = buildService({
+      jwt: { enabled: false, issuer: "https://app.example" },
+      tokenStore: { store: "memory", gcIntervalS: 0 },
+    });
+    b.boot();
+    assert.equal(b.svc.publishedIssuer(), null);
+  });
+
+  it("le JWKS servi ne porte QUE des paramètres publics — jamais `d`", async () => {
+    const b = buildService({
+      jwt: { enabled: true, issuer: "https://app.example" },
+      tokenStore: { store: "memory", gcIntervalS: 0 },
+    });
+    b.boot();
+    const jwks = await b.svc.getPublicJWKS();
+    assert.ok(jwks.keys.length > 0);
+    for (const k of jwks.keys) {
+      assert.equal(k.kty, "OKP");
+      assert.ok(typeof k.kid === "string" && k.kid.length > 0);
+      assert.equal("d" in k, false, "clé PRIVÉE dans le JWKS public");
+    }
+  });
+
+  it("demander le JWKS sans capacité JWT lève (garde de programmation)", async () => {
+    const b = buildService({
+      jwt: { enabled: false },
+      tokenStore: { store: "memory", gcIntervalS: 0 },
+    });
+    b.boot();
+    await assert.rejects(
+      () => b.svc.getPublicJWKS(),
+      /capacité JWT est inactive/,
+    );
+  });
+});

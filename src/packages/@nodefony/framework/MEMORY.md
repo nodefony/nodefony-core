@@ -90,6 +90,28 @@ Contrat d'exposition admin pour Studio. **Inversion de dépendance** : contrat p
 
 **Ordre critique** : `@route`/`@Get/etc` avant `@controller` (metadata collectée avant que `@controller` la lise).
 
+### Routes CONDITIONNELLES — `mount*Routes()`, jamais `@controller`
+
+Un `@controller` crée la route **à l'import** : impossible de ne pas la monter. Toute route qui ne
+doit exister que si un service est là passe donc par `Router.createRoute` dans une fonction
+`mount*Routes(module)`, appelée par `Framework.onKernelReady` sous condition — sinon **404, zéro
+surface**. Couplage par NOM de service (contrat structurel local) : framework n'importe JAMAIS
+`@nodefony/security`.
+
+| Fonction                    | Condition (container)                        | Routes                                                                                            |
+| --------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `mountSessionAuthRoutes`    | `authFlow`                                   | session BFF                                                                                       |
+| `mountTokenAuthRoutes`      | `tokenService`                               | `/nodefony/security/api/token[/refresh]` — `bypassFirewall` (obtenir un jeton exigerait un jeton) |
+| `mountIssuerMetadataRoutes` | `tokenService.publishedIssuer()` **non nul** | `/.well-known/oauth-authorization-server` + `/.well-known/jwks.json` — `bypassFirewall`           |
+| `mountWebAuthnRoutes`       | `webauthn`                                   | cérémonies passkeys                                                                               |
+| `mountOAuth2Routes`         | `oauth2`                                     | social login                                                                                      |
+
+🔴 **`mountIssuerMetadataRoutes` prend l'émetteur en ARGUMENT** — c'est lui qui détermine le chemin
+des métadonnées (insertion RFC 8414 §3.1, via `authorizationServerMetadataPath` de `nodefony`).
+Aucun littéral ici : le lecteur, dans security, compose le même chemin par la même fonction.
+La décision de publier appartient à security (`publishedIssuer()` = `jwt.enabled ∧ jwt.jwks ∧
+issuer en URL https`) ; framework pose la question, il ne lit pas la config de sécurité.
+
 ## Decorators NestJS-inspired
 
 ### HTTP method decorators

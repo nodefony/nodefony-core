@@ -1,12 +1,24 @@
 /**
- * Découverte des métadonnées d'un **serveur d'autorisation** tiers — RFC 8414 §3.
+ * Rôle **serveur d'autorisation** — RFC 8414, les deux faces.
  *
- * Ce fichier ne parle à personne : il compose des URL et juge un document déjà
- * reçu. C'est délibéré — les trois règles qui comptent ici (l'ordre des points
- * bien connus, l'égalité stricte de l'émetteur, le refus d'un `jwks_uri`
- * douteux) sont exactement celles qu'on n'éprouverait jamais si elles vivaient
- * au milieu d'un appel réseau.
+ * On LIT les métadonnées d'un émetteur tiers (pour découvrir où sont ses clés)
+ * et on PUBLIE les siennes (pour qu'un tiers découvre les nôtres). Les deux
+ * faces partagent la même règle de composition de chemin ; les séparer les
+ * ferait dériver en silence — un lecteur sondant là où l'émetteur ne sert pas
+ * ne produit qu'un `404`, que chacun interprète comme « pas d'autorisation
+ * ici ». Ici, la publication est la source et la lecture en dérive.
  *
+ * Ce fichier ne parle à personne : il compose des URL, juge un document reçu et
+ * compose un document à servir. C'est délibéré — les règles qui comptent
+ * (l'ordre des points bien connus, l'égalité stricte de l'émetteur, le refus
+ * d'un `jwks_uri` douteux) sont exactement celles qu'on n'éprouverait jamais si
+ * elles vivaient au milieu d'un appel réseau.
+ *
+ * ⚠️ Volontairement au CŒUR, et non dans `@nodefony/security` : le module qui
+ * expose les routes (`@nodefony/framework`) n'importe jamais `security`, et le
+ * chemin bien connu doit rester écrit UNE fois pour les deux.
+ *
+ * @see references/rfc/ietf/rfc8414.txt
  * @see references/mcp-2026-07-28/spec/basic/authorization/authorization-server-discovery.mdx
  */
 
@@ -15,6 +27,18 @@ const WELL_KNOWN_OAUTH = "/.well-known/oauth-authorization-server";
 
 /** Suffixe bien connu d'OpenID Connect Discovery 1.0 (§4). */
 const WELL_KNOWN_OIDC = "/.well-known/openid-configuration";
+
+/**
+ * Chemin conventionnel où Nodefony publie son jeu de clés publiques.
+ *
+ * Le choix est LIBRE — un client ne le devine pas, il le lit dans le champ
+ * `jwks_uri` du document de métadonnées. Deux raisons de le placer sous
+ * `.well-known` quand même : c'est un espace réservé (RFC 8615), donc aucune
+ * collision possible avec les routes de l'application ; et il ne comporte pas
+ * de segment `api`, qui rangerait la route dans l'aire du pare-feu — or un jeu
+ * de clés doit être lisible SANS authentification, sinon il ne sert à rien.
+ */
+export const JWKS_PATH = "/.well-known/jwks.json";
 
 /**
  * Ce qu'on lit d'un document de métadonnées — deux champs, pas un de plus.
@@ -76,6 +100,35 @@ export function canonicalIssuer(raw: string): string {
 }
 
 /**
+ * Compose le CHEMIN où PUBLIER ses métadonnées (RFC 8414 §3.1).
+ *
+ * La règle est une **insertion**, pas une concaténation : le suffixe bien connu
+ * se place entre l'hôte et le chemin de l'émetteur, « any terminating "/" MUST
+ * be removed before inserting ». Un émetteur porteur d'un chemin
+ * (multi-tenant : « Using path components enables supporting multiple issuers
+ * per host ») se publie donc SOUS ce chemin — servir à la racine reviendrait à
+ * servir un document que personne ne demande.
+ *
+ * C'est cette fonction qui fait autorité : {@link issuerMetadataUrls}, côté
+ * lecteur, en dérive. Les deux faces ne peuvent donc pas diverger.
+ *
+ * @param issuer - identifiant d'émetteur (canonique ou non)
+ * @returns le chemin absolu à servir en `GET`
+ *
+ * @example
+ * ```ts
+ * authorizationServerMetadataPath("https://app.example");
+ * // → "/.well-known/oauth-authorization-server"
+ * authorizationServerMetadataPath("https://app.example/tenant1");
+ * // → "/.well-known/oauth-authorization-server/tenant1"
+ * ```
+ */
+export function authorizationServerMetadataPath(issuer: string): string {
+  const { pathname } = new URL(canonicalIssuer(issuer));
+  return pathname === "/" ? WELL_KNOWN_OAUTH : `${WELL_KNOWN_OAUTH}${pathname}`;
+}
+
+/**
  * Compose, dans l'ORDRE NORMATIF, les URL où chercher les métadonnées.
  *
  * L'ordre n'est pas une préférence de goût : la spécification impose d'essayer
@@ -83,6 +136,10 @@ export function canonicalIssuer(raw: string): string {
  * chemin (multi-tenant) se découvre par **insertion** — placer le suffixe en
  * queue interrogerait le tenant, pas le serveur ; un émetteur sans chemin n'a
  * que deux formes possibles.
+ *
+ * La première URL est celle que {@link authorizationServerMetadataPath} sert :
+ * c'est ce qui garantit qu'une application Nodefony est découvrable par une
+ * autre application Nodefony.
  *
  * @param issuer - émetteur déjà normalisé par {@link canonicalIssuer}
  * @returns les URL à essayer, dans l'ordre
@@ -98,14 +155,12 @@ export function canonicalIssuer(raw: string): string {
 export function issuerMetadataUrls(issuer: string): string[] {
   const url = new URL(issuer);
   const path = url.pathname === "/" ? "" : url.pathname;
+  const oauth = `${url.origin}${authorizationServerMetadataPath(issuer)}`;
   if (path === "") {
-    return [
-      `${url.origin}${WELL_KNOWN_OAUTH}`,
-      `${url.origin}${WELL_KNOWN_OIDC}`,
-    ];
+    return [oauth, `${url.origin}${WELL_KNOWN_OIDC}`];
   }
   return [
-    `${url.origin}${WELL_KNOWN_OAUTH}${path}`,
+    oauth,
     `${url.origin}${WELL_KNOWN_OIDC}${path}`,
     `${url.origin}${path}${WELL_KNOWN_OIDC}`,
   ];
@@ -181,6 +236,76 @@ export function validateIssuerMetadata(
     );
   }
   return { issuer: declared, jwksUri: keys.href };
+}
+
+/**
+ * Le document que Nodefony PUBLIE — RFC 8414 §2, réduit à ce qui est vrai.
+ *
+ * Nodefony n'est pas un serveur d'autorisation OAuth : elle émet ses propres
+ * jetons par son flux à elle, sans point d'autorisation ni point de jeton
+ * RFC 6749. Ce document ne sert donc qu'à une chose — être **découvrable** :
+ * dire qui l'on est, et où sont les clés qui valident nos signatures.
+ */
+export interface IAuthorizationServerMetadata {
+  /** `issuer` — REQUIRED §2, https sans requête ni fragment. */
+  issuer: string;
+  /** `jwks_uri` — OPTIONAL §2, mais c'est la raison d'être du document ici. */
+  jwks_uri: string;
+  /**
+   * `response_types_supported` — REQUIRED §2, **vide et c'est exact**.
+   *
+   * Le tableau vide n'est pas un remplissage : il ÉNONCE qu'aucun flux
+   * d'autorisation n'existe ici. Omettre un champ requis laisserait un client
+   * appliquer un défaut, c'est-à-dire supposer des capacités inexistantes.
+   */
+  response_types_supported: string[];
+  /**
+   * `grant_types_supported` — OPTIONAL §2, mais **obligatoire de fait**.
+   *
+   * « If omitted, the default value is ["authorization_code", "implicit"] » :
+   * l'omettre annoncerait deux flux que cette application n'offre pas. Le
+   * publier vide est la seule forme honnête.
+   */
+  grant_types_supported: string[];
+}
+
+/** De quoi composer le document — ce que l'application, seule, connaît. */
+export interface IAuthorizationServerInput {
+  /** Identifiant d'émetteur, tel qu'écrit en configuration. */
+  issuer: string;
+  /**
+   * Chemin (ou URL absolue) du jeu de clés. Un chemin est résolu sur l'origine
+   * de l'émetteur — un serveur ne peut pas connaître sa propre URL publique
+   * autrement que par ce qu'on lui a écrit.
+   */
+  jwksPath?: string;
+}
+
+/**
+ * Compose le document de métadonnées d'émetteur.
+ *
+ * @param input - ce que l'application déclare d'elle-même
+ * @returns le document, prêt à sérialiser
+ * @throws Error si l'émetteur ne peut pas servir d'identifiant RFC 8414 §2, ou
+ *         si le jeu de clés n'est pas joignable en `https`
+ */
+export function buildAuthorizationServerMetadata(
+  input: IAuthorizationServerInput,
+): IAuthorizationServerMetadata {
+  const issuer = canonicalIssuer(input.issuer);
+  const jwksUri = new URL(input.jwksPath ?? JWKS_PATH, `${issuer}/`);
+  if (jwksUri.protocol !== "https:") {
+    throw new Error(
+      `métadonnées d'émetteur : \`jwks_uri\` « ${jwksUri.href} » doit être ` +
+        `en https (RFC 8414 §2).`,
+    );
+  }
+  return {
+    issuer,
+    jwks_uri: jwksUri.href,
+    response_types_supported: [],
+    grant_types_supported: [],
+  };
 }
 
 /**

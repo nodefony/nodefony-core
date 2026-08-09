@@ -625,6 +625,29 @@ export type {
 // divergé sur un cas limite que chaque copie continue de passer.
 export { bearerToken } from "./runtime/bearer";
 
+// ─── Rôle SERVEUR D'AUTORISATION OAuth (RFC 8414) — les DEUX faces ────────────
+// Lire les métadonnées d'un émetteur tiers (pour découvrir ses clés) et publier
+// les siennes (pour que d'autres découvrent les nôtres). Au cœur pour la même
+// raison que `bearerToken` : deux couches qui ne se voient pas partagent le
+// chemin bien connu — `@nodefony/security` le compose pour LIRE, et
+// `@nodefony/framework`, qui n'importe jamais `security`, sert la route qui
+// PUBLIE. Deux copies produiraient un `404` que chacun interpréterait comme
+// « pas d'autorisation ici ».
+export {
+  canonicalIssuer,
+  authorizationServerMetadataPath,
+  issuerMetadataUrls,
+  validateIssuerMetadata,
+  buildAuthorizationServerMetadata,
+  extractScopes,
+  JWKS_PATH,
+} from "./oauth/authorizationServer";
+export type {
+  IIssuerMetadata,
+  IAuthorizationServerMetadata,
+  IAuthorizationServerInput,
+} from "./oauth/authorizationServer";
+
 // ─── Model Context Protocol — le PROTOCOLE au cœur, la PORTE dans un module ───
 // Tout ce qui suit est PUR : traitement d'un message, gardes de transport,
 // catalogue intégré, collecte des outils qu'une application déclare. Rien n'y

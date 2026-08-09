@@ -84,7 +84,9 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   client renouveler en boucle un jeton bon et rangerait une panne d'infra dans la stat des échecs d'auth.
   **Message CONSTANT** (rendu au client, + pile d'appels en dev) ; la cause technique vit dans `detail`,
   journalisée par le firewall. Vécu : l'URL de l'émetteur défaillant fuyait dans le corps du 503.
-- `issuerDiscovery.ts` (PUR, 0 réseau) : `canonicalIssuer` (https, ni requête ni fragment — RFC 8414 §2) ·
+- **RFC 8414 vit au CŒUR** (`nodefony` → `src/oauth/authorizationServer.ts`, PUR, 0 réseau) — security
+  l'IMPORTE, ne le redéclare pas : `@nodefony/framework`, qui sert les routes de publication, n'importe
+  jamais security, et le chemin bien connu doit rester écrit UNE fois. `canonicalIssuer` (https, ni requête ni fragment — RFC 8414 §2) ·
   `issuerMetadataUrls` (3 URL ordre NORMATIF : insertion oauth → insertion oidc → ajout oidc ; 2 si pas de
   chemin) · `validateIssuerMetadata` (**`issuer` du document ≡ celui demandé**, RFC 8414 §3.3 — sans quoi
   `attaquant.example` publie des clés au nom d'un émetteur légitime ; `jwks_uri` https mais PAS même-origine :
@@ -292,6 +294,14 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
 - `config.ts` = défauts SÛRS ENTIÈREMENT commentés (réf humaine). Zones : champ `host?` (vhost).
 - `tokenStore` (J4) : `{store:"auto", gcIntervalS:600, gcJitter:true, retentionRevokedDays:30}` —
   store de jetons pluggable. `jwt.{issuer?, keystore:{keySetJson?,dir?}}` (issuer omis → `"nodefony"`).
+- **Rôle ÉMETTEUR (RFC 8414)** : `TokenService.publishedIssuer()` = émetteur canonique publiable, ou
+  `null` — vrai SEULEMENT si `jwt.enabled ∧ jwt.jwks ∧ canonicalIssuer(issuer)` passe (URL https).
+  C'est LUI que `@nodefony/framework` interroge pour monter `/.well-known/oauth-authorization-server`
+  - `/.well-known/jwks.json` (`IssuerMetadataController`) ; `null` ⇒ 404 + WARNING au boot. L'URL
+    ne se DEVINE pas (`Host`/`X-Forwarded-*` viennent du client) → elle s'écrit (`NF_JWT_ISSUER`).
+    Protocole RFC 8414 (les DEUX faces, lecture + publication) au CŒUR : `nodefony` →
+    `src/oauth/authorizationServer.ts`. `JwtKeystore.publicJwk` = liste BLANCHE `kty/crv/x/kid/use/alg`
+    (un spread laissait fuir `createdAt` dans le document PUBLIC).
 - Défauts : Zero Trust, CORS strict (jamais `*`+credentials), headers natifs (avancés COOP/COEP/CORP optionnels),
   Studio `enabled:false`/`exposure:localhost`.
 

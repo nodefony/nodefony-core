@@ -119,13 +119,11 @@ export type {
   ITrustedIssuer,
   IRemoteJwtVerifierOptions,
 } from "./nodefony/src/token/RemoteJwtVerifier";
-export {
-  canonicalIssuer,
-  issuerMetadataUrls,
-  validateIssuerMetadata,
-  extractScopes,
-} from "./nodefony/src/token/issuerDiscovery";
-export type { IIssuerMetadata } from "./nodefony/src/token/issuerDiscovery";
+// La découverte RFC 8414 (`canonicalIssuer`, `issuerMetadataUrls`,
+// `validateIssuerMetadata`, `extractScopes`, `IIssuerMetadata`) n'est PAS
+// ré-exportée ici : elle vit dans `nodefony`, avec la face qui PUBLIE les
+// mêmes chemins. Même motif que `ACCESS_TOKEN_VERIFIER` ci-dessus — un second
+// point d'export en ferait une seconde source.
 export { ApiKeyService };
 export { Authorization };
 export { WebAuthnService };

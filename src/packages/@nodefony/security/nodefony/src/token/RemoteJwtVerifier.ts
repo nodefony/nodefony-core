@@ -1,11 +1,11 @@
 import type * as Jose from "jose";
-import type { IAccessPrincipal } from "nodefony";
 import {
   canonicalIssuer,
   extractScopes,
   issuerMetadataUrls,
   validateIssuerMetadata,
-} from "./issuerDiscovery";
+  type IAccessPrincipal,
+} from "nodefony";
 
 /**
  * Un émetteur en qui l'application accepte de faire confiance.

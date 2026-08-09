@@ -6,6 +6,7 @@ import {
   GcScheduler,
   AUTO_STORE,
   EMPTY_INFRA,
+  canonicalIssuer,
   resolveAutoStore,
   readStoreLocation,
   type Severity,
@@ -67,6 +68,8 @@ export interface ITokenResponse {
  */
 class TokenService extends Service {
   #runtime: IJwtRuntime | null = null;
+  /** Émetteur publiable, résolu une fois au boot (cf `#resolvePublication`). */
+  #published: string | null = null;
   #store: ITokenStore | null = null;
   #keystore: IJwtKeystore | null = null;
   #jose: typeof Jose | null = null;
@@ -170,6 +173,7 @@ class TokenService extends Service {
         this.log(m, s as Severity),
       );
       this.container?.set("jwtKeystore", this.#keystore);
+      this.#resolvePublication(config.jwt.jwks, this.#runtime.issuer);
     }
 
     this.#gc = new GcScheduler({
@@ -193,6 +197,80 @@ class TokenService extends Service {
   /** `true` si l'émission JWT (signature + refresh) est opérationnelle. */
   isEnabled(): boolean {
     return this.#keystore !== null && this.#runtime !== null;
+  }
+
+  // ── rôle ÉMETTEUR : publier ses clés, et dire où elles sont (RFC 8414) ──────
+
+  /**
+   * Décide UNE fois, au boot, si cette application peut se déclarer émetteur.
+   *
+   * Trois conditions, et la troisième est celle qui surprend : l'émetteur doit
+   * être une **URL https** (RFC 8414 §2). Le défaut `"nodefony"` de
+   * {@link resolveJwtRuntime} n'en est pas une — parfaitement inoffensif tant
+   * que Nodefony émet ET vérifie ses propres jetons (`iss` n'est alors qu'une
+   * chaîne comparée à elle-même), mais inutilisable comme identifiant public.
+   *
+   * 🔴 **On ne DEVINE pas cette URL.** Derrière un relais (HAProxy, ingress,
+   * CDN), le processus n'a aucun moyen fiable de connaître son adresse
+   * publique : `Host` et `X-Forwarded-*` viennent de la requête, donc du client
+   * en dernière analyse. La dériver ferait servir, par le VRAI serveur, un
+   * document `issuer: https://attaquant.example` — crédible, et empoisonnant
+   * tout cache mutualisé. Un argument non sécuritaire suffirait d'ailleurs :
+   * l'émetteur est gravé dans le `iss` de chaque jeton DÉJÀ émis ; variable
+   * selon l'hôte d'entrée, il ferait rejeter un jeton valide.
+   *
+   * Le refus est donc ANNONCÉ (avertissement au boot) plutôt que masqué
+   * derrière un document qui ne mènerait nulle part.
+   */
+  #resolvePublication(wanted: boolean, issuer: string): void {
+    if (!wanted) return;
+    try {
+      this.#published = canonicalIssuer(issuer);
+    } catch {
+      this.#published = null;
+      this.log(
+        `JWKS non publié : \`security.jwt.issuer\` vaut « ${issuer} », qui ` +
+          `n'est pas une URL https. Renseigner l'URL publique de cette ` +
+          `application (RFC 8414 §2) — derrière un relais, elle ne peut pas ` +
+          `être devinée. Les jetons restent émis et vérifiés normalement.`,
+        "WARNING",
+      );
+    }
+  }
+
+  /**
+   * Émetteur sous lequel cette application accepte d'être DÉCOUVERTE, ou `null`.
+   *
+   * C'est la question que pose `@nodefony/framework` au moment de monter (ou
+   * non) `/.well-known/oauth-authorization-server` et `/.well-known/jwks.json` :
+   * il ne lit pas la configuration de sécurité, il obtient une réponse. `null`
+   * = aucune route, donc `404` — pas de document creux, pas de demi-mesure.
+   *
+   * @returns l'émetteur canonique publiable, ou `null` si rien ne doit l'être
+   */
+  publishedIssuer(): string | null {
+    return this.#published;
+  }
+
+  /**
+   * Jeu de clés **publiques** de signature, tel qu'il doit être servi.
+   *
+   * Ne contient que des paramètres publics (RFC 8037/7517) — le keystore ne
+   * sérialise jamais `d`. Rien n'est calculé ici : la route est une porte, la
+   * matière vient du keystore.
+   *
+   * @returns le JWKS public
+   * @throws Error si la capacité JWT n'est pas active (garde de programmation :
+   *         les routes ne sont montées que si {@link publishedIssuer} répond)
+   */
+  async getPublicJWKS(): Promise<Jose.JSONWebKeySet> {
+    if (!this.#keystore) {
+      throw new Error(
+        "JWKS demandé alors que la capacité JWT est inactive " +
+          "(`security.jwt.enabled: false`).",
+      );
+    }
+    return this.#keystore.getPublicJWKS();
   }
 
   // ── gc (orchestration du seam ITokenStore.gc) ───────────────────────────────

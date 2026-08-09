@@ -378,7 +378,9 @@ const jwtSchema = z
     jwks: z
       .boolean()
       .default(true)
-      .describe("Expose JWKS + `kid` (rotation de clés)."),
+      .describe(
+        "Publie le jeu de clés publiques sur `/.well-known/jwks.json` et les métadonnées d'émetteur sur `/.well-known/oauth-authorization-server` (RFC 8414) — de quoi rendre cette app DÉCOUVRABLE par un tiers qui vérifie ses jetons. Sans `issuer` en URL https, rien n'est publié (avertissement au boot). Le `kid` (rotation) est posé indépendamment de ce drapeau.",
+      ),
     audiences: z
       .array(z.string())
       .default([])
@@ -389,7 +391,7 @@ const jwtSchema = z
       .string()
       .optional()
       .describe(
-        "Émetteur (claim `iss`, RFC 7519). Omis = dérivé du domaine de l'app au boot. STABLE (ne pas changer après émission de refresh).",
+        "Émetteur (claim `iss`, RFC 7519). Omis = `\"nodefony\"` — suffisant tant que l'app émet ET vérifie ses propres jetons, mais PAS publiable (RFC 8414 §2 exige une URL https) : sans valeur explicite, aucune découverte n'est offerte. Ne se DEVINE pas — derrière un relais, `Host`/`X-Forwarded-*` viennent du client. STABLE : gravé dans chaque jeton déjà émis, le changer les invalide.",
       ),
     keystore: z
       .object({

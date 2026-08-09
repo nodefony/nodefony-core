@@ -1,5 +1,6 @@
 import {
   ACCESS_TOKEN_VERIFIER,
+  canonicalIssuer,
   type Container,
   type IAccessPrincipal,
   type IAccessTokenVerifier,
@@ -12,7 +13,6 @@ import type { IToken } from "../../contracts/IToken";
 import { AuthenticationError } from "../../errors/AuthenticationError";
 import { UnverifiableTokenError } from "../../errors/UnverifiableTokenError";
 import { UserToken } from "../token/UserToken";
-import { canonicalIssuer } from "../token/issuerDiscovery";
 import { bearerToken } from "./bearer";
 import { peekIssuer } from "./peekIssuer";
 

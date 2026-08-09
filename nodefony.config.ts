@@ -275,6 +275,17 @@ export default defineConfig<Env>((ctx) => ({
           ROLE_DEV: ["ROLE_USER"], // développeur (ORM, modules, routes, doc technique)
           ROLE_SUPERVISOR: ["ROLE_USER"], // exploitant / SRE (supervision, cluster, logs)
         },
+        // Rôle ÉMETTEUR (RFC 8414) — l'URL publique sous laquelle cette app
+        // signe ses jetons. Elle ne se devine PAS (derrière un relais, `Host`
+        // vient du client) : c'est l'exploitant qui l'écrit. Renseignée, elle
+        // ouvre `/.well-known/oauth-authorization-server` et
+        // `/.well-known/jwks.json` — sans quoi aucun tiers ne peut vérifier une
+        // signature émise ici. En dev, l'adresse publique EST connue.
+        jwt: {
+          issuer:
+            ctx.env.NF_JWT_ISSUER ??
+            (ctx.isProd ? undefined : "https://localhost:5152"),
+        },
         // 2FA TOTP (P6) — secret 2FA chiffré au repos (AES-256-GCM). Clé prod via
         // env (absente en prod = 2FA OFF, fail-safe : un secret chiffré par une clé
         // éphémère serait illisible après redémarrage / sur les autres pods ; dev =

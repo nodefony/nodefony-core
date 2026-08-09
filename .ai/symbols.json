@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-09T20:19:27.033Z",
+  "generated": "2026-08-09T20:55:56.705Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 708,
-    "symbols": 2928,
-    "classes": 354,
-    "interfaces": 849,
+    "files": 709,
+    "symbols": 2936,
+    "classes": 355,
+    "interfaces": 852,
     "types": 377,
     "enums": 4,
-    "functions": 1068,
-    "constants": 276
+    "functions": 1071,
+    "constants": 277
   },
   "symbols": {
     "Cli": {
@@ -2764,6 +2764,89 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Clés des outils intégrés — ce que l'allowlist de configuration nomme. Publiée pour qu'un schéma de configuration puisse la valider au lieu de la retaper : une clé inconnue en config est silencieuse…"
+    },
+    "IIssuerMetadata": {
+      "name": "IIssuerMetadata",
+      "kind": "interface",
+      "file": "src/nodefony/src/oauth/authorizationServer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'on lit d'un document de métadonnées — deux champs, pas un de plus. Un serveur d'autorisation en publie une trentaine ; en accepter davantage reviendrait à laisser un document distant décider …"
+    },
+    "IAuthorizationServerMetadata": {
+      "name": "IAuthorizationServerMetadata",
+      "kind": "interface",
+      "file": "src/nodefony/src/oauth/authorizationServer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le document que Nodefony PUBLIE — RFC 8414 §2, réduit à ce qui est vrai. Nodefony n'est pas un serveur d'autorisation OAuth : elle émet ses propres jetons par son flux à elle, sans point d'autorisa…"
+    },
+    "IAuthorizationServerInput": {
+      "name": "IAuthorizationServerInput",
+      "kind": "interface",
+      "file": "src/nodefony/src/oauth/authorizationServer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "De quoi composer le document — ce que l'application, seule, connaît."
+    },
+    "canonicalIssuer": {
+      "name": "canonicalIssuer",
+      "kind": "function",
+      "file": "src/nodefony/src/oauth/authorizationServer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Normalise et contrôle un identifiant d'émetteur (RFC 8414 §2). La RFC est explicite : c'est une URL **en `https`**, « with no query or fragment components ». Les trois refus ci-dessous ne sont donc…"
+    },
+    "authorizationServerMetadataPath": {
+      "name": "authorizationServerMetadataPath",
+      "kind": "function",
+      "file": "src/nodefony/src/oauth/authorizationServer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose le CHEMIN où PUBLIER ses métadonnées (RFC 8414 §3.1). La règle est une **insertion**, pas une concaténation : le suffixe bien connu se place entre l'hôte et le chemin de l'émetteur, « any t…"
+    },
+    "issuerMetadataUrls": {
+      "name": "issuerMetadataUrls",
+      "kind": "function",
+      "file": "src/nodefony/src/oauth/authorizationServer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose, dans l'ORDRE NORMATIF, les URL où chercher les métadonnées. L'ordre n'est pas une préférence de goût : la spécification impose d'essayer plusieurs points, et le premier document valide gag…"
+    },
+    "validateIssuerMetadata": {
+      "name": "validateIssuerMetadata",
+      "kind": "function",
+      "file": "src/nodefony/src/oauth/authorizationServer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Juge un document de métadonnées reçu. ⭐ **L'égalité stricte de l'émetteur est la garde centrale** (RFC 8414 §3.3, OIDC Discovery §4.3) : sans elle, un document servi par `attaquant.example` qui se …"
+    },
+    "buildAuthorizationServerMetadata": {
+      "name": "buildAuthorizationServerMetadata",
+      "kind": "function",
+      "file": "src/nodefony/src/oauth/authorizationServer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose le document de métadonnées d'émetteur."
+    },
+    "extractScopes": {
+      "name": "extractScopes",
+      "kind": "function",
+      "file": "src/nodefony/src/oauth/authorizationServer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Extrait les scopes accordés d'une charge utile de jeton d'accès. Deux formes coexistent dans le parc réel : `scope`, chaîne séparée par des espaces (RFC 8693 §4.1, RFC 9068 §2.2 — la forme normalis…"
+    },
+    "JWKS_PATH": {
+      "name": "JWKS_PATH",
+      "kind": "const",
+      "file": "src/nodefony/src/oauth/authorizationServer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Chemin conventionnel où Nodefony publie son jeu de clés publiques. Le choix est LIBRE — un client ne le devine pas, il le lit dans le champ `jwks_uri` du document de métadonnées. Deux raisons de le…"
     },
     "IProtectedResourceMetadata": {
       "name": "IProtectedResourceMetadata",
@@ -10145,6 +10228,34 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Monte la route de banc — appelée par le module framework, uniquement si `NF_BENCH_ROUTE=1`."
+    },
+    "IssuerMetadataController": {
+      "name": "IssuerMetadataController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [],
+      "description": "Les deux documents qui rendent une application Nodefony **découvrable** comme émetteur de jetons — RFC 8414 : - `GET /.well-known/oauth-authorization-server` — métadonnées d'émetteur (`issuer`, `jw…"
+    },
+    "IIssuerPublisher": {
+      "name": "IIssuerPublisher",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue MINIMALE du service d'émission de jetons, côté **publication** (`tokenService`, posé au container par `@nodefony/security`). Contrat structurel local : framework ne dépend JAMAIS de security — …"
+    },
+    "mountIssuerMetadataRoutes": {
+      "name": "mountIssuerMetadataRoutes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Monte les deux documents d'émetteur — appelé par le module framework à `onKernelReady`, seulement si `tokenService.publishedIssuer()` répond."
     },
     "OAuth2Controller": {
       "name": "OAuth2Controller",
@@ -18907,47 +19018,6 @@
       "decorators": [],
       "description": "Token du visiteur non authentifié — Zero Trust : un visiteur EST un utilisateur anonyme (jamais `null`). Porte le singleton gelé `anonymousUser` → **zéro allocation d'utilisateur** par requête non …"
     },
-    "IIssuerMetadata": {
-      "name": "IIssuerMetadata",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/security/nodefony/src/token/issuerDiscovery.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "extends": null,
-      "description": "Ce qu'on lit d'un document de métadonnées — deux champs, pas un de plus. Un serveur d'autorisation en publie une trentaine ; en accepter davantage reviendrait à laisser un document distant décider …"
-    },
-    "canonicalIssuer": {
-      "name": "canonicalIssuer",
-      "kind": "function",
-      "file": "src/packages/@nodefony/security/nodefony/src/token/issuerDiscovery.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "description": "Normalise et contrôle un identifiant d'émetteur (RFC 8414 §2). La RFC est explicite : c'est une URL **en `https`**, « with no query or fragment components ». Les trois refus ci-dessous ne sont donc…"
-    },
-    "issuerMetadataUrls": {
-      "name": "issuerMetadataUrls",
-      "kind": "function",
-      "file": "src/packages/@nodefony/security/nodefony/src/token/issuerDiscovery.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "description": "Compose, dans l'ORDRE NORMATIF, les URL où chercher les métadonnées. L'ordre n'est pas une préférence de goût : la spécification impose d'essayer plusieurs points, et le premier document valide gag…"
-    },
-    "validateIssuerMetadata": {
-      "name": "validateIssuerMetadata",
-      "kind": "function",
-      "file": "src/packages/@nodefony/security/nodefony/src/token/issuerDiscovery.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "description": "Juge un document de métadonnées reçu. ⭐ **L'égalité stricte de l'émetteur est la garde centrale** (RFC 8414 §3.3, OIDC Discovery §4.3) : sans elle, un document servi par `attaquant.example` qui se …"
-    },
-    "extractScopes": {
-      "name": "extractScopes",
-      "kind": "function",
-      "file": "src/packages/@nodefony/security/nodefony/src/token/issuerDiscovery.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "description": "Extrait les scopes accordés d'une charge utile de jeton d'accès. Deux formes coexistent dans le parc réel : `scope`, chaîne séparée par des espaces (RFC 8693 §4.1, RFC 9068 §2.2 — la forme normalis…"
-    },
     "JwtKeystore": {
       "name": "JwtKeystore",
       "kind": "class",
@@ -20616,6 +20686,7 @@
         "AdminApiController",
         "ApiKeyController",
         "BenchController",
+        "IssuerMetadataController",
         "OAuth2Controller",
         "SessionAuthController",
         "TokenAuthController",
@@ -21646,6 +21717,7 @@
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
@@ -22078,6 +22150,7 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
@@ -22142,6 +22215,7 @@
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
@@ -22190,6 +22264,15 @@
         "src/packages/@nodefony/framework/index.ts"
       ],
       "mountTokenAuthRoutes": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "IssuerMetadataController": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "mountIssuerMetadataRoutes": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "IIssuerPublisher": [
         "src/packages/@nodefony/framework/index.ts"
       ],
       "WebAuthnController": [
@@ -25097,6 +25180,7 @@
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
@@ -25986,6 +26070,15 @@
       ],
       "collectDeclaredApiScopes": [
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts"
+      ],
+      "JWKS_PATH": [
+        "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts"
+      ],
+      "authorizationServerMetadataPath": [
+        "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts"
+      ],
+      "buildAuthorizationServerMetadata": [
+        "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts"
       ],
       "TypeController": [
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts"
@@ -27175,6 +27268,11 @@
       "listOAuthProviders": [
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts"
       ],
+      "canonicalIssuer": [
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
+      ],
       "listTokenStores": [
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
       ],
@@ -27889,10 +27987,6 @@
       ],
       "ExternalJwtAuthenticator": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
-      ],
-      "canonicalIssuer": [
-        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
       ],
       "peekIssuer": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",

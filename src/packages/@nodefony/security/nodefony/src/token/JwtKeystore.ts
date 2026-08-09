@@ -157,13 +157,24 @@ export class JwtKeystore implements IJwtKeystore {
           `JwtKeystore: clé asymétrique attendue pour le kid "${stored.kid}"`,
         );
       }
-      // Retire la composante privée `d` : le JWKS exposé est PUBLIC (RFC 8037/7517).
-      const { d: _d, ...pub } = stored;
-      void _d;
+      // 🔴 Liste BLANCHE, pas liste noire. Retirer `d` suffisait tant que ce
+      // JWKS restait interne ; depuis qu'il est PUBLIÉ
+      // (`/.well-known/jwks.json`), un spread du keyset stocké fait sortir tout
+      // ce qu'on y ajoutera un jour — `createdAt` fuyait ainsi l'âge des clés,
+      // et le prochain champ interne suivrait sans que rien ne le signale.
+      // Paramètres retenus : RFC 8037 §2 pour une clé OKP (`kty`/`crv`/`x`) +
+      // les métadonnées JWK qui servent à la sélection (RFC 7517 §4).
       loaded.push({
         kid: stored.kid,
         privateKey: imported,
-        publicJwk: { ...pub, kid: stored.kid, use: "sig", alg: "EdDSA" },
+        publicJwk: {
+          kty: stored.kty,
+          crv: stored.crv,
+          x: stored.x,
+          kid: stored.kid,
+          use: "sig",
+          alg: "EdDSA",
+        },
         createdAt: stored.createdAt ?? Date.now(),
       });
     }

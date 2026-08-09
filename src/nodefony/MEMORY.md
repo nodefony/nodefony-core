@@ -296,6 +296,39 @@ rien à redéclarer.
 
 ---
 
+## OAuth (`src/oauth/`) — protocole PUR, deux rôles symétriques
+
+Aucune crypto, aucun socket : composer des URL, juger un document, en composer un.
+Au cœur parce que **deux couches qui ne se voient pas** partagent chaque règle —
+`@nodefony/security` (qui LIT) et `@nodefony/framework` (qui SERT), lequel
+n'importe JAMAIS security. Hors de `mcp/` : le MCP n'en est qu'un consommateur.
+
+| Fichier                  | Rôle                   | Symboles                                                                                                                                                                     |
+| ------------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `protectedResource.ts`   | serveur de RESSOURCE   | `canonicalResourceUri`, `protectedResourceMetadataPath/Url`, `buildProtectedResourceMetadata`, `buildBearerChallenge`, `authorizeProtectedResource`, `ACCESS_TOKEN_VERIFIER` |
+| `authorizationServer.ts` | serveur d'AUTORISATION | `canonicalIssuer`, `authorizationServerMetadataPath`, `issuerMetadataUrls`, `validateIssuerMetadata`, `buildAuthorizationServerMetadata`, `extractScopes`, `JWKS_PATH`       |
+
+- 🔴 **La PUBLICATION fait autorité, la LECTURE en dérive** :
+  `issuerMetadataUrls()[0]` est composée par `authorizationServerMetadataPath()`,
+  jamais par un littéral. Deux copies du chemin bien connu produiraient un `404`
+  que chacun interpréterait comme « pas d'autorisation ici ». Verrouillé par la
+  suite « la boucle » (`tests/authorizationServer.test.ts`).
+- **Insertion, pas concaténation** (RFC 8414 §3.1 / 9728 §3.1) : le suffixe se
+  place ENTRE l'hôte et le chemin. Un émetteur `https://h/tenant1` publie sous
+  `/.well-known/oauth-authorization-server/tenant1`.
+- **Égalité STRICTE de l'émetteur** (§3.3) = la garde centrale de la lecture :
+  sans elle, un document servi par `attaquant` se déclarant `honnête` ferait
+  vérifier des jetons avec SES clés.
+- **Ce qu'on publie est réduit à ce qui est VRAI** : `response_types_supported`
+  et `grant_types_supported` **vides** — Nodefony n'a pas de flux OAuth. Omettre
+  le second annoncerait `["authorization_code","implicit"]` par défaut (§2).
+  `jwks_uri` en https obligatoire, des deux côtés.
+- `canonicalIssuer` **lève** sur tout ce qui n'est pas une URL https sans requête
+  ni fragment → ne jamais l'appeler dans un `supports()` d'authenticator
+  (le firewall l'appelle HORS de son bloc de rattrapage).
+
+---
+
 ## Event (`src/Event.ts`)
 
 → Étend `node:events` EventEmitter. Ajoute : `fire()`, `fireAsync()`, `emitAsync()`, `listen()`, `settingsToListen()`.

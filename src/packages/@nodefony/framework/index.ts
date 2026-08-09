@@ -45,6 +45,10 @@ import SessionAuthController, {
 import TokenAuthController, {
   mountTokenAuthRoutes,
 } from "./nodefony/controller/TokenAuthController";
+import IssuerMetadataController, {
+  mountIssuerMetadataRoutes,
+  type IIssuerPublisher,
+} from "./nodefony/controller/IssuerMetadataController";
 import WebAuthnController, {
   mountWebAuthnRoutes,
 } from "./nodefony/controller/WebAuthnController";
@@ -398,6 +402,18 @@ class Framework extends Module<FrameworkConfig> {
     // `tokenService` est présent (security chargé + JWT activé). 404 sinon.
     if (this.kernel?.container?.get("tokenService")) {
       mountTokenAuthRoutes(this);
+      // Rôle ÉMETTEUR (RFC 8414) : publier ses clés et dire où elles sont —
+      // sans quoi personne d'autre ne peut vérifier un jeton signé ici. C'est
+      // security qui DÉCIDE (émetteur écrit en URL https + `jwt.jwks`) ;
+      // framework pose juste la question. `null` ⇒ aucune route, donc 404 :
+      // un document creux apprendrait qu'il y a quelque chose à découvrir
+      // sans donner de quoi le faire.
+      const issuer = this.kernel.container
+        .get<IIssuerPublisher>("tokenService")
+        ?.publishedIssuer();
+      if (issuer) {
+        mountIssuerMetadataRoutes(this, issuer);
+      }
     }
     // P6 J9 — cérémonies WebAuthn/passkeys : routes montées seulement si le
     // service `webauthn` est présent (security chargé + passkeys activés).
@@ -454,6 +470,8 @@ export {
   mountSessionAuthRoutes,
   TokenAuthController,
   mountTokenAuthRoutes,
+  IssuerMetadataController,
+  mountIssuerMetadataRoutes,
   WebAuthnController,
   mountWebAuthnRoutes,
   OAuth2Controller,
