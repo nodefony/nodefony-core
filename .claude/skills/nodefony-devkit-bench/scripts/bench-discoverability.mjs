@@ -3214,6 +3214,20 @@ function setup(runDir) {
   // l'envoyait sur un dossier vide.
   sh("npx", ["--no-install", "nodefony", "ai:sync"], { cwd: app });
 
+  // Le serveur MCP de l'app fait partie du décor de l'utilisateur : `ai:mcp`
+  // écrit `.mcp.json` — la porte est une ROUTE, joignable dès que l'agent
+  // démarre l'application, rien d'autre à lancer. Le port ne peut pas être lu
+  // d'un runtime qui n'a jamais tourné : on le DONNE (ports dédiés du banc),
+  // sinon le repli 5151 câblerait l'agent sur le serveur du DÉPÔT — la classe
+  // de piège « une application qui n'est pas la sienne » décrite plus haut.
+  sh("npx", ["--no-install", "nodefony", "ai:mcp"], {
+    cwd: app,
+    env: {
+      ...APP_ENV,
+      NODEFONY_DEV_PORTS: `${PORTS.NF_PORT},${PORTS.NF_PORT_HTTPS}`,
+    },
+  });
+
   // L'isolation se CONSTATE avant l'agent : mieux vaut aucun verdict qu'un
   // verdict rendu sur un décor qui n'est pas celui de l'utilisateur.
   const isolation = assertIsolated(REPO, app);
