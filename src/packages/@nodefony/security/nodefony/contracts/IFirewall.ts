@@ -6,6 +6,7 @@ import type {
   IFirewallDescription,
   IRoleHierarchyDescription,
 } from "./IFirewallDescription";
+import type { IProtectedResourceInput } from "nodefony";
 
 /**
  * Orchestrateur de sécurité — branché dans le pipeline HTTP/WS de `@nodefony/http`.
@@ -64,4 +65,15 @@ export interface IFirewall {
 
   /** Hiérarchie de rôles déclarée + résolution transitive (data plane Studio). */
   describeRoleHierarchy(): IRoleHierarchyDescription;
+
+  /**
+   * Ressources protégées à publier en RFC 9728 — une par `area.resource`
+   * déclarée, avec les émetteurs de confiance comme serveurs d'autorisation.
+   *
+   * Consommée par `@nodefony/framework` (contrat STRUCTUREL, par nom de
+   * service : framework ne dépend jamais de security) pour monter les documents
+   * que le défi d'un `401` désigne. C'est la MÊME donnée des deux côtés — le
+   * pointeur et le document ne peuvent donc pas diverger.
+   */
+  publishedProtectedResources(): readonly IProtectedResourceInput[];
 }

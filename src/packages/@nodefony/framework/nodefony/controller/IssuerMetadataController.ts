@@ -7,6 +7,7 @@ import {
 import type { ContextType } from "@nodefony/http";
 import Router from "../service/router";
 import Controller from "../src/Controller";
+import { askedAuthority, onDeclaredAuthority } from "./oauthAuthority";
 
 /**
  * Vue MINIMALE du service d'émission de jetons, côté **publication**
@@ -103,26 +104,9 @@ class IssuerMetadataController extends Controller {
    * @returns `true` si la requête entre par l'autorité de l'émetteur
    */
   #onIssuerAuthority(issuer: string): boolean {
-    // HTTP/2 porte l'autorité dans un pseudo-en-tête, HTTP/1.1 dans `Host` —
-    // lus ici plutôt que par un accesseur de `Request`, dont le type varie selon
-    // le transport (le contexte WS n'expose qu'un `IncomingMessage`).
-    const headers = this.request?.headers;
-    const raw = headers?.[":authority"] ?? headers?.host;
-    const asked = Array.isArray(raw) ? raw[0] : raw;
-    if (typeof asked !== "string" || asked.length === 0) return false;
-    let wanted: URL;
-    try {
-      wanted = new URL(issuer);
-    } catch {
-      return false;
-    }
-    try {
-      return new URL(`${wanted.protocol}//${asked}`).host === wanted.host;
-    } catch {
-      // `Host` illisible : rien à publier pour une autorité qu'on ne sait même
-      // pas nommer.
-      return false;
-    }
+    // La règle est partagée avec le rôle serveur de ressource (RFC 9728 §3.3) :
+    // même raisonnement, même correctif le jour où il faudra en écrire un.
+    return onDeclaredAuthority(askedAuthority(this.request?.headers), issuer);
   }
 
   /**

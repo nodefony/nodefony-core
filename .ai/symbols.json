@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-20T10:08:47.148Z",
+  "generated": "2026-08-20T11:00:56.844Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 712,
-    "symbols": 2943,
-    "classes": 358,
-    "interfaces": 853,
+    "files": 714,
+    "symbols": 2949,
+    "classes": 359,
+    "interfaces": 854,
     "types": 378,
     "enums": 4,
-    "functions": 1073,
+    "functions": 1077,
     "constants": 277
   },
   "symbols": {
@@ -10328,6 +10328,58 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Monte les routes du social login OAuth — appelé par le module framework à `onKernelReady`, seulement si le service `oauth2` est présent."
+    },
+    "onDeclaredAuthority": {
+      "name": "onDeclaredAuthority",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/oauthAuthority.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Une seule règle : un document bien connu ne se sert QUE sur l'autorité dont il se réclame. Elle vaut pour les deux rôles OAuth que cette application peut tenir, et pour la même raison. Côté **émett…"
+    },
+    "askedAuthority": {
+      "name": "askedAuthority",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/oauthAuthority.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Extrait l'autorité demandée des en-têtes bruts d'une requête. Lue ici plutôt que par un accesseur de `Request` : le type varie selon le transport (le contexte WebSocket n'expose qu'un `IncomingMess…"
+    },
+    "ProtectedResourceMetadataController": {
+      "name": "ProtectedResourceMetadataController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [],
+      "description": "Le document qui rend un refus APPRENABLE — RFC 9728. ## Le trou que ce controller ferme Un `401` d'une zone qui déclare sa ressource porte désormais un défi complet : ``` WWW-Authenticate: Bearer r…"
+    },
+    "IProtectedResourcePublisher": {
+      "name": "IProtectedResourcePublisher",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue MINIMALE du service qui sait ce que l'application PROTÈGE, côté **publication**. Contrat structurel local : framework ne dépend JAMAIS de `@nodefony/security` — couplage par nom de service (`fi…"
+    },
+    "protectedResourceRoutePaths": {
+      "name": "protectedResourceRoutePaths",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Chemins bien connus à monter pour un jeu de ressources déclarées. Fonction **pure**, exportée pour être éprouvée sans serveur : c'est elle qui porte les deux décisions qui font la différence entre …"
+    },
+    "mountProtectedResourceRoutes": {
+      "name": "mountProtectedResourceRoutes",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Monte les documents de ressource protégée — appelé par le module framework à `onKernelReady`, seulement si un publieur déclare au moins une ressource."
     },
     "SessionAuthController": {
       "name": "SessionAuthController",
@@ -20753,6 +20805,7 @@
         "BenchController",
         "IssuerMetadataController",
         "OAuth2Controller",
+        "ProtectedResourceMetadataController",
         "SessionAuthController",
         "TokenAuthController",
         "TotpController",
@@ -21786,6 +21839,7 @@
         "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TotpController.ts",
@@ -22225,6 +22279,7 @@
         "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TotpController.ts",
@@ -22291,6 +22346,7 @@
         "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TotpController.ts",
@@ -22347,6 +22403,18 @@
         "src/packages/@nodefony/framework/index.ts"
       ],
       "IIssuerPublisher": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "ProtectedResourceMetadataController": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "mountProtectedResourceRoutes": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "protectedResourceRoutePaths": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "IProtectedResourcePublisher": [
         "src/packages/@nodefony/framework/index.ts"
       ],
       "WebAuthnController": [
@@ -25262,6 +25330,7 @@
         "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/SessionAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TokenAuthController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/TotpController.ts",
@@ -25409,7 +25478,8 @@
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
       ],
       "canonicalResourceUri": [
-        "src/packages/@nodefony/devkit/nodefony/config/config.ts"
+        "src/packages/@nodefony/devkit/nodefony/config/config.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts"
       ],
       "devkitConfigSchema": [
         "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts"
@@ -25455,10 +25525,12 @@
         "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts"
       ],
       "protectedResourceMetadataPath": [
-        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts"
+        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts"
       ],
       "buildProtectedResourceMetadata": [
-        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts"
+        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts"
       ],
       "ICardAppInfo": [
         "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
@@ -26161,6 +26233,19 @@
       ],
       "buildAuthorizationServerMetadata": [
         "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts"
+      ],
+      "askedAuthority": [
+        "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts"
+      ],
+      "onDeclaredAuthority": [
+        "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts"
+      ],
+      "IProtectedResourceInput": [
+        "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "TypeController": [
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts"

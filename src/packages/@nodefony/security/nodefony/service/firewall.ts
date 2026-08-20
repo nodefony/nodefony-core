@@ -10,6 +10,7 @@ import {
   Pdu,
   logColor,
 } from "nodefony";
+import type { IProtectedResourceInput } from "nodefony";
 import type { ContextType, ISecurityTrace } from "@nodefony/http";
 import { encoderFromConfig } from "@nodefony/user";
 
@@ -66,6 +67,15 @@ import type {
 } from "../contracts/IFirewallDescription";
 
 const serviceName = "firewall";
+
+/**
+ * Réponse partagée de {@link Firewall.publishedProtectedResources} quand il n'y
+ * a rien à publier — le cas de l'immense majorité des applications. Gelée et
+ * réutilisée : allouer un tableau vide pour dire « rien » est exactement le
+ * genre de dépense que la règle de lazy-allocation proscrit.
+ */
+const EMPTY_PROTECTED_RESOURCES: readonly IProtectedResourceInput[] =
+  Object.freeze([]);
 
 // Surface minimale d'une réponse capable de porter un en-tête (HTTP/HTTP2 —
 // une réponse WS ne l'a pas : capability check, jamais de cast aveugle).
@@ -629,6 +639,53 @@ class Firewall extends Service implements IFirewall {
         .sort(),
     }));
     return { hierarchy, roles };
+  }
+
+  /**
+   * Ce que l'application PROTÈGE, à publier en RFC 9728 — une entrée par
+   * ressource déclarée par une zone.
+   *
+   * ⭐ **Même donnée que le défi, donc impossible qu'ils divergent.** Le `401`
+   * d'une zone porte `resource_metadata="…/.well-known/oauth-protected-resource
+   * /<chemin de `area.resource`>"` ; ce que rend cette méthode est la source de
+   * ce que `@nodefony/framework` monte à cette URL. Une seconde déclaration —
+   * une clé « ressources publiées » à côté des zones — se serait périmée au
+   * premier renommage, et le symptôme aurait été un `404` que rien n'explique.
+   *
+   * 🔴 **Les serveurs d'autorisation sont les émetteurs de confiance, pas une
+   * liste à part.** `authorization_servers` répond à « qui peut délivrer un
+   * jeton pour cette ressource ? » — c'est exactement l'allowlist
+   * `resourceServer.issuers`, la seule que le vérificateur consulte. Publier
+   * autre chose reviendrait à envoyer le client demander un jeton à un émetteur
+   * dont on refuse ensuite la signature.
+   *
+   * Aucun émetteur de confiance ⇒ **rien à publier** : un document sans serveur
+   * d'autorisation apprendrait au client qu'un jeton est nécessaire sans jamais
+   * lui dire où l'obtenir (et la RFC 9728 comme la spécification MCP l'excluent).
+   *
+   * Appelée UNE fois, au montage des routes (`onKernelReady`) — hors hot path,
+   * d'où l'allocation directe plutôt qu'un cache à invalider.
+   *
+   * @returns les ressources protégées déclarées, éventuellement vide
+   */
+  publishedProtectedResources(): readonly IProtectedResourceInput[] {
+    const config = this.#config;
+    if (!config) return EMPTY_PROTECTED_RESOURCES;
+    const authorizationServers = config.resourceServer.issuers
+      .map((i) => i.issuer)
+      .filter((issuer) => typeof issuer === "string" && issuer.length > 0);
+    if (authorizationServers.length === 0) return EMPTY_PROTECTED_RESOURCES;
+
+    const published: IProtectedResourceInput[] = [];
+    // Deux zones peuvent déclarer la MÊME ressource — typiquement une zone HTTP
+    // et son pendant WebSocket. Une ressource, un document.
+    const seen = new Set<string>();
+    for (const area of this.#areas ?? []) {
+      if (!area.resource || seen.has(area.resource)) continue;
+      seen.add(area.resource);
+      published.push({ resource: area.resource, authorizationServers });
+    }
+    return published.length > 0 ? published : EMPTY_PROTECTED_RESOURCES;
   }
 
   /**

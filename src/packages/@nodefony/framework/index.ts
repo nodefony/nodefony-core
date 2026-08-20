@@ -49,6 +49,11 @@ import IssuerMetadataController, {
   mountIssuerMetadataRoutes,
   type IIssuerPublisher,
 } from "./nodefony/controller/IssuerMetadataController";
+import ProtectedResourceMetadataController, {
+  mountProtectedResourceRoutes,
+  protectedResourceRoutePaths,
+  type IProtectedResourcePublisher,
+} from "./nodefony/controller/ProtectedResourceMetadataController";
 import WebAuthnController, {
   mountWebAuthnRoutes,
 } from "./nodefony/controller/WebAuthnController";
@@ -415,6 +420,31 @@ class Framework extends Module<FrameworkConfig> {
         mountIssuerMetadataRoutes(this, issuer);
       }
     }
+    // P6.9 — rôle SERVEUR DE RESSOURCE (RFC 9728), symétrique du précédent : là
+    // on publiait ses clés pour qu'un tiers VÉRIFIE, ici on publie ce qu'on
+    // protège pour qu'un client OBTIENNE. Sans ce montage, le défi posé sur un
+    // 401 (`resource_metadata="…"`) nomme une URL qui rend 404 : le client la
+    // suit, échoue, et conclut qu'il n'y a pas d'autorisation ici — l'inverse
+    // exact de ce que le refus voulait lui apprendre.
+    //
+    // C'est security qui DÉCIDE (quelles zones déclarent leur ressource, quels
+    // émetteurs les servent) ; framework ne fait qu'ouvrir la porte. Contrat
+    // STRUCTUREL : aucune dépendance vers `@nodefony/security`, et un firewall
+    // qui ne connaîtrait pas la méthode ne monte simplement rien.
+    const resourcePublisher =
+      this.kernel?.container?.get<IProtectedResourcePublisher>("firewall");
+    if (typeof resourcePublisher?.publishedProtectedResources === "function") {
+      const mountedCount = mountProtectedResourceRoutes(
+        this,
+        resourcePublisher.publishedProtectedResources(),
+      );
+      if (mountedCount > 0) {
+        this.log(
+          `OAuth resource server — ${mountedCount} protected resource document(s) published (RFC 9728)`,
+          "DEBUG",
+        );
+      }
+    }
     // P6 J9 — cérémonies WebAuthn/passkeys : routes montées seulement si le
     // service `webauthn` est présent (security chargé + passkeys activés).
     if (this.kernel?.container?.get("webauthn")) {
@@ -472,6 +502,9 @@ export {
   mountTokenAuthRoutes,
   IssuerMetadataController,
   mountIssuerMetadataRoutes,
+  ProtectedResourceMetadataController,
+  mountProtectedResourceRoutes,
+  protectedResourceRoutePaths,
   WebAuthnController,
   mountWebAuthnRoutes,
   OAuth2Controller,
