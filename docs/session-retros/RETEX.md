@@ -67,6 +67,11 @@ log 2>&1; echo "EXIT=$?" | tee -a log` : le harnais a rapporté **exit 0** — c
 
 ## 🔌 Le décor d'un banc se LIT à sa source, jamais ne se devine
 
+- `[1× — 08-20d]` 🔴 **648 rouges de `test:all`, DEUX jours de suite, pour la même cause jamais
+  instruite : le serveur d'intégration était ÉTEINT.** 642 `ECONNREFUSED :5152` + 6 flakes de
+  contention — zéro régression. `test:all` pose l'infra docker mais PAS le serveur que les suites
+  live exigent, et son rapport « CE QUI A ÉTÉ TESTÉ » ne nomme pas ce prérequis (dette inscrite au
+  dashboard). Serveur UP → 9 443 verts, 0 échec, load et dialects compris.
 - `[1× — 08-20c]` 🔴 **J'ai deviné le mot de passe Redis (`nodefony` au lieu de `nodefony-dev`) et,
   en l'exportant, je l'ai IMPOSÉ au serveur que je venais de lancer** — sa connexion est tombée en
   `WRONGPASS`, et le banc a rendu des 500 que j'ai failli instruire comme un défaut de code.
@@ -174,6 +179,12 @@ log 2>&1; echo "EXIT=$?" | tee -a log` : le harnais a rapporté **exit 0** — c
 
 ## 📌 Un chiffre publié sans son COMMIT n'est pas vérifiable
 
+- `[1× — 08-20d]` **Un hash cité AVANT le commit définitif meurt en silence** : une mémoire écrite
+  43 s AVANT son commit citait `da13d51` (réel : `1b46723a`), et un `--amend` a tué `0f8ad7cd`
+  (réel : `4af035e2`) — les 2 seuls hashes morts sur 1 614 candidats du corpus mémoire, retrouvés
+  par automate (`git cat-file -e` sur tout). Piège jumeau : un ID de SESSION (`1fa6ebae`,
+  `41ca4a89`) a exactement la forme d'un hash court. Un hash se cite APRÈS `git log -1`, jamais
+  de tête.
 - `[1× — 08-07b]` 🔴 **Rendu REFUSÉ par le user, et à raison : « les données sont assemblées de
   manière aléatoire ».** J'ai publié un dossier de perf entier — 9 pages + un rapport HTML — en
   portant scrupuleusement machine, protocole, dispersion et gardes… **sans jamais dire à quel état
@@ -506,6 +517,16 @@ log 2>&1; echo "EXIT=$?" | tee -a log` : le harnais a rapporté **exit 0** — c
   artefact devient public, ses filtres se relisent à l'envers** — non pas « qu'est-ce que je retire
   ? » mais « qu'est-ce que j'autorise ? ». Trouvé par le banc LIVE (3ᵉ session d'affilée), invisible
   aux 989 unitaires qui n'exercent pas la sérialisation de bout en bout.
+
+## 🗣️ Un juge qui exige une SORTIE VIDE meurt au premier bavardage d'un outil amont
+
+- `[1× — 08-20d]` 🔴 **`code-check` déclarait ROUGE les 63 pages dont les 124 blocs COMPILAIENT** :
+  son verdict était `status === 0 && sortie vide`, et npm s'est mis à écrire `npm notice run …` sur
+  stderr autour de chaque `npx` — un changement d'outil AMONT a inversé un juge local. Second bug du
+  même run : nom de dossier = concat des 63 pages → `ENAMETOOLONG` (l'outil n'avait jamais vu le
+  corpus entier). Réparé + vu MORDRE (sabotage TS2322 → rouge, restauration → vert, diff vide).
+  Règle : juger sur l'EXIT CODE + un filtre NOMMÉ du bruit connu, jamais sur « rien ne s'est
+  affiché » ; et le seul autre juge-sur-sortie-vide du dépôt a été cherché (aucun).
 
 ## 🗄️ Gradué aux CONSOLIDATE (retiré d'ici — règle anti-doublon)
 

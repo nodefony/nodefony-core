@@ -198,7 +198,7 @@ Base mesurée : **9 347 RPS** vs 30 445 Fastify / 35 594 `node:http` nu à déco
 >   `buildNotification` source unique) · suites charge/mémoire EN CI (`memory.yml` exécute
 >   `test:load`).
 > - **1 RECALÉ** : `: any` = **189** aujourd'hui (143 cœur + 46 packages) vs « 166 » rapporté ;
->   oxlint tourne EN CI (`node.js.yml`) — le hook lint-staged ne porte que prettier.
+>   oxlint tourne EN CI (`node.js.yml`) ET dans le hook lint-staged (`oxlint --deny-warnings`) — le constat « lint absent des hooks et de la CI » est PÉRIMÉ.
 > - **1 NON INSTRUIT** (mesure, pas lecture) : les % de profil CPU (audit 5,9 % · setTimeout
 >   2,6 % · churn listeners 1,9 %) — à rejouer au profileur si le chemin chaud est retouché.
 
