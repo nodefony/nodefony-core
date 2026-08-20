@@ -118,6 +118,24 @@ if (!opts.closeAfterDrops) {
   );
   process.exit(0);
 }
+// Le serveur ferme sur un SOLDE de refus (+1 par refus, −1 par envoi —
+// wsBackpressure.ts), pas sur un total cumulé. Le total observé ici en est un
+// MAJORANT strict : tant qu'il n'atteint pas le seuil, le solde ne l'a pas
+// atteint non plus, et une socket restée ouverte est le comportement JUSTE.
+//
+// Sans cette garde, le banc accusait le serveur avec les chiffres qui le
+// disculpaient (145 refus contre un seuil de 1000) — la sonde est le premier
+// suspect, pas le code qu'elle juge. Et ne pas pouvoir conclure n'est pas un
+// succès : on le DIT, plutôt que de rendre un vert qui ne couvre rien.
+if (p.dropped < opts.closeAfterDrops) {
+  log(
+    `⚠ FERMETURE non éprouvée — ${p.dropped} refus pour un seuil de ` +
+      `${opts.closeAfterDrops} : la série requise ne peut pas avoir été atteinte.\n` +
+      "   Pour l'éprouver, abaisser le seuil sur un serveur dédié :\n" +
+      "   NF__HTTP__WEBSOCKETSECURE__BACKPRESSURECLOSEAFTERDROPS=20 bash .claude/skills/nodefony-start-server/start.sh",
+  );
+  process.exit(0);
+}
 if (p.readyState !== 2 && p.readyState !== 3) {
   fail(
     `la socket est encore OUVERTE après ${p.dropped} refus alors que closeAfterDrops=` +
