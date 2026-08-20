@@ -17,7 +17,7 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 - vue3 → `@vitejs/plugin-vue` lazy import, optimizeDeps: vue. Extensions: vue,ts,js. PAS de preamble (Vue se monte via `createApp(App).mount()` dans l'entry) → TemplateHelper chemin générique. Consommateur réf: `src/modules/test-frontend-vue`.
 - angular → `@analogjs/vite-plugin-angular` lazy import, optimizeDeps: @angular/core+common+platform-browser. Extensions: ts,html. Angular 21 standalone+zoneless (`bootstrapApplication`+`provideZonelessChangeDetection`, pas zone.js). Generator émet `angular({ tsconfig: <ABSOLU> })` résolu depuis `angularEntry.root` (cwd Vite = entries[0].root ≠ root angular). PAS de preamble. Consommateur réf: `src/modules/test-frontend-angular` (/angular/app). **Gotchas** : install `--legacy-peer-deps` (TS6 vs @angular/build peer <6.0, mais compiler-cli accepte <6.1) ; `@analogjs/*`+`@angular` DOIVENT être dans `external` du rolldown.config frontend (compiler-cli interop CJS typescript non-bundlable) ; le plugin transforme TOUS les .ts → scoping par tsconfig.app.json (include = frontend angular only) sinon casse le main.ts de Vue ; HMR = page reload (pas hot-swap).
 - vanilla → no plugin, no optimizeDeps. Extensions: ts,js.
-- svelte5: lazy `@sveltejs/vite-plugin-svelte` (export NOMMÉ `{ svelte }`, spécificateur par VARIABLE — paquet porté par l'app, absent du dépôt). App `--link` : fallback `createRequire(cwd)` + `pathToFileURL` (le preset vit dans le CHECKOUT, le plugin dans l'APP — l'import relatif à l'importeur ne le voit pas). Entry Svelte 5 : `mount(App, { target })` (runes). Famille `default`. TODO: solid.
+- svelte5: lazy `@sveltejs/vite-plugin-svelte` (export NOMMÉ `{ svelte }`, spécificateur par VARIABLE — paquet porté par l'app, absent du dépôt). App `--link` : fallback `createRequire(cwd)` + `pathToFileURL` (le preset vit dans le CHECKOUT, le plugin dans l'APP — l'import relatif à l'importeur ne le voit pas). Entry Svelte 5 : `mount(App, { target })` (runes). Famille `default`.
 
 ## Dev déporté (P14.17) — origine PUBLIQUE ≠ adresse d'écoute
 
@@ -47,7 +47,6 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
   devHost: "127.0.0.1",
   devPort: 5173,
   autoStartInDevelopment: true,
-  enabledPresets: ["react19", "vanilla"],
   defaultOutDir: "./public/dist",
   defaultRoot: "./frontend",
   startupTimeoutMs: 30_000,

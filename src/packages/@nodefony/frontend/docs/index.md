@@ -374,12 +374,11 @@ JSON Schema pour l'écran de configuration de Studio.
 
 ### Le build de production
 
-| Option           | Type     | Défaut                  | Effet                                                                                   |
-| ---------------- | -------- | ----------------------- | --------------------------------------------------------------------------------------- |
-| `defaultRoot`    | `string` | `"./frontend"`          | Racine front d'un module (contient `index.html`), si l'entrée ne dit rien.              |
-| `defaultOutDir`  | `string` | `"./public/dist"`       | Dossier de sortie du build, si l'entrée ne dit rien.                                    |
-| `assetBaseUrl`   | `string` | `""`                    | Base CDN des assets en production. Vide = servis depuis ton origine.                    |
-| `enabledPresets` | `array`  | `["react19","vanilla"]` | **Déclarée mais non lue** : les presets sont résolus depuis le `type` de chaque entrée. |
+| Option          | Type     | Défaut            | Effet                                                                      |
+| --------------- | -------- | ----------------- | -------------------------------------------------------------------------- |
+| `defaultRoot`   | `string` | `"./frontend"`    | Racine front d'un module (contient `index.html`), si l'entrée ne dit rien. |
+| `defaultOutDir` | `string` | `"./public/dist"` | Dossier de sortie du build, si l'entrée ne dit rien.                       |
+| `assetBaseUrl`  | `string` | `""`              | Base CDN des assets en production. Vide = servis depuis ton origine.       |
 
 ### La résilience du superviseur
 

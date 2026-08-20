@@ -11,15 +11,18 @@ describe("isolationGroups — isolationGroup()", () => {
     expect(isolationGroup("angular")).to.equal("angular");
   });
 
-  it("regroupe react/vue/vanilla dans la famille default", () => {
+  it("regroupe react/vue/vanilla/svelte dans la famille default", () => {
     expect(isolationGroup("react19")).to.equal(PRIMARY_FAMILY);
     expect(isolationGroup("vue3")).to.equal(PRIMARY_FAMILY);
     expect(isolationGroup("vanilla")).to.equal(PRIMARY_FAMILY);
+    expect(isolationGroup("svelte5")).to.equal(PRIMARY_FAMILY);
   });
 
   it("type inconnu → famille default (cohabitation par défaut)", () => {
-    expect(isolationGroup("svelte5")).to.equal(PRIMARY_FAMILY);
-    expect(isolationGroup("solid")).to.equal(PRIMARY_FAMILY);
+    // `isolationGroup` prend une `string` et non `FrontPresetType` : un preset
+    // apporté par un module tiers doit cohabiter, pas casser l'allocation de
+    // ports. Seul angular s'isole, et pour une raison nommée.
+    expect(isolationGroup("preset-tiers-inconnu")).to.equal(PRIMARY_FAMILY);
   });
 });
 

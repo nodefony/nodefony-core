@@ -162,12 +162,6 @@ describe("ViteConfigGenerator — toMjs()", () => {
     expect(apiOccurrences).to.equal(1);
   });
 
-  it("throws on unknown preset type", () => {
-    expect(() =>
-      gen.toMjs([{ ...baseEntry, type: "unknown" as any }], "development"),
-    ).to.throw();
-  });
-
   // --- Multi-bundle fix (P14.6) -------------------------------------------
 
   it("emits server.fs.allow with all entry roots + cwd", () => {
@@ -315,5 +309,26 @@ describe("ViteConfigGenerator — toMjs()", () => {
     expect(out).to.include('"svelte",'); // optimizeDeps
     expect(out).to.include('resolve: { dedupe: ["svelte"] }');
     expect(out).to.not.include("@vitejs/plugin-react");
+  });
+
+  // --- Le pendant du test ci-dessus : un preset NON enregistré est REFUSÉ ---
+  // `FrontPresetType` ne liste que des presets réellement enregistrés, mais un
+  // appelant JS (ou un `as`) peut toujours passer autre chose. Le générateur
+  // doit alors s'ARRÊTER en nommant le type : sans ce refus, le `default:` du
+  // switch laisserait passer une entrée sans plugin — un bundle servi qui ne
+  // transforme rien, et un écran blanc sans cause nommée.
+  it("refuse un preset non enregistré au lieu de l'ignorer en silence", () => {
+    expect(() =>
+      gen.toMjs(
+        [
+          {
+            ...baseEntry,
+            type: "solid" as unknown as (typeof baseEntry)["type"],
+            entryFile: "src/main.tsx",
+          },
+        ],
+        "development",
+      ),
+    ).to.throw(/solid/);
   });
 });

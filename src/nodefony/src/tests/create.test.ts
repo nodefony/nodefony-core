@@ -233,8 +233,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         /preset invalide/,
       );
       assert.throws(
-        // `solid` est déclaré dans les presets @nodefony/frontend mais n'a pas
-        // (encore) de scaffold — le contrat refuse ce que le moteur ne rend pas.
+        // `solid` n'est ni un preset @nodefony/frontend ni un scaffold — le
+        // contrat refuse ce que le moteur ne rend pas. Vaut pour toute valeur
+        // hors de la liste des frontends réellement générables.
         () => resolveAnswers(spec, { name: "x", frontend: "solid" }, caps),
         /frontend invalide/,
       );

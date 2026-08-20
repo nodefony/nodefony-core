@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-09T22:39:29.712Z",
+  "generated": "2026-08-20T08:42:23.902Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -11885,7 +11885,7 @@
       "file": "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontPreset.ts",
       "exported": true,
       "module": "@nodefony/frontend",
-      "description": "Preset descriptor — applique une stack frontend (React, Vue, Svelte, Solid, vanilla). Un preset enrichit la config Vite avec les plugins, les extensions de fichiers et les dépendances pré-bundlées …"
+      "description": "Preset descriptor — applique une stack frontend (React, Vue, Angular, Svelte, vanilla). Un preset enrichit la config Vite avec les plugins, les extensions de fichiers et les dépendances pré-bundlée…"
     },
     "IViteSupervisorStatus": {
       "name": "IViteSupervisorStatus",

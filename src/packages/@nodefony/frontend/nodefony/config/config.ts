@@ -160,14 +160,6 @@ export const frontendConfigSchema = z
           "`development`. Ignoré en `production`/`staging`. Reco : true en dev, " +
           "sinon les helpers template injecteront une URL morte.",
       ),
-    enabledPresets: z
-      .array(z.enum(["react19", "vue3", "svelte5", "solid", "vanilla"]))
-      .default(["react19", "vanilla"])
-      .describe(
-        "Présets activés pour le scan paresseux des plugins. Reco : laisser tous " +
-          "activés — seuls les modules qui les déclarent déclenchent le chargement " +
-          "réel des deps.",
-      ),
     defaultOutDir: z
       .string()
       .default("./public/dist")

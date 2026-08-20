@@ -22,7 +22,7 @@ export function isolationGroup(type: string): string {
     case "angular":
       return "angular";
     default:
-      // react19, vue3, vanilla, svelte5, solid… → instance partagée.
+      // react19, vue3, vanilla, svelte5 → instance partagée.
       return "default";
   }
 }
