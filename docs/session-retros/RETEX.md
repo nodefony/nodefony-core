@@ -20,6 +20,36 @@
 
 ---
 
+## 🚧 Une donnée qui s'ARRÊTE à la frontière d'un vérificateur — deux failles, un seul motif
+
+- `[2× — 08-20]` 🔴 **La même classe de bug a produit DEUX failles en deux sessions**, sur le même
+  contrat `IAccessPrincipal`. (1) La **borne d'expiration** ne traversait pas ⇒ une socket WS
+  adossée à un jeton tiers ne mourait jamais. (2) L'**émetteur** ne traversait pas ⇒ le `sub` d'un
+  annuaire tiers était cherché tel quel dans l'annuaire local, donc s'inscrire sous « admin »
+  chez un émetteur reconnu donnait le compte `admin`. Chaque fois : le vérificateur SAIT, l'appelant
+  ne reçoit qu'un extrait, et l'extrait suffit pour le cas nominal. **Le réflexe à prendre** : devant
+  un contrat qui traverse une frontière de confiance, ne pas se demander « qu'est-ce que l'appelant
+  utilise ? » mais « qu'est-ce que le vérificateur SAIT et que l'appelant ne saura plus ? ». Ce qui
+  reste derrière ne manque jamais tout de suite — il manque le jour d'une attaque.
+- `[1× — 08-20]` **Le champ neuf se met REQUIS, pas optionnel** : le typecheck a nommé les 11 sites
+  d'un coup. En optionnel, chaque appelant décide de s'en passer — ce qui est exactement la façon
+  dont ce trou est né la première fois.
+- `[1× — 08-20]` ⚠️ **Ajouter un champ ne suffit pas : il faut UNE seule forme.** Le vérificateur
+  rendait d'abord `trusted.issuer` (valeur BRUTE de la config) là où la table consommatrice est
+  indexée en forme CANONIQUE : une barre oblique terminale en configuration aurait suffi à
+  provoquer un 503 systématique. Quand une valeur devient une CLÉ, les deux côtés doivent la
+  normaliser au même endroit — sinon on a transporté la donnée sans transporter sa forme.
+
+## 🕳️ Un pointeur CONFORME peut ne mener nulle part — la conformité n'est pas la promesse
+
+- `[1× — 08-20]` 🔴 **Le défi RFC 9728 posé, et l'URL qu'il annonce rend 404.** L'en-tête est
+  syntaxiquement juste, le client le lit, le suit… et trouve une erreur : seul un module monte un
+  document de ressource protégée, pour SA porte. Aucun test unitaire ne pouvait le voir — ils
+  vérifient la CHAÎNE composée, pas ce qui se trouve au bout. **Vu uniquement en `curl`ant l'URL
+  qu'on vient de publier.** Règle : quand un livrable ÉMET une référence (URL, chemin, identifiant
+  de document), la déréférencer une fois en réel fait partie de la livraison — sinon on livre une
+  promesse dont on n'a vérifié que la grammaire.
+
 ## 🕸️ Implémenter une interface sans lire OÙ l'appelant l'appelle
 
 - `[1× — 08-09f]` 🔴 **`supports()` d'un authenticator est appelé HORS du bloc de rattrapage du
@@ -389,6 +419,20 @@
 
 ## 🔦 Une capacité qu'on n'ATTEINT pas n'existe pas
 
+- `[1× — 08-20]` 🔴 **Une doc qui déclare « non implémenté » une capacité LIVRÉE l'efface** — le
+  `references/` du skill front annonçait `svelte5` comme « déclaré mais non implémenté » alors que
+  le preset était complet depuis des semaines (registre, plugin, dedupe, test, scaffold), et le
+  `MIGRATION_STATUS` disait « reste Svelte » sur une ligne dont la barre de progression, deux cents
+  lignes plus haut, comptait déjà `svelte5 ✅`. **C'est le USER qui l'a signalé, pas une relecture.**
+  Le contraire de la doc périmée habituelle : ici elle ne promet pas trop, elle DISSUADE d'utiliser
+  ce qui existe. Une capacité livrée sans mise à jour de tous ses points de mention est, pour le
+  lecteur suivant, une capacité absente.
+- `[1× — 08-20]` **Une valeur ACCEPTÉE sans implémentation est le symétrique** : `solid` était dans
+  l'enum Zod et dans le type sans qu'aucun preset ne l'enregistre — annoncé donc atteignable, en
+  réalité refusé au démarrage. Et la clé `enabledPresets` qui la portait n'était lue par personne,
+  ce que la doc du module disait déjà sans que quiconque en tire la conséquence : **constater une
+  clé morte et la documenter comme morte, c'est la garder vivante dans la surface publique.**
+
 - `[1× — 08-07d]` 🔴 **J'ai fait jouer la sonde au user pendant des heures alors qu'un navigateur
   en conteneur était déclaré depuis longtemps.** Il a fallu qu'il s'énerve — « oui tu as un
   navigateur, j'arrête pas de le dire » — pour que je l'atteigne. La capacité vivait dans un
@@ -459,6 +503,19 @@
   [[feedback_green_covers_only_its_diff]]
 
 ## 🧪 Un gate ne prouve rien tant qu'on ne l'a pas vu ROUGE — deux faux verts le même jour
+
+- `[1× — 08-20]` 🔴 **UN TEST PUREMENT NÉGATIF NE PEUT PAS ÉCHOUER.** J'avais annoncé 2 rouges au
+  débranchement, il n'y en a eu qu'UN : mon test « le défi ne porte pas d'`error` » restait vert sur
+  un `Bearer` nu — qui n'en porte pas davantage. Une assertion « X est absent » est satisfaite par
+  la disparition de TOUTE la fonctionnalité. **Tout `not.contain` / `assert.equal(…, false)` doit
+  être précédé d'une assertion POSITIVE** qui prouve qu'on regarde bien l'objet vivant. Pendant
+  exact de la leçon du 08-10 (« le seul test qui discrimine est le cas positif »), vue cette fois
+  du côté de l'assertion et non du cas de test.
+- `[1× — 08-20]` **Le compte annoncé AVANT de couper a servi une 3ᵉ fois** — sans lui, 1 rouge au
+  lieu de 2 se lisait « ça mord », et le test creux restait dans la suite pour toujours.
+- `[1× — 08-20]` **Un banc peut mentir en croyant se protéger** : le helper de construction d'un
+  banc doit prendre le défaut de PRODUCTION. En se donnant d'office l'ancien mode permissif, il
+  aurait prouvé l'ancien comportement en croyant prouver le neuf.
 
 - `[1× — 08-10]` 🔴 **ALLUMER UNE GARDE PEUT ÉTEINDRE UN BANC — et un banc sauté est un vert qu'on
   croit.** En protégeant la porte MCP, j'ai fait sauter les **13 tests** de `mcp-http.test.ts` : sa
