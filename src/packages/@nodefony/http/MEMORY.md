@@ -72,16 +72,17 @@ Tests : `unit/wsBackpressure.test.ts` (16) · realtime `unit/backpressureConfig.
 
 ## Core Components
 
-| Classe              | Fichier                                     | Rôle                                                                                                                                                                                                                                                      |
-| ------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Http`              | `index.ts`                                  | Module racine. `@services([HttpKernel, Certificate, SessionsService, StaticServer, HttpServer, HttpsServer, WebsocketServer, WebsocketSecureServer, UploadService])`                                                                                      |
-| `HttpKernel`        | `service/http-kernel.ts`                    | Orchestrateur. `handle()` → pipeline HTTP. `handleWebsocket()` → pipeline WS. `prepareFrontController()` → route + zone (sans instance, HTTP) ; `handleFrontController()` = prepare + `newController` (WS, avant `connect()`). `onError()` → 1002/1011 WS |
-| `Context`           | `src/context/Context.ts`                    | Base extends `Service`. Props: `type`, `scheme`, `request`, `response`, `method`, `webSocketState`, `metaData`, `session`, `cookies`, `resolver`, **`requestId`**                                                                                         |
-| `HttpContext`       | `src/context/http/HttpContext.ts`           | Extends Context. Honor `X-Request-Id` header entrant. Pipeline HTTP/HTTPS/HTTP2.                                                                                                                                                                          |
-| `WebsocketContext`  | `src/context/websocket/WebsocketContext.ts` | Extends Context. Honor `X-Request-Id` header entrant. Props extra: `acceptedProtocol`, `connection` (Ws), `wsUrl`, `rejected`. Override `request` → `WsIncomingMessage`                                                                                   |
-| `HttpResponse`      | `src/context/http/Response.ts`              | `writeHead()` : sanitize statusMessage ASCII + injecte `X-Request-Id`. `setBody()`, `setLength()`, `redirect()`.                                                                                                                                          |
-| `WebsocketResponse` | `src/context/websocket/Response.ts`         | `connection` assigné dans constructeur. API: `send()`, `broadcast()` (wss.clients forEach), `close(code, msg)`                                                                                                                                            |
-| `HttpError`         | `src/errors/httpError.ts`                   | Extends `nodefonyError`. Props: `controller`, `action`, `jsonResponse` — extraits de `(context as any)?.resolver` (évite import circulaire avec `@nodefony/framework`)                                                                                    |
+<!-- prettier-ignore -->
+| Classe | Fichier | Rôle |
+| --- | --- | --- |
+| `Http` | `index.ts` | Module racine. `@services([HttpKernel, Certificate, SessionsService, StaticServer, HttpServer, HttpsServer, WebsocketServer, WebsocketSecureServer, UploadService])` |
+| `HttpKernel` | `service/http-kernel.ts` | Orchestrateur. `handle()` → pipeline HTTP. `handleWebsocket()` → pipeline WS. `prepareFrontController()` → route + zone (sans instance, HTTP) ; `handleFrontController()` = prepare + `newController` (WS, avant `connect()`). `onError()` → 1002/1011 WS |
+| `Context` | `src/context/Context.ts` | Base extends `Service`. Props: `type`, `scheme`, `request`, `response`, `method`, `webSocketState`, `metaData`, `session`, `cookies`, `resolver`, **`requestId`** |
+| `HttpContext` | `src/context/http/HttpContext.ts` | Extends Context. Honor `X-Request-Id` header entrant. Pipeline HTTP/HTTPS/HTTP2. |
+| `WebsocketContext` | `src/context/websocket/WebsocketContext.ts` | Extends Context. Honor `X-Request-Id` header entrant. Props extra: `acceptedProtocol`, `connection` (Ws), `wsUrl`, `rejected`. Override `request` → `WsIncomingMessage` |
+| `HttpResponse` | `src/context/http/Response.ts` | `writeHead()` : sanitize statusMessage ASCII + injecte `X-Request-Id`. `setBody()`, `setLength()`, `redirect()`. |
+| `WebsocketResponse` | `src/context/websocket/Response.ts` | `connection` assigné dans constructeur. API: `send()`, `broadcast()` (wss.clients forEach), `close(code, msg)` |
+| `HttpError` | `src/errors/httpError.ts` | Extends `nodefonyError`. Props: `controller`, `action`, `jsonResponse` — extraits de `(context as any)?.resolver` (évite import circulaire avec `@nodefony/framework`) |
 
 ## Certificates TLS — service + CLI
 

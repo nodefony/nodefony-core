@@ -183,18 +183,19 @@ laissez l'en-tête/pied natif de la boîte de dialogue d'impression faire le tra
 
 ## Ce qui marche vraiment, par navigateur
 
-| Fonctionnalité                                     |  Chrome   |  Firefox  |     Safari      |
-| -------------------------------------------------- | :-------: | :-------: | :-------------: |
-| `break-inside: avoid`                              |    ✅     |    ✅     |       ✅        |
-| `break-before/after: page`                         |    ✅     |    ✅     |       ✅        |
-| **`break-before/after: avoid`**                    |    ✅     | **no-op** |    **no-op**    |
-| `orphans` / `widows`                               |    ✅     |  **❌**   |       ✅        |
-| **`thead` répété (`display: table-header-group`)** |    ✅     |    ✅     |     **❌**      |
-| `print-color-adjust: exact`                        |    ✅     |    ✅     | ✅ (`-webkit-`) |
-| `@page { size / margin }`                          |    ✅     |    ✅     |       ✅        |
-| **`@page` margin boxes + `counter(page)`**         | ✅ (131+) |    ❌     |       ❌        |
-| `@page { marks }` / `{ bleed }`                    |    ❌     |    ❌     |       ❌        |
-| SVG inline imprimé                                 |    ✅     |    ✅     |       ✅        |
+<!-- prettier-ignore -->
+| Fonctionnalité | Chrome | Firefox | Safari |
+| --- | :---: | :---: | :---: |
+| `break-inside: avoid` | ✅ | ✅ | ✅ |
+| `break-before/after: page` | ✅ | ✅ | ✅ |
+| **`break-before/after: avoid`** | ✅ | **no-op** | **no-op** |
+| `orphans` / `widows` | ✅ | **❌** | ✅ |
+| **`thead` répété (`display: table-header-group`)** | ✅ | ✅ | **❌** |
+| `print-color-adjust: exact` | ✅ | ✅ | ✅ (`-webkit-`) |
+| `@page { size / margin }` | ✅ | ✅ | ✅ |
+| **`@page` margin boxes + `counter(page)`** | ✅ (131+) | ❌ | ❌ |
+| `@page { marks }` / `{ bleed }` | ❌ | ❌ | ❌ |
+| SVG inline imprimé | ✅ | ✅ | ✅ |
 
 **Les trois pièges qui découlent de ce tableau :**
 

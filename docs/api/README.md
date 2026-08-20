@@ -294,18 +294,19 @@ Le **« Google Sheets complet »** (édition concurrente + offline sans conflit)
 
 ## 12. Existe ✅ vs à construire 🎯
 
-| Brique                                                                                                  | État                                                                                                                                                 |
-| ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Controller` HTTP+WS co-citoyen, `@route/@Get/@Post`, `@Param/@Body/@Query`, `initialize()`             | ✅                                                                                                                                                   |
-| `AbstractCrudService` (find/create/update/delete + events `onCreated…`)                                 | ✅                                                                                                                                                   |
-| `@entity`/`@repository`, `Criteria<T>` opérateurs riches                                                | ✅                                                                                                                                                   |
-| La Socket client (`RealtimeClient`, `subscribe`/`request`), `JsonRpcPeer` req/resp                      | ✅                                                                                                                                                   |
-| Data plane REST (`IAdminApi`/`AdminBroker`), Log Backplane (write/query/bus)                            | ✅                                                                                                                                                   |
-| `ResourceController` (CRUD multi-surface)                                                               | ✅ Ph.2 (V4.2 stateless+singleton)                                                                                                                   |
-| Routage **invoke WS** vers une action + enveloppe normalisée (`api.request` JSON-RPC + `@Param/@Query`) | ✅ Ph.3 (pont opt-in `RealtimeController` + `socket.request("/path")` + `RpcError`)                                                                  |
-| `buildCrudResolvers` (GraphQL dérivé) + `@GqlQuery/@GqlMutation/@GqlSubscription`                       | 🎯                                                                                                                                                   |
-| Data plane Studio **en WS** (snapshot + deltas)                                                         | 🔶 backend livré Ph.3 (data plane admin duplex GET+WEBSOCKET, snapshot ≡ prouvé 9 tests intég) ; reste front `useResource` → socket (session dédiée) |
-| Observability Backplane généralisé / offline-CRDT                                                       | 🎯 exploratoire                                                                                                                                      |
+<!-- prettier-ignore -->
+| Brique | État |
+| --- | --- |
+| `Controller` HTTP+WS co-citoyen, `@route/@Get/@Post`, `@Param/@Body/@Query`, `initialize()` | ✅ |
+| `AbstractCrudService` (find/create/update/delete + events `onCreated…`) | ✅ |
+| `@entity`/`@repository`, `Criteria<T>` opérateurs riches | ✅ |
+| La Socket client (`RealtimeClient`, `subscribe`/`request`), `JsonRpcPeer` req/resp | ✅ |
+| Data plane REST (`IAdminApi`/`AdminBroker`), Log Backplane (write/query/bus) | ✅ |
+| `ResourceController` (CRUD multi-surface) | ✅ Ph.2 (V4.2 stateless+singleton) |
+| Routage **invoke WS** vers une action + enveloppe normalisée (`api.request` JSON-RPC + `@Param/@Query`) | ✅ Ph.3 (pont opt-in `RealtimeController` + `socket.request("/path")` + `RpcError`) |
+| `buildCrudResolvers` (GraphQL dérivé) + `@GqlQuery/@GqlMutation/@GqlSubscription` | 🎯 |
+| Data plane Studio **en WS** (snapshot + deltas) | 🔶 backend livré Ph.3 (data plane admin duplex GET+WEBSOCKET, snapshot ≡ prouvé 9 tests intég) ; reste front `useResource` → socket (session dédiée) |
+| Observability Backplane généralisé / offline-CRDT | 🎯 exploratoire |
 
 ---
 

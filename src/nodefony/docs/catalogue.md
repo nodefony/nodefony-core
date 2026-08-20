@@ -77,10 +77,11 @@ Ces trois-là ne se choisissent pas : `nodefony create app` les pose.
 
 ## Sécurité & identité
 
-| Paquet               | Prends-le quand…                                                                                                                                                      | Ne le prends pas si…                                                                                 |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+<!-- prettier-ignore -->
+| Paquet | Prends-le quand… | Ne le prends pas si… |
+| --- | --- | --- |
 | `@nodefony/security` | une partie de l'application doit être fermée : zones de pare-feu, six méthodes d'authentification, autorisation par voters, CSRF/CORS, 2FA, passkeys, journal d'audit | l'application est entièrement publique — mais la fermer plus tard coûte alors une reprise des routes |
-| `@nodefony/user`     | tu veux des comptes utilisateurs (contrat `IUser`, encodeurs de mot de passe) sans dépendre du pare-feu                                                               | l'identité vient d'ailleurs (jeton d'un fournisseur externe, service amont)                          |
+| `@nodefony/user` | tu veux des comptes utilisateurs (contrat `IUser`, encodeurs de mot de passe) sans dépendre du pare-feu | l'identité vient d'ailleurs (jeton d'un fournisseur externe, service amont) |
 
 `@nodefony/security` embarque déjà `@nodefony/user` : le déclarer seul n'a de sens que pour gérer
 des comptes **sans** fermer de routes.
@@ -89,12 +90,13 @@ des comptes **sans** fermer de routes.
 
 Un contrat commun, plusieurs implémentations : écris contre le contrat, choisis le moteur ensuite.
 
-| Paquet               | Prends-le quand…                                                                            | Ne le prends pas si…                                                                                                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@nodefony/orm-core` | jamais directement — c'est le contrat, tiré par l'adaptateur que tu choisis                 | —                                                                                                                                                                                              |
-| `@nodefony/drizzle`  | **le défaut** : SQL (PostgreSQL, MySQL/MariaDB, SQLite), `nodefony create entity` cible lui | tes données sont des documents sans schéma stable                                                                                                                                              |
-| `@nodefony/mongoose` | MongoDB, données orientées document                                                         | tu as besoin d'un des **stores qu'il ne fournit pas** : il en couvre 5 (session, user, tokens, passkeys, webhooks) là où `drizzle` en couvre 8 — `totp`, `audit` et `idempotency` lui manquent |
-| `@nodefony/redis`    | cache, sessions partagées entre pods, backplane du temps réel en cluster                    | un seul processus : les sessions en mémoire et le backplane local suffisent                                                                                                                    |
+<!-- prettier-ignore -->
+| Paquet | Prends-le quand… | Ne le prends pas si… |
+| --- | --- | --- |
+| `@nodefony/orm-core` | jamais directement — c'est le contrat, tiré par l'adaptateur que tu choisis | — |
+| `@nodefony/drizzle` | **le défaut** : SQL (PostgreSQL, MySQL/MariaDB, SQLite), `nodefony create entity` cible lui | tes données sont des documents sans schéma stable |
+| `@nodefony/mongoose` | MongoDB, données orientées document | tu as besoin d'un des **stores qu'il ne fournit pas** : il en couvre 5 (session, user, tokens, passkeys, webhooks) là où `drizzle` en couvre 8 — `totp`, `audit` et `idempotency` lui manquent |
+| `@nodefony/redis` | cache, sessions partagées entre pods, backplane du temps réel en cluster | un seul processus : les sessions en mémoire et le backplane local suffisent |
 
 **L'arbitrage qui revient le plus souvent** : `drizzle` ou `mongoose` ? Le générateur d'entités
 (`nodefony create entity`) produit du Drizzle natif du dialecte ; partir sur Mongoose, c'est écrire

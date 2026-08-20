@@ -86,16 +86,17 @@ DEUXIÈME connexion — plafond de connexions, ou état serveur consommé par la
 
 ## Variables d'environnement
 
-| Variable                   | Rôle                                                                 | Défaut            |
-| -------------------------- | -------------------------------------------------------------------- | ----------------- |
-| `NF_BROWSER_SOCKET`        | chemin du endpoint (ou 1er argument) — **requis**, rien n'est deviné | —                 |
-| `NF_BROWSER_PAGE`          | page ouverte AVANT le socket — elle porte cookies et `Origin`        | `/`               |
-| `NF_BROWSER_CHANNEL`       | canal à écouter                                                      | 1er canal annoncé |
-| `NF_BROWSER_ACTION`        | action RPC à appeler (la latence la réutilise)                       | aucune            |
-| `NF_BROWSER_ACTION_PARAMS` | paramètres JSON de l'action                                          | aucun             |
-| `NF_BROWSER_API`           | chemin rejoué par le pont `api.request`                              | aucun             |
-| `NF_BROWSER_SOCKET_WAIT`   | fenêtre d'écoute du canal (ms)                                       | 4000              |
-| `NF_BROWSER_PINGS`         | nombre de mesures de latence                                         | 5                 |
+<!-- prettier-ignore -->
+| Variable | Rôle | Défaut |
+| --- | --- | --- |
+| `NF_BROWSER_SOCKET` | chemin du endpoint (ou 1er argument) — **requis**, rien n'est deviné | — |
+| `NF_BROWSER_PAGE` | page ouverte AVANT le socket — elle porte cookies et `Origin` | `/` |
+| `NF_BROWSER_CHANNEL` | canal à écouter | 1er canal annoncé |
+| `NF_BROWSER_ACTION` | action RPC à appeler (la latence la réutilise) | aucune |
+| `NF_BROWSER_ACTION_PARAMS` | paramètres JSON de l'action | aucun |
+| `NF_BROWSER_API` | chemin rejoué par le pont `api.request` | aucun |
+| `NF_BROWSER_SOCKET_WAIT` | fenêtre d'écoute du canal (ms) | 4000 |
+| `NF_BROWSER_PINGS` | nombre de mesures de latence | 5 |
 
 Plus les variables communes à toutes les sondes : `NF_BROWSER_BASE`, `NF_BROWSER_LOGIN`,
 `NF_BROWSER_USER`, `NF_BROWSER_PASSWORD`.

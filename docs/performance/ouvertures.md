@@ -88,14 +88,15 @@ en clair et en ventilation (fenêtre d'instrument aveugle). Détail dans
 Une piste écartée sans condition de réouverture se rouvre toute seule, six mois plus tard, par
 quelqu'un qui ne sait pas qu'elle l'a été.
 
-| Piste                                          | Pourquoi écartée                                                                                                                                   | Ce qui la rouvrirait                                                              |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| **Index de routes par segment**                | N'ajoute au pré-filtre de préfixe qu'au-delà d'environ mille routes, contre une allocation par requête et du risque sur la brique la plus critique | Une application réelle déclarant ≫ 1 000 routes, profil à l'appui                 |
-| **Câblage figé des dépendances** (lot F-D)     | A/B en directions opposées entre deux paires, moyenne −0,4 % : bruit. Code annulé.                                                                 | Un profil qui réimpute plus de 3 µs aux résolutions, ou une fabrique restructurée |
-| **Mise en commun des portées d'injection**     | Risque de fuite d'état entre requêtes                                                                                                              | Rien à ce jour — le risque n'est pas compensable par le gain                      |
-| **Bus d'événements paresseux sur le service**  | Casse un contrat consommé par le service de fichiers statiques, pour ~0,3 µs                                                                       | Un motif d'écartement relu et invalidé                                            |
-| **Contrôleurs en instance unique par défaut**  | Rupture de compatibilité : du code applicatif porte son état de requête sur l'instance                                                             | Une version majeure, avec migration annoncée                                      |
-| **Mise en commun des identifiants de requête** | `randomUUID` possède déjà un cache d'entropie interne — gain douteux                                                                               | Une mesure préalable, pas une intuition                                           |
+<!-- prettier-ignore -->
+| Piste | Pourquoi écartée | Ce qui la rouvrirait |
+| --- | --- | --- |
+| **Index de routes par segment** | N'ajoute au pré-filtre de préfixe qu'au-delà d'environ mille routes, contre une allocation par requête et du risque sur la brique la plus critique | Une application réelle déclarant ≫ 1 000 routes, profil à l'appui |
+| **Câblage figé des dépendances** (lot F-D) | A/B en directions opposées entre deux paires, moyenne −0,4 % : bruit. Code annulé. | Un profil qui réimpute plus de 3 µs aux résolutions, ou une fabrique restructurée |
+| **Mise en commun des portées d'injection** | Risque de fuite d'état entre requêtes | Rien à ce jour — le risque n'est pas compensable par le gain |
+| **Bus d'événements paresseux sur le service** | Casse un contrat consommé par le service de fichiers statiques, pour ~0,3 µs | Un motif d'écartement relu et invalidé |
+| **Contrôleurs en instance unique par défaut** | Rupture de compatibilité : du code applicatif porte son état de requête sur l'instance | Une version majeure, avec migration annoncée |
+| **Mise en commun des identifiants de requête** | `randomUUID` possède déjà un cache d'entropie interne — gain douteux | Une mesure préalable, pas une intuition |
 
 ## Les pistes ORM non entamées
 
@@ -120,13 +121,14 @@ banc ne se publie pas, et ne se livre pas seul.**
 Certains postes sont **structurels** — ils découlent du design ou de Node lui-même. Les attaquer
 serait dépenser sans rendement, et le profilage l'a établi poste par poste :
 
-| Poste                                     | Part du CPU | Pourquoi on n'y touche pas                                                             |
-| ----------------------------------------- | ----------: | -------------------------------------------------------------------------------------- |
-| Écouteurs Node (ajout, retrait, émission) |      9–10 % | **94 % des attaches viennent de Node lui-même**                                        |
-| Analyse HTTP entrante                     |       8–9 % | Analyseur natif de Node                                                                |
-| Écriture sur la socket                    |        ~5 % | Appels système, incompressibles                                                        |
-| Ramasse-miettes                           |        ~1 % | Mesuré, **réfuté comme goulot** par trois instruments concordants                      |
-| Portée d'injection par requête            |   ~2 µs/req | C'est le mécanisme, et il a été mesuré : il ne coûte pas ce que le profil lui imputait |
+<!-- prettier-ignore -->
+| Poste | Part du CPU | Pourquoi on n'y touche pas |
+| --- | ---: | --- |
+| Écouteurs Node (ajout, retrait, émission) | 9–10 % | **94 % des attaches viennent de Node lui-même** |
+| Analyse HTTP entrante | 8–9 % | Analyseur natif de Node |
+| Écriture sur la socket | ~5 % | Appels système, incompressibles |
+| Ramasse-miettes | ~1 % | Mesuré, **réfuté comme goulot** par trois instruments concordants |
+| Portée d'injection par requête | ~2 µs/req | C'est le mécanisme, et il a été mesuré : il ne coûte pas ce que le profil lui imputait |
 
 Un socle d'environ 45 à 50 µs par requête relève de Node et de l'architecture : un serveur
 `node:http` nu, sur le même décor, coûte déjà ~28 µs par requête.

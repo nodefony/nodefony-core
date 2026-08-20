@@ -307,15 +307,16 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 
 ## ⚙️ Configuration (schéma Zod `csrfSchema`, `config.ts:149-192`)
 
-| Option           | Type · défaut        | Effet                                                                                                                                                      |
-| ---------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`        | boolean · `true`     | Active toute la défense — couches 1 **et** 2 (`config.ts:151-156`).                                                                                        |
-| `fetchMetadata`  | boolean · `true`     | Défense primaire `Sec-Fetch-Site` (`config.ts:157-162`).                                                                                                   |
-| `checkOrigin`    | boolean · `true`     | Repli `Origin`/`Referer` same-host pour les navigateurs sans `Sec-Fetch-*` (`config.ts:164-169`).                                                          |
-| `strictSameSite` | boolean · `false`    | `true` = refuser aussi `same-site` (sous-domaine non maîtrisé / multi-tenant) — distinct de l'attribut cookie (`config.ts:170-175`).                       |
-| `sameSite`       | enum · `Lax`         | **Déclaratif** : surfacé dans l'introspection (`firewall.ts:554`) ; l'attribut effectif du cookie `csrf-token` est `Strict` en dur (`HttpContext.ts:428`). |
-| `trustedOrigins` | string[] · `[]`      | Alias **exacts** (`scheme://host[:port]`) autorisés même cross-site — sans ouvrir la lecture CORS (`config.ts:176-181`).                                   |
-| `secret`         | string ≥ 16 car. · — | Secret HMAC du synchronizer — PROD : via env, **partagé cluster** ; absent = éphémère dev (`config.ts:182-188`).                                           |
+<!-- prettier-ignore -->
+| Option | Type · défaut | Effet |
+| --- | --- | --- |
+| `enabled` | boolean · `true` | Active toute la défense — couches 1 **et** 2 (`config.ts:151-156`). |
+| `fetchMetadata` | boolean · `true` | Défense primaire `Sec-Fetch-Site` (`config.ts:157-162`). |
+| `checkOrigin` | boolean · `true` | Repli `Origin`/`Referer` same-host pour les navigateurs sans `Sec-Fetch-*` (`config.ts:164-169`). |
+| `strictSameSite` | boolean · `false` | `true` = refuser aussi `same-site` (sous-domaine non maîtrisé / multi-tenant) — distinct de l'attribut cookie (`config.ts:170-175`). |
+| `sameSite` | enum · `Lax` | **Déclaratif** : surfacé dans l'introspection (`firewall.ts:554`) ; l'attribut effectif du cookie `csrf-token` est `Strict` en dur (`HttpContext.ts:428`). |
+| `trustedOrigins` | string[] · `[]` | Alias **exacts** (`scheme://host[:port]`) autorisés même cross-site — sans ouvrir la lecture CORS (`config.ts:176-181`). |
+| `secret` | string ≥ 16 car. · — | Secret HMAC du synchronizer — PROD : via env, **partagé cluster** ; absent = éphémère dev (`config.ts:182-188`). |
 
 ## 📜 Normes appliquées
 

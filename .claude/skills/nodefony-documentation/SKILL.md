@@ -291,15 +291,16 @@ Réf complète (étude de faisabilité) : [[project_doc_portal_faisabilite]].
 
 ### Outillage (source unique : `scripts/` de CE skill ; artefacts → `tmp/doc-work/`)
 
-| Script                                  | Rôle                                                                                                                                                                                                                                                                                 |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `scripts/doc-lint.mjs <page.md>`        | **Definition of Done bloquante** (frontmatter, sections, ≥3 ancres, compteur tests, liens vivants, 0 HTML brut). **5 régimes** selon la nature de la page — brique · hub `index.md` · glossaire `lexique.md` · index de dossier `README.md` · ADR `NNNN-*.md` (cf standard §8bis-\*) |
-| `scripts/anchor-check.mjs <page.md>`    | **Exactitude des ancres CODE** : résout chaque `fichier:ligne` contre le code réel (SUSPECT/LINE_OUT)                                                                                                                                                                                |
-| `scripts/anchor-fix.mjs`                | **RÉPARE** les ancres SUSPECT : relit la sortie d'`anchor-check` sur stdin et recale chaque ancre sur la LIGNE DE DÉFINITION du symbole qu'elle cite. Sans `--apply` = simulation.                                                                                                   |
-| `scripts/anchor-inpage.mjs <page.md>`   | **Ancres INTERNES** : chaque `](#section)` mène-t-il à un titre de la page ? (sommaires morts)                                                                                                                                                                                       |
-| `scripts/code-check.mjs <page.md>`      | **Compilabilité** : extrait les blocs du « Démarrage rapide » et les compile en TS strict                                                                                                                                                                                            |
-| `scripts/gen-counters.mjs [topic]`      | Compteurs de tests **comptés réellement** depuis `scripts/test-map.json` (JAMAIS de photo figée)                                                                                                                                                                                     |
-| `scripts/build-preview.mjs <md> <html>` | Aperçu HTML autonome fidèle Studio (version/branche/commit pris de git ; Mermaid si mmdc)                                                                                                                                                                                            |
+<!-- prettier-ignore -->
+| Script | Rôle |
+| --- | --- |
+| `scripts/doc-lint.mjs <page.md>` | **Definition of Done bloquante** (frontmatter, sections, ≥3 ancres, compteur tests, liens vivants, 0 HTML brut). **5 régimes** selon la nature de la page — brique · hub `index.md` · glossaire `lexique.md` · index de dossier `README.md` · ADR `NNNN-*.md` (cf standard §8bis-\*) |
+| `scripts/anchor-check.mjs <page.md>` | **Exactitude des ancres CODE** : résout chaque `fichier:ligne` contre le code réel (SUSPECT/LINE_OUT) |
+| `scripts/anchor-fix.mjs` | **RÉPARE** les ancres SUSPECT : relit la sortie d'`anchor-check` sur stdin et recale chaque ancre sur la LIGNE DE DÉFINITION du symbole qu'elle cite. Sans `--apply` = simulation. |
+| `scripts/anchor-inpage.mjs <page.md>` | **Ancres INTERNES** : chaque `](#section)` mène-t-il à un titre de la page ? (sommaires morts) |
+| `scripts/code-check.mjs <page.md>` | **Compilabilité** : extrait les blocs du « Démarrage rapide » et les compile en TS strict |
+| `scripts/gen-counters.mjs [topic]` | Compteurs de tests **comptés réellement** depuis `scripts/test-map.json` (JAMAIS de photo figée) |
+| `scripts/build-preview.mjs <md> <html>` | Aperçu HTML autonome fidèle Studio (version/branche/commit pris de git ; Mermaid si mmdc) |
 
 > 🔁 **Un diff de code décale les ancres de la doc qui le cite — recaler à la MAIN coûte cher et se
 > trompe.** Enchaîner les deux scripts, en simulation puis pour de bon :

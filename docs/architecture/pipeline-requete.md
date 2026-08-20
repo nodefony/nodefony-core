@@ -359,17 +359,18 @@ sequenceDiagram
 
 ### Ce que les deux trajets partagent, et ce qui diffère
 
-| Dimension           | HTTP                          | WebSocket                                        |
-| ------------------- | ----------------------------- | ------------------------------------------------ |
-| Contexte            | `HttpContext`                 | `WebsocketContext` — **même base `Context`**     |
-| Durée de vie        | une requête                   | **toute la connexion**                           |
-| `requestId`         | par requête                   | **par connexion**, stable jusqu'au close         |
-| Routage             | `Router.resolve()`            | le **même** `Router.resolve()`                   |
-| Firewall            | `handleSecurity()`            | le **même**, câblé au handshake                  |
-| Session             | `startSession()`              | le **même** point d'activation                   |
-| CORS                | oui (preflight)               | **non** — remplacé par la garde d'`Origin`       |
-| Parse du corps      | oui                           | **non** — la trame est la donnée                 |
-| Fin d'échange       | statut HTTP                   | **code de fermeture** RFC 6455                   |
+<!-- prettier-ignore -->
+| Dimension | HTTP | WebSocket |
+| --- | --- | --- |
+| Contexte | `HttpContext` | `WebsocketContext` — **même base `Context`** |
+| Durée de vie | une requête | **toute la connexion** |
+| `requestId` | par requête | **par connexion**, stable jusqu'au close |
+| Routage | `Router.resolve()` | le **même** `Router.resolve()` |
+| Firewall | `handleSecurity()` | le **même**, câblé au handshake |
+| Session | `startSession()` | le **même** point d'activation |
+| CORS | oui (preflight) | **non** — remplacé par la garde d'`Origin` |
+| Parse du corps | oui | **non** — la trame est la donnée |
+| Fin d'échange | statut HTTP | **code de fermeture** RFC 6455 |
 | Libération du scope | `once("close")` de la réponse | `onFinish` déclenché par le `close` de la socket |
 
 > [!TIP]

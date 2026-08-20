@@ -93,18 +93,19 @@ pas ce qu'il paraît prouver — et le lecteur ne peut pas le vérifier.
 
 Ce qui est rattaché aujourd'hui :
 
-| Fenêtre    | État du code                          | Ce qui a été mesuré dans cette fenêtre                               | Où c'est publié                                                                                      |
-| ---------- | ------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| 2026-07-23 | avant **tout** lot                    | analyse statique + comparatif `node:http`/Fastify/Express            | page archivée du 23-07                                                                               |
-| 2026-08-05 | avant le lot A                        | profilage runtime, comptes par requête                               | [pipeline](pipeline-http.md), colonne « avant »                                                      |
-| 2026-08-05 | lots A→D livrés (`724f25d1`)          | A/B cumulé **+8,9 %**, comparatif de frameworks, re-profil, capacité | [pipeline](pipeline-http.md), [comparaisons](comparaisons.md), [dimensionnement](dimensionnement.md) |
-| 2026-08-05 | idem                                  | Express « équipé » (~14 891)                                         | [comparaisons](comparaisons.md), niveau 2                                                            |
-| 2026-08-06 | après `ba1f0d17` et `5fa6ee7a`        | lots F (~+7 % et +4 à +10 %), sonde in-situ                          | [pipeline](pipeline-http.md)                                                                         |
-| 2026-08-06 | arbre revenu à `5bba2436`             | lot F-D **mesuré puis annulé**                                       | [pipeline](pipeline-http.md)                                                                         |
-| 2026-08-06 | `8d2942f3` (avant tout) vs `f6a4e302` | non-régression WebSocket                                             | [pipeline](pipeline-http.md)                                                                         |
-| 2026-08-06 | avant le lot ORM                      | escalier ORM, profilage par couche                                   | [ORM](orm.md)                                                                                        |
-| 2026-08-07 | lot ORM `1f1926a7`, décor `8121bef1`  | A/B SQLite et PostgreSQL, parité Express                             | [ORM](orm.md), [comparaisons](comparaisons.md) niveau 3                                              |
-| 2026-08-07 | `a42512e3`                            | routeur : comptes de motifs, courbe                                  | [pipeline](pipeline-http.md)                                                                         |
+<!-- prettier-ignore -->
+| Fenêtre | État du code | Ce qui a été mesuré dans cette fenêtre | Où c'est publié |
+| --- | --- | --- | --- |
+| 2026-07-23 | avant **tout** lot | analyse statique + comparatif `node:http`/Fastify/Express | page archivée du 23-07 |
+| 2026-08-05 | avant le lot A | profilage runtime, comptes par requête | [pipeline](pipeline-http.md), colonne « avant » |
+| 2026-08-05 | lots A→D livrés (`724f25d1`) | A/B cumulé **+8,9 %**, comparatif de frameworks, re-profil, capacité | [pipeline](pipeline-http.md), [comparaisons](comparaisons.md), [dimensionnement](dimensionnement.md) |
+| 2026-08-05 | idem | Express « équipé » (~14 891) | [comparaisons](comparaisons.md), niveau 2 |
+| 2026-08-06 | après `ba1f0d17` et `5fa6ee7a` | lots F (~+7 % et +4 à +10 %), sonde in-situ | [pipeline](pipeline-http.md) |
+| 2026-08-06 | arbre revenu à `5bba2436` | lot F-D **mesuré puis annulé** | [pipeline](pipeline-http.md) |
+| 2026-08-06 | `8d2942f3` (avant tout) vs `f6a4e302` | non-régression WebSocket | [pipeline](pipeline-http.md) |
+| 2026-08-06 | avant le lot ORM | escalier ORM, profilage par couche | [ORM](orm.md) |
+| 2026-08-07 | lot ORM `1f1926a7`, décor `8121bef1` | A/B SQLite et PostgreSQL, parité Express | [ORM](orm.md), [comparaisons](comparaisons.md) niveau 3 |
+| 2026-08-07 | `a42512e3` | routeur : comptes de motifs, courbe | [pipeline](pipeline-http.md) |
 
 **Ce que cette table rend visible, et qu'il faut lire avant tout le reste** :
 

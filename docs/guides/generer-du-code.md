@@ -292,14 +292,15 @@ formulaire à partir de la spec (`/nodefony/studio/api/create/spec`), montre la
 
 ## Pièges
 
-| Symptôme                                                                 | Cause                                                                                                                    | Correction                                                                                                      |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `aucun projet Nodefony ici`                                              | Les types in-project remontent aux `nodefony.config.ts` depuis le dossier courant — vous êtes en dehors.                 | Se placer dans l'application, ou créer d'abord `nodefony create app`.                                           |
-| `X est déjà référencé dans index.ts`                                     | Un contrôleur ou une entité porte déjà ce nom dans la cible.                                                             | Choisir un autre nom. Rien n'a été écrit : le projet est intact.                                                |
-| `@controllers([...]) introuvable`                                        | L'`index.ts` de la cible n'a plus le décorateur où insérer la classe.                                                    | Le message donne l'édition exacte à faire à la main. Le fichier généré n'a pas été posé — pas d'orphelin.       |
-| Le module créé n'est pas chargé au démarrage                             | Un module est un **workspace npm** : sans `npm install`, le lien n'existe pas et le kernel ne le résout pas par son nom. | Lancer `npm install` à la racine de l'application, puis `npm run build`.                                        |
-| `npm run typecheck` échoue en `TS2882` sur un import de feuille de style | TypeScript ne connaît pas les fichiers que Vite sait importer.                                                           | `"types": ["node", "vite/client"]` dans le `tsconfig.json` — le scaffold le pose déjà quand il génère un front. |
-| Une entité modifiée ne change pas la table                               | Le mode développement crée la table, il ne l'altère jamais.                                                              | Supprimer la base de développement, ou écrire la migration à la main.                                           |
+<!-- prettier-ignore -->
+| Symptôme | Cause | Correction |
+| --- | --- | --- |
+| `aucun projet Nodefony ici` | Les types in-project remontent aux `nodefony.config.ts` depuis le dossier courant — vous êtes en dehors. | Se placer dans l'application, ou créer d'abord `nodefony create app`. |
+| `X est déjà référencé dans index.ts` | Un contrôleur ou une entité porte déjà ce nom dans la cible. | Choisir un autre nom. Rien n'a été écrit : le projet est intact. |
+| `@controllers([...]) introuvable` | L'`index.ts` de la cible n'a plus le décorateur où insérer la classe. | Le message donne l'édition exacte à faire à la main. Le fichier généré n'a pas été posé — pas d'orphelin. |
+| Le module créé n'est pas chargé au démarrage | Un module est un **workspace npm** : sans `npm install`, le lien n'existe pas et le kernel ne le résout pas par son nom. | Lancer `npm install` à la racine de l'application, puis `npm run build`. |
+| `npm run typecheck` échoue en `TS2882` sur un import de feuille de style | TypeScript ne connaît pas les fichiers que Vite sait importer. | `"types": ["node", "vite/client"]` dans le `tsconfig.json` — le scaffold le pose déjà quand il génère un front. |
+| Une entité modifiée ne change pas la table | Le mode développement crée la table, il ne l'altère jamais. | Supprimer la base de développement, ou écrire la migration à la main. |
 
 ## Tests
 

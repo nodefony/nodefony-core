@@ -68,14 +68,15 @@ applicatif — le mot « canal » sert aux deux dans des mondes différents.
 Le conteneur n'est pas « la bonne façon » : c'est un compromis, et il se choisit sur ce que tu es en
 train de faire.
 
-| Ce que tu fais                                                         | La voie       | Pourquoi                                                                                                                                                                                      |
-| ---------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Corriger un écran et vérifier ta correction                            | **locale**    | la boucle est bien plus courte — pas de copie vers un conteneur entre deux essais                                                                                                             |
-| Regarder une page vite fait, lire la console                           | **locale**    | une commande, rien à démarrer                                                                                                                                                                 |
-| **Comparer une mesure** dans le temps ou entre machines                | **conteneur** | l'image est épinglée par empreinte : le même navigateur aujourd'hui et dans six mois. Un contraste ne bouge pas d'une version de navigateur à l'autre — un temps de rendu ou un Web Vital, si |
-| **Intégration continue**                                               | **conteneur** | un exécuteur sans interface graphique a déjà tout ; même décor qu'en local                                                                                                                    |
-| Piloter une session authentifiée avec des identifiants **sensibles**   | **conteneur** | le navigateur n'y voit ni ton disque ni ton réseau local                                                                                                                                      |
-| Tu ne veux **rien** installer, ou ta machine n'a pas les bibliothèques | **conteneur** | l'image porte navigateur, pilote et dépendances système                                                                                                                                       |
+<!-- prettier-ignore -->
+| Ce que tu fais | La voie | Pourquoi |
+| --- | --- | --- |
+| Corriger un écran et vérifier ta correction | **locale** | la boucle est bien plus courte — pas de copie vers un conteneur entre deux essais |
+| Regarder une page vite fait, lire la console | **locale** | une commande, rien à démarrer |
+| **Comparer une mesure** dans le temps ou entre machines | **conteneur** | l'image est épinglée par empreinte : le même navigateur aujourd'hui et dans six mois. Un contraste ne bouge pas d'une version de navigateur à l'autre — un temps de rendu ou un Web Vital, si |
+| **Intégration continue** | **conteneur** | un exécuteur sans interface graphique a déjà tout ; même décor qu'en local |
+| Piloter une session authentifiée avec des identifiants **sensibles** | **conteneur** | le navigateur n'y voit ni ton disque ni ton réseau local |
+| Tu ne veux **rien** installer, ou ta machine n'a pas les bibliothèques | **conteneur** | l'image porte navigateur, pilote et dépendances système |
 
 Ce que le conteneur coûte, en revanche : le démarrer, recopier les sondes à chaque modification,
 joindre ton application par un nom particulier (ci-dessous), et publier les ports. Sur une boucle de
@@ -327,11 +328,12 @@ Le protocole du fil (les quatre formes de frame), la lecture de chaque verdict �
 
 ## Trois contraintes de réseau — chacune imite un bug applicatif
 
-| Contrainte                                   | Ce qui arrive sinon                                                                                                                                                                                                                        |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Joindre l'app par **`host.docker.internal`** | `localhost` désigne le CONTENEUR, pas ta machine. Et si tu as activé `domainCheck`, ajoute ce nom aux `trustedHosts` en développement : sinon la barrière répond **`421`** alors que le réseau passe.                                      |
-| Passer par **HTTPS**                         | Le cookie de session est `secure` : sur une origine `http://` non-`localhost`, le navigateur le **jette**, et tout revient en **`401`** — ce qui se lit à tort comme un login qui rate.                                                    |
-| **Rien à poser** pour rendre Vite joignable  | L'origine des assets se dérive du `Host` de ta requête : arriver par `host.docker.internal` suffit — l'allowlist Vite et le WebSocket du rechargement à chaud suivent le même nom, et ton poste reste servi sur `127.0.0.1` en même temps. |
+<!-- prettier-ignore -->
+| Contrainte | Ce qui arrive sinon |
+| --- | --- |
+| Joindre l'app par **`host.docker.internal`** | `localhost` désigne le CONTENEUR, pas ta machine. Et si tu as activé `domainCheck`, ajoute ce nom aux `trustedHosts` en développement : sinon la barrière répond **`421`** alors que le réseau passe. |
+| Passer par **HTTPS** | Le cookie de session est `secure` : sur une origine `http://` non-`localhost`, le navigateur le **jette**, et tout revient en **`401`** — ce qui se lit à tort comme un login qui rate. |
+| **Rien à poser** pour rendre Vite joignable | L'origine des assets se dérive du `Host` de ta requête : arriver par `host.docker.internal` suffit — l'allowlist Vite et le WebSocket du rechargement à chaud suivent le même nom, et ton poste reste servi sur `127.0.0.1` en même temps. |
 
 Si la page annonce quand même `127.0.0.1` depuis le conteneur, c'est que le nom ne franchit pas
 `trustedHosts`, ou qu'une `publicOrigin` explicite est configurée dans `nodefony.config.ts` — un

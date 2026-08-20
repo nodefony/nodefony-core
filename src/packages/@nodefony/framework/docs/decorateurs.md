@@ -266,26 +266,28 @@ curl -si -X PUT http://localhost:5151/api/books/42 | head -2
 Six familles, **36 décorateurs**, un seul fichier source. Le tableau de synthèse sert à choisir en
 5 secondes ; les tables détaillées qui suivent donnent l'effet exact et un exemple.
 
-| Famille                 | Ce qu'elle décide                             | Décorateurs                                                                                                             |
-| ----------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| **Déclaration**         | Où vit le contrôleur, quelles routes il porte | `@controllers` `@controller` `@route` `@Domain` `@Scope`                                                                |
-| **Méthodes HTTP**       | Quand l'action répond                         | `@Get` `@Post` `@Put` `@Patch` `@Delete` `@Options` `@Head` `@All`                                                      |
-| **Paramètres**          | Ce que l'action reçoit en arguments           | `@Param` `@Query` `@Body` `@Headers` `@Cookie` `@Session` `@CurrentUser` `@Req` `@Res` `@UploadedFile` `@UploadedFiles` |
-| **Réponse**             | Statut, en-têtes, redirection                 | `@HttpCode` `@Header` `@Redirect`                                                                                       |
-| **Sécurité**            | Qui passe, qui décide, quelles défenses       | `@IsGranted` `@RequireScope` `@Anonymous` `@BypassFirewall` `@Csp` `@CsrfProtect` `@CsrfExempt`                         |
-| **Cycle de la requête** | Session, anti-rejeu                           | `@UseSession` `@Idempotent`                                                                                             |
+<!-- prettier-ignore -->
+| Famille | Ce qu'elle décide | Décorateurs |
+| --- | --- | --- |
+| **Déclaration** | Où vit le contrôleur, quelles routes il porte | `@controllers` `@controller` `@route` `@Domain` `@Scope` |
+| **Méthodes HTTP** | Quand l'action répond | `@Get` `@Post` `@Put` `@Patch` `@Delete` `@Options` `@Head` `@All` |
+| **Paramètres** | Ce que l'action reçoit en arguments | `@Param` `@Query` `@Body` `@Headers` `@Cookie` `@Session` `@CurrentUser` `@Req` `@Res` `@UploadedFile` `@UploadedFiles` |
+| **Réponse** | Statut, en-têtes, redirection | `@HttpCode` `@Header` `@Redirect` |
+| **Sécurité** | Qui passe, qui décide, quelles défenses | `@IsGranted` `@RequireScope` `@Anonymous` `@BypassFirewall` `@Csp` `@CsrfProtect` `@CsrfExempt` |
+| **Cycle de la requête** | Session, anti-rejeu | `@UseSession` `@Idempotent` |
 
 > Tous s'importent depuis `"@nodefony/framework"` — jamais par un chemin relatif interne.
 
 ### Déclaration — classe, module, route
 
-| Décorateur                 | Cible      | Effet                                                                                                                                     | Exemple                                                                          |
-| -------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `@controllers([…])`        | **module** | Rattache des contrôleurs au module sur le hook `onBoot` ; sans lui, aucune route n'est servie (`controllers()`, `routerDecorators.ts:18`) | `@controllers([BookController])`                                                 |
-| `@controller("/prefix")`   | **classe** | Pose le préfixe d'URL **et déclenche la création des routes** de la classe (`controller()`, `routerDecorators.ts:75`)                     | `@controller("/api/books")`                                                      |
-| `@route(nom, options)`     | méthode    | Forme complète : nom explicite, chemin, `requirements`, `defaults`, hôte (`route()`, `routerDecorators.ts:157`)                           | `@route("ws-echo", { path: "/echo", requirements: { methods: ["WEBSOCKET"] } })` |
-| `@Domain(motif \| motifs)` | **dual**   | Restreint la route (ou la classe) à un ou plusieurs vhosts ; hors domaine → **403** (`Domain()`, `routerDecorators.ts:625`)               | `@Domain("*.cdn.example.com")`                                                   |
-| `@Scope("singleton")`      | **classe** | Une seule instance de contrôleur partagée par toutes les requêtes (`Scope()`, `routerDecorators.ts:729`)                                  | `@Scope("singleton")`                                                            |
+<!-- prettier-ignore -->
+| Décorateur | Cible | Effet | Exemple |
+| --- | --- | --- | --- |
+| `@controllers([…])` | **module** | Rattache des contrôleurs au module sur le hook `onBoot` ; sans lui, aucune route n'est servie (`controllers()`, `routerDecorators.ts:18`) | `@controllers([BookController])` |
+| `@controller("/prefix")` | **classe** | Pose le préfixe d'URL **et déclenche la création des routes** de la classe (`controller()`, `routerDecorators.ts:75`) | `@controller("/api/books")` |
+| `@route(nom, options)` | méthode | Forme complète : nom explicite, chemin, `requirements`, `defaults`, hôte (`route()`, `routerDecorators.ts:157`) | `@route("ws-echo", { path: "/echo", requirements: { methods: ["WEBSOCKET"] } })` |
+| `@Domain(motif \| motifs)` | **dual** | Restreint la route (ou la classe) à un ou plusieurs vhosts ; hors domaine → **403** (`Domain()`, `routerDecorators.ts:625`) | `@Domain("*.cdn.example.com")` |
+| `@Scope("singleton")` | **classe** | Une seule instance de contrôleur partagée par toutes les requêtes (`Scope()`, `routerDecorators.ts:729`) | `@Scope("singleton")` |
 
 **`@controller` est le déclencheur.** Il relit les métadonnées posées par `@route`/`@Get`/… puis les
 **efface** (`Reflect.deleteMetadata`, `routerDecorators.ts:135`) : une classe ne se monte qu'une
@@ -574,18 +576,19 @@ Les décorateurs propres au temps réel (canaux, actions JSON-RPC) appartiennent
 Quand la même chose est déclarée à deux endroits, qui gagne ? Les règles sont fixes, et elles ne sont
 pas toutes identiques — c'est la source d'erreur n°1.
 
-| Sujet                          | Règle                                                                    | Ancre                                                       |
-| ------------------------------ | ------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| `@Domain`                      | option `host` de la route > méthode > classe                             | `controller()` (`routerDecorators.ts:88`)                   |
-| `@BypassFirewall`              | **cumulatif** : `true` de la route, de la méthode ou de la classe suffit | `routerDecorators.ts:686`                                   |
-| `@UseSession`                  | méthode > classe (fusion des champs)                                     | `resolveSessionIntent()` (`routerDecorators.ts:794`)        |
-| `@Idempotent`                  | méthode > classe                                                         | `computeIdempotent()` (`routerDecorators.ts:1505`)          |
-| `@IsGranted` / `@RequireScope` | **cumul en ET** : classe **plus** méthode                                | `computeSecurityRequirement()` (`routerDecorators.ts:1444`) |
-| `@Anonymous`                   | méthode → annule tout ce que la classe a posé                            | `routerDecorators.ts:887`                                   |
-| `@Csp`                         | fusion **additive** classe + méthode (sources concaténées)               | `mergeCspDirectives()` (`routerDecorators.ts:975`)          |
-| `@CsrfProtect` / `@CsrfExempt` | OU logique : classe **ou** méthode suffit                                | `computeActionMeta()` (`routerDecorators.ts:1370`)          |
-| `@Header`                      | s'empile (plusieurs en-têtes) ; même clé → dernier écrit gagne           | `Header()` (`routerDecorators.ts:555`)                      |
-| `@HttpCode`                    | un seul par action (le dernier posé écrase)                              | `HttpCode()` (`routerDecorators.ts:523`)                    |
+<!-- prettier-ignore -->
+| Sujet | Règle | Ancre |
+| --- | --- | --- |
+| `@Domain` | option `host` de la route > méthode > classe | `controller()` (`routerDecorators.ts:88`) |
+| `@BypassFirewall` | **cumulatif** : `true` de la route, de la méthode ou de la classe suffit | `routerDecorators.ts:686` |
+| `@UseSession` | méthode > classe (fusion des champs) | `resolveSessionIntent()` (`routerDecorators.ts:794`) |
+| `@Idempotent` | méthode > classe | `computeIdempotent()` (`routerDecorators.ts:1505`) |
+| `@IsGranted` / `@RequireScope` | **cumul en ET** : classe **plus** méthode | `computeSecurityRequirement()` (`routerDecorators.ts:1444`) |
+| `@Anonymous` | méthode → annule tout ce que la classe a posé | `routerDecorators.ts:887` |
+| `@Csp` | fusion **additive** classe + méthode (sources concaténées) | `mergeCspDirectives()` (`routerDecorators.ts:975`) |
+| `@CsrfProtect` / `@CsrfExempt` | OU logique : classe **ou** méthode suffit | `computeActionMeta()` (`routerDecorators.ts:1370`) |
+| `@Header` | s'empile (plusieurs en-têtes) ; même clé → dernier écrit gagne | `Header()` (`routerDecorators.ts:555`) |
+| `@HttpCode` | un seul par action (le dernier posé écrase) | `HttpCode()` (`routerDecorators.ts:523`) |
 
 ### Où placer les décorateurs de classe
 
@@ -631,17 +634,18 @@ sequenceDiagram
 Le snapshot `RouteActionMeta` (`routerDecorators.ts:1336`) regroupe **tout** ce que les décorateurs
 ont dit de l'action :
 
-| Champ                        | Vient de                       | `null`/`false` quand                   |
-| ---------------------------- | ------------------------------ | -------------------------------------- |
-| `paramsMeta`                 | `@Param`/`@Body`/…             | aucun paramètre décoré                 |
-| `httpCode`                   | `@HttpCode`                    | absent                                 |
-| `headerEntries`              | `@Header`                      | absent (entrées pré-dépliées une fois) |
-| `redirectMeta`               | `@Redirect`                    | absent                                 |
-| `sessionIntent`              | `@UseSession` / `@Session`     | la route ne veut pas de session        |
-| `security`                   | `@IsGranted` + `@RequireScope` | action non gardée (ou `@Anonymous`)    |
-| `cspDirectives`              | `@Csp`                         | aucune directive déclarée              |
-| `csrfProtect` / `csrfExempt` | `@CsrfProtect` / `@CsrfExempt` | non déclarés                           |
-| `idempotent`                 | `@Idempotent`                  | action non protégée                    |
+<!-- prettier-ignore -->
+| Champ | Vient de | `null`/`false` quand |
+| --- | --- | --- |
+| `paramsMeta` | `@Param`/`@Body`/… | aucun paramètre décoré |
+| `httpCode` | `@HttpCode` | absent |
+| `headerEntries` | `@Header` | absent (entrées pré-dépliées une fois) |
+| `redirectMeta` | `@Redirect` | absent |
+| `sessionIntent` | `@UseSession` / `@Session` | la route ne veut pas de session |
+| `security` | `@IsGranted` + `@RequireScope` | action non gardée (ou `@Anonymous`) |
+| `cspDirectives` | `@Csp` | aucune directive déclarée |
+| `csrfProtect` / `csrfExempt` | `@CsrfProtect` / `@CsrfExempt` | non déclarés |
+| `idempotent` | `@Idempotent` | action non protégée |
 
 Le `Resolver` consomme ce snapshot dans un ordre qui a du sens sécurité :
 **garde d'abord, instanciation ensuite**. `security !== null` déclenche
@@ -727,23 +731,24 @@ L'écran **Routes** et le point d'API `/nodefony/framework/api/routes` listent l
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                                       | Cause (dans le code)                                                                                                                                                                                                                                                                | Correction                                                                                                                 |
-| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `404` sur une route pourtant décorée                                           | Contrôleur jamais importé, ou absent de `@controllers([…])`                                                                                                                                                                                                                         | L'ajouter au tableau `@controllers` du module                                                                              |
+<!-- prettier-ignore -->
+| Symptôme | Cause (dans le code) | Correction |
+| --- | --- | --- |
+| `404` sur une route pourtant décorée | Contrôleur jamais importé, ou absent de `@controllers([…])` | L'ajouter au tableau `@controllers` du module |
 | `Action « remove » … : ce nom est RÉSERVÉ` au démarrage — ou `TS2416` au build | L'action reprend le nom d'un membre de `Controller` : la classe étend `Service`, qui expose déjà `remove(name): boolean` ([`Service.ts:452`](../../../nodefony/src/Service.ts)), `set`, `get`, `clean`… Le décorateur refuse le nom avant que le conflit n'atteigne le compilateur. | Renommer l'action (`destroy`, `deleteOne`…). Le nom d'une action est libre : c'est le chemin du décorateur qui fait l'URL. |
-| `404` après avoir déplacé `@controller` sous `@Domain`                         | `@controller` monte les routes ; les décorateurs lus au montage doivent être **sous**                                                                                                                                                                                               | Remettre `@controller` en **premier** (le plus haut)                                                                       |
-| Le vhost de `@Domain` classe est ignoré                                        | `@Domain` placé **au-dessus** de `@controller` → posé trop tard                                                                                                                                                                                                                     | Placer `@Domain` sous `@controller`                                                                                        |
-| `@BypassFirewall` n'ouvre rien                                                 | Écrit **avec** parenthèses — c'est un drapeau, pas une fabrique                                                                                                                                                                                                                     | `@BypassFirewall` (sans `()`)                                                                                              |
-| Une route de classe reste publique malgré l'option                             | `bypassFirewall` est **cumulatif** : le `true` de la classe l'emporte                                                                                                                                                                                                               | Retirer `@BypassFirewall` de la classe et le poser action par action                                                       |
-| `403` alors que le rôle est bon                                                | Module `security` absent, ou route hors zone firewall → aucun jeton (fail-closed)                                                                                                                                                                                                   | Charger `@nodefony/security` et couvrir la route par une zone                                                              |
-| `@CurrentUser()` vaut `undefined`                                              | Route hors zone firewall — l'identité n'est jamais résolue hors zone                                                                                                                                                                                                                | Couvrir la route par une zone (voir [firewall](../../security/docs/firewall.md))                                           |
-| `@Session()` toujours `null`                                                   | Aucun intent : ni `@UseSession`, ni paramètre `@Session`, ni cookie repris                                                                                                                                                                                                          | Ajouter `@UseSession()` sur l'action ou la classe                                                                          |
-| `@Headers("X-Foo")` vaut `undefined`                                           | Node met les en-têtes en minuscules ; la recherche est normalisée mais la clé compte                                                                                                                                                                                                | Utiliser la forme minuscule (`"x-foo"`)                                                                                    |
-| `@Redirect` ne redirige pas                                                    | L'action a retourné une valeur — la redirection ne joue que sur `undefined`/`null`                                                                                                                                                                                                  | Ne rien retourner, ou retourner `{ url, statusCode }`                                                                      |
-| Réponse `301` inattendue sur un `redirect()` manuel                            | `Response.redirect()` vaut 301 par défaut                                                                                                                                                                                                                                           | Passer le code : `this.redirect(url, 302)`                                                                                 |
-| Une méthode nommée `session`/`request`/`response` est refusée                  | Même règle : ce sont des **accesseurs** de `Controller`. Sans le garde-fou ils ne cassaient rien au build — ils masquaient l'action en silence.                                                                                                                                     | Renommer l'action (aussi : `get`, `set`, `method`, `context`, `route`)                                                     |
-| Deux requêtes se mélangent leurs données                                       | `@Scope("singleton")` avec un état de requête stocké sur `this`                                                                                                                                                                                                                     | Revenir au défaut per-request, ou n'utiliser que des arguments décorés                                                     |
-| La route `*` avale toutes les autres                                           | Attendu : elle est montée en dernier mais matche tout ce qui reste                                                                                                                                                                                                                  | Vérifier que les routes précises sont bien déclarées (elles gagnent)                                                       |
+| `404` après avoir déplacé `@controller` sous `@Domain` | `@controller` monte les routes ; les décorateurs lus au montage doivent être **sous** | Remettre `@controller` en **premier** (le plus haut) |
+| Le vhost de `@Domain` classe est ignoré | `@Domain` placé **au-dessus** de `@controller` → posé trop tard | Placer `@Domain` sous `@controller` |
+| `@BypassFirewall` n'ouvre rien | Écrit **avec** parenthèses — c'est un drapeau, pas une fabrique | `@BypassFirewall` (sans `()`) |
+| Une route de classe reste publique malgré l'option | `bypassFirewall` est **cumulatif** : le `true` de la classe l'emporte | Retirer `@BypassFirewall` de la classe et le poser action par action |
+| `403` alors que le rôle est bon | Module `security` absent, ou route hors zone firewall → aucun jeton (fail-closed) | Charger `@nodefony/security` et couvrir la route par une zone |
+| `@CurrentUser()` vaut `undefined` | Route hors zone firewall — l'identité n'est jamais résolue hors zone | Couvrir la route par une zone (voir [firewall](../../security/docs/firewall.md)) |
+| `@Session()` toujours `null` | Aucun intent : ni `@UseSession`, ni paramètre `@Session`, ni cookie repris | Ajouter `@UseSession()` sur l'action ou la classe |
+| `@Headers("X-Foo")` vaut `undefined` | Node met les en-têtes en minuscules ; la recherche est normalisée mais la clé compte | Utiliser la forme minuscule (`"x-foo"`) |
+| `@Redirect` ne redirige pas | L'action a retourné une valeur — la redirection ne joue que sur `undefined`/`null` | Ne rien retourner, ou retourner `{ url, statusCode }` |
+| Réponse `301` inattendue sur un `redirect()` manuel | `Response.redirect()` vaut 301 par défaut | Passer le code : `this.redirect(url, 302)` |
+| Une méthode nommée `session`/`request`/`response` est refusée | Même règle : ce sont des **accesseurs** de `Controller`. Sans le garde-fou ils ne cassaient rien au build — ils masquaient l'action en silence. | Renommer l'action (aussi : `get`, `set`, `method`, `context`, `route`) |
+| Deux requêtes se mélangent leurs données | `@Scope("singleton")` avec un état de requête stocké sur `this` | Revenir au défaut per-request, ou n'utiliser que des arguments décorés |
+| La route `*` avale toutes les autres | Attendu : elle est montée en dernier mais matche tout ce qui reste | Vérifier que les routes précises sont bien déclarées (elles gagnent) |
 
 ## 🧪 Tests & couverture
 

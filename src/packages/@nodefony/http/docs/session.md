@@ -494,13 +494,14 @@ partagé par processus : deux noms distincts évitent la collision quand les deu
 
 C'est le différenciateur du framework appliqué à l'état de session : un seul modèle, deux transports.
 
-| Aspect             | HTTP                                                                              | WebSocket                                                                               |
-| ------------------ | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Ouverture          | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1288`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:1572`) |
-| Lecture du cookie  | constructeur du contexte                                                          | constructeur, même nom effectif (`WebsocketContext.ts:172`)                             |
-| Sauvegarde         | fin de requête                                                                    | après **chaque frame** traitée (`WebsocketContext.ts:302`)                              |
-| Filet de fermeture | —                                                                                 | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1379`)                       |
-| Portée ALS         | une requête                                                                       | **handshake + toutes les frames** (`http-kernel.ts:1495`)                               |
+<!-- prettier-ignore -->
+| Aspect | HTTP | WebSocket |
+| --- | --- | --- |
+| Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1288`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:1572`) |
+| Lecture du cookie | constructeur du contexte | constructeur, même nom effectif (`WebsocketContext.ts:172`) |
+| Sauvegarde | fin de requête | après **chaque frame** traitée (`WebsocketContext.ts:302`) |
+| Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1379`) |
+| Portée ALS | une requête | **handshake + toutes les frames** (`http-kernel.ts:1495`) |
 
 La conséquence pratique la plus utile : côté WebSocket, la bulle `AsyncLocalStorage` ouverte au
 handshake par `RequestContext.run()` **enveloppe aussi les messages** (`http-kernel.ts:1495`). L'identité résolue une fois est donc
@@ -721,18 +722,19 @@ SQLite quand c'est pertinent (`SessionStorage.location`,
 Les six familles sont présentes — les **chiffres exacts vivent dans la carte de l'aperçu**, régénérée
 depuis vitest, jamais figés ici.
 
-| Type                     | Où                                                                                           | Ce qui est prouvé                                                                                    |
-| ------------------------ | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Unitaires                | `unit/Session.test.ts`, `unit/MemorySessionStorage.test.ts`, `unit/SessionsAdmin.test.ts`    | cycle de vie, sacs, sérialisation, surface admin                                                     |
-| Unitaires (intent)       | `@nodefony/framework` `unit/UseSession.test.ts`                                              | précédence classe/méthode, intent implicite par `@Session`                                           |
-| **Tests d'attaque**      | `unit/session-timeout.attack.test.ts`                                                        | absolute non contournable par `touch`, touch d'une session révoquée refusé, défauts NIST verrouillés |
-| Intégration (serveur)    | `http/session.test.ts`, `http/session-runtime.test.ts`, `http/session-bff.test.ts`           | activation paresseuse, cookie RFC sur TLS, flashBag, `regenerateId`                                  |
-| Intégration (révocation) | `integration/session-revocation.test.ts`, `integration/stores-location.test.ts`              | anti-résurrection, store réellement résolu                                                           |
-| WebSocket                | `websockets/websocket-session.test.ts`                                                       | session au handshake                                                                                 |
-| Stores                   | `@nodefony/drizzle`, `@nodefony/mongoose`, `@nodefony/redis` (dont pagination et résilience) | comportement de chaque backend                                                                       |
-| **E2E (base réelle)**    | `@nodefony/drizzle` `session-store-postgres.e2e.test.ts`, `session-store-mysql.e2e.test.ts`  | dialectes réels — gatés par `NF_PG_URL` / `NF_MYSQL_URL`                                             |
-| **Charge / mémoire**     | `load/session-load.test.ts`                                                                  | scopes DI drainés + tas borné (serveur live requis)                                                  |
-| **Bancs de contrat**     | `tests/support/sessionStoreContract.ts`, `sessionPaginationContract.ts`                      | invariants tenus par **tous** les stores                                                             |
+<!-- prettier-ignore -->
+| Type | Où | Ce qui est prouvé |
+| --- | --- | --- |
+| Unitaires | `unit/Session.test.ts`, `unit/MemorySessionStorage.test.ts`, `unit/SessionsAdmin.test.ts` | cycle de vie, sacs, sérialisation, surface admin |
+| Unitaires (intent) | `@nodefony/framework` `unit/UseSession.test.ts` | précédence classe/méthode, intent implicite par `@Session` |
+| **Tests d'attaque** | `unit/session-timeout.attack.test.ts` | absolute non contournable par `touch`, touch d'une session révoquée refusé, défauts NIST verrouillés |
+| Intégration (serveur) | `http/session.test.ts`, `http/session-runtime.test.ts`, `http/session-bff.test.ts` | activation paresseuse, cookie RFC sur TLS, flashBag, `regenerateId` |
+| Intégration (révocation) | `integration/session-revocation.test.ts`, `integration/stores-location.test.ts` | anti-résurrection, store réellement résolu |
+| WebSocket | `websockets/websocket-session.test.ts` | session au handshake |
+| Stores | `@nodefony/drizzle`, `@nodefony/mongoose`, `@nodefony/redis` (dont pagination et résilience) | comportement de chaque backend |
+| **E2E (base réelle)** | `@nodefony/drizzle` `session-store-postgres.e2e.test.ts`, `session-store-mysql.e2e.test.ts` | dialectes réels — gatés par `NF_PG_URL` / `NF_MYSQL_URL` |
+| **Charge / mémoire** | `load/session-load.test.ts` | scopes DI drainés + tas borné (serveur live requis) |
+| **Bancs de contrat** | `tests/support/sessionStoreContract.ts`, `sessionPaginationContract.ts` | invariants tenus par **tous** les stores |
 
 > [!CAUTION]
 > Les suites E2E se **skippent** sans leurs variables d'infra, et un skip compte comme vert. Avant de

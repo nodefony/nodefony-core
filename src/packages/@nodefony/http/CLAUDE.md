@@ -133,15 +133,16 @@ Chaque contexte (HTTP + WS) reçoit un `requestId` UUID v4 à la construction (`
 
 ## Décisions techniques figées
 
-| Sujet         | Décision                                                                                                                                                           |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| WS lib        | `ws@8` — `import { WebSocketServer } from 'ws'` — jamais `Ws.Server` (undefined en ESM)                                                                            |
-| Serveurs      | `node:http`, `node:http2`, `ws` uniquement — jamais Bun.serve                                                                                                      |
-| Protocol WS   | Exact string match — array `['a','b']` → header `"a, b"` → ne match pas `"a"` → 1002                                                                               |
-| Binary frames | `context.send(buf, "binary")` côté serveur, `ws.send(Buffer)` côté client                                                                                          |
-| Broadcast     | `Response.broadcast()` → `wss.clients.forEach(send)` — inclut l'émetteur                                                                                           |
+<!-- prettier-ignore -->
+| Sujet | Décision |
+| --- | --- |
+| WS lib | `ws@8` — `import { WebSocketServer } from 'ws'` — jamais `Ws.Server` (undefined en ESM) |
+| Serveurs | `node:http`, `node:http2`, `ws` uniquement — jamais Bun.serve |
+| Protocol WS | Exact string match — array `['a','b']` → header `"a, b"` → ne match pas `"a"` → 1002 |
+| Binary frames | `context.send(buf, "binary")` côté serveur, `ws.send(Buffer)` côté client |
+| Broadcast | `Response.broadcast()` → `wss.clients.forEach(send)` — inclut l'émetteur |
 | statusMessage | Sanitiser avec `replace(/[^\x20-\x7E]/g, "")` juste avant `ServerResponse.writeHead()` — Node.js set le natif AVANT validation → ERR_INVALID_CHAR en cascade sinon |
-| url.parse     | Interdit — utiliser `new URL(str, "http://localhost")` partout                                                                                                     |
+| url.parse | Interdit — utiliser `new URL(str, "http://localhost")` partout |
 
 ---
 
@@ -169,26 +170,27 @@ Chaque contexte (HTTP + WS) reçoit un `requestId` UUID v4 à la construction (`
 
 Cartographie **par sujet** (pour trouver où poser un test, ou où un comportement est déjà couvert) :
 
-| Sujet                     | Où                                                                                                                                                                                                                                                                     |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cookies                   | `unit/Cookie.test.ts` (serialize/parse/options + signé HMAC)                                                                                                                                                                                                           |
-| Sessions                  | `unit/{Session,MemorySessionStorage,SessionsAdmin,sessions-admin-paging,session-pagination,session-timeout.attack}.test.ts` · `http/{session,session-runtime,session-bff}.test.ts` · `websockets/websocket-session.test.ts` · `integration/session-revocation.test.ts` |
-| Requête / réponse / body  | `unit/{Response,parser,metaData}.test.ts` · `http/{body-content-types,body-limit,auto-json,headers,decorators,decorators-response}.test.ts` · `integration/{bodyStream,decorators-param}.test.ts`                                                                      |
-| Erreurs & codes HTTP      | `unit/{HttpError,ErrorRenderer,clientError}.test.ts` · `http/{errors,host-misdirected,client-abort-499}.test.ts` · `integration/http-rfc-errors.test.ts`                                                                                                               |
-| Pipeline & cycle de vie   | `http/{httpKernel,pipeline-order,lifecycle-init-crash,timeout-abort,abort-cleanup}.test.ts` · `integration/{after-response,abort-signal,timing,di-singleton}.test.ts`                                                                                                  |
-| ALS / contexte de requête | `integration/{request-context,request-context-ws,lifecycle-als,after-response-als}.test.ts` · `load/als-load.test.ts`                                                                                                                                                  |
-| Sécurité (attaques)       | `http/security.test.ts` (path traversal, injection d'en-tête, taille URL/corps, cookie, fuite d'information) · `http/{webauthn-attack,firewall-auth}.test.ts` · `integration/oauth2-attack.test.ts` · `websockets/ws-data-plane-attack.test.ts`                        |
-| CORS · CSRF · en-têtes    | `http/{cors,csrf,security-headers}.test.ts` — **CORS a son fichier dédié**, pas `security.test.ts`                                                                                                                                                                     |
-| Auth (flux)               | `http/{webauthn-bff,firewall-auth}.test.ts` · `integration/{apikey-flow,oauth2-flow,security-hooks}.test.ts` · `websockets/{ws-scope-jwt,ws-isgranted-jwt,ws-data-plane-auth}.test.ts`                                                                                 |
-| Proxy / IP de confiance   | `unit/{trustProxy,forwarded,forwardedWiring,generateProxyConfig,domain}.test.ts` · `http/forward.test.ts`                                                                                                                                                              |
-| Traçage / journalisation  | `unit/{trace,requestId,RequestLogger,PrettyRequestLogger,wsLogContent,Profiler,AuditLogger,FrameProfile}.test.ts` · `http/traceparent.test.ts` · `websockets/websocket-trace-logging.test.ts`                                                                          |
-| WebSocket (protocole)     | `websockets/{websocket,websocket-protocol,websocket-limits,websocket-fragmentation,websocket-origin,websocket-w3c,websocket-binary-broadcast}.test.ts` · `unit/{wsCloseCode,wsHeartbeat,wsBackpressure,wsConnectionCounter,WsResponsePeerGone}.test.ts`                |
-| WebSocket (pont/actions)  | `websockets/{ws-bridge-radiography,ws-bridge-rendered-action}.test.ts`                                                                                                                                                                                                 |
-| Statique & upload         | `http/{static,fileStream,upload}.test.ts` · `unit/{UploadedFile,collectAssets,prebuiltUi}.test.ts`                                                                                                                                                                     |
-| Routage                   | `routing/Router.test.ts` · `integration/domain-routing.test.ts`                                                                                                                                                                                                        |
-| Config & démarrage        | `unit/{httpConfig,portBinder,certificates,PhasesVerbose,httpContextTimeout}.test.ts` · `integration/stores-location.test.ts` · `http/{health,https,http,http1}.test.ts`                                                                                                |
-| Débit / quotas            | `unit/{rateLimit,rateLimitAdminApi,Backpressure}.test.ts` · `http/resilience.test.ts`                                                                                                                                                                                  |
-| Charge & mémoire          | `http/memory.test.ts` (le gate ¹) · `load/{session,stream,ws-connections,ws-messages,ws-latency}-load.test.ts`                                                                                                                                                         |
+<!-- prettier-ignore -->
+| Sujet | Où |
+| --- | --- |
+| Cookies | `unit/Cookie.test.ts` (serialize/parse/options + signé HMAC) |
+| Sessions | `unit/{Session,MemorySessionStorage,SessionsAdmin,sessions-admin-paging,session-pagination,session-timeout.attack}.test.ts` · `http/{session,session-runtime,session-bff}.test.ts` · `websockets/websocket-session.test.ts` · `integration/session-revocation.test.ts` |
+| Requête / réponse / body | `unit/{Response,parser,metaData}.test.ts` · `http/{body-content-types,body-limit,auto-json,headers,decorators,decorators-response}.test.ts` · `integration/{bodyStream,decorators-param}.test.ts` |
+| Erreurs & codes HTTP | `unit/{HttpError,ErrorRenderer,clientError}.test.ts` · `http/{errors,host-misdirected,client-abort-499}.test.ts` · `integration/http-rfc-errors.test.ts` |
+| Pipeline & cycle de vie | `http/{httpKernel,pipeline-order,lifecycle-init-crash,timeout-abort,abort-cleanup}.test.ts` · `integration/{after-response,abort-signal,timing,di-singleton}.test.ts` |
+| ALS / contexte de requête | `integration/{request-context,request-context-ws,lifecycle-als,after-response-als}.test.ts` · `load/als-load.test.ts` |
+| Sécurité (attaques) | `http/security.test.ts` (path traversal, injection d'en-tête, taille URL/corps, cookie, fuite d'information) · `http/{webauthn-attack,firewall-auth}.test.ts` · `integration/oauth2-attack.test.ts` · `websockets/ws-data-plane-attack.test.ts` |
+| CORS · CSRF · en-têtes | `http/{cors,csrf,security-headers}.test.ts` — **CORS a son fichier dédié**, pas `security.test.ts` |
+| Auth (flux) | `http/{webauthn-bff,firewall-auth}.test.ts` · `integration/{apikey-flow,oauth2-flow,security-hooks}.test.ts` · `websockets/{ws-scope-jwt,ws-isgranted-jwt,ws-data-plane-auth}.test.ts` |
+| Proxy / IP de confiance | `unit/{trustProxy,forwarded,forwardedWiring,generateProxyConfig,domain}.test.ts` · `http/forward.test.ts` |
+| Traçage / journalisation | `unit/{trace,requestId,RequestLogger,PrettyRequestLogger,wsLogContent,Profiler,AuditLogger,FrameProfile}.test.ts` · `http/traceparent.test.ts` · `websockets/websocket-trace-logging.test.ts` |
+| WebSocket (protocole) | `websockets/{websocket,websocket-protocol,websocket-limits,websocket-fragmentation,websocket-origin,websocket-w3c,websocket-binary-broadcast}.test.ts` · `unit/{wsCloseCode,wsHeartbeat,wsBackpressure,wsConnectionCounter,WsResponsePeerGone}.test.ts` |
+| WebSocket (pont/actions) | `websockets/{ws-bridge-radiography,ws-bridge-rendered-action}.test.ts` |
+| Statique & upload | `http/{static,fileStream,upload}.test.ts` · `unit/{UploadedFile,collectAssets,prebuiltUi}.test.ts` |
+| Routage | `routing/Router.test.ts` · `integration/domain-routing.test.ts` |
+| Config & démarrage | `unit/{httpConfig,portBinder,certificates,PhasesVerbose,httpContextTimeout}.test.ts` · `integration/stores-location.test.ts` · `http/{health,https,http,http1}.test.ts` |
+| Débit / quotas | `unit/{rateLimit,rateLimitAdminApi,Backpressure}.test.ts` · `http/resilience.test.ts` |
+| Charge & mémoire | `http/memory.test.ts` (le gate ¹) · `load/{session,stream,ws-connections,ws-messages,ws-latency}-load.test.ts` |
 
 > ¹ `memory.test.ts` — le cas « 1000 GET séquentiels < 35 MB » est flaky en suite complète (pression
 > GC après ~250 tests) et passe toujours en isolation : ce n'est pas une fuite. Diagnostic →
@@ -209,14 +211,15 @@ Cartographie **par sujet** (pour trouver où poser un test, ou où un comporteme
 
 ## Bugs corrigés (cas limites connus)
 
-| Bug                                                  | Fichier                   | Fix                                                                                                                                                                                                                                     |
-| ---------------------------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ERR_INVALID_CHAR` sur statusMessage                 | `Response.ts:writeHead()` | `safeMsg.replace(/[^\x20-\x7E]/g,"")` avant `ServerResponse.writeHead()` — Node.js poison le natif avant de throw                                                                                                                       |
-| `url.parse()` deprecation                            | `sessions-service.ts`     | Remplacé par `new URL(context.url, "http://localhost")`                                                                                                                                                                                 |
-| `HttpError.controller/action/jsonResponse` undefined | `httpError.ts`            | Extraits de `(context as any)?.resolver` dans le constructeur                                                                                                                                                                           |
-| Cookie `Expires` overflow                            | `cookie.ts`               | `maxAge * 1000` → `maxAge` déjà en ms                                                                                                                                                                                                   |
-| `maxAge=0` session cookie                            | `cookie.ts`               | Cas 0 traité séparément                                                                                                                                                                                                                 |
-| Pagination sessions bouclait sur la page 1 (Redis)   | `HttpAdminApi.ts`         | `sessions/list` ET `sessions/mine` ne transmettaient pas le `cursor` entrant → backend SCAN rejouait la même page avec le même `nextCursor` ; fix = spread `cursor` (pattern SecurityAdminApi), gardé par 2 tests « le curseur AVANCE » |
+<!-- prettier-ignore -->
+| Bug | Fichier | Fix |
+| --- | --- | --- |
+| `ERR_INVALID_CHAR` sur statusMessage | `Response.ts:writeHead()` | `safeMsg.replace(/[^\x20-\x7E]/g,"")` avant `ServerResponse.writeHead()` — Node.js poison le natif avant de throw |
+| `url.parse()` deprecation | `sessions-service.ts` | Remplacé par `new URL(context.url, "http://localhost")` |
+| `HttpError.controller/action/jsonResponse` undefined | `httpError.ts` | Extraits de `(context as any)?.resolver` dans le constructeur |
+| Cookie `Expires` overflow | `cookie.ts` | `maxAge * 1000` → `maxAge` déjà en ms |
+| `maxAge=0` session cookie | `cookie.ts` | Cas 0 traité séparément |
+| Pagination sessions bouclait sur la page 1 (Redis) | `HttpAdminApi.ts` | `sessions/list` ET `sessions/mine` ne transmettaient pas le `cursor` entrant → backend SCAN rejouait la même page avec le même `nextCursor` ; fix = spread `cursor` (pattern SecurityAdminApi), gardé par 2 tests « le curseur AVANCE » |
 
 ---
 

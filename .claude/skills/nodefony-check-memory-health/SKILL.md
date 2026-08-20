@@ -61,16 +61,17 @@ Output attendu (9/9 verts) :
 
 ## Grille de seuils (règle dure Nodefony — `CLAUDE.md`)
 
-| Test                                  | Seuil critique | Si dépassé → cause probable                                                  |
-| ------------------------------------- | -------------- | ---------------------------------------------------------------------------- |
-| 1000 sequential GET                   | < 35 MB        | Fuite dans le cycle de vie request (listeners non removed, scope non leaved) |
-| 100 sync crashes                      | < 10 MB        | Kernel ne nettoie pas les scopes après exception                             |
-| 100 async crashes                     | < 10 MB        | Idem + promesse non rejected                                                 |
-| 100 native TypeError crashes          | < 15 MB        | Idem + cause chain pas attrappée                                             |
-| 500 mixed (index + context + session) | < 20 MB        | Storage session qui accumule                                                 |
-| 200 multipart uploads                 | < 30 MB        | busboy listeners / WriteStream non libérés (hot path streamMultipart)        |
-| 100 WS connections open/close         | < 30 MB        | WS listener non removed sur `close`                                          |
-| 50 WS echo round-trips                | < 25 MB        | Buffer message non libéré (seuil 25 : marge bruit GC en fin de suite)        |
+<!-- prettier-ignore -->
+| Test | Seuil critique | Si dépassé → cause probable |
+| --- | --- | --- |
+| 1000 sequential GET | < 35 MB | Fuite dans le cycle de vie request (listeners non removed, scope non leaved) |
+| 100 sync crashes | < 10 MB | Kernel ne nettoie pas les scopes après exception |
+| 100 async crashes | < 10 MB | Idem + promesse non rejected |
+| 100 native TypeError crashes | < 15 MB | Idem + cause chain pas attrappée |
+| 500 mixed (index + context + session) | < 20 MB | Storage session qui accumule |
+| 200 multipart uploads | < 30 MB | busboy listeners / WriteStream non libérés (hot path streamMultipart) |
+| 100 WS connections open/close | < 30 MB | WS listener non removed sur `close` |
+| 50 WS echo round-trips | < 25 MB | Buffer message non libéré (seuil 25 : marge bruit GC en fin de suite) |
 
 **Si un seuil saute** → c'est un **blocker**. NE PAS commit. Investiguer :
 

@@ -292,14 +292,15 @@ conforme). Validateur officiel : `skills-ref validate ./<skill>`.
 
 État après la passe de conformité :
 
-| Point                                         | Avant | Après | Détail                                                                                                                                              |
-| --------------------------------------------- | ----: | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `version:` à la racine (normatif)             |     6 | **0** | `debug`, `documentation`, `framework-dev`, `frontend-dev`, `frontend-verify`, `studio-dev` → `metadata.version`                                     |
-| `description` > 1024 caractères (normatif)    |     5 | **0** | `documentation` 1990→~980, `security-review` 1365→1017, `debug`, `framework-dev`, `frontend-dev` — la plus longue est désormais `html-report` (935) |
-| `name` ≠ nom du dossier (normatif)            |     0 | **0** | —                                                                                                                                                   |
-| Dossier `reference/` au lieu de `references/` |     8 | **0** | renommé sur les 8 skills concernés, 112 liens réécrits                                                                                              |
-| Renvois vers un fichier inexistant            |    16 | **0** | dette **pré-existante** révélée par la vérification (voir ci-dessous)                                                                               |
-| Corps > 500 lignes (recommandation)           |     2 |     2 | `documentation` (666), `session` (563) — non traité, demande un découpage éditorial                                                                 |
+<!-- prettier-ignore -->
+| Point | Avant | Après | Détail |
+| --- | ---: | ---: | --- |
+| `version:` à la racine (normatif) | 6 | **0** | `debug`, `documentation`, `framework-dev`, `frontend-dev`, `frontend-verify`, `studio-dev` → `metadata.version` |
+| `description` > 1024 caractères (normatif) | 5 | **0** | `documentation` 1990→~980, `security-review` 1365→1017, `debug`, `framework-dev`, `frontend-dev` — la plus longue est désormais `html-report` (935) |
+| `name` ≠ nom du dossier (normatif) | 0 | **0** | — |
+| Dossier `reference/` au lieu de `references/` | 8 | **0** | renommé sur les 8 skills concernés, 112 liens réécrits |
+| Renvois vers un fichier inexistant | 16 | **0** | dette **pré-existante** révélée par la vérification (voir ci-dessous) |
+| Corps > 500 lignes (recommandation) | 2 | 2 | `documentation` (666), `session` (563) — non traité, demande un découpage éditorial |
 
 **La dette révélée en chemin** : 16 renvois pointaient vers des fichiers absents — huit `references/recipes-*.md`
 supprimés lors du refactor `f636fd74` sans que les renvois suivent, et huit renvois croisés entre skills

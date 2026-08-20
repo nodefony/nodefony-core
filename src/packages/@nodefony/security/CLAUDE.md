@@ -13,15 +13,16 @@ webhooks, audit. Consomme `@nodefony/user` (jamais l'inverse).
 
 ## Décisions figées
 
-| Sujet                  | Décision                                                                        | Pourquoi                                             |
-| ---------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Pattern auth           | **`IAuthenticator`** (supports/authenticate/onSuccess), PAS Bridge/Factory      | lisible, extensible, plugins                         |
-| HTTP                   | **hybride** : session serveur cookie opaque (BFF) web/Studio + JWT API/agents   | révocable + scaling via store partagé (révisé 06-06) |
-| Zero Trust             | zone protégée + anonyme + pas `@Anonymous` → **401**                            | fermé par défaut                                     |
-| Config                 | **`defineSecurityConfig()` + Zod** (18 sections, tout `enabled`, `.describe()`) | type-safe + Studio auto-form + désactivable à chaud  |
-| En-têtes               | **natif** (pas la lib helmet)                                                   | 0 dep, contrôle total, nonce CSP par requête         |
-| Identité machine       | un `ServiceAccount` implémente `IUser`                                          | pas de principal séparé                              |
-| Coupling http→security | **type-only** (http importe `Firewall`/`Csrf`/`SecuredArea`)                    | conservé tel quel ; découplage = dette future        |
+<!-- prettier-ignore -->
+| Sujet | Décision | Pourquoi |
+| --- | --- | --- |
+| Pattern auth | **`IAuthenticator`** (supports/authenticate/onSuccess), PAS Bridge/Factory | lisible, extensible, plugins |
+| HTTP | **hybride** : session serveur cookie opaque (BFF) web/Studio + JWT API/agents | révocable + scaling via store partagé (révisé 06-06) |
+| Zero Trust | zone protégée + anonyme + pas `@Anonymous` → **401** | fermé par défaut |
+| Config | **`defineSecurityConfig()` + Zod** (18 sections, tout `enabled`, `.describe()`) | type-safe + Studio auto-form + désactivable à chaud |
+| En-têtes | **natif** (pas la lib helmet) | 0 dep, contrôle total, nonce CSP par requête |
+| Identité machine | un `ServiceAccount` implémente `IUser` | pas de principal séparé |
+| Coupling http→security | **type-only** (http importe `Firewall`/`Csrf`/`SecuredArea`) | conservé tel quel ; découplage = dette future |
 
 ## Structure
 

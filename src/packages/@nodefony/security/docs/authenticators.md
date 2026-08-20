@@ -419,15 +419,16 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 
 ## 📜 Normes appliquées
 
-| Domaine                | Norme           | Ancrage                                                                                                |
-| ---------------------- | --------------- | ------------------------------------------------------------------------------------------------------ |
-| Challenge d'auth (401) | RFC 7235        | `Firewall.#setChallenge()` (`firewall.ts:1076`)                                                        |
-| Bearer                 | RFC 6750        | `BEARER_SCHEME` (`JwtAuthenticator.ts:14` · `ApiKeyAuthenticator.ts:12`)                               |
-| JWT (BCP)              | RFC 7519, 8725  | `jwtVerify` durci : allowlist + claims (`JwtAuthenticator.ts:103-107`)                                 |
-| HTTP Basic             | RFC 7617        | `UserPasswordAuthenticator` (`UserPasswordAuthenticator.ts:25-27`)                                     |
-| Backoff de login       | NIST SP 800-63B | `#throttler.check()` avant le verifier (`UserPasswordAuthenticator.ts:101-103`)                        |
-| Rate limit (429)       | RFC 6585        | `Retry-After` posé par le firewall (`firewall.ts:584-587`)                                             |
-| Anti-énumération       | OWASP           | `INVALID_TOKEN` (`JwtAuthenticator.ts:24`) · `INVALID_CREDENTIALS` (`UserPasswordAuthenticator.ts:16`) |
+<!-- prettier-ignore -->
+| Domaine | Norme | Ancrage |
+| --- | --- | --- |
+| Challenge d'auth (401) | RFC 7235 | `Firewall.#setChallenge()` (`firewall.ts:1076`) |
+| Bearer | RFC 6750 | `BEARER_SCHEME` (`JwtAuthenticator.ts:14` · `ApiKeyAuthenticator.ts:12`) |
+| JWT (BCP) | RFC 7519, 8725 | `jwtVerify` durci : allowlist + claims (`JwtAuthenticator.ts:103-107`) |
+| HTTP Basic | RFC 7617 | `UserPasswordAuthenticator` (`UserPasswordAuthenticator.ts:25-27`) |
+| Backoff de login | NIST SP 800-63B | `#throttler.check()` avant le verifier (`UserPasswordAuthenticator.ts:101-103`) |
+| Rate limit (429) | RFC 6585 | `Retry-After` posé par le firewall (`firewall.ts:584-587`) |
+| Anti-énumération | OWASP | `INVALID_TOKEN` (`JwtAuthenticator.ts:24`) · `INVALID_CREDENTIALS` (`UserPasswordAuthenticator.ts:16`) |
 
 ## ⚡ Performance & mémoire
 
@@ -446,14 +447,15 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                           | Cause (dans le code)                                                                                                          | Correction                                                               |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| 401 systématique sur une zone protégée             | Aucune preuve + `anonymous` non listé — Zero Trust (`firewall.ts:613-626`)                                                    | Ajouter `anonymous` en dernier si l'anonymat est voulu                   |
-| 401 générique + log ERROR « service `users` »      | Câblage : pas de `UserService` au container (`authenticatorRegistry.ts:85-88`)                                                | Enregistrer un `UserService` au boot de l'app                            |
-| JWT rejeté alors qu'il « semble » valide           | `aud`/`iss`/`typ` non conformes, ou `alg` ≠ EdDSA (`JwtAuthenticator.ts:103-107`)                                             | Émettre via le `TokenService` (mêmes iss/aud/typ)                        |
-| Clé API révoquée encore acceptée quelques secondes | Confusion avec un JWT (auto-porté) — `revokedAt` est lu à chaque requête (`ApiKeyAuthenticator.ts:110`)                       | Un PAT est révoqué immédiatement ; vérifier `revokedAt`                  |
-| Révocation WS pas immédiate                        | Identité figée au handshake — asymétrie assumée du `FirewallRealtimeAuthenticator` (`FirewallRealtimeAuthenticator.ts:51-55`) | Attendre la fenêtre de re-validation, ou utiliser JWT + canal révocation |
-| Brute-force pas ralenti                            | `loginThrottler` absent du container — `rateLimit.enabled` off (`firewall.ts:346-349`)                                        | Configurer `rateLimit` pour poser le throttler                           |
+<!-- prettier-ignore -->
+| Symptôme | Cause (dans le code) | Correction |
+| --- | --- | --- |
+| 401 systématique sur une zone protégée | Aucune preuve + `anonymous` non listé — Zero Trust (`firewall.ts:613-626`) | Ajouter `anonymous` en dernier si l'anonymat est voulu |
+| 401 générique + log ERROR « service `users` » | Câblage : pas de `UserService` au container (`authenticatorRegistry.ts:85-88`) | Enregistrer un `UserService` au boot de l'app |
+| JWT rejeté alors qu'il « semble » valide | `aud`/`iss`/`typ` non conformes, ou `alg` ≠ EdDSA (`JwtAuthenticator.ts:103-107`) | Émettre via le `TokenService` (mêmes iss/aud/typ) |
+| Clé API révoquée encore acceptée quelques secondes | Confusion avec un JWT (auto-porté) — `revokedAt` est lu à chaque requête (`ApiKeyAuthenticator.ts:110`) | Un PAT est révoqué immédiatement ; vérifier `revokedAt` |
+| Révocation WS pas immédiate | Identité figée au handshake — asymétrie assumée du `FirewallRealtimeAuthenticator` (`FirewallRealtimeAuthenticator.ts:51-55`) | Attendre la fenêtre de re-validation, ou utiliser JWT + canal révocation |
+| Brute-force pas ralenti | `loginThrottler` absent du container — `rateLimit.enabled` off (`firewall.ts:346-349`) | Configurer `rateLimit` pour poser le throttler |
 
 ## 🧪 Tests & couverture
 

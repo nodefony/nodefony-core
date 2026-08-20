@@ -101,12 +101,13 @@ La nuance décisive n'est pas « couvert / pas couvert », c'est **qui choisit**
 la nature de sa donnée (`StoreKind`, `infra.ts:176`), et la résolution automatique ne propose Redis
 que pour les natures non durables (`resolveAutoStore()`, `infra.ts:241`).
 
-| Brique                              | Nature      | Implémentation                                  | Choisi par `auto` ?                      | Où on l'allume explicitement                                      |
-| ----------------------------------- | ----------- | ----------------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------- |
-| **Sessions**                        | `session`   | `RedisSessionStorage` — ici                     | ✅ dès qu'une infra `cache` est déclarée | `use("@nodefony/http", { session: { store: "redis" } })`          |
-| **Idempotence**                     | `ephemeral` | `RedisIdempotencyStore` — `@nodefony/framework` | ✅ idem                                  | `use("@nodefony/framework", { idempotency: { store: "redis" } })` |
-| **Jetons** (refresh, PAT, denylist) | `durable`   | `RedisTokenStore` — ici                         | ❌ jamais                                | `use("@nodefony/security", { tokenStore: { store: "redis" } })`   |
-| **Passkeys** (WebAuthn)             | `durable`   | `RedisWebAuthnCredentialStore` — ici            | ❌ jamais                                | `use("@nodefony/security", { passkeys: { store: "redis" } })`     |
+<!-- prettier-ignore -->
+| Brique | Nature | Implémentation | Choisi par `auto` ? | Où on l'allume explicitement |
+| --- | --- | --- | --- | --- |
+| **Sessions** | `session` | `RedisSessionStorage` — ici | ✅ dès qu'une infra `cache` est déclarée | `use("@nodefony/http", { session: { store: "redis" } })` |
+| **Idempotence** | `ephemeral` | `RedisIdempotencyStore` — `@nodefony/framework` | ✅ idem | `use("@nodefony/framework", { idempotency: { store: "redis" } })` |
+| **Jetons** (refresh, PAT, denylist) | `durable` | `RedisTokenStore` — ici | ❌ jamais | `use("@nodefony/security", { tokenStore: { store: "redis" } })` |
+| **Passkeys** (WebAuthn) | `durable` | `RedisWebAuthnCredentialStore` — ici | ❌ jamais | `use("@nodefony/security", { passkeys: { store: "redis" } })` |
 
 Les briques `user`, `audit`, `webhooks` et `totp` n'ont **pas** de version Redis — mais pour deux
 raisons différentes, et une seule est un choix.

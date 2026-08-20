@@ -273,13 +273,14 @@ valeur effective diffère du schéma au démarrage — `maxRetries`, traitée da
 
 ### Racine
 
-| Clé             | Type                     | Défaut                           | Effet                                                                                         |
-| --------------- | ------------------------ | -------------------------------- | --------------------------------------------------------------------------------------------- |
-| `enabled`       | booléen                  | `true`                           | `false` = module chargé mais inerte : aucune connexion ouverte, aucun socket.                 |
-| `url`           | chaîne (secret)          | _absent_                         | URL complète `redis[s]://[[user][:pass]@]host[:port][/db]`. Prend le pas sur `globalOptions`. |
-| `globalOptions` | objet                    | défauts de `globalOptionsSchema` | Options communes fusionnées dans **chaque** connexion.                                        |
-| `connections`   | dictionnaire nom → objet | `main`, `publish`, `subscribe`   | Les connexions à ouvrir au démarrage.                                                         |
-| `keyNamespace`  | chaîne                   | nom de l'application             | Cloison des **clés** par application sur un Redis mutualisé (cf ci-dessous).                  |
+<!-- prettier-ignore -->
+| Clé | Type | Défaut | Effet |
+| --- | --- | --- | --- |
+| `enabled` | booléen | `true` | `false` = module chargé mais inerte : aucune connexion ouverte, aucun socket. |
+| `url` | chaîne (secret) | _absent_ | URL complète `redis[s]://[[user][:pass]@]host[:port][/db]`. Prend le pas sur `globalOptions`. |
+| `globalOptions` | objet | défauts de `globalOptionsSchema` | Options communes fusionnées dans **chaque** connexion. |
+| `connections` | dictionnaire nom → objet | `main`, `publish`, `subscribe` | Les connexions à ouvrir au démarrage. |
+| `keyNamespace` | chaîne | nom de l'application | Cloison des **clés** par application sur un Redis mutualisé (cf ci-dessous). |
 
 Le sous-objet `connections` est un dictionnaire libre : la clé est le nom logique, la valeur décrit la
 connexion. Les trois entrées par défaut sont matérialisées dans `redisConfigSchema` (`config.ts:200`).
@@ -336,14 +337,15 @@ configuration de l'application (il n'est pas secret par lui-même), ou dans l'UR
 
 ### `globalOptions.socket`
 
-| Clé                 | Type              | Défaut                               | Effet                                                                                             |
-| ------------------- | ----------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| `host`              | chaîne non vide   | `"localhost"`                        | Hôte du serveur. Jamais d'hôte d'infrastructure en dur dans le framework.                         |
-| `port`              | entier `1..65535` | `6379`                               | Port TCP. Hors plage → la configuration est **refusée** au démarrage.                             |
-| `family`            | `0` \| `4` \| `6` | `0`                                  | Famille IP pour la résolution DNS ; `0` laisse Node choisir. Utile quand une pile IPv6 traîne.    |
-| `connectTimeout`    | entier > 0 (ms)   | `5000`                               | Délai maximal d'établissement du socket. Empêche un démarrage qui pend sur un serveur muet.       |
-| `tls`               | booléen           | `false`                              | Chiffre le canal. Voir la limite de forme plus bas — c'est un drapeau, pas un jeu de certificats. |
-| `reconnectStrategy` | objet             | défauts de `reconnectStrategySchema` | La politique de reconnexion, décrite juste après.                                                 |
+<!-- prettier-ignore -->
+| Clé | Type | Défaut | Effet |
+| --- | --- | --- | --- |
+| `host` | chaîne non vide | `"localhost"` | Hôte du serveur. Jamais d'hôte d'infrastructure en dur dans le framework. |
+| `port` | entier `1..65535` | `6379` | Port TCP. Hors plage → la configuration est **refusée** au démarrage. |
+| `family` | `0` \| `4` \| `6` | `0` | Famille IP pour la résolution DNS ; `0` laisse Node choisir. Utile quand une pile IPv6 traîne. |
+| `connectTimeout` | entier > 0 (ms) | `5000` | Délai maximal d'établissement du socket. Empêche un démarrage qui pend sur un serveur muet. |
+| `tls` | booléen | `false` | Chiffre le canal. Voir la limite de forme plus bas — c'est un drapeau, pas un jeu de certificats. |
+| `reconnectStrategy` | objet | défauts de `reconnectStrategySchema` | La politique de reconnexion, décrite juste après. |
 
 Ces contraintes sont portées par `socketSchema` (`config.ts:79`) : ce sont elles qui font échouer le
 démarrage plutôt que de laisser passer un port fantaisiste.
@@ -460,13 +462,14 @@ Dès que `url` est renseignée — par l'application ou par l'environnement — 
 (`buildClientOptions.ts:68`) **ne pose plus** `socket.host` ni `socket.port` : ils entreraient en
 conflit avec ceux de l'URL. Trois conséquences à connaître :
 
-| Réglage                                                    | Avec une `url` présente                                                                 |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `socket.host` / `socket.port`, `REDIS_HOST` / `REDIS_PORT` | **sans effet** — l'adresse vient de l'URL                                               |
-| `socket.tls`                                               | **sans effet** — c'est le protocole (`redis://` ou `rediss://`) qui décide              |
-| `connections.<nom>.database`                               | **écrasé** si l'URL porte un chemin (`…:6379/2`) — toutes les connexions sur cette base |
-| `REDIS_PASSWORD`                                           | conservé **seulement** si l'URL ne porte pas de mot de passe                            |
-| `reconnectStrategy`                                        | conservé dans tous les cas — c'est la seule option de socket transmise avec l'URL       |
+<!-- prettier-ignore -->
+| Réglage | Avec une `url` présente |
+| --- | --- |
+| `socket.host` / `socket.port`, `REDIS_HOST` / `REDIS_PORT` | **sans effet** — l'adresse vient de l'URL |
+| `socket.tls` | **sans effet** — c'est le protocole (`redis://` ou `rediss://`) qui décide |
+| `connections.<nom>.database` | **écrasé** si l'URL porte un chemin (`…:6379/2`) — toutes les connexions sur cette base |
+| `REDIS_PASSWORD` | conservé **seulement** si l'URL ne porte pas de mot de passe |
+| `reconnectStrategy` | conservé dans tous les cas — c'est la seule option de socket transmise avec l'URL |
 
 Les trois dernières lignes viennent de la bibliothèque `redis` elle-même : à la construction du
 client, les valeurs extraites de l'URL sont recopiées **par-dessus** les options fournies. Une URL
@@ -689,20 +692,21 @@ faire avant une mise en production.
 
 ## ⚠️ Pièges
 
-| Symptôme                                                                | Cause                                                                                                        | Correction                                                                                                                 |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| Une clé de configuration n'a aucun effet, aucune erreur                 | Clé inconnue du schéma : la validation Zod **écarte** les clés qu'elle ne connaît pas                        | Vérifier l'orthographe dans les tables ci-dessus ; contrôler la cible effective (§ Démarrage rapide)                       |
-| L'hôte configuré est ignoré                                             | Une `url` est présente — `buildClientOptions()` (`buildClientOptions.ts:68`) ne pose plus host/port          | Retirer `NF_REDIS_URL`/`REDIS_URL`, ou tout mettre dans l'URL                                                              |
-| `REDIS_PORT` semble sans effet                                          | Valeur non entière ou hors `1..65535` : `applyEnvOverrides()` (`defineModuleConfig.ts:32`) l'ignore          | Corriger la valeur — l'ignorance est silencieuse par conception                                                            |
-| Toutes les connexions atterrissent sur la même base                     | L'URL porte un chemin (`…/2`) qui écrase le `database` de chaque connexion                                   | Déclarer l'URL sans chemin et laisser `database` cloisonner                                                                |
-| Le démarrage pend, sans erreur, sans Redis                              | Tentatives illimitées : la première ouverture ne rend pas la main                                            | Hors production c'est déjà borné (`applyResilienceDefaults()` (`defineModuleConfig.ts:65`)) ; sinon fixer une valeur finie |
-| Erreur `NOAUTH` alors que le mot de passe est configuré                 | L'URL porte des identifiants qui recouvrent `REDIS_PASSWORD`                                                 | Ne pas mélanger : l'URL **ou** hôte + mot de passe                                                                         |
-| Les sessions ont changé de magasin sans qu'on touche à la configuration | `NF_REDIS_URL` déclare une infra de cache → `resolveAutoStore()` (`infra.ts:241`) bascule les briques `auto` | Nommer le store explicitement pour un comportement identique partout                                                       |
-| Une surcharge de connexion ramène le port à `6379`                      | Un schéma partiel qui réappliquerait ses défauts — d'où `socketOverrideSchema` (`config.ts:133`) sans défaut | Ne poser que les champs voulus ; les autres héritent du socket global                                                      |
-| Le module démarre mais n'ouvre rien                                     | `enabled: false` — module chargé, inerte (`RedisService.init()` (`redis.ts:123`))                            | Le réactiver, ou retirer le module du manifeste                                                                            |
-| Le formulaire Studio annonce `maxRetries: 0` en développement           | Le JSON Schema décrit le schéma, pas la superposition d'exécution                                            | Lire la configuration effective du service                                                                                 |
-| Une valeur changée à chaud ne prend pas                                 | La configuration est **gelée** après le démarrage (`defineRedisConfig()` (`defineModuleConfig.ts:103`))      | Redémarrer le process                                                                                                      |
-| L'auto-complétion ne propose aucune clé dans `use()`                    | Le module ne s'inscrit pas au registre de types des configurations de modules                                | S'appuyer sur les tables de cette page ; une clé fautive ne sera pas signalée à la compilation                             |
+<!-- prettier-ignore -->
+| Symptôme | Cause | Correction |
+| --- | --- | --- |
+| Une clé de configuration n'a aucun effet, aucune erreur | Clé inconnue du schéma : la validation Zod **écarte** les clés qu'elle ne connaît pas | Vérifier l'orthographe dans les tables ci-dessus ; contrôler la cible effective (§ Démarrage rapide) |
+| L'hôte configuré est ignoré | Une `url` est présente — `buildClientOptions()` (`buildClientOptions.ts:68`) ne pose plus host/port | Retirer `NF_REDIS_URL`/`REDIS_URL`, ou tout mettre dans l'URL |
+| `REDIS_PORT` semble sans effet | Valeur non entière ou hors `1..65535` : `applyEnvOverrides()` (`defineModuleConfig.ts:32`) l'ignore | Corriger la valeur — l'ignorance est silencieuse par conception |
+| Toutes les connexions atterrissent sur la même base | L'URL porte un chemin (`…/2`) qui écrase le `database` de chaque connexion | Déclarer l'URL sans chemin et laisser `database` cloisonner |
+| Le démarrage pend, sans erreur, sans Redis | Tentatives illimitées : la première ouverture ne rend pas la main | Hors production c'est déjà borné (`applyResilienceDefaults()` (`defineModuleConfig.ts:65`)) ; sinon fixer une valeur finie |
+| Erreur `NOAUTH` alors que le mot de passe est configuré | L'URL porte des identifiants qui recouvrent `REDIS_PASSWORD` | Ne pas mélanger : l'URL **ou** hôte + mot de passe |
+| Les sessions ont changé de magasin sans qu'on touche à la configuration | `NF_REDIS_URL` déclare une infra de cache → `resolveAutoStore()` (`infra.ts:241`) bascule les briques `auto` | Nommer le store explicitement pour un comportement identique partout |
+| Une surcharge de connexion ramène le port à `6379` | Un schéma partiel qui réappliquerait ses défauts — d'où `socketOverrideSchema` (`config.ts:133`) sans défaut | Ne poser que les champs voulus ; les autres héritent du socket global |
+| Le module démarre mais n'ouvre rien | `enabled: false` — module chargé, inerte (`RedisService.init()` (`redis.ts:123`)) | Le réactiver, ou retirer le module du manifeste |
+| Le formulaire Studio annonce `maxRetries: 0` en développement | Le JSON Schema décrit le schéma, pas la superposition d'exécution | Lire la configuration effective du service |
+| Une valeur changée à chaud ne prend pas | La configuration est **gelée** après le démarrage (`defineRedisConfig()` (`defineModuleConfig.ts:103`)) | Redémarrer le process |
+| L'auto-complétion ne propose aucune clé dans `use()` | Le module ne s'inscrit pas au registre de types des configurations de modules | S'appuyer sur les tables de cette page ; une clé fautive ne sera pas signalée à la compilation |
 
 ## 📡 Observabilité — Studio
 
@@ -724,16 +728,17 @@ et ce qui compte de lui est déjà surfacé par les écrans transverses.
 Les compteurs sont régénérés depuis vitest et vivent dans la carte de l'aperçu — jamais figés dans
 cette prose. Ce qui doit être dit ici, c'est **ce que la configuration a de prouvé**.
 
-| Ce qui est vérifié                           | Où                                                                          |
-| -------------------------------------------- | --------------------------------------------------------------------------- |
-| Défauts d'usine et sous-défauts              | `config.test.ts:15` (hôte, port, TLS, trois connexions)                     |
-| Refus d'une valeur hors bornes               | `config.test.ts:38` (port hors plage)                                       |
-| Superposition de l'environnement             | `config.test.ts:56` et `config.test.ts:66`                                  |
-| Port d'environnement invalide ignoré         | `config.test.ts:72`                                                         |
-| Garde-fou de reconnexion, ses trois branches | `config.test.ts:85`, `config.test.ts:91`, `config.test.ts:99`               |
-| Gel de la configuration                      | `config.test.ts:51`                                                         |
-| Assemblage des options du client             | `config.test.ts:107` (fusion) et `config.test.ts:128` (précédence de l'URL) |
-| Back-off et abandon                          | `config.test.ts:139`                                                        |
+<!-- prettier-ignore -->
+| Ce qui est vérifié | Où |
+| --- | --- |
+| Défauts d'usine et sous-défauts | `config.test.ts:15` (hôte, port, TLS, trois connexions) |
+| Refus d'une valeur hors bornes | `config.test.ts:38` (port hors plage) |
+| Superposition de l'environnement | `config.test.ts:56` et `config.test.ts:66` |
+| Port d'environnement invalide ignoré | `config.test.ts:72` |
+| Garde-fou de reconnexion, ses trois branches | `config.test.ts:85`, `config.test.ts:91`, `config.test.ts:99` |
+| Gel de la configuration | `config.test.ts:51` |
+| Assemblage des options du client | `config.test.ts:107` (fusion) et `config.test.ts:128` (précédence de l'URL) |
+| Back-off et abandon | `config.test.ts:139` |
 
 Ces bancs sont **unitaires** : ils tournent sans serveur. La configuration est donc la partie du
 module dont la vérification ne dépend d'aucune infrastructure — c'est aussi pour ça que le schéma doit

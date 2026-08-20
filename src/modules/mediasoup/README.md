@@ -26,30 +26,32 @@ durcir `@nodefony/orm-core` — puis le modèle servira tel quel à la vraie imp
 
 ### Legacy de référence (`/repository/nodefony-mediasoup`, JS)
 
-| Domaine                    | Techno legacy                                                                                    |
-| -------------------------- | ------------------------------------------------------------------------------------------------ |
-| SFU média                  | **mediasoup** (Worker / Router / **WebRtcTransport** + **PlainTransport** / Producer / Consumer) |
-| Signaling                  | **ws** (WebSocket)                                                                               |
-| Enregistrement / diffusion | **ffmpeg** + **gstreamer** (workers via PlainTransport RTP)                                      |
-| Persistance                | **dual ORM** (SQL + Mongoose)                                                                    |
-| API                        | **GraphQL** (+ REST)                                                                             |
-| Frontend                   | **Vue** + **Element UI** (Options API), build **webpack**                                        |
-| Process                    | **pm2**                                                                                          |
-| Client navigateur          | **nodefony-client**                                                                              |
-| Divers                     | i18n-iso-countries                                                                               |
+<!-- prettier-ignore -->
+| Domaine | Techno legacy |
+| --- | --- |
+| SFU média | **mediasoup** (Worker / Router / **WebRtcTransport** + **PlainTransport** / Producer / Consumer) |
+| Signaling | **ws** (WebSocket) |
+| Enregistrement / diffusion | **ffmpeg** + **gstreamer** (workers via PlainTransport RTP) |
+| Persistance | **dual ORM** (SQL + Mongoose) |
+| API | **GraphQL** (+ REST) |
+| Frontend | **Vue** + **Element UI** (Options API), build **webpack** |
+| Process | **pm2** |
+| Client navigateur | **nodefony-client** |
+| Divers | i18n-iso-countries |
 
 ### Cible Nodefony TypeScript (ce module)
 
-| Domaine              | Techno cible                                                                                                | Remplace                   |
-| -------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------- |
-| Persistance          | **`@nodefony/drizzle`** (ORM SQL par défaut) via **`@nodefony/orm-core`** ; portabilité testée sur Mongoose | ORM en dur                 |
-| Frontend             | **`@nodefony/frontend`** (Vite) + **Vue 3** (Composition API)                                               | webpack                    |
-| Signaling temps réel | **`@nodefony/realtime`** / Core isomorphe `nodefony` (JSON-RPC 2.0)                                         | ws brut                    |
-| SFU média (P15)      | **mediasoup** (Worker/Router/**PlainTransport RTP** + SIP/Asterisk pour agent IA vocal)                     | WebRtcTransport navigateur |
-| Enregistrement (P15) | **ffmpeg / gstreamer** workers                                                                              | identique                  |
-| API admin            | data plane `/nodefony/mediasoup/api/*` (Studio)                                                             | —                          |
-| Process              | **cloud-native** (1 pod = 1 process)                                                                        | pm2 (déprécié)             |
-| Client               | subpaths Core `nodefony/*` (isomorphe)                                                                      | nodefony-client            |
+<!-- prettier-ignore -->
+| Domaine | Techno cible | Remplace |
+| --- | --- | --- |
+| Persistance | **`@nodefony/drizzle`** (ORM SQL par défaut) via **`@nodefony/orm-core`** ; portabilité testée sur Mongoose | ORM en dur |
+| Frontend | **`@nodefony/frontend`** (Vite) + **Vue 3** (Composition API) | webpack |
+| Signaling temps réel | **`@nodefony/realtime`** / Core isomorphe `nodefony` (JSON-RPC 2.0) | ws brut |
+| SFU média (P15) | **mediasoup** (Worker/Router/**PlainTransport RTP** + SIP/Asterisk pour agent IA vocal) | WebRtcTransport navigateur |
+| Enregistrement (P15) | **ffmpeg / gstreamer** workers | identique |
+| API admin | data plane `/nodefony/mediasoup/api/*` (Studio) | — |
+| Process | **cloud-native** (1 pod = 1 process) | pm2 (déprécié) |
+| Client | subpaths Core `nodefony/*` (isomorphe) | nodefony-client |
 
 > ⚠️ **Divergence de cas d'usage assumée** : le legacy = visio **WebRTC navigateur**. La cible roadmap P15
 > vise en plus le **RTP brut (PlainTransport) + SIP/Asterisk** pour un **agent IA vocal** (PSTN). L'archi
@@ -104,16 +106,17 @@ curl -sk "https://127.0.0.1:5152/nodefony/orm/api/export/jsonschema?connector=me
                   └────────────┘
 ```
 
-| Entité         | PK            | Champs notables                                                                                                    | Relations (FK)                                                                                                                                         |
-| -------------- | ------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **User**       | `id` (uuid)   | identifier, password, `roles` (json), enabled, locked… _(table `@nodefony/user`)_                                  | cible de RoomMember, Calendar, Event                                                                                                                   |
-| **Room**       | `name` (text) | `type` (ENUM WEBRTC), `access` (ENUM private/public), secure, locked, stickyCookie                                 | cible de RoomMember, Event                                                                                                                             |
-| **RoomMember** | `id` (uuid)   | role, joinedAt                                                                                                     | **N-1 Room** (`roomId`) + **N-1 User** (`userId`) → **= jonction N-N**                                                                                 |
-| **Calendar**   | `id` (uuid)   | `etag` (uuid unique), summary, `conferenceProperties` (json), `defaultReminders` (json), isPrimary, hidden         | **N-1 User** (`creatorId`)                                                                                                                             |
-| **Event**      | `id` (uuid)   | `start`/`end`/`recurrence`/`attendees`/`organizer` (json), status, visibility, timezone, `deletedAt` (soft-delete) | **N-1 Calendar** (`calendarId`) + **N-1 Room** (`roomId`, nullable) + **N-1 User** (`creatorId`) + **N-1 Event** (`parentEventId`, **auto-référence**) |
-| **Recording**  | `id` (uuid)   | kind/format/status (pseudo-ENUM), durationMs, sizeBytes, `metadata` (json), `deletedAt` (soft-delete)              | **N-1 Room** (`roomId`) + **N-1 Event** (`eventId`, **nullable**)                                                                                      |
-| **Tag**        | `id` (uuid)   | `name` (**unique**), color                                                                                         | cible de EventTag                                                                                                                                      |
-| **EventTag**   | `id` (uuid)   | —                                                                                                                  | **N-1 Event** (`eventId`) + **N-1 Tag** (`tagId`) → **= 2ᵉ jonction N-N**                                                                              |
+<!-- prettier-ignore -->
+| Entité | PK | Champs notables | Relations (FK) |
+| --- | --- | --- | --- |
+| **User** | `id` (uuid) | identifier, password, `roles` (json), enabled, locked… _(table `@nodefony/user`)_ | cible de RoomMember, Calendar, Event |
+| **Room** | `name` (text) | `type` (ENUM WEBRTC), `access` (ENUM private/public), secure, locked, stickyCookie | cible de RoomMember, Event |
+| **RoomMember** | `id` (uuid) | role, joinedAt | **N-1 Room** (`roomId`) + **N-1 User** (`userId`) → **= jonction N-N** |
+| **Calendar** | `id` (uuid) | `etag` (uuid unique), summary, `conferenceProperties` (json), `defaultReminders` (json), isPrimary, hidden | **N-1 User** (`creatorId`) |
+| **Event** | `id` (uuid) | `start`/`end`/`recurrence`/`attendees`/`organizer` (json), status, visibility, timezone, `deletedAt` (soft-delete) | **N-1 Calendar** (`calendarId`) + **N-1 Room** (`roomId`, nullable) + **N-1 User** (`creatorId`) + **N-1 Event** (`parentEventId`, **auto-référence**) |
+| **Recording** | `id` (uuid) | kind/format/status (pseudo-ENUM), durationMs, sizeBytes, `metadata` (json), `deletedAt` (soft-delete) | **N-1 Room** (`roomId`) + **N-1 Event** (`eventId`, **nullable**) |
+| **Tag** | `id` (uuid) | `name` (**unique**), color | cible de EventTag |
+| **EventTag** | `id` (uuid) | — | **N-1 Event** (`eventId`) + **N-1 Tag** (`tagId`) → **= 2ᵉ jonction N-N** |
 
 > 🔸 **Les N-N sont explicites** (`RoomMember`, `EventTag`) : les adapters Nodefony
 > (Drizzle/Mongoose) **rejettent le `many-to-many` déclaratif** — la table de jonction est

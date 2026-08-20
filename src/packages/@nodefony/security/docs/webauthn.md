@@ -628,11 +628,12 @@ Types publics ré-exportés par `@nodefony/security` : `IWebAuthnCredential`,
 Le data plane admin du module expose trois routes (`SecurityAdminApi.ts:301`), toutes en
 `ROLE_NODEFONY_ADMIN` :
 
-| Route                                                              | Ce qu'elle montre                                                                                                                    |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `GET /nodefony/security/api/webauthn/list`                         | Vue **transverse** paginée : quels appareils portent des passkeys, lesquelles meurent avec leur appareil (`SecurityAdminApi.ts:473`) |
-| `GET /nodefony/security/api/users/{id}/passkeys`                   | Les passkeys d'un porteur (`SecurityAdminApi.ts:528`)                                                                                |
-| `DELETE /nodefony/security/api/users/{id}/passkeys/{credentialId}` | Reset administrateur, audité (`SecurityAdminApi.ts:560`)                                                                             |
+<!-- prettier-ignore -->
+| Route | Ce qu'elle montre |
+| --- | --- |
+| `GET /nodefony/security/api/webauthn/list` | Vue **transverse** paginée : quels appareils portent des passkeys, lesquelles meurent avec leur appareil (`SecurityAdminApi.ts:473`) |
+| `GET /nodefony/security/api/users/{id}/passkeys` | Les passkeys d'un porteur (`SecurityAdminApi.ts:528`) |
+| `DELETE /nodefony/security/api/users/{id}/passkeys/{credentialId}` | Reset administrateur, audité (`SecurityAdminApi.ts:560`) |
 
 Deux comportements à connaître : la **redaction est par construction** — la vue admin omet la clé
 publique et le `userId` déjà présent dans le chemin (`toCredentialView()`, `SecurityAdminApi.ts:267`),

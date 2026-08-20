@@ -353,19 +353,20 @@ l'axe de filtrage principal de la console. L'**action** est une chaîne **ouvert
 
 ### Vue d'ensemble — choisir son filtre en cinq secondes
 
-| Catégorie  | Ce qu'elle trace                         | Actions réellement émises par le framework                                                                                                              |
-| ---------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth`     | authentification, chaîne du firewall     | `auth.failure` · `auth.throttled` · `auth.denied` · `login.success` · `login.failure` · `login.throttled` · `login.mfa_required` · `user.totp_disabled` |
-| `authz`    | autorisation (voters, `@IsGranted`)      | `access.denied`                                                                                                                                         |
-| `token`    | jetons longue durée et clés d'API        | `token.issued` · `token.reuse_detected` · `apikey.created` · `apikey.revoked`                                                                           |
-| `session`  | cycle de vie de session                  | `logout`                                                                                                                                                |
-| `webauthn` | passkeys                                 | `user.passkey_revoked`                                                                                                                                  |
-| `ws`       | verrou de frame WebSocket                | `frame.denied`                                                                                                                                          |
-| `webhook`  | webhooks sortants                        | `webhook.created` · `webhook.updated` · `webhook.deleted` · `webhook.rotated` · `webhook.revealed` · `webhook.disabled`                                 |
-| `oauth`    | login social OAuth2                      | _catégorie déclarée, aucune action émise aujourd'hui_                                                                                                   |
-| `csrf`     | défense CSRF                             | _catégorie déclarée, aucune action émise aujourd'hui_                                                                                                   |
-| `cors`     | politique CORS                           | _catégorie déclarée, aucune action émise aujourd'hui_                                                                                                   |
-| `config`   | mutation de config runtime depuis Studio | _catégorie déclarée, aucune action émise aujourd'hui_                                                                                                   |
+<!-- prettier-ignore -->
+| Catégorie | Ce qu'elle trace | Actions réellement émises par le framework |
+| --- | --- | --- |
+| `auth` | authentification, chaîne du firewall | `auth.failure` · `auth.throttled` · `auth.denied` · `login.success` · `login.failure` · `login.throttled` · `login.mfa_required` · `user.totp_disabled` |
+| `authz` | autorisation (voters, `@IsGranted`) | `access.denied` |
+| `token` | jetons longue durée et clés d'API | `token.issued` · `token.reuse_detected` · `apikey.created` · `apikey.revoked` |
+| `session` | cycle de vie de session | `logout` |
+| `webauthn` | passkeys | `user.passkey_revoked` |
+| `ws` | verrou de frame WebSocket | `frame.denied` |
+| `webhook` | webhooks sortants | `webhook.created` · `webhook.updated` · `webhook.deleted` · `webhook.rotated` · `webhook.revealed` · `webhook.disabled` |
+| `oauth` | login social OAuth2 | _catégorie déclarée, aucune action émise aujourd'hui_ |
+| `csrf` | défense CSRF | _catégorie déclarée, aucune action émise aujourd'hui_ |
+| `cors` | politique CORS | _catégorie déclarée, aucune action émise aujourd'hui_ |
+| `config` | mutation de config runtime depuis Studio | _catégorie déclarée, aucune action émise aujourd'hui_ |
 
 Les trois issues possibles (`IAuditEvent.ts:35`) ne sont pas interchangeables : `failure` = **l'acteur
 a échoué une preuve** (mauvais mot de passe, signature invalide) ; `denied` = **une politique a

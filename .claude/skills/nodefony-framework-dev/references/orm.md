@@ -136,10 +136,11 @@ class Blog extends Module { … }
 
 **Décide d'abord de ce que tu fais — les deux cas n'ont PAS la même réponse :**
 
-| Objectif                                                                 | Voie                                                                                                                                                                                                                                                                                              |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Lire la base EXISTANTE** du logiciel (mêmes tables, mêmes colonnes)    | ✅ `create entity` **avec les trois options de nommage** (`--table`, `--column-case snake`, `--id-name`) — elles ne touchent QUE le SQL. Il reste des formes non exprimables (PK composite, index préfixés MySQL) : celles-là s'écrivent à la main dans la table générée, c'est du Drizzle natif. |
-| **Re-modéliser** le domaine dans une base NEUVE (reprendre la structure) | ✅ `create entity` — c'est le cas courant (réécriture, migration, prototypage).                                                                                                                                                                                                                   |
+<!-- prettier-ignore -->
+| Objectif | Voie |
+| --- | --- |
+| **Lire la base EXISTANTE** du logiciel (mêmes tables, mêmes colonnes) | ✅ `create entity` **avec les trois options de nommage** (`--table`, `--column-case snake`, `--id-name`) — elles ne touchent QUE le SQL. Il reste des formes non exprimables (PK composite, index préfixés MySQL) : celles-là s'écrivent à la main dans la table générée, c'est du Drizzle natif. |
+| **Re-modéliser** le domaine dans une base NEUVE (reprendre la structure) | ✅ `create entity` — c'est le cas courant (réécriture, migration, prototypage). |
 
 **Les trois options de nommage** (elles n'existent que pour ce cas — une entité neuve n'a
 aucune raison d'y toucher, leurs défauts reproduisent le comportement historique) :
@@ -194,19 +195,20 @@ sur les **134 renommages** qu'exige le schéma d'Umami, **115 sont le passage m�
 
 **Correspondance des types (SQL → vocabulaire Nodefony) :**
 
-| SQL du logiciel                           | Champ Nodefony  | Remarque                                                                       |
-| ----------------------------------------- | --------------- | ------------------------------------------------------------------------------ |
-| `varchar(n)`                              | `string(n)`     | la longueur se DÉCLARE ; sans elle, retombe sur 255 (sqlite : toujours `text`) |
-| `char(n)`                                 | `char(n)`       | longueur obligatoire — un `char(1)` implicite ne serait jamais l'intention     |
-| `text`, `longtext`, `mediumtext`          | `text`          | les 4 tailles MySQL s'écrasent en un seul type                                 |
-| `int`, `tinyint`, `smallint`              | `int`           |                                                                                |
-| `bigint(20) unsigned`                     | `int`           | ⚠️ **> 2^53 casse en JS** — au-delà, garder l'id en `string`                   |
-| `float`, `double`                         | `float`         |                                                                                |
-| `decimal(p,s)` (monétaire)                | `decimal(p,s)`  | précision EXACTE, transite en chaîne — un flottant la perdrait                 |
-| `tinyint(1)`, booléen en `varchar('Y')`   | `bool`          | un booléen stocké en varchar (`'yes'`/`'1'`) reste un `string`                 |
-| `datetime`, `timestamp`                   | `date`          | ⚠️ défaut `'0000-00-00 00:00:00'` : **illégal** ailleurs — ne pas reprendre    |
-| `json`, PHP sérialisé                     | `json` / `text` | du PHP sérialisé n'est PAS du JSON → `text`                                    |
-| FK implicite (`post_author` → `users.ID`) | `ref:User`      | pose un commentaire + le type ; **aucune contrainte FK n'est émise**           |
+<!-- prettier-ignore -->
+| SQL du logiciel | Champ Nodefony | Remarque |
+| --- | --- | --- |
+| `varchar(n)` | `string(n)` | la longueur se DÉCLARE ; sans elle, retombe sur 255 (sqlite : toujours `text`) |
+| `char(n)` | `char(n)` | longueur obligatoire — un `char(1)` implicite ne serait jamais l'intention |
+| `text`, `longtext`, `mediumtext` | `text` | les 4 tailles MySQL s'écrasent en un seul type |
+| `int`, `tinyint`, `smallint` | `int` |  |
+| `bigint(20) unsigned` | `int` | ⚠️ **> 2^53 casse en JS** — au-delà, garder l'id en `string` |
+| `float`, `double` | `float` |  |
+| `decimal(p,s)` (monétaire) | `decimal(p,s)` | précision EXACTE, transite en chaîne — un flottant la perdrait |
+| `tinyint(1)`, booléen en `varchar('Y')` | `bool` | un booléen stocké en varchar (`'yes'`/`'1'`) reste un `string` |
+| `datetime`, `timestamp` | `date` | ⚠️ défaut `'0000-00-00 00:00:00'` : **illégal** ailleurs — ne pas reprendre |
+| `json`, PHP sérialisé | `json` / `text` | du PHP sérialisé n'est PAS du JSON → `text` |
+| FK implicite (`post_author` → `users.ID`) | `ref:User` | pose un commentaire + le type ; **aucune contrainte FK n'est émise** |
 
 **Ce qui NE PASSE PAS (limites dures — dis-le, ne bricole pas) :**
 
@@ -379,38 +381,40 @@ connaît plus l'ORM. Valeur de l'abstraction = **swap d'ORM** (un nouvel adapter
 **`IOrm`** — instance ORM (1 par connexion logique), enregistrée dans `OrmRegistry` sous un nom unique.
 `orm-core/nodefony/interfaces/IOrm.ts:12`
 
-| Membre                   | Signature                                                                                       | Ancrage      |
-| ------------------------ | ----------------------------------------------------------------------------------------------- | ------------ |
-| `name`                   | `readonly string` (clé `OrmRegistry.get`)                                                       | `IOrm.ts:14` |
-| `connect`                | `(): Promise<void>` — ouvre + compile les entités                                               | `IOrm.ts:17` |
-| `disconnect`             | `(): Promise<void>`                                                                             | `IOrm.ts:20` |
-| `isConnected`            | `(): boolean`                                                                                   | `IOrm.ts:23` |
-| `getRepository<T>`       | `(name): IRepository<T>` — throw si entité inconnue                                             | `IOrm.ts:33` |
-| `transaction<R>`         | `(work: (tx) => Promise<R>): Promise<R>` — commit si résolu, rollback si rejeté                 | `IOrm.ts:41` |
-| `getNativeConnection<C>` | `(): C` — **trappe SQL/commandes brutes** (anti-blocage requêtes non couvertes)                 | `IOrm.ts:51` |
-| `describeEntity?`        | `(name): IColumnInfo[]` — colonnes normalisées (graphe/ERD/IA)                                  | `IOrm.ts:61` |
-| `describeConnection?`    | `(): IConnectionInfo` — driver + cible **sans credential**                                      | `IOrm.ts:71` |
-| `ping?`                  | `(): Promise<void>` — round-trip réel (`SELECT 1` / `admin().ping`), **rejette** si injoignable | `IOrm.ts:82` |
-| `probe?`                 | `(): Promise<IOrmProbe>` — sonde profonde (storage/pool), best-effort (jamais throw)            | `IOrm.ts:92` |
+<!-- prettier-ignore -->
+| Membre | Signature | Ancrage |
+| --- | --- | --- |
+| `name` | `readonly string` (clé `OrmRegistry.get`) | `IOrm.ts:14` |
+| `connect` | `(): Promise<void>` — ouvre + compile les entités | `IOrm.ts:17` |
+| `disconnect` | `(): Promise<void>` | `IOrm.ts:20` |
+| `isConnected` | `(): boolean` | `IOrm.ts:23` |
+| `getRepository<T>` | `(name): IRepository<T>` — throw si entité inconnue | `IOrm.ts:33` |
+| `transaction<R>` | `(work: (tx) => Promise<R>): Promise<R>` — commit si résolu, rollback si rejeté | `IOrm.ts:41` |
+| `getNativeConnection<C>` | `(): C` — **trappe SQL/commandes brutes** (anti-blocage requêtes non couvertes) | `IOrm.ts:51` |
+| `describeEntity?` | `(name): IColumnInfo[]` — colonnes normalisées (graphe/ERD/IA) | `IOrm.ts:61` |
+| `describeConnection?` | `(): IConnectionInfo` — driver + cible **sans credential** | `IOrm.ts:71` |
+| `ping?` | `(): Promise<void>` — round-trip réel (`SELECT 1` / `admin().ping`), **rejette** si injoignable | `IOrm.ts:82` |
+| `probe?` | `(): Promise<IOrmProbe>` — sonde profonde (storage/pool), best-effort (jamais throw) | `IOrm.ts:92` |
 
 **`IRepository<T>`** — CRUD portable. `orm-core/nodefony/interfaces/IRepository.ts:101`
 
-| Méthode            | Signature                                                                                                                                                                 | Ancrage              |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| `find`             | `(criteria?, options?: RepositoryReadOptions): Promise<T[]>`                                                                                                              | `IRepository.ts:109` |
-| `findOne`          | `(criteria, options?): Promise<T \| null>`                                                                                                                                | `IRepository.ts:117` |
-| `exists`           | `(criteria): Promise<boolean>` — `SELECT 1 … LIMIT 1` / `exists` (préférer à `findOne!=null` / `count>0`)                                                                 | `IRepository.ts:254` |
-| `create`           | `(data: Partial<T>): Promise<T>` (id/défauts générés)                                                                                                                     | `IRepository.ts:127` |
-| `createMany`       | `(data[]): Promise<T[]>` — 1 `INSERT … VALUES (…),(…)` / `insertMany` ; `[]` = no-op                                                                                      | `IRepository.ts:139` |
-| `upsert`           | `(criteria, update, insertOnly?): Promise<T>` — insert\|update **atomique** (`ON CONFLICT DO UPDATE` / `findOneAndUpdate({upsert})`) ; `insertOnly` posé qu'à la création | `IRepository.ts:177` |
-| `updateOne`        | `(criteria, data): Promise<T \| null>` — **atomique** (`UPDATE … RETURNING` / `findOneAndUpdate`)                                                                         | `IRepository.ts:156` |
-| `updateMany`       | `(criteria, data): Promise<number>` — masse                                                                                                                               | `IRepository.ts:193` |
-| `increment`        | `(criteria, changes): Promise<T \| null>` — `SET f=f+?` / `$inc` (atomique, sans read-modify-write ; delta<0 décrémente)                                                  | `IRepository.ts:206` |
-| `delete`           | `(criteria): Promise<number>` — masse                                                                                                                                     | `IRepository.ts:217` |
-| `deleteOne`        | `(criteria): Promise<boolean>` — AU PLUS une, atomique                                                                                                                    | `IRepository.ts:226` |
-| `findOneAndDelete` | `(criteria): Promise<T \| null>` — pop atomique (`DELETE … RETURNING` / `findOneAndDelete`)                                                                               | `IRepository.ts:236` |
-| `count`            | `(criteria?): Promise<number>`                                                                                                                                            | `IRepository.ts:243` |
-| `withTransaction`  | `(tx: ITransaction): IRepository<T>` — **vue liée à la tx** (résout « repo non tx-aware », ADR-0003 #4)                                                                   | `IRepository.ts:265` |
+<!-- prettier-ignore -->
+| Méthode | Signature | Ancrage |
+| --- | --- | --- |
+| `find` | `(criteria?, options?: RepositoryReadOptions): Promise<T[]>` | `IRepository.ts:109` |
+| `findOne` | `(criteria, options?): Promise<T \| null>` | `IRepository.ts:117` |
+| `exists` | `(criteria): Promise<boolean>` — `SELECT 1 … LIMIT 1` / `exists` (préférer à `findOne!=null` / `count>0`) | `IRepository.ts:254` |
+| `create` | `(data: Partial<T>): Promise<T>` (id/défauts générés) | `IRepository.ts:127` |
+| `createMany` | `(data[]): Promise<T[]>` — 1 `INSERT … VALUES (…),(…)` / `insertMany` ; `[]` = no-op | `IRepository.ts:139` |
+| `upsert` | `(criteria, update, insertOnly?): Promise<T>` — insert\|update **atomique** (`ON CONFLICT DO UPDATE` / `findOneAndUpdate({upsert})`) ; `insertOnly` posé qu'à la création | `IRepository.ts:177` |
+| `updateOne` | `(criteria, data): Promise<T \| null>` — **atomique** (`UPDATE … RETURNING` / `findOneAndUpdate`) | `IRepository.ts:156` |
+| `updateMany` | `(criteria, data): Promise<number>` — masse | `IRepository.ts:193` |
+| `increment` | `(criteria, changes): Promise<T \| null>` — `SET f=f+?` / `$inc` (atomique, sans read-modify-write ; delta<0 décrémente) | `IRepository.ts:206` |
+| `delete` | `(criteria): Promise<number>` — masse | `IRepository.ts:217` |
+| `deleteOne` | `(criteria): Promise<boolean>` — AU PLUS une, atomique | `IRepository.ts:226` |
+| `findOneAndDelete` | `(criteria): Promise<T \| null>` — pop atomique (`DELETE … RETURNING` / `findOneAndDelete`) | `IRepository.ts:236` |
+| `count` | `(criteria?): Promise<number>` | `IRepository.ts:243` |
+| `withTransaction` | `(tx: ITransaction): IRepository<T>` — **vue liée à la tx** (résout « repo non tx-aware », ADR-0003 #4) | `IRepository.ts:265` |
 
 > ⚠️ **VÉRITÉ COURANTE** : l'API d'écriture est `updateOne` + `updateMany` (pas un `update` unique —
 > les MEMORY/recipes qui écrivent `repo.update(...)` sont **périmés**). `updateOne` est **atomique**
@@ -560,16 +564,17 @@ multi-ORM) puis compile schémas/modèles depuis `entityRegistry` (`connection.m
 Représentation canonique sérialisable (ORMs + entités + colonnes + relations) qui sert l'ERD Studio
 (React Flow) **+** le contexte IA (text-to-SQL/RAG) **+** l'export. Fonctions (`orm-core/nodefony/src/`) :
 
-| Fonction                                | Rôle                                                                                                                                 | Ancrage                       |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
-| `buildOrmGraph(ormFilter?)`             | Lit `ormRegistry`+`entityRegistry` → `IOrmGraph` (nœuds/colonnes/relations)                                                          | `OrmAdminApi.ts:114`          |
-| `buildConnectionHealth(connector?)`     | État + **ping** + `probe()` (storage/pool) — **émet une requête**                                                                    | `OrmAdminApi.ts:136`          |
-| `buildOrmFlow(filter?)`                 | Débit/latence/slow — lecture pure (**aucune requête émise**)                                                                         | `OrmAdminApi.ts:238`          |
-| `toDbml(graph)` / `toJsonSchema(graph)` | Export DBML / JSON Schema                                                                                                            | `OrmAdminApi.ts:273` / `:376` |
-| `createOrmAdminApi()`                   | `IAdminApi` (endpoints `orms`/`entities`/`entity/{name}`/`graph`/`connection/health`/`flow`/`export/{format}`, `?connector=` filtre) | `OrmAdminApi.ts:419`          |
-| `registerOrmAdminApi(registry)`         | Monte `/nodefony/orm/api/*` (idempotent)                                                                                             | `OrmAdminApi.ts:541`          |
-| `wireOrmAdminPlane(kernel)`             | Câblage GLOBAL factorisé (admin API + providers santé/flux) — appelé par chaque driver à `onKernelBoot`                              | `ormWiring.ts:31`             |
-| `buildOrmLeanHealth()`                  | Agrégat per-instance (0 ping/0 toSQL) pour la sonde cluster                                                                          | `src/buildOrmLeanHealth.ts`   |
+<!-- prettier-ignore -->
+| Fonction | Rôle | Ancrage |
+| --- | --- | --- |
+| `buildOrmGraph(ormFilter?)` | Lit `ormRegistry`+`entityRegistry` → `IOrmGraph` (nœuds/colonnes/relations) | `OrmAdminApi.ts:114` |
+| `buildConnectionHealth(connector?)` | État + **ping** + `probe()` (storage/pool) — **émet une requête** | `OrmAdminApi.ts:136` |
+| `buildOrmFlow(filter?)` | Débit/latence/slow — lecture pure (**aucune requête émise**) | `OrmAdminApi.ts:238` |
+| `toDbml(graph)` / `toJsonSchema(graph)` | Export DBML / JSON Schema | `OrmAdminApi.ts:273` / `:376` |
+| `createOrmAdminApi()` | `IAdminApi` (endpoints `orms`/`entities`/`entity/{name}`/`graph`/`connection/health`/`flow`/`export/{format}`, `?connector=` filtre) | `OrmAdminApi.ts:419` |
+| `registerOrmAdminApi(registry)` | Monte `/nodefony/orm/api/*` (idempotent) | `OrmAdminApi.ts:541` |
+| `wireOrmAdminPlane(kernel)` | Câblage GLOBAL factorisé (admin API + providers santé/flux) — appelé par chaque driver à `onKernelBoot` | `ormWiring.ts:31` |
+| `buildOrmLeanHealth()` | Agrégat per-instance (0 ping/0 toSQL) pour la sonde cluster | `src/buildOrmLeanHealth.ts` |
 
 orm-core étant une **lib pure**, le montage est déclenché par un **module driver** (`Drizzle`/`Mongoose`
 `onKernelBoot` → `wireOrmAdminPlane`) ; lit les registres globaux → couvre **tous** les ORM.

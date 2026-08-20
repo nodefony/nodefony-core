@@ -179,17 +179,18 @@ class MyCommand extends Command {
 
 ## Commandes built-in
 
-| Command    | Alias  | Status                                                                                                                                                |
-| ---------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Start`    | —      | ✅                                                                                                                                                    |
-| `Dev`      | `dev`  | ✅                                                                                                                                                    |
-| `Build`    | —      | ✅                                                                                                                                                    |
-| `Prod`     | `prod` | ✅ foreground cloud-native (topologie `--workers`)                                                                                                    |
-| `Cluster`  | —      | ✅ cgroup-aware + respawn backoff + graceful shutdown                                                                                                 |
-| `Install`  | —      | ✅                                                                                                                                                    |
-| `Outdated` | —      | ✅ **UNE** interrogation npm à la racine, agrégée par paquet (`-j/--json`, `-a/--all`) — refuse hors projet npm                                       |
-| `Status`   | —      | ✅ introspection **multi-mode** (dev superviseur/serveur/Vite · prod `nodefony server` · cluster master/workers) + ports — **standalone, hors trunk** |
-| `Stop`     | —      | ✅ arrêt propre de **tout** runtime Nodefony (dev/prod/cluster, group-kill, remplace `pkill -9`) — **standalone, hors trunk**                         |
+<!-- prettier-ignore -->
+| Command | Alias | Status |
+| --- | --- | --- |
+| `Start` | — | ✅ |
+| `Dev` | `dev` | ✅ |
+| `Build` | — | ✅ |
+| `Prod` | `prod` | ✅ foreground cloud-native (topologie `--workers`) |
+| `Cluster` | — | ✅ cgroup-aware + respawn backoff + graceful shutdown |
+| `Install` | — | ✅ |
+| `Outdated` | — | ✅ **UNE** interrogation npm à la racine, agrégée par paquet (`-j/--json`, `-a/--all`) — refuse hors projet npm |
+| `Status` | — | ✅ introspection **multi-mode** (dev superviseur/serveur/Vite · prod `nodefony server` · cluster master/workers) + ports — **standalone, hors trunk** |
+| `Stop` | — | ✅ arrêt propre de **tout** runtime Nodefony (dev/prod/cluster, group-kill, remplace `pkill -9`) — **standalone, hors trunk** |
 
 ⚠️ **Tests CLI** : Phase 11 non finalisée. Les commands ne sont pas couvertes par des tests d'intégration. État réel à vérifier au cas par cas.
 
@@ -213,25 +214,27 @@ Cf [`injector/CLAUDE.md`](injector/CLAUDE.md) pour le détail.
 
 > **Chargement de modules** : plus de décorateur `@modules` (RETIRÉ). La liste vit dans `config.modules` (manifeste ordonné, policy/`when`/env) ; le Kernel la résout + charge à `onPreRegister` (`resolveModules`/`loadModulesFromManifest`). Cf mémoire IA `project_module_loading_architecture`.
 
-| Décorateur         | Phase déclenchée | Rôle                                                                                                                                                                                                                                                   |
-| ------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `@services([...])` | `onPreBoot`      | Services à enregistrer dans le module                                                                                                                                                                                                                  |
-| `@entities([...])` | `onRegister`     | Entités ORM à enregistrer — **fourni par `@nodefony/orm-core`**, pas par le core (`import { entities } from "@nodefony/orm-core"`). `onRegister` et non `onBoot` : les connecteurs créent les tables à `onBoot`.                                       |
-| `@injectable()`    | runtime          | Marque classe injectable                                                                                                                                                                                                                               |
-| `@inject("name")`  | runtime          | Injection paramètre constructeur                                                                                                                                                                                                                       |
-| `@Inject("name")`  | runtime          | Injection propriété — **interne** : défini (`kernelDecorator.ts:155`) mais PAS exporté par le barrel (`src/nodefony/src/index.ts` n'expose que `injectable`, `inject`, `services`) → indisponible pour une app. Utiliser l'injection par constructeur. |
+<!-- prettier-ignore -->
+| Décorateur | Phase déclenchée | Rôle |
+| --- | --- | --- |
+| `@services([...])` | `onPreBoot` | Services à enregistrer dans le module |
+| `@entities([...])` | `onRegister` | Entités ORM à enregistrer — **fourni par `@nodefony/orm-core`**, pas par le core (`import { entities } from "@nodefony/orm-core"`). `onRegister` et non `onBoot` : les connecteurs créent les tables à `onBoot`. |
+| `@injectable()` | runtime | Marque classe injectable |
+| `@inject("name")` | runtime | Injection paramètre constructeur |
+| `@Inject("name")` | runtime | Injection propriété — **interne** : défini (`kernelDecorator.ts:155`) mais PAS exporté par le barrel (`src/nodefony/src/index.ts` n'expose que `injectable`, `inject`, `services`) → indisponible pour une app. Utiliser l'injection par constructeur. |
 
 ## Gotchas critiques
 
-| Symptôme                                 | Cause                                               | Fix                                         |
-| ---------------------------------------- | --------------------------------------------------- | ------------------------------------------- |
-| `Cannot read 'environment' of undefined` | Constructor CliKernel                               | Conditionner dans `onKernelStart()`         |
-| `Kernel not ready` (`addCommand`)        | `cli === null`                                      | Vérifier `kernel.cli` avant `addCommand`    |
-| Hook lifecycle pas appelé                | Arrow function / property init au lieu de prototype | Méthode classique `async onKernelBoot() {}` |
-| `setCommandComplete` retourne false      | `this.command === null`                             | Vérifier qu'une command est attachée        |
-| `isModule(null)` → TypeError             | Pas false, vraiment throw                           | Vérifier null avant                         |
-| `getDependencies()` doublons             | dep dans deps + peerDeps                            | Ne pas se fier à l'unicité                  |
-| `Cannot add option '-v, --version'`      | `setCommandVersion()` appelé 2×                     | Le constructor le fait déjà                 |
+<!-- prettier-ignore -->
+| Symptôme | Cause | Fix |
+| --- | --- | --- |
+| `Cannot read 'environment' of undefined` | Constructor CliKernel | Conditionner dans `onKernelStart()` |
+| `Kernel not ready` (`addCommand`) | `cli === null` | Vérifier `kernel.cli` avant `addCommand` |
+| Hook lifecycle pas appelé | Arrow function / property init au lieu de prototype | Méthode classique `async onKernelBoot() {}` |
+| `setCommandComplete` retourne false | `this.command === null` | Vérifier qu'une command est attachée |
+| `isModule(null)` → TypeError | Pas false, vraiment throw | Vérifier null avant |
+| `getDependencies()` doublons | dep dans deps + peerDeps | Ne pas se fier à l'unicité |
+| `Cannot add option '-v, --version'` | `setCommandVersion()` appelé 2× | Le constructor le fait déjà |
 
 ## Lancer le code
 

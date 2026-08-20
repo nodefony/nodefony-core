@@ -364,19 +364,20 @@ Tout est exporté depuis `@nodefony/realtime` (`rt/index.ts`), sauf les briques 
 
 `rt/nodefony/src/service/RealtimeService.ts:48`. Service DI nommé **`realtimeService`**, wrapper mince du singleton `RealtimeHub`. C'est l'API stable userland serveur (`this.get("realtimeService")`).
 
-| Méthode                                 | Signature                                                                      | Rôle                                                                |
-| --------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
-| `publish`                               | `(channel: string, payload: unknown): void`                                    | Fan-out local + backplane si broadcast. `:123`                      |
-| `subscribe`                             | `(channel, sink: ChannelSink, factory: ChannelFactory): boolean`               | Abonne un sink ; `false` si canal inconnu. `:133`                   |
-| `unsubscribe`                           | `(channel, sink: ChannelSink): void`                                           | Désabonne ; dispose le provider au dernier. `:145`                  |
-| `registerSystemChannel`                 | `(channel: string, factory: ChannelFactory): void`                             | Canal **plateforme** servable par tout endpoint. `:156`             |
-| `markBroadcastChannel`                  | `(prefix: string): void`                                                       | Déclare un préfixe **cross-process** (sinon instance-local). `:170` |
-| `probe`                                 | `(): IRealtimeProbe`                                                           | Snapshot d'observabilité du hub. `:161`                             |
-| `getHub` / `getBackplane` / `getConfig` | `(): RealtimeHub` / `IBackplane \| null` / `IRealtimeConfig`                   | Accès bas niveau + config gelée. `:110/:115/:102`                   |
-| `useAuthenticator`                      | `(matcher: IRealtimeAuthenticatorMatcher, auth: IRealtimeAuthenticator): void` | Seam #2/#3 (P6). `:189`                                             |
-| `setFrameAuthorizer`                    | `(authorizer: FrameAuthorizer \| null): void`                                  | Seam #1 verrou de frame (P6). `:211`                                |
-| `resolveChannelPolicy`                  | `(channel: string): IChannelPolicy \| null`                                    | Seam #1b — policy déclarée. `:225`                                  |
-| `getTokenForPeer`                       | `(peer: JsonRpcPeer): IRealtimeToken`                                          | Identité résolue au handshake (jamais `null`). `:235`               |
+<!-- prettier-ignore -->
+| Méthode | Signature | Rôle |
+| --- | --- | --- |
+| `publish` | `(channel: string, payload: unknown): void` | Fan-out local + backplane si broadcast. `:123` |
+| `subscribe` | `(channel, sink: ChannelSink, factory: ChannelFactory): boolean` | Abonne un sink ; `false` si canal inconnu. `:133` |
+| `unsubscribe` | `(channel, sink: ChannelSink): void` | Désabonne ; dispose le provider au dernier. `:145` |
+| `registerSystemChannel` | `(channel: string, factory: ChannelFactory): void` | Canal **plateforme** servable par tout endpoint. `:156` |
+| `markBroadcastChannel` | `(prefix: string): void` | Déclare un préfixe **cross-process** (sinon instance-local). `:170` |
+| `probe` | `(): IRealtimeProbe` | Snapshot d'observabilité du hub. `:161` |
+| `getHub` / `getBackplane` / `getConfig` | `(): RealtimeHub` / `IBackplane \| null` / `IRealtimeConfig` | Accès bas niveau + config gelée. `:110/:115/:102` |
+| `useAuthenticator` | `(matcher: IRealtimeAuthenticatorMatcher, auth: IRealtimeAuthenticator): void` | Seam #2/#3 (P6). `:189` |
+| `setFrameAuthorizer` | `(authorizer: FrameAuthorizer \| null): void` | Seam #1 verrou de frame (P6). `:211` |
+| `resolveChannelPolicy` | `(channel: string): IChannelPolicy \| null` | Seam #1b — policy déclarée. `:225` |
+| `getTokenForPeer` | `(peer: JsonRpcPeer): IRealtimeToken` | Identité résolue au handshake (jamais `null`). `:235` |
 
 `init()` (`:77`, phase `onPreBoot`) : pose la config, branche un backplane custom (`config.backplane.instance` OU service DI `realtimeBackplane`, **uniquement si** `hub.backplane === null`), puis pose le guard Origin (`hub.setOriginGuard`, `:97`).
 
@@ -409,14 +410,15 @@ Types : `ChannelSink = (payload: unknown) => void` `:62` · `ChannelFactory = (c
 
 **Override seams** (tous `protected`, défauts vides/sûrs) :
 
-| Hook                        | Signature                                                   | Rôle                                                                                                                  |
-| --------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `createRealtimeChannel`     | `(channel, publish: RealtimePublish): (() => void) \| null` | Provider d'un canal (pattern/regex/suffixe `:<ms>`). `null` = inconnu. **public** (sur `IRealtimeController`). `:106` |
-| `realtimeActions`           | `(): Record<string, RpcActionHandler>`                      | Actions RPC requête→réponse. `:114`                                                                                   |
-| `realtimeChannels`          | `(): string[]`                                              | Canaux annoncés au welcome. `:119`                                                                                    |
-| `realtimeBroadcastChannels` | `(): string[]`                                              | Préfixes cross-process de cet endpoint. `:130`                                                                        |
-| `realtimeInbound`           | `(): Record<string, RealtimeInboundHandler>`                | Canaux **full-duplex entrants** (client→serveur). Défaut vide = aucun (sûr). `:140`                                   |
-| `realtimeApiRequest`        | `(): boolean`                                               | Opt-in du pont `api.request {path}` (« API souveraine »). Défaut `false`. `:154`                                      |
+<!-- prettier-ignore -->
+| Hook | Signature | Rôle |
+| --- | --- | --- |
+| `createRealtimeChannel` | `(channel, publish: RealtimePublish): (() => void) \| null` | Provider d'un canal (pattern/regex/suffixe `:<ms>`). `null` = inconnu. **public** (sur `IRealtimeController`). `:106` |
+| `realtimeActions` | `(): Record<string, RpcActionHandler>` | Actions RPC requête→réponse. `:114` |
+| `realtimeChannels` | `(): string[]` | Canaux annoncés au welcome. `:119` |
+| `realtimeBroadcastChannels` | `(): string[]` | Préfixes cross-process de cet endpoint. `:130` |
+| `realtimeInbound` | `(): Record<string, RealtimeInboundHandler>` | Canaux **full-duplex entrants** (client→serveur). Défaut vide = aucun (sûr). `:140` |
+| `realtimeApiRequest` | `(): boolean` | Opt-in du pont `api.request {path}` (« API souveraine »). Défaut `false`. `:154` |
 
 **Duplex serveur→client (par connexion)** : `requestClient<K>(method, params?, timeoutMs?): Promise<ActionResult>` `:198` (RPC vers une action que le client a `register`) · `notifyClient<K>(method, params?): void` `:224` (notification ciblée). `handleRealtime(message: string|Buffer|null)` `:168` : `null` = handshake (fire-and-forget `onHandshake` async), sinon `transport.feed(message)`.
 
@@ -441,19 +443,20 @@ Lazy : aucune structure allouée tant que le service n'`on`/`subscribe`/`publish
 
 `core/src/client/realtime/RealtimeClient.ts:154`. `import { RealtimeClient } from "nodefony"` (ou `nodefony/client` navigateur). `implements IRealtimeSocket<Emit, Listen, Actions>, IRealtimePeer<Emit, Actions>`. Compose le **même** `JsonRpcPeer` que le serveur ; n'ajoute que transport/reconnect/heartbeat/stats/identité/ref-count.
 
-| Méthode                               | Signature                                                             | Rôle                                                                                                   |
-| ------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `static shared`                       | `(opts?: RealtimeOptions): RealtimeClient`                            | **Singleton par URL** (`globalThis`) — 1 seule socket/origine. `:236`                                  |
-| `connect` / `disconnect` / `retryNow` | `(url?) => Promise<void>` / `()` / `()`                               | Cycle de vie (idempotent). `:304/:311/:287`                                                            |
-| `subscribe` / `unsubscribe`           | `(channel): void`                                                     | **Ref-compté** : `subscribe` réseau émis aux seules transitions 0↔1, ré-émis au reconnect. `:423/:434` |
-| `on` / `off`                          | `(channel, handler): () => void` / `void`                             | REÇOIT (≠ `subscribe` qui DEMANDE). `:329/:340`                                                        |
-| `publish` / `emit`                    | `(channel, payload?): void`                                           | Notification au serveur (one-way). `:406/:384`                                                         |
-| `request`                             | `(method, params?, timeoutMs?) \| (path: \`/${string}\`, timeoutMs?)` | RPC corrélé. Forme **path** (1ᵉʳ char `/`) → pont `api.request` (GET REST via WS). `:579`              |
-| `mutate`                              | `(path, { method, body?, idempotencyKey, timeoutMs? }): Promise<T>`   | Mutation via pont (clé d'idempotence **obligatoire**). `:616`                                          |
-| `stream`                              | `(method, params, onChunk, timeoutMs?): Promise<TChunk[]>`            | Streaming token-by-token (LLM). `:665`                                                                 |
-| `register` / `unregister`             | `(method, handler): void`                                             | Expose une action **appelable par le serveur** (duplex). `:713/:721`                                   |
-| `ping`                                | `(timeoutMs?): Promise<KernelPingResult & { rtt }>`                   | RTT via `kernel:ping` (helper réutilisable). `:645`                                                    |
-| `adaptiveChannel`                     | `(base, handler, options): AdaptiveChannelBinding`                    | Canal d'ÉTAT en cadence AIMD (latest-wins). `:533`                                                     |
+<!-- prettier-ignore -->
+| Méthode | Signature | Rôle |
+| --- | --- | --- |
+| `static shared` | `(opts?: RealtimeOptions): RealtimeClient` | **Singleton par URL** (`globalThis`) — 1 seule socket/origine. `:236` |
+| `connect` / `disconnect` / `retryNow` | `(url?) => Promise<void>` / `()` / `()` | Cycle de vie (idempotent). `:304/:311/:287` |
+| `subscribe` / `unsubscribe` | `(channel): void` | **Ref-compté** : `subscribe` réseau émis aux seules transitions 0↔1, ré-émis au reconnect. `:423/:434` |
+| `on` / `off` | `(channel, handler): () => void` / `void` | REÇOIT (≠ `subscribe` qui DEMANDE). `:329/:340` |
+| `publish` / `emit` | `(channel, payload?): void` | Notification au serveur (one-way). `:406/:384` |
+| `request` | `(method, params?, timeoutMs?) \| (path: \`/${string}\`, timeoutMs?)` | RPC corrélé. Forme **path** (1ᵉʳ char `/`) → pont `api.request` (GET REST via WS). `:579` |
+| `mutate` | `(path, { method, body?, idempotencyKey, timeoutMs? }): Promise<T>` | Mutation via pont (clé d'idempotence **obligatoire**). `:616` |
+| `stream` | `(method, params, onChunk, timeoutMs?): Promise<TChunk[]>` | Streaming token-by-token (LLM). `:665` |
+| `register` / `unregister` | `(method, handler): void` | Expose une action **appelable par le serveur** (duplex). `:713/:721` |
+| `ping` | `(timeoutMs?): Promise<KernelPingResult & { rtt }>` | RTT via `kernel:ping` (helper réutilisable). `:645` |
+| `adaptiveChannel` | `(base, handler, options): AdaptiveChannelBinding` | Canal d'ÉTAT en cadence AIMD (latest-wins). `:533` |
 
 Getters : `state` · `identity` (résolue au `realtime:welcome`, `null` avant) · `serverChannels`/`serverMethods` (découverte) · `subscribedChannels` · `framesReceived` · `frameLog` (ring lazy, redacté) · `reconnectAttempts`/`nextRetryAt`. Events locaux (jamais réseau) : `onNotice`/`onDenied`/`onIdentity`. Transport injectable (2ᵉ arg ctor) → testable sans vrai socket.
 

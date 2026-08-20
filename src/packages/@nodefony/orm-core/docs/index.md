@@ -105,15 +105,16 @@ Trois parcours selon ce que tu viens faire. L'ordre compte — chaque étape sup
 
 Choisir en cinq secondes avec le tableau, puis lire la card correspondante.
 
-| Page                                                                                  | À quoi ça sert                                     | Tu en as besoin quand…                            |
-| ------------------------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------- |
-| [Créer une entité](tutorial-entity.md)                                                | déclarer une table et lire/écrire dedans           | tu pars de zéro                                   |
-| [`@nodefony/drizzle`](../../drizzle/docs/index.md)                                    | le driver SQL (sqlite, postgres, mysql)            | ton application stocke en SQL — le cas par défaut |
-| [`@nodefony/mongoose`](../../mongoose/docs/index.md)                                  | le driver MongoDB                                  | ton modèle est documentaire                       |
-| [Configuration Mongoose](../../mongoose/docs/configuration.md)                        | connecteurs, options du driver Mongo               | tu branches un cluster Mongo réel                 |
-| [Guide persistance](../../../../../docs/guides/persistence.md)                        | déclarer l'infra d'une app (base, stores, secrets) | tu prépares un déploiement                        |
-| [Stockage de session](../../../../../docs/guides/session-storage.md)                  | où vivent les sessions HTTP                        | tu passes de la mémoire à une base partagée       |
-| [ADR-0003](../../../../../docs/adr/0003-orm-core-abstraction-repository-multi-orm.md) | pourquoi Repository, et à quel prix                | tu remets l'abstraction en question (légitime)    |
+<!-- prettier-ignore -->
+| Page | À quoi ça sert | Tu en as besoin quand… |
+| --- | --- | --- |
+| [Créer une entité](tutorial-entity.md) | déclarer une table et lire/écrire dedans | tu pars de zéro |
+| [`@nodefony/drizzle`](../../drizzle/docs/index.md) | le driver SQL (sqlite, postgres, mysql) | ton application stocke en SQL — le cas par défaut |
+| [`@nodefony/mongoose`](../../mongoose/docs/index.md) | le driver MongoDB | ton modèle est documentaire |
+| [Configuration Mongoose](../../mongoose/docs/configuration.md) | connecteurs, options du driver Mongo | tu branches un cluster Mongo réel |
+| [Guide persistance](../../../../../docs/guides/persistence.md) | déclarer l'infra d'une app (base, stores, secrets) | tu prépares un déploiement |
+| [Stockage de session](../../../../../docs/guides/session-storage.md) | où vivent les sessions HTTP | tu passes de la mémoire à une base partagée |
+| [ADR-0003](../../../../../docs/adr/0003-orm-core-abstraction-repository-multi-orm.md) | pourquoi Repository, et à quel prix | tu remets l'abstraction en question (légitime) |
 
 ```nodefony-cards
 [

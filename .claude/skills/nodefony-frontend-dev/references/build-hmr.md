@@ -109,18 +109,19 @@ types `IFrontendConfigInput`/`FrontendConfig`).
 (`FrontendService.ts:69-70`, construit avec le nom `"frontend"` `:92-93`). Implémente
 `IFrontendService` (`IFrontendService.ts:23`).
 
-| Méthode          | Signature                                                                      | Rôle                                                         | Ancrage                  |
-| ---------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------ |
-| `registerEntry`  | `(module: Module, decl: IFrontendModuleDeclaration) => IResolvedFrontendEntry` | Déclare un front à builder/servir.                           | `FrontendService.ts:205` |
-| `listEntries`    | `() => ReadonlyArray<IResolvedFrontendEntry>`                                  | Snapshot des entrées résolues.                               | `:248`                   |
-| `status`         | `() => IViteSupervisorStatus`                                                  | État du superviseur **primaire** (famille `default`).        | `:252`                   |
-| `statusAll`      | `() => ReadonlyArray<{ family; status }>`                                      | État de **chaque** instance Vite (multi-famille).            | `:271`                   |
-| `startDev`       | `() => Promise<void>`                                                          | Démarre Vite (1 instance/famille). Idempotent. Auto au boot. | `:289`                   |
-| `stopDev`        | `() => Promise<void>`                                                          | Stoppe toutes les instances (SIGINT→SIGKILL).                | `:495`                   |
-| `build`          | `(opts?: { force?: boolean }) => Promise<IFrontendBuildResult>`                | Build prod `vite.build()` par entry.                         | `:525`                   |
-| `renderTags`     | `(entryName, nonce?, requestHost?) => string`                                  | Balises `<script>`/`<link>` à injecter.                      | `:630`                   |
-| `renderDocument` | `(entryName, nonce?, requestHost?) => string`                                  | Document HTML complet (index.html du module + tags).         | `:618`                   |
-| `assetUrl`       | `(p: string) => string`                                                        | Résout l'URL publique d'un asset (préfixe CDN si configuré). | `:114`                   |
+<!-- prettier-ignore -->
+| Méthode | Signature | Rôle | Ancrage |
+| --- | --- | --- | --- |
+| `registerEntry` | `(module: Module, decl: IFrontendModuleDeclaration) => IResolvedFrontendEntry` | Déclare un front à builder/servir. | `FrontendService.ts:205` |
+| `listEntries` | `() => ReadonlyArray<IResolvedFrontendEntry>` | Snapshot des entrées résolues. | `:248` |
+| `status` | `() => IViteSupervisorStatus` | État du superviseur **primaire** (famille `default`). | `:252` |
+| `statusAll` | `() => ReadonlyArray<{ family; status }>` | État de **chaque** instance Vite (multi-famille). | `:271` |
+| `startDev` | `() => Promise<void>` | Démarre Vite (1 instance/famille). Idempotent. Auto au boot. | `:289` |
+| `stopDev` | `() => Promise<void>` | Stoppe toutes les instances (SIGINT→SIGKILL). | `:495` |
+| `build` | `(opts?: { force?: boolean }) => Promise<IFrontendBuildResult>` | Build prod `vite.build()` par entry. | `:525` |
+| `renderTags` | `(entryName, nonce?, requestHost?) => string` | Balises `<script>`/`<link>` à injecter. | `:630` |
+| `renderDocument` | `(entryName, nonce?, requestHost?) => string` | Document HTML complet (index.html du module + tags). | `:618` |
+| `assetUrl` | `(p: string) => string` | Résout l'URL publique d'un asset (préfixe CDN si configuré). | `:114` |
 
 `IFrontendBuildResult` (`IFrontendService.ts:5`) : `{ built: string[]; skipped: string[];
 failures: { entryName; message }[] }`.
@@ -132,15 +133,16 @@ failures: { entryName; message }[] }`.
 
 `IFrontendModuleDeclaration` (`IFrontBuilder.ts:10`) — ce que le module consommateur passe :
 
-| Champ           | Type                     | Défaut             | Rôle                                                                 | Ancrage               |
-| --------------- | ------------------------ | ------------------ | -------------------------------------------------------------------- | --------------------- |
-| `type`          | `FrontPresetType`        | (requis)           | `"react19"`/`"vue3"`/`"angular"`/`"vanilla"`/…                       | `IFrontBuilder.ts:12` |
-| `entry`         | `string`                 | (requis)           | Point d'entrée **relatif au module** (ex `./frontend/src/main.tsx`). | `:14`                 |
-| `outDir`        | `string?`                | `./public/dist`    | Sortie du build prod (relatif module).                               | `:16`                 |
-| `root`          | `string?`                | `./frontend`       | Racine front (contient `index.html`).                                | `:18`                 |
-| `name`          | `string?`                | nom du module      | Nom logique de l'entrée (= `entryName`, clé de `renderTags`).        | `:20`                 |
-| `publicPath`    | `string?`                | `/_assets/<name>/` | Préfixe public prod (cf §4.3/§4.8).                                  | `:27`                 |
-| `apiProxyPaths` | `ReadonlyArray<string>?` | `[]`               | Préfixes à proxifier Vite→Nodefony en dev (cf §4.2).                 | `:34`                 |
+<!-- prettier-ignore -->
+| Champ | Type | Défaut | Rôle | Ancrage |
+| --- | --- | --- | --- | --- |
+| `type` | `FrontPresetType` | (requis) | `"react19"`/`"vue3"`/`"angular"`/`"vanilla"`/… | `IFrontBuilder.ts:12` |
+| `entry` | `string` | (requis) | Point d'entrée **relatif au module** (ex `./frontend/src/main.tsx`). | `:14` |
+| `outDir` | `string?` | `./public/dist` | Sortie du build prod (relatif module). | `:16` |
+| `root` | `string?` | `./frontend` | Racine front (contient `index.html`). | `:18` |
+| `name` | `string?` | nom du module | Nom logique de l'entrée (= `entryName`, clé de `renderTags`). | `:20` |
+| `publicPath` | `string?` | `/_assets/<name>/` | Préfixe public prod (cf §4.3/§4.8). | `:27` |
+| `apiProxyPaths` | `ReadonlyArray<string>?` | `[]` | Préfixes à proxifier Vite→Nodefony en dev (cf §4.2). | `:34` |
 
 `registerEntry` (`FrontendService.ts:205`) résout les chemins en **absolu** depuis `module.path`,
 stocke `entryFile` relatif au `root`, normalise `publicPath` (leading + trailing `/`,
@@ -238,22 +240,23 @@ invalide). `frontendConfigJsonSchema()` produit le JSON Schema introspectable (p
 
 Défauts (`schema.ts`) :
 
-| Champ                    | Défaut          | Rôle                                                                                                                                                                                                             |
-| ------------------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `devHost`                | `127.0.0.1`     | Host d'écoute Vite (apparaît dans les `<script>`).                                                                                                                                                               |
-| `devPort`                | `5173`          | Port Vite (incrémenté si occupé).                                                                                                                                                                                |
-| `autoStartInDevelopment` | `true`          | Démarre Vite au boot en `development`.                                                                                                                                                                           |
-| `defaultOutDir`          | `./public/dist` | Sortie build par défaut.                                                                                                                                                                                         |
-| `defaultRoot`            | `./frontend`    | Racine front par défaut.                                                                                                                                                                                         |
-| `assetBaseUrl`           | `""`            | Base CDN des assets **prod** (cf §4.8).                                                                                                                                                                          |
-| `startupTimeoutMs`       | `30000`         | Timeout d'attente du `Local:` Vite.                                                                                                                                                                              |
-| `pipeViteLogs`           | `true`          | Propage les logs Vite au syslog.                                                                                                                                                                                 |
-| `backendHost`            | `127.0.0.1`     | Host cible du proxy Vite (`server.proxy`).                                                                                                                                                                       |
-| `backendPort`            | `5151`          | Port cible du proxy Vite.                                                                                                                                                                                        |
-| `backendProtocol`        | `http`          | `http`\|`https` (proxy vers 5152).                                                                                                                                                                               |
-| `https`                  | `false`         | HTTPS dev server Vite (réutilise les certs `certificates`).                                                                                                                                                      |
-| `viteEnv`                | `{}`            | Variables passées au child Vite ; clés `VITE_*` exposées au navigateur.                                                                                                                                          |
-| `resilience`             | (objet)         | `autoRestart:true`, `maxRestarts:5`, `restartBackoffBaseMs:500`, `restartBackoffMaxMs:8000`, `healthCheckIntervalMs:30000`, `healthCheckFailureThreshold:3`, `healthCheckTimeoutMs:5000`, `portRetryAttempts:3`. |
+<!-- prettier-ignore -->
+| Champ | Défaut | Rôle |
+| --- | --- | --- |
+| `devHost` | `127.0.0.1` | Host d'écoute Vite (apparaît dans les `<script>`). |
+| `devPort` | `5173` | Port Vite (incrémenté si occupé). |
+| `autoStartInDevelopment` | `true` | Démarre Vite au boot en `development`. |
+| `defaultOutDir` | `./public/dist` | Sortie build par défaut. |
+| `defaultRoot` | `./frontend` | Racine front par défaut. |
+| `assetBaseUrl` | `""` | Base CDN des assets **prod** (cf §4.8). |
+| `startupTimeoutMs` | `30000` | Timeout d'attente du `Local:` Vite. |
+| `pipeViteLogs` | `true` | Propage les logs Vite au syslog. |
+| `backendHost` | `127.0.0.1` | Host cible du proxy Vite (`server.proxy`). |
+| `backendPort` | `5151` | Port cible du proxy Vite. |
+| `backendProtocol` | `http` | `http`\|`https` (proxy vers 5152). |
+| `https` | `false` | HTTPS dev server Vite (réutilise les certs `certificates`). |
+| `viteEnv` | `{}` | Variables passées au child Vite ; clés `VITE_*` exposées au navigateur. |
+| `resilience` | (objet) | `autoRestart:true`, `maxRestarts:5`, `restartBackoffBaseMs:500`, `restartBackoffMaxMs:8000`, `healthCheckIntervalMs:30000`, `healthCheckFailureThreshold:3`, `healthCheckTimeoutMs:5000`, `portRetryAttempts:3`. |
 
 Surcharge côté app : `use("@nodefony/frontend", { ... })` dans le manifeste `modules` de
 `nodefony.config.ts` (config colocalisée → `module.options`), ou directement via les `module.options`

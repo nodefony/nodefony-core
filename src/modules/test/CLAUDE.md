@@ -46,18 +46,19 @@ src/modules/test/
 
 ### DefaultController (`/nodefony/test`)
 
-| Route                  | Méthode | Description                                                             |
-| ---------------------- | ------- | ----------------------------------------------------------------------- |
-| `/index`               | GET     | 200 JSON `{}` — sanity check                                            |
-| `/index2`              | GET     | 502 — `nodefonyError("myError", 502)`                                   |
-| `/index3`              | GET     | 503 — `HttpError({foo:"bar"}, 503)`                                     |
-| `/context`             | GET     | JSON : type, scheme, method, host, remoteAddress, sessionId             |
-| `/header-echo?x-val=X` | GET     | Reflète `X` dans header `x-echoed` — test sanitisation                  |
-| `/crash/sync`          | GET     | `throw new Error(...)` → 500                                            |
-| `/crash/async`         | GET     | `await Promise.reject(...)` → 500                                       |
-| `/crash/native`        | GET     | `throw new TypeError(...)` → 500                                        |
-| `/memory`              | GET     | `process.memoryUsage()` du serveur (rss, heapTotal, heapUsed, external) |
-| `/forward`             | GET     | Forward vers `app:AppController:method1`                                |
+<!-- prettier-ignore -->
+| Route | Méthode | Description |
+| --- | --- | --- |
+| `/index` | GET | 200 JSON `{}` — sanity check |
+| `/index2` | GET | 502 — `nodefonyError("myError", 502)` |
+| `/index3` | GET | 503 — `HttpError({foo:"bar"}, 503)` |
+| `/context` | GET | JSON : type, scheme, method, host, remoteAddress, sessionId |
+| `/header-echo?x-val=X` | GET | Reflète `X` dans header `x-echoed` — test sanitisation |
+| `/crash/sync` | GET | `throw new Error(...)` → 500 |
+| `/crash/async` | GET | `await Promise.reject(...)` → 500 |
+| `/crash/native` | GET | `throw new TypeError(...)` → 500 |
+| `/memory` | GET | `process.memoryUsage()` du serveur (rss, heapTotal, heapUsed, external) |
+| `/forward` | GET | Forward vers `app:AppController:method1` |
 
 ### AlsController (`/nodefony/test/als-test`)
 

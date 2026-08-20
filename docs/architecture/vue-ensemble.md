@@ -278,14 +278,15 @@ flowchart BT
 
 ### Choisir en cinq secondes
 
-| Famille            | Modules                                                               | Tu en as besoin quand…                           |
-| ------------------ | --------------------------------------------------------------------- | ------------------------------------------------ |
-| **Cœur runtime**   | [`nodefony`](../../src/nodefony/docs/index.md) · `http` · `framework` | toujours — c'est le socle                        |
-| **Sécurité**       | `security` · `user`                                                   | tu as des comptes, des droits, des jetons        |
-| **Données**        | `orm-core` · `drizzle` · `mongoose` · `redis`                         | tu persistes quoi que ce soit                    |
-| **Temps réel**     | `realtime`                                                            | tu multiplexes des canaux au-dessus du WebSocket |
-| **Frontend**       | `frontend`                                                            | tu sers une SPA (Vite, HMR, multi-framework)     |
-| **Administration** | `studio` · `documentation`                                            | tu veux voir l'instance tourner de l'intérieur   |
+<!-- prettier-ignore -->
+| Famille | Modules | Tu en as besoin quand… |
+| --- | --- | --- |
+| **Cœur runtime** | [`nodefony`](../../src/nodefony/docs/index.md) · `http` · `framework` | toujours — c'est le socle |
+| **Sécurité** | `security` · `user` | tu as des comptes, des droits, des jetons |
+| **Données** | `orm-core` · `drizzle` · `mongoose` · `redis` | tu persistes quoi que ce soit |
+| **Temps réel** | `realtime` | tu multiplexes des canaux au-dessus du WebSocket |
+| **Frontend** | `frontend` | tu sers une SPA (Vite, HMR, multi-framework) |
+| **Administration** | `studio` · `documentation` | tu veux voir l'instance tourner de l'intérieur |
 
 ### [`nodefony`](../../src/nodefony/docs/index.md) — le socle
 

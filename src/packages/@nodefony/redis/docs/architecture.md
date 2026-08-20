@@ -513,17 +513,18 @@ L'ordre compte : les écouteurs sont retirés même si la fermeture échoue.
 
 ### Synthèse — est-ce annoncé ?
 
-| Situation                                    | Ce que fait le code                                                    | Annoncé ?                              |
-| -------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------- |
-| Connexion en échec au démarrage              | journalisée en `ERROR`, les autres connexions sont tentées             | ✅ journal                             |
-| Démarrage du module en échec                 | non critique → agrégé au rapport, « démarrage DÉGRADÉ »                | ✅ superviseur                         |
-| Perte de connexion en cours de vie           | `ERROR` / `WARNING` / `INFO` + événements réémis                       | ✅ journal + événements                |
-| Commande pendant la reconnexion              | file d'attente hors ligne, puis envoi ou rejet                         | ✅ l'appelant reçoit le rejet          |
-| Commande sur une connexion jamais ouverte    | `ClientClosedError` propagé jusqu'à l'appelant                         | ✅ bruyant (mais pas le repli annoncé) |
-| Écriture de session, client `null`           | **no-op muet** — la session n'est pas persistée, rien n'est journalisé | ❌ **silencieux**                      |
-| Écriture de jeton / passkey, client `null`   | **no-op muet**                                                         | ❌ **silencieux**                      |
-| Backplane : module ou connexions absents     | `WARNING` nommant la cause, hub laissé en local                        | ✅ modèle du genre                     |
-| Idempotence : `redis` demandé, module absent | échec franc au démarrage                                               | ✅ fail-loud                           |
+<!-- prettier-ignore -->
+| Situation | Ce que fait le code | Annoncé ? |
+| --- | --- | --- |
+| Connexion en échec au démarrage | journalisée en `ERROR`, les autres connexions sont tentées | ✅ journal |
+| Démarrage du module en échec | non critique → agrégé au rapport, « démarrage DÉGRADÉ » | ✅ superviseur |
+| Perte de connexion en cours de vie | `ERROR` / `WARNING` / `INFO` + événements réémis | ✅ journal + événements |
+| Commande pendant la reconnexion | file d'attente hors ligne, puis envoi ou rejet | ✅ l'appelant reçoit le rejet |
+| Commande sur une connexion jamais ouverte | `ClientClosedError` propagé jusqu'à l'appelant | ✅ bruyant (mais pas le repli annoncé) |
+| Écriture de session, client `null` | **no-op muet** — la session n'est pas persistée, rien n'est journalisé | ❌ **silencieux** |
+| Écriture de jeton / passkey, client `null` | **no-op muet** | ❌ **silencieux** |
+| Backplane : module ou connexions absents | `WARNING` nommant la cause, hub laissé en local | ✅ modèle du genre |
+| Idempotence : `redis` demandé, module absent | échec franc au démarrage | ✅ fail-loud |
 
 Les deux lignes rouges sont un **écart réel au principe** du framework : `RedisSessionStorage.write()`
 (`SessionStorage.ts:123`) rend la charge utile sans la persister et sans un mot. Sur la fenêtre

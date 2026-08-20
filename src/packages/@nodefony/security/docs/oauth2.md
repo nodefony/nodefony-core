@@ -430,13 +430,14 @@ Section `oauth2` du schéma Zod (`config.ts:990`), branchée sur la config du mo
 
 Par fournisseur (`oauthProviderSchema`, `config.ts:823`) :
 
-| Option                                                 |      Requis      | Effet                                                                        |
-| ------------------------------------------------------ | :--------------: | ---------------------------------------------------------------------------- |
-| `clientId` / `clientSecret`                            |        ✅        | Identifiants délivrés par l'IdP. Secrets : par `env.ts`, jamais journalisés. |
-| `redirectUri`                                          |        ✅        | URL de callback **exacte** (`config.ts:771-776`).                            |
-| `issuer`                                               | OIDC self-hosted | Realm Keycloak ; ignoré par les IdP à endpoints fixes.                       |
-| `scopes`                                               |                  | Vide = scopes par défaut du fournisseur.                                     |
-| `successRedirect` / `failureRedirect` / `defaultRoles` |                  | Surchargent le global **pour ce fournisseur** (`oauth2.ts:124-131`).         |
+<!-- prettier-ignore -->
+| Option | Requis | Effet |
+| --- | :---: | --- |
+| `clientId` / `clientSecret` | ✅ | Identifiants délivrés par l'IdP. Secrets : par `env.ts`, jamais journalisés. |
+| `redirectUri` | ✅ | URL de callback **exacte** (`config.ts:771-776`). |
+| `issuer` | OIDC self-hosted | Realm Keycloak ; ignoré par les IdP à endpoints fixes. |
+| `scopes` |  | Vide = scopes par défaut du fournisseur. |
+| `successRedirect` / `failureRedirect` / `defaultRoles` |  | Surchargent le global **pour ce fournisseur** (`oauth2.ts:124-131`). |
 
 Les surcharges par fournisseur permettent la cohabitation : un IdP de recette garde ses redirections
 et ses rôles pendant qu'un IdP de production pointe ailleurs.

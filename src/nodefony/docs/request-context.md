@@ -309,12 +309,13 @@ pour une requête. Le trajet complet d'une requête (phases, ordre des hooks, te
 dans [Le pipeline d'une requête](../../../docs/architecture/pipeline-requete.md) ; ici, seulement
 qui ouvre quoi.
 
-| Transport                | Ouverte par                                                                                       | Ce que la bulle couvre                                        |
-| ------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| HTTP / HTTP2             | `HttpKernel.handleHttp()` (`http-kernel.ts:1174`)                                                 | CORS, routage, firewall, ton action, rendu                    |
-| WebSocket — connexion    | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1465`)                                            | poignée de main, firewall, **et toutes les trames**           |
-| WebSocket — trame RPC    | `RequestContext.run()` dans `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:766`) | **une** invocation : corps, clé d'idempotence, profil         |
-| Fin de réponse (journal) | `Context.log()` (`Context.ts:459`)                                                                | micro-bulle rouverte pour que les logs de fin soient corrélés |
+<!-- prettier-ignore -->
+| Transport | Ouverte par | Ce que la bulle couvre |
+| --- | --- | --- |
+| HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1174`) | CORS, routage, firewall, ton action, rendu |
+| WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1465`) | poignée de main, firewall, **et toutes les trames** |
+| WebSocket — trame RPC | `RequestContext.run()` dans `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:766`) | **une** invocation : corps, clé d'idempotence, profil |
+| Fin de réponse (journal) | `Context.log()` (`Context.ts:459`) | micro-bulle rouverte pour que les logs de fin soient corrélés |
 
 Deux points méritent d'être connus.
 

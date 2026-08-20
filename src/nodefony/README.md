@@ -247,22 +247,23 @@ sharedNC.emit("broadcast"); // les deux services reçoivent
 
 ### API complète — IService
 
-| Méthode                         | Retour                 | Description                              |
-| ------------------------------- | ---------------------- | ---------------------------------------- |
-| `getName()`                     | `string`               | Nom du service                           |
-| `initSyslog(env, debug, opts?)` | `Syslog \| null`       | Initialise le syslog                     |
-| `clean(syslog?)`                | `void`                 | Libère toutes les références             |
-| `log(pci, sev?, msgid?, msg?)`  | `Pdu`                  | Log structuré                            |
-| `spinlog(msg)`                  | `Pdu`                  | Log SPINNER                              |
-| `logger(pci, ...args)`          | `void`                 | console.debug                            |
-| `trace(pci, ...args)`           | `void`                 | console.trace                            |
-| `get<T>(name)`                  | `T \| null`            | Récupère du container                    |
-| `set<T>(name, obj)`             | `void`                 | Stocke dans le container                 |
-| `has(name)`                     | `boolean`              | Vérifie dans le container                |
-| `remove(name)`                  | `boolean`              | Supprime du container (toujours `false`) |
-| `getParameters(name)`           | `DynamicParam \| null` | Paramètre dot-notation                   |
-| `setParameters(name, val)`      | `DynamicParam \| null` | Définit paramètre                        |
-| `on/off/once/emit/fire/...`     | `this \| boolean`      | Events (délégation EventEmitter)         |
+<!-- prettier-ignore -->
+| Méthode | Retour | Description |
+| --- | --- | --- |
+| `getName()` | `string` | Nom du service |
+| `initSyslog(env, debug, opts?)` | `Syslog \| null` | Initialise le syslog |
+| `clean(syslog?)` | `void` | Libère toutes les références |
+| `log(pci, sev?, msgid?, msg?)` | `Pdu` | Log structuré |
+| `spinlog(msg)` | `Pdu` | Log SPINNER |
+| `logger(pci, ...args)` | `void` | console.debug |
+| `trace(pci, ...args)` | `void` | console.trace |
+| `get<T>(name)` | `T \| null` | Récupère du container |
+| `set<T>(name, obj)` | `void` | Stocke dans le container |
+| `has(name)` | `boolean` | Vérifie dans le container |
+| `remove(name)` | `boolean` | Supprime du container (toujours `false`) |
+| `getParameters(name)` | `DynamicParam \| null` | Paramètre dot-notation |
+| `setParameters(name, val)` | `DynamicParam \| null` | Définit paramètre |
+| `on/off/once/emit/fire/...` | `this \| boolean` | Events (délégation EventEmitter) |
 
 ### Comportements à connaître (gotchas)
 

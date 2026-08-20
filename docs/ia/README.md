@@ -16,10 +16,11 @@ last-updated: 2026-05-29
 
 ## Index
 
-| Document                                               | Rôle                                                                                                                                                                                                                                                                                                |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+<!-- prettier-ignore -->
+| Document | Rôle |
+| --- | --- |
 | [`livre-blanc-couche-ia.md`](livre-blanc-couche-ia.md) | **Source unique de la vision IA** : mission, cas d'usage, deux niveaux, capacités, invariants, gouvernance/AI Act, décisions (ADR-0004), état réel, feuille de route (standards agentiques, Studio auto-documenté, observabilité→insights, génération de modules, agent vocal, auto-développement). |
-| `livre-blanc-couche-ia.html`                           | Rendu imprimable du livre blanc (Cmd+P → PDF).                                                                                                                                                                                                                                                      |
+| `livre-blanc-couche-ia.html` | Rendu imprimable du livre blanc (Cmd+P → PDF). |
 
 ## Décision liée (registre ADR)
 

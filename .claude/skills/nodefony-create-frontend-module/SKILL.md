@@ -62,16 +62,17 @@ hard-reload), et l'explication du POURQUOI. Jamais la mécanique.
 
 ## Table de paramètres par framework (LE cœur)
 
-| Aspect                 | `react`                           | `vue`                           | `angular`                                                | `svelte`                                                                           |
-| ---------------------- | --------------------------------- | ------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `type` registerEntry   | `react19`                         | `vue3`                          | `angular`                                                | `svelte5`                                                                          |
-| `entry`                | `./frontend/src/main.tsx`         | `./frontend/src/main.ts`        | `./frontend/src/main.ts`                                 | `./frontend/src/main.ts`                                                           |
-| Nœud de montage (HTML) | `<div id="root"></div>`           | `<div id="app"></div>`          | `<app-root></app-root>`                                  | `<div id="app"></div>`                                                             |
-| Plugin Vite            | `@vitejs/plugin-react`            | `@vitejs/plugin-vue`            | `@analogjs/vite-plugin-angular`                          | `@sveltejs/vite-plugin-svelte` (export NOMMÉ `{ svelte }`)                         |
-| peerDeps à ajouter     | `react`, `react-dom`              | `vue`, `@vitejs/plugin-vue`     | _(voir reference — devDeps)_                             | `svelte`, `@sveltejs/vite-plugin-svelte`                                           |
-| Fichiers frontend      | `main.tsx` + `App.tsx`            | `main.ts` + `App.vue`           | `main.ts` + `app/app.component.ts` + `tsconfig.app.json` | `main.ts` (`mount(App, { target })`) + `App.svelte` + `env.d.ts` (shim `*.svelte`) |
-| Preamble HMR injecté   | **oui** (auto via `renderTags`)   | non                             | non (HMR = reload)                                       | non                                                                                |
-| Module de référence    | `src/modules/test-frontend-react` | `src/modules/test-frontend-vue` | `src/modules/test-frontend-angular`                      | `src/modules/test-frontend-svelte`                                                 |
+<!-- prettier-ignore -->
+| Aspect | `react` | `vue` | `angular` | `svelte` |
+| --- | --- | --- | --- | --- |
+| `type` registerEntry | `react19` | `vue3` | `angular` | `svelte5` |
+| `entry` | `./frontend/src/main.tsx` | `./frontend/src/main.ts` | `./frontend/src/main.ts` | `./frontend/src/main.ts` |
+| Nœud de montage (HTML) | `<div id="root"></div>` | `<div id="app"></div>` | `<app-root></app-root>` | `<div id="app"></div>` |
+| Plugin Vite | `@vitejs/plugin-react` | `@vitejs/plugin-vue` | `@analogjs/vite-plugin-angular` | `@sveltejs/vite-plugin-svelte` (export NOMMÉ `{ svelte }`) |
+| peerDeps à ajouter | `react`, `react-dom` | `vue`, `@vitejs/plugin-vue` | _(voir reference — devDeps)_ | `svelte`, `@sveltejs/vite-plugin-svelte` |
+| Fichiers frontend | `main.tsx` + `App.tsx` | `main.ts` + `App.vue` | `main.ts` + `app/app.component.ts` + `tsconfig.app.json` | `main.ts` (`mount(App, { target })`) + `App.svelte` + `env.d.ts` (shim `*.svelte`) |
+| Preamble HMR injecté | **oui** (auto via `renderTags`) | non | non (HMR = reload) | non |
+| Module de référence | `src/modules/test-frontend-react` | `src/modules/test-frontend-vue` | `src/modules/test-frontend-angular` | `src/modules/test-frontend-svelte` |
 
 > Détails (templates entry/App, tsconfig Angular, gotchas Angular) → **[`references/frameworks.md`](references/frameworks.md)**.
 > Les 3 modules de référence sont **canoniques** : toujours s'en inspirer pour le résultat attendu.

@@ -28,15 +28,16 @@ Je me charge quand un symptôme runtime arrive : crash boot, fuite mémoire, rac
 
 ## 2. Quand passer la main (anti-overlap)
 
-| Symptôme                                                            | Skill cible                                                               |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Crash boot serveur, stack trace dans logs                           | `nodefony-tail-error-logs` (parse `/tmp/nodefony-server.log`)             |
-| Fuite mémoire suspectée (HTTP/WS heap delta)                        | `nodefony-check-memory-health` (run `npm run test:memory`, vitest)        |
-| Lenteur, charge, p99                                                | `nodefony-load-test` (k6/autocannon orchestré)                            |
-| Modif front .tsx ne passe pas                                       | `nodefony-frontend-dev` §4 (curl `/@fs/` + purge `.vite`)                 |
-| Boot enfant direct, arrêt qui pend, reproduction d'un crash au boot | `NODEFONY_DEV_CHILD=1` + `nodefony-start-server` (voir plus bas)          |
-| RETEX bugs réels par symptôme                                       | `nodefony-framework-dev` §11 (kit vivant)                                 |
-| Design/refacto/build neuf                                           | `nodefony-framework-dev` (cœur backend) ou `nodefony-studio-dev` (Studio) |
+<!-- prettier-ignore -->
+| Symptôme | Skill cible |
+| --- | --- |
+| Crash boot serveur, stack trace dans logs | `nodefony-tail-error-logs` (parse `/tmp/nodefony-server.log`) |
+| Fuite mémoire suspectée (HTTP/WS heap delta) | `nodefony-check-memory-health` (run `npm run test:memory`, vitest) |
+| Lenteur, charge, p99 | `nodefony-load-test` (k6/autocannon orchestré) |
+| Modif front .tsx ne passe pas | `nodefony-frontend-dev` §4 (curl `/@fs/` + purge `.vite`) |
+| Boot enfant direct, arrêt qui pend, reproduction d'un crash au boot | `NODEFONY_DEV_CHILD=1` + `nodefony-start-server` (voir plus bas) |
+| RETEX bugs réels par symptôme | `nodefony-framework-dev` §11 (kit vivant) |
+| Design/refacto/build neuf | `nodefony-framework-dev` (cœur backend) ou `nodefony-studio-dev` (Studio) |
 
 ## 3. Les recettes éprouvées
 

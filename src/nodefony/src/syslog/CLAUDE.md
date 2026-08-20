@@ -199,14 +199,15 @@ cd src/nodefony && npm run test 2>&1 | grep -A 3 "Syslog\|Pdu"
 
 ## ⚠️ Gotchas
 
-| Symptôme                            | Cause                                     | Fix                                                                   |
-| ----------------------------------- | ----------------------------------------- | --------------------------------------------------------------------- |
-| `Cannot find "CRITICAL"`            | Le nom est `"CRITIC"`                     | Utiliser `"CRITIC"` ou `SysLogSeverity.CRITIC`                        |
-| Log perdu après `clean()`           | `syslog=null` après clean                 | Pdu standalone fallback créé (mais perdu) — ne pas logger après clean |
-| `pdu.severity === "INFO"` false     | severity = numérique                      | Comparer `pdu.severityName === "INFO"`                                |
-| Logs trop verbeux en prod           | `initSyslog("development", true)` au boot | Passer bon env (`"production"`)                                       |
-| ANSI codes pollueent les greps      | Console transport ajoute couleurs         | `sed 's/\x1b\[[0-9;]*m//g'` sur le tail                               |
-| Tous les sévérités du même listener | Conditions non setées                     | Appeler `setConditions()` au boot                                     |
+<!-- prettier-ignore -->
+| Symptôme | Cause | Fix |
+| --- | --- | --- |
+| `Cannot find "CRITICAL"` | Le nom est `"CRITIC"` | Utiliser `"CRITIC"` ou `SysLogSeverity.CRITIC` |
+| Log perdu après `clean()` | `syslog=null` après clean | Pdu standalone fallback créé (mais perdu) — ne pas logger après clean |
+| `pdu.severity === "INFO"` false | severity = numérique | Comparer `pdu.severityName === "INFO"` |
+| Logs trop verbeux en prod | `initSyslog("development", true)` au boot | Passer bon env (`"production"`) |
+| ANSI codes pollueent les greps | Console transport ajoute couleurs | `sed 's/\x1b\[[0-9;]*m//g'` sur le tail |
+| Tous les sévérités du même listener | Conditions non setées | Appeler `setConditions()` au boot |
 
 ## Cycle de vie
 

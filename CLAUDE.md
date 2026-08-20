@@ -374,14 +374,15 @@ Pour les tâches qui enchaînent plus de 3 outils sans output user-visible (buil
 
 La doc externe (RFC) et la phase future P12 (couche IA) sont **déchargées dans des skills** déclenchés par mots-clés — gratuit en tokens tant qu'ils ne se déclenchent pas (la doc TS/`@types/node` vit dans `nodefony-framework-dev` §1) :
 
-| Skill                      | Quand l'utiliser                                                                                                                                                                                                                                                                               |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `nodefony-rfc`             | RFC HTTP/HTTP2/WS/CORS/Cookies (IETF + W3C raw uniquement)                                                                                                                                                                                                                                     |
-| `nodefony-roadmap`         | Phase 12 (couche IA agentic — seule phase future) ; conventions des phases livrées 10/13/14 en pointeurs                                                                                                                                                                                       |
-| `nodefony-inspect`         | Interroger le dépôt sans lire les sources : graphe symbolique (qui étend/implémente/importe), signature d'une méthode, config/routes d'un module, diff propre. AVANT un `grep` multi-modules.                                                                                                  |
+<!-- prettier-ignore -->
+| Skill | Quand l'utiliser |
+| --- | --- |
+| `nodefony-rfc` | RFC HTTP/HTTP2/WS/CORS/Cookies (IETF + W3C raw uniquement) |
+| `nodefony-roadmap` | Phase 12 (couche IA agentic — seule phase future) ; conventions des phases livrées 10/13/14 en pointeurs |
+| `nodefony-inspect` | Interroger le dépôt sans lire les sources : graphe symbolique (qui étend/implémente/importe), signature d'une méthode, config/routes d'un module, diff propre. AVANT un `grep` multi-modules. |
 | **`nodefony-html-report`** | **Tout livrable destiné à un HUMAIN** (audit, banc de perf, mesures, revue) → HTML autonome : `lib/report.mjs` (graphes SVG, tableaux triables, calculateurs, glisser-déposer, mode présentation, impression PDF, W3C validé) + specs W3C bundlées offline. Cf la règle de livrable ci-dessus. |
-| `nodefony-load-test`       | Charge, stress, **et dimensionnement** (`scripts/capacity.mjs` → constantes d'un pod + rapport HTML avec calculateur de pods)                                                                                                                                                                  |
-| `nodefony-debug`           | **Un symptôme runtime, pas une feature** : test rouge inexpliqué, vert isolé/rouge en suite, crash au boot, fuite, régression à qualifier (baseline), 404 sur TOUT un banc (mode ≠ code) — recettes éprouvées                                                                                  |
+| `nodefony-load-test` | Charge, stress, **et dimensionnement** (`scripts/capacity.mjs` → constantes d'un pod + rapport HTML avec calculateur de pods) |
+| `nodefony-debug` | **Un symptôme runtime, pas une feature** : test rouge inexpliqué, vert isolé/rouge en suite, crash au boot, fuite, régression à qualifier (baseline), 404 sur TOUT un banc (mode ≠ code) — recettes éprouvées |
 
 > **Un skill n'est atteint que si sa règle n'est PAS recopiée ici.** Quand ce fichier redonne la
 > commande d'un skill, l'agent l'exécute et n'ouvre jamais le skill — qui portait pourtant le
@@ -698,12 +699,13 @@ La **première phrase** doit être auto-suffisante — elle apparaîtra seule da
 
 **Trois niveaux de doc à maintenir** :
 
-| Niveau                               | Emplacement                                                                     | Cible                     | Quand l'écrire                          |
-| ------------------------------------ | ------------------------------------------------------------------------------- | ------------------------- | --------------------------------------- |
-| TSDoc inline                         | sources `.ts`                                                                   | IDE + AST + IA            | en migrant le fichier                   |
-| `<module>/docs/`                     | colocalisé au module (`src/nodefony/docs/`, `src/packages/@nodefony/<m>/docs/`) | humain + RAG + **Studio** | doc d'un concept/API d'un module précis |
-| `docs/` (racine)                     | `docs/guides/` / `adr/`                                                         | humain + RAG futur        | transverse multi-module                 |
-| `CLAUDE.md` + `MEMORY.md` par module | racine du module                                                                | IA en session             | gotchas, mots-clés, décisions figées    |
+<!-- prettier-ignore -->
+| Niveau | Emplacement | Cible | Quand l'écrire |
+| --- | --- | --- | --- |
+| TSDoc inline | sources `.ts` | IDE + AST + IA | en migrant le fichier |
+| `<module>/docs/` | colocalisé au module (`src/nodefony/docs/`, `src/packages/@nodefony/<m>/docs/`) | humain + RAG + **Studio** | doc d'un concept/API d'un module précis |
+| `docs/` (racine) | `docs/guides/` / `adr/` | humain + RAG futur | transverse multi-module |
+| `CLAUDE.md` + `MEMORY.md` par module | racine du module | IA en session | gotchas, mots-clés, décisions figées |
 
 > **Emplacement HYBRIDE (ADR-0001)** : la doc d'un module vit DANS le module (`<module>/docs/*.md`, frontmatter `module:`) et est surfacée dans **Studio** (`/nodefony/modules/{key}` onglet Docs ; core = carte `/nodefony/modules/core` ← `src/nodefony/docs/`). Le transverse reste sous `docs/` racine. Cf [`docs/adr/0001-docs-modules-emplacement-hybride.md`](docs/adr/0001-docs-modules-emplacement-hybride.md).
 

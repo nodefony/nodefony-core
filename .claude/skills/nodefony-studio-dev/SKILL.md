@@ -61,16 +61,17 @@ serveur**, **subpath Core isomorphe** (`nodefony/*`).
 
 **Passer la main** :
 
-| Besoin                                                                                                 | Skill                                        |
-| ------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
-| Mécanisme front général (isomorphisme, socket client, HMR, BFF, RBAC isomorphe, a11y/perf/calme)       | `nodefony-frontend-dev`                      |
-| Scaffolder un module applicatif avec front Vite (React/Vue/Angular)                                    | `nodefony-create-frontend-module`            |
-| Cœur back : service, module, CLI, endpoint, **canal/action serveur**, entité ORM, subpath `nodefony/*` | `nodefony-framework-dev`                     |
-| Portail doc / markdown / FlowGraph / `@nodefony/documentation`                                         | `nodefony-documentation`                     |
-| Revue / attaque sécurité du diff avant commit                                                          | `nodefony-security-review`                   |
-| Conformité RFC HTTP/WS/CORS/cookies · normes WCAG/ARIA                                                 | `nodefony-rfc` · (specs dans `frontend-dev`) |
-| Démarrer/redémarrer le serveur dev                                                                     | `nodefony-start-server`                      |
-| Vérifier une modif front sans navigateur (curl transform Vite, purge prébundle)                        | `nodefony-frontend-dev` §4                   |
+<!-- prettier-ignore -->
+| Besoin | Skill |
+| --- | --- |
+| Mécanisme front général (isomorphisme, socket client, HMR, BFF, RBAC isomorphe, a11y/perf/calme) | `nodefony-frontend-dev` |
+| Scaffolder un module applicatif avec front Vite (React/Vue/Angular) | `nodefony-create-frontend-module` |
+| Cœur back : service, module, CLI, endpoint, **canal/action serveur**, entité ORM, subpath `nodefony/*` | `nodefony-framework-dev` |
+| Portail doc / markdown / FlowGraph / `@nodefony/documentation` | `nodefony-documentation` |
+| Revue / attaque sécurité du diff avant commit | `nodefony-security-review` |
+| Conformité RFC HTTP/WS/CORS/cookies · normes WCAG/ARIA | `nodefony-rfc` · (specs dans `frontend-dev`) |
+| Démarrer/redémarrer le serveur dev | `nodefony-start-server` |
+| Vérifier une modif front sans navigateur (curl transform Vite, purge prébundle) | `nodefony-frontend-dev` §4 |
 
 ## 2. 🚨 RÈGLES ABSOLUES Studio (non négociables — priorité MAX)
 
@@ -125,14 +126,15 @@ CHAQUE module propriétaire. Un module n'expose JAMAIS une route admin mono-segm
 
 > Trouve la ligne qui matche ta tâche → lis le fichier `references/…` indiqué (lui seul). Mettre à jour = éditer en place.
 
-| Ta tâche                                                                                                                                                                                                           | Lis ce fichier                  |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
-| **Construire un écran** : API exacte du UI kit + DataGrid (+ règle hauteur), stores MobX, hooks `nodefony/react`, recette route/lazy/navConfig/fallback, squelettes (données/live/détail), divulgation progressive | `references/ui-kit.md`          |
-| **Realtime Studio** : ajouter un canal, hub UI, log protocole, **PATRON sondes back + abonnement hub** (observabilité)                                                                                             | `references/realtime-studio.md` |
-| **Back-end Studio** : controller, data plane, **auth firewall réel**, realtime serveur (push WS), partition namespace, cycle de build, piège cluster                                                               | `references/backend-studio.md`  |
-| **Jumeau Vivant (Twin)** : carte d'archi runtime data-driven, modèle/rendu/nav, recettes de forage                                                                                                                 | `references/twin.md`            |
-| **Debug bar** (`nodefony/debugbar`, vanilla TS + Shadow DOM, ≠ React)                                                                                                                                              | `references/debugbar.md`        |
-| **Gotchas Studio** (sticky structurel, hydratation `<p>`, DataGrid, rôles, workspace, pont socket, extraction grosse page…)                                                                                        | `references/gotchas-studio.md`  |
+<!-- prettier-ignore -->
+| Ta tâche | Lis ce fichier |
+| --- | --- |
+| **Construire un écran** : API exacte du UI kit + DataGrid (+ règle hauteur), stores MobX, hooks `nodefony/react`, recette route/lazy/navConfig/fallback, squelettes (données/live/détail), divulgation progressive | `references/ui-kit.md` |
+| **Realtime Studio** : ajouter un canal, hub UI, log protocole, **PATRON sondes back + abonnement hub** (observabilité) | `references/realtime-studio.md` |
+| **Back-end Studio** : controller, data plane, **auth firewall réel**, realtime serveur (push WS), partition namespace, cycle de build, piège cluster | `references/backend-studio.md` |
+| **Jumeau Vivant (Twin)** : carte d'archi runtime data-driven, modèle/rendu/nav, recettes de forage | `references/twin.md` |
+| **Debug bar** (`nodefony/debugbar`, vanilla TS + Shadow DOM, ≠ React) | `references/debugbar.md` |
+| **Gotchas Studio** (sticky structurel, hydratation `<p>`, DataGrid, rôles, workspace, pont socket, extraction grosse page…) | `references/gotchas-studio.md` |
 
 ## 5. Gates qualité (AVANT commit — l'ordre compte)
 

@@ -1479,21 +1479,22 @@ curl -k https://127.0.0.1:5152/nodefony/realtime/api/health
 l'appel. Voici en revanche ce que chaque champ signifie, ce qui est exactement l'information utile
 pour lire ta propre sortie :
 
-| Champ                            | Ce qu'il dit                                                                                     |
-| -------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `ts`                             | Horodatage de la mesure.                                                                         |
-| `channels[]`                     | Un objet par canal actif : son nom, son nombre d'abonnés, son nombre de messages.                |
-| `channelCount`                   | Combien de canaux ont au moins un abonné **sur ce processus**.                                   |
-| `publishTotal`                   | Nombre de publications depuis le démarrage (cumul, jamais remis à zéro).                         |
-| `fanoutTotal`                    | Nombre de **livraisons**. Rapporté à `publishTotal`, il donne la taille moyenne d'un salon.      |
-| `inboundTotal`                   | Nombre de frames poussées par les clients (canaux inbound).                                      |
-| `connectionCount`                | Connexions WebSocket vivantes sur ce processus.                                                  |
-| `bytesSentTotal`                 | Octets émis, cumulés.                                                                            |
-| `messagesSentTotal`              | Messages émis, cumulés.                                                                          |
-| `backpressure.maxBufferedAmount` | La **pire** file d'envoi observée à l'instant de la mesure. C'est l'indicateur d'alerte.         |
-| `backpressure.slowConsumers`     | Combien de connexions dépassent le seuil de consommateur lent.                                   |
-| `backpressure.drops`             | Messages abandonnés faute de pouvoir être livrés.                                                |
-| `backplane`                      | Présent uniquement si un relais est branché : son driver, son type, s'il traverse les processus. |
+<!-- prettier-ignore -->
+| Champ | Ce qu'il dit |
+| --- | --- |
+| `ts` | Horodatage de la mesure. |
+| `channels[]` | Un objet par canal actif : son nom, son nombre d'abonnés, son nombre de messages. |
+| `channelCount` | Combien de canaux ont au moins un abonné **sur ce processus**. |
+| `publishTotal` | Nombre de publications depuis le démarrage (cumul, jamais remis à zéro). |
+| `fanoutTotal` | Nombre de **livraisons**. Rapporté à `publishTotal`, il donne la taille moyenne d'un salon. |
+| `inboundTotal` | Nombre de frames poussées par les clients (canaux inbound). |
+| `connectionCount` | Connexions WebSocket vivantes sur ce processus. |
+| `bytesSentTotal` | Octets émis, cumulés. |
+| `messagesSentTotal` | Messages émis, cumulés. |
+| `backpressure.maxBufferedAmount` | La **pire** file d'envoi observée à l'instant de la mesure. C'est l'indicateur d'alerte. |
+| `backpressure.slowConsumers` | Combien de connexions dépassent le seuil de consommateur lent. |
+| `backpressure.drops` | Messages abandonnés faute de pouvoir être livrés. |
+| `backplane` | Présent uniquement si un relais est branché : son driver, son type, s'il traverse les processus. |
 
 Deux lectures suffisent à diagnostiquer :
 
@@ -1516,17 +1517,18 @@ est bien montée, et quel driver de backplane a réellement été retenu au dém
 
 ## ⚠️ Pièges
 
-| Symptôme                                                               | Cause                                                                                                                                            | Correction                                                                                                                                                        |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Le client s'abonne, **rien n'arrive jamais**, aucune erreur            | Le canal est **inconnu du serveur** : aucun `@RealtimeChannel` ne le déclare, ou le provider renvoie `null`. L'abonnement est refusé sans bruit. | Vérifier que le nom du canal est identique des deux côtés (une constante partagée évite la faute de frappe) et que le provider renvoie une fonction de nettoyage. |
-| Ça marche à deux onglets, ça casse en cluster                          | Le canal n'est pas déclaré diffusable : par défaut, il reste **local au processus**.                                                             | Déclarer le préfixe avec `@RealtimeBroadcast` **et** choisir un driver de backplane.                                                                              |
-| Le client pousse sur un canal, le serveur ignore tout                  | Un canal n'accepte une entrée que s'il est **explicitement** déclaré `@RealtimeInbound`. C'est un défaut sûr.                                    | Déclarer la méthode inbound. Vérifier que le nom poussé correspond exactement.                                                                                    |
-| Fermeture immédiate, code `4001`                                       | La zone firewall exige une identité que la poignée de main n'a pas fournie (pas de cookie de session).                                           | Se connecter avant d'ouvrir la socket, ou revoir les authentificateurs de la zone.                                                                                |
-| Fermeture immédiate, code `4003`                                       | L'origine du navigateur n'est pas autorisée pour l'établissement de la connexion.                                                                | Déclarer l'origine dans la configuration du module (voir [configuration.md](./configuration.md)).                                                                 |
-| Une politique de canal ne bloque personne                              | Aucun décideur n'est branché : le module de sécurité est absent, ou la zone exclut le temps réel.                                                | Charger `@nodefony/security` avec une zone qui couvre la route. L'avertissement au démarrage le signale explicitement.                                            |
-| Deux applications distinctes reçoivent les messages l'une de l'autre   | Redis partagé **sans** cloison logique : le numéro de base ne sépare pas le pub/sub.                                                             | Poser `backplane.namespace` explicitement dans chaque déploiement.                                                                                                |
-| Le minuteur d'un canal tourne encore après le départ du dernier abonné | Le provider ne renvoie pas de fonction de nettoyage, ou elle n'arrête pas ce qu'il a démarré.                                                    | Toujours renvoyer une fonction qui annule **tout** ce que le provider a créé.                                                                                     |
-| Le fichier monte, l'annonce n'arrive qu'à l'expéditeur                 | La publication a bien eu lieu, mais sur un processus dont les autres ne dépendent pas.                                                           | C'est exactement l'[étape 7](#-étape-7--passer-à-plusieurs-pods).                                                                                                 |
+<!-- prettier-ignore -->
+| Symptôme | Cause | Correction |
+| --- | --- | --- |
+| Le client s'abonne, **rien n'arrive jamais**, aucune erreur | Le canal est **inconnu du serveur** : aucun `@RealtimeChannel` ne le déclare, ou le provider renvoie `null`. L'abonnement est refusé sans bruit. | Vérifier que le nom du canal est identique des deux côtés (une constante partagée évite la faute de frappe) et que le provider renvoie une fonction de nettoyage. |
+| Ça marche à deux onglets, ça casse en cluster | Le canal n'est pas déclaré diffusable : par défaut, il reste **local au processus**. | Déclarer le préfixe avec `@RealtimeBroadcast` **et** choisir un driver de backplane. |
+| Le client pousse sur un canal, le serveur ignore tout | Un canal n'accepte une entrée que s'il est **explicitement** déclaré `@RealtimeInbound`. C'est un défaut sûr. | Déclarer la méthode inbound. Vérifier que le nom poussé correspond exactement. |
+| Fermeture immédiate, code `4001` | La zone firewall exige une identité que la poignée de main n'a pas fournie (pas de cookie de session). | Se connecter avant d'ouvrir la socket, ou revoir les authentificateurs de la zone. |
+| Fermeture immédiate, code `4003` | L'origine du navigateur n'est pas autorisée pour l'établissement de la connexion. | Déclarer l'origine dans la configuration du module (voir [configuration.md](./configuration.md)). |
+| Une politique de canal ne bloque personne | Aucun décideur n'est branché : le module de sécurité est absent, ou la zone exclut le temps réel. | Charger `@nodefony/security` avec une zone qui couvre la route. L'avertissement au démarrage le signale explicitement. |
+| Deux applications distinctes reçoivent les messages l'une de l'autre | Redis partagé **sans** cloison logique : le numéro de base ne sépare pas le pub/sub. | Poser `backplane.namespace` explicitement dans chaque déploiement. |
+| Le minuteur d'un canal tourne encore après le départ du dernier abonné | Le provider ne renvoie pas de fonction de nettoyage, ou elle n'arrête pas ce qu'il a démarré. | Toujours renvoyer une fonction qui annule **tout** ce que le provider a créé. |
+| Le fichier monte, l'annonce n'arrive qu'à l'expéditeur | La publication a bien eu lieu, mais sur un processus dont les autres ne dépendent pas. | C'est exactement l'[étape 7](#-étape-7--passer-à-plusieurs-pods). |
 
 ## 🧪 Tests
 
@@ -1590,25 +1592,26 @@ diffusable, un driver dans la configuration.
 
 Pour qui veut lire l'implémentation derrière chaque étape :
 
-| Ce que tu as utilisé                   | Où c'est écrit                                                                                                                                                                                                                                                                                                                       |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Les trois décorateurs                  | `RealtimeAction()` (`realtimeDecorators.ts:101`), `RealtimeChannel()` (`realtimeDecorators.ts:142`), `RealtimeInbound()` (`realtimeDecorators.ts:182`)                                                                                                                                                                               |
-| La porte WebSocket                     | `RealtimeController.handleRealtime()` (`RealtimeController.ts:233`)                                                                                                                                                                                                                                                                  |
-| Le pont HTTP ⇄ WebSocket               | `RealtimeController.realtimeApiRequest()` (`RealtimeController.ts:219`)                                                                                                                                                                                                                                                              |
-| L'abonnement et son cycle de vie       | `RealtimeHub.subscribe()` (`RealtimeHub.ts:388`), `RealtimeController.startChannel()` (`RealtimeController.ts:618`)                                                                                                                                                                                                                  |
-| La publication et le fan-out           | `RealtimeHub.publish()` (`RealtimeHub.ts:530`), réinjection locale `RealtimeHub.publishLocal()` (`RealtimeHub.ts:549`)                                                                                                                                                                                                               |
-| Les canaux diffusables                 | `RealtimeBroadcast` (`realtimeDecorators.ts:342`), `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:594`)                                                                                                                                                                                                                       |
-| Le branchement du backplane            | `RealtimeHub.setBackplane()` (`RealtimeHub.ts:640`), registre `registerBackplaneDriver()` (`backplaneRegistry.ts:55`), cloison `resolveBackplaneOriginId()` (`originId.ts:24`)                                                                                                                                                       |
-| Les politiques de canal                | `IChannelPolicy` (`IChannelPolicy.ts:20`), `RealtimeHub.registerChannelPolicy()` (`RealtimeHub.ts:1037`), garde-fou `RealtimeHub.hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:1037`)                                                                                                                                             |
-| Le branchement automatique du firewall | `Firewall.#wireRealtime()` (`firewall.ts:253`)                                                                                                                                                                                                                                                                                       |
-| Les refus                              | `IRealtimeDenied` (`RealtimeEventMap.ts:228`), erreur `unauthorized` (`JsonRpcPeer.ts:400`), fermetures `origin not allowed` (`RealtimeController.ts:327`) et `unauthorized` (`RealtimeController.ts:349`)                                                                                                                           |
-| La révocation en cours de session      | `RealtimeHub.revalidateRevocable()` (`RealtimeHub.ts:736`)                                                                                                                                                                                                                                                                           |
-| Le consommateur lent                   | seuil `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:56`), fermeture `slow consumer` (`WsConnectionTransport.ts:88`)                                                                                                                                                                                                                         |
-| Le plafond de canaux                   | `RealtimeHub.maxChannelsPerConnection` (`RealtimeHub.ts:910`)                                                                                                                                                                                                                                                                        |
-| L'accueil et l'identité                | `IRealtimeWelcome` (`RealtimeEventMap.ts:204`)                                                                                                                                                                                                                                                                                       |
-| La sonde                               | `RealtimeHub.probe()` (`RealtimeHub.ts:775`), `IRealtimeProbe` (`IRealtimeProbe.ts:61`), `IRealtimeChannelStat` (`IRealtimeProbe.ts:47`)                                                                                                                                                                                             |
-| Le point de mesure d'administration    | `createRealtimeAdminApi()` (`RealtimeAdminApi.ts:91`), `buildRealtimeHealth()` (`RealtimeAdminApi.ts:74`), `buildOwnHealth()` (`RealtimeAdminApi.ts:52`)                                                                                                                                                                             |
-| Le service injectable                  | `RealtimeService.publish()` (`RealtimeService.ts:141`), `RealtimeService.probe()` (`RealtimeService.ts:200`), `RealtimeService.markBroadcastChannel()` (`RealtimeService.ts:188`)                                                                                                                                                    |
-| Les hooks React                        | `useNodefony()` (`client/react/index.ts:67`), `useNodefonyState()` (`client/react/index.ts:87`), `useNodefonyIdentity()` (`client/react/index.ts:104`), `useNodefonyChannel()` (`client/react/index.ts:120`), `useNodefonyChannelData()` (`client/react/index.ts:148`), `useNodefonyAdaptiveChannel()` (`client/react/index.ts:182`) |
-| Le client navigateur                   | `RealtimeClient.connect()` (`RealtimeClient.ts:311`), `RealtimeClient.subscribe()` (`RealtimeClient.ts:430`), `RealtimeClient.request()` (`RealtimeClient.ts:594`), `RealtimeClient.onDenied()` (`RealtimeClient.ts:386`)                                                                                                            |
-| L'upload                               | `UploadedFile` (`routerDecorators.ts:1183`), `IUploadedFile` (`IUpload.ts:49`), `queryFile` (`Request.ts:109`)                                                                                                                                                                                                                       |
+<!-- prettier-ignore -->
+| Ce que tu as utilisé | Où c'est écrit |
+| --- | --- |
+| Les trois décorateurs | `RealtimeAction()` (`realtimeDecorators.ts:101`), `RealtimeChannel()` (`realtimeDecorators.ts:142`), `RealtimeInbound()` (`realtimeDecorators.ts:182`) |
+| La porte WebSocket | `RealtimeController.handleRealtime()` (`RealtimeController.ts:233`) |
+| Le pont HTTP ⇄ WebSocket | `RealtimeController.realtimeApiRequest()` (`RealtimeController.ts:219`) |
+| L'abonnement et son cycle de vie | `RealtimeHub.subscribe()` (`RealtimeHub.ts:388`), `RealtimeController.startChannel()` (`RealtimeController.ts:618`) |
+| La publication et le fan-out | `RealtimeHub.publish()` (`RealtimeHub.ts:530`), réinjection locale `RealtimeHub.publishLocal()` (`RealtimeHub.ts:549`) |
+| Les canaux diffusables | `RealtimeBroadcast` (`realtimeDecorators.ts:342`), `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:594`) |
+| Le branchement du backplane | `RealtimeHub.setBackplane()` (`RealtimeHub.ts:640`), registre `registerBackplaneDriver()` (`backplaneRegistry.ts:55`), cloison `resolveBackplaneOriginId()` (`originId.ts:24`) |
+| Les politiques de canal | `IChannelPolicy` (`IChannelPolicy.ts:20`), `RealtimeHub.registerChannelPolicy()` (`RealtimeHub.ts:1037`), garde-fou `RealtimeHub.hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:1037`) |
+| Le branchement automatique du firewall | `Firewall.#wireRealtime()` (`firewall.ts:253`) |
+| Les refus | `IRealtimeDenied` (`RealtimeEventMap.ts:228`), erreur `unauthorized` (`JsonRpcPeer.ts:400`), fermetures `origin not allowed` (`RealtimeController.ts:327`) et `unauthorized` (`RealtimeController.ts:349`) |
+| La révocation en cours de session | `RealtimeHub.revalidateRevocable()` (`RealtimeHub.ts:736`) |
+| Le consommateur lent | seuil `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:56`), fermeture `slow consumer` (`WsConnectionTransport.ts:88`) |
+| Le plafond de canaux | `RealtimeHub.maxChannelsPerConnection` (`RealtimeHub.ts:910`) |
+| L'accueil et l'identité | `IRealtimeWelcome` (`RealtimeEventMap.ts:204`) |
+| La sonde | `RealtimeHub.probe()` (`RealtimeHub.ts:775`), `IRealtimeProbe` (`IRealtimeProbe.ts:61`), `IRealtimeChannelStat` (`IRealtimeProbe.ts:47`) |
+| Le point de mesure d'administration | `createRealtimeAdminApi()` (`RealtimeAdminApi.ts:91`), `buildRealtimeHealth()` (`RealtimeAdminApi.ts:74`), `buildOwnHealth()` (`RealtimeAdminApi.ts:52`) |
+| Le service injectable | `RealtimeService.publish()` (`RealtimeService.ts:141`), `RealtimeService.probe()` (`RealtimeService.ts:200`), `RealtimeService.markBroadcastChannel()` (`RealtimeService.ts:188`) |
+| Les hooks React | `useNodefony()` (`client/react/index.ts:67`), `useNodefonyState()` (`client/react/index.ts:87`), `useNodefonyIdentity()` (`client/react/index.ts:104`), `useNodefonyChannel()` (`client/react/index.ts:120`), `useNodefonyChannelData()` (`client/react/index.ts:148`), `useNodefonyAdaptiveChannel()` (`client/react/index.ts:182`) |
+| Le client navigateur | `RealtimeClient.connect()` (`RealtimeClient.ts:311`), `RealtimeClient.subscribe()` (`RealtimeClient.ts:430`), `RealtimeClient.request()` (`RealtimeClient.ts:594`), `RealtimeClient.onDenied()` (`RealtimeClient.ts:386`) |
+| L'upload | `UploadedFile` (`routerDecorators.ts:1183`), `IUploadedFile` (`IUpload.ts:49`), `queryFile` (`Request.ts:109`) |

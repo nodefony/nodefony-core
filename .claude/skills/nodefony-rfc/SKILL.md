@@ -138,8 +138,9 @@ Ce que la spec MCP délègue aux RFC, pour un serveur qui valide un jeton sans j
 
 Et la face symétrique — un serveur qui veut que ses signatures soient vérifiables ailleurs :
 
-| RFC      | Ce qu'elle tranche                                                                                                                                                                                                                                                                                                                                   |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+<!-- prettier-ignore -->
+| RFC | Ce qu'elle tranche |
+| --- | --- |
 | **8414** | `/.well-known/oauth-authorization-server` — l'identifiant d'émetteur (§2 : https, ni requête ni fragment), l'**insertion** du suffixe avant le chemin (§3.1), l'**égalité stricte** du champ `issuer` côté lecteur (§3.3), et les champs REQUIS (`response_types_supported` ; `grant_types_supported` omis vaut `["authorization_code","implicit"]`) |
 
 > Un serveur d'autorisation n'est **jamais** requis pour le rôle ressource : la spec MCP le place

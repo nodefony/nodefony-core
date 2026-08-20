@@ -557,11 +557,12 @@ aux sondes qui instrumentent chaque opération et se paient donc à l'usage.
 L'auto-observabilité est couverte par des tests **unitaires déterministes** — elle n'a besoin d'aucune
 infrastructure, puisque la sonde est une lecture pure.
 
-| Suite                           | Ce qui est prouvé                                                                                                                                                                                                                                        |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `RealtimeHub.test.ts`           | Hub vide → instantané à zéro ; abonnés et publications par canal ; `publishTotal` vs `fanoutTotal` ; comptage des consommateurs lents et `maxBufferedAmount` ; sortie du registre à la déconnexion ; frames entrantes ; descripteur `local` du backplane |
-| `WsConnectionTransport.test.ts` | Les deux seuils de contre-pression : abandon « le dernier gagne », puis fermeture `1013`                                                                                                                                                                 |
-| `ClusterProbeClient.test.ts`    | Fusion pod (sommes vs maximum), report périodique et cache du snapshot, forage `enrich`/`rich`, repli per-instance quand la sonde est absente                                                                                                            |
+<!-- prettier-ignore -->
+| Suite | Ce qui est prouvé |
+| --- | --- |
+| `RealtimeHub.test.ts` | Hub vide → instantané à zéro ; abonnés et publications par canal ; `publishTotal` vs `fanoutTotal` ; comptage des consommateurs lents et `maxBufferedAmount` ; sortie du registre à la déconnexion ; frames entrantes ; descripteur `local` du backplane |
+| `WsConnectionTransport.test.ts` | Les deux seuils de contre-pression : abandon « le dernier gagne », puis fermeture `1013` |
+| `ClusterProbeClient.test.ts` | Fusion pod (sommes vs maximum), report périodique et cache du snapshot, forage `enrich`/`rich`, repli per-instance quand la sonde est absente |
 
 **Ce qui manque, et qu'il faut savoir** : il n'existe pas de banc de charge dédié à la sonde
 elle-même. Le coût du chemin chaud (les incréments du transport) est couvert indirectement par les

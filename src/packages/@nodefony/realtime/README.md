@@ -116,21 +116,22 @@ Détail des réglages : [`docs/configuration.md`](./docs/configuration.md).
 
 ## API
 
-| Symbole                                                                   | Type       | Rôle                                              |
-| ------------------------------------------------------------------------- | ---------- | ------------------------------------------------- |
-| `RealtimeController`                                                      | class      | Base abstraite des controllers WebSocket          |
-| `RealtimeHub` / `getRealtimeHub`                                          | class / fn | Broker fan-out serveur                            |
-| `RealtimeService`                                                         | class      | Service injectable (authenticators, cycle de vie) |
-| `ServerRealtimeSocket` / `serverSocket`                                   | class / fn | Façade « la socket » côté serveur                 |
-| `@RealtimeChannel` / `@RealtimeInbound` / `@RealtimeAction`               | decorators | Canal sortant · canal entrant · action RPC        |
-| `@RealtimeBroadcast`                                                      | decorator  | Déclare les préfixes propagés au cluster          |
-| `defineRealtimeConfig` / `realtimeConfigJsonSchema`                       | functions  | Builder de config + JSON Schema (Studio)          |
-| `LoopbackBackplane` / `ClusterBackplane` / `RedisBackplane`               | classes    | Les 3 drivers natifs                              |
-| `registerBackplaneDriver` / `getBackplaneDriver` / `listBackplaneDrivers` | functions  | Registre ouvert de drivers                        |
-| `IBackplane`                                                              | interface  | Contrat d'un fond de panier                       |
-| `IRealtimeAuthenticator` / `IRealtimeToken` / `IRealtimeHandshake`        | interfaces | Seams sécurité du handshake                       |
-| `RealtimeError`                                                           | class      | Erreur de base (code + contexte)                  |
-| `ANONYMOUS_REALTIME_TOKEN`                                                | const      | Jeton anonyme gelé — fallback Zero Trust          |
+<!-- prettier-ignore -->
+| Symbole | Type | Rôle |
+| --- | --- | --- |
+| `RealtimeController` | class | Base abstraite des controllers WebSocket |
+| `RealtimeHub` / `getRealtimeHub` | class / fn | Broker fan-out serveur |
+| `RealtimeService` | class | Service injectable (authenticators, cycle de vie) |
+| `ServerRealtimeSocket` / `serverSocket` | class / fn | Façade « la socket » côté serveur |
+| `@RealtimeChannel` / `@RealtimeInbound` / `@RealtimeAction` | decorators | Canal sortant · canal entrant · action RPC |
+| `@RealtimeBroadcast` | decorator | Déclare les préfixes propagés au cluster |
+| `defineRealtimeConfig` / `realtimeConfigJsonSchema` | functions | Builder de config + JSON Schema (Studio) |
+| `LoopbackBackplane` / `ClusterBackplane` / `RedisBackplane` | classes | Les 3 drivers natifs |
+| `registerBackplaneDriver` / `getBackplaneDriver` / `listBackplaneDrivers` | functions | Registre ouvert de drivers |
+| `IBackplane` | interface | Contrat d'un fond de panier |
+| `IRealtimeAuthenticator` / `IRealtimeToken` / `IRealtimeHandshake` | interfaces | Seams sécurité du handshake |
+| `RealtimeError` | class | Erreur de base (code + contexte) |
+| `ANONYMOUS_REALTIME_TOKEN` | const | Jeton anonyme gelé — fallback Zero Trust |
 
 ## Tester un controller — `@nodefony/realtime/testing`
 

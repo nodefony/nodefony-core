@@ -56,15 +56,16 @@ Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppo
 
 Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouve.
 
-| Brique                                                                      | Ce qu'elle résout                               | Tu en as besoin quand…                            |
-| --------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------- |
-| [Serveurs](servers.md)                                                      | ouvrir, régler, transmettre, fermer proprement  | toujours — c'est la fondation                     |
-| [Sessions](session.md)                                                      | de l'état serveur rattaché à un visiteur        | login, panier, préférences, WS authentifié        |
-| [Cookies](cookies.md)                                                       | lire/écrire des cookies sûrs (SameSite, signés) | tu poses un état côté client hors session         |
-| [Upload & corps](upload.md)                                                 | parser le corps et recevoir des fichiers        | formulaires, imports multipart, API JSON          |
-| [Rate-limit](rate-limit.md)                                                 | plafonner le débit par client (429)             | protéger une API d'un flood ou d'un abus          |
-| [Observabilité](observabilite.md)                                           | tracer et journaliser chaque requête            | débugger en prod, corréler des logs               |
-| [Pipeline de requête](../../../../../docs/architecture/pipeline-requete.md) | l'ordre exact des étapes, HTTP comme WS         | tu débugges « pourquoi ça passe / ça bloque ici » |
+<!-- prettier-ignore -->
+| Brique | Ce qu'elle résout | Tu en as besoin quand… |
+| --- | --- | --- |
+| [Serveurs](servers.md) | ouvrir, régler, transmettre, fermer proprement | toujours — c'est la fondation |
+| [Sessions](session.md) | de l'état serveur rattaché à un visiteur | login, panier, préférences, WS authentifié |
+| [Cookies](cookies.md) | lire/écrire des cookies sûrs (SameSite, signés) | tu poses un état côté client hors session |
+| [Upload & corps](upload.md) | parser le corps et recevoir des fichiers | formulaires, imports multipart, API JSON |
+| [Rate-limit](rate-limit.md) | plafonner le débit par client (429) | protéger une API d'un flood ou d'un abus |
+| [Observabilité](observabilite.md) | tracer et journaliser chaque requête | débugger en prod, corréler des logs |
+| [Pipeline de requête](../../../../../docs/architecture/pipeline-requete.md) | l'ordre exact des étapes, HTTP comme WS | tu débugges « pourquoi ça passe / ça bloque ici » |
 
 ```nodefony-cards
 [

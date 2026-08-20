@@ -259,19 +259,20 @@ regarder quand un message ne traverse pas.
 Six blocs, douze clés au total. Le tableau donne la vérité complète ; les sections qui suivent
 expliquent quand et pourquoi en changer.
 
-| Clé                                   | Type                   | Défaut               | Effet                                                                                                                                                                |
-| ------------------------------------- | ---------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`                             | `boolean`              | `true`               | `false` = module chargé mais inerte : ni API d'administration, ni backplane, ni sonde, ni garde                                                                      |
-| `backplane.driver`                    | `string`               | `"loopback"`         | nom résolu dans le registre de drivers ; inconnu → avertissement, le hub reste local                                                                                 |
-| `backplane.namespace`                 | `string?`              | _absent_ → nom d'app | cloison du transport partagé ; suffixe le canal pub/sub. Motif `^[\w.-]+$`                                                                                           |
-| `backplane.secret`                    | `string?` (≥ 32)       | _absent_             | scelle les messages du transport partagé (HMAC) ; identique sur tous les pods. Absent = bus ouvert + avertissement au boot                                           |
-| `backplane.maxQueueBytes`             | `number` entier ≥ 0    | `8388608` (8 MiB)    | plafond des octets publiés en attente d'accusé de réception du bus ; au-delà, les publications sont abandonnées et comptées (`backplane.queue`). `0` = aucune limite |
-| `cluster.probe.enabled`               | `boolean`              | `true`               | branche la sonde agrégée du pod en worker de cluster. `false` = aucun minuteur, aucun IPC                                                                            |
-| `slowConsumer.bytes`                  | `number` entier > 0    | `1048576` (1 MiB)    | seuil de **comptage** des consommateurs lents dans la sonde. Observe, n'agit pas                                                                                     |
-| `limits.maxChannelsPerConnection`     | `number > 0` \| `null` | `256`                | plafond de canaux par connexion ; au-delà le `subscribe` est refusé. `null` = illimité                                                                               |
-| `csrf.checkOrigin.enabled`            | `boolean`              | `false`              | active le contrôle d'`Origin` à l'ouverture de la socket                                                                                                             |
-| `csrf.checkOrigin.allowList`          | `string[]`             | `[]`                 | origines acceptées, **comparaison exacte**. Vide + activé = tout est refusé                                                                                          |
-| `csrf.checkOrigin.allowMissingOrigin` | `boolean`              | `false`              | accepter une ouverture sans en-tête `Origin` (clients non-navigateur)                                                                                                |
+<!-- prettier-ignore -->
+| Clé | Type | Défaut | Effet |
+| --- | --- | --- | --- |
+| `enabled` | `boolean` | `true` | `false` = module chargé mais inerte : ni API d'administration, ni backplane, ni sonde, ni garde |
+| `backplane.driver` | `string` | `"loopback"` | nom résolu dans le registre de drivers ; inconnu → avertissement, le hub reste local |
+| `backplane.namespace` | `string?` | _absent_ → nom d'app | cloison du transport partagé ; suffixe le canal pub/sub. Motif `^[\w.-]+$` |
+| `backplane.secret` | `string?` (≥ 32) | _absent_ | scelle les messages du transport partagé (HMAC) ; identique sur tous les pods. Absent = bus ouvert + avertissement au boot |
+| `backplane.maxQueueBytes` | `number` entier ≥ 0 | `8388608` (8 MiB) | plafond des octets publiés en attente d'accusé de réception du bus ; au-delà, les publications sont abandonnées et comptées (`backplane.queue`). `0` = aucune limite |
+| `cluster.probe.enabled` | `boolean` | `true` | branche la sonde agrégée du pod en worker de cluster. `false` = aucun minuteur, aucun IPC |
+| `slowConsumer.bytes` | `number` entier > 0 | `1048576` (1 MiB) | seuil de **comptage** des consommateurs lents dans la sonde. Observe, n'agit pas |
+| `limits.maxChannelsPerConnection` | `number > 0` \| `null` | `256` | plafond de canaux par connexion ; au-delà le `subscribe` est refusé. `null` = illimité |
+| `csrf.checkOrigin.enabled` | `boolean` | `false` | active le contrôle d'`Origin` à l'ouverture de la socket |
+| `csrf.checkOrigin.allowList` | `string[]` | `[]` | origines acceptées, **comparaison exacte**. Vide + activé = tout est refusé |
+| `csrf.checkOrigin.allowMissingOrigin` | `boolean` | `false` | accepter une ouverture sans en-tête `Origin` (clients non-navigateur) |
 
 C'est **tout**. Il n'existe ni réglage de ping, ni de cadence, ni de fréquence d'échantillonnage de
 la sonde, ni de seuil de contre-pression configurable : ces comportements existent, mais leurs

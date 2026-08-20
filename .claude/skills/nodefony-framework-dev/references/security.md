@@ -24,11 +24,12 @@ Nodefony doit être une **référence** sécurité (dev classique + agentic). Su
 
 ### Sources normatives à CONSULTER (ne jamais trancher de mémoire)
 
-| Domaine                                                  | Source / skill                                                                                                                                                                                                          |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Protocole HTTP/HTTP2/WS/CORS/cookies                     | skill **`nodefony-rfc`** (RFC 9110/9113/6455/6265, Fetch — IETF/W3C bruts)                                                                                                                                              |
-| Types TS / API Node.js                                   | `nodefony-framework-dev` §1 « Doc TypeScript / @types/node » (es5.d.ts, handbook, DefinitelyTyped — sources brutes)                                                                                                     |
-| Sécu applicative (checklist vérifiable)                  | **OWASP** : ASVS + Cheat Sheet Series en **raw GitHub** — `raw.githubusercontent.com/OWASP/ASVS`, `raw.githubusercontent.com/OWASP/CheatSheetSeries` ; Top 10 via proxy                                                 |
+<!-- prettier-ignore -->
+| Domaine | Source / skill |
+| --- | --- |
+| Protocole HTTP/HTTP2/WS/CORS/cookies | skill **`nodefony-rfc`** (RFC 9110/9113/6455/6265, Fetch — IETF/W3C bruts) |
+| Types TS / API Node.js | `nodefony-framework-dev` §1 « Doc TypeScript / @types/node » (es5.d.ts, handbook, DefinitelyTyped — sources brutes) |
+| Sécu applicative (checklist vérifiable) | **OWASP** : ASVS + Cheat Sheet Series en **raw GitHub** — `raw.githubusercontent.com/OWASP/ASVS`, `raw.githubusercontent.com/OWASP/CheatSheetSeries` ; Top 10 via proxy |
 | Recommandations & vulnérabilités (FR, autorité étatique) | **ANSSI / CERT-FR** via **proxy** : guides `https://r.jina.ai/https://cyber.gouv.fr/publications` (sécurisation web, RGS crypto) ; avis/alertes `https://r.jina.ai/https://www.cert.ssi.gouv.fr/avis/` et `.../alerte/` |
 
 ⚠️ **Règle universelle** (CLAUDE.md racine) : NE JAMAIS charger les pages HTML lourdes

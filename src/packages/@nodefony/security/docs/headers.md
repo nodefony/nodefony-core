@@ -380,17 +380,18 @@ config security est la première source de confusion sur ce sujet.
 
 Dérivé du schéma Zod `headersSchema` (`config.ts:194`).
 
-| Option               | Type                 | Défaut                          | Effet                                              |
-| -------------------- | -------------------- | ------------------------------- | -------------------------------------------------- |
-| `enabled`            | booléen              | `true`                          | Coupe toute la couche applicative.                 |
-| `csp`                | chaîne               | politique « secure-but-usable » | Valeur de `Content-Security-Policy`.               |
-| `cspNonces`          | booléen              | `true`                          | Active la substitution de `{{nonce}}` par requête. |
-| `referrerPolicy`     | enum W3C (8 valeurs) | `no-referrer`                   | Valeur de `Referrer-Policy`.                       |
-| `coop`               | enum, optionnel      | absent                          | `Cross-Origin-Opener-Policy`.                      |
-| `coep`               | enum, optionnel      | absent                          | `Cross-Origin-Embedder-Policy`.                    |
-| `corp`               | enum, optionnel      | absent                          | `Cross-Origin-Resource-Policy`.                    |
-| `originAgentCluster` | booléen, optionnel   | absent                          | Émet `Origin-Agent-Cluster: ?1`.                   |
-| `permissionsPolicy`  | chaîne, optionnelle  | absent                          | Valeur de `Permissions-Policy`.                    |
+<!-- prettier-ignore -->
+| Option | Type | Défaut | Effet |
+| --- | --- | --- | --- |
+| `enabled` | booléen | `true` | Coupe toute la couche applicative. |
+| `csp` | chaîne | politique « secure-but-usable » | Valeur de `Content-Security-Policy`. |
+| `cspNonces` | booléen | `true` | Active la substitution de `{{nonce}}` par requête. |
+| `referrerPolicy` | enum W3C (8 valeurs) | `no-referrer` | Valeur de `Referrer-Policy`. |
+| `coop` | enum, optionnel | absent | `Cross-Origin-Opener-Policy`. |
+| `coep` | enum, optionnel | absent | `Cross-Origin-Embedder-Policy`. |
+| `corp` | enum, optionnel | absent | `Cross-Origin-Resource-Policy`. |
+| `originAgentCluster` | booléen, optionnel | absent | Émet `Origin-Agent-Cluster: ?1`. |
+| `permissionsPolicy` | chaîne, optionnelle | absent | Valeur de `Permissions-Policy`. |
 
 ### Socle transport — `use("@nodefony/http", { securityHeaders })`
 

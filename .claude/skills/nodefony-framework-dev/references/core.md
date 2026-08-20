@@ -465,14 +465,15 @@ Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
 
 `Event.ts:117` — `class Event extends EventEmitter` (node:events). Ajoute :
 
-| Méthode            | Signature                                                     | Rôle                                                                                     | Ancre  |
-| ------------------ | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------ |
-| `fire`             | `(name, ...args): boolean`                                    | alias `emit` (sync)                                                                      | `:186` |
-| `emitAsync`        | `async (name, ...args): Promise<false \| unknown[]>`          | série, **await conditionnel** (skip microtask si non-thenable) ; `false` si 0 listener   | `:200` |
-| `fireAsync`        | idem                                                          | alias `emitAsync`                                                                        | `:229` |
+<!-- prettier-ignore -->
+| Méthode | Signature | Rôle | Ancre |
+| --- | --- | --- | --- |
+| `fire` | `(name, ...args): boolean` | alias `emit` (sync) | `:186` |
+| `emitAsync` | `async (name, ...args): Promise<false \| unknown[]>` | série, **await conditionnel** (skip microtask si non-thenable) ; `false` si 0 listener | `:200` |
+| `fireAsync` | idem | alias `emitAsync` | `:229` |
 | `emitAsyncGuarded` | `async (name, options, ...args): Promise<IGuardedEmitResult>` | série **gardée** : try/catch + timeout par listener, collecte `{results,errors,stopped}` | `:257` |
-| `listen`           | `(name, fn)`                                                  | bind un listener                                                                         | `:171` |
-| `settingsToListen` | `(opts, ctx)`                                                 | auto-wire `onFoo` → listeners                                                            | `:147` |
+| `listen` | `(name, fn)` | bind un listener | `:171` |
+| `settingsToListen` | `(opts, ctx)` | auto-wire `onFoo` → listeners | `:147` |
 
 `emitAsyncGuarded` court-circuite 0-listener avant `rawListeners` (0 alloc). Quand `timeoutMs>0` : 1 timer `unref`
 

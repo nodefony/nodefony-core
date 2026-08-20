@@ -59,21 +59,22 @@ qu'il prétend.
 
 Profil échantillonné fenêtré sur trente secondes de charge, attribution par couche :
 
-| Couche                                                                 | % du CPU |
-| ---------------------------------------------------------------------- | -------: |
-| `drizzle-orm` — construction de la requête                             | **39,0** |
+<!-- prettier-ignore -->
+| Couche | % du CPU |
+| --- | ---: |
+| `drizzle-orm` — construction de la requête | **39,0** |
 | pilote `drizzle` → `better-sqlite3` (préparation 9,4 + exécution 17,2) | **27,0** |
-| Node interne                                                           |      5,5 |
-| V8 (anonyme / natif)                                                   |      5,1 |
-| `@nodefony/framework`                                                  |      4,8 |
-| repos                                                                  |      4,6 |
-| `@nodefony/http`                                                       |      3,6 |
-| V8 (programme / natif)                                                 |      3,1 |
-| cœur `nodefony`                                                        |      2,9 |
-| divers                                                                 |      1,5 |
-| ramasse-miettes V8                                                     |      1,1 |
-| `@nodefony/orm-core`                                                   |  **0,9** |
-| `@nodefony/security` + module de test + adaptateur                     |  **0,8** |
+| Node interne | 5,5 |
+| V8 (anonyme / natif) | 5,1 |
+| `@nodefony/framework` | 4,8 |
+| repos | 4,6 |
+| `@nodefony/http` | 3,6 |
+| V8 (programme / natif) | 3,1 |
+| cœur `nodefony` | 2,9 |
+| divers | 1,5 |
+| ramasse-miettes V8 | 1,1 |
+| `@nodefony/orm-core` | **0,9** |
+| `@nodefony/security` + module de test + adaptateur | **0,8** |
 
 **La couche d'abstraction ORM de Nodefony pèse moins de 2,5 % du CPU.** Ce n'est pas une bonne
 nouvelle qu'on s'accorde : c'est un résultat qui **ferme** une piste. Optimiser l'adaptateur

@@ -262,14 +262,15 @@ différenciateur Studio est la **lisibilité pro**, pas la densité.
 
 **Boîte à outils de divulgation (du + visible au + caché)** :
 
-| Besoin                                        | Brique                                                                                                         |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+<!-- prettier-ignore -->
+| Besoin | Brique |
+| --- | --- |
 | Facettes d'UN sujet (1 seul détail à la fois) | **Tuiles d'axe** master cliquable, défaut = la + importante (ex. `BackplanePanel` Lecture/Écriture/Temps réel) |
-| Sections sœurs de même niveau                 | **Onglets PREMIER niveau** (`<Tabs>`) — **JAMAIS 2 niveaux imbriqués**                                         |
-| Détail secondaire                             | **`Collapse` replié** (prop Mantine v9 = **`expanded`**, pas `in`)                                             |
-| Aperçu → détail au survol                     | **Pophover** `JsonPeek` / `DocHint` (lazy au survol)                                                           |
-| Beaucoup de lignes                            | **`DataGrid` paginé** (tri/recherche/filtre)                                                                   |
-| Explication / métaphore                       | **PAS sur l'écran factuel** → onglet/rubrique **Doc** + fiches `DocHint`                                       |
+| Sections sœurs de même niveau | **Onglets PREMIER niveau** (`<Tabs>`) — **JAMAIS 2 niveaux imbriqués** |
+| Détail secondaire | **`Collapse` replié** (prop Mantine v9 = **`expanded`**, pas `in`) |
+| Aperçu → détail au survol | **Pophover** `JsonPeek` / `DocHint` (lazy au survol) |
+| Beaucoup de lignes | **`DataGrid` paginé** (tri/recherche/filtre) |
+| Explication / métaphore | **PAS sur l'écran factuel** → onglet/rubrique **Doc** + fiches `DocHint` |
 
 **Anti-clickodrome (checklist)** :
 

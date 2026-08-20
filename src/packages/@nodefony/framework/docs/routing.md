@@ -592,20 +592,21 @@ Au boot, avec le debug actif, chaque route est aussi journalisée en une ligne
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                   | Cause (dans le code)                                                               | Correction                                                                                                                                 |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| 404 sur toutes les routes d'un contrôleur                  | `@controller` évalué avant les `@route`/`@Get` de la classe                        | Placer `@controller` **au-dessus** de la classe, décorateurs de méthode dans la classe                                                     |
-| 404 sur une route pourtant écrite                          | Le fichier du contrôleur n'est jamais importé — les routes naissent à l'import     | Le déclarer dans `@controllers([…])` du module                                                                                             |
-| `405` alors que la méthode « est déclarée »                | `method: "GET"` dans `@route` n'est **pas** filtrant                               | Utiliser `requirements: { methods: ["GET"] }` ou `@Get`                                                                                    |
-| `405` sur une requête `HEAD` d'une route `@Get`            | `HEAD` n'est pas déduit de `GET` : c'est une méthode distincte                     | Déclarer `requirements: { methods: ["GET", "HEAD"] }`                                                                                      |
-| Une route paramétrée avale un chemin littéral              | Premier match dans l'ordre de déclaration, aucune spécificité                      | Déclarer le littéral **avant** le paramétré                                                                                                |
-| `/files/*` ne répond pas sur `/files`                      | Le slash final est retiré avant le matching ; le motif exige `/files/`             | Déclarer une seconde route pour le chemin nu                                                                                               |
-| `{id}` ne capture pas `a/b`                                | Une variable vaut `[^/]+` — un seul segment, par construction                      | Utiliser un wildcard `*` si le `/` doit être capturé                                                                                       |
-| `500` au lieu d'un non-match sur une contrainte            | Un requirement par variable non satisfait **lève** (chaîne brute, `Route.ts:286`)  | Préférer la contrainte inline `{id}(\d+)`, qui ne matche pas                                                                               |
-| `403` inattendu sur une route qui « existe »               | La route est restreinte à un autre vhost (`@Domain`)                               | Retirer la restriction, ou servir ce vhost                                                                                                 |
-| Action WebSocket jamais atteinte                           | Transport `WEBSOCKET` absent des méthodes déclarées                                | `requirements: { methods: ["WEBSOCKET"] }`                                                                                                 |
+<!-- prettier-ignore -->
+| Symptôme | Cause (dans le code) | Correction |
+| --- | --- | --- |
+| 404 sur toutes les routes d'un contrôleur | `@controller` évalué avant les `@route`/`@Get` de la classe | Placer `@controller` **au-dessus** de la classe, décorateurs de méthode dans la classe |
+| 404 sur une route pourtant écrite | Le fichier du contrôleur n'est jamais importé — les routes naissent à l'import | Le déclarer dans `@controllers([…])` du module |
+| `405` alors que la méthode « est déclarée » | `method: "GET"` dans `@route` n'est **pas** filtrant | Utiliser `requirements: { methods: ["GET"] }` ou `@Get` |
+| `405` sur une requête `HEAD` d'une route `@Get` | `HEAD` n'est pas déduit de `GET` : c'est une méthode distincte | Déclarer `requirements: { methods: ["GET", "HEAD"] }` |
+| Une route paramétrée avale un chemin littéral | Premier match dans l'ordre de déclaration, aucune spécificité | Déclarer le littéral **avant** le paramétré |
+| `/files/*` ne répond pas sur `/files` | Le slash final est retiré avant le matching ; le motif exige `/files/` | Déclarer une seconde route pour le chemin nu |
+| `{id}` ne capture pas `a/b` | Une variable vaut `[^/]+` — un seul segment, par construction | Utiliser un wildcard `*` si le `/` doit être capturé |
+| `500` au lieu d'un non-match sur une contrainte | Un requirement par variable non satisfait **lève** (chaîne brute, `Route.ts:286`) | Préférer la contrainte inline `{id}(\d+)`, qui ne matche pas |
+| `403` inattendu sur une route qui « existe » | La route est restreinte à un autre vhost (`@Domain`) | Retirer la restriction, ou servir ce vhost |
+| Action WebSocket jamais atteinte | Transport `WEBSOCKET` absent des méthodes déclarées | `requirements: { methods: ["WEBSOCKET"] }` |
 | Une action nommée `session`/`request`/`method` est refusée | Le décorateur refuse tout nom déjà porté par `Controller` — il masquerait l'action | Renommer l'action (réservés : tout membre de `Controller`/`Service` — `session`, `get`, `set`, `remove`, `request`, `response`, `method`…) |
-| Les routes d'un test « fuient » sur le test suivant        | `Router.routes` est un état de processus partagé                                   | Sauvegarder/restaurer la table autour de chaque cas                                                                                        |
+| Les routes d'un test « fuient » sur le test suivant | `Router.routes` est un état de processus partagé | Sauvegarder/restaurer la table autour de chaque cas |
 
 ## 🧪 Tests & couverture
 

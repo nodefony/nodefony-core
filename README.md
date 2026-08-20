@@ -267,16 +267,17 @@ Aucun outil sur étagère ne connaît ces surfaces : il faut concevoir les attaq
 
 ## Ce qu'il y a dans la boîte
 
-| Brique                                                                                                    | Rôle                                                                                                                                                                                                          |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `nodefony`                                                                                                | Noyau : modules, injection de dépendances, configuration validée au démarrage, journalisation structurée corrélée, CLI — et le client temps réel partagé avec le navigateur                                   |
-| [`@nodefony/http`](src/packages/@nodefony/http)                                                           | Serveurs HTTP, HTTPS, HTTP/2 et WebSocket natifs, sessions, contextes de requête, certificats TLS                                                                                                             |
-| [`@nodefony/framework`](src/packages/@nodefony/framework)                                                 | Routeur, contrôleurs, décorateurs, vues — le modèle de programmation                                                                                                                                          |
-| [`@nodefony/security`](src/packages/@nodefony/security) · [`@nodefony/user`](src/packages/@nodefony/user) | Pare-feu par zones, authentification, autorisation par rôles, CSRF, audit                                                                                                                                     |
-| [`@nodefony/realtime`](src/packages/@nodefony/realtime)                                                   | Canaux, appels bidirectionnels, contre-pression, diffusion entre plusieurs instances                                                                                                                          |
-| [`@nodefony/orm-core`](src/packages/@nodefony/orm-core)                                                   | Un contrat de dépôt de données, plusieurs moteurs : [Drizzle](src/packages/@nodefony/drizzle) (SQLite, PostgreSQL, MySQL), [Mongoose](src/packages/@nodefony/mongoose), [Redis](src/packages/@nodefony/redis) |
-| [`@nodefony/frontend`](src/packages/@nodefony/frontend)                                                   | Construction et rechargement à chaud des frontends de chaque module                                                                                                                                           |
-| [`@nodefony/studio`](src/packages/@nodefony/studio)                                                       | Console d'administration                                                                                                                                                                                      |
+<!-- prettier-ignore -->
+| Brique | Rôle |
+| --- | --- |
+| `nodefony` | Noyau : modules, injection de dépendances, configuration validée au démarrage, journalisation structurée corrélée, CLI — et le client temps réel partagé avec le navigateur |
+| [`@nodefony/http`](src/packages/@nodefony/http) | Serveurs HTTP, HTTPS, HTTP/2 et WebSocket natifs, sessions, contextes de requête, certificats TLS |
+| [`@nodefony/framework`](src/packages/@nodefony/framework) | Routeur, contrôleurs, décorateurs, vues — le modèle de programmation |
+| [`@nodefony/security`](src/packages/@nodefony/security) · [`@nodefony/user`](src/packages/@nodefony/user) | Pare-feu par zones, authentification, autorisation par rôles, CSRF, audit |
+| [`@nodefony/realtime`](src/packages/@nodefony/realtime) | Canaux, appels bidirectionnels, contre-pression, diffusion entre plusieurs instances |
+| [`@nodefony/orm-core`](src/packages/@nodefony/orm-core) | Un contrat de dépôt de données, plusieurs moteurs : [Drizzle](src/packages/@nodefony/drizzle) (SQLite, PostgreSQL, MySQL), [Mongoose](src/packages/@nodefony/mongoose), [Redis](src/packages/@nodefony/redis) |
+| [`@nodefony/frontend`](src/packages/@nodefony/frontend) | Construction et rechargement à chaud des frontends de chaque module |
+| [`@nodefony/studio`](src/packages/@nodefony/studio) | Console d'administration |
 
 Un processus Node égale une instance : pas de superviseur maison, le passage à l'échelle revient à
 l'orchestrateur, et les journaux partent sur la sortie standard.

@@ -11,18 +11,19 @@ déjà existantes**. Pas de lecture intégrale des 57 fichiers (économie tokens
 
 ## Fréquence des thèmes (sur 565 bullets)
 
-| Thème                               | Fréq | Déjà gradué en `feedback_*` ?                                                |
-| ----------------------------------- | ---: | ---------------------------------------------------------------------------- |
-| lock / lint-staged / index.lock     |   66 | ✅ `git_index_lock`                                                          |
-| clear / compact / contexte / cache  |   65 | ✅ `token_economy` + `session_hygiene`                                       |
-| dist / rebuild / périmé / stale     |   56 | ✅ `root_dist_stale_modules` + `turbo_cache_stale_logs` + `session_pitfalls` |
-| skill (recommandations)             |   49 | — majoritairement « **Pas de nouveau skill** » (triage négatif)              |
-| restart / relance                   |   42 | ✅ `session_hygiene` (batcher les edits avant 1 restart)                     |
-| memory-test / heap / fuite          |   33 | ✅ `perf_memory_rule`                                                        |
-| HMR / vite                          |   32 | ✅ `session_hygiene`                                                         |
-| shell / bash / parallèle / dupliqué |   17 | ⏳ sas RETEX.md — **1 seule date (1×)**, pas mûr                             |
-| symbols.json                        |    4 | ✅ doc `.ai/symbols.json` (CLAUDE.md)                                        |
-| curl / frontend-verify              |    3 | ✅ `nodefony-frontend-verify` (skill créé)                                   |
+<!-- prettier-ignore -->
+| Thème | Fréq | Déjà gradué en `feedback_*` ? |
+| --- | ---: | --- |
+| lock / lint-staged / index.lock | 66 | ✅ `git_index_lock` |
+| clear / compact / contexte / cache | 65 | ✅ `token_economy` + `session_hygiene` |
+| dist / rebuild / périmé / stale | 56 | ✅ `root_dist_stale_modules` + `turbo_cache_stale_logs` + `session_pitfalls` |
+| skill (recommandations) | 49 | — majoritairement « **Pas de nouveau skill** » (triage négatif) |
+| restart / relance | 42 | ✅ `session_hygiene` (batcher les edits avant 1 restart) |
+| memory-test / heap / fuite | 33 | ✅ `perf_memory_rule` |
+| HMR / vite | 32 | ✅ `session_hygiene` |
+| shell / bash / parallèle / dupliqué | 17 | ⏳ sas RETEX.md — **1 seule date (1×)**, pas mûr |
+| symbols.json | 4 | ✅ doc `.ai/symbols.json` (CLAUDE.md) |
+| curl / frontend-verify | 3 | ✅ `nodefony-frontend-verify` (skill créé) |
 
 ## Verdict : rien à graduer, pipeline sain
 

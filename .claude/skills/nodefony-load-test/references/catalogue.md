@@ -101,17 +101,18 @@ Un décor à part, avec son propre `node_modules` (16 Mo, **non versionné**) : 
 des serveurs nus pour situer le coût du pipeline. Le résultat de Nodefony vient de
 `scripts/bench-ab-mono.sh`, pas d'ici.
 
-| Fichier                    | Rôle                                                                                                                                                                                                                                                                                                       |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bench.sh`                 | orchestre la comparaison des trois cibles et rend le tableau                                                                                                                                                                                                                                               |
-| `bare.mjs`                 | serveur `node:http` nu — le plancher absolu, sans routeur ni middleware                                                                                                                                                                                                                                    |
-| `express.mjs`              | Express avec sa configuration usuelle                                                                                                                                                                                                                                                                      |
-| `express-fair.mjs`         | Express **à parité de fonctionnalités** — c'est celui qui rend la comparaison honnête                                                                                                                                                                                                                      |
-| `express-fair-proof.mjs`   | **preuve d'équité** : la cible de banc ne traverse rien de dormant — 1 000 req → 0 Set-Cookie, 0 commit sqlite (`PRAGMA data_version` + counts), profiler 404. À rejouer depuis la RACINE du repo, serveur mono prod au décor du banc lancé au préalable                                                   |
-| `fastify.mjs`              | Fastify avec sa configuration usuelle                                                                                                                                                                                                                                                                      |
-| `payload.mjs`              | la charge utile commune, pour que les trois répondent exactement la même chose                                                                                                                                                                                                                             |
-| `express-drizzle.mjs`      | Express + Drizzle à **parité ORM** avec le banc `NF_BENCH_ORM` (même schéma pg-core via le dist du module test, même version drizzle par résolution racine, même PG). `DRIZZLE_MODE=naive` (build/req, le code idiomatique) ou `prepared` (mémoïsé = le lot du framework). Recoupement croisé d'un A/B ORM |
-| `express-fair-drizzle.mjs` | le duel complet : middlewares d'`express-fair` **plus** la même requête Drizzle — l'écart restant face à Nodefony est le vrai surcoût à parité de travail ET d'ORM (mesuré ×1,07)                                                                                                                          |
+<!-- prettier-ignore -->
+| Fichier | Rôle |
+| --- | --- |
+| `bench.sh` | orchestre la comparaison des trois cibles et rend le tableau |
+| `bare.mjs` | serveur `node:http` nu — le plancher absolu, sans routeur ni middleware |
+| `express.mjs` | Express avec sa configuration usuelle |
+| `express-fair.mjs` | Express **à parité de fonctionnalités** — c'est celui qui rend la comparaison honnête |
+| `express-fair-proof.mjs` | **preuve d'équité** : la cible de banc ne traverse rien de dormant — 1 000 req → 0 Set-Cookie, 0 commit sqlite (`PRAGMA data_version` + counts), profiler 404. À rejouer depuis la RACINE du repo, serveur mono prod au décor du banc lancé au préalable |
+| `fastify.mjs` | Fastify avec sa configuration usuelle |
+| `payload.mjs` | la charge utile commune, pour que les trois répondent exactement la même chose |
+| `express-drizzle.mjs` | Express + Drizzle à **parité ORM** avec le banc `NF_BENCH_ORM` (même schéma pg-core via le dist du module test, même version drizzle par résolution racine, même PG). `DRIZZLE_MODE=naive` (build/req, le code idiomatique) ou `prepared` (mémoïsé = le lot du framework). Recoupement croisé d'un A/B ORM |
+| `express-fair-drizzle.mjs` | le duel complet : middlewares d'`express-fair` **plus** la même requête Drizzle — l'écart restant face à Nodefony est le vrai surcoût à parité de travail ET d'ORM (mesuré ×1,07) |
 
 > Comparer un framework à un serveur nu ne dit presque rien : `express-fair.mjs` existe parce
 > qu'une comparaison sans parité de fonctionnalités mesure surtout ce qu'on a oublié de brancher.
@@ -128,12 +129,13 @@ appliqué au boot avant le Zod du module) : aucun fichier de config à éditer, 
 oublier avant un commit. Les deux bancs rate-limit demandent des plafonds DIFFÉRENTS → un serveur
 chacun, jamais le même :
 
-| Banc                         | À relancer avec                                                                                                                                                                        |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ratelimit-e2e`              | `NF__HTTP__RATELIMIT__ENABLED=true NF__HTTP__RATELIMIT__MAX=5 NF__HTTP__RATELIMIT__WINDOWS=5`                                                                                          |
-| `ws-handshake-ratelimit-e2e` | `NF__HTTP__RATELIMIT__ENABLED=true NF__HTTP__RATELIMIT__MAX=15 NF__HTTP__RATELIMIT__WINDOWS=30`                                                                                        |
-| `ws-conn-cap-e2e`            | `NF__HTTP__WSMAXCONNECTIONSPERIP=3`                                                                                                                                                    |
-| `webhooks-dataplane-e2e`     | `NF__SECURITY__WEBHOOKS__DENYPRIVATEIPS=true` (anti-SSRF strict) — sinon le sous-test « create SSRF → 422 » obtient **201** (le dev autorise le réseau privé, `169.254.169.254` passe) |
+<!-- prettier-ignore -->
+| Banc | À relancer avec |
+| --- | --- |
+| `ratelimit-e2e` | `NF__HTTP__RATELIMIT__ENABLED=true NF__HTTP__RATELIMIT__MAX=5 NF__HTTP__RATELIMIT__WINDOWS=5` |
+| `ws-handshake-ratelimit-e2e` | `NF__HTTP__RATELIMIT__ENABLED=true NF__HTTP__RATELIMIT__MAX=15 NF__HTTP__RATELIMIT__WINDOWS=30` |
+| `ws-conn-cap-e2e` | `NF__HTTP__WSMAXCONNECTIONSPERIP=3` |
+| `webhooks-dataplane-e2e` | `NF__SECURITY__WEBHOOKS__DENYPRIVATEIPS=true` (anti-SSRF strict) — sinon le sous-test « create SSRF → 422 » obtient **201** (le dev autorise le réseau privé, `169.254.169.254` passe) |
 
 **B. Autonomes** (forkent leur propre serveur → 0 serveur dev requis, mais `npm run build` d'abord) :
 `cluster-*`, `idempotency-postgres`, `config-env-override`, `graceful-shutdown`.

@@ -76,13 +76,14 @@ disparaît au `down`, et monte `tmp/browser/` du dépôt sur son `/output`.
 
 **Laquelle prendre** — le conteneur n'est pas « la bonne façon », c'est un compromis :
 
-| Ce qu'on fait                                              | Voie          | Pourquoi                                                                                                                                          |
-| ---------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Corriger un écran, vérifier la correction, lire la console | **locale**    | la boucle est bien plus courte — aucune copie entre deux essais (cette session en a payé sept)                                                    |
-| **Comparer** une mesure dans le temps ou entre machines    | **conteneur** | image épinglée par empreinte : même navigateur aujourd'hui et dans six mois. Un contraste ne bouge pas d'une version à l'autre — un Web Vital, si |
-| **Intégration continue**                                   | **conteneur** | un exécuteur sans interface graphique a déjà tout, et c'est le même décor qu'en local                                                             |
-| Session authentifiée avec des identifiants **sensibles**   | **conteneur** | le navigateur n'y voit ni le disque du poste ni son réseau local                                                                                  |
-| Ne rien vouloir installer sur le poste                     | **conteneur** | l'image porte navigateur, pilote et bibliothèques système                                                                                         |
+<!-- prettier-ignore -->
+| Ce qu'on fait | Voie | Pourquoi |
+| --- | --- | --- |
+| Corriger un écran, vérifier la correction, lire la console | **locale** | la boucle est bien plus courte — aucune copie entre deux essais (cette session en a payé sept) |
+| **Comparer** une mesure dans le temps ou entre machines | **conteneur** | image épinglée par empreinte : même navigateur aujourd'hui et dans six mois. Un contraste ne bouge pas d'une version à l'autre — un Web Vital, si |
+| **Intégration continue** | **conteneur** | un exécuteur sans interface graphique a déjà tout, et c'est le même décor qu'en local |
+| Session authentifiée avec des identifiants **sensibles** | **conteneur** | le navigateur n'y voit ni le disque du poste ni son réseau local |
+| Ne rien vouloir installer sur le poste | **conteneur** | l'image porte navigateur, pilote et bibliothèques système |
 
 Le coût du conteneur, lui, se paie à CHAQUE tour de boucle : le démarrer, recopier les sondes après
 chaque modification, joindre l'application par `host.docker.internal` (§4), publier les ports.

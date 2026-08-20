@@ -87,18 +87,19 @@ Kernel onTerminate
 
 ## Décisions techniques figées
 
-| Sujet                      | Décision                                                                                                                                                                                                                                                                                                                                                         |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Builder                    | **Vite** — ESM natif, HMR rapide, cohérence rolldown backend (même moteur oxc)                                                                                                                                                                                                                                                                                   |
-| Supervisor (cette branche) | `child_process.spawn("npx vite ...")` — process système isolé                                                                                                                                                                                                                                                                                                    |
-| Config Vite                | Fichier `.mjs` GÉNÉRÉ au boot dans `${root}/vite.config.generated.mjs`                                                                                                                                                                                                                                                                                           |
-| Plugins                    | Hardcodés dans le `.mjs` généré selon les preset types détectés                                                                                                                                                                                                                                                                                                  |
-| Logs                       | `child.stdout.pipe → syslog Nodefony` (pas de sérialisation JSON)                                                                                                                                                                                                                                                                                                |
-| Cleanup                    | `SIGINT` puis `SIGKILL` timeout 3s — évite zombies bloquant 5173                                                                                                                                                                                                                                                                                                 |
-| Multi-bundles              | **Une seule instance Vite multi-entry** (rolldown-style `input` map)                                                                                                                                                                                                                                                                                             |
-| Dev déporté (P14.17)       | `devHost` = ÉCOUTE seulement ; l'origine PUBLIQUE (assets, `base`, WS HMR, `allowedHosts`) vient de `frontend.publicOrigin` (template `{port}`) ou de la détection Codespaces/Gitpod — calcul pur `nodefony/src/remoteDev.ts`, source unique = `status().origin`                                                                                                 |
-| Origine dérivée du `Host`  | Défaut en dev quand aucune origine n'est épinglée : chaque page annonce l'origine par laquelle le client est arrivé (NOM seul ; scheme et port restent ceux de Vite). Poste et conteneur servis en même temps, sans variable. Gardé par `trustedHosts` (`HttpKernel.isTrustedHostname`) — la MÊME liste qui nourrit le CSP et `allowedHosts`. PROD : sans objet. |
-| Outils Vite                | **Ni deps NI peers** — `await import()` seul ; l'app les déclare (cf § ci-dessous)                                                                                                                                                                                                                                                                               |
+<!-- prettier-ignore -->
+| Sujet | Décision |
+| --- | --- |
+| Builder | **Vite** — ESM natif, HMR rapide, cohérence rolldown backend (même moteur oxc) |
+| Supervisor (cette branche) | `child_process.spawn("npx vite ...")` — process système isolé |
+| Config Vite | Fichier `.mjs` GÉNÉRÉ au boot dans `${root}/vite.config.generated.mjs` |
+| Plugins | Hardcodés dans le `.mjs` généré selon les preset types détectés |
+| Logs | `child.stdout.pipe → syslog Nodefony` (pas de sérialisation JSON) |
+| Cleanup | `SIGINT` puis `SIGKILL` timeout 3s — évite zombies bloquant 5173 |
+| Multi-bundles | **Une seule instance Vite multi-entry** (rolldown-style `input` map) |
+| Dev déporté (P14.17) | `devHost` = ÉCOUTE seulement ; l'origine PUBLIQUE (assets, `base`, WS HMR, `allowedHosts`) vient de `frontend.publicOrigin` (template `{port}`) ou de la détection Codespaces/Gitpod — calcul pur `nodefony/src/remoteDev.ts`, source unique = `status().origin` |
+| Origine dérivée du `Host` | Défaut en dev quand aucune origine n'est épinglée : chaque page annonce l'origine par laquelle le client est arrivé (NOM seul ; scheme et port restent ceux de Vite). Poste et conteneur servis en même temps, sans variable. Gardé par `trustedHosts` (`HttpKernel.isTrustedHostname`) — la MÊME liste qui nourrit le CSP et `allowedHosts`. PROD : sans objet. |
+| Outils Vite | **Ni deps NI peers** — `await import()` seul ; l'app les déclare (cf § ci-dessous) |
 
 ## Mode prod (build + renderProdTags)
 

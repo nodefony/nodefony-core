@@ -82,15 +82,16 @@ ascendante pour attribuer chaque poste à son appelant réel.
 Le profil a été doublé d'une **sonde de comptage** — pas une mesure de temps, un compte exact sur
 107 618 requêtes :
 
-| Opération                                 | Par requête | Détail                                                                                    |
-| ----------------------------------------- | ----------: | ----------------------------------------------------------------------------------------- |
-| `res.setHeader`                           |        10,0 | serveur · nosniff · cadre · référent · CSP · id de requête · traçage · type ×2 · longueur |
-| `res.removeHeader`                        |         3,0 | type de contenu ×2 (aller-retour) · longueur                                              |
-| `socket.setTimeout`                       |         3,0 | 2 par Node (délais désalignés) + 1 par le framework                                       |
-| `res.writeHead` avec message personnalisé |         1,0 | à **chaque** requête → chemin lent de Node                                                |
-| `res.getHeaders()` (copie intégrale)      |         1,0 | un `hasHeader` maison qui copiait tout                                                    |
-| Écouteurs attachés                        |         4,0 | fermeture ×2 · fin · terminé — majoritairement internes à Node                            |
-| `res.write` + `res.end`                   |         2,0 | deux écritures logiques par requête                                                       |
+<!-- prettier-ignore -->
+| Opération | Par requête | Détail |
+| --- | ---: | --- |
+| `res.setHeader` | 10,0 | serveur · nosniff · cadre · référent · CSP · id de requête · traçage · type ×2 · longueur |
+| `res.removeHeader` | 3,0 | type de contenu ×2 (aller-retour) · longueur |
+| `socket.setTimeout` | 3,0 | 2 par Node (délais désalignés) + 1 par le framework |
+| `res.writeHead` avec message personnalisé | 1,0 | à **chaque** requête → chemin lent de Node |
+| `res.getHeaders()` (copie intégrale) | 1,0 | un `hasHeader` maison qui copiait tout |
+| Écouteurs attachés | 4,0 | fermeture ×2 · fin · terminé — majoritairement internes à Node |
+| `res.write` + `res.end` | 2,0 | deux écritures logiques par requête |
 
 Un compte de ce genre ne dépend ni de la machine, ni de la charge, ni de l'instrument. C'est lui
 qui a rendu les corrections évidentes : trois armements de délai par requête quand un seul a du

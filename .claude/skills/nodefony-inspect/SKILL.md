@@ -27,17 +27,18 @@ requête indexée ou un `git diff` ciblé — jamais en chargeant des fichiers e
 
 ## 1. Quand m'utiliser / quand passer la main
 
-| Besoin                                                             | Où aller                                      |
-| ------------------------------------------------------------------ | --------------------------------------------- |
-| Impact d'un refactor, consommateurs d'un symbole, TSDoc, position  | **ici** — §3                                  |
-| Ordre des arguments, `static`/`private`, décorateurs d'une méthode | **ici** — §4                                  |
-| Config, services injectés, routes d'un module **existant**         | **ici** — §5                                  |
-| Ce que j'ai modifié, modules impactés avant build/test             | **ici** — §6                                  |
-| Comprendre **ce que fait** une fonction                            | lire son corps — l'index ne porte pas le code |
-| Créer un module / un service                                       | `nodefony-create-module`                      |
-| Comprendre une architecture ou une API du cœur                     | `nodefony-framework-dev`                      |
-| État d'avancement d'une phase                                      | `nodefony-migration-audit`                    |
-| Revue de sécurité du diff                                          | `nodefony-security-review`                    |
+<!-- prettier-ignore -->
+| Besoin | Où aller |
+| --- | --- |
+| Impact d'un refactor, consommateurs d'un symbole, TSDoc, position | **ici** — §3 |
+| Ordre des arguments, `static`/`private`, décorateurs d'une méthode | **ici** — §4 |
+| Config, services injectés, routes d'un module **existant** | **ici** — §5 |
+| Ce que j'ai modifié, modules impactés avant build/test | **ici** — §6 |
+| Comprendre **ce que fait** une fonction | lire son corps — l'index ne porte pas le code |
+| Créer un module / un service | `nodefony-create-module` |
+| Comprendre une architecture ou une API du cœur | `nodefony-framework-dev` |
+| État d'avancement d'une phase | `nodefony-migration-audit` |
+| Revue de sécurité du diff | `nodefony-security-review` |
 
 **Le gain** : `cat src/.../HttpContext.ts` coûte ~4 000 tokens ; la requête `jq` équivalente en coûte
 ~50. Lire un service complet pour savoir comment il est _enregistré_ coûte dix fois la lecture des

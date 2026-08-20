@@ -90,18 +90,19 @@ renvoient le **même objet**. Le décor est honnête : l'écart ne vient pas d'u
 
 Il vient de ce que Nodefony fait **en plus**, à chaque requête :
 
-| Nodefony, par requête                                                                                                                       | Équivalent Fastify                                  |
-| ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Instancie 5-6 objets d'infrastructure (Scope DI, HttpContext qui est un `Service` complet, HttpRequest, HttpResponse, Resolver, Controller) | 2 enveloppes légères, handler unique partagé        |
-| ~25 frames de promesses, dont 3 `fireAsync` sans abonné et un `saveSession` sans session                                                    | 2-3 promesses                                       |
-| 3 traitements d'URL (deux analyses complètes + un reformatage)                                                                              | analyse de la query string seule                    |
-| 12-14 opérations d'en-têtes, dont des valeurs constantes reposées à chaque fois                                                             | ~4, en un bloc                                      |
-| `randomUUID` (199 ns) pour le `requestId` + `traceparent` W3C                                                                               | compteur incrémental                                |
-| 2× `Buffer.from` du corps + un `Buffer.alloc(0)`                                                                                            | une conversion interne                              |
-| ~10 résolutions de conteneur + 3 `Reflect.getMetadata`                                                                                      | aucune                                              |
-| Firewall sur toutes les requêtes : zones, CORS, CSRF, en-têtes de sécurité                                                                  | aucun — **c'est une fonctionnalité, pas un défaut** |
-| `AsyncLocalStorage` (~50-100 ns) pour la corrélation                                                                                        | aucun                                               |
-| Démontage structuré : sortie de scope DI, listeners tracés                                                                                  | aucun                                               |
+<!-- prettier-ignore -->
+| Nodefony, par requête | Équivalent Fastify |
+| --- | --- |
+| Instancie 5-6 objets d'infrastructure (Scope DI, HttpContext qui est un `Service` complet, HttpRequest, HttpResponse, Resolver, Controller) | 2 enveloppes légères, handler unique partagé |
+| ~25 frames de promesses, dont 3 `fireAsync` sans abonné et un `saveSession` sans session | 2-3 promesses |
+| 3 traitements d'URL (deux analyses complètes + un reformatage) | analyse de la query string seule |
+| 12-14 opérations d'en-têtes, dont des valeurs constantes reposées à chaque fois | ~4, en un bloc |
+| `randomUUID` (199 ns) pour le `requestId` + `traceparent` W3C | compteur incrémental |
+| 2× `Buffer.from` du corps + un `Buffer.alloc(0)` | une conversion interne |
+| ~10 résolutions de conteneur + 3 `Reflect.getMetadata` | aucune |
+| Firewall sur toutes les requêtes : zones, CORS, CSRF, en-têtes de sécurité | aucun — **c'est une fonctionnalité, pas un défaut** |
+| `AsyncLocalStorage` (~50-100 ns) pour la corrélation | aucun |
+| Démontage structuré : sortie de scope DI, listeners tracés | aucun |
 
 ### Deux hypothèses commodes, réfutées par la mesure
 
@@ -194,15 +195,16 @@ WebSocket, injection de dépendances, sécurité par défaut, observabilité. On
 pas, on l'assume ou l'on change d'architecture. L'**accidentel** est du travail fait pour
 rien.
 
-| Structurel — assumé                                       | Accidentel — corrigible                                                                                 |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Scope DI par requête (déjà optimisé)                      | `Event` + `Map` + étalement + `delete` par `Service`, par requête                                       |
-| `AsyncLocalStorage` (~50-100 ns)                          | Double `setBody`, double regex, `statusMessage` systématique                                            |
+<!-- prettier-ignore -->
+| Structurel — assumé | Accidentel — corrigible |
+| --- | --- |
+| Scope DI par requête (déjà optimisé) | `Event` + `Map` + étalement + `delete` par `Service`, par requête |
+| `AsyncLocalStorage` (~50-100 ns) | Double `setBody`, double regex, `statusMessage` systématique |
 | Contexte riche (métadonnées, cookies, session paresseuse) | `url.format` redondant, `originUrl` eager, singleton `ACCEPT_ANY` ignoré (`parser.ts:291` vs `315-317`) |
-| `requestId` UUID + `traceparent` W3C (des contrats)       | `fireAsync` non gardés, `saveSession` attendu à vide                                                    |
-| Passes firewall systématiques                             | 3 `Reflect.getMetadata` par requête (mémoïsables)                                                       |
-| Routeur à regex compilées + index O(1)                    | `timeout` / `responseTimeout` désalignés                                                                |
-| Audit JSON en production (choix d'observabilité)          | `setLength` : tableaux alloués par appel, `hasHeader` par copie                                         |
+| `requestId` UUID + `traceparent` W3C (des contrats) | `fireAsync` non gardés, `saveSession` attendu à vide |
+| Passes firewall systématiques | 3 `Reflect.getMetadata` par requête (mémoïsables) |
+| Routeur à regex compilées + index O(1) | `timeout` / `responseTimeout` désalignés |
+| Audit JSON en production (choix d'observabilité) | `setLength` : tableaux alloués par appel, `hasHeader` par copie |
 
 ## Gains rapides, et ce qui les prouve
 

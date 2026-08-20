@@ -44,14 +44,15 @@ Lire `MIGRATION_STATUS.md` (au moins les en-têtes `grep -nE "^### P[0-9]+|^## P
 
 Modes :
 
-| Mode                         | Argument slash                | Comportement                                                                                                                                                                                                                       |
-| ---------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Phase par phase** (défaut) | `phase` / vide                | Revue interactive P0→P16 (Étape 1), STOP après chaque phase, le user dit « suivante ».                                                                                                                                             |
-| **Tableau / synthèse**       | `tableau` `synthèse` `résumé` | Uniquement la synthèse graphique (barres + encadré « prochaine étape »). Aucun arrêt, aucune correction (sauf demande).                                                                                                            |
-| **Auto**                     | `auto`                        | Audit COMPLET non-interactif : exécuter la vérif code de **toutes** les phases et sortir leurs tableaux **d'affilée** (sans STOP « suivante »), puis le récap (Étape 2) + corrections proposées. Demander l'accord avant d'écrire. |
-| **Une phase**                | `P<n>` (ex. `P6`)             | Audit ciblé d'une seule phase.                                                                                                                                                                                                     |
-| **Reprendre**                | `reprendre`                   | Lire `project_migration_audit_progress`, repartir où on s'était arrêté.                                                                                                                                                            |
-| **Vérité / assainir**        | `vérité` `assainir`           | Passe « gros point » : audit exhaustif croisé (code + mémoire IA + docs + MD) → **fichier d'audit persistant** + **assainissement de forme** du dashboard. Voir section dédiée.                                                    |
+<!-- prettier-ignore -->
+| Mode | Argument slash | Comportement |
+| --- | --- | --- |
+| **Phase par phase** (défaut) | `phase` / vide | Revue interactive P0→P16 (Étape 1), STOP après chaque phase, le user dit « suivante ». |
+| **Tableau / synthèse** | `tableau` `synthèse` `résumé` | Uniquement la synthèse graphique (barres + encadré « prochaine étape »). Aucun arrêt, aucune correction (sauf demande). |
+| **Auto** | `auto` | Audit COMPLET non-interactif : exécuter la vérif code de **toutes** les phases et sortir leurs tableaux **d'affilée** (sans STOP « suivante »), puis le récap (Étape 2) + corrections proposées. Demander l'accord avant d'écrire. |
+| **Une phase** | `P<n>` (ex. `P6`) | Audit ciblé d'une seule phase. |
+| **Reprendre** | `reprendre` | Lire `project_migration_audit_progress`, repartir où on s'était arrêté. |
+| **Vérité / assainir** | `vérité` `assainir` | Passe « gros point » : audit exhaustif croisé (code + mémoire IA + docs + MD) → **fichier d'audit persistant** + **assainissement de forme** du dashboard. Voir section dédiée. |
 
 ### Étape 1 — Boucle phase par phase (modes `phase` et `auto`)
 
@@ -330,16 +331,17 @@ ASSAINISSEMENT  ·  MIGRATION_STATUS.md
 
 ## Recettes de vérification (code, pas fichier)
 
-| Type de tâche             | Commande de vérif                                                                                                  |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+<!-- prettier-ignore -->
+| Type de tâche | Commande de vérif |
+| --- | --- |
 | Module existe + a du code | `find src/packages/@nodefony/<m> -name '*.ts' \| grep -vE 'dist\|node_modules\|d.ts' \| wc -l` (0 = coquille vide) |
-| Service/classe précise    | `grep -rl "class <X>" src/.../<m> --include=*.ts \| grep -v dist`                                                  |
-| Décorateur / API          | `grep -rln "<@Decorator>\|<symbolName>" src --include=*.ts \| grep -v dist` ou `.ai/symbols.json`                  |
-| Endpoint/route défini     | `grep -rhoE '@(Get\|Post\|controller)\("[^"]+"\)' <controller>.ts`                                                 |
-| Test existe               | `find src/.../<m> -iname '*<feature>*test*' \| grep -v dist`                                                       |
-| Symbole exporté           | `jq '.symbols.<Name>' .ai/symbols.json` (cf skill `nodefony-inspect`)                                              |
-| Vulnérabilités            | `npm audit 2>/dev/null \| grep vulnerabilities \| tail -1`                                                         |
-| Runtime (endpoint répond) | serveur up (`nodefony-start-server`) puis `curl -sk https://127.0.0.1:5152/<route>`                                |
+| Service/classe précise | `grep -rl "class <X>" src/.../<m> --include=*.ts \| grep -v dist` |
+| Décorateur / API | `grep -rln "<@Decorator>\|<symbolName>" src --include=*.ts \| grep -v dist` ou `.ai/symbols.json` |
+| Endpoint/route défini | `grep -rhoE '@(Get\|Post\|controller)\("[^"]+"\)' <controller>.ts` |
+| Test existe | `find src/.../<m> -iname '*<feature>*test*' \| grep -v dist` |
+| Symbole exporté | `jq '.symbols.<Name>' .ai/symbols.json` (cf skill `nodefony-inspect`) |
+| Vulnérabilités | `npm audit 2>/dev/null \| grep vulnerabilities \| tail -1` |
+| Runtime (endpoint répond) | serveur up (`nodefony-start-server`) puis `curl -sk https://127.0.0.1:5152/<route>` |
 
 > ⚠️ Une tâche peut être **livrée via une autre** (ex. P2.1 timing = livré par P1.1 ; tests P4.4 WS écrits pendant P0/P1). Toujours chercher le livrable, pas le numéro.
 

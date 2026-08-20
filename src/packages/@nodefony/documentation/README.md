@@ -47,16 +47,17 @@ export default {
 };
 ```
 
-| Option                | Défaut                                     | Rôle                                                           |
-| --------------------- | ------------------------------------------ | -------------------------------------------------------------- |
-| `enabled`             | `true`                                     | Active le data plane au boot                                   |
-| `scan.rootDir`        | `"docs"`                                   | Dossier de doc transverse, relatif à `kernel.path`             |
-| `scan.includeModules` | `true`                                     | Scanne aussi les `<module>/docs/*.md`                          |
-| `scan.exclude`        | `["session-retros","node_modules","dist"]` | Segments de chemin ignorés                                     |
-| `repo.url`            | dépôt nodefony-core                        | Base du lien « Modifier sur GitHub » (URL publique)            |
-| `repo.branch`         | _(auto)_                                   | Branche du lien ; si omise → branche git réelle (`GitService`) |
-| `repo.editPathPrefix` | `"edit"`                                   | Segment GitHub : `edit` / `blob` / `tree`                      |
-| `cache.ttlMs`         | `30000`                                    | TTL (ms) du cache de l'**index** ; `0` = pas de cache          |
+<!-- prettier-ignore -->
+| Option | Défaut | Rôle |
+| --- | --- | --- |
+| `enabled` | `true` | Active le data plane au boot |
+| `scan.rootDir` | `"docs"` | Dossier de doc transverse, relatif à `kernel.path` |
+| `scan.includeModules` | `true` | Scanne aussi les `<module>/docs/*.md` |
+| `scan.exclude` | `["session-retros","node_modules","dist"]` | Segments de chemin ignorés |
+| `repo.url` | dépôt nodefony-core | Base du lien « Modifier sur GitHub » (URL publique) |
+| `repo.branch` | _(auto)_ | Branche du lien ; si omise → branche git réelle (`GitService`) |
+| `repo.editPathPrefix` | `"edit"` | Segment GitHub : `edit` / `blob` / `tree` |
+| `cache.ttlMs` | `30000` | TTL (ms) du cache de l'**index** ; `0` = pas de cache |
 
 **Variables d'environnement** (précédence maximale, utiles en CI/conteneur sans `.git`) :
 `DOCS_REPO_URL`, `DOCS_REPO_BRANCH`.

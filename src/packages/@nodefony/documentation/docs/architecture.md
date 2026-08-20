@@ -430,17 +430,18 @@ sortie quand un outil sait, lui, que le disque a bougé.
 Table dérivée du schéma Zod (`documentationConfigSchema`, `config.ts:134`), qui est la source
 unique des défauts.
 
-| Clé                     | Type                       | Défaut                                       | Effet                                                                  |
-| ----------------------- | -------------------------- | -------------------------------------------- | ---------------------------------------------------------------------- |
-| `enabled`               | booléen                    | `true`                                       | drapeau d'activation déclaré au schéma (`config.ts:136`)               |
-| `scan.rootDir`          | chaîne                     | `"docs"`                                     | dossier transverse, relatif à la racine du projet                      |
-| `scan.includeModules`   | booléen                    | `true`                                       | ajoute les `<module>/docs/` des modules chargés                        |
-| `scan.includeInstalled` | booléen                    | `true`                                       | ajoute les paquets installés non chargés (`config.ts:64`)              |
-| `scan.exclude`          | liste de chaînes           | `["session-retros", "node_modules", "dist"]` | segments de chemin ignorés (`config.ts:75`)                            |
-| `repo.url`              | chaîne                     | dépôt nodefony-core                          | base du lien « voir la source »                                        |
-| `repo.branch`           | chaîne (option.)           | — → branche git réelle, sinon `main`         | branche du lien source                                                 |
-| `repo.editPathPrefix`   | `edit` \| `blob` \| `tree` | `"edit"`                                     | segment GitHub : éditeur web, lecture, ou dossier                      |
-| `cache.ttlMs`           | entier ≥ 0                 | `30000`                                      | fraîcheur de l'index ; `0` = rescan à chaque requête (`config.ts:120`) |
+<!-- prettier-ignore -->
+| Clé | Type | Défaut | Effet |
+| --- | --- | --- | --- |
+| `enabled` | booléen | `true` | drapeau d'activation déclaré au schéma (`config.ts:136`) |
+| `scan.rootDir` | chaîne | `"docs"` | dossier transverse, relatif à la racine du projet |
+| `scan.includeModules` | booléen | `true` | ajoute les `<module>/docs/` des modules chargés |
+| `scan.includeInstalled` | booléen | `true` | ajoute les paquets installés non chargés (`config.ts:64`) |
+| `scan.exclude` | liste de chaînes | `["session-retros", "node_modules", "dist"]` | segments de chemin ignorés (`config.ts:75`) |
+| `repo.url` | chaîne | dépôt nodefony-core | base du lien « voir la source » |
+| `repo.branch` | chaîne (option.) | — → branche git réelle, sinon `main` | branche du lien source |
+| `repo.editPathPrefix` | `edit` \| `blob` \| `tree` | `"edit"` | segment GitHub : éditeur web, lecture, ou dossier |
+| `cache.ttlMs` | entier ≥ 0 | `30000` | fraîcheur de l'index ; `0` = rescan à chaque requête (`config.ts:120`) |
 
 Deux variables d'environnement écrasent la config, appliquées **après** le parse pour que le
 schéma reste pur et sérialisable (`defineDocumentationConfig()`, `defineModuleConfig.ts:32`) :

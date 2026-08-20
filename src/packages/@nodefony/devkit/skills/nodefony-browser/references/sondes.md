@@ -15,17 +15,18 @@ identifiant sans chemin de connexion) ; 65 : le texte attendu n'est jamais appar
 
 ## Le socle — toujours rendu
 
-| Champ                 | Ce que c'est                                                                                               |
-| --------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `url`                 | La page RÉELLEMENT ouverte — à comparer à celle demandée (redirection de connexion, 404 SPA).              |
-| `theme` / `lang`      | `color-scheme` **calculé** (ce que le moteur applique) et attribut `lang` de la racine.                    |
-| `titre`               | `document.title`.                                                                                          |
-| `scripts`             | Les scripts RÉELLEMENT servis — pour vérifier qu'on observe bien le bundle qu'on vient de bâtir.           |
-| `sondes`              | Les sondes de style (voir ci-dessous).                                                                     |
-| `violationsCSP`       | Les violations de Content-Security-Policy vues PAR la page — le réseau montre l'absence, jamais la raison. |
-| `erreursConsole`      | Les `console.error` émis pendant la mesure.                                                                |
-| `erreursNonCapturees` | Les exceptions non capturées (`pageerror`) — elles ne passent pas toutes par la console.                   |
-| `capture`             | Le PNG horodaté déposé dans le volume monté.                                                               |
+<!-- prettier-ignore -->
+| Champ | Ce que c'est |
+| --- | --- |
+| `url` | La page RÉELLEMENT ouverte — à comparer à celle demandée (redirection de connexion, 404 SPA). |
+| `theme` / `lang` | `color-scheme` **calculé** (ce que le moteur applique) et attribut `lang` de la racine. |
+| `titre` | `document.title`. |
+| `scripts` | Les scripts RÉELLEMENT servis — pour vérifier qu'on observe bien le bundle qu'on vient de bâtir. |
+| `sondes` | Les sondes de style (voir ci-dessous). |
+| `violationsCSP` | Les violations de Content-Security-Policy vues PAR la page — le réseau montre l'absence, jamais la raison. |
+| `erreursConsole` | Les `console.error` émis pendant la mesure. |
+| `erreursNonCapturees` | Les exceptions non capturées (`pageerror`) — elles ne passent pas toutes par la console. |
+| `capture` | Le PNG horodaté déposé dans le volume monté. |
 
 Les erreurs de console et les violations CSP **ne pèsent pas** dans le verdict global : un parcours
 de connexion produit des `401` légitimes, et les trancher ici les ferait passer pour des pannes.
@@ -56,13 +57,14 @@ fond effectif, rapport de contraste, police, verdict WCAG, taille rendue.
 Une centaine de règles jouées par `axe-core`, dont le contraste de **tout** le texte visible. C'est
 le moteur qu'embarque Lighthouse pour son volet accessibilité.
 
-| Champ          | Ce qu'il dit                                                                                                                       |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `manquements`  | Les défauts AVÉRÉS, comptés par gravité (critique, sérieux, modéré, mineur)                                                        |
-| `plusGraves`   | Jusqu'à 8 règles, du plus grave au moins grave, avec **5 cibles** chacune et le `constat` calculé (contraste mesuré, rôle attendu) |
-| `autresCibles` | Ce qui dépasse les 5 — annoncé, jamais tronqué en silence                                                                          |
-| `aVerifier`    | Ce que le moteur REFUSE de trancher (fond en image…) — **pas** des défauts                                                         |
-| `conformes`    | Les règles passées, pour situer le reste                                                                                           |
+<!-- prettier-ignore -->
+| Champ | Ce qu'il dit |
+| --- | --- |
+| `manquements` | Les défauts AVÉRÉS, comptés par gravité (critique, sérieux, modéré, mineur) |
+| `plusGraves` | Jusqu'à 8 règles, du plus grave au moins grave, avec **5 cibles** chacune et le `constat` calculé (contraste mesuré, rôle attendu) |
+| `autresCibles` | Ce qui dépasse les 5 — annoncé, jamais tronqué en silence |
+| `aVerifier` | Ce que le moteur REFUSE de trancher (fond en image…) — **pas** des défauts |
+| `conformes` | Les règles passées, pour situer le reste |
 
 - **`aVerifier` n'est pas un manquement** et ne déclenche pas l'alerte. Le confondre ferait crier la
   sonde sur des pages saines, et on cesserait de la lire.

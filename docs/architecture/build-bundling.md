@@ -334,12 +334,13 @@ périmé, ni échouer parce qu'un `dist` manque. Le second est le standard npm, 
 
 ### Qui utilise quoi, réellement
 
-| Pattern                       | Paquets                                                                                                                                                 |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Source TS** (`./index.ts`)  | `@nodefony/http` · `@nodefony/framework` · `@nodefony/security` · `@nodefony/user` · `@nodefony/orm-core` · `@nodefony/frontend` · `@nodefony/realtime` |
-| **Généré** (`./dist/types/…`) | `@nodefony/drizzle` · `@nodefony/mongoose` · `@nodefony/redis` · `@nodefony/llm` · `@nodefony/documentation`                                            |
-| **Cas à part**                | `nodefony` (cœur) — deux conditions, `browser` et `import`, chacune avec ses types                                                                      |
-| **Aucun type public**         | `@nodefony/studio` — une application d'administration, pas une bibliothèque                                                                             |
+<!-- prettier-ignore -->
+| Pattern | Paquets |
+| --- | --- |
+| **Source TS** (`./index.ts`) | `@nodefony/http` · `@nodefony/framework` · `@nodefony/security` · `@nodefony/user` · `@nodefony/orm-core` · `@nodefony/frontend` · `@nodefony/realtime` |
+| **Généré** (`./dist/types/…`) | `@nodefony/drizzle` · `@nodefony/mongoose` · `@nodefony/redis` · `@nodefony/llm` · `@nodefony/documentation` |
+| **Cas à part** | `nodefony` (cœur) — deux conditions, `browser` et `import`, chacune avec ses types |
+| **Aucun type public** | `@nodefony/studio` — une application d'administration, pas une bibliothèque |
 
 Les paquets en source forment une **chaîne** qui doit rester continue et se terminer sur le cœur :
 `security → user → orm-core → nodefony`. Le cœur est le seul maillon en `dist/types`, et turbo le

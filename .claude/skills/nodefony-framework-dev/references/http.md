@@ -247,18 +247,19 @@ Exports config : `defineHttpConfig`, `httpConfigSchema`, `httpConfigJsonSchema`,
 
 `service/http-kernel.ts` (export `default`). Cœur du pipeline. Résolu du container (`getModules().http.get("httpKernel")`).
 
-| Méthode                                        | Signature                                                                            | Rôle                                                                                                  |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| `handle`                                       | `(request, response, type: ServerType): Promise<HttpContext>` `:444`                 | Entrée HTTP : ouvre un scope DI `request`, délègue à `handleHttp`.                                    |
-| `handleHttp`                                   | `(scope, request, response, type): Promise<…>` `:820`                                | Crée le contexte, wrap ALS, parse, route, firewall, action, teardown.                                 |
-| `handleWebsocket`                              | `(req, ws, type): Promise<…>` `:1067`                                                | Entrée WS : crée le contexte, résout la route **avant accept**, connect, dispatch.                    |
-| `handleFrontController`                        | `(context, checkFirewall = true): Promise<Controller \| number>` `:465`              | Router.resolve → firewall → controller (HTTP **et** WS). Réutilise `context.resolver` si déjà matché. |
-| `onError`                                      | `(error, context?, _extraHeaders?): Promise<HttpContext \| WebsocketContext>` `:559` | Rend l'erreur via `errorRenderer` ; HTTP→status, WS→close code (1011/1008/4004).                      |
-| `startSession`                                 | `(context): Promise<Session \| null>` `:709`                                         | Point d'activation **UNIQUE** session (HTTP+WS). Lazy : `null` si pas d'intent ni cookie.             |
-| `setRequestLogger` / `getRequestLogger`        | `(IRequestLogger): void` `:551` / `: IRequestLogger` `:555`                          | Échange le logger de requête (singleton stateless).                                                   |
-| `setErrorRenderer` / `getErrorRenderer`        | `(IErrorRenderer): void` `:539` / `: IErrorRenderer` `:543`                          | Échange le renderer d'erreur (RFC 7807, hide-stack prod…).                                            |
-| `isValidDomain` / `checkValidDomain`           | `(context): boolean` `:1227` / `: number` `:1216`                                    | Barrière Host (trustedHosts) → 401 si Host non trusté.                                                |
-| `createHttpContext` / `createWebsocketContext` | `:781` / `:1015`                                                                     | Fabriques de contexte (wirent teardown via event `finish`/`onFinish`).                                |
+<!-- prettier-ignore -->
+| Méthode | Signature | Rôle |
+| --- | --- | --- |
+| `handle` | `(request, response, type: ServerType): Promise<HttpContext>` `:444` | Entrée HTTP : ouvre un scope DI `request`, délègue à `handleHttp`. |
+| `handleHttp` | `(scope, request, response, type): Promise<…>` `:820` | Crée le contexte, wrap ALS, parse, route, firewall, action, teardown. |
+| `handleWebsocket` | `(req, ws, type): Promise<…>` `:1067` | Entrée WS : crée le contexte, résout la route **avant accept**, connect, dispatch. |
+| `handleFrontController` | `(context, checkFirewall = true): Promise<Controller \| number>` `:465` | Router.resolve → firewall → controller (HTTP **et** WS). Réutilise `context.resolver` si déjà matché. |
+| `onError` | `(error, context?, _extraHeaders?): Promise<HttpContext \| WebsocketContext>` `:559` | Rend l'erreur via `errorRenderer` ; HTTP→status, WS→close code (1011/1008/4004). |
+| `startSession` | `(context): Promise<Session \| null>` `:709` | Point d'activation **UNIQUE** session (HTTP+WS). Lazy : `null` si pas d'intent ni cookie. |
+| `setRequestLogger` / `getRequestLogger` | `(IRequestLogger): void` `:551` / `: IRequestLogger` `:555` | Échange le logger de requête (singleton stateless). |
+| `setErrorRenderer` / `getErrorRenderer` | `(IErrorRenderer): void` `:539` / `: IErrorRenderer` `:543` | Échange le renderer d'erreur (RFC 7807, hide-stack prod…). |
+| `isValidDomain` / `checkValidDomain` | `(context): boolean` `:1227` / `: number` `:1216` | Barrière Host (trustedHosts) → 401 si Host non trusté. |
+| `createHttpContext` / `createWebsocketContext` | `:781` / `:1015` | Fabriques de contexte (wirent teardown via event `finish`/`onFinish`). |
 
 Champs publics : `requestLogger: IRequestLogger` (défaut `DefaultRequestLogger`), `errorRenderer: IErrorRenderer`
 (défaut `DefaultErrorRenderer`), `router`, `firewall`, `sessionService`, `profiler` (null en prod).
@@ -534,18 +535,19 @@ Validation au boot par `defineHttpConfig` (injecte les défauts kernel APRÈS pa
 services mutent `module.options`). `strict` (strip, attrape typos) pour **notre code** ; `looseObject`
 (passthrough) pour les sections transmises à une lib tierce (`http`/`https`/`http2`/`websocket(s)`/`queryString`/`statics.*.options`).
 
-| Section (sous-schéma)                            | Ancre           | Clés clés                                                                                                                                                                                                       |
-| ------------------------------------------------ | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| racine `httpConfigSchema`                        | `:744`          | `watch` (reserved), `headerServer` (runtimeMutable, déf `"nodefony"`), `maxBodySize` (→413), `trustProxy`, `trustedHosts`                                                                                       |
-| `securityHeadersSchema`                          | `:75`           | `contentTypeOptions`, `frameOptions`, `strictTransportSecurity` (maxAge/includeSubDomains/preload)                                                                                                              |
-| `uploadSchema`                                   | `:105`          | `uploadDir` (kernelDerived ← `kernel.tmpDir`), `maxFileSize`, `maxTotalFileSize`, `maxFiles`, `hashAlgorithm`                                                                                                   |
-| `queryStringSchema`                              | `:174`          | `parameterLimit`, `delimiter`, `ignoreQueryPrefix`                                                                                                                                                              |
-| `httpServerSchema` / `httpsServerSchema`         | `:200` / `:248` | `keepAliveTimeout`, `timeout`, `requestTimeout`, `responseTimeout`, `headers`, `rejectUnauthorized` (https)                                                                                                     |
-| `http2Schema`                                    | `:265`          | `maxConcurrentStreams`, `maxSessionMemory`                                                                                                                                                                      |
-| `certificatesSchema`                             | `:375`          | `strategy` (auto/mkcert/selfsigned/explicit), `ca`/`key`/`cert`, `privateKeyMode` (0600), `san` ({dns,ip}), `dev.useMkcert`, `openssl` ({size, validityDays, backdateMinutes, attrs kernelDerived})             |
-| `websocketSchema` (+ `websocketSecure`)          | `:413`          | `keepaliveInterval`, `keepaliveGracePeriod`, `closeTimeout`, `maxPayload` (1 MiB), `allowedOrigins` (anti-CSWSH), `perMessageDeflate`, `autoPong`, `maxBackpressure` (4 MiB), `backpressurePolicy` (drop/close) |
-| `staticsSchema`                                  | `:600`          | `enabled` (déf true), `defaultOptions`, `web` ({path:"public"}), `cacheControl`, `maxAge`                                                                                                                       |
-| `sessionSchema` (+ `sessionCookieSchema` `:631`) | `:665`          | `savePath`, `gcIntervalS`, `gcJitter`, `maxLifetimeS`, `absoluteTimeoutS`, `refererCheck`, `cookie` ({maxAge, httpOnly, secure, signed, hostPrefix})                                                            |
+<!-- prettier-ignore -->
+| Section (sous-schéma) | Ancre | Clés clés |
+| --- | --- | --- |
+| racine `httpConfigSchema` | `:744` | `watch` (reserved), `headerServer` (runtimeMutable, déf `"nodefony"`), `maxBodySize` (→413), `trustProxy`, `trustedHosts` |
+| `securityHeadersSchema` | `:75` | `contentTypeOptions`, `frameOptions`, `strictTransportSecurity` (maxAge/includeSubDomains/preload) |
+| `uploadSchema` | `:105` | `uploadDir` (kernelDerived ← `kernel.tmpDir`), `maxFileSize`, `maxTotalFileSize`, `maxFiles`, `hashAlgorithm` |
+| `queryStringSchema` | `:174` | `parameterLimit`, `delimiter`, `ignoreQueryPrefix` |
+| `httpServerSchema` / `httpsServerSchema` | `:200` / `:248` | `keepAliveTimeout`, `timeout`, `requestTimeout`, `responseTimeout`, `headers`, `rejectUnauthorized` (https) |
+| `http2Schema` | `:265` | `maxConcurrentStreams`, `maxSessionMemory` |
+| `certificatesSchema` | `:375` | `strategy` (auto/mkcert/selfsigned/explicit), `ca`/`key`/`cert`, `privateKeyMode` (0600), `san` ({dns,ip}), `dev.useMkcert`, `openssl` ({size, validityDays, backdateMinutes, attrs kernelDerived}) |
+| `websocketSchema` (+ `websocketSecure`) | `:413` | `keepaliveInterval`, `keepaliveGracePeriod`, `closeTimeout`, `maxPayload` (1 MiB), `allowedOrigins` (anti-CSWSH), `perMessageDeflate`, `autoPong`, `maxBackpressure` (4 MiB), `backpressurePolicy` (drop/close) |
+| `staticsSchema` | `:600` | `enabled` (déf true), `defaultOptions`, `web` ({path:"public"}), `cacheControl`, `maxAge` |
+| `sessionSchema` (+ `sessionCookieSchema` `:631`) | `:665` | `savePath`, `gcIntervalS`, `gcJitter`, `maxLifetimeS`, `absoluteTimeoutS`, `refererCheck`, `cookie` ({maxAge, httpOnly, secure, signed, hostPrefix}) |
 
 Flags `meta()` (`config/configMeta.ts`, helper `meta()`) : `reserved`/`runtimeMutable`/`kernelDerived`/`secret`
 → recopiés dans le JSON Schema (`httpConfigJsonSchema()` via `z.toJSONSchema`) pour Studio/doc. ⚠️ poser le

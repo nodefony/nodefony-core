@@ -237,15 +237,16 @@ dans un module (`@nodefony/devkit` → `POST /nodefony/mcp`) ; le protocole vit 
 pour qu'une seconde porte (P12, ou une porte authentifiée de production) n'ait
 rien à redéclarer.
 
-| Symbole                           | Fichier             | Rôle                                                                                                                                          |
-| --------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `handleMcpMessage`                | `src/mcp/server.ts` | 1 message JSON-RPC → `{status, body}`. Reçoit des outils **déjà résolus** (`IMcpTool[]`), jamais un catalogue                                 |
-| `checkMcpAccess`/`isLocalAddress` | `src/mcp/guard.ts`  | `Origin` (**absent = client natif → passe**) + localité. Localité jugée AVANT l'origine                                                       |
-| `builtinMcpTools(deps)`           | `src/mcp/tools.ts`  | 4 intégrés (`inspect`, `check`, `symbols`, `card`) → briques existantes (`readAdminSubject`, `collectCheckReport`, `lookupSymbol`, `getCard`) |
-| `collectMcpTools(opts)`           | `src/mcp/tools.ts`  | intégrés filtrés par allowlist **puis** `getMcpTools()` de chaque module. Écarts → `onSkip`                                                   |
-| `publishMcpTools`/`callMcpTool`   | `src/mcp/tools.ts`  | projection sans `handler` / exécution par nom                                                                                                 |
-| `mcpText`                         | `src/mcp/tools.ts`  | enveloppe `content[]` — une app en a besoin pour ses propres outils                                                                           |
-| `IMcpTool`                        | `types/IMcpTool.ts` | contrat producteur (comme `IAdminApi`) ; `IModule.getMcpTools?()`                                                                             |
+<!-- prettier-ignore -->
+| Symbole | Fichier | Rôle |
+| --- | --- | --- |
+| `handleMcpMessage` | `src/mcp/server.ts` | 1 message JSON-RPC → `{status, body}`. Reçoit des outils **déjà résolus** (`IMcpTool[]`), jamais un catalogue |
+| `checkMcpAccess`/`isLocalAddress` | `src/mcp/guard.ts` | `Origin` (**absent = client natif → passe**) + localité. Localité jugée AVANT l'origine |
+| `builtinMcpTools(deps)` | `src/mcp/tools.ts` | 4 intégrés (`inspect`, `check`, `symbols`, `card`) → briques existantes (`readAdminSubject`, `collectCheckReport`, `lookupSymbol`, `getCard`) |
+| `collectMcpTools(opts)` | `src/mcp/tools.ts` | intégrés filtrés par allowlist **puis** `getMcpTools()` de chaque module. Écarts → `onSkip` |
+| `publishMcpTools`/`callMcpTool` | `src/mcp/tools.ts` | projection sans `handler` / exécution par nom |
+| `mcpText` | `src/mcp/tools.ts` | enveloppe `content[]` — une app en a besoin pour ses propres outils |
+| `IMcpTool` | `types/IMcpTool.ts` | contrat producteur (comme `IAdminApi`) ; `IModule.getMcpTools?()` |
 
 - **Collecte, PAS registre** — rien n'est alloué au boot, rien n'est mémorisé :
   la liste se ramasse au moment de servir `tools/list`. Un registre serait

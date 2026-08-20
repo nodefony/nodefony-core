@@ -37,16 +37,17 @@ sur 10 thèmes, et c'est l'essentiel des 897 lignes.
 
 ## Patterns récurrents détectés
 
-| Pattern                                                     | Occurrences | Décision                                                |
-| ----------------------------------------------------------- | ----------: | ------------------------------------------------------- |
-| Suspecter son instrument / son propre diff avant le produit |          35 | **gradué** → `feedback_suspect_instrument_and_own_diff` |
-| Un exemple de CODE agit, y compris quand il est faux        |           8 | déjà gradué → retiré du SAS                             |
-| Gate qui ne LIT rien · débranchement destructeur            |           7 | déjà gradué → retiré du SAS                             |
-| Isoler une variable · régler une sonde de proximité         |           8 | déjà gradué → retiré du SAS                             |
-| Inventaire exhaustif seulement par CROISEMENT               |           4 | **gradué** → `feedback_inventory_needs_crosscheck`      |
-| Variance d'un run à l'autre = la mesure                     |           4 | déjà gradué → retiré du SAS                             |
-| Un vert de test ne dit pas que ça compile                   |           3 | déjà gradué → retiré du SAS                             |
-| Ce qui est COPIÉ à la création ne se met jamais à jour      |           4 | déjà gradué → retiré du SAS                             |
+<!-- prettier-ignore -->
+| Pattern | Occurrences | Décision |
+| --- | ---: | --- |
+| Suspecter son instrument / son propre diff avant le produit | 35 | **gradué** → `feedback_suspect_instrument_and_own_diff` |
+| Un exemple de CODE agit, y compris quand il est faux | 8 | déjà gradué → retiré du SAS |
+| Gate qui ne LIT rien · débranchement destructeur | 7 | déjà gradué → retiré du SAS |
+| Isoler une variable · régler une sonde de proximité | 8 | déjà gradué → retiré du SAS |
+| Inventaire exhaustif seulement par CROISEMENT | 4 | **gradué** → `feedback_inventory_needs_crosscheck` |
+| Variance d'un run à l'autre = la mesure | 4 | déjà gradué → retiré du SAS |
+| Un vert de test ne dit pas que ça compile | 3 | déjà gradué → retiré du SAS |
+| Ce qui est COPIÉ à la création ne se met jamais à jour | 4 | déjà gradué → retiré du SAS |
 
 ## Plan d'action
 

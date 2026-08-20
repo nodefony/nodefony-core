@@ -70,21 +70,22 @@ Les étapes 1 et 2 appartiennent à `@nodefony/http` et `@nodefony/security` : l
 
 ## 📖 Lexique
 
-| Terme              | Sens                                                                                                                                                                               |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Handshake          | La requête HTTP `Upgrade: websocket` qui ouvre la connexion. **Tout le contrôle d'identité s'y joue.**                                                                             |
-| Frame              | Un message JSON-RPC 2.0 circulant une fois la porte ouverte (`subscribe`, `api.request`, notification).                                                                            |
-| Canal (_channel_)  | Un flux nommé auquel on s'abonne (`orders:feed`, `nodefony:syslog`) ; le hub le diffuse à tous ses abonnés.                                                                        |
-| CSWSH              | _Cross-Site WebSocket Hijacking_ : un site tiers ouvre une WS vers ton app, **avec le cookie de la victime**.                                                                      |
-| Origin             | En-tête RFC 6455 §10.2 disant d'où vient la page qui ouvre la socket. Seule preuve d'origine disponible.                                                                           |
-| Token realtime     | `IRealtimeToken` — carte d'identité de la connexion, figée au handshake, lue en O(1) à chaque frame.                                                                               |
-| Verrou de frame    | `FrameAuthorizer` — fonction **sync** qui accepte ou refuse une frame. Posée par security au boot.                                                                                 |
-| Policy de canal    | `IChannelPolicy` — exigences déclarées sur un canal (`authenticated`, `roles`, `scopes`).                                                                                          |
-| Namespace réservé  | Le préfixe `nodefony:`, qui marque les canaux de la plateforme (`nodefony:syslog`, `nodefony:audit`…) et porte un **plancher** d'autorisation que la config ne peut pas descendre. |
-| Zero Trust         | Aucune identité n'est supposée : un visiteur porte toujours un token, anonyme par défaut.                                                                                          |
-| Fail-closed / loud | En cas de doute on **refuse** ; toute dégradation de sécurité est **annoncée** (WARNING), jamais silencieuse.                                                                      |
-| Backplane          | Le bus qui propage les publications entre pods (Redis, IPC cluster).                                                                                                               |
-| BFF                | _Backend-For-Frontend_ : la session serveur (cookie opaque) qui porte l'identité web.                                                                                              |
+<!-- prettier-ignore -->
+| Terme | Sens |
+| --- | --- |
+| Handshake | La requête HTTP `Upgrade: websocket` qui ouvre la connexion. **Tout le contrôle d'identité s'y joue.** |
+| Frame | Un message JSON-RPC 2.0 circulant une fois la porte ouverte (`subscribe`, `api.request`, notification). |
+| Canal (_channel_) | Un flux nommé auquel on s'abonne (`orders:feed`, `nodefony:syslog`) ; le hub le diffuse à tous ses abonnés. |
+| CSWSH | _Cross-Site WebSocket Hijacking_ : un site tiers ouvre une WS vers ton app, **avec le cookie de la victime**. |
+| Origin | En-tête RFC 6455 §10.2 disant d'où vient la page qui ouvre la socket. Seule preuve d'origine disponible. |
+| Token realtime | `IRealtimeToken` — carte d'identité de la connexion, figée au handshake, lue en O(1) à chaque frame. |
+| Verrou de frame | `FrameAuthorizer` — fonction **sync** qui accepte ou refuse une frame. Posée par security au boot. |
+| Policy de canal | `IChannelPolicy` — exigences déclarées sur un canal (`authenticated`, `roles`, `scopes`). |
+| Namespace réservé | Le préfixe `nodefony:`, qui marque les canaux de la plateforme (`nodefony:syslog`, `nodefony:audit`…) et porte un **plancher** d'autorisation que la config ne peut pas descendre. |
+| Zero Trust | Aucune identité n'est supposée : un visiteur porte toujours un token, anonyme par défaut. |
+| Fail-closed / loud | En cas de doute on **refuse** ; toute dégradation de sécurité est **annoncée** (WARNING), jamais silencieuse. |
+| Backplane | Le bus qui propage les publications entre pods (Redis, IPC cluster). |
+| BFF | _Backend-For-Frontend_ : la session serveur (cookie opaque) qui porte l'identité web. |
 
 ## 🔐 Qu'est-ce que ça défend, concrètement ?
 
@@ -428,13 +429,14 @@ mémoire : le token déjà résolu, et la cible de la frame.
 
 `buildFrameAuthorizer()` (`frameAuthorizer.ts:352`) ne garde que ce qui atteint des données :
 
-| Frame                                 | Contrôle appliqué                                                                                               |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `api.request {path}`                  | Re-match de zone HTTP : zone protégée + anonyme → refus                                                         |
-| `subscribe {channel}`                 | Plancher système, puis policy métier déclarée sur le canal                                                      |
-| notification `method` = canal inbound | Même politique que `subscribe` (on ne pousse pas sur un canal protégé)                                          |
-| action `@RealtimeAction`              | Authentifié **par défaut** ; rôle/scope si déclarés ; ouverte seulement si `{ authenticated: false }` est écrit |
-| `ping`, `unsubscribe`                 | **passent** — pas de surface de données                                                                         |
+<!-- prettier-ignore -->
+| Frame | Contrôle appliqué |
+| --- | --- |
+| `api.request {path}` | Re-match de zone HTTP : zone protégée + anonyme → refus |
+| `subscribe {channel}` | Plancher système, puis policy métier déclarée sur le canal |
+| notification `method` = canal inbound | Même politique que `subscribe` (on ne pousse pas sur un canal protégé) |
+| action `@RealtimeAction` | Authentifié **par défaut** ; rôle/scope si déclarés ; ouverte seulement si `{ authenticated: false }` est écrit |
+| `ping`, `unsubscribe` | **passent** — pas de surface de données |
 
 Deux détails évitent des faux refus : `authorizeApiRequest()` (`frameAuthorizer.ts:280`) laisse
 passer une frame au `path` invalide (le handler renverra `-32602` — le verrou ne duplique pas la
@@ -680,12 +682,13 @@ au défaut de la librairie `ws`.
 
 ### Ce qui n'est PAS borné
 
-| Absent                                             | Conséquence                                                                                                                                                                     |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Limite de **fréquence** des frames entrantes       | Un client authentifié peut inonder le peer ; seul le coût CPU le freine                                                                                                         |
-| Limite de **connexions par IP ou par utilisateur** | Rien n'empêche N sockets par client au niveau du module                                                                                                                         |
-| Plafond **global** de canaux du process            | Le plafond est par connexion ; M connexions × 256 canaux reste possible                                                                                                         |
-| Seuils de back-pressure **configurables**          | `slowConsumer.bytes` ne pilote que le **comptage** de la sonde, pas les seuils de drop/close (`WsConnectionTransport` est construit sans override, `RealtimeController.ts:356`) |
+<!-- prettier-ignore -->
+| Absent | Conséquence |
+| --- | --- |
+| Limite de **fréquence** des frames entrantes | Un client authentifié peut inonder le peer ; seul le coût CPU le freine |
+| Limite de **connexions par IP ou par utilisateur** | Rien n'empêche N sockets par client au niveau du module |
+| Plafond **global** de canaux du process | Le plafond est par connexion ; M connexions × 256 canaux reste possible |
+| Seuils de back-pressure **configurables** | `slowConsumer.bytes` ne pilote que le **comptage** de la sonde, pas les seuils de drop/close (`WsConnectionTransport` est construit sans override, `RealtimeController.ts:356`) |
 
 ## ⚙️ Configuration de sécurité
 

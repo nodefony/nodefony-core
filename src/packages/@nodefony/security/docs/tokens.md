@@ -418,18 +418,19 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:334-390`) et `token
 
 ### `jwt.*`
 
-| Option                | Type               | Défaut   | Effet                                                                                                                         |
-| --------------------- | ------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`             | boolean            | `true`   | Active signature + refresh (`config.ts:317`)                                                                                  |
-| `alg`                 | `EdDSA` \| `RS256` | `EdDSA`  | `RS256` = slot non câblé (`jwtRuntime.ts:21`)                                                                                 |
-| `accessTtlS`          | number (s)         | `900`    | TTL de l'access token — 15 min (`config.ts:338-342`)                                                                          |
-| `refreshTtlS`         | number (s)         | `604800` | TTL du refresh — 7 jours (`config.ts:343-347`)                                                                                |
-| `rotateRefresh`       | boolean            | `true`   | Rotation du refresh à chaque usage, OWASP (`config.ts:348-351`)                                                               |
-| `jwks`                | boolean            | `true`   | Publie `/.well-known/jwks.json` + les métadonnées RFC 8414 — sans `issuer` en URL https, rien n'est publié                    |
-| `audiences`           | string[]           | `[]`     | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts:356-361`)                                                          |
-| `issuer`              | string?            | —        | Claim `iss`, **STABLE** après émission ; omis → repli `"nodefony"`, qui n'est PAS publiable (RFC 8414 §2 exige une URL https) |
-| `keystore.keySetJson` | string?            | —        | JWK Set privé injecté depuis l'env — source prod, SECRET (`config.ts:370-375`)                                                |
-| `keystore.dir`        | string?            | —        | Dossier `keyset.json` chmod 600 — source dev/VPS (`config.ts:376-381`)                                                        |
+<!-- prettier-ignore -->
+| Option | Type | Défaut | Effet |
+| --- | --- | --- | --- |
+| `enabled` | boolean | `true` | Active signature + refresh (`config.ts:317`) |
+| `alg` | `EdDSA` \| `RS256` | `EdDSA` | `RS256` = slot non câblé (`jwtRuntime.ts:21`) |
+| `accessTtlS` | number (s) | `900` | TTL de l'access token — 15 min (`config.ts:338-342`) |
+| `refreshTtlS` | number (s) | `604800` | TTL du refresh — 7 jours (`config.ts:343-347`) |
+| `rotateRefresh` | boolean | `true` | Rotation du refresh à chaque usage, OWASP (`config.ts:348-351`) |
+| `jwks` | boolean | `true` | Publie `/.well-known/jwks.json` + les métadonnées RFC 8414 — sans `issuer` en URL https, rien n'est publié |
+| `audiences` | string[] | `[]` | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts:356-361`) |
+| `issuer` | string? | — | Claim `iss`, **STABLE** après émission ; omis → repli `"nodefony"`, qui n'est PAS publiable (RFC 8414 §2 exige une URL https) |
+| `keystore.keySetJson` | string? | — | JWK Set privé injecté depuis l'env — source prod, SECRET (`config.ts:370-375`) |
+| `keystore.dir` | string? | — | Dossier `keyset.json` chmod 600 — source dev/VPS (`config.ts:376-381`) |
 
 ### `tokenStore.*`
 

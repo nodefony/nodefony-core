@@ -140,19 +140,20 @@ au boot. Blocs : `areas` (zones + authenticators), `cors`, `csrf`, `headers`, `l
 
 ## 📜 Normes appliquées
 
-| Domaine                | Normes                                                 |
-| ---------------------- | ------------------------------------------------------ |
-| Auth / challenge (401) | RFC 7235                                               |
-| JWT                    | RFC 7519, 8725 (BCP)                                   |
-| OAuth 2                | RFC 9700 (BCP), 8707, 8693, 9449 (DPoP)                |
-| Passkeys               | W3C WebAuthn L3, CTAP2                                 |
-| TOTP / HOTP            | RFC 6238, 4226                                         |
-| Mots de passe / 2FA    | NIST SP 800-63B (throttling, timeouts)                 |
-| Cookies                | RFC 6265bis (`SameSite`, `__Host-`)                    |
-| CSRF                   | Fetch Metadata (`Sec-Fetch-Site`) + `Origin`/`Referer` |
-| En-têtes               | CSP (W3C), HSTS (RFC 6797), COOP/COEP/CORP             |
-| Rate limit             | RFC 6585 (429)                                         |
-| Général                | OWASP Top 10, OWASP ASVS                               |
+<!-- prettier-ignore -->
+| Domaine | Normes |
+| --- | --- |
+| Auth / challenge (401) | RFC 7235 |
+| JWT | RFC 7519, 8725 (BCP) |
+| OAuth 2 | RFC 9700 (BCP), 8707, 8693, 9449 (DPoP) |
+| Passkeys | W3C WebAuthn L3, CTAP2 |
+| TOTP / HOTP | RFC 6238, 4226 |
+| Mots de passe / 2FA | NIST SP 800-63B (throttling, timeouts) |
+| Cookies | RFC 6265bis (`SameSite`, `__Host-`) |
+| CSRF | Fetch Metadata (`Sec-Fetch-Site`) + `Origin`/`Referer` |
+| En-têtes | CSP (W3C), HSTS (RFC 6797), COOP/COEP/CORP |
+| Rate limit | RFC 6585 (429) |
+| Général | OWASP Top 10, OWASP ASVS |
 
 ## 📖 Lexique
 

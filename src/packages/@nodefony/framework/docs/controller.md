@@ -288,15 +288,16 @@ class ChatController extends Controller {
 
 ### Ce qui change entre les deux transports
 
-| Aspect                   | HTTP                                       | WebSocket                                                                                                                            |
-| ------------------------ | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Durée de vie du contexte | Une requête                                | **Toute la connexion**                                                                                                               |
-| Instance du contrôleur   | Une par requête                            | **Une par connexion**, réutilisée à chaque frame                                                                                     |
-| Nombre d'appels d'action | 1                                          | 1 au handshake (`WebsocketContext.handle()`, `WebsocketContext.ts:265`) + 1 par frame (`handleMessage()`, `WebsocketContext.ts:479`) |
-| Argument de l'action     | Variables de route (ou paramètres décorés) | Idem + **le message** en dernier argument (`WebsocketContext.ts:508`)                                                                |
-| Rendu d'un `return`      | Corps de la réponse                        | Frame envoyée sur la socket                                                                                                          |
-| Échec                    | Statut HTTP + corps d'erreur               | **Code de fermeture** RFC 6455 (401/403 → 1008, 5xx → 1011, autre → 4004)                                                            |
-| `initialize()`           | À chaque requête                           | **Une seule fois**, au handshake                                                                                                     |
+<!-- prettier-ignore -->
+| Aspect | HTTP | WebSocket |
+| --- | --- | --- |
+| Durée de vie du contexte | Une requête | **Toute la connexion** |
+| Instance du contrôleur | Une par requête | **Une par connexion**, réutilisée à chaque frame |
+| Nombre d'appels d'action | 1 | 1 au handshake (`WebsocketContext.handle()`, `WebsocketContext.ts:265`) + 1 par frame (`handleMessage()`, `WebsocketContext.ts:479`) |
+| Argument de l'action | Variables de route (ou paramètres décorés) | Idem + **le message** en dernier argument (`WebsocketContext.ts:508`) |
+| Rendu d'un `return` | Corps de la réponse | Frame envoyée sur la socket |
+| Échec | Statut HTTP + corps d'erreur | **Code de fermeture** RFC 6455 (401/403 → 1008, 5xx → 1011, autre → 4004) |
+| `initialize()` | À chaque requête | **Une seule fois**, au handshake |
 
 La réutilisation de l'instance vient du cache posé sur le container du contexte
 (`Resolver.newController()`, `Resolver.ts:262`) : le contexte WS étant partagé par la connexion, le
@@ -389,17 +390,18 @@ Ce que ça change, concrètement :
 Le traducteur unique est `Resolver.returnController()` (`Resolver.ts:697`). Il regarde le **type**
 de ce que tu as retourné :
 
-| Tu retournes…                            | Ce qui se passe                                                            | Ancre                                |
-| ---------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------ |
-| Une `Promise` / un thenable              | Déballée puis re-traitée (récursif)                                        | `Resolver.ts:700-710`                |
-| Une `string`                             | Envoyée telle quelle en corps                                              | `Resolver.ts:711`                    |
-| Un objet simple ou un tableau            | **Auto-JSON** : `application/json` + sérialisation                         | `Resolver.ts:760`                    |
-| Un `number` / un `boolean`               | Auto-JSON scalaire (RFC 8259 §2 : `42`, `true` sont des documents valides) | `Resolver.ts:734`                    |
-| Un `Buffer`                              | Envoyé brut                                                                | `Resolver.ts:723`                    |
-| Une `Response` (via un `render*`)        | Retournée telle quelle — l'envoi a déjà eu lieu                            | `Resolver.ts:716`                    |
-| `void`/`null` **et** statut 204/205/304  | Réponse **vide envoyée** (RFC 9110 : ces statuts n'ont pas de corps)       | `NO_BODY_STATUS` (`Resolver.ts:798`) |
-| `void`/`null` avec tout autre statut     | `waitAsync` : « l'action enverra plus tard »                               | `Resolver.ts:801`                    |
-| Une instance de classe (entité ORM, DTO) | **Non sérialisée** → `waitAsync` (le teardown avertit du blocage)          | `Resolver.ts:770-777`                |
+<!-- prettier-ignore -->
+| Tu retournes… | Ce qui se passe | Ancre |
+| --- | --- | --- |
+| Une `Promise` / un thenable | Déballée puis re-traitée (récursif) | `Resolver.ts:700-710` |
+| Une `string` | Envoyée telle quelle en corps | `Resolver.ts:711` |
+| Un objet simple ou un tableau | **Auto-JSON** : `application/json` + sérialisation | `Resolver.ts:760` |
+| Un `number` / un `boolean` | Auto-JSON scalaire (RFC 8259 §2 : `42`, `true` sont des documents valides) | `Resolver.ts:734` |
+| Un `Buffer` | Envoyé brut | `Resolver.ts:723` |
+| Une `Response` (via un `render*`) | Retournée telle quelle — l'envoi a déjà eu lieu | `Resolver.ts:716` |
+| `void`/`null` **et** statut 204/205/304 | Réponse **vide envoyée** (RFC 9110 : ces statuts n'ont pas de corps) | `NO_BODY_STATUS` (`Resolver.ts:798`) |
+| `void`/`null` avec tout autre statut | `waitAsync` : « l'action enverra plus tard » | `Resolver.ts:801` |
+| Une instance de classe (entité ORM, DTO) | **Non sérialisée** → `waitAsync` (le teardown avertit du blocage) | `Resolver.ts:770-777` |
 
 > [!WARNING]
 > **Le piège n° 1 : `return null` sur un statut à corps.** Le framework l'interprète comme « je
@@ -596,18 +598,19 @@ code du framework applique — et attend de toi — les règles suivantes :
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                      | Cause (dans le code)                                                               | Correction                                                                                                                                        |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| La requête pend puis expire, alors que l'action a bien tourné | `return null`/`undefined` avec un statut à corps → `waitAsync` (`Resolver.ts:801`) | Retourner une valeur, ou poser `@HttpCode(204)`                                                                                                   |
-| Réponse vide alors qu'on retourne une entité ORM              | Instance de classe **non** sérialisée → `waitAsync` (`Resolver.ts:775`)            | Retourner un objet simple, ou `renderJson(entity.toJSON())`                                                                                       |
-| `Route Action not found`                                      | L'action porte un nom déjà utilisé par un membre de `Controller`                   | Renommer : `session`, `request`, `response`, `context`, `route`, `method`, `query*`, `get`, `set`, `render*`, `redirect`, `forward` sont réservés |
-| `this.session` est `null` dans `initialize()`                 | La session est activée **après** (`http-kernel.ts:1288`)                           | Lire la session dans l'action, pas dans le hook                                                                                                   |
-| Effet de bord exécuté pour une requête finalement 401         | `initialize()` tourne avant `firewall.handleSecurity()` (`http-kernel.ts:1294`)    | Déplacer l'effet de bord dans l'action                                                                                                            |
-| Redirection permanente non voulue                             | Un statut invalide retombe sur 302, un `301` explicite reste 301                   | Passer le code voulu : `this.redirect(url, 302)`                                                                                                  |
-| WS : l'état d'une frame « bave » sur la suivante              | L'instance est partagée par toute la connexion (`Resolver.ts:262`)                 | Réinitialiser l'état en tête d'action, ou le porter par message                                                                                   |
-| WS : l'action n'est jamais appelée                            | Route sans transport `WEBSOCKET` déclaré                                           | `requirements: { methods: ["WEBSOCKET"] }`                                                                                                        |
-| Contrôleur `singleton` : données d'un autre utilisateur       | Champ mutable per-requête sur une instance partagée                                | Retirer `@Scope("singleton")`, ou passer par les arguments décorés                                                                                |
-| Event loop figé sur une route de fichier                      | `getFile()` synchrone (`lstatSync`, `Controller.ts:428`)                           | Utiliser `getFileAsync()` (`Controller.ts:472`)                                                                                                   |
+<!-- prettier-ignore -->
+| Symptôme | Cause (dans le code) | Correction |
+| --- | --- | --- |
+| La requête pend puis expire, alors que l'action a bien tourné | `return null`/`undefined` avec un statut à corps → `waitAsync` (`Resolver.ts:801`) | Retourner une valeur, ou poser `@HttpCode(204)` |
+| Réponse vide alors qu'on retourne une entité ORM | Instance de classe **non** sérialisée → `waitAsync` (`Resolver.ts:775`) | Retourner un objet simple, ou `renderJson(entity.toJSON())` |
+| `Route Action not found` | L'action porte un nom déjà utilisé par un membre de `Controller` | Renommer : `session`, `request`, `response`, `context`, `route`, `method`, `query*`, `get`, `set`, `render*`, `redirect`, `forward` sont réservés |
+| `this.session` est `null` dans `initialize()` | La session est activée **après** (`http-kernel.ts:1288`) | Lire la session dans l'action, pas dans le hook |
+| Effet de bord exécuté pour une requête finalement 401 | `initialize()` tourne avant `firewall.handleSecurity()` (`http-kernel.ts:1294`) | Déplacer l'effet de bord dans l'action |
+| Redirection permanente non voulue | Un statut invalide retombe sur 302, un `301` explicite reste 301 | Passer le code voulu : `this.redirect(url, 302)` |
+| WS : l'état d'une frame « bave » sur la suivante | L'instance est partagée par toute la connexion (`Resolver.ts:262`) | Réinitialiser l'état en tête d'action, ou le porter par message |
+| WS : l'action n'est jamais appelée | Route sans transport `WEBSOCKET` déclaré | `requirements: { methods: ["WEBSOCKET"] }` |
+| Contrôleur `singleton` : données d'un autre utilisateur | Champ mutable per-requête sur une instance partagée | Retirer `@Scope("singleton")`, ou passer par les arguments décorés |
+| Event loop figé sur une route de fichier | `getFile()` synchrone (`lstatSync`, `Controller.ts:428`) | Utiliser `getFileAsync()` (`Controller.ts:472`) |
 
 ## 🧪 Tests & couverture
 

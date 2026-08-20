@@ -197,17 +197,18 @@ source de vérité, c'est l'adapter lui-même — ce qui vaut aussi pour un adap
 Ce que `@nodefony/mongoose` déclare : `session`, `user`, `tokens`, `passkeys`, `webhooks`, avec la
 nature `durable`. Comparé aux deux autres adapters officiels :
 
-| Brique        | `@nodefony/drizzle` (SQL) | `@nodefony/mongoose` (Mongo) | `@nodefony/redis` (cache) |
-| ------------- | :-----------------------: | :--------------------------: | :-----------------------: |
-| `session`     |            ✅             |              ✅              |            ✅             |
-| `user`        |            ✅             |              ✅              |             —             |
-| `tokens`      |            ✅             |              ✅              |            ✅             |
-| `passkeys`    |            ✅             |              ✅              |            ✅             |
-| `webhooks`    |            ✅             |              ✅              |             —             |
-| `totp`        |            ✅             |              —               |             —             |
-| `audit`       |            ✅             |              —               |             —             |
-| `idempotency` |            ✅             |              —               |            ✅             |
-| Nature        |          durable          |           durable            |           cache           |
+<!-- prettier-ignore -->
+| Brique | `@nodefony/drizzle` (SQL) | `@nodefony/mongoose` (Mongo) | `@nodefony/redis` (cache) |
+| --- | :---: | :---: | :---: |
+| `session` | ✅ | ✅ | ✅ |
+| `user` | ✅ | ✅ | — |
+| `tokens` | ✅ | ✅ | ✅ |
+| `passkeys` | ✅ | ✅ | ✅ |
+| `webhooks` | ✅ | ✅ | — |
+| `totp` | ✅ | — | — |
+| `audit` | ✅ | — | — |
+| `idempotency` | ✅ | — | ✅ |
+| Nature | durable | durable | cache |
 
 > [!IMPORTANT]
 > **Ces trois cases vides sont un manque, et il sera comblé.** L'objectif est qu'une application
@@ -513,18 +514,19 @@ Toutes les opérations sont typées par ta ligne d'entité et disponibles à l'i
 drivers. Les signatures exactes vivent dans le graphe généré
 (`jq '.symbols.MongooseRepository' .ai/symbols.json`) — jamais recopiées ici, elles divergeraient.
 
-| Opération               | Ce que ça fait                                    | Traduction Mongo                                  |
-| ----------------------- | ------------------------------------------------- | ------------------------------------------------- |
-| `find` / `findOne`      | lire, avec tri, pagination, relations             | `find` / `findOne` (+ `populate`, `skip`, `sort`) |
-| `create` / `createMany` | insérer                                           | `create` / `insertMany`                           |
-| `updateOne`             | modifier et **rendre le document à jour**         | `findOneAndUpdate` atomique, 1 aller-retour       |
-| `upsert`                | écrire, créer si absent                           | `findOneAndUpdate` avec `upsert` + `$setOnInsert` |
-| `increment`             | ajouter un delta à un compteur                    | `$inc` côté serveur — pas de lecture-écriture     |
-| `updateMany`            | modifier en masse                                 | `updateMany`                                      |
-| `delete` / `deleteOne`  | supprimer                                         | `deleteMany` / `deleteOne`                        |
-| `findOneAndDelete`      | supprimer **et** récupérer le document            | `findOneAndDelete`                                |
-| `count` / `exists`      | compter / tester l'existence                      | `countDocuments` / `exists`                       |
-| `withTransaction`       | rejouer les mêmes opérations dans une transaction | ajoute la `session` à chaque opération            |
+<!-- prettier-ignore -->
+| Opération | Ce que ça fait | Traduction Mongo |
+| --- | --- | --- |
+| `find` / `findOne` | lire, avec tri, pagination, relations | `find` / `findOne` (+ `populate`, `skip`, `sort`) |
+| `create` / `createMany` | insérer | `create` / `insertMany` |
+| `updateOne` | modifier et **rendre le document à jour** | `findOneAndUpdate` atomique, 1 aller-retour |
+| `upsert` | écrire, créer si absent | `findOneAndUpdate` avec `upsert` + `$setOnInsert` |
+| `increment` | ajouter un delta à un compteur | `$inc` côté serveur — pas de lecture-écriture |
+| `updateMany` | modifier en masse | `updateMany` |
+| `delete` / `deleteOne` | supprimer | `deleteMany` / `deleteOne` |
+| `findOneAndDelete` | supprimer **et** récupérer le document | `findOneAndDelete` |
+| `count` / `exists` | compter / tester l'existence | `countDocuments` / `exists` |
+| `withTransaction` | rejouer les mêmes opérations dans une transaction | ajoute la `session` à chaque opération |
 
 Les écritures qui « lisent puis écrivent » sont **atomiques par construction**
 (`MongooseRepository.upsert()` (`MongooseRepository.ts:314`),

@@ -557,19 +557,20 @@ Les helpers du seam sont exportés et réutilisables : `isMutationMethod()` (`id
 Le contrat annonce **deux modes** exclusifs, chaque store déclarant celui qu'il sait faire. Voici ce
 que le code fait, store par store — à lire avant d'écrire un client :
 
-| Capacité                | `memory`                 | `drizzle` (SQL)                   | `redis`                        |
-| ----------------------- | ------------------------ | --------------------------------- | ------------------------------ |
-| Mode                    | **offset**               | **offset**                        | **curseur**                    |
-| `offset`                | ✅                       | ✅                                | ❌ **ignoré**                  |
-| `total` (`withTotal`)   | ✅ (refusable)           | ✅ (refusable, `COUNT`)           | ❌ **jamais** rendu            |
-| `cursor` / `nextCursor` | ❌ **ignoré**            | ❌ **ignoré**                     | ✅ curseur composite           |
-| Ordre                   | `expiresAtMs` ASC        | `expiresAtMs` ASC, `key` ASC      | ❌ **aucun ordre garanti**     |
-| `order` (tri demandé)   | ❌ ignoré                | ❌ ignoré                         | ❌ ignoré                      |
-| `q` (préfixe de clé)    | ✅ `startsWith`          | ✅ `LIKE` ancré, `%`/`_` échappés | ✅ descendu dans `MATCH`       |
-| `state`                 | ✅                       | ✅                                | ✅ (filtre après lecture)      |
-| Page pleine à `limit`   | ✅                       | ✅                                | ❌ peut être plus courte       |
-| Exclusion des expirées  | ✅ à la lecture          | ✅ `expiresAt > now`              | ✅ par TTL natif               |
-| Ancre                   | `IdempotencyStore.ts:72` | `DrizzleIdempotencyStore.ts:340`  | `RedisIdempotencyStore.ts:166` |
+<!-- prettier-ignore -->
+| Capacité | `memory` | `drizzle` (SQL) | `redis` |
+| --- | --- | --- | --- |
+| Mode | **offset** | **offset** | **curseur** |
+| `offset` | ✅ | ✅ | ❌ **ignoré** |
+| `total` (`withTotal`) | ✅ (refusable) | ✅ (refusable, `COUNT`) | ❌ **jamais** rendu |
+| `cursor` / `nextCursor` | ❌ **ignoré** | ❌ **ignoré** | ✅ curseur composite |
+| Ordre | `expiresAtMs` ASC | `expiresAtMs` ASC, `key` ASC | ❌ **aucun ordre garanti** |
+| `order` (tri demandé) | ❌ ignoré | ❌ ignoré | ❌ ignoré |
+| `q` (préfixe de clé) | ✅ `startsWith` | ✅ `LIKE` ancré, `%`/`_` échappés | ✅ descendu dans `MATCH` |
+| `state` | ✅ | ✅ | ✅ (filtre après lecture) |
+| Page pleine à `limit` | ✅ | ✅ | ❌ peut être plus courte |
+| Exclusion des expirées | ✅ à la lecture | ✅ `expiresAt > now` | ✅ par TTL natif |
+| Ancre | `IdempotencyStore.ts:72` | `DrizzleIdempotencyStore.ts:340` | `RedisIdempotencyStore.ts:166` |
 
 Le mode **curseur** de Redis mérite une explication, parce qu'il piège : `SCAN COUNT` **n'est pas un
 plafond** mais un indice d'effort — Redis peut rendre plus de clés que demandé. Sans précaution, la
@@ -625,15 +626,16 @@ pour l'affichage Studio, `idempotencyStoreRegistry.ts:81`).
 
 ## 📜 Normes appliquées
 
-| Sujet                                      | Norme                                          | Ancrage                                        |
-| ------------------------------------------ | ---------------------------------------------- | ---------------------------------------------- |
-| En-tête `Idempotency-Key`, statuts, rejeu  | `draft-ietf-httpapi-idempotency-key-header-06` | `evaluateIdempotency()` (`idempotency.ts:142`) |
-| Clé réutilisée avec un autre payload → 422 | draft §2.2 / §2.7                              | `idempotency.ts:189`                           |
-| Exécution concurrente identique → 409      | draft §2.6                                     | `idempotency.ts:197`                           |
-| Clé requise absente → 400                  | draft §2.7                                     | `idempotency.ts:165`                           |
-| Méthodes non sûres = mutations             | RFC 9110 §9.2.1                                | `MUTATION_METHODS` (`idempotency.ts:25`)       |
-| Sémantique du 422                          | RFC 9110 §15.5.21                              | `IdempotencyVerdict` (`idempotency.ts:50`)     |
-| Borne de clé (convention Stripe)           | 255 octets                                     | `IDEMPOTENCY_KEY_MAX` (`idempotency.ts:36`)    |
+<!-- prettier-ignore -->
+| Sujet | Norme | Ancrage |
+| --- | --- | --- |
+| En-tête `Idempotency-Key`, statuts, rejeu | `draft-ietf-httpapi-idempotency-key-header-06` | `evaluateIdempotency()` (`idempotency.ts:142`) |
+| Clé réutilisée avec un autre payload → 422 | draft §2.2 / §2.7 | `idempotency.ts:189` |
+| Exécution concurrente identique → 409 | draft §2.6 | `idempotency.ts:197` |
+| Clé requise absente → 400 | draft §2.7 | `idempotency.ts:165` |
+| Méthodes non sûres = mutations | RFC 9110 §9.2.1 | `MUTATION_METHODS` (`idempotency.ts:25`) |
+| Sémantique du 422 | RFC 9110 §15.5.21 | `IdempotencyVerdict` (`idempotency.ts:50`) |
+| Borne de clé (convention Stripe) | 255 octets | `IDEMPOTENCY_KEY_MAX` (`idempotency.ts:36`) |
 
 ## ⚡ Performance et mémoire
 

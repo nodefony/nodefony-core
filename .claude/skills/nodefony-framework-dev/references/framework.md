@@ -518,17 +518,18 @@ Fonctions pures exportées (testables sans serveur) : `buildParamArgs(metas, IPa
 `returnController(result)` (`Resolver.ts:648`) normalise la valeur retournée par l'action vers le
 transport (`switch(typeOf)`) :
 
-| Valeur retournée                                   | Comportement                                                                |
-| -------------------------------------------------- | --------------------------------------------------------------------------- |
-| `Promise`/`BlueBird`/thenable                      | unwrap récursif puis re-dispatch (**bluebird requis**, ne pas retirer)      |
-| `string`/`String`                                  | `context.send(result)`                                                      |
-| `Http2Response`/`HttpResponse`/`WebsocketResponse` | retournée telle quelle (déjà rendue)                                        |
-| `Buffer` (`typeOf==="buffer"`)                     | `send(buffer)` si pas déjà envoyé (sinon hang→408)                          |
-| `number`/`boolean`                                 | scalaire JSON (`setContextJson` + `render`) — `return 42` répond `"42"`     |
-| `object`/`array` plain                             | auto-JSON (`render`) — **vaut aussi en WS** (`return {type:"pong"}` envoie) |
-| instance de classe (entité ORM…)                   | NON sérialisée → `waitAsync=true` (warning dev, pas de hang muet)           |
-| `void`/`null` + `isRedirect`                       | `context.send()`                                                            |
-| `void`/`null`                                      | `waitAsync=true` (l'action a géré elle-même)                                |
+<!-- prettier-ignore -->
+| Valeur retournée | Comportement |
+| --- | --- |
+| `Promise`/`BlueBird`/thenable | unwrap récursif puis re-dispatch (**bluebird requis**, ne pas retirer) |
+| `string`/`String` | `context.send(result)` |
+| `Http2Response`/`HttpResponse`/`WebsocketResponse` | retournée telle quelle (déjà rendue) |
+| `Buffer` (`typeOf==="buffer"`) | `send(buffer)` si pas déjà envoyé (sinon hang→408) |
+| `number`/`boolean` | scalaire JSON (`setContextJson` + `render`) — `return 42` répond `"42"` |
+| `object`/`array` plain | auto-JSON (`render`) — **vaut aussi en WS** (`return {type:"pong"}` envoie) |
+| instance de classe (entité ORM…) | NON sérialisée → `waitAsync=true` (warning dev, pas de hang muet) |
+| `void`/`null` + `isRedirect` | `context.send()` |
+| `void`/`null` | `waitAsync=true` (l'action a géré elle-même) |
 
 `@Redirect` : action `void`/`null` → `_handleRedirect` (`Resolver.ts:617`) appelle `context.redirect(url,
 code)` puis `returnController(undefined)` (un objet `{url, statusCode?}` retourné par l'action override).

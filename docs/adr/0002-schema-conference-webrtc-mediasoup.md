@@ -92,22 +92,24 @@ Légende dictionnaire : `∎` unique · `→` FK · `?` nullable.
 
 **A. Identité & Organisation**
 
-| Table          | Colonnes                                                                                                                                                                                                     |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `organization` | id(UUID), name, slug∎, settings(JSON), createdAt, updatedAt                                                                                                                                                  |
-| `user`         | id(UUID), orgId→, username∎, email∎, passwordHash?, roles(JSON `["ROLE_USER"]`), enabled(bool), locked(bool), twoFactor(bool), name?, surname?, avatar?, lang, lastSeenAt?, createdAt, updatedAt, deletedAt? |
-| `team`         | id(UUID), orgId→, name, slug∎, description?, createdAt, updatedAt                                                                                                                                            |
-| `team_member`  | **PK(teamId→, userId→)**, role(enum owner/admin/member), joinedAt                                                                                                                                            |
+<!-- prettier-ignore -->
+| Table | Colonnes |
+| --- | --- |
+| `organization` | id(UUID), name, slug∎, settings(JSON), createdAt, updatedAt |
+| `user` | id(UUID), orgId→, username∎, email∎, passwordHash?, roles(JSON `["ROLE_USER"]`), enabled(bool), locked(bool), twoFactor(bool), name?, surname?, avatar?, lang, lastSeenAt?, createdAt, updatedAt, deletedAt? |
+| `team` | id(UUID), orgId→, name, slug∎, description?, createdAt, updatedAt |
+| `team_member` | **PK(teamId→, userId→)**, role(enum owner/admin/member), joinedAt |
 
 **B. Salles & Réunions**
 
-| Table                 | Colonnes                                                                                                                                                                                                                                                          |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `room`                | id(UUID), orgId→, ownerId→user, slug∎, displayName, type(enum webrtc), access(enum public/private/org), secure(bool), passwordHash?, lobbyEnabled(bool), maxParticipants(int), settings(JSON: layout, médias), persistent(bool), createdAt, updatedAt, deletedAt? |
-| `room_member`         | **PK(roomId→, userId→)**, role(enum host/cohost/presenter/member), invitedById→user?, addedAt                                                                                                                                                                     |
-| `meeting`             | id(UUID), roomId→, orgId→, title, status(enum scheduled/live/ended/cancelled), scheduledStart?, scheduledEnd?, actualStart?, actualEnd?, recurrenceRule(JSON RRULE)?, createdById→user, settings(JSON), createdAt, updatedAt                                      |
-| `meeting_participant` | id(UUID), meetingId→, userId→**?**, guestName?, role(enum host/cohost/presenter/attendee), state(enum invited/joined/left/declined), joinedAt?, leftAt?, durationSec?                                                                                             |
-| `invitation`          | id(UUID), meetingId→, email, token∎, role(enum), status(enum pending/accepted/declined/expired), expiresAt, invitedById→user, createdAt                                                                                                                           |
+<!-- prettier-ignore -->
+| Table | Colonnes |
+| --- | --- |
+| `room` | id(UUID), orgId→, ownerId→user, slug∎, displayName, type(enum webrtc), access(enum public/private/org), secure(bool), passwordHash?, lobbyEnabled(bool), maxParticipants(int), settings(JSON: layout, médias), persistent(bool), createdAt, updatedAt, deletedAt? |
+| `room_member` | **PK(roomId→, userId→)**, role(enum host/cohost/presenter/member), invitedById→user?, addedAt |
+| `meeting` | id(UUID), roomId→, orgId→, title, status(enum scheduled/live/ended/cancelled), scheduledStart?, scheduledEnd?, actualStart?, actualEnd?, recurrenceRule(JSON RRULE)?, createdById→user, settings(JSON), createdAt, updatedAt |
+| `meeting_participant` | id(UUID), meetingId→, userId→**?**, guestName?, role(enum host/cohost/presenter/attendee), state(enum invited/joined/left/declined), joinedAt?, leftAt?, durationSec? |
+| `invitation` | id(UUID), meetingId→, email, token∎, role(enum), status(enum pending/accepted/declined/expired), expiresAt, invitedById→user, createdAt |
 
 **C. Contenu de réunion**
 
@@ -118,12 +120,13 @@ Légende dictionnaire : `∎` unique · `→` FK · `?` nullable.
 
 **D. Supervision mediasoup (infra + historique)**
 
-| Table           | Colonnes                                                                                                                                                                                                                                                                                                                         |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `media_server`  | id(UUID), hostname∎, region, ip, status(enum up/draining/down), version, capacity(int), lastHeartbeatAt, registeredAt — MAJ par heartbeat                                                                                                                                                                                        |
-| `media_worker`  | id(UUID), serverId→, pid(int), workerIndex(int), status(enum), routersCount(int), lastHeartbeatAt                                                                                                                                                                                                                                |
+<!-- prettier-ignore -->
+| Table | Colonnes |
+| --- | --- |
+| `media_server` | id(UUID), hostname∎, region, ip, status(enum up/draining/down), version, capacity(int), lastHeartbeatAt, registeredAt — MAJ par heartbeat |
+| `media_worker` | id(UUID), serverId→, pid(int), workerIndex(int), status(enum), routersCount(int), lastHeartbeatAt |
 | `media_session` | id(UUID), meetingId→, participantId→meeting_participant, workerId→media_worker, transportType(enum webrtc/plain/pipe), startedAt, endedAt?, durationSec?, bytesSent(bigint), bytesReceived(bigint), codecs(JSON), **qosSummary(JSON: rttAvg, packetLossAvg, jitterAvg)** — **1 ligne par connexion peer, écrite à la fermeture** |
-| `media_event`   | id(UUID), meetingId→?, serverId→?, userId→?, type(enum room.created/peer.joined/peer.left/producer.created/recording.started/server.down/…), payload(JSON), severity(enum), createdAt — append-only, rotation/archivage                                                                                                          |
+| `media_event` | id(UUID), meetingId→?, serverId→?, userId→?, type(enum room.created/peer.joined/peer.left/producer.created/recording.started/server.down/…), payload(JSON), severity(enum), createdAt — append-only, rotation/archivage |
 
 ### Supervision — règle ferme (perf)
 

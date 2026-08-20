@@ -62,31 +62,32 @@ est du remplissage — et le remplissage fait perdre le lecteur avant le chiffre
 Toutes les fonctions sont **pures** (elles rendent des `string` HTML) et **autonomes** (markup +
 comportement + style).
 
-| Bloc                                                     | Fonction                                                  |
-| -------------------------------------------------------- | --------------------------------------------------------- |
-| Document complet (CSS, thème, impression, tri)           | `doc({ title, subtitle, sections, footer })`              |
-| Section (contrôle du saut de page)                       | `section(titre, corps, { break: "avoid\|before\|auto" })` |
-| Chiffres-clés                                            | `cards([{ k, v, unit, sub }])`                            |
-| Tableau (triable au clic, en-tête répété à l'impression) | `table(cols, rows, { sortable, id })`                     |
-| Filtre plein-texte sur un tableau                        | `tableFilter(tableId)`                                    |
-| Export CSV (RFC 4180, BOM UTF-8)                         | `csvExport(tableId, "fichier.csv")`                       |
-| Barres comparatives (échelle log possible)               | `barChart(rows, { unit, logScale })`                      |
-| Courbes                                                  | `lineChart(series)`                                       |
-| Nuage de points + droite de régression                   | `scatterFit(series)`                                      |
-| Waterfall (phases, pipeline)                             | `waterfall(bars)`                                         |
-| Heatmap (matrice)                                        | `heatmap(rows, cols, values)`                             |
-| Jauge (saturation, score)                                | `gauge(ratio, { label, warn, danger })`                   |
-| Donut (répartition)                                      | `donut(parts)`                                            |
-| Sparkline (tendance en ligne)                            | `sparkline(values)`                                       |
-| **Calculateur interactif**                               | `calculator({ inputs, constants, compute })`              |
-| **Liste réordonnable (glisser-déposer + clavier)**       | `sortableList(items)`                                     |
-| Onglets (ARIA, dépliés à l'impression)                   | `tabs(items)`                                             |
-| Bloc repliable natif                                     | `details(résumé, corps)`                                  |
-| Mode présentation (plein écran, ←/→)                     | `deckControls()`                                          |
-| Impression                                               | `printButton()`                                           |
-| Avertissement / note                                     | `warn(html)` · `note(html)`                               |
-| **Marque (logo en en-tête et en pied)**                  | `doc({ brand })` — défaut `NODEFONY_BRAND`                |
-| Formatage FR + palette                                   | `fmt.int/dec/pct/bytes/ms` · `COLORS` · `series(i)`       |
+<!-- prettier-ignore -->
+| Bloc | Fonction |
+| --- | --- |
+| Document complet (CSS, thème, impression, tri) | `doc({ title, subtitle, sections, footer })` |
+| Section (contrôle du saut de page) | `section(titre, corps, { break: "avoid\|before\|auto" })` |
+| Chiffres-clés | `cards([{ k, v, unit, sub }])` |
+| Tableau (triable au clic, en-tête répété à l'impression) | `table(cols, rows, { sortable, id })` |
+| Filtre plein-texte sur un tableau | `tableFilter(tableId)` |
+| Export CSV (RFC 4180, BOM UTF-8) | `csvExport(tableId, "fichier.csv")` |
+| Barres comparatives (échelle log possible) | `barChart(rows, { unit, logScale })` |
+| Courbes | `lineChart(series)` |
+| Nuage de points + droite de régression | `scatterFit(series)` |
+| Waterfall (phases, pipeline) | `waterfall(bars)` |
+| Heatmap (matrice) | `heatmap(rows, cols, values)` |
+| Jauge (saturation, score) | `gauge(ratio, { label, warn, danger })` |
+| Donut (répartition) | `donut(parts)` |
+| Sparkline (tendance en ligne) | `sparkline(values)` |
+| **Calculateur interactif** | `calculator({ inputs, constants, compute })` |
+| **Liste réordonnable (glisser-déposer + clavier)** | `sortableList(items)` |
+| Onglets (ARIA, dépliés à l'impression) | `tabs(items)` |
+| Bloc repliable natif | `details(résumé, corps)` |
+| Mode présentation (plein écran, ←/→) | `deckControls()` |
+| Impression | `printButton()` |
+| Avertissement / note | `warn(html)` · `note(html)` |
+| **Marque (logo en en-tête et en pied)** | `doc({ brand })` — défaut `NODEFONY_BRAND` |
+| Formatage FR + palette | `fmt.int/dec/pct/bytes/ms` · `COLORS` · `series(i)` |
 
 ### Formes de données (cheat-sheet — évite de relire `lib/report.mjs`)
 

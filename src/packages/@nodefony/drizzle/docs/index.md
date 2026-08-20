@@ -444,15 +444,16 @@ ne paie ni l'installation ni le chargement de `pg`/`mysql2`.
 Ces divergences sont **encapsulées** dans le module. Elles sont listées ici pour que tu saches quoi
 regarder si un comportement te surprend.
 
-| Sujet                     | SQLite                   | PostgreSQL         | MySQL / MariaDB                | Raison                                                       |
-| ------------------------- | ------------------------ | ------------------ | ------------------------------ | ------------------------------------------------------------ |
-| Horodatage epoch (ms)     | `integer`                | `bigint`           | `bigint`                       | `integer` est 32 bits en PG/MySQL : un epoch ms déborde.     |
-| Date JS                   | `integer` (timestamp ms) | `timestamptz(3)`   | `datetime(3)`                  | `timestamp` MySQL est borné à 2038 et dépend de la timezone. |
-| JSON                      | `text` (mode json)       | `jsonb`            | type JSON compatible MariaDB   | MariaDB rend une chaîne (LONGTEXT), MySQL un objet.          |
-| Booléen                   | `integer`                | `boolean`          | `boolean` (alias `tinyint(1)`) | SQLite n'a pas de type booléen.                              |
-| Texte indexé / PK         | `text`                   | `text`             | `varchar(512)`                 | InnoDB n'indexe pas `TEXT` sans préfixe.                     |
-| Retour d'une ligne écrite | `RETURNING`              | `RETURNING`        | **absent** → relecture par PK  | MySQL n'a pas de `RETURNING`.                                |
-| `OFFSET` sans `LIMIT`     | fragment `-1`            | rien (valide seul) | `LIMIT` sentinelle             | Chaque moteur refuse une forme différente.                   |
+<!-- prettier-ignore -->
+| Sujet | SQLite | PostgreSQL | MySQL / MariaDB | Raison |
+| --- | --- | --- | --- | --- |
+| Horodatage epoch (ms) | `integer` | `bigint` | `bigint` | `integer` est 32 bits en PG/MySQL : un epoch ms déborde. |
+| Date JS | `integer` (timestamp ms) | `timestamptz(3)` | `datetime(3)` | `timestamp` MySQL est borné à 2038 et dépend de la timezone. |
+| JSON | `text` (mode json) | `jsonb` | type JSON compatible MariaDB | MariaDB rend une chaîne (LONGTEXT), MySQL un objet. |
+| Booléen | `integer` | `boolean` | `boolean` (alias `tinyint(1)`) | SQLite n'a pas de type booléen. |
+| Texte indexé / PK | `text` | `text` | `varchar(512)` | InnoDB n'indexe pas `TEXT` sans préfixe. |
+| Retour d'une ligne écrite | `RETURNING` | `RETURNING` | **absent** → relecture par PK | MySQL n'a pas de `RETURNING`. |
+| `OFFSET` sans `LIMIT` | fragment `-1` | rien (valide seul) | `LIMIT` sentinelle | Chaque moteur refuse une forme différente. |
 
 Toute cette traduction vit à **un seul endroit**, le `colKit` (`buildFrameworkTable()`,
 `colKit.ts:437` ; variante MySQL : `mysqlColumn()`, `colKit.ts:335`). Ajouter un dialecte, c'est
@@ -632,16 +633,17 @@ requêtes.
 C'est la partie qui distingue ce module d'un simple adapter : **charger `@nodefony/drizzle` rend huit
 briques durables disponibles**, sans aucun câblage.
 
-| Brique       | Table(s)                                           | Contrat servi              | Ce que ça rend durable                  |
-| ------------ | -------------------------------------------------- | -------------------------- | --------------------------------------- |
-| Session      | `session`                                          | `ISessionStorage` (http)   | les sessions survivent au redémarrage   |
-| Utilisateurs | `User`                                             | `IUserRepository` (user)   | l'annuaire des comptes                  |
-| Jetons       | `access_token`, `denied_jti`, `subject_revocation` | `ITokenStore` (security)   | PAT, denylist JWT, révocation par sujet |
-| Passkeys     | `webauthn_credential`                              | `IWebAuthnCredentialStore` | les clés WebAuthn enrôlées              |
-| 2FA (TOTP)   | `totp_secret`                                      | `ITotpSecretStore`         | les secrets 2FA (chiffrés en amont)     |
-| Audit        | `audit_event`                                      | `IAuditStore`              | le journal de sécurité, append-only     |
-| Webhooks     | `webhook_endpoint`                                 | `IWebhookStore`            | le registre des destinataires           |
-| Idempotence  | `idempotency_key`                                  | `IIdempotencyStore` (core) | la dédup des mutations, **partagée**    |
+<!-- prettier-ignore -->
+| Brique | Table(s) | Contrat servi | Ce que ça rend durable |
+| --- | --- | --- | --- |
+| Session | `session` | `ISessionStorage` (http) | les sessions survivent au redémarrage |
+| Utilisateurs | `User` | `IUserRepository` (user) | l'annuaire des comptes |
+| Jetons | `access_token`, `denied_jti`, `subject_revocation` | `ITokenStore` (security) | PAT, denylist JWT, révocation par sujet |
+| Passkeys | `webauthn_credential` | `IWebAuthnCredentialStore` | les clés WebAuthn enrôlées |
+| 2FA (TOTP) | `totp_secret` | `ITotpSecretStore` | les secrets 2FA (chiffrés en amont) |
+| Audit | `audit_event` | `IAuditStore` | le journal de sécurité, append-only |
+| Webhooks | `webhook_endpoint` | `IWebhookStore` | le registre des destinataires |
+| Idempotence | `idempotency_key` | `IIdempotencyStore` (core) | la dédup des mutations, **partagée** |
 
 Les huit sont portées sur les **trois** dialectes. Chaque table est déclarée par une spécification
 logique traduite par le colKit — par exemple la session (`SESSION_TABLE_SPEC`, `sessionEntity.ts:25`)

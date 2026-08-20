@@ -344,13 +344,14 @@ formateurs et le type sont exportés depuis `@nodefony/http` (`index.ts:221`).
 Le `requestId` client est le seul intrant **non fiable** de cette page, et il touche trois surfaces
 sensibles à la fois — d'où une validation stricte.
 
-| Menace                       | Vecteur                                                           | Défense                                                                                                     |
-| ---------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Log injection (CR/LF)        | `X-Request-Id: a\r\nFAKE LINE` écrit tel quel dans les logs       | Allowlist `[A-Za-z0-9._-]{1,128}` (`requestId.ts:26`) — CR/LF exclus.                                       |
-| Response splitting / DoS     | Caractère de contrôle / non-ASCII → throw `setHeader` natif (500) | Même allowlist ; valeur non conforme **rejetée**, pas nettoyée — `sanitizeRequestId()` (`requestId.ts:38`). |
-| Log flooding                 | `X-Request-Id` géant                                              | Borne `MAX_REQUEST_ID_LENGTH = 128` (`requestId.ts:18`).                                                    |
-| Fuite de secret dans l'audit | `Authorization` / `Cookie` sérialisés dans le log JSON            | Drapeaux de présence seuls — valeurs jamais écrites (`audit-logger.ts:211`).                                |
-| Fuite de stack en prod       | `error.stack` dans les logs d'audit publics                       | `includeStack` par défaut `false` en production (`audit-logger.ts:133`).                                    |
+<!-- prettier-ignore -->
+| Menace | Vecteur | Défense |
+| --- | --- | --- |
+| Log injection (CR/LF) | `X-Request-Id: a\r\nFAKE LINE` écrit tel quel dans les logs | Allowlist `[A-Za-z0-9._-]{1,128}` (`requestId.ts:26`) — CR/LF exclus. |
+| Response splitting / DoS | Caractère de contrôle / non-ASCII → throw `setHeader` natif (500) | Même allowlist ; valeur non conforme **rejetée**, pas nettoyée — `sanitizeRequestId()` (`requestId.ts:38`). |
+| Log flooding | `X-Request-Id` géant | Borne `MAX_REQUEST_ID_LENGTH = 128` (`requestId.ts:18`). |
+| Fuite de secret dans l'audit | `Authorization` / `Cookie` sérialisés dans le log JSON | Drapeaux de présence seuls — valeurs jamais écrites (`audit-logger.ts:211`). |
+| Fuite de stack en prod | `error.stack` dans les logs d'audit publics | `includeStack` par défaut `false` en production (`audit-logger.ts:133`). |
 
 > [!WARNING]
 > On **rejette** plutôt que d'assainir un `requestId` invalide : nettoyer donnerait au client un faux
@@ -379,12 +380,13 @@ Gate mémoire avant tout commit touchant le pipeline : `npm run test:memory` (sk
 
 Le `requestId` est la **clé de jointure** de l'admin Studio (dev). Les écrans et le data plane :
 
-| Surface                            | Route / endpoint                                                | Ce qu'on y voit                                                         |
-| ---------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| **Suivi de requête** (`TraceView`) | `/nodefony/syslog/api/logs/search?requestId=…&order=asc`        | Toutes les lignes corrélées + le profil serveur (phases, requêtes SQL). |
-| **Logs** (stream)                  | data plane syslog                                               | Le flux de logs live, filtrable.                                        |
-| **Audit**                          | écran Audit                                                     | Les événements d'audit persistés.                                       |
-| **Profiler** (dev)                 | `/nodefony/profiler/api/{requestId}` (`ProfilerAdminApi.ts:23`) | Le profil complet (waterfall des phases) d'une requête donnée.          |
+<!-- prettier-ignore -->
+| Surface | Route / endpoint | Ce qu'on y voit |
+| --- | --- | --- |
+| **Suivi de requête** (`TraceView`) | `/nodefony/syslog/api/logs/search?requestId=…&order=asc` | Toutes les lignes corrélées + le profil serveur (phases, requêtes SQL). |
+| **Logs** (stream) | data plane syslog | Le flux de logs live, filtrable. |
+| **Audit** | écran Audit | Les événements d'audit persistés. |
+| **Profiler** (dev) | `/nodefony/profiler/api/{requestId}` (`ProfilerAdminApi.ts:23`) | Le profil complet (waterfall des phases) d'une requête donnée. |
 
 Le profiler indexe ses instantanés par `requestId` (`Profiler.ts:203`) ; la debug bar lit le
 `X-Request-Id` de son propre appel AJAX et va chercher le profil (`Profiler.ts:14`). Le profiler n'est
@@ -397,14 +399,15 @@ instancié **qu'en dev** (fuite d'info + coût en prod).
 
 ## 📜 Normes appliquées
 
-| Domaine                                    | Norme                    | Ancrage                                                                      |
-| ------------------------------------------ | ------------------------ | ---------------------------------------------------------------------------- |
-| W3C Trace Context (`traceparent`)          | W3C Trace Context        | `resolveTraceparent()` (`trace.ts:83`), `parseTraceparent()` (`trace.ts:38`) |
-| Sûreté des valeurs d'en-tête (field-value) | RFC 9110 §5.5            | `sanitizeRequestId()` allowlist (`requestId.ts:26`)                          |
-| En-têtes trop volumineux / borne           | anti-abus (log flooding) | `MAX_REQUEST_ID_LENGTH` (`requestId.ts:18`)                                  |
-| Log structuré (PDU, sévérités)             | RFC 5424                 | `Pdu` + `requestId`/`pid` (`Pdu.ts:157`)                                     |
-| Sévérité dérivée du statut HTTP            | RFC 9110 (catégories)    | `severityFromStatus()` (`audit-logger.ts:71`)                                |
-| Non-journalisation des secrets             | OWASP (logging)          | redaction présence-only (`audit-logger.ts:211`)                              |
+<!-- prettier-ignore -->
+| Domaine | Norme | Ancrage |
+| --- | --- | --- |
+| W3C Trace Context (`traceparent`) | W3C Trace Context | `resolveTraceparent()` (`trace.ts:83`), `parseTraceparent()` (`trace.ts:38`) |
+| Sûreté des valeurs d'en-tête (field-value) | RFC 9110 §5.5 | `sanitizeRequestId()` allowlist (`requestId.ts:26`) |
+| En-têtes trop volumineux / borne | anti-abus (log flooding) | `MAX_REQUEST_ID_LENGTH` (`requestId.ts:18`) |
+| Log structuré (PDU, sévérités) | RFC 5424 | `Pdu` + `requestId`/`pid` (`Pdu.ts:157`) |
+| Sévérité dérivée du statut HTTP | RFC 9110 (catégories) | `severityFromStatus()` (`audit-logger.ts:71`) |
+| Non-journalisation des secrets | OWASP (logging) | redaction présence-only (`audit-logger.ts:211`) |
 
 > `X-Request-Id` n'est **pas** un en-tête normalisé (convention de-facto) ; c'est la **valeur** qu'il
 > transporte qui est soumise à la sûreté RFC 9110 §5.5.

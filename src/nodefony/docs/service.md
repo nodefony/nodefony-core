@@ -56,24 +56,25 @@ Trois idées portent toute la page :
 
 ## 📖 Lexique
 
-| Terme                 | Sens                                                                                                                                         |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Service               | La classe de base : identité (`name`) + DI + journal + événements.                                                                           |
-| Container             | Annuaire d'injection de dépendances (DI) : un nom → une instance. Voir [injection-portees](../../../docs/architecture/injection-portees.md). |
-| DI                    | _Dependency Injection_ — on **reçoit** ses dépendances au lieu de les construire soi-même.                                                   |
-| `notificationsCenter` | Le bus d'événements d'un service (une instance d'`Event`).                                                                                   |
-| Event                 | Bus maison qui étend l'`EventEmitter` de Node avec `emitAsync` et `emitAsyncGuarded`.                                                        |
-| Bus partagé           | Un même `Event` passé à plusieurs services (typiquement celui du module ou du kernel).                                                       |
-| Bus dédié             | Un `Event` créé pour un seul service — personne d'autre ne l'écoute.                                                                         |
-| Écouteur tracké       | Écouteur posé via l'API du service, donc retiré automatiquement par `clean()`.                                                               |
-| PDU                   | _Process Data Unit_ — une entrée de journal structurée (RFC 5424). Voir [syslog](syslog.md).                                                 |
-| Hot path              | Le chemin parcouru à **chaque** requête HTTP/WS — la moindre allocation y coûte cher.                                                        |
-| Microtask             | Unité d'ordonnancement d'une `Promise` : un `await` inutile en alloue une pour rien.                                                         |
-| Émission gardée       | `emitAsyncGuarded` — chaque écouteur est isolé (try/catch + délai maximal), les échecs sont collectés.                                       |
-| Scope DI              | `singleton` (une instance mémoïsée) ou `transient` (une neuve à chaque résolution).                                                          |
-| Tri topologique       | Calcul de l'ordre d'instanciation depuis les dépendances déclarées, au lieu de le lire dans une liste.                                       |
-| BootReport            | Bilan de démarrage : ce qui a été chargé, ce qui a été ignoré, pourquoi. Fait dire « boot DÉGRADÉ ».                                         |
-| Fail-soft / fail-loud | Continuer malgré la panne / refuser de continuer en silence. Nodefony fait les deux, jamais en cachette.                                     |
+<!-- prettier-ignore -->
+| Terme | Sens |
+| --- | --- |
+| Service | La classe de base : identité (`name`) + DI + journal + événements. |
+| Container | Annuaire d'injection de dépendances (DI) : un nom → une instance. Voir [injection-portees](../../../docs/architecture/injection-portees.md). |
+| DI | _Dependency Injection_ — on **reçoit** ses dépendances au lieu de les construire soi-même. |
+| `notificationsCenter` | Le bus d'événements d'un service (une instance d'`Event`). |
+| Event | Bus maison qui étend l'`EventEmitter` de Node avec `emitAsync` et `emitAsyncGuarded`. |
+| Bus partagé | Un même `Event` passé à plusieurs services (typiquement celui du module ou du kernel). |
+| Bus dédié | Un `Event` créé pour un seul service — personne d'autre ne l'écoute. |
+| Écouteur tracké | Écouteur posé via l'API du service, donc retiré automatiquement par `clean()`. |
+| PDU | _Process Data Unit_ — une entrée de journal structurée (RFC 5424). Voir [syslog](syslog.md). |
+| Hot path | Le chemin parcouru à **chaque** requête HTTP/WS — la moindre allocation y coûte cher. |
+| Microtask | Unité d'ordonnancement d'une `Promise` : un `await` inutile en alloue une pour rien. |
+| Émission gardée | `emitAsyncGuarded` — chaque écouteur est isolé (try/catch + délai maximal), les échecs sont collectés. |
+| Scope DI | `singleton` (une instance mémoïsée) ou `transient` (une neuve à chaque résolution). |
+| Tri topologique | Calcul de l'ordre d'instanciation depuis les dépendances déclarées, au lieu de le lire dans une liste. |
+| BootReport | Bilan de démarrage : ce qui a été chargé, ce qui a été ignoré, pourquoi. Fait dire « boot DÉGRADÉ ». |
+| Fail-soft / fail-loud | Continuer malgré la panne / refuser de continuer en silence. Nodefony fait les deux, jamais en cachette. |
 
 ## Qu'est-ce qu'un Service — et pourquoi un bus d'événements
 
@@ -310,14 +311,15 @@ bus dédié, l'objet entier part au ramasse-miettes avec le service, il n'y a ri
 
 ### Cycle de vie
 
-| Étape        | Appel                                            | Ce qui se passe                                                                                                                                                                                                                                                                                                                                                                         |
-| ------------ | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Naissance    | `new Service(name, container, nc, options)`      | câblage des trois broches, écouteurs de config attachés                                                                                                                                                                                                                                                                                                                                 |
-| Démarrage    | `init(owner)` — **optionnel, à toi de l'écrire** | appelé UNE fois au boot par le module qui porte le service (`Module.ts:377`), sous garde (délai maximal + criticité du module). Reçoit son propriétaire, donc sa configuration résolue. C'est ici que se fait tout ce qui demande un `await` : connexion, chargement, préchauffage. ⚠️ `init`, pas `initialize` — `initialize()` est le hook du **Controller**, appelé à chaque requête |
-| Journal      | `Service.initSyslog()` (`Service.ts:159`)        | démarre la sortie console (environnement + verbosité + filtres)                                                                                                                                                                                                                                                                                                                         |
-| Vie          | `log` / `fire` / `on` / `get`                    | délégation vers syslog, bus et container                                                                                                                                                                                                                                                                                                                                                |
-| Destruction  | `Service.clean()` (`Service.ts:179`)             | retire les écouteurs trackés, remet syslog/nc/container/kernel à vide                                                                                                                                                                                                                                                                                                                   |
-| Destruction+ | `clean(true)`                                    | appelle en plus `Syslog.reset()` — les transports sont fermés                                                                                                                                                                                                                                                                                                                           |
+<!-- prettier-ignore -->
+| Étape | Appel | Ce qui se passe |
+| --- | --- | --- |
+| Naissance | `new Service(name, container, nc, options)` | câblage des trois broches, écouteurs de config attachés |
+| Démarrage | `init(owner)` — **optionnel, à toi de l'écrire** | appelé UNE fois au boot par le module qui porte le service (`Module.ts:377`), sous garde (délai maximal + criticité du module). Reçoit son propriétaire, donc sa configuration résolue. C'est ici que se fait tout ce qui demande un `await` : connexion, chargement, préchauffage. ⚠️ `init`, pas `initialize` — `initialize()` est le hook du **Controller**, appelé à chaque requête |
+| Journal | `Service.initSyslog()` (`Service.ts:159`) | démarre la sortie console (environnement + verbosité + filtres) |
+| Vie | `log` / `fire` / `on` / `get` | délégation vers syslog, bus et container |
+| Destruction | `Service.clean()` (`Service.ts:179`) | retire les écouteurs trackés, remet syslog/nc/container/kernel à vide |
+| Destruction+ | `clean(true)` | appelle en plus `Syslog.reset()` — les transports sont fermés |
 
 `clean()` est **idempotent** : le rappeler ne lève pas.
 

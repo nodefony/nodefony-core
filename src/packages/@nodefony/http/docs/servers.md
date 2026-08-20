@@ -406,14 +406,15 @@ la CI et le cluster) ; le **réglage** est une propriété de l'application.
 
 ### Niveau 1 — la topologie (`servers`)
 
-| Option                      | Type                            | Défaut                                      | Effet                                                       |
-| --------------------------- | ------------------------------- | ------------------------------------------- | ----------------------------------------------------------- |
-| `servers.http`              | `{ port }` \| `false`           | `{ port: 5151 }`                            | Serveur en clair. `false` = TLS-only (le WS tombe avec).    |
-| `servers.https`             | `{ port, protocol }` \| `false` | `{ port: 5152, protocol: "2.0" }`           | Serveur TLS. `false` = nominal cloud-native (le WSS tombe). |
-| `servers.https.protocol`    | `"1.1"` \| `"2.0"`              | `"2.0"`                                     | HTTP/2 (h2) avec repli HTTP/1.1 par ALPN, ou HTTP/1.1 seul. |
-| `servers.statics`           | bool                            | `true`                                      | Monte le service de fichiers statiques.                     |
-| `servers.portPolicy`        | `"auto"` \| `"strict"`          | `auto` en dev, `strict` en prod **et** test | Que faire si le port est occupé (section suivante).         |
-| `servers.portRetryAttempts` | int ≥ 0                         | `20`                                        | En `auto`, nombre de ports essayés après le port désiré.    |
+<!-- prettier-ignore -->
+| Option | Type | Défaut | Effet |
+| --- | --- | --- | --- |
+| `servers.http` | `{ port }` \| `false` | `{ port: 5151 }` | Serveur en clair. `false` = TLS-only (le WS tombe avec). |
+| `servers.https` | `{ port, protocol }` \| `false` | `{ port: 5152, protocol: "2.0" }` | Serveur TLS. `false` = nominal cloud-native (le WSS tombe). |
+| `servers.https.protocol` | `"1.1"` \| `"2.0"` | `"2.0"` | HTTP/2 (h2) avec repli HTTP/1.1 par ALPN, ou HTTP/1.1 seul. |
+| `servers.statics` | bool | `true` | Monte le service de fichiers statiques. |
+| `servers.portPolicy` | `"auto"` \| `"strict"` | `auto` en dev, `strict` en prod **et** test | Que faire si le port est occupé (section suivante). |
+| `servers.portRetryAttempts` | int ≥ 0 | `20` | En `auto`, nombre de ports essayés après le port désiré. |
 
 Défauts matérialisés dans `defaultAppConfig` (`src/nodefony/src/config/defaults.ts:34`).
 

@@ -206,15 +206,16 @@ curl -si http://localhost:5151/api/articles -H 'Origin: https://evil.com'
 La section `cors` de la config du module (`corsSchema`, `config.ts:117` ; branchée à la racine en
 `config.ts:117`). Toutes les clés ont un défaut sûr — une section omise donne une politique **fermée**.
 
-| Option           | Type       | Défaut                                          | Effet                                                                           |
-| ---------------- | ---------- | ----------------------------------------------- | ------------------------------------------------------------------------------- |
-| `enabled`        | `boolean`  | `true`                                          | `false` ⇒ aucune politique instanciée, `handleCors` est un no-op total.         |
-| `origins`        | `string[]` | `[]`                                            | L'allowlist. **`[]` = aucune origine autorisée** (fermé par défaut).            |
-| `credentials`    | `boolean`  | `false`                                         | Autorise cookies/`Authorization` cross-origin. Interdit avec `origins:["*"]`.   |
-| `methods`        | `string[]` | `GET, POST, PUT, PATCH, DELETE, OPTIONS`        | Annoncées au preflight via `Access-Control-Allow-Methods`.                      |
-| `allowedHeaders` | `string[]` | `Authorization, Content-Type, X-Requested-With` | En-têtes de requête que le front a le droit d'envoyer.                          |
-| `exposedHeaders` | `string[]` | `[]`                                            | En-têtes de **réponse** que le JS a le droit de lire. Requête réelle seulement. |
-| `maxAgeS`        | `int`      | `600`                                           | Durée de cache du preflight, en secondes.                                       |
+<!-- prettier-ignore -->
+| Option | Type | Défaut | Effet |
+| --- | --- | --- | --- |
+| `enabled` | `boolean` | `true` | `false` ⇒ aucune politique instanciée, `handleCors` est un no-op total. |
+| `origins` | `string[]` | `[]` | L'allowlist. **`[]` = aucune origine autorisée** (fermé par défaut). |
+| `credentials` | `boolean` | `false` | Autorise cookies/`Authorization` cross-origin. Interdit avec `origins:["*"]`. |
+| `methods` | `string[]` | `GET, POST, PUT, PATCH, DELETE, OPTIONS` | Annoncées au preflight via `Access-Control-Allow-Methods`. |
+| `allowedHeaders` | `string[]` | `Authorization, Content-Type, X-Requested-With` | En-têtes de requête que le front a le droit d'envoyer. |
+| `exposedHeaders` | `string[]` | `[]` | En-têtes de **réponse** que le JS a le droit de lire. Requête réelle seulement. |
+| `maxAgeS` | `int` | `600` | Durée de cache du preflight, en secondes. |
 
 > [!TIP]
 > Le défaut `origins: []` avec `enabled: true` n'est pas une incohérence : la politique existe, mais

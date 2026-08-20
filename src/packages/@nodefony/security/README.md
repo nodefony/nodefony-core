@@ -72,20 +72,21 @@ documentée (explication + défaut + reco).
 
 ### Sections
 
-| Section         | Rôle                                                          | Défaut                                               |
-| --------------- | ------------------------------------------------------------- | ---------------------------------------------------- |
-| `encoders`      | hash mot de passe                                             | Argon2id (OWASP) ; bcrypt legacy                     |
-| `roleHierarchy` | héritage de rôles                                             | `{}` (plats)                                         |
-| `areas`         | zones firewall (pattern + host + authenticators)              | `{}` (aucune route protégée)                         |
-| `cors`          | Cross-Origin                                                  | strict (jamais `*`+credentials)                      |
-| `csrf`          | Fetch Metadata (`Sec-Fetch-Site`) + repli Origin (OWASP 2025) | activé ; `strictSameSite:false`, `trustedOrigins:[]` |
-| `headers`       | HSTS/CSP+nonces/frameguard/noSniff… (natif)                   | activé ; avancés (COOP/COEP/CORP…) en option         |
-| `rateLimit`     | anti brute-force + lockout                                    | activé                                               |
-| `jwt`           | jetons API/agents (sans-état)                                 | EdDSA, access 15 min / refresh 7 j, rotation         |
-| `apiKeys`       | clés API (PAT) hashées                                        | préfixe `nf`, expiry 90 j                            |
-| `webhooks`      | sortants signés HMAC                                          | anti-replay + anti-SSRF                              |
-| `audit`         | journal sécurité (append-only)                                | activé, stream Studio                                |
-| `studio`        | durcissement console admin                                    | **OFF**, `localhost` (durcissement réservé)          |
+<!-- prettier-ignore -->
+| Section | Rôle | Défaut |
+| --- | --- | --- |
+| `encoders` | hash mot de passe | Argon2id (OWASP) ; bcrypt legacy |
+| `roleHierarchy` | héritage de rôles | `{}` (plats) |
+| `areas` | zones firewall (pattern + host + authenticators) | `{}` (aucune route protégée) |
+| `cors` | Cross-Origin | strict (jamais `*`+credentials) |
+| `csrf` | Fetch Metadata (`Sec-Fetch-Site`) + repli Origin (OWASP 2025) | activé ; `strictSameSite:false`, `trustedOrigins:[]` |
+| `headers` | HSTS/CSP+nonces/frameguard/noSniff… (natif) | activé ; avancés (COOP/COEP/CORP…) en option |
+| `rateLimit` | anti brute-force + lockout | activé |
+| `jwt` | jetons API/agents (sans-état) | EdDSA, access 15 min / refresh 7 j, rotation |
+| `apiKeys` | clés API (PAT) hashées | préfixe `nf`, expiry 90 j |
+| `webhooks` | sortants signés HMAC | anti-replay + anti-SSRF |
+| `audit` | journal sécurité (append-only) | activé, stream Studio |
+| `studio` | durcissement console admin | **OFF**, `localhost` (durcissement réservé) |
 
 ### CSRF — Fetch Metadata d'abord
 

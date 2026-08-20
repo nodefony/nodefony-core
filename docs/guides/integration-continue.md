@@ -67,18 +67,19 @@ dans un job vert.
 Six fichiers de workflow, chacun déclenché par des **chemins** (pas par une
 branche : réserver l'infra à `main`, c'est découvrir la casse après le merge).
 
-| Workflow                          | Job                                      | Ce qu'il prouve                                                                    | Décor                          |
-| --------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------ |
-| `node.js.yml`                     | Vérifications                            | types, lint, audit des dépendances, conformité des skills                          | —                              |
-| `node.js.yml`                     | Tests unit                               | suites unitaires, **3 systèmes × 2 versions de Node**                              | —                              |
-| `node.js.yml`                     | Filet CLI                                | le binaire `nodefony` démarre vraiment (`RUN_CLI_BOOT`)                            | —                              |
-| `node.js.yml`                     | Tests intégration                        | pipeline HTTP/WS sur serveur réel, dont le câblage du 429 (backoff NIST)           | serveur **dev ET production**  |
-| `orm.yml`                         | Stores                                   | drizzle sur **sqlite + PostgreSQL + MySQL**, redis, orm-core                       | PostgreSQL, MariaDB, Redis     |
-| `orm.yml`                         | Socket distribuée                        | fan-out **cross-process** (IPC) et **cross-pod** (backplane Redis), attaques F83   | Redis, `RUN_CLUSTER_E2E`       |
-| `memory.yml`                      | Charge, fuites et scopes                 | heap, fuites HTTP/WS, scopes d'injection sous charge, sessions, flux               | serveur `--expose-gc`          |
-| `e2e-autonomes.yml`               | Cluster · configuration · arrêt gracieux | fan-out entre process, sonde de pod, point de santé, surcharge par l'environnement | aucun (les scripts se montent) |
-| `codeql.yml`                      | Analyze                                  | analyse statique de sécurité                                                       | —                              |
-| `npm-publish-github-packages.yml` | build · publish-gpr                      | publication sur le registre GitHub (déclenché par une release)                     | —                              |
+<!-- prettier-ignore -->
+| Workflow | Job | Ce qu'il prouve | Décor |
+| --- | --- | --- | --- |
+| `node.js.yml` | Vérifications | types, lint, audit des dépendances, conformité des skills | — |
+| `node.js.yml` | Tests unit | suites unitaires, **3 systèmes × 2 versions de Node** | — |
+| `node.js.yml` | Filet CLI | le binaire `nodefony` démarre vraiment (`RUN_CLI_BOOT`) | — |
+| `node.js.yml` | Tests intégration | pipeline HTTP/WS sur serveur réel, dont le câblage du 429 (backoff NIST) | serveur **dev ET production** |
+| `orm.yml` | Stores | drizzle sur **sqlite + PostgreSQL + MySQL**, redis, orm-core | PostgreSQL, MariaDB, Redis |
+| `orm.yml` | Socket distribuée | fan-out **cross-process** (IPC) et **cross-pod** (backplane Redis), attaques F83 | Redis, `RUN_CLUSTER_E2E` |
+| `memory.yml` | Charge, fuites et scopes | heap, fuites HTTP/WS, scopes d'injection sous charge, sessions, flux | serveur `--expose-gc` |
+| `e2e-autonomes.yml` | Cluster · configuration · arrêt gracieux | fan-out entre process, sonde de pod, point de santé, surcharge par l'environnement | aucun (les scripts se montent) |
+| `codeql.yml` | Analyze | analyse statique de sécurité | — |
+| `npm-publish-github-packages.yml` | build · publish-gpr | publication sur le registre GitHub (déclenché par une release) | — |
 
 ### Le MODE du serveur est une dimension de la matrice, pas une propriété de branche
 
@@ -268,14 +269,15 @@ node .claude/skills/nodefony-load-test/scripts/cluster-realtime-e2e.mjs
 
 Un choix énoncé n'est pas un oubli. Ce qui suit est délibérément dehors :
 
-| Absent                                              | Raison                                                                                                                                                                                                                                                                                                                   |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Bancs de performance (`RUN_PERF`)                   | une latence dépend du voisin de runner ; un seuil non déterministe est un futur rouge stérile                                                                                                                                                                                                                            |
-| Sondes de rupture WebSocket (`RUN_WS_RUPTURE`)      | elles épuisent les ports éphémères de l'hôte                                                                                                                                                                                                                                                                             |
-| Loki, OpenSearch (`LogBackplaneE2E`)                | décor à monter à la forge — et `test:all` n'importe pas leurs gates, donc même une machine qui FAIT tourner les deux conteneurs les saute en silence. Reporté APRÈS la release (décision 2026-07-27)                                                                                                                     |
-| `idempotency-cluster-e2e`                           | tape sur le serveur de développement : sa place est avec les bancs à serveur partagé                                                                                                                                                                                                                                     |
-| Les preuves à décor opt-in (un serveur par plafond) | coût de montage disproportionné pour ce qu'elles ajoutent à chaque poussée                                                                                                                                                                                                                                               |
-| Banc reverse-proxy (`reverse-proxy.test.ts`)        | décor à DEUX versants — conteneurs `--profile proxy`, serveur en `NF_BIND_ALL=1`, certificats dérivés, `nodefony.com` résolu côté client. Un montage automatique à moitié réussi rendrait le vert menteur qu'on passe ce guide à combattre : il se lance à la main (`PROXY_GATE`, mode d'emploi dans `docker/README.md`) |
+<!-- prettier-ignore -->
+| Absent | Raison |
+| --- | --- |
+| Bancs de performance (`RUN_PERF`) | une latence dépend du voisin de runner ; un seuil non déterministe est un futur rouge stérile |
+| Sondes de rupture WebSocket (`RUN_WS_RUPTURE`) | elles épuisent les ports éphémères de l'hôte |
+| Loki, OpenSearch (`LogBackplaneE2E`) | décor à monter à la forge — et `test:all` n'importe pas leurs gates, donc même une machine qui FAIT tourner les deux conteneurs les saute en silence. Reporté APRÈS la release (décision 2026-07-27) |
+| `idempotency-cluster-e2e` | tape sur le serveur de développement : sa place est avec les bancs à serveur partagé |
+| Les preuves à décor opt-in (un serveur par plafond) | coût de montage disproportionné pour ce qu'elles ajoutent à chaque poussée |
+| Banc reverse-proxy (`reverse-proxy.test.ts`) | décor à DEUX versants — conteneurs `--profile proxy`, serveur en `NF_BIND_ALL=1`, certificats dérivés, `nodefony.com` résolu côté client. Un montage automatique à moitié réussi rendrait le vert menteur qu'on passe ce guide à combattre : il se lance à la main (`PROXY_GATE`, mode d'emploi dans `docker/README.md`) |
 
 **Perf dehors, mémoire dedans** : une latence dépend de la machine, une fuite
 fuit quelle que soit la charge.

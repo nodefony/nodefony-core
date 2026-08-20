@@ -730,22 +730,23 @@ Un endpoint est une **configuration durable**, pas un cache : il survit aux red�
 partage entre pods. Les colonnes suivent `IWebhookEndpoint` (`IWebhookEndpoint.ts:10`), plat et
 « tout `| null` ».
 
-| Colonne                   | Sens                                        | SQL (sqlite · postgres · mysql)             | MongoDB       |
-| ------------------------- | ------------------------------------------- | ------------------------------------------- | ------------- |
-| `id` (PK)                 | `wh_<aléatoire base64url>`                  | `text` · `text` · `varchar(512)`            | `_id: String` |
-| `url`                     | destination validée anti-SSRF               | `text`                                      | `String`      |
-| `secretEnc`               | secret **chiffré** (`gcm1.…`), jamais clair | `text`                                      | `String`      |
-| `events`                  | actions souscrites                          | `text mode:json` · `jsonb` · `json`         | `[String]`    |
-| `enabled`                 | actif ?                                     | `integer mode:bool` · `boolean` · `boolean` | `Boolean`     |
-| `description`             | libellé console                             | `text`                                      | `String`      |
-| `tenantId`                | slot multi-tenant (réservé)                 | `text`                                      | `String`      |
-| `createdBy`               | admin créateur (traçabilité)                | `text`                                      | `String`      |
-| `createdAt` / `updatedAt` | epoch **ms**                                | `integer` · `bigint` · `bigint`             | `Number`      |
-| `lastDeliveryAt`          | dernière tentative (epoch ms)               | `integer` · `bigint` · `bigint`             | `Number`      |
-| `lastDeliveryStatus`      | code HTTP de la dernière livraison          | `integer`                                   | `Number`      |
-| `lastDeliveryError`       | message d'erreur                            | `text`                                      | `String`      |
-| `failureCount`            | échecs consécutifs                          | `integer`                                   | `Number`      |
-| `metadata`                | extras applicatifs (jamais de secret)       | `text mode:json` · `jsonb` · `json`         | `Object`      |
+<!-- prettier-ignore -->
+| Colonne | Sens | SQL (sqlite · postgres · mysql) | MongoDB |
+| --- | --- | --- | --- |
+| `id` (PK) | `wh_<aléatoire base64url>` | `text` · `text` · `varchar(512)` | `_id: String` |
+| `url` | destination validée anti-SSRF | `text` | `String` |
+| `secretEnc` | secret **chiffré** (`gcm1.…`), jamais clair | `text` | `String` |
+| `events` | actions souscrites | `text mode:json` · `jsonb` · `json` | `[String]` |
+| `enabled` | actif ? | `integer mode:bool` · `boolean` · `boolean` | `Boolean` |
+| `description` | libellé console | `text` | `String` |
+| `tenantId` | slot multi-tenant (réservé) | `text` | `String` |
+| `createdBy` | admin créateur (traçabilité) | `text` | `String` |
+| `createdAt` / `updatedAt` | epoch **ms** | `integer` · `bigint` · `bigint` | `Number` |
+| `lastDeliveryAt` | dernière tentative (epoch ms) | `integer` · `bigint` · `bigint` | `Number` |
+| `lastDeliveryStatus` | code HTTP de la dernière livraison | `integer` | `Number` |
+| `lastDeliveryError` | message d'erreur | `text` | `String` |
+| `failureCount` | échecs consécutifs | `integer` | `Number` |
+| `metadata` | extras applicatifs (jamais de secret) | `text mode:json` · `jsonb` · `json` | `Object` |
 
 Côté SQL, la table est décrite **une seule fois** en spec logique
 (`WEBHOOK_ENDPOINT_TABLE_SPEC`, `drizzle/nodefony/entity/webhookEndpointEntity.ts:28`) puis déclinée
@@ -901,14 +902,15 @@ de filtres et de bornes sont alors prouvés, pas supposés.
 Le principe est simple : **le coût est nul tant qu'aucun endpoint n'est enregistré**, et borné dès
 qu'il y en a.
 
-| Mécanisme               | Borne                                                         | Ancrage                                                  |
-| ----------------------- | ------------------------------------------------------------- | -------------------------------------------------------- |
-| Court-circuit hot-path  | 0 allocation si `endpointCount() == 0`                        | `WebhookDispatcher.ts:137`                               |
-| File d'attente          | `maxQueue` (1000) puis **abandon** + log                      | `WebhookDispatcher.ts:149`                               |
-| Sockets / FD simultanés | `maxConcurrent` (8)                                           | `WebhookDispatcher.#pump()` (`WebhookDispatcher.ts:173`) |
-| Durée d'une tentative   | 10 s puis `req.destroy()`                                     | `webhookDelivery.ts:136`                                 |
-| Historique par endpoint | 20 entrées, corps requête 8 Ko, réponse 2 Ko                  | `webhooks.ts:54`                                         |
-| Allocations paresseuses | file, `Set` de timers, historique : `null` tant qu'inutilisés | `WebhookDispatcher.ts:114`                               |
+<!-- prettier-ignore -->
+| Mécanisme | Borne | Ancrage |
+| --- | --- | --- |
+| Court-circuit hot-path | 0 allocation si `endpointCount() == 0` | `WebhookDispatcher.ts:137` |
+| File d'attente | `maxQueue` (1000) puis **abandon** + log | `WebhookDispatcher.ts:149` |
+| Sockets / FD simultanés | `maxConcurrent` (8) | `WebhookDispatcher.#pump()` (`WebhookDispatcher.ts:173`) |
+| Durée d'une tentative | 10 s puis `req.destroy()` | `webhookDelivery.ts:136` |
+| Historique par endpoint | 20 entrées, corps requête 8 Ko, réponse 2 Ko | `webhooks.ts:54` |
+| Allocations paresseuses | file, `Set` de timers, historique : `null` tant qu'inutilisés | `WebhookDispatcher.ts:114` |
 
 La preuve n'est pas déclarative : un banc d'attaque envoie **5000 événements vers un endpoint mort**
 et vérifie que 4000 livraisons sont abandonnées (file plafonnée) et que le pic de connexions

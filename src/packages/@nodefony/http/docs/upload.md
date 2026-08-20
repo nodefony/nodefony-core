@@ -366,13 +366,14 @@ async backup(@Body({ stream: true }) body: NodeJS.ReadableStream) {
 L'upload est une surface d'attaque classique : nom de fichier hostile, saturation disque/RAM, contenu
 piégé. Les défenses en place, et **ce qui reste à ta charge**.
 
-| Menace                                 | Défense côté framework                                                                                                    | À ta charge                                                   |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| **Path traversal** (chemin d'écriture) | Le temp est nommé `randomUUID()` + extension — jamais le nom client (`context/http/Request.ts:458`).                      | La **destination** de `move()` (voir avertissement).          |
-| **Saturation RAM**                     | Multipart streamé (jamais bufferisé) ; corps non-multipart borné (`maxBodySize`).                                         | Resserrer `maxBodySize` selon l'endpoint.                     |
-| **Saturation disque**                  | `maxFileSize` + `maxTotalFileSize` + `maxFiles` ; `abort()` nettoie les temp à l'abandon (`context/http/Request.ts:420`). | Purger les temp non déplacés (TTL / cron).                    |
-| **DoS par quantité**                   | `maxFields` / `maxFiles` / `parts` → `413` (`context/http/Request.ts:610`).                                               | —                                                             |
-| **Type de fichier hostile**            | `mimeType` **déclaré** est exposé tel quel.                                                                               | Valider le type/contenu réel (le MIME client est déclaratif). |
+<!-- prettier-ignore -->
+| Menace | Défense côté framework | À ta charge |
+| --- | --- | --- |
+| **Path traversal** (chemin d'écriture) | Le temp est nommé `randomUUID()` + extension — jamais le nom client (`context/http/Request.ts:458`). | La **destination** de `move()` (voir avertissement). |
+| **Saturation RAM** | Multipart streamé (jamais bufferisé) ; corps non-multipart borné (`maxBodySize`). | Resserrer `maxBodySize` selon l'endpoint. |
+| **Saturation disque** | `maxFileSize` + `maxTotalFileSize` + `maxFiles` ; `abort()` nettoie les temp à l'abandon (`context/http/Request.ts:420`). | Purger les temp non déplacés (TTL / cron). |
+| **DoS par quantité** | `maxFields` / `maxFiles` / `parts` → `413` (`context/http/Request.ts:610`). | — |
+| **Type de fichier hostile** | `mimeType` **déclaré** est exposé tel quel. | Valider le type/contenu réel (le MIME client est déclaratif). |
 
 > [!WARNING]
 > **Path traversal sur la destination.** `move(dir)` / `moveAsync(dir)` vers un **dossier** construit le

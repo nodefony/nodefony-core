@@ -160,14 +160,15 @@ Décision PURE dans `src/bin/resolveLocalCli.ts` (`resolveLocalCli({cwd, selfDir
 
 Ordre : garde `NODEFONY_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_modules/nodefony`.
 
-| Cas                                                        | `reason`            | Effet                                                             |
-| ---------------------------------------------------------- | ------------------- | ----------------------------------------------------------------- |
-| déjà délégué (le CLI de l'app tourne)                      | `already-delegated` | soi-même (anti-boucle)                                            |
-| hors projet (`create app`)                                 | `no-project`        | soi-même (rôle du global)                                         |
-| deps non installées                                        | `no-local-cli`      | soi-même (rend service)                                           |
-| `realpath` local === self (monorepo, `--link`, `npm link`) | `same-package`      | soi-même (0 aller-retour)                                         |
-| paquet local DIFFÉRENT                                     | `local-cli`         | `await import(<app>/bin/nodefony)` — même process, argv intact    |
-| bin déclaré mais absent (paquet non construit)             | `local-cli-broken`  | **stderr + exit 1** (jamais piloter l'app avec une autre version) |
+<!-- prettier-ignore -->
+| Cas | `reason` | Effet |
+| --- | --- | --- |
+| déjà délégué (le CLI de l'app tourne) | `already-delegated` | soi-même (anti-boucle) |
+| hors projet (`create app`) | `no-project` | soi-même (rôle du global) |
+| deps non installées | `no-local-cli` | soi-même (rend service) |
+| `realpath` local === self (monorepo, `--link`, `npm link`) | `same-package` | soi-même (0 aller-retour) |
+| paquet local DIFFÉRENT | `local-cli` | `await import(<app>/bin/nodefony)` — même process, argv intact |
+| bin déclaré mais absent (paquet non construit) | `local-cli-broken` | **stderr + exit 1** (jamais piloter l'app avec une autre version) |
 
 - `findProjectRoot` vit dans `cli/projectRoot.ts` (0 dep) — PAS dans `scaffold/engine.ts` : le bundle du
   bin tirerait `eta` + tout le moteur de templates, payé à chaque invocation. `engine.ts` le ré-exporte.
