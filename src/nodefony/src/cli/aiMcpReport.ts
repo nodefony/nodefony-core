@@ -13,6 +13,8 @@
  * papier qui dit à un agent où taper.
  */
 
+import { stripTrailingSlashes } from "../Tools";
+
 /** Nom de la clé sous laquelle notre serveur est déclaré. */
 export const MCP_SERVER_KEY = "nodefony";
 
@@ -55,7 +57,10 @@ export interface IMcpConfigPlan {
  * @param endpointPath - chemin de l'endpoint, tel que le module le monte
  */
 export function buildMcpUrl(origin: string, endpointPath: string): string {
-  return `${origin.replace(/\/+$/u, "")}${endpointPath}`;
+  // `stripTrailingSlashes` et non `/\/+$/` : le motif backtracke sur une suite
+  // de barres obliques (ReDoS polynomial), et le helper du cœur n'alloue rien
+  // quand il n'y a rien à couper. Une règle = une implémentation.
+  return `${stripTrailingSlashes(origin)}${endpointPath}`;
 }
 
 /**

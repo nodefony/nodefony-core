@@ -6,6 +6,29 @@
 #
 # Documentation: https://docs.github.com/en/code-security/code-scanning/using-codeql-code-scanning-with-github-actions/customizing-code-scanning
 
+# ─── Suite de requêtes ────────────────────────────────────────────────────────
+#
+# `security-extended` plutôt que la suite `default` : Nodefony est PUBLIÉ sur
+# npm, donc la surface d'attaque n'est pas ce dépôt mais les applications qui
+# l'installent. La suite étendue ajoute les requêtes de précision moindre —
+# injections indirectes, flux de données traversant plusieurs modules — qui sont
+# exactement celles qu'un framework doit voir, et qu'un service isolé peut se
+# permettre d'ignorer.
+#
+# `security-and-quality` n'est PAS retenue : elle ajoute des requêtes de STYLE,
+# dont le dépôt a déjà les gardes (oxlint, prettier, typecheck strict). Le bruit
+# qu'elle apporterait se paierait sur la seule liste qu'on veut garder lisible.
+#
+# ⚠️ Déclaré ICI et non dans le workflow : le champ `queries:` de
+# `codeql-action/init` ÉCRASE celui d'un fichier de config au lieu de s'y
+# ajouter (sauf préfixe `+`). Une seule source, donc, et c'est ce fichier.
+#
+# Preuve que le changement MORD : le journal du run compte les requêtes
+# chargées (`[N/89] Loaded …` avec la suite par défaut). Sous `security-extended`
+# ce total augmente — s'il reste à 89, la suite n'a pas été prise en compte.
+queries:
+  - uses: security-extended
+
 paths-ignore:
   # Generated/dist directories
   - "**/dist/**"
