@@ -29,7 +29,7 @@
   `%p` (nombre de parents) pour distinguer un merge d'un vrai commit. Reproduction exacte du piège
   du 08-08d (`A...B` mal lu ⇒ régression annoncée à tort) : **c'est le user qui a demandé « d'où
   viennent ces commits ? »**, et la question était la bonne.
-- `[1× — 08-20c]` **Un exit code de PIPELINE n'est pas celui de la commande.** `npm run test:all >
+- `[2× — 08-21]` **Un exit code de PIPELINE n'est pas celui de la commande.** (Rejoué le 08-21 : `npm run check | tail` → `RC=0` sur un check à 2 manquements — reconnu à temps, le banc lisait le vrai exit.) `npm run test:all >
 log 2>&1; echo "EXIT=$?" | tee -a log` : le harnais a rapporté **exit 0** — celui de `tee`. Le
   journal, lui, portait `EXIT=1` et **648 échecs**. J'ai failli lire l'inverse de la vérité. Variante
   directe de la règle « jamais `>/dev/null` sur une commande dont dépend la mesure », déjà graduée le
@@ -67,6 +67,15 @@ log 2>&1; echo "EXIT=$?" | tee -a log` : le harnais a rapporté **exit 0** — c
 
 ## 🔌 Le décor d'un banc se LIT à sa source, jamais ne se devine
 
+- `[1× — 08-21]` 🔴 **Le serveur du dépôt laissé UP a rougi le banc devkit du VOISIN** : le
+  `nodefony check` de l'app témoin sonde les ports de sa CONFIG (5151/5152) — tenus par le dépôt —
+  et chaque tâche se fermait AVANT l'agent, sur un manquement d'un autre runtime. Symétrique exact
+  du bullet suivant (éteint = 642 rouges d'intégration ; allumé = banc voisin rouge) : le serveur
+  de dev n'est ni un défaut ni un dû — c'est une VARIABLE DE DÉCOR que chaque banc doit constater.
+  Dette inscrite (`9ce0e9fc`).
+- `[1× — 08-21]` **La contention, je l'ai fabriquée moi-même** : `--setup-only` (pack + npm install)
+  lancé EN PARALLÈLE de `test:all` opt-in → 12 rouges, tous requalifiés verts en isolation. Les
+  runs lourds se SÉRIALISENT — le wall-clock gagné se repaie en diagnostics.
 - `[1× — 08-20d]` 🔴 **648 rouges de `test:all`, DEUX jours de suite, pour la même cause jamais
   instruite : le serveur d'intégration était ÉTEINT.** 642 `ECONNREFUSED :5152` + 6 flakes de
   contention — zéro régression. `test:all` pose l'infra docker mais PAS le serveur que les suites
