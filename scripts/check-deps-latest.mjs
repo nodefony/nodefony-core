@@ -195,7 +195,10 @@ const failed = [];
 const CONCURRENCY = 16;
 
 async function fetchOne(name) {
-  const url = `https://registry.npmjs.org/${name.replace("/", "%2F")}/latest`;
+  // `replaceAll` et non `replace` : ce dernier ne remplace que la PREMIERE
+  // occurrence. Un nom scopé n'en porte qu'une, mais un encodage partiel
+  // reste un encodage faux — et rien ne le dirait.
+  const url = `https://registry.npmjs.org/${name.replaceAll("/", "%2F")}/latest`;
   try {
     const res = await fetch(url, { headers: { accept: "application/json" } });
     if (!res.ok) {
@@ -298,6 +301,72 @@ if (behindRows.length === 0) {
   if (!STRICT) {
     process.stdout.write(
       "Les plages déjà hissées par le verrou sont masquées — `--strict` pour les voir.\n",
+    );
+  }
+}
+
+// ── 4. Pins DIVERGENTS — un même paquet déclaré différemment selon le site ──
+//
+// `wanted` porte déjà la matière (nom → spec → sites) : ce qui manquait était
+// de la LIRE. Aucun `npm outdated` ne rend cette vue, et c'est pourtant elle qui
+// nomme les deux pannes qu'on ne voit pas venir :
+//
+//  - un peer EXACT (`"8.2.1"` et non `">=8.2.0"`) fige la version chez le
+//    consommateur : la moindre montée ailleurs fait échouer `npm install` par
+//    ERESOLVE, ou pire, npm « override » le peer et l'arbre part en silence.
+//    Vécu : 5 modules déclaraient `vite: "8.2.1"` en peer, la montée en 8.2.2
+//    a bloqué net l'installation du dépôt entier.
+//  - deux pins POSSÉDÉS qui divergent (`19.2.7` ici, `19.2.8` là) : npm
+//    installera les deux, et rien ne le dira. C'est ainsi qu'un `@angular/core`
+//    s'est retrouvé face à un compilateur d'une autre version.
+//
+// Une divergence peer-plancher vs dev-exact (`>=6.0.0` / `^6.1.0`) est en
+// revanche le pattern JUSTE : elle n'est signalée qu'en `--strict`.
+const PEER = "#peerDependencies";
+const divergent = [];
+for (const [name, specs] of wanted) {
+  if (specs.size < 2) continue;
+  const entries = [...specs.entries()].map(([spec, sites]) => ({
+    spec,
+    sites,
+  }));
+  const owned = entries.filter((e) => e.sites.some((s) => !s.endsWith(PEER)));
+  const exactPeer = entries.filter(
+    (e) => e.sites.every((s) => s.endsWith(PEER)) && isExactPin(e.spec),
+  );
+  // Comparer les VERSIONS, pas les chaînes : `2.7.0` et `^2.7.0` désignent la
+  // même version, les signaler serait le bruit qui fait cesser de lire le
+  // rapport. Seule une base différente est une divergence.
+  const ownedSpecs = new Set(owned.map((e) => baseVersion(e.spec) ?? e.spec));
+  let severity = null;
+  if (exactPeer.length) severity = "PEER-EXACT";
+  else if (ownedSpecs.size > 1) severity = "DIVERGENT";
+  else if (STRICT) severity = "peer/dev";
+  if (severity) divergent.push({ name, severity, entries });
+}
+
+if (divergent.length) {
+  const bad = divergent.filter((d) => d.severity !== "peer/dev");
+  process.stdout.write(
+    `\n${bad.length ? "⚠️  " : ""}${divergent.length} paquet(s) déclaré(s) de plusieurs façons :\n`,
+  );
+  for (const d of divergent) {
+    process.stdout.write(`\n  [${d.severity}] ${d.name}\n`);
+    for (const e of d.entries) {
+      for (const site of e.sites) {
+        process.stdout.write(`      ${String(e.spec).padEnd(14)} ${site}\n`);
+      }
+    }
+  }
+  if (bad.some((d) => d.severity === "PEER-EXACT")) {
+    process.stdout.write(
+      "\n  PEER-EXACT : un peerDependency exprime un PLANCHER (`>=x.y.z`).\n" +
+        "  Figé à une version, il casse l'installation dès qu'un autre site monte.\n",
+    );
+  }
+  if (!STRICT) {
+    process.stdout.write(
+      "\n  Les couples peer-plancher / dev-exact (le pattern juste) sont masqués — `--strict` pour les voir.\n",
     );
   }
 }
