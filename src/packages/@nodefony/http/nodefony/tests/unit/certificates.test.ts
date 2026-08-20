@@ -133,6 +133,75 @@ describe("certificates — écriture sécurisée + stratégies", () => {
     }
   });
 
+  // ── writeCertificates : les trois issues, depuis que la décision « le fichier
+  // existe-t-il ? » n'est plus un `access` préalable mais le drapeau `wx` de la
+  // création. Le comportement observable ne devait pas bouger : ces cas le
+  // FIGENT.
+  //
+  // Ce que le débranchement a montré, et qu'il faut savoir en les lisant : seul
+  // le premier DISCRIMINE ce changement (retiré `wx`, il tombe). Le deuxième
+  // passe aussi avec un écrasement naïf, et le troisième vérifie une garantie
+  // portée par `restrictPrivateKey` — un chmod explicite qui existait avant.
+  // Ils gardent leur valeur de non-régression ; ils ne prouvent pas le TOCTOU.
+  writeIt("n'écrase PAS un fichier existant sans force (skip)", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nf-cert-"));
+    try {
+      const c = makeCert({ san: { dns: ["localhost"], ip: ["127.0.0.1"] } });
+      setPaths(c, dir);
+      await c.generateServerCertificates(true);
+
+      // TÉMOIN : sans lui, le test passerait même si le fichier était réécrit —
+      // `writeCertificates` réécrit le MÊME contenu, donc comparer avant/après
+      // ne distingue pas « sauté » de « réécrit à l'identique ».
+      await fs.writeFile(c.certPath, "SENTINELLE", "utf8");
+
+      // Un second passage SANS force doit laisser le disque intact.
+      await c.writeCertificates(false);
+      expect(await fs.readFile(c.certPath, "utf8")).to.equal("SENTINELLE");
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  writeIt("force=true réécrit le fichier existant", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nf-cert-"));
+    try {
+      const c = makeCert({ san: { dns: ["localhost"], ip: ["127.0.0.1"] } });
+      setPaths(c, dir);
+      await c.generateServerCertificates(true);
+      await fs.writeFile(c.certPath, "SENTINELLE", "utf8");
+
+      await c.writeCertificates(true);
+      const apres = await fs.readFile(c.certPath, "utf8");
+      expect(apres).to.not.equal("SENTINELLE");
+      expect(apres).to.match(/BEGIN CERTIFICATE/);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  writeIt(
+    "après force=true, la clé privée est en 0600 même laissée world-readable " +
+      "(garantie de restrictPrivateKey, pas du mode de writeFile)",
+    async () => {
+      const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nf-cert-"));
+      try {
+        const c = makeCert({ san: { dns: ["localhost"], ip: ["127.0.0.1"] } });
+        setPaths(c, dir);
+        await c.generateServerCertificates(true);
+
+        // Quelqu'un (ou un déploiement) a relâché les permissions.
+        await fs.chmod(c.privateKeyPath, 0o644);
+        expect((await fs.stat(c.privateKeyPath)).mode & 0o777).to.equal(0o644);
+
+        await c.writeCertificates(true);
+        expect((await fs.stat(c.privateKeyPath)).mode & 0o777).to.equal(0o600);
+      } finally {
+        await fs.rm(dir, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("strategy='explicit' sans key/cert → échoue clairement", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nf-cert-"));
     try {

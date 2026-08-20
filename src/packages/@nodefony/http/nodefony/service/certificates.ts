@@ -541,8 +541,7 @@ class Certificate extends Service {
       // Le SAN doit couvrir les noms requis QUELLE QUE SOIT la stratégie — sinon
       // un changement de SAN (NF_BIND_ALL → nodefony.com) ne régénérerait jamais.
       const ext = cert.getExtension("subjectAltName") as
-        | { altNames?: AltName[] }
-        | undefined;
+        { altNames?: AltName[] } | undefined;
       if (!ext || !this.sanCovers(ext.altNames ?? [])) {
         return false;
       }
@@ -604,7 +603,10 @@ class Certificate extends Service {
   async readCerticates(): Promise<this> {
     for (const file of this.files) {
       try {
-        await fs.access(file.path);
+        // Pas d'`access` avant le `readFile` : il ne protège rien (le fichier
+        // peut disparaître entre les deux — TOCTOU) et `readFile` lève déjà
+        // ENOENT/EACCES, que le `catch` ci-dessous traite à l'identique. Un
+        // appel système de moins par certificat au démarrage.
         const buf = Buffer.from(await fs.readFile(file.path, "utf8"));
         if (file.path === this.privateKeyPath) {
           this.key = buf;
@@ -625,7 +627,6 @@ class Certificate extends Service {
     // Ancre CA (hors `this.files` pour ne pas la réécrire à chaque write) — sert
     // l'option `ca` du serveur ET le chemin de confiance des clients.
     try {
-      await fs.access(this.caPath);
       this.ca = Buffer.from(await fs.readFile(this.caPath, "utf8"));
     } catch {
       // Pas d'ancre CA séparée (ex. cert explicite sans CA fournie) — OK.
@@ -638,26 +639,36 @@ class Certificate extends Service {
     for await (const file of this.files) {
       try {
         if (file.variable) {
-          const fileExists = await fs
-            .access(file.path)
-            .then(() => true)
-            .catch(() => false);
-          if (!force && fileExists) {
-            this.log(`File ${file.path} already exists, skipping.`, "DEBUG");
-            continue; // Skip writing if force is false and file exists
-          }
-          if (force && fileExists) {
-            await fs.unlink(file.path); // Delete existing file if force is true and file exists
-            this.log(`Existing file ${file.path} deleted.`, "DEBUG");
-          }
           const isPrivateKey = file.path === this.privateKeyPath;
-          await fs.writeFile(file.path, file.variable.toString(), {
-            encoding: "utf8",
-            // Clé privée : jamais world-readable (0600 par défaut).
-            mode: isPrivateKey
-              ? (this.certOptions.privateKeyMode ?? 0o600)
-              : 0o644,
-          });
+          // Clé privée : jamais world-readable (0600 par défaut).
+          const mode = isPrivateKey
+            ? (this.certOptions.privateKeyMode ?? 0o600)
+            : 0o644;
+          if (force) {
+            // `rm({force})` ne lève pas sur un fichier absent : plus rien à
+            // tester avant de supprimer.
+            await fs.rm(file.path, { force: true });
+          }
+          try {
+            // `wx` — le NOYAU tranche « existe / n'existe pas » et crée dans la
+            // MÊME opération, là où `access` puis `writeFile` laissait une
+            // fenêtre entre le test et l'écriture (TOCTOU).
+            // `mode` ne vaut ici que pour la CRÉATION ; la garantie `0600` de la
+            // clé privée, elle, est portée par {@link restrictPrivateKey} (chmod
+            // explicite après écriture, quel que soit l'umask) — ne pas la
+            // croire tenue par cette ligne.
+            await fs.writeFile(file.path, file.variable.toString(), {
+              encoding: "utf8",
+              flag: "wx",
+              mode,
+            });
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+              this.log(`File ${file.path} already exists, skipping.`, "DEBUG");
+              continue;
+            }
+            throw error;
+          }
           this.log(
             `Certificate file ${file.path} written successfully.`,
             "INFO",
@@ -828,8 +839,7 @@ class Certificate extends Service {
         info.commonName = String(cn.value);
       }
       const ext = cert.getExtension("subjectAltName") as
-        | { altNames?: AltName[] }
-        | undefined;
+        { altNames?: AltName[] } | undefined;
       if (ext?.altNames) {
         info.san = ext.altNames.map((a) =>
           a.type === 7 ? (a.ip ?? "") : (a.value ?? ""),

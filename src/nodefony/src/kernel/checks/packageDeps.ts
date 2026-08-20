@@ -90,10 +90,11 @@ interface IScannedPackage {
 
 function readManifest(dir: string): IScannedPackage | null {
   const pj = path.join(dir, "package.json");
-  if (!statSync(pj, { throwIfNoEntry: false })) {
-    return null;
-  }
   try {
+    // Pas de `statSync` avant la lecture : le fichier peut disparaître entre
+    // les deux (TOCTOU), et `readFileSync` lève ENOENT — que le `catch`
+    // ci-dessous rend déjà en `null`. Un appel système de moins par dossier,
+    // sur un balayage qui parcourt tout le dépôt.
     const manifest = JSON.parse(readFileSync(pj, "utf8")) as Record<
       string,
       unknown
