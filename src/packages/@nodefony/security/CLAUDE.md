@@ -61,7 +61,11 @@ publiques) · nom de service GÉNÉRIQUE (le MCP n'est que le premier consommate
 
 ✅ **Le jeton tiers ouvre le FIREWALL (P6.9b)** : `ExternalJwtAuthenticator` (zone `external-jwt`) rattache
 le sujet externe à un `IUser` local (`subjectPolicy: "require"` par défaut, `"ephemeral"` pour l'appelant
-purement machine). **Décisions à ne pas défaire** : l'audience vient de la ZONE (`area.resource`), exigée
+purement machine). **Décisions à ne pas défaire** : 🔴 **le sujet entre par un ESPACE DE NOMS, jamais nu**
+— `subjectMapping` par émetteur, défaut `prefixed` (`<issuer>#<sub>`) ; `sub` n'est unique que chez son
+émetteur (OIDC Core §2), et le rattachement par égalité de chaîne laissait un annuaire tiers réclamer le
+compte local `admin`. `subject` (l'ancien comportement) reste possible mais doit être ÉCRIT, et ne se
+justifie que si l'on produit l'espace de noms · l'audience vient de la ZONE (`area.resource`), exigée
 AU BOOT par `IAuthenticator.validateArea` (contrat — le firewall ne connaît aucun nom en dur) · `jwt` et
 `external-jwt` s'aiguillent par `iss` (`peekIssuer`), donc l'ORDRE de la zone ne décide de rien ·
 `supports()` ne lève JAMAIS (appelé hors du rattrapage du firewall = 500 offerte à un anonyme) · une PANNE

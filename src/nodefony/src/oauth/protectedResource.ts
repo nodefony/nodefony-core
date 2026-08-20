@@ -290,6 +290,25 @@ export function buildBearerChallenge(challenge: IBearerChallenge): string {
  * type doit rendre impossible.
  */
 export interface IAccessPrincipal {
+  /**
+   * Émetteur VÉRIFIÉ du jeton (`iss`), sous sa forme canonique.
+   *
+   * 🔴 **Un `sub` seul ne désigne personne.** OpenID Connect ne le garantit
+   * unique et non réassigné QUE dans l'espace de son émetteur : l'identité est
+   * la paire `(iss, sub)`. Transporter le sujet sans son émetteur revient à
+   * verser des identifiants étrangers dans l'espace de noms local — et un
+   * annuaire où l'utilisateur choisit son identifiant suffit alors à réclamer
+   * `admin`.
+   *
+   * REQUIS, et non optionnel : un vérificateur incapable de dire d'où vient une
+   * identité ne doit pas pouvoir en produire une. Le rendre facultatif
+   * laisserait chaque appelant décider de s'en passer, ce qui est exactement la
+   * façon dont ce trou est né.
+   *
+   * ⚠️ C'est l'émetteur de l'ALLOWLIST — celui contre lequel la signature a été
+   * vérifiée — jamais la valeur brute lue dans le jeton.
+   */
+  issuer: string;
   /** Sujet du jeton (`sub`) — pour l'audit, et pour borner ce qu'on rend. */
   subject?: string;
   /** Scopes réellement accordés. */

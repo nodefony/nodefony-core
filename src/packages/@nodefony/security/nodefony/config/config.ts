@@ -647,6 +647,12 @@ const trustedIssuerSchema = z.object({
     .describe(
       'Claims dont la PRÉSENCE est exigée, en plus de `iss`/`aud` (toujours obligatoires). Ex. `["sub"]` pour refuser un jeton sans sujet identifiable.',
     ),
+  subjectMapping: z
+    .enum(["prefixed", "subject"])
+    .default("prefixed")
+    .describe(
+      "Comment le sujet (`sub`) de CET émetteur devient un identifiant dans l'espace de noms local. « prefixed » (défaut) : l'identifiant cherché est « <issuer>#<sub> » — deux émetteurs ne peuvent pas se disputer un compte, et surtout aucun sujet étranger ne peut tomber par hasard sur un identifiant local existant. « subject » : le `sub` est cherché TEL QUEL, l'ancien comportement — à ne déclarer que si l'on maîtrise l'espace de noms de cet émetteur, typiquement parce qu'il EST cette application (jetons maison) ou parce que ses sujets sont déjà des identifiants locaux. 🔴 Le défaut n'est pas un réglage de confort : un annuaire où l'utilisateur choisit son identifiant permet de présenter `sub: \"admin\"`, et « subject » rattache alors le porteur au compte local du même nom. `sub` n'est unique que dans l'espace de son émetteur (OIDC Core §2) — l'identité est la paire, jamais le sujet seul.",
+    ),
 });
 
 const resourceServerSchema = z

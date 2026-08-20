@@ -239,6 +239,15 @@ export class RemoteJwtVerifier {
       // socket. Sans ces trois valeurs, il n'a aucun moyen de savoir quand cette
       // identité cesse d'être vraie, et la connexion survit au jeton.
       return {
+        // 🔴 `claimedIssuer` — la forme CANONIQUE, celle qui a servi de clé à
+        // l'allowlist ci-dessus. Pas `payload.iss`, dont la forme serait
+        // décidée par le porteur ; et pas `trusted.issuer` non plus, qui est la
+        // valeur BRUTE de la configuration : une barre oblique terminale
+        // écrite en config suffirait alors à ce que l'appelant n'y reconnaisse
+        // plus son propre émetteur. Cette valeur sert de clé d'espace de noms
+        // en aval — les deux côtés doivent la normaliser pareil, donc une
+        // seule forme doit sortir d'ici.
+        issuer: claimedIssuer,
         subject,
         scopes: extractScopes(payload),
         expiresAt: typeof payload.exp === "number" ? payload.exp : undefined,

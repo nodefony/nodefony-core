@@ -134,6 +134,13 @@ export default {
         {
           issuer: "https://localhost:5152",
           algorithms: ["EdDSA"],
+          // Cet émetteur EST cette application : ses `sub` sortent déjà de
+          // l'annuaire local (`admin`), ils n'ont pas à être requalifiés. C'est
+          // le seul cas où « subject » se justifie — on maîtrise l'espace de
+          // noms parce qu'on le produit. Pour l'émetteur `.invalid` ci-dessus,
+          // le défaut « prefixed » s'applique, et c'est lui qui empêche un
+          // annuaire tiers de réclamer un compte local homonyme.
+          subjectMapping: "subject",
         },
       ],
       timeoutMs: 1000,

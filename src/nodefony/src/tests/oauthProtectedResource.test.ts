@@ -206,7 +206,13 @@ describe("authorizeProtectedResource — les six issues, sans serveur", () => {
     allowAnonymous: false,
   };
   const accept: IAccessTokenVerifier = async (token) =>
-    token === "bon" ? { subject: "alice", scopes: ["nodefony:inspect"] } : null;
+    token === "bon"
+      ? {
+          issuer: "https://idp.example",
+          subject: "alice",
+          scopes: ["nodefony:inspect"],
+        }
+      : null;
 
   it("sans jeton et porte fermée : 401 SANS code d'erreur", async () => {
     const r = await authorizeProtectedResource(undefined, policy, accept);
@@ -271,7 +277,7 @@ describe("authorizeProtectedResource — les six issues, sans serveur", () => {
       policy,
       async (_t, audience) => {
         vu = audience;
-        return { scopes: [] };
+        return { issuer: "https://idp.example", scopes: [] };
       },
     );
     expect(vu).to.equal("https://app.example/nodefony/mcp");

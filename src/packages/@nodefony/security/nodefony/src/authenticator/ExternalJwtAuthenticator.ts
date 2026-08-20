@@ -14,6 +14,10 @@ import { AuthenticationError } from "../../errors/AuthenticationError";
 import { UnverifiableTokenError } from "../../errors/UnverifiableTokenError";
 import { UserToken } from "../token/UserToken";
 import { bearerToken } from "./bearer";
+import {
+  localIdentifierFor,
+  type ExternalSubjectMapping,
+} from "./externalSubject";
 import { peekIssuer } from "./peekIssuer";
 
 /**
@@ -29,16 +33,25 @@ const AUDIENCE = "audience";
 /** Comment le sujet d'un jeton devient un utilisateur de cette application. */
 export type ExternalSubjectPolicy = "require" | "ephemeral";
 
+/** Un émetteur reconnu, et la façon dont ses sujets entrent chez nous. */
+export interface IExternalIssuerBinding {
+  /** Émetteur de confiance, sous sa forme canonique. */
+  issuer: string;
+  /** Comment le `sub` de CET émetteur devient un identifiant local. */
+  subjectMapping: ExternalSubjectMapping;
+}
+
 /** Ce que la fabrique doit fournir à l'authenticator. */
 export interface IExternalJwtAuthenticatorOptions {
   /**
-   * Émetteurs de confiance, sous leur forme canonique.
+   * Émetteurs de confiance, et leur politique de sujet.
    *
-   * Sert UNIQUEMENT à reconnaître les jetons qui relèvent de cet authenticator.
-   * La vérification, elle, refait ce contrôle sur sa propre liste — celle-ci
-   * n'accorde rien.
+   * La liste sert à deux choses, qu'il ne faut pas confondre : reconnaître les
+   * jetons qui relèvent de cet authenticator (aiguillage — elle n'accorde
+   * rien, le vérificateur refait le contrôle sur sa propre liste), et savoir
+   * dans quel espace de noms lire le sujet de chacun.
    */
-  issuers: readonly string[];
+  issuers: readonly IExternalIssuerBinding[];
   /** Politique de rattachement du sujet à un utilisateur local. */
   subjectPolicy: ExternalSubjectPolicy;
   /** Rôles accordés en mode `ephemeral`. */
@@ -88,7 +101,7 @@ export interface IExternalJwtAuthenticatorOptions {
 export class ExternalJwtAuthenticator implements IAuthenticator {
   readonly name = "external-jwt";
   readonly #container: Container;
-  readonly #issuers: ReadonlySet<string>;
+  readonly #issuers: ReadonlyMap<string, ExternalSubjectMapping>;
   readonly #policy: ExternalSubjectPolicy;
   readonly #ephemeralRoles: readonly string[];
   #userProvider: IUserProvider | null = null;
@@ -99,15 +112,15 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
    */
   constructor(container: Container, options: IExternalJwtAuthenticatorOptions) {
     this.#container = container;
-    const issuers = new Set<string>();
-    for (const raw of options.issuers) {
+    const issuers = new Map<string, ExternalSubjectMapping>();
+    for (const binding of options.issuers) {
       // Un émetteur mal formé n'empêche PAS l'aiguillage de se construire : le
       // vérificateur est l'autorité et refuse déjà cette configuration, en le
       // disant (CRITIC). Le retenir ici ne servirait qu'à faire échouer le boot
       // deux fois pour la même cause ; l'ignorer le rend simplement inconnu,
       // donc refusé.
       try {
-        issuers.add(canonicalIssuer(raw));
+        issuers.set(canonicalIssuer(binding.issuer), binding.subjectMapping);
       } catch {
         continue;
       }
@@ -209,11 +222,29 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
       throw new AuthenticationError(INVALID_TOKEN);
     }
 
-    const user = await this.#resolveUser(subject);
+    // L'espace de noms du sujet. Absent de la table d'aiguillage alors que le
+    // vérificateur vient d'accepter ce jeton : les deux listes viennent pourtant
+    // de la MÊME configuration. On ne sait donc pas dans quel espace lire ce
+    // sujet — et deviner, ici, c'est choisir entre « compte local » et « compte
+    // étranger ». PANNE (503), jamais un refus : le jeton est bon, c'est
+    // l'application qui est incohérente, et le silence ferait rentrer le sujet
+    // par le mode le plus permissif.
+    const mapping = this.#issuers.get(principal.issuer);
+    if (mapping === undefined) {
+      throw new UnverifiableTokenError(
+        `émetteur « ${principal.issuer} » vérifié mais absent de la table de ` +
+          `rattachement des sujets — configuration incohérente.`,
+      );
+    }
+
+    const user = await this.#resolveUser(principal.issuer, subject, mapping);
     const ut = token as UserToken;
     ut.promote(user);
     ut.setAttribute("scopes", [...principal.scopes]);
+    // Le sujet BRUT et son émetteur voyagent séparément : c'est la paire qui
+    // identifie, et l'audit doit pouvoir dire « qui, chez quel annuaire ».
     ut.setAttribute("subject", subject);
+    ut.setAttribute("issuer", principal.issuer);
     // 🔴 La borne du jeton voyage avec l'identité, sous les MÊMES noms que
     // `JwtAuthenticator` (`claims`, `jti`). Ce n'est pas de la symétrie de
     // confort : c'est le contrat que lit `FirewallRealtimeAuthenticator` pour
@@ -274,21 +305,30 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
    * nous, est cette personne ? » et « quel pouvoir accorde-t-on à une machine
    * que l'annuaire a authentifiée ? ».
    */
-  async #resolveUser(subject: string): Promise<IUser> {
+  async #resolveUser(
+    issuer: string,
+    subject: string,
+    mapping: ExternalSubjectMapping,
+  ): Promise<IUser> {
+    // UNE seule composition, quelle que soit la politique. En `ephemeral` aussi
+    // le sujet doit porter son émetteur : sans cela, deux annuaires distincts
+    // produisent le même appelant machine — même ligne d'audit, même compteur
+    // de limitation, même canal realtime privé. Aucun compte n'est pris, mais
+    // deux identités se confondent, ce qui est le même défaut d'espace de noms.
+    const identifier = localIdentifierFor(issuer, subject, mapping);
     if (this.#policy === "ephemeral") {
       // Identité qui ne survit pas à la requête : rien n'est écrit, rien n'est
-      // à nettoyer. L'identifiant EST le sujet du jeton, donc les journaux et
-      // l'audit désignent la même chose des deux côtés de la frontière.
+      // à nettoyer.
       return new BaseUser({
-        id: subject,
-        identifier: subject,
+        id: identifier,
+        identifier,
         roles: [...this.#ephemeralRoles],
       });
     }
     const provider = this.#resolveUserProvider();
     let user: IUser;
     try {
-      user = await provider.loadUserByIdentifier(subject);
+      user = await provider.loadUserByIdentifier(identifier);
     } catch {
       // Sujet sans compte local : échec d'authentification, jamais une 500.
       throw new AuthenticationError(INVALID_TOKEN);

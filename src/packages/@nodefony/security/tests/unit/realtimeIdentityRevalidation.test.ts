@@ -369,10 +369,16 @@ describe("Identité realtime — jeton d'un émetteur TIERS (P6.9)", () => {
 
   /** Authentifie pour de vrai, puis rend le jeton tel que l'ALS le porterait. */
   async function issuedByExternal(
-    principal: IAccessPrincipal,
+    principal: Omit<IAccessPrincipal, "issuer">,
   ): Promise<UserToken> {
-    const auth = new ExternalJwtAuthenticator(extContainer(principal), {
-      issuers: [EXT_ISSUER],
+    // L'émetteur est posé ici, pas dans chaque cas : ce qu'on éprouve dans ce
+    // banc est la BORNE du jeton, pas l'espace de noms du sujet. Il doit
+    // néanmoins être présent et connu de l'authenticator — sans quoi le
+    // rattachement échoue en 503 et tous les cas tomberaient pour la mauvaise
+    // raison.
+    const full: IAccessPrincipal = { ...principal, issuer: EXT_ISSUER };
+    const auth = new ExternalJwtAuthenticator(extContainer(full), {
+      issuers: [{ issuer: EXT_ISSUER, subjectMapping: "prefixed" }],
       subjectPolicy: "ephemeral",
       ephemeralRoles: ["ROLE_AGENT"],
     });

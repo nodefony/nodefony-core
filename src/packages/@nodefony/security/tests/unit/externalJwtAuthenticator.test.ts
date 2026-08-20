@@ -3,6 +3,7 @@ import type { Container, IAccessPrincipal } from "nodefony";
 import type { ContextType } from "@nodefony/http";
 import type { IUser, IUserProvider } from "@nodefony/user";
 import { ExternalJwtAuthenticator } from "../../nodefony/src/authenticator/ExternalJwtAuthenticator";
+import type { ExternalSubjectMapping } from "../../nodefony/src/authenticator/externalSubject";
 import { JwtAuthenticator } from "../../nodefony/src/authenticator/JwtAuthenticator";
 import { peekIssuer } from "../../nodefony/src/authenticator/peekIssuer";
 import type { ISecuredArea } from "../../nodefony/contracts/ISecuredArea";
@@ -25,6 +26,13 @@ import { UnverifiableTokenError } from "../../nodefony/errors/UnverifiableTokenE
  */
 
 const ISSUER = "https://auth.example.com/realms/nodefony";
+/**
+ * Ce que compose le mapping `prefixed` : l'identité est la paire `(iss, sub)`.
+ * Écrit en dur ici, et non via `localIdentifierFor`, pour que le banc échoue si
+ * la composition change — un test qui réutilise la fonction qu'il éprouve
+ * suivrait la régression sans rien dire.
+ */
+const EXT_ID = `${ISSUER}#agent-7`;
 const RESOURCE = "https://app.example/nodefony/mcp";
 
 /** Fabrique un JWS compact dont seul le payload compte (rien n'est vérifié ici). */
@@ -102,7 +110,11 @@ const verifier = (
       return Promise.reject(new Error("issuer unreachable"));
     }
     if (behaviour === "reject") return Promise.resolve(null);
-    return Promise.resolve({ subject: "agent-7", scopes: ["mcp:call"] });
+    return Promise.resolve({
+      issuer: ISSUER,
+      subject: "agent-7",
+      scopes: ["mcp:call"],
+    });
   };
 };
 
@@ -112,10 +124,17 @@ const build = (
     subjectPolicy: "require" | "ephemeral";
     ephemeralRoles: string[];
     issuers: string[];
+    subjectMapping: ExternalSubjectMapping;
   }> = {},
 ): ExternalJwtAuthenticator =>
   new ExternalJwtAuthenticator(container(services), {
-    issuers: over.issuers ?? [ISSUER],
+    // Défaut de PRODUCTION (`prefixed`), pas un défaut de confort : un banc qui
+    // se donnerait « subject » d'office ne verrait jamais la garde d'espace de
+    // noms, et prouverait l'ancien comportement en croyant prouver le nouveau.
+    issuers: (over.issuers ?? [ISSUER]).map((issuer) => ({
+      issuer,
+      subjectMapping: over.subjectMapping ?? "prefixed",
+    })),
     subjectPolicy: over.subjectPolicy ?? "require",
     ephemeralRoles: over.ephemeralRoles ?? [],
   });
@@ -280,7 +299,7 @@ describe("ExternalJwtAuthenticator — refus (401) contre panne (503)", () => {
     const seen: { token?: string; audience?: string } = {};
     const auth = build({
       accessTokenVerifier: verifier("accept", seen),
-      users: provider({ "agent-7": user("agent-7") }),
+      users: provider({ [EXT_ID]: user(EXT_ID) }),
     });
     const raw = jws({
       iss: ISSUER,
@@ -391,15 +410,19 @@ describe("ExternalJwtAuthenticator — rattachement du sujet (policy `require`)"
   it("sujet connu et actif → promu, avec les scopes du jeton", async () => {
     const auth = build({
       accessTokenVerifier: verifier("accept"),
-      users: provider({ "agent-7": user("agent-7") }),
+      users: provider({ [EXT_ID]: user(EXT_ID) }),
     });
     const token = await auth.authenticate(
       await auth.createToken(httpContext(`Bearer ${raw}`)),
     );
     assert.equal(token.isAuthenticated(), true);
-    assert.equal(token.getUser().identifier, "agent-7");
+    // Le compte local est désigné par la PAIRE ; le sujet brut et l'émetteur
+    // restent lisibles séparément, pour que l'audit puisse dire « qui, chez
+    // quel annuaire » sans redécouper une chaîne.
+    assert.equal(token.getUser().identifier, EXT_ID);
     assert.deepEqual(token.getAttribute("scopes"), ["mcp:call"]);
     assert.equal(token.getAttribute("subject"), "agent-7");
+    assert.equal(token.getAttribute("issuer"), ISSUER);
   });
 
   it("🔴 sujet sans compte local → 401 : l'annuaire tiers n'est pas l'autorité d'accès", async () => {
@@ -430,7 +453,7 @@ describe("ExternalJwtAuthenticator — rattachement du sujet (policy `require`)"
   it("jeton accepté SANS sujet → 401 (rien à rattacher, rien à auditer)", async () => {
     const auth = build({
       accessTokenVerifier: (): Promise<IAccessPrincipal> =>
-        Promise.resolve({ scopes: ["mcp:call"] }),
+        Promise.resolve({ issuer: ISSUER, scopes: ["mcp:call"] }),
       users: provider({}),
     });
     await assert.rejects(
@@ -455,7 +478,7 @@ describe("ExternalJwtAuthenticator — rattachement du sujet (policy `require`)"
 describe("ExternalJwtAuthenticator — appelant purement machine (policy `ephemeral`)", () => {
   const raw = jws({ iss: ISSUER, sub: "agent-7" });
 
-  it("aucun compte local n'est exigé ni créé ; l'identifiant EST le sujet du jeton", async () => {
+  it("aucun compte local n'est exigé ni créé ; l'identifiant PORTE son émetteur", async () => {
     const auth = build(
       { accessTokenVerifier: verifier("accept") },
       { subjectPolicy: "ephemeral" },
@@ -464,7 +487,11 @@ describe("ExternalJwtAuthenticator — appelant purement machine (policy `epheme
       await auth.createToken(httpContext(`Bearer ${raw}`)),
     );
     assert.equal(token.isAuthenticated(), true);
-    assert.equal(token.getUser().identifier, "agent-7");
+    // Aucun compte n'est pris ici — mais l'identifiant sert quand même à
+    // désigner l'appelant dans l'audit, les compteurs de limitation et les
+    // canaux realtime privés. Nu, il confondrait deux agents homonymes venus
+    // d'annuaires différents.
+    assert.equal(token.getUser().identifier, EXT_ID);
     assert.deepEqual(token.getUser().roles, []);
     assert.deepEqual(token.getAttribute("scopes"), ["mcp:call"]);
   });
@@ -498,6 +525,98 @@ describe("ExternalJwtAuthenticator — appelant purement machine (policy `epheme
       second.getUser().roles,
       ["ROLE_AGENT"],
       "une identité éphémère ne doit rien emporter de la précédente",
+    );
+  });
+});
+
+describe("ExternalJwtAuthenticator — espace de noms du sujet", () => {
+  /**
+   * Le vecteur, en clair : beaucoup d'annuaires laissent l'utilisateur CHOISIR
+   * son identifiant, et le mettent tel quel dans `sub`. Si le rattachement se
+   * fait par égalité de chaîne avec l'espace local, il suffit de s'inscrire
+   * sous le nom « admin » chez un émetteur reconnu pour recevoir le compte
+   * « admin » de cette application — jeton parfaitement valide, signature
+   * parfaitement bonne, et aucune trace d'anomalie.
+   */
+  it("🔴 un `sub` d'annuaire tiers ne peut PAS réclamer un compte local homonyme", async () => {
+    const raw = jws({ iss: ISSUER, sub: "admin" });
+    const auth = build({
+      accessTokenVerifier: (): Promise<IAccessPrincipal> =>
+        Promise.resolve({ issuer: ISSUER, subject: "admin", scopes: [] }),
+      // Le compte local existe, il est actif, et son identifiant est
+      // exactement le sujet présenté. C'est le décor de l'attaque.
+      users: provider({ admin: user("admin") }),
+    });
+    await assert.rejects(
+      auth.authenticate(await auth.createToken(httpContext(`Bearer ${raw}`))),
+      (e: Error) => e instanceof AuthenticationError,
+      "le compte local `admin` a été rattaché à un sujet étranger homonyme",
+    );
+  });
+
+  it("deux émetteurs qui publient le MÊME `sub` donnent deux identités distinctes", async () => {
+    const other = "https://autre-idp.example";
+    const mk = (issuer: string) =>
+      build(
+        {
+          accessTokenVerifier: (): Promise<IAccessPrincipal> =>
+            Promise.resolve({ issuer, subject: "agent-7", scopes: [] }),
+          users: provider({
+            [`${ISSUER}#agent-7`]: user(`${ISSUER}#agent-7`),
+            [`${other}#agent-7`]: user(`${other}#agent-7`),
+          }),
+        },
+        { issuers: [ISSUER, other] },
+      );
+    const a = await mk(ISSUER).authenticate(
+      await mk(ISSUER).createToken(
+        httpContext(`Bearer ${jws({ iss: ISSUER, sub: "agent-7" })}`),
+      ),
+    );
+    const b = await mk(other).authenticate(
+      await mk(other).createToken(
+        httpContext(`Bearer ${jws({ iss: other, sub: "agent-7" })}`),
+      ),
+    );
+    assert.notEqual(a.getUser().identifier, b.getUser().identifier);
+  });
+
+  it("`subjectMapping: \"subject\"` rend l'ancien rattachement — mais il faut l'ÉCRIRE", async () => {
+    // Le mode existe pour l'émetteur dont on maîtrise l'espace de noms — au
+    // premier chef, l'application qui est son propre émetteur. Il n'est pas
+    // interdit : il est explicite, donc relisible dans une revue.
+    const raw = jws({ iss: ISSUER, sub: "agent-7" });
+    const auth = build(
+      {
+        accessTokenVerifier: verifier("accept"),
+        users: provider({ "agent-7": user("agent-7") }),
+      },
+      { subjectMapping: "subject" },
+    );
+    const token = await auth.authenticate(
+      await auth.createToken(httpContext(`Bearer ${raw}`)),
+    );
+    assert.equal(token.getUser().identifier, "agent-7");
+  });
+
+  it("🔴 émetteur vérifié mais absent de la table de rattachement → 503, jamais un rattachement deviné", async () => {
+    // Les deux listes viennent de la même configuration ; si elles divergent,
+    // l'application ne sait pas dans quel espace lire ce sujet. Choisir pour
+    // elle reviendrait à trancher entre « compte local » et « compte
+    // étranger » — exactement la décision qui est en jeu.
+    const raw = jws({ iss: ISSUER, sub: "agent-7" });
+    const auth = build({
+      accessTokenVerifier: (): Promise<IAccessPrincipal> =>
+        Promise.resolve({
+          issuer: "https://jamais-declare.example",
+          subject: "agent-7",
+          scopes: [],
+        }),
+      users: provider({ "agent-7": user("agent-7") }),
+    });
+    await assert.rejects(
+      auth.authenticate(await auth.createToken(httpContext(`Bearer ${raw}`))),
+      (e: Error) => e instanceof UnverifiableTokenError,
     );
   });
 });

@@ -61,8 +61,20 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   - **Audience = celle de la ZONE** (`area.resource`), transportée par `createToken` → attribut du token
     (`authenticate(token)` ne reçoit PAS le contexte). `validateArea` refuse au BOOT une zone sans
     `resource` ; zone sans resource au runtime ⇒ 503 (jamais une vérif sans audience).
-  - `subjectPolicy` : **`require`** (défaut) = `loadUserByIdentifier(sub)`, absent/inactif/verrouillé ⇒ 401 ·
-    **`ephemeral`** = `BaseUser` NON persisté (`identifier = sub`, rôles = `ephemeralRoles`, vide par défaut
+  - 🔴 **ESPACE DE NOMS du sujet — `subjectMapping`, PAR ÉMETTEUR** (`trustedIssuerSchema`) :
+    **`prefixed`** (défaut) ⇒ identifiant local = `` `${issuer}#${sub}` `` · **`subject`** ⇒ `sub` nu.
+    Un `sub` n'est unique QUE chez son émetteur (OIDC Core §2) : l'identité est la paire `(iss, sub)`.
+    Avec `subject`, un annuaire où l'utilisateur CHOISIT son identifiant permet de présenter
+    `sub: "admin"` et de recevoir le compte local `admin` — jeton valide, signature bonne, zéro anomalie.
+    `subject` ne se justifie que si l'on PRODUIT l'espace de noms (l'app est son propre émetteur : décor
+    `src/modules/test`, émetteur `https://localhost:5152`). Composition dans `localIdentifierFor`
+    (`src/authenticator/externalSubject.ts`) — séparateur `#`, **injectif** car RFC 8414 §2 interdit le
+    fragment dans un `issuer`. S'applique AUSSI en `ephemeral` : aucun compte n'est pris, mais deux
+    annuaires homonymes se confondraient dans l'audit, les compteurs et les canaux realtime privés.
+    Émetteur vérifié absent de la table ⇒ **503**, jamais un rattachement deviné.
+  - `subjectPolicy` : **`require`** (défaut) = `loadUserByIdentifier(<identifiant composé>)`,
+    absent/inactif/verrouillé ⇒ 401 ·
+    **`ephemeral`** = `BaseUser` NON persisté (rôles = `ephemeralRoles`, vide par défaut
     ⇒ autorisé par SCOPES seulement). Défaut `require` : un jeton d'IdP d'entreprise vaut pour des milliers
     de comptes — l'accepter d'office ferait de l'IdP l'unique autorité d'accès, supprimant la 2ᵉ décision
     locale qui EST le firewall. JIT/provisioning = l'app pose son propre vérificateur (le contrat est une
@@ -314,7 +326,8 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
 ["ROLE_USER"], allowSignup, successRedirect, failureRedirect, providers:{<name>:{clientId, clientSecret,
 redirectUri, issuer?, scopes}}}` — `issuer` requis pour keycloak (URL realm).
 - `resourceServer` = **jetons émis AILLEURS** (≠ `jwt`, qui décrit ceux que Nodefony émet) :
-  `{issuers:[{issuer, jwksUri?, algorithms:["RS256","ES256","EdDSA"], typ?, requiredClaims:[]}],
+  `{issuers:[{issuer, jwksUri?, algorithms:["RS256","ES256","EdDSA"], typ?, requiredClaims:[],
+subjectMapping:"prefixed"|"subject"}],
 subjectPolicy:"require"|"ephemeral", ephemeralRoles:[],
 timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `issuers` VIDE =
   service `accessTokenVerifier` NON posé (un seul réglage commande le rôle — pas de `enabled`).

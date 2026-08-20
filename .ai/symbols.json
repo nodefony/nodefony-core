@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-20T08:42:23.902Z",
+  "generated": "2026-08-20T09:02:07.882Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 711,
-    "symbols": 2939,
+    "files": 712,
+    "symbols": 2942,
     "classes": 358,
-    "interfaces": 852,
-    "types": 377,
+    "interfaces": 853,
+    "types": 378,
     "enums": 4,
-    "functions": 1071,
+    "functions": 1072,
     "constants": 277
   },
   "symbols": {
@@ -18646,6 +18646,15 @@
       "decorators": [],
       "description": "Authentification par **jeton d'accès émis par un serveur d'autorisation TIERS** (Keycloak, Auth0, Entra, ou l'émetteur d'une flotte d'agents). C'est le chaînon qui relie deux pièces déjà en place :…"
     },
+    "IExternalIssuerBinding": {
+      "name": "IExternalIssuerBinding",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Un émetteur reconnu, et la façon dont ses sujets entrent chez nous."
+    },
     "IExternalJwtAuthenticatorOptions": {
       "name": "IExternalJwtAuthenticatorOptions",
       "kind": "interface",
@@ -18662,6 +18671,22 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Comment le sujet d'un jeton devient un utilisateur de cette application."
+    },
+    "ExternalSubjectMapping": {
+      "name": "ExternalSubjectMapping",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/externalSubject.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Comment le sujet d'un émetteur donné entre dans l'espace de noms local. - `prefixed` — l'identifiant local est composé de l'émetteur ET du sujet. - `subject` — le sujet est pris tel quel (l'espace …"
+    },
+    "localIdentifierFor": {
+      "name": "localIdentifierFor",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/authenticator/externalSubject.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Compose l'identifiant local qui désigne le sujet d'un émetteur externe. 🔴 **Un `sub` seul ne désigne personne.** OpenID Connect Core §2 ne garantit son unicité et sa non-réattribution que *dans l'…"
     },
     "FirewallRealtimeAuthenticator": {
       "name": "FirewallRealtimeAuthenticator",
@@ -28046,6 +28071,12 @@
       ],
       "ExternalJwtAuthenticator": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
+      ],
+      "localIdentifierFor": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts"
+      ],
+      "ExternalSubjectMapping": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts"
       ],
       "peekIssuer": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",

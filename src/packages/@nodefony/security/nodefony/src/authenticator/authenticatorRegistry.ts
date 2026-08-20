@@ -119,12 +119,16 @@ registerAuthenticatorFactory("external-jwt", ({ container, config }) => {
   // Jetons émis par un serveur d'autorisation TIERS (P6.9) : la vérification
   // est portée par le service `accessTokenVerifier`, posé au conteneur par
   // AccessTokenVerifierService quand `resourceServer.issuers` n'est pas vide.
-  // La liste d'émetteurs sert ici UNIQUEMENT à reconnaître les jetons qui
-  // relèvent de cet authenticator — elle n'accorde rien, le vérificateur refait
-  // le contrôle sur sa propre liste.
+  // La liste d'émetteurs sert ici à DEUX choses : reconnaître les jetons qui
+  // relèvent de cet authenticator (elle n'accorde rien, le vérificateur refait
+  // le contrôle sur sa propre liste), et dire dans quel espace de noms lire le
+  // sujet de chaque émetteur — un `sub` n'est unique que chez le sien.
   const rs = config.resourceServer;
   return new ExternalJwtAuthenticator(container, {
-    issuers: rs.issuers.map((i) => i.issuer),
+    issuers: rs.issuers.map((i) => ({
+      issuer: i.issuer,
+      subjectMapping: i.subjectMapping,
+    })),
     subjectPolicy: rs.subjectPolicy,
     ephemeralRoles: rs.ephemeralRoles,
   });
