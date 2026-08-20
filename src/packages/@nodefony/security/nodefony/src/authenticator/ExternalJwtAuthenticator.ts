@@ -1,6 +1,8 @@
 import {
   ACCESS_TOKEN_VERIFIER,
+  buildBearerChallenge,
   canonicalIssuer,
+  protectedResourceMetadataUrl,
   type Container,
   type IAccessPrincipal,
   type IAccessTokenVerifier,
@@ -89,14 +91,11 @@ export interface IExternalJwtAuthenticatorOptions {
  *   supprimé, désactivé ou verrouillé ferme l'accès sans attendre l'expiration
  *   du jeton, que l'application ne contrôle pas.
  *
- * ## Trou connu
- *
- * Le défi `WWW-Authenticate` rendu ici est un `Bearer` nu, sans le pointeur
- * `resource_metadata` de la RFC 9728 : le pare-feu partage une instance
- * d'authenticator entre toutes les zones qui le listent, alors que ce pointeur
- * dépend de la ressource. Le porteur d'un refus doit donc, pour l'instant,
- * connaître par ailleurs où prendre son jeton — ce que la porte MCP, elle, lui
- * dit déjà.
+ * - **Le sujet n'entre jamais nu dans l'espace de noms local** : un `sub` n'est
+ *   unique que chez son émetteur, et le rattachement passe donc par
+ *   {@link localIdentifierFor}, piloté par le `subjectMapping` de CET émetteur.
+ * - **Le refus est apprenable** : le défi porte le pointeur `resource_metadata`
+ *   (RFC 9728), qui dit au client où aller chercher de quoi obtenir un jeton.
  */
 export class ExternalJwtAuthenticator implements IAuthenticator {
   readonly name = "external-jwt";
@@ -275,9 +274,27 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
     return Promise.resolve();
   }
 
-  /** Défi RFC 6750 posé par le firewall sur les 401 de la zone. */
-  challenge(): string {
-    return "Bearer";
+  /**
+   * Défi RFC 6750 + pointeur RFC 9728, posé par le firewall sur les 401.
+   *
+   * ⭐ **C'est cet en-tête qui rend l'autorisation apprenable.** Un `Bearer` nu
+   * est un mur : le client sait qu'il lui faut un jeton, mais pas où le
+   * demander. `resource_metadata` nomme le document qui le lui dira — c'est le
+   * seul mécanisme normalisé pour ça, et celui qu'un client MCP conforme suit.
+   *
+   * Aucun `error` n'est joint : le firewall pose ce défi sur TOUT 401 de la
+   * zone, sans savoir si la requête portait un jeton. Or la RFC 6750 §3
+   * demande de ne PAS mettre de code d'erreur quand elle n'en portait aucun —
+   * un `invalid_token` ferait renouveler en boucle un jeton qui n'existe pas.
+   *
+   * @param area - zone refusante ; sans elle (ou sans ressource déclarée) le
+   *   défi retombe sur `Bearer` nu, faute de ressource à nommer
+   */
+  challenge(area?: ISecuredArea): string {
+    if (!area?.resource) return "Bearer";
+    return buildBearerChallenge({
+      resourceMetadataUrl: protectedResourceMetadataUrl(area.resource),
+    });
   }
 
   /**

@@ -273,12 +273,50 @@ export function buildBearerChallenge(challenge: IBearerChallenge): string {
   }
   if (challenge.error) parts.push(`error="${challenge.error}"`);
   if (challenge.description) {
-    // Les guillemets d'une description casseraient la grammaire de l'en-tête.
     parts.push(
-      `error_description="${challenge.description.replace(/"/g, "'")}"`,
+      `error_description="${sanitizeDescription(challenge.description)}"`,
     );
   }
   return `Bearer ${parts.join(", ")}`;
+}
+
+/**
+ * Restreint une description à ce que la RFC 6750 §3 autorise.
+ *
+ * La grammaire y est explicite — `%x20-21 / %x23-5B / %x5D-7E` — soit l'ASCII
+ * imprimable **sans** guillemet ni antislash. Ce n'est pas une coquetterie : un
+ * en-tête HTTP n'est pas de l'UTF-8, et un simple accent y ressort en mojibake
+ * chez le client (constaté : « jeton refusé » arrivait en « jeton refus? »).
+ * Un antislash, lui, casserait carrément la grammaire de la chaîne citée.
+ *
+ * Le filtrage vit ICI, au point de composition, et non dans chaque message :
+ * autrement le prochain texte accentué reproduirait le défaut, et personne ne
+ * le verrait — un en-tête abîmé ne fait échouer aucun test qui ne le lit pas.
+ *
+ * @param raw - description telle qu'écrite par l'appelant
+ * @returns la description réduite au jeu de caractères autorisé
+ */
+function sanitizeDescription(raw: string): string {
+  let out = "";
+  // Le guillemet devient une APOSTROPHE, pas une espace : `'` (0x27) est dans
+  // la grammaire, et une citation reste lisible. Les autres caractères hors
+  // grammaire, eux, n'ont pas d'équivalent évident.
+  for (const char of raw.replace(/"/g, "'")) {
+    const code = char.codePointAt(0) ?? 0;
+    if (
+      (code >= 0x20 && code <= 0x21) ||
+      (code >= 0x23 && code <= 0x5b) ||
+      (code >= 0x5d && code <= 0x7e)
+    ) {
+      out += char;
+      continue;
+    }
+    // Les caractères hors grammaire deviennent une espace plutôt que de
+    // disparaître : « en-tete mal forme » reste lisible, « entetemalforme »
+    // beaucoup moins. Les espaces multiples sont resserrés ensuite.
+    out += " ";
+  }
+  return out.replace(/ {2,}/g, " ").trim();
 }
 
 /**
@@ -447,7 +485,9 @@ export async function authorizeProtectedResource(
         resourceMetadataUrl: policy.metadataUrl,
         scopes: policy.scopes,
         error: BearerError.INVALID_REQUEST,
-        description: "en-tête Authorization mal formé — schéma Bearer attendu",
+        // ASCII volontaire : la RFC 6750 §3 restreint ce champ, et le filtre de
+        // `buildBearerChallenge` remplacerait tout accent par une espace.
+        description: "malformed Authorization header, Bearer scheme expected",
       }),
     };
   }
@@ -469,7 +509,7 @@ export async function authorizeProtectedResource(
         // Message UNIFORME : la cause fine (expiré, audience, signature) part
         // dans le journal d'audit, jamais au client — sinon le refus devient un
         // oracle qui aide à fabriquer un jeton acceptable.
-        description: "jeton refusé",
+        description: "token rejected",
       }),
     };
   }

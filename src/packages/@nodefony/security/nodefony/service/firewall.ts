@@ -1136,7 +1136,9 @@ class Firewall extends Service implements IFirewall {
       .response;
     if (typeof response?.setHeader !== "function") return;
     for (const name of area.authenticators) {
-      const challenge = this.#authenticators?.get(name)?.challenge?.();
+      // La zone est passée : le défi RFC 9728 nomme la RESSOURCE, et l'instance
+      // est partagée entre toutes les zones qui listent ce nom.
+      const challenge = this.#authenticators?.get(name)?.challenge?.(area);
       if (challenge) {
         response.setHeader("WWW-Authenticate", challenge);
         return;

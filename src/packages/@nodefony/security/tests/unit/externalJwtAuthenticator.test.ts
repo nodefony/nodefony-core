@@ -529,6 +529,45 @@ describe("ExternalJwtAuthenticator — appelant purement machine (policy `epheme
   });
 });
 
+describe("ExternalJwtAuthenticator — le refus est APPRENABLE (RFC 9728)", () => {
+  it("le défi nomme le document de métadonnées de la ressource de la ZONE", () => {
+    const auth = build({});
+    const challenge = auth.challenge({
+      name: "z",
+      resource: "https://app.example/nodefony/mcp",
+    } as unknown as ISecuredArea);
+    assert.match(
+      challenge,
+      /^Bearer resource_metadata="https:\/\/app\.example\/\.well-known\/oauth-protected-resource\/nodefony\/mcp"$/,
+    );
+  });
+
+  it("🔴 aucun `error` sur un défi posé sans savoir si la requête portait un jeton", () => {
+    // RFC 6750 §3 : « SHOULD NOT include an error code » quand la requête ne
+    // portait aucune information d'authentification. Le firewall pose ce défi
+    // sur TOUT 401 de la zone — il ne sait pas. Un `invalid_token` ferait
+    // renouveler en boucle un jeton qui n'a jamais existé.
+    const auth = build({});
+    const challenge = auth.challenge({
+      name: "z",
+      resource: "https://app.example/nodefony/mcp",
+    } as unknown as ISecuredArea);
+    // L'assertion POSITIVE d'abord : sans elle, ce test resterait vert sur un
+    // `Bearer` nu — qui ne porte pas d'`error` non plus. Un test qui ne peut
+    // pas échouer quand la fonctionnalité disparaît ne prouve rien.
+    assert.match(challenge, /resource_metadata=/);
+    assert.equal(challenge.includes("error="), false);
+  });
+
+  it("zone sans ressource → `Bearer` nu plutôt qu'un pointeur inventé", () => {
+    // `validateArea` interdit ce cas au boot ; si l'on y arrive quand même,
+    // mieux vaut un défi pauvre qu'une URL fabriquée à partir de rien.
+    const auth = build({});
+    assert.equal(auth.challenge(undefined), "Bearer");
+    assert.equal(auth.challenge({ name: "z" } as ISecuredArea), "Bearer");
+  });
+});
+
 describe("ExternalJwtAuthenticator — espace de noms du sujet", () => {
   /**
    * Le vecteur, en clair : beaucoup d'annuaires laissent l'utilisateur CHOISIR

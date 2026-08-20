@@ -189,11 +189,35 @@ describe("buildBearerChallenge — ce qui rend l'autorisation APPRENABLE", () =>
   it("neutralise un guillemet de description, qui casserait l'en-tête", () => {
     const challenge = buildBearerChallenge({
       resourceMetadataUrl: url,
-      description: 'jeton "x" refusé',
+      description: 'jeton "x" rejete',
     });
-    expect(challenge).to.contain("error_description=\"jeton 'x' refusé\"");
+    expect(challenge).to.contain("error_description=\"jeton 'x' rejete\"");
     // Une seule paire de guillemets ouvrante/fermante par paramètre.
     expect(challenge.split('"').length - 1).to.equal(4);
+  });
+
+  it("🔴 réduit la description au jeu de caractères de la RFC 6750 §3", () => {
+    // Un en-tête HTTP n'est pas de l'UTF-8 : un accent y ressort en mojibake
+    // chez le client. Constaté en LIVE — « jeton refusé » arrivait « jeton
+    // refus? ». La grammaire de la RFC est `%x20-21 / %x23-5B / %x5D-7E`.
+    const challenge = buildBearerChallenge({
+      resourceMetadataUrl: url,
+      description: "en-tête mal formé — schéma attendu",
+    });
+    expect(challenge).to.contain(
+      'error_description="en-t te mal form sch ma attendu"',
+    );
+    // Aucun octet hors ASCII imprimable ne subsiste dans l'en-tête entier.
+    // eslint-disable-next-line no-control-regex
+    expect(/[^\x20-\x7e]/.test(challenge)).to.equal(false);
+  });
+
+  it("un antislash ne survit pas non plus — il casserait la chaîne citée", () => {
+    const challenge = buildBearerChallenge({
+      resourceMetadataUrl: url,
+      description: 'a\\"b',
+    });
+    expect(challenge).to.not.contain("\\");
   });
 });
 

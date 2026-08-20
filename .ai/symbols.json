@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-20T09:02:07.882Z",
+  "generated": "2026-08-20T10:08:47.148Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 712,
-    "symbols": 2942,
+    "symbols": 2943,
     "classes": 358,
     "interfaces": 853,
     "types": 378,
     "enums": 4,
-    "functions": 1072,
+    "functions": 1073,
     "constants": 277
   },
   "symbols": {
@@ -25438,7 +25438,8 @@
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
       ],
       "protectedResourceMetadataUrl": [
-        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts"
       ],
       "ACCESS_TOKEN_VERIFIER": [
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
@@ -28071,6 +28072,9 @@
       ],
       "ExternalJwtAuthenticator": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"
+      ],
+      "buildBearerChallenge": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts"
       ],
       "localIdentifierFor": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts"

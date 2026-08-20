@@ -43,8 +43,16 @@ export interface IAuthenticator {
    * Challenge `WWW-Authenticate` (RFC 7235 : tout 401 DOIT en porter un).
    * Le firewall pose celui du premier authenticator de la zone qui en déclare.
    * Ex. `'Basic realm="nodefony", charset="UTF-8"'`, `'Bearer'`.
+   *
+   * La ZONE est passée parce qu'un défi peut dépendre d'elle — le pointeur
+   * `resource_metadata` de la RFC 9728 nomme la ressource, et une instance
+   * d'authenticator est partagée entre toutes les zones qui la listent. Sans
+   * cet argument, un authenticator ne pouvait rendre qu'un défi constant, donc
+   * muet sur la ressource réellement visée.
+   *
+   * @param area - zone qui a refusé ; absente si l'appelant n'en a pas
    */
-  challenge?(): string;
+  challenge?(area?: ISecuredArea): string;
 
   /**
    * Vérifie AU BOOT que la zone qui référence cet authenticator lui donne ce
