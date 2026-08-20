@@ -49,6 +49,18 @@
   qu'on vient de publier.** Règle : quand un livrable ÉMET une référence (URL, chemin, identifiant
   de document), la déréférencer une fois en réel fait partie de la livraison — sinon on livre une
   promesse dont on n'a vérifié que la grammaire.
+  **Fermé le 08-20b** (`fde3d850`, `71228441`) : montage générique, source unique avec le défi.
+- `[1× — 08-20b]` 🔴 **La SONDE DE DÉCOR d'un banc ne doit jamais interroger CE QU'IL TESTE.**
+  Écrite naïvement, la mienne demandait le document ; montage débranché ⇒ 404 ⇒ « décor manquant »
+  ⇒ suite SAUTÉE ⇒ **vert**. Le banc se serait éteint exactement le jour où il devait mordre —
+  reproduction à l'identique du piège du 08-10 (sonde lisant un 401 ⇒ « serveur absent », 13 tests
+  muets), à un code de statut près. Le décor et l'objet du test doivent s'observer sur DEUX
+  surfaces différentes : ici la PORTE (401 = la zone existe) et le DOCUMENT (ce qu'on juge).
+- `[1× — 08-20b]` **Le MONTAGE et la LECTURE doivent avoir la même source.** J'ai basculé le
+  montage des routes en multi-sources et laissé la lecture par requête sur un seul service : les
+  routes existaient, le controller n'appariait rien, et le 404 portait MON corps d'erreur — pas
+  celui du routeur. C'est ce détail qui a nommé le coupable en une seconde. Un 404 n'est pas un
+  404 : lire QUI le rend.
 
 ## 🕸️ Implémenter une interface sans lire OÙ l'appelant l'appelle
 
@@ -501,6 +513,22 @@
   révélé**, après que j'aie annoncé 969 + 117 + 2711 verts. Aucun de ces verts ne touchait la
   chaîne renommée. Un total impressionnant ne dit rien sur le SEUL geste qu'on vient de faire.
   [[feedback_green_covers_only_its_diff]]
+
+## 📏 Une CELLULE obèse coûte × le nombre de LIGNES — le formateur propage la dépense
+
+- `[1× — 08-20b]` 🔴 **Prettier aligne un tableau markdown sur sa cellule la plus longue.** Une
+  cellule de 19 600 caractères paddait donc de blancs les 36 autres lignes de la phase : le
+  tableau pesait 512 Ko pour 98 Ko de contenu, et le fichier 888 Ko dont **81 % d'espaces**. Sur
+  tout le dépôt : **451 Ko de blanc** dans 176 tableaux. Ce n'est pas cosmétique — `CLAUDE.md`,
+  `MEMORY.md` et `MIGRATION_STATUS.md` sont relus à CHAQUE tour, donc ces espaces se repayaient
+  indéfiniment. Remède : `<!-- prettier-ignore -->` sur les tableaux **déséquilibrés** (> 40 % de
+  remplissage) ; les tableaux réguliers gardent leur alignement, qui aide à lire la source.
+- `[1× — 08-20b]` **Le vrai défaut se voyait à la longueur ÉGALE de lignes sans rapport** : cinq
+  cellules à 18 966–19 002 caractères. J'ai d'abord soupçonné une duplication de texte — c'était
+  le padding. **Une régularité suspecte se vérifie avant d'être expliquée.**
+- `[1× — 08-20b]` **Trois lignes n'avaient qu'UNE colonne sur trois** dans un tableau à 3 colonnes :
+  leur rendu markdown était cassé depuis toujours, et personne ne l'avait vu — parce qu'on lit le
+  fichier en source, jamais rendu.
 
 ## 🧪 Un gate ne prouve rien tant qu'on ne l'a pas vu ROUGE — deux faux verts le même jour
 
