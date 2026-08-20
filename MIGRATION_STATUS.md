@@ -214,7 +214,7 @@ Base mesurée : **9 347 RPS** vs 30 445 Fastify / 35 594 `node:http` nu à déco
  P6  Security              ████████▎░  83%  17✅  4🔶  2⬜   cœur MVP LIVRÉ ; reste niches HORS MVP (mTLS/rpId, authz B, OAuth, logs auth)
  P7  ORM drivers           ██████▍░░░  64%   3✅  3🔶  1⬜   ◀ BLOQUEUR RELEASE — S1→S4 ✅ ; reste S5 DDL prod (gelé → après P8+P11) + P7.11 NoSQL
  P8  CLI + Monitoring      █████████░  88%   3✅  1🔶  0⬜   (P8.2 ✅ audit 08-06 : `nodefony create` 7 types)
- P9  Polish + clôture      ██████░░░░  63%   2✅  1🔶  1⬜   (P9.4 : 3 low dev)
+ P9  Polish + clôture      ████████░░  75%   3✅  0🔶  1⬜   (P9.4 : 0 vulnérabilité)
  P10 Studio (admin web)    ████████░░  83%  11✅  3🔶  1⬜   (P10.6 🔶 audit 08-06 : ROLE_NODEFONY_ADMIN actif sur /studio/api/create/*)
  P11 CLI par module        █████░░░░░  50%   3✅  2🔶  3⬜   ◀ BLOQUEUR MVP — lifecycle + scaffold ✅ ; reste orm:migrate (S5c) + user:* métier
  P12 Couche IA agentic     ██░░░░░░░░  17%   0✅  2🔶  4⬜   🧪 différé (llm = module réel non intégré ; agent-guard/mcp vides)
@@ -549,7 +549,7 @@ DI scopes (singleton/transient), lifecycle session.
 | ✅ P9.1 | `@entities` decorator + tests | `kernelDecorator.ts` |
 | ⬜ P9.2 | Barrels `index.ts` | résiduel |
 | ✅ P9.3 | README publics | http + framework + security présents (vérif 06-28) |
-| 🔶 P9.4 | Vulnérabilités npm | **3 low** transitives dev (`@babel/core` sourceMappingURL, `esbuild` dev-server Windows) — re-audit 07-10 POST-migration rolldown (Rollup supprimé, deps à jour `a88217ae`, TS 6 racine seule) |
+| ✅ P9.4 | Vulnérabilités npm | **0 vulnérabilité** (`npm audit`, 08-20 `42147fc3`) · **0 alerte Dependabot** · code scanning en `security-extended` (89 → 105 requêtes) : 4 TOCTOU `js/file-system-race` fermés (`3559d32e`), restent 2 `medium` `js/file-access-to-http` dev-only. 46 deps montées ; `typescript` 7 ÉCARTÉ (= palier P3 décorateurs, pas un bump) |
 
 ### P10 — Studio admin web (83 %)
 

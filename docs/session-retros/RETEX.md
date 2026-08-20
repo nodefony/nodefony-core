@@ -20,6 +20,82 @@
 
 ---
 
+## 🧾 Le COMPTE ne dit rien du CONTENU — ni pour des commits, ni pour des tests
+
+- `[1× — 08-20c]` 🔴 **« main a 6 commits d'avance » a alarmé, et son contenu tenait en UNE LIGNE
+  d'un fichier généré.** Cinq de ces commits étaient des merges de `claude-ts` (leur contenu venait
+  d'ici), le sixième un bump dependabot **déjà présent** — les `uses:` étaient identiques des deux
+  côtés. Le geste qui tranche en une commande : `git diff --stat base...autre` pour le contenu, et
+  `%p` (nombre de parents) pour distinguer un merge d'un vrai commit. Reproduction exacte du piège
+  du 08-08d (`A...B` mal lu ⇒ régression annoncée à tort) : **c'est le user qui a demandé « d'où
+  viennent ces commits ? »**, et la question était la bonne.
+- `[1× — 08-20c]` **Un exit code de PIPELINE n'est pas celui de la commande.** `npm run test:all >
+log 2>&1; echo "EXIT=$?" | tee -a log` : le harnais a rapporté **exit 0** — celui de `tee`. Le
+  journal, lui, portait `EXIT=1` et **648 échecs**. J'ai failli lire l'inverse de la vérité. Variante
+  directe de la règle « jamais `>/dev/null` sur une commande dont dépend la mesure », déjà graduée le
+  matin même. Forme sûre : capturer `RC=$?` puis `exit $RC`, jamais derrière un pipe.
+
+## 🧪 Un test neuf peut FIGER sans DISCRIMINER — et le débranchement seul le dit
+
+- `[1× — 08-20c]` 🔴 **Annoncé 3 rouges, obtenu 1 — et les deux explications sont différentes.**
+  (a) « force réécrit » passe aussi avec un écrasement naïf : il fige un comportement, il ne prouve
+  pas le correctif. (b) « 0600 après force » passait DÉBRANCHÉ : la garantie venait d'un
+  `restrictPrivateKey()` (chmod explicite) **qui existait déjà**, et mon commentaire de code
+  l'attribuait au `mode` du `writeFile`. **J'ai écrit une preuve qui prouvait le travail d'un
+  autre.** Le geste qui l'a montré : saboter l'assertion (`to.equal(0o111)`) pour que le message
+  d'erreur RENDE la valeur réelle — plus rapide qu'un `console.log`, que vitest intercepte.
+- `[1× — 08-20c]` **Un témoin manquait, et le test comparait une chose à elle-même** : « n'écrase
+  pas sans force » lisait le fichier avant/après — or `writeCertificates` réécrit le MÊME contenu.
+  Sans une SENTINELLE, « sauté » et « réécrit à l'identique » sont indiscernables. C'est le témoin
+  qui fait le test, pas l'assertion.
+- `[1× — 08-20c]` **Quand un test ne discrimine pas, l'écrire dans le test.** Le bandeau du bloc dit
+  désormais lequel des trois mord et pourquoi les autres non — sinon le prochain lecteur les croira
+  plus probants qu'ils ne sont, et c'est ainsi qu'on hérite d'une couverture imaginaire.
+
+## 🧰 Un outil frère existe déjà — et il est meilleur que celui qu'on va écrire
+
+- `[1× — 08-20c]` 🔴 **J'ai écrit `scripts/audit-pins.mjs` alors que `deps:check`
+  (`check-deps-latest.mjs`) faisait déjà le travail, en mieux** : il lit le VERROU, donc il
+  distingue un pin en retard d'une plage `^19.2.7` que le lock a déjà hissée. Le mien comptait ces
+  plages comme des retards. Pire : la mémoire graduée le matin même citait « `audit-pins.mjs` —
+  mériterait `scripts/` » sans que je vérifie qu'il avait DÉJÀ été versé sous un autre nom. Le
+  réflexe manquant coûte une commande : `node -e 'Object.keys(require("./package.json").scripts)'`.
+- `[1× — 08-20c]` **La seule idée neuve du doublon valait d'être portée** — et le frère avait déjà
+  la matière (`nom → spec → sites`), il ne la LISAIT pas. Retirer un doublon ne veut pas dire jeter
+  ce qu'il apportait. Vu ROUGE avant d'y croire : peer `vite` remis à `"8.2.1"`, le contrôle a nommé
+  le fichier fautif.
+
+## 🔌 Le décor d'un banc se LIT à sa source, jamais ne se devine
+
+- `[1× — 08-20c]` 🔴 **J'ai deviné le mot de passe Redis (`nodefony` au lieu de `nodefony-dev`) et,
+  en l'exportant, je l'ai IMPOSÉ au serveur que je venais de lancer** — sa connexion est tombée en
+  `WRONGPASS`, et le banc a rendu des 500 que j'ai failli instruire comme un défaut de code.
+  `vitest.gates.ts` est la source unique DÉSIGNÉE par le `CLAUDE.md` ; la lire coûtait dix secondes.
+  Une variable d'infra exportée ne sert pas que la commande visée : elle contamine tout ce qu'on
+  lance ensuite.
+- `[1× — 08-20c]` **Le classement d'un banc dans un catalogue n'est pas une preuve** :
+  `graceful-shutdown-e2e` y est « autonome » et exige en fait un serveur en marche — deuxième
+  entrée fausse du même tableau (après `idempotency-cluster`, déjà signalée). Le classement se
+  vérifie en LANÇANT.
+- `[1× — 08-20c]` **Un cluster est un runtime de PRODUCTION** : les modules `policy:"dev"` n'y sont
+  pas, donc les routes de banc rendent 404. `NF_WITH_DEV_MODULES=1` est la dérogation prévue, et le
+  skill le disait — je l'ai lu après avoir cherché.
+
+## 🩺 Une montée de version RÉVÈLE des défauts qu'elle n'a pas créés
+
+- `[1× — 08-20c]` **Un PATCH peut rompre des types** : `@fastify/busboy` 3.2.0 → 3.2.1 renomme le
+  type d'instance (`Busboy` → `BusboyInstance`). Invisible à l'install, invisible aux tests, visible
+  au seul `build:types`. Une montée se valide sur la compilation des DÉCLARATIONS, pas sur un vert
+  de suite.
+- `[1× — 08-20c]` 🔴 **Une dépendance FANTÔME ne se voit que le jour où l'arbre bouge** :
+  `fast-glob`, importé par `scripts/generate-symbols.ts`, déclaré NULLE PART, présent par simple
+  hoisting transitif. Le `npm install` l'a fait disparaître et le hook pre-commit du dépôt est tombé
+  avec. Un clone frais aurait échoué pareil : la montée n'a pas cassé ce défaut, elle l'a découvert.
+- `[1× — 08-20c]` **Un `peerDependency` EXACT est un piège à retardement** : cinq modules figeaient
+  `vite: "8.2.1"`, et la montée en 8.2.2 a bloqué net `npm install` (ERESOLVE). Un peer exprime un
+  PLANCHER. Le signe que c'était une incohérence de FORME et non un choix tenait dans le même
+  fichier : `@vitejs/plugin-vue` y était déjà en `>=6.0.0`.
+
 ## 🚧 Une donnée qui s'ARRÊTE à la frontière d'un vérificateur — deux failles, un seul motif
 
 - `[2× — 08-20]` 🔴 **La même classe de bug a produit DEUX failles en deux sessions**, sur le même
