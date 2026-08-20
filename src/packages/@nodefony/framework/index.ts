@@ -52,7 +52,7 @@ import IssuerMetadataController, {
 import ProtectedResourceMetadataController, {
   mountProtectedResourceRoutes,
   protectedResourceRoutePaths,
-  type IProtectedResourcePublisher,
+  collectProtectedResources,
 } from "./nodefony/controller/ProtectedResourceMetadataController";
 import WebAuthnController, {
   mountWebAuthnRoutes,
@@ -431,12 +431,11 @@ class Framework extends Module<FrameworkConfig> {
     // émetteurs les servent) ; framework ne fait qu'ouvrir la porte. Contrat
     // STRUCTUREL : aucune dépendance vers `@nodefony/security`, et un firewall
     // qui ne connaîtrait pas la méthode ne monte simplement rien.
-    const resourcePublisher =
-      this.kernel?.container?.get<IProtectedResourcePublisher>("firewall");
-    if (typeof resourcePublisher?.publishedProtectedResources === "function") {
+    const container = this.kernel?.container;
+    if (container) {
       const mountedCount = mountProtectedResourceRoutes(
         this,
-        resourcePublisher.publishedProtectedResources(),
+        collectProtectedResources(container),
       );
       if (mountedCount > 0) {
         this.log(
@@ -505,6 +504,7 @@ export {
   ProtectedResourceMetadataController,
   mountProtectedResourceRoutes,
   protectedResourceRoutePaths,
+  collectProtectedResources,
   WebAuthnController,
   mountWebAuthnRoutes,
   OAuth2Controller,

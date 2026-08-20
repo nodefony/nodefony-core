@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { request as httpsRequest } from "node:https";
+import { request as httpRequest } from "node:http";
 import {
   MCP_ENDPOINT_PATH,
   MCP_PROTOCOL_VERSION,
@@ -31,6 +32,21 @@ const MCP_METADATA_PATH = protectedResourceMetadataPath(MCP_ENDPOINT_PATH);
  */
 
 const BASE = process.env.NF_MCP_TEST_BASE ?? "https://127.0.0.1:5152";
+
+/**
+ * Autorité par laquelle le document de ressource protégée est PUBLIÉ.
+ *
+ * 🔴 Ce n'est pas `BASE`, et l'écart est instructif : le document n'est servi
+ * que sur l'autorité de sa `resource` (RFC 9728 §3.3) — ici
+ * `http://localhost:5151/nodefony/mcp`, c'est-à-dire exactement l'adresse par
+ * laquelle un vrai client entre (`.mcp.json`). Ce banc, lui, postait ses
+ * messages sur `https://127.0.0.1:5152` : une autre autorité. Tant que le
+ * document était servi partout, la différence ne se voyait pas — et c'est
+ * précisément le défaut qui avait fait ARRÊTER un client MCP sur le document
+ * d'émetteur, qu'il recevait d'une autorité dont l'émetteur ne se réclamait pas.
+ */
+const RESOURCE_BASE =
+  process.env.NF_MCP_TEST_RESOURCE_BASE ?? "http://localhost:5151";
 
 /**
  * Jeton porteur de la suite — **déclaré ici, avant `poster`**, et pas plus bas.
@@ -104,6 +120,41 @@ function poster(
 }
 
 /** Lit un chemin en `GET` — pour les routes qui ne parlent pas JSON-RPC. */
+/**
+ * Lit un document bien connu sur l'autorité de la RESSOURCE, en clair.
+ *
+ * Un client conforme construit cette URL depuis l'URI de la ressource ; le banc
+ * fait donc de même, au lieu de la demander à l'hôte qui lui est commode.
+ */
+function lireDocument(chemin: string): Promise<IReponse> {
+  return new Promise((resoudre, rejeter) => {
+    const req = httpRequest(
+      `${RESOURCE_BASE}${chemin}`,
+      { method: "GET", timeout: 8000 },
+      (res) => {
+        let texte = "";
+        res.setEncoding("utf8");
+        res.on("data", (morceau: string) => (texte += morceau));
+        res.on("end", () => {
+          let body: unknown = null;
+          try {
+            body = texte === "" ? null : JSON.parse(texte);
+          } catch {
+            body = null;
+          }
+          resoudre({ status: res.statusCode ?? 0, body, raw: texte });
+        });
+      },
+    );
+    req.on("error", rejeter);
+    req.on("timeout", () => {
+      req.destroy();
+      rejeter(new Error("timeout"));
+    });
+    req.end();
+  });
+}
+
 function lire(chemin: string): Promise<IReponse> {
   return new Promise((resoudre, rejeter) => {
     const req = httpsRequest(
@@ -152,7 +203,7 @@ async function jetonPourLaPorte(): Promise<string | null> {
   // les tests unitaires du paquet sur les quatre combinaisons OS × Node de la
   // forge, pour un fichier qui aurait dû simplement se déclarer hors décor.
   try {
-    const metadonnees = await lire(MCP_METADATA_PATH);
+    const metadonnees = await lireDocument(MCP_METADATA_PATH);
     if (metadonnees.status !== 200) return null; // porte anonyme : rien à demander
     const doc = metadonnees.body as { resource?: unknown };
     if (typeof doc.resource !== "string") return null;
@@ -403,8 +454,10 @@ describe.skipIf(raison !== null)(
       // `requestId`, `stack`) — c'est elle qui cassait le parseur du SDK MCP
       // sondant des chemins OAuth inexistants (« expected string, received
       // object »). Les deux réponses ne doivent jamais se confondre.
-      const monte = await lire(MCP_METADATA_PATH);
-      const absent = await lire("/.well-known/oauth-protected-resource/aucune");
+      const monte = await lireDocument(MCP_METADATA_PATH);
+      const absent = await lireDocument(
+        "/.well-known/oauth-protected-resource/aucune",
+      );
 
       expect(monte.status).toBe(200);
       const doc = monte.body as {

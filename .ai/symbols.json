@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-20T11:00:56.844Z",
+  "generated": "2026-08-20T11:13:48.655Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 714,
-    "symbols": 2949,
-    "classes": 359,
-    "interfaces": 854,
+    "files": 713,
+    "symbols": 2950,
+    "classes": 358,
+    "interfaces": 855,
     "types": 378,
     "enums": 4,
-    "functions": 1077,
+    "functions": 1078,
     "constants": 277
   },
   "symbols": {
@@ -9092,19 +9092,6 @@
       ],
       "description": "Serveur **Model Context Protocol** de l'application — la porte par laquelle un agent externe l'interroge. ## Pourquoi une route, et pas un process La révision `2026-07-28` du transport « Streamable…"
     },
-    "OAuthMetadataController": {
-      "name": "OAuthMetadataController",
-      "kind": "class",
-      "file": "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts",
-      "exported": true,
-      "module": "@nodefony/devkit",
-      "extends": "Controller",
-      "implements": [],
-      "decorators": [
-        "controller"
-      ],
-      "description": "Métadonnées OAuth 2.1 de la porte MCP — **le seul moyen normalisé** pour qu'un agent apprenne où obtenir un jeton. ## Pourquoi un controller séparé Trois raisons, et aucune n'est esthétique. Le che…"
-    },
     "IDevkitService": {
       "name": "IDevkitService",
       "kind": "interface",
@@ -10364,6 +10351,23 @@
       "module": "@nodefony/framework",
       "extends": null,
       "description": "Vue MINIMALE du service qui sait ce que l'application PROTÈGE, côté **publication**. Contrat structurel local : framework ne dépend JAMAIS de `@nodefony/security` — couplage par nom de service (`fi…"
+    },
+    "IServiceScan": {
+      "name": "IServiceScan",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue minimale du conteneur de services — assez pour balayer, pas plus. Le type complet vit dans `nodefony` mais l'importer ici lierait ce fichier au cœur pour une seule opération de lecture."
+    },
+    "collectProtectedResources": {
+      "name": "collectProtectedResources",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Rassemble ce que TOUS les services du conteneur déclarent protéger. ⭐ **Pourquoi balayer plutôt que demander à un service nommé.** Les ressources protégées d'une application n'ont pas une source un…"
     },
     "protectedResourceRoutePaths": {
       "name": "protectedResourceRoutePaths",
@@ -20798,7 +20802,6 @@
         "VueController",
         "DevkitController",
         "McpController",
-        "OAuthMetadataController",
         "DocumentationController",
         "AdminApiController",
         "ApiKeyController",
@@ -21246,7 +21249,6 @@
         "VueController",
         "DevkitController",
         "McpController",
-        "OAuthMetadataController",
         "DocumentationController",
         "StudioController",
         "StudioCreateController",
@@ -22110,9 +22112,6 @@
       "McpController": [
         "src/packages/@nodefony/devkit/index.ts"
       ],
-      "OAuthMetadataController": [
-        "src/packages/@nodefony/devkit/index.ts"
-      ],
       "GitService": [
         "src/packages/@nodefony/documentation/index.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
@@ -22339,7 +22338,6 @@
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
-        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
@@ -22414,7 +22412,7 @@
       "protectedResourceRoutePaths": [
         "src/packages/@nodefony/framework/index.ts"
       ],
-      "IProtectedResourcePublisher": [
+      "collectProtectedResources": [
         "src/packages/@nodefony/framework/index.ts"
       ],
       "WebAuthnController": [
@@ -22487,7 +22485,6 @@
         "src/modules/test/nodefony/secure/TestM2mRealtimeController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
-        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "controller": [
@@ -22529,7 +22526,6 @@
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
-        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
@@ -25324,7 +25320,6 @@
         "src/modules/test/nodefony/secure/SelfExternalController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
-        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
@@ -25492,7 +25487,6 @@
       "IDevkitService": [
         "src/packages/@nodefony/devkit/nodefony/controllers/DevkitController.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
-        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
       ],
       "checkMcpAccess": [
@@ -25521,17 +25515,6 @@
         "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts"
       ],
-      "MCP_ENDPOINT_PATH": [
-        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts"
-      ],
-      "protectedResourceMetadataPath": [
-        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts",
-        "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts"
-      ],
-      "buildProtectedResourceMetadata": [
-        "src/packages/@nodefony/devkit/nodefony/controllers/OAuthMetadataController.ts",
-        "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts"
-      ],
       "ICardAppInfo": [
         "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
       ],
@@ -25550,6 +25533,12 @@
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "IProtectedResourceInput": [
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "IDevkitCard": [
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
@@ -26242,10 +26231,11 @@
         "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts"
       ],
-      "IProtectedResourceInput": [
-        "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts",
-        "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      "protectedResourceMetadataPath": [
+        "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts"
+      ],
+      "buildProtectedResourceMetadata": [
+        "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts"
       ],
       "TypeController": [
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts"

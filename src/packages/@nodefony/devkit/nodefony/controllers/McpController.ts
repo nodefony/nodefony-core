@@ -51,7 +51,8 @@ import type { IDevkitService } from "../interfaces/IDevkitService";
  *
  * **Dès qu'un serveur d'autorisation est déclaré** (`mcp.authorization`), la
  * porte prend son rôle de *resource server* OAuth 2.1 : elle publie ses
- * métadonnées (RFC 9728, {@link OAuthMetadataController}), valide le porteur
+ * métadonnées (RFC 9728, publiées par `@nodefony/framework` depuis
+ * `DevkitService.publishedProtectedResources()`), valide le porteur
  * présenté, et refuse en citant `resource_metadata` — l'en-tête qui apprend au
  * client où obtenir un jeton (RFC 6750). L'audience attendue est l'URI
  * canonique de la porte (RFC 8707) : c'est ce qui empêche un jeton émis pour un

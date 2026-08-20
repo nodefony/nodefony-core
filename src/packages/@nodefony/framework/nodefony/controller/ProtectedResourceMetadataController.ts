@@ -34,6 +34,19 @@ export interface IProtectedResourcePublisher {
 let mounted = false;
 
 /**
+ * Ce qui a été PUBLIÉ au montage — la même liste qui a décidé des chemins.
+ *
+ * Le controller la relit plutôt que de réinterroger les services à chaque
+ * requête, pour deux raisons. La première est la justesse : les routes sont
+ * montées une fois, à partir de cette liste ; servir un document composé
+ * d'autre chose ferait répondre une ressource à un chemin dérivé d'une autre.
+ * La seconde est le coût : balayer le conteneur sur le chemin de la requête
+ * pour un document qui ne change qu'au redéploiement est exactement la dépense
+ * que la règle de perf proscrit.
+ */
+let published: readonly IProtectedResourceInput[] = Object.freeze([]);
+
+/**
  * Le document qui rend un refus APPRENABLE — RFC 9728.
  *
  * ## Le trou que ce controller ferme
@@ -81,11 +94,6 @@ class ProtectedResourceMetadataController extends Controller {
     super("ProtectedResourceMetadataController", context);
   }
 
-  /** Résout le publieur — absent = capacité éteinte. */
-  #publisher(): IProtectedResourcePublisher | null {
-    return this.get<IProtectedResourcePublisher>("firewall") ?? null;
-  }
-
   /** Chemin bien connu demandé, tel que le Router l'a matché. */
   #askedPath(): string | null {
     const req = this.request as { pathname?: unknown; url?: unknown } | null;
@@ -116,7 +124,7 @@ class ProtectedResourceMetadataController extends Controller {
    *          correspond au chemin ET à l'autorité demandés
    */
   async metadata() {
-    const declared = this.#publisher()?.publishedProtectedResources() ?? [];
+    const declared = published;
     const path = this.#askedPath();
     const asked = askedAuthority(this.request?.headers);
     if (!path || declared.length === 0) {
@@ -163,6 +171,62 @@ class ProtectedResourceMetadataController extends Controller {
       "Cache-Control": "public, max-age=3600",
     });
   }
+}
+
+/**
+ * Vue minimale du conteneur de services — assez pour balayer, pas plus.
+ *
+ * Le type complet vit dans `nodefony` mais l'importer ici lierait ce fichier au
+ * cœur pour une seule opération de lecture.
+ */
+export interface IServiceScan {
+  keys(): string[];
+  get<T = unknown>(name: string): T | null;
+}
+
+/**
+ * Rassemble ce que TOUS les services du conteneur déclarent protéger.
+ *
+ * ⭐ **Pourquoi balayer plutôt que demander à un service nommé.** Les ressources
+ * protégées d'une application n'ont pas une source unique : le pare-feu en
+ * déclare (une zone qui exige un jeton tiers), et un module peut en déclarer une
+ * de son propre chef — la porte MCP de `@nodefony/devkit` en est le premier cas.
+ * Interroger le seul `firewall` aurait laissé chaque autre module monter SON
+ * document, c'est-à-dire recopier cette règle autant de fois qu'il y a de
+ * sources, avec la collision de chemin en prime : `Router.createRoute` empile
+ * sans vérifier, et la seconde route ne serait jamais atteinte.
+ *
+ * Un **registre** aurait fait le même travail, au prix d'une dépendance d'ordre :
+ * un module qui s'enregistre après le `onKernelReady` du framework ne serait
+ * jamais publié, et rien ne le dirait. Le balayage n'a pas ce défaut — les
+ * services sont tous en place bien avant, et la question se pose au moment où
+ * l'on monte.
+ *
+ * Le contrat est **structurel** : porter la méthode suffit, aucun import, aucune
+ * interface à implémenter formellement — le même couplage que `tokenService` ou
+ * `adminBroker`.
+ *
+ * @param container - conteneur de services de l'application
+ * @returns les ressources déclarées, dans l'ordre des services
+ */
+export function collectProtectedResources(
+  container: IServiceScan,
+): readonly IProtectedResourceInput[] {
+  const collected: IProtectedResourceInput[] = [];
+  for (const name of container.keys()) {
+    const service = container.get<Partial<IProtectedResourcePublisher>>(name);
+    if (typeof service?.publishedProtectedResources !== "function") continue;
+    let declared: readonly IProtectedResourceInput[];
+    try {
+      declared = service.publishedProtectedResources();
+    } catch {
+      // Un service qui ne sait pas répondre ne doit pas empêcher les autres de
+      // publier — et surtout pas faire tomber le boot pour un document.
+      continue;
+    }
+    for (const entry of declared) collected.push(entry);
+  }
+  return collected;
 }
 
 /**
@@ -220,6 +284,7 @@ export function mountProtectedResourceRoutes(
   if (mounted) return 0;
   const paths = protectedResourceRoutePaths(resources);
   if (paths.length === 0) return 0;
+  published = resources;
   let index = 0;
   for (const path of paths) {
     Router.createRoute(`security.resource.metadata.${index++}`, {

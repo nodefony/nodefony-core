@@ -7,9 +7,18 @@ import {
   extend,
   injectable,
 } from "nodefony";
+import type { IProtectedResourceInput } from "nodefony";
 import type { IDevkitCard, IDevkitService } from "../interfaces/IDevkitService";
 import { buildCard } from "../src/card";
 import defaultConfig, { type DevkitConfig } from "../config/config";
+
+/**
+ * Réponse partagée quand la porte MCP n'est pas protégée — le cas par défaut.
+ * Allouer un tableau vide pour dire « rien » est la dépense que la règle de
+ * lazy-allocation proscrit.
+ */
+const EMPTY_PROTECTED_RESOURCES: readonly IProtectedResourceInput[] =
+  Object.freeze([]);
 
 /**
  * Service principal du module — la logique vit ici, pas dans les controllers
@@ -131,6 +140,45 @@ class DevkitService extends Service implements IDevkitService {
    */
   mcpSettings(): DevkitConfig["mcp"] {
     return this.cfg.mcp;
+  }
+
+  /**
+   * Ce que ce module protège, à publier en RFC 9728 — la porte MCP, ou rien.
+   *
+   * ⭐ **Le document n'est plus monté ici.** Il l'était, par un controller
+   * dédié, et cela faisait deux implémentations d'une même règle : celle du
+   * pare-feu (les zones qui déclarent leur ressource) et celle-ci. Deux copies
+   * divergent — chacune passe ses propres tests — et elles pouvaient en plus se
+   * disputer un chemin, que `Router.createRoute` attribue au premier arrivé sans
+   * un mot. Le module DÉCLARE désormais, `@nodefony/framework` monte.
+   *
+   * 🔴 **Effet voulu du changement** : le document n'est plus servi que sur
+   * l'autorité de `resource`. L'ancien controller répondait sur n'importe
+   * laquelle — exactement le défaut corrigé sur le document d'émetteur, qu'un
+   * vrai client MCP avait trouvé : recevoir le document d'une autre autorité le
+   * fait ARRÊTER, là où un `404` l'aurait laissé continuer.
+   *
+   * Rôle éteint (aucun serveur d'autorisation déclaré) ⇒ rien : un document sans
+   * `authorization_servers` apprendrait au client qu'un jeton est nécessaire
+   * sans lui dire où l'obtenir, ce que la spécification MCP interdit.
+   *
+   * @returns une entrée pour la porte MCP, ou aucune
+   */
+  publishedProtectedResources(): readonly IProtectedResourceInput[] {
+    const mcp = this.cfg.mcp;
+    const authz = mcp.authorization;
+    if (!mcp.enabled || authz.authorizationServers.length === 0) {
+      return EMPTY_PROTECTED_RESOURCES;
+    }
+    return [
+      {
+        resource: authz.resource,
+        authorizationServers: authz.authorizationServers,
+        scopesSupported: authz.scopesSupported,
+        resourceName: authz.resourceName,
+        resourceDocumentation: authz.resourceDocumentation,
+      },
+    ];
   }
 
   status(): { ready: boolean } {

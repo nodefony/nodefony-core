@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import type { IProtectedResourceInput } from "nodefony";
-import { protectedResourceRoutePaths } from "../../controller/ProtectedResourceMetadataController";
+import {
+  protectedResourceRoutePaths,
+  collectProtectedResources,
+  type IServiceScan,
+} from "../../controller/ProtectedResourceMetadataController";
 import {
   askedAuthority,
   onDeclaredAuthority,
@@ -125,5 +129,57 @@ describe("askedAuthority — la même valeur quel que soit le transport", () => 
     assert.equal(askedAuthority({}), undefined);
     assert.equal(askedAuthority(null), undefined);
     assert.equal(askedAuthority(undefined), undefined);
+  });
+});
+
+/** Conteneur factice : des services nommés, dont certains publient. */
+function scan(services: Record<string, unknown>): IServiceScan {
+  return {
+    keys: () => Object.keys(services),
+    get: <T>(name: string) => (services[name] ?? null) as T | null,
+  };
+}
+
+describe("collectProtectedResources — plusieurs sources, une seule règle", () => {
+  it("rassemble ce que TOUS les services déclarent, pas seulement le pare-feu", () => {
+    const collected = collectProtectedResources(
+      scan({
+        firewall: {
+          publishedProtectedResources: () => [input("https://app.example/api")],
+        },
+        devkit: {
+          publishedProtectedResources: () => [input("https://app.example/mcp")],
+        },
+        // Un service ordinaire : il ne doit ni contribuer, ni gêner.
+        template: { render: () => "" },
+      }),
+    );
+    assert.deepEqual(collected.map((r) => r.resource).sort(), [
+      "https://app.example/api",
+      "https://app.example/mcp",
+    ]);
+  });
+
+  it("ignore un service dont la méthode LÈVE — un document ne fait pas tomber le boot", () => {
+    const collected = collectProtectedResources(
+      scan({
+        casse: {
+          publishedProtectedResources: () => {
+            throw new Error("config illisible");
+          },
+        },
+        sain: {
+          publishedProtectedResources: () => [input("https://app.example/api")],
+        },
+      }),
+    );
+    assert.deepEqual(
+      collected.map((r) => r.resource),
+      ["https://app.example/api"],
+    );
+  });
+
+  it("rend une liste vide quand aucun service ne publie", () => {
+    assert.deepEqual(collectProtectedResources(scan({ template: {} })), []);
   });
 });
