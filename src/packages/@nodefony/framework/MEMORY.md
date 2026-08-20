@@ -98,19 +98,40 @@ doit exister que si un service est là passe donc par `Router.createRoute` dans 
 surface**. Couplage par NOM de service (contrat structurel local) : framework n'importe JAMAIS
 `@nodefony/security`.
 
-| Fonction                    | Condition (container)                        | Routes                                                                                            |
-| --------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `mountSessionAuthRoutes`    | `authFlow`                                   | session BFF                                                                                       |
-| `mountTokenAuthRoutes`      | `tokenService`                               | `/nodefony/security/api/token[/refresh]` — `bypassFirewall` (obtenir un jeton exigerait un jeton) |
-| `mountIssuerMetadataRoutes` | `tokenService.publishedIssuer()` **non nul** | `/.well-known/oauth-authorization-server` + `/.well-known/jwks.json` — `bypassFirewall`           |
-| `mountWebAuthnRoutes`       | `webauthn`                                   | cérémonies passkeys                                                                               |
-| `mountOAuth2Routes`         | `oauth2`                                     | social login                                                                                      |
+| Fonction                       | Condition (container)                        | Routes                                                                                            |
+| ------------------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `mountSessionAuthRoutes`       | `authFlow`                                   | session BFF                                                                                       |
+| `mountTokenAuthRoutes`         | `tokenService`                               | `/nodefony/security/api/token[/refresh]` — `bypassFirewall` (obtenir un jeton exigerait un jeton) |
+| `mountIssuerMetadataRoutes`    | `tokenService.publishedIssuer()` **non nul** | `/.well-known/oauth-authorization-server` + `/.well-known/jwks.json` — `bypassFirewall`           |
+| `mountProtectedResourceRoutes` | ≥ 1 service déclarant des ressources         | `/.well-known/oauth-protected-resource[/<chemin>]` — un par ressource, `bypassFirewall`           |
+| `mountWebAuthnRoutes`          | `webauthn`                                   | cérémonies passkeys                                                                               |
+| `mountOAuth2Routes`            | `oauth2`                                     | social login                                                                                      |
 
 🔴 **`mountIssuerMetadataRoutes` prend l'émetteur en ARGUMENT** — c'est lui qui détermine le chemin
 des métadonnées (insertion RFC 8414 §3.1, via `authorizationServerMetadataPath` de `nodefony`).
 Aucun littéral ici : le lecteur, dans security, compose le même chemin par la même fonction.
 La décision de publier appartient à security (`publishedIssuer()` = `jwt.enabled ∧ jwt.jwks ∧
 issuer en URL https`) ; framework pose la question, il ne lit pas la config de sécurité.
+
+🔴 **`mountProtectedResourceRoutes` BALAIE le conteneur** (`collectProtectedResources`), il
+n'interroge pas un service nommé : les ressources protégées ont plusieurs sources — les zones du
+pare-feu (`Firewall.publishedProtectedResources()`) et n'importe quel module (`DevkitService`
+pour la porte MCP). Un service contribue en portant la méthode, sans import ni interface à
+implémenter. Un registre imposerait une dépendance d'ordre — s'enregistrer après `onKernelReady`
+et n'être jamais publié, en silence — que le balayage n'a pas.
+
+Le controller relit ce qui a été MONTÉ (variable de module posée par le montage), pas les services
+à chaque requête : les routes dérivent de cette liste, en servir une autre ferait répondre une
+ressource à un chemin dérivé d'une autre ; et balayer le conteneur dans le chemin de la requête
+pour un document qui ne change qu'au redéploiement est proscrit par la règle de perf.
+
+🔴 **Un document bien connu ne se sert que sur l'autorité dont il se réclame** —
+`onDeclaredAuthority` (`controller/oauthAuthority.ts`), fonction pure PARTAGÉE par les deux rôles
+(émetteur RFC 8414 §3.3, ressource RFC 9728 §3.3). La comparaison porte sur l'autorité demandée
+(`:authority` en HTTP/2, `Host` sinon), jamais sur le schéma : derrière un relais qui termine TLS
+le processus voit `http` d'une requête faite en `https`. Servi ailleurs, le document est REJETÉ
+par un client conforme, qui s'arrête — un `404` l'aurait laissé continuer. Une copie de cette
+règle par controller divergerait au premier correctif.
 
 ## Decorators NestJS-inspired
 

@@ -111,12 +111,20 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
   forgé obtient un jeton d'audience arbitraire ET passe la vérification — la
   liaison d'audience (RFC 8707) ne protège plus rien. Validée au boot par
   `canonicalResourceUri`, la fonction qui composera le document.
-- **Métadonnées = `OAuthMetadataController`, préfixe VIDE** : le chemin
-  `/.well-known/…` vit hors de `/nodefony`, le document est PUBLIC (lisible
-  avant tout jeton, donc sans garde `Origin`/localité) et répond en `GET`. Son
-  chemin est **dérivé** de `MCP_ENDPOINT_PATH` par
-  `protectedResourceMetadataPath` — un littéral deviendrait faux au premier
-  déménagement, sans que rien ne le signale (404 → « pas d'autorisation ici »).
+- **Le module DÉCLARE sa ressource, il ne PUBLIE pas le document.**
+  `DevkitService.publishedProtectedResources()` rend une entrée quand
+  `mcp.enabled` et qu'au moins un serveur d'autorisation est déclaré ; c'est
+  `@nodefony/framework` qui monte `/.well-known/oauth-protected-resource/nodefony/mcp`
+  (chemin **dérivé** par `protectedResourceMetadataPath`, jamais un littéral).
+  Un controller local ferait une SECONDE implémentation de la règle que porte
+  déjà le pare-feu — deux copies divergent, et se disputent un chemin que
+  `Router.createRoute` attribue au premier arrivé sans un mot.
+- 🔴 **Le document n'est servi que sur l'autorité de `resource`.** Un client
+  conforme REJETTE un document dont la `resource` ne correspond pas à ce qu'il
+  interrogeait (RFC 9728 §3.3) et s'arrête là, quand un `404` l'aurait laissé
+  continuer. Conséquence pratique : entrer par une autre porte que celle
+  déclarée (`.mcp.json`) ne rend rien — c'est voulu, et un banc qui entrerait
+  ailleurs mesurerait autre chose que ce qu'un client vit.
   Rôle éteint → `404`, jamais un document sans `authorization_servers`.
 - **`mcp.tools` ne filtre QUE les outils intégrés.** Un outil déclaré par un
   module est publié sans condition : exiger qu'il soit AUSSI nommé en config en

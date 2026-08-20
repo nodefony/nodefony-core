@@ -345,6 +345,15 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
     Protocole RFC 8414 (les DEUX faces, lecture + publication) au CŒUR : `nodefony` →
     `src/oauth/authorizationServer.ts`. `JwtKeystore.publicJwk` = liste BLANCHE `kty/crv/x/kid/use/alg`
     (un spread laissait fuir `createdAt` dans le document PUBLIC).
+- **Rôle SERVEUR DE RESSOURCE (RFC 9728)** : `Firewall.publishedProtectedResources()` rend une entrée
+  par `area.resource` déclarée — la MÊME donnée que celle du défi `WWW-Authenticate`, donc le
+  pointeur et le document ne peuvent pas diverger. `authorization_servers` = les émetteurs de
+  `resourceServer.issuers`, jamais une seconde liste : publier autre chose enverrait le client
+  demander un jeton à un émetteur dont on refuse ensuite la signature. Aucun émetteur, ou aucune
+  zone à ressource ⇒ **rien** (un document sans `authorization_servers` est interdit par la RFC
+  comme par la spécification MCP). Deux zones sur la même ressource (HTTP + WebSocket) ⇒ une seule
+  entrée. Le MONTAGE appartient à `@nodefony/framework`, qui balaie le conteneur — d'autres modules
+  déclarent aussi leurs ressources.
 - Défauts : Zero Trust, CORS strict (jamais `*`+credentials), headers natifs (avancés COOP/COEP/CORP optionnels),
   Studio `enabled:false`/`exposure:localhost`.
 
