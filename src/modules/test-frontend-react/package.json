@@ -18,26 +18,26 @@
     "vite"
   ],
   "dependencies": {
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "tslib": "2.8.1"
   },
   "peerDependencies": {
     "@nodefony/framework": "*",
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",
-    "@vitejs/plugin-react": "6.0.5",
+    "@vitejs/plugin-react": ">=6.0.0",
     "nodefony": "*",
-    "vite": "8.2.1"
+    "vite": ">=8.2.0"
   },
   "devDependencies": {
     "@nodefony/framework": "*",
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",
     "@types/node": "26.2.0",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "6.0.5",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "6.1.0",
     "nodefony": "*",
     "rimraf": "6.1.3"
   },

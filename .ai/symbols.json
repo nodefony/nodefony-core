@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-20T14:53:23.760Z",
+  "generated": "2026-08-20T15:18:11.810Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -746,7 +746,7 @@
       "file": "src/nodefony/src/cli/aiMcpReport.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Composition PURE de la configuration MCP d'un projet — `.mcp.json`. Séparée de l'écriture pour la même raison que `env`, `card` et `ai:sync` : ce qui décide (que faut-il écrire ? est-ce déjà bon ?)…"
+      "description": "Nom de la clé sous laquelle notre serveur est déclaré."
     },
     "MCP_CONFIG_FILE": {
       "name": "MCP_CONFIG_FILE",
@@ -23296,6 +23296,17 @@
       "IMcpConfigDocument": [
         "src/nodefony/src/cli/aiMcp.ts"
       ],
+      "stripTrailingSlashes": [
+        "src/nodefony/src/cli/aiMcpReport.ts",
+        "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
+        "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
+        "src/nodefony/src/syslog/transports/LokiTransport.ts",
+        "src/nodefony/src/syslog/transports/OpenSearchTransport.ts",
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
+        "src/packages/@nodefony/http/nodefony/src/assets/collectAssets.ts"
+      ],
       "planSync": [
         "src/nodefony/src/cli/aiSync.ts"
       ],
@@ -25173,16 +25184,6 @@
         "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
         "src/nodefony/src/syslog/transports/LokiTransport.ts",
         "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
-      ],
-      "stripTrailingSlashes": [
-        "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
-        "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
-        "src/nodefony/src/syslog/transports/LokiTransport.ts",
-        "src/nodefony/src/syslog/transports/OpenSearchTransport.ts",
-        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Route.ts",
-        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
-        "src/packages/@nodefony/http/nodefony/src/assets/collectAssets.ts"
       ],
       "basicAuthHeader": [
         "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",

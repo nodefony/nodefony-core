@@ -32,10 +32,10 @@
     "@nodefony/framework": "*",
     "@nodefony/http": "*",
     "@types/node": "26.2.0",
-    "@vitest/coverage-v8": "4.1.10",
+    "@vitest/coverage-v8": "4.1.11",
     "nodefony": "*",
     "rimraf": "6.1.3",
-    "vitest": "4.1.10"
+    "vitest": "4.1.11"
   },
   "peerDependencies": {
     "@nodefony/framework": "*",

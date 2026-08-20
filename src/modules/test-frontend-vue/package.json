@@ -27,14 +27,14 @@
     "@nodefony/http": "*",
     "@vitejs/plugin-vue": ">=6.0.0",
     "nodefony": "*",
-    "vite": "8.2.1"
+    "vite": ">=8.2.0"
   },
   "devDependencies": {
     "@nodefony/framework": "*",
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",
     "@types/node": "26.2.0",
-    "@vitejs/plugin-vue": "^6.0.7",
+    "@vitejs/plugin-vue": "^6.0.8",
     "nodefony": "*",
     "rimraf": "6.1.3"
   },

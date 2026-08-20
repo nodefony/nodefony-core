@@ -49,8 +49,8 @@
     "zod": "^4.4.3"
   },
   "optionalDependencies": {
-    "mysql2": "3.23.2",
-    "pg": "^8.22.0"
+    "mysql2": "3.23.4",
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "@nodefony/framework": "*",
@@ -60,7 +60,7 @@
     "@nodefony/user": "*",
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "26.2.0",
-    "@types/pg": "8.21.0",
+    "@types/pg": "8.23.1",
     "nodefony": "*",
     "rimraf": "6.1.3"
   },

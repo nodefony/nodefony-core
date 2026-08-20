@@ -34,7 +34,7 @@
     "@vitejs/plugin-vue": ">=6.0.0",
     "drizzle-orm": "*",
     "nodefony": "*",
-    "vite": "8.2.1"
+    "vite": ">=8.2.0"
   },
   "devDependencies": {
     "@nodefony/drizzle": "*",
@@ -43,11 +43,11 @@
     "@nodefony/http": "*",
     "@nodefony/orm-core": "*",
     "@types/node": "26.2.0",
-    "@vitejs/plugin-vue": "^6.0.7",
-    "@vitest/coverage-v8": "4.1.10",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vitest/coverage-v8": "4.1.11",
     "nodefony": "*",
     "rimraf": "6.1.3",
-    "vitest": "4.1.10"
+    "vitest": "4.1.11"
   },
   "license": "CECILL-B"
 }

@@ -10,7 +10,11 @@ import { URL } from "node:url";
 import { HTTPMethod, Cookies } from "../Context";
 import QS from "qs";
 import { Busboy } from "@fastify/busboy";
-import type { BusboyFileStream, BusboyHeaders } from "@fastify/busboy";
+import type {
+  BusboyFileStream,
+  BusboyHeaders,
+  BusboyInstance,
+} from "@fastify/busboy";
 import {
   ParserXml,
   ParserQs,
@@ -493,7 +497,7 @@ class HttpRequest {
    * @throws {HttpError} 413 si une limite de taille/quantité est dépassée.
    */
   async parseMultipart(): Promise<ParserType> {
-    let bb: Busboy;
+    let bb: BusboyInstance;
     try {
       bb = new Busboy({
         headers: this.request.headers as BusboyHeaders,
@@ -530,7 +534,7 @@ class HttpRequest {
    * `finish` (après flush de tous les writes), rejette — avec cleanup des temp
    * déjà posés — à la moindre erreur ou dépassement de limite.
    */
-  private streamMultipart(bb: Busboy): Promise<{
+  private streamMultipart(bb: BusboyInstance): Promise<{
     fields: Record<string, unknown>;
     files: { field: string; file: IParsedUploadFile }[];
   }> {
