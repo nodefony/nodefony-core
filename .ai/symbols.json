@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-20T15:55:23.676Z",
+  "generated": "2026-08-20T16:07:02.607Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 713,
-    "symbols": 2950,
+    "symbols": 2951,
     "classes": 358,
     "interfaces": 855,
     "types": 378,
     "enums": 4,
-    "functions": 1078,
+    "functions": 1079,
     "constants": 277
   },
   "symbols": {
@@ -7125,8 +7125,7 @@
       "kind": "function",
       "file": "src/nodefony/src/service/dev/devProcess.ts",
       "exported": true,
-      "module": "@nodefony/core",
-      "description": "Lit les ports publiés par le runtime, ou `null`. **Un state file dont le process est MORT est ignoré** (et purgé) : sinon un `status` lirait les ports d'un serveur d'hier et sonderait dans le vide."
+      "module": "@nodefony/core"
     },
     "discoverFromRuntimeState": {
       "name": "discoverFromRuntimeState",

@@ -166,18 +166,37 @@ export function writeRuntimeState(
  *   d'un autre projet depuis une commande scopée à celui-ci serait un effet de bord
  *   hors périmètre — et le voisin perdrait la trace de ses propres ports.
  */
+/**
+ * Ports lus d'un FICHIER, ramenés à ce qu'un port peut être.
+ *
+ * Le fichier d'état est écrit par un process du projet, pas par un tiers — mais
+ * il reste une entrée sur disque qui alimente ensuite une sonde réseau (l'hôte,
+ * lui, est écrit en dur en boucle locale). Une valeur hors bornes n'ouvre donc
+ * aucune porte vers l'extérieur ; elle enverrait la sonde frapper un service
+ * local au hasard, et un fichier tronqué suffit à la produire.
+ *
+ * @param value - la valeur brute lue dans le fichier, de forme inconnue.
+ * @returns les entiers retenus dans `1..65535` ; tableau vide si rien n'est valide.
+ */
+function sanitizePorts(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (n): n is number => Number.isInteger(n) && n > 0 && n <= 65535,
+  );
+}
+
 export function readRuntimeState(
   cwd: string,
   opts: { purgeStale?: boolean } = {},
 ): RuntimeState | null {
   try {
     const file = runtimeStateFile(cwd);
-    if (!existsSync(file)) return null;
+    // Pas d'`existsSync` avant la lecture : le fichier peut disparaître entre
+    // les deux (TOCTOU), et `readFileSync` lève ENOENT — que le `catch` rend
+    // déjà en `null`.
     const raw = JSON.parse(readFileSync(file, "utf8")) as Partial<RuntimeState>;
     const pid = typeof raw.pid === "number" ? raw.pid : 0;
-    const ports = Array.isArray(raw.ports)
-      ? raw.ports.filter((n) => Number.isInteger(n) && n > 0)
-      : [];
+    const ports = sanitizePorts(raw.ports);
     if (ports.length === 0) return null;
     if (pid > 0 && !isPidAlive(pid)) {
       // reliquat d'un run mort — ne jamais s'y fier
@@ -187,8 +206,12 @@ export function readRuntimeState(
     return {
       pid,
       ports,
+      // `desiredPorts` passe par la MÊME garde que `ports` : c'est le même
+      // fichier, donc la même confiance. Les valider d'un côté seulement était
+      // un écart silencieux — une seule des deux listes servait de source à une
+      // sonde réseau.
       desiredPorts: Array.isArray(raw.desiredPorts)
-        ? raw.desiredPorts
+        ? sanitizePorts(raw.desiredPorts)
         : undefined,
       ts: typeof raw.ts === "number" ? raw.ts : 0,
     };
