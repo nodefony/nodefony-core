@@ -4,6 +4,7 @@ import {
   buildStartMenu,
   buildInspectMenu,
   filterStartMenu,
+  planMenuAction,
   START_MENU_CATALOG,
   MODULE_COMMANDS_GROUP,
   type StartMenuItem,
@@ -197,6 +198,38 @@ describe("startMenu — composition pure du menu interactif", () => {
       moduleCommands: [],
     });
     assert.notMatch(message, /--help/u, message);
+  });
+
+  it("🔴 une commande de MODULE exige un process neuf, pas le re-parse commander", () => {
+    // Vécu : le menu proposait `http:network`, on le choisissait, et le CLI
+    // répondait « unknown command 'http:network' » + CRITIC + exit 1. Le menu
+    // s'ouvre à `onStart` ; les commandes de module ne sont posées dans
+    // commander qu'à `onPreRegister` (dispatch différé). Un menu qui PROPOSE un
+    // geste puis le refuse est pire que celui qui ne le proposait pas.
+    const builtins = new Set(["development", "inspect", "check"]);
+    const isBuiltin = (n: string) => builtins.has(n);
+
+    assert.deepEqual(planMenuAction("http:network", isBuiltin), {
+      kind: "respawn",
+      argv: ["http:network"],
+    });
+    // Le sens négatif qui compte : une intégrée ne part PAS en process neuf —
+    // sinon on paierait un boot complet sur chaque choix du menu.
+    assert.deepEqual(planMenuAction("development", isBuiltin), {
+      kind: "inline",
+      argv: ["development"],
+    });
+    // Une intégrée à ARGUMENT reste inline : c'est le premier mot qui porte
+    // l'identité de la commande.
+    assert.deepEqual(planMenuAction("inspect routes", isBuiltin), {
+      kind: "inline",
+      argv: ["inspect", "routes"],
+    });
+    // Un script du projet garde son chemin d'origine.
+    assert.deepEqual(planMenuAction("npm:verify", isBuiltin), {
+      kind: "npm",
+      script: "verify",
+    });
   });
 
   it("inspect : le sous-menu vient de la table SOURCE et écarte les sujets à paramètre", () => {

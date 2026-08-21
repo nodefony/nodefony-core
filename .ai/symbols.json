@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-21T11:37:11.505Z",
+  "generated": "2026-08-21T11:51:26.205Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 719,
-    "symbols": 2992,
+    "symbols": 2994,
     "classes": 361,
     "interfaces": 861,
-    "types": 382,
+    "types": 383,
     "enums": 4,
-    "functions": 1099,
+    "functions": 1100,
     "constants": 285
   },
   "symbols": {
@@ -1508,6 +1508,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Item neutre du menu — champs BRUTS, aucun rendu. L'adaptateur compose l'affichage (alignement, couleurs, troncature à la largeur du terminal) : la composition décide QUOI montrer, jamais COMMENT."
+    },
+    "MenuAction": {
+      "name": "MenuAction",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce que le menu doit FAIRE d'un choix — décidé ici, exécuté par l'adaptateur."
+    },
+    "planMenuAction": {
+      "name": "planMenuAction",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le plan d'exécution d'un choix de menu. ⚠️ **Une commande de MODULE ne peut pas s'exécuter dans le process du menu.** Le menu s'ouvre à `onStart` pour rester instantané ; à cette phase, les command…"
     },
     "buildStartMenu": {
       "name": "buildStartMenu",
@@ -25155,6 +25171,9 @@
         "src/nodefony/src/kernel/commands/MenuCommand.ts"
       ],
       "IStartMenuModuleCommand": [
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+      ],
+      "planMenuAction": [
         "src/nodefony/src/kernel/commands/MenuCommand.ts"
       ],
       "readCliManifest": [

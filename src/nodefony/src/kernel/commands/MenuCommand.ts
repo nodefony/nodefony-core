@@ -10,6 +10,7 @@ import {
   NPM_SCRIPT_PREFIX,
   type StartMenuItem,
   type IStartMenuModuleCommand,
+  planMenuAction,
 } from "../../cli/startMenu";
 import { readCliManifest } from "../../cli/completion";
 import { INSPECT_SUBJECTS } from "../inspect/adminSubjects";
@@ -240,9 +241,29 @@ class Menu extends Command {
     // Script npm (« npm:verify ») : le geste appartient au projet, pas à
     // commander — on l'exécute tel que l'utilisateur l'aurait tapé, sortie
     // héritée, et le code de sortie du script devient le nôtre.
-    if (response.startsWith(NPM_SCRIPT_PREFIX)) {
-      const script = response.slice(NPM_SCRIPT_PREFIX.length);
-      const r = spawnSync("npm", ["run", script], { stdio: "inherit" });
+    const plan = planMenuAction(response, (name) =>
+      Boolean(this.cli?.getCommand(name)),
+    );
+    if (plan.kind === "npm") {
+      const r = spawnSync("npm", ["run", plan.script], { stdio: "inherit" });
+      this.terminate(r.status ?? 1);
+      return this;
+    }
+    // Commande de MODULE : commander ne la connaît PAS à `onStart` (elles sont
+    // posées à `onPreRegister`, par le dispatch différé), et le re-parse
+    // répondait « unknown command 'http:network' » + CRITIC + exit 1 — un menu
+    // qui propose un geste puis le refuse. On relance le CLI dans un process
+    // neuf, qui boote normalement et dispatche : le même patron que le script
+    // npm juste au-dessus. `process.argv[1]` est le bin par lequel on est entré,
+    // donc l'exécution reste celle du projet (le lanceur a déjà tranché entre
+    // CLI global et CLI local).
+    if (plan.kind === "respawn") {
+      const bin = process.argv[1];
+      const r = bin
+        ? spawnSync(process.execPath, [bin, ...plan.argv], {
+            stdio: "inherit",
+          })
+        : { status: 1 };
       this.terminate(r.status ?? 1);
       return this;
     }

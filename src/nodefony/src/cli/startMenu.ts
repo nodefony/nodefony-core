@@ -254,6 +254,48 @@ export const NPM_SCRIPT_PREFIX = "npm:";
 /** Titre du groupe des commandes de module (projet seulement). */
 export const MODULE_COMMANDS_GROUP = "Commandes du projet";
 
+/** Ce que le menu doit FAIRE d'un choix — décidé ici, exécuté par l'adaptateur. */
+export type MenuAction =
+  /** Script du projet : `npm run <script>`, sortie héritée. */
+  | { kind: "npm"; script: string }
+  /** Commande intégrée : commander la connaît, on l'exécute dans CE process. */
+  | { kind: "inline"; argv: string[] }
+  /** Commande de MODULE : elle exige un process neuf (voir ci-dessous). */
+  | { kind: "respawn"; argv: string[] };
+
+/**
+ * Le plan d'exécution d'un choix de menu.
+ *
+ * ⚠️ **Une commande de MODULE ne peut pas s'exécuter dans le process du menu.**
+ * Le menu s'ouvre à `onStart` pour rester instantané ; à cette phase, les
+ * commandes de module ne sont pas encore posées dans commander (elles le sont à
+ * `onPreRegister`, par le dispatch différé). Les exécuter par le re-parse
+ * commander donnait donc `unknown command 'http:network'` + CRITIC + exit 1 —
+ * un menu qui PROPOSE un geste puis le refuse. Elles se relancent dans un
+ * process neuf, exactement comme le menu le fait déjà pour un script npm : le
+ * boot complet a lieu, le dispatch différé fait son travail.
+ *
+ * La décision vit ici, PURE, parce qu'elle se teste : l'adaptateur ne fait plus
+ * que `spawnSync` ou appeler commander, gestes qu'aucun test unitaire n'observe.
+ *
+ * @param response - la valeur choisie dans le menu.
+ * @param isBuiltin - commander connaît-il cette commande à cet instant ?
+ */
+export function planMenuAction(
+  response: string,
+  isBuiltin: (name: string) => boolean,
+): MenuAction {
+  if (response.startsWith(NPM_SCRIPT_PREFIX)) {
+    return { kind: "npm", script: response.slice(NPM_SCRIPT_PREFIX.length) };
+  }
+  const argv = response.split(" ").filter(Boolean);
+  // Le premier mot porte l'identité de la commande ; « inspect routes » reste
+  // une intégrée à argument.
+  return isBuiltin(argv[0] ?? "")
+    ? { kind: "inline", argv }
+    : { kind: "respawn", argv };
+}
+
 function choice(value: string, summary: string, when: string): StartMenuItem {
   return { kind: "choice", label: value, summary, value, description: when };
 }
