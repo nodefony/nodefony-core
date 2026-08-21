@@ -21,6 +21,9 @@ import {
  * défaut) est respecté par `Kernel.initServers`.
  */
 const options: OptionsCommandInterface = {
+  // Le journal de cycle de vie n'est pas la sortie de cette commande : elle LIT
+  // un état et le rend. Appliqué par le CLI à la commande demandée SEULE.
+  quietBoot: true,
   showBanner: false,
   kernelEvent: "onPostReady",
 };
@@ -90,9 +93,6 @@ class Inspect extends Command {
     // la première ligne de log. Les erreurs (sévérité ≤ 3) partent sur la
     // sortie d'erreur : elles restent visibles sans polluer le flux JSON.
     // Le constructeur tourne pour TOUTES les commandes, d'où la garde sur argv.
-    if (process.argv.includes("--json") || process.argv.includes("-j")) {
-      (cli as CliKernel).quietBoot = true;
-    }
   }
 
   override async generate(
@@ -150,12 +150,20 @@ class Inspect extends Command {
   private renderHuman(subject: string, payload: unknown): void {
     if (Array.isArray(payload)) {
       if (payload.length === 0) {
-        this.log(`${subject} : aucun`, "INFO");
+        // 🔴 La SORTIE d'une commande ne passe pas par le journal.
+        //
+        // Ces deux lignes étaient des `this.log(…, "INFO")`. Tant que le boot
+        // déversait son propre journal, la confusion ne se voyait pas ; le jour
+        // où cette commande a boché en silence (`quietBoot`), INFO est tombé —
+        // et la réponse avec. Un filtre de journal ne doit jamais pouvoir
+        // effacer ce qu'on est venu chercher : le journal RACONTE l'exécution,
+        // la sortie EST le résultat.
+        process.stdout.write(`${subject} : aucun\n`);
         return;
       }
       // `console.table` respecte la sortie standard et aligne seul.
       console.table(payload);
-      this.log(`${payload.length} ${subject}`, "INFO");
+      process.stdout.write(`${payload.length} ${subject}\n`);
       return;
     }
     console.dir(payload, { depth: 4, colors: true });

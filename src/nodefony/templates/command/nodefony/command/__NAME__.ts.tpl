@@ -14,6 +14,14 @@ import { Command, CliKernel, type OptionsCommandInterface } from "nodefony";
 const options: OptionsCommandInterface = {
   showBanner: false,
   kernelEvent: "<%= it.phase %>",
+  // Le journal de cycle de vie n'est PAS la sortie d'une commande. Sans ceci,
+  // ta commande rend d'abord trente lignes de boot (`MODULE ADD`, stores
+  // résolus, certificats) et sa réponse arrive en dernier, sous un mur que
+  // personne n'a demandé. Seuls NOTICE et INFO tombent : `EMERGENCY..ERROR`
+  // restent visibles, et `-d/--debug` rétablit tout.
+  // À RETIRER si ta commande LANCE quelque chose dont le journal EST la sortie
+  // (un serveur, une migration qu'on regarde se dérouler).
+  quietBoot: true,
 };
 
 /**
@@ -32,6 +40,14 @@ class <%= it.nameClass %> extends Command {
     super("<%= it.commandName %>", "<%= it.description %>", cli, options);
     // Argument POSITIONNEL optionnel : sans déclaration, Commander refuse le mot
     // (« too many arguments ») — un argument non déclaré n'existe pas.
+    //
+    // 🔴 Garde les crochets `[…]`, même pour un argument INDISPENSABLE. Déclaré
+    // `<obligatoire>`, Commander refuse la commande AVANT qu'elle existe
+    // (« error: missing required argument ») — y compris quand l'utilisateur
+    // l'a CHOISIE dans `nodefony menu`, où l'on ne peut taper aucun argument.
+    // Réclame-le plutôt avec `askArgument` (voir `generate` ci-dessous) : il
+    // demande en terminal, et hors terminal il échoue en montrant la ligne à
+    // taper — jamais une question qui pend dans un pipeline.
     this.addArgument("[who]", "qui saluer (défaut : monde)");
     this.addOption("-j, --json", "sortie JSON (scriptable)");
   }
@@ -58,11 +74,26 @@ class <%= it.nameClass %> extends Command {
     if (who) {
       this.log(`argument reçu : ${who}`, "DEBUG");
     }
-<% } else { %>    const message = `Bonjour, ${who ?? "monde"} !`;
-<% } %>    if (opts.json) {
+<% } else { %>    // Un argument dont tu ne peux pas te passer se DEMANDE, il ne se refuse pas :
+    //   const cible = await this.askArgument(who, {
+    //     name: "who",
+    //     message: "Qui saluer ?",
+    //     // choices: ["monde", "toi"],  // → une liste plutôt qu'une saisie
+    //   });
+    // En terminal il pose la question ; sans terminal (CI, script) il échoue
+    // avec la ligne exacte à taper. Ici l'argument a un défaut, donc rien à
+    // demander.
+    const message = `Bonjour, ${who ?? "monde"} !`;
+<% } %>    // 🔴 La SORTIE va sur la sortie standard, JAMAIS dans le journal.
+    // `this.log(message, "INFO")` semble marcher — jusqu'au jour où un filtre
+    // de journal (`quietBoot` ci-dessus, `--json`, une commande lancée depuis
+    // le menu) coupe INFO : la réponse disparaît avec lui. Le journal RACONTE
+    // l'exécution, la sortie EST le résultat ; `this.log` reste pour ce qui
+    // relève du récit (avertissements, erreurs, détail sous `--debug`).
+    if (opts.json) {
       process.stdout.write(`${JSON.stringify({ message })}\n`);
     } else {
-      this.log(message, "INFO");
+      process.stdout.write(`${message}\n`);
     }
     return this;
   }

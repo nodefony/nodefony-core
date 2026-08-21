@@ -24,6 +24,10 @@ const run = promisify(execFile);
  * construction du kernel. Aucun port n'est ouvert (profil console par défaut).
  */
 const optionsCommand: OptionsCommandInterface = {
+  // Le journal de cycle de vie n'est pas la sortie de cette commande : elle LIT
+  // un état et le rend. Appliqué par le CLI à la commande demandée SEULE — un
+  // `cli.quietBoot` posé dans un constructeur vaudrait pour toutes.
+  quietBoot: true,
   showBanner: false,
   kernelEvent: "onRegister",
 };
@@ -82,12 +86,6 @@ class Outdated extends Command {
     // sortie d'erreur — un vrai problème de boot reste donc visible.
     //
     // Posé dans le CONSTRUCTEUR : le syslog est branché au tout début de
-    // `Kernel.start()`, avant le moindre hook. Demandé depuis `generate()`, le
-    // silence arriverait après que le boot a déjà écrit. Et comme le
-    // constructeur tourne pour TOUTES les commandes, il faut la garde sur argv.
-    if (process.argv.includes("outdated")) {
-      (cli as CliKernel).quietBoot = true;
-    }
   }
 
   override async generate(

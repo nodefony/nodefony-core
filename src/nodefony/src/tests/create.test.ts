@@ -4118,6 +4118,47 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       force = false,
     ) => runScaffold({ type: "command", answers, dir: from, force }, version);
 
+    it("🔴 la commande GÉNÉRÉE naît avec les trois leçons payées sur le cœur", () => {
+      // Un gabarit est du code DISTRIBUÉ : ce qu'il n'enseigne pas, chaque
+      // développeur le réapprendra par le même bug. Ces trois-là ont été payées
+      // le même jour sur les commandes du framework.
+      const dest = appWithModule("cmdlecons");
+      const r = command(dest, { name: "publish", module: "@cmdlecons/blog" });
+      const src = readFileSync(
+        path.join(r.dest, "nodefony", "command", "PublishCommand.ts"),
+        "utf8",
+      );
+
+      // 1. Le journal de boot n'est pas la sortie : sans ceci, la commande rend
+      //    trente lignes de `MODULE ADD` avant sa réponse.
+      assert.include(src, "quietBoot: true");
+
+      // 2. La SORTIE va sur stdout, jamais dans le journal — sinon le filtre
+      //    ci-dessus (ou `--json`) efface la réponse elle-même.
+      //    ⚠️ On regarde le CODE, pas les commentaires : le gabarit CITE
+      //    `this.log(message, "INFO")` pour dire de ne pas l'écrire, et une
+      //    sonde naïve accuse alors la phrase qui met en garde.
+      const codeSeul = src
+        .split("\n")
+        .filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*"))
+        .join("\n");
+      assert.notMatch(
+        codeSeul,
+        /this\.log\(message/u,
+        "la sortie passe par le journal : un filtre la fera disparaître",
+      );
+      assert.include(src, "process.stdout.write(`${message}");
+
+      // 3. Un argument indispensable se DEMANDE : déclaré `<requis>`, commander
+      //    refuse la commande avant qu'elle existe — y compris choisie au menu.
+      assert.include(src, "askArgument");
+      assert.notMatch(
+        src,
+        /addArgument\("<[a-z]/u,
+        "un argument déclaré obligatoire fait refuser la commande au menu",
+      );
+    });
+
     it("dérive `<module>:<action>` du Module cible, pas du nom npm", () => {
       const dest = appWithModule("cmdapp");
       const r = command(dest, { name: "publish", module: "@cmdapp/blog" });

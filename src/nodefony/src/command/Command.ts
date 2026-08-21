@@ -36,6 +36,23 @@ interface OptionsCommandInterface extends DefaultOptionsService {
    * master/worker cluster) restent posés par `setRunProfile()` dans `onKernelStart`.
    */
   runProfile?: IRunProfile;
+  /**
+   * Boot SILENCIEUX pour CETTE commande (capability déclarative).
+   *
+   * 🔴 Le journal de cycle de vie n'est pas la SORTIE d'une commande. Vécu :
+   * `nodefony inspect modules` rendait trente lignes de `MODULE ADD`, de stores
+   * résolus et d'avertissements TLS avant son tableau — la réponse à la
+   * question posée arrivait en dernier, sous un mur que personne n'a demandé.
+   *
+   * Déclaré ICI plutôt que posé par chaque commande : le constructeur d'une
+   * commande s'exécute pour TOUTES les invocations du CLI, si bien qu'un
+   * `cli.quietBoot = true` écrit dans un constructeur rendrait muet le serveur
+   * de développement. Le CLI ne l'applique qu'à la commande RÉELLEMENT demandée.
+   *
+   * Ne cache jamais une erreur : seuls NOTICE et INFO tombent, `EMERGENCY..ERROR`
+   * restent, et `-d/--debug` rétablit tout.
+   */
+  quietBoot?: boolean;
 }
 
 export type CommandArgs = any[];
@@ -75,6 +92,8 @@ class Command extends Service {
   public lifetime: RunLifetime = "oneshot";
   /** Profil d'exécution déclaré (cf {@link OptionsCommandInterface.runProfile}) — `null` si non déclaré. */
   public runProfile: IRunProfile | null = null;
+  /** Boot silencieux déclaré (cf {@link OptionsCommandInterface.quietBoot}). */
+  public quietBoot: boolean = false;
   // Hooks lifecycle optionnels — un par phase du Kernel (cf Events bitmask). Câblés
   // LAZY dans setEvents() : un `kernel.once(...)` n'est posé QUE si la commande définit
   // le hook → 0 listener / 0 coût pour les commandes qui ne l'utilisent pas (règle perf).
@@ -126,6 +145,7 @@ class Command extends Service {
     this.kernelEvent = this.options.kernelEvent;
     this.lifetime = this.options.lifetime ?? "oneshot";
     this.runProfile = this.options.runProfile ?? null;
+    this.quietBoot = this.options.quietBoot === true;
     this.command = this.createCommand(name, description);
     this.command?.action((...args: any[]) => {
       if (this.kernel) {

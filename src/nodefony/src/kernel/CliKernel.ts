@@ -337,6 +337,18 @@ class CliKernel extends Cli {
     try {
       if (this.commander) {
         this.registerBuiltinCommands();
+        // Boot SILENCIEUX de la commande DEMANDÉE — et d'elle seule.
+        //
+        // Le journal de cycle de vie n'est pas la sortie d'une commande :
+        // `nodefony inspect modules` rendait trente lignes de `MODULE ADD`, de
+        // stores résolus et d'un avertissement TLS avant son tableau. La règle
+        // ne peut PAS vivre dans le constructeur de la commande — il s'exécute
+        // pour toutes les invocations, et rendrait muet le serveur de dev. On
+        // l'applique donc ici, une fois les intégrées enregistrées et le nom
+        // demandé connu, avant que le Kernel ne démarre son journal.
+        if (requested !== null && this.getCommand(requested)?.quietBoot) {
+          this.quietBoot = true;
+        }
         this.commander.exitOverride();
         this.commander.name(this.name);
         this.commander.showHelpAfterError(false);
