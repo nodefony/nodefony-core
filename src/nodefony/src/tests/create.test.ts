@@ -1356,11 +1356,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
       // Aucun module encore : l'état vide DIT quoi faire.
       assert.include(agents, "Aucun — `npx nodefony create module");
-      // CLAUDE.md = un POINTEUR, et rien d'autre. Il n'a qu'un seul contenu
-      // propre : le renvoi à `create --help`, qui ne peut pas se périmer —
-      // contrairement à une liste de générateurs, qui avait déjà dérivé
-      // (`create command` y manquait), et l'agent qui ne l'y trouvait pas
-      // écrivait à la main.
+      // CLAUDE.md = un POINTEUR, et presque rien d'autre. Deux contenus
+      // propres seulement, chacun payé par une mesure au banc : le renvoi à
+      // `create --help` (une liste de générateurs avait déjà dérivé —
+      // `create command` y manquait — et l'agent écrivait à la main), et
+      // `npm run verify` (trois tâches FAIL sur un code qui ne compilait
+      // pas : l'agent lançait `npm test` en boucle sans jamais typechecker,
+      // et n'ouvrait pas AGENTS.md — ce pointeur est le SEUL texte qu'un
+      // agent headless reçoit d'office).
       //
       // La règle qui vaut la garde de TAILLE ci-dessous : tout ce qu'on
       // recopierait ici existe dans `AGENTS.md` et en divergerait en silence.
@@ -1370,6 +1373,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const claude = readFileSync(path.join(dest, "CLAUDE.md"), "utf8");
       assert.include(claude, "AGENTS.md");
       assert.include(claude, "nodefony create --help");
+      // Le réflexe gate : un `npm test` vert ne typecheck rien (le runner
+      // efface les types) — c'est la panne commune des trois FAIL mesurés.
+      assert.include(claude, "npm run verify");
       assert.isBelow(
         claude.split("\n").length,
         15,
