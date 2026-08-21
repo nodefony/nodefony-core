@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-21T07:44:00.967Z",
+  "generated": "2026-08-21T10:40:31.941Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 719,
-    "symbols": 2988,
+    "symbols": 2990,
     "classes": 361,
     "interfaces": 861,
     "types": 382,
     "enums": 4,
-    "functions": 1095,
+    "functions": 1097,
     "constants": 285
   },
   "symbols": {
@@ -2957,7 +2957,7 @@
       "file": "src/nodefony/src/mcp/tools.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Outils MCP : le **catalogue intégré** du framework, et la **collecte** de ceux qu'une application déclare. ⚠️ **Rien n'est calculé ici.** Chaque outil intégré traduit un appel JSON-RPC vers une bri…"
+      "description": "Rend un résultat d'outil — les données partent en JSON indenté, lisible. Exporté parce qu'une application qui déclare un outil en a besoin : sans lui, chacune réinventerait l'enveloppe `content[]`,…"
     },
     "builtinMcpTools": {
       "name": "builtinMcpTools",

@@ -49,11 +49,135 @@ export type { IMcpTool, IMcpToolDefinition, IMcpToolResult, IMcpCaller };
  */
 
 /**
+ * Au-delà de quoi une réponse cesse d'être une réponse.
+ *
+ * Mesuré, pas choisi en l'air : `inspect routes` rendait 47 000 caractères et
+ * `inspect config` 190 730 — le second dépassait ce que le client accepte, il
+ * partait sur disque, et l'agent brûlait vingt tours à le relire au `jq`. Le
+ * premier passait, et ne servait à rien pour autant : à qui demandait le NOMBRE
+ * de routes, il fallait compter 119 objets dans un mur de JSON.
+ *
+ * La borne est donc largement SOUS la limite des clients : ce qu'on protège
+ * n'est pas le transport, c'est la capacité de l'agent à répondre sans relire.
+ */
+const MCP_TEXT_MAX_CHARS = 32_000;
+
+/** Ce qu'on garde d'une valeur dans une vue d'ensemble : la surface. */
+const SCALAIRE_MAX_CHARS = 120;
+
+/**
+ * La SURFACE d'un objet — ses champs scalaires courts, sans sa profondeur.
+ *
+ * Ce qui pèse dans un inventaire n'est presque jamais ce qu'on y cherche : sur
+ * une route, `name`/`path`/`controller` tiennent en cent caractères, et c'est la
+ * description, les tableaux de tags et les objets imbriqués qui font les 47 ko.
+ * On jette donc la profondeur et on garde la surface — TOUTES les entrées
+ * restent visibles, ce qu'un échantillon des N premières ne permet pas : une
+ * question portant sur la 100ᵉ recevrait une réponse fausse, et l'agent n'aurait
+ * aucun moyen de le savoir.
+ */
+function surfaceDe(value: unknown): unknown {
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return `[${value.length}]`;
+  }
+  const garde: Record<string, unknown> = {};
+  for (const [cle, v] of Object.entries(value)) {
+    if (v === null || typeof v === "number" || typeof v === "boolean") {
+      garde[cle] = v;
+    } else if (typeof v === "string" && v.length <= SCALAIRE_MAX_CHARS) {
+      garde[cle] = v;
+    } else if (Array.isArray(v) && v.every((e) => typeof e === "string")) {
+      // Un tableau de mots courts EST de la surface (`methods: ["GET"]`) ; on
+      // ne le garde que s'il ne se met pas à peser.
+      const rendu = v.join(",");
+      if (rendu.length <= SCALAIRE_MAX_CHARS) {
+        garde[cle] = v;
+      }
+    }
+  }
+  return garde;
+}
+
+/**
+ * Une donnée trop volumineuse, ramenée à une RÉPONSE.
+ *
+ * Deux formes, selon ce qu'on a sous la main :
+ *  - **un tableau** rend son `count` — la première chose qu'on veut d'une liste,
+ *    et celle qu'un modèle calcule mal et cher — puis ses entrées en surface ;
+ *  - **un objet** rend ses clés de premier niveau : c'est la carte qui permet de
+ *    demander ensuite la bonne branche (pour `config`, `inspect module <nom>`).
+ *
+ * Dans les deux cas la réponse DIT ce qu'elle a fait. Une troncature muette est
+ * pire que pas de troncature : l'agent croit tout tenir.
+ */
+function resumer(value: unknown, taille: number): string {
+  if (Array.isArray(value)) {
+    const items = value.map(surfaceDe);
+    let rendu = JSON.stringify(
+      {
+        count: value.length,
+        items,
+        note:
+          `réponse ramenée à la surface de chaque entrée (${taille} caractères au complet) — ` +
+          `demande le détail d'une entrée précise plutôt que la liste entière`,
+      },
+      null,
+      2,
+    );
+    if (rendu.length <= MCP_TEXT_MAX_CHARS) {
+      return rendu;
+    }
+    // La surface elle-même déborde : on borne, et le `count` reste EXACT — c'est
+    // lui qui dit à l'agent qu'il ne voit pas tout.
+    let gardees = items.length;
+    while (gardees > 1 && rendu.length > MCP_TEXT_MAX_CHARS) {
+      gardees = Math.floor(gardees / 2);
+      rendu = JSON.stringify(
+        {
+          count: value.length,
+          items: items.slice(0, gardees),
+          note:
+            `${gardees} entrées montrées sur ${value.length} — la liste entière pèse ` +
+            `${taille} caractères ; affine la demande plutôt que de tout lire`,
+        },
+        null,
+        2,
+      );
+    }
+    return rendu;
+  }
+  const keys =
+    value && typeof value === "object" ? Object.keys(value) : undefined;
+  return JSON.stringify(
+    {
+      keys,
+      note:
+        `réponse de ${taille} caractères, trop volumineuse pour être rendue entière — ` +
+        `demande une branche précise (par exemple le module qui t'intéresse)`,
+    },
+    null,
+    2,
+  );
+}
+
+/**
  * Rend un résultat d'outil — les données partent en JSON indenté, lisible.
  *
  * Exporté parce qu'une application qui déclare un outil en a besoin : sans lui,
  * chacune réinventerait l'enveloppe `content[]`, et une enveloppe mal formée
  * n'échoue pas — elle rend un résultat vide que l'agent prend pour une réponse.
+ *
+ * **Un résultat est BORNÉ** ({@link MCP_TEXT_MAX_CHARS}) : au-delà, il rend un
+ * résumé plutôt qu'un déversement (voir {@link resumer}). La garde vit ICI, et
+ * non dans les quatre outils intégrés, pour qu'un outil déclaré par une
+ * application en hérite sans le savoir — c'est le genre de règle qu'on
+ * n'applique jamais deux fois de la même façon si on la laisse à l'appelant.
+ * En deçà de la borne — le cas courant — la donnée part TELLE QUELLE : un
+ * consommateur qui la parse n'a rien à changer, et on ne paie pas la garde sur
+ * 100 % des appels pour 1 % de gros sujets.
  *
  * @param value - donnée à rendre (sérialisée si ce n'est pas déjà du texte)
  * @param isError - marque un échec MÉTIER (pas une faute de protocole)
@@ -61,9 +185,15 @@ export type { IMcpTool, IMcpToolDefinition, IMcpToolResult, IMcpCaller };
 export function mcpText(value: unknown, isError = false): IMcpToolResult {
   const rendered =
     typeof value === "string" ? value : JSON.stringify(value, null, 2);
+  // Un message d'erreur est déjà rédigé, et court : le résumer n'apporterait
+  // rien et pourrait effacer la seule phrase que l'agent doit lire.
+  const texte =
+    isError || rendered.length <= MCP_TEXT_MAX_CHARS
+      ? rendered
+      : resumer(value, rendered.length);
   return isError
-    ? { content: [{ type: "text", text: rendered }], isError: true }
-    : { content: [{ type: "text", text: rendered }] };
+    ? { content: [{ type: "text", text: texte }], isError: true }
+    : { content: [{ type: "text", text: texte }] };
 }
 
 /** Ce dont les outils INTÉGRÉS ont besoin — injecté, jamais lu ici. */

@@ -1083,10 +1083,138 @@ describe("MCP — les outils de diagnostic", () => {
       },
       context(),
     );
-    const entries = JSON.parse(toolText(reply).text) as { module: string }[];
-    expect(entries.length).toBeGreaterThan(0);
-    // Le filtre doit MORDRE : aucun symbole d'un autre paquet ne passe.
-    expect(entries.every((e) => e.module === "@nodefony/http")).toBe(true);
+    // La surface d'un paquet entier pèse ~78 000 caractères : la réponse est
+    // donc RÉSUMÉE (cf `MCP_TEXT_MAX_CHARS`) — elle annonce son compte et rend
+    // chaque symbole en surface. Ce que ce test prouve n'en change pas : le
+    // filtre doit MORDRE, et il se lit sur les entrées rendues.
+    const rendu = JSON.parse(toolText(reply).text) as {
+      count: number;
+      items: { module: string }[];
+    };
+    expect(rendu.count).toBeGreaterThan(0);
+    expect(rendu.items.length).toBeGreaterThan(0);
+    // Aucun symbole d'un autre paquet ne passe.
+    expect(rendu.items.every((e) => e.module === "@nodefony/http")).toBe(true);
+  });
+
+  it("🔴 un sujet VOLUMINEUX annonce son COMPTE au lieu de déverser", async () => {
+    // Le défaut mesuré au banc (tâche 9, deux runs) : `inspect routes` rendait
+    // 47 000 caractères de JSON brut, et l'agent — à qui on demandait le NOMBRE
+    // de routes — a tenté de recopier la liste dans un script pour la compter,
+    // puis a abandonné. Le compte est la première chose qu'on veut d'une liste ;
+    // le faire calculer par un modèle est à la fois cher et faux.
+    const broker = {
+      list: () => [
+        {
+          adminNamespace: "framework",
+          adminDescriptor: () => ({ label: "Framework" }),
+          adminEndpoints: () => [
+            {
+              path: "routes",
+              handler: () =>
+                Array.from({ length: 119 }, (_, i) => ({
+                  name: `route-${i}`,
+                  path: `/api/ressource-${i}/{id}`,
+                  methods: ["GET", "POST"],
+                  controller: `Controller${i}`,
+                  action: "index",
+                  module: "app",
+                  // La profondeur : ce qui fait le volume, et que personne ne
+                  // lit dans une vue d'ensemble.
+                  meta: {
+                    description: "x".repeat(400),
+                    tags: Array.from({ length: 12 }, (_, t) => `tag-${t}`),
+                  },
+                })),
+            },
+          ],
+        } as unknown as IAdminApi,
+      ],
+    };
+    const reply = await handleMcpMessage(
+      {
+        jsonrpc: "2.0",
+        id: 20,
+        method: "tools/call",
+        params: { name: "nodefony_inspect", arguments: { subject: "routes" } },
+      },
+      {
+        tools: collectMcpTools({
+          builtins: BUILTIN_MCP_TOOL_KEYS,
+          deps: { ...deps(), broker },
+        }),
+        serverInfo: { name: "banc", version: "0.0.0" },
+      },
+    );
+    const { text, isError } = toolText(reply);
+    expect(isError).toBeUndefined();
+    const rendu = JSON.parse(text) as {
+      count: number;
+      items: unknown[];
+      note?: string;
+    };
+    // Le compte est EXACT et immédiat — pas à recompter dans un mur de JSON.
+    expect(rendu.count).toBe(119);
+    // La capacité n'est pas mutilée : les 119 entrées restent VISIBLES, c'est
+    // leur profondeur qui est tombée. Un échantillon des N premières aurait
+    // rendu la réponse fausse pour toute question portant sur la 100ᵉ.
+    expect(rendu.items).toHaveLength(119);
+    // La surface est gardée…
+    expect(text).toMatch(/route-118/u);
+    expect(text).toMatch(/\/api\/ressource-118\/\{id\}/u);
+    // …la profondeur est tombée (c'est elle qui pesait).
+    expect(text).not.toMatch(/xxxxxxxx/u);
+    expect(text).not.toMatch(/tag-11/u);
+    // Et la réponse DIT ce qu'elle a fait — sinon l'agent croit tout avoir.
+    expect(rendu.note).toMatch(/détail/iu);
+  });
+
+  it("🔴 un sujet ÉNORME et non-tableau rend ses clés, pas son contenu", () => {
+    // L'autre moitié du défaut mesuré : `inspect config` rendait 190 730
+    // caractères, au-delà de ce que le client accepte — le résultat partait sur
+    // disque et l'agent a brûlé vingt tours à essayer de le relire au `jq`.
+    const config: Record<string, unknown> = {};
+    for (const m of ["http", "framework", "security", "orm"]) {
+      config[m] = { valeur: "y".repeat(20_000), provenance: "défaut" };
+    }
+    const { content } = mcpText(config);
+    const rendu = JSON.parse(content[0].text) as {
+      keys: string[];
+      note?: string;
+    };
+    expect(rendu.keys).toEqual(["http", "framework", "security", "orm"]);
+    expect(content[0].text.length).toBeLessThan(4_000);
+    expect(rendu.note).toBeTruthy();
+  });
+
+  it("sens négatif : une réponse ORDINAIRE n'est pas touchée", () => {
+    // La borne ne doit pas se déclencher sur le cas courant : un outil qui rend
+    // trois lignes doit rendre exactement son JSON, sans enveloppe. Sinon on
+    // paierait la garde sur 100 % des appels pour 1 % de gros sujets — et tout
+    // consommateur qui parse la donnée casserait.
+    const petit = [{ name: "@nodefony/http", version: "10.0.0" }];
+    expect(JSON.parse(mcpText(petit).content[0].text)).toEqual(petit);
+    expect(JSON.parse(mcpText({ app: "banc" }).content[0].text)).toEqual({
+      app: "banc",
+    });
+    // Une chaîne reste une chaîne — c'est déjà une réponse rédigée.
+    expect(mcpText("tout va bien").content[0].text).toBe("tout va bien");
+  });
+
+  it("🔴 un tableau compacté qui pèse ENCORE est borné, et le dit", () => {
+    // Cas limite : 40 000 entrées dont la seule surface dépasse déjà la borne.
+    // Tout rendre reviendrait à réintroduire le déversement par une autre porte.
+    const enorme = Array.from({ length: 40_000 }, (_, i) => ({
+      name: `entrée-numéro-${i}-avec-un-nom-assez-long-pour-peser`,
+    }));
+    const rendu = JSON.parse(mcpText(enorme).content[0].text) as {
+      count: number;
+      items: unknown[];
+      note?: string;
+    };
+    expect(rendu.count).toBe(40_000);
+    expect(rendu.items.length).toBeLessThan(40_000);
+    expect(rendu.note).toMatch(/40000|40 000/u);
   });
 
   it("les quatre clés intégrées sont toutes IMPLÉMENTÉES", () => {
