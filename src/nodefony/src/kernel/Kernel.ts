@@ -452,6 +452,13 @@ class Kernel extends Service implements IKernel {
    * {@link terminate}.
    */
   private parkTimer: NodeJS.Timeout | null = null;
+
+  /**
+   * Le shutdown en cours, s'il y en a un — garde de ré-entrance de
+   * {@link terminate}. `null` par défaut : aucune allocation tant qu'on ne
+   * termine pas, et un kernel ne termine qu'une fois.
+   */
+  private terminating: Promise<this> | null = null;
   /** Minuterie d'auto-arrêt d'un runtime en dérogation de modules dev (`null` = aucune). */
   private devModulesStopTimer: NodeJS.Timeout | null = null;
   node_start: NodefonyStartType =
@@ -3244,6 +3251,26 @@ class Kernel extends Service implements IKernel {
     if (code === undefined) {
       code = 0;
     }
+    // 🔴 **Un shutdown ne se rejoue pas.** Sans cette garde, deux appels
+    // rejouaient TOUT : le log « terminate : N » (symptôme visible — deux
+    // lignes, même PID, même milliseconde) mais surtout `fireAsync
+    // ("onTerminate")`, donc la bascule de readiness, la fermeture des sockets
+    // et le cleanup des services, une seconde fois sur un kernel déjà démonté.
+    // La fenêtre est large : la sortie réelle n'a lieu qu'au `nextTick`, si
+    // bien que tout appelant qui termine puis rend la main à un cadre qui
+    // termine aussi (le menu et son geste choisi) passait deux fois.
+    // On rend la promesse EN COURS plutôt qu'une erreur : un `await terminate()`
+    // qui rejetterait au milieu d'un shutdown transformerait une redondance
+    // bénigne en panne. Le premier appelant garde la main sur le code de sortie.
+    if (this.terminating) {
+      return this.terminating;
+    }
+    this.terminating = this.doTerminate(code, quiet);
+    return this.terminating;
+  }
+
+  /** Le shutdown lui-même — protégé de la ré-entrance par {@link terminate}. */
+  private async doTerminate(code: number, quiet?: boolean): Promise<this> {
     // Libère le timer de park (daemon) : sinon il garderait l'event loop vivant après
     // le shutdown. Idempotent (no-op si jamais parké).
     if (this.parkTimer) {
