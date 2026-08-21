@@ -1,11 +1,11 @@
 {
-  "generated": "2026-08-21T04:33:33.689Z",
+  "generated": "2026-08-21T04:42:16.171Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 715,
-    "symbols": 2969,
-    "classes": 358,
+    "files": 718,
+    "symbols": 2972,
+    "classes": 361,
     "interfaces": 857,
     "types": 381,
     "enums": 4,
@@ -6195,6 +6195,28 @@
       "module": "@nodefony/core",
       "description": "Contrôle le câblage d'une application et de ses modules locaux. Trois manquements, tous invisibles à la compilation : - **entité orpheline** — le descripteur n'est nommé nulle part, donc aucun `@en…"
     },
+    "AiMcp": {
+      "name": "AiMcp",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/AiMcpCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony ai:mcp` — déclare le serveur MCP de cette application à l'agent (`.mcp.json`). **Exécutée en « standalone » (zéro boot).** L'enregistrement ici sert au help (`nodefony --help`) e…"
+    },
+    "AiSync": {
+      "name": "AiSync",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/AiSyncCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony ai:sync` — pointeurs vers les skills d'agent livrés par les paquets installés. **Exécutée en « standalone » (zéro boot).** L'enregistrement ici sert au help (`nodefony --help`) e…"
+    },
     "Build": {
       "name": "Build",
       "kind": "class",
@@ -6290,6 +6312,17 @@
       "implements": [],
       "decorators": [],
       "description": "Commande `nodefony env` — l'environnement de l'application, en entier. Elle répond aux quatre questions qu'on se pose toujours ensemble, et dont aucune n'avait de réponse ailleurs que dans le code …"
+    },
+    "GitHooks": {
+      "name": "GitHooks",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony git:hooks` — hooks git natifs (`core.hooksPath`), zéro dépendance. **Exécutée en « standalone » (zéro boot).** L'enregistrement ici sert au help (`nodefony --help`) et à la compl…"
     },
     "Inspect": {
       "name": "Inspect",
@@ -20845,6 +20878,8 @@
         "BindAdaptiveOptions"
       ],
       "Command": [
+        "AiMcp",
+        "AiSync",
         "Build",
         "Card",
         "Check",
@@ -20853,6 +20888,7 @@
         "Create",
         "Dev",
         "Env",
+        "GitHooks",
         "Inspect",
         "Install",
         "Outdated",
@@ -21410,6 +21446,8 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/types/ICliKernel.ts",
+        "src/nodefony/src/kernel/commands/AiMcpCommand.ts",
+        "src/nodefony/src/kernel/commands/AiSyncCommand.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/CardCommand.ts",
         "src/nodefony/src/kernel/commands/CheckCommand.ts",
@@ -21418,6 +21456,7 @@
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/EnvCommand.ts",
+        "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
@@ -23692,6 +23731,8 @@
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
+        "src/nodefony/src/kernel/commands/AiMcpCommand.ts",
+        "src/nodefony/src/kernel/commands/AiSyncCommand.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/CardCommand.ts",
         "src/nodefony/src/kernel/commands/CheckCommand.ts",
@@ -23700,6 +23741,7 @@
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/EnvCommand.ts",
+        "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
@@ -23855,6 +23897,15 @@
       "Stop": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
+      "AiSync": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "AiMcp": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "GitHooks": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
       "isStandaloneDevCommand": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
@@ -23919,13 +23970,16 @@
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts"
       ],
       "runAiSyncCommand": [
-        "src/nodefony/src/kernel/CliKernel.ts"
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/AiSyncCommand.ts"
       ],
       "runAiMcpCommand": [
-        "src/nodefony/src/kernel/CliKernel.ts"
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/AiMcpCommand.ts"
       ],
       "runGitHooksCommand": [
-        "src/nodefony/src/kernel/CliKernel.ts"
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/GitHooksCommand.ts"
       ],
       "setLogColor": [
         "src/nodefony/src/kernel/Kernel.ts"
@@ -24888,6 +24942,8 @@
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "OptionsCommandInterface": [
+        "src/nodefony/src/kernel/commands/AiMcpCommand.ts",
+        "src/nodefony/src/kernel/commands/AiSyncCommand.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/CardCommand.ts",
         "src/nodefony/src/kernel/commands/CheckCommand.ts",
@@ -24896,6 +24952,7 @@
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/EnvCommand.ts",
+        "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",

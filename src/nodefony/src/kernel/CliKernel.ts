@@ -23,6 +23,9 @@ import Status from "./commands/StatusCommand";
 import Check from "./commands/CheckCommand";
 import Inspect from "./commands/InspectCommand";
 import Stop from "./commands/StopCommand";
+import AiSync from "./commands/AiSyncCommand";
+import AiMcp from "./commands/AiMcpCommand";
+import GitHooks from "./commands/GitHooksCommand";
 import {
   isStandaloneDevCommand,
   runStandaloneDevCommand,
@@ -454,6 +457,12 @@ class CliKernel extends Cli {
     this.addCommand(Card);
     this.addCommand(Symbols);
     this.addCommand(Inspect);
+    // Standalone servis par le fast-path : ces classes n'existent que pour le
+    // help et la complétion (leur `generate()` est un filet) — sans elles, une
+    // commande bien réelle est INVISIBLE de `nodefony -h`, donc de personne.
+    this.addCommand(AiSync);
+    this.addCommand(AiMcp);
+    this.addCommand(GitHooks);
   }
 
   /**
