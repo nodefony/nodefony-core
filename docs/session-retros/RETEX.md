@@ -83,6 +83,17 @@ log 2>&1; echo "EXIT=$?" | tee -a log` : le harnais a rapporté **exit 0** — c
   tâches — le run mesurait un levier mort de plus, et seul le `ls` de l'app du run l'a dit.
   Coder pendant un run est sain ; CONCLURE sur ce run à propos de ce qu'on vient de coder ne
   l'est pas — dater le tarball avant d'imputer.
+- `[1× — 08-21c]` 🔴 **La limite de quota coupe AUSSI l'agent du banc — et l'agrégat a compté
+  le transcript tronqué comme un run valide.** Run large interrompu à la T30 (« session
+  limit ») : le garde-fou du run a bien refusé le verdict, mais `--analyze-only` a ensuite
+  retenu la T30 coupée → « 1 PASS → FAIL (instable) » sur un rouge NON OPPOSABLE (la règle 4
+  du dépistage existe, ce mode ne l'applique pas — défaut de banc à corriger). Et le quota est
+  PARTAGÉ : un gros run sérialisé avec du travail interactif le mange des deux côtés.
+- `[1× — 08-21c]` **Un juge lisait `git status` pour dire « le disque »** : aveugle au travail
+  COMMITTÉ (l'agent T28 committait), la cause rendue passait de « fait mais pas chargé » à
+  « rien fait » et l'instruction partait du mauvais côté. Corrigé (`144e3dac`) — la famille
+  « la sonde est le premier suspect » a une variante : la sonde qui lit un PROXY de l'état
+  (l'index git) au lieu de l'état (le disque).
 
 - `[1× — 08-21]` 🔴 **Le serveur du dépôt laissé UP a rougi le banc devkit du VOISIN** : le
   `nodefony check` de l'app témoin sonde les ports de sa CONFIG (5151/5152) — tenus par le dépôt —
@@ -111,6 +122,28 @@ log 2>&1; echo "EXIT=$?" | tee -a log` : le harnais a rapporté **exit 0** — c
 - `[1× — 08-20c]` **Un cluster est un runtime de PRODUCTION** : les modules `policy:"dev"` n'y sont
   pas, donc les routes de banc rendent 404. `NF_WITH_DEV_MODULES=1` est la dérogation prévue, et le
   skill le disait — je l'ai lu après avoir cherché.
+
+## 🖥️ L'interactif se prouve au PTY — et chaque couche peut salir la sortie
+
+- `[1× — 08-21c]` **`script(1)` + `printf` piloté = prouver un prompt TTY sans machine ni
+  main** : `(sleep 4; printf 'blog'; sleep 1; printf '\r') | script -q cap.txt npx nodefony
+menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la frappe, Ctrl+C,
+  écran reset + commande exécutée). La capture se relit APRÈS strip ANSI, et le viewport
+  d'inquirer ne rend que la fenêtre : « absent de la capture » ≠ « absent du menu » (vécu :
+  un groupe en bas de liste cru manquant, révélé par le filtre).
+- `[1× — 08-21c]` 🔴 **Un Ctrl+C « propre » a demandé DEUX corrections, chacune une couche
+  plus bas** : (1) `throw` après `terminate()` — terminate est ASYNCHRONE, l'erreur remontait
+  au kernel avant l'exit (CRITIC + exit 1) ; (2) `quiet` perdu par `CliKernel.terminate` qui
+  délègue au kernel → le log INFO ressurgissait après « À bientôt. ». La sortie d'un CLI est
+  une CHAÎNE de terminaisons : la prouver au pty à CHAQUE couche, pas au premier vert.
+- `[1× — 08-21c]` **`stream-json` ne montre PAS le contexte initial injecté** : « VÉRIFIER
+  absent du transcript » ne prouvait pas « CLAUDE.md pas injecté ». Tranché par une sonde
+  discriminante à 1 centime : CLAUDE.md témoin « réponds BANANE42 » + `claude -p` → réponse
+  conforme = le pointeur EST le seul canal injecté d'office en headless. L'instrument d'abord.
+- `[1× — 08-21c]` **`perl -pe 's/\x{00A0}//'` sans décodage UTF-8 opère en OCTETS** : il a
+  matché le seul 0xA0 et laissé le 0xC2 orphelin — fichier UTF-8 invalide, pire qu'avant.
+  Remplacer un caractère multi-octets exige `-CSD` (ou opérer sur la séquence complète), et
+  se vérifie à l'`od -c`, pas à l'œil.
 
 ## 🩺 Une montée de version RÉVÈLE des défauts qu'elle n'a pas créés
 
