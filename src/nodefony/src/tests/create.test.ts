@@ -533,6 +533,35 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(agents, ".agents/skills/");
       assert.include(agents, "ai:sync");
     });
+
+    it("🔴 les trois pièges MESURÉS au banc sont écrits dans l'app GÉNÉRÉE", () => {
+      // Trois échecs du banc devkit dont la cause était ce fichier — pas
+      // l'agent. Chacun se relit ici, dans le rendu, parce qu'un gabarit n'est
+      // pas ce qu'il produit.
+      const dest = path.join(tmp, "agents-pieges");
+      scaffold(dest, { name: "pieges", preset: "complete", frontend: "none" });
+      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+
+      // T10 — l'agent s'arrêtait à `npm test` (vitest n'inspecte aucun type) et
+      // commitait du code qui ne compile pas. L'en-tête et la conclusion
+      // nomment maintenant LA commande unique, comme le corps le faisait déjà.
+      assert.include(agents, "npm run verify");
+      assert.notInclude(
+        agents,
+        "`npm test` d'abord, puis `npm run typecheck`",
+        "l'en-tête ne doit plus proposer une séquence qu'on peut interrompre",
+      );
+
+      // T16 — « Fetch Metadata protège déjà », donc pas de `@CsrfProtect` : un
+      // client non-navigateur postait sans jeton et recevait 201.
+      assert.include(agents, "PREUVE D'INTENTION");
+      assert.include(agents, "x-csrf-token");
+
+      // T26 — le fichier CONSEILLAIT de déplacer la route sous `/api/machine` ;
+      // l'agent a obéi, et l'adresse publiée a rendu 404 au partenaire.
+      assert.include(agents, "URL DÉJÀ PUBLIÉE");
+      assert.include(agents, "^/api/(machine|partenaire)");
+    });
   });
 
   describe(".prettierrc + CI générée (le filet complet vit en forge)", () => {

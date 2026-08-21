@@ -1201,6 +1201,43 @@ describe("MCP — les outils de diagnostic", () => {
     expect(mcpText("tout va bien").content[0].text).toBe("tout va bien");
   });
 
+  it("🔴 la NOTE se lit AVANT les entrées, et le `count` est désigné comme la source du NOMBRE", () => {
+    // Vécu au banc devkit, tâche « annonce le nombre de routes » : 0 PASS sur 3.
+    // L'agent appelait l'outil, recevait `count` puis 88 entrées puis, 20 000
+    // caractères plus loin, une note disant que la liste était tronquée. Il
+    // n'annonçait jamais le nombre — il partait recompter les entrées visibles,
+    // ou renonçait. Deux défauts de RÉPONSE, pas de guidage :
+    //   1. le fait qui gouverne la lecture arrivait en DERNIER ;
+    //   2. la note conseillait « affine la demande » alors que le sujet
+    //      `routes` n'accepte aucun filtre — un geste impossible.
+    const routes = Array.from({ length: 354 }, (_, i) => ({
+      name: `route-numero-${i}`,
+      path: `/un/chemin/assez/long/pour/peser/quelque/chose/${i}`,
+      methods: ["GET", "HEAD"],
+      controller: `ControllerNumero${i}`,
+      action: "index",
+      module: "test",
+    }));
+    const texte = mcpText(routes).content[0].text;
+    const rendu = JSON.parse(texte) as {
+      count: number;
+      note: string;
+      items: unknown[];
+    };
+
+    // Le compte porte sur la liste ENTIÈRE, pas sur l'extrait.
+    expect(rendu.count).toBe(354);
+    expect(rendu.items.length).toBeLessThan(354);
+
+    // La note se lit AVANT la première entrée — sinon elle arrive trop tard.
+    expect(texte.indexOf('"note"')).toBeLessThan(texte.indexOf('"items"'));
+
+    // Et elle DÉSIGNE `count` comme la source du nombre, au lieu de renvoyer
+    // vers un affinement que le sujet n'offre pas.
+    expect(rendu.note).toMatch(/count/u);
+    expect(rendu.note).not.toMatch(/affine la demande/u);
+  });
+
   it("🔴 un tableau compacté qui pèse ENCORE est borné, et le dit", () => {
     // Cas limite : 40 000 entrées dont la seule surface dépasse déjà la borne.
     // Tout rendre reviendrait à réintroduire le déversement par une autre porte.

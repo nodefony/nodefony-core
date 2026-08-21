@@ -110,8 +110,18 @@ function surfaceDe(value: unknown): unknown {
  *  - **un objet** rend ses clés de premier niveau : c'est la carte qui permet de
  *    demander ensuite la bonne branche (pour `config`, `inspect module <nom>`).
  *
- * Dans les deux cas la réponse DIT ce qu'elle a fait. Une troncature muette est
- * pire que pas de troncature : l'agent croit tout tenir.
+ * Dans les deux cas la réponse DIT ce qu'elle a fait, et elle le dit EN TÊTE.
+ * Une troncature muette est pire que pas de troncature — l'agent croit tout
+ * tenir ; une troncature annoncée APRÈS vingt mille caractères d'entrées ne vaut
+ * guère mieux, il a déjà décidé quoi faire de ce qu'il a lu. Mesuré : sur la
+ * tâche « annonce le nombre de routes », l'agent recevait `count` puis 88
+ * entrées puis, tout en bas, l'avertissement — et repartait recompter les
+ * entrées visibles au lieu de lire le compte exact qu'on venait de lui donner.
+ *
+ * Et la note ne renvoie PAS vers un affinement : `routes`, `services` ou
+ * `modules` n'acceptent aucun filtre, si bien que « affine la demande » nommait
+ * un geste qui n'existe pas. Elle désigne ce qui EST utilisable — `count`, exact
+ * et portant sur la liste entière.
  */
 function resumer(value: unknown, taille: number): string {
   if (Array.isArray(value)) {
@@ -119,10 +129,11 @@ function resumer(value: unknown, taille: number): string {
     let rendu = JSON.stringify(
       {
         count: value.length,
-        items,
         note:
-          `réponse ramenée à la surface de chaque entrée (${taille} caractères au complet) — ` +
+          `count = ${value.length} : c'est le nombre EXACT, il porte sur la liste entière. ` +
+          `Les entrées ci-dessous sont ramenées à leur surface (${taille} caractères au complet) — ` +
           `demande le détail d'une entrée précise plutôt que la liste entière`,
+        items,
       },
       null,
       2,
@@ -138,10 +149,11 @@ function resumer(value: unknown, taille: number): string {
       rendu = JSON.stringify(
         {
           count: value.length,
-          items: items.slice(0, gardees),
           note:
-            `${gardees} entrées montrées sur ${value.length} — la liste entière pèse ` +
-            `${taille} caractères ; affine la demande plutôt que de tout lire`,
+            `count = ${value.length} : c'est le nombre EXACT, il porte sur la liste entière. ` +
+            `Seules ${gardees} entrées sont montrées (la liste pèse ${taille} caractères) — ` +
+            `toute affirmation sur le NOMBRE se fonde sur count, jamais sur les entrées visibles.`,
+          items: items.slice(0, gardees),
         },
         null,
         2,

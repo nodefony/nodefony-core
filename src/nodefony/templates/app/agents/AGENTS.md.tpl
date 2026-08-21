@@ -3,7 +3,7 @@
 > **N'invente jamais du code Nodefony : génère-le, imite-le, vérifie-le.**
 > Trois actes pour toute tâche : **LIRE** (ce fichier, puis la doc pointée) →
 > **GÉNÉRER** (`npx nodefony create …` produit du vrai code, à imiter) →
-> **VÉRIFIER** (`npm test` d'abord, puis `npm run typecheck`).
+> **VÉRIFIER** (`npm run verify` — UNE commande : types + lint + tests + câblage).
 >
 > **Le réflexe, avant d'écrire le MOINDRE fichier** : un générateur le
 > produit-il ? Écrire à la main un CRUD, un controller, une entité ou un
@@ -162,6 +162,19 @@ et il fait foi le jour où les deux divergent.
 
 ## Vérités du framework (anti-préjugés — ce que tu crois savoir est faux ici)
 <% if (it.hasSecurity) { %>
+- **La PROVENANCE d'une requête n'est pas une PREUVE D'INTENTION — une mutation
+  exige `@CsrfProtect`.** Le raisonnement qui vient, et qui est faux : « le
+  firewall vérifie déjà `Sec-Fetch-Site`, donc une écriture est protégée ». Ces
+  en-têtes sont posés par un NAVIGATEUR ; un programme qui parle en HTTP n'en
+  envoie aucun, et la défense de provenance le laisse alors passer — c'est son
+  rôle, elle distingue les sites, pas les intentions. Résultat mesuré : un
+  `POST /api/cart/items` sans jeton rend `201`, et l'application croit avoir une
+  défense. Toute action qui ÉCRIT porte donc `@CsrfProtect` explicitement. Le
+  jeton ne se demande à AUCUN endpoint : une requête sûre (`GET`) vers la route
+  protégée sème le cookie lisible `csrf-token`, et la mutation le rejoue dans
+  l'en-tête `x-csrf-token` — c'est le double-submit, sinon `403`. La provenance
+  et le jeton se cumulent ; l'une ne remplace jamais l'autre.
+
 - **Une origine tierce refusée en 403 se DÉCLARE — elle ne s'exempte pas.** Quand
   les envois d'un partenaire sont rejetés alors que les tiens aboutissent, la
   cause est la défense CSRF, et le réflexe qui vient (`@CsrfExempt` sur la route,
@@ -283,9 +296,30 @@ et il fait foi le jour où les deux divergent.
     },
     ```
 
-    Fais donc **tomber ta route sous `/api/machine`** plutôt que d'ajouter une
-    zone : celle-ci est déjà réglée, et une seconde zone au pattern plus court
-    la coifferait sans prévenir (le firewall trie par longueur de pattern).
+    Pour une route **NEUVE**, fais-la **tomber sous `/api/machine`** plutôt que
+    d'ajouter une zone : celle-ci est déjà réglée, et une seconde zone au
+    pattern plus court la coifferait sans prévenir (le firewall trie par
+    longueur de pattern).
+
+    🔴 **Mais une URL DÉJÀ PUBLIÉE ne se déplace pas — c'est un contrat.** Quand
+    on te demande de protéger une adresse existante (`/api/partenaire/depot`),
+    la déménager sous `/api/machine` la fait répondre `404` à celui-là même
+    qu'on voulait servir : le partenaire appelle l'ancienne, personne ne l'a
+    prévenu, et rien dans l'application ne signale la rupture. Vécu, et le
+    contrôle l'a vu — clé d'API valide, `404`. **On adapte la ZONE à l'URL,
+    jamais l'URL à la zone** : étends le `pattern` de la zone `machine` pour
+    qu'il couvre aussi l'adresse en place —
+
+    ```ts
+    machine: {
+      pattern: "^/api/(machine|partenaire)",
+      authenticators: ["apikey"],
+      stateless: true,
+    },
+    ```
+
+    Une URL ne se déplace que si l'énoncé le demande, et alors l'ancienne
+    redirige.
 
     ⚠️ `stateless: false` (le défaut) **ne fait pas échouer l'essai**, et c'est
     tout le piège : depuis un navigateur ou un `curl -c`, le cookie posé revient
@@ -791,8 +825,10 @@ perdu à chaque exécution. `npm run test:e2e` gère déjà ce cycle tout seul.
    pas ; n'y recopie rien non plus.
 4. **Batcher les modifs serveur** puis UN SEUL cycle build/restart ; le
    frontend passe en HMR, zéro restart.
-5. **Vérifier avant de dire « fait »** : `npm test` + `npm run typecheck` ; un
-   vert ne couvre que le diff qui l'a produit ; suspecte ton propre diff.
+5. **Vérifier avant de dire « fait »** : `npm run verify`, jamais `npm test`
+   seul — vitest n'inspecte AUCUN type, une app peut être verte et ne pas
+   compiler ; un vert ne couvre que le diff qui l'a produit ; suspecte ton
+   propre diff.
 6. **La mémoire de l'app est ci-dessous** : accumule les leçons DURABLES dans
    la zone Notes — pas dans des commentaires éparpillés.
 
