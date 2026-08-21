@@ -285,6 +285,20 @@ export default defineConfig<Env>((ctx) => ({
           issuer:
             ctx.env.NF_JWT_ISSUER ??
             (ctx.isProd ? undefined : "https://localhost:5152"),
+          // Clés de signature PERSISTANTES (dossier gitignoré, chmod 600).
+          //
+          // 🔴 Sans elles, chaque process génère la sienne au démarrage : un
+          // jeton émis par la CLI (`nodefony security:token`) porte un `kid`
+          // que le serveur en marche ne connaît pas, et il est refusé en
+          // « autorisation requise ». Mesuré : trois `kid` distincts pour la
+          // même application, un par process et un de plus après redémarrage.
+          // Elles survivent aussi aux redémarrages — les jetons en vol ne sont
+          // plus invalidés à chaque rebuild du serveur de développement.
+          //
+          // En PRODUCTION, ce dossier n'a pas de sens (pods jetables, système
+          // de fichiers éphémère) : la clé y vient de l'environnement
+          // (`keySetJson`), partagée par tous les pods.
+          keystore: ctx.isProd ? {} : { dir: "var/keys" },
         },
         // 2FA TOTP (P6) — secret 2FA chiffré au repos (AES-256-GCM). Clé prod via
         // env (absente en prod = 2FA OFF, fail-safe : un secret chiffré par une clé

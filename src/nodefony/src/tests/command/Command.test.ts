@@ -123,6 +123,56 @@ describe("Command — addOption() + addArgument()", () => {
   });
 });
 
+// ─── 3quater. terminate() — un échec ne sort pas en 0 ────────────────────────
+
+describe("Command — le code de sortie d'un ÉCHEC survit", () => {
+  let cli: Cli;
+  beforeAll(async () => {
+    cli = await makeStartedCli();
+  });
+
+  /**
+   * 🔴 Signalé sur `security:token` : la commande écrivait son erreur, posait
+   * `process.exitCode = 1`… et le journal affichait « terminate : 0 ». Le
+   * process sortait en 0. Un script, un CI, un `&&` en shell ne voyaient RIEN.
+   *
+   * Deux étages écrasaient le code, l'un après l'autre : `Command.terminate()`
+   * traduisait `undefined` en `0` (`code || 0`), et `Kernel.terminate()` en
+   * faisait autant. Le `process.exitCode` posé par la commande — la façon
+   * NORMALE de signaler un échec en Node — n'avait aucune chance d'arriver.
+   *
+   * Cinq commandes du dépôt le posent ainsi : la règle vit donc au socle, pas
+   * dans chacune.
+   */
+  it("terminate() sans argument NE FORCE PAS 0 — il laisse passer l'intention", async () => {
+    const cmd = new Command("exit-code", "test", cli);
+    let recu: unknown = "jamais appelé";
+    (cmd as unknown as { cli: { terminate: (c?: number) => void } }).cli = {
+      terminate: (c?: number) => {
+        recu = c;
+      },
+    };
+    await cmd.terminate();
+    assert.strictEqual(
+      recu,
+      undefined,
+      "un `undefined` traduit en 0 efface l'échec posé par la commande",
+    );
+  });
+
+  it("terminate(1) transmet le code tel quel", async () => {
+    const cmd = new Command("exit-code-1", "test", cli);
+    let recu: unknown = null;
+    (cmd as unknown as { cli: { terminate: (c?: number) => void } }).cli = {
+      terminate: (c?: number) => {
+        recu = c;
+      },
+    };
+    await cmd.terminate(1);
+    assert.strictEqual(recu, 1);
+  });
+});
+
 // ─── 3ter. quietBoot — le journal de boot n'est pas la sortie d'une commande ──
 
 describe("Command — quietBoot déclaré", () => {

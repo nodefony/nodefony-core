@@ -46,7 +46,8 @@ const MCP_PATH = "/nodefony/mcp";
 const USAGE =
   `Usage : nodefony ai:mcp [--auth] [--url <origine>] [--dry-run] [--json] [--cwd <path>]\n` +
   `  Déclare le serveur MCP de cette application dans ${MCP_CONFIG_FILE}.\n` +
-  `  --auth : mode authentifié — l'en-tête porte \${${MCP_TOKEN_ENV}} (jamais le jeton lui-même).\n`;
+  `  --auth : mode authentifié — l'en-tête porte \${${MCP_TOKEN_ENV}} (jamais le jeton lui-même).\n` +
+  `         le jeton s'obtient par : nodefony security:token --write\n`;
 
 /** Ce que la ligne de commande demande. */
 interface IAiMcpRequest {

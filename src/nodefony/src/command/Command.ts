@@ -541,7 +541,19 @@ class Command extends Service {
     }
   }
   async terminate(code?: number): Promise<void> {
-    return this.cli?.terminate(code || 0);
+    // 🔴 `code || 0` traduisait `undefined` en 0 — et effaçait l'échec.
+    //
+    // Une commande signale son échec par `process.exitCode = 1`, la façon
+    // normale en Node ; puis le cadre appelle `terminate()` SANS argument pour
+    // clore le kernel. Le `|| 0` en faisait un succès : « terminate : 0 »,
+    // process sorti en 0, et ni un script, ni un `&&` en shell, ni une CI ne
+    // voyaient quoi que ce soit. Signalé sur `security:token`, présent sur cinq
+    // commandes. `undefined` doit VOYAGER : c'est le Kernel qui résout alors le
+    // code réel (`process.exitCode`, sinon 0).
+    //
+    // ⚠️ `|| 0` était doublement faux : il transformait aussi un `terminate(0)`
+    // explicite en… 0, par chance — mais tout code falsy y passait.
+    return this.cli?.terminate(code);
   }
 }
 

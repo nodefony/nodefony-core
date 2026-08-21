@@ -15,6 +15,8 @@ import TotpService from "./nodefony/service/totp";
 import WebhookService from "./nodefony/service/webhooks";
 import SecuritySecrets from "./nodefony/command/security-secrets";
 import SecurityUserAdd from "./nodefony/command/security-user-add";
+import SecurityUserList from "./nodefony/command/security-user-list";
+import SecurityToken from "./nodefony/command/security-token";
 import { registerSecurityAdminApi } from "./nodefony/src/admin/SecurityAdminApi";
 import { registerUserAdminApi } from "@nodefony/user";
 import { registerUserRevocationCascade } from "./nodefony/src/admin/userRevocationCascade";
@@ -69,6 +71,8 @@ class Security extends Module {
     super("security", kernel, fileURLToPath(import.meta.url), config);
     this.addCommand(SecuritySecrets);
     this.addCommand(SecurityUserAdd);
+    this.addCommand(SecurityUserList);
+    this.addCommand(SecurityToken);
   }
 
   /**

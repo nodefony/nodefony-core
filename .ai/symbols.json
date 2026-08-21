@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-21T14:24:47.392Z",
+  "generated": "2026-08-21T15:05:37.738Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 720,
-    "symbols": 3003,
-    "classes": 361,
+    "files": 723,
+    "symbols": 3006,
+    "classes": 363,
     "interfaces": 861,
     "types": 383,
     "enums": 4,
-    "functions": 1107,
+    "functions": 1108,
     "constants": 287
   },
   "symbols": {
@@ -1515,6 +1515,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Racine du PROJET Nodefony courant (app générée / app utilisateur) : remonte depuis `from` jusqu'au premier dossier portant `nodefony.config.ts` + `package.json`. Deux consommateurs, une seule défin…"
+    },
+    "askPasswordMasked": {
+      "name": "askPasswordMasked",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/promptPassword.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Demande un secret sans jamais l'ÉCHOTER — mot de passe, phrase de passe. La frappe passe par un `readline` dont la sortie est un flux MUET : la question s'écrit directement sur la sortie standard, …"
     },
     "IStartMenuModuleCommand": {
       "name": "IStartMenuModuleCommand",
@@ -15231,6 +15239,17 @@
       "decorators": [],
       "description": "`nodefony security:secrets` — génère les clés de chiffrement attendues par le module security (TOTP, webhooks, CSRF) au bon format (32 octets aléatoires, base64) et guide le câblage en 3 FICHIERS (…"
     },
+    "SecurityToken": {
+      "name": "SecurityToken",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/command/security-token.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony security:token` — émet un jeton d'accès pour une porte de cette application (la porte MCP par défaut). **Pourquoi une commande, et pas un `curl`.** Le jeton s'obtenait par un appel au gra…"
+    },
     "SecurityUserAdd": {
       "name": "SecurityUserAdd",
       "kind": "class",
@@ -15241,6 +15260,17 @@
       "implements": [],
       "decorators": [],
       "description": "`nodefony security:user:add [identifier]` — crée un compte utilisateur via le service applicatif `users` (hash Argon2id fait par `UserService.createUser`, jamais de mot de passe stocké en clair). I…"
+    },
+    "SecurityUserList": {
+      "name": "SecurityUserList",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/command/security-user-list.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony security:user:list` — qui a un compte dans cette application. **Lister n'est pas une fuite, et c'était la question.** Cette commande s'exécute sur la machine qui possède déjà la base : el…"
     },
     "ISecurityConfigInput": {
       "name": "ISecurityConfigInput",
@@ -21093,7 +21123,9 @@
         "Network",
         "ProxyGenerate",
         "SecuritySecrets",
-        "SecurityUserAdd"
+        "SecurityToken",
+        "SecurityUserAdd",
+        "SecurityUserList"
       ],
       "IClusterMessage": [
         "IClusterProbeCtl",
@@ -21661,7 +21693,9 @@
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
         "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts"
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-list.ts"
       ],
       "ColorFn": [
         "src/nodefony/src/Cli.ts"
@@ -23494,7 +23528,8 @@
         "src/packages/@nodefony/security/index.ts"
       ],
       "TokenService": [
-        "src/packages/@nodefony/security/index.ts"
+        "src/packages/@nodefony/security/index.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "AccessTokenVerifierService": [
         "src/packages/@nodefony/security/index.ts"
@@ -23524,6 +23559,12 @@
         "src/packages/@nodefony/security/index.ts"
       ],
       "SecurityUserAdd": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
+      "SecurityUserList": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
+      "SecurityToken": [
         "src/packages/@nodefony/security/index.ts"
       ],
       "registerSecurityAdminApi": [
@@ -23971,7 +24012,9 @@
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
         "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts"
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-list.ts"
       ],
       "Builder": [
         "src/nodefony/src/command/Command.ts"
@@ -25183,7 +25226,9 @@
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
         "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts"
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-list.ts"
       ],
       "resolveTopology": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
@@ -25882,7 +25927,9 @@
       ],
       "UserService": [
         "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-list.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "recordInitializeRun": [
@@ -27527,6 +27574,12 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
+      ],
+      "MCP_ENDPOINT_PATH": [
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "askPasswordMasked": [
+        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts"
       ],
       "securityConfigSchema": [
         "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts"

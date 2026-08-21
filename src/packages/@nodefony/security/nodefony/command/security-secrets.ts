@@ -122,7 +122,7 @@ class SecuritySecrets extends Command {
       process.stdout.write(s);
     };
     w(
-      `\n${BOLD}🔐 Secrets security — 3 étapes, 3 FICHIERS${RESET}\n` +
+      `\n${BOLD}🔐 Secrets security — 4 étapes, 3 FICHIERS${RESET}\n` +
         `${YELLOW}⚠ rien ne se tape dans le terminal : chaque bloc se colle dans le fichier indiqué.${RESET}\n\n`,
     );
 
@@ -192,13 +192,46 @@ class SecuritySecrets extends Command {
       );
     }
 
+    // ── 4. Le keyset JWT : CONSTATÉ, pas seulement mentionné ────────────────
+    //
+    // 🔴 Il l'était — dans le paragraphe explicatif du bas, en gris, après trois
+    // « ✓ déjà câblées ». Personne ne le lisait : on lançait la commande, on
+    // voyait trois coches, on concluait que tout était en place — et
+    // `security:token` rendait ensuite un jeton que le serveur refusait, faute
+    // de clé persistante. Une chose qu'on ne CONSTATE pas n'est pas faite.
+    //
+    // La méthodologie reste celle que la commande prescrit depuis toujours : le
+    // keyset n'est pas un secret à COLLER (le keystore le génère, lui pose ses
+    // permissions et y ajoute des clés à chaque rotation), donc il se déclare
+    // par une SOURCE — un dossier en développement, l'environnement en prod.
+    const jwtCable = /keystore\s*:/u.test(cfgTs);
     w(
-      `${DIM}Pourquoi 3 étapes ? .env.local porte la VALEUR (secret machine, gitignoré —\n` +
+      `${BOLD}4. Fichier ${CYAN}nodefony.config.ts${RESET}${BOLD} — les clés de SIGNATURE des jetons${RESET} ${DIM}(jwt.keystore)${RESET}\n`,
+    );
+    if (jwtCable) {
+      w(`   ${GREEN}✓ déjà câblées${RESET}\n\n`);
+    } else {
+      w(
+        `   ${YELLOW}⚠ absentes : chaque process signe avec une clé ÉPHÉMÈRE.${RESET}\n` +
+          `   ${DIM}Un jeton émis par la CLI porte alors un \`kid\` que le serveur ne\n` +
+          `   connaît pas, et il est refusé — et un redémarrage invalide les jetons\n` +
+          `   en vol. Ce n'est pas une valeur à coller : c'est une SOURCE à déclarer.${RESET}\n\n` +
+          `   use("@nodefony/security", {\n` +
+          `     jwt: { keystore: ctx.isProd ? {} : { dir: "var/keys" } },\n` +
+          `   }),\n\n` +
+          `   ${DIM}En production, le dossier n'a pas de sens (pods jetables) : la clé vient\n` +
+          `   de l'environnement — jwt.keystore.keySetJson, injecté par ton gestionnaire\n` +
+          `   de secrets et partagé par tous les pods.${RESET}\n\n`,
+      );
+    }
+
+    w(
+      `${DIM}Pourquoi 3 fichiers ? .env.local porte la VALEUR (secret machine, gitignoré —\n` +
         `le .env commité ne porte que des défauts non-secrets) ; env.ts la DÉCLARE\n` +
         `(catalogue typé, validé au boot) ; nodefony.config.ts la CÂBLE au module.\n` +
         `Les étapes 2 et 3 ne se font qu'une fois — ensuite seule l'étape 1 vit.\n` +
-        `JWT (refresh durables) : pas un secret à coller — persistance du keyset via\n` +
-        `jwt.keystore.dir = "./var/keys" (dev/VPS) ou jwt.keystore.keySetJson (prod).${RESET}\n\n` +
+        `L'étape 4 sort de ce schéma, et c'est voulu : un keyset n'est pas une valeur\n` +
+        `qu'on colle, mais une source que le keystore gère (rotation, permissions).${RESET}\n\n` +
         `Relance le serveur : plus aucun warning « clé ÉPHÉMÈRE » au boot.\n\n`,
     );
     return this;

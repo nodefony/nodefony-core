@@ -1,6 +1,9 @@
-import readline from "node:readline/promises";
-import { Writable } from "node:stream";
-import { OptionsCommandInterface, CliKernel, Command } from "nodefony";
+import {
+  OptionsCommandInterface,
+  CliKernel,
+  Command,
+  askPasswordMasked,
+} from "nodefony";
 import type { UserService } from "@nodefony/user";
 
 const options: OptionsCommandInterface = {
@@ -65,31 +68,6 @@ class SecurityUserAdd extends Command {
     );
   }
 
-  /**
-   * Prompt de mot de passe MASQUÉ (readline sur un flux de sortie muet — la
-   * question est écrite directement, la frappe n'est jamais échoée).
-   */
-  async #askPassword(question: string): Promise<string> {
-    const muted = new Writable({
-      write(_chunk, _enc, cb) {
-        cb();
-      },
-    });
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: muted,
-      terminal: true,
-    });
-    process.stdout.write(question);
-    try {
-      const answer = await rl.question("");
-      process.stdout.write("\n");
-      return answer;
-    } finally {
-      rl.close();
-    }
-  }
-
   // Argument positionnel déclaré → commander appelle (identifier, options, cmd).
   override async generate(
     identifierArg: string | undefined,
@@ -140,10 +118,10 @@ class SecurityUserAdd extends Command {
         process.exitCode = 1;
         return this;
       }
-      password = await this.#askPassword(
+      password = await askPasswordMasked(
         `${BOLD}Mot de passe de « ${identifier} »${RESET} ${DIM}(frappe masquée)${RESET} : `,
       );
-      const confirmed = await this.#askPassword(
+      const confirmed = await askPasswordMasked(
         `${BOLD}Confirme le mot de passe${RESET} : `,
       );
       if (password !== confirmed) {

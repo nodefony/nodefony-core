@@ -1217,7 +1217,20 @@ class Kernel extends Service implements IKernel {
       );
       return this.park({ keepAlive: true });
     }
-    return this.terminate(code);
+    // 🔴 Un ÉCHEC posé par la commande l'emporte sur le `0` de l'appelant.
+    //
+    // Neuf points de sortie appelaient `finishOrPark(0)` en dur — le `0` y
+    // signifie « rien à signaler de la part du CYCLE DE VIE », pas « la commande
+    // a réussi ». Une commande qui écrit son erreur et pose `process.exitCode`
+    // (la façon normale en Node) voyait donc « terminate : 0 » et le process
+    // sortait en 0 : ni un script, ni un `&&`, ni une CI ne voyaient l'échec.
+    // Un seul de ces neuf points prenait la précaution ; huit l'oubliaient.
+    // La règle vit ici, au point de passage commun.
+    const echec =
+      typeof process.exitCode === "number" && process.exitCode !== 0
+        ? process.exitCode
+        : null;
+    return this.terminate(echec ?? code);
   }
 
   override clean() {
@@ -3249,7 +3262,13 @@ class Kernel extends Service implements IKernel {
    */
   async terminate(code?: number, quiet?: boolean): Promise<this> {
     if (code === undefined) {
-      code = 0;
+      // Aucun code demandé : on prend celui que le process porte DÉJÀ.
+      // `process.exitCode` est la façon normale, en Node, de signaler un échec
+      // sans sortir tout de suite — et c'est ce que font les commandes qui
+      // écrivent une erreur puis rendent la main. Forcer 0 ici affichait
+      // « terminate : 0 » sur un échec et faisait sortir le process en 0 : un
+      // script, un `&&`, une CI ne voyaient rien.
+      code = typeof process.exitCode === "number" ? process.exitCode : 0;
     }
     // 🔴 **Un shutdown ne se rejoue pas.** Sans cette garde, deux appels
     // rejouaient TOUT : le log « terminate : N » (symptôme visible — deux

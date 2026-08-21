@@ -20,6 +20,7 @@ export { default as Cli } from "./Cli";
 export { default as clc } from "./colors";
 export type { ColorFn, Clc } from "./colors";
 export { SysExit } from "./cli/sysexits";
+export { askPasswordMasked } from "./cli/promptPassword";
 // Rendu de la page de manuel, publié parce qu'une APPLICATION en a l'usage :
 // ses commandes de module ne peuvent figurer dans la page du framework, et
 // elle seule peut donc rendre la sienne. Publier la fonction évite qu'un
