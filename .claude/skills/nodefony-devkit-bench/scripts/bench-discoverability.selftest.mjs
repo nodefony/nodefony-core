@@ -130,6 +130,37 @@ function verifierExplicationGate() {
       "FAIL tests/invoice.test.ts",
     ],
     ["un gate parfaitement muet", ["", "   \n\n"], ""],
+    [
+      // 🔴 Vécu : trois rouges d'un run entier expliqués par « npm notice run
+      // bench-app@0.1.0 check » — le bruit de l'EXÉCUTEUR, jamais le manquement.
+      // Le gate passe par `npm run <script>`, qui annonce toujours deux lignes
+      // avant que la commande réelle ne parle. La règle « première ligne » reste
+      // juste ; c'est « première ligne DE L'OUTIL » qu'elle voulait dire.
+      "npm annonce le script avant que l'outil parle",
+      [
+        "",
+        "npm notice run bench-app@0.1.0 check\nnpm notice run nodefony check\n" +
+          "\u2717 le port 5151 est déjà tenu par un autre processus\n" +
+          "\n2 manquement(s) sur 1 paquet(s) et 6 classe(s).\n",
+      ],
+      "\u2717 le port 5151 est déjà tenu par un autre processus",
+    ],
+    [
+      // Même bruit, forme ancienne de npm (`> app@1.0.0 check`).
+      "npm ancienne forme — le chevron d'annonce",
+      [
+        "",
+        "> bench-app@0.1.0 typecheck\n> tsgo --noEmit\nsrc/a.ts(3,5): error TS2345: nope\n",
+      ],
+      "src/a.ts(3,5): error TS2345: nope",
+    ],
+    [
+      // Le bruit SEUL ne doit pas rendre une chaîne vide qui ferait croire à un
+      // gate muet : à défaut d'outil qui parle, on rend ce qu'on a.
+      "rien que du bruit — on rend quand même quelque chose",
+      ["", "npm notice run app@0.1.0 check\n"],
+      "npm notice run app@0.1.0 check",
+    ],
   ];
   for (const [label, [err, out], attendu] of cas) {
     if (expliquerEchec(err, out) !== attendu) rates.push(label);

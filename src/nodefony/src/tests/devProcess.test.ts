@@ -281,6 +281,65 @@ describe("devProcess — valeurs partagées (anti-divergence)", () => {
       rmSync(cwd, { recursive: true, force: true });
     }
   });
+
+  it("defaultDevPorts : l'application qui DÉCLARE ses ports n'est plus jugée sur ceux d'une autre", () => {
+    // 🔴 Vécu, et coûteux : une application témoin lancée avec `NF_PORT=5371`
+    // faisait sonder 5151/5152 à `nodefony check` — les ports du dépôt voisin.
+    // Le vérificateur rendait donc « port déjà tenu » sur du code parfait, dès
+    // qu'un AUTRE serveur tournait sur le poste. Deux sources de vérité pour
+    // « quels ports cette application utilise » : le gabarit d'app déclare
+    // `NF_PORT`/`NF_PORT_HTTPS`, cette fonction ne connaissait que la forme
+    // héritée `NODEFONY_DEV_PORTS`. Elles divergeaient en silence.
+    const sauve = {
+      dev: process.env.NODEFONY_DEV_PORTS,
+      port: process.env.NF_PORT,
+      https: process.env.NF_PORT_HTTPS,
+      alias: process.env.PORT,
+    };
+    const cwd = mkdtempSync(path.join(os.tmpdir(), "nf-ports-decl-"));
+    try {
+      delete process.env.NODEFONY_DEV_PORTS;
+      delete process.env.PORT;
+      process.env.NF_PORT = "5371";
+      process.env.NF_PORT_HTTPS = "5372";
+      assert.deepStrictEqual(defaultDevPorts(cwd), [5371, 5372]);
+
+      // Un seul des deux déclaré : on ne sonde que ce qui est déclaré, jamais
+      // un port par défaut qui appartient peut-être à quelqu'un d'autre.
+      delete process.env.NF_PORT_HTTPS;
+      assert.deepStrictEqual(defaultDevPorts(cwd), [5371]);
+
+      // L'alias plateforme `PORT` reste IGNORÉ ici : il appartient au gabarit
+      // d'application, pas au cœur. Un `PORT` posé pour un autre outil ne doit
+      // pas détourner la sonde — c'est la collision que `NF_` évite.
+      delete process.env.NF_PORT;
+      process.env.PORT = "8080";
+      assert.deepStrictEqual(defaultDevPorts(cwd), [5151, 5152]);
+      process.env.NF_PORT = "5371";
+      assert.deepStrictEqual(defaultDevPorts(cwd), [5371]);
+
+      // L'override explicite de l'opérateur garde la priorité.
+      process.env.NODEFONY_DEV_PORTS = "3000,3001";
+      assert.deepStrictEqual(defaultDevPorts(cwd), [3000, 3001]);
+
+      // Rien de déclaré → la convention historique, inchangée.
+      delete process.env.NODEFONY_DEV_PORTS;
+      delete process.env.NF_PORT;
+      delete process.env.PORT;
+      assert.deepStrictEqual(defaultDevPorts(cwd), [5151, 5152]);
+    } finally {
+      for (const [cle, valeur] of [
+        ["NODEFONY_DEV_PORTS", sauve.dev],
+        ["NF_PORT", sauve.port],
+        ["NF_PORT_HTTPS", sauve.https],
+        ["PORT", sauve.alias],
+      ] as const) {
+        if (valeur === undefined) delete process.env[cle];
+        else process.env[cle] = valeur;
+      }
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
 });
 
 /**

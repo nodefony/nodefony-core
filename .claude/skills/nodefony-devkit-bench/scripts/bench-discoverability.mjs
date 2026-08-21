@@ -3649,17 +3649,30 @@ function runTask(app, runDir, task) {
  * est disponible dans… ». Bornée, parce qu'une trace entière dans un rapport
  * JSON le rend illisible sans rien apprendre de plus.
  *
+ * 🔴 « Première ligne DE L'OUTIL », pas première ligne du flux. Un gate lancé
+ * par `npm run <script>` reçoit d'abord l'annonce de npm (`npm notice run …`,
+ * ou `> app@1.0.0 check` en forme ancienne) : la retenir explique le rouge par
+ * le nom du script, jamais par le manquement. Vécu — trois rouges d'un même run
+ * rendus comme « npm notice run bench-app@0.1.0 check », de quoi conclure à un
+ * défaut de l'agent alors qu'un port était tenu par un serveur étranger. Le
+ * bruit de l'exécuteur est donc SAUTÉ ; s'il n'y a que lui, on le rend quand
+ * même — un gate qui se tait et un gate qu'on n'a pas su lire ne se confondent
+ * pas.
+ *
  * @param {string} stderr - le canal d'erreur du gate.
  * @param {string} stdout - sa sortie standard, si le canal d'erreur est muet.
  * @returns {string} l'explication, ou une chaîne vide si le gate s'est tu.
  */
+const BRUIT_EXECUTEUR =
+  /^(?:npm (?:notice|warn|WARN)\b|>\s|\$\s|yarn run |pnpm )/u;
+
 export function expliquerEchec(stderr, stdout) {
   for (const flux of [stderr ?? "", stdout ?? ""]) {
-    const ligne = flux.split("\n").find((l) => l.trim().length > 0);
-    if (ligne) {
-      const propre = ligne.trim();
-      return propre.length > 200 ? `${propre.slice(0, 197)}…` : propre;
-    }
+    const lignes = flux.split("\n").filter((l) => l.trim().length > 0);
+    if (lignes.length === 0) continue;
+    const utile = lignes.find((l) => !BRUIT_EXECUTEUR.test(l.trim()));
+    const propre = (utile ?? lignes[0]).trim();
+    return propre.length > 200 ? `${propre.slice(0, 197)}…` : propre;
   }
   return "";
 }
