@@ -1323,6 +1323,17 @@ export const TASKS = [
   {
     id: 9,
     name: "interroger l'application plutôt que lire ses sources",
+    // PRÉMISSE : l'application TOURNE quand l'agent démarre. Mesuré au run du
+    // 08-21 : le client MCP du CLI se connecte à l'INIT de sa session et ne
+    // retente jamais — la porte MCP étant une ROUTE de l'app, un décor éteint
+    // rend `mcp_servers: failed` pour TOUTE la session (0 appel sur 30 tâches),
+    // et cette tâche mesure précisément l'introspection en marche. Les autres
+    // tâches gardent le décor éteint : un agent qui se rabat sur la CLI est
+    // aussi une réalité utilisateur. Le serveur est arrêté par la remise à
+    // zéro du décor (`reinitialiserDecor` — leçon de la tâche 27).
+    prepare:
+      `npm run build >/dev/null 2>&1 && ` +
+      `npx --no-install nodefony development --detach --wait >/dev/null 2>&1`,
     prompt:
       "Réponds à trois questions sur CETTE application, et écris les réponses dans AUDIT.md : " +
       "combien de routes expose-t-elle au total, quels services le module de sécurité " +

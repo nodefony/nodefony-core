@@ -670,6 +670,15 @@ tourne**, et il suit chaque rechargement du serveur de développement sans rien 
 resynchroniser. Après avoir écrit le fichier, **redémarre ton client** : aucun ne
 relit sa configuration en cours de route.
 
+⚠️ **L'ordre compte, et il se paie en silence** : ton client se connecte aux
+serveurs MCP **au démarrage de TA session, une seule fois** — si l'application
+ne tournait pas à cet instant, le serveur reste marqué `failed` et ses outils
+n'apparaîtront **jamais** dans cette session, même après un
+`npx nodefony development --detach --wait`. Démarre l'application D'ABORD, ta
+session ENSUITE. Application éteinte ou session déjà ouverte : les commandes
+CLI (`inspect`, `check`, `symbols`, `card`) rendent les mêmes réponses, sans
+rien exiger.
+
 Deux choses à savoir avant de t'étonner : la porte est **refusée à toute adresse
 non locale** et à toute origine de navigateur non déclarée (`403`) — c'est une
 protection contre une page web qui viserait ton `localhost`, pas un bogue ; et
