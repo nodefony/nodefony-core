@@ -1,11 +1,11 @@
 {
-  "generated": "2026-08-21T15:12:20.495Z",
+  "generated": "2026-08-21T15:30:03.195Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 723,
-    "symbols": 3006,
-    "classes": 363,
+    "files": 724,
+    "symbols": 3007,
+    "classes": 364,
     "interfaces": 861,
     "types": 383,
     "enums": 4,
@@ -15261,6 +15261,17 @@
       "decorators": [],
       "description": "`nodefony security:user:add [identifier]` — crée un compte utilisateur via le service applicatif `users` (hash Argon2id fait par `UserService.createUser`, jamais de mot de passe stocké en clair). I…"
     },
+    "SecurityUserDelete": {
+      "name": "SecurityUserDelete",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony security:user:delete <identifiant>` — retire un compte. **Un geste destructeur ne se fait pas sur une frappe.** La commande MONTRE ce qu'elle va supprimer (identifiant, rôles, identifiant…"
+    },
     "SecurityUserList": {
       "name": "SecurityUserList",
       "kind": "class",
@@ -21125,6 +21136,7 @@
         "SecuritySecrets",
         "SecurityToken",
         "SecurityUserAdd",
+        "SecurityUserDelete",
         "SecurityUserList"
       ],
       "IClusterMessage": [
@@ -21695,6 +21707,7 @@
         "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
         "src/packages/@nodefony/security/nodefony/command/security-token.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-list.ts"
       ],
       "ColorFn": [
@@ -23564,6 +23577,9 @@
       "SecurityUserList": [
         "src/packages/@nodefony/security/index.ts"
       ],
+      "SecurityUserDelete": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
       "SecurityToken": [
         "src/packages/@nodefony/security/index.ts"
       ],
@@ -24014,6 +24030,7 @@
         "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
         "src/packages/@nodefony/security/nodefony/command/security-token.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-list.ts"
       ],
       "Builder": [
@@ -25228,6 +25245,7 @@
         "src/packages/@nodefony/security/nodefony/command/security-secrets.ts",
         "src/packages/@nodefony/security/nodefony/command/security-token.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-list.ts"
       ],
       "resolveTopology": [
@@ -25929,6 +25947,7 @@
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/packages/@nodefony/security/nodefony/command/security-token.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-list.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],

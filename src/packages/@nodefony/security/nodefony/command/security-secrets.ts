@@ -168,6 +168,19 @@ class SecuritySecrets extends Command {
           `    ${DIM}sans → ${role.sans}${RESET}\n`,
       );
     }
+    // 🔴 Ce qui N'EST PAS un secret de cette application, et la question qui
+    // vient : « pourquoi NF_MCP_TOKEN n'est pas là ? ». Il vit dans le même
+    // `.env.local`, à côté des quatre — d'où la confusion. Ce n'est pas une clé
+    // dont l'application a besoin pour fonctionner : c'est un JETON qu'elle
+    // ÉMET, que son porteur présente pour entrer, et qui expire en quinze
+    // minutes. Le taire laisserait croire à un oubli.
+    const jetonPose = /^\s*NF_MCP_TOKEN\s*=/m.test(dotenvLocal);
+    w(
+      `\n${DIM}  ${jetonPose ? "· " : "· "}NF_MCP_TOKEN vit dans le même .env.local, et n'est PAS un secret de\n` +
+        `    cette application : c'est un jeton qu'elle ÉMET, présenté par un agent\n` +
+        `    pour entrer, valable quinze minutes. Il se régénère à volonté —\n` +
+        `    nodefony security:token --write — et n'a rien à faire dans cette liste.${RESET}\n`,
+    );
     w(
       `\n${YELLOW}⚠ rien ne se tape dans le terminal : chaque bloc se colle dans le fichier indiqué.${RESET}\n\n`,
     );

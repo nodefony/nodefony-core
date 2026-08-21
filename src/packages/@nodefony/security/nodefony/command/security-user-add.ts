@@ -23,6 +23,9 @@ const RESET = "\x1b[0m";
 /** Rôles du raccourci `--admin` — À PLAT (ne dépend pas d'une hiérarchie). */
 const ADMIN_ROLES = ["ROLE_ADMIN", "ROLE_NODEFONY_ADMIN"];
 
+/** Rôle de base, toujours proposé même si l'application n'en déclare aucun. */
+const ROLE_BASE = "ROLE_USER";
+
 /**
  * `nodefony security:user:add [identifier]` — crée un compte utilisateur via le
  * service applicatif `users` (hash Argon2id fait par `UserService.createUser`,
@@ -68,6 +71,35 @@ class SecurityUserAdd extends Command {
     );
   }
 
+  /**
+   * Rôles que CETTE application connaît, lus de sa hiérarchie déclarée.
+   *
+   * 🔴 Jamais une liste recopiée ici : une constante en dur diverge dès que
+   * l'application déclare un rôle métier, et la commande proposerait alors des
+   * rôles qui n'existent pas tout en taisant ceux qui existent. La hiérarchie
+   * (`security.roleHierarchy`) est la seule source — ses clés sont les rôles
+   * qui couvrent, ses valeurs ceux qui sont couverts.
+   *
+   * Un rôle inconnu du RBAC n'est pas une faute : il est simplement inerte.
+   * On ne refuse donc rien, on PROPOSE ce qu'on sait.
+   */
+  #rolesConnus(): string[] {
+    const modules = this.kernel?.modules as
+      Record<string, { options?: Record<string, unknown> }> | undefined;
+    const hierarchie = (
+      modules?.security?.options as
+        { roleHierarchy?: Record<string, string[]> } | undefined
+    )?.roleHierarchy;
+    const tous = new Set<string>([ROLE_BASE]);
+    for (const [porteur, couverts] of Object.entries(hierarchie ?? {})) {
+      tous.add(porteur);
+      for (const c of couverts) tous.add(c);
+    }
+    // `ROLE_USER` d'abord (le défaut), puis l'ordre déclaré : le premier choix
+    // proposé doit être celui qu'on prend neuf fois sur dix.
+    return [ROLE_BASE, ...[...tous].filter((r) => r !== ROLE_BASE).sort()];
+  }
+
   // Argument positionnel déclaré → commander appelle (identifier, options, cmd).
   override async generate(
     identifierArg: string | undefined,
@@ -101,8 +133,10 @@ class SecurityUserAdd extends Command {
     }
     if (await users.findByIdentifier(identifier)) {
       this.log(
-        `le compte « ${identifier} » existe déjà — mot de passe oublié ? ` +
-          `\`security:user:password\` (à venir) ou passe par Studio (/nodefony).`,
+        `le compte « ${identifier} » existe déjà.\n` +
+          `  · le voir       : nodefony security:user:list -q ${identifier}\n` +
+          `  · le supprimer  : nodefony security:user:delete ${identifier}\n` +
+          `  · mot de passe oublié : par Studio (/nodefony) — la commande n'existe pas encore.`,
         "ERROR",
       );
       process.exitCode = 1;
@@ -135,12 +169,32 @@ class SecurityUserAdd extends Command {
       process.exitCode = 1;
       return this;
     }
-    const roles = opts.admin
-      ? ADMIN_ROLES
-      : (opts.roles ?? "ROLE_USER")
-          .split(",")
-          .map((r) => r.trim())
-          .filter(Boolean);
+    let roles: string[];
+    if (opts.admin) {
+      roles = ADMIN_ROLES;
+    } else if (opts.roles) {
+      roles = opts.roles
+        .split(",")
+        .map((r) => r.trim())
+        .filter(Boolean);
+    } else if (process.stdin.isTTY) {
+      // 🔴 En terminal, on PROPOSE au lieu d'imposer le défaut en silence.
+      // Vécu : « je n'ai jamais pu gérer le rôle » — l'option `--roles` existait
+      // depuis toujours, et rien ne la faisait connaître à qui n'avait pas lu
+      // `--help`. Un compte créé sans rôle utile est un compte à refaire.
+      await this.loadPrompts();
+      const choisis = (await this.prompts.checkbox({
+        message: `Rôles de « ${identifier} » :`,
+        choices: this.#rolesConnus().map((r) => ({
+          name: r,
+          value: r,
+          checked: r === ROLE_BASE,
+        })),
+      })) as string[];
+      roles = choisis.length > 0 ? choisis : [ROLE_BASE];
+    } else {
+      roles = [ROLE_BASE];
+    }
     const user = await users.createUser({
       identifier,
       plainPassword: password,

@@ -176,7 +176,24 @@ class SecurityToken extends Command {
       return this;
     }
 
-    const identifier = identifierArg?.trim() || "admin";
+    // En terminal et sans argument : on PROPOSE les comptes qui existent.
+    // Taper un identifiant de mémoire est la meilleure façon de se tromper —
+    // et l'erreur ne se voit qu'après le boot complet.
+    let identifier = identifierArg?.trim() ?? "";
+    if (!identifier && process.stdin.isTTY) {
+      const page = await users.listPage({ limit: 25 });
+      if (page.items.length > 0) {
+        await this.loadPrompts();
+        identifier = (await this.prompts.select({
+          message: "Compte porteur du jeton :",
+          choices: page.items.map((u) => ({
+            name: `${u.identifier}${(u.roles ?? []).length ? ` ${DIM}(${(u.roles ?? []).join(", ")})${RESET}` : ""}`,
+            value: u.identifier,
+          })),
+        })) as string;
+      }
+    }
+    if (!identifier) identifier = "admin";
     const user = await users.findByIdentifier(identifier);
     if (!user) {
       this.log(
@@ -203,12 +220,24 @@ class SecurityToken extends Command {
       // le terminal n'a pas posé `NODE_ENV`.
       const oauth = (e as { oauthError?: string }).oauthError;
       if (oauth === "invalid_target") {
+        // Le message dit d'abord ce que ce N'EST PAS : le premier réflexe est
+        // de chercher un serveur éteint — vécu — alors que cette commande n'en
+        // utilise aucun. Écarter la fausse piste coûte une ligne et fait gagner
+        // le quart d'heure qu'on passerait à relancer un serveur pour rien.
+        const env = this.kernel?.environment ?? "?";
         this.log(
-          `audience « ${resource} » non servie par cette application.\n` +
-            `  environnement courant : ${this.kernel?.environment ?? "?"}\n` +
-            `  → la porte MCP est servie par un module de DÉVELOPPEMENT : ` +
-            `NODE_ENV=development nodefony security:token\n` +
-            `  → ou vise une autre audience : --resource <uri>`,
+          `impossible d'émettre un jeton pour cette porte ici.\n` +
+            `\n` +
+            `  Ce n'est PAS un problème de serveur : cette commande n'en a pas\n` +
+            `  besoin, elle signe le jeton elle-même.\n` +
+            `\n` +
+            `  La porte visée — ${resource} — est servie par un module de\n` +
+            `  DÉVELOPPEMENT. Ce terminal n'a pas posé NODE_ENV, donc le CLI a\n` +
+            `  démarré en « ${env} », où ce module n'existe pas : un jeton pour\n` +
+            `  une porte absente n'aurait personne pour l'accepter.\n` +
+            `\n` +
+            `  → NODE_ENV=development nodefony security:token${opts.write ? " --write" : ""}\n` +
+            `  → ou vise une autre porte : --resource <uri>`,
           "ERROR",
         );
         process.exitCode = 1;
@@ -228,6 +257,16 @@ class SecurityToken extends Command {
     const w = (s: string): void => {
       process.stdout.write(s);
     };
+    // Sans `--write` mais en terminal : proposer de poser la valeur plutôt que
+    // de laisser copier un jeton de 400 caractères à la main.
+    let ecrire = opts.write === true;
+    if (!ecrire && process.stdin.isTTY && !opts.json) {
+      await this.loadPrompts();
+      ecrire = await this.prompts.confirm({
+        message: `Écrire ${MCP_TOKEN_ENV} dans .env.local ?`,
+        default: true,
+      });
+    }
     if (this.#cleEphemere()) {
       // Avant le jeton, pas après : on ne laisse pas copier une valeur dont on
       // sait qu'elle sera refusée.
@@ -247,7 +286,7 @@ class SecurityToken extends Command {
         `${DIM}   valable ${minutes} min${scopes.length ? `, scopes : ${scopes.join(" ")}` : ", aucun scope"}${RESET}\n\n`,
     );
 
-    if (opts.write) {
+    if (ecrire) {
       if (this.#dotenvTracked()) {
         w(
           `${YELLOW}⚠ .env.local est SUIVI par git — rien n'est écrit.${RESET}\n` +

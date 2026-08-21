@@ -178,6 +178,26 @@ export const START_MENU_CATALOG: readonly ICatalogEntry[] = [
     when: "Pose les pointeurs vers les skills d'agent livrés par les paquets installés — à rejouer après un npm update.",
   },
   {
+    // 🔴 Elle manquait, et c'est la porte d'entrée du MCP : sans elle au menu,
+    // brancher un agent sur son application supposait d'avoir lu `--help`.
+    value: "ai:mcp",
+    contexts: ["project"],
+    group: { project: "Outillage", outside: null },
+    when: "Déclare le serveur MCP de cette application à ton agent (.mcp.json) — --auth pour le mode authentifié.",
+  },
+  {
+    value: "symbols",
+    contexts: ["project", "outside"],
+    group: { project: "Comprendre", outside: "Comprendre" },
+    when: "Cherche un symbole du framework : où il est défini, ce qu'il étend, ce que dit sa doc — sans ouvrir un fichier.",
+  },
+  {
+    value: "man",
+    contexts: ["project", "outside"],
+    group: { project: "Comprendre", outside: "Comprendre" },
+    when: "Page de manuel du CLI, générée depuis les commandes réellement enregistrées.",
+  },
+  {
     value: "completion",
     contexts: ["project", "outside"],
     group: { project: "Outillage", outside: "Machine" },

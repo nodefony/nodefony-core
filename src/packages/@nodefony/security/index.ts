@@ -16,6 +16,7 @@ import WebhookService from "./nodefony/service/webhooks";
 import SecuritySecrets from "./nodefony/command/security-secrets";
 import SecurityUserAdd from "./nodefony/command/security-user-add";
 import SecurityUserList from "./nodefony/command/security-user-list";
+import SecurityUserDelete from "./nodefony/command/security-user-delete";
 import SecurityToken from "./nodefony/command/security-token";
 import { registerSecurityAdminApi } from "./nodefony/src/admin/SecurityAdminApi";
 import { registerUserAdminApi } from "@nodefony/user";
@@ -72,6 +73,7 @@ class Security extends Module {
     this.addCommand(SecuritySecrets);
     this.addCommand(SecurityUserAdd);
     this.addCommand(SecurityUserList);
+    this.addCommand(SecurityUserDelete);
     this.addCommand(SecurityToken);
   }
 
