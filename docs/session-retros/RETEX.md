@@ -20,6 +20,21 @@
 
 ---
 
+## 💾 Un CACHE à demi écrit est pire qu'un cache absent — il écrase une donnée valide
+
+- `[1× — 08-21d]` 🔴 **Trois symptômes sans rapport apparent, une seule racine : un `writeFile` en
+  fire-and-forget.** Le menu perdait TOUTES ses commandes de module, la complétion proposait des
+  noms de commandes au lieu des options, et le user devait relancer `nodefony -h` « à chaque fois ».
+  Cause unique : `writeFile` OUVRE et TRONQUE avant d'écrire, donc un process qui sort avant la fin
+  — le cas NOMINAL d'une commande CLI courte — laisse un fichier de **0 octet**. Chaque commande
+  détruisait ainsi le cache que la précédente avait écrit. Le geste : **temporaire + `rename`**
+  (atomique) dès qu'une écriture n'est pas attendue ; un process tué laisse alors l'ancien fichier
+  INTACT. Et le diagnostic : `wc -c` sur le cache AVANT de suspecter sa logique de lecture.
+- `[1× — 08-21d]` **Un fallback silencieux transforme un cache manquant en fonctionnalité amputée.**
+  Le menu masquait le groupe entier sans un mot ; il ÉNONCE désormais l'absence et renvoie à
+  `--help`. Corollaire de conception : ce qui répond à un TAB ou ouvre un menu ne doit jamais
+  démarrer l'application — mais doit dire ce qu'il ne sait pas.
+
 ## 🧾 Le COMPTE ne dit rien du CONTENU — ni pour des commits, ni pour des tests
 
 - `[1× — 08-20c]` 🔴 **« main a 6 commits d'avance » a alarmé, et son contenu tenait en UNE LIGNE
@@ -237,6 +252,17 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   dans un décor différent ne confirme plus le run qu'il doit confirmer.
 
 ## 📌 Un chiffre publié sans son COMMIT n'est pas vérifiable
+
+- `[1× — 08-21d]` 🔴 **Une MESURE se date du commit PACKÉ, pas de celui qu'on a sous la main en la
+  lisant.** Le banc lisait `HEAD` au moment d'écrire son rapport : un run empaqueté à 12h32 s'est
+  vu daté d'un commit de **14h39** — six commits plus tard, dont aucun n'était dans les tarballs
+  mesurés. Enregistrée telle quelle, la référence aurait daté la mesure d'un code JAMAIS mesuré, et
+  tout dépistage ultérieur aurait comparé contre ce faux repère. Le geste : figer l'identité du code
+  à l'instant où l'artefact naît, jamais à l'instant où on le juge. (Variante du hash cité de tête,
+  par une autre porte : ici c'est l'OUTIL qui se trompe de moment, pas la main.)
+- `[1× — 08-21d]` **Corollaire vécu le même jour** : un correctif commité 8 minutes APRÈS le
+  `--repack` n'est pas dans le run — la T9 mesurait donc un code d'avant son propre fix. Avant de
+  lire un verdict, comparer l'heure du pack à celle du dernier commit qui compte.
 
 - `[1× — 08-20d]` **Un hash cité AVANT le commit définitif meurt en silence** : une mémoire écrite
   43 s AVANT son commit citait `da13d51` (réel : `1b46723a`), et un `--amend` a tué `0f8ad7cd`
