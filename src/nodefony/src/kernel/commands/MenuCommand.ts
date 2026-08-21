@@ -259,8 +259,13 @@ class Menu extends Command {
     // CLI global et CLI local).
     if (plan.kind === "respawn") {
       const bin = process.argv[1];
+      // 🔴 `--interactive` PROPAGÉ à l'appel système. Une commande choisie au
+      // menu n'a pas été tapée : personne n'a pu lui passer d'argument ni
+      // d'option. Elle doit donc poser ses questions — et le process relancé
+      // n'a aucun autre moyen de savoir qu'il vient de là. Sans ce drapeau, le
+      // menu proposait des gestes que la commande refusait ensuite.
       const r = bin
-        ? spawnSync(process.execPath, [bin, ...plan.argv], {
+        ? spawnSync(process.execPath, [bin, "--interactive", ...plan.argv], {
             stdio: "inherit",
           })
         : { status: 1 };
@@ -272,11 +277,18 @@ class Menu extends Command {
     // l'argument jusqu'à la commande. On passe donc directement par lui.
     if (response.includes(" ")) {
       const [name, ...args] = response.split(" ");
+      // Même règle que le respawn ci-dessus, sans changer de process : la
+      // commande vient d'un CHOIX, elle doit pouvoir demander ce qui lui
+      // manque. (`interaction()` par défaut rend ses arguments, désormais
+      // étalés correctement vers `generate` — cf `Command.run`.)
+      this.cli.getCommand(name as string)?.forceInteractiveMode();
       await this.cli.runCommandAsync(name as string, args);
       return this;
     }
     const command = this.cli.getCommand(response);
     if (command && response) {
+      // Choisie au menu, donc interactive : elle réclamera ce qu'il lui faut.
+      command.forceInteractiveMode();
       if (this.kernel) {
         this.cli.clearCommand();
         if (response) {

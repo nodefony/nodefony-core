@@ -227,6 +227,68 @@ class Command extends Service {
     }
   }
   /**
+   * Rend un argument : celui qu'on a reçu, ou celui qu'on DEMANDE.
+   *
+   * 🔴 Une commande qui exige un argument positionnel (`<identifier>`) refuse
+   * avant même d'exister : commander répond « error: missing required argument
+   * 'identifier' » et le kernel sort en 1. C'est juste quand on TAPE la ligne
+   * et qu'on a oublié un mot ; c'est absurde quand on a CHOISI la commande dans
+   * le menu — on n'a rien oublié, on ne savait pas. Vécu sur
+   * `security:user:add` : le menu propose le geste, la commande le refuse.
+   *
+   * La règle vit ICI et pas dans chaque commande : quatre commandes du dépôt
+   * attendent un argument, et quatre copies d'une même règle divergent. Pour en
+   * profiter, une commande déclare son argument OPTIONNEL (`[identifier]` —
+   * sinon commander refuse avant nous) puis passe ce qu'elle a reçu.
+   *
+   * **Hors terminal, on ne demande RIEN** : un pipeline sans TTY resterait
+   * suspendu sur une question que personne ne lit, jusqu'au timeout du job.
+   * L'échec reste un échec — mais il montre la ligne exacte à taper.
+   *
+   * @param valeur - ce que la ligne de commande a fourni (souvent `undefined`)
+   * @param spec - nom de l'argument, question posée, choix éventuels ; `isTTY`
+   *               est INJECTABLE pour que la règle s'éprouve sans terminal
+   * @returns la valeur, taillée
+   * @throws Si l'argument manque et qu'aucun terminal ne peut le demander
+   */
+  public async askArgument(
+    valeur: string | undefined,
+    spec: {
+      name: string;
+      message: string;
+      choices?: readonly string[];
+      isTTY?: boolean;
+    },
+  ): Promise<string> {
+    const donnee = typeof valeur === "string" ? valeur.trim() : "";
+    if (donnee.length > 0) return donnee;
+
+    const interactifPossible = spec.isTTY ?? Boolean(process.stdin.isTTY);
+    if (!interactifPossible) {
+      const exemple = spec.choices?.length
+        ? `<${spec.choices.join("|")}>`
+        : `<${spec.name}>`;
+      throw new Error(
+        `${spec.name} est requis — aucun terminal pour le demander : ` +
+          `nodefony ${this.name} ${exemple}`,
+      );
+    }
+
+    await this.loadPrompts();
+    const reponse = spec.choices?.length
+      ? await this.prompts.select({
+          message: spec.message,
+          choices: spec.choices.map((c) => ({ name: c, value: c })),
+        })
+      : await this.prompts.input({
+          message: spec.message,
+          validate: (v: string) =>
+            v.trim().length > 0 || `${spec.name} est requis`,
+        });
+    return String(reponse).trim();
+  }
+
+  /**
    * Méthode d'action de la commande.
    *
    * @private
@@ -261,9 +323,19 @@ class Command extends Service {
   public async run(...args: any[]): Promise<this> {
     if (this.kernel) this.kernel.command = this;
     if (this.interactive || this.forceInteractive) {
-      return this.interaction(...args).then((...response) =>
-        this.generate(...response),
-      );
+      // 🔴 `.then((...response) => …)` ne recevait qu'UNE valeur — le callback
+      // d'une promesse n'est jamais variadique. `interaction()` rendant ses
+      // arguments (`[a, b, c]` par défaut), `generate` recevait UN argument :
+      // le tableau. Toute commande passée en interactif sans surcharger
+      // `interaction()` voyait donc son premier paramètre devenir un tableau —
+      // c'est ce qui interdisait de propager le mode interactif depuis le menu.
+      // Le menu, lui, ne le voyait pas : son `interaction()` rend une chaîne.
+      const response = await this.interaction(...args);
+      // Un tableau = plusieurs arguments (le cas par défaut) ; une valeur seule
+      // = un argument, et surtout pas ses éléments étalés.
+      return Array.isArray(response)
+        ? this.generate(...response)
+        : this.generate(response);
     }
     return this.generate(...args);
   }

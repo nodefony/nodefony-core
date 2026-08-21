@@ -21,9 +21,13 @@ const RESET = "\x1b[0m";
 const ADMIN_ROLES = ["ROLE_ADMIN", "ROLE_NODEFONY_ADMIN"];
 
 /**
- * `nodefony security:user:add <identifier>` — crée un compte utilisateur via le
+ * `nodefony security:user:add [identifier]` — crée un compte utilisateur via le
  * service applicatif `users` (hash Argon2id fait par `UserService.createUser`,
  * jamais de mot de passe stocké en clair).
+ *
+ * Identifiant : en argument, ou DEMANDÉ quand un terminal est là — la commande
+ * est proposée au menu, où personne ne peut taper d'argument. Hors terminal
+ * (CI, script), l'absence reste une erreur, avec la ligne exacte à taper.
  *
  * Mot de passe : `--password` (visible dans l'historique shell — accepté pour
  * les scripts) ou PROMPT MASQUÉ en TTY (recommandé). Rôles : `--roles a,b,c`
@@ -41,7 +45,12 @@ class SecurityUserAdd extends Command {
       cli,
       options,
     );
-    this.addArgument("<identifier>", "identifiant (login) du compte");
+    // OPTIONNEL, et c'est le point : déclaré `<identifier>`, commander refusait
+    // la commande AVANT qu'elle existe — « missing required argument » puis
+    // exit 1, y compris quand l'utilisateur l'avait CHOISIE dans le menu, où il
+    // n'avait aucun moyen de taper un argument. Optionnel ici, réclamé en TTY
+    // par `askArgument`, et toujours exigé hors terminal (message actionnable).
+    this.addArgument("[identifier]", "identifiant (login) du compte");
     this.addOption(
       "-p, --password <password>",
       "mot de passe (sinon : prompt masqué en TTY)",
@@ -83,9 +92,22 @@ class SecurityUserAdd extends Command {
 
   // Argument positionnel déclaré → commander appelle (identifier, options, cmd).
   override async generate(
-    identifier: string,
+    identifierArg: string | undefined,
     opts: { password?: string; roles?: string; admin?: boolean },
   ): Promise<this> {
+    let identifier: string;
+    try {
+      identifier = await this.askArgument(identifierArg, {
+        name: "identifier",
+        message: "Identifiant (login) du compte :",
+      });
+    } catch (e) {
+      // Hors terminal : l'échec reste un échec, mais il montre la ligne à taper
+      // au lieu du « missing required argument » de commander.
+      this.log((e as Error).message, "ERROR");
+      process.exitCode = 1;
+      return this;
+    }
     const users = this.kernel?.container?.get("users") as
       UserService | undefined;
     if (!users) {

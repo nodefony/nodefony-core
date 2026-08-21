@@ -72,8 +72,12 @@ class Inspect extends Command {
       cli as CliKernel,
       options,
     );
+    // OPTIONNEL : déclaré `<sujet>`, commander refusait la commande avant
+    // qu'elle existe (« missing required argument 'sujet' »). Réclamé en TTY par
+    // `askArgument`, qui propose la LISTE des sujets — on ne demande pas de
+    // deviner un mot dans une énumération qu'on connaît.
     this.addArgument(
-      "<sujet>",
+      "[sujet]",
       `sujet : ${Object.keys(INSPECT_SUBJECTS).join(" | ")}`,
     );
     this.addArgument("[cible]", "paramètre du sujet (ex : le nom d'un module)");
@@ -92,10 +96,25 @@ class Inspect extends Command {
   }
 
   override async generate(
-    subject: string,
+    subjectArg?: string,
     target?: string,
     opts: { json?: boolean } = {},
   ): Promise<this> {
+    let subject: string;
+    try {
+      subject = await this.askArgument(subjectArg, {
+        name: "sujet",
+        message: "Que veux-tu inspecter ?",
+        choices: Object.keys(INSPECT_SUBJECTS),
+        // `--json` va vers un script : y poser une question romprait le flux
+        // que l'appelant s'apprête à parser.
+        ...(opts.json ? { isTTY: false } : {}),
+      });
+    } catch (e) {
+      this.log((e as Error).message, "ERROR");
+      process.exitCode = 1;
+      return this;
+    }
     const broker = this.kernel?.container?.get("adminBroker") as
       IAdminBrokerLike | undefined;
     const read = await readAdminSubject(broker, subject, target);

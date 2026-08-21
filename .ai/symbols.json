@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-21T13:50:40.459Z",
+  "generated": "2026-08-21T14:15:13.107Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -15240,7 +15240,7 @@
       "extends": "Command",
       "implements": [],
       "decorators": [],
-      "description": "`nodefony security:user:add <identifier>` — crée un compte utilisateur via le service applicatif `users` (hash Argon2id fait par `UserService.createUser`, jamais de mot de passe stocké en clair). M…"
+      "description": "`nodefony security:user:add [identifier]` — crée un compte utilisateur via le service applicatif `users` (hash Argon2id fait par `UserService.createUser`, jamais de mot de passe stocké en clair). I…"
     },
     "ISecurityConfigInput": {
       "name": "ISecurityConfigInput",
