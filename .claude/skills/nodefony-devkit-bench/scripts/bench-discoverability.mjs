@@ -1002,7 +1002,16 @@ export const TASKS = [
         // s'arrête plus à une phase de boot, et n'a plus accès au conteneur).
         kind: "code",
         name: "pas de parsing d'argv artisanal ni de parseur tiers",
-        pattern: /process\.argv|from\s+["']commander["']|from\s+["']yargs["']/u,
+        // 🔴 LA LIGNE NE DOIT PAS ÊTRE COMMENTÉE — sans cette garde, la sonde
+        // punissait le sans-faute. Le gabarit de `create command` cite
+        // `process.argv` dans un commentaire (une recette de `spawnSync`) : un
+        // agent qui lance `npx nodefony create command <nom>` et ne touche à
+        // RIEN d'autre — zéro Write, zéro Edit, exactement le geste mesuré —
+        // se voyait reprocher du code écrit par NOTRE générateur, et commenté
+        // par-dessus le marché. Mesuré au run large du 08-21 : tâche 4 en FAIL
+        // sur 15 tours, tous ses gates d'état verts.
+        pattern:
+          /^(?!\s*(?:\/\/|\*|\/\*)).*(?:process\.argv|from\s+["']commander["']|from\s+["']yargs["'])/mu,
         where: "added",
         invert: true,
       },
@@ -1245,7 +1254,16 @@ export const TASKS = [
         // `--link` le lui ayant rendu visible.
         kind: "code",
         name: "aucun chemin du monorepo (inapplicable chez l'utilisateur npm)",
-        pattern: /src\/packages\/@nodefony/u,
+        // 🔴 PAS une ligne de FRONTMATTER, et pas une ligne commentée. Nos
+        // propres docs publiées portent `source: "src/packages/@nodefony/…"`
+        // dans leur en-tête YAML (52 fichiers) : un agent qui dépaquette le
+        // tarball d'un module et recopie sa doc se voyait reprocher un chemin
+        // que NOUS publions. Ce que la sonde veut attraper est une INSTRUCTION
+        // inapplicable écrite par l'agent, pas une métadonnée transportée.
+        // Mesuré au run large du 08-21 : tâche 7 en FAIL sur 17 tours, tous
+        // ses gates d'état verts.
+        pattern:
+          /^(?!\s*(?:\/\/|\*|\/\*|source\s*:|path\s*:)).*src\/packages\/@nodefony/mu,
         where: "added",
         invert: true,
       },
