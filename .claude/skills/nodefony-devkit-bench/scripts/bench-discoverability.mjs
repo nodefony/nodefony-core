@@ -169,6 +169,13 @@ const LINKED = process.argv.includes("--link");
 const RUN_ROOT = LINKED
   ? path.join(REPO, "tmp", "devkit-bench")
   : path.join(os.tmpdir(), "nodefony-devkit-bench");
+/**
+ * Le commit du dépôt À L'INSTANT DU PACK — la seule date qui décrive la mesure.
+ * `null` tant qu'aucun décor n'a été monté (mode `--analyze-only`, qui reprend
+ * le commit du run relu).
+ */
+let COMMIT_AU_PACK = null;
+
 const AGENT = process.env.NF_DEVKIT_BENCH_AGENT ?? "claude";
 /**
  * Modèle de l'agent — VARIABLE DU DÉCOR : deux runs sur deux modèles ne se
@@ -3244,6 +3251,15 @@ function setup(runDir) {
       packTarballs(REPO, process.argv.includes("--repack")),
     );
   }
+  // 🔴 **Le commit MESURÉ est celui du PACK, jamais celui de la fin du run.**
+  // Il était lu au moment d'écrire le rapport — c'est-à-dire des heures après,
+  // sur un dépôt où l'on a continué de travailler. Constaté : un run empaqueté
+  // à 12h32 s'est vu daté d'un commit de 14h39, soit six commits plus tard et
+  // aucun d'eux dans les tarballs mesurés. Une référence enregistrée ainsi
+  // daterait la mesure d'un code qui n'a JAMAIS été mesuré, et le dépistage
+  // comparerait ensuite contre ce faux repère. Le commit est donc figé ICI, à
+  // l'instant où les tarballs naissent.
+  COMMIT_AU_PACK = commitDuDepot();
 
   // Les pointeurs de skills, APRÈS l'arrivée des paquets — sinon le décor n'est
   // pas celui de l'utilisateur. `create app` les pose lui-même, mais il tourne
@@ -4498,7 +4514,9 @@ function main() {
     // référence et le run. Re-juger un run ANCIEN ne le mesure pas au commit
     // d'aujourd'hui : on reprend celui qu'il portait, quitte à n'en avoir
     // aucun. Écrire HEAD ici daterait la mesure du jour où on l'a relue.
-    commit: analyzeDirs ? commitDuRun(analyzeDirs[0]) : commitDuDepot(),
+    commit: analyzeDirs
+      ? commitDuRun(analyzeDirs[0])
+      : (COMMIT_AU_PACK ?? commitDuDepot()),
     // Les runs d'où sort la mesure. Leur nom EST leur horodatage : c'est ce qui
     // permet de dire quand une référence a été mesurée, là où `date` ne dit que
     // le jour où on l'a écrite — deux choses qu'un re-jugement sépare.
