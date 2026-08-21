@@ -20,6 +20,37 @@ const RESET = "\x1b[0m";
 const KEYS = ["NF_TOTP_KEY", "NF_WEBHOOK_KEY", "NF_CSRF_SECRET"] as const;
 
 /**
+ * Ce que chaque secret PROTÈGE, et ce qui casse sans lui.
+ *
+ * 🔴 Sans ce catalogue, la commande était muette sur l'essentiel : quand les
+ * trois clés étaient en place, elle affichait trois « ✓ » et RIEN d'autre — ni
+ * les noms, ni les rôles. On ne savait donc ni ce qui avait été généré, ni
+ * pourquoi. Un secret qu'on ne comprend pas est un secret qu'on ne fait jamais
+ * tourner, et qu'on recopie d'un environnement à l'autre.
+ *
+ * La conséquence est écrite au présent et pour la PRODUCTION : c'est là qu'une
+ * clé absente cesse d'être un avertissement de développement.
+ */
+const ROLES: Record<string, { protege: string; sans: string }> = {
+  NF_TOTP_KEY: {
+    protege: "chiffre le secret 2FA de chaque compte au repos (AES-256-GCM)",
+    sans: "2FA désactivé en production — un secret chiffré par une clé éphémère serait illisible au redémarrage",
+  },
+  NF_WEBHOOK_KEY: {
+    protege: "chiffre les secrets de signature des webhooks au repos",
+    sans: "webhooks désactivés en production (fail-safe, jamais de signature muette)",
+  },
+  NF_CSRF_SECRET: {
+    protege: "signe les jetons anti-rejeu des mutations (`@CsrfProtect`)",
+    sans: "en cluster, le jeton émis par un pod est rejeté par les autres",
+  },
+  "jwt.keystore": {
+    protege: "signe les JWT (clé Ed25519, rotation gérée par le keystore)",
+    sans: "chaque process signe avec la sienne : un jeton émis par la CLI est refusé par le serveur",
+  },
+};
+
+/**
  * `nodefony security:secrets` — génère les clés de chiffrement attendues par le
  * module security (TOTP, webhooks, CSRF) au bon format (32 octets aléatoires,
  * base64) et guide le câblage en 3 FICHIERS (.env → env.ts → nodefony.config.ts).
@@ -122,8 +153,23 @@ class SecuritySecrets extends Command {
       process.stdout.write(s);
     };
     w(
-      `\n${BOLD}🔐 Secrets security — 4 étapes, 3 FICHIERS${RESET}\n` +
-        `${YELLOW}⚠ rien ne se tape dans le terminal : chaque bloc se colle dans le fichier indiqué.${RESET}\n\n`,
+      `\n${BOLD}🔐 Secrets du module security${RESET} ${DIM}— 4 secrets, 3 fichiers${RESET}\n\n`,
+    );
+    // Ce que chaque secret PROTÈGE, avant de dire s'il est en place : « ✓ » sur
+    // un nom qu'on ne comprend pas n'apprend rien, et c'est ce que la commande
+    // affichait quand tout était câblé.
+    for (const [nom, role] of Object.entries(ROLES)) {
+      const pose =
+        nom === "jwt.keystore"
+          ? /keystore\s*:/u.test(cfgTs)
+          : new RegExp(`^\\s*${nom}\\s*=`, "m").test(dotenv);
+      w(
+        `  ${pose ? GREEN + "✓" : YELLOW + "○"}${RESET} ${BOLD}${nom.padEnd(16)}${RESET}${DIM}${role.protege}${RESET}\n` +
+          `    ${DIM}sans → ${role.sans}${RESET}\n`,
+      );
+    }
+    w(
+      `\n${YELLOW}⚠ rien ne se tape dans le terminal : chaque bloc se colle dans le fichier indiqué.${RESET}\n\n`,
     );
 
     // ── 1. .env.local : les VALEURS (convention B — jamais dans le .env commité) ──

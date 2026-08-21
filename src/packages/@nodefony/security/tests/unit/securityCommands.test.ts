@@ -164,3 +164,37 @@ describe("security:token — un jeton mort-né doit s'ANNONCER", () => {
     }
   });
 });
+
+describe("security:secrets — on doit savoir QUOI et POURQUOI", () => {
+  it("🔴 chaque secret généré est NOMMÉ et EXPLIQUÉ, même quand tout est en place", async () => {
+    // Vécu : les trois clés câblées, la commande affichait trois « ✓ déjà
+    // câblées » et rien d'autre. On ne savait ni ce qui avait été généré, ni à
+    // quoi ça servait. Un secret qu'on ne comprend pas est un secret qu'on ne
+    // fait jamais tourner — et qu'on recopie d'un environnement à l'autre.
+    const source = await import("node:fs").then((fs) =>
+      fs.readFileSync(
+        new URL("../../nodefony/command/security-secrets.ts", import.meta.url),
+        "utf8",
+      ),
+    );
+
+    // Les trois clés générées + le keyset : chacune porte un rôle et une
+    // conséquence. Le catalogue est la SOURCE de l'affichage — si une clé
+    // s'ajoutait sans y entrer, elle resterait muette à l'écran.
+    for (const clef of [
+      "NF_TOTP_KEY",
+      "NF_WEBHOOK_KEY",
+      "NF_CSRF_SECRET",
+      "jwt.keystore",
+    ]) {
+      const bloc = new RegExp(
+        `"?${clef.replace(".", "\\.")}"?:\\s*\\{[^}]*protege:[^}]*sans:`,
+        "u",
+      );
+      expect(bloc.test(source), `${clef} sans rôle ni conséquence`).toBe(true);
+    }
+
+    // Et l'affichage lit bien ce catalogue, plutôt qu'une liste recopiée.
+    expect(source).toContain("Object.entries(ROLES)");
+  });
+});
