@@ -271,7 +271,8 @@ export function checkPackageDeps(
     // On lit la DÉCLARATION, pas les dossiers qu'on a explorés : un membre
     // peut être fourni sans avoir été scanné (la racine du framework déclare
     // `src/nodefony`, que la commande n'explore pas).
-    for (const member of workspaceMembers(dir, manifest)) {
+    const members = workspaceMembers(dir, manifest);
+    for (const member of members) {
       declared.add(member);
     }
     const allowed = new Set(typeCycles[name] ?? []);
@@ -291,6 +292,17 @@ export function checkPackageDeps(
         Object.keys((manifest[k] as Record<string, string> | undefined) ?? {}),
       ),
     );
+    // 🔴 **`workspaces` ORDONNE aussi.** La dispense ci-dessus n'avait été posée
+    // que sur « déclaré » : un membre y échappait au verdict « non déclaré »
+    // pour retomber dans « déclaré en peerDependencies SEULE », dont le message
+    // prescrit précisément ce que le commentaire ci-dessus dit de ne pas exiger
+    // — et l'annonce sur une racine qui n'a aucune peerDependency. C'est par ce
+    // champ que npm installe et relie ses membres, et que turbo bâtit son
+    // graphe : c'est la façon CORRECTE de l'écrire à la racine, pas une façon
+    // au rabais. Une garde posée à un seul de deux endroits ne garde rien.
+    for (const member of members) {
+      ordering.add(member);
+    }
     const peerOnly = new Map<string, string>();
     // On garde le PIRE cas avec SON fichier : citer un `import type` sous un
     // verdict « runtime » enverrait corriger au mauvais endroit.
