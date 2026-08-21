@@ -248,6 +248,19 @@ le décor, l'agent, et par tâche le verdict, le nombre de runs et les runs
 d'origine. Quatre règles la gouvernent, chacune payée par une erreur déjà
 commise — et toutes vues rouges par `reference.selftest.mjs --prove` :
 
+0. **Le verdict binaire ne DÉCIDE pas seul — la référence garde aussi les
+   TOURS.** L'unanimité sur 3 runs a une résolution catastrophique : une tâche
+   que le devkit réussit 4 fois sur 5 sort « instable » une fois sur deux
+   (P(3/3 | p=0,8) = 0,51). Rejouer ne la stabilise jamais — la référence
+   portait la tâche 13 à `passes: 2, runs: 3` le 2 août ; trois runs repayés
+   trois semaines plus tard ont rendu exactement 2/3. Deux mesures, zéro
+   information. Les TOURS, eux, sont continus et déjà mesurés à chaque run :
+   sur ces mêmes trois runs, 52 · 54 · 88, et le seul qui échoue est le seul où
+   l'agent n'a pas trouvé le générateur. Là où le verdict hésite, l'effort
+   tranche. `medianeTours` (jamais le dernier run, jamais la moyenne) entre dans
+   la référence, et le dépistage classe les tâches **ALLÉGÉES** et **ALOURDIES**
+   — verdict inchangé, effort qui bouge. Elles ne se REJOUENT pas : c'est tout
+   l'intérêt.
 1. **Unanimité** — un verdict agrégé n'est PASS que si TOUS les runs le sont.
    « 2/3 » n'est pas « plutôt bon » : c'est instable, donc non prouvé.
 2. **Asymétrie** — une REMONTÉE (référence FAIL → run PASS) se rejoue autant
@@ -256,6 +269,11 @@ commise — et toutes vues rouges par `reference.selftest.mjs --prove` :
 3. **Le décor est une variable de la mesure** — modèle, isolation, agent : un
    écart REFUSE la comparaison (sortie 78). Un avertissement se lit après coup ;
    une comparaison fausse s'utilise tout de suite.
+   ⚠️ **Et ce refus ne se contourne pas à la main.** Vécu : un run large rendu
+   dans un décor « MCP atteignable » face à une référence sans MCP a vu sa
+   comparaison refusée, puis rejouée au `jq` par l'opérateur — qui a lu trois
+   « chutes » qu'aucun changement n'expliquait. Refaire soi-même le calcul que
+   la garde interdit, c'est reproduire exactement l'erreur qu'elle empêche.
 4. **Un rouge NON OPPOSABLE écarte le run** — une gate rejouée sur l'app
    d'aujourd'hui (run antérieur aux gates figées) ne juge pas la tâche. Le banc
    le DISAIT déjà dans son texte, sans en tirer la conséquence : le rouge était
@@ -263,6 +281,13 @@ commise — et toutes vues rouges par `reference.selftest.mjs --prove` :
 
 Le mode **ne relance rien** : il nomme les tâches et rend la commande à copier.
 Un banc qui décide seul de rejouer dépense sans qu'on l'ait voulu.
+
+> 🔴 **Ne pas repayer des runs pour reconfirmer un verdict déjà instable.** Une
+> tâche que la référence donne à « 2/3 » le restera : la rejouer remesure le même
+> aléa. Ce qui apprend quelque chose, c'est d'INSTRUIRE le transcript d'un run
+> rouge — c'est ainsi qu'on a trouvé deux bugs du framework (une sortie tronquée
+> au-delà de 64 Ko, un `inspect` muet sur son mode) et trois défauts du banc
+> lui-même. Le banc sert à ouvrir une enquête, pas à produire un score.
 
 **Détail : [`references/banc-decouvrabilite-lecons.md`](references/banc-decouvrabilite-lecons.md)**
 — dix leçons, chacune payée par un défaut réel : les sondes s'éprouvent avant de juger, mesurer
