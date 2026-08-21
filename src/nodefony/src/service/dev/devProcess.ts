@@ -996,6 +996,14 @@ export function formatForeignRuntimes(
   lines.push("", "  pour les arrêter :");
   for (const project of byProject.keys()) {
     if (!project.startsWith("(")) {
+      // 🔴 La voie CIBLÉE d'abord — celle qui n'arrête QUE ce projet et
+      // n'oblige pas à changer de répertoire. Vécu : ce bloc ne proposait que
+      // `cd <projet> && nodefony stop` et `--all` ; un agent dont le répertoire
+      // courant est sa PROPRE application ne peut pas prendre la première, et a
+      // pris la seconde — il a arrêté le serveur du développeur pour débloquer
+      // son contrôle. Un geste trans-projets ne se propose jamais avant le
+      // geste borné qui fait le travail.
+      lines.push(`    nodefony stop ${path.basename(project)}`);
       lines.push(`    cd ${project} && nodefony stop`);
     }
   }

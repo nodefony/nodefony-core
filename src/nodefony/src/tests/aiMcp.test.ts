@@ -129,3 +129,66 @@ describe("ai:mcp — la ligne de commande", () => {
     expect("error" in parsed).toBe(true);
   });
 });
+
+/**
+ * Le MODE AUTHENTIFIÉ de la porte MCP.
+ *
+ * Il existait dans le serveur — la porte sert les outils publics sans jeton et
+ * retient les outils réservés — mais AUCUNE commande ne le câblait : la recette
+ * (obtenir un jeton, le poser en en-tête) ne vivait que dans un test
+ * d'intégration. Une capacité qu'on n'atteint pas n'existe pas.
+ */
+describe("ai:mcp — le mode AUTHENTIFIÉ", () => {
+  it("--auth est accepté, et absent par défaut", () => {
+    const parsed = parseAiMcpArgv(["node", "nodefony", "ai:mcp"]);
+    expect("error" in parsed ? null : parsed.auth).toBe(false);
+    const avec = parseAiMcpArgv(["node", "nodefony", "ai:mcp", "--auth"]);
+    expect("error" in avec ? null : avec.auth).toBe(true);
+  });
+
+  it("🔴 l'en-tête référence une VARIABLE, le jeton n'est jamais écrit au disque", () => {
+    // `.mcp.json` est un fichier de PROJET, suivi par git : y graver un jeton
+    // porteur reviendrait à publier un secret à chaque commit. Les clients MCP
+    // développent `${VAR}` dans cette configuration — c'est donc la variable
+    // qui est écrite, et le jeton reste dans l'environnement du poste.
+    const plan = planMcpConfig(null, "http://localhost:5151/nodefony/mcp", {
+      auth: true,
+    });
+    const entree = plan.document.mcpServers[MCP_SERVER_KEY];
+    expect(entree.headers?.Authorization).toBe("Bearer ${NF_MCP_TOKEN}");
+    const texte = JSON.stringify(plan.document);
+    expect(texte).not.toMatch(/eyJ|Bearer [A-Za-z0-9._-]{20,}/u);
+  });
+
+  it("sans --auth, aucun en-tête n'est posé — et un en-tête existant est RETIRÉ", () => {
+    const existing: IMcpConfigDocument = {
+      mcpServers: {
+        [MCP_SERVER_KEY]: {
+          type: "http",
+          url: "http://localhost:5151/nodefony/mcp",
+          headers: { Authorization: "Bearer ${NF_MCP_TOKEN}" },
+        },
+      },
+    };
+    const plan = planMcpConfig(existing, "http://localhost:5151/nodefony/mcp", {
+      auth: false,
+    });
+    // Repasser en anonyme est un choix qui doit PRENDRE : laisser l'en-tête
+    // ferait échouer la connexion avec un jeton expiré, sans dire pourquoi.
+    expect(plan.document.mcpServers[MCP_SERVER_KEY].headers).toBeUndefined();
+    expect(plan.action).toBe("remplace");
+  });
+
+  it("le rendu dit où PRENDRE un jeton — par la voie normée, pas une route devinée", () => {
+    const texte = renderMcpPlan(
+      planMcpConfig(null, "http://localhost:5151/nodefony/mcp", { auth: true }),
+      "/tmp/.mcp.json",
+      false,
+    );
+    // RFC 9728 : c'est la porte elle-même qui publie ses serveurs
+    // d'autorisation. Nommer ici la route d'un module produirait une phrase qui
+    // ment le jour où ce module la déplace.
+    expect(texte).toContain("/.well-known/oauth-protected-resource");
+    expect(texte).toContain("NF_MCP_TOKEN");
+  });
+});

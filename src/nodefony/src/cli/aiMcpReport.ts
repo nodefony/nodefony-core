@@ -21,12 +21,28 @@ export const MCP_SERVER_KEY = "nodefony";
 /** Fichier de configuration, à la racine du projet. */
 export const MCP_CONFIG_FILE = ".mcp.json";
 
+/**
+ * Nom de la variable d'environnement qui porte le jeton de la porte MCP.
+ *
+ * 🔴 C'est la VARIABLE qui s'écrit dans `.mcp.json`, jamais le jeton : ce
+ * fichier est un fichier de projet, suivi par git. Les clients MCP développent
+ * `${VAR}` à la lecture, donc le porteur reste dans l'environnement du poste et
+ * ne peut pas partir dans un commit.
+ */
+export const MCP_TOKEN_ENV = "NF_MCP_TOKEN";
+
 /** Une entrée de serveur MCP en transport HTTP. */
 export interface IMcpServerEntry {
   /** Transport — seul `http` est produit ici (cf `type` de la spec). */
   type: "http";
   /** URL absolue de l'endpoint. */
   url: string;
+  /**
+   * En-têtes ajoutés à chaque requête. Posés uniquement en mode authentifié —
+   * la spécification MCP impose l'en-tête `Authorization` sur CHAQUE requête,
+   * pas seulement à la première.
+   */
+  headers?: Record<string, string>;
 }
 
 /** Le document `.mcp.json` dans son entier. */
@@ -48,6 +64,8 @@ export interface IMcpConfigPlan {
   url: string;
   /** URL précédente, quand on remplace. */
   previousUrl?: string;
+  /** `true` si l'entrée écrite porte l'en-tête d'autorisation. */
+  auth?: boolean;
 }
 
 /**
@@ -81,27 +99,57 @@ export function buildMcpUrl(origin: string, endpointPath: string): string {
 export function planMcpConfig(
   existing: IMcpConfigDocument | null,
   url: string,
+  options: { auth?: boolean } = {},
 ): IMcpConfigPlan {
   const base: IMcpConfigDocument = existing
     ? { ...existing, mcpServers: { ...existing.mcpServers } }
     : { mcpServers: {} };
 
   const previous = base.mcpServers[MCP_SERVER_KEY];
-  const entry: IMcpServerEntry = { type: "http", url };
+  const auth = options.auth === true;
+  const entry: IMcpServerEntry = auth
+    ? {
+        type: "http",
+        url,
+        headers: { Authorization: `Bearer \${${MCP_TOKEN_ENV}}` },
+      }
+    : { type: "http", url };
   base.mcpServers[MCP_SERVER_KEY] = entry;
 
   if (!previous) {
-    return { action: "pose", document: base, url };
+    return { action: "pose", document: base, url, auth };
   }
-  if (previous.url === url && previous.type === "http") {
-    return { action: "inchange", document: base, url };
+  // Repasser en anonyme doit PRENDRE : laisser un en-tête derrière ferait
+  // échouer la connexion sur un jeton expiré, sans que rien ne dise pourquoi.
+  const memeAuth =
+    (previous.headers?.Authorization ?? null) ===
+    (entry.headers?.Authorization ?? null);
+  if (previous.url === url && previous.type === "http" && memeAuth) {
+    return { action: "inchange", document: base, url, auth };
   }
   return {
     action: "remplace",
     document: base,
     url,
+    auth,
     previousUrl: previous.url,
   };
+}
+
+/**
+ * URL des métadonnées de la porte protégée (RFC 9728) : le chemin bien connu
+ * s'INSÈRE entre l'hôte et le chemin de la ressource, il ne s'y ajoute pas.
+ *
+ * @param url - URL de l'endpoint MCP
+ * @returns l'URL du document de métadonnées
+ */
+export function metadataUrlOf(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.origin}/.well-known/oauth-protected-resource${u.pathname}`;
+  } catch {
+    return `/.well-known/oauth-protected-resource`;
+  }
 }
 
 /**
@@ -138,5 +186,30 @@ export function renderMcpPlan(
     "  1. l'application doit TOURNER (npm run dev) — le serveur MCP est une de ses routes ;",
     "  2. redémarre ton agent, il ne relit pas sa configuration en cours de route.",
   );
+  if (plan.auth === true) {
+    // Où prendre un jeton : la porte le PUBLIE (RFC 9728). Nommer ici la route
+    // d'un module produirait une phrase qui ment le jour où ce module la
+    // déplace — et le cœur n'a pas à connaître les routes de `security`.
+    const metadata = metadataUrlOf(plan.url);
+    lignes.push(
+      "",
+      `Mode AUTHENTIFIÉ — l'en-tête envoie \${${MCP_TOKEN_ENV}}, jamais un jeton écrit ici.`,
+      `  1. la porte publie où prendre un jeton :  curl ${metadata}`,
+      "     (champ `authorization_servers` — RFC 9728) ;",
+      "  2. échange des identifiants contre un jeton auprès de cet émetteur. Quand",
+      "     l'émetteur est CETTE application (@nodefony/security), c'est :",
+      "       curl -X POST <emetteur>/nodefony/security/api/token \\",
+      "            -H 'content-type: application/json' \\",
+      '            -d \'{"username":"…","password":"…","resource":"<url de la porte>","scope":"…"}\'',
+      "     `resource` est OBLIGATOIRE (RFC 8707) : sans lui le jeton porte une autre",
+      "     audience et la porte le refuse, à juste titre ;",
+      `  3. exporte le jeton obtenu :             export ${MCP_TOKEN_ENV}=<access_token>`,
+      "  4. un jeton d'accès EXPIRE (15 min par défaut, `security.jwt.accessTtlS`) :",
+      "     la connexion tombera ensuite en 401, il faudra en réexporter un.",
+      "",
+      "Sans jeton, la porte sert quand même ses outils publics — l'authentification",
+      "ajoute les outils réservés, elle n'est pas un péage.",
+    );
+  }
   return `${lignes.join("\n")}\n`;
 }

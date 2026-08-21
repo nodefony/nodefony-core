@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-21T13:18:43.614Z",
+  "generated": "2026-08-21T13:32:41.566Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 720,
-    "symbols": 3000,
+    "symbols": 3002,
     "classes": 361,
     "interfaces": 861,
     "types": 383,
     "enums": 4,
-    "functions": 1105,
-    "constants": 286
+    "functions": 1106,
+    "constants": 287
   },
   "symbols": {
     "Cli": {
@@ -732,6 +732,14 @@
       "module": "@nodefony/core",
       "description": "Décide ce qu'il faut écrire dans `.mcp.json`. ⭐ **Le document existant est PRÉSERVÉ**, et pas seulement par politesse : un projet y déclare ses autres serveurs MCP, et une commande de câblage qui l…"
     },
+    "metadataUrlOf": {
+      "name": "metadataUrlOf",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "URL des métadonnées de la porte protégée (RFC 9728) : le chemin bien connu s'INSÈRE entre l'hôte et le chemin de la ressource, il ne s'y ajoute pas."
+    },
     "renderMcpPlan": {
       "name": "renderMcpPlan",
       "kind": "function",
@@ -755,6 +763,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Fichier de configuration, à la racine du projet."
+    },
+    "MCP_TOKEN_ENV": {
+      "name": "MCP_TOKEN_ENV",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/aiMcpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom de la variable d'environnement qui porte le jeton de la porte MCP. 🔴 C'est la VARIABLE qui s'écrit dans `.mcp.json`, jamais le jeton : ce fichier est un fichier de projet, suivi par git. Les c…"
     },
     "readSkillHeader": {
       "name": "readSkillHeader",
@@ -23629,6 +23645,9 @@
         "src/nodefony/src/cli/aiMcp.ts"
       ],
       "MCP_CONFIG_FILE": [
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "MCP_TOKEN_ENV": [
         "src/nodefony/src/cli/aiMcp.ts"
       ],
       "IMcpConfigDocument": [

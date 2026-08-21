@@ -18,6 +18,7 @@ import {
 import {
   clearRuntimeState,
   defaultDevPorts,
+  formatForeignRuntimes,
   discoverDevProcessesDetailed,
   discoverFromRuntimeState,
   detectRuntimeMode,
@@ -280,6 +281,42 @@ describe("devProcess — valeurs partagées (anti-divergence)", () => {
       else process.env.NODEFONY_DEV_PORTS = save;
       rmSync(cwd, { recursive: true, force: true });
     }
+  });
+
+  it("formatForeignRuntimes : la voie CIBLÉE est proposée avant la voie qui tue tout", () => {
+    // 🔴 Vécu au banc devkit : un agent bloqué par un port tenu a lu ce bloc,
+    // n'a pas pu `cd` (son répertoire courant est celui de SON application), et
+    // a donc pris la seule autre voie affichée — `nodefony stop --all`. Il a
+    // arrêté le serveur du développeur pour faire passer son contrôle. La
+    // commande ciblée `nodefony stop <projet>` existait, elle n'était nulle
+    // part : ce message est le SEUL endroit où l'on apprend qu'un voisin
+    // tourne, donc c'est là que la voie sûre doit se lire — AVANT la voie
+    // trans-projets. Un geste destructeur ne se propose jamais en premier.
+    const proc = (pid: number, cwd: string, label: string) =>
+      ({
+        pid,
+        ppid: 1,
+        mode: "dev",
+        role: "supervisor",
+        label,
+        rssKb: 1000,
+        cpu: 0,
+        uptimeSec: 10,
+        cwd,
+      }) as const;
+    const lignes = formatForeignRuntimes([
+      proc(101, path.join(path.sep, "tmp", "boutique"), "supervisor"),
+      proc(102, path.join(path.sep, "tmp", "boutique"), "server"),
+    ] as unknown as Parameters<typeof formatForeignRuntimes>[0]);
+    const texte = lignes.join("\n");
+
+    const cible = lignes.findIndex((l) => l.includes("nodefony stop boutique"));
+    const tout = lignes.findIndex((l) => l.includes("nodefony stop --all"));
+    assert.notStrictEqual(cible, -1, "la voie ciblée doit être proposée");
+    assert.notStrictEqual(tout, -1, "la voie trans-projets reste proposée");
+    assert.ok(cible < tout, "la voie ciblée passe AVANT `--all`");
+    // La portée de `--all` reste dite : on ne masque pas ce qu'il fait.
+    assert.match(texte, /--all.*tous projets/u);
   });
 
   it("defaultDevPorts : l'application qui DÉCLARE ses ports n'est plus jugée sur ceux d'une autre", () => {

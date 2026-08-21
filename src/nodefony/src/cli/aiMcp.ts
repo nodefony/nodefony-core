@@ -8,6 +8,7 @@ import {
   planMcpConfig,
   renderMcpPlan,
   MCP_CONFIG_FILE,
+  MCP_TOKEN_ENV,
   type IMcpConfigDocument,
 } from "./aiMcpReport";
 
@@ -43,13 +44,16 @@ import {
 const MCP_PATH = "/nodefony/mcp";
 
 const USAGE =
-  `Usage : nodefony ai:mcp [--url <origine>] [--dry-run] [--json] [--cwd <path>]\n` +
-  `  Déclare le serveur MCP de cette application dans ${MCP_CONFIG_FILE}.\n`;
+  `Usage : nodefony ai:mcp [--auth] [--url <origine>] [--dry-run] [--json] [--cwd <path>]\n` +
+  `  Déclare le serveur MCP de cette application dans ${MCP_CONFIG_FILE}.\n` +
+  `  --auth : mode authentifié — l'en-tête porte \${${MCP_TOKEN_ENV}} (jamais le jeton lui-même).\n`;
 
 /** Ce que la ligne de commande demande. */
 interface IAiMcpRequest {
   /** Origine forcée (`https://localhost:5152`), ou `null` pour la déduire. */
   url: string | null;
+  /** Mode authentifié : pose l'en-tête `Authorization` sur l'entrée. */
+  auth: boolean;
   dryRun: boolean;
   json: boolean;
   cwd: string;
@@ -68,13 +72,16 @@ export function parseAiMcpArgv(
   const rest = at === -1 ? [] : argv.slice(at + 1);
   const req: IAiMcpRequest = {
     url: null,
+    auth: false,
     dryRun: false,
     json: false,
     cwd: process.cwd(),
   };
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
-    if (word === "--dry-run" || word === "-n") {
+    if (word === "--auth" || word === "-a") {
+      req.auth = true;
+    } else if (word === "--dry-run" || word === "-n") {
       req.dryRun = true;
     } else if (word === "--json" || word === "-j") {
       req.json = true;
@@ -145,6 +152,9 @@ export function runAiMcpCommand(argv: string[]): number {
   const plan = planMcpConfig(
     readMcpConfig(file),
     buildMcpUrl(origin, MCP_PATH),
+    {
+      auth: parsed.auth,
+    },
   );
 
   if (!parsed.dryRun && plan.action !== "inchange") {
