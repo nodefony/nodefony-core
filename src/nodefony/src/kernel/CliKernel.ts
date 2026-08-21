@@ -299,7 +299,7 @@ class CliKernel extends Cli {
     // Standalone pour la même raison que `ai:sync` — la route est servie par un
     // module `policy: "dev"`, donc invisible à un terminal sans `NODE_ENV`.
     if (requested === "ai:mcp") {
-      return process.exit(runAiMcpCommand(process.argv));
+      return process.exit(await runAiMcpCommand(process.argv));
     }
 
     // ─── `git:hooks` : hooks git natifs (core.hooksPath), même famille ────────

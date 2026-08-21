@@ -3,6 +3,10 @@ import CliKernel from "../CliKernel";
 import { runGitHooksCommand } from "../../cli/gitHooks";
 
 const options: OptionsCommandInterface = {
+  // Lancée depuis le menu, cette commande BOOTE (le fast-path standalone ne
+  // vaut que pour une invocation directe) : sa sortie serait noyée sous le
+  // journal de cycle de vie.
+  quietBoot: true,
   showBanner: false,
   kernelEvent: "onRegister",
 };

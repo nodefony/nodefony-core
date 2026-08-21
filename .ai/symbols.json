@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-21T15:30:03.195Z",
+  "generated": "2026-08-21T15:48:43.905Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 724,
-    "symbols": 3007,
+    "symbols": 3009,
     "classes": 364,
-    "interfaces": 861,
+    "interfaces": 862,
     "types": 383,
     "enums": 4,
-    "functions": 1108,
+    "functions": 1109,
     "constants": 287
   },
   "symbols": {
@@ -649,6 +649,15 @@
       "module": "@nodefony/core",
       "description": "Treeshake commun : les externes sont sans effet de bord (équivalent `no-external`) SAUF `reflect-metadata`, dont le side-effect doit survivre."
     },
+    "IChainedToken": {
+      "name": "IChainedToken",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'il faut lancer pour obtenir le jeton, ou `null` s'il n'y a rien à faire."
+    },
     "parseAiMcpArgv": {
       "name": "parseAiMcpArgv",
       "kind": "function",
@@ -664,6 +673,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Déduit l'origine du serveur de développement. ⚠️ **Le port en clair est préféré au port TLS**, et ce n'est pas une négligence : en développement le certificat est auto-signé, et un client MCP qui l…"
+    },
+    "planTokenChaining": {
+      "name": "planTokenChaining",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Décide s'il faut enchaîner sur `security:token`, et avec quoi. PURE — le `spawn` est de la plomberie, la DÉCISION est ce qui peut être faux. Trois choses ne « suivent » pas toutes seules d'un proce…"
     },
     "readMcpConfig": {
       "name": "readMcpConfig",

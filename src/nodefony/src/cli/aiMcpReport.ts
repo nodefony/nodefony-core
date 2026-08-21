@@ -64,6 +64,17 @@ export interface IMcpConfigPlan {
   url: string;
   /** URL précédente, quand on remplace. */
   previousUrl?: string;
+  /**
+   * `true` quand l'entrée précédente portait un en-tête d'autorisation que
+   * celle-ci n'a plus.
+   *
+   * 🔴 Sans cela, `nodefony ai:mcp` sans `--auth` RETIRAIT l'authentification
+   * configurée la veille en annonçant « remplaçait <la même URL> » — un
+   * remplacement qui ne remplace rien de visible, et une porte qui redevient
+   * anonyme sans que personne l'ait demandé. Une configuration qu'on enlève se
+   * NOMME.
+   */
+  authRetiree?: boolean;
   /** `true` si l'entrée écrite porte l'en-tête d'autorisation. */
   auth?: boolean;
 }
@@ -106,7 +117,20 @@ export function planMcpConfig(
     : { mcpServers: {} };
 
   const previous = base.mcpServers[MCP_SERVER_KEY];
-  const auth = options.auth === true;
+  // 🔴 Le mode d'autorisation se CONSERVE par défaut.
+  //
+  // Il était réinitialisé : relancer `ai:mcp` pour rafraîchir une URL retirait
+  // l'en-tête posé la veille, et la porte redevenait anonyme. Constaté deux
+  // fois en une heure, dont une par la commande la plus anodine qui soit
+  // (`--json`, qui ne prétend même pas modifier un réglage). Une commande de
+  // déclaration ne DÉSARME pas ce qu'elle trouve : le retrait se demande
+  // (`--no-auth`).
+  const auth =
+    options.auth === true
+      ? true
+      : options.auth === false
+        ? false
+        : Boolean(previous?.headers?.Authorization);
   const entry: IMcpServerEntry = auth
     ? {
         type: "http",
@@ -116,6 +140,8 @@ export function planMcpConfig(
     : { type: "http", url };
   base.mcpServers[MCP_SERVER_KEY] = entry;
 
+  const authRetiree =
+    Boolean(previous?.headers?.Authorization) && !entry.headers?.Authorization;
   if (!previous) {
     return { action: "pose", document: base, url, auth };
   }
@@ -133,6 +159,7 @@ export function planMcpConfig(
     url,
     auth,
     previousUrl: previous.url,
+    ...(authRetiree ? { authRetiree: true } : {}),
   };
 }
 
@@ -177,8 +204,16 @@ export function renderMcpPlan(
       : `${file} — ${verbe}`,
     `  serveur « ${MCP_SERVER_KEY} » → ${plan.url}`,
   ];
-  if (plan.previousUrl) {
+  if (plan.previousUrl && plan.previousUrl !== plan.url) {
     lignes.push(`  (remplaçait ${plan.previousUrl})`);
+  }
+  if (plan.authRetiree) {
+    // Le seul changement peut être l'en-tête : le taire ferait passer une
+    // dé-authentification pour un rafraîchissement anodin.
+    lignes.push(
+      `  ⚠ l'en-tête Authorization a été RETIRÉ — la porte est redevenue anonyme.`,
+      `    (le remettre : nodefony ai:mcp --auth)`,
+    );
   }
   lignes.push(
     "",

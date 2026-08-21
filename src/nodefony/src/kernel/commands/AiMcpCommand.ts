@@ -5,6 +5,11 @@ import { runAiMcpCommand } from "../../cli/aiMcp";
 const options: OptionsCommandInterface = {
   showBanner: false,
   kernelEvent: "onRegister",
+  // 🔴 Le fast-path standalone ne s'applique QU'À une invocation directe :
+  // lancée depuis le menu, le kernel tourne déjà, la commande passe par
+  // commander et BOOTE. Sa sortie arrivait alors sous dix lignes de
+  // « MODULE ADD » — pour écrire un fichier de trois lignes.
+  quietBoot: true,
 };
 
 /**
@@ -37,6 +42,10 @@ class AiMcp extends Command {
       "Mode authentifié : l'en-tête porte ${NF_MCP_TOKEN}, jamais le jeton",
     );
     this.addOption(
+      "--no-auth",
+      "Retire l'en-tête d'autorisation (sans option, le mode en place est CONSERVÉ)",
+    );
+    this.addOption(
       "--url <origine>",
       "Origine forcée (ex. https://localhost:5152)",
     );
@@ -50,6 +59,7 @@ class AiMcp extends Command {
 
   override async generate(opts?: {
     auth?: boolean;
+    noAuth?: boolean;
     url?: string;
     dryRun?: boolean;
     json?: boolean;
@@ -57,11 +67,12 @@ class AiMcp extends Command {
   }): Promise<this> {
     const argv = ["node", "nodefony", "ai:mcp"];
     if (opts?.auth) argv.push("--auth");
+    if (opts?.noAuth) argv.push("--no-auth");
     if (opts?.url) argv.push("--url", opts.url);
     if (opts?.dryRun) argv.push("--dry-run");
     if (opts?.json) argv.push("--json");
     if (opts?.cwd) argv.push("--cwd", opts.cwd);
-    await this.terminate(runAiMcpCommand(argv));
+    await this.terminate(await runAiMcpCommand(argv));
     return this;
   }
 }

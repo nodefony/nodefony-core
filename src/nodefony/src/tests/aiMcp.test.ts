@@ -6,7 +6,7 @@ import {
   MCP_SERVER_KEY,
   type IMcpConfigDocument,
 } from "../cli/aiMcpReport";
-import { parseAiMcpArgv } from "../cli/aiMcp";
+import { parseAiMcpArgv, planTokenChaining } from "../cli/aiMcp";
 
 /**
  * Ce que cette suite garde : `ai:mcp` écrit dans un fichier que le projet
@@ -139,11 +139,16 @@ describe("ai:mcp — la ligne de commande", () => {
  * d'intégration. Une capacité qu'on n'atteint pas n'existe pas.
  */
 describe("ai:mcp — le mode AUTHENTIFIÉ", () => {
-  it("--auth est accepté, et absent par défaut", () => {
-    const parsed = parseAiMcpArgv(["node", "nodefony", "ai:mcp"]);
-    expect("error" in parsed ? null : parsed.auth).toBe(false);
+  it("--auth / --no-auth se disent ; sans eux, AUCUNE décision", () => {
+    // `null` et non `false` : « je n'ai rien demandé » n'est pas « je veux
+    // l'anonyme ». C'est cette distinction qui empêche un rafraîchissement de
+    // désarmer une porte authentifiée.
+    const nu = parseAiMcpArgv(["node", "nodefony", "ai:mcp"]);
+    expect("error" in nu ? "erreur" : nu.auth).toBe(null);
     const avec = parseAiMcpArgv(["node", "nodefony", "ai:mcp", "--auth"]);
-    expect("error" in avec ? null : avec.auth).toBe(true);
+    expect("error" in avec ? "erreur" : avec.auth).toBe(true);
+    const sans = parseAiMcpArgv(["node", "nodefony", "ai:mcp", "--no-auth"]);
+    expect("error" in sans ? "erreur" : sans.auth).toBe(false);
   });
 
   it("🔴 l'en-tête référence une VARIABLE, le jeton n'est jamais écrit au disque", () => {
@@ -160,7 +165,27 @@ describe("ai:mcp — le mode AUTHENTIFIÉ", () => {
     expect(texte).not.toMatch(/eyJ|Bearer [A-Za-z0-9._-]{20,}/u);
   });
 
-  it("sans --auth, aucun en-tête n'est posé — et un en-tête existant est RETIRÉ", () => {
+  it("🔴 sans option, le mode en place est CONSERVÉ — jamais désarmé au passage", () => {
+    // Constaté deux fois en une heure : relancer `ai:mcp` pour rafraîchir une
+    // URL retirait l'en-tête posé la veille, et la porte redevenait anonyme.
+    // Une commande de DÉCLARATION ne désarme pas ce qu'elle trouve.
+    const existing: IMcpConfigDocument = {
+      mcpServers: {
+        [MCP_SERVER_KEY]: {
+          type: "http",
+          url: "http://localhost:5151/nodefony/mcp",
+          headers: { Authorization: "Bearer ${NF_MCP_TOKEN}" },
+        },
+      },
+    };
+    const plan = planMcpConfig(existing, "http://localhost:5151/nodefony/mcp");
+    expect(
+      plan.document.mcpServers[MCP_SERVER_KEY].headers?.Authorization,
+    ).toBe("Bearer ${NF_MCP_TOKEN}");
+    expect(plan.action).toBe("inchange");
+  });
+
+  it("le retrait se DEMANDE (--no-auth), et il est ANNONCÉ", () => {
     const existing: IMcpConfigDocument = {
       mcpServers: {
         [MCP_SERVER_KEY]: {
@@ -190,5 +215,87 @@ describe("ai:mcp — le mode AUTHENTIFIÉ", () => {
     // ment le jour où ce module la déplace.
     expect(texte).toContain("/.well-known/oauth-protected-resource");
     expect(texte).toContain("NF_MCP_TOKEN");
+  });
+});
+
+/**
+ * L'ENCHAÎNEMENT de commandes — `ai:mcp` appelle `security:token`.
+ *
+ * Le `spawn` lui-même est de la plomberie Node ; ce qui peut être FAUX, c'est
+ * la décision : quand enchaîner, et avec quoi. Trois choses ne suivent pas
+ * toutes seules d'un process à l'autre — l'environnement, le répertoire, le
+ * terminal — et chacune a déjà produit un échec quand elle manquait.
+ */
+describe("ai:mcp — l'enchaînement vers security:token", () => {
+  const contexte = { projectRoot: "/projets/mon-app", isTTY: true };
+
+  it("enchaîne quand l'en-tête est posé et qu'un terminal répond", () => {
+    const plan = planTokenChaining(
+      { auth: true, dryRun: false, json: false },
+      contexte,
+    );
+    expect(plan?.argv).toEqual(["security:token", "--write"]);
+  });
+
+  it("🔴 NODE_ENV=development est POSÉ — la porte MCP est servie par un module de dev", () => {
+    // Sans lui, l'enfant repart en production, où ce module n'existe pas :
+    // l'émission échoue sur « audience non servie » — l'erreur exacte qu'on
+    // veut épargner à l'utilisateur.
+    const plan = planTokenChaining(
+      { auth: true, dryRun: false, json: false },
+      { ...contexte, env: { PATH: "/usr/bin", NODE_ENV: "production" } },
+    );
+    expect(plan?.env.NODE_ENV).toBe("development");
+    // Et le reste de l'environnement est HÉRITÉ : un sous-process ne reçoit que
+    // ce qu'on lui donne. Sans le report, il partirait sans PATH.
+    expect(plan?.env.PATH).toBe("/usr/bin");
+  });
+
+  it("🔴 le répertoire est celui du PROJET, pas celui de l'appelant", () => {
+    // Le jeton s'écrit dans le `.env.local` du projet. Lancée depuis un
+    // sous-dossier, la commande écrirait sinon à côté — et l'application ne
+    // lirait jamais la valeur.
+    const plan = planTokenChaining(
+      { auth: true, dryRun: false, json: false },
+      contexte,
+    );
+    expect(plan?.cwd).toBe("/projets/mon-app");
+  });
+
+  it("n'enchaîne PAS quand rien ne le justifie", () => {
+    const cas: Array<
+      [string, Parameters<typeof planTokenChaining>[0], boolean]
+    > = [
+      [
+        "mode anonyme — aucun jeton à obtenir",
+        { auth: false, dryRun: false, json: false },
+        true,
+      ],
+      [
+        "aucune décision d'autorisation",
+        { auth: null, dryRun: false, json: false },
+        true,
+      ],
+      [
+        "--dry-run ne produit RIEN",
+        { auth: true, dryRun: true, json: false },
+        true,
+      ],
+      [
+        "--json part vers un script, une question le romprait",
+        { auth: true, dryRun: false, json: true },
+        true,
+      ],
+      [
+        "hors terminal : l'enfant ne pourrait rien demander",
+        { auth: true, dryRun: false, json: false },
+        false,
+      ],
+    ];
+    for (const [pourquoi, demande, isTTY] of cas) {
+      expect(planTokenChaining(demande, { ...contexte, isTTY }), pourquoi).toBe(
+        null,
+      );
+    }
   });
 });
