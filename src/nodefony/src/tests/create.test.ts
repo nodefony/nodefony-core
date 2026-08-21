@@ -535,6 +535,71 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  describe(".prettierrc + CI générée (le filet complet vit en forge)", () => {
+    it("🔴 l'app naît avec .prettierrc.json et un workflow CI qui joue verify + e2e", () => {
+      const dest = path.join(tmp, "ci-sqlite");
+      scaffold(dest, { name: "cisqlite" });
+      // `format` tournait sur les défauts prettier : un style non écrit.
+      assert.include(
+        readFileSync(path.join(dest, ".prettierrc.json"), "utf8"),
+        '"printWidth"',
+      );
+      const ci = readFileSync(
+        path.join(dest, ".github", "workflows", "ci.yml"),
+        "utf8",
+      );
+      assert.include(ci, "npm run verify");
+      assert.include(ci, "npm run test:e2e");
+      // Le YAML garde sa STRUCTURE : le piège eta « tag en fin de ligne avale
+      // le saut de ligne » recollerait `steps:` au bloc précédent — un yml qui
+      // parse encore, et un job qui n'a plus d'étapes.
+      assert.match(ci, /\n {4}steps:\n/u);
+      // sqlite : aucun service container — l'app démarre sans rien.
+      assert.notInclude(ci, "services:");
+      // Les DEUX forges sont servies (préférence logiciel libre : GitLab par
+      // défaut aussi) — le fichier de l'autre forge est simplement inerte.
+      const gitlab = readFileSync(path.join(dest, ".gitlab-ci.yml"), "utf8");
+      assert.include(gitlab, "npm run verify");
+      assert.include(gitlab, "npm run test:e2e");
+      assert.notInclude(gitlab, "services:");
+      assertNoEtaResidue(dest);
+    });
+
+    it("base SQL retenue : le service container CI porte la MÊME image que le compose", () => {
+      const dest = path.join(tmp, "ci-pg");
+      scaffold(dest, { name: "cipg", database: "postgres" });
+      const ci = readFileSync(
+        path.join(dest, ".github", "workflows", "ci.yml"),
+        "utf8",
+      );
+      assert.match(ci, /\n {4}services:\n {6}postgres:\n/u);
+      assert.include(ci, "POSTGRES_USER: cipg");
+      assert.include(ci, "pg_isready -U cipg");
+      // Anti-dérive PROUVÉE sur les rendus, pas sur le catalogue : la même
+      // image dans les deux fichiers, extraite de chacun.
+      const imageDe = (texte: string, motif: RegExp): string =>
+        motif.exec(texte)?.[1] ?? "(absente)";
+      const imageCi = imageDe(ci, /image: (\S+)/u);
+      const imageCompose = imageDe(
+        readFileSync(path.join(dest, "compose.yaml"), "utf8"),
+        /postgres:\n {4}image: (\S+)/u,
+      );
+      assert.equal(imageCi, imageCompose);
+      assert.notEqual(imageCi, "(absente)");
+      // GitLab : le service se joint par son ALIAS, jamais par 127.0.0.1 (le
+      // service tourne dans un autre conteneur) — la variable du job PRIME sur
+      // le `.env`, c'est la cascade documentée (le shell gagne toujours).
+      const gitlab = readFileSync(path.join(dest, ".gitlab-ci.yml"), "utf8");
+      assert.equal(imageDe(gitlab, /name: (\S+)/u), imageCompose);
+      assert.include(
+        gitlab,
+        'NF_DATABASE_URL: "postgres://cipg:cipg-dev@postgres:5432/cipg"',
+      );
+      assert.notInclude(gitlab, "127.0.0.1");
+      assertNoEtaResidue(dest);
+    });
+  });
+
   describe("base SQL retenue à la création (compose ↔ .env ↔ README)", () => {
     /**
      * Ce que ces contrôles tiennent : le générateur CONNAÎT le dialecte, donc

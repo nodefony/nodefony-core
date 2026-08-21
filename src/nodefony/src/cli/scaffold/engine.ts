@@ -108,8 +108,19 @@ const RENAMES: Record<string, string> = {
   gitignore: ".gitignore",
   dockerignore: ".dockerignore",
   "oxlintrc.json": ".oxlintrc.json",
+  "prettierrc.json": ".prettierrc.json",
+  "gitlab-ci.yml": ".gitlab-ci.yml",
   env: ".env",
   "env.local": ".env.local",
+};
+
+/**
+ * Répertoires renommés au rendu — même raison que `RENAMES` (npm strip aussi
+ * les DOSSIERS pointés publiés : un `templates/…/.github/` n'arriverait jamais
+ * chez l'installeur). Seul le PREMIER segment du chemin relatif est mappé.
+ */
+const DIR_RENAMES: Record<string, string> = {
+  github: ".github",
 };
 
 /**
@@ -216,6 +227,12 @@ export const DATABASE_PARAMS: Record<
     scheme: string;
     /** Port publié sur 127.0.0.1 (l'app tourne sur l'hôte). */
     port: number;
+    /**
+     * Image docker — SOURCE UNIQUE : consommée par `compose.yaml.tpl` ET par
+     * le `ci.yml.tpl` (service container GitHub). Écrite en dur dans chacun,
+     * elle divergerait au premier bump sans qu'aucun des deux ne le dise.
+     */
+    image: string;
   }
 > = {
   postgres: {
@@ -223,14 +240,22 @@ export const DATABASE_PARAMS: Record<
     label: "PostgreSQL 16",
     scheme: "postgres",
     port: 5432,
+    image: "postgres:16-alpine",
   },
   mariadb: {
     service: "mariadb",
     label: "MariaDB 11.4",
     scheme: "mysql",
     port: 3306,
+    image: "mariadb:11.4",
   },
-  mysql: { service: "mysql", label: "MySQL 8.4", scheme: "mysql", port: 3306 },
+  mysql: {
+    service: "mysql",
+    label: "MySQL 8.4",
+    scheme: "mysql",
+    port: 3306,
+    image: "mysql:8.4",
+  },
 };
 
 /**
@@ -440,7 +465,12 @@ function renderLayer(
       continue;
     }
     const abs = path.join(entry.parentPath, entry.name);
-    const relDir = path.relative(srcDir, entry.parentPath);
+    let relDir = path.relative(srcDir, entry.parentPath);
+    const segments = relDir.split(path.sep);
+    const mapped = segments[0] !== undefined && DIR_RENAMES[segments[0]];
+    if (mapped) {
+      relDir = path.join(mapped, ...segments.slice(1));
+    }
     const base = entry.name.replace(/\.tpl$/u, "");
     let rel = path.join(relDir, RENAMES[base] ?? base);
     for (const [token, value] of Object.entries(tokens ?? {})) {

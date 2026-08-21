@@ -72,7 +72,7 @@ services:
   # Pas de `profiles:` : ce service n'est pas une option, c'est la base que
   # `NF_DATABASE_URL` joint. `docker compose up -d` le monte avec Redis.
   postgres:
-    image: postgres:16-alpine
+    image: <%= it.db.image %>
     container_name: <%= it.appName %>-postgres
     restart: unless-stopped
     networks: [<%= it.appName %>]
@@ -99,7 +99,7 @@ services:
   # Pas de `profiles:` : ce service n'est pas une option, c'est la base que
   # `NF_DATABASE_URL` joint. `docker compose up -d` le monte avec Redis.
   mariadb:
-    image: mariadb:11.4
+    image: <%= it.db.image %>
     container_name: <%= it.appName %>-mariadb
     restart: unless-stopped
     networks: [<%= it.appName %>]
@@ -124,7 +124,7 @@ services:
   # Pas de `profiles:` : ce service n'est pas une option, c'est la base que
   # `NF_DATABASE_URL` joint. `docker compose up -d` le monte avec Redis.
   mysql:
-    image: mysql:8.4
+    image: <%= it.db.image %>
     container_name: <%= it.appName %>-mysql
     restart: unless-stopped
     networks: [<%= it.appName %>]
