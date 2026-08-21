@@ -125,6 +125,8 @@ import {
   lireReference,
   NON_JUGEABLE,
   verdictAgrege,
+  medianeTours,
+  deriveTours,
 } from "./lib/reference.mjs";
 
 /**
@@ -1386,9 +1388,20 @@ export const TASKS = [
         cmd: [
           "sh",
           "-c",
-          `node ${JSON.stringify(BIN)} inspect routes --json > .nf-routes.json 2>/dev/null; node -e ` +
+          // 🔴 `NODE_ENV=development` N'EST PAS UN DÉTAIL : le nombre de routes
+          // DÉPEND du mode, les modules `policy:"dev"` n'étant pas chargés en
+          // production. L'app que l'agent interroge est démarrée en développement
+          // par `prepare` ; ce gate bootait un kernel à froid, donc en production,
+          // et comparait deux chiffres qui n'ont jamais parlé de la même
+          // application. Mesuré : 142 pour l'agent, 119 pour le gate — un FAIL
+          // parfaitement crédible sur un rapport JUSTE.
+          `NODE_ENV=development node ${JSON.stringify(BIN)} inspect routes --json > .nf-routes.json 2>/dev/null; node -e ` +
             `"const fs=require('node:fs');` +
-            `const n=JSON.parse(fs.readFileSync('.nf-routes.json','utf8')).length;` +
+            // Un JSON illisible se DIT : sans cette garde, une sortie vide ou
+            // tronquée faisait tomber le gate sur une exception que personne ne
+            // lisait, et le rouge était imputé à l'agent.
+            `let n;try{n=JSON.parse(fs.readFileSync('.nf-routes.json','utf8')).length}` +
+            `catch(e){console.error('inspect routes illisible : '+e.message);process.exit(1)}` +
             `const a=fs.existsSync('AUDIT.md')?fs.readFileSync('AUDIT.md','utf8'):'';` +
             `if(!a){console.error('AUDIT.md absent');process.exit(1)}` +
             `if(!new RegExp('\\\\\\\\b'+n+'\\\\\\\\b').test(a)){` +
@@ -2009,7 +2022,9 @@ export const TASKS = [
             // Le juge DEMANDE ses routes sûres à l'application au lieu de
             // présumer d'où vient le jeton : un agent peut le distribuer par
             // une route dédiée, et c'est une réponse juste (vécu au 1ᵉʳ run).
-            `npx --no-install nodefony inspect routes --json > .nf-routes.json 2>/dev/null; ` +
+            // Même raison qu'au gate du nombre de routes : l'app tourne en
+            // développement, un `inspect` à froid répondrait pour la production.
+            `NODE_ENV=development npx --no-install nodefony inspect routes --json > .nf-routes.json 2>/dev/null; ` +
             `node ${JUGE_SESSION}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
@@ -4330,6 +4345,33 @@ function restituerDepistage(bilan, invocation) {
     "✍️ ",
     "ÉNONCÉ RÉÉCRIT depuis la référence — non comparables",
   );
+  // Le verdict n'a PAS bougé, l'effort si. C'est le seul canal où un progrès de
+  // guidage se lit sans repayer trois runs : une tâche que l'agent réussit
+  // désormais en 53 tours au lieu de 88 a changé, et le binaire ne le dira
+  // jamais. Ces lignes ne demandent rien — elles montrent.
+  const derives = (l, icone, quoi) => {
+    if (!l.length) return;
+    console.log(
+      `  ${icone} ${quoi} : ` +
+        l
+          .map(
+            (r) =>
+              `T${r.id} ${r.reference.tours}→${r.tours} tours ` +
+              `(${r.derive.ecart > 0 ? "+" : ""}${Math.round(r.derive.ecart * 100)} %)`,
+          )
+          .join(", "),
+    );
+  };
+  derives(
+    bilan.allegees ?? [],
+    "⚡",
+    "ALLÉGÉES — même verdict, moins de tours",
+  );
+  derives(
+    bilan.alourdies ?? [],
+    "🐢",
+    "ALOURDIES — même verdict, PLUS de tours (guidage perdu ?)",
+  );
   // Une tâche sans référence, mais déjà mesurée trois fois, n'a rien à rejouer —
   // elle a quelque chose à ENREGISTRER. Dire « rien à rejouer » sans le préciser
   // laisserait croire que la référence est complète.
@@ -4490,9 +4532,15 @@ function main() {
     // Une tâche sans run jugeable n'entre NI dans le rapport NI dans la
     // référence : mieux vaut un trou qu'un verdict qu'aucun run n'a établi.
     if (agrege.verdict === "NON JUGEABLE") continue;
+    // `passes.at(-1)` garde les sondes du DERNIER run — c'est voulu pour le
+    // détail. Mais son `effort` ne vaut que pour lui : sur trois runs de la
+    // tâche 13, 52 · 54 · 88 tours, le dernier seul dirait 88 et raconterait
+    // une tâche deux fois plus lourde qu'elle n'est. Les tours s'agrègent donc
+    // à part, par la MÉDIANE.
     results.push({
       ...passes.at(-1),
       ...agrege,
+      tours: medianeTours(passes.map((p) => p.effort)),
       name: t.name,
       id: t.id,
       empreinte: empreinteTache(t),
