@@ -20,6 +20,60 @@
 
 ---
 
+## 🔍 Une SONDE trop large invente des défauts — et fait corriger ce qui va bien
+
+- **Trois fois dans la même journée.** (1) Un test comparant options acceptées et publiées lisait
+  tous les littéraux `"--x"` d'un fichier : il a accusé `git:hooks` de cacher `--get` et
+  `--show-toplevel`, qui sont des arguments passés à **git**. (2) Un test du gabarit de commande
+  cherchait `stdio: "inherit"` n'importe où dans le rendu : le **commentaire** qui met en garde
+  contre `this.log` le satisfaisait. (3) Le même, version silencieuse : deux occurrences existaient
+  (exemple + prose), en retirer une laissait le test **vert** — il gardait la mauvaise. Écrire la
+  sonde sur ce qui AGIT (une comparaison à un mot de la ligne de commande, le bloc d'exemple), pas
+  sur la présence d'une chaîne. `[1× — 08-21e]`
+- **Une preuve manquée compte double** : mon `grep -c "MODULE ADD"` a rendu `0` et j'ai conclu au
+  succès — la commande n'avait simplement jamais tourné (le filtre du pty avait raté). Un zéro peut
+  être un faux négatif : vérifier que la CHOSE a eu lieu avant de lire son résultat. `[1× — 08-21e]`
+
+## 🎭 Un test de CARACTÉRISATION grave un défaut au lieu de le décrire
+
+- « initSyslog 2x avec kernel → 2 listeners (**pas de deduplication**) » — aucune justification, un
+  simple constat figé. Il gardait un vrai bug : `listenWithConditions` AJOUTE un abonné, donc
+  reconfigurer le filtre ne servait à rien (l'ancien écrivait toujours) et chaque ligne acceptée par
+  plusieurs abonnés était écrite plusieurs fois. Signal à reconnaître : un intitulé qui **décrit un
+  comportement sans dire pourquoi il serait souhaitable**. `[1× — 08-21e]`
+
+## 🚪 Un fast-path standalone ne vaut QUE pour l'invocation directe
+
+- `card`, `check`, `env`, `symbols`, `ai:sync`, `ai:mcp`, `git:hooks` : lancées depuis le MENU, le
+  kernel tourne déjà, elles passent par commander et **BOOTENT** — leur sortie arrivait sous dix à
+  trente lignes de « MODULE ADD ». Même piège pour les capacités déclarées : `CliKernel.start()` les
+  applique d'après la commande DEMANDÉE, or depuis le menu c'est `menu`. Toute règle posée « au
+  démarrage d'après argv » a un angle mort : le choix différé. `[1× — 08-21e]`
+
+## 🧨 Une commande de DÉCLARATION ne doit jamais désarmer ce qu'elle trouve
+
+- `ai:mcp` sans option RETIRAIT l'en-tête `Authorization` posé la veille — deux fois en une heure sur
+  la config du développeur, dont une par un `--json` de simple vérification. Le message disait
+  « (remplaçait <la MÊME url>) » : un remplacement qui ne remplace rien de visible. Deux règles :
+  **`null` ≠ `false`** (« je n'ai rien demandé » n'est pas « je veux l'anonyme »), et **ce qu'on
+  enlève se NOMME** dans la sortie. `[1× — 08-21e]`
+
+## 🧵 Trois choses ne suivent PAS d'un process à l'autre — enchaîner se teste
+
+- Enchaîner une commande sur une autre (`spawnSync`) : l'ENVIRONNEMENT (un enfant ne reçoit que ce
+  qu'on lui donne — et `NODE_ENV` si la cible n'existe qu'en dev), le RÉPERTOIRE (écrire dans le
+  PROJET, pas là où l'on a tapé), le TERMINAL (`stdio: "inherit"`, sinon `isTTY` est faux chez
+  l'enfant et il ne peut rien demander). Rendre la DÉCISION pure et la tester ; le spawn est de la
+  plomberie. Le gabarit `create command` l'enseigne désormais. `[1× — 08-21e]`
+
+## 🖥️ Piloter un TTY par `expect` prouve mal — préférer rendre le câblage testable
+
+- Cinq tentatives pour valider un choix de menu : filtres qui ne mordent pas, `\r` qui valide le
+  premier item, prompt masqué impilotable, serveur de dev lancé par erreur **deux fois** (qu'il a
+  fallu arrêter). Le prompt `search` d'inquirer ne se pilote pas de façon fiable. Quand un câblage a
+  échoué en silence, l'exposer (méthode publique) et l'ÉPROUVER coûte moins cher qu'un pty.
+  `[1× — 08-21e]`
+
 ## 💾 Un CACHE à demi écrit est pire qu'un cache absent — il écrase une donnée valide
 
 - `[1× — 08-21d]` 🔴 **Trois symptômes sans rapport apparent, une seule racine : un `writeFile` en
