@@ -46,6 +46,9 @@
   "bin": {
     "nodefony": "bin/nodefony"
   },
+  "man": [
+    "./man/nodefony.1"
+  ],
   "keywords": [
     "nodefony",
     "node-js",
@@ -135,6 +138,7 @@
     "bin",
     "docs",
     "templates",
-    ".ai"
+    ".ai",
+    "man"
   ]
 }

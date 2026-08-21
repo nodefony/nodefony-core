@@ -1,0 +1,152 @@
+.TH NODEFONY 1 "" "nodefony 10.0.0" "Nodefony Manual"
+.SH NAME
+nodefony \- framework fullstack Node.js : HTTP, WebSocket, ORM, agents
+.SH SYNOPSIS
+.B nodefony
+[\fICOMMANDE\fR] [\fIOPTIONS\fR]
+.br
+.B nodefony
+\fB\-\-help\fR | \fB\-\-version\fR
+.SH DESCRIPTION
+Interface en ligne de commande de Nodefony : elle lance l'application
+(développement, production, cluster), la construit, l'inspecte et la
+diagnostique, et engendre du code conforme au framework.
+.PP
+Lancée sans argument dans un terminal interactif, elle ouvre un menu des
+gestes utiles ici. Hors terminal, elle affiche l'aide.
+.PP
+\fBCette page ne liste que les commandes du FRAMEWORK.\fR Une application en
+ajoute par ses modules \- par exemple \fBhttp:network\fR, \fBfrontend:build\fR
+ou \fBsecurity:user:add\fR \- et celles\-ci dépendent du projet dans lequel
+la commande est lancée. Pour la liste RÉELLE, dans le projet courant :
+.PP
+.RS 4
+.B nodefony \-\-help
+.RE
+.SH COMMANDS
+.TP
+.B ai:mcp
+Déclare le serveur MCP de cette application à ton agent (.mcp.json)
+.TP
+.B ai:sync
+Pointeurs vers les skills d'agent des paquets installés (.agents/skills +
+miroir .claude/skills)
+.TP
+.B build, compile
+Compile modules puis application (turbo + rolldown) vers dist/
+.TP
+.B card, devkit:card
+Carte de visite de l'application : où aller, quoi lancer
+.TP
+.B check, doctor
+Diagnostic statique du projet : câblage, dépendances, bilan du dernier
+démarrage
+.TP
+.B cluster
+Serveur en cluster : N workers isolés (cgroup\-aware, respawn, arrêt
+gracieux)
+.TP
+.B completion
+Complétion shell : script à sourcer (bash | zsh | fish)
+.TP
+.B create
+Génère app, module, entité… (app | module | controller | service | front
+| entity | command)
+.TP
+.B development, dev
+Serveur de développement : rechargement auto du backend, HMR du front
+.TP
+.B env
+Variables d'environnement : cascade des .env, valeurs effectives et provenance
+.TP
+.B git:hooks
+Hooks git natifs (core.hooksPath) : typecheck+lint au commit, verify au push
+.TP
+.B inspect
+Inspecte l'état réel de l'app (routes, modules, services, config…) —
+sans serveur
+.TP
+.B install
+Installe les dépendances puis construit le projet
+.TP
+.B menu
+Menu interactif : les commandes utiles ici, expliquées
+.TP
+.B outdated
+Liste les dépendances du projet en retard, agrégées par paquet
+.TP
+.B production, prod, start
+Serveur de production : premier plan, cloud\-native (topologie via
+\-\-workers)
+.TP
+.B status
+Montre les runtimes Nodefony actifs (superviseur, serveurs, Vite) et leurs
+ports
+.TP
+.B stop
+Arrête proprement les runtimes Nodefony actifs (dev, prod, cluster)
+.TP
+.B symbols
+Graphe symbolique : définition, description et parenté d'un symbole
+.SH OPTIONS
+Options acceptées par toutes les commandes. Chaque commande porte en plus les
+siennes, que \fBnodefony \fI<commande>\fB \-\-help\fR détaille.
+.TP
+.B \-i
+.TP
+.B \-\-interactive
+.TP
+.B \-d
+.TP
+.B \-\-debug
+.TP
+.B \-v
+.TP
+.B \-\-version
+.SH ENVIRONMENT
+.TP
+.B NODE_ENV
+Mode d'exécution (development | production). Posé par l'orchestrateur, il
+PRIME sur l'intention de la commande.
+.TP
+.B APP_ENV
+Environnement de DÉPLOIEMENT, libre (staging, canary, prod\-eu). Axe distinct
+du mode d'exécution.
+.TP
+.B NF_*
+Toute variable lue par Nodefony porte ce préfixe. nodefony env en dresse la
+cascade et la provenance.
+.TP
+.B NF__<MODULE>__<CHEMIN>
+Surcharge une clé de configuration d'un module (double souligné entre les
+niveaux), appliquée avant la validation du schéma.
+.SH FILES
+.TP
+.B nodefony.config.ts
+Configuration de l'application. Sa présence marque la racine du projet.
+.TP
+.B env.ts
+Catalogue des variables d'environnement de l'application.
+.TP
+.B node_modules/.cache/nodefony/cli\-manifest.json
+Cache des commandes, réécrit à chaque commande. Sert la complétion et le
+menu, qui doivent répondre sans démarrer l'application.
+.SH EXAMPLES
+.TP
+.B nodefony create app mon\-app
+Crée une application.
+.TP
+.B nodefony dev
+Démarre en développement, avec redémarrage à chaud.
+.TP
+.B nodefony inspect routes
+Affiche les routes RÉELLEMENT montées, sans ouvrir de port.
+.TP
+.B nodefony check
+Diagnostique le projet, même s'il ne démarre plus.
+.SH SEE ALSO
+La documentation complète vit dans le projet (\fBdocs/\fR) et dans la console
+d'administration. \fBnodefony card\fR rend la carte de visite de l'application
+: où aller, quoi lancer.
+.SH AUTHOR
+Christophe CAMENSULI et les contributeurs de Nodefony.

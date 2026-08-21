@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-21T12:26:52.334Z",
+  "generated": "2026-08-21T12:40:16.640Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 719,
-    "symbols": 2994,
+    "files": 720,
+    "symbols": 3000,
     "classes": 361,
     "interfaces": 861,
     "types": 383,
     "enums": 4,
-    "functions": 1100,
-    "constants": 285
+    "functions": 1105,
+    "constants": 286
   },
   "symbols": {
     "Cli": {
@@ -1384,6 +1384,30 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Les hooks que la commande sait poser, dans l'ordre d'affichage."
+    },
+    "escapeRoff": {
+      "name": "escapeRoff",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/manPage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Échappe une chaîne pour roff. Trois pièges, tous silencieux — ils ne produisent pas d'erreur, seulement une page mal rendue : la contre-oblique introduit les séquences roff, le tiret nu devient un …"
+    },
+    "renderManPage": {
+      "name": "renderManPage",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/manPage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend la page de manuel complète, en roff."
+    },
+    "MAN_PAGE_NAME": {
+      "name": "MAN_PAGE_NAME",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/manPage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom de la page, section 1 (commandes utilisateur)."
     },
     "INpmOutdatedEntry": {
       "name": "INpmOutdatedEntry",
@@ -23777,6 +23801,13 @@
       "IGitHooksPlan": [
         "src/nodefony/src/cli/gitHooks.ts"
       ],
+      "ICliManifest": [
+        "src/nodefony/src/cli/manPage.ts",
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "ICliManifestCommand": [
+        "src/nodefony/src/cli/manPage.ts"
+      ],
       "IRealtimeSocket": [
         "src/nodefony/src/client/IClientKernel.ts",
         "src/nodefony/src/client/realtime/AdaptiveRate.ts",
@@ -24089,9 +24120,6 @@
         "src/nodefony/src/kernel/commands/CompletionCommand.ts"
       ],
       "runCompleteQuery": [
-        "src/nodefony/src/kernel/CliKernel.ts"
-      ],
-      "ICliManifest": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Completion": [
