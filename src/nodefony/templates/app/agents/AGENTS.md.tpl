@@ -91,7 +91,7 @@ La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le do
 | Tâche | Doc |
 | --- | --- |
 | **Quel module installer pour tel besoin** (et lequel NE PAS installer) | `node_modules/nodefony/docs/catalogue.md` |
-| **Variables d'environnement** : cascade des `.env`, précédence, `NF__` | `node_modules/nodefony/docs/environnement.md` |
+| **Variables d'environnement** : cascade des `.env`, précédence, `NF__`, **et dans quel MODE tourne une commande** | `node_modules/nodefony/docs/environnement.md` |
 | Kernel, cycle de vie, CLI | `node_modules/nodefony/docs/kernel.md` + `cli.md` |
 | Service, DI, container, scopes | `node_modules/nodefony/docs/service.md` |
 | Client isomorphe (navigateur), hooks React | `node_modules/nodefony/docs/client.md` + `react-hooks.md` |
@@ -215,6 +215,20 @@ et il fait foi le jour où les deux divergent.
   le typecheck) ; les hooks React vivent dans `nodefony/react`. Ne réécris
   JAMAIS un client WebSocket/JSON-RPC, ne duplique JAMAIS un type entre front
   et back : un seul contrat, vérifié par le compilateur des deux bouts.
+- **Une commande ne tourne PAS dans le mode du serveur que tu as lancé — DEMANDE-le.**
+  Chaque commande démarre son propre noyau. Sans `NODE_ENV` dans ton shell, elle
+  part en `development` ; avec `NODE_ENV=production`, elle lit une AUTRE
+  configuration et une AUTRE base de données — sans rien dire de plus. Ne le
+  suppose jamais avant d'écrire ou de migrer quoi que ce soit :
+
+  ```bash
+  npx nodefony env              # le mode, et d'où vient chaque variable
+  npx nodefony inspect config   # la configuration EFFECTIVE, et sa provenance
+  ```
+
+  Pour forcer : `NODE_ENV=production npx nodefony <commande>`. La règle complète
+  (absent, posé, valeur non-moteur) est dans
+  `node_modules/nodefony/docs/environnement.md`.
 - **Une initialisation s'ACCROCHE à une phase du démarrage — il n'y a pas de
   `app.use()`.** Nodefony n'est pas un framework à middlewares chaînés : du code
   posé au chargement d'un fichier s'exécute AVANT que la configuration existe, et

@@ -84,6 +84,43 @@ Un `staging` tourne en mode `production` : ce sont deux questions différentes, 
 oblige à choisir entre « optimisé » et « pointe la bonne base ». Le déploiement est **plus
 spécifique** que le mode, donc plus fort dans la cascade.
 
+## Et si `NODE_ENV` n'est pas posé ?
+
+C'est le cas de tous les jours sur une machine de développement — et la réponse n'est pas
+« au hasard ». **Poser `NODE_ENV` est un acte de déploiement ; ne rien poser est l'état d'un
+poste de développement.**
+
+| `NODE_ENV`                                        | Mode retenu       | Pourquoi                                          |
+| ------------------------------------------------- | ----------------- | ------------------------------------------------- |
+| `development` / `dev`                             | **`development`** | déclaré                                           |
+| `production` / `prod`                             | **`production`**  | déclaré                                           |
+| **absent**                                        | **`development`** | personne n'a rien dit → poste de développement    |
+| posé mais autre (`staging`, `canary`, `prod-eu`…) | **`production`**  | un DÉPLOIEMENT est nommé — il tourne comme prod   |
+| chaîne vide                                       | **`production`**  | choix conservateur : « vidée » ≠ « jamais posée » |
+
+Une chaîne vide compte comme posée : on ne distingue pas « vidée par erreur » de « vidée
+exprès », et se tromper vers la production ne coûte qu'une commande utilitaire, là où l'inverse
+exposerait la console d'administration d'un serveur.
+
+**Le défaut ne gouverne jamais un serveur.** `nodefony development`, `nodefony production`
+(alias `start`, `prod`) et `nodefony cluster` posent leur mode eux-mêmes, et il n'existe pas
+d'autre façon d'en démarrer un. Le défaut ne concerne donc que les commandes utilitaires —
+`inspect`, `check`, `env`, `security:*`.
+
+> ⚠️ **Le piège à connaître : une commande utilitaire ne tourne PAS dans le mode du serveur que
+> vous avez lancé.** Chacune démarre son propre noyau. Si votre serveur tourne par
+> `nodefony development` mais que `NODE_ENV` n'est pas dans votre shell, une commande lancée à
+> côté partira bien en `development` — mais le jour où vous exportez `NODE_ENV=production` pour
+> un essai, elle changera de base de données sans rien dire d'autre. **Demandez le mode plutôt
+> que de le supposer :**
+>
+> ```bash
+> npx nodefony env                 # le mode, et d'où vient chaque variable
+> npx nodefony inspect routes      # la dernière ligne indique l'environnement
+> ```
+>
+> Pour forcer explicitement, préfixez la commande : `NODE_ENV=production npx nodefony …`.
+
 ## La cascade — qui gagne
 
 Du **plus fort** au **plus faible**. Le premier niveau qui pose une valeur gagne ; les suivants
