@@ -698,18 +698,23 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       );
       return SysExit.OK;
     }
-    const installed = projectRoot ? runInstall(projectRoot) : false;
-    if (!installed) {
+    const installed = projectRoot !== null && runInstall(projectRoot);
+    if (!installed || projectRoot === null) {
       process.stdout.write(
         `⚠ npm install a échoué — relance-le à la racine de l'app (le module ne sera pas chargeable avant)\n`,
       );
       return SysExit.OK;
     }
-    const built = runBuild(result.dest);
+    // Le build se lance à la RACINE (script chaîné : modules puis app), jamais
+    // dans le seul module : le `use(...)` posé dans `nodefony.config.ts` ne vit
+    // pour le runtime que compilé dans le dist de l'APP. Construit module seul,
+    // `inspect`, les gates et la production ignoraient un module pourtant
+    // annoncé « installé et construit » — mesuré au banc (tâche 28).
+    const built = runBuild(projectRoot);
     process.stdout.write(
       built
-        ? `\n✔ module installé (workspace) et construit — un serveur dev le rechargera au prochain redémarrage\n`
-        : `\n⚠ npm run build a échoué dans ${relDest}/ — corrige puis relance-le\n`,
+        ? `\n✔ module installé (workspace), module et application construits — un serveur dev le rechargera au prochain redémarrage\n`
+        : `\n⚠ npm run build a échoué à la racine — corrige puis relance-le (le runtime charge le dist de l'app)\n`,
     );
     return SysExit.OK;
   }
