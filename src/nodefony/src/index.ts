@@ -716,6 +716,25 @@ export type {
 } from "./cli/aiMcpReport";
 export { runAiMcpCommand, guessOrigin } from "./cli/aiMcp";
 
+// Hooks git natifs — composition PURE (contenu des hooks, plan, refus) et son
+// adaptateur (`nodefony git:hooks`) : core.hooksPath, zéro dépendance.
+export {
+  GIT_HOOKS_DIR,
+  GIT_HOOKS_MARKER,
+  GIT_HOOK_NAMES,
+  renderGitHook,
+  planGitHooks,
+  renderGitHooksPlan,
+} from "./cli/gitHooksReport";
+export type {
+  GitHookName,
+  GitHookAction,
+  HooksPathAction,
+  IPlannedGitHook,
+  IGitHooksPlan,
+} from "./cli/gitHooksReport";
+export { runGitHooksCommand, installGitHooks } from "./cli/gitHooks";
+
 // Diagnostic statique — la COLLECTE, séparée de son rendu, pour que la commande
 // `check` et le serveur MCP du devkit rendent le même document.
 export {

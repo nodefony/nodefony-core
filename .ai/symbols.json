@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-21T03:52:01.817Z",
+  "generated": "2026-08-21T04:33:33.689Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 713,
-    "symbols": 2954,
+    "files": 715,
+    "symbols": 2969,
     "classes": 358,
-    "interfaces": 855,
-    "types": 378,
+    "interfaces": 857,
+    "types": 381,
     "enums": 4,
-    "functions": 1081,
-    "constants": 278
+    "functions": 1088,
+    "constants": 281
   },
   "symbols": {
     "Cli": {
@@ -1247,6 +1247,119 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Construit le rapport d'environnement."
+    },
+    "parseGitHooksArgv": {
+      "name": "parseGitHooksArgv",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/gitHooks.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Analyse les arguments de `git:hooks`."
+    },
+    "installGitHooks": {
+      "name": "installGitHooks",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/gitHooks.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Pose les hooks natifs dans un projet, et rend le plan de ce qui a été fait. Le geste ENTIER — lire, décider, écrire, configurer — en un exemplaire, pour ses appelants présents et futurs (la command…"
+    },
+    "runGitHooksCommand": {
+      "name": "runGitHooksCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/gitHooks.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Commande `nodefony git:hooks` — hooks git natifs (`core.hooksPath`), zéro dépendance. Standalone (0 boot) : elle écrit deux fichiers et une clé de config, et doit répondre dans un terminal qui n'a …"
+    },
+    "IPlannedGitHook": {
+      "name": "IPlannedGitHook",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le geste décidé pour un hook."
+    },
+    "IGitHooksPlan": {
+      "name": "IGitHooksPlan",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le plan complet — hooks ET configuration, jugés ensemble. Un seul refus suffit à tout arrêter : poser la moitié d'un jeu de hooks laisse un état qu'il faut comprendre avant de corriger, alors qu'un…"
+    },
+    "GitHookName": {
+      "name": "GitHookName",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "GitHookAction": {
+      "name": "GitHookAction",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'il faut faire d'un hook, une fois comparé à l'existant."
+    },
+    "HooksPathAction": {
+      "name": "HooksPathAction",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'il faut faire de `core.hooksPath`."
+    },
+    "renderGitHook": {
+      "name": "renderGitHook",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le contenu d'un hook. Sh POSIX strict : sous Windows, git exécute les hooks via le `sh.exe` de Git for Windows — un script simple passe partout, un bashisme non. Le `npx` est nécessaire : un hook g…"
+    },
+    "planGitHooks": {
+      "name": "planGitHooks",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Décide, pour chaque hook et pour `core.hooksPath`, le geste à faire."
+    },
+    "renderGitHooksPlan": {
+      "name": "renderGitHooksPlan",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le plan pour un humain."
+    },
+    "GIT_HOOKS_DIR": {
+      "name": "GIT_HOOKS_DIR",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Composition PURE de `nodefony git:hooks` — hooks git natifs, zéro dépendance. Reçoit un état déjà lu (contenu actuel des hooks, valeur de `core.hooksPath`) et conclut : que poser, que laisser, que …"
+    },
+    "GIT_HOOKS_MARKER": {
+      "name": "GIT_HOOKS_MARKER",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Marqueur d'APPARTENANCE, présent dans chaque hook généré. C'est lui qui sépare « à nous, remplaçable » de « écrit par quelqu'un » : un hook existant qui ne le porte pas n'est JAMAIS écrasé — efface…"
+    },
+    "GIT_HOOK_NAMES": {
+      "name": "GIT_HOOK_NAMES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/gitHooksReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les hooks que la commande sait poser, dans l'ordre d'affichage."
     },
     "INpmOutdatedEntry": {
       "name": "INpmOutdatedEntry",
@@ -23255,6 +23368,7 @@
         "src/nodefony/src/cli/card.ts",
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/env.ts",
+        "src/nodefony/src/cli/gitHooks.ts",
         "src/nodefony/src/cli/symbols.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts",
@@ -23271,6 +23385,7 @@
         "src/nodefony/src/cli/completion.ts",
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/env.ts",
+        "src/nodefony/src/cli/gitHooks.ts",
         "src/nodefony/src/cli/symbols.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
@@ -23450,6 +23565,18 @@
         "src/nodefony/src/cli/envReport.ts",
         "src/nodefony/src/config/defineConfig.ts",
         "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "GIT_HOOKS_DIR": [
+        "src/nodefony/src/cli/gitHooks.ts"
+      ],
+      "planGitHooks": [
+        "src/nodefony/src/cli/gitHooks.ts"
+      ],
+      "renderGitHooksPlan": [
+        "src/nodefony/src/cli/gitHooks.ts"
+      ],
+      "IGitHooksPlan": [
+        "src/nodefony/src/cli/gitHooks.ts"
       ],
       "IRealtimeSocket": [
         "src/nodefony/src/client/IClientKernel.ts",
@@ -23795,6 +23922,9 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "runAiMcpCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "runGitHooksCommand": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "setLogColor": [

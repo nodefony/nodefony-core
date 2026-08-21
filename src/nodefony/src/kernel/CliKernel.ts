@@ -50,6 +50,7 @@ import Symbols from "./commands/SymbolsCommand";
 import { runSymbolsCommand } from "../cli/symbols";
 import { runAiSyncCommand } from "../cli/aiSync";
 import { runAiMcpCommand } from "../cli/aiMcp";
+import { runGitHooksCommand } from "../cli/gitHooks";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import { HelpContext, Command as commanderCommand } from "commander";
@@ -296,6 +297,14 @@ class CliKernel extends Cli {
     // module `policy: "dev"`, donc invisible à un terminal sans `NODE_ENV`.
     if (requested === "ai:mcp") {
       return process.exit(runAiMcpCommand(process.argv));
+    }
+
+    // ─── `git:hooks` : hooks git natifs (core.hooksPath), même famille ────────
+    // Deux fichiers sh + une clé de config, aucun boot — et JAMAIS de
+    // postinstall : la pose de hooks est un choix explicite, pas un effet de
+    // bord d'un `npm install`.
+    if (requested === "git:hooks") {
+      return process.exit(runGitHooksCommand(process.argv));
     }
 
     // ─── Lancement DÉTACHÉ (`<runtime> --detach`) : même famille standalone ────

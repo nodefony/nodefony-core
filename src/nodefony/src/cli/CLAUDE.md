@@ -182,6 +182,7 @@ Filet d'intégration : `CliIntegration.test.ts` (`RUN_CLI_BOOT=1` pour les boots
 | `Inspect`    | —             | `InspectCommand.ts`    | état RÉEL de l'app, `onPostReady` sans serveur (cf § inspect) |
 | `Symbols`    | —             | `SymbolsCommand.ts`    | **standalone** — signature + TSDoc depuis le graphe publié    |
 | `ai:sync`    | —             | `cli/aiSync.ts`        | **standalone** — pointeurs de skills (cf § ai:sync)           |
+| `git:hooks`  | —             | `cli/gitHooks.ts`      | **standalone** — hooks git natifs (cf § git:hooks)            |
 
 Les commandes de MODULE (`http:network`, `proxy:generate`, `frontend:build`…) passent par le
 dispatch différé de `CliKernel` — happy-path couvert e2e (exit 0, 1 Kernel, 0 serveur).
@@ -377,6 +378,30 @@ supprimé. Sort en 66 (`EX_NOINPUT`) hors projet.
 d'installation sont un vecteur d'attaque connu de l'écosystème npm, et écrire dans un dossier
 VERSIONNÉ à chaque installation produirait des différences surprises. `create app` pose une fois
 (après l'install, avant le premier commit) ; cette commande remet à jour quand on le demande.
+
+## `nodefony git:hooks` — hooks git natifs, zéro dépendance (standalone 0-boot)
+
+`nodefony git:hooks [--dry-run] [--json] [--cwd <path>]` — pose `.githooks/`
+(`pre-commit` = typecheck+lint LÉGER, `pre-push` = `verify`) et
+`git config core.hooksPath`. **Natif exprès** : husky v9 n'est qu'un habillage
+de `core.hooksPath`, et un `postinstall` est refusé pour les mêmes raisons
+qu'`ai:sync` (`--ignore-scripts`, vecteur d'attaque) — la pose est un geste
+explicite. Doctrine : le hook local reste léger, le filet complet est la CI.
+
+Architecture en deux morceaux, comme `env`/`card`/`ai:sync` :
+`cli/gitHooksReport.ts` = composition **PURE** (`renderGitHook`/`planGitHooks`/
+rendu) ; `cli/gitHooks.ts` = adaptateur (`installGitHooks` — lecture, écriture,
+`git config` ; futur 2ᵉ appelant : `create app --git-hooks`).
+
+Trois refus, tous TOTAUX (rien d'à-moitié posé, exit `CANTCREAT`) : un hook
+existant **sans le marqueur** `posé par \`nodefony git:hooks\``n'est JAMAIS
+écrasé · un`core.hooksPath`déjà posé ailleurs n'est pas volé · hors dépôt git
+=`UNAVAILABLE` + « git init ». ⚠️ **`core.hooksPath`relatif se résout depuis
+le TOPLEVEL git**, pas depuis l'app : app en sous-dossier d'un monorepo → la
+valeur posée est`apps/<x>/.githooks`(vue du toplevel), calculée sur des
+chemins passés par`realpath`(git rend`/private/var/…`quand l'appelant tient
+le symlink`/var/…`— sinon`path.relative`fabrique un`../../..` qui sort du
+dépôt et les hooks ne s'exécutent jamais).
 
 ## Scaffold — `cli/scaffold/` + `cli/create.ts` (3 fronts, UN moteur)
 
