@@ -32,6 +32,16 @@ export interface NfEnvOverride {
   readonly path: string[];
   /** Valeur coercée (booléen / nombre / tableau CSV / objet JSON / chaîne). */
   readonly value: unknown;
+  /**
+   * La chaîne BRUTE, telle que l'environnement la porte.
+   *
+   * Gardée parce que {@link coerceEnvValue} devine le type sans connaître la
+   * cible : au moment d'APPLIQUER l'override, la config remplacée révèle le type
+   * attendu, et seule la chaîne d'origine permet alors de convertir juste
+   * ({@link coerceEnvValueLike}). Sans elle, `"1"` était perdu en `Number(1)`
+   * avant même qu'on sache qu'une clé booléenne l'attendait.
+   */
+  readonly raw: string;
 }
 
 /**
@@ -94,9 +104,67 @@ export function parseNfEnvOverrides(env: NodeJS.ProcessEnv): NfEnvOverride[] {
       moduleSeg: moduleSeg.toLowerCase(),
       path: path.map((s) => s.toLowerCase()),
       value: coerceEnvValue(raw),
+      raw,
     });
   }
   return out;
+}
+
+/**
+ * Les écritures d'un booléen qu'un environnement produit réellement.
+ *
+ * `1`/`0` d'abord, parce que c'est la forme naturelle en shell, en Docker et en
+ * manifeste k8s — et celle qui cassait le boot. `on`/`off` et `yes`/`no` sont la
+ * même intention écrite autrement ; les refuser obligerait l'utilisateur à
+ * deviner laquelle des trois formes son framework accepte.
+ */
+const BOOLEENS_VRAIS = new Set(["true", "1", "yes", "on"]);
+const BOOLEENS_FAUX = new Set(["false", "0", "no", "off"]);
+
+/**
+ * La valeur d'environnement convertie vers le type de ce qu'elle REMPLACE.
+ *
+ * Une variable d'environnement est toujours une chaîne ; seul le schéma sait ce
+ * qu'il attend. {@link coerceEnvValue} devine sans lui, et sa devinette rendait
+ * un type FAUX que la validation Zod refusait ensuite : `NF__HTTP__TRUSTPROXY=1`
+ * donnait `Number(1)`, qu'aucun membre de `z.union([boolean, string, array])`
+ * n'accepte — une variable DOCUMENTÉE faisait échouer le boot, à rebours du
+ * 12-factor que l'ADR-0006 revendique.
+ *
+ * L'information manquante est pourtant à portée : la config porte déjà le
+ * DÉFAUT du schéma à cet endroit, et son type dit ce qui est attendu.
+ *
+ * ⚠️ **Le type existant ORIENTE, il ne décide pas.** Convertir aveuglément vers
+ * le type de la valeur remplacée serait une faille : `trustProxy` a pour défaut
+ * `false` mais accepte aussi une CIDR, et `10.0.0.0/8` deviendrait `true`,
+ * c'est-à-dire une confiance TOTALE envers les `X-Forwarded-*`. Seuls des
+ * littéraux booléens reconnus sont convertis ; tout le reste retombe sur la
+ * devinette, qui garde la chaîne.
+ *
+ * Les cibles NON ambiguës (nombre, tableau, objet, valeur absente) gardent la
+ * devinette : elle y est juste, et le CSV → tableau documenté en dépend.
+ *
+ * @param raw - la chaîne brute de la variable d'environnement.
+ * @param existing - la valeur actuellement en place (le défaut du schéma).
+ * @returns la valeur à poser.
+ */
+export function coerceEnvValueLike(raw: string, existing: unknown): unknown {
+  const v = raw.trim().toLowerCase();
+  if (typeof existing === "boolean") {
+    if (BOOLEENS_VRAIS.has(v)) return true;
+    if (BOOLEENS_FAUX.has(v)) return false;
+    // Ni l'un ni l'autre : la clé accepte donc autre chose qu'un booléen
+    // (`trustProxy` prend aussi une CIDR). On ne tranche pas à sa place.
+    return coerceEnvValue(raw);
+  }
+  if (typeof existing === "string") {
+    // Une chaîne attendue reçoit la chaîne. C'est le cas où la devinette est le
+    // plus visiblement fausse (`headerServer=1` → `Number(1)`, refusé par
+    // `z.string()`), et le moins surprenant à corriger : ce que l'utilisateur a
+    // écrit dans son environnement est exactement ce qui arrive.
+    return raw.trim();
+  }
+  return coerceEnvValue(raw);
 }
 
 /**
@@ -118,15 +186,22 @@ function resolveKey(node: Record<string, unknown>, seg: string): string | null {
  * créé (évite une clé fantôme à la mauvaise casse que le Zod ignorerait
  * silencieusement) : la fonction renvoie alors `false` pour signalement.
  *
+ * Quand `raw` est fourni, la valeur posée est RECALCULÉE contre celle qu'elle
+ * remplace ({@link coerceEnvValueLike}) : c'est ici, et nulle part ailleurs,
+ * qu'on connaît à la fois la chaîne d'origine et le type attendu. Sans `raw`, le
+ * comportement est inchangé — aucun appelant existant ne bouge.
+ *
  * @param target - objet de config du module (muté en place).
  * @param path - segments du chemin (minuscules).
- * @param value - valeur à poser.
+ * @param value - valeur à poser (devinée par {@link coerceEnvValue}).
+ * @param raw - la chaîne d'environnement d'origine, quand elle est connue.
  * @returns `true` si appliqué, `false` si le chemin ne résout pas vers une clé connue.
  */
 export function applyResolvedPath(
   target: Record<string, unknown>,
   path: string[],
   value: unknown,
+  raw?: string,
 ): boolean {
   if (path.length === 0) return false;
   let node: Record<string, unknown> = target;
@@ -141,8 +216,40 @@ export function applyResolvedPath(
   }
   const leaf = resolveKey(node, path[path.length - 1]);
   if (leaf === null) return false;
-  node[leaf] = value;
+  node[leaf] = raw === undefined ? value : coerceEnvValueLike(raw, node[leaf]);
   return true;
+}
+
+/**
+ * Relit la valeur posée à `path` — la SYMÉTRIQUE de {@link applyResolvedPath}.
+ *
+ * Sert au journal du boot : depuis que la valeur est convertie contre le type
+ * attendu, ce qui est écrit dans la config n'est plus forcément ce que
+ * `coerceEnvValue` avait deviné. Journaliser la devinette afficherait
+ * `TRUSTPROXY = 1` sur une config qui porte `true` — le genre d'écart qu'on
+ * poursuit une heure avant de comprendre qu'il vient du journal.
+ *
+ * @param target - objet de config du module.
+ * @param path - segments du chemin (minuscules).
+ * @returns la valeur en place, ou `undefined` si le chemin ne résout pas.
+ */
+export function readResolvedPath(
+  target: Record<string, unknown>,
+  path: string[],
+): unknown {
+  if (path.length === 0) return undefined;
+  let node: Record<string, unknown> = target;
+  for (let i = 0; i < path.length - 1; i++) {
+    const key = resolveKey(node, path[i]);
+    if (key === null) return undefined;
+    const next = node[key];
+    if (typeof next !== "object" || next === null || Array.isArray(next)) {
+      return undefined;
+    }
+    node = next as Record<string, unknown>;
+  }
+  const leaf = resolveKey(node, path[path.length - 1]);
+  return leaf === null ? undefined : node[leaf];
 }
 
 /** Heuristique : ce chemin porte-t-il un secret (à rédiger dans les logs) ? */

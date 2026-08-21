@@ -58,6 +58,7 @@ import { defaultAppConfig } from "../config/defaults";
 import {
   parseNfEnvOverrides,
   applyResolvedPath,
+  readResolvedPath,
   pathLooksSecret,
   closestMatch,
   resolveFailureHint,
@@ -1554,15 +1555,27 @@ class Kernel extends Service implements IKernel {
         );
         continue;
       }
+      // La chaîne BRUTE voyage jusqu'ici : c'est au moment de poser la valeur
+      // qu'on découvre le type attendu (le défaut du schéma, déjà en place), et
+      // la devinette de `coerceEnvValue` s'y corrige — `TRUSTPROXY=1` doit
+      // devenir `true`, pas `Number(1)` que le Zod refuse.
       const applied = applyResolvedPath(
         mod.options as Record<string, unknown>,
         ov.path,
         ov.value,
+        ov.raw,
       );
       if (applied) {
+        // Journaliser la valeur RÉELLEMENT posée, jamais la devinette : un
+        // journal qui affiche autre chose que ce que porte la config est le
+        // genre de piste qu'on suit une heure.
+        const posee = readResolvedPath(
+          mod.options as Record<string, unknown>,
+          ov.path,
+        );
         const shown = pathLooksSecret(ov.path)
           ? "«***»"
-          : JSON.stringify(ov.value);
+          : JSON.stringify(posee);
         this.log(
           `Override env: ${mod.name}.${ov.path.join(".")} = ${shown}`,
           "INFO",

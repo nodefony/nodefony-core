@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-21T10:40:31.941Z",
+  "generated": "2026-08-21T11:06:42.521Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 719,
-    "symbols": 2990,
+    "symbols": 2992,
     "classes": 361,
     "interfaces": 861,
     "types": 382,
     "enums": 4,
-    "functions": 1097,
+    "functions": 1099,
     "constants": 285
   },
   "symbols": {
@@ -1961,6 +1961,14 @@
       "module": "@nodefony/core",
       "description": "Scanne `env` et extrait tous les overrides `NF__<MODULE>__<CHEMIN…>`. Ignore les clés sans au moins un module + un champ (`NF__X` seul), et les valeurs `undefined`. Ne touche PAS `env` (lecture seu…"
     },
+    "coerceEnvValueLike": {
+      "name": "coerceEnvValueLike",
+      "kind": "function",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La valeur d'environnement convertie vers le type de ce qu'elle REMPLACE. Une variable d'environnement est toujours une chaîne ; seul le schéma sait ce qu'il attend. {@link coerceEnvValue} devine sa…"
+    },
     "applyResolvedPath": {
       "name": "applyResolvedPath",
       "kind": "function",
@@ -1968,6 +1976,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Pose `value` dans `target` au `path` donné, en résolvant chaque segment contre les clés EXISTANTES (insensible à la casse). N'altère QUE des chemins déjà présents dans la config (= champs ayant un …"
+    },
+    "readResolvedPath": {
+      "name": "readResolvedPath",
+      "kind": "function",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Relit la valeur posée à `path` — la SYMÉTRIQUE de {@link applyResolvedPath}. Sert au journal du boot : depuis que la valeur est convertie contre le type attendu, ce qui est écrit dans la config n'e…"
     },
     "pathLooksSecret": {
       "name": "pathLooksSecret",
@@ -24204,6 +24220,9 @@
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "readAppEnvOverrideReport": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "readResolvedPath": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "resolveInfra": [
