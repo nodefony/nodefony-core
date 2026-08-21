@@ -61,6 +61,15 @@ const EXIT_BY_FAILURE: Record<InspectFailure, number> = {
  * producteurs, pas dans le transport, donc un secret n'est pas plus lisible par
  * cette porte que par l'autre.
  *
+ * 🔴 **La réponse dépend du MODE, et c'est pour cela qu'elle l'annonce.** Les
+ * modules `policy:"dev"` ne sont pas chargés en production : la MÊME application
+ * rend 136 routes en production et 354 en développement. Un nombre lu sans son
+ * mode ne veut rien dire — mesuré, un agent a rapporté le compte d'une app en
+ * marche pendant qu'un contrôle mesurait la même app bootée à froid dans l'autre
+ * mode, et les deux avaient raison. L'environnement est donc écrit à côté du
+ * total en rendu humain, et sur la sortie d'ERREUR en `--json` — jamais dans le
+ * flux, qui doit rester parsable tel quel.
+ *
  * @example
  * ```bash
  * nodefony inspect routes --json | jq '.[] | select(.methods[] == "POST")'
@@ -132,6 +141,12 @@ class Inspect extends Command {
     }
 
     if (opts.json) {
+      // Le CONTEXTE part sur la sortie d'erreur, jamais dans le flux : un
+      // consommateur fait `| jq '.[]'`, envelopper la donnée le casserait.
+      // Même doctrine que le journal — la sortie EST le résultat, le reste
+      // RACONTE. Sans cette ligne, deux mesures du même sujet dans deux modes
+      // se contredisent sans que rien ne dise pourquoi.
+      process.stderr.write(`environnement : ${this.environnement()}\n`);
       process.stdout.write(`${JSON.stringify(read.data, null, 2)}\n`);
     } else {
       this.renderHuman(subject, read.data);
@@ -147,6 +162,19 @@ class Inspect extends Command {
    * enchaîne. Le rendu humain sert à répondre « qu'est-ce qu'il y a là-dedans »
    * sans ouvrir un autre outil, pas à remplacer la console d'administration.
    */
+  /**
+   * Le mode MOTEUR sous lequel cette lecture a été faite.
+   *
+   * Sans kernel — cas qui ne devrait pas se produire ici, la commande booted —
+   * on le DIT plutôt que de deviner : une valeur inventée serait pire que pas
+   * de valeur, puisqu'elle serait crue.
+   *
+   * @returns le nom de l'environnement, ou `"inconnu"`
+   */
+  private environnement(): string {
+    return this.kernel?.environment ?? "inconnu";
+  }
+
   private renderHuman(subject: string, payload: unknown): void {
     if (Array.isArray(payload)) {
       if (payload.length === 0) {
@@ -158,12 +186,19 @@ class Inspect extends Command {
         // et la réponse avec. Un filtre de journal ne doit jamais pouvoir
         // effacer ce qu'on est venu chercher : le journal RACONTE l'exécution,
         // la sortie EST le résultat.
-        process.stdout.write(`${subject} : aucun\n`);
+        // Le mode est ici PLUS important que partout ailleurs : « aucune
+        // route » en production, alors qu'il y en a en développement, est la
+        // réponse qui trompe le plus.
+        process.stdout.write(
+          `${subject} : aucun (environnement : ${this.environnement()})\n`,
+        );
         return;
       }
       // `console.table` respecte la sortie standard et aligne seul.
       console.table(payload);
-      process.stdout.write(`${payload.length} ${subject}\n`);
+      process.stdout.write(
+        `${payload.length} ${subject} (environnement : ${this.environnement()})\n`,
+      );
       return;
     }
     console.dir(payload, { depth: 4, colors: true });
