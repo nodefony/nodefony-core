@@ -38,7 +38,7 @@ class Check extends Command {
   constructor(cli: CliKernel) {
     super(
       "check",
-      "Check that every Nodefony package imported by the app is declared",
+      "Diagnostic statique du projet : câblage, dépendances, bilan du dernier démarrage",
       cli as CliKernel,
       options,
     );

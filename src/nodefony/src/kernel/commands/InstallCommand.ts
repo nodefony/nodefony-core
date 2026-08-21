@@ -10,7 +10,7 @@ class Install extends Command {
   constructor(cli: CliKernel) {
     super(
       "install",
-      "Install Nodefony Framework",
+      "Installe les dépendances puis construit le projet",
       cli as CliKernel,
       optionsCommand,
     );

@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-21T07:04:35.858Z",
+  "generated": "2026-08-21T07:26:26.188Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 718,
-    "symbols": 2975,
+    "files": 719,
+    "symbols": 2986,
     "classes": 361,
-    "interfaces": 857,
-    "types": 381,
+    "interfaces": 860,
+    "types": 382,
     "enums": 4,
-    "functions": 1091,
-    "constants": 281
+    "functions": 1094,
+    "constants": 285
   },
   "symbols": {
     "Cli": {
@@ -1475,6 +1475,87 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Racine du PROJET Nodefony courant (app générée / app utilisateur) : remonte depuis `from` jusqu'au premier dossier portant `nodefony.config.ts` + `package.json`. Deux consommateurs, une seule défin…"
+    },
+    "IStartMenuModuleCommand": {
+      "name": "IStartMenuModuleCommand",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une commande de module lue du manifest cache de complétion."
+    },
+    "IStartMenuInput": {
+      "name": "IStartMenuInput",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "StartMenuContext": {
+      "name": "StartMenuContext",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Composition PURE du menu interactif `nodefony menu` — même patron que `envReport`/`cardReport`/`aiSyncReport` : ce fichier reçoit l'état (contexte, descriptions, commandes de module) et rend une st…"
+    },
+    "StartMenuItem": {
+      "name": "StartMenuItem",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Item neutre du menu — l'adaptateur le traduit en Separator/choice inquirer."
+    },
+    "buildStartMenu": {
+      "name": "buildStartMenu",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Construit le menu principal pour un contexte donné."
+    },
+    "buildInspectMenu": {
+      "name": "buildInspectMenu",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Sous-menu des sujets d'`inspect`, dérivé de la table SOURCE (`INSPECT_SUBJECTS`) : seuls les sujets SANS argument obligatoire sont proposés (un sujet à paramètre exigerait une saisie de plus — il r…"
+    },
+    "START_MENU_CATALOG": {
+      "name": "START_MENU_CATALOG",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Catalogue déclaratif du menu. L'ordre du tableau EST l'ordre d'affichage, groupe par groupe. Ajouter une commande au menu = une entrée ici, rien d'autre (le résumé et la disponibilité viennent de c…"
+    },
+    "NPM_SCRIPT_CATALOG": {
+      "name": "NPM_SCRIPT_CATALOG",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Scripts npm que le menu sait proposer — les gestes qu'AUCUNE commande nodefony ne porte (qualité, infra docker). Un script n'apparaît que s'il existe dans le package.json du projet (`npmScripts`). …"
+    },
+    "NPM_SCRIPT_PREFIX": {
+      "name": "NPM_SCRIPT_PREFIX",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Préfixe des valeurs « script npm » émises par le menu."
+    },
+    "MODULE_COMMANDS_GROUP": {
+      "name": "MODULE_COMMANDS_GROUP",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Titre du groupe des commandes de module (projet seulement)."
     },
     "ISymbolEntry": {
       "name": "ISymbolEntry",
@@ -6369,6 +6450,17 @@
       "implements": [],
       "decorators": []
     },
+    "Menu": {
+      "name": "Menu",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/MenuCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Menu interactif du CLI (`nodefony menu`, ou `nodefony` nu en TTY). La COMPOSITION du menu (groupes, entrées, conseils d'usage) vit dans `cli/startMenu.ts` — pure, testée sans TTY. Ici : l'adaptatio…"
+    },
     "Outdated": {
       "name": "Outdated",
       "kind": "class",
@@ -6407,16 +6499,6 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Applique la topologie résolue — flow **PARTAGÉ** par les commandes de lancement (`cluster`, `production`). Appelé depuis leur `onKernelStart` (phase `onStart`), donc AVANT que l'unique Kernel ne dé…"
-    },
-    "Start": {
-      "name": "Start",
-      "kind": "class",
-      "file": "src/nodefony/src/kernel/commands/StartCommand.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": "Command",
-      "implements": [],
-      "decorators": []
     },
     "@nodefony/core:Status": {
       "name": "Status",
@@ -20915,9 +20997,9 @@
         "GitHooks",
         "Inspect",
         "Install",
+        "Menu",
         "Outdated",
         "Prod",
-        "Start",
         "Status",
         "Stop",
         "Symbols",
@@ -21483,9 +21565,9 @@
         "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
+        "src/nodefony/src/kernel/commands/MenuCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
-        "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
@@ -23775,10 +23857,10 @@
         "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
+        "src/nodefony/src/kernel/commands/MenuCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
-        "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
@@ -23895,7 +23977,7 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/types/IModuleManifest.ts"
       ],
-      "Start": [
+      "Menu": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Dev": [
@@ -24264,7 +24346,8 @@
       ],
       "INSPECT_SUBJECTS": [
         "src/nodefony/src/mcp/tools.ts",
-        "src/nodefony/src/kernel/commands/InspectCommand.ts"
+        "src/nodefony/src/kernel/commands/InspectCommand.ts",
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
       ],
       "readAdminSubject": [
         "src/nodefony/src/mcp/tools.ts",
@@ -24986,9 +25069,9 @@
         "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
+        "src/nodefony/src/kernel/commands/MenuCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
-        "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
@@ -25027,6 +25110,24 @@
       ],
       "InspectFailure": [
         "src/nodefony/src/kernel/commands/InspectCommand.ts"
+      ],
+      "buildStartMenu": [
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+      ],
+      "buildInspectMenu": [
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+      ],
+      "NPM_SCRIPT_PREFIX": [
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+      ],
+      "StartMenuItem": [
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+      ],
+      "IStartMenuModuleCommand": [
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+      ],
+      "readCliManifest": [
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
       ],
       "aggregateOutdated": [
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts"

@@ -42,7 +42,7 @@ class Dev extends Command {
   constructor(cli: CliKernel) {
     super(
       "development",
-      "Start Server in development Mode",
+      "Serveur de développement : rechargement auto du backend, HMR du front",
       cli as CliKernel,
       options,
     );

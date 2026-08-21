@@ -15,7 +15,7 @@ import DevCommand from "../kernel/commands/DevCommand";
 import InstallCommand from "../kernel/commands/InstallCommand";
 import OutdatedCommand from "../kernel/commands/OutdatedCommand";
 import ProdCommand from "../kernel/commands/ProdCommand";
-import StartCommand from "../kernel/commands/StartCommand";
+import MenuCommand from "../kernel/commands/MenuCommand";
 import InspectCommand from "../kernel/commands/InspectCommand";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
@@ -43,9 +43,9 @@ describe("KernelCommand — BuildCommand", () => {
     assert.strictEqual(cmd.name, "build");
   });
 
-  it("description contient 'build'", () => {
+  it("description dit le geste (compile vers dist/)", () => {
     const cmd = new BuildCommand(cli);
-    expect(cmd.description().toLowerCase()).to.include("build");
+    expect(cmd.description().toLowerCase()).to.include("compile");
   });
 
   it("alias 'compile' enregistré", () => {
@@ -233,6 +233,11 @@ describe("KernelCommand — ProdCommand", () => {
     assert.strictEqual(cmd.command.alias(), "prod");
   });
 
+  it("alias 'start' enregistré — convention npm/next : start = production", () => {
+    const cmd = new ProdCommand(cli);
+    expect(cmd.command.aliases()).to.include.members(["prod", "start"]);
+  });
+
   // onPostReady (recette `development`) : l'UNIQUE Kernel boote complètement, serveurs
   // inclus, puis la commande conclut. La topologie (master vs mono) est décidée plus tôt,
   // dans onKernelStart (phase onStart, avant initServers) — le master parke alors et ne
@@ -255,46 +260,46 @@ describe("KernelCommand — ProdCommand", () => {
   });
 });
 
-// ─── 6. StartCommand ─────────────────────────────────────────────────────────
+// ─── 6. MenuCommand ──────────────────────────────────────────────────────────
 
-describe("KernelCommand — StartCommand", () => {
+describe("KernelCommand — MenuCommand", () => {
   let cli: CliKernel;
   beforeEach(() => {
     cli = makeCli();
   });
 
   it("instance Command", () => {
-    const cmd = new StartCommand(cli);
+    const cmd = new MenuCommand(cli);
     assert(cmd instanceof Command);
   });
 
-  it("name = 'start'", () => {
-    const cmd = new StartCommand(cli);
-    assert.strictEqual(cmd.name, "start");
+  it("name = 'menu' — « start » appartient au serveur (npm start ≡ production)", () => {
+    const cmd = new MenuCommand(cli);
+    assert.strictEqual(cmd.name, "menu");
   });
 
   it("kernelEvent = 'onStart'", () => {
-    const cmd = new StartCommand(cli);
+    const cmd = new MenuCommand(cli);
     assert.strictEqual(cmd.kernelEvent, "onStart");
   });
 
   it("description non vide", () => {
-    const cmd = new StartCommand(cli);
+    const cmd = new MenuCommand(cli);
     expect(cmd.description()).to.have.length.greaterThan(0);
   });
 
   it("interaction() override défini", () => {
-    const cmd = new StartCommand(cli);
+    const cmd = new MenuCommand(cli);
     expect(cmd.interaction).to.be.a("function");
   });
 
   it("generate() override défini", () => {
-    const cmd = new StartCommand(cli);
+    const cmd = new MenuCommand(cli);
     expect(cmd.generate).to.be.a("function");
   });
 
   it("prompts est LAZY : undefined avant loadPrompts, peuplé après", async () => {
-    const cmd = new StartCommand(cli);
+    const cmd = new MenuCommand(cli);
     // @inquirer/prompts n'est PAS importé eager (gain boot non-interactif).
     expect(cmd.prompts).to.equal(undefined);
     await cmd.loadPrompts();
@@ -316,7 +321,7 @@ describe("KernelCommands — registre complet", () => {
       commands.push(new InstallCommand(cli));
       commands.push(new OutdatedCommand(cli));
       commands.push(new ProdCommand(cli));
-      commands.push(new StartCommand(cli));
+      commands.push(new MenuCommand(cli));
     });
     assert.strictEqual(commands.length, 6);
   });
@@ -329,7 +334,7 @@ describe("KernelCommands — registre complet", () => {
       new InstallCommand(cli).name,
       new OutdatedCommand(cli).name,
       new ProdCommand(cli).name,
-      new StartCommand(cli).name,
+      new MenuCommand(cli).name,
     ];
     const unique = new Set(names);
     assert.strictEqual(unique.size, names.length);
@@ -343,7 +348,7 @@ describe("KernelCommands — registre complet", () => {
       new InstallCommand(cli),
       new OutdatedCommand(cli),
       new ProdCommand(cli),
-      new StartCommand(cli),
+      new MenuCommand(cli),
     ];
     for (const cmd of cmds) {
       assert(
@@ -366,7 +371,7 @@ describe("KernelCommands — performance", () => {
       new InstallCommand(cli);
       new OutdatedCommand(cli);
       new ProdCommand(cli);
-      new StartCommand(cli);
+      new MenuCommand(cli);
     }
     const elapsed = Date.now() - start;
     expect(elapsed).to.be.lessThan(1000);

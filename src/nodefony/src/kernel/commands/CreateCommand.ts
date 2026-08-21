@@ -20,7 +20,7 @@ class Create extends Command {
   constructor(cli: CliKernel) {
     super(
       "create",
-      `Scaffold a new Nodefony project (${CREATE_TYPES.join(" | ")})`,
+      `Génère app, module, entité… (${CREATE_TYPES.join(" | ")})`,
       cli,
       options,
     );

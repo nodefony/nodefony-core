@@ -21,7 +21,7 @@ class Stop extends Command {
   constructor(cli: CliKernel) {
     super(
       "stop",
-      "Stop running Nodefony dev processes (supervisor/server/vite) cleanly",
+      "Arrête proprement les runtimes Nodefony actifs (dev, prod, cluster)",
       cli as CliKernel,
       options,
     );

@@ -38,11 +38,15 @@ class Prod extends Command {
   constructor(cli: CliKernel) {
     super(
       "production",
-      "Start Server in Production Mode (foreground, cloud-native — topology = workers)",
+      "Serveur de production : premier plan, cloud-native (topologie via --workers)",
       cli as CliKernel,
       options,
     );
     this.alias("prod");
+    // Convention de l'écosystème (npm start, next start, nest start) : `start`
+    // = démarrer l'application en production. Le menu interactif, lui, vit
+    // sous `menu` (et `nodefony` nu en TTY) — `start` ne l'a jamais bien nommé.
+    this.alias("start");
     this.addOption(
       "-w, --workers <number>",
       "Number of worker processes (default: config cluster.workers / NODEFONY_WORKERS / 1)",

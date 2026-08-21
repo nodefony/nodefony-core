@@ -12,7 +12,7 @@ import Kernel, {
   TypeKernelOptions,
 } from "./Kernel";
 import Command from "../command/Command";
-import Start from "./commands/StartCommand";
+import Menu from "./commands/MenuCommand";
 import Dev from "./commands/DevCommand";
 import Build from "./commands/BuildCommand";
 import Prod from "./commands/ProdCommand";
@@ -369,6 +369,16 @@ class CliKernel extends Cli {
         // On boote donc le kernel jusqu'à cette phase (mode CONSOLE, 0 serveur),
         // PUIS on affiche le help complet et on `terminate(0)`. `--version` n'est
         // PAS concerné (résolu par commander sans boot, cf le `.catch` plus bas).
+        // `nodefony` NU dans un terminal → le MENU interactif : taper le nom
+        // seul est une question (« qu'est-ce que je peux faire ici ? »), pas
+        // une demande de documentation. On POUSSE `menu` dans argv et on laisse
+        // le flux normal parser — aucun chemin parallèle. Le help global reste
+        // servi hors TTY (CI, scripts — prompter y est absurde) et sur demande
+        // explicite (`-h` / `--help`). Le TTY se lit sur `kernel.isTTY`
+        // (source unique, `NO_TTY` respecté — les tests forcent ainsi le help).
+        if (process.argv.slice(2).length === 0 && this.kernel?.isTTY) {
+          process.argv.push("menu");
+        }
         if (this.isGlobalHelpRequested()) {
           return this.dispatchGlobalHelp();
         }
@@ -447,7 +457,7 @@ class CliKernel extends Cli {
     this.addCommand(Build);
     this.addCommand(Install);
     this.addCommand(Outdated);
-    this.addCommand(Start);
+    this.addCommand(Menu);
     this.addCommand(Status);
     this.addCommand(Stop);
     this.addCommand(Completion);

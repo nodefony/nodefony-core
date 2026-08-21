@@ -773,7 +773,7 @@ class Kernel extends Service implements IKernel {
         return (await this.terminate(1)) as this;
       }
       return await this.cli
-        .runCommandAsync("start", ["-i"])
+        .runCommandAsync("menu", ["-i"])
         .then(() => {
           if (this.command) {
             return this.command?.action(...this.commandArgs).then(() => {

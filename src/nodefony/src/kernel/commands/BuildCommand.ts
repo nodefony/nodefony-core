@@ -17,7 +17,7 @@ class Build extends Command {
   constructor(cli: CliKernel) {
     super(
       "build",
-      "build Framework (turbo + rolldown)",
+      "Compile modules puis application (turbo + rolldown) vers dist/",
       cli as CliKernel,
       options,
     );
