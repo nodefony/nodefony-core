@@ -215,6 +215,23 @@ et il fait foi le jour où les deux divergent.
   le typecheck) ; les hooks React vivent dans `nodefony/react`. Ne réécris
   JAMAIS un client WebSocket/JSON-RPC, ne duplique JAMAIS un type entre front
   et back : un seul contrat, vérifié par le compilateur des deux bouts.
+- **Une initialisation s'ACCROCHE à une phase du démarrage — il n'y a pas de
+  `app.use()`.** Nodefony n'est pas un framework à middlewares chaînés : du code
+  posé au chargement d'un fichier s'exécute AVANT que la configuration existe, et
+  il n'y a rien à quoi « ajouter » un traitement global. Ce qui doit tourner au
+  démarrage se déclare depuis un module ou un service :
+  `this.module?.hookKernel("onBoot", async () => { … })` — l'étiquette porte alors
+  le nom et la criticité du module, ce qu'un `kernel.once(…)` posé à la main
+  perdrait. Les phases, dans l'ordre : `onRegister` (les modules se déclarent),
+  `onBoot` (tout est chargé, les connexions s'ouvrent), `onReady` (juste AVANT que
+  les serveurs se mettent à écouter), `onPostReady` (ils écoutent), `onTerminate`
+  (fermeture). Une commande CLI se pose sur la
+  même échelle : `npx nodefony create command <action> --phase onReady`.
+  ⚠️ Si tu t'apprêtes à écrire `as any` sur le kernel pour atteindre une méthode,
+  arrête-toi : c'est le signe que tu cherches une API d'un AUTRE framework. Les
+  phases, le conteneur et les connecteurs sont typés — la référence est dans
+  `node_modules/nodefony/docs/kernel.md`, et `npx nodefony inspect services`
+  montre ce qui existe RÉELLEMENT dans cette application.
 - **Un service n'est pas une classe utilitaire.** Une classe à méthodes `static`,
   ou un objet exporté, COMPILE et marche — et reste invisible au framework. Un
   service Nodefony est une classe `@injectable()` qui `extends Service` : c'est
