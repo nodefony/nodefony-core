@@ -37,6 +37,17 @@ log 2>&1; echo "EXIT=$?" | tee -a log` : le harnais a rapporté **exit 0** — c
 
 ## 🧪 Un test neuf peut FIGER sans DISCRIMINER — et le débranchement seul le dit
 
+- `[4× — 08-21b]` 🔴 **Un débranchement prouvé ne vaut rien si le JUGE n'a pas tourné.** Quatre
+  fois dans la même session : sabotage posé et prouvé (`grep` = 1), puis `vitest` lancé depuis le
+  MAUVAIS cwd → « no tests » — et un juge qui ne tourne pas ressemble à un débranchement vert.
+  Le geste qui manque : lire le COMPTE de tests exécutés (> 0) avant de lire un verdict de
+  débranchement. (La dérive de cwd elle-même est graduée [[feedback_bash_cwd_drift]] — la nuance
+  neuve est côté PREUVE.)
+- `[1× — 08-21b]` **Une sonde MANUELLE se voit mordre comme un test.** Sonde source-fresh écrite à
+  la va-vite (`export const` HORS de `defineEnv`) : elle ne changeait pas le catalogue, donc RC=0
+  prouvait… rien. Une sonde à main a exactement les défauts qu'on reproche aux tests écrits face
+  au code — la faire discriminer AVANT de croire son verdict.
+
 - `[1× — 08-20c]` 🔴 **Annoncé 3 rouges, obtenu 1 — et les deux explications sont différentes.**
   (a) « force réécrit » passe aussi avec un écrasement naïf : il fige un comportement, il ne prouve
   pas le correctif. (b) « 0600 après force » passait DÉBRANCHÉ : la garantie venait d'un
@@ -66,6 +77,12 @@ log 2>&1; echo "EXIT=$?" | tee -a log` : le harnais a rapporté **exit 0** — c
   le fichier fautif.
 
 ## 🔌 Le décor d'un banc se LIT à sa source, jamais ne se devine
+
+- `[1× — 08-21b]` **Le tarball d'un run LONG fige le code du LANCEMENT.** Le miroir
+  `.claude/skills` a été codé PENDANT que le run large tournait : `skills: (aucun)` sur les 30
+  tâches — le run mesurait un levier mort de plus, et seul le `ls` de l'app du run l'a dit.
+  Coder pendant un run est sain ; CONCLURE sur ce run à propos de ce qu'on vient de coder ne
+  l'est pas — dater le tarball avant d'imputer.
 
 - `[1× — 08-21]` 🔴 **Le serveur du dépôt laissé UP a rougi le banc devkit du VOISIN** : le
   `nodefony check` de l'app témoin sonde les ports de sa CONFIG (5151/5152) — tenus par le dépôt —
