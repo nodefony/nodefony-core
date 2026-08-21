@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-21T05:32:58.665Z",
+  "generated": "2026-08-21T05:45:26.165Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 718,
-    "symbols": 2974,
+    "symbols": 2975,
     "classes": 361,
     "interfaces": 857,
     "types": 381,
     "enums": 4,
-    "functions": 1090,
+    "functions": 1091,
     "constants": 281
   },
   "symbols": {
@@ -1195,6 +1195,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Compose le contenu de `.env.example` d'une application — PUR."
+    },
+    "readExampleHeader": {
+      "name": "readExampleHeader",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/env.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "L'en-tête curé du projet, s'il en a un — convention `.env.example.head` à la racine (versionné). Il PRIME sur l'en-tête générique : un projet qui a écrit son onboarding le garde, le corps reste dér…"
     },
     "applyEnvExample": {
       "name": "applyEnvExample",

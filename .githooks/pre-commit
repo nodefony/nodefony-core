@@ -6,14 +6,16 @@
 npx --no-install lint-staged || exit 1
 
 # Garde anti-dérive : `.env.example` est GÉNÉRÉ depuis env.ts (catalogue defineEnv).
-# Si env.ts, .env.example ou le générateur est staged, vérifier qu'ils sont
+# Si env.ts, .env.example ou l'en-tête curé est staged, vérifier qu'ils sont
 # synchronisés (sinon une var ajoutée à env.ts mais pas régénérée passerait). Placé
 # AVANT le pré-filtre .ts pour aussi attraper un .env.example édité à la main (non-.ts).
+# La commande lit env.ts EN SOURCE (pas le dist) : un build en retard ne fait pas
+# mentir le gate. C'est la commande du framework — le dépôt consomme la sienne.
 if git diff --cached --name-only --diff-filter=ACMR \
-   | grep -qE '^(env\.ts|\.env\.example|scripts/gen-env-example\.ts)$'; then
-  if ! npx --no-install tsx scripts/gen-env-example.ts --check; then
+   | grep -qE '^(env\.ts|\.env\.example|\.env\.example\.head)$'; then
+  if ! npx --no-install nodefony env --example --check; then
     echo "❌ .env.example désynchronisé de env.ts."
-    echo "   → npx tsx scripts/gen-env-example.ts  puis  git add .env.example"
+    echo "   → npx nodefony env --example  puis  git add .env.example"
     exit 1
   fi
 fi

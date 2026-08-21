@@ -10,7 +10,12 @@ import {
 } from "../config/defineEnv";
 import type { NamedEnvVarMeta } from "../config/defineEnv";
 import { renderEnvExample } from "../config/envExample";
-import { composeEnvExample, applyEnvExample, parseEnvArgv } from "../cli/env";
+import {
+  composeEnvExample,
+  applyEnvExample,
+  parseEnvArgv,
+  readExampleHeader,
+} from "../cli/env";
 import * as fsForExample from "node:fs";
 import * as osForExample from "node:os";
 import * as pathForExample from "node:path";
@@ -205,5 +210,37 @@ describe("env --example — composition et application (la commande)", () => {
   it("--check sans --example est un refus d'usage", () => {
     const parsed = parseEnvArgv(["node", "nodefony", "env", "--check"]);
     assert.ok("error" in parsed);
+  });
+});
+
+describe("env --example — en-tête curé du projet (.env.example.head)", () => {
+  const { mkdtempSync, rmSync, writeFileSync } = fsForExample;
+
+  it("🔴 l'en-tête custom PRIME, le corps reste dérivé du catalogue", () => {
+    const cat = getEnvCatalog(
+      defineEnv({ NF_X: envString({ optional: true }) }, {}),
+    );
+    const custom = composeEnvExample(cat, "# MON ONBOARDING À MOI");
+    assert.match(custom, /^# MON ONBOARDING À MOI\n/u);
+    assert.doesNotMatch(custom, /npx nodefony env --example/u);
+    assert.match(custom, /# NF_X=/u);
+    // Sans custom : l'en-tête générique.
+    assert.match(composeEnvExample(cat), /npx nodefony env --example/u);
+  });
+
+  it("readExampleHeader : le fichier s'il existe, null sinon", () => {
+    const root = mkdtempSync(
+      pathForExample.join(osForExample.tmpdir(), "nf-envhead-"),
+    );
+    try {
+      assert.strictEqual(readExampleHeader(root), null);
+      writeFileSync(
+        pathForExample.join(root, ".env.example.head"),
+        "# curé\n\n",
+      );
+      assert.strictEqual(readExampleHeader(root), "# curé");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

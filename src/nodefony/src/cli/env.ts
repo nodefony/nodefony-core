@@ -120,17 +120,31 @@ function readLevels(
 async function readCatalog(
   projectRoot: string,
 ): Promise<readonly NamedEnvVarMeta[] | null> {
-  try {
-    const entry = pathToFileURL(
-      path.join(projectRoot, "dist", "index.js"),
-    ).href;
-    const mod = (await import(entry)) as { env?: unknown };
-    if (mod.env === undefined) return null;
-    const catalog = getEnvCatalog(mod.env);
-    return catalog.length > 0 ? catalog : null;
-  } catch {
-    return null;
+  // La SOURCE d'abord : Node (≥ 24 chez Nodefony) importe un `env.ts` erasable
+  // nativement, et `env.ts` importe "nodefony" — résolu vers la MÊME instance
+  // de module que ce CLI (même chemin réel), donc le symbole du catalogue est
+  // reconnu. C'est ce qui rend `--example --check` honnête en pre-commit : un
+  // `env.ts` modifié se voit IMMÉDIATEMENT, quand le build, lui, peut être en
+  // retard d'un commit — un gate qui compare à un vieux dist dirait vert sur
+  // une dérive réelle. Le dist reste le REPLI (Node plus ancien, TS non
+  // erasable).
+  for (const candidate of [
+    path.join(projectRoot, "env.ts"),
+    path.join(projectRoot, "dist", "index.js"),
+  ]) {
+    try {
+      const mod = (await import(pathToFileURL(candidate).href)) as {
+        env?: unknown;
+      };
+      if (mod.env === undefined) continue;
+      const catalog = getEnvCatalog(mod.env);
+      if (catalog.length > 0) return catalog;
+    } catch {
+      // Candidat illisible (absent, Node sans strip-types, pas de build) : le
+      // suivant tentera — et `null` final le DIT à l'appelant.
+    }
   }
+  return null;
 }
 
 /** Colonne alignée, sans dépendance de mise en forme. */
@@ -283,8 +297,32 @@ const EXAMPLE_HEADER = `# .env.example — MODÈLE d'onboarding (committé, 0 se
  * @param catalog - catalogue des variables (via `getEnvCatalog`).
  * @returns le texte complet du fichier.
  */
-export function composeEnvExample(catalog: readonly NamedEnvVarMeta[]): string {
-  return renderEnvExample(catalog, { header: EXAMPLE_HEADER });
+export function composeEnvExample(
+  catalog: readonly NamedEnvVarMeta[],
+  customHeader: string | null = null,
+): string {
+  return renderEnvExample(catalog, { header: customHeader ?? EXAMPLE_HEADER });
+}
+
+/**
+ * L'en-tête curé du projet, s'il en a un — convention `.env.example.head` à la
+ * racine (versionné). Il PRIME sur l'en-tête générique : un projet qui a écrit
+ * son onboarding le garde, le corps reste dérivé du catalogue dans tous les
+ * cas. C'est ce qui a permis au dépôt self-hosted de MIGRER de son script
+ * `gen-env-example.ts` vers cette commande sans perdre sa prose.
+ *
+ * @param projectRoot - racine de l'application.
+ * @returns le contenu du fichier, ou `null` s'il n'existe pas.
+ */
+export function readExampleHeader(projectRoot: string): string | null {
+  try {
+    return readFileSync(
+      path.join(projectRoot, ".env.example.head"),
+      "utf8",
+    ).trimEnd();
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -348,7 +386,7 @@ export async function runEnvCommand(argv: string[]): Promise<number> {
     }
     const { synced, wrote } = applyEnvExample(
       projectRoot,
-      composeEnvExample(catalog),
+      composeEnvExample(catalog, readExampleHeader(projectRoot)),
       parsed.check,
     );
     if (!synced) {

@@ -10,6 +10,6 @@
 # PARALLÈLE du build de ces packages (déclenché par d'autres workspaces) → RACE :
 # le core typecheck avant que leurs `dist/types` existent → TS2307 « Cannot find
 # module @nodefony/user / @nodefony/orm-core » → `git push` bloqué (friction vue 3×).
-# Builder TOUT avant lève la race (caché → ~qq s si à jour). `npx` : husky v9 ne met
-# pas node_modules/.bin dans le PATH du hook. Bypass d'urgence : git push --no-verify.
+# Builder TOUT avant lève la race (caché → ~qq s si à jour). `npx` : un hook git
+# n'a pas node_modules/.bin dans son PATH. Bypass d'urgence : git push --no-verify.
 npx turbo run build && npm run typecheck
