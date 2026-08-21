@@ -25,7 +25,7 @@
  * authentificateurs de `@nodefony/security`, et la porte MCP, dont le protocole
  * vit ici. Une frontière de paquets aurait imposé une copie — or une copie de
  * cette fonction ne diverge pas bruyamment : elle diverge sur un cas limite
- * (`Bearer …`, `Bearer` sans séparateur) que chaque copie continue de
+ * (`Bearer …`, `Bearer` sans séparateur) que chaque copie continue de
  * passer dans ses propres tests. La règle « 1 règle = 1 implémentation » veut
  * donc qu'elle vive au niveau que les deux peuvent atteindre — le plus bas.
  *

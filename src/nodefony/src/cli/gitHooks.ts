@@ -92,8 +92,12 @@ export function installGitHooks(
   // toplevel RÉSOLU (`/private/var/…` sur macOS) quand l'appelant tient le
   // symlink (`/var/…`) — sans ça, `path.relative` fabrique un chemin en
   // `../../..` qui sort du dépôt, et git n'exécute jamais les hooks.
-  const projectReal = realpathSync(projectRoot);
-  const toplevelReal = realpathSync(toplevel);
+  // `.native` et pas la version JS : sur Windows, seul l'appel système résout
+  // la forme courte 8.3 (`RUNNER~1` sur les runners CI, tenue par $TEMP) vers
+  // la forme longue que git rend — la version JS laisse les deux formes
+  // diverger et `path.relative` refabrique exactement le même `../../..`.
+  const projectReal = realpathSync.native(projectRoot);
+  const toplevelReal = realpathSync.native(toplevel);
   const hooksDirAbs = path.join(projectReal, GIT_HOOKS_DIR);
   const wanted =
     path.relative(toplevelReal, hooksDirAbs).split(path.sep).join("/") ||
