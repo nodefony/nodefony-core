@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-21T04:42:16.171Z",
+  "generated": "2026-08-21T05:08:52.312Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -23566,6 +23566,13 @@
       "syncSkillPointers": [
         "src/nodefony/src/cli/create.ts"
       ],
+      "installGitHooks": [
+        "src/nodefony/src/cli/create.ts"
+      ],
+      "GIT_HOOKS_DIR": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/gitHooks.ts"
+      ],
       "envFileOrder": [
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/scaffold/engine.ts"
@@ -23604,9 +23611,6 @@
         "src/nodefony/src/cli/envReport.ts",
         "src/nodefony/src/config/defineConfig.ts",
         "src/nodefony/src/kernel/Kernel.ts"
-      ],
-      "GIT_HOOKS_DIR": [
-        "src/nodefony/src/cli/gitHooks.ts"
       ],
       "planGitHooks": [
         "src/nodefony/src/cli/gitHooks.ts"

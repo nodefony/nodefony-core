@@ -11,7 +11,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { version } from "../../package.json";
 import {
@@ -197,6 +197,22 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const short = parseCreateArgv(argv("create", "app", "x", "-n"));
       assert.isTrue((long as ICreateRequest).dryRun);
       assert.isTrue((short as ICreateRequest).dryRun);
+    });
+
+    it("--git-hooks → answers.gitHooks (déclaré dans la spec, sinon le moteur l'IGNORERAIT)", () => {
+      const req = parseCreateArgv(
+        argv("create", "app", "x", "--git-hooks", "--yes"),
+      ) as ICreateRequest;
+      assert.isTrue(req.answers.gitHooks as boolean);
+      // La spec porte la question — `advanced` : jamais posée en dialogue (le
+      // défaut SANS hooks est sûr : le filet complet est la CI), mais présente,
+      // sinon `resolveAnswers` jetterait la réponse sans un mot.
+      const q = getScaffoldSpec("app")[0]?.questions.find(
+        (x) => x.key === "gitHooks",
+      );
+      assert.isDefined(q);
+      assert.isTrue(q?.advanced);
+      assert.strictEqual(q?.default, false);
     });
 
     it("type inconnu / option inconnue → error", () => {
@@ -4861,5 +4877,98 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.isTrue(existsSync(path.join(dest, "nodefony.config.ts")));
     });
+  });
+});
+
+// Le geste `--git-hooks` de `create app` EST `installGitHooks` — même
+// implémentation que la commande `nodefony git:hooks`, jamais recopiée. Ce
+// bloc prouve le CÂBLAGE : l'option traverse le parse, le moteur, et les
+// hooks entrent dans le COMMIT INITIAL (posés entre `git init` et le commit).
+describe("create app --git-hooks", { timeout: 60_000 }, () => {
+  let dest = "";
+  const envAvant: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    dest = mkdtempSync(path.join(os.tmpdir(), "nf-create-hooks-"));
+    // L'identité git est posée par l'ENV (héritée par les spawn de create) :
+    // sans elle, le commit initial échoue sur une machine/CI sans .gitconfig
+    // et le test conclurait FAUX sur l'appartenance au commit.
+    for (const [k, v] of Object.entries({
+      GIT_AUTHOR_NAME: "banc",
+      GIT_AUTHOR_EMAIL: "banc@local",
+      GIT_COMMITTER_NAME: "banc",
+      GIT_COMMITTER_EMAIL: "banc@local",
+    })) {
+      envAvant[k] = process.env[k];
+      process.env[k] = v;
+    }
+  });
+
+  afterEach(() => {
+    rmSync(dest, { recursive: true, force: true });
+    for (const [k, v] of Object.entries(envAvant)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  });
+
+  it("🔴 pose .githooks + core.hooksPath, et les hooks sont DANS le commit initial", async () => {
+    const code = await runCreateCommand(
+      argv(
+        "create",
+        "app",
+        "hooks-app",
+        "--dir",
+        dest,
+        "--force",
+        "--preset",
+        "minimal",
+        "--no-install",
+        "--git-hooks",
+        "--yes",
+      ),
+    );
+    assert.equal(code, SysExit.OK);
+    const hook = path.join(dest, ".githooks", "pre-commit");
+    assert.isTrue(existsSync(hook), "pre-commit absent — le flag n'a pas agi");
+    assert.include(readFileSync(hook, "utf8"), "nodefony git:hooks");
+    const cfg = spawnSync("git", ["config", "--get", "core.hooksPath"], {
+      cwd: dest,
+      encoding: "utf8",
+    });
+    assert.equal(cfg.stdout.trim(), ".githooks");
+    // Dans le COMMIT INITIAL — pas seulement sur le disque : posés après le
+    // commit, ils ne suivraient ni l'équipe ni la CI.
+    const fichiers = spawnSync(
+      "git",
+      ["log", "--name-only", "--format=", "-1"],
+      { cwd: dest, encoding: "utf8" },
+    ).stdout;
+    assert.include(fichiers, ".githooks/pre-commit");
+    assert.include(fichiers, ".githooks/pre-push");
+  });
+
+  it("sans le flag : AUCUN hook, aucune config — le défaut est la CI", async () => {
+    const code = await runCreateCommand(
+      argv(
+        "create",
+        "app",
+        "sans-hooks",
+        "--dir",
+        dest,
+        "--force",
+        "--preset",
+        "minimal",
+        "--no-install",
+        "--yes",
+      ),
+    );
+    assert.equal(code, SysExit.OK);
+    assert.isFalse(existsSync(path.join(dest, ".githooks")));
+    const cfg = spawnSync("git", ["config", "--get", "core.hooksPath"], {
+      cwd: dest,
+      encoding: "utf8",
+    });
+    assert.notEqual(cfg.status, 0);
   });
 });

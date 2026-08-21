@@ -25,6 +25,8 @@ import {
 import { diffLines, type IScaffoldChange } from "./scaffold/writer";
 import { askMissing, confirm } from "./scaffold/interactive";
 import { syncSkillPointers } from "./aiSync";
+import { installGitHooks } from "./gitHooks";
+import { GIT_HOOKS_DIR } from "./gitHooksReport";
 
 /**
  * Adaptateur CLI du scaffold `nodefony create <type> [name]` — front n°1 et n°2
@@ -112,6 +114,8 @@ export function parseCreateArgv(
       install = false;
     } else if (word === "--no-git") {
       git = false;
+    } else if (word === "--git-hooks") {
+      answers.gitHooks = true;
     } else if (word === "--link") {
       answers.link = true;
     } else if (word === "--no-link") {
@@ -252,7 +256,7 @@ const USAGE =
   `usage : nodefony create <${CREATE_TYPES.join("|")}> [name] [--dir <path>] [--force] [--yes] [--dry-run|-n]\n` +
   `  app        : [--preset <${PRESET_CHOICES.join("|")}>] [--frontend <${FRONTEND_CHOICES.join("|")}>]\n` +
   `               [--database <${DATABASE_CHOICES.join("|")}>] — le compose ne porte QUE ce service\n` +
-  `               [--link|--no-link] [--no-install] [--no-git]\n` +
+  `               [--link|--no-link] [--no-install] [--no-git] [--git-hooks]\n` +
   `  module     : [--controller <${MODULE_CONTROLLER_CHOICES.join("|")}>] [--no-service] [--command]\n` +
   `               [--frontend <${FRONTEND_CHOICES.join("|")}>] [--description "…"] [--no-install]\n` +
   `  controller : [--kind <${CONTROLLER_KIND_CHOICES.join("|")}>] [--route </api/x>] [--module <nom>]\n` +
@@ -481,29 +485,62 @@ function poseSkillPointers(dest: string): string {
  * Le `.gitignore` généré exclut `*.local` AVANT ce commit : les secrets de
  * `.env.local` ne peuvent pas y entrer.
  *
+ * `--git-hooks` : les hooks se posent ENTRE `git init` et le premier commit —
+ * `.githooks/` entre ainsi dans le commit initial, comme les pointeurs de
+ * skills. Une app déjà couverte par un repo (init sauté) les reçoit AUSSI :
+ * `installGitHooks` calcule alors le chemin vu du toplevel, c'est son cas
+ * monorepo. Le geste est celui de `nodefony git:hooks` — MÊME implémentation,
+ * jamais recopiée.
+ *
  * @returns note affichable (fait / sauté et pourquoi)
  */
-function runGitInit(dest: string, appName: string): string {
+function runGitInit(dest: string, appName: string, withHooks: boolean): string {
   const git = (...args: string[]) =>
     spawnSync("git", args, { cwd: dest, stdio: "ignore" });
+  const hooksNote = (): string => {
+    if (!withHooks) return "";
+    try {
+      const plan = installGitHooks(dest);
+      if (plan === null) return " · hooks non posés (hors dépôt git)";
+      return plan.refused
+        ? " · hooks REFUSÉS (existant préservé — npx nodefony git:hooks pour le détail)"
+        : ` · hooks natifs posés (${GIT_HOOKS_DIR}/ + core.hooksPath)`;
+    } catch (e) {
+      return ` · hooks non posés (${(e as Error).message})`;
+    }
+  };
   if (spawnSync("git", ["--version"], { stdio: "ignore" }).error) {
     return "git indisponible → repo non initialisé (git init à la main plus tard)";
   }
   if (git("rev-parse", "--is-inside-work-tree").status === 0) {
-    return "déjà dans un repo git → init sauté (pas de repo imbriqué)";
+    return `déjà dans un repo git → init sauté (pas de repo imbriqué)${hooksNote()}`;
   }
   if (git("init").status !== 0) {
     return "git init a échoué → repo non initialisé";
   }
+  const hooks = hooksNote();
   git("add", "-A");
+  // `--no-verify` : le hook fraîchement posé s'exécuterait SUR ce commit — or
+  // c'est un commit de BOOTSTRAP (contenu tout juste généré, node_modules
+  // possiblement absent avec --no-install) : typecheck+lint y échouent sans
+  // rien dire du projet, et le premier geste des hooks serait de bloquer la
+  // création de l'app qu'ils servent. Vécu au test d'intégration.
   const commit = spawnSync(
     "git",
-    ["commit", "-m", `chore: bootstrap ${appName} (nodefony create app)`],
+    [
+      "commit",
+      "--no-verify",
+      "-m",
+      `chore: bootstrap ${appName} (nodefony create app)`,
+    ],
     { cwd: dest, stdio: "ignore" },
   );
-  return commit.status === 0
-    ? "repo git initialisé + premier commit"
-    : "repo git initialisé (commit initial à faire : identité git non configurée ?)";
+  return (
+    (commit.status === 0
+      ? "repo git initialisé + premier commit"
+      : "repo git initialisé (commit initial à faire : identité git non configurée ?)") +
+    hooks
+  );
 }
 
 /**
@@ -720,7 +757,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     `\n🤖 skills d'agent : ${poseSkillPointers(result.dest)}\n`,
   );
   const gitNote = parsed.git
-    ? runGitInit(result.dest, String(answers.name))
+    ? runGitInit(result.dest, String(answers.name), answers.gitHooks === true)
     : "sauté (--no-git)";
   process.stdout.write(`🌱 git : ${gitNote}\n`);
   // Une base docker a été retenue : `.env` déclare `NF_DATABASE_URL` dessus, donc

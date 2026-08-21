@@ -391,7 +391,13 @@ explicite. Doctrine : le hook local reste léger, le filet complet est la CI.
 Architecture en deux morceaux, comme `env`/`card`/`ai:sync` :
 `cli/gitHooksReport.ts` = composition **PURE** (`renderGitHook`/`planGitHooks`/
 rendu) ; `cli/gitHooks.ts` = adaptateur (`installGitHooks` — lecture, écriture,
-`git config` ; futur 2ᵉ appelant : `create app --git-hooks`).
+`git config`). **Deux appelants, une implémentation** : la commande, et
+`create app --git-hooks` (question `advanced` de la spec — jamais posée en
+dialogue, le défaut SANS hooks est la doctrine). Le scaffold pose les hooks
+ENTRE `git init` et le commit initial (ils entrent dans le premier commit) et
+ce commit passe en `--no-verify` : le hook fraîchement posé s'exécuterait sur
+du contenu tout juste généré, sans `node_modules` en `--no-install` — son
+premier geste serait de bloquer la création de l'app qu'il sert.
 
 Trois refus, tous TOTAUX (rien d'à-moitié posé, exit `CANTCREAT`) : un hook
 existant **sans le marqueur d'appartenance** (`GIT_HOOKS_MARKER`) n'est JAMAIS
@@ -406,7 +412,7 @@ qui sort du dépôt : les hooks ne s'exécutent alors jamais.
 ## Scaffold — `cli/scaffold/` + `cli/create.ts` (3 fronts, UN moteur)
 
 `nodefony create app [name] [--dir <path>] [--force] [--yes] [--preset <complete|minimal>]
-[--frontend <none|react|vue|angular>] [--link|--no-link]` — **standalone 0-boot**
+[--frontend <none|react|vue|angular>] [--link|--no-link] [--git-hooks]` — **standalone 0-boot**
 (fast-path `CliKernel.start`, cas nominal HORS projet : `npx nodefony create app`).
 L'app naît **agent-ready** : `AGENTS.md` racine (devise + générateurs + table
 tâche→doc dérivée des deps réelles + gates + zone préservée `<!-- app-notes:start/end -->`)

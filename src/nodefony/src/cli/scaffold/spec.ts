@@ -218,6 +218,17 @@ const APP_SPEC: IScaffoldTypeSpec = {
       default: false,
       askIf: "hasCheckout",
     },
+    {
+      key: "gitHooks",
+      label: "Poser des hooks git natifs (typecheck+lint au commit) ?",
+      type: "boolean",
+      // false, et JAMAIS posée en dialogue (`advanced`) : le défaut d'une app
+      // est SANS hooks — le filet complet est la CI, un hook local est un
+      // doublon contournable. Qui en veut le dit : `--git-hooks` (ou plus
+      // tard : `nodefony git:hooks`, même geste, même implémentation).
+      default: false,
+      advanced: true,
+    },
   ],
 };
 
