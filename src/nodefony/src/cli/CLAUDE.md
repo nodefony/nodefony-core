@@ -394,14 +394,14 @@ rendu) ; `cli/gitHooks.ts` = adaptateur (`installGitHooks` — lecture, écritur
 `git config` ; futur 2ᵉ appelant : `create app --git-hooks`).
 
 Trois refus, tous TOTAUX (rien d'à-moitié posé, exit `CANTCREAT`) : un hook
-existant **sans le marqueur** `posé par \`nodefony git:hooks\``n'est JAMAIS
-écrasé · un`core.hooksPath`déjà posé ailleurs n'est pas volé · hors dépôt git
-=`UNAVAILABLE` + « git init ». ⚠️ **`core.hooksPath`relatif se résout depuis
-le TOPLEVEL git**, pas depuis l'app : app en sous-dossier d'un monorepo → la
-valeur posée est`apps/<x>/.githooks`(vue du toplevel), calculée sur des
-chemins passés par`realpath`(git rend`/private/var/…`quand l'appelant tient
-le symlink`/var/…`— sinon`path.relative`fabrique un`../../..` qui sort du
-dépôt et les hooks ne s'exécutent jamais).
+existant **sans le marqueur d'appartenance** (`GIT_HOOKS_MARKER`) n'est JAMAIS
+écrasé · un `core.hooksPath` déjà posé ailleurs n'est pas volé · hors dépôt
+git = `UNAVAILABLE` + « git init ». ⚠️ **Un `core.hooksPath` relatif se résout
+depuis le TOPLEVEL git**, pas depuis l'app : app en sous-dossier d'un monorepo
+→ la valeur posée est `apps/<x>/.githooks` (vue du toplevel), calculée sur des
+chemins passés par `realpath` — git rend `/private/var/…` quand l'appelant
+tient le symlink `/var/…`, et sans ça `path.relative` fabrique un `../../..`
+qui sort du dépôt : les hooks ne s'exécutent alors jamais.
 
 ## Scaffold — `cli/scaffold/` + `cli/create.ts` (3 fronts, UN moteur)
 
