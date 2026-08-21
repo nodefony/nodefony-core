@@ -41,6 +41,14 @@ export interface IPlannedSkill {
   action: SkillAction;
   /** Chemin du pointeur à écrire, relatif au projet, en `/`. */
   target: string;
+  /**
+   * Chemin du MIROIR Claude Code (`CLAUDE_SKILLS_DIR`), même contenu.
+   *
+   * L'idempotence du miroir se juge sur SON fichier au moment d'écrire (pas
+   * sur `action`, qui ne parle que de la racine canonique) : un miroir absent
+   * sous un canonique inchangé doit quand même être posé.
+   */
+  mirrorTarget: string;
   /** Contenu exact du pointeur — c'est lui qu'on écrit, tel quel. */
   content: string;
 }
@@ -61,15 +69,28 @@ export interface IAiSyncPlan {
  *
  * La spécification Agent Skills ne mandate AUCUN emplacement — elle ne définit
  * que ce qu'un skill contient. La convention qui a émergé pour le partage entre
- * clients est `.agents/skills/` : un skill posé là est vu par tout client
- * conforme (Cursor, Copilot, VS Code, Codex, Goose, Claude Code), alors qu'un
- * skill posé dans le dossier natif d'un seul n'est vu que par lui.
- *
- * On pose donc ici, et nulle part ailleurs. Les clients qui ne scannent que leur
- * propre dossier le documentent ; c'est à eux d'ajouter ce chemin, pas à nous de
- * dupliquer un contenu dans N dossiers qui divergeront.
+ * clients est `.agents/skills/` : c'est la racine CANONIQUE, celle où vivent
+ * aussi la détection d'orphelins et l'inventaire.
  */
 export const SKILLS_DIR = ".agents/skills";
+
+/**
+ * Le MIROIR pour Claude Code — parce que le pari « c'est aux clients d'ajouter
+ * `.agents/skills/` » a été MESURÉ perdu.
+ *
+ * Constaté sur une application générée (claude-code 2.1.238, mode headless) :
+ * les cinq pointeurs étaient posés dans `.agents/skills/`, et le champ `skills`
+ * de la session n'en listait AUCUN ; les mêmes fichiers recopiés dans
+ * `.claude/skills/` y apparaissaient tous. Un skill que le client dominant ne
+ * charge jamais n'existe pas — même motif que la porte MCP câblée sans
+ * `--mcp-config`. Le contenu reste rendu par `renderPointer`, en un seul
+ * exemplaire : deux racines, un écrivain, aucune divergence possible.
+ *
+ * ⚠️ Cette racine appartient d'abord à l'UTILISATEUR (ses propres skills y
+ * vivent) : la synchronisation n'y écrit QUE les pointeurs qu'elle livre, n'y
+ * détecte aucun orphelin et n'y supprime jamais rien.
+ */
+export const CLAUDE_SKILLS_DIR = ".claude/skills";
 
 /**
  * Le pointeur écrit dans le projet.
@@ -138,6 +159,7 @@ export function planSync(
             ? "inchange"
             : "remplace",
       target: `${SKILLS_DIR}/${skill.name}/SKILL.md`,
+      mirrorTarget: `${CLAUDE_SKILLS_DIR}/${skill.name}/SKILL.md`,
       content,
     });
   }
@@ -167,7 +189,9 @@ export function renderPlan(plan: IAiSyncPlan, applique: boolean): string {
   const remplaces = plan.skills.filter((s) => s.action === "remplace");
   const inchanges = plan.skills.filter((s) => s.action === "inchange");
 
-  lignes.push(`\n  Skills d'agent — ${plan.directory}\n`);
+  lignes.push(
+    `\n  Skills d'agent — ${plan.directory} (miroir Claude Code : ${CLAUDE_SKILLS_DIR})\n`,
+  );
 
   if (plan.skills.length === 0) {
     lignes.push(

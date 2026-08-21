@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-21T03:45:10.298Z",
+  "generated": "2026-08-21T03:52:01.817Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 713,
-    "symbols": 2953,
+    "symbols": 2954,
     "classes": 358,
     "interfaces": 855,
     "types": 378,
     "enums": 4,
     "functions": 1081,
-    "constants": 277
+    "constants": 278
   },
   "symbols": {
     "Cli": {
@@ -870,6 +870,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le dossier de découverte INTEROPÉRABLE. La spécification Agent Skills ne mandate AUCUN emplacement — elle ne définit que ce qu'un skill contient. La convention qui a émergé pour le partage entre cl…"
+    },
+    "CLAUDE_SKILLS_DIR": {
+      "name": "CLAUDE_SKILLS_DIR",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/aiSyncReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le MIROIR pour Claude Code — parce que le pari « c'est aux clients d'ajouter `.agents/skills/` » a été MESURÉ perdu. Constaté sur une application générée (claude-code 2.1.238, mode headless) : les …"
     },
     "parseCardArgv": {
       "name": "parseCardArgv",

@@ -214,6 +214,81 @@ describe("ai:sync — la découverte sur disque", () => {
     ).toThrow();
   });
 
+  it("🔴 pose AUSSI le miroir Claude Code — même contenu, même idempotence", async () => {
+    // Mesuré (claude-code 2.1.238 headless) : cinq pointeurs dans
+    // `.agents/skills/`, ZÉRO skill chargé ; les mêmes fichiers sous
+    // `.claude/skills/`, tous chargés. Un skill que le client dominant ne voit
+    // jamais n'existe pas — le miroir est la moitié Claude Code du geste.
+    const { runAiSyncCommand } = await import("../cli/aiSync");
+    poseSkill(
+      path.join(root, "node_modules", "@nodefony", "devkit"),
+      "add-crud",
+      "name: add-crud\ndescription: Crée une ressource.",
+    );
+    const canonique = path.join(
+      root,
+      ".agents",
+      "skills",
+      "add-crud",
+      "SKILL.md",
+    );
+    const miroir = path.join(root, ".claude", "skills", "add-crud", "SKILL.md");
+
+    expect(
+      runAiSyncCommand(["node", "nodefony", "ai:sync", "--cwd", root]),
+    ).toBe(0);
+    expect(readFileSync(miroir, "utf8")).toBe(readFileSync(canonique, "utf8"));
+
+    const avant = statSync(miroir).mtimeMs;
+    runAiSyncCommand(["node", "nodefony", "ai:sync", "--cwd", root]);
+    expect(statSync(miroir).mtimeMs).toBe(avant);
+  });
+
+  it("🔴 un miroir ABSENT est reposé même quand le canonique est inchangé", async () => {
+    // Le cas réel : projet synchronisé AVANT que le miroir n'existe. Juger le
+    // miroir sur `action` (qui ne parle que du canonique) le laisserait
+    // manquant pour toujours.
+    const { runAiSyncCommand } = await import("../cli/aiSync");
+    poseSkill(
+      path.join(root, "node_modules", "@nodefony", "devkit"),
+      "add-crud",
+      "name: add-crud\ndescription: Crée une ressource.",
+    );
+    const miroir = path.join(root, ".claude", "skills", "add-crud", "SKILL.md");
+    runAiSyncCommand(["node", "nodefony", "ai:sync", "--cwd", root]);
+    rmSync(path.join(root, ".claude"), { recursive: true, force: true });
+
+    runAiSyncCommand(["node", "nodefony", "ai:sync", "--cwd", root]);
+    expect(readFileSync(miroir, "utf8")).toContain("@nodefony/devkit");
+  });
+
+  it("un skill MAISON dans .claude/skills n'est ni touché ni compté orphelin", async () => {
+    // Cette racine appartient d'abord à l'utilisateur : la synchronisation n'y
+    // écrit que ce qu'elle livre.
+    const { runAiSyncCommand, syncSkillPointers } =
+      await import("../cli/aiSync");
+    poseSkill(
+      path.join(root, "node_modules", "@nodefony", "devkit"),
+      "add-crud",
+      "name: add-crud\ndescription: Crée une ressource.",
+    );
+    const maison = path.join(
+      root,
+      ".claude",
+      "skills",
+      "mon-skill",
+      "SKILL.md",
+    );
+    mkdirSync(path.dirname(maison), { recursive: true });
+    writeFileSync(maison, "---\nname: mon-skill\n---\nà moi\n");
+    const avant = statSync(maison).mtimeMs;
+
+    runAiSyncCommand(["node", "nodefony", "ai:sync", "--cwd", root]);
+    expect(readFileSync(maison, "utf8")).toContain("à moi");
+    expect(statSync(maison).mtimeMs).toBe(avant);
+    expect(syncSkillPointers(root, true).orphelins).toEqual([]);
+  });
+
   it("hors projet, refuse au lieu de deviner", async () => {
     const { runAiSyncCommand } = await import("../cli/aiSync");
     const vide = mkdtempSync(path.join(tmpdir(), "nf-hors-projet-"));

@@ -210,10 +210,27 @@ export function syncSkillPointers(
     // réveillent, et les outils qui suivent le mtime voient un fichier
     // modifié. Une commande de synchronisation qui salit l'arbre est une
     // commande qu'on hésite à lancer.
-    if (skill.action === "inchange") continue;
-    const dest = path.join(projectRoot, ...skill.target.split("/"));
-    mkdirSync(path.dirname(dest), { recursive: true });
-    writeFileSync(dest, skill.content, "utf8");
+    if (skill.action !== "inchange") {
+      const dest = path.join(projectRoot, ...skill.target.split("/"));
+      mkdirSync(path.dirname(dest), { recursive: true });
+      writeFileSync(dest, skill.content, "utf8");
+    }
+    // Le MIROIR Claude Code se juge sur SON fichier, jamais sur `action` :
+    // un miroir absent sous un canonique inchangé doit quand même être posé
+    // (cas réel : projet synchronisé AVANT que le miroir n'existe). Même
+    // idempotence, même contenu — et RIEN d'autre n'est touché dans
+    // `.claude/skills/`, qui appartient d'abord à l'utilisateur.
+    const mirror = path.join(projectRoot, ...skill.mirrorTarget.split("/"));
+    let actuel: string | null = null;
+    try {
+      actuel = readFileSync(mirror, "utf8");
+    } catch {
+      // Absent : il sera posé.
+    }
+    if (actuel !== skill.content) {
+      mkdirSync(path.dirname(mirror), { recursive: true });
+      writeFileSync(mirror, skill.content, "utf8");
+    }
   }
   return plan;
 }
