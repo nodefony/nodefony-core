@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { writeFile, rename } from "node:fs/promises";
 import {
   mkdirSync,
   readFileSync,
@@ -114,7 +114,35 @@ export async function writeCliManifest(
   const file = cliManifestFile(cwd);
   mkdirSync(path.dirname(file), { recursive: true });
   const manifest = buildCliManifest(commander, version);
-  await writeFile(file, JSON.stringify(manifest, null, 1), "utf8");
+  // 🔴 **Écriture ATOMIQUE — le seul mode correct pour un cache.** Un
+  // `writeFile` direct OUVRE et TRONQUE le fichier avant d'écrire : appelé en
+  // fire-and-forget (c'est le contrat, pour ne rien coûter au boot), il laisse
+  // un fichier de **0 octet** dès que le process sort avant la fin de
+  // l'écriture — le cas NOMINAL d'une commande CLI courte. Constaté : après un
+  // `nodefony inspect`, le manifest tombait à 0 octet, et chaque commande
+  // détruisait ainsi le cache que la précédente avait écrit. Conséquences
+  // visibles très loin d'ici : le menu perdait toutes les commandes de module,
+  // et la complétion proposait des noms de commandes au lieu des options.
+  //
+  // Un fichier vide est PIRE qu'un fichier absent : il écrase une donnée
+  // valide. Passer par un temporaire puis `rename` (atomique sur le même
+  // volume) rend l'échec inoffensif — un process tué laisse l'ancien manifest
+  // INTACT. Le `pid` dans le nom évite que deux boots concurrents se marchent
+  // dessus.
+  const tmp = `${file}.${process.pid}.tmp`;
+  try {
+    await writeFile(tmp, JSON.stringify(manifest, null, 1), "utf8");
+    await rename(tmp, file);
+  } catch (e) {
+    // Best-effort de bout en bout : on ne laisse pas de résidu, et on ne
+    // remonte rien (l'appelant est fire-and-forget par contrat).
+    try {
+      rmSync(tmp, { force: true });
+    } catch {
+      // Le temporaire survivra ; il ne sera jamais LU (nom distinct).
+    }
+    throw e;
+  }
 }
 
 /** Lit le manifest cache — `null` si absent ou corrompu (jamais de throw). */

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-21T12:18:01.476Z",
+  "generated": "2026-08-21T12:26:52.334Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -23546,6 +23546,13 @@
       "TLocalCliDecision": [
         "src/nodefony/src/bin/nodefony.ts"
       ],
+      "readCliManifest": [
+        "src/nodefony/src/bin/nodefony.ts",
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+      ],
+      "computeCompletions": [
+        "src/nodefony/src/bin/nodefony.ts"
+      ],
       "findProjectRoot": [
         "src/nodefony/src/bin/resolveLocalCli.ts",
         "src/nodefony/src/cli/aiMcp.ts",
@@ -25174,9 +25181,6 @@
         "src/nodefony/src/kernel/commands/MenuCommand.ts"
       ],
       "planMenuAction": [
-        "src/nodefony/src/kernel/commands/MenuCommand.ts"
-      ],
-      "readCliManifest": [
         "src/nodefony/src/kernel/commands/MenuCommand.ts"
       ],
       "aggregateOutdated": [

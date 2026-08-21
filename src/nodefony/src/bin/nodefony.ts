@@ -8,6 +8,11 @@ import {
   DELEGATED_ENV,
   type TLocalCliDecision,
 } from "./resolveLocalCli";
+// Import STATIQUE, et c'est voulu : le bin est bundlé en fichier UNIQUE, donc
+// un import dynamique y créerait un second chunk (le bundler refuse). Ces deux
+// fonctions ne tirent que `node:fs`/`node:path` — le coût est nul, et le TAB
+// répond sans jamais charger le core.
+import { readCliManifest, computeCompletions } from "../cli/completion";
 
 /**
  * Détecte l'environment EN AMONT de `new CliKernel()` en scannant `process.argv`.
@@ -65,6 +70,37 @@ function traceDecision(decision: TLocalCliDecision, selfDir: string): void {
  * (sinon deux frameworks en mémoire, et le coût de boot payé deux fois).
  */
 async function runSelf(): Promise<unknown> {
+  // ─── TAB : répondre sans rien charger de plus qu'un lecteur de JSON ────────
+  // Un TAB doit être IMPERCEPTIBLE. Le fast-path `__complete` vivait dans
+  // `CliKernel.start()` — donc APRÈS l'import du core entier, la lecture des
+  // `.env` et la construction d'un CliKernel. Mesuré : 0,46 s par TAB, quand
+  // Node seul en coûte 0,11 — un demi-cycle de latence pour lire un fichier de
+  // 6 ko. Le manifest cache porte DÉJÀ les intégrées (il est extrait de
+  // commander après leur enregistrement) : quand il est là, rien d'autre n'est
+  // nécessaire.
+  //
+  // Absent ou illisible, on ne devine pas : on laisse le chemin normal
+  // reprendre la main, qui construira le repli des intégrées en mémoire. Le
+  // manifest étant réécrit par chaque commande, ce cas ne dure jamais.
+  if (process.argv[2] === "__complete") {
+    try {
+      const cached = readCliManifest(process.cwd());
+      if (cached) {
+        const sep = process.argv.indexOf("--");
+        const words = sep >= 0 ? process.argv.slice(sep + 1) : [];
+        const candidates = computeCompletions(cached, words);
+        if (candidates.length > 0) {
+          process.stdout.write(`${candidates.join("\n")}\n`);
+        }
+        // Une complétion sort TOUJOURS en 0 : un TAB qui échoue doit rendre une
+        // liste vide, jamais un message dans le terminal de l'utilisateur.
+        return exit(0);
+      }
+    } catch {
+      // On retombe sur le chemin normal — il sait faire sans cache.
+    }
+  }
+
   const { CliKernel, loadEnv } = await import("nodefony");
 
   const runtimeEnv = resolveRuntimeEnv(process.argv.slice(2));

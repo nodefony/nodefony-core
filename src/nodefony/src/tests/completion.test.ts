@@ -15,6 +15,7 @@ import CliKernel from "../kernel/CliKernel";
 import {
   extractFlags,
   buildCliManifest,
+  writeCliManifest,
   computeCompletions,
   renderCompletionScript,
   cliManifestFile,
@@ -362,6 +363,61 @@ describe("completion — install/uninstall (HOME jetable, fs réel)", () => {
       assert.ok(fs.existsSync(scriptFile));
     } finally {
       fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("completion — le manifest s'écrit ATOMIQUEMENT", () => {
+  /**
+   * Un cache à demi écrit est PIRE qu'un cache absent : il écrase une donnée
+   * valide. Vécu, et la cause de trois symptômes qui semblaient sans rapport —
+   * le manifest tombait à **0 octet** après une commande courte, si bien que le
+   * menu perdait toutes les commandes de module et que la complétion proposait
+   * des noms de commandes au lieu des options de celle qu'on avait tapée.
+   *
+   * `writeFile` OUVRE et TRONQUE avant d'écrire ; appelé en fire-and-forget —
+   * c'est le contrat, pour ne rien coûter au boot — il laisse un fichier vide
+   * dès que le process sort avant la fin, soit le cas NOMINAL d'une commande
+   * CLI. D'où l'écriture par temporaire + `rename`.
+   */
+  it("🔴 une écriture INTERROMPUE laisse le manifest précédent INTACT", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-manifest-"));
+    try {
+      const file = cliManifestFile(dir);
+      const cli = new CliKernel("development");
+      // `buildBuiltinManifest` enregistre les intégrées dans commander — sans
+      // cet appel, `cli.commander` ne porte aucune commande et le test
+      // écrirait un manifest vide, donc ne prouverait rien.
+      cli.buildBuiltinManifest();
+      const commander = (cli as unknown as { commander: never }).commander;
+      // 1) Un manifest valide, écrit normalement.
+      await writeCliManifest(commander, dir, "10.0.0");
+      const bon = fs.readFileSync(file, "utf8");
+      assert.ok(bon.length > 0, "le premier manifest est vide");
+      const commandes = (JSON.parse(bon) as ICliManifest).commands.length;
+      assert.ok(commandes > 0);
+
+      // 2) Une écriture qui ÉCHOUE (JSON non sérialisable : référence cyclique
+      //    sur le commander). Sans atomicité, le fichier serait déjà tronqué à
+      //    zéro à cet instant.
+      const casse = { commands: null } as unknown as never;
+      await assert.rejects(() => writeCliManifest(casse, dir, "10.0.0"));
+
+      // 3) Le manifest VALIDE est toujours là, entier.
+      const apres = fs.readFileSync(file, "utf8");
+      assert.strictEqual(apres, bon, "le manifest valide a été abîmé");
+      assert.strictEqual(
+        (JSON.parse(apres) as ICliManifest).commands.length,
+        commandes,
+      );
+
+      // 4) Aucun résidu temporaire ne traîne dans le dossier du cache.
+      const restes = fs
+        .readdirSync(path.dirname(file))
+        .filter((f) => f.includes(".tmp"));
+      assert.deepStrictEqual(restes, [], `résidus : ${restes.join(", ")}`);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 });
