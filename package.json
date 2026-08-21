@@ -17,7 +17,7 @@
   "scripts": {
     "nodefony": "nodefony",
     "start": "nodefony",
-    "prepare": "husky",
+    "prepare": "git config core.hooksPath .githooks",
     "build": "turbo run build && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
     "build:force": "turbo run build --force && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
     "build:core": "npm run build --workspace=src/nodefony",
@@ -53,7 +53,6 @@
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "@vitest/coverage-v8": "4.1.11",
     "fast-glob": "3.3.3",
-    "husky": "9.1.7",
     "lighthouse": "13.4.1",
     "lint-staged": "17.3.0",
     "nodemon": "3.1.14",

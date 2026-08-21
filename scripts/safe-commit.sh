@@ -8,7 +8,7 @@
 # hook tourne) → traiter AVANT `git commit`.
 #
 # Sûreté :
-#   - Le lock n'est retiré QUE si AUCUN process git/husky/lint-staged/prettier
+#   - Le lock n'est retiré QUE si AUCUN process git/lint-staged/prettier
 #     ne tourne actuellement.
 #   - Le lock doit appartenir à CE repo (résolution `git rev-parse`).
 #   - Aucun rm si lock < 5 s (un git légitime vient de démarrer).
@@ -36,15 +36,15 @@ NOW=$(date +%s)
 LOCK_MTIME=$(stat -f %m "$LOCK" 2>/dev/null || stat -c %Y "$LOCK" 2>/dev/null || echo "$NOW")
 AGE=$((NOW - LOCK_MTIME))
 
-# 4. Détecter un process git/husky/lint-staged/prettier vivant (hors ce shell).
+# 4. Détecter un process git/lint-staged/prettier vivant (hors ce shell).
 #    -f = match sur la cmdline complète. On exclut notre propre PID + le grep lui-même.
 SELF_PID=$$
-ACTIVE=$(pgrep -fl 'git (commit|add|rebase|merge|cherry-pick|am|stash|reset|checkout)|lint-staged|prettier --write|husky' 2>/dev/null \
+ACTIVE=$(pgrep -fl 'git (commit|add|rebase|merge|cherry-pick|am|stash|reset|checkout)|lint-staged|prettier --write' 2>/dev/null \
   | awk -v me="$SELF_PID" '$1 != me { print }' \
   | head -5 || true)
 
 if [ -n "$ACTIVE" ]; then
-  echo "safe-commit: lock présent ET process git/husky actif — on ne touche pas." >&2
+  echo "safe-commit: lock présent ET process git actif — on ne touche pas." >&2
   echo "$ACTIVE" >&2
   exec git commit "$@"   # git affichera le vrai message d'erreur si vraiment bloqué
 fi
@@ -52,7 +52,7 @@ fi
 # 5. Lock trop récent → attendre 2 s puis re-check (un git légitime vient de démarrer).
 if [ "$AGE" -lt 5 ]; then
   sleep 2
-  ACTIVE=$(pgrep -fl 'git (commit|add|rebase|merge|cherry-pick|am|stash|reset|checkout)|lint-staged|prettier --write|husky' 2>/dev/null \
+  ACTIVE=$(pgrep -fl 'git (commit|add|rebase|merge|cherry-pick|am|stash|reset|checkout)|lint-staged|prettier --write' 2>/dev/null \
     | awk -v me="$SELF_PID" '$1 != me { print }' \
     | head -5 || true)
   if [ -n "$ACTIVE" ]; then
