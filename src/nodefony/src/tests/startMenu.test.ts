@@ -161,6 +161,44 @@ describe("startMenu — composition pure du menu interactif", () => {
     assert.notInclude(outsideValues, "security:user:add");
   });
 
+  it("🔴 sans manifest, le menu DIT que les commandes de module manquent", () => {
+    // Le menu s'ouvre à `onStart` — trop tôt pour que commander connaisse les
+    // commandes de MODULE (dispatch différé) — et les lit donc d'un cache. Ce
+    // cache n'existe pas tant qu'aucun boot ne l'a écrit : nouveau clone,
+    // `npm ci`, `node_modules` nettoyé. Le groupe disparaissait alors ENTIER et
+    // EN SILENCE — treize commandes réelles (`http:network`, `frontend:build`,
+    // `security:user:add`…) invisibles, sur un menu qui a tout l'air d'être
+    // complet. Une dégradation silencieuse est pire que l'absence : elle se
+    // fait croire.
+    const { message } = buildStartMenu({
+      inProject: true,
+      describe: describeAll,
+      moduleCommands: [],
+    });
+    assert.match(message, /--help/u, message);
+  });
+
+  it("sens négatif : le manifest présent n'affiche AUCUNE note", () => {
+    const { message } = buildStartMenu({
+      inProject: true,
+      describe: describeAll,
+      moduleCommands: [{ name: "http:network", description: "Show Network" }],
+    });
+    assert.notMatch(message, /--help/u, message);
+  });
+
+  it("sens négatif : hors projet, aucune note non plus", () => {
+    // Hors d'une application, il n'y a PAS de commandes de module à manquer —
+    // signaler une absence y serait un faux avertissement, exactement le
+    // travers qu'on corrige.
+    const { message } = buildStartMenu({
+      inProject: false,
+      describe: describeAll,
+      moduleCommands: [],
+    });
+    assert.notMatch(message, /--help/u, message);
+  });
+
   it("inspect : le sous-menu vient de la table SOURCE et écarte les sujets à paramètre", () => {
     const { items } = buildInspectMenu(INSPECT_SUBJECTS);
     const values = choices(items).map((c) =>

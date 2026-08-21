@@ -648,6 +648,15 @@ class CliKernel extends Cli {
     const render = async (): Promise<void> => {
       if (!shown) {
         shown = true;
+        // Le manifest s'écrit ICI, et pas dans `Kernel.preRegister` comme pour
+        // tout autre boot : ce rendu EST posé sur `onPreRegister`, il termine le
+        // process, et la ligne d'écriture placée après le fire n'est jamais
+        // atteinte. Or c'est précisément le help qui tient l'état complet — les
+        // commandes de module viennent d'être posées — et c'est le geste par
+        // lequel un humain découvre le CLI. Sans ça, le menu (qui relit ce
+        // fichier) restait amputé chez qui n'avait jamais démarré l'application.
+        // Best-effort, jamais bloquant : un help ne doit pas dépendre du disque.
+        await this.writeCompletionManifest().catch(() => {});
         this.printHelpHeader();
         this.assignHelpGroups();
         this.showHelp(false, undefined);

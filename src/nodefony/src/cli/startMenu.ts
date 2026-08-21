@@ -312,21 +312,40 @@ export function buildStartMenu(input: IStartMenuInput): {
       items.push(...groupItems);
     }
   }
-  if (context === "project" && input.moduleCommands?.length) {
-    items.push({ kind: "separator", label: MODULE_COMMANDS_GROUP });
-    for (const mc of input.moduleCommands) {
-      items.push({
-        kind: "choice",
-        label: mc.name,
-        summary: mc.description,
-        value: mc.name,
-        description:
-          "Commande apportée par un module de cette application (relue du dernier démarrage dev).",
-      });
+  if (context === "project") {
+    if (input.moduleCommands?.length) {
+      items.push({ kind: "separator", label: MODULE_COMMANDS_GROUP });
+      for (const mc of input.moduleCommands) {
+        items.push({
+          kind: "choice",
+          label: mc.name,
+          summary: mc.description,
+          value: mc.name,
+          description:
+            "Commande apportée par un module de cette application (relue du dernier démarrage dev).",
+        });
+      }
     }
   }
+  // 🔴 **Une absence s'ÉNONCE — elle ne se laisse pas deviner.** Le menu s'ouvre
+  // à `onStart`, trop tôt pour que commander connaisse les commandes de MODULE
+  // (dispatch différé) : il les relit d'un cache qu'un boot précédent a écrit.
+  // Ce cache n'existe pas encore sur un dépôt neuf, après un `npm ci`, ou si
+  // `node_modules` a été nettoyé — et le groupe disparaissait alors ENTIER, sans
+  // un mot. `http:network`, `frontend:build`, `security:user:add`,
+  // `proxy:generate`… toutes bien réelles, toutes invisibles, sur un menu qui
+  // avait l'air complet : se taire ici fait croire que le CLI se limite à ça.
+  //
+  // Le mot va dans le MESSAGE et non dans un séparateur, parce qu'un séparateur
+  // sans entrée sous lui est précisément ce que ce menu s'interdit (un test le
+  // fige). Hors projet, aucune commande de module n'est attendue : rien à dire.
+  const manque = input.inProject && !input.moduleCommands?.length;
   const message = input.inProject
-    ? `${input.projectName ?? "Projet Nodefony"} — que veux-tu faire ?`
+    ? `${input.projectName ?? "Projet Nodefony"} — que veux-tu faire ?${
+        manque
+          ? " (commandes des modules non listées : l'app n'a pas encore démarré ici — `nodefony --help` les montre toutes)"
+          : ""
+      }`
     : "Aucun projet Nodefony ici — que veux-tu faire ?";
   return { message, items };
 }

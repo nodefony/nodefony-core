@@ -898,10 +898,22 @@ class Kernel extends Service implements IKernel {
 
     // Manifest de complétion shell : ICI (et pas avant) les commandes de MODULE sont
     // posées dans commander → dump complet pour le fast-path `__complete` (0 boot au
-    // TAB). DEV uniquement (prod cloud-native : FS possiblement read-only, aucune
-    // complétion dans un pod) ; fire-and-forget best-effort → coût boot nul, un
-    // échec d'écriture n'impacte JAMAIS le boot.
-    if (this.resolveRuntimeEnv(this.cli?.environment) === "development") {
+    // TAB) ET pour le menu, qui s'ouvre trop tôt (`onStart`) pour les connaître.
+    // Fire-and-forget best-effort → coût boot nul, un échec d'écriture n'impacte
+    // JAMAIS le boot.
+    //
+    // La condition n'est PAS l'environnement mais le PROFIL. Gaté sur
+    // `development`, ce fichier n'était écrit que par `nodefony dev` : toutes les
+    // autres portes qui connaissent pourtant l'état complet — `--help`, `check`,
+    // `inspect` — bootent en `production` par défaut et repartaient sans rien
+    // écrire. Sur un dépôt neuf, après un `npm ci` ou un `node_modules` nettoyé,
+    // le menu perdait donc TOUTES les commandes de module, en silence.
+    // `!runProfile.servers` = une commande CLI ponctuelle, lancée par un humain
+    // qui explore ; un pod de production (`servers: true`) n'écrit toujours rien,
+    // ce qui préserve le motif d'origine (FS possiblement read-only, aucune
+    // complétion dans un container).
+    const env = this.resolveRuntimeEnv(this.cli?.environment);
+    if (env === "development" || !this.runProfile?.servers) {
       void this.cli?.writeCompletionManifest().catch(() => {});
     }
 
