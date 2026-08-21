@@ -192,6 +192,36 @@ const AGENT_ARGS = process.env.NF_DEVKIT_BENCH_AGENT_ARGS
     ];
 
 /**
+ * Câblage MCP de l'agent — ajouté aux args par défaut, PAS à un override.
+ *
+ * `--mcp-config .mcp.json` (relatif : le cwd de l'agent EST l'app témoin) rend
+ * ATTEIGNABLE le serveur MCP que le décor déclare : en headless, le CLI
+ * n'approuve pas un `.mcp.json` de projet sans ce flag — mesuré : 0 appel
+ * `mcp__nodefony__*` sur 87 runs alors que le fichier était posé et validé.
+ * Un câblage que l'agent ne peut pas charger n'existe pas.
+ *
+ * `--strict-mcp-config` restreint l'agent à CE fichier : sans lui, il hérite
+ * des serveurs MCP du poste (scope user) — un agent mieux servi que
+ * l'utilisateur réel, et surtout un serveur `nodefony` du DÉPÔT répondrait à
+ * la place de celui de l'app témoin : la classe de piège « une application
+ * qui n'est pas la sienne », version appels MCP.
+ *
+ * `NF_DEVKIT_BENCH_AGENT_ARGS` reste le contrat COMPLET : posé, il remplace
+ * tout, MCP compris — sinon il ne permettrait plus de mesurer « sans MCP ».
+ */
+const MCP_ARGS = process.env.NF_DEVKIT_BENCH_AGENT_ARGS
+  ? []
+  : ["--mcp-config", ".mcp.json", "--strict-mcp-config"];
+
+/**
+ * Le MCP fait partie du DÉCOR enregistré — dérivé des args EFFECTIFS, jamais
+ * affirmé : un override d'args sans le flag doit produire un rapport qui dit
+ * « MCP non atteint », sinon le dépistage comparerait deux mesures que ce
+ * réglage sépare.
+ */
+const MCP_ATTEIGNABLE = [...AGENT_ARGS, ...MCP_ARGS].includes("--mcp-config");
+
+/**
  * Ports DÉDIÉS de l'app témoin, hérités par tout ce que l'agent lance depuis
  * elle (le serveur qu'il démarre en tâche 5 compris).
  *
@@ -3478,7 +3508,12 @@ function runTask(app, runDir, task) {
   const transcriptPath = path.join(runDir, `task-${task.id}.transcript.jsonl`);
   const res = spawnSync(
     AGENT,
-    [...AGENT_ARGS, ...(MODEL ? ["--model", MODEL] : []), task.prompt],
+    [
+      ...AGENT_ARGS,
+      ...MCP_ARGS,
+      ...(MODEL ? ["--model", MODEL] : []),
+      task.prompt,
+    ],
     {
       cwd: app,
       encoding: "utf8",
@@ -3744,15 +3779,34 @@ export function motifDEcartement({ transcript, files }) {
   return null;
 }
 
-function lireEffort(transcriptPath) {
+export function lireEffort(transcriptPath) {
   if (!existsSync(transcriptPath)) {
     return null;
   }
   let tours = 0;
   let dureeMs = 0;
   let coutUsd = 0;
+  let mcpCalls = 0;
   let vu = false;
   for (const ligne of readFileSync(transcriptPath, "utf8").split("\n")) {
+    // Appels MCP RÉELS : des blocs `tool_use` des tours d'assistant, jamais un
+    // grep du texte — l'agent ÉCRIT volontiers `mcp__nodefony__…` dans du code
+    // ou de la prose, et un compte qui lit le texte mesurerait ce qu'il DIT,
+    // pas ce qu'il FAIT (même piège que `sansTexteAffiche` pour les sondes).
+    if (ligne.includes('"type":"assistant"') && ligne.includes('"tool_use"')) {
+      try {
+        const blocs = JSON.parse(ligne)?.message?.content;
+        if (Array.isArray(blocs)) {
+          for (const b of blocs) {
+            if (b?.type === "tool_use" && String(b.name).startsWith("mcp__")) {
+              mcpCalls += 1;
+            }
+          }
+        }
+      } catch {
+        // Ligne tronquée : même politique que ci-dessous.
+      }
+    }
     if (!ligne.includes('"type":"result"')) {
       continue;
     }
@@ -3771,7 +3825,7 @@ function lireEffort(transcriptPath) {
       // un effort partiel reste plus informatif qu'aucun.
     }
   }
-  return vu ? { tours, dureeMs, coutUsd } : null;
+  return vu ? { tours, dureeMs, coutUsd, mcpCalls } : null;
 }
 
 /**
@@ -4054,7 +4108,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
   if (effort) {
     console.log(
       `     effort : ${effort.tours} tours · ${Math.round(effort.dureeMs / 1000)} s · ` +
-        `${effort.coutUsd.toFixed(2)} $`,
+        `${effort.coutUsd.toFixed(2)} $ · ${effort.mcpCalls ?? 0} appel(s) MCP`,
     );
   }
   return {
@@ -4331,7 +4385,9 @@ function main() {
     // Le décor est une VARIABLE de la mesure, au même titre que le modèle :
     // deux runs de décors différents ne se comparent pas. Il s'enregistre, il
     // ne se déduit pas du chemin.
-    decor: LINKED ? "lié au checkout (--link)" : "isolé (tarballs, hors dépôt)",
+    decor:
+      (LINKED ? "lié au checkout (--link)" : "isolé (tarballs, hors dépôt)") +
+      (MCP_ATTEIGNABLE ? " · MCP atteignable" : " · MCP non atteint"),
     agent: AGENT,
     // Le commit MESURÉ — la seule variable qu'on veut voir différer entre la
     // référence et le run. Re-juger un run ANCIEN ne le mesure pas au commit
