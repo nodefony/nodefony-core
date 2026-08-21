@@ -247,6 +247,89 @@ describe("MCP — le protocole", () => {
     ]);
   });
 
+  // ─── Forme d'ÈRE des résultats — payée par une connexion réelle ───────────
+  // Le schéma 2026-07-28 est catégorique : « Servers implementing this
+  // protocol version MUST include this field » (`resultType`, schema.ts §Result),
+  // et `_meta` serverInfo est un SHOULD sur chaque réponse. Constaté sur le
+  // client officiel (claude-code 2.1.238) : un `tools/list` moderne SANS
+  // `resultType` est rejoué 4 fois puis écarté — serveur « connected », zéro
+  // outil enregistré. Un serveur moderne à résultats legacy est injoignable.
+  const META_MODERNE = {
+    "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+  };
+
+  it("🔴 un `tools/list` MODERNE porte `resultType` et l'identité du serveur", async () => {
+    const reply = await handleMcpMessage(
+      {
+        jsonrpc: "2.0",
+        id: 40,
+        method: "tools/list",
+        params: { _meta: META_MODERNE },
+      },
+      context(["card"]),
+    );
+    const result = (reply.body as { result: Record<string, unknown> }).result;
+    expect(result.resultType).toBe("complete");
+    expect(
+      (result._meta as Record<string, unknown>)[
+        "io.modelcontextprotocol/serverInfo"
+      ],
+    ).toEqual({ name: "banc", version: "0.0.0" });
+  });
+
+  it("🔴 un `tools/call` MODERNE porte la même forme d'ère", async () => {
+    const reply = await handleMcpMessage(
+      {
+        jsonrpc: "2.0",
+        id: 41,
+        method: "tools/call",
+        params: { name: "nodefony_card", arguments: {}, _meta: META_MODERNE },
+      },
+      context(["card"]),
+    );
+    const result = (reply.body as { result: Record<string, unknown> }).result;
+    expect(result.resultType).toBe("complete");
+    expect(result._meta).toBeDefined();
+  });
+
+  it("🔴 un `ping` MODERNE aussi — `EmptyResult` EST un `Result`", async () => {
+    const reply = await handleMcpMessage(
+      {
+        jsonrpc: "2.0",
+        id: 42,
+        method: "ping",
+        params: { _meta: META_MODERNE },
+      },
+      context(),
+    );
+    const result = (reply.body as { result: Record<string, unknown> }).result;
+    expect(result.resultType).toBe("complete");
+  });
+
+  it("🔴 l'ère se lit AUSSI de l'en-tête seul (`MCP-Protocol-Version`)", async () => {
+    // Le client officiel envoie les deux ; un client qui n'enverrait que
+    // l'en-tête a pourtant déclaré son ère — la spec les fait équivalents.
+    const reply = await handleMcpMessage(
+      { jsonrpc: "2.0", id: 43, method: "tools/list" },
+      context(["card"]),
+      { protocolVersion: "2026-07-28" },
+    );
+    const result = (reply.body as { result: Record<string, unknown> }).result;
+    expect(result.resultType).toBe("complete");
+  });
+
+  it("un `tools/list` LEGACY garde la forme legacy — pas de champ d'une autre ère", async () => {
+    // Un client ≤ 2025-11-25 ne définit pas `resultType` ; le lui envoyer est
+    // au mieux du bruit, au pire un champ qu'un validateur strict refuse.
+    const reply = await handleMcpMessage(
+      { jsonrpc: "2.0", id: 44, method: "tools/list" },
+      context(["card"]),
+    );
+    const result = (reply.body as { result: Record<string, unknown> }).result;
+    expect(result.resultType).toBeUndefined();
+    expect(result._meta).toBeUndefined();
+  });
+
   it("sens négatif : une clé inconnue dans l'allowlist n'ouvre RIEN", () => {
     // `toString` est le cas qui a mordu : sans `Object.hasOwn`, il résolvait
     // une méthode héritée d'`Object.prototype` et un outil fantôme entrait.
@@ -647,11 +730,13 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
       expect(tools[0].name).toBe("shop_stock");
     });
 
-    it("🔴 `server/discover` ANNONCE qu'il existe des réservés, sans les nommer", async () => {
+    it("🔴 `initialize` ANNONCE qu'il existe des réservés, sans les nommer", async () => {
       // Sans cette phrase, un catalogue filtré ment par omission : l'agent
-      // conclut « rien de plus » et ne demandera jamais de jeton.
+      // conclut « rien de plus » et ne demandera jamais de jeton. Elle vivait
+      // dans `server/discover` ; les `instructions` d'`initialize` (champ
+      // présent depuis 2024-11-05) la portent tant que discover n'est pas servi.
       const reply = await handleMcpMessage(
-        { jsonrpc: "2.0", id: 60, method: "server/discover" },
+        { jsonrpc: "2.0", id: 60, method: "initialize", params: {} },
         {
           tools: servis().tools,
           withheldCount: 1,
@@ -667,7 +752,7 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
 
     it("aucun réservé : aucune phrase — pas de porte imaginaire à chercher", async () => {
       const reply = await handleMcpMessage(
-        { jsonrpc: "2.0", id: 61, method: "server/discover" },
+        { jsonrpc: "2.0", id: 61, method: "initialize", params: {} },
         {
           tools: servis().tools,
           serverInfo: { name: "banc", version: "0.0.0" },
@@ -694,28 +779,44 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
 });
 
 describe("MCP — conformité de la révision 2026-07-28", () => {
-  it("🔴 `server/discover` est un MUST — il répond, avec versions et identité", async () => {
-    // « Servers MUST implement it » (server/discover). C'est le point d'entrée
-    // d'un client MODERNE, qui n'ouvre aucune session.
+  it("🔴 `server/discover` rend -32601 — un retrait DÉLIBÉRÉ, pas un trou", async () => {
+    // La spec en fait un MUST moderne, et ce serveur l'A servi, conforme au
+    // schéma. Mesuré au proxy sur le client dominant (claude-code 2.1.238) :
+    // discover répondu ⇒ le client bascule sur son fil moderne, rejoue
+    // `tools/list` 4× (réponse conforme, JSON puis SSE) et n'enregistre AUCUN
+    // outil. Discover en -32601 ⇒ il suit le repli PRÉVU par la spec
+    // (« falls back to initialize ») et enregistre les quatre. Conforme ≠
+    // joignable : ce test fige le retrait TANT QU'aucun client réel n'achève
+    // le fil moderne — le réactiver = remettre le `case` dans server.ts, et
+    // inverser CE test.
     const reply = await handleMcpMessage(
       { jsonrpc: "2.0", id: 20, method: "server/discover" },
       context(),
     );
+    expect(reply.status).toBe(404);
+    expect((reply.body as { error: { code: number } }).error.code).toBe(-32601);
+  });
+
+  it("l'ère moderne PAR REQUÊTE reste servie — le retrait ne touche que discover", async () => {
+    // Un client moderne qui invoque « inline » (la spec l'y autorise : « a
+    // client is free to invoke any RPC inline ») est servi dans la forme de
+    // son ère — c'est ce qui rend le retrait réversible sans rien réécrire.
+    const reply = await handleMcpMessage(
+      {
+        jsonrpc: "2.0",
+        id: 22,
+        method: "tools/list",
+        params: {
+          _meta: {
+            "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+          },
+        },
+      },
+      context(["card"]),
+    );
     expect(reply.status).toBe(200);
     const result = (reply.body as { result: Record<string, unknown> }).result;
-    // La préférée EN TÊTE : c'est l'ordre qui dit ce qu'on recommande.
-    expect(result.supportedVersions).toEqual([...MCP_SUPPORTED_VERSIONS]);
-    expect((result.supportedVersions as string[])[0]).toBe(
-      MCP_PROTOCOL_VERSION,
-    );
-    expect(result.capabilities).toEqual({ tools: {} });
     expect(result.resultType).toBe("complete");
-    // L'identité voyage en `_meta`, sous la clé que la spec nomme.
-    expect(
-      (result._meta as Record<string, unknown>)[
-        "io.modelcontextprotocol/serverInfo"
-      ],
-    ).toEqual({ name: "banc", version: "0.0.0" });
   });
 
   it("🔴 une révision inconnue rend -32022 AVEC la liste des versions servies", async () => {

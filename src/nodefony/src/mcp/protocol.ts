@@ -38,11 +38,12 @@ export const MCP_DEFAULT_NEGOTIATED_VERSION = "2025-03-26";
  *
  * Ces cinq révisions sont celles que la spec a publiées. Les servir toutes est
  * honnête ici, et vérifiable : les quatre méthodes de ce serveur — `initialize`,
- * `ping`, `tools/list`, `tools/call` — ont la même forme de requête et de
- * réponse dans chacune (`content[]`, `isError`). Ce que `2026-07-28` ajoute
- * (`server/discover`, plus de session, métadonnées par requête) s'ajoute sans
- * rien casser pour un client plus ancien, qui ne les demande simplement pas.
- * Un test EXERCE chacune, plutôt que de se fier à cette phrase.
+ * `ping`, `tools/list`, `tools/call` — ont la même forme de REQUÊTE dans
+ * chacune. La forme du RÉSULTAT, elle, dépend de l'ÈRE du client : depuis
+ * `2026-07-28`, tout résultat porte `resultType` (MUST du schéma) et `_meta`
+ * serverInfo — servis par `eraResult` (server.ts) à un client moderne, jamais
+ * à un client legacy qui ne définit pas ces champs. Un test EXERCE chacune,
+ * plutôt que de se fier à cette phrase.
  */
 export const MCP_SUPPORTED_VERSIONS = [
   MCP_PROTOCOL_VERSION,
