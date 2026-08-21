@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-21T17:04:33.685Z",
+  "generated": "2026-08-21T22:21:13.145Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 724,
-    "symbols": 3010,
+    "files": 725,
+    "symbols": 3012,
     "classes": 364,
     "interfaces": 862,
     "types": 383,
     "enums": 4,
-    "functions": 1110,
-    "constants": 287
+    "functions": 1111,
+    "constants": 288
   },
   "symbols": {
     "Cli": {
@@ -3725,6 +3725,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Rend le jeton porté par un en-tête `Authorization`, ou `null`."
+    },
+    "defaultEngineEnvironment": {
+      "name": "defaultEngineEnvironment",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/engineEnvironment.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le défaut à retenir SELON que `NODE_ENV` a été posé ou non. 🔴 **Poser `NODE_ENV` est un ACTE DE DÉPLOIEMENT ; ne rien poser est l'état d'un poste de développement.** C'est toute la distinction, et…"
+    },
+    "DEFAULT_ENGINE_ENVIRONMENT": {
+      "name": "DEFAULT_ENGINE_ENVIRONMENT",
+      "kind": "const",
+      "file": "src/nodefony/src/runtime/engineEnvironment.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Mode retenu lorsque ni l'environnement ni la commande n'en désignent un. 🔴 **`development`, et c'est un choix de SÛRETÉ.** Le raisonnement, parce qu'il se reprendra le jour où quelqu'un voudra l'i…"
     },
     "GcScheduler": {
       "name": "GcScheduler",
@@ -21791,6 +21807,13 @@
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts"
       ],
+      "DEFAULT_ENGINE_ENVIRONMENT": [
+        "src/nodefony/src/Cli.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "defaultEngineEnvironment": [
+        "src/nodefony/src/Cli.ts"
+      ],
       "extend": [
         "src/nodefony/src/Cli.ts",
         "src/nodefony/src/Container.ts",
@@ -21958,6 +21981,7 @@
         "src/nodefony/src/bin/nodefony.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/runtime/engineEnvironment.ts",
         "src/nodefony/src/syslog/Syslog.ts",
         "src/nodefony/src/types/ICliKernel.ts",
         "src/nodefony/src/types/IKernel.ts",

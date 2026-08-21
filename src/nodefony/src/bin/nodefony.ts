@@ -33,7 +33,12 @@ function detectEnvironmentFromArgv(
 ): EnvironmentType | undefined {
   for (const a of argv) {
     if (a === "development" || a === "dev") return "development";
-    if (a === "production" || a === "prod") return "production";
+    // `start` est un ALIAS de `production` (`ProdCommand.alias("start")`) : sans
+    // lui, `nodefony start` n'exprimait AUCUNE intention et ne devait son mode
+    // qu'au défaut de classe du Kernel. Il tombait du bon côté par accident —
+    // un accident qui disparaît le jour où ce défaut change, c'est-à-dire
+    // aujourd'hui. Un alias qui lance un serveur DOIT être détecté ici.
+    if (a === "production" || a === "prod" || a === "start") return "production";
     // `cluster` est un runtime PROD (master + workers). Sans cette détection,
     // l'unique Kernel naissait en `development` (env non résolu au constructeur)
     // alors que les workers tournent en production → env incohérent.
@@ -43,9 +48,19 @@ function detectEnvironmentFromArgv(
 }
 
 /**
- * Résout le **mode runtime** (dev/prod) AVANT le kernel, façon 12-factor : `NODE_ENV`
- * (ambient, posé par l'orchestrateur cloud) PRIME sur l'intention de la commande
- * (argv). Miroir pur de `Kernel.resolveRuntimeEnv`, mais sans instance (le bin tourne
+ * Résout le **mode runtime** (dev/prod) AVANT le kernel : `NODE_ENV` (ambiant)
+ * PRIME sur l'intention de la commande (argv).
+ *
+ * ⚠️ **Ce n'est pas « le 12-factor » qui l'impose, et l'écrire était faux.** Sa
+ * section *Config* REJETTE au contraire les groupes d'environnement : « In a
+ * twelve-factor app, env vars are granular controls […] They are never grouped
+ * together as "environments" ». `NODE_ENV` est précisément ce qu'elle
+ * déconseille. Ce qui relève d'elle ici est la seule PRÉCÉDENCE — la
+ * configuration ambiante l'emporte sur ce que la commande croit savoir.
+ *
+ * Ce qui garantit le mode en production est FACTUEL : Node.js le recommande
+ * (« Always run your Node.js with NODE_ENV=production set »), l'image générée
+ * pose `ENV NODE_ENV=production`, et les lanceurs déclarent leur intention. Miroir pur de `Kernel.resolveRuntimeEnv`, mais sans instance (le bin tourne
  * avant `new CliKernel()`) et autorisé à rendre `undefined` (aucun `.env.<env>` chargé
  * si ni NODE_ENV ni commande connue — ex. `nodefony frontend:build` hors contexte env).
  */

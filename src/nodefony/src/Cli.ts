@@ -23,6 +23,10 @@ import semver from "semver";
 import Table, { TableConstructorOptions } from "cli-table3";
 import clc, { type ColorFn, type Clc } from "./colors";
 import Service, { DefaultOptionsService } from "./Service";
+import {
+  DEFAULT_ENGINE_ENVIRONMENT,
+  defaultEngineEnvironment,
+} from "./runtime/engineEnvironment";
 import { extend } from "./Tools";
 import Container from "./Container";
 import FileClass from "./FileClass";
@@ -108,7 +112,12 @@ const defaultOptions = {
   warning: false,
   pid: false,
   promiseRejection: true,
-  environment: "production",
+  // ⚠️ PAS de `environment` ici, volontairement. Un défaut posé dans les options
+  // s'interpose dans la cascade du constructeur et court-circuite la seule
+  // fonction qui sache distinguer « `NODE_ENV` absent » (poste de développement)
+  // de « `NODE_ENV` posé mais non-moteur » (un déploiement `staging`/`canary`,
+  // qui doit tourner comme la production). Vécu : avec un défaut ici, un
+  // `NODE_ENV=staging` partait en développement.
 };
 
 /**
@@ -197,7 +206,7 @@ function exitWhenFlushed(code: number): void {
 class Cli extends Service {
   public override options: CliDefaultOptions = extend({}, defaultOptions);
   public debug: DebugType = false;
-  public environment: EnvironmentType = "production";
+  public environment: EnvironmentType = DEFAULT_ENGINE_ENVIRONMENT;
   public commander: typeof program | null = null;
   protected commands: Record<string, Command> = {};
   public pid: number | null = null;
@@ -278,7 +287,11 @@ class Cli extends Service {
     this.environment =
       toEngineEnvironment(process.env.NODE_ENV) ??
       this.options.environment ??
-      "production";
+      // ⚠️ Pas `DEFAULT_ENGINE_ENVIRONMENT` nu : une valeur POSÉE mais
+      // non-moteur (`staging`, `canary`, `prod-eu`) nomme un déploiement, et
+      // un déploiement tourne comme la production. Seule l'ABSENCE désigne un
+      // poste de développement.
+      defaultEngineEnvironment(process.env.NODE_ENV);
     this.setProcessTitle();
     this.pid = this.options.pid ? this.setPid() : null;
     if (this.options.autoLogger) {

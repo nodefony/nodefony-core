@@ -7,6 +7,7 @@ import path from "node:path";
 import Container, { Scope } from "../Container";
 import FileClass from "../FileClass";
 import { Nodefony } from "../Nodefony";
+import { DEFAULT_ENGINE_ENVIRONMENT } from "../runtime/engineEnvironment";
 import Service, { DefaultOptionsService } from "../Service";
 import { extend, isSubclassOf } from "../Tools";
 import Command, { CommandArgs } from "../command/Command";
@@ -429,7 +430,30 @@ class Kernel extends Service implements IKernel {
   registered: boolean = false;
   app: Module | null = null;
   cli: CliKernel | null = null;
-  environment: EnvironmentType = "production";
+  /**
+   * Mode MOTEUR par défaut, quand RIEN ne le dit.
+   *
+   * 🔴 `development`, et c'est un choix de sûreté — pas de confort. Le défaut
+   * ne s'applique que si `NODE_ENV` est absent ET que la commande n'exprime
+   * aucune intention. Or cette information ne manque JAMAIS en production : le
+   * `Dockerfile` généré pose `ENV NODE_ENV=production`, tout orchestrateur pose
+   * la variable, et les trois lanceurs posent leur mode eux-mêmes
+   * (`ProdCommand`, `DevCommand`, `ClusterCommand`). Elle ne manque que sur un
+   * poste de développement — le défaut doit donc protéger CE cas.
+   *
+   * L'ancien défaut `production` a produit trois défauts constatés : un jeton
+   * émis contre la mauvaise configuration, une inspection qui montrait les
+   * modules de production sur une machine de développement, et un contrôle de
+   * banc qui comparait deux applications différentes. Aucun n'a levé d'erreur :
+   * deviner « production » là où l'on est manifestement en développement est
+   * une dégradation SILENCIEUSE, ce que ce framework s'interdit.
+   *
+   * Il était de surcroît incohérent avec lui-même : la cascade `.env` ne
+   * chargeait alors NI `.env.production` ni `.env.development` (le lanceur
+   * rendait `undefined`), si bien que l'application se déclarait en production
+   * sans en avoir la configuration.
+   */
+  environment: EnvironmentType = DEFAULT_ENGINE_ENVIRONMENT;
   debug: DebugType = false;
   appEnvironment: AppEnvironmentType = {
     environment: process.env.NODE_ENV as string,
@@ -1723,7 +1747,15 @@ class Kernel extends Service implements IKernel {
    * @returns contexte d'environnement pour `descriptor.resolve(ctx)`.
    */
   private buildConfigContext(env?: unknown): ConfigContext {
-    const raw = process.env.NODE_ENV || this.cli?.environment || "production";
+    // ⚠️ MÊME défaut que le moteur, obligatoirement : ce contexte est celui que
+    // reçoit la config de l'application (`defineConfig((ctx) => …)`). S'il
+    // désignait un autre mode que le kernel, l'application serait configurée
+    // pour un environnement et exécutée dans un autre — sans qu'aucune erreur
+    // ne le dise. C'est précisément la divergence que la source unique ferme.
+    const raw =
+      process.env.NODE_ENV ||
+      this.cli?.environment ||
+      DEFAULT_ENGINE_ENVIRONMENT;
     const runtimeEnv = raw === "dev" ? "development" : raw;
     const appEnv =
       process.env.APP_ENV || process.env.NODEFONY_ENV || runtimeEnv;
@@ -2233,7 +2265,7 @@ class Kernel extends Service implements IKernel {
     registerBuiltinLogDrivers();
     const driverCtx: ILogDriverContext = {
       logCfg,
-      environment: this.environment ?? "production",
+      environment: this.environment ?? DEFAULT_ENGINE_ENVIRONMENT,
       logDir: logDirAbs,
       pid: process.pid,
       getRingStack: () => this.syslog?.ringStack ?? [],
@@ -2359,7 +2391,7 @@ class Kernel extends Service implements IKernel {
   }
 
   /**
-   * Résout le **mode runtime** (dev/prod) selon le 12-factor : `NODE_ENV`
+   * Résout le **mode runtime** (dev/prod) : `NODE_ENV`
    * (ambient, posé par l'orchestrateur en cloud) PRIME sur l'intention de la
    * commande locale, qui prime sur la valeur courante. Normalise en
    * `"development" | "production"`. Pur (lit `process.env`, n'écrit rien) → sûr à
@@ -2369,15 +2401,27 @@ class Kernel extends Service implements IKernel {
   resolveRuntimeEnv(
     fromCommand?: EnvironmentType,
   ): "development" | "production" {
+    // Le dernier terme est le défaut quand RIEN ne parle — même raison que
+    // `Kernel.environment` : l'information ne manque qu'en développement.
+    // ⚠️ Ce qui suit n'est PAS un défaut mais un COLLAPSE volontaire : tout ce
+    // qui n'est pas « dev » tourne comme la production (un `staging` est
+    // optimisé comme elle). Ne pas confondre les deux.
     const raw =
-      process.env.NODE_ENV || fromCommand || this.environment || "production";
+      process.env.NODE_ENV ||
+      fromCommand ||
+      this.environment ||
+      DEFAULT_ENGINE_ENVIRONMENT;
     return raw === "dev" || raw === "development"
       ? "development"
       : "production";
   }
 
   setEnv(environment?: EnvironmentType) {
-    // MODE RUNTIME (dev/prod) — source 12-factor : NODE_ENV > commande > courant.
+    // MODE RUNTIME (dev/prod) — précédence : NODE_ENV > commande > courant.
+    // ⚠️ Ne pas rattacher cette précédence au « 12-factor » : sa section Config
+    // rejette les groupes d'environnement (« never grouped together as
+    // "environments" »), donc `NODE_ENV` lui-même. Seule la précédence — la
+    // configuration ambiante l'emporte — est de cet esprit.
     const runtime = this.resolveRuntimeEnv(environment);
     this.environment = runtime;
     // ENVIRONNEMENT DE DÉPLOIEMENT (axe DISTINCT du mode runtime) — string libre
