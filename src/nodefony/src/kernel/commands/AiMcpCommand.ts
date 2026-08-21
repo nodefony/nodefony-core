@@ -21,6 +21,7 @@ const options: OptionsCommandInterface = {
  * ```bash
  * nodefony ai:mcp             # écrit/actualise .mcp.json
  * nodefony ai:mcp --dry-run   # le plan, sans rien écrire
+ * nodefony ai:mcp --auth      # mode authentifié (en-tête ${NF_MCP_TOKEN})
  * ```
  */
 class AiMcp extends Command {
@@ -30,6 +31,10 @@ class AiMcp extends Command {
       "Déclare le serveur MCP de cette application à ton agent (.mcp.json)",
       cli as CliKernel,
       options,
+    );
+    this.addOption(
+      "-a, --auth",
+      "Mode authentifié : l'en-tête porte ${NF_MCP_TOKEN}, jamais le jeton",
     );
     this.addOption(
       "--url <origine>",
@@ -44,12 +49,14 @@ class AiMcp extends Command {
   }
 
   override async generate(opts?: {
+    auth?: boolean;
     url?: string;
     dryRun?: boolean;
     json?: boolean;
     cwd?: string;
   }): Promise<this> {
     const argv = ["node", "nodefony", "ai:mcp"];
+    if (opts?.auth) argv.push("--auth");
     if (opts?.url) argv.push("--url", opts.url);
     if (opts?.dryRun) argv.push("--dry-run");
     if (opts?.json) argv.push("--json");

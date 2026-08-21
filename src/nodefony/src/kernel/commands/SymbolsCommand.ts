@@ -35,6 +35,10 @@ class Symbols extends Command {
       options,
     );
     this.addOption("-j, --json", "sortie JSON (scriptable)");
+    this.addOption(
+      "--cwd <path>",
+      "Point de départ (la racine de l'app est résolue en remontant)",
+    );
     this.addOption("-m, --module <nom>", "n'afficher qu'un paquet");
   }
 

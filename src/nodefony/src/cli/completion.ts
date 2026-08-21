@@ -5,6 +5,7 @@ import {
   writeFileSync,
   writeSync,
   rmSync,
+  readdirSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -129,6 +130,21 @@ export async function writeCliManifest(
   // volume) rend l'échec inoffensif — un process tué laisse l'ancien manifest
   // INTACT. Le `pid` dans le nom évite que deux boots concurrents se marchent
   // dessus.
+  // Balayage des temporaires ORPHELINS avant d'en créer un.
+  //
+  // Le `catch` plus bas ne couvre que l'échec d'écriture ; le cas NOMINAL n'y
+  // passe jamais. L'appel est fire-and-forget (contrat : ne rien coûter au
+  // boot), donc le process sort volontiers PENDANT le `writeFile` — le fichier
+  // vide existe déjà, et aucun `catch` ne tournera jamais pour lui. Constaté
+  // sur un vrai dossier de cache : deux résidus de 0 octet, un par commande
+  // interrompue. Inoffensifs (ils ne sont jamais LUS), mais ils s'accumulent
+  // dans le `node_modules` de chaque utilisateur.
+  //
+  // Le PID du nom sert ici une seconde fois : il dit si le propriétaire vit
+  // encore. On n'efface QUE les morts — arracher le temporaire d'un process
+  // vivant lui volerait son écriture en cours.
+  nettoyerTemporairesOrphelins(file);
+
   const tmp = `${file}.${process.pid}.tmp`;
   try {
     await writeFile(tmp, JSON.stringify(manifest, null, 1), "utf8");
@@ -142,6 +158,42 @@ export async function writeCliManifest(
       // Le temporaire survivra ; il ne sera jamais LU (nom distinct).
     }
     throw e;
+  }
+}
+
+/**
+ * Efface les temporaires d'écriture dont le process propriétaire est mort.
+ *
+ * Best-effort de bout en bout : un dossier illisible, un fichier déjà repris
+ * par quelqu'un d'autre, une permission refusée — rien de tout cela ne doit
+ * empêcher d'écrire le manifest, qui est le vrai travail.
+ *
+ * @param file - chemin du manifest ; ses temporaires en dérivent
+ */
+function nettoyerTemporairesOrphelins(file: string): void {
+  try {
+    const dossier = path.dirname(file);
+    const base = `${path.basename(file)}.`;
+    for (const entree of readdirSync(dossier)) {
+      if (!entree.startsWith(base) || !entree.endsWith(".tmp")) continue;
+      const pid = Number.parseInt(
+        entree.slice(base.length, -".tmp".length),
+        10,
+      );
+      if (!Number.isInteger(pid) || pid <= 0) continue;
+      if (pid === process.pid) continue;
+      try {
+        // Signal 0 : ne tue rien, demande seulement si le process existe.
+        process.kill(pid, 0);
+        continue; // vivant — son temporaire lui appartient
+      } catch {
+        // Mort (ESRCH) — ou hors de notre portée (EPERM), auquel cas il vit et
+        // `rmSync` échouera sans conséquence.
+      }
+      rmSync(path.join(dossier, entree), { force: true });
+    }
+  } catch {
+    // Le balayage est un confort : son échec ne doit jamais coûter le manifest.
   }
 }
 

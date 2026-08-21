@@ -43,6 +43,10 @@ class Card extends Command {
     );
     this.alias("devkit:card");
     this.addOption("-j, --json", "sortie JSON (scriptable)");
+    this.addOption(
+      "--cwd <path>",
+      "Point de départ (la racine de l'app est résolue en remontant)",
+    );
   }
 
   override async generate(opts?: { json?: boolean }): Promise<this> {

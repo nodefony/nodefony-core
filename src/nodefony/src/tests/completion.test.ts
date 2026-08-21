@@ -420,4 +420,35 @@ describe("completion — le manifest s'écrit ATOMIQUEMENT", () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("🔴 les temporaires ORPHELINS d'un process mort sont balayés", async () => {
+    // La suite du correctif précédent, constatée sur le vrai dossier de cache :
+    // deux `cli-manifest.json.<pid>.tmp` de 0 octet y traînaient. Le nettoyage
+    // n'existait que dans le `catch` — or le cas NOMINAL n'y passe jamais :
+    // l'écriture est fire-and-forget, le process sort PENDANT le `writeFile`,
+    // le fichier vide est déjà créé et aucun `catch` ne tourne. Un résidu par
+    // commande interrompue, dans le `node_modules` de chaque utilisateur.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-manifest-orph-"));
+    try {
+      const file = cliManifestFile(dir);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      // Un PID qui n'existe plus (très au-delà du maximum usuel), et le NÔTRE :
+      // seul le premier doit disparaître — supprimer le temporaire d'un process
+      // vivant lui arracherait son écriture en cours.
+      const mort = `${file}.4194304.tmp`;
+      const vivant = `${file}.${process.pid}.tmp`;
+      fs.writeFileSync(mort, "");
+      fs.writeFileSync(vivant, "");
+
+      const cli = new CliKernel("development");
+      cli.buildBuiltinManifest();
+      const commander = (cli as unknown as { commander: never }).commander;
+      await writeCliManifest(commander, dir, "10.0.0");
+
+      assert.ok(!fs.existsSync(mort), "le temporaire orphelin survit");
+      assert.ok(fs.existsSync(file), "le manifest n'a pas été écrit");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

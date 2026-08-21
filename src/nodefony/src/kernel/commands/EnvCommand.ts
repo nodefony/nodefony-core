@@ -50,6 +50,10 @@ class Env extends Command {
       "--check",
       "Avec --example : vérifie sans écrire, sort en erreur si le fichier diverge",
     );
+    this.addOption(
+      "--cwd <path>",
+      "Point de départ (la racine de l'app est résolue en remontant)",
+    );
   }
 
   override async generate(opts?: { json?: boolean }): Promise<this> {
