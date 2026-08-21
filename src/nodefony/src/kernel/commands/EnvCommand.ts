@@ -42,6 +42,14 @@ class Env extends Command {
       options,
     );
     this.addOption("-j, --json", "sortie JSON (scriptable)");
+    this.addOption(
+      "--example",
+      "Dérive .env.example du catalogue env.ts (ADR-0006)",
+    );
+    this.addOption(
+      "--check",
+      "Avec --example : vérifie sans écrire, sort en erreur si le fichier diverge",
+    );
   }
 
   override async generate(opts?: { json?: boolean }): Promise<this> {

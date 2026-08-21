@@ -1,10 +1,11 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { parseEnv } from "node:util";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
 import { envFileOrder } from "../runtime/loadEnv";
+import { renderEnvExample } from "../config/envExample";
 import { getEnvCatalog, type NamedEnvVarMeta } from "../config/defineEnv";
 import {
   buildEnvReport,
@@ -35,6 +36,10 @@ import {
 /** Ce que la ligne de commande demande. */
 interface IEnvRequest {
   json: boolean;
+  /** `--example` : générer/vérifier `.env.example` au lieu du rapport. */
+  example: boolean;
+  /** `--check` : ne rien écrire, échouer si `.env.example` diverge. */
+  check: boolean;
   /** Racine de recherche (défaut : le cwd). */
   cwd: string;
 }
@@ -44,24 +49,36 @@ export function parseEnvArgv(argv: string[]): IEnvRequest | { error: string } {
   const at = argv.indexOf("env");
   const rest = at === -1 ? [] : argv.slice(at + 1);
   let json = false;
+  let example = false;
+  let check = false;
   let cwd = process.cwd();
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
     if (word === "--json" || word === "-j") {
       json = true;
+    } else if (word === "--example") {
+      example = true;
+    } else if (word === "--check") {
+      check = true;
     } else if (word === "--cwd") {
       cwd = path.resolve(rest[++i] ?? "");
     } else {
       return { error: `option inconnue : ${word}` };
     }
   }
-  return { json, cwd };
+  if (check && !example) {
+    return { error: "--check n'a de sens qu'avec --example" };
+  }
+  return { json, example, check, cwd };
 }
 
 const USAGE =
   `usage : nodefony env [--json] [--cwd <path>]\n` +
+  `        nodefony env --example [--check] [--cwd <path>]\n` +
   `  Montre la cascade des fichiers .env, les variables déclarées par l'app,\n` +
-  `  la valeur effective de chacune et SA PROVENANCE, puis ce qui est ignoré.\n`;
+  `  la valeur effective de chacune et SA PROVENANCE, puis ce qui est ignoré.\n` +
+  `  --example : dérive .env.example du catalogue env.ts (--check : vérifie\n` +
+  `  sans écrire, sort en erreur si le fichier diverge — pre-commit, CI).\n`;
 
 /**
  * Lit les niveaux de fichiers de la cascade — l'ORDRE vient de `envFileOrder`,
@@ -238,6 +255,70 @@ export async function buildProjectEnvReport(
   });
 }
 
+/**
+ * En-tête GÉNÉRIQUE du `.env.example` d'une application — la version curée du
+ * dépôt self-hosted vit, elle, dans son script (`scripts/gen-env-example.ts`) :
+ * même `renderEnvExample` en dessous, seuls le préambule et le chemin diffèrent.
+ */
+const EXAMPLE_HEADER = `# .env.example — MODÈLE d'onboarding (committé, 0 secret réel).
+#
+# ⚙️  GÉNÉRÉ depuis env.ts (catalogue defineEnv) — NE PAS éditer à la main.
+#     Régénérer : npx nodefony env --example
+#     Vérifier  : npx nodefony env --example --check   (pre-commit, CI)
+#
+# Toutes les variables sont COMMENTÉES (le framework a des défauts) : décommenter
+# celles que ton déploiement surcharge, dans .env.local (secrets/machine,
+# gitignoré) ou .env / .env.<env> (défauts non-secrets). Précédence, du plus
+# fort au plus faible :
+#   process.env > .env.<appEnv>.local > .env.<env>.local > .env.local
+#               > .env.<appEnv> > .env.<env> > .env
+#
+# Override GÉNÉRIQUE de config (hors catalogue) : NF__<MODULE|APP>__<CHEMIN>=valeur
+#   ex. NF__APP__SERVERS__HTTP__PORT=8080
+# Secret monté en conteneur : toute variable accepte aussi <NOM>_FILE (Docker/K8s).`;
+
+/**
+ * Compose le contenu de `.env.example` d'une application — PUR.
+ *
+ * @param catalog - catalogue des variables (via `getEnvCatalog`).
+ * @returns le texte complet du fichier.
+ */
+export function composeEnvExample(catalog: readonly NamedEnvVarMeta[]): string {
+  return renderEnvExample(catalog, { header: EXAMPLE_HEADER });
+}
+
+/**
+ * Applique (ou vérifie) le contenu sur le `.env.example` du projet — I/O seul,
+ * la composition appartient à {@link composeEnvExample}.
+ *
+ * Idempotence FORTE : un fichier déjà identique n'est pas réécrit — même
+ * doctrine qu'`ai:sync`, un outil qui salit l'horodatage est un outil qu'on
+ * hésite à lancer.
+ *
+ * @param projectRoot - racine de l'application.
+ * @param content - contenu attendu, composé en amont.
+ * @param check - `true` : ne rien écrire, seulement comparer.
+ * @returns `synced` : le fichier correspond (déjà, ou après écriture) ;
+ *   `wrote` : une écriture a eu lieu.
+ */
+export function applyEnvExample(
+  projectRoot: string,
+  content: string,
+  check: boolean,
+): { synced: boolean; wrote: boolean } {
+  const target = path.join(projectRoot, ".env.example");
+  let current: string | null = null;
+  try {
+    current = readFileSync(target, "utf8");
+  } catch {
+    // Absent : désynchronisé par définition.
+  }
+  if (current === content) return { synced: true, wrote: false };
+  if (check) return { synced: false, wrote: false };
+  writeFileSync(target, content, "utf8");
+  return { synced: true, wrote: true };
+}
+
 export async function runEnvCommand(argv: string[]): Promise<number> {
   const parsed = parseEnvArgv(argv);
   if ("error" in parsed) {
@@ -245,6 +326,43 @@ export async function runEnvCommand(argv: string[]): Promise<number> {
     return SysExit.USAGE;
   }
   const projectRoot = findProjectRoot(parsed.cwd);
+
+  if (parsed.example) {
+    // Générer un modèle hors projet n'a pas de sens — contrairement au rapport,
+    // qui décrit au moins l'environnement du shell.
+    if (projectRoot === null) {
+      process.stderr.write(
+        `env: aucun projet Nodefony ici (nodefony.config.ts introuvable en remontant).\n`,
+      );
+      return SysExit.NOINPUT;
+    }
+    const catalog = await readCatalog(projectRoot);
+    if (catalog === null) {
+      // Le catalogue se lit dans le build de l'app (cf `readCatalog`) : sans
+      // lui, rien à dériver — et le DIRE vaut mieux qu'un fichier vide.
+      process.stderr.write(
+        `env: catalogue introuvable — l'app n'est pas construite, ou son index\n` +
+          `n'exporte pas \`env\` (env.ts). Lancer d'abord : npm run build\n`,
+      );
+      return SysExit.UNAVAILABLE;
+    }
+    const { synced, wrote } = applyEnvExample(
+      projectRoot,
+      composeEnvExample(catalog),
+      parsed.check,
+    );
+    if (!synced) {
+      process.stderr.write(
+        `❌ .env.example désynchronisé de env.ts — lancer : npx nodefony env --example\n`,
+      );
+      return SysExit.CONFIG;
+    }
+    process.stdout.write(
+      `✅ .env.example ${wrote ? "régénéré depuis" : "synchronisé avec"} env.ts ` +
+        `(${catalog.length} variable(s))\n`,
+    );
+    return SysExit.OK;
+  }
   const report = await buildProjectEnvReport(projectRoot, parsed.cwd);
   if (projectRoot === null) {
     report.notes.push(

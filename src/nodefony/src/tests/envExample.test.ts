@@ -10,6 +10,10 @@ import {
 } from "../config/defineEnv";
 import type { NamedEnvVarMeta } from "../config/defineEnv";
 import { renderEnvExample } from "../config/envExample";
+import { composeEnvExample, applyEnvExample, parseEnvArgv } from "../cli/env";
+import * as fsForExample from "node:fs";
+import * as osForExample from "node:os";
+import * as pathForExample from "node:path";
 
 describe("defineEnv — introspection (getEnvCatalog)", () => {
   it("expose les métadonnées de chaque variable (kind/default/optional/values/desc)", () => {
@@ -127,5 +131,79 @@ describe("envExample — renderEnvExample", () => {
     // un fichier vide. Bord figé — c'est le SEUL écart avec l'ancien rendu.
     assert.strictEqual(renderEnvExample([]), "");
     assert.strictEqual(renderEnvExample([], { header: "   " }), "");
+  });
+});
+
+describe("env --example — composition et application (la commande)", () => {
+  const { mkdtempSync, rmSync, readFileSync, writeFileSync, statSync } =
+    fsForExample;
+  let root = "";
+
+  beforeEach(() => {
+    root = mkdtempSync(pathForExample.join(osForExample.tmpdir(), "nf-envex-"));
+  });
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  const catalogue = () =>
+    getEnvCatalog(
+      defineEnv(
+        {
+          NF_DRIVER: envEnum(["stdout", "file"] as const, {
+            default: "stdout",
+          }),
+          NF_API_SECRET: envString({ optional: true }),
+        },
+        {},
+      ),
+    );
+
+  it("composeEnvExample : en-tête GÉNÉRIQUE (la commande, pas le script du dépôt)", () => {
+    const out = composeEnvExample(catalogue());
+    assert.match(out, /npx nodefony env --example/u);
+    assert.match(out, /# NF_DRIVER=stdout/u);
+    // Un secret ne reçoit JAMAIS de valeur d'exemple (règle du rendu).
+    assert.match(out, /# NF_API_SECRET=\n/u);
+  });
+
+  it("🔴 applyEnvExample : pose, IDEMPOTENT au mtime, --check dit la dérive sans écrire", () => {
+    const contenu = composeEnvExample(catalogue());
+    const target = pathForExample.join(root, ".env.example");
+
+    // check sur fichier ABSENT : désync, rien d'écrit.
+    assert.deepStrictEqual(applyEnvExample(root, contenu, true), {
+      synced: false,
+      wrote: false,
+    });
+    assert.throws(() => readFileSync(target, "utf8"));
+
+    // pose.
+    assert.deepStrictEqual(applyEnvExample(root, contenu, false), {
+      synced: true,
+      wrote: true,
+    });
+    assert.strictEqual(readFileSync(target, "utf8"), contenu);
+
+    // idempotence FORTE : le second passage ne touche pas au fichier.
+    const avant = statSync(target).mtimeMs;
+    assert.deepStrictEqual(applyEnvExample(root, contenu, false), {
+      synced: true,
+      wrote: false,
+    });
+    assert.strictEqual(statSync(target).mtimeMs, avant);
+
+    // édité à la main → --check le dit, et n'écrase PAS.
+    writeFileSync(target, `${contenu}\n# ajout manuel\n`);
+    assert.deepStrictEqual(applyEnvExample(root, contenu, true), {
+      synced: false,
+      wrote: false,
+    });
+    assert.match(readFileSync(target, "utf8"), /ajout manuel/u);
+  });
+
+  it("--check sans --example est un refus d'usage", () => {
+    const parsed = parseEnvArgv(["node", "nodefony", "env", "--check"]);
+    assert.ok("error" in parsed);
   });
 });

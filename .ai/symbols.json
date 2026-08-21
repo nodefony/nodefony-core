@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-21T05:24:25.488Z",
+  "generated": "2026-08-21T05:32:58.665Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 718,
-    "symbols": 2972,
+    "symbols": 2974,
     "classes": 361,
     "interfaces": 857,
     "types": 381,
     "enums": 4,
-    "functions": 1088,
+    "functions": 1090,
     "constants": 281
   },
   "symbols": {
@@ -1187,6 +1187,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Commande `nodefony env` — orchestre : résout le projet, lit la cascade et le catalogue, délègue le calcul au module pur, rend."
+    },
+    "composeEnvExample": {
+      "name": "composeEnvExample",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/env.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose le contenu de `.env.example` d'une application — PUR."
+    },
+    "applyEnvExample": {
+      "name": "applyEnvExample",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/env.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Applique (ou vérifie) le contenu sur le `.env.example` du projet — I/O seul, la composition appartient à {@link composeEnvExample}. Idempotence FORTE : un fichier déjà identique n'est pas réécrit —…"
     },
     "runEnvCommand": {
       "name": "runEnvCommand",
@@ -23576,6 +23592,9 @@
       "envFileOrder": [
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "renderEnvExample": [
+        "src/nodefony/src/cli/env.ts"
       ],
       "getEnvCatalog": [
         "src/nodefony/src/cli/env.ts"

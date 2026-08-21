@@ -243,7 +243,7 @@ document de FORME différente, que l'agrégateur lirait mal sans rien signaler.
 
 ## `nodefony env` — l'environnement, en entier (standalone 0-boot)
 
-`nodefony env [--json] [--cwd <path>]` — cascade des `.env`, variables déclarées, valeur
+`nodefony env [--json] [--cwd <path>]` (+ `--example [--check]` : dérive/vérifie `.env.example` depuis le catalogue, ADR-0006) — cascade des `.env`, variables déclarées, valeur
 EFFECTIVE de chacune et sa PROVENANCE, puis ce qui est ignoré. Standalone **par nécessité**
 (même raison que `check`, en plus tranchée) : on cherche une variable précisément quand l'app
 NE démarre pas. Sort en **78** (`EX_CONFIG`) si une variable requise manque.
