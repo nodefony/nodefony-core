@@ -120,7 +120,8 @@ export interface IKernel extends IService {
 
   // ─── Méthodes publiques ────────────────────────────────────────────────────
   start(): Promise<this>;
-  terminate(code?: number): Promise<this>;
+  /** `quiet` muselle l'affichage (log « terminate : N ») — jamais le drain. */
+  terminate(code?: number, quiet?: boolean): Promise<this>;
   isTrunk(): Promise<TrunkType>;
   isModule(subclass: unknown): boolean;
   addModule(Mod: unknown, ...args: unknown[]): Promise<IModule>;

@@ -3210,9 +3210,12 @@ class Kernel extends Service implements IKernel {
    * jamais un process zombie qui attend le SIGKILL externe. `0` = filet désactivé.
    *
    * @param code - exit code Unix (0 = succès, 1+ = erreur).
+   * @param quiet - muselle l'AFFICHAGE (le log « terminate : N ») — jamais le
+   *   drain : une sortie voulue par l'utilisateur (Ctrl+C d'un menu) n'a pas à
+   *   ressembler à un événement système.
    * @returns Promise résolue avec `this` (ou rejected si `quit()` throw).
    */
-  async terminate(code?: number): Promise<this> {
+  async terminate(code?: number, quiet?: boolean): Promise<this> {
     if (code === undefined) {
       code = 0;
     }
@@ -3222,7 +3225,9 @@ class Kernel extends Service implements IKernel {
       clearInterval(this.parkTimer);
       this.parkTimer = null;
     }
-    this.log(`terminate : ${code}`);
+    if (!quiet) {
+      this.log(`terminate : ${code}`);
+    }
     // Rejet du drain capturé ICI (pas dans un try du race) : si la deadline
     // gagne, un rejet ultérieur du drain serait un unhandledRejection.
     const drain = this.fireAsync("onTerminate", this, code).catch(

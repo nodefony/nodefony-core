@@ -3,6 +3,7 @@ import { assert } from "chai";
 import {
   buildStartMenu,
   buildInspectMenu,
+  filterStartMenu,
   START_MENU_CATALOG,
   MODULE_COMMANDS_GROUP,
   type StartMenuItem,
@@ -31,10 +32,10 @@ describe("startMenu — composition pure du menu interactif", () => {
       s.kind === "separator" ? s.label : "",
     );
     assert.deepEqual(titles, [
-      "── Serveur ──",
-      "── Comprendre ──",
-      "── Faire évoluer ──",
-      "── Outillage ──",
+      "Serveur",
+      "Comprendre",
+      "Faire évoluer",
+      "Outillage",
     ]);
     const values = choices(items).map((c) =>
       c.kind === "choice" ? c.value : "",
@@ -96,8 +97,13 @@ describe("startMenu — composition pure du menu interactif", () => {
         "résumé de",
         `« ${c.value} » : l'explication recopie le résumé commander`,
       );
-      // Le libellé embarque le résumé commander (source unique de --help).
-      assert.include(c.name, c.value);
+      // Champs BRUTS : le label est le nom nu (le rendu vit dans l'adaptateur),
+      // et le résumé commander est porté séparément.
+      assert.isFalse(
+        /\x1b/.test(c.label),
+        `« ${c.value} » : du style a fui dans la composition`,
+      );
+      assert.isAbove(c.summary.length, 0, `« ${c.value} » : résumé vide`);
     }
   });
 
@@ -123,7 +129,7 @@ describe("startMenu — composition pure du menu interactif", () => {
     const titles = separators(items).map((s) =>
       s.kind === "separator" ? s.label : "",
     );
-    assert.deepEqual(titles, ["── Faire évoluer ──"]);
+    assert.deepEqual(titles, ["Faire évoluer"]);
   });
 
   it("commandes de module : groupe dédié en projet, jamais hors projet", () => {
@@ -138,7 +144,7 @@ describe("startMenu — composition pure du menu interactif", () => {
     const labels = separators(inProject.items).map((s) =>
       s.kind === "separator" ? s.label : "",
     );
-    assert.include(labels, `── ${MODULE_COMMANDS_GROUP} ──`);
+    assert.include(labels, MODULE_COMMANDS_GROUP);
     const values = choices(inProject.items).map((c) =>
       c.kind === "choice" ? c.value : "",
     );
@@ -189,8 +195,8 @@ describe("startMenu — composition pure du menu interactif", () => {
     const labels = separators(items).map((s) =>
       s.kind === "separator" ? s.label : "",
     );
-    assert.include(labels, "── Qualité (npm run) ──");
-    assert.include(labels, "── Infra (docker) ──");
+    assert.include(labels, "Qualité (npm run)");
+    assert.include(labels, "Infra (docker)");
   });
 
   it("scripts npm : jamais hors projet, et aucun groupe sans script présent", () => {
@@ -212,7 +218,38 @@ describe("startMenu — composition pure du menu interactif", () => {
     const labels = separators(noInfra.items).map((s) =>
       s.kind === "separator" ? s.label : "",
     );
-    assert.notInclude(labels, "── Infra (docker) ──");
+    assert.notInclude(labels, "Infra (docker)");
+  });
+
+  it("filtre à la frappe : accents ignorés, groupes suivent leurs entrées, terme vide = tout", () => {
+    const { items } = buildStartMenu({
+      inProject: true,
+      describe: describeAll,
+      npmScripts: ["verify"],
+    });
+    assert.strictEqual(filterStartMenu(items, ""), items);
+    const dev = filterStartMenu(items, "rechargement");
+    const devValues = dev
+      .filter((i) => i.kind === "choice")
+      .map((i) => (i.kind === "choice" ? i.value : ""));
+    assert.include(devValues, "development");
+    assert.notInclude(devValues, "production");
+    const devTitles = dev
+      .filter((i) => i.kind === "separator")
+      .map((i) => (i.kind === "separator" ? i.label : ""));
+    assert.deepEqual(devTitles, ["Serveur"]);
+    const grp = filterStartMenu(items, "serveur");
+    const grpValues = grp
+      .filter((i) => i.kind === "choice")
+      .map((i) => (i.kind === "choice" ? i.value : ""));
+    assert.include(grpValues, "development");
+    assert.include(grpValues, "stop");
+    const q = filterStartMenu(items, "qualite");
+    const qValues = q
+      .filter((i) => i.kind === "choice")
+      .map((i) => (i.kind === "choice" ? i.value : ""));
+    assert.include(qValues, "npm:verify");
+    assert.deepEqual(filterStartMenu(items, "zzzz-introuvable"), []);
   });
 
   it("le catalogue ne référence que des groupes déclarés pour chacun de ses contextes", () => {

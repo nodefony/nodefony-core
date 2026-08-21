@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-21T07:26:26.188Z",
+  "generated": "2026-08-21T07:44:00.967Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 719,
-    "symbols": 2986,
+    "symbols": 2988,
     "classes": 361,
-    "interfaces": 860,
+    "interfaces": 861,
     "types": 382,
     "enums": 4,
-    "functions": 1094,
+    "functions": 1095,
     "constants": 285
   },
   "symbols": {
@@ -1507,7 +1507,7 @@
       "file": "src/nodefony/src/cli/startMenu.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Item neutre du menu — l'adaptateur le traduit en Separator/choice inquirer."
+      "description": "Item neutre du menu — champs BRUTS, aucun rendu. L'adaptateur compose l'affichage (alignement, couleurs, troncature à la largeur du terminal) : la composition décide QUOI montrer, jamais COMMENT."
     },
     "buildStartMenu": {
       "name": "buildStartMenu",
@@ -1524,6 +1524,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Sous-menu des sujets d'`inspect`, dérivé de la table SOURCE (`INSPECT_SUBJECTS`) : seuls les sujets SANS argument obligatoire sont proposés (un sujet à paramètre exigerait une saisie de plus — il r…"
+    },
+    "filterStartMenu": {
+      "name": "filterStartMenu",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/startMenu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Filtre le menu à la frappe (prompt `search`) — la logique est ICI, pure et testée : normalisation (minuscules, accents retirés), chaque MOT du terme doit se retrouver dans le label, le résumé, le c…"
     },
     "START_MENU_CATALOG": {
       "name": "START_MENU_CATALOG",
@@ -6459,7 +6467,7 @@
       "extends": "Command",
       "implements": [],
       "decorators": [],
-      "description": "Menu interactif du CLI (`nodefony menu`, ou `nodefony` nu en TTY). La COMPOSITION du menu (groupes, entrées, conseils d'usage) vit dans `cli/startMenu.ts` — pure, testée sans TTY. Ici : l'adaptatio…"
+      "description": "Menu interactif du CLI (`nodefony menu`, ou `nodefony` nu en TTY). La COMPOSITION (groupes, entrées, conseils, filtrage à la frappe) vit dans `cli/startMenu.ts` — pure, testée sans TTY. Ici : le RE…"
     },
     "Outdated": {
       "name": "Outdated",
@@ -24098,7 +24106,8 @@
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "resolveColorEnabled": [
-        "src/nodefony/src/kernel/Kernel.ts"
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
       ],
       "CommandArgs": [
         "src/nodefony/src/kernel/Kernel.ts"
@@ -25115,6 +25124,9 @@
         "src/nodefony/src/kernel/commands/MenuCommand.ts"
       ],
       "buildInspectMenu": [
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+      ],
+      "filterStartMenu": [
         "src/nodefony/src/kernel/commands/MenuCommand.ts"
       ],
       "NPM_SCRIPT_PREFIX": [

@@ -565,7 +565,7 @@ class CliKernel extends Cli {
    *
    * @returns set des noms et alias built-in.
    */
-  private getBuiltinCommandNames(): Set<string> {
+  public getBuiltinCommandNames(): Set<string> {
     const names = new Set<string>();
     for (const cmd of this.commander?.commands ?? []) {
       names.add(cmd.name());
@@ -936,7 +936,7 @@ class CliKernel extends Cli {
    */
   override async terminate(code: number = 0, quiet?: boolean): Promise<void> {
     if (this.kernel) {
-      await this.kernel.terminate(code);
+      await this.kernel.terminate(code, quiet);
       return;
     }
     return Promise.resolve(super.terminate(code, quiet));

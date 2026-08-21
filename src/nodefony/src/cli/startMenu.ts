@@ -18,10 +18,23 @@
 /** Contexte de lancement : dans un projet Nodefony, ou hors de tout projet. */
 export type StartMenuContext = "project" | "outside";
 
-/** Item neutre du menu — l'adaptateur le traduit en Separator/choice inquirer. */
+/**
+ * Item neutre du menu — champs BRUTS, aucun rendu. L'adaptateur compose
+ * l'affichage (alignement, couleurs, troncature à la largeur du terminal) :
+ * la composition décide QUOI montrer, jamais COMMENT.
+ */
 export type StartMenuItem =
   | { kind: "separator"; label: string }
-  | { kind: "choice"; name: string; value: string; description: string };
+  | {
+      kind: "choice";
+      /** Ce que l'utilisateur choisit (colonne de gauche). */
+      label: string;
+      /** Résumé court (colonne de droite, tronquable). */
+      summary: string;
+      value: string;
+      /** Conseil d'usage, affiché sous la liste pendant la navigation. */
+      description: string;
+    };
 
 /** Une commande de module lue du manifest cache de complétion. */
 export interface IStartMenuModuleCommand {
@@ -54,9 +67,6 @@ export interface IStartMenuInput {
   /** Nom du projet, pour le message d'accueil. */
   projectName?: string;
 }
-
-/** Largeur de la colonne des noms — aligne les résumés sans lib de layout. */
-const NAME_COL = 13;
 
 interface ICatalogEntry {
   value: string;
@@ -189,41 +199,50 @@ const GROUP_ORDER: Record<StartMenuContext, readonly string[]> = {
  */
 export const NPM_SCRIPT_CATALOG: readonly {
   script: string;
+  /** Résumé court (colonne de droite) — le geste, pas le pourquoi. */
+  summary: string;
   group: string;
   when: string;
 }[] = [
   {
     script: "verify",
+    summary: "typecheck + lint + tests + check",
     group: "Qualité (npm run)",
     when: "LA passe avant de dire « fait » : typecheck + lint + tests + check, dans cet ordre. Les tests seuls ne typecheckent rien.",
   },
   {
     script: "test",
+    summary: "tests unitaires (vitest)",
     group: "Qualité (npm run)",
     when: "Les tests unitaires du projet (vitest). Rapides — le boot réel vit dans test:e2e.",
   },
   {
     script: "test:e2e",
+    summary: "build + boot réel + HTTP/WS",
     group: "Qualité (npm run)",
     when: "Le gate LENT : build, boot réel, HTTP/WS de bout en bout. À jouer avant de livrer, pas à chaque sauvegarde.",
   },
   {
     script: "lint",
+    summary: "style et pièges (oxlint)",
     group: "Qualité (npm run)",
     when: "Style et pièges (oxlint) — ce que ni le compilateur ni les tests ne voient.",
   },
   {
     script: "format",
+    summary: "reformate tout (prettier)",
     group: "Qualité (npm run)",
     when: "Reformate tout le projet (prettier --write).",
   },
   {
     script: "infra:up",
+    summary: "docker compose up -d",
     group: "Infra (docker)",
     when: "Démarre les conteneurs déclarés par le projet (base SQL, redis…) — à lancer AVANT le serveur s'ils sont requis.",
   },
   {
     script: "infra:down",
+    summary: "docker compose down",
     group: "Infra (docker)",
     when: "Arrête et retire les conteneurs du projet.",
   },
@@ -236,12 +255,7 @@ export const NPM_SCRIPT_PREFIX = "npm:";
 export const MODULE_COMMANDS_GROUP = "Commandes du projet";
 
 function choice(value: string, summary: string, when: string): StartMenuItem {
-  return {
-    kind: "choice",
-    name: `${value.padEnd(NAME_COL)} ${summary}`,
-    value,
-    description: when,
-  };
+  return { kind: "choice", label: value, summary, value, description: when };
 }
 
 /**
@@ -268,7 +282,7 @@ export function buildStartMenu(input: IStartMenuInput): {
       rendered.push(choice(entry.value, summary, entry.when));
     }
     if (rendered.length > 0) {
-      items.push({ kind: "separator", label: `── ${groupTitle} ──` });
+      items.push({ kind: "separator", label: groupTitle });
       items.push(...rendered);
     }
   }
@@ -281,7 +295,8 @@ export function buildStartMenu(input: IStartMenuInput): {
       }
       const item: StartMenuItem = {
         kind: "choice",
-        name: `${entry.script.padEnd(NAME_COL)} npm run ${entry.script}`,
+        label: entry.script,
+        summary: entry.summary,
         value: `${NPM_SCRIPT_PREFIX}${entry.script}`,
         description: entry.when,
       };
@@ -293,19 +308,17 @@ export function buildStartMenu(input: IStartMenuInput): {
       }
     }
     for (const [groupTitle, groupItems] of byGroup) {
-      items.push({ kind: "separator", label: `── ${groupTitle} ──` });
+      items.push({ kind: "separator", label: groupTitle });
       items.push(...groupItems);
     }
   }
   if (context === "project" && input.moduleCommands?.length) {
-    items.push({
-      kind: "separator",
-      label: `── ${MODULE_COMMANDS_GROUP} ──`,
-    });
+    items.push({ kind: "separator", label: MODULE_COMMANDS_GROUP });
     for (const mc of input.moduleCommands) {
       items.push({
         kind: "choice",
-        name: `${mc.name.padEnd(NAME_COL)} ${mc.description}`,
+        label: mc.name,
+        summary: mc.description,
         value: mc.name,
         description:
           "Commande apportée par un module de cette application (relue du dernier démarrage dev).",
@@ -336,10 +349,54 @@ export function buildInspectMenu(
     }
     items.push({
       kind: "choice",
-      name: `${name.padEnd(NAME_COL)} ${subject.summary}`,
+      label: name,
+      summary: subject.summary,
       value: name,
       description: `nodefony inspect ${name} — même donnée que la console d'admin, redaction des secrets comprise.`,
     });
   }
   return { message: "Inspecter quoi ?", items };
+}
+
+/**
+ * Filtre le menu à la frappe (prompt `search`) — la logique est ICI, pure et
+ * testée : normalisation (minuscules, accents retirés), chaque MOT du terme
+ * doit se retrouver dans le label, le résumé, le conseil OU le titre du groupe
+ * de l'entrée. Les titres de groupe suivent leurs entrées : un groupe dont
+ * rien ne survit disparaît AVEC son titre.
+ */
+export function filterStartMenu(
+  items: StartMenuItem[],
+  term: string,
+): StartMenuItem[] {
+  const normalize = (text: string) =>
+    text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "");
+  const words = normalize(term).split(/\s+/).filter(Boolean);
+  if (words.length === 0) {
+    return items;
+  }
+  const kept: StartMenuItem[] = [];
+  let pendingGroup: StartMenuItem | null = null;
+  let currentGroupLabel = "";
+  for (const item of items) {
+    if (item.kind === "separator") {
+      pendingGroup = item;
+      currentGroupLabel = item.label;
+      continue;
+    }
+    const haystack = normalize(
+      `${item.label} ${item.summary} ${item.description} ${currentGroupLabel}`,
+    );
+    if (words.every((w) => haystack.includes(w))) {
+      if (pendingGroup) {
+        kept.push(pendingGroup);
+        pendingGroup = null;
+      }
+      kept.push(item);
+    }
+  }
+  return kept;
 }

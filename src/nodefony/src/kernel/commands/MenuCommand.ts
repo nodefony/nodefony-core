@@ -6,26 +6,38 @@ import CliKernel from "../CliKernel";
 import {
   buildStartMenu,
   buildInspectMenu,
+  filterStartMenu,
   NPM_SCRIPT_PREFIX,
   type StartMenuItem,
   type IStartMenuModuleCommand,
 } from "../../cli/startMenu";
 import { readCliManifest } from "../../cli/completion";
 import { INSPECT_SUBJECTS } from "../inspect/adminSubjects";
+import { resolveColorEnabled } from "../../syslog/logColor";
 
 const options: OptionsCommandInterface = {
-  showBanner: true,
+  // L'en-tête du menu est UNE ligne sobre (posée par interaction) — pas
+  // l'ascii-art : un menu se lit, il ne s'annonce pas.
+  showBanner: false,
   kernelEvent: "onStart",
 };
+
+/** Choice inquirer rendu par l'adaptateur (name stylé, short = le nom brut). */
+interface IRenderedChoice {
+  name: string;
+  value: string;
+  short: string;
+  description: string;
+}
 
 /**
  * Menu interactif du CLI (`nodefony menu`, ou `nodefony` nu en TTY).
  *
- * La COMPOSITION du menu (groupes, entrées, conseils d'usage) vit dans
- * `cli/startMenu.ts` — pure, testée sans TTY. Ici : l'adaptation inquirer et
- * l'exécution du choix. Deux contextes, détectés par `kernel.trunk` (résolu au
- * `start()` du kernel) : dans un projet, le menu propose les gestes du projet ;
- * hors projet, ceux qui ont un sens partout (créer, voir ce qui tourne).
+ * La COMPOSITION (groupes, entrées, conseils, filtrage à la frappe) vit dans
+ * `cli/startMenu.ts` — pure, testée sans TTY. Ici : le RENDU (couleurs gatées,
+ * alignement à la largeur du terminal, aération des groupes), le prompt
+ * `search` (taper filtre, façon palette), et l'exécution du choix. Ctrl+C est
+ * un choix légitime : sortie 0, une ligne sobre — jamais une erreur.
  */
 class Menu extends Command {
   constructor(cli: CliKernel) {
@@ -39,17 +51,95 @@ class Menu extends Command {
     this.forceInteractiveMode();
   }
 
+  // ── Style — ANSI gaté par la même règle que les logs (NO_COLOR, TTY) ──────
+  #color = false;
+  #dim(text: string): string {
+    return this.#color ? `\x1b[2m${text}\x1b[22m` : text;
+  }
+  #bold(text: string): string {
+    return this.#color ? `\x1b[1m${text}\x1b[22m` : text;
+  }
+  #cyan(text: string): string {
+    return this.#color ? `\x1b[36m${text}\x1b[39m` : text;
+  }
+
+  /** Largeur utile du terminal (bornée : un résumé ne dépasse jamais). */
+  #columns(): number {
+    return Math.min(process.stdout.columns || 80, 110);
+  }
+
   /**
-   * Traduit les items neutres de la composition en choices inquirer.
-   * `Separator` est une classe du paquet — donc instanciée ICI, jamais dans la
-   * composition pure (qui resterait sinon couplée à l'import lourd).
+   * Traduit les items neutres en choices inquirer STYLÉS :
+   * - un titre de groupe = une ligne vide puis le titre en capitales discrètes
+   *   (l'aération est ce qui rend une liste de 20 entrées lisible) ;
+   * - un choix = label cyan aligné sur la colonne + résumé estompé, tronqué à
+   *   la largeur réelle du terminal (une ligne qui replie casse l'alignement).
    */
-  private toInquirerChoices(items: StartMenuItem[]): unknown[] {
-    return items.map((item) =>
-      item.kind === "separator"
-        ? new this.prompts.Separator(item.label)
-        : { name: item.name, value: item.value, description: item.description },
-    );
+  #render(
+    items: StartMenuItem[],
+  ): (IRenderedChoice | InstanceType<typeof this.prompts.Separator>)[] {
+    const labels = items.filter((i) => i.kind === "choice");
+    const col = Math.max(...labels.map((c) => c.label.length), 10) + 2;
+    const width = this.#columns();
+    const out: (
+      IRenderedChoice | InstanceType<typeof this.prompts.Separator>
+    )[] = [];
+    for (const item of items) {
+      if (item.kind === "separator") {
+        out.push(new this.prompts.Separator(" "));
+        out.push(
+          new this.prompts.Separator(
+            `  ${this.#bold(this.#dim(item.label.toUpperCase()))}`,
+          ),
+        );
+        continue;
+      }
+      const room = width - col - 6;
+      const summary =
+        item.summary.length > room && room > 8
+          ? `${item.summary.slice(0, room - 1)}…`
+          : item.summary;
+      out.push({
+        name: `${this.#cyan(item.label.padEnd(col))}${this.#dim(summary)}`,
+        value: item.value,
+        short: item.label,
+        description: this.#dim(item.description),
+      });
+    }
+    return out;
+  }
+
+  /** Thème partagé des prompts du menu — sobre, aide clavier en français. */
+  #theme() {
+    return {
+      prefix: { idle: this.#cyan("⬢"), done: this.#cyan("⬢") },
+      icon: { cursor: "❯" },
+      style: {
+        highlight: (text: string) => this.#bold(this.#cyan(text)),
+        description: (text: string) => `\n  ${text}`,
+        keysHelpTip: () =>
+          this.#dim(
+            "  ↑↓ naviguer · taper pour filtrer · ⏎ choisir · ctrl+c quitter",
+          ),
+      },
+    };
+  }
+
+  /** Ctrl+C pendant un prompt = un choix, pas une panne : sortie 0, sobre. */
+  async #quit(e: unknown): Promise<never> {
+    if ((e as Error)?.name === "ExitPromptError") {
+      process.stdout.write(`\n${this.#dim("À bientôt.")}\n`);
+      // Sortie par le shutdown NORMAL du kernel (drain compris), en `quiet` :
+      // après « À bientôt. », la moindre ligne de log — même INFO — redonne
+      // l'air d'une erreur (vécu, deux fois : le throw, puis le log kernel).
+      await this.cli?.terminate(0, true);
+    }
+    this.log((e as Error).message, "ERROR");
+    this.terminate(1);
+    // `terminate` est ASYNCHRONE : relancer ici ferait remonter l'erreur au
+    // kernel AVANT l'exit — CRITIC + sortie 1 (vécu). Promesse en attente :
+    // le process sort par terminate, jamais par ce fil.
+    return new Promise<never>(() => {});
   }
 
   /**
@@ -62,8 +152,13 @@ class Menu extends Command {
     if (!manifest) {
       return [];
     }
+    // Exclusion par NOMS ET ALIAS des built-ins (dérivés de commander) — pas
+    // par getCommand, qui ignore les alias : un manifest écrit par une version
+    // antérieure peut porter une commande devenue alias (vécu : `start`,
+    // devenu l'alias de `production`, présenté comme commande du projet).
+    const builtins = (this.cli as CliKernel).getBuiltinCommandNames();
     return manifest.commands
-      .filter((c) => !this.cli?.getCommand(c.name))
+      .filter((c) => !builtins.has(c.name))
       .map((c) => ({ name: c.name, description: c.description }));
   }
 
@@ -87,6 +182,7 @@ class Menu extends Command {
   }
 
   override async interaction(): Promise<string | void> {
+    this.#color = resolveColorEnabled(Boolean(this.kernel?.isTTY));
     const { message, items } = buildStartMenu({
       inProject: Boolean(this.kernel?.trunk),
       projectName: this.kernel?.projectName,
@@ -97,41 +193,50 @@ class Menu extends Command {
       moduleCommands: this.moduleCommandsFromManifest(),
       npmScripts: this.npmScriptsFromPackageJson(),
     });
+    const version = this.kernel?.version ? ` v${this.kernel.version}` : "";
+    process.stdout.write(
+      `\n${this.#bold(this.kernel?.projectName ?? "nodefony")}${this.#dim(version)}\n`,
+    );
+    const pageSize = Math.max(
+      8,
+      Math.min(items.length + 8, (process.stdout.rows || 24) - 6),
+    );
     const selected = await this.prompts
-      .select<string>({
+      .search<string>({
         message,
-        choices: this.toInquirerChoices(items) as never,
-        pageSize: 18,
-        loop: false,
+        source: (term) => this.#render(filterStartMenu(items, term ?? "")),
+        pageSize,
+        theme: this.#theme(),
       })
-      .catch((e) => {
-        this.log((e as Error).message, "ERROR");
-        this.terminate(1);
-      });
+      .catch((e) => this.#quit(e));
     if (selected === "inspect") {
       const sub = buildInspectMenu(INSPECT_SUBJECTS);
       const subject = await this.prompts
         .select<string>({
           message: sub.message,
-          choices: this.toInquirerChoices(sub.items) as never,
+          choices: this.#render(sub.items) as never,
           pageSize: 12,
           loop: false,
+          theme: this.#theme(),
         })
-        .catch((e) => {
-          this.log((e as Error).message, "ERROR");
-          this.terminate(1);
-        });
+        .catch((e) => this.#quit(e));
       // Sentinelle interne « inspect <sujet> » — dépliée par generate().
-      return subject ? `inspect ${subject}` : selected;
+      return `inspect ${subject}`;
     }
-    return selected as string | void;
+    return selected;
   }
 
   override async generate(response: string): Promise<this> {
-    this.log(`run menu : ${response}`);
     if (!this.cli) {
       throw new Error(`cli not found`);
     }
+    // Écran REMIS À ZÉRO avant d'exécuter : la commande démarre sur une page
+    // propre, avec une ligne qui rappelle ce qui se lance — le menu a rempli
+    // l'écran, le laisser derrière rend toute sortie illisible.
+    process.stdout.write("\x1b[2J\x1b[3J\x1b[H");
+    process.stdout.write(
+      `${this.#cyan("⬢")} ${this.#bold(this.kernel?.projectName ?? "nodefony")} ${this.#dim(`— ${response.replace(NPM_SCRIPT_PREFIX, "npm run ")}`)}\n\n`,
+    );
     // Script npm (« npm:verify ») : le geste appartient au projet, pas à
     // commander — on l'exécute tel que l'utilisateur l'aurait tapé, sortie
     // héritée, et le code de sortie du script devient le nôtre.
@@ -183,12 +288,6 @@ class Menu extends Command {
     return await this.cli.runCommandAsync(response).then(() => {
       return this;
     });
-  }
-
-  override async showBanner(): Promise<string> {
-    const name = this.kernel?.projectName as string;
-    await this.cli?.showAsciify(name);
-    return this.cli?.showBanner() as string;
   }
 }
 
