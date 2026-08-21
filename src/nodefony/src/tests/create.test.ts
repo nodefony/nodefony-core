@@ -5019,7 +5019,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
   // un spawn valide le DIST, pas le source).
   const describeBoot = process.env["RUN_CLI_BOOT"] ? describe : describe.skip;
   describeBoot("e2e bin/nodefony create (dist)", () => {
-    it("spawn → exit 0 + arbre généré", () => {
+    // ⏱️ Ce test SPAWNE un process : le défaut de 5 s de vitest est un budget
+    // d'assertion, pas de démarrage. Sous `test:all` (workspaces en parallèle) il
+    // est dépassé sans qu'aucun défaut n'existe — vert en isolation, rouge en
+    // suite. Le délai n'est pas une mesure ici : rien ne s'évalue en temps.
+    it("spawn → exit 0 + arbre généré", { timeout: 120_000 }, () => {
       const here = path.dirname(fileURLToPath(import.meta.url));
       const bin = path.resolve(here, "../../bin/nodefony");
       const dest = path.join(tmp, "e2e-app");

@@ -10,6 +10,19 @@ import {
 import AppInfoService from "./AppInfoService";
 
 /**
+ * ⚡ **Tu veux un service ? Ne recopie pas ce fichier — génère-le :**
+ *
+ * ```bash
+ * npx nodefony create service <Nom>                  # la classe + sa déclaration
+ * npx nodefony create service <Nom> --inject <Autre> # + la dépendance écrite
+ * ```
+ *
+ * Le générateur écrit la version COURANTE du framework et déclare le service sur
+ * le module ; recopié à la main, il naît déjà décalé et personne ne le signale.
+ * Ce fichier reste là pour se LIRE — comprendre ce qu'est un service — pas pour
+ * se dupliquer.
+ *
+ *
  * Un service qui en CONSOMME un autre — l'exemplaire à imiter dès que ta
  * logique a besoin d'une brique déjà écrite.
  *

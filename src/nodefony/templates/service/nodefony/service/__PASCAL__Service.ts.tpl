@@ -4,6 +4,19 @@ import type { I<%= it.pascal %>Service } from "../interfaces/I<%= it.pascal %>Se
 <% } %>
 
 /**
+ * ⚡ **Tu veux un service ? Ne recopie pas ce fichier — génère-le :**
+ *
+ * ```bash
+ * npx nodefony create service <Nom>                  # la classe + sa déclaration
+ * npx nodefony create service <Nom> --inject <Autre> # + la dépendance écrite
+ * ```
+ *
+ * Le générateur écrit la version COURANTE du framework et déclare le service sur
+ * le module ; recopié à la main, il naît déjà décalé et personne ne le signale.
+ * Ce fichier reste là pour se LIRE — comprendre ce qu'est un service — pas pour
+ * se dupliquer.
+ *
+ *
  * <%= it.description %>.
  *
  * La logique métier vit ICI, pas dans un controller : un controller traduit du

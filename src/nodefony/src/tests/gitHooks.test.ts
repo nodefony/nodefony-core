@@ -97,7 +97,7 @@ describe("git:hooks — la composition PURE", () => {
 // commande — 2 s isolé, mais une suite chargée (110 fichiers en parallèle,
 // machine sous un banc) a déjà dépassé les 5 s par pure contention. Le plafond
 // borne un blocage, il ne mesure pas une performance.
-describe("git:hooks — le geste sur disque", { timeout: 20_000 }, () => {
+describe("git:hooks — le geste sur disque", { timeout: 120_000 }, () => {
   let root = "";
 
   const gitConfig = (cwd: string, key: string): string | null => {

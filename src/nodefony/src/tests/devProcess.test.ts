@@ -453,19 +453,27 @@ describe("devProcess — state file runtime (ports effectifs)", () => {
     assert.ok(!seen.warnings.some((w) => w.includes("non observables")));
   });
 
-  it("discoverDevProcessesDetailed CONSTATE la disponibilité, il ne la déduit pas", () => {
-    // La règle ne peut pas être « tout ce qui n'est pas Windows a `ps` » : `procps`
-    // n'est pas installé dans les images Node minces — celles du Dockerfile de
-    // production — ni garanti sur une BSD avec cette syntaxe. Le verdict doit donc
-    // venir de l'exécution, et il doit distinguer « aucun process » de « je n'ai pas
-    // pu regarder », faute de quoi aucun repli ne peut se déclencher.
-    const d = discoverDevProcessesDetailed();
-    assert.strictEqual(typeof d.supported, "boolean");
-    assert.ok(Array.isArray(d.procs));
-    // Là où l'observation a lieu, elle rend une liste (vide ou non) ; là où elle
-    // n'a pas lieu, la liste est vide ET le drapeau le dit.
-    if (!d.supported) assert.deepStrictEqual(d.procs, []);
-  });
+  // ⏱️ Ce test SPAWNE un process : le défaut de 5 s de vitest est un budget
+  // d'assertion, pas de démarrage. Sous `test:all` (workspaces en parallèle)
+  // il est dépassé sans qu'aucun défaut n'existe — vert en isolation, rouge
+  // en suite. Le délai n'est pas une mesure ici : rien ne s'évalue en temps.
+  it(
+    "discoverDevProcessesDetailed CONSTATE la disponibilité, il ne la déduit pas",
+    { timeout: 60_000 },
+    () => {
+      // La règle ne peut pas être « tout ce qui n'est pas Windows a `ps` » : `procps`
+      // n'est pas installé dans les images Node minces — celles du Dockerfile de
+      // production — ni garanti sur une BSD avec cette syntaxe. Le verdict doit donc
+      // venir de l'exécution, et il doit distinguer « aucun process » de « je n'ai pas
+      // pu regarder », faute de quoi aucun repli ne peut se déclencher.
+      const d = discoverDevProcessesDetailed();
+      assert.strictEqual(typeof d.supported, "boolean");
+      assert.ok(Array.isArray(d.procs));
+      // Là où l'observation a lieu, elle rend une liste (vide ou non) ; là où elle
+      // n'a pas lieu, la liste est vide ET le drapeau le dit.
+      if (!d.supported) assert.deepStrictEqual(d.procs, []);
+    },
+  );
 
   it("discoverFromRuntimeState rend le SUPERVISEUR AVANT le serveur (sinon il respawn)", () => {
     // Le superviseur relance son enfant dès qu'il le voit mourir : rendre le serveur

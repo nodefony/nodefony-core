@@ -1098,12 +1098,28 @@ export const TASKS = [
   {
     id: 6,
     name: "configuration par l'environnement",
+    // 🔴 L'ÉNONCÉ DISAIT DEUX CHOSES INCOMPATIBLES, et l'agent avait raison de
+    // reculer. Il exigeait une base PostgreSQL que le décor ne fournit pas, PUIS
+    // de « prouver que la configuration est prise en compte » — ce que tout agent
+    // sensé traduit par « démarrer l'application ». Or un connecteur configuré et
+    // injoignable rend le boot FATAL, et c'est un choix délibéré du framework
+    // (`DrizzleService.#connectOne` : jamais un serveur vivant aux briques
+    // durables mortes). Mesuré : l'agent a posé `NF_DATABASE_URL`, l'a vue dans
+    // `nodefony env`, l'a COMMITÉE — puis l'a recommentée en écrivant « elle
+    // nécessite une base réelle ». Le gate, lui, ne demande QUE l'état effectif.
+    //
+    // Configurer une base qu'on n'a pas sous la main est le cas NORMAL (on
+    // prépare un environnement avant que l'infra existe) : l'énoncé le dit
+    // désormais, et demande de MONTRER les valeurs effectives plutôt que de
+    // « prouver ». Ce qui est mesuré ne change pas d'un pouce — trouver la
+    // cascade de configuration, ne rien écrire en dur.
     prompt:
       "Configure cette application pour qu'elle écrive ses journaux dans un FICHIER plutôt " +
       "que sur la sortie standard, et pour qu'elle utilise la base PostgreSQL " +
-      "postgres://app:pwd@db:5432/app. N'écris aucune de ces deux valeurs en dur dans le " +
-      "code : passe par l'environnement, au bon endroit. Prouve ensuite que la " +
-      "configuration est bien prise en compte.",
+      "postgres://app:pwd@db:5432/app. Ce serveur de base n'est pas joignable depuis ce " +
+      "poste et n'a pas à l'être : on prépare la configuration, on ne démarre pas la base. " +
+      "N'écris aucune de ces deux valeurs en dur dans le code : passe par l'environnement, " +
+      "au bon endroit. Montre ensuite les valeurs EFFECTIVES et d'où elles viennent.",
     probes: [
       {
         // Le chemin qu'on vient d'ouvrir : la cascade et le catalogue des
@@ -2650,15 +2666,28 @@ export const TASKS = [
         // trouvé (config commentée, AGENTS.md, doc), soit il pose une zone à
         // session et son API machine dépendra d'un cookie.
         kind: "code",
+        // 🔴 OBSERVATION, et non jugement — la sonde punissait le BON geste.
+        // `where: "added"` ne voit que les lignes ÉCRITES par l'agent, or le
+        // gabarit porte DÉJÀ une zone `machine` avec `stateless: true` et
+        // `apikey`. L'agent qui étend le `pattern` de cette zone à sa route —
+        // exactement ce qu'on veut — n'ajoute aucun de ces mots et sort rouge,
+        // pendant que le gate d'état ci-dessous le déclare bon. Mesuré au run
+        // du 08-21 : deux rouges sur une tâche dont la sécurité était juste.
+        // Pire, la sonde récompenserait un agent qui DUPLIQUE la zone au lieu
+        // de l'étendre. Ce qui compte est jugé par l'état ; ceci montre la voie.
         name: "zone déclarée stateless (appelant non-navigateur)",
         pattern: /stateless\s*:\s*true/u,
         where: "added",
+        observe: true,
       },
       {
         kind: "code",
+        // Même raison : le gabarit nomme déjà `apikey`. Étendre sa zone est le
+        // geste juste et n'écrit pas le mot.
         name: "authentificateur de porteur employé (apikey / jwt)",
         pattern: /["']apikey["']|["']jwt["']/u,
         where: "added",
+        observe: true,
       },
       {
         // Contrôle d'accès artisanal : lire l'en-tête soi-même et comparer à

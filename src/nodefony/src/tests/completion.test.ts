@@ -238,25 +238,33 @@ describe("completion — scripts shell", () => {
   // La syntaxe shell RÉELLE des scripts générés — `zsh -n` / `bash -n` parsent sans
   // exécuter. Skip si le shell n'est pas sur la machine (CI minimaliste).
   for (const sh of ["zsh", "bash"] as const) {
-    it(`${sh} -n : le script généré parse sans erreur`, async (ctx) => {
-      const { execFileSync, spawnSync } = await import("node:child_process");
-      if (spawnSync("command", ["-v", sh], { shell: true }).status !== 0) {
-        return ctx.skip();
-      }
-      const fsMod = await import("node:fs");
-      const osMod = await import("node:os");
-      const pathMod = await import("node:path");
-      const file = pathMod.join(
-        osMod.tmpdir(),
-        `nodefony-compl-${sh}-${process.pid}.sh`,
-      );
-      fsMod.writeFileSync(file, renderCompletionScript(sh), "utf8");
-      try {
-        execFileSync(sh, ["-n", file]); // throw si erreur de syntaxe
-      } finally {
-        fsMod.rmSync(file, { force: true });
-      }
-    });
+    // ⏱️ Ce test SPAWNE un process : le défaut de 5 s de vitest est un budget
+    // d'assertion, pas de démarrage. Sous `test:all` (workspaces en parallèle) il
+    // est dépassé sans qu'aucun défaut n'existe — vert en isolation, rouge en
+    // suite. Le délai n'est pas une mesure ici : rien ne s'évalue en temps.
+    it(
+      `${sh} -n : le script généré parse sans erreur`,
+      { timeout: 60_000 },
+      async (ctx) => {
+        const { execFileSync, spawnSync } = await import("node:child_process");
+        if (spawnSync("command", ["-v", sh], { shell: true }).status !== 0) {
+          return ctx.skip();
+        }
+        const fsMod = await import("node:fs");
+        const osMod = await import("node:os");
+        const pathMod = await import("node:path");
+        const file = pathMod.join(
+          osMod.tmpdir(),
+          `nodefony-compl-${sh}-${process.pid}.sh`,
+        );
+        fsMod.writeFileSync(file, renderCompletionScript(sh), "utf8");
+        try {
+          execFileSync(sh, ["-n", file]); // throw si erreur de syntaxe
+        } finally {
+          fsMod.rmSync(file, { force: true });
+        }
+      },
+    );
   }
 
   it("cliManifestFile — cache par projet sous node_modules/.cache/nodefony", () => {

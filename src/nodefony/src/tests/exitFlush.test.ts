@@ -37,16 +37,26 @@ const ENFANT = `
 `;
 
 describe("sortie du process — vidage avant exit", () => {
-  it("n'ampute pas une sortie volumineuse écrite vers un tuyau", () => {
-    const run = spawnSync(
-      process.execPath,
-      ["--input-type=module", "-e", ENFANT, pathToFileURL(CLI_DIST).href],
-      { encoding: "utf8", stdio: "pipe", timeout: 20_000 },
-    );
+  // ⏱️ Le délai n'est PAS un seuil de mesure — ce test compte des OCTETS, jamais
+  // des millisecondes. C'est le temps qu'il faut pour SPAWNER un process Node et
+  // lui faire importer le dist, et sous `test:all` (tous les workspaces en
+  // parallèle) cela dépasse largement les 5 s par défaut de vitest : mesuré 392 ms
+  // en isolation, 7 856 ms en suite. Laisser le défaut fabrique un rouge qui ne
+  // parle que de la charge de la machine.
+  it(
+    "n'ampute pas une sortie volumineuse écrite vers un tuyau",
+    { timeout: 60_000 },
+    () => {
+      const run = spawnSync(
+        process.execPath,
+        ["--input-type=module", "-e", ENFANT, pathToFileURL(CLI_DIST).href],
+        { encoding: "utf8", stdio: "pipe", timeout: 20_000 },
+      );
 
-    expect(run.error, `spawn : ${run.error?.message}`).toBeUndefined();
-    // L'assertion qui MORD : avec `process.exit()` nu, on reçoit exactement
-    // 65 536 octets. Comparer à la taille attendue, jamais à « non vide ».
-    expect(run.stdout.length).toBe(OCTETS);
-  });
+      expect(run.error, `spawn : ${run.error?.message}`).toBeUndefined();
+      // L'assertion qui MORD : avec `process.exit()` nu, on reçoit exactement
+      // 65 536 octets. Comparer à la taille attendue, jamais à « non vide ».
+      expect(run.stdout.length).toBe(OCTETS);
+    },
+  );
 });
