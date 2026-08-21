@@ -4,7 +4,6 @@ import { request as httpRequest } from "node:http";
 import {
   MCP_ENDPOINT_PATH,
   MCP_PROTOCOL_VERSION,
-  MCP_SUPPORTED_VERSIONS,
   protectedResourceMetadataPath,
 } from "nodefony";
 
@@ -400,17 +399,24 @@ describe.skipIf(raison !== null)(
       );
     });
 
-    it("`server/discover` annonce toutes les révisions servies", async () => {
+    it("🔴 `server/discover` n'est PAS servi — et c'est le signal de repli", async () => {
+      // Retrait MESURÉ, pas un oubli (cf `mcp/server.ts`, le bloc de commentaire
+      // au-dessus du `switch`) : quand ce serveur répondait à `server/discover`,
+      // le client dominant basculait sur son fil moderne, rejouait `tools/list`
+      // quatre fois et n'enregistrait AUCUN outil — « connected », porte morte.
+      // C'est l'erreur `-32601` qui fait suivre au client le repli que la spec
+      // prévoit (« tries server/discover, gets an error, falls back to
+      // initialize »). Ce test garde donc l'ABSENCE, pas la présence : le jour
+      // où un client réel achève le fil moderne, il tombera — et c'est voulu.
       const reponse = await poster({
         jsonrpc: "2.0",
         id: 7,
         method: "server/discover",
       });
-      expect(reponse.status).toBe(200);
-      expect(
-        (reponse.body as { result: { supportedVersions: string[] } }).result
-          .supportedVersions,
-      ).toEqual([...MCP_SUPPORTED_VERSIONS]);
+      expect(reponse.status).toBe(404);
+      expect((reponse.body as { error: { code: number } }).error.code).toBe(
+        -32601,
+      );
     });
 
     it("🔴 `initialize` ÉCHOTE la révision du client — jusque sur la route", async () => {
