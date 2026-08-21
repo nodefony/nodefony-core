@@ -95,6 +95,36 @@ class <%= it.nameClass %> extends Command {
     } else {
       process.stdout.write(`${message}\n`);
     }
+
+    // ── ENCHAÎNER sur une autre commande ────────────────────────────────────
+    //
+    // Quand le geste suivant appartient à une AUTRE commande (souvent d'un
+    // autre module), ne le réimplémente pas : APPELLE-la. Un process neuf,
+    // comme le fait le menu — commander ne connaît pas toujours la cible au
+    // moment où l'on décide.
+    //
+    //   const { spawnSync } = await import("node:child_process");
+    //   spawnSync(process.execPath, [process.argv[1]!, "autre:commande", "--write"], {
+    //     stdio: "inherit",                                   // (3)
+    //     cwd: this.kernel?.path ?? process.cwd(),             // (2)
+    //     env: { ...process.env, NODE_ENV: "development" },    // (1)
+    //   });
+    //
+    // 🔴 TROIS choses ne suivent PAS toutes seules d'un process à l'autre, et
+    // chacune a déjà produit un échec quand elle manquait :
+    //   (1) l'ENVIRONNEMENT — un enfant ne reçoit QUE ce qu'on lui donne.
+    //       Sans le report, il part sans PATH ; et si la cible n'existe qu'en
+    //       développement (module `policy: "dev"`), pose `NODE_ENV`, sinon
+    //       elle échouera sur une ressource que l'application ne sert pas ;
+    //   (2) le RÉPERTOIRE — ce qui s'écrit doit l'être dans le PROJET, pas là
+    //       où la commande a été tapée ;
+    //   (3) le TERMINAL — `stdio: "inherit"` le transmet. Sans lui, l'enfant
+    //       voit `isTTY` faux, ne peut poser aucune question, et échoue.
+    //
+    // Et n'enchaîne PAS sous `--json` ni `--dry-run` : le premier part vers un
+    // script qu'une question romprait, le second ne doit rien produire. Isole
+    // cette décision dans une fonction PURE — le `spawn` est de la plomberie,
+    // la décision est ce qui peut être faux, et c'est elle qui se teste.
     return this;
   }
 }

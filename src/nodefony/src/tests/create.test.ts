@@ -4118,7 +4118,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       force = false,
     ) => runScaffold({ type: "command", answers, dir: from, force }, version);
 
-    it("🔴 la commande GÉNÉRÉE naît avec les trois leçons payées sur le cœur", () => {
+    it("🔴 la commande GÉNÉRÉE naît avec les quatre leçons payées sur le cœur", () => {
       // Un gabarit est du code DISTRIBUÉ : ce qu'il n'enseigne pas, chaque
       // développeur le réapprendra par le même bug. Ces trois-là ont été payées
       // le même jour sur les commandes du framework.
@@ -4152,6 +4152,27 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // 3. Un argument indispensable se DEMANDE : déclaré `<requis>`, commander
       //    refuse la commande avant qu'elle existe — y compris choisie au menu.
       assert.include(src, "askArgument");
+
+      // 4. ENCHAÎNER une autre commande : trois choses ne suivent pas d'un
+      //    process à l'autre, et elles ont été écrites deux fois à la main
+      //    avant que le gabarit ne les enseigne.
+      //    ⚠️ On vérifie le BLOC D'EXEMPLE, pas la prose qui l'explique : une
+      //    première version cherchait `stdio: "inherit"` n'importe où, et le
+      //    texte pédagogique la satisfaisait à lui seul — le test restait vert
+      //    en ayant perdu l'exemple, c'est-à-dire la seule chose qui AGIT.
+      const exemple = src.slice(src.indexOf("spawnSync(process.execPath"));
+      assert.isNotEmpty(exemple, "le gabarit n'enseigne plus l'enchaînement");
+      for (const clef of [
+        'stdio: "inherit"',
+        "NODE_ENV",
+        "cwd: this.kernel?.path",
+      ]) {
+        assert.include(
+          exemple.slice(0, 400),
+          clef,
+          `${clef} absent de l'exemple d'enchaînement`,
+        );
+      }
       assert.notMatch(
         src,
         /addArgument\("<[a-z]/u,

@@ -934,6 +934,13 @@ class CliKernel extends Cli {
         data: format,
       };
     }
+    // 🔴 REMPLACER, pas empiler. `listenWithConditions` AJOUTE un abonné : un
+    // second appel posait un filtre restrictif par-dessus l'ancien, resté
+    // actif — et l'ancien continuait d'écrire les INFO. Symptôme : une commande
+    // choisie AU MENU déclarait `quietBoot`, on réinitialisait le syslog, et le
+    // journal de boot sortait quand même. `Syslog.init()` prend déjà cette
+    // précaution (`removeAllListeners("onLog")`) ; ici elle manquait.
+    syslog?.removeAllListeners("onLog");
     return syslog?.listenWithConditions(conditions, (pdu: Pdu) => {
       // En dev mono-process le pid pollue chaque ligne sans valeur ajoutée
       // (process unique, déjà connu via `ps`). En prod cluster il distingue

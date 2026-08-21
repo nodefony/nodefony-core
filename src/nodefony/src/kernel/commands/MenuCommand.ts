@@ -227,6 +227,34 @@ class Menu extends Command {
     return selected;
   }
 
+  /**
+   * Applique à la commande CHOISIE ce qu'elle déclare — aujourd'hui le boot
+   * silencieux, demain d'autres capacités.
+   *
+   * 🔴 `CliKernel.start()` pose déjà `quietBoot` d'après la commande DEMANDÉE
+   * sur la ligne — mais depuis le menu, la commande demandée est `menu` : celle
+   * que l'utilisateur choisit ensuite n'existe pas encore à cet instant. Sa
+   * déclaration était donc ignorée, et `check` choisie au menu rendait son
+   * verdict sous dix lignes de « MODULE ADD ». Le syslog est réinitialisé
+   * derrière, sinon le filtre resterait celui calculé au démarrage.
+   *
+   * PUBLIQUE pour être ÉPROUVÉE : ce câblage a échoué deux fois en silence (la
+   * capacité ignorée, puis le syslog empilé au lieu d'être remplacé), et un
+   * pseudo-terminal ne le prouve pas de façon fiable.
+   *
+   * @param nom - nom de la commande choisie au menu
+   */
+  appliquerCapacites(nom: string): void {
+    const cli = this.cli as CliKernel | undefined;
+    const cmd = cli?.getCommand(nom);
+    if (!cmd) return;
+    cmd.forceInteractiveMode();
+    if (cmd.quietBoot && cli) {
+      cli.quietBoot = true;
+      cli.initSyslog();
+    }
+  }
+
   override async generate(response: string): Promise<this> {
     if (!this.cli) {
       throw new Error(`cli not found`);
@@ -281,14 +309,16 @@ class Menu extends Command {
       // commande vient d'un CHOIX, elle doit pouvoir demander ce qui lui
       // manque. (`interaction()` par défaut rend ses arguments, désormais
       // étalés correctement vers `generate` — cf `Command.run`.)
-      this.cli.getCommand(name as string)?.forceInteractiveMode();
+      this.appliquerCapacites(name as string);
       await this.cli.runCommandAsync(name as string, args);
       return this;
     }
     const command = this.cli.getCommand(response);
     if (command && response) {
-      // Choisie au menu, donc interactive : elle réclamera ce qu'il lui faut.
-      command.forceInteractiveMode();
+      // Choisie au menu, donc interactive : elle réclamera ce qu'il lui faut,
+      // et son boot silencieux (si déclaré) prend effet ici — pas à `start()`,
+      // où la commande demandée était `menu`.
+      this.appliquerCapacites(response);
       if (this.kernel) {
         this.cli.clearCommand();
         if (response) {

@@ -334,3 +334,65 @@ describe("startMenu — composition pure du menu interactif", () => {
     }
   });
 });
+
+/**
+ * Le CÂBLAGE du menu vers la commande choisie.
+ *
+ * 🔴 Il a échoué DEUX fois en silence, et un pseudo-terminal ne l'a pas
+ * montré : la capacité `quietBoot` d'une commande choisie au menu était
+ * ignorée (le CLI ne l'applique qu'à la commande DEMANDÉE sur la ligne — depuis
+ * le menu, c'est `menu`), puis, une fois appliquée, le syslog était EMPILÉ au
+ * lieu d'être remplacé, si bien que l'ancien filtre écrivait toujours.
+ */
+describe("menu — la commande CHOISIE reçoit ce qu'elle déclare", () => {
+  const fauxCli = (quietBoot: boolean) => {
+    const journal: string[] = [];
+    const commande = {
+      quietBoot,
+      forceInteractiveMode: () => journal.push("interactif"),
+    };
+    const cli = {
+      quietBoot: false,
+      getCommand: (n: string) => (n === "check" ? commande : undefined),
+      initSyslog: () => journal.push("syslog"),
+    };
+    return { cli, journal };
+  };
+
+  const menuAvec = async (cli: unknown) => {
+    const { default: MenuCommand } =
+      await import("../kernel/commands/MenuCommand");
+    const cmd = Object.create(MenuCommand.prototype) as {
+      cli: unknown;
+      appliquerCapacites: (n: string) => void;
+    };
+    cmd.cli = cli;
+    return cmd;
+  };
+
+  it("une commande qui déclare quietBoot fait taire le boot — ET rejoue le filtre", async () => {
+    const { cli, journal } = fauxCli(true);
+    (await menuAvec(cli)).appliquerCapacites("check");
+    expect(cli.quietBoot).toBe(true);
+    // Sans ce second appel, le filtre resterait celui calculé au démarrage du
+    // menu, quand personne ne savait encore quelle commande serait choisie.
+    expect(journal).toContain("syslog");
+    expect(journal).toContain("interactif");
+  });
+
+  it("une commande qui ne le déclare pas ne fait taire personne", async () => {
+    const { cli, journal } = fauxCli(false);
+    (await menuAvec(cli)).appliquerCapacites("check");
+    expect(cli.quietBoot).toBe(false);
+    expect(journal).not.toContain("syslog");
+    // Elle reste interactive : c'est un choix, pas une frappe.
+    expect(journal).toContain("interactif");
+  });
+
+  it("une commande inconnue du CLI ne casse rien", async () => {
+    const { cli, journal } = fauxCli(true);
+    (await menuAvec(cli)).appliquerCapacites("inexistante");
+    expect(cli.quietBoot).toBe(false);
+    expect(journal).toEqual([]);
+  });
+});
