@@ -3763,13 +3763,58 @@ export function transcriptExploitable(texte) {
 }
 
 /**
+ * L'agent a-t-il été COUPÉ par l'API (quota épuisé, erreur amont) ?
+ *
+ * Le mode run s'arrête net quand ça arrive (`terminal_reason: api_error`,
+ * exit 2) — mais `--analyze-only` re-juge les pièces sans repasser par là, et
+ * il a compté FAIL un run réel (T30, « session limit ») dont les sondes rouges
+ * ne jugeaient qu'un travail jamais fini. La règle 4 du dépistage (« un rouge
+ * non opposable écarte le run ») doit mordre ICI, sur les pièces.
+ *
+ * On PARSE l'événement `result` au lieu de grepper le texte : l'agent écrit
+ * volontiers `terminal_reason` ou `api_error` dans une commande ou de la prose,
+ * et un grep écarterait un run pour ce qu'il DIT, pas pour ce qui s'est PASSÉ
+ * (même piège que le compte d'appels MCP). Champ propre au CLI de Claude : sur
+ * un autre agent il est simplement absent, et les gardes agnostiques restent.
+ * `terminal_reason` existe aussi sur les runs sains (`completed`) — c'est la
+ * VALEUR qui tranche.
+ *
+ * @param {string} texte - le contenu brut du transcript (JSONL).
+ * @returns {{turns: number, message: string}|null} la coupure, ou `null`.
+ */
+function coupureApi(texte) {
+  if (typeof texte !== "string") return null;
+  for (const ligne of texte.split("\n")) {
+    const l = ligne.trim();
+    if (!l.startsWith("{")) continue;
+    let event;
+    try {
+      event = JSON.parse(l);
+    } catch {
+      continue;
+    }
+    if (event?.type === "result" && event.terminal_reason === "api_error") {
+      return {
+        turns: typeof event.num_turns === "number" ? event.num_turns : 0,
+        message: typeof event.result === "string" ? event.result : "erreur API",
+      };
+    }
+  }
+  return null;
+}
+
+/**
  * Ce run a-t-il de quoi être JUGÉ — et sinon, pourquoi ?
  *
- * Deux vacuités, un seul traitement : le run est ÉCARTÉ, jamais compté FAIL.
+ * Trois vacuités, un seul traitement : le run est ÉCARTÉ, jamais compté FAIL.
  * Les distinguer ici plutôt que dans l'appelant garde la règle en un exemplaire
  * et rend son libellé vérifiable sans monter de décor.
  *
  * - **Transcript muet** → voir {@link transcriptExploitable}.
+ * - **Agent coupé par l'API** → voir {@link coupureApi}. Testé AVANT le zéro
+ *   fichier : un agent coupé au premier tour n'a rien écrit non plus, et le
+ *   motif doit nommer la RACINE (le quota), pas l'abandon — un opérateur qui
+ *   lit « abandon » cherche un défaut d'agent là où il n'y a qu'un quota.
  * - **Aucun fichier touché** → l'agent a abandonné. C'est le symétrique du
  *   « vert par abandon » que le banc nomme déjà, mais pour le cas TOTAL : sur un
  *   run mesuré (T10, 16 tours, 40 s, zéro fichier), **huit sondes étaient vertes
@@ -3781,11 +3826,40 @@ export function transcriptExploitable(texte) {
  * @returns {string|null} le motif d'écartement, ou `null` si le run est jugeable.
  */
 export function motifDEcartement({ transcript, files }) {
-  if (!transcriptExploitable(transcript)) {
-    return `transcript illisible ou vide (${(transcript ?? "").length} octet(s), aucun objet JSON)`;
+  const transcriptSeul = motifDEcartementTranscript(transcript);
+  if (transcriptSeul) {
+    return transcriptSeul;
   }
   if (!files || files.length === 0) {
     return "aucun fichier touché — abandon, pas mesure (les interdits ne mordent sur rien)";
+  }
+  return null;
+}
+
+/**
+ * Les causes d'écartement lisibles au TRANSCRIPT SEUL — sans diff.
+ *
+ * Séparées de {@link motifDEcartement} parce qu'un run interrompu n'a pas
+ * toujours de diff à donner : le commit « tâche N » est posé par le HARNAIS
+ * (`--allow-empty` — même un agent qui n'a rien fait a le sien), et un harnais
+ * tué entre le transcript et le commit (exit 2 : transcript muet, agent coupé
+ * par l'API) laisse un transcript orphelin. Le juge qui ne trouve pas le commit
+ * doit lire CES causes avant de conclure « la tâche n'a pas été jouée » — c'est
+ * exactement le chemin par lequel la T30 quota-tronquée est devenue un FAIL.
+ *
+ * @param {string} transcript - le contenu brut du transcript (JSONL).
+ * @returns {string|null} le motif d'écartement, ou `null`.
+ */
+export function motifDEcartementTranscript(transcript) {
+  if (!transcriptExploitable(transcript)) {
+    return `transcript illisible ou vide (${(transcript ?? "").length} octet(s), aucun objet JSON)`;
+  }
+  const coupure = coupureApi(transcript);
+  if (coupure) {
+    return (
+      `agent COUPÉ par l'API après ${coupure.turns} tour(s) — ${coupure.message} — ` +
+      `travail partiel, aucun rouge n'est opposable`
+    );
   }
   return null;
 }
@@ -3875,6 +3949,26 @@ function judgeTask(app, runDir, task, occurrence = null) {
   // des passes d'agent, et rien dans un verdict plausible ne l'aurait dit.
   const idx = indiceDeLaPasse(log, task.id, occurrence);
   if (idx === -1) {
+    // Le commit « tâche N » est posé par le HARNAIS, `--allow-empty` : même un
+    // agent qui n'a rien fait a le sien. Son absence avec un transcript présent
+    // dit que le harnais est mort AVANT (exit 2 : transcript muet, ou agent
+    // coupé par l'API — la T30 quota-tronquée est passée par ici) — jamais que
+    // l'agent n'a pas voulu travailler. Ces causes se lisent au transcript
+    // seul, et elles ÉCARTENT le run au lieu de fabriquer un FAIL.
+    const ecarteSansCommit = motifDEcartementTranscript(transcript);
+    if (ecarteSansCommit) {
+      console.log(
+        `  ⁉️  ${ecarteSansCommit} — run ÉCARTÉ, aucune sonde n'est opposable`,
+      );
+      return {
+        id: task.id,
+        name: task.name,
+        verdict: NON_JUGEABLE,
+        guessed: 0,
+        observed: 0,
+        probes: [],
+      };
+    }
     console.log(
       `  ❌ aucun commit « tâche ${task.id} » — la tâche n'a pas été jouée`,
     );

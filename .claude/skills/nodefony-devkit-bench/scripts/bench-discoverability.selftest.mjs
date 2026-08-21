@@ -205,6 +205,55 @@ function verifierGardeTranscript() {
   for (const [label, pieces, attenduEcarte] of ecartements) {
     if (Boolean(motifDEcartement(pieces)) !== attenduEcarte) rates.push(label);
   }
+
+  // La troisième vacuité, et celle que `--analyze-only` a compté FAIL sur un
+  // run réel (T30) : l'agent COUPÉ par l'API (quota de session épuisé). Le mode
+  // run s'arrête net quand ça arrive ; le re-jugement, lui, lisait les sondes
+  // rouges d'un travail jamais fini et rendait un verdict — règle 4 du
+  // dépistage jamais appliquée par ce chemin. Le champ vient d'un vrai
+  // transcript : `terminal_reason` existe AUSSI sur les runs sains (valeur
+  // `completed`), c'est la VALEUR qui tranche, pas la présence.
+  const coupe =
+    '{"type":"result","subtype":"success","is_error":true,"terminal_reason":"api_error",' +
+    '"num_turns":4,"result":"You\'ve hit your session limit · resets 11:50am"}';
+  const acheve =
+    '{"type":"result","terminal_reason":"completed","num_turns":12}';
+  // L'agent qui CITE le marqueur dans une commande ne s'écarte pas lui-même :
+  // le juge parse l'événement, il ne greppe pas le texte (même piège que le
+  // compte MCP — mesurer ce que l'agent DIT au lieu de ce qui s'est PASSÉ).
+  const citation =
+    '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash",' +
+    '"input":{"command":"grep \\"terminal_reason\\":\\"api_error\\" run.jsonl"}}]}}\n' +
+    acheve;
+  const casQuota = [
+    [
+      "agent coupé par l'API en plein travail — écarté malgré des fichiers touchés",
+      { transcript: coupe, files: ["nodefony/entity/Product.ts"] },
+      true,
+    ],
+    [
+      "terminal_reason:completed n'écarte rien",
+      { transcript: acheve, files: ["nodefony/entity/Product.ts"] },
+      false,
+    ],
+    [
+      "citer api_error dans une commande n'écarte pas le run",
+      { transcript: citation, files: ["nodefony/entity/Product.ts"] },
+      false,
+    ],
+  ];
+  for (const [label, pieces, attenduEcarte] of casQuota) {
+    if (Boolean(motifDEcartement(pieces)) !== attenduEcarte) rates.push(label);
+  }
+  // Coupé AVANT d'avoir rien écrit : les deux causes s'appliquent, le motif
+  // doit nommer la RACINE (la coupure), pas l'abandon — un opérateur qui lit
+  // « abandon » cherche un défaut d'agent là où il n'y a qu'un quota.
+  const motifRacine = motifDEcartement({ transcript: coupe, files: [] });
+  if (!/api|coup/iu.test(motifRacine ?? "")) {
+    rates.push(
+      "coupé sans fichier — le motif doit nommer la coupure, pas l'abandon",
+    );
+  }
   return rates;
 }
 
