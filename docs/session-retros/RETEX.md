@@ -20,6 +20,49 @@
 
 ---
 
+## ⏳ Un symptôme qui ressemble à un DÉLAI n'en est pas forcément un
+
+- **« La commande meurt toute seule » n'était pas un timeout — il n'en existait aucun sur ce
+  chemin.** Une question est une promesse en attente ; Node ne compte pas les promesses, il compte
+  les HANDLES. Une commande qui boote a des dizaines de handles, donc sa question tient sans que
+  personne n'y pense ; une commande standalone n'en a AUCUN, et le process sort au milieu de la
+  question, code 0, sans erreur. Le user avait donné le discriminant sans le savoir : « sur le menu
+  ça a l'air de tenir » — c'est exactement la frontière du fast-path. Réflexe à garder : quand un
+  symptôme ressemble à un délai, chercher d'abord ce qui RETIENT le process, pas ce qui le tue.
+  [1× — 08-22f]
+- **Le défaut ne frappait que les commandes les plus SOIGNÉES.** Celles qu'on a travaillé à rendre
+  rapides (zéro boot) sont précisément celles qui n'ont plus rien pour tenir. Une optimisation peut
+  retirer un effet de bord dont personne n'avait noté qu'il servait de garde. [1× — 08-22f]
+
+## 🔁 Le même défaut vit souvent en DEUX exemplaires — corriger l'un laisse l'autre
+
+- **La détection d'agents était recopiée dans `security:token`** : le correctif du cœur ne
+  l'atteignait pas, et l'on se serait retrouvé avec une commande qui DÉCLARE la porte chez Gemini
+  et une autre qui refuse d'y POSER le jeton — deux verdicts opposés sur la même question, sans
+  qu'aucun test ne le voie. Après toute correction d'une règle, chercher ses COPIES avant de
+  conclure. [1× — 08-22f]
+- **Le DoS du catalogue vivait aussi dans le catalogue HTTP de Studio**, hors du périmètre de la
+  tâche. Le signaler ne suffisait pas : c'était quatre lignes, et c'était la navigation
+  d'administration entière. [1× — 08-22f]
+
+## 🧭 Une garde ne couvre jamais une AUTRE question — même quand elle y ressemble
+
+- **`PACKAGE_NAME` bornait la traversée de chemin, pas le PÉRIMÈTRE.** Les deux gardes se
+  ressemblent (« quel nom de paquet accepte-t-on ? ») et répondent à deux questions distinctes : la
+  première empêche `../../etc`, la seconde décide ce qu'on a le DROIT de servir. Sans la seconde,
+  la porte de documentation rendait les pages de n'importe quelle dépendance installée. [1× — 08-22f]
+- **`requiresAuth` regardait comment l'identité est PROUVÉE, pas ce que l'appelant PEUT.** Une
+  porte plus stricte en apparence cachait des données moins sensibles que celles qu'une autre
+  rendait déjà au même appelant — et rendait la capacité inatteignable dans le mode nominal. [1× — 08-22f]
+
+## 📐 Composer une assertion de chemin ne suffit pas — il faut composer avec la MÊME opération
+
+- **La CI Windows était rouge sur deux tests qui SUIVAIENT pourtant l'axiome** (composés au
+  `path.join`, jamais littéraux). Le code rendait un chemin ABSOLU (`path.resolve` → `D:\…`),
+  l'attendu était seulement ENRACINÉ (`\…`). `resolve` d'un côté et `join` de l'autre ne décrivent
+  pas le même chemin dès qu'une plateforme distingue les deux. Et mes tests du jour portaient le
+  même défaut, non encore poussé. [1× — 08-22f]
+
 ## 🎯 La commande du DÉPÔT est l'autorité — la mienne, ciblée, a un périmètre plus étroit
 
 - **Mon typecheck ciblé était vert, le gate du dépôt sortait 3 erreurs.** `tsgo -p
