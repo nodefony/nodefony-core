@@ -89,6 +89,40 @@ export default defineConfig<typeof env>((ctx) => ({
      */
     use("@nodefony/security", {
       /**
+       * Jetons signés par CETTE application — le décor de DÉVELOPPEMENT.
+       *
+       * 🔴 Deux réglages sans lesquels `nodefony security:token` produit un
+       * jeton inutilisable, chacun pour une raison différente :
+       *
+       * - **`audiences`** est une liste BLANCHE de ressources qu'un client peut
+       *   NOMMER (`resource`, RFC 8707). L'URI de la porte MCP doit y figurer,
+       *   sinon l'émetteur REFUSE de l'inscrire (`invalid_target`) — et l'on se
+       *   retrouve avec une porte que rien ne sait ouvrir. Les deux adresses
+       *   sont là parce que la porte répond en clair ET en TLS : un jeton
+       *   demandé pour l'une était refusé sur l'autre, la liaison d'audience
+       *   faisant, à juste titre, son travail. Ces valeurs s'ÉCRIVENT, jamais
+       *   ne se dérivent du `Host` — un en-tête forgé obtiendrait sinon un
+       *   jeton d'audience arbitraire. En production : l'URL publique en https.
+       *
+       * - **`keystore.dir`** rend la clé de signature PERSISTANTE. Sans lui,
+       *   chaque process génère la sienne au démarrage : un jeton émis par la
+       *   CLI porte un `kid` que le serveur en marche ne connaît pas, et il est
+       *   refusé en « autorisation requise » — sans que rien ne dise pourquoi.
+       *   En production, la clé vient de l'environnement (`keySetJson`), le
+       *   système de fichiers d'un pod étant éphémère.
+       */
+      jwt: {
+        issuer: ctx.isProd ? undefined : "https://localhost:5152",
+        audiences: ctx.isProd
+          ? []
+          : [
+              "https://localhost:5152",
+              "http://localhost:5151/nodefony/mcp",
+              "https://localhost:5152/nodefony/mcp",
+            ],
+        keystore: ctx.isProd ? {} : { dir: "var/keys" },
+      },
+      /**
        * Zones firewall de TES routes. `main` essaie `session` (cookie BFF →
        * `context.user` rempli) puis `anonymous` : rien n'est bloqué tel quel.
        * Hors zone, l'identité n'est JAMAIS résolue.
@@ -244,6 +278,32 @@ export default defineConfig<typeof env>((ctx) => ({
      *
      * Il est en `devDependencies` : `npm ci --omit=dev` ne l'installe pas.
      */
-    use("@nodefony/devkit", {}, { policy: "dev" }),
+    use(
+      "@nodefony/devkit",
+      {
+        mcp: {
+          authorization: {
+            /**
+             * 🔴 L'audience attendue des jetons de la porte MCP — elle
+             * s'ÉCRIT, jamais ne se dérive du `Host` : un en-tête forgé
+             * obtiendrait sinon un jeton d'audience arbitraire ET passerait la
+             * vérification, ce qui viderait la liaison d'audience (RFC 8707) de
+             * son unique raison d'être.
+             *
+             * Sans cette ligne, l'émetteur de cette application REFUSE de
+             * signer un jeton pour sa propre porte (`invalid_target`) — et
+             * `npx nodefony ai:mcp --auth` livre alors une porte que rien ne
+             * peut franchir.
+             *
+             * Ce sont les adresses de DÉVELOPPEMENT (la porte répond en clair
+             * et en TLS). En production, mets ici l'URL publique en https.
+             */
+            resource: "http://localhost:5151/nodefony/mcp",
+            additionalResources: ["https://localhost:5152/nodefony/mcp"],
+          },
+        },
+      },
+      { policy: "dev" },
+    ),
   ],
 }));

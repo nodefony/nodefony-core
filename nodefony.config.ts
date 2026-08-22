@@ -299,6 +299,33 @@ export default defineConfig<Env>((ctx) => ({
           // de fichiers éphémère) : la clé y vient de l'environnement
           // (`keySetJson`), partagée par tous les pods.
           keystore: ctx.isProd ? {} : { dir: "var/keys" },
+          // Les ressources qu'un client peut NOMMER en demandant un jeton
+          // (`resource`, RFC 8707) — une liste BLANCHE, décidée par
+          // l'APPLICATION. La première est l'audience par défaut : garder
+          // l'émetteur en tête laisse inchangé tout jeton demandé sans
+          // `resource`.
+          //
+          // 🔴 Ces quatre lignes vivaient dans le module `test`, et c'était un
+          // défaut de placement aux conséquences invisibles : le dépôt savait
+          // émettre un jeton pour sa porte MCP grâce à un module de BANC, si
+          // bien qu'aucun essai ici ne pouvait montrer qu'une application
+          // générée, elle, se voyait refuser le jeton de sa propre porte.
+          audiences: ctx.isProd
+            ? []
+            : [
+                ctx.env.NF_JWT_ISSUER ?? "https://localhost:5152",
+                // Audience du banc : la zone `test-foreign-audience` du module
+                // `test` l'exige, pour prouver qu'un jeton n'ouvre QUE la porte
+                // pour laquelle il a été demandé.
+                "https://api.foreign.example/v1",
+                // La porte MCP, en clair et en TLS : la même ressource répond
+                // sur les deux serveurs, et un jeton demandé pour l'une était
+                // refusé sur l'autre — la liaison d'audience faisant son
+                // travail. Ces valeurs s'ÉCRIVENT, jamais ne se dérivent du
+                // `Host`.
+                "http://localhost:5151/nodefony/mcp",
+                "https://localhost:5152/nodefony/mcp",
+              ],
         },
         // 2FA TOTP (P6) — secret 2FA chiffré au repos (AES-256-GCM). Clé prod via
         // env (absente en prod = 2FA OFF, fail-safe : un secret chiffré par une clé

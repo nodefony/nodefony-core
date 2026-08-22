@@ -231,6 +231,49 @@ const MCP_ARGS = process.env.NF_DEVKIT_BENCH_AGENT_ARGS
 const MCP_ATTEIGNABLE = [...AGENT_ARGS, ...MCP_ARGS].includes("--mcp-config");
 
 /**
+ * RÉGIME de la porte MCP — trois décors qui mesurent trois choses différentes,
+ * et qui ne se comparent PAS entre eux.
+ *
+ * | `NF_DEVKIT_BENCH_MCP` | ce que l'agent trouve                                      |
+ * | --------------------- | ---------------------------------------------------------- |
+ * | `eteint` (défaut)     | la porte est DÉCLARÉE, l'application est arrêtée            |
+ * | `auth`                | porte authentifiée (jeton) ET application DÉMARRÉE          |
+ * | `off`                 | aucune déclaration : l'agent ne sait pas qu'une porte existe |
+ *
+ * 🔴 **`eteint` n'est pas un décor dégradé, c'est un cas RÉEL** — et le plus
+ * fréquent : on ouvre un dépôt qu'on ne connaît pas, rien ne tourne. Le client
+ * MCP se connecte à l'INIT de sa session et ne retente jamais : la porte étant
+ * une ROUTE, elle est `failed` pour toute la session, même si l'agent démarre
+ * l'application ensuite. C'est ce que mesure ce régime, et c'est pour cela
+ * qu'il reste le DÉFAUT : la référence existante a été établie dessus.
+ *
+ * 🔴 **`auth` exige de DÉMARRER l'application** — sinon on croit mesurer un
+ * agent outillé alors qu'on mesure le même agent muet : le jeton est parfait,
+ * la porte n'existe pas. Les deux vont donc ensemble, ici, et pas au choix de
+ * l'appelant.
+ *
+ * ⚠️ En `auth`, la tâche 5 (« démarre puis arrête le serveur ») trouve un
+ * serveur DÉJÀ démarré : son verdict ne vaut rien dans ce régime. Le banc le
+ * dit plutôt que de le taire.
+ */
+const MCP_REGIMES = ["eteint", "auth", "off"];
+const MCP_REGIME = process.env.NF_DEVKIT_BENCH_MCP ?? "eteint";
+if (!MCP_REGIMES.includes(MCP_REGIME)) {
+  console.error(
+    `NF_DEVKIT_BENCH_MCP : « ${MCP_REGIME} » inconnu — attendus : ${MCP_REGIMES.join(", ")}`,
+  );
+  process.exit(64); // EX_USAGE
+}
+
+/**
+ * La porte est-elle FRANCHIE avec une identité ? Constaté sur l'environnement
+ * effectif, jamais déduit de l'intention : un jeton non émis doit rendre un
+ * rapport qui dit « anonyme », sinon deux mesures que ce réglage sépare
+ * seraient comparées — l'agent authentifié voit des outils que l'autre n'a pas.
+ */
+const mcpAuthentifie = () => typeof APP_ENV.NF_MCP_TOKEN === "string";
+
+/**
  * Ports DÉDIÉS de l'app témoin, hérités par tout ce que l'agent lance depuis
  * elle (le serveur qu'il démarre en tâche 5 compris).
  *
@@ -242,7 +285,17 @@ const MCP_ATTEIGNABLE = [...AGENT_ARGS, ...MCP_ARGS].includes("--mcp-config");
  */
 const PORTS = { NF_PORT: "5371", NF_PORT_HTTPS: "5372" };
 
-/** Env de tout ce qui s'exécute DANS l'app témoin — agent comme gates. */
+/**
+ * Env de tout ce qui s'exécute DANS l'app témoin — agent comme gates.
+ *
+ * 🔴 **Le jeton MCP y est POSÉ au montage du décor** (`NF_MCP_TOKEN`). Sans lui,
+ * l'agent franchit la porte en ANONYME : elle ne lui sert que les outils
+ * publics et retient les réservés — on mesurerait alors un agent moins bien
+ * outillé que l'utilisateur réel, dont le `create app` propose précisément ce
+ * câblage. L'en-tête écrit dans `.mcp.json` ne porte JAMAIS le secret, mais son
+ * nom (`${NF_MCP_TOKEN}`) : c'est le client MCP qui le substitue depuis cet
+ * environnement, et le fichier reste commitable.
+ */
 const APP_ENV = { ...process.env, ...PORTS };
 
 /**
@@ -3393,13 +3446,93 @@ function setup(runDir) {
   // d'un runtime qui n'a jamais tourné : on le DONNE (ports dédiés du banc),
   // sinon le repli 5151 câblerait l'agent sur le serveur du DÉPÔT — la classe
   // de piège « une application qui n'est pas la sienne » décrite plus haut.
-  sh("npx", ["--no-install", "nodefony", "ai:mcp"], {
-    cwd: app,
-    env: {
-      ...APP_ENV,
-      NODEFONY_DEV_PORTS: `${PORTS.NF_PORT},${PORTS.NF_PORT_HTTPS}`,
-    },
-  });
+  const envMcp = {
+    ...APP_ENV,
+    NODEFONY_DEV_PORTS: `${PORTS.NF_PORT},${PORTS.NF_PORT_HTTPS}`,
+  };
+  if (MCP_REGIME === "off") {
+    console.log("  · porte MCP NON déclarée (régime « off »)");
+    return;
+  }
+  // `--auth` : la porte de l'app naît FERMÉE, exactement comme celle que
+  // `create app` câble pour un utilisateur. `--agent none` : on écrit le
+  // fichier du projet, on ne touche à la configuration d'aucun outil du poste
+  // — un banc ne déclare rien chez qui que ce soit.
+  sh(
+    "npx",
+    [
+      "--no-install",
+      "nodefony",
+      "ai:mcp",
+      ...(MCP_REGIME === "auth" ? ["--auth"] : []),
+      "--agent",
+      "none",
+    ],
+    { cwd: app, env: envMcp },
+  );
+  if (MCP_REGIME !== "auth") {
+    console.log(
+      "  · porte MCP déclarée, application ÉTEINTE — le client la marquera « failed » pour la session",
+    );
+    return;
+  }
+  // Le jeton, ensuite : sans lui l'en-tête reste un gabarit non substitué, et
+  // la porte sert l'anonyme. Durée large (la tâche la plus longue tourne une
+  // demi-heure) et portée en LECTURE — un banc n'a rien à muter par cette voie.
+  const emission = spawnSync(
+    "npx",
+    [
+      "--no-install",
+      "nodefony",
+      "security:token",
+      "--json",
+      "--ttl",
+      "120",
+      "--scope",
+      "admin:read",
+    ],
+    { cwd: app, encoding: "utf8", env: { ...envMcp, NODE_ENV: "development" } },
+  );
+  const jeton = (() => {
+    if (emission.status !== 0) return null;
+    try {
+      return JSON.parse(emission.stdout ?? "{}").access_token ?? null;
+    } catch {
+      return null;
+    }
+  })();
+  if (jeton) {
+    APP_ENV.NF_MCP_TOKEN = jeton;
+    console.log("  · porte MCP AUTHENTIFIÉE (jeton admin:read, 120 min)");
+    // La porte est une ROUTE : sans application en marche, le jeton n'ouvre
+    // rien et le client MCP marque le serveur « failed » pour TOUTE la session.
+    // Démarrer fait donc partie du régime, ce n'est pas une option.
+    const boot = spawnSync(
+      "npx",
+      ["--no-install", "nodefony", "development", "--detach", "--wait"],
+      { cwd: app, encoding: "utf8", env: envMcp, timeout: 180_000 },
+    );
+    if (boot.status === 0) {
+      console.log(`  · application DÉMARRÉE (port ${PORTS.NF_PORT_HTTPS})`);
+      // La tâche 5 pilote le serveur : un serveur déjà là fausse son verdict.
+      console.log(
+        "  ⚠️ régime « auth » : la tâche 5 (démarrer/arrêter) ne vaut rien ici",
+      );
+    } else {
+      console.log(
+        `  ⚠️ démarrage impossible (code ${boot.status}) — la porte MCP restera injoignable`,
+      );
+    }
+  } else {
+    // Le DIRE, et ne pas continuer comme si de rien n'était : la mesure qui
+    // suit porterait sur un agent amputé de ses outils réservés, et le rapport
+    // l'attribuerait au devkit.
+    console.log(
+      `  ⚠️ jeton MCP non émis (code ${emission.status}) — l'agent sera ANONYME sur la porte`,
+    );
+    if (emission.stderr)
+      console.log(`     ${emission.stderr.trim().split("\n")[0]}`);
+  }
 
   // L'isolation se CONSTATE avant l'agent : mieux vaut aucun verdict qu'un
   // verdict rendu sur un décor qui n'est pas celui de l'utilisateur.
@@ -4628,6 +4761,22 @@ function main() {
       }
       mesures.push({ app, dir, occurrence: runs > 1 ? rep : null });
     }
+    // Le régime « auth » a démarré l'application : la laisser tourner
+    // occuperait ses ports dédiés et le run SUIVANT croirait interroger la
+    // sienne — la classe de piège « une application qui n'est pas la sienne ».
+    if (MCP_REGIME === "auth") {
+      const arret = spawnSync("npx", ["--no-install", "nodefony", "stop"], {
+        cwd: app,
+        encoding: "utf8",
+        env: APP_ENV,
+        timeout: 60_000,
+      });
+      console.log(
+        arret.status === 0
+          ? "\n• application arrêtée (décor rendu)"
+          : `\n⚠️ arrêt de l'application en ${arret.status} — vérifier le port ${PORTS.NF_PORT_HTTPS}`,
+      );
+    }
   }
 
   // Une tâche ne se juge que dans les passes qui l'ont RÉELLEMENT jouée : trois
@@ -4694,7 +4843,9 @@ function main() {
     // ne se déduit pas du chemin.
     decor:
       (LINKED ? "lié au checkout (--link)" : "isolé (tarballs, hors dépôt)") +
-      (MCP_ATTEIGNABLE ? " · MCP atteignable" : " · MCP non atteint"),
+      (MCP_ATTEIGNABLE
+        ? ` · MCP ${MCP_REGIME}${mcpAuthentifie() ? " (jeton posé)" : ""}`
+        : " · MCP non atteint"),
     agent: AGENT,
     // Le commit MESURÉ — la seule variable qu'on veut voir différer entre la
     // référence et le run. Re-juger un run ANCIEN ne le mesure pas au commit

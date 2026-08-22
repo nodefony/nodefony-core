@@ -919,6 +919,41 @@ step(
   },
 );
 
+step(
+  "l'app sait émettre le JETON de sa propre porte MCP",
+  "Sans audience déclarée, l'émetteur refuse (`invalid_target`) et `ai:mcp --auth` livre une porte que rien n'ouvre.",
+  () => {
+    // 🔴 Le défaut que cette étape existe pour fermer : le DÉPÔT savait émettre
+    // ce jeton grâce à son module de banc, qui déclarait `security.jwt.audiences`
+    // pour toute l'application. Aucune application générée ne l'a — et rien ici
+    // ne pouvait le montrer, puisque tous les essais tournaient dans le dépôt.
+    // Une audience est une décision d'APPLICATION : elle appartient au gabarit,
+    // et une étape qui l'EXÉCUTE est la seule preuve qui vaille.
+    const out = run(
+      process.execPath,
+      [BIN, "security:token", "--json", "--ttl", "15", "--scope", "admin:read"],
+      APP,
+      // La porte MCP est servie par un module de DÉVELOPPEMENT : sans cet
+      // environnement, le CLI démarre en production et la porte n'existe pas.
+      { NODE_ENV: "development" },
+    );
+    const jeton = JSON.parse(out);
+    if (typeof jeton.access_token !== "string" || !jeton.access_token) {
+      throw new Error("aucun jeton rendu");
+    }
+    // L'audience INSCRITE, pas celle demandée : c'est elle que la porte
+    // comparera à son propre URI, et elle seule dit que le jeton ouvrira.
+    const charge = JSON.parse(
+      Buffer.from(jeton.access_token.split(".")[1], "base64url").toString(),
+    );
+    if (!String(charge.aud ?? "").endsWith("/nodefony/mcp")) {
+      throw new Error(
+        `jeton émis pour « ${charge.aud} » — ce n'est pas la porte MCP`,
+      );
+    }
+  },
+);
+
 // ── Rapport ─────────────────────────────────────────────────────────────────
 process.stdout.write("\n━━ verdict\n");
 for (const s of steps) {

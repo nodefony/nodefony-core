@@ -462,9 +462,25 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           path.join(dest, "nodefony.config.ts"),
           "utf8",
         );
+        // Le module est au manifeste, et il y est en `policy: "dev"`. On ne
+        // fige PAS la forme littérale de son `use(...)` : le devkit y reçoit
+        // désormais l'audience de sa porte MCP, et une assertion écrite sur la
+        // ponctuation aurait rougi pour un ajout parfaitement voulu — sans rien
+        // dire de ce qu'elle protège.
+        const compact = config.replace(/\s+/gu, " ");
+        const at = compact.indexOf('"@nodefony/devkit"');
+        assert.isAbove(at, -1, "le devkit doit figurer au manifeste");
+        // La fenêtre qui suit le nom du module porte ses options : c'est là que
+        // `policy` se lit, quelle que soit la façon dont le formateur a coupé
+        // les lignes.
+        // Jusqu'au module SUIVANT — pas une fenêtre de N caractères : la
+        // déclaration du devkit porte sa configuration et ses commentaires, et
+        // une borne chiffrée se périme au premier mot ajouté.
+        const suivant = compact.indexOf("use(", at);
         assert.include(
-          config.replace(/\s+/gu, " "),
-          'use("@nodefony/devkit", {}, { policy: "dev" })',
+          compact.slice(at, suivant === -1 ? undefined : suivant),
+          '{ policy: "dev" }',
+          "le devkit doit rester chargé en DÉVELOPPEMENT seulement",
         );
       });
     }

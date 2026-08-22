@@ -426,19 +426,39 @@ class SecurityToken extends Command {
         // de chercher un serveur éteint — vécu — alors que cette commande n'en
         // utilise aucun. Écarter la fausse piste coûte une ligne et fait gagner
         // le quart d'heure qu'on passerait à relancer un serveur pour rien.
+        // 🔴 Le diagnostic se CONSTATE, il ne se suppose pas. Ce message a
+        // longtemps accusé une seule cause — « ce terminal n'a pas posé
+        // NODE_ENV » — pour TOUTES les demandes refusées, et il se contredisait
+        // dans sa propre phrase : il affichait « démarré en development » juste
+        // après avoir dit que l'environnement n'était pas posé. En development,
+        // la cause est ailleurs, et elle est même la plus fréquente dans une
+        // application NEUVE : l'audience n'est pas déclarée à l'émetteur.
         const env = this.kernel?.environment ?? "?";
+        const enDev = env === "development";
         this.log(
           `impossible d'émettre un jeton pour cette porte ici.\n` +
             `\n` +
             `  Ce n'est PAS un problème de serveur : cette commande n'en a pas\n` +
             `  besoin, elle signe le jeton elle-même.\n` +
             `\n` +
-            `  La porte visée — ${resource} — est servie par un module de\n` +
-            `  DÉVELOPPEMENT. Ce terminal n'a pas posé NODE_ENV, donc le CLI a\n` +
-            `  démarré en « ${env} », où ce module n'existe pas : un jeton pour\n` +
-            `  une porte absente n'aurait personne pour l'accepter.\n` +
+            `  La porte visée : ${resource}\n` +
+            `  Environnement CONSTATÉ : ${env}\n` +
             `\n` +
-            `  → NODE_ENV=development nodefony security:token${opts.write ? " --write" : ""}\n` +
+            (enDev
+              ? `  Cette application n'accepte pas cette audience. Une audience se\n` +
+                `  DÉCLARE — c'est une liste blanche (RFC 8707), sans quoi tout\n` +
+                `  porteur obtiendrait un jeton pour la ressource de son choix :\n` +
+                `\n` +
+                `      use("@nodefony/security", {\n` +
+                `        jwt: { audiences: ["${resource}"] },\n` +
+                `      })\n` +
+                `\n` +
+                `  → puis npm run build (le runtime lit le dist)\n`
+              : `  La porte est servie par un module de DÉVELOPPEMENT, absent en\n` +
+                `  « ${env} » : un jeton pour une porte absente n'aurait personne\n` +
+                `  pour l'accepter.\n` +
+                `\n` +
+                `  → NODE_ENV=development nodefony security:token${opts.write ? " --write" : ""}\n`) +
             `  → ou vise une autre porte : --resource <uri>`,
           "ERROR",
         );
