@@ -305,9 +305,19 @@ class SecurityToken extends Command {
             `  ${MCP_TOKEN_ENV}=${jeton}\n\n`,
         );
       } else {
+        // Le commentaire dit CE QUE CE JETON PEUT — compte, rôles, scopes,
+        // durée. Un jeton est opaque à l'œil : sans cette ligne, celui qui
+        // relit `.env.local` dans trois semaines ne sait ni qui il incarne, ni
+        // pourquoi la porte le refuse (elle le refusera : il aura expiré).
+        const roles = (user.roles ?? []) as readonly string[];
         appendFileSync(
           path.resolve(this.#root(), ".env.local"),
-          `\n# Jeton de la porte MCP (audience ${resource})\n${MCP_TOKEN_ENV}=${jeton}\n`,
+          `\n# Jeton de la porte MCP — compte « ${identifier} »` +
+            `${roles.length ? ` · rôles ${roles.join(", ")}` : " · aucun rôle"}` +
+            `${scopes.length ? ` · scopes ${scopes.join(" ")}` : " · aucun scope"}\n` +
+            `# audience ${resource} · valable ${minutes} min` +
+            ` à partir du ${new Date().toISOString()}\n` +
+            `${MCP_TOKEN_ENV}=${jeton}\n`,
           "utf8",
         );
         w(
