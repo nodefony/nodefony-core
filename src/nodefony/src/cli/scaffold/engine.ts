@@ -3,6 +3,30 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Eta } from "eta";
+
+/**
+ * Options du moteur de gabarits, **écrites une seule fois** : sept rendus les
+ * instanciaient à l'identique, et une divergence entre deux d'entre eux serait
+ * passée inaperçue jusqu'au fichier produit.
+ *
+ * - `autoEscape: false` — on génère du CODE, pas du HTML : échapper les entités
+ *   corromprait chaque fichier.
+ * - `useWith: false` + `varName: "it"` — accès strict par `it.`, aucune variable
+ *   implicite.
+ * - `autoTrim: false` — **le défaut d'eta AVALE la ligne vide qui suit une
+ *   balise en fin de ligne.** Un `# <%= it.appName %>` suivi d'une ligne vide et
+ *   d'un paragraphe rendait le titre COLLÉ au paragraphe ; et en markdown, un
+ *   paragraphe qui suit une liste sans ligne vide devient une continuation de la
+ *   dernière puce. Le rendu n'était donc pas seulement mal formaté, il était mal
+ *   STRUCTURÉ — et le formateur que l'application embarque le refusait. Ce que
+ *   le gabarit écrit est ce qui sort.
+ */
+const ETA_OPTIONS = {
+  useWith: false,
+  varName: "it",
+  autoEscape: false,
+  autoTrim: false,
+} as const;
 import { findProjectRoot } from "../projectRoot";
 // L'infra déclarée et l'ordre de la cascade `.env` ont chacun UNE
 // implémentation, celle qu'exécute le kernel. Le scaffold les emprunte : une
@@ -1047,7 +1071,7 @@ function dispatchScaffold(
   };
   // autoEscape false : on génère du CODE, pas du HTML — l'échappement des
   // entités corromprait chaque fichier. useWith false = accès via `it.` strict.
-  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const eta = new Eta(ETA_OPTIONS);
   const templates = path.join(packageRoot, "templates", request.type);
   const written: string[] = [];
   renderLayer(eta, path.join(templates, "base"), dest, data, written, writer);
@@ -1493,7 +1517,7 @@ function runModuleScaffold(
         ? ((appManifest as { version?: string }).version ?? "0.1.0")
         : "0.1.0",
   };
-  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const eta = new Eta(ETA_OPTIONS);
   const templates = path.join(packageRoot, "templates", "module");
   const tokens = { __PASCAL__: pascal, __KEBAB__: name };
   const written: string[] = [];
@@ -1729,7 +1753,7 @@ function runControllerScaffold(
         `ajoute la dep + use("@nodefony/realtime") au manifeste, ou choisis --kind hello`,
     );
   }
-  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const eta = new Eta(ETA_OPTIONS);
   const written: string[] = [];
   const data = {
     nameClass,
@@ -1880,7 +1904,7 @@ function runServiceScaffold(
     };
   }
 
-  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const eta = new Eta(ETA_OPTIONS);
   const written: string[] = [];
   renderLayer(
     eta,
@@ -2260,7 +2284,7 @@ function runCommandScaffold(
         `sans argument obligatoire) — relance sans --service`,
     );
   }
-  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const eta = new Eta(ETA_OPTIONS);
   const written: string[] = [];
   renderLayer(
     eta,
@@ -3045,7 +3069,7 @@ function runEntityScaffold(
         f.type !== "enum",
     )?.name ?? null;
 
-  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const eta = new Eta(ETA_OPTIONS);
   const written: string[] = [];
   const data = {
     pascal,
@@ -3457,7 +3481,7 @@ function runFrontScaffold(
   const nameClass = `${pascal}Controller`;
   const kebab = toKebabCase(base);
   const route = String(answers.route) || `/${kebab}`;
-  const eta = new Eta({ useWith: false, varName: "it", autoEscape: false });
+  const eta = new Eta(ETA_OPTIONS);
   const written: string[] = [];
   const data = {
     nameClass,

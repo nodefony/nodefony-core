@@ -21,25 +21,82 @@
       "error",
       {
         "paths": [
-          { "name": "assert", "message": "Préfixe Node obligatoire : importe \"node:assert\"." },
-          { "name": "buffer", "message": "Préfixe Node obligatoire : importe \"node:buffer\"." },
-          { "name": "child_process", "message": "Préfixe Node obligatoire : importe \"node:child_process\"." },
-          { "name": "crypto", "message": "Préfixe Node obligatoire : importe \"node:crypto\"." },
-          { "name": "events", "message": "Préfixe Node obligatoire : importe \"node:events\"." },
-          { "name": "fs", "message": "Préfixe Node obligatoire : importe \"node:fs\"." },
-          { "name": "fs/promises", "message": "Préfixe Node obligatoire : importe \"node:fs/promises\"." },
-          { "name": "http", "message": "Préfixe Node obligatoire : importe \"node:http\"." },
-          { "name": "http2", "message": "Préfixe Node obligatoire : importe \"node:http2\"." },
-          { "name": "https", "message": "Préfixe Node obligatoire : importe \"node:https\"." },
-          { "name": "net", "message": "Préfixe Node obligatoire : importe \"node:net\"." },
-          { "name": "os", "message": "Préfixe Node obligatoire : importe \"node:os\"." },
-          { "name": "path", "message": "Préfixe Node obligatoire : importe \"node:path\"." },
-          { "name": "process", "message": "Préfixe Node obligatoire : importe \"node:process\"." },
-          { "name": "stream", "message": "Préfixe Node obligatoire : importe \"node:stream\"." },
-          { "name": "timers", "message": "Préfixe Node obligatoire : importe \"node:timers\"." },
-          { "name": "url", "message": "Préfixe Node obligatoire : importe \"node:url\"." },
-          { "name": "util", "message": "Préfixe Node obligatoire : importe \"node:util\"." },
-          { "name": "worker_threads", "message": "Préfixe Node obligatoire : importe \"node:worker_threads\"." }
+          {
+            "name": "assert",
+            "message": "Préfixe Node obligatoire : importe \"node:assert\"."
+          },
+          {
+            "name": "buffer",
+            "message": "Préfixe Node obligatoire : importe \"node:buffer\"."
+          },
+          {
+            "name": "child_process",
+            "message": "Préfixe Node obligatoire : importe \"node:child_process\"."
+          },
+          {
+            "name": "crypto",
+            "message": "Préfixe Node obligatoire : importe \"node:crypto\"."
+          },
+          {
+            "name": "events",
+            "message": "Préfixe Node obligatoire : importe \"node:events\"."
+          },
+          {
+            "name": "fs",
+            "message": "Préfixe Node obligatoire : importe \"node:fs\"."
+          },
+          {
+            "name": "fs/promises",
+            "message": "Préfixe Node obligatoire : importe \"node:fs/promises\"."
+          },
+          {
+            "name": "http",
+            "message": "Préfixe Node obligatoire : importe \"node:http\"."
+          },
+          {
+            "name": "http2",
+            "message": "Préfixe Node obligatoire : importe \"node:http2\"."
+          },
+          {
+            "name": "https",
+            "message": "Préfixe Node obligatoire : importe \"node:https\"."
+          },
+          {
+            "name": "net",
+            "message": "Préfixe Node obligatoire : importe \"node:net\"."
+          },
+          {
+            "name": "os",
+            "message": "Préfixe Node obligatoire : importe \"node:os\"."
+          },
+          {
+            "name": "path",
+            "message": "Préfixe Node obligatoire : importe \"node:path\"."
+          },
+          {
+            "name": "process",
+            "message": "Préfixe Node obligatoire : importe \"node:process\"."
+          },
+          {
+            "name": "stream",
+            "message": "Préfixe Node obligatoire : importe \"node:stream\"."
+          },
+          {
+            "name": "timers",
+            "message": "Préfixe Node obligatoire : importe \"node:timers\"."
+          },
+          {
+            "name": "url",
+            "message": "Préfixe Node obligatoire : importe \"node:url\"."
+          },
+          {
+            "name": "util",
+            "message": "Préfixe Node obligatoire : importe \"node:util\"."
+          },
+          {
+            "name": "worker_threads",
+            "message": "Préfixe Node obligatoire : importe \"node:worker_threads\"."
+          }
         ]
       }
     ],

@@ -198,9 +198,11 @@ Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_sessio
    Cinq règles qui font la différence entre un sous-agent utile et un sous-agent coûteux :
    - **🔴 LE MODÈLE S'ÉCRIT DANS LE CHAMP `description` DE L'APPEL, ENTRE CROCHETS.**
      `description: "[haiku] Vérifier 12 ancrages"`, `"[fable] Trier le corpus"` — **le champ
-     `description`, pas le prompt** : c'est la SEULE chaîne que le user voit passer. Le mettre
-     dans le prompt ne coûte rien à écrire et n'affiche rien ; la règle a été enfreinte
-     exactement comme ça. Toujours, y compris quand le modèle est le défaut. Le modèle est le
+     `description`, pas SEULEMENT le prompt** — et **AUSSI en première ligne du prompt**
+     (`MODÈLE : <m> — <pourquoi>`), parce que le `subagent_type` peut AVALER la
+     `description` : avec `Explore`, la ligne affichée est celle de l'agent intégré et le
+     modèle n'apparaît NULLE PART, champ pourtant rempli (vécu 2026-08-22). Corollaire :
+     ne pas prendre `Explore` quand la visibilité du modèle compte. Toujours, y compris quand le modèle est le défaut. Le modèle est le
      premier poste de dépense d'une délégation (`fable` ≈ 40× `haiku`) et il est invisible
      autrement : **on ne peut pas arbitrer ce qu'on ne voit pas.** Et si le modèle dépasse
      `haiku`, dire en UNE phrase, dans la réponse au user, ce que le modèle léger échouerait à

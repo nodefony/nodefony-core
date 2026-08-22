@@ -43,7 +43,10 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
   it("WS /api/echo → echo du message (même controller que le HTTP)", async () => {
     const ws = new WebSocket(`${WS_BASE}/api/echo`);
     const echoed = await new Promise<unknown>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("timeout WS 10s")), 10_000);
+      const timer = setTimeout(
+        () => reject(new Error("timeout WS 10s")),
+        10_000,
+      );
       ws.addEventListener("open", () => ws.send("ping-e2e"));
       ws.addEventListener("message", (event) => {
         const data = JSON.parse(String(event.data)) as { echo?: string };

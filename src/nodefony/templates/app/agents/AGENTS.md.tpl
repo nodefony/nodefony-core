@@ -36,25 +36,25 @@
 
 ## Générateurs — appelle-les, ne recompose jamais leur sortie de mémoire
 
-| Besoin | Commande |
-| --- | --- |
-| Module applicatif (workspace npm) | `npx nodefony create module <nom>` |
-| Controller HTTP **et** WebSocket (même classe) | `npx nodefony create controller <nom> --kind hello\|rest\|realtime\|duplex\|example` |
-| Ressource REST **complète** — entité + service + controller CRUD + tests (ne JAMAIS l'écrire à la main) | `npx nodefony create entity <Nom> --fields "sku:string! price:float"` |
-| Service métier seul — la logique réutilisable, hors de tout controller | `npx nodefony create service <Nom> [--inject <AutreService>] [--module <m>]` |
-| Frontend Vite (React/Vue/Angular) | `npx nodefony create front <nom> [--module <m>]` |
-| Commande CLI `nodefony <module>:<action>` | `npx nodefony create command <action> [--module <m>] [--phase onReady\|onRegister\|onPostReady]` |
+| Besoin                                                                                                  | Commande                                                                                         |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Module applicatif (workspace npm)                                                                       | `npx nodefony create module <nom>`                                                               |
+| Controller HTTP **et** WebSocket (même classe)                                                          | `npx nodefony create controller <nom> --kind hello\|rest\|realtime\|duplex\|example`             |
+| Ressource REST **complète** — entité + service + controller CRUD + tests (ne JAMAIS l'écrire à la main) | `npx nodefony create entity <Nom> --fields "sku:string! price:float"`                            |
+| Service métier seul — la logique réutilisable, hors de tout controller                                  | `npx nodefony create service <Nom> [--inject <AutreService>] [--module <m>]`                     |
+| Frontend Vite (React/Vue/Angular)                                                                       | `npx nodefony create front <nom> [--module <m>]`                                                 |
+| Commande CLI `nodefony <module>:<action>`                                                               | `npx nodefony create command <action> [--module <m>] [--phase onReady\|onRegister\|onPostReady]` |
 
 **Ces dossiers ne s'écrivent JAMAIS à la main** — y déposer un fichier signifie
 que tu as raté une commande de la table ci-dessus :
 
-| Tu t'apprêtes à écrire dans… | Lance plutôt |
-| --- | --- |
-| `nodefony/entity/` | `npx nodefony create entity <Nom> --fields "…"` |
-| `nodefony/controllers/` | `npx nodefony create controller <nom> --kind …` |
-| `nodefony/service/` | `npx nodefony create service <Nom>` (ou `create entity`, qui en pose un) |
-| `nodefony/command/` | `npx nodefony create command <action> [--module <m>]` |
-| `modules/<nom>/` (module entier) | `npx nodefony create module <nom>` |
+| Tu t'apprêtes à écrire dans…     | Lance plutôt                                                             |
+| -------------------------------- | ------------------------------------------------------------------------ |
+| `nodefony/entity/`               | `npx nodefony create entity <Nom> --fields "…"`                          |
+| `nodefony/controllers/`          | `npx nodefony create controller <nom> --kind …`                          |
+| `nodefony/service/`              | `npx nodefony create service <Nom>` (ou `create entity`, qui en pose un) |
+| `nodefony/command/`              | `npx nodefony create command <action> [--module <m>]`                    |
+| `modules/<nom>/` (module entier) | `npx nodefony create module <nom>`                                       |
 
 Le code écrit à la main compile souvent — c'est tout le piège. Il diverge du
 gabarit courant, et cette divergence ne se voit qu'à la première montée de
@@ -88,24 +88,22 @@ s'enrichit, ta mémoire non.
 
 La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le dossier.
 
-| Tâche | Doc |
-| --- | --- |
-| **Quel module installer pour tel besoin** (et lequel NE PAS installer) | `node_modules/nodefony/docs/catalogue.md` |
-| **Variables d'environnement** : cascade des `.env`, précédence, `NF__`, **et dans quel MODE tourne une commande** | `node_modules/nodefony/docs/environnement.md` |
-| Kernel, cycle de vie, CLI | `node_modules/nodefony/docs/kernel.md` + `cli.md` |
-| Service, DI, container, scopes | `node_modules/nodefony/docs/service.md` |
-| Client isomorphe (navigateur), hooks React | `node_modules/nodefony/docs/client.md` + `react-hooks.md` |
-| Serveurs, sessions, cookies, upload, rate-limit | `node_modules/@nodefony/http/docs/` |
-| **Journaliser, corréler, tracer une requête** (identifiant de requête, trace) | `node_modules/@nodefony/http/docs/observabilite.md` |
-| Routing, controllers, décorateurs, idempotence | `node_modules/@nodefony/framework/docs/` |
-<% if (it.hasSecurity) { %>| Firewall, authenticators, CSRF, CORS, clés d'API | `node_modules/@nodefony/security/docs/firewall.md` |
-| **Protéger une action par un RÔLE** (`@IsGranted`), voters, hiérarchie | `node_modules/@nodefony/security/docs/authorization.md` |
-| **Utilisateurs** : contrat `IUser`, `UserService`, mot de passe | `node_modules/@nodefony/user/docs/index.md` |
-| **Notifier un système tiers** (webhook signé, rejeu, endpoints) | `node_modules/@nodefony/security/docs/webhooks.md` |
-<% } %><% if (it.hasOrm) { %>| Entités, repositories, requêtes (ORM) | `node_modules/@nodefony/orm-core/docs/` |
-<% } %><% if (it.hasRealtime) { %>| Canaux temps réel, actions, protocole WS | `node_modules/@nodefony/realtime/docs/` |
-<% } %><% if (it.front) { %>| Builder Vite, entries, HMR | `node_modules/@nodefony/frontend/docs/` |
-<% } %><% if (it.hasStudio) { %>| Console d'admin Studio (dev) | `node_modules/@nodefony/studio/docs/` + http://127.0.0.1:5151/nodefony |
+- Quel module installer pour tel besoin** (et lequel NE PAS installer) — `node_modules/nodefony/docs/catalogue.md`
+- Variables d'environnement** : cascade des `.env`, précédence, `NF__`, **et dans quel MODE tourne une commande** — `node_modules/nodefony/docs/environnement.md`
+- **Kernel, cycle de vie, CLI** — `node_modules/nodefony/docs/kernel.md` + `cli.md`
+- **Service, DI, container, scopes** — `node_modules/nodefony/docs/service.md`
+- **Client isomorphe (navigateur), hooks React** — `node_modules/nodefony/docs/client.md` + `react-hooks.md`
+- **Serveurs, sessions, cookies, upload, rate-limit** — `node_modules/@nodefony/http/docs/`
+- Journaliser, corréler, tracer une requête** (identifiant de requête, trace) — `node_modules/@nodefony/http/docs/observabilite.md`
+- **Routing, controllers, décorateurs, idempotence** — `node_modules/@nodefony/framework/docs/`
+<% if (it.hasSecurity) { %>- **Firewall, authenticators, CSRF, CORS, clés d'API** — `node_modules/@nodefony/security/docs/firewall.md`
+- Protéger une action par un RÔLE** (`@IsGranted`), voters, hiérarchie — `node_modules/@nodefony/security/docs/authorization.md`
+- Utilisateurs** : contrat `IUser`, `UserService`, mot de passe — `node_modules/@nodefony/user/docs/index.md`
+- Notifier un système tiers** (webhook signé, rejeu, endpoints) — `node_modules/@nodefony/security/docs/webhooks.md`
+<% } %><% if (it.hasOrm) { %>- **Entités, repositories, requêtes (ORM)** — `node_modules/@nodefony/orm-core/docs/`
+<% } %><% if (it.hasRealtime) { %>- **Canaux temps réel, actions, protocole WS** — `node_modules/@nodefony/realtime/docs/`
+<% } %><% if (it.front) { %>- **Builder Vite, entries, HMR** — `node_modules/@nodefony/frontend/docs/`
+<% } %><% if (it.hasStudio) { %>- **Console d'admin Studio (dev)** — `node_modules/@nodefony/studio/docs/` + http://127.0.0.1:5151/nodefony
 <% } %>
 La config de l'app vit dans `nodefony.config.ts` (modules chargés) et `env.ts`
 (variables d'environnement, seul lecteur de `process.env`) — pointe-les, ne les
@@ -142,20 +140,18 @@ machine.
 
 Celles qu'on n'invente pas — faute de savoir qu'elles existent :
 
-| Besoin | Commande |
-| --- | --- |
-| Mettre l'app derrière **nginx ou haproxy** | `npx nodefony proxy:generate <nginx\|haproxy> [-o <fichier>] [-b <hôte>] [-l <port>] [--reencrypt]` |
-| Servir les fichiers statiques depuis un CDN | `npx nodefony assets:publish [-o <dossier>] [--clean] [--json]` |
-| Certificat TLS de développement | `npx nodefony http:certificates [-f] [-j]` |
-<% if (it.front) { %>| Construire le front pour la production | `npx nodefony frontend:build [-f]` |
-| Où en est le serveur Vite | `npx nodefony frontend:status [-j]` |
-<% } %><% if (it.hasSecurity) { %>| Clés de chiffrement du firewall | `npx nodefony security:secrets [-j] [-w]` |
-| Créer un compte **administrateur** | `npx nodefony security:user:add <identifiant> --admin` |
-<% } %>| Dépendances en retard (agrégées, pas le brut de npm) | `npx nodefony outdated [-j] [-a]` |
-| Cohérence du projet (classe non câblée, route qui répondra 404) | `npx nodefony doctor [--json]` — depuis n'importe quel sous-dossier |
-| Plusieurs processus, un cœur chacun | `npx nodefony production -w <n>` · `npx nodefony cluster -w <n>` |
-| Construire l'image de container | `docker build -t <%= it.appName %> .` — le `Dockerfile` est DÉJÀ là, ne le réécris pas |
-| Complétion au TAB | `source <(nodefony completion zsh)` |
+- Mettre l'app derrière **nginx ou haproxy** — `npx nodefony proxy:generate <nginx|haproxy> [-o <fichier>] [-b <hôte>] [-l <port>] [--reencrypt]`
+- **Servir les fichiers statiques depuis un CDN** — `npx nodefony assets:publish [-o <dossier>] [--clean] [--json]`
+- **Certificat TLS de développement** — `npx nodefony http:certificates [-f] [-j]`
+<% if (it.front) { %>- **Construire le front pour la production** — `npx nodefony frontend:build [-f]`
+- **Où en est le serveur Vite** — `npx nodefony frontend:status [-j]`
+<% } %><% if (it.hasSecurity) { %>- **Clés de chiffrement du firewall** — `npx nodefony security:secrets [-j] [-w]`
+- Créer un compte **administrateur** — `npx nodefony security:user:add <identifiant> --admin`
+<% } %>- **Dépendances en retard (agrégées, pas le brut de npm)** — `npx nodefony outdated [-j] [-a]`
+- **Cohérence du projet (classe non câblée, route qui répondra 404)** — `npx nodefony doctor [--json]` — depuis n'importe quel sous-dossier
+- **Plusieurs processus, un cœur chacun** — `npx nodefony production -w <n>` · `npx nodefony cluster -w <n>`
+- **Construire l'image de container** — `docker build -t <%= it.appName %> .` — le `Dockerfile` est DÉJÀ là, ne le réécris pas
+- **Complétion au TAB** — `source <(nodefony completion zsh)`
 
 Ce tableau ne remplace pas `--help` : lui seul connaît les modules de CETTE app,
 et il fait foi le jour où les deux divergent.
@@ -401,11 +397,11 @@ jamais committés : les secrets y vont, et nulle part ailleurs.
 
 **Deux mécanismes à ne pas confondre** :
 
-| Forme | Ce que c'est | Où c'est déclaré |
-| --- | --- | --- |
-| `NF_PORT=5151` | variable de l'APP, typée et validée | `env.ts` (`defineEnv`) — non déclarée = **sans effet** |
-| `NF__HTTP__SERVERS__HTTPS__PORT=8443` | surcharge DIRECTE d'une clé de config d'un module | rien à déclarer — double `__` = séparateur |
-| `NF_TOTP_KEY_FILE=/run/secrets/x` | la même variable, lue depuis un fichier (secret Docker/K8s) | idem `NF_TOTP_KEY` |
+| Forme                                 | Ce que c'est                                                | Où c'est déclaré                                       |
+| ------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------ |
+| `NF_PORT=5151`                        | variable de l'APP, typée et validée                         | `env.ts` (`defineEnv`) — non déclarée = **sans effet** |
+| `NF__HTTP__SERVERS__HTTPS__PORT=8443` | surcharge DIRECTE d'une clé de config d'un module           | rien à déclarer — double `__` = séparateur             |
+| `NF_TOTP_KEY_FILE=/run/secrets/x`     | la même variable, lue depuis un fichier (secret Docker/K8s) | idem `NF_TOTP_KEY`                                     |
 
 Une variable `NF_` mal orthographiée n'échoue pas : elle est **ignorée**, et le
 défaut s'applique en silence. `npx nodefony env` est le seul endroit qui la montre
@@ -428,31 +424,29 @@ formulaire de Studio, à jour par construction.
 Chacun a déjà fait perdre une heure et beaucoup d'allers-retours. Le symptôme ne
 désigne jamais la cause : c'est ce qui les rend chers.
 
-| Symptôme | Cause réelle | Le geste |
-| --- | --- | --- |
-| **Un test rouge en suite, VERT rejoué seul** | une ressource PARTAGÉE entre fichiers (serveur, table, état global) — pas une régression de ton diff | rejoue-le seul : l'isolation dit la vérité ; puis donne à chaque fichier sa propre ressource |
-| **Le serveur lancé en arrière-plan a disparu** | `… &` reçoit SIGHUP et meurt ; et tuer le PID du port ne tue pas le superviseur, qui respawne | `npx nodefony production --detach --wait` pour démarrer, `npx nodefony stop` pour arrêter — jamais `&`, jamais un kill par le port |
-| **Des dizaines de tests d'intégration rouges d'un coup** | ils FRAPPENT un serveur, ils ne le lancent pas : il est éteint (`ECONNREFUSED`) | `npx nodefony status` d'abord ; en e2e, laisse la commande gérer le cycle |
-| **La route existe dans le code et répond 404** | le runtime charge `dist/`, pas tes sources | `npm run build` — et en cas de doute vérifie le `dist/` par son CONTENU (`grep` du symbole), jamais par sa date |
-| **TOUT répond 404, même les routes du gabarit** | un AUTRE serveur tient les ports — ou LE TIEN a glissé sur d'autres ports, le port voulu étant pris | `npx nodefony status` : il montre les ports RÉELS, pas ceux que tu as configurés, et NOMME le projet voisin qui tient un port ; `npx nodefony stop <nom>` l'arrête sans te déplacer |
-| **L'app démarre, et pourtant une brique manque** (base injoignable, module absent) | une brique peut tomber en fail-soft, ou être écartée par sa `policy` : le boot CONTINUE, et le journal ne le dit qu'une fois, dans le terminal de celui qui a lancé | `npm run check` — il lit `var/last-boot.json` et nomme chaque brique absente AVEC sa raison |
-| **L'app ne démarre plus et tu n'as pas la sortie** (démarrage détaché, conteneur, CI) | le journal est parti avec le terminal | `npm run check` n'exécute rien : il rapporte la phase atteinte et la cause du dernier démarrage |
-| **Ça marche en dev, c'est mort en production** | les modules `policy: dev` sont RETIRÉS en production — ce qu'ils portaient disparaît avec eux | avant de livrer, UN boot `npx nodefony production --detach --wait` et rejoue tes vérifications |
-| **Un réglage de `nodefony.config.ts` ne change rien** | clé inconnue ou mal placée : retirée EN SILENCE à la validation | `npx nodefony inspect config --json` — la config effective et la provenance de chaque valeur |
-| **Une variable d'environnement « ne prend pas »** | mal orthographiée (ignorée en silence) ou masquée par un rang supérieur | `npx nodefony env` — il montre la valeur EFFECTIVE et sa provenance |
-| **Après un échec au milieu d'une chaîne `&&`, tout ment** | rien d'aval n'a tourné : tu mesures l'état d'AVANT | après tout échec, considère que la suite n'a pas eu lieu — revérifie que l'artefact mesuré a été régénéré |
-| **Les tests passent, `npm run typecheck` échoue** | le runner efface les types : un test vert ne typecheck rien | lance les DEUX avant de conclure |
-| **Suite verte, et le câblage est mort** | un test qui ne quitte pas la brique ne prouve que la brique | débranche le point de câblage : si rien ne tombe, il n'est pas testé |
-| **Un test vert « prouve » une garantie de sécurité** | elle est vraie dans la fonction, fausse sur le trajet réel | frappe la route en anonyme et regarde si le code a tourné |
-| **Un test qui n'a jamais échoué** | il ne garde rien — un test neuf est complaisant par défaut | casse-le exprès une fois, vérifie qu'il rougit |
-| **« Tout est vert » alors qu'une suite ne s'est pas exécutée** | un test sauté compte comme réussi — et un fichier jamais COLLECTÉ (erreur de syntaxe, hors du glob) ne compte pas du tout | lis le NOMBRE de tests, pas la couleur |
-| **`localhost` et `127.0.0.1` te jouent des tours** | ce sont deux ORIGINES distinctes : cookies, cache et passkeys ne les partagent pas | une seule origine en développement, partout — URL ouverte comme callbacks |
-<% if (it.hasOrm) { %>| **La modif d'une entité « ne prend pas »** (erreur SQL au runtime) | le schéma de développement fait `CREATE TABLE IF NOT EXISTS` — une table existante n'est JAMAIS altérée | en dev, supprime la table (ou le fichier de base sous `var/`) et relance ; en production, une migration |
-<% } %><% if (it.hasSecurity) { %>| **Les routes authentifiées plafonnent** quand le reste tient la charge | le stockage de session par défaut est SYNCHRONE : chaque reprise bloque la boucle d'événements | compare une route anonyme et une route authentifiée AVANT d'accuser TLS ou le pare-feu ; passe le stockage sur redis pour la charge |
-<% } %><% if (it.front) { %>| **En production, la modif front n'apparaît jamais** | hors développement il n'y a PAS de rechargement à chaud, et le manifeste est lu AU BOOT | `npm run build` → **redémarre le serveur** → rechargement forcé |
-| **Ta modif front n'apparaît pas (en dev)** | le navigateur sert son cache — et le rechargement à chaud ne remplace ni un singleton ni un composant qui gagne des hooks : le code neuf tourne sur du vieil état | rechargement forcé, et vérifie que Vite a bien recompilé |
-| **Une route d'API répond du HTML** | un repli SPA générique avale les routes voisines — le premier motif qui correspond gagne | repli en préfixe LITTÉRAL ; `npx nodefony inspect routes --json` montre l'ordre réel |
-| **Des utilisateurs « déconnectés au hasard »** | le traitement global « 401 = session expirée » frappe aussi les sondes d'authentification, où 401 est NORMAL — et détruit une session valide | exempte les sondes du traitement global |
+- Un test rouge en suite, VERT rejoué seul** — une ressource PARTAGÉE entre fichiers (serveur, table, état global) — pas une régression de ton diff → rejoue-le seul : l'isolation dit la vérité ; puis donne à chaque fichier sa propre ressource
+- Le serveur lancé en arrière-plan a disparu** — `… &` reçoit SIGHUP et meurt ; et tuer le PID du port ne tue pas le superviseur, qui respawne → `npx nodefony production --detach --wait` pour démarrer, `npx nodefony stop` pour arrêter — jamais `&`, jamais un kill par le port
+- Des dizaines de tests d'intégration rouges d'un coup** — ils FRAPPENT un serveur, ils ne le lancent pas : il est éteint (`ECONNREFUSED`) → `npx nodefony status` d'abord ; en e2e, laisse la commande gérer le cycle
+- La route existe dans le code et répond 404** — le runtime charge `dist/`, pas tes sources → `npm run build` — et en cas de doute vérifie le `dist/` par son CONTENU (`grep` du symbole), jamais par sa date
+- TOUT répond 404, même les routes du gabarit** — un AUTRE serveur tient les ports — ou LE TIEN a glissé sur d'autres ports, le port voulu étant pris → `npx nodefony status` : il montre les ports RÉELS, pas ceux que tu as configurés, et NOMME le projet voisin qui tient un port ; `npx nodefony stop <nom>` l'arrête sans te déplacer
+- L'app démarre, et pourtant une brique manque** (base injoignable, module absent) — une brique peut tomber en fail-soft, ou être écartée par sa `policy` : le boot CONTINUE, et le journal ne le dit qu'une fois, dans le terminal de celui qui a lancé → `npm run check` — il lit `var/last-boot.json` et nomme chaque brique absente AVEC sa raison
+- L'app ne démarre plus et tu n'as pas la sortie** (démarrage détaché, conteneur, CI) — le journal est parti avec le terminal → `npm run check` n'exécute rien : il rapporte la phase atteinte et la cause du dernier démarrage
+- Ça marche en dev, c'est mort en production** — les modules `policy: dev` sont RETIRÉS en production — ce qu'ils portaient disparaît avec eux → avant de livrer, UN boot `npx nodefony production --detach --wait` et rejoue tes vérifications
+- Un réglage de `nodefony.config.ts` ne change rien** — clé inconnue ou mal placée : retirée EN SILENCE à la validation → `npx nodefony inspect config --json` — la config effective et la provenance de chaque valeur
+- Une variable d'environnement « ne prend pas »** — mal orthographiée (ignorée en silence) ou masquée par un rang supérieur → `npx nodefony env` — il montre la valeur EFFECTIVE et sa provenance
+- Après un échec au milieu d'une chaîne `&&`, tout ment** — rien d'aval n'a tourné : tu mesures l'état d'AVANT → après tout échec, considère que la suite n'a pas eu lieu — revérifie que l'artefact mesuré a été régénéré
+- Les tests passent, `npm run typecheck` échoue** — le runner efface les types : un test vert ne typecheck rien → lance les DEUX avant de conclure
+- Suite verte, et le câblage est mort** — un test qui ne quitte pas la brique ne prouve que la brique → débranche le point de câblage : si rien ne tombe, il n'est pas testé
+- Un test vert « prouve » une garantie de sécurité** — elle est vraie dans la fonction, fausse sur le trajet réel → frappe la route en anonyme et regarde si le code a tourné
+- Un test qui n'a jamais échoué** — il ne garde rien — un test neuf est complaisant par défaut → casse-le exprès une fois, vérifie qu'il rougit
+- « Tout est vert » alors qu'une suite ne s'est pas exécutée** — un test sauté compte comme réussi — et un fichier jamais COLLECTÉ (erreur de syntaxe, hors du glob) ne compte pas du tout → lis le NOMBRE de tests, pas la couleur
+- `localhost` et `127.0.0.1` te jouent des tours** — ce sont deux ORIGINES distinctes : cookies, cache et passkeys ne les partagent pas → une seule origine en développement, partout — URL ouverte comme callbacks
+<% if (it.hasOrm) { %>- La modif d'une entité « ne prend pas »** (erreur SQL au runtime) — le schéma de développement fait `CREATE TABLE IF NOT EXISTS` — une table existante n'est JAMAIS altérée → en dev, supprime la table (ou le fichier de base sous `var/`) et relance ; en production, une migration
+<% } %><% if (it.hasSecurity) { %>- Les routes authentifiées plafonnent** quand le reste tient la charge — le stockage de session par défaut est SYNCHRONE : chaque reprise bloque la boucle d'événements → compare une route anonyme et une route authentifiée AVANT d'accuser TLS ou le pare-feu ; passe le stockage sur redis pour la charge
+<% } %><% if (it.front) { %>- En production, la modif front n'apparaît jamais** — hors développement il n'y a PAS de rechargement à chaud, et le manifeste est lu AU BOOT → `npm run build` → **redémarre le serveur** → rechargement forcé
+- Ta modif front n'apparaît pas (en dev)** — le navigateur sert son cache — et le rechargement à chaud ne remplace ni un singleton ni un composant qui gagne des hooks : le code neuf tourne sur du vieil état → rechargement forcé, et vérifie que Vite a bien recompilé
+- Une route d'API répond du HTML** — un repli SPA générique avale les routes voisines — le premier motif qui correspond gagne → repli en préfixe LITTÉRAL ; `npx nodefony inspect routes --json` montre l'ordre réel
+- Des utilisateurs « déconnectés au hasard »** — le traitement global « 401 = session expirée » frappe aussi les sondes d'authentification, où 401 est NORMAL — et détruit une session valide → exempte les sondes du traitement global
 <% } %>
 **Ce qui coûte le plus de tokens** : enchaîner arrêt → construction → démarrage
 après chaque petite modification. Regroupe TOUTES tes modifications serveur, puis
@@ -639,12 +633,12 @@ le pointeur dans `.agents/skills/`).
 
 **Quatre règles, sinon tu diagnostiqueras le vide** :
 
-| Règle                                                                | Pourquoi                                                                                                                                                              |
-| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Joins l'app par **`host.docker.internal`**                           | `localhost` désigne le conteneur, pas ta machine. Si tu as activé `domainCheck`, ajoute ce nom aux `trustedHosts` en développement, sinon la barrière répond `421`.    |
-| Passe par **HTTPS**                                                  | Le cookie de session est `secure` : sur une origine `http://` non-`localhost` le navigateur le **jette**, et tout revient en `401` — on croit alors que le login rate. |
+| Règle                                                                | Pourquoi                                                                                                                                                                                                                                                                                                                                                                                                              |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Joins l'app par **`host.docker.internal`**                           | `localhost` désigne le conteneur, pas ta machine. Si tu as activé `domainCheck`, ajoute ce nom aux `trustedHosts` en développement, sinon la barrière répond `421`.                                                                                                                                                                                                                                                   |
+| Passe par **HTTPS**                                                  | Le cookie de session est `secure` : sur une origine `http://` non-`localhost` le navigateur le **jette**, et tout revient en `401` — on croit alors que le login rate.                                                                                                                                                                                                                                                |
 | **Rien à poser** pour rendre Vite joignable                          | L'origine des assets se dérive du `Host` de ta requête : arriver par `host.docker.internal` suffit, l'allowlist Vite et le WebSocket du HMR suivent le même nom, et le poste reste servi sur `127.0.0.1` en même temps. Si la page annonce quand même `127.0.0.1:5173` depuis le conteneur, c'est que le nom ne franchit pas `trustedHosts`, ou qu'une `publicOrigin` explicite est configurée (elle gagne toujours). |
-| **Attends un texte propre à l'écran visé** avant de lire ou capturer | Le SPA se monte APRÈS la navigation. Et attendre un texte présent aussi sur la page de connexion (le nom de l'app…) aboutit dans les deux cas : ça ne prouve rien.     |
+| **Attends un texte propre à l'écran visé** avant de lire ou capturer | Le SPA se monte APRÈS la navigation. Et attendre un texte présent aussi sur la page de connexion (le nom de l'app…) aboutit dans les deux cas : ça ne prouve rien.                                                                                                                                                                                                                                                    |
 
 Une capture **n'écrase pas** un fichier existant : réutiliser un nom te fait relire
 une image périmée pendant que l'appel répond « OK ». Nom neuf, ou vérifie la date.

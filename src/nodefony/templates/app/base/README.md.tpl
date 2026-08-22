@@ -34,17 +34,15 @@ Puis :
 <% } %>
 ## 2. Visite guidée — ce que l'app démontre
 
-| Quoi                            | Comment le voir                                                    |
-| ------------------------------- | ------------------------------------------------------------------ |
-| Route HTTP                      | `curl http://127.0.0.1:5151/api/hello`                             |
-| WebSocket — **même controller** | `npx wscat -c ws://127.0.0.1:5151/api/echo` puis tape un message   |
-<% if (it.front) { %>| Frontend <%= it.frontend %> (Vite + HMR)  | http://127.0.0.1:5151/ — l'app fetch le backend via `/api`         |
-<% } %><% if (it.complete) { %>| Studio (console admin, dev)     | http://127.0.0.1:5151/nodefony — config, sessions, logs, routes    |
-| ORM + persistance               | Drizzle : sans `NF_DATABASE_URL`, sqlite locale automatique        |
-| Firewall + audit                | chaque requête traverse le pipeline sécurité (logs `audit`)        |
-| Temps réel — socket Nodefony    | `nodefony/controllers/LiveController.ts` : canal `live:ticker` + RPC `live:ping`<% if (it.front) { %> — la carte « Temps réel » de la page d'accueil le consomme par la façade client<% } %> |
-| Redis (opt-in)                  | `NF_REDIS_URL` présente ⇔ module chargé, stores basculent dessus   |
-<% } %>| Probes cloud-native             | `curl http://127.0.0.1:5151/livez` (liveness k8s)                  |
+- **Route HTTP** — `curl http://127.0.0.1:5151/api/hello`
+- **WebSocket, _même controller_** — `npx wscat -c ws://127.0.0.1:5151/api/echo` puis tape un message
+<% if (it.front) { %>- **Frontend <%= it.frontend %> (Vite + HMR)** — http://127.0.0.1:5151/ — l'app fetch le backend via `/api`
+<% } %><% if (it.complete) { %>- **Studio (console admin, dev)** — http://127.0.0.1:5151/nodefony — config, sessions, logs, routes
+- **ORM + persistance** — Drizzle : sans `NF_DATABASE_URL`, sqlite locale automatique
+- **Firewall + audit** — chaque requête traverse le pipeline sécurité (logs `audit`)
+- **Temps réel — socket Nodefony** — `nodefony/controllers/LiveController.ts` : canal `live:ticker` + RPC `live:ping`<% if (it.front) { %> — la carte « Temps réel » de la page d'accueil le consomme par la façade client<% } %>
+- **Redis (opt-in)** — `NF_REDIS_URL` présente ⇔ module chargé, stores basculent dessus
+<% } %>- **Probes cloud-native** — `curl http://127.0.0.1:5151/livez` (liveness k8s)
 
 Le différenciateur Nodefony tient dans `nodefony/controllers/HelloController.ts` :
 **une route GET et une route WEBSOCKET dans la même classe** — même pipeline,
@@ -52,21 +50,19 @@ pas deux mondes séparés.
 
 ## 3. Structure du projet
 
-| Fichier / dossier          | Rôle                                                                       |
-| -------------------------- | --------------------------------------------------------------------------- |
-| `nodefony.config.ts`       | LA config de l'app — uniquement les ÉCARTS aux défauts du framework         |
-| `env.ts`                   | Catalogue **typé** des variables d'environnement (seul lecteur de `process.env`, validé au boot) |
-| `index.ts`                 | Point d'entrée : la classe `App` (module racine) + ses controllers<% if (it.front) { %> + l'entry frontend (`registerEntry`)<% } %> |
-| `nodefony/controllers/`    | Tes controllers (`@controller` + `@route`, HTTP **et** WS)                  |
-<% if (it.front) { %>| `frontend/src/`            | Ton app <%= it.frontend %> — servie par Vite (HMR dev, build prod)          |
-<% } %>| `tests/`                   | Tests vitest — unitaires (`npm test`) + e2e réel (`npm run test:e2e`)       |
-| `AGENTS.md`                | Instructions pour un agent IA — 100 % généré (régénéré par `create`), tes notes vivent dans sa zone préservée |
-<% if (it.complete) { %>| `compose.yaml`             | Infra de dev docker : Redis<% if (it.db) { %>, <%= it.db.label %><% } %>, Loki/Grafana (profil) |
-<% } %>| `rolldown.config.ts`       | Build — 3 lignes, délègue tout au socle publié `nodefony/bundler`           |
-| `.oxlintrc.json`           | Lint non-intrusif (warn) ; le style est délégué à Prettier                  |
-| `vitest.config.ts`         | Tests unitaires — porte le bloc `oxc` décorateurs (OBLIGATOIRE, commenté)   |
-| `vitest.e2e.config.ts`     | Tests e2e — config séparée : `npm test` ne montre que ce qu'il exécute      |
-| `var/`                     | Données locales (sqlite, logs fichiers) — gitignoré                         |
+- `nodefony.config.ts` — LA config de l'app : uniquement les ÉCARTS aux défauts du framework
+- `env.ts` — catalogue **typé** des variables d'environnement (seul lecteur de `process.env`, validé au boot)
+- `index.ts` — point d'entrée : la classe `App` (module racine) + ses controllers<% if (it.front) { %> + l'entry frontend (`registerEntry`)<% } %>
+- `nodefony/controllers/` — tes controllers (`@controller` + `@route`, HTTP **et** WS)
+<% if (it.front) { %>- `frontend/src/` — ton app <%= it.frontend %>, servie par Vite (HMR dev, build prod)
+<% } %>- `tests/` — tests vitest : unitaires (`npm test`) + e2e réel (`npm run test:e2e`)
+- `AGENTS.md` — instructions pour un agent IA, 100 % généré (régénéré par `create`) ; tes notes vivent dans sa zone préservée
+<% if (it.complete) { %>- `compose.yaml` — infra de dev docker : Redis<% if (it.db) { %>, <%= it.db.label %><% } %>, Loki/Grafana (profil)
+<% } %>- `rolldown.config.ts` — build : 3 lignes, délègue tout au socle publié `nodefony/bundler`
+- `.oxlintrc.json` — lint non-intrusif (warn) ; le style est délégué à Prettier
+- `vitest.config.ts` — tests unitaires ; porte le bloc `oxc` décorateurs (OBLIGATOIRE, commenté)
+- `vitest.e2e.config.ts` — tests e2e, config séparée : `npm test` ne montre que ce qu'il exécute
+- `var/` — données locales (sqlite, logs fichiers), gitignoré
 <% if (it.complete) { %>
 ## 4. Infra de développement (docker)
 

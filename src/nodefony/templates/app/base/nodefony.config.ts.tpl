@@ -31,10 +31,12 @@ export default defineConfig<typeof env>((ctx) => ({
    * - Inspecter ou regénérer le certificat : `npx nodefony http:certificates`.
    */
   servers: {
-    ...(ctx.env.NF_PORT ?? ctx.env.PORT
+    ...((ctx.env.NF_PORT ?? ctx.env.PORT)
       ? { http: { port: ctx.env.NF_PORT ?? ctx.env.PORT } }
       : {}),
-    ...(ctx.env.NF_PORT_HTTPS ? { https: { port: ctx.env.NF_PORT_HTTPS } } : {}),
+    ...(ctx.env.NF_PORT_HTTPS
+      ? { https: { port: ctx.env.NF_PORT_HTTPS } }
+      : {}),
   },
 
   log: {

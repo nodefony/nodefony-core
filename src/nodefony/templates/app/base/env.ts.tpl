@@ -28,7 +28,8 @@ export const env = defineEnv({
    */
   PORT: envNumber({
     optional: true,
-    description: "Alias plateforme du port HTTP (Cloud Run/Heroku) — NF_PORT gagne.",
+    description:
+      "Alias plateforme du port HTTP (Cloud Run/Heroku) — NF_PORT gagne.",
   }),
 
   /**
@@ -76,15 +77,18 @@ export const env = defineEnv({
    */
   NF_TOTP_KEY: envString({
     optional: true,
-    description: "Clé de chiffrement des secrets 2FA/TOTP au repos (32 octets base64).",
+    description:
+      "Clé de chiffrement des secrets 2FA/TOTP au repos (32 octets base64).",
   }),
   NF_WEBHOOK_KEY: envString({
     optional: true,
-    description: "Clé de chiffrement des secrets de signature webhook (32 octets base64).",
+    description:
+      "Clé de chiffrement des secrets de signature webhook (32 octets base64).",
   }),
   NF_CSRF_SECRET: envString({
     optional: true,
-    description: "Secret des jetons anti-CSRF (synchronizer) — partagé entre process en cluster.",
+    description:
+      "Secret des jetons anti-CSRF (synchronizer) — partagé entre process en cluster.",
   }),
 
   /**
@@ -95,7 +99,8 @@ export const env = defineEnv({
    */
   NF_ADMIN_PASSWORD: envString({
     optional: true,
-    description: "Mot de passe du compte admin seedé au 1er boot (obligatoire en production).",
+    description:
+      "Mot de passe du compte admin seedé au 1er boot (obligatoire en production).",
   }),
 <% } %><% if (it.complete || it.front) { %>
   // L'origine publique du dev-server Vite n'est PAS une variable
