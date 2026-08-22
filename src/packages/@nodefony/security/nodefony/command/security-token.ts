@@ -10,6 +10,7 @@ import {
   ADMIN_SCOPE_READ,
   ADMIN_SCOPE_WRITE,
   AGENT_TARGETS,
+  agentsPresents,
   agentsDemandes,
   poseVariable,
   porteDejaLaCle,
@@ -191,12 +192,13 @@ class SecurityToken extends Command {
    * d'un outil que personne n'utilise ici.
    */
   #agentsPresents(): IAgentTarget[] {
-    return AGENT_TARGETS.filter((cible) => {
-      const racine = this.#racineDe(cible);
-      return cible.portee === "projet"
-        ? existsSync(path.resolve(racine, cible.marqueur))
-        : existsSync(racine);
-    });
+    // ⭐ La règle de détection vit au CŒUR (`agentsPresents`), elle n'est pas
+    // recopiée ici. Cette copie portait le même cercle vicieux que l'original :
+    // un agent dont la configuration s'écrit dans le PROJET n'était constaté
+    // que si le projet était DÉJÀ configuré pour lui — donc jamais servi la
+    // première fois. Deux implémentations d'une même règle divergent, et c'est
+    // toujours celle qu'on relit le moins qui garde le défaut.
+    return agentsPresents({ projectRoot: this.#root(), existe: existsSync });
   }
 
   /**

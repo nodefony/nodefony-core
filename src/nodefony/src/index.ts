@@ -779,6 +779,7 @@ export {
   poseVariable,
   porteDejaLaCle,
   agentsDemandes,
+  agentsPresents,
   MCP_TOKEN_ENV,
 } from "./cli/agentTargets";
 export type {

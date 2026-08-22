@@ -410,10 +410,25 @@ export function agentsPresents(ctx: {
   existe: (chemin: string) => boolean;
 }): IAgentTarget[] {
   return AGENT_TARGETS.filter((c) => {
-    const racine = racineAgent(c, ctx);
-    return c.portee === "projet"
-      ? ctx.existe(path.resolve(racine, c.marqueur))
-      : ctx.existe(racine);
+    // 🔴 On cherche le marqueur DANS LE PROJET **et** chez l'utilisateur, quelle
+    // que soit la portée d'écriture — parce que ce sont deux questions
+    // distinctes que `portee` confondait : « où prouve-t-on que cet agent
+    // sert ? » et « où écrit-on sa déclaration ? ».
+    //
+    // Le cercle que cela fermait : Gemini écrit en portée PROJET
+    // (`--scope project` crée `.gemini/`), donc exiger que `.gemini/` préexiste
+    // dans le projet revenait à ne proposer de configurer que ce qui l'était
+    // déjà. Un utilisateur de Gemini — `~/.gemini` bien présent — ne le voyait
+    // jamais dans la liste, et concluait que Nodefony ne le gérait pas.
+    //
+    // Élargir ne concède rien : rien n'est coché par défaut, la question est un
+    // choix explicite, et un dossier d'agent chez l'utilisateur prouve qu'il
+    // s'en sert — pas seulement qu'un binaire traîne dans le `PATH`.
+    const dansProjet = ctx.existe(path.resolve(ctx.projectRoot, c.marqueur));
+    const chezUtilisateur = ctx.existe(
+      racineAgent({ ...c, portee: "utilisateur" }, ctx),
+    );
+    return dansProjet || chezUtilisateur;
   });
 }
 

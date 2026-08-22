@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   AGENT_TARGETS,
   agentsDemandes,
+  agentsPresents,
   planAgentDeclaration,
   poseVariable,
   porteDejaLaCle,
@@ -287,6 +288,50 @@ describe("agents — où vit la configuration d'un agent", () => {
         env: { CODEX_HOME: ailleurs },
       }),
     ).to.equal(ailleurs);
+  });
+});
+
+describe("agents — DÉTECTER un agent sans exiger qu'il soit déjà câblé", () => {
+  const projectRoot = path.join(path.sep, "projets", "app");
+  const home = path.join(path.sep, "maison", "cci");
+
+  /** Prédicat d'existence sur une liste de chemins — aucun disque touché. */
+  const disque =
+    (...presents: string[]) =>
+    (chemin: string) =>
+      presents.includes(chemin);
+
+  it("🔴 un agent en portée PROJET est proposé sur la foi de son dossier UTILISATEUR", () => {
+    // Le cercle que ce test ferme : Gemini écrit sa déclaration en portée
+    // projet (`--scope project` CRÉE `.gemini/`). Exiger que `.gemini/` existe
+    // déjà dans le projet pour le proposer revenait à ne proposer de
+    // configurer que ce qui l'était déjà — un utilisateur de Gemini ne le
+    // voyait jamais dans la liste et concluait qu'il n'était pas géré.
+    const cles = agentsPresents({
+      projectRoot,
+      home,
+      env: {},
+      existe: disque(path.join(home, ".gemini")),
+    }).map((c) => c.cle);
+    expect(cles).to.include("gemini");
+  });
+
+  it("le dossier DANS le projet suffit aussi, seul", () => {
+    const cles = agentsPresents({
+      projectRoot,
+      home,
+      env: {},
+      existe: disque(path.join(projectRoot, ".claude")),
+    }).map((c) => c.cle);
+    expect(cles).to.include("claude");
+  });
+
+  it("CONTRÔLE NÉGATIF — sans aucun marqueur, personne n'est proposé", () => {
+    // Sans lui, « tout proposer » serait trivialement vert : la détection doit
+    // encore distinguer un poste où l'agent sert d'un poste où il est absent.
+    expect(
+      agentsPresents({ projectRoot, home, env: {}, existe: () => false }),
+    ).to.have.lengthOf(0);
   });
 });
 

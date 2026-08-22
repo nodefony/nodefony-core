@@ -552,10 +552,27 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
     // dans la configuration d'un autre outil est un geste qui doit être VOULU.
     // Un développeur peut parfaitement coder seul — ce n'est pas un oubli à
     // rattraper, c'est un choix qu'on lui laisse, et la question le dit.
-    const presents = agentsPresents({
+    const detectes = agentsPresents({
       projectRoot,
       existe: existsSync,
-    }).filter((c) => c.declaration === "cli");
+    });
+    const presents = detectes.filter((c) => c.declaration === "cli");
+    // ⚠️ Un agent DÉTECTÉ mais absent de la liste doit être EXPLIQUÉ. Ceux qui
+    // lisent le fichier de projet — Claude Code lit le `.mcp.json` qu'on vient
+    // d'écrire — n'ont aucune commande à lancer : leur proposer une case à
+    // cocher n'aurait aucun sens, et `claude mcp add` poserait même une SECONDE
+    // déclaration dans le dossier de l'utilisateur, invisible du dépôt et
+    // jamais rafraîchie. Mais les taire fait chercher, puis conclure qu'ils ne
+    // sont pas gérés — vécu.
+    const parFichier = detectes.filter(
+      (c) => c.declaration === "fichier-projet",
+    );
+    if (parFichier.length > 0 && process.stdin.isTTY) {
+      const noms = parFichier.map((c) => c.nom).join(", ");
+      process.stdout.write(
+        `  ${noms} : rien à cocher — ${parFichier.length > 1 ? "ils lisent" : "il lit"} le ${path.basename(file)} de ce projet, déjà à jour.\n`,
+      );
+    }
     if (presents.length > 0 && process.stdin.isTTY) {
       const { checkbox } = await import("@inquirer/prompts");
       const choisis = (await checkbox({
