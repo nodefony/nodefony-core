@@ -45,12 +45,12 @@ function racineProjet(depart: string): string | null {
  * Retire les échappements ANSI, sous leurs DEUX formes.
  *
  * Le sink texte écrit l'octet d'échappement ; le JSONL, lui, sérialise la même
- * séquence en `[36m` — six caractères littéraux qu'un filtre écrit pour
+ * séquence en `ESC[36m` — six caractères littéraux qu'un filtre écrit pour
  * l'octet ne voit pas. Une couleur activée (serveur lancé dans un terminal)
  * s'intercale alors entre le verbe et le code, et le motif ne mord plus.
  */
 export function sansAnsi(texte: string): string {
-  return texte.replace(/\[[0-9;]*m/g, "").replace(/\\u001b\[[0-9;]*m/g, "");
+  return texte.replace(/\x1b\[[0-9;]*m/g, "").replace(/\\u001b\[[0-9;]*m/g, "");
 }
 
 /** Journaux candidats, du plus récemment écrit au plus ancien. */
