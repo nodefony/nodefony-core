@@ -708,6 +708,27 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   Règle : juger sur l'EXIT CODE + un filtre NOMMÉ du bruit connu, jamais sur « rien ne s'est
   affiché » ; et le seul autre juge-sur-sortie-vide du dépôt a été cherché (aucun).
 
+## 🖨️ La SOURCE et le RENDU sont deux textes — formater l'un ne dit rien de l'autre
+
+- Le formateur d'une application refusait **7 fichiers** qu'elle venait de recevoir de son propre générateur : le dépôt ne formate pas les `.tpl` (prettier ignore les extensions inconnues) et les assertions lisent des chaînes, pas une mise en forme. [1× — 08-22]
+- Formater un gabarit À BALISES **dégrade** son rendu : prettier voit les balises masquées, une fois remplacées les lignes changent de longueur et la forme canonique n'est plus la même. Constaté au premier usage de mon propre script — deux fichiers acceptés par le gate en sont ressortis refusés. [1× — 08-22]
+- Prettier **impose** l'alignement canonique d'une table markdown, calculé sur la cellule la plus large — donc sur un contenu qui n'existe que dans certaines variantes. Une table à lignes conditionnelles ne peut PAS être juste : elle devient une **liste**. [1× — 08-22]
+- Certaines formes dépendent d'une valeur **interpolée** : `content="<nom> — …"` tient sur une ligne pour un nom court et doit être éclatée pour un nom long. Un gabarit rend UNE forme — d'où une variante « nom long » dans le gate, sans quoi on livre un rendu conforme aux noms courts seulement. [1× — 08-22]
+- Un `prettier --write` sur un `.tpl` markdown lit une balise suivie d'une barre verticale comme une CELLULE et en **injecte** d'autres — le gabarit est corrompu sans un mot. [1× — 08-22]
+
+## 🎯 Une sonde qui mesure le CHEMIN sanctionne un résultat juste
+
+- La tâche 13 du banc décidait sur « a-t-il lancé `create service` ? » alors que son énoncé demande un service correct. Un service se MODIFIE toujours après génération : « généré » et « écrit à la main » ne sont ni distinguables ni pertinents. La mesure garde sa valeur — en **observation**, pas en verdict. [1× — 08-22]
+- Ce que l'énoncé exigeait et que rien ne regardait : « chaque responsabilité testable séparément ». Un agent qui n'éprouve que la route obtient un test vert sans avoir rien séparé. Lire l'énoncé phrase à phrase et demander « qui juge cela ? » trouve les trous plus vite que relire les sondes. [1× — 08-22]
+- Un périmètre d'exclusion en cache un besoin : `addedTs` exclut les tests (pour ne pas confondre fixture et config en dur), ce qui rendait **injugeable** tout ce qu'une tâche demande de prouver PAR un test. Le complément (`addedTests`) manquait. [1× — 08-22]
+
+## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
+
+- Un hook a bloqué un appel Bash entier (garde `cd` relatif), **python inclus** : l'édition n'a jamais eu lieu, j'ai buildé du code inchangé et conclu deux fois sur du vide. Le `grep` de contrôle sur le fichier édité coûte une seconde. [1× — 08-22]
+- `$?` après un pipeline est celui de la DERNIÈRE commande : `prettier --check f | tail` rend toujours 0. Quatre verdicts faux d'affilée. [2× — 08-22]
+- `prettier --check` lancé depuis le dépôt sur un chemin HORS périmètre ne trouve aucun fichier et sort **0** : « conforme » disait en réalité « rien vérifié ». Toujours mesurer dans le décor où la config s'applique. [1× — 08-22]
+- Le CLI s'exécute depuis `dist` : un gabarit se lit au disque (édition immédiate), le MOTEUR non — build avant de mesurer. [1× — 08-22]
+
 ## 🗄️ Gradué aux CONSOLIDATE (retiré d'ici — règle anti-doublon)
 
 Ces thèmes ont quitté le sas pour des mémoires durables. Ne pas les réécrire ici.
