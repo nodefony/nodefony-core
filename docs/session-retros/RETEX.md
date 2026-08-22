@@ -20,6 +20,46 @@
 
 ---
 
+## 🧪 Le DÉCOR du banc n'est pas celui qu'on livre — et il masque le défaut
+
+- **Une capacité ne marchait que sous `start.sh`.** L'auto-vérification d'un jeton MCP exigeait
+  `NODE_EXTRA_CA_CERTS`, que seul le script du skill posait — jamais `nodefony development`, la
+  commande que tape un utilisateur. Le banc était vert, la fonctionnalité inutilisable ; le
+  commentaire du code assumait même le 503 comme « fidèle ». `[1× — 08-22]`
+- **Trois variables séparaient mon décor du sien**, pas une : le CA de dev, `RATELIMIT=false`, et
+  `--expose-gc`. Un banc qui pose des variables que le produit ne pose pas mesure autre chose que le
+  produit. `[1× — 08-22]`
+- **Un test rouge attribué à mon diff ne l'était pas** : `client-abort-499` lisait
+  `/tmp/nodefony-server.log`, figé à 07:55 — le serveur en marche (DevSupervisor) n'écrit pas dedans.
+  Même motif, deuxième occurrence du jour. `[1× — 08-22]`
+
+## 🔎 Une ABSENCE de trace n'est pas une preuve — et la doc officielle ment aussi
+
+- **J'ai conclu « Codex ne lit aucun `.env` » en ne trouvant pas la chaîne dans un binaire.** Faux :
+  il lit `$CODEX_HOME/.env`. C'est une sonde comportementale (`codex doctor` signale une variable
+  manquante), montrée discriminante d'abord — témoin 1, variable exportée 0 — qui a tranché.
+  L'utilisateur a dû insister deux fois. `[1× — 08-22]`
+- **La doc officielle Mistral ne documente pas son fichier `.env` — le SOURCE installé, si**
+  (`load_dotenv_values`). Sur quatre agents, deux emplacements ne sont écrits nulle part ailleurs que
+  dans leur code. Corollaire : installer l'outil pour lire son source vaut mieux que citer un blog.
+  `[1× — 08-22]`
+- **Un test peut passer pour une raison qui n'est pas la sienne.** Ma garde « nom hors forme » ne
+  mordait pas : un pré-filtre `includes` écartait déjà le cas. Le test le DIT maintenant plutôt que
+  de prétendre garder quelque chose. `[1× — 08-22]`
+
+## 🔑 Un secret écrit là où personne ne le lit — et la question « qui le lit ? » qu'on ne pose pas
+
+- **`--write` posait le jeton MCP dans `.env.local` : AUCUN code de l'application ne le lit.** Elle
+  est le serveur de ressource, elle vérifie des jetons, elle n'en porte pas. Le consommateur — un
+  agent — le cherchait ailleurs et recevait un 401 qui accusait le jeton. Une heure de diagnostic.
+  `[1× — 08-22]`
+- **La duplication ne survit pas à la ROTATION** : le fichier refusait d'être touché pendant que les
+  agents auraient dû recevoir le neuf. La question de l'utilisateur — « pourquoi aussi dans
+  `.env.local` ? » — valait mieux que ma conception. `[1× — 08-22]`
+- **L'état de câblage n'a pas à être mémorisé : il EST dans les fichiers.** Un agent qui porte la
+  clé a été câblé un jour ⇒ rotation muette. Un fichier d'état parallèle aurait menti à la première
+  édition manuelle. `[1× — 08-22]`
+
 ## 🩹 Corriger une OCCURRENCE n'est pas corriger le MOTIF — et on se recontamine soi-même
 
 - **Le même défaut est revenu par la porte d'à côté le soir même.** Un gate du banc parsait un JSON
