@@ -20,6 +20,47 @@
 
 ---
 
+## 🩹 Corriger une OCCURRENCE n'est pas corriger le MOTIF — et on se recontamine soi-même
+
+- **Le même défaut est revenu par la porte d'à côté le soir même.** Un gate du banc parsait un JSON
+  sans garde ; corrigé sur UN gate le matin, laissé sur les quatre autres — le soir, la meilleure
+  passe de la tâche 13 (46 tours, travail juste) sortait FAIL sur « <anonymous_script>:1 ».
+  `[1× — 08-22]`
+- **Pire : je me suis recontaminé.** J'ai posé des timeouts sur six tests qui spawnent un process le
+  matin, puis écrit DEUX tests neufs qui spawnent `git`… sans timeout. L'un tombait sur le budget du
+  HOOK vitest (`hookTimeout`, 10 s), que le `timeout` du `describe` ne couvre pas. Corriger un motif
+  n'a de valeur que si on l'applique à ce qu'on écrit ENSUITE. `[1× — 08-22]`
+
+## 🧭 Une RÈGLE écrite à N endroits a déjà divergé — le compter AVANT de la changer
+
+- « Quel mode quand rien ne le dit » vivait à **SEPT** endroits (`Kernel` ×3 dont
+  `buildConfigContext`, `Cli` ×3, le lanceur). Et elle avait déjà divergé : le kernel se déclarait
+  en `production` pendant que la cascade `.env` ne chargeait NI `.env.production` NI
+  `.env.development` — l'application tournait dans un mode dont elle n'avait pas la configuration.
+  Chercher les copies AVANT de trancher a évité de corriger une seule d'entre elles. `[1× — 08-22]`
+- **Un défaut posé « par commodité » court-circuite la règle** : mettre la valeur dans
+  `CliDefaultOptions` la faisait passer AVANT la seule fonction qui distingue « absent » de « posé
+  mais non-moteur » → `NODE_ENV=staging` partait en développement. `[1× — 08-22]`
+
+## 🪟 Un message d'erreur qui n'énonce QU'UNE cause envoie chercher là où il n'y a rien
+
+- Trois jobs Windows rouges deux jours durant sur « man/nodefony.1 est PÉRIMÉE — node
+  scripts/generate-man.mjs ». La page n'était pas périmée : git la convertissait en CRLF au checkout
+  (`core.autocrlf`), le générateur écrit du LF, le gate compare octet pour octet. **Régénérer n'y
+  changeait rien.** Le message nomme désormais les DEUX causes. Corollaire : un dépôt Node
+  multiplateforme sans `.gitattributes` a ce piège en dormance. `[1× — 08-22]`
+
+## 📐 Le verdict BINAIRE d'un banc gaspille ce qu'il a déjà mesuré
+
+- L'unanimité sur 3 runs a une résolution catastrophique : une tâche réussie 4 fois sur 5 sort
+  « instable » **une fois sur deux** (P(3/3 | p=0,8) = 0,51). Vérifié dans le fichier : la tâche 13
+  était à `2/3` le 2 août ; trois runs rejoués trois semaines plus tard ont rendu `2/3`. Deux
+  mesures payées, zéro information. Les TOURS, eux, séparaient nettement (52·54 contre 69·88) —
+  et le banc les jetait à la décision. `[1× — 08-22]`
+- **Ne pas contourner à la main le refus d'un outil** : le dépistage a REFUSÉ de comparer (décor
+  différent), je l'ai refait au `jq` et j'ai lu trois « chutes » qu'aucun changement n'expliquait.
+  Refaire le calcul qu'une garde interdit, c'est reproduire l'erreur qu'elle empêche. `[1× — 08-22]`
+
 ## 🔍 Une SONDE trop large invente des défauts — et fait corriger ce qui va bien
 
 - **Trois fois dans la même journée.** (1) Un test comparant options acceptées et publiées lisait
