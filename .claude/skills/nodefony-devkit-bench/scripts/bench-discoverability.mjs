@@ -1534,8 +1534,16 @@ export const TASKS = [
           `node ${JSON.stringify(BIN)} inspect services --json > .nf-services.json 2>/dev/null; ` +
             `node ${JSON.stringify(BIN)} inspect modules --json > .nf-modules.json 2>/dev/null; node -e ` +
             `"const fs=require('node:fs');` +
-            `const all=JSON.parse(fs.readFileSync('.nf-services.json','utf8'));` +
-            `const mods=JSON.parse(fs.readFileSync('.nf-modules.json','utf8'));` +
+            // 🔴 Un JSON illisible se DIT. Sans cette garde, `inspect` qui
+            // échoue laisse un fichier VIDE (son erreur part dans /dev/null),
+            // `JSON.parse` jette, et le banc n'affiche qu'un
+            // « <anonymous_script>:1 » imputé à l'agent. Vécu sur la meilleure
+            // passe de la tâche 13 : 46 tours, travail JUSTE, verdict FAIL.
+            `const J=(f)=>{try{return JSON.parse(fs.readFileSync(f,'utf8'))}` +
+            `catch(e){console.error('sonde : '+f+' illisible ('+e.message+') — ` +
+            `la commande qui devait le produire a échoué');process.exit(1)}};` +
+            `const all=J('.nf-services.json');` +
+            `const mods=J('.nf-modules.json');` +
             `const own=new Set(mods.filter(m=>!String(m.name||'').startsWith('@nodefony/')).map(m=>m.key));` +
             `const mine=all.filter(x=>own.has(x.module));` +
             `const nom=x=>((x.name||'')+' '+(x.class||'')).toLowerCase();` +
@@ -1721,8 +1729,16 @@ export const TASKS = [
           `node ${JSON.stringify(BIN)} inspect services --json > .nf-services.json 2>/dev/null; ` +
             `node ${JSON.stringify(BIN)} inspect modules --json > .nf-modules.json 2>/dev/null; node -e ` +
             `"const fs=require('node:fs');` +
-            `const all=JSON.parse(fs.readFileSync('.nf-services.json','utf8'));` +
-            `const mods=JSON.parse(fs.readFileSync('.nf-modules.json','utf8'));` +
+            // 🔴 Un JSON illisible se DIT. Sans cette garde, `inspect` qui
+            // échoue laisse un fichier VIDE (son erreur part dans /dev/null),
+            // `JSON.parse` jette, et le banc n'affiche qu'un
+            // « <anonymous_script>:1 » imputé à l'agent. Vécu sur la meilleure
+            // passe de la tâche 13 : 46 tours, travail JUSTE, verdict FAIL.
+            `const J=(f)=>{try{return JSON.parse(fs.readFileSync(f,'utf8'))}` +
+            `catch(e){console.error('sonde : '+f+' illisible ('+e.message+') — ` +
+            `la commande qui devait le produire a échoué');process.exit(1)}};` +
+            `const all=J('.nf-services.json');` +
+            `const mods=J('.nf-modules.json');` +
             `const own=new Set(mods.filter(m=>!String(m.name||'').startsWith('@nodefony/')).map(m=>m.key));` +
             `const mine=all.filter(x=>own.has(x.module));` +
             `const txt=x=>((x.name||'')+' '+(x.class||'')).toLowerCase();` +
