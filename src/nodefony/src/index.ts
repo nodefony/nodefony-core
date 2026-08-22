@@ -732,6 +732,27 @@ export type {
 } from "./cli/aiMcpReport";
 export { runAiMcpCommand, guessOrigin } from "./cli/aiMcp";
 
+// Les agents de développement — table UNIQUE. Elle vit dans le cœur parce que
+// `ai:mcp` et `create app` sont des commandes du cœur, et que `security:token`
+// (module `@nodefony/security`) doit servir EXACTEMENT les mêmes agents : deux
+// tables recopiées auraient divergé au premier agent ajouté d'un seul côté.
+export {
+  AGENT_TARGETS,
+  planAgentDeclaration,
+  renderPlanShell,
+  racineAgent,
+  poseVariable,
+  porteDejaLaCle,
+  agentsDemandes,
+  MCP_TOKEN_ENV,
+} from "./cli/agentTargets";
+export type {
+  IAgentTarget,
+  IDeclarationContexte,
+  IDeclarationPlan,
+  VoieDeclaration,
+} from "./cli/agentTargets";
+
 // Hooks git natifs — composition PURE (contenu des hooks, plan, refus) et son
 // adaptateur (`nodefony git:hooks`) : core.hooksPath, zéro dépendance.
 export {

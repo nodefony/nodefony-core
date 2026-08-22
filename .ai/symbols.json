@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-22T14:37:01.964Z",
+  "generated": "2026-08-22T15:16:41.409Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 726,
-    "symbols": 3037,
+    "files": 727,
+    "symbols": 3048,
     "classes": 364,
-    "interfaces": 870,
-    "types": 383,
+    "interfaces": 872,
+    "types": 385,
     "enums": 4,
-    "functions": 1128,
-    "constants": 288
+    "functions": 1134,
+    "constants": 289
   },
   "symbols": {
     "Cli": {
@@ -649,6 +649,104 @@
       "module": "@nodefony/core",
       "description": "Treeshake commun : les externes sont sans effet de bord (équivalent `no-external`) SAUF `reflect-metadata`, dont le side-effect doit survivre."
     },
+    "IAgentTarget": {
+      "name": "IAgentTarget",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un agent de développement, et l'endroit où il lit ses variables. ⭐ **Cette table existe parce qu'aucun agent ne lit `.env.local`.** Ce fichier est celui de l'APPLICATION ; le client MCP, lui, résou…"
+    },
+    "IDeclarationContexte": {
+      "name": "IDeclarationContexte",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'il faut savoir pour composer la déclaration chez un agent."
+    },
+    "VoieDeclaration": {
+      "name": "VoieDeclaration",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Comment la porte MCP se déclare chez un agent. `fichier-projet` : l'agent lit lui-même le `.mcp.json` que `ai:mcp` écrit — il n'y a rien de plus à faire, et le refaire par sa CLI créerait une SECON…"
+    },
+    "IDeclarationPlan": {
+      "name": "IDeclarationPlan",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'il faut lancer — ou ne pas lancer — pour qu'un agent connaisse la porte. PURE : c'est la DÉCISION, le `spawn` n'est que de la plomberie. Rendre un plan plutôt que d'exécuter permet de l'affic…"
+    },
+    "planAgentDeclaration": {
+      "name": "planAgentDeclaration",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose la déclaration de la porte MCP chez un agent."
+    },
+    "renderPlanShell": {
+      "name": "renderPlanShell",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le plan sous la forme qu'on peut recopier dans un terminal. C'est le repli quand la CLI est absente : dire ce qu'il aurait fallu lancer vaut mieux que constater l'absence — la commande reste j…"
+    },
+    "racineAgent": {
+      "name": "racineAgent",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Racine où vit la configuration d'une cible : le projet, ou son dossier maison. PURE au sens qui compte : l'environnement et le dossier de l'utilisateur sont INJECTÉS, jamais lus ici. C'est ce qui p…"
+    },
+    "agentsPresents": {
+      "name": "agentsPresents",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Agents dont la présence est CONSTATÉE sur ce poste. On ne crée pas la configuration d'un outil que personne n'utilise ici : le marqueur (`.claude`, `.codex`…) est la seule preuve qu'on ait, et il v…"
+    },
+    "poseVariable": {
+      "name": "poseVariable",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Pose une variable dans le contenu d'un fichier de configuration d'agent. Fonction PURE — elle prend le contenu et rend le contenu. C'est ce qui permet d'éprouver chaque grammaire sans écrire sur le…"
+    },
+    "porteDejaLaCle": {
+      "name": "porteDejaLaCle",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce fichier porte-t-il DÉJÀ cette variable ? ⭐ C'est ce qui rend la rotation simple : l'état de câblage n'a pas à être mémorisé quelque part, il EST dans les fichiers des agents. Un agent qui porte …"
+    },
+    "agentsDemandes": {
+      "name": "agentsDemandes",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Traduit `--agent` en cibles, ou rend l'erreur à afficher. Trois formes : rien (les cibles détectées, décidé par l'appelant), `none` (aucune écriture), ou une liste de clés. Une clé inconnue est REF…"
+    },
+    "AGENT_TARGETS": {
+      "name": "AGENT_TARGETS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Agents dont l'emplacement de secret a été CONSTATÉ — au comportement ou au source, jamais sur la foi d'une page de blog. Deux stratégies pour le SECRET, et elles ne se ressemblent pas : - **Claude …"
+    },
     "IChainedToken": {
       "name": "IChainedToken",
       "kind": "interface",
@@ -657,6 +755,15 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Ce qu'il faut lancer pour obtenir le jeton, ou `null` s'il n'y a rien à faire."
+    },
+    "IResultatDeclaration": {
+      "name": "IResultatDeclaration",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'il est advenu de la déclaration chez un agent."
     },
     "parseAiMcpArgv": {
       "name": "parseAiMcpArgv",
@@ -681,6 +788,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Décide s'il faut enchaîner sur `security:token`, et avec quoi. PURE — le `spawn` est de la plomberie, la DÉCISION est ce qui peut être faux. Trois choses ne « suivent » pas toutes seules d'un proce…"
+    },
+    "declarerChezAgents": {
+      "name": "declarerChezAgents",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Déclare (ou retire) la porte MCP chez chaque agent, **par SA propre CLI**. ⭐ La règle qui gouverne cette fonction : **on n'écrit pas le fichier de configuration d'un outil tiers.** Son format lui a…"
+    },
+    "renderDeclarations": {
+      "name": "renderDeclarations",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le compte rendu des déclarations. PURE : c'est le texte que l'utilisateur lit, et il doit pouvoir être éprouvé sans lancer la moindre CLI."
     },
     "readMcpConfig": {
       "name": "readMcpConfig",
@@ -15386,30 +15509,6 @@
       "decorators": [],
       "description": "`nodefony security:token` — émet un jeton d'accès pour une porte de cette application (la porte MCP par défaut). **Pourquoi une commande, et pas un `curl`.** Le jeton s'obtenait par un appel au gra…"
     },
-    "poseVariable": {
-      "name": "poseVariable",
-      "kind": "function",
-      "file": "src/packages/@nodefony/security/nodefony/command/security-token.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "description": "Pose une variable dans le contenu d'un fichier de configuration d'agent. Fonction PURE — elle prend le contenu et rend le contenu. C'est ce qui permet d'éprouver chaque grammaire sans écrire sur le…"
-    },
-    "porteDejaLaCle": {
-      "name": "porteDejaLaCle",
-      "kind": "function",
-      "file": "src/packages/@nodefony/security/nodefony/command/security-token.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "description": "Ce fichier porte-t-il DÉJÀ cette variable ? ⭐ C'est ce qui rend la rotation simple : l'état de câblage n'a pas à être mémorisé quelque part, il EST dans les fichiers des agents. Un agent qui porte …"
-    },
-    "agentsDemandes": {
-      "name": "agentsDemandes",
-      "kind": "function",
-      "file": "src/packages/@nodefony/security/nodefony/command/security-token.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "description": "Traduit `--agent` en cibles, ou rend l'erreur à afficher. Trois formes : rien (les cibles détectées, décidé plus loin), `none` (aucune écriture), ou une liste de clés. Une clé inconnue est REFUSÉE …"
-    },
     "ttlSeconds": {
       "name": "ttlSeconds",
       "kind": "function",
@@ -23843,6 +23942,19 @@
       "defineConfig": [
         "src/nodefony/src/bundler/index.ts"
       ],
+      "MCP_SERVER_KEY": [
+        "src/nodefony/src/cli/agentTargets.ts",
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "MCP_TOKEN_ENV": [
+        "src/nodefony/src/cli/agentTargets.ts",
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "MCP_CONFIG_FILE": [
+        "src/nodefony/src/cli/agentTargets.ts",
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
       "SysExit": [
         "src/nodefony/src/cli/aiMcp.ts",
         "src/nodefony/src/cli/aiSync.ts",
@@ -23877,14 +23989,29 @@
       "renderMcpPlan": [
         "src/nodefony/src/cli/aiMcp.ts"
       ],
-      "MCP_CONFIG_FILE": [
-        "src/nodefony/src/cli/aiMcp.ts"
-      ],
-      "MCP_TOKEN_ENV": [
-        "src/nodefony/src/cli/aiMcp.ts"
-      ],
       "IMcpConfigDocument": [
         "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "AGENT_TARGETS": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "agentsDemandes": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "agentsPresents": [
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "planAgentDeclaration": [
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "renderPlanShell": [
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "IAgentTarget": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "stripTrailingSlashes": [
         "src/nodefony/src/cli/aiMcpReport.ts",
@@ -27796,6 +27923,15 @@
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
       ],
       "MCP_ENDPOINT_PATH": [
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "poseVariable": [
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "porteDejaLaCle": [
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "racineAgent": [
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "askPasswordMasked": [

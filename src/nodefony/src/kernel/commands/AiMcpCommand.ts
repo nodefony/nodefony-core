@@ -27,7 +27,12 @@ const options: OptionsCommandInterface = {
  * nodefony ai:mcp             # écrit/actualise .mcp.json
  * nodefony ai:mcp --dry-run   # le plan, sans rien écrire
  * nodefony ai:mcp --auth      # mode authentifié (en-tête ${NF_MCP_TOKEN})
+ * nodefony ai:mcp --agent gemini,codex   # déclare AUSSI la porte via LEUR CLI
+ * nodefony ai:mcp --agent all --remove   # la retire partout
  * ```
+ *
+ * `--agent` accepte `none` — et en interactif, ne rien cocher revient au même :
+ * coder sans agent est un choix, pas un oubli qu'il faudrait rattraper.
  */
 class AiMcp extends Command {
   constructor(cli: CliKernel) {
@@ -49,6 +54,14 @@ class AiMcp extends Command {
       "--url <origine>",
       "Origine forcée (ex. https://localhost:5152)",
     );
+    this.addOption(
+      "--agent <liste>",
+      "Déclare AUSSI la porte chez ces agents via LEUR CLI (claude, gemini, vibe, codex, all, none)",
+    );
+    this.addOption(
+      "--remove",
+      "Avec --agent : retire la déclaration au lieu de la poser",
+    );
     this.addOption("--dry-run", "Le plan, sans rien écrire");
     this.addOption("--json", "Sortie exploitable par un script");
     this.addOption(
@@ -60,6 +73,8 @@ class AiMcp extends Command {
   override async generate(opts?: {
     auth?: boolean;
     noAuth?: boolean;
+    agent?: string;
+    remove?: boolean;
     url?: string;
     dryRun?: boolean;
     json?: boolean;
@@ -68,6 +83,8 @@ class AiMcp extends Command {
     const argv = ["node", "nodefony", "ai:mcp"];
     if (opts?.auth) argv.push("--auth");
     if (opts?.noAuth) argv.push("--no-auth");
+    if (opts?.agent) argv.push("--agent", opts.agent);
+    if (opts?.remove) argv.push("--remove");
     if (opts?.url) argv.push("--url", opts.url);
     if (opts?.dryRun) argv.push("--dry-run");
     if (opts?.json) argv.push("--json");

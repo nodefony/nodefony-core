@@ -1,12 +1,18 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
-import { homedir } from "node:os";
 import {
   OptionsCommandInterface,
   CliKernel,
   Command,
   MCP_ENDPOINT_PATH,
+  MCP_TOKEN_ENV,
+  AGENT_TARGETS,
+  agentsDemandes,
+  poseVariable,
+  porteDejaLaCle,
+  racineAgent,
+  type IAgentTarget,
 } from "nodefony";
 import type { UserService } from "@nodefony/user";
 import type TokenService from "../service/tokenService";
@@ -22,218 +28,14 @@ const options: OptionsCommandInterface = {
   quietBoot: true,
 };
 
-/** Variable d'environnement que le câblage `.mcp.json` développe. */
-const MCP_TOKEN_ENV = "NF_MCP_TOKEN";
-
 /**
- * Un agent de développement, et l'endroit où il lit ses variables.
- *
- * ⭐ **Cette table existe parce qu'aucun agent ne lit `.env.local`.** Ce fichier
- * est celui de l'APPLICATION ; le client MCP, lui, résout ses variables dans son
- * propre environnement ou dans SA configuration — et quand il n'y trouve rien,
- * il envoie l'en-tête non substitué et reçoit un 401 qui accuse le jeton. Une
- * heure de diagnostic pour une chaîne cohérente en apparence.
- *
- * Ajouter un agent = ajouter une ligne. Ce qui n'y est PAS reste dit en clair
- * plutôt que deviné : poser un secret dans un fichier dont on n'a pas vérifié le
- * comportement serait un pari, et c'est le porteur qui le paierait.
+ * La table des agents, leurs emplacements de secret et la façon de leur
+ * déclarer la porte vivent dans le CŒUR (`nodefony/cli/agentTargets`) : ce sont
+ * `ai:mcp` et `create app` — des commandes du cœur — qui déclarent la porte,
+ * quand cette commande-ci pose le jeton. Deux tables recopiées auraient divergé
+ * au premier agent ajouté d'un seul côté, et la divergence se serait vue chez
+ * l'utilisateur, sous la forme d'un agent servi par l'une et ignoré par l'autre.
  */
-interface IAgentTarget {
-  /** Clé courte — ce que `--agent` accepte, et ce qu'une question propose. */
-  cle: string;
-  /** Nom affiché. */
-  nom: string;
-  /**
-   * Où vit sa configuration : dans le PROJET, ou dans le dossier de
-   * l'utilisateur. La distinction commande la garde appliquée — un fichier de
-   * projet peut se retrouver commité, celui de l'utilisateur non.
-   */
-  portee: "projet" | "utilisateur";
-  /** Ce dont la présence prouve que l'agent est utilisé — résolu selon `portee`. */
-  marqueur: string;
-  /** Fichier à écrire — relatif au projet, ou au dossier de l'agent. */
-  fichier: string;
-  /** Grammaire du fichier. */
-  forme: "json-env" | "dotenv";
-  /**
-   * Variable qui déplace le dossier de l'agent (portée utilisateur seulement).
-   * Vibe la documente et son source la lit : `VIBE_HOME`.
-   */
-  home?: string;
-}
-
-/**
- * Agents dont l'emplacement de secret a été CONSTATÉ — au comportement ou au
- * source, jamais sur la foi d'une page de blog.
- *
- * Deux stratégies, et elles ne se ressemblent pas :
- *  - **Claude Code** prend la VALEUR : la clé `env` de `settings.local.json`
- *    alimente l'expansion `${VAR}` de `.mcp.json` (constaté — `claude mcp list`
- *    passe de l'en-tête non substitué à « ✔ Connected ») ;
- *  - **Vibe** prend le NOM d'une variable (`--api-key-env`) et la résout dans
- *    son environnement — mais il PEUPLE cet environnement au démarrage depuis
- *    `$VIBE_HOME/.env` (`load_dotenv_values`, `vibe/cli/cli.py`), une valeur du
- *    shell l'emportant sur le fichier. Écrire là revient donc bien à câbler ;
- *  - **Gemini CLI** de même, depuis un fichier qu'il CHERCHE en remontant
- *    l'arborescence (`findEnvFile`) : `<projet>/.gemini/.env` d'abord — quand
- *    l'espace est de confiance — puis `<projet>/.env`, puis les parents, puis
- *    `~/.gemini/.env`. Le PREMIER trouvé gagne, et lui seul est chargé : viser
- *    `.gemini/.env` évite qu'il lise à la place le `.env` de l'application.
- *
- *  - **Codex** de même, depuis `$CODEX_HOME/.env` (défaut `~/.codex/.env`), et
- *    de là SEULEMENT : le `.env` du projet n'est pas lu.
- *
- * ⚠️ Ce dernier point a d'abord été conclu à l'envers, en cherchant une chaîne
- * dans un binaire compilé et en prenant son absence pour une preuve. Une
- * ABSENCE de trace n'en est pas une : c'est l'expérience qui a tranché — une
- * sonde (`codex doctor` signale une variable de serveur MCP manquante) montrée
- * discriminante d'abord, témoin à 1 et variable exportée à 0, puis passée sur
- * chaque emplacement candidat.
- */
-const AGENT_TARGETS: readonly IAgentTarget[] = [
-  {
-    cle: "claude",
-    nom: "Claude Code",
-    portee: "projet",
-    marqueur: ".claude",
-    fichier: ".claude/settings.local.json",
-    forme: "json-env",
-  },
-  {
-    cle: "gemini",
-    nom: "Gemini CLI",
-    portee: "projet",
-    marqueur: ".gemini",
-    fichier: ".gemini/.env",
-    forme: "dotenv",
-  },
-  {
-    cle: "vibe",
-    nom: "Vibe (Mistral)",
-    portee: "utilisateur",
-    marqueur: ".vibe",
-    fichier: ".env",
-    forme: "dotenv",
-    home: "VIBE_HOME",
-  },
-  {
-    cle: "codex",
-    nom: "Codex",
-    portee: "utilisateur",
-    marqueur: ".codex",
-    fichier: ".env",
-    forme: "dotenv",
-    home: "CODEX_HOME",
-  },
-];
-
-/**
- * Pose une variable dans le contenu d'un fichier de configuration d'agent.
- *
- * Fonction PURE — elle prend le contenu et rend le contenu. C'est ce qui permet
- * d'éprouver chaque grammaire sans écrire sur le disque de qui que ce soit, et
- * de garantir qu'un fichier existant n'est pas ÉCRASÉ mais complété : ces
- * fichiers portent les réglages de quelqu'un d'autre.
- *
- * @param forme - grammaire du fichier
- * @param actuel - contenu actuel, ou chaîne vide s'il n'existe pas
- * @param cle - nom de la variable
- * @param valeur - sa valeur
- * @returns le nouveau contenu, ou une `Error` si le fichier est illisible
- */
-export function poseVariable(
-  forme: IAgentTarget["forme"],
-  actuel: string,
-  cle: string,
-  valeur: string,
-): string | Error {
-  if (forme === "dotenv") {
-    const ligne = `${cle}=${valeur}`;
-    const motif = new RegExp(`^\\s*${cle}\\s*=.*$`, "m");
-    if (motif.test(actuel)) return actuel.replace(motif, ligne);
-    return actuel.length === 0
-      ? `${ligne}\n`
-      : `${actuel.replace(/\n*$/u, "")}\n${ligne}\n`;
-  }
-  let doc: Record<string, unknown>;
-  try {
-    doc =
-      actuel.trim() === ""
-        ? {}
-        : (JSON.parse(actuel) as Record<string, unknown>);
-  } catch {
-    // Un fichier corrompu ne se réécrit pas en silence : il porte les réglages
-    // de quelqu'un, et les remplacer par les nôtres serait pire que ne rien faire.
-    return new Error("le fichier existe mais n'est pas du JSON valide");
-  }
-  const env = (doc.env ?? {}) as Record<string, unknown>;
-  env[cle] = valeur;
-  doc.env = env;
-  return `${JSON.stringify(doc, null, 2)}\n`;
-}
-
-/**
- * Ce fichier porte-t-il DÉJÀ cette variable ?
- *
- * ⭐ C'est ce qui rend la rotation simple : l'état de câblage n'a pas à être
- * mémorisé quelque part, il EST dans les fichiers des agents. Un agent qui
- * porte la clé a été câblé un jour — le relancer doit la METTRE À JOUR, sans
- * reposer la question. Un fichier d'état parallèle, lui, mentirait dès que
- * quelqu'un modifierait sa configuration à la main.
- *
- * @param forme - grammaire du fichier
- * @param contenu - son contenu, ou chaîne vide s'il n'existe pas
- * @param cle - nom de la variable
- */
-export function porteDejaLaCle(
-  forme: IAgentTarget["forme"],
-  contenu: string,
-  cle: string,
-): boolean {
-  if (contenu.trim() === "") return false;
-  if (forme === "dotenv") {
-    return new RegExp(`^\\s*${cle}\\s*=`, "m").test(contenu);
-  }
-  try {
-    const doc = JSON.parse(contenu) as { env?: Record<string, unknown> };
-    return typeof doc.env?.[cle] === "string" && doc.env[cle] !== "";
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Traduit `--agent` en cibles, ou rend l'erreur à afficher.
- *
- * Trois formes : rien (les cibles détectées, décidé plus loin), `none` (aucune
- * écriture), ou une liste de clés. Une clé inconnue est REFUSÉE en nommant
- * celles qui existent — ignorée en silence, elle ferait croire à un agent servi
- * qui ne l'est pas, et c'est exactement ce genre de silence qui a déjà coûté une
- * heure de diagnostic ici.
- *
- * @param raw - la valeur telle que tapée, ou rien
- * @returns les cibles demandées, `undefined` si rien n'est demandé, une `Error` sinon
- */
-export function agentsDemandes(
-  raw: string | undefined,
-): readonly IAgentTarget[] | undefined | Error {
-  if (raw === undefined) return undefined;
-  const cles = raw
-    .split(/[\s,]+/u)
-    .map((c) => c.trim().toLowerCase())
-    .filter(Boolean);
-  if (cles.length === 1 && cles[0] === "none") return [];
-  if (cles.length === 1 && cles[0] === "all") return AGENT_TARGETS;
-  const connues = AGENT_TARGETS.map((c) => c.cle);
-  const inconnues = cles.filter((c) => !connues.includes(c));
-  if (inconnues.length > 0) {
-    return new Error(
-      `--agent : « ${inconnues.join(", ")} » inconnu — attendus : ` +
-        `${connues.join(", ")}, all, none`,
-    );
-  }
-  return AGENT_TARGETS.filter((c) => cles.includes(c.cle));
-}
 
 /** Plafond d'une durée demandée en ligne de commande : 30 jours. */
 const TTL_MAX_MINUTES = 30 * 24 * 60;
@@ -360,14 +162,16 @@ class SecurityToken extends Command {
     }
   }
 
-  /** Racine où vit la configuration d'une cible (projet, ou dossier maison). */
+  /**
+   * Racine où vit la configuration d'une cible (projet, ou dossier maison).
+   *
+   * La résolution elle-même vit dans le cœur, avec la table : recopiée ici,
+   * elle aurait cessé d'honorer `CODEX_HOME`/`VIBE_HOME` le jour où l'une des
+   * deux copies aurait bougé — et le symptôme aurait été un jeton posé dans un
+   * dossier que l'agent ne lit pas, donc un 401 qui accuse le jeton.
+   */
   #racineDe(cible: IAgentTarget): string {
-    return cible.portee === "projet"
-      ? this.#root()
-      : path.resolve(
-          (cible.home ? process.env[cible.home] : undefined) ??
-            path.join(homedir(), cible.marqueur),
-        );
+    return racineAgent(cible, { projectRoot: this.#root() });
   }
 
   /** Contenu du fichier d'une cible, "" s'il n'existe pas. */

@@ -379,6 +379,40 @@ d'installation sont un vecteur d'attaque connu de l'écosystème npm, et écrire
 VERSIONNÉ à chaque installation produirait des différences surprises. `create app` pose une fois
 (après l'install, avant le premier commit) ; cette commande remet à jour quand on le demande.
 
+## `nodefony ai:mcp --agent` — déclarer la porte CHEZ l'agent, par SA CLI
+
+`nodefony ai:mcp [--agent <claude,gemini,vibe,codex|all|none>] [--remove]`. Après avoir écrit
+`.mcp.json`, la commande déclare la porte chez chaque agent demandé **en appelant sa ligne de
+commande** — jamais en écrivant son fichier de configuration. Frontière : _Nodefony possède le
+JETON et l'URL, l'agent possède le format de sa déclaration._ La table unique vit dans
+`cli/agentTargets.ts` (cœur), consommée AUSSI par `security:token` (module `security`) qui y pose
+le secret : deux tables auraient divergé au premier agent ajouté d'un seul côté.
+
+**Aucun agent est un CHOIX, pas un oubli.** Sans `--agent`, en terminal, une case à cocher propose
+les agents présents **rien de coché** ; entrée sur une liste vide ne touche à rien et le DIT
+(« tu codes seul, c'est un choix »). Hors terminal, sans `--agent`, rien n'est déclaré : écrire
+dans la configuration d'un autre outil ne peut pas être un effet de bord. `--agent` refuse une clé
+inconnue en nommant celles qui existent (exit `64`), jamais en l'ignorant.
+
+⚠️ **Ce que le code de sortie ne dit pas.** Mesuré : `gemini mcp remove nodefony` répond « not found
+in project settings », **sort en 0**, et laisse l'entrée que `gemini mcp add` venait d'écrire. Le
+verdict se prend donc au CONSTAT — la commande de lecture de l'agent (`argvListe`), relancée après
+le geste : porte encore là après un retrait ⇒ état `sans-effet`, dit tel quel. Sans lecture possible
+(Vibe n'a pas de `mcp list`), on ne prétend rien.
+
+⚠️ **La CLI de l'agent est lancée depuis la RACINE du projet** (`cwd: projectRoot`), jamais depuis
+le dossier de l'appelant : un agent en portée projet écrit relativement à SON répertoire courant,
+et la commande créait sinon un second `.gemini/` dans un sous-dossier, invisible à l'agent.
+Constaté au disque — aucun code de sortie ne le signale.
+
+**Portée : lire ≠ écrire.** Les quatre agents savent LIRE une configuration de projet ; seuls deux
+savent en ÉCRIRE une. `codex mcp add` répond « Added **global** MCP server », et Vibe subordonne la
+persistance à la source `user` (`persist_allowed`). Leur portée projet existe (`.codex/config.toml`,
+`.vibe/config.toml`) mais elle est conditionnée à un dossier **de confiance** — un geste de sécurité
+qui appartient à l'utilisateur, dans son agent. On passe donc par leur CLI, donc en global, **et on
+l'annonce** : deux applications Nodefony sur un poste se disputent sinon le même nom de serveur, et
+la seconde efface la première. L'écrasement d'une déclaration visant une AUTRE URL est signalé.
+
 ## `nodefony git:hooks` — hooks git natifs, zéro dépendance (standalone 0-boot)
 
 `nodefony git:hooks [--dry-run] [--json] [--cwd <path>]` — pose `.githooks/`

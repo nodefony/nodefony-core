@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
+  AGENT_TARGETS,
+  planAgentDeclaration,
+  MCP_TOKEN_ENV,
+} from "../cli/agentTargets";
+import {
   buildMcpUrl,
   planMcpConfig,
   renderMcpPlan,
@@ -127,6 +132,52 @@ describe("ai:mcp — la ligne de commande", () => {
   it("sens négatif : une option inconnue est REFUSÉE, jamais avalée", () => {
     const parsed = parseAiMcpArgv(["node", "nodefony", "ai:mcp", "--force"]);
     expect("error" in parsed).toBe(true);
+  });
+
+  it("lit --agent et --remove — et « -a » reste --auth, pas --agent", () => {
+    const parsed = parseAiMcpArgv([
+      "node",
+      "nodefony",
+      "ai:mcp",
+      "--agent",
+      "gemini,codex",
+      "--remove",
+      "-a",
+    ]);
+    expect("error" in parsed).toBe(false);
+    if (!("error" in parsed)) {
+      expect(parsed.agent).toBe("gemini,codex");
+      expect(parsed.remove).toBe(true);
+      // 🔴 Deux options qui se ressemblent sur une lettre finissent par se
+      // confondre — et celle-ci écrit chez un tiers. `-a` reste `--auth`.
+      expect(parsed.auth).toBe(true);
+    }
+  });
+});
+
+/**
+ * 🔴 Ce que `--dry-run` MONTRE doit être ce qui serait JOUÉ.
+ *
+ * Vécu sur ce diff même : l'URL était recomposée à trois endroits, et le rendu
+ * du dry-run avait gardé l'ORIGINE nue (`http://localhost:5151`) là où
+ * l'exécution visait la ROUTE (`…/nodefony/mcp`). L'option dont le seul rôle
+ * est de dire ce qui va se passer annonçait donc autre chose — et on la croit
+ * sur parole, c'est précisément pour ça qu'on la lance.
+ */
+describe("ai:mcp — la porte visée est UNE", () => {
+  it("l'URL déclarée à l'agent est la ROUTE, jamais l'origine nue", () => {
+    const url = buildMcpUrl("http://localhost:5151", "/nodefony/mcp");
+    expect(url).toBe("http://localhost:5151/nodefony/mcp");
+    const gemini = AGENT_TARGETS.find((c) => c.cle === "gemini");
+    if (!gemini) throw new Error("gemini absent de la table");
+    const plan = planAgentDeclaration(gemini, {
+      url,
+      tokenEnv: MCP_TOKEN_ENV,
+    });
+    if (plan.voie !== "cli") throw new Error("plan inattendu");
+    expect(plan.argv).toContain(url);
+    // Le contrôle qui mord : l'origine SEULE ne doit pas être ce qu'on déclare.
+    expect(plan.argv).not.toContain("http://localhost:5151");
   });
 });
 

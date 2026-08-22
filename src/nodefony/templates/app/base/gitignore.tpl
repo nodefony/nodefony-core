@@ -15,3 +15,10 @@ tmp/
 # Les clés de chiffrement générées à la création de l'app vivent dans
 # .env.local — ne JAMAIS les committer (rotation : nodefony security:secrets).
 *.local
+
+# Secrets posés chez les agents de développement (nodefony security:token --write).
+# 🔴 `.gemini/.env` porte un JETON PORTEUR : la déclaration de la porte MCP,
+# elle, reste versionnable (.gemini/settings.json, .mcp.json) — c'est la CLÉ qui
+# ne se commite pas. Un jeton commité est un jeton publié.
+.gemini/.env
+.gemini/.env.*
