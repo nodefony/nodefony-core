@@ -456,3 +456,92 @@ describe("RED-TEAM — passe 2 : les branches que la menace générique ne touch
     expect(rendu).toContain("0 lectures appelables");
   });
 });
+
+describe("DÉCOUVRABILITÉ — l'agent doit pouvoir ARRIVER à ces outils", () => {
+  const deps = {
+    broker: broker(),
+    getCard: () => ({}),
+    projectRoot: REPO_ROOT,
+  };
+
+  it("l'OPÉRATEUR d'une porte non protégée les obtient — comme il obtient inspect", () => {
+    // Porte sans serveur d'autorisation : personne à authentifier, et
+    // `mcpCallerRoles` pose le rôle d'opérateur (sa protection est son
+    // PÉRIMÈTRE). Retenir sur `authenticated` cachait ces outils à celui à qui
+    // `nodefony_inspect` rendait DÉJÀ la configuration et les stores, par le
+    // même chemin — une porte plus stricte en apparence, un décor en pratique.
+    const operateur: IMcpCaller = {
+      authenticated: false,
+      scopes: [],
+      roles: [ADMIN_DEFAULT_ROLE],
+    };
+    const noms = collectMcpTools({
+      builtins: ["inspect", "admin_list", "admin_call"],
+      deps,
+      caller: operateur,
+    }).map((tool) => tool.name);
+    expect(noms).toContain("nodefony_inspect");
+    expect(noms).toContain("nodefony_admin_list");
+    expect(noms).toContain("nodefony_admin_call");
+  });
+
+  it("un anonyme d'une porte PROTÉGÉE ne les obtient toujours pas", () => {
+    // Même absence d'authentification, verdict OPPOSÉ : une porte protégée qui
+    // tolère l'anonyme lui donne `roles: []`, donc il ne porte rien de ce que
+    // ces scopes ouvriraient. C'est la distinction que `mcpCallerRoles` fait,
+    // et qu'il ne faut surtout pas aplatir.
+    const anonyme: IMcpCaller = {
+      authenticated: false,
+      scopes: [],
+      roles: [],
+    };
+    expect(
+      collectMcpTools({
+        builtins: ["admin_list", "admin_call"],
+        deps,
+        caller: anonyme,
+      }),
+    ).toHaveLength(0);
+  });
+
+  it("les instructions NOMMENT les outils servis, sans en réciter aucun", async () => {
+    // Une énumération écrite à la main avait tu `docs` deux sessions après sa
+    // livraison. Ce qui est annoncé se DÉRIVE de ce qui est servi.
+    const { handleMcpMessage } = await import("../mcp/server");
+    const tools = collectMcpTools({
+      builtins: ["card", "docs", "admin_list"],
+      deps,
+      caller: { authenticated: true, scopes: [ADMIN_SCOPE_READ], roles: [] },
+    });
+    const reply = await handleMcpMessage(
+      { jsonrpc: "2.0", id: 1, method: "initialize", params: {} },
+      { tools, serverInfo: { name: "banc", version: "0" }, withheldCount: 0 },
+    );
+    const instructions = (
+      reply as { body: { result: { instructions: string } } }
+    ).body.result.instructions;
+    for (const tool of tools) {
+      expect(instructions).toContain(tool.name);
+    }
+  });
+
+  it("des outils RETENUS annoncent le geste — les scopes, pas un contournement", async () => {
+    const { handleMcpMessage } = await import("../mcp/server");
+    const reply = await handleMcpMessage(
+      { jsonrpc: "2.0", id: 1, method: "initialize", params: {} },
+      {
+        tools: [],
+        serverInfo: { name: "banc", version: "0" },
+        withheldCount: 2,
+      },
+    );
+    const instructions = (
+      reply as { body: { result: { instructions: string } } }
+    ).body.result.instructions;
+    expect(instructions).toContain("2 outil(s)");
+    // Le geste doit EXISTER : dire « n'essaie pas » sans dire quoi faire fait
+    // abandonner un agent devant une capacité pourtant atteignable.
+    expect(instructions).toMatch(/scopes/u);
+    expect(instructions).toMatch(/9728/u);
+  });
+});

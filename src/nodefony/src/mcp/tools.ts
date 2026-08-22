@@ -7,7 +7,10 @@ import {
 } from "../kernel/inspect/adminSubjects";
 import { outlineMarkdown } from "../kernel/inspect/docOutline";
 import type { IAdminCaller } from "../kernel/adminPlane/adminCaller";
-import { ADMIN_SCOPE_READ } from "../kernel/adminPlane/adminCaller";
+import {
+  ADMIN_SCOPE_READ,
+  rolesFromScopes,
+} from "../kernel/adminPlane/adminCaller";
 import {
   adminReadCatalog,
   findAdminReadEntry,
@@ -1082,6 +1085,24 @@ function withholdReason(tool: IMcpTool, caller: IMcpCaller): string | null {
     return null;
   }
   if (!caller.authenticated) {
+    // ⭐ On retient sur ce que l'appelant PEUT, pas sur la façon dont il l'a
+    // prouvé. Une porte NON protégée n'a personne à authentifier et pose
+    // pourtant des rôles — ceux de l'opérateur, dont la protection est son
+    // PÉRIMÈTRE (`mcpCallerRoles`). Exiger de lui une identité prouvée cachait
+    // un outil pendant qu'un autre, moins restrictif, lui rendait déjà les
+    // mêmes données par le même chemin : une porte plus stricte en apparence,
+    // et un décor en pratique. Le seul test qui vaille est donc « porte-t-il
+    // déjà ce que ces scopes ouvriraient ? » — non pour un anonyme d'une porte
+    // protégée (`roles: []`), oui pour l'opérateur local.
+    const ouvert = needsScopes
+      ? rolesFromScopes(tool.scopes as readonly string[])
+      : [];
+    if (
+      ouvert.length > 0 &&
+      ouvert.every((role) => caller.roles.includes(role))
+    ) {
+      return null;
+    }
     return "exige une identité prouvée, l'appelant est anonyme";
   }
   if (!needsScopes) {

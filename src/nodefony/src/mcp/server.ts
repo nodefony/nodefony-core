@@ -165,10 +165,17 @@ function eraResult(
  * agent à chercher une porte qui n'existe pas.
  */
 function discoverInstructions(context: IMcpServerContext): string {
+  // ⚠️ Les outils sont NOMMÉS depuis ce qui est réellement servi, jamais
+  // récités : une énumération écrite ici taisait `docs` deux sessions après sa
+  // livraison — déclaré dans le code, absent de la phrase qui présente la
+  // porte, et donc invisible pour l'agent qui la lit en premier.
+  const noms = context.tools.map((tool) => tool.name);
   const base =
-    "Outils d'introspection d'une application Nodefony : ce qui est " +
-    "monté (inspect), ce qui manque (check), ce qu'une API du " +
-    "framework signifie (symbols), et par où commencer (card).";
+    "Outils d'introspection d'une application Nodefony — ils répondent depuis " +
+    "l'application qui TOURNE, pas depuis une lecture des sources. " +
+    (noms.length > 0
+      ? `Disponibles ici : ${noms.join(", ")}. Commence par la carte de visite si tu arrives sur cette application.`
+      : "Aucun outil n'est servi à cet appelant.");
   const withheld = context.withheldCount ?? 0;
   if (withheld <= 0) {
     return base;
@@ -176,8 +183,10 @@ function discoverInstructions(context: IMcpServerContext): string {
   return (
     `${base} ${withheld} outil(s) supplémentaire(s) sont RÉSERVÉS et ne ` +
     "figurent pas dans `tools/list` : ils exigent une autorisation que cette " +
-    "requête ne présente pas. Ce n'est pas une panne — inutile de les deviner " +
-    "ni de contourner."
+    "requête ne présente pas. Ce n'est pas une panne, et rien ne sert de les " +
+    "deviner — le document de ressource protégée de cette porte (RFC 9728) " +
+    "nomme les scopes à demander, et le défi du refus dit où le lire. Ce sont " +
+    "eux qu'il faut faire porter au jeton, pas un contournement."
   );
 }
 
