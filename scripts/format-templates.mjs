@@ -9,13 +9,12 @@
  * TypeScript ni du markdown valide, et sur un markdown il lit `<% … %>|` comme
  * une cellule de tableau — il INJECTE alors des `|` et corrompt le gabarit.
  *
- * La méthode : masquer chaque balise eta derrière un jeton **neutre pour le
- * langage cible** (un commentaire), formater, puis restaurer. Le fichier soumis
- * à prettier est alors syntaxiquement valide dès lors que chaque bloc
- * conditionnel entoure du code complet — ce qui est le cas quand un `<% if %>`
- * encadre des déclarations entières, et faux quand il coupe une expression au
- * milieu. Le script le CONSTATE (il reparse) au lieu de le supposer, et laisse
- * intact tout gabarit dont il ne peut pas garantir la restauration.
+ * Ce script ne traite donc QUE les gabarits SANS balise : pour ceux-là, la
+ * source et le rendu sont le même texte, et les formater est exact. Un gabarit
+ * À BALISES est délibérément laissé de côté — le formater peut DÉGRADER son
+ * rendu, ce qui a été constaté au premier usage (voir le refus commenté dans le
+ * corps). Ceux-là se corrigent à la main, en lisant le rendu par
+ * `npm run format:scaffold -- --diff`.
  *
  * Ce qu'il ne peut pas faire, et qu'il faut savoir : la forme canonique d'une
  * ligne dépend parfois d'une valeur INTERPOLÉE (le nom de l'application dans un
@@ -74,14 +73,17 @@ for (const rel of files) {
   const tags = [];
   let masked = src;
   if (src.includes("<%")) {
-    if (!mask) {
-      skipped++;
-      continue;
-    }
-    masked = src.replace(/<%[\s\S]*?%>/g, (m) => {
-      tags.push(m);
-      return mask(tags.length - 1);
-    });
+    // 🔴 REFUS DÉLIBÉRÉ, payé une fois : formater un gabarit À BALISES ne rend
+    // pas son RENDU conforme, et peut le DÉGRADER. Constaté au premier usage —
+    // deux fichiers de test que le gate acceptait sont ressortis refusés après
+    // que ce script eut « amélioré » leur source. La raison est structurelle :
+    // prettier formate le texte qu'il voit, balises masquées comprises ; une
+    // fois les balises remplacées par leur valeur, les lignes changent de
+    // longueur et la forme canonique n'est plus la même. Un gabarit à balises
+    // se corrige donc à la main, en regardant le RENDU (`--diff`), jamais en
+    // formatant la source.
+    skipped++;
+    continue;
   }
 
   const run = spawnSync(PRETTIER, ["--parser", parser], {

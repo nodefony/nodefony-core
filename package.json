@@ -43,7 +43,8 @@
     "skills:doc": "node .claude/skills/nodefony-skill/scripts/skills-doc.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "format:scaffold": "node scripts/check-scaffold-format.mjs"
+    "format:scaffold": "node scripts/check-scaffold-format.mjs",
+    "format:templates": "node scripts/format-templates.mjs"
   },
   "workspaces": [
     "src/nodefony",

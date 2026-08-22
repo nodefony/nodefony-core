@@ -1,7 +1,7 @@
 import { readRuntimeState } from "nodefony";
-<% if (it.complete) { %> // La façade temps réel isomorphe — côté Node, subpath `nodefony/client`.
+<% if (it.complete) { %>// La façade temps réel isomorphe — côté Node, subpath `nodefony/client`.
 import { RealtimeClient } from "nodefony/client";
-<% } %> import { describe, it, expect, beforeAll } from "vitest";
+<% } %>import { describe, it, expect, beforeAll } from "vitest";
 
 /**
  * Test E2E — parle en HTTP + WebSocket à l'application RÉELLE (mode production).
@@ -66,7 +66,7 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
     const res = await fetch(`${BASE}/livez`);
     expect(res.status).toBe(200);
   });
-  <% if (it.complete) { %>
+<% if (it.complete) { %>
   it("realtime — RPC live:ping + canal live:ticker par la FAÇADE", async () => {
     // La MÊME façade que les vitrines navigateur — zéro `ws` à la main.
     const live = new RealtimeClient({ url: `${WS_BASE}/api/live/realtime` });
@@ -97,5 +97,4 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
       live.disconnect();
     }
   }, 15_000);
-  <% } %>
-});
+<% } %>});
