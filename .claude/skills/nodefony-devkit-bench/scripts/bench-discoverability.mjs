@@ -348,6 +348,17 @@ const JUGE_SESSION = path.join(
   "gate-session-csrf.mjs",
 );
 
+/**
+ * Juge de la tâche « interroger l'application plutôt que lire ses sources » —
+ * il demande le compte à l'application EN MARCHE, celle que l'agent a
+ * interrogée, et ne boote un kernel qu'à défaut, en le disant.
+ */
+const JUGE_ROUTES = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-routes-count.mjs",
+);
+
 /** Juge de la tâche « protège une route » — trois identités, une seule route. */
 const JUGE_SECURE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -1520,30 +1531,22 @@ export const TASKS = [
         // compté à la main dans les sources se trompe — c'est précisément ce que
         // la commande existe pour éviter, et le seul moyen de le prouver est de
         // confronter sa réponse au chiffre que l'outil donne.
+        // 🔴 CE GATE COMPARAIT DEUX APPLICATIONS. Il bootait un SECOND
+        // kernel, à froid, et opposait son compte au rapport de l'agent —
+        // lequel avait interrogé l'application EN MARCHE, comme la tâche le
+        // demande. Vécu deux runs d'affilée : la porte a répondu 145, l'agent
+        // l'a écrit en citant sa source, le gate a exigé 147. Il sanctionnait
+        // le geste juste. Et l'écart est INTERMITTENT (rejoué le lendemain :
+        // 147 des deux côtés), donc le rouge tombait au hasard.
+        //
+        // Le juge demande désormais le compte à la porte de l'application que
+        // l'agent a interrogée, et ne se rabat sur un kernel froid que si
+        // personne ne répond — en NOMMANT la source dans son verdict, vert
+        // compris : un chiffre venu d'une autre application doit se lire comme
+        // tel. Un juge en fichier s'éprouve seul ; ce gate ne l'était pas.
         kind: "gate",
         name: "le nombre de routes annoncé est le nombre RÉEL",
-        cmd: [
-          "sh",
-          "-c",
-          // 🔴 `NODE_ENV=development` N'EST PAS UN DÉTAIL : le nombre de routes
-          // DÉPEND du mode, les modules `policy:"dev"` n'étant pas chargés en
-          // production. L'app que l'agent interroge est démarrée en développement
-          // par `prepare` ; ce gate bootait un kernel à froid, donc en production,
-          // et comparait deux chiffres qui n'ont jamais parlé de la même
-          // application. Mesuré : 142 pour l'agent, 119 pour le gate — un FAIL
-          // parfaitement crédible sur un rapport JUSTE.
-          `NODE_ENV=development node ${JSON.stringify(BIN)} inspect routes --json > .nf-routes.json 2>/dev/null; node -e ` +
-            `"const fs=require('node:fs');` +
-            // Un JSON illisible se DIT : sans cette garde, une sortie vide ou
-            // tronquée faisait tomber le gate sur une exception que personne ne
-            // lisait, et le rouge était imputé à l'agent.
-            `let n;try{n=JSON.parse(fs.readFileSync('.nf-routes.json','utf8')).length}` +
-            `catch(e){console.error('inspect routes illisible : '+e.message);process.exit(1)}` +
-            `const a=fs.existsSync('AUDIT.md')?fs.readFileSync('AUDIT.md','utf8'):'';` +
-            `if(!a){console.error('AUDIT.md absent');process.exit(1)}` +
-            `if(!new RegExp('\\\\\\\\b'+n+'\\\\\\\\b').test(a)){` +
-            `console.error('routes réelles='+n+', absent du rapport');process.exit(1)}"`,
-        ],
+        cmd: ["node", JUGE_ROUTES, BIN],
       },
     ],
   },
