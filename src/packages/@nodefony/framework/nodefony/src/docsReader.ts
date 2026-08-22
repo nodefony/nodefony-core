@@ -468,15 +468,35 @@ export async function searchModuleDocs(
       // que soit la longueur).
       score += occurrences / Math.max(1, foldedBody.length / DOC_LENGTH_PIVOT);
 
-      const matches: DocSearchMatch[] = [];
-      for (let i = 0; i < lines.length && matches.length < perDoc; i += 1) {
-        const term = terms.find((t) => foldedLines[i].includes(t));
-        if (term === undefined) continue;
-        matches.push({
-          line: i + 1,
-          text: snippet(lines[i], foldedLines[i], term),
+      // ⚠️ Les extraits se choisissent sur la COUVERTURE, pas sur l'ordre du
+      // document. Prendre les premières lignes portant AU MOINS un terme
+      // donnait, sur « session redis », trois extraits qui ne parlaient que de
+      // sessions : la page était la bonne, ses extraits ne le montraient pas,
+      // et un lecteur qui juge sur les extraits passait son chemin. Une ligne
+      // qui porte les DEUX termes vaut mieux que trois qui n'en portent qu'un.
+      const candidats: { ligne: number; couverture: number; terme: string }[] =
+        [];
+      for (let i = 0; i < lines.length; i += 1) {
+        const portes = terms.filter((t) => foldedLines[i].includes(t));
+        if (portes.length === 0) continue;
+        candidats.push({
+          ligne: i,
+          couverture: portes.length,
+          terme: portes[0],
         });
       }
+      candidats.sort(
+        (a, b) => b.couverture - a.couverture || a.ligne - b.ligne,
+      );
+      const matches: DocSearchMatch[] = candidats
+        .slice(0, perDoc)
+        // Remis dans l'ordre du document : trois extraits qui remontent le
+        // texte à rebours se lisent mal, et rien ne le justifie.
+        .sort((a, b) => a.ligne - b.ligne)
+        .map((c) => ({
+          line: c.ligne + 1,
+          text: snippet(lines[c.ligne], foldedLines[c.ligne], c.terme),
+        }));
 
       hits.push({
         module: target.key,

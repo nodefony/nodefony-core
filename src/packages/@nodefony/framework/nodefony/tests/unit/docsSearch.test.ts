@@ -270,3 +270,53 @@ describe("recherche — la DENSITÉ classe, pas le volume", () => {
     expect(complet.note).to.equal(undefined);
   });
 });
+
+describe("recherche — les EXTRAITS montrent ce qui a fait gagner la page", () => {
+  let couv: string;
+
+  beforeAll(async () => {
+    couv = await mkdtemp(join(tmpdir(), "nf-docs-couverture-"));
+    await mkdir(join(couv, "http", "docs"), { recursive: true });
+    await writeFile(
+      join(couv, "http", "docs", "sessions.md"),
+      [
+        "---",
+        "title: Sessions",
+        "---",
+        "La session vit ici.",
+        "Une session encore.",
+        "Une session de plus.",
+        "Une session stockée dans redis, voilà le vrai sujet.",
+      ].join("\n"),
+      "utf8",
+    );
+  });
+
+  afterAll(async () => {
+    await rm(couv, { recursive: true, force: true });
+  });
+
+  it("🔴 une ligne qui porte TOUS les termes passe devant trois qui n'en portent qu'un", async () => {
+    // Vécu : sur « session redis », les trois extraits de la page gagnante ne
+    // contenaient pas « redis ». La page était la bonne, ses extraits ne le
+    // montraient pas — et un lecteur qui juge sur les extraits passe son
+    // chemin.
+    const result = await searchModuleDocs(
+      [{ key: "http", path: join(couv, "http") }],
+      "session redis",
+    );
+    const textes = result.hits[0].matches.map((m) => m.text);
+    expect(textes.some((t) => t.toLowerCase().includes("redis"))).to.equal(
+      true,
+    );
+  });
+
+  it("les extraits restent dans l'ordre du document", async () => {
+    const result = await searchModuleDocs(
+      [{ key: "http", path: join(couv, "http") }],
+      "session redis",
+    );
+    const lignes = result.hits[0].matches.map((m) => m.line);
+    expect(lignes).to.deep.equal([...lignes].sort((a, b) => a - b));
+  });
+});

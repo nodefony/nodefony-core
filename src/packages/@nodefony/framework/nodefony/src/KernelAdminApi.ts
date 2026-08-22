@@ -494,6 +494,54 @@ const MAX_DEBUG_TTL_MS = 60 * 60 * 1000;
  * @param kernel - kernel courant (`Nodefony.getKernel()`).
  * @returns le contrat admin du kernel, prêt à `broker.register()`.
  */
+/**
+ * Forme admise d'un nom de paquet npm — la garde entre un paramètre de route et
+ * une jointure de chemin. Sans elle, « ../../etc » désignerait un dossier hors
+ * de l'arbre des dépendances.
+ */
+const PACKAGE_NAME = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/;
+
+/**
+ * Paquets à essayer pour une clé de module, **dans l'ordre**, et bornés au
+ * périmètre du framework.
+ *
+ * Pure — donc éprouvable sans disque ni dossier courant, et c'est nécessaire :
+ * les deux défauts qu'elle corrige tiennent l'un à l'ORDRE, l'autre au
+ * PÉRIMÈTRE, jamais au système de fichiers.
+ *
+ * 🔴 **Le scope d'abord.** `redis` désigne ici le module Nodefony — mais un
+ * client Redis tiers du même nom vit dans le même `node_modules`. L'essayer en
+ * premier le faisait gagner : le paquet trouvé n'avait pas de documentation,
+ * la réponse sortait VIDE, et le cas exact qu'on venait de corriger était le
+ * seul à rater. Un nom court est une clé Nodefony avant d'être un nom npm ;
+ * l'homonyme tiers ne vient qu'après.
+ *
+ * 🔴 **Le périmètre n'est pas la traversée.** {@link PACKAGE_NAME} empêche
+ * `../../etc` de désigner un dossier hors de l'arbre — elle ne dit rien de ce
+ * qu'on a le droit de servir. Sans cette seconde garde, la porte de
+ * documentation rendait les pages de n'importe quelle dépendance installée
+ * (`chrome-launcher` en a), c'est-à-dire qu'elle exposait l'arbre de
+ * dépendances d'une application à qui interroge la porte.
+ *
+ * ⚠️ `nodefony` en toutes lettres : le socle se nomme ainsi sur npm (héritage
+ * du dépôt JS) quand le reste de la pile porte le scope ; `CORE_PACKAGE` est
+ * son nom LOGIQUE, pas celui du dossier installé.
+ *
+ * @param name - clé courte (`redis`) ou nom de paquet (`@nodefony/redis`).
+ * @returns les noms de paquets à tenter, du plus probable au moins probable.
+ */
+export function candidatsPaquetNodefony(name: string): string[] {
+  if (!PACKAGE_NAME.test(name)) return [];
+  const dansLePerimetre = (pkg: string): boolean =>
+    pkg === "nodefony" || pkg === CORE_PACKAGE || pkg.startsWith("@nodefony/");
+  // Une clé DÉJÀ scopée ne se préfixe pas : `@nodefony/@nodefony/redis` ne
+  // désigne rien, et l'essayer d'abord ne coûte qu'un accès disque inutile —
+  // mais c'est le genre de candidat absurde qui finit par masquer un vrai
+  // problème de résolution.
+  const candidats = name.includes("/") ? [name] : [`@nodefony/${name}`, name];
+  return candidats.filter(dansLePerimetre);
+}
+
 export function createKernelAdminApi(kernel: IKernel): IAdminApi {
   const descriptor: IAdminDescriptor = {
     label: "Kernel",
@@ -510,19 +558,20 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
     return { path: mod.path, pkg: mod.getModuleName?.() ?? key };
   };
 
-  // Forme admise d'un nom de paquet npm — la SEULE garde entre un paramètre de
-  // route et une jointure de chemin. Sans elle, « ../../etc » désignerait un
-  // dossier hors de l'arbre des dépendances.
-  const PACKAGE_NAME = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/;
-
   // Dossier d'un paquet INSTALLÉ, pour ce que `getModules()` ne connaît pas.
   // Toutes les briques du framework ne sont pas des modules : `orm-core` est une
   // bibliothèque pure, jamais chargée par le kernel — mais ses types sont bien
   // là, dans l'arbre des dépendances. Sans ce repli, la porte répondait « module
   // introuvable » sur des symboles parfaitement présents.
+  // Périmètre du repli : les paquets du FRAMEWORK, et eux seuls.
+  //
+  // 🔴 `PACKAGE_NAME` borne la traversée de chemin, pas le périmètre — deux
+  // gardes distinctes qu'on confond volontiers. Sans celle-ci, la porte de
+  // documentation servait n'importe quel paquet de `node_modules` : elle
+  // rendait les pages de `chrome-launcher`, c'est-à-dire qu'elle exposait
+  // l'arbre de dépendances d'une application à qui interroge la porte.
   const resolvePackageDir = (name: string): string | null => {
-    if (!PACKAGE_NAME.test(name)) return null;
-    for (const candidate of [name, `@nodefony/${name}`]) {
+    for (const candidate of candidatsPaquetNodefony(name)) {
       const dir = join(repoRoot, "node_modules", candidate);
       // Dans ce dépôt, c'est un lien vers le workspace ; chez un utilisateur,
       // le paquet dépaqueté. Les deux répondent au même chemin.

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-22T17:50:58.604Z",
+  "generated": "2026-08-22T18:01:30.489Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 731,
-    "symbols": 3083,
+    "symbols": 3084,
     "classes": 364,
     "interfaces": 881,
     "types": 386,
     "enums": 4,
-    "functions": 1156,
+    "functions": 1157,
     "constants": 292
   },
   "symbols": {
@@ -12393,13 +12393,20 @@
       "module": "@nodefony/framework",
       "description": "Sérialisation défensive de config : borne la profondeur, neutralise les fonctions, casse les cycles, et **relativise les chemins absolus** (sécu : ne jamais exposer l'arborescence serveur). Les `op…"
     },
+    "candidatsPaquetNodefony": {
+      "name": "candidatsPaquetNodefony",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Paquets à essayer pour une clé de module, **dans l'ordre**, et bornés au périmètre du framework. Pure — donc éprouvable sans disque ni dossier courant, et c'est nécessaire : les deux défauts qu'ell…"
+    },
     "createKernelAdminApi": {
       "name": "createKernelAdminApi",
       "kind": "function",
       "file": "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
       "exported": true,
-      "module": "@nodefony/framework",
-      "description": "Producteur `IAdminApi` du **kernel** — exposé sous `/nodefony/kernel/api/*`. Le kernel ne peut pas s'enregistrer lui-même : il vit dans `@nodefony/core` et ne peut donc pas importer le broker (qui …"
+      "module": "@nodefony/framework"
     },
     "PlaygroundParam": {
       "name": "PlaygroundParam",
