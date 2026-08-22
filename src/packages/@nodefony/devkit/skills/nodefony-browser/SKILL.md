@@ -65,6 +65,12 @@ applicatif — le mot « canal » sert aux deux dans des mondes différents.
 
 ## L'autre voie — en conteneur, et QUAND s'en servir
 
+🔴 **Le conteneur est un DERNIER RECOURS, jamais le réflexe.** Playwright pilote un navigateur déjà
+présent sur ta machine — il n'y a le plus souvent rien à installer ni à démarrer. Le conteneur ne se
+justifie que par les trois lignes « conteneur » du tableau ci-dessous ; ailleurs, il rallonge tout
+(copie des sondes à chaque modification, nom d'hôte particulier, ports publiés) pour un résultat
+identique.
+
 Le conteneur n'est pas « la bonne façon » : c'est un compromis, et il se choisit sur ce que tu es en
 train de faire.
 
@@ -108,8 +114,16 @@ continuation : elles passent telles quelles dans un terminal Linux, macOS, Power
 ## Ce que la sonde rend, et qu'une capture ne dit pas
 
 ```bash
+NF_BROWSER_LOGIN=/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=secret NF_BROWSER_PROBES="bouton principal=button[type=submit],titre=h1" node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /tableau-de-bord "Chiffre d affaires"
+```
+
+<details><summary>La même chose en conteneur (dernier recours)</summary>
+
+```bash
 docker exec -e NF_BROWSER_LOGIN=/login -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret -e "NF_BROWSER_PROBES=bouton principal=button[type=submit],titre=h1" mon-app-browser node /app/see-screen/inspect.mjs /tableau-de-bord "Chiffre d affaires"
 ```
+
+</details>
 
 Le troisième argument est un **texte discriminant** attendu avant toute mesure (voir les pièges).
 
@@ -156,7 +170,31 @@ composants.
 Réglages par variables d'environnement : `NF_BROWSER_BASE`, `NF_BROWSER_PAGE`, `NF_BROWSER_EXPECT`,
 `NF_BROWSER_LOGIN`, `NF_BROWSER_USER`, `NF_BROWSER_PASSWORD`, `NF_BROWSER_PROBES`
 (`libellé=sélecteur`, séparés par des virgules), `NF_BROWSER_FAMILIES`, `NF_BROWSER_WIDTHS`,
-`NF_BROWSER_SEUIL_LOURD`, `NF_BROWSER_SEUIL_LENT`. Le détail vit dans l'en-tête de chaque script.
+`NF_BROWSER_SEUIL_LOURD`, `NF_BROWSER_SEUIL_LENT`, `NF_BROWSER_ACTIONS`, `NF_BROWSER_FULLPAGE`. Le détail vit dans l'en-tête de chaque script.
+
+### Un écran qui n'existe qu'après un GESTE — `NF_BROWSER_ACTIONS`
+
+Certaines pages ne sont pas un état mais un **parcours** : un formulaire qui ne déplie ses questions
+qu'après un choix, un menu qui s'ouvre au survol, un panneau qui demande un second clic.
+Photographier sans agir fait conclure « le champ n'y est pas » alors qu'on ne l'a jamais ouvert.
+
+```bash
+NF_BROWSER_ACTIONS="Nouvelle commande|voir:Moyen de paiement" node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /commandes "Commandes"
+```
+
+Grammaire : `verbe:cible[=valeur]`, séquence séparée par `|`, verbe facultatif (`clic` par défaut),
+cible cherchée d'abord comme **texte visible** puis comme sélecteur CSS. Verbes : `clic` · `double`
+· `droit` (clic droit) · `survol` · `saisir:Nom=valeur` · `touche:Enter` · `voir` · `defiler:600`
+· `attendre`.
+
+- 🔴 **`voir` plutôt qu'un clic pour amener dans la vue** : sur un formulaire, le texte d'une
+  question est un `label` — cliquer dessus coche la case qu'il décrit, et tu observes alors un écran
+  que l'observation a modifié.
+- ⚠️ **`defiler` n'est pas `NF_BROWSER_FULLPAGE=1`** : une application dont le contenu défile dans
+  un conteneur interne (toute interface à barre latérale fixe) ne grandit pas — la capture « page
+  entière » y rend exactement la fenêtre, et l'on croit que ce qui est plus bas n'existe pas.
+- Une action dont la cible est introuvable **arrête la sonde** (code 65) en la nommant : une mesure
+  faite sur un écran qu'on n'a pas ouvert est pire qu'aucune mesure.
 
 **`NF_BROWSER_LOGIN` n'a pas de défaut** : c'est le chemin du formulaire de connexion de **ton**
 application. Il n'en existe pas d'universel, et deviner enverrait la sonde sur une page inexistante,
