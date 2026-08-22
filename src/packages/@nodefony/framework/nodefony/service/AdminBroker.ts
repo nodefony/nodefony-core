@@ -1,4 +1,12 @@
-import { Service, Module, Container, Event, injectable } from "nodefony";
+import {
+  Service,
+  Module,
+  Container,
+  Event,
+  injectable,
+  resolveAdminRole,
+  ADMIN_DEFAULT_ROLE,
+} from "nodefony";
 import type { IAdminApi } from "nodefony";
 import type { HTTPMethod } from "@nodefony/http";
 import type { IAdminBroker, IAdminRoute } from "../interfaces/IAdminBroker";
@@ -21,7 +29,7 @@ const serviceName = "adminBroker";
 class AdminBroker extends Service implements IAdminBroker {
   readonly rootPrefix = "/nodefony";
   readonly apiSegment = "api";
-  readonly defaultRole = "ROLE_NODEFONY_ADMIN";
+  readonly defaultRole = ADMIN_DEFAULT_ROLE;
 
   /** Producteurs enregistrés, indexés par namespace. */
   private producers = new Map<string, IAdminApi>();
@@ -106,10 +114,12 @@ class AdminBroker extends Service implements IAdminBroker {
     for (const api of this.producers.values()) {
       for (const endpoint of api.adminEndpoints()) {
         const method = (endpoint.method ?? "GET") as HTTPMethod;
-        // `public` → aucun rôle imposé ("" falsy : le RBAC du broker est
-        // court-circuité). La route reste protégée en amont par le firewall
-        // SAUF si sa zone autorise l'anonyme (cf endpoint liveness `livez`).
-        const role = endpoint.public ? "" : (endpoint.role ?? this.defaultRole);
+        // `public` → aucun rôle imposé ("" falsy : le RBAC est court-circuité).
+        // La route reste protégée en amont par le firewall SAUF si sa zone
+        // autorise l'anonyme (cf endpoint liveness `livez`). La règle vit au
+        // cœur : les portes sans Router (CLI, MCP) résolvent le MÊME rôle pour
+        // le même endpoint.
+        const role = resolveAdminRole(endpoint);
         const path = this.resolvePath(api.adminNamespace, endpoint.path);
         const name = `admin.${api.adminNamespace}.${method}.${endpoint.path}`;
         // « API souveraine » : TOUTE action admin déclare AUSSI le transport

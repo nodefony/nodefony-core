@@ -136,6 +136,12 @@ class Inspect extends Command {
           ? ` : nodefony inspect ${subject} <${INSPECT_SUBJECTS[subject]?.param}>`
           : "";
       this.log(`${read.message}${hint}`, "ERROR");
+      // Le producteur joint souvent DE QUOI corriger l'appel (les valeurs
+      // acceptées, le plan d'une page). Le taire laisse deviner ; le rendre
+      // coûte une ligne.
+      if (read.body !== undefined && read.body !== null) {
+        this.log(JSON.stringify(read.body, null, 2), "ERROR");
+      }
       await this.terminate(EXIT_BY_FAILURE[read.reason]);
       return this;
     }

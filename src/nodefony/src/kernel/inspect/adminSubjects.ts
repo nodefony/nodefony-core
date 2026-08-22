@@ -3,6 +3,11 @@ import type {
   IAdminEndpoint,
   IAdminRequest,
 } from "../../types/IAdminApi";
+import { resolveAdminRole } from "../adminPlane/adminRbac";
+import {
+  executeAdminEndpoint,
+  normalizeAdminResult,
+} from "../adminPlane/executeAdmin";
 
 /**
  * Ce qu'un sujet inspectable désigne : où le lire dans le plan d'administration.
@@ -87,16 +92,8 @@ export function unwrapAdminResult(result: unknown): {
   status: number;
   data: unknown;
 } {
-  if (
-    result !== null &&
-    typeof result === "object" &&
-    "body" in result &&
-    ("status" in result || "headers" in result)
-  ) {
-    const envelope = result as { status?: number; body: unknown };
-    return { status: envelope.status ?? 200, data: envelope.body };
-  }
-  return { status: 200, data: result };
+  const { status, body } = normalizeAdminResult(result);
+  return { status, data: body };
 }
 
 /** Pourquoi une lecture de sujet n'a pas abouti — chaque porte le traduit. */
@@ -117,7 +114,24 @@ export type InspectFailure =
 /** Résultat d'une lecture de sujet : la donnée, ou la raison de l'échec. */
 export type InspectResult =
   | { ok: true; status: number; data: unknown }
-  | { ok: false; reason: InspectFailure; message: string; status?: number };
+  | {
+      ok: false;
+      reason: InspectFailure;
+      message: string;
+      status?: number;
+      /**
+       * Le corps que le PRODUCTEUR a préparé pour ce refus, quand il en a
+       * préparé un — le plan d'une page dont la section demandée n'existe pas,
+       * la liste des valeurs acceptées, le nom du champ fautif.
+       *
+       * ⚠️ Ce champ a été ajouté parce que son absence faisait conclure
+       * l'inverse de la vérité : un refus « section inconnue » (la page existe,
+       * son plan est joint) arrivait à l'appelant sous la forme « introuvable
+       * (404) », et un agent en déduisait que la PAGE n'existait pas. Une porte
+       * qui résume un refus lui fait dire autre chose.
+       */
+      body?: unknown;
+    };
 
 /** Vue minimale du broker dont cette lecture a besoin. */
 export interface IAdminBrokerLike {
@@ -141,11 +155,18 @@ export interface IAdminCall {
 /**
  * Appelle un endpoint du plan d'administration, hors HTTP.
  *
- * ⭐ **Une source, plusieurs portes** : le handler est une fonction pure
- * `IAdminRequest → donnée`, donc la commande `inspect`, le serveur MCP et la
- * route HTTP rendent le même objet PAR CONSTRUCTION. Réimplémenter la lecture
- * ailleurs ferait diverger la porte secondaire en silence — et c'est elle qu'on
- * croirait sur parole.
+ * ⭐ **Une source, plusieurs portes** : cette fonction ne fait que RÉSOUDRE
+ * l'endpoint (par producteur et chemin, là où la route HTTP le résout par nom
+ * de route), puis délègue à {@link ../adminPlane/executeAdmin.executeAdminEndpoint} —
+ * la même exécution que le transport HTTP. Autorisation, normalisation du
+ * retour et traduction des erreurs sont donc identiques par CONSTRUCTION, et
+ * non par vigilance.
+ *
+ * Ce que la version précédente perdait : elle appelait le handler directement
+ * et ne gardait, d'un statut d'erreur, que le nombre. Le corps préparé par le
+ * producteur — le plan d'une page, les valeurs acceptées — disparaissait, et
+ * l'appelant concluait l'inverse de la vérité. Il voyage désormais entier
+ * ({@link InspectResult}`.body`).
  *
  * Le rôle d'administrateur est **annoncé**, pas contourné : certains
  * producteurs graduent leur réponse selon les rôles, et un appelant qui se
@@ -192,30 +213,53 @@ export async function callAdminEndpoint(
     query: call.query ?? {},
     body: null,
     user: null,
+    // ⚠️ DETTE ASSUMÉE, et bornée : le rôle d'administrateur est FABRIQUÉ ici,
+    // il n'est pas celui de l'appelant. Tant qu'il en est ainsi, tout porteur
+    // d'un jeton accepté par le serveur MCP obtient la lecture d'administration
+    // complète. Le canal existe déjà (le `caller` arrive jusqu'aux outils) ; le
+    // faire porter jusqu'ici est l'étape suivante, et c'est ELLE qui fera
+    // mordre le contrôle de rôle désormais appliqué ci-dessous.
     roles: ["ROLE_NODEFONY_ADMIN"],
   };
 
-  let status = 200;
-  let data: unknown;
-  try {
-    ({ status, data } = unwrapAdminResult(await endpoint.handler(request)));
-  } catch (error) {
+  let thrown: Error | null = null;
+  const execution = await executeAdminEndpoint({
+    endpoint,
+    request,
+    requiredRole: resolveAdminRole(endpoint),
+    // `null` est un CHOIX : cette porte ne sert aujourd'hui que des lectures,
+    // et l'idempotence est un no-op sur une méthode sûre. Le jour où elle
+    // servira des mutations, l'absence de porte sera visible ICI — pas cachée
+    // dans un paramètre qu'on aurait omis.
+    gate: null,
+    onServerError: (error) => {
+      thrown = error;
+    },
+  });
+
+  // Une panne du handler n'est pas un refus : on la distingue, comme avant, par
+  // ce que la porte a NOTIFIÉ — pas en devinant depuis un statut 500 qu'un
+  // producteur pourrait légitimement rendre lui-même.
+  if (thrown) {
     return {
       ok: false,
       reason: "handler-failed",
-      message: `inspection impossible : ${(error as Error).message}`,
+      message: `inspection impossible : ${(thrown as Error).message}`,
     };
   }
 
-  if (status >= 400) {
+  if (execution.status >= 400) {
     return {
       ok: false,
       reason: "not-found",
-      status,
-      message: `« ${label} » introuvable (${status})`,
+      status: execution.status,
+      message: `« ${label} » introuvable (${execution.status})`,
+      // Le refus du producteur voyage ENTIER : c'est lui qui sait pourquoi il
+      // refuse, et souvent ce qu'il fallait demander à la place.
+      body: execution.body,
     };
   }
-  return { ok: true, status, data };
+  return { ok: true, status: execution.status, data: execution.body };
 }
 
 /**

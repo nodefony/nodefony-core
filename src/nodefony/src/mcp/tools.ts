@@ -3,6 +3,7 @@ import {
   readAdminSubject,
   callAdminEndpoint,
   type IAdminBrokerLike,
+  type InspectResult,
 } from "../kernel/inspect/adminSubjects";
 import { outlineMarkdown } from "../kernel/inspect/docOutline";
 import { readSymbolsGraph, lookupSymbol } from "../cli/symbols";
@@ -211,6 +212,41 @@ export function mcpText(value: unknown, isError = false): IMcpToolResult {
 }
 
 /**
+ * Marge laissée au corps d'un refus. Un producteur qui explique pourquoi il
+ * refuse tient en quelques centaines d'octets (un plan de page, une liste de
+ * valeurs) ; au-delà, c'est une donnée déguisée en message d'erreur, et une
+ * réponse démesurée sature la fenêtre de celui qui la lit.
+ */
+const MCP_ERROR_BODY_MAX_CHARS = 4_000;
+
+/**
+ * Rend un refus du plan d'administration — la phrase ET ce que le producteur a
+ * joint pour la corriger.
+ *
+ * ⚠️ Rendre la seule phrase faisait conclure l'inverse de la vérité : demander
+ * une section absente d'une page PRÉSENTE produit « … introuvable (404) », et
+ * l'agent en déduisait que la page n'existait pas — alors que le producteur
+ * joignait le plan de cette page, c'est-à-dire la réponse. Une porte qui résume
+ * un refus lui fait dire autre chose.
+ *
+ * @param read - l'échec rendu par la lecture, corps du producteur inclus.
+ * @returns le résultat d'outil, en erreur, borné en volume.
+ */
+function mcpEchecAdmin(
+  read: Extract<InspectResult, { ok: false }>,
+): IMcpToolResult {
+  if (read.body === undefined || read.body === null) {
+    return mcpText(read.message, true);
+  }
+  const rendu = JSON.stringify(read.body, null, 2);
+  const corps =
+    rendu.length <= MCP_ERROR_BODY_MAX_CHARS
+      ? rendu
+      : `${rendu.slice(0, MCP_ERROR_BODY_MAX_CHARS)}\n… corps du refus tronqué (${rendu.length} caractères)`;
+  return mcpText(`${read.message}\n\n${corps}`, true);
+}
+
+/**
  * Marge laissée à l'enveloppe JSON d'une page : `frontmatter`, `slug`, guillemets
  * échappés. Sous-estimer ferait retomber la page dans le résumé générique — celui
  * qui rend des CLÉS, c'est-à-dire rien d'utile sur un markdown.
@@ -374,7 +410,7 @@ export function builtinMcpTools(
         const target =
           typeof args.target === "string" ? args.target : undefined;
         const read = await readAdminSubject(deps.broker, subject, target);
-        return read.ok ? mcpText(read.data) : mcpText(read.message, true);
+        return read.ok ? mcpText(read.data) : mcpEchecAdmin(read);
       },
     },
 
@@ -482,7 +518,7 @@ export function builtinMcpTools(
                   : {},
             label: `${module}/${slug}`,
           });
-          if (!read.ok) return mcpText(read.message, true);
+          if (!read.ok) return mcpEchecAdmin(read);
           return mcpText(pageOrOutline(read.data, module, slug));
         }
         if (query !== "") {
@@ -492,7 +528,7 @@ export function builtinMcpTools(
             query: { q: query },
             label: `recherche « ${query} »`,
           });
-          return read.ok ? mcpText(read.data) : mcpText(read.message, true);
+          return read.ok ? mcpText(read.data) : mcpEchecAdmin(read);
         }
         // Un module sans page nommée : son sommaire. Sans module : tout.
         const read =
@@ -508,7 +544,7 @@ export function builtinMcpTools(
                 path: "docs",
                 label: "documentation",
               });
-        return read.ok ? mcpText(read.data) : mcpText(read.message, true);
+        return read.ok ? mcpText(read.data) : mcpEchecAdmin(read);
       },
     },
 

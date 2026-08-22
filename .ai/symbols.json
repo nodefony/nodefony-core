@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-22T15:16:41.409Z",
+  "generated": "2026-08-22T15:56:56.525Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 727,
-    "symbols": 3048,
+    "files": 728,
+    "symbols": 3057,
     "classes": 364,
-    "interfaces": 872,
-    "types": 385,
+    "interfaces": 875,
+    "types": 386,
     "enums": 4,
-    "functions": 1134,
-    "constants": 289
+    "functions": 1138,
+    "constants": 290
   },
   "symbols": {
     "Cli": {
@@ -6345,6 +6345,81 @@
       "implements": [],
       "decorators": []
     },
+    "isAdminGranted": {
+      "name": "isAdminGranted",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/adminRbac.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Décision d'autorisation du data plane admin (Studio) — fonction **PURE**, cœur de la garantie RBAC, testée isolément (zéro dépendance runtime/DI). **Fail-closed.** Un endpoint qui exige un rôle (`r…"
+    },
+    "resolveAdminRole": {
+      "name": "resolveAdminRole",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/adminRbac.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rôle **effectif** d'un endpoint — la règle, à un seul endroit. Toutes les portes du plan d'administration (route HTTP montée par le broker, pont WS-RPC, commande `inspect`, serveur MCP) doivent tra…"
+    },
+    "ADMIN_DEFAULT_ROLE": {
+      "name": "ADMIN_DEFAULT_ROLE",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/adminPlane/adminRbac.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rôle exigé par défaut d'un endpoint d'administration qui n'en déclare aucun. Le défaut est **restrictif** : un producteur qui oublie de qualifier son endpoint le publie au rôle d'administrateur, ja…"
+    },
+    "IAdminExecution": {
+      "name": "IAdminExecution",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Issue d'un endpoint d'administration, sous la forme que TOUTES les portes reçoivent — succès comme échec. C'est volontairement la forme d'une réponse HTTP sans en être une : les producteurs raisonn…"
+    },
+    "IAdminGateVerdict": {
+      "name": "IAdminGateVerdict",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Verdict d'une porte posée AVANT le handler — aujourd'hui l'idempotence des mutations, demain ce que le transport exigera. Soit la porte tranche seule (`shortCircuit` : rejeu mémorisé, 409 concurren…"
+    },
+    "IAdminExecuteInput": {
+      "name": "IAdminExecuteInput",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce dont l'exécution a besoin — aucun transport, aucun conteneur."
+    },
+    "AdminGate": {
+      "name": "AdminGate",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Porte optionnelle évaluée entre le RBAC et le handler. Le paramètre qui la porte est **obligatoire et nullable** dans {@link IAdminExecuteInput} : `null` est un choix qu'on lit dans le code d'appel…"
+    },
+    "normalizeAdminResult": {
+      "name": "normalizeAdminResult",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Normalise ce qu'un handler a rendu : donnée brute, ou enveloppe. Discrimination volontairement étroite — enveloppe **si et seulement si** `body` est présent AVEC `status` ou `headers`. Un objet mét…"
+    },
+    "executeAdminEndpoint": {
+      "name": "executeAdminEndpoint",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Exécute un endpoint du plan d'administration — **la porte unique**, sans HTTP. ⭐ **Une source, plusieurs portes.** Le data plane est un ensemble de fonctions `IAdminRequest → donnée` ; ce qui les e…"
+    },
     "ILastBootBrick": {
       "name": "ILastBootBrick",
       "kind": "interface",
@@ -6915,7 +6990,7 @@
       "file": "src/nodefony/src/kernel/inspect/adminSubjects.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Appelle un endpoint du plan d'administration, hors HTTP. ⭐ **Une source, plusieurs portes** : le handler est une fonction pure `IAdminRequest → donnée`, donc la commande `inspect`, le serveur MCP e…"
+      "description": "Appelle un endpoint du plan d'administration, hors HTTP. ⭐ **Une source, plusieurs portes** : cette fonction ne fait que RÉSOUDRE l'endpoint (par producteur et chemin, là où la route HTTP le résout…"
     },
     "readAdminSubject": {
       "name": "readAdminSubject",
@@ -11631,14 +11706,6 @@
       "file": "src/packages/@nodefony/framework/nodefony/service/router.ts",
       "exported": true,
       "module": "@nodefony/framework"
-    },
-    "isAdminGranted": {
-      "name": "isAdminGranted",
-      "kind": "function",
-      "file": "src/packages/@nodefony/framework/nodefony/src/adminRbac.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "description": "Décision d'autorisation du data plane admin (Studio) — fonction **PURE**, cœur de la garantie RBAC, testée isolément (zéro dépendance runtime/DI). **Fail-closed.** Un endpoint qui exige un rôle (`r…"
     },
     "IJsonSchemaNode": {
       "name": "IJsonSchemaNode",
@@ -24677,8 +24744,8 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/runtime/pageGuard.ts",
         "src/nodefony/src/runtime/pageQuery.ts",
+        "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
@@ -24821,6 +24888,9 @@
         "src/nodefony/src/mcp/tools.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+      ],
+      "InspectResult": [
+        "src/nodefony/src/mcp/tools.ts"
       ],
       "outlineMarkdown": [
         "src/nodefony/src/mcp/tools.ts",
@@ -25485,6 +25555,50 @@
       "Role": [
         "src/nodefony/src/client/roles/registry.ts"
       ],
+      "IAdminEndpoint": [
+        "src/nodefony/src/kernel/adminPlane/adminRbac.ts",
+        "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+        "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+        "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "IAdminRequest": [
+        "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+        "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+        "src/modules/test/nodefony/admin/TestAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "IAdminResponse": [
+        "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "isAdminGranted": [
+        "src/nodefony/src/kernel/adminPlane/executeAdmin.ts"
+      ],
       "buildProjectEnvReport": [
         "src/nodefony/src/kernel/checks/readiness.ts"
       ],
@@ -25694,34 +25808,16 @@
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
-      "IAdminEndpoint": [
+      "resolveAdminRole": [
         "src/nodefony/src/kernel/inspect/adminSubjects.ts",
-        "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
-        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
       ],
-      "IAdminRequest": [
+      "executeAdminEndpoint": [
         "src/nodefony/src/kernel/inspect/adminSubjects.ts",
-        "src/modules/test/nodefony/admin/TestAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts"
+      ],
+      "normalizeAdminResult": [
+        "src/nodefony/src/kernel/inspect/adminSubjects.ts"
       ],
       "ClusterManager": [
         "src/nodefony/src/service/cluster/clusterMaster.ts"
@@ -26466,7 +26562,6 @@
       "IdempotentResponse": [
         "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
         "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
@@ -26966,21 +27061,15 @@
       "frameworkConfigSchema": [
         "src/packages/@nodefony/framework/nodefony/config/defineModuleConfig.ts"
       ],
-      "IAdminResponse": [
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
-        "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      "IAdminExecution": [
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts"
+      ],
+      "IAdminGateVerdict": [
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts"
       ],
       "IAdminRoute": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
-      ],
-      "isAdminGranted": [
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts"
       ],
       "evaluateIdempotency": [
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
@@ -27099,6 +27188,9 @@
       ],
       "RouteRequirements": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts"
+      ],
+      "ADMIN_DEFAULT_ROLE": [
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
       ],
       "Template": [
         "src/packages/@nodefony/framework/nodefony/service/Eta.ts"

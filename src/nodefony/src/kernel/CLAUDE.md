@@ -26,6 +26,8 @@ src/nodefony/src/kernel/
 │   ├── StopCommand.ts       ← arrêt propre de tout runtime Nodefony (group-kill, standalone)
 │   ├── CompletionCommand.ts ← script de complétion shell bash/zsh/fish (standalone)
 │   └── CreateCommand.ts     ← scaffold projet/module/entité (standalone)
+├── adminPlane/              ← porte UNIQUE d'exécution du plan d'administration (RBAC + handler + normalisation, sans transport)
+├── inspect/                 ← sujets inspectables + résolution par namespace/chemin (consomme adminPlane)
 ├── injector/                ← DI decorators (@injectable, @inject, ...)
 └── MEMORY.md / README.md / CLAUDE.md
 ```

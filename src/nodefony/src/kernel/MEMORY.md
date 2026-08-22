@@ -339,9 +339,36 @@ Depuis `servers.portPolicy: "auto"` (défaut dev, cf `@nodefony/http/MEMORY.md`)
 
 **Avancement** : `MIGRATION_STATUS.md` — jamais ici (un MEMORY décrit ce que le code FAIT).
 
+## adminPlane (`adminPlane/`) — porte UNIQUE du plan d'administration
+
+`executeAdmin.ts` : `executeAdminEndpoint({endpoint, request, requiredRole, gate, onServerError?})`
+→ `{status, headers?, body}`. Ordre FIXE : RBAC → porte → handler → normalisation → traduction.
+Aucun transport, aucun conteneur. Les appelants ne diffèrent que par la RÉSOLUTION de l'endpoint.
+
+- `AdminApiController.runAdmin` (framework) résout par **nom de route** (Router) puis délègue.
+- `callAdminEndpoint` (`inspect/adminSubjects.ts`) résout par **namespace + chemin** puis délègue.
+  Consommateurs : commande `inspect`, serveur MCP (`src/mcp/tools.ts`).
+- `adminRbac.ts` : `isAdminGranted(roles, requiredRole)` (pure, fail-closed) ·
+  `resolveAdminRole(endpoint)` = `public ? "" : (role ?? ADMIN_DEFAULT_ROLE)` — la règle est ICI,
+  le broker l'appelle.
+
+Règles :
+
+- **Le corps d'un refus appartient au producteur, jamais à la porte.** Un 404 « section inconnue »
+  joint le plan de la page ; le résumer en « introuvable » fait conclure que la page n'existe pas.
+  `InspectResult.body` le porte ; MCP (`mcpEchecAdmin`, borné 4 ko) et CLI `inspect` le rendent.
+- **Panne ≠ refus.** Un handler qui lève est notifié par `onServerError` — ne pas le deviner depuis
+  un 500, qu'un producteur peut rendre lui-même. Une 4xx portée par `nodefonyError` est une faute
+  du CLIENT : restituée telle quelle, jamais journalisée.
+- `gate: null` est un CHOIX écrit (lectures seules), pas un paramètre omis. L'idempotence vit au
+  framework (`idempotency.ts`) : son second consommateur est le seam `Resolver`/`@Idempotent`.
+- ⚠️ `adminSubjects.ts` fabrique `roles:["ROLE_NODEFONY_ADMIN"]` — l'appelant MCP ne porte pas
+  encore son identité, donc tout jeton accepté vaut lecture admin complète.
+
 ## Deps
 
 - Kernel → Container, Service, Injector, FileClass, Nodefony, CliKernel, Module, @nodefony/http
+- adminPlane → types/IAdminApi, Error (zéro transport, zéro conteneur)
 - Module → Service, Kernel, Injector, Container, CliKernel
 - CliKernel → Cli, Kernel, Command, Syslog/Pdu
 - Injector → Service, Container, Event, Kernel, Nodefony, Fetch, reflect-metadata

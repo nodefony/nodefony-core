@@ -397,6 +397,26 @@ export type {
   InspectFailure,
   InspectResult,
 } from "./kernel/inspect/adminSubjects";
+
+// Porte UNIQUE d'exécution du plan d'administration : RBAC, porte d'idempotence
+// éventuelle, handler, normalisation. La route HTTP (framework), le pont WS-RPC,
+// la commande `inspect` et le serveur MCP l'appellent tous — ils ne diffèrent
+// que par la RÉSOLUTION de l'endpoint et par l'emballage de l'issue.
+export {
+  executeAdminEndpoint,
+  normalizeAdminResult,
+} from "./kernel/adminPlane/executeAdmin";
+export type {
+  IAdminExecution,
+  IAdminExecuteInput,
+  IAdminGateVerdict,
+  AdminGate,
+} from "./kernel/adminPlane/executeAdmin";
+export {
+  isAdminGranted,
+  resolveAdminRole,
+  ADMIN_DEFAULT_ROLE,
+} from "./kernel/adminPlane/adminRbac";
 // Découpe d'un markdown par ses titres — le plan d'une page de documentation,
 // puis une section. Partagée par le serveur MCP (cœur) et le plan
 // d'administration (framework) : une page de 80 ko ne se rend pas entière.
