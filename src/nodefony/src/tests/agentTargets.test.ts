@@ -271,9 +271,14 @@ describe("agents — où vit la configuration d'un agent", () => {
   it("portée utilisateur : le dossier maison + le marqueur de l'agent", () => {
     // Assertion COMPOSÉE, jamais littérale : sur Windows le séparateur diffère,
     // et une chaîne écrite à la main y échouerait pour la mauvaise raison.
+    // ⚠️ `path.RESOLVE`, pas `join` : la fonction rend un chemin ABSOLU, et sous
+    // Windows absolu veut dire porteur d'une lettre de lecteur
+    // (`D:\maison\cci\.codex`). Un attendu composé au `join` depuis une racine
+    // sans lecteur échoue là-bas — pour la mauvaise raison, puisque le code est
+    // juste. L'assertion doit subir la MÊME normalisation que ce qu'elle juge.
     expect(
       racineAgent(cible("codex"), { projectRoot, home, env: {} }),
-    ).to.equal(path.join(home, ".codex"));
+    ).to.equal(path.resolve(home, ".codex"));
   });
 
   it("🔴 la variable de l'agent l'emporte sur le dossier maison", () => {
@@ -287,7 +292,7 @@ describe("agents — où vit la configuration d'un agent", () => {
         home,
         env: { CODEX_HOME: ailleurs },
       }),
-    ).to.equal(ailleurs);
+    ).to.equal(path.resolve(ailleurs));
   });
 });
 
@@ -296,10 +301,14 @@ describe("agents — DÉTECTER un agent sans exiger qu'il soit déjà câblé", 
   const home = path.join(path.sep, "maison", "cci");
 
   /** Prédicat d'existence sur une liste de chemins — aucun disque touché. */
+  // ⚠️ Le code interroge le disque avec des chemins RÉSOLUS ; sous Windows
+  // `path.resolve` y ajoute la lettre de lecteur. Le prédicat normalise donc
+  // ses deux côtés, sinon la comparaison échoue sur la plateforme et non sur la
+  // logique.
   const disque =
     (...presents: string[]) =>
     (chemin: string) =>
-      presents.includes(chemin);
+      presents.map((p) => path.resolve(p)).includes(path.resolve(chemin));
 
   it("🔴 un agent en portée PROJET est proposé sur la foi de son dossier UTILISATEUR", () => {
     // Le cercle que ce test ferme : Gemini écrit sa déclaration en portée
