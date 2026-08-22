@@ -88,6 +88,25 @@ s'enrichit, ta mémoire non.
 
 La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le dossier.
 
+> 🔎 **Une recherche ORDINAIRE ne voit pas cette documentation.** `rg "terme"`
+> lancé à la racine ne descend pas dans `node_modules` (git l'ignore, `rg` le
+> suit) : le sujet paraît absent alors qu'il occupe quinze pages. Trois gestes
+> justes, du plus utile au plus brut :
+>
+> - **chercher partout, avec le sens** — si le serveur tourne et que l'outil MCP
+>   est câblé (`npx nodefony ai:mcp`), `nodefony_docs` avec `query` balaie TOUTE
+>   la documentation chargée et rend des extraits ; `nodefony_symbols` rend la
+>   SIGNATURE réelle d'un symbole, que le graphe seul ne porte pas ;
+> - **désigner le dossier** — `rg "terme" node_modules/@nodefony/*/docs/` :
+>   l'exclusion ne vaut que pour le PARCOURS, un chemin donné en argument est
+>   toujours lu ;
+> - **forcer l'inclusion** — `rg --no-ignore "terme"` pour un balayage large.
+>
+> ⚠️ **Si `node_modules/` n'existe pas, la documentation n'est pas là** — et
+> aucun de ces gestes ne répondra. Ce n'est pas « le sujet n'est pas documenté » :
+> c'est `npm install` qui n'a pas été lancé. DIS-LE plutôt que de conclure de son
+> silence, et ne réécris jamais à la main ce que tu n'as pas pu lire.
+
 - Quel module installer pour tel besoin** (et lequel NE PAS installer) — `node_modules/nodefony/docs/catalogue.md`
 - Variables d'environnement** : cascade des `.env`, précédence, `NF__`, **et dans quel MODE tourne une commande** — `node_modules/nodefony/docs/environnement.md`
 - **Kernel, cycle de vie, CLI** — `node_modules/nodefony/docs/kernel.md` + `cli.md`

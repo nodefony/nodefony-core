@@ -534,6 +534,33 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(agents, "ai:sync");
     });
 
+    it("🔴 l'app GÉNÉRÉE dit comment CHERCHER une doc que `rg` n'indexe pas", () => {
+      // Le motif est structurel : la documentation des paquets vit sous
+      // `node_modules`, que git ignore et que les outils de recherche excluent.
+      // Ce fichier pointe huit chemins qui s'OUVRENT très bien mais qu'aucune
+      // recherche plein texte ne trouve — un agent en conclut « pas documenté »
+      // et réécrit à la main. Les trois issues doivent être écrites ICI, dans
+      // le RENDU : ce que le gabarit sait ne sert à personne.
+      const dest = path.join(tmp, "agents-recherche");
+      scaffold(dest, {
+        name: "recherche",
+        preset: "complete",
+        frontend: "none",
+      });
+      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+
+      // 1. L'outil qui CHERCHE, quand le serveur répond.
+      assert.include(agents, "nodefony_docs");
+      // 2. Le repli sans serveur — DÉSIGNER le dossier suffit : l'exclusion ne
+      //    vaut que pour le parcours. Mesuré : `rg` à la racine rend 1 fichier,
+      //    le même motif sur le dossier désigné en rend 3.
+      assert.include(agents, 'rg "terme" node_modules/@nodefony/*/docs/');
+      // 3. Le balayage large, quand on ne sait pas où chercher.
+      assert.include(agents, "--no-ignore");
+      // 4. Et le cas où il n'y a rien à lire : à DIRE, pas à contourner.
+      assert.include(agents, "npm install");
+    });
+
     it("🔴 les trois pièges MESURÉS au banc sont écrits dans l'app GÉNÉRÉE", () => {
       // Trois échecs du banc devkit dont la cause était ce fichier — pas
       // l'agent. Chacun se relit ici, dans le rendu, parce qu'un gabarit n'est
