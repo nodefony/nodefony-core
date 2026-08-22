@@ -686,6 +686,11 @@ export function builtinMcpTools(
               "Rendre le PLAN de la page au lieu de son corps — le premier " +
               "geste sur une page volumineuse",
           },
+          limit: {
+            type: "integer",
+            description:
+              "Nombre maximum de documents rendus par `query` (défaut 20)",
+          },
         },
       },
       handler: async (args, caller) => {
@@ -717,12 +722,23 @@ export function builtinMcpTools(
           return mcpText(pageOrOutline(read.data, module, slug));
         }
         if (query !== "") {
+          // ⚠️ `limit` est TRANSMIS, pas avalé : le producteur l'honore depuis
+          // toujours, seul le pont l'ignorait — un paramètre accepté puis jeté
+          // rend une réponse qui a l'air d'avoir obéi, et c'est le pire des
+          // deux mondes.
+          const limite =
+            typeof args.limit === "number" && Number.isFinite(args.limit)
+              ? Math.trunc(args.limit)
+              : null;
           const read = await callAdminEndpoint(
             deps.broker,
             {
               namespace: "kernel",
               path: "docs/search",
-              query: { q: query },
+              query:
+                limite !== null && limite > 0
+                  ? { q: query, limit: String(limite) }
+                  : { q: query },
               label: `recherche « ${query} »`,
             },
             admin,
@@ -826,10 +842,29 @@ export function builtinMcpTools(
           );
         }
 
+        // Deux vocabulaires pour une même chose : le graphe indexe par nom npm
+        // (`@nodefony/redis`), le plan d'administration désigne les modules par
+        // leur clé courte (`redis`). Une clé courte rendait donc un tableau
+        // VIDE — indistinguable d'un paquet sans symbole exporté, et l'agent
+        // en concluait que la brique n'existait pas.
         const entries = Object.values(graph.symbols).filter(
-          (s) => module === null || s.module === module,
+          (s) =>
+            module === null ||
+            s.module === module ||
+            moduleKey(s.module) === moduleKey(module),
         );
         if (module !== null) {
+          if (entries.length === 0) {
+            // Un vide se DIT, avec ce qui existe : sans cela, il ressemble à
+            // une réponse.
+            const paquets = [
+              ...new Set(Object.values(graph.symbols).map((s) => s.module)),
+            ].sort();
+            return mcpText(
+              `aucun symbole pour « ${module} » — paquets présents dans le graphe : ${paquets.join(", ")}`,
+              true,
+            );
+          }
           return mcpText(entries.sort((a, b) => a.name.localeCompare(b.name)));
         }
         // Résumé : combien, et dans quels paquets — la question qu'on se pose en
@@ -1266,5 +1301,54 @@ export async function callMcpTool(
   if (!tool) {
     return null;
   }
+  const inconnus = argumentsInconnus(tool, args);
+  if (inconnus !== null) {
+    return mcpText(inconnus, true);
+  }
   return tool.handler(args, caller);
+}
+
+/**
+ * Arguments que l'outil ne déclare pas — refusés, jamais ignorés.
+ *
+ * ⚠️ Un paramètre accepté puis jeté est pire qu'un refus : la réponse a l'air
+ * d'avoir honoré la demande. Vécu sur cette porte — un `limit` passé à la
+ * recherche documentaire revenait avec vingt résultats, sans un mot, et
+ * l'appelant en concluait que la borne ne marchait pas plutôt que de voir
+ * qu'elle n'avait jamais été transmise. Le même silence accueillait une clé
+ * mal orthographiée : l'outil répondait comme si de rien n'était.
+ *
+ * La garde vit ICI, une fois, plutôt que dans chaque handler — et elle
+ * s'applique donc aussi aux outils qu'une application déclare. Un outil qui
+ * veut réellement des arguments libres l'écrit dans son schéma
+ * (`additionalProperties: true`), ce qui en fait un choix relu, pas un défaut.
+ *
+ * @param tool - l'outil visé, avec son schéma d'entrée.
+ * @param args - ce que l'agent a passé.
+ * @returns le message de refus, ou `null` si tout est déclaré.
+ */
+function argumentsInconnus(
+  tool: IMcpTool,
+  args: Record<string, unknown>,
+): string | null {
+  const schema = tool.inputSchema as {
+    properties?: Record<string, unknown>;
+    additionalProperties?: unknown;
+  };
+  if (schema?.additionalProperties === true) return null;
+  const declares = schema?.properties;
+  // Pas de `properties` du tout = schéma non descriptif : on ne peut rien
+  // affirmer, et refuser sur une absence serait deviner.
+  if (!declares || typeof declares !== "object") return null;
+  const intrus = Object.keys(args).filter(
+    (cle) => !Object.hasOwn(declares, cle),
+  );
+  if (intrus.length === 0) return null;
+  const connus = Object.keys(declares);
+  return (
+    `« ${tool.name} » ne connaît pas ${intrus.map((c) => `« ${c} »`).join(", ")}. ` +
+    (connus.length > 0
+      ? `Arguments acceptés : ${connus.join(", ")}.`
+      : "Cet outil ne prend aucun argument.")
+  );
 }

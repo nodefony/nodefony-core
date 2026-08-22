@@ -545,3 +545,49 @@ describe("DÉCOUVRABILITÉ — l'agent doit pouvoir ARRIVER à ces outils", () =
     expect(instructions).toMatch(/9728/u);
   });
 });
+
+describe("CONTRAT D'ENTRÉE — un argument inconnu est REFUSÉ, jamais avalé", () => {
+  const deps = {
+    broker: broker(),
+    getCard: () => ({}),
+    projectRoot: REPO_ROOT,
+  };
+  const admin = porteur([ADMIN_SCOPE_READ]);
+
+  it("🔴 la garde est sur le CHEMIN RÉEL (`tools/call`), pas seulement en théorie", async () => {
+    // Vécu : un `limit` passé à la recherche documentaire revenait avec vingt
+    // résultats sans un mot — et l'appelant concluait que la borne était
+    // cassée, plutôt que de voir qu'elle n'avait jamais été transmise. Une
+    // réponse qui a l'air d'avoir obéi est pire qu'un refus.
+    const tools = collectMcpTools({
+      builtins: ["admin_list", "admin_call"],
+      deps,
+      caller: admin,
+    });
+    const reply = await callMcpTool(
+      "nodefony_admin_list",
+      { namespace: "kernel", zzinconnu: "x" },
+      tools,
+      admin,
+    );
+    expect(reply?.isError).toBe(true);
+    expect(texte(reply as IMcpToolResult)).toContain("zzinconnu");
+    // Le refus NOMME ce qui est accepté — sans quoi il ne reste qu'à deviner.
+    expect(texte(reply as IMcpToolResult)).toContain("namespace");
+  });
+
+  it("un argument DÉCLARÉ passe — la garde ne referme pas la porte", async () => {
+    const tools = collectMcpTools({
+      builtins: ["admin_list"],
+      deps,
+      caller: admin,
+    });
+    const reply = await callMcpTool(
+      "nodefony_admin_list",
+      { namespace: "kernel", q: "modules" },
+      tools,
+      admin,
+    );
+    expect(reply?.isError).toBeUndefined();
+  });
+});

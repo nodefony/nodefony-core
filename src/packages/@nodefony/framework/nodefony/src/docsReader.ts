@@ -311,6 +311,17 @@ export interface DocSearchResult {
   matched: number;
   /** Les meilleures, bornées par `limit`. */
   hits: DocSearchHit[];
+  /**
+   * Phrase d'annonce, présente UNIQUEMENT quand la borne a joué.
+   *
+   * ⚠️ `matched` seul ne suffit pas à s'en apercevoir : quand le nombre de
+   * documents trouvés égale la borne — le cas exact d'un corpus fourni — un
+   * lecteur voit « 20 » des deux côtés et conclut qu'il tient tout. Il faut
+   * donc le DIRE, et nommer le geste qui donne la suite. Absente quand tout
+   * est rendu : annoncer une coupe qui n'a pas eu lieu ferait chercher un
+   * reste inexistant.
+   */
+  note?: string;
 }
 
 /** Docs rendues par défaut — au-delà, l'agent relit au lieu de décider. */
@@ -321,6 +332,20 @@ const SEARCH_MAX_PER_DOC = 3;
 const SNIPPET_MAX_CHARS = 240;
 /** Ce que pèse un terme trouvé dans le titre ou le slug, en occurrences. */
 const TITLE_WEIGHT = 5;
+
+/**
+ * Longueur d'une page de référence, en caractères — le pivot de la DENSITÉ.
+ *
+ * ⚠️ Compter les occurrences BRUTES classe par la taille, pas par la
+ * pertinence : un tableau de bord de plusieurs dizaines de milliers de
+ * caractères mentionne tout, donc il gagne toutes les recherches — et sortait
+ * devant la page qui TRAITE le sujet demandé. Ce qui distingue un document
+ * pertinent d'un document long, c'est la densité du terme, pas son total.
+ *
+ * Un document plus court que ce pivot n'est jamais AVANTAGÉ (le diviseur est
+ * planché à 1) : on corrige le biais du volume, on n'en crée pas l'inverse.
+ */
+const DOC_LENGTH_PIVOT = 8_000;
 
 /**
  * Forme comparable d'un texte : minuscules, sans diacritiques.
@@ -438,7 +463,10 @@ export async function searchModuleDocs(
         }
         if (foldedTitle.includes(term)) score += TITLE_WEIGHT;
       }
-      score += occurrences;
+      // Densité plutôt que total : occurrences ramenées à la taille du
+      // document, le titre gardant son poids propre (il dit le SUJET, quelle
+      // que soit la longueur).
+      score += occurrences / Math.max(1, foldedBody.length / DOC_LENGTH_PIVOT);
 
       const matches: DocSearchMatch[] = [];
       for (let i = 0; i < lines.length && matches.length < perDoc; i += 1) {
@@ -462,7 +490,18 @@ export async function searchModuleDocs(
   }
 
   hits.sort((a, b) => b.score - a.score || a.slug.localeCompare(b.slug));
-  return { terms, scanned, matched: hits.length, hits: hits.slice(0, limit) };
+  const rendus = hits.slice(0, limit);
+  return {
+    terms,
+    scanned,
+    matched: hits.length,
+    hits: rendus,
+    ...(hits.length > rendus.length
+      ? {
+          note: `${hits.length} documents portent ces termes, ${rendus.length} sont rendus (borne « limit », ${limit} par défaut). Précise les termes, ou rappelle avec limit plus grand.`,
+        }
+      : {}),
+  };
 }
 /** Forme minimale d'une entrée `.ai/symbols.json` (lecture défensive). */
 interface RawSymbol {

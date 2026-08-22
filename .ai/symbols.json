@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-22T17:36:22.523Z",
+  "generated": "2026-08-22T17:50:58.604Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 731,
-    "symbols": 3077,
+    "symbols": 3083,
     "classes": 364,
-    "interfaces": 880,
+    "interfaces": 881,
     "types": 386,
     "enums": 4,
-    "functions": 1151,
+    "functions": 1156,
     "constants": 292
   },
   "symbols": {
@@ -723,13 +723,20 @@
       "module": "@nodefony/core",
       "description": "Pose une variable dans le contenu d'un fichier de configuration d'agent. Fonction PURE — elle prend le contenu et rend le contenu. C'est ce qui permet d'éprouver chaque grammaire sans écrire sur le…"
     },
-    "porteDejaLaCle": {
-      "name": "porteDejaLaCle",
+    "litVariable": {
+      "name": "litVariable",
       "kind": "function",
       "file": "src/nodefony/src/cli/agentTargets.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Ce fichier porte-t-il DÉJÀ cette variable ? ⭐ C'est ce qui rend la rotation simple : l'état de câblage n'a pas à être mémorisé quelque part, il EST dans les fichiers des agents. Un agent qui porte …"
+    },
+    "porteDejaLaCle": {
+      "name": "porteDejaLaCle",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core"
     },
     "agentsDemandes": {
       "name": "agentsDemandes",
@@ -756,6 +763,15 @@
       "extends": null,
       "description": "Ce qu'il faut lancer pour obtenir le jeton, ou `null` s'il n'y a rien à faire."
     },
+    "IEtatJeton": {
+      "name": "IEtatJeton",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Décide s'il faut enchaîner sur `security:token`, et avec quoi. PURE — le `spawn` est de la plomberie, la DÉCISION est ce qui peut être faux. Trois choses ne « suivent » pas toutes seules d'un proce…"
+    },
     "IResultatDeclaration": {
       "name": "IResultatDeclaration",
       "kind": "interface",
@@ -781,13 +797,36 @@
       "module": "@nodefony/core",
       "description": "Déduit l'origine du serveur de développement. ⚠️ **Le port en clair est préféré au port TLS**, et ce n'est pas une négligence : en développement le certificat est auto-signé, et un client MCP qui l…"
     },
+    "etatDuJeton": {
+      "name": "etatDuJeton",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit l'échéance et les scopes d'un JWT, sans le valider ni le divulguer."
+    },
+    "renderEtatJeton": {
+      "name": "renderEtatJeton",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Phrase d'état d'un jeton, pour un humain devant une question."
+    },
+    "etatJetonsAgents": {
+      "name": "etatJetonsAgents",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "État du jeton posé chez CHAQUE agent détecté — l'échéance et la portée, pas le secret. ⭐ Par agent, et non « le » jeton : rien ne garantit qu'ils portent le même. Un agent servi il y a trois semain…"
+    },
     "planTokenChaining": {
       "name": "planTokenChaining",
       "kind": "function",
       "file": "src/nodefony/src/cli/aiMcp.ts",
       "exported": true,
-      "module": "@nodefony/core",
-      "description": "Décide s'il faut enchaîner sur `security:token`, et avec quoi. PURE — le `spawn` est de la plomberie, la DÉCISION est ce qui peut être faux. Trois choses ne « suivent » pas toutes seules d'un proce…"
+      "module": "@nodefony/core"
     },
     "declarerChezAgents": {
       "name": "declarerChezAgents",
@@ -24148,6 +24187,17 @@
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
+      "ADMIN_SCOPE_READ": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/nodefony/src/mcp/tools.ts",
+        "src/packages/@nodefony/devkit/nodefony/config/config.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "ADMIN_SCOPE_WRITE": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/packages/@nodefony/devkit/nodefony/config/config.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
       "defaultDevPorts": [
         "src/nodefony/src/cli/aiMcp.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts",
@@ -24180,8 +24230,15 @@
         "src/nodefony/src/cli/aiMcp.ts",
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
+      "litVariable": [
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
       "planAgentDeclaration": [
         "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "racineAgent": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "renderPlanShell": [
         "src/nodefony/src/cli/aiMcp.ts"
@@ -25020,11 +25077,6 @@
         "src/nodefony/src/mcp/tools.ts",
         "src/nodefony/src/kernel/adminPlane/catalog.ts",
         "src/nodefony/src/kernel/inspect/adminSubjects.ts"
-      ],
-      "ADMIN_SCOPE_READ": [
-        "src/nodefony/src/mcp/tools.ts",
-        "src/packages/@nodefony/devkit/nodefony/config/config.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "adminReadCatalog": [
         "src/nodefony/src/mcp/tools.ts"
@@ -26527,10 +26579,6 @@
       ],
       "BUILTIN_MCP_TOOL_KEYS": [
         "src/packages/@nodefony/devkit/nodefony/config/config.ts"
-      ],
-      "ADMIN_SCOPE_WRITE": [
-        "src/packages/@nodefony/devkit/nodefony/config/config.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "devkitConfigSchema": [
         "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts"
@@ -28174,9 +28222,6 @@
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "porteDejaLaCle": [
-        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
-      ],
-      "racineAgent": [
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "askPasswordMasked": [

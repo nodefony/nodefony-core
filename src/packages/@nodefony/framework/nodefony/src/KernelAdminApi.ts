@@ -535,6 +535,36 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
   // `getModules()`) puis les modules chargés. Composé ICI plutôt que dans le
   // lecteur de docs — lui ne connaît que des chemins, c'est le kernel qui sait
   // ce qui est chargé.
+  /**
+   * Chemin d'un porteur de documentation, module CHARGÉ ou paquet INSTALLÉ.
+   *
+   * ⚠️ Les deux cas existent et se confondaient en un seul refus. Un paquet
+   * peut être présent dans l'arbre des dépendances — sa documentation livrée
+   * avec lui — sans que le kernel l'ait chargé : `orm-core` est une
+   * bibliothèque pure, `redis` peut n'être pas activé dans cette application.
+   * Répondre « module introuvable » sur des pages parfaitement présentes
+   * faisait conclure qu'elles n'existaient pas, alors qu'elles sont
+   * précisément ce que git ignore et que les outils de recherche excluent.
+   *
+   * @param key - clé courte (`http`) ou nom de paquet (`@nodefony/redis`).
+   * @returns le dossier à lire, ou `null`.
+   */
+  const resolveDocDir = (key: string): string | null =>
+    resolveTarget(key)?.path ?? resolvePackageDir(key);
+
+  /**
+   * Ce qu'on peut proposer à qui s'est trompé de nom — les clés qui répondent.
+   *
+   * Un refus qui ne nomme AUCUNE valeur valide laisse deviner, puis abandonner :
+   * l'appelant conclut que la ressource n'existe pas, quand il a seulement mal
+   * orthographié. Le secours accompagne donc le refus, il ne s'obtient pas par
+   * un second appel que personne ne pense à faire.
+   */
+  const docKeys = (): string[] => [
+    CORE_KEY,
+    ...Object.keys(kernel.getModules()),
+  ];
+
   const docTargets = (): DocSearchTarget[] => {
     const targets: DocSearchTarget[] = [];
     for (const key of [CORE_KEY, ...Object.keys(kernel.getModules())]) {
@@ -1005,7 +1035,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const mod = kernel.getModules()[key] as unknown as
           ConfigModuleLike | undefined;
         if (!mod) {
-          return { status: 404, body: { error: "Module not found", key } };
+          return {
+            status: 404,
+            body: { error: "Module not found", key, available: docKeys() },
+          };
         }
         // 2. Corps { path, value }.
         const body = (request.body ?? {}) as {
@@ -1239,7 +1272,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const mod = kernel.getModules()[key];
         if (!mod) {
           // Enveloppe IAdminResponse : `status` présent → reconnue par le broker.
-          return { status: 404, body: { error: "Module not found", key } };
+          return {
+            status: 404,
+            body: { error: "Module not found", key, available: docKeys() },
+          };
         }
         // Services enregistrés par le module + classe d'implémentation (le nom
         // de registration vient de Module.getServiceNames, la classe du
@@ -1293,7 +1329,11 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         if (!target) {
           return {
             status: 404,
-            body: { error: "Module not found", key: request.params.name },
+            body: {
+              error: "Module not found",
+              key: request.params.name,
+              available: docKeys(),
+            },
           };
         }
         return {
@@ -1311,7 +1351,11 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         if (!target) {
           return {
             status: 404,
-            body: { error: "Module not found", key: request.params.name },
+            body: {
+              error: "Module not found",
+              key: request.params.name,
+              available: docKeys(),
+            },
           };
         }
         const deps = await readDependencies(target.path);
@@ -1329,11 +1373,14 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       summary: "Documentation index of one module (markdown in <module>/docs)",
       handler: async (request) => {
         const key = request.params.name;
-        const target = resolveTarget(key);
-        if (!target) {
-          return { status: 404, body: { error: "Module not found", key } };
+        const dir = resolveDocDir(key);
+        if (!dir) {
+          return {
+            status: 404,
+            body: { error: "Module not found", key, available: docKeys() },
+          };
         }
-        return { key, docs: await listModuleDocs(target.path) };
+        return { key, docs: await listModuleDocs(dir) };
       },
     },
     {
@@ -1342,15 +1389,27 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       summary: "Raw markdown of one module doc by slug",
       handler: async (request) => {
         const key = request.params.name;
-        const target = resolveTarget(key);
-        if (!target) {
-          return { status: 404, body: { error: "Module not found", key } };
-        }
-        const doc = await readModuleDoc(target.path, request.params.slug);
-        if (!doc) {
+        const dir = resolveDocDir(key);
+        if (!dir) {
           return {
             status: 404,
-            body: { error: "Doc not found", key, slug: request.params.slug },
+            body: { error: "Module not found", key, available: docKeys() },
+          };
+        }
+        const doc = await readModuleDoc(dir, request.params.slug);
+        if (!doc) {
+          // Le SOMMAIRE accompagne le refus : une page demandée sous un slug
+          // approchant (« firewal » pour « firewall ») est le cas courant, et
+          // sans la liste il ne reste qu'à deviner — ou à conclure, à tort,
+          // que ce module ne documente rien.
+          return {
+            status: 404,
+            body: {
+              error: "Doc not found",
+              key,
+              slug: request.params.slug,
+              available: (await listModuleDocs(dir)).map((d) => d.slug),
+            },
           };
         }
         // Une page de documentation du framework pèse 50 à 80 ko : rendue
@@ -1451,7 +1510,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const key = request.params.name;
         const modulePath = resolveTarget(key)?.path ?? resolvePackageDir(key);
         if (!modulePath) {
-          return { status: 404, body: { error: "Module not found", key } };
+          return {
+            status: 404,
+            body: { error: "Module not found", key, available: docKeys() },
+          };
         }
         const symbol = request.params.symbol;
         const found = await readSymbolDeclaration(modulePath, symbol);
@@ -1477,7 +1539,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const key = request.params.name;
         const target = resolveTarget(key);
         if (!target) {
-          return { status: 404, body: { error: "Module not found", key } };
+          return {
+            status: 404,
+            body: { error: "Module not found", key, available: docKeys() },
+          };
         }
         return {
           key,
@@ -1495,7 +1560,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const key = request.params.name;
         const target = resolveTarget(key);
         if (!target) {
-          return { status: 404, body: { error: "Module not found", key } };
+          return {
+            status: 404,
+            body: { error: "Module not found", key, available: docKeys() },
+          };
         }
         return { key, ...(await readCoverage(target.path)) };
       },
@@ -1508,7 +1576,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const key = request.params.name;
         const target = resolveTarget(key);
         if (!target) {
-          return { status: 404, body: { error: "Module not found", key } };
+          return {
+            status: 404,
+            body: { error: "Module not found", key, available: docKeys() },
+          };
         }
         return {
           key,
@@ -1537,7 +1608,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const key = request.params.name;
         const target = resolveTarget(key);
         if (!target) {
-          return { status: 404, body: { error: "Module not found", key } };
+          return {
+            status: 404,
+            body: { error: "Module not found", key, available: docKeys() },
+          };
         }
         const body = (request.body ?? {}) as { file?: unknown };
         let file: string | undefined;

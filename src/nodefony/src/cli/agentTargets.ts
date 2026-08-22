@@ -490,6 +490,41 @@ export function poseVariable(
  * @param contenu - son contenu, ou chaîne vide s'il n'existe pas
  * @param cle - nom de la variable
  */
+/**
+ * Valeur d'une variable dans le fichier de configuration d'un agent.
+ *
+ * Fonction PURE — elle prend le contenu, elle rend la valeur. Elle existe pour
+ * qu'on puisse RENSEIGNER sur un jeton posé (son échéance, ce qu'il autorise)
+ * sans jamais le divulguer : c'est l'appelant qui décide ce qu'il en montre, et
+ * ce qu'il en montre n'est pas le jeton.
+ *
+ * @param forme - grammaire du fichier
+ * @param contenu - contenu actuel, ou chaîne vide
+ * @param cle - nom de la variable
+ * @returns la valeur, ou `null` si elle est absente ou vide
+ */
+export function litVariable(
+  forme: IAgentTarget["forme"],
+  contenu: string,
+  cle: string,
+): string | null {
+  if (contenu.trim() === "") return null;
+  if (forme === "dotenv") {
+    const trouve = new RegExp(`^\\s*${cle}\\s*=\\s*(.*)$`, "m").exec(contenu);
+    if (!trouve?.[1]) return null;
+    // Les guillemets sont une convention d'écriture, pas une part de la valeur.
+    const brut = trouve[1].trim().replace(/^["']|["']$/gu, "");
+    return brut === "" ? null : brut;
+  }
+  try {
+    const doc = JSON.parse(contenu) as { env?: Record<string, unknown> };
+    const valeur = doc.env?.[cle];
+    return typeof valeur === "string" && valeur !== "" ? valeur : null;
+  } catch {
+    return null;
+  }
+}
+
 export function porteDejaLaCle(
   forme: IAgentTarget["forme"],
   contenu: string,

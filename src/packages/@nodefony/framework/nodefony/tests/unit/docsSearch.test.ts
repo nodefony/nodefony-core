@@ -197,3 +197,76 @@ describe("readSymbolDeclaration", () => {
     );
   });
 });
+
+describe("recherche — la DENSITÉ classe, pas le volume", () => {
+  let dense: string;
+
+  beforeAll(async () => {
+    dense = await mkdtemp(join(tmpdir(), "nf-docs-densite-"));
+    const write = async (mod: string, slug: string, body: string) => {
+      await mkdir(join(dense, mod, "docs"), { recursive: true });
+      await writeFile(join(dense, mod, "docs", `${slug}.md`), body, "utf8");
+    };
+    // Le TABLEAU DE BORD : énorme, il mentionne tout, y compris nos termes —
+    // mais il ne les TRAITE pas. C'est le profil qui gagnait toutes les
+    // recherches en comptant les occurrences brutes.
+    await write(
+      "core",
+      "dashboard",
+      [
+        "---",
+        "title: Tableau de bord",
+        "---",
+        "session redis",
+        ...Array.from({ length: 400 }, (_, i) => `Ligne ${i} sans rapport.`),
+        "session redis",
+      ].join("\n"),
+    );
+    // La page COURTE qui traite exactement le sujet.
+    await write(
+      "http",
+      "idempotence",
+      ["---", "title: Idempotence", "---", "session redis session redis"].join(
+        "\n",
+      ),
+    );
+  });
+
+  afterAll(async () => {
+    await rm(dense, { recursive: true, force: true });
+  });
+
+  it("🔴 une page COURTE qui traite le sujet passe devant un GROS document qui le mentionne", async () => {
+    // Vécu : sur « session redis », le tableau de bord du dépôt sortait en 2ᵉ
+    // position, devant la page qui traite le sujet. Compter les occurrences
+    // brutes, c'est classer par la taille — un document assez long gagne
+    // toujours, et l'agent lit le mauvais.
+    const result = await searchModuleDocs(
+      [
+        { key: "core", path: join(dense, "core") },
+        { key: "http", path: join(dense, "http") },
+      ],
+      "session redis",
+    );
+    expect(result.hits.map((h) => h.slug)).to.deep.equal([
+      "idempotence",
+      "dashboard",
+    ]);
+  });
+
+  it("annonce le bornage — et se TAIT quand tout est rendu", async () => {
+    // `matched` seul ne suffit pas : quand le nombre trouvé ÉGALE la borne, on
+    // lit le même chiffre des deux côtés et l'on croit tout tenir.
+    const cibles = [
+      { key: "core", path: join(dense, "core") },
+      { key: "http", path: join(dense, "http") },
+    ];
+    const borne = await searchModuleDocs(cibles, "session redis", { limit: 1 });
+    expect(borne.hits).to.have.lengthOf(1);
+    expect(borne.matched).to.equal(2);
+    expect(borne.note).to.contain("limit");
+
+    const complet = await searchModuleDocs(cibles, "session redis");
+    expect(complet.note).to.equal(undefined);
+  });
+});

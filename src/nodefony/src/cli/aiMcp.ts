@@ -1,6 +1,10 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { SysExit } from "./sysexits";
+import {
+  ADMIN_SCOPE_READ,
+  ADMIN_SCOPE_WRITE,
+} from "../kernel/adminPlane/adminCaller";
 import { findProjectRoot } from "./projectRoot";
 import { defaultDevPorts } from "../service/dev/devProcess";
 import {
@@ -16,7 +20,9 @@ import {
   AGENT_TARGETS,
   agentsDemandes,
   agentsPresents,
+  litVariable,
   planAgentDeclaration,
+  racineAgent,
   renderPlanShell,
   type IAgentTarget,
 } from "./agentTargets";
@@ -182,6 +188,127 @@ export interface IChainedToken {
  * @param contexte - racine du projet, présence d'un terminal, environnement
  * @returns le plan d'exécution, ou `null` si l'on n'enchaîne pas
  */
+/**
+ * Ce qu'on peut dire d'un jeton DÉJÀ posé, sans jamais le montrer.
+ *
+ * ⚠️ Le jeton part dans un en-tête STATIQUE que rien ne rafraîchit : quand il
+ * expire, le symptôme est un `401` sur la porte MCP — un refus qui accuse la
+ * configuration, l'audience ou le serveur, jamais l'échéance. Constater
+ * l'échéance AVANT de proposer d'en émettre un nouveau transforme une enquête
+ * en une ligne de texte.
+ *
+ * Lecture PURE de la charge utile (elle n'est pas chiffrée, seulement signée) :
+ * on ne vérifie pas la signature ici — ce n'est pas une décision d'accès, c'est
+ * un renseignement. La porte, elle, vérifie tout.
+ */
+export interface IEtatJeton {
+  /** Secondes restantes ; négatif s'il est expiré, `null` si sans échéance. */
+  restantSecondes: number | null;
+  /** Scopes que le jeton porte, tels qu'il les déclare. */
+  scopes: string[];
+}
+
+/**
+ * Lit l'échéance et les scopes d'un JWT, sans le valider ni le divulguer.
+ *
+ * @param jeton - le jeton compact (`en-tête.charge.signature`).
+ * @param maintenantSecondes - l'instant de référence, INJECTÉ pour que le banc
+ *   n'ait pas à attendre le temps qui passe.
+ * @returns l'état lisible, ou `null` si ce n'est pas un JWT exploitable.
+ */
+export function etatDuJeton(
+  jeton: string,
+  maintenantSecondes: number,
+): IEtatJeton | null {
+  const parts = jeton.split(".");
+  if (parts.length !== 3 || !parts[1]) return null;
+  try {
+    const charge = JSON.parse(
+      Buffer.from(parts[1], "base64url").toString("utf8"),
+    ) as { exp?: unknown; scope?: unknown };
+    const scope = typeof charge.scope === "string" ? charge.scope : "";
+    return {
+      restantSecondes:
+        typeof charge.exp === "number" ? charge.exp - maintenantSecondes : null,
+      scopes: scope.split(/\s+/u).filter((s) => s !== ""),
+    };
+  } catch {
+    // Un contenu illisible n'est pas une panne : c'est un jeton qu'on ne sait
+    // pas décrire, et on se tait plutôt que d'affirmer quoi que ce soit.
+    return null;
+  }
+}
+
+/**
+ * Phrase d'état d'un jeton, pour un humain devant une question.
+ *
+ * @param etat - ce que {@link etatDuJeton} a lu, ou `null` s'il n'y en a pas.
+ * @returns la ligne à afficher.
+ */
+export function renderEtatJeton(etat: IEtatJeton | null): string {
+  if (etat === null) return "aucun jeton lisible n'est posé chez tes agents";
+  const scopes =
+    etat.scopes.length > 0 ? etat.scopes.join(" ") : "aucun scope déclaré";
+  if (etat.restantSecondes === null) return `jeton sans échéance (${scopes})`;
+  if (etat.restantSecondes <= 0) {
+    const depuis = Math.round(-etat.restantSecondes / 60);
+    return `jeton EXPIRÉ depuis ${depuis} min (${scopes}) — c'est lui qui provoque les 401`;
+  }
+  const heures = etat.restantSecondes / 3600;
+  const reste =
+    heures >= 48
+      ? `${Math.round(heures / 24)} jours`
+      : heures >= 2
+        ? `${Math.round(heures)} heures`
+        : `${Math.round(etat.restantSecondes / 60)} min`;
+  return `jeton valide encore ${reste} (${scopes})`;
+}
+
+/**
+ * État du jeton posé chez CHAQUE agent détecté — l'échéance et la portée, pas
+ * le secret.
+ *
+ * ⭐ Par agent, et non « le » jeton : rien ne garantit qu'ils portent le même.
+ * Un agent servi il y a trois semaines a le sien, périmé, pendant qu'un autre
+ * vient d'être rafraîchi — et c'est précisément l'écart qu'on ne voit jamais,
+ * parce qu'il se manifeste par un `401` chez un seul outil.
+ *
+ * @param cibles - agents détectés sur ce poste.
+ * @param projectRoot - racine du projet, pour résoudre leurs fichiers.
+ * @param maintenantSecondes - instant de référence, injecté pour le banc.
+ * @returns pour chaque agent, sa phrase d'état.
+ */
+export function etatJetonsAgents(
+  cibles: readonly IAgentTarget[],
+  projectRoot: string,
+  maintenantSecondes: number,
+): Map<string, string> {
+  const etats = new Map<string, string>();
+  for (const cible of cibles) {
+    const fichier = path.resolve(
+      racineAgent(cible, { projectRoot }),
+      cible.fichier,
+    );
+    let contenu = "";
+    try {
+      contenu = existsSync(fichier) ? readFileSync(fichier, "utf8") : "";
+    } catch {
+      // Un fichier illisible n'est pas une panne de cette commande : on se tait
+      // sur cet agent plutôt que d'affirmer qu'il n'a pas de jeton.
+      etats.set(cible.cle, "état du jeton illisible");
+      continue;
+    }
+    const jeton = litVariable(cible.forme, contenu, MCP_TOKEN_ENV);
+    etats.set(
+      cible.cle,
+      jeton === null
+        ? "pas de jeton posé"
+        : renderEtatJeton(etatDuJeton(jeton, maintenantSecondes)),
+    );
+  }
+  return etats;
+}
+
 export function planTokenChaining(
   demande: Pick<IAiMcpRequest, "auth" | "dryRun" | "json">,
   contexte: {
@@ -199,6 +326,11 @@ export function planTokenChaining(
      * lisant chaque fois un 401 qui accuse le jeton à tort.
      */
     ttlMinutes?: number;
+    /**
+     * Scopes demandés à l'émetteur. Omis, la commande d'émission applique son
+     * défaut — la lecture seule.
+     */
+    scopes?: string;
   },
 ): IChainedToken | null {
   // Un jeton n'a de sens que si l'en-tête le RÉCLAME.
@@ -207,11 +339,15 @@ export function planTokenChaining(
   // question romprait.
   if (demande.dryRun || demande.json) return null;
   if (!contexte.isTTY) return null;
+  const argv = ["security:token", "--write"];
+  if (contexte.ttlMinutes !== undefined) {
+    argv.push("--ttl", String(contexte.ttlMinutes));
+  }
+  if (contexte.scopes !== undefined && contexte.scopes.trim() !== "") {
+    argv.push("--scope", contexte.scopes);
+  }
   return {
-    argv:
-      contexte.ttlMinutes === undefined
-        ? ["security:token", "--write"]
-        : ["security:token", "--write", "--ttl", String(contexte.ttlMinutes)],
+    argv,
     env: { ...(contexte.env ?? process.env), NODE_ENV: "development" },
     cwd: contexte.projectRoot,
   };
@@ -567,22 +703,32 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
     const parFichier = detectes.filter(
       (c) => c.declaration === "fichier-projet",
     );
-    if (parFichier.length > 0 && process.stdin.isTTY) {
-      const noms = parFichier.map((c) => c.nom).join(", ");
-      process.stdout.write(
-        `  ${noms} : rien à cocher — ${parFichier.length > 1 ? "ils lisent" : "il lit"} le ${path.basename(file)} de ce projet, déjà à jour.\n`,
-      );
-    }
-    if (presents.length > 0 && process.stdin.isTTY) {
+    if (detectes.length > 0 && process.stdin.isTTY) {
       const { checkbox } = await import("@inquirer/prompts");
       const choisis = (await checkbox({
         message: `Déclarer la porte chez quels agents ? ${"(espace pour cocher — ENTRÉE sans rien cocher : aucun, je code seul)"}`,
-        choices: presents.map((c) => ({
-          name: `${c.nom} — ${c.bin} mcp ${parsed.remove ? "remove" : "add"}`,
-          value: c.cle,
-          checked: false,
-        })),
+        choices: [
+          // ⚠️ Les agents servis par le FICHIER de projet figurent dans la
+          // liste, cochés et non décochables. Les taire était un contresens
+          // d'ergonomie : une liste où l'agent principal MANQUE se lit
+          // « non géré », alors qu'il est déjà servi — c'est même le seul qui
+          // n'ait rien à attendre de cette question. Un choix inerte qui
+          // s'EXPLIQUE vaut mieux qu'une absence qui s'interprète.
+          ...parFichier.map((c) => ({
+            name: `${c.nom} — servi par le ${path.basename(file)} de ce projet`,
+            value: c.cle,
+            checked: true,
+            disabled: "déjà à jour, rien à lancer",
+          })),
+          ...presents.map((c) => ({
+            name: `${c.nom} — ${c.bin} mcp ${parsed.remove ? "remove" : "add"}`,
+            value: c.cle,
+            checked: false,
+          })),
+        ],
       })) as string[];
+      // Un choix désactivé n'est jamais rendu par la question : le filtre porte
+      // donc bien sur les seuls agents qui ont une CLI à lancer.
       cibles = presents.filter((c) => choisis.includes(c.cle));
     }
   }
@@ -655,9 +801,36 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
   });
   if (chainage) {
     const { confirm, select } = await import("@inquirer/prompts");
+    // ⭐ CONSTATER avant de proposer. Le jeton part dans un en-tête statique
+    // que rien ne rafraîchit : expiré, il produit un `401` qui accuse la
+    // configuration, l'audience ou le serveur — jamais l'échéance. Une ligne
+    // ici remplace une enquête. Et le défaut de la question suit le constat :
+    // on ne pousse pas à réémettre un jeton qui a encore une semaine devant
+    // lui, mais on le propose franchement s'il est mort.
+    const detectesPourJeton = agentsPresents({
+      projectRoot,
+      existe: existsSync,
+    });
+    const etats = etatJetonsAgents(
+      detectesPourJeton,
+      projectRoot,
+      Math.floor(Date.now() / 1000),
+    );
+    for (const cible of detectesPourJeton) {
+      process.stdout.write(`  ${cible.nom} : ${etats.get(cible.cle)}\n`);
+    }
+    // « Périmé » vaut pour l'ENSEMBLE : si un seul agent porte un jeton mort,
+    // proposer par défaut de réémettre est le bon service — c'est lui qui
+    // rendra des 401 sans qu'on sache lequel.
+    const perime =
+      detectesPourJeton.length === 0 ||
+      [...etats.values()].some(
+        (phrase) =>
+          phrase.includes("EXPIRÉ") || phrase.includes("pas de jeton"),
+      );
     const maintenant = await confirm({
-      message: `Obtenir un jeton maintenant (${MCP_TOKEN_ENV}) ?`,
-      default: true,
+      message: `${perime ? "Obtenir" : "Réémettre"} un jeton maintenant (${MCP_TOKEN_ENV}) ?`,
+      default: perime,
     });
     const bin = process.argv[1];
     if (maintenant && bin) {
@@ -679,10 +852,29 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
           { name: "15 minutes (le défaut de la configuration)", value: 15 },
         ],
       });
+      // ⭐ Le RÔLE du jeton se choisit, il ne se subit pas. Le défaut de la
+      // commande d'émission est la lecture SEULE — le plus étroit se durcit
+      // tout seul dans le bon sens — mais qui veut muter par la porte MCP
+      // devait jusqu'ici connaître `--scope` et l'écrire à la main.
+      const scopes = await select({
+        message: "Ce que le jeton autorise",
+        default: ADMIN_SCOPE_READ,
+        choices: [
+          {
+            name: `Lecture seule (${ADMIN_SCOPE_READ}) — recommandé`,
+            value: ADMIN_SCOPE_READ,
+          },
+          {
+            name: `Lecture et mutations (${ADMIN_SCOPE_READ} ${ADMIN_SCOPE_WRITE})`,
+            value: `${ADMIN_SCOPE_READ} ${ADMIN_SCOPE_WRITE}`,
+          },
+        ],
+      });
       const avecDuree = planTokenChaining(parsed, {
         projectRoot,
         isTTY: true,
         ttlMinutes,
+        scopes,
       });
       const { spawnSync } = await import("node:child_process");
       // `stdio: "inherit"` — l'enfant hérite du TERMINAL, sans quoi il ne

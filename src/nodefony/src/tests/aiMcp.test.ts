@@ -11,7 +11,13 @@ import {
   MCP_SERVER_KEY,
   type IMcpConfigDocument,
 } from "../cli/aiMcpReport";
-import { parseAiMcpArgv, planTokenChaining } from "../cli/aiMcp";
+import {
+  parseAiMcpArgv,
+  planTokenChaining,
+  etatDuJeton,
+  renderEtatJeton,
+} from "../cli/aiMcp";
+import { litVariable } from "../cli/agentTargets";
 
 /**
  * Ce que cette suite garde : `ai:mcp` écrit dans un fichier que le projet
@@ -368,5 +374,93 @@ describe("ai:mcp — l'enchaînement vers security:token", () => {
         null,
       );
     }
+  });
+});
+
+describe("ai:mcp — l'état d'un jeton se CONSTATE, il ne se devine pas", () => {
+  /** Fabrique un JWT non signé : seule la charge utile nous intéresse ici. */
+  const jeton = (charge: Record<string, unknown>): string =>
+    `x.${Buffer.from(JSON.stringify(charge)).toString("base64url")}.y`;
+
+  it("🔴 dit qu'un jeton est EXPIRÉ — c'est lui qui provoque les 401", () => {
+    // Le jeton part dans un en-tête STATIQUE que rien ne rafraîchit. Expiré, il
+    // rend un 401 qui accuse la configuration, l'audience ou le serveur —
+    // jamais l'échéance. Une ligne de constat remplace une enquête.
+    const etat = etatDuJeton(jeton({ exp: 1000, scope: "admin:read" }), 4600);
+    expect(etat?.restantSecondes).to.equal(-3600);
+    expect(renderEtatJeton(etat)).to.contain("EXPIRÉ");
+    expect(renderEtatJeton(etat)).to.contain("401");
+  });
+
+  it("dit ce que le jeton AUTORISE — le rôle se voit avant de s'étonner", () => {
+    const etat = etatDuJeton(
+      jeton({ exp: 100_000, scope: "admin:read admin:write" }),
+      1_000,
+    );
+    expect(etat?.scopes).to.deep.equal(["admin:read", "admin:write"]);
+    expect(renderEtatJeton(etat)).to.contain("admin:read admin:write");
+  });
+
+  it("rend la durée restante en jours quand elle se compte en jours", () => {
+    const etat = etatDuJeton(jeton({ exp: 7 * 24 * 3600, scope: "" }), 0);
+    expect(renderEtatJeton(etat)).to.contain("7 jours");
+  });
+
+  it("ne PRÉTEND rien d'un contenu illisible", () => {
+    // Se taire vaut mieux qu'affirmer : un jeton qu'on ne sait pas décrire
+    // n'est pas un jeton absent.
+    expect(etatDuJeton("pas-un-jwt", 0)).to.equal(null);
+    expect(etatDuJeton("x.!!!.y", 0)).to.equal(null);
+    expect(renderEtatJeton(null)).to.contain("aucun jeton");
+  });
+
+  it("🔴 ne divulgue JAMAIS le jeton lui-même", () => {
+    const secret = jeton({ exp: 100_000, scope: "admin:read" });
+    const rendu = renderEtatJeton(etatDuJeton(secret, 0));
+    expect(rendu).to.not.contain(secret);
+    expect(rendu).to.not.contain(secret.split(".")[1]);
+  });
+});
+
+describe("ai:mcp — lire une variable posée chez un agent", () => {
+  it("lit les deux grammaires, et rend null quand elle manque", () => {
+    expect(
+      litVariable("dotenv", "NF_MCP_TOKEN=abc\n", "NF_MCP_TOKEN"),
+    ).to.equal("abc");
+    // Les guillemets sont une convention d'écriture, pas une part de la valeur.
+    expect(
+      litVariable("dotenv", 'NF_MCP_TOKEN="abc"\n', "NF_MCP_TOKEN"),
+    ).to.equal("abc");
+    expect(
+      litVariable("json-env", '{"env":{"NF_MCP_TOKEN":"abc"}}', "NF_MCP_TOKEN"),
+    ).to.equal("abc");
+    expect(litVariable("json-env", "{}", "NF_MCP_TOKEN")).to.equal(null);
+    expect(litVariable("dotenv", "AUTRE=1", "NF_MCP_TOKEN")).to.equal(null);
+    expect(litVariable("json-env", "pas du json", "NF_MCP_TOKEN")).to.equal(
+      null,
+    );
+  });
+});
+
+describe("ai:mcp — le RÔLE du jeton se choisit", () => {
+  it("les scopes demandés atteignent la commande d'émission", () => {
+    const plan = planTokenChaining(
+      { auth: true, dryRun: false, json: false },
+      { projectRoot: "/x", isTTY: true, scopes: "admin:read admin:write" },
+    );
+    expect(plan?.argv).to.deep.equal([
+      "security:token",
+      "--write",
+      "--scope",
+      "admin:read admin:write",
+    ]);
+  });
+
+  it("sans choix, l'émetteur applique son défaut — la lecture seule", () => {
+    const plan = planTokenChaining(
+      { auth: true, dryRun: false, json: false },
+      { projectRoot: "/x", isTTY: true },
+    );
+    expect(plan?.argv).to.deep.equal(["security:token", "--write"]);
   });
 });
