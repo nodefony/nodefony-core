@@ -107,6 +107,8 @@ export interface IScaffoldRunOptions {
 const RENAMES: Record<string, string> = {
   gitignore: ".gitignore",
   dockerignore: ".dockerignore",
+  prettierignore: ".prettierignore",
+  gitattributes: ".gitattributes",
   "oxlintrc.json": ".oxlintrc.json",
   "prettierrc.json": ".prettierrc.json",
   "gitlab-ci.yml": ".gitlab-ci.yml",

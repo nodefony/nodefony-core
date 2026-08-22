@@ -112,6 +112,11 @@ describe("git:hooks — le geste sur disque", { timeout: 120_000 }, () => {
     }
   };
 
+  // ⏱️ Le budget d'un HOOK est distinct de celui d'un test : le `timeout` posé
+  // sur le `describe` ne le couvre pas (vitest : `hookTimeout`, 10 s par
+  // défaut). Or ce hook SPAWNE `git init`, et sous `npm run verify` — tous les
+  // workspaces en parallèle — il dépasse : « Hook timed out in 10000ms », vert
+  // en isolation, rouge en suite. Rien ne s'évalue en temps ici.
   beforeEach(() => {
     root = mkdtempSync(path.join(tmpdir(), "nf-githooks-"));
     writeFileSync(
@@ -120,7 +125,7 @@ describe("git:hooks — le geste sur disque", { timeout: 120_000 }, () => {
     );
     writeFileSync(path.join(root, "package.json"), '{"name":"app"}\n');
     execFileSync("git", ["init", "-q"], { cwd: root });
-  });
+  }, 120_000);
 
   afterEach(() => {
     rmSync(root, { recursive: true, force: true });

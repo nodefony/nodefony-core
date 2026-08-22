@@ -14,6 +14,24 @@
 docs/skills/**
 docs/outillage-agents.md
 
+# Copies CONFORMES d'une spec amont : elles se REMPLACENT par l'amont (un
+# `tar -xzf` du dépôt d'origine), elles ne s'éditent jamais. Les reformater les
+# ferait diverger de leur source, et la prochaine mise à jour rendrait un diff
+# entièrement artificiel — impossible de voir ce que la révision a VRAIMENT
+# changé. Même raison que `docs/skills/**` plus haut.
+.claude/skills/nodefony-rfc/references/**
+# Idem : specs MDN/W3C recopiées telles quelles dans les skills. Prettier ne
+# converge même pas dessus (4 fichiers restaient signalés APRÈS --write).
+.claude/skills/**/references/specs/**
+
+# Références de banc ÉCRITES PAR LE BANC (`--enregistrer-reference`) : le
+# formateur et le générateur se disputeraient le fichier, et chaque
+# enregistrement rediffèrerait.
+.claude/skills/**/baseline.json
+
+# Configuration LOCALE (déjà gitignorée) — rien à normaliser pour les autres.
+.claude/settings.local.json
+
 # Lockfiles & data
 package-lock.json
 **/*.min.js
