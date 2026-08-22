@@ -79,7 +79,8 @@ export class RoleRegistry {
    */
   roles(mask: number): Role[] {
     const out: Role[] = [];
-    for (const [role, bit] of this.#bits) if ((mask & bit) !== 0) out.push(role);
+    for (const [role, bit] of this.#bits)
+      if ((mask & bit) !== 0) out.push(role);
     return out;
   }
 

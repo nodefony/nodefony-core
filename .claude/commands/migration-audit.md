@@ -9,14 +9,14 @@ Route selon l'argument (insensible à la casse et aux accents). En cas de doute,
 
 ## Si `help` / `aide` / `?` → AFFICHE SEULEMENT ce tableau, n'exécute aucun audit
 
-| Argument | Effet |
-|----------|-------|
-| `tableau` (alias `synthèse`, `résumé`, `table`) | **Le tableau SEUL** : barres de progression % par phase + encadré « ➡️ prochaine étape ». Aucun arrêt, aucune correction. Lecture rapide. |
-| `auto` | **Audit complet non-interactif** : vérifie chaque phase dans le code (grep/ls/find), sort toutes les phases d'affilée, puis le récap + les corrections proposées. **Pas** d'attente « suivante ». |
-| `phase` (alias vide, défaut) | **Revue interactive** phase par phase P0→P16. Tu dis « suivante » entre chaque. |
-| `P<n>` (ex. `P6`) | Audit ciblé d'**une seule** phase. |
-| `reprendre` | Repart où on s'était arrêté (mémoire `project_migration_audit_progress`). |
-| `help` / `aide` | Affiche cette aide. |
+| Argument                                        | Effet                                                                                                                                                                                             |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tableau` (alias `synthèse`, `résumé`, `table`) | **Le tableau SEUL** : barres de progression % par phase + encadré « ➡️ prochaine étape ». Aucun arrêt, aucune correction. Lecture rapide.                                                         |
+| `auto`                                          | **Audit complet non-interactif** : vérifie chaque phase dans le code (grep/ls/find), sort toutes les phases d'affilée, puis le récap + les corrections proposées. **Pas** d'attente « suivante ». |
+| `phase` (alias vide, défaut)                    | **Revue interactive** phase par phase P0→P16. Tu dis « suivante » entre chaque.                                                                                                                   |
+| `P<n>` (ex. `P6`)                               | Audit ciblé d'**une seule** phase.                                                                                                                                                                |
+| `reprendre`                                     | Repart où on s'était arrêté (mémoire `project_migration_audit_progress`).                                                                                                                         |
+| `help` / `aide`                                 | Affiche cette aide.                                                                                                                                                                               |
 
 ## Sinon → lance le skill `nodefony-migration-audit` (`.claude/skills/nodefony-migration-audit/SKILL.md`) dans le mode :
 

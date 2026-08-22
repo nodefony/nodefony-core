@@ -2,33 +2,43 @@
 // Adapter local souverain — tout local, rien ne sort
 
 import type {
-  ILLMProvider, ILLMConfig, IMessage, ILLMResponse,
-  IStreamChunk, IChatOptions, LLMMode
+  ILLMProvider,
+  ILLMConfig,
+  IMessage,
+  ILLMResponse,
+  IStreamChunk,
+  IChatOptions,
+  LLMMode,
 } from "../interfaces/ILLMProvider.js";
 import {
-  LLMError, LLMTimeoutError, LLMAbortError
+  LLMError,
+  LLMTimeoutError,
+  LLMAbortError,
 } from "../errors/LLMErrors.js";
 
 export class OllamaProvider implements ILLMProvider {
-  readonly name  = "ollama" as const;
+  readonly name = "ollama" as const;
   readonly model: string;
-  readonly mode:  LLMMode = "sovereign";
+  readonly mode: LLMMode = "sovereign";
 
-  private readonly endpoint:  string;
+  private readonly endpoint: string;
   private readonly maxTokens: number;
-  private readonly timeout:   number;
+  private readonly timeout: number;
 
   private readonly activeControllers = new Set<AbortController>();
   private isShutdown = false;
 
   constructor(config: ILLMConfig) {
-    this.endpoint  = config.endpoint  ?? "http://localhost:11434";
-    this.model     = config.model     ?? "mistral:7b-instruct-q4";
+    this.endpoint = config.endpoint ?? "http://localhost:11434";
+    this.model = config.model ?? "mistral:7b-instruct-q4";
     this.maxTokens = config.maxTokens ?? 4096;
-    this.timeout   = config.timeout   ?? 120_000; // local peut être lent
+    this.timeout = config.timeout ?? 120_000; // local peut être lent
   }
 
-  async chat(messages: IMessage[], options?: IChatOptions): Promise<ILLMResponse> {
+  async chat(
+    messages: IMessage[],
+    options?: IChatOptions,
+  ): Promise<ILLMResponse> {
     this.assertReady();
 
     const controller = new AbortController();
@@ -37,13 +47,13 @@ export class OllamaProvider implements ILLMProvider {
 
     try {
       const response = await fetch(`${this.endpoint}/api/chat`, {
-        method:  "POST",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model:    this.model,
+          model: this.model,
           messages: this.buildMessages(messages, options),
-          stream:   false,
-          options:  { num_predict: options?.maxTokens ?? this.maxTokens },
+          stream: false,
+          options: { num_predict: options?.maxTokens ?? this.maxTokens },
         }),
         signal: this.linkSignal(controller, options?.signal),
       });
@@ -52,16 +62,16 @@ export class OllamaProvider implements ILLMProvider {
         throw new LLMError(`Ollama error ${response.status}`, "API_ERROR");
       }
 
-      const data = await response.json() as OllamaResponse;
+      const data = (await response.json()) as OllamaResponse;
 
       return {
-        content:    data.message.content,
-        model:      data.model,
+        content: data.message.content,
+        model: data.model,
         usage: {
-          inputTokens:  data.prompt_eval_count ?? 0,
+          inputTokens: data.prompt_eval_count ?? 0,
           outputTokens: data.eval_count ?? 0,
-          totalTokens:  (data.prompt_eval_count ?? 0) + (data.eval_count ?? 0),
-          costEur:      0,
+          totalTokens: (data.prompt_eval_count ?? 0) + (data.eval_count ?? 0),
+          costEur: 0,
         },
         stopReason: data.done ? "end_turn" : "max_tokens",
       };
@@ -79,7 +89,10 @@ export class OllamaProvider implements ILLMProvider {
     }
   }
 
-  async *stream(messages: IMessage[], options?: IChatOptions): AsyncGenerator<IStreamChunk> {
+  async *stream(
+    messages: IMessage[],
+    options?: IChatOptions,
+  ): AsyncGenerator<IStreamChunk> {
     this.assertReady();
 
     const controller = new AbortController();
@@ -90,17 +103,18 @@ export class OllamaProvider implements ILLMProvider {
 
     try {
       const response = await fetch(`${this.endpoint}/api/chat`, {
-        method:  "POST",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model:    this.model,
+          model: this.model,
           messages: this.buildMessages(messages, options),
-          stream:   true,
+          stream: true,
         }),
         signal: this.linkSignal(controller, options?.signal),
       });
 
-      if (!response.body) throw new LLMError("No response body", "STREAM_ERROR");
+      if (!response.body)
+        throw new LLMError("No response body", "STREAM_ERROR");
 
       reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -126,14 +140,17 @@ export class OllamaProvider implements ILLMProvider {
                 type: "done",
                 content: "",
                 usage: {
-                  inputTokens:  event.prompt_eval_count ?? 0,
+                  inputTokens: event.prompt_eval_count ?? 0,
                   outputTokens: event.eval_count ?? 0,
-                  totalTokens:  (event.prompt_eval_count ?? 0) + (event.eval_count ?? 0),
-                  costEur:      0,
+                  totalTokens:
+                    (event.prompt_eval_count ?? 0) + (event.eval_count ?? 0),
+                  costEur: 0,
                 },
               };
             }
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
       }
     } catch (err) {
@@ -144,7 +161,11 @@ export class OllamaProvider implements ILLMProvider {
     } finally {
       clearTimeout(timeoutHandle);
       if (reader) {
-        try { reader.releaseLock(); } catch { /* déjà libéré */ }
+        try {
+          reader.releaseLock();
+        } catch {
+          /* déjà libéré */
+        }
       }
       this.activeControllers.delete(controller);
     }
@@ -158,13 +179,13 @@ export class OllamaProvider implements ILLMProvider {
 
     try {
       const response = await fetch(`${this.endpoint}/api/embeddings`, {
-        method:  "POST",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ model: this.model, prompt: text }),
-        signal:  controller.signal,
+        body: JSON.stringify({ model: this.model, prompt: text }),
+        signal: controller.signal,
       });
       if (!response.ok) throw new LLMError("Ollama embed error", "EMBED_ERROR");
-      const data = await response.json() as { embedding: number[] };
+      const data = (await response.json()) as { embedding: number[] };
       return data.embedding;
     } finally {
       clearTimeout(timeoutHandle);
@@ -181,8 +202,12 @@ export class OllamaProvider implements ILLMProvider {
         signal: controller.signal,
       });
       if (!response.ok) return false;
-      const data = await response.json() as { models?: { name: string }[] };
-      return data.models?.some(m => m.name.startsWith(this.model.split(":")[0]!)) ?? false;
+      const data = (await response.json()) as { models?: { name: string }[] };
+      return (
+        data.models?.some((m) =>
+          m.name.startsWith(this.model.split(":")[0]!),
+        ) ?? false
+      );
     } catch {
       return false;
     } finally {
@@ -193,7 +218,11 @@ export class OllamaProvider implements ILLMProvider {
   async shutdown(): Promise<void> {
     this.isShutdown = true;
     for (const controller of this.activeControllers) {
-      try { controller.abort(); } catch { /* OK */ }
+      try {
+        controller.abort();
+      } catch {
+        /* OK */
+      }
     }
     this.activeControllers.clear();
   }
@@ -206,11 +235,14 @@ export class OllamaProvider implements ILLMProvider {
     }
   }
 
-  private buildMessages(messages: IMessage[], options?: IChatOptions): IMessage[] {
+  private buildMessages(
+    messages: IMessage[],
+    options?: IChatOptions,
+  ): IMessage[] {
     if (!options?.context) return messages;
 
     const result = [...messages];
-    const sysIdx = result.findIndex(m => m.role === "system");
+    const sysIdx = result.findIndex((m) => m.role === "system");
     const ctxText = `\n\n<context>\n${options.context}\n</context>`;
 
     if (sysIdx >= 0) {
@@ -224,7 +256,10 @@ export class OllamaProvider implements ILLMProvider {
     return result;
   }
 
-  private linkSignal(internal: AbortController, external?: AbortSignal): AbortSignal {
+  private linkSignal(
+    internal: AbortController,
+    external?: AbortSignal,
+  ): AbortSignal {
     if (!external) return internal.signal;
     if (external.aborted) {
       internal.abort();
@@ -236,16 +271,16 @@ export class OllamaProvider implements ILLMProvider {
 }
 
 interface OllamaResponse {
-  model:              string;
-  message:            { content: string };
-  done:               boolean;
+  model: string;
+  message: { content: string };
+  done: boolean;
   prompt_eval_count?: number;
-  eval_count?:        number;
+  eval_count?: number;
 }
 
 interface OllamaStreamEvent {
-  message?:           { content: string };
-  done:               boolean;
+  message?: { content: string };
+  done: boolean;
   prompt_eval_count?: number;
-  eval_count?:        number;
+  eval_count?: number;
 }

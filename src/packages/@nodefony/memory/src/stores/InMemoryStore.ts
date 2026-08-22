@@ -6,14 +6,14 @@ import type { IMemoryEntry } from "../interfaces/IMemoryService.js";
 
 export interface IInMemoryStoreConfig {
   maxEntriesPerSession?: number; // défaut 100
-  maxSessions?:          number; // défaut 1000
-  sessionTtlMs?:         number; // défaut 1h
+  maxSessions?: number; // défaut 1000
+  sessionTtlMs?: number; // défaut 1h
 }
 
 export class InMemoryStore {
   private readonly maxEntriesPerSession: number;
-  private readonly maxSessions:          number;
-  private readonly sessionTtlMs:         number;
+  private readonly maxSessions: number;
+  private readonly sessionTtlMs: number;
 
   // sessionId -> entries[]
   private sessions = new Map<string, IMemoryEntry[]>();
@@ -26,13 +26,17 @@ export class InMemoryStore {
 
   constructor(config: IInMemoryStoreConfig = {}) {
     this.maxEntriesPerSession = config.maxEntriesPerSession ?? 100;
-    this.maxSessions          = config.maxSessions          ?? 1000;
-    this.sessionTtlMs         = config.sessionTtlMs         ?? 3_600_000;
+    this.maxSessions = config.maxSessions ?? 1000;
+    this.sessionTtlMs = config.sessionTtlMs ?? 3_600_000;
 
     // Cleanup périodique des sessions expirées
     this.cleanupHandle = setInterval(() => this.cleanupExpired(), 60_000);
     // Permettre au process de finir si seul ce timer tourne
-    if (this.cleanupHandle && typeof (this.cleanupHandle as unknown as { unref?: () => void }).unref === "function") {
+    if (
+      this.cleanupHandle &&
+      typeof (this.cleanupHandle as unknown as { unref?: () => void }).unref ===
+        "function"
+    ) {
       (this.cleanupHandle as unknown as { unref: () => void }).unref();
     }
   }
@@ -92,9 +96,9 @@ export class InMemoryStore {
   removeAgent(agentId: string): number {
     let removed = 0;
     for (const [sessionId, entries] of this.sessions) {
-      if (entries.some(e => e.agentId === agentId)) {
-        removed += entries.filter(e => e.agentId === agentId).length;
-        const filtered = entries.filter(e => e.agentId !== agentId);
+      if (entries.some((e) => e.agentId === agentId)) {
+        removed += entries.filter((e) => e.agentId === agentId).length;
+        const filtered = entries.filter((e) => e.agentId !== agentId);
         if (filtered.length === 0) {
           this.sessions.delete(sessionId);
           this.lastAccess.delete(sessionId);

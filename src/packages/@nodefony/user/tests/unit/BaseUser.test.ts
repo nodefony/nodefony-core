@@ -5,7 +5,11 @@ import type { ISocialProvider } from "../../nodefony/contracts/IUser";
 
 describe("BaseUser", () => {
   const make = () =>
-    new BaseUser({ id: "u-1", identifier: "alice@acme.io", roles: ["ROLE_USER"] });
+    new BaseUser({
+      id: "u-1",
+      identifier: "alice@acme.io",
+      roles: ["ROLE_USER"],
+    });
 
   it("applique les défauts (password null, actif, non verrouillé, collections vides)", () => {
     const u = new BaseUser({ id: "u-1", identifier: "alice@acme.io" });

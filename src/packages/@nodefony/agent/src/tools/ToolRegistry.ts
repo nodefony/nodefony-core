@@ -1,7 +1,10 @@
 // @nodefony/agent — src/tools/ToolRegistry.ts
 
 import type { ITool, IAgentContext } from "../interfaces/IAgent.js";
-import { ToolNotFoundError, ToolExecutionError } from "../errors/AgentErrors.js";
+import {
+  ToolNotFoundError,
+  ToolExecutionError,
+} from "../errors/AgentErrors.js";
 
 const TOOL_NAME_REGEX = /^[a-z][a-z0-9_]*$/;
 const MAX_TOOLS = 256;
@@ -11,7 +14,9 @@ export class ToolRegistry {
 
   register(tool: ITool): void {
     if (!TOOL_NAME_REGEX.test(tool.name)) {
-      throw new Error(`Invalid tool name "${tool.name}". Must match ${TOOL_NAME_REGEX}`);
+      throw new Error(
+        `Invalid tool name "${tool.name}". Must match ${TOOL_NAME_REGEX}`,
+      );
     }
     if (this.tools.size >= MAX_TOOLS) {
       throw new Error(`Cannot register more than ${MAX_TOOLS} tools`);
@@ -43,7 +48,7 @@ export class ToolRegistry {
   async execute(
     name: string,
     input: Record<string, unknown>,
-    context: IAgentContext
+    context: IAgentContext,
   ): Promise<unknown> {
     const tool = this.get(name);
     try {

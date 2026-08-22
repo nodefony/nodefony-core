@@ -36,7 +36,10 @@ export function buildOrmLeanHealth(): IOrmLeanHealth {
     const flow = queryFlowMonitor.snapshot(name, "");
     queryTotal += flow.total;
     slowTotal += flow.slowTotal;
-    if (flow.ewmaMs !== null && (maxEwmaMs === null || flow.ewmaMs > maxEwmaMs)) {
+    if (
+      flow.ewmaMs !== null &&
+      (maxEwmaMs === null || flow.ewmaMs > maxEwmaMs)
+    ) {
       maxEwmaMs = flow.ewmaMs;
     }
   }

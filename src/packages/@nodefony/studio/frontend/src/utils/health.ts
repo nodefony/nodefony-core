@@ -67,7 +67,11 @@ export interface HealthResult {
  * Désirabilité d'une métrique « smaller is better » (Derringer-Suich) : 1 sous le
  * seuil bon, 0 au-dessus du critique, rampe linéaire entre les deux.
  */
-export function healthDesirability(v: number, good: number, crit: number): number {
+export function healthDesirability(
+  v: number,
+  good: number,
+  crit: number,
+): number {
   if (crit <= good) return v <= good ? 1 : 0;
   if (v <= good) return 1;
   if (v >= crit) return 0;

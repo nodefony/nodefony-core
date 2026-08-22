@@ -74,7 +74,9 @@ describe("config — defineEnv (catalogue env Lot 2)", () => {
         () =>
           defineEnv(
             {
-              NF_LOG_DRIVER: envEnum(["stdout", "file"] as const, { default: "stdout" }),
+              NF_LOG_DRIVER: envEnum(["stdout", "file"] as const, {
+                default: "stdout",
+              }),
             },
             { NF_LOG_DRIVER: "kafka" },
           ),

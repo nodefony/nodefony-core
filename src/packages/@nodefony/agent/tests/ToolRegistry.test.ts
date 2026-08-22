@@ -1,7 +1,10 @@
 // @nodefony/agent — tests/ToolRegistry.test.ts
 import { describe, it, expect, beforeEach, mock } from "bun:test";
 import { ToolRegistry } from "../src/tools/ToolRegistry.js";
-import { ToolNotFoundError, ToolExecutionError } from "../src/errors/AgentErrors.js";
+import {
+  ToolNotFoundError,
+  ToolExecutionError,
+} from "../src/errors/AgentErrors.js";
 import type { ITool } from "../src/interfaces/IAgent.js";
 
 const makeTool = (name: string, execute = mock(async () => "ok")): ITool => ({
@@ -48,21 +51,29 @@ describe("ToolRegistry", () => {
     it("calls tool execute", async () => {
       const exec = mock(async () => ({ result: "data" }));
       registry.register(makeTool("search", exec));
-      const result = await registry.execute("search", { q: "x" }, { sessionId: "s" });
+      const result = await registry.execute(
+        "search",
+        { q: "x" },
+        { sessionId: "s" },
+      );
       expect(result).toEqual({ result: "data" });
       expect(exec).toHaveBeenCalled();
     });
 
     it("throws ToolNotFoundError", async () => {
-      await expect(registry.execute("missing", {}, { sessionId: "s" }))
-        .rejects.toThrow(ToolNotFoundError);
+      await expect(
+        registry.execute("missing", {}, { sessionId: "s" }),
+      ).rejects.toThrow(ToolNotFoundError);
     });
 
     it("wraps errors in ToolExecutionError", async () => {
-      const exec = mock(async () => { throw new Error("boom"); });
+      const exec = mock(async () => {
+        throw new Error("boom");
+      });
       registry.register(makeTool("failing", exec));
-      await expect(registry.execute("failing", {}, { sessionId: "s" }))
-        .rejects.toThrow(ToolExecutionError);
+      await expect(
+        registry.execute("failing", {}, { sessionId: "s" }),
+      ).rejects.toThrow(ToolExecutionError);
     });
   });
 

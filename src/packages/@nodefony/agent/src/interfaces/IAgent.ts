@@ -2,14 +2,14 @@
 
 export interface IAgentContext {
   sessionId: string;
-  userId?:   string;
+  userId?: string;
   metadata?: Record<string, unknown>;
 }
 
 export interface IAgentResult {
-  content:    string;
+  content: string;
   toolsUsed?: string[];
-  cost?:      number;
+  cost?: number;
   durationMs: number;
 }
 
@@ -23,16 +23,16 @@ export type AgentEventType =
   | "error";
 
 export interface IAgentEvent {
-  type:      AgentEventType;
-  content?:  string;
+  type: AgentEventType;
+  content?: string;
   toolCall?: { name: string; arguments: Record<string, unknown> };
   toolResult?: { name: string; result: unknown };
-  error?:    string;
+  error?: string;
   metadata?: Record<string, unknown>;
 }
 
 export interface IAgent {
-  readonly name:        string;
+  readonly name: string;
   readonly description: string;
 
   /**
@@ -57,9 +57,12 @@ export interface IAgent {
 }
 
 export interface ITool {
-  readonly name:        string;
+  readonly name: string;
   readonly description: string;
   readonly inputSchema: Record<string, unknown>; // JSON Schema
 
-  execute(input: Record<string, unknown>, context: IAgentContext): Promise<unknown>;
+  execute(
+    input: Record<string, unknown>,
+    context: IAgentContext,
+  ): Promise<unknown>;
 }

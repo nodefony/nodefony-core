@@ -2,8 +2,11 @@
 // Service principal injectable — facade au-dessus des providers
 
 import type {
-  ILLMProvider, IMessage, ILLMResponse,
-  IStreamChunk, IChatOptions
+  ILLMProvider,
+  IMessage,
+  ILLMResponse,
+  IStreamChunk,
+  IChatOptions,
 } from "../interfaces/ILLMProvider.js";
 import { LLMError } from "../errors/LLMErrors.js";
 
@@ -23,9 +26,15 @@ export class LLMService implements ILLMService {
   private readonly providers = new Map<string, ILLMProvider>();
   private isShutdown = false;
 
-  get name() { return this.currentProvider.name; }
-  get model() { return this.currentProvider.model; }
-  get mode() { return this.currentProvider.mode; }
+  get name() {
+    return this.currentProvider.name;
+  }
+  get model() {
+    return this.currentProvider.model;
+  }
+  get mode() {
+    return this.currentProvider.mode;
+  }
 
   constructor(initialProvider: ILLMProvider) {
     this.currentProvider = initialProvider;
@@ -53,12 +62,18 @@ export class LLMService implements ILLMService {
     return [...this.providers.values()];
   }
 
-  async chat(messages: IMessage[], options?: IChatOptions): Promise<ILLMResponse> {
+  async chat(
+    messages: IMessage[],
+    options?: IChatOptions,
+  ): Promise<ILLMResponse> {
     this.assertReady();
     return this.currentProvider.chat(messages, options);
   }
 
-  stream(messages: IMessage[], options?: IChatOptions): AsyncGenerator<IStreamChunk> {
+  stream(
+    messages: IMessage[],
+    options?: IChatOptions,
+  ): AsyncGenerator<IStreamChunk> {
     this.assertReady();
     return this.currentProvider.stream(messages, options);
   }
@@ -87,8 +102,8 @@ export class LLMService implements ILLMService {
     this.providers.clear();
     if (errors.length > 0) {
       throw new LLMError(
-        `Errors during shutdown: ${errors.map(e => e.message).join("; ")}`,
-        "SHUTDOWN_ERRORS"
+        `Errors during shutdown: ${errors.map((e) => e.message).join("; ")}`,
+        "SHUTDOWN_ERRORS",
       );
     }
   }

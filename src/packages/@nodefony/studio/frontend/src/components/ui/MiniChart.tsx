@@ -49,7 +49,11 @@ export function MiniChart({
   const W = 600;
   const H = 200;
   const pad = 6;
-  const [hover, setHover] = useState<{ idx: number; xPx: number; w: number } | null>(null);
+  const [hover, setHover] = useState<{
+    idx: number;
+    xPx: number;
+    w: number;
+  } | null>(null);
   const n = Math.max(0, ...series.map((s) => s.data.length));
   if (n < 2) return null;
   const top = max ?? Math.max(1, ...series.flatMap((s) => s.data)) * 1.15;
@@ -59,10 +63,18 @@ export function MiniChart({
   const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     const frac = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-    setHover({ idx: Math.round(frac * (n - 1)), xPx: frac * r.width, w: r.width });
+    setHover({
+      idx: Math.round(frac * (n - 1)),
+      xPx: frac * r.width,
+      w: r.width,
+    });
   };
 
-  const tipLeft = hover ? (hover.xPx > hover.w * 0.6 ? hover.xPx - 140 : hover.xPx + 12) : 0;
+  const tipLeft = hover
+    ? hover.xPx > hover.w * 0.6
+      ? hover.xPx - 140
+      : hover.xPx + 12
+    : 0;
   const ariaLabel = series
     .map((s) => `${s.label} ${format(s.data[s.data.length - 1] ?? 0)}`)
     .join(", ");
@@ -103,7 +115,9 @@ export function MiniChart({
           opacity={0.6}
         />
         {series.map((s, si) => {
-          const line = s.data.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(" ");
+          const line = s.data
+            .map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`)
+            .join(" ");
           const area = `${pad},${H - pad} ${line} ${W - pad},${H - pad}`;
           const last = s.data[s.data.length - 1];
           return (
@@ -117,7 +131,13 @@ export function MiniChart({
                 strokeLinejoin="round"
                 vectorEffect="non-scaling-stroke"
               />
-              <circle cx={xOf(n - 1)} cy={yOf(last)} r={3} fill={s.color} vectorEffect="non-scaling-stroke" />
+              <circle
+                cx={xOf(n - 1)}
+                cy={yOf(last)}
+                r={3}
+                fill={s.color}
+                vectorEffect="non-scaling-stroke"
+              />
             </g>
           );
         })}
@@ -149,10 +169,16 @@ export function MiniChart({
           </>
         )}
       </svg>
-      <Text c="dimmed" style={{ position: "absolute", top: 0, left: 2, fontSize: 10 }}>
+      <Text
+        c="dimmed"
+        style={{ position: "absolute", top: 0, left: 2, fontSize: 10 }}
+      >
         {format(top)}
       </Text>
-      <Text c="dimmed" style={{ position: "absolute", bottom: 0, left: 2, fontSize: 10 }}>
+      <Text
+        c="dimmed"
+        style={{ position: "absolute", bottom: 0, left: 2, fontSize: 10 }}
+      >
         0
       </Text>
       {hover && (
@@ -160,12 +186,25 @@ export function MiniChart({
           shadow="sm"
           p={6}
           withBorder
-          style={{ position: "absolute", top: 4, left: tipLeft, pointerEvents: "none", zIndex: 5 }}
+          style={{
+            position: "absolute",
+            top: 4,
+            left: tipLeft,
+            pointerEvents: "none",
+            zIndex: 5,
+          }}
         >
           <Stack gap={2}>
             {series.map((s, si) => (
               <Group key={si} gap={6} wrap="nowrap">
-                <span style={{ width: 8, height: 8, background: s.color, borderRadius: 2 }} />
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    background: s.color,
+                    borderRadius: 2,
+                  }}
+                />
                 <Text size="xs">
                   {s.label} : <b>{format(s.data[hover.idx] ?? 0)}</b>
                 </Text>

@@ -100,7 +100,8 @@ const FLOW_LABELS: Record<FlowStepId, FlowLabel> = {
     label: "Requête terminée",
     color: "gray",
     event: "onFinish",
-    meaning: "Nettoyage post-réponse (hooks onAfterResponse). Vraie fin du cycle.",
+    meaning:
+      "Nettoyage post-réponse (hooks onAfterResponse). Vraie fin du cycle.",
   },
   "ws-open": {
     label: "Connexion ouverte",

@@ -23,11 +23,7 @@
  *  5. publish duplex : A publish→B reçoit, puis B publish→A reçoit
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import {
-  fork,
-  type ChildProcess,
-  type Serializable,
-} from "node:child_process";
+import { fork, type ChildProcess, type Serializable } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { ClusterRelay, type IRelayWorker, CLUSTER_RT_KIND } from "nodefony";
 

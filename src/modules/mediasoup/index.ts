@@ -39,8 +39,7 @@ class Mediasoup extends Module {
   override async onKernelBoot(): Promise<this> {
     // 1) Frontend Vue (build prêt — pas de code front dans ce module).
     const svc = this.kernel?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
+      FrontendService | undefined;
     if (svc) {
       svc.registerEntry(this, {
         type: "vue3",

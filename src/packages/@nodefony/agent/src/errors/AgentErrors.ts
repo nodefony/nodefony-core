@@ -4,7 +4,7 @@ export class AgentError extends Error {
   constructor(
     message: string,
     public readonly code: string,
-    public readonly context?: Record<string, unknown>
+    public readonly context?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "AgentError";
@@ -20,7 +20,9 @@ export class AgentShutdownError extends AgentError {
 
 export class AgentAbortedError extends AgentError {
   constructor(sessionId: string) {
-    super(`Agent execution aborted for session ${sessionId}`, "ABORTED", { sessionId });
+    super(`Agent execution aborted for session ${sessionId}`, "ABORTED", {
+      sessionId,
+    });
     this.name = "AgentAbortedError";
   }
 }
@@ -34,7 +36,9 @@ export class ToolNotFoundError extends AgentError {
 
 export class ToolExecutionError extends AgentError {
   constructor(name: string, cause: Error) {
-    super(`Tool ${name} execution failed: ${cause.message}`, "TOOL_EXECUTION", { name });
+    super(`Tool ${name} execution failed: ${cause.message}`, "TOOL_EXECUTION", {
+      name,
+    });
     this.name = "ToolExecutionError";
     this.cause = cause;
   }
@@ -42,7 +46,11 @@ export class ToolExecutionError extends AgentError {
 
 export class ToolValidationError extends AgentError {
   constructor(name: string, errors: string[]) {
-    super(`Tool ${name} input validation failed: ${errors.join(", ")}`, "TOOL_VALIDATION", { name, errors });
+    super(
+      `Tool ${name} input validation failed: ${errors.join(", ")}`,
+      "TOOL_VALIDATION",
+      { name, errors },
+    );
     this.name = "ToolValidationError";
   }
 }

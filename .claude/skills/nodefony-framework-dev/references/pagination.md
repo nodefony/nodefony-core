@@ -11,16 +11,33 @@ installée depuis npm) :
 
 ```ts
 import {
-  parsePageQuery, parseFilters, countFacets, facetDimensions,
-  pickOrder, compareByOrder, renameOrderFields,
-  assertPageQuery, PageQueryError, PaginationModeError,
-  PAGE_QUERY_KEYS, UNKNOWN_COUNT,
+  parsePageQuery,
+  parseFilters,
+  countFacets,
+  facetDimensions,
+  pickOrder,
+  compareByOrder,
+  renameOrderFields,
+  assertPageQuery,
+  PageQueryError,
+  PaginationModeError,
+  PAGE_QUERY_KEYS,
+  UNKNOWN_COUNT,
 } from "nodefony";
 import type {
-  IPage, IPageQuery, ISortableSource, PaginationMode,
-  IFilterSpec, FilterValues, IParsePageQueryOptions, IParseFiltersOptions,
-  IFacetSpec, FacetCount, FacetCounts,
-  IAdminEndpoint, IAdminPageCapabilities,
+  IPage,
+  IPageQuery,
+  ISortableSource,
+  PaginationMode,
+  IFilterSpec,
+  FilterValues,
+  IParsePageQueryOptions,
+  IParseFiltersOptions,
+  IFacetSpec,
+  FacetCount,
+  FacetCounts,
+  IAdminEndpoint,
+  IAdminPageCapabilities,
 } from "nodefony";
 ```
 
@@ -49,13 +66,13 @@ Jamais « accepté puis ignoré ».
 Le motif n'est pas la sévérité, c'est l'**honnêteté de la réponse**. Un paramètre accepté puis jeté
 rend une page **non filtrée** que le client lit comme le résultat de son filtre :
 
-| Ce que le client envoie | Sans refus, il reçoit | Ce qu'il croit lire |
-| ----------------------- | --------------------- | ------------------- |
-| `?revoked=oui` (au lieu de `true`) | la collection entière | « aucune clé révoquée n'a été exclue » |
-| `?enbaled=true` (faute de frappe) | la collection entière | le résultat de son filtre |
-| `?outcome=deneid` sur un journal d'audit | **tout le journal** | « aucun incident » |
-| `?order=nom:ASC` non honoré | une page dans un ordre arbitraire | une page triée |
-| `?q=dupont` non transmis au store | la collection entière | un résultat de recherche |
+| Ce que le client envoie                  | Sans refus, il reçoit             | Ce qu'il croit lire                    |
+| ---------------------------------------- | --------------------------------- | -------------------------------------- |
+| `?revoked=oui` (au lieu de `true`)       | la collection entière             | « aucune clé révoquée n'a été exclue » |
+| `?enbaled=true` (faute de frappe)        | la collection entière             | le résultat de son filtre              |
+| `?outcome=deneid` sur un journal d'audit | **tout le journal**               | « aucun incident »                     |
+| `?order=nom:ASC` non honoré              | une page dans un ordre arbitraire | une page triée                         |
+| `?q=dupont` non transmis au store        | la collection entière             | un résultat de recherche               |
 
 Confondre **autorisation** (« l'endpoint est déjà gardé, on peut être permissif ») et **honnêteté**
 (« ce que la réponse prétend être ») est l'erreur qui produit ces cinq lignes.
@@ -75,16 +92,16 @@ absent en mode **Slice** quand `withTotal: false`), `offset` ou `nextCursor` sel
 
 Les deux modes sont **mutuellement exclusifs**, et c'est le **store** qui déclare le sien :
 
-| Mode | Champ | Pour quels backends |
-| ---- | ----- | ------------------- |
-| offset | `offset` | SQL `LIMIT/OFFSET`, Mongo `skip/limit`, mémoire, fichier |
-| curseur | `cursor` | Redis `SCAN`, flux ordonnés (journal d'audit) |
+| Mode    | Champ    | Pour quels backends                                      |
+| ------- | -------- | -------------------------------------------------------- |
+| offset  | `offset` | SQL `LIMIT/OFFSET`, Mongo `skip/limit`, mémoire, fichier |
+| curseur | `cursor` | Redis `SCAN`, flux ordonnés (journal d'audit)            |
 
 `parsePageQuery` **n'arbitre pas** entre les deux — il peut rendre les deux champs. C'est le store
 qui tranche, en première ligne de son `listPage` :
 
 ```ts
-assertPageQuery(query, "offset");   // lève PaginationModeError (400) si un `cursor` arrive
+assertPageQuery(query, "offset"); // lève PaginationModeError (400) si un `cursor` arrive
 ```
 
 Sans cette garde, le champ hors-mode était avalé en silence et **un client curseur bouclait
@@ -108,14 +125,14 @@ Un data plane qui relit `request.query` lui-même refabrique un dialecte : les c
 divergé (`Number.isNaN` d'un côté, `Number.isFinite` de l'autre → `?limit=abc` bornait à 50 ici et
 plantait à `NaN` là), et **aucune** ne validait le tri.
 
-| Paramètre | Forme sur le fil | Résultat |
-| --------- | ---------------- | -------- |
-| `limit` | `?limit=20` | borné à `[1, maxLimit]`, défaut `defaultLimit` (50) |
-| `offset` | `?offset=40` | `≥ 0` (négatif ou invalide → absent) |
-| `cursor` | `?cursor=abc` | posé si non vide |
-| `order` | `?order=name:ASC,age:DESC` | validé contre `sortable` — sinon **400** |
-| `withTotal` | `?withTotal=false` | posé **seulement** si `false` (défaut `true`) |
-| `q` | `?q=jean` | trimé, posé si non vide — **400** sans `searchable` |
+| Paramètre   | Forme sur le fil           | Résultat                                            |
+| ----------- | -------------------------- | --------------------------------------------------- |
+| `limit`     | `?limit=20`                | borné à `[1, maxLimit]`, défaut `defaultLimit` (50) |
+| `offset`    | `?offset=40`               | `≥ 0` (négatif ou invalide → absent)                |
+| `cursor`    | `?cursor=abc`              | posé si non vide                                    |
+| `order`     | `?order=name:ASC,age:DESC` | validé contre `sortable` — sinon **400**            |
+| `withTotal` | `?withTotal=false`         | posé **seulement** si `false` (défaut `true`)       |
+| `q`         | `?q=jean`                  | trimé, posé si non vide — **400** sans `searchable` |
 
 Options (`IParsePageQueryOptions`, `pageQuery.ts:23`) :
 
@@ -149,7 +166,7 @@ C'est une **donnée**, pas un comportement — une constante à côté du contra
 const TOKEN_FILTERS = {
   subjectId: "string",
   revoked: "boolean",
-  kind: ["pat", "refresh"],        // une liste vaut allowlist
+  kind: ["pat", "refresh"], // une liste vaut allowlist
 } as const satisfies IFilterSpec;
 ```
 
@@ -165,10 +182,10 @@ la validation et le type **d'un seul geste**.
 
 Trois refus, tous en 400 :
 
-| Cas | Exemple |
-| --- | ------- |
-| valeur mal formée | `?revoked=oui` |
-| valeur hors énumération | `?kind=zzz` |
+| Cas                                | Exemple         |
+| ---------------------------------- | --------------- |
+| valeur mal formée                  | `?revoked=oui`  |
+| valeur hors énumération            | `?kind=zzz`     |
 | **paramètre reconnu par personne** | `?enbaled=true` |
 
 Le troisième est le plus important et le moins évident. `PAGE_QUERY_KEYS` est bien sûr admise —
@@ -202,7 +219,9 @@ const SESSION_FACETS = {
   anonymous: { authenticated: false },
 } as const satisfies IFacetSpec<ISessionListQuery>;
 
-const counts = await countFacets(SESSION_FACETS, (q) => storage.countSessions(q));
+const counts = await countFacets(SESSION_FACETS, (q) =>
+  storage.countSessions(q),
+);
 // → { total: 1204, authenticated: 87, anonymous: 1117 }   (Redis : que des null)
 ```
 
@@ -237,11 +256,11 @@ C'est **le** critère à appliquer avant de déclarer quoi que ce soit. Se tromp
 défauts symétriques : un tri déclaré globalement ment sur les backends qui ne trient pas ; un filtre
 déclaré par store laisse croire qu'un filtre du contrat est facultatif.
 
-| | **Tri** | **Filtre** | **Recherche** |
-| --- | --- | --- | --- |
-| Nature | capacité du **backend branché** | **obligation** de tous les backends | capacité du **backend branché** |
-| Se déclare | sur le **store** (`ISortableSource.sortableFields`) | sur la **ressource** (`IFilterSpec`, une constante) | sur le **store**, publié en fonction |
-| Pourquoi | un `SCAN` Redis n'a aucun ordre global | inscrit dans `IXListQuery`, Redis l'honore inline dans son batch | un store en curseur ne balaie pas |
+|            | **Tri**                                             | **Filtre**                                                       | **Recherche**                        |
+| ---------- | --------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------ |
+| Nature     | capacité du **backend branché**                     | **obligation** de tous les backends                              | capacité du **backend branché**      |
+| Se déclare | sur le **store** (`ISortableSource.sortableFields`) | sur la **ressource** (`IFilterSpec`, une constante)              | sur le **store**, publié en fonction |
+| Pourquoi   | un `SCAN` Redis n'a aucun ordre global              | inscrit dans `IXListQuery`, Redis l'honore inline dans son batch | un store en curseur ne balaie pas    |
 
 **Le refus est gratuit.** Un backend qui ne sait pas trier laisse `sortableFields` absent — rien de
 plus à écrire pour que le tri y soit refusé. Les capacités **peuvent** être inégales d'un backend à
@@ -343,7 +362,10 @@ filtrerait autre chose que l'annoncé.
 
 ```ts
 import {
-  parsePageQuery, parseFilters, countFacets, facetDimensions,
+  parsePageQuery,
+  parseFilters,
+  countFacets,
+  facetDimensions,
 } from "nodefony";
 import type { IFilterSpec, IFacetSpec, IAdminEndpoint } from "nodefony";
 
@@ -371,8 +393,8 @@ const listEndpoint: IAdminEndpoint = {
   handler: async (request) => {
     const page = parsePageQuery(request.query, {
       maxLimit: 200,
-      sortable: this.storage.sortableFields,   // absent ⇒ ?order= refusé en 400
-      searchable: true,                        // absent ⇒ ?q= refusé en 400
+      sortable: this.storage.sortableFields, // absent ⇒ ?order= refusé en 400
+      searchable: true, // absent ⇒ ?q= refusé en 400
     });
     const filters = parseFilters(request.query, SESSION_FILTERS);
     return this.storage.listPage({ ...page, ...filters });

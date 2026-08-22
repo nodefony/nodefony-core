@@ -44,10 +44,7 @@ const urlDefined = (
   </Badge>
 );
 
-export function SyslogConfigPanel({
-  meta,
-  onChanged,
-}: SyslogConfigPanelProps) {
+export function SyslogConfigPanel({ meta, onChanged }: SyslogConfigPanelProps) {
   const store = useStore();
 
   // Switch du driver de RELECTURE — MÊME action que la Vue d'ensemble

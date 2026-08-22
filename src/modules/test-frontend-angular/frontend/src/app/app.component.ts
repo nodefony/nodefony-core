@@ -12,17 +12,32 @@ interface ApiData {
   template: `
     <main class="page">
       <div class="hero">
-        <svg class="logo" viewBox="0 0 250 250" xmlns="http://www.w3.org/2000/svg">
-          <polygon points="125,30 31.9,63.2 46.1,186.3 125,230 203.9,186.3 218.1,63.2" fill="#dd0031" />
-          <polygon points="125,30 125,52.2 125,153.4 125,230 203.9,186.3 218.1,63.2" fill="#c3002f" />
-          <path d="M125,52.1 66.8,182.6 88.5,182.6 100.2,153.4 149.6,153.4 161.3,182.6 183,182.6 Z M142,135.4 108,135.4 125,94.5 Z" fill="#fff" fill-rule="evenodd" />
+        <svg
+          class="logo"
+          viewBox="0 0 250 250"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <polygon
+            points="125,30 31.9,63.2 46.1,186.3 125,230 203.9,186.3 218.1,63.2"
+            fill="#dd0031"
+          />
+          <polygon
+            points="125,30 125,52.2 125,153.4 125,230 203.9,186.3 218.1,63.2"
+            fill="#c3002f"
+          />
+          <path
+            d="M125,52.1 66.8,182.6 88.5,182.6 100.2,153.4 149.6,153.4 161.3,182.6 183,182.6 Z M142,135.4 108,135.4 125,94.5 Z"
+            fill="#fff"
+            fill-rule="evenodd"
+          />
         </svg>
 
         <h1>You did it!</h1>
         <p class="subtitle">
           Angular&nbsp;21 (standalone, zoneless) transpilé par
           <strong>&#64;nodefony/frontend</strong> via Vite + AnalogJS —
-          multi-framework aux côtés des bundles React &amp; Vue, même superviseur.
+          multi-framework aux côtés des bundles React &amp; Vue, même
+          superviseur.
         </p>
 
         <div class="badges">
@@ -37,10 +52,13 @@ interface ApiData {
       <div class="cards">
         <section class="card">
           <h2>♻️ HMR check</h2>
-          <button class="counter" (click)="increment()">count is {{ count() }}</button>
+          <button class="counter" (click)="increment()">
+            count is {{ count() }}
+          </button>
           <p class="hint">
-            Édite <code>frontend/src/app/app.component.ts</code> — Vite recompile.
-            (Angular re-render le composant : l'état peut se réinitialiser.)
+            Édite <code>frontend/src/app/app.component.ts</code> — Vite
+            recompile. (Angular re-render le composant : l'état peut se
+            réinitialiser.)
           </p>
         </section>
 
@@ -72,10 +90,18 @@ interface ApiData {
         gap: 2.5rem;
         padding: 4rem 1.5rem;
         box-sizing: border-box;
-        font-family: "Inter", system-ui, -apple-system, sans-serif;
+        font-family:
+          "Inter",
+          system-ui,
+          -apple-system,
+          sans-serif;
         color: #2c2c2c;
         background:
-          radial-gradient(1200px 600px at 50% -10%, rgba(221, 0, 49, 0.14), transparent),
+          radial-gradient(
+            1200px 600px at 50% -10%,
+            rgba(221, 0, 49, 0.14),
+            transparent
+          ),
           #fbf7f8;
       }
       .hero {

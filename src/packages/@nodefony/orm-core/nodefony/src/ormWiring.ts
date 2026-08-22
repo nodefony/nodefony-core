@@ -30,8 +30,7 @@ import { ormRegistry } from "./OrmRegistry";
  */
 export function wireOrmAdminPlane(kernel: IKernel | null | undefined): void {
   const broker = kernel?.container?.get("adminBroker") as
-    | IAdminRegistry
-    | undefined;
+    IAdminRegistry | undefined;
   if (broker) {
     registerOrmAdminApi(broker);
   }

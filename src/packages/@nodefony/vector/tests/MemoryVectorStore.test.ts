@@ -1,11 +1,22 @@
 // @nodefony/vector — tests/MemoryVectorStore.test.ts
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { MemoryVectorStore } from "../src/adapters/MemoryVectorStore.js";
-import { VectorDimensionError, VectorNotInitializedError } from "../src/errors/VectorErrors.js";
+import {
+  VectorDimensionError,
+  VectorNotInitializedError,
+} from "../src/errors/VectorErrors.js";
 import type { IVectorEntry } from "../src/interfaces/IVectorStore.js";
 
-const makeEntry = (id: string, vector: number[], text = "", source = "test"): IVectorEntry => ({
-  id, vector, text, metadata: { source },
+const makeEntry = (
+  id: string,
+  vector: number[],
+  text = "",
+  source = "test",
+): IVectorEntry => ({
+  id,
+  vector,
+  text,
+  metadata: { source },
 });
 
 describe("MemoryVectorStore", () => {
@@ -55,8 +66,9 @@ describe("MemoryVectorStore", () => {
     });
 
     it("rejects vectors with wrong dimensions", async () => {
-      await expect(store.insert([makeEntry("a", [1, 0])]))
-        .rejects.toThrow(VectorDimensionError);
+      await expect(store.insert([makeEntry("a", [1, 0])])).rejects.toThrow(
+        VectorDimensionError,
+      );
     });
 
     it("upserts on duplicate ID", async () => {
@@ -85,12 +97,16 @@ describe("MemoryVectorStore", () => {
     it("filters by minScore", async () => {
       const results = await store.search([1, 0, 0], { minScore: 0.95 });
       // Seul "a" (score 1.0) passe — "c" est ~0.99
-      expect(results.every(r => r.score >= 0.95)).toBe(true);
+      expect(results.every((r) => r.score >= 0.95)).toBe(true);
     });
 
     it("filters by metadata", async () => {
-      const results = await store.search([1, 0, 0], { filter: { source: "src1" } });
-      expect(results.every(r => r.entry.metadata.source === "src1")).toBe(true);
+      const results = await store.search([1, 0, 0], {
+        filter: { source: "src1" },
+      });
+      expect(results.every((r) => r.entry.metadata.source === "src1")).toBe(
+        true,
+      );
       expect(results.length).toBe(2);
     });
 
@@ -133,7 +149,10 @@ describe("MemoryVectorStore", () => {
 
   describe("count", () => {
     it("counts all entries", async () => {
-      await store.insert([makeEntry("a", [1, 0, 0]), makeEntry("b", [0, 1, 0])]);
+      await store.insert([
+        makeEntry("a", [1, 0, 0]),
+        makeEntry("b", [0, 1, 0]),
+      ]);
       expect(await store.count()).toBe(2);
     });
 

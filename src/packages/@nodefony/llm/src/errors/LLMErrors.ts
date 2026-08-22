@@ -4,7 +4,7 @@ export class LLMError extends Error {
   constructor(
     message: string,
     public readonly code: string,
-    public readonly context?: Record<string, unknown>
+    public readonly context?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "LLMError";
@@ -16,7 +16,7 @@ export class LLMRateLimitError extends LLMError {
     super(
       `${provider} rate limit exceeded. Retry after ${retryAfterSeconds}s`,
       "RATE_LIMIT",
-      { provider, retryAfterSeconds }
+      { provider, retryAfterSeconds },
     );
     this.name = "LLMRateLimitError";
   }
@@ -24,19 +24,20 @@ export class LLMRateLimitError extends LLMError {
 
 export class LLMTimeoutError extends LLMError {
   constructor(provider: string, timeoutMs: number) {
-    super(
-      `${provider} request timed out after ${timeoutMs}ms`,
-      "TIMEOUT",
-      { provider, timeoutMs }
-    );
+    super(`${provider} request timed out after ${timeoutMs}ms`, "TIMEOUT", {
+      provider,
+      timeoutMs,
+    });
     this.name = "LLMTimeoutError";
   }
 }
 
 export class LLMProviderError extends LLMError {
   constructor(provider: string, cause: Error) {
-    super(`${provider} provider error: ${cause.message}`, "PROVIDER_ERROR", { provider });
-    this.name  = "LLMProviderError";
+    super(`${provider} provider error: ${cause.message}`, "PROVIDER_ERROR", {
+      provider,
+    });
+    this.name = "LLMProviderError";
     this.cause = cause;
   }
 }
@@ -53,7 +54,7 @@ export class LLMEmbedNotSupportedError extends LLMError {
     super(
       `${provider} does not support embeddings natively`,
       "EMBED_NOT_SUPPORTED",
-      { provider }
+      { provider },
     );
     this.name = "LLMEmbedNotSupportedError";
   }

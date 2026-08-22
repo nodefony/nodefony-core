@@ -87,7 +87,9 @@ describe("roles — RoleRegistry (bitmask)", () => {
     const user = reg.mask([DEV]);
     expect(RoleRegistry.hasAny(user, reg.mask([DEV, SUP]))).to.equal(true);
     expect(RoleRegistry.hasAny(user, reg.mask([SUP, ADMIN]))).to.equal(false);
-    expect(RoleRegistry.hasAll(reg.mask([DEV, SUP]), reg.mask([DEV, SUP]))).to.equal(true);
+    expect(
+      RoleRegistry.hasAll(reg.mask([DEV, SUP]), reg.mask([DEV, SUP])),
+    ).to.equal(true);
     expect(RoleRegistry.hasAll(user, reg.mask([DEV, SUP]))).to.equal(false);
   });
 

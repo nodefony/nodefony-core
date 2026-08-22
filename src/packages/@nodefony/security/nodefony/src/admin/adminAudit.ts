@@ -39,7 +39,6 @@ export function auditAdmin(
   draft: IAuditEventDraft,
 ): void {
   const sink = container.get("auditService") as
-    | { record?: (event: IAuditEventDraft) => void }
-    | undefined;
+    { record?: (event: IAuditEventDraft) => void } | undefined;
   sink?.record?.(draft);
 }

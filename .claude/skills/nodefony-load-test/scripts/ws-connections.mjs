@@ -23,12 +23,14 @@ import WebSocket from "ws";
 import https from "node:https";
 import http from "node:http";
 
-const WS_URL = process.env.WS_URL ?? "wss://127.0.0.1:5152/nodefony/test/ws/echo";
+const WS_URL =
+  process.env.WS_URL ?? "wss://127.0.0.1:5152/nodefony/test/ws/echo";
 const CAP = Number(process.env.CAP ?? 8000);
 const STEP = Number(process.env.STEP ?? 250);
 const BATCH = Number(process.env.BATCH ?? 50);
 const HOLD_MS = Number(process.env.HOLD_MS ?? 0);
-const HEAP_URL = process.env.HEAP_URL ?? "https://127.0.0.1:5152/nodefony/test/memory";
+const HEAP_URL =
+  process.env.HEAP_URL ?? "https://127.0.0.1:5152/nodefony/test/memory";
 const wsOpts = { rejectUnauthorized: false };
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -44,13 +46,21 @@ function serverHeap() {
     }
     const lib = url.protocol === "https:" ? https : http;
     const req = lib.request(
-      { hostname: url.hostname, port: url.port, path: url.pathname, method: "GET", rejectUnauthorized: false },
+      {
+        hostname: url.hostname,
+        port: url.port,
+        path: url.pathname,
+        method: "GET",
+        rejectUnauthorized: false,
+      },
       (res) => {
         const chunks = [];
         res.on("data", (c) => chunks.push(c));
         res.on("end", () => {
           try {
-            resolve(JSON.parse(Buffer.concat(chunks).toString()).heapUsed ?? null);
+            resolve(
+              JSON.parse(Buffer.concat(chunks).toString()).heapUsed ?? null,
+            );
           } catch {
             resolve(null);
           }
@@ -66,9 +76,18 @@ function serverHeap() {
 function openHandshaked() {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(WS_URL, wsOpts);
-    const onErr = (e) => { cleanup(); reject(e); };
-    const onMsg = () => { cleanup(); resolve(ws); };
-    const cleanup = () => { ws.removeListener("error", onErr); ws.removeListener("message", onMsg); };
+    const onErr = (e) => {
+      cleanup();
+      reject(e);
+    };
+    const onMsg = () => {
+      cleanup();
+      resolve(ws);
+    };
+    const cleanup = () => {
+      ws.removeListener("error", onErr);
+      ws.removeListener("message", onMsg);
+    };
     ws.once("error", onErr);
     ws.once("message", onMsg);
   });
@@ -80,10 +99,19 @@ function closeAll(sockets) {
     let pending = sockets.length;
     if (!pending) return resolve();
     for (const ws of sockets) {
-      const done = () => { if (--pending === 0) resolve(); };
-      if (ws.readyState === WebSocket.CLOSED) { done(); continue; }
+      const done = () => {
+        if (--pending === 0) resolve();
+      };
+      if (ws.readyState === WebSocket.CLOSED) {
+        done();
+        continue;
+      }
       ws.once("close", done);
-      try { ws.close(); } catch { done(); }
+      try {
+        ws.close();
+      } catch {
+        done();
+      }
     }
     setTimeout(resolve, 8000);
   });
@@ -103,8 +131,14 @@ async function main() {
       let openedInStep = 0;
       for (let i = 0; i < want; i += BATCH) {
         const size = Math.min(BATCH, want - i);
-        const res = await Promise.allSettled(Array.from({ length: size }, () => openHandshaked()));
-        for (const r of res) if (r.status === "fulfilled") { live.push(r.value); openedInStep++; }
+        const res = await Promise.allSettled(
+          Array.from({ length: size }, () => openHandshaked()),
+        );
+        for (const r of res)
+          if (r.status === "fulfilled") {
+            live.push(r.value);
+            openedInStep++;
+          }
         await wait(10);
       }
       ceiling = live.length;
@@ -113,24 +147,38 @@ async function main() {
     }
   } finally {
     const heapPeak = await serverHeap();
-    if (HOLD_MS) { console.log(`\n  maintien ${HOLD_MS}ms au pic…`); await wait(HOLD_MS); }
+    if (HOLD_MS) {
+      console.log(`\n  maintien ${HOLD_MS}ms au pic…`);
+      await wait(HOLD_MS);
+    }
     console.log(`\n\n  ── RÉSULTAT ──`);
     console.log(`  plafond           : ${ceiling} connexions simultanées`);
     if (heap0 != null && heapPeak != null) {
-      console.log(`  heap serveur      : ${(heap0 / 1048576).toFixed(1)} → ${(heapPeak / 1048576).toFixed(1)} MB (Δ ${((heapPeak - heap0) / 1048576).toFixed(1)} MB)`);
-      console.log(`  coût/connexion    : ~${(((heapPeak - heap0) / Math.max(ceiling, 1)) / 1024).toFixed(2)} KB`);
+      console.log(
+        `  heap serveur      : ${(heap0 / 1048576).toFixed(1)} → ${(heapPeak / 1048576).toFixed(1)} MB (Δ ${((heapPeak - heap0) / 1048576).toFixed(1)} MB)`,
+      );
+      console.log(
+        `  coût/connexion    : ~${((heapPeak - heap0) / Math.max(ceiling, 1) / 1024).toFixed(2)} KB`,
+      );
     }
-    console.log(`  durée             : ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+    console.log(
+      `  durée             : ${((Date.now() - t0) / 1000).toFixed(1)}s`,
+    );
     console.log(`  fermeture des ${live.length} sockets…`);
     await closeAll(live);
     await wait(500);
     const heapEnd = await serverHeap();
     if (heap0 != null && heapEnd != null) {
-      console.log(`  heap après close  : ${(heapEnd / 1048576).toFixed(1)} MB (Δ vs début ${((heapEnd - heap0) / 1048576).toFixed(1)} MB → doit retomber)`);
+      console.log(
+        `  heap après close  : ${(heapEnd / 1048576).toFixed(1)} MB (Δ vs début ${((heapEnd - heap0) / 1048576).toFixed(1)} MB → doit retomber)`,
+      );
     }
     console.log("");
   }
   process.exit(0);
 }
 
-main().catch((e) => { console.error("\n  FATAL:", e?.message ?? e); process.exit(1); });
+main().catch((e) => {
+  console.error("\n  FATAL:", e?.message ?? e);
+  process.exit(1);
+});

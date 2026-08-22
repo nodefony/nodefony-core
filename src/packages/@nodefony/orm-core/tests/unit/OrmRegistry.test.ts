@@ -3,8 +3,7 @@ import { OrmRegistry } from "../../nodefony/src/OrmRegistry";
 import type { IOrm } from "../../nodefony/interfaces/index";
 
 /** Stub minimal d'IOrm — seul `name` compte pour les tests de registre. */
-const stub = (name: string): IOrm =>
-  ({ name }) as unknown as IOrm;
+const stub = (name: string): IOrm => ({ name }) as unknown as IOrm;
 
 describe("OrmRegistry", () => {
   let reg: OrmRegistry;

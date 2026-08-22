@@ -2,8 +2,14 @@
 // Tests avec mock du Pool — pas de Postgres requis
 
 import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
-import { PgVectorAdapter, type IPgPool } from "../src/adapters/PgVectorAdapter.js";
-import { VectorError, VectorDimensionError } from "../src/errors/VectorErrors.js";
+import {
+  PgVectorAdapter,
+  type IPgPool,
+} from "../src/adapters/PgVectorAdapter.js";
+import {
+  VectorError,
+  VectorDimensionError,
+} from "../src/errors/VectorErrors.js";
 
 const createMockPool = (): IPgPool => ({
   query: mock(async (_sql: string, _params?: unknown[]) => ({ rows: [] })),
@@ -17,8 +23,12 @@ describe("PgVectorAdapter", () => {
   beforeEach(async () => {
     pool = createMockPool();
     adapter = new PgVectorAdapter(
-      { collection: "docs", dimensions: 3, connectionString: "postgres://test" },
-      () => pool
+      {
+        collection: "docs",
+        dimensions: 3,
+        connectionString: "postgres://test",
+      },
+      () => pool,
     );
     await adapter.init();
   });
@@ -29,24 +39,37 @@ describe("PgVectorAdapter", () => {
 
   describe("validation des identifiants SQL", () => {
     it("rejette nom de collection avec injection SQL", () => {
-      expect(() => new PgVectorAdapter(
-        { collection: "docs; DROP TABLE users;", dimensions: 3, connectionString: "x" },
-        () => createMockPool()
-      )).toThrow(VectorError);
+      expect(
+        () =>
+          new PgVectorAdapter(
+            {
+              collection: "docs; DROP TABLE users;",
+              dimensions: 3,
+              connectionString: "x",
+            },
+            () => createMockPool(),
+          ),
+      ).toThrow(VectorError);
     });
 
     it("rejette nom de collection avec espaces", () => {
-      expect(() => new PgVectorAdapter(
-        { collection: "my docs", dimensions: 3, connectionString: "x" },
-        () => createMockPool()
-      )).toThrow(VectorError);
+      expect(
+        () =>
+          new PgVectorAdapter(
+            { collection: "my docs", dimensions: 3, connectionString: "x" },
+            () => createMockPool(),
+          ),
+      ).toThrow(VectorError);
     });
 
     it("accepte nom alphanumérique", () => {
-      expect(() => new PgVectorAdapter(
-        { collection: "my_docs_2", dimensions: 3, connectionString: "x" },
-        () => createMockPool()
-      )).not.toThrow();
+      expect(
+        () =>
+          new PgVectorAdapter(
+            { collection: "my_docs_2", dimensions: 3, connectionString: "x" },
+            () => createMockPool(),
+          ),
+      ).not.toThrow();
     });
   });
 
@@ -54,18 +77,25 @@ describe("PgVectorAdapter", () => {
     it("crée l'extension et la table", async () => {
       const queryMock = pool.query as ReturnType<typeof mock>;
       const calls = queryMock.mock.calls;
-      const sqls = calls.map(c => c[0] as string);
-      expect(sqls.some(s => s.includes("CREATE EXTENSION"))).toBe(true);
-      expect(sqls.some(s => s.includes("CREATE TABLE"))).toBe(true);
-      expect(sqls.some(s => s.includes("hnsw"))).toBe(true);
+      const sqls = calls.map((c) => c[0] as string);
+      expect(sqls.some((s) => s.includes("CREATE EXTENSION"))).toBe(true);
+      expect(sqls.some((s) => s.includes("CREATE TABLE"))).toBe(true);
+      expect(sqls.some((s) => s.includes("hnsw"))).toBe(true);
     });
   });
 
   describe("insert", () => {
     it("rejette dimensions invalides", async () => {
-      await expect(adapter.insert([{
-        id: "a", vector: [1, 2], text: "", metadata: { source: "x" }
-      }])).rejects.toThrow(VectorDimensionError);
+      await expect(
+        adapter.insert([
+          {
+            id: "a",
+            vector: [1, 2],
+            text: "",
+            metadata: { source: "x" },
+          },
+        ]),
+      ).rejects.toThrow(VectorDimensionError);
     });
 
     it("retourne tableau vide si pas d'entries", async () => {

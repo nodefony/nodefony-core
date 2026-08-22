@@ -77,7 +77,9 @@ export function ConfigView({ value, level = 0 }: ConfigViewProps): ReactNode {
           );
         }
         if (Array.isArray(v)) {
-          const scalarOnly = v.every((x) => !isPlainObj(x) && !Array.isArray(x));
+          const scalarOnly = v.every(
+            (x) => !isPlainObj(x) && !Array.isArray(x),
+          );
           return (
             <Group
               key={k}

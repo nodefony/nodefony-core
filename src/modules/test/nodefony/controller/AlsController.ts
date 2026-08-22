@@ -100,8 +100,7 @@ class AlsController extends Controller {
     // API d'introspection dédiée (Container.scopeCount) — la structure interne
     // (Map depuis le durcissement Container) n'est plus fouillée à la main.
     const httpKernel = this.kernel?.get("HttpKernel") as
-      | { container?: { scopeCount?: (name: string) => number } }
-      | undefined;
+      { container?: { scopeCount?: (name: string) => number } } | undefined;
     const count = httpKernel?.container?.scopeCount?.("request");
     return this.renderJson({
       requestScopes: count ?? -1,

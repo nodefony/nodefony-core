@@ -53,7 +53,10 @@ export function createProfilerAdminApi(profiler: Profiler): IAdminApi {
       handler: ({ params }) => {
         const entry = profiler.get(params.id);
         if (!entry) {
-          return { status: 404, body: { error: "Profile not found", requestId: params.id } };
+          return {
+            status: 404,
+            body: { error: "Profile not found", requestId: params.id },
+          };
         }
         return entry;
       },

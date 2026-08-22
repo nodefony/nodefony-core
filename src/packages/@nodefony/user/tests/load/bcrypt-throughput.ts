@@ -22,7 +22,9 @@ function pct(sorted: number[], p: number): number {
 async function main(): Promise<void> {
   const enc = new BcryptEncoder(COST);
   const threads = process.env.UV_THREADPOOL_SIZE ?? "4 (défaut)";
-  console.log(`BcryptEncoder cost=${COST}  N=${N}  UV_THREADPOOL_SIZE=${threads}`);
+  console.log(
+    `BcryptEncoder cost=${COST}  N=${N}  UV_THREADPOOL_SIZE=${threads}`,
+  );
 
   // ── Latence séquentielle ──────────────────────────────────────────────────
   const lat: number[] = [];
@@ -54,7 +56,9 @@ async function main(): Promise<void> {
   console.log(`  avg   : ${(seqTotal / N).toFixed(1)} ms/hash`);
   console.log(`  p50   : ${pct(lat, 50).toFixed(1)} ms`);
   console.log(`  p99   : ${pct(lat, 99).toFixed(1)} ms`);
-  console.log(`  débit : ${(1000 / (seqTotal / N)).toFixed(1)} hash/s (1 thread)`);
+  console.log(
+    `  débit : ${(1000 / (seqTotal / N)).toFixed(1)} hash/s (1 thread)`,
+  );
 
   console.log("\n── Débit parallèle (N concurrents → threadpool) ──");
   console.log(`  total : ${parTotal.toFixed(0)} ms pour ${N} hash`);

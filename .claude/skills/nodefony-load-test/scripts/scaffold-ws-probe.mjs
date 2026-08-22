@@ -17,7 +17,9 @@ const cookie = process.argv[2];
 const type = process.argv[3] ?? "controller";
 const name = process.argv[4] ?? "StudioProbe";
 if (!cookie) {
-  console.error("usage: node scaffold-ws-probe.mjs <cookie-header> [type] [name]");
+  console.error(
+    "usage: node scaffold-ws-probe.mjs <cookie-header> [type] [name]",
+  );
   process.exit(2);
 }
 
@@ -64,7 +66,11 @@ ws.on("message", (raw) => {
     setTimeout(() => {
       subscribedAt = Date.now();
       console.log("→ subscribe (VOLONTAIREMENT en retard)");
-      send({ jsonrpc: "2.0", method: "subscribe", params: { channel: `scaffold:job@${jobId}` } });
+      send({
+        jsonrpc: "2.0",
+        method: "subscribe",
+        params: { channel: `scaffold:job@${jobId}` },
+      });
     }, 250);
     return;
   }
@@ -89,20 +95,23 @@ ws.on("error", (e) => {
   process.exit(1);
 });
 
-setTimeout(() => {
-  console.log("\n──────── terminal reçu ────────");
-  for (const l of lines) console.log(`[${l.stream}] ${l.text}`);
-  console.log("───────────────────────────────");
-  console.log("lignes par nature:", counts);
-  console.log(`total: ${lines.length} ligne(s)`);
-  const replayed = lines.filter((l) => l.ts < subscribedAt).length;
-  console.log(
-    `REJEU DU BACKLOG: ${replayed} ligne(s) produites AVANT l'abonnement et pourtant reçues`,
-  );
-  const last = states.length ? states[states.length - 1] : null;
-  console.log(
-    `ÉTATS reçus PAR LA SOCKET: ${states.length} — dernier statut: ${last ? last.status : "AUCUN"}`,
-  );
-  ws.close();
-  process.exit(lines.length > 0 && states.length > 0 ? 0 : 1);
-}, Number(process.env.NF_WAIT ?? 4000));
+setTimeout(
+  () => {
+    console.log("\n──────── terminal reçu ────────");
+    for (const l of lines) console.log(`[${l.stream}] ${l.text}`);
+    console.log("───────────────────────────────");
+    console.log("lignes par nature:", counts);
+    console.log(`total: ${lines.length} ligne(s)`);
+    const replayed = lines.filter((l) => l.ts < subscribedAt).length;
+    console.log(
+      `REJEU DU BACKLOG: ${replayed} ligne(s) produites AVANT l'abonnement et pourtant reçues`,
+    );
+    const last = states.length ? states[states.length - 1] : null;
+    console.log(
+      `ÉTATS reçus PAR LA SOCKET: ${states.length} — dernier statut: ${last ? last.status : "AUCUN"}`,
+    );
+    ws.close();
+    process.exit(lines.length > 0 && states.length > 0 ? 0 : 1);
+  },
+  Number(process.env.NF_WAIT ?? 4000),
+);
