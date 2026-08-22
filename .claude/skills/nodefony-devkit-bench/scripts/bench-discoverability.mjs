@@ -79,6 +79,7 @@
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import {
+  chmodSync,
   copyFileSync,
   existsSync,
   mkdirSync,
@@ -568,12 +569,43 @@ const commandeQuiContient = (motif) =>
  * @param motif - le motif accepté dans une commande shell.
  * @param outils - les noms d'outils MCP qui rendent le même service.
  */
-const gesteParCommandeOuMcp = (motif, outils) =>
+export const gesteParCommandeOuMcp = (motif, outils) =>
   new RegExp(
     `"command"\\s*:\\s*"(?:[^"\\\\]|\\\\.)*?(?:${motif})` +
-      `|"name"\\s*:\\s*"mcp__[^"]*(?:${outils})`,
+      `|${appelOutilMcp(outils)}`,
     "u",
   );
+
+/**
+ * Un appel d'outil MCP, dans les TROIS grammaires que produisent les agents.
+ *
+ * 🔴 Ce n'est pas une commodité : sans cela, le banc est AVEUGLE chez deux
+ * agents sur trois, et son aveuglement ressemble trait pour trait à un agent
+ * qui n'aurait pas eu la porte — « zéro appel MCP », le symptôme que ce banc
+ * apprend justement à lire comme « il n'a jamais eu d'outils ». Établi au
+ * SOURCE de chaque agent, pas à la lecture d'un transcript :
+ *
+ *  - **Claude** — bloc `tool_use` dont le `name` porte le préfixe `mcp__`
+ *    (`mcp__nodefony__nodefony_inspect`) ;
+ *  - **Codex** — item `mcp_tool_call`, qui sépare proprement `server` et `tool`
+ *    (`sdk/typescript/src/items.ts`, `McpToolCallItem`) ;
+ *  - **Gemini** — événement `tool_use` dont le nom vit sous `tool_name`, qualifié
+ *    `<serveur>_<outil>` — séparateur `_`, jamais `mcp__`
+ *    (`packages/core/src/tools/mcp-tool.ts`, `MCP_QUALIFIED_NAME_SEPARATOR`).
+ *
+ * @param {string} outils - alternative de noms d'outils, sans préfixe.
+ * @returns {string} une alternative de motifs, en source d'expression régulière.
+ */
+export function appelOutilMcp(outils) {
+  return (
+    // Claude : le préfixe porte le serveur.
+    `"name"\\s*:\\s*"mcp__[^"]*(?:${outils})` +
+    // Gemini : le nom qualifié vit sous une AUTRE clé.
+    `|"tool_name"\\s*:\\s*"[^"]*(?:${outils})` +
+    // Codex : l'outil est nommé à part de son serveur.
+    `|"tool"\\s*:\\s*"[^"]*(?:${outils})`
+  );
+}
 
 /**
  * Ce qu'une commande AFFICHE n'est pas ce qu'elle FAIT — élagage du texte.
@@ -3525,14 +3557,41 @@ function setup(runDir) {
     envMcp[foyer] = chemin;
     // ⚠️ Déplacer le foyer emporte AUSSI les identifiants : sans sa clé d'API,
     // l'agent ne répond pas — et l'on mesurerait un décor, pas un agent. On
-    // COPIE donc sa configuration depuis le foyer réel, en lecture seule de
+    // COPIE donc ce qui l'identifie depuis le foyer réel, en lecture seule de
     // notre côté : lire ce qui appartient à l'utilisateur, ne jamais y écrire.
-    const reel = path.join(os.homedir(), `.${AGENT}`, "config.toml");
-    if (existsSync(reel)) {
-      copyFileSync(reel, path.join(chemin, "config.toml"));
-    } else {
+    //
+    // 🔴 Le fichier d'identité n'est PAS le même selon l'agent, et le supposer
+    // rend l'agent muet sans rien dire. Établi au source : Vibe se configure
+    // (et se dote de sa clé) par `config.toml` ; Codex range sa session dans
+    // `auth.json` — `get_auth_file(codex_home) = codex_home.join("auth.json")`
+    // (`codex-rs/login/src/auth/storage.rs`). Copier `config.toml` seul pour
+    // Codex, c'est lui donner ses réglages et lui retirer son identité.
+    const IDENTITE = {
+      VIBE_HOME: ["config.toml"],
+      CODEX_HOME: ["auth.json", "config.toml"],
+    };
+    const foyerReel = path.join(os.homedir(), `.${AGENT}`);
+    let copies = 0;
+    for (const nom of IDENTITE[foyer] ?? []) {
+      const reel = path.join(foyerReel, nom);
+      if (!existsSync(reel)) continue;
+      const cible = path.join(chemin, nom);
+      copyFileSync(reel, cible);
+      // Un secret recopié garde une porte étroite. Sous Windows ce mode n'a pas
+      // de sens (axiome 8) : on ne fonde donc AUCUNE garantie dessus, on évite
+      // seulement d'élargir ce que l'original protégeait.
+      try {
+        chmodSync(cible, 0o600);
+      } catch {
+        /* système sans permissions POSIX — sans conséquence ici */
+      }
+      copies += 1;
+    }
+    if (copies === 0) {
       console.log(
-        `  ⚠️ aucune configuration ${AGENT} à copier (${reel}) — l'agent n'aura pas de clé`,
+        `  ⚠️ rien à copier depuis ${foyerReel} (${(IDENTITE[foyer] ?? []).join(", ")}) — ` +
+          `${AGENT} n'aura PAS d'identité et répondra en 401 : ` +
+          `se connecter d'abord (\`${AGENT} login\`), le banc ne peut pas le faire`,
       );
     }
     console.log(`  · foyer jetable de ${AGENT} : ${FOYERS_JETABLES[foyer]}/`);
@@ -3988,7 +4047,14 @@ function runTask(app, runDir, task) {
   // d'assistant se reconnaît dans les deux formats (`"type":"assistant"` chez
   // Claude, `"role": "assistant"` chez vibe), et son absence n'est jamais un
   // verdict.
-  if (!/["'](?:type|role)["']\s*:\s*["']assistant["']/u.test(transcript)) {
+  // Codex ne dit ni `type: assistant` ni `role: assistant` : son tour d'agent est
+  // un item `agent_message` (source : `sdk/typescript/src/items.ts`). Sans ce
+  // troisième motif, un run Codex PARFAIT serait déclaré muet, et le banc
+  // arrêterait la passe en croyant l'agent jamais parti.
+  if (
+    !/["'](?:type|role)["']\s*:\s*["']assistant["']/u.test(transcript) &&
+    !/["']agent_message["']/u.test(transcript)
+  ) {
     console.log(
       `\n🛑 l'agent « ${AGENT} » n'a rendu AUCUN tour d'assistant ` +
         `(${transcript.length} octets de transcript).\n` +
@@ -4332,11 +4398,69 @@ export function lireEffort(transcriptPath) {
         // Ligne tronquée : même politique que ci-dessous.
       }
     }
+    // 🔴 Les DEUX autres grammaires. Sans elles ce compteur rend zéro chez
+    // Codex et chez Gemini — et « zéro appel MCP » est très exactement le
+    // symptôme que ce banc apprend à lire comme « l'agent n'a jamais eu la
+    // porte ». Un compteur muet fabriquerait donc un diagnostic FAUX, pas une
+    // absence de mesure. Formes établies au source de chaque agent (cf
+    // {@link appelOutilMcp}).
+    else if (ligne.includes('"mcp_tool_call"')) {
+      // Codex : un item par appel, et l'item est répété au fil de son cycle
+      // (`item.started` puis `item.completed`). On ne compte QUE l'achèvement,
+      // sinon un même appel vaudrait deux.
+      try {
+        const evt = JSON.parse(ligne);
+        if (
+          evt?.type === "item.completed" &&
+          evt?.item?.type === "mcp_tool_call"
+        ) {
+          mcpCalls += 1;
+        }
+      } catch {
+        /* ligne tronquée */
+      }
+    } else if (ligne.includes('"tool_use"') && ligne.includes('"tool_name"')) {
+      // Gemini : le nom qualifié est `<serveur>_<outil>` ; le serveur du décor
+      // s'appelle `nodefony`, et ses outils portent déjà ce préfixe.
+      try {
+        const evt = JSON.parse(ligne);
+        if (
+          evt?.type === "tool_use" &&
+          String(evt.tool_name ?? "").startsWith(`${MCP_SERVER_NOM}_`)
+        ) {
+          mcpCalls += 1;
+        }
+      } catch {
+        /* ligne tronquée */
+      }
+    }
+    // Codex : un tour d'agent s'achève sur `turn.completed`. Ni durée ni coût
+    // dans son flux — les compter à zéro serait plus faux que de ne rien dire,
+    // donc on ne renseigne que ce qui est ÉMIS.
+    if (ligne.includes('"turn.completed"')) {
+      try {
+        if (JSON.parse(ligne)?.type === "turn.completed") {
+          tours += 1;
+          vu = true;
+        }
+      } catch {
+        /* ligne tronquée */
+      }
+      continue;
+    }
     if (!ligne.includes('"type":"result"')) {
       continue;
     }
     try {
       const r = JSON.parse(ligne);
+      // Gemini : son `result` porte des `stats`, jamais un `num_turns`. Sa
+      // durée est mesurée par lui, ce qui vaut mieux que de la chronométrer du
+      // dehors — le décor compte alors le boot de la CLI dans la réflexion.
+      if (r.stats && typeof r.stats === "object") {
+        dureeMs += r.stats.duration_ms ?? 0;
+        vu = true;
+        continue;
+      }
       if (typeof r.num_turns !== "number") {
         continue;
       }
@@ -4350,7 +4474,13 @@ export function lireEffort(transcriptPath) {
       // un effort partiel reste plus informatif qu'aucun.
     }
   }
-  return vu ? { tours, dureeMs, coutUsd, mcpCalls } : null;
+  // 🔴 Un appel MCP compté EST une observation, et il vaut à lui seul un relevé.
+  // Sinon un agent tué en cours de route — quota épuisé, délai, échec après son
+  // premier outil — n'émet aucun tour achevé, `lireEffort` rend `null`, et le
+  // rapport affiche « aucun appel MCP » à propos d'un agent qui venait
+  // précisément de s'en servir. Le compteur d'effort se tairait ; celui des
+  // appels, lui, a bien vu quelque chose.
+  return vu || mcpCalls > 0 ? { tours, dureeMs, coutUsd, mcpCalls } : null;
 }
 
 /**
