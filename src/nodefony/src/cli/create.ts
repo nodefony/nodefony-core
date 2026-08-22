@@ -1,5 +1,5 @@
 import path from "node:path";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
@@ -25,6 +25,9 @@ import {
 import { diffLines, type IScaffoldChange } from "./scaffold/writer";
 import { askMissing, confirm } from "./scaffold/interactive";
 import { syncSkillPointers } from "./aiSync";
+import { runAiMcpCommand } from "./aiMcp";
+import { agentsPresents, type IAgentTarget } from "./agentTargets";
+import { chargePrompts } from "./prompts";
 import { installGitHooks } from "./gitHooks";
 import { GIT_HOOKS_DIR } from "./gitHooksReport";
 
@@ -479,6 +482,88 @@ function poseSkillPointers(dest: string): string {
 }
 
 /**
+ * Décide si `create app` PROPOSE le câblage MCP de l'app neuve à des agents IA.
+ *
+ * **PURE — c'est la seule part qui peut être fausse** ; poser la question et
+ * lancer `ai:mcp` n'est que de la plomberie.
+ *
+ * Deux refus, deux raisons qui n'ont rien à voir :
+ * - **hors terminal, ou sous `--yes`** : déclarer une porte chez un agent
+ *   ÉCRIT dans la configuration d'un autre outil. Un scaffold ne fait pas ça
+ *   comme effet de bord, et surtout pas dans une forge où personne n'est là
+ *   pour refuser. Le geste reste disponible — il est simplement NOMMÉ.
+ * - **rien d'installé ni construit** (`--no-install`, ou une install en
+ *   échec) : `ai:mcp` enchaîne sur l'émission du jeton, qui DÉMARRE le kernel
+ *   de l'application. Sans `node_modules` ni `dist`, la question mènerait à un
+ *   échec qu'on aurait soi-même provoqué.
+ *
+ * @param ctx - terminal disponible, et état réel de l'app générée.
+ * @returns la proposition, ou le motif du refus (affiché tel quel).
+ */
+export function planCablageMcp(ctx: {
+  interactive: boolean;
+  installed: boolean;
+  built: boolean;
+}): { propose: true } | { propose: false; motif: string } {
+  if (!ctx.interactive) {
+    return {
+      propose: false,
+      motif: "hors terminal (ou --yes) — jamais en effet de bord",
+    };
+  }
+  if (!ctx.installed || !ctx.built) {
+    return {
+      propose: false,
+      motif:
+        "app ni installée ni construite — le jeton exige un kernel qui démarre",
+    };
+  }
+  return { propose: true };
+}
+
+/**
+ * Traduit le choix d'agents de développement en appel `ai:mcp` — PURE.
+ *
+ * ⭐ **Ce qui se choisit, c'est l'AGENT ; la porte MCP vient AVEC.** Demander
+ * « veux-tu déclarer une porte MCP ? » posait la question à l'envers : personne
+ * n'installe un protocole, on se sert d'un assistant — et c'est lui qui a besoin
+ * de la porte. Une seule question, dans les mots de celui qui répond.
+ *
+ * Deux familles d'agents, une seule liste : ceux qui se déclarent par LEUR CLI
+ * (`--agent <clés>`) et ceux qui lisent le `.mcp.json` du projet — pour ces
+ * derniers, écrire le fichier EST la déclaration, d'où `none` plutôt que rien :
+ * `--agent none` dit « n'appelle aucune CLI », pas « ne fais rien ».
+ *
+ * `--auth` : l'en-tête porte `${NF_MCP_TOKEN}`, jamais le jeton lui-même. Une
+ * app neuve naît avec sa porte fermée ; l'ouvrir sans authentification serait un
+ * défaut par défaut.
+ *
+ * @param choisis - clés cochées par l'utilisateur.
+ * @param detectes - agents présents sur ce poste (source unique `AGENT_TARGETS`).
+ * @param dest - racine de l'app générée.
+ * @returns l'argv à passer à `ai:mcp`, ou `null` quand aucun agent n'est choisi
+ *   — coder seul est un choix, et rien ne doit alors être écrit.
+ */
+export function argvCablageMcp(
+  choisis: readonly string[],
+  detectes: readonly IAgentTarget[],
+  dest: string,
+): string[] | null {
+  if (choisis.length === 0) return null;
+  const parCli = detectes
+    .filter((c) => c.declaration === "cli" && choisis.includes(c.cle))
+    .map((c) => c.cle);
+  return [
+    "ai:mcp",
+    "--cwd",
+    dest,
+    "--auth",
+    "--agent",
+    parCli.length > 0 ? parCli.join(",") : "none",
+  ];
+}
+
+/**
  * `git init` + first commit dans l'app générée — SEULEMENT si git est
  * disponible ET que le dossier n'est pas déjà couvert par un repo (une app de
  * banc dans le checkout du framework ne doit pas créer un repo imbriqué).
@@ -761,6 +846,55 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   process.stdout.write(
     `\n🤖 skills d'agent : ${poseSkillPointers(result.dest)}\n`,
   );
+  // Le câblage MCP AUSSI avant git : le `.mcp.json` est un fichier de PROJET —
+  // versionné, lu tel quel par les agents qui suivent le dépôt — il a donc sa
+  // place dans le commit initial, exactement comme les pointeurs de skills. Le
+  // JETON, lui, n'y entre jamais : il vit dans `.env.local`, que le `.gitignore`
+  // généré exclut (`*.local`) avant ce commit.
+  const cablage = planCablageMcp({ interactive, installed, built });
+  let mcpNote = cablage.propose ? "" : `non proposé — ${cablage.motif}`;
+  if (cablage.propose) {
+    // Les agents PRÉSENTS sur ce poste — détectés, jamais devinés : proposer
+    // Gemini à qui ne l'a pas installé fait lire la liste comme un catalogue.
+    const detectes = agentsPresents({
+      projectRoot: result.dest,
+      existe: existsSync,
+    });
+    if (detectes.length === 0) {
+      mcpNote = "aucun agent de développement détecté sur ce poste";
+    } else {
+      const { checkbox } = await chargePrompts();
+      // 🔴 Rien de coché : ENTRÉE sans rien cocher = aucun agent, et rien n'est
+      // écrit. Écrire dans la configuration d'un autre outil doit être VOULU.
+      const choisis = (await checkbox({
+        message:
+          "Quel(s) agent(s) de développement utilises-tu ? " +
+          "(espace pour cocher — ils recevront la porte MCP de cette app ; " +
+          "ENTRÉE sans rien cocher : aucun, je code seul)",
+        choices: detectes.map((c) => ({
+          name:
+            c.declaration === "cli"
+              ? `${c.nom} — déclaré par ${c.bin} mcp add`
+              : `${c.nom} — servi par le .mcp.json de ce projet`,
+          value: c.cle,
+          checked: false,
+        })),
+      })) as string[];
+      const appelMcp = argvCablageMcp(choisis, detectes, result.dest);
+      if (appelMcp === null) {
+        mcpNote = "aucun agent choisi";
+      } else {
+        // ⭐ MÊME implémentation que `nodefony ai:mcp` — APPELÉE, jamais
+        // recopiée : elle porte l'écriture du `.mcp.json`, la déclaration par la
+        // CLI de chaque agent (jamais par son fichier), le constat plutôt que le
+        // code de sortie, et l'émission du jeton avec sa durée et sa portée.
+        await runAiMcpCommand(appelMcp);
+      }
+    }
+  }
+  if (mcpNote !== "") {
+    process.stdout.write(`🔌 agents IA : ${mcpNote}\n`);
+  }
   const gitNote = parsed.git
     ? runGitInit(result.dest, String(answers.name), answers.gitHooks === true)
     : "sauté (--no-git)";
@@ -787,6 +921,12 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       `  npm run dev        # → https://127.0.0.1:5152 (ou le port libre suivant, annoncé au démarrage)\n` +
       (answers.preset === "complete"
         ? `                     # console d'administration : /nodefony — admin/admin en dev\n`
+        : "") +
+      // Le geste n'est PAS perdu quand il n'a pas été proposé (forge, --yes) ou
+      // qu'il a été décliné : il se nomme. Une capacité qu'on n'atteint pas
+      // n'existe pas.
+      (mcpNote !== ""
+        ? `  npx nodefony ai:mcp # câbler ton agent IA (porte MCP + jeton)\n`
         : ""),
   );
   return SysExit.OK;

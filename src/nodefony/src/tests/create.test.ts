@@ -15,10 +15,13 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { version } from "../../package.json";
 import {
+  argvCablageMcp,
   parseCreateArgv,
+  planCablageMcp,
   runCreateCommand,
   type ICreateRequest,
 } from "../cli/create";
+import { AGENT_TARGETS } from "../cli/agentTargets";
 import { getScaffoldSpec } from "../cli/scaffold/spec";
 import {
   findPackageRoot,
@@ -5163,5 +5166,85 @@ describe("create app --git-hooks", { timeout: 60_000 }, () => {
       encoding: "utf8",
     });
     assert.notEqual(cfg.status, 0);
+  });
+});
+
+describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", () => {
+  const parCli = AGENT_TARGETS.filter((c) => c.declaration === "cli");
+  const parFichier = AGENT_TARGETS.filter(
+    (c) => c.declaration === "fichier-projet",
+  );
+
+  it("aucun agent coché → RIEN n'est écrit (pas même le .mcp.json)", () => {
+    assert.isNull(argvCablageMcp([], AGENT_TARGETS, "/tmp/app"));
+  });
+
+  it("un agent à CLI coché → ai:mcp le nomme, dans l'app NEUVE, en mode authentifié", () => {
+    assert.isAtLeast(parCli.length, 1, "fixture : au moins un agent à CLI");
+    const cle = parCli[0]!.cle;
+    assert.deepEqual(argvCablageMcp([cle], AGENT_TARGETS, "/tmp/app"), [
+      "ai:mcp",
+      "--cwd",
+      "/tmp/app",
+      "--auth",
+      "--agent",
+      cle,
+    ]);
+  });
+
+  it("seulement un agent servi par le FICHIER → `none` : le .mcp.json est écrit, aucune CLI lancée", () => {
+    assert.isAtLeast(
+      parFichier.length,
+      1,
+      "fixture : au moins un agent servi par fichier",
+    );
+    const argv = argvCablageMcp(
+      [parFichier[0]!.cle],
+      AGENT_TARGETS,
+      "/tmp/app",
+    );
+    assert.isNotNull(argv);
+    assert.deepEqual(argv?.slice(-2), ["--agent", "none"]);
+  });
+
+  it("un agent NON coché ne part jamais dans l'appel", () => {
+    if (parCli.length < 2) return;
+    const argv = argvCablageMcp([parCli[0]!.cle], AGENT_TARGETS, "/tmp/app");
+    assert.notInclude(argv?.join(" ") ?? "", parCli[1]!.cle);
+  });
+
+  it("PROPOSE seulement en terminal, sur une app installée ET construite", () => {
+    assert.deepEqual(
+      planCablageMcp({ interactive: true, installed: true, built: true }),
+      { propose: true },
+    );
+  });
+
+  it("ne propose JAMAIS hors terminal — ni sous --yes : écrire chez un agent n'est pas un effet de bord", () => {
+    const plan = planCablageMcp({
+      interactive: false,
+      installed: true,
+      built: true,
+    });
+    assert.isFalse(plan.propose);
+    assert.include(
+      plan.propose === false ? plan.motif : "",
+      "hors terminal",
+      "le motif doit NOMMER la raison — un refus muet se lit comme une panne",
+    );
+  });
+
+  it("ne propose pas sur une app non installée : l'émission du jeton démarre le kernel", () => {
+    for (const etat of [
+      { installed: false, built: false },
+      { installed: true, built: false },
+    ]) {
+      const plan = planCablageMcp({ interactive: true, ...etat });
+      assert.isFalse(
+        plan.propose,
+        `attendu refusé pour ${JSON.stringify(etat)}`,
+      );
+      assert.include(plan.propose === false ? plan.motif : "", "kernel");
+    }
   });
 });

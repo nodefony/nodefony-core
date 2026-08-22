@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-22T19:37:36.956Z",
+  "generated": "2026-08-22T20:08:09.758Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 732,
-    "symbols": 3096,
+    "symbols": 3098,
     "classes": 364,
     "interfaces": 883,
     "types": 387,
     "enums": 4,
-    "functions": 1166,
+    "functions": 1168,
     "constants": 292
   },
   "symbols": {
@@ -1349,6 +1349,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Parse l'argv complet du process après le mot `create`. Ne valide QUE la forme des flags — les valeurs (nom, preset…) sont jugées par la spec du moteur."
+    },
+    "planCablageMcp": {
+      "name": "planCablageMcp",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Décide si `create app` PROPOSE le câblage MCP de l'app neuve à des agents IA. **PURE — c'est la seule part qui peut être fausse** ; poser la question et lancer `ai:mcp` n'est que de la plomberie. D…"
+    },
+    "argvCablageMcp": {
+      "name": "argvCablageMcp",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Traduit le choix d'agents de développement en appel `ai:mcp` — PURE. ⭐ **Ce qui se choisit, c'est l'AGENT ; la porte MCP vient AVEC.** Demander « veux-tu déclarer une porte MCP ? » posait la questi…"
     },
     "runCreateCommand": {
       "name": "runCreateCommand",
@@ -24280,6 +24296,7 @@
       ],
       "chargePrompts": [
         "src/nodefony/src/cli/aiMcp.ts",
+        "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/command/Command.ts",
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
@@ -24322,6 +24339,7 @@
       ],
       "agentsPresents": [
         "src/nodefony/src/cli/aiMcp.ts",
+        "src/nodefony/src/cli/create.ts",
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "litVariable": [
@@ -24339,6 +24357,7 @@
       ],
       "IAgentTarget": [
         "src/nodefony/src/cli/aiMcp.ts",
+        "src/nodefony/src/cli/create.ts",
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "stripTrailingSlashes": [
@@ -24449,6 +24468,11 @@
       ],
       "syncSkillPointers": [
         "src/nodefony/src/cli/create.ts"
+      ],
+      "runAiMcpCommand": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/AiMcpCommand.ts"
       ],
       "installGitHooks": [
         "src/nodefony/src/cli/create.ts"
@@ -24870,10 +24894,6 @@
       "runAiSyncCommand": [
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/commands/AiSyncCommand.ts"
-      ],
-      "runAiMcpCommand": [
-        "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/kernel/commands/AiMcpCommand.ts"
       ],
       "runGitHooksCommand": [
         "src/nodefony/src/kernel/CliKernel.ts",
