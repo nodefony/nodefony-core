@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-22T14:33:06.629Z",
+  "generated": "2026-08-22T14:37:01.964Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 726,
-    "symbols": 3036,
+    "symbols": 3037,
     "classes": 364,
     "interfaces": 870,
     "types": 383,
     "enums": 4,
-    "functions": 1127,
+    "functions": 1128,
     "constants": 288
   },
   "symbols": {
@@ -15393,6 +15393,14 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Pose une variable dans le contenu d'un fichier de configuration d'agent. Fonction PURE — elle prend le contenu et rend le contenu. C'est ce qui permet d'éprouver chaque grammaire sans écrire sur le…"
+    },
+    "porteDejaLaCle": {
+      "name": "porteDejaLaCle",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/command/security-token.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Ce fichier porte-t-il DÉJÀ cette variable ? ⭐ C'est ce qui rend la rotation simple : l'état de câblage n'a pas à être mémorisé quelque part, il EST dans les fichiers des agents. Un agent qui porte …"
     },
     "agentsDemandes": {
       "name": "agentsDemandes",

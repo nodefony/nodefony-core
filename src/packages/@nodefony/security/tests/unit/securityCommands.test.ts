@@ -5,6 +5,7 @@ import SecurityToken, {
   ttlSeconds,
   poseVariable,
   agentsDemandes,
+  porteDejaLaCle,
 } from "../../nodefony/command/security-token";
 
 /**
@@ -322,5 +323,52 @@ describe("security:token --agent — choisir qui est servi", () => {
     // Le message doit servir à corriger, pas seulement à constater.
     expect((verdict as Error).message).to.contain("cursor");
     expect((verdict as Error).message).to.contain("claude");
+  });
+});
+
+/**
+ * Ce que cette suite prouve : que l'état de câblage se LIT là où il vit, au lieu
+ * d'être mémorisé ailleurs. C'est ce qui rend la rotation muette — un agent qui
+ * porte déjà la clé est mis à jour sans qu'on repose la question, et renouveler
+ * un jeton cesse d'être un questionnaire.
+ */
+describe("security:token — reconnaître un agent DÉJÀ câblé", () => {
+  it("dotenv : voit la clé posée, ignore une clé voisine", () => {
+    expect(porteDejaLaCle("dotenv", "NF_MCP_TOKEN=abc\n", "NF_MCP_TOKEN")).to.be
+      .true;
+    // « NF_MCP_TOKEN_OLD » ne doit pas passer pour la clé cherchée.
+    expect(porteDejaLaCle("dotenv", "NF_MCP_TOKEN_OLD=abc\n", "NF_MCP_TOKEN"))
+      .to.be.false;
+    expect(porteDejaLaCle("dotenv", "AUTRE=1\n", "NF_MCP_TOKEN")).to.be.false;
+  });
+
+  it("json : voit la clé sous `env`, et pas ailleurs", () => {
+    expect(
+      porteDejaLaCle(
+        "json-env",
+        '{"env":{"NF_MCP_TOKEN":"abc"}}',
+        "NF_MCP_TOKEN",
+      ),
+    ).to.be.true;
+    // Une clé à la racine n'est pas une variable d'environnement.
+    expect(porteDejaLaCle("json-env", '{"NF_MCP_TOKEN":"abc"}', "NF_MCP_TOKEN"))
+      .to.be.false;
+    expect(porteDejaLaCle("json-env", '{"env":{"AUTRE":"x"}}', "NF_MCP_TOKEN"))
+      .to.be.false;
+  });
+
+  it("🔴 une valeur VIDE ne compte pas pour un câblage", () => {
+    // Sens du test : la traiter comme câblée ferait passer la rotation en
+    // silence sur un agent qui n'a jamais reçu de jeton — et le porteur
+    // chercherait la faute ailleurs.
+    expect(
+      porteDejaLaCle("json-env", '{"env":{"NF_MCP_TOKEN":""}}', "NF_MCP_TOKEN"),
+    ).to.be.false;
+  });
+
+  it("fichier absent ou illisible : jamais câblé", () => {
+    expect(porteDejaLaCle("dotenv", "", "NF_MCP_TOKEN")).to.be.false;
+    expect(porteDejaLaCle("json-env", "{ pas du json", "NF_MCP_TOKEN")).to.be
+      .false;
   });
 });

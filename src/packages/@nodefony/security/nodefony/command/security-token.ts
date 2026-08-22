@@ -173,6 +173,36 @@ export function poseVariable(
 }
 
 /**
+ * Ce fichier porte-t-il DÉJÀ cette variable ?
+ *
+ * ⭐ C'est ce qui rend la rotation simple : l'état de câblage n'a pas à être
+ * mémorisé quelque part, il EST dans les fichiers des agents. Un agent qui
+ * porte la clé a été câblé un jour — le relancer doit la METTRE À JOUR, sans
+ * reposer la question. Un fichier d'état parallèle, lui, mentirait dès que
+ * quelqu'un modifierait sa configuration à la main.
+ *
+ * @param forme - grammaire du fichier
+ * @param contenu - son contenu, ou chaîne vide s'il n'existe pas
+ * @param cle - nom de la variable
+ */
+export function porteDejaLaCle(
+  forme: IAgentTarget["forme"],
+  contenu: string,
+  cle: string,
+): boolean {
+  if (contenu.trim() === "") return false;
+  if (forme === "dotenv") {
+    return new RegExp(`^\\s*${cle}\\s*=`, "m").test(contenu);
+  }
+  try {
+    const doc = JSON.parse(contenu) as { env?: Record<string, unknown> };
+    return typeof doc.env?.[cle] === "string" && doc.env[cle] !== "";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Traduit `--agent` en cibles, ou rend l'erreur à afficher.
  *
  * Trois formes : rien (les cibles détectées, décidé plus loin), `none` (aucune
@@ -338,6 +368,16 @@ class SecurityToken extends Command {
           (cible.home ? process.env[cible.home] : undefined) ??
             path.join(homedir(), cible.marqueur),
         );
+  }
+
+  /** Contenu du fichier d'une cible, "" s'il n'existe pas. */
+  #contenuDe(cible: IAgentTarget): string {
+    try {
+      const abs = path.resolve(this.#racineDe(cible), cible.fichier);
+      return existsSync(abs) ? readFileSync(abs, "utf8") : "";
+    } catch {
+      return "";
+    }
   }
 
   /**
@@ -636,21 +676,49 @@ class SecurityToken extends Command {
         process.exitCode = 1;
         return this;
       }
-      // Rien de demandé et un terminal répond : on PROPOSE ce qui est détecté
-      // plutôt que d'écrire d'office chez quelqu'un. Écrire dans la
-      // configuration d'un autre outil est un geste qui se voit et se refuse.
-      let cibles = demandes ?? this.#agentsPresents();
-      if (demandes === undefined && cibles.length > 0 && process.stdin.isTTY) {
-        const { checkbox } = await import("@inquirer/prompts");
-        const choisis = (await checkbox({
-          message: "Poser le jeton chez quels agents ?",
-          choices: cibles.map((c) => ({
-            name: `${c.nom} — ${c.portee === "projet" ? c.fichier : `$${c.home}/${c.fichier}`}`,
-            value: c.cle,
-            checked: true,
-          })),
-        })) as string[];
-        cibles = cibles.filter((c) => choisis.includes(c.cle));
+      let cibles = demandes ?? [];
+      if (demandes === undefined) {
+        const presents = this.#agentsPresents();
+        // ⭐ ROTATION : un agent qui PORTE déjà la clé a été câblé un jour. Le
+        // relancer doit la mettre à jour SANS reposer la question — sinon
+        // renouveler un jeton redevient un questionnaire, et c'est le geste le
+        // plus fréquent. L'état n'est pas mémorisé : il est lu là où il vit.
+        const porteurs = presents.filter((c) =>
+          porteDejaLaCle(c.forme, this.#contenuDe(c), MCP_TOKEN_ENV),
+        );
+        const nouveaux = presents.filter((c) => !porteurs.includes(c));
+        cibles = porteurs;
+        if (
+          porteurs.length === 0 &&
+          nouveaux.length > 0 &&
+          process.stdin.isTTY
+        ) {
+          // PREMIÈRE fois : écrire dans la configuration d'un autre outil est un
+          // geste qui se voit et se refuse, donc on propose.
+          const { checkbox } = await import("@inquirer/prompts");
+          const choisis = (await checkbox({
+            message: "Poser le jeton chez quels agents ?",
+            choices: nouveaux.map((c) => ({
+              name: `${c.nom} — ${c.portee === "projet" ? c.fichier : `$${c.home}/${c.fichier}`}`,
+              value: c.cle,
+              checked: true,
+            })),
+          })) as string[];
+          cibles = nouveaux.filter((c) => choisis.includes(c.cle));
+        } else if (porteurs.length === 0) {
+          // Hors terminal : servir ce qui est détecté, sinon la commande ne
+          // ferait rien du tout dans un script.
+          cibles = nouveaux;
+        } else if (nouveaux.length > 0) {
+          // Des agents sont là mais n'ont jamais été câblés : le DIRE, sans
+          // décider à leur place — la rotation ne doit pas élargir le périmètre.
+          w(
+            `${DIM}  ${nouveaux.map((c) => c.nom).join(", ")} ` +
+              `${nouveaux.length > 1 ? "sont présents" : "est présent"} mais ne porte` +
+              `${nouveaux.length > 1 ? "nt" : ""} pas encore le jeton — ` +
+              `ajoute --agent ${nouveaux.map((c) => c.cle).join(",")}.${RESET}\n\n`,
+          );
+        }
       }
       const servis = this.#poseChezAgents(jeton, w, cibles);
       if (servis === 0) {
