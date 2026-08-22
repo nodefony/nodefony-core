@@ -243,7 +243,9 @@ rien à redéclarer.
 | `handleMcpMessage` | `src/mcp/server.ts` | 1 message JSON-RPC → `{status, body}`. Reçoit des outils **déjà résolus** (`IMcpTool[]`), jamais un catalogue |
 | `checkMcpAccess`/`isLocalAddress` | `src/mcp/guard.ts` | `Origin` (**absent = client natif → passe**) + localité. Localité jugée AVANT l'origine |
 | `builtinMcpTools(deps)` | `src/mcp/tools.ts` | 4 intégrés (`inspect`, `check`, `symbols`, `card`) → briques existantes (`readAdminSubject`, `collectCheckReport`, `lookupSymbol`, `getCard`) |
-| `collectMcpTools(opts)` | `src/mcp/tools.ts` | intégrés filtrés par allowlist **puis** `getMcpTools()` de chaque module. Écarts → `onSkip` |
+| `declareMcpTools(opts)` | `src/mcp/tools.ts` | intégrés filtrés par allowlist **puis** `getMcpTools()` de chaque module. Écarts → `onSkip`. **Non servable tel quel** : contient les réservés |
+| `collectMcpTools(opts)` | `src/mcp/tools.ts` | `declareMcpTools` **puis** filtre par `caller` (`scopes`/`requiresAuth`) → rétentions par `onWithheld`. C'est ce que TOUTE porte sert |
+| `mcpDeclaredScopes(opts)` | `src/mcp/tools.ts` | union triée des `IMcpTool.scopes` DÉCLARÉS. Source unique de `scopes_supported` (RFC 9728) et du `scope` du défi — **jamais** une liste de config. Indépendant du `caller` : le document se lit sans jeton |
 | `publishMcpTools`/`callMcpTool` | `src/mcp/tools.ts` | projection sans `handler` / exécution par nom |
 | `mcpText` | `src/mcp/tools.ts` | enveloppe `content[]` — une app en a besoin pour ses propres outils. **BORNÉ** (voir ci-dessous) |
 | `IMcpTool` | `types/IMcpTool.ts` | contrat producteur (comme `IAdminApi`) ; `IModule.getMcpTools?()` |

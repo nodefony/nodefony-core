@@ -96,22 +96,39 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
   (`{authenticated:false, scopes:[]}`), donc tout outil déclarant `scopes`/
   `requiresAuth` est retenu (fail-closed), absent de `tools/list` et
   inappelable. Non vide → `authorizeProtectedResource` (cœur) tranche :
-  `anonymous` · `authenticated` · `challenge` (401 sans code d'erreur si rien
-  n'a été présenté, 400 `invalid_request` si l'en-tête est mal formé, 401
-  `invalid_token`) · `unverifiable`. La rétention part en `DEBUG`
-  (`onWithheld`), pas en `WARNING` : c'est un catalogue filtré qui fonctionne.
+  `anonymous` · `authenticated` · `challenge` · `unverifiable`.
+  🔴 **Présenter MAL ne vaut pas moins que ne rien présenter** : « rien
+  présenté » couvre l'en-tête ABSENT **et** le `Bearer` vide (variable non
+  substituée) — 401 sans code d'erreur, ou `anonymous` si toléré ; seul un
+  AUTRE schéma est un 400 `invalid_request`. Et un jeton REJETÉ sur une porte
+  `anonymous: true` est servi en anonyme (`rejected` → `WARNING`), jamais en
+  401 : il n'obtient rien de plus qu'un inconnu, mais le client ne meurt plus
+  sur un jeton expiré. `anonymous: false` (prod) ⇒ 401 `invalid_token`.
+  Un en-tête `Bearer ${…}` jamais substitué est DIT (`WARNING` + le geste).
+  La rétention d'outil part en `DEBUG` (`onWithheld`), pas en `WARNING` :
+  c'est un catalogue filtré qui fonctionne.
 - 🔴 **La vérification du jeton est un service du CONTENEUR, `accessTokenVerifier`**
   (contrat `IAccessTokenVerifier`, cœur). Ce module est `policy:"dev"` et ne peut
   pas dépendre de `@nodefony/security`. Rôle déclaré + service absent = `503` +
-  `CRITIC`, jamais un porteur accepté sans lecture. **Aucune implémentation n'est
-  livrée à ce jour** : `JwtAuthenticator` ne valide que les JWT émis par Nodefony
-  (`createLocalJWKSet`), pas ceux d'un émetteur tiers — il manque un JWKS
-  distant.
+  `CRITIC`, jamais un porteur accepté sans lecture. **L'implémentation est
+  livrée par `@nodefony/security`** (`RemoteJwtVerifier`, service
+  `accessTokenVerifier`, JWKS distant RFC 8414) — posée sous LA MÊME constante
+  du cœur, donc ce module ne le nomme jamais.
 - **`resource` (l'audience) s'ÉCRIT, ne se dérive JAMAIS du `Host`.** Sinon URI
   publiée et audience attendue viennent toutes deux de la requête : un `Host`
   forgé obtient un jeton d'audience arbitraire ET passe la vérification — la
   liaison d'audience (RFC 8707) ne protège plus rien. Validée au boot par
   `canonicalResourceUri`, la fonction qui composera le document.
+- **Les SCOPES publiés sont DÉRIVÉS, jamais écrits.**
+  `DevkitService.declaredMcpScopes()` = `mcpDeclaredScopes` sur l'allowlist +
+  `kernel.modules` → union triée des `IMcpTool.scopes`. Deux lecteurs, une
+  source : `scopes_supported` du document RFC 9728 et le `scope` du défi
+  RFC 6750. Aucune clé de config ne double cette liste (elle publiait
+  `admin:write` qu'aucun outil n'exige, et taisait le scope de tout outil de
+  module). Vide ⇒ le champ est OMIS du document. Les dépendances des outils
+  viennent de `mcpToolDeps()` — composées par le SERVICE, pas par la porte,
+  parce que les deux questions (« que sert-on ? », « qu'exige-t-on ? ») les
+  réclament.
 - **Le module DÉCLARE sa ressource, il ne PUBLIE pas le document.**
   `DevkitService.publishedProtectedResources()` rend une entrée quand
   `mcp.enabled` et qu'au moins un serveur d'autorisation est déclaré ; c'est

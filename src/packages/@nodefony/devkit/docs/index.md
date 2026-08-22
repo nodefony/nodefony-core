@@ -133,18 +133,18 @@ use("@nodefony/devkit", {
     authorization: {
       authorizationServers: ["https://auth.example"],
       resource: "https://mon-app.example/nodefony/mcp",
-      scopesSupported: ["nodefony:inspect"],
     },
   },
 });
 ```
 
-| Ce qui se passe alors                               | Où                                                       |
-| --------------------------------------------------- | -------------------------------------------------------- |
-| Le document de métadonnées est publié               | `GET /.well-known/oauth-protected-resource/nodefony/mcp` |
-| Une requête sans jeton est refusée                  | `401` + `WWW-Authenticate: Bearer resource_metadata="…"` |
-| Un jeton d'une autre audience est refusé            | `401` + `error="invalid_token"`                          |
-| Un outil déclarant des `scopes` devient atteignable | pour qui présente **tous** ces scopes                    |
+| Ce qui se passe alors                                        | Où                                                       |
+| ------------------------------------------------------------ | -------------------------------------------------------- |
+| Le document de métadonnées est publié                        | `GET /.well-known/oauth-protected-resource/nodefony/mcp` |
+| Une requête sans jeton — ou sans jeton LISIBLE — est refusée | `401` + `WWW-Authenticate: Bearer resource_metadata="…"` |
+| Un jeton d'une autre audience n'ouvre rien                   | `401` — ou servi en **anonyme** si `anonymous: true`     |
+| Un outil déclarant des `scopes` devient atteignable          | pour qui présente **tous** ces scopes                    |
+| Les scopes publiés sont l'**union** de ceux des outils       | `scopes_supported` du document, et `scope` du défi       |
 
 Le serveur d'**autorisation** n'est jamais à écrire : la spécification le place
 « beyond the scope […] or a separate entity ». N'importe quel émetteur OAuth 2.1
