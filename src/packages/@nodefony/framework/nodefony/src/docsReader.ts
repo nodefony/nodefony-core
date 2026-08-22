@@ -518,7 +518,12 @@ export async function searchModuleDocs(
     hits: rendus,
     ...(hits.length > rendus.length
       ? {
-          note: `${hits.length} documents portent ces termes, ${rendus.length} sont rendus (borne « limit », ${limit} par défaut). Précise les termes, ou rappelle avec limit plus grand.`,
+          // ⚠️ Dire la borne EFFECTIVE, jamais « par défaut » : la borne peut
+          // avoir été DEMANDÉE par l'appelant, et lui présenter son propre
+          // choix comme un défaut du produit l'envoie chercher un réglage
+          // ailleurs. Une phrase d'aide qui se trompe coûte plus qu'une absence
+          // de phrase.
+          note: `${hits.length} documents portent ces termes, ${rendus.length} sont rendus (borne « limit » = ${limit}). Précise les termes, ou rappelle avec limit plus grand.`,
         }
       : {}),
   };

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { chargePrompts } from "../cli/prompts";
 import Service, { DefaultOptionsService } from "../Service";
 import Container, { Scope } from "../Container";
 //import Event from "../Event";
@@ -243,7 +244,12 @@ class Command extends Service {
    */
   public async loadPrompts(): Promise<void> {
     if (!this.prompts) {
-      this.prompts = await import("@inquirer/prompts");
+      // ⭐ Par la porte UNIQUE, jamais par un import direct : les questions en
+      // sortent ANCRÉES sur l'event loop. Attendre une frappe est une promesse
+      // en attente, et Node ne compte que les HANDLES — une commande qui ne
+      // démarre rien s'arrête donc AU MILIEU de sa question, sans erreur et
+      // avec un code de sortie nul. Cf `cli/prompts.ts`.
+      this.prompts = (await chargePrompts()) as unknown as typeof this.prompts;
     }
   }
   /**

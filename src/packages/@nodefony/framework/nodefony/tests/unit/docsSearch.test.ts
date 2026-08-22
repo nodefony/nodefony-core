@@ -265,6 +265,10 @@ describe("recherche — la DENSITÉ classe, pas le volume", () => {
     expect(borne.hits).to.have.lengthOf(1);
     expect(borne.matched).to.equal(2);
     expect(borne.note).to.contain("limit");
+    // La borne ANNONCÉE est celle qui a joué — pas un « défaut » qui
+    // enverrait chercher un réglage inexistant.
+    expect(borne.note).to.contain("= 1");
+    expect(borne.note).to.not.contain("par défaut");
 
     const complet = await searchModuleDocs(cibles, "session redis");
     expect(complet.note).to.equal(undefined);

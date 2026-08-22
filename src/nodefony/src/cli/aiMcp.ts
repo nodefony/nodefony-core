@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { SysExit } from "./sysexits";
+import { chargePrompts } from "./prompts";
 import {
   ADMIN_SCOPE_READ,
   ADMIN_SCOPE_WRITE,
@@ -643,7 +644,7 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
         "nodefony"
       ]?.headers?.Authorization,
     );
-    const { confirm } = await import("@inquirer/prompts");
+    const { confirm } = await chargePrompts();
     parsed.auth = await confirm({
       message: `Mode authentifié ? (en-tête \${${MCP_TOKEN_ENV}}${dejaAuth ? " — répondre non le RETIRE" : ""})`,
       default: dejaAuth,
@@ -704,7 +705,7 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
       (c) => c.declaration === "fichier-projet",
     );
     if (detectes.length > 0 && process.stdin.isTTY) {
-      const { checkbox } = await import("@inquirer/prompts");
+      const { checkbox } = await chargePrompts();
       const choisis = (await checkbox({
         message: `Déclarer la porte chez quels agents ? ${"(espace pour cocher — ENTRÉE sans rien cocher : aucun, je code seul)"}`,
         choices: [
@@ -800,7 +801,7 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
     isTTY: Boolean(process.stdin.isTTY),
   });
   if (chainage) {
-    const { confirm, select } = await import("@inquirer/prompts");
+    const { confirm, select } = await chargePrompts();
     // ⭐ CONSTATER avant de proposer. Le jeton part dans un en-tête statique
     // que rien ne rafraîchit : expiré, il produit un `401` qui accuse la
     // configuration, l'audience ou le serveur — jamais l'échéance. Une ligne

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-22T18:01:30.489Z",
+  "generated": "2026-08-22T18:23:16.485Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 731,
-    "symbols": 3084,
+    "files": 732,
+    "symbols": 3089,
     "classes": 364,
-    "interfaces": 881,
+    "interfaces": 882,
     "types": 386,
     "enums": 4,
-    "functions": 1157,
+    "functions": 1161,
     "constants": 292
   },
   "symbols": {
@@ -1702,6 +1702,47 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Demande un secret sans jamais l'ÉCHOTER — mot de passe, phrase de passe. La frappe passe par un `readline` dont la sortie est un flux MUET : la question s'écrit directement sur la sortie standard, …"
+    },
+    "IPrompts": {
+      "name": "IPrompts",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/prompts.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Les questions servies par cette porte — le sous-ensemble réellement utilisé."
+    },
+    "ancreEventLoop": {
+      "name": "ancreEventLoop",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/prompts.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La porte UNIQUE par laquelle une commande pose une question. ⭐ Elle existe pour une raison qu'aucune commande ne peut résoudre seule : **attendre une réponse humaine ne retient pas Node.** Une ques…"
+    },
+    "demande": {
+      "name": "demande",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/prompts.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Exécute une interaction utilisateur en retenant l'event loop. ⚠️ L'ancre se relâche dans un `finally` : une question interrompue (Ctrl+C, flux fermé, refus) doit rendre la main comme une question a…"
+    },
+    "chargePrompts": {
+      "name": "chargePrompts",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/prompts.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Charge les prompts — import DYNAMIQUE, et c'est délibéré. Le paquet pèse ; une commande non interactive (`--json`, un script de forge) ne doit pas le payer. Le chargement est idempotent : Node met …"
+    },
+    "ouvreReadline": {
+      "name": "ouvreReadline",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/prompts.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Interface `readline` ANCRÉE — même garantie, pour le front natif du scaffold. Le scaffold de `create app` ne passe pas par `@inquirer/prompts` : il pose ses questions en `node:readline/promises`, s…"
     },
     "IStartMenuModuleCommand": {
       "name": "IStartMenuModuleCommand",
@@ -24194,6 +24235,11 @@
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
+      "chargePrompts": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/nodefony/src/command/Command.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
       "ADMIN_SCOPE_READ": [
         "src/nodefony/src/cli/aiMcp.ts",
         "src/nodefony/src/mcp/tools.ts",
@@ -25599,6 +25645,9 @@
       ],
       "TPresetChoice": [
         "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "ancreEventLoop": [
+        "src/nodefony/src/cli/scaffold/interactive.ts"
       ],
       "IScaffoldCaps": [
         "src/nodefony/src/cli/scaffold/interactive.ts"

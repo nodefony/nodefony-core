@@ -10,6 +10,7 @@ import {
   ADMIN_SCOPE_READ,
   ADMIN_SCOPE_WRITE,
   AGENT_TARGETS,
+  chargePrompts,
   agentsPresents,
   agentsDemandes,
   poseVariable,
@@ -534,7 +535,9 @@ class SecurityToken extends Command {
         ) {
           // PREMIÈRE fois : écrire dans la configuration d'un autre outil est un
           // geste qui se voit et se refuse, donc on propose.
-          const { checkbox } = await import("@inquirer/prompts");
+          // Par la porte du cœur : les questions en sortent ancrées sur l'event
+          // loop (cf `cli/prompts.ts`). Un import direct recrée le défaut.
+          const { checkbox } = await chargePrompts();
           const choisis = (await checkbox({
             message: "Poser le jeton chez quels agents ?",
             choices: nouveaux.map((c) => ({

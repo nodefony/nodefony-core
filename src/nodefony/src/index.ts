@@ -817,6 +817,12 @@ export {
 export type { ICheckReport } from "./kernel/checks/runCheck";
 
 export { buildCard, renderCard } from "./cli/cardReport";
+export {
+  chargePrompts,
+  demande,
+  ancreEventLoop,
+  type IPrompts,
+} from "./cli/prompts";
 export type {
   ICard,
   ICardAppInfo,
