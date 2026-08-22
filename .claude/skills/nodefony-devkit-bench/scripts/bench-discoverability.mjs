@@ -519,6 +519,26 @@ const commandeQuiContient = (motif) =>
   new RegExp(`"command"\\s*:\\s*"(?:[^"\\\\]|\\\\.)*?(?:${motif})`, "u");
 
 /**
+ * Le GESTE, quelle que soit la VOIE — ligne de commande **ou** outil MCP.
+ *
+ * 🔴 Une sonde qui n'accepte qu'une voie mesure un MOYEN, pas un fait. Mesuré :
+ * en régime MCP authentifié, l'agent a interrogé l'application sept fois par
+ * ses outils — le geste EXACT que la tâche demande — et la sonde l'a compté
+ * rouge parce qu'elle cherchait `nodefony inspect` dans une commande shell.
+ * Elle pénalisait donc l'agent le mieux outillé, et le banc aurait conclu que
+ * le MCP dégrade ce qu'il améliore.
+ *
+ * @param motif - le motif accepté dans une commande shell.
+ * @param outils - les noms d'outils MCP qui rendent le même service.
+ */
+const gesteParCommandeOuMcp = (motif, outils) =>
+  new RegExp(
+    `"command"\\s*:\\s*"(?:[^"\\\\]|\\\\.)*?(?:${motif})` +
+      `|"name"\\s*:\\s*"mcp__[^"]*(?:${outils})`,
+    "u",
+  );
+
+/**
  * Ce qu'une commande AFFICHE n'est pas ce qu'elle FAIT — élagage du texte.
  *
  * Troisième piège de la famille, et le seul qui restait ouvert. Les deux autres
@@ -1455,8 +1475,12 @@ export const TASKS = [
         // `devkit:card` reste l'ALIAS de `card` (le nom d'origine, encore écrit
         // dans les AGENTS.md déjà générés) : la sonde accepte les deux, sinon
         // elle rendrait FAIL un agent qui a fait le geste juste.
-        pattern: commandeQuiContient(
+        // Deux voies pour le MÊME geste : la commande, ou l'outil MCP qui la
+        // sert. Ce que la tâche demande est d'INTERROGER l'application, pas de
+        // choisir un transport.
+        pattern: gesteParCommandeOuMcp(
           "nodefony\\s+(?:inspect\\b|(?:devkit:)?card\\b)",
+          "inspect|card",
         ),
       },
       {
@@ -3509,25 +3533,12 @@ function setup(runDir) {
   if (jeton) {
     APP_ENV.NF_MCP_TOKEN = jeton;
     console.log("  · porte MCP AUTHENTIFIÉE (jeton admin:read, 120 min)");
-    // La porte est une ROUTE : sans application en marche, le jeton n'ouvre
-    // rien et le client MCP marque le serveur « failed » pour TOUTE la session.
-    // Démarrer fait donc partie du régime, ce n'est pas une option.
-    const boot = spawnSync(
-      "npx",
-      ["--no-install", "nodefony", "development", "--detach", "--wait"],
-      { cwd: app, encoding: "utf8", env: envMcp, timeout: 180_000 },
-    );
-    if (boot.status === 0) {
-      console.log(`  · application DÉMARRÉE (port ${PORTS.NF_PORT_HTTPS})`);
-      // La tâche 5 pilote le serveur : un serveur déjà là fausse son verdict.
-      console.log(
-        "  ⚠️ régime « auth » : la tâche 5 (démarrer/arrêter) ne vaut rien ici",
-      );
-    } else {
-      console.log(
-        `  ⚠️ démarrage impossible (code ${boot.status}) — la porte MCP restera injoignable`,
-      );
-    }
+    // ⚠️ L'application n'est PAS démarrée ici. La porte est une route, il faut
+    // donc qu'elle tourne — mais le démarrer AU DÉCOR occupe le port avant les
+    // prémisses, et une tâche qui démarre elle-même l'application (elles sont
+    // plusieurs) échoue alors sur « port occupé » : sa prémisse tombe, la tâche
+    // n'est même pas jouée. Le démarrage a lieu au dernier moment utile — juste
+    // avant l'agent, prémisse passée — et seulement si rien ne répond déjà.
   } else {
     // Le DIRE, et ne pas continuer comme si de rien n'était : la mesure qui
     // suit porterait sur un agent amputé de ses outils réservés, et le rapport
@@ -3791,6 +3802,42 @@ function runTask(app, runDir, task) {
       "--allow-empty",
     );
     console.log("  · prémisse posée (décor commité avant l'agent)");
+  }
+  // Régime « auth » : l'application doit RÉPONDRE avant que l'agent démarre —
+  // son client MCP se connecte tôt, et une porte injoignable le reste pour
+  // toute la session. Après la prémisse (qui a pu la démarrer elle-même) et
+  // seulement si personne n'écoute : on ne double pas un serveur qui tourne.
+  if (MCP_REGIME === "auth") {
+    spawnSync(
+      "npx",
+      ["--no-install", "nodefony", "development", "--detach", "--wait"],
+      { cwd: app, encoding: "utf8", env: APP_ENV, timeout: 180_000 },
+    );
+    // 🔴 Le VERDICT se CONSTATE, il ne se déduit pas du code de sortie. Une
+    // prémisse peut avoir démarré l'application avant nous : notre commande
+    // sort alors en 69 (« port occupé ») et l'on annoncerait une porte morte
+    // alors qu'elle répond. Ce qui compte n'est pas qui a démarré, c'est que
+    // quelqu'un réponde — et la seule façon de le savoir est de frapper.
+    const sonde = spawnSync(
+      "curl",
+      [
+        "-sk",
+        "-o",
+        "/dev/null",
+        "-w",
+        "%{http_code}",
+        "--max-time",
+        "5",
+        `https://127.0.0.1:${PORTS.NF_PORT_HTTPS}/nodefony/kernel/api/livez`,
+      ],
+      { encoding: "utf8" },
+    );
+    const vivante = (sonde.stdout ?? "").trim() === "200";
+    console.log(
+      vivante
+        ? `  · application EN MARCHE (constaté sur ${PORTS.NF_PORT_HTTPS}) — porte MCP joignable`
+        : `  ⚠️ aucune réponse sur ${PORTS.NF_PORT_HTTPS} — l'agent trouvera la porte MORTE`,
+    );
   }
   const transcriptPath = path.join(runDir, `task-${task.id}.transcript.jsonl`);
   const res = spawnSync(
