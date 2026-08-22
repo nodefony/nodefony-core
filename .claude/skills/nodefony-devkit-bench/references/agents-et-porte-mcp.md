@@ -9,11 +9,16 @@ mieux outillé qu'un autre n'est pas un agent meilleur.
 
 ## 1. La porte — `NF_DEVKIT_BENCH_MCP`
 
-| Régime                | Ce que l'agent trouve                                    | Ce que ça mesure                                            |
-| --------------------- | -------------------------------------------------------- | ----------------------------------------------------------- |
-| `eteint` **(défaut)** | porte déclarée dans `.mcp.json`, **application arrêtée** | le cas le plus fréquent : on ouvre un dépôt, rien ne tourne |
-| `auth`                | jeton émis **et** application démarrée                   | l'utilisateur outillé, celui que `create app` câble         |
-| `off`                 | aucune déclaration                                       | le devkit sans MCP du tout                                  |
+| Régime                | Ce que l'agent trouve                                                                    | Ce que ça mesure                                                                                                    |
+| --------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `eteint` **(défaut)** | porte déclarée dans `.mcp.json`, **aucun jeton** ; le décor ne démarre pas l'application | le cas le plus fréquent : on ouvre un dépôt, rien ne tourne — **sauf si la tâche a une prémisse qui démarre** (§ 5) |
+| `auth`                | jeton émis **et** application démarrée                                                   | l'utilisateur outillé, celui que `create app` câble                                                                 |
+| `off`                 | aucune déclaration                                                                       | le devkit sans MCP du tout                                                                                          |
+
+⚠️ **« arrêtée » décrit le MONTAGE, pas chaque tâche.** Plusieurs tâches démarrent l'application par
+leur `prepare` (la 9 la première) : sur celles-là, `eteint` ne mesure pas une porte morte mais une
+porte **anonyme**. Ce que le banc annonce se lit sur le CONSTAT imprimé avant l'agent, jamais sur le
+nom du régime — c'est ce qui a fait passer 8 appels MCP réussis pour une contradiction (§ 5).
 
 **`eteint` reste le défaut** : la référence (`baseline.json`) a été établie dessus, et la changer
 d'office rendrait toute comparaison fausse. Le régime entre dans le décor enregistré ; le dépistage
@@ -126,12 +131,43 @@ Le helper `gesteParCommandeOuMcp(motif, outils)` accepte les deux voies du même
 nouvelle qui vise un geste servi AUSSI par un outil MCP doit l'utiliser** — sinon elle mesure le
 transport, pas le fait.
 
-## 5. Mesure de référence (tâche 9, `claude`/`haiku`, run UNIQUE)
+## 5. 🔴 Le nom d'un régime n'est pas son décor — ce que `eteint` mesure vraiment
 
-| Régime   | Tours | Durée | Appels MCP |
-| -------- | ----- | ----- | ---------- |
-| `eteint` | 16    | 61 s  | 8          |
-| `auth`   | 11    | 40 s  | 7          |
+**Tranché.** Un régime nommé `eteint` a enregistré **8 appels MCP RÉUSSIS** — vérifié un par un dans
+le transcript : `is_error=false`, réponses portant des données réelles (145 routes, la liste des
+services, la configuration effective du store). L'explication n'est pas une reconnexion du client :
+
+- **la tâche 9 DÉMARRE l'application elle-même**, par son `prepare`
+  (`npx nodefony development --detach --wait`), et son commentaire l'énonce : « PRÉMISSE :
+  l'application TOURNE quand l'agent démarre ». La porte était donc joignable à l'init, comme le
+  client l'exige ;
+- le régime, lui, imprimait « application ÉTEINTE — le client la marquera `failed` pour la session ».
+  Une **prédiction**, faite au montage, à propos d'un état qu'une prémisse de tâche modifie ensuite.
+
+**L'affirmation « le client MCP se connecte à l'init et ne retente jamais » n'est donc ni contredite
+ni confirmée par ce run** : il ne l'éprouvait pas. Elle reste appuyée sur la mesure du 08-21
+(0 appel sur 30 tâches, décor réellement éteint).
+
+**Ce que `eteint` sépare de `auth`, sur la tâche 9, c'est l'IDENTITÉ, pas l'allumage** : sans
+`--auth`, aucun jeton n'est émis, l'en-tête reste le gabarit `${NF_MCP_TOKEN}` non substitué, et la
+porte sert l'**anonyme**. La preuve est dans le transcript du run `eteint` : `admin_list` rend
+« **0 lectures appelables** » puis « 3 lectures appelables » sur 97 endpoints déclarés — la retenue
+des outils réservés, pas une porte morte.
+
+Le banc CONSTATE désormais l'état de la porte pour tout régime qui en déclare une, **après la
+prémisse et avant l'agent** (décor figé), et nomme l'identité servie (`jeton posé` / `ANONYME`). La
+règle générale est celle que le régime `auth` appliquait déjà, et qui manquait ici : **un décor
+s'énonce sur ce qu'on frappe, jamais sur ce qu'on avait prévu.**
+
+## 6. Mesure de référence (tâche 9, `claude`/`haiku`, run UNIQUE)
+
+⚠️ **Ces deux lignes comparent ANONYME et AUTHENTIFIÉ** — dans les deux cas l'application tourne
+(cf § ci-dessus). Elles ne disent rien d'une porte éteinte.
+
+| Régime               | Tours | Durée | Appels MCP |
+| -------------------- | ----- | ----- | ---------- |
+| `eteint` (= anonyme) | 16    | 61 s  | 8          |
+| `auth`               | 11    | 40 s  | 7          |
 
 Et un run `vibe` (`devstral-small`, régime `auth`, tâche 9) : **PASS 11/11**, avec **zéro appel
 MCP** — sa CLI ayant refusé la déclaration (cf ci-dessus), il a tout fait par les commandes. Il
@@ -142,7 +178,5 @@ sont absents (format propre au CLI de Claude), comme prévu.
 ⚠️ **Un run unique ne conclut pas** (la variance écrase l'écart : cf `methode-de-mesure.md`). Ces
 chiffres servent à savoir que le décor FONCTIONNE, pas à établir un gain.
 
-🔎 **À instruire** : le run `eteint` a rendu **8 appels MCP** alors que l'application était arrêtée
-au lancement de l'agent. Le banc affirme ailleurs que le client MCP « se connecte à l'init et ne
-retente jamais » — ce run le contredit. Tant que ce n'est pas tranché, ne pas s'appuyer sur cette
-affirmation dans un sens ni dans l'autre.
+✅ **Instruit** : les 8 appels MCP du run `eteint` sont RÉELS et RÉUSSIS — l'application tournait,
+sa prémisse l'ayant démarrée. Voir le § « Le nom d'un régime n'est pas son décor » ci-dessus.

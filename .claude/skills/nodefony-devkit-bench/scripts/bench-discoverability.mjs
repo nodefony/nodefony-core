@@ -237,7 +237,7 @@ const MCP_ATTEIGNABLE = [...AGENT_ARGS, ...MCP_ARGS].includes("--mcp-config");
  *
  * | `NF_DEVKIT_BENCH_MCP` | ce que l'agent trouve                                      |
  * | --------------------- | ---------------------------------------------------------- |
- * | `eteint` (défaut)     | la porte est DÉCLARÉE, l'application est arrêtée            |
+ * | `eteint` (défaut)     | la porte est DÉCLARÉE, sans jeton ; le décor ne démarre pas |
  * | `auth`                | porte authentifiée (jeton) ET application DÉMARRÉE          |
  * | `off`                 | aucune déclaration : l'agent ne sait pas qu'une porte existe |
  *
@@ -245,8 +245,17 @@ const MCP_ATTEIGNABLE = [...AGENT_ARGS, ...MCP_ARGS].includes("--mcp-config");
  * fréquent : on ouvre un dépôt qu'on ne connaît pas, rien ne tourne. Le client
  * MCP se connecte à l'INIT de sa session et ne retente jamais : la porte étant
  * une ROUTE, elle est `failed` pour toute la session, même si l'agent démarre
- * l'application ensuite. C'est ce que mesure ce régime, et c'est pour cela
- * qu'il reste le DÉFAUT : la référence existante a été établie dessus.
+ * l'application ensuite. C'est pour cela que ce régime reste le DÉFAUT : la
+ * référence existante a été établie dessus.
+ *
+ * ⚠️ **« arrêtée » décrit le MONTAGE, pas chaque tâche** — et c'est le piège.
+ * Plusieurs tâches démarrent l'application par leur `prepare` (la 9 la
+ * première, dont c'est la prémisse explicite). Sur celles-là, `eteint` ne
+ * mesure PAS une porte morte : il mesure une porte joignable servie en
+ * ANONYME, faute de jeton. Vécu : un run `eteint` a rendu 8 appels MCP tous
+ * réussis pendant que le banc annonçait une application éteinte. Ce que ce
+ * régime sépare de `auth` est donc l'IDENTITÉ, pas l'allumage — et l'état de
+ * la porte se lit sur le CONSTAT imprimé avant l'agent, jamais sur ce nom.
  *
  * 🔴 **`auth` exige de DÉMARRER l'application** — sinon on croit mesurer un
  * agent outillé alors qu'on mesure le même agent muet : le jeton est parfait,
@@ -3567,8 +3576,17 @@ function setup(runDir) {
     );
   }
   if (MCP_REGIME !== "auth") {
+    // 🔴 Ce que le montage SAIT, et rien de plus. Cette ligne annonçait
+    // « application ÉTEINTE — le client la marquera failed pour la session ».
+    // C'est une PRÉDICTION, et elle est fausse dès qu'une tâche porte une
+    // prémisse qui démarre l'application : la tâche 9 le fait, si bien que le
+    // régime prétendait mesurer une porte morte pendant que l'agent l'appelait
+    // huit fois avec succès. Ce qui est vrai ici est plus étroit : aucun jeton
+    // n'a été émis, donc la porte servira l'ANONYME à qui la joint. Son état
+    // réel se constate juste avant l'agent, décor figé (voir plus bas).
     console.log(
-      "  · porte MCP déclarée, application ÉTEINTE — le client la marquera « failed » pour la session",
+      "  · porte MCP déclarée, AUCUN jeton — elle servira l'anonyme ; " +
+        "le décor ne démarre pas l'application (une prémisse de tâche le peut)",
     );
     return;
   }
@@ -3885,6 +3903,15 @@ function runTask(app, runDir, task) {
       ["--no-install", "nodefony", "development", "--detach", "--wait"],
       { cwd: app, encoding: "utf8", env: APP_ENV, timeout: 180_000 },
     );
+  }
+  // 🔴 Le décor est FIGÉ ici — après la prémisse de la tâche, avant l'agent.
+  // C'est donc le seul instant où l'état de la porte se sait, et il se sait en
+  // FRAPPANT. Ce constat ne valait que pour `auth` ; c'est exactement ainsi
+  // qu'un régime nommé « eteint » a pu enregistrer huit appels MCP réussis
+  // sans que rien ne le signale : la tâche 9 démarre l'application par son
+  // `prepare`, et le banc affirmait le contraire depuis le montage. Ce que ce
+  // régime sépare est donc l'IDENTITÉ (anonyme vs jeton), pas l'allumage.
+  if (MCP_REGIME !== "off") {
     // 🔴 Le VERDICT se CONSTATE, il ne se déduit pas du code de sortie. Une
     // prémisse peut avoir démarré l'application avant nous : notre commande
     // sort alors en 69 (« port occupé ») et l'on annoncerait une porte morte
@@ -3905,9 +3932,11 @@ function runTask(app, runDir, task) {
       { encoding: "utf8" },
     );
     const vivante = (sonde.stdout ?? "").trim() === "200";
+    const identite = mcpAuthentifie() ? "jeton posé" : "ANONYME";
     console.log(
       vivante
-        ? `  · application EN MARCHE (constaté sur ${PORTS.NF_PORT_HTTPS}) — porte MCP joignable`
+        ? `  · application EN MARCHE (constaté sur ${PORTS.NF_PORT_HTTPS}) — ` +
+            `porte MCP joignable, ${identite}`
         : `  ⚠️ aucune réponse sur ${PORTS.NF_PORT_HTTPS} — l'agent trouvera la porte MORTE`,
     );
   }
