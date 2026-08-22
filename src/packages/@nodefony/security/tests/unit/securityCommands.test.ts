@@ -304,17 +304,20 @@ describe("security:token --agent — choisir qui est servi", () => {
 
   it("« none » n'écrit nulle part, « all » vise tout le monde", () => {
     expect(agentsDemandes("none")).to.deep.equal([]);
-    expect((agentsDemandes("all") as unknown[]).length).to.be.greaterThan(1);
+    const tous = agentsDemandes("all");
+    expect(Array.isArray(tous) && tous.length).to.be.greaterThan(1);
   });
 
   it("accepte une liste, séparée par virgules ou espaces, sans se soucier de la casse", () => {
-    const cles = (agentsDemandes("Claude, CODEX") as { cle: string }[]).map(
-      (c) => c.cle,
-    );
-    expect(cles).to.deep.equal(["claude", "codex"]);
-    expect(
-      (agentsDemandes("vibe codex") as { cle: string }[]).map((c) => c.cle),
-    ).to.deep.equal(["vibe", "codex"]);
+    // Le retour est volontairement `readonly` : la table des agents est une
+    // constante du module, pas un tableau que l'appelant pourrait remanier.
+    const cles = (v: ReturnType<typeof agentsDemandes>): string[] =>
+      Array.isArray(v) ? v.map((c) => c.cle) : [];
+    expect(cles(agentsDemandes("Claude, CODEX"))).to.deep.equal([
+      "claude",
+      "codex",
+    ]);
+    expect(cles(agentsDemandes("vibe codex"))).to.deep.equal(["vibe", "codex"]);
   });
 
   it("🔴 REFUSE une clé inconnue en nommant celles qui existent", () => {
