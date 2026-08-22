@@ -111,6 +111,32 @@ export interface IAgentTarget {
    * heure passée à soupçonner le jeton.
    */
   noteApres?: string;
+  /**
+   * Le fichier d'instructions que cet agent lit **d'office**, et s'il s'agit
+   * d'`AGENTS.md` lui-même.
+   *
+   * ⭐ **Pourquoi cette colonne existe** : `AGENTS.md` est le standard — porté
+   * par l'**Agentic AI Foundation** (Linux Foundation), règle de précédence
+   * « le plus proche gagne ». Mais tous les agents ne le lisent pas : deux
+   * d'entre eux ouvrent un fichier À LEUR NOM et ne verront JAMAIS l'`AGENTS.md`
+   * d'une application, si bien qu'ils travaillent sans aucune instruction sans
+   * que rien ne le signale. Un POINTEUR à leur nom ferme le trou sans dupliquer
+   * la matière : un fichier à NOUS, dans notre projet — on ne touche pas à la
+   * configuration d'un outil tiers (même règle que la déclaration MCP, qui
+   * passe par SA CLI).
+   *
+   * `preuve` ancre le fait dans le SOURCE de l'agent, pas dans sa
+   * documentation : c'est elle qui se re-vérifie le jour où l'un d'eux change
+   * d'avis, et la doc de l'un d'eux dit déjà autre chose que son code.
+   */
+  instructions: {
+    /** Nom du fichier lu d'office (relatif à la racine du projet). */
+    fichier: string;
+    /** `true` quand ce fichier EST `AGENTS.md` — rien à poser. */
+    natif: boolean;
+    /** Où le constater dans le source de l'agent (ou la mesure qui l'a établi). */
+    preuve: string;
+  };
 }
 
 /** Ce qu'il faut savoir pour composer la déclaration chez un agent. */
@@ -199,6 +225,16 @@ export const AGENT_TARGETS: readonly IAgentTarget[] = [
     marqueur: ".claude",
     fichier: ".claude/settings.local.json",
     forme: "json-env",
+    instructions: {
+      fichier: "CLAUDE.md",
+      natif: false,
+      // Mesuré sur le binaire 2.1.240, outils de lecture COUPÉS : un projet
+      // n'ayant qu'un `AGENTS.md` rend « INCONNU », le même projet avec un
+      // `CLAUDE.md` restitue son contenu. Son propre binaire porte pourtant la
+      // phrase « Claude Code hardcodes CLAUDE.md / AGENTS.md discovery » — elle
+      // parle des noms non configurables, pas de deux fichiers lus.
+      preuve: "mesure : CLAUDE.md chargé, AGENTS.md seul ignoré (2.1.240)",
+    },
     // Il lit le `.mcp.json` du projet — celui que cette commande vient
     // d'écrire. `claude mcp add` poserait une seconde entrée en portée
     // « local » (`~/.claude.json`), invisible dans le dépôt et jamais
@@ -212,6 +248,15 @@ export const AGENT_TARGETS: readonly IAgentTarget[] = [
     marqueur: ".gemini",
     fichier: ".gemini/.env",
     forme: "dotenv",
+    instructions: {
+      fichier: "GEMINI.md",
+      natif: false,
+      // `DEFAULT_CONTEXT_FILENAME = 'GEMINI.md'`. Le nom est configurable
+      // (`context.fileName`, qui accepte un TABLEAU), mais cela vit dans SA
+      // configuration : on pose un pointeur à nous plutôt que d'y écrire.
+      preuve:
+        "gemini-cli packages/core/src/tools/memoryTool.ts (DEFAULT_CONTEXT_FILENAME)",
+    },
     declaration: "cli",
     bin: "gemini",
     // `--scope project` écrit dans `.gemini/settings.json`, à côté du `.env` où
@@ -248,6 +293,12 @@ export const AGENT_TARGETS: readonly IAgentTarget[] = [
     fichier: ".env",
     forme: "dotenv",
     home: "VIBE_HOME",
+    instructions: {
+      fichier: "AGENTS.md",
+      natif: true,
+      preuve:
+        "mistral-vibe vibe/core/paths/conventions.py (AGENTS_MD_FILENAME)",
+    },
     declaration: "cli",
     bin: "vibe",
     noteApres:
@@ -278,6 +329,13 @@ export const AGENT_TARGETS: readonly IAgentTarget[] = [
     fichier: ".env",
     forme: "dotenv",
     home: "CODEX_HOME",
+    instructions: {
+      fichier: "AGENTS.md",
+      natif: true,
+      // `DEFAULT_AGENTS_MD_FILENAME` + `AGENTS.override.md` en surcharge locale.
+      preuve:
+        "codex codex-rs/core/src/agents_md.rs (DEFAULT_AGENTS_MD_FILENAME)",
+    },
     declaration: "cli",
     bin: "codex",
     noteApres:
@@ -573,6 +631,32 @@ export function agentsDemandes(
     );
   }
   return AGENT_TARGETS.filter((c) => cles.includes(c.cle));
+}
+
+/**
+ * Les fichiers-POINTEURS à poser pour qu'aucun agent ne travaille aveugle.
+ *
+ * PURE, dérivée de {@link AGENT_TARGETS} : un agent qui lit déjà `AGENTS.md`
+ * n'a besoin de rien, les autres reçoivent un fichier à LEUR nom qui renvoie
+ * au standard. Deux agents qui liraient le même nom sont regroupés — le
+ * pointeur est écrit une fois et les nomme tous les deux.
+ *
+ * @returns un couple `fichier` → agents concernés, trié par nom de fichier.
+ */
+export function pointeursInstructions(): readonly {
+  fichier: string;
+  agents: readonly string[];
+}[] {
+  const par = new Map<string, string[]>();
+  for (const cible of AGENT_TARGETS) {
+    if (cible.instructions.natif) continue;
+    const deja = par.get(cible.instructions.fichier);
+    if (deja) deja.push(cible.nom);
+    else par.set(cible.instructions.fichier, [cible.nom]);
+  }
+  return [...par.entries()]
+    .map(([fichier, agents]) => ({ fichier, agents }))
+    .sort((a, b) => a.fichier.localeCompare(b.fichier));
 }
 
 /** Ré-export de commodité — la table et la variable vont toujours ensemble. */

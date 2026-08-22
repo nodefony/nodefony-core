@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
+import { pointeursInstructions } from "../agentTargets";
 import { fileURLToPath } from "node:url";
 import { Eta } from "eta";
 
@@ -590,14 +591,22 @@ function renderProjectAgents(
   }
   writer.write(agentsPath, rendered);
   written.push("AGENTS.md");
-  const claudePath = path.join(projectRoot, "CLAUDE.md");
-  if (!writer.exists(claudePath)) {
-    const pointer = eta.renderString(
-      readFileSync(path.join(tplDir, "CLAUDE.md.tpl"), "utf8"),
-      data as unknown as Record<string, unknown>,
-    );
-    writer.write(claudePath, pointer);
-    written.push("CLAUDE.md");
+  // Un pointeur par DIALECTE — dérivé de la table des agents, jamais listé à la
+  // main : deux d'entre eux n'ouvrent QUE le fichier à leur nom et ne verraient
+  // jamais l'`AGENTS.md` qu'on vient d'écrire (constaté au source de chacun, cf
+  // `IAgentTarget.instructions`). Chaque pointeur n'est écrit que s'il MANQUE :
+  // celui qu'un développeur a remplacé lui appartient.
+  const gabarit = readFileSync(path.join(tplDir, "POINTEUR.md.tpl"), "utf8");
+  for (const { fichier, agents } of pointeursInstructions()) {
+    const cible = path.join(projectRoot, fichier);
+    if (writer.exists(cible)) continue;
+    const pointer = eta.renderString(gabarit, {
+      ...(data as unknown as Record<string, unknown>),
+      pointeur: fichier,
+      agents: agents.join(" et "),
+    });
+    writer.write(cible, pointer);
+    written.push(fichier);
   }
 }
 

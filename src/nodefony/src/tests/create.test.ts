@@ -21,7 +21,7 @@ import {
   runCreateCommand,
   type ICreateRequest,
 } from "../cli/create";
-import { AGENT_TARGETS } from "../cli/agentTargets";
+import { AGENT_TARGETS, pointeursInstructions } from "../cli/agentTargets";
 import { getScaffoldSpec } from "../cli/scaffold/spec";
 import {
   findPackageRoot,
@@ -5245,6 +5245,44 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
         `attendu refusé pour ${JSON.stringify(etat)}`,
       );
       assert.include(plan.propose === false ? plan.motif : "", "kernel");
+    }
+  });
+});
+
+describe("pointeurs d'instructions — aucun agent ne travaille aveugle", () => {
+  it("un pointeur par agent qui ne lit PAS AGENTS.md, aucun pour ceux qui le lisent", () => {
+    const attendus = new Set(
+      AGENT_TARGETS.filter((c) => !c.instructions.natif).map(
+        (c) => c.instructions.fichier,
+      ),
+    );
+    const rendus = new Set(pointeursInstructions().map((p) => p.fichier));
+    assert.deepEqual([...rendus].sort(), [...attendus].sort());
+    for (const cible of AGENT_TARGETS.filter((c) => c.instructions.natif)) {
+      assert.notInclude(
+        [...rendus],
+        cible.instructions.fichier,
+        `${cible.nom} lit AGENTS.md : rien à poser`,
+      );
+    }
+  });
+
+  it("chaque agent est NOMMÉ dans son pointeur — deux agents d'un même fichier y figurent tous les deux", () => {
+    for (const { fichier, agents } of pointeursInstructions()) {
+      assert.isNotEmpty(agents, `${fichier} : pointeur sans agent nommé`);
+      const attendus = AGENT_TARGETS.filter(
+        (c) => !c.instructions.natif && c.instructions.fichier === fichier,
+      ).map((c) => c.nom);
+      assert.deepEqual([...agents].sort(), attendus.sort());
+    }
+  });
+
+  it("chaque fait s'ancre dans le SOURCE de l'agent — jamais dans sa doc seule", () => {
+    for (const cible of AGENT_TARGETS) {
+      assert.isNotEmpty(
+        cible.instructions.preuve,
+        `${cible.nom} : le fichier d'instructions est affirmé sans preuve`,
+      );
     }
   });
 });
