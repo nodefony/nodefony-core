@@ -116,6 +116,42 @@ const GEMINI = [
   { type: "result", status: "success", stats: { duration_ms: 900 } },
 ];
 
+/**
+ * Antigravity CLI (`agy`) — la QUATRIÈME grammaire, constatée en le lançant :
+ * l'enveloppe s'appelle `event`, pas `type`. Son `result` porte `num_turns`
+ * comme Claude mais une durée en SECONDES, et le tour d'agent est un
+ * `step_update` de `step_type: "agent_response"`.
+ *
+ * 🔎 Aucun cas d'appel MCP ici, et c'est VOULU : sa forme n'a pas été observée.
+ * L'inventer rendrait « 0 appel » sans qu'on puisse distinguer le vrai du faux.
+ */
+const AGY = [
+  { event: "init", conversation_id: "c", init: { cwd: "/x", tools: [] } },
+  {
+    event: "step_update",
+    step_update: { step_index: 0, state: "DONE", step_type: "user_input" },
+  },
+  {
+    event: "step_update",
+    step_update: {
+      step_index: 2,
+      state: "DONE",
+      step_type: "agent_response",
+      text_delta: "147 routes",
+    },
+  },
+  {
+    event: "result",
+    result: {
+      status: "SUCCESS",
+      response: "147 routes",
+      duration_seconds: 2.5,
+      num_turns: 3,
+      usage: { input_tokens: 100, output_tokens: 20 },
+    },
+  },
+];
+
 // ─── Le compteur d'appels MCP voit-il les trois ? ─────────────────────────────
 
 for (const [nom, lignes] of [
@@ -275,6 +311,37 @@ verifier(
   ),
   appelOutilMcp("inspect"),
 );
+
+// ─── Antigravity : ce qui est CONSTATÉ, et rien de plus ─────────────────────
+
+{
+  const e = effortDe(AGY);
+  verifier(
+    "agy : les tours viennent de son `result.num_turns`",
+    e?.tours === 3,
+    JSON.stringify(e),
+  );
+  verifier(
+    "agy : la durée est convertie des SECONDES en millisecondes",
+    e?.dureeMs === 2500,
+    `dureeMs=${e?.dureeMs}`,
+  );
+  const texte = AGY.map((l) => JSON.stringify(l)).join("\n");
+  const aParle = (t) =>
+    /["'](?:type|role)["']\s*:\s*["']assistant["']/u.test(t) ||
+    /["']agent_message["']/u.test(t) ||
+    /["']agent_response["']/u.test(t);
+  verifier("agy : le tour d'agent est reconnu", aParle(texte));
+  verifier("agy : transcript exploitable", transcriptExploitable(texte));
+  // Le garde-fou de l'HONNÊTETÉ : tant que la forme d'un appel MCP d'`agy` n'a
+  // pas été observée, le compteur doit rendre ZÉRO — pas un chiffre inventé par
+  // un motif approximatif qui attraperait n'importe quel outil.
+  verifier(
+    "agy : aucun appel MCP n'est DEVINÉ (forme non observée)",
+    (e?.mcpCalls ?? 0) === 0,
+    `mcpCalls=${e?.mcpCalls}`,
+  );
+}
 
 process.stdout.write(
   echecs === 0

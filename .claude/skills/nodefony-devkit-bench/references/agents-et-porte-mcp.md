@@ -72,8 +72,64 @@ donner la ligne entière pour un autre agent.
 | `claude` (défaut) | _(laisser vide)_ | `NF_DEVKIT_BENCH_MODEL` (défaut `haiku`) | `--mcp-config .mcp.json --strict-mcp-config`, ajoutés d'office |
 | `vibe` | `--output streaming --yolo --trust -p` | poser `NF_DEVKIT_BENCH_MODEL=` **vide** | déclaré chez lui par `vibe mcp add`, dans un foyer JETABLE |
 | `codex` | `exec --json --skip-git-repo-check --approve-for-me` | vide | `codex mcp add`, foyer JETABLE `CODEX_HOME` |
-| `gemini` | `--skip-trust -y -o stream-json -p` (`-p` en DERNIER) | vide | portée PROJET (`.gemini/`) : rien à déporter |
+| `gemini` | `--skip-trust -y -o stream-json --model gemini-3.1-flash-lite -p` (`-p` en DERNIER, modèle DANS les args) | vide — **surtout pas** `NF_DEVKIT_BENCH_MODEL` | portée PROJET (`.gemini/`) : rien à déporter |
 | `agy` (Antigravity) | `--output-format stream-json -p` (`-p` en DERNIER) | vide | `agy mcp add`, portée GLOBALE — il suit `HOME` |
+
+### 🛸 Antigravity CLI (`agy`) — ce qui est CÂBLÉ, et ce qui BLOQUE
+
+Sa **grammaire de transcript est câblée et éprouvée** (4ᵉ dialecte, constaté en le lançant) :
+l'enveloppe s'appelle `event`, pas `type` ; le tour d'agent est un `step_update` de
+`step_type: "agent_response"` ; `result` porte `num_turns` comme Claude, mais une durée en
+**secondes**. Le compteur d'effort et la garde « l'agent a-t-il parlé ? » le lisent.
+
+**Ce qui n'est PAS câblé, et pourquoi — deux constats, pas des suppositions.**
+
+1. 🔴 **`agy` ne substitue AUCUNE variable dans un en-tête.** Mesuré avec une porte espionne qui
+   journalise ce qu'elle reçoit : déclaré avec `Authorization: Bearer ${NF_MCP_TOKEN}` et lancé avec
+   la variable posée, il envoie **le gabarit littéral sur le réseau** —
+   `VU: ["Bearer ${NF_MCP_TOKEN}", …]`. L'authentifier exigerait donc d'écrire **la valeur du jeton
+   en clair** dans `$HOME/.gemini/config/mcp_config.json`.
+   Or la table du cœur refuse cela **par principe** : `IDeclarationContexte` ne transporte que
+   `tokenEnv` — « le NOM de la variable qui porte le jeton, jamais le jeton lui-même ». Le servir
+   demanderait de faire remonter la valeur depuis l'émission jusqu'à `declarerChezAgents`, et
+   d'assumer un secret en clair (foyer utilisateur, hors dépôt). **C'est une décision de produit, pas
+   un oubli de câblage** — elle se prend à froid.
+2. 🔴 **Un foyer JETABLE le déconnecte.** `HOME` détourné ⇒ aucune identité ⇒ il ouvre un flux OAuth
+   dans le navigateur (vécu : une fenêtre a surgi pendant un test). Son identité n'est ni dans un
+   fichier repérable de `~/.gemini`, ni dans le trousseau sous ce nom. La stratégie des trois autres
+   (foyer jetable + copie de ce qui identifie) **ne s'applique donc pas** : il faudrait déclarer dans
+   son foyer RÉEL et RETIRER après le run — désormais sûr, le filet d'arrêt du banc pouvant porter
+   ce retrait.
+
+**Et le reste est prêt** : `--dangerously-skip-permissions` est indispensable (sans lui, headless
+refuse tout outil : « a tool required the "command" permission that headless mode cannot prompt
+for »), `agy mcp add --type http --header … <nom> <url>` écrit dans
+`$HOME/.gemini/config/mcp_config.json` (clé `serverUrl`), et il **respecte `HOME`**.
+
+🔎 **Non observé, donc non câblé** : la forme d'un APPEL MCP chez `agy`. Il expose un outil
+`call_mcp_tool`, mais aucun appel réussi n'a encore été enregistré. Deviner un motif rendrait
+« 0 appel MCP » sans qu'on sache si c'est vrai — le diagnostic faux que ce compteur existe pour ne
+plus produire.
+
+### 🔑 Gemini par CLÉ D'API — la seule voie qui marche ici
+
+L'OAuth personnel est refusé (cf ci-dessous), la clé AI Studio passe. Trois choses apprises en la
+posant, toutes en la LANÇANT :
+
+- **`.zshrc` n'est lu que par un shell INTERACTIF.** Une clé exportée là n'existe ni pour un shell de
+  login (`zsh -lc`), ni pour un process lancé par un agent : le banc la voit ABSENTE alors qu'elle est
+  bien posée dans le terminal du développeur. Emplacements qui n'ont pas ce défaut : `~/.zshenv` (lu
+  par tous les shells) ou `~/.gemini/.env`, que la CLI lit elle-même.
+- **`auto` ne choisit pas un modèle disponible.** Il a résolu vers `gemini-3.1-flash-lite` et rendu
+  `TerminalQuotaError: You have exhausted your daily quota on this model` — le quota est PAR MODÈLE,
+  et le message le dit. Constaté ensuite : `gemini-3.1-flash-lite` répond, `gemini-3.5-flash` non,
+  et `gemini-2.5-flash-lite` n'existe plus pour un compte neuf (`ModelNotFoundError: no longer
+available to new users`). **Nommer le modèle**, ne pas laisser `auto` décider.
+- 🔴 **Le `--model` du banc CASSE la règle du `-p` final.** Le banc compose
+  `[...args, --model, <m>, <prompt>]` : avec `-p` en dernier des args, `-p` prend `--model` pour
+  valeur et le prompt redevient un positionnel — c'est-à-dire le mode interactif, qui sort aussitôt
+  sans TTY. Le modèle doit donc vivre DANS `NF_DEVKIT_BENCH_AGENT_ARGS`, avant `-p`, et
+  `NF_DEVKIT_BENCH_MODEL` rester **vide**.
 
 ### Deux pièges de drapeaux, tous deux payés
 

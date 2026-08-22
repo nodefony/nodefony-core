@@ -4112,7 +4112,8 @@ function runTask(app, runDir, task) {
   // arrêterait la passe en croyant l'agent jamais parti.
   if (
     !/["'](?:type|role)["']\s*:\s*["']assistant["']/u.test(transcript) &&
-    !/["']agent_message["']/u.test(transcript)
+    !/["']agent_message["']/u.test(transcript) &&
+    !/["']agent_response["']/u.test(transcript)
   ) {
     console.log(
       `\n🛑 l'agent « ${AGENT} » n'a rendu AUCUN tour d'assistant ` +
@@ -4489,6 +4490,31 @@ export function lireEffort(transcriptPath) {
         ) {
           mcpCalls += 1;
         }
+      } catch {
+        /* ligne tronquée */
+      }
+    }
+    // Antigravity (`agy`) : sa clé d'enveloppe est `event`, pas `type` — un
+    // quatrième dialecte, constaté en le lançant. Son `result` porte `num_turns`
+    // comme Claude, mais une durée en SECONDES, et son tour d'agent est un
+    // `step_update` de `step_type: "agent_response"`.
+    if (ligne.includes('"event"')) {
+      try {
+        const evt = JSON.parse(ligne);
+        if (evt?.event === "result" && evt.result) {
+          tours += Number(evt.result.num_turns) || 0;
+          dureeMs += Math.round(
+            (Number(evt.result.duration_seconds) || 0) * 1000,
+          );
+          vu = true;
+          continue;
+        }
+        // 🔎 NON CÂBLÉ, et c'est délibéré : la forme d'un APPEL MCP chez `agy`
+        // n'a pas été observée (il expose un outil `call_mcp_tool`, mais aucun
+        // appel réussi n'a encore été enregistré). Deviner un motif rendrait
+        // « 0 appel MCP » sans qu'on sache si c'est vrai — précisément le
+        // diagnostic faux que ce compteur existe pour ne plus produire.
+        if (evt?.event === "step_update") continue;
       } catch {
         /* ligne tronquée */
       }
