@@ -20,6 +20,50 @@
 
 ---
 
+## 🎭 Ce qui MARCHE ici peut ne marcher QUE grâce au décor du dépôt
+
+- **Un module de BANC déclarait la configuration de sécurité de toute l'application** — et c'est
+  ce qui rendait un trou produit invisible : le dépôt savait émettre le jeton de sa porte MCP
+  parce que `src/modules/test` posait `security.jwt.audiences`, si bien qu'aucun essai joué ici
+  ne pouvait montrer qu'une application GÉNÉRÉE, qui n'a pas ce module, se voyait refuser le
+  jeton de sa propre porte. Réflexe : quand une capacité marche dans le dépôt, chercher QUI la
+  fournit — si c'est un module de test, un banc ou un fichier local non généré, la capacité
+  n'existe pas chez l'utilisateur. [1× — 08-22h]
+- **Un défaut peut en MASQUER un second de même famille.** L'audience manquante cachait la clé
+  éphémère (`keystore.dir` absent) : le jeton aurait été signé par un `kid` que le serveur en
+  marche ne connaît pas. Le second ne serait apparu qu'une fois le premier corrigé — donc lire la
+  configuration ENTIÈRE que le gabarit ne pose pas, plutôt que corriger la ligne qui manque.
+  [1× — 08-22h]
+
+## 🧪 Un banc qui n'a jamais servi ne prouve rien de son décor
+
+- **Trois erreurs d'ORDRE dans un décor, chacune masquée par la précédente** : jeton refusé
+  (audience), puis émis AVANT le build (le CLI lit le `dist`), puis serveur démarré AVANT les
+  prémisses (une tâche qui démarre elle-même trouve le port pris, sa prémisse tombe et la tâche
+  n'est pas jouée — « 0/0 PASS », un verdict qui n'en est pas un). Un décor ne se relit pas, il se
+  JOUE : les trois se sont vues en trois lancements, pas en relisant le code. [1× — 08-22h]
+- **Une sonde qui vise un GESTE ne doit pas viser sa VOIE.** « A interrogé l'application » cherchait
+  `nodefony inspect` en ligne de commande : un agent l'ayant fait SEPT FOIS par ses outils MCP était
+  compté rouge, et le banc aurait conclu que le MCP dégrade ce qu'il améliore. Vérifié sans repayer
+  de run — la sonde corrigée relue sur le transcript déjà joué passe de ROUGE à VERTE. [1× — 08-22h]
+- **Un agent qui passe une tâche avec ZÉRO appel MCP n'a probablement jamais eu la porte.** Chez
+  Vibe, `mcp add` valide sa `config.toml` plus strictement que son propre démarrage : la
+  déclaration échouait, notre commande le DISAIT, et c'est le décor qui avalait sa sortie.
+  Constater la déclaration, jamais la supposer. [1× — 08-22h]
+
+## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
+
+- **« Ajouter un choix = ajouter UNE entrée ici ; aucun front n'est à modifier »** — vrai pour deux
+  fronts sur trois. La voie FLAGS a une analyse écrite à la main : une question ajoutée y est servie
+  à l'humain et REFUSÉE au script, sans un mot. J'ai cru l'en-tête et raté le drapeau. Une
+  affirmation d'automatisation se vérifie avant d'être crue, et se corrige quand elle est fausse —
+  ici par un gate qui refuse toute question qu'aucun drapeau ne sert. [1× — 08-22h]
+- **Une doc dont tous les exemples passent par Docker fait prendre le chemin long.** Le skill
+  navigateur disait « la voie locale d'abord » puis montrait dix `docker exec` : j'ai démarré un
+  conteneur pour regarder une page locale, puis conclu à tort qu'un navigateur piloté était en
+  panne (certificat de développement refusé). Ce que la doc MONTRE pèse plus que ce qu'elle dit.
+  [1× — 08-22h]
+
 ## ⏳ Un symptôme qui ressemble à un DÉLAI n'en est pas forcément un
 
 - **« La commande meurt toute seule » n'était pas un timeout — il n'en existait aucun sur ce
