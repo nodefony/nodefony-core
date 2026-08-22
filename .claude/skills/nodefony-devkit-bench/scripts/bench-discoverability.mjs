@@ -1668,12 +1668,47 @@ export const TASKS = [
       "prouvant que les tests de l'app passent.",
     probes: [
       {
-        // Écrit de mémoire, un service diverge du gabarit — c'est le constat
-        // qui a fait naître la commande (une classe à méthodes `static`,
-        // invisible au conteneur, mesurée en décor isolé).
+        // 🔴 OBSERVATION, plus verdict — et c'est une correction de MÉTHODE.
+        //
+        // Cette sonde mesurait le CHEMIN (« a-t-il lancé le générateur ? »)
+        // là où la tâche demande un RÉSULTAT. Or un service se modifie
+        // TOUJOURS après génération : passé la première minute, « généré » et
+        // « écrit à la main » ne sont ni distinguables dans le code, ni
+        // pertinents. Ce qui compte est que le service produit soit CONFORME —
+        // enregistré au conteneur, injecté, éprouvé séparément — et trois
+        // sondes le jugent déjà, dont un gate qui interroge l'application
+        // EXÉCUTÉE.
+        //
+        // La mesure reste, parce qu'elle instruit : le levier documentaire est
+        // saturé (la commande est nommée quatre fois dans l'`AGENTS.md`) et le
+        // taux d'appel plafonne. C'est une information sur la découvrabilité
+        // du générateur, pas un critère de réussite de la tâche.
         kind: "transcript",
         name: "a lancé create service",
         pattern: commandeQuiContient("create\\s+service\\b"),
+        observe: true,
+      },
+      {
+        // Ce que l'énoncé exige et que RIEN ne regardait : « chaque
+        // responsabilité doit être testable séparément ».
+        //
+        // Un agent qui n'éprouve que `POST /api/invoices` obtient un test vert
+        // sans jamais avoir séparé quoi que ce soit — le calcul de la taxe
+        // n'est alors une responsabilité distincte que sur le papier. La sonde
+        // demande donc qu'un TEST atteigne le service de taxe en tant que
+        // symbole : en l'important, en l'instanciant, ou en le résolvant par le
+        // conteneur. Les trois sont des façons légitimes de l'éprouver seul ;
+        // aucune n'est atteignable en passant par la route HTTP.
+        //
+        // `addedTests` et non `addedTs` : c'est le seul périmètre où cette
+        // preuve peut vivre. La chercher dans le code de production reviendrait
+        // à sanctionner exactement ce que la sonde voisine interdit — fabriquer
+        // un exemplaire à la main.
+        kind: "code",
+        name: "le service de taxe est éprouvé SÉPARÉMENT (test dédié)",
+        pattern:
+          /new\s+\w*(?:tva|vat|tax)\w*\s*\(|from\s+["'][^"']*(?:tva|vat|tax)[^"']*["']|\bget\(\s*["'][^"']*(?:tva|vat|tax)[^"']*["']/iu,
+        where: "addedTests",
       },
       {
         // La CONSOMMATION, toutes voies légitimes confondues : injection
@@ -3138,7 +3173,7 @@ export const TASKS = [
  * réelle, il n'y a rien à simuler.
  *
  * @param {object} probe - la sonde (`pattern`, `where`, `invert`, `unless`).
- * @param {{files: string[], added: string, addedTs: string, content: string, transcript: string}} matter - les matières à sonder.
+ * @param {{files: string[], added: string, addedTs: string, addedTests: string, content: string, transcript: string}} matter - les matières à sonder.
  * @returns {{pass: boolean, evidence: string}}
  */
 export function evaluateProbe(probe, matter) {
@@ -3147,6 +3182,7 @@ export function evaluateProbe(probe, matter) {
     added,
     addedCode,
     addedTs,
+    addedTests,
     content,
     contentByFile,
     transcript,
@@ -3190,11 +3226,13 @@ export function evaluateProbe(probe, matter) {
             ? (addedCode ?? "")
             : probe.where === "addedTs"
               ? addedTs
-              : probe.where === "deleted"
-                ? (deleted ?? "")
-                : probe.where === "deletedFiles"
-                  ? (deletedFiles ?? []).join("\n")
-                  : content;
+              : probe.where === "addedTests"
+                ? (addedTests ?? "")
+                : probe.where === "deleted"
+                  ? (deleted ?? "")
+                  : probe.where === "deletedFiles"
+                    ? (deletedFiles ?? []).join("\n")
+                    : content;
   // La matière du WAIVER se choisit, elle ne se suppose pas. Par défaut le
   // contenu rendu ; `unlessWhere: "transcript"` quand la voie correcte est un
   // GESTE et non un texte — avoir lancé un générateur, par exemple. Vécu : un
@@ -4190,6 +4228,29 @@ function judgeTask(app, runDir, task, occurrence = null) {
     .split("\n")
     .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
     .join("\n");
+  // Le COMPLÉMENT exact d'`addedTs` : ce que l'agent a écrit DANS ses tests.
+  //
+  // `addedTs` les exclut pour ne pas confondre une fixture avec du code de
+  // production. Mais l'exclusion rendait aussi INJUGEABLE tout ce qu'une tâche
+  // demande de PROUVER par un test — « chaque responsabilité doit être testable
+  // séparément » était dans l'énoncé de T13 sans que rien ne le regarde. Les
+  // deux périmètres sont donc disjoints et complémentaires : l'un sanctionne ce
+  // qui ne doit pas être écrit en production, l'autre constate ce qui doit
+  // exister dans les tests.
+  const addedTests = git(
+    app,
+    "diff",
+    "--unified=0",
+    `${base ?? `${hash}~1`}`,
+    hash,
+    "--",
+    "tests/**",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+  )
+    .split("\n")
+    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
+    .join("\n");
   // L'autre moitié du diff : ce que l'agent a RETIRÉ. Sans elle, « npm test
   // vert » s'obtient en effaçant le test qui échoue, et rien ne le montre —
   // une absence ne laisse pas de trace dans les lignes ajoutées.
@@ -4233,6 +4294,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
         added,
         addedCode,
         addedTs,
+        addedTests,
         content,
         contentByFile,
         transcript,

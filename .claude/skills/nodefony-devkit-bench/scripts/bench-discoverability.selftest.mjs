@@ -957,6 +957,47 @@ const SAMPLES = {
       },
     ],
   },
+  "13 :: le service de taxe est éprouvé SÉPARÉMENT (test dédié)": {
+    pass: {
+      addedTests: `+import { VatService } from "../nodefony/service/VatService";`,
+    },
+    // Le contournement exact : n'éprouver QUE la route. Le test est vert, la
+    // séparation des responsabilités n'a jamais été exercée.
+    fail: {
+      addedTests: `+    const res = await fetch(\`\${base}/api/invoices\`, { method: "POST" });`,
+    },
+    extra: [
+      {
+        label: "instancié directement dans son test",
+        matter: { addedTests: `+    const vat = new TvaService(module);` },
+        expect: true,
+      },
+      {
+        label: "résolu par le conteneur dans le test",
+        matter: {
+          addedTests: `+    const tax = kernel.container.get("taxService");`,
+        },
+        expect: true,
+      },
+      {
+        // Le mot apparaît, le SERVICE non : une assertion sur un champ de la
+        // réponse HTTP ne prouve aucune séparation.
+        label: "le mot « tva » dans une assertion de charge utile",
+        matter: { addedTests: `+    expect(body.tva).toBe(20);` },
+        expect: false,
+      },
+      {
+        // La preuve doit vivre dans un TEST. Le même appel en production est
+        // précisément ce que la sonde voisine interdit.
+        label: "instanciation en production, pas dans un test",
+        matter: {
+          addedTs: `+    const vat = new VatService(module);`,
+          addedTests: ``,
+        },
+        expect: false,
+      },
+    ],
+  },
   "13 :: la dépendance vient du conteneur (@inject ou container.get)": {
     pass: {
       content: `  constructor(module: Module, @inject("VatService") private vat: VatService) {}`,
