@@ -62,6 +62,16 @@ export interface IAiSyncPlan {
   skills: IPlannedSkill[];
   /** Pointeurs présents dans le dossier que plus aucun paquet ne livre. */
   orphelins: string[];
+  /**
+   * Fichiers que la synchronisation a REFUSÉ d'écraser — un `SKILL.md` déjà
+   * présent qui n'est pas un pointeur, donc écrit par quelqu'un.
+   *
+   * 🔴 Ils sont rendus pour être DITS. Un fichier préservé en silence laisse
+   * croire que le skill a été synchronisé alors qu'il ne l'est pas ; et
+   * l'écraser sans le dire détruit du travail — vécu : 385 lignes remplacées
+   * par un renvoi de neuf lignes, sans un mot.
+   */
+  preserves: string[];
 }
 
 /**
@@ -173,7 +183,9 @@ export function planSync(
     .filter((name) => !livres.has(name))
     .sort();
 
-  return { directory: SKILLS_DIR, skills, orphelins };
+  // `preserves` est rempli à l'ÉCRITURE (elle seule voit le disque du miroir) ;
+  // la composition, elle, reste pure.
+  return { directory: SKILLS_DIR, skills, orphelins, preserves: [] };
 }
 
 /**
@@ -215,11 +227,23 @@ export function renderPlan(plan: IAiSyncPlan, applique: boolean): string {
     );
   }
 
+  // 🔴 Ce qui a été PRÉSERVÉ se dit, et se dit fort : sans cette ligne,
+  // l'utilisateur croit le skill synchronisé alors qu'il ne l'est pas — et
+  // c'est le seul cas où la commande n'a délibérément pas fait son travail.
+  for (const cible of plan.preserves) {
+    lignes.push(
+      `  ! ${cible} existe déjà et n'est PAS un pointeur — conservé tel quel\n`,
+    );
+  }
+
   lignes.push(
     `\n  ${poses.length} posé(s) · ${remplaces.length} mis à jour · ` +
       `${inchanges.length} inchangé(s)` +
       (plan.orphelins.length > 0
         ? ` · ${plan.orphelins.length} orphelin(s)`
+        : "") +
+      (plan.preserves.length > 0
+        ? ` · ${plan.preserves.length} conservé(s)`
         : "") +
       `\n`,
   );

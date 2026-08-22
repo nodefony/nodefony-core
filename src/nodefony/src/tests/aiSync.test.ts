@@ -127,6 +127,60 @@ describe("ai:sync — la découverte sur disque", () => {
     );
   });
 
+  it("🔴 n'offre PAS de pointeur vers un paquet que ce dépôt PRODUIT", async () => {
+    // Vécu : `ai:sync` lancé dans le dépôt du framework y a posé cinq
+    // pointeurs vers `node_modules/@nodefony/devkit` — un lien vers un
+    // workspace de l'arbre. Le pointeur dit « le contenu vit ailleurs, ne
+    // l'édite pas ici » alors que la source est là, versionnée et éditable ; et
+    // le doublon (quelques lignes de renvoi) entre en concurrence avec le vrai
+    // skill dans tout ce qui indexe `.claude/skills/`.
+    const { discoverSkills } = await import("../cli/aiSync");
+    writeFileSync(
+      path.join(root, "package.json"),
+      '{"name":"le-framework","workspaces":["src/packages/@nodefony/*"]}\n',
+    );
+    const atelier = path.join(root, "src", "packages", "@nodefony", "devkit");
+    mkdirSync(atelier, { recursive: true });
+    writeFileSync(
+      path.join(atelier, "package.json"),
+      '{"name":"@nodefony/devkit"}\n',
+    );
+    // Le paquet est aussi présent sous node_modules — comme le fait npm pour un
+    // espace de travail (un lien).
+    poseSkill(
+      path.join(root, "node_modules", "@nodefony", "devkit"),
+      "browser",
+      "name: browser\ndescription: Regarde l'écran.",
+    );
+    // Un paquet TIERS, lui, reste servi : la garde vise la propriété, pas le
+    // scope.
+    poseSkill(
+      path.join(root, "node_modules", "@nodefony", "autre"),
+      "faire-un-truc",
+      "name: faire-un-truc\ndescription: Fait un truc.",
+    );
+    const found = discoverSkills(root);
+    expect(found.map((s) => s.name)).toEqual(["faire-un-truc"]);
+  });
+
+  it("une APPLICATION liée au checkout garde ses pointeurs", async () => {
+    // Le contre-exemple qui borne la garde : `create app --link` pointe aussi
+    // vers un checkout, mais l'application CONSOMME le framework sans le
+    // produire — ses espaces de travail ne le déclarent pas. Sans ce cas, la
+    // garde priverait de pointeurs tout projet lié.
+    const { discoverSkills } = await import("../cli/aiSync");
+    writeFileSync(
+      path.join(root, "package.json"),
+      '{"name":"mon-app","workspaces":["modules/*"]}\n',
+    );
+    poseSkill(
+      path.join(root, "node_modules", "@nodefony", "devkit"),
+      "browser",
+      "name: browser\ndescription: Regarde l'écran.",
+    );
+    expect(discoverSkills(root).map((s) => s.name)).toEqual(["browser"]);
+  });
+
   it("découvre AUSSI les modules locaux de l'application", async () => {
     const { discoverSkills } = await import("../cli/aiSync");
     poseSkill(
@@ -299,5 +353,72 @@ describe("ai:sync — la découverte sur disque", () => {
     } finally {
       rmSync(vide, { recursive: true, force: true });
     }
+  });
+});
+
+describe("ai:sync — on ne remplace QUE ce qu'on a soi-même posé", () => {
+  let root = "";
+
+  beforeEach(() => {
+    root = mkdtempSync(path.join(tmpdir(), "nf-aisync-garde-"));
+    writeFileSync(
+      path.join(root, "nodefony.config.ts"),
+      "export default {};\n",
+    );
+    writeFileSync(path.join(root, "package.json"), '{"name":"app"}\n');
+    const d = path.join(
+      root,
+      "node_modules",
+      "@nodefony",
+      "devkit",
+      "skills",
+      "browser",
+    );
+    mkdirSync(d, { recursive: true });
+    writeFileSync(
+      path.join(d, "SKILL.md"),
+      "---\nname: browser\ndescription: Regarde l'écran.\n---\n\ncorps\n",
+    );
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("🔴 un SKILL.md ÉCRIT À LA MAIN n'est jamais écrasé par un pointeur", async () => {
+    // Vécu, et coûteux : 385 lignes de skill remplacées par un renvoi de neuf
+    // lignes, sans un mot — le fichier n'appartenait pas à cette commande.
+    const { syncSkillPointers } = await import("../cli/aiSync");
+    const miroir = path.join(root, ".claude", "skills", "browser", "SKILL.md");
+    mkdirSync(path.dirname(miroir), { recursive: true });
+    const mien =
+      "---\nname: browser\ndescription: Le MIEN.\n---\n\n" +
+      "des centaines de lignes que j'ai écrites\n";
+    writeFileSync(miroir, mien, "utf8");
+
+    const plan = syncSkillPointers(root);
+
+    expect(readFileSync(miroir, "utf8")).toBe(mien);
+    // Et le refus se DIT : préservé en silence, l'utilisateur croirait le
+    // skill synchronisé.
+    expect(plan.preserves).toEqual([".claude/skills/browser/SKILL.md"]);
+  });
+
+  it("un pointeur DÉJÀ posé, lui, se met bien à jour", async () => {
+    // Le contre-exemple qui borne la garde : sans lui, « ne rien écraser »
+    // serait trivialement vert et la commande cesserait de servir.
+    const { syncSkillPointers } = await import("../cli/aiSync");
+    const miroir = path.join(root, ".claude", "skills", "browser", "SKILL.md");
+    mkdirSync(path.dirname(miroir), { recursive: true });
+    writeFileSync(
+      miroir,
+      '---\nname: browser\nmetadata:\n  nodefony-source-package: "@nodefony/devkit"\n---\n\nvieux renvoi\n',
+      "utf8",
+    );
+
+    const plan = syncSkillPointers(root);
+
+    expect(readFileSync(miroir, "utf8")).toContain("nodefony ai:sync");
+    expect(plan.preserves).toEqual([]);
   });
 });

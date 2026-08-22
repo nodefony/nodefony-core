@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-22T18:23:16.485Z",
+  "generated": "2026-08-22T18:53:23.296Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 732,
-    "symbols": 3089,
+    "symbols": 3091,
     "classes": 364,
     "interfaces": 882,
     "types": 386,
     "enums": 4,
-    "functions": 1161,
+    "functions": 1163,
     "constants": 292
   },
   "symbols": {
@@ -988,8 +988,7 @@
       "kind": "function",
       "file": "src/nodefony/src/cli/aiSync.ts",
       "exported": true,
-      "module": "@nodefony/core",
-      "description": "Pose dans un projet les pointeurs vers les skills livrés par les paquets installés, et rend le plan de ce qui a été fait. C'est le geste ENTIER — découvrir, comparer, écrire — tel que l'exécutent s…"
+      "module": "@nodefony/core"
     },
     "runAiSyncCommand": {
       "name": "runAiSyncCommand",

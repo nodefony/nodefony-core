@@ -23,11 +23,79 @@ const USAGE = `Usage : nodefony ai:sync [--dry-run] [--json] [--cwd <path>]\n`;
  * cette généralité un cas particulier, et obligé à toucher au cœur le jour où
  * quelqu'un d'autre en livre.
  */
+/**
+ * Les paquets que CE projet produit lui-même — ses espaces de travail.
+ *
+ * ⚠️ Ce n'est PAS « le paquet est un lien symbolique ». Une application créée
+ * avec `--link` pointe elle aussi vers un checkout du framework, et elle, elle
+ * VEUT ses pointeurs : elle consomme le framework sans le produire. Le
+ * discriminant est la propriété — un paquet déclaré comme espace de travail
+ * appartient à ce dépôt, sa source y est versionnée et éditable, et lui poser un
+ * pointeur vers `node_modules` reviendrait à s'envoyer chercher le double de ce
+ * qu'on a sous la main.
+ *
+ * Lecture volontairement tolérante : un `package.json` illisible ou sans
+ * `workspaces` rend un ensemble vide — c'est le cas d'une application ordinaire,
+ * et le comportement doit alors être exactement celui d'avant.
+ *
+ * @param projectRoot - racine du projet.
+ * @returns les noms de paquets produits ici.
+ */
+function paquetsProduitsParCeProjet(projectRoot: string): Set<string> {
+  const produits = new Set<string>();
+  let motifs: unknown;
+  try {
+    const manifeste = JSON.parse(
+      readFileSync(path.join(projectRoot, "package.json"), "utf8"),
+    ) as { workspaces?: unknown };
+    motifs = manifeste.workspaces;
+  } catch {
+    return produits;
+  }
+  const liste = Array.isArray(motifs)
+    ? motifs
+    : Array.isArray((motifs as { packages?: unknown } | null)?.packages)
+      ? ((motifs as { packages: unknown[] }).packages as unknown[])
+      : [];
+  for (const motif of liste) {
+    if (typeof motif !== "string") continue;
+    // Un motif d'espace de travail est soit un dossier, soit un dossier suivi
+    // de `/*`. On n'implémente pas un moteur de motifs : ces deux formes
+    // couvrent ce que npm résout réellement, et toute autre est ignorée plutôt
+    // que devinée.
+    const etoile = motif.endsWith("/*");
+    const base = path.join(projectRoot, etoile ? motif.slice(0, -2) : motif);
+    for (const dossier of etoile ? listDir(base) : [""]) {
+      const dir = etoile ? path.join(base, dossier) : base;
+      try {
+        const nom = (
+          JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")) as {
+            name?: unknown;
+          }
+        ).name;
+        if (typeof nom === "string") produits.add(nom);
+      } catch {
+        // Un dossier sans manifeste n'est pas un espace de travail : on passe.
+      }
+    }
+  }
+  return produits;
+}
+
 function packageRoots(projectRoot: string): { dir: string; name: string }[] {
   const roots: { dir: string; name: string }[] = [];
   const scope = path.join(projectRoot, "node_modules", "@nodefony");
+  const produitsIci = paquetsProduitsParCeProjet(projectRoot);
   for (const name of listDir(scope)) {
     if (name.startsWith(".")) continue;
+    // 🔴 Un paquet que CE dépôt PRODUIT ne reçoit pas de pointeur. Le pointeur
+    // dit « le contenu vit dans `node_modules`, ne l'édite pas ici » — un
+    // contresens quand `node_modules/<pkg>` n'est qu'un lien vers un workspace
+    // de l'arbre : la source est là, versionnée et éditable. Le doublon n'est
+    // pas seulement inutile, il NUIT — le pointeur (quelques lignes) entre en
+    // concurrence avec le vrai skill dans tout ce qui indexe `.claude/skills/`,
+    // et c'est le pauvre qui gagne parfois.
+    if (produitsIci.has(`@nodefony/${name}`)) continue;
     roots.push({ dir: path.join(scope, name), name: `@nodefony/${name}` });
   }
   const locaux = path.join(projectRoot, "modules");
@@ -194,6 +262,22 @@ export function parseAiSyncArgv(
  * @param dryRun - `true` pour calculer sans rien écrire.
  * @returns le plan, qu'il ait été appliqué ou non.
  */
+/**
+ * Ce fichier est-il un pointeur que cette commande a posé ?
+ *
+ * Le marqueur est celui que `renderPointer` écrit dans le frontmatter
+ * (`nodefony-source-package`) : il DIT l'appartenance, là où une heuristique de
+ * taille ou de contenu se tromperait un jour. Tout le reste — un skill écrit à
+ * la main, un skill du dépôt lui-même — n'appartient pas à cette commande, et
+ * ne se remplace pas.
+ *
+ * @param contenu - le fichier tel qu'il est sur le disque.
+ * @returns `true` si la synchronisation peut le remplacer.
+ */
+function estUnPointeur(contenu: string): boolean {
+  return contenu.includes("nodefony-source-package:");
+}
+
 export function syncSkillPointers(
   projectRoot: string,
   dryRun = false,
@@ -226,6 +310,16 @@ export function syncSkillPointers(
       actuel = readFileSync(mirror, "utf8");
     } catch {
       // Absent : il sera posé.
+    }
+    // 🔴 On ne remplace QUE ce qu'on a soi-même posé. Un `SKILL.md` déjà là qui
+    // n'est pas un pointeur a été ÉCRIT par quelqu'un — il ne se remplace pas
+    // par un renvoi de neuf lignes. Le commentaire ci-dessus affirmait déjà que
+    // ce dossier « appartient d'abord à l'utilisateur » ; l'intention y était,
+    // la garde non, et 385 lignes ont disparu sous un pointeur sans qu'un seul
+    // message ne le signale.
+    if (actuel !== null && !estUnPointeur(actuel)) {
+      plan.preserves.push(skill.mirrorTarget);
+      continue;
     }
     if (actuel !== skill.content) {
       mkdirSync(path.dirname(mirror), { recursive: true });
