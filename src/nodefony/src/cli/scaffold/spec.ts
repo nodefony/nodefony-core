@@ -7,7 +7,14 @@
  *   2. CLI interactif : `interactive.ts` rend chaque question en readline natif ;
  *   3. Studio         : un endpoint data plane sert `getScaffoldSpec()` en JSON,
  *      le formulaire React poste les réponses au MÊME moteur (`engine.ts`).
- * Ajouter un choix = ajouter UNE entrée ici ; aucun front n'est à modifier.
+ *
+ * ⚠️ **Deux fronts sur trois se servent seuls** : l'interactif et Studio LISENT
+ * cette spec, donc une question ajoutée y apparaît sans qu'on les touche. La
+ * voie FLAGS, elle, a une analyse écrite à la main (`parseCreateArgv`) : une
+ * question sans drapeau est servie à l'humain et REFUSÉE au script, sans un mot
+ * — c'est arrivé. Le drapeau se déduit de la clé (`maClé` → `--ma-cle`), sauf
+ * mention `flag` ; et un test du dépôt refuse toute question qu'aucun drapeau
+ * ne sert.
  */
 
 /** Une question de scaffold — champ `pattern` en string (JSON-able, validation partagée). */
@@ -79,6 +86,21 @@ export interface IScaffoldQuestion {
    * clés déclarées) — le pire des deux mondes.
    */
   advanced?: boolean;
+  /**
+   * Nom du drapeau de ligne de commande, quand il ne se DÉDUIT pas de la clé.
+   *
+   * La convention est `maClé` → `--ma-cle`, et elle couvre presque tout. Restent
+   * les cas où le drapeau dit l'inverse (`timestamps` se règle par
+   * `--no-timestamps` : le défaut est vrai, seul le retrait se nomme) ou porte
+   * un autre mot (`uniqueIndex` → `--unique`, répétable).
+   *
+   * 🔴 **Pourquoi ce champ existe plutôt qu'une table dans un test** : sans lui,
+   * rien ne relie une question à sa voie « script », et une question ajoutée
+   * sans drapeau est servie à l'humain, refusée au script — sans un mot. C'est
+   * arrivé (`agents`). Le déclarer ICI rend le contrôle possible depuis la spec
+   * elle-même, et l'affirmation de l'en-tête enfin vraie.
+   */
+  flag?: string;
 }
 
 /** Spec d'un type de scaffold (`app` aujourd'hui ; `module`/`controller`/`entity` suivent). */
@@ -653,6 +675,7 @@ const COMMAND_SPEC: IScaffoldTypeSpec = {
       // l'ordre du disque, donc le premier alphabétiquement : juste tant qu'une
       // application n'avait qu'un service, faux dès le deuxième, et silencieux.
       key: "serviceName",
+      flag: "--service",
       label: "Quel service appeler (vide = le seul de la cible)",
       type: "string",
       default: "",
@@ -711,6 +734,7 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
     },
     {
       key: "timestamps",
+      flag: "--no-timestamps",
       label: "Horodatages createdAt / updatedAt",
       type: "boolean",
       default: true,
@@ -729,6 +753,7 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
     },
     {
       key: "tests",
+      flag: "--no-tests",
       label: "Tests (base sqlite en mémoire)",
       type: "boolean",
       default: true,
@@ -823,6 +848,7 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
     },
     {
       key: "uniqueIndex",
+      flag: "--unique",
       label:
         'Contrainte d\'unicité sur plusieurs colonnes (ex. "siteId,visitId")',
       type: "list",

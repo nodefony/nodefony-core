@@ -5299,6 +5299,70 @@ describe("pointeurs d'instructions — aucun agent ne travaille aveugle", () => 
   });
 });
 
+describe("create app --agents — la troisième voie de la même question", () => {
+  const lu = (argv: string[]): unknown => {
+    const p = parseCreateArgv(["node", "nodefony", "create", "app", ...argv]);
+    return "error" in p ? p.error : p.answers.agents;
+  };
+
+  it("une liste séparée par des virgules devient un TABLEAU de valeurs entières", () => {
+    assert.deepEqual(lu(["--agents", "claude,gemini"]), ["claude", "gemini"]);
+  });
+
+  it("`none` dit l'absence EXPLICITE — distincte de l'option omise", () => {
+    assert.deepEqual(lu(["--agents", "none"]), []);
+    assert.isUndefined(lu([]), "omise, la question garde le défaut de la spec");
+  });
+
+  it("un script obtient donc le câblage sans terminal", () => {
+    // C'est tout l'intérêt : ce qui autorise est le choix EXPLICITE, pas la
+    // présence d'un humain — sinon Studio et les forges restent muets.
+    assert.deepEqual(lu(["--agents", "standard"]), ["standard"]);
+  });
+});
+
+describe("spec ⇄ flags — une question qu'aucun flag ne sert est INATTEIGNABLE", () => {
+  /** `gitHooks` → `--git-hooks` : la convention du CLI, appliquée une fois. */
+  const enKebab = (cle: string): string =>
+    `--${cle.replace(/[A-Z]/gu, (c) => `-${c.toLowerCase()}`)}`;
+
+  it("chaque question de chaque type est atteignable par un flag", () => {
+    // 🔴 Le gate qui manquait. L'en-tête de la spec promet « ajouter un choix =
+    // ajouter UNE entrée » — la voie interactive et Studio la tiennent (ils
+    // lisent la spec), la voie FLAGS non : son analyse est écrite à la main.
+    // Une question ajoutée sans son flag est donc servie à l'humain et refusée
+    // au script, sans que rien ne le signale. Vécu sur `agents`.
+    // `name` est POSITIONNEL (`create app mon-app`) : c'est la seule exemption,
+    // et elle se justifie — un nom n'est pas une option, c'est le sujet de la
+    // commande. Toute autre absence est un oubli.
+    const positionnelles = new Set(["name"]);
+    const manquants: string[] = [];
+    for (const spec of getScaffoldSpec()) {
+      for (const q of spec.questions) {
+        if (positionnelles.has(q.key)) continue;
+        const flag = q.flag ?? enKebab(q.key);
+        const parsed = parseCreateArgv([
+          "node",
+          "nodefony",
+          "create",
+          spec.type,
+          "x",
+          flag,
+          q.type === "boolean" ? "" : "valeur",
+        ]);
+        if ("error" in parsed && parsed.error.includes("option inconnue")) {
+          manquants.push(`${spec.type}.${q.key} (${flag})`);
+        }
+      }
+    }
+    assert.deepEqual(
+      manquants,
+      [],
+      "questions sans flag — un script ne peut pas y répondre",
+    );
+  });
+});
+
 describe("create sans type — le menu propose, la commande doit DEMANDER", () => {
   const RIEN = "type requis : app | module (reçu : rien)";
   const FAUTE = "type requis : app | module (reçu : ap)";

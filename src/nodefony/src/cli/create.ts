@@ -123,6 +123,18 @@ export function parseCreateArgv(
       answers.link = true;
     } else if (word === "--no-link") {
       answers.link = false;
+    } else if (word === "--agents") {
+      // La TROISIÈME voie de la même question (spec `agents`) : les flags. Sans
+      // elle, un script — ou une forge — ne pouvait pas dire ce qu'un humain
+      // coche, et le seul moyen d'obtenir le câblage était un terminal.
+      //
+      // Liste séparée par des virgules, `none` pour l'absence EXPLICITE : elle
+      // se distingue de l'option omise, qui laisse parler le défaut (aucun).
+      // Chaque valeur reste ENTIÈRE — c'est une question `list`.
+      answers.agents = (rest[++i] ?? "")
+        .split(/[\s,]+/u)
+        .map((c) => c.trim().toLowerCase())
+        .filter((c) => c.length > 0 && c !== "none");
     } else if (word === "--preset") {
       answers.preset = rest[++i];
     } else if (word === "--frontend") {
@@ -258,6 +270,7 @@ export function parseCreateArgv(
 const USAGE =
   `usage : nodefony create <${CREATE_TYPES.join("|")}> [name] [--dir <path>] [--force] [--yes] [--dry-run|-n]\n` +
   `  app        : [--preset <${PRESET_CHOICES.join("|")}>] [--frontend <${FRONTEND_CHOICES.join("|")}>]\n` +
+  `               [--agents <liste|none>] — agents de dev à câbler (défaut : aucun)\n` +
   `               [--database <${DATABASE_CHOICES.join("|")}>] — le compose ne porte QUE ce service\n` +
   `               [--link|--no-link] [--no-install] [--no-git] [--git-hooks]\n` +
   `  module     : [--controller <${MODULE_CONTROLLER_CHOICES.join("|")}>] [--no-service] [--command]\n` +

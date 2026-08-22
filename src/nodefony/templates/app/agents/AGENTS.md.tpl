@@ -137,6 +137,20 @@ dossier de découverte, lis-les à la main — c'est le chemin le plus court ver
 bonne façade. `npx nodefony ai:sync` les remet à jour après un `npm update`
 (`--dry-run` dit ce qui changerait).
 
+**Les instructions que tu lis vivent dans `AGENTS.md`** — standard porté par
+l'Agentic AI Foundation (Linux Foundation), précédence « le plus proche gagne ».
+Les fichiers au nom d'un outil (`CLAUDE.md`, `GEMINI.md`) n'en sont que des
+POINTEURS : ce qu'on y recopierait divergerait en silence. Deux agents lisent
+`AGENTS.md` d'office (Codex, Vibe), deux ouvrent leur propre fichier.
+
+**La porte d'introspection de cette application** (protocole MCP) se câble par
+`npx nodefony ai:mcp` : elle écrit `.mcp.json` à la racine et, si tu le
+demandes, déclare la porte chez tes agents **par leur propre CLI**. En mode
+authentifié (`--auth`), l'en-tête porte `${NF_MCP_TOKEN}` — jamais le jeton
+lui-même, que `npx nodefony security:token --write` émet à part. ⚠️ La porte est
+une ROUTE : elle n'existe que serveur démarré, et un client MCP qui la trouve
+éteinte la marque en échec pour toute sa session.
+
 ## Les commandes de l'app — demande la liste, ne la devine pas
 
 ```bash
