@@ -539,12 +539,20 @@ describe.skipIf(raison !== null)(
       expect(outilsDe(reponse).length).toBeGreaterThan(0);
     });
 
-    it("🔴 un jeton PRÉSENTÉ est vérifié strictement — mauvaise audience ⇒ 401", async () => {
-      // LA garde que la tolérance ne doit PAS emporter. Tolérer l'anonyme et
-      // tolérer un jeton douteux sont deux choses opposées : le premier n'a rien
-      // affirmé, le second affirme une identité. Un jeton de cette application,
-      // parfaitement signé et valide, mais délivré pour une AUTRE ressource,
-      // doit être refusé ici (RFC 8707 §2) — sinon l'audience ne lie rien.
+    it("🔴 un jeton d'une AUTRE audience n'ouvre RIEN — la liaison RFC 8707 mord", async () => {
+      // LA garde que la tolérance ne doit PAS emporter, mesurée sur ce qui
+      // compte : non pas le statut, mais ce que le porteur OBTIENT. Un jeton de
+      // cette application, parfaitement signé et valide, mais délivré pour une
+      // AUTRE ressource, ne doit ouvrir aucun outil réservé (RFC 8707 §2) —
+      // sinon l'audience ne lie rien.
+      //
+      // ⚠️ Il n'est plus refusé par un `401` : cette porte TOLÈRE l'anonyme, et
+      // punir un jeton rejeté plus durement qu'une requête muette coûtait
+      // l'outillage entier au premier jeton expiré (le client marque alors le
+      // serveur « failed » pour toute la session). Le jeton est donc rétrogradé
+      // en anonyme, ce qui n'accorde rien — c'est ce que ce cas prouve. Le
+      // `401` d'une porte FERMÉE, lui, est éprouvé au cœur
+      // (`oauthProtectedResource.test.ts`).
       const autre = await poster(
         { username: "admin", password: "secret" }, // sans `resource` ⇒ audience par défaut
         {},
@@ -557,7 +565,49 @@ describe.skipIf(raison !== null)(
         { jsonrpc: "2.0", id: 10, method: "tools/list" },
         { authorization: `Bearer ${jeton as string}` },
       );
-      expect(reponse.status).toBe(401);
+      const noms = outilsDe(reponse).map((t) => t.name);
+      expect(noms).to.not.contain("nodefony_admin_list");
+      expect(noms).to.not.contain("nodefony_admin_call");
+      expect(noms).to.not.contain("test_secret");
+      // Et il reçoit bien ce qu'un inconnu reçoit — ni plus, ni moins.
+      expect(noms).to.contain("nodefony_card");
+    });
+
+    it("🔴 `scopes_supported` est ce que la porte EXIGE — dérivé des outils, pas d'une liste écrite", async () => {
+      // La preuve sur l'artefact REÇU : le document qu'un client lit vraiment.
+      // Le catalogue de cette application est en LECTURE SEULE — `admin:read`
+      // ouvre `admin_list`/`admin_call`, et aucun outil n'exige `admin:write`.
+      // La liste écrite en configuration publiait pourtant les deux : le client
+      // demandait un droit qui n'ouvrait rien, et il aurait manqué le scope de
+      // tout outil qu'un module déclare.
+      const doc = (await lireDocument(MCP_METADATA_PATH)).body as {
+        scopes_supported?: unknown;
+      };
+      const publies = doc.scopes_supported as string[];
+      // Ce que les outils INTÉGRÉS exigent…
+      expect(publies).to.contain("admin:read");
+      // …et ce qu'un outil de MODULE exige (`test_secret` du module `test`) —
+      // c'est l'écart qu'aucune liste écrite ne pouvait suivre : elle vivait
+      // dans la configuration du devkit, l'outil dans un autre paquet.
+      expect(publies).to.contain("test:secret");
+      // …et RIEN d'autre : `admin:write` était publié alors qu'aucun outil ne
+      // l'exige — le client demandait un droit qui n'ouvrait rien.
+      expect(publies).to.not.contain("admin:write");
+
+      // Et ce scope publié est bien celui qui ouvre : demandé au grant, il rend
+      // un jeton que la porte accepte POUR les outils réservés. Un document
+      // exact mais inopérant ne serait qu'un autre mensonge.
+      const jeton = await jetonPourLaPorte(
+        (doc.scopes_supported as string[])[0] ?? null,
+      );
+      expect(jeton, "grant attendu").toBeTypeOf("string");
+      const reponse = await poster(
+        { jsonrpc: "2.0", id: 11, method: "tools/list" },
+        { authorization: `Bearer ${jeton as string}` },
+      );
+      expect(outilsDe(reponse).map((t) => t.name)).toContain(
+        "nodefony_admin_list",
+      );
     });
 
     it("le chemin publié est celui que la RFC 9728 fait construire au client", async () => {

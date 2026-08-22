@@ -1026,8 +1026,16 @@ export function builtinMcpTools(
   };
 }
 
-/** Ce qu'il faut pour ramasser les outils d'une application. */
-export interface IMcpCollectOptions {
+/**
+ * Ce qu'il faut pour ÉNUMÉRER les déclarations d'outils d'une application.
+ *
+ * Distinct de {@link IMcpCollectOptions}, qui ajoute l'appelant : énumérer est
+ * une question sur le CODE (« que déclare cette application ? »), collecter est
+ * une question sur une REQUÊTE (« que sert-on à celui-ci ? »). Le document de
+ * ressource protégée, servi sans contexte d'appelant, ne peut poser que la
+ * première.
+ */
+export interface IMcpDeclareOptions {
   /**
    * Allowlist des outils INTÉGRÉS (clés courtes, cf
    * {@link BUILTIN_MCP_TOOL_KEYS}).
@@ -1055,6 +1063,10 @@ export interface IMcpCollectOptions {
    * jamais été appelé.
    */
   onSkip?: (why: string) => void;
+}
+
+/** Ce qu'il faut pour ramasser les outils SERVIS à un appelant. */
+export interface IMcpCollectOptions extends IMcpDeclareOptions {
   /**
    * Ce que la porte a ÉTABLI de l'appelant. Absent = anonyme.
    *
@@ -1154,8 +1166,8 @@ function withholdReason(tool: IMcpTool, caller: IMcpCaller): string | null {
 }
 
 /**
- * Ramasse les outils servis par cette application : les intégrés autorisés,
- * puis ceux que les modules déclarent.
+ * Énumère ce que cette application DÉCLARE : les intégrés autorisés, puis les
+ * outils des modules — sans rien retenir sur l'identité de qui que ce soit.
  *
  * Trois refus, tous énoncés par `onSkip` plutôt que silencieux :
  *  - **nom hors forme** ({@link NAME_PATTERN}) — il ne serait pas appelable ;
@@ -1165,22 +1177,18 @@ function withholdReason(tool: IMcpTool, caller: IMcpCaller): string | null {
  *  - **déclaration en échec** — un `getMcpTools()` qui lève ne doit pas priver
  *    l'agent des outils de tous les autres modules.
  *
- * Et un quatrième, qui n'est pas un refus mais une RÉTENTION : un outil dont
- * l'appelant ne satisfait pas les exigences ({@link IMcpTool.scopes},
- * {@link IMcpTool.requiresAuth}) ne sort pas d'ici. ⭐ **Filtrer À LA COLLECTE
- * protège `tools/list` ET `tools/call` d'un seul geste** : le protocole ne
- * reçoit que les outils servis, donc un outil retenu est « inconnu » pour lui —
- * indistinguable d'un outil inexistant, ce qui ne révèle même pas son
- * existence. Filtrer la liste sans filtrer l'appel n'aurait été qu'un rideau, et
- * c'est l'erreur classique : deux points de décision, dont un qu'on oublie.
+ * 🔴 **Ce que rend cette fonction n'est PAS servable tel quel** : elle contient
+ * les outils réservés. Toute porte passe par {@link collectMcpTools}, qui filtre
+ * sur l'appelant. Le seul usage légitime de la liste brute est de raisonner sur
+ * le CODE — ce que la porte EXIGE ({@link mcpDeclaredScopes}) — jamais de
+ * répondre à une requête.
  *
- * @param options - allowlist, dépendances, modules, appelant et journaux
- * @returns les outils exécutables, dans l'ordre où ils seront publiés
+ * @param options - allowlist, dépendances, modules et journal des écarts
+ * @returns les outils déclarés, dans l'ordre où ils seraient publiés
  */
-export function collectMcpTools(options: IMcpCollectOptions): IMcpTool[] {
-  const collected: IMcpTool[] = [];
+export function declareMcpTools(options: IMcpDeclareOptions): IMcpTool[] {
+  const declared: IMcpTool[] = [];
   const seen = new Set<string>();
-  const caller = options.caller ?? ANONYMOUS;
 
   const add = (tool: IMcpTool, origin: string): void => {
     if (typeof tool?.name !== "string" || !NAME_PATTERN.test(tool.name)) {
@@ -1201,16 +1209,12 @@ export function collectMcpTools(options: IMcpCollectOptions): IMcpTool[] {
       );
       return;
     }
-    // Le nom est RÉSERVÉ même quand l'outil est retenu : sans cela, un module
-    // pourrait publier un homonyme public d'un outil protégé qu'il ne voit
-    // pas, et l'agent croirait appeler celui qu'il a lu dans la documentation.
+    // Le nom est RÉSERVÉ même quand l'outil sera retenu à la collecte : sans
+    // cela, un module pourrait publier un homonyme public d'un outil protégé
+    // qu'il ne voit pas, et l'agent croirait appeler celui qu'il a lu dans la
+    // documentation. C'est pourquoi la réservation vit ICI, avant tout filtre.
     seen.add(tool.name);
-    const withheld = withholdReason(tool, caller);
-    if (withheld !== null) {
-      options.onWithheld?.(tool.name, withheld);
-      return;
-    }
-    collected.push(tool);
+    declared.push(tool);
   };
 
   // Les intégrés d'abord : ils gagnent toute collision, donc aucun module ne
@@ -1229,27 +1233,87 @@ export function collectMcpTools(options: IMcpCollectOptions): IMcpTool[] {
   for (const [name, module] of Object.entries(options.modules ?? {})) {
     const declare = (module as { getMcpTools?: unknown } | null)?.getMcpTools;
     if (typeof declare !== "function") continue;
-    let declared: unknown;
+    let tools: unknown;
     try {
-      declared = (declare as () => unknown).call(module);
+      tools = (declare as () => unknown).call(module);
     } catch (error) {
       options.onSkip?.(
         `module « ${name} » : getMcpTools() a échoué — ${(error as Error).message}`,
       );
       continue;
     }
-    if (!Array.isArray(declared)) {
+    if (!Array.isArray(tools)) {
       options.onSkip?.(
         `module « ${name} » : getMcpTools() doit rendre un tableau`,
       );
       continue;
     }
-    for (const tool of declared) {
+    for (const tool of tools) {
       add(tool as IMcpTool, `module ${name}`);
     }
   }
 
-  return collected;
+  return declared;
+}
+
+/**
+ * Ramasse les outils SERVIS à cet appelant.
+ *
+ * Aux trois refus de {@link declareMcpTools} s'ajoute une RÉTENTION, qui n'est
+ * pas une faute : un outil dont l'appelant ne satisfait pas les exigences
+ * ({@link IMcpTool.scopes}, {@link IMcpTool.requiresAuth}) ne sort pas d'ici.
+ * ⭐ **Filtrer À LA COLLECTE protège `tools/list` ET `tools/call` d'un seul
+ * geste** : le protocole ne reçoit que les outils servis, donc un outil retenu
+ * est « inconnu » pour lui — indistinguable d'un outil inexistant, ce qui ne
+ * révèle même pas son existence. Filtrer la liste sans filtrer l'appel n'aurait
+ * été qu'un rideau, et c'est l'erreur classique : deux points de décision, dont
+ * un qu'on oublie.
+ *
+ * @param options - allowlist, dépendances, modules, appelant et journaux
+ * @returns les outils exécutables, dans l'ordre où ils seront publiés
+ */
+export function collectMcpTools(options: IMcpCollectOptions): IMcpTool[] {
+  const caller = options.caller ?? ANONYMOUS;
+  const served: IMcpTool[] = [];
+  for (const tool of declareMcpTools(options)) {
+    const withheld = withholdReason(tool, caller);
+    if (withheld !== null) {
+      options.onWithheld?.(tool.name, withheld);
+      continue;
+    }
+    served.push(tool);
+  }
+  return served;
+}
+
+/**
+ * Le vocabulaire de scopes que cette porte EXIGE — l'union de ce que ses outils
+ * déclarent, jamais une liste écrite à côté.
+ *
+ * 🔴 **C'est ce qu'un client doit demander**, et c'est à ce titre qu'il est
+ * publié (RFC 9728 `scopes_supported`) et nommé dans le défi (RFC 6750
+ * `scope`). Une liste de configuration disait autre chose que le code par
+ * simple oubli, dans les deux sens et sans qu'aucun contrôle ne l'aperçoive :
+ * un scope publié que rien n'exige envoie demander un droit qui n'ouvre rien ;
+ * un scope exigé que rien ne publie laisse le client deviner ce qu'on attend de
+ * lui — et un outil de module en était systématiquement là.
+ *
+ * L'énumération est délibérément celle des outils DÉCLARÉS, pas de ceux servis
+ * à un appelant : le document se lit avant d'avoir un jeton, et un catalogue
+ * filtré n'annoncerait à l'anonyme que ce dont il n'a pas besoin.
+ *
+ * @param options - allowlist, dépendances, modules et journal des écarts
+ * @returns les scopes, dédupliqués et triés ; vide si la porte n'exige rien
+ */
+export function mcpDeclaredScopes(options: IMcpDeclareOptions): string[] {
+  const vocabulaire = new Set<string>();
+  for (const tool of declareMcpTools(options)) {
+    for (const scope of tool.scopes ?? []) vocabulaire.add(scope);
+  }
+  // Trié : le document est comparé d'une exécution à l'autre (tests, revue), et
+  // l'ordre d'un `Set` suit celui de la déclaration — donc il change dès qu'un
+  // module s'ajoute, pour un contenu identique.
+  return [...vocabulaire].sort();
 }
 
 /**

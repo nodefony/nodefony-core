@@ -674,7 +674,8 @@ export type {
 // qui ne se voient pas la partagent (les authentificateurs de `@nodefony/security`
 // et la porte MCP). Une copie n'aurait pas divergé bruyamment : elle aurait
 // divergé sur un cas limite que chaque copie continue de passer.
-export { bearerToken } from "./runtime/bearer";
+export { bearerToken, readBearerHeader } from "./runtime/bearer";
+export type { BearerHeader } from "./runtime/bearer";
 
 // ─── Rôle SERVEUR D'AUTORISATION OAuth (RFC 8414) — les DEUX faces ────────────
 // Lire les métadonnées d'un émetteur tiers (pour découvrir ses clés) et publier
@@ -735,7 +736,9 @@ export type { GuardVerdict, IGuardInput, IGuardPolicy } from "./mcp/guard";
 export {
   mcpText,
   builtinMcpTools,
+  declareMcpTools,
   collectMcpTools,
+  mcpDeclaredScopes,
   publishMcpTools,
   callMcpTool,
   BUILTIN_MCP_TOOL_KEYS,
@@ -746,6 +749,7 @@ export type {
   IMcpToolResult,
   IMcpToolDeps,
   IMcpCaller,
+  IMcpDeclareOptions,
   IMcpCollectOptions,
   BuiltinMcpToolKey,
 } from "./mcp/tools";

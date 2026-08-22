@@ -6,8 +6,13 @@ import {
   Nodefony,
   extend,
   injectable,
+  mcpDeclaredScopes,
 } from "nodefony";
-import type { IProtectedResourceInput } from "nodefony";
+import type {
+  IAdminBrokerLike,
+  IMcpToolDeps,
+  IProtectedResourceInput,
+} from "nodefony";
 import type { IDevkitCard, IDevkitService } from "../interfaces/IDevkitService";
 import { buildCard } from "../src/card";
 import defaultConfig, { type DevkitConfig } from "../config/config";
@@ -143,6 +148,53 @@ class DevkitService extends Service implements IDevkitService {
   }
 
   /**
+   * Ce dont les outils MCP intégrés ont besoin pour répondre.
+   *
+   * Composé ICI, et non dans la porte HTTP, parce que DEUX questions les
+   * réclament — « que sert-on à cet appelant ? » (la porte) et « qu'exige cette
+   * porte ? » ({@link DevkitService.declaredMcpScopes}, lue sans requête, au
+   * moment de publier le document RFC 9728). Deux compositions auraient fini
+   * par diverger, et c'est le document publié qui aurait eu tort.
+   *
+   * @returns broker d'administration (absent si `@nodefony/framework` n'est pas
+   *          monté — les outils le DISENT alors, ils ne plantent pas), carte de
+   *          visite et racine de l'APPLICATION (jamais `process.cwd()` : le
+   *          serveur répond dans le process de l'app, dont le dossier courant
+   *          n'est pas garanti être celui du projet).
+   */
+  mcpToolDeps(): IMcpToolDeps {
+    const kernel = this.module.kernel;
+    return {
+      broker: this.get<IAdminBrokerLike>("adminBroker") ?? undefined,
+      getCard: () => this.getCard(),
+      projectRoot: kernel?.path ?? process.cwd(),
+    };
+  }
+
+  /**
+   * Les scopes que la porte MCP EXIGE — dérivés des outils qu'elle déclare.
+   *
+   * 🔴 **Aucune liste de configuration ne double celle-ci**, et c'est la
+   * correction d'un mensonge normatif : la liste écrite publiait `admin:write`
+   * qu'aucun outil n'exige, et taisait le scope de tout outil déclaré par un
+   * module — deux écarts qu'aucun contrôle ne pouvait voir, puisque rien ne
+   * reliait les deux. Une application qui veut voir un scope publié le pose sur
+   * son outil (`IMcpTool.scopes`), seul endroit où un scope a un EFFET.
+   *
+   * Vide quand la porte n'exige rien : `scopes_supported` est alors OMIS du
+   * document (RFC 9728 §2, champ optionnel) plutôt que publié vide.
+   *
+   * @returns les scopes dédupliqués et triés
+   */
+  declaredMcpScopes(): readonly string[] {
+    return mcpDeclaredScopes({
+      builtins: this.cfg.mcp.tools,
+      deps: this.mcpToolDeps(),
+      modules: this.module.kernel?.modules,
+    });
+  }
+
+  /**
    * Ce que ce module protège, à publier en RFC 9728 — la porte MCP, ou rien.
    *
    * ⭐ **Le document n'est plus monté ici.** Il l'était, par un controller
@@ -174,7 +226,7 @@ class DevkitService extends Service implements IDevkitService {
       {
         resource: authz.resource,
         authorizationServers: authz.authorizationServers,
-        scopesSupported: authz.scopesSupported,
+        scopesSupported: this.declaredMcpScopes(),
         resourceName: authz.resourceName,
         resourceDocumentation: authz.resourceDocumentation,
       },

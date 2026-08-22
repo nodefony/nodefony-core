@@ -6,6 +6,7 @@ import { handleMcpMessage } from "../mcp/server";
 import {
   builtinMcpTools,
   collectMcpTools,
+  mcpDeclaredScopes,
   callMcpTool,
   publishMcpTools,
   mcpText,
@@ -19,6 +20,8 @@ import {
 import type { IMcpCaller, IMcpTool } from "../types/IMcpTool";
 import type { IAdminApi } from "../types/IAdminApi";
 import { ADMIN_DEFAULT_ROLE } from "../kernel/adminPlane/adminRbac";
+import { ADMIN_SCOPE_READ } from "../kernel/adminPlane/adminCaller";
+import { buildProtectedResourceMetadata } from "../oauth/protectedResource";
 
 /**
  * L'appelant qu'une porte NON protégée établit — rôle d'opérateur, ÉNONCÉ.
@@ -1427,5 +1430,95 @@ describe("outil docs", () => {
     const result = await tool.handler({ query: "session" }, OPERATEUR);
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("kernel");
+  });
+});
+
+/**
+ * Le vocabulaire de scopes publié — ce qu'un client doit demander.
+ *
+ * Ce qui est éprouvé ici n'est pas un calcul d'union : c'est qu'il n'existe
+ * plus de seconde source. Une liste de configuration a longtemps tenu ce rôle,
+ * et elle a menti dans les deux sens sans que rien ne s'en aperçoive.
+ */
+describe("mcpDeclaredScopes — la porte publie ce qu'elle EXIGE", () => {
+  it("l'union vient des outils, donc `admin:write` n'est plus annoncé", () => {
+    // Le catalogue est en lecture seule : `admin_list` et `admin_call` exigent
+    // `admin:read`, et RIEN n'exige `admin:write`. La liste écrite le publiait
+    // quand même — un client le demandait, l'obtenait, et n'ouvrait rien.
+    expect(
+      mcpDeclaredScopes({ builtins: BUILTIN_MCP_TOOL_KEYS, deps: deps() }),
+    ).toEqual([ADMIN_SCOPE_READ]);
+  });
+
+  it("le scope d'un outil de MODULE y figure — l'écart qu'aucune liste ne voyait", () => {
+    const scopes = mcpDeclaredScopes({
+      builtins: [],
+      deps: deps(),
+      modules: {
+        facturation: {
+          getMcpTools: (): IMcpTool[] => [
+            {
+              name: "facture_lire",
+              description: "lit une facture",
+              inputSchema: { type: "object" },
+              scopes: ["billing:read"],
+              handler: () => mcpText("ok"),
+            },
+          ],
+        },
+      },
+    });
+    expect(scopes).toEqual(["billing:read"]);
+  });
+
+  it("le vocabulaire ne dépend pas de l'appelant — le document se lit SANS jeton", () => {
+    // C'est la raison d'être de l'énumération : un catalogue filtré n'annonce à
+    // l'anonyme que ce dont il n'a pas besoin, et il ne demande jamais de
+    // jeton. L'anonyme ne se voit servir aucun outil réservé…
+    const servis = collectMcpTools({
+      builtins: BUILTIN_MCP_TOOL_KEYS,
+      deps: deps(),
+    }).map((t) => t.name);
+    expect(servis).not.toContain("nodefony_admin_list");
+    // …et lit pourtant le scope qui les ouvre.
+    expect(
+      mcpDeclaredScopes({ builtins: BUILTIN_MCP_TOOL_KEYS, deps: deps() }),
+    ).toContain(ADMIN_SCOPE_READ);
+  });
+
+  it("dédoublonne et trie — deux exécutions rendent le même document", () => {
+    const outil = (name: string, scopes: string[]): IMcpTool => ({
+      name,
+      description: name,
+      inputSchema: { type: "object" },
+      scopes,
+      handler: () => mcpText("ok"),
+    });
+    expect(
+      mcpDeclaredScopes({
+        builtins: [],
+        deps: deps(),
+        modules: {
+          b: {
+            getMcpTools: () => [outil("z_outil", ["zeta:read", "alpha:read"])],
+          },
+          a: { getMcpTools: () => [outil("a_outil", ["alpha:read"])] },
+        },
+      }),
+    ).toEqual(["alpha:read", "zeta:read"]);
+  });
+
+  it("aucune exigence ⇒ aucun scope, et le champ sera OMIS du document", () => {
+    // `card` n'exige rien : la porte qui ne sert que lui n'a rien à faire
+    // demander. Publier `[]` dirait « il existe des scopes, mais aucun » ; la
+    // RFC 9728 prévoit l'absence, et c'est ce que produit un tableau vide.
+    expect(mcpDeclaredScopes({ builtins: ["card"], deps: deps() })).toEqual([]);
+    expect(
+      buildProtectedResourceMetadata({
+        resource: "https://app.example/nodefony/mcp",
+        authorizationServers: ["https://as.example"],
+        scopesSupported: [],
+      }).scopes_supported,
+    ).toBeUndefined();
   });
 });
