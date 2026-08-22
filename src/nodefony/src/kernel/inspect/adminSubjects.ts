@@ -4,6 +4,7 @@ import type {
   IAdminRequest,
 } from "../../types/IAdminApi";
 import { resolveAdminRole } from "../adminPlane/adminRbac";
+import type { IAdminCaller } from "../adminPlane/adminCaller";
 import {
   executeAdminEndpoint,
   normalizeAdminResult,
@@ -109,7 +110,14 @@ export type InspectFailure =
   /** Le handler a levé. */
   | "handler-failed"
   /** Le handler a répondu un statut d'erreur (404 sur une cible inconnue). */
-  | "not-found";
+  | "not-found"
+  /**
+   * L'appelant n'a pas le rôle exigé par l'endpoint.
+   *
+   * Distinct de `not-found` : confondre « tu n'as pas le droit » avec « ça
+   * n'existe pas » envoie chercher une cible valide au lieu d'un jeton.
+   */
+  | "forbidden";
 
 /** Résultat d'une lecture de sujet : la donnée, ou la raison de l'échec. */
 export type InspectResult =
@@ -182,6 +190,7 @@ export interface IAdminCall {
 export async function callAdminEndpoint(
   broker: IAdminBrokerLike | undefined,
   call: IAdminCall,
+  caller: IAdminCaller,
 ): Promise<InspectResult> {
   const label = call.label ?? `${call.namespace}/${call.path}`;
   const producer = broker
@@ -212,14 +221,11 @@ export async function callAdminEndpoint(
     params: call.params ?? {},
     query: call.query ?? {},
     body: null,
-    user: null,
-    // ⚠️ DETTE ASSUMÉE, et bornée : le rôle d'administrateur est FABRIQUÉ ici,
-    // il n'est pas celui de l'appelant. Tant qu'il en est ainsi, tout porteur
-    // d'un jeton accepté par le serveur MCP obtient la lecture d'administration
-    // complète. Le canal existe déjà (le `caller` arrive jusqu'aux outils) ; le
-    // faire porter jusqu'ici est l'étape suivante, et c'est ELLE qui fera
-    // mordre le contrôle de rôle désormais appliqué ci-dessous.
-    roles: ["ROLE_NODEFONY_ADMIN"],
+    // L'identité vient de l'APPELANT, elle n'est plus fabriquée ici. C'est ce
+    // qui fait mordre le contrôle de rôle : un jeton dont les scopes n'ouvrent
+    // pas le plan d'administration se présente sans rôle, et se voit refusé.
+    user: caller.user,
+    roles: caller.roles,
   };
 
   let thrown: Error | null = null;
@@ -245,6 +251,21 @@ export async function callAdminEndpoint(
       ok: false,
       reason: "handler-failed",
       message: `inspection impossible : ${(thrown as Error).message}`,
+    };
+  }
+
+  if (execution.status === 403) {
+    const requis = (execution.body as { required?: string } | null)?.required;
+    return {
+      ok: false,
+      reason: "forbidden",
+      status: 403,
+      message:
+        `« ${label} » refusé — ${caller.label}` +
+        (requis
+          ? ` ne porte pas le rôle « ${requis} »`
+          : " n'a pas le droit de lire ceci"),
+      body: execution.body,
     };
   }
 
@@ -276,6 +297,7 @@ export async function callAdminEndpoint(
 export async function readAdminSubject(
   broker: IAdminBrokerLike | undefined,
   subject: string,
+  caller: IAdminCaller,
   target?: string,
 ): Promise<InspectResult> {
   const spec = INSPECT_SUBJECTS[subject];
@@ -294,10 +316,14 @@ export async function readAdminSubject(
     };
   }
 
-  return callAdminEndpoint(broker, {
-    namespace: spec.namespace,
-    path: spec.path,
-    params: spec.param && target ? { [spec.param]: target } : {},
-    label: target ?? subject,
-  });
+  return callAdminEndpoint(
+    broker,
+    {
+      namespace: spec.namespace,
+      path: spec.path,
+      params: spec.param && target ? { [spec.param]: target } : {},
+      label: target ?? subject,
+    },
+    caller,
+  );
 }

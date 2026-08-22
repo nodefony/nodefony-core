@@ -417,6 +417,21 @@ export {
   resolveAdminRole,
   ADMIN_DEFAULT_ROLE,
 } from "./kernel/adminPlane/adminRbac";
+// L'identité que chaque porte PRÉSENTE au plan d'administration — elle se
+// passe, elle ne se fabrique pas.
+export {
+  localOperatorCaller,
+  rolesFromScopes,
+  refusedAdminScopes,
+  ADMIN_SCOPE_READ,
+  ADMIN_SCOPE_WRITE,
+} from "./kernel/adminPlane/adminCaller";
+export type { IAdminCaller } from "./kernel/adminPlane/adminCaller";
+// La règle « que vaut un appelant sur une porte MCP » — UNE implémentation,
+// partagée par la porte du module de développement et par toute porte qu'un
+// module créera plus tard.
+export { mcpCallerRoles } from "./mcp/caller";
+export type { IMcpGatePosture } from "./mcp/caller";
 // Découpe d'un markdown par ses titres — le plan d'une page de documentation,
 // puis une section. Partagée par le serveur MCP (cœur) et le plan
 // d'administration (framework) : une page de 80 ko ne se rend pas entière.

@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { canonicalResourceUri, BUILTIN_MCP_TOOL_KEYS } from "nodefony";
+import {
+  canonicalResourceUri,
+  BUILTIN_MCP_TOOL_KEYS,
+  ADMIN_SCOPE_READ,
+  ADMIN_SCOPE_WRITE,
+} from "nodefony";
 
 /**
  * @nodefony/devkit — CONFIGURATION DU MODULE (schéma Zod = source unique).
@@ -99,15 +104,24 @@ const mcpAuthorizationSchema = z
       ),
 
     /**
-     * Scopes que cette porte comprend — publiés, et proposés au client quand on
-     * le refuse.
+     * Scopes que cette porte comprend — publiés (RFC 9728 `scopes_supported`),
+     * et nommés dans le défi quand on refuse.
      *
-     * Ce sont ceux que les outils déclarent (`IMcpTool.scopes`). Les annoncer
-     * évite au client de demander plus que nécessaire.
+     * 🔴 Le défaut porte les scopes d'ADMINISTRATION parce qu'une porte
+     * protégée les EXIGE désormais : un jeton d'audience valide qui n'en porte
+     * aucun est refusé par le contrôle de rôle. Publier vide reviendrait à
+     * exiger l'invisible — le client suivrait le défi, lirait un document qui
+     * ne demande rien, obtiendrait un jeton sans scope, et se ferait refuser
+     * sans jamais savoir quoi demander.
+     *
+     * Une application qui ajoute ses propres outils réservés (`IMcpTool.scopes`)
+     * complète cette liste. ⚠️ Elle reste ÉCRITE : la dériver de l'union des
+     * scopes réellement déclarés est la bonne cible et n'est pas encore faite —
+     * tant que c'est le cas, une liste et des outils peuvent diverger.
      */
     scopesSupported: z
       .array(z.string())
-      .default([])
+      .default([ADMIN_SCOPE_READ, ADMIN_SCOPE_WRITE])
       .describe("Scopes compris par la porte (guide le client)"),
 
     /** Nom lisible, affiché pendant le consentement. */

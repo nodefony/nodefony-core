@@ -39,7 +39,14 @@ describe("devkit — rôle serveur de ressource ÉTEINT par défaut", () => {
     // quatre champs ci-dessous seraient `undefined` et le code lirait des
     // `undefined.length`.
     const cfg = parseMcp({ enabled: true });
-    expect(cfg.mcp.authorization.scopesSupported).to.deep.equal([]);
+    // Les scopes d'ADMINISTRATION sont le défaut, et c'est délibéré : une porte
+    // protégée les exige désormais, donc les publier est la seule façon de ne
+    // pas exiger l'invisible (le client suit le défi, lit le document, sait
+    // quoi demander).
+    expect(cfg.mcp.authorization.scopesSupported).to.deep.equal([
+      "admin:read",
+      "admin:write",
+    ]);
     expect(cfg.mcp.authorization.authorizationServers).to.deep.equal([]);
   });
 });

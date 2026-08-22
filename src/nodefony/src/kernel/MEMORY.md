@@ -362,8 +362,26 @@ Règles :
   du CLIENT : restituée telle quelle, jamais journalisée.
 - `gate: null` est un CHOIX écrit (lectures seules), pas un paramètre omis. L'idempotence vit au
   framework (`idempotency.ts`) : son second consommateur est le seam `Resolver`/`@Idempotent`.
-- ⚠️ `adminSubjects.ts` fabrique `roles:["ROLE_NODEFONY_ADMIN"]` — l'appelant MCP ne porte pas
-  encore son identité, donc tout jeton accepté vaut lecture admin complète.
+- **L'identité se PRÉSENTE** (`IAdminCaller` : `user`, `roles`, `label`), elle n'est plus fabriquée.
+  `localOperatorCaller()` pour une commande locale (qui la lance possède déjà le processus) ;
+  `adminCallerFromMcp` pour la porte MCP. Le 3ᵉ paramètre de `callAdminEndpoint` est OBLIGATOIRE :
+  le compilateur force chaque porte à dire au nom de qui elle appelle.
+- **Rôle ∧ scope, et les deux bornes existent** : `rolesFromScopes` n'accorde le rôle qu'à un jeton
+  portant `admin:read`/`admin:write` ; `refusedAdminScopes` empêche un non-administrateur de les
+  OBTENIR (appliqué à l'émission par `TokenService.#grantableScopes`). Porter le rôle ne suffit pas
+  à avoir le scope, porter le scope ne suffit pas à avoir le rôle. Session cookie = pas de
+  délégation = rôles seuls (Studio inchangé).
+- `mcpCallerRoles` (`src/mcp/caller.ts`) : la règle unique de toute porte MCP — non protégée →
+  opérateur (son périmètre EST sa protection) · protégée + jeton → ses scopes · protégée + anonyme
+  toléré → rien. Toute porte future (module d'agents) l'appelle au lieu de la réécrire.
+- `forbidden` est une raison DISTINCTE de `not-found` : confondre « pas le droit » et « n'existe
+  pas » envoie chercher une autre cible au lieu d'un meilleur jeton.
+- ⚠️ Asymétrie NOMMÉE, non fermée : un jeton présenté sur la porte HTTP (`ExternalJwtAuthenticator`,
+  `subjectPolicy:"require"`) hérite des rôles du compte local SANS intersection avec ses scopes —
+  les routes du plan sont montées par le broker, donc sans `@RequireScope`. Le même porteur obtient
+  plus par HTTP que par MCP.
+- ⚠️ Un seul rôle ouvre les 94 endpoints : c'est du RBAC **fail-closed**, pas du moindre privilège.
+  La granularité suppose que `IAdminEndpoint.role` se différencie.
 
 ## Deps
 

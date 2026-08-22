@@ -10,7 +10,14 @@ import {
   callAdminEndpoint,
   type IAdminBrokerLike,
 } from "../kernel/inspect/adminSubjects";
+import {
+  localOperatorCaller,
+  rolesFromScopes,
+  ADMIN_SCOPE_READ,
+  type IAdminCaller,
+} from "../kernel/adminPlane/adminCaller";
 import { outlineMarkdown } from "../kernel/inspect/docOutline";
+import { mcpCallerRoles } from "../mcp/caller";
 import type {
   IAdminApi,
   IAdminEndpoint,
@@ -281,13 +288,17 @@ const brokerDocs = (): IAdminBrokerLike => {
 
 describe("callAdminEndpoint — le refus du producteur voyage ENTIER", () => {
   it("section absente d'une page PRÉSENTE → le refus nomme la section ET les titres réels", async () => {
-    const read = await callAdminEndpoint(brokerDocs(), {
-      namespace: "kernel",
-      path: "module/{name}/docs/{slug}",
-      params: { name: "security", slug: "firewall" },
-      query: { section: "Zonnes" },
-      label: "security/firewall",
-    });
+    const read = await callAdminEndpoint(
+      brokerDocs(),
+      {
+        namespace: "kernel",
+        path: "module/{name}/docs/{slug}",
+        params: { name: "security", slug: "firewall" },
+        query: { section: "Zonnes" },
+        label: "security/firewall",
+      },
+      localOperatorCaller(),
+    );
 
     expect(read.ok).to.equal(false);
     if (read.ok) return;
@@ -310,12 +321,16 @@ describe("callAdminEndpoint — le refus du producteur voyage ENTIER", () => {
   });
 
   it("la lecture qui réussit est inchangée", async () => {
-    const read = await callAdminEndpoint(brokerDocs(), {
-      namespace: "kernel",
-      path: "module/{name}/docs/{slug}",
-      params: { name: "security", slug: "firewall" },
-      query: { section: "Zones" },
-    });
+    const read = await callAdminEndpoint(
+      brokerDocs(),
+      {
+        namespace: "kernel",
+        path: "module/{name}/docs/{slug}",
+        params: { name: "security", slug: "firewall" },
+        query: { section: "Zones" },
+      },
+      localOperatorCaller(),
+    );
     expect(read.ok).to.equal(true);
     if (!read.ok) return;
     expect(read.data).to.deep.equal({ slug: "firewall", section: "Zones" });
@@ -335,14 +350,141 @@ describe("callAdminEndpoint — le refus du producteur voyage ENTIER", () => {
     } as unknown as IAdminApi;
     const read = await callAdminEndpoint(
       { list: () => [api] },
-      {
-        namespace: "kernel",
-        path: "boom",
-      },
+      { namespace: "kernel", path: "boom" },
+      localOperatorCaller(),
     );
     expect(read.ok).to.equal(false);
     if (read.ok) return;
     expect(read.reason).to.equal("handler-failed");
     expect(read.message).to.contain("store injoignable");
+  });
+});
+
+// ── ÉTAPE 2 : l'identité se PRÉSENTE, elle ne se fabrique plus ───────────────
+// Avant, `callAdminEndpoint` posait `roles:["ROLE_NODEFONY_ADMIN"]` en dur :
+// tout porteur d'un jeton d'audience valide — même sans le moindre droit —
+// obtenait la lecture d'administration complète. Le contrôle de rôle existait
+// et s'appliquait à un sujet inventé.
+
+describe("callAdminEndpoint — le contrôle de rôle mord sur l'appelant RÉEL", () => {
+  const brokerSecret = (): IAdminBrokerLike => {
+    const api = {
+      adminNamespace: "kernel",
+      adminEndpoints: () => [
+        { path: "config", handler: () => ({ secret: "valeur runtime" }) },
+      ],
+    } as unknown as IAdminApi;
+    return { list: () => [api] };
+  };
+
+  const lire = (caller: IAdminCaller) =>
+    callAdminEndpoint(
+      brokerSecret(),
+      { namespace: "kernel", path: "config", label: "config" },
+      caller,
+    );
+
+  it("jeton SANS scope d'administration → REFUSÉ (c'était le trou)", async () => {
+    const read = await lire({
+      user: null,
+      roles: rolesFromScopes(["profile", "email"]),
+      label: "le porteur « agent-42 »",
+    });
+    expect(read.ok).to.equal(false);
+    if (read.ok) return;
+    expect(read.reason).to.equal("forbidden");
+    expect(read.status).to.equal(403);
+    // Le refus DIT à qui il s'adresse et ce qui manque : sans cela, l'appelant
+    // cherche une cible valide au lieu d'un jeton.
+    expect(read.message).to.contain("agent-42");
+    expect(read.message).to.contain("ne porte pas le rôle");
+    expect(read.message).to.contain("ROLE_NODEFONY_ADMIN");
+  });
+
+  it("jeton AVEC `admin:read` → accordé", async () => {
+    const read = await lire({
+      user: null,
+      roles: rolesFromScopes([ADMIN_SCOPE_READ]),
+      label: "le porteur « agent-42 »",
+    });
+    expect(read.ok).to.equal(true);
+    if (!read.ok) return;
+    expect(read.data).to.deep.equal({ secret: "valeur runtime" });
+  });
+
+  it("opérateur local → accordé, et l'identité est ÉNONCÉE", async () => {
+    const read = await lire(localOperatorCaller());
+    expect(read.ok).to.equal(true);
+    expect(localOperatorCaller().label).to.contain("opérateur");
+  });
+
+  it("un refus n'est PAS un « introuvable » — les deux raisons se distinguent", async () => {
+    const refus = await lire({ user: null, roles: [], label: "un anonyme" });
+    const absent = await callAdminEndpoint(
+      brokerSecret(),
+      { namespace: "kernel", path: "nexistepas" },
+      localOperatorCaller(),
+    );
+    expect(refus.ok).to.equal(false);
+    expect(absent.ok).to.equal(false);
+    if (refus.ok || absent.ok) return;
+    expect(refus.reason).to.equal("forbidden");
+    expect(absent.reason).to.equal("endpoint-missing");
+  });
+});
+
+describe("rolesFromScopes — l'audience prouve la cible, pas le pouvoir", () => {
+  it("aucun scope d'administration → aucun rôle", () => {
+    expect(rolesFromScopes([])).to.deep.equal([]);
+    expect(rolesFromScopes(["openid", "profile"])).to.deep.equal([]);
+  });
+
+  it("`admin:read` ou `admin:write` → le rôle d'administrateur", () => {
+    expect(rolesFromScopes([ADMIN_SCOPE_READ])).to.deep.equal([
+      "ROLE_NODEFONY_ADMIN",
+    ]);
+    expect(rolesFromScopes(["admin:write"])).to.deep.equal([
+      "ROLE_NODEFONY_ADMIN",
+    ]);
+  });
+});
+
+describe("mcpCallerRoles — une règle pour TOUTE porte MCP, présente ou future", () => {
+  it("porte NON protégée → rôle d'opérateur (son périmètre EST sa protection)", () => {
+    expect(
+      mcpCallerRoles({ protected: false, authenticated: false, scopes: [] }),
+    ).to.deep.equal(["ROLE_NODEFONY_ADMIN"]);
+  });
+
+  it("porte protégée + jeton vérifié → ce que ses SCOPES ouvrent", () => {
+    expect(
+      mcpCallerRoles({
+        protected: true,
+        authenticated: true,
+        scopes: [ADMIN_SCOPE_READ],
+      }),
+    ).to.deep.equal(["ROLE_NODEFONY_ADMIN"]);
+    expect(
+      mcpCallerRoles({
+        protected: true,
+        authenticated: true,
+        scopes: ["openid"],
+      }),
+    ).to.deep.equal([]);
+  });
+
+  it("porte protégée + anonyme toléré → RIEN (sinon la déclaration est vide de sens)", () => {
+    expect(
+      mcpCallerRoles({ protected: true, authenticated: false, scopes: [] }),
+    ).to.deep.equal([]);
+  });
+
+  it("une porte plus stricte passe SES rôles d'opérateur, sans réécrire la règle", () => {
+    expect(
+      mcpCallerRoles(
+        { protected: false, authenticated: false, scopes: [] },
+        [],
+      ),
+    ).to.deep.equal([]);
   });
 });

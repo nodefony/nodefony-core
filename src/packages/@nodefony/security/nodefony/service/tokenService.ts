@@ -7,6 +7,7 @@ import {
   AUTO_STORE,
   EMPTY_INFRA,
   canonicalIssuer,
+  refusedAdminScopes,
   resolveAutoStore,
   readStoreLocation,
   type Severity,
@@ -448,6 +449,44 @@ class TokenService extends Service {
    * @param resource - ressource visée (RFC 8707) ; omise = audience par défaut
    * @throws InvalidTargetError (400) si `resource` ne peut pas être servie
    */
+  /**
+   * Borne les scopes demandés à ce que le porteur peut légitimement obtenir.
+   *
+   * 🔴 Un scope se DEMANDE ; il ne s'accorde pas pour autant. Les scopes
+   * d'administration du framework (`admin:read`, `admin:write`) ouvrent le plan
+   * d'administration à un porteur de jeton : les signer sur simple demande
+   * ferait de n'importe quel compte un administrateur — il lui suffirait de le
+   * demander. La règle de ce qui est réservé vit au cœur
+   * ({@link refusedAdminScopes}), à côté de la traduction inverse qui les
+   * consomme ; ici on l'applique et on le DIT.
+   *
+   * Retirer plutôt que refuser tout le grant : RFC 6749 §3.3 prévoit
+   * explicitement qu'un serveur accorde MOINS que demandé, à condition
+   * d'informer le client — c'est ce que fait le champ `scope` de la réponse,
+   * déjà rempli avec les scopes réellement accordés.
+   *
+   * Les scopes d'une APPLICATION ne sont pas jugés ici : c'est à elle de dire
+   * qui peut obtenir `shop:read`.
+   *
+   * @param user - le porteur, déjà authentifié.
+   * @param requested - ce qu'il demande.
+   * @returns ce qui lui est accordé.
+   */
+  #grantableScopes(user: IUser, requested: string[]): string[] {
+    const roles = Array.isArray(user.roles)
+      ? user.roles.filter((r): r is string => typeof r === "string")
+      : [];
+    const refuses = refusedAdminScopes(requested, roles);
+    if (refuses.length === 0) return requested;
+    this.log(
+      `grant : scope(s) « ${refuses.join(" ")} » NON accordé(s) à ` +
+        `« ${user.identifier} » — réservé(s) au rôle d'administration. ` +
+        "Le jeton est émis avec les scopes restants (RFC 6749 §3.3).",
+      "WARNING",
+    );
+    return requested.filter((scope) => !refuses.includes(scope));
+  }
+
   async issueTokens(
     user: IUser,
     requestedScopes?: string[],
@@ -455,8 +494,10 @@ class TokenService extends Service {
     accessTtlS?: number,
   ): Promise<ITokenResponse> {
     this.#ensureReady();
-    const scopes =
-      requestedScopes && requestedScopes.length > 0 ? [...requestedScopes] : [];
+    const scopes = this.#grantableScopes(
+      user,
+      requestedScopes && requestedScopes.length > 0 ? [...requestedScopes] : [],
+    );
     const audience = this.#resolveAudience(resource);
     // ⭐ Un TTL par appel, quand l'appelant SAIT ce qu'il fait. Le défaut de
     // configuration (15 min) convient à un jeton d'API que le client

@@ -194,7 +194,9 @@ function lire(chemin: string): Promise<IReponse> {
  *
  * @returns le jeton, ou `null` si la porte n'exige aucune autorisation
  */
-async function jetonPourLaPorte(): Promise<string | null> {
+async function jetonPourLaPorte(
+  scopeDemande: string | null = "admin:read",
+): Promise<string | null> {
   // 🔴 Tout est enveloppé : ce code s'exécute à l'IMPORT du fichier, avant que
   // la sonde de décor ait pu conclure quoi que ce soit. Une exception ici ne
   // ferait pas sauter la suite — elle la ferait ÉCHOUER, et sans serveur, ce qui
@@ -210,7 +212,17 @@ async function jetonPourLaPorte(): Promise<string | null> {
     // demande un jeton dont l'audience est la porte — sans lui, l'audience par
     // défaut serait celle de l'application, et la porte refuserait à juste titre.
     const reponse = await poster(
-      { username: "admin", password: "secret", resource: doc.resource },
+      {
+        username: "admin",
+        password: "secret",
+        resource: doc.resource,
+        // 🔴 Le scope se DEMANDE. La porte protégée exige désormais un scope
+        // d'administration : un jeton d'audience valide qui n'en porte aucun
+        // est refusé. Ce que la porte accepte est publié dans
+        // `scopes_supported` du document de ressource protégée — le banc ne
+        // devine rien, et `null` sert à éprouver le refus.
+        ...(scopeDemande === null ? {} : { scope: scopeDemande }),
+      },
       {},
       "/nodefony/security/api/token",
     );
@@ -363,6 +375,41 @@ describe.skipIf(raison !== null)(
       ).result;
       expect(result.isError).toBeUndefined();
       expect(result.content[0].text).toMatch(/@nodefony\/devkit/u);
+    });
+
+    it("🔴 le MÊME compte, un jeton SANS scope : la lecture est REFUSÉE", async () => {
+      // C'était le trou : la lecture d'administration fabriquait un
+      // administrateur, donc tout porteur d'un jeton d'audience valide obtenait
+      // tout — la vérification RFC 8707 prouve que le jeton VISE cette
+      // ressource, jamais ce que son porteur a le droit d'y faire.
+      //
+      // Même utilisateur, même mot de passe, même audience que le jeton de la
+      // suite : SEUL le scope change. Si ce cas passait, le durcissement ne
+      // tiendrait à rien.
+      const sansScope = await jetonPourLaPorte(null);
+      expect(sansScope, "grant sans scope attendu").toBeTypeOf("string");
+      const reponse = await poster(
+        {
+          jsonrpc: "2.0",
+          id: 41,
+          method: "tools/call",
+          params: {
+            name: "nodefony_inspect",
+            arguments: { subject: "modules" },
+          },
+        },
+        { authorization: `Bearer ${sansScope as string}` },
+      );
+      const result = (
+        reponse.body as {
+          result: { content: { text: string }[]; isError?: true };
+        }
+      ).result;
+      expect(result.isError).toBe(true);
+      // Le refus DIT qui est refusé et ce qui manque : sans cela, l'appelant
+      // cherche une autre cible au lieu d'un meilleur jeton.
+      expect(result.content[0].text).toMatch(/ROLE_NODEFONY_ADMIN/u);
+      expect(result.content[0].text).toMatch(/admin/u);
     });
 
     it("🔴 la garde Origin MORD sur la vraie route (DNS rebinding)", async () => {

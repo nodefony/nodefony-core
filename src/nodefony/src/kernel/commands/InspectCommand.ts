@@ -7,6 +7,7 @@ import {
   type IAdminBrokerLike,
   type InspectFailure,
 } from "../inspect/adminSubjects";
+import { localOperatorCaller } from "../adminPlane/adminCaller";
 
 /**
  * `kernelEvent: "onPostReady"` — et pas `onReady`, malgré les apparences.
@@ -42,6 +43,10 @@ const EXIT_BY_FAILURE: Record<InspectFailure, number> = {
   "endpoint-missing": SysExit.UNAVAILABLE,
   "handler-failed": SysExit.SOFTWARE,
   "not-found": SysExit.NOINPUT,
+  // Ne devrait pas arriver depuis une commande locale (l'opérateur porte le
+  // rôle) ; s'il arrive, c'est une faute de configuration du plan, pas une
+  // faute d'usage — donc `NOPERM`, qui se distingue d'un mauvais argument.
+  forbidden: SysExit.NOPERM,
 };
 
 /**
@@ -126,7 +131,14 @@ class Inspect extends Command {
     }
     const broker = this.kernel?.container?.get("adminBroker") as
       IAdminBrokerLike | undefined;
-    const read = await readAdminSubject(broker, subject, target);
+    // Qui lance cette commande possède déjà le processus : l'identité est
+    // ÉNONCÉE, plus fabriquée au fond de la lecture.
+    const read = await readAdminSubject(
+      broker,
+      subject,
+      localOperatorCaller(),
+      target,
+    );
 
     if (!read.ok) {
       // Le message de la lecture est déjà rédigé pour un humain ; on ajoute

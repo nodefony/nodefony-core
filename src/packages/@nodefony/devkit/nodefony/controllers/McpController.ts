@@ -14,6 +14,7 @@ import {
   authorizeProtectedResource,
   protectedResourceMetadataUrl,
   ACCESS_TOKEN_VERIFIER,
+  mcpCallerRoles,
   JsonRpcError,
   jsonRpcFailure,
 } from "nodefony";
@@ -167,9 +168,26 @@ class McpController extends Controller {
     // scopes restent retenus — un appelant anonyme n'est pas une autorisation
     // implicite.
     const authz = settings.authorization;
-    let caller: IMcpCaller = { authenticated: false, scopes: [] };
+    // 🔴 La POSTURE se lit ici — seule la porte sait si elle est protégée —
+    // mais la RÈGLE qui en déduit les rôles vit au cœur (`mcpCallerRoles`),
+    // partagée avec toute porte MCP à venir. Sans serveur d'autorisation
+    // déclaré, cette porte accorde le rôle d'opérateur : sa protection est son
+    // PÉRIMÈTRE (module `policy: "dev"`, gardes d'origine et de localité
+    // ci-dessus), et la refuser ne fermerait rien — qui l'atteint lit déjà les
+    // sources — tout en rendant l'outillage inutile.
+    const gateProtected =
+      settings.authorization.authorizationServers.length > 0;
+    let caller: IMcpCaller = {
+      authenticated: false,
+      scopes: [],
+      roles: mcpCallerRoles({
+        protected: gateProtected,
+        authenticated: false,
+        scopes: [],
+      }),
+    };
 
-    if (authz.authorizationServers.length > 0) {
+    if (gateProtected) {
       const authVerdict = await authorizeProtectedResource(
         authorization,
         {
@@ -227,9 +245,32 @@ class McpController extends Controller {
             authenticated: true,
             scopes: authVerdict.principal.scopes,
             subject: authVerdict.principal.subject,
+            // Les rôles VIENNENT DU JETON. L'audience (RFC 8707) prouve que le
+            // jeton vise cette ressource ; elle ne dit rien de ce que son
+            // porteur a le droit d'y faire. Un jeton sans scope d'administration
+            // n'obtient donc aucun rôle — et se voit refuser, au lieu d'hériter
+            // d'un administrateur fabriqué.
+            roles: mcpCallerRoles({
+              protected: true,
+              authenticated: true,
+              scopes: authVerdict.principal.scopes,
+            }),
           };
           break;
         case "anonymous":
+          // La porte a DÉCLARÉ une autorisation et tolère l'anonyme : lui
+          // accorder le rôle d'opérateur viderait cette déclaration de son
+          // sens. Il reste anonyme, donc sans rôle — c'est la règle qui le dit,
+          // pas cette ligne.
+          caller = {
+            authenticated: false,
+            scopes: [],
+            roles: mcpCallerRoles({
+              protected: true,
+              authenticated: false,
+              scopes: [],
+            }),
+          };
           break;
       }
     }

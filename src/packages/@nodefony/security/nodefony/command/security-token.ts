@@ -7,6 +7,8 @@ import {
   Command,
   MCP_ENDPOINT_PATH,
   MCP_TOKEN_ENV,
+  ADMIN_SCOPE_READ,
+  ADMIN_SCOPE_WRITE,
   AGENT_TARGETS,
   agentsDemandes,
   poseVariable,
@@ -108,7 +110,7 @@ class SecurityToken extends Command {
     );
     this.addOption(
       "-s, --scope <scopes>",
-      "scopes demandés, séparés par des espaces (défaut : aucun)",
+      `scopes demandés, séparés par des espaces (défaut : « ${ADMIN_SCOPE_READ} » ; ajouter « ${ADMIN_SCOPE_WRITE} » pour les mutations)`,
     );
     this.addOption(
       "-r, --resource <uri>",
@@ -373,7 +375,25 @@ class SecurityToken extends Command {
     }
 
     const resource = opts.resource ?? this.#defaultResource();
-    const scopes = (opts.scope ?? "").split(/\s+/u).filter(Boolean);
+    // 🔴 Défaut UTILE, pas défaut vide. Ce jeton part dans la configuration
+    // d'un agent : il vise la porte MCP, qui exige un scope d'administration.
+    // Un jeton sans scope serait accepté par la vérification d'audience puis
+    // refusé à la première lecture — un 401 remplacé par un 403, et l'utilisateur
+    // n'aurait aucune raison de soupçonner le scope.
+    //
+    // LECTURE seule par défaut, et c'est le point : `admin:write` n'ouvre rien
+    // de plus aujourd'hui (le plan n'a qu'un rôle, lectures et mutations
+    // confondues), mais le jour où la distinction deviendra réelle, tous les
+    // jetons émis d'office porteraient le pouvoir d'écrire sans que personne ne
+    // l'ait décidé. Le défaut le plus étroit se durcit tout seul dans le bon
+    // sens ; muter s'ÉCRIT (`--scope "admin:read admin:write"`).
+    //
+    // Ce défaut n'accorde rien de plus : `TokenService` retire les scopes
+    // d'administration qu'un porteur non administrateur ne peut pas obtenir.
+    // La sortie ci-dessous affiche ce qui a été RÉELLEMENT accordé.
+    const scopesDemandes = (opts.scope ?? "").split(/\s+/u).filter(Boolean);
+    const scopes =
+      scopesDemandes.length > 0 ? scopesDemandes : [ADMIN_SCOPE_READ];
     // Une durée EXPLICITE, bornée. Le défaut de configuration (15 min) est
     // taillé pour un jeton d'API qu'un client rafraîchit ; l'en-tête statique
     // d'un agent, lui, n'est renouvelé par personne — le porteur revient toutes
@@ -425,10 +445,16 @@ class SecurityToken extends Command {
       throw e;
     }
     const jeton = emis.access_token;
+    // 🔴 Ce qui est RENDU, ce sont les scopes ACCORDÉS, jamais ceux demandés :
+    // l'émetteur retire ceux que ce porteur ne peut pas obtenir (RFC 6749 §3.3
+    // l'y autorise à condition de le dire). Afficher la demande ferait croire à
+    // un pouvoir que le jeton n'a pas, et le refus arriverait plus tard, ailleurs.
+    const accordes = (emis.scope ?? "").split(/\s+/u).filter(Boolean);
+    const nonAccordes = scopes.filter((s) => !accordes.includes(s));
 
     if (opts.json) {
       process.stdout.write(
-        `${JSON.stringify({ access_token: jeton, resource, scopes, expires_in: emis.expires_in }, null, 2)}\n`,
+        `${JSON.stringify({ access_token: jeton, resource, scopes: accordes, requested: scopes, expires_in: emis.expires_in }, null, 2)}\n`,
       );
       return this;
     }
@@ -442,7 +468,7 @@ class SecurityToken extends Command {
     if (!ecrire && process.stdin.isTTY && !opts.json) {
       await this.loadPrompts();
       ecrire = await this.prompts.confirm({
-        message: `Écrire ${MCP_TOKEN_ENV} dans .env.local ?`,
+        message: `Poser ${MCP_TOKEN_ENV} dans la configuration des agents présents ?`,
         default: true,
       });
     }
@@ -462,8 +488,15 @@ class SecurityToken extends Command {
     const minutes = Math.round((emis.expires_in ?? 0) / 60);
     w(
       `\n${BOLD}🔑 Jeton d'accès${RESET} ${DIM}— compte ${identifier}, audience ${resource}${RESET}\n` +
-        `${DIM}   valable ${minutes} min${scopes.length ? `, scopes : ${scopes.join(" ")}` : ", aucun scope"}${RESET}\n\n`,
+        `${DIM}   valable ${minutes} min${accordes.length ? `, scopes : ${accordes.join(" ")}` : ", aucun scope"}${RESET}\n\n`,
     );
+    if (nonAccordes.length > 0) {
+      // Le silence ici produirait un 403 inexplicable à la première lecture.
+      w(
+        `${DIM}   ⚠️  non accordé(s) : ${nonAccordes.join(" ")} — réservé(s) au ` +
+          `rôle d'administration, que le compte « ${identifier} » ne porte pas.${RESET}\n\n`,
+      );
+    }
 
     if (ecrire) {
       // 🔴 Le jeton ne va PLUS dans `.env.local`, et c'est un retrait motivé :
@@ -550,7 +583,7 @@ class SecurityToken extends Command {
 
     w(`  export ${MCP_TOKEN_ENV}=${jeton}\n\n`);
     w(
-      `${DIM}  --write pose la valeur dans .env.local · nodefony ai:mcp --auth câble .mcp.json${RESET}\n\n`,
+      `${DIM}  --write pose la valeur chez les agents présents · nodefony ai:mcp --auth câble .mcp.json${RESET}\n\n`,
     );
     return this;
   }

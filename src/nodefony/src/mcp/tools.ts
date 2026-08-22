@@ -6,6 +6,7 @@ import {
   type InspectResult,
 } from "../kernel/inspect/adminSubjects";
 import { outlineMarkdown } from "../kernel/inspect/docOutline";
+import type { IAdminCaller } from "../kernel/adminPlane/adminCaller";
 import { readSymbolsGraph, lookupSymbol } from "../cli/symbols";
 import {
   collectCheckReport,
@@ -405,11 +406,16 @@ export function builtinMcpTools(
         },
         required: ["subject"],
       },
-      handler: async (args) => {
+      handler: async (args, caller) => {
         const subject = typeof args.subject === "string" ? args.subject : "";
         const target =
           typeof args.target === "string" ? args.target : undefined;
-        const read = await readAdminSubject(deps.broker, subject, target);
+        const read = await readAdminSubject(
+          deps.broker,
+          subject,
+          adminCallerFromMcp(caller),
+          target,
+        );
         return read.ok ? mcpText(read.data) : mcpEchecAdmin(read);
       },
     },
@@ -498,7 +504,8 @@ export function builtinMcpTools(
           },
         },
       },
-      handler: async (args) => {
+      handler: async (args, caller) => {
+        const admin = adminCallerFromMcp(caller);
         const module = typeof args.module === "string" ? args.module : "";
         const slug = typeof args.slug === "string" ? args.slug : "";
         const query = typeof args.query === "string" ? args.query.trim() : "";
@@ -506,44 +513,60 @@ export function builtinMcpTools(
 
         // Lire UNE page : c'est le seul cas qui demande les deux coordonnées.
         if (module !== "" && slug !== "") {
-          const read = await callAdminEndpoint(deps.broker, {
-            namespace: "kernel",
-            path: "module/{name}/docs/{slug}",
-            params: { name: module, slug },
-            query:
-              section !== ""
-                ? { section }
-                : args.outline === true
-                  ? { outline: "1" }
-                  : {},
-            label: `${module}/${slug}`,
-          });
+          const read = await callAdminEndpoint(
+            deps.broker,
+            {
+              namespace: "kernel",
+              path: "module/{name}/docs/{slug}",
+              params: { name: module, slug },
+              query:
+                section !== ""
+                  ? { section }
+                  : args.outline === true
+                    ? { outline: "1" }
+                    : {},
+              label: `${module}/${slug}`,
+            },
+            admin,
+          );
           if (!read.ok) return mcpEchecAdmin(read);
           return mcpText(pageOrOutline(read.data, module, slug));
         }
         if (query !== "") {
-          const read = await callAdminEndpoint(deps.broker, {
-            namespace: "kernel",
-            path: "docs/search",
-            query: { q: query },
-            label: `recherche « ${query} »`,
-          });
+          const read = await callAdminEndpoint(
+            deps.broker,
+            {
+              namespace: "kernel",
+              path: "docs/search",
+              query: { q: query },
+              label: `recherche « ${query} »`,
+            },
+            admin,
+          );
           return read.ok ? mcpText(read.data) : mcpEchecAdmin(read);
         }
         // Un module sans page nommée : son sommaire. Sans module : tout.
         const read =
           module !== ""
-            ? await callAdminEndpoint(deps.broker, {
-                namespace: "kernel",
-                path: "module/{name}/docs",
-                params: { name: module },
-                label: module,
-              })
-            : await callAdminEndpoint(deps.broker, {
-                namespace: "kernel",
-                path: "docs",
-                label: "documentation",
-              });
+            ? await callAdminEndpoint(
+                deps.broker,
+                {
+                  namespace: "kernel",
+                  path: "module/{name}/docs",
+                  params: { name: module },
+                  label: module,
+                },
+                admin,
+              )
+            : await callAdminEndpoint(
+                deps.broker,
+                {
+                  namespace: "kernel",
+                  path: "docs",
+                  label: "documentation",
+                },
+                admin,
+              );
         return read.ok ? mcpText(read.data) : mcpEchecAdmin(read);
       },
     },
@@ -575,7 +598,7 @@ export function builtinMcpTools(
           },
         },
       },
-      handler: async (args) => {
+      handler: async (args, caller) => {
         const graph = readSymbolsGraph(deps.projectRoot);
         if (graph === null) {
           // Dire que le graphe MANQUE, et comment le rétablir : le silence
@@ -602,12 +625,16 @@ export function builtinMcpTools(
           // Sans elle, l'agent en est réduit à deviner une signature — et le
           // `.d.ts` qui la porte vit sous `node_modules`, que ses outils de
           // recherche excluent.
-          const declared = await callAdminEndpoint(deps.broker, {
-            namespace: "kernel",
-            path: "module/{name}/symbol/{symbol}",
-            params: { name: moduleKey(sym.module), symbol: sym.name },
-            label: sym.name,
-          });
+          const declared = await callAdminEndpoint(
+            deps.broker,
+            {
+              namespace: "kernel",
+              path: "module/{name}/symbol/{symbol}",
+              params: { name: moduleKey(sym.module), symbol: sym.name },
+              label: sym.name,
+            },
+            adminCallerFromMcp(caller),
+          );
           return mcpText(
             declared.ok
               ? { ...sym, ...(declared.data as object) }
@@ -684,13 +711,43 @@ export interface IMcpCollectOptions {
 }
 
 /** Appelant anonyme — le défaut, et le seul défaut sûr. */
-const ANONYMOUS: IMcpCaller = { authenticated: false, scopes: [] };
+const ANONYMOUS: IMcpCaller = {
+  authenticated: false,
+  scopes: [],
+  // Aucun rôle : un appelant dont personne n'a rien dit n'obtient rien. La
+  // porte qui décide autrement — parce qu'elle n'est pas protégée et qu'elle
+  // l'assume — pose les rôles elle-même.
+  roles: [],
+};
 
 /**
  * L'appelant satisfait-il ce que l'outil exige ?
  *
  * @returns `null` s'il passe, sinon le motif de la rétention
  */
+/**
+ * Présente un appelant MCP au plan d'administration.
+ *
+ * Aucune décision ici : les rôles ont été posés par la porte, qui seule sait si
+ * elle est protégée et par qui. Cette fonction ne fait que TRADUIRE — et c'est
+ * volontaire : la traduction est le seul endroit où une identité pourrait se
+ * perdre, alors elle ne fait rien d'autre que la transporter.
+ *
+ * @param caller - l'appelant établi par la porte.
+ * @returns la même identité, dans le vocabulaire du plan d'administration.
+ */
+function adminCallerFromMcp(caller: IMcpCaller): IAdminCaller {
+  return {
+    user: null,
+    roles: caller.roles,
+    label: caller.subject
+      ? `le porteur « ${caller.subject} »`
+      : caller.authenticated
+        ? "un porteur authentifié"
+        : "un appelant anonyme",
+  };
+}
+
 function withholdReason(tool: IMcpTool, caller: IMcpCaller): string | null {
   const needsScopes = tool.scopes !== undefined && tool.scopes.length > 0;
   if (!needsScopes && tool.requiresAuth !== true) {

@@ -53,6 +53,21 @@ export interface IMcpCaller {
   authenticated: boolean;
   /** Scopes réellement accordés par le serveur d'autorisation. */
   scopes: readonly string[];
+  /**
+   * Rôles Nodefony de cet appelant — ce sur quoi le plan d'administration
+   * tranche.
+   *
+   * Posés par la PORTE, qui seule connaît sa configuration : une porte non
+   * protégée (module de développement, bornée par son périmètre et ses gardes
+   * de transport) accorde le rôle d'opérateur et l'ÉNONCE ; une porte protégée
+   * les dérive du jeton ({@link rolesFromScopes}) et n'accorde rien d'autre.
+   *
+   * Champ **obligatoire** : le compilateur force chaque porte à décider. Il l'a
+   * été après avoir constaté l'inverse — la lecture d'administration fabriquait
+   * un administrateur, donc tout porteur d'un jeton d'audience valide, même
+   * sans aucun droit, obtenait tout.
+   */
+  roles: readonly string[];
   /** Sujet du jeton (`sub`), pour l'audit et pour filtrer les données rendues. */
   subject?: string;
 }

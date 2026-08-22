@@ -16,8 +16,22 @@ import {
   MCP_SUPPORTED_VERSIONS,
   MCP_DEFAULT_NEGOTIATED_VERSION,
 } from "../mcp/protocol";
-import type { IMcpTool } from "../types/IMcpTool";
+import type { IMcpCaller, IMcpTool } from "../types/IMcpTool";
 import type { IAdminApi } from "../types/IAdminApi";
+import { ADMIN_DEFAULT_ROLE } from "../kernel/adminPlane/adminRbac";
+
+/**
+ * L'appelant qu'une porte NON protégée établit — rôle d'opérateur, ÉNONCÉ.
+ *
+ * Les bancs le passent explicitement : depuis que l'identité se présente au
+ * lieu d'être fabriquée au fond de la lecture, un handler appelé sans elle est
+ * refusé — et c'est le comportement voulu.
+ */
+const OPERATEUR: IMcpCaller = {
+  authenticated: false,
+  scopes: [],
+  roles: [ADMIN_DEFAULT_ROLE],
+};
 
 /**
  * Ce que cette suite prouve, et pourquoi elle ne passe par aucun serveur : tout
@@ -78,6 +92,9 @@ function context(
       onSkip: extra.onSkip,
     }),
     serverInfo: { name: "banc", version: "0.0.0" },
+    // La porte du banc est non protégée, comme celle du module de
+    // développement : elle établit un opérateur, et le DIT.
+    caller: OPERATEUR,
   };
 }
 
@@ -588,11 +605,7 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
     };
 
     /** Collecte avec un appelant donné, et le journal des rétentions. */
-    function servis(caller?: {
-      authenticated: boolean;
-      scopes: string[];
-      subject?: string;
-    }) {
+    function servis(caller?: IMcpCaller) {
       const withheld: string[] = [];
       const tools = collectMcpTools({
         builtins: [],
@@ -638,6 +651,7 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
       const { tools, withheld } = servis({
         authenticated: true,
         scopes: ["shop:read"],
+        roles: [],
       });
       expect(tools.map((t) => t.name)).toEqual(["shop_stock"]);
       // Le motif NOMME ce qui manque — sinon l'appelant devine.
@@ -650,6 +664,7 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
       const { tools } = servis({
         authenticated: true,
         scopes: ["shop:billing", "shop:read", "autre"],
+        roles: [],
       });
       expect(tools.map((t) => t.name)).toEqual(["shop_invoice", "shop_stock"]);
     });
@@ -659,6 +674,7 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
         authenticated: true,
         scopes: ["shop:read", "shop:billing"],
         subject: "user-42",
+        roles: [],
       });
       const reply = await handleMcpMessage(
         {
@@ -673,6 +689,9 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
             authenticated: true,
             scopes: ["shop:read", "shop:billing"],
             subject: "user-42",
+            // Ces bancs éprouvent le filtrage par SCOPES d'un outil de module ;
+            // aucun rôle du plan d'administration n'y intervient.
+            roles: [],
           },
           serverInfo: { name: "banc", version: "0.0.0" },
         },
@@ -699,7 +718,7 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
         builtins: [],
         deps: deps(),
         modules: { shop: moduleDeclaring(nu) },
-        caller: { authenticated: true, scopes: [] },
+        caller: { authenticated: true, scopes: [], roles: [] },
       });
       expect(connu.map((t) => t.name)).toEqual(["shop_me"]);
     });
@@ -1144,6 +1163,7 @@ describe("MCP — les outils de diagnostic", () => {
           deps: { ...deps(), broker },
         }),
         serverInfo: { name: "banc", version: "0.0.0" },
+        caller: OPERATEUR,
       },
     );
     const { text, isError } = toolText(reply);
@@ -1339,10 +1359,7 @@ describe("outil docs", () => {
       ...deps(),
       broker: docsBroker(pageChars),
     }).docs;
-    const result = await tool.handler(args, {
-      authenticated: false,
-      scopes: [],
-    });
+    const result = await tool.handler(args, OPERATEUR);
     return {
       texte: result.content[0].text,
       isError: result.isError === true,
@@ -1407,10 +1424,7 @@ describe("outil docs", () => {
   it("un producteur absent est DIT, pas tu", async () => {
     vu = null;
     const tool = builtinMcpTools({ ...deps(), broker: undefined }).docs;
-    const result = await tool.handler(
-      { query: "session" },
-      { authenticated: false, scopes: [] },
-    );
+    const result = await tool.handler({ query: "session" }, OPERATEUR);
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("kernel");
   });

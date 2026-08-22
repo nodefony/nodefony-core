@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-22T15:56:56.525Z",
+  "generated": "2026-08-22T16:37:49.375Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 728,
-    "symbols": 3057,
+    "files": 730,
+    "symbols": 3066,
     "classes": 364,
-    "interfaces": 875,
+    "interfaces": 877,
     "types": 386,
     "enums": 4,
-    "functions": 1138,
-    "constants": 290
+    "functions": 1143,
+    "constants": 292
   },
   "symbols": {
     "Cli": {
@@ -2944,6 +2944,23 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Résout le point d'entrée d'un module Nodefony **depuis l'application**, et non depuis le paquet `nodefony`. POURQUOI cette fonction existe : un `import(\"@app/blog\")` écrit dans le code du core est …"
+    },
+    "IMcpGatePosture": {
+      "name": "IMcpGatePosture",
+      "kind": "interface",
+      "file": "src/nodefony/src/mcp/caller.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'une porte MCP sait d'elle-même et de son appelant, au moment de dire quels rôles celui-ci porte. Les trois champs sont séparés parce qu'ils répondent à trois questions distinctes que confondr…"
+    },
+    "mcpCallerRoles": {
+      "name": "mcpCallerRoles",
+      "kind": "function",
+      "file": "src/nodefony/src/mcp/caller.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Quels rôles porte l'appelant d'une porte MCP — **la règle, à un seul endroit**. ⭐ Toute porte MCP passe par ici, y compris celles qu'un module créera plus tard (gestion d'agents, passerelles métier…"
     },
     "IGuardInput": {
       "name": "IGuardInput",
@@ -6344,6 +6361,55 @@
       "extends": "Service",
       "implements": [],
       "decorators": []
+    },
+    "IAdminCaller": {
+      "name": "IAdminCaller",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/adminPlane/adminCaller.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Qui appelle le plan d'administration, tel qu'il se PRÉSENTE. Ce type existe pour une raison précise : les portes sans HTTP (commande `inspect`, serveur MCP) fabriquaient un administrateur au lieu d…"
+    },
+    "localOperatorCaller": {
+      "name": "localOperatorCaller",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/adminCaller.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "L'opérateur qui lance une commande sur sa propre application. Il possède déjà le processus : il lit les sources, il édite la configuration, il peut arrêter le serveur. Lui refuser la lecture d'admi…"
+    },
+    "rolesFromScopes": {
+      "name": "rolesFromScopes",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/adminCaller.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Traduit les scopes d'un jeton en rôles Nodefony. ⚠️ Les deux scopes mènent aujourd'hui au MÊME rôle, et ce n'est pas un raccourci : le contrôle d'accès du plan d'administration est uniforme — tous …"
+    },
+    "refusedAdminScopes": {
+      "name": "refusedAdminScopes",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/adminCaller.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les scopes d'administration demandés que ce porteur **ne peut pas** obtenir. Réciproque de {@link rolesFromScopes}, et indispensable avec elle : si un scope ouvre le plan d'administration, alors l'…"
+    },
+    "ADMIN_SCOPE_READ": {
+      "name": "ADMIN_SCOPE_READ",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/adminPlane/adminCaller.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Scope d'un jeton ouvrant la LECTURE du plan d'administration. Trois valeurs suffisent pour tout le plan (celle-ci, {@link ADMIN_SCOPE_WRITE}, et l'absence de scope pour la topologie) : un scope par…"
+    },
+    "ADMIN_SCOPE_WRITE": {
+      "name": "ADMIN_SCOPE_WRITE",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/adminPlane/adminCaller.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Scope d'un jeton ouvrant les MUTATIONS du plan d'administration."
     },
     "isAdminGranted": {
       "name": "isAdminGranted",
@@ -24819,6 +24885,14 @@
       "tagListener": [
         "src/nodefony/src/kernel/Module.ts"
       ],
+      "ADMIN_DEFAULT_ROLE": [
+        "src/nodefony/src/mcp/caller.ts",
+        "src/nodefony/src/kernel/adminPlane/adminCaller.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
+      ],
+      "rolesFromScopes": [
+        "src/nodefony/src/mcp/caller.ts"
+      ],
       "JsonRpcError": [
         "src/nodefony/src/mcp/server.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
@@ -24895,6 +24969,10 @@
       "outlineMarkdown": [
         "src/nodefony/src/mcp/tools.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "IAdminCaller": [
+        "src/nodefony/src/mcp/tools.ts",
+        "src/nodefony/src/kernel/inspect/adminSubjects.ts"
       ],
       "readSymbolsGraph": [
         "src/nodefony/src/mcp/tools.ts"
@@ -25696,6 +25774,9 @@
       "InspectFailure": [
         "src/nodefony/src/kernel/commands/InspectCommand.ts"
       ],
+      "localOperatorCaller": [
+        "src/nodefony/src/kernel/commands/InspectCommand.ts"
+      ],
       "buildStartMenu": [
         "src/nodefony/src/kernel/commands/MenuCommand.ts"
       ],
@@ -26379,6 +26460,14 @@
       "BUILTIN_MCP_TOOL_KEYS": [
         "src/packages/@nodefony/devkit/nodefony/config/config.ts"
       ],
+      "ADMIN_SCOPE_READ": [
+        "src/packages/@nodefony/devkit/nodefony/config/config.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "ADMIN_SCOPE_WRITE": [
+        "src/packages/@nodefony/devkit/nodefony/config/config.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
       "devkitConfigSchema": [
         "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts"
       ],
@@ -26412,6 +26501,9 @@
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
         "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts"
+      ],
+      "mcpCallerRoles": [
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
       ],
       "IAccessTokenVerifier": [
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
@@ -27188,9 +27280,6 @@
       ],
       "RouteRequirements": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts"
-      ],
-      "ADMIN_DEFAULT_ROLE": [
-        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
       ],
       "Template": [
         "src/packages/@nodefony/framework/nodefony/service/Eta.ts"
@@ -28365,6 +28454,9 @@
       ],
       "listOAuthProviders": [
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts"
+      ],
+      "refusedAdminScopes": [
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
       ],
       "InvalidTargetError": [
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
