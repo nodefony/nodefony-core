@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import { version } from "../../package.json";
 import {
   argvCablageMcp,
+  doitDemanderLeType,
   parseCreateArgv,
   planCablageMcp,
   runCreateCommand,
@@ -4906,7 +4907,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const input = new PassThrough();
       const output = new PassThrough();
       // name → "demo" · preset → 2 (minimal) · frontend → 2 (react) · link → o
-      feedAnswers(input, output, ["demo", "2", "2", "o"]);
+      // · agents → ENTRÉE (aucun : rien n'est jamais coché par défaut)
+      feedAnswers(input, output, ["demo", "2", "2", "o", ""]);
       const answers = await askMissing(
         spec,
         {},
@@ -4919,6 +4921,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         preset: "minimal",
         frontend: "react",
         link: true,
+        agents: [],
       });
     });
 
@@ -4926,8 +4929,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const [spec] = getScaffoldSpec("app");
       const input = new PassThrough();
       const output = new PassThrough();
-      output.resume();
-      input.write("\n"); // seul frontend est demandé → entrée vide = défaut none
+      // frontend, puis agents : deux entrées vides = les deux défauts (none,
+      // aucun). Au RYTHME des invites — readline ne met pas en file ce qui
+      // arrive entre deux `question()`.
+      feedAnswers(input, output, ["", ""]);
       const answers = await askMissing(
         spec,
         { name: "demo", preset: "minimal" },
@@ -4936,6 +4941,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         output,
       );
       assert.equal(answers.frontend, "none");
+      assert.deepEqual(answers.agents, []); // ENTRÉE = aucun agent, rien d'écrit
       assert.isUndefined(answers.link); // askIf non satisfait → jamais posée
     });
   });
@@ -5207,29 +5213,35 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
     assert.deepEqual(argv?.slice(-2), ["--agent", "none"]);
   });
 
+  it("le choix « standard » (norme AGENTS.md + MCP) écrit le fichier et ne lance AUCUNE CLI", () => {
+    // Il ne correspond à aucun outil de la table : c'est le cas de l'agent
+    // conforme qu'on ne pilote pas. `--agent none` dit « aucune CLI », pas
+    // « rien faire » — le `.mcp.json` est écrit, et c'est lui que l'agent lit.
+    const argv = argvCablageMcp(["standard"], AGENT_TARGETS, "/tmp/app");
+    assert.isNotNull(argv);
+    assert.deepEqual(argv?.slice(-2), ["--agent", "none"]);
+    assert.include(argv ?? [], "--auth");
+  });
+
   it("un agent NON coché ne part jamais dans l'appel", () => {
     if (parCli.length < 2) return;
     const argv = argvCablageMcp([parCli[0]!.cle], AGENT_TARGETS, "/tmp/app");
     assert.notInclude(argv?.join(" ") ?? "", parCli[1]!.cle);
   });
 
-  it("PROPOSE seulement en terminal, sur une app installée ET construite", () => {
+  it("des agents choisis + app installée ET construite → on câble", () => {
     assert.deepEqual(
-      planCablageMcp({ interactive: true, installed: true, built: true }),
+      planCablageMcp({ choisis: 1, installed: true, built: true }),
       { propose: true },
     );
   });
 
-  it("ne propose JAMAIS hors terminal — ni sous --yes : écrire chez un agent n'est pas un effet de bord", () => {
-    const plan = planCablageMcp({
-      interactive: false,
-      installed: true,
-      built: true,
-    });
+  it("aucun agent choisi → rien n'est écrit, ici comme hors terminal", () => {
+    const plan = planCablageMcp({ choisis: 0, installed: true, built: true });
     assert.isFalse(plan.propose);
     assert.include(
       plan.propose === false ? plan.motif : "",
-      "hors terminal",
+      "aucun agent",
       "le motif doit NOMMER la raison — un refus muet se lit comme une panne",
     );
   });
@@ -5239,7 +5251,7 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
       { installed: false, built: false },
       { installed: true, built: false },
     ]) {
-      const plan = planCablageMcp({ interactive: true, ...etat });
+      const plan = planCablageMcp({ choisis: 1, ...etat });
       assert.isFalse(
         plan.propose,
         `attendu refusé pour ${JSON.stringify(etat)}`,
@@ -5284,5 +5296,26 @@ describe("pointeurs d'instructions — aucun agent ne travaille aveugle", () => 
         `${cible.nom} : le fichier d'instructions est affirmé sans preuve`,
       );
     }
+  });
+});
+
+describe("create sans type — le menu propose, la commande doit DEMANDER", () => {
+  const RIEN = "type requis : app | module (reçu : rien)";
+  const FAUTE = "type requis : app | module (reçu : ap)";
+
+  it("aucun type + terminal → on demande, au lieu de rendre l'usage", () => {
+    assert.isTrue(doitDemanderLeType(RIEN, { isTTY: true, yes: false }));
+  });
+
+  it("hors terminal → l'usage, car personne ne peut répondre", () => {
+    assert.isFalse(doitDemanderLeType(RIEN, { isTTY: false, yes: false }));
+  });
+
+  it("--yes dit « ne me demande rien » — il est respecté", () => {
+    assert.isFalse(doitDemanderLeType(RIEN, { isTTY: true, yes: true }));
+  });
+
+  it("un type FAUTIF se corrige, il ne se remplace pas par une question", () => {
+    assert.isFalse(doitDemanderLeType(FAUTE, { isTTY: true, yes: false }));
   });
 });

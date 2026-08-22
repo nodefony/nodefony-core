@@ -568,6 +568,9 @@ export type {
 // futur data plane Studio (`GET spec` en JSON → formulaire → `POST run`). La
 // spec est 100 % JSON-able ; runScaffold n'a aucune I/O terminal.
 export { getScaffoldSpec } from "./cli/scaffold/spec";
+// Le câblage des agents choisis à la création : UNE construction d'appel, servie
+// au terminal comme à Studio. Recopiée, elle divergerait au premier drapeau.
+export { argvCablageMcp, planCablageMcp } from "./cli/create";
 export type {
   IScaffoldQuestion,
   IScaffoldTypeSpec,

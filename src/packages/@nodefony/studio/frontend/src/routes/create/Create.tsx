@@ -233,7 +233,10 @@ export function Create() {
     setSubPath("");
   };
 
-  const changeAnswer = (key: string, value: string | boolean): void => {
+  const changeAnswer = (
+    key: string,
+    value: string | boolean | string[],
+  ): void => {
     setAnswers((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => {
       if (!prev[key]) return prev;

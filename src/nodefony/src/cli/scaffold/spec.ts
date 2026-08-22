@@ -11,6 +11,8 @@
  */
 
 /** Une question de scaffold — champ `pattern` en string (JSON-able, validation partagée). */
+import { AGENT_TARGETS } from "../agentTargets";
+
 export interface IScaffoldQuestion {
   key: string;
   /** Libellé montré tel quel par le CLI interactif et Studio. */
@@ -228,6 +230,46 @@ const APP_SPEC: IScaffoldTypeSpec = {
       // tard : `nodefony git:hooks`, même geste, même implémentation).
       default: false,
       advanced: true,
+    },
+    {
+      key: "agents",
+      // Le libellé nomme l'INTENTION, jamais la plomberie du jour : ce que
+      // l'app câble pour un agent (aujourd'hui sa porte d'introspection et ses
+      // pointeurs d'instructions) est appelé à s'étoffer, et une question qui
+      // énumère devient fausse au premier ajout.
+      label: "Quel(s) agent(s) de développement utilises-tu ?",
+      // `list` et non `choice` : on en sert plusieurs, et chaque valeur reste
+      // ENTIÈRE — deux clés concaténées seraient indiscernables d'une seule.
+      type: "list",
+      choices: [
+        // ⭐ Les NORMES d'abord, et pas par courtoisie : les outils nommés
+        // ensuite sont ceux dont on sait piloter la CLI — ils ne sont pas le
+        // monde. Un agent conforme se sert seul de ce que l'app dépose dans le
+        // projet (standards ouverts : AGENTS.md pour les instructions, MCP pour
+        // l'introspection). Sans cette entrée, qui n'utilise aucun des outils
+        // listés n'avait d'autre choix que « aucun » — et repartait sans rien,
+        // alors que son agent aurait su lire.
+        {
+          value: "standard",
+          label: "Un autre agent, conforme aux standards ouverts",
+          hint: "AGENTS.md + MCP déposés dans le projet, aucune CLI lancée",
+        },
+        ...AGENT_TARGETS.map((cible) => ({
+          value: cible.cle,
+          label: cible.nom,
+          hint:
+            cible.declaration === "cli"
+              ? `configuré par sa CLI (\`${cible.bin}\`)`
+              : `se sert des fichiers du projet`,
+        })),
+      ],
+      // 🔴 VIDE par défaut, et c'est la garde entière : câbler un agent ÉCRIT
+      // dans la configuration d'un autre outil. Rien de coché ⇒ rien d'écrit —
+      // coder seul est un choix, pas un oubli à rattraper. Le geste n'a donc
+      // pas besoin d'exiger un terminal : ce qui autorise n'est pas la présence
+      // d'un humain, c'est un choix EXPLICITE — ce qui rend la question
+      // servable par Studio, qui n'est pas un terminal.
+      default: [],
     },
   ],
 };

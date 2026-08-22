@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-22T20:23:01.576Z",
+  "generated": "2026-08-22T20:57:52.946Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 732,
-    "symbols": 3099,
+    "symbols": 3101,
     "classes": 364,
     "interfaces": 883,
     "types": 387,
     "enums": 4,
-    "functions": 1169,
+    "functions": 1171,
     "constants": 292
   },
   "symbols": {
@@ -1358,13 +1358,21 @@
       "module": "@nodefony/core",
       "description": "Parse l'argv complet du process après le mot `create`. Ne valide QUE la forme des flags — les valeurs (nom, preset…) sont jugées par la spec du moteur."
     },
+    "doitDemanderLeType": {
+      "name": "doitDemanderLeType",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un type manquant se DEMANDE-t-il, ou l'usage est-il la bonne réponse ? PURE. Trois conditions, et chacune dit quelque chose de différent : - l'erreur est bien « aucun type » — un type FAUTIF (`crea…"
+    },
     "planCablageMcp": {
       "name": "planCablageMcp",
       "kind": "function",
       "file": "src/nodefony/src/cli/create.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Décide si `create app` PROPOSE le câblage MCP de l'app neuve à des agents IA. **PURE — c'est la seule part qui peut être fausse** ; poser la question et lancer `ai:mcp` n'est que de la plomberie. D…"
+      "description": "Décide si `create app` CÂBLE la porte MCP chez les agents choisis. PURE. Deux refus, deux raisons qui n'ont rien à voir : - **aucun agent choisi** — et c'est le DÉFAUT (la question de la spec part …"
     },
     "argvCablageMcp": {
       "name": "argvCablageMcp",
@@ -5566,8 +5574,7 @@
       "file": "src/nodefony/src/cli/scaffold/spec.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "extends": null,
-      "description": "Spec DÉCLARATIVE du scaffold — la source unique des choix de création. Les questions sont des DONNÉES (JSON-able, zéro fonction) : le même contrat alimente les TROIS fronts de création — 1. CLI rap…"
+      "extends": null
     },
     "IScaffoldTypeSpec": {
       "name": "IScaffoldTypeSpec",
@@ -24339,7 +24346,10 @@
       ],
       "AGENT_TARGETS": [
         "src/nodefony/src/cli/aiMcp.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/scaffold/spec.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "agentsDemandes": [
         "src/nodefony/src/cli/aiMcp.ts",
@@ -24347,7 +24357,6 @@
       ],
       "agentsPresents": [
         "src/nodefony/src/cli/aiMcp.ts",
-        "src/nodefony/src/cli/create.ts",
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "litVariable": [
@@ -28878,6 +28887,9 @@
         "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts",
         "src/packages/@nodefony/realtime/nodefony/src/cluster/ClusterProbeClient.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
+      ],
+      "argvCablageMcp": [
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "suspendSupervisor": [
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"

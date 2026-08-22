@@ -1,5 +1,5 @@
 import path from "node:path";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
@@ -26,7 +26,7 @@ import { diffLines, type IScaffoldChange } from "./scaffold/writer";
 import { askMissing, confirm } from "./scaffold/interactive";
 import { syncSkillPointers } from "./aiSync";
 import { runAiMcpCommand } from "./aiMcp";
-import { agentsPresents, type IAgentTarget } from "./agentTargets";
+import { AGENT_TARGETS, type IAgentTarget } from "./agentTargets";
 import { chargePrompts } from "./prompts";
 import { installGitHooks } from "./gitHooks";
 import { GIT_HOOKS_DIR } from "./gitHooksReport";
@@ -482,40 +482,65 @@ function poseSkillPointers(dest: string): string {
 }
 
 /**
- * Décide si `create app` PROPOSE le câblage MCP de l'app neuve à des agents IA.
+ * Un type manquant se DEMANDE-t-il, ou l'usage est-il la bonne réponse ? PURE.
  *
- * **PURE — c'est la seule part qui peut être fausse** ; poser la question et
- * lancer `ai:mcp` n'est que de la plomberie.
+ * Trois conditions, et chacune dit quelque chose de différent :
+ * - l'erreur est bien « aucun type » — un type FAUTIF (`create ap`) se corrige,
+ *   il ne se remplace pas par une question qui masquerait la faute de frappe ;
+ * - un terminal répond en face — sans lui, une question est un blocage muet ;
+ * - `--yes` n'a pas été demandé : il dit « ne me demande rien », et le
+ *   respecter vaut mieux que de rendre service.
+ *
+ * @param erreur - le motif rendu par l'analyse de la ligne de commande.
+ * @param ctx - terminal disponible, et présence de `--yes`.
+ */
+export function doitDemanderLeType(
+  erreur: string,
+  ctx: { isTTY: boolean; yes: boolean },
+): boolean {
+  return erreur.includes("reçu : rien") && ctx.isTTY && !ctx.yes;
+}
+
+/**
+ * Description courte d'un type de scaffold — celle de la SPEC, jamais une
+ * seconde version : deux listes de types divergeraient au premier ajout.
+ */
+function descriptionType(type: string): string {
+  const [spec] = getScaffoldSpec(type);
+  return spec?.description ?? type;
+}
+
+/**
+ * Décide si `create app` CÂBLE la porte MCP chez les agents choisis. PURE.
  *
  * Deux refus, deux raisons qui n'ont rien à voir :
- * - **hors terminal, ou sous `--yes`** : déclarer une porte chez un agent
- *   ÉCRIT dans la configuration d'un autre outil. Un scaffold ne fait pas ça
- *   comme effet de bord, et surtout pas dans une forge où personne n'est là
- *   pour refuser. Le geste reste disponible — il est simplement NOMMÉ.
- * - **rien d'installé ni construit** (`--no-install`, ou une install en
- *   échec) : `ai:mcp` enchaîne sur l'émission du jeton, qui DÉMARRE le kernel
- *   de l'application. Sans `node_modules` ni `dist`, la question mènerait à un
- *   échec qu'on aurait soi-même provoqué.
+ * - **aucun agent choisi** — et c'est le DÉFAUT (la question de la spec part
+ *   vide). Déclarer une porte chez un agent ÉCRIT dans la configuration d'un
+ *   autre outil : rien de coché, rien d'écrit, en terminal comme ailleurs.
+ *   C'est le choix explicite qui autorise, pas la présence d'un humain — ce
+ *   qui rend le geste servable par Studio, qui n'est pas un terminal.
+ * - **app ni installée ni construite** (`--no-install`, ou une install en
+ *   échec) : `ai:mcp` enchaîne sur l'émission du jeton, qui DÉMARRE le kernel.
+ *   Sans `node_modules` ni `dist`, on provoquerait soi-même l'échec — le geste
+ *   est alors NOMMÉ plutôt que joué.
  *
- * @param ctx - terminal disponible, et état réel de l'app générée.
+ * @param ctx - nombre d'agents choisis, et état réel de l'app générée.
  * @returns la proposition, ou le motif du refus (affiché tel quel).
  */
 export function planCablageMcp(ctx: {
-  interactive: boolean;
+  choisis: number;
   installed: boolean;
   built: boolean;
 }): { propose: true } | { propose: false; motif: string } {
-  if (!ctx.interactive) {
-    return {
-      propose: false,
-      motif: "hors terminal (ou --yes) — jamais en effet de bord",
-    };
+  if (ctx.choisis === 0) {
+    return { propose: false, motif: "aucun agent choisi" };
   }
   if (!ctx.installed || !ctx.built) {
     return {
       propose: false,
       motif:
-        "app ni installée ni construite — le jeton exige un kernel qui démarre",
+        "agents choisis mais app ni installée ni construite — " +
+        "l'émission du jeton démarre le kernel ; à rejouer : npx nodefony ai:mcp",
     };
   }
   return { propose: true };
@@ -635,7 +660,36 @@ function runGitInit(dest: string, appName: string, withHooks: boolean): string {
  * @returns exit code sémantique (`OK`, `USAGE`, `CANTCREAT`, `SOFTWARE`)
  */
 export async function runCreateCommand(argv: string[]): Promise<number> {
-  const parsed = parseCreateArgv(argv);
+  let parsed = parseCreateArgv(argv);
+  // 🔴 Choisie au MENU, la commande n'a reçu AUCUN argument : personne n'a pu
+  // taper un type. Rendre l'usage revenait à proposer un geste puis le refuser
+  // — exactement ce que le menu existe pour éviter. Le type manquant est donc
+  // DEMANDÉ, comme le sont ensuite le nom et les autres réponses. Hors
+  // terminal (script, forge), l'usage reste la bonne réponse : il n'y a
+  // personne pour répondre.
+  if (
+    "error" in parsed &&
+    doitDemanderLeType(parsed.error, {
+      isTTY: process.stdin.isTTY === true,
+      yes: argv.includes("--yes"),
+    })
+  ) {
+    const { select } = await chargePrompts();
+    const type = (await select({
+      message: "Que veux-tu créer ?",
+      default: "app",
+      choices: CREATE_TYPES.map((t) => ({
+        name: `${t} — ${descriptionType(t)}`,
+        value: t,
+      })),
+    })) as string;
+    // Le type se glisse À LA PLACE qu'il aurait occupée si l'utilisateur
+    // l'avait tapé : après le mot `create`, avant tout le reste.
+    const at = argv.indexOf("create");
+    const complet = [...argv];
+    complet.splice(at === -1 ? argv.length : at + 1, 0, type);
+    parsed = parseCreateArgv(complet);
+  }
   if ("error" in parsed) {
     process.stderr.write(`create: ${parsed.error}\n${USAGE}`);
     return SysExit.USAGE;
@@ -851,45 +905,29 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // place dans le commit initial, exactement comme les pointeurs de skills. Le
   // JETON, lui, n'y entre jamais : il vit dans `.env.local`, que le `.gitignore`
   // généré exclut (`*.local`) avant ce commit.
-  const cablage = planCablageMcp({ interactive, installed, built });
-  let mcpNote = cablage.propose ? "" : `non proposé — ${cablage.motif}`;
+  // Le choix d'agents vient de la SPEC (question `agents`) — donc du MÊME
+  // endroit pour le terminal, Studio et `--answers-json`. Ce qui autorise
+  // l'écriture chez un tiers n'est pas la présence d'un humain, c'est un choix
+  // EXPLICITE : rien de coché ⇒ rien d'écrit, y compris hors terminal.
+  const choisis = Array.isArray(answers.agents)
+    ? (answers.agents as string[])
+    : [];
+  const cablage = planCablageMcp({
+    choisis: choisis.length,
+    installed,
+    built,
+  });
+  let mcpNote = cablage.propose ? "" : cablage.motif;
   if (cablage.propose) {
-    // Les agents PRÉSENTS sur ce poste — détectés, jamais devinés : proposer
-    // Gemini à qui ne l'a pas installé fait lire la liste comme un catalogue.
-    const detectes = agentsPresents({
-      projectRoot: result.dest,
-      existe: existsSync,
-    });
-    if (detectes.length === 0) {
-      mcpNote = "aucun agent de développement détecté sur ce poste";
+    const appelMcp = argvCablageMcp(choisis, AGENT_TARGETS, result.dest);
+    if (appelMcp === null) {
+      mcpNote = "aucun agent choisi";
     } else {
-      const { checkbox } = await chargePrompts();
-      // 🔴 Rien de coché : ENTRÉE sans rien cocher = aucun agent, et rien n'est
-      // écrit. Écrire dans la configuration d'un autre outil doit être VOULU.
-      const choisis = (await checkbox({
-        message:
-          "Quel(s) agent(s) de développement utilises-tu ? " +
-          "(espace pour cocher — ils recevront la porte MCP de cette app ; " +
-          "ENTRÉE sans rien cocher : aucun, je code seul)",
-        choices: detectes.map((c) => ({
-          name:
-            c.declaration === "cli"
-              ? `${c.nom} — déclaré par ${c.bin} mcp add`
-              : `${c.nom} — servi par le .mcp.json de ce projet`,
-          value: c.cle,
-          checked: false,
-        })),
-      })) as string[];
-      const appelMcp = argvCablageMcp(choisis, detectes, result.dest);
-      if (appelMcp === null) {
-        mcpNote = "aucun agent choisi";
-      } else {
-        // ⭐ MÊME implémentation que `nodefony ai:mcp` — APPELÉE, jamais
-        // recopiée : elle porte l'écriture du `.mcp.json`, la déclaration par la
-        // CLI de chaque agent (jamais par son fichier), le constat plutôt que le
-        // code de sortie, et l'émission du jeton avec sa durée et sa portée.
-        await runAiMcpCommand(appelMcp);
-      }
+      // ⭐ MÊME implémentation que `nodefony ai:mcp` — APPELÉE, jamais
+      // recopiée : elle porte l'écriture du `.mcp.json`, la déclaration par la
+      // CLI de chaque agent (jamais par son fichier), le constat plutôt que le
+      // code de sortie, et l'émission du jeton avec sa durée et sa portée.
+      await runAiMcpCommand(appelMcp);
     }
   }
   if (mcpNote !== "") {
