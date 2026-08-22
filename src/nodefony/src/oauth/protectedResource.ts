@@ -1,4 +1,4 @@
-import { bearerToken } from "../runtime/bearer";
+import { readBearerHeader } from "../runtime/bearer";
 
 /**
  * Rôle **serveur de ressource** OAuth 2.1 — publier ce qu'on protège, et refuser
@@ -452,7 +452,18 @@ export interface IProtectedResourcePolicy {
 /** Verdict rendu à la porte — à elle de le traduire en réponse. */
 export type ProtectedResourceOutcome =
   /** Aucun jeton, et la politique l'accepte. */
-  | { outcome: "anonymous" }
+  | {
+      outcome: "anonymous";
+      /**
+       * Un jeton a été présenté et REJETÉ, et la porte sert quand même
+       * l'anonyme — pour le JOURNAL seul, jamais pour le client.
+       *
+       * Sans ce champ, un jeton expiré devenait indistinguable d'une requête
+       * muette : l'agent perdait ses outils réservés sans que rien ne dise
+       * pourquoi, et l'exploitant ne voyait aucune trace d'un porteur refusé.
+       */
+      rejected?: true;
+    }
   /** Jeton validé. */
   | { outcome: "authenticated"; principal: IAccessPrincipal }
   /** Refus : statut et en-tête à poser tels quels. */
@@ -486,10 +497,18 @@ export async function authorizeProtectedResource(
   policy: IProtectedResourcePolicy,
   verify: IAccessTokenVerifier | undefined,
 ): Promise<ProtectedResourceOutcome> {
-  const present =
-    typeof authorizationHeader === "string" && authorizationHeader.length > 0;
+  const lu = readBearerHeader(authorizationHeader);
 
-  if (!present) {
+  // 🔴 « Rien présenté » couvre DEUX formes, et les séparer coûtait la
+  // capacité entière : l'en-tête absent, et l'en-tête `Bearer` qui ne porte
+  // aucun jeton. Le second est le cas COURANT d'un client dont la variable
+  // d'environnement n'a pas été substituée (`Authorization: Bearer `) : il
+  // recevait `400` là où le même client, muet, recevait les outils publics —
+  // la porte punissait plus sévèrement celui qui n'a rien à dire que celui qui
+  // se tait, et la tolérance anonyme devenait inatteignable par accident de
+  // configuration. Aucun risque à les réunir : un en-tête vide ne prouve rien
+  // de plus qu'une absence, donc il n'obtient rien de plus.
+  if (lu.kind === "absent" || lu.kind === "empty") {
     if (policy.allowAnonymous) return { outcome: "anonymous" };
     return {
       outcome: "challenge",
@@ -502,8 +521,10 @@ export async function authorizeProtectedResource(
     };
   }
 
-  const token = bearerToken(authorizationHeader);
-  if (token === null) {
+  // Un AUTRE schéma, lui, reste une faute du client : il croit s'authentifier
+  // et ne le fait pas. Le lui dire (`400`) vaut mieux que le servir en anonyme,
+  // ce qui laisserait son erreur invisible jusqu'au premier outil retenu.
+  if (lu.kind === "other") {
     return {
       outcome: "challenge",
       status: 400,
@@ -517,6 +538,8 @@ export async function authorizeProtectedResource(
       }),
     };
   }
+
+  const token = lu.token;
 
   // Un porteur est présenté et rien ne sait le juger : refuser, toujours. Servir
   // en anonyme reviendrait à traiter un jeton comme s'il n'existait pas, et à
@@ -546,6 +569,25 @@ export async function authorizeProtectedResource(
     return { outcome: "unverifiable", why: (error as Error).message };
   }
   if (principal === null) {
+    // 🔴 Une porte qui TOLÈRE l'anonyme ne peut pas punir un jeton rejeté plus
+    // durement qu'une requête muette.
+    //
+    // Le paradoxe était complet : sans en-tête, le client recevait les outils
+    // publics ; avec un jeton expiré — ou un gabarit `${…}` que son
+    // environnement n'a pas substitué — il recevait `401` et PLUS RIEN. Un
+    // client MCP marque alors le serveur « failed » pour toute la session,
+    // donc un jeton périmé coûtait l'outillage entier, quand ne rien
+    // présenter l'aurait conservé.
+    //
+    // Servir en anonyme n'accorde AUCUN privilège : un jeton rejeté obtient
+    // exactement ce qu'obtient un inconnu, et les outils réservés restent
+    // retenus — la liaison d'audience (RFC 8707) garde donc tout son mordant,
+    // elle n'est simplement plus une porte qui claque. Le refus, lui, n'est
+    // pas tu : il part au journal (`rejected`).
+    //
+    // `allowAnonymous` reste FAUX en production, où un jeton rejeté redevient
+    // un `401` — c'est là que ce drapeau prend son sens.
+    if (policy.allowAnonymous) return { outcome: "anonymous", rejected: true };
     return {
       outcome: "challenge",
       status: 401,

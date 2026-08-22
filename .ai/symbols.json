@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-22T18:53:23.296Z",
+  "generated": "2026-08-22T19:36:54.443Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 732,
-    "symbols": 3091,
+    "symbols": 3096,
     "classes": 364,
-    "interfaces": 882,
-    "types": 386,
+    "interfaces": 883,
+    "types": 387,
     "enums": 4,
-    "functions": 1163,
+    "functions": 1166,
     "constants": 292
   },
   "symbols": {
@@ -3250,14 +3250,23 @@
       "extends": null,
       "description": "Ce dont les outils INTÉGRÉS ont besoin — injecté, jamais lu ici."
     },
+    "IMcpDeclareOptions": {
+      "name": "IMcpDeclareOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'il faut pour ÉNUMÉRER les déclarations d'outils d'une application. Distinct de {@link IMcpCollectOptions}, qui ajoute l'appelant : énumérer est une question sur le CODE (« que déclare cette a…"
+    },
     "IMcpCollectOptions": {
       "name": "IMcpCollectOptions",
       "kind": "interface",
       "file": "src/nodefony/src/mcp/tools.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "extends": null,
-      "description": "Ce qu'il faut pour ramasser les outils d'une application."
+      "extends": "IMcpDeclareOptions",
+      "description": "Ce qu'il faut pour ramasser les outils SERVIS à un appelant."
     },
     "BuiltinMcpToolKey": {
       "name": "BuiltinMcpToolKey",
@@ -3283,13 +3292,29 @@
       "module": "@nodefony/core",
       "description": "Catalogue intégré du framework, indexé par clé d'allowlist. Chaque handler capture ses dépendances par fermeture : c'est ce qui permet à ces quatre outils d'être des {@link IMcpTool} ordinaires, du…"
     },
+    "declareMcpTools": {
+      "name": "declareMcpTools",
+      "kind": "function",
+      "file": "src/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Énumère ce que cette application DÉCLARE : les intégrés autorisés, puis les outils des modules — sans rien retenir sur l'identité de qui que ce soit. Trois refus, tous énoncés par `onSkip` plutôt q…"
+    },
     "collectMcpTools": {
       "name": "collectMcpTools",
       "kind": "function",
       "file": "src/nodefony/src/mcp/tools.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Ramasse les outils servis par cette application : les intégrés autorisés, puis ceux que les modules déclarent. Trois refus, tous énoncés par `onSkip` plutôt que silencieux : - **nom hors forme** ({…"
+      "description": "Ramasse les outils SERVIS à cet appelant. Aux trois refus de {@link declareMcpTools} s'ajoute une RÉTENTION, qui n'est pas une faute : un outil dont l'appelant ne satisfait pas les exigences ({@lin…"
+    },
+    "mcpDeclaredScopes": {
+      "name": "mcpDeclaredScopes",
+      "kind": "function",
+      "file": "src/nodefony/src/mcp/tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le vocabulaire de scopes que cette porte EXIGE — l'union de ce que ses outils déclarent, jamais une liste écrite à côté. 🔴 **C'est ce qu'un client doit demander**, et c'est à ce titre qu'il est pu…"
     },
     "publishMcpTools": {
       "name": "publishMcpTools",
@@ -3937,13 +3962,29 @@
       "module": "@nodefony/core",
       "description": "Assertion type **compile-time** : `expectType<T>(value)` échoue à la compilation si `value` n'est pas assignable à `T`. **0 coût runtime** (fonction vide)."
     },
+    "BearerHeader": {
+      "name": "BearerHeader",
+      "kind": "type",
+      "file": "src/nodefony/src/runtime/bearer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce que porte un en-tête `Authorization` — et surtout ce qu'il NE porte pas. 🔴 Les trois façons de ne pas présenter de jeton ne se valent pas, et les confondre a rendu inatteignable la tolérance an…"
+    },
+    "readBearerHeader": {
+      "name": "readBearerHeader",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/bearer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit un en-tête `Authorization` et dit ce qu'il porte."
+    },
     "bearerToken": {
       "name": "bearerToken",
       "kind": "function",
       "file": "src/nodefony/src/runtime/bearer.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Rend le jeton porté par un en-tête `Authorization`, ou `null`."
+      "description": "Rend le jeton porté par un en-tête `Authorization`, ou `null`. Projection de {@link readBearerHeader} pour les appelants que la NUANCE ne regarde pas — un authentificateur qui cherche un porteur et…"
     },
     "defaultEngineEnvironment": {
       "name": "defaultEngineEnvironment",
@@ -21587,6 +21628,9 @@
       "Cli": [
         "CliKernel"
       ],
+      "IMcpDeclareOptions": [
+        "IMcpCollectOptions"
+      ],
       "nodefonyError": [
         "PaginationModeError",
         "CursorOrderError",
@@ -24242,12 +24286,10 @@
       "ADMIN_SCOPE_READ": [
         "src/nodefony/src/cli/aiMcp.ts",
         "src/nodefony/src/mcp/tools.ts",
-        "src/packages/@nodefony/devkit/nodefony/config/config.ts",
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "ADMIN_SCOPE_WRITE": [
         "src/nodefony/src/cli/aiMcp.ts",
-        "src/packages/@nodefony/devkit/nodefony/config/config.ts",
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "defaultDevPorts": [
@@ -25116,7 +25158,7 @@
         "src/nodefony/src/mcp/tools.ts",
         "src/nodefony/src/kernel/adminPlane/catalog.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
-        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
       ],
       "InspectResult": [
         "src/nodefony/src/mcp/tools.ts"
@@ -25157,11 +25199,9 @@
       "IMcpToolResult": [
         "src/nodefony/src/mcp/tools.ts"
       ],
-      "bearerToken": [
+      "readBearerHeader": [
         "src/nodefony/src/oauth/protectedResource.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts"
+        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
       ],
       "ActionNames": [
         "src/nodefony/src/realtime/IRealtimeSocket.ts",
@@ -26686,6 +26726,10 @@
       "ICardVerb": [
         "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts"
       ],
+      "IMcpToolDeps": [
+        "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
+      ],
       "injectable": [
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -26695,6 +26739,9 @@
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "mcpDeclaredScopes": [
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
       ],
       "IProtectedResourceInput": [
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
@@ -29316,6 +29363,11 @@
       ],
       "parseApiKey": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts"
+      ],
+      "bearerToken": [
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts"
       ],
       "AnonymousAuthenticator": [
         "src/packages/@nodefony/security/nodefony/src/authenticator/authenticatorRegistry.ts"

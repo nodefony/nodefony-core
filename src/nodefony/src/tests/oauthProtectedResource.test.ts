@@ -258,13 +258,73 @@ describe("authorizeProtectedResource — les six issues, sans serveur", () => {
 
   it("en-tête mal formé : 400 invalid_request (et non 401)", async () => {
     // RFC 6750 §3.1 : « The resource server SHOULD respond with the HTTP 400 ».
-    for (const bad of ["Basic dXNlcjpw", "Bearer", "Bearer   ", "Bearerabc"]) {
+    // Un AUTRE schéma, ou un schéma collé à sa valeur : le client croit
+    // s'authentifier et ne le fait pas — le lui dire est le service à rendre.
+    for (const bad of ["Basic dXNlcjpw", "Bearerabc"]) {
       const r = await authorizeProtectedResource(bad, policy, accept);
       expect(r.outcome, bad).to.equal("challenge");
       if (r.outcome !== "challenge") return;
       expect(r.status, bad).to.equal(400);
       expect(r.wwwAuthenticate, bad).to.contain('error="invalid_request"');
     }
+  });
+
+  it("🔴 `Bearer` SANS jeton ne vaut pas mieux ni pire qu'aucun en-tête", async () => {
+    // Le cas COURANT, et celui qui a coûté la capacité : un client dont la
+    // variable d'environnement n'est pas substituée envoie `Authorization:
+    // Bearer `. Il n'affirme RIEN — RFC 6750 §3, « the request lacks any
+    // authentication information » : ni code d'erreur, ni 400. La porte lui
+    // doit exactement ce qu'elle doit à un client muet, sans quoi elle punit
+    // plus sévèrement celui qui n'a rien à dire que celui qui se tait.
+    for (const vide of ["Bearer", "Bearer ", "Bearer   ", "bearer\t"]) {
+      const ferme = await authorizeProtectedResource(vide, policy, accept);
+      expect(ferme.outcome, vide).to.equal("challenge");
+      if (ferme.outcome !== "challenge") return;
+      expect(ferme.status, vide).to.equal(401);
+      // Aucun code d'erreur : il n'y a rien à juger.
+      expect(ferme.wwwAuthenticate, vide).to.not.contain("error=");
+
+      // Et porte ouverte, il est servi comme l'anonyme qu'il est — c'est CE
+      // chemin qui rendait un agent sans outils alors que la porte en publie.
+      const ouverte = await authorizeProtectedResource(
+        vide,
+        { ...policy, allowAnonymous: true },
+        accept,
+      );
+      expect(ouverte.outcome, vide).to.equal("anonymous");
+    }
+  });
+
+  it("🔴 porte TOLÉRANTE : un jeton rejeté est servi en anonyme, et le rejet se DIT", async () => {
+    // Le paradoxe que ce cas ferme : sans en-tête, le client obtenait les
+    // outils publics ; avec un jeton EXPIRÉ, il obtenait `401` et plus rien —
+    // un client MCP marque alors le serveur « failed » pour toute la session.
+    // Présenter mal ne peut pas valoir moins que ne rien présenter.
+    const r = await authorizeProtectedResource(
+      "Bearer perime",
+      { ...policy, allowAnonymous: true },
+      accept,
+    );
+    expect(r.outcome).to.equal("anonymous");
+    // …et le rejet n'est pas tu : la porte a de quoi le journaliser. Sans ce
+    // drapeau, un jeton périmé serait indistinguable d'une requête muette.
+    if (r.outcome !== "anonymous") return;
+    expect(r.rejected).to.equal(true);
+    // Aucun privilège accordé au passage : c'est un anonyme, pas un porteur.
+    const muet = await authorizeProtectedResource(
+      undefined,
+      { ...policy, allowAnonymous: true },
+      accept,
+    );
+    expect(muet.outcome).to.equal("anonymous");
+    expect((muet as { rejected?: true }).rejected).to.equal(undefined);
+  });
+
+  it("porte FERMÉE : un jeton rejeté reste un 401 — c'est là que le drapeau compte", async () => {
+    const r = await authorizeProtectedResource("Bearer perime", policy, accept);
+    expect(r.outcome).to.equal("challenge");
+    if (r.outcome !== "challenge") return;
+    expect(r.status).to.equal(401);
   });
 
   it("jeton refusé : 401 invalid_token, sans dire POURQUOI", async () => {

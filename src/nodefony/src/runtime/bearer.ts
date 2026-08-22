@@ -37,23 +37,50 @@
 const SCHEME = "bearer";
 
 /**
- * Rend le jeton porté par un en-tête `Authorization`, ou `null`.
+ * Ce que porte un en-tête `Authorization` — et surtout ce qu'il NE porte pas.
  *
- * @param header - la valeur brute de l'en-tête (peut être absente ou d'un autre
- *          schéma — les deux rendent `null`, jamais une exception).
- * @returns le jeton débarrassé de ses espaces de tête et de queue, ou `null` si
- *          l'en-tête n'est pas un `Bearer` valide ou ne porte aucun jeton.
+ * 🔴 Les trois façons de ne pas présenter de jeton ne se valent pas, et les
+ * confondre a rendu inatteignable la tolérance anonyme d'une porte protégée :
+ * un client dont la variable d'environnement n'est pas substituée envoie
+ * `Authorization: Bearer ` — un en-tête PRÉSENT qui n'affirme rien. Traité
+ * comme malformé, il recevait `400` là où le même client, muet, recevait les
+ * outils publics : la porte punissait plus sévèrement celui qui n'a rien à dire
+ * que celui qui se tait. Distinguer coûte un champ ; ne pas distinguer coûte la
+ * capacité entière.
  */
-export function bearerToken(header: unknown): string | null {
-  if (typeof header !== "string" || header.length <= SCHEME.length) return null;
+export type BearerHeader =
+  /** Aucun en-tête, ou vide : le client n'a rien affirmé. */
+  | { kind: "absent" }
+  /** Schéma `Bearer` reconnu, mais aucun jeton derrière — rien affirmé non plus. */
+  | { kind: "empty" }
+  /** Un autre schéma, ou `Bearer` collé à sa valeur : le client s'y prend mal. */
+  | { kind: "other" }
+  /** Un jeton est présenté — reste à le juger. */
+  | { kind: "token"; token: string };
+
+/**
+ * Lit un en-tête `Authorization` et dit ce qu'il porte.
+ *
+ * @param header - la valeur brute de l'en-tête (absente, d'un autre schéma, ou
+ *          vide — aucun de ces cas ne lève).
+ * @returns le verdict de lecture ; jamais une exception.
+ */
+export function readBearerHeader(header: unknown): BearerHeader {
+  if (typeof header !== "string" || header.length === 0)
+    return { kind: "absent" };
+  if (header.length < SCHEME.length) return { kind: "other" };
   // Comparaison insensible à la casse bornée aux 6 premiers caractères : le
   // schéma est de longueur connue, il n'y a rien à chercher.
-  if (header.slice(0, SCHEME.length).toLowerCase() !== SCHEME) return null;
+  if (header.slice(0, SCHEME.length).toLowerCase() !== SCHEME) {
+    return { kind: "other" };
+  }
 
   let i = SCHEME.length;
+  // `Bearer` SEUL — schéma nu, sans le moindre séparateur : rien n'est porté.
+  if (i === header.length) return { kind: "empty" };
   const first = header.charCodeAt(i);
   // Au moins UN séparateur — sinon `bearertoken` passerait pour un porteur.
-  if (first !== 0x20 && first !== 0x09) return null;
+  if (first !== 0x20 && first !== 0x09) return { kind: "other" };
   while (i < header.length) {
     const c = header.charCodeAt(i);
     if (c !== 0x20 && c !== 0x09) break;
@@ -62,5 +89,25 @@ export function bearerToken(header: unknown): string | null {
 
   // `trimEnd` seul : la tête vient d'être consommée par la boucle ci-dessus.
   const token = header.slice(i).trimEnd();
-  return token.length > 0 ? token : null;
+  return token.length > 0 ? { kind: "token", token } : { kind: "empty" };
+}
+
+/**
+ * Rend le jeton porté par un en-tête `Authorization`, ou `null`.
+ *
+ * Projection de {@link readBearerHeader} pour les appelants que la NUANCE ne
+ * regarde pas — un authentificateur qui cherche un porteur et passe la main s'il
+ * n'y en a pas. Une porte qui doit RÉPONDRE (401 ? 400 ? anonyme ?) lit le
+ * verdict complet : sans lui, elle ne peut pas distinguer « rien présenté » de
+ * « mal présenté », et elle tranche donc toujours du mauvais côté pour l'un des
+ * deux.
+ *
+ * @param header - la valeur brute de l'en-tête (peut être absente ou d'un autre
+ *          schéma — les deux rendent `null`, jamais une exception).
+ * @returns le jeton débarrassé de ses espaces de tête et de queue, ou `null` si
+ *          l'en-tête n'est pas un `Bearer` valide ou ne porte aucun jeton.
+ */
+export function bearerToken(header: unknown): string | null {
+  const lu = readBearerHeader(header);
+  return lu.kind === "token" ? lu.token : null;
 }
