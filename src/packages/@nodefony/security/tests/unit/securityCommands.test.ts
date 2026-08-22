@@ -3,6 +3,8 @@ import { Cli } from "nodefony";
 import SecurityUserList from "../../nodefony/command/security-user-list";
 import SecurityToken, {
   ttlSeconds,
+  poseVariable,
+  agentsDemandes,
 } from "../../nodefony/command/security-token";
 
 /**
@@ -231,5 +233,94 @@ describe("security:token --ttl — une durée qui s'écrit, et qui se borne", ()
     for (const nawak of ["abc", "0", "-5", ""]) {
       expect(ttlSeconds(nawak), nawak).toBeInstanceOf(Error);
     }
+  });
+});
+
+/**
+ * Ce que cette suite prouve : qu'on pose une variable dans la configuration
+ * d'un agent sans DÉTRUIRE ce qu'il y avait. Ces fichiers ne sont pas à nous —
+ * ils portent les réglages de quelqu'un, et un écrasement se découvre le jour
+ * où une permission a disparu.
+ */
+describe("security:token — poser le jeton chez un agent, sans rien casser", () => {
+  it("crée le bloc `env` d'un JSON qui n'en a pas, et garde le reste", () => {
+    const avant = JSON.stringify({ permissions: { allow: ["Bash"] } });
+    const apres = poseVariable("json-env", avant, "NF_MCP_TOKEN", "jeton-1");
+    expect(apres).to.be.a("string");
+    const doc = JSON.parse(apres as string) as {
+      permissions?: { allow?: string[] };
+      env?: Record<string, string>;
+    };
+    expect(doc.env?.NF_MCP_TOKEN).to.equal("jeton-1");
+    // 🔴 Le reste du fichier SURVIT — c'est la configuration de quelqu'un.
+    expect(doc.permissions?.allow).to.deep.equal(["Bash"]);
+  });
+
+  it("remplace une valeur existante — une rotation doit AVOIR lieu", () => {
+    const avant = JSON.stringify({
+      env: { NF_MCP_TOKEN: "vieux", AUTRE: "x" },
+    });
+    const doc = JSON.parse(
+      poseVariable("json-env", avant, "NF_MCP_TOKEN", "neuf") as string,
+    ) as { env: Record<string, string> };
+    expect(doc.env.NF_MCP_TOKEN).to.equal("neuf");
+    expect(doc.env.AUTRE).to.equal("x");
+  });
+
+  it("part d'un document vide quand le fichier n'existe pas", () => {
+    const doc = JSON.parse(
+      poseVariable("json-env", "", "NF_MCP_TOKEN", "jeton") as string,
+    ) as { env: Record<string, string> };
+    expect(doc.env.NF_MCP_TOKEN).to.equal("jeton");
+  });
+
+  it("🔴 refuse un JSON illisible plutôt que de l'écraser", () => {
+    // Sens du test : réécrire un fichier corrompu par le nôtre effacerait des
+    // réglages qu'on ne sait pas relire. On DIT, on ne remplace pas.
+    const verdict = poseVariable("json-env", "{ pas du json", "K", "v");
+    expect(verdict).to.be.instanceOf(Error);
+  });
+
+  it("dotenv : ajoute, puis remplace la ligne — jamais deux fois la même clé", () => {
+    const un = poseVariable("dotenv", "AUTRE=1", "NF_MCP_TOKEN", "a") as string;
+    expect(un).to.contain("AUTRE=1");
+    expect(un).to.contain("NF_MCP_TOKEN=a");
+    const deux = poseVariable("dotenv", un, "NF_MCP_TOKEN", "b") as string;
+    expect(deux).to.contain("NF_MCP_TOKEN=b");
+    expect(deux.match(/^NF_MCP_TOKEN=/gmu)).to.have.length(1);
+  });
+});
+
+/**
+ * Ce que cette suite prouve : qu'on ne se trompe pas d'agent en silence. Un nom
+ * mal orthographié qui serait ignoré ferait croire à un agent servi qui ne l'est
+ * pas — et le porteur chercherait la faute dans le jeton, comme la première fois.
+ */
+describe("security:token --agent — choisir qui est servi", () => {
+  it("sans option, ne décide rien : l'appelant proposera ce qu'il détecte", () => {
+    expect(agentsDemandes(undefined)).to.equal(undefined);
+  });
+
+  it("« none » n'écrit nulle part, « all » vise tout le monde", () => {
+    expect(agentsDemandes("none")).to.deep.equal([]);
+    expect((agentsDemandes("all") as unknown[]).length).to.be.greaterThan(1);
+  });
+
+  it("accepte une liste, séparée par virgules ou espaces, sans se soucier de la casse", () => {
+    const cles = (agentsDemandes("Claude, CODEX") as { cle: string }[]).map(
+      (c) => c.cle,
+    );
+    expect(cles).to.deep.equal(["claude", "codex"]);
+    expect(
+      (agentsDemandes("vibe codex") as { cle: string }[]).map((c) => c.cle),
+    ).to.deep.equal(["vibe", "codex"]);
+  });
+
+  it("🔴 REFUSE une clé inconnue en nommant celles qui existent", () => {
+    const verdict = agentsDemandes("claude,cursor");
+    expect(verdict).to.be.instanceOf(Error);
+    // Le message doit servir à corriger, pas seulement à constater.
+    expect((verdict as Error).message).to.contain("cursor");
+    expect((verdict as Error).message).to.contain("claude");
   });
 });

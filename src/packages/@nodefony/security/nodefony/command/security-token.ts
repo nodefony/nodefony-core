@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, appendFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
+import { homedir } from "node:os";
 import {
   OptionsCommandInterface,
   CliKernel,
@@ -23,6 +24,186 @@ const options: OptionsCommandInterface = {
 
 /** Variable d'environnement que le câblage `.mcp.json` développe. */
 const MCP_TOKEN_ENV = "NF_MCP_TOKEN";
+
+/**
+ * Un agent de développement, et l'endroit où il lit ses variables.
+ *
+ * ⭐ **Cette table existe parce qu'aucun agent ne lit `.env.local`.** Ce fichier
+ * est celui de l'APPLICATION ; le client MCP, lui, résout ses variables dans son
+ * propre environnement ou dans SA configuration — et quand il n'y trouve rien,
+ * il envoie l'en-tête non substitué et reçoit un 401 qui accuse le jeton. Une
+ * heure de diagnostic pour une chaîne cohérente en apparence.
+ *
+ * Ajouter un agent = ajouter une ligne. Ce qui n'y est PAS reste dit en clair
+ * plutôt que deviné : poser un secret dans un fichier dont on n'a pas vérifié le
+ * comportement serait un pari, et c'est le porteur qui le paierait.
+ */
+interface IAgentTarget {
+  /** Clé courte — ce que `--agent` accepte, et ce qu'une question propose. */
+  cle: string;
+  /** Nom affiché. */
+  nom: string;
+  /**
+   * Où vit sa configuration : dans le PROJET, ou dans le dossier de
+   * l'utilisateur. La distinction commande la garde appliquée — un fichier de
+   * projet peut se retrouver commité, celui de l'utilisateur non.
+   */
+  portee: "projet" | "utilisateur";
+  /** Ce dont la présence prouve que l'agent est utilisé — résolu selon `portee`. */
+  marqueur: string;
+  /** Fichier à écrire — relatif au projet, ou au dossier de l'agent. */
+  fichier: string;
+  /** Grammaire du fichier. */
+  forme: "json-env" | "dotenv";
+  /**
+   * Variable qui déplace le dossier de l'agent (portée utilisateur seulement).
+   * Vibe la documente et son source la lit : `VIBE_HOME`.
+   */
+  home?: string;
+}
+
+/**
+ * Agents dont l'emplacement de secret a été CONSTATÉ — au comportement ou au
+ * source, jamais sur la foi d'une page de blog.
+ *
+ * Deux stratégies, et elles ne se ressemblent pas :
+ *  - **Claude Code** prend la VALEUR : la clé `env` de `settings.local.json`
+ *    alimente l'expansion `${VAR}` de `.mcp.json` (constaté — `claude mcp list`
+ *    passe de l'en-tête non substitué à « ✔ Connected ») ;
+ *  - **Vibe** prend le NOM d'une variable (`--api-key-env`) et la résout dans
+ *    son environnement — mais il PEUPLE cet environnement au démarrage depuis
+ *    `$VIBE_HOME/.env` (`load_dotenv_values`, `vibe/cli/cli.py`), une valeur du
+ *    shell l'emportant sur le fichier. Écrire là revient donc bien à câbler ;
+ *  - **Gemini CLI** de même, depuis un fichier qu'il CHERCHE en remontant
+ *    l'arborescence (`findEnvFile`) : `<projet>/.gemini/.env` d'abord — quand
+ *    l'espace est de confiance — puis `<projet>/.env`, puis les parents, puis
+ *    `~/.gemini/.env`. Le PREMIER trouvé gagne, et lui seul est chargé : viser
+ *    `.gemini/.env` évite qu'il lise à la place le `.env` de l'application.
+ *
+ *  - **Codex** de même, depuis `$CODEX_HOME/.env` (défaut `~/.codex/.env`), et
+ *    de là SEULEMENT : le `.env` du projet n'est pas lu.
+ *
+ * ⚠️ Ce dernier point a d'abord été conclu à l'envers, en cherchant une chaîne
+ * dans un binaire compilé et en prenant son absence pour une preuve. Une
+ * ABSENCE de trace n'en est pas une : c'est l'expérience qui a tranché — une
+ * sonde (`codex doctor` signale une variable de serveur MCP manquante) montrée
+ * discriminante d'abord, témoin à 1 et variable exportée à 0, puis passée sur
+ * chaque emplacement candidat.
+ */
+const AGENT_TARGETS: readonly IAgentTarget[] = [
+  {
+    cle: "claude",
+    nom: "Claude Code",
+    portee: "projet",
+    marqueur: ".claude",
+    fichier: ".claude/settings.local.json",
+    forme: "json-env",
+  },
+  {
+    cle: "gemini",
+    nom: "Gemini CLI",
+    portee: "projet",
+    marqueur: ".gemini",
+    fichier: ".gemini/.env",
+    forme: "dotenv",
+  },
+  {
+    cle: "vibe",
+    nom: "Vibe (Mistral)",
+    portee: "utilisateur",
+    marqueur: ".vibe",
+    fichier: ".env",
+    forme: "dotenv",
+    home: "VIBE_HOME",
+  },
+  {
+    cle: "codex",
+    nom: "Codex",
+    portee: "utilisateur",
+    marqueur: ".codex",
+    fichier: ".env",
+    forme: "dotenv",
+    home: "CODEX_HOME",
+  },
+];
+
+/**
+ * Pose une variable dans le contenu d'un fichier de configuration d'agent.
+ *
+ * Fonction PURE — elle prend le contenu et rend le contenu. C'est ce qui permet
+ * d'éprouver chaque grammaire sans écrire sur le disque de qui que ce soit, et
+ * de garantir qu'un fichier existant n'est pas ÉCRASÉ mais complété : ces
+ * fichiers portent les réglages de quelqu'un d'autre.
+ *
+ * @param forme - grammaire du fichier
+ * @param actuel - contenu actuel, ou chaîne vide s'il n'existe pas
+ * @param cle - nom de la variable
+ * @param valeur - sa valeur
+ * @returns le nouveau contenu, ou une `Error` si le fichier est illisible
+ */
+export function poseVariable(
+  forme: IAgentTarget["forme"],
+  actuel: string,
+  cle: string,
+  valeur: string,
+): string | Error {
+  if (forme === "dotenv") {
+    const ligne = `${cle}=${valeur}`;
+    const motif = new RegExp(`^\\s*${cle}\\s*=.*$`, "m");
+    if (motif.test(actuel)) return actuel.replace(motif, ligne);
+    return actuel.length === 0
+      ? `${ligne}\n`
+      : `${actuel.replace(/\n*$/u, "")}\n${ligne}\n`;
+  }
+  let doc: Record<string, unknown>;
+  try {
+    doc =
+      actuel.trim() === ""
+        ? {}
+        : (JSON.parse(actuel) as Record<string, unknown>);
+  } catch {
+    // Un fichier corrompu ne se réécrit pas en silence : il porte les réglages
+    // de quelqu'un, et les remplacer par les nôtres serait pire que ne rien faire.
+    return new Error("le fichier existe mais n'est pas du JSON valide");
+  }
+  const env = (doc.env ?? {}) as Record<string, unknown>;
+  env[cle] = valeur;
+  doc.env = env;
+  return `${JSON.stringify(doc, null, 2)}\n`;
+}
+
+/**
+ * Traduit `--agent` en cibles, ou rend l'erreur à afficher.
+ *
+ * Trois formes : rien (les cibles détectées, décidé plus loin), `none` (aucune
+ * écriture), ou une liste de clés. Une clé inconnue est REFUSÉE en nommant
+ * celles qui existent — ignorée en silence, elle ferait croire à un agent servi
+ * qui ne l'est pas, et c'est exactement ce genre de silence qui a déjà coûté une
+ * heure de diagnostic ici.
+ *
+ * @param raw - la valeur telle que tapée, ou rien
+ * @returns les cibles demandées, `undefined` si rien n'est demandé, une `Error` sinon
+ */
+export function agentsDemandes(
+  raw: string | undefined,
+): readonly IAgentTarget[] | undefined | Error {
+  if (raw === undefined) return undefined;
+  const cles = raw
+    .split(/[\s,]+/u)
+    .map((c) => c.trim().toLowerCase())
+    .filter(Boolean);
+  if (cles.length === 1 && cles[0] === "none") return [];
+  if (cles.length === 1 && cles[0] === "all") return AGENT_TARGETS;
+  const connues = AGENT_TARGETS.map((c) => c.cle);
+  const inconnues = cles.filter((c) => !connues.includes(c));
+  if (inconnues.length > 0) {
+    return new Error(
+      `--agent : « ${inconnues.join(", ")} » inconnu — attendus : ` +
+        `${connues.join(", ")}, all, none`,
+    );
+  }
+  return AGENT_TARGETS.filter((c) => cles.includes(c.cle));
+}
 
 /** Plafond d'une durée demandée en ligne de commande : 30 jours. */
 const TTL_MAX_MINUTES = 30 * 24 * 60;
@@ -77,7 +258,7 @@ const RESET = "\x1b[0m";
  * raison d'être de la liaison d'audience. La commande la vise d'elle-même,
  * `--resource` ne sert qu'à en viser une autre.
  *
- * Suit `security:secrets` : `--write` pose la valeur dans `.env.local`
+ * Suit `security:secrets` : `--write` pose la valeur là où l'AGENT la lit
  * (gitignoré), jamais dans le `.env` commité, et ne remplace jamais une valeur
  * existante — une rotation est un geste explicite.
  */
@@ -85,7 +266,7 @@ class SecurityToken extends Command {
   constructor(cli: CliKernel) {
     super(
       "security:token",
-      `Émet un jeton d'accès pour la porte MCP (--write : pose ${MCP_TOKEN_ENV} dans .env.local)`,
+      `Émet un jeton d'accès pour la porte MCP (--write : le pose chez tes agents)`,
       cli,
       options,
     );
@@ -102,12 +283,16 @@ class SecurityToken extends Command {
       "audience visée (défaut : la porte MCP de cette application)",
     );
     this.addOption(
+      "-a, --agent <noms>",
+      "agents à servir, séparés par des virgules (défaut : ceux détectés ; « none » pour aucun)",
+    );
+    this.addOption(
       "-t, --ttl <duree>",
       "durée de validité, en minutes (défaut : celle de la config, 15 min)",
     );
     this.addOption(
       "-w, --write",
-      `écrit ${MCP_TOKEN_ENV} dans .env.local (jamais de remplacement)`,
+      `pose ${MCP_TOKEN_ENV} dans la configuration des agents présents`,
     );
     this.addOption("-j, --json", "sortie JSON (scripts/CI)");
   }
@@ -117,14 +302,11 @@ class SecurityToken extends Command {
     return this.kernel?.path ?? process.cwd();
   }
 
-  /**
-   * `true` si `.env.local` est SUIVI par git — y écrire un jeton le mènerait au
-   * commit. Best-effort : git absent / hors dépôt → `false` (on écrit).
-   */
-  #dotenvTracked(): boolean {
+  /** Ce fichier est-il couvert par un `.gitignore` ? */
+  #gitIgnored(file: string): boolean {
     try {
       return (
-        spawnSync("git", ["ls-files", "--error-unmatch", ".env.local"], {
+        spawnSync("git", ["check-ignore", "-q", file], {
           cwd: this.#root(),
           stdio: "ignore",
         }).status === 0
@@ -134,14 +316,117 @@ class SecurityToken extends Command {
     }
   }
 
-  /** Contenu d'un fichier du projet, "" si absent/illisible. */
-  #read(file: string): string {
+  /** Ce fichier est-il SUIVI par git ? Un secret n'entre pas dans un suivi. */
+  #tracked(file: string): boolean {
     try {
-      const abs = path.resolve(this.#root(), file);
-      return existsSync(abs) ? readFileSync(abs, "utf8") : "";
+      return (
+        spawnSync("git", ["ls-files", "--error-unmatch", file], {
+          cwd: this.#root(),
+          stdio: "ignore",
+        }).status === 0
+      );
     } catch {
-      return "";
+      return false;
     }
+  }
+
+  /** Racine où vit la configuration d'une cible (projet, ou dossier maison). */
+  #racineDe(cible: IAgentTarget): string {
+    return cible.portee === "projet"
+      ? this.#root()
+      : path.resolve(
+          (cible.home ? process.env[cible.home] : undefined) ??
+            path.join(homedir(), cible.marqueur),
+        );
+  }
+
+  /**
+   * Agents dont la présence est CONSTATÉE — on ne crée pas la configuration
+   * d'un outil que personne n'utilise ici.
+   */
+  #agentsPresents(): IAgentTarget[] {
+    return AGENT_TARGETS.filter((cible) => {
+      const racine = this.#racineDe(cible);
+      return cible.portee === "projet"
+        ? existsSync(path.resolve(racine, cible.marqueur))
+        : existsSync(racine);
+    });
+  }
+
+  /**
+   * Pose le jeton dans la configuration des agents PRÉSENTS dans ce projet.
+   *
+   * Un agent n'est servi que si son marqueur existe : on ne crée pas la
+   * configuration d'un outil que personne n'utilise ici. Et jamais dans un
+   * fichier SUIVI par git — un jeton commité est un jeton publié, et c'est la
+   * seule faute de cette commande qui serait irrattrapable.
+   *
+   * @param jeton - le jeton à poser
+   * @param w - la sortie où rendre compte
+   * @param cibles - agents à servir (déjà filtrés par le choix de l'appelant)
+   * @returns le nombre d'agents effectivement servis
+   */
+  #poseChezAgents(
+    jeton: string,
+    w: (t: string) => void,
+    cibles: readonly IAgentTarget[],
+  ): number {
+    let servis = 0;
+    for (const cible of cibles) {
+      const racine = this.#racineDe(cible);
+      // La garde git ne vaut que pour le projet : le dossier de l'utilisateur
+      // n'est pas versionné, et `git ls-files` y répondrait sur un autre dépôt.
+      if (cible.portee === "projet" && this.#tracked(cible.fichier)) {
+        w(
+          `${YELLOW}⚠ ${cible.fichier} est SUIVI par git — rien n'est écrit.${RESET}\n` +
+            `${DIM}  Un jeton commité est un jeton publié.${RESET}\n\n`,
+        );
+        continue;
+      }
+      const abs = path.resolve(racine, cible.fichier);
+      const pose = poseVariable(
+        cible.forme,
+        existsSync(abs) ? readFileSync(abs, "utf8") : "",
+        MCP_TOKEN_ENV,
+        jeton,
+      );
+      if (pose instanceof Error) {
+        w(
+          `${YELLOW}⚠ ${cible.fichier} : ${pose.message} — rien n'est écrit.${RESET}\n\n`,
+        );
+        continue;
+      }
+      try {
+        mkdirSync(path.dirname(abs), { recursive: true });
+        writeFileSync(abs, pose, "utf8");
+      } catch (error) {
+        w(
+          `${YELLOW}⚠ ${cible.fichier} : écriture impossible — ${(error as Error).message}${RESET}\n\n`,
+        );
+        continue;
+      }
+      w(
+        `${GREEN}✓ ${MCP_TOKEN_ENV} posé pour ${cible.nom}${RESET} ` +
+          // Le chemin AFFICHÉ est celui qu'on a réellement écrit : rendre
+          // « .env » pour un fichier qui vit dans le dossier de l'utilisateur
+          // le ferait confondre avec celui du projet, et chercher au mauvais
+          // endroit le jour où quelque chose cloche.
+          `${DIM}(${cible.portee === "projet" ? cible.fichier : abs})${RESET}\n` +
+          `${DIM}  RELANCE-le : il lit sa configuration au démarrage.${RESET}\n`,
+      );
+      // Le fichier n'est pas suivi AUJOURD'HUI — mais rien n'empêche un
+      // `git add -A` de l'emporter demain. Un jeton commité est un jeton
+      // publié : la seule faute de cette commande qui serait irrattrapable.
+      if (cible.portee === "projet" && !this.#gitIgnored(cible.fichier)) {
+        w(
+          `${YELLOW}  ⚠ ${cible.fichier} n'est PAS couvert par .gitignore — ` +
+            `un « git add -A » l'emporterait.${RESET}\n`,
+        );
+      }
+      w("\n");
+      servis += 1;
+    }
+    return servis;
   }
 
   /**
@@ -194,6 +479,7 @@ class SecurityToken extends Command {
     opts: {
       scope?: string;
       ttl?: string;
+      agent?: string;
       resource?: string;
       write?: boolean;
       json?: boolean;
@@ -336,64 +622,57 @@ class SecurityToken extends Command {
     );
 
     if (ecrire) {
-      if (this.#dotenvTracked()) {
+      // 🔴 Le jeton ne va PLUS dans `.env.local`, et c'est un retrait motivé :
+      // AUCUN code de l'application ne lit `NF_MCP_TOKEN`. C'est cohérent — une
+      // application est ici le serveur de RESSOURCE : elle vérifie les jetons
+      // qu'on lui présente, elle n'en porte aucun. Le secret y dormait donc sans
+      // lecteur, pure surface d'attaque, pendant que le seul consommateur — un
+      // agent — le cherchait ailleurs et recevait un 401 qui accusait le jeton.
+      // Et la duplication ne survivait pas à la première rotation : le fichier
+      // refusait d'être touché quand les agents, eux, recevaient le neuf.
+      const demandes = agentsDemandes(opts.agent);
+      if (demandes instanceof Error) {
+        this.log(demandes.message, "ERROR");
+        process.exitCode = 1;
+        return this;
+      }
+      // Rien de demandé et un terminal répond : on PROPOSE ce qui est détecté
+      // plutôt que d'écrire d'office chez quelqu'un. Écrire dans la
+      // configuration d'un autre outil est un geste qui se voit et se refuse.
+      let cibles = demandes ?? this.#agentsPresents();
+      if (demandes === undefined && cibles.length > 0 && process.stdin.isTTY) {
+        const { checkbox } = await import("@inquirer/prompts");
+        const choisis = (await checkbox({
+          message: "Poser le jeton chez quels agents ?",
+          choices: cibles.map((c) => ({
+            name: `${c.nom} — ${c.portee === "projet" ? c.fichier : `$${c.home}/${c.fichier}`}`,
+            value: c.cle,
+            checked: true,
+          })),
+        })) as string[];
+        cibles = cibles.filter((c) => choisis.includes(c.cle));
+      }
+      const servis = this.#poseChezAgents(jeton, w, cibles);
+      if (servis === 0) {
         w(
-          `${YELLOW}⚠ .env.local est SUIVI par git — rien n'est écrit.${RESET}\n` +
-            `${DIM}  Un jeton commité est un jeton publié. Ajoute .env.local au .gitignore.${RESET}\n\n`,
-        );
-      } else if (
-        new RegExp(`^\\s*${MCP_TOKEN_ENV}\\s*=`, "m").test(
-          this.#read(".env.local"),
-        )
-      ) {
-        // Jamais de remplacement : une rotation est un geste explicite, et
-        // écraser en silence ferait perdre un jeton encore utilisé ailleurs.
-        w(
-          `${YELLOW}⚠ ${MCP_TOKEN_ENV} existe déjà dans .env.local — inchangé.${RESET}\n` +
-            `${DIM}  Remplace la ligne à la main pour tourner le jeton :${RESET}\n\n` +
-            `  ${MCP_TOKEN_ENV}=${jeton}\n\n` +
-            `${DIM}  Et pour ton agent — qui ne lit AUCUN .env, il résout la variable dans\n` +
-            `  son propre environnement :${RESET}\n\n` +
+          `${YELLOW}⚠ aucun agent reconnu dans ce projet — rien n'est écrit.${RESET}\n` +
+            `${DIM}  Les agents connus rangent leur configuration ici :${RESET}\n` +
+            AGENT_TARGETS.map(
+              (c) =>
+                `${DIM}    ${c.nom} : ${c.portee === "projet" ? c.fichier : `$${c.home ?? "HOME"}/${c.fichier}`}${RESET}\n`,
+            ).join("") +
+            `\n  Le geste qui vaut pour TOUS — dans le shell d'où tu lances l'agent :\n\n` +
             `  ${BOLD}export ${MCP_TOKEN_ENV}=${jeton}${RESET}\n\n`,
         );
-      } else {
-        // Le commentaire dit CE QUE CE JETON PEUT — compte, rôles, scopes,
-        // durée. Un jeton est opaque à l'œil : sans cette ligne, celui qui
-        // relit `.env.local` dans trois semaines ne sait ni qui il incarne, ni
-        // pourquoi la porte le refuse (elle le refusera : il aura expiré).
-        const roles = (user.roles ?? []) as readonly string[];
-        appendFileSync(
-          path.resolve(this.#root(), ".env.local"),
-          `\n# Jeton de la porte MCP — compte « ${identifier} »` +
-            `${roles.length ? ` · rôles ${roles.join(", ")}` : " · aucun rôle"}` +
-            `${scopes.length ? ` · scopes ${scopes.join(" ")}` : " · aucun scope"}\n` +
-            `# audience ${resource} · valable ${minutes} min` +
-            ` à partir du ${new Date().toISOString()}\n` +
-            `${MCP_TOKEN_ENV}=${jeton}\n`,
-          "utf8",
-        );
-        w(
-          `${GREEN}✓ ${MCP_TOKEN_ENV} écrit dans .env.local${RESET} ${DIM}(gitignoré)${RESET}\n\n` +
-            // 🔴 CE QUI MANQUAIT, et qui coûtait une heure de diagnostic.
-            // `.env.local` est lu par l'APPLICATION à son démarrage. Le client
-            // MCP, lui, ne le lit jamais : il résout `\${NF_MCP_TOKEN}` de
-            // `.mcp.json` dans SON PROPRE environnement. Absent, il envoie
-            // l'en-tête non substitué — et le serveur répond « autorisation
-            // requise », un 401 qui accuse le jeton alors qu'il est parfait.
-            // « Redémarre ton agent » laissait croire que le fichier suffisait.
-            `${YELLOW}⚠ .env.local ne suffit PAS pour ton agent.${RESET}\n` +
-            `${DIM}  Ce fichier est lu par l'APPLICATION à son démarrage. Le client MCP, lui,\n` +
-            `  résout \${${MCP_TOKEN_ENV}} de .mcp.json dans SON environnement — il ne lit\n` +
-            `  aucun .env. Sans la variable, il envoie l'en-tête tel quel et reçoit un 401\n` +
-            `  « autorisation requise », qui accuse le jeton à tort.${RESET}\n\n` +
-            `  Deux façons de la lui donner — dans les deux cas, RELANCE l'agent :\n\n` +
-            `  ${BOLD}export ${MCP_TOKEN_ENV}=${jeton}${RESET}\n` +
-            `${DIM}    …dans le shell d'où tu le lances (vaut pour tout agent).${RESET}\n\n` +
-            `${DIM}  ou, pour Claude Code, une valeur qui SURVIT au shell — clé "env" de\n` +
-            `  .claude/settings.local.json (fichier local, jamais commité) :${RESET}\n\n` +
-            `  ${BOLD}{ "env": { "${MCP_TOKEN_ENV}": "<le jeton>" } }${RESET}\n\n`,
-        );
       }
+      w(
+        `${DIM}  Vibe et Codex prennent le NOM de la variable, pas le secret — ` +
+          `déclare la porte une fois :${RESET}\n\n` +
+          `  ${DIM}vibe mcp add nodefony --transport streamable-http \\${RESET}\n` +
+          `  ${DIM}  --url ${resource} --api-key-env ${MCP_TOKEN_ENV}${RESET}\n` +
+          `  ${DIM}codex mcp add nodefony --url ${resource} \\${RESET}\n` +
+          `  ${DIM}  --bearer-token-env-var ${MCP_TOKEN_ENV}${RESET}\n\n`,
+      );
       return this;
     }
 

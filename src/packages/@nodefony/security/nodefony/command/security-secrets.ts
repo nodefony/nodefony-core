@@ -169,18 +169,26 @@ class SecuritySecrets extends Command {
       );
     }
     // 🔴 Ce qui N'EST PAS un secret de cette application, et la question qui
-    // vient : « pourquoi NF_MCP_TOKEN n'est pas là ? ». Il vit dans le même
-    // `.env.local`, à côté des quatre — d'où la confusion. Ce n'est pas une clé
-    // dont l'application a besoin pour fonctionner : c'est un JETON qu'elle
-    // ÉMET, que son porteur présente pour entrer, et qui expire en quinze
-    // minutes. Le taire laisserait croire à un oubli.
-    const jetonPose = /^\s*NF_MCP_TOKEN\s*=/m.test(dotenvLocal);
+    // vient : « pourquoi NF_MCP_TOKEN n'est pas là ? ». Ce n'est pas une clé
+    // dont l'application a besoin pour fonctionner — AUCUN de son code ne la
+    // lit : c'est un JETON qu'elle ÉMET, que son porteur présente pour entrer.
+    // Il ne vit donc pas ici mais chez l'agent qui le porte. Le taire
+    // laisserait croire à un oubli.
+    const jetonEncoreLa = /^\s*NF_MCP_TOKEN\s*=/m.test(dotenvLocal);
     w(
-      `\n${DIM}  ${jetonPose ? "· " : "· "}NF_MCP_TOKEN vit dans le même .env.local, et n'est PAS un secret de\n` +
-        `    cette application : c'est un jeton qu'elle ÉMET, présenté par un agent\n` +
-        `    pour entrer, valable quinze minutes. Il se régénère à volonté —\n` +
-        `    nodefony security:token --write — et n'a rien à faire dans cette liste.${RESET}\n`,
+      `\n${DIM}  · NF_MCP_TOKEN n'est PAS un secret de cette application, et n'a rien à\n` +
+        `    faire dans cette liste : c'est un jeton qu'elle ÉMET, présenté par un\n` +
+        `    agent pour entrer. Aucun code d'ici ne le lit. Il se pose chez l'agent\n` +
+        `    qui le porte — nodefony security:token --write.${RESET}\n`,
     );
+    if (jetonEncoreLa) {
+      // Une ligne héritée du temps où `--write` écrivait ici : un secret sans
+      // lecteur, qui ne fait qu'attendre d'être commité par erreur.
+      w(
+        `${YELLOW}  ⚠ une ligne NF_MCP_TOKEN traîne encore dans .env.local — rien ne la lit,\n` +
+          `    tu peux la retirer.${RESET}\n`,
+      );
+    }
     w(
       `\n${YELLOW}⚠ rien ne se tape dans le terminal : chaque bloc se colle dans le fichier indiqué.${RESET}\n\n`,
     );
