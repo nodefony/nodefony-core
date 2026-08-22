@@ -413,8 +413,29 @@ export const ACCESS_TOKEN_VERIFIER = "accessTokenVerifier";
 
 /** Politique appliquée à une requête vers une ressource protégée. */
 export interface IProtectedResourcePolicy {
-  /** URI canonique de la ressource — l'audience attendue. */
+  /** URI canonique de la ressource — l'audience PUBLIÉE, et la première essayée. */
   resource: string;
+  /**
+   * Autres URI sous lesquelles CETTE MÊME ressource est joignable, et dont les
+   * jetons sont acceptés.
+   *
+   * ⭐ Une ressource peut avoir plusieurs adresses sans cesser d'être une : la
+   * même porte servie en clair sur un port et en TLS sur un autre est un cas
+   * courant en développement, et un jeton émis pour l'une était refusé sur
+   * l'autre — la liaison d'audience faisant, à juste titre, son travail. La
+   * réponse n'est pas de relâcher la liaison, c'est de DIRE quelles adresses
+   * désignent cette ressource.
+   *
+   * 🔴 Ces valeurs s'ÉCRIVENT, elles ne se dérivent jamais du `Host` de la
+   * requête : dérivées, un `Host` forgé obtiendrait un jeton d'audience
+   * arbitraire *et* passerait la vérification, ce qui viderait la liaison de sa
+   * seule raison d'être. La liste reste FERMÉE.
+   *
+   * Le document RFC 9728 ne publie que {@link IProtectedResourcePolicy.resource}
+   * — la RFC n'y admet qu'une valeur, et un client n'a besoin que d'une adresse
+   * pour demander son jeton.
+   */
+  acceptedResources?: readonly string[];
   /** URL du document de métadonnées, citée dans chaque refus. */
   metadataUrl: string;
   /** Scopes annoncés au client quand on le refuse. */
@@ -440,8 +461,13 @@ export type ProtectedResourceOutcome =
    * La ressource se dit protégée, mais rien ne peut vérifier un jeton.
    * La porte DOIT alors refuser de servir — laisser passer reviendrait à
    * accepter n'importe quel porteur.
+   *
+   * Deux causes, que `why` distingue POUR LE JOURNAL seul : aucun vérificateur
+   * n'est posé (faute de configuration), ou le vérificateur a ÉCHOUÉ — émetteur
+   * injoignable, jeu de clés illisible. Le client, lui, reçoit le même refus
+   * dans les deux cas : ce qui empêche de le servir ne le regarde pas.
    */
-  | { outcome: "unverifiable" };
+  | { outcome: "unverifiable"; why?: string };
 
 /**
  * Décide du sort d'une requête d'après l'en-tête `Authorization`.
@@ -497,7 +523,28 @@ export async function authorizeProtectedResource(
   // accepter en pratique n'importe lequel.
   if (!verify) return { outcome: "unverifiable" };
 
-  const principal = await verify(token, policy.resource);
+  // 🔴 Une PANNE de vérification n'est pas un jeton invalide, et ce n'est pas
+  // non plus une erreur du client. Sans ce rattrapage, l'exception traversait la
+  // porte et sortait en 500 avec sa trace d'appels — le porteur d'un jeton
+  // PARFAITEMENT valide lisait une pile Node, et l'exploitant cherchait la faute
+  // dans le jeton. Vécu : un émetteur injoignable parce que le certificat de
+  // développement de l'application n'est pas dans le magasin d'autorités de
+  // Node. Le verdict est `unverifiable` — la porte refuse de servir, et le dit.
+  let principal: IAccessPrincipal | null = null;
+  try {
+    // L'audience publiée d'abord — c'est celle que suivra un client conforme.
+    // Les autres adresses de la MÊME ressource ensuite, dans l'ordre écrit. La
+    // boucle est bornée par la configuration, jamais par la requête.
+    for (const audience of [
+      policy.resource,
+      ...(policy.acceptedResources ?? []),
+    ]) {
+      principal = await verify(token, audience);
+      if (principal !== null) break;
+    }
+  } catch (error) {
+    return { outcome: "unverifiable", why: (error as Error).message };
+  }
   if (principal === null) {
     return {
       outcome: "challenge",

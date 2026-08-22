@@ -107,6 +107,10 @@ export default {
         // de l'inscrire, et l'application serait protégée par une porte que
         // rien ne sait ouvrir.
         "http://localhost:5151/nodefony/mcp",
+        // La MÊME porte, servie en TLS. Deux adresses, une seule ressource :
+        // un agent qui parle en https doit pouvoir obtenir un jeton que la
+        // porte acceptera (cf `mcp.authorization.additionalResources`).
+        "https://localhost:5152/nodefony/mcp",
       ],
     },
     // P6.9 — DEUX émetteurs, pour les deux moitiés du contrat.

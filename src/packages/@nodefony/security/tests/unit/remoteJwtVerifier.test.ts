@@ -444,3 +444,86 @@ describe("RemoteJwtVerifier — une PANNE n'est pas un jeton invalide", () => {
     assert.ok(await verifier.verify(token, RESOURCE));
   });
 });
+
+/**
+ * Ce que cette suite prouve : que l'application peut vérifier les jetons de son
+ * PROPRE émetteur sans toucher au réseau.
+ *
+ * Le cas est structurel : elle signe ces jetons, elle a donc déjà les clés. Les
+ * relire par HTTP chez elle-même ajoutait à une opération locale une dépendance
+ * au réseau et à TLS — et c'est exactement là que ça cassait, l'application se
+ * servant en développement un certificat que le magasin d'autorités de Node ne
+ * connaît pas. Le `fetch` injecté ici LÈVE : toute requête sortante fait donc
+ * tomber le test, ce qui est la seule façon de prouver qu'il n'y en a aucune.
+ */
+describe("RemoteJwtVerifier — les clés LOCALES, sans aucune requête", () => {
+  /** Un `fetch` qui refuse de servir : le réseau est interdit ici. */
+  const interdit = (): Promise<Response> => {
+    throw new Error("aucune requête sortante ne doit avoir lieu");
+  };
+
+  it("vérifie un jeton avec le jeu de clés fourni, sans découverte ni JWKS", async () => {
+    const issuer = await fakeIssuer("local-1", "EdDSA");
+    const verifier = new RemoteJwtVerifier({
+      issuers: [
+        {
+          issuer: ISSUER,
+          algorithms: ["EdDSA"],
+          localJwks: async () => issuer.jwks,
+        },
+      ],
+      fetch: interdit as unknown as typeof fetch,
+    });
+
+    const token = await issuer.sign({ sub: "agent-local", scope: "mcp:read" });
+    const principal = await verifier.verify(token, RESOURCE);
+
+    assert.ok(principal);
+    assert.equal(principal.subject, "agent-local");
+  });
+
+  it("🔴 relit le jeu de clés à CHAQUE vérification — une rotation est suivie", async () => {
+    // Sens du test : mémoïser ce jeu ferait survivre une clé retirée jusqu'au
+    // prochain redémarrage. Il ne coûte aucune requête, il n'y a donc rien à
+    // économiser — et beaucoup à perdre.
+    const issuer = await fakeIssuer("local-2", "EdDSA");
+    let lectures = 0;
+    const verifier = new RemoteJwtVerifier({
+      issuers: [
+        {
+          issuer: ISSUER,
+          algorithms: ["EdDSA"],
+          localJwks: async () => {
+            lectures += 1;
+            return issuer.jwks;
+          },
+        },
+      ],
+      fetch: interdit as unknown as typeof fetch,
+    });
+
+    const token = await issuer.sign({ sub: "agent-local" });
+    await verifier.verify(token, RESOURCE);
+    await verifier.verify(token, RESOURCE);
+
+    assert.equal(lectures, 2);
+  });
+
+  it("refuse un jeton signé par une clé ABSENTE du jeu local", async () => {
+    const maison = await fakeIssuer("local-3", "EdDSA");
+    const etranger = await fakeIssuer("autre", "EdDSA");
+    const verifier = new RemoteJwtVerifier({
+      issuers: [
+        {
+          issuer: ISSUER,
+          algorithms: ["EdDSA"],
+          localJwks: async () => maison.jwks,
+        },
+      ],
+      fetch: interdit as unknown as typeof fetch,
+    });
+
+    const token = await etranger.sign({ sub: "intrus" });
+    assert.equal(await verifier.verify(token, RESOURCE), null);
+  });
+});

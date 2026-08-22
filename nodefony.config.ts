@@ -420,6 +420,11 @@ export default defineConfig<Env>((ctx) => ({
             // par laquelle un client entre réellement (cf `.mcp.json`) ; en
             // production, l'URL publique en https.
             resource: "http://localhost:5151/nodefony/mcp",
+            // La même porte répond aussi en TLS, sur le second serveur. Sans
+            // cette ligne, un jeton demandé pour l'adresse https était refusé
+            // ici — la liaison d'audience faisant, à juste titre, son travail.
+            // Ces valeurs s'ÉCRIVENT, jamais ne se dérivent du `Host`.
+            additionalResources: ["https://localhost:5152/nodefony/mcp"],
             resourceName: "Nodefony — outils de développement",
             // 🔴 LES DEUX MODES À LA FOIS, et c'est un choix de DÉVELOPPEMENT.
             //

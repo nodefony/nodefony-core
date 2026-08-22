@@ -4,6 +4,7 @@ import {
   Container,
   Event,
   ACCESS_TOKEN_VERIFIER,
+  canonicalIssuer,
 } from "nodefony";
 import type { IAccessPrincipal, IAccessTokenVerifier } from "nodefony";
 import {
@@ -12,6 +13,8 @@ import {
   type ISecurityConfigInput,
 } from "../config/defineModuleConfig";
 import { RemoteJwtVerifier } from "../src/token/RemoteJwtVerifier";
+import type { IJwtKeystore } from "../contracts/IJwtKeystore";
+import type { JSONWebKeySet } from "jose";
 
 // Le nom du SERVICE Nodefony (journaux, introspection) et le nom du point de
 // rendez-vous dans le conteneur sont un seul et même identifiant, importé du
@@ -73,9 +76,40 @@ class AccessTokenVerifierService extends Service {
       );
       return;
     }
+    // ⭐ L'émetteur peut être CETTE application — elle signe ses propres jetons.
+    // Dans ce cas, ses clés publiques sont déjà en mémoire : les relire par HTTP
+    // chez elle-même ajouterait à une opération locale une dépendance au réseau
+    // et à TLS. C'est ce qui la faisait échouer en développement — le certificat
+    // qu'elle se sert n'est pas dans le magasin d'autorités de Node, si bien que
+    // la vérification tombait en `SELF_SIGNED_CERT_IN_CHAIN` avec un jeton
+    // parfaitement valide et la clé à portée de main. Le keystore est résolu
+    // PARESSEUSEMENT (au premier jeton) : l'ordre des services au démarrage n'a
+    // donc pas à être garanti.
+    const localIssuer = config.jwt.issuer;
+    const armed = issuers.map((trusted) =>
+      localIssuer &&
+      canonicalIssuer(trusted.issuer) === canonicalIssuer(localIssuer)
+        ? {
+            ...trusted,
+            localJwks: async (): Promise<JSONWebKeySet> => {
+              const keystore = this.container?.get(
+                "jwtKeystore",
+              ) as IJwtKeystore | null;
+              if (!keystore) {
+                throw new Error(
+                  `l'émetteur « ${trusted.issuer} » est cette application, mais ` +
+                    `sa capacité JWT n'est pas armée (security.jwt) — aucune clé ` +
+                    `locale à présenter`,
+                );
+              }
+              return keystore.getPublicJWKS();
+            },
+          }
+        : trusted,
+    );
     try {
       this.#verifier = new RemoteJwtVerifier({
-        issuers,
+        issuers: armed,
         timeoutMs: tuning.timeoutMs,
         cooldownMs: tuning.cooldownMs,
         cacheMaxAgeMs: tuning.cacheMaxAgeMs,
@@ -102,9 +136,13 @@ class AccessTokenVerifierService extends Service {
     ): Promise<IAccessPrincipal | null> =>
       (this.#verifier as RemoteJwtVerifier).verify(token, audience);
     this.container?.set(serviceName, verify);
+    const locaux = armed.filter((i) => "localJwks" in i).length;
     this.log(
       `vérificateur de jetons armé — ${issuers.length} émetteur(s) de confiance : ` +
-        issuers.map((i) => i.issuer).join(", "),
+        issuers.map((i) => i.issuer).join(", ") +
+        (locaux > 0
+          ? ` (dont ${locaux} servi par les clés LOCALES, sans requête)`
+          : ""),
       "INFO",
     );
   }

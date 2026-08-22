@@ -322,3 +322,88 @@ describe("missingScopes — TOUS, jamais « au moins un »", () => {
     ]);
   });
 });
+
+/**
+ * Ce que cette suite prouve : qu'une ressource peut avoir PLUSIEURS adresses
+ * sans que la liaison d'audience cesse de mordre, et qu'une PANNE de
+ * vérification ne se confond ni avec un refus, ni avec une erreur du client.
+ */
+describe("authorizeProtectedResource — plusieurs adresses, et la panne", () => {
+  const base: IProtectedResourcePolicy = {
+    resource: "http://app.example:5151/nodefony/mcp",
+    metadataUrl:
+      "http://app.example:5151/.well-known/oauth-protected-resource/nodefony/mcp",
+    allowAnonymous: false,
+  };
+
+  /** Un vérificateur qui n'accepte QU'UNE audience — comme un vrai. */
+  const lie =
+    (audienceAttendue: string, vues: string[]): IAccessTokenVerifier =>
+    async (_token, audience) => {
+      vues.push(audience);
+      return audience === audienceAttendue
+        ? { issuer: "https://idp.example", subject: "agent", scopes: [] }
+        : null;
+    };
+
+  it("accepte un jeton émis pour une AUTRE adresse de la même ressource", async () => {
+    const vues: string[] = [];
+    const r = await authorizeProtectedResource(
+      "Bearer jeton",
+      { ...base, acceptedResources: ["https://app.example:5152/nodefony/mcp"] },
+      lie("https://app.example:5152/nodefony/mcp", vues),
+    );
+    expect(r.outcome).to.equal("authenticated");
+    // L'adresse PUBLIÉE est essayée en premier — c'est celle qu'un client
+    // conforme aura suivie ; la seconde n'est un repli que parce qu'elle est
+    // ÉCRITE dans la configuration.
+    expect(vues).to.deep.equal([
+      "http://app.example:5151/nodefony/mcp",
+      "https://app.example:5152/nodefony/mcp",
+    ]);
+  });
+
+  it("🔴 refuse une audience qui n'est PAS déclarée — la liaison mord toujours", async () => {
+    // Sens du test : élargir la liste ne doit pas la supprimer. Un jeton émis
+    // pour un autre service reste un jeton pour un autre service.
+    const vues: string[] = [];
+    const r = await authorizeProtectedResource(
+      "Bearer jeton",
+      { ...base, acceptedResources: ["https://app.example:5152/nodefony/mcp"] },
+      lie("https://api.etranger.example/v1", vues),
+    );
+    expect(r.outcome).to.equal("challenge");
+    if (r.outcome !== "challenge") return;
+    expect(r.status).to.equal(401);
+    // Rien n'a été essayé hors de la liste ÉCRITE.
+    expect(vues).to.not.contain("https://api.etranger.example/v1");
+  });
+
+  it("sans autres adresses déclarées, une seule audience est essayée", async () => {
+    const vues: string[] = [];
+    await authorizeProtectedResource("Bearer jeton", base, lie("aucune", vues));
+    expect(vues).to.deep.equal(["http://app.example:5151/nodefony/mcp"]);
+  });
+
+  it("🔴 un vérificateur qui LÈVE rend `unverifiable`, jamais une exception", async () => {
+    // Sens du test : sans ce rattrapage, l'exception traversait la porte et
+    // sortait en 500 avec sa trace d'appels — le porteur d'un jeton valide
+    // lisait une pile Node, et l'exploitant cherchait la faute dans le jeton.
+    const panne: IAccessTokenVerifier = async () => {
+      throw new Error("émetteur injoignable — SELF_SIGNED_CERT_IN_CHAIN");
+    };
+    const r = await authorizeProtectedResource("Bearer jeton", base, panne);
+    expect(r.outcome).to.equal("unverifiable");
+    if (r.outcome !== "unverifiable") return;
+    // La cause est portée POUR LE JOURNAL — le client, lui, reçoit un refus nu.
+    expect(r.why).to.contain("SELF_SIGNED_CERT_IN_CHAIN");
+  });
+
+  it("distingue la panne de l'ABSENCE de vérificateur", async () => {
+    const r = await authorizeProtectedResource("Bearer jeton", base, undefined);
+    expect(r.outcome).to.equal("unverifiable");
+    if (r.outcome !== "unverifiable") return;
+    // Rien n'a échoué : rien n'était posé. Le journal doit pouvoir le dire.
+    expect(r.why).to.equal(undefined);
+  });
+});

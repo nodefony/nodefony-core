@@ -76,6 +76,29 @@ const mcpAuthorizationSchema = z
       .describe("URI publique de la porte MCP (audience attendue des jetons)"),
 
     /**
+     * Autres adresses de CETTE MÊME porte, dont les jetons sont aussi acceptés.
+     *
+     * Le cas courant : l'application sert la porte en clair sur un port et en
+     * TLS sur un autre. Un jeton émis pour l'une était alors refusé sur l'autre
+     * — la liaison d'audience (RFC 8707) faisant son travail. Nommer la seconde
+     * adresse est la bonne réponse ; relâcher la liaison n'en serait pas une.
+     *
+     * 🔴 Ces valeurs s'ÉCRIVENT. Dérivées du `Host`, un en-tête forgé
+     * obtiendrait un jeton d'audience arbitraire ET passerait la vérification.
+     * Seule `resource` est publiée en RFC 9728 : le document n'admet qu'une
+     * valeur, et un client n'a besoin que d'une adresse.
+     *
+     * ⚠️ L'ÉMETTEUR doit servir ces audiences (`security.jwt.audiences`), sinon
+     * il refuse de les émettre — `invalid_target`, et à juste titre.
+     */
+    additionalResources: z
+      .array(z.string())
+      .default([])
+      .describe(
+        "Autres URI de la même porte dont les jetons sont acceptés (jamais dérivées du Host)",
+      ),
+
+    /**
      * Scopes que cette porte comprend — publiés, et proposés au client quand on
      * le refuse.
      *

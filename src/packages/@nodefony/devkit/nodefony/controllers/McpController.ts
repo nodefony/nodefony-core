@@ -174,6 +174,7 @@ class McpController extends Controller {
         authorization,
         {
           resource: authz.resource,
+          acceptedResources: authz.additionalResources,
           metadataUrl: protectedResourceMetadataUrl(authz.resource),
           scopes: authz.scopesSupported,
           allowAnonymous: authz.anonymous,
@@ -183,15 +184,22 @@ class McpController extends Controller {
 
       switch (authVerdict.outcome) {
         case "unverifiable":
-          // 🔴 La porte se DIT protégée et rien ne sait vérifier un jeton.
+          // 🔴 La porte se DIT protégée et le jeton n'a pas pu être jugé.
           // Servir reviendrait à accepter n'importe quel porteur ; se taire
           // laisserait croire à une protection qui n'existe pas. On refuse, et
-          // on crie — c'est une faute de configuration, pas une panne passagère.
+          // on crie. Deux causes, deux messages : rien n'est POSÉ (faute de
+          // configuration) ou la vérification a ÉCHOUÉ (panne). Les confondre
+          // envoyait chercher une clé manquante là où l'émetteur était
+          // simplement injoignable.
           this.log(
-            "MCP — `mcp.authorization` déclare un serveur d'autorisation, mais " +
-              "aucun service du conteneur ne sait vérifier un jeton " +
-              "(`accessTokenVerifier`). La porte refuse de servir : accepter les " +
-              "porteurs sans les valider serait pire que rester anonyme.",
+            authVerdict.why
+              ? "MCP — la vérification du jeton a ÉCHOUÉ, le jeton n'est donc " +
+                  "ni accepté ni refusé : la porte refuse de servir (503). " +
+                  `Cause — ${authVerdict.why}`
+              : "MCP — `mcp.authorization` déclare un serveur d'autorisation, mais " +
+                  "aucun service du conteneur ne sait vérifier un jeton " +
+                  "(`accessTokenVerifier`). La porte refuse de servir : accepter les " +
+                  "porteurs sans les valider serait pire que rester anonyme.",
             "CRITIC",
           );
           return this.renderJson(
