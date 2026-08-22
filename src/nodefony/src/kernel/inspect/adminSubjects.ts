@@ -140,6 +140,23 @@ export type InspectResult =
        * qui résume un refus lui fait dire autre chose.
        */
       body?: unknown;
+      /**
+       * Message de l'exception, quand le handler a LEVÉ — réservé à un
+       * appelant local.
+       *
+       * 🔴 **Il ne traverse aucune porte distante.** Le transport HTTP rend
+       * « Internal admin handler error » et rien d'autre : le message d'une
+       * exception porte ce que le code avait sous la main au moment de
+       * l'échec — un chemin de disque, une requête, une valeur de
+       * configuration. Le recopier dans {@link InspectResult.message} faisait
+       * fuir par la porte MCP ce que la porte HTTP masque, sur exactement les
+       * mêmes handlers. Une porte qui en dit plus qu'une autre sur la même
+       * donnée est une faille, pas une commodité.
+       *
+       * L'opérateur qui lance une commande sur sa propre machine, lui, peut le
+       * lire : il possède déjà le processus et ses journaux.
+       */
+      cause?: string;
     };
 
 /** Vue minimale du broker dont cette lecture a besoin. */
@@ -265,7 +282,10 @@ export async function callAdminEndpoint(
     return {
       ok: false,
       reason: "handler-failed",
-      message: `inspection impossible : ${(thrown as Error).message}`,
+      // Générique, comme le transport HTTP : la cause part dans un champ que
+      // seul un appelant local publie.
+      message: `« ${label} » n'a pas pu être lu — le producteur a échoué`,
+      cause: (thrown as Error).message,
     };
   }
 

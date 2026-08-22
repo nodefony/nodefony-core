@@ -356,7 +356,17 @@ describe("callAdminEndpoint — le refus du producteur voyage ENTIER", () => {
     expect(read.ok).to.equal(false);
     if (read.ok) return;
     expect(read.reason).to.equal("handler-failed");
-    expect(read.message).to.contain("store injoignable");
+    // La DISTINCTION est ce qui compte : une panne n'est pas un refus, et
+    // l'appelant doit pouvoir les traiter différemment.
+    expect(read.message).to.contain("le producteur a échoué");
+    // 🔴 La CAUSE voyage à part, et jamais dans le message : un message
+    // d'exception porte ce que le code avait sous la main au moment de
+    // l'échec — chemin de disque, requête, valeur de configuration. Le
+    // transport HTTP rend « Internal admin handler error » et rien d'autre ;
+    // une porte distante qui en dirait plus sur les MÊMES handlers serait une
+    // fuite. Seul un appelant local la publie.
+    expect(read.message).to.not.contain("store injoignable");
+    expect(read.cause).to.equal("store injoignable");
   });
 });
 

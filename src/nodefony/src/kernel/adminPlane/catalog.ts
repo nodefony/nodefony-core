@@ -105,12 +105,22 @@ function pathParams(path: string): string[] {
  */
 function readPageCapabilities(
   page: NonNullable<IAdminEndpoint["page"]>,
-): NonNullable<IAdminCatalogEntry["page"]> {
-  return {
-    sortable: page.sortable?.() ?? [],
-    filters: Object.keys(page.filters ?? {}),
-    search: page.search?.() ?? false,
-  };
+): IAdminCatalogEntry["page"] {
+  try {
+    return {
+      sortable: page.sortable?.() ?? [],
+      filters: Object.keys(page.filters ?? {}),
+      search: page.search?.() ?? false,
+    };
+  } catch {
+    // 🔴 Un producteur dont le store est en panne ne doit pas fermer la porte
+    // pour tous les autres : l'évaluation interroge un backend, donc elle peut
+    // échouer, et une exception ici emportait le catalogue ENTIER — `admin_list`
+    // et `admin_call` avec lui. Ne rien publier est le repli sûr : le plan
+    // REFUSE en 400 ce qu'un endpoint n'a pas déclaré, donc une capacité tue
+    // ne promet rien de faux.
+    return undefined;
+  }
 }
 
 /**

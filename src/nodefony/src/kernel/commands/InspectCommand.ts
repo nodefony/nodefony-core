@@ -147,7 +147,12 @@ class Inspect extends Command {
         read.reason === "missing-target"
           ? ` : nodefony inspect ${subject} <${INSPECT_SUBJECTS[subject]?.param}>`
           : "";
-      this.log(`${read.message}${hint}`, "ERROR");
+      // La CAUSE d'une panne de handler n'est écrite QU'ICI : cette commande
+      // tourne sur la machine de celui qui la lance, qui possède déjà le
+      // processus et ses journaux. Les portes distantes (MCP) ne la publient
+      // pas — un message d'exception porte ce que le code avait sous la main.
+      const pourquoi = read.cause ? ` — ${read.cause}` : "";
+      this.log(`${read.message}${pourquoi}${hint}`, "ERROR");
       // Le producteur joint souvent DE QUOI corriger l'appel (les valeurs
       // acceptées, le plan d'une page). Le taire laisse deviner ; le rendre
       // coûte une ligne.

@@ -323,6 +323,18 @@ const CATALOG_SUMMARY_MAX = 96;
 const CATALOG_PATH_COLUMN = 34;
 
 /**
+ * Budget du catalogue rendu, sous la borne générique de {@link mcpText}.
+ *
+ * 🔴 Il ne s'agit pas de politesse : au-delà de sa borne, `mcpText` remplace une
+ * CHAÎNE par une note générique — le résumé sait ramener une liste à son compte
+ * et un objet à ses clés, mais d'un texte il ne garde rien. Le catalogue
+ * disparaîtrait donc en entier, en conseillant « demande une branche précise »,
+ * un geste qui ne désigne rien ici. On borne nous-mêmes, en gardant des entrées
+ * ET en nommant les deux restrictions qui EXISTENT.
+ */
+const CATALOG_MAX_CHARS = 24_000;
+
+/**
  * Met le catalogue en forme pour un lecteur qui va s'en servir tout de suite.
  *
  * Texte plutôt que JSON, et ce n'est pas une question de goût : la même
@@ -394,7 +406,14 @@ function renderAdminCatalog(view: IAdminCatalogView): string {
   if (view.entries.length === 0) {
     lines.push("", "(aucune entrée ne répond à cette demande)");
   }
-  return lines.join("\n");
+  const rendu = lines.join("\n");
+  if (rendu.length <= CATALOG_MAX_CHARS) return rendu;
+  // Bornage ANNONCÉ, et le geste proposé existe vraiment — restreindre par
+  // producteur ou par termes. Une troncature muette ferait conclure que le
+  // reste du plan n'existe pas.
+  const coupe = rendu.slice(0, CATALOG_MAX_CHARS);
+  const propre = coupe.slice(0, coupe.lastIndexOf("\n"));
+  return `${propre}\n\n… catalogue tronqué (${rendu.length} caractères pour ${view.entries.length} entrées). Rappelle l'outil avec namespace: "<producteur>" ou q: "<termes>" pour voir le reste.`;
 }
 
 /**
