@@ -237,10 +237,34 @@ export const NPM_SCRIPT_CATALOG: readonly {
     when: "Les tests unitaires du projet (vitest). Rapides — le boot réel vit dans test:e2e.",
   },
   {
+    script: "test:integration",
+    summary: "tests d'intégration (serveur réel)",
+    group: "Qualité (npm run)",
+    when: "Les suites qui frappent un serveur RÉEL. Plus lentes que les unitaires, plus rapides que l'e2e complet — et elles voient ce qu'un mock ne verra jamais.",
+  },
+  {
     script: "test:e2e",
     summary: "build + boot réel + HTTP/WS",
     group: "Qualité (npm run)",
     when: "Le gate LENT : build, boot réel, HTTP/WS de bout en bout. À jouer avant de livrer, pas à chaque sauvegarde.",
+  },
+  {
+    script: "test:memory",
+    summary: "seuils de heap (fuites)",
+    group: "Qualité (npm run)",
+    when: "Le gate MÉMOIRE : 1000 requêtes, 100 crashs, 100 connexions WS, et les seuils de heap. À lancer avant tout commit qui touche le pipeline de requête — une fuite ne se voit dans aucun autre test.",
+  },
+  {
+    script: "test:all",
+    summary: "docker + build + tout, et le rapport",
+    group: "Qualité (npm run)",
+    when: "TOUT, dans l'ordre, en démarrant l'infra manquante — et surtout : il DIT ce qu'il n'a PAS testé. Un « vert » qui cache des suites sautées est le piège le plus coûteux du dépôt.",
+  },
+  {
+    script: "typecheck",
+    summary: "types seuls (tsgo --noEmit)",
+    group: "Qualité (npm run)",
+    when: "Les types SEULS, sans rien exécuter. Indispensable parce que des tests verts ne typecheckent RIEN : une suite peut passer sur du code qui ne compile pas chez celui qui l'installe.",
   },
   {
     script: "lint",
@@ -253,6 +277,24 @@ export const NPM_SCRIPT_CATALOG: readonly {
     summary: "reformate tout (prettier)",
     group: "Qualité (npm run)",
     when: "Reformate tout le projet (prettier --write).",
+  },
+  {
+    script: "clean",
+    summary: "supprime dist/",
+    group: "Qualité (npm run)",
+    when: "Efface `dist/`. À faire après un merge ou un renommage d'export : le runtime charge le BUILD, et un dist périmé rend des 404 sur des routes qui existent — la cause perdue n°1.",
+  },
+  {
+    script: "see",
+    summary: "regarde l'écran (et le MESURE)",
+    group: "Qualité (npm run)",
+    when: "Ouvre la page dans un navigateur piloté : contrastes CALCULÉS, arbre d'accessibilité, console, requêtes réelles. Pour CONSTATER un rendu au lieu de le supposer.",
+  },
+  {
+    script: "audit:web",
+    summary: "audit Lighthouse + accessibilité",
+    group: "Qualité (npm run)",
+    when: "Audit complet d'une page servie : performance, accessibilité (axe), bonnes pratiques. Plus lourd que `see` — pour une revue, pas pour une boucle de dev.",
   },
   {
     script: "infra:up",
