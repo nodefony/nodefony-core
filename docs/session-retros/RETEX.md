@@ -20,7 +20,49 @@
 
 ---
 
+## 🎯 La commande du DÉPÔT est l'autorité — la mienne, ciblée, a un périmètre plus étroit
+
+- **Mon typecheck ciblé était vert, le gate du dépôt sortait 3 erreurs.** `tsgo -p
+src/nodefony/tsconfig.json --noEmit` ne couvre pas les tests ; `npm run typecheck` (turbo, config
+  du workspace) si. J'ai livré deux fois « typecheck OK » sur un périmètre amputé, et c'est le
+  **user** qui a dit « il y a des problèmes de type ». Corollaire : quand un dépôt possède un gate,
+  c'est LUI qu'on lance avant d'annoncer — une invocation à la main n'est qu'un raccourci de boucle
+  courte. [1× — 08-22e] ↝ [[feedback_prove_the_target_not_the_verdict]]
+- **`vitest run --root <dir>` depuis la racine ≠ `cd <dir> && vitest run`.** `--root` change la
+  racine de configuration, PAS le cwd du process : 48 tests `finder`/`bundler` qui composent des
+  chemins relatifs sont tombés d'un coup. J'ai failli les qualifier de régression avant de voir que
+  l'erreur citait `<repo>/src/tests/...` au lieu de `<repo>/src/nodefony/src/tests/...` — le chemin
+  de l'erreur était le seul indice. [1× — 08-22e]
+
+## 🚧 Ajouter une EXIGENCE sans regarder qui PRODUIT l'artefact exigé
+
+- **La porte s'est mise à exiger un scope ; la commande qui fabrique le jeton n'en demandait
+  aucun.** `ai:mcp` enchaîne `security:token --write` (sans `--scope`) : le parcours nominal de
+  l'utilisateur aurait produit un jeton refusé à la première lecture — un 401 remplacé par un 403,
+  sans raison visible. C'est le **user** qui a demandé « le token mcp a des scopes par défaut ? ».
+  Le geste manquant : quand on ajoute une condition d'accès, remonter la chaîne jusqu'à CE QUI
+  fabrique l'artefact soumis à cette condition, et le vérifier en le LANÇANT. [1× — 08-22e]
+- **Et l'exiger sans le PUBLIER, c'est exiger l'invisible** : le client suit le défi, lit le
+  document de ressource, n'y voit aucun scope, obtient un jeton nu, se fait refuser — et n'a aucun
+  moyen de savoir quoi demander. Une exigence neuve se publie dans le document que le refus
+  désigne. [1× — 08-22e]
+
+## ⏳ Un défaut « pratique » grave un pouvoir pour le jour où la distinction deviendra réelle
+
+- **`admin:read admin:write` par défaut n'avait aucun effet** — le plan d'administration n'a qu'un
+  rôle, les deux scopes ouvrent la même chose. Précisément pour ça, personne ne l'aurait remarqué ;
+  et le jour où la séparation lecture/écriture deviendrait réelle, tous les jetons émis d'office
+  porteraient le pouvoir d'écrire sans qu'aucune décision ne l'ait accordé. Un défaut se choisit sur
+  ce qu'il vaudra APRÈS le durcissement prévu, pas sur ce qu'il vaut pendant qu'il est inerte —
+  le plus étroit se durcit tout seul dans le bon sens. [1× — 08-22e]
+
 ## 🧪 Le DÉCOR du banc n'est pas celui qu'on livre — et il masque le défaut
+
+- **Un banc qui ÉCHOUAIT s'est mis à SKIPPER — et un skip compte comme vert.** Le banc sur serveur
+  réel se saute lui-même quand son grant ne rend pas de jeton ; mon durcissement pouvait donc
+  transformer un rouge en silence. Lu trop vite, le total (« 8 passed | 1 skipped ») disait
+  l'inverse de la vérité. Le réflexe : quand un fichier passe de rouge à absent, exiger la LISTE
+  des fichiers joués (`--reporter=verbose`), jamais le total. [1× — 08-22e]
 
 - **Une capacité ne marchait que sous `start.sh`.** L'auto-vérification d'un jeton MCP exigeait
   `NODE_EXTRA_CA_CERTS`, que seul le script du skill posait — jamais `nodefony development`, la
