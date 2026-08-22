@@ -1,7 +1,11 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import https from "node:https";
-import fs from "node:fs";
+import {
+  compteDansJournal,
+  journalDuServeur,
+  type IJournalServeur,
+} from "../helpers/serverLog";
 
 // Regression coverage for the "Response Already sended" CRITIC noise that
 // fired on /abort/wait when the client closed the socket while the
@@ -53,40 +57,20 @@ function abortedGet(path: string, abortAfterMs: number): Promise<void> {
   });
 }
 
-function countCriticInLog(
-  logPath: string,
-  pattern: RegExp,
-  since: number,
-): number {
-  try {
-    const buf = fs.readFileSync(logPath, "utf8");
-    // Strip ANSI color escapes that the Nodefony logger writes by default.
-    const text = buf.replace(/\x1b\[[0-9;]*m/g, "");
-    const lines = text.split("\n").slice(since);
-    return lines.filter((l) => pattern.test(l)).length;
-  } catch {
-    return -1; // log file unreadable — skip the assertion
-  }
-}
-
 describe("Abort cleanup — no CRITIC on client disconnect (requires server)", () => {
-  const LOG_PATH = "/tmp/nodefony-server.log";
-  let logBaseline = 0;
+  // 🔴 Le journal se DÉCOUVRE (cf `helpers/serverLog`). Le chemin en dur qui
+  // vivait ici rendait un faux VERT : l'assertion est NÉGATIVE (« aucun CRITIC »),
+  // et un fichier figé n'en contient évidemment aucun — la garde passait sans
+  // avoir rien lu du serveur sous test.
+  let journal: IJournalServeur | null = null;
 
   beforeAll(async () => {
-    try {
-      const stat = fs.statSync(LOG_PATH);
-      logBaseline = fs.readFileSync(LOG_PATH, "utf8").split("\n").length;
-      // touch the stat — keep tsc happy about unused var when log is absent.
-      void stat;
-    } catch {
-      logBaseline = -1;
-    }
+    journal = await journalDuServeur(BASE);
     // Reset server-side counters so the assertion is deterministic.
     await getJson("/nodefony/test/abort/reset");
   });
 
-  it("10 client aborts mid-wait → server stays alive, no Response Already sended", async () => {
+  it("10 client aborts mid-wait → server stays alive, no Response Already sended", async (ctx) => {
     const N = 10;
     await Promise.all(
       Array.from({ length: N }, () =>
@@ -109,19 +93,22 @@ describe("Abort cleanup — no CRITIC on client disconnect (requires server)", (
     // Best-effort: the kernel log MUST NOT contain the "Response Already
     // sended" CRITIC line for these aborts. Skip silently if the log file is
     // not accessible (e.g. CI runs without the dev launcher).
-    if (logBaseline >= 0) {
-      const count = countCriticInLog(
-        LOG_PATH,
-        /CRITIC HttpKernel\s*:.*Response Already sended/,
-        logBaseline,
+    if (journal === null) {
+      ctx.skip(
+        "aucun journal alimenté par le serveur sous test — l'absence de CRITIC " +
+          "n'aurait rien prouvé",
       );
-      if (count >= 0) {
-        expect(
-          count,
-          "expected 0 'Response Already sended' CRITIC lines",
-        ).to.equal(0);
-      }
+      return;
     }
+    const count = compteDansJournal(
+      journal,
+      /CRITIC HttpKernel\s*:.*Response Already sended/,
+    );
+    expect(count, `journal ${journal.chemin} illisible`).to.be.at.least(0);
+    expect(
+      count,
+      "aucune ligne CRITIC 'Response Already sended' attendue",
+    ).to.equal(0);
   });
 
   it("burst of 20 aborts then a clean request — counters consistent", async () => {
