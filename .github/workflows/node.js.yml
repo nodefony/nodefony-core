@@ -132,6 +132,30 @@ jobs:
       - name: Lint (oxlint)
         run: npm run lint
 
+      # Formatage — bloquant, au même titre que le lint et pour le même motif.
+      #
+      # Le hook `pre-commit` formate déjà les fichiers STAGÉS, ce qui suffit tant
+      # qu'un fichier passe par lui. Il ne voit rien de ce qui l'évite : un
+      # `--no-verify`, une édition depuis l'interface web, un fichier jamais
+      # stagé. C'est exactement par là que 108 fichiers avaient dérivé sans que
+      # rien ne le signale — le hook n'est pas un contrôle, c'est une commodité.
+      #
+      # Un seul système et une seule version suffisent : prettier ne fait que
+      # lire des fichiers, son verdict ne dépend pas de la plateforme. La
+      # passe coûte ~70 s sur l'ensemble du dépôt ; la faire six fois n'apporte
+      # rien. ⚠️ Sur Windows elle exigerait en plus que `.gitattributes` couvre
+      # CHAQUE extension présente — un CRLF au checkout suffit à faire échouer
+      # un fichier pourtant conforme dans le dépôt.
+      #
+      # L'option vit dans le script `format:check` du manifeste racine, pas ici,
+      # pour la raison écrite plus haut à propos de `--deny-warnings` : un
+      # contrôle dont la forge et le poste ne disent pas la même chose ne se
+      # découvre qu'après le `push`. Remède imprimé par prettier lui-même, et
+      # `npm run format` le corrige en une commande.
+      - name: Formatage (prettier)
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        run: npm run format:check
+
       # Bloquant à partir de « high ». `npm ci` tourne avec `--no-audit` (l'audit
       # à l'installation ralentit sans rien bloquer) — la vérification est donc
       # faite ICI, à un endroit qui peut casser la marche. Une faille de gravité
