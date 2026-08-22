@@ -46,6 +46,16 @@
 - **Un test peut passer pour une raison qui n'est pas la sienne.** Ma garde « nom hors forme » ne
   mordait pas : un pré-filtre `includes` écartait déjà le cas. Le test le DIT maintenant plutôt que
   de prétendre garder quelque chose. `[1× — 08-22]`
+- **🔴 Deuxième occurrence, MÊME agent, même faute** : j'ai écrit « Codex n'a AUCUNE notion de
+  projet » sur la foi d'un `codex mcp list` muet dans un dossier avec `.codex/config.toml`. FAUX —
+  sa config projet n'est lue que dans un dépôt **de confiance**, ce que le binaire dit en toutes
+  lettres (« Project `.codex/config.toml`: settings for a trusted repository, including […] MCP »).
+  Ma sonde était discriminante sur la MAUVAISE variable : elle mesurait la confiance, pas la portée.
+  L'utilisateur a dit « c'est bizarre » — c'est lui qui a rattrapé. `[2× — 08-22]`
+- **Le `--help` d'un outil dit ce qu'il ÉCRIT, pas ce qu'il LIT.** J'ai déduit de « Add an MCP
+  server to the user configuration » que Vibe n'avait pas de portée projet. Son source dit
+  l'inverse (`_harness_manager.py:69-73` : `<projet>/.vibe/config.toml` d'abord, si le dossier est
+  de confiance). Deux questions distinctes qu'un seul mot d'aide ne tranche jamais. `[1× — 08-22]`
 
 ## 🔑 Un secret écrit là où personne ne le lit — et la question « qui le lit ? » qu'on ne pose pas
 
@@ -59,6 +69,30 @@
 - **L'état de câblage n'a pas à être mémorisé : il EST dans les fichiers.** Un agent qui porte la
   clé a été câblé un jour ⇒ rotation muette. Un fichier d'état parallèle aurait menti à la première
   édition manuelle. `[1× — 08-22]`
+
+## 🚦 Un code de sortie 0 ne prouve RIEN — le geste se CONSTATE, pas se croit
+
+- **`gemini mcp remove nodefony` répond « not found », sort en 0, et laisse l'entrée en place** —
+  celle que `gemini mcp add` venait d'écrire. Notre commande relayait donc « déclaration retirée »
+  sur une déclaration toujours là. Le verdict se prend en RELISANT par la commande de lecture de
+  l'agent, jamais sur son code de retour. `[1× — 08-22]`
+- **Une CLI tierce écrit relativement à SON répertoire courant.** Lancée depuis `src/nodefony/`,
+  elle a créé un second `.gemini/` que personne ne lira jamais — invisible au code de sortie,
+  visible d'un `ls`. Toute CLI d'agent se lance depuis la RACINE du projet. `[1× — 08-22]`
+- **Une CLI tierce peut cracher 20 lignes de bruit sur stderr à chaque appel** (avertissements
+  d'interpréteur). Hériter de sa sortie ferait lire un succès comme une panne : capturer, et ne
+  montrer qu'en cas d'échec. `[1× — 08-22]`
+
+## 🎭 Mon PROPRE `--dry-run` mentait — l'option dont le seul rôle est de dire ce qui va se passer
+
+- **La même URL recomposée à trois endroits, et l'un avait gardé l'origine nue** : `--dry-run`
+  annonçait `http://localhost:5151` là où l'exécution visait `…/nodefony/mcp`. On croit un dry-run
+  sur parole — c'est précisément pour ça qu'on le lance. Une valeur, calculée une fois.
+  `[1× — 08-22]`
+- **Un texte de sortie PÉRIME sans que rien ne le signale** : le rendu disait encore « écrit
+  `NF_MCP_TOKEN` dans `.env` » le lendemain du jour où ce comportement avait été retiré. Un message
+  qui envoie chercher un secret dans un fichier qui ne le porte pas, c'est le diagnostic d'une heure
+  qu'on vient de payer, offert au suivant. `[1× — 08-22]`
 
 ## 🩹 Corriger une OCCURRENCE n'est pas corriger le MOTIF — et on se recontamine soi-même
 
