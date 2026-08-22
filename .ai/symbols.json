@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-22T11:36:45.817Z",
+  "generated": "2026-08-22T11:53:30.727Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -27853,6 +27853,12 @@
         "src/packages/@nodefony/security/nodefony/contracts/ITotpSecret.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
       ],
+      "canonicalIssuer": [
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
+      ],
       "IAccessPrincipal": [
         "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
@@ -27871,6 +27877,12 @@
       ],
       "RemoteJwtVerifier": [
         "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts"
+      ],
+      "IJwtKeystore": [
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
       ],
       "countFacets": [
         "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
@@ -28094,11 +28106,6 @@
       "listOAuthProviders": [
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts"
       ],
-      "canonicalIssuer": [
-        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/RemoteJwtVerifier.ts"
-      ],
       "InvalidTargetError": [
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
       ],
@@ -28115,11 +28122,6 @@
       "IJwtRuntime": [
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts"
-      ],
-      "IJwtKeystore": [
-        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/JwtAuthenticator.ts",
-        "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
       ],
       "deriveStoreBackend": [
         "src/packages/@nodefony/security/nodefony/service/totp.ts",

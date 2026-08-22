@@ -510,6 +510,27 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
     return { path: mod.path, pkg: mod.getModuleName?.() ?? key };
   };
 
+  // Forme admise d'un nom de paquet npm — la SEULE garde entre un paramètre de
+  // route et une jointure de chemin. Sans elle, « ../../etc » désignerait un
+  // dossier hors de l'arbre des dépendances.
+  const PACKAGE_NAME = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/;
+
+  // Dossier d'un paquet INSTALLÉ, pour ce que `getModules()` ne connaît pas.
+  // Toutes les briques du framework ne sont pas des modules : `orm-core` est une
+  // bibliothèque pure, jamais chargée par le kernel — mais ses types sont bien
+  // là, dans l'arbre des dépendances. Sans ce repli, la porte répondait « module
+  // introuvable » sur des symboles parfaitement présents.
+  const resolvePackageDir = (name: string): string | null => {
+    if (!PACKAGE_NAME.test(name)) return null;
+    for (const candidate of [name, `@nodefony/${name}`]) {
+      const dir = join(repoRoot, "node_modules", candidate);
+      // Dans ce dépôt, c'est un lien vers le workspace ; chez un utilisateur,
+      // le paquet dépaqueté. Les deux répondent au même chemin.
+      if (existsSync(join(dir, "package.json"))) return dir;
+    }
+    return null;
+  };
+
   // Tous les porteurs de documentation : le socle `core` (absent de
   // `getModules()`) puis les modules chargés. Composé ICI plutôt que dans le
   // lecteur de docs — lui ne connaît que des chemins, c'est le kernel qui sait
@@ -1428,12 +1449,12 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       summary: "Declaration (signature + TSDoc) of one exported symbol",
       handler: async (request) => {
         const key = request.params.name;
-        const target = resolveTarget(key);
-        if (!target) {
+        const modulePath = resolveTarget(key)?.path ?? resolvePackageDir(key);
+        if (!modulePath) {
           return { status: 404, body: { error: "Module not found", key } };
         }
         const symbol = request.params.symbol;
-        const found = await readSymbolDeclaration(target.path, symbol);
+        const found = await readSymbolDeclaration(modulePath, symbol);
         if (!found) {
           return {
             status: 404,
@@ -1445,7 +1466,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             },
           };
         }
-        return { key, package: target.pkg, symbol, ...found };
+        return { key, symbol, ...found };
       },
     },
     {

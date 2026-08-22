@@ -168,8 +168,10 @@ describe("readSymbolDeclaration", () => {
 
   it("rend un chemin RELATIF au module — jamais l'arborescence du serveur", async () => {
     const found = await readSymbolDeclaration(paquet, "IThing");
-    expect(found?.file).to.equal(join("dist", "types", "index.d.ts"));
-    expect(found?.file.startsWith("/")).to.equal(false);
+    expect(found?.declarationFile).to.equal(
+      join("dist", "types", "index.d.ts"),
+    );
+    expect(found?.declarationFile.startsWith("/")).to.equal(false);
   });
 
   it("gère une déclaration sans accolade, terminée par un point-virgule", async () => {

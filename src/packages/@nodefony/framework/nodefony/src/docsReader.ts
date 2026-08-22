@@ -525,8 +525,16 @@ export async function listModuleSymbols(
 
 /** Ce qu'on a trouvé d'un symbole dans les types LIVRÉS d'un module. */
 export interface SymbolDeclaration {
-  /** Chemin du fichier, relatif au module — jamais absolu (fuite d'arborescence). */
-  file: string;
+  /**
+   * Fichier de TYPES qui porte la déclaration, relatif au module — jamais
+   * absolu (une réponse ne publie pas l'arborescence du serveur).
+   *
+   * Nommé `declarationFile` et non `file` : le graphe symbolique porte DÉJÀ un
+   * `file`, qui désigne la SOURCE dans le dépôt d'origine — un chemin qui
+   * n'existe pas chez celui qui a installé le paquet. Deux notions sous un même
+   * nom, et la fusion des deux réponses en écrasait une.
+   */
+  declarationFile: string;
   /** Le bloc de déclaration, TSDoc compris. */
   declaration: string;
   /** Le bloc a-t-il été coupé ? Une troncature muette vaut un mensonge. */
@@ -652,11 +660,11 @@ export async function readSymbolDeclaration(
     const declaration = lines.slice(start, end + 1).join("\n");
     return declaration.length > DECLARATION_MAX_CHARS
       ? {
-          file: relative,
+          declarationFile: relative,
           declaration: declaration.slice(0, DECLARATION_MAX_CHARS),
           truncated: true,
         }
-      : { file: relative, declaration, truncated: false };
+      : { declarationFile: relative, declaration, truncated: false };
   }
   return null;
 }
