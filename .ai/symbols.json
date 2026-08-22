@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-22T16:37:49.375Z",
+  "generated": "2026-08-22T17:09:19.402Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 730,
-    "symbols": 3066,
+    "files": 731,
+    "symbols": 3076,
     "classes": 364,
-    "interfaces": 877,
+    "interfaces": 880,
     "types": 386,
     "enums": 4,
-    "functions": 1143,
+    "functions": 1150,
     "constants": 292
   },
   "symbols": {
@@ -6434,6 +6434,49 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Rôle exigé par défaut d'un endpoint d'administration qui n'en déclare aucun. Le défaut est **restrictif** : un producteur qui oublie de qualifier son endpoint le publie au rôle d'administrateur, ja…"
+    },
+    "IAdminCatalogEntry": {
+      "name": "IAdminCatalogEntry",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/adminPlane/catalog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un endpoint du plan d'administration, tel qu'une porte sans session peut le proposer — de quoi l'APPELER, rien de plus. Ce que porte `params` mérite son existence : les chemins du plan portent des …"
+    },
+    "IAdminCatalogQuery": {
+      "name": "IAdminCatalogQuery",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/adminPlane/catalog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Restriction de lecture du catalogue — sans effet sur ce qui est APPELABLE."
+    },
+    "IAdminCatalogView": {
+      "name": "IAdminCatalogView",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/adminPlane/catalog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le catalogue montre, ET ce qu'il a écarté. Les compteurs ne sont pas décoratifs : sans eux, une liste de 61 entrées se lit comme « voilà tout le plan d'administration », et un appelant concl…"
+    },
+    "adminReadCatalog": {
+      "name": "adminReadCatalog",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/catalog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les endpoints du plan d'administration qu'une porte **sans session** peut servir à cet appelant — la règle unique dont dépendent `nodefony_admin_list` ET `nodefony_admin_call`. ⭐ **Ce qui est listé…"
+    },
+    "findAdminReadEntry": {
+      "name": "findAdminReadEntry",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/adminPlane/catalog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Retrouve une entrée APPELABLE par son couple producteur/chemin. Passe par {@link adminReadCatalog} plutôt que de reparcourir le registre : c'est ce qui garantit que l'appel et la liste tranchent la…"
     },
     "IAdminExecution": {
       "name": "IAdminExecution",
@@ -24960,6 +25003,7 @@
       ],
       "IAdminBrokerLike": [
         "src/nodefony/src/mcp/tools.ts",
+        "src/nodefony/src/kernel/adminPlane/catalog.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
       ],
@@ -24972,7 +25016,22 @@
       ],
       "IAdminCaller": [
         "src/nodefony/src/mcp/tools.ts",
+        "src/nodefony/src/kernel/adminPlane/catalog.ts",
         "src/nodefony/src/kernel/inspect/adminSubjects.ts"
+      ],
+      "ADMIN_SCOPE_READ": [
+        "src/nodefony/src/mcp/tools.ts",
+        "src/packages/@nodefony/devkit/nodefony/config/config.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "adminReadCatalog": [
+        "src/nodefony/src/mcp/tools.ts"
+      ],
+      "findAdminReadEntry": [
+        "src/nodefony/src/mcp/tools.ts"
+      ],
+      "IAdminCatalogView": [
+        "src/nodefony/src/mcp/tools.ts"
       ],
       "readSymbolsGraph": [
         "src/nodefony/src/mcp/tools.ts"
@@ -25635,6 +25694,7 @@
       ],
       "IAdminEndpoint": [
         "src/nodefony/src/kernel/adminPlane/adminRbac.ts",
+        "src/nodefony/src/kernel/adminPlane/catalog.ts",
         "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
         "src/nodefony/src/kernel/inspect/adminSubjects.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
@@ -25650,6 +25710,19 @@
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
+      "AdminHttpMethod": [
+        "src/nodefony/src/kernel/adminPlane/catalog.ts",
+        "src/nodefony/src/kernel/inspect/adminSubjects.ts"
+      ],
+      "isAdminGranted": [
+        "src/nodefony/src/kernel/adminPlane/catalog.ts",
+        "src/nodefony/src/kernel/adminPlane/executeAdmin.ts"
+      ],
+      "resolveAdminRole": [
+        "src/nodefony/src/kernel/adminPlane/catalog.ts",
+        "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
       ],
       "IAdminRequest": [
         "src/nodefony/src/kernel/adminPlane/executeAdmin.ts",
@@ -25673,9 +25746,6 @@
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
-      ],
-      "isAdminGranted": [
-        "src/nodefony/src/kernel/adminPlane/executeAdmin.ts"
       ],
       "buildProjectEnvReport": [
         "src/nodefony/src/kernel/checks/readiness.ts"
@@ -25888,10 +25958,6 @@
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
-      ],
-      "resolveAdminRole": [
-        "src/nodefony/src/kernel/inspect/adminSubjects.ts",
-        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
       ],
       "executeAdminEndpoint": [
         "src/nodefony/src/kernel/inspect/adminSubjects.ts",
@@ -26459,10 +26525,6 @@
       ],
       "BUILTIN_MCP_TOOL_KEYS": [
         "src/packages/@nodefony/devkit/nodefony/config/config.ts"
-      ],
-      "ADMIN_SCOPE_READ": [
-        "src/packages/@nodefony/devkit/nodefony/config/config.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "ADMIN_SCOPE_WRITE": [
         "src/packages/@nodefony/devkit/nodefony/config/config.ts",

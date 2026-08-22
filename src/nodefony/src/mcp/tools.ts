@@ -7,6 +7,12 @@ import {
 } from "../kernel/inspect/adminSubjects";
 import { outlineMarkdown } from "../kernel/inspect/docOutline";
 import type { IAdminCaller } from "../kernel/adminPlane/adminCaller";
+import { ADMIN_SCOPE_READ } from "../kernel/adminPlane/adminCaller";
+import {
+  adminReadCatalog,
+  findAdminReadEntry,
+  type IAdminCatalogView,
+} from "../kernel/adminPlane/catalog";
 import { readSymbolsGraph, lookupSymbol } from "../cli/symbols";
 import {
   collectCheckReport,
@@ -304,6 +310,160 @@ function moduleKey(packageName: string): string {
   return packageName.replace(/^@nodefony\//u, "");
 }
 
+/**
+ * Largeur maximale d'un résumé dans le catalogue d'administration.
+ *
+ * Le catalogue vaut par sa densité : soixante lignes qu'on parcourt d'un coup
+ * d'œil. Un résumé de trois phrases y ferait perdre la colonne de gauche — le
+ * chemin, c'est-à-dire la seule chose qu'on recopie ensuite.
+ */
+const CATALOG_SUMMARY_MAX = 96;
+
+/** Largeur de la colonne des chemins, au-delà de laquelle on cesse d'aligner. */
+const CATALOG_PATH_COLUMN = 34;
+
+/**
+ * Met le catalogue en forme pour un lecteur qui va s'en servir tout de suite.
+ *
+ * Texte plutôt que JSON, et ce n'est pas une question de goût : la même
+ * information sérialisée en objets indentés pèse environ trois fois plus, pour
+ * une porte dont l'unique raison d'être est de ne pas coûter de contexte. Le
+ * groupement par producteur porte la seule structure nécessaire — le producteur
+ * est le premier argument de l'appel qui suit.
+ *
+ * @param view - ce que le cœur a retenu, et ce qu'il a écarté.
+ * @returns le catalogue rendu, écarts annoncés.
+ */
+function renderAdminCatalog(view: IAdminCatalogView): string {
+  const ecarts: string[] = [];
+  if (view.mutations > 0) {
+    ecarts.push(
+      `${view.mutations} mutations (POST/PATCH/DELETE — cette porte ne fait que LIRE)`,
+    );
+  }
+  if (view.selfService > 0) {
+    ecarts.push(
+      `${view.selfService} self-service liés à une session (« me », « sessions/mine ») — cette porte n'a pas d'utilisateur connecté`,
+    );
+  }
+  if (view.denied > 0) {
+    ecarts.push(`${view.denied} hors des droits de ce jeton`);
+  }
+  if (view.filtered > 0) {
+    ecarts.push(`${view.filtered} hors du filtre demandé`);
+  }
+
+  const lines: string[] = [
+    `${view.entries.length} lectures appelables — sur ${view.total} endpoints déclarés par cette application.`,
+    `Appel : nodefony_admin_call { namespace, path, params?, query? } — recopier « path » TEL QUEL, variables comprises.`,
+  ];
+  if (ecarts.length > 0) {
+    lines.push(`Non listés : ${ecarts.join(" · ")}.`);
+  }
+
+  let namespace: string | null = null;
+  for (const entry of view.entries) {
+    if (entry.namespace !== namespace) {
+      namespace = entry.namespace;
+      const count = view.entries.filter(
+        (other) => other.namespace === namespace,
+      ).length;
+      lines.push("", `## ${namespace} (${count})`);
+    }
+    const summary =
+      entry.summary.length > CATALOG_SUMMARY_MAX
+        ? `${entry.summary.slice(0, CATALOG_SUMMARY_MAX - 1)}…`
+        : entry.summary;
+    const suffix = summary === "" ? "" : `  ${summary}`;
+    lines.push(`${entry.path.padEnd(CATALOG_PATH_COLUMN)}${suffix}`.trimEnd());
+    // Ce que l'endpoint accepte dans sa query, quand il rend une liste. Le
+    // plan REFUSE en 400 tout tri ou filtre non déclaré : le taire ferait
+    // conclure à un endpoint cassé là où il n'a rien promis.
+    const caps: string[] = [];
+    if (entry.page?.sortable.length) {
+      caps.push(`tri: ${entry.page.sortable.join(",")}`);
+    }
+    if (entry.page?.filters.length) {
+      caps.push(`filtres: ${entry.page.filters.join(",")}`);
+    }
+    if (entry.page?.search) caps.push("recherche q");
+    if (caps.length > 0) {
+      lines.push(`${" ".repeat(4)}${caps.join(" | ")}`);
+    }
+  }
+  if (view.entries.length === 0) {
+    lines.push("", "(aucune entrée ne répond à cette demande)");
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Projette un argument d'agent en table de chaînes, ou dit pourquoi il ne l'est
+ * pas.
+ *
+ * Refuser plutôt qu'ignorer : un paramètre accepté puis jeté produit une
+ * réponse qui a l'air d'avoir honoré la demande, et c'est le pire des deux
+ * mondes — l'appelant en tire une conclusion fausse sans jamais voir d'erreur.
+ *
+ * @param value - ce que l'agent a passé.
+ * @param champ - nom du champ, pour rédiger le refus.
+ * @param arrays - accepter les listes de chaînes (vrai pour une query string).
+ * @returns la table, ou le motif du refus.
+ */
+function stringTable(
+  value: unknown,
+  champ: string,
+  arrays: false,
+): { ok: true; value: Record<string, string> } | { ok: false; why: string };
+function stringTable(
+  value: unknown,
+  champ: string,
+  arrays: true,
+):
+  | { ok: true; value: Record<string, string | string[]> }
+  | { ok: false; why: string };
+function stringTable(
+  value: unknown,
+  champ: string,
+  arrays: boolean,
+):
+  | { ok: true; value: Record<string, string | string[]> }
+  | { ok: false; why: string } {
+  if (value === undefined || value === null) return { ok: true, value: {} };
+  if (typeof value !== "object" || Array.isArray(value)) {
+    return {
+      ok: false,
+      why: `« ${champ} » doit être un objet { clé: valeur }`,
+    };
+  }
+  const table: Record<string, string | string[]> = {};
+  for (const [key, raw] of Object.entries(value)) {
+    if (typeof raw === "string") {
+      table[key] = raw;
+      continue;
+    }
+    if (typeof raw === "number" || typeof raw === "boolean") {
+      // Un agent écrit volontiers `{ limit: 20 }` : le convertir est fidèle à
+      // son intention, une URL ne transporte de toute façon que du texte.
+      table[key] = String(raw);
+      continue;
+    }
+    if (
+      arrays &&
+      Array.isArray(raw) &&
+      raw.every((item) => typeof item === "string")
+    ) {
+      table[key] = raw as string[];
+      continue;
+    }
+    return {
+      ok: false,
+      why: `« ${champ}.${key} » n'est pas une valeur transportable — attendu du texte${arrays ? " ou une liste de textes" : ""}`,
+    };
+  }
+  return { ok: true, value: table };
+}
+
 /** Ce dont les outils INTÉGRÉS ont besoin — injecté, jamais lu ici. */
 export interface IMcpToolDeps {
   /** Le service `adminBroker` du conteneur, ou `undefined` s'il manque. */
@@ -348,6 +508,8 @@ export const BUILTIN_MCP_TOOL_KEYS = [
   "check",
   "symbols",
   "docs",
+  "admin_list",
+  "admin_call",
 ] as const;
 
 /** Clé d'un outil intégré. */
@@ -655,6 +817,153 @@ export function builtinMcpTools(
           parPaquet[sym.module] = (parPaquet[sym.module] ?? 0) + 1;
         }
         return mcpText({ total: entries.length, parPaquet });
+      },
+    },
+
+    admin_list: {
+      name: `${PREFIX}admin_list`,
+      description:
+        "Catalogue des lectures d'ADMINISTRATION que cette application " +
+        "expose — bien au-delà des sujets de `nodefony_inspect` : journaux, " +
+        "sessions, comptes, clés d'API, webhooks, profileur, santé des " +
+        "connexions, entités, capacités de pagination. Chaque ligne est " +
+        "directement appelable par `nodefony_admin_call`. À utiliser dès que " +
+        "`nodefony_inspect` ne couvre pas ce qu'on cherche, plutôt que de " +
+        "supposer que la donnée n'existe pas.\n\n" +
+        "Un seul appel rend tout le catalogue ; `namespace` et `q` servent à " +
+        "le réduire quand on sait déjà ce qu'on cherche.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          namespace: {
+            type: "string",
+            description:
+              "Ne garder qu'un producteur (`kernel`, `http`, `security`, `syslog`, `user`, `orm`…)",
+          },
+          q: {
+            type: "string",
+            description:
+              "Termes cherchés dans le chemin et le résumé ; les espaces " +
+              "séparent des termes CUMULATIFS (`session redis` = les deux)",
+          },
+        },
+      },
+      requiresAuth: true,
+      scopes: [ADMIN_SCOPE_READ],
+      handler: (args, caller) =>
+        mcpText(
+          renderAdminCatalog(
+            adminReadCatalog(deps.broker, adminCallerFromMcp(caller), {
+              namespace:
+                typeof args.namespace === "string" ? args.namespace : undefined,
+              q: typeof args.q === "string" ? args.q : undefined,
+            }),
+          ),
+        ),
+    },
+
+    admin_call: {
+      name: `${PREFIX}admin_call`,
+      description:
+        "Appelle une lecture d'administration, telle que `nodefony_admin_list` " +
+        "la nomme. La réponse vient de l'application qui TOURNE — pas d'une " +
+        "lecture des sources — et elle est identique à ce que rendrait la " +
+        "console d'administration, redaction des secrets comprise.\n\n" +
+        "LECTURE seule : les mutations du plan (créer, modifier, supprimer) ne " +
+        "passent pas par ici. Recopier `namespace` et `path` tels quels ; " +
+        "`params` porte les variables du chemin (`module/{name}` → " +
+        '`{ name: "http" }`), `query` les paramètres de requête que ' +
+        "l'endpoint accepte (pagination `page`/`limit`, tri `sort`, recherche " +
+        "`q`). Le catalogue publie, sous chaque entrée qui rend une liste, les " +
+        "tris et filtres RÉELLEMENT acceptés — tout le reste est refusé en 400, " +
+        "jamais ignoré.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          namespace: {
+            type: "string",
+            description: "Producteur, tel que le catalogue le titre",
+          },
+          path: {
+            type: "string",
+            description:
+              "Chemin, recopié TEL QUEL du catalogue (variables `{…}` comprises)",
+          },
+          params: {
+            type: "object",
+            description:
+              'Valeurs des variables du chemin, par nom (`{ name: "http" }`)',
+            additionalProperties: { type: "string" },
+          },
+          query: {
+            type: "object",
+            description:
+              'Paramètres de requête, comme une URL les porterait (`{ limit: "20" }`)',
+          },
+        },
+        required: ["namespace", "path"],
+      },
+      requiresAuth: true,
+      scopes: [ADMIN_SCOPE_READ],
+      handler: async (args, caller) => {
+        const admin = adminCallerFromMcp(caller);
+        const namespace =
+          typeof args.namespace === "string" ? args.namespace.trim() : "";
+        const path = typeof args.path === "string" ? args.path.trim() : "";
+        if (namespace === "" || path === "") {
+          return mcpText(
+            "« namespace » et « path » sont requis — demande d'abord " +
+              "nodefony_admin_list, puis recopie les deux tels quels",
+            true,
+          );
+        }
+
+        // ⭐ Résolu DANS le catalogue, jamais à côté : ce qui n'y est pas
+        // listé n'est pas appelable, et l'inverse est vrai aussi. Un second
+        // parcours « équivalent » du registre finirait par diverger, et ce
+        // serait celui-ci — le moins relu — qui deviendrait le permissif.
+        const entry = findAdminReadEntry(deps.broker, admin, namespace, path);
+        if (!entry) {
+          const proches = adminReadCatalog(deps.broker, admin, { namespace });
+          return mcpText(
+            proches.entries.length === 0
+              ? `« ${namespace}/${path} » n'est pas appelable ici, et « ${namespace} » ne propose aucune lecture — soit ce module n'est pas chargé, soit ce jeton ne l'ouvre pas. nodefony_admin_list rend le catalogue réel.`
+              : `« ${namespace}/${path} » n'est pas appelable ici. Chemins de « ${namespace} » : ${proches.entries.map((other) => other.path).join(", ")}`,
+            true,
+          );
+        }
+
+        const params = stringTable(args.params, "params", false);
+        if (!params.ok) return mcpText(params.why, true);
+        const query = stringTable(args.query, "query", true);
+        if (!query.ok) return mcpText(query.why, true);
+
+        // Une variable de chemin absente ne produit pas une erreur lisible : le
+        // handler reçoit `undefined` et refuse pour une raison qui n'a plus
+        // aucun rapport avec l'oubli. On la nomme ici, où on la voit encore.
+        const manquants = entry.params.filter(
+          (name) => typeof params.value[name] !== "string",
+        );
+        if (manquants.length > 0) {
+          return mcpText(
+            `« ${namespace}/${path} » attend ${manquants.length > 1 ? "les variables" : "la variable"} ${manquants.map((name) => `« ${name} »`).join(", ")} dans « params »`,
+            true,
+          );
+        }
+
+        const read = await callAdminEndpoint(
+          deps.broker,
+          {
+            namespace,
+            path,
+            method: "GET",
+            params: params.value,
+            query: query.value,
+            label: `${namespace}/${path}`,
+          },
+          admin,
+        );
+        return read.ok ? mcpText(read.data) : mcpEchecAdmin(read);
       },
     },
   };

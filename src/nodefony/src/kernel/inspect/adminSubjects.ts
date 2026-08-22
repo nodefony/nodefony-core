@@ -1,4 +1,5 @@
 import type {
+  AdminHttpMethod,
   IAdminApi,
   IAdminEndpoint,
   IAdminRequest,
@@ -152,6 +153,16 @@ export interface IAdminCall {
   namespace: string;
   /** Chemin de l'endpoint, tel que le producteur le déclare. */
   path: string;
+  /**
+   * Méthode de l'endpoint visé, défaut `"GET"`.
+   *
+   * ⚠️ **Elle fait partie de l'identité d'un endpoint, pas de son décor** : huit
+   * chemins du plan portent deux ou trois méthodes (`webhooks` en GET et POST,
+   * `users/{id}` en GET, PATCH et DELETE, `recent` en GET et DELETE). Résoudre
+   * par le seul chemin rendait le PREMIER déclaré — une lecture aujourd'hui, par
+   * chance, et une suppression le jour où un producteur réordonne son tableau.
+   */
+  method?: AdminHttpMethod;
   /** Variables de route, quand le chemin en porte (`module/{name}`). */
   params?: Readonly<Record<string, string>>;
   /** Paramètres de requête, tels qu'une URL les porterait. */
@@ -206,14 +217,18 @@ export async function callAdminEndpoint(
     };
   }
 
+  const method = call.method ?? "GET";
   const endpoint = producer
     .adminEndpoints()
-    .find((candidate: IAdminEndpoint) => candidate.path === call.path);
+    .find(
+      (candidate: IAdminEndpoint) =>
+        candidate.path === call.path && (candidate.method ?? "GET") === method,
+    );
   if (!endpoint) {
     return {
       ok: false,
       reason: "endpoint-missing",
-      message: `endpoint « ${call.namespace}/${call.path} » introuvable — version de module incompatible ?`,
+      message: `endpoint « ${method} ${call.namespace}/${call.path} » introuvable — version de module incompatible ?`,
     };
   }
 
