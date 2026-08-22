@@ -112,13 +112,15 @@ export default defineConfig<typeof env>((ctx) => ({
        *   système de fichiers d'un pod étant éphémère.
        */
       jwt: {
-        issuer: ctx.isProd ? undefined : "https://localhost:5152",
+        issuer: ctx.isProd
+          ? undefined
+          : `https://localhost:${ctx.env.NF_PORT_HTTPS ?? 5152}`,
         audiences: ctx.isProd
           ? []
           : [
-              "https://localhost:5152",
-              "http://localhost:5151/nodefony/mcp",
-              "https://localhost:5152/nodefony/mcp",
+              `https://localhost:${ctx.env.NF_PORT_HTTPS ?? 5152}`,
+              `http://localhost:${ctx.env.NF_PORT ?? 5151}/nodefony/mcp`,
+              `https://localhost:${ctx.env.NF_PORT_HTTPS ?? 5152}/nodefony/mcp`,
             ],
         keystore: ctx.isProd ? {} : { dir: "var/keys" },
       },
@@ -297,9 +299,17 @@ export default defineConfig<typeof env>((ctx) => ({
              *
              * Ce sont les adresses de DÉVELOPPEMENT (la porte répond en clair
              * et en TLS). En production, mets ici l'URL publique en https.
+             *
+             * ⚠️ Le PORT suit ta configuration (`NF_PORT`), il n'est pas figé :
+             * une application lancée ailleurs verrait sinon son propre jeton
+             * refusé — l'audience désignant une adresse où elle ne répond pas.
+             * Lire une variable de configuration n'est PAS dériver du `Host` :
+             * l'une t'appartient, l'autre vient du client.
              */
-            resource: "http://localhost:5151/nodefony/mcp",
-            additionalResources: ["https://localhost:5152/nodefony/mcp"],
+            resource: `http://localhost:${ctx.env.NF_PORT ?? 5151}/nodefony/mcp`,
+            additionalResources: [
+              `https://localhost:${ctx.env.NF_PORT_HTTPS ?? 5152}/nodefony/mcp`,
+            ],
           },
         },
       },

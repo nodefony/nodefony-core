@@ -3476,6 +3476,11 @@ function setup(runDir) {
     );
     return;
   }
+  // 🔴 CONSTRUIRE avant d'émettre. Le CLI lit la configuration dans le `dist`
+  // de l'application : sans build, `security.jwt.audiences` n'existe pas encore
+  // pour lui, et l'émetteur refuse l'audience de sa propre porte
+  // (`invalid_target`). Le symptôme accusait le jeton ; la cause était l'ORDRE.
+  sh("npm", ["run", "build"], { cwd: app, stdio: "ignore" });
   // Le jeton, ensuite : sans lui l'en-tête reste un gabarit non substitué, et
   // la porte sert l'anonyme. Durée large (la tâche la plus longue tourne une
   // demi-heure) et portée en LECTURE — un banc n'a rien à muter par cette voie.
@@ -3530,8 +3535,14 @@ function setup(runDir) {
     console.log(
       `  ⚠️ jeton MCP non émis (code ${emission.status}) — l'agent sera ANONYME sur la porte`,
     );
-    if (emission.stderr)
-      console.log(`     ${emission.stderr.trim().split("\n")[0]}`);
+    // Les lignes UTILES, pas la première : `npm notice run …` occupe les deux
+    // premières et faisait passer un bruit pour la cause — deux diagnostics
+    // perdus là-dessus.
+    const motif = `${emission.stdout ?? ""}${emission.stderr ?? ""}`
+      .split("\n")
+      .filter((l) => l.trim() && !l.trim().startsWith("npm notice"))
+      .slice(0, 4);
+    for (const l of motif) console.log(`     ${l.trim()}`);
   }
 
   // L'isolation se CONSTATE avant l'agent : mieux vaut aucun verdict qu'un
