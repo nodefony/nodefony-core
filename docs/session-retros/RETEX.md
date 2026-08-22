@@ -34,6 +34,23 @@
   rapides (zéro boot) sont précisément celles qui n'ont plus rien pour tenir. Une optimisation peut
   retirer un effet de bord dont personne n'avait noté qu'il servait de garde. [1× — 08-22f]
 
+## 🚪 Une porte a plusieurs ENTRÉES — le défaut vit dans la COMPARAISON, pas dans chacune
+
+- **« Présenter MAL valait moins que ne rien présenter », et aucun test ne pouvait le voir.** Sur
+  la porte MCP, chaque entrée était éprouvée SÉPARÉMENT et chacune était juste : sans en-tête →
+  200 + outils publics ✅ ; jeton invalide → 401 ✅ ; en-tête vide → 400 ✅. L'absurdité
+  n'apparaît qu'en les METTANT CÔTE À CÔTE — un client qui tente de s'authentifier avec un jeton
+  expiré obtenait MOINS que le même client muet, et un client MCP marque alors le serveur
+  « failed » pour toute la session. Réflexe à prendre : pour toute porte à plusieurs entrées
+  (anonyme / porteur / session / interne), écrire le TABLEAU de ce que chacune restitue, et
+  chercher l'inversion. La conformité de chaque ligne ne dit rien de la cohérence de la colonne.
+  [1× — 08-22g]
+- **C'est le USER qui l'a trouvé, en s'en servant — et j'ai conclu deux fois avant de chercher.**
+  D'abord « reconnecte », puis « c'est l'état de ton client » : deux réponses exactes (la porte
+  répondait bien) et deux fois hors sujet, parce qu'aucune ne répondait à ce qu'il DEMANDAIT (« je
+  veux des outils SANS authentification »). Il a fallu qu'il répète pour que je cherche le défaut
+  de conception au lieu de défendre la mesure. ↝ [[feedback_user_repeats_question]] [1× — 08-22g]
+
 ## 🔁 Le même défaut vit souvent en DEUX exemplaires — corriger l'un laisse l'autre
 
 - **La détection d'agents était recopiée dans `security:token`** : le correctif du cœur ne
@@ -76,6 +93,12 @@ src/nodefony/tsconfig.json --noEmit` ne couvre pas les tests ; `npm run typechec
   chemins relatifs sont tombés d'un coup. J'ai failli les qualifier de régression avant de voir que
   l'erreur citait `<repo>/src/tests/...` au lieu de `<repo>/src/nodefony/src/tests/...` — le chemin
   de l'erreur était le seul indice. [1× — 08-22e]
+- **2ᵉ occurrence du même piège, autre forme : `npx vitest run` lancé depuis la RACINE.** Le `cd`
+  d'un appel précédent avait été annulé par le `cd` en tête du bloc suivant : 562 fichiers de test
+  au lieu des 9 du paquet, « 451 failed » — un instant de panique pour un instrument mal pointé.
+  Le discriminant est le même qu'en 08-22e : le COMPTE de fichiers, à comparer à ce que le
+  périmètre contient. Un run dont le nombre de fichiers surprend est un run mal pointé, jamais une
+  régression. [2× — 08-22g] ↝ [[feedback_bash_cwd_drift]]
 
 ## 🚧 Ajouter une EXIGENCE sans regarder qui PRODUIT l'artefact exigé
 
@@ -306,6 +329,14 @@ log 2>&1; echo "EXIT=$?" | tee -a log` : le harnais a rapporté **exit 0** — c
 
 ## 🧪 Un test neuf peut FIGER sans DISCRIMINER — et le débranchement seul le dit
 
+- `[1× — 08-22g]` **Une assertion d'ÉGALITÉ sur un calcul DÉRIVÉ transforme une bonne nouvelle en
+  échec.** J'attendais `scopes_supported === ["admin:read"]` ; la porte réelle a rendu
+  `["admin:read", "test:secret"]` — le rouge ÉTAIT la preuve que la dérivation marchait (elle
+  venait de rattraper le scope d'un outil de module que la liste écrite taisait). Sur un résultat
+  dérivé d'un environnement (modules chargés, outils déclarés), l'assertion doit dire le SENS —
+  « contient ceci », « ne contient PAS cela » — et non geler une liste que le décor fait varier
+  légitimement.
+
 - `[4× — 08-21b]` 🔴 **Un débranchement prouvé ne vaut rien si le JUGE n'a pas tourné.** Quatre
   fois dans la même session : sabotage posé et prouvé (`grep` = 1), puis `vitest` lancé depuis le
   MAUVAIS cwd → « no tests » — et un juge qui ne tourne pas ressemble à un débranchement vert.
@@ -346,6 +377,13 @@ log 2>&1; echo "EXIT=$?" | tee -a log` : le harnais a rapporté **exit 0** — c
   le fichier fautif.
 
 ## 🔌 Le décor d'un banc se LIT à sa source, jamais ne se devine
+
+- `[1× — 08-22g]` **Un test qui lit un JOURNAL rend un faux ROUGE quand le journal n'est plus
+  alimenté.** `client-abort-499` compte les lignes `499` ajoutées à `/tmp/nodefony-server.log` ; il
+  sait sauter si le fichier est ILLISIBLE (exception → `-1`), pas s'il est FIGÉ — mtime 07:55 pour
+  un serveur relancé à 21:00. Verdict : « 0 ligne 499 » présenté comme une régression du pipeline
+  HTTP, alors qu'aucun fichier du pipeline n'était touché. Une sonde de décor doit vérifier que la
+  source est VIVANTE (mtime, ligne témoin écrite avant la mesure), pas seulement lisible.
 
 - `[1× — 08-21b]` **Le tarball d'un run LONG fige le code du LANCEMENT.** Le miroir
   `.claude/skills` a été codé PENDANT que le run large tournait : `skills: (aucun)` sur les 30
