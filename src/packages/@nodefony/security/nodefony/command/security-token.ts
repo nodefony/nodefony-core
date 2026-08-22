@@ -24,6 +24,38 @@ const options: OptionsCommandInterface = {
 /** Variable d'environnement que le câblage `.mcp.json` développe. */
 const MCP_TOKEN_ENV = "NF_MCP_TOKEN";
 
+/** Plafond d'une durée demandée en ligne de commande : 30 jours. */
+const TTL_MAX_MINUTES = 30 * 24 * 60;
+
+/**
+ * Traduit `--ttl` en secondes, ou rend l'erreur à afficher.
+ *
+ * Exportée pour être ÉPROUVÉE : c'est une fonction pure dont chaque verdict est
+ * binaire, et dont l'échec — une durée acceptée alors qu'elle est aberrante —
+ * ne se verrait qu'au moment où un jeton refuse de mourir.
+ *
+ * @param raw - la valeur telle que tapée, ou rien
+ * @returns les secondes, `undefined` si rien n'est demandé, une `Error` sinon
+ */
+export function ttlSeconds(
+  raw: string | undefined,
+): number | undefined | Error {
+  if (raw === undefined) return undefined;
+  const minutes = Number.parseInt(raw, 10);
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    return new Error(
+      `--ttl attend un nombre de MINUTES supérieur à zéro (reçu « ${raw} »)`,
+    );
+  }
+  if (minutes > TTL_MAX_MINUTES) {
+    return new Error(
+      `--ttl est borné à ${TTL_MAX_MINUTES} minutes (30 jours) — un jeton posé ` +
+        `dans un fichier est une clé, et une clé se remplace`,
+    );
+  }
+  return minutes * 60;
+}
+
 const GREEN = "\x1b[32m";
 const YELLOW = "\x1b[33m";
 const DIM = "\x1b[2m";
@@ -68,6 +100,10 @@ class SecurityToken extends Command {
     this.addOption(
       "-r, --resource <uri>",
       "audience visée (défaut : la porte MCP de cette application)",
+    );
+    this.addOption(
+      "-t, --ttl <duree>",
+      "durée de validité, en minutes (défaut : celle de la config, 15 min)",
     );
     this.addOption(
       "-w, --write",
@@ -157,6 +193,7 @@ class SecurityToken extends Command {
     identifierArg: string | undefined,
     opts: {
       scope?: string;
+      ttl?: string;
       resource?: string;
       write?: boolean;
       json?: boolean;
@@ -207,9 +244,21 @@ class SecurityToken extends Command {
 
     const resource = opts.resource ?? this.#defaultResource();
     const scopes = (opts.scope ?? "").split(/\s+/u).filter(Boolean);
+    // Une durée EXPLICITE, bornée. Le défaut de configuration (15 min) est
+    // taillé pour un jeton d'API qu'un client rafraîchit ; l'en-tête statique
+    // d'un agent, lui, n'est renouvelé par personne — le porteur revient toutes
+    // les quinze minutes constater un 401 qui n'accuse pas la bonne chose. La
+    // borne haute existe pour que « pratique » ne devienne pas « éternel » : un
+    // jeton posé dans un fichier est une clé, et une clé se remplace.
+    const ttlS = ttlSeconds(opts.ttl);
+    if (ttlS instanceof Error) {
+      this.log(ttlS.message, "ERROR");
+      process.exitCode = 1;
+      return this;
+    }
     let emis;
     try {
-      emis = await tokens.issueTokens(user, scopes, resource);
+      emis = await tokens.issueTokens(user, scopes, resource, ttlS);
     } catch (e) {
       // `invalid_target` en clair. L'émetteur refuse une audience qu'il ne sert
       // pas, et il a RAISON de ne rien dire de plus (énumérer les audiences
@@ -302,7 +351,10 @@ class SecurityToken extends Command {
         w(
           `${YELLOW}⚠ ${MCP_TOKEN_ENV} existe déjà dans .env.local — inchangé.${RESET}\n` +
             `${DIM}  Remplace la ligne à la main pour tourner le jeton :${RESET}\n\n` +
-            `  ${MCP_TOKEN_ENV}=${jeton}\n\n`,
+            `  ${MCP_TOKEN_ENV}=${jeton}\n\n` +
+            `${DIM}  Et pour ton agent — qui ne lit AUCUN .env, il résout la variable dans\n` +
+            `  son propre environnement :${RESET}\n\n` +
+            `  ${BOLD}export ${MCP_TOKEN_ENV}=${jeton}${RESET}\n\n`,
         );
       } else {
         // Le commentaire dit CE QUE CE JETON PEUT — compte, rôles, scopes,
@@ -321,8 +373,25 @@ class SecurityToken extends Command {
           "utf8",
         );
         w(
-          `${GREEN}✓ ${MCP_TOKEN_ENV} écrit dans .env.local${RESET} ${DIM}(gitignoré)${RESET}\n` +
-            `${DIM}  Redémarre ton agent : il ne relit pas sa configuration en cours de route.${RESET}\n\n`,
+          `${GREEN}✓ ${MCP_TOKEN_ENV} écrit dans .env.local${RESET} ${DIM}(gitignoré)${RESET}\n\n` +
+            // 🔴 CE QUI MANQUAIT, et qui coûtait une heure de diagnostic.
+            // `.env.local` est lu par l'APPLICATION à son démarrage. Le client
+            // MCP, lui, ne le lit jamais : il résout `\${NF_MCP_TOKEN}` de
+            // `.mcp.json` dans SON PROPRE environnement. Absent, il envoie
+            // l'en-tête non substitué — et le serveur répond « autorisation
+            // requise », un 401 qui accuse le jeton alors qu'il est parfait.
+            // « Redémarre ton agent » laissait croire que le fichier suffisait.
+            `${YELLOW}⚠ .env.local ne suffit PAS pour ton agent.${RESET}\n` +
+            `${DIM}  Ce fichier est lu par l'APPLICATION à son démarrage. Le client MCP, lui,\n` +
+            `  résout \${${MCP_TOKEN_ENV}} de .mcp.json dans SON environnement — il ne lit\n` +
+            `  aucun .env. Sans la variable, il envoie l'en-tête tel quel et reçoit un 401\n` +
+            `  « autorisation requise », qui accuse le jeton à tort.${RESET}\n\n` +
+            `  Deux façons de la lui donner — dans les deux cas, RELANCE l'agent :\n\n` +
+            `  ${BOLD}export ${MCP_TOKEN_ENV}=${jeton}${RESET}\n` +
+            `${DIM}    …dans le shell d'où tu le lances (vaut pour tout agent).${RESET}\n\n` +
+            `${DIM}  ou, pour Claude Code, une valeur qui SURVIT au shell — clé "env" de\n` +
+            `  .claude/settings.local.json (fichier local, jamais commité) :${RESET}\n\n` +
+            `  ${BOLD}{ "env": { "${MCP_TOKEN_ENV}": "<le jeton>" } }${RESET}\n\n`,
         );
       }
       return this;

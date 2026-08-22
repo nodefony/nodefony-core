@@ -157,6 +157,17 @@ export function planTokenChaining(
     projectRoot: string;
     isTTY: boolean;
     env?: Record<string, string | undefined>;
+    /**
+     * Durée de validité demandée, en minutes. Omise, l'émetteur applique son
+     * défaut de configuration.
+     *
+     * ⭐ Elle existe ici parce que le jeton part dans un en-tête STATIQUE :
+     * `.mcp.json` porte une valeur que personne ne rafraîchit. Le défaut de
+     * l'émetteur (15 min) est taillé pour un client qui sait renouveler ; ici,
+     * il condamne l'utilisateur à réémettre toutes les quinze minutes, en
+     * lisant chaque fois un 401 qui accuse le jeton à tort.
+     */
+    ttlMinutes?: number;
   },
 ): IChainedToken | null {
   // Un jeton n'a de sens que si l'en-tête le RÉCLAME.
@@ -166,7 +177,10 @@ export function planTokenChaining(
   if (demande.dryRun || demande.json) return null;
   if (!contexte.isTTY) return null;
   return {
-    argv: ["security:token", "--write"],
+    argv:
+      contexte.ttlMinutes === undefined
+        ? ["security:token", "--write"]
+        : ["security:token", "--write", "--ttl", String(contexte.ttlMinutes)],
     env: { ...(contexte.env ?? process.env), NODE_ENV: "development" },
     cwd: contexte.projectRoot,
   };
@@ -274,17 +288,40 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
     isTTY: Boolean(process.stdin.isTTY),
   });
   if (chainage) {
-    const { confirm } = await import("@inquirer/prompts");
+    const { confirm, select } = await import("@inquirer/prompts");
     const maintenant = await confirm({
-      message: `Obtenir un jeton maintenant (${MCP_TOKEN_ENV} dans .env.local) ?`,
+      message: `Obtenir un jeton maintenant (${MCP_TOKEN_ENV}) ?`,
       default: true,
     });
     const bin = process.argv[1];
     if (maintenant && bin) {
+      // ⭐ La DURÉE se demande, elle ne se subit pas. Le jeton part dans un
+      // en-tête statique que rien ne rafraîchit : le défaut de l'émetteur
+      // (15 min) oblige à tout recommencer au quart d'heure, et le refus qui
+      // s'ensuit accuse le jeton alors qu'il a simplement vécu. Un choix fermé
+      // plutôt qu'une saisie libre — on ne se trompe pas d'unité.
+      const ttlMinutes = await select({
+        message: "Durée de validité du jeton",
+        default: 7 * 24 * 60,
+        choices: [
+          {
+            name: "7 jours (recommandé pour un agent local)",
+            value: 7 * 24 * 60,
+          },
+          { name: "30 jours (maximum)", value: 30 * 24 * 60 },
+          { name: "12 heures", value: 12 * 60 },
+          { name: "15 minutes (le défaut de la configuration)", value: 15 },
+        ],
+      });
+      const avecDuree = planTokenChaining(parsed, {
+        projectRoot,
+        isTTY: true,
+        ttlMinutes,
+      });
       const { spawnSync } = await import("node:child_process");
       // `stdio: "inherit"` — l'enfant hérite du TERMINAL, sans quoi il ne
       // pourrait poser aucune question (son `process.stdin.isTTY` serait faux).
-      spawnSync(process.execPath, [bin, ...chainage.argv], {
+      spawnSync(process.execPath, [bin, ...(avecDuree ?? chainage).argv], {
         stdio: "inherit",
         cwd: chainage.cwd,
         env: chainage.env,

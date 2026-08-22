@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-22T11:54:27.913Z",
+  "generated": "2026-08-22T14:10:39.247Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 726,
-    "symbols": 3032,
+    "symbols": 3033,
     "classes": 364,
     "interfaces": 869,
     "types": 383,
     "enums": 4,
-    "functions": 1124,
+    "functions": 1125,
     "constants": 288
   },
   "symbols": {
@@ -15385,6 +15385,14 @@
       "implements": [],
       "decorators": [],
       "description": "`nodefony security:token` — émet un jeton d'accès pour une porte de cette application (la porte MCP par défaut). **Pourquoi une commande, et pas un `curl`.** Le jeton s'obtenait par un appel au gra…"
+    },
+    "ttlSeconds": {
+      "name": "ttlSeconds",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/command/security-token.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Traduit `--ttl` en secondes, ou rend l'erreur à afficher. Exportée pour être ÉPROUVÉE : c'est une fonction pure dont chaque verdict est binaire, et dont l'échec — une durée acceptée alors qu'elle e…"
     },
     "SecurityUserAdd": {
       "name": "SecurityUserAdd",

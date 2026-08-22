@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { Cli } from "nodefony";
 import SecurityUserList from "../../nodefony/command/security-user-list";
-import SecurityToken from "../../nodefony/command/security-token";
+import SecurityToken, {
+  ttlSeconds,
+} from "../../nodefony/command/security-token";
 
 /**
  * Ce que cette suite garde, et que rien d'autre ne garde : ces deux commandes
@@ -196,5 +198,38 @@ describe("security:secrets — on doit savoir QUOI et POURQUOI", () => {
 
     // Et l'affichage lit bien ce catalogue, plutôt qu'une liste recopiée.
     expect(source).toContain("Object.entries(ROLES)");
+  });
+});
+
+/**
+ * Ce que cette suite prouve : qu'une durée demandée en ligne de commande est
+ * VÉRIFIÉE. Le défaut de configuration (15 min) convient à un jeton d'API qu'un
+ * client rafraîchit ; il est impraticable pour l'en-tête statique d'un agent,
+ * que rien ne renouvelle. Ouvrir cette porte sans borne ferait des jetons
+ * éternels posés dans des fichiers — la borne EST la fonctionnalité.
+ */
+describe("security:token --ttl — une durée qui s'écrit, et qui se borne", () => {
+  it("sans option, ne décide rien : la configuration garde la main", () => {
+    expect(ttlSeconds(undefined)).toBe(undefined);
+  });
+
+  it("traduit des MINUTES en secondes", () => {
+    expect(ttlSeconds("30")).toBe(1800);
+    expect(ttlSeconds("43200")).toBe(30 * 24 * 3600);
+  });
+
+  it("🔴 refuse au-delà de 30 jours — un jeton dans un fichier est une clé", () => {
+    const verdict = ttlSeconds("43201");
+    expect(verdict).toBeInstanceOf(Error);
+    expect((verdict as Error).message).toMatch(/borné/u);
+  });
+
+  it("refuse ce qui n'est pas une durée, plutôt que de deviner", () => {
+    // `Number.parseInt("abc")` rend NaN ; sans garde, `NaN * 60` partirait
+    // jusqu'à la signature et produirait un jeton dont l'expiration est
+    // invalide — accepté ici, refusé partout ailleurs, sans explication.
+    for (const nawak of ["abc", "0", "-5", ""]) {
+      expect(ttlSeconds(nawak), nawak).toBeInstanceOf(Error);
+    }
   });
 });

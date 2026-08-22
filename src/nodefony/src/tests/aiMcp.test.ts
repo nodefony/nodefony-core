@@ -237,6 +237,26 @@ describe("ai:mcp — l'enchaînement vers security:token", () => {
     expect(plan?.argv).toEqual(["security:token", "--write"]);
   });
 
+  it("🔴 la DURÉE demandée voyage jusqu'à l'émetteur", () => {
+    // Sens du test : le jeton part dans un en-tête STATIQUE que rien ne
+    // rafraîchit. Sans cette option, l'émetteur applique son défaut (15 min) et
+    // l'utilisateur recommence au quart d'heure — en lisant chaque fois un 401
+    // qui accuse le jeton alors qu'il a simplement vécu.
+    const plan = planTokenChaining(
+      { auth: true, dryRun: false, json: false },
+      { ...contexte, ttlMinutes: 10080 },
+    );
+    expect(plan?.argv).toEqual(["security:token", "--write", "--ttl", "10080"]);
+  });
+
+  it("sans durée demandée, l'émetteur garde son défaut", () => {
+    const plan = planTokenChaining(
+      { auth: true, dryRun: false, json: false },
+      contexte,
+    );
+    expect(plan?.argv).to.not.contain("--ttl");
+  });
+
   it("🔴 NODE_ENV=development est POSÉ — la porte MCP est servie par un module de dev", () => {
     // Sans lui, l'enfant repart en production, où ce module n'existe pas :
     // l'émission échoue sur « audience non servie » — l'erreur exacte qu'on

@@ -452,12 +452,24 @@ class TokenService extends Service {
     user: IUser,
     requestedScopes?: string[],
     resource?: unknown,
+    accessTtlS?: number,
   ): Promise<ITokenResponse> {
     this.#ensureReady();
     const scopes =
       requestedScopes && requestedScopes.length > 0 ? [...requestedScopes] : [];
     const audience = this.#resolveAudience(resource);
-    const access = await this.#signAccess(user.identifier, scopes, audience);
+    // ⭐ Un TTL par appel, quand l'appelant SAIT ce qu'il fait. Le défaut de
+    // configuration (15 min) convient à un jeton d'API que le client
+    // rafraîchit ; il est impraticable pour un en-tête STATIQUE, celui qu'un
+    // agent porte dans son `.mcp.json` et que rien ne renouvelle. La durée
+    // devient alors un choix qui s'ÉCRIT à l'émission, plutôt qu'un réglage
+    // global qu'on relèverait pour TOUS les jetons de l'application.
+    const access = await this.#signAccess(
+      user.identifier,
+      scopes,
+      audience,
+      accessTtlS,
+    );
     const { record, raw } = this.#buildRefresh(
       user.identifier,
       scopes,
@@ -478,7 +490,7 @@ class TokenService extends Service {
       access_token: access,
       refresh_token: raw,
       token_type: "Bearer",
-      expires_in: this.#runtime!.accessTtlS,
+      expires_in: accessTtlS ?? this.#runtime!.accessTtlS,
       scope: scopes.join(" "),
     };
   }
@@ -590,6 +602,7 @@ class TokenService extends Service {
     subject: string,
     scopes: string[],
     audience: string,
+    ttlS?: number,
   ): Promise<string> {
     const jose = await this.#ensureJose();
     const { key, kid } = await this.#keystore!.getSigningKey();
@@ -603,7 +616,7 @@ class TokenService extends Service {
         // L'audience est celle qui a été ACCORDÉE — la ressource demandée, ou le
         // défaut. Reprendre `audiences[0]` ici annulerait la demande sans un mot.
         .setAudience(audience)
-        .setExpirationTime(`${rt.accessTtlS}s`)
+        .setExpirationTime(`${ttlS ?? rt.accessTtlS}s`)
         .setJti(randomUUID())
         .sign(key)
     );
