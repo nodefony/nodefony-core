@@ -14,8 +14,10 @@
  *
  * @module
  */
+import fs from "node:fs";
 import http from "node:http";
 import net from "node:net";
+import path from "node:path";
 
 /**
  * Port de l'application témoin. Posé par le banc (`APP_ENV.NF_PORT = 5371`) ;
@@ -25,6 +27,72 @@ export const PORT = process.env.NF_PORT ?? "5371";
 
 /** Toujours la boucle locale : le décor du banc n'écoute jamais ailleurs. */
 export const HOTE = "127.0.0.1";
+
+/**
+ * L'application qui écoute est-elle bien CELLE-CI ?
+ *
+ * 🔴 **Un port qui répond ne prouve pas à qui il répond.** Vécu, et le banc s'y
+ * est pris lui-même : un run interrompu a laissé son serveur vivant sur les
+ * ports dédiés ; le run suivant n'a donc jamais démarré le sien, et l'agent
+ * comme les juges ont interrogé l'application du run PRÉCÉDENT — même ports,
+ * même nom (`bench-app`), donc rien pour s'en apercevoir. C'est la classe de
+ * piège « une application qui n'est pas la sienne », version runtime.
+ *
+ * Le discriminant est LOCAL et gratuit : un serveur Nodefony publie son état
+ * dans `node_modules/.cache/nodefony/runtime.json` — PID et ports EFFECTIFS —
+ * et cet état vit dans l'application qui l'a démarré. Absent, ou ne portant pas
+ * le port qu'on s'apprête à frapper : ce qui répond appartient à quelqu'un
+ * d'autre.
+ *
+ * @param {string} [app] - racine de l'application sous test (défaut : le cwd).
+ * @returns {{pid: number, ports: number[]}|null} son état publié, ou `null`.
+ */
+export function runtimeDeLApp(app = process.cwd()) {
+  try {
+    const brut = JSON.parse(
+      fs.readFileSync(
+        path.join(app, "node_modules", ".cache", "nodefony", "runtime.json"),
+        "utf8",
+      ),
+    );
+    const ports = Array.isArray(brut?.ports)
+      ? brut.ports.filter((p) => Number.isInteger(p))
+      : [];
+    if (ports.length === 0) return null;
+    return { pid: Number(brut.pid) || 0, ports };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Le serveur qui tient `port` est-il celui de l'application sous test ?
+ *
+ * @param {string|number} [port] - le port qu'on s'apprête à interroger.
+ * @param {string} [app] - racine de l'application sous test.
+ * @returns {{sien: true}|{sien: false, motif: string}} verdict et sa raison —
+ *   le motif est destiné à un rapport, il doit se lire sans le code.
+ */
+export function portDeLAppSousTest(port = PORT, app = process.cwd()) {
+  const etat = runtimeDeLApp(app);
+  if (etat === null) {
+    return {
+      sien: false,
+      motif:
+        "l'application sous test n'a publié aucun état de runtime " +
+        "(node_modules/.cache/nodefony/runtime.json) — elle n'a pas démarré",
+    };
+  }
+  if (!etat.ports.includes(Number(port))) {
+    return {
+      sien: false,
+      motif:
+        `l'application sous test écoute sur ${etat.ports.join(", ")}, ` +
+        `pas sur ${port}`,
+    };
+  }
+  return { sien: true };
+}
 
 /** Au-delà, la réponse ne viendra pas — et l'attendre ne dit rien de plus. */
 const TIMEOUT_MS = 15_000;

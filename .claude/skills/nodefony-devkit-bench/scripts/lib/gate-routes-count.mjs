@@ -28,7 +28,13 @@
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { Bocal, demander, portTenu, sortir } from "./http-probe.mjs";
+import {
+  Bocal,
+  demander,
+  portDeLAppSousTest,
+  portTenu,
+  sortir,
+} from "./http-probe.mjs";
 
 /** Le chemin de la porte MCP d'une application Nodefony. */
 const CHEMIN_MCP = "/nodefony/mcp";
@@ -49,6 +55,15 @@ const CHEMIN_MCP = "/nodefony/mcp";
 async function compteParLaPorte() {
   if (!(await portTenu())) {
     return { echec: "aucune application n'écoute" };
+  }
+  // 🔴 Quelqu'un répond — mais QUI ? Un run précédent laissé vivant tient les
+  // mêmes ports et porte le même nom d'application. Sans cette garde, ce juge
+  // rend un chiffre EXACT à propos d'une autre application, et personne ne peut
+  // le voir : c'est arrivé, et le seul verdict juste de la passe fut le rouge
+  // de `nodefony check` (« le port est tenu par un autre processus »).
+  const cible = portDeLAppSousTest();
+  if (!cible.sien) {
+    return { echec: `un serveur répond, mais ${cible.motif}` };
   }
   const rep = await demander("POST", CHEMIN_MCP, new Bocal(), {
     corps: {

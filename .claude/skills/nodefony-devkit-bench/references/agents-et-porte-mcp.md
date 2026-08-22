@@ -43,6 +43,22 @@ verdict ne vaut rien dans ce régime. Le banc le DIT au lieu de le taire.
    tâche n'est pas jouée du tout (« 0/0 tâches PASS » — un verdict qui n'en est pas un).
 4. **Un code de sortie n'est pas un verdict.** Démarrer une application déjà démarrée sort en `69` :
    annoncer « porte morte » sur cette base est faux. On CONSTATE par une requête (`/livez`).
+5. **🔴 Un port qui répond ne dit pas À QUI.** C'est le piège le plus coûteux, parce qu'il produit
+   des chiffres EXACTS à propos de la mauvaise application. Vécu de bout en bout : un run interrompu
+   (« l'agent n'a rendu aucun tour ») a quitté sans éteindre son serveur ; le run suivant a trouvé
+   ses ports dédiés pris, sa prémisse n'a donc jamais démarré le sien — et l'agent, le constat de
+   porte et le juge des routes ont TOUS interrogé l'application du run précédent. Même ports, même
+   nom (`bench-app`) : rien ne pouvait le trahir. Le seul verdict juste de la passe fut le rouge de
+   `nodefony check` — « le port est tenu par un autre processus », littéralement vrai.
+   **Le discriminant est local et gratuit** : un serveur Nodefony publie `pid` et ports EFFECTIFS
+   dans `node_modules/.cache/nodefony/runtime.json`, **dans l'application qui l'a démarré**. Absent,
+   ou ne portant pas le port qu'on va frapper ⇒ ce qui répond appartient à quelqu'un d'autre
+   (`portDeLAppSousTest`, dans le socle `lib/http-probe.mjs`).
+6. **Un arrêt qui ne couvre pas les sorties d'URGENCE n'est pas un arrêt.** Celui du banc existait,
+   nommait même le risque — mais il vivait après la boucle des tâches et ne valait qu'en régime
+   `auth`. Or une passe s'interrompt (`process.exit`), et une PRÉMISSE démarre l'application dans
+   tous les régimes. Il est désormais armé sur `process.on("exit")` et sur les signaux, et la fin
+   normale CONSTATE (`nodefony status`) au lieu de croire le code de sortie de `stop`.
 
 ## 2. L'agent — `NF_DEVKIT_BENCH_AGENT` et ses drapeaux
 
@@ -55,8 +71,63 @@ donner la ligne entière pour un autre agent.
 | --- | --- | --- | --- |
 | `claude` (défaut) | _(laisser vide)_ | `NF_DEVKIT_BENCH_MODEL` (défaut `haiku`) | `--mcp-config .mcp.json --strict-mcp-config`, ajoutés d'office |
 | `vibe` | `--output streaming --yolo --trust -p` | poser `NF_DEVKIT_BENCH_MODEL=` **vide** | déclaré chez lui par `vibe mcp add`, dans un foyer JETABLE |
-| `codex` | à établir | vide | même famille que `vibe` : `CODEX_HOME`, config globale |
-| `gemini` | à établir | vide | portée PROJET (`.gemini/`) : rien à déporter |
+| `codex` | `exec --json --skip-git-repo-check --approve-for-me` | vide | `codex mcp add`, foyer JETABLE `CODEX_HOME` |
+| `gemini` | `--skip-trust -y -o stream-json -p` (`-p` en DERNIER) | vide | portée PROJET (`.gemini/`) : rien à déporter |
+| `agy` (Antigravity) | `--output-format stream-json -p` (`-p` en DERNIER) | vide | `agy mcp add`, portée GLOBALE — il suit `HOME` |
+
+### Deux pièges de drapeaux, tous deux payés
+
+**`codex` — `--sandbox` et `--approve-for-me` sont EXCLUSIFS.** `--approve-for-me` route déjà les
+demandes d'approbation par une revue automatique _dans le bac à sable `workspace-write`_ : le nommer
+en plus est refusé (`error: the argument '--sandbox <SANDBOX_MODE>' cannot be used with
+'--approve-for-me'`). Codex sort alors en **2 sans écrire une ligne** — et un transcript de 0 octet
+ressemble trait pour trait à un agent non authentifié ou à un quota épuisé. Le banc a bien refusé de
+rendre un verdict (« ce n'est pas un verdict »), mais le motif ne se lit qu'en **rejouant la commande
+à la main**, la sortie de l'agent étant capturée.
+
+**`agy` — un drapeau placé après `<name>` est rejeté** par `agy mcp add` (« Flags must come before
+`<name>` »). Même famille de défaut : la commande échoue pour une raison de FORME, jamais de fond.
+
+### 🔴 Gemini CLI est INÉLIGIBLE sur le tier gratuit individuel
+
+Ce n'est ni un défaut de login ni un choix du banc : c'est le serveur de Google qui refuse, compte
+parfaitement authentifié (`google_accounts.json` : `active` renseigné, `oauth_creds.json` posé).
+
+```
+IneligibleTierError: This client is no longer supported for Gemini Code Assist for individuals.
+reasonCode: 'UNSUPPORTED_CLIENT'  ·  tierId: 'free-tier'
+To continue using Gemini, please migrate to the Antigravity suite of products
+```
+
+Les voies qui restent, toutes deux non interactives et documentées par la CLI elle-même
+(`docs/get-started/authentication.mdx`, bundlée dans le paquet npm) : **`GEMINI_API_KEY`** (clé AI
+Studio) ou **Vertex AI**. Sa doc est explicite sur le mode headless — « will use your existing
+authentication method, **if an existing authentication credential is cached** » — donc sans clé, un
+`-p` part ouvrir un navigateur et **attend une réponse sur stdin** : le symptôme est un banc qui
+pend, pas une erreur.
+
+**Antigravity CLI est le remplaçant désigné, et il est pilotable.** Son binaire s'appelle **`agy`**
+(pas `antigravity`), et il vit dans `~/.local/bin`. Vérifié en le lançant :
+
+| Ce qu'on veut       | Chez `agy`                                                                  |
+| ------------------- | --------------------------------------------------------------------------- |
+| mode non interactif | `-p` / `--print` / `--prompt` (prend le prompt en VALEUR → dernier drapeau) |
+| JSONL               | `--output-format stream-json`                                               |
+| auto-approbation    | `--dangerously-skip-permissions`                                            |
+| modèle · effort     | `--model` · `--effort low\|medium\|high`                                    |
+| déclarer la porte   | `agy mcp add --type http --header "Authorization: Bearer …" <nom> <url>`    |
+
+⚠️ **`agy mcp add` REJETTE un drapeau placé après le nom** — sa propre aide le dit : « Flags must
+come before `<name>` ». Un ordre d'arguments naturel échoue donc, et l'échec ne ressemble pas à un
+problème d'ordre.
+
+Il écrit dans **`$HOME/.gemini/config/mcp_config.json`** (portée globale, forme
+`{mcpServers:{<nom>:{disabled, headers, serverUrl}}}` — la clé est `serverUrl`, pas `url`).
+Constaté : **il respecte `HOME`** — avec un `HOME` détourné, la déclaration part dans le foyer
+jetable et le foyer réel reste vide (`agy mcp list` → « No MCP servers configured »). Un foyer
+jetable est donc possible, mais il emporterait aussi son identité (`~/.gemini/oauth_creds.json`) et
+son propre foyer de données (`~/.gemini/antigravity-cli/`, binaire et bases comprises) : à traiter
+comme pour Codex, en copiant ce qui identifie, jamais en écrivant chez l'utilisateur.
 
 ```bash
 # claude (défaut) — porte authentifiée

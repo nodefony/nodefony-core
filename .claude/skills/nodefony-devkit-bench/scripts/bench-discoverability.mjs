@@ -117,6 +117,7 @@ import {
   lireCause,
   motifNonOpposable,
 } from "./lib/imputation.mjs";
+import { portDeLAppSousTest } from "./lib/http-probe.mjs";
 import { commitsDuHarnais, indiceDeLaPasse } from "./lib/passes.mjs";
 import {
   CHEMIN_REFERENCE,
@@ -269,6 +270,50 @@ const MCP_ATTEIGNABLE = [...AGENT_ARGS, ...MCP_ARGS].includes("--mcp-config");
  */
 /** Nom sous lequel la porte est déclarée — celui qu'écrit `ai:mcp`. */
 const MCP_SERVER_NOM = "nodefony";
+
+/**
+ * L'application témoin à éteindre avant de rendre la main — quel que soit le
+ * CHEMIN de sortie.
+ *
+ * 🔴 **Le défaut que ceci ferme, et il s'est retourné contre le banc lui-même.**
+ * L'arrêt existait, il nommait même le risque (« le run SUIVANT croirait
+ * interroger la sienne »), mais il était placé APRÈS la boucle des tâches et
+ * conditionné au seul régime `auth`. Or une passe s'interrompt : agent muet,
+ * quota, arguments refusés — autant de `process.exit()` qui sautent par-dessus.
+ * Et une tâche démarre l'application par sa PRÉMISSE dans tous les régimes, pas
+ * seulement en `auth`.
+ *
+ * Vécu, en cascade : un run arrêté sur « l'agent n'a rendu aucun tour » a laissé
+ * son serveur vivant sur les ports dédiés ; le run suivant n'a donc jamais pu
+ * démarrer le sien (aucun `runtime.json` dans son application), et l'agent, le
+ * constat de porte et le juge des routes ont TOUS interrogé l'application du run
+ * précédent. Le seul verdict juste de la chaîne fut le rouge de `nodefony check`
+ * — « le port est tenu par un autre processus », littéralement vrai.
+ */
+let APP_A_ETEINDRE = null;
+
+/** Éteint l'application témoin. Idempotent : appelable deux fois sans dommage. */
+function eteindreApplication(app) {
+  if (app === null) return;
+  APP_A_ETEINDRE = null;
+  spawnSync("npx", ["--no-install", "nodefony", "stop"], {
+    cwd: app,
+    encoding: "utf8",
+    env: APP_ENV,
+    timeout: 60_000,
+  });
+}
+
+// `exit` couvre les `process.exit()` de la passe ; les signaux ne le déclenchent
+// pas d'eux-mêmes, on les relaie. `spawnSync` reste licite ici : le handler est
+// synchrone, et c'est justement pourquoi l'arrêt s'écrit ainsi.
+process.on("exit", () => eteindreApplication(APP_A_ETEINDRE));
+for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+  process.on(signal, () => {
+    eteindreApplication(APP_A_ETEINDRE);
+    process.exit(130);
+  });
+}
 
 const MCP_REGIMES = ["eteint", "auth", "off"];
 const MCP_REGIME = process.env.NF_DEVKIT_BENCH_MCP ?? "eteint";
@@ -3954,6 +3999,10 @@ function runTask(app, runDir, task) {
       "--allow-empty",
     );
     console.log("  · prémisse posée (décor commité avant l'agent)");
+    // 🔴 Le filet s'arme ICI, pas au démarrage explicite du régime `auth` : une
+    // prémisse peut avoir lancé un serveur (la tâche 9 le fait), et c'est
+    // précisément le serveur qu'une passe interrompue laisse derrière elle.
+    APP_A_ETEINDRE = app;
   }
   // Régime « auth » : l'application doit RÉPONDRE avant que l'agent démarre —
   // son client MCP se connecte tôt, et une porte injoignable le reste pour
@@ -3965,6 +4014,7 @@ function runTask(app, runDir, task) {
       ["--no-install", "nodefony", "development", "--detach", "--wait"],
       { cwd: app, encoding: "utf8", env: APP_ENV, timeout: 180_000 },
     );
+    APP_A_ETEINDRE = app;
   }
   // 🔴 Le décor est FIGÉ ici — après la prémisse de la tâche, avant l'agent.
   // C'est donc le seul instant où l'état de la porte se sait, et il se sait en
@@ -3995,11 +4045,20 @@ function runTask(app, runDir, task) {
     );
     const vivante = (sonde.stdout ?? "").trim() === "200";
     const identite = mcpAuthentifie() ? "jeton posé" : "ANONYME";
+    // 🔴 « Quelqu'un répond » n'est PAS « l'application sous test répond ». Un
+    // run laissé vivant tient les mêmes ports dédiés et porte le même nom :
+    // cette ligne a déjà annoncé « application EN MARCHE » à propos de
+    // l'application du run PRÉCÉDENT, et l'agent l'a interrogée en confiance.
+    // Le discriminant est local : l'état de runtime que publie CETTE app.
+    const cible = portDeLAppSousTest(PORTS.NF_PORT, app);
     console.log(
-      vivante
-        ? `  · application EN MARCHE (constaté sur ${PORTS.NF_PORT_HTTPS}) — ` +
+      !vivante
+        ? `  ⚠️ aucune réponse sur ${PORTS.NF_PORT_HTTPS} — l'agent trouvera la porte MORTE`
+        : cible.sien
+          ? `  · application EN MARCHE (constaté sur ${PORTS.NF_PORT_HTTPS}) — ` +
             `porte MCP joignable, ${identite}`
-        : `  ⚠️ aucune réponse sur ${PORTS.NF_PORT_HTTPS} — l'agent trouvera la porte MORTE`,
+          : `  🛑 un serveur répond sur ${PORTS.NF_PORT_HTTPS}, mais ${cible.motif} — ` +
+            `la mesure porterait sur une AUTRE application`,
     );
   }
   const transcriptPath = path.join(runDir, `task-${task.id}.transcript.jsonl`);
@@ -5053,22 +5112,24 @@ function main() {
       }
       mesures.push({ app, dir, occurrence: runs > 1 ? rep : null });
     }
-    // Le régime « auth » a démarré l'application : la laisser tourner
-    // occuperait ses ports dédiés et le run SUIVANT croirait interroger la
-    // sienne — la classe de piège « une application qui n'est pas la sienne ».
-    if (MCP_REGIME === "auth") {
-      const arret = spawnSync("npx", ["--no-install", "nodefony", "stop"], {
-        cwd: app,
-        encoding: "utf8",
-        env: APP_ENV,
-        timeout: 60_000,
-      });
-      console.log(
-        arret.status === 0
-          ? "\n• application arrêtée (décor rendu)"
-          : `\n⚠️ arrêt de l'application en ${arret.status} — vérifier le port ${PORTS.NF_PORT_HTTPS}`,
-      );
-    }
+    // 🔴 Sans condition de régime : une PRÉMISSE de tâche démarre l'application
+    // quel que soit le régime, et la laisser tourner ferait croire au run
+    // suivant qu'il interroge la sienne. Le filet de sortie (`process.on`)
+    // couvre les interruptions ; ceci couvre la fin normale, et le DIT.
+    eteindreApplication(app);
+    const restant = spawnSync("npx", ["--no-install", "nodefony", "status"], {
+      cwd: app,
+      encoding: "utf8",
+      env: APP_ENV,
+      timeout: 30_000,
+    });
+    // Le verdict se CONSTATE : `stop` peut sortir en 0 sans avoir tout tué.
+    console.log(
+      restant.status === 0 && /\b(5371|5372)\b/u.test(restant.stdout ?? "")
+        ? `\n⚠️ un serveur RÉPOND ENCORE sur les ports du banc — le run suivant ` +
+            `interrogerait une application qui n'est pas la sienne`
+        : "\n• application arrêtée (décor rendu)",
+    );
   }
 
   // Une tâche ne se juge que dans les passes qui l'ont RÉELLEMENT jouée : trois

@@ -21,7 +21,7 @@
  * @module
  */
 import { spawn } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import os from "node:os";
@@ -111,10 +111,21 @@ const porteFactice = (port, count) =>
  * @param {{rapport: string|null, port: number, bin: string}} decor
  * @returns {Promise<{code: number, sortie: string}>}
  */
-function jouer({ rapport, port, bin }) {
+function jouer({ rapport, port, bin, runtime = true }) {
   const dir = mkdtempSync(path.join(os.tmpdir(), "gate-routes-"));
   if (rapport !== null) {
     writeFileSync(path.join(dir, "AUDIT.md"), rapport, "utf8");
+  }
+  // L'état qu'un serveur Nodefony publie quand il écoute. Sans lui, la garde de
+  // cible refuse de croire le port — c'est tout son objet.
+  if (runtime) {
+    const cache = path.join(dir, "node_modules", ".cache", "nodefony");
+    mkdirSync(cache, { recursive: true });
+    writeFileSync(
+      path.join(cache, "runtime.json"),
+      JSON.stringify({ pid: process.pid, ports: [Number(port)] }),
+      "utf8",
+    );
   }
   return new Promise((resolve) => {
     const enfant = spawn(process.execPath, [JUGE, bin], {
@@ -210,6 +221,32 @@ const port = await portLibre();
     `code ${sansRapport.code} : ${sansRapport.sortie.trim()}`,
   );
 
+  await new Promise((r) => srv.close(r));
+}
+
+// ─── Quelqu'un répond, mais ce n'est PAS l'application sous test ─────────────
+//
+// 🔴 Le cas qui a mordu le banc en vrai : un run laissé vivant tient les mêmes
+// ports et porte le même nom d'application. La porte répond, le chiffre est
+// exact — et il décrit quelqu'un d'autre. Le juge doit REFUSER de s'en servir.
+{
+  const srv = await porteFactice(port, 999);
+  const sansEtat = await jouer({
+    rapport: "L'application expose 999 routes.",
+    port,
+    bin: BIN_MORT,
+    runtime: false,
+  });
+  verifier(
+    "porte qui répond SANS état de runtime → le chiffre n'est pas retenu",
+    sansEtat.code === 5,
+    `code ${sansEtat.code} : ${sansEtat.sortie.trim()}`,
+  );
+  verifier(
+    "et le motif NOMME le doute sur la cible",
+    /aucun état de runtime|n'a pas démarré/u.test(sansEtat.sortie),
+    sansEtat.sortie.trim(),
+  );
   await new Promise((r) => srv.close(r));
 }
 
