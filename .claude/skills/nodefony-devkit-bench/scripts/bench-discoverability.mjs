@@ -79,6 +79,7 @@
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -256,6 +257,9 @@ const MCP_ATTEIGNABLE = [...AGENT_ARGS, ...MCP_ARGS].includes("--mcp-config");
  * serveur DÉJÀ démarré : son verdict ne vaut rien dans ce régime. Le banc le
  * dit plutôt que de le taire.
  */
+/** Nom sous lequel la porte est déclarée — celui qu'écrit `ai:mcp`. */
+const MCP_SERVER_NOM = "nodefony";
+
 const MCP_REGIMES = ["eteint", "auth", "off"];
 const MCP_REGIME = process.env.NF_DEVKIT_BENCH_MCP ?? "eteint";
 if (!MCP_REGIMES.includes(MCP_REGIME)) {
@@ -284,6 +288,19 @@ const mcpAuthentifie = () => typeof APP_ENV.NF_MCP_TOKEN === "string";
  * ensemble.
  */
 const PORTS = { NF_PORT: "5371", NF_PORT_HTTPS: "5372" };
+
+/**
+ * Foyer JETABLE des agents dont la configuration est GLOBALE.
+ *
+ * 🔴 Vibe et Codex n'ont pas de portée projet en écriture : leur `mcp add`
+ * écrit chez l'utilisateur. Un banc qui les déclarerait ainsi modifierait la
+ * configuration du POSTE — et y laisserait une porte pointant sur une
+ * application témoin détruite depuis longtemps. Chacun accepte pourtant de
+ * déplacer son foyer par une variable (`VIBE_HOME`, `CODEX_HOME`) : on le
+ * pointe dans le décor, qui disparaît avec lui. C'est ce qui rend ces agents
+ * mesurables sans rien laisser derrière.
+ */
+const FOYERS_JETABLES = { VIBE_HOME: ".vibe-home", CODEX_HOME: ".codex-home" };
 
 /**
  * Env de tout ce qui s'exécute DANS l'app témoin — agent comme gates.
@@ -3482,6 +3499,32 @@ function setup(runDir) {
   // `create app` câble pour un utilisateur. `--agent none` : on écrit le
   // fichier du projet, on ne touche à la configuration d'aucun outil du poste
   // — un banc ne déclare rien chez qui que ce soit.
+  // Chez QUI déclare-t-on ? `none` par défaut : on écrit le `.mcp.json` du
+  // projet — celui que l'agent reçoit par `--mcp-config` — et l'on ne touche à
+  // la configuration d'aucun outil. Mais un agent sans portée projet (Vibe,
+  // Codex) ne lit pas ce fichier : il faut le déclarer CHEZ LUI, dans son foyer
+  // jetable, jamais celui du poste.
+  const cleFoyer = `${AGENT.toUpperCase()}_HOME`;
+  const foyer = Object.hasOwn(FOYERS_JETABLES, cleFoyer) ? cleFoyer : null;
+  if (foyer) {
+    const chemin = path.join(app, FOYERS_JETABLES[foyer]);
+    mkdirSync(chemin, { recursive: true });
+    APP_ENV[foyer] = chemin;
+    envMcp[foyer] = chemin;
+    // ⚠️ Déplacer le foyer emporte AUSSI les identifiants : sans sa clé d'API,
+    // l'agent ne répond pas — et l'on mesurerait un décor, pas un agent. On
+    // COPIE donc sa configuration depuis le foyer réel, en lecture seule de
+    // notre côté : lire ce qui appartient à l'utilisateur, ne jamais y écrire.
+    const reel = path.join(os.homedir(), `.${AGENT}`, "config.toml");
+    if (existsSync(reel)) {
+      copyFileSync(reel, path.join(chemin, "config.toml"));
+    } else {
+      console.log(
+        `  ⚠️ aucune configuration ${AGENT} à copier (${reel}) — l'agent n'aura pas de clé`,
+      );
+    }
+    console.log(`  · foyer jetable de ${AGENT} : ${FOYERS_JETABLES[foyer]}/`);
+  }
   sh(
     "npx",
     [
@@ -3490,10 +3533,39 @@ function setup(runDir) {
       "ai:mcp",
       ...(MCP_REGIME === "auth" ? ["--auth"] : []),
       "--agent",
-      "none",
+      // ⭐ La déclaration passe par `ai:mcp`, donc par la CLI de l'agent —
+      // MÊME implémentation que pour un utilisateur, jamais une grammaire
+      // recopiée dans un banc, où elle divergerait sans que rien ne le dise.
+      foyer ? AGENT : "none",
     ],
     { cwd: app, env: envMcp },
   );
+  // 🔴 Une déclaration se CONSTATE. `ai:mcp` DIT quand la CLI d'un agent refuse
+  // — mais son compte rendu est capturé ici, donc invisible : le banc croyait
+  // avoir servi un agent qui n'avait rien reçu. Mesuré : `vibe mcp add` valide
+  // la `config.toml` plus strictement que le démarrage normal de Vibe (un
+  // modèle déclaré sans `name`/`provider` la fait refuser par pydantic), si
+  // bien que la porte n'était pas déclarée alors que tout paraissait vert.
+  if (foyer) {
+    const trace = readdirSync(path.join(app, FOYERS_JETABLES[foyer]))
+      .filter((f) => f.endsWith(".toml") || f.endsWith(".json"))
+      .some((f) => {
+        try {
+          return readFileSync(
+            path.join(app, FOYERS_JETABLES[foyer], f),
+            "utf8",
+          ).includes(MCP_SERVER_NOM);
+        } catch {
+          return false;
+        }
+      });
+    console.log(
+      trace
+        ? `  · porte DÉCLARÉE chez ${AGENT} (constaté dans son foyer)`
+        : `  ⚠️ porte NON déclarée chez ${AGENT} — il travaillera SANS outils MCP ` +
+            `(sa CLI a refusé ; rejouer \`nodefony ai:mcp --agent ${AGENT}\` à la main pour lire son motif)`,
+    );
+  }
   if (MCP_REGIME !== "auth") {
     console.log(
       "  · porte MCP déclarée, application ÉTEINTE — le client la marquera « failed » pour la session",

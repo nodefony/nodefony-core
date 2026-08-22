@@ -266,6 +266,35 @@ node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --task 1
 ```
 
+### Le DÉCOR d'un run : quel agent, et quelle porte MCP
+
+Deux réglages indépendants décident de ce qu'un run mesure — **qui** travaille, et **ce qu'il
+trouve en arrivant**. Les confondre produit des comparaisons fausses : un agent mieux outillé
+qu'un autre n'est pas un agent meilleur.
+
+```bash
+B=.claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
+
+NF_DEVKIT_BENCH_MCP=auth node $B --task 9          # porte authentifiée ET app démarrée
+NF_DEVKIT_BENCH_MCP=off  node $B --task 9          # l'agent ignore qu'une porte existe
+
+NF_DEVKIT_BENCH_AGENT=vibe NF_DEVKIT_BENCH_MODEL= \
+  NF_DEVKIT_BENCH_AGENT_ARGS="--output streaming --yolo --trust -p" \
+  NF_DEVKIT_BENCH_MCP=auth node $B --task 9        # un AUTRE agent, foyer jetable
+```
+
+`NF_DEVKIT_BENCH_MCP` : `eteint` (défaut — porte déclarée, **application arrêtée** : le cas réel
+« j'ouvre un dépôt, rien ne tourne ») · `auth` (jeton émis **et** application démarrée — les deux
+vont ensemble : la porte est une ROUTE) · `off`. Le régime entre dans le décor enregistré, donc le
+dépistage refuse de comparer deux régimes. Le défaut reste `eteint` : la référence a été établie
+dessus.
+
+**Ce que ces runs coûtent en pièges** — audience à déclarer, build AVANT l'émission du jeton,
+démarrage APRÈS la prémisse (sinon la tâche n'est pas jouée), un code de sortie qui n'est pas un
+verdict, l'ordre des drapeaux de Vibe, le foyer jetable qui doit emporter la clé d'API, et la sonde
+qui comptait ROUGE un agent utilisant le MCP : **`references/agents-et-porte-mcp.md`** — à lire
+AVANT de câbler un agent de plus (Codex et Gemini y ont leur ligne, à établir).
+
 ### Dépistage — 1 run sur tout, 3 runs sur ce qui a bougé
 
 Rejouer toutes les tâches trois fois à chaque changement coûte des heures et des
@@ -424,3 +453,4 @@ un message qui parle de colonne inconnue. Nommer autrement dans un banc.
 - `references/methode-de-mesure.md` — variance d'un run unique, modèle par défaut, générateur qui abaisse le modèle nécessaire
 - `references/banc-decouvrabilite-lecons.md` — dix leçons du banc de découvrabilité, chacune payée par un défaut réel
 - `references/banc-schema-etudes-de-cas.md` — pourquoi le décor et le juge PostgreSQL du banc de schéma s'éprouvent avant de juger
+- `references/agents-et-porte-mcp.md` — le décor d'un run : régimes de porte MCP, drapeaux par agent, foyer jetable, et les pièges qui font mesurer autre chose que ce qu'on croit
