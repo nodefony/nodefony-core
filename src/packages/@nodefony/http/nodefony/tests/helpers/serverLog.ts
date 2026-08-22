@@ -53,38 +53,50 @@ export function sansAnsi(texte: string): string {
   return texte.replace(/\x1b\[[0-9;]*m/g, "").replace(/\\u001b\[[0-9;]*m/g, "");
 }
 
-/** Journaux candidats, du plus récemment écrit au plus ancien. */
+/**
+ * Journaux candidats, du plus récemment écrit au plus ancien.
+ *
+ * 🔴 **Ratisser LARGE est ici la conduite sûre, et c'est contre-intuitif.** Le
+ * marqueur tranche : un fichier n'est retenu que s'il porte le chemin unique
+ * frappé à l'instant. Ajouter un candidat ne peut donc pas produire un faux
+ * positif — mais en OUBLIER un produit un skip, c'est-à-dire un banc qui ne
+ * mesure rien. Vécu : la liste ignorait la redirection du lanceur de la forge
+ * (`$GITHUB_WORKSPACE/nodefony-server.log`), si bien que le cas du 499 sautait
+ * à CHAQUE passage en intégration — et sautait déjà en silence AVANT que ce
+ * helper existe, l'assertion étant alors court-circuitée sans un mot.
+ */
 function candidats(racine: string | null): string[] {
   const liste: { chemin: string; mtime: number }[] = [];
-  if (racine !== null) {
-    const dossier = path.join(racine, "logs");
+  const retenir = (chemin: string): void => {
+    try {
+      liste.push({ chemin, mtime: fs.statSync(chemin).mtimeMs });
+    } catch {
+      /* absent, ou disparu entre le listing et le stat — sans conséquence */
+    }
+  };
+  /** Les journaux d'un dossier, sans descendre : un journal n'est pas rangé. */
+  const balayer = (dossier: string): void => {
     let noms: string[] = [];
     try {
       noms = fs.readdirSync(dossier);
     } catch {
-      noms = [];
+      return;
     }
     for (const nom of noms) {
       if (!nom.endsWith(".jsonl") && !nom.endsWith(".log")) continue;
-      const chemin = path.join(dossier, nom);
-      try {
-        liste.push({ chemin, mtime: fs.statSync(chemin).mtimeMs });
-      } catch {
-        /* disparu entre le listing et le stat — sans conséquence */
-      }
+      retenir(path.join(dossier, nom));
     }
+  };
+  if (racine !== null) {
+    // Le sink du framework, quand le serveur a été lancé à la main.
+    balayer(path.join(racine, "logs"));
+    // La redirection d'un LANCEUR, qui écrit là où il a été appelé : c'est le
+    // cas de la forge (`nodefony-server.log`, `nodefony-server-throttle.log`).
+    balayer(racine);
   }
   // La redirection du lanceur `start.sh` reste un candidat LÉGITIME : quand
   // c'est lui qui a démarré le serveur, c'est là que tout arrive.
-  const redirection = path.join("/tmp", "nodefony-server.log");
-  try {
-    liste.push({
-      chemin: redirection,
-      mtime: fs.statSync(redirection).mtimeMs,
-    });
-  } catch {
-    /* absent : le serveur n'a pas été lancé par le script */
-  }
+  retenir(path.join("/tmp", "nodefony-server.log"));
   return liste.sort((a, b) => b.mtime - a.mtime).map((e) => e.chemin);
 }
 
