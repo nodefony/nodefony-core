@@ -124,8 +124,28 @@ export interface IAdminBrokerLike {
   list(): readonly IAdminApi[];
 }
 
+/** Ce qu'il faut pour joindre un endpoint du plan d'administration. */
+export interface IAdminCall {
+  /** Producteur d'administration (`kernel`, `framework`, `orm`…). */
+  namespace: string;
+  /** Chemin de l'endpoint, tel que le producteur le déclare. */
+  path: string;
+  /** Variables de route, quand le chemin en porte (`module/{name}`). */
+  params?: Readonly<Record<string, string>>;
+  /** Paramètres de requête, tels qu'une URL les porterait. */
+  query?: Readonly<Record<string, string | string[]>>;
+  /** Ce qu'on nomme dans les messages d'échec — le sujet, la cible, l'appel. */
+  label?: string;
+}
+
 /**
- * Lit un sujet d'inspection dans le plan d'administration.
+ * Appelle un endpoint du plan d'administration, hors HTTP.
+ *
+ * ⭐ **Une source, plusieurs portes** : le handler est une fonction pure
+ * `IAdminRequest → donnée`, donc la commande `inspect`, le serveur MCP et la
+ * route HTTP rendent le même objet PAR CONSTRUCTION. Réimplémenter la lecture
+ * ailleurs ferait diverger la porte secondaire en silence — et c'est elle qu'on
+ * croirait sur parole.
  *
  * Le rôle d'administrateur est **annoncé**, pas contourné : certains
  * producteurs graduent leur réponse selon les rôles, et un appelant qui se
@@ -133,6 +153,76 @@ export interface IAdminBrokerLike {
  * omission face à la même donnée lue en HTTP. Le contrôle d'accès du plan
  * d'administration protège le RÉSEAU ; la redaction des secrets, elle, vit dans
  * les producteurs et s'applique donc à toutes les portes.
+ *
+ * @param broker - le service `adminBroker` du conteneur
+ * @param call - producteur, chemin, et ce qu'on lui passe
+ * @returns la donnée du producteur, ou la raison précise de l'échec
+ */
+export async function callAdminEndpoint(
+  broker: IAdminBrokerLike | undefined,
+  call: IAdminCall,
+): Promise<InspectResult> {
+  const label = call.label ?? `${call.namespace}/${call.path}`;
+  const producer = broker
+    ?.list()
+    .find((api) => api.adminNamespace === call.namespace);
+  if (!producer) {
+    // Un producteur peut légitimement manquer : `orm` n'existe que si un
+    // pilote a démarré. On le DIT, avec le module qu'il faudrait charger.
+    return {
+      ok: false,
+      reason: "producer-missing",
+      message: `« ${label} » est servi par le module « ${call.namespace} », qui n'est pas chargé dans cette app`,
+    };
+  }
+
+  const endpoint = producer
+    .adminEndpoints()
+    .find((candidate: IAdminEndpoint) => candidate.path === call.path);
+  if (!endpoint) {
+    return {
+      ok: false,
+      reason: "endpoint-missing",
+      message: `endpoint « ${call.namespace}/${call.path} » introuvable — version de module incompatible ?`,
+    };
+  }
+
+  const request: IAdminRequest = {
+    params: call.params ?? {},
+    query: call.query ?? {},
+    body: null,
+    user: null,
+    roles: ["ROLE_NODEFONY_ADMIN"],
+  };
+
+  let status = 200;
+  let data: unknown;
+  try {
+    ({ status, data } = unwrapAdminResult(await endpoint.handler(request)));
+  } catch (error) {
+    return {
+      ok: false,
+      reason: "handler-failed",
+      message: `inspection impossible : ${(error as Error).message}`,
+    };
+  }
+
+  if (status >= 400) {
+    return {
+      ok: false,
+      reason: "not-found",
+      status,
+      message: `« ${label} » introuvable (${status})`,
+    };
+  }
+  return { ok: true, status, data };
+}
+
+/**
+ * Lit un sujet d'inspection dans le plan d'administration.
+ *
+ * Résout le sujet dans {@link INSPECT_SUBJECTS}, puis délègue à
+ * {@link callAdminEndpoint} — ce qui vaut pour l'appel vaut donc ici.
  *
  * @param broker - le service `adminBroker` du conteneur
  * @param subject - clé de {@link INSPECT_SUBJECTS}
@@ -160,57 +250,10 @@ export async function readAdminSubject(
     };
   }
 
-  const producer = broker
-    ?.list()
-    .find((api) => api.adminNamespace === spec.namespace);
-  if (!producer) {
-    // Un producteur peut légitimement manquer : `orm` n'existe que si un
-    // pilote a démarré. On le DIT, avec le module qu'il faudrait charger.
-    return {
-      ok: false,
-      reason: "producer-missing",
-      message: `« ${subject} » est servi par le module « ${spec.namespace} », qui n'est pas chargé dans cette app`,
-    };
-  }
-
-  const endpoint = producer
-    .adminEndpoints()
-    .find((candidate: IAdminEndpoint) => candidate.path === spec.path);
-  if (!endpoint) {
-    return {
-      ok: false,
-      reason: "endpoint-missing",
-      message: `endpoint « ${spec.namespace}/${spec.path} » introuvable — version de module incompatible ?`,
-    };
-  }
-
-  const request: IAdminRequest = {
+  return callAdminEndpoint(broker, {
+    namespace: spec.namespace,
+    path: spec.path,
     params: spec.param && target ? { [spec.param]: target } : {},
-    query: {},
-    body: null,
-    user: null,
-    roles: ["ROLE_NODEFONY_ADMIN"],
-  };
-
-  let status = 200;
-  let data: unknown;
-  try {
-    ({ status, data } = unwrapAdminResult(await endpoint.handler(request)));
-  } catch (error) {
-    return {
-      ok: false,
-      reason: "handler-failed",
-      message: `inspection impossible : ${(error as Error).message}`,
-    };
-  }
-
-  if (status >= 400) {
-    return {
-      ok: false,
-      reason: "not-found",
-      status,
-      message: `« ${target ?? subject} » introuvable (${status})`,
-    };
-  }
-  return { ok: true, status, data };
+    label: target ?? subject,
+  });
 }

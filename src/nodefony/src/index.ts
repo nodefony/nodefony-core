@@ -387,14 +387,24 @@ export type {
 export {
   INSPECT_SUBJECTS,
   readAdminSubject,
+  callAdminEndpoint,
   unwrapAdminResult,
 } from "./kernel/inspect/adminSubjects";
 export type {
   IInspectSubject,
   IAdminBrokerLike,
+  IAdminCall,
   InspectFailure,
   InspectResult,
 } from "./kernel/inspect/adminSubjects";
+// Découpe d'un markdown par ses titres — le plan d'une page de documentation,
+// puis une section. Partagée par le serveur MCP (cœur) et le plan
+// d'administration (framework) : une page de 80 ko ne se rend pas entière.
+export {
+  outlineMarkdown,
+  extractMarkdownSection,
+} from "./kernel/inspect/docOutline";
+export type { IMarkdownSection } from "./kernel/inspect/docOutline";
 export type {
   IIdempotencyStore,
   IIdempotencyKeyEntry,

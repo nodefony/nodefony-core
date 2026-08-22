@@ -1254,7 +1254,7 @@ describe("MCP — les outils de diagnostic", () => {
     expect(rendu.note).toMatch(/40000|40 000/u);
   });
 
-  it("les quatre clés intégrées sont toutes IMPLÉMENTÉES", () => {
+  it("toutes les clés intégrées sont IMPLÉMENTÉES", () => {
     // Sens du test : la liste publiée et le catalogue ne peuvent pas diverger —
     // annoncer une clé qu'aucun code ne sert serait invisible jusqu'au premier
     // appel d'un agent.
@@ -1263,5 +1263,155 @@ describe("MCP — les outils de diagnostic", () => {
       expect(typeof catalogue[key]?.handler).toBe("function");
     }
     expect(Object.keys(catalogue)).toHaveLength(BUILTIN_MCP_TOOL_KEYS.length);
+  });
+});
+
+/**
+ * L'outil `docs` — la porte par laquelle un agent atteint une documentation
+ * que ses outils de recherche de fichiers EXCLUENT (elle vit sous
+ * `node_modules`, dossier ignoré par git). Ce qui est éprouvé ici est le
+ * ROUTAGE : chaque forme d'appel doit toucher l'endpoint correspondant, avec
+ * les bons paramètres — un outil qui interrogerait le mauvais chemin répondrait
+ * quand même, et personne ne le verrait.
+ */
+describe("outil docs", () => {
+  /** Ce que le producteur a REÇU au dernier appel — c'est là qu'est la preuve. */
+  let vu: { path: string; params: unknown; query: unknown } | null = null;
+
+  /** Un plan d'administration qui sert les quatre chemins de documentation. */
+  function docsBroker(pageChars = 40): { list(): readonly IAdminApi[] } {
+    const trace =
+      (path: string, body: unknown) =>
+      (request: { params: unknown; query: unknown }) => {
+        vu = { path, params: request.params, query: request.query };
+        return body;
+      };
+    return {
+      list: () => [
+        {
+          adminNamespace: "kernel",
+          adminDescriptor: () => ({ label: "Kernel" }),
+          adminEndpoints: () => [
+            {
+              path: "docs",
+              handler: trace("docs", {
+                total: 2,
+                modules: [{ key: "http", docs: [{ slug: "sessions" }] }],
+              }),
+            },
+            {
+              path: "docs/search",
+              handler: trace("docs/search", {
+                terms: ["session"],
+                scanned: 3,
+                matched: 1,
+                hits: [{ module: "http", slug: "sessions" }],
+              }),
+            },
+            {
+              path: "module/{name}/docs",
+              handler: trace("module/{name}/docs", {
+                key: "http",
+                docs: [{ slug: "sessions" }],
+              }),
+            },
+            {
+              path: "module/{name}/docs/{slug}",
+              handler: trace("module/{name}/docs/{slug}", {
+                slug: "sessions",
+                frontmatter: { title: "Sessions" },
+                markdown: `# Sessions\n\n## Redis\n\n${"x".repeat(pageChars)}`,
+              }),
+            },
+          ],
+        } as unknown as IAdminApi,
+      ],
+    };
+  }
+
+  /** Appelle l'outil et rend son texte, en repartant d'une trace vierge. */
+  async function appel(
+    args: Record<string, unknown>,
+    pageChars = 40,
+  ): Promise<{ texte: string; isError: boolean }> {
+    vu = null;
+    const tool = builtinMcpTools({
+      ...deps(),
+      broker: docsBroker(pageChars),
+    }).docs;
+    const result = await tool.handler(args, {
+      authenticated: false,
+      scopes: [],
+    });
+    return {
+      texte: result.content[0].text,
+      isError: result.isError === true,
+    };
+  }
+
+  it("sans argument : le sommaire de TOUTE la documentation chargée", async () => {
+    const { texte } = await appel({});
+    expect(vu?.path).toBe("docs");
+    expect(JSON.parse(texte).total).toBe(2);
+  });
+
+  it("avec `query` : la recherche, et le texte cherché lui parvient", async () => {
+    await appel({ query: "  session redis  " });
+    expect(vu?.path).toBe("docs/search");
+    // Rogné : un espace de tête ferait un terme vide côté producteur.
+    expect(vu?.query).toEqual({ q: "session redis" });
+  });
+
+  it("avec `module` seul : le sommaire de ce module", async () => {
+    await appel({ module: "http" });
+    expect(vu?.path).toBe("module/{name}/docs");
+    expect(vu?.params).toEqual({ name: "http" });
+  });
+
+  it("avec `module` et `slug` : la page, sans affinement parasite", async () => {
+    const { texte } = await appel({ module: "http", slug: "sessions" });
+    expect(vu?.path).toBe("module/{name}/docs/{slug}");
+    expect(vu?.params).toEqual({ name: "http", slug: "sessions" });
+    expect(vu?.query).toEqual({});
+    expect(JSON.parse(texte).markdown).toContain("# Sessions");
+  });
+
+  it("avec `section` : le titre voulu part au producteur", async () => {
+    await appel({ module: "http", slug: "sessions", section: "Redis" });
+    expect(vu?.query).toEqual({ section: "Redis" });
+  });
+
+  it("avec `outline` : le plan est demandé, pas le corps", async () => {
+    await appel({ module: "http", slug: "sessions", outline: true });
+    expect(vu?.query).toEqual({ outline: "1" });
+  });
+
+  it("🔴 une page TROP LOURDE revient en PLAN, jamais en liste de clés", async () => {
+    // Sens du test : le résumé générique rendrait `keys: [slug, frontmatter,
+    // markdown]` et conseillerait « demande une branche précise » — une phrase
+    // qui ne désigne aucun geste faisable sur un markdown. Le plan, lui, nomme
+    // les sections à redemander.
+    const { texte } = await appel({ module: "http", slug: "sessions" }, 60_000);
+    const rendu = JSON.parse(texte) as {
+      keys?: string[];
+      chars?: number;
+      note?: string;
+      outline?: { title: string }[];
+    };
+    expect(rendu.keys).toBeUndefined();
+    expect(rendu.chars).toBeGreaterThan(60_000);
+    expect(rendu.outline?.map((s) => s.title)).toEqual(["Sessions", "Redis"]);
+    expect(rendu.note).toMatch(/section/u);
+  });
+
+  it("un producteur absent est DIT, pas tu", async () => {
+    vu = null;
+    const tool = builtinMcpTools({ ...deps(), broker: undefined }).docs;
+    const result = await tool.handler(
+      { query: "session" },
+      { authenticated: false, scopes: [] },
+    );
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("kernel");
   });
 });

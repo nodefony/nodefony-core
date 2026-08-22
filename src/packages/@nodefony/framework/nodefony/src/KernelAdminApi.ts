@@ -13,6 +13,8 @@ import {
   extractJsonSchemaDefaults,
   defaultAppConfig,
   applyResolvedPath,
+  outlineMarkdown,
+  extractMarkdownSection,
 } from "nodefony";
 import type {
   IKernel,
@@ -22,12 +24,14 @@ import type {
   IAdminRequest,
   IStoreResolution,
 } from "nodefony";
-import type { TestRunResult } from "./docsReader";
+import type { TestRunResult, DocSearchTarget, DocSummary } from "./docsReader";
 import {
   listModuleDocs,
   countModuleDocs,
+  searchModuleDocs,
   readModuleDoc,
   listModuleSymbols,
+  readSymbolDeclaration,
   readCoverage,
   readDependencies,
   checkOutdated,
@@ -504,6 +508,19 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
     const mod = kernel.getModules()[key];
     if (!mod) return null;
     return { path: mod.path, pkg: mod.getModuleName?.() ?? key };
+  };
+
+  // Tous les porteurs de documentation : le socle `core` (absent de
+  // `getModules()`) puis les modules chargés. Composé ICI plutôt que dans le
+  // lecteur de docs — lui ne connaît que des chemins, c'est le kernel qui sait
+  // ce qui est chargé.
+  const docTargets = (): DocSearchTarget[] => {
+    const targets: DocSearchTarget[] = [];
+    for (const key of [CORE_KEY, ...Object.keys(kernel.getModules())]) {
+      const target = resolveTarget(key);
+      if (target) targets.push({ key, path: target.path });
+    }
+    return targets;
   };
 
   // Jobs de tests ASYNCHRONES : le run (6-30 s) ne tient PAS la connexion HTTP
@@ -1315,7 +1332,120 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             body: { error: "Doc not found", key, slug: request.params.slug },
           };
         }
+        // Une page de documentation du framework pèse 50 à 80 ko : rendue
+        // entière à un lecteur au contexte borné (un agent), elle sature sa
+        // fenêtre pour une question qui tenait dans un paragraphe. D'où deux
+        // affinements OPTIONNELS — sans query, la réponse est inchangée, et
+        // Studio continue de recevoir la page complète.
+        const wanted =
+          typeof request.query.section === "string"
+            ? request.query.section
+            : "";
+        if (wanted !== "") {
+          const section = extractMarkdownSection(doc.markdown, wanted);
+          if (!section) {
+            // Le plan accompagne le refus : sans lui, il ne reste qu'à
+            // deviner un second titre, puis un troisième.
+            return {
+              status: 404,
+              body: {
+                error: "Section not found",
+                key,
+                slug: doc.slug,
+                section: wanted,
+                outline: outlineMarkdown(doc.markdown),
+              },
+            };
+          }
+          return {
+            ...doc,
+            section: section.title,
+            markdown: section.markdown,
+          };
+        }
+        if (request.query.outline !== undefined) {
+          const { markdown, ...rest } = doc;
+          return {
+            ...rest,
+            key,
+            chars: markdown.length,
+            outline: outlineMarkdown(markdown),
+          };
+        }
         return doc;
+      },
+    },
+    {
+      // Sommaire CROSS-MODULE : ce que l'application documente, en un appel.
+      // L'index par module existe déjà (`module/{name}/docs`) ; il oblige à
+      // savoir QUEL module interroger — ce qu'un arrivant ignore précisément.
+      path: "docs",
+      summary: "Documentation index across every loaded module",
+      handler: async () => {
+        const modules: { key: string; docs: DocSummary[] }[] = [];
+        for (const target of docTargets()) {
+          const docs = await listModuleDocs(target.path);
+          if (docs.length > 0) modules.push({ key: target.key, docs });
+        }
+        return {
+          total: modules.reduce((sum, m) => sum + m.docs.length, 0),
+          modules,
+        };
+      },
+    },
+    {
+      // Recherche plein texte dans TOUTE la documentation chargée.
+      // ⭐ Chez un utilisateur, ces `.md` vivent sous `node_modules/`, que git
+      // ignore et que les outils de recherche des agents excluent : sans cette
+      // porte, la documentation est livrée et introuvable.
+      path: "docs/search",
+      summary: "Full-text search across every loaded module's documentation",
+      handler: async (request) => {
+        const raw = request.query.q;
+        const q = typeof raw === "string" ? raw : "";
+        if (q.trim() === "") {
+          return {
+            status: 400,
+            body: {
+              error: "Missing query parameter: q",
+              hint: "ex. /nodefony/kernel/api/docs/search?q=session+redis",
+            },
+          };
+        }
+        const limit = Number.parseInt(String(request.query.limit ?? ""), 10);
+        return searchModuleDocs(docTargets(), q, {
+          limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
+        });
+      },
+    },
+    {
+      // La DÉCLARATION d'un symbole — sa signature, telle qu'elle est LIVRÉE.
+      // ⭐ Le graphe symbolique dit qu'un symbole existe et ce qu'il étend, mais
+      // pas ce qu'il PREND en argument : cela vit dans les `.d.ts`, sous
+      // `node_modules`, que git ignore et que les outils de recherche excluent.
+      // Sans cette porte, un agent devine une signature — et devine faux.
+      path: "module/{name}/symbol/{symbol}",
+      summary: "Declaration (signature + TSDoc) of one exported symbol",
+      handler: async (request) => {
+        const key = request.params.name;
+        const target = resolveTarget(key);
+        if (!target) {
+          return { status: 404, body: { error: "Module not found", key } };
+        }
+        const symbol = request.params.symbol;
+        const found = await readSymbolDeclaration(target.path, symbol);
+        if (!found) {
+          return {
+            status: 404,
+            body: {
+              error: "Symbol declaration not found",
+              key,
+              symbol,
+              hint: "le module publie-t-il ses types (dist/types) ?",
+            },
+          };
+        }
+        return { key, package: target.pkg, symbol, ...found };
       },
     },
     {

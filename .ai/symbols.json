@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-22T09:27:18.797Z",
+  "generated": "2026-08-22T11:36:45.817Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 725,
-    "symbols": 3012,
+    "files": 726,
+    "symbols": 3032,
     "classes": 364,
-    "interfaces": 862,
+    "interfaces": 869,
     "types": 383,
     "enums": 4,
-    "functions": 1111,
+    "functions": 1124,
     "constants": 288
   },
   "symbols": {
@@ -6753,6 +6753,15 @@
       "extends": null,
       "description": "Vue minimale du broker dont cette lecture a besoin."
     },
+    "IAdminCall": {
+      "name": "IAdminCall",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'il faut pour joindre un endpoint du plan d'administration."
+    },
     "InspectFailure": {
       "name": "InspectFailure",
       "kind": "type",
@@ -6777,13 +6786,21 @@
       "module": "@nodefony/core",
       "description": "Extrait la donnée d'une réponse d'administration. Un handler rend soit la donnée, soit une enveloppe `{status, body}` (pour porter un 404). Même discrimination que le pont HTTP : enveloppe **si et …"
     },
+    "callAdminEndpoint": {
+      "name": "callAdminEndpoint",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/inspect/adminSubjects.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Appelle un endpoint du plan d'administration, hors HTTP. ⭐ **Une source, plusieurs portes** : le handler est une fonction pure `IAdminRequest → donnée`, donc la commande `inspect`, le serveur MCP e…"
+    },
     "readAdminSubject": {
       "name": "readAdminSubject",
       "kind": "function",
       "file": "src/nodefony/src/kernel/inspect/adminSubjects.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Lit un sujet d'inspection dans le plan d'administration. Le rôle d'administrateur est **annoncé**, pas contourné : certains producteurs graduent leur réponse selon les rôles, et un appelant qui se …"
+      "description": "Lit un sujet d'inspection dans le plan d'administration. Résout le sujet dans {@link INSPECT_SUBJECTS}, puis délègue à {@link callAdminEndpoint} — ce qui vaut pour l'appel vaut donc ici."
     },
     "INSPECT_SUBJECTS": {
       "name": "INSPECT_SUBJECTS",
@@ -6792,6 +6809,31 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Sujets inspectables, et l'endpoint d'administration qui les sert. **Aucune donnée n'est calculée ici.** Chaque sujet pointe le producteur qui répond déjà en HTTP : toutes les portes rendent le même…"
+    },
+    "IMarkdownSection": {
+      "name": "IMarkdownSection",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/inspect/docOutline.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Découpe d'un markdown par ses titres — le plan, puis une section. ⭐ **Pourquoi ce fichier existe** : les pages de documentation du framework pèsent 50 à 80 ko. Rendues entières à un agent, elles sa…"
+    },
+    "outlineMarkdown": {
+      "name": "outlineMarkdown",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/inspect/docOutline.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Repère les titres d'un markdown, **en ignorant les blocs de code**. Cette exclusion n'est pas un détail de forme : la documentation du framework est pleine d'exemples shell, où un `# commentaire` e…"
+    },
+    "extractMarkdownSection": {
+      "name": "extractMarkdownSection",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/inspect/docOutline.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Extrait UNE section d'un markdown, sous-sections comprises. Le titre demandé est reconnu sans casse, sans accents et sans ponctuation décorative ({@link foldTitle}) : « securite » retrouve « 🔐 Séc…"
     },
     "ClusterManager": {
       "name": "ClusterManager",
@@ -11621,6 +11663,51 @@
       "extends": null,
       "description": "Symbole TS exporté d'un module, projeté depuis `.ai/symbols.json`."
     },
+    "DocSearchMatch": {
+      "name": "DocSearchMatch",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Où un terme cherché apparaît, et la ligne qui le porte."
+    },
+    "DocSearchHit": {
+      "name": "DocSearchHit",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Une doc qui répond à la recherche, avec ses extraits."
+    },
+    "DocSearchTarget": {
+      "name": "DocSearchTarget",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Une doc à balayer : la clé du module qui la porte, et son chemin disque."
+    },
+    "DocSearchResult": {
+      "name": "DocSearchResult",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Ce que rend une recherche : les docs retenues, et ce qu'elle a balayé."
+    },
+    "SymbolDeclaration": {
+      "name": "SymbolDeclaration",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Ce qu'on a trouvé d'un symbole dans les types LIVRÉS d'un module."
+    },
     "DepInfo": {
       "name": "DepInfo",
       "kind": "interface",
@@ -11716,6 +11803,14 @@
       "module": "@nodefony/framework",
       "description": "Lit une doc module par slug : frontmatter + corps markdown brut. Le slug est borné (`SLUG_RE`) avant toute jointure de chemin → pas de path traversal vers l'extérieur de `<modulePath>/docs/`."
     },
+    "searchModuleDocs": {
+      "name": "searchModuleDocs",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Cherche un texte dans les docs colocalisées des modules donnés. ⭐ **Pourquoi cette fonction existe** : chez un utilisateur, la documentation des modules vit sous `node_modules/@nodefony/<mod>/docs/…"
+    },
     "listModuleSymbols": {
       "name": "listModuleSymbols",
       "kind": "function",
@@ -11723,6 +11818,14 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Symboles TS exportés d'un module + descriptions TSDoc, lus depuis `.ai/symbols.json` (à la racine de l'application, cf {@link appRoot}). 100 % auto-généré (jamais de `.d.ts` manuel) → zéro divergen…"
+    },
+    "readSymbolDeclaration": {
+      "name": "readSymbolDeclaration",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Extrait la déclaration d'un symbole des types LIVRÉS d'un module. ⭐ **Pourquoi cette fonction existe** : le graphe symbolique (`.ai/symbols.json`) dit qu'un symbole existe, ce qu'il étend et la pre…"
     },
     "readDependencies": {
       "name": "readDependencies",
@@ -24552,10 +24655,17 @@
         "src/nodefony/src/mcp/tools.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts"
       ],
+      "callAdminEndpoint": [
+        "src/nodefony/src/mcp/tools.ts"
+      ],
       "IAdminBrokerLike": [
         "src/nodefony/src/mcp/tools.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+      ],
+      "outlineMarkdown": [
+        "src/nodefony/src/mcp/tools.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "readSymbolsGraph": [
         "src/nodefony/src/mcp/tools.ts"
@@ -26011,6 +26121,9 @@
         "src/packages/@nodefony/devkit/nodefony/config/config.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ProtectedResourceMetadataController.ts"
       ],
+      "BUILTIN_MCP_TOOL_KEYS": [
+        "src/packages/@nodefony/devkit/nodefony/config/config.ts"
+      ],
       "devkitConfigSchema": [
         "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts"
       ],
@@ -26883,7 +26996,16 @@
       "extractJsonSchemaDefaults": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
+      "extractMarkdownSection": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
       "TestRunResult": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "DocSearchTarget": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "DocSummary": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "listModuleDocs": [
@@ -26892,10 +27014,16 @@
       "countModuleDocs": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
+      "searchModuleDocs": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
       "readModuleDoc": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "listModuleSymbols": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "readSymbolDeclaration": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "readCoverage": [

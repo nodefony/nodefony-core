@@ -1,8 +1,10 @@
 import {
   INSPECT_SUBJECTS,
   readAdminSubject,
+  callAdminEndpoint,
   type IAdminBrokerLike,
 } from "../kernel/inspect/adminSubjects";
+import { outlineMarkdown } from "../kernel/inspect/docOutline";
 import { readSymbolsGraph, lookupSymbol } from "../cli/symbols";
 import {
   collectCheckReport,
@@ -208,6 +210,63 @@ export function mcpText(value: unknown, isError = false): IMcpToolResult {
     : { content: [{ type: "text", text: texte }] };
 }
 
+/**
+ * Marge laissée à l'enveloppe JSON d'une page : `frontmatter`, `slug`, guillemets
+ * échappés. Sous-estimer ferait retomber la page dans le résumé générique — celui
+ * qui rend des CLÉS, c'est-à-dire rien d'utile sur un markdown.
+ */
+const DOC_ENVELOPE_CHARS = 4_000;
+
+/**
+ * Une page de documentation, ou son PLAN quand elle est trop lourde.
+ *
+ * Le résumé générique ({@link resumer}) sait ramener une liste à son compte et un
+ * objet à ses clés ; sur une page de 78 ko il rendrait
+ * `keys: [slug, frontmatter, markdown]` et conseillerait « demande une branche
+ * précise » — une phrase qui ne désigne aucun geste possible. Le plan, lui, se lit
+ * en quelques centaines d'octets et nomme exactement ce qu'il faut redemander.
+ *
+ * @param data - ce que le producteur a rendu pour la page
+ * @param module - module interrogé, pour rédiger le geste suivant
+ * @param slug - page interrogée, idem
+ */
+function pageOrOutline(data: unknown, module: string, slug: string): unknown {
+  const page = data as { markdown?: unknown } | null;
+  const markdown = typeof page?.markdown === "string" ? page.markdown : null;
+  if (
+    markdown === null ||
+    markdown.length <= MCP_TEXT_MAX_CHARS - DOC_ENVELOPE_CHARS
+  ) {
+    return data;
+  }
+  return {
+    ...(data as object),
+    markdown: undefined,
+    chars: markdown.length,
+    note:
+      `cette page pèse ${markdown.length} caractères — voici son PLAN. ` +
+      `Rappelle l'outil avec section: "<titre>" ` +
+      `(module: "${module}", slug: "${slug}") pour n'obtenir que le passage utile.`,
+    outline: outlineMarkdown(markdown),
+  };
+}
+
+/**
+ * Clé de module telle que le kernel la connaît, depuis un nom de package npm.
+ *
+ * Le graphe symbolique indexe par nom npm (`@nodefony/http`) ; le plan
+ * d'administration, lui, désigne les modules par leur clé courte (`http`), et
+ * le socle sous le nom logique `core` — son package réel s'appelant `nodefony`
+ * pour des raisons d'histoire. Deux vocabulaires pour une même chose : la
+ * traduction vit ICI, une fois, plutôt que dans chaque appelant.
+ */
+function moduleKey(packageName: string): string {
+  if (packageName === "nodefony" || packageName === "@nodefony/core") {
+    return "core";
+  }
+  return packageName.replace(/^@nodefony\//u, "");
+}
+
 /** Ce dont les outils INTÉGRÉS ont besoin — injecté, jamais lu ici. */
 export interface IMcpToolDeps {
   /** Le service `adminBroker` du conteneur, ou `undefined` s'il manque. */
@@ -251,6 +310,7 @@ export const BUILTIN_MCP_TOOL_KEYS = [
   "card",
   "check",
   "symbols",
+  "docs",
 ] as const;
 
 /** Clé d'un outil intégré. */
@@ -354,16 +414,116 @@ export function builtinMcpTools(
       },
     },
 
+    docs: {
+      name: `${PREFIX}docs`,
+      description:
+        "Cherche et lit la DOCUMENTATION des modules installés — la prose " +
+        "écrite par leurs auteurs : concepts, recettes, pièges, exemples. À " +
+        "utiliser AVANT d'écrire du code qui utilise une brique du framework, " +
+        "et avant de conclure qu'une capacité n'existe pas. ⭐ Cette " +
+        "documentation vit sous `node_modules`, que les outils de recherche de " +
+        "fichiers EXCLUENT par défaut (dossier ignoré par git) : elle est " +
+        "livrée avec les paquets mais introuvable autrement qu'ici.\n\n" +
+        "Sans argument : ce que l'application documente, module par module. " +
+        "Avec `query` : les pages qui portent tous les termes, avec leurs " +
+        "extraits. Avec `module` et `slug` : la page. Une page pèse souvent " +
+        "plus que ce qu'une réponse peut porter — demander alors `outline` " +
+        "pour son plan, puis `section` pour le seul passage utile.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description:
+              "Texte cherché dans toute la documentation ; les espaces " +
+              "séparent des termes CUMULATIFS (`session redis` = les deux)",
+          },
+          module: {
+            type: "string",
+            description:
+              "Module dont on veut la documentation (`http`, `security`, `core`…)",
+          },
+          slug: {
+            type: "string",
+            description:
+              "Page à lire, telle que la recherche ou l'index la nomme",
+          },
+          section: {
+            type: "string",
+            description:
+              "Titre de la seule section voulue (approchant suffit : sans " +
+              "accent, sans casse, sans emoji)",
+          },
+          outline: {
+            type: "boolean",
+            description:
+              "Rendre le PLAN de la page au lieu de son corps — le premier " +
+              "geste sur une page volumineuse",
+          },
+        },
+      },
+      handler: async (args) => {
+        const module = typeof args.module === "string" ? args.module : "";
+        const slug = typeof args.slug === "string" ? args.slug : "";
+        const query = typeof args.query === "string" ? args.query.trim() : "";
+        const section = typeof args.section === "string" ? args.section : "";
+
+        // Lire UNE page : c'est le seul cas qui demande les deux coordonnées.
+        if (module !== "" && slug !== "") {
+          const read = await callAdminEndpoint(deps.broker, {
+            namespace: "kernel",
+            path: "module/{name}/docs/{slug}",
+            params: { name: module, slug },
+            query:
+              section !== ""
+                ? { section }
+                : args.outline === true
+                  ? { outline: "1" }
+                  : {},
+            label: `${module}/${slug}`,
+          });
+          if (!read.ok) return mcpText(read.message, true);
+          return mcpText(pageOrOutline(read.data, module, slug));
+        }
+        if (query !== "") {
+          const read = await callAdminEndpoint(deps.broker, {
+            namespace: "kernel",
+            path: "docs/search",
+            query: { q: query },
+            label: `recherche « ${query} »`,
+          });
+          return read.ok ? mcpText(read.data) : mcpText(read.message, true);
+        }
+        // Un module sans page nommée : son sommaire. Sans module : tout.
+        const read =
+          module !== ""
+            ? await callAdminEndpoint(deps.broker, {
+                namespace: "kernel",
+                path: "module/{name}/docs",
+                params: { name: module },
+                label: module,
+              })
+            : await callAdminEndpoint(deps.broker, {
+                namespace: "kernel",
+                path: "docs",
+                label: "documentation",
+              });
+        return read.ok ? mcpText(read.data) : mcpText(read.message, true);
+      },
+    },
+
     symbols: {
       name: `${PREFIX}symbols`,
       description:
-        "Interroge le graphe symbolique du framework : ce qu'est un symbole " +
-        "(classe, interface, fonction), où il est défini, ce qu'il étend ou " +
-        "implémente, et la première phrase de sa documentation. À utiliser " +
-        "AVANT d'ouvrir un fichier pour comprendre une API du framework — la " +
-        "réponse est immédiate et vaut pour la version réellement installée. " +
-        "Sans argument, rend le résumé du graphe ; avec `module`, la surface " +
-        "exportée d'un paquet.",
+        "Donne la SIGNATURE RÉELLE d'un symbole du framework — ses " +
+        "paramètres, ses types de retour, sa documentation — plus ce qu'il " +
+        "étend ou implémente et où il est défini. À utiliser AVANT d'appeler " +
+        "une classe, une interface ou une fonction du framework, plutôt que " +
+        "d'en deviner les arguments. ⭐ La déclaration est lue dans les types " +
+        "LIVRÉS du paquet installé (`node_modules`, que les outils de " +
+        "recherche de fichiers excluent) : c'est la version qui tourne " +
+        "vraiment, pas une supposition. Sans argument, rend le résumé du " +
+        "graphe ; avec `module`, la surface exportée d'un paquet.",
       inputSchema: {
         type: "object",
         properties: {
@@ -379,7 +539,7 @@ export function builtinMcpTools(
           },
         },
       },
-      handler: (args) => {
+      handler: async (args) => {
         const graph = readSymbolsGraph(deps.projectRoot);
         if (graph === null) {
           // Dire que le graphe MANQUE, et comment le rétablir : le silence
@@ -396,12 +556,27 @@ export function builtinMcpTools(
 
         if (wanted !== null) {
           const sym = lookupSymbol(graph, wanted);
-          return sym
-            ? mcpText(sym)
-            : mcpText(
-                `« ${wanted} » est introuvable dans le graphe (${Object.keys(graph.symbols).length} symboles)`,
-                true,
-              );
+          if (!sym) {
+            return mcpText(
+              `« ${wanted} » est introuvable dans le graphe (${Object.keys(graph.symbols).length} symboles)`,
+              true,
+            );
+          }
+          // Le graphe dit qu'il existe ; la DÉCLARATION dit ce qu'il prend.
+          // Sans elle, l'agent en est réduit à deviner une signature — et le
+          // `.d.ts` qui la porte vit sous `node_modules`, que ses outils de
+          // recherche excluent.
+          const declared = await callAdminEndpoint(deps.broker, {
+            namespace: "kernel",
+            path: "module/{name}/symbol/{symbol}",
+            params: { name: moduleKey(sym.module), symbol: sym.name },
+            label: sym.name,
+          });
+          return mcpText(
+            declared.ok
+              ? { ...sym, ...(declared.data as object) }
+              : { ...sym, declaration: null, why: declared.message },
+          );
         }
 
         const entries = Object.values(graph.symbols).filter(

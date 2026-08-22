@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { builtinMcpTools, collectMcpTools } from "nodefony";
+import {
+  builtinMcpTools,
+  collectMcpTools,
+  BUILTIN_MCP_TOOL_KEYS,
+} from "nodefony";
 import { defineDevkitConfig } from "../nodefony/config/defineModuleConfig";
 
 /**
@@ -26,13 +30,20 @@ const deps = {
 };
 
 describe("devkit — la configuration du serveur MCP", () => {
-  it("pose les quatre défauts, malgré le piège Zod 4", () => {
+  it("pose ses défauts, malgré le piège Zod 4", () => {
     // Un `.default({})` plat n'aurait ré-appliqué aucun sous-défaut : ce test
     // garde le pattern `default(() => schema.parse({}))`.
     expect(defaults.enabled).toBe(true);
     expect(defaults.allowedOrigins).toEqual([]);
     expect(defaults.allowRemote).toBe(false);
-    expect(defaults.tools).toEqual(["inspect", "check", "symbols", "card"]);
+  });
+
+  it("🔴 l'allowlist par défaut est DÉRIVÉE du catalogue, pas recopiée", () => {
+    // Écrite à la main, cette liste taisait chaque outil ajouté au cœur :
+    // déclaré dans le code, absent de la porte, sans le moindre message. La
+    // comparer au catalogue est le seul contrôle qui le voie — et il ne peut
+    // pas être satisfait par une copie qui aurait dérivé.
+    expect(defaults.tools).toEqual([...BUILTIN_MCP_TOOL_KEYS]);
   });
 
   it("🔴 chaque outil nommé par défaut EXISTE dans le catalogue du cœur", () => {

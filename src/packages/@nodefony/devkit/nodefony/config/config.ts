@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { canonicalResourceUri } from "nodefony";
+import { canonicalResourceUri, BUILTIN_MCP_TOOL_KEYS } from "nodefony";
 
 /**
  * @nodefony/devkit — CONFIGURATION DU MODULE (schéma Zod = source unique).
@@ -199,7 +199,10 @@ const mcpSchema = z.object({
    */
   tools: z
     .array(z.string())
-    .default(["inspect", "check", "symbols", "card"])
+    // Le défaut est DÉRIVÉ du catalogue intégré, jamais retapé : une liste
+    // recopiée ici aurait tu chaque outil ajouté au cœur — déclaré dans le
+    // code, absent de la porte, et sans le moindre message pour l'expliquer.
+    .default([...BUILTIN_MCP_TOOL_KEYS])
     .describe("Outils MCP activés (allowlist, lecture seule)"),
 
   /**
