@@ -160,7 +160,17 @@ describe("manPage — GATE de fraîcheur", () => {
     assert.strictEqual(
       fs.readFileSync(fichier, "utf8"),
       attendu,
-      "man/nodefony.1 est PÉRIMÉE — node scripts/generate-man.mjs",
+      // ⚠️ Le message NOMME les deux causes, parce que la première fois il n'en
+      // nommait qu'une — et c'était l'autre. Trois jobs Windows rouges deux
+      // jours durant sur « PÉRIMÉE », alors que la page décrivait exactement le
+      // CLI : git l'avait convertie en CRLF au checkout, le générateur écrit du
+      // LF. Régénérer n'y changeait rien. Un message qui n'énonce qu'une cause
+      // envoie chercher là où il n'y a rien.
+      "man/nodefony.1 ne correspond pas au rendu. DEUX causes possibles :\n" +
+        "  1. la page est périmée → node scripts/generate-man.mjs\n" +
+        "  2. les fins de ligne diffèrent (CRLF au lieu de LF) → vérifier que\n" +
+        "     .gitattributes déclare `man/*.1 text eol=lf` ; c'est le cas\n" +
+        "     typique d'un checkout Windows, où régénérer ne corrige RIEN.",
     );
   });
 
