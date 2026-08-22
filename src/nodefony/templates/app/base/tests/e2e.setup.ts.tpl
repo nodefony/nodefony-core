@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { rmSync } from "node:fs";
 import path from "node:path";
-<% if (it.hasSecurity) { %>import { readRuntimeState } from "nodefony";
+<% if (it.hasSecurity) { %> import { readRuntimeState } from "nodefony";
 <% } %>
 /**
  * Démarre l'application UNE fois pour toute la suite E2E, et l'arrête à la fin.
@@ -105,11 +105,12 @@ export async function setup(): Promise<void> {
       ...process.env,
       // La suite ne touche JAMAIS la base de développement — cf `URL_BASE_E2E`.
       NF_DATABASE_URL: URL_BASE_E2E,
-<% if (it.hasSecurity) { %>      // Sans cette variable, la production ne sème AUCUN compte : les tests des
+      <% if (it.hasSecurity) { %> // Sans cette variable, la production ne sème AUCUN compte : les tests des
       // routes protégées n'auraient aucune identité à présenter, et échoueraient
       // en accusant la garde plutôt que le décor.
       NF_ADMIN_PASSWORD: MOT_DE_PASSE_ADMIN,
-<% } %>    },
+      <% } %>
+    },
   });
 }
 

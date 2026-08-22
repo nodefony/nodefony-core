@@ -107,8 +107,7 @@ déduit du **scheme de l'URL** (`postgres://`, `mysql://`, `sqlite:`) — change
 base ne change **rien d'autre** dans l'app. Le service docker correspondant n'est
 pas dans ce `compose.yaml` (une app y retient un seul dialecte) : ajoute-le, ou
 recrée une app avec `nodefony create app <nom> --database postgres`.
-<% } %>
-<% } %>
+<% } %><% } %>
 ## 5. Tests — `npm test` est ton PREMIER diagnostic
 
 ```bash
@@ -161,8 +160,8 @@ Dans l'ordre — chaque étape isole un étage, du moins cher au plus cher :
    effacés à la transpilation) ; `tsgo` attrape ce que le build laisse passer.
 3. **`npx nodefony status`** — un serveur tourne-t-il déjà ? (port occupé,
    vieux process détaché). `npx nodefony stop` arrête proprement. Si le port est
-   tenu par une AUTRE application Nodefony, `status` la nomme : `npx nodefony
-   stop <nom>` l'arrête sans changer de dossier.
+   tenu par une AUTRE application Nodefony, `status` la nomme :
+   `npx nodefony stop <nom>` l'arrête sans changer de dossier.
 4. **Rebuild** — comportement fantôme après un gros changement : `npm run build`
    puis relance (le serveur charge `dist/`, pas tes sources).
 
@@ -181,7 +180,6 @@ npm start            # nodefony production — bind 0.0.0.0, logs stdout, probes
 > l'image — sinon la page est servie sans interface et le boot le signale en
 > ERROR.
 <% } %>
-
 ### Image de container
 
 `Dockerfile` et `.dockerignore` sont générés avec l'app ; la doctrine y est

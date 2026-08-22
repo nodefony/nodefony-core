@@ -24,8 +24,7 @@ class AppController extends Controller {
   renderApp(): unknown {
     this.setContextHtml();
     const svc = this.context?.container?.get("frontend") as
-      | FrontendService
-      | undefined;
+      FrontendService | undefined;
     if (!svc) {
       return this.render("<!-- @nodefony/frontend not ready -->");
     }

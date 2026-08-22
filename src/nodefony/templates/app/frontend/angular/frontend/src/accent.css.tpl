@@ -24,6 +24,11 @@
   --nf-logo-anim: nf-pulse 4s ease-in-out infinite;
 }
 @keyframes nf-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.07); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.07);
+  }
 }

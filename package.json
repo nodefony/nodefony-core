@@ -42,7 +42,8 @@
     "skills:check": "node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check && node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs && node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs --strict",
     "skills:doc": "node .claude/skills/nodefony-skill/scripts/skills-doc.mjs",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "format:scaffold": "node scripts/check-scaffold-format.mjs"
   },
   "workspaces": [
     "src/nodefony",

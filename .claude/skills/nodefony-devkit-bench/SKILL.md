@@ -74,6 +74,48 @@ aux assertions :
 
 Aucune de ces quatre n'aurait été vue autrement qu'en compilant et en exécutant.
 
+### Le formateur de l'application refuse ce que le générateur lui donne
+
+Cinquième panne du même genre, et la plus silencieuse : une application
+fraîchement générée arrivait avec **sept fichiers** que son propre
+`npm run format` réécrivait au premier passage — `AGENTS.md`, `README.md`,
+`env.ts`, `nodefony.config.ts`, `package.json`, `.oxlintrc.json`,
+`tests/e2e.test.ts`. Rien ne le signalait : le dépôt ne formate pas les `.tpl`
+(prettier ignore les extensions qu'il ne connaît pas), et les assertions
+lisent des chaînes, pas une mise en forme.
+
+```bash
+npm run format:scaffold            # les trois variantes
+npm run format:scaffold -- --diff  # ce que prettier changerait, ligne à ligne
+npm run format:scaffold -- --keep  # conserve les apps générées pour inspection
+```
+
+**Trois variantes, et pourquoi celles-là** (`scripts/check-scaffold-format.mjs`) :
+`complete+react` allume tout ce qui est conditionnel, `minimal` n'en allume
+rien — une non-conformité qui n'apparaîtrait que dans un cas intermédiaire
+supposerait un contenu présent dans NI l'un NI l'autre. La troisième,
+`nom-long`, est le seul régime qui exerce **les lignes dont la longueur dépend
+d'une valeur interpolée** : `content="<nom> — application Nodefony."` tient sur
+une ligne pour `probe` et doit être éclatée pour un nom de vingt caractères.
+Sans elle, on livre un rendu conforme aux noms courts seulement.
+
+**Quatre pièges, tous payés au moins une fois :**
+
+| Symptôme                                                | Cause                                                                                                                                        | Le geste                                                                                                                   |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Une table markdown revient toujours non conforme        | prettier impose l'alignement canonique, calculé sur la cellule la plus large — donc sur un contenu qui n'existe que dans certaines variantes | **une table à lignes conditionnelles devient une LISTE** ; aucun alignement écrit à la main ne peut être juste pour toutes |
+| Un `prettier --write` sur un `.tpl` markdown            | il lit `<% if … %>                                                                                                                           | `comme une cellule et **injecte des`                                                                                       | `** | ne formater directement QUE les gabarits sans `<%` ; les autres se corrigent à la main |
+| Une correction du moteur reste sans effet               | le CLI s'exécute depuis `dist` ; un gabarit se lit au disque, pas le moteur                                                                  | **build avant de mesurer** — sinon on conclut sur du code inchangé                                                         |
+| Deux lignes vides ou zéro autour d'un bloc conditionnel | la newline vit du mauvais côté de la balise                                                                                                  | placer la ligne vide **DANS** le bloc (`…\n\n<% } %>## Titre`), jamais après                                               |
+
+**Ce que le script NE peut pas rendre conforme, et pourquoi c'est structurel** :
+deux fichiers frontend changent de forme selon la longueur du nom d'application
+— pour un nom court prettier veut une ligne, pour un nom long il l'éclate. Un
+gabarit rend UNE forme. La seule issue complète serait de formater à la
+génération, ce qui demande prettier au runtime du CLI (dépendance pesée et
+refusée : ~8 Mo dans chaque image de production pour un scaffold qu'on n'y lance
+jamais). Le script les nomme plutôt que de les taire.
+
 ## Banc de vérité — le code généré tient-il debout ?
 
 ```bash

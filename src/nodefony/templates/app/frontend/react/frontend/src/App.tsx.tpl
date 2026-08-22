@@ -29,9 +29,8 @@ interface SecureData {
   zone: string;
   pid: number;
 }
-<% } %>
 
-/**
+<% } %>/**
  * Page d'accueil de l'app — vitrine AUTONOME (zéro dépendance UI) :
  *  - panneau de marque (même design que le login de Studio : dégradé, glow,
  *    logo, slogan, 3 piliers du framework) ;
@@ -60,7 +59,6 @@ const FEATURES = [
     icon: <path d="M12 2 5 5v6c0 5 3.5 8.5 7 11 3.5-2.5 7-6 7-11V5l-7-3z" />,
   },
 ];
-
 
 <% if (it.complete) { %>/** Un tick du canal `live:ticker` (cf `nodefony/controllers/LiveController.ts`). */
 interface Tick {
@@ -156,7 +154,10 @@ function LiveCard() {
       credentials: "same-origin",
       body: JSON.stringify({ username, password }),
     });
-    const j = (await r.json()) as { result?: { user?: { username?: string } }; user?: { username?: string } };
+    const j = (await r.json()) as {
+      result?: { user?: { username?: string } };
+      user?: { username?: string };
+    };
     if (!r.ok) {
       setAuthMsg("identifiants invalides");
       return;

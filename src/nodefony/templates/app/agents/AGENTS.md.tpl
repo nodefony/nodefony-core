@@ -211,6 +211,7 @@ et il fait foi le jour où les deux divergent.
   le typecheck) ; les hooks React vivent dans `nodefony/react`. Ne réécris
   JAMAIS un client WebSocket/JSON-RPC, ne duplique JAMAIS un type entre front
   et back : un seul contrat, vérifié par le compilateur des deux bouts.
+
 - **Une commande ne tourne PAS dans le mode du serveur que tu as lancé — DEMANDE-le.**
   Chaque commande démarre son propre noyau. Sans `NODE_ENV` dans ton shell, elle
   part en `development` ; avec `NODE_ENV=production`, elle lit une AUTRE
@@ -225,6 +226,7 @@ et il fait foi le jour où les deux divergent.
   Pour forcer : `NODE_ENV=production npx nodefony <commande>`. La règle complète
   (absent, posé, valeur non-moteur) est dans
   `node_modules/nodefony/docs/environnement.md`.
+
 - **Une initialisation s'ACCROCHE à une phase du démarrage — il n'y a pas de
   `app.use()`.** Nodefony n'est pas un framework à middlewares chaînés : du code
   posé au chargement d'un fichier s'exécute AVANT que la configuration existe, et
@@ -242,6 +244,7 @@ et il fait foi le jour où les deux divergent.
   phases, le conteneur et les connecteurs sont typés — la référence est dans
   `node_modules/nodefony/docs/kernel.md`, et `npx nodefony inspect services`
   montre ce qui existe RÉELLEMENT dans cette application.
+
 - **Un service n'est pas une classe utilitaire.** Une classe à méthodes `static`,
   ou un objet exporté, COMPILE et marche — et reste invisible au framework. Un
   service Nodefony est une classe `@injectable()` qui `extends Service` : c'est
@@ -249,8 +252,9 @@ et il fait foi le jour où les deux divergent.
   événements, et sa place dans le conteneur. Il porte DEUX noms sans que ce soit
   une redondance : le décorateur nomme la CLASSE (ce qu'on écrit dans
   `@inject("…")`), le `super("nom", …)` nomme l'INSTANCE (sa clé pour
-  `container.get("…")`). Ne l'écris pas de mémoire — `npx nodefony create service
-  <Nom>` en pose un complet, commenté, à imiter ; la référence est dans
+  `container.get("…")`). Ne l'écris pas de mémoire :
+  `npx nodefony create service <Nom>` en pose un complet, commenté, à imiter ;
+  la référence est dans
   `node_modules/nodefony/docs/service.md`.
   **Un service qui en appelle un autre le déclare au CONSTRUCTEUR** :
   `npx nodefony create service <Nom> --inject <AutreService>` écrit le
@@ -258,6 +262,7 @@ et il fait foi le jour où les deux divergent.
   ordonnée par le conteneur et visible dans la signature — là où
   `container.get("…")` cherche à l'exécution et rend `undefined` en silence si
   le service n'est pas enregistré.
+
 - **Les violations de contrainte sont DÉJÀ traduites en HTTP — ne les rattrape pas.**
   Un doublon sur une colonne unique ressort en **409**, une donnée qui viole le
   schéma Zod en **422**, chacun avec son corps JSON : le rendu d'erreur lit le code
@@ -268,6 +273,7 @@ et il fait foi le jour où les deux divergent.
   concurrence** : deux requêtes simultanées passent toutes les deux le test avant
   que l'une n'écrive. La contrainte de la base est le seul arbitre exact — laisse-la
   lever, le pipeline traduit.
+
 - **Un fichier ne se sert pas à la main.** Trois façades, et le choix se fait sur
   l'usage : `this.renderMediaStream(file)` implémente les **requêtes par plage**
   (`Range` → 206 + `Content-Range`, 416 hors plage) — c'est ce qu'exige un lecteur
@@ -278,15 +284,18 @@ et il fait foi le jour où les deux divergent.
   à la main n'atteint jamais la socket (le pipeline écrit statut et en-têtes à
   SON tour), donc le client reçoit **200 avec un corps partiel** et croit tenir le
   fichier complet. Mesuré au banc, pas supposé.
+
 - **Le container DI est PROTOTYPAL** : les services vivent sur une chaîne de
   prototypes — un scope de requête VOIT tous les services du kernel sans
   aucune copie (coût d'un scope ≈ un `Object.create`), et ce qu'on `set()`
   dans un scope MEURT avec la requête. Ne fabrique donc ni cache de services
   par requête, ni singleton maison : `container.get("<nom>")` remonte la
   chaîne, c'est le mécanisme.
+
 - **Le WS métier passe par la socket Nodefony** (`--kind realtime` : canaux
   pub/sub + actions RPC + policies). L'echo WS brut des exemples est une démo
   du pipeline partagé, pas un modèle à imiter.
+
 <% if (it.hasSecurity) { %>- **Utilisateurs et droits : tout existe, n'improvise RIEN.** Ces gestes
   couvrent l'essentiel, et chacun a sa doc installée (cf. la table « Où lire
   AVANT de coder », plus haut) ; le geste détaillé et ses pièges vivent dans le
@@ -356,13 +365,14 @@ et il fait foi le jour où les deux divergent.
     produit le même défaut, en plus discret. Règle : un appelant qui ne stocke
     pas de cookie ne doit rien recevoir qu'il faille stocker.
     Les clés s'émettent par `POST /nodefony/security/api/keys`.
+
   - Un droit **métier** qui ne se réduit pas à un rôle (« l'auteur peut éditer
     SON document ») s'écrit en **voter** et s'enregistre par
     `registerVoterFactory` ; `@IsGranted("doc.edit", { subject: "id" })` l'appelle.
     C'est le point d'extension prévu — il n'y a pas de table de permissions à
-    inventer.<% } %>
+    inventer.
 
-## Environnement : ne devine JAMAIS, demande
+<% } %>## Environnement : ne devine JAMAIS, demande
 
 ```bash
 npx nodefony env          # cascade des .env, valeur EFFECTIVE de chaque variable, sa PROVENANCE
