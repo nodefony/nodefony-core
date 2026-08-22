@@ -48,18 +48,27 @@ const COMPARES_OCTET_POUR_OCTET = ["man/nodefony.1", ".ai/symbols.json"];
 describe("fins de ligne — les artefacts générés restent en LF", () => {
   const dansUnDepot = existsSync(path.join(RACINE, ".git"));
 
-  it(".gitattributes existe", { skip: !dansUnDepot }, () => {
+  // ⏱️ Ce test SPAWNE `git` : le défaut de 5 s de vitest est un budget
+  // d'assertion, pas de démarrage de process. Sous `turbo run test` (tous les
+  // workspaces en parallèle) il est dépassé sans qu'aucun défaut n'existe —
+  // vert en isolation, rouge dans `npm run verify`. Rien ne s'évalue en temps
+  // ici : le délai n'est pas une mesure.
+  it(".gitattributes existe", { skip: !dansUnDepot, timeout: 60_000 }, () => {
     expect(existsSync(path.join(RACINE, ".gitattributes"))).toBe(true);
   });
 
   for (const rel of COMPARES_OCTET_POUR_OCTET) {
-    it(`${rel} est déclaré eol=lf`, { skip: !dansUnDepot }, () => {
-      expect(
-        attributEol(rel),
-        `${rel} est comparé octet pour octet à un générateur qui écrit du LF. ` +
-          `Sans « eol=lf » dans .gitattributes, git le convertit en CRLF au ` +
-          `checkout Windows et le gate accuse un fichier parfaitement à jour.`,
-      ).toBe("lf");
-    });
+    it(
+      `${rel} est déclaré eol=lf`,
+      { skip: !dansUnDepot, timeout: 60_000 },
+      () => {
+        expect(
+          attributEol(rel),
+          `${rel} est comparé octet pour octet à un générateur qui écrit du ` +
+            `LF. Sans « eol=lf » dans .gitattributes, git le convertit en CRLF ` +
+            `au checkout Windows et le gate accuse un fichier à jour.`,
+        ).toBe("lf");
+      },
+    );
   }
 });
