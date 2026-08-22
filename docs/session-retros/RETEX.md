@@ -35,6 +35,50 @@
   configuration ENTIÈRE que le gabarit ne pose pas, plutôt que corriger la ligne qui manque.
   [1× — 08-22h]
 
+## 🎯 Un PORT qui répond ne dit pas À QUI — l'identité de la cible se PROUVE
+
+- **Un run interrompu a empoisonné le suivant, et personne ne pouvait le voir.** Une passe arrêtée
+  sur « l'agent n'a rendu aucun tour » a quitté sans éteindre son serveur ; le run d'après a trouvé
+  ses ports dédiés pris, sa prémisse n'a donc jamais démarré le sien — et l'agent, le constat de
+  porte et le juge des routes ont TOUS interrogé l'application du run précédent. Mêmes ports, même
+  nom (`bench-app`) : aucun signal. Le seul verdict juste de la passe fut le rouge de
+  `nodefony check` (« le port est tenu par un autre processus »), imputé à l'agent. Réflexe : avant
+  de croire un port, demander à l'application sous test de se NOMMER — ici son `runtime.json`
+  (`pid` + ports effectifs), local et gratuit. [1× — 08-23]
+- **Un arrêt qui ne couvre pas les sorties d'URGENCE n'est pas un arrêt.** Celui du banc existait
+  et nommait même le risque, mais il vivait après la boucle et ne valait qu'en régime `auth` — or
+  une passe s'interrompt par `process.exit`, et une PRÉMISSE démarre l'application dans tous les
+  régimes. Le nettoyage d'un décor s'arme sur `process.on("exit")` + signaux, jamais sur le seul
+  chemin nominal. [1× — 08-23]
+
+## ⚖️ Un juge qui mesure AILLEURS que l'agent condamne au hasard
+
+- **Le gate de « annonce le nombre de routes » opposait DEUX applications** : l'agent interrogeait
+  l'app en marche (145), le gate bootait un second kernel à froid (147) et rendait FAIL. Il
+  sanctionnait le seul geste que la tâche demande — croire l'application. Et l'écart était
+  INTERMITTENT (rejoué le lendemain : 147 des deux côtés), donc le rouge tombait au hasard. Un
+  gate qui se trompe toujours se répare ; un gate qui se trompe parfois se croit. Réflexe : un
+  juge mesure LÀ OÙ l'agent a mesuré, et NOMME sa source dans son verdict — vert compris.
+  [1× — 08-23]
+- **Le retour de session imputait l'échec à l'agent** (« défaut d'exécution »), alors que la sonde
+  était fautive. Une conclusion sur un agent se recontrôle sur la SONDE avant d'être écrite en
+  mémoire — sinon la fausse imputation se transmet de session en session. [1× — 08-23]
+
+## 🗣️ Un compteur muet ne rend pas « rien », il rend un DIAGNOSTIC FAUX
+
+- **Le banc ne lisait que la grammaire de transcript d'UN agent.** Chez Codex et Gemini, son
+  compteur d'appels MCP aurait rendu « 0 appel » — précisément le symptôme qu'il apprend à lire
+  comme « l'agent n'a jamais eu la porte ». Un agent parfaitement outillé aurait été rangé parmi
+  ceux qu'on n'a pas su servir. Réflexe : quand un compteur ne connaît qu'un format, son silence
+  n'est pas une absence de mesure — c'est une affirmation fausse. [1× — 08-23]
+- **Les formes se prennent au SOURCE de chaque agent, pas d'un transcript observé** : Codex
+  (`sdk/typescript/src/items.ts` → `mcp_tool_call`, `agent_message`), Gemini
+  (`MCP_QUALIFIED_NAME_SEPARATOR = '_'`, jamais `mcp__`). Vérifié ensuite en LANÇANT chaque agent :
+  la grammaire réelle de Codex était exactement celle du source. [1× — 08-23]
+- **`lireEffort` jetait les appels MCP d'un agent interrompu** faute de tour achevé — quota, délai,
+  échec après le premier outil. Un compteur qui exige un « run complet » perd précisément les runs
+  qu'on veut diagnostiquer. [1× — 08-23]
+
 ## 🧪 Un banc qui n'a jamais servi ne prouve rien de son décor
 
 - **Trois erreurs d'ORDRE dans un décor, chacune masquée par la précédente** : jeton refusé
@@ -221,6 +265,19 @@ src/nodefony/tsconfig.json --noEmit` ne couvre pas les tests ; `npm run typechec
 - **L'état de câblage n'a pas à être mémorisé : il EST dans les fichiers.** Un agent qui porte la
   clé a été câblé un jour ⇒ rotation muette. Un fichier d'état parallèle aurait menti à la première
   édition manuelle. `[1× — 08-22]`
+
+## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- **Un gate de couverture a rougi en CI, et il avait raison.** Le cas du 499 se skippait faute de
+  trouver le journal du serveur — mais AVANT le correctif de la veille, le même test lisait un
+  chemin en dur et, quand il était illisible, court-circuitait son assertion pour ne garder qu'un
+  health-check : il passait VERT sans rien mesurer, depuis toujours. Le rouge du jour fut le
+  premier verdict FIDÈLE. Réflexe : un gate qui se met à mordre après un correctif de test ne
+  signale pas une régression, il révèle un mensonge ancien. [1× — 08-23]
+- **La découverte d'un artefact doit RATISSER LARGE quand un marqueur tranche.** Le helper
+  cherchait le journal dans deux emplacements et ignorait celui de la forge
+  (`$GITHUB_WORKSPACE/nodefony-server.log`) : ajouter un candidat ne peut pas produire de faux
+  positif (le marqueur unique décide), mais en OUBLIER un produit un banc muet. [1× — 08-23]
 
 ## 🚦 Un code de sortie 0 ne prouve RIEN — le geste se CONSTATE, pas se croit
 
