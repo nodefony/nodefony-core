@@ -285,7 +285,7 @@ Deux rideaux, tous deux `runtimeMutable` (éditable à chaud) : un **pré-check*
 qui rejette **avant** de lire (`enforceBodyLimit()`, `context/http/Request.ts:296`), puis un **compteur
 en streaming** qui coupe le socket si le corps déborde sans `Content-Length` honnête — chunked ou
 menteur (`Parser.write()`, `context/http/parser.ts:33`, dépassement `context/http/parser.ts:44`).
-Champ `maxBodySize` du schéma : `config/config.ts:984`.
+Champ `maxBodySize` du schéma : `config/config.ts:1005`.
 
 ### Fichiers multipart — `upload.*`
 

@@ -358,14 +358,26 @@ contrôleur à chaque message reçu, laquelle pousse la charge dans
 même façon, par le hook `onFinish` du contexte, qui déclenche `fireClose()`
 (`WsConnectionTransport.ts:151`).
 
-Ce transport porte aussi la **back-pressure**, à deux seuils
-(`WsConnectionTransport.send()`, `WsConnectionTransport.ts:76`) :
+Ce transport porte aussi la **back-pressure**. Elle n'est pas câblée en dur : les trois
+leviers sont des clés de configuration du serveur WebSocket, lues par le transport
+(`WsConnectionTransport.ts:63-75`) et documentées dans `@nodefony/http`
+(`http/nodefony/config/config.ts:625`).
 
-| File non drainée (`bufferedAmount`)                                 | Décision                             | Pourquoi                                                                         |
-| ------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
-| < 1 MiB                                                             | envoi normal                         | régime nominal                                                                   |
-| ≥ 1 MiB (`BACKPRESSURE_DROP_BYTES`, `WsConnectionTransport.ts:32`)  | la frame est **jetée**               | les canaux d'état sont « le dernier gagne » : le prochain instantané la remplace |
-| ≥ 8 MiB (`BACKPRESSURE_CLOSE_BYTES`, `WsConnectionTransport.ts:33`) | fermeture `1013` (_Try Again Later_) | file irrécupérable ; le client se reconnecte et se resynchronise                 |
+| File non drainée (`bufferedAmount`)     | Décision                                            | Réglage (défaut)                                                                      |
+| --------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| sous le seuil                           | envoi normal                                        | —                                                                                     |
+| au-dessus du seuil                      | politique appliquée : frame **jetée**, ou fermeture | `websocket.maxBackpressure` (**4 MiB**) · `websocket.backpressurePolicy` (**`drop`**) |
+| drops **consécutifs** au-delà du compte | fermeture `1013` (_Try Again Later_)                | `websocket.backpressureCloseAfterDrops` (**1000**)                                    |
+
+Deux points que la formulation « deux seuils d'octets » faisait manquer : la fermeture ne
+se déclenche pas sur un volume mais sur une **suite de frames jetées** — une seule frame
+qui repart remet le compteur à zéro — et `drop` est un choix, `close` fermant dès le
+premier dépassement. Jeter est acceptable parce que les canaux d'état sont « le dernier
+gagne » : le prochain instantané remplace celui qu'on a sauté.
+
+À ne pas confondre avec `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:63`, 1 MiB) : ce seuil-là
+ne jette rien, il **compte** — c'est celui à partir duquel la sonde marque une connexion
+`slowConsumer`.
 
 Sans ces seuils, un client lent — onglet en arrière-plan, mobile sur réseau dégradé —
 accumule sans borne côté serveur, et le multiplexage aggrave le phénomène : une connexion

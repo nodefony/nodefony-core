@@ -302,7 +302,7 @@ filtre qui coûte plus cher que la précédente :
 
 | #   | Contrôle                                | Coût            | Ancrage                                               |
 | --- | --------------------------------------- | --------------- | ----------------------------------------------------- |
-| 1   | Bearer présent + préfixe                | regex           | `BEARER_SCHEME` (`ApiKeyAuthenticator.ts:12`)         |
+| 1   | Bearer présent + préfixe                | regex           | `readBearerHeader()` (`runtime/bearer.ts:68`)         |
 | 2   | Longueur, charset, **CRC**              | CPU local       | `parseApiKey` (`ApiKeyAuthenticator.ts:99`)           |
 | 3   | Lookup par `secretHash`                 | 1 lecture store | `findByHash` (`ApiKeyAuthenticator.ts:105`)           |
 | 4   | `kind:"pat"`, non révoquée, non expirée | en mémoire      | `ApiKeyAuthenticator.ts:107-114`                      |
@@ -584,7 +584,7 @@ révocation ne traverse pas. Le détail de la résolution, des avertissements et
 
 | Domaine                           | Norme                                  | Ancrage                                                |
 | --------------------------------- | -------------------------------------- | ------------------------------------------------------ |
-| Schéma `Bearer` (transport)       | RFC 6750 §2.1                          | `BEARER_SCHEME` (`ApiKeyAuthenticator.ts:12`)          |
+| Schéma `Bearer` (transport)       | RFC 6750 §2.1                          | `readBearerHeader()` (`runtime/bearer.ts:68`)          |
 | `invalid_token` → 401 + challenge | RFC 6750 §3.1 · RFC 7235               | `challenge()` (`ApiKeyAuthenticator.ts:205`)           |
 | Secret **jamais** stocké en clair | OWASP ASVS (secret storage)            | `hashApiKey()` (`apiKeyFormat.ts:70`)                  |
 | Secret montré une seule fois      | Pratique « shown once »                | `IApiKeyCreated.token` (`IApiKey.ts:37`)               |

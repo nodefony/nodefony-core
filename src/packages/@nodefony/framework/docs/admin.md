@@ -299,8 +299,9 @@ Deux gardes se succèdent, dans cet ordre :
    `^/nodefony/[^/]+/api(/|$)` (`config.ts:141`) avec l'authenticator `session` (cookie BFF) : sans
    session, c'est **401** avant même le controller.
 2. **Le broker tranche le RÔLE.** À l'exécution, le pont compare le rôle exigé aux rôles de
-   l'appelant via la fonction pure `isAdminGranted()` (`adminRbac.ts:22`). Rôle absent → **403**
-   (`AdminApiController.ts:112`).
+   l'appelant via la fonction pure `isAdminGranted()` (`adminRbac.ts:24`). Rôle absent → **403**.
+   Le refus est prononcé au CŒUR (`executeAdmin.ts`), pas dans le controller HTTP : c'est ce
+   qui fait que les deux chemins d'appel — la route et le pont MCP — refusent à l'identique.
 
 La décision est **fail-closed** : un authentifié **sans** le rôle requis — y compris `roles=[]`
 (compte non doté) — est **rejeté** (`adminRbac.ts:27`). C'était l'ex-fail-open historique (un
@@ -417,7 +418,7 @@ recopiées ici (elles s'y périmeraient).
 | `register()` throw « routes figées »             | Appel **après** `mountAll()` (`AdminBroker.ts:46`)                                 | Enregistrer au `onKernelBoot`, pas plus tard                                         |
 | `register()` throw « namespace déjà enregistré » | Deux producteurs sur le même `adminNamespace` (`AdminBroker.ts:51`)                | Namespace unique ; garder `register()` idempotent (`has(ns)` avant)                  |
 | 401 sur toute route `/nodefony/<ns>/api/*`       | Zone `nodefony-admin` : pas de session BFF (`config.ts:141`)                       | S'authentifier (login BFF) ; pour une sonde publique → `public: true` + zone anonyme |
-| 403 alors qu'on est connecté                     | Rôle manquant, `isAdminGranted` fail-closed (`adminRbac.ts:27`)                    | Doter le compte du rôle requis (défaut `ROLE_NODEFONY_ADMIN`)                        |
+| 403 alors qu'on est connecté                     | Rôle manquant, `isAdminGranted` fail-closed (`adminRbac.ts:24`)                    | Doter le compte du rôle requis (défaut `ROLE_NODEFONY_ADMIN`)                        |
 | WS : mutation refusée `400` clé requise          | Idempotence : clé obligatoire par socket (`AdminApiController.ts:184`)             | Fournir `Idempotency-Key` sur la mutation WS                                         |
 | Route admin injoignable / collision Studio       | Endpoint mono-segment `/nodefony/<module>` (`IAdminBroker.ts:42`)                  | Toujours `≥ 3` segments `/nodefony/<ns>/api/<path>`                                  |
 | 500 « Admin endpoint not registered »            | `adminRoute` absent du registre — incohérence interne (`AdminApiController.ts:96`) | Vérifier que le producteur a bien été enregistré avant `mountAll()`                  |

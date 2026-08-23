@@ -758,8 +758,10 @@ La quantité d'octets déjà remise au transport mais pas encore partie. C'est l
 n° 1 : il monte quand le client n'absorbe plus. Deux seuils distincts existent — un pour **compter**
 (la sonde), un pour **agir** (abandonner des frames, puis fermer).
 
-Seuil de comptage `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:56`), seuils d'action
-`BACKPRESSURE_DROP_BYTES` et `BACKPRESSURE_CLOSE_BYTES` (`WsConnectionTransport.ts:32`).
+Seuil de comptage `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:63`) — une constante, car il ne
+décide de rien. Les seuils d'ACTION, eux, sont des réglages : `websocket.maxBackpressure`,
+`websocket.backpressurePolicy` et `websocket.backpressureCloseAfterDrops` (`http`,
+`http/nodefony/config/config.ts:625`).
 
 ### `consommateur lent` — la connexion qui décroche
 

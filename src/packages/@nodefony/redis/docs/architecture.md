@@ -583,7 +583,7 @@ uniquement sur un chemin d'administration. Les trois stores partagent ce mécani
 Le curseur arrive de l'extérieur (chaîne de requête d'un écran d'administration, client qui rejoue une
 page) : il n'est pas digne de confiance. Un curseur `SCAN` valide est toujours une suite de chiffres.
 
-Le store de session s'en protège : `scanOrZero()` (`SessionStorage.ts:62`) impose le format et retombe
+Le store de session s'en protège : `scanOrZero()` (`scanCursor.ts:68`) impose le format et retombe
 sur `"0"` sinon — repartir du début est faux au pire d'une page, transmettre une valeur arbitraire
 échoue à coup sûr. Les stores de jetons (`RedisTokenStore.ts:35`) et de passkeys
 (`RedisWebAuthnCredentialStore.ts:31`) ne font **pas** cette validation : ils transmettent le curseur

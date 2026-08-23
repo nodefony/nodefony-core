@@ -423,7 +423,7 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 | Domaine | Norme | Ancrage |
 | --- | --- | --- |
 | Challenge d'auth (401) | RFC 7235 | `Firewall.#setChallenge()` (`firewall.ts:1191`) |
-| Bearer | RFC 6750 | `BEARER_SCHEME` (`JwtAuthenticator.ts:14` · `ApiKeyAuthenticator.ts:12`) |
+| Bearer | RFC 6750 | `readBearerHeader()` (`runtime/bearer.ts:68`, cœur) — une porte UNIQUE au cœur, plus une constante par authenticator |
 | JWT (BCP) | RFC 7519, 8725 | `jwtVerify` durci : allowlist + claims (`JwtAuthenticator.ts:103-107`) |
 | HTTP Basic | RFC 7617 | `UserPasswordAuthenticator` (`UserPasswordAuthenticator.ts:25-27`) |
 | Backoff de login | NIST SP 800-63B | `#throttler.check()` avant le verifier (`UserPasswordAuthenticator.ts:101-103`) |

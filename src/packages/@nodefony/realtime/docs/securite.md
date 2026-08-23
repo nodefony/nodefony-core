@@ -669,10 +669,10 @@ Un onglet en arrière-plan, un mobile en zone blanche, une fenêtre TCP pleine :
 grossit sans borne, et le multiplexage concentre le risque (une socket lente bloque tous ses
 canaux). `WsConnectionTransport.send()` (`WsConnectionTransport.ts:76`) applique deux seuils :
 
-| `bufferedAmount`                                                     | Action                                                                       |
-| -------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| ≥ `BACKPRESSURE_DROP_BYTES` — 1 MiB (`WsConnectionTransport.ts:32`)  | la frame est **jetée** (canaux d'état : le prochain snapshot la remplace)    |
-| ≥ `BACKPRESSURE_CLOSE_BYTES` — 8 MiB (`WsConnectionTransport.ts:33`) | `close(1013)` « Try Again Later » ; le client se reconnecte et resynchronise |
+| `bufferedAmount`                                                                                | Action                                                                                                                      |
+| ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| > `websocket.maxBackpressure` — 4 MiB par défaut (`http`, `http/nodefony/config/config.ts:625`) | politique `websocket.backpressurePolicy` : `drop` (défaut) jette la frame — canaux d'état, le prochain snapshot la remplace |
+| `websocket.backpressureCloseAfterDrops` drops CONSÉCUTIFS — 1000 par défaut                     | `close(1013)` « Try Again Later » ; le client se reconnecte et resynchronise                                                |
 
 ### Taille des messages entrants
 

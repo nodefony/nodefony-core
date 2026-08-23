@@ -314,11 +314,14 @@ deux autres. Le débit en octets par seconde se dérive de deux photos.
 | `backpressure.drops`               | Cumul des frames **jetées** pour protéger la mémoire.                               |
 
 La source par connexion est `IRealtimeConnProbe` (`IRealtimeProbe.ts:25`), implémentée par le
-transport. Deux seuils, non configurables, distincts du seuil de comptage : à
-`BACKPRESSURE_DROP_BYTES` (1 Mio, `WsConnectionTransport.ts:32`) la frame est **jetée** — les canaux
-d'état sont « le dernier gagne », le prochain instantané la remplacera ; à `BACKPRESSURE_CLOSE_BYTES`
-(8 Mio, `WsConnectionTransport.ts:33`) la connexion est **fermée** en `1013` (« réessaie plus tard »),
-et le client se reconnecte puis resynchronise.
+transport. Les seuils d'ACTION sont distincts du seuil de comptage, et ils sont
+**configurables** (`@nodefony/http`, `http/nodefony/config/config.ts:625`) : au-delà de
+`websocket.maxBackpressure` (4 MiB par défaut) la politique `websocket.backpressurePolicy`
+s'applique — `drop` par défaut, la frame est **jetée** puisque les canaux d'état sont « le
+dernier gagne » et que le prochain instantané la remplacera. La connexion est **fermée** en
+`1013` (« réessaie plus tard ») après `websocket.backpressureCloseAfterDrops` frames jetées
+CONSÉCUTIVES (1000 par défaut) — une seule frame qui repart remet le compteur à zéro — ou
+dès le premier dépassement si la politique est `close`.
 
 > [!IMPORTANT]
 > `drops` qui croît n'est **pas** une panne : c'est la protection qui fonctionne. Ce qui serait une
