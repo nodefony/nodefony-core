@@ -62,6 +62,10 @@ class AiMcp extends Command {
       "--remove",
       "Avec --agent : retire la déclaration au lieu de la poser",
     );
+    this.addOption(
+      "--global",
+      "Avec --agent : déclare dans TON foyer au lieu du projet (une seule app servie)",
+    );
     this.addOption("--dry-run", "Le plan, sans rien écrire");
     this.addOption("--json", "Sortie exploitable par un script");
     this.addOption(
@@ -75,6 +79,7 @@ class AiMcp extends Command {
     noAuth?: boolean;
     agent?: string;
     remove?: boolean;
+    global?: boolean;
     url?: string;
     dryRun?: boolean;
     json?: boolean;
@@ -85,6 +90,7 @@ class AiMcp extends Command {
     if (opts?.noAuth) argv.push("--no-auth");
     if (opts?.agent) argv.push("--agent", opts.agent);
     if (opts?.remove) argv.push("--remove");
+    if (opts?.global) argv.push("--global");
     if (opts?.url) argv.push("--url", opts.url);
     if (opts?.dryRun) argv.push("--dry-run");
     if (opts?.json) argv.push("--json");

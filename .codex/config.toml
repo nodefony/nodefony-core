@@ -1,0 +1,3 @@
+[mcp_servers.nodefony]
+url = "http://localhost:5151/nodefony/mcp"
+bearer_token_env_var = "NF_MCP_TOKEN"

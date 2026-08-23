@@ -61,7 +61,8 @@ const MCP_PATH = "/nodefony/mcp";
 
 const USAGE =
   `Usage : nodefony ai:mcp [--auth|--no-auth] [--agent <liste>] [--remove]\n` +
-  `                        [--url <origine>] [--dry-run] [--json] [--cwd <path>]\n` +
+  `                        [--url <origine>] [--global] [--dry-run] [--json]\n` +
+  `                        [--cwd <path>]\n` +
   `  Déclare le serveur MCP de cette application dans ${MCP_CONFIG_FILE}.\n` +
   `  --auth : mode authentifié — l'en-tête porte \${${MCP_TOKEN_ENV}} (jamais le jeton lui-même).\n` +
   `           sans option, le mode déjà en place est CONSERVÉ ; --no-auth le retire.\n` +
@@ -88,6 +89,15 @@ interface IAiMcpRequest {
   agent: string | undefined;
   /** Retirer la déclaration au lieu de la poser. */
   remove: boolean;
+  /**
+   * Déclarer dans le foyer de l'utilisateur au lieu du projet.
+   *
+   * Le défaut est le PROJET : l'URL d'une porte porte un port, et une
+   * déclaration globale ne peut désigner qu'une application. Ce drapeau
+   * existe pour qui veut délibérément une porte valable partout — un poste
+   * qui n'ouvre jamais qu'un seul projet Nodefony, typiquement.
+   */
+  global: boolean;
   dryRun: boolean;
   json: boolean;
   cwd: string;
@@ -109,6 +119,7 @@ export function parseAiMcpArgv(
     auth: null,
     agent: undefined,
     remove: false,
+    global: false,
     dryRun: false,
     json: false,
     cwd: process.cwd(),
@@ -129,6 +140,8 @@ export function parseAiMcpArgv(
       // ressemblent sur une lettre finissent par se confondre le jour où l'une
       // écrit chez un tiers.
       req.agent = rest[++i] ?? "";
+    } else if (word === "--global") {
+      req.global = true;
     } else if (word === "--remove") {
       req.remove = true;
     } else if (word === "--url" || word === "-u") {
@@ -359,6 +372,15 @@ export interface IResultatDeclaration {
   /** L'agent visé. */
   cible: IAgentTarget;
   /**
+   * La déclaration a-t-elle été écrite DANS le projet ?
+   *
+   * Ne se déduit pas de `cible.portee` — qui dit où l'agent lit ses VARIABLES,
+   * pas où sa porte est déclarée. Pour Vibe et Codex, les deux diffèrent : le
+   * jeton reste au foyer (un `.env` de projet se commite par accident), la
+   * porte va dans le projet (son URL porte un port).
+   */
+  enProjet?: boolean;
+  /**
    * `declare`/`retire` : sa CLI a répondu OK, et le contrôle le CONFIRME quand
    * il est possible. `sans-effet` : elle a répondu OK, mais la porte est encore
    * là (ou toujours absente) — mesuré chez l'un d'eux, et invisible autrement.
@@ -410,9 +432,16 @@ export interface IResultatDeclaration {
  */
 export async function declarerChezAgents(
   cibles: readonly IAgentTarget[],
-  ctx: { url: string; retirer: boolean; projectRoot: string },
+  ctx: {
+    url: string;
+    retirer: boolean;
+    projectRoot: string;
+    /** Écrire dans le foyer de l'utilisateur au lieu du projet. */
+    global?: boolean;
+  },
 ): Promise<IResultatDeclaration[]> {
   const { spawnSync } = await import("node:child_process");
+  const { mkdirSync } = await import("node:fs");
   const resultats: IResultatDeclaration[] = [];
   for (const cible of cibles) {
     const plan = planAgentDeclaration(
@@ -425,6 +454,42 @@ export async function declarerChezAgents(
       continue;
     }
     const commande = renderPlanShell(plan);
+    // 🔴 L'URL de la porte porte un PORT, et deux applications Nodefony n'ont
+    // pas le même. Une déclaration dans le foyer de l'utilisateur ne peut donc
+    // en désigner qu'UNE — la dernière câblée efface la précédente sans un mot.
+    // Ces CLI n'ont pas d'option de portée, mais elles obéissent toutes deux à
+    // une variable qui déplace leur dossier (`VIBE_HOME`, `CODEX_HOME`) : on la
+    // pointe sur `<projet>/<marqueur>`, et c'est LEUR binaire qui écrit LEUR
+    // format, à l'endroit du projet. Écrire ce TOML nous-mêmes aurait été
+    // reprendre à notre compte le format d'un tiers.
+    // Vérifié au disque pour les deux, y compris la ligne d'authentification.
+    const racineProjet = cible.home
+      ? path.join(ctx.projectRoot, cible.marqueur)
+      : undefined;
+    const enProjet = racineProjet !== undefined && !ctx.global;
+    if (enProjet && racineProjet) {
+      // Codex REFUSE de démarrer si le dossier n'existe pas encore — constaté :
+      // « CODEX_HOME points to "…", but that path does not exist ».
+      //
+      // 🔴 Et ce `mkdir` ne LÈVE pas : cette fonction promet un verdict par
+      // agent, jamais une exception — un agent qui refuse ne doit pas empêcher
+      // de servir les suivants. Une racine incréable n'est pas un cas à
+      // traiter ici : si la CLI est absente, le `spawn` rendra `ENOENT` et le
+      // dira ; si elle est là, c'est ELLE qui dira pourquoi elle n'a pas pu
+      // écrire. La capacité se CONSTATE, elle ne se pré-vérifie pas.
+      try {
+        mkdirSync(racineProjet, { recursive: true });
+      } catch {
+        /* laissé au constat du spawn — voir ci-dessus */
+      }
+    }
+    // Les TROIS appels le partagent : lu ailleurs qu'écrit, le constat
+    // d'après-coup parlerait du foyer de l'utilisateur et vaudrait faux dans
+    // les deux sens.
+    const envAgent =
+      enProjet && racineProjet && cible.home
+        ? { ...process.env, [cible.home]: racineProjet }
+        : process.env;
     // Ce qui était déclaré AVANT — on ne peut le savoir qu'en regardant, et
     // seulement après coup ce serait trop tard : la CLI aura déjà écrasé.
     const argvListeAvant = cible.argvListe?.();
@@ -434,6 +499,7 @@ export async function declarerChezAgents(
         encoding: "utf8",
         shell: false,
         cwd: ctx.projectRoot,
+        env: envAgent,
       });
       const vu = `${avant.stdout ?? ""}${avant.stderr ?? ""}`;
       remplaceAutreUrl =
@@ -454,6 +520,7 @@ export async function declarerChezAgents(
       // personne ne le cherchera — et l'agent, à la racine, ne voyait rien.
       // Constaté au disque, jamais signalé par le code de sortie.
       cwd: ctx.projectRoot,
+      env: envAgent,
     });
     // La CAPACITÉ se constate : on ne demande pas au `PATH` si l'outil existe,
     // on l'appelle. `ENOENT` est la réponse, et elle est sans ambiguïté.
@@ -488,6 +555,7 @@ export async function declarerChezAgents(
         // Même racine que le geste : lue ailleurs, la liste parlerait d'un
         // autre projet et le constat serait faux dans les deux sens.
         cwd: ctx.projectRoot,
+        env: envAgent,
       });
       const sortie = `${vue.stdout ?? ""}${vue.stderr ?? ""}`;
       // La lecture n'a pas pu se faire : on ne conclut RIEN de son silence —
@@ -506,6 +574,7 @@ export async function declarerChezAgents(
     }
     resultats.push({
       cible,
+      enProjet,
       etat: ctx.retirer ? "retire" : "declare",
       commande,
       ...(remplaceAutreUrl ? { remplaceAutreUrl: true } : {}),
@@ -543,14 +612,18 @@ export function renderDeclarations(
         `${retirer ? "retiré par --no-auth ou à la main" : "déjà à jour"}.\n`;
     } else if (r.etat === "declare") {
       // 🔴 La PORTÉE se dit. Deux de ces agents n'ont pas de notion de projet :
-      // leur CLI n'écrit que dans le dossier de l'utilisateur (constaté — un
-      // `.codex/config.toml` posé dans un projet n'est PAS lu ; seul
-      // `CODEX_HOME` le déplace, et il faudrait l'exporter à chaque
-      // lancement). Une déclaration qui vaut pour TOUS les projets et qu'on
-      // croit locale, c'est la deuxième application Nodefony qui écrase la
-      // première sans un mot.
+      // ⚠️ La portée se lit sur le GESTE, jamais sur `cible.portee` — celui-ci
+      // dit où l'agent tient ses VARIABLES, pas où sa porte est déclarée, et
+      // les deux diffèrent pour Vibe et Codex. Une déclaration qui vaut pour
+      // TOUS les projets et qu'on croit locale, c'est la deuxième application
+      // Nodefony qui écrase la première sans un mot.
+      //
+      // ⚠️ Un état antérieur de ce commentaire affirmait qu'un
+      // `.codex/config.toml` posé dans un projet « n'est PAS lu ». C'est FAUX,
+      // et mesuré : le fichier déposé, `codex mcp list` montre le serveur. La
+      // confiance du dépôt était la variable, pas la portée.
       const portee =
-        r.cible.portee === "projet"
+        r.enProjet || r.cible.portee === "projet"
           ? "dans ce projet"
           : "GLOBALE — elle vaut pour tous tes projets";
       out += `  ✓ ${r.cible.nom} — porte déclarée, ${portee}. RELANCE-le.\n`;
@@ -782,6 +855,7 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
           url: mcpUrl,
           retirer: parsed.remove,
           projectRoot,
+          global: parsed.global,
         }),
         parsed.remove,
       ),

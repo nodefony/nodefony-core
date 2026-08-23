@@ -67,8 +67,14 @@ export interface IAgentTarget {
   /** Grammaire du fichier. */
   forme: "json-env" | "dotenv";
   /**
-   * Variable qui déplace le dossier de l'agent (portée utilisateur seulement).
-   * Vibe la documente et son source la lit : `VIBE_HOME`.
+   * Variable qui déplace le dossier de l'agent — `VIBE_HOME`, `CODEX_HOME`.
+   *
+   * Elle sert DEUX fois. À la lecture, elle dit où l'agent tient ses variables
+   * quand l'utilisateur l'a déplacé. À l'écriture, elle est ce qui donne une
+   * portée PROJET à une CLI qui n'en offre pas : pointée sur
+   * `<projet>/<marqueur>`, la commande de l'agent écrit son propre format dans
+   * le projet au lieu du foyer. Sa présence vaut donc capacité — un agent qui
+   * la porte peut être déclaré par projet ; les autres ne le peuvent pas.
    */
   home?: string;
   /** Par quelle voie sa configuration apprend l'existence de la porte MCP. */
@@ -181,27 +187,40 @@ export interface IDeclarationContexte {
  *
  * ⚠️ **Deux questions distinctes, et les confondre mène à la faute** : ce que
  * l'agent LIT, et ce que sa CLI ÉCRIT. Les quatre savent lire une configuration
- * de projet ; deux d'entre eux ne savent pas en écrire une.
+ * de projet, et les quatre y écrivent — deux d'entre eux seulement à condition
+ * qu'on déplace leur dossier.
  *
- * | agent  | lit le projet                        | sa CLI y écrit           |
- * | ------ | ------------------------------------ | ------------------------ |
- * | claude | `.mcp.json`                          | oui                      |
- * | gemini | `.gemini/settings.json`              | oui (`--scope project`)  |
- * | codex  | `.codex/config.toml` **si de confiance** | non — « Added global » |
- * | vibe   | `.vibe/config.toml` **si de confiance**  | non (`persist_allowed`) |
+ * | agent  | lit le projet                            | comment sa CLI y écrit    |
+ * | ------ | ---------------------------------------- | ------------------------- |
+ * | claude | `.mcp.json`                              | on écrit le fichier       |
+ * | gemini | `.gemini/settings.json`                  | `--scope project`         |
+ * | codex  | `.codex/config.toml` **si de confiance** | `CODEX_HOME=<projet>/.codex` |
+ * | vibe   | `.vibe/config.toml` **si de confiance**  | `VIBE_HOME=<projet>/.vibe`   |
  *
- * Pour Codex et Vibe, la portée projet EXISTE mais leur ligne de commande ne
- * l'écrit pas : `codex mcp add` répond « Added **global** MCP server », et le
- * source de Vibe subordonne l'écriture à la source « user »
- * (`persist_allowed`). Y déposer nous-mêmes un TOML serait écrire le format
- * d'un tiers — précisément ce que ce fichier existe pour éviter — et ce fichier
- * ne serait lu que si l'utilisateur a déclaré le dépôt DE CONFIANCE dans son
- * agent, un geste de sécurité qui lui appartient et que Nodefony ne peut pas
- * poser à sa place.
+ * Pour Codex et Vibe, la portée projet EXISTE mais leur ligne de commande n'a
+ * pas d'option pour la viser : `codex mcp add` répond « Added **global** MCP
+ * server », et le source de Vibe subordonne l'écriture à la source « user »
+ * (`persist_allowed`).
  *
- * On passe donc par leur CLI, donc en global, et la commande l'ANNONCE : deux
- * applications Nodefony sur un poste se disputent sinon le même nom de serveur,
- * et la seconde efface la première sans un mot.
+ * ⭐ **La sortie n'est ni de renoncer, ni d'écrire leur TOML nous-mêmes** — ce
+ * serait reprendre à notre compte le format d'un tiers, précisément ce que ce
+ * fichier existe pour éviter. Les deux obéissent à une variable qui déplace
+ * leur dossier (`VIBE_HOME`, `CODEX_HOME`) : pointée sur `<projet>/<marqueur>`,
+ * c'est LEUR binaire qui écrit LEUR format, dans le PROJET. Vérifié au disque
+ * pour les deux, ligne d'authentification comprise.
+ *
+ * Et il le fallait, parce que le global est FAUX ici, pas seulement intrusif :
+ * l'URL d'une porte porte un PORT, et deux applications Nodefony n'écoutent pas
+ * sur le même. Une déclaration dans le foyer ne peut donc en désigner qu'UNE —
+ * la dernière câblée efface la précédente sans un mot. L'annoncer, comme on le
+ * faisait, ne répare rien.
+ *
+ * Ce qui reste vrai, et que la commande DIT : ces fichiers ne sont lus que dans
+ * un dossier que l'agent tient pour DE CONFIANCE — un geste de sécurité qui
+ * appartient à l'utilisateur. Un fichier non lu est inerte ; une déclaration
+ * globale qui pointe la mauvaise application est active. Entre échouer en
+ * silence et réussir à côté, on choisit le premier. `--global` reste offert à
+ * qui veut délibérément l'autre.
  *
  * ⚠️ Le premier état de ce commentaire affirmait que Codex « n'a aucune notion
  * de projet ». C'était FAUX, et la sonde qui l'avait « prouvé » ne l'était pas :
@@ -302,10 +321,11 @@ export const AGENT_TARGETS: readonly IAgentTarget[] = [
     declaration: "cli",
     bin: "vibe",
     noteApres:
-      "Déclaration GLOBALE : sa CLI n'écrit que la configuration utilisateur. " +
-      "Vibe SAIT lire `<projet>/.vibe/config.toml`, mais seulement dans un " +
-      "dossier qu'il tient pour de confiance — à toi de l'y porter si tu veux " +
-      "cloisonner par projet.",
+      "Déclaration de PROJET (`.vibe/config.toml`), écrite par sa propre CLI " +
+      "via `VIBE_HOME`. Vibe ne la lira que dans un dossier qu'il tient pour " +
+      "de CONFIANCE : `vibe --trust` une fois, ici. `--global` la remet dans " +
+      "ton foyer, où elle vaudra pour tous tes projets — donc pour un seul, " +
+      "puisque l'URL porte un port.",
     // Il prend le NOM de la variable, pas sa valeur : le secret ne transite ni
     // par la ligne de commande (visible dans `ps`) ni par sa configuration.
     argvAjout: (c) => [
@@ -339,10 +359,10 @@ export const AGENT_TARGETS: readonly IAgentTarget[] = [
     declaration: "cli",
     bin: "codex",
     noteApres:
-      "Déclaration GLOBALE : `codex mcp add` répond « Added global MCP " +
-      "server », il n'a pas de portée projet en écriture. Codex SAIT lire " +
-      "`<projet>/.codex/config.toml`, mais seulement dans un dépôt de " +
-      "CONFIANCE — à toi de l'approuver si tu veux cloisonner par projet.",
+      "Déclaration de PROJET (`.codex/config.toml`), écrite par sa propre CLI " +
+      "via `CODEX_HOME` — il répond « Added global », mot qui parle de SON " +
+      "dossier, pas du tien. Codex ne la lira que dans un dépôt de CONFIANCE " +
+      "(`trust_level`). `--global` la remet dans ton foyer.",
     argvAjout: (c) => [
       "mcp",
       "add",

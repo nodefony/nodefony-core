@@ -420,6 +420,72 @@ describe("ai:mcp --agent — ce que l'exécution garantit", () => {
     vi.resetModules();
   });
 
+  // 🔴 La portée d'une déclaration MCP n'est PAS `cible.portee` : celui-ci dit
+  // où l'agent tient ses VARIABLES. Vibe et Codex n'ont pas d'option de portée,
+  // mais obéissent à une variable qui déplace leur dossier — c'est elle qui
+  // porte le geste, et c'est donc elle qu'il faut éprouver. Sans ce test, la
+  // redirection pouvait disparaître d'un seul des trois `spawnSync` sans que
+  // rien ne tombe : le constat d'après-coup aurait alors lu le foyer.
+  it("la porte va dans le PROJET : le home de l'agent y est redirigé", async () => {
+    const vus: Array<Record<string, string | undefined>> = [];
+    vi.doMock("node:child_process", () => ({
+      spawnSync: (
+        _bin: string,
+        _argv: string[],
+        opts: { env?: NodeJS.ProcessEnv },
+      ) => {
+        vus.push(opts?.env ?? {});
+        return { status: 0, stdout: "nodefony", stderr: "" };
+      },
+    }));
+    vi.resetModules();
+    const { declarerChezAgents } = await import("../cli/aiMcp");
+    const racine = path.join(path.sep, "projets", "mon-app");
+    const [r] = await declarerChezAgents([cible("codex")], {
+      url: "http://localhost:5151/nodefony/mcp",
+      retirer: false,
+      projectRoot: racine,
+    });
+    expect(r?.enProjet).toBe(true);
+    // TOUS les appels, pas seulement celui qui écrit : lu ailleurs qu'écrit, le
+    // constat parlerait du foyer et vaudrait faux dans les deux sens.
+    expect(vus.length).toBeGreaterThan(0);
+    for (const env of vus) {
+      expect(env.CODEX_HOME).toBe(path.join(racine, ".codex"));
+    }
+    vi.doUnmock("node:child_process");
+    vi.resetModules();
+  });
+
+  it("--global : la déclaration retourne au foyer, le projet est laissé", async () => {
+    const vus: Array<Record<string, string | undefined>> = [];
+    vi.doMock("node:child_process", () => ({
+      spawnSync: (
+        _bin: string,
+        _argv: string[],
+        opts: { env?: NodeJS.ProcessEnv },
+      ) => {
+        vus.push(opts?.env ?? {});
+        return { status: 0, stdout: "nodefony", stderr: "" };
+      },
+    }));
+    vi.resetModules();
+    const { declarerChezAgents } = await import("../cli/aiMcp");
+    const racine = path.join(path.sep, "projets", "mon-app");
+    const [r] = await declarerChezAgents([cible("codex")], {
+      url: "http://localhost:5151/nodefony/mcp",
+      retirer: false,
+      projectRoot: racine,
+      global: true,
+    });
+    expect(r?.enProjet).toBe(false);
+    for (const env of vus) {
+      expect(env.CODEX_HOME).not.toBe(path.join(racine, ".codex"));
+    }
+    vi.doUnmock("node:child_process");
+    vi.resetModules();
+  });
+
   it("🔴 aucun agent : la commande le DIT — coder seul est un choix", () => {
     // Sens du test : le silence serait ambigu (« rien fait » ou « ça a raté ? »).
     const rendu = renderDeclarations([], false);

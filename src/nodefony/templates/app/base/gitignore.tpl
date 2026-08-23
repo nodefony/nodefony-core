@@ -22,3 +22,12 @@ tmp/
 # ne se commite pas. Un jeton commité est un jeton publié.
 .gemini/.env
 .gemini/.env.*
+
+# Agents de développement : leur dossier est le home REDIRIGÉ que `ai:mcp` leur
+# donne pour que la porte MCP soit déclarée par PROJET (son URL porte un port —
+# une déclaration globale ne pourrait désigner qu'une application). Ils y
+# déposent aussi leurs fichiers de travail : seule la DÉCLARATION se versionne.
+.vibe/*
+!.vibe/config.toml
+.codex/*
+!.codex/config.toml
