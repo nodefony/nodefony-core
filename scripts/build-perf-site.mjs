@@ -43,6 +43,18 @@ const GENERATOR = path.join(
   ROOT,
   ".claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs",
 );
+// Le DOSSIER du chantier — un second objet, pour un second public. La page de
+// version répond « peut-on partir en production ? » en trois minutes ; celle-ci
+// raconte COMMENT on l'a su : le profilage, les lots gardés, celui qui a été
+// annulé par son propre A/B, et les instruments qui ont menti. Un verdict seul se
+// lit comme une plaquette ; la méthode seule, personne ne l'ouvre. Ses données
+// sont déclarées dans son générateur et couvrent le chantier jusqu'au 2026-08-07 —
+// il porte sa propre table de chronologie, ce qui lui permet de cohabiter avec des
+// mesures plus récentes sans les contredire.
+const DOSSIER = path.join(
+  ROOT,
+  ".claude/skills/nodefony-load-test/scripts/perf-dossier-report.mjs",
+);
 
 /** Ordre de version décroissant (numérique par segment, pré-release après la finale). */
 const compareVersions = (a, b) => {
@@ -106,6 +118,22 @@ if (rendered.length === 0) {
   process.exit(1);
 }
 
+// Le dossier se rend une fois, à part : il ne dépend d'aucune version.
+let dossier = false;
+try {
+  const dir = path.join(OUT, "dossier");
+  mkdirSync(dir, { recursive: true });
+  execFileSync(process.execPath, [DOSSIER, path.join(dir, "index.html")], {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  dossier = true;
+  console.log("✓ dossier du chantier");
+} catch (err) {
+  console.warn(
+    `⚠ dossier non rendu — ${String(err.stderr ?? err.message).split("\n")[0]}`,
+  );
+}
+
 const latest = rendered[0];
 mkdirSync(path.join(OUT, "latest"), { recursive: true });
 copyFileSync(
@@ -150,6 +178,16 @@ protocole — et ce que ces chiffres ne permettent pas de conclure.</p>
 <ul>
 ${rows}
 </ul>
+${
+  dossier
+    ? `<h2>Le dossier du chantier</h2>
+<p><a href="./dossier/">Où part le temps, et comment on l'a su</a> — le profilage, les lots
+gardés, <strong>celui qui a été annulé par son propre A/B</strong>, les instruments qui ont menti
+avant qu'on s'en aperçoive, et ce qu'un chemin virtualisé interdit de conclure.
+<span class="d">Couvre le chantier jusqu'au 2026-08-07 ; chaque chiffre y porte l'état du code
+auquel il correspond. Les mesures d'une version publiée, elles, sont ci-dessus.</span></p>`
+    : ""
+}
 ${missing}
 <footer>Les chiffres sont mesurés à la main sur une machine nommée, puis versionnés dans le dépôt
 (<code>docs/performance/data/</code>) ; cette page ne fait que les rendre. Le dossier complet —

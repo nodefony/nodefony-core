@@ -20,7 +20,14 @@
  *
  * Source de vérité éditoriale : `docs/performance/` (Markdown versionné).
  */
-import { writeFileSync } from "node:fs";
+import { writeFileSync, readFileSync, readdirSync, existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../..",
+);
 import {
   doc,
   section,
@@ -48,6 +55,32 @@ import {
 } from "../../nodefony-html-report/lib/report.mjs";
 
 const OUT = process.argv[2] ?? "tmp/performance-nodefony.html";
+
+// 🔴 UNE SOURCE, DEUX RENDUS. Le comparatif de frameworks vivait ici EN DUR et
+// aussi dans `docs/performance/data/<version>.json` que rend la page de version :
+// deux copies de la même mesure, qui ont divergé dès la campagne suivante — cette
+// page annonçait encore les chiffres du 2026-08-07 pendant que l'autre publiait
+// ceux du 08-23. Le jeu versionné fait autorité ; ce qu'il ne porte PAS (profilage
+// V8, lots A→D, escalier ORM) reste déclaré ci-dessous avec sa fenêtre, et la
+// table de chronologie dit à quel état du code chaque bloc correspond.
+const DATASET = (() => {
+  const dir = path.join(ROOT_DIR, "docs", "performance", "data");
+  const explicit = process.argv.indexOf("--data");
+  const file =
+    explicit >= 0 && process.argv[explicit + 1]
+      ? process.argv[explicit + 1]
+      : (() => {
+          if (!existsSync(dir)) return null;
+          const versions = readdirSync(dir)
+            .filter((f) => f.endsWith(".json"))
+            .sort()
+            .reverse();
+          return versions.length ? path.join(dir, versions[0]) : null;
+        })();
+  if (!file || !existsSync(file)) return null;
+  const d = JSON.parse(readFileSync(file, "utf8"));
+  return d?.comparison?.frameworks ? d : null;
+})();
 
 /* ─────────────────────────── SCHÉMAS (SVG généré) ─────────────────────────── */
 
@@ -196,6 +229,13 @@ const DATA = {
       etat: "a42512e3",
       mesure: "routeur : comptes de motifs, courbe",
       ou: "§4",
+    },
+    {
+      fenetre: "2026-08-23",
+      etat: "dfdada9e — état livré 10.0.0",
+      mesure:
+        "comparatif à travail égal (5 camps), soak 20 min, capacité d'un pod",
+      ou: "§1 niveaux 1-2, §8 · jeu versionné `docs/performance/data/`",
     },
     {
       fenetre: "non rattaché",
@@ -764,6 +804,59 @@ const DATA = {
   ],
 };
 
+// ── Le comparatif vient du jeu VERSIONNÉ dès qu'il y en a un ───────────────
+// Les valeurs ci-dessus restent le repli hors dépôt (le générateur est publié
+// avec le devkit). Les trois « niveaux d'équité » se RECALCULENT : figer 1,61 /
+// 1,29 / 1,07 en dur, c'était garantir qu'ils survivent à la mesure qui les
+// contredit — le défaut même que cette page reproche aux benchmarks qu'elle cite.
+if (DATASET) {
+  const f = DATASET.comparison.frameworks;
+  const rps = (id) => f[id]?.med ?? null;
+  const disp = (id) => f[id]?.dispersionPct ?? null;
+  const nf = rps("nodefony");
+  if (nf) {
+    DATA.comparatif.n1 = [
+      ["node:http nu", "bare"],
+      ["Fastify", "fastify"],
+      ["Express", "express"],
+      ["Nodefony", "nodefony"],
+    ]
+      .filter(([, id]) => rps(id))
+      .map(([label, id]) => ({
+        label,
+        rps: Math.round(rps(id)),
+        disp: disp(id),
+        ratio: Number((rps(id) / nf).toFixed(2)),
+      }));
+    DATA.comparatif.n2 = [
+      ["node:http nu", "bare"],
+      ["Express nu", "express"],
+      ["Express équipé (même travail)", "express-fair"],
+      ["Nodefony", "nodefony"],
+    ]
+      .filter(([, id]) => rps(id))
+      .map(([label, id]) => ({ label, rps: Math.round(rps(id)) }));
+    const fair = rps("express-fair");
+    const nu = rps("express");
+    DATA.comparatif.ecarts = [
+      nu && {
+        situation: "L'application ne fait rien",
+        ratio: Number((nu / nf).toFixed(2)),
+      },
+      fair && {
+        situation: "Même travail par requête",
+        ratio: Number((fair / nf).toFixed(2)),
+      },
+      // Le troisième niveau (avec une vraie requête SQL) n'est pas dans le jeu :
+      // il vient d'une autre campagne, et la table de chronologie le dit.
+      DATA.comparatif.ecarts[2],
+    ].filter(Boolean);
+  }
+}
+
+/** Décimal à la française pour l'AFFICHAGE seul (jamais pour un `data-v` trié). */
+const vir = (x, n = 2) => x.toFixed(n).replace(".", ",");
+
 /* ────────────────────────────── RENDU ────────────────────────────── */
 
 const pct = (v) => (v === null ? "—" : `${fmt.dec(v, 2)} %`);
@@ -773,11 +866,25 @@ const sections = [
   section(
     "Ce qu'il faut retenir",
     cards([
-      {
-        k: "Écart avec Express, à travail et ORM égaux",
-        v: "×1,07",
-        sub: "≈ 93 % du débit d'un Express équipé",
-      },
+      // Le chiffre de tête se DÉRIVE du jeu versionné : écrit en dur, il survivait
+      // à la mesure qui le contredit — c'est ce qui avait laissé « ≈ 93 % » en
+      // vitrine pendant que la campagne suivante mesurait 91,7 %.
+      (() => {
+        const f = DATASET?.comparison?.frameworks;
+        const nf = f?.nodefony?.med;
+        const fair = f?.["express-fair"]?.med;
+        if (!nf || !fair)
+          return {
+            k: "Écart avec Express, à travail et ORM égaux",
+            v: "×1,07",
+            sub: "≈ 93 % du débit d'un Express équipé",
+          };
+        return {
+          k: "Écart avec un Express équipé du même travail",
+          v: `×${vir(fair / nf)}`,
+          sub: `≈ ${vir((nf / fair) * 100, 0)} % de son débit — et ×1,07 dès qu'une vraie requête SQL entre dans les deux`,
+        };
+      })(),
       {
         k: "Gain du chantier pipeline",
         v: "+8,9 %",
@@ -867,7 +974,12 @@ const sections = [
         {
           unit: "×",
           title: "L'écart fond quand l'application grandit",
-          desc: "1,61 à vide · 1,29 à travail égal · 1,07 avec une vraie requête SQL",
+          // Dérivé : écrit en dur, ce sous-titre a fini par CONTREDIRE les barres
+          // qu'il surmonte — la pire forme de chiffre faux, celle qui se lit à côté
+          // de sa réfutation sans que personne ne les compare.
+          desc: DATA.comparatif.ecarts
+            .map((e) => `${vir(e.ratio)} ${e.situation}`)
+            .join(" · "),
         },
       ) +
       tabs([
@@ -901,9 +1013,15 @@ const sections = [
               { sortable: true, id: "t-n1" },
             ) +
             warn(
-              `Ces mesures datent d'une fenêtre <strong>antérieure aux derniers lots</strong>
-               (Nodefony y valait 11 702 req/s ; l'état livré mesure ~13 400 dans une fenêtre ultérieure).
-               Les rapports sont valides <em>entre eux</em> à la date de leur mesure — le comparatif reste à rejouer.`,
+              DATASET
+                ? `Ces chiffres viennent du jeu <strong>versionné</strong> de la
+                   ${esc(DATASET.version)} (mesuré le ${esc(DATASET.provenance?.measuredAt ?? "?")},
+                   code ${esc(DATASET.provenance?.runtimeCommit ?? "?")}) — la même source que la page
+                   de version, pour qu'aucune des deux ne puisse contredire l'autre.
+                   Les rapports restent valides <em>entre eux</em> à la date de leur mesure.`
+                : `Jeu versionné introuvable : les valeurs affichées sont celles déclarées dans le
+                   générateur, d'une campagne antérieure. Elles restent valides <em>entre elles</em>,
+                   mais ne décrivent pas l'état livré.`,
             ),
         },
         {
@@ -1774,7 +1892,13 @@ node .claude/skills/nodefony-load-test/scripts/db-backend-cost.mjs --prove</code
 const html = doc({
   title: "Nodefony — dossier de performance",
   subtitle:
-    "BROUILLON — lire d'abord la section 0 : chaque chiffre vient d'une fenêtre de mesure prise sur un état de code donné, et ce rattachement n'est pas encore porté par chaque tableau.",
+    // Le bandeau se DÉRIVE : « BROUILLON » et « ce rattachement n'est pas encore
+    // porté » sont restés en tête d'une page qu'on s'apprêtait à publier et à lier
+    // depuis le README — un avertissement figé finit par décrire un état révolu, et
+    // il décourage précisément le lecteur qu'on cherchait à convaincre.
+    DATASET
+      ? `Le comparatif vient du jeu versionné de la ${DATASET.version} (mesuré le ${DATASET.provenance?.measuredAt ?? "?"}) ; les autres chapitres portent leur propre fenêtre de mesure, rattachée à un état de code — la section 0 en donne la table.`
+      : "Lire d'abord la section 0 : chaque chiffre vient d'une fenêtre de mesure prise sur un état de code donné, et le jeu versionné n'a pas été trouvé.",
   sections,
   data: DATA,
   footer:
