@@ -1,23 +1,19 @@
 import { expect } from "chai";
 import https from "node:https";
 import WebSocket from "ws";
-import fsp from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import {
+  snapshotUploadDirs,
+  purgeUploadResidue,
+  type UploadSnapshot,
+} from "../helpers/uploadResidue.js";
 
 const BASE = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
 const WSS = "wss://localhost:5152";
 const wsOpts = { rejectUnauthorized: false };
 
-// Dossier où le service d'upload dépose les fichiers reçus (uploadDir défaut =
-// « tmp » sous la racine projet). Le test « 200 multipart uploads » y crée des
-// `<uuid>.txt` → un test ne doit JAMAIS laisser de résidu : on les nettoie en
-// fin de suite (diff de snapshot, sans toucher au préexistant). Cf upload.test.ts.
-const UPLOAD_DIR = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../../../../../../..",
-  "tmp",
-);
+// Le test « 200 multipart uploads » dépose des `<uuid>.txt` dans le dossier
+// d'upload du serveur. Le garde (dossiers visés + compte supprimé) vit dans
+// `helpers/uploadResidue.ts` — une seule implémentation, cf upload.test.ts.
 
 type MemStats = {
   rss: number;
@@ -99,19 +95,16 @@ describe("Memory leaks — HTTP (requires server)", function () {
   // Hygiène : le test d'upload ne doit JAMAIS laisser de résidu dans tmp/.
   // Snapshot avant la suite, diff après → supprime UNIQUEMENT ce qu'elle a créé
   // (sans toucher au préexistant). Même pattern que upload.test.ts.
-  let preexisting: Set<string>;
+  let snapshot: UploadSnapshot;
   beforeAll(async () => {
-    preexisting = new Set(await fsp.readdir(UPLOAD_DIR).catch(() => []));
+    snapshot = await snapshotUploadDirs();
   });
   afterAll(async () => {
-    const entries = await fsp
-      .readdir(UPLOAD_DIR, { withFileTypes: true })
-      .catch(() => [] as import("node:fs").Dirent[]);
-    await Promise.all(
-      entries
-        .filter((d) => d.isFile() && !preexisting.has(d.name))
-        .map((d) => fsp.unlink(path.join(UPLOAD_DIR, d.name)).catch(() => {})),
-    );
+    const removed = await purgeUploadResidue(snapshot);
+    expect(
+      removed,
+      "aucun résidu supprimé — dossier de dépôt manqué",
+    ).to.be.greaterThan(0);
   });
 
   it("1000 sequential GET requests — server heap delta < 35 MB", async () => {
