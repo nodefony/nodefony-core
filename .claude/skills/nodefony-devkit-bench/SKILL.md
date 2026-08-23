@@ -246,6 +246,7 @@ node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest
 node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs --prove
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-route-param.selftest.mjs   # un juge à causes, chacune vue rouge
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-routes-count.selftest.mjs  # la SOURCE du chiffre : porte, repli annoncé, ou rien
+node .claude/skills/nodefony-devkit-bench/scripts/lib/agents-formats.selftest.mjs   # les 4 grammaires de transcript (Claude · Codex · Gemini · agy)
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-session-csrf.selftest.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-secure-route.selftest.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-entity-delete.selftest.mjs

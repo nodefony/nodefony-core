@@ -286,7 +286,35 @@ prémisse et avant l'agent** (décor figé), et nomme l'identité servie (`jeton
 règle générale est celle que le régime `auth` appliquait déjà, et qui manquait ici : **un décor
 s'énonce sur ce qu'on frappe, jamais sur ce qu'on avait prévu.**
 
-## 6. Mesure de référence (tâche 9, `claude`/`haiku`, run UNIQUE)
+## 6. 🔴 Un agent à portée PROJET n'était JAMAIS déclaré — et son « 0 appel » mentait
+
+Le banc décidait d'appeler la CLI d'un agent sur `foyer ? AGENT : "none"`. Cette condition confondait
+**« a-t-il un foyer déportable ? »** avec **« faut-il appeler sa CLI ? »**. Gemini est à portée
+PROJET (il écrit dans `.gemini/`, rien à déporter) : pas de foyer ⇒ `--agent none` ⇒ **sa CLI n'était
+jamais appelée**, et il a joué une tâche entière sans le moindre outil MCP.
+
+Son relevé disait alors « 0 appel MCP » — ce que ce document apprend précisément à lire comme un
+CHOIX de l'agent (§ 2, « c'est le plus souvent : il n'a jamais eu la porte »). **Le banc s'est fait
+prendre par le piège qu'il documente.**
+
+La racine est une **règle en deux exemplaires** : « quels agents nommer à `ai:mcp` » vit dans le
+cœur (`argvCablageMcp` filtre `declaration === "cli"`, deux tests le gardent), et le banc en tenait
+une copie fausse. Il nomme désormais TOUJOURS l'agent et laisse `ai:mcp` trancher. Le CONSTAT de
+déclaration, lui aussi enfermé dans `if (foyer)`, cherche maintenant dans le foyer jetable **ou**
+dans le projet — et dit lequel.
+
+**Mesure avant / après, même agent, même tâche 9 :**
+
+|       | `.gemini/` | ce qu'il a fait                                      | routes annoncées         | verdict        |
+| ----- | ---------- | ---------------------------------------------------- | ------------------------ | -------------- |
+| avant | **absent** | 5 `read_file`, `grep`, 1 commande (`inspect config`) | **6** (lues aux sources) | FAIL 1/11      |
+| après | déclaré    | 4 commandes, 1 `read_file`                           | **147**                  | **PASS 11/11** |
+
+⚠️ **Un run unique ne prouve pas la causalité.** Que la déclaration ait CHANGÉ son comportement est
+plausible, pas établi — et dans les deux cas il a répondu par la CLI, sans un seul appel MCP. Ce qui
+est acquis, c'est que le premier relevé ne mesurait pas ce qu'il prétendait.
+
+## 7. Mesure de référence (tâche 9, `claude`/`haiku`, run UNIQUE)
 
 ⚠️ **Ces deux lignes comparent ANONYME et AUTHENTIFIÉ** — dans les deux cas l'application tourne
 (cf § ci-dessus). Elles ne disent rien d'une porte éteinte.
@@ -301,6 +329,19 @@ MCP** — sa CLI ayant refusé la déclaration (cf ci-dessus), il a tout fait pa
 réussit donc là où `claude`/`haiku` échouait, mais **sans** l'outillage qu'on croyait mesurer : deux
 modèles ET deux décors changent à la fois, la comparaison ne conclut rien. Les compteurs d'effort
 sont absents (format propre au CLI de Claude), comme prévu.
+
+### Ce que chaque agent a rendu sur la tâche 9 (runs UNIQUES, non comparables entre eux)
+
+| Agent                     | Verdict                 | Effort          | Appels MCP | Comment il s'y est pris                         |
+| ------------------------- | ----------------------- | --------------- | ---------- | ----------------------------------------------- |
+| `claude`/`haiku`          | FAIL (sonde de contenu) | 16 tours / 61 s | 8          | par la porte                                    |
+| `vibe`/`devstral-small`   | PASS 11/11              | —               | 0          | sa CLI a REFUSÉ la déclaration                  |
+| `codex`                   | FAIL 1/11               | 1 tour          | 0          | 27 commandes, **porte vue mais ignorée**        |
+| `gemini`/`3.1-flash-lite` | **PASS 11/11**          | 94 s            | 0          | 4 commandes, après correction de la déclaration |
+
+🔎 **Trois agents sur quatre n'ont pas touché la porte alors qu'ils l'avaient.** Codex la VOYAIT
+(`codex mcp list` → `enabled`, `Bearer token`) et a préféré 27 commandes. C'est un résultat en soi,
+et il mérite d'être instruit plutôt que corrigé : l'outillage MCP ne s'impose pas de lui-même.
 
 ⚠️ **Un run unique ne conclut pas** (la variance écrase l'écart : cf `methode-de-mesure.md`). Ces
 chiffres servent à savoir que le décor FONCTIONNE, pas à établir un gain.
