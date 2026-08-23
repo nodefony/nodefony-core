@@ -56,6 +56,22 @@ node .claude/skills/nodefony-load-test/scripts/soak.mjs --minutes 20 --out tmp/s
 node scripts/build-perf-site.mjs --out dist-perf-site
 ```
 
+### Les deux pages, et pourquoi une seule commande les fait
+
+`build-perf-site.mjs` rend **deux objets distincts**, pour deux publics :
+
+| Page                                    | Ce qu'elle répond                                       | Générateur                  | Ses données                                                                                |
+| --------------------------------------- | ------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------ |
+| `/performance/<version>/` et `/latest/` | « peut-on partir en production ? » en trois minutes     | `prod-readiness-report.mjs` | **ce dossier**, entièrement                                                                |
+| `/performance/dossier/`                 | « comment on l'a su » — méthode, lots, instruments faux | `perf-dossier-report.mjs`   | ce dossier pour le comparatif, ses propres constantes pour le reste (profilage, lots, ORM) |
+
+**Le comparatif est LU ici par les deux.** Il a existé en double — en dur dans le
+générateur du dossier ET dans ce dossier-ci — et les deux copies ont divergé au premier
+rejeu : le dossier affichait encore 11 702 req/s quand la page de version publiait 12 226.
+Une source, deux rendus ; ce que le jeu ne porte pas reste déclaré dans le générateur du
+dossier **avec sa fenêtre**, et sa table de chronologie dit à quel état du code chaque
+chapitre correspond.
+
 Le rendu **échoue** si un jeu n'a pas de soak : la page répond « peut-on partir en production ? »,
 et une réponse qui tait la tenue dans la durée n'en est pas une. Le sommaire du site nomme les
 versions qu'il n'a pas pu rendre — un manque se voit, il ne se tait pas.
