@@ -785,9 +785,11 @@ export const doc = ({
     }
     <button class="ghost no-print" id="theme-toggle" aria-label="Changer de thème">◐</button>
   </header>
+  <main>
   <h1>${esc(title)}</h1>
   ${subtitle ? `<p class="sub">${subtitle}</p>` : ""}
   ${sections.join("\n")}
+  </main>
   ${
     footer || data
       ? `<footer class="foot">
