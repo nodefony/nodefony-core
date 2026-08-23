@@ -20,6 +20,27 @@
 
 ---
 
+## 🌍 Une portée GLOBALE n'est pas « un peu intrusive » — elle est FAUSSE
+
+- **Le défaut était documenté au lieu d'être corrigé.** `ai:mcp` écrivait la porte MCP dans le
+  foyer pour Vibe et Codex, et l'ANNONÇAIT : « deux applications Nodefony se disputent le même nom,
+  la seconde efface la première sans un mot ». Or l'URL d'une porte porte un PORT : une déclaration
+  globale ne peut désigner qu'UNE application — ce n'est pas un inconfort, c'est un résultat faux.
+  Signal à reconnaître : **un commentaire qui décrit une collision au lieu de l'empêcher.**
+  `[1× — 08-23c]`
+- **Le dépôt contredisait sa propre commande, et c'est le dogfooding qui l'a montré** : un
+  `.vibe/config.toml` COMMITÉ disait « jamais dans ~/.vibe » pendant que la commande y écrivait.
+  Quand un fichier du dépôt argumente contre une de nos commandes, c'est la commande qui a tort.
+  `[1× — 08-23c]`
+- **Deux objections bloquaient, une seule tenait.** « Écrire le format d'un tiers » : levée en
+  redirigeant `VIBE_HOME`/`CODEX_HOME` sur le projet — c'est LEUR binaire qui écrit LEUR format.
+  « Le fichier n'est lu que dans un dossier de confiance » : vraie, mais elle se RETOURNE — un
+  fichier non lu est inerte, une déclaration globale fausse est active. **Entre échouer en silence
+  et réussir à côté, choisir le premier.** `[1× — 08-23c]`
+- **Rediriger le home d'un agent y fait déposer ses fichiers de TRAVAIL** (`trusted_folders.toml`,
+  `.codex/tmp/`). Un `.gitignore` qui ne versionne que la DÉCLARATION — dans le dépôt ET dans le
+  gabarit d'app générée, sinon chaque app naît avec ces artefacts. `[1× — 08-23c]`
+
 ## 🎭 Ce qui MARCHE ici peut ne marcher QUE grâce au décor du dépôt
 
 - **Un module de BANC déclarait la configuration de sécurité de toute l'application** — et c'est
@@ -194,6 +215,11 @@ src/nodefony/tsconfig.json --noEmit` ne couvre pas les tests ; `npm run typechec
   Le discriminant est le même qu'en 08-22e : le COMPTE de fichiers, à comparer à ce que le
   périmètre contient. Un run dont le nombre de fichiers surprend est un run mal pointé, jamais une
   régression. [2× — 08-22g] ↝ [[feedback_bash_cwd_drift]]
+- **Le même script, sans son drapeau, ne mord pas.** `scripts-audit.mjs` lancé seul sortait **0**
+  en affichant pourtant « 1 orphelin, 1 renvoi mort » ; c'est `npm run skills:check` qui ajoute
+  `--strict`, et c'est LUI que la CI joue. J'ai failli conclure « le gate ne mord pas » sur un
+  rouge parfaitement reproductible. Rejouer la commande du `package.json`, jamais le binaire nu.
+  `[1× — 08-23c]`
 
 ## 🚧 Ajouter une EXIGENCE sans regarder qui PRODUIT l'artefact exigé
 
@@ -298,6 +324,10 @@ src/nodefony/tsconfig.json --noEmit` ne couvre pas les tests ; `npm run typechec
 - **Une CLI tierce peut cracher 20 lignes de bruit sur stderr à chaque appel** (avertissements
   d'interpréteur). Hériter de sa sortie ferait lire un succès comme une panne : capturer, et ne
   montrer qu'en cas d'échec. `[1× — 08-22]`
+- **L'exit code rapporté était celui du `echo` final, pas de la commande mesurée.** Un
+  `npm run test:all > log 2>&1` suivi d'un `echo "exit=$?"` dans le MÊME script rend toujours 0 au
+  harnais : c'est le dernier maillon qui parle. J'ai annoncé « exit 0 » sur une passe qui sortait en
+  1 avec 4 rouges — seule la lecture INTÉGRALE du journal l'a dit. `[1× — 08-23c]`
 
 ## 🎭 Mon PROPRE `--dry-run` mentait — l'option dont le seul rôle est de dire ce qui va se passer
 
@@ -364,6 +394,14 @@ src/nodefony/tsconfig.json --noEmit` ne couvre pas les tests ; `npm run typechec
 - **Une preuve manquée compte double** : mon `grep -c "MODULE ADD"` a rendu `0` et j'ai conclu au
   succès — la commande n'avait simplement jamais tourné (le filtre du pty avait raté). Un zéro peut
   être un faux négatif : vérifier que la CHOSE a eu lieu avant de lire son résultat. `[1× — 08-21e]`
+- **Un motif compte ce qui RESSEMBLE au nom, pas ce qui EST la chose.** `NODEFONY_[A-Z_]+` a
+  rendu « 34 variables, 204 fichiers » : dedans, `ROLE_NODEFONY_ADMIN` (**263 occurrences**, un
+  rôle), le connecteur nommé `nodefony` dans `NF__MONGOOSE__CONNECTORS__NODEFONY__DBNAME`, un type
+  union et des constantes de test. Réel : **18**. La sonde juste n'est pas le NOM mais l'USAGE —
+  `process.env.<X>`. `[1× — 08-23c]`
+- **`rg` ignore les dossiers cachés SANS le dire** : un inventaire « du dépôt » excluait `.claude/`
+  et `.github/` — donc les skills et la CI. `--hidden` ou on ne couvre pas ce qu'on annonce.
+  `[1× — 08-23c]`
 
 ## 🎭 Un test de CARACTÉRISATION grave un défaut au lieu de le décrire
 
@@ -372,6 +410,11 @@ src/nodefony/tsconfig.json --noEmit` ne couvre pas les tests ; `npm run typechec
   reconfigurer le filtre ne servait à rien (l'ancien écrivait toujours) et chaque ligne acceptée par
   plusieurs abonnés était écrite plusieurs fois. Signal à reconnaître : un intitulé qui **décrit un
   comportement sans dire pourquoi il serait souhaitable**. `[1× — 08-21e]`
+- **Un renommage mécanique EMPORTE le témoin qui portait l'ancienne forme.** Le selftest du décor
+  posait `NODEFONY_DEV_PORTS` pour graver « l'ancienne forme échappe au filtre `NF_` » ; le
+  renommage global l'a transformée en `NF_DEV_PORTS`, donc correctement filtrée — et le test est
+  tombé **parce que la réalité s'était améliorée**. Signal : un test rouge dont l'intitulé commence
+  par « ⚠️ connue ». Le geste est de RETIRER la règle, pas de rafistoler le témoin. `[1× — 08-23c]`
 
 ## 🚪 Un fast-path standalone ne vaut QUE pour l'invocation directe
 
