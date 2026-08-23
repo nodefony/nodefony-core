@@ -52,6 +52,30 @@ describe.skipIf(!URI)("MongooseOrm — coupure MongoDB", () => {
     );
   });
 
+  it("une RAFALE d'événements de topologie ne laisse qu'UN incident", () => {
+    // Le cas discriminant, celui que le banc réel ne peut pas isoler : une
+    // bascule de replica set fait partir plusieurs signaux d'affilée. Un
+    // compteur naïf inscrirait autant d'incidents qu'il reçoit d'événements, et
+    // le tableau de bord annoncerait une tempête là où il n'y a eu qu'une
+    // bascule. Mongoose dédoublonne déjà en amont (son `readyState` n'émet que
+    // sur changement) — raison de plus pour éprouver NOTRE garde ici, où elle
+    // est seule en cause.
+    const cx = orm.getNativeConnection<{ emit: (e: string) => boolean }>();
+    const pertes = connectionMonitor.snapshot(ORM).lostCount;
+    const vus: unknown[] = [];
+    orm.on("onOrmLost", (o: unknown) => vus.push(o));
+
+    cx.emit("disconnected");
+    cx.emit("close");
+    cx.emit("disconnected");
+
+    assert.equal(connectionMonitor.snapshot(ORM).lostCount, pertes + 1);
+    assert.equal(vus.length, 1, "un seul `onOrmLost` pour une seule bascule");
+    // Les trois erreurs restent tracées, elles : compter les incidents n'est
+    // pas taire ce qui les compose.
+    assert.ok(connectionMonitor.snapshot(ORM).errorCount >= 3);
+  });
+
   it("`reconnected` rétablit l'état et compte la reprise", () => {
     const cx = orm.getNativeConnection<{ emit: (e: string) => boolean }>();
     const avant = connectionMonitor.snapshot(ORM).reconnectCount;

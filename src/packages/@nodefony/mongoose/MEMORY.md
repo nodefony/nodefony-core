@@ -31,6 +31,9 @@ Driver **NoSQL Mongoose** sur `@nodefony/orm-core` — adapter documentaire hét
 
 - **Mongoose SAIT quand le serveur tombe — encore faut-il écouter.** Le setter de `readyState` émet l'état, piloté par `serverDescriptionChanged` (nœud simple) ou `topologyDescriptionChanged` (replica set : perte du primaire). `#wireLifecycle` traduit `disconnected`/`close`/`error` → `connectionLost`, `reconnected`/`connected` → `connectionRestored`. `error` est écouté AUSSI parce qu'une `Connection` est un EventEmitter : sans auditeur, une erreur émise tue le process.
 - **Détacher AVANT `close()`** dans `disconnect()` : `close()` émet `close`, et un arrêt VOLONTAIRE compté comme incident polluerait le tableau de bord à chaque shutdown.
+- **`savepoint()`/`rollbackTo()` sont des NO-OP** (MongoDB n’a pas de savepoints) — ⚠️ un banc qui s’en sert pour sonder le serveur ne lui parle JAMAIS et passe au vert sur une base éteinte. Une transaction Mongo se sonde par une **écriture**.
+- **Le driver dédoublonne déjà** : le setter de `readyState` n’émet que sur CHANGEMENT d’état. Conséquence pour les tests : un banc de bascule réelle (`replSetStepDown`) ne discrimine PAS notre idempotence (mesuré : il passe même en la débranchant) — elle s’éprouve sur une rafale ÉMISE (`outage.test.ts`).
+- **Le banc réel exige `NF_MONGO_TEST_URI`**, pas seulement une URI : le décor peut fournir un `mongod` éphémère, et couper le conteneur en éprouvant l’éphémère donnerait un vert qui n’a rien mesuré.
 - **Une requête pendant une coupure pend 30 s** (`serverSelectionTimeoutMS` par défaut du driver) avant `MongoServerSelectionError` — mesuré au banc. Les commandes sont par ailleurs BUFFERISÉES (`bufferTimeoutMS` 10 s) et repartent seules si le serveur revient avant. (vs SQL)
 
 - **PK `_id` (ObjectId) ≠ `id`** : critère `{id}`→`{_id}`, sortie expose le virtuel `id` (hex string) → contrat `id:string` respecté.
