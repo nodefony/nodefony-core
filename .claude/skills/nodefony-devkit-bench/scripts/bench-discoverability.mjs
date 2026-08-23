@@ -3525,6 +3525,26 @@ export const lignesAjoutees = (app, from, to) => {
 function setup(runDir) {
   const app = path.join(runDir, "app");
   mkdirSync(runDir, { recursive: true });
+  // 🔴 Le MONTAGE a des sorties anticipées — un `return` par régime de porte
+  // (`off`, puis tout ce qui n'est pas `auth`). La FINALISATION, elle, vaut
+  // pour TOUS les régimes. Les avoir écrites dans une seule fonction faisait
+  // sauter, dans le régime PAR DÉFAUT `eteint`, l'isolation CONSTATÉE, la
+  // sauvegarde des fichiers ignorés et le commit « état initial » — donc
+  // `reinitialiserDecor` jetait dès la deuxième tâche, et aucun run large ne
+  // pouvait aboutir hors régime authentifié. Deux fonctions : le montage sort
+  // quand il veut, la finalisation a lieu quoi qu'il arrive.
+  monterDecor(runDir, app);
+  return finaliserDecor(app, runDir);
+}
+
+/**
+ * Monte l'application témoin, l'installe depuis les tarballs et déclare sa
+ * porte MCP selon le régime. Sort tôt quand le régime n'a plus rien à faire.
+ *
+ * @param {string} runDir - le répertoire du run.
+ * @param {string} app - l'application témoin.
+ */
+function monterDecor(runDir, app) {
   console.log(
     `• app témoin (create app --preset complete${LINKED ? " --link" : ""})…`,
   );
@@ -3780,7 +3800,19 @@ function setup(runDir) {
       .slice(0, 4);
     for (const l of motif) console.log(`     ${l.trim()}`);
   }
+}
 
+/**
+ * Ce qui vaut pour TOUS les régimes de porte : l'isolation se constate, les
+ * fichiers ignorés de la création sont mis de côté, et l'état de départ est
+ * COMMITÉ — c'est ce commit que `reinitialiserDecor` retrouve entre deux
+ * tâches. Sans lui, la remise à zéro n'a pas de point de retour.
+ *
+ * @param {string} app - l'application témoin.
+ * @param {string} runDir - le répertoire du run.
+ * @returns {string} le chemin de l'application témoin.
+ */
+function finaliserDecor(app, runDir) {
   // L'isolation se CONSTATE avant l'agent : mieux vaut aucun verdict qu'un
   // verdict rendu sur un décor qui n'est pas celui de l'utilisateur.
   const isolation = assertIsolated(REPO, app);
@@ -3808,6 +3840,11 @@ function setup(runDir) {
     "commit",
     "-qm",
     "état initial",
+    // `create app` initialise DÉJÀ le dépôt et commite ce qu'il rend : selon le
+    // régime, le décor peut n'avoir rien ajouté par-dessus, et `git commit`
+    // sortirait alors en 1 — `sh` lève, le montage meurt. Ce commit est un
+    // REPÈRE, pas un contenu : il doit exister même vide.
+    "--allow-empty",
   );
   sauverIgnoresInitiaux(app, runDir);
   return app;
