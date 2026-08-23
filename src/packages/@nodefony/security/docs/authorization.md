@@ -441,7 +441,7 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 
 - **Hot path à coût nul** : une route non gardée porte `security: null` → 0 lookup, 0 await, 0
   alloc (`Resolver.ts:334-336`) ; l'exigence est **figée une fois** par route et partagée entre
-  requêtes (`SecurityRequirement`, `routerDecorators.ts:300-312`).
+  requêtes (`SecurityRequirement`, `routerDecorators.ts:424`).
 - **`decide()` sans allocation** : itération en place des voters (`authorization.ts:78-80`),
   instanciés **une seule fois** au boot (`authorization.ts:55-64`).
 - **`hasRole()` O(1)** : hiérarchie aplatie au boot, rien de récursif par requête

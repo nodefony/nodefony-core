@@ -357,7 +357,7 @@ de lecture :
   remonte, jamais de fallback silencieux vers le maillon suivant (`firewall.ts:947-952`). Une clé
   API révoquée donne un 401 direct, même si un autre maillon aurait pu réussir.
 - aucune preuve présentée sur toute la chaîne → `handleSecurity()` lève l'`AuthenticationError`
-  Zero Trust (`firewall.ts:613-626`).
+  Zero Trust (`firewall.ts:738`).
 
 ### Situation 2 — le piège de l'ordre (`anonymous` toujours EN DERNIER)
 
@@ -455,7 +455,7 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 | JWT rejeté alors qu'il « semble » valide | `aud`/`iss`/`typ` non conformes, ou `alg` ≠ EdDSA (`JwtAuthenticator.ts:103-107`) | Émettre via le `TokenService` (mêmes iss/aud/typ) |
 | Clé API révoquée encore acceptée quelques secondes | Confusion avec un JWT (auto-porté) — `revokedAt` est lu à chaque requête (`ApiKeyAuthenticator.ts:110`) | Un PAT est révoqué immédiatement ; vérifier `revokedAt` |
 | Révocation WS pas immédiate | Identité figée au handshake — asymétrie assumée du `FirewallRealtimeAuthenticator` (`FirewallRealtimeAuthenticator.ts:51-55`) | Attendre la fenêtre de re-validation, ou utiliser JWT + canal révocation |
-| Brute-force pas ralenti | `loginThrottler` absent du container — `rateLimit.enabled` off (`firewall.ts:346-349`) | Configurer `rateLimit` pour poser le throttler |
+| Brute-force pas ralenti | `loginThrottler` absent du container — `rateLimit.enabled` off (`firewall.ts:617`) | Configurer `rateLimit` pour poser le throttler |
 
 ## 🧪 Tests & couverture
 

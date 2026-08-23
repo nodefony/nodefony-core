@@ -503,7 +503,7 @@ d'une route — il survit à un changement de chemin.
 | ---------------------------------------- | ------------------------------------------------------------------------- |
 | Retrouver une route par son nom          | `router.getRoutes("ma-route")` → l'objet `Route` (`router.ts:326`)        |
 | Lister toutes les routes                 | `router.getRoutes("")` → la table complète (`router.ts:387`)              |
-| Savoir quelles routes couvrent un chemin | `router.matchRoutes("/api/x")` → les résultats de regex (`router.ts:387`) |
+| Savoir quelles routes couvrent un chemin | `router.matchRoutes("/api/x")` → les résultats de regex (`router.ts:376`) |
 | Appeler une autre action, en interne     | `this.forward("module:Controller:action")` (`Controller.ts:445`)          |
 | Retirer une route                        | `router.removeRoutes("ma-route")` (`router.ts:335`)                       |
 

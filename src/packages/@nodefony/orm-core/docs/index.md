@@ -606,7 +606,7 @@ deux : les quinze verbes existent des deux côtés — par exemple l'upsert, ave
 | Contrat `IRepository` (15 verbes)      | complet                             | complet                            |
 | Eager-load `{ relations }`             | oui                                 | oui (`populate`)                   |
 | Transactions + savepoints              | oui                                 | oui (replica set requis par Mongo) |
-| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:801`)           | oui (`MongooseOrm.ts:274`)         |
+| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:911`)           | oui (`MongooseOrm.ts:274`)         |
 | Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`   | non câblée                         |
 | Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:813`)           | oui (`MongooseOrm.ts:245`)         |
 

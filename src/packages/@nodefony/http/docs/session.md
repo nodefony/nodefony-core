@@ -69,7 +69,7 @@ flowchart TD
 
 Le point d'activation est **unique et commun aux deux transports** : `HttpKernel.startSession()`
 (`http-kernel.ts:1131`). Il commence par la garde paresseuse `if (!intent && !context.hasSession())`
-(`http-kernel.ts:1061`) — sans intent de route ni cookie entrant, **aucune session n'est ouverte**.
+(`http-kernel.ts:1137`) — sans intent de route ni cookie entrant, **aucune session n'est ouverte**.
 
 ## 📖 Lexique
 
@@ -453,7 +453,7 @@ qui prolonge l'idle **sans réécrire le blob**, et seulement au-delà d'une dem
 pour que la sauvegarde de fin de requête ne réécrive pas ce qu'on vient de supprimer. Surtout, **tout**
 store est décoré par `RevocationGuardStorage` (`sessions-service.ts:279`) : `destroy()` pose une
 **pierre tombale** de 5 minutes (`RevocationGuardStorage.ts:144`) qui refuse ensuite tout `write`
-(`RevocationGuardStorage.ts:128`) **et tout `touch`** (`RevocationGuardStorage.ts:93-99`) du même
+(`RevocationGuardStorage.ts:128`) **et tout `touch`** (`RevocationGuardStorage.ts:151`) du même
 identifiant — ce qui couvre la requête « en vol » d'un autre client.
 
 **Purge hors requête.** Un `GcScheduler` est armé au `onReady`, désarmé au `onTerminate`
@@ -547,7 +547,7 @@ curseur offset. Une révocation « partout » qui en laisserait une n'est pas un
 faille — on rend donc la main avec la preuve, pas l'espoir.
 
 `destroyOwnByRef()` ferme l'IDOR **par construction** : parcours restreint aux sessions du demandeur,
-et appartenance **re-vérifiée** avant même de comparer la `ref` (`sessions-service.ts:765-769`). Une
+et appartenance **re-vérifiée** avant même de comparer la `ref` (`sessions-service.ts:808`). Une
 `ref` d'autrui est structurellement introuvable.
 
 ### Redaction — l'identifiant ne sort jamais du process

@@ -712,7 +712,7 @@ export function Audited() {
 Deux invariants à respecter, tirés du code du module :
 
 1. **Classe → constructeur, méthode → prototype keyé par nom.** C'est la convention de toutes les
-   métadonnées du fichier (`routerDecorators.ts:684-697` pour `@IsGranted`) ; s'en écarter rend la
+   métadonnées du fichier (`routerDecorators.ts:864` pour `@IsGranted`) ; s'en écarter rend la
    fusion classe/méthode impossible.
 2. **Aucune I/O, aucun service, aucun import lourd dans le décorateur.** Il s'exécute à l'import, hors
    de tout kernel : y résoudre un service planterait le simple fait de charger le fichier.

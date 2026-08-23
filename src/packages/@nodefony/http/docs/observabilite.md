@@ -419,7 +419,7 @@ instancié **qu'en dev** (fuite d'info + coût en prod).
 | Le `X-Request-Id` que j'envoie n'est pas réfléchi   | Valeur non conforme (espace, CR/LF, non-ASCII, > 128) → **rejetée** | Utiliser `[A-Za-z0-9._-]{1,128}` (UUID/nanoid/traceparent OK) — sinon UUID serveur |
 | Les logs de fin de requête n'ont pas de `requestId` | Ils sont émis hors bulle ALS                                        | Déjà géré : l'override `log()` rouvre une micro-bulle (`Context.ts:459`)           |
 | Réponse HTTP/2 sans `x-request-id`                  | Chemin de réponse h2 distinct du 1.1                                | Déjà géré (`http2/Response.ts:71`) — le port 5152 réfléchit aussi                  |
-| Pas de `traceparent` renvoyé sur un WebSocket       | `ws` n'expose pas l'écriture d'en-tête au handshake                 | Attendu — la trace WS reste propagée en ALS (`http-kernel.ts:1462`)                |
+| Pas de `traceparent` renvoyé sur un WebSocket       | `ws` n'expose pas l'écriture d'en-tête au handshake                 | Attendu — la trace WS reste propagée en ALS (`http-kernel.ts:1296`)                |
 | Frame WS binaire loggée en `{"0":..,"1":..}`        | Sérialisation naïve d'un Buffer                                     | Déjà géré : résumé `[binary N B]` (`wsLogContent.ts:63`)                           |
 | Le format de log ne change pas malgré la config     | Un `setRequestLogger(...)` programmatique gagne sur la config       | L'override est volontaire (last setter wins) — retirer l'appel, ou le régler       |
 | Logs d'audit trop volumineux en prod                | `stack` sérialisée, ou 100 % des 2xx audités                        | `includeStack:false` (défaut prod) + `sampleRate` via `setRequestLogger`           |

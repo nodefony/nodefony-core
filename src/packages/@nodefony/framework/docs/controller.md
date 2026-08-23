@@ -432,7 +432,7 @@ Quand tu veux piloter l'envoi plutôt que retourner une valeur :
 (`withFrontendLocals()`, `Controller.ts:345`) — tes propres valeurs restent prioritaires.
 
 `forward()` re-résout un contrôleur sur le **même** contexte et rappelle son action
-(`Controller.ts:417-421`) : c'est une délégation interne, la requête cliente reste unique.
+(`Controller.ts:445`) : c'est une délégation interne, la requête cliente reste unique.
 
 > [!TIP]
 > **Redirection : le code par défaut est 302** (Found), pas 301. Un statut absent ou hors de la liste
@@ -501,7 +501,7 @@ forme au rendeur d'erreurs. Ce qui en sort :
   ne tente pas de rendre — il journalise et s'arrête (`http-kernel.ts:770-775`).
 
 En **WebSocket**, il n'y a pas de statut : l'erreur devient un **code de fermeture** RFC 6455
-(`renderWebsocket()`, `error-renderer.ts:136-153`) — 401/403 → 1008 (violation de politique),
+(`renderWebsocket()`, `error-renderer.ts:264`) — 401/403 → 1008 (violation de politique),
 5xx → 1011 (erreur interne), le reste → 4004 (plage privée). Si la socket n'est pas encore acceptée,
 c'est un **rejet** de handshake.
 
