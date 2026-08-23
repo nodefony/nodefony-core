@@ -277,12 +277,12 @@ Un adapter doit fournir : `hit(key)` (verdict de fenêtre), `gc()` (purge), `lis
 
 ## 📜 Normes appliquées
 
-| Domaine                            | Norme            | Ancrage                                          |
-| ---------------------------------- | ---------------- | ------------------------------------------------ |
-| `429 Too Many Requests`            | RFC 6585 §4      | `writeHead(429)` (`http-kernel.ts:887`)          |
-| `Retry-After` (delta-seconds)      | RFC 9110 §10.2.3 | en-tête posé sur le `429` (`http-kernel.ts:882`) |
-| IP cliente derrière proxy          | RFC 7239         | `resolveForwarded()` (`http-kernel.ts:866`)      |
-| WebSocket — close `1013` Try Again | RFC 6455 §7.4.1  | refus d'upgrade (`http-kernel.ts:1378`)          |
+| Domaine                            | Norme            | Ancrage                                           |
+| ---------------------------------- | ---------------- | ------------------------------------------------- |
+| `429 Too Many Requests`            | RFC 6585 §4      | `writeHead(429)` (`http-kernel.ts:887`)           |
+| `Retry-After` (delta-seconds)      | RFC 9110 §10.2.3 | en-tête posé sur le `429` (`http-kernel.ts:1007`) |
+| IP cliente derrière proxy          | RFC 7239         | `resolveForwarded()` (`http-kernel.ts:866`)       |
+| WebSocket — close `1013` Try Again | RFC 6455 §7.4.1  | refus d'upgrade (`http-kernel.ts:1378`)           |
 
 > [!NOTE]
 > Les en-têtes émis sont la famille **de facto** `X-RateLimit-Limit/Remaining/Reset`

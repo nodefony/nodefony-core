@@ -535,7 +535,7 @@ C'est exactement le test de `Firewall.#wireRealtime()` (`firewall.ts:253`) : san
 évaluée — ni métier, ni système. `nodefony:syslog` redevient un canal ordinaire.
 
 Deuxième subtilité : `beforeDispatch` n'est branché sur une connexion que si le verrou est **déjà**
-posé au moment de son handshake (`RealtimeController.ts:402`, via
+posé au moment de son handshake (`RealtimeController.ts:429`, via
 `RealtimeHub.hasFrameAuthorizer()` — `RealtimeHub.ts:961`). Choix de performance délibéré (un hub
 non sécurisé garde un coût nul par frame), mais avec une conséquence : **une connexion ouverte avant
 la pose du verrou n'est jamais gardée**, et ce jusqu'à sa fermeture. En fonctionnement normal le
@@ -544,7 +544,7 @@ firewall se construit au boot, avant tout trafic ; le cas ne se présente qu'en 
 
 **Le refus de dégrader en silence.** Quand des policies sont déclarées sans décideur câblé,
 `RealtimeHub.hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:1020`) renvoie `true` et le controller
-émet un WARNING explicite, une seule fois par process (`RealtimeController.ts:487`) :
+émet un WARNING explicite, une seule fois par process (`RealtimeController.ts:522`) :
 
 ```text
 Realtime channel policies declared but NO frame authorizer is wired —

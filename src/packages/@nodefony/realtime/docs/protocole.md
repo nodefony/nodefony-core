@@ -338,7 +338,7 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 | `unsubscribe`      | client→server |   non   | « arrête » — dernier abonné, le producteur est libéré                 | `RealtimeController.ts:599` |
 | `ping`             | client→server |   non   | Battement de cœur — **no-op serveur**, aucun pong                     | `RealtimeClient.ts:740`     |
 | `<canal>`          | server→client |   non   | Push d'un message : le **nom du canal est la `method`**               | `RealtimeController.ts:612` |
-| `<canal entrant>`  | client→server |   non   | Le client pousse sur un canal déclaré entrant                         | `RealtimeController.ts:608` |
+| `<canal entrant>`  | client→server |   non   | Le client pousse sur un canal déclaré entrant                         | `RealtimeController.ts:653` |
 | `realtime:welcome` | server→client |   non   | L'accueil : 5 champs, dont l'identité résolue                         | `RealtimeController.ts:579` |
 | `realtime:denied`  | server→client |   non   | Rend OBSERVABLE le refus d'une notification                           | `RealtimeController.ts:433` |
 | `api.request`      | client→server | **oui** | Pont API — rejoue une route HTTP sur la socket (désactivé par défaut) | `RealtimeController.ts:463` |
@@ -471,7 +471,7 @@ décrits dans [la page sécurité](./securite.md).
 | Un tableau de frames n'obtient aucune réponse                    | Le batch n'est pas implémenté : un tableau n'a pas de `jsonrpc` → `invalid` (`JsonRpcPeer.ts:371`)              | Une frame = un objet ; le multiplexage remplace le batch                          |
 | Une frame malformée ne renvoie **aucune** erreur                 | Ni `-32700` ni `-32600` ne sont émis — silence + audit (`JsonRpcPeer.ts:396`)                                   | Lire le motif `invalid` côté serveur, pas la réponse                              |
 | L'exception du serveur n'arrive jamais au client                 | Zero Trust : tout throw ordinaire devient `-32603` générique (`JsonRpcPeer.ts:528`)                             | Lever une `RpcError` pour exposer volontairement code et `data`                   |
-| Une notification refusée disparaît sans trace côté client        | Sans `id`, aucune réponse possible (`beforeDispatch`, `JsonRpcPeer.ts:391`)                                     | Écouter `realtime:denied` via `onDenied()` (`RealtimeClient.ts:386`)              |
+| Une notification refusée disparaît sans trace côté client        | Sans `id`, aucune réponse possible (`beforeDispatch`, `JsonRpcPeer.ts:151`)                                     | Écouter `realtime:denied` via `onDenied()` (`RealtimeClient.ts:386`)              |
 | `nodefony:kernel:ping` répond `-32601` sur mon endpoint          | L'action `nodefony:kernel:ping` est déclarée par `@nodefony/studio` (`StudioRealtimeController.ts:114`)         | Déclarer la sienne, ou lire `serverMethods` avant d'appeler                       |
 | Le battement de cœur ne renvoie aucun pong                       | La notification `ping` est un no-op serveur (`RealtimeController.ts:661`)                                       | Pour mesurer un RTT, utiliser une action RPC — `ping()` (`RealtimeClient.ts:740`) |
 | Une réponse reçue est ignorée sans message                       | Corrélation sur `id` **numériques** seulement (`JsonRpcPeer.ts:537`)                                            | Ne pas fabriquer soi-même de réponse à `id` chaîne                                |

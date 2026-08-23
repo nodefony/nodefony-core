@@ -269,7 +269,7 @@ boucle de `setHeader` (qui écraserait tout sauf le dernier). Pour expirer un co
 `cookiesParser(context)` (`cookie.ts:91`) lit l'en-tête `Cookie:` (via la bibliothèque `cookie`,
 `parser()` `cookie.ts:54`), crée un `Cookie` par entrée et l'ajoute au contexte avec `addRequestCookie()`
 (`Context.ts:650`). Il est déclenché automatiquement par le pipeline : `parseCookies()` est appelé à
-l'initialisation du contexte HTTP (`HttpContext.ts:167`) **et** WebSocket (`WebsocketContext.ts:170`).
+l'initialisation du contexte HTTP (`HttpContext.ts:190`) **et** WebSocket (`WebsocketContext.ts:170`).
 
 ### Côté WebSocket — lecture oui, écriture non
 

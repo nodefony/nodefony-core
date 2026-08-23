@@ -52,7 +52,7 @@ Trois faits à retenir avant tout le reste :
    (`routing-nonregression.test.ts:83`).
 2. **Le routeur ne lève jamais de 404.** Aucun match = `resolver.resolve === false`, sans exception ;
    le 404 est décidé plus loin, après le repli sur les fichiers statiques
-   (`HttpError("Not Found", 404)`, `http-kernel.ts:688`).
+   (`HttpError("Not Found", 404)`, `http-kernel.ts:798`).
 3. **Le chemin est vérifié avant la méthode, et le domaine entre les deux** — c'est ce qui produit un
    `403` plutôt qu'un `405` bavard quand la route appartient à un autre vhost (`Route.match()`,
    `Route.ts:212`).

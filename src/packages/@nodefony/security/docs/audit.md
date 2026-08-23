@@ -381,7 +381,7 @@ Quatre sorties d'échec du firewall passent par le même helper `Firewall.#recor
 - `auth.throttled` — backoff NIST déclenché, réponse 429 (`firewall.ts:588`) ;
 - `auth.failure` — un credential a été **présenté** et rejeté (`firewall.ts:600`) ;
 - `auth.denied` / `no_credentials` — Zero Trust : rien n'a été présenté sur une zone protégée
-  (`firewall.ts:615`) ;
+  (`firewall.ts:811`) ;
 - `auth.denied` / `unauthenticated` — un jeton non promu hors `anonymous` (`firewall.ts:638`).
 
 Le parcours de login BFF émet en parallèle son propre vocabulaire depuis `AuthFlow` :

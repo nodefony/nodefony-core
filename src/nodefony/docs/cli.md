@@ -218,7 +218,7 @@ sous le namespace `<module>:<action>`. Elles apparaissent dans `--help` comme le
 | `security:user:add` | Crée un utilisateur (`-p`, `-r roles`, `-a` admin)     | `security-user-add.ts:36`    |
 
 > Une commande introuvable rend le code `EX_USAGE` (64) — **jamais** un repli silencieux sur le
-> serveur (`CliKernel.ts:573`).
+> serveur (`CliKernel.ts:625`).
 
 ## 🏗️ Échafauder — `create`
 

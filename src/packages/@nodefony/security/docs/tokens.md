@@ -246,7 +246,7 @@ La réponse suit RFC 6749 §5.1 — `ITokenResponse` (`tokenService.ts:43-51`). 
 
 `refresh()` (`tokenService.ts:555`) est le cœur défensif, dans l'ordre :
 
-1. Lookup par hash — `findByHash`, refus uniforme si inconnu/mauvais type (`tokenService.ts:341-343`).
+1. Lookup par hash — `findByHash`, refus uniforme si inconnu/mauvais type (`tokenService.ts:564`).
 2. **Détection de rejeu** : refresh **déjà révoqué** re-présenté → `revokeFamily` coupe toute la
    famille + audit `token.reuse_detected`, signal d'attaque fort (`tokenService.ts:345-361`).
 3. Expiration `expiresAt` vérifiée (`tokenService.ts:363-368`).

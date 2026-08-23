@@ -92,7 +92,7 @@ contrôleur** : l'attaque meurt sans avoir touché ton code.
 - **Vérifier la provenance d'abord** (OWASP 2025, modèle Go 1.25 `CrossOriginProtection`) : la
   couche 1 est la défense **par défaut**, `csrf.enabled: true` (`config.ts:151-156`).
 - **Globale, pas liée aux zones** : toute mutation cross-site est refusée, route publique ou non —
-  branchée dans le pipeline HTTP — l'appel `enforceCsrf` (`http-kernel.ts:1283`) arrive **après** le
+  branchée dans le pipeline HTTP — l'appel `enforceCsrf` (`http-kernel.ts:1427`) arrive **après** le
   resolve (les marqueurs de route sont lisibles) et **avant** la session (rejet précoce : un
   attaquant ne coûte ni lecture de session ni authentification).
 - **Logique pure** : la classe `Csrf` est synchrone, sans I/O ni allocation sur le hot-path —
