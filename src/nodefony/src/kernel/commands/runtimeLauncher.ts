@@ -7,9 +7,13 @@ import {
 } from "../../service/cluster/clusterMaster";
 import { Topology } from "../../service/cluster/topology";
 import {
+  defaultDevPorts,
   discoverDevProcesses,
   findRuntimeConflict,
+  probePorts,
   splitByProject,
+  type DevProcessInfo,
+  type PortState,
   type RuntimeMode,
 } from "../../service/dev/devProcess";
 import { SysExit } from "../../cli/sysexits";
@@ -19,6 +23,25 @@ function modeLabelFr(mode: RuntimeMode): string {
   if (mode === "dev") return "développement";
   if (mode === "cluster") return "cluster";
   return "production";
+}
+
+/**
+ * Points d'injection du garde anti-collision — permettent de l'ÉPROUVER sans monter un
+ * vrai superviseur ni tuer le processus de test. Défauts = les implémentations réelles,
+ * donc le chemin de production reste celui qu'on teste. Même patron que `devStop`, qui
+ * injecte déjà sa sonde de ports.
+ */
+export interface RuntimeConflictDeps {
+  /** Racine du projet (défaut : `process.cwd()`). */
+  cwd?: string;
+  /** Inventaire des runtimes du poste (défaut : `discoverDevProcesses`). */
+  discover?: () => DevProcessInfo[];
+  /** Résolution du cwd d'un pid, pour le scoping projet (défaut : lecture système). */
+  getCwd?: (pid: number) => string | null;
+  /** Sonde de ports (défaut : `probePorts`) — c'est ELLE qui fait le constat. */
+  probe?: (ports: readonly number[]) => Promise<PortState[]>;
+  /** Sortie du process en cas de refus (défaut : `process.exit`). */
+  exit?: (code: number) => void;
 }
 
 /**
@@ -35,22 +58,50 @@ function modeLabelFr(mode: RuntimeMode): string {
  * (`servers.portPolicy: "auto"` en dev, ports déclarés en prod). Refuser un `production`
  * parce que le dev d'une AUTRE app tourne, c'était crier au loup sur le cas nominal —
  * et un garde qui se déclenche sur le cas nominal n'est plus lu.
+ *
+ * **La collision se CONSTATE, elle ne se déduit pas d'une présence de process.** Un
+ * process enregistré ne détient pas forcément un port : un superviseur de développement
+ * dont l'enfant a été tué (kill -9 d'un banc, OOM, plantage) survit orphelin, n'écoute
+ * RIEN, et reste visible de `ps`. Refuser la production sur sa seule existence, c'est
+ * l'interdire à cause d'un fantôme — sur un pod, un démarrage qui échoue sans qu'aucun
+ * port ne soit pris. Le chemin dev le constatait déjà (`detachedStart` → `probePorts`) ;
+ * cette dissymétrie était le défaut. On sonde donc les ports DÉCLARÉS
+ * (`defaultDevPorts` — même source que `status` et `stop`) : aucun tenu ⇒ on AVERTIT et
+ * on laisse démarrer, l'`EADDRINUSE` natif restant le filet ultime.
  */
-function assertNoConflictingRuntime(
+export async function assertNoConflictingRuntime(
   intended: RuntimeMode,
   log: ClusterLog,
-): void {
-  const { mine } = splitByProject(discoverDevProcesses(), process.cwd());
+  deps: RuntimeConflictDeps = {},
+): Promise<void> {
+  const cwd = deps.cwd ?? process.cwd();
+  const { mine } = splitByProject(
+    (deps.discover ?? discoverDevProcesses)(),
+    cwd,
+    deps.getCwd,
+  );
   const conflict = findRuntimeConflict(mine, intended);
   if (conflict.length === 0) return;
   const pids = conflict.map((p) => p.pid).join(", ");
+  const held = (await (deps.probe ?? probePorts)(defaultDevPorts(cwd)))
+    .filter((p) => p.listening)
+    .map((p) => p.port);
+  if (held.length === 0) {
+    log(
+      `un runtime Nodefony ${modeLabelFr(conflict[0].mode)} de CE projet est enregistré ` +
+        `(pid ${pids}) mais ne détient AUCUN port — résidu probable (son serveur a été ` +
+        `tué). Démarrage ${modeLabelFr(intended)} MAINTENU. Pour nettoyer : nodefony stop`,
+      "WARNING",
+    );
+    return;
+  }
   log(
     `⛔ un runtime Nodefony ${modeLabelFr(conflict[0].mode)} de CE projet tourne déjà ` +
-      `(pid ${pids}) — démarrage ${modeLabelFr(intended)} refusé (collision de ports). ` +
-      "Arrête-le d'abord : nodefony stop",
+      `(pid ${pids}) et tient le(s) port(s) ${held.join(", ")} — démarrage ` +
+      `${modeLabelFr(intended)} refusé. Arrête-le d'abord : nodefony stop`,
     "CRITIC",
   );
-  process.exit(SysExit.UNAVAILABLE);
+  (deps.exit ?? ((c: number) => process.exit(c)))(SysExit.UNAVAILABLE);
 }
 
 /** Arguments de {@link launchTopology}. */
@@ -91,7 +142,7 @@ export async function launchTopology(
   // process n'a pas encore posé son titre et `discoverDevProcesses` s'auto-exclut.
   if (cluster.isPrimary) {
     const intended: RuntimeMode = topo.workers >= 2 ? "cluster" : "prod";
-    assertNoConflictingRuntime(intended, log);
+    await assertNoConflictingRuntime(intended, log);
   }
 
   if (cluster.isPrimary && topo.workers >= 2) {

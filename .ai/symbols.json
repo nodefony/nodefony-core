@@ -1,12 +1,12 @@
 {
-  "generated": "2026-08-23T18:57:50.829Z",
+  "generated": "2026-08-23T19:44:17.837Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 732,
-    "symbols": 3101,
+    "symbols": 3102,
     "classes": 364,
-    "interfaces": 883,
+    "interfaces": 884,
     "types": 387,
     "enums": 4,
     "functions": 1171,
@@ -7062,6 +7062,15 @@
       "decorators": [],
       "description": "Commande `nodefony production` — runtime PROD cloud-native, **foreground**. Modèle « 2 molettes » (2026-05-24) : front prod (dist, pas de Vite) × topologie pilotée par la molette `workers` ({@link …"
     },
+    "RuntimeConflictDeps": {
+      "name": "RuntimeConflictDeps",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Points d'injection du garde anti-collision — permettent de l'ÉPROUVER sans monter un vrai superviseur ni tuer le processus de test. Défauts = les implémentations réelles, donc le chemin de producti…"
+    },
     "LaunchTopologyOptions": {
       "name": "LaunchTopologyOptions",
       "kind": "interface",
@@ -7070,6 +7079,14 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Arguments de {@link launchTopology}."
+    },
+    "assertNoConflictingRuntime": {
+      "name": "assertNoConflictingRuntime",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Garde anti-collision (symétrique du superviseur dev) : un runtime prod/cluster ne démarre PAS par-dessus un AUTRE runtime **de CE projet** (dev/prod/cluster d'un mode différent). Fail-loud + exit —…"
     },
     "launchTopology": {
       "name": "launchTopology",
@@ -24327,6 +24344,7 @@
       "defaultDevPorts": [
         "src/nodefony/src/cli/aiMcp.ts",
         "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts",
@@ -25962,6 +25980,7 @@
       ],
       "probePorts": [
         "src/nodefony/src/kernel/checks/runCheck.ts",
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts",
@@ -26102,6 +26121,19 @@
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
+      "DevProcessInfo": [
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+        "src/nodefony/src/service/dev/BootReporter.ts",
+        "src/nodefony/src/service/dev/devProjects.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
+      ],
+      "PortState": [
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
+        "src/nodefony/src/service/dev/devStop.ts"
+      ],
       "RuntimeMode": [
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
@@ -26177,12 +26209,6 @@
       "resolveWorkerCount": [
         "src/nodefony/src/service/cluster/topology.ts"
       ],
-      "DevProcessInfo": [
-        "src/nodefony/src/service/dev/BootReporter.ts",
-        "src/nodefony/src/service/dev/devProjects.ts",
-        "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts"
-      ],
       "renderProcessTable": [
         "src/nodefony/src/service/dev/BootReporter.ts"
       ],
@@ -26201,11 +26227,6 @@
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
-      ],
-      "PortState": [
-        "src/nodefony/src/service/dev/detachedStart.ts",
-        "src/nodefony/src/service/dev/devStatusReport.ts",
-        "src/nodefony/src/service/dev/devStop.ts"
       ],
       "DevProcessWithCwd": [
         "src/nodefony/src/service/dev/devProjects.ts",
