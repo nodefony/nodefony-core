@@ -7,6 +7,9 @@ Fondation multi-ORM. Contrats + registre + base classes. Lib pure (pas Module, p
 ## Core Components
 
 - `IOrm`: name, connect/disconnect, isConnected, getRepository<T>(name), transaction<R>(work), `getNativeConnection<C>()` (trappe SQL brut).
+- **Résilience de connexion — contrat porté par `Orm`, PAS par les adapters.** `isConnected()` est CONCRET dans la classe de base (état `protected alive`) ; un adapter ne le réimplémente pas. Deux hooks `protected` qu'il APPELLE depuis les événements de SON driver : `connectionLost(reason)` / `connectionRestored()`. Tous deux IDEMPOTENTS (un pool de N connexions émet N erreurs pour 1 coupure ; `pg` émet `connect` à chaque client même sans incident). Événements `Service` émis : `onOrmLost` (avec la raison), `onOrmRestored`.
+- **`connectionMonitor`** : `recordLost`/`recordReconnect` = compteurs CONSTATÉS. `reconnectCount` n'est PLUS dérivé de `connectCount-1` (une reprise de driver ne repasse jamais par `connect()`, et 2 connecteurs comptaient une reconnexion fantôme). `connectedSince` retombe à `null` à la perte — un uptime qui court pendant une coupure se lit comme une preuve de santé.
+- **Contrat de test portable** : `tests/unit/ormResilience.test.ts` (sans driver, sans infra) — tout adapter futur doit le passer. La TRADUCTION driver→contrat se prouve chez chaque adapter (`tests/integration/outage.test.ts`), la coupure RÉELLE au banc `NF_RUN_DB_OUTAGE=1` (+ `NF_DB_OUTAGE_{PG,MYSQL,MONGO}_CONTAINER`).
 - `IEntity<S,M>`: name, orm, schema, model? (post-connect), relations? `IEntityRelation` (type/target/field).
 - `IRepository<T>` — **il n'y a PAS de `update()`** (piège : le tutoriel historique l'enseignait).
   Lecture : `find`/`findOne`/`count`/`countDistinct`/`exists`. Écriture : `create`/`createMany`/`updateOne`/

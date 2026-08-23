@@ -27,7 +27,11 @@ Driver **NoSQL Mongoose** sur `@nodefony/orm-core` — adapter documentaire hét
 - **Test = `npx vitest run`** (`globals:true`, timeout 120s — 1ᵉʳ run télécharge mongod). Aucun compte n'est écrit ici (il se périme au premier test ajouté) : `npx vitest run 2>&1 | tail -4`. Couverture par sujet : `orm-core-mongoose` (CRUD/relations/tx `MongoMemoryReplSet`) · `advanced` · `session-storage` · `MongooseService` · `bootHookPolicy` · `user-mongoose` + `user-pagination` · `token-store` + `token-pagination` · `webhook-store` · `webauthn-credential-store` + `webauthn-pagination` · `config` (unit).
 - **Mongo de test portable (`NF_MONGO_TEST_URI`)** : si défini → on tape ce serveur (conteneur de service CI GitHub/GitLab, ou `docker run -p 27017:27017 mongo:7`) = **0 download** ; sinon → `mongodb-memory-server` in-process (dev local). ⚠️ Le banc orm-core exige un **replica set** (transactions) → reste sur `MongoMemoryReplSet` (un service standalone ne suffit pas).
 
-## Gotchas (vs SQL)
+## Gotchas
+
+- **Mongoose SAIT quand le serveur tombe — encore faut-il écouter.** Le setter de `readyState` émet l'état, piloté par `serverDescriptionChanged` (nœud simple) ou `topologyDescriptionChanged` (replica set : perte du primaire). `#wireLifecycle` traduit `disconnected`/`close`/`error` → `connectionLost`, `reconnected`/`connected` → `connectionRestored`. `error` est écouté AUSSI parce qu'une `Connection` est un EventEmitter : sans auditeur, une erreur émise tue le process.
+- **Détacher AVANT `close()`** dans `disconnect()` : `close()` émet `close`, et un arrêt VOLONTAIRE compté comme incident polluerait le tableau de bord à chaque shutdown.
+- **Une requête pendant une coupure pend 30 s** (`serverSelectionTimeoutMS` par défaut du driver) avant `MongoServerSelectionError` — mesuré au banc. Les commandes sont par ailleurs BUFFERISÉES (`bufferTimeoutMS` 10 s) et repartent seules si le serveur revient avant. (vs SQL)
 
 - **PK `_id` (ObjectId) ≠ `id`** : critère `{id}`→`{_id}`, sortie expose le virtuel `id` (hex string) → contrat `id:string` respecté.
 - **Relations sans FK** : `one-to-many` = réf ObjectId sur l'enfant + virtual populate sur le parent ; `many-to-one`/`one-to-one` = réf sur la source ; `many-to-many` → native (throw, déclarer via `getNativeConnection`).

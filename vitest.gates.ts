@@ -138,6 +138,12 @@ export const OPT_IN_SWITCHES: ReadonlyArray<{ env: string; what: string }> = [
     env: "NF_RUN_WS_RUPTURE",
     what: "sondes de rupture WebSocket (épuisent les ports)",
   },
+  {
+    env: "NF_RUN_DB_OUTAGE",
+    what:
+      "coupures RÉELLES de base (arrête et relance un conteneur ; exige aussi " +
+      "NF_DB_OUTAGE_{PG,MYSQL,MONGO}_CONTAINER)",
+  },
 ];
 
 /**

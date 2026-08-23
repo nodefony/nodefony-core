@@ -31,9 +31,11 @@ describe("buildOrmLeanHealth — agrégat ORM lean per-instance", () => {
     queryFlowMonitor.record(A, 12);
     queryFlowMonitor.record(A, 8);
     queryFlowMonitor.record(A, 200, "SELECT 1"); // lente (SQL fourni sur chemin lent)
-    // Connexion B : 2 connect (→ reconnectCount 1) + 1 erreur.
+    // Connexion B : une coupure SUBIE puis reprise, plus une erreur. Deux
+    // `recordConnect` ne valent plus une reconnexion : la reprise se constate.
     connectionMonitor.recordConnect(B, 5);
-    connectionMonitor.recordConnect(B, 5);
+    connectionMonitor.recordLost(B);
+    connectionMonitor.recordReconnect(B);
     connectionMonitor.recordError(B, "boom");
 
     const after = buildOrmLeanHealth();

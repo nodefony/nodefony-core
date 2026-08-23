@@ -15,7 +15,7 @@ describe("ConnectionMonitor — observabilité per-instance des connexions", () 
     assert.equal(snap.latency.samples, 0);
   });
 
-  it("recordConnect : 1ʳᵉ connexion, puis reconnexions (connectCount-1)", () => {
+  it("recordConnect compte les connexions, JAMAIS les reconnexions", () => {
     const n = "cm-connect";
     connectionMonitor.recordConnect(n, 12.345);
     let snap = connectionMonitor.snapshot(n);
@@ -25,11 +25,38 @@ describe("ConnectionMonitor — observabilité per-instance des connexions", () 
     assert.notEqual(snap.connectedSince, null);
     assert.ok((snap.uptimeMs ?? -1) >= 0);
 
+    // `reconnectCount` valait autrefois `connectCount - 1`. C'était une
+    // DÉDUCTION, et elle était fausse dans les deux sens : un driver qui
+    // reprend tout seul ne repasse jamais par `connect()` (reprise invisible),
+    // et une application qui ouvre deux connecteurs comptait une reconnexion
+    // qui n'avait pas eu lieu. La reprise se CONSTATE désormais.
     connectionMonitor.recordConnect(n, 5);
     connectionMonitor.recordConnect(n, 5);
     snap = connectionMonitor.snapshot(n);
     assert.equal(snap.connectCount, 3);
-    assert.equal(snap.reconnectCount, 2);
+    assert.equal(snap.reconnectCount, 0);
+  });
+
+  it("recordLost / recordReconnect : perte et reprise CONSTATÉES", () => {
+    const n = "cm-outage";
+    connectionMonitor.recordConnect(n, 3);
+    assert.notEqual(connectionMonitor.snapshot(n).connectedSince, null);
+
+    connectionMonitor.recordLost(n);
+    let snap = connectionMonitor.snapshot(n);
+    assert.equal(snap.lostCount, 1);
+    assert.equal(snap.reconnectCount, 0);
+    // Un uptime qui continue de courir pendant que le serveur est tombé se lit
+    // comme une preuve de bonne santé — il doit disparaître, pas vieillir.
+    assert.equal(snap.connectedSince, null);
+    assert.equal(snap.uptimeMs, null);
+
+    connectionMonitor.recordReconnect(n);
+    snap = connectionMonitor.snapshot(n);
+    assert.equal(snap.lostCount, 1);
+    assert.equal(snap.reconnectCount, 1);
+    assert.equal(snap.connectCount, 1); // une reprise n'est pas une connexion
+    assert.notEqual(snap.connectedSince, null);
   });
 
   it("recordError : compte + lastError + ring borné à 12", () => {

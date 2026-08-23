@@ -28,6 +28,14 @@ import { connectionMonitor } from "./ConnectionMonitor";
  */
 export abstract class Orm extends Service implements IOrm {
   /**
+   * État de vie de la connexion — source UNIQUE de `isConnected()`.
+   *
+   * `protected` et non `#privé` : `disconnect()` est implémenté par chaque
+   * adapter et doit pouvoir le remettre à `false`.
+   */
+  protected alive = false;
+
+  /**
    * @param name - clé unique de l'ORM dans le {@link ormRegistry}.
    * @param container - container DI hérité (Kernel) ou nouveau si omis.
    * @param notificationsCenter - bus d'événements partagé, `false` pour aucun.
@@ -55,8 +63,10 @@ export abstract class Orm extends Service implements IOrm {
     const t0 = performance.now();
     try {
       await this.onConnect();
+      this.alive = true;
       connectionMonitor.recordConnect(this.name, performance.now() - t0);
     } catch (e) {
+      this.alive = false;
       connectionMonitor.recordError(
         this.name,
         e instanceof Error ? e.message : String(e),
@@ -64,6 +74,61 @@ export abstract class Orm extends Service implements IOrm {
       throw e;
     }
     this.fire("onOrmReady", this);
+  }
+
+  /**
+   * **Le driver a PERDU la connexion** — à appeler par l'adapter depuis
+   * l'événement natif de son driver (`pool.on("error")` côté `pg`,
+   * `connection.on("disconnected")` côté Mongoose…).
+   *
+   * Idempotent : un driver émet souvent plusieurs erreurs pour une seule
+   * coupure (une par connexion du pool). Seule la PREMIÈRE bascule l'état,
+   * compte l'incident et émet `onOrmLost` — sinon un pool de 10 connexions
+   * ferait dix fois le tour du framework pour un seul serveur tombé.
+   *
+   * @param reason - cause lisible, sans credential (elle est journalisée).
+   */
+  protected connectionLost(reason: string): void {
+    connectionMonitor.recordError(this.name, reason);
+    if (!this.alive) {
+      return;
+    }
+    this.alive = false;
+    connectionMonitor.recordLost(this.name);
+    this.log(`connexion perdue : ${reason}`, "WARNING");
+    this.fire("onOrmLost", this, reason);
+  }
+
+  /**
+   * **Le driver a RÉTABLI la connexion** — à appeler par l'adapter depuis
+   * l'événement natif correspondant (`pool.on("connect")`, `reconnected`…).
+   *
+   * Idempotent, et pour la même raison inversée : `pg` émet `connect` à
+   * CHAQUE client créé, y compris quand rien n'avait été perdu. Sans ce garde,
+   * un pool qui grandit sous la charge compterait des reconnexions imaginaires.
+   */
+  protected connectionRestored(): void {
+    if (this.alive) {
+      return;
+    }
+    this.alive = true;
+    connectionMonitor.recordReconnect(this.name);
+    this.log("connexion rétablie", "INFO");
+    this.fire("onOrmRestored", this);
+  }
+
+  /**
+   * Indique si la connexion est active — **implémentation UNIQUE**, portée par
+   * la classe de base et non par chaque adapter.
+   *
+   * C'est délibéré : tant que chaque adapter portait son propre booléen posé à
+   * la connexion, aucun ne le remettait à `false` quand le serveur tombait —
+   * la santé ORM répondait « connecté » en pleine coupure. L'état vit ici, et
+   * il n'a que trois sources : `connect()`, `disconnect()`, et les deux
+   * signaux que l'adapter traduit depuis son driver.
+   */
+  isConnected(): boolean {
+    return this.alive;
   }
 
   /**
@@ -75,9 +140,6 @@ export abstract class Orm extends Service implements IOrm {
 
   /** Ferme la connexion et libère le pool. */
   abstract disconnect(): Promise<void>;
-
-  /** Indique si la connexion est active. */
-  abstract isConnected(): boolean;
 
   /**
    * Repository typé d'une entité enregistrée.

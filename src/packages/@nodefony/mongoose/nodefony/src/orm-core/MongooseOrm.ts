@@ -42,7 +42,13 @@ type LooseModel = Model<Record<string, unknown>>;
  */
 export class MongooseOrm extends Orm {
   #connection: Connection | null = null;
-  #connected = false;
+  /**
+   * Listeners de cycle de vie attachés à la connexion Mongoose — gardés pour
+   * pouvoir les DÉTACHER : `disconnect()` puis `connect()` sur le même ORM
+   * empilerait sinon un jeu de listeners par cycle (règle « pas de listener
+   * sans cleanup »). `null` tant qu'aucune connexion n'est ouverte.
+   */
+  #lifecycle: Array<[string, (...a: never[]) => void]> | null = null;
   #models: Record<string, LooseModel> | null = null;
   #repositories: Record<string, IRepository> | null = null;
   readonly #uri: string;
@@ -77,6 +83,7 @@ export class MongooseOrm extends Orm {
       : mongoose.createConnection(this.#uri);
     await connection.asPromise();
     this.#connection = connection;
+    this.#wireLifecycle(connection);
     this.#models = Object.create(null) as Record<string, LooseModel>;
 
     const entities = this.#ownEntities();
@@ -160,22 +167,62 @@ export class MongooseOrm extends Orm {
       this.#models[entity.name] = model;
       entity.model = model;
     }
+  }
 
-    this.#connected = true;
+  /**
+   * Traduit les événements du driver en signaux du contrat `orm-core`.
+   *
+   * Mongoose SAIT quand le serveur tombe — le setter de `readyState` émet
+   * l'état, et le driver câble `serverDescriptionChanged` (topologie simple)
+   * ou `topologyDescriptionChanged` (replica set : perte du primaire). Rien
+   * n'écoutait, d'où une santé ORM qui affirmait « connecté » pendant toute
+   * une coupure. `error` est écouté AUSSI parce qu'une `Connection` est un
+   * `EventEmitter` : sans auditeur, une erreur émise ferait tomber le process.
+   */
+  #wireLifecycle(connection: Connection): void {
+    const lost = (why: string) => (): void => this.connectionLost(why);
+    const listeners: Array<[string, (...a: never[]) => void]> = [
+      ["disconnected", lost("mongoose: disconnected")],
+      ["close", lost("mongoose: close")],
+      [
+        "error",
+        ((e: Error) =>
+          this.connectionLost(
+            `mongoose: ${e?.message ?? String(e)}`,
+          )) as unknown as (...a: never[]) => void,
+      ],
+      ["reconnected", (): void => this.connectionRestored()],
+      ["connected", (): void => this.connectionRestored()],
+    ];
+    for (const [event, handler] of listeners) {
+      connection.on(event, handler as (...a: unknown[]) => void);
+    }
+    this.#lifecycle = listeners;
+  }
+
+  /** Détache les listeners de cycle de vie (anti-fuite, anti-empilement). */
+  #unwireLifecycle(): void {
+    const connection = this.#connection;
+    if (connection && this.#lifecycle) {
+      for (const [event, handler] of this.#lifecycle) {
+        connection.removeListener(event, handler as (...a: unknown[]) => void);
+      }
+    }
+    this.#lifecycle = null;
   }
 
   async disconnect(): Promise<void> {
+    // Détacher AVANT de fermer : `close()` émet `close`, et un ORM qu'on
+    // ferme volontairement n'a pas « perdu » sa connexion — le compter comme
+    // un incident polluerait le tableau de bord à chaque arrêt propre.
+    this.#unwireLifecycle();
     if (this.#connection) {
       await this.#connection.close();
     }
     this.#connection = null;
-    this.#connected = false;
+    this.alive = false;
     this.#models = null;
     this.#repositories = null;
-  }
-
-  isConnected(): boolean {
-    return this.#connected;
   }
 
   getRepository<T = unknown>(name: string): IRepository<T> {
