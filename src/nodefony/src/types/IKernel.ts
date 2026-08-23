@@ -76,7 +76,7 @@ export interface IKernel extends IService {
   ): void;
   /**
    * L'environnement FOURNIT-il un vrai terminal ? Résolu une fois au boot
-   * (`process.stdout.isTTY`, surchargeable `NO_TTY`). Volet « environnement » qui
+   * (`process.stdout.isTTY`, surchargeable `NF_NO_TTY`). Volet « environnement » qui
    * complète `runProfile.interactive` (besoin déclaré) : un prompt n'a de sens que si
    * `runProfile.interactive && kernel.isTTY`. Cloud-native (pod/CI) → toujours `false`.
    */

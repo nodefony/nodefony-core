@@ -62,7 +62,7 @@ describe("bases Redis de test — une par fichier", () => {
     }
   });
 
-  it("la base 15 reste au banc comportemental (REDIS_TEST_URL nu)", () => {
+  it("la base 15 reste au banc comportemental (NF_REDIS_TEST_URL nu)", () => {
     for (const [file, dbs] of allocations()) {
       assert.ok(
         !dbs.includes(15),

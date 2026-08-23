@@ -189,7 +189,7 @@ keyset.json` chmod 600, généré si absent) → mémoire+WARNING (éphémère).
   composite `skip:cursor`** en Redis (`COUNT` = indice d'effort, PAS un plafond → on mémorise les clés
   consommées) avec `countCredentials` = **-1** (capacité réduite assumée). Banc de contrat UNIQUE :
   `security/tests/support/webauthnPaginationContract.ts`, importé en relatif par les 3 adapters ; le banc
-  Redis tourne en **double backend** (fake par défaut, vrai serveur si `REDIS_TEST_URL`, base 10).
+  Redis tourne en **double backend** (fake par défaut, vrai serveur si `NF_REDIS_TEST_URL`, base 10).
   ⚠️ Ce listing ne remplace JAMAIS `users/{id}/passkeys` ni `findByUser` (chemin chaud du login).
 - Contrats : `IToken` (getUser/isAuthenticated/getRoles/getCredentials/**getScopes**/get-setAttribute),
   `IAuthenticator` (supports/createToken/authenticate/onSuccess/onFailure), `ISecuredArea`, `IFirewall`,

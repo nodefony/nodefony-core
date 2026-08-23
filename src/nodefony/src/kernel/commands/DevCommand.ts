@@ -76,7 +76,7 @@ class Dev extends Command {
     const kernel = this.kernel as Kernel | null;
     if (!kernel) return;
     this.#reporter = new BootReporter(kernel, {
-      // Gate TTY CENTRALISÉ du Kernel (résolu 1× au boot, NO_TTY-aware) plutôt
+      // Gate TTY CENTRALISÉ du Kernel (résolu 1× au boot, NF_NO_TTY-aware) plutôt
       // qu'une relecture directe de `process.stdout.isTTY` → cohérent avec la
       // couleur ANSI et surchargeable en test/CI.
       debug: Boolean(kernel.debug),
@@ -87,7 +87,7 @@ class Dev extends Command {
 
   override async onKernelStart(): Promise<void> {
     this.cli.environment = "development";
-    process.env.MODE_START = "development";
+    process.env.NF_MODE_START = "development";
 
     // Deux chemins mènent au même boot serveur, et c'est voulu :
     //  · enfant supervisé (`NF_DEV_CHILD=1`), lancé par le superviseur ;

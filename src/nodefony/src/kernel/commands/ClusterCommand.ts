@@ -58,7 +58,7 @@ class Cluster extends Command {
 
   override async onKernelStart(opts?: { workers?: string }): Promise<void> {
     this.cli.environment = "production";
-    process.env.MODE_START = "cluster";
+    process.env.NF_MODE_START = "cluster";
     const cfgWorkers = await loadClusterConfig();
     const topo = resolveTopology({
       flag: opts?.workers,

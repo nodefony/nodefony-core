@@ -16,7 +16,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  *    `vitest-mocha-shim.mjs` (re-export des équivalents vitest).
  *  - `import { assert, expect } from "chai"` : chai (lib d'assertion) reste tel quel.
  *  - reflect-metadata (decorators), alias `before`/`after`→`beforeAll`/`afterAll` et
- *    le perf-skip OPT-IN (`RUN_PERF=1`) sont portés dans `src/tests/vitest.setup.ts`.
+ *    le perf-skip OPT-IN (`NF_RUN_PERF=1`) sont portés dans `src/tests/vitest.setup.ts`.
  *
  * Decorators : requis pour le DI (`@injectable`/`@inject`) — cf `vitest.oxc.ts` (racine)
  * pour le pourquoi du bloc `oxc` ci-dessous.

@@ -815,7 +815,7 @@ Le module suit la règle de fond du framework : **ce qui n'est pas observé ne c
 | Les sessions disparaissent au redémarrage                    | `session.store` resté sur `memory`                                            | `session: { store: "mongoose" }`, ou déclarer `NF_DATABASE_URL` et laisser `auto` |
 | `audit store "mongoose" inconnu` — boot avorté en production | Brique **non portée** par Mongo, sélectionnée explicitement                   | Laisser `auto` (repli annoncé) ou choisir un backend qui la porte                 |
 | Les comptes ne survivent pas au redémarrage                  | `provisionUsers` toujours branché sur l'annuaire mémoire                      | Câbler `MongooseUserRepository.from(orm)` (`MongooseUserRepository.ts:74`)        |
-| Le premier `npm test` du module met une éternité             | Le serveur Mongo de test télécharge son binaire (une seule fois)              | Définir `MONGO_TEST_URI` sur un conteneur Mongo                                   |
+| Le premier `npm test` du module met une éternité             | Le serveur Mongo de test télécharge son binaire (une seule fois)              | Définir `NF_MONGO_TEST_URI` sur un conteneur Mongo                                |
 
 ## 🧪 Tests et couverture
 
@@ -840,7 +840,7 @@ couverts en amont, dans les modules qui possèdent les contrats.
 > MongoDB. Sans lui, l'infrastructure de test fournit une URI nulle, chaque suite se met en
 > `describe.skipIf`… **et un test sauté compte comme vert.** La suite passe alors en n'ayant
 > réellement exercé que la configuration. Avant de conclure « ça marche », vérifie que la base était
-> bien là : soit `MONGO_TEST_URI` pointe sur un conteneur (`docker run -p 27017:27017 mongo:7`), soit
+> bien là : soit `NF_MONGO_TEST_URI` pointe sur un conteneur (`docker run -p 27017:27017 mongo:7`), soit
 > le serveur en mémoire a démarré. Les bancs de transaction exigent en plus un **replica set**.
 >
 > Le catalogue des variables d'infrastructure du dépôt est `vitest.gates.ts`, à la racine. Ce module

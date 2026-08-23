@@ -72,10 +72,10 @@ branche : réserver l'infra à `main`, c'est découvrir la casse après le merge
 | --- | --- | --- | --- |
 | `node.js.yml` | Vérifications | types, lint, audit des dépendances, conformité des skills | — |
 | `node.js.yml` | Tests unit | suites unitaires, **3 systèmes × 2 versions de Node** | — |
-| `node.js.yml` | Filet CLI | le binaire `nodefony` démarre vraiment (`RUN_CLI_BOOT`) | — |
+| `node.js.yml` | Filet CLI | le binaire `nodefony` démarre vraiment (`NF_RUN_CLI_BOOT`) | — |
 | `node.js.yml` | Tests intégration | pipeline HTTP/WS sur serveur réel, dont le câblage du 429 (backoff NIST) | serveur **dev ET production** |
 | `orm.yml` | Stores | drizzle sur **sqlite + PostgreSQL + MySQL**, redis, orm-core | PostgreSQL, MariaDB, Redis |
-| `orm.yml` | Socket distribuée | fan-out **cross-process** (IPC) et **cross-pod** (backplane Redis), attaques F83 | Redis, `RUN_CLUSTER_E2E` |
+| `orm.yml` | Socket distribuée | fan-out **cross-process** (IPC) et **cross-pod** (backplane Redis), attaques F83 | Redis, `NF_RUN_CLUSTER_E2E` |
 | `memory.yml` | Charge, fuites et scopes | heap, fuites HTTP/WS, scopes d'injection sous charge, sessions, flux | serveur `--expose-gc` |
 | `e2e-autonomes.yml` | Cluster · configuration · arrêt gracieux | fan-out entre process, sonde de pod, point de santé, surcharge par l'environnement | aucun (les scripts se montent) |
 | `codeql.yml` | Analyze | analyse statique de sécurité | — |
@@ -149,7 +149,7 @@ exemption invisible est une exemption qu'on n'ôte jamais.
 ```yaml
 - name: Run unit tests (turbo)
   env:
-    NF_GATES_ALLOW: NF_PG_URL,NF_MYSQL_URL,REDIS_URL,REDIS_TEST_URL,MONGO_TEST_URI
+    NF_GATES_ALLOW: NF_PG_URL,NF_MYSQL_URL,REDIS_URL,NF_REDIS_TEST_URL,NF_MONGO_TEST_URI
   run: npm test
 ```
 
@@ -247,9 +247,9 @@ npm test
 
 # Job « Socket distribuée » d'orm.yml
 cd src/packages/@nodefony/realtime
-RUN_CLUSTER_E2E=1 \
+NF_RUN_CLUSTER_E2E=1 \
 REDIS_URL=redis://:nodefony-dev@127.0.0.1:6379 \
-REDIS_TEST_URL=redis://:nodefony-dev@127.0.0.1:6379/15 \
+NF_REDIS_TEST_URL=redis://:nodefony-dev@127.0.0.1:6379/15 \
 npm test
 
 # Job « Charge et mémoire » (exige le serveur lancé avec --expose-gc)
@@ -272,8 +272,8 @@ Un choix énoncé n'est pas un oubli. Ce qui suit est délibérément dehors :
 <!-- prettier-ignore -->
 | Absent | Raison |
 | --- | --- |
-| Bancs de performance (`RUN_PERF`) | une latence dépend du voisin de runner ; un seuil non déterministe est un futur rouge stérile |
-| Sondes de rupture WebSocket (`RUN_WS_RUPTURE`) | elles épuisent les ports éphémères de l'hôte |
+| Bancs de performance (`NF_RUN_PERF`) | une latence dépend du voisin de runner ; un seuil non déterministe est un futur rouge stérile |
+| Sondes de rupture WebSocket (`NF_RUN_WS_RUPTURE`) | elles épuisent les ports éphémères de l'hôte |
 | Loki, OpenSearch (`LogBackplaneE2E`) | décor à monter à la forge — et `test:all` n'importe pas leurs gates, donc même une machine qui FAIT tourner les deux conteneurs les saute en silence. Reporté APRÈS la release (décision 2026-07-27) |
 | `idempotency-cluster-e2e` | tape sur le serveur de développement : sa place est avec les bancs à serveur partagé |
 | Les preuves à décor opt-in (un serveur par plafond) | coût de montage disproportionné pour ce qu'elles ajoutent à chaque poussée |

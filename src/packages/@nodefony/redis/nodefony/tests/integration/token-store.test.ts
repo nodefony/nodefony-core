@@ -394,21 +394,21 @@ describe("Redis RedisTokenStore — ITokenStore + TTL natif (J4b, FakeRedis)", (
 
 /**
  * Smoke test contre un VRAI serveur Redis (prouve la compat du cast structural +
- * les noms de commandes node-redis v6). Skip si `REDIS_TEST_URL` n'est pas défini
+ * les noms de commandes node-redis v6). Skip si `NF_REDIS_TEST_URL` n'est pas défini
  * (CI sans Redis / poste local zéro-config). Utilise l'horloge réelle (`Date.now`)
  * → pas de test d'expiration TTL ici (pas de fast-forward possible).
  */
 // Base DÉDIÉE (cf `redisTestUrl`) : indépendance vis-à-vis des autres fichiers,
 // qui purgent la leur.
-const REDIS_TEST_URL = redisTestUrl(11);
-describe.skipIf(!REDIS_TEST_URL)(
-  "Redis RedisTokenStore — serveur réel (REDIS_TEST_URL)",
+const NF_REDIS_TEST_URL = redisTestUrl(11);
+describe.skipIf(!NF_REDIS_TEST_URL)(
+  "Redis RedisTokenStore — serveur réel (NF_REDIS_TEST_URL)",
   () => {
     // Import dynamique : `redis` n'est chargé que si le test tourne.
     it("put/find/markUsed/revoke/deny/subject contre un vrai Redis", async () => {
       const { createClient } = await import("redis");
-      // Non-null : le `describe.skipIf(!REDIS_TEST_URL)` garantit l'URL ici.
-      const client = createClient({ url: REDIS_TEST_URL! });
+      // Non-null : le `describe.skipIf(!NF_REDIS_TEST_URL)` garantit l'URL ici.
+      const client = createClient({ url: NF_REDIS_TEST_URL! });
       await client.connect();
       const ns = `test:${Date.now()}`;
       try {

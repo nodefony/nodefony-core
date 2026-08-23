@@ -138,7 +138,7 @@ jobs:
       REDIS_URL: redis://:nodefony-dev@127.0.0.1:6379
       # Index dédié : le banc comportemental purge sa base, il ne doit pas
       # emporter celle des bancs de pagination.
-      REDIS_TEST_URL: redis://:nodefony-dev@127.0.0.1:6379/15
+      NF_REDIS_TEST_URL: redis://:nodefony-dev@127.0.0.1:6379/15
 
     steps:
       - name: Checkout
@@ -212,7 +212,7 @@ jobs:
       - name: Mongoose — serveur réel
         working-directory: src/packages/@nodefony/mongoose
         env:
-          MONGO_TEST_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+          NF_MONGO_TEST_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
         run: npm test
 
       - name: orm-core
@@ -240,7 +240,7 @@ jobs:
   #
   # C'est la promesse centrale du framework — « HTTP et WebSocket co-citoyens,
   # jusqu'en cluster » — et elle n'était vérifiée nulle part : les deux bancs qui
-  # la portent s'auto-skippent sans `RUN_CLUSTER_E2E`, jamais posé. La garantie
+  # la portent s'auto-skippent sans `NF_RUN_CLUSTER_E2E`, jamais posé. La garantie
   # la plus structurante du produit reposait donc sur des tests que personne
   # n'exécutait, dans une suite qui sortait verte.
   #
@@ -253,12 +253,12 @@ jobs:
 
     env:
       # Ouvre les deux bancs e2e. Les MESURES (latence, débit) restent derrière
-      # `RUN_PERF`, fermé ici : un banc de mesure sur runner partagé rendrait un
+      # `NF_RUN_PERF`, fermé ici : un banc de mesure sur runner partagé rendrait un
       # chiffre non reproductible, et un seuil non déterministe est un futur
       # rouge qui n'apprend rien.
-      RUN_CLUSTER_E2E: "1"
+      NF_RUN_CLUSTER_E2E: "1"
       REDIS_URL: redis://:nodefony-dev@127.0.0.1:6379
-      REDIS_TEST_URL: redis://:nodefony-dev@127.0.0.1:6379/15
+      NF_REDIS_TEST_URL: redis://:nodefony-dev@127.0.0.1:6379/15
 
     steps:
       - name: Checkout

@@ -6,7 +6,7 @@
 #
 # Usage (depuis n'importe où — la racine repo est dérivée) :
 #   run.sh load             # suites load WS versionnées (CI-stable) — alias: `mocha`
-#   run.sh load --rupture   # + sondes plafond/rupture (RUN_WS_RUPTURE=1)
+#   run.sh load --rupture   # + sondes plafond/rupture (NF_RUN_WS_RUPTURE=1)
 #   run.sh ws-conn          # script axe 1 — plafond connexions WS
 #   run.sh ws-msg           # script axe 2 — débit echo (MODE=broadcast pour fan-out)
 #   run.sh http             # script charge HTTP (RPS + percentiles)
@@ -39,7 +39,7 @@ case "$cmd" in
   load|mocha)   # `mocha` gardé comme alias (mocha SUPPRIMÉ 2026-06-05 → vitest)
     cd "$HTTP_PKG"
     PAT="LOAD — WS"
-    if [[ "${1:-}" == "--rupture" ]]; then export RUN_WS_RUPTURE=1; PAT="LOAD — WS|RUPTURE"; fi
+    if [[ "${1:-}" == "--rupture" ]]; then export NF_RUN_WS_RUPTURE=1; PAT="LOAD — WS|RUPTURE"; fi
     echo ">>> suites load WS (vitest.load.config.ts) — pattern: $PAT"
     exec npx vitest run --config vitest.load.config.ts -t "$PAT"
     ;;

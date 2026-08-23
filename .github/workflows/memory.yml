@@ -151,7 +151,7 @@ jobs:
       # le seuil a été franchi — un dépassement de quelques Mo se lit comme du
       # bruit de ramasse-miettes, un dépassement d'un ordre de grandeur comme une
       # fuite. Sans ce chiffre, les deux se ressemblent.
-      # Les sondes de rupture (`RUN_WS_RUPTURE`) restent volontairement fermées : elles
+      # Les sondes de rupture (`NF_RUN_WS_RUPTURE`) restent volontairement fermées : elles
       # épuisent les ports éphémères de l'hôte. Leur silence est un choix, pas un oubli.
       - name: Ce que le banc a mesuré
         if: always()

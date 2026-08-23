@@ -12,11 +12,11 @@
  * les basses au développement local.
  *
  * @param db - index de base (0-15) — UNIQUE par fichier de test.
- * @returns l'URL scopée, ou `null` si `REDIS_TEST_URL` n'est pas défini (pas
+ * @returns l'URL scopée, ou `null` si `NF_REDIS_TEST_URL` n'est pas défini (pas
  *   d'infra → au fichier de décider s'il skippe ou bascule sur un double).
  */
 export function redisTestUrl(db: number): string | null {
-  const base = process.env.REDIS_TEST_URL;
+  const base = process.env.NF_REDIS_TEST_URL;
   if (!base) return null;
   const url = new URL(base);
   url.pathname = `/${db}`;

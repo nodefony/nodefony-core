@@ -13,7 +13,7 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
   par le DDL dev (elles vivent dans le `CREATE TABLE`, donc hors d'atteinte d'une base existante).
 - **Noms d'entités du framework REFUSÉS** par `create entity` (`User`, `session`, `access_token`,
   `audit_event`… — casse/séparateurs ignorés ; table `scaffold/reservedEntities.ts`, tenue honnête par
-  un gate `RUN_CLI_BOOT=1` contre `nodefony inspect entities`). Registre plat : un homonyme dépossède
+  un gate `NF_RUN_CLI_BOOT=1` contre `nodefony inspect entities`). Registre plat : un homonyme dépossède
   l'entité du module, l'app ne démarre plus sur un message de « colonne inconnue ».
 - **`drizzle-orm` = dep de l'APP** (le code généré l'importe en direct) : gabarit `complete` + rattrapage
   par `create entity`. Sans elle, seul le hissage npm sauvait la résolution — absent en `--link`.

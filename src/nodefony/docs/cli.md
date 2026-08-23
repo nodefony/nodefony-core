@@ -338,7 +338,7 @@ Le CLI est couvert par une suite dédiée du cœur, sans serveur pour la plupart
   (`create.test.ts`, `entityFields.test.ts`, `scaffoldDestination.test.ts`), la complétion
   (`completion.test.ts`) et la délégation du binaire projet/global (`resolveLocalCli.test.ts`).
 - **Intégration / bout en bout** — le binaire réel `node bin/nodefony <commande>` (`CliIntegration.test.ts`) :
-  `--help`/`--version` sans condition, et les boots serveur derrière `RUN_CLI_BOOT=1`.
+  `--help`/`--version` sans condition, et les boots serveur derrière `NF_RUN_CLI_BOOT=1`.
 
 Le décompte exact (cas comptés, par fichier) est rendu dans la carte de tests de cette page — jamais
 figé dans le texte, où il vieillirait. Pour le relancer : `cd src/nodefony && npm run test` (les boots

@@ -575,7 +575,7 @@ uniquement sur un chemin d'administration. Les trois stores partagent ce mécani
 > **Ce mécanisme n'est pas exercé sans serveur Redis réel.** Le double utilisé par défaut,
 > `FakePaginatingRedis` (`session-pagination.test.ts:39`), découpe ses lots à exactement `COUNT`
 > clés — il ne déborde jamais, donc la branche de reprise n'est jamais atteinte. Or c'est un vrai
-> serveur qui a révélé le débordement. Sans `REDIS_TEST_URL`, les bancs de pagination passent au vert
+> serveur qui a révélé le débordement. Sans `NF_REDIS_TEST_URL`, les bancs de pagination passent au vert
 > **sans avoir testé la seule chose que ce code résout**.
 
 ### Une asymétrie sur les curseurs hostiles

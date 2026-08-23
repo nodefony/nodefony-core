@@ -19,8 +19,8 @@ import { z } from "zod";
  *
  * ⚠️ ENV : ce schéma reste PUR (pas de lecture `process.env` ici, sinon il
  * deviendrait non déterministe et non sérialisable en JSON Schema). La surcharge
- * par variables d'environnement (`REDIS_URL`, `REDIS_HOST`, `REDIS_PORT`,
- * `REDIS_PASSWORD`) est appliquée dans {@link defineRedisConfig}, APRÈS le parse.
+ * par variables d'environnement (`REDIS_URL`, `NF_REDIS_HOST`, `NF_REDIS_PORT`,
+ * `NF_REDIS_PASSWORD`) est appliquée dans {@link defineRedisConfig}, APRÈS le parse.
  *
  * SURCHARGE PAR L'APPLICATION (fusion récursive) :
  *
@@ -84,7 +84,7 @@ const socketSchema = z
       .default("localhost")
       .describe(
         "Hôte du serveur Redis. Défaut `localhost` (jamais d'hôte d'infra " +
-          "hardcodé). Surchargeable par l'env `REDIS_HOST`. Aligné sur l'infra " +
+          "hardcodé). Surchargeable par l'env `NF_REDIS_HOST`. Aligné sur l'infra " +
           "`docker/docker-compose.yml` (Redis bindé `127.0.0.1:6379`).",
       ),
     port: z
@@ -93,7 +93,7 @@ const socketSchema = z
       .min(1)
       .max(65_535)
       .default(6379)
-      .describe("Port TCP du serveur Redis. Défaut 6379. Env `REDIS_PORT`."),
+      .describe("Port TCP du serveur Redis. Défaut 6379. Env `NF_REDIS_PORT`."),
     family: z
       .union([z.literal(0), z.literal(4), z.literal(6)])
       .default(0)
@@ -190,7 +190,7 @@ const globalOptionsSchema = z
           "Mot de passe Redis (`requirepass` ou ACL). Optionnel en dev sans " +
           "auth. ⚠️ Zero Trust : Redis DOIT avoir une auth même en dev (cf " +
           "docker compose `--requirepass`). Surchargé par l'env " +
-          "`REDIS_PASSWORD` — NE JAMAIS committer un secret dans la config.",
+          "`NF_REDIS_PASSWORD` — NE JAMAIS committer un secret dans la config.",
       }),
   })
   .describe(

@@ -161,7 +161,7 @@ Utilisé dans Kernel.memoryUsage() pour afficher RSS/heap.
 
 ## Commandes existantes — `src/nodefony/src/kernel/commands/`
 
-Filet d'intégration : `CliIntegration.test.ts` (`RUN_CLI_BOOT=1` pour les boots réels).
+Filet d'intégration : `CliIntegration.test.ts` (`NF_RUN_CLI_BOOT=1` pour les boots réels).
 
 | Command      | Alias         | Fichier                | Note                                                          |
 | ------------ | ------------- | ---------------------- | ------------------------------------------------------------- |
@@ -616,7 +616,7 @@ Gardes AVANT écriture : hors projet · `@nodefony/drizzle` absent de la cible �
 déclarée · **nom RÉSERVÉ par un module du framework** (`scaffold/reservedEntities.ts` : `User`,
 `session`, `access_token`, `audit_event`… ; casse et séparateurs ignorés — registre ORM PLAT, un
 homonyme dépossède le module et l'app ne démarre plus sur un message de « colonne inconnue » ;
-table tenue honnête par le gate `RUN_CLI_BOOT=1` de `CliIntegration.test.ts` qui la confronte à
+table tenue honnête par le gate `NF_RUN_CLI_BOOT=1` de `CliIntegration.test.ts` qui la confronte à
 `nodefony inspect entities --json`) · champ invalide. Ajoute `drizzle-orm` au `package.json` de
 l'app si absent (le code produit l'importe EN DIRECT — sans la dep, seul le hissage npm sauvait
 la résolution, absent en `--link`) et l'ANNONCE (`npm install` requis). **La SUPPRESSION naît gardée** : `@IsGranted("ROLE_ADMIN")` sur `destroy` dès que
@@ -710,7 +710,7 @@ Tag eta résiduel dans un rendu = throw (projet corrompu refusé). Renames :
 dotfiles publiés). Exit codes :
 `OK`/`USAGE`/`CANTCREAT`/`SOFTWARE`. Tests `create.test.ts` (parse + spec +
 moteur 2 presets × 4 fronts + interactif sur streams + e2e bin gate
-`RUN_CLI_BOOT=1`). Preuves terrain : complete+react (install→build→tsgo→lint→
+`NF_RUN_CLI_BOOT=1`). Preuves terrain : complete+react (install→build→tsgo→lint→
 unit→e2e + page HMR nonce servie), minimal, vue, angular.
 
 ## Hooks Command

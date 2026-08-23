@@ -4,10 +4,19 @@ import { defineRedisConfig } from "../../config/defineModuleConfig";
 import { buildClientOptions } from "../../src/buildClientOptions";
 
 // Isolation : ces tests unitaires doivent être déterministes quelle que soit la
-// façon dont vitest est lancé (ex. `REDIS_PASSWORD=... vitest run` pour
+// façon dont vitest est lancé (ex. `NF_REDIS_PASSWORD=... vitest run` pour
 // l'intégration). On purge les variables d'env Redis ambiantes au chargement ;
 // le bloc « env layering » les pose lui-même et restaure ensuite.
-for (const k of ["REDIS_URL", "REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD"]) {
+// `NF_REDIS_URL` est PRIORITAIRE sur `REDIS_URL` (resolveInfra) : l'omettre de
+// cette purge laissait un poste qui la pose faire échouer « REDIS_URL surcharge
+// l'url » — le test aurait mesuré l'environnement, pas le code.
+for (const k of [
+  "NF_REDIS_URL",
+  "REDIS_URL",
+  "NF_REDIS_HOST",
+  "NF_REDIS_PORT",
+  "NF_REDIS_PASSWORD",
+]) {
   delete process.env[k];
 }
 
@@ -53,10 +62,10 @@ describe("@nodefony/redis — defineRedisConfig (env layering)", () => {
     assert.ok(Object.isFrozen(c));
   });
 
-  it("REDIS_HOST / REDIS_PORT / REDIS_PASSWORD surchargent", () => {
-    process.env.REDIS_HOST = "redis.internal";
-    process.env.REDIS_PORT = "6380";
-    process.env.REDIS_PASSWORD = "s3cret";
+  it("NF_REDIS_HOST / NF_REDIS_PORT / NF_REDIS_PASSWORD surchargent", () => {
+    process.env.NF_REDIS_HOST = "redis.internal";
+    process.env.NF_REDIS_PORT = "6380";
+    process.env.NF_REDIS_PASSWORD = "s3cret";
     const c = defineRedisConfig({});
     assert.equal(c.globalOptions.socket.host, "redis.internal");
     assert.equal(c.globalOptions.socket.port, 6380);
@@ -69,8 +78,8 @@ describe("@nodefony/redis — defineRedisConfig (env layering)", () => {
     assert.equal(c.url, "redis://u:p@h:6390/2");
   });
 
-  it("ignore un REDIS_PORT invalide", () => {
-    process.env.REDIS_PORT = "not-a-port";
+  it("ignore un NF_REDIS_PORT invalide", () => {
+    process.env.NF_REDIS_PORT = "not-a-port";
     const c = defineRedisConfig({});
     assert.equal(c.globalOptions.socket.port, 6379);
   });

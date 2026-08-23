@@ -31,7 +31,7 @@ Lancer le runner sans filtre = des centaines de lignes d'output. Ce filtre isole
 - Serveur Nodefony **lancé** sur ports 5151/5152 (voir skill `nodefony-start-server`) — les tests
   **TAPENT** ce serveur, ils ne le spinnent pas. `before all` en ECONNREFUSED = serveur down/port
   pris, **jamais le heap** (vu 3×).
-- **NE PAS enchaîner** avec le filet CLI (`RUN_CLI_BOOT=1` spawne `production`/`cluster` sur
+- **NE PAS enchaîner** avec le filet CLI (`NF_RUN_CLI_BOOT=1` spawne `production`/`cluster` sur
   5151/5152 → conflit de ports). Séquencer : (filet CLI seul) PUIS (`start.sh` + memory test).
 - Les tests utilisent l'endpoint `/nodefony/test/memory` du module test pour mesurer le heap
 

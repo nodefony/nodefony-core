@@ -19,7 +19,7 @@
 //      Le cluster tourne en `production` (front prod, pas de Vite) : le module test (dev-only) doit
 //      être rendu chargeable pour le banc (gate temporaire `when: NF_IDEMPOTENCY_STORE==="redis"` sur
 //      `use("@nodefony/test")`), et l'admin est seedé via NF_ADMIN_PASSWORD :
-//      NF_IDEMPOTENCY_STORE=redis REDIS_PASSWORD=nodefony-dev NF_ADMIN_PASSWORD=secret NF_USER_STORE=memory \
+//      NF_IDEMPOTENCY_STORE=redis NF_REDIS_PASSWORD=nodefony-dev NF_ADMIN_PASSWORD=secret NF_USER_STORE=memory \
 //        node node_modules/nodefony/bin/nodefony cluster --workers 2
 //      (vérifier le log : 2× `Idempotency store → "redis" (distributed)`)
 // Lancement (racine repo) :

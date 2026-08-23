@@ -665,7 +665,7 @@ processus se raccorde — et c'est pour cela qu'elles ne vivent pas dans un fich
 | `NF__REALTIME__<CHEMIN>`          | mécanisme du cœur      | remplace n'importe quelle clé, par son chemin. Ex. `NF__REALTIME__ENABLED` |
 | `NF_CLUSTER`                      | posée par le lancement | à `1`, le driver `cluster` s'active en worker. Ne la pose pas à la main    |
 | `NF_CLUSTER_PROBE`                | ce module              | à `0`, coupe la sonde de pod même si `cluster.probe.enabled` est vrai      |
-| `POD_NAME`                        | déploiement            | étiquette d'origine du processus ; sinon dérivée du nom d'hôte et du PID   |
+| `NF_POD_NAME`                     | déploiement            | étiquette d'origine du processus ; sinon dérivée du nom d'hôte et du PID   |
 
 L'ordre de recouvrement, du plus faible au plus fort :
 
@@ -781,7 +781,7 @@ qui compte ici, c'est **ce que les suites prouvent sur la configuration**.
 > ```bash
 > cd src/packages/@nodefony/realtime
 > npm test                                              # unitaires + IPC entre workers
-> RUN_CLUSTER_E2E=1 REDIS_PASSWORD=nodefony-dev npm test # + le fan-out entre machines
+> NF_RUN_CLUSTER_E2E=1 NF_REDIS_PASSWORD=nodefony-dev npm test # + le fan-out entre machines
 > npm run coverage                                      # couverture (vitest, v8)
 > ```
 

@@ -300,7 +300,7 @@ class Realtime extends Module<IRealtimeConfig> {
     }
     const backplane = await factory({
       module: this,
-      // Unique cross-pod (POD_NAME/hostname + pid) — un PID nu est namespacé
+      // Unique cross-pod (NF_POD_NAME/hostname + pid) — un PID nu est namespacé
       // par conteneur (2 pods k8s = PID 1) et ferait avaler le fan-out par
       // l'anti-écho. Cf resolveBackplaneOriginId.
       originId: resolveBackplaneOriginId(),

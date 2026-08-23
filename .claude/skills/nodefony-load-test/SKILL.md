@@ -26,7 +26,7 @@ Le « vrai » filet de sécurité, committé dans `@nodefony/http`, lancé via l
 **dédiée** `vitest.load.config.ts` (séparée de la non-régression rapide ; mocha SUPPRIMÉ
 2026-06-05). Séquentielle (`fileParallelism:false`). Cas CI-stables
 
-- sondes plafond/rupture **gated** derrière `RUN_WS_RUPTURE=1` (épuisent les ports
+- sondes plafond/rupture **gated** derrière `NF_RUN_WS_RUPTURE=1` (épuisent les ports
   éphémères → disruptif, jamais en CI par défaut).
 
 ```bash
@@ -323,7 +323,7 @@ rejoue et se compare.
 - **Release de scope serveur lague le `close` client** → mesurer la propreté par **poll**
   de `/nodefony/test/als-test/scopes`, pas un `sleep` fixe (cf suites `tests/load/`).
 - **TLS auto-signé** : `rejectUnauthorized:false` partout (déjà dans les scripts).
-- **Sondes rupture vitest** : gated `RUN_WS_RUPTURE=1` + `WS_RUPTURE_CAP` — ne PAS les
+- **Sondes rupture vitest** : gated `NF_RUN_WS_RUPTURE=1` + `NF_WS_RUPTURE_CAP` — ne PAS les
   activer en CI (disruptif pour la machine hôte).
 - Routes test utilisées : `/nodefony/test/ws/echo`, `/nodefony/test/ws/broadcast`,
   `/nodefony/test/memory` (heap), `/nodefony/test/als-test/scopes` (leaks). Fournies par

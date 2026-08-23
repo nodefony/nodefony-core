@@ -387,7 +387,7 @@ class CliKernel extends Cli {
         // le flux normal parser — aucun chemin parallèle. Le help global reste
         // servi hors TTY (CI, scripts — prompter y est absurde) et sur demande
         // explicite (`-h` / `--help`). Le TTY se lit sur `kernel.isTTY`
-        // (source unique, `NO_TTY` respecté — les tests forcent ainsi le help).
+        // (source unique, `NF_NO_TTY` respecté — les tests forcent ainsi le help).
         if (process.argv.slice(2).length === 0 && this.kernel?.isTTY) {
           process.argv.push("menu");
         }

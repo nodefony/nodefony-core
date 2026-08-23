@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
  * jette SILENCIEUSEMENT le fan-out légitime (dette 🔴 #2 du module).
  *
  * Résolution (du plus explicite au filet) :
- *  1. `POD_NAME` (downward API k8s, opt-in opérateur) ;
+ *  1. `NF_POD_NAME` (downward API k8s, opt-in opérateur) ;
  *  2. `os.hostname()` — en k8s = nom du pod (unique), en docker = id court du
  *     conteneur (unique), en bare-metal = nom de machine ;
  *  3. suffixe `:pid` TOUJOURS ajouté : distingue les workers d'un même host
@@ -22,7 +22,7 @@ import { randomUUID } from "node:crypto";
  * Évalué à la CONSTRUCTION du backplane (boot) — 0 coût par message.
  */
 export function resolveBackplaneOriginId(): string {
-  let host = process.env.POD_NAME;
+  let host = process.env.NF_POD_NAME;
   if (!host) {
     try {
       host = hostname();

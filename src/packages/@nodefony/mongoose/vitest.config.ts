@@ -7,7 +7,7 @@ import { gateReporter, MONGO_GATE } from "../../../../vitest.gates";
  *
  * - `tests/unit/` : rapide, sans serveur (config Zod) ;
  * - `tests/integration/` : `mongodb-memory-server` (ReplSet = mongod réel, requis
- *   pour les transactions ; le banc session = standalone, hybride `MONGO_TEST_URI`).
+ *   pour les transactions ; le banc session = standalone, hybride `NF_MONGO_TEST_URI`).
  *
  * Tests = `node:assert` + describe/it/beforeAll/afterAll en **globals** (aucun
  * import mocha) → `globals: true` suffit. `testTimeout` élargi : le 1ᵉʳ run

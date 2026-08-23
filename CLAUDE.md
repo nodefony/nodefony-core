@@ -123,7 +123,7 @@ Avant de commencer une nouvelle phase / tâche :
      `test` — à migrer vers vitest au câblage de la phase, pas avant.
    - **Un `npm test` vert ne prouve pas ce qu'on croit** : les bancs sur serveur réel se skippent
      sans leurs variables d'infra, et un skip compte comme vert (vécu : drizzle 442/781 non
-     exécutés, dont PostgreSQL ET MySQL ; redis 14 tests muets faute de `REDIS_TEST_URL`).
+     exécutés, dont PostgreSQL ET MySQL ; redis 14 tests muets faute de `NF_REDIS_TEST_URL`).
      Source unique des variables + commandes docker = **`vitest.gates.ts`** (racine) ; les suites
      concernées l'affichent en fin de run (`gateReporter`). Lire ce bloc AVANT de conclure « vert ».
      **En CI (`CI` posé) ce n'est plus un avertissement : la passe ÉCHOUE** si une cible déclarée
@@ -465,18 +465,22 @@ Les **invariants** qui doivent rester présents en permanence :
 - **Config d'app** : `nodefony.config.ts` + `env.ts` à la racine (`env.ts` = SEUL lecteur de
   `process.env`). Par-environnement = **fonction `(ctx) => …`**, jamais un fichier parallèle.
 - **🔴 TOUTE variable d'environnement que Nodefony lit se préfixe `NF_`.** Sans exception, y
-  compris pour les tests, les bancs et les interrupteurs de coût (`NF_RUN_PERF`, pas `RUN_PERF`).
+  compris pour les tests, les bancs et les interrupteurs de coût (`NF_RUN_PERF`, `NF_RUN_CLI_BOOT`).
   Une application qui installe le framework a déjà un environnement : `COOKIE_SECRET`, `PG_URL`,
-  `REDIS_HOST`, `POD_NAME`, `APP_ENV` sont des noms que d'autres outils revendiquent, et une
-  collision se manifeste par un comportement inexplicable, jamais par une erreur. Le préfixe dit
-  À QUI appartient la variable — c'est sa seule raison d'être, et elle suffit.
-  Les **seules** exceptions sont les variables qu'on ne possède pas : `NODE_ENV`, `CI`,
-  `NODE_DEBUG`, `UV_THREADPOOL_SIZE`… — celles-là se lisent, ne se renomment pas.
-  ⚠️ `NODEFONY_*` était l'ancienne forme : le stock est **SOLDÉ** (0 restante, renommé en `NF_*`
-  d'un bloc avant la release, sans alias de compatibilité). Ne pas en réintroduire. Ce qui reste
-  hors convention — génériques (`REDIS_*`, `BCRYPT_*`, `POD_NAME`…) et interrupteurs de coût
-  (`RUN_PERF`, `RUN_CLI_BOOT`…) — est inscrit au `MIGRATION_STATUS`, à solder AVANT la release
-  pour la même raison : sans application déployée, la rupture ne coûte rien.
+  `REDIS_HOST`, `POD_NAME` sont des noms que d'autres outils revendiquent, et une collision se
+  manifeste par un comportement inexplicable, jamais par une erreur. Le préfixe dit À QUI
+  appartient la variable — c'est sa seule raison d'être, et elle suffit.
+  Deux exceptions, et deux seulement. (1) Les variables qu'on **ne possède pas** : `NODE_ENV`,
+  `CI`, `NODE_DEBUG`, `UV_THREADPOOL_SIZE`, `KUBERNETES_SERVICE_HOST`… — elles se lisent, ne se
+  renomment pas. (2) Les **alias de plateforme qu'un hébergeur POSE lui-même** (`DATABASE_URL`,
+  `REDIS_URL`, `MONGODB_URI`, `APP_ENV`) : acceptés, mais en **SECOND rang** derrière la forme
+  `NF_` (`resolveInfra`, `APP_ENV || NF_ENV`). Le test qui tranche : **un PaaS pose-t-il ce nom ?**
+  `REDIS_URL` oui (Heroku, Render, Upstash) ⇒ alias. `REDIS_HOST`, `POD_NAME` non — personne ne
+  les pose, c'est l'application qui se les donne ⇒ collision pure, donc préfixe obligatoire.
+  ✅ **La dette est SOLDÉE** : `NODEFONY_*` (18), génériques (12) et interrupteurs de coût (6)
+  renommés d'un bloc avant la release, **sans alias de compatibilité**. Ne pas en réintroduire.
+  ⚠️ Une garde d'isolation de test qui purge `REDIS_URL` sans purger `NF_REDIS_URL` est
+  **inopérante** — c'est la forme préfixée qui gagne (vécu : 4 tests verts pour la mauvaise raison).
 - **Config de module** : 2 fichiers, `nodefony/config/config.ts` (le QUOI — schéma Zod, source
   unique des défauts) + `nodefony/config/defineModuleConfig.ts` (le COMMENT — builder pur).
   Tout module qui expose une config **augmente le registre** `NodefonyModuleConfig`, sinon une clé

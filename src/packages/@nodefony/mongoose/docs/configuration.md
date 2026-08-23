@@ -46,7 +46,7 @@ flowchart TD
   U --> O["3 · Override d'un autre module<br/>clé module-mongoose"]
   O --> E["4 · Env générique<br/>NF__MONGOOSE__…"]
   E --> Z["5 · Validation Zod<br/>types, bornes, défauts manquants"]
-  Z --> V["6 · Env du driver<br/>MONGODB_URI · NF_DATABASE_URL · MONGODB_DEBUG"]
+  Z --> V["6 · Env du driver<br/>MONGODB_URI · NF_DATABASE_URL · NF_MONGODB_DEBUG"]
   V --> F["Object.freeze<br/>config immuable"]
   F --> S["MongooseService<br/>1 connexion par connecteur"]
   S --> DB[("MongoDB")]
@@ -135,7 +135,7 @@ qui collisionnerait à l'import). Trois écarts réels, tous **assumés et véri
    **global au processus**, donc deux drivers avec le même nom de connecteur feraient collision sur
    leurs entités `session` homonymes. Un nom distinct règle le problème par construction
    (`FRAMEWORK_CONNECTOR` (`registerStores.ts:49`)).
-2. **Mongoose expose deux variables dédiées** (`MONGODB_URI`, `MONGODB_DEBUG`) là où Drizzle ne lit
+2. **Mongoose expose deux variables dédiées** (`MONGODB_URI`, `NF_MONGODB_DEBUG`) là où Drizzle ne lit
    que l'infra déclarée. C'est un héritage de convention du driver Mongo, conservé parce qu'il est
    universellement connu — mais l'infra déclarée reste le chemin recommandé.
 3. **`options` n'est pas re-modélisé** (`options` (`config.ts:71`)) : c'est un dictionnaire libre
@@ -188,7 +188,7 @@ export default defineConfig((ctx) => ({
   modules: [
     use("@nodefony/mongoose", {
       // En développement seulement : trace chaque opération Mongoose.
-      // (`MONGODB_DEBUG=1` fait la même chose sans toucher au fichier.)
+      // (`NF_MONGODB_DEBUG=1` fait la même chose sans toucher au fichier.)
       debug: ctx.isDev,
     }),
     "@nodefony/http",
@@ -372,12 +372,12 @@ Deux familles de variables agissent sur ce module, et elles n'ont **pas la même
 Appliquées après la validation, dans une seule fonction
 (`applyEnvOverrides()` (`defineModuleConfig.ts:22`)). Elles gagnent donc sur tout le reste.
 
-| Variable          | Effet                                                                                                   |
-| ----------------- | ------------------------------------------------------------------------------------------------------- |
-| `MONGODB_URI`     | Remplace l'`uri` du connecteur primaire. **La place du secret de connexion.**                           |
-| `NF_DATABASE_URL` | L'infra déclarée du framework. Même effet, **si et seulement si** le schéma est `mongodb`/`mongodb+srv` |
-| `DATABASE_URL`    | Alias de la précédente, pour les plateformes qui l'imposent (`resolveInfra()` (`infra.ts:134`))         |
-| `MONGODB_DEBUG`   | `1` ou `true` → `debug = true`. Toute autre valeur est sans effet                                       |
+| Variable           | Effet                                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------------- |
+| `MONGODB_URI`      | Remplace l'`uri` du connecteur primaire. **La place du secret de connexion.**                           |
+| `NF_DATABASE_URL`  | L'infra déclarée du framework. Même effet, **si et seulement si** le schéma est `mongodb`/`mongodb+srv` |
+| `DATABASE_URL`     | Alias de la précédente, pour les plateformes qui l'imposent (`resolveInfra()` (`infra.ts:134`))         |
+| `NF_MONGODB_DEBUG` | `1` ou `true` → `debug = true`. Toute autre valeur est sans effet                                       |
 
 Trois précisions qui évitent les mauvaises surprises :
 
@@ -419,11 +419,11 @@ réglage d'environnement invalide doit casser aussi fort qu'un réglage de code.
 
 ### Ce qui n'est pas une variable de ce module
 
-| Variable         | Qui la lit                        | Effet                                                                       |
-| ---------------- | --------------------------------- | --------------------------------------------------------------------------- |
-| `NF_STORE`       | Le cœur, pour toute brique `auto` | Force un backend partout — sert surtout à mesurer sans le goulot d'une base |
-| `NF_ORM_FLOW`    | La sonde de flux ORM              | `1`/`true` l'allume, `0`/`false` l'éteint ; sinon : allumée hors production |
-| `MONGO_TEST_URI` | La suite de tests du module       | Pointe un serveur Mongo existant au lieu d'en démarrer un jetable           |
+| Variable            | Qui la lit                        | Effet                                                                       |
+| ------------------- | --------------------------------- | --------------------------------------------------------------------------- |
+| `NF_STORE`          | Le cœur, pour toute brique `auto` | Force un backend partout — sert surtout à mesurer sans le goulot d'une base |
+| `NF_ORM_FLOW`       | La sonde de flux ORM              | `1`/`true` l'allume, `0`/`false` l'éteint ; sinon : allumée hors production |
+| `NF_MONGO_TEST_URI` | La suite de tests du module       | Pointe un serveur Mongo existant au lieu d'en démarrer un jetable           |
 
 Le dépôt d'utilisateurs, lui, ne se choisit pas par une clé de ce module : il se pose dans le
 `provisionUsers` de ton application. Voir
@@ -439,7 +439,7 @@ De la plus faible à la plus forte priorité :
 3. **Un override venu d'un autre module** — la clé `module-mongoose` dans la config d'un module tiers.
 4. **`NF__MONGOOSE__…`** — l'override générique d'environnement.
 5. **La validation Zod** — types, bornes, défauts des champs restés absents.
-6. **`MONGODB_URI` / infra / `MONGODB_DEBUG`** — la couche du driver, appliquée après validation.
+6. **`MONGODB_URI` / infra / `NF_MONGODB_DEBUG`** — la couche du driver, appliquée après validation.
 7. **Le gel** — la configuration devient immuable pour la durée de vie du processus.
 
 > [!NOTE]
@@ -663,7 +663,7 @@ jamais figés ici.
 
 - **Unitaires, sans aucune base** (`tests/unit/config.test.ts`) : les défauts du connecteur `nodefony`,
   la fusion d'un connecteur personnalisé avec les défauts manquants, le rejet d'un port hors bornes,
-  les deux variables du driver (`MONGODB_URI`, `MONGODB_DEBUG`), le gel de la configuration retournée,
+  les deux variables du driver (`MONGODB_URI`, `NF_MONGODB_DEBUG`), le gel de la configuration retournée,
   et la production du JSON Schema. C'est **la seule famille qui tourne sans serveur Mongo**.
 - **Intégration, sur un vrai `mongod`** (`tests/integration/MongooseService.test.ts` et les dix autres
   bancs) : l'assemblage d'URI, l'ouverture et la fermeture des connexions, puis tout le reste du
@@ -680,7 +680,7 @@ driver.
 > (`globalSetup.ts:48`), chaque banc se met alors en `describe.skipIf` (`mongoTestUri()` (`mongoTestUri.ts:12`))…
 > **et un test sauté compte comme vert.** La suite passe alors en n'ayant réellement exercé que la
 > configuration — c'est-à-dire une petite minorité des cas. Avant de conclure « ça marche », vérifie
-> que la base était là : soit `MONGO_TEST_URI` pointe un conteneur
+> que la base était là : soit `NF_MONGO_TEST_URI` pointe un conteneur
 > (`docker run -p 27017:27017 mongo:7`), soit le serveur en mémoire a démarré.
 >
 > Le catalogue des variables d'infrastructure du dépôt est `vitest.gates.ts`, à la racine. Ce module

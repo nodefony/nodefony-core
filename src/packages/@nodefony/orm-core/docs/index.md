@@ -753,7 +753,7 @@ suite rejouée par dialecte :
 > [!WARNING]
 > **Un compteur vert ne prouve pas qu'une base a été touchée.** Les bancs sur serveur réel se
 > **skippent** quand leur variable d'infra est absente — et un test skippé compte comme vert.
-> PostgreSQL exige `NF_PG_URL`, MySQL/MariaDB `NF_MYSQL_URL`, MongoDB `MONGO_TEST_URI`. La source
+> PostgreSQL exige `NF_PG_URL`, MySQL/MariaDB `NF_MYSQL_URL`, MongoDB `NF_MONGO_TEST_URI`. La source
 > unique de ces variables et des commandes Docker correspondantes est `vitest.gates.ts` à la racine
 > du dépôt ; les suites concernées affichent un récapitulatif de couverture en fin d'exécution
 > (`gateReporter`). **Lire ce bloc avant de conclure « vert ».**

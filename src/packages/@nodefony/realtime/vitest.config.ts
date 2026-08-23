@@ -10,7 +10,7 @@ import { gateReporter, REDIS_GATE } from "../../../../vitest.gates";
  * **`gateReporter` est ce qui rend ce module honnête.** Une bonne part de ce qui
  * compte ici ne s'exerce QUE contre un vrai Redis (fan-out cross-pod, cloisonnement
  * par namespace, injection depuis le bus) ou derrière un interrupteur de coût
- * (`RUN_CLUSTER_E2E`, `RUN_PERF`). Ces suites s'auto-skippent quand le décor manque
+ * (`NF_RUN_CLUSTER_E2E`, `NF_RUN_PERF`). Ces suites s'auto-skippent quand le décor manque
  * — et un skip compte comme un succès : la suite affichait « tout vert » sans avoir
  * touché une ligne de backplane. Le reporter nomme la cible non exercée, donne la
  * commande pour l'ouvrir, et FAIT ÉCHOUER la passe en intégration continue.
@@ -40,7 +40,7 @@ export default defineConfig({
           ],
         },
         {
-          switch: "RUN_CLUSTER_E2E",
+          switch: "NF_RUN_CLUSTER_E2E",
           label: "Cluster e2e (IPC + Redis)",
           // Les deux topologies de la promesse centrale du framework : le
           // fan-out entre PROCESS (fork, sans infra) et entre PODS (Redis).

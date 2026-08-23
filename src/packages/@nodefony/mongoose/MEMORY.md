@@ -25,7 +25,7 @@ Driver **NoSQL Mongoose** sur `@nodefony/orm-core` — adapter documentaire hét
 - Config (`nodefony/config/config.ts`) : `MongooseModuleConfig { debug?, connectors }` + `MongooseConnectorConfig { uri? | host/port/dbname, options? }`. Défaut : connecteur `nodefony` → `localhost:27017/nodefony`.
 - Manifeste app : **opt-in** (commenté dans `nodefony.config.ts` ; Drizzle = ORM SQL par défaut).
 - **Test = `npx vitest run`** (`globals:true`, timeout 120s — 1ᵉʳ run télécharge mongod). Aucun compte n'est écrit ici (il se périme au premier test ajouté) : `npx vitest run 2>&1 | tail -4`. Couverture par sujet : `orm-core-mongoose` (CRUD/relations/tx `MongoMemoryReplSet`) · `advanced` · `session-storage` · `MongooseService` · `bootHookPolicy` · `user-mongoose` + `user-pagination` · `token-store` + `token-pagination` · `webhook-store` · `webauthn-credential-store` + `webauthn-pagination` · `config` (unit).
-- **Mongo de test portable (`MONGO_TEST_URI`)** : si défini → on tape ce serveur (conteneur de service CI GitHub/GitLab, ou `docker run -p 27017:27017 mongo:7`) = **0 download** ; sinon → `mongodb-memory-server` in-process (dev local). ⚠️ Le banc orm-core exige un **replica set** (transactions) → reste sur `MongoMemoryReplSet` (un service standalone ne suffit pas).
+- **Mongo de test portable (`NF_MONGO_TEST_URI`)** : si défini → on tape ce serveur (conteneur de service CI GitHub/GitLab, ou `docker run -p 27017:27017 mongo:7`) = **0 download** ; sinon → `mongodb-memory-server` in-process (dev local). ⚠️ Le banc orm-core exige un **replica set** (transactions) → reste sur `MongoMemoryReplSet` (un service standalone ne suffit pas).
 
 ## Gotchas (vs SQL)
 

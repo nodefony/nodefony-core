@@ -22,14 +22,14 @@ declare module "vitest" {
  * `mongod` démarrant en même temps saturaient la machine → échecs flaky
  * (timeouts). Un seul serveur partagé supprime cette contention.
  *
- * `MONGO_TEST_URI` (conteneur Mongo CI/Docker) court-circuite le spawn. Un échec
+ * `NF_MONGO_TEST_URI` (conteneur Mongo CI/Docker) court-circuite le spawn. Un échec
  * de provisioning (offline, binaire absent, ressources) → `mongoUri = null` →
  * suite skippée, pas en échec.
  */
 export default async function setup(
   project: TestProject,
 ): Promise<() => Promise<void>> {
-  const external = process.env.MONGO_TEST_URI;
+  const external = process.env.NF_MONGO_TEST_URI;
   if (external) {
     project.provide("mongoUri", external);
     return async () => {};

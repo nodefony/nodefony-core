@@ -467,9 +467,11 @@ class Kernel extends Service implements IKernel {
   console: boolean = this.isConsole();
   /**
    * Vrai terminal disponible ? Résolu UNE fois dans le constructor (volet
-   * « environnement », cf {@link IKernel.isTTY}). Surchargeable via `NO_TTY` (test/CI).
+   * « environnement », cf {@link IKernel.isTTY}). Surchargeable via `NF_NO_TTY` (test/CI).
    */
-  isTTY: boolean = process.env.NO_TTY ? false : process.stdout?.isTTY === true;
+  isTTY: boolean = process.env.NF_NO_TTY
+    ? false
+    : process.stdout?.isTTY === true;
   /**
    * Timer no-op ref'd gardant l'event loop vivant pendant un {@link park} `keepAlive`
    * (daemon CONSOLE sans socket). `null` tant qu'aucun park alive — lazy. Nettoyé par
@@ -2206,7 +2208,7 @@ class Kernel extends Service implements IKernel {
     const logCfg = this.options.log as TypeKernelOptions["log"];
     Syslog.setOutputBuffering(logCfg?.buffered ?? "auto");
     // Couleur ANSI des logs — résolue UNE fois ici (boot) à partir de `this.isTTY`
-    // (déjà résolu, NO_TTY-aware — PAS de re-lecture de process.stdout), augmenté
+    // (déjà résolu, NF_NO_TTY-aware — PAS de re-lecture de process.stdout), augmenté
     // des conventions NO_COLOR (no-color.org) + FORCE_COLOR. pipe/fichier = brut →
     // 0 ANSI baké (stdout pipe + .jsonl propres). 0 test par log ensuite.
     setLogColor(resolveColorEnabled(this.isTTY));

@@ -27,31 +27,31 @@
         "tsconfig*.json",
         "package.json"
       ],
-      "env": ["NF_*", "REDIS_*", "MONGO_TEST_URI", "MONGODB_URI", "RUN_*", "CI"]
+      "env": ["NF_*", "REDIS_URL", "DATABASE_URL", "MONGODB_URI", "CI"]
     },
     "test:integration": {
       "dependsOn": ["build"],
       "cache": false,
       "outputs": [],
-      "env": ["NF_*", "REDIS_*", "MONGO_TEST_URI", "MONGODB_URI", "RUN_*", "CI"]
+      "env": ["NF_*", "REDIS_URL", "DATABASE_URL", "MONGODB_URI", "CI"]
     },
     "test:load": {
       "dependsOn": ["build"],
       "cache": false,
       "outputs": [],
-      "env": ["NF_*", "REDIS_*", "MONGO_TEST_URI", "MONGODB_URI", "RUN_*", "CI"]
+      "env": ["NF_*", "REDIS_URL", "DATABASE_URL", "MONGODB_URI", "CI"]
     },
     "test:memory": {
       "dependsOn": ["build"],
       "cache": false,
       "outputs": [],
-      "env": ["NF_*", "REDIS_*", "MONGO_TEST_URI", "MONGODB_URI", "RUN_*", "CI"]
+      "env": ["NF_*", "REDIS_URL", "DATABASE_URL", "MONGODB_URI", "CI"]
     },
     "test:boot": {
       "dependsOn": ["build"],
       "cache": false,
       "outputs": [],
-      "env": ["NF_*", "REDIS_*", "MONGO_TEST_URI", "MONGODB_URI", "RUN_*", "CI"]
+      "env": ["NF_*", "REDIS_URL", "DATABASE_URL", "MONGODB_URI", "CI"]
     },
     "dev": {
       "dependsOn": ["^build"],

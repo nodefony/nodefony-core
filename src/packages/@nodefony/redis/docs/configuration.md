@@ -44,7 +44,7 @@ Trois sources alimentent une configuration Redis, et elles sont empilées dans u
 flowchart TD
   D["1 · Défauts du schéma<br/>config.ts — un .default() par champ"]
   A["2 · Configuration de l'application<br/>use('@nodefony/redis', …) dans nodefony.config.ts"]
-  E["3 · Environnement<br/>NF_REDIS_URL · REDIS_HOST · REDIS_PORT · REDIS_PASSWORD"]
+  E["3 · Environnement<br/>NF_REDIS_URL · NF_REDIS_HOST · NF_REDIS_PORT · NF_REDIS_PASSWORD"]
   P["defineRedisConfig()<br/>parse ▸ garde-fou reconnexion ▸ env ▸ gel"]
   B["buildClientOptions(config, connexion)<br/>url ▸ socket de la connexion ▸ socket global"]
   C1["client main"]
@@ -165,7 +165,7 @@ export default defineConfig(() => ({
           // 5 s pour établir le socket : au-delà, on échoue au lieu de pendre.
           connectTimeout: 5_000,
         },
-        // Aucun secret ici : le mot de passe arrive par REDIS_PASSWORD.
+        // Aucun secret ici : le mot de passe arrive par NF_REDIS_PASSWORD.
       },
       connections: {
         // S'AJOUTE à main / publish / subscribe (fusion profonde des défauts) —
@@ -182,7 +182,7 @@ export default defineConfig(() => ({
 Le mot de passe, lui, ne descend jamais dans un fichier versionné :
 
 ```bash
-export REDIS_PASSWORD=nodefony-dev
+export NF_REDIS_PASSWORD=nodefony-dev
 ```
 
 ### 2. La variante sans configuration — l'infra déclarée
@@ -398,9 +398,9 @@ Toutes sont appliquées **après** la validation, par `applyEnvOverrides()`
 | Variable                        | Ce qu'elle vise             | Comportement                                                                                        |
 | ------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------- |
 | `NF_REDIS_URL` (ou `REDIS_URL`) | `url`                       | Résolue par `resolveInfra()` (`infra.ts:134`) ; `NF_REDIS_URL` l'emporte sur l'alias de plateforme. |
-| `REDIS_HOST`                    | `globalOptions.socket.host` | Posée telle quelle, sans validation supplémentaire.                                                 |
-| `REDIS_PORT`                    | `globalOptions.socket.port` | **Ignorée en silence** si ce n'est pas un entier de `1` à `65535`.                                  |
-| `REDIS_PASSWORD`                | `globalOptions.password`    | Le seul chemin recommandé pour le secret : jamais dans un fichier versionné.                        |
+| `NF_REDIS_HOST`                 | `globalOptions.socket.host` | Posée telle quelle, sans validation supplémentaire.                                                 |
+| `NF_REDIS_PORT`                 | `globalOptions.socket.port` | **Ignorée en silence** si ce n'est pas un entier de `1` à `65535`.                                  |
+| `NF_REDIS_PASSWORD`             | `globalOptions.password`    | Le seul chemin recommandé pour le secret : jamais dans un fichier versionné.                        |
 
 `REDIS_URL` est accepté comme **alias de plateforme** parce que c'est le nom que posent la plupart des
 hébergeurs. Quand les deux existent, la variable préfixée gagne — le préfixe `NF_` sert précisément à
@@ -465,10 +465,10 @@ conflit avec ceux de l'URL. Trois conséquences à connaître :
 <!-- prettier-ignore -->
 | Réglage | Avec une `url` présente |
 | --- | --- |
-| `socket.host` / `socket.port`, `REDIS_HOST` / `REDIS_PORT` | **sans effet** — l'adresse vient de l'URL |
+| `socket.host` / `socket.port`, `NF_REDIS_HOST` / `NF_REDIS_PORT` | **sans effet** — l'adresse vient de l'URL |
 | `socket.tls` | **sans effet** — c'est le protocole (`redis://` ou `rediss://`) qui décide |
 | `connections.<nom>.database` | **écrasé** si l'URL porte un chemin (`…:6379/2`) — toutes les connexions sur cette base |
-| `REDIS_PASSWORD` | conservé **seulement** si l'URL ne porte pas de mot de passe |
+| `NF_REDIS_PASSWORD` | conservé **seulement** si l'URL ne porte pas de mot de passe |
 | `reconnectStrategy` | conservé dans tous les cas — c'est la seule option de socket transmise avec l'URL |
 
 Les trois dernières lignes viennent de la bibliothèque `redis` elle-même : à la construction du
@@ -576,7 +576,7 @@ schéma visent déjà `localhost:6379`. Une seule variable est nécessaire.
 
 ```bash
 docker compose -f docker/docker-compose.yml up -d redis
-export REDIS_PASSWORD=nodefony-dev
+export NF_REDIS_PASSWORD=nodefony-dev
 ```
 
 L'authentification est exigée **même en développement** : une instance sans mot de passe habitue à un
@@ -697,10 +697,10 @@ faire avant une mise en production.
 | --- | --- | --- |
 | Une clé de configuration n'a aucun effet, aucune erreur | Clé inconnue du schéma : la validation Zod **écarte** les clés qu'elle ne connaît pas | Vérifier l'orthographe dans les tables ci-dessus ; contrôler la cible effective (§ Démarrage rapide) |
 | L'hôte configuré est ignoré | Une `url` est présente — `buildClientOptions()` (`buildClientOptions.ts:68`) ne pose plus host/port | Retirer `NF_REDIS_URL`/`REDIS_URL`, ou tout mettre dans l'URL |
-| `REDIS_PORT` semble sans effet | Valeur non entière ou hors `1..65535` : `applyEnvOverrides()` (`defineModuleConfig.ts:32`) l'ignore | Corriger la valeur — l'ignorance est silencieuse par conception |
+| `NF_REDIS_PORT` semble sans effet | Valeur non entière ou hors `1..65535` : `applyEnvOverrides()` (`defineModuleConfig.ts:32`) l'ignore | Corriger la valeur — l'ignorance est silencieuse par conception |
 | Toutes les connexions atterrissent sur la même base | L'URL porte un chemin (`…/2`) qui écrase le `database` de chaque connexion | Déclarer l'URL sans chemin et laisser `database` cloisonner |
 | Le démarrage pend, sans erreur, sans Redis | Tentatives illimitées : la première ouverture ne rend pas la main | Hors production c'est déjà borné (`applyResilienceDefaults()` (`defineModuleConfig.ts:65`)) ; sinon fixer une valeur finie |
-| Erreur `NOAUTH` alors que le mot de passe est configuré | L'URL porte des identifiants qui recouvrent `REDIS_PASSWORD` | Ne pas mélanger : l'URL **ou** hôte + mot de passe |
+| Erreur `NOAUTH` alors que le mot de passe est configuré | L'URL porte des identifiants qui recouvrent `NF_REDIS_PASSWORD` | Ne pas mélanger : l'URL **ou** hôte + mot de passe |
 | Les sessions ont changé de magasin sans qu'on touche à la configuration | `NF_REDIS_URL` déclare une infra de cache → `resolveAutoStore()` (`infra.ts:241`) bascule les briques `auto` | Nommer le store explicitement pour un comportement identique partout |
 | Une surcharge de connexion ramène le port à `6379` | Un schéma partiel qui réappliquerait ses défauts — d'où `socketOverrideSchema` (`config.ts:133`) sans défaut | Ne poser que les champs voulus ; les autres héritent du socket global |
 | Le module démarre mais n'ouvre rien | `enabled: false` — module chargé, inerte (`RedisService.init()` (`redis.ts:123`)) | Le réactiver, ou retirer le module du manifeste |

@@ -5067,9 +5067,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
-  // E2E binaire réel (gate RUN_CLI_BOOT — exige un `npm run build` PRÉALABLE :
+  // E2E binaire réel (gate NF_RUN_CLI_BOOT — exige un `npm run build` PRÉALABLE :
   // un spawn valide le DIST, pas le source).
-  const describeBoot = process.env["RUN_CLI_BOOT"] ? describe : describe.skip;
+  const describeBoot = process.env["NF_RUN_CLI_BOOT"]
+    ? describe
+    : describe.skip;
   describeBoot("e2e bin/nodefony create (dist)", () => {
     // ⏱️ Ce test SPAWNE un process : le défaut de 5 s de vitest est un budget
     // d'assertion, pas de démarrage. Sous `test:all` (workspaces en parallèle) il

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-23T15:01:25.038Z",
+  "generated": "2026-08-23T16:01:08.055Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -4465,7 +4465,7 @@
       "file": "src/nodefony/src/syslog/logColor.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Applique les conventions d'environnement couleur PAR-DESSUS un signal `isTTY` **déjà résolu** — au boot on passe `Kernel.isTTY` (qui honore déjà `NO_TTY`), sans re-lire `process.stdout`. Convention…"
+      "description": "Applique les conventions d'environnement couleur PAR-DESSUS un signal `isTTY` **déjà résolu** — au boot on passe `Kernel.isTTY` (qui honore déjà `NF_NO_TTY`), sans re-lire `process.stdout`. Convent…"
     },
     "logColor": {
       "name": "logColor",

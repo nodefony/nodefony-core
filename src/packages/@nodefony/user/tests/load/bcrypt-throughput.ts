@@ -11,8 +11,8 @@
  */
 import { BcryptEncoder } from "../../index";
 
-const COST = Number(process.env.BCRYPT_COST ?? 12);
-const N = Number(process.env.BCRYPT_N ?? 32);
+const COST = Number(process.env.NF_BCRYPT_COST ?? 12);
+const N = Number(process.env.NF_BCRYPT_N ?? 32);
 
 function pct(sorted: number[], p: number): number {
   const i = Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length));

@@ -14,7 +14,7 @@ import { runSessionStoreContract } from "../../../../http/nodefony/tests/support
  * ne le signale : écrire une clé **sans** `EX` (session immortelle), ou laisser
  * `touch` la recréer sans TTL. Ces deux pièges sont testés ici, par `TTL`.
  *
- * GATE : `REDIS_TEST_URL` (ex. `redis://:pass@127.0.0.1:6379/15`) — sans serveur
+ * GATE : `NF_REDIS_TEST_URL` (ex. `redis://:pass@127.0.0.1:6379/15`) — sans serveur
  * réel, ces assertions n'auraient aucun sens (un double « valide » toujours).
  */
 // Base DÉDIÉE : ce banc purge (`flushDb`) — partager la base d'un autre fichier

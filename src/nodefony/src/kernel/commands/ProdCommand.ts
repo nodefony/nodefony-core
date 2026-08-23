@@ -64,7 +64,7 @@ class Prod extends Command {
 
   override async onKernelStart(opts?: { workers?: string }): Promise<void> {
     this.cli.environment = "production";
-    process.env.MODE_START = "production";
+    process.env.NF_MODE_START = "production";
     // Topologie = source unique : CLI `--workers` > env NF_WORKERS > config app
     // `cluster.workers` (lue standalone, sans kernel) > défaut 1. Résolue AVANT
     // initServers : master → superviseur (0 serveur) ; mono/worker → ce Kernel sert.

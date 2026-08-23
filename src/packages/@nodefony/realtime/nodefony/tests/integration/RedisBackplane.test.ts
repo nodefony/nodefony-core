@@ -16,14 +16,14 @@ import type { IBackplaneMessage } from "../../interfaces/IBackplane.js";
  * clients (pod A, pod B) → `createRedisServiceTransport` → deux `RedisBackplane`.
  * Auto-skip si Redis injoignable (CI sans docker) — probe au chargement.
  */
-const PASSWORD = process.env.REDIS_PASSWORD ?? "nodefony-dev";
-const HOST = process.env.REDIS_HOST ?? "localhost";
-const PORT = Number.parseInt(process.env.REDIS_PORT ?? "6379", 10);
+const PASSWORD = process.env.NF_REDIS_PASSWORD ?? "nodefony-dev";
+const HOST = process.env.NF_REDIS_HOST ?? "localhost";
+const PORT = Number.parseInt(process.env.NF_REDIS_PORT ?? "6379", 10);
 
 /**
  * `REDIS_URL` est la façon dont TOUT le dépôt désigne un Redis de test — c'est
  * ce que pose `REDIS_GATE` (`vitest.gates.ts`) et ce qu'affiche le mode d'emploi
- * quand la cible manque. Ce banc lisait `REDIS_HOST`/`REDIS_PORT` : suivre le
+ * quand la cible manque. Ce banc lisait `NF_REDIS_HOST`/`NF_REDIS_PORT` : suivre le
  * message d'aide n'aurait donc RIEN débloqué ici. On accepte l'URL d'abord, le
  * triplet ensuite (le compose expose les deux).
  */
