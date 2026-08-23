@@ -43,8 +43,7 @@ const PROD_ONLY_PROOFS: readonly string[] = [
  * sont propres.
  */
 function modeExpectations(): GateExpectation[] {
-  const prod =
-    (process.env.NODEFONY_TEST_ENV ?? "development") === "production";
+  const prod = (process.env.NF_TEST_ENV ?? "development") === "production";
   return [
     {
       label: prod
@@ -86,7 +85,7 @@ export default defineConfig({
     ],
     exclude: [...configDefaults.exclude, "nodefony/tests/http/memory.test.ts"],
     setupFiles: [r("./nodefony/tests/vitest.setup.ts")],
-    // Sonde le mode du serveur (route publique /livez) → NODEFONY_TEST_ENV, lu
+    // Sonde le mode du serveur (route publique /livez) → NF_TEST_ENV, lu
     // par describe.skipIf(IS_PROD_TARGET) pour skipper les tests dev-only en prod.
     globalSetup: [r("./nodefony/tests/probeServerEnv.global.ts")],
     fileParallelism: false,

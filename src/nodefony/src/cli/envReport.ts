@@ -74,7 +74,7 @@ export interface IEnvOverrideReport {
 export interface IEnvReport {
   /** Mode runtime (`NODE_ENV`). */
   runtimeEnv: string;
-  /** Environnement de déploiement (`APP_ENV`/`NODEFONY_ENV`), s'il diffère. */
+  /** Environnement de déploiement (`APP_ENV`/`NF_ENV`), s'il diffère. */
   appEnv: string | null;
   /** La cascade, du plus fort au plus faible. */
   levels: IEnvLevel[];

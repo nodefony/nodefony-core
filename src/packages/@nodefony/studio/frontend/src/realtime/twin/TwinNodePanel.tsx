@@ -241,7 +241,7 @@ function OrmPanel({
     return (
       <Text size="sm" c="dimmed">
         Aucun flux ORM remonté. En production, activez la sonde de flux (
-        <Code>NODEFONY_ORM_FLOW=1</Code>).
+        <Code>NF_ORM_FLOW=1</Code>).
       </Text>
     );
   }

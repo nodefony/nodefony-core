@@ -265,20 +265,20 @@ describe("devProcess — valeurs partagées (anti-divergence)", () => {
   });
 
   it("defaultDevPorts : défaut, override CSV, valeur invalide", () => {
-    const save = process.env.NODEFONY_DEV_PORTS;
+    const save = process.env.NF_DEV_PORTS;
     // cwd ISOLÉ : sans lui, le test lirait le state file du serveur de dev
     // éventuellement lancé dans le repo (il en écrit un) → verdict machine-dépendant.
     const cwd = mkdtempSync(path.join(os.tmpdir(), "nf-ports-"));
     try {
-      delete process.env.NODEFONY_DEV_PORTS;
+      delete process.env.NF_DEV_PORTS;
       assert.deepStrictEqual(defaultDevPorts(cwd), [5151, 5152]);
-      process.env.NODEFONY_DEV_PORTS = "3000, 3001 ";
+      process.env.NF_DEV_PORTS = "3000, 3001 ";
       assert.deepStrictEqual(defaultDevPorts(cwd), [3000, 3001]);
-      process.env.NODEFONY_DEV_PORTS = "nope";
+      process.env.NF_DEV_PORTS = "nope";
       assert.deepStrictEqual(defaultDevPorts(cwd), [5151, 5152]); // fallback
     } finally {
-      if (save === undefined) delete process.env.NODEFONY_DEV_PORTS;
-      else process.env.NODEFONY_DEV_PORTS = save;
+      if (save === undefined) delete process.env.NF_DEV_PORTS;
+      else process.env.NF_DEV_PORTS = save;
       rmSync(cwd, { recursive: true, force: true });
     }
   });
@@ -326,16 +326,16 @@ describe("devProcess — valeurs partagées (anti-divergence)", () => {
     // qu'un AUTRE serveur tournait sur le poste. Deux sources de vérité pour
     // « quels ports cette application utilise » : le gabarit d'app déclare
     // `NF_PORT`/`NF_PORT_HTTPS`, cette fonction ne connaissait que la forme
-    // héritée `NODEFONY_DEV_PORTS`. Elles divergeaient en silence.
+    // héritée `NF_DEV_PORTS`. Elles divergeaient en silence.
     const sauve = {
-      dev: process.env.NODEFONY_DEV_PORTS,
+      dev: process.env.NF_DEV_PORTS,
       port: process.env.NF_PORT,
       https: process.env.NF_PORT_HTTPS,
       alias: process.env.PORT,
     };
     const cwd = mkdtempSync(path.join(os.tmpdir(), "nf-ports-decl-"));
     try {
-      delete process.env.NODEFONY_DEV_PORTS;
+      delete process.env.NF_DEV_PORTS;
       delete process.env.PORT;
       process.env.NF_PORT = "5371";
       process.env.NF_PORT_HTTPS = "5372";
@@ -356,17 +356,17 @@ describe("devProcess — valeurs partagées (anti-divergence)", () => {
       assert.deepStrictEqual(defaultDevPorts(cwd), [5371]);
 
       // L'override explicite de l'opérateur garde la priorité.
-      process.env.NODEFONY_DEV_PORTS = "3000,3001";
+      process.env.NF_DEV_PORTS = "3000,3001";
       assert.deepStrictEqual(defaultDevPorts(cwd), [3000, 3001]);
 
       // Rien de déclaré → la convention historique, inchangée.
-      delete process.env.NODEFONY_DEV_PORTS;
+      delete process.env.NF_DEV_PORTS;
       delete process.env.NF_PORT;
       delete process.env.PORT;
       assert.deepStrictEqual(defaultDevPorts(cwd), [5151, 5152]);
     } finally {
       for (const [cle, valeur] of [
-        ["NODEFONY_DEV_PORTS", sauve.dev],
+        ["NF_DEV_PORTS", sauve.dev],
         ["NF_PORT", sauve.port],
         ["NF_PORT_HTTPS", sauve.https],
         ["PORT", sauve.alias],
@@ -390,16 +390,16 @@ describe("devProcess — valeurs partagées (anti-divergence)", () => {
  */
 describe("devProcess — state file runtime (ports effectifs)", () => {
   let cwd: string;
-  const savedEnv = process.env.NODEFONY_DEV_PORTS;
+  const savedEnv = process.env.NF_DEV_PORTS;
 
   beforeEach(() => {
-    delete process.env.NODEFONY_DEV_PORTS;
+    delete process.env.NF_DEV_PORTS;
     cwd = mkdtempSync(path.join(os.tmpdir(), "nf-runtime-"));
   });
 
   afterEach(() => {
-    if (savedEnv === undefined) delete process.env.NODEFONY_DEV_PORTS;
-    else process.env.NODEFONY_DEV_PORTS = savedEnv;
+    if (savedEnv === undefined) delete process.env.NF_DEV_PORTS;
+    else process.env.NF_DEV_PORTS = savedEnv;
     rmSync(cwd, { recursive: true, force: true });
   });
 
@@ -529,9 +529,9 @@ describe("devProcess — state file runtime (ports effectifs)", () => {
     assert.deepStrictEqual(defaultDevPorts(cwd), [5153, 5154]);
   });
 
-  it("NODEFONY_DEV_PORTS reste PRIORITAIRE (l'opérateur a toujours le dernier mot)", () => {
+  it("NF_DEV_PORTS reste PRIORITAIRE (l'opérateur a toujours le dernier mot)", () => {
     writeRuntimeState(cwd, { pid: process.pid, ports: [5153, 5154] });
-    process.env.NODEFONY_DEV_PORTS = "9000,9001";
+    process.env.NF_DEV_PORTS = "9000,9001";
     assert.deepStrictEqual(defaultDevPorts(cwd), [9000, 9001]);
   });
 

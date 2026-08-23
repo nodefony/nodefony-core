@@ -3658,7 +3658,7 @@ function monterDecor(runDir, app) {
   // de piège « une application qui n'est pas la sienne » décrite plus haut.
   const envMcp = {
     ...APP_ENV,
-    NODEFONY_DEV_PORTS: `${PORTS.NF_PORT},${PORTS.NF_PORT_HTTPS}`,
+    NF_DEV_PORTS: `${PORTS.NF_PORT},${PORTS.NF_PORT_HTTPS}`,
   };
   if (MCP_REGIME === "off") {
     console.log("  · porte MCP NON déclarée (régime « off »)");

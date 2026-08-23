@@ -3,17 +3,17 @@ import https from "node:https";
 /**
  * globalSetup vitest — sonde la route PUBLIQUE liveness
  * (`GET /nodefony/kernel/api/livez`, ne révèle que `environment`) pour connaître
- * le mode du serveur testé, et le publie dans `process.env.NODEFONY_TEST_ENV`
+ * le mode du serveur testé, et le publie dans `process.env.NF_TEST_ENV`
  * (lu SYNCHRONE par `describe.skipIf(IS_PROD_TARGET)`).
  *
  * Posé dans le process principal AVANT le fork des workers (les suites tournent
  * en `fileParallelism:false`) → hérité par les workers. Un export explicite de
- * `NODEFONY_TEST_ENV` l'emporte (priorité au lanceur de la batterie prod).
+ * `NF_TEST_ENV` l'emporte (priorité au lanceur de la batterie prod).
  * Serveur down / route absente / réponse invalide → on laisse le défaut
  * (`development`) : aucun skip intempestif.
  */
 export default async function probeServerEnv(): Promise<void> {
-  if (process.env.NODEFONY_TEST_ENV) return; // valeur explicite > sonde
+  if (process.env.NF_TEST_ENV) return; // valeur explicite > sonde
 
   const env = await new Promise<string | null>((resolve) => {
     const req = https.request(
@@ -50,5 +50,5 @@ export default async function probeServerEnv(): Promise<void> {
     req.end();
   });
 
-  if (env) process.env.NODEFONY_TEST_ENV = env;
+  if (env) process.env.NF_TEST_ENV = env;
 }

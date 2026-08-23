@@ -44,7 +44,7 @@ export default defineConfig({
       "nodefony/tests/http/memory.test.ts",
     ],
     setupFiles: [r("./nodefony/tests/vitest.setup.ts")],
-    // Sonde le mode du serveur (route publique /livez) → NODEFONY_TEST_ENV, lu
+    // Sonde le mode du serveur (route publique /livez) → NF_TEST_ENV, lu
     // par describe.skipIf(IS_PROD_TARGET) pour skipper les tests dev-only en prod.
     globalSetup: [r("./nodefony/tests/probeServerEnv.global.ts")],
     fileParallelism: false,

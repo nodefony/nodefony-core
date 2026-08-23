@@ -13,7 +13,7 @@
  *
  * OVERRIDES À L'EXÉCUTION (sans éditer ce fichier — priorité décroissante) :
  *   1. CLI            `nodefony cluster --workers <n|auto>`
- *   2. env            NODEFONY_WORKERS=<n|auto>   (Docker / k8s)
+ *   2. env            NF_WORKERS=<n|auto>   (Docker / k8s)
  *   3. ce fichier     cluster.workers              (le défaut DevOps)
  *
  * ⚠️ Ce fichier doit rester KERNEL-FREE (aucun `Nodefony.getKernel()`, aucun import

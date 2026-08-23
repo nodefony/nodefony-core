@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-22T21:30:58.579Z",
+  "generated": "2026-08-23T13:59:45.273Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -8061,7 +8061,7 @@
       "file": "src/nodefony/src/service/dev/devProcess.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Ports serveur à SONDER (`status`, `stop`, readiness, attente de libération). Ordre de vérité, du plus fiable au moins fiable : 1. `NODEFONY_DEV_PORTS` — override explicite de l'opérateur, il gagne …"
+      "description": "Ports serveur à SONDER (`status`, `stop`, readiness, attente de libération). Ordre de vérité, du plus fiable au moins fiable : 1. `NF_DEV_PORTS` — override explicite de l'opérateur, il gagne toujou…"
     },
     "readSupervisorPid": {
       "name": "readSupervisorPid",
@@ -16974,7 +16974,7 @@
       "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
       "exported": true,
       "module": "@nodefony/studio",
-      "description": "Identifiant stable de CETTE instance/process. Override possible via env `NODEFONY_INSTANCE_ID` (utile en multi-process pour distinguer les workers). Forward-compat vue cluster (P13) : les stats son…"
+      "description": "Identifiant stable de CETTE instance/process. Override possible via env `NF_INSTANCE_ID` (utile en multi-process pour distinguer les workers). Forward-compat vue cluster (P13) : les stats sont tagu…"
     },
     "PROC": {
       "name": "PROC",

@@ -179,11 +179,11 @@ export function SyslogConfigPanel({ meta, onChanged }: SyslogConfigPanelProps) {
             "Environnement d'exécution. Gouverne la visibilité du switch de lecture (dev-only).",
         },
         {
-          key: "NODEFONY_CLUSTER",
+          key: "NF_CLUSTER",
           type: "boolean",
           effective: code(meta.cluster?.isCluster ? "cluster" : "mono-process"),
           source: "runtime",
-          env: "NODEFONY_CLUSTER",
+          env: "NF_CLUSTER",
           mutability: "readonly",
           description:
             "Topologie : posé par le master au fork. En cluster → préférer « cluster-file ».",

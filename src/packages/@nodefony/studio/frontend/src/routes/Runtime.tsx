@@ -353,9 +353,9 @@ const WORKER_SOURCES: {
   },
   {
     rank: 2,
-    key: "env NODEFONY_WORKERS",
+    key: "env NF_WORKERS",
     desc: "Override de déploiement (Docker / k8s) sans éditer de fichier.",
-    ex: "NODEFONY_WORKERS=4 nodefony cluster",
+    ex: "NF_WORKERS=4 nodefony cluster",
   },
   {
     rank: 3,

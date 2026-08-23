@@ -3,10 +3,10 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { findProjectRoot } from "../cli/projectRoot";
 
 /** Variable de garde : le CLI délégué ne délègue pas à son tour (anti-boucle). */
-export const DELEGATED_ENV = "NODEFONY_CLI_DELEGATED";
+export const DELEGATED_ENV = "NF_CLI_DELEGATED";
 
 /** Trace la décision du lanceur sur stderr quand la variable vaut `1`. */
-export const DEBUG_ENV = "NODEFONY_CLI_DEBUG";
+export const DEBUG_ENV = "NF_CLI_DEBUG";
 
 /** Décision du lanceur : exécuter soi-même, ou passer la main au CLI de l'app. */
 export type TLocalCliDecision =

@@ -198,7 +198,7 @@ kernel). Pattern du wrapper de projet (`gradlew`, `mvnw`) : _le projet gagne_.
 
 Install cassée (paquet local présent, binaire absent) → **stderr + exit 1**, jamais de repli silencieux
 sur le global : piloter une app avec une version de framework qu'elle n'a pas choisie est un faux
-service. Détail des cas + variables (`NODEFONY_CLI_DELEGATED`, `NODEFONY_CLI_DEBUG`) : [`MEMORY.md`](./MEMORY.md).
+service. Détail des cas + variables (`NF_CLI_DELEGATED`, `NF_CLI_DEBUG`) : [`MEMORY.md`](./MEMORY.md).
 
 > Conséquence pour le dev du framework : `npm link` depuis `src/nodefony` rend `nodefony` disponible
 > partout et suit le checkout (symlink) ; dans le repo self-hosted comme dans une app `create app --link`,

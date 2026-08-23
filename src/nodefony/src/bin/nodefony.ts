@@ -71,7 +71,7 @@ function resolveRuntimeEnv(argv: string[]): EnvironmentType | undefined {
   return detectEnvironmentFromArgv(argv);
 }
 
-/** Trace la décision du lanceur (opt-in `NODEFONY_CLI_DEBUG=1`, jamais par défaut). */
+/** Trace la décision du lanceur (opt-in `NF_CLI_DEBUG=1`, jamais par défaut). */
 function traceDecision(decision: TLocalCliDecision, selfDir: string): void {
   if (!process.env[DEBUG_ENV]) return;
   const target =
@@ -120,7 +120,7 @@ async function runSelf(): Promise<unknown> {
 
   const runtimeEnv = resolveRuntimeEnv(process.argv.slice(2));
   // Axe DÉPLOIEMENT (string libre : staging/canary/prod-eu…) — distinct du mode runtime.
-  const appEnv = process.env.APP_ENV ?? process.env.NODEFONY_ENV;
+  const appEnv = process.env.APP_ENV ?? process.env.NF_ENV;
 
   // Canonise NODE_ENV tôt (idempotent si l'orchestrateur l'a déjà posé) : le mode
   // runtime ne vit PLUS dans un `.env` committé (conv B + piège Next : un déploiement

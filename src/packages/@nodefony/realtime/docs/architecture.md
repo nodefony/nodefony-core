@@ -587,7 +587,7 @@ rien.
 **`cluster`** relie les workers d'un même hôte. Un worker Node ne peut parler qu'au maître :
 il émet vers lui (`ClusterBackplane.publish()`, `ClusterBackplane.ts:117`), le maître
 rediffuse aux autres. Le driver ne s'active qu'en rôle worker avec la variable
-`NODEFONY_CLUSTER=1` (`src/packages/@nodefony/realtime/index.ts:99`) ; ailleurs il rend
+`NF_CLUSTER=1` (`src/packages/@nodefony/realtime/index.ts:99`) ; ailleurs il rend
 `null`. Aucune infrastructure requise — c'est le banc d'essai qui stabilise l'architecture
 multi-process avant d'ajouter du réseau.
 

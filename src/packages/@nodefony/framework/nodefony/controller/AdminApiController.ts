@@ -30,12 +30,12 @@ import {
  */
 class AdminApiController extends Controller {
   /**
-   * Identité de l'instance qui répond — `NODEFONY_INSTANCE_ID` (k8s pod, worker)
+   * Identité de l'instance qui répond — `NF_INSTANCE_ID` (k8s pod, worker)
    * ou `pid` en fallback. Même convention que les providers realtime Studio.
    * Calculée une fois (statique) : invariante sur la vie du process.
    */
   static readonly instanceId =
-    process.env.NODEFONY_INSTANCE_ID ?? String(process.pid);
+    process.env.NF_INSTANCE_ID ?? String(process.pid);
 
   constructor(context: ContextType) {
     super("AdminApiController", context);

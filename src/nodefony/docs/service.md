@@ -391,7 +391,7 @@ interne `timeoutSentinel` (`Event.ts:33`).
 
 Côté kernel, `Kernel.fireLifecycle()` (`Kernel.ts:2575`) branche la politique : délai issu de
 `Kernel.bootTimeoutMs()` (`Kernel.ts:2177`) — 20 s en développement, 60 s en production, surchargeable
-par `NODEFONY_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:2598`), 5 s par
+par `NF_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:2598`), 5 s par
 défaut. Un hook lent est **signalé** (NOTICE), un hook qui pend est **coupé**.
 
 ## ⚙️ Options du service

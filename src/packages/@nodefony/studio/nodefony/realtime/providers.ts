@@ -66,12 +66,11 @@ const HEAP_LIMIT = v8.getHeapStatistics().heap_size_limit;
 
 /**
  * Identifiant stable de CETTE instance/process. Override possible via env
- * `NODEFONY_INSTANCE_ID` (utile en multi-process pour distinguer les workers).
+ * `NF_INSTANCE_ID` (utile en multi-process pour distinguer les workers).
  * Forward-compat vue cluster (P13) : les stats sont taguées avec, le futur
  * RealtimeService Redis fan-out → le dashboard pourra tracer N séries par instance.
  */
-export const INSTANCE_ID =
-  process.env.NODEFONY_INSTANCE_ID ?? String(process.pid);
+export const INSTANCE_ID = process.env.NF_INSTANCE_ID ?? String(process.pid);
 
 /**
  * Identité du process — **constante** (lue une fois). Détaille le process pour la

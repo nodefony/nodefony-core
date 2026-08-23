@@ -758,9 +758,9 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
     assert.strictEqual(r.errors.length, 1);
   });
 
-  it("dev: un hook FIGÉ est borné par le timeout (NODEFONY_BOOT_TIMEOUT_MS)", async () => {
-    const prev = process.env.NODEFONY_BOOT_TIMEOUT_MS;
-    process.env.NODEFONY_BOOT_TIMEOUT_MS = "30";
+  it("dev: un hook FIGÉ est borné par le timeout (NF_BOOT_TIMEOUT_MS)", async () => {
+    const prev = process.env.NF_BOOT_TIMEOUT_MS;
+    process.env.NF_BOOT_TIMEOUT_MS = "30";
     try {
       const k = mkKernel("development");
       k.on("onBoot", () => new Promise(() => {})); // ne se résout jamais
@@ -768,8 +768,8 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
       assert.strictEqual(r.errors.length, 1);
       assert.strictEqual(r.errors[0].timedOut, true);
     } finally {
-      if (prev === undefined) delete process.env.NODEFONY_BOOT_TIMEOUT_MS;
-      else process.env.NODEFONY_BOOT_TIMEOUT_MS = prev;
+      if (prev === undefined) delete process.env.NF_BOOT_TIMEOUT_MS;
+      else process.env.NF_BOOT_TIMEOUT_MS = prev;
     }
   });
 

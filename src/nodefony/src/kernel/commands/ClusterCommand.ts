@@ -25,7 +25,7 @@ const options: OptionsCommandInterface = {
  * - **respawn backoff** — un worker mort est re-forké avec backoff exponentiel (anti crash-loop).
  * - **graceful shutdown** — SIGTERM/SIGINT draine les workers (SIGKILL après timeout).
  *
- * Topologie = source unique {@link resolveTopology} : `--workers` > `NODEFONY_WORKERS`
+ * Topologie = source unique {@link resolveTopology} : `--workers` > `NF_WORKERS`
  * > config app `cluster.workers` > défaut 1. **`workers:1` = VRAI mono-process** (zéro
  * machinerie cluster, un seul Kernel) ; `>= 2` → master (superviseur + gateway IPC) +
  * N workers (chacun un seul Kernel).
@@ -43,7 +43,7 @@ class Cluster extends Command {
     );
     this.addOption(
       "-w, --workers <number>",
-      "Number of worker processes to fork (default: config cluster.workers / NODEFONY_WORKERS / 1)",
+      "Number of worker processes to fork (default: config cluster.workers / NF_WORKERS / 1)",
     );
     // Options du lancement DÉTACHÉ — consommées par le fast-path standalone de
     // CliKernel.start (detachedStart.ts), déclarées pour le help.

@@ -155,7 +155,7 @@ export interface BackplaneMeta {
 
 /** Topologie process renvoyée par `backplane` — gouverne l'avertissement de vue partielle. */
 export interface ClusterTopology {
-  /** `true` si le kernel tourne en cluster multi-worker (`NODEFONY_CLUSTER=1`). */
+  /** `true` si le kernel tourne en cluster multi-worker (`NF_CLUSTER=1`). */
   isCluster: boolean;
   /** PID du worker ayant servi la requête `backplane` (round-robin en cluster). */
   pid: number;

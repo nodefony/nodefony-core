@@ -257,7 +257,7 @@ export async function buildProjectEnvReport(
   cwd: string,
 ): Promise<IEnvReport> {
   const runtimeEnv = process.env.NODE_ENV ?? "development";
-  const rawAppEnv = process.env.APP_ENV ?? process.env.NODEFONY_ENV ?? null;
+  const rawAppEnv = process.env.APP_ENV ?? process.env.NF_ENV ?? null;
   const appEnv = rawAppEnv && rawAppEnv !== runtimeEnv ? rawAppEnv : null;
   const root = projectRoot ?? cwd;
   return buildEnvReport({

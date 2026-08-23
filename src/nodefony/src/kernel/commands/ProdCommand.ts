@@ -21,7 +21,7 @@ const options: OptionsCommandInterface = {
  *
  * Modèle « 2 molettes » (2026-05-24) : front prod (dist, pas de Vite) × topologie
  * pilotée par la molette `workers` ({@link resolveTopology} : `--workers` >
- * `NODEFONY_WORKERS` > config `cluster.workers` > défaut 1). `workers:1` = mono-process
+ * `NF_WORKERS` > config `cluster.workers` > défaut 1). `workers:1` = mono-process
  * (1 process = 1 pod, scaling délégué à l'orchestrateur) ; `>= 2` = cluster (master +
  * workers), via le flow partagé {@link launchTopology} (même runtime que `cluster`).
  *
@@ -49,7 +49,7 @@ class Prod extends Command {
     this.alias("start");
     this.addOption(
       "-w, --workers <number>",
-      "Number of worker processes (default: config cluster.workers / NODEFONY_WORKERS / 1)",
+      "Number of worker processes (default: config cluster.workers / NF_WORKERS / 1)",
     );
     // Options du lancement DÉTACHÉ — consommées par le fast-path standalone de
     // CliKernel.start (detachedStart.ts), déclarées pour le help.
@@ -65,7 +65,7 @@ class Prod extends Command {
   override async onKernelStart(opts?: { workers?: string }): Promise<void> {
     this.cli.environment = "production";
     process.env.MODE_START = "production";
-    // Topologie = source unique : CLI `--workers` > env NODEFONY_WORKERS > config app
+    // Topologie = source unique : CLI `--workers` > env NF_WORKERS > config app
     // `cluster.workers` (lue standalone, sans kernel) > défaut 1. Résolue AVANT
     // initServers : master → superviseur (0 serveur) ; mono/worker → ce Kernel sert.
     const cfgWorkers = await loadClusterConfig();

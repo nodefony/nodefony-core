@@ -472,9 +472,11 @@ Les **invariants** qui doivent rester présents en permanence :
   À QUI appartient la variable — c'est sa seule raison d'être, et elle suffit.
   Les **seules** exceptions sont les variables qu'on ne possède pas : `NODE_ENV`, `CI`,
   `NODE_DEBUG`, `UV_THREADPOOL_SIZE`… — celles-là se lisent, ne se renomment pas.
-  ⚠️ `NODEFONY_*` est l'ANCIENNE forme : conforme sur le fond, hors convention sur la forme.
-  Ne pas en créer de nouvelles. Le stock existant est une dette inscrite au `MIGRATION_STATUS`
-  (renommage après release — c'est une rupture pour les applications).
+  ⚠️ `NODEFONY_*` était l'ancienne forme : le stock est **SOLDÉ** (0 restante, renommé en `NF_*`
+  d'un bloc avant la release, sans alias de compatibilité). Ne pas en réintroduire. Ce qui reste
+  hors convention — génériques (`REDIS_*`, `BCRYPT_*`, `POD_NAME`…) et interrupteurs de coût
+  (`RUN_PERF`, `RUN_CLI_BOOT`…) — est inscrit au `MIGRATION_STATUS`, à solder AVANT la release
+  pour la même raison : sans application déployée, la rupture ne coûte rien.
 - **Config de module** : 2 fichiers, `nodefony/config/config.ts` (le QUOI — schéma Zod, source
   unique des défauts) + `nodefony/config/defineModuleConfig.ts` (le COMMENT — builder pur).
   Tout module qui expose une config **augmente le registre** `NodefonyModuleConfig`, sinon une clé

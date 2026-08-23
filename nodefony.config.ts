@@ -87,7 +87,7 @@ export default defineConfig<Env>((ctx) => ({
   // La topologie (nombre de workers) vit dans `nodefony/config/cluster/cluster.config.ts`
   // (fichier kernel-free) : le process MASTER le lit STANDALONE, AVANT de booter le
   // moindre Kernel, pour décider du fork. Le Kernel booté ne lit pas ce champ → inutile
-  // de le dupliquer ici. Override runtime : CLI `--workers` > `NODEFONY_WORKERS` > ce fichier.
+  // de le dupliquer ici. Override runtime : CLI `--workers` > `NF_WORKERS` > ce fichier.
 
   // ── Modules de l'application ────────────────────────────────────────────────
   // ⚠️ L'ORDRE = ordre (priorité) de chargement. Invariants réels — ne pas réordonner :

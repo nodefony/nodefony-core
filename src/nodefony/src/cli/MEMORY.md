@@ -158,7 +158,7 @@ await cmd.done;
 Décision PURE dans `src/bin/resolveLocalCli.ts` (`resolveLocalCli({cwd, selfDir, env})`), 8 tests
 (`tests/resolveLocalCli.test.ts`).
 
-Ordre : garde `NODEFONY_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_modules/nodefony`.
+Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_modules/nodefony`.
 
 <!-- prettier-ignore -->
 | Cas | `reason` | Effet |
@@ -174,7 +174,7 @@ Ordre : garde `NODEFONY_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/no
   bin tirerait `eta` + tout le moteur de templates, payé à chaque invocation. `engine.ts` le ré-exporte.
 - Les imports du core sont **dynamiques** dans le shim (`await import("nodefony")`, external rolldown) :
   quand on délègue, le core de CE paquet n'est jamais chargé (sinon 2 frameworks en mémoire).
-- `NODEFONY_CLI_DEBUG=1` → une ligne stderr `[nodefony] cli → <chemin>`. Silencieux par défaut (sinon
+- `NF_CLI_DEBUG=1` → une ligne stderr `[nodefony] cli → <chemin>`. Silencieux par défaut (sinon
   pollue les sorties `--json`).
 
 ## Environnement — `nodefony env`

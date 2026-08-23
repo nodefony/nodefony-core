@@ -792,7 +792,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             // comment remédier (cf IBootReport / BootReport « vert mais cassé »).
             modulesSkipped: report.modulesSkipped,
             remediation: report.remediation,
-            cluster: { isCluster: process.env.NODEFONY_CLUSTER === "1" },
+            cluster: { isCluster: process.env.NF_CLUSTER === "1" },
             backplanes: {
               log: {
                 driver: getActiveLogDriver()?.name ?? null,
@@ -817,11 +817,11 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         platform: process.platform,
         uptime: process.uptime(),
         modules: Object.keys(kernel.getModules()).length,
-        // Topologie process (cloud-native, per-instance). `NODEFONY_CLUSTER=1`
+        // Topologie process (cloud-native, per-instance). `NF_CLUSTER=1`
         // posé par le master, hérité au fork → `true` dans chaque worker. Le
         // décompte des workers est agrégé ailleurs (master → nodefony:socket) :
         // ici on ne rapporte QUE ce process (pas d'agrégation dans le data plane).
-        cluster: { isCluster: process.env.NODEFONY_CLUSTER === "1" },
+        cluster: { isCluster: process.env.NF_CLUSTER === "1" },
         // Fonds de panier (« backplanes ») — info rapide pour la topbar Studio.
         // LOG Backplane : driver de relecture actif (axe DESTINATION queryable)
         // + sink d'écriture (axe WRITE). Le Realtime Backplane vit dans son

@@ -486,7 +486,7 @@ class Kernel extends Service implements IKernel {
   /** Minuterie d'auto-arrêt d'un runtime en dérogation de modules dev (`null` = aucune). */
   private devModulesStopTimer: NodeJS.Timeout | null = null;
   node_start: NodefonyStartType =
-    process.env.NODEFONY_START || this.options.node_start;
+    process.env.NF_START || this.options.node_start;
   platform: NodeJS.Platform = process.platform;
   projectName: string = "NODEFONY";
   uptime: number = new Date().getTime();
@@ -592,13 +592,13 @@ class Kernel extends Service implements IKernel {
     );
     this.environment = environment;
     // Trace boot-count diagnostique : 1 ligne par `new Kernel()`. Gardée par une env
-    // absente en prod → 0 coût (cohérent avec NODEFONY_BOOT_TIMEOUT_MS/WARN_MS). Sert au
+    // absente en prod → 0 coût (cohérent avec NF_BOOT_TIMEOUT_MS/WARN_MS). Sert au
     // filet d'intégration CLI à prouver l'invariant « 1 seul Kernel par process »
     // (avant refacto registry : prod/cluster en créaient 2). Boot-only, hors hot path.
-    if (process.env.NODEFONY_KERNEL_TRACE_FILE) {
+    if (process.env.NF_KERNEL_TRACE_FILE) {
       try {
         fs.appendFileSync(
-          process.env.NODEFONY_KERNEL_TRACE_FILE,
+          process.env.NF_KERNEL_TRACE_FILE,
           `${process.pid}:${environment}\n`,
         );
       } catch {
@@ -828,11 +828,10 @@ class Kernel extends Service implements IKernel {
     //   (collecteur JSON) : un art ASCII multi-ligne est du bruit ; en cluster, N workers
     //   produiraient N splash. L'info de boot vit dans les logs (`MODULE ADD`, `Server Listen`).
     // - **DEV** → un SEUL splash, dans le process qui boote réellement le serveur (l'enfant
-    //   du DevSupervisor, `NODEFONY_DEV_CHILD=1`), PAS le superviseur parent CONSOLE
+    //   du DevSupervisor, `NF_DEV_CHILD=1`), PAS le superviseur parent CONSOLE
     //   (sinon double splash : parent + enfant — cf 2 ASCII art observés).
     const devSplash =
-      this.environment === "development" &&
-      process.env.NODEFONY_DEV_CHILD === "1";
+      this.environment === "development" && process.env.NF_DEV_CHILD === "1";
     if (this.cli && devSplash) {
       await this.cli.showAsciify(this.projectName).catch((e) => {
         this.log(e, "WARNING");
@@ -1739,7 +1738,7 @@ class Kernel extends Service implements IKernel {
    * (`dev`→`development`, conserve `test`/`production`) — granularité que le ctx
    * expose (`isTest`), DISTINCTE du collapse dev/prod de {@link resolveRuntimeEnv}
    * (gating moteur : un staging tourne « comme prod »). `appEnv` = axe déploiement
-   * libre (`APP_ENV`/`NODEFONY_ENV`). `process.env` est déjà peuplé par `loadEnv`
+   * libre (`APP_ENV`/`NF_ENV`). `process.env` est déjà peuplé par `loadEnv`
    * (bin/nodefony) avant le boot → lecture sûre ici.
    *
    * @param env - catalogue env typé exposé par l'app (`export const env = defineEnv(…)`) ;
@@ -1757,8 +1756,7 @@ class Kernel extends Service implements IKernel {
       this.cli?.environment ||
       DEFAULT_ENGINE_ENVIRONMENT;
     const runtimeEnv = raw === "dev" ? "development" : raw;
-    const appEnv =
-      process.env.APP_ENV || process.env.NODEFONY_ENV || runtimeEnv;
+    const appEnv = process.env.APP_ENV || process.env.NF_ENV || runtimeEnv;
     return {
       env: (env ?? process.env) as ConfigContext["env"],
       infra: this.infra,
@@ -2329,7 +2327,7 @@ class Kernel extends Service implements IKernel {
     this.syslog?.setSeverityThreshold(
       this.environment === "production" && !this.debug ? "INFO" : null,
     );
-    // Debug runtime CIBLÉ via env — lu directement comme NODE_ENV/NODEFONY_CLUSTER
+    // Debug runtime CIBLÉ via env — lu directement comme NODE_ENV/NF_CLUSTER
     // (knob opérationnel framework, PAS config applicative → hors catalogue
     // env.ts de l'app). `NF__DEBUG=FIREWALL,SESSION:NOTICE` rallume ces modules
     // au boot ; `*` lève le gate global. Pas de TTL : un restart remet à zéro
@@ -2425,12 +2423,12 @@ class Kernel extends Service implements IKernel {
     const runtime = this.resolveRuntimeEnv(environment);
     this.environment = runtime;
     // ENVIRONNEMENT DE DÉPLOIEMENT (axe DISTINCT du mode runtime) — string libre
-    // via APP_ENV / NODEFONY_ENV (staging/preprod/prod/canary/prod-eu…) ; pilote la
+    // via APP_ENV / NF_ENV (staging/preprod/prod/canary/prod-eu…) ; pilote la
     // config/secrets, PAS le moteur. Défaut = le mode runtime si non posé →
     // comportement inchangé hors cloud. Un staging tourne en mode `production`
     // (optimisé) mais reste l'env `staging`. Cf project_app_config_refonte_chantier.
     this.appEnvironment.environment =
-      process.env.APP_ENV || process.env.NODEFONY_ENV || runtime;
+      process.env.APP_ENV || process.env.NF_ENV || runtime;
   }
 
   /**
@@ -2460,10 +2458,10 @@ class Kernel extends Service implements IKernel {
     const env = this.environment
       ? `   ${logColor.green(String(this.environment))}`
       : "";
-    // Axe DÉPLOIEMENT (APP_ENV / NODEFONY_ENV) affiché seulement s'il DIFFÈRE du
+    // Axe DÉPLOIEMENT (APP_ENV / NF_ENV) affiché seulement s'il DIFFÈRE du
     // mode runtime — sinon redondant. Lu DIRECTEMENT depuis l'env (ambient) car le
     // header s'imprime avant que `setEnv` n'ait résolu `appEnvironment`. Cf deux axes.
-    const appEnv = process.env.APP_ENV || process.env.NODEFONY_ENV;
+    const appEnv = process.env.APP_ENV || process.env.NF_ENV;
     const deploy =
       appEnv && appEnv !== String(this.environment)
         ? ` ${logColor.blackBright("·")} ${logColor.magenta(appEnv)}`
@@ -2579,12 +2577,12 @@ class Kernel extends Service implements IKernel {
 
   /**
    * Timeout par listener appliqué au boot (résilience Phase 3). Précédence :
-   * `NODEFONY_BOOT_TIMEOUT_MS` (env, orchestrateur) > défaut par env (dev 20 s,
+   * `NF_BOOT_TIMEOUT_MS` (env, orchestrateur) > défaut par env (dev 20 s,
    * prod 60 s). Large à dessein : il borne la PENDAISON infinie (ex. file Redis
    * offline qui ne rejette jamais), pas la lenteur normale d'un hook.
    */
   private bootTimeoutMs(): number {
-    const env = Number(process.env.NODEFONY_BOOT_TIMEOUT_MS);
+    const env = Number(process.env.NF_BOOT_TIMEOUT_MS);
     if (Number.isFinite(env) && env > 0) {
       return env;
     }
@@ -2593,10 +2591,10 @@ class Kernel extends Service implements IKernel {
 
   /**
    * Seuil d'alerte de lenteur d'un hook de boot (NOTICE, sans le tuer). Précédence :
-   * `NODEFONY_BOOT_WARN_MS` (env) > défaut 5 s. `0` désactive la mesure.
+   * `NF_BOOT_WARN_MS` (env) > défaut 5 s. `0` désactive la mesure.
    */
   private bootWarnMs(): number {
-    const env = Number(process.env.NODEFONY_BOOT_WARN_MS);
+    const env = Number(process.env.NF_BOOT_WARN_MS);
     if (Number.isFinite(env) && env >= 0) {
       return env;
     }

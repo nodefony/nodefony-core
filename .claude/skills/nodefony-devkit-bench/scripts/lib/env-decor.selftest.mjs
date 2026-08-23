@@ -43,7 +43,7 @@ const POSTE = {
   NF_DEVKIT_BENCH_AGENT_ARGS: "--skip-trust -y -p",
   NF_DEVKIT_BENCH_MODEL: "",
   NF_DATABASE_URL: "postgres://poste-du-developpeur/db",
-  NODEFONY_DEV_PORTS: "5151,5152",
+  NF_DEV_PORTS: "5151,5152",
 };
 
 const PORTS = { NF_PORT: "5371", NF_PORT_HTTPS: "5372" };
@@ -96,9 +96,9 @@ verifier(
 // sur un verdict inexplicable — le stock restant est une dette inscrite au
 // MIGRATION_STATUS.
 verifier(
-  env.NODEFONY_DEV_PORTS === "5151,5152",
+  env.NF_DEV_PORTS === "5151,5152",
   "⚠️ connue : `NODEFONY_*` (ancienne forme) PASSE le filtre",
-  `lu : ${env.NODEFONY_DEV_PORTS}`,
+  `lu : ${env.NF_DEV_PORTS}`,
 );
 // Une couche postérieure GAGNE sur l'héritage. Deux cas, et le second seul est
 // discriminant : reposer une `NF_*` réussirait même avec les couches appliquées

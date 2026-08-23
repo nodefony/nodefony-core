@@ -532,10 +532,10 @@ Un boot naïf attend chaque hook indéfiniment. Il suffit d'un `init` qui **pend
 hors ligne qui ne rejette jamais, un store bloqué — pour que le process reste figé jusqu'au `SIGKILL`
 de l'orchestrateur. Nodefony borne ça sur trois axes.
 
-- **Timeout par écouteur** — `NODEFONY_BOOT_TIMEOUT_MS` (`Kernel.ts:2177`), sinon **20 s en
+- **Timeout par écouteur** — `NF_BOOT_TIMEOUT_MS` (`Kernel.ts:2177`), sinon **20 s en
   développement, 60 s en production**. Large à dessein : il borne la pendaison infinie, pas la
   lenteur normale.
-- **Alerte de lenteur** — au-delà de `NODEFONY_BOOT_WARN_MS` (défaut **5 s**, `Kernel.ts:2189`), un
+- **Alerte de lenteur** — au-delà de `NF_BOOT_WARN_MS` (défaut **5 s**, `Kernel.ts:2189`), un
   `NOTICE` **nomme le hook lent** sans le tuer (`Kernel.ts:2564`).
 - **Fatal ou fail-soft** — arbitré par `Kernel.isBootErrorFatal()` (`Kernel.ts:2217`) : fatal si le
   module est critique **et** (on est en production **ou** c'est une erreur de configuration) ; sinon
@@ -675,7 +675,7 @@ Voir [Docker & cloud-native](../guides/docker-cloud-native.md).
 | `Cannot find package` sur un module          | `dist/` périmé après un `git pull`                                   | `npm run clean && npm run build` (la remédiation le dit déjà)       |
 | Ordre de service inattendu                   | On croyait que l'ordre de `@services([…])` décidait                  | Il est recalculé depuis les `@inject` — déclarer la dépendance      |
 | Service d'un autre module introuvable        | Récupéré dans le constructeur, trop tôt                              | Le prendre à `onKernelBoot` / `onKernelReady`                       |
-| Boot figé, puis `SIGKILL` de l'orchestrateur | Un `init` qui pend au-delà du timeout                                | Vérifier l'infra ; ajuster `NODEFONY_BOOT_TIMEOUT_MS` si justifié   |
+| Boot figé, puis `SIGKILL` de l'orchestrateur | Un `init` qui pend au-delà du timeout                                | Vérifier l'infra ; ajuster `NF_BOOT_TIMEOUT_MS` si justifié         |
 | Pod qui redémarre en boucle en production    | Module **critique** en échec → boot fatal (voulu)                    | Corriger la cause ; en dernier recours revoir `static critical`     |
 | `BOOT ÉCHEC — aucun serveur en écoute`       | Profil serveur attendu, 0 serveur (port pris ? module http absent ?) | Lire les modules en échec listés + la remédiation                   |
 | Une surcharge de config semble ignorée       | Elle vise un module absent du manifeste                              | Charger le module, ou retirer la clé (un `WARNING` le signale déjà) |

@@ -138,7 +138,7 @@ const PHASES: readonly BootPhase[] = [
  * (spinner + `✓`/`✗` par phase de boot) à la place du mur de logs `INFO`/`MODULE ADD`.
  *
  * **Dev-only** : instancié uniquement par `DevCommand`, côté enfant supervisé
- * (`NODEFONY_DEV_CHILD=1`). En prod/cluster : jamais (logs structurés cloud-native).
+ * (`NF_DEV_CHILD=1`). En prod/cluster : jamais (logs structurés cloud-native).
  *
  * **Backplane-safe** : le spinner s'écrit DIRECTEMENT sur `process.stdout`, jamais via
  * le Syslog. Le mute pendant le boot = {@link Syslog.setSinkEnabled} (coupe le sink

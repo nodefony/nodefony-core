@@ -46,7 +46,7 @@ arrière-plan (`&`), jamais de daemonisation (pas de PM2 — retiré du framewor
 
 - **Petit pod k8s + HPA** (recommandé cloud-native) : `nodefony production` = **1 process Node
   par pod**. Le scaling horizontal est délégué à l'orchestrateur (k8s HPA, Cloud Run, Fargate).
-- **VPS / bare-metal multi-cœurs** : `nodefony cluster --workers N` (ou `NODEFONY_WORKERS`,
+- **VPS / bare-metal multi-cœurs** : `nodefony cluster --workers N` (ou `NF_WORKERS`,
   cgroup-aware) = master superviseur + N workers dans **le même container**.
 
 ## Logs
@@ -102,7 +102,7 @@ readinessProbe: { httpGet: { path: /health, port: 5151 }, periodSeconds: 5 }
 terminationGracePeriodSeconds: 30 # > durée du graceful shutdown (~mesurée < 1 s)
 ```
 
-- `NODEFONY_BOOT_TIMEOUT_MS` borne le temps de boot (fail-fast si un module pend).
+- `NF_BOOT_TIMEOUT_MS` borne le temps de boot (fail-fast si un module pend).
 - Le boot de l'app est dominé par l'import/instanciation des modules (audit de performance de
   boot, mémoire IA `core-dev/audits/boot-performance-2026-06-01.md`) : un **pod réel** (app minimale) boote
   nettement plus vite que l'app de dev de démo. Ajuster `initialDelaySeconds` en conséquence.

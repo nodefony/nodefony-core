@@ -377,10 +377,10 @@ describe("Kernel — setEnv 12-factor (NODE_ENV / APP_ENV)", () => {
   beforeEach(() => {
     savedNodeEnv = process.env.NODE_ENV;
     savedAppEnv = process.env.APP_ENV;
-    savedNodefonyEnv = process.env.NODEFONY_ENV;
+    savedNodefonyEnv = process.env.NF_ENV;
     delete process.env.NODE_ENV;
     delete process.env.APP_ENV;
-    delete process.env.NODEFONY_ENV;
+    delete process.env.NF_ENV;
   });
 
   afterEach(() => {
@@ -388,8 +388,8 @@ describe("Kernel — setEnv 12-factor (NODE_ENV / APP_ENV)", () => {
     else process.env.NODE_ENV = savedNodeEnv;
     if (savedAppEnv === undefined) delete process.env.APP_ENV;
     else process.env.APP_ENV = savedAppEnv;
-    if (savedNodefonyEnv === undefined) delete process.env.NODEFONY_ENV;
-    else process.env.NODEFONY_ENV = savedNodefonyEnv;
+    if (savedNodefonyEnv === undefined) delete process.env.NF_ENV;
+    else process.env.NF_ENV = savedNodefonyEnv;
   });
 
   it("NODE_ENV prime sur l'intention de commande (ambient cloud > local)", () => {
@@ -414,8 +414,8 @@ describe("Kernel — setEnv 12-factor (NODE_ENV / APP_ENV)", () => {
     assert.strictEqual(k.appEnvironment.environment, "staging"); // déploiement
   });
 
-  it("NODEFONY_ENV = fallback de APP_ENV", () => {
-    process.env.NODEFONY_ENV = "preprod";
+  it("NF_ENV = fallback de APP_ENV", () => {
+    process.env.NF_ENV = "preprod";
     const k = mkKernel("production");
     k.setEnv("production");
     assert.strictEqual(k.appEnvironment.environment, "preprod");

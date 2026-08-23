@@ -97,7 +97,7 @@ export interface ParsedDetachArgs {
 }
 
 /** Marqueur env anti-récursion : posé sur le child pour couper tout re-détachement. */
-export const DETACH_CHILD_ENV = "NODEFONY_DETACH_CHILD";
+export const DETACH_CHILD_ENV = "NF_DETACH_CHILD";
 
 /**
  * Environnement du child détaché — hérité du parent, MOINS ce qui ne se

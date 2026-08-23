@@ -15,7 +15,7 @@ declare global {
  *
  * `staging` n'en fait pas partie : un staging tourne « comme la production »
  * (mêmes optimisations) et se distingue par son axe de DÉPLOIEMENT, pas par son
- * moteur. Cet axe-là est `APP_ENV`/`NODEFONY_ENV` (string libre : `staging`,
+ * moteur. Cet axe-là est `APP_ENV`/`NF_ENV` (string libre : `staging`,
  * `canary`, `prod-eu`…), lu par `loadEnv` (→ `.env.staging`) et exposé par
  * `ConfigContext.appEnv` — il reste entier.
  *

@@ -96,7 +96,7 @@ function spawnWorker(rtChannel: string): Promise<ForkedWorker> {
       // "ignore" : le banc peut publier des dizaines de milliers de messages ;
       // remonter le stdout des workers sature inutilement le buffer du runner.
       stdio: ["ignore", "ignore", "ignore", "ipc"],
-      env: { ...process.env, NODEFONY_CLUSTER: "0", NF_RT_CHANNEL: rtChannel },
+      env: { ...process.env, NF_CLUSTER: "0", NF_RT_CHANNEL: rtChannel },
     });
     const events: AnyMsg[] = [];
     child.on("message", (raw) => events.push(raw as AnyMsg));

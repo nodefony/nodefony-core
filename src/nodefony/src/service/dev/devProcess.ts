@@ -428,7 +428,7 @@ export function readSupervisorSuspension(cwd: string): SupervisorLock | null {
  * Ports serveur à SONDER (`status`, `stop`, readiness, attente de libération).
  *
  * Ordre de vérité, du plus fiable au moins fiable :
- *  1. `NODEFONY_DEV_PORTS` — override explicite de l'opérateur, il gagne toujours ;
+ *  1. `NF_DEV_PORTS` — override explicite de l'opérateur, il gagne toujours ;
  *  2. le **state file runtime** — ce que le serveur écoute VRAIMENT (seule source
  *     exacte quand `portPolicy: "auto"` a décalé l'écoute) ;
  *  3. `NF_PORT` / `NF_PORT_HTTPS` — ce que l'application DÉCLARE. L'alias
@@ -446,7 +446,7 @@ export function readSupervisorSuspension(cwd: string): SupervisorLock | null {
  * @param cwd - racine du projet (le state file est par projet).
  */
 export function defaultDevPorts(cwd: string = process.cwd()): number[] {
-  const env = process.env.NODEFONY_DEV_PORTS;
+  const env = process.env.NF_DEV_PORTS;
   if (env) {
     const parsed = env
       .split(",")

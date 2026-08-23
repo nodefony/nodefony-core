@@ -6,7 +6,7 @@
 //   [2] NF__APP__SERVERS__HTTP__PORT=abc
 //          → boot REJETÉ (exit ≠ 0) : la valeur invalide est rattrapée par le Zod app (fail-closed)
 //
-// Contrairement aux autres bancs, celui-ci SPAWN lui-même le serveur (NODEFONY_DEV_CHILD=1 = process
+// Contrairement aux autres bancs, celui-ci SPAWN lui-même le serveur (NF_DEV_CHILD=1 = process
 // unique, pas de superviseur) → il ne dépend PAS d'un serveur déjà UP, et les ports surchargés (7771/
 // 7772) évitent toute collision avec un éventuel dev déjà lancé (5151/5152).
 //
@@ -39,7 +39,7 @@ const check = (name, cond, got) => {
 function bootServer(extraEnv) {
   const child = spawn(process.execPath, [BIN, "development"], {
     cwd: REPO_ROOT,
-    env: { ...process.env, NODEFONY_DEV_CHILD: "1", ...extraEnv },
+    env: { ...process.env, NF_DEV_CHILD: "1", ...extraEnv },
     detached: true, // leader de groupe → group-kill propre (enfants Vite inclus)
     stdio: ["ignore", "ignore", "pipe"],
   });

@@ -46,7 +46,7 @@ export interface DevSupervisorOptions {
   /**
    * Ports serveur à attendre **libres** avant de relancer l'enfant (évite
    * `EADDRINUSE` au restart). Défaut : `[5151, 5152]` (HTTP/HTTPS Nodefony) ou
-   * `NODEFONY_DEV_PORTS` (liste séparée par des virgules). Les ports Vite ne sont
+   * `NF_DEV_PORTS` (liste séparée par des virgules). Les ports Vite ne sont
    * pas listés : l'arrêt emporte l'arbre (Vite compris) et chaque instance a son
    * propre port-retry au redémarrage.
    */
@@ -136,7 +136,7 @@ const delay = (ms: number): Promise<void> =>
  *
  * Topologie : ce process **parent** ne boote PAS le kernel applicatif — il
  * `spawn` le serveur dans un process **enfant** (même commande + variable d'env
- * `NODEFONY_DEV_CHILD=1`), surveille les sources **backend** et, à chaque
+ * `NF_DEV_CHILD=1`), surveille les sources **backend** et, à chaque
  * changement, rebuild puis **redémarre l'enfant**.
  *
  * Le restart doit emporter l'**arbre** de l'enfant — lui et les instances Vite du
@@ -161,7 +161,7 @@ export class DevSupervisor {
   readonly #debounceMs: number;
   readonly #childEnvKey: string;
   /**
-   * Ports imposés à la construction (`options.ports` / `NODEFONY_DEV_PORTS`). `null`
+   * Ports imposés à la construction (`options.ports` / `NF_DEV_PORTS`). `null`
    * = on APPREND les ports réels de l'enfant (cf {@link DevSupervisor.ports}) —
    * indispensable depuis `servers.portPolicy: "auto"` : l'enfant peut écouter
    * ailleurs que sur 5151/5152, et le superviseur doit suivre, pas supposer.
@@ -232,7 +232,7 @@ export class DevSupervisor {
   constructor(options: DevSupervisorOptions) {
     this.#cwd = options.cwd;
     this.#debounceMs = options.debounceMs ?? 250;
-    this.#childEnvKey = options.childEnvKey ?? "NODEFONY_DEV_CHILD";
+    this.#childEnvKey = options.childEnvKey ?? "NF_DEV_CHILD";
     // Inclut les fichiers de config racine `nodefony.config.ts` + `env.ts` (modèle
     // defineConfig, Lot 5) : un changement déclenche un rebuild root (`rolldown -c` via
     // resolveWorkspace → null) puis le restart → la config éditée est appliquée en dev.

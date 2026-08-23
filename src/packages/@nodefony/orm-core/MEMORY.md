@@ -73,7 +73,7 @@ Fondation multi-ORM. Contrats + registre + base classes. Lib pure (pas Module, p
 - **Débit/s NON stocké** : dérivé côté lecteur (delta `total`/`ts` entre 2 rapports, comme CPU%) → 0 état mutable à la lecture, robuste sous saturation event-loop. **0 persistance** (RAM only, reset au restart — une sonde n'écrit jamais dans la base qu'elle observe).
 - **`buildOrmFlow(filter?): IOrmFlowReport`** (`OrmAdminApi.ts`) : `{enabled, ts, instanceId, slowMs, connectors[]}`. Lecture pure (n'émet AUCUNE requête, ≠ `buildConnectionHealth` qui ping). Endpoint `GET /nodefony/orm/api/flow` (`?connector=`).
 - **Types** `interfaces/IOrmFlow.ts` : `ISlowQuery`/`IQueryFlow`/`IOrmFlowReport`. Exportés (+ `queryFlowMonitor`).
-- **Gating** = job du driver (orm-core ignore l'env) : Drizzle `DrizzleService.onBoot` → `setEnabled(env!==production)` (override `NODEFONY_ORM_FLOW=1/0`).
+- **Gating** = job du driver (orm-core ignore l'env) : Drizzle `DrizzleService.onBoot` → `setEnabled(env!==production)` (override `NF_ORM_FLOW=1/0`).
 - **Couverture** : seul **Drizzle** alimente le tap (`DrizzleRepository.#prof`). Mongoose=TODO (pas de tap par-requête → middleware à créer). Connecteurs non câblés → snapshot neutre (0).
 
 ## Gotchas

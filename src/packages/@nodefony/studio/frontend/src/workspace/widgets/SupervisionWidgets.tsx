@@ -674,7 +674,7 @@ function OrmFlowBody({ source }: WidgetRenderProps<FlowReport>) {
   if (report && report.enabled === false)
     return (
       <Text size="sm" c="dimmed">
-        Flux ORM désactivé (sonde OFF). Activer avec NODEFONY_ORM_FLOW=1.
+        Flux ORM désactivé (sonde OFF). Activer avec NF_ORM_FLOW=1.
       </Text>
     );
   const conns = (report?.connectors ?? []).filter((cc) => cc.total > 0);

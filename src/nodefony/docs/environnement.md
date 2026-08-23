@@ -75,10 +75,10 @@ typé, validé au démarrage. Une variable non déclarée là n'existe pas, quoi
 
 Nodefony sépare ce que la plupart des frameworks confondent :
 
-| Axe             | Variable                   | Valeurs                             | Ce qu'il décide                                     |
-| --------------- | -------------------------- | ----------------------------------- | --------------------------------------------------- |
-| **Mode**        | `NODE_ENV`                 | `development` / `production`        | comment le code s'exécute (optimisations, journaux) |
-| **Déploiement** | `APP_ENV` / `NODEFONY_ENV` | chaîne libre : `staging`, `canary`… | **où** il s'exécute (quelle base, quels secrets)    |
+| Axe             | Variable             | Valeurs                             | Ce qu'il décide                                     |
+| --------------- | -------------------- | ----------------------------------- | --------------------------------------------------- |
+| **Mode**        | `NODE_ENV`           | `development` / `production`        | comment le code s'exécute (optimisations, journaux) |
+| **Déploiement** | `APP_ENV` / `NF_ENV` | chaîne libre : `staging`, `canary`… | **où** il s'exécute (quelle base, quels secrets)    |
 
 Un `staging` tourne en mode `production` : ce sont deux questions différentes, et les mélanger
 oblige à choisir entre « optimisé » et « pointe la bonne base ». Le déploiement est **plus

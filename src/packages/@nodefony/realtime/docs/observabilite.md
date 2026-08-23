@@ -437,11 +437,11 @@ après fusion et validation — la seule vue qui dit ce qui s'applique, plutôt 
 
 ## ⚙️ Configuration
 
-| Clé                            | Défaut | Effet                                                                     |
-| ------------------------------ | ------ | ------------------------------------------------------------------------- |
-| `slowConsumer.bytes`           | 1 Mio  | Seuil de **comptage** de `slowConsumers` dans la sonde (`config.ts:121`). |
-| `cluster.probe.enabled`        | `true` | Branche la sonde agrégée pod en worker de cluster (`config.ts:30`).       |
-| `NODEFONY_CLUSTER_PROBE` (env) | —      | Mis à `0`, coupe la sonde pod quelle que soit la configuration.           |
+| Clé                      | Défaut | Effet                                                                     |
+| ------------------------ | ------ | ------------------------------------------------------------------------- |
+| `slowConsumer.bytes`     | 1 Mio  | Seuil de **comptage** de `slowConsumers` dans la sonde (`config.ts:121`). |
+| `cluster.probe.enabled`  | `true` | Branche la sonde agrégée pod en worker de cluster (`config.ts:30`).       |
+| `NF_CLUSTER_PROBE` (env) | —      | Mis à `0`, coupe la sonde pod quelle que soit la configuration.           |
 
 > [!CAUTION]
 > `slowConsumer.bytes` ne pilote **que la métrique**. Les seuils qui jettent une frame ou ferment une

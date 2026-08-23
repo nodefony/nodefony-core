@@ -65,7 +65,7 @@ export interface IOrmFlowReport {
   enabled: boolean;
   /** Horodatage du rapport (ms epoch) — sert au calcul du débit (Δts). */
   ts: number;
-  /** Identifiant de l'instance (pid, ou `NODEFONY_INSTANCE_ID`). */
+  /** Identifiant de l'instance (pid, ou `NF_INSTANCE_ID`). */
   instanceId: string;
   /** Seuil « lent » courant (ms) — au-delà, la requête est capturée. */
   slowMs: number;

@@ -65,7 +65,7 @@ function spawnWorker(): Promise<ForkedWorker> {
       env: {
         ...process.env,
         // Pas de tâches collatérales : on n'instancie pas le kernel ici.
-        NODEFONY_CLUSTER: "0",
+        NF_CLUSTER: "0",
       },
     });
     const events: AnyMsg[] = [];

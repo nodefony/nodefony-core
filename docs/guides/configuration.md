@@ -74,7 +74,7 @@ export default defineConfig<typeof env>((ctx) => ({
 `ctx` est passé au boot : `{ env, appEnv, runtimeEnv, isProd, isDev, isTest }`.
 
 - `env` = le catalogue typé de `env.ts` (`ctx.env.NF_LOG_DRIVER` est auto-complété + documenté en hover).
-- `runtimeEnv` = `NODE_ENV` canonisé ; `appEnv` = axe de déploiement libre (`APP_ENV`/`NODEFONY_ENV`).
+- `runtimeEnv` = `NODE_ENV` canonisé ; `appEnv` = axe de déploiement libre (`APP_ENV`/`NF_ENV`).
 
 ## `env.ts` — le catalogue d'environnement
 
@@ -213,7 +213,7 @@ l'onglet **Configuration** de Studio, lequel badge chaque champ `🔥 à chaud` 
 
 `nodefony/config/cluster/cluster.config.ts` reste un **fichier séparé, kernel-free** : le process master
 le lit **standalone, AVANT de booter le moindre Kernel**, pour décider du nombre de workers. Ne PAS le
-mettre dans `nodefony.config.ts`. Override runtime : CLI `--workers` > `NODEFONY_WORKERS` > ce fichier.
+mettre dans `nodefony.config.ts`. Override runtime : CLI `--workers` > `NF_WORKERS` > ce fichier.
 
 ## Quand la config est invalide
 

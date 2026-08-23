@@ -12,7 +12,7 @@
  *   - commandes SERVEUR + typo : bootent l'app réelle → lourdes, gardées par RUN_CLI_BOOT=1.
  *     Le cœur = INVARIANT BOOT-COUNT : `production`/`cluster -w1` ne doivent créer qu'UN
  *     SEUL Kernel par process (avant refacto : 2 → ces asserts sont RED jusqu'à l'étape C).
- *     Observé via NODEFONY_KERNEL_TRACE_FILE (1 ligne par `new Kernel()`).
+ *     Observé via NF_KERNEL_TRACE_FILE (1 ligne par `new Kernel()`).
  */
 
 import assert from "node:assert";
@@ -50,8 +50,7 @@ const RUN_BOOT = process.env.RUN_CLI_BOOT === "1";
 // vitest était déjà de 90 s — la readiness abandonnait à mi-parcours. Seuil large,
 // surchargeable pour une machine lente, et le budget test en dérive → readiness
 // TOUJOURS < testTimeout par construction (plus de course entre les deux).
-const READY_TIMEOUT_MS =
-  Number(process.env.NODEFONY_CLI_READY_TIMEOUT_MS) || 80_000;
+const READY_TIMEOUT_MS = Number(process.env.NF_CLI_READY_TIMEOUT_MS) || 80_000;
 const BOOT_TEST_TIMEOUT_MS = READY_TIMEOUT_MS + 25_000; // marge countBoots + killAndWait
 
 /** Résultat d'un spawn d'une commande terminante. */
@@ -70,9 +69,9 @@ interface CliResult {
  * performance : leur horloge doit tolérer une machine chargée. Sous `turbo run
  * test`, une trentaine de suites tournent de front et le boot d'un kernel dépasse
  * allègrement 30 s — le test échouait alors sur la charge de ses voisins, pas sur
- * son sujet. Réglable par `NODEFONY_CLI_TIMEOUT_MS` (CI lente, machine modeste).
+ * son sujet. Réglable par `NF_CLI_TIMEOUT_MS` (CI lente, machine modeste).
  */
-const CLI_TIMEOUT_MS = Number(process.env.NODEFONY_CLI_TIMEOUT_MS) || 120_000;
+const CLI_TIMEOUT_MS = Number(process.env.NF_CLI_TIMEOUT_MS) || 120_000;
 
 function runCli(
   args: string[],
@@ -227,7 +226,7 @@ async function spawnServerAndCountBoots(
   );
   const child = spawn(process.execPath, [BIN, ...args], {
     cwd: REPO_ROOT,
-    env: { ...process.env, NODEFONY_KERNEL_TRACE_FILE: traceFile },
+    env: { ...process.env, NF_KERNEL_TRACE_FILE: traceFile },
   });
   let out = "";
   try {
@@ -391,7 +390,7 @@ describe.skipIf(!fs.existsSync(DIST))(
       );
       try {
         const r = await runCli(["completion", "zsh"], CLI_TIMEOUT_MS, {
-          NODEFONY_KERNEL_TRACE_FILE: traceFile,
+          NF_KERNEL_TRACE_FILE: traceFile,
         });
         assert.strictEqual(r.code, 0, r.stderr);
         assert.ok(r.stdout.includes("#compdef nodefony"), r.stdout);
@@ -446,7 +445,7 @@ describe.skipIf(!fs.existsSync(DIST))(
       );
       try {
         const r = await runCli(["status"], CLI_TIMEOUT_MS, {
-          NODEFONY_KERNEL_TRACE_FILE: traceFile,
+          NF_KERNEL_TRACE_FILE: traceFile,
         });
         assert.strictEqual(
           r.code,
@@ -598,7 +597,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
       );
       try {
         const r = await runCli(["http:network", "-j"], CLI_TIMEOUT_MS, {
-          NODEFONY_KERNEL_TRACE_FILE: traceFile,
+          NF_KERNEL_TRACE_FILE: traceFile,
         });
         assert.strictEqual(
           r.code,
@@ -954,7 +953,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
     //   • en production (défaut des subprocess) le module test n'est pas chargé →
     //     `unknown command 'test:batch'` ;
     //   • en `development` (seul env qui le charge), le boot passe par le couple
-    //     superviseur/enfant : sans `NODEFONY_DEV_CHILD=1` la sortie des commandes
+    //     superviseur/enfant : sans `NF_DEV_CHILD=1` la sortie des commandes
     //     de module n'atteint pas stdout, et avec, le module `frontend` démarre Vite
     //     (process vivant) → le mode ONESHOT ne peut jamais terminer.
     // Le MÉCANISME sous-jacent (oneshot → `terminate`, daemon → `park`, `lifetime`)

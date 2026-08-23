@@ -308,7 +308,7 @@ supprimés lors du refactor `f636fd74` sans que les renvois suivent, et huit ren
 intervention : ils étaient déjà morts. Les premiers pointent maintenant le fichier qui a absorbé leur
 contenu, les seconds sont préfixés par le skill propriétaire. Même famille : `nodefony-debug` renvoyait
 deux fois vers une section « §4 Debug runtime » de `framework-dev` disparue au même refactor, alors que
-la capacité (`NODEFONY_DEV_CHILD=1`) existe toujours dans `DevSupervisor.ts` — le renvoi pointe
+la capacité (`NF_DEV_CHILD=1`) existe toujours dans `DevSupervisor.ts` — le renvoi pointe
 désormais le code.
 
 Ces écarts ne gênaient pas Claude Code, qui est tolérant. Ils gênaient **la portabilité** : un skill non

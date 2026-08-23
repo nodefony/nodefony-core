@@ -419,11 +419,11 @@ réglage d'environnement invalide doit casser aussi fort qu'un réglage de code.
 
 ### Ce qui n'est pas une variable de ce module
 
-| Variable            | Qui la lit                        | Effet                                                                       |
-| ------------------- | --------------------------------- | --------------------------------------------------------------------------- |
-| `NF_STORE`          | Le cœur, pour toute brique `auto` | Force un backend partout — sert surtout à mesurer sans le goulot d'une base |
-| `NODEFONY_ORM_FLOW` | La sonde de flux ORM              | `1`/`true` l'allume, `0`/`false` l'éteint ; sinon : allumée hors production |
-| `MONGO_TEST_URI`    | La suite de tests du module       | Pointe un serveur Mongo existant au lieu d'en démarrer un jetable           |
+| Variable         | Qui la lit                        | Effet                                                                       |
+| ---------------- | --------------------------------- | --------------------------------------------------------------------------- |
+| `NF_STORE`       | Le cœur, pour toute brique `auto` | Force un backend partout — sert surtout à mesurer sans le goulot d'une base |
+| `NF_ORM_FLOW`    | La sonde de flux ORM              | `1`/`true` l'allume, `0`/`false` l'éteint ; sinon : allumée hors production |
+| `MONGO_TEST_URI` | La suite de tests du module       | Pointe un serveur Mongo existant au lieu d'en démarrer un jetable           |
 
 Le dépôt d'utilisateurs, lui, ne se choisit pas par une clé de ce module : il se pose dans le
 `provisionUsers` de ton application. Voir

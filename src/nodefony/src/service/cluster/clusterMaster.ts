@@ -14,7 +14,7 @@ export interface ClusterMasterHandles {
   manager: ClusterManager;
   /** Gateway IPC : fan-out des publications realtime cross-process. */
   relay: ClusterRelay;
-  /** Agrégateur de sondes (vue pod, push) — `null` si `NODEFONY_CLUSTER_PROBE=0`. */
+  /** Agrégateur de sondes (vue pod, push) — `null` si `NF_CLUSTER_PROBE=0`. */
   probes: ClusterProbeAggregator | null;
 }
 
@@ -23,10 +23,10 @@ export interface ClusterMasterHandles {
  * commandes de lancement (`cluster` et `production`).
  *
  * Le master ne sert **aucun HTTP** : il est superviseur + gateway IPC. Il
- * 1. marque `NODEFONY_CLUSTER=1` (hérité au fork → le module Framework branche le
+ * 1. marque `NF_CLUSTER=1` (hérité au fork → le module Framework branche le
  *    ClusterBackplane sur son RealtimeHub),
  * 2. branche le {@link ClusterRelay} (fan-out realtime cross-process intra-pod) et,
- *    sauf `NODEFONY_CLUSTER_PROBE=0`, le {@link ClusterProbeAggregator} (vue pod, push),
+ *    sauf `NF_CLUSTER_PROBE=0`, le {@link ClusterProbeAggregator} (vue pod, push),
  * 3. fork N workers via {@link ClusterManager} (respawn backoff + graceful shutdown).
  *
  * Les handlers `fork`/`exit` GLOBAUX couvrent forks initiaux ET respawns → un worker
@@ -48,12 +48,12 @@ export function startClusterMaster(opts: {
   // process s'affichent `npm exec nodefony cluster` → master et workers indistinguables).
   process.title = `nodefony master [cluster ${workers}w]`;
   // Marque les workers (héritage env au fork) → branchement du ClusterBackplane.
-  process.env.NODEFONY_CLUSTER = "1";
+  process.env.NF_CLUSTER = "1";
 
   const relay = new ClusterRelay({ log });
-  // Sonde agrégée : opt-in, désactivable (NODEFONY_CLUSTER_PROBE=0) → bypass total.
+  // Sonde agrégée : opt-in, désactivable (NF_CLUSTER_PROBE=0) → bypass total.
   const probes =
-    process.env.NODEFONY_CLUSTER_PROBE !== "0"
+    process.env.NF_CLUSTER_PROBE !== "0"
       ? new ClusterProbeAggregator({ log })
       : null;
 
