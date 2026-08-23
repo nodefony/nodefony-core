@@ -33,26 +33,27 @@ lancement depuis un sous-dossier, qui ferait booter un « projet fantôme ».
 
 ## Famille 1 — Charge, mesure, dimensionnement
 
-| Script                    | Alias         | Ce qu'il mesure                                                                                         |
-| ------------------------- | ------------- | ------------------------------------------------------------------------------------------------------- |
-| `ws-connections.mjs`      | `ws-conn`     | axe 1 : combien de sockets simultanées un process tient, et le coût heap par connexion                  |
-| `ws-messages.mjs`         | `ws-msg`      | axe 2 : débit d'écho et fan-out de diffusion                                                            |
-| `http-load.mjs`           | `http`        | RPS, latences p50→p99, distribution des codes, sur une route donnée                                     |
-| `hub-load.mjs`            | `hub`         | charge de la socket côté hub — fait bouger le panneau « Realtime Hub » et sa sonde                      |
-| `supervision-stress.mjs`  | `stress`      | trois voies simultanées (HTTP + WS + base) en rampe, jusqu'à la rupture                                 |
-| `capacity.mjs`            | —             | banc de capacité : les constantes d'un pod, pour dimensionner (ne cherche PAS la rupture)               |
-| `capacity-html.mjs`       | —             | rend le rapport de capacité (ne contient aucune primitive de rendu : tout vient du skill de rapports)   |
-| `bench-ab-mono.sh`        | —             | A/B du coût du pipeline par requête, en production mono-process (CPU-bound, donc lisible)               |
-| `bench-report.mjs`        | `report`      | transforme un ou plusieurs résultats de banc en rapport HTML pour un humain qui décide                  |
-| `cluster-ipc.mjs`         | `cluster-ipc` | coût réel du fan-out cross-process worker → maître → workers, **avant** Redis                           |
-| `log-sink-contention.mjs` | `log-sink`    | microbanc isolé du driver de journal, sans le bruit du RPS HTTP                                         |
-| `aimd-demo.mjs`           | `aimd`        | démonstration lisible et déterministe de la cadence adaptative, difficile à observer au navigateur      |
-| `route-scan-cost.mjs`     | —             | combien de `Route.match` chaque requête paie, ce que ce scan coûte, et comment il grandit à N routes    |
-| `db-backend-cost.mjs`     | —             | ce qu'un pilote de base coûte au serveur : latence, blocage de la boucle, et ce qui plafonne vraiment   |
-| `boot-bench.mjs`          | —             | temps de démarrage d'un mode, du spawn à l'écoute, et nombre de kernels instanciés                      |
-| `boot-profile.mjs`        | —             | le même démarrage, mais **détaillé** : la sortie horodatée jusqu'à l'écoute, pour voir où part le temps |
-| `poc-hmr-perf.mjs`        | —             | délai de bout en bout entre le `touch` d'un fichier surveillé et le rechargement Vite                   |
-| `poc-bench.mjs`           | —             | latences p50/p95/p99 du back **pendant que Vite compile** — le coût du voisinage en développement       |
+| Script                    | Alias         | Ce qu'il mesure                                                                                           |
+| ------------------------- | ------------- | --------------------------------------------------------------------------------------------------------- |
+| `ws-connections.mjs`      | `ws-conn`     | axe 1 : combien de sockets simultanées un process tient, et le coût heap par connexion                    |
+| `ws-messages.mjs`         | `ws-msg`      | axe 2 : débit d'écho et fan-out de diffusion                                                              |
+| `http-load.mjs`           | `http`        | RPS, latences p50→p99, distribution des codes, sur une route donnée                                       |
+| `hub-load.mjs`            | `hub`         | charge de la socket côté hub — fait bouger le panneau « Realtime Hub » et sa sonde                        |
+| `supervision-stress.mjs`  | `stress`      | trois voies simultanées (HTTP + WS + base) en rampe, jusqu'à la rupture                                   |
+| `capacity.mjs`            | —             | banc de capacité : les constantes d'un pod, pour dimensionner (ne cherche PAS la rupture)                 |
+| `capacity-html.mjs`       | —             | rend le rapport de capacité (ne contient aucune primitive de rendu : tout vient du skill de rapports)     |
+| `bench-ab-mono.sh`        | —             | A/B du coût du pipeline par requête, en production mono-process (CPU-bound, donc lisible)                 |
+| `bench-report.mjs`        | `report`      | transforme un ou plusieurs résultats de banc en rapport HTML pour un humain qui décide                    |
+| `soak.mjs`                | —             | TENUE DANS LA DURÉE : trafic continu, pente du heap et dérive du débit — ce qu'un run de 10 s ne voit pas |
+| `cluster-ipc.mjs`         | `cluster-ipc` | coût réel du fan-out cross-process worker → maître → workers, **avant** Redis                             |
+| `log-sink-contention.mjs` | `log-sink`    | microbanc isolé du driver de journal, sans le bruit du RPS HTTP                                           |
+| `aimd-demo.mjs`           | `aimd`        | démonstration lisible et déterministe de la cadence adaptative, difficile à observer au navigateur        |
+| `route-scan-cost.mjs`     | —             | combien de `Route.match` chaque requête paie, ce que ce scan coûte, et comment il grandit à N routes      |
+| `db-backend-cost.mjs`     | —             | ce qu'un pilote de base coûte au serveur : latence, blocage de la boucle, et ce qui plafonne vraiment     |
+| `boot-bench.mjs`          | —             | temps de démarrage d'un mode, du spawn à l'écoute, et nombre de kernels instanciés                        |
+| `boot-profile.mjs`        | —             | le même démarrage, mais **détaillé** : la sortie horodatée jusqu'à l'écoute, pour voir où part le temps   |
+| `poc-hmr-perf.mjs`        | —             | délai de bout en bout entre le `touch` d'un fichier surveillé et le rechargement Vite                     |
+| `poc-bench.mjs`           | —             | latences p50/p95/p99 du back **pendant que Vite compile** — le coût du voisinage en développement         |
 
 ## Famille 2 — Preuves e2e sur un vrai serveur, sans navigateur
 

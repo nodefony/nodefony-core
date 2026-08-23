@@ -70,13 +70,20 @@ grep "abc12345" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
 
 ## Heuristique de diagnostic
 
-| Pattern dans le log                               | Cause probable                        | Fix                                                        |
-| ------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------- |
-| `SyntaxError: does not provide an export named X` | dist d'un module périmé               | `cd src/packages/@nodefony/<m> && npm run build` + restart |
-| `CRITIC KERNEL ... terminate : 0` au boot         | crash early : voir lignes précédentes | Lire le stack trace                                        |
-| `404` répétés sur des routes valides              | dist du module test périmé            | Rebuild + restart (skill `nodefony-start-server`)          |
-| `ECONNREFUSED`                                    | serveur mort                          | Relancer via skill `nodefony-start-server`                 |
-| `EADDRINUSE 5151/5152`                            | autre process sur les ports           | `lsof -ti:5151 -ti:5152 \| xargs kill -9`                  |
+| Pattern dans le log                               | Cause probable                        | Fix                                                            |
+| ------------------------------------------------- | ------------------------------------- | -------------------------------------------------------------- |
+| `SyntaxError: does not provide an export named X` | dist d'un module périmé               | `cd src/packages/@nodefony/<m> && npm run build` + restart     |
+| `CRITIC KERNEL ... terminate : 0` au boot         | crash early : voir lignes précédentes | Lire le stack trace                                            |
+| `404` répétés sur des routes valides              | dist du module test périmé            | Rebuild + restart (skill `nodefony-start-server`)              |
+| `ECONNREFUSED`                                    | serveur mort                          | Relancer via skill `nodefony-start-server`                     |
+| `EADDRINUSE 5151/5152`                            | autre process sur les ports           | `nodefony stop` (jamais un `kill -9` par port — cf ci-dessous) |
+
+> 🔴 **Ne JAMAIS libérer un port par `lsof -ti:PORT | xargs kill -9`.** Sans le filtre
+> `-sTCP:LISTEN`, `lsof` rend AUSSI les **clients** connectés à ce port — le navigateur
+> ouvert sur Studio, l'agent qui sonde l'application, et jusqu'au process qui lance la
+> commande (un banc s'est déjà SIGKILLé son propre lanceur ainsi, sans laisser la moindre
+> trace : un process tué en -9 n'écrit rien). `nodefony stop` fait le travail correctement,
+> scopé au projet courant, et refuse de toucher au runtime d'une autre application.
 
 ## Quand NE PAS utiliser
 
