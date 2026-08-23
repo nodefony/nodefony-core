@@ -230,14 +230,14 @@ Erreurs mappées par duck-typing dans `#renderAuthError()` (`TokenAuthController
 `issueForCredentials()` (`tokenService.ts:317`) vérifie l'identifiant/mot de passe via le
 service `users`, avec le **throttling NIST partagé** — `ThrottledError` avant tout hachage
 (`tokenService.ts:733`). Chaque tentative échouée est auditée `login.failure`/`login.throttled`
-par `#auditGrant()` (`tokenService.ts:281-293`). Puis `issueTokens()` (`tokenService.ts:490`)
+par `#auditGrant()` (`tokenService.ts:362-374`). Puis `issueTokens()` (`tokenService.ts:490`)
 produit :
 
 - un **access token** : JWT signé EdDSA, en-tête `typ:"at+jwt"` + `kid`, claims
   `iss`/`sub`/`aud`/`exp` (15 min) + `jti` — `#signAccess()` (`tokenService.ts:402-415`) ;
 - un **refresh token** : secret opaque haute entropie `nfr_<32 octets base64url>`, **stocké haché**
   `sha256` (le clair n'existe qu'en réponse, jamais au repos) — `#buildRefresh()`
-  (`tokenService.ts:418-452`).
+  (`tokenService.ts:674-709`).
 
 La réponse suit RFC 6749 §5.1 — `ITokenResponse` (`tokenService.ts:43-51`). Tout succès est audité
 `token.issued` via `recordAudit` avec le `tokenId` corrélable (`tokenService.ts:312-318`).
@@ -288,7 +288,7 @@ pour ne jamais auto-générer une clé en clair silencieusement en prod :
 
 Le JWKS servi par `getPublicJWKS()` (`JwtKeystore.ts:87-90`) est **public** : la composante privée
 `d` est retirée à l'import par `#importKeyset()` (`JwtKeystore.ts:156-158`, RFC 8037/7517) — c'est
-lui qu'utilise le vérificateur local (`createLocalJWKSet`, `JwtAuthenticator.ts:157-158`), jamais
+lui qu'utilise le vérificateur local (`createLocalJWKSet`, `JwtAuthenticator.ts:174`), jamais
 une clé venue du token. Le chargement est mémoïsé — `#ensureLoaded()` (`JwtKeystore.ts:93-95`).
 
 > [!WARNING]
@@ -388,13 +388,13 @@ Les colonnes par dialecte vivent dans la doc de chaque adapter (règle anti-trip
 - `listAll()` reste réservé au **dump d'incident** cross-porteur, cold-path admin
   (`ITokenStore.ts:222`).
 - Consommateur type : le data plane des clés API — `ApiKeyService.listPagePat()`
-  (`apiKeys.ts:186-188`), jamais un listAll matérialisé.
+  (`apiKeys.ts:216`), jamais un listAll matérialisé.
 
 ### Révoquer — trois portées
 
-- **Un access** avant son `exp` : denylist `denyJti()`/`isJtiDenied()` (`ITokenStore.ts:217-224`).
+- **Un access** avant son `exp` : denylist `denyJti()`/`isJtiDenied()` (`ITokenStore.ts:251`).
 - **Un refresh/PAT** : `revoke()` idempotent, `revokeFamily()` pour la chaîne de rotation
-  (`ITokenStore.ts:212-215`).
+  (`ITokenStore.ts:242`).
 - **Tout un porteur** (logout global, ban) : seuil `revokeAllForSubject()` — tout access dont
   `iat < invalidBefore` est rejeté (`ITokenStore.ts:226-234`) ; le seuil est **monotone**, deux
   logouts successifs ne le reculent pas (`MemoryTokenStore.ts:200-207`).
@@ -429,7 +429,7 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:334-390`) et `token
 | `jwks` | boolean | `true` | Publie `/.well-known/jwks.json` + les métadonnées RFC 8414 — sans `issuer` en URL https, rien n'est publié |
 | `audiences` | string[] | `[]` | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts:384`) |
 | `issuer` | string? | — | Claim `iss`, **STABLE** après émission ; omis → repli `"nodefony"`, qui n'est PAS publiable (RFC 8414 §2 exige une URL https) |
-| `keystore.keySetJson` | string? | — | JWK Set privé injecté depuis l'env — source prod, SECRET (`config.ts:370-375`) |
+| `keystore.keySetJson` | string? | — | JWK Set privé injecté depuis l'env — source prod, SECRET (`security/nodefony/config/config.ts:398`) |
 | `keystore.dir` | string? | — | Dossier `keyset.json` chmod 600 — source dev/VPS (`config.ts:376-381`) |
 
 ### `tokenStore.*`

@@ -115,7 +115,7 @@ un `if (name === "jwt")` dans le firewall, qui trahirait la promesse « pluggabl
 - La fabrique ne fait que **construire** ; les résolutions de services coûteuses (`users`,
   `tokenStore`, keystore) restent **lazy** dans l'instance (cold path).
 - Un nom inconnu en config = boot **fail-closed** — `#configError` posé + log CRITIC
-  (`firewall.ts:369-377`) : jamais de zone « protégée » silencieusement ouverte à cause d'une
+  (`firewall.ts:419`) : jamais de zone « protégée » silencieusement ouverte à cause d'une
   faute de frappe.
 
 ## 🚀 Démarrage rapide
@@ -197,12 +197,12 @@ curl -s -H 'Authorization: Bearer nf_…' \
 
 Requête par requête, qui répond :
 
-| Le client envoie…                    | Maillon (`supports()`) | Résultat                                                 |
-| ------------------------------------ | ---------------------- | -------------------------------------------------------- |
-| le cookie de session                 | `session`              | identifié — rôles frais re-résolus en base               |
-| `Authorization: Bearer eyJ…` (a.b.c) | `jwt`                  | identifié — signature EdDSA + claims vérifiés            |
-| `Authorization: Bearer nf_…`         | `apikey`               | identifié — clé vérifiée au store, révocable             |
-| rien                                 | aucun                  | **401** + `WWW-Authenticate: Bearer` (`firewall.ts:981`) |
+| Le client envoie…                    | Maillon (`supports()`) | Résultat                                                  |
+| ------------------------------------ | ---------------------- | --------------------------------------------------------- |
+| le cookie de session                 | `session`              | identifié — rôles frais re-résolus en base                |
+| `Authorization: Bearer eyJ…` (a.b.c) | `jwt`                  | identifié — signature EdDSA + claims vérifiés             |
+| `Authorization: Bearer nf_…`         | `apikey`               | identifié — clé vérifiée au store, révocable              |
+| rien                                 | aucun                  | **401** + `WWW-Authenticate: Bearer` (`firewall.ts:1200`) |
 
 ## 🔐 Les six authenticators intégrés
 

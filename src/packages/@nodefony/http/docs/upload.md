@@ -120,7 +120,7 @@ le flux et écrit chaque fichier au fil de l'eau dans le dossier temporaire (`st
 champs texte restent en mémoire. C'est ce qui rend un endpoint d'upload public tenable.
 
 **Le nom du fichier temporaire n'est jamais celui du client.** Chaque fichier reçu est écrit sous un nom
-`randomUUID()` + extension d'origine (`context/http/Request.ts:458`) : un nom malveillant
+`randomUUID()` + extension d'origine (`context/http/Request.ts:594`) : un nom malveillant
 (`../../etc/passwd`) ne peut pas influencer le **chemin** d'écriture. Le nom d'origine est conservé en
 **métadonnée** (`filename`), pas dans le chemin.
 
@@ -263,7 +263,7 @@ Les points d'implémentation qui expliquent des comportements surprenants :
    qu'une fois tous les fichiers fermés (`context/http/Request.ts:538`).
 3. **Une limite dépassée nettoie les temporaires déjà posés** — `abort()`
    (`context/http/Request.ts:557`) délie le flux, détruit les write-streams ouverts et `unlink` les temp
-   déjà écrits (`context/http/Request.ts:431`) avant de rejeter en `413` : pas d'orphelins sur le disque.
+   déjà écrits (`context/http/Request.ts:568`) avant de rejeter en `413` : pas d'orphelins sur le disque.
 4. **Les autres formats drainent AVANT de concaténer** — la base `Parser.parse()` attend `end`
    (`context/http/parser.ts:111`) avant `Buffer.concat` : sans ce drain, `ParserQs`/`ParserXml`
    lisaient un corps partiel → `queryPost` vide (bug de régression, cf tests).
@@ -369,7 +369,7 @@ piégé. Les défenses en place, et **ce qui reste à ta charge**.
 <!-- prettier-ignore -->
 | Menace | Défense côté framework | À ta charge |
 | --- | --- | --- |
-| **Path traversal** (chemin d'écriture) | Le temp est nommé `randomUUID()` + extension — jamais le nom client (`context/http/Request.ts:458`). | La **destination** de `move()` (voir avertissement). |
+| **Path traversal** (chemin d'écriture) | Le temp est nommé `randomUUID()` + extension — jamais le nom client (`context/http/Request.ts:594`). | La **destination** de `move()` (voir avertissement). |
 | **Saturation RAM** | Multipart streamé (jamais bufferisé) ; corps non-multipart borné (`maxBodySize`). | Resserrer `maxBodySize` selon l'endpoint. |
 | **Saturation disque** | `maxFileSize` + `maxTotalFileSize` + `maxFiles` ; `abort()` nettoie les temp à l'abandon (`context/http/Request.ts:557`). | Purger les temp non déplacés (TTL / cron). |
 | **DoS par quantité** | `maxFields` / `maxFiles` / `parts` → `413` (`context/http/Request.ts:610`). | — |
@@ -409,7 +409,7 @@ pipeline : `npm run test:memory` (skill `nodefony-check-memory-health`).
 | Corps trop gros → 413              | RFC 9110 §15.5.14                | `enforceBodyLimit()` (`context/http/Request.ts:407`)          |
 | 413 en streaming (chunked/menteur) | RFC 9110 §15.5.14                | `Parser.write()` (`context/http/parser.ts:33`)                |
 | Bornes multipart → 413             | RFC 9110 §15.5.14                | `stream.on("limit")` (`context/http/Request.ts:481`)          |
-| Défense path traversal (nom temp)  | OWASP — File Upload              | `randomUUID()` (`context/http/Request.ts:458`)                |
+| Défense path traversal (nom temp)  | OWASP — File Upload              | `randomUUID()` (`context/http/Request.ts:594`)                |
 | Charset du corps honoré            | RFC 9110 (Content-Type)          | `getCharset()` (`context/http/Request.ts:799`)                |
 
 ## ⚠️ Pièges
@@ -424,7 +424,7 @@ pipeline : `npm run test:memory` (skill `nodefony-check-memory-health`).
 | Des fichiers temporaires s'accumulent dans `uploadDir`  | Le contrôleur ne déplace jamais le temp                             | Appeler `moveAsync()` (ou purger l'ancien temp par TTL)                                            |
 | `queryPost` vide sur `PATCH`                            | Déjà géré : `PATCH` est dans la table des méthodes parsées          | Aucune — corps `PATCH` parsé comme `POST` (`context/http/Request.ts:63`)                           |
 | Corps `latin1` mal décodé                               | Déjà géré : le `charset=` du `Content-Type` est honoré              | Aucune — `getCharset()` normalise (`context/http/Request.ts:799`)                                  |
-| `multipart` sans boundary fait planter                  | `new Busboy()` throw synchrone                                      | Déjà géré : bascule sur le parser brut (`context/http/Request.ts:375`)                             |
+| `multipart` sans boundary fait planter                  | `new Busboy()` throw synchrone                                      | Déjà géré : bascule sur le parser brut (`context/http/Request.ts:502`)                             |
 
 ## 🧪 Tests & couverture
 

@@ -331,7 +331,7 @@ moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts:577-578`
 | Déclaration                                 | Sémantique                                                                                                                       |
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `@IsGranted("ROLE_ADMIN")`                  | un attribut — rôle, scope ou verbe métier (`IsGranted()`, `routerDecorators.ts:839`)                                             |
-| `@IsGranted(["A", "B"])`                    | **OR interne** — un attribut accordé suffit (`SecurityClause.anyOf`, `routerDecorators.ts:292-297`)                              |
+| `@IsGranted(["A", "B"])`                    | **OR interne** — un attribut accordé suffit (`SecurityClause.anyOf`, `routerDecorators.ts:407-412`)                              |
 | empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:309-312`)                       |
 | décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts:1469`)                         |
 | `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:613-617`)                                  |

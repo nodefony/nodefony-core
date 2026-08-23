@@ -347,7 +347,7 @@ permettent de rouvrir le robinet **sans redémarrer**, du plus opérationnel au 
 
 1. **Au lancement** — `NF__DEBUG` : `*` lève la gate globale, `FIREWALL` passe ce module en `DEBUG`,
    `SESSION:NOTICE` le passe à un niveau précis. Analysé par `Syslog.parseDebugSpec()`
-   (`Syslog.ts:893`), appliqué au boot (`Kernel.ts:1940`).
+   (`Syslog.ts:893`), appliqué au boot (`Kernel.ts:2339`).
 2. **À chaud, par module** — `setDebugOverride()` (`Syslog.ts:974`) relève le seuil **d'un seul**
    module (clé = son `msgid`). Le joker `*` vaut « tout ». Un `ttlMs` arme une **auto-extinction**
    (minuterie `unref`, ré-armable) : un debug oublié allumé n'existe pas.

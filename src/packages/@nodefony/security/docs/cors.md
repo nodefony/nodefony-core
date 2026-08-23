@@ -241,7 +241,7 @@ cors: {
 | `Origin: https://app.example.com:8443`   | rien — le **port** fait partie de l'origine, match exact                             |
 | `Origin: https://sub.app.example.com`    | rien — un sous-domaine n'est **pas** couvert par le parent                           |
 | `Origin: http://app.example.com`         | rien — le **scheme** fait partie de l'origine (downgrade refusé)                     |
-| aucun `Origin` (même origine, ou `curl`) | rien — la requête suit le pipeline normal (`firewall.ts:803`)                        |
+| aucun `Origin` (même origine, ou `curl`) | rien — la requête suit le pipeline normal (`firewall.ts:997`)                        |
 
 ### Situation 2 — une API publique en lecture seule (le joker `*`)
 
@@ -332,7 +332,7 @@ Quatre sorties en no-op, dans cet ordre (`firewall.ts:797`) :
 1. CORS désactivé ⇒ `#cors` est `null`, retour immédiat ;
 2. pas d'en-tête `Origin` ⇒ requête same-origin ou client non-navigateur (`firewall.ts:587`) ;
 3. la réponse n'expose pas `setHeader` ⇒ c'est un **WebSocket**, il n'y a pas d'en-tête HTTP à poser
-   (`firewall.ts:806`) ;
+   (`firewall.ts:1013`) ;
 4. origine hors allowlist ⇒ la table est `null`, aucun en-tête n'est posé — mais un preflight reste
    court-circuité en 204 (`firewall.ts:822`).
 
@@ -418,8 +418,8 @@ ne reste à l'exécution qu'un `Set.has()` sur l'origine.
 
 Le coût par requête est donc :
 
-- **0 pour une requête same-origin** — pas d'en-tête `Origin`, sortie immédiate (`firewall.ts:803`) ;
-- **0 pour un WebSocket** — sortie sur l'absence de `setHeader` (`firewall.ts:806`) ;
+- **0 pour une requête same-origin** — pas d'en-tête `Origin`, sortie immédiate (`firewall.ts:997`) ;
+- **0 pour un WebSocket** — sortie sur l'absence de `setHeader` (`firewall.ts:1013`) ;
 - **0 si la section est désactivée** — `#cors` reste `null`, aucun objet n'est alloué (`firewall.ts:166`) ;
 - **une petite table d'en-têtes** allouée uniquement pour une requête cross-origin autorisée. Une
   origine refusée n'alloue rien du tout (retour `null` avant construction de la table, `cors.ts:74`).

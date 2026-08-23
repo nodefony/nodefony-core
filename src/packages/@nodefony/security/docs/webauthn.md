@@ -291,7 +291,7 @@ main au navigateur, téléphone par QR compris.
 `WebAuthnService.verifyRegistration()` (`webAuthn.ts:317`) enchaîne dans cet ordre :
 
 1. **Vérification déléguée** à `verifyRegistrationResponse` — défi, origine, rpIdHash, flags,
-   attestation (`webAuthn.ts:296`). Tout échec devient un message uniforme
+   attestation (`webAuthn.ts:330`). Tout échec devient un message uniforme
    `WebAuthn registration failed` (`webAuthn.ts:305`).
 2. **Plafond d'enrôlement** — `countByUser`, refus `409` si `maxPerUser` est atteint
    (`webAuthn.ts:313`). Volontairement **après** la cryptographie et **avant** le `save` : un client
@@ -428,7 +428,7 @@ temps : la **liste blanche `passkeys.origins`** si elle est non vide (`webAuthn.
 production) ; sinon **l'origine de la requête, mais seulement si son hostname est exactement le
 `rpId`** (`webAuthn.ts:489` — en dev, `localhost:5173` et `localhost:5152` passent tous deux, le port
 est ignoré, sans jamais ouvrir à un domaine tiers) ; en dernier recours `https://{rpId}`
-(`webAuthn.ts:496`).
+(`webAuthn.ts:537`).
 
 > [!WARNING]
 > **Un seul `rpId` par instance.** Il est résolu une fois au boot et stocké dans le service ; il n'y a

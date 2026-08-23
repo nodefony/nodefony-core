@@ -695,7 +695,7 @@ sequenceDiagram
 ```
 
 **Étape 1 — la disponibilité bascule en premier.** L'écouteur est posé à `onPostReady` pour être
-inséré **en tête** et donc s'exécuter **en premier** (`http-kernel.ts:425`). `readyz` répond `503`, le
+inséré **en tête** et donc s'exécuter **en premier** (`http-kernel.ts:515`). `readyz` répond `503`, le
 load balancer cesse d'envoyer du trafic, et `shutdownDelay` laisse à cette information le temps de se
 propager.
 
@@ -753,7 +753,7 @@ L'upgrade WebSocket **est** une requête HTTP : il passe donc par le **même** c
 IP que les requêtes ordinaires, vérifié avant toute allocation de contexte
 (`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1497`). Le `101` étant déjà émis par `ws`, un `429`
 est impossible → la connexion est fermée en **1013 « Try Again Later »**
-(`rateLimiter`, `http-kernel.ts:1377`), sans
+(`rateLimiter`, `http-kernel.ts:287`), sans
 journalisation (un journal par handshake rejeté serait lui-même un amplificateur sous flood).
 
 Un second plafond, **désactivé par défaut**, borne le nombre de connexions **simultanées** par IP :
@@ -776,7 +776,7 @@ par seconde. Les choix visibles dans le code :
 - **Aucun timer par connexion** — un `setInterval` par serveur WebSocket, `unref`, et deux `number` par
   socket (`wsHeartbeat.ts:69`).
 - **Rien de compilé par requête** — la politique de trust-proxy, celle des `Origin` WS et les motifs de
-  `trustedHosts` sont compilés une fois et mémoïsés (`http-kernel.ts:448`, `http-kernel.ts:467`).
+  `trustedHosts` sont compilés une fois et mémoïsés (`http-kernel.ts:937`, `http-kernel.ts:489`).
 - **Rejets avant allocation** — rate-limit HTTP et bornes WS sont vérifiés avant le contexte, la portée
   DI et l'ALS : un flood coûte une recherche dans une table de hachage.
 - **Probes hors pipeline** — réponses pré-allouées, aucun objet créé, aucun journal

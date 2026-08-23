@@ -1606,7 +1606,7 @@ Pour qui veut lire l'implémentation derrière chaque étape :
 | Le branchement automatique du firewall | `Firewall.#wireRealtime()` (`firewall.ts:253`) |
 | Les refus | `IRealtimeDenied` (`RealtimeEventMap.ts:228`), erreur `unauthorized` (`JsonRpcPeer.ts:400`), fermetures `origin not allowed` (`RealtimeController.ts:327`) et `unauthorized` (`RealtimeController.ts:349`) |
 | La révocation en cours de session | `RealtimeHub.revalidateRevocable()` (`RealtimeHub.ts:736`) |
-| Le consommateur lent | seuil `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:56`), fermeture `slow consumer` (`WsConnectionTransport.ts:88`) |
+| Le consommateur lent | seuil `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:56`), fermeture `slow consumer` (`RealtimeHub.ts:63`) |
 | Le plafond de canaux | `RealtimeHub.maxChannelsPerConnection` (`RealtimeHub.ts:910`) |
 | L'accueil et l'identité | `IRealtimeWelcome` (`RealtimeEventMap.ts:204`) |
 | La sonde | `RealtimeHub.probe()` (`RealtimeHub.ts:775`), `IRealtimeProbe` (`IRealtimeProbe.ts:61`), `IRealtimeChannelStat` (`IRealtimeProbe.ts:47`) |

@@ -426,7 +426,7 @@ jeton complet** — rôles, périmètres, attributs (`firewall.ts:632`). Quatre 
 3. **Une identité de WebSocket peut vieillir.** La bulle de connexion porte l'identité captée à la
    poignée de main, et la connexion peut durer des heures — alors que la session, elle, peut être
    révoquée entre-temps. C'est pourquoi le pont WS-RPC **revalide** l'identité à chaque invocation
-   avant d'ouvrir sa bulle — `RequestContext.run()` (`RealtimeController.ts:810`) — et refuse en
+   avant d'ouvrir sa bulle — `RequestContext.run()` (`RequestContext.ts:126`) — et refuse en
    cas de doute, au lieu de faire confiance à la valeur capturée à la connexion.
    La même logique vaut pour ton code : ne mets pas en cache un `getUser()` au-delà d'une invocation.
 4. **Rien ne fuit entre requêtes**, mais tout fuit hors de la bulle si on l'en sort. Ranger un

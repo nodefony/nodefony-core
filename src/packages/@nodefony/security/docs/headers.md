@@ -286,7 +286,7 @@ pour un HTML statique servi directement depuis `public/`.
 avec tes cookies.
 
 Valeur unique reconnue : `nosniff`, posée depuis le cache `secContentTypeOptions`
-(`http-kernel.ts:834`). C'est **l'en-tête qui justifie le mieux la couche transport** : le danger
+(`http-kernel.ts:1334`). C'est **l'en-tête qui justifie le mieux la couche transport** : le danger
 vient précisément des fichiers servis hors pipeline applicatif — un banc live le prouve sur une 404
 (`security-headers.test.ts:38`).
 
@@ -299,7 +299,7 @@ La chaîne est assemblée au boot par `HttpKernel.computeSecurityHeaderCaches()`
 (`http-kernel.ts:330`) : `max-age`, puis `includeSubDomains` et `preload` selon la config.
 
 Elle n'est posée que **sur une réponse HTTPS ou HTTP/2** — le cache `secHsts` est conditionné au type
-de serveur (`http-kernel.ts:839`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
+de serveur (`http-kernel.ts:965`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
 soit ignoré : l'émettre sur du HTTP simple ne ferait que polluer. Défaut : un an, sous-domaines
 inclus.
 
@@ -451,7 +451,7 @@ rester imprévisible, jamais pilotable par le client — contrairement au `reque
 une corrélation entrante.
 
 **Placement dans le pipeline** : `applySecurityHeaders` est appelé **après le resolve** et **avant**
-le repli statique et le `writeHead` (`http-kernel.ts:1193`). Cet ordre n'est pas cosmétique : il
+le repli statique et le `writeHead` (`http-kernel.ts:1334`). Cet ordre n'est pas cosmétique : il
 faut que le routeur ait posé les directives `@Csp` de la route pour pouvoir les fusionner, et il faut
 être avant l'écriture des en-têtes pour pouvoir en poser.
 
@@ -522,7 +522,7 @@ en dev soit plus large qu'en production, où ce fragment n'existe pas.
 | Champ structuré booléen              | RFC 8941                         | `Origin-Agent-Cluster: ?1` (`securityHeaders.ts:75`)         |
 | Referrer-Policy                      | W3C Referrer Policy (enum fermé) | 8 valeurs validées au boot (`config.ts:239`)                 |
 | Isolation cross-origin               | WHATWG HTML (COOP/COEP/CORP)     | `securityHeaders.ts:71`                                      |
-| Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts:834`)               |
+| Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts:1334`)              |
 | Durcissement en-têtes                | OWASP Secure Headers             | `computeSecurityHeaderCaches()` (`http-kernel.ts:330`)       |
 
 ## ⚡ Performance & mémoire
@@ -537,8 +537,8 @@ Le coût est concentré au boot, par construction :
   court-circuite entièrement ce chemin sinon. La paresse de `Context.cspNonce` (`Context.ts:192`)
   protège en plus les chemins internes qui n'atteignent jamais le firewall.
 - **Merge CSP** : jamais dans le chemin chaud. Le fragment d'un module est fusionné à
-  l'enregistrement (`firewall.ts:891`) ; celui d'une route ne coûte que sur les routes `@Csp`.
-- **Socle transport** : trois `setHeader` sur des chaînes précalculées (`http-kernel.ts:833`), avec
+  l'enregistrement (`firewall.ts:1067`) ; celui d'une route ne coûte que sur les routes `@Csp`.
+- **Socle transport** : trois `setHeader` sur des chaînes précalculées (`http-kernel.ts:1334`), avec
   un test `!== null` qui annule le coût des en-têtes désactivés.
 
 Le module n'attache aucun écouteur d'événement et ne conserve aucun état par requête : il n'entre pas

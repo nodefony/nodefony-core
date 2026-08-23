@@ -356,7 +356,7 @@ TTL**. Avec un blob, chaque appel d'API coûterait une lecture, une désérialis
 et remettrait en jeu la date d'expiration.
 
 Ce choix impose une précaution : `HSET` sur une clé absente la **recrée**, et une clé recréée n'a pas
-de TTL. Le store vérifie donc l'existence d'abord (`RedisTokenStore.ts:414`) et ne fait rien si
+de TTL. Le store vérifie donc l'existence d'abord (`RedisTokenStore.ts:254`) et ne fait rien si
 l'identifiant est inconnu. Sans ce test, un jeton expiré ressusciterait, immortel, à sa prochaine
 utilisation.
 
@@ -414,7 +414,7 @@ sequenceDiagram
 Quatre propriétés à retenir.
 
 **Un seul canal, pas un par sujet.** Les canaux applicatifs voyagent **dans** l'enveloppe. Le
-backplane fait donc un unique `SUBSCRIBE` au démarrage (`RedisBackplane.ts:185`), jamais
+backplane fait donc un unique `SUBSCRIBE` au démarrage (`RedisBackplane.ts:18`), jamais
 d'abonnement dynamique. C'est ce qui rend le coût indépendant du nombre de canaux applicatifs.
 
 **Le cloisonnement n'est pas le numéro de base.** Le pub/sub Redis est **global au serveur** : il
@@ -656,7 +656,7 @@ surfacé par les écrans transverses ci-dessus.
 | Le démarrage pend sans Redis                                  | Tentatives illimitées : `connect()` ne rend pas la main                                         | Fixer un maximum fini ; hors production c'est déjà fait (`defineModuleConfig.ts:65`)        |
 | Deux applications se renvoient leurs messages temps réel      | Le pub/sub ignore le numéro de base — cloisonnement inexistant                                  | Poser un namespace de canal explicite (`RedisBackplane.ts:31`)                              |
 | Les mêmes messages sont diffusés deux fois localement         | Anti-echo court-circuité (identifiant d'origine partagé)                                        | Un identifiant d'origine distinct par pod (`RedisBackplane.ts:212`)                         |
-| Un jeton expiré « revient » et n'expire plus                  | `HSET` recrée une clé absente, sans TTL                                                         | Le test d'existence préalable (`RedisTokenStore.ts:414`) — ne pas le retirer                |
+| Un jeton expiré « revient » et n'expire plus                  | `HSET` recrée une clé absente, sans TTL                                                         | Le test d'existence préalable (`RedisTokenStore.ts:254`) — ne pas le retirer                |
 | `?cursor=…` fait échouer un listing de jetons                 | Curseur transmis sans validation (`RedisTokenStore.ts:35`)                                      | Ne pas fabriquer de curseur à la main ; rejouer `nextCursor` tel quel                       |
 | L'écran d'administration n'affiche aucun total                | `countSessions` / `countTokens` rendent `-1` (comptage O(N) refusé)                             | Afficher « inconnu » ; ne jamais inventer un total                                          |
 | Un `offset` envoyé n'a aucun effet                            | Le mode curseur ne lit que `cursor` (`SessionStorage.ts:258`)                                   | Paginer par curseur, pas par décalage                                                       |

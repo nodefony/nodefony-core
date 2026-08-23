@@ -231,7 +231,7 @@ le keystore du serveur. Défenses **dures**, prouvées en test (RFC 8725 JWT BCP
 `JwtAuthenticator.authenticate()` :
 
 - **allowlist d'algorithmes** `["EdDSA"]` — l'algo n'est **jamais** choisi d'après l'en-tête du
-  token ; `alg=none` rejeté (`JwtAuthenticator.ts:104`).
+  token ; `alg=none` rejeté (`JwtAuthenticator.ts:120`).
 - **clé par `kid` depuis le JWKS LOCAL** (`createLocalJWKSet`) — jamais `jku`/`jwk` de l'en-tête
   (anti-injection de clé / SSRF, `JwtAuthenticator.ts:155`).
 - **`aud` + `iss` obligatoires** + `typ:"at+jwt"` (un refresh présenté comme access est rejeté) +
@@ -460,7 +460,7 @@ Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setCh
 | Bearer                 | RFC 6750        | `JwtAuthenticator.ts:13` · `ApiKeyAuthenticator.ts:11` |
 | JWT (BCP)              | RFC 7519, 8725  | `JwtAuthenticator.ts:33-44,104-108`                    |
 | HTTP Basic             | RFC 7617        | `UserPasswordAuthenticator.ts:10-28`                   |
-| Rate limit (429)       | RFC 6585        | 429 + `Retry-After` (`firewall.ts:585`)                |
+| Rate limit (429)       | RFC 6585        | 429 + `Retry-After` (`firewall.ts:764`)                |
 | Backoff de login       | NIST SP 800-63B | `UserPasswordAuthenticator.ts:43-46,101-104`           |
 | CSRF                   | Fetch Metadata  | `Firewall.enforceCsrf()` (`firewall.ts:932`)           |
 | Modèle                 | Zero Trust      | `firewall.ts:611` (aucune preuve → 401)                |
