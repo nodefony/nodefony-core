@@ -390,8 +390,13 @@ if (process.argv.includes("--prove") && MODULE === "./reference.mjs") {
     },
     {
       regle: "plancher absolu de dérive",
-      de: "  if (avant < PLANCHER_DERIVE_TOURS && apres < PLANCHER_DERIVE_TOURS) return muet;",
-      vers: "  if (false) return muet;",
+      // Ancre SANS mise en forme : la précédente citait la ligne entière, `return`
+      // et indentation compris — un passage de prettier l'a coupée en deux, et le
+      // débranchement ne se faisait plus. Le selftest le disait (« ancre
+      // introuvable »), mais la règle n'était plus prouvée pour autant. Une ancre
+      // de mutation vise l'EXPRESSION, jamais la ligne.
+      de: "avant < PLANCHER_DERIVE_TOURS && apres < PLANCHER_DERIVE_TOURS",
+      vers: "false",
     },
     {
       regle: "une dérive ne se REJOUE pas",

@@ -121,7 +121,7 @@ import { portDeLAppSousTest } from "./lib/http-probe.mjs";
 import { envDecor, nfEcartees } from "./lib/env-decor.mjs";
 import { commitsDuHarnais, indiceDeLaPasse } from "./lib/passes.mjs";
 import {
-  CHEMIN_REFERENCE,
+  cheminReference,
   depister,
   empreinteTache,
   ecrireReference,
@@ -4034,6 +4034,17 @@ export function reinitialiserDecor(app, runDir, id) {
 /** Déroule UNE tâche : agent headless dans l'app, transcript + diff capturés. */
 function runTask(app, runDir, task) {
   console.log(`\n━━ tâche ${task.id} — ${task.name}`);
+  // 🔴 Le filet s'arme dès l'ENTRÉE, pas seulement quand le BANC démarre un
+  // serveur. Il ne couvrait que les serveurs du harnais — prémisse de tâche et
+  // régime `auth` — alors que **l'AGENT en démarre un presque à chaque tâche** :
+  // les énoncés lui demandent de prouver que sa route répond. Vécu : une passe
+  // `--task 1,2` (aucune prémisse, régime par défaut) tuée en cours a laissé un
+  // serveur vivant sur 5371, et c'est le run SUIVANT qui l'aurait payé — même
+  // ports, même nom d'app, aucun signal.
+  //
+  // `eteindreApplication` est idempotent et sans effet quand rien ne tourne :
+  // l'armer trop tôt ne coûte rien, ne pas l'armer coûte un run entier.
+  APP_A_ETEINDRE = app;
   // ─── La PRÉMISSE de l'énoncé, posée avant l'agent ────────────────────────
   // Une tâche peut DÉCRIRE une situation au lieu de la demander : « ses envois
   // sont rejetés en 403 » suppose une route déjà montée. Si le décor ne la
@@ -4075,10 +4086,8 @@ function runTask(app, runDir, task) {
       "--allow-empty",
     );
     console.log("  · prémisse posée (décor commité avant l'agent)");
-    // 🔴 Le filet s'arme ICI, pas au démarrage explicite du régime `auth` : une
-    // prémisse peut avoir lancé un serveur (la tâche 9 le fait), et c'est
-    // précisément le serveur qu'une passe interrompue laisse derrière elle.
-    APP_A_ETEINDRE = app;
+    // (le filet couvrant le serveur qu'une prémisse a pu lancer — la tâche 9 le
+    // fait — est armé à l'entrée de cette fonction, pour TOUTES les tâches.)
   }
   // Régime « auth » : l'application doit RÉPONDRE avant que l'agent démarre —
   // son client MCP se connecte tôt, et une porte injoignable le reste pour
@@ -4090,7 +4099,6 @@ function runTask(app, runDir, task) {
       ["--no-install", "nodefony", "development", "--detach", "--wait"],
       { cwd: app, encoding: "utf8", env: APP_ENV, timeout: 180_000 },
     );
-    APP_A_ETEINDRE = app;
   }
   // 🔴 Le décor est FIGÉ ici — après la prémisse de la tâche, avant l'agent.
   // C'est donc le seul instant où l'état de la porte se sait, et il se sait en
@@ -5345,12 +5353,17 @@ function main() {
     `rapport : ${runDir.startsWith(REPO + path.sep) ? path.relative(REPO, reportPath) : reportPath}`,
   );
 
-  const reference = lireReference();
+  // La référence de CET agent : `baseline.json` pour `claude` (l'historique),
+  // `baseline.<agent>.json` pour les autres. Sans cela, un agent tiers lisait la
+  // référence de `claude`, et la garde de décor refusait la comparaison sans
+  // qu'aucun fichier ne puisse jamais être écrit pour lui.
+  const cheminRef = cheminReference(AGENT);
+  const reference = lireReference(cheminRef);
   let aRejouer = 0;
   if (depistage) {
     if (!reference) {
       console.error(
-        `\n🛑 aucune référence (${path.relative(REPO, CHEMIN_REFERENCE)}).\n` +
+        `\n🛑 aucune référence (${path.relative(REPO, cheminRef)}).\n` +
           "   Dépister suppose un état antérieur écrit. Rejouer avec\n" +
           "   `--enregistrer-reference` pour en établir un.",
       );
@@ -5363,10 +5376,10 @@ function main() {
   if (enregistrer) {
     try {
       const fusion = fusionnerReference(reference, report);
-      ecrireReference(fusion);
+      ecrireReference(fusion, cheminRef);
       console.log(
         `\n📌 référence mise à jour (${results.length} tâche(s), ${mesures.length} run(s)) : ` +
-          path.relative(REPO, CHEMIN_REFERENCE),
+          path.relative(REPO, cheminRef),
       );
     } catch (e) {
       console.error(`\n🛑 ${e.message}`);

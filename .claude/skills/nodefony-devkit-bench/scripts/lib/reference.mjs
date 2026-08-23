@@ -77,6 +77,35 @@ export function empreinteTache(task) {
 }
 
 /**
+ * La référence de CET agent — un fichier par agent, à côté du `SKILL.md`.
+ *
+ * `claude` garde `baseline.json` : c'est l'agent de la référence historique, et
+ * la renommer couperait l'historique git de la seule mesure qu'on relit en diff.
+ * Les autres reçoivent `baseline.<agent>.json`.
+ *
+ * Pourquoi séparer plutôt qu'un seul fichier multi-agents : la garde de décor
+ * (`fusionnerReference`) REFUSE déjà de mélanger deux décors et renvoyait
+ * l'opérateur vers « un fichier séparé » — que rien ne savait produire. Un agent
+ * tiers n'avait donc aucune référence, donc pas de `--depistage`, donc aucune
+ * façon de répondre « qu'est-ce qui a bougé ? ». La garde reste entière À
+ * L'INTÉRIEUR de chaque fichier : elle protège encore du mélange de modèle, de
+ * décor et de régime MCP, qui sont les vraies variables d'une mesure.
+ *
+ * ⚠️ Écrire le fichier est bon marché ; le REMPLIR ne l'est pas. Une référence
+ * n'a de sens que si l'agent est REJOUABLE, et l'entrée dans la référence exige
+ * l'unanimité sur trois passes. Mesuré : trois agents sur quatre butent sur un
+ * mur de fournisseur avant d'avoir fini une seule passe.
+ *
+ * @param {string} agent - l'agent mesuré (`NF_DEVKIT_BENCH_AGENT`).
+ * @returns {string} le chemin de sa référence.
+ */
+export function cheminReference(agent) {
+  return agent === "claude"
+    ? CHEMIN_REFERENCE
+    : path.join(path.dirname(CHEMIN_REFERENCE), `baseline.${agent}.json`);
+}
+
+/**
  * Lit la référence versionnée.
  *
  * @returns {object|null} la référence, ou `null` si elle n'a jamais été écrite.
