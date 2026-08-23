@@ -1,6 +1,6 @@
 {
   "version": "10.0.0",
-  "status": "partial",
+  "status": "complete",
   "provenance": {
     "measuredAt": "2026-08-23",
     "headCommit": "a3f6eba8",
@@ -141,6 +141,213 @@
       }
     }
   },
-  "soak": null,
-  "soakCaveat": "Les échantillons du soak de 20 min (2026-08-23) vivaient dans `tmp/` et ont été perdus au ménage — la démonstration même de pourquoi ces données sont désormais versionnées ici. Verdict alors constaté : tas PLAT (pente -0,2 MB/h, R² 0,00), RSS en plateau ~244 MB, débit +5,2 %. À REJOUER avant la publication de la 10.0.0 : la pente se recalcule depuis les échantillons, jamais depuis un résumé."
+  "soak": {
+    "url": "http://127.0.0.1:5151/nodefony/test/als-test/state",
+    "minutes": 20,
+    "windowSec": 60,
+    "conn": 64,
+    "skipped": 2,
+    "node": "v26.7.0",
+    "samples": [
+      {
+        "window": 1,
+        "atSec": 60,
+        "rps": 10956.5,
+        "p99Ms": 8.84,
+        "rssMb": 233.5,
+        "heapUsedMb": 46.8,
+        "errors": true
+      },
+      {
+        "window": 2,
+        "atSec": 120,
+        "rps": 10634.43,
+        "p99Ms": 12.01,
+        "rssMb": 236.6,
+        "heapUsedMb": 47.2,
+        "errors": false
+      },
+      {
+        "window": 3,
+        "atSec": 181,
+        "rps": 7332.29,
+        "p99Ms": 56.12,
+        "rssMb": 238.5,
+        "heapUsedMb": 46.1,
+        "errors": false
+      },
+      {
+        "window": 4,
+        "atSec": 241,
+        "rps": 9202.55,
+        "p99Ms": 26.64,
+        "rssMb": 239.1,
+        "heapUsedMb": 47.2,
+        "errors": false
+      },
+      {
+        "window": 5,
+        "atSec": 301,
+        "rps": 10474.87,
+        "p99Ms": 9.04,
+        "rssMb": 240,
+        "heapUsedMb": 46.3,
+        "errors": false
+      },
+      {
+        "window": 6,
+        "atSec": 361,
+        "rps": 9208.29,
+        "p99Ms": 30.22,
+        "rssMb": 239.3,
+        "heapUsedMb": 47.3,
+        "errors": false
+      },
+      {
+        "window": 7,
+        "atSec": 422,
+        "rps": 9274.04,
+        "p99Ms": 22.99,
+        "rssMb": 239.8,
+        "heapUsedMb": 46.8,
+        "errors": false
+      },
+      {
+        "window": 8,
+        "atSec": 482,
+        "rps": 10325.03,
+        "p99Ms": 9.51,
+        "rssMb": 240.2,
+        "heapUsedMb": 46.4,
+        "errors": false
+      },
+      {
+        "window": 9,
+        "atSec": 542,
+        "rps": 10768.02,
+        "p99Ms": 8.4,
+        "rssMb": 239.6,
+        "heapUsedMb": 46.3,
+        "errors": false
+      },
+      {
+        "window": 10,
+        "atSec": 602,
+        "rps": 7722.96,
+        "p99Ms": 54.11,
+        "rssMb": 239.9,
+        "heapUsedMb": 46.5,
+        "errors": false
+      },
+      {
+        "window": 11,
+        "atSec": 662,
+        "rps": 8572.17,
+        "p99Ms": 23.06,
+        "rssMb": 241.5,
+        "heapUsedMb": 46.3,
+        "errors": false
+      },
+      {
+        "window": 12,
+        "atSec": 723,
+        "rps": 9018.22,
+        "p99Ms": 16.96,
+        "rssMb": 242,
+        "heapUsedMb": 46.3,
+        "errors": false
+      },
+      {
+        "window": 13,
+        "atSec": 783,
+        "rps": 9394,
+        "p99Ms": 15.11,
+        "rssMb": 244.4,
+        "heapUsedMb": 47.4,
+        "errors": false
+      },
+      {
+        "window": 14,
+        "atSec": 843,
+        "rps": 9595.32,
+        "p99Ms": 19.4,
+        "rssMb": 245,
+        "heapUsedMb": 46.6,
+        "errors": false
+      },
+      {
+        "window": 15,
+        "atSec": 903,
+        "rps": 11072.35,
+        "p99Ms": 8.06,
+        "rssMb": 244.6,
+        "heapUsedMb": 46.7,
+        "errors": false
+      },
+      {
+        "window": 16,
+        "atSec": 963,
+        "rps": 10806,
+        "p99Ms": 7.84,
+        "rssMb": 244,
+        "heapUsedMb": 46.3,
+        "errors": false
+      },
+      {
+        "window": 17,
+        "atSec": 1024,
+        "rps": 10716.65,
+        "p99Ms": 8.4,
+        "rssMb": 243.6,
+        "heapUsedMb": 46.3,
+        "errors": false
+      },
+      {
+        "window": 18,
+        "atSec": 1084,
+        "rps": 10663.91,
+        "p99Ms": 8.9,
+        "rssMb": 243.4,
+        "heapUsedMb": 46.3,
+        "errors": false
+      },
+      {
+        "window": 19,
+        "atSec": 1144,
+        "rps": 10873.64,
+        "p99Ms": 8.21,
+        "rssMb": 244.8,
+        "heapUsedMb": 46.3,
+        "errors": false
+      },
+      {
+        "window": 20,
+        "atSec": 1204,
+        "rps": 10872.39,
+        "p99Ms": 7.74,
+        "rssMb": 244.8,
+        "heapUsedMb": 47.4,
+        "errors": false
+      }
+    ],
+    "heapSlopeMbPerHour": -0.04,
+    "heapR2": 0,
+    "rssSlopeMbPerHour": 24.3,
+    "rssR2": 0.833,
+    "rssSlopeLateMbPerHour": 8.16,
+    "rssPlateau": false,
+    "rpsDriftPct": 48.3,
+    "observedMinutes": 17.1,
+    "amplitudeMb": 1.3,
+    "verdict": "clean",
+    "provenance": {
+      "measuredAt": "2026-08-24",
+      "runtimeCommit": "dfdada9e",
+      "commitNote": "Dernier commit touchant le code exécuté ; les commits postérieurs de la session ne portaient que de la documentation, des tests et des scripts.",
+      "serverMode": "production (NF_WITH_DEV_MODULES=1, TTL 60 min, NODE_OPTIONS=--expose-gc)",
+      "decorDiffersFromComparison": "⚠️ Les JOURNAUX sont ACTIFS ici, alors que le comparatif a été mesuré sans eux. Le sink de log écrit à chaque requête — c'est la principale raison pour laquelle le débit du soak (~10 800 rps stabilisé) reste sous celui du comparatif (12 226). Ce choix est délibéré : couper les journaux pour mesurer rend un échec de boot MUET, et une charge de vingt minutes sans capacité de diagnostic est un pari. La grandeur cherchée ici est une PENTE, que le coût constant des journaux ne déplace pas.",
+      "machineBusy": "Une session de travail tournait sur le même poste (édition de fichiers, git). Sans effet sur la pente ; explique une partie de la dispersion du débit."
+    },
+    "rssReading": "Le tas JS est PLAT (pente -0,04 MB/h, R² 0,00) : aucune fuite JavaScript. Le RSS, lui, monte de 238,5 à 244,8 MB et le critère de plateau du banc rend `false` — mais à 0,06 près (pente de seconde moitié 8,16 MB/h contre un seuil de 8,10). Un verdict qui bascule sur 0,7 % ne tranche pas : la seconde moitié oscille autour de 244 MB sans direction nette, ce qui ressemble à un plateau, et une session précédente avait conclu au plateau sur la même machine. À OBSERVER sur une durée plus longue plutôt qu'à trancher ici — c'est la question ouverte que ce jeu de mesures laisse derrière lui."
+  }
 }

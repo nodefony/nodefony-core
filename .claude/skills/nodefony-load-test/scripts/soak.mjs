@@ -224,7 +224,13 @@ const rss = slope(kept.map((s) => ({ x: s.atSec, y: s.rssMb })));
 const rpsFirst = kept[0].rps;
 const rpsLast = kept[kept.length - 1].rps;
 const drift = ((rpsLast - rpsFirst) / rpsFirst) * 100;
-const anyErr = samples.some((s) => s.errors);
+// Les erreurs ne comptent que dans les fenêtres RETENUES : celles de la montée en
+// régime sont écartées du verdict, et douter d'un run à cause de données qu'on a
+// soi-même jetées, c'est inventer un défaut — la sonde doit couvrir exactement ce
+// qu'elle juge. Les erreurs écartées restent DITES, pour qu'un décor instable ne
+// disparaisse pas non plus en silence.
+const anyErr = kept.some((s) => s.errors);
+const errSkipped = samples.slice(0, SKIP).some((s) => s.errors);
 
 console.log(
   `\n══ SOAK — ${kept.length} fenêtres retenues sur ${samples.length} ══`,
@@ -284,7 +290,14 @@ const leaking =
   amplitude >= MIN_AMPLITUDE_MB;
 const degrading = drift < -10;
 if (anyErr) {
-  console.log("\n  ⚠ des fenêtres ont vu des erreurs — verdict à relativiser.");
+  console.log(
+    "\n  ⚠ des fenêtres RETENUES ont vu des erreurs — verdict à relativiser.",
+  );
+} else if (errSkipped) {
+  console.log(
+    `\n  ℹ erreurs vues pendant la montée en régime (${SKIP} fenêtre(s) écartée(s)) —` +
+      ` hors du verdict. Décor à surveiller si cela se répète.`,
+  );
 }
 if (tooShort) {
   console.log(

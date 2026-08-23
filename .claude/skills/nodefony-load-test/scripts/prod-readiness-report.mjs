@@ -307,7 +307,16 @@ const tenue = section(
         k: "RSS",
         v: `${fmt.dec(kept[0].rssMb, 0)} → ${fmt.dec(kept[kept.length - 1].rssMb, 0)}`,
         unit: "MB",
-        sub: isPlateau ? "plateau confirmé" : "montée puis palier",
+        // Le cas NÉGATIF ne doit pas ressembler au positif : « montée puis palier »
+        // affirmait un palier là où le critère venait de dire qu'il n'était pas
+        // confirmé, et les deux libellés se lisaient pareil. Quand on frôle le seuil
+        // — ici 8,16 contre 8,10 MB/h, 0,7 % d'écart — le rendu le DIT, plutôt que de
+        // trancher dans un sens ou dans l'autre sur du bruit.
+        sub: isPlateau
+          ? "plateau confirmé"
+          : rssSlopeLate < rssSlopeAll / 2.5
+            ? `palier NON confirmé — ${fmt.dec(rssSlopeLate, 1)} MB/h en seconde moitié, tout près du seuil`
+            : "monte encore — à observer plus longtemps",
       },
       {
         k: "Dérive du débit",
