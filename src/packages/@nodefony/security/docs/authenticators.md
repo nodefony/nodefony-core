@@ -354,7 +354,7 @@ de lecture :
 - un maillon dont `supports()` est faux est simplement **sauté** en mode `first`
   (`firewall.ts:935`) ;
 - un credential **présenté mais invalide échoue immédiatement** — l'échec d'`authenticate()`
-  remonte, jamais de fallback silencieux vers le maillon suivant (`firewall.ts:947-952`). Une clé
+  remonte, jamais de fallback silencieux vers le maillon suivant (`firewall.ts:1112`). Une clé
   API révoquée donne un 401 direct, même si un autre maillon aurait pu réussir.
 - aucune preuve présentée sur toute la chaîne → `handleSecurity()` lève l'`AuthenticationError`
   Zero Trust (`firewall.ts:738`).

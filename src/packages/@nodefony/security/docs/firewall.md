@@ -316,7 +316,7 @@ Ce qui se passe, requête par requête :
 | --- | --- | --- |
 | le cookie de session | `session` | identifié, `apikey` jamais consulté |
 | `Authorization: Bearer nf_…` | `apikey` | identifié (session ne matche pas, on passe) |
-| une clé **révoquée** `nf_…` | `apikey` | **401 direct** — l'échec d'`authenticate()` remonte, pas de fallback (`firewall.ts:947-952`) |
+| une clé **révoquée** `nf_…` | `apikey` | **401 direct** — l'échec d'`authenticate()` remonte, pas de fallback (`firewall.ts:1112`) |
 | rien | aucun | **401** (Zero Trust) |
 
 ### Situation 2 — le piège de l'ordre (`anonymous` toujours EN DERNIER)

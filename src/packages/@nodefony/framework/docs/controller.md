@@ -219,7 +219,7 @@ Le tableau ci-dessous donne la séquence exacte, avec l'ancre qui la prouve :
 C'est **sa raison d'être** : un `constructor` ne peut pas être `async`, et la résolution DI est
 synchrone. Tout ce qui demande un `await` à la mise en place de l'instance n'a pas d'autre endroit
 où aller. Le hook est **optionnel** — le Resolver ne l'appelle que s'il existe
-(`Resolver._createController()`, `Resolver.ts:293-298`). Son contrat est décrit par
+(`Resolver._createController()`, `Resolver.ts:269`). Son contrat est décrit par
 `ControllerWithInitialize` (`Resolver.ts:72`) : aucun argument, retour `Promise<this>`.
 
 ```typescript
