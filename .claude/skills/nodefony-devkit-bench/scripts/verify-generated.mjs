@@ -49,6 +49,7 @@ import {
   installFromTarballs,
   packTarballs,
 } from "./lib/isolation.mjs";
+import { envDecor } from "./lib/env-decor.mjs";
 
 /**
  * Racine du dépôt, trouvée en REMONTANT plutôt qu'en comptant les « .. ».
@@ -283,7 +284,7 @@ function run(cmd, args, cwd = APP, env = {}) {
     cwd,
     encoding: "utf8",
     timeout: 600_000,
-    env: { ...process.env, ...PORTS, ...env },
+    env: envDecor(PORTS, env),
   });
   if (res.status !== 0) {
     const out = `${res.stdout ?? ""}${res.stderr ?? ""}`.trim();
@@ -895,7 +896,7 @@ step(
       spawnSync(process.execPath, [BIN, "stop"], {
         cwd: APP,
         encoding: "utf8",
-        env: { ...process.env, ...PORTS },
+        env: envDecor(PORTS),
       });
     }
   },

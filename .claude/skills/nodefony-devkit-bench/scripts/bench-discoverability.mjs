@@ -118,6 +118,7 @@ import {
   motifNonOpposable,
 } from "./lib/imputation.mjs";
 import { portDeLAppSousTest } from "./lib/http-probe.mjs";
+import { envDecor, nfEcartees } from "./lib/env-decor.mjs";
 import { commitsDuHarnais, indiceDeLaPasse } from "./lib/passes.mjs";
 import {
   CHEMIN_REFERENCE,
@@ -368,7 +369,7 @@ const FOYERS_JETABLES = { VIBE_HOME: ".vibe-home", CODEX_HOME: ".codex-home" };
  * nom (`${NF_MCP_TOKEN}`) : c'est le client MCP qui le substitue depuis cet
  * environnement, et le fichier reste commitable.
  */
-const APP_ENV = { ...process.env, ...PORTS };
+const APP_ENV = envDecor(PORTS);
 
 /**
  * Juge de la tâche « média » — chemin ABSOLU, car la commande s'exécute avec
@@ -3817,6 +3818,16 @@ function finaliserDecor(app, runDir) {
   // verdict rendu sur un décor qui n'est pas celui de l'utilisateur.
   const isolation = assertIsolated(REPO, app);
   for (const f of isolation.facts) console.log(`  ${f}`);
+  // L'isolation de l'ENVIRONNEMENT se constate comme celle du disque, et elle
+  // se DIT : sans cette ligne, un opérateur dont le shell porte un
+  // `NF_DATABASE_URL` chercherait longtemps pourquoi le décor l'ignore.
+  const ecartees = nfEcartees();
+  if (ecartees.length > 0) {
+    console.log(
+      `  ✅ ${ecartees.length} variable(s) NF_* du poste écartée(s) du décor : ` +
+        `${ecartees.join(", ")}`,
+    );
+  }
   if (!LINKED && !isolation.ok) {
     throw new Error(
       "décor NON isolé — le banc mesurerait un agent mieux servi que l'utilisateur réel",
@@ -4574,11 +4585,20 @@ export function lireEffort(transcriptPath) {
           vu = true;
           continue;
         }
-        // 🔎 NON CÂBLÉ, et c'est délibéré : la forme d'un APPEL MCP chez `agy`
-        // n'a pas été observée (il expose un outil `call_mcp_tool`, mais aucun
-        // appel réussi n'a encore été enregistré). Deviner un motif rendrait
-        // « 0 appel MCP » sans qu'on sache si c'est vrai — précisément le
-        // diagnostic faux que ce compteur existe pour ne plus produire.
+        // 🛑 `agy` NE SERA PAS une cible du banc — décision prise, ne pas
+        // rouvrir. L'authentifier exigerait d'écrire la VALEUR du jeton en
+        // clair dans son foyer utilisateur : mesuré avec une porte espionne, il
+        // n'expanse aucune variable et envoie `Bearer ${NF_MCP_TOKEN}` LITTÉRAL
+        // sur le réseau. Or la table du cœur ne transporte que `tokenEnv` — le
+        // NOM de la variable, jamais le secret. Le servir demanderait de casser
+        // cette règle pour un seul agent.
+        //
+        // Ce qui reste ici est la seule chose qui vaille : LIRE sa grammaire.
+        // Un transcript `agy` qu'on ne saurait pas lire rendrait « 0 tour, 0
+        // appel MCP » — le diagnostic faux que ce compteur existe pour ne plus
+        // produire. La forme d'un APPEL MCP chez lui n'est, elle, pas observée
+        // (il expose `call_mcp_tool`, aucun appel réussi enregistré) : deviner
+        // un motif serait inventer une mesure.
         if (evt?.event === "step_update") continue;
       } catch {
         /* ligne tronquée */

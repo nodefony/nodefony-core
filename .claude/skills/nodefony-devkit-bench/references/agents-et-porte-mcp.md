@@ -73,11 +73,26 @@ donner la ligne entière pour un autre agent.
 | `vibe` | `--output streaming --yolo --trust -p` | poser `NF_DEVKIT_BENCH_MODEL=` **vide** | déclaré chez lui par `vibe mcp add`, dans un foyer JETABLE |
 | `codex` | `exec --json --skip-git-repo-check --approve-for-me` | vide | `codex mcp add`, foyer JETABLE `CODEX_HOME` |
 | `gemini` | `--skip-trust -y -o stream-json --model gemini-3.1-flash-lite -p` (`-p` en DERNIER, modèle DANS les args) | vide — **surtout pas** `NF_DEVKIT_BENCH_MODEL` | portée PROJET (`.gemini/`) : rien à déporter |
-| `agy` (Antigravity) | `--output-format stream-json -p` (`-p` en DERNIER) | vide | `agy mcp add`, portée GLOBALE — il suit `HOME` |
+| ~~`agy` (Antigravity)~~ | **CLOS — pas une cible** (jeton en clair exigé, cf ci-dessous) | — | — |
 
-### 🛸 Antigravity CLI (`agy`) — ce qui est CÂBLÉ, et ce qui BLOQUE
+### 🛑 Antigravity CLI (`agy`) — CLOS : il ne sera pas une cible du banc
 
-Sa **grammaire de transcript est câblée et éprouvée** (4ᵉ dialecte, constaté en le lançant) :
+**Décision prise, ne pas rouvrir le chantier.** L'authentifier exigerait d'écrire la **valeur** du
+jeton en clair dans le foyer utilisateur, parce qu'`agy` n'expanse aucune variable dans un en-tête
+(mesuré : il envoie `Bearer ${NF_MCP_TOKEN}` LITTÉRAL sur le réseau). La table du cœur ne
+transporte que `tokenEnv` — le NOM de la variable, jamais le secret — et cette règle ne se casse
+pas pour un seul agent. S'ajoutait un second mur : un foyer JETABLE le déconnecte (`HOME` détourné
+⇒ flux OAuth dans le navigateur), donc il faudrait déclarer dans son foyer RÉEL puis retirer après
+le run.
+
+Rien n'a été livré au produit : `agy` **n'est pas** dans `AGENT_TARGETS`
+(`src/nodefony/src/cli/agentTargets.ts`).
+
+**Ce qui reste, et pourquoi ça reste** : la lecture de sa **grammaire de transcript**. Elle ne
+coûte rien et protège d'un diagnostic faux — un transcript `agy` qu'on ne saurait pas lire
+rendrait « 0 tour, 0 appel MCP », le symptôme exact de « il n'a jamais eu la porte ».
+
+Sa grammaire est donc câblée et éprouvée (4ᵉ dialecte, constaté en le lançant) :
 l'enveloppe s'appelle `event`, pas `type` ; le tour d'agent est un `step_update` de
 `step_type: "agent_response"` ; `result` porte `num_turns` comme Claude, mais une durée en
 **secondes**. Le compteur d'effort et la garde « l'agent a-t-il parlé ? » le lisent.
@@ -162,7 +177,9 @@ authentication method, **if an existing authentication credential is cached** »
 `-p` part ouvrir un navigateur et **attend une réponse sur stdin** : le symptôme est un banc qui
 pend, pas une erreur.
 
-**Antigravity CLI est le remplaçant désigné, et il est pilotable.** Son binaire s'appelle **`agy`**
+**Antigravity CLI se présente comme le remplaçant, et il EST pilotable — mais le banc ne le
+prend pas** (cf « CLOS » ci-dessus : l'authentifier demanderait le jeton en clair). Ce qui suit est
+conservé parce qu'il a été payé en le lançant, et qu'il resservirait si la contrainte tombait. Son binaire s'appelle **`agy`**
 (pas `antigravity`), et il vit dans `~/.local/bin`. Vérifié en le lançant :
 
 | Ce qu'on veut       | Chez `agy`                                                                  |
