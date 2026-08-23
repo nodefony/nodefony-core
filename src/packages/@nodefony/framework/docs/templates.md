@@ -269,7 +269,7 @@ scaffold). Les deux sont **asynchrones** (I/O non bloquante).
 | ----------------------------------- | ------------------------------------------------------- | ------------------- |
 | `renderView(path, locals, status?)` | Rendre une vue `.eta` (lit le fichier + aides frontend) | `Controller.ts:308` |
 | `render(data, encoding?, status?)`  | Envoyer un corps quelconque (ex. HTML déjà prêt)        | `Controller.ts:273` |
-| `renderJson(obj, status?)`          | Réponse JSON explicite (pas un template)                | `Controller.ts:363` |
+| `renderJson(obj, status?)`          | Réponse JSON explicite (pas un template)                | `Controller.ts:392` |
 
 Les signatures exactes vivent dans le graphe symbolique `.ai/symbols.json` — jamais recopiées ici.
 

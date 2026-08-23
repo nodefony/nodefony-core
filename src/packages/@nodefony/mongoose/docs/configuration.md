@@ -404,14 +404,14 @@ NF__MONGOOSE__CONNECTORS__NODEFONY__DBNAME=recette    # champ imbriqué
 NF__MONGOOSE__CONNECTORS__NODEFONY__PORT=27018        # coercé en nombre
 ```
 
-Ces overrides sont posés **avant** la validation Zod (`Kernel.applyEnvConfigOverrides()` (`Kernel.ts:1257`)) :
+Ces overrides sont posés **avant** la validation Zod (`Kernel.applyEnvConfigOverrides()` (`Kernel.ts:1600`)) :
 une valeur aberrante est donc rejetée comme si tu l'avais écrite dans ton fichier. C'est voulu — un
 réglage d'environnement invalide doit casser aussi fort qu'un réglage de code.
 
 > [!WARNING]
 > **Un override ne peut viser qu'un champ qui existe déjà.** Le mécanisme refuse de créer une clé
 > absente, pour ne pas fabriquer une clé fantôme à la mauvaise casse que le schéma ignorerait ensuite
-> en silence (`applyResolvedPath()` (`envOverride.ts:126`)). Conséquence concrète :
+> en silence (`applyResolvedPath()` (`envOverride.ts:200`)). Conséquence concrète :
 > `NF__MONGOOSE__CONNECTORS__NODEFONY__URI` **ne fait rien** si ton `use()` ne déclare pas déjà un
 > `uri` — `uri` n'a pas de valeur par défaut, donc le chemin n'existe pas. Le cas n'est pas silencieux
 > pour autant : le démarrage émet un `WARNING` nommant le segment fautif et listant les clés
@@ -567,7 +567,7 @@ données d'un coup. La règle est donc sans nuance.
 - **Les identifiants passés par `options`** (`user`, `pass`) suivent la même règle : ils viennent de
   l'environnement, pas du fichier. Le framework rédige d'ailleurs la valeur de tout override
   d'environnement dont le chemin ressemble à un secret, avant de le journaliser
-  (`pathLooksSecret()` (`envOverride.ts:149`)).
+  (`pathLooksSecret()` (`envOverride.ts:256`)).
 
 > [!TIP]
 > Vérifie ta redaction en une commande : démarre l'application et lis la ligne de connexion. Elle doit
@@ -596,7 +596,7 @@ coûteux à diagnostiquer qu'un serveur qui refuse de démarrer.
 
 Le cas courant : la config est parfaite, mais Mongo n'est pas joignable — conteneur pas encore prêt,
 réseau coupé, identifiants périmés. Le comportement **dépend de l'environnement**, arbitré par la
-politique de boot du cœur (`Kernel.isBootErrorFatal()` (`Kernel.ts:2537`)) :
+politique de boot du cœur (`Kernel.isBootErrorFatal()` (`Kernel.ts:2626`)) :
 
 | Environnement       | Ce qui se passe                                                                        |
 | ------------------- | -------------------------------------------------------------------------------------- |

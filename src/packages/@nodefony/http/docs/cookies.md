@@ -254,12 +254,12 @@ constructeur de `Cookie` (`cookie.ts:134`).
 
 | Besoin                         | Appel                                                 | Où                                       |
 | ------------------------------ | ----------------------------------------------------- | ---------------------------------------- |
-| Lire un cookie entrant         | `context.getRequestCookies("nom")` → `Cookie \| null` | `getRequestCookies()` (`Context.ts:582`) |
+| Lire un cookie entrant         | `context.getRequestCookies("nom")` → `Cookie \| null` | `getRequestCookies()` (`Context.ts:660`) |
 | Lire tous les cookies entrants | `context.cookies` → `Record<string, Cookie>`          | `cookies` (`Context.ts:149`)             |
-| Écrire un cookie sortant       | `context.setCookie(new Cookie(…))`                    | `setCookie()` (`Context.ts:589`)         |
+| Écrire un cookie sortant       | `context.setCookie(new Cookie(…))`                    | `setCookie()` (`Context.ts:667`)         |
 | Supprimer un cookie sortant    | `response.deleteCookieByName("nom")`                  | `http/Response.ts:99`                    |
 
-Côté réponse HTTP, `addCookie()` (`http/Response.ts:81`) enregistre le cookie, et `setCookies()`
+Côté réponse HTTP, `addCookie()` (`http/Response.ts:101`) enregistre le cookie, et `setCookies()`
 (`http/Response.ts:107`) émet **une ligne `Set-Cookie` par cookie** — un tableau passé à Node, jamais une
 boucle de `setHeader` (qui écraserait tout sauf le dernier). Pour expirer un cookie chez le client :
 `clearCookie()` (`cookie.ts:198`) recule `Expires` à l'époque.
@@ -268,7 +268,7 @@ boucle de `setHeader` (qui écraserait tout sauf le dernier). Pour expirer un co
 
 `cookiesParser(context)` (`cookie.ts:91`) lit l'en-tête `Cookie:` (via la bibliothèque `cookie`,
 `parser()` `cookie.ts:54`), crée un `Cookie` par entrée et l'ajoute au contexte avec `addRequestCookie()`
-(`Context.ts:572`). Il est déclenché automatiquement par le pipeline : `parseCookies()` est appelé à
+(`Context.ts:650`). Il est déclenché automatiquement par le pipeline : `parseCookies()` est appelé à
 l'initialisation du contexte HTTP (`HttpContext.ts:167`) **et** WebSocket (`WebsocketContext.ts:170`).
 
 ### Côté WebSocket — lecture oui, écriture non
@@ -283,12 +283,12 @@ posé pendant la **phase HTTP** qui précède l'upgrade. La forme d'un cookie d�
 
 Les cookies **applicatifs** ne se configurent pas par schéma : on les construit dans le code, avec les
 défauts sûrs de `cookieDefaultSettings` (`cookie.ts:43`). Le seul cookie **piloté par la config** est celui
-de la **session** — bloc Zod `sessionCookieSchema` (`config.ts:708`), avec notamment `hostPrefix`
+de la **session** — bloc Zod `sessionCookieSchema` (`config.ts:727`), avec notamment `hostPrefix`
 (`config.ts:730`) qui décide du préfixe `__Host-`. Tout cela est documenté dans [Sessions](session.md) :
 cette page ne le duplique pas.
 
 Le nom effectif du cookie de session (avec ou sans `__Host-` selon le transport) est calculé par
-`getSessionCookieName()` (`Context.ts:636`) — encore un détail qui appartient à la page Sessions.
+`getSessionCookieName()` (`Context.ts:714`) — encore un détail qui appartient à la page Sessions.
 
 ## 🛡️ Défenses par attribut
 

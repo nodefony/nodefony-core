@@ -38,7 +38,7 @@ source: "src/packages/@nodefony/security/docs/headers.md"
 > (`@nodefony/http`, dès l'entrée brute — couvre aussi les fichiers statiques et les erreurs) et la
 > couche **applicative** (`@nodefony/security`, dans le pipeline — CSP, Referrer-Policy, isolation
 > cross-origin). Ancré sur `SecurityHeaders` (`securityHeaders.ts:42`) et
-> `Firewall.applySecurityHeaders()` (`firewall.ts:835`).
+> `Firewall.applySecurityHeaders()` (`firewall.ts:1029`).
 
 📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **En-têtes de sécurité**
 
@@ -121,7 +121,7 @@ fait l'inverse : **tout ce qui est constant est calculé une fois au démarrage*
   statique) et la **gèle** avec `Object.freeze` (`securityHeaders.ts:77`). Par requête, le firewall
   se contente de la parcourir et de la poser : zéro concaténation, zéro objet créé.
 - Côté transport, même principe : `HttpKernel.computeSecurityHeaderCaches()`
-  (`http-kernel.ts:266`) précalcule la chaîne HSTS (`max-age`, `includeSubDomains`, `preload`) au
+  (`http-kernel.ts:330`) précalcule la chaîne HSTS (`max-age`, `includeSubDomains`, `preload`) au
   boot ; `onHttpRequest` (`http-kernel.ts:819`) ne fait plus que trois `setHeader`.
 - Le seul coût variable est le **nonce CSP**, et il est **paresseux** : `Context.cspNonce`
   (`Context.ts:192`) ne génère ses 128 bits (`randomBytes(16)` en base64) qu'à la première lecture,
@@ -296,7 +296,7 @@ vient précisément des fichiers servis hors pipeline applicatif — un banc liv
 installer un intercepteur.
 
 La chaîne est assemblée au boot par `HttpKernel.computeSecurityHeaderCaches()`
-(`http-kernel.ts:272`) : `max-age`, puis `includeSubDomains` et `preload` selon la config.
+(`http-kernel.ts:330`) : `max-age`, puis `includeSubDomains` et `preload` selon la config.
 
 Elle n'est posée que **sur une réponse HTTPS ou HTTP/2** — le cache `secHsts` est conditionné au type
 de serveur (`http-kernel.ts:839`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
@@ -475,7 +475,7 @@ directive absente est ajoutée en fin. La fonction est **pure et déterministe**
 les tests fiables.
 
 **Coût** : le merge d'un module est payé **une fois**, au (dés)enregistrement
-(`Firewall.#rebuildSecurityHeaders()`, `firewall.ts:891`), jamais par requête. Le merge d'une route
+(`Firewall.#rebuildSecurityHeaders()`, `firewall.ts:1085`), jamais par requête. Le merge d'une route
 `@Csp` est payé **uniquement sur les routes décorées** (`SecurityHeaders.cspForExtra()`,
 `securityHeaders.ts:115`) ; le cas courant reste le simple `join`.
 
@@ -501,15 +501,15 @@ Trois propriétés à retenir :
 
 - **Aucun couplage** : la résolution par nom de service évite un cycle de dépendances, et
   `registerCspOrigins` est optionnel — un module fonctionne dans une app **sans** security.
-- **Réversible** : `Firewall.unregisterCspOrigins()` (`firewall.ts:880`) retire le fragment et
+- **Réversible** : `Firewall.unregisterCspOrigins()` (`firewall.ts:1074`) retire le fragment et
   reconstruit le CSP de base. C'est ce que fait `@nodefony/frontend` à l'arrêt du serveur Vite.
 - **Idempotent** : la reconstruction repart **toujours** du `headers.csp` d'origine
-  (`firewall.ts:894`), jamais d'un CSP déjà fusionné — pas d'accumulation entre deux
+  (`firewall.ts:1088`), jamais d'un CSP déjà fusionné — pas d'accumulation entre deux
   enregistrements.
 
 L'exemple de référence vit dans le framework : en développement, `@nodefony/frontend` déclare les
 origines du serveur Vite et `'unsafe-eval'` (exigé par le Fast Refresh de React) via
-`FrontendService.#viteCspFragment()` (`FrontendService.ts:740`) — ce qui explique qu'un CSP observé
+`FrontendService.#viteCspFragment()` (`FrontendService.ts:909`) — ce qui explique qu'un CSP observé
 en dev soit plus large qu'en production, où ce fragment n'existe pas.
 
 ## 📜 Normes appliquées
@@ -523,7 +523,7 @@ en dev soit plus large qu'en production, où ce fragment n'existe pas.
 | Referrer-Policy                      | W3C Referrer Policy (enum fermé) | 8 valeurs validées au boot (`config.ts:239`)                 |
 | Isolation cross-origin               | WHATWG HTML (COOP/COEP/CORP)     | `securityHeaders.ts:71`                                      |
 | Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts:834`)               |
-| Durcissement en-têtes                | OWASP Secure Headers             | `computeSecurityHeaderCaches()` (`http-kernel.ts:266`)       |
+| Durcissement en-têtes                | OWASP Secure Headers             | `computeSecurityHeaderCaches()` (`http-kernel.ts:330`)       |
 
 ## ⚡ Performance & mémoire
 

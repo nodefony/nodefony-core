@@ -134,7 +134,7 @@ lourds s'enregistrent depuis **leur** module. Un
 ## 🚀 Démarrage rapide
 
 Dans une app générée par `nodefony create app`, l'audit est **déjà actif** (`enabled: true` par
-défaut, `config.ts:754`) sur un store mémoire. Voici le parcours complet : configurer, émettre,
+défaut, `config.ts:729`) sur un store mémoire. Voici le parcours complet : configurer, émettre,
 relire.
 
 ### 1. Choisir où le journal est écrit
@@ -457,7 +457,7 @@ Quatre mécanismes, tous prouvés par les tests.
 
 **1. Le chemin nominal n'émet rien.** Ce n'est pas une optimisation, c'est le modèle : le firewall
 n'appelle `#recordAuth()` que depuis ses quatre sorties d'échec, jamais depuis le succès
-(`firewall.ts:693`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts:341`).
+(`firewall.ts:884`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts:341`).
 Prouvé : « frame AUTORISÉE → onDeny JAMAIS appelé » (`auditEmissionHotPath.test.ts:324`).
 
 **2. Audit désactivé = coût nul, pas juste coût faible.** `record()` sort avant toute allocation et
@@ -482,8 +482,8 @@ jamais faire tomber ce qu'on supervise.
 
 ## ⚙️ Configuration
 
-Table dérivée du schéma Zod `auditSchema` (`config.ts:752`), rattaché à la racine sous la clé `audit`
-(`config.ts:993`).
+Table dérivée du schéma Zod `auditSchema` (`config.ts:877`), rattaché à la racine sous la clé `audit`
+(`config.ts:1121`).
 
 | Option          | Type      | Défaut   | Effet                                                                                |
 | --------------- | --------- | -------- | ------------------------------------------------------------------------------------ |
@@ -663,7 +663,7 @@ Deux autres propriétés de sécurité valent d'être connues :
 | Ne jamais journaliser de secret           | OWASP Logging Cheat Sheet         | flags de **présence** seuls (`IAuditEvent.ts:41`)                                 |
 | Traçabilité « qui, quoi, quand, d'où »    | ISO 27001 A.8.15 (journalisation) | acteur, action, horodatage et provenance dans `IAuditEvent` (`IAuditEvent.ts:53`) |
 | Journal inaltérable                       | ISO 27001 A.8.15                  | contrat append-only, aucune mutation exposée (`IAuditStore.ts:48`)                |
-| Rétention bornée / minimisation           | RGPD art. 5.1.e                   | purge par âge pilotée par `retentionDays` (`config.ts:781`)                       |
+| Rétention bornée / minimisation           | RGPD art. 5.1.e                   | purge par âge pilotée par `retentionDays` (`config.ts:906`)                       |
 | Détection de rejeu de jeton               | RFC 9700 §4.14                    | `token.reuse_detected` + coupure de famille (`tokenService.ts:353`)               |
 | Backoff de login journalisé               | NIST SP 800-63B                   | `auth.throttled` avec `reason: "throttled"` (`firewall.ts:773`)                   |
 

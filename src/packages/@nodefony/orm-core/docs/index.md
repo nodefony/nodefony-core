@@ -597,7 +597,7 @@ d'administration : elle ne charge qu'une page, quelle que soit la taille de la t
 
 Deux drivers implémentent les contrats. Le contrat `IRepository` est tenu **en entier** par les
 deux : les quinze verbes existent des deux côtés — par exemple l'upsert, avec
-`DrizzleRepository.upsert()` (`DrizzleRepository.ts:627`) et `MongooseRepository.upsert()`
+`DrizzleRepository.upsert()` (`DrizzleRepository.ts:868`) et `MongooseRepository.upsert()`
 (`MongooseRepository.ts:314`).
 
 | Capacité                               | `@nodefony/drizzle`                 | `@nodefony/mongoose`               |

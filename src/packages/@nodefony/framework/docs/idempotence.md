@@ -238,7 +238,7 @@ une route que d'anciens clients appellent déjà sans clé, le temps de la migra
 async subscribe(@Body() body: SubscribeInput) { /* … */ }
 ```
 
-Précédence **méthode > classe** (`computeIdempotent()`, `routerDecorators.ts:1505`), comme
+Précédence **méthode > classe** (`computeIdempotent()`, `routerDecorators.ts:1530`), comme
 `@UseSession`. Poser `@Idempotent()` sur la **classe** couvre toutes les mutations du controller ;
 une méthode peut resserrer ou relâcher le mode. Les méthodes sûres (GET…) restent des no-op même
 sous une classe décorée.
@@ -374,7 +374,7 @@ NoSQL », `MIGRATION_STATUS.md` P7.11), la dédup cross-pod passe par `redis`.
 
 Quand un store **explicitement nommé** ne peut pas s'initialiser (nom inconnu, `redis` demandé sans
 le module `@nodefony/redis` chargé), la politique dépend de l'environnement
-(`index.ts:275`) :
+(`index.ts:132`) :
 
 - **production** → **boot avorté** (`index.ts:281`). En cluster multi-pod, dégrader vers un cache
   per-pod produirait du double-effet non dédupliqué : c'est un défaut de sécurité, pas une commodité.
@@ -692,7 +692,7 @@ Trois surfaces existent aujourd'hui :
 | Dédup qui saute en cluster                             | `store: memory` (per-pod)                                                            | `redis` (`SET NX`) ou `drizzle` (Postgres/MySQL)                             |
 | `400 Idempotency-Key required` inattendu               | Mode strict par défaut, **ou** requête WebSocket (toujours stricte)                  | Envoyer la clé, ou `@Idempotent({ required:false })` — sans effet en WS      |
 | `auto` résout `drizzle` alors qu'on attendait `memory` | Repli local persistant quand aucune infra n'est déclarée (`infra.ts:288`)            | Comportement voulu ; forcer avec `store: "memory"` ou `NF_STORE=memory`      |
-| Boot qui échoue en prod sur l'idempotence              | Store distribué nommé mais non câblé → fatal (`index.ts:281`)                        | Charger le module manquant (`@nodefony/redis`) ou corriger le nom            |
+| Boot qui échoue en prod sur l'idempotence              | Store distribué nommé mais non câblé → fatal (`index.ts:132`)                        | Charger le module manquant (`@nodefony/redis`) ou corriger le nom            |
 | Aucune purge sur un store SQL                          | `intervalS` à 0 → scheduler désarmé, dit dans le log de boot (`idempotencyGc.ts:49`) | Remettre un intervalle, ou assumer une purge externe (cron)                  |
 | `listPage` : `total` toujours absent                   | Backend Redis = mode **curseur**, `total` jamais rendu                               | Boucler sur `nextCursor` ; ne pas coder de pagination par offset côté client |
 

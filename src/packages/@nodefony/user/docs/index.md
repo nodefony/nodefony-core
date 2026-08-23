@@ -284,7 +284,7 @@ use("@nodefony/security", {
 
 > [!NOTE]
 > Sans section `encoders`, le défaut du schéma Zod est **déjà** un Argon2id sûr
-> (`security/nodefony/config/config.ts:954`). Tu ne déclares cette section que pour ajouter un format
+> (`security/nodefony/config/config.ts:1079`). Tu ne déclares cette section que pour ajouter un format
 > legacy, ou pour ajuster les coûts.
 
 ### 2. Déclarer le service `users` (`nodefony/security/provisionUsers.ts`)

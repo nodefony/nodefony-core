@@ -321,8 +321,8 @@ sequenceDiagram
   R-->>B: 200 + Access-Control-*
 ```
 
-`Firewall.handleCors()` (`firewall.ts:892`) est appelé **en tête de** `HttpKernel.handleHttp()`
-(`http-kernel.ts:1171`), à la ligne `http-kernel.ts:1168` — **avant le routing**. La raison est
+`Firewall.handleCors()` (`firewall.ts:991`) est appelé **en tête de** `HttpKernel.handleHttp()`
+(`http-kernel.ts:1258`), à la ligne `http-kernel.ts:1258` — **avant le routing**. La raison est
 concrète : un preflight `OPTIONS /api/articles` n'a **pas de route déclarée** ; s'il traversait le
 router, il repartirait en 405. Et selon le Fetch Standard, un preflight ne transporte jamais de
 credentials — il ne doit donc ni s'authentifier, ni exécuter le moindre code applicatif.
@@ -330,7 +330,7 @@ credentials — il ne doit donc ni s'authentifier, ni exécuter le moindre code 
 Quatre sorties en no-op, dans cet ordre (`firewall.ts:797`) :
 
 1. CORS désactivé ⇒ `#cors` est `null`, retour immédiat ;
-2. pas d'en-tête `Origin` ⇒ requête same-origin ou client non-navigateur (`firewall.ts:898`) ;
+2. pas d'en-tête `Origin` ⇒ requête same-origin ou client non-navigateur (`firewall.ts:587`) ;
 3. la réponse n'expose pas `setHeader` ⇒ c'est un **WebSocket**, il n'y a pas d'en-tête HTTP à poser
    (`firewall.ts:806`) ;
 4. origine hors allowlist ⇒ la table est `null`, aucun en-tête n'est posé — mais un preflight reste
@@ -370,7 +370,7 @@ Trois briques voisines, souvent confondues. Une seule ligne chacune :
 | **[En-têtes](./headers.md)** (CSP, COOP) | ce que la **page** a le droit de faire | dans le navigateur     | XSS, injection, fenêtres croisées    |
 
 Les deux premières se parlent. Au boot, la liste des origines de confiance CSRF est l'**union** de
-`csrf.trustedOrigins` et de `cors.origins` (`firewall.ts:193`) : ce que tu autorises explicitement en
+`csrf.trustedOrigins` et de `cors.origins` (`firewall.ts:589`) : ce que tu autorises explicitement en
 CORS ne peut pas être, au même instant, traité comme une tentative CSRF.
 
 L'inverse n'est pas vrai, et c'est délibéré : `csrf.trustedOrigins` déclare un **alias de domaine**
@@ -383,10 +383,10 @@ origine (`config.ts:180`). Ajouter une origine à `cors.origins` est **plus** pe
 **Les navigateurs n'appliquent pas CORS aux WebSockets.** Une page tierce peut ouvrir un
 `new WebSocket("wss://api.example.com/…")` et le handshake partira **avec le cookie de session de la
 victime** : c'est le CSWSH. C'est pourquoi `handleCors` s'arrête net sur un contexte WS
-(`firewall.ts:892`) — il n'y aurait rien à protéger avec des en-têtes que personne ne lit.
+(`firewall.ts:991`) — il n'y aurait rien à protéger avec des en-têtes que personne ne lit.
 
 La garde équivalente vit dans le transport : `HttpKernel.checkWebsocketOrigin()`
-(`http-kernel.ts:509`) valide l'`Origin` **au handshake**, avant l'accept, et ferme en code WS `1008`
+(`http-kernel.ts:599`) valide l'`Origin` **au handshake**, avant l'accept, et ferme en code WS `1008`
 si elle est refusée. Sa doctrine :
 
 - **same-origin par défaut** : l'`Origin` du handshake doit correspondre au `Host` servi ;
@@ -408,7 +408,7 @@ Deux réglages distincts, parce que deux mécanismes navigateur distincts.
 | `*` incompatible avec credentials | Fetch Standard · OWASP CORS | rejet au boot (`config.ts:144`) + reflet défensif (`cors.ts:58`)            |
 | Correction de cache               | RFC 9110 (`Vary`)           | `Vary: Origin` dès que l'origine est reflétée (`cors.ts:81`, `cors.ts:94`)  |
 | Comparaison d'origines            | RFC 6454 (Web Origin)       | match **exact** `scheme://host:port` — `Cors.#allowOrigin()` (`cors.ts:57`) |
-| Anti-CSWSH                        | OWASP WSTG-CLNT-10          | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:535`)                  |
+| Anti-CSWSH                        | OWASP WSTG-CLNT-10          | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:599`)                  |
 
 ## ⚡ Performance & mémoire
 
@@ -420,7 +420,7 @@ Le coût par requête est donc :
 
 - **0 pour une requête same-origin** — pas d'en-tête `Origin`, sortie immédiate (`firewall.ts:803`) ;
 - **0 pour un WebSocket** — sortie sur l'absence de `setHeader` (`firewall.ts:806`) ;
-- **0 si la section est désactivée** — `#cors` reste `null`, aucun objet n'est alloué (`firewall.ts:213`) ;
+- **0 si la section est désactivée** — `#cors` reste `null`, aucun objet n'est alloué (`firewall.ts:166`) ;
 - **une petite table d'en-têtes** allouée uniquement pour une requête cross-origin autorisée. Une
   origine refusée n'alloue rien du tout (retour `null` avant construction de la table, `cors.ts:74`).
 
@@ -429,7 +429,7 @@ Le coût par requête est donc :
 La configuration CORS **résolue** (celle qui tourne réellement, pas le fichier source) est exposée par
 `Firewall.describe()` (`firewall.ts:505`), qui délègue à `Firewall.#describeDefenses()`
 (`firewall.ts:547`). La projection CORS y expose `origins`, `credentials`, `methods`,
-`allowedHeaders`, `exposedHeaders` et `maxAgeS` (`firewall.ts:473`) — aucun secret ne transite par
+`allowedHeaders`, `exposedHeaders` et `maxAgeS` (`firewall.ts:594`) — aucun secret ne transite par
 cette surface.
 
 - **Data plane** : `GET /nodefony/security/api/firewall` (`SecurityAdminApi.ts:348`), protégé
@@ -454,7 +454,7 @@ secondes les « pourtant j'ai bien mis l'origine ».
 | Le preflight échoue sur un en-tête custom                 | `allowedHeaders` est statique, il ne reflète pas la demande du client (`cors.ts:78`)   | Déclarer l'en-tête dans `cors.allowedHeaders`                                             |
 | Un cache sert la réponse d'une origine à une autre        | `Vary: Origin` écrasé en aval (la politique le pose, `cors.ts:81`)                     | Ne pas `setHeader("Vary", …)` dans un controller — utiliser `appendHeader`                |
 | `OPTIONS` renvoie 405 au lieu de 204                      | Requête `OPTIONS` **sans** `Access-Control-Request-Method` : ce n'est pas un preflight | Envoyer l'en-tête, ou déclarer une route `OPTIONS`                                        |
-| Page tierce qui ouvre un WebSocket authentifié            | CORS ne couvre pas le WS                                                               | C'est `checkWebsocketOrigin` qui garde (`http-kernel.ts:509`) — vérifier `allowedOrigins` |
+| Page tierce qui ouvre un WebSocket authentifié            | CORS ne couvre pas le WS                                                               | C'est `checkWebsocketOrigin` qui garde (`http-kernel.ts:599`) — vérifier `allowedOrigins` |
 | Ouverture CORS « temporaire » restée en production        | `origins:["*"]` posé en dev                                                            | Vérifier la valeur **résolue** dans Studio, pas le fichier source                         |
 
 ## 🧪 Tests & couverture

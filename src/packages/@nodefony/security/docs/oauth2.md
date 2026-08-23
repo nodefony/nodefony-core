@@ -419,16 +419,16 @@ Exemple réel et sans réseau dans le dépôt : `src/modules/test/nodefony/secur
 Section `oauth2` du schéma Zod (`config.ts:990`), branchée sur la config du module
 (`config.ts:990`). Table dérivée du schéma — les défauts sont ceux du code.
 
-| Option            | Type                 | Défaut          | Effet                                                     |
-| ----------------- | -------------------- | --------------- | --------------------------------------------------------- |
-| `enabled`         | booléen              | `true`          | Coupe le social login ; les routes ne montent pas.        |
-| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]` | Rôles du Shadow User **à la création** (`config.ts:864`). |
-| `allowSignup`     | booléen              | `true`          | `false` = compte préexistant lié exigé (`config.ts:890`). |
-| `successRedirect` | chemin               | `/`             | Où revient l'utilisateur après succès.                    |
-| `failureRedirect` | chemin               | `/login`        | Où il revient après échec (uniforme, sans détail).        |
-| `providers`       | dictionnaire par nom | `{}`            | Fournisseurs activés (`config.ts:906`).                   |
+| Option            | Type                 | Défaut          | Effet                                                      |
+| ----------------- | -------------------- | --------------- | ---------------------------------------------------------- |
+| `enabled`         | booléen              | `true`          | Coupe le social login ; les routes ne montent pas.         |
+| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]` | Rôles du Shadow User **à la création** (`config.ts:989`).  |
+| `allowSignup`     | booléen              | `true`          | `false` = compte préexistant lié exigé (`config.ts:1015`). |
+| `successRedirect` | chemin               | `/`             | Où revient l'utilisateur après succès.                     |
+| `failureRedirect` | chemin               | `/login`        | Où il revient après échec (uniforme, sans détail).         |
+| `providers`       | dictionnaire par nom | `{}`            | Fournisseurs activés (`config.ts:1031`).                   |
 
-Par fournisseur (`oauthProviderSchema`, `config.ts:823`) :
+Par fournisseur (`oauthProviderSchema`, `config.ts:948`) :
 
 <!-- prettier-ignore -->
 | Option | Requis | Effet |

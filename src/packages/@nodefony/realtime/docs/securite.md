@@ -260,7 +260,7 @@ Nodefony pose **deux barrières successives**, à deux étages différents.
 | Allowlist stricte    | `@nodefony/realtime` | **inactif** (`enabled: false`)      | configurable  | `close 4003` |
 
 **Barrière 1 — transport, active sans rien faire.** `HttpKernel.checkWebsocketOrigin()`
-(`http-kernel.ts:509`) exige que l'`Origin` du handshake corresponde au `Host` servi, avec tolérance
+(`http-kernel.ts:599`) exige que l'`Origin` du handshake corresponde au `Host` servi, avec tolérance
 loopback en développement et une allowlist optionnelle (`allowedOrigins`,
 `http/nodefony/config/config.ts:525`) acceptant le hostname exact ou un wildcard à un label. Une
 requête **sans** `Origin` est acceptée : un attaquant non-navigateur n'a pas besoin de CSWSH.
@@ -467,7 +467,7 @@ Trois durcissements méritent d'être connus :
   `authenticated: true`. Le test porte sur le **namespace du canal**, pas sur le préfixe de la règle
   qui a matché : un préfixe de config plus court ou altéré ne contourne rien.
 - **La config passe avant les défauts** — les règles de `realtimeChannels`
-  (`security/nodefony/config/config.ts:968`) sont placées en tête, premier match gagnant. On peut
+  (`security/nodefony/config/config.ts:1093`) sont placées en tête, premier match gagnant. On peut
   donc re-cibler `nodefony:syslog` sur `ROLE_SECURITY_AUDITOR` ; on ne peut pas l'ouvrir à l'anonyme.
 
 Le canal du journal d'audit (`nodefony:audit`) est enregistré comme **canal système** sur le hub

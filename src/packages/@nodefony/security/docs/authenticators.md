@@ -48,7 +48,7 @@ flowchart TD
   S --> CTRL["→ autorisation → contrôleur"]
 ```
 
-C'est `Firewall.#authenticate()` (`firewall.ts:1013`) qui déroule ce cycle pour chaque maillon de la
+C'est `Firewall.#authenticate()` (`firewall.ts:1112`) qui déroule ce cycle pour chaque maillon de la
 zone, dans l'ordre déclaré. Le succès pose l'identité dans l'ALS ; l'échec remonte au firewall qui
 pose le 401 et son challenge — l'authenticator, lui, ne touche jamais à la réponse.
 
@@ -276,7 +276,7 @@ prouvées en test :
 
 | Défense                                | Comment                                                                                          | Attaque fermée                                                     |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| **Allowlist d'algorithmes**            | `algorithms: ["EdDSA"]` — jamais l'algo de l'en-tête du token (`JwtAuthenticator.ts:104`)        | `alg=none`, algorithm confusion (§3.1)                             |
+| **Allowlist d'algorithmes**            | `algorithms: ["EdDSA"]` — jamais l'algo de l'en-tête du token (`JwtAuthenticator.ts:120`)        | `alg=none`, algorithm confusion (§3.1)                             |
 | **Clé par `kid` du keyset LOCAL**      | `createLocalJWKSet` — jamais `jku`/`jwk` de l'en-tête (`JwtAuthenticator.ts:158`)                | injection de clé / SSRF (§3.5)                                     |
 | **`aud` + `iss` + `typ` obligatoires** | `typ: "at+jwt"` (§3.11) sépare access et refresh (`JwtAuthenticator.ts:105-107`)                 | refresh présenté comme access, token d'un autre service (§3.8-3.9) |
 | **Révocation**                         | denylist `isJtiDenied` + seuil `invalidBefore` par porteur (`JwtAuthenticator.ts:123-131`)       | jeton auto-porté volé, logout global                               |
@@ -343,7 +343,7 @@ l'ALS. `FirewallRealtimeAuthenticator.supports()` ne fait que le constater
 ## ⚙️ Composer une zone — ordre, mode, cohabitation
 
 La liste `area.authenticators` se lit **dans l'ordre**, déroulée par `Firewall.#authenticate()`
-(`firewall.ts:1013`) selon le `mode` de la zone (`first` par défaut, `config.ts:87-92`).
+(`firewall.ts:1112`) selon le `mode` de la zone (`first` par défaut, `config.ts:87-92`).
 
 ### Situation 1 — humains ET machines sur la même API (`first`)
 
@@ -396,7 +396,7 @@ paresse : c'est une **défense anti-énumération / anti-oracle**.
 Distinguer « compte inconnu » de « mot de passe faux », ou « token expiré » de « signature
 invalide », donnerait à un attaquant une sonde. La cause fine part **toujours** en log d'audit ; le
 client n'obtient qu'un 401 + son challenge — posé par le firewall, premier maillon de la zone qui
-en déclare un (`Firewall.#setChallenge()`, `firewall.ts:1076`).
+en déclare un (`Firewall.#setChallenge()`, `firewall.ts:1191`).
 
 ## 🧩 Ajouter un authenticator maison
 
@@ -422,7 +422,7 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 <!-- prettier-ignore -->
 | Domaine | Norme | Ancrage |
 | --- | --- | --- |
-| Challenge d'auth (401) | RFC 7235 | `Firewall.#setChallenge()` (`firewall.ts:1076`) |
+| Challenge d'auth (401) | RFC 7235 | `Firewall.#setChallenge()` (`firewall.ts:1191`) |
 | Bearer | RFC 6750 | `BEARER_SCHEME` (`JwtAuthenticator.ts:14` · `ApiKeyAuthenticator.ts:12`) |
 | JWT (BCP) | RFC 7519, 8725 | `jwtVerify` durci : allowlist + claims (`JwtAuthenticator.ts:103-107`) |
 | HTTP Basic | RFC 7617 | `UserPasswordAuthenticator` (`UserPasswordAuthenticator.ts:25-27`) |

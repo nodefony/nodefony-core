@@ -83,7 +83,7 @@ qui remplace Vite une fois en production.
 ### La vision Nodefony — ce que ce module fait différemment
 
 **Vite est un processus système, pas une bibliothèque.** Le superviseur lance le binaire Vite avec
-`child_process.spawn` (`ViteProcessSupervisor.attemptSpawn()`, `ViteProcessSupervisor.ts:319`). La
+`child_process.spawn` (`ViteProcessSupervisor.attemptSpawn()`, `ViteProcessSupervisor.ts:372`). La
 conséquence est concrète : compiler dix mille modules ne coûte **rien** à la latence de tes requêtes,
 et un plantage de Vite ne tue pas ton serveur — le superviseur le relance tout seul.
 
@@ -369,7 +369,7 @@ JSON Schema pour l'écran de configuration de Studio.
 > **`backendPort` n'est pas forcément le port écouté.** Avec une politique de port automatique, un
 > 5151 occupé fait glisser l'écoute sur 5153. Un proxy figé enverrait alors les appels de ton
 > interface vers le serveur d'une **autre** application. Le module lit donc le port réel sur le
-> serveur lui-même (`FrontendService.resolveBackendPort()`, `FrontendService.ts:380`) et journalise
+> serveur lui-même (`FrontendService.resolveBackendPort()`, `FrontendService.ts:429`) et journalise
 > l'écart.
 
 ### Le build de production
@@ -488,8 +488,8 @@ intermittent, apparaissant seulement quand le navigateur est plus rapide que le 
 | Pièce                   | Rôle                                                               | Ancre                                                       |
 | ----------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------- |
 | `FrontendService`       | l'orchestrateur : entrées, familles, cycle de vie, rendu           | `FrontendService.ts:70`                                     |
-| `ViteProcessSupervisor` | lance, surveille, relance et arrête **un** processus Vite          | `ViteProcessSupervisor.ts:166`                              |
-| `ViteConfigGenerator`   | écrit la configuration Vite (fonction pure, testée seule)          | `ViteConfigGenerator.toMjs()` (`ViteConfigGenerator.ts:51`) |
+| `ViteProcessSupervisor` | lance, surveille, relance et arrête **un** processus Vite          | `ViteProcessSupervisor.ts:215`                              |
+| `ViteConfigGenerator`   | écrit la configuration Vite (fonction pure, testée seule)          | `ViteConfigGenerator.toMjs()` (`ViteConfigGenerator.ts:80`) |
 | `ViteBuilder`           | construit l'objet de configuration Vite pour le build en processus | `ViteBuilder.buildViteConfig()` (`ViteBuilder.ts:41`)       |
 | `TemplateHelper`        | produit les balises (dev) ou lit le manifeste (prod)               | `TemplateHelper.ts:36`                                      |
 | `isolationGroups`       | à quelle famille appartient un preset, et sur quel bloc de ports   | `isolationGroup()` (`isolationGroups.ts:20`)                |
@@ -566,8 +566,8 @@ les processus meurent.
 
 | Situation                  | Réponse                                                                                               |
 | -------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Port occupé au lancement   | essai sur le port suivant, jusqu'à `portRetryAttempts` (`ViteProcessSupervisor.ts:292`)               |
-| Vite plante                | relance avec délai exponentiel plafonné (`scheduleRestart()`, `ViteProcessSupervisor.ts:558`)         |
+| Port occupé au lancement   | essai sur le port suivant, jusqu'à `portRetryAttempts` (`ViteProcessSupervisor.ts:276`)               |
+| Vite plante                | relance avec délai exponentiel plafonné (`scheduleRestart()`, `ViteProcessSupervisor.ts:674`)         |
 | Vite ne répond plus (gelé) | sonde périodique ; après N échecs, Vite est tué pour être relancé (`ViteProcessSupervisor.ts:599`)    |
 | Deux `start()` concurrents | la promesse en cours est partagée — jamais deux processus                                             |
 | Ctrl+C au terminal         | le signal marque un arrêt **voulu** : pas de relance (`markShutdown`, `ViteProcessSupervisor.ts:194`) |
@@ -580,12 +580,12 @@ incompréhensibles :
   marquage du signal reçu par le processus serveur, un simple Ctrl+C ferait apparaître un
   « redémarrage échoué » en erreur, sur un arrêt parfaitement normal.
 - **La détection d'un port occupé est écrite à un seul endroit** (`isPortInUseMessage()`,
-  `ViteProcessSupervisor.ts:145`), et tolère les deux formulations de Vite (« is in use » comme « is
+  `ViteProcessSupervisor.ts:164`), et tolère les deux formulations de Vite (« is in use » comme « is
   **already** in use »). Deux implémentations de la même règle avaient divergé : la reprise sur port
   ne se déclenchait jamais, et la seconde application perdait toute son interface.
 
 Les écouteurs attachés au processus enfant sont suivis puis retirés à chaque mort
-(`cleanupChildListeners()`, `ViteProcessSupervisor.ts:793`) : sans cela, les relances successives les
+(`cleanupChildListeners()`, `ViteProcessSupervisor.ts:922`) : sans cela, les relances successives les
 accumuleraient jusqu'à l'avertissement de fuite.
 
 ## 🧰 API publique
@@ -596,7 +596,7 @@ et dans les types du paquet — jamais recopiées ici, où elles se périmeraien
 
 ### `registerEntry` — la déclaration d'une interface
 
-`FrontendService.registerEntry()` (`FrontendService.ts:205`) est appelée par le module consommateur,
+`FrontendService.registerEntry()` (`FrontendService.ts:221`) est appelée par le module consommateur,
 dans son `onKernelBoot()`. Elle résout les chemins relatifs, calcule le préfixe public et renvoie
 l'entrée résolue (`IResolvedFrontendEntry`, `IFrontBuilder.ts:40`).
 
@@ -636,7 +636,7 @@ const tags = frontend.renderTags("shop", context.cspNonce);
 const html = frontend.renderDocument("shop", context.cspNonce);
 ```
 
-`renderDocument` (`FrontendService.ts:683`) lit l'`index.html` **de ton module**, retire le `<script>`
+`renderDocument` (`FrontendService.ts:815`) lit l'`index.html` **de ton module**, retire le `<script>`
 d'entrée source, injecte les balises au marqueur (ou avant `</head>`), et renvoie le document.
 Pas d'`index.html` ? Une coquille minimale est générée. En production, l'index est mis en cache ; en
 développement il est relu à chaque appel, pour que tes modifications de la coquille apparaissent.
@@ -691,14 +691,14 @@ et son manifeste — c'est ce qui rend le multi-modules possible et ce qui isole
 Quatre comportements à connaître :
 
 - **Idempotent.** Une entrée dont le manifeste est plus récent que ses sources est ignorée
-  (`isBuildFresh()`, `FrontendService.ts:636`) — le scan est borné au dossier front et saute
+  (`isBuildFresh()`, `FrontendService.ts:768`) — le scan est borné au dossier front et saute
   `node_modules`. Relancer un déploiement ne recompile pas tout.
 - **Les échecs sont collectés, pas propagés.** Un bundle en échec n'arrête pas les autres ; la
   commande passe le code de sortie à `1` s'il en reste un — de quoi casser un pipeline sans masquer
   les autres résultats.
 - **Le résultat est un bilan** : construits / ignorés / en échec, journalisé et renvoyé.
 - **Un démarrage en production sans build se répare — ou se dénonce.** `setupProd()`
-  (`FrontendService.ts:500`) vérifie le manifeste de chaque entrée AVANT de monter les statics.
+  (`FrontendService.ts:629`) vérifie le manifeste de chaque entrée AVANT de monter les statics.
   Manifeste absent et Vite installé (poste de développement, devDependencies présentes) : le build
   tourne **une fois au démarrage**, annoncé en WARNING — fini l'écran blanc après un
   `nodefony production --detach` lancé trop tôt. Manifeste absent et Vite introuvable (image de
@@ -734,18 +734,18 @@ use("@nodefony/frontend", { assetBaseUrl: "https://cdn.example.com" });
 // → <script src="https://cdn.example.com/_assets/shop/main-a1b2c3.js">
 ```
 
-En production, `setupProd()` (`FrontendService.ts:500`) monte chaque dossier de sortie sur son
+En production, `setupProd()` (`FrontendService.ts:629`) monte chaque dossier de sortie sur son
 `publicPath` via le serveur statique — résolu **par nom**, jamais par import, pour ne pas créer de
 cycle. Si ce service est absent (proxy frontal, CDN devant), un avertissement le dit et rien n'est
 monté : c'est un déploiement valide, pas une panne.
 
 ### Ce qui est servi en production
 
-`renderProdTags()` (`TemplateHelper.ts:285`) lit `manifest.json` — la carte produite par Vite — et
+`renderProdTags()` (`TemplateHelper.ts:315`) lit `manifest.json` — la carte produite par Vite — et
 émet, dans cet ordre : les feuilles de style d'abord (pour éviter le flash de contenu non stylé), les
 préchargements des morceaux partagés, puis le script d'entrée. Le manifeste est lu **une fois par
 dossier de sortie** et mis en cache : aucune lecture disque par requête. Le CSS est collecté
-récursivement à travers les imports (`collectCss()`, `TemplateHelper.ts:351`), sans quoi le style
+récursivement à travers les imports (`collectCss()`, `TemplateHelper.ts:389`), sans quoi le style
 d'un morceau partagé manquerait sur certaines pages.
 
 Manifeste absent ? Un commentaire HTML le dit, avec la commande à lancer. Pas d'exception, pas de
@@ -764,7 +764,7 @@ Deux points d'attention avant de se lancer :
 
 - le preset alimente le build en processus (`ViteBuilder`), mais la configuration du **serveur de
   développement** est écrite par le générateur, qui possède sa propre correspondance type → greffon
-  (`ViteConfigGenerator.toMjs()`, `ViteConfigGenerator.ts:51`). Un nouveau type doit être ajouté aux
+  (`ViteConfigGenerator.toMjs()`, `ViteConfigGenerator.ts:80`). Un nouveau type doit être ajouté aux
   **deux** endroits, sinon il lève `FrontendPresetUnknownError` (`FrontendError.ts:19`) ;
 - si le nouveau framework transforme des fichiers qui ne lui appartiennent pas, il lui faut sa propre
   famille d'isolation — c'est la leçon d'Angular.
@@ -781,10 +781,10 @@ origine. Or en développement, tes modules viennent du port 5173 alors que ta pa
 
 La solution retenue n'est pas d'affaiblir la politique, mais de la **composer**. Une fois Vite prêt
 (donc ses ports réellement connus), le service déclare ses origines au pare-feu
-(`#registerCsp()`, `FrontendService.ts:714`), qui émet **un seul** en-tête, origines fusionnées et
+(`#registerCsp()`, `FrontendService.ts:887`), qui émet **un seul** en-tête, origines fusionnées et
 nonce par requête. À l'arrêt, les origines sont retirées et la politique redevient stricte.
 
-Le fragment déclaré (`#viteCspFragment()`, `FrontendService.ts:736`) mérite deux explications, parce
+Le fragment déclaré (`#viteCspFragment()`, `FrontendService.ts:909`) mérite deux explications, parce
 qu'elles piègent tout le monde :
 
 - **`'self'` est répété dans chaque directive.** `connect-src`, `style-src`, `img-src` et `font-src`
@@ -820,7 +820,7 @@ Sur le chemin chaud du rendu, trois précautions :
 - le **manifeste** est lu une fois par dossier de sortie, jamais par requête ;
 - l'**`index.html`** est mis en cache en production (relu en développement, où la fraîcheur prime) ;
 - les **écouteurs** du processus enfant sont suivis et retirés à chaque mort
-  (`trackListener()`, `ViteProcessSupervisor.ts:783`) — sans quoi les relances les accumuleraient.
+  (`trackListener()`, `ViteProcessSupervisor.ts:912`) — sans quoi les relances les accumuleraient.
 
 La sonde de vie coûte une requête HTTP toutes les trente secondes par famille. Elle est désactivable
 (`healthCheckIntervalMs: 0`) si ce budget te gêne, au prix de la détection d'un Vite gelé.

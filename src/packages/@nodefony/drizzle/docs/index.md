@@ -463,7 +463,7 @@ En MySQL, les verbes « qui rendent la ligne écrite » (`create`, `updateOne`, 
 `findOneAndDelete`) se décomposent en sélection de la cible → mutation bornée par la clé primaire **avec
 le critère revérifié dans le `WHERE`** → relecture. Deux à trois allers-retours au lieu d'un : c'est le
 prix du dialecte, payé **uniquement** en MySQL. Une course perdue rend `null`, jamais une mutation hors
-critère (`#mysqlInsertReturning()`, `DrizzleRepository.ts:897`).
+critère (`#mysqlInsertReturning()`, `DrizzleRepository.ts:1138`).
 
 Le SQL brut nécessaire aux entités du framework est lui aussi routé par dialecte, dans un seul fichier
 (`queryKit.ts`) : recherche dans une colonne JSON (`findUserIdBySocialProvider()`, `queryKit.ts:76`),
@@ -505,7 +505,7 @@ connexion**, donc leurs tables sont créées au moment où l'ORM s'ouvre.
 | `Drizzle` (le module)  | valide la config, déclare le schéma framework, monte le data plane     | `index.ts` du module                                         |
 | `DrizzleService`       | ouvre un ORM par connecteur au boot, ferme tout à l'arrêt              | `connectAll()`, `DrizzleService.ts:79`                       |
 | `DrizzleOrm`           | la connexion : DDL dérivé, repositories, transactions, sonde           | `DrizzleOrm.ts:115`                                          |
-| `DrizzleRepository<T>` | le CRUD portable, les opérateurs riches, l'eager-load                  | `DrizzleRepository.ts:115`                                   |
+| `DrizzleRepository<T>` | le CRUD portable, les opérateurs riches, l'eager-load                  | `DrizzleRepository.ts:146`                                   |
 | `DrizzleTransaction`   | `BEGIN`/`COMMIT`/`ROLLBACK` pilotés à la main, sur les trois dialectes | `DrizzleTransaction.ts:70`                                   |
 | `colKit` (interne)     | une spécification logique → la table du dialecte demandé               | `colKit.ts:437`                                              |
 | `queryKit` (interne)   | le SQL brut des entités framework, émis **et exécuté** par dialecte    | `findUserIdBySocialProvider()` (`queryKit.ts:76`)            |
@@ -555,7 +555,7 @@ await posts.count({ views: { $gte: 10 } });
 
 Les opérateurs (`$eq $ne $gt $gte $lt $lte $in $nin $like`) sont **ceux d'orm-core**, identiques sur
 tous les drivers ; la traduction en `eq()`/`inArray()` se fait dans `#where()`
-(`DrizzleRepository.ts:331`). Leur référence complète est dans
+(`DrizzleRepository.ts:420`). Leur référence complète est dans
 [la page d'orm-core](../../orm-core/docs/index.md).
 
 `$like` est émis avec sa clause `ESCAPE '\'` (`likeSql.ts`), ce qui rend un `%` ou un `_` **littéral**
@@ -567,10 +567,10 @@ Deux points de comportement qui évitent des surprises :
 
 - **« au plus une ligne »** est garanti par construction pour `updateOne`/`deleteOne`/`increment` :
   la mutation est bornée par la clé primaire découverte de la table, jamais par un `LIMIT` sur un
-  `UPDATE` (`#pickOne()`, `DrizzleRepository.ts:213`). C'est ce qui rend ces verbes portables — MySQL
+  `UPDATE` (`#pickOne()`, `DrizzleRepository.ts:259`). C'est ce qui rend ces verbes portables — MySQL
   interdit la forme naïve.
 - **l'eager-load est manuel** : une requête `IN (…)` par relation déclarée, puis regroupement en
-  mémoire (`#populate()`, `DrizzleRepository.ts:442`). Choix assumé — pas de couche de relations à
+  mémoire (`#populate()`, `DrizzleRepository.ts:683`). Choix assumé — pas de couche de relations à
   déclarer une seconde fois, et le comportement est le même sur les trois dialectes.
 
 ### Transactions — une connexion dédiée, jamais le pool
@@ -800,7 +800,7 @@ l'emplacement **est** l'infra déclarée, déjà affichée ailleurs (`location`,
 ## ⚡ Performance & mémoire
 
 **La sonde de requêtes ne coûte rien quand elle est éteinte.** Chaque exécution passe par un point de
-mesure unique (`#prof()`, `DrizzleRepository.ts:279`) qui alimente deux consommateurs — le profileur
+mesure unique (`#prof()`, `DrizzleRepository.ts:330`) qui alimente deux consommateurs — le profileur
 par requête (barre de debug) et l'agrégat de flux. Les deux sont gardés par un drapeau : si aucun n'est
 actif, la fonction rend le constructeur de requête tel quel, sans allocation. Le flux est **désactivé
 en production** par défaut.

@@ -173,6 +173,28 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         run: npm run skills:check
 
+      # Les ancres `fichier:ligne` de la doc, résolues contre le code RÉEL.
+      #
+      # Le contrôle existait et personne ne le lançait — ni ici, ni dans un
+      # script npm : juste une ligne dans un SKILL.md. Passé sur le corpus, il a
+      # sorti huit ancres qui pointaient dans le vide, dont deux vers
+      # `rollup.config.ts`, supprimé à la migration rolldown. Une ancre fausse
+      # est pire qu'une ancre absente : elle a l'air d'une preuve.
+      #
+      # Ce gate ne mord QUE sur ce qui est indiscutable (`anchor-check.mjs:211`)
+      # — fichier introuvable, ou ligne au-delà de la fin du fichier. Les
+      # `SUSPECT` (l'ancre a dérivé de quelques lignes) sont RAPPORTÉS sans
+      # échouer : ils se recalent avec `anchor-fix.mjs`, et en faire un blocage
+      # rendrait la CI rouge à chaque refactor honnête.
+      - name: Ancres de la doc (fichier:ligne résolus contre le code)
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        run: |
+          node .claude/skills/nodefony-documentation/scripts/anchor-check.mjs \
+            src/packages/@nodefony/*/docs/*.md \
+            src/nodefony/docs/*.md \
+            docs/guides/*.md \
+            docs/adr/*.md
+
       # Les JUGES du banc devkit, éprouvés — pas le banc lui-même.
       #
       # Le banc lance de vrais agents et coûte de l'argent : il n'a rien à faire
@@ -198,6 +220,8 @@ jobs:
           node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.selftest.mjs --prove
           node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-route-param.selftest.mjs
           node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-session-csrf.selftest.mjs
+          node .claude/skills/nodefony-devkit-bench/scripts/lib/env-decor.selftest.mjs --prove
+          node .claude/skills/nodefony-devkit-bench/scripts/lib/reference.selftest.mjs --prove
 
   # ─── Tests unit — toutes les plateformes, pas besoin du serveur ─────────────
   #

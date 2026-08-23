@@ -289,7 +289,7 @@ avance la tête (`Syslog.ts:284`), `toArray()` restitue l'ordre FIFO du plus anc
 
 - Capacité par défaut **100** (`defaultSettings`, `Syslog.ts:364`) ; le Kernel la porte à **2000 en
   développement** pour qu'une requête complète tienne dans la fenêtre malgré le bruit
-  (`maxStack` résolu au boot, `Kernel.ts:2165`).
+  (`maxStack` résolu au boot, `Kernel.ts:2242`).
 - Redimensionner = **au boot uniquement** : `setMaxStack()` (`Syslog.ts:799`) reconstruit le buffer
   en préservant les Pdu existants.
 - Le stockage lui-même se coupe à chaud (`setRingEnabled()`, `Syslog.ts:764`) : les compteurs de
@@ -558,14 +558,14 @@ liste vide. Chacun expose une `probe()` : joignabilité, latence, informations d
 ### Le registre — comment un driver est monté
 
 Aucun `if (nom === …)` dans le Kernel. `registerBuiltinLogDrivers()` (`builtinLogDrivers.ts:86`)
-enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:2112`) résout le driver
+enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:2189`) résout le driver
 demandé, monte `memory` en filet de sécurité, et — **en développement seulement** — tente de monter
 **tous** les drivers enregistrés pour permettre la bascule à chaud depuis Studio. Chaque fabrique
 s'auto-écarte si sa configuration manque (Loki sans URL, par exemple) : zéro I/O « au cas où ». En
 production, c'est strictement ce qui est demandé.
 
 Si le driver configuré n'est pas enregistré, le Kernel **ne plante pas** : il retombe sur `memory`
-et l'annonce par un `WARNING` (`Kernel.ts:3104`) — le principe « pas de dégradation silencieuse ».
+et l'annonce par un `WARNING` (`Kernel.ts:3193`) — le principe « pas de dégradation silencieuse ».
 
 ## 🧰 API publique
 

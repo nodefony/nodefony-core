@@ -230,7 +230,7 @@ Erreurs mappées par duck-typing dans `#renderAuthError()` (`TokenAuthController
 `issueForCredentials()` (`tokenService.ts:237-276`) vérifie l'identifiant/mot de passe via le
 service `users`, avec le **throttling NIST partagé** — `ThrottledError` avant tout hachage
 (`tokenService.ts:260-267`). Chaque tentative échouée est auditée `login.failure`/`login.throttled`
-par `#auditGrant()` (`tokenService.ts:281-293`). Puis `issueTokens()` (`tokenService.ts:296`)
+par `#auditGrant()` (`tokenService.ts:281-293`). Puis `issueTokens()` (`tokenService.ts:490`)
 produit :
 
 - un **access token** : JWT signé EdDSA, en-tête `typ:"at+jwt"` + `kid`, claims
@@ -244,7 +244,7 @@ La réponse suit RFC 6749 §5.1 — `ITokenResponse` (`tokenService.ts:43-51`). 
 
 ### Rotation & détection de rejeu (RFC 9700 §4.14)
 
-`refresh()` (`tokenService.ts:335`) est le cœur défensif, dans l'ordre :
+`refresh()` (`tokenService.ts:555`) est le cœur défensif, dans l'ordre :
 
 1. Lookup par hash — `findByHash`, refus uniforme si inconnu/mauvais type (`tokenService.ts:341-343`).
 2. **Détection de rejeu** : refresh **déjà révoqué** re-présenté → `revokeFamily` coupe toute la

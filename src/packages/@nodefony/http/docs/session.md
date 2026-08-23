@@ -68,8 +68,8 @@ flowchart TD
 ```
 
 Le point d'activation est **unique et commun aux deux transports** : `HttpKernel.startSession()`
-(`http-kernel.ts:1059`). Il commence par la garde paresseuse `if (!intent && !context.hasSession())`
-(`http-kernel.ts:1067`) — sans intent de route ni cookie entrant, **aucune session n'est ouverte**.
+(`http-kernel.ts:1131`). Il commence par la garde paresseuse `if (!intent && !context.hasSession())`
+(`http-kernel.ts:1061`) — sans intent de route ni cookie entrant, **aucune session n'est ouverte**.
 
 ## 📖 Lexique
 
@@ -114,7 +114,7 @@ défaut** dans Nodefony :
 - **Vol du cookie (hijacking).** Un script injecté (XSS) ou un réseau en clair capte le cookie et
   rejoue la session. → `HttpOnly` et `Secure` sont à `true` par défaut (`sessionCookieSchema`,
   `config.ts:718-725`), et le nom du cookie prend le préfixe `__Host-` dès que le transport est TLS
-  (`Context.getSessionCookieName()`, `Context.ts:636`).
+  (`Context.getSessionCookieName()`, `Context.ts:714`).
 - **Fixation.** L'attaquant pose lui-même un identifiant dans le navigateur de la victime, attend
   qu'elle se connecte, puis réutilise **le même** identifiant. → double défense : `strictMode` rejette
   tout identifiant inconnu du store (`Session.resume()`, `session.ts:189`), et le login **régénère**
@@ -139,11 +139,11 @@ agents (voir [Firewall](../../security/docs/firewall.md)).
 
 **2. La session est paresseuse.** Elle n'existe que si une route la demande — `@UseSession`, ou la
 seule présence d'un paramètre `@Session` — ou si un cookie arrive déjà : c'est la garde de
-`HttpKernel.startSession()` (`http-kernel.ts:1059`). Une route publique ne paie **ni lecture de store,
+`HttpKernel.startSession()` (`http-kernel.ts:1131`). Une route publique ne paie **ni lecture de store,
 ni `Set-Cookie`**.
 
 **3. Un seul modèle d'état pour le web et le temps réel.** Le même `startSession()` sert
-`HttpKernel.onRequestEnd()` (`http-kernel.ts:1288`) et `HttpKernel.onConnect()` (`http-kernel.ts:1572`) ;
+`HttpKernel.onRequestEnd()` (`http-kernel.ts:1391`) et `HttpKernel.onConnect()` (`http-kernel.ts:1659`) ;
 l'activité HTTP **ou** WS prolonge la même session (`Session.touchIfNeeded()`, `session.ts:421`).
 
 **4. L'administration ne voit jamais un identifiant.** Un opérateur manipule une `ref`, HMAC tronqué
@@ -273,12 +273,12 @@ curl -sk -b /tmp/jar https://localhost:5152/panier
 Le cookie obtenu porte `__Host-`, `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/` et **aucun** `Domain` :
 c'est exactement ce qu'assert le banc d'intégration `session-runtime` (« Set-Cookie de session sur TLS »).
 Sur un transport en clair (port 5151), le préfixe `__Host-` est omis — le navigateur le rejetterait
-faute de `Secure` (`Context.getSessionCookieName()`, `Context.ts:647`).
+faute de `Secure` (`Context.getSessionCookieName()`, `Context.ts:714`).
 
 ## ⚙️ Configuration
 
-Source unique des défauts : le schéma Zod `sessionSchema` (`config.ts:742`) et son sous-schéma
-`sessionCookieSchema` (`config.ts:708`).
+Source unique des défauts : le schéma Zod `sessionSchema` (`config.ts:761`) et son sous-schéma
+`sessionCookieSchema` (`config.ts:727`).
 
 | Option              | Type    | Défaut       | Effet                                                                             |
 | ------------------- | ------- | ------------ | --------------------------------------------------------------------------------- |
@@ -497,14 +497,14 @@ C'est le différenciateur du framework appliqué à l'état de session : un seul
 <!-- prettier-ignore -->
 | Aspect | HTTP | WebSocket |
 | --- | --- | --- |
-| Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1288`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:1572`) |
+| Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1391`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:1659`) |
 | Lecture du cookie | constructeur du contexte | constructeur, même nom effectif (`WebsocketContext.ts:172`) |
 | Sauvegarde | fin de requête | après **chaque frame** traitée (`WebsocketContext.ts:302`) |
 | Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1379`) |
 | Portée ALS | une requête | **handshake + toutes les frames** (`http-kernel.ts:1495`) |
 
 La conséquence pratique la plus utile : côté WebSocket, la bulle `AsyncLocalStorage` ouverte au
-handshake par `RequestContext.run()` **enveloppe aussi les messages** (`http-kernel.ts:1495`). L'identité résolue une fois est donc
+handshake par `RequestContext.run()` **enveloppe aussi les messages** (`http-kernel.ts:431`). L'identité résolue une fois est donc
 disponible à chaque frame sans relire la base — c'est ce dont profite
 `FirewallRealtimeAuthenticator.supports()` (`FirewallRealtimeAuthenticator.ts:80`), câblé automatiquement
 par le firewall sur les zones temps réel protégées (`firewall.ts:289`).
@@ -567,7 +567,7 @@ Trois barrières superposées :
 | Menace                            | Défense                                           | Ancrage                                            |
 | --------------------------------- | ------------------------------------------------- | -------------------------------------------------- |
 | Vol par script injecté (XSS)      | `HttpOnly`                                        | `sessionCookieSchema` (`config.ts:718`)            |
-| Interception réseau               | `Secure` + `__Host-` sur TLS                      | `getSessionCookieName()` (`Context.ts:636`)        |
+| Interception réseau               | `Secure` + `__Host-` sur TLS                      | `getSessionCookieName()` (`Context.ts:714`)        |
 | Requête inter-sites               | `SameSite=Lax` par défaut                         | `defaultCookieOptions` (`cookie.ts:48`)            |
 | Fixation (cookie pré-posé)        | `strictMode` + régénération au login              | `Session.resume()` (`session.ts:189`)              |
 | Identifiant deviné                | 32 octets CSPRNG (43 caractères base64url)        | `Session.generateId()` (`session.ts:226`)          |
@@ -597,7 +597,7 @@ paramètre `@Session()` suffit à déclarer l'intent.
 
 **Intent de route** — `UseSession(options)` (`routerDecorators.ts:761`) s'applique à une classe **ou** à
 une méthode ; la méthode l'emporte, par fusion et non par remplacement
-(`resolveSessionIntent()`, `routerDecorators.ts:794`). **Une seule** option (`SessionIntent`,
+(`resolveSessionIntent()`, `routerDecorators.ts:819`). **Une seule** option (`SessionIntent`,
 `ISession.ts:17`) :
 
 - `readOnly: true` — la session est reprise et lue mais **jamais** persistée ; une mutation tentée est
@@ -637,7 +637,7 @@ Trois règles de conception se dégagent du contrat, et méritent d'être respec
 | Domaine                       | Norme                     | Comment le code s'y conforme                                                  |
 | ----------------------------- | ------------------------- | ----------------------------------------------------------------------------- |
 | Attributs et préfixes cookie  | RFC 6265bis §4.1.3        | `__Host-` impose `Secure` + `Path=/`, interdit `Domain` (`cookie.ts:386-403`) |
-| Nom du cookie selon transport | RFC 6265bis / OWASP       | `getSessionCookieName()` (`Context.ts:636`)                                   |
+| Nom du cookie selon transport | RFC 6265bis / OWASP       | `getSessionCookieName()` (`Context.ts:714`)                                   |
 | Idle timeout                  | NIST SP 800-63B-4 / OWASP | défaut 1800 s, glissant par `touch` (`config.ts:796`)                         |
 | Absolute timeout              | NIST SP 800-63B-4 / OWASP | défaut 43200 s, jamais prolongé (`config.ts:808`)                             |
 | Identifiant de session        | OWASP Session Management  | 32 octets CSPRNG, opaque (`session.ts:226`)                                   |
@@ -650,7 +650,7 @@ Trois règles de conception se dégagent du contrat, et méritent d'être respec
 Le coût d'une session est **payé seulement quand elle sert** :
 
 - **Zéro par défaut** — sans intent ni cookie, `startSession()` sort immédiatement
-  (`http-kernel.ts:1059`) : ni objet `Session`, ni lecture de store.
+  (`http-kernel.ts:1131`) : ni objet `Session`, ni lecture de store.
 - **Objet léger** — trois sacs `{}` à plat, pas de container DI par session (`session.ts:100-104`).
 - **Zéro écriture en lecture** — le dirty-tracking court-circuite `save()` (`session.ts:266`) ; le
   `touch` est throttlé à une écriture par demi-vie d'idle (`session.ts:445`).
@@ -705,7 +705,7 @@ SQLite quand c'est pertinent (`SessionStorage.location`,
 
 | Symptôme                                               | Cause                                                                     | Correction                                                                                                |
 | ------------------------------------------------------ | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Aucun `Set-Cookie`, `session` toujours vide            | La route n'a **aucun intent** : ni `@UseSession`, ni paramètre `@Session` | Ajouter l'un des deux — l'activation est paresseuse (`http-kernel.ts:1067`)                               |
+| Aucun `Set-Cookie`, `session` toujours vide            | La route n'a **aucun intent** : ni `@UseSession`, ni paramètre `@Session` | Ajouter l'un des deux — l'activation est paresseuse (`http-kernel.ts:1142`)                               |
 | `context.session` est `null` dans un contrôleur WS     | Intent posé sur la classe au lieu de la route, ou absent                  | `@UseSession()` **sur la route** WebSocket ; `Controller.startSession()` n'existe plus                    |
 | Mutation ignorée, WARNING « READONLY SESSION mutated » | La route est en `@UseSession({ readOnly: true })`                         | Retirer `readOnly` sur les routes qui écrivent (`session.ts:255-264`)                                     |
 | Session détruite qui « revient » après logout          | Une requête en vol réécrit le blob supprimé                               | Déjà couvert : pierre tombale 5 min (`RevocationGuardStorage.ts:121`)                                     |
