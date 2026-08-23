@@ -19,8 +19,11 @@ LABEL="$APP${EXTRA:+-$(echo "$EXTRA" | tr ' =' '--')}"
 
 command -v wrk >/dev/null 2>&1 || { echo "❌ wrk absent"; exit 1; }
 
-# port propre
-lsof -ti tcp:"$PORT" 2>/dev/null | xargs kill -9 2>/dev/null
+# port propre — via la garde partagée : `lsof -ti tcp:PORT` NU vise aussi les
+# CLIENTS du port et n'épargne pas le lanceur (cf `../scripts/kill-guard.sh`,
+# écrit après qu'un banc a SIGKILLé l'agent qui l'exécutait).
+. "$(dirname "${BASH_SOURCE[0]}")/../scripts/kill-guard.sh"
+kill_listeners "$PORT"
 sleep 0.3
 
 # spawn

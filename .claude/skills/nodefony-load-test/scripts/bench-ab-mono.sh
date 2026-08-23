@@ -163,9 +163,14 @@ WRK_HDR=()
 
 command -v wrk >/dev/null 2>&1 || { echo "❌ wrk absent (brew install wrk)"; exit 1; }
 
-# 1. banc propre : tuer ports + résidus Vite/serveur, attendre la libération
-lsof -ti tcp:5151,5152,5173,5177 2>/dev/null | xargs kill -9 2>/dev/null
-pkill -9 -f vite.js 2>/dev/null; pkill -9 -f "bin/nodefony" 2>/dev/null
+# 1. banc propre : tuer ports + résidus Vite/serveur, attendre la libération.
+# ⚠️ PASSER PAR `kill-guard.sh`, jamais par un `lsof | xargs kill -9` nu : ce
+# bloc a déjà SIGKILLé le `claude` qui lançait le banc (session perdue, aucune
+# trace). Les deux gardes — `-sTCP:LISTEN` et la liste d'épargne — et le pourquoi
+# de chacune sont documentés dans ce fichier.
+. "$(dirname "${BASH_SOURCE[0]}")/kill-guard.sh"
+kill_listeners 5151 5152 5173 5177
+kill_by_cmdline vite.js "bin/nodefony"
 node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.connect(5151,'127.0.0.1');s.on('error',()=>{s.destroy();process.exit(0)});s.on('connect',()=>{s.destroy();if(Date.now()-t0>10000)process.exit(0);setTimeout(p,300)})})();" 2>/dev/null
 
 # 2. spawn mono prod (detached), env forcé + toggles A/B
