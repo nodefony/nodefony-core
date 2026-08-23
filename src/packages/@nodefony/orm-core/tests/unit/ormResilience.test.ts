@@ -122,6 +122,79 @@ describe("Orm — contrat de résilience (perte / reprise de connexion)", () => 
     assert.notEqual(snap.connectedSince, null, "l'uptime repart");
   });
 
+  it("un signal de reprise reçu PENDANT connect() ne compte rien", async () => {
+    // LE cas que la garde précédente laissait passer, et il n'avait rien
+    // d'hypothétique : un adapter câble ses écoutes AVANT son premier échange
+    // (il le doit — ce premier échange peut échouer), et `pg` émet `connect`
+    // puis `acquire` sur ce tout premier client. Comme `alive` n'est posé qu'au
+    // RETOUR de `onConnect()`, la garde « déjà vivant ? » ne mordait pas :
+    // chaque démarrage comptait une reconnexion et annonçait `onOrmRestored`
+    // AVANT `onOrmReady`. Mesuré sur pg et mysql avant correction.
+    const orm = mk("res-pendant-connect");
+    const ordre: string[] = [];
+    orm.on("onOrmRestored", () => ordre.push("restored"));
+    orm.on("onOrmReady", () => ordre.push("ready"));
+    (orm as unknown as { onConnect: () => Promise<void> }).onConnect =
+      async () => {
+        // Le driver signale un « retour » alors que rien n'a jamais été perdu.
+        orm.signalRestored();
+        orm.signalRestored();
+      };
+
+    await orm.connect();
+
+    const snap = connectionMonitor.snapshot("res-pendant-connect");
+    assert.equal(snap.reconnectCount, 0, "un démarrage n'est pas une reprise");
+    assert.equal(snap.lostCount, 0);
+    assert.deepEqual(
+      ordre,
+      ["ready"],
+      "rien ne doit précéder la mise en service",
+    );
+    assert.equal(orm.isConnected(), true);
+  });
+
+  it("connect() rejoué est PERMIS, et l'adapter reprend ses ressources", async () => {
+    // Le dépôt s'en sert (rejouer un DDL de développement sur une base
+    // existante). L'interdire aurait cassé un usage documenté — et un contrat
+    // portable n'a pas à légiférer sur ce que chaque adapter sait faire.
+    // Ce qui est EXIGÉ, c'est qu'un second établissement reprenne le premier :
+    // sans cela, un pool reste ouvert et ses écoutes continuent de parler au
+    // nom d'un ORM dont la connexion courante est ailleurs.
+    const orm = mk("res-rejoue");
+    let etablissements = 0;
+    (orm as unknown as { onConnect: () => Promise<void> }).onConnect =
+      async () => {
+        etablissements += 1;
+      };
+    await orm.connect();
+    await orm.connect();
+    assert.equal(
+      etablissements,
+      2,
+      "le second connect() rejoue l'établissement",
+    );
+    assert.equal(orm.isConnected(), true);
+    const snap = connectionMonitor.snapshot("res-rejoue");
+    assert.equal(snap.connectCount, 2);
+    assert.equal(snap.reconnectCount, 0, "rejouer n'est pas se rétablir");
+    assert.equal(snap.lostCount, 0);
+  });
+
+  it("après une reprise, une NOUVELLE perte est de nouveau comptée", async () => {
+    // Vérifie que la perte en souffrance est bien REMISE à zéro : sinon le
+    // remède au démarrage fantôme rendrait le second incident invisible.
+    const orm = mk("res-second-incident");
+    await orm.connect();
+    orm.signalLost("coupure 1");
+    orm.signalRestored();
+    orm.signalLost("coupure 2");
+    orm.signalRestored();
+    const snap = connectionMonitor.snapshot("res-second-incident");
+    assert.equal(snap.lostCount, 2);
+    assert.equal(snap.reconnectCount, 2);
+  });
+
   it("une reprise SANS perte préalable ne compte rien", async () => {
     const orm = mk("res-sans-perte");
     await orm.connect();

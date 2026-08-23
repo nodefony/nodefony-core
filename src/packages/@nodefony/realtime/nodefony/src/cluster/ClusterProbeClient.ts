@@ -91,9 +91,13 @@ export function mergeClusterHealth(
         errorTotal: 0,
         reconnectTotal: 0,
         maxEwmaMs: null,
+        assumed: 0,
       };
       orm.connectors += h.orm.connectors;
       orm.connected += h.orm.connected;
+      // Un cluster dont les connecteurs sont SUPPOSÉS vivants ne se lit pas
+      // comme un cluster dont on a constaté la santé — la somme doit voyager.
+      orm.assumed += h.orm.assumed;
       orm.queryTotal += h.orm.queryTotal;
       orm.slowTotal += h.orm.slowTotal;
       orm.errorTotal += h.orm.errorTotal;

@@ -18,6 +18,7 @@ describe("instanceProbe — seam fournisseur santé ORM", () => {
     const health: IOrmLeanHealth = {
       connectors: 2,
       connected: 1,
+      assumed: 0,
       queryTotal: 42,
       slowTotal: 1,
       errorTotal: 0,
@@ -32,6 +33,7 @@ describe("instanceProbe — seam fournisseur santé ORM", () => {
     setOrmHealthProvider(() => ({
       connectors: 1,
       connected: 1,
+      assumed: 0,
       queryTotal: 0,
       slowTotal: 0,
       errorTotal: 0,

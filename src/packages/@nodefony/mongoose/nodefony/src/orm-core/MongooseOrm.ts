@@ -49,6 +49,16 @@ export class MongooseOrm extends Orm {
    * sans cleanup »). `null` tant qu'aucune connexion n'est ouverte.
    */
   #lifecycle: Array<[string, (...a: never[]) => void]> | null = null;
+
+  /**
+   * Mongoose traduit les signaux de topologie du driver MongoDB (SDAM) : il
+   * SAIT qu'un serveur est tombé, même sans le moindre trafic — d'où
+   * `"events"`. C'est la seule des trois familles d'adapters du dépôt qui
+   * dispose d'une surveillance de serveur indépendante des requêtes.
+   */
+  override get liveness(): "events" | "assumed" {
+    return "events";
+  }
   #models: Record<string, LooseModel> | null = null;
   #repositories: Record<string, IRepository> | null = null;
   readonly #uri: string;
@@ -78,6 +88,15 @@ export class MongooseOrm extends Orm {
   }
 
   protected async onConnect(): Promise<void> {
+    // Un `connect()` rejoué ne doit pas laisser derrière lui les écoutes de
+    // la connexion précédente : elles resteraient ACTIVES et indétachables,
+    // et un `disconnected` venu d'une connexion abandonnée ferait basculer
+    // un ORM dont la connexion courante est parfaitement saine.
+    if (this.#connection) {
+      this.#unwireLifecycle();
+      await this.#connection.close().catch(() => undefined);
+      this.#connection = null;
+    }
     const connection = this.#options
       ? mongoose.createConnection(this.#uri, this.#options)
       : mongoose.createConnection(this.#uri);
@@ -212,15 +231,22 @@ export class MongooseOrm extends Orm {
   }
 
   async disconnect(): Promise<void> {
-    // Détacher AVANT de fermer : `close()` émet `close`, et un ORM qu'on
-    // ferme volontairement n'a pas « perdu » sa connexion — le compter comme
-    // un incident polluerait le tableau de bord à chaque arrêt propre.
+    // `alive` d'abord, puis détacher : `close()` émet `close`, et un ORM
+    // qu'on ferme volontairement n'a pas « perdu » sa connexion — le compter
+    // comme un incident polluerait le tableau de bord à chaque arrêt propre.
+    // Le PUITS qui suit n'est pas un détail : une `Connection` est un
+    // `EventEmitter`, et la détacher entièrement juste avant de la fermer
+    // rouvrirait — le temps de la fermeture — le défaut que ce câblage ferme.
+    this.alive = false;
+    this.stopHeartbeat();
     this.#unwireLifecycle();
-    if (this.#connection) {
-      await this.#connection.close();
+    const connection = this.#connection;
+    if (connection) {
+      const sink = (): void => undefined;
+      connection.on("error", sink);
+      await connection.close();
     }
     this.#connection = null;
-    this.alive = false;
     this.#models = null;
     this.#repositories = null;
   }

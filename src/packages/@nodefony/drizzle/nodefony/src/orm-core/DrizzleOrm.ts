@@ -134,6 +134,18 @@ export class DrizzleOrm extends Orm {
    */
   #unwire: Array<() => void> | null = null;
 
+  /**
+   * Ce que cet adapter sait de l'état de sa connexion, **par dialecte**.
+   *
+   * `postgres`/`mysql` traduisent les signaux de leur pool → `"events"`.
+   * `sqlite` est une base EMBARQUÉE : il n'y a ni serveur à perdre ni socket
+   * à surveiller, donc rien à constater — dire `"assumed"` n'est pas un aveu
+   * de faiblesse, c'est la description exacte de la situation.
+   */
+  override get liveness(): "events" | "assumed" {
+    return this.#dialect === "sqlite" ? "assumed" : "events";
+  }
+
   /** Pool `pg` (dialecte postgres) — `null` hors postgres ou non connecté. */
   #pgPool: Pool | null = null;
   /** Pool `mysql2/promise` (dialecte mysql) — `null` hors mysql ou non connecté. */
@@ -401,6 +413,11 @@ export class DrizzleOrm extends Orm {
   }
 
   protected async onConnect(): Promise<void> {
+    // Un `connect()` rejoué (DDL de développement relancé) ne doit pas
+    // empiler : sans cette reprise, l'ancien pool restait ouvert — sockets
+    // fuités — et ses écoutes continuaient de parler au nom d'un ORM dont la
+    // connexion courante est ailleurs.
+    await this.#releasePrevious();
     this.#tables = Object.create(null) as Record<string, DrizzleTable>;
     this.#relations = Object.create(null) as Record<
       string,
@@ -520,7 +537,11 @@ export class DrizzleOrm extends Orm {
         `DrizzleOrm "${this.name}": dialect "postgres" requires a connection \`url\`.`,
       );
     }
-    let PoolCtor: new (config: { connectionString?: string }) => Pool;
+    let PoolCtor: new (config: {
+      connectionString?: string;
+      keepAlive?: boolean;
+      keepAliveInitialDelayMillis?: number;
+    }) => Pool;
     // `Pool | PoolClient` : le MÊME `drizzle` sert le pool (requêtes ordinaires)
     // et une connexion empruntée (transaction) — l'adapter node-postgres accepte
     // les deux, c'est ce qui rend la transaction portable sans second import.
@@ -545,7 +566,18 @@ export class DrizzleOrm extends Orm {
         { cause: e },
       );
     }
-    const pool = new PoolCtor({ connectionString: this.#url });
+    // `keepAlive` : `pg` le laisse à FAUX par défaut, et rien ne le posait.
+    // Sans lui, une coupure RÉSEAU silencieuse — NAT qui expire, règle de
+    // pare-feu, câble — laisse un socket zombie que rien ne réveille : ni le
+    // client ni le serveur n'a fermé quoi que ce soit, aucun événement n'est
+    // émis, et la première requête à s'y aventurer attend son timeout TCP.
+    // Le keepalive fait mourir ces sockets, donc émettre l'erreur, donc
+    // constater la perte. Coût : un paquet toutes les 10 s par connexion.
+    const pool = new PoolCtor({
+      connectionString: this.#url,
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10_000,
+    });
     // AVANT le ping, pas après : le `SELECT 1` ci-dessous ouvre la PREMIÈRE
     // connexion, et c'est déjà une connexion qui peut tomber. Câbler ensuite
     // laissait un trou au moment le plus fragile — l'établissement.
@@ -563,6 +595,27 @@ export class DrizzleOrm extends Orm {
     }
     this.#pgPool = pool;
     this.#db = pgDrizzle(pool) as DrizzleDb;
+    // Tout ce qui suit peut encore échouer (DDL, relations). `connect()`
+    // doit être ATOMIQUE : un échec tardif laissait jusqu'ici un pool ouvert
+    // et des écoutes câblées sur un ORM que l'appelant croit mort.
+    try {
+      await this.#finishPostgres(entities, pool, pgDrizzle);
+    } catch (e) {
+      this.#unwireAll();
+      await pool.end().catch(() => undefined);
+      this.#pgPool = null;
+      this.#db = null;
+      this.#beginTx = null;
+      throw e;
+    }
+  }
+
+  /** Suite de la connexion postgres — isolée pour rendre `connect()` atomique. */
+  async #finishPostgres(
+    entities: IEntity[],
+    pool: Pool,
+    pgDrizzle: (client: Pool | PoolClient) => unknown,
+  ): Promise<void> {
     // Transaction = UNE connexion empruntée au pool, rendue au commit/rollback.
     // Sans cet emprunt, `BEGIN` et les écritures partiraient sur des connexions
     // différentes du pool : aucune atomicité, et un `BEGIN` orphelin recyclé.
@@ -598,6 +651,29 @@ export class DrizzleOrm extends Orm {
         await pool.query(statement);
       }
     }
+  }
+
+  /**
+   * Referme ce qu'un établissement précédent avait ouvert, s'il y en a eu un.
+   * Silencieux et idempotent : au premier `connect()` il n'y a rien à faire.
+   */
+  async #releasePrevious(): Promise<void> {
+    if (!this.#pgPool && !this.#mysqlPool && !this.#client) {
+      return;
+    }
+    this.#unwireAll();
+    const sink = (): void => undefined;
+    this.#pgPool?.on("error", sink);
+    try {
+      this.#client?.close();
+      await this.#pgPool?.end();
+      await this.#mysqlPool?.end();
+    } catch {
+      /* fermeture au mieux : on va rouvrir juste après */
+    }
+    this.#client = null;
+    this.#pgPool = null;
+    this.#mysqlPool = null;
   }
 
   /** Détache tous les listeners de cycle de vie posés sur les pools natifs. */
@@ -662,6 +738,12 @@ export class DrizzleOrm extends Orm {
     }): void => {
       this.connectionRestored();
       cx.on("error", (err: Error) => {
+        // Une connexion attardée peut émettre APRÈS `disconnect()` — voire
+        // après qu'un autre pool a pris sa place. Sans cette vérification,
+        // elle inscrirait une erreur au compte d'un ORM déjà fermé.
+        if (this.#mysqlPool !== pool) {
+          return;
+        }
         this.connectionLost(`mysql: ${err?.message ?? String(err)}`);
       });
     };
@@ -708,7 +790,15 @@ export class DrizzleOrm extends Orm {
         .drizzle as unknown as (
         client: MysqlPool | MysqlPoolConnection,
       ) => unknown;
-      pool = createPool({ uri: this.#url, timezone: "Z" });
+      // `enableKeepAlive` — même raison qu'en postgres (socket zombie après
+      // une coupure réseau silencieuse). `mysql2` l'expose au niveau de la
+      // connexion, le pool le propage à chacune de celles qu'il crée.
+      pool = createPool({
+        uri: this.#url,
+        timezone: "Z",
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 10_000,
+      });
       // Câblé AVANT le ping — même raison qu'en postgres, et une de plus ici :
       // `mysql2` ne signale ses connexions qu'à leur CRÉATION. Une connexion
       // ouverte avant l'abonnement n'aurait jamais d'auditeur d'erreur, et sa
@@ -731,6 +821,26 @@ export class DrizzleOrm extends Orm {
     }
     this.#mysqlPool = pool;
     this.#db = mysqlDrizzle(pool) as DrizzleDb;
+    // Atomicité — même raison quen postgres : un DDL qui lève ne doit pas
+    // laisser un pool ouvert derrière un connect() qui a rejeté.
+    try {
+      await this.#finishMysql(entities, pool, mysqlDrizzle);
+    } catch (e) {
+      this.#unwireAll();
+      await pool.end().catch(() => undefined);
+      this.#mysqlPool = null;
+      this.#db = null;
+      this.#beginTx = null;
+      throw e;
+    }
+  }
+
+  /** Suite de la connexion mysql — isolée pour rendre `connect()` atomique. */
+  async #finishMysql(
+    entities: IEntity[],
+    pool: MysqlPool,
+    mysqlDrizzle: (client: MysqlPool | MysqlPoolConnection) => unknown,
+  ): Promise<void> {
     // Transaction = UNE connexion empruntée au pool (même raison qu'en postgres).
     // mysql2 n'a pas de `release(err)` : rendre une connexion à l'état inconnu
     // est impossible à exprimer → `destroy()` explicite (le pool en rouvrira une).
@@ -780,6 +890,22 @@ export class DrizzleOrm extends Orm {
   }
 
   async disconnect(): Promise<void> {
+    // L'ordre compte, et il se lit à l'envers de l'intuition.
+    //
+    // 1. `alive = false` d'ABORD : un arrêt VOLONTAIRE n'est pas une perte de
+    //    connexion. Le drainage d'un pool émet des événements, et sans cette
+    //    ligne un `error` arrivé pendant `end()` inscrirait un incident — et
+    //    un `onOrmLost` — pour chaque arrêt propre de l'application.
+    // 2. Détacher nos écoutes, qui n'ont plus rien à traduire.
+    // 3. Mais poser un PUITS `error` avant de fermer : détacher sans lui
+    //    rouvrirait le défaut que ce câblage existe pour fermer — un pool `pg`
+    //    qui émet `error` sans le moindre auditeur fait tomber le process, et
+    //    la fenêtre de fermeture est précisément un moment où il en émet.
+    this.alive = false;
+    this.stopHeartbeat();
+    this.#unwireAll();
+    const sink = (): void => undefined;
+    this.#pgPool?.on("error", sink);
     if (this.#client) {
       this.#client.close();
     }
@@ -789,16 +915,12 @@ export class DrizzleOrm extends Orm {
     if (this.#mysqlPool) {
       await this.#mysqlPool.end();
     }
-    // Détacher AVANT de nettoyer les références : fermer un pool émet des
-    // événements, et un arrêt VOLONTAIRE n'est pas une perte de connexion.
-    this.#unwireAll();
     this.#client = null;
     this.#pgPool = null;
     this.#mysqlPool = null;
     this.#db = null;
     this.#beginTx = null; // la closure capture le pool fermé → `not connected`
     this.#sqliteTxGate = null;
-    this.alive = false;
     this.#tables = null;
     this.#relations = null;
     this.#repositories = null;

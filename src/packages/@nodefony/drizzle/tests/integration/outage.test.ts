@@ -39,6 +39,17 @@ describe.skipIf(!PG_URL)("DrizzleOrm — coupure PostgreSQL (pool `pg`)", () => 
     ormRegistry.unregister(ORM);
   });
 
+  it("un BOOT n'est pas une reprise (pas de reconnexion fantôme)", () => {
+    // Le câblage est posé AVANT le premier `SELECT 1`, et ce premier client
+    // fait émettre `connect` puis `acquire` à `pg`. Tant que l'idempotence
+    // reposait sur le seul `alive` — encore faux pendant l'établissement —
+    // chaque démarrage inscrivait une reconnexion et annonçait un
+    // rétablissement AVANT même la mise en service.
+    const snap = connectionMonitor.snapshot(ORM);
+    assert.equal(snap.reconnectCount, 0, "aucune reprise au démarrage");
+    assert.equal(snap.lostCount, 0, "aucune perte au démarrage");
+  });
+
   it("🔴 une erreur du pool NE TUE PAS le process — elle a un auditeur", () => {
     const pool = orm.getNativeConnection<{
       $client: {
@@ -71,6 +82,7 @@ describe.skipIf(!PG_URL)("DrizzleOrm — coupure PostgreSQL (pool `pg`)", () => 
   });
 
   it("le retour d'un client rétablit l'état (pg ne reconnecte pas, il rouvre)", async () => {
+    const reprisesAvant = connectionMonitor.snapshot(ORM).reconnectCount;
     const pool = orm.getNativeConnection<{
       $client: { emit: (e: string, ...a: unknown[]) => boolean };
     }>().$client;
@@ -85,18 +97,45 @@ describe.skipIf(!PG_URL)("DrizzleOrm — coupure PostgreSQL (pool `pg`)", () => 
       .$client.query("SELECT 1");
 
     assert.equal(orm.isConnected(), true);
-    assert.ok(connectionMonitor.snapshot(ORM).reconnectCount >= 1);
+    assert.equal(
+      connectionMonitor.snapshot(ORM).reconnectCount - reprisesAvant,
+      1,
+      "exactement UNE reprise — un >= laissait passer la reconnexion fantôme du boot",
+    );
   });
 
-  it("après `disconnect()`, le pool n'a plus nos auditeurs (anti-empilement)", async () => {
+  it("après `disconnect()`, nos auditeurs sont partis — mais l'erreur reste absorbée", async () => {
     const pool = orm.getNativeConnection<{
-      $client: { listenerCount: (e: string) => number };
+      $client: {
+        listenerCount: (e: string) => number;
+        emit: (e: string, ...a: unknown[]) => boolean;
+      };
     }>().$client;
-    const avant = pool.listenerCount("error");
+    const pertesAvant = connectionMonitor.snapshot(ORM).lostCount;
+
     await orm.disconnect();
+
+    // Nos traducteurs de cycle de vie sont retirés : un cycle
+    // connect/disconnect répété empilerait sinon un jeu par tour.
+    assert.equal(pool.listenerCount("connect"), 0);
+    assert.equal(pool.listenerCount("acquire"), 0);
+    // Mais `error` garde un PUITS, et ce n'est pas un oubli : drainer un pool
+    // en fait émettre, et un `EventEmitter` qui émet `error` sans le moindre
+    // auditeur fait tomber le process. Détacher « proprement » juste avant de
+    // fermer rouvrirait exactement le défaut que ce câblage existe pour clore.
     assert.ok(
-      pool.listenerCount("error") < avant,
-      "un cycle connect/disconnect répété empilerait sinon un jeu par cycle",
+      pool.listenerCount("error") > 0,
+      "la fenêtre de fermeture doit rester couverte",
+    );
+    assert.doesNotThrow(() => {
+      pool.emit("error", new Error("écho tardif du drainage"), null);
+    });
+    // …et ce qui est absorbé ne doit RIEN inscrire : un arrêt volontaire n'est
+    // pas un incident.
+    assert.equal(
+      connectionMonitor.snapshot(ORM).lostCount,
+      pertesAvant,
+      "fermer proprement ne compte aucune perte",
     );
   });
 });
