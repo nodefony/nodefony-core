@@ -75,7 +75,7 @@ env:
 
 jobs:
   stores:
-    name: Stores (PostgreSQL · MariaDB · Redis · MongoDB)
+    name: Stores sur infra réelle + gate du juge de schéma (PostgreSQL · MariaDB · Redis · MongoDB)
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -231,7 +231,7 @@ jobs:
       # Il existe parce que ce banc a rendu des verdicts faux avec l'aplomb des
       # justes : 18 faux positifs qui noyaient le seul vrai écart, dont le tout
       # premier était dans le CONTRÔLE et non dans le lecteur.
-      - name: Banc de schéma — auto-contrôle du juge (PostgreSQL)
+      - name: Gate — auto-contrôle du juge du banc de schéma (PostgreSQL)
         env:
           NF_PG_URL: postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony
         run: node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.selftest.mjs
