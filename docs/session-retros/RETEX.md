@@ -176,6 +176,13 @@ src/nodefony/tsconfig.json --noEmit` ne couvre pas les tests ; `npm run typechec
   **user** qui a dit « il y a des problèmes de type ». Corollaire : quand un dépôt possède un gate,
   c'est LUI qu'on lance avant d'annoncer — une invocation à la main n'est qu'un raccourci de boucle
   courte. [1× — 08-22e] ↝ [[feedback_prove_the_target_not_the_verdict]]
+
+- **J'allais réimplémenter `nodefony stop <projet>`.** Pour rendre les ports qu'un run tué laisse
+  tenus, j'ai écrit un parcours des décors + lecture de `runtime.json` — et c'est le **user** qui a
+  demandé « pourquoi on n'utilise pas la commande ? ». Elle existe, cible PAR NOM, refuse un nom
+  ambigu, exige une seconde preuve indépendante du nom, et tourne SANS boot depuis n'importe où :
+  strictement meilleure que ce que j'écrivais. Réflexe manquant : avant d'implémenter une capacité
+  d'infrastructure, chercher la COMMANDE du framework qui la porte déjà. [1× — 08-23b]
 - **`vitest run --root <dir>` depuis la racine ≠ `cd <dir> && vitest run`.** `--root` change la
   racine de configuration, PAS le cwd du process : 48 tests `finder`/`bundler` qui composent des
   chemins relatifs sont tombés d'un coup. J'ai failli les qualifier de régression avant de voir que
@@ -1083,6 +1090,60 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 | 🟢 Test non exécuté = rouge · vert annoncé (4)          | `feedback_gate_must_bite` + `feedback_green_covers_only_its_diff`       |
 | 📦🔗🔬 Ce qui est COPIÉ ne se met pas à jour (4)        | `feedback_single_source_rule`                                           |
 | 🧨 Commande composée refusée (1)                        | `feedback_shell_false_diagnostics`                                      |
+
+## 🧰 Un GATE excellent que personne ne lance ne garde rien
+
+- **`anchor-check.mjs` existait, résolvait chaque ancre `fichier:ligne` contre le code, et n'était
+  branché NULLE PART** — ni CI, ni script npm : une ligne dans un `SKILL.md`. Passé sur le corpus,
+  il a sorti **481 SUSPECT et 8 ancres pointant dans le vide**, dont deux vers un
+  `rollup.config.ts` supprimé à la migration rolldown. L'outil était bon depuis le début ; ce qui
+  manquait, c'est qu'il TOURNE. Réflexe : quand un dépôt contient un contrôle qui n'est appelé par
+  aucun workflow ni aucun script, c'est un défaut à part entière — le brancher AVANT d'en écrire un
+  autre. [1× — 08-23b] ↝ [[feedback_gate_must_bite]]
+- **Et le brancher exige de mesurer ce qu'il rendrait d'abord** : tel quel il aurait rendu la CI
+  rouge (481 SUSPECT). Il ne mord que sur l'indiscutable (fichier introuvable, ligne au-delà de la
+  fin) ; les dérives sont rapportées sans échouer, sinon la CI rougirait à chaque refactor honnête.
+  Un gate qu'on branche sans mesurer son verdict actuel est un gate qu'on désactivera la semaine
+  suivante. [1× — 08-23b]
+
+## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
+
+- **Ma propre correction a introduit 7 `LINE_OUT`.** `anchor-check` résout par BASENAME, et il
+  existe un autre `config.ts` (234 lignes) et un autre `bearer.ts` (23 lignes) que ceux que je
+  visais : mes ancres neuves pointaient le mauvais fichier, en étant parfaitement crédibles. C'est
+  le gate qui me l'a dit. Depuis, le vérificateur rejette toute ancre dont le basename correspond à
+  plus d'un fichier — un `index.ts` en a matché **57**. [1× — 08-23b]
+- **Corollaire de tri** : recaler n'est pas toujours améliorer. Viser la déclaration d'un symbole
+  générique (`router?: Router;`) ferait reculer une ancre d'un point précis vers un simple typage,
+  parfois 900 lignes plus haut. Écarté volontairement — visiblement décalé vaut mieux que plausible
+  et faux. [1× — 08-23b]
+
+## 🤝 Un sous-agent répond « INCHANGÉE » quand chercher devient pénible
+
+- **Trois lots sur quatre ont classé la majorité des cas difficiles « INCHANGÉE — contexte correct
+  pour le concept ».** J'ai répercuté ce verdict tel quel, en concluant « faux positifs pour
+  l'essentiel ». Un échantillon tiré au hasard a rendu **6 sur 6 FAUX**. La complaisance ne se voit
+  pas : la réponse est plausible, motivée, et arrive vite. Réflexe : sur un lot délégué, TIRER AU
+  SORT quelques items et les vérifier soi-même avant de croire la proportion annoncée — c'est le
+  seul contrôle qui distingue « rien à faire » de « l'agent n'a pas cherché ». [1× — 08-23b]
+- **Un sous-agent s'est aussi trompé sur un fait simple** (`SLOW_CONSUMER_BYTES` déclaré disparu
+  alors qu'il est défini `RealtimeHub.ts:63`). Un vérificateur AUTOMATIQUE — la ligne proposée
+  contient-elle la preuve annoncée ? — a rejeté 7 propositions sur 77 sans rien lire. Déléguer la
+  RECHERCHE, garder l'ÉCRITURE, et intercaler un automate entre les deux. [1× — 08-23b]
+
+## 🪤 Une garde peut EMPÊCHER ce qu'elle prétend gérer
+
+- **Enregistrer un handler `SIGTERM` a rendu le banc IMMORTEL.** Le filet d'arrêt ne pouvait pas
+  s'exécuter — ce script vit dans des `spawnSync` qui BLOQUENT la boucle d'événements, et un
+  handler de signal est un callback JS. Pire : l'enregistrer DÉSACTIVE la mort par défaut. Sans
+  handler, `SIGTERM` tuait le process (en laissant le serveur) ; avec, ni arrêt ni nettoyage —
+  `SIGKILL` obligatoire. Le nettoyage a été déplacé à l'ENTRÉE du run suivant, là où la boucle
+  tourne. [1× — 08-23b]
+- **Et ma première mesure du correctif était un FAUX VERT** : le port était bien rendu après le
+  `SIGTERM`, mais par la remise à zéro du décor qui tombait au même instant. Le verdict était juste
+  pour la mauvaise raison. C'est en regardant si le PROCESS avait survécu — une seconde question,
+  sur un autre observable — que le vrai défaut est apparu. Une sonde qui n'observe qu'un symptôme
+  confirme n'importe quelle cause. [1× — 08-23b] ↝ [[feedback_bench_probe_false_verdicts]]
 
 ## 🗄️ Archivé au CONSOLIDATE du 2026-07-30 — 59 thèmes, 190 frictions
 
