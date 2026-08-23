@@ -6,8 +6,8 @@ topic: perf-dimensionnement
 section: "Performance"
 audience: [developer, devops]
 tags: [performance, capacite, dimensionnement, pod, websocket, saturation]
-status: draft
-updated: "2026-08-07"
+status: stable
+updated: "2026-08-24"
 source: ".claude/skills/nodefony-load-test/scripts/capacity.mjs"
 tests: none
 ---

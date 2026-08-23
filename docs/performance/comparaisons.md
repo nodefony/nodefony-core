@@ -6,8 +6,8 @@ topic: perf-comparaisons
 section: "Performance"
 audience: [developer]
 tags: [performance, express, fastify, benchmark, comparaison, equite]
-status: draft
-updated: "2026-08-07"
+status: stable
+updated: "2026-08-24"
 source: ".claude/skills/nodefony-load-test/bench-frameworks/"
 tests: none
 ---

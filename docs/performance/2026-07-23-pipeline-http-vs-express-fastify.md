@@ -168,7 +168,7 @@ copie l'intégralité des en-têtes au lieu d'utiliser le natif (`Response.ts:51
 
 Trois `Reflect.getMetadata` (~90 ns pièce, `injector.ts:270-273`), `Reflect.construct`, un
 constructeur `Service` complet, une résolution de template, deux écritures de conteneur — à
-chaque requête. **La solution existe déjà** : `@Scope("singleton")` (`Router.ts:161-174`).
+chaque requête. **La solution existe déjà** : `@Scope("singleton")` (`routerDecorators.ts:738-746`).
 Le banc mesure le chemin par défaut.
 
 **Difficulté** : triviale en opt-in ; changer le défaut serait une rupture de compatibilité

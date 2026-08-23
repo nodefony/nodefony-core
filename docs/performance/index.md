@@ -6,8 +6,8 @@ topic: perf-index
 section: "Performance"
 audience: [developer, devops]
 tags: [performance, benchmark, mesure, methode, orm, express]
-status: draft
-updated: "2026-08-07"
+status: stable
+updated: "2026-08-24"
 source: "docs/performance/"
 ---
 

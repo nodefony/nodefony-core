@@ -207,7 +207,8 @@ jobs:
             src/packages/@nodefony/*/docs/*.md \
             src/nodefony/docs/*.md \
             docs/guides/*.md \
-            docs/adr/*.md
+            docs/adr/*.md \
+            docs/performance/*.md
 
       # Les JUGES du banc devkit, éprouvés — pas le banc lui-même.
       #
