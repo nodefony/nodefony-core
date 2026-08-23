@@ -168,6 +168,11 @@ command -v wrk >/dev/null 2>&1 || { echo "❌ wrk absent (brew install wrk)"; ex
 # bloc a déjà SIGKILLé le `claude` qui lançait le banc (session perdue, aucune
 # trace). Les deux gardes — `-sTCP:LISTEN` et la liste d'épargne — et le pourquoi
 # de chacune sont documentés dans ce fichier.
+# Arrêt PROPRE d'abord (implémentation UNIQUE, celle de `stop` — comme start.sh) :
+# un superviseur de développement n'écoute AUCUN port, donc la purge par port ne le
+# voit pas — et il RELANCERAIT son serveur au milieu de la mesure. Un banc qui
+# mesure pendant qu'un autre serveur revient sur les mêmes ports ne mesure rien.
+node "$ROOT/src/nodefony/bin/nodefony" stop >/dev/null 2>&1 || true
 . "$(dirname "${BASH_SOURCE[0]}")/kill-guard.sh"
 kill_listeners 5151 5152 5173 5177
 kill_by_cmdline vite.js "bin/nodefony"
