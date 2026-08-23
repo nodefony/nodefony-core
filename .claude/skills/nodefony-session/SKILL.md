@@ -207,9 +207,19 @@ SEULEMENT :
      commit feature). Si la session est un chore/fix/doc qui ne touche aucune phase → **sauter**. Règle
      gravée dans [[feedback_migration_status_uptodate]] (la garder ICI pour ne pas l'oublier au END).
 1. **MAJ `docs/session-retros/RETEX.md`** (le SAS, lu au START/RESUME) : ajouter **3-5 bullets** des
-   frictions/leçons du jour, **rangées par thème** (créer le thème s'il manque), format
-   `[1× — <date courte>]`. Si une friction y figure déjà → **incrémenter le compteur** `[2× — …]` +
-   re-dater. NE PAS redupliquer ce qui est déjà gradué en `feedback_*` (juste pointer si utile).
+   frictions/leçons du jour, **rangées par thème**, format `[1× — <date courte>]`. Si une friction y
+   figure déjà → **incrémenter le compteur** `[2× — …]` + re-dater. NE PAS redupliquer ce qui est
+   déjà gradué en `feedback_*` (juste pointer si utile).
+
+   > 🔴 **AVANT d'écrire, LISTER les thèmes existants — et verser dessous.**
+   > `grep '^## ' docs/session-retros/RETEX.md`
+   > **Ouvrir un thème neuf est le dernier recours, pas le geste par défaut.** Mesuré au
+   > CONSOLIDATE du 2026-08-24 : **55 thèmes créés en quatre jours**, si bien que quatre familles
+   > évidentes (le décor d'un banc, la sonde qui mesure autre chose, le code de sortie, le gabarit
+   > vs son rendu) étaient éclatées en 3-4 thèmes de 2-4 frictions — **aucun n'atteignait le seuil
+   > de 5**, alors que réunies elles pesaient 19, 12, 9 et 7. Le seuil de graduation ne mord que si
+   > la friction rejoint sa FAMILLE ; un titre neuf par session le désamorce en silence.
+
 2. **Retex brut court** `docs/session-retros/<date>-<id>.md` : focus + Fait + frictions + commits.
    **SANS les tableaux de stats** (tool_use/coût € → déplacés en CONSOLIDATE). ~30 lignes.
 3. **`_state` de reprise** (§10) + **MAJ pointeur `MEMORY.md`**.
