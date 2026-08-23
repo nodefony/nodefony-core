@@ -261,6 +261,7 @@ node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-login-throttle.selfte
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-module-local.selftest.mjs    # le composant local, ses 5 causes
 node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-liste-bornee.selftest.mjs    # la liste bornée — verdict SANS seuil
 node .claude/skills/nodefony-devkit-bench/scripts/reinit-decor.selftest.mjs <runDir>   # la remise à zéro du décor, sur un run déjà consommé
+node .claude/skills/nodefony-devkit-bench/scripts/lib/env-decor.selftest.mjs --prove   # le décor et ses 3 règles vues rouges : aucune NF_ du poste n'entre
 node .claude/skills/nodefony-devkit-bench/scripts/lib/reference.selftest.mjs --prove   # le dépistage, ses 5 règles vues rouges
 node .claude/skills/nodefony-devkit-bench/scripts/lib/passes.selftest.mjs --prove      # quelle passe est jugée (décor ≠ agent)
 node .claude/skills/nodefony-devkit-bench/scripts/lib/imputation.selftest.mjs --prove  # à QUI le rouge d'un juge est opposable

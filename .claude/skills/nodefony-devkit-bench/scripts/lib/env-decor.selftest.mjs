@@ -52,12 +52,18 @@ const original = process.env;
 process.env = { ...POSTE };
 
 const defauts = [];
+// Le total se COMPTE, il ne s'écrit pas : un « 8/8 » en dur a déjà survécu à
+// l'ajout d'une neuvième règle, et annonçait un compte faux sans que rien ne le
+// signale. Ce qu'un contrôle affirme sur lui-même doit être mesuré comme le
+// reste.
+let regles = 0;
 /**
  * @param {boolean} ok - la règle tient-elle ?
  * @param {string} regle - ce qui est éprouvé.
  * @param {string} preuve - ce qu'on a lu.
  */
 function verifier(ok, regle, preuve) {
+  regles += 1;
   if (!ok) defauts.push(`${regle} — ${preuve}`);
   console.log(`  ${ok ? "✅" : "❌"} ${regle}`);
 }
@@ -91,15 +97,6 @@ verifier(
   "les variables non-Nodefony sont INTACTES",
   `PATH=${env.PATH} HOME=${env.HOME}`,
 );
-// `NODEFONY_*` est l'ANCIENNE forme du préfixe : elle ne commence pas par
-// `NF_`, donc ce filtre ne la voit pas. Le dire plutôt que le découvrir un jour
-// sur un verdict inexplicable — le stock restant est une dette inscrite au
-// MIGRATION_STATUS.
-verifier(
-  env.NF_DEV_PORTS === "5151,5152",
-  "⚠️ connue : `NODEFONY_*` (ancienne forme) PASSE le filtre",
-  `lu : ${env.NF_DEV_PORTS}`,
-);
 // Une couche postérieure GAGNE sur l'héritage. Deux cas, et le second seul est
 // discriminant : reposer une `NF_*` réussirait même avec les couches appliquées
 // en premier (le filtre a déjà vidé la place), alors qu'écraser une variable
@@ -124,6 +121,7 @@ verifier(
       "NF_DEVKIT_BENCH_AGENT",
       "NF_DEVKIT_BENCH_AGENT_ARGS",
       "NF_DEVKIT_BENCH_MODEL",
+      "NF_DEV_PORTS",
       "NF_MCP_TOKEN",
     ].join(","),
   "ce qui est écarté est NOMMÉ (un décor s'énonce)",
@@ -135,7 +133,7 @@ process.env = original;
 for (const d of defauts) console.log(`     ${d}`);
 console.log(
   defauts.length === 0
-    ? "\n━━ 8/8 : le décor part d'un environnement d'utilisateur, pas de l'atelier"
+    ? `\n━━ ${regles}/${regles} : le décor part d'un environnement d'utilisateur, pas de l'atelier`
     : `\n━━ ${defauts.length} règle(s) en défaut`,
 );
 

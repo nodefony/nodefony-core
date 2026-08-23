@@ -53,7 +53,7 @@ verdict ne vaut rien dans ce régime. Le banc le DIT au lieu de le taire.
    **Le discriminant est local et gratuit** : un serveur Nodefony publie `pid` et ports EFFECTIFS
    dans `node_modules/.cache/nodefony/runtime.json`, **dans l'application qui l'a démarré**. Absent,
    ou ne portant pas le port qu'on va frapper ⇒ ce qui répond appartient à quelqu'un d'autre
-   (`portDeLAppSousTest`, dans le socle `lib/http-probe.mjs`).
+   (`portDeLAppSousTest`, dans le socle `scripts/lib/http-probe.mjs`).
 6. **Un arrêt qui ne couvre pas les sorties d'URGENCE n'est pas un arrêt.** Celui du banc existait,
    nommait même le risque — mais il vivait après la boucle des tâches et ne valait qu'en régime
    `auth`. Or une passe s'interrompt (`process.exit`), et une PRÉMISSE démarre l'application dans
