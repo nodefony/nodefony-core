@@ -254,19 +254,43 @@ WARMUP="${BENCH_WARMUP:-5}"
 wrk -t"$THREADS" -c"$CONN" -d"${WARMUP}s" ${WRK_HDR[@]+"${WRK_HDR[@]}"} "$URL" >/dev/null 2>&1
 echo "  warmup: ${WARMUP}s wrk non compté · thermal avant: $THERM_BEFORE · régime: $REGIME"
 
-RPS=(); BAD=0
+# ── Latences ────────────────────────────────────────────────────────────────
+# Un RPS seul ne dit RIEN de ce que vit un utilisateur : deux serveurs au même
+# débit peuvent servir l'un en 5 ms et l'autre avec une queue à 800 ms. C'est le
+# p99 qui décide si une prod tient, pas la moyenne — et wrk le calcule déjà, il
+# suffit de le lui DEMANDER (`--latency`) et de ne pas jeter la sortie.
+#
+# `lat_ms` normalise en millisecondes : wrk change d'unité selon l'échelle
+# (`850.00us`, `2.15ms`, `1.20s`) et comparer les nombres bruts ferait passer
+# 850 us pour 850 ms. Un chiffre sans son unité est un piège, pas une mesure.
+lat_ms() {
+  awk -v v="$1" 'BEGIN{
+    if (v ~ /us$/)      { sub(/us$/, "", v); printf "%.3f", v / 1000 }
+    else if (v ~ /ms$/) { sub(/ms$/, "", v); printf "%.3f", v }
+    else if (v ~ /s$/)  { sub(/s$/,  "", v); printf "%.3f", v * 1000 }
+    else if (v ~ /m$/)  { sub(/m$/,  "", v); printf "%.3f", v * 60000 }
+    else                { printf "%.3f", v }
+  }'
+}
+# Extrait un percentile de la « Latency Distribution » de wrk (`--latency`).
+lat_pct() { printf '%s' "$1" | awk -v p="$2" '$1 == p"%" {print $2; exit}'; }
+
+RPS=(); P50=(); P99=(); BAD=0
 for i in 1 2 3; do
   [ "$i" -gt 1 ] && sleep 10
-  OUT=$(wrk -t"$THREADS" -c"$CONN" -d"${DUR}s" ${WRK_HDR[@]+"${WRK_HDR[@]}"} "$URL" 2>/dev/null)
+  OUT=$(wrk -t"$THREADS" -c"$CONN" -d"${DUR}s" --latency ${WRK_HDR[@]+"${WRK_HDR[@]}"} "$URL" 2>/dev/null)
   R=$(printf '%s' "$OUT" | grep "Requests/sec" | awk '{print $2}')
+  L50=$(lat_ms "$(lat_pct "$OUT" 50)")
+  L99=$(lat_ms "$(lat_pct "$OUT" 99)")
+  P50+=("$L50"); P99+=("$L99")
   # wrk n'affiche cette ligne QUE s'il y a eu des réponses hors 2xx/3xx.
   NON2XX=$(printf '%s' "$OUT" | grep "Non-2xx or 3xx responses" | awk '{print $NF}')
   ERRS=$(printf '%s' "$OUT" | grep "Socket errors" || true)
   if [ -n "$NON2XX" ] || [ -n "$ERRS" ]; then
-    echo "  run $i: $R RPS  ⚠ INVALIDE — ${NON2XX:-0} réponses hors 2xx/3xx ${ERRS:+· $ERRS}"
+    echo "  run $i: $R RPS · p50 ${L50}ms · p99 ${L99}ms  ⚠ INVALIDE — ${NON2XX:-0} réponses hors 2xx/3xx ${ERRS:+· $ERRS}"
     BAD=1
   else
-    echo "  run $i: $R RPS"
+    echo "  run $i: $R RPS · p50 ${L50}ms · p99 ${L99}ms"
   fi
   RPS+=("$R")
 done
@@ -282,7 +306,11 @@ MIN=$(printf '%s\n' "${RPS[@]}" | sort -n | sed -n '1p')
 MED=$(printf '%s\n' "${RPS[@]}" | sort -n | sed -n '2p')
 MAX=$(printf '%s\n' "${RPS[@]}" | sort -n | sed -n '3p')
 DISP=$(awk -v min="$MIN" -v max="$MAX" -v med="$MED" 'BEGIN{printf "%.1f", (max-min)/med*100}')
+MED50=$(printf '%s\n' "${P50[@]}" | sort -n | sed -n '2p')
+MED99=$(printf '%s\n' "${P99[@]}" | sort -n | sed -n '2p')
+MAX99=$(printf '%s\n' "${P99[@]}" | sort -n | sed -n '3p')
 echo "  min/méd/max: $MIN / $MED / $MAX RPS · dispersion ${DISP} % · thermal avant/après: $THERM_BEFORE/$THERM_AFTER"
+echo "  latence (médiane des 3 runs) : p50 ${MED50}ms · p99 ${MED99}ms · pire p99 ${MAX99}ms"
 
 # Dispersion > 3 % = la fenêtre est plus bruyante que le seuil de décision A/B :
 # cette série ne peut trancher AUCUNE comparaison — la refuser, pas la publier.
@@ -293,11 +321,14 @@ if awk -v d="$DISP" 'BEGIN{exit !(d > 3)}'; then
   kill -INT "$(cat /tmp/nf-bench.pid)" 2>/dev/null
   exit 1
 fi
-echo "  MÉDIANE: $MED RPS  (cible vérifiée 200, 0 erreur, dispersion ≤ 3 %)"
+echo "  MÉDIANE: $MED RPS · p99 ${MED99}ms  (cible vérifiée 200, 0 erreur, dispersion ≤ 3 %)"
 echo "$MED" > "/tmp/nf-bench-$LABEL.med"
-printf '{"label":"%s","env":"%s","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"thermalBefore":"%s","thermalAfter":"%s","cpuRegime":"%s","warmupSec":%s,"durSec":%s,"conn":%s,"threads":%s,"url":"%s"}\n' \
+printf '{"label":"%s","env":"%s","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"p50Ms":[%s],"p99Ms":[%s],"medP50Ms":%s,"medP99Ms":%s,"maxP99Ms":%s,"thermalBefore":"%s","thermalAfter":"%s","cpuRegime":"%s","warmupSec":%s,"durSec":%s,"conn":%s,"threads":%s,"url":"%s"}\n' \
   "$LABEL" "$EXTRA_ENV" "$(printf '%s,' "${RPS[@]}" | sed 's/,$//')" \
-  "$MIN" "$MED" "$MAX" "$DISP" "$THERM_BEFORE" "$THERM_AFTER" "$REGIME" \
+  "$MIN" "$MED" "$MAX" "$DISP" \
+  "$(printf '%s,' "${P50[@]}" | sed 's/,$//')" "$(printf '%s,' "${P99[@]}" | sed 's/,$//')" \
+  "$MED50" "$MED99" "$MAX99" \
+  "$THERM_BEFORE" "$THERM_AFTER" "$REGIME" \
   "$WARMUP" "$DUR" "$CONN" "$THREADS" "$URL" > "/tmp/nf-bench-$LABEL.json"
 
 # 5. arrêt gracieux (flush + libère les ports)
