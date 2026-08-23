@@ -3652,7 +3652,19 @@ function setup(runDir) {
       // ⭐ La déclaration passe par `ai:mcp`, donc par la CLI de l'agent —
       // MÊME implémentation que pour un utilisateur, jamais une grammaire
       // recopiée dans un banc, où elle divergerait sans que rien ne le dise.
-      foyer ? AGENT : "none",
+      //
+      // 🔴 La condition était `foyer ? AGENT : "none"` — elle confondait « cet
+      // agent a-t-il un foyer DÉPORTABLE ? » avec « faut-il appeler sa CLI ? ».
+      // Un agent à portée PROJET (Gemini écrit dans `.gemini/`, rien à déporter)
+      // n'a pas de foyer : sa CLI n'était donc JAMAIS appelée, et il travaillait
+      // sans porte. Son run rendait « 0 appel MCP » — le symptôme que ce banc
+      // apprend à lire comme un CHOIX de l'agent, alors qu'il n'avait pas
+      // d'outils. Ce qui décide, c'est la VOIE de déclaration, pas le foyer.
+      // On NOMME toujours l'agent : c'est `ai:mcp` qui porte la table des voies
+      // (CLI ou fichier de projet) et qui sait donc s'il y a une commande à
+      // lancer. Trancher ici recopierait cette connaissance — deux copies, une
+      // divergence garantie.
+      AGENT,
     ],
     { cwd: app, env: envMcp },
   );
@@ -3662,22 +3674,38 @@ function setup(runDir) {
   // la `config.toml` plus strictement que le démarrage normal de Vibe (un
   // modèle déclaré sans `name`/`provider` la fait refuser par pydantic), si
   // bien que la porte n'était pas déclarée alors que tout paraissait vert.
-  if (foyer) {
-    const trace = readdirSync(path.join(app, FOYERS_JETABLES[foyer]))
-      .filter((f) => f.endsWith(".toml") || f.endsWith(".json"))
-      .some((f) => {
-        try {
-          return readFileSync(
-            path.join(app, FOYERS_JETABLES[foyer], f),
-            "utf8",
-          ).includes(MCP_SERVER_NOM);
-        } catch {
-          return false;
-        }
-      });
+  // 🔴 Le constat vaut pour TOUT agent, pas seulement ceux qu'on déporte. Un
+  // agent à portée PROJET (Gemini écrit dans `.gemini/`) n'a pas de foyer : il
+  // échappait donc à ce contrôle, et rien ne disait s'il avait reçu la porte.
+  // Vécu : il a joué une tâche entière sans outils MCP, et son « 0 appel » se
+  // lisait comme un choix.
+  {
+    const ouChercher = foyer
+      ? [path.join(app, FOYERS_JETABLES[foyer])]
+      : [path.join(app, ".gemini"), app];
+    const trace = ouChercher.some((dossier) => {
+      let noms = [];
+      try {
+        noms = readdirSync(dossier);
+      } catch {
+        return false;
+      }
+      return noms
+        .filter((f) => f.endsWith(".toml") || f.endsWith(".json"))
+        .some((f) => {
+          try {
+            return readFileSync(path.join(dossier, f), "utf8").includes(
+              MCP_SERVER_NOM,
+            );
+          } catch {
+            return false;
+          }
+        });
+    });
     console.log(
       trace
-        ? `  · porte DÉCLARÉE chez ${AGENT} (constaté dans son foyer)`
+        ? `  · porte DÉCLARÉE chez ${AGENT} (constaté dans ` +
+            `${foyer ? "son foyer jetable" : "le projet"})`
         : `  ⚠️ porte NON déclarée chez ${AGENT} — il travaillera SANS outils MCP ` +
             `(sa CLI a refusé ; rejouer \`nodefony ai:mcp --agent ${AGENT}\` à la main pour lire son motif)`,
     );
