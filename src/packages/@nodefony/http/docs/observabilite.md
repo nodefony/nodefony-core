@@ -248,7 +248,7 @@ Nodefony implémente **W3C Trace Context** (le code s'y réfère explicitement, 
 - La validation refuse `version=ff` et un `traceId`/`spanId` tout-à-zéro — `parseTraceparent()`
   (`trace.ts:38`), conforme à la spec (le récepteur NE DOIT PAS propager ces valeurs).
 
-Le `traceparent` résolu est propagé en ALS **et** réfléchi sur la réponse HTTP (`Response.ts:386`). Côté
+Le `traceparent` résolu est propagé en ALS **et** réfléchi sur la réponse HTTP (`context/http/Response.ts:435`). Côté
 **WebSocket**, il est propagé en ALS mais **pas** réfléchi dans la réponse de handshake — la bibliothèque
 `ws` n'expose pas proprement ce chemin (`http-kernel.ts:1419`) ; la corrélation reste visible côté serveur.
 

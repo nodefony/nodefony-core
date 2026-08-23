@@ -267,7 +267,7 @@ sûres → coût nul sur le GET dominant (`csrf.ts:88`). Pour une mutation, dans
 Lectures durcies côté firewall :
 
 - en-têtes lus en **première occurrence** — jamais un tableau d'en-têtes répétés (garde d'injection,
-  `headerValue()`, `firewall.ts:77-83`) ; cookie extrait de l'en-tête **brut**, sans dépendre du
+  `headerValue()`, `firewall.ts:103`) ; cookie extrait de l'en-tête **brut**, sans dépendre du
   parse du contexte (`cookieValue()`, `firewall.ts:90-103`) ;
 - hôte cible **brut avec port** — `:authority` en HTTP/2, `context.domain` en dernier recours
   (`firewall.ts:772-775`) ;
@@ -301,7 +301,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
    requête sûre `@CsrfProtect`, **couche 1** sur toute mutation, **couche 2** en plus si
    `@CsrfProtect`. Les routes `bypassFirewall` (callbacks OAuth) sont exemptées
    (`firewall.ts:743-745`), les `@CsrfExempt` sortent après la barrière méthode sûre
-   (`firewall.ts:760`).
+   (`firewall.ts:951`).
 4. `HttpContext.writeHead()` matérialise `context.csrfToken` en cookie `csrf-token` — flush groupé
    avec le cookie de session (`HttpContext.ts:419-432`).
 
@@ -333,10 +333,10 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 ## ⚡ Performance & mémoire
 
 - **GET = 0** : retour immédiat avant toute lecture d'en-tête (`csrf.ts:88`) ; seule exception, une
-  route `@CsrfProtect` mint le token **une fois** (skip si déjà posé, `firewall.ts:753-757`).
+  route `@CsrfProtect` mint le token **une fois** (skip si déjà posé, `firewall.ts:946`).
 - **Zéro microtask** : la chaîne est synchrone de bout en bout (pas d'`async` pour du pur calcul).
 - **Lazy** : `#csrf`/`#csrfTokens` restent `null` si la défense est désactivée — aucune structure
-  allouée « au cas où » (`firewall.ts:135-138`).
+  allouée « au cas où » (`firewall.ts:164`).
 - Le coût HMAC (1 à l'émission, 1 à la vérif) n'est payé **que** sur les routes `@CsrfProtect` ; les
   marqueurs sont lus depuis le memo de route — 0 `Reflect` par requête (`Resolver.ts:142`).
 

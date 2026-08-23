@@ -332,7 +332,7 @@ moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts:577-578`
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `@IsGranted("ROLE_ADMIN")`                  | un attribut — rôle, scope ou verbe métier (`IsGranted()`, `routerDecorators.ts:839`)                                             |
 | `@IsGranted(["A", "B"])`                    | **OR interne** — un attribut accordé suffit (`SecurityClause.anyOf`, `routerDecorators.ts:407-412`)                              |
-| empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:309-312`)                       |
+| empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:426`)                           |
 | décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts:1469`)                         |
 | `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:613-617`)                                  |
 | `@RequireScope("orders:read")`              | axe scope — metadata dédiée, fusionnée dans le même `SecurityRequirement` (`RequireScope()`, `routerDecorators.ts:760`)          |
@@ -369,7 +369,7 @@ Capte les attributs `ROLE_*` (`RoleVoter.supports()`, `RoleVoter.ts:25-27`) et v
   default-DENY du jury qui ferme, pas ce voter. C'est aussi ce qui rend l'OR
   (`@IsGranted(["A","B"])`) possible.
 - La hiérarchie est lue **en lazy** depuis le container — clé `roleHierarchy`
-  (`RoleVoter.ts:30-32`), posée par le firewall au boot (`firewall.ts:180-183`).
+  (`RoleVoter.ts:30-32`), posée par le firewall au boot (`firewall.ts:206`).
 - Sync par nature → `Promise.resolve`, pas de wrapper `async` inutile (`RoleVoter.ts:36-38`).
 
 ### `scope` — l'axe « ce qu'une clé déléguée peut faire »
@@ -427,7 +427,7 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
   et `IRealtimeToken` (WS) (`authorization.ts:119-122`).
 - **Le verrou de frame** (canaux realtime) applique son RBAC par canal avec la **même
   hiérarchie** : `satisfies()` (`frameAuthorizer.ts:240-250`) délègue à `Firewall.hasRole()`
-  (`firewall.ts:399-401`) — les rôles exigés par un canal héritent comme partout ailleurs.
+  (`firewall.ts:466`) — les rôles exigés par un canal héritent comme partout ailleurs.
 
 ## 📜 Normes appliquées
 

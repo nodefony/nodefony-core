@@ -451,7 +451,7 @@ container hiérarchique, pas du DI (voir [injection-portees](../../../docs/archi
 Historiquement, un service devait être listé **avant** ses consommateurs dans `@services([…])` :
 déplacer une classe de trois lignes suffisait à casser le serveur au runtime. Aujourd'hui, l'ordre se
 **calcule** — `orderServicesByDependencies()` (`serviceOrder.ts:71`), appelé par le décorateur
-(`kernelDecorator.ts:48`), fait un tri topologique **stable** depuis les dépendances déclarées
+(`kernelDecorator.ts:80`), fait un tri topologique **stable** depuis les dépendances déclarées
 (`@inject` puis `design:paramtypes`). Une liste déjà correcte ressort inchangée.
 
 ```typescript ignore

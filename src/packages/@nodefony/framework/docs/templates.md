@@ -93,7 +93,7 @@ syntaxe TS/JSON/JSX — décisif car le même moteur sert aussi à générer du 
 Le branchement est **délibérément minimal** :
 
 - Le service Eta est enregistré au boot sous le nom `template` (`@services([Router, Eta, …])`,
-  `index.ts:144`) ; chaque contrôleur le récupère à sa construction
+  `nodefony/framework/index.ts:76`) ; chaque contrôleur le récupère à sa construction
   (`this.get<Eta>("template")`, `Controller.ts:253`).
 - Le moteur ne connaît **que le rendu d'une chaîne** : `Eta.render(source, data)` appelle
   `renderStringAsync` (`Eta.ts:51`). C'est le contrôleur qui lit le fichier — pas Eta.

@@ -640,7 +640,7 @@ Violation)**, jamais par un code HTTP.
 
 > [!NOTE]
 > Une requête **sans** `Origin` (client non navigateur : script, agent, test) est acceptée
-> (`http-kernel.ts:518`). Ce n'est pas un trou : un attaquant non navigateur n'a aucun besoin de CSWSH,
+> (`http-kernel.ts:551`). Ce n'est pas un trou : un attaquant non navigateur n'a aucun besoin de CSWSH,
 > il se connecte directement. Le contrôle protège les **utilisateurs**, pas le port.
 
 ## Probes de santé — `/livez` et `/readyz`

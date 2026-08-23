@@ -426,7 +426,7 @@ host non-domaine que la spécification autorise. En développement, accède donc
 L'origine attendue est calculée par `WebAuthnService.#expectedOrigin()` (`webAuthn.ts:523`) en trois
 temps : la **liste blanche `passkeys.origins`** si elle est non vide (`webAuthn.ts:484`, la voie de
 production) ; sinon **l'origine de la requête, mais seulement si son hostname est exactement le
-`rpId`** (`webAuthn.ts:489` — en dev, `localhost:5173` et `localhost:5152` passent tous deux, le port
+`rpId`** (`webAuthn.ts:134` — en dev, `localhost:5173` et `localhost:5152` passent tous deux, le port
 est ignoré, sans jamais ouvrir à un domaine tiers) ; en dernier recours `https://{rpId}`
 (`webAuthn.ts:537`).
 
@@ -558,7 +558,7 @@ Studio (`webAuthn.ts:195`). Deux garde-fous de production :
   `DrizzleWebAuthnCredentialStore` (`DrizzleWebAuthnCredentialStore.ts:37`) est **100 % portable** —
   aucune requête SQL native, tout passe par `IRepository` d'`orm-core`.
 - Trois dialectes sur le même banc : **sqlite** (toujours, `:memory:`), **postgres** et **mysql**
-  (gatés par l'infra). Pagination offset + `total` (`DrizzleWebAuthnCredentialStore.ts:176`).
+  (gatés par l'infra). Pagination offset + `total` (`DrizzleWebAuthnCredentialStore.ts:188`).
 
 ### `mongoose` — MongoDB
 
@@ -572,7 +572,7 @@ Studio (`webAuthn.ts:195`). Deux garde-fous de production :
   `RedisWebAuthnCredentialStore` (`RedisWebAuthnCredentialStore.ts:93`) stocke un **HASH** par
   credential + un **SET** d'ids par porteur — `update` réécrit 1 à 4 champs sans relire
   l'enregistrement (`RedisWebAuthnCredentialStore.ts:219`).
-- Listing par `SCAN`, curseur composite `skip:scanCursor` (`RedisWebAuthnCredentialStore.ts:26`) :
+- Listing par `SCAN`, curseur composite `skip:scanCursor` (`RedisWebAuthnCredentialStore.ts:257`) :
   **ni ordre global ni total**, pages de taille variable — capacité réduite **déclarée**, pas un
   défaut. `countCredentials()` renvoie `-1` (`RedisWebAuthnCredentialStore.ts:330`).
 

@@ -176,7 +176,7 @@ le fait pour toi.)
 ### 2. Le store — rien à écrire en dev, un mot en cluster
 
 Le store par défaut est **posé automatiquement** par le module framework (`@services([… ,
-MemoryIdempotencyStore])`, `src/packages/@nodefony/framework/index.ts:134`). En mono-pod, tu n'as
+MemoryIdempotencyStore])`, `src/packages/@nodefony/framework/index.ts:40`). En mono-pod, tu n'as
 rien à configurer. Pour un cluster multi-pod, nomme un store **distribué** :
 
 ```typescript
@@ -479,7 +479,7 @@ d'autre à écrire.
 `scheduleIdempotencyGc()` (`idempotencyGc.ts:32`) arme un `GcScheduler` **uniquement si le store
 expose `gc()`** (`idempotencyGc.ts:37`). Un store à TTL natif (`redis`) ou à purge passive (`memory`)
 ne l'expose pas ; le brancher sur un timer serait un no-op coûteux. Le scheduler est armé au boot
-(`index.ts:266`) et arrêté à `onTerminate`.
+(`nodefony/framework/index.ts:311`) et arrêté à `onTerminate`.
 
 `gcIntervalS: 0` désarme le timer — à réserver au cas où la purge est déléguée (cron, `CronJob` k8s).
 

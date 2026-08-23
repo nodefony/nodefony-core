@@ -125,7 +125,7 @@ champs texte restent en mémoire. C'est ce qui rend un endpoint d'upload public 
 **métadonnée** (`filename`), pas dans le chemin.
 
 **Deux budgets, secure-by-default.** Le corps non-multipart est plafonné à **1 MiB** par défaut
-(`maxBodySize`, `config/config.ts:984`) — un `POST` JSON géant est rejeté avant d'être bufferisé. Le
+(`maxBodySize`, `http/nodefony/config/config.ts:1005`) — un `POST` JSON géant est rejeté avant d'être bufferisé. Le
 multipart, lui, a ses propres bornes busboy (par fichier, cumul, nombre) qui coupent le flux et
 nettoient les temporaires déjà posés au moindre dépassement (`context/http/Request.ts:481`).
 

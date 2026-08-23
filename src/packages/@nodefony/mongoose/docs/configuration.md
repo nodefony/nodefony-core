@@ -358,7 +358,7 @@ renoncer aux autres.
 > **`frameworkEntities: false` ne désactive pas le stockage de session.** L'entité `session` et son
 > store ne passent pas par ce commutateur : ils s'enregistrent à l'**import** du module, par
 > décorateur (`sessionEntity.ts:41`) et par appel direct au registre de `@nodefony/http`
-> (`SessionsService.registerStorage("mongoose", …)` (`SessionStorage.ts:294`)). Charger le module
+> (`SessionsService.registerStorage("mongoose", …)` (`mongoose/nodefony/src/SessionStorage.ts:353`)). Charger le module
 > rend donc toujours `session: { store: "mongoose" }` disponible, quelle que soit la valeur du champ.
 > C'est cohérent avec le texte du schéma, qui n'énumère que jetons, WebAuthn et webhooks — mais
 > contre-intuitif si l'on lit « entités du framework » au sens large.

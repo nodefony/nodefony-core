@@ -617,7 +617,7 @@ Le module suit la règle de coût du framework : ne rien allouer « au cas où �
 - **Trames de maintenance coupées** (`buildClientOptions.ts:58`) : zéro écouteur et zéro trame
   superflus sur un Redis OSS.
 - **Renouvellement de session en O(1)** : `EXPIRE` seul, sans réécrire la valeur
-  (`SessionStorage.ts:183`). Sur une application authentifiée, c'est le geste le plus fréquent de tout
+  (`redis/nodefony/src/SessionStorage.ts:161`). Sur une application authentifiée, c'est le geste le plus fréquent de tout
   le store.
 - **Aucun balayage périodique** : le TTL natif remplace le ramasse-miettes applicatif que les backends
   SQL doivent programmer.

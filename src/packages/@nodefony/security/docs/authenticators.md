@@ -226,7 +226,7 @@ Le seul authenticator autorisé à produire un token **non authentifié** sans d
   si preuve présente, sinon visiteur anonyme accepté ». En mode `all`, utile en **dernier** :
   « canal prouvé (ex. mTLS), identité utilisateur optionnelle ».
 - Sans lui, zone protégée + aucune preuve = 401 : la défense en profondeur du firewall n'accepte un
-  token non authentifié que si `anonymous` est le maillon déclaré (`firewall.ts:634-636`).
+  token non authentifié que si `anonymous` est le maillon déclaré (`firewall.ts:827`).
 - **Faille fermée** : l'anonymat _implicite_ — ici il est un choix explicite et auditable, jamais un
   défaut.
 
@@ -244,7 +244,7 @@ le mot de passe peut en contenir (`UserPasswordAuthenticator.ts:74`).
   (`UserPasswordAuthenticator.ts:101-103`) — un identifiant bloqué ne coûte **aucun hash** → le
   throttle protège aussi le serveur du **DoS argon2**. Échec compté, succès remis à zéro
   (`UserPasswordAuthenticator.ts:111-114`). `ThrottledError` → **429 + `Retry-After`**
-  (`firewall.ts:584-587`).
+  (`firewall.ts:764`).
 - **Le throttler est PARTAGÉ** avec le login JSON du BFF — même `loginThrottler` du container : un
   attaquant ne contourne pas le backoff en changeant de porte (`authenticatorRegistry.ts:75-79`).
 - Challenge : `Basic realm="nodefony", charset="UTF-8"` (`UserPasswordAuthenticator.ts:130`).
@@ -352,7 +352,7 @@ Deux preuves différentes, mêmes routes — c'est la config du Démarrage rapid
 de lecture :
 
 - un maillon dont `supports()` est faux est simplement **sauté** en mode `first`
-  (`firewall.ts:935`) ;
+  (`firewall.ts:1128`) ;
 - un credential **présenté mais invalide échoue immédiatement** — l'échec d'`authenticate()`
   remonte, jamais de fallback silencieux vers le maillon suivant (`firewall.ts:1112`). Une clé
   API révoquée donne un 401 direct, même si un autre maillon aurait pu réussir.
@@ -427,7 +427,7 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 | JWT (BCP) | RFC 7519, 8725 | `jwtVerify` durci : allowlist + claims (`JwtAuthenticator.ts:103-107`) |
 | HTTP Basic | RFC 7617 | `UserPasswordAuthenticator` (`UserPasswordAuthenticator.ts:25-27`) |
 | Backoff de login | NIST SP 800-63B | `#throttler.check()` avant le verifier (`UserPasswordAuthenticator.ts:101-103`) |
-| Rate limit (429) | RFC 6585 | `Retry-After` posé par le firewall (`firewall.ts:584-587`) |
+| Rate limit (429) | RFC 6585 | `Retry-After` posé par le firewall (`firewall.ts:764`) |
 | Anti-énumération | OWASP | `INVALID_TOKEN` (`JwtAuthenticator.ts:24`) · `INVALID_CREDENTIALS` (`UserPasswordAuthenticator.ts:16`) |
 
 ## ⚡ Performance & mémoire
@@ -450,7 +450,7 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 <!-- prettier-ignore -->
 | Symptôme | Cause (dans le code) | Correction |
 | --- | --- | --- |
-| 401 systématique sur une zone protégée | Aucune preuve + `anonymous` non listé — Zero Trust (`firewall.ts:613-626`) | Ajouter `anonymous` en dernier si l'anonymat est voulu |
+| 401 systématique sur une zone protégée | Aucune preuve + `anonymous` non listé — Zero Trust (`firewall.ts:827`) | Ajouter `anonymous` en dernier si l'anonymat est voulu |
 | 401 générique + log ERROR « service `users` » | Câblage : pas de `UserService` au container (`authenticatorRegistry.ts:85-88`) | Enregistrer un `UserService` au boot de l'app |
 | JWT rejeté alors qu'il « semble » valide | `aud`/`iss`/`typ` non conformes, ou `alg` ≠ EdDSA (`JwtAuthenticator.ts:103-107`) | Émettre via le `TokenService` (mêmes iss/aud/typ) |
 | Clé API révoquée encore acceptée quelques secondes | Confusion avec un JWT (auto-porté) — `revokedAt` est lu à chaque requête (`ApiKeyAuthenticator.ts:110`) | Un PAT est révoqué immédiatement ; vérifier `revokedAt` |

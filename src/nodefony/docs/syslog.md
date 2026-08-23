@@ -342,7 +342,7 @@ n'intervient **que** sur le défaut — une valeur explicite est toujours respec
 
 ### Le debug ciblé — relever la verbosité sans redéployer
 
-En production, le seuil global est posé à `INFO` par le Kernel (`Kernel.ts:1932`). Trois leviers
+En production, le seuil global est posé à `INFO` par le Kernel (`Kernel.ts:2330`). Trois leviers
 permettent de rouvrir le robinet **sans redémarrer**, du plus opérationnel au plus fin :
 
 1. **Au lancement** — `NF__DEBUG` : `*` lève la gate globale, `FIREWALL` passe ce module en `DEBUG`,
@@ -752,10 +752,10 @@ comme les autres**, avec les mêmes critères et le même ordre.
 | Domaine                    | Norme            | Où c'est dans le code                                  |
 | -------------------------- | ---------------- | ------------------------------------------------------ |
 | Sévérités 0–7              | RFC 5424 §6.2.1  | `SysLogSeverity` (`Pdu.ts:27`)                         |
-| Champ `PROCID`             | RFC 5424         | `pid` capté une fois (`Pdu.ts:98`)                     |
+| Champ `PROCID`             | RFC 5424         | `pid` capté une fois (`Pdu.ts:126`)                    |
 | Champ `MSGID`              | RFC 5424         | `msgid` = nom du service par défaut (`Service.ts:209`) |
 | Flux stdout/stderr séparés | 12-factor (logs) | Route par sévérité ≤ 3 (`Syslog.ts:1628`)              |
-| Configuration par l'env    | 12-factor        | `NF__DEBUG`, URLs d'infra (`Kernel.ts:1940`)           |
+| Configuration par l'env    | 12-factor        | `NF__DEBUG`, URLs d'infra (`Kernel.ts:2337`)           |
 | Couleur désactivable       | NO_COLOR         | Résolue au boot (`setLogColor()`, `logColor.ts:86`)    |
 | JSON Lines                 | JSONL            | `FileTransport` format `json` (`FileTransport.ts:10`)  |
 | API de requête Loki        | LogQL            | `createLokiLogDriver()` (`LokiLogDriver.ts:86`)        |

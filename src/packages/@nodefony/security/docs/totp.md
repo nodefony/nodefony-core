@@ -153,7 +153,7 @@ npx nodefony security:secrets --write
 # 3. Fichier nodefony.config.ts — le câblage vers le module security
 ```
 
-Elle produit 32 octets aléatoires en base64 (`randomBytes(32)`, `security-secrets.ts:91`) et
+Elle produit 32 octets aléatoires en base64 (`randomBytes(32)`, `security-secrets.ts:122`) et
 **n'écrase jamais** une valeur existante — une rotation reste un geste manuel et conscient.
 
 ### 2. Déclarer puis câbler la clé

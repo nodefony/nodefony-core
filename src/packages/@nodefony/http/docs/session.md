@@ -500,7 +500,7 @@ C'est le différenciateur du framework appliqué à l'état de session : un seul
 | Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1391`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:1659`) |
 | Lecture du cookie | constructeur du contexte | constructeur, même nom effectif (`WebsocketContext.ts:172`) |
 | Sauvegarde | fin de requête | après **chaque frame** traitée (`WebsocketContext.ts:302`) |
-| Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1379`) |
+| Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1185`) |
 | Portée ALS | une requête | **handshake + toutes les frames** (`http-kernel.ts:1495`) |
 
 La conséquence pratique la plus utile : côté WebSocket, la bulle `AsyncLocalStorage` ouverte au
@@ -602,7 +602,7 @@ une méthode ; la méthode l'emporte, par fusion et non par remplacement
 
 - `readOnly: true` — la session est reprise et lue mais **jamais** persistée ; une mutation tentée est
   journalisée en WARNING sans écriture (`Session.save()`, `session.ts:255-264`). C'est le seul champ
-  propagé par le kernel (`http-kernel.ts:1070`).
+  propagé par le kernel (`http-kernel.ts:1482`).
 
 En décorateur de **classe**, `@UseSession` se place **sous** `@controller` (`routerDecorators.ts:761`).
 

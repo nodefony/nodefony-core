@@ -266,7 +266,7 @@ choisir comment leurs mots de passe sont rangés, créer un compte et le retrouv
 
 L'encodeur ne se configure pas dans ce module : il est **dérivé de la config sécurité**, parce que
 c'est une politique de sécurité. Le firewall lit la section `encoders` et pose le service
-`passwordEncoder` dans le container (`service/firewall.ts:344`).
+`passwordEncoder` dans le container (`service/firewall.ts:394`).
 
 ```typescript
 // nodefony.config.ts — extrait du manifeste `modules`

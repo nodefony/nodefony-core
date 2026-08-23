@@ -288,7 +288,7 @@ Points de conception saillants :
 > Convention de route **figée** : le data plane est toujours en **≥ 3 segments**
 > `/nodefony/<module>/api/*` (`IAdminBroker.ts:42`). Jamais une route admin mono-segment
 > `/nodefony/<module>` — elle entrerait en collision avec le fallback SPA de Studio. Le chemin
-> relatif d'un endpoint a **≥ 1 segment** (`IAdminApi.ts:96`) : la racine `/nodefony/<ns>/api` est
+> relatif d'un endpoint a **≥ 1 segment** (`types/IAdminApi.ts:155`) : la racine `/nodefony/<ns>/api` est
 > réservée.
 
 ## 🔐 RBAC — autorisation du data plane

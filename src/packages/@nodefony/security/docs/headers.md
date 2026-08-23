@@ -314,7 +314,7 @@ inclus.
 **La menace** : la fuite d'URL. Chemins parlants, identifiants de session dans une query, jetons de
 réinitialisation — tout part chez le site suivant via le `Referer`.
 
-Défaut Nodefony : `no-referrer` (`config.ts:239`), la valeur la plus stricte. La valeur est un
+Défaut Nodefony : `no-referrer` (`security/nodefony/config/config.ts:263`), la valeur la plus stricte. La valeur est un
 **enum W3C fermé** — huit valeurs validées au boot, donc pas de faute de frappe qui passerait en
 silence (l'écriture libre `no-refferer` casserait la protection sans prévenir).
 

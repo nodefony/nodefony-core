@@ -340,8 +340,8 @@ d'interception y sont posés :
 - `beforeDispatch` (`JsonRpcPeer.ts:172`) — un verrou **synchrone** appelé avant tout
   traitement de frame. Il rend `true`/`false`. Un refus sur une requête produit
   `-32001 unauthorized` ; sur une notification, la frame est jetée
-  (`JsonRpcPeer.ts:391`).
-- `onFrameAudit` (`JsonRpcPeer.ts:190`) — la trace des événements protocolaires notables
+  (`JsonRpcPeer.ts:413`).
+- `onFrameAudit` (`JsonRpcPeer.ts:210`) — la trace des événements protocolaires notables
   (frame invalide, refusée, méthode inconnue, erreur interne).
 
 La contrainte de synchronisme n'est pas un oubli : un `await` par frame coûterait une

@@ -418,7 +418,7 @@ Ce qui change par rapport au HTTP :
   inconnu ou un sous-protocole non conforme ferme la connexion **sans jamais l'ouvrir**.
 - **Le sous-protocole est un requirement de route.** Un `protocol` déclaré et non satisfait lève une
   erreur de code **1002** (Protocol Error, RFC 6455 §7.4) au lieu d'un statut HTTP
-  (`acceptedProtocol`, `Route.ts:587`).
+  (`acceptedProtocol`, `Route.ts:722`).
 - **Le 405 ne s'applique pas au WebSocket.** La passe 2 est réservée au HTTP : sur un contexte WS,
   l'exception d'origine est préservée (`Router.resolve()`, `router.ts:190`).
 - **Un `Resolver` par connexion, réutilisé à chaque frame.** Il est créé au handshake, puis chaque
@@ -440,7 +440,7 @@ que fait le data plane d'administration pour toutes ses lectures (`AdminBroker.m
   `context.method` vaut toujours `WEBSOCKET` : insuffisant pour distinguer un GET d'un POST sur le même
   chemin. Le pont transporte donc une **méthode logique** (`methodOverride`, `Resolver.ts:116`) que la
   route doit déclarer **en plus** du transport — une route `POST` qui n'annonce pas `WEBSOCKET` reste
-  **injoignable** par socket (zéro contournement, `Route.ts:546`).
+  **injoignable** par socket (zéro contournement, `Route.ts:678`).
 
 Le routage par **message** (invoquer un chemin porté par une frame, sans toucher l'URL de la connexion)
 passe par le même `resolve()`, avec un chemin fourni en argument — l'état partagé de la socket n'est

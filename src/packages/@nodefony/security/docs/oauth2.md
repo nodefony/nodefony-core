@@ -310,7 +310,7 @@ défaut est `UserService.provisionOAuthUser()` (`UserService.ts:306`), en **find
 | ---------------------------------------- | ------------------------------------------------------------------------------ |
 | Lien social déjà connu                   | Le compte existant est rendu tel quel — rien n'est créé, rien n'est réécrit.   |
 | Lien inconnu, `allowSignup: true`        | Création JIT : `password: null`, rôles = `defaultRoles`, lien social persisté. |
-| Lien inconnu, `allowSignup: false`       | **Échec fail-closed** (`UserService.ts:317-322`) — un compte lié est exigé.    |
+| Lien inconnu, `allowSignup: false`       | **Échec fail-closed** (`UserService.ts:363`) — un compte lié est exigé.        |
 | E-mail identique à un compte local       | **Aucune liaison automatique** — un compte SÉPARÉ est créé.                    |
 | Même `providerId` chez deux fournisseurs | Comptes séparés (le couple `provider` + `providerId` fait la clé).             |
 
@@ -534,7 +534,7 @@ provisionné dans l'écran **Users**, avec ses rôles réels.
 | `OAuth issuer mismatch`                           | `iss` reçu ≠ `expectedIssuer` (`oauth2.ts:170-174`)                           | Corriger `issuer` (Keycloak : URL exacte du realm)                  |
 | Keycloak : erreur dès le premier login            | `issuer` absent en config (`oauthProviderRegistry.ts:89-93`)                  | Renseigner l'URL du realm                                           |
 | « provisioning indisponible »                     | `users` n'implémente pas la capability (`oauth2.ts:224-231`)                  | Implémenter `provisionOAuthUser()` sur le service `users`           |
-| Profil connu refusé                               | `allowSignup: false` sans lien préexistant (`UserService.ts:317-322`)         | Activer `allowSignup` ou lier le compte au préalable                |
+| Profil connu refusé                               | `allowSignup: false` sans lien préexistant (`UserService.ts:363`)             | Activer `allowSignup` ou lier le compte au préalable                |
 | Doublon de compte pour un utilisateur existant    | Aucune liaison auto par e-mail (choix de sécurité)                            | Rattacher explicitement, utilisateur connecté                       |
 | Rôle attendu absent après re-login                | Rôles posés à la **création** seulement (`UserService.ts:348`)                | Modifier les rôles en base ; `defaultRoles` ne réécrit rien         |
 | Jeton du fournisseur introuvable côté application | `IOAuthProfile` n'en porte aucun, par choix (`IOAuthUserProvisioner.ts:8-10`) | Le capturer dans son propre `fetchProfile()` et le stocker soi-même |

@@ -341,7 +341,7 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 | `<canal entrant>`  | client→server |   non   | Le client pousse sur un canal déclaré entrant                         | `RealtimeController.ts:653` |
 | `realtime:welcome` | server→client |   non   | L'accueil : 5 champs, dont l'identité résolue                         | `RealtimeController.ts:579` |
 | `realtime:denied`  | server→client |   non   | Rend OBSERVABLE le refus d'une notification                           | `RealtimeController.ts:433` |
-| `api.request`      | client→server | **oui** | Pont API — rejoue une route HTTP sur la socket (désactivé par défaut) | `RealtimeController.ts:463` |
+| `api.request`      | client→server | **oui** | Pont API — rejoue une route HTTP sur la socket (désactivé par défaut) | `RealtimeController.ts:498` |
 | `<action>`         | client→server | **oui** | Toute action déclarée par `@RealtimeAction`                           | `realtimeDecorators.ts:101` |
 
 > [!TIP]
@@ -424,12 +424,12 @@ qui alimente le journal d'audit avec le pair concerné.
 ### Le refus d'une notification n'est pas une erreur
 
 C'est la subtilité la plus importante de la page. Le verrou de frame s'applique aux requêtes **et**
-aux notifications (`beforeDispatch`, `JsonRpcPeer.ts:391`), mais leurs conséquences diffèrent
+aux notifications (`beforeDispatch`, `JsonRpcPeer.ts:192`), mais leurs conséquences diffèrent
 radicalement :
 
 | La frame refusée est… | Ce qui part                                                     | Pourquoi                                             |
 | --------------------- | --------------------------------------------------------------- | ---------------------------------------------------- |
-| une **requête**       | `-32001 "unauthorized"` (`JsonRpcPeer.ts:400`)                  | Un `id` existe : il y a un canal de réponse          |
+| une **requête**       | `-32001 "unauthorized"` (`JsonRpcPeer.ts:413`)                  | Un `id` existe : il y a un canal de réponse          |
 | une **notification**  | la notification `realtime:denied` (`RealtimeController.ts:433`) | Aucun `id` : sans elle, le client se croirait abonné |
 
 `IRealtimeDenied` (`RealtimeEventMap.ts:228`) porte deux champs, `channel` et `reason` — et le motif

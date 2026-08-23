@@ -251,12 +251,12 @@ La réponse suit RFC 6749 §5.1 — `ITokenResponse` (`tokenService.ts:43-51`). 
    famille + audit `token.reuse_detected`, signal d'attaque fort (`tokenService.ts:345-361`).
 3. Expiration `expiresAt` vérifiée (`tokenService.ts:363-368`).
 4. **Sujet revérifié** — compte disparu/inactif/verrouillé rejeté sans attendre l'exp,
-   `#resolveUserForRefresh()` (`tokenService.ts:488-499`).
+   `#resolveUserForRefresh()` (`tokenService.ts:745`).
 5. **Downscoping** : les `scopes` du nouveau couple sont ceux de l'ancien, jamais plus
-   (`tokenService.ts:369-370`).
+   (`tokenService.ts:592`).
 6. **Rotation** : nouveau refresh (même famille), l'ancien chaîné `replacedBy` + révoqué
    `"rotated"` (`tokenService.ts:698`). Si `rotateRefresh` est désactivé, l'access est réémis
-   et le refresh courant reste valide (`tokenService.ts:373-381`).
+   et le refresh courant reste valide (`tokenService.ts:627`).
 
 ### Mise en situation — ton refresh token a été volé
 
@@ -336,7 +336,7 @@ La décision (configuré → résolu, raison) est publiée au kernel par `regist
 - `listPage` : tri `createdAt` DESC + tiebreaker `id`, déterministe pour l'offset — parité SQL
   (`MemoryTokenStore.ts:122-142`).
 - Denylist bornée : purge **amortie** tous les 256 ajouts — `#maybeSweep()`
-  (`MemoryTokenStore.ts:331-341`) + expiration paresseuse à la lecture. Pas de minuterie, pas de fuite.
+  (`MemoryTokenStore.ts:360`) + expiration paresseuse à la lecture. Pas de minuterie, pas de fuite.
 - `snapshot()`/`restore()` sérialisables — base d'une persistance fichier, index reconstruits
   (`MemoryTokenStore.ts:253-283`).
 - Volatil, par-process : dev/tests. Pilote le banc de contrat commun.
@@ -397,7 +397,7 @@ Les colonnes par dialecte vivent dans la doc de chaque adapter (règle anti-trip
   (`ITokenStore.ts:242`).
 - **Tout un porteur** (logout global, ban) : seuil `revokeAllForSubject()` — tout access dont
   `iat < invalidBefore` est rejeté (`ITokenStore.ts:226-234`) ; le seuil est **monotone**, deux
-  logouts successifs ne le reculent pas (`MemoryTokenStore.ts:200-207`).
+  logouts successifs ne le reculent pas (`MemoryTokenStore.ts:229`).
 
 ### La maintenance (gc)
 
@@ -443,16 +443,16 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:334-390`) et `token
 
 ## 📜 Normes appliquées
 
-| Domaine                          | Norme           | Ancrage                                                    |
-| -------------------------------- | --------------- | ---------------------------------------------------------- |
-| Réponse d'émission               | RFC 6749 §5.1   | `ITokenResponse` (`tokenService.ts:43-51`)                 |
-| Rotation + détection de rejeu    | RFC 9700 §4.14  | `refresh()` (`tokenService.ts:555`)                        |
-| Profil access token `typ:at+jwt` | RFC 9068        | `#signAccess()` (`tokenService.ts:402-415`)                |
-| Claims JWT (`iss/sub/aud/exp`)   | RFC 7519        | `#signAccess()` (`tokenService.ts:406-414`)                |
-| Ed25519 / JWK / JWKS public      | RFC 8037 · 7517 | `#importKeyset()` (`JwtKeystore.ts:156-158`)               |
-| Audiences liées à la ressource   | RFC 8707        | `audience` du record (`ITokenStore.ts:104-105`)            |
-| 429 + `Retry-After`              | RFC 6585        | `#renderAuthError()` (`TokenAuthController.ts:108-115`)    |
-| Backoff de login                 | NIST SP 800-63B | `ThrottledError` avant hachage (`tokenService.ts:260-267`) |
+| Domaine                          | Norme           | Ancrage                                                 |
+| -------------------------------- | --------------- | ------------------------------------------------------- |
+| Réponse d'émission               | RFC 6749 §5.1   | `ITokenResponse` (`tokenService.ts:43-51`)              |
+| Rotation + détection de rejeu    | RFC 9700 §4.14  | `refresh()` (`tokenService.ts:555`)                     |
+| Profil access token `typ:at+jwt` | RFC 9068        | `#signAccess()` (`tokenService.ts:402-415`)             |
+| Claims JWT (`iss/sub/aud/exp`)   | RFC 7519        | `#signAccess()` (`tokenService.ts:406-414`)             |
+| Ed25519 / JWK / JWKS public      | RFC 8037 · 7517 | `#importKeyset()` (`JwtKeystore.ts:156-158`)            |
+| Audiences liées à la ressource   | RFC 8707        | `audience` du record (`ITokenStore.ts:104-105`)         |
+| 429 + `Retry-After`              | RFC 6585        | `#renderAuthError()` (`TokenAuthController.ts:108-115`) |
+| Backoff de login                 | NIST SP 800-63B | `ThrottledError` avant hachage (`tokenService.ts:346`)  |
 
 ## ⚡ Performance & mémoire
 

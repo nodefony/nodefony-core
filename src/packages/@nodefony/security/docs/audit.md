@@ -378,8 +378,8 @@ Pour un auditeur, la colonne `denied` est celle des tentatives d'accès non auto
 Quatre sorties d'échec du firewall passent par le même helper `Firewall.#recordAuth()`
 (`firewall.ts:693`), qui enrichit l'événement de la provenance et pose la **zone** en `resource` :
 
-- `auth.throttled` — backoff NIST déclenché, réponse 429 (`firewall.ts:588`) ;
-- `auth.failure` — un credential a été **présenté** et rejeté (`firewall.ts:600`) ;
+- `auth.throttled` — backoff NIST déclenché, réponse 429 (`firewall.ts:768`) ;
+- `auth.failure` — un credential a été **présenté** et rejeté (`firewall.ts:794`) ;
 - `auth.denied` / `no_credentials` — Zero Trust : rien n'a été présenté sur une zone protégée
   (`firewall.ts:811`) ;
 - `auth.denied` / `unauthenticated` — un jeton non promu hors `anonymous` (`firewall.ts:638`).
@@ -651,7 +651,7 @@ Deux autres propriétés de sécurité valent d'être connues :
   vaut aussi pour le journal, sinon le journal lui-même deviendrait un oracle
   (`auditEmissionHotPath.test.ts:561`).
 - **Lecture réservée aux administrateurs.** L'endpoint est gardé `ROLE_NODEFONY_ADMIN`, le canal live
-  aussi via le plancher irréductible `security:` (`frameAuthorizer.ts:133`) — un utilisateur ordinaire
+  aussi via le plancher irréductible `security:` (`frameAuthorizer.ts:107`) — un utilisateur ordinaire
   qui tente de s'y abonner produit lui-même un `frame.denied`.
 
 ## 📜 Normes appliquées

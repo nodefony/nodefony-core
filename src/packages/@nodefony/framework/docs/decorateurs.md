@@ -302,7 +302,7 @@ instance par requête (`ControllerScope`, `Controller.ts:110`).
 > [!NOTE]
 > Le core `nodefony` exporte lui aussi un `Scope` (les portées du conteneur d'injection). Celui des
 > contrôleurs s'importe **depuis `@nodefony/framework`** — l'homonymie est signalée dans le code
-> (`routerDecorators.ts:545`).
+> (`routerDecorators.ts:747`).
 
 ### Méthodes HTTP
 
@@ -671,7 +671,7 @@ Un décorateur non employé doit coûter **zéro**. C'est tenu par trois mécani
   un `null` et passe — ni résolution de service, ni `await`, ni allocation (`Resolver.ts:334`). Idem
   pour `idempotent`, `cspDirectives`, `paramsMeta`.
 - **Objets gelés et partagés.** Les exigences de sécurité et d'idempotence sont créées **une fois** et
-  `Object.freeze`-ées (`routerDecorators.ts:1292`, `:1340`) : une seule instance pour la durée de vie
+  `Object.freeze`-ées (`routerDecorators.ts:1496`, `:1340`) : une seule instance pour la durée de vie
   du processus, quelle que soit la charge. Corollaire : ne les mute jamais.
 
 Coût résiduel côté montage seulement : la reconstruction de la pile d'appels dans `route()`
