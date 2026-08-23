@@ -1217,6 +1217,42 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
   sur un autre observable — que le vrai défaut est apparu. Une sonde qui n'observe qu'un symptôme
   confirme n'importe quelle cause. [1× — 08-23b] ↝ [[feedback_bench_probe_false_verdicts]]
 
+## 🔇 Ce qu'on COUPE pour mesurer, on le coupe aussi pour DIAGNOSTIQUER
+
+- [1× — 08-23e] Un banc de performance pose `NF_LOG_DRIVER=null` pour ne pas mesurer le coût des
+  journaux. Le jour où le serveur n'a pas démarré, il n'a su dire que « BOOT TIMEOUT — voir
+  /tmp/nf-bench.log », en renvoyant vers un fichier de **zéro octet**. La cause tenait en une ligne
+  `CRITIC`, invisible par construction. Un réglage qui protège la MESURE aveugle le DIAGNOSTIC :
+  prévoir, sur le chemin d'échec, un rejeu sans ce réglage — on n'y arrive que quand il n'y a plus
+  rien à mesurer.
+
+## 👯 Un JUMEAU non vérifié n'est pas vérifié — « aligné » n'est pas « prouvé »
+
+- [1× — 08-23e] Deux scripts de banc portent en en-tête « à garder alignés ». J'ai appliqué le même
+  correctif aux deux, puis validé la sortie JSON **d'un seul**. L'autre ajoutait cinq `%s` au format
+  sans les arguments correspondants et produisait du JSON invalide (`"warmupSec":,"durSec":,`) —
+  découvert seulement parce qu'un consommateur a refusé de le lire, plusieurs heures après.
+  **Prouver sur un artefact ne prouve rien sur son jumeau**, et un `printf` mal alimenté ne lève
+  jamais : il écrit un trou. ↝ [[feedback_prove_on_received_artifact]]
+
+## 📖 Une DOC qui enseigne un geste dangereux le propage — et survit à sa correction
+
+- [1× — 08-23e] Après avoir corrigé une purge de ports qui tuait son propre lanceur, la même
+  commande restait **enseignée** dans la table de dépannage d'un autre skill (`lsof -ti:PORT |
+xargs kill -9`) — c'est-à-dire exactement ce qu'un agent lit puis applique. Elle venait d'un retex
+  de juillet dont la leçon était JUSTE (les orphelins échappent à `pkill -f`), à un mot près.
+  Corriger le code sans balayer ce qui l'ENSEIGNE laisse la classe de bug se réintroduire par la
+  documentation. Le balayage se fait sur le CONCEPT, pas sur le fichier corrigé.
+
+## 👻 Un process qui n'écoute AUCUN port échappe à toute purge par port
+
+- [1× — 08-23e] Un superviseur de développement orphelin (son enfant tué en `-9`) survit sans tenir
+  le moindre port : invisible à `lsof`, absent d'un `pkill -f bin/nodefony` (son titre de process est
+  autre), et pourtant bien vivant. Deux conséquences opposées le même soir — il **interdisait** tout
+  démarrage en production (garde qui déduisait la collision d'une présence au lieu de la constater),
+  et il **ressuscitait** le serveur au milieu d'une mesure. Un décor de banc se remet à zéro par
+  l'arrêt PROPRE de l'outil (`nodefony stop`), la purge par port n'étant que le filet.
+
 ## 🗄️ Archivé au CONSOLIDATE du 2026-07-30 — 59 thèmes, 190 frictions
 
 Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
