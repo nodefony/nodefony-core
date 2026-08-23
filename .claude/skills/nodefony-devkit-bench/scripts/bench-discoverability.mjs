@@ -346,6 +346,14 @@ const mcpAuthentifie = () => typeof APP_ENV.NF_MCP_TOKEN === "string";
 const PORTS = { NF_PORT: "5371", NF_PORT_HTTPS: "5372" };
 
 /**
+ * Le nom de l'application témoin — l'IDENTITÉ du décor, au même titre que ses
+ * ports. `nodefony stop <projet>` cible par ce nom : le laisser en dur à la
+ * création et le recopier ailleurs, c'est se préparer à arrêter le mauvais
+ * projet le jour où l'un des deux change.
+ */
+const NOM_APP_TEMOIN = "bench-app";
+
+/**
  * Foyer JETABLE des agents dont la configuration est GLOBALE.
  *
  * 🔴 Vibe et Codex n'ont pas de portée projet en écriture : leur `mcp add`
@@ -3523,9 +3531,60 @@ export const lignesAjoutees = (app, from, to) => {
  * `--link` reste pour la boucle courte, et le rapport DIT alors que la mesure
  * n'est pas transposable. Deux runs de décors différents ne se comparent pas.
  */
+/**
+ * Rend les ports du banc qu'un run PRÉCÉDENT aurait laissés tenus.
+ *
+ * 🔴 Le filet de signaux ne peut PAS couvrir ce cas, et il faut le savoir plutôt
+ * que de s'y fier : ce script passe sa vie dans des `spawnSync` (l'agent, les
+ * gates, npm), qui BLOQUENT la boucle d'événements. Un handler de signal est un
+ * callback JS — il ne s'exécute jamais tant que la boucle est bloquée. Pire :
+ * enregistrer un handler `SIGTERM` DÉSACTIVE la mort par défaut, si bien qu'un
+ * run tué de l'extérieur ne s'arrête pas et ne nettoie pas non plus. Mesuré :
+ * deux `SIGTERM` ignorés d'affilée, `SIGKILL` nécessaire — et le port rendu au
+ * même moment par la remise à zéro du décor, ce qui a failli faire prendre un
+ * faux vert pour une preuve.
+ *
+ * Le nettoyage se fait donc à l'ENTRÉE du run suivant, là où la boucle tourne.
+ *
+ * Portée STRICTE, et c'est le FRAMEWORK qui la tient : `nodefony stop <projet>`
+ * cible une application PAR SON NOM, refuse un nom ambigu, et exige une seconde
+ * preuve indépendante du nom (le process travaille bien dans un projet
+ * Nodefony). Le banc n'a donc rien à réimplémenter — ni parcours de décors, ni
+ * `kill` par PID, ni `--all`, qui emporterait le serveur de dev du dépôt.
+ * L'application témoin s'appelle toujours `bench-app` : c'est le seul nom qu'un
+ * run laisse derrière lui.
+ *
+ * La commande est « standalone » (zéro boot, lançable de n'importe où) : elle
+ * atteint un décor dont le dossier a pu disparaître depuis, là où lire son
+ * `runtime.json` échouerait.
+ *
+ * @returns {void}
+ */
+function libererPortsLaissesParUnRunPrecedent() {
+  const avant = spawnSync(
+    "npx",
+    ["--no-install", "nodefony", "stop", NOM_APP_TEMOIN],
+    { cwd: REPO, encoding: "utf8", env: APP_ENV, timeout: 120_000 },
+  );
+  // Le rendre visible seulement s'il y avait QUELQUE CHOSE à rendre : sur un
+  // poste propre — le cas courant — cette ligne serait du bruit à chaque run.
+  const sortie = `${avant.stdout ?? ""}${avant.stderr ?? ""}`;
+  if (/\b(5371|5372)\b/u.test(sortie)) {
+    console.log(
+      `  ⚠️ un run précédent tenait encore les ports du banc — ` +
+        `\`nodefony stop ${NOM_APP_TEMOIN}\` les a rendus avant la mesure`,
+    );
+  }
+}
+
 function setup(runDir) {
   const app = path.join(runDir, "app");
   mkdirSync(runDir, { recursive: true });
+  // AVANT tout : un run tué de l'extérieur a pu laisser son serveur vivant, et
+  // c'est le run SUIVANT qui le paie — mêmes ports, même nom d'app, aucun
+  // signal. Vécu de bout en bout : agent, constat de porte et juge ont tous
+  // interrogé l'application du run précédent.
+  libererPortsLaissesParUnRunPrecedent();
   // 🔴 Le MONTAGE a des sorties anticipées — un `return` par régime de porte
   // (`off`, puis tout ce qui n'est pas `auth`). La FINALISATION, elle, vaut
   // pour TOUS les régimes. Les avoir écrites dans une seule fonction faisait
@@ -3552,7 +3611,7 @@ function monterDecor(runDir, app) {
   sh(BIN, [
     "create",
     "app",
-    "bench-app",
+    NOM_APP_TEMOIN,
     "--dir",
     app,
     "--preset",
