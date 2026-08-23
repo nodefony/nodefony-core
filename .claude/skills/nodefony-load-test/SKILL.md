@@ -70,13 +70,14 @@ Node ESM purs (`ws` + builtins), **lancés depuis la racine du repo**, paramétr
 > **Mesures hors requête** — deux bancs mesurent autre chose que le trafic, avec le même protocole
 > (plusieurs runs, médiane, décor maîtrisé) :
 >
-> | Script                        | Ce qu'il mesure                                                                            |
-> | ----------------------------- | ------------------------------------------------------------------------------------------ |
-> | `scripts/boot-bench.mjs`      | temps de boot d'un mode, du spawn jusqu'à l'écoute des serveurs + nombre de `new Kernel()` |
-> | `scripts/poc-hmr-perf.mjs`    | délai de bout en bout entre le `touch` d'un fichier surveillé et le rechargement Vite      |
-> | `scripts/route-scan-cost.mjs` | ce que la résolution de route coûte à une app, et sa sensibilité au NOMBRE de routes       |
-> | `scripts/db-backend-cost.mjs` | ce qu'un pilote de base coûte au serveur : latence, blocage de la boucle, plafond réel     |
-> | `scripts/soak.mjs`            | la tenue DANS LA DURÉE : pente du heap et dérive du débit sous trafic continu              |
+> | Script                              | Ce qu'il mesure                                                                                                                                                       |
+> | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | `scripts/boot-bench.mjs`            | temps de boot d'un mode, du spawn jusqu'à l'écoute des serveurs + nombre de `new Kernel()`                                                                            |
+> | `scripts/poc-hmr-perf.mjs`          | délai de bout en bout entre le `touch` d'un fichier surveillé et le rechargement Vite                                                                                 |
+> | `scripts/route-scan-cost.mjs`       | ce que la résolution de route coûte à une app, et sa sensibilité au NOMBRE de routes                                                                                  |
+> | `scripts/db-backend-cost.mjs`       | ce qu'un pilote de base coûte au serveur : latence, blocage de la boucle, plafond réel                                                                                |
+> | `scripts/soak.mjs`                  | la tenue DANS LA DURÉE : pente du heap et dérive du débit sous trafic continu                                                                                         |
+> | `scripts/prod-readiness-report.mjs` | agrège comparatif + soak + capacité en UN rapport HTML « peut-on partir en production ? », calculateur de pods compris — et NOMME ce que les chiffres ne prouvent pas |
 >
 > **Micro-bancs isolés — `scripts/micro/`** : ils mesurent UN mécanisme hors du serveur, pour
 > convertir en nanosecondes un poste qu'un profil désigne en pourcentage. C'est le geste qui a
