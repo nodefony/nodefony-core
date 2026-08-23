@@ -97,9 +97,10 @@ export class MongooseOrm extends Orm {
       await this.#connection.close().catch(() => undefined);
       this.#connection = null;
     }
-    const connection = this.#options
-      ? mongoose.createConnection(this.#uri, this.#options)
-      : mongoose.createConnection(this.#uri);
+    const connection = mongoose.createConnection(
+      this.#uri,
+      this.#delaisSains(),
+    );
     await connection.asPromise();
     this.#connection = connection;
     this.#wireLifecycle(connection);
@@ -186,6 +187,53 @@ export class MongooseOrm extends Orm {
       this.#models[entity.name] = model;
       entity.model = model;
     }
+  }
+
+  /**
+   * Délais d'attente **par défaut**, plus courts que ceux du driver.
+   *
+   * Le driver MongoDB attend **30 s** pour trouver un serveur utilisable
+   * (`serverSelectionTimeoutMS`) et autant pour établir une connexion
+   * (`connectTimeoutMS`) — vérifié au source, `connection_string.js`. Mesuré
+   * sur une base arrêtée : une requête PEND 30 s avant d'échouer. Pour une
+   * requête HTTP c'est absurde : le client a abandonné depuis longtemps, et
+   * le worker reste bloqué à attendre une base dont on sait déjà qu'elle ne
+   * répond pas.
+   *
+   * **5 s** est tenable parce que `retryReads`/`retryWrites` valent `true`
+   * par défaut : une opération qui échoue en sélection est RETENTÉE, ce qui
+   * porte la fenêtre effective à une dizaine de secondes — de quoi absorber
+   * l'élection d'un nouveau primaire sans faire attendre le client deux fois
+   * plus longtemps que nécessaire.
+   *
+   * `socketTimeoutMS` n'est délibérément PAS touché (le driver le laisse
+   * infini) : le borner ici tuerait les agrégations longues légitimes. Ce
+   * rôle revient à `timeoutMS` (CSOT), que seule l'application peut fixer en
+   * connaissance de ses opérations.
+   *
+   * 🔴 **Un choix EXPLICITE gagne toujours** — qu'il vienne des options ou de
+   * la chaîne de connexion. Poser un défaut n'autorise pas à écraser une
+   * intention : une URI qui porte `?serverSelectionTimeoutMS=20000` dit ce
+   * qu'elle veut, et l'objet d'options primerait silencieusement sur elle.
+   */
+  #delaisSains(): ConnectOptions {
+    const fournis = this.#options ?? {};
+    const dansUri = (cle: string): boolean =>
+      new RegExp(`[?&]${cle}=`, "iu").test(this.#uri);
+    const defauts: ConnectOptions = {};
+    if (
+      fournis.serverSelectionTimeoutMS === undefined &&
+      !dansUri("serverSelectionTimeoutMS")
+    ) {
+      defauts.serverSelectionTimeoutMS = 5_000;
+    }
+    if (
+      fournis.connectTimeoutMS === undefined &&
+      !dansUri("connectTimeoutMS")
+    ) {
+      defauts.connectTimeoutMS = 5_000;
+    }
+    return { ...defauts, ...fournis };
   }
 
   /**

@@ -111,3 +111,77 @@ describe.skipIf(!URI)("MongooseOrm — coupure MongoDB", () => {
     assert.equal(connectionMonitor.snapshot(ORM).lostCount, avant);
   });
 });
+describe.skipIf(!URI)("MongooseOrm — délais d'attente par défaut", () => {
+  const lire = (o: MongooseOrm): { selection?: number; connexion?: number } => {
+    const cx = o.getNativeConnection<{
+      getClient: () => {
+        options: {
+          serverSelectionTimeoutMS?: number;
+          connectTimeoutMS?: number;
+        };
+      };
+    }>();
+    const opts = cx.getClient().options;
+    return {
+      selection: opts.serverSelectionTimeoutMS,
+      connexion: opts.connectTimeoutMS,
+    };
+  };
+  const noms: string[] = [];
+  afterEach(() => {
+    for (const n of noms.splice(0)) {
+      ormRegistry.unregister(n);
+    }
+  });
+  const monter = async (
+    nom: string,
+    uri: string,
+    opts?: Record<string, unknown>,
+  ): Promise<MongooseOrm> => {
+    noms.push(nom);
+    const o = new MongooseOrm(nom, uri, opts as never);
+    await o.connect();
+    return o;
+  };
+
+  it("par défaut : 5 s, et non les 30 s du driver", async () => {
+    // Mesuré sur une base arrêtée : avec le défaut du driver, une requête PEND
+    // 30 s avant d'échouer — le client a abandonné depuis longtemps et le
+    // worker attend une base dont on sait déjà qu'elle ne répond pas.
+    const orm = await monter("delais_defaut", URI as string);
+    try {
+      assert.deepEqual(lire(orm), { selection: 5_000, connexion: 5_000 });
+    } finally {
+      await orm.disconnect().catch(() => undefined);
+    }
+  });
+
+  it("un choix EXPLICITE par options gagne sur notre défaut", async () => {
+    const orm = await monter("delais_options", URI as string, {
+      serverSelectionTimeoutMS: 12_000,
+    });
+    try {
+      assert.equal(lire(orm).selection, 12_000);
+      // …et ce qui n'est PAS choisi garde le défaut sain.
+      assert.equal(lire(orm).connexion, 5_000);
+    } finally {
+      await orm.disconnect().catch(() => undefined);
+    }
+  });
+
+  it("un choix EXPLICITE dans l'URI gagne aussi", async () => {
+    // Le piège qu'un défaut mal posé fait tomber : un objet d'options prime
+    // silencieusement sur la chaîne de connexion. Une URI qui porte son délai
+    // dit ce qu'elle veut ; l'écraser serait décider à la place de l'opérateur.
+    const base = URI as string;
+    const avecDelai = base.includes("?")
+      ? `${base}&serverSelectionTimeoutMS=9000`
+      : `${base}?serverSelectionTimeoutMS=9000`;
+    const orm = await monter("delais_uri", avecDelai);
+    try {
+      assert.equal(lire(orm).selection, 9_000);
+    } finally {
+      await orm.disconnect().catch(() => undefined);
+    }
+  });
+});
