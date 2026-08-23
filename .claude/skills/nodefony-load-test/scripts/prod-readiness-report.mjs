@@ -162,16 +162,31 @@ const CAP = {
   wsFanout: 398604,
 };
 
-const node = process.version;
-const cpus = (() => {
-  try {
-    return execFileSync("sysctl", ["-n", "hw.logicalcpu"], {
-      encoding: "utf8",
-    }).trim();
-  } catch {
-    return "?";
-  }
-})();
+// 🔴 LE DÉCOR D'UNE MESURE NE VIENT PAS DE LA MACHINE QUI L'AFFICHE.
+// Ces deux champs se lisaient sur la machine du RENDU (`process.version`, `sysctl`).
+// En session interactive, rendu et mesure ont lieu au même endroit, donc c'était juste
+// par coïncidence — et l'erreur est restée invisible jusqu'à la première publication :
+// l'exécuteur d'intégration continue, qui n'a pas `sysctl`, a rendu « ? cœurs logiques »,
+// et il aurait tout aussi bien pu afficher SES quatre cœurs comme ceux du banc. Un décor
+// faux et crédible est pire qu'un décor absent. Le jeu versionné porte ces valeurs
+// (`provenance.machine`, `provenance.node`) : elles priment toujours, et la machine
+// locale ne sert que de repli pour le mode éphémère, où elle EST la machine de mesure.
+const prov = dataset?.provenance ?? null;
+const node = prov?.node ?? (dataset ? "non enregistré" : process.version);
+const cpus =
+  prov?.machine?.logicalCores ??
+  (dataset
+    ? "non enregistré"
+    : (() => {
+        try {
+          return execFileSync("sysctl", ["-n", "hw.logicalcpu"], {
+            encoding: "utf8",
+          }).trim();
+        } catch {
+          return "?";
+        }
+      })());
+const cpuModel = prov?.machine?.cpu ?? null;
 
 // ── Rendu ──────────────────────────────────────────────────────────────────
 const verdict = section(
@@ -471,6 +486,7 @@ const decor = section(
     [
       ["Node.js", node],
       ["Cœurs logiques", cpus],
+      ...(cpuModel ? [["Processeur", cpuModel]] : []),
       [
         "Concurrence (wrk)",
         `c${nf.conn} · ${nf.threads} fils · ${nf.durSec}s par tir`,
