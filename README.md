@@ -288,7 +288,8 @@ l'orchestrateur, et les journaux partent sur la sortie standard.
 - [Documentation](docs/index.md) · [Guides](docs/guides/README.md) · [Première application](docs/tutoriels/premiere-application.md)
 - [L'architecture en vue d'ensemble](docs/architecture/vue-ensemble.md) — ce que le framework est, et ce que ses partis pris coûtent
 - [Performance](docs/performance/index.md) — ce qui a été mesuré, avec quel protocole, et ce que
-  ces chiffres ne permettent pas de conclure
+  ces chiffres ne permettent pas de conclure ; les mesures de chaque version publiée sont sur
+  [la page dédiée](https://nodefony.github.io/nodefony-core/performance/latest/)
 - [Décisions d'architecture](docs/adr/) — les choix structurants et leur pourquoi
 - [Signaler une faille](SECURITY.md) — canal privé, jamais en ticket public
 - Contribuer : ouvrez une discussion avant toute contribution substantielle. Le dépôt impose les
@@ -304,10 +305,12 @@ opposables à chaque exécution.
 **Ce que ça donne en charge.** À travail égal — mêmes journaux, même contexte de requête, mêmes
 en-têtes de sécurité, même protection CSRF — un processus rend **~92 % du débit d'un Express muni
 des mêmes intergiciels** (12 226 requêtes/s, p99 9,57 ms sur la machine de référence), et vingt
-minutes de charge continue laissent le tas plat. Le dossier
-[Performance](docs/performance/index.md) porte le protocole, les scripts qui rejouent chaque
-chiffre, les instruments qui ont menti avant qu'on s'en aperçoive, et ce que ces mesures
-n'autorisent pas à conclure — aucun absolu pris derrière un chemin virtualisé n'est transposable.
+minutes de charge continue laissent le tas plat. La page de mesures de la version courante —
+**[peut-on partir en production ?](https://nodefony.github.io/nodefony-core/performance/latest/)** — porte le comparatif, la
+tenue dans la durée, le dimensionnement d'un pod et un calculateur ; elle nomme aussi ce que ces
+chiffres **ne** prouvent pas. Le dossier [Performance](docs/performance/index.md) donne le
+protocole, les scripts qui rejouent chaque chiffre et les instruments qui ont menti avant qu'on
+s'en aperçoive — aucun absolu pris derrière un chemin virtualisé n'est transposable.
 
 Ce qu'il faut savoir avant de bâtir dessus : **il n'existe pas encore de système de migration de
 schéma** — la base est dérivée au démarrage, ce qui convient au développement et pas à la

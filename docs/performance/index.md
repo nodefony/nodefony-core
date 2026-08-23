@@ -13,6 +13,11 @@ source: "docs/performance/"
 
 📍 [Documentation](../index.md) › **Performance**
 
+> 📊 **Les mesures de la version courante se lisent en ligne :**
+> [peut-on partir en production ?](https://nodefony.github.io/nodefony-core/performance/latest/) — comparatif, tenue dans la durée,
+> dimensionnement d'un pod, calculateur. Une page par version publiée ; les données qui la
+> nourrissent sont versionnées dans [`data/`](data/README.md).
+
 > Ce dossier rassemble treize sessions de mesure sur le pipeline HTTP, l'ORM et les WebSockets de
 > Nodefony : ce qui a été profilé, ce qui a été gagné, **ce qui a été annulé après avoir été
 > écrit**, et les instruments qui ont menti avant qu'on s'en aperçoive. Il est écrit pour être
