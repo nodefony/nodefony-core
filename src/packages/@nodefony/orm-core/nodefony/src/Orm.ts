@@ -12,6 +12,22 @@ import { ormRegistry } from "./OrmRegistry";
 import { connectionMonitor } from "./ConnectionMonitor";
 
 /**
+ * Période du battement, réglable par l'environnement (`0` le désactive).
+ *
+ * Lue UNE fois au chargement du module : un connecteur ne la relit pas à
+ * chaque construction, et un déploiement qui veut un battement plus serré
+ * — ou aucun — n'a pas à toucher au code de l'application.
+ */
+const HEARTBEAT_MS_PAR_DEFAUT = ((): number => {
+  const brut = process.env.NF_ORM_HEARTBEAT_MS;
+  if (brut === undefined) {
+    return 30_000;
+  }
+  const n = Number.parseInt(brut, 10);
+  return Number.isFinite(n) && n >= 0 ? n : 30_000;
+})();
+
+/**
  * Classe de base abstraite de tout ORM Nodefony — câble {@link Service} (DI,
  * Syslog, bus d'événements) et le contrat {@link IOrm}, et s'auto-enregistre
  * dans le {@link ormRegistry} process-wide à la construction.
@@ -186,7 +202,7 @@ export abstract class Orm extends Service implements IOrm {
    * et il faudrait distinguer une erreur de connexion d'une contrainte violée.
    * Ici le coût est CONSTANT et connu d'avance : une requête légère par période.
    */
-  protected heartbeatMs = 30_000;
+  protected heartbeatMs = HEARTBEAT_MS_PAR_DEFAUT;
 
   /**
    * Délai au-delà duquel un battement sans réponse vaut une PERTE.
