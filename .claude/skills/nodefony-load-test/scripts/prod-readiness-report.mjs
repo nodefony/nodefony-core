@@ -20,6 +20,7 @@
  * Usage :
  *   node .claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs
  *   node ... prod-readiness-report.mjs --soak tmp/soak-20min.json --out tmp/rapport.html
+ *   node ... prod-readiness-report.mjs --data docs/performance/data/10.0.0.json --out tmp/rapport.html
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -46,9 +47,18 @@ const arg = (n, d) => {
 };
 const OUT = arg("out", "tmp/nodefony-prod-readiness.html");
 const SOAK = arg("soak", "tmp/soak-20min.json");
+// Jeu de mesures VERSIONNÉ (`docs/performance/data/<version>.json`). Sans lui, on
+// lit les fichiers que les bancs viennent de déposer dans `/tmp` — pratique en
+// session, mais ces fichiers disparaissent au premier ménage : une page publiée
+// dont les données ne survivent pas n'est plus reproductible, et un chiffre qu'on
+// ne peut pas rejouer n'est pas réfutable.
+const DATA = arg("data", null);
 
 const readJson = (p) =>
   existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : null;
+
+const dataset = DATA ? readJson(DATA) : null;
+if (DATA && !dataset) throw new Error(`jeu de mesures introuvable : ${DATA}`);
 
 // ── 1. comparatif ──────────────────────────────────────────────────────────
 const FRAMEWORKS = [
@@ -79,8 +89,15 @@ const FRAMEWORKS = [
   },
 ];
 const bench = FRAMEWORKS.map((f) => {
-  const d = readJson(`/tmp/nf-bench-${f.id}.json`);
-  if (!d) throw new Error(`mesure manquante : /tmp/nf-bench-${f.id}.json`);
+  const d = dataset
+    ? (dataset.comparison?.frameworks?.[f.id] ?? null)
+    : readJson(`/tmp/nf-bench-${f.id}.json`);
+  if (!d)
+    throw new Error(
+      dataset
+        ? `camp absent du jeu versionné : comparison.frameworks.${f.id} (${DATA})`
+        : `mesure manquante : /tmp/nf-bench-${f.id}.json`,
+    );
   // ⚠️ `d` d'abord : le JSON du banc porte un champ `label` ("bare", "express-fair")
   // qui écraserait le libellé lisible de `f` si l'ordre était inversé. Vu à l'écran,
   // pas au typecheck — deux objets qui partagent une clé ne lèvent rien.
@@ -92,8 +109,20 @@ const ratioRps = (nf.med / ref.med) * 100;
 const deltaP99 = nf.medP99Ms - ref.medP99Ms;
 
 // ── 2. soak ────────────────────────────────────────────────────────────────
-const soak = readJson(SOAK);
-if (!soak) throw new Error(`soak manquant : ${SOAK}`);
+// Le soak est l'un des TROIS piliers de la question posée par cette page : sans lui,
+// on publierait un débit sans rien dire de la tenue dans la durée. La garde reste
+// donc bloquante — elle nomme le geste qui la lève plutôt que de rendre une page
+// qui répond à moitié.
+const soak = dataset ? dataset.soak : readJson(SOAK);
+if (!soak)
+  throw new Error(
+    dataset
+      ? `le jeu ${DATA} n'a pas de soak. Rejouer :\n` +
+          `  node .claude/skills/nodefony-load-test/scripts/soak.mjs --minutes 20 --out tmp/soak.json\n` +
+          `puis renseigner le champ "soak" (échantillons COMPLETS — la pente se recalcule ici, ` +
+          `jamais depuis un résumé).`
+      : `soak manquant : ${SOAK}`,
+  );
 const kept = soak.samples.slice(soak.skipped);
 const p99s = kept.map((s) => s.p99Ms).sort((a, b) => a - b);
 

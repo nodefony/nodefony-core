@@ -241,6 +241,30 @@ mince.** Jamais de boîte noire « ça ne marche qu'en CI » (même philosophie 
    `create-nodefony`.
 5. **Tag + GitHub Release** : tag `v10.x` + `gh release create` + changelog.
 
+### 7.2bis Mesure de performance de la version — geste MANUEL, avant le tag
+
+La page publiée « peut-on partir en production ? » n'est pas produite par l'intégration
+continue : **un exécuteur partagé rendrait des chiffres faux** (le dépôt a mesuré un facteur 3,7
+entre un chemin virtualisé et le natif). La mesure se fait à la main, sur une machine au repos,
+et c'est son RÉSULTAT qui est commité — l'automate ne fait que le rendre.
+
+À faire **avant de poser le tag**, sinon la page publiée date d'une version antérieure :
+
+1. machine au repos, serveur en mode production ; rejouer le comparatif (5 camps) et la charge
+   longue — protocole et pièges : skill `nodefony-load-test` ;
+2. composer `docs/performance/data/<version>.json` — **provenance d'abord** : commit du code
+   mesuré (relevé À LA MESURE, jamais reconstruit après coup), machine, version de Node,
+   protocole ; puis le comparatif et les **échantillons complets** du soak ;
+3. rendre et **regarder la page** : `node scripts/build-perf-site.mjs --out dist-perf-site` ;
+4. commiter le JSON → le flux `perf-pages.yml` publie `/<version>/` et `/latest/`.
+
+Le rendu échoue si le soak manque : une page qui répond « peut-on partir en production ? » sans
+rien dire de la tenue dans la durée ne répond pas à la question. Détail :
+[`docs/performance/data/README.md`](../performance/data/README.md).
+
+> Prérequis une seule fois, côté dépôt : **Settings → Pages → Source = « GitHub Actions »**.
+> Tant que ce n'est pas fait, le flux construit le site et échoue au déploiement.
+
 ### 7.3 Déclencheur + outillage version/changelog
 
 - **Déclencheur** : push de tag `v10.*` **OU** `workflow_dispatch` (manuel). Pas sur chaque push.
