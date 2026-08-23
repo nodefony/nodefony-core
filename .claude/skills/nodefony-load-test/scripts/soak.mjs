@@ -232,8 +232,25 @@ console.log(
 console.log(
   `  heap   : ${kept[0].heapUsedMb} → ${kept[kept.length - 1].heapUsedMb} MB · pente ${heap.perHour >= 0 ? "+" : ""}${heap.perHour.toFixed(1)} MB/h (R² ${heap.r2.toFixed(2)})`,
 );
+// ── PLATEAU ou RAMPE ? Le test qui empêche de crier au loup ────────────────
+// Une régression linéaire sur une courbe qui PLAFONNE rend toujours une pente
+// positive : elle moyenne la montée initiale avec le palier. Un tas ou un RSS qui
+// grimpe puis se stabilise est le comportement NORMAL (arènes de l'allocateur que
+// le process ne rend pas à l'OS, caches qui se remplissent) — le confondre avec
+// une fuite envoie chercher un défaut qui n'existe pas.
+// Comparer la pente de la SECONDE moitié à la pente globale tranche en une ligne :
+// si elle s'effondre, la courbe plafonne. Une vraie fuite, elle, garde la même
+// pente jusqu'au bout — c'est ce qui la définit.
+const half = Math.floor(kept.length / 2);
+const rssLate = slope(
+  kept.slice(half).map((s) => ({ x: s.atSec, y: s.rssMb })),
+);
+const plateau = rss.perHour > 5 && rssLate.perHour < rss.perHour / 3;
 console.log(
-  `  rss    : ${kept[0].rssMb} → ${kept[kept.length - 1].rssMb} MB · pente ${rss.perHour >= 0 ? "+" : ""}${rss.perHour.toFixed(1)} MB/h (R² ${rss.r2.toFixed(2)})`,
+  `  rss    : ${kept[0].rssMb} → ${kept[kept.length - 1].rssMb} MB · pente ${rss.perHour >= 0 ? "+" : ""}${rss.perHour.toFixed(1)} MB/h (R² ${rss.r2.toFixed(2)})` +
+    (plateau
+      ? `\n           ↳ PLATEAU : ${rssLate.perHour >= 0 ? "+" : ""}${rssLate.perHour.toFixed(1)} MB/h sur la SECONDE moitié — la courbe s'aplatit, la pente globale moyenne la montée initiale`
+      : ""),
 );
 console.log(
   `  débit  : ${Math.round(rpsFirst)} → ${Math.round(rpsLast)} rps (${drift >= 0 ? "+" : ""}${drift.toFixed(1)} %)`,
@@ -318,6 +335,8 @@ writeFileSync(
       heapR2: +heap.r2.toFixed(3),
       rssSlopeMbPerHour: +rss.perHour.toFixed(2),
       rssR2: +rss.r2.toFixed(3),
+      rssSlopeLateMbPerHour: +rssLate.perHour.toFixed(2),
+      rssPlateau: plateau,
       rpsDriftPct: +drift.toFixed(1),
       observedMinutes: +observedMin.toFixed(1),
       amplitudeMb: +amplitude.toFixed(1),
