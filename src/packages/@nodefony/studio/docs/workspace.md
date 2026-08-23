@@ -365,8 +365,8 @@ rempli de blocs qui lui répondraient tous par un refus. Et si le bureau actif c
 accessible — un changement de compte, une révocation de rôle — la page bascule d'elle-même sur le
 premier bureau visible, au lieu d'afficher une page morte.
 
-Les deux filtres partagent **la même fonction** (`isVisibleForRoles()`, `roles.ts:101`) et les mêmes
-paquets de rôles que la barre latérale (`VIEW_ROLES`, `roles.ts:117`) : c'est ce qui garantit qu'un
+Les deux filtres partagent **la même fonction** (`isVisibleForRoles()`, `roleNames.ts:90`) et les mêmes
+paquets de rôles que la barre latérale (`VIEW_ROLES`, `roleNames.ts:106`) : c'est ce qui garantit qu'un
 menu, une route et un catalogue ne divergent pas.
 
 > [!IMPORTANT]

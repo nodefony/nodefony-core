@@ -164,7 +164,7 @@ colonne **arrêt** indique jusqu'où le boot va — `0 boot` = fast-path standal
 | `build` | `compile` | Construit tous les paquets (délègue à `turbo run build`) — `-f/--force` | `onRegister` | `BuildCommand.ts:16` |
 | `install` | — | `install` sur tous les modules — `-f/--force` | `onRegister` | `InstallCommand.ts:9` |
 | `outdated` | — | `outdated` sur tous les modules | `onRegister` | `OutdatedCommand.ts:9` |
-| `start` | — | Menu interactif (TTY) | `onStart` | `StartCommand.ts:70` |
+| `start` | — | **Alias de `prod`** (il n'y a plus de commande propre) | `onStart` | `ProdCommand.ts:49` |
 | `check` | **`doctor`** | **Diagnostic STATIQUE** : paquets importés non déclarés, câblage (entité / controller / service jamais enregistrés, nom réservé, brique manquante), segment `:id` qui répondra 404 — `--json`, `--cwd` ; **remonte à la racine de l'app**, donc lançable depuis n'importe quel sous-dossier (**0 boot**) | `0 boot` | `CheckCommand.ts:37` |
 | `env` | — | Cascade des `.env`, valeurs effectives et **provenance** de chacune (**0 boot**) | `0 boot` | `EnvCommand.ts:36` |
 | `status` | — | Introspecte les process dev/prod/cluster (**0 boot**) | `0 boot` | `StatusCommand.ts:20` |

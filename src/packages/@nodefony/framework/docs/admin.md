@@ -267,9 +267,9 @@ sequenceDiagram
 | 2   | Le framework monte tout                   | `AdminBroker.mountAll()` (`AdminBroker.ts:104`)            |
 | 3   | Une route par endpoint (nom déterministe) | `Router.createRoute()` (`AdminBroker.ts:124`)              |
 | 4   | Le controller pont estampillé une fois    | `Router.setController()` idempotent (`AdminBroker.ts:146`) |
-| 5   | Dispatch : lookup de la route             | `AdminBroker.resolve()` (`AdminApiController.ts:93`)       |
-| 6   | Projection du contexte en requête admin   | `buildRequest()` (`AdminApiController.ts:210`)             |
-| 7   | Normalisation du retour                   | `normalize()` (`AdminApiController.ts:255`)                |
+| 5   | Dispatch : lookup de la route             | `AdminBroker.resolve()` (`AdminApiController.ts:94`)       |
+| 6   | Projection du contexte en requête admin   | `buildRequest()` (`AdminApiController.ts:175`)             |
+| 7   | Normalisation du retour                   | `normalizeAdminResult()` (`executeAdmin.ts:90`)            |
 
 Points de conception saillants :
 

@@ -35,7 +35,8 @@ Le package `nodefony` a **deux visages compilés depuis la même source** :
 
 - condition `browser` sur l'export racine + subpaths client dédiés `./client`, `./react`,
   `./roles`, `./debugbar`, `./debugbar.js` (standalone) — `src/nodefony/package.json` ;
-- un build client séparé (`rollup.config.ts:156` `createClientConfig`, 4 entries + standalone) ;
+- un build client séparé (`createClientConfig`, 4 entries + standalone) — à l'époque dans
+  `rollup.config.ts`, aujourd'hui `rolldown.config.ts` (Rollup a été retiré depuis) ;
 - une **garantie compilateur** « zéro node-ism » : `tsconfigClient.json` → `"types": []`,
   `lib DOM`, et 3 shims d'alias (`node:util`, `node:events`, `cli-color` →
   `src/client/shim/*`) ;
@@ -355,7 +356,8 @@ ferait du kernel un moule du legacy Studio.
 
 - Code (ancrages vérifiés 2026-07-03) : `src/nodefony/package.json` (exports browser+subpaths) ·
   `src/nodefony/src/client/index.ts:57-78` (façade à supprimer) · `tsconfigClient.json`
-  (garantie `types:[]` + shims) · `src/nodefony/rollup.config.ts:156` (`createClientConfig`) ·
+  (garantie `types:[]` + shims) · `createClientConfig` (alors dans `rollup.config.ts`,
+  aujourd'hui `rolldown.config.ts`) ·
   `studio/frontend/src/stores/RootStore.ts` (composition manuelle ; :31 pas de DI front ;
   :104-156 cycle identité) · `studio/frontend/src/services/ApiClient.ts` (à remonter) ·
   `src/nodefony/src/kernel/MEMORY.md:40` (hooks lifecycle back).
