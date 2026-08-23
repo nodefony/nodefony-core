@@ -45,12 +45,25 @@ jobs:
 
       # Aucune dépendance à installer : le générateur et sa bibliothèque de rendu
       # sont dans le dépôt et n'importent rien hors de `node:`.
+      # Sous `performance/`, jamais à la racine : le domaine Pages de ce dépôt
+      # servira d'autres choses (la documentation, d'abord). Une URL publiée ne se
+      # change plus sans casser les liens de ceux qui l'ont citée — c'est donc
+      # maintenant, avant la première publication, que la place se décide.
       - name: Construire le site
-        run: node scripts/build-perf-site.mjs --out dist-perf-site
+        run: node scripts/build-perf-site.mjs --out dist-perf-site/performance
+
+      - name: Page d'accueil — pointer vers la section
+        run: |
+          printf '%s\n' \
+            '<!doctype html><html lang="fr"><head><meta charset="utf-8">' \
+            '<meta http-equiv="refresh" content="0; url=./performance/">' \
+            '<title>Nodefony</title></head><body>' \
+            '<p><a href="./performance/">Performance de Nodefony</a></p>' \
+            '</body></html>' > dist-perf-site/index.html
 
       # Le site doit MONTRER quelque chose : une page vide se publierait en silence.
       - name: Vérifier qu'il y a bien une page courante
-        run: test -s dist-perf-site/latest/index.html
+        run: test -s dist-perf-site/performance/latest/index.html
 
       - uses: actions/upload-pages-artifact@v4
         with:
