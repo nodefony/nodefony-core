@@ -81,6 +81,24 @@ export interface IAiSyncPlan {
  * que ce qu'un skill contient. La convention qui a émergé pour le partage entre
  * clients est `.agents/skills/` : c'est la racine CANONIQUE, celle où vivent
  * aussi la détection d'orphelins et l'inventaire.
+ *
+ * ⭐ **« La convention qui a émergé » n'est pas un pari : deux clients la
+ * lisent, et l'un des deux la PRÉFÈRE à son propre dossier.** Une convention
+ * qu'on affirme sans nommer qui l'honore est une croyance ; celle-ci est
+ * constatée au source de chaque client :
+ *
+ * | client | lit `.agents/skills` | preuve                                          |
+ * | ------ | -------------------- | ----------------------------------------------- |
+ * | vibe   | oui                  | `vibe/core/paths/_local_config_files.py` (`_AGENTS_SKILLS_SUBDIR`) |
+ * | gemini | oui, **en priorité** | `@google/gemini-cli` `bundle/docs/cli/skills.md` |
+ * | claude | non                  | mesuré — d'où {@link CLAUDE_SKILLS_DIR}         |
+ * | codex  | pas de skills        | rien dans son paquet (0.149.0)                  |
+ *
+ * Gemini est explicite sur la préférence : à niveau égal, « the `.agents/skills/`
+ * alias takes precedence over the `.gemini/skills/` directory ». Poser en plus
+ * un `skill_paths` dans la configuration d'un agent serait donc une SECONDE
+ * source pour la même règle — la racine canonique suffit, et c'est tout
+ * l'intérêt d'une convention.
  */
 export const SKILLS_DIR = ".agents/skills";
 
