@@ -185,8 +185,36 @@ const c=spawn('node',['src/nodefony/bin/nodefony','production'],{cwd:'$ROOT',env
 c.unref();fs.writeFileSync('/tmp/nf-bench.pid',String(c.pid));process.exit(0);
 "
 
+# ⚠️ `NF_LOG_DRIVER=null` (posé plus haut pour ne pas mesurer le coût des logs) rend
+# tout échec de boot MUET : `/tmp/nf-bench.log` reste à ZÉRO octet et le banc ne sait
+# dire que « BOOT TIMEOUT ». Vécu : un superviseur dev orphelin bloquait le démarrage
+# production, et il a fallu rejouer le boot à la main pour le découvrir. Le banc rejoue
+# donc lui-même, une fois, AVEC les journaux — la mesure n'est pas affectée (on n'y
+# arrive que sur échec).
+boot_diagnostic() {
+  echo "   ↳ boot rejoué AVEC les journaux (le banc les coupe pour mesurer) :"
+  # shellcheck disable=SC2086
+  env $EXTRA_ENV NODE_ENV=production NF_BENCH_ROUTE=1 \
+    node "$ROOT/src/nodefony/bin/nodefony" production > /tmp/nf-bench-diag.log 2>&1 &
+  local dpid=$!
+  local i=0
+  while [ $i -lt 30 ]; do
+    kill -0 "$dpid" 2>/dev/null || break
+    i=$((i + 1))
+    node -e "setTimeout(()=>process.exit(0),400)" 2>/dev/null
+  done
+  kill -INT "$dpid" 2>/dev/null || true
+  if [ -s /tmp/nf-bench-diag.log ]; then
+    grep -aiE "critic|error|erreur|refus|EADDRINUSE|✖|⛔" /tmp/nf-bench-diag.log | head -8 \
+      || head -8 /tmp/nf-bench-diag.log
+  else
+    echo "   (rien non plus avec les journaux — voir /tmp/nf-bench-diag.log)"
+  fi
+  echo "   ↳ vérifier aussi : nodefony status  (un superviseur dev résiduel refuse la production)"
+}
+
 # 3. attendre le boot (poll port 5151)
-node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.connect(5151,'127.0.0.1');s.on('error',()=>{s.destroy();if(Date.now()-t0>35000){console.log('BOOT TIMEOUT — voir /tmp/nf-bench.log');process.exit(1)}setTimeout(p,400)});s.on('connect',()=>{s.destroy();process.exit(0)})})();" || { echo "$LABEL: BOOT FAIL"; rm -f "/tmp/nf-bench-$LABEL.med" "/tmp/nf-bench-$LABEL.json"; exit 1; }
+node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.connect(5151,'127.0.0.1');s.on('error',()=>{s.destroy();if(Date.now()-t0>35000){console.log('BOOT TIMEOUT — voir /tmp/nf-bench.log');process.exit(1)}setTimeout(p,400)});s.on('connect',()=>{s.destroy();process.exit(0)})})();" || { boot_diagnostic; echo "$LABEL: BOOT FAIL"; rm -f "/tmp/nf-bench-$LABEL.med" "/tmp/nf-bench-$LABEL.json"; exit 1; }
 
 # 4. VÉRIFICATION DE LA CIBLE (avant toute mesure)
 # 🚨 wrk compte les 404/500 dans son `Requests/sec`. Or une erreur répond PLUS VITE
