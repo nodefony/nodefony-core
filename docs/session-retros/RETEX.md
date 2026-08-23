@@ -20,6 +20,35 @@
 
 ---
 
+## 🧪 Un test qui ne parle jamais au serveur — et celui qui passe débranché
+
+- [1× — 08-23d] **`savepoint()` est un NO-OP chez Mongoose** (MongoDB n'a pas de
+  savepoints). Un banc de coupure copié de drizzle l'utilisait pour « sonder » le
+  serveur : il ne lui parlait JAMAIS et serait passé au vert sur une base éteinte. Avant
+  d'utiliser une méthode de contrat comme SONDE, vérifier qu'elle fait une E/S sur CE
+  dialecte.
+- [1× — 08-23d] **Un test de bascule de primaire passait même en débranchant
+  l'idempotence** qu'il prétendait éprouver : Mongoose dédoublonne en amont (son
+  `readyState` n'émet que sur changement). Le débranchement est le SEUL révélateur ; sans
+  lui, on publie un test complaisant en croyant avoir prouvé.
+
+## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
+
+- [1× — 08-23d] Détection de coupure câblée sur les événements de pool : ils ne voient
+  que le client **INACTIF** (`pg-pool` retire son auditeur pendant l'usage). J'ai livré
+  en annonçant le problème résolu ; c'est le user qui a douté, et il avait raison.
+  **Avant d'annoncer une couverture, énumérer les cas et dire lesquels ne sont PAS
+  couverts** — ici : coupure sous trafic, base gelée.
+- [1× — 08-23d] Corollaire : **une sonde doit avoir sa propre montre**. Le premier
+  battement de cœur était inopérant contre une base gelée — `ping()` PEND, et la sonde
+  pendait avec la panne qu'elle devait observer.
+
+## 🐚 `; echo "EXIT=$?"` masque le code de sortie qu'on croit mesurer
+
+- [1× — 08-23d] Le shell sort avec le code de la DERNIÈRE commande — donc `echo`, donc 0. J'ai affirmé sur cette base qu'un harnais « rendait 0 malgré des rouges », et l'ai
+  répété dans deux messages de commit. Mesurer un code de sortie = `cmd; code=$?` PUIS
+  l'utiliser, jamais l'afficher en dernière position d'une chaîne dont on lit le résultat.
+
 ## 🌍 Une portée GLOBALE n'est pas « un peu intrusive » — elle est FAUSSE
 
 - **Le défaut était documenté au lieu d'être corrigé.** `ai:mcp` écrivait la porte MCP dans le
