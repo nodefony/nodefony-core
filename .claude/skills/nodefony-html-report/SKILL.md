@@ -67,6 +67,7 @@ comportement + style).
 | Bloc | Fonction |
 | --- | --- |
 | Document complet (CSS, thème, impression, tri) | `doc({ title, subtitle, sections, footer })` |
+| Page de SITE (colonnes, en-tête cliquable, `<head>`) | `doc({ nav, aside, head, brand: { href } })` |
 | Section (contrôle du saut de page) | `section(titre, corps, { break: "avoid\|before\|auto" })` |
 | Chiffres-clés | `cards([{ k, v, unit, sub }])` |
 | Tableau (triable au clic, en-tête répété à l'impression) | `table(cols, rows, { sortable, id })` |
@@ -107,8 +108,15 @@ Vérifiées au source ; en cas de doute, le source fait foi.
 - `calculator({ id, inputs: [{ id, label, value, min?, step?, type?: "checkbox" }], constants, compute })`
   — ⚠️ `compute` est une **STRING** de JS injectée telle quelle : `(v, K) => ({ html, alerts?: string[] })`
   (`v` = valeurs des champs par id, `K` = `constants`).
-- `doc({ title, subtitle?, sections, footer?, data?, brand? })` — `data` = objet embarqué en JSON
-  dans la page (c'est lui qui rend le rapport rejouable/ré-ingérable).
+- `doc({ title, subtitle?, sections, footer?, data?, brand?, nav?, aside?, head?, style? })` —
+  `data` = objet embarqué en JSON dans la page (c'est lui qui rend le rapport rejouable).
+  Les quatre derniers ne servent qu'à une page de SITE et sont inertes sans eux (un rapport rend
+  exactement le même markup qu'avant leur existence, vérifié sur les pages déjà publiées) :
+  `nav`/`aside` basculent la page en grille pleine largeur — navigation à gauche, sommaire à droite,
+  en-tête et pied COLLANTS sur fond opaque ; `head` ajoute des balises au `<head>` (description,
+  icône, canonique — sans elles un moteur de recherche invente son extrait et chaque visiteur
+  récolte un 404 d'icône) ; `brand.href` rend la marque en tête cliquable, le premier geste d'un
+  lecteur qui veut revenir à l'accueil.
 - `COLORS` : `accent/blue · vermillion/red · green · pink/magenta/purple · amber · skyblue ·
 yellow · grey` — **pas de `muted`** (une clé absente rend `undefined` → barre invisible, sans
   erreur). `series(i)` = palette cyclique sûre.
@@ -330,10 +338,31 @@ vitrine et de test de non-régression visuel :
 node .claude/skills/nodefony-html-report/scripts/demo.mjs tmp/demo.html && open tmp/demo.html
 ```
 
+### Ce skill sert aussi un SITE, pas seulement des rapports
+
+`scripts/build-docs-site.mjs` (dans le dépôt) rend toute la documentation Nodefony avec `doc()`,
+`lib/schemas.mjs` pour les diagrammes, et publie sur GitHub Pages. Deux conséquences quand on touche
+à `lib/` :
+
+- **une régression de `doc()` casse la documentation publiée**, pas seulement un rapport. Les deux
+  selftests (`echarts.selftest.mjs`, `formats.selftest.mjs`) ne couvrent pas le chrome : rejouer
+  aussi `node scripts/build-docs-site.mjs --out tmp/site --mount /docs` puis
+  `node scripts/check-site-links.mjs tmp/site` ;
+- **un rapport n'a pas de voisines, une page de site en a.** C'est toute la différence entre les
+  deux usages : le premier se lit seul, dans le fichier qu'on a reçu ; la seconde doit toujours
+  offrir un chemin de retour. Le pied d'une page publiée qui ne ramène nulle part est un
+  cul-de-sac — trois pages du site l'ont été avant qu'on s'en aperçoive.
+
+Le rendu du Markdown, lui, n'appartient pas à ce skill : il vit dans le générateur, avec les règles
+d'écriture (→ `nodefony-documentation`).
+
 Consommateurs réels :
 
 - `.claude/skills/nodefony-load-test/scripts/capacity.mjs` — banc de capacité, rapport de
   dimensionnement avec calculateur ;
 - `.claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs` et
-  `perf-dossier-report.mjs` — **les deux pages publiées** sur GitHub Pages, rendues par le moteur
-  ECharts et bâties par `scripts/build-perf-site.mjs` depuis `docs/performance/data/<version>.json`.
+  `perf-dossier-report.mjs` — les deux pages de mesures publiées sous `/performance/`, rendues par
+  le moteur ECharts et bâties par `scripts/build-perf-site.mjs` depuis
+  `docs/performance/data/<version>.json` ;
+- `scripts/build-docs-site.mjs` — le site de documentation (84 pages, 114 diagrammes), qui utilise
+  `doc()` avec ses slots de site et `lib/schemas.mjs` pour les schémas.

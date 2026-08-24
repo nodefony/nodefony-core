@@ -1,33 +1,23 @@
 ---
 name: nodefony-documentation
 metadata:
-  version: 2.4.0
-description: >
-  Kit de dev de la DOCUMENTATION Nodefony, deux faces. (1) Le PORTAIL doc Studio et le futur module
-  `@nodefony/documentation` : briques React (DocLayout, DocToc, MarkdownDoc, FlowGraph, SymbolGraph),
-  mise en page docs-site, data plane avec allowlist anti-traversée. (2) Le SYSTÈME D'ÉCRITURE de la
-  doc de référence : standard de rédaction (Diátaxis, ancres symboliques, Démarrage rapide
-  compilable, navigation par hubs) et ses gates `scripts/` — doc-lint, anchor-check, code-check,
-  gen-counters, build-preview. Ni les écrans Studio génériques (→ nodefony-studio-dev), ni la
-  création back (→ nodefony-create-module).
-  Déclencheurs : "portail doc", "DocLayout", "@nodefony/documentation", "MarkdownDoc", "DocToc",
-  "page de documentation Studio", "écrire la doc dans Studio", "écrire une page de doc",
-  "doc de référence", "standard de rédaction", "doc-lint", "anchor-check", "corpus doc",
-  "reprendre la doc", "avant de rédiger une doc", "la doc dit-elle encore vrai ?",
-  "corriger un écart doc↔code".
+  version: 3.0.0
+description: Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC — générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL doc de la console d'administration et le module `@nodefony/documentation` : briques React (DocLayout, DocToc, MarkdownDoc, FlowGraph, SymbolGraph), data plane avec allowlist anti-traversée. (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction (Diátaxis, ancres symboliques, Démarrage rapide compilable, navigation par hubs) et ses gates `scripts/` — doc-lint, anchor-check, code-check, gen-counters, build-preview. Ni les écrans Studio génériques (→ nodefony-studio-dev), ni la création back (→ nodefony-create-module). Déclencheurs : "publier la doc", "site de documentation", "GitHub Pages", "cette page doit-elle être publique ?", "retirer une page du site", "publish", "portail doc", "DocLayout", "@nodefony/documentation", "MarkdownDoc", "DocToc", "page de documentation Studio", "écrire une page de doc", "doc de référence", "standard de rédaction", "doc-lint", "anchor-check", "corpus doc", "reprendre la doc", "avant de rédiger une doc", "la doc dit-elle encore vrai ?", "corriger un écart doc↔code".
 ---
 
-# nodefony-documentation — kit doc (portail Studio + module futur)
+# nodefony-documentation — kit doc (site public · portail · écriture)
 
 > **Maintenance** : vérité courante, jamais un journal. Éditer en place ; l'historique vit dans
 > `git log`, la version dans `metadata.version`. Une leçon durable devient une règle d'une section,
 > pas une entrée datée.
 
-La documentation Nodefony est un **sous-système transverse** : un portail web dans Studio aujourd'hui
-(POC committé `eb078ce`), un **module dédié `@nodefony/documentation` demain**. Elle touche le front
-(React/Mantine), le back (un data plane qui lit les `.md` co-localisés) ET l'écriture (frontmatter,
-vulgarisation). C'est pourquoi elle a son propre kit : la noyer dans `nodefony-studio-dev`
-(front-only, déjà ~88 KB) ou `nodefony-framework-dev` (back-only) la découperait artificiellement.
+La documentation Nodefony est un **sous-système transverse** : une source Markdown unique, un module
+qui l'indexe (`@nodefony/documentation`, headless), un portail dans la console d'administration, et
+un **site public** régénéré à chaque release. Elle touche donc le front (React/Mantine), le back (un
+data plane qui lit les `.md` co-localisés), la publication (générateur, flux, gates) ET l'écriture
+(frontmatter, vulgarisation). C'est pourquoi elle a son propre kit : la noyer dans
+`nodefony-studio-dev` (front-only) ou `nodefony-framework-dev` (back-only) la découperait
+artificiellement.
 
 **Quand ce skill, quand un autre :**
 
@@ -41,21 +31,38 @@ vulgarisation). C'est pourquoi elle a son propre kit : la noyer dans `nodefony-s
 
 ---
 
-## État actuel (vérité terrain)
+## Les trois consommateurs de la doc
 
-- **POC committé `eb078ce`** (branche `claude-ts`), **jetable mais gardé** : `DocumentationController`
-  (studio) + page front `Documentation.tsx` + nav « Documentation ». Tout est en dur côté contenu
-  (1 page réelle : `socket`) — c'est une **démo d'architecture**, pas le module final.
-- **Briques réutilisables** (elles, elles survivent au vrai module) : voir § Briques front.
-- **Module final `@nodefony/documentation`** : pas encore créé. Design figé ci-dessous.
+Une même source Markdown, aux vrais chemins (`docs/` et `<module>/docs/`, ADR-0001), sert trois
+lecteurs. Savoir lequel est concerné évite de chercher au mauvais endroit.
 
-> ⚠️ **Piège dist déjà rencontré (2026-05-25)** : ajouter un controller à `@controllers([…])` dans
-> `studio/index.ts` change l'index public → turbo peut servir un `index.js` caché SANS la registration
-> (le `.js` du controller est émis, mais l'`index.js` ne l'importe pas → **404 sur des routes pourtant
-> définies**). Fix : rebuild DIRECT du package (`rm -rf dist && npm run build` dans le module), puis
-> restart serveur. Règle générale : changement d'`index.ts` public d'un module → `npm run clean && npm run build`.
+| Consommateur | Ce qu'il fait | Où il vit |
+| --- | --- | --- |
+| **Le module** `@nodefony/documentation` | Data plane HEADLESS : indexe, résout les `{{ }}`, expose `/nodefony/documentation/api/{tree,page/:slug}` | `src/packages/@nodefony/documentation/` |
+| **Le portail Studio** | Rend l'index et les pages dans la console d'administration | `@nodefony/studio/frontend` (briques ci-dessous) |
+| **Le site publié** | Rend le corpus en HTML autonome sur GitHub Pages | `scripts/build-docs-site.mjs` |
 
----
+Le site est un TROISIÈME consommateur, jamais une transformation de la source : rien ne réécrit
+`docs/`. Il **réutilise** les briques pures du module (`scanDocsDir`, `pathToSlug`,
+`rewriteInternalLinks`, `parseFrontmatter`) — les recopier ferait diverger le portail et le site
+sur la résolution des liens, exactement le défaut que ces briques existent pour empêcher.
+
+### Le site publié — ce qu'il faut savoir avant d'y toucher
+
+- **Trois objets, trois publics** : la racine est la page de présentation (tirée du README par
+  `scripts/readme-html.mjs`), `/docs/` la documentation, `/performance/` les mesures. Un seul flux
+  les publie (`.github/workflows/pages.yml`) — GitHub Pages ne connaît qu'UN artefact et chaque
+  déploiement REMPLACE le site entier, donc deux flux s'effaceraient l'un l'autre.
+- **Qui est public** se décide par dossier, par statut, puis par la clé `publish` de la page :
+  standard §2, rubrique `publish`. Le générateur affiche ce qu'il écarte, avec le motif.
+- **Les liens sont RELATIFS**, sans exception : le site est servi sous `/nodefony-core/`, où un
+  `/adr/` désignerait la racine du domaine. `scripts/check-site-links.mjs` refuse un lien interne
+  absolu ou sans cible — il tourne dans le flux, et se lance en local sur un dossier rendu.
+- **Le chrome vient du moteur** `nodefony-html-report` (`doc()` : thèmes, impression, marque, et les
+  slots `nav`/`aside`/`head`) ; les diagrammes de son `lib/schemas.mjs`, qui les rend SANS
+  navigateur — la publication tourne sur une machine sans Chromium.
+- **Aucun HTML n'est versionné** : le rendu ne vit que dans l'artefact publié (`dist-site/` est
+  ignoré par git). La source est le Markdown.
 
 ## Briques front — API exacte
 
@@ -235,29 +242,19 @@ Réf : [[feedback_security_rfc_rigor]].
 
 ---
 
-## Module futur `@nodefony/documentation` — design figé
+## Le module `@nodefony/documentation` — ce qu'il porte
 
-À créer via `nodefony-create-module` (package `@nodefony/*`), puis remplir avec ce kit. POURQUOI un
-module dédié et pas juste un controller Studio : il porte de l'**état** (index, cache, registre de
-providers, versions) — donc 0 hot path request, mais un cycle de vie propre.
+Créé et en service. Sa vérité courante — composants, config, comportements, pièges — vit dans son
+`MEMORY.md` et son `CLAUDE.md`, jamais recopiée ici : ce fichier vieillirait en silence pendant que
+le module évolue. Ce qui compte pour qui écrit de la doc ou touche au site :
 
-- **Index transverse** : scanne les `<module>/docs/*.md` co-localisés (ADR-0001), parse le frontmatter
-  (`audience`/`section`/`version`/`status`), construit l'arbre. Cache invalidé au changement de version.
-- **Registre de providers `{{ }}`** : résout les variables à la LECTURE, côté serveur, depuis des
-  sources SÛRES — `symbols.json` (graphe TS), `package.json` (versions), git (tags/commits). Un
-  provider = `(ctx) => string`, enregistrable par module.
-- **Versioning = tags git** : la doc « live » concerne la version installée ; les versions passées se
-  lisent par tag. Pas de table de versions maison.
-- **Diagrammes** : stack DÉJÀ bundlée (React Flow + dagre + mermaid). Le module n'ajoute AUCUNE lib.
-- **RBAC** : filtrage par `audience` (persona developer/devops/supervisor/admin) une fois P6 livré.
-  Aujourd'hui le `RoleSwitch` front existe mais ne filtre pas encore (manque le frontmatter `audience`
-  branché côté back).
-- **Perf** : tout est lazy (index construit au 1er accès, pas au boot), cache mémoire, 0 alloc par
-  request hors lecture. Suivre la RÈGLE perf-mémoire du CLAUDE.md (lazy alloc, pas de structure « au cas où »).
-
-Réf complète (étude de faisabilité) : [[project_doc_portal_faisabilite]].
-
----
+- **Il est HEADLESS** : il rend des données, aucun HTML. Le portail et le site rendent, lui indexe.
+- **Ses briques pures sont exportées** (`scanDocsDir`, `pathToSlug`, `isSafeSlug`,
+  `parseFrontmatter`, `rewriteInternalLinks`) — c'est par là qu'un générateur doit passer.
+- **Le slug est une clé d'allowlist**, jamais un chemin : `getPage` lit le chemin RÉEL issu du scan.
+  Toute nouvelle façon de lire une page doit garder cette propriété (anti-traversée par construction).
+- **`rewriteInternalLinks` porte un `suffix`** : `.md` pour le portail, `""` pour le site, qui publie
+  de vraies URL. Une seule résolution relative pour les deux.
 
 ## Écriture de la doc (contenu) — LE SYSTÈME COMPLET
 
@@ -300,7 +297,7 @@ Réf complète (étude de faisabilité) : [[project_doc_portal_faisabilite]].
 | `scripts/anchor-inpage.mjs <page.md>` | **Ancres INTERNES** : chaque `](#section)` mène-t-il à un titre de la page ? (sommaires morts) |
 | `scripts/code-check.mjs <page.md>` | **Compilabilité** : extrait les blocs du « Démarrage rapide » et les compile en TS strict |
 | `scripts/gen-counters.mjs [topic]` | Compteurs de tests **comptés réellement** depuis `scripts/test-map.json` (JAMAIS de photo figée) |
-| `scripts/build-preview.mjs <md> <html>` | Aperçu HTML autonome fidèle Studio (version/branche/commit pris de git ; Mermaid si mmdc) |
+| `scripts/build-preview.mjs <page.md>` | Aperçu d'UNE page — délègue à `build-docs-site.mjs --only`, donc l'aperçu EST le rendu publié. Il portait un second moteur : l'aperçu ne montrait pas ce qui serait publié, et il dépendait d'un paquet absent du dépôt |
 
 > 🔁 **Un diff de code décale les ancres de la doc qui le cite — recaler à la MAIN coûte cher et se
 > trompe.** Enchaîner les deux scripts, en simulation puis pour de bon :

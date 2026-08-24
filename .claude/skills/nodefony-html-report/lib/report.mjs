@@ -552,13 +552,46 @@ for (const t of document.querySelectorAll("table.sortable")) {
 }`;
 
 /** Bascule de thème (le système décide par défaut ; l'utilisateur peut forcer). */
+/**
+ * Bascule de thème, MÉMORISÉE.
+ *
+ * Sans mémoire, le choix ne survit pas au lien suivant : sur un rapport d'une
+ * seule page cela ne se voyait pas, sur un site de cent pages c'est un réglage
+ * qu'il faut refaire à chaque clic. Le choix est donc rangé dans le stockage
+ * local — propre au navigateur du lecteur, jamais transmis — et réappliqué au
+ * chargement, AVANT le premier rendu pour éviter que la page n'apparaisse dans
+ * l'autre thème le temps d'un battement.
+ *
+ * Tous les accès sont protégés : un navigateur en navigation privée, ou réglé
+ * pour refuser le stockage, lève à la LECTURE comme à l'ÉCRITURE. La page doit
+ * alors fonctionner exactement comme avant — préférence du système, bascule
+ * opérante, simplement non retenue.
+ */
 const THEME_JS = `
-const tgl = document.getElementById("theme-toggle");
-if (tgl) tgl.addEventListener("click", () => {
-  const cur = document.documentElement.dataset.theme
-    || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-  document.documentElement.dataset.theme = cur === "dark" ? "light" : "dark";
-});`;
+(function(){
+  var K="nf-theme", root=document.documentElement;
+  function lire(){ try { return localStorage.getItem(K); } catch (e) { return null; } }
+  function ecrire(v){ try { localStorage.setItem(K, v); } catch (e) {} }
+  var choisi = lire();
+  if (choisi === "dark" || choisi === "light") root.dataset.theme = choisi;
+  var tgl = document.getElementById("theme-toggle");
+  if (!tgl) return;
+  function etiquette(){
+    var t = root.dataset.theme
+      || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    tgl.setAttribute("aria-label", t === "dark" ? "Passer au thème clair" : "Passer au thème sombre");
+    tgl.setAttribute("title", tgl.getAttribute("aria-label"));
+  }
+  etiquette();
+  tgl.addEventListener("click", function(){
+    var cur = root.dataset.theme
+      || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    var suivant = cur === "dark" ? "light" : "dark";
+    root.dataset.theme = suivant;
+    ecrire(suivant);
+    etiquette();
+  });
+})();`;
 
 /**
  * Préparation à l'impression — CE QUE LE CSS SEUL NE PEUT PAS FAIRE.
@@ -897,6 +930,11 @@ ${head}
 ${style ? `<style>${style}</style>` : ""}
 </head>
 <body>
+<script>
+// Avant le premier pixel : sans cette ligne, une page choisie en sombre
+// apparaît en clair le temps que le script de fin de page s'exécute.
+try{var t=localStorage.getItem("nf-theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t;}catch(e){}
+</script>
 <div class="wrap${nav || aside ? " has-nav" : ""}">
   <header class="rep-head">
     ${

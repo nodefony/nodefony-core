@@ -158,7 +158,12 @@ const guides =
   ).length;
 const adr = countFiles(join(ROOT, "docs", "adr"), /\.md$/);
 
-const OK = COLORS.green;
+// PAS `COLORS.green` : la palette du moteur est faite pour REMPLIR des formes
+// (barres, secteurs), où un aplat de 3,4:1 se voit très bien. En TEXTE, la même
+// teinte passe sous le seuil de lisibilité — mesuré à 3,42:1 sur cinq nombres de
+// cette page par axe-core. Une couleur de série et une couleur de texte ne se
+// choisissent pas de la même façon.
+const OK = "#0a7a52";
 const MID = COLORS.amber;
 const KO = COLORS.red;
 const B = (t, c) => `<span style="color:${c};font-weight:650">${t}</span>`;
@@ -716,10 +721,39 @@ qu'un montage.</p>`,
 
 const html = doc({
   title: "Nodefony — matrice de présentation",
+  // L'icône est écrite à la racine du site par le générateur de documentation,
+  // qui tourne juste après : à la fin du flux, le fichier est là. La description
+  // est ce qu'un moteur de recherche affichera de la page d'accueil du projet —
+  // sans elle, il en invente une, et sans l'icône chaque visiteur récolte un 404.
+  head:
+    `<meta name="description" content="Nodefony — framework Node.js fullstack en TypeScript : ` +
+    `un serveur HTTP/HTTP2 et un serveur WebSocket qui partagent le même contexte de contrôleur, ` +
+    `une injection de dépendances, un noyau de modules et une couche de sécurité complète.">\n` +
+    `<link rel="icon" href="./favicon.png">`,
+  // Cette page est la porte d'entrée du site publié, pas un rapport qu'on
+  // imprime : elle occupe toute la largeur, comme la documentation à côté. La
+  // colonne centrée du moteur convient à un document qu'on lit d'un trait, pas
+  // à un tableau de bord de présentation.
+  style: `
+.wrap { max-width:none; padding:26px 34px 80px; }
+@media (max-width:820px) { .wrap { padding:20px 18px 60px; } }`,
   subtitle:
     "Dix minutes pour comprendre ce que le framework est, ce qu'il couvre, ce qu'il coûte et ce qui lui manque.",
   sections: [
     `<div class="noprint" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">${deckControls()}${printButton()}</div>`,
+    intro,
+    cheminement,
+    pari,
+    isomorphisme,
+    agentReady,
+    matrice,
+    securite,
+    studio,
+    perf,
+    garanties,
+    preuves,
+    manques,
+    direction,
     // Cette page est la PORTE D'ENTRÉE du site publié : sans ces deux liens, un
     // lecteur y arrive et n'a nulle part où aller. Les cibles sont relatives —
     // le site vit dans un sous-chemin (`/nodefony-core/`) — et restent justes
@@ -745,19 +779,6 @@ const html = doc({
         },
       ]),
     ),
-    intro,
-    cheminement,
-    pari,
-    isomorphisme,
-    agentReady,
-    matrice,
-    securite,
-    studio,
-    perf,
-    garanties,
-    preuves,
-    manques,
-    direction,
   ],
   footer: `Généré par <code>node scripts/readme-html.mjs</code> — ${new Date().toISOString().slice(0, 10)} · dépôt <code>nodefony-core</code> ${pkgRoot.version ?? ""} · les mesures de dimensionnement proviennent des rapports de capacité du dépôt.`,
 });

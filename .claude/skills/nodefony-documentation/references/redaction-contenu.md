@@ -28,9 +28,40 @@ conservées mais ignorées (utiles au RAG).
   `devops` | `supervisor` | `admin`. Toute autre valeur (`human`, `ai`, `architect`, `dev`) est
   **filtrée** (⇒ « toutes »). Ne PAS écrire `[human, ai]`.
 - `status` = enum `DocStatus` : `stable` | `draft` | `temporary` | `experimental` | `deprecated`.
+  Il décide AUSSI de la publication sur le site public (cf `publish` ci-dessous).
 - La date lue est **`updated`** — **jamais `last-updated`** (sinon date non affichée, fallback git).
 - `section` frontmatter est parsé mais **non utilisé** pour le regroupement : les sections de l'index
   sont bâties depuis le **dossier parent** du fichier (`docScanner.ts` `group`).
+
+### 🌍 `publish` — cette page part-elle sur le SITE PUBLIC ?
+
+Le site publié (`scripts/build-docs-site.mjs` → GitHub Pages) ne rend pas tout le corpus : un dépôt
+ouvert contient des pages qui n'ont aucun lecteur au-dehors. Le tri se fait à trois niveaux, du plus
+général au plus précis — **et le dernier gagne toujours** :
+
+1. **le DOSSIER** — `docs/architecture`, `docs/guides`, `docs/tutoriels` et tous les
+   `<module>/docs/` sont publics. Le journal de sessions, les archives, les décisions
+   d'architecture, l'outillage d'agent, le plan de version et le tableau de bord de migration ne le
+   sont pas. Une page NEUVE dans un dossier public est publiée d'office : la liste ne se périme pas ;
+2. **le STATUT** — seuls `stable` et `accepted` sont publiables. `draft`, `vision`, `superseded`,
+   `experimental`, `deprecated` restent dedans : un texte de travail ENGAGE dès qu'il est en ligne,
+   et un lecteur ne distingue pas un brouillon d'une promesse. Une page **sans** `status` reste
+   publiée — retirer un guide utile pour un frontmatter incomplet serait une punition, pas une
+   règle — mais elle est signalée au rendu ;
+3. **la PAGE elle-même**, par cette clé :
+
+   ```yaml
+   publish: false # retire du site une page qui y serait allée
+   publish: true # publie une page que son dossier ou son statut excluait
+   ```
+
+Le générateur AFFICHE ce qu'il écarte et pourquoi, page par page — publier à l'aveugle est le seul
+vrai risque de cet outil. Vérifier avant de pousser :
+
+```bash
+node scripts/build-docs-site.mjs --out tmp/site --mount /docs   # la liste des écartés, par motif
+node scripts/build-docs-site.mjs --out tmp/apercu --only <chemin/page.md>   # une seule page
+```
 
 ### Gabarit unique (à copier)
 
@@ -43,6 +74,7 @@ topic: pipeline-http # slug de sujet stable (RAG)
 section: "Cœur runtime" # informatif
 audience: [developer] # developer|devops|supervisor|admin (vide = toutes)
 tags: [http, context] # extra RAG
+# publish: false        # (optionnel) retire cette page du site public
 version: "doc" # docs module : version du package
 status: stable
 updated: AAAA-MM-JJ # ⚠️ `updated`, PAS last-updated

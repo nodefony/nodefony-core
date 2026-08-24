@@ -31,6 +31,15 @@ import {
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { NODEFONY_BRAND } from "../.claude/skills/nodefony-html-report/lib/brand.mjs";
+import {
+  doc,
+  section,
+  cards,
+  table,
+  note,
+  esc,
+} from "../.claude/skills/nodefony-html-report/lib/report.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const arg = (n, d) => {
@@ -141,62 +150,76 @@ copyFileSync(
   path.join(OUT, "latest", "index.html"),
 );
 
-const esc = (s) =>
-  String(s).replace(
-    /[&<>]/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c],
+const rows = rendered.map((r) => [
+  `<a href="./${esc(r.version)}/">Nodefony ${esc(r.version)}</a>${
+    r.version === latest.version
+      ? ' <span class="badge-latest">version courante</span>'
+      : ""
+  }`,
+  esc(r.measuredAt),
+]);
+
+const sections = [
+  section(
+    "Une page par version publiée",
+    `<p class="lead">Ce qui a été mesuré, sur quelle machine, avec quel protocole — et ce que ces
+chiffres ne permettent PAS de conclure.</p>` +
+      table([{ label: "Version" }, { label: "Mesuré le" }], rows, {
+        sortable: true,
+        id: "versions",
+      }),
+  ),
+];
+
+if (dossier)
+  sections.push(
+    section(
+      "Le dossier du chantier",
+      `<p><a href="./dossier/"><strong>Où part le temps, et comment on l'a su</strong></a> — le
+profilage, les lots gardés, <strong>celui qui a été annulé par son propre A/B</strong>, les
+instruments qui ont menti avant qu'on s'en aperçoive, et ce qu'un chemin virtualisé interdit de
+conclure.</p>` +
+        note(
+          `Ce dossier couvre le chantier jusqu'au 2026-08-07 ; chaque chiffre y porte l'état du code
+auquel il correspond. Les mesures d'une version publiée, elles, sont dans le tableau ci-dessus.`,
+        ),
+    ),
   );
-const rows = rendered
-  .map(
-    (r) =>
-      `<li><a href="./${esc(r.version)}/">Nodefony ${esc(r.version)}</a> <span class="d">mesuré le ${esc(r.measuredAt)}</span>${r.version === latest.version ? " <em>— version courante</em>" : ""}</li>`,
-  )
-  .join("\n");
-const missing = skipped.length
-  ? `<h2>Non publiées</h2><ul>${skipped
-      .map((s) => `<li><strong>${esc(s.version)}</strong> — ${esc(s.why)}</li>`)
-      .join("")}</ul>`
-  : "";
+
+if (skipped.length)
+  sections.push(
+    section(
+      "Non publiées",
+      `<p>Un jeu de mesures incomplet ne fait pas tomber le site — il est nommé ici. Ce qui serait
+grave, ce serait de le taire.</p><ul>${skipped
+        .map(
+          (x) => `<li><strong>${esc(x.version)}</strong> — ${esc(x.why)}</li>`,
+        )
+        .join("")}</ul>`,
+    ),
+  );
 
 writeFileSync(
   path.join(OUT, "index.html"),
-  `<!doctype html><html lang="fr"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Nodefony — performance par version</title>
-<style>
-:root{color-scheme:light dark}
-body{font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;max-width:46rem;margin:3rem auto;padding:0 1.25rem}
-h1{font-size:1.6rem;margin-bottom:.25rem} h2{font-size:1.1rem;margin-top:2rem}
-p.lead{color:#666;margin-top:0} ul{padding-left:1.1rem} li{margin:.4rem 0}
-a{color:#0b63ce} .d{color:#777;font-size:.9em} em{color:#0a7d33;font-style:normal}
-footer{margin-top:3rem;color:#777;font-size:.9em;border-top:1px solid #8883;padding-top:1rem}
-p.back{margin:0 0 1.5rem;font-size:.9em}
-</style></head><body>
-<p class="back"><a href="../">← Documentation Nodefony</a></p>
-<h1>Nodefony — performance</h1>
-<p class="lead">Une page par version publiée : ce qui a été mesuré, sur quelle machine, avec quel
-protocole — et ce que ces chiffres ne permettent pas de conclure.</p>
-<h2>Versions</h2>
-<ul>
-${rows}
-</ul>
-${
-  dossier
-    ? `<h2>Le dossier du chantier</h2>
-<p><a href="./dossier/">Où part le temps, et comment on l'a su</a> — le profilage, les lots
-gardés, <strong>celui qui a été annulé par son propre A/B</strong>, les instruments qui ont menti
-avant qu'on s'en aperçoive, et ce qu'un chemin virtualisé interdit de conclure.
-<span class="d">Couvre le chantier jusqu'au 2026-08-07 ; chaque chiffre y porte l'état du code
-auquel il correspond. Les mesures d'une version publiée, elles, sont ci-dessus.</span></p>`
-    : ""
-}
-${missing}
-<footer>Les chiffres sont mesurés à la main sur une machine nommée, puis versionnés dans le dépôt
-(<code>docs/performance/data/</code>) ; cette page ne fait que les rendre. Le dossier complet —
-méthode, instruments, ce qui a été annulé — vit dans
-<a href="https://github.com/nodefony/nodefony-core/tree/main/docs/performance">docs/performance</a>.</footer>
-</body></html>
-`,
+  doc({
+    title: "Performance de Nodefony",
+    subtitle:
+      "Les chiffres sont mesurés à la main, sur une machine nommée, puis versionnés dans le dépôt — cette page ne fait que les rendre.",
+    // La marque ramène à l'accueil du site, comme partout ailleurs : cette page
+    // est publiée à côté de la documentation, pas toute seule.
+    brand: { ...NODEFONY_BRAND, href: "../" },
+    head: `<link rel="icon" href="../favicon.png">`,
+    style: `
+.wrap { max-width:none; padding:26px 34px 80px; }
+@media (max-width:820px) { .wrap { padding:20px 18px 60px; } }
+.badge-latest { font-size:11.5px; padding:2px 9px; border-radius:20px; margin-left:8px;
+  border:1px solid var(--accent); color:var(--accent); }`,
+    sections,
+    footer:
+      `<a href="../">← Documentation Nodefony</a> — les données brutes sont versionnées dans ` +
+      `<a href="https://github.com/nodefony/nodefony-core/tree/main/docs/performance"><code>docs/performance/</code></a>, ` +
+      `cette page les rend.`,
+  }),
 );
 
 console.log(

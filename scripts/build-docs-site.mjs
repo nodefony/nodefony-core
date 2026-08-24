@@ -85,6 +85,14 @@ const OUT = path.resolve(ROOT, arg("out", "dist-site"));
  * des `../` à la main, et à se tromper d'un cran sans que rien ne le dise.
  */
 const MOUNT = arg("mount", "").replace(/\/+$/, "");
+/**
+ * Chemin d'UNE page à rendre seule (aperçu d'un brouillon), relatif au dépôt.
+ *
+ * C'est le service que rendait un second script, avec son propre moteur de
+ * rendu — donc deux rendus qui divergeaient, et un aperçu qui ne montrait pas
+ * ce qui serait publié. Une option vaut mieux qu'un jumeau.
+ */
+const ONLY = arg("only", "");
 const QUIET = process.argv.includes("--quiet");
 const REPO_URL = "https://github.com/nodefony/nodefony-core";
 const SITE_URL = arg("site-url", "https://nodefony.github.io/nodefony-core");
@@ -116,7 +124,6 @@ const PUBLIC_DIRS = [
   { dir: "architecture", label: "Architecture", icon: "🏛️" },
   { dir: "guides", label: "Guides", icon: "🧭" },
   { dir: "tutoriels", label: "Tutoriels", icon: "🎓" },
-  { dir: "ia", label: "Couche IA", icon: "🤖" },
 ];
 
 /** Pages de la racine de `docs/` publiées, dans l'ordre de la navigation. */
@@ -164,6 +171,13 @@ const PRIVATE = [
   {
     match: (p) => p.startsWith("api/"),
     why: "brouillon d'API souveraine (interne)",
+  },
+  {
+    // La couche IA est une VISION : rien n'est développé. Publier la promesse
+    // d'une capacité inexistante est le plus sûr moyen de perdre la confiance
+    // de qui vient l'essayer.
+    match: (p) => p.startsWith("ia/"),
+    why: "vision non développée (interne)",
   },
 ];
 
@@ -1002,6 +1016,22 @@ function renderPage(d, published, index, publishedPaths) {
 }
 
 const docs = await collect();
+// En mode aperçu, la page demandée est publiée d'office : on relit justement des
+// brouillons, et l'aperçu doit fonctionner AVANT que la page ne soit publiable.
+if (ONLY) {
+  const target = path.posix.normalize(ONLY.replace(/\\/g, "/"));
+  const one = docs.find((d) => d.repoRel === target);
+  if (!one) {
+    console.error(`✗ page introuvable dans le corpus : ${target}`);
+    console.error(
+      "  (chemin relatif au dépôt, ex. docs/guides/configuration.md)",
+    );
+    process.exit(1);
+  }
+  one.verdict = { ok: true, why: "aperçu (--only)" };
+  for (const d of docs)
+    if (d !== one) d.verdict = { ok: false, why: "hors aperçu" };
+}
 const published = docs.filter((d) => d.verdict.ok);
 const rejected = docs.filter((d) => !d.verdict.ok);
 
@@ -1012,7 +1042,7 @@ if (published.length === 0) {
   process.exit(1);
 }
 const home = published.find((p) => p.url === `${MOUNT}/`);
-if (!home) {
+if (!home && !ONLY) {
   console.error(
     "✗ le hub d'accueil (docs/index.md) manque — le site n'aurait pas de porte d'entrée.",
   );
