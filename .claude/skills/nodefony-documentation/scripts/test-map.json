@@ -219,6 +219,27 @@
   "drizzle": {
     "globs": ["src/packages/@nodefony/drizzle/tests/**/*.test.ts"]
   },
+  "environnement": {
+    "unit": [
+      "src/nodefony/src/tests/envReport.test.ts",
+      "src/nodefony/src/tests/loadEnv.test.ts",
+      "src/nodefony/src/tests/defineEnv.test.ts",
+      "src/nodefony/src/tests/envOverride.test.ts"
+    ]
+  },
+  "external-jwt": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/externalJwtAuthenticator.test.ts",
+      "src/packages/@nodefony/security/tests/unit/remoteJwtVerifier.test.ts",
+      "src/packages/@nodefony/security/tests/unit/protectedResourcePublication.test.ts",
+      "src/packages/@nodefony/security/tests/unit/protectedResourceChain.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/protectedResourceRoutes.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/http/external-jwt.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/http/external-jwt-e2e.test.ts"
+    ]
+  },
   "firewall": {
     "unit": [
       "src/packages/@nodefony/security/tests/unit/firewallChain.test.ts",
@@ -619,14 +640,6 @@
     "contract": [
       "src/packages/@nodefony/security/tests/support/webhookPaginationContract.ts",
       "src/packages/@nodefony/drizzle/tests/integration/webhook-store-contract.ts"
-    ]
-  },
-  "environnement": {
-    "unit": [
-      "src/nodefony/src/tests/envReport.test.ts",
-      "src/nodefony/src/tests/loadEnv.test.ts",
-      "src/nodefony/src/tests/defineEnv.test.ts",
-      "src/nodefony/src/tests/envOverride.test.ts"
     ]
   }
 }

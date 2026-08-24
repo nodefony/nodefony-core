@@ -158,6 +158,24 @@ const unite =
   (v) =>
     u ? `${nombre(v, dec)} ${u}` : nombre(v, dec);
 
+/**
+ * Formateur d'axe dont les DÉCIMALES sont décidées par les données.
+ *
+ * « 20,0 tours » et « 1,0 » sur une carte binaire sont des décimales qui
+ * n'apportent rien et que l'œil doit écarter à chaque graduation. À l'inverse,
+ * arrondir une latence de 9,57 ms à « 10 » détruit la mesure. La règle est donc
+ * la donnée : des valeurs entières s'écrivent entières.
+ *
+ * @param {number[]} valeurs - les valeurs portées par l'axe.
+ * @param {string} [u] - unité suffixée.
+ * @returns {(v: number) => string}
+ */
+const formateur = (valeurs, u = "") => {
+  const finies = valeurs.filter((v) => Number.isFinite(v));
+  const entier = finies.length > 0 && finies.every((v) => Number.isInteger(v));
+  return unite(u, !entier);
+};
+
 /* ──────────────────────── 2 bis. L'ÉCHELLE ─────────────────────────────── */
 
 /**
@@ -556,7 +574,7 @@ export function barsEtendue(o) {
             color: s.T.muet,
             fontSize: 11,
             hideOverlap: true,
-            formatter: unite(""),
+            formatter: formateur(data.flatMap((d) => [d.min, d.med, d.max])),
           },
         },
         "x",
@@ -718,7 +736,7 @@ export function lines(o) {
                     color: s.T.muet,
                     fontSize: 11,
                     hideOverlap: true,
-                    formatter: unite("", true),
+                    formatter: formateur(valeursDe(true)),
                   },
                 },
                 "y",
@@ -782,7 +800,7 @@ export function scatter(o) {
             color: s.T.muet,
             fontSize: 11,
             hideOverlap: true,
-            formatter: unite("", true),
+            formatter: formateur(points.map((p) => p.x)),
           },
         },
         "x",
@@ -796,7 +814,7 @@ export function scatter(o) {
             color: s.T.muet,
             fontSize: 11,
             hideOverlap: true,
-            formatter: unite(""),
+            formatter: formateur(points.map((p) => p.y)),
           },
         },
         "y",
@@ -881,10 +899,7 @@ export function boxplot(o) {
           axisLabel: {
             color: s.T.muet,
             fontSize: 11,
-            formatter: unite(
-              "",
-              Math.max(...data.flatMap((d) => d.valeurs)) < 5,
-            ),
+            formatter: formateur(data.flatMap((d) => d.valeurs)),
           },
         },
         "y",
@@ -1016,7 +1031,9 @@ export function gauge(o) {
             color: s.T.muet,
             fontSize: 10,
             distance: -42,
-            formatter: (v) => nombre(v, true),
+            // Les graduations suivent les BORNES : une jauge de 0 à 100 n'a que
+            // faire de « 20,0 ». La valeur centrale, elle, garde ses décimales.
+            formatter: formateur([min, max]),
           },
           axisTick: { show: false },
           splitLine: {
@@ -1200,7 +1217,7 @@ export function heatmap(o) {
             fontSize: 10,
             color: s.T.encre,
             fontFamily: POLICE,
-            formatter: (p) => nombre(p.value[2], true),
+            formatter: (p) => formateur(vals)(p.value[2]),
           },
           itemStyle: { borderColor: s.T.fond, borderWidth: 1 },
         },
@@ -1446,7 +1463,7 @@ export function cascade(o) {
         axisLabel: {
           color: s.T.muet,
           fontSize: 11,
-          formatter: unite("", true),
+          formatter: formateur(postes.map((x) => x.delta)),
         },
       }),
       series: [
