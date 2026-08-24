@@ -204,6 +204,20 @@
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
 
+- **Un gate qui SCANNE le dépôt s'auto-satisfait s'il se scanne lui-même.** Le contrôle « le
+  registre ne réserve QUE des variables que le runtime lit vraiment » balayait tous les sources —
+  y compris `reservedEnv.ts`, où chaque entrée est ÉCRITE. Toute entrée inventée s'y trouvait
+  donc « lue », et le gate était vert par construction. Vu uniquement parce que j'avais débranché
+  le registre pour éprouver l'autre sens : le premier test a mordu, le second est resté vert sur
+  une entrée `NF_ZZZ_MORTE` qui n'existait nulle part. **Tout scanner de sources doit s'exclure de
+  son propre périmètre**, et la seule façon de s'en apercevoir est de le voir rouge sur un cas
+  fabriqué. [1× — 08-24d]
+- **Trois passes payées pour mesurer notre PROPRE générateur.** Une sonde du banc devkit recalait
+  l'agent sur une ligne écrite par le gabarit — un commentaire — parce que la garde
+  anti-commentaire tombait sur le `+` du diff. Le pire n'est pas ce rouge : c'est que la même
+  faute, sur une sonde INVERSÉE, aurait produit un VERT. Ne plus matcher, pour un interdit, c'est
+  ne plus rien garder. [1× — 08-24d]
+
 - **Un décor peut EXPIRER au milieu d'un run.** Le jeton de la porte MCP était émis pour 120 minutes
   — durée calibrée sur « la tâche la plus longue » — alors qu'une passe en dure 110 et qu'un run en
   compte trois. Les passes 2 et 3 auraient mesuré une porte fermée pendant que le décor enregistré
@@ -350,6 +364,15 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   se vérifie à l'`od -c`, pas à l'œil.
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
+
+- **🔴 Une commande composée REFUSÉE par un hook n'exécute AUCUNE de ses parties — deux fois en une
+  session, et deux fois j'ai conclu sur un état que je croyais acquis.** (a) `python … <<PY` qui
+  écrit un test, suivi d'un `cd relatif && vitest` : le refus portait sur le `cd`, et le test n'a
+  jamais été écrit — j'ai lu « 9 passed » comme une preuve alors que c'étaient les 9 tests
+  d'origine. (b) `cp fichier sauvegarde` suivi d'un `git checkout` : le refus portait sur le
+  checkout, la sauvegarde n'existait pas, et le patch a été perdu. **Ne jamais mettre dans la même
+  commande une écriture qu'on veut garder et un geste susceptible d'être refusé** ; et après tout
+  refus, RELIRE l'état plutôt que de supposer que la première moitié est passée. [1× — 08-24d]
 
 - **Un remplacement de texte qui ne trouve rien ne dit RIEN — et le formateur a déjà réécrit la
   cible.** Quatre câblages d'échelle sur huit n'ont jamais été appliqués : mes motifs portaient sur
@@ -506,6 +529,13 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
   où on compte dessus. [1× — 08-24]
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
+
+- **`anchor-check` a validé une ancre devenue fausse.** J'avais inséré 30 lignes dans
+  `envReport.ts` ; l'ancre `envReport.ts:147` de la doc pointait désormais une AUTRE fonction, et
+  le gate a rendu « 6 ancres — 6 OK ». Il vérifie que le fichier existe et que la ligne est dans
+  ses bornes, pas que la ligne désigne encore ce que la phrase annonce. **Après toute insertion
+  dans un fichier ancré, relire les ancres soi-même** — le vert du gate ne couvre pas ce
+  cas. [2× — 08-24d]
 
 - **Ma propre correction a introduit 7 `LINE_OUT`.** `anchor-check` résout par BASENAME, et il
   existe un autre `config.ts` (234 lignes) et un autre `bearer.ts` (23 lignes) que ceux que je
