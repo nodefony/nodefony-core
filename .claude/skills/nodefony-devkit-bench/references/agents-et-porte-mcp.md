@@ -20,9 +20,17 @@ leur `prepare` (la 9 la première) : sur celles-là, `eteint` ne mesure pas une 
 porte **anonyme**. Ce que le banc annonce se lit sur le CONSTAT imprimé avant l'agent, jamais sur le
 nom du régime — c'est ce qui a fait passer 8 appels MCP réussis pour une contradiction (§ 5).
 
-**`eteint` reste le défaut** : la référence (`baseline.json`) a été établie dessus, et la changer
-d'office rendrait toute comparaison fausse. Le régime entre dans le décor enregistré ; le dépistage
-REFUSE de comparer deux régimes (sortie 78), comme il le doit.
+**`eteint` reste le défaut** : c'est le cas réel — on ouvre un dépôt, la porte est déclarée, rien
+ne tourne. Le régime entre dans le décor enregistré ; le dépistage REFUSE de comparer deux régimes
+(sortie 78), comme il le doit.
+
+⚠️ **La référence historique du 08-09 n'était PAS établie sur ce régime, contrairement à ce qui
+était écrit ici.** Elle date d'avant que `--mcp-config` entre dans les arguments par défaut de
+l'agent : son décor ne portait aucune mention de porte (`isolé (tarballs, hors dépôt)`), là où tout
+run d'aujourd'hui écrit `… · MCP <régime>`. La garde de décor refusait donc de fusionner quoi que
+ce soit dedans — c'est pourquoi deux campagnes successives n'ont pas pu re-figer la référence, et
+pourquoi la nouvelle a été écrite à neuf plutôt que fusionnée. Une référence dont le décor n'existe
+plus ne se répare pas : elle se remplace.
 
 🔴 **`auth` implique de DÉMARRER l'application, et ce n'est pas une option** : la porte est une
 ROUTE. Jeton parfait + application éteinte = agent muet, et l'on croirait mesurer l'outillage.
