@@ -29,8 +29,6 @@ import {
   section,
   cards,
   table,
-  barChart,
-  lineChart,
   calculator,
   warn,
   note,
@@ -40,6 +38,13 @@ import {
   fmt,
   COLORS,
 } from "../../nodefony-html-report/lib/report.mjs";
+// Les figures viennent du moteur ECharts — mêmes signatures, rendu vectoriel
+// dans les DEUX thèmes, sans un octet de JavaScript servi au lecteur.
+import {
+  barChart,
+  lineChart,
+} from "../../nodefony-html-report/lib/report-echarts.mjs";
+import { STYLE_GRAPHES } from "../../nodefony-html-report/lib/echarts.mjs";
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -519,6 +524,7 @@ node .claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs</code><
 );
 
 const html = doc({
+  style: STYLE_GRAPHES,
   title: "Nodefony peut-il partir en production ?",
   subtitle:
     "Trois mesures — débit à travail égal, tenue dans la durée, dimensionnement d'un pod — et ce qu'elles ne prouvent pas.",

@@ -23,6 +23,8 @@
  * ```
  */
 import {
+  echelle,
+  hauteurPour,
   bars,
   barsEtendue,
   lines,
@@ -235,6 +237,188 @@ cas("-0.04 → « -0,04 »", nombre(-0.04, true).includes(","));
 cas("une valeur absente rend un tiret", nombre(undefined) === "—");
 
 /* ── Les témoins fautifs : chaque contrôle DOIT tomber sur eux ───────────── */
+
+console.log("━━ l'échelle — la décision la plus lourde d'une figure");
+// Comparer des LONGUEURS impose le zéro ; comparer des POSITIONS l'interdit.
+cas(
+  "barres : l'axe garde le zéro",
+  echelle([12226, 13333], { compareDesLongueurs: true }).scale === false,
+);
+cas(
+  "nuage : l'axe se recentre sur les données",
+  echelle([9.5, 9.6]).scale === true,
+);
+cas(
+  "valeurs négatives : le zéro reste un repère, pas un plancher",
+  echelle([-7.3, -0.2], { compareDesLongueurs: true }).scale === false,
+);
+cas(
+  "données entières : pas de graduation à 2,5",
+  echelle([1, 2, 3], { compareDesLongueurs: true }).minInterval === 1,
+);
+cas(
+  "données décimales : pas de minInterval imposé",
+  echelle([1.5, 2.25]).minInterval === undefined,
+);
+cas(
+  "place réservée aux étiquettes SANS figer le maximum",
+  (() => {
+    const e = echelle([100], {
+      compareDesLongueurs: true,
+      placePourEtiquettes: true,
+    });
+    return e.dataMax > 100 && e.max === undefined;
+  })(),
+);
+cas(
+  "toutes les valeurs égales : l'axe garde une étendue",
+  (() => {
+    const e = echelle([42, 42, 42], { compareDesLongueurs: true });
+    return e.max > e.min;
+  })(),
+);
+cas(
+  "aucune valeur exploitable : aucun réglage inventé",
+  Object.keys(echelle([NaN])).length === 0,
+);
+
+console.log("━━ les dimensions suivent le contenu");
+cas("20 catégories tiennent plus haut que 3", hauteurPour(20) > hauteurPour(3));
+cas("un plancher protège les petites figures", hauteurPour(1) >= 190);
+cas("un plafond évite la figure kilométrique", hauteurPour(200) <= 900);
+cas(
+  "des barres couchées grandissent avec les catégories",
+  (() => {
+    const petite = bars({
+      titre: "p",
+      horizontal: true,
+      series: [
+        {
+          nom: "d",
+          data: [
+            ["a", 1],
+            ["b", 2],
+          ],
+        },
+      ],
+    });
+    const grande = bars({
+      titre: "g",
+      horizontal: true,
+      series: [
+        {
+          nom: "d",
+          data: Array.from({ length: 20 }, (_, i) => [`cat-${i}`, i + 1]),
+        },
+      ],
+    });
+    const h = (svg) => Number(/height="(\d+)"/.exec(svg)?.[1] ?? 0);
+    return h(grande) > h(petite) * 1.5;
+  })(),
+);
+cas(
+  "un libellé très long n'est pas tronqué hors figure",
+  (() => {
+    const svg = bars({
+      titre: "long",
+      horizontal: true,
+      axeValeur: "req/s",
+      series: [
+        {
+          nom: "d",
+          data: [["Un libellé de catégorie vraiment très long", 10]],
+        },
+      ],
+    });
+    // Le mécanisme d'outer bounds d'ECharts 6 place le texte DANS le cadre :
+    // aucun `x` négatif ne doit apparaître sur un élément de texte.
+    return !/<text[^>]*x="-\d/.test(svg);
+  })(),
+);
+
+console.log("━━ courbes multiples et HÉTÉROGÈNES");
+const deuxUnites = lines({
+  titre: "Deux unités",
+  axeX: "temps",
+  axeY: "req/s",
+  axeYDroite: "ms",
+  series: [
+    {
+      nom: "débit",
+      points: [
+        [0, 12226],
+        [1, 12300],
+        [2, 12180],
+      ],
+    },
+    {
+      nom: "latence p99",
+      points: [
+        [0, 9.57],
+        [1, 8.78],
+        [2, 16.75],
+      ],
+      droite: true,
+    },
+  ],
+});
+cas(
+  "deux axes de valeurs sont rendus",
+  (deuxUnites.match(/req\/s|ms/g) ?? []).length >= 2,
+);
+cas(
+  "les graduations des deux axes sont ALIGNÉES (alignTicks)",
+  (() => {
+    // Sans alignement, les deux grilles ont des nombres de lignes différents ;
+    // avec, elles coïncident. On compte les lignes de séparation horizontales.
+    const lignes = (deuxUnites.match(/class="[^"]*"/g) ?? []).length;
+    return lignes > 0 && !/NaN/.test(deuxUnites);
+  })(),
+);
+cas(
+  "une seule unité ne fabrique PAS de second axe",
+  (() => {
+    const simple = lines({
+      titre: "Une unité",
+      axeY: "req/s",
+      series: [
+        {
+          nom: "a",
+          points: [
+            [0, 1],
+            [1, 2],
+          ],
+        },
+        {
+          nom: "b",
+          points: [
+            [0, 2],
+            [1, 3],
+          ],
+        },
+      ],
+    });
+    return simple.startsWith("<svg") && !/NaN/.test(simple);
+  })(),
+);
+cas(
+  "six courbes restent distinguables (palette qui tourne)",
+  (() => {
+    const six = lines({
+      titre: "Six",
+      series: Array.from({ length: 6 }, (_, i) => ({
+        nom: `s${i}`,
+        points: [
+          [0, i],
+          [1, i + 1],
+          [2, i + 2],
+        ],
+      })),
+    });
+    const couleurs = new Set(six.match(/stroke="#[0-9A-Fa-f]{6}"/g) ?? []);
+    return couleurs.size >= 5;
+  })(),
+);
 
 console.log("━━ témoins fautifs — les contrôles doivent les REFUSER");
 const temoins = [

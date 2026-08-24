@@ -33,8 +33,22 @@ export const esc = (s) =>
 export const fmt = {
   int: (x) =>
     x == null || Number.isNaN(x) ? "—" : Math.round(x).toLocaleString("fr-FR"),
-  dec: (x, n = 1) => (x == null || Number.isNaN(x) ? "—" : x.toFixed(n)),
-  pct: (x, n = 0) => (x == null ? "—" : `${(x * 100).toFixed(n)} %`),
+  // 🔴 Français, comme le reste de la page. Le point décimal anglais était resté
+  // ici parce que le TRI relisait le texte affiché : il suffisait d'une virgule
+  // pour que « 4,66 » soit lu « 466 » et que la colonne se trie à l'envers. Le
+  // tri normalise désormais avant de convertir (voir SORT_JS) ; les deux se
+  // corrigent ensemble, jamais l'un sans l'autre.
+  dec: (x, n = 1) =>
+    x == null || Number.isNaN(x)
+      ? "—"
+      : x.toLocaleString("fr-FR", {
+          minimumFractionDigits: n,
+          maximumFractionDigits: n,
+        }),
+  pct: (x, n = 0) =>
+    x == null
+      ? "—"
+      : `${(x * 100).toLocaleString("fr-FR", { minimumFractionDigits: n, maximumFractionDigits: n })} %`,
   bytes: (b) => {
     if (b == null) return "—";
     const u = ["o", "Ko", "Mo", "Go", "To"];
@@ -44,16 +58,22 @@ export const fmt = {
       v /= 1024;
       i++;
     }
-    return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${u[i]}`;
+    const d = v < 10 && i > 0 ? 1 : 0;
+    return `${v.toLocaleString("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d })} ${u[i]}`;
   },
-  ms: (x) =>
-    x == null
-      ? "—"
-      : x < 1
-        ? `${x.toFixed(2)} ms`
-        : x < 1000
-          ? `${x.toFixed(1)} ms`
-          : `${(x / 1000).toFixed(2)} s`,
+  ms: (x) => {
+    if (x == null) return "—";
+    const fr = (v, n) =>
+      v.toLocaleString("fr-FR", {
+        minimumFractionDigits: n,
+        maximumFractionDigits: n,
+      });
+    return x < 1
+      ? `${fr(x, 2)} ms`
+      : x < 1000
+        ? `${fr(x, 1)} ms`
+        : `${fr(x / 1000, 2)} s`;
+  },
 };
 
 /**
@@ -464,8 +484,34 @@ export const calculator = ({ id = "calc", inputs, constants, compute }) => `
 })();
 </script>`;
 
+/**
+ * Lit un nombre écrit à la FRANÇAISE dans un texte de cellule.
+ *
+ * 🔴 Une seule implémentation, ici : elle est utilisée par les tests, et
+ * INJECTÉE telle quelle dans le script de tri envoyé au navigateur (voir
+ * `SORT_JS`). Une copie recopiée à la main dans la chaîne aurait divergé au
+ * premier correctif — et la divergence ne se serait vue que sur une colonne
+ * triée à l'envers, ce que personne ne remarque.
+ *
+ * « 12 226,45 » porte une espace fine insécable comme séparateur de milliers et
+ * une virgule décimale : les effacer toutes les deux donnerait « 1222645 ».
+ *
+ * @param {unknown} v - le texte de la cellule, ou son `data-v`.
+ * @returns {number} le nombre, ou `NaN` si la cellule n'en contient pas.
+ */
+export const nombreDepuisTexte = (v) =>
+  parseFloat(
+    String(v)
+      .replace(/[\s\u00a0\u202f]/g, "")
+      .replace(/(\d),(\d)/g, "$1.$2")
+      .replace(/[^\d.eE+-]/g, ""),
+  );
+
 /** Tri de tableau au clic sur l'en-tête (data-v = valeur de tri, sinon texte). */
 const SORT_JS = `
+// La MÊME fonction que \`nombreDepuisTexte\`, sérialisée : une seule règle, une
+// seule implémentation, éprouvée par l'auto-contrôle.
+const num = ${nombreDepuisTexte.toString()};
 for (const t of document.querySelectorAll("table.sortable")) {
   const tb = t.tBodies[0];
   t.querySelectorAll("th[data-sort]").forEach((th) => {
@@ -479,8 +525,18 @@ for (const t of document.querySelectorAll("table.sortable")) {
       const rows = [...tb.rows].sort((a, b) => {
         const va = a.cells[i].dataset.v ?? a.cells[i].textContent;
         const vb = b.cells[i].dataset.v ?? b.cells[i].textContent;
-        const na = parseFloat(String(va).replace(/[^\\d.-]/g, ""));
-        const nb = parseFloat(String(vb).replace(/[^\\d.-]/g, ""));
+        // Normaliser AVANT de convertir : « 12 226,45 » porte une espace fine
+        // insécable comme séparateur de milliers et une virgule décimale. Les
+        // effacer toutes les deux donnerait « 1222645 » — une colonne triée à
+        // l'envers, sans le moindre signe d'erreur.
+        const num = (v) => parseFloat(
+          String(v)
+            .replace(/[\\s\\u00a0\\u202f]/g, "")
+            .replace(/(\\d),(\\d)/g, "$1.$2")
+            .replace(/[^\\d.eE+-]/g, ""),
+        );
+        const na = num(va);
+        const nb = num(vb);
         const cmp = !isNaN(na) && !isNaN(nb) ? na - nb : String(va).localeCompare(String(vb), "fr");
         return asc ? cmp : -cmp;
       });
@@ -761,6 +817,13 @@ export const doc = ({
   data = null,
   lang = "fr",
   brand = NODEFONY_BRAND,
+  /**
+   * Style ADDITIONNEL de la page — par exemple `STYLE_GRAPHES` du moteur
+   * ECharts, qui bascule les figures entre thème clair et thème sombre. Sans ce
+   * point d'injection, une page ne pouvait pas déclarer de style propre : il
+   * fallait modifier le CSS commun pour un besoin local.
+   */
+  style = "",
 }) => `<!doctype html>
 <html lang="${esc(lang)}">
 <head>
@@ -768,6 +831,7 @@ export const doc = ({
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title>
 <style>${CSS}</style>
+${style ? `<style>${style}</style>` : ""}
 </head>
 <body>
 <div class="wrap">

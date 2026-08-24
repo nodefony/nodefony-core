@@ -1,0 +1,1502 @@
+{{ target: partial-axis-common-axis-line }}
+
+#${prefix} silent(boolean) = false
+
+Set this to `true`, to prevent interaction with the axis.
+
+#${prefix} triggerEvent(boolean) = false
+
+{{ use: partial-trigger-event-common-content() }}
+
+Parameters of the event include:
+
+```ts
+{
+    // Component type, e.g.,
+    // 'xAxis', 'yAxis', 'radiusAxis', 'angleAxis',
+    // 'singleAxis', 'parallelAxis', 'radar', etc.
+    componentType: string;
+    componentIndex: number;
+    // The same as `componentIndex`.
+    [componentType]Index?: number;
+
+    // The emitter of this event.
+    targetType: 'axisLabel' | 'axisName';
+
+    // A label string formatted by a built-in formatter;
+    // User-provided `axisLabel.formatter` does not affect this value.
+    // Present when `targetType: 'axisLabel'`.
+    value?: string;
+
+    // Present only if this is an axis label for "axis break".
+    break?: {
+        // Parsed break start.
+        start?: number;
+        // Parsed break start.
+        end?: number;
+    };
+
+    // `axis.name`.
+    // Present when `targetType: 'axisName'`.
+    name?: string;
+}
+```
+
+{{ if: ${hasJitter|default(false)} }}
+#${prefix} jitter(number) = 0
+
+{{ use: partial-version(version = "6.0.0") }}
+
+To prevent data points from overlapping in scatter plots, a small amount of random noise is added to the positions of the data points. This helps to visualize the distribution of the data more clearly. It is only applicable to scatter plots and is effective only in single-axis or category axes in Cartesian coordinate systems. The unit is in pixels.
+
+~[800x500](${galleryViewPath}scatter-jitter&edit=1&reset=1)
+
+#${prefix} jitterOverlap(boolean) = true
+
+{{ use: partial-version(version = "6.0.0") }}
+
+Whether allow overlaping with [jitter](~${componentType}.jitter). If `false`, it will try to avoid overlap. But in extreme cases, some scatters may also overlap if there is no way to avoid. The following is the effect of seeting it to be `false`:
+
+~[800x500](${galleryViewPath}doc-example/scatter-jitter-avoidOverlap&edit=1&reset=1)
+
+#${prefix} jitterMargin(number) = 2
+
+{{ use: partial-version(version = "6.0.0") }}
+
+When setting [jitter](~${componentType}.jitter) and [jitterOverlap](~${componentType}.jitterOverlap) is `false`, the minimum distance between two scatters.
+{{ /if }}
+
+{{ if: ${hasBreakAxis|default(false)} }}
+#${prefix} breaks(Array)
+
+{{ use: partial-version(version = "6.0.0") }}
+
+Defines axis breaks. Each entry represents a collapsed or skipped range of the axis.
+
+~[800x400](${galleryViewPath}intraday-breaks-2&edit=1&reset=1)
+~[800x400](${galleryViewPath}intraday-breaks-1&edit=1&reset=1)
+~[800x400](${galleryViewPath}bar-breaks-brush&edit=1&reset=1)
+
+**Other examples:** [bar-breaks-simple](${galleryEditorPath}bar-breaks-simple&edit=1&reset=1), [line-fisheye-lens](${galleryEditorPath}line-fisheye-lens&edit=1&reset=1)
+
+> An axis break is a technique that collapses portions of the coordinate axis to compress the display space of non-critical data segments in charts. Its core purposes are:
+>
+> - **Highlight differences**: When there are extreme differences between data values (such as one value being much larger than others), it prevents large value bars from overwhelmingly occupying space, making small value differences difficult to distinguish.
+> - **Save space**: Reduces blank areas caused by extreme values, making charts more compact.
+>
+> Please note that axis breaks should only be used when necessary to avoid misleading users. When using axis breaks, the collapsed parts and corresponding values should usually be clearly indicated.
+>
+> Axis breaks cannot be used in category axes ([type](~${componentType}.type): `'category'`).
+
+If you import ECharts by [only importing the necessary components](${handbookPath}basics/import), you need to import and register the feature `AxisBreak` explicitly. For example,
+
+```ts
+import * as echarts from "echarts/core";
+import { BarChart } from "echarts/charts";
+import {
+  TitleComponent,
+  TooltipComponent,
+  GridComponent,
+  DatasetComponent,
+  TransformComponent,
+} from "echarts/components";
+
+// Import the feature AxisBreak
+import { AxisBreak } from "echarts/features";
+
+import { CanvasRenderer } from "echarts/renderers";
+
+// Register
+echarts.use([
+  BarChart,
+  TitleComponent,
+  TooltipComponent,
+  GridComponent,
+  DatasetComponent,
+  TransformComponent,
+  AxisBreak,
+  CanvasRenderer,
+]);
+
+var myChart = echarts.init(document.getElementById("main"));
+myChart.setOption({
+  // ...
+});
+```
+
+##${prefix} start(string|number|Date)
+
+{{ use: partial-version(version = "6.0.0") }}
+
+The start value for the axis break area, specified in data domain defined by `series.data`, rather than in pixels.
+
+{{ use: partial-scale-data-value-desc(
+    componentType = ${componentType},
+    notSupportCategory = true
+) }}
+
+{{ use: partial-axis-break-identifier-desc(
+    componentType = ${componentType}
+)}}
+
+##${prefix} end(string|number|Date)
+
+{{ use: partial-version(version = "6.0.0") }}
+
+The end value for the axis break area, specified in data domain defined by `series.data`, rather than in pixels.
+
+{{ use: partial-scale-data-value-desc(
+    componentType = ${componentType},
+    notSupportCategory = true
+) }}
+
+{{ use: partial-axis-break-identifier-desc(
+    componentType = ${componentType}
+)}}
+
+##${prefix} gap(number|string)
+
+{{ use: partial-version(version = "6.0.0") }}
+
+It determines the visual size of the axis break area.
+
+- Percentage (string):
+
+  Specifies the proportion relative to the axis. For example, `'5%'` means that the final size of the axis break area will always be `'5%'` of the axis length. Using a percentage ensures that the pixel size of the axis break area remains stable, and does not change when [${componentType}.min](~${componentType}.min), [${componentType}.max](~${componentType}.max), or [dataZoom](~dataZoom) are modified. For this reason, using a percentage is recommended in most scenarios.
+
+- Absolute value:
+
+  Its unit is the same as [start](~${componentType}.breaks.start) and [end](~${componentType}.breaks.end), referring to a value in the data domain defined by the business data (`series.data`), rather than pixels. It represents mapping (replacing) the `[start, end]` interval with `[start, start + gap]`. Therefore, if set as an absolute value, the pixel size of the axis break area will change when [${componentType}.min](~${componentType}.min), [${componentType}.max](~${componentType}.max), or [dataZoom](~dataZoom) are modified.
+
+**Notice:** Within a [${componentType}.breaks](~${componentType}.breaks) array, `gap` must be specified either entirely in percentages or entirely in absolute values. Mixing the two is not allowed, as it may lead to unexpected results.
+
+{{ use: partial-axis-break-identifier-desc(
+    componentType = ${componentType}
+)}}
+
+##${prefix} isExpanded(boolean) = false
+
+{{ use: partial-version(version = "6.0.0") }}
+
+Whether this axis break area is expanded, default is `false`.
+
+{{ use: partial-axis-break-identifier-desc(
+    componentType = ${componentType}
+)}}
+
+#${prefix} breakArea
+
+{{ use: partial-version(version = "6.0.0") }}
+
+Style of the axis break area.
+
+See also the introduction to the axis break in [${componentType}.breaks](~${componentType}breaks).
+
+##${prefix} show(boolean) = true
+
+{{ use: partial-version(version = "6.0.0") }}
+
+Whether to show the axis break area.
+
+##${prefix} itemStyle
+
+{{ use: partial-version(version = "6.0.0") }}
+
+Style of the axis break area.
+
+{{ use: partial-item-style(
+    prefix = '###',
+    defaultColor = "#fff",
+    defaultBorderColor = "'#b7b9be'",
+    defaultBorderWidth = 1,
+    defaultType = "[3, 3]",
+    defaultOpacity = 0.6
+) }}
+
+##${prefix} zigzagAmplitude(number) = 4
+
+{{ use: partial-version(version = "6.0.0") }}
+
+The amplitude (in the direction perpendicular to the coordinate axis) of the zigzag. The size of different teeth is always the same. The unit is pixel. If set to `0`, the zigzag degenerates into a straight line.
+
+##${prefix} zigzagMinSpan(number) = 4
+
+{{ use: partial-version(version = "6.0.0") }}
+
+The minimum size of each tooth. The unit is pixel.
+
+> The size of a tooth is a random number between `zigzagMinSpan` and `zigzagMaxSpan`. Randomness is used to simulate the effect of torn paper.
+
+##${prefix} zigzagMaxSpan(number) = 20
+
+{{ use: partial-version(version = "6.0.0") }}
+
+The maximum size of each tooth. The unit is pixel.
+
+> The size of a tooth is a random number between `zigzagMinSpan` and `zigzagMaxSpan`. Randomness is used to simulate the effect of torn paper.
+
+##${prefix} zigzagZ(number) = 100
+
+{{ use: partial-version(version = "6.0.0") }}
+
+The `z` value of the zigzag. Controls the front-to-back order of graphics. Graphics with smaller `z` values will be covered by graphics with larger `z` values.
+
+##${prefix} expandOnClick(boolean) = true
+
+{{ use: partial-version(version = "6.0.0") }}
+
+Whether to expand the axis break area when clicking on it.
+
+#${prefix} breakLabelLayout(Object)
+
+{{ use: partial-version(version = "6.0.0") }}
+
+Axis breaks label layout.
+
+See also the introduction to the axis break in [${componentType}.breaks](~${componentType}breaks).
+
+##${prefix} moveOverlap(string|boolean) = 'auto'
+
+{{ use: partial-version(version = "6.0.0") }}
+
+When axis break labels overlap, whether to move labels to avoid overlap.
+
+`'auto'` or `true` means moving labels to avoid overlap when overlapping occurs; `false` means not moving.
+{{ /if }}
+
+#${prefix} axisLine(Object)
+
+Settings related to axis line.
+
+##${prefix} show(boolean) = ${defaultShow|default(true)}
+
+<ExampleUIControlBoolean default="true" />
+
+Set this to `false` to prevent the axis line from showing.
+
+{{ if: ${componentType} == 'xAxis' || ${componentType} == 'yAxis' }}
+
+> The **value** axis doesn't show the axis line by default since `v5.0.0`, you need to explicitly set `axisLine.show` as `true` to enable it.
+> {{ /if }}
+
+{{ if: ${componentType} == 'xAxis' || ${componentType} == 'yAxis' }}
+##${prefix} onZero(boolean|string) = 'auto'
+
+<ExampleUIControlEnum options="auto,true,false" default="auto" />
+
+Specifies whether X or Y axis lies on the origin position (i.e., `0` point) of its orthogonal axis. It works only if the orthogonal axis is ['value' | 'log'](~xAxis.type) axis and contains `0`.
+
+{{ use: partial-version(version = '6.1.0', feature="The value 'auto' is introduced") }}
+
+##${prefix} onZeroAxisIndex(number)
+
+When multiple axes exists, this option can be used to specify which axis can be "onZero" to.
+{{ /if }}
+
+##${prefix} symbol(string|Array) = 'none'
+
+<ExampleUIControlIcon default="none" />
+
+Symbol of the two ends of the axis. It could be a string, representing the same symbol for two ends; or an array with two string elements, representing the two ends separately. It's set to be `'none'` by default, meaning no arrow for either end. If it is set to be `'arrow'`, there shall be two arrows. If there should only one arrow at the end, it should set to be `['none', 'arrow']`.
+
+##${prefix} symbolSize(Array) = [10, 15]
+
+<ExampleUIControlVector default="10,15" />
+
+Size of the arrows at two ends. The first is the width perpendicular to the axis, the next is the width parallel to the axis.
+
+##${prefix} symbolOffset(Array|number) = [0, 0]
+
+<ExampleUIControlVector default="0,0" />
+
+Arrow offset of axis. If is array, the first number is the offset of the arrow at the beginning, and the second number is the offset of the arrow at the end. If is number, it means the arrows have the same offset.
+
+##${prefix} lineStyle(Object)
+
+{{ use: partial-line-style(
+    prefix = '##' + ${prefix},
+    defaultColor = "'#333'",
+    defaultWidth = 1,
+    defaultType = "'solid'",
+    name = "line style"
+) }}
+
+{{ target: partial-axis-common-axis-label }}
+
+#${prefix} axisLabel(Object)
+
+Settings related to axis label.
+
+{{ if: !${hideShow} }} ##${prefix} show(boolean) = ${defaultShow|default(true)}
+
+<ExampleUIControlBoolean default="${defaultShow|default(true)}" />
+
+Set this to `false` to prevent the axis label from appearing.
+{{ /if }}
+
+{{ if: ${hasLabelInterval|default(true)} }}
+##${prefix} interval(number|Function) = 'auto'
+
+<ExampleUIControlNumber min="0" step="1" />
+
+{{ use: partial-axis-interval(
+    name = "Axis label",
+    isAxisLabel = true,
+    componentType = ${componentType}
+) }}
+{{ /if }}
+
+{{ if: ${hasInside|default(true)} }}
+##${prefix} inside(boolean) = false
+
+<ExampleUIControlBoolean />
+
+Set this to `true` so the axis labels face the `inside` direction.
+{{ /if }}
+
+{{ if: ${componentType} !== 'angleAxis' }}
+##${prefix} rotate(number) = 0
+
+<ExampleUIControlAngle min="-90" max="90" step="1" />
+
+Rotation degree of axis label, which is especially useful when there is no enough space for category axis.
+
+Rotation degree is from -90 to 90.
+{{ /if }}
+
+##${prefix} margin(number) = 8
+
+<ExampleUIControlNumber default="8" step="0.5" />
+
+The margin between the axis label and the axis line.
+
+##${prefix} formatter(string|Function) = null
+
+{{ use: axis-common-formatter-desc(
+    componentType = ${componentType},
+    supportAxisBreak = true
+) }}
+
+##${prefix} showMinLabel(boolean) = null
+
+<ExampleUIControlBoolean />
+
+Whether to show the label of the min tick. Optional values: `true`, `false`, `null`. It is auto determined by default, that is, if labels are overlapped, the label of the min tick will not be displayed.
+
+##${prefix} showMaxLabel(boolean) = null
+
+<ExampleUIControlBoolean />
+
+Whether to show the label of the max tick. Optional values: `true`, `false`, `null`. It is auto determined by default, that is, if labels are overlapped, the label of the max tick will not be displayed.
+
+{{ if: ${componentType} === 'xAxis' }}
+
+##${prefix} alignMinLabel(string) = null
+
+{{ use: partial-version(version = '5.5.0') }}
+
+Alignment of the label of the min tick. If set to be `null`, it's the same with other labels .
+
+Options are:
+
+- `'left'`
+- `'center'`
+- `'right'`
+- `null` (default)
+
+##${prefix} alignMaxLabel(string) = null
+
+{{ use: partial-version(version = '5.5.0') }}
+
+Alignment of the label of the max tick. If set to be `null`, it's the same with other labels. See [align](~${componentType}.axisLabel.align).
+
+Options are:
+
+- `'left'`
+- `'center'`
+- `'right'`
+- `null` (default)
+
+{{ /if }}
+
+{{ if: ${componentType} === 'yAxis' }}
+
+##${prefix} verticalAlignMinLabel(string) = null
+
+{{ use: partial-version(version = '5.5.0') }}
+
+Vertical alignment of the label of the min tick. If set to be `null`, it's the same with other labels. See [verticalAlign](~${componentType}.axisLabel.verticalAlign).
+
+Options are:
+
+- `'top'`
+- `'middle'`
+- `'bottom'`
+- `null` (default)
+
+##${prefix} verticalAlignMaxLabel(string) = null
+
+{{ use: partial-version(version = '5.5.0') }}
+
+Vertical alignment of the label of the max tick. If set to be `null`, it's the same with other labels. See [verticalAlign](~${componentType}.axisLabel.verticalAlign).
+
+Options are:
+
+- `'top'`
+- `'middle'`
+- `'bottom'`
+- `null` (default)
+
+{{ /if }}
+
+##${prefix} hideOverlap(boolean)
+
+<ExampleUIControlBoolean />
+
+{{ use: partial-version(
+    version = "5.2.0"
+) }}
+
+Whether to hide overlapped labels.
+
+##${prefix} customValues(Array)
+
+{{ use: partial-version(
+    version = "5.5.1"
+) }}
+
+To customize label positions. For example,
+
+```ts
+axisLabel: {
+  customValues: [0, 4, 7, 8, 9];
+}
+```
+
+![600xauto](~axis-tick-label-custom-values.png)
+
+{{ use: partial-text-style(
+    prefix = '#' + ${prefix},
+    defaultColor = "'#333'"
+) }}
+
+<!-- Overwrite color -->
+
+##${prefix} color(Color|Function)
+
+<ExampleUIControlColor />
+
+Color of axis label is set to be [axisLine.lineStyle.color](~${componentType}.axisLine.lineStyle.color) by default. Callback function is supported, in the following format:
+
+```ts
+(val: string) => Color;
+```
+
+Parameter is the text of label, and return value is the color. See the following example:
+
+```ts
+textStyle: {
+    color: function (value, index) {
+        return value >= 0 ? 'green' : 'red';
+    }
+}
+```
+
+{{ target: partial-axis-common-axis-tick }}
+
+#${prefix} axisTick(Object)
+
+Settings related to axis tick.
+
+##${prefix} show(boolean) = ${defaultShow|default(true)}
+
+<ExampleUIControlBoolean default="${defaultShow|default(true)}" />
+
+Set this to `false` to prevent the axis tick from showing.
+
+{{ if: ${componentType} == 'xAxis' || ${componentType} == 'yAxis' }}
+
+> The **value** axis doesn't show the axis ticks by default since `v5.0.0`, you need to explicitly set `axisTick.show` as `true` to enable it.
+> {{ /if }}
+
+{{ if: ${hasAlignWithLabel|default(true)} }}
+##${prefix} alignWithLabel(boolean) = false
+
+<ExampleUIControlBoolean default="false" />
+
+Align axis tick with label, which is available only when `boundaryGap` is set to be `true` in category axis. See the following picture:
+
+![600xauto](~axis-align-with-label.png)
+{{ /if }}
+
+{{ if: ${hasLabelInterval|default(true)} }}
+##${prefix} interval(number|Function) = 'auto'
+
+<ExampleUIControlNumber min="0" step="1" />
+
+{{ use: partial-axis-interval(
+    name = "axisTick",
+    componentType = ${componentType}
+) }}
+{{ /if }}
+
+{{ if: ${hasInside|default(true)} }}
+##${prefix} inside(boolean) = false
+
+<ExampleUIControlBoolean />
+
+Set this to `true` so the axis labels face the `inside` direction.
+{{ /if }}
+
+##${prefix} length(number) = 5
+
+<ExampleUIControlNumber min="0" step="0.5" default="5" />
+
+The length of the axis tick.
+
+##${prefix} lineStyle(Object)
+
+Line style of axis ticks.
+
+{{ use: partial-line-style(
+    prefix = '##' + ${prefix},
+    defaultWidth = 1,
+    defaultType = "'solid'",
+    name = "axisTick"
+) }}
+
+<!-- Overwrite color -->
+
+###${prefix} color(Color)
+
+Color of axis label is set to be [axisLine.lineStyle.color](~${componentType}.axisLine.lineStyle.color) by default.
+
+##${prefix} customValues(Array)
+
+{{ use: partial-version(
+    version = "5.5.1"
+) }}
+
+To customize tick positions. For example,
+
+```ts
+axisTick: {
+    alignWithLabel: true,
+    customValues: [0, 0.5, 1, 1.5, 2, 8, 9]
+}
+```
+
+![600xauto](~axis-tick-label-custom-values.png)
+
+{{ target: partial-axis-common-minor-tick }}
+
+#${prefix} minorTick(Object)
+
+{{ use: partial-version(
+    version = "4.6.0"
+) }}
+
+Settings related minor ticks.
+
+Note: `minorTick` is not available in the `category` type axis.
+
+Examples:
+
+1. Using minor ticks in function plotting.
+   ~[600x350](${galleryViewPath}line-function&edit=1&reset=1)
+
+2. Using minor ticks in log axis.
+   ~[600x350](${galleryViewPath}line-log&edit=1&reset=1)
+
+##${prefix} show(boolean) = ${defaultShow|default(false)}
+
+<ExampleUIControlBoolean default="${defaultShow|default(true)}" />
+
+If show minor ticks.
+
+##${prefix} splitNumber(number) = 5
+
+<ExampleUIControlNumber min="1" step="1" default="5" />
+
+Number of interval splited by minor ticks.
+
+##${prefix} length(number) = 3
+
+<ExampleUIControlNumber min="0" step="0.5" default="3" />
+
+Length of minor ticks lines。
+
+##${prefix} lineStyle(Object)
+
+{{ use: partial-line-style(
+    prefix = '##' + ${prefix},
+    defaultWidth = 1,
+    defaultType = "'solid'",
+    name = "minorTick"
+) }}
+
+<!-- Overwrite color -->
+
+###${prefix} color(Color)
+
+<ExampleUIControlColor />
+
+Style configuration of minor ticks lines [axisLine.lineStyle.color](~${componentType}.axisLine.lineStyle.color)。
+
+{{ target: partial-axis-common-split-line }}
+
+#${prefix} splitLine(Object)
+
+Split line of axis in [grid](~grid) area.
+
+##${prefix} show(boolean) = ${defaultShow|default(true)}
+
+<ExampleUIControlBoolean default="${defaultShow|default(true)}" />
+
+Set this to `false` to prevent the splitLine from showing.
+`value` type axes are shown by default, while `category` type axes are hidden.
+
+##${prefix} showMinLine(boolean) = true
+
+<ExampleUIControlBoolean />
+
+{{ use: partial-version(
+    version = "5.6.0"
+) }}
+
+Whether to show the splitLine of the min tick. Defaults to `true`.
+
+##${prefix} showMaxLine(boolean) = true
+
+<ExampleUIControlBoolean />
+
+{{ use: partial-version(
+    version = "5.6.0"
+) }}
+
+Whether to show the splitLine of the max tick. Defaults to `true`.
+
+{{ if: ${hasLabelInterval|default(true)} }}
+##${prefix} interval(number|Function) = 'auto'
+
+<ExampleUIControlNumber min="0" step="1" />
+
+{{ use: partial-axis-interval(
+    name = "Axis splitLine",
+    componentType = ${componentType}
+) }}
+{{ /if }}
+
+##${prefix} lineStyle(Object)
+
+{{ use: partial-line-style(
+    prefix = '##' + ${prefix},
+    defaultColor = "'#333'",
+    defaultWidth = 1,
+    defaultType = "'solid'",
+    name = "splitLine"
+) }}
+
+<!-- overwrite color -->
+
+###${prefix} color(Array|string) = ['#ccc']
+
+<ExampleUIControlColor />
+
+The color of the splitLine, which could be set separately.
+
+SplitLine color could also be set in color array, which the split lines would take as their colors in turns.
+
+Example:
+
+```
+splitLine: {
+    lineStyle: {
+        // Dark and light colors will be used in turns
+        color: ['#aaa', '#ddd']
+    }
+}
+```
+
+{{ target: partial-axis-common-minor-split-line }}
+
+#${prefix} minorSplitLine(Object)
+
+{{ use: partial-version(
+    version = "4.6.0"
+) }}
+
+Minor split lines of axis in the [grid](~grid) area。It will align to the [minorTick](~${componentType}.minorTick)
+
+##${prefix} show(boolean) = ${defaultShow|default(false)}
+
+<ExampleUIControlBoolean default="${defaultShow|default(true)}" />
+
+If show minor split lines.
+
+##${prefix} lineStyle(Object)
+
+{{ use: partial-line-style(
+    prefix = '##' + ${prefix},
+    defaultColor = "'#eee'",
+    defaultWidth = 1,
+    defaultType = "'solid'",
+    name = "minorSplitLine"
+) }}
+
+{{ target: partial-axis-common-split-area }}
+
+#${prefix} splitArea(Object)
+
+Split area of axis in [grid](~grid) area, not shown by default.
+
+{{ if: ${hasLabelInterval|default(true)} }}
+##${prefix} interval(number|Function) = 'auto'
+
+<ExampleUIControlNumber min="0" step="1" />
+
+{{ use: partial-axis-interval(
+    name = "Axis splitArea",
+    componentType = ${componentType}
+) }}
+{{ /if }}
+
+##${prefix} show(boolean) = ${defaultShow|default(false)}
+
+<ExampleUIControlBoolean default="${defaultShow|default(true)}" />
+
+Set this to `true` to show the splitArea.
+
+##${prefix} areaStyle(Object)
+
+Split area style.
+
+###${prefix} color(Array) = ['rgba(250,250,250,0.3)','rgba(200,200,200,0.3)']
+
+Color of split area.
+SplitArea color could also be set in color array, which the split lines would take as their colors in turns. Dark and light colors in turns are used by default.
+
+{{ use: partial-style-shadow-opacity(
+    prefix = '##' + ${prefix}
+) }}
+
+{{ target: partial-axis-type-content }}
+
+Type of axis.
+
+Option:
+
+- `'value'`
+  Numerical axis, suitable for continuous data.
+
+- `'category'`
+  Category axis, suitable for discrete category data. Category data can be auto retrieved from [series.data](~series.data) or [dataset.source](~dataset.source){{ if: ${componentType} }}, or can be specified via [${componentType}.data](~${componentType}.data){{ /if }}.
+
+- `'time'`
+  Time axis, suitable for continuous time series data. As compared to value axis, it has a better formatting for time and a different tick calculation method. For example, it decides to use month, week, day or hour for tick based on the range of span.
+
+- `'log'`
+  Logarithmic axis. It is useful when the data spans a very large range of values or when the important pattern is about multiplicative change rather than additive change.
+
+{{ target: axis-common }}
+
+#${prefix} type(string) = ${axisTypeDefault|default('value')}
+
+{{ use: partial-axis-type-content(
+    componentType = ${componentType}
+) }}
+
+{{ if: ${componentType} !== 'angleAxis' }}
+#${prefix} name(string)
+
+<ExampleUIControlText />
+
+Name of axis.
+
+#${prefix} nameLocation(string) = 'end'
+
+<ExampleUIControlEnum options="start,middle,end" default="end" />
+
+Location of axis name.
+
+**Options: **
+
+- `'start'`
+- `'middle'` or `'center'`
+- `'end'`
+
+#${prefix} nameTextStyle(Object)
+
+Text style of axis name.
+
+{{ use: partial-text-style(
+    prefix = '#' + ${prefix},
+    name = "axis name"
+) }}
+
+<!-- Overwrite color -->
+
+##${prefix} color(Color)
+
+<ExampleUIControlColor />
+
+Color of axis name uses [axisLine.lineStyle.color](~${componentType}.axisLine.lineStyle.color) by default.
+
+#${prefix} nameGap(number) = 15
+
+<ExampleUIControlNumber step="0.5" default="15" />
+
+Gap between axis name and axis line.
+
+#${prefix} nameRotate(number) = null
+
+<ExampleUIControlAngle min="-360" max="360" step="1" />
+
+Rotation of axis name.
+
+#${prefix} nameTruncate(Object)
+
+Truncation of the axis name.
+
+##${prefix} maxWidth(number)
+
+The maximum length for the truncated text. Any text exceeding this length will be truncated.
+
+##${prefix} ellipsis(string) = '...'
+
+The content displayed at the end of the text after truncation.
+
+{{ if: ${componentType} === 'xAxis' || ${componentType} === 'yAxis' }}
+#${prefix} nameMoveOverlap(boolean) = true
+
+<ExampleUIControlBoolean default="true"/>
+
+{{ use: partial-version(version = "6.0.0") }}
+
+Whether to move axis name to avoid overlap with axis labels.
+{{ /if }}
+
+#${prefix} inverse(boolean) = false
+
+<ExampleUIControlBoolean />
+
+Set this to `true` to invert the axis.
+This is a new option available from Echarts 3 and newer.
+{{ /if }}
+
+#${prefix} boundaryGap(boolean|Array)
+
+<ExampleUIControlBoolean />
+
+The boundary gap on both sides of a coordinate axis. The setting and behavior of category axes and non-category axes are different.
+
+The `boundaryGap` of category axis can be set to either `true` or `false`. Default value is set to be `true`, in which case [axisTick](~${componentType}.axisTick) is served only as a separation line, and labels and data appear only in the center part of two [axis ticks](~${componentType}.axisTick), which is called _band_.
+
+For non-category axis, including time, numerical value, and log axes, `boundaryGap` is an array of two values, representing the spanning range between minimum and maximum value. The value can be set in numeric value or relative percentage, which becomes invalid after setting [min](~${componentType}.min) and [max](~${componentType}.max).
+**Example: **
+
+```ts
+boundaryGap: ["20%", "20%"];
+```
+
+#${prefix} containShape(boolean) = true
+
+<ExampleUIControlBoolean default="true"/>
+
+{{ use: partial-version(version = '6.1.0') }}
+
+Whether series shapes should be prevented from overflowing the coordinate system by adding extra margin at the axes edges.
+
+Currently, `containShape` is available only on [bar](~series-bar), [pictorialBar](~series-pictorialBar), [candlestick](~series-candlestick) and [boxplot](~series-boxplot), where shape overflow is typically unexpected.
+
+Note: if a `dataZoom` is applied on a numerical axis (`axis.type: 'value' | 'time' | 'log'`), the extra margin is only added to the edges of a full window (i.e., `dataZoom` end `0%` and end `100%`). For a `dataZoom` is applied on a category axis (`axis.type: 'category'`), the extra margin is always added regardless of `dataZoom` range.
+
+See also [series.clip](~series-bar.clip), which can clip shapes if they overflow the coordinate system.
+
+See also [boundaryGap](~${componentType}.boundaryGap). The functionality of the two options overlaps for historicall reasons. Series shapes may overflow a category axis (`axis.type: 'category'`) only if `boundaryGap: false, containShape: false`.
+
+#${prefix} min(number|string|Function) = null
+
+<ExampleUIControlNumber />
+
+The minimum value of axis.
+
+It can be set to a special value `'dataMin'` so that the minimum value on this axis is set to be the minimum label.
+
+It will be automatically computed to make sure axis tick is equally distributed when not set.
+
+In category axis, it can also be set as the ordinal number. For example, if a catergory axis has `data: ['categoryA', 'categoryB', 'categoryC']`, and the ordinal `2` represents `'categoryC'`. Moreover, it can be set as negative number, like `-3`.
+
+If `min` is specified as a function, it should return a min value, like:
+
+```ts
+min: function (value) {
+    return value.min - 20;
+}
+```
+
+`value` is an object, containing the `min` value and `max` value of the data. This function should return the min value of axis, or return `null`/`undefined` to make echarts use the auto calculated min value (`null`/`undefined` return is only supported since `v4.8.0`).
+
+#${prefix} max(number|string|Function) = null
+
+<ExampleUIControlNumber />
+
+The maximum value of axis.
+
+It can be set to a special value `'dataMax'` so that the maximum value on this axis is set to be the maximum label.
+
+It will be automatically computed to make sure axis tick is equally distributed when not set.
+
+In category axis, it can also be set as the ordinal number. For example, if a catergory axis has `data: ['categoryA', 'categoryB', 'categoryC']`, and the ordinal `2` represents `'categoryC'`. Moreover, it can be set as negative number, like `-3`.
+
+If `max` is specified as a function, it should return a max value, like:
+
+```ts
+max: function (value) {
+    return value.max - 20;
+}
+```
+
+`value` is an object, containing the `min` value and `max` value of the data. This function should return the max value of axis, or return `null`/`undefined` to make echarts use the auto calculated max value (`null`/`undefined` return is only supported since `v4.8.0`).
+
+#${prefix} dataMin(number)
+
+<ExampleUIControlNumber />
+
+{{ use: partial-version(
+    version = '6.1.0'
+) }}
+
+Specify the data minimum value to extend the axis range while preserving the nice scale algorithm.
+
+It is available only for value, logarithmic, and time axes, i.e., [type](~${componentType}.type): 'value', 'log', or 'time'.
+
+**How it works:**
+
+`dataMin` works like inserting a virtual data point into your dataset, but this point only participates in axis range calculation and won't be displayed in the chart.
+
+- When `dataMin` is **less than** the actual data minimum: The axis extends to include this value, using a nice scale value no greater than `dataMin` as the axis minimum
+- When `dataMin` is **greater than or equal to** the actual data minimum: No effect, the axis is calculated using the original logic
+
+**Use cases:**
+
+- Ensure the axis includes a reference value (like passing line, target value, etc.)
+- Reserve visual space for data
+
+**The difference from [min](~${componentType}.min):**
+
+- `min` fixes the axis minimum value and disables the nice scale algorithm
+- `dataMin` only affects the axis range while preserving the nice scale algorithm
+
+#${prefix} dataMax(number)
+
+<ExampleUIControlNumber />
+
+{{ use: partial-version(
+    version = '6.1.0'
+) }}
+
+Specify the data maximum value to extend the axis range while preserving the nice scale algorithm.
+
+It is available only for value, logarithmic, and time axes, i.e., [type](~${componentType}.type): 'value', 'log', or 'time'.
+
+**How it works:**
+
+`dataMax` works like inserting a virtual data point into your dataset, but this point only participates in axis range calculation and won't be displayed in the chart.
+
+- When `dataMax` is **greater than** the actual data maximum: The axis extends to include this value, using a nice scale value no less than `dataMax` as the axis maximum
+- When `dataMax` is **less than or equal to** the actual data maximum: No effect, the axis is calculated using the original logic
+
+**Use cases:**
+
+- Ensure the Y-axis includes a target value or ceiling
+- Reserve visual space above the data for better presentation
+- Maintain consistent axis ranges across multiple charts
+
+**The difference from [max](~${componentType}.max):**
+
+- `max` fixes the axis maximum value and disables the nice scale algorithm
+- `dataMax` only affects the axis range while preserving the nice scale algorithm
+
+#${prefix} scale(boolean) = false
+
+<ExampleUIControlBoolean />
+
+It is available only in numerical axis, i.e., [type](~${componentType}.type): 'value'.
+
+It specifies whether not to contain zero position of axis compulsively. When it is set to be `true`, the axis may not contain zero position, which is useful in the scatter chart for both value axes.
+
+This configuration item is unavailable when the [min](~${componentType}.min) and [max](~${componentType}.max) are set.
+
+#${prefix} splitNumber(number) = 5
+
+<ExampleUIControlNumber min="1" step="1" default="5" />
+
+Number of segments that the axis is split into. Note that this number serves only as a recommendation, and the true segments may be adjusted based on readability.
+
+This is unavailable for category axis.
+
+#${prefix} minInterval(number) = 0
+
+<ExampleUIControlNumber />
+
+Minimum gap between split lines.
+
+For example, it can be set to be `1` to make sure axis label is show as integer.
+
+```ts
+{
+  minInterval: 1;
+}
+```
+
+It is available only for axis of [type](~${componentType}.type) 'value' or 'time'.
+
+#${prefix} maxInterval(number)
+
+<ExampleUIControlNumber />
+
+Maximum gap between split lines.
+
+For example, in time axis ([type](~${componentType}.type) is 'time'), it can be set to be `3600 * 24 * 1000` to make sure that the gap between axis labels is less than or equal to one day.
+
+```ts
+{
+  maxInterval: 3600 * 1000 * 24;
+}
+```
+
+It is available only for axis of [type](~${componentType}.type) 'value' or 'time'.
+
+#${prefix} interval(number)
+
+<ExampleUIControlNumber />
+
+Compulsively set segmentation interval for axis.
+
+As [splitNumber](~${componentType}.splitNumber) is a recommendation value, the calculated tick may not be the same as expected. In this case, interval should be used along with [min](~${componentType}.min) and [max](~${componentType}.max) to compulsively set tickings. But in most cases, we do not suggest using this, our automatic calculation is enough for most situations.
+
+This is unavailable for 'category' and 'time' axes. Logged value should be passed for [type](~${componentType}.type): 'log' axis.
+
+#${prefix} logBase(number) = 10
+
+<ExampleUIControlNumber default="10" />
+
+Base of logarithm, which is valid only for numeric axes with [type](~${componentType}.type): 'log'.
+
+#${prefix} startValue(number) = 0
+
+<ExampleUIControlNumber default="0" />
+
+{{ use: partial-version(
+    version = '5.5.1'
+) }}
+<div class="doc-partial-version">
+Before `v6.1.0` (exclusive), `startValue` is also used as [axis.min](~yAxis.min) if it is not provided. Since `v6.1.0`, the two options are no longer associated.
+</div>
+
+This is the start value of series shapes. Currently, it can be used only for [bar](~series-bar) and [pictorialBar](~series-pictorialBar).
+
+Note: Currently, `startValue` is not supported to be used together with [stack](~series-bar.stack) -- the effect may be unexpected.
+
+{{ use: partial-axis-common-axis-line(
+    prefix = ${prefix},
+    componentType = ${componentType},
+    hasJitter = ${hasJitter},
+    hasBreakAxis = ${hasBreakAxis}
+) }}
+
+{{ use: partial-axis-common-axis-tick(
+    prefix = ${prefix},
+    componentType = ${componentType}
+) }}
+
+{{ use: partial-axis-common-minor-tick(
+    prefix = ${prefix},
+    componentType = ${componentType}
+) }}
+
+{{ use: partial-axis-common-axis-label(
+    prefix = ${prefix},
+    componentType = ${componentType}
+) }}
+
+{{ if: ${hasSplitLineAndArea} }}
+{{ use: partial-axis-common-split-line(
+    prefix = ${prefix},
+    componentType = ${componentType}
+) }}
+
+{{ use: partial-axis-common-minor-split-line(
+    prefix = ${prefix},
+    componentType = ${componentType}
+) }}
+
+{{ use: partial-axis-common-split-area(
+    prefix = ${prefix},
+    componentType = ${componentType}
+) }}
+{{ /if }}
+
+#${prefix} data(Array)
+
+Category data, available in [type](~${componentType}.type): 'category' axis.
+
+If [type](~${componentType}.type) is not specified, but `axis.data` is specified, the [type](~${componentType}.type) is auto set as `'category'`.
+
+If [type](~${componentType}.type) is specified as `'category'`, but `axis.data` is not specified, `axis.data` will be auto collected from [series.data](~series.data). It brings convenience, but we should notice that `axis.data` provides then value range of the `'category'` axis. If it is auto collected from [series.data](~series.data), Only the values appearing in [series.data](~series.data) can be collected. For example, if [series.data](~series.data) is empty, nothing will be collected.
+
+Example:
+
+```ts
+// Name list of all categories
+data: [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+// Each item could also be a specific configuration item.
+// In this case, `value` is used as the category name.
+data: [
+  {
+    value: "Monday",
+    // Highlight Monday
+    textStyle: {
+      fontSize: 20,
+      color: "red",
+    },
+  },
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+```
+
+##${prefix} value(string)
+
+Name of a category.
+
+##${prefix} textStyle(Object)
+
+Text style of the category.
+
+{{ use: partial-text-style(
+    prefix = '##' + ${prefix}
+) }}
+
+{{ if: !${noAxisPointer} }}
+#${prefix} axisPointer(Object)
+
+axisPointer settings on the axis.
+
+{{ use: partial-axisPointer-common(
+    prefix = "#" + ${prefix}
+) }}
+{{ /if }}
+
+{{ use: partial-axis-tooltip(
+    prefix = ${prefix},
+    componentType = ${componentType}
+) }}
+
+{{ use: partial-animation(
+    prefix = ${prefix}
+) }}
+
+{{ target: partial-axis-interval }}
+
+Interval of ${name}, which is available in category axis. {{ if: !${isAxisLabel} }} is set to be the same as [axisLabel.interval](~${componentType}.axisLabel.interval) by default.{{ /if }}
+
+It uses a strategy that labels do not overlap by default.
+
+You may set it to be 0 to display all labels compulsively.
+
+If it is set to be 1, it means that labels are shown once after one label. And if it is set to be 2, it means labels are shown once after two labels, and so on.
+
+On the other hand, you can control by callback function, whose format is shown below:
+
+```ts
+(index: number, value: string) => boolean;
+```
+
+The first parameter is index of category, and the second parameter is the name of category. The return values decides whether to display label.
+
+{{ target: axis-common-formatter-desc }}
+
+{{ if: !${axisTypeProp} }}
+{{ var: axisTypeProp = 'type' }}
+{{ /if }}
+
+Formatter of axis label, which supports string template and callback function.
+
+Example:
+
+```ts
+// Use string template; template variable is the default label of axis {value}
+formatter: '{value} kg'
+// Use callback.
+formatter: function (value, index, extra?) {
+    // Notice: when using `customValues`, parameter `index` is
+    // provided since `v6.1.0`.
+    return value + 'kg';
+}
+```
+
+---
+
+<br>
+
+{{ if: ${supportAxisBreak} }}
+**When [axis break](${componentType}.breaks) is used**
+
+The break info can be obtained from the `extra` param:
+
+```ts
+type AxisLabelFormatterExtraBreakPart = {
+  // If this label is an axis break start or end.
+  break?: {
+    type: "start" | "end";
+    // The parsed `start`/`end`, always be numbers, and has been
+    // sorted and intersection removed, therefore, they may not
+    // equal to the original input of `start`/`end`.
+    start: number;
+    end: number;
+  };
+};
+formatter = function (value, index, extra: AxisLabelFormatterExtraBreakPart) {
+  if (extra && extra.break) {
+    console.log(extra.break);
+  }
+  return value + "kg";
+};
+```
+
+Notice: null checking must be performed.
+{{ /if }}
+
+---
+
+<br>
+
+**For a time axis ([`${componentType}.${axisTypeProp}: 'time'`](~${componentType}.${axisTypeProp}))**
+
+`formatter` supports the following forms:
+
+- **String Templates**: an easy and fast way to make frequently used date/time template, formed in `string`
+- **Callback Functions**: customized formatter to make complex format, formed in `Function`
+- **Cascading Templates**: to adopt different formatters for different time granularity, formed in `object`
+
+Next, we are going to introduce these three forms one by one.
+
+** String Templates **
+
+Using string templates is an easy way to format date/time with frequently used formats. If it can be used to make what you want, you are advised to do so. If not, you could then consider the others. Supported formats are:
+
+| Group        | Template | Value (EN)                                                         | Value (ZH)                                                       |
+| ------------ | -------- | ------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| Year         | {yyyy}   | e.g. 2020, 2021, ...                                               | 例：2020, 2021, ...                                              |
+|              | {yy}     | 00-99                                                              | 00-99                                                            |
+| Quarter      | {Q}      | 1, 2, 3, 4                                                         | 1, 2, 3, 4                                                       |
+| Month        | {MMMM}   | e.g. January, February, ...                                        | 一月、二月、……                                                   |
+|              | {MMM}    | e.g. Jan, Feb, ...                                                 | 1月、2月、……                                                     |
+|              | {MM}     | 01-12                                                              | 01-12                                                            |
+|              | {M}      | 1-12                                                               | 1-12                                                             |
+| Day of Month | {dd}     | 01-31                                                              | 01-31                                                            |
+|              | {d}      | 1-31                                                               | 1-31                                                             |
+| Day of Week  | {eeee}   | Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday     | 星期日、星期一、星期二、星期三、星期四、星期五、星期六           |
+|              | {ee}     | Sun, Mon, Tues, Wed, Thu, Fri, Sat                                 | 日、一、二、三、四、五、六                                       |
+|              | {e}      | 1-54                                                               | 1-54                                                             |
+| Hour         | {HH}     | 00-23                                                              | 00-23                                                            |
+|              | {H}      | 0-23                                                               | 0-23                                                             |
+|              | {hh}     | 01-12                                                              | 01-12                                                            |
+|              | {h}      | 1-12                                                               | 1-12                                                             |
+| Minute       | {mm}     | 00-59                                                              | 00-59                                                            |
+|              | {m}      | 0-59                                                               | 0-59                                                             |
+| Second       | {ss}     | 00-59                                                              | 00-59                                                            |
+|              | {s}      | 0-59                                                               | 0-59                                                             |
+| Millisecond  | {SSS}    | 000-999                                                            | 000-999                                                          |
+|              | {S}      | 0-999                                                              | 0-999                                                            |
+| Meridian     | {A}      | AM, PM (Since `v5.5.1`, i18n will be finished in the next version) | 上午、下午 (`v5.5.1` 仅支持英文，将在下个版本支持中文及其他语言) |
+|              | {a}      | am, pm                                                             | 上午、下午                                                       |
+
+> Templates of other languages can be found in [the language package](https://github.com/apache/echarts/tree/master/src/i18n). Please refer to [echarts.registerLocale](api.html#echarts.registerLocale) to register a language.
+
+Example:
+
+```ts
+formatter: "{yyyy}-{MM}-{dd}"; // gets labels like '2020-12-02'
+formatter: "Day {d}"; // gets labels like 'Day 2'
+```
+
+** Callback Functions **
+
+Callback functions can be used to get different formats for different axis tick values. Sometimes, if you have complex date/time formatting requirement, third-party libraries like [Moment.js](https://momentjs.com/) or [date-fns](https://date-fns.org/) can be used to return formatted labels.
+
+Example:
+
+```ts
+// Use callback function; function parameters are axis index
+formatter: function (value, index) {
+    // Formatted to be month/day; display year only in the first label
+    var date = new Date(value);
+    var texts = [(date.getMonth() + 1), date.getDate()];
+    if (index === 0) {
+        texts.unshift(date.getFullYear());
+    }
+    return texts.join('/');
+}
+
+// Moreover, `echarts.time.format` can be used:
+formatter: function (value, index) {
+    // Follow the template rules above.
+    const timeStrLocal = echarts.time.format(value, '{yyyy}-{MM}-{dd} {hh}:{mm}:{ss}');
+    // The third param `true` indicates that format time based on UTC.
+    const timeStrUTC = echarts.time.format(value, '{yyyy}-{MM}-{dd} {hh}:{mm}:{ss}', true);
+    // Notice, if using UTC, ${optionDocPath}#useUTC need to be also set as `true`
+    // for consistency.
+    return timeStrLocal;
+}
+```
+
+** Cascading Templates **
+
+Sometimes, we wish to use different formats for different time granularity. For example, in a quarter-year chart, we may wish to see the month name with the first date of the month, while see the date name with others. This can be made with:
+
+Example:
+
+```ts
+formatter: {
+    month: '{MMMM}', // Jan, Feb, ...
+    day: '{d}' // 1, 2, ...
+}
+```
+
+Supported levels and their default formatters are:
+
+```ts
+{
+    year: '{yyyy}',
+    month: '{MMM}',
+    day: '{d}',
+    hour: '{HH}:{mm}',
+    minute: '{HH}:{mm}',
+    second: '{HH}:{mm}:{ss}',
+    millisecond: '{hh}:{mm}:{ss} {SSS}',
+    none: '{yyyy}-{MM}-{dd} {hh}:{mm}:{ss} {SSS}'
+}
+```
+
+Let's take `day` for example. When a tick value is `0` for its hour, minute, second, and millisecond, `day` level will be used to make formatter. `none` is used when no other level fulfills, which is for tick values with millisecond values other than `0`.
+
+** Rich Text **
+
+The above three forms all support rich text, so it can be used to make some complex effects.
+
+Example:
+
+```ts
+xAxis: {
+    type: 'time',
+    axisLabel: {
+        formatter: {
+            // Display year and month information on the first data of a year
+            year: '{yearStyle|{yyyy}}\n{monthStyle|{MMM}}',
+            month: '{monthStyle|{MMM}}'
+        },
+        rich: {
+            yearStyle: {
+                // Make yearly text more standing out
+                color: '#000',
+                fontWeight: 'bold'
+            },
+            monthStyle: {
+                color: '#999'
+            }
+        }
+    }
+},
+```
+
+The above example can also be made with a callback function:
+
+Example:
+
+```ts
+xAxis: {
+    type: 'time',
+    axisLabel: {
+        formatter: function (value) {
+            const date = new Date(value);
+            const yearStart = new Date(value);
+            yearStart.setMonth(0);
+            yearStart.setDate(1);
+            yearStart.setHours(0);
+            yearStart.setMinutes(0);
+            yearStart.setSeconds(0);
+            yearStart.setMilliseconds(0);
+            // Whether a tick value is the start of a year
+            if (date.getTime() === yearStart.getTime()) {
+                return '{year|' + date.getFullYear() + '}\n'
+                    + '{month|' + (date.getMonth() + 1) + '月}';
+            }
+            else {
+                return '{month|' + (date.getMonth() + 1) + '月}'
+            }
+        },
+        rich: {
+            year: {
+                color: '#000',
+                fontWeight: 'bold'
+            },
+            month: {
+                color: '#999'
+            }
+        }
+    }
+},
+```
+
+{{ target: partial-axis-tooltip }}
+
+#${prefix} tooltip(Object)
+
+{{ use: partial-version(version = '5.6.0') }}
+
+The tooltip configuration for ${componentType}, must set [triggerEvent](~${componentType}.triggerEvent) as `true` and enable global [option.tooltip](~tooltip) component.
+
+##${prefix} show(boolean) = false
+
+<ExampleUIControlBoolean default="false" />
+
+Whether to show the tooltip. Defaults to `false`.
+
+{{ use: partial-tooltip-common(
+    prefix = '#' + ${prefix},
+    noValueFormatter = true
+) }}
+
+{{ target: partial-scale-data-value-desc }}
+
+- If [axis.type](~${componentType}.type) is `'value'` or `'log'`, use `number` type values.
+  {{ if: ${notSupportCategory} }}
+- If [axis.type](~${componentType}.type) is `'category'`: not supported yet.
+  {{ else }}
+- If [axis.type](~${componentType}.type) is `'category'`, the value can be:
+  - The original string, such as `'categoryA'`, `'categoryB'`.
+  - The ordinal number. For example, if a catergory axis is defined as `data: ['categoryA', 'categoryB', 'categoryC']`, and the ordinal `2` represents `'categoryC'` (starting from `0`). Moreover, it can be set as negative number, like `-3`.
+    {{ /if }}
+- If [axis.type](~${componentType}.type) is `'time'`, the value can be:
+  - `string` type represents any time format that can be parsed by [method `parseDate` in `echarts/src/util/number.ts`](https://github.com/apache/echarts/blob/master/src/util/number.ts), e.g., `'2024-04-09 13:00:00'`.
+  - `number` type represents a timestamp, e.g., `1712667600000`.
+  - `Date` type time objects, e.g., `new Date('2024-04-09T13:00:00Z')`.
+
+{{ target: partial-axis-break-identifier-desc }}
+
+Note: [${componentType}.breaks.start](~${componentType}.breaks.start) and [${componentType}.breaks.end](~${componentType}.breaks.end) are the unique identifiers for each break item. When calling [chart.setOption](api.html#echartsInstance.setOption) to modify [${componentType}.breaks.gap](~${componentType}.breaks.gap) or [${componentType}.breaks.isExpanded](~${componentType}.breaks.isExpanded), `start` and `end` must be specified. Update animations will only occur if `start` and `end` are not modified; no animation will occur if they are changed.

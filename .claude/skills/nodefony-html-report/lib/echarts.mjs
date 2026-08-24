@@ -102,11 +102,11 @@ export const PALETTE = [
   "#8a9099",
 ];
 
-const POLICE =
+export const POLICE =
   "ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
 /** Les deux thèmes. Un SVG fige ses couleurs : il en faut un par thème. */
-const THEMES = {
+export const THEMES = {
   clair: {
     encre: "#1a1d21",
     muet: "#6b7280",
@@ -158,6 +158,84 @@ const unite =
   (v) =>
     u ? `${nombre(v, dec)} ${u}` : nombre(v, dec);
 
+/* ──────────────────────── 2 bis. L'ÉCHELLE ─────────────────────────────── */
+
+/**
+ * Décide l'échelle d'un axe de valeurs — la question la plus lourde de
+ * conséquences d'une figure, et la seule qu'on ne doit jamais laisser au hasard.
+ *
+ * 🔴 **Le zéro n'est pas un détail esthétique.** Sur des BARRES, le lecteur
+ * compare des LONGUEURS : couper l'axe multiplie visuellement un écart de 3 %
+ * jusqu'à le faire passer pour un doublement. Sur un NUAGE ou des BOÎTES, il
+ * compare des POSITIONS : imposer le zéro écrase toute la structure dans un coin.
+ * D'où deux régimes, choisis par la nature de la figure et non par son auteur.
+ *
+ * `dataMax` (ECharts 6.1) réserve la place des étiquettes de valeur **sans**
+ * casser l'algorithme de graduations « rondes » — ce que `max` ferait.
+ * Doc conservée : `references/echarts/axis-common.md`.
+ *
+ * @param {number[]} valeurs - les valeurs portées par l'axe.
+ * @param {{compareDesLongueurs?: boolean, placePourEtiquettes?: boolean}} o
+ * @returns {object} le fragment d'option d'axe.
+ */
+export function echelle(valeurs, o = {}) {
+  const { compareDesLongueurs = false, placePourEtiquettes = false } = o;
+  const finies = valeurs.filter((v) => Number.isFinite(v));
+  if (!finies.length) return {};
+  const min = Math.min(...finies);
+  const max = Math.max(...finies);
+  const frag = {};
+
+  // Comparer des longueurs impose le zéro ; comparer des positions l'interdit.
+  frag.scale = !compareDesLongueurs;
+  // …sauf si les valeurs sont NÉGATIVES : le zéro y est un repère, pas un
+  // plancher, et l'axe doit alors couvrir les deux côtés.
+  if (compareDesLongueurs && min < 0) frag.scale = false;
+
+  // Des entiers restent des entiers : « 2,5 requêtes » n'existe pas.
+  if (finies.every((v) => Number.isInteger(v))) frag.minInterval = 1;
+
+  // De la place au bout des barres pour leur étiquette, sans figer le maximum.
+  if (placePourEtiquettes && max > 0) frag.dataMax = max * 1.12;
+
+  // Un axe dont toutes les valeurs sont égales n'a pas d'étendue : ECharts
+  // rendrait une graduation unique et une barre pleine largeur. On lui donne
+  // un intervalle lisible autour de la valeur — par `dataMin`/`dataMax` quand
+  // on réserve la place des étiquettes, pour ne pas FIGER les bornes (`min` et
+  // `max` désactivent l'algorithme de graduations rondes ; `dataMin`/`dataMax`
+  // le préservent — doc `references/echarts/axis-common.md`).
+  if (min === max) {
+    const bas = Math.min(0, min * 1.2);
+    const haut = max === 0 ? 1 : max * 1.2;
+    if (placePourEtiquettes) {
+      frag.dataMin = bas;
+      frag.dataMax = haut;
+    } else {
+      frag.min = bas;
+      frag.max = haut;
+      delete frag.scale;
+    }
+  }
+  return frag;
+}
+
+/**
+ * Hauteur DÉRIVÉE du contenu — une figure ne se dimensionne pas au jugé.
+ *
+ * Vingt catégories dans 340 pixels donnent des barres de six pixels et des
+ * étiquettes qu'ECharts finit par masquer pour éviter le chevauchement : la
+ * figure devient fausse par omission, sans le dire. La hauteur suit donc le
+ * nombre de catégories, entre un plancher et un plafond raisonnables.
+ *
+ * @param {number} nbCategories
+ * @param {{haut?: number, bas?: number, parCategorie?: number, min?: number, max?: number}} o
+ * @returns {number} hauteur en pixels.
+ */
+export const hauteurPour = (nbCategories, o = {}) => {
+  const { haut = 70, bas = 30, parCategorie = 30, min = 190, max = 900 } = o;
+  return Math.max(min, Math.min(max, haut + bas + nbCategories * parCategorie));
+};
+
 /* ───────────────── 3. Le rendu : thème, marges, accessibilité ───────────── */
 
 const echappe = (s) =>
@@ -176,13 +254,14 @@ const echappe = (s) =>
  * @param {{titre?: string, sousTitre?: string, legende?: string[], largeur: number}} o
  * @returns {{haut: number, bas: number}} marges en pixels.
  */
-const marges = ({ titre, sousTitre, legende, largeur, axeX, axeY }) => {
-  // 🔴 Le nom d'un axe occupe de la place que la grille ne réserve PAS : sans
-  // ces deux termes, « ms » se pose sur le sous-titre et « p99 (ms) » sort par
-  // le bas de la figure. Constaté sur la première galerie, sur trois figures.
-  const haut = (titre ? 24 : 0) + (sousTitre ? 18 : 0) + 14 + (axeY ? 14 : 0);
-  const basAxe = axeX ? 22 : 0;
-  if (!legende?.length) return { haut, bas: 12 + basAxe };
+const marges = ({ titre, sousTitre, legende, largeur }) => {
+  // 🔴 On ne réserve QUE le titre et la légende. Les étiquettes et les noms
+  // d'axes sont placés par le mécanisme d'« outer bounds » d'ECharts 6, activé
+  // par défaut — doc conservée dans `references/echarts/grid.md`. Y ajouter des
+  // marges à la main revenait à corriger deux fois le même écart, et déplaçait
+  // la figure au lieu de la caler.
+  const haut = (titre ? 24 : 0) + (sousTitre ? 18 : 0) + 14;
+  if (!legende?.length) return { haut, bas: 12 };
   // ~7,4 px par caractère + 26 px de pastille et d'espace, replié à la largeur.
   const parLigne = Math.max(
     1,
@@ -191,7 +270,7 @@ const marges = ({ titre, sousTitre, legende, largeur, axeX, axeY }) => {
     ),
   );
   const lignes = Math.ceil(legende.length / parLigne);
-  return { haut, bas: 10 + lignes * 17 + basAxe };
+  return { haut, bas: 10 + lignes * 17 };
 };
 
 /**
@@ -271,13 +350,13 @@ function socle({
           textStyle: { color: T.muet, fontSize: 11, fontFamily: POLICE },
         }
       : undefined,
-    grid: {
-      left: 10,
-      right: 20,
-      top: m.haut,
-      bottom: m.bas,
-      containLabel: true,
-    },
+    // 🔴 PAS de `containLabel` : déprécié en 6.0, et il équivaut à
+    // `outerBoundsContain: 'axisLabel'` — qui EXCLUT les noms d'axes. C'est
+    // exactement ce qui faisait déborder « p99 (ms) » hors de la figure, et que
+    // des marges à la main ne faisaient que déplacer. Le défaut de la v6
+    // (`outerBoundsMode: 'auto'`, `outerBoundsContain: 'all'`) contraint la
+    // grille, les étiquettes ET les noms. Doc : `references/echarts/grid.md`.
+    grid: { left: 10, right: 20, top: m.haut, bottom: m.bas },
     // `sens` décide OÙ le nom se pose : en tête pour un axe vertical (au-dessus
     // des graduations, aligné à gauche), au milieu et bas pour un axe horizontal.
     axe: (nom, extra = {}, sens = "y") => ({
@@ -336,23 +415,29 @@ export function bars(o) {
     etiquettes = true,
     decimales = false,
     largeur = 640,
-    hauteur = 340,
     theme = "clair",
     titre,
     sousTitre,
     desc,
   } = o;
   const legende = series.length > 1 ? series.map((s) => s.nom) : undefined;
-  const s = socle({
-    titre,
-    sousTitre,
-    legende,
-    largeur,
-    hauteur,
-    theme,
-    axeX: horizontal ? axeValeur : undefined,
-    axeY: horizontal ? undefined : axeValeur,
-  });
+  const toutes = series.flatMap((x) => paires(x.data).valeurs);
+  // La hauteur SUIT le contenu quand les barres sont couchées : vingt
+  // catégories dans 340 pixels donnent des barres de six pixels et des
+  // étiquettes qu'ECharts masque pour éviter le chevauchement — la figure
+  // devient fausse par omission, sans le dire.
+  const hauteur =
+    o.hauteur ??
+    (horizontal
+      ? hauteurPour(
+          paires(series[0].data).valeurs.length * (empile ? 1 : series.length),
+          {
+            parCategorie: 26,
+            haut: 66 + (legende ? 20 : 0),
+          },
+        )
+      : 340);
+  const s = socle({ titre, sousTitre, legende, largeur, hauteur, theme });
   const { categories } = paires(series[0].data);
 
   const axeCat = s.axe(
@@ -368,6 +453,12 @@ export function bars(o) {
     axeValeur,
     {
       type: "value",
+      // Des barres se comparent par leur LONGUEUR : l'axe garde le zéro, et
+      // réserve de quoi écrire la valeur au bout sans figer le maximum.
+      ...echelle(toutes, {
+        compareDesLongueurs: true,
+        placePourEtiquettes: etiquettes && !empile,
+      }),
       axisLabel: {
         color: s.T.muet,
         fontSize: 11,
@@ -455,6 +546,12 @@ export function barsEtendue(o) {
         axeValeur,
         {
           type: "value",
+          // L'axe doit contenir les MOUSTACHES, pas seulement les médianes :
+          // un maximum tronqué couperait la mesure qu'on prétend montrer.
+          ...echelle(
+            data.flatMap((d) => [d.min, d.med, d.max]),
+            { compareDesLongueurs: true, placePourEtiquettes: true },
+          ),
           axisLabel: {
             color: s.T.muet,
             fontSize: 11,
@@ -546,6 +643,7 @@ export function lines(o) {
     series,
     axeX = "",
     axeY = "",
+    axeYDroite = "",
     log = false,
     aire = false,
     lisse = true,
@@ -557,17 +655,16 @@ export function lines(o) {
     desc,
   } = o;
   const legende = series.length > 1 ? series.map((s) => s.nom) : undefined;
-  const s = socle({
-    titre,
-    sousTitre,
-    legende,
-    largeur,
-    hauteur,
-    theme,
-    axeX,
-    axeY,
-  });
+  const s = socle({ titre, sousTitre, legende, largeur, hauteur, theme });
   const categoriel = typeof series[0].points[0][0] === "string";
+  // Des courbes HÉTÉROGÈNES — des req/s et des millisecondes — ne partagent pas
+  // une échelle : la seconde vit sur un axe de droite, qu'une série demande par
+  // `droite: true`.
+  const aDroite = series.some((x) => x.droite);
+  const valeursDe = (cote) =>
+    series
+      .filter((x) => Boolean(x.droite) === cote)
+      .flatMap((x) => x.points.map((pt) => pt[1]));
   return rendre(
     {
       title: s.title,
@@ -588,24 +685,53 @@ export function lines(o) {
         },
         "x",
       ),
-      yAxis: s.axe(
-        axeY,
-        {
-          type: log ? "log" : "value",
-          axisLabel: {
-            color: s.T.muet,
-            fontSize: 11,
-            hideOverlap: true,
-            formatter: unite(""),
+      // 🔴 `alignTicks` (ECharts ≥ 5.3) est OBLIGATOIRE dès qu'il y a deux axes
+      // de valeurs : sans lui, chacun choisit ses graduations dans son coin, les
+      // deux grilles ne coïncident plus, et le point où les courbes se croisent
+      // ne veut plus rien dire. Doc : `references/echarts/y-axis.md`.
+      yAxis: [
+        s.axe(
+          axeY,
+          {
+            type: log ? "log" : "value",
+            alignTicks: aDroite,
+            ...(log ? {} : echelle(valeursDe(false))),
+            axisLabel: {
+              color: s.T.muet,
+              fontSize: 11,
+              hideOverlap: true,
+              formatter: unite(""),
+            },
           },
-        },
-        "y",
-      ),
+          "y",
+        ),
+        ...(aDroite
+          ? [
+              s.axe(
+                axeYDroite,
+                {
+                  type: "value",
+                  position: "right",
+                  alignTicks: true,
+                  ...echelle(valeursDe(true)),
+                  axisLabel: {
+                    color: s.T.muet,
+                    fontSize: 11,
+                    hideOverlap: true,
+                    formatter: unite("", true),
+                  },
+                },
+                "y",
+              ),
+            ]
+          : []),
+      ],
       series: series.map((serie, i) => ({
         name: serie.nom,
         type: "line",
         smooth: lisse,
         symbolSize: 6,
+        yAxisIndex: serie.droite && aDroite ? 1 : 0,
         data: serie.points.map((p) => (categoriel ? p[1] : p)),
         lineStyle: {
           width: 2,
@@ -651,7 +777,7 @@ export function scatter(o) {
         axeX,
         {
           type: "value",
-          scale: true,
+          ...echelle(points.map((p) => p.x)),
           axisLabel: {
             color: s.T.muet,
             fontSize: 11,
@@ -665,7 +791,7 @@ export function scatter(o) {
         axeY,
         {
           type: "value",
-          scale: true,
+          ...echelle(points.map((p) => p.y)),
           axisLabel: {
             color: s.T.muet,
             fontSize: 11,
@@ -749,7 +875,7 @@ export function boxplot(o) {
         axeValeur,
         {
           type: "value",
-          scale: true,
+          ...echelle(data.flatMap((d) => d.valeurs)),
           // Décimales seulement quand l'échelle en a besoin : « 18,0 » sur un axe
           // qui va de 0 à 18 est du bruit.
           axisLabel: {
@@ -1402,6 +1528,10 @@ export const STYLE_GRAPHES = `
 .graphe-desc{font-size:12px;color:var(--muted,#6b7280);margin:6px 0 0}
 .graphe-zone{overflow-x:auto}
 .graphe-zone svg{display:block;margin:0 auto;max-width:100%;height:auto}
+/* Un SCHÉMA porte une taille intrinsèque et beaucoup de texte : le réduire à la
+   colonne rend ses libellés illisibles. Il DÉFILE, comme un tableau large. */
+.schema-zone{overflow-x:auto}
+.schema-zone svg{display:block;margin:0 auto;max-width:none;height:auto}
 .g-sombre{display:none}
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]) .g-clair{display:none}
