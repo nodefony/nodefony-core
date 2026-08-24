@@ -402,6 +402,31 @@ est une question du générateur, pas de l'application.
 > ports dédiés, et `cluster` — une valeur de configuration — était compté comme
 > un module manquant. Un seul défaut réel dans le lot.
 
+### Lancer npm sur les trois systèmes — `scripts/lib/exec-portable.mjs`
+
+Sous Windows, `npm` et `npx` sont des `.cmd`, et Node **refuse** de les
+exécuter sans `shell: true` depuis le correctif de CVE-2024-27980. Il ne le dit
+pas : il rend `spawnSync npm ENOENT`, qui se lit « npm n'est pas installé » — sur
+un runner où `npm ci` vient de réussir. C'est ainsi que le premier passage
+Windows du banc du code généré est tombé, à la première étape, pendant que linux
+et macOS étaient verts.
+
+La règle a **une seule** implémentation (`besoinDeShell`), appelée par les deux
+helpers d'exécution (`scripts/lib/isolation.mjs`, `scripts/verify-generated.mjs`). Elle est
+**pure** — plateforme et grammaire de chemins injectées — parce qu'une fonction
+qui lit `process.platform` ne s'éprouve que sur la plateforme qu'elle décrit,
+c'est-à-dire jamais ici :
+
+```bash
+node scripts/lib/exec-portable.selftest.mjs           # les deux branches, partout
+node scripts/lib/exec-portable.selftest.mjs --prove   # amputée, elle doit faire tomber 2 cas
+```
+
+> ⚠️ **Non couvert** : `bench-schema.mjs` et `bench-discoverability.mjs` ont leurs
+> propres helpers et lancent de vrais agents — ils ne tournent pas en intégration
+> continue, donc rien ne les éprouve sous Windows. Le défaut y est présent, et il
+> est nommé plutôt que corrigé à l'aveugle.
+
 ### Rendre la page publique du banc
 
 ```bash

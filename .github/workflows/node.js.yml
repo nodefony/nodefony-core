@@ -237,6 +237,7 @@ jobs:
           node .claude/skills/nodefony-devkit-bench/scripts/lib/gate-session-csrf.selftest.mjs
           node .claude/skills/nodefony-devkit-bench/scripts/lib/env-decor.selftest.mjs --prove
           node .claude/skills/nodefony-devkit-bench/scripts/lib/reference.selftest.mjs --prove
+          node .claude/skills/nodefony-devkit-bench/scripts/lib/exec-portable.selftest.mjs --prove
 
   # ─── Tests unit — toutes les plateformes, pas besoin du serveur ─────────────
   #
