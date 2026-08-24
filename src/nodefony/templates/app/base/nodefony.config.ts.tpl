@@ -174,6 +174,22 @@ export default defineConfig<typeof env>((ctx) => ({
           pattern: "^/api",
           authenticators: ["session", "anonymous"],
         },
+        // AJOUTER une route ici ne demande RIEN de plus : le préfixe est déjà
+        // couvert, la zone authentifie, et `context.user` est garanti dans le
+        // controller. Une route neuve sous `/api/secure` naît protégée.
+        //
+        // ⚠️ Un appelant qui reçoit 401 sur une route de cette zone ne dit PAS
+        // que la zone est mal réglée : il dit qu'il ne s'authentifie pas. Les
+        // deux réflexes qui suivent affaiblissent l'application ENTIÈRE pour un
+        // seul appelant, et rien ne le signalera :
+        //   · ajouter `"anonymous"` ici — toutes les routes de la zone
+        //     deviennent publiques, pas seulement la nouvelle ;
+        //   · poser `@BypassFirewall`/`@Anonymous` sur l'action — même effet,
+        //     en plus discret, puisque la zone a toujours l'air fermée.
+        // Fais plutôt s'authentifier l'appelant (session pour un navigateur,
+        // zone `machine` ci-dessous pour un service), ou donne-lui sa propre
+        // zone. Restreindre DAVANTAGE reste possible sans rien ouvrir :
+        // `@IsGranted(["ROLE_ADMIN"])` sur l'action.
         secure: {
           pattern: "^/api/secure",
           authenticators: ["session"],
