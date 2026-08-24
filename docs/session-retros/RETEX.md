@@ -43,6 +43,17 @@
   battement de cœur était inopérant contre une base gelée — `ping()` PEND, et la sonde
   pendait avec la panne qu'elle devait observer.
 
+- 🔴 **Un chiffre écrit EN DUR survit à la mesure qui le contredit — quatre fois dans une
+  seule page.** Carte de tête annonçant le ratio d'un autre niveau · sous-titre d'une figure
+  **contredisant les barres qu'il surmonte** (1,61/1,29/1,07 au-dessus de 1,42/1,09/1,07) ·
+  avertissement « le comparatif reste à rejouer » alors qu'il venait de l'être · bandeau
+  « BROUILLON » en tête d'une page qu'on s'apprêtait à lier depuis le README. Aucun n'était
+  signalé par un test : ils se voient à l'ÉCRAN, et seulement là. Tout chiffre affiché se
+  DÉRIVE de sa source. `[1× — 08-24]`
+- **Un livrable annoncé en DEUX pièces livré en une** : j'avais dit « deux fichiers, deux
+  publics », j'en ai publié un et clôturé. Le user a dû le relever. Annoncer un plan en N
+  parties, c'est s'engager à recompter N à la livraison. `[1× — 08-24]`
+
 ## 🌍 Une portée GLOBALE n'est pas « un peu intrusive » — elle est FAUSSE
 
 - **Le défaut était documenté au lieu d'être corrigé.** `ai:mcp` écrivait la porte MCP dans le
@@ -79,6 +90,14 @@
   une passe s'interrompt par `process.exit`, et une PRÉMISSE démarre l'application dans tous les
   régimes. Le nettoyage d'un décor s'arme sur `process.on("exit")` + signaux, jamais sur le seul
   chemin nominal. [1× — 08-23]
+
+- 🔴 **Le DÉCOR d'une mesure ne vient pas de la machine qui l'AFFICHE.** Le générateur du
+  rapport lisait Node et le nombre de cœurs sur la machine du RENDU (`process.version`,
+  `sysctl`). En session, rendu et mesure ont lieu au même endroit : juste par COÏNCIDENCE, et
+  rien ne pouvait le révéler. La première publication a rendu « **? cœurs logiques** » — et le
+  cas dangereux est l'autre : un exécuteur qui répond attribue SES cœurs au banc, chiffre faux
+  et crédible sur une page publique. Trouvé en comparant octet à octet la page SERVIE et la
+  page bâtie. `[1× — 08-24]`
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
 
@@ -189,6 +208,14 @@
   cherchait le journal dans deux emplacements et ignorait celui de la forge
   (`$GITHUB_WORKSPACE/nodefony-server.log`) : ajouter un candidat ne peut pas produire de faux
   positif (le marqueur unique décide), mais en OUBLIER un produit un banc muet. [1× — 08-23]
+
+- 🔴 **Un garde qui vise le mauvais dossier ressemble exactement à un garde.** Deux suites
+  nettoyaient `tmp/` quand le serveur écrit dans `tmp/upload` (la config de l'app le pose) :
+  le `readdir` listait un dossier voisin, `unlink` réussissait à ne rien faire, et **4 420
+  fichiers** se sont accumulés sans qu'aucun test ne bronche. Un `unlink` silencieux ne peut
+  pas révéler ça — le garde rend désormais le NOMBRE supprimé et les suites l'assertent (vu
+  rouge : `expected +0 to be above +0`, la mesure directe du défaut). C'est le USER qui l'a
+  vu. `[1× — 08-24]`
 
 ## 🎭 Mon PROPRE `--dry-run` mentait — l'option dont le seul rôle est de dire ce qui va se passer
 
@@ -308,6 +335,18 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 - `$?` après un pipeline est celui de la DERNIÈRE commande : `prettier --check f | tail` rend toujours 0. Quatre verdicts faux d'affilée. [2× — 08-22]
 - `prettier --check` lancé depuis le dépôt sur un chemin HORS périmètre ne trouve aucun fichier et sort **0** : « conforme » disait en réalité « rien vérifié ». Toujours mesurer dans le décor où la config s'applique. [1× — 08-22]
 - Le CLI s'exécute depuis `dist` : un gabarit se lit au disque (édition immédiate), le MOTEUR non — build avant de mesurer. [1× — 08-22]
+
+- **`grep -c` compte des LIGNES, pas des occurrences** — sur un rendu HTML, il a fait
+  conclure « 1 NaN » puis « 4 lignes avec 12226 » sans rapport avec le nombre réel. Et le
+  même jour, un `grep "12 226"` à l'espace normale n'a rien trouvé dans une page qui l'écrit
+  avec une espace **insécable** : « le chiffre a disparu » était faux deux fois de suite.
+  Compter = `grep -o … | wc -l` ; chercher un nombre formaté = motif tolérant au séparateur.
+  `[1× — 08-24]`
+- 🔴 **J'ai failli « corriger » un graphe JUSTE.** En lisant un SVG séquentiellement, chaque
+  valeur tombait à côté du libellé de la barre SUIVANTE : j'ai cru à des libellés décalés
+  d'un cran, et le corriger aurait introduit le vrai défaut. Les coordonnées (`y`) l'ont
+  tranché en une commande. Dans un rendu, l'ordre du DOCUMENT n'est pas l'ordre VISUEL.
+  `[1× — 08-24]`
 
 ## 🗄️ Gradué aux CONSOLIDATE (retiré d'ici — règle anti-doublon)
 
