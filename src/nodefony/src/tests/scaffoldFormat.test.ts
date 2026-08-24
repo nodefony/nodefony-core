@@ -38,10 +38,18 @@ function projet(avecPrettier: boolean): string {
   const dir = mkdtempSync(path.join(tmpdir(), "nf-scaffold-format-"));
   if (avecPrettier) {
     mkdirSync(path.join(dir, "node_modules"), { recursive: true });
+    // `junction` et non `dir` : sous Windows, un lien symbolique de dossier
+    // exige le privilège `SeCreateSymbolicLinkPrivilege` (ou le mode
+    // développeur), que rien ne garantit sur un runner de CI — le cas
+    // échouerait là-bas sur EPERM, pour une raison sans rapport avec ce qu'il
+    // mesure. Une jonction NTFS n'exige aucun privilège ; c'est ce que npm
+    // emploie pour lier ses espaces de travail. Sur POSIX, Node ignore le type
+    // et crée un lien symbolique ordinaire — un seul code pour les trois
+    // plateformes. La cible doit être ABSOLUE, ce qu'elle est ici.
     symlinkSync(
       path.join(REPO, "node_modules", "prettier"),
       path.join(dir, "node_modules", "prettier"),
-      "dir",
+      "junction",
     );
   }
   return dir;
