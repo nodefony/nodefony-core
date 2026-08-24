@@ -21,7 +21,21 @@ import path from "node:path";
  * l'application déclare le sien (`NF_PORT`, `PORT` en PaaS) ou qu'un port occupé
  * l'a fait glisser.
  */
-const bin = path.resolve("node_modules/.bin/nodefony");
+
+/**
+ * Le lanceur du framework, appelé par NODE plutôt que par son raccourci.
+ *
+ * `node_modules/.bin/nodefony` n'existe pas sous Windows : npm y écrit un
+ * `nodefony.cmd`, et Node refuse d'exécuter un script batch sans passer par un
+ * shell (correctif de CVE-2024-27980). Le symptôme est un `ENOENT` sur un
+ * chemin parfaitement présent à l'œil — il désigne le fichier SANS extension,
+ * qui, lui, n'est pas là.
+ *
+ * On vise donc le script réel et on le confie à `process.execPath`. Aucune
+ * extension à deviner, aucun shell à ouvrir, la même ligne sur les trois
+ * systèmes.
+ */
+const bin = path.resolve("node_modules/nodefony/bin/nodefony");
 
 /**
  * Base de données de la suite E2E — jetable, et surtout SÉPARÉE de celle du
@@ -98,7 +112,7 @@ export async function setup(): Promise<void> {
       rmSync(`${fichier}${suffixe}`, { force: true });
     }
   }
-  execFileSync(bin, ["production", "--detach", "--wait"], {
+  execFileSync(process.execPath, [bin, "production", "--detach", "--wait"], {
     stdio: "inherit",
     timeout: 120_000,
     env: {
@@ -116,5 +130,8 @@ export async function setup(): Promise<void> {
 export async function teardown(): Promise<void> {
   // Jamais de serveur laissé derrière : un runtime orphelin tient les ports et
   // fait échouer le run suivant sur une erreur qui ne parle pas de lui.
-  execFileSync(bin, ["stop"], { stdio: "inherit", timeout: 30_000 });
+  execFileSync(process.execPath, [bin, "stop"], {
+    stdio: "inherit",
+    timeout: 30_000,
+  });
 }
