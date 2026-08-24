@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-24T22:49:56.437Z",
+  "generated": "2026-08-24T23:54:39.017Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 735,
-    "symbols": 3115,
+    "symbols": 3116,
     "classes": 364,
     "interfaces": 887,
     "types": 387,
     "enums": 4,
-    "functions": 1180,
+    "functions": 1181,
     "constants": 293
   },
   "symbols": {
@@ -4666,6 +4666,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
+      "description": "Réglages d'un module de test — tous facultatifs."
+    },
+    "nodefonyBin": {
+      "name": "nodefonyBin",
+      "kind": "function",
+      "file": "src/nodefony/src/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
       "description": "Outillage de TEST publié — ce qu'il faut pour éprouver un service SEUL. ## Le problème que ce sous-chemin résout Un service Nodefony reçoit un `Module` (`super(nom, module.container, module.notific…"
     },
     "createTestModule": {

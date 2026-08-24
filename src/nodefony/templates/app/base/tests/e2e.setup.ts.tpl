@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { rmSync } from "node:fs";
 import path from "node:path";
+import { nodefonyBin } from "nodefony/testing";
 <% if (it.hasSecurity) { %>import { readRuntimeState } from "nodefony";
 <% } %>
 /**
@@ -23,19 +24,18 @@ import path from "node:path";
  */
 
 /**
- * Le lanceur du framework, appelé par NODE plutôt que par son raccourci.
+ * Le lanceur du framework — RÉSOLU par le framework lui-même.
  *
- * `node_modules/.bin/nodefony` n'existe pas sous Windows : npm y écrit un
- * `nodefony.cmd`, et Node refuse d'exécuter un script batch sans passer par un
- * shell (correctif de CVE-2024-27980). Le symptôme est un `ENOENT` sur un
- * chemin parfaitement présent à l'œil — il désigne le fichier SANS extension,
- * qui, lui, n'est pas là.
+ * Aucun chemin n'est écrit ici, et c'est le point : `node_modules/.bin/nodefony`
+ * n'existe pas sous Windows (npm y écrit un `.cmd`, que Node refuse d'exécuter
+ * sans shell), et l'emplacement du paquet dépend du hoisting, des espaces de
+ * travail, du gestionnaire utilisé. `nodefonyBin()` demande à Node de localiser
+ * le paquet et lit son champ `bin` : une seule implémentation, dans le
+ * framework, qui suit ses propres déménagements.
  *
- * On vise donc le script réel et on le confie à `process.execPath`. Aucune
- * extension à deviner, aucun shell à ouvrir, la même ligne sur les trois
- * systèmes.
+ * Le résultat se donne à `node`, jamais au système : c'est un script.
  */
-const bin = path.resolve("node_modules/nodefony/bin/nodefony");
+const bin = nodefonyBin();
 
 /**
  * Base de données de la suite E2E — jetable, et surtout SÉPARÉE de celle du
