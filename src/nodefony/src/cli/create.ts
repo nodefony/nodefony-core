@@ -1,5 +1,5 @@
 import path from "node:path";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
@@ -22,6 +22,7 @@ import {
   runScaffold,
   type TScaffoldAnswers,
 } from "./scaffold/engine";
+import { formatFilesOnDisk } from "./scaffold/format";
 import { diffLines, type IScaffoldChange } from "./scaffold/writer";
 import { askMissing, confirm } from "./scaffold/interactive";
 import { syncSkillPointers } from "./aiSync";
@@ -458,32 +459,28 @@ function runInstall(dest: string): boolean {
 }
 
 /**
- * Met en forme le projet avec SON prettier, une fois les dépendances là.
+ * Met en forme les fichiers que le scaffold vient d'écrire, après l'installation.
  *
  * Le formatage de la transaction ({@link formatScaffoldOutput}) ne peut rien
- * pour une app NEUVE : à l'instant où ses fichiers sont écrits, `npm install`
+ * pour une app NEUVE : à l'instant où ses fichiers sont rendus, `npm install`
  * n'a pas encore tourné et le projet n'a aucun prettier à emprunter. C'est
  * pourtant le cas qui compte le plus — l'application qu'un utilisateur reçoit.
- * D'où cette seconde passe, sur le disque, après l'installation.
  *
- * Un seul processus pour tout le dossier : le `.prettierignore` de l'app
- * écarte `node_modules` et `dist`. Le projet vient de naître, rien n'y est
- * écrit à la main — reformater en bloc n'y écrase aucun style.
+ * 🔴 **Bornée aux fichiers ÉCRITS.** La première version passait `--write .` au
+ * binaire du projet : sur `create module`, cela reformatait le dépôt ENTIER de
+ * l'utilisateur, code écrit à la main compris. Un générateur met en forme ce
+ * qu'il produit, jamais ce qu'il trouve.
  *
  * Silencieux et non bloquant : une app non formatée reste une app qui marche.
+ *
+ * @param dest - racine du projet (recherche de prettier).
+ * @param files - chemins RELATIFS rendus par le scaffold.
  */
-function runFormat(dest: string): boolean {
-  const bin = path.join(
+function runFormat(dest: string, files: string[]): void {
+  formatFilesOnDisk(
+    files.map((f) => path.join(dest, f)),
     dest,
-    "node_modules",
-    ".bin",
-    process.platform === "win32" ? "prettier.cmd" : "prettier",
   );
-  if (!existsSync(bin)) {
-    return false;
-  }
-  const r = spawnSync(bin, ["--write", "."], { cwd: dest, stdio: "ignore" });
-  return r.status === 0;
 }
 
 /**
@@ -903,7 +900,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     // pour le runtime que compilé dans le dist de l'APP. Construit module seul,
     // `inspect`, les gates et la production ignoraient un module pourtant
     // annoncé « installé et construit » — mesuré au banc (tâche 28).
-    runFormat(projectRoot);
+    runFormat(projectRoot, result.files);
     const built = runBuild(projectRoot);
     process.stdout.write(
       built
@@ -949,7 +946,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // relire, et une erreur de compilation doit se lire sur des sources dans leur
   // forme finale — pas sur un texte qui changera juste après.
   if (installed) {
-    runFormat(result.dest);
+    runFormat(result.dest, result.files);
   }
   const built = installed ? runBuild(result.dest) : false;
   if (installed && !built) {

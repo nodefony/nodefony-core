@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-24T21:52:51.798Z",
+  "generated": "2026-08-24T22:09:18.799Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 735,
-    "symbols": 3113,
+    "symbols": 3115,
     "classes": 364,
     "interfaces": 887,
     "types": 387,
     "enums": 4,
-    "functions": 1178,
+    "functions": 1180,
     "constants": 293
   },
   "symbols": {
@@ -5568,6 +5568,14 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Ce que la mise en forme a fait — matière du récapitulatif du CLI."
+    },
+    "formatFilesOnDisk": {
+      "name": "formatFilesOnDisk",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/format.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Met en forme des fichiers DÉJÀ ÉCRITS, nommés un par un. La seconde porte, pour le seul cas que la transaction ne peut pas servir : `create app` écrit ses fichiers AVANT `npm install`, donc au mome…"
     },
     "formatScaffoldOutput": {
       "name": "formatScaffoldOutput",
@@ -24567,6 +24575,9 @@
         "src/nodefony/src/cli/scaffold/interactive.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
+      "formatFilesOnDisk": [
+        "src/nodefony/src/cli/create.ts"
       ],
       "diffLines": [
         "src/nodefony/src/cli/create.ts"

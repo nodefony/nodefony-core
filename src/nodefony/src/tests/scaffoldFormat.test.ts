@@ -10,11 +10,20 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  symlinkSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { formatScaffoldOutput } from "../cli/scaffold/format";
+import {
+  formatFilesOnDisk,
+  formatScaffoldOutput,
+} from "../cli/scaffold/format";
 import { ScaffoldWriter } from "../cli/scaffold/writer";
 
 /** Racine du dépôt — c'est SON prettier qu'on prête au projet de test. */
@@ -41,6 +50,47 @@ function projet(avecPrettier: boolean): string {
 /** Du TypeScript valide, mais pas dans la forme que prettier impose. */
 const MAL_FORME = `export const a = {b:1,   c:2};\n`;
 const BIEN_FORME = `export const a = { b: 1, c: 2 };\n`;
+
+describe("formatFilesOnDisk — la passe d'APRÈS l'installation", () => {
+  it("met en forme les fichiers nommés", () => {
+    const dir = projet(true);
+    const cible = path.join(dir, "genere.ts");
+    writeFileSync(cible, MAL_FORME);
+
+    const bilan = formatFilesOnDisk([cible], dir);
+
+    expect(bilan.formatted).toBe(1);
+    expect(readFileSync(cible, "utf8")).toBe(BIEN_FORME);
+  });
+
+  it("NE TOUCHE PAS un fichier que le scaffold n'a pas écrit", () => {
+    // 🔴 Le défaut que ce cas garde : la première version passait `--write .` au
+    // binaire du projet, ce qui reformatait le dépôt ENTIER de l'utilisateur —
+    // son code écrit à la main compris — sur un simple `create module`.
+    const dir = projet(true);
+    const aNous = path.join(dir, "genere.ts");
+    const aLui = path.join(dir, "ecrit-a-la-main.ts");
+    writeFileSync(aNous, MAL_FORME);
+    writeFileSync(aLui, MAL_FORME);
+
+    formatFilesOnDisk([aNous], dir);
+
+    expect(readFileSync(aNous, "utf8")).toBe(BIEN_FORME);
+    expect(readFileSync(aLui, "utf8")).toBe(MAL_FORME);
+  });
+
+  it("laisse tout INTACT quand le projet n'a pas de prettier", () => {
+    const dir = projet(false);
+    const cible = path.join(dir, "genere.ts");
+    writeFileSync(cible, MAL_FORME);
+
+    const bilan = formatFilesOnDisk([cible], dir);
+
+    expect(bilan.formatted).toBe(0);
+    expect(bilan.pending).toBe(1);
+    expect(readFileSync(cible, "utf8")).toBe(MAL_FORME);
+  });
+});
 
 describe("formatScaffoldOutput", () => {
   it("met en forme un fichier CRÉÉ, avec le prettier du projet", () => {

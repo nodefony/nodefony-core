@@ -33,7 +33,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -149,6 +149,87 @@ process.stdin.on("end", async () => {
 `;
 
 /**
+ * Met en forme des fichiers DÉJÀ ÉCRITS, nommés un par un.
+ *
+ * La seconde porte, pour le seul cas que la transaction ne peut pas servir :
+ * `create app` écrit ses fichiers AVANT `npm install`, donc au moment du rendu
+ * le projet n'a aucun prettier à prêter. On repasse après l'installation.
+ *
+ * 🔴 **La liste est celle des fichiers que le scaffold a ÉCRITS, jamais un
+ * dossier.** Passer `.` à prettier reformaterait le projet ENTIER — le code que
+ * l'utilisateur a écrit compris, avec un diff qui déborde très loin de ce qu'on
+ * vient de générer. Un générateur met en forme ce qu'il produit, rien d'autre.
+ *
+ * Le prettier du projet est chargé comme MODULE, jamais lancé comme binaire :
+ * sous Windows le binaire est un `.cmd`, et depuis le correctif de
+ * CVE-2024-27980 Node refuse d'exécuter un `.cmd` sans `shell: true` (`EINVAL`).
+ * Passer par un shell demanderait ensuite d'échapper un chemin qui contient
+ * couramment des espaces. Le module n'a aucun de ces deux problèmes.
+ *
+ * @param files - chemins ABSOLUS des fichiers écrits par le scaffold.
+ * @param dest - dossier du projet, point de départ de la recherche de prettier.
+ * @returns ce qui a été mis en forme, et ce qui attend faute de prettier.
+ */
+export function formatFilesOnDisk(
+  files: string[],
+  dest: string,
+): IFormatOutcome {
+  const candidats = files.filter(
+    (f) => FORMATABLES.has(path.extname(f)) && existsSync(f),
+  );
+  if (candidats.length === 0) {
+    return { formatted: 0, pending: 0 };
+  }
+  const url = resolvePrettier(dest);
+  if (!url) {
+    return { formatted: 0, pending: candidats.length };
+  }
+  // `previous: null` : ces fichiers viennent d'être générés, ils sont à nous.
+  // La garde « ne pas reformater ce qui ne suivait pas prettier » protège le
+  // code de l'utilisateur ; ici il n'y en a pas.
+  const fichiers = candidats.map((f) => ({
+    path: f,
+    content: readFileSync(f, "utf8"),
+    previous: null,
+  }));
+  const formate = lancerWorker(url, fichiers);
+  if (!formate) {
+    return { formatted: 0, pending: candidats.length };
+  }
+  let formatted = 0;
+  for (const [file, content] of Object.entries(formate)) {
+    writeFileSync(file, content);
+    formatted += 1;
+  }
+  return { formatted, pending: 0 };
+}
+
+/**
+ * Lance le worker et rend ce qu'il a changé, ou `null` si rien n'est
+ * exploitable. Un seul endroit à corriger pour les deux portes.
+ */
+function lancerWorker(
+  url: string,
+  fichiers: { path: string; content: string; previous: string | null }[],
+): Record<string, string> | null {
+  const run = spawnSync(process.execPath, ["-e", WORKER], {
+    input: JSON.stringify({ url, fichiers }),
+    encoding: "utf8",
+    // Une application complète tient largement dedans ; au-delà, on écrit sans
+    // mise en forme plutôt que de faire tomber la génération.
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (run.status !== 0 || !run.stdout) {
+    return null;
+  }
+  try {
+    return JSON.parse(run.stdout) as Record<string, string>;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Met en forme les écritures en attente, dans la transaction.
  *
  * Appelée par {@link runScaffold} AVANT la bifurcation dry-run / vidage, pour
@@ -180,21 +261,8 @@ export function formatScaffoldOutput(
     previous: c.kind === "overwrite" ? (c.previous ?? null) : null,
   }));
 
-  const run = spawnSync(process.execPath, ["-e", WORKER], {
-    input: JSON.stringify({ url, fichiers }),
-    encoding: "utf8",
-    // Une application complète tient largement dedans ; au-delà, on écrit sans
-    // mise en forme plutôt que de faire tomber la génération.
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  if (run.status !== 0 || !run.stdout) {
-    return { formatted: 0, pending: candidats.length };
-  }
-
-  let formate: Record<string, string>;
-  try {
-    formate = JSON.parse(run.stdout) as Record<string, string>;
-  } catch {
+  const formate = lancerWorker(url, fichiers);
+  if (!formate) {
     return { formatted: 0, pending: candidats.length };
   }
 
