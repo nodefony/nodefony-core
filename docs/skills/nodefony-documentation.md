@@ -11,13 +11,13 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 
 # `nodefony-documentation`
 
-> Kit de dev de la DOCUMENTATION Nodefony, deux faces.
+> Kit de dev de la DOCUMENTATION Nodefony, trois faces.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-documentation**
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **2/2** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.4.0`.
+> ℹ️ **5/5** contrôles normatifs (MUST) · 🛡️ **2/2** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v3.0.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -25,41 +25,41 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `2.4.0` |
+| Version | `3.0.0` |
 | Famille | Développer le framework |
-| Corps | 460 lignes |
-| Coût d'activation | ~7 595 tokens (le corps est chargé à l'invocation) |
-| Description | 993 / 1024 caractères |
-| Déclencheurs | 17 |
+| Corps | 469 lignes |
+| Coût d'activation | ~7 783 tokens (le corps est chargé à l'invocation) |
+| Description | 877 / 1024 caractères |
+| Déclencheurs | 18 |
 | Ressources `references/` | 2 page(s) |
 | Scripts | 7 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Kit de dev de la DOCUMENTATION Nodefony, deux faces. (1) Le PORTAIL doc Studio et le futur module `@nodefony/documentation` : briques React (DocLayout, DocToc, MarkdownDoc, FlowGraph, SymbolGraph), mise en page docs-site, data plane avec allowlist anti-traversée. (2) Le SYSTÈME D'ÉCRITURE de la doc de référence : standard de rédaction (Diátaxis, ancres symboliques, Démarrage rapide compilable, navigation par hubs) et ses gates `scripts/` — doc-lint, anchor-check, code-check, gen-counters, build-preview. Ni les écrans Studio génériques (→ nodefony-studio-dev), ni la création back (→ nodefony-create-module).
+Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters.
 
 ## Skills voisins
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`check-memory-health`](nodefony-check-memory-health.md) · [`create-module`](nodefony-create-module.md) · [`framework-dev`](nodefony-framework-dev.md) · [`load-test`](nodefony-load-test.md) · [`rfc`](nodefony-rfc.md) · [`security-review`](nodefony-security-review.md) · [`start-server`](nodefony-start-server.md) · [`studio-dev`](nodefony-studio-dev.md)
+[`check-memory-health`](nodefony-check-memory-health.md) · [`create-module`](nodefony-create-module.md) · [`framework-dev`](nodefony-framework-dev.md) · [`html-report`](nodefony-html-report.md) · [`load-test`](nodefony-load-test.md) · [`rfc`](nodefony-rfc.md) · [`security-review`](nodefony-security-review.md) · [`start-server`](nodefony-start-server.md) · [`studio-dev`](nodefony-studio-dev.md)
 
 ## Quand il se déclenche
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`portail doc` · `DocLayout` · `@nodefony/documentation` · `MarkdownDoc` · `DocToc` · `page de documentation Studio` · `écrire la doc dans Studio` · `écrire une page de doc` · `doc de référence` · `standard de rédaction` · `doc-lint` · `anchor-check` · `corpus doc` · `reprendre la doc` · `avant de rédiger une doc` · `la doc dit-elle encore vrai ?` · `corriger un écart doc↔code`
+`publier la doc` · `site de documentation` · `GitHub Pages` · `cette page doit-elle être publique ?` · `retirer une page du site` · `publish` · `portail doc` · `DocLayout` · `MarkdownDoc` · `écrire une page de doc` · `doc de référence` · `standard de rédaction` · `doc-lint` · `anchor-check` · `corpus doc` · `reprendre la doc` · `la doc dit-elle encore vrai ?` · `corriger un écart doc↔code`
 
 ## Ce que contient le corps
 
-- État actuel (vérité terrain)
+- Les trois consommateurs de la doc
 - Briques front — API exacte
 - Navigation du portail — LE HUB D'ABORD, l'arbre ensuite
 - Règles de mise en page docs-site (NON négociables)
 - Recette — ajouter une page de doc (portail ou onglet module)
 - Data plane back — contrat (POC) + cible
-- Module futur `@nodefony/documentation` — design figé
+- Le module `@nodefony/documentation` — ce qu'il porte
 - Écriture de la doc (contenu) — LE SYSTÈME COMPLET
 - Gates avant commit
 - Retex — template doc impeccable (kit VIVANT, à enrichir)
@@ -72,7 +72,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/briques-front.md` | Briques front de la doc — API exacte | 128 |
-| `references/redaction-contenu.md` | Rédiger une documentation Nodefony — standard d'écriture (contenu) | 541 |
+| `references/redaction-contenu.md` | Rédiger une documentation Nodefony — standard d'écriture (contenu) | 573 |
 
 
 ## Scripts embarqués
@@ -85,10 +85,10 @@ script, donc toujours à jour après régénération.
 | `scripts/anchor-check.mjs` | anchor-check.mjs — vérifie l'EXACTITUDE des ancres `fichier:ligne` du corpus doc. | `--show-toplevel` | — |
 | `scripts/anchor-fix.mjs` | Recale les ancres `fichier.ts:N` SUSPECT d'une page de doc, par SYMBOLE. | `--apply` | `APPLY` |
 | `scripts/anchor-inpage.mjs` | anchor-inpage.mjs — les ancres INTRA-PAGE mènent-elles quelque part ? | — | — |
-| `scripts/build-preview.mjs` | Tout est relatif au dossier de CE script (tmp/doc-corpus/_tools/) — plus aucun | `--accent` `--bg` `--border` `--brand` `--code` `--codefg` `--fg` `--muted` `--no-save` `--panel` `--short` `--show-current` `--show-toplevel` `--th` | `GEN_DATE` `LOGO` `MMDC` `NF_BRANCH` `NF_COMMIT` `NF_VERSION` |
 | `scripts/code-check.mjs` | code-check.mjs — gate de COMPILABILITÉ du « Démarrage rapide » (standard §8sexies). | `--show-toplevel` | — |
 | `scripts/doc-lint.mjs` | doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony. | `--show-toplevel` | `COVERAGE` |
 | `scripts/gen-counters.mjs` | gen-counters.mjs — génère les compteurs `coverage/tests.<topic>.json` en COMPTANT | `--show-toplevel` | — |
+| `lib/slug-heading.mjs` | Slug d'un titre de page — la SEULE implémentation côté Node. | — | — |
 
 **Invocation telle que documentée dans chaque script :**
 
@@ -100,7 +100,7 @@ Usage : node doc-lint.mjs /tmp/corpus/*.md
 Usage : node gen-counters.mjs [topic...]   (sans args : tous les topics)
 ```
 
-**Toutes les variables lues par ce skill** : `APPLY` · `COVERAGE` · `GEN_DATE` · `LOGO` · `MMDC` · `NF_BRANCH` · `NF_COMMIT` · `NF_VERSION`
+**Toutes les variables lues par ce skill** : `APPLY` · `COVERAGE`
 
 ## Conformité au standard Agent Skills
 
@@ -113,13 +113,13 @@ Usage : node gen-counters.mjs [topic...]   (sans args : tous les topics)
 | Contrôle | Nature | État | Mesure | Règle (source) |
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 993 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 877 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
-| corps < 500 lignes | recommandé | ✅ | 460 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 469 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

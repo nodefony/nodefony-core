@@ -137,7 +137,7 @@ Choix du format = **qui lit** (`html-vs-md.md`) : humain qui décide → HTML ; 
    - Dans la prose : **1 ancre max par affirmation-clé, en FIN de phrase** entre parenthèses.
      Jamais en plein milieu d'une phrase, jamais 3 ancres dans un paragraphe narratif.
    - Les ancres denses vivent dans les **tableaux** (Normes, Pièges) et sections de référence.
-   - Au **rendu** (build-preview, et MarkdownDoc Studio à terme) : une ancre `fichier.ts:NNN` est
+   - Au **rendu** (le générateur du site, et MarkdownDoc Studio à terme) : une ancre `fichier.ts:NNN` est
      affichée en **référence discrète** (petite, atténuée, type note de bas de page) — le MD reste
      la source vérifiable, le lecteur voit un texte propre.
 4. **Le code doit être VISUEL** : coloration syntaxique obligatoire au rendu ; un bloc = une idée ;
@@ -146,7 +146,7 @@ Choix du format = **qui lit** (`html-vs-md.md`) : humain qui décide → HTML ; 
    répondent à une question, pas des titres décoratifs.
 6. **Catalogue de briques = CARDS** (série homogène : authenticators, stores, drivers…) —
    convention 100 % Markdown : chaque brique s'écrit ``### `nom` — titre`` (le nom en code
-   inline) ; le rendu (build-preview, MarkdownDoc Studio à terme) en fait une **card** (bordure
+   inline) ; le rendu (le générateur du site, MarkdownDoc Studio à terme) en fait une **card** (bordure
    accent, nom en pill, corps encadré). Toujours précéder le catalogue d'un **tableau de synthèse**
    (choisir en 5 s) — les cards donnent le détail.
 7. **Rythmer avec les admonitions** (`> [!TIP]` · `> [!WARNING]` · `> [!IMPORTANT]`) : un piège
@@ -236,7 +236,7 @@ La doc vit **dans le module** (ADR-0001) → on l'édite à côté du code qu'on
    schéma Zod ; une entité, du fichier d'entité.
 4. Bumper `updated:` dans le frontmatter (le SEUL endroit daté).
 5. **Studio rend le `.md` en direct** (cache 30 s ; `cache.ttlMs:0` en dev) → rien à régénérer côté
-   portail. L'aperçu HTML autonome (`build-preview.mjs`) ne sert qu'à une revue HORS Studio.
+   portail. L'aperçu HTML autonome (`build-docs-site.mjs --only`) ne sert qu'à une revue HORS Studio.
 6. Commit `docs(<module>): <brique> — <ce qui a changé>`.
 
 **Détecter la dérive** : date git de la page < date git du code du module (Studio affiche déjà la
@@ -504,7 +504,7 @@ Le linter (`tmp/doc-corpus/_tools/doc-lint.mjs`) échoue si, pour une page :
 **Workflow par page (ordre imposé)** : lire le code → rédiger (intro §8 + analyse §8bis + complétude
 §8quater) → compter les tests sur la machine (`grep -cE "^\s*(it|test)\(" …`) → écrire
 `coverage/tests.<topic>.json` (+ `coverageModule/coverageFiles` si couverture dispo) → générer l'aperçu
-(`build-preview.mjs`) → **`doc-lint.mjs` au vert** → livrer + committer. Passer le linter sur TOUT le
+(`build-docs-site.mjs --only`) → **`doc-lint.mjs` au vert** → livrer + committer. Passer le linter sur TOUT le
 corpus après un lot (`node doc-lint.mjs tmp/corpus/*.md`) pour attraper les régressions.
 
 ## 9. Squelette de page module (maximum — adapter selon §8bis)

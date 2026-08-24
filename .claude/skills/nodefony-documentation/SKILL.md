@@ -2,7 +2,7 @@
 name: nodefony-documentation
 metadata:
   version: 3.0.0
-description: Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC — générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL doc de la console d'administration et le module `@nodefony/documentation` : briques React (DocLayout, DocToc, MarkdownDoc, FlowGraph, SymbolGraph), data plane avec allowlist anti-traversée. (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction (Diátaxis, ancres symboliques, Démarrage rapide compilable, navigation par hubs) et ses gates `scripts/` — doc-lint, anchor-check, code-check, gen-counters, build-preview. Ni les écrans Studio génériques (→ nodefony-studio-dev), ni la création back (→ nodefony-create-module). Déclencheurs : "publier la doc", "site de documentation", "GitHub Pages", "cette page doit-elle être publique ?", "retirer une page du site", "publish", "portail doc", "DocLayout", "@nodefony/documentation", "MarkdownDoc", "DocToc", "page de documentation Studio", "écrire une page de doc", "doc de référence", "standard de rédaction", "doc-lint", "anchor-check", "corpus doc", "reprendre la doc", "avant de rédiger une doc", "la doc dit-elle encore vrai ?", "corriger un écart doc↔code".
+description: Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : "publier la doc", "site de documentation", "GitHub Pages", "cette page doit-elle être publique ?", "retirer une page du site", "publish", "portail doc", "DocLayout", "MarkdownDoc", "écrire une page de doc", "doc de référence", "standard de rédaction", "doc-lint", "anchor-check", "corpus doc", "reprendre la doc", "la doc dit-elle encore vrai ?", "corriger un écart doc↔code".
 ---
 
 # nodefony-documentation — kit doc (site public · portail · écriture)
@@ -96,7 +96,7 @@ Toute page porte en plus un **fil d'Ariane** (haut) et un **retour au hub** (pie
 règle §8bis-nav du standard, vérifiée par `doc-lint`. Le lecteur ne doit jamais être en cul-de-sac.
 
 **Rendu des cards de hub** : une card naît d'un `### [\`nom\`](nom.md) — titre`(nom en code inline,
-éventuellement lié).`build-preview.mjs` rend l'en-tête entier cliquable (`.brick-nav`/`.brick-link`,
+éventuellement lié).`build-docs-site.mjs --only` rend l'en-tête entier cliquable (`.brick-nav`/`.brick-link`,
 focus visible, `prefers-reduced-motion`) — **`MarkdownDoc.tsx` doit atteindre la même parité** ; l'aperçu
 est la référence visuelle.
 
@@ -297,7 +297,7 @@ le module évolue. Ce qui compte pour qui écrit de la doc ou touche au site :
 | `scripts/anchor-inpage.mjs <page.md>` | **Ancres INTERNES** : chaque `](#section)` mène-t-il à un titre de la page ? (sommaires morts) |
 | `scripts/code-check.mjs <page.md>` | **Compilabilité** : extrait les blocs du « Démarrage rapide » et les compile en TS strict |
 | `scripts/gen-counters.mjs [topic]` | Compteurs de tests **comptés réellement** depuis `scripts/test-map.json` (JAMAIS de photo figée) |
-| `scripts/build-preview.mjs <page.md>` | Aperçu d'UNE page — délègue à `build-docs-site.mjs --only`, donc l'aperçu EST le rendu publié. Il portait un second moteur : l'aperçu ne montrait pas ce qui serait publié, et il dépendait d'un paquet absent du dépôt |
+| `scripts/build-docs-site.mjs --only <page.md>` | Aperçu d'UNE page, rendu par le moteur du SITE — donc l'aperçu EST ce qui sera publié |
 
 > 🔁 **Un diff de code décale les ancres de la doc qui le cite — recaler à la MAIN coûte cher et se
 > trompe.** Enchaîner les deux scripts, en simulation puis pour de bon :
@@ -326,7 +326,7 @@ le module évolue. Ce qui compte pour qui écrit de la doc ou touche au site :
 ### Workflow par page (ordre imposé)
 
 lire le CODE réel → rédiger (standard §8→§8sexies) → `gen-counters.mjs <topic>` (MAJ `test-map.json`
-si nouveaux fichiers de test) → `build-preview.mjs` → **les 4 gates verts : `doc-lint.mjs`,
+si nouveaux fichiers de test) → `build-docs-site.mjs --only` → **les 4 gates verts : `doc-lint.mjs`,
 `anchor-check.mjs` (0 SUSPECT), `anchor-inpage.mjs` (0 ancre morte), `code-check.mjs` (compile)** →
 commit `docs(<module>): …` sur la branche `doc` (jamais mergée sans validation humaine).
 

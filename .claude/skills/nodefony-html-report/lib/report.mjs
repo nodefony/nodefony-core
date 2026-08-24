@@ -799,6 +799,13 @@ body.deck { overflow:hidden; height:100vh; }
 body.deck .wrap { max-width:1180px; height:100vh; padding:0 40px 64px;
   display:flex; flex-direction:column; }
 body.deck .rep-head { flex:none; margin-bottom:14px; }
+/* Les sections vivent dans un element main, pas directement dans l'enveloppe :
+   sans relayer
+   la colonne flexible ici, le flex:1 d'une section ne s'applique à rien, sa
+   hauteur n'est pas contrainte, son overflow-y ne defile jamais — et le
+   overflow:hidden du corps COUPE ce qui depasse. Une diapositive longue
+   perdait ainsi sa fin, sans barre de défilement pour le dire. */
+body.deck main { flex:1; min-height:0; display:flex; flex-direction:column; }
 body.deck h1 { display:none; }
 body.deck section.sec { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain;
   margin-top:0; padding-right:6px; animation:slidein .28s ease-out; }

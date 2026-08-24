@@ -93,8 +93,8 @@ serait sans effet à la régénération suivante.
     "desc": "Scaffold d'un package @nodefony/* du REPO FRAMEWORK (src/packages/) — package.json, tsconfig, rolldown, structure nodefony/{interfaces,service,command,src,config}/, index.ts (Module + @services + exports), CLAUDE.md, MEMORY.md, README.md, peerDeps, manifeste `modules`.",
     "meta": "🟢 conforme · 📎 1 réf" },
   { "icon": "📘", "title": "documentation", "href": "skills/nodefony-documentation.md",
-    "desc": "Kit de dev de la DOCUMENTATION Nodefony, deux faces. (1) Le PORTAIL doc Studio et le futur module `@nodefony/documentation` : briques React (DocLayout, DocToc, MarkdownDoc, FlowGraph, SymbolGraph), mise en page docs-site, data plane avec allowlist anti-traversée.",
-    "meta": "🟢 conforme v2.4.0 · ⚙️ 7 scripts · 📎 2 réf" },
+    "desc": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort.",
+    "meta": "🟢 conforme v3.0.0 · ⚙️ 7 scripts · 📎 2 réf" },
   { "icon": "⚙️", "title": "framework-dev", "href": "skills/nodefony-framework-dev.md",
     "desc": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM).",
     "meta": "🟢 conforme v2.0.0 · 📎 10 réf" },
@@ -271,7 +271,7 @@ pas remplacer :
 | ------------------------- | ------: | --------------------------------------------------------------------------------------------------------------------------- |
 | `nodefony-load-test`      |      38 | Bancs HTTP/WS, capacité, cluster, idempotence, TOTP, rate-limit, webhooks, AIMD, contention du puits de logs                |
 | `nodefony-multipod-bench` |       9 | Décor multi-pods (`setup.sh`), latence, débit, coût de publication, forge d'enveloppe scellée, pic mémoire                  |
-| `nodefony-documentation`  |       6 | Les **gates** de la doc : `doc-lint`, `anchor-check`, `anchor-inpage`, `code-check`, `gen-counters`, `build-preview`        |
+| `nodefony-documentation`  |       6 | Les **gates** de la doc : `doc-lint`, `anchor-check`, `anchor-inpage`, `code-check`, `gen-counters`        |
 | `nodefony-skill`          |       3 | Les **gates** des skills : `skills-doc` (conformité + fiches), `trigger-bench` (déclenchement), `scripts-audit` (placement) |
 | `nodefony-html-report`    |       3 | Bibliothèque de rendu (`report.mjs`, `brand.mjs`) + démonstration                                                           |
 | `nodefony-start-server`   |       2 | `start.sh` / `stop.sh` — le lancement fiable du serveur de développement                                                    |

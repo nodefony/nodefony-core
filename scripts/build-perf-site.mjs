@@ -33,11 +33,18 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { NODEFONY_BRAND } from "../.claude/skills/nodefony-html-report/lib/brand.mjs";
 import {
+  couple,
+  bars,
+  figure,
+  STYLE_GRAPHES,
+} from "../.claude/skills/nodefony-html-report/lib/echarts.mjs";
+import {
   doc,
   section,
   cards,
   table,
   note,
+  warn,
   esc,
 } from "../.claude/skills/nodefony-html-report/lib/report.mjs";
 
@@ -108,7 +115,11 @@ for (const version of versions) {
       { stdio: ["ignore", "pipe", "pipe"] },
     );
     const meta = JSON.parse(readFileSync(dataFile, "utf8"));
-    rendered.push({ version, measuredAt: meta.provenance?.measuredAt ?? "?" });
+    rendered.push({
+      version,
+      measuredAt: meta.provenance?.measuredAt ?? "?",
+      data: meta,
+    });
     console.log(`✓ ${version}`);
   } catch (err) {
     // Un jeu incomplet ne fait PAS tomber le site : il est nommé, et son absence
@@ -159,7 +170,124 @@ const rows = rendered.map((r) => [
   esc(r.measuredAt),
 ]);
 
+/**
+ * Ce qu'un lecteur vient chercher ici, dans l'ordre : combien ça encaisse, face
+ * à quoi, est-ce que ça tient, et sur quelle machine. Un sommaire de versions ne
+ * répond à AUCUNE de ces questions — c'était pourtant tout ce que cette page
+ * montrait. Les chiffres viennent des données de la version courante ; si elles
+ * manquent, la section disparaît plutôt que d'afficher des trous.
+ */
+function chiffresCles(d) {
+  const f = d?.comparison?.frameworks;
+  const nf = f?.nodefony;
+  if (!nf) return [];
+  const ref = f?.[d.comparison.reference];
+  const soak = d.soak;
+  const out = [];
+
+  const nb = (v, n = 0) =>
+    v == null
+      ? "—"
+      : v.toLocaleString("fr-FR", {
+          minimumFractionDigits: n,
+          maximumFractionDigits: n,
+        });
+
+  out.push(
+    section(
+      "Ce que Nodefony encaisse",
+      `<p class="lead">Une route qui fait un vrai travail applicatif, servie par le pipeline complet —
+sécurité, session, routage, contexte asynchrone. Médiane de ${d.provenance?.protocol?.runs ?? 3} tirs
+de ${d.provenance?.protocol?.durationSec ?? 10} s à ${d.provenance?.protocol?.connections ?? 64}
+connexions.</p>` +
+        cards(
+          [
+            {
+              k: "Débit",
+              v: nb(nf.med),
+              unit: "req/s",
+              sub: `dispersion ${nb(nf.dispersionPct, 1)} %`,
+            },
+            {
+              k: "Latence médiane",
+              v: nb(nf.medP50Ms, 2),
+              unit: "ms",
+              sub: "la moitié des requêtes sous ce seuil",
+            },
+            {
+              k: "Latence p99",
+              v: nb(nf.medP99Ms, 2),
+              unit: "ms",
+              sub: "99 requêtes sur 100 sous ce seuil",
+            },
+            ref && {
+              k: "Face à Express équipé",
+              v: `${Math.round((nf.med / ref.med) * 100)} %`,
+              sub: "du débit d'un Express qui fait le MÊME travail",
+            },
+            soak && {
+              k: "Tenue dans le temps",
+              v: soak.verdict === "clean" ? "aucune fuite" : soak.verdict,
+              sub: `${soak.minutes} min sous charge — tas JS à ${nb(soak.heapSlopeMbPerHour, 2)} Mo/h`,
+            },
+          ].filter(Boolean),
+        ),
+    ),
+  );
+
+  // Le comparatif, en barres depuis zéro : ce qui se compare ici est une
+  // LONGUEUR, et couper l'axe transformerait un écart de 9 % en doublement.
+  const ordre = ["bare", "fastify", "express", "express-fair", "nodefony"];
+  const LIB = {
+    bare: "Serveur nu (node:http)",
+    fastify: "Fastify",
+    express: "Express nu",
+    "express-fair": "Express équipé (même travail)",
+    nodefony: "Nodefony (pipeline complet)",
+  };
+  // `[["étiquette", valeur], …]` — la forme que le moteur normalise.
+  const donnees = ordre.filter((k) => f[k]).map((k) => [LIB[k], f[k].med]);
+  if (donnees.length > 1) {
+    const svgs = couple(bars, {
+      titre: "Débit par camp",
+      axeValeur: "req/s",
+      horizontal: true,
+      largeur: 900,
+      series: [{ nom: "req/s", data: donnees }],
+    });
+    out.push(
+      section(
+        "Face à quoi",
+        figure(svgs, {
+          titre: "Débit mesuré, du serveur nu au pipeline complet",
+          desc: "médiane de 3 tirs, même route, même machine, même fenêtre",
+        }) +
+          `<p>Comparer un pipeline complet à un serveur nu ne compare pas le même travail. Le camp qui
+compte est <strong>Express équipé</strong> : même route, mêmes garanties. Plus une application fait un
+travail réel, plus l'écart entre les frameworks se réduit — c'est le travail applicatif qui domine.</p>`,
+      ),
+    );
+  }
+
+  const m = d.provenance?.machine;
+  if (m)
+    out.push(
+      section(
+        "Sur quoi ces chiffres ont été pris",
+        warn(
+          `<strong>Ce sont des mesures de développement, pas une promesse de production.</strong>
+${esc(m.cpu)}, ${m.logicalCores} cœurs logiques, ${m.memoryGb} Go, ${esc(m.os)} — un
+<strong>portable</strong>, avec le générateur de charge sur la même machine. Les valeurs ABSOLUES
+sont donc basses pour tous les participants : seuls les <strong>rapports entre camps</strong>, pris
+dans la même fenêtre, sont exploitables.`,
+        ),
+      ),
+    );
+  return out;
+}
+
 const sections = [
+  ...chiffresCles(latest?.data),
   section(
     "Une page par version publiée",
     `<p class="lead">Ce qui a été mesuré, sur quelle machine, avec quel protocole — et ce que ces
@@ -209,12 +337,15 @@ writeFileSync(
     // est publiée à côté de la documentation, pas toute seule.
     brand: { ...NODEFONY_BRAND, href: "../" },
     head: `<link rel="icon" href="../favicon.png">`,
-    style: `
+
+    sections,
+    style:
+      STYLE_GRAPHES +
+      `
 .wrap { max-width:none; padding:26px 34px 80px; }
 @media (max-width:820px) { .wrap { padding:20px 18px 60px; } }
 .badge-latest { font-size:11.5px; padding:2px 9px; border-radius:20px; margin-left:8px;
   border:1px solid var(--accent); color:var(--accent); }`,
-    sections,
     footer:
       `<a href="../">← Documentation Nodefony</a> — les données brutes sont versionnées dans ` +
       `<a href="https://github.com/nodefony/nodefony-core/tree/main/docs/performance"><code>docs/performance/</code></a>, ` +
