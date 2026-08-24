@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-23T19:44:17.837Z",
+  "generated": "2026-08-24T14:03:51.685Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 732,
-    "symbols": 3102,
+    "files": 733,
+    "symbols": 3107,
     "classes": 364,
-    "interfaces": 884,
+    "interfaces": 885,
     "types": 387,
     "enums": 4,
-    "functions": 1171,
-    "constants": 292
+    "functions": 1174,
+    "constants": 293
   },
   "symbols": {
     "Cli": {
@@ -1358,6 +1358,14 @@
       "module": "@nodefony/core",
       "description": "Parse l'argv complet du process après le mot `create`. Ne valide QUE la forme des flags — les valeurs (nom, preset…) sont jugées par la spec du moteur."
     },
+    "renderDryRun": {
+      "name": "renderDryRun",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le plan d'un `--dry-run` : ce qui serait créé, et surtout le DIFF de ce qui serait réécrit. Les créations sont listées à plat (leur contenu n'écrase rien, l'inventaire suffit) ; les réécriture…"
+    },
     "doitDemanderLeType": {
       "name": "doitDemanderLeType",
       "kind": "function",
@@ -2521,6 +2529,39 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Champs applicables À CHAUD (chemin en dot-notation). Tout champ absent est `boot`. `log.active` / `log.debug` / `log.requestFormat` = exactement le cadre de la « fenêtre d'audit » (élever la verbos…"
+    },
+    "IReservedEnvVar": {
+      "name": "IReservedEnvVar",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/reservedEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Les variables d'environnement que **Nodefony pose lui-même**, et qui ne relèvent donc jamais de la configuration d'une application. ## Pourquoi cette liste existe `nodefony env` range en « inconnue…"
+    },
+    "isReservedEnv": {
+      "name": "isReservedEnv",
+      "kind": "function",
+      "file": "src/nodefony/src/config/reservedEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Cette variable est-elle posée par le framework lui-même ?"
+    },
+    "reservedEnvRole": {
+      "name": "reservedEnvRole",
+      "kind": "function",
+      "file": "src/nodefony/src/config/reservedEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le rôle d'une variable réservée, ou `null` si elle ne l'est pas."
+    },
+    "RESERVED_ENV": {
+      "name": "RESERVED_ENV",
+      "kind": "const",
+      "file": "src/nodefony/src/config/reservedEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le catalogue des variables réservées, indexé par nom. Ajouter une entrée ici est OBLIGATOIRE dès qu'un code du framework écrit une `NF_*` dans l'environnement d'un process : sans elle, la variable …"
     },
     "AppConfig": {
       "name": "AppConfig",
@@ -24293,6 +24334,9 @@
         "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
+      "RESERVED_ENV": [
+        "src/nodefony/src/bin/resolveLocalCli.ts"
+      ],
       "defineConfig": [
         "src/nodefony/src/bundler/index.ts"
       ],
@@ -24557,6 +24601,12 @@
         "src/nodefony/src/cli/envReport.ts",
         "src/nodefony/src/config/defineConfig.ts",
         "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "isReservedEnv": [
+        "src/nodefony/src/cli/envReport.ts"
+      ],
+      "reservedEnvRole": [
+        "src/nodefony/src/cli/envReport.ts"
       ],
       "planGitHooks": [
         "src/nodefony/src/cli/gitHooks.ts"

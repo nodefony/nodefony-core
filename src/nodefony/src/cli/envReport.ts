@@ -4,6 +4,7 @@ import {
   pathLooksSecret,
 } from "../config/envOverride";
 import type { NamedEnvVarMeta } from "../config/defineEnv";
+import { isReservedEnv, reservedEnvRole } from "../config/reservedEnv";
 
 /**
  * Calcul PUR du rapport d'environnement — aucune I/O, aucun `process.env` lu ici.
@@ -84,6 +85,13 @@ export interface IEnvReport {
   overrides: IEnvOverrideReport[];
   /** Variables présentes mais inconnues du catalogue (fautes de frappe probables). */
   unknown: { name: string; origin: string | null; suggestion?: string }[];
+  /**
+   * Variables posées par le FRAMEWORK lui-même (lanceur, mode de démarrage,
+   * grappe, jeton MCP). Elles ne relèvent pas de la configuration de
+   * l'application : les compter parmi les inconnues accusait l'utilisateur
+   * d'une faute de frappe qu'il n'avait pas commise.
+   */
+  reserved: { name: string; origin: string | null; role: string }[];
   /** Le catalogue de l'application a-t-il pu être lu ? */
   catalogAvailable: boolean;
   /** Ce que le rapport n'a pas pu établir, et pourquoi. */
@@ -121,6 +129,8 @@ function collectUnknown(
   for (const name of Object.keys(processEnv)) {
     if (!name.startsWith("NF_") || name.startsWith("NF__")) continue;
     if (declared.has(name)) continue;
+    // Posée par le framework, pas par l'utilisateur : elle a sa propre section.
+    if (isReservedEnv(name)) continue;
     // `<KEY>_FILE` est une convention du framework (secret monté par Docker ou
     // Kubernetes) : c'est la variable de BASE qui doit être déclarée, pas elle.
     if (name.endsWith("_FILE") && declared.has(name.slice(0, -5))) continue;
@@ -130,6 +140,26 @@ function collectUnknown(
       origin: originOf(name),
       ...(suggestion ? { suggestion } : {}),
     });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Les variables que le FRAMEWORK a posées lui-même dans l'environnement.
+ *
+ * Elles sont RENDUES, pas tues : une variable présente que le rapport passe
+ * sous silence est le même défaut vu de l'autre côté — l'utilisateur cherche
+ * alors pourquoi son environnement ne ressemble pas à ce qu'on lui montre.
+ */
+function collectReserved(
+  processEnv: Record<string, string | undefined>,
+  originOf: (name: string) => string | null,
+): IEnvReport["reserved"] {
+  const out: IEnvReport["reserved"] = [];
+  for (const name of Object.keys(processEnv)) {
+    const role = reservedEnvRole(name);
+    if (role === null) continue;
+    out.push({ name, origin: originOf(name), role });
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -254,6 +284,7 @@ export function buildEnvReport(input: {
     vars,
     overrides,
     unknown: collectUnknown(processEnv, declared, originOf),
+    reserved: collectReserved(processEnv, originOf),
     catalogAvailable: catalog !== null,
     notes,
   };

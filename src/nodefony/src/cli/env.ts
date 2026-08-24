@@ -218,6 +218,14 @@ function render(report: IEnvReport, projectRoot: string | null): string {
       );
     }
   }
+  if (report.reserved.length > 0) {
+    out.push(
+      `\nVariables posées par le FRAMEWORK — ni à déclarer, ni à écrire soi-même`,
+    );
+    for (const r of report.reserved) {
+      out.push(`  ${pad(r.name, 34)}${r.role}`);
+    }
+  }
   const missing = report.vars.filter((v) => v.missing);
   if (missing.length > 0) {
     out.push(

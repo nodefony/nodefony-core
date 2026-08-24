@@ -407,7 +407,10 @@ const DRY_RUN_DIFF_LINES = 20;
  * existant — c'est là que la simulation a une valeur, donc c'est là qu'on
  * dépense de la place.
  */
-function renderDryRun(changes: IScaffoldChange[]): string {
+export function renderDryRun(
+  changes: IScaffoldChange[],
+  notes?: string[],
+): string {
   const rel = (file: string) => path.relative(process.cwd(), file) || ".";
   const created = changes.filter((c) => c.kind === "create");
   const rewritten = changes.filter((c) => c.kind === "overwrite");
@@ -430,6 +433,15 @@ function renderDryRun(changes: IScaffoldChange[]): string {
       (lines.length > shown.length
         ? `\n  … ${lines.length - shown.length} ligne(s) de plus\n`
         : "\n");
+  }
+  // 🔴 Les notes appartiennent au PLAN, pas à l'exécution. Une simulation qui
+  // tait ce que la vraie commande dit — la table visée, son connecteur, les
+  // routes REST, ce que le mode développement ne fera PAS — n'est pas une
+  // simulation : c'est un inventaire de fichiers. Mesuré au banc : un agent à
+  // qui l'on demande d'établir un plan colle la sortie du `--dry-run` et n'a
+  // alors AUCUN moyen de nommer la base sur laquelle il travaille.
+  if (notes && notes.length > 0) {
+    out += `\nCe que l'exécution dirait :\n${notes.map((n) => `  ${n}`).join("\n")}\n`;
   }
   return out;
 }
@@ -818,7 +830,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     // exactement le contraire de ce que « simulation » promet.
     process.stdout.write(
       `✔ ${type} « ${String(answers.name)} » — cible : ${relDest}/\n` +
-        renderDryRun(result.changes ?? []) +
+        renderDryRun(result.changes ?? [], result.notes) +
         `\nRelance sans --dry-run pour écrire.\n`,
     );
     return SysExit.OK;

@@ -3235,7 +3235,10 @@ function runEntityScaffold(
   // ne la modifie JAMAIS ensuite, et aucune migration n'est produite.
   const notes = [
     ...ormRuntimeNote,
-    `table ${table} (${dialect}) — créée au prochain boot en développement`,
+    // Le CONNECTEUR est nommé, pas seulement le dialecte : dans une application
+    // qui en déclare plusieurs, « sqlite » ne dit pas OÙ la table atterrit. Et
+    // c'est la seule ligne de la sortie qui réponde à « sur quelle base ? ».
+    `table ${table} sur le connecteur « ${connector} » (${dialect}) — créée au prochain boot en développement`,
     `⚠ modifier l'entité ensuite n'altère PAS la table (pas d'ALTER en dev) — supprime la base de dev, ou passe par une migration`,
     `⚠ production : aucune migration générée (orm:migrate n'existe pas encore)`,
   ];

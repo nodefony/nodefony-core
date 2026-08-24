@@ -168,6 +168,44 @@ describe("rapport d'environnement (nodefony env)", () => {
     );
   });
 
+  it("n'accuse PAS l'utilisateur des variables que le framework pose lui-même", () => {
+    // Vécu, et mesuré par le banc de découvrabilité : `nodefony env` rangeait
+    // `NF_CLI_DELEGATED` — posée par SON PROPRE lanceur au moment où il passe la
+    // main au CLI du projet — parmi les « inconnues », avec une suggestion de
+    // faute de frappe. La tâche du banc qui exige « 0 variable inconnue » était
+    // donc en échec quoi que l'agent écrive ; et tout utilisateur ayant un
+    // `nodefony` installé localement voyait la même accusation.
+    const report = buildEnvReport({
+      runtimeEnv: "development",
+      processEnv: {
+        NF_CLI_DELEGATED: "1",
+        NF_MODE_START: "development",
+        NF_MCP_TOKEN: "jeton",
+        NF_PROT: "5152",
+      },
+      files: [],
+      catalog: [meta("NF_PORT", { kind: "number" })],
+    });
+    // Seule la vraie faute de frappe reste accusée.
+    assert.deepEqual(
+      report.unknown.map((u) => u.name),
+      ["NF_PROT"],
+    );
+    // Et les réservées ne DISPARAISSENT pas : les taire ferait chercher
+    // ailleurs pourquoi l'environnement réel ne ressemble pas au rapport.
+    assert.deepEqual(
+      report.reserved.map((r) => r.name),
+      ["NF_CLI_DELEGATED", "NF_MCP_TOKEN", "NF_MODE_START"],
+    );
+    // Chacune DIT qui la pose — sinon la section n'est qu'une liste de noms.
+    assert.isNotEmpty(report.reserved[0].role);
+    // Une variable réservée ABSENTE de l'environnement n'est pas inventée.
+    assert.notInclude(
+      report.reserved.map((r) => r.name),
+      "NF_CLUSTER",
+    );
+  });
+
   it("ne réclame pas la déclaration d'un `<KEY>_FILE` (secret monté)", () => {
     const report = buildEnvReport({
       runtimeEnv: "development",

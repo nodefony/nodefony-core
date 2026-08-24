@@ -19,6 +19,7 @@ import {
   doitDemanderLeType,
   parseCreateArgv,
   planCablageMcp,
+  renderDryRun,
   runCreateCommand,
   type ICreateRequest,
 } from "../cli/create";
@@ -3188,7 +3189,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       ]) {
         assert.isTrue(existsSync(path.join(dest, f)), `${f} manquant`);
       }
-      assert.include((r.notes ?? []).join("\n"), "table posts (sqlite)");
+      assert.include(
+        (r.notes ?? []).join("\n"),
+        "table posts sur le connecteur « default » (sqlite)",
+      );
       assertNoEtaResidue(dest);
     });
 
@@ -4674,6 +4678,41 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         added.some((l) => l.includes("BlogController")),
         "le diff ne montre pas l'insertion du controller",
       );
+    });
+
+    it("le plan NOMME sa cible et rend ce que l'exécution dirait", () => {
+      // 🔴 Mesuré au banc de découvrabilité : à qui l'on demande d'établir un
+      // plan, l'agent colle la sortie du `--dry-run` — et cette sortie ne
+      // portait qu'un inventaire de fichiers. Ni le connecteur visé, ni le
+      // dialecte, ni les routes : les notes, qui les disent, n'étaient rendues
+      // qu'en exécution RÉELLE. Une simulation qui tait ce que la commande dit
+      // n'est pas une simulation.
+      const dest = path.join(tmp, "simentity");
+      scaffold(dest, {
+        name: "simentity",
+        preset: "complete",
+        frontend: "none",
+      });
+      const before = snapshotTree(dest);
+      const r = runScaffold(
+        {
+          type: "entity",
+          answers: { name: "Invoice", fields: "number:string! amount:int" },
+          dir: dest,
+          force: false,
+        },
+        version,
+        { dryRun: true },
+      );
+      assertTreeUnchanged(before, dest);
+      const notes = (r.notes ?? []).join("\n");
+      // Le CONNECTEUR est nommé — sur une app multi-connecteurs, le seul
+      // dialecte ne dit pas OÙ la table atterrit.
+      assert.include(notes, "default");
+      assert.match(notes, /sqlite|postgres|mysql/u);
+      // Et le rendu du plan les porte : c'est lui que l'agent recopie.
+      const rendu = renderDryRun(r.changes ?? [], r.notes);
+      assert.include(rendu, "default");
     });
 
     it("un refus reste un refus en simulation", () => {

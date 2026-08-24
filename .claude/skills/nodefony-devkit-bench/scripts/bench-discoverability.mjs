@@ -999,7 +999,7 @@ export const SONDES_QUALITE = [
     // une ligne d'`expect` isolée qu'un refactor légitime déplace souvent.
     kind: "code",
     name: "aucun cas de test retiré (it/test supprimé)",
-    pattern: /^-\s*(it|test)\s*[.(]/mu,
+    pattern: /^\s*(it|test)\s*[.(]/mu,
     where: "deleted",
     invert: true,
   },
@@ -1023,7 +1023,7 @@ export const SONDES_QUALITE = [
     kind: "code",
     name: "la zone à porteur du gabarit n'a pas été désarmée",
     pattern:
-      /^-\s*stateless\s*:\s*true|^-\s*authenticators:\s*\[\s*["']apikey["']\s*\]/mu,
+      /^\s*stateless\s*:\s*true|^\s*authenticators:\s*\[\s*["']apikey["']\s*\]/mu,
     where: "deleted",
     invert: true,
   },
@@ -1403,7 +1403,7 @@ export const TASKS = [
       {
         kind: "code",
         name: "aucune valeur en dur dans le code TypeScript",
-        pattern: /^\+.*postgres:\/\/[^\n]*$/mu,
+        pattern: /^.*postgres:\/\/[^\n]*$/mu,
         where: "addedTs",
         invert: true,
       },
@@ -2310,7 +2310,7 @@ export const TASKS = [
         // exactement la faute « la regex qui ne franchissait pas la parenthèse
         // d'un appel imbriqué », commise une seconde fois sous une autre forme.
         pattern:
-          /^\+\s*(?:const|let)\s+\w+\s*(?::[^=]*)?=\s*new\s+(?:Map|Set)\b[^(\n]*\(/mu,
+          /^\s*(?:const|let)\s+\w+\s*(?::[^=]*)?=\s*new\s+(?:Map|Set)\b[^(\n]*\(/mu,
         where: "addedTs",
         unless: /@UseSession\s*\(|@Session\s*\(/u,
         invert: true,
@@ -3537,6 +3537,34 @@ const DIFF_LIGNES_MAX = 5000;
  * @param {string} to - révision jugée.
  * @returns {string} les lignes `+` des fichiers de taille raisonnable.
  */
+/**
+ * Les lignes d'un diff, **DÉPOUILLÉES de leur marqueur** (`+` ou `-`).
+ *
+ * 🔴 Le marqueur a coûté trois passes complètes. La sonde « pas de parsing
+ * d'argv artisanal » (tâche 4) écarte les COMMENTAIRES par un
+ * `^(?!\s*(?://|\*|/\*))` — garde juste sur du code, inopérante sur un diff :
+ * `^` tombe sur le `+`, que `\s*` ne consomme pas, et la ligne
+ * `+    //   spawnSync(process.execPath, [process.argv[1]!, …` — écrite par
+ * NOTRE PROPRE gabarit, dans un commentaire — était comptée comme du code.
+ * Résultat : un agent qui lançait `create command` et ne touchait à RIEN
+ * d'autre échouait 3/3. Le banc mesurait son propre générateur.
+ *
+ * La matière rendue aux sondes est donc du CODE, pas du diff : `^` y désigne
+ * le début d'une vraie ligne. Un pattern qui viserait encore le marqueur est
+ * refusé au lancement (`refuserLesAncresDeDiff`) — sinon il ne matcherait plus
+ * jamais, et une sonde INVERSÉE deviendrait verte en silence.
+ *
+ * @param {string} sortie - la sortie brute de `git diff`.
+ * @param {"+"|"-"} marqueur - le côté du diff qu'on retient.
+ * @returns {string} les lignes retenues, sans leur premier caractère.
+ */
+export const lignesDuDiff = (sortie, marqueur) =>
+  sortie
+    .split("\n")
+    .filter((l) => l.startsWith(marqueur) && !l.startsWith(marqueur.repeat(3)))
+    .map((l) => l.slice(1))
+    .join("\n");
+
 export const lignesAjoutees = (app, from, to) => {
   const fichiers = git(app, "diff", "--numstat", from, to)
     .split("\n")
@@ -3556,18 +3584,18 @@ export const lignesAjoutees = (app, from, to) => {
     );
   }
   if (!retenus.length) return "";
-  return git(
-    app,
-    "diff",
-    "--unified=0",
-    from,
-    to,
-    "--",
-    ...retenus.map((f) => f.chemin),
-  )
-    .split("\n")
-    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
-    .join("\n");
+  return lignesDuDiff(
+    git(
+      app,
+      "diff",
+      "--unified=0",
+      from,
+      to,
+      "--",
+      ...retenus.map((f) => f.chemin),
+    ),
+    "+",
+  );
 };
 
 /**
@@ -4965,43 +4993,43 @@ function judgeTask(app, runDir, task, occurrence = null) {
   // règle, il ne fait taire aucun outil. Sans cette matière, la seule option
   // était `added` (qui contient la prose) ou `addedTs` (qui exclut les tests,
   // où le geste est pourtant identique).
-  const addedCode = git(
-    app,
-    "diff",
-    "--unified=0",
-    `${base ?? `${hash}~1`}`,
-    hash,
-    "--",
-    "*.ts",
-    "*.tsx",
-    "*.js",
-    "*.mjs",
-    "*.json",
-  )
-    .split("\n")
-    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
-    .join("\n");
-  const addedTs = git(
-    app,
-    "diff",
-    "--unified=0",
-    `${base ?? `${hash}~1`}`,
-    hash,
-    "--",
-    "*.ts",
-    // Les TESTS sont exclus : une valeur littérale y est une FIXTURE, pas une
-    // configuration en dur. Vécu — un agent qui avait tout fait juste (valeur
-    // dans le `.env`, config qui lit l'environnement, `nodefony env --json`
-    // vert) était recalé parce que son test d'accompagnement citait l'URL
-    // qu'il venait de poser. La sonde visait la config ; elle mordait sur la
-    // preuve.
-    ":(exclude)tests/**",
-    ":(exclude)**/*.test.ts",
-    ":(exclude)**/*.spec.ts",
-  )
-    .split("\n")
-    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
-    .join("\n");
+  const addedCode = lignesDuDiff(
+    git(
+      app,
+      "diff",
+      "--unified=0",
+      `${base ?? `${hash}~1`}`,
+      hash,
+      "--",
+      "*.ts",
+      "*.tsx",
+      "*.js",
+      "*.mjs",
+      "*.json",
+    ),
+    "+",
+  );
+  const addedTs = lignesDuDiff(
+    git(
+      app,
+      "diff",
+      "--unified=0",
+      `${base ?? `${hash}~1`}`,
+      hash,
+      "--",
+      "*.ts",
+      // Les TESTS sont exclus : une valeur littérale y est une FIXTURE, pas une
+      // configuration en dur. Vécu — un agent qui avait tout fait juste (valeur
+      // dans le `.env`, config qui lit l'environnement, `nodefony env --json`
+      // vert) était recalé parce que son test d'accompagnement citait l'URL
+      // qu'il venait de poser. La sonde visait la config ; elle mordait sur la
+      // preuve.
+      ":(exclude)tests/**",
+      ":(exclude)**/*.test.ts",
+      ":(exclude)**/*.spec.ts",
+    ),
+    "+",
+  );
   // Le COMPLÉMENT exact d'`addedTs` : ce que l'agent a écrit DANS ses tests.
   //
   // `addedTs` les exclut pour ne pas confondre une fixture avec du code de
@@ -5011,33 +5039,27 @@ function judgeTask(app, runDir, task, occurrence = null) {
   // deux périmètres sont donc disjoints et complémentaires : l'un sanctionne ce
   // qui ne doit pas être écrit en production, l'autre constate ce qui doit
   // exister dans les tests.
-  const addedTests = git(
-    app,
-    "diff",
-    "--unified=0",
-    `${base ?? `${hash}~1`}`,
-    hash,
-    "--",
-    "tests/**",
-    "**/*.test.ts",
-    "**/*.spec.ts",
-  )
-    .split("\n")
-    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
-    .join("\n");
+  const addedTests = lignesDuDiff(
+    git(
+      app,
+      "diff",
+      "--unified=0",
+      `${base ?? `${hash}~1`}`,
+      hash,
+      "--",
+      "tests/**",
+      "**/*.test.ts",
+      "**/*.spec.ts",
+    ),
+    "+",
+  );
   // L'autre moitié du diff : ce que l'agent a RETIRÉ. Sans elle, « npm test
   // vert » s'obtient en effaçant le test qui échoue, et rien ne le montre —
   // une absence ne laisse pas de trace dans les lignes ajoutées.
-  const deleted = git(
-    app,
-    "diff",
-    "--unified=0",
-    `${base ?? `${hash}~1`}`,
-    hash,
-  )
-    .split("\n")
-    .filter((l) => l.startsWith("-") && !l.startsWith("---"))
-    .join("\n");
+  const deleted = lignesDuDiff(
+    git(app, "diff", "--unified=0", `${base ?? `${hash}~1`}`, hash),
+    "-",
+  );
   const deletedFiles = git(
     app,
     "diff",
@@ -5302,8 +5324,41 @@ function restituerDepistage(bilan, invocation) {
   );
 }
 
+/**
+ * Refuse toute sonde `code` dont le motif vise encore un MARQUEUR de diff.
+ *
+ * La matière des sondes est du CODE dépouillé (`lignesDuDiff`) : un motif
+ * ancré sur `+` ou `-` n'y matcherait plus JAMAIS. Sur une sonde ordinaire
+ * cela ferait un rouge visible ; sur une sonde INVERSÉE — la majorité d'entre
+ * elles — cela ferait un **vert silencieux**, c'est-à-dire un interdit qui ne
+ * garde plus rien. Un banc qui rend un verdict qu'il n'a pas mesuré est pire
+ * qu'un banc absent, donc la faute s'arrête au lancement plutôt que de se lire
+ * dans un rapport.
+ *
+ * @throws {Error} si au moins une sonde porte une ancre de diff.
+ */
+export function refuserLesAncresDeDiff() {
+  const ancre = /\^\\?[-+]/u;
+  const fautives = [];
+  for (const task of TASKS) {
+    for (const p of sondesDe(task)) {
+      if (p.kind !== "code" || !p.pattern) continue;
+      if (ancre.test(p.pattern.source))
+        fautives.push(`tâche ${task.id} · ${p.name}`);
+    }
+  }
+  if (fautives.length) {
+    throw new Error(
+      `sonde(s) ancrée(s) sur un marqueur de diff (^+ ou ^-) alors que la ` +
+        `matière est du code dépouillé — elles ne mordraient plus :\n  ` +
+        fautives.join("\n  "),
+    );
+  }
+}
+
 function main() {
   const args = process.argv.slice(2);
+  refuserLesAncresDeDiff();
   const valeurDe = (drapeau) => {
     const i = args.indexOf(drapeau);
     return i === -1 ? null : args[i + 1];

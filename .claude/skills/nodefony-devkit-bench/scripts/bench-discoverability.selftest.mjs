@@ -31,6 +31,7 @@
 import {
   TASKS,
   SONDES_QUALITE,
+  refuserLesAncresDeDiff,
   elaguerAffichage,
   evaluateProbe,
   expliquerEchec,
@@ -360,8 +361,8 @@ const SAMPLES = {
     fail: { content: `export class ProductController extends Controller {}` },
   },
   "1 :: 409 obtenu SANS mapping artisanal (généré/framework attendu)": {
-    pass: { added: `+  // le 409 vient du contrat de ressource` },
-    fail: { added: `+  throw new nodefonyError("duplicate", 409);` },
+    pass: { added: `  // le 409 vient du contrat de ressource` },
+    fail: { added: `  throw new nodefonyError("duplicate", 409);` },
   },
 
   // ── T2 ────────────────────────────────────────────────────────────────────
@@ -381,30 +382,30 @@ const SAMPLES = {
     {
       pass: {
         addedTs:
-          `+  @IsGranted("ROLE_ADMIN")\n` +
-          `+  async reports() { return this.renderJson({ report: "ok" }); }`,
+          `  @IsGranted("ROLE_ADMIN")\n` +
+          `  async reports() { return this.renderJson({ report: "ok" }); }`,
       },
-      fail: { addedTs: `+    return this.renderJson({ error: "nope" }, 403);` },
+      fail: { addedTs: `    return this.renderJson({ error: "nope" }, 403);` },
       extra: [
         {
           // Les trois formes que la première version laissait passer — donc
           // l'essentiel du contrôle artisanal réellement écrit par un agent.
           label: "erreur du framework levée à la main dans le controller",
           matter: {
-            addedTs: `+    throw new nodefonyError("Access denied", 403);`,
+            addedTs: `    throw new nodefonyError("Access denied", 403);`,
           },
           expect: false,
         },
         {
           label: "rôles lus à la main",
           matter: {
-            addedTs: `+    if (!user.roles.includes("ROLE_ADMIN")) return this.renderJson({}, 403);`,
+            addedTs: `    if (!user.roles.includes("ROLE_ADMIN")) return this.renderJson({}, 403);`,
           },
           expect: false,
         },
         {
           label: "statut posé à la main",
-          matter: { addedTs: `+    this.response.statusCode = 401;` },
+          matter: { addedTs: `    this.response.statusCode = 401;` },
           expect: false,
         },
         {
@@ -413,7 +414,7 @@ const SAMPLES = {
           // là-dessus serait punir la rigueur — le mode de défaillance n° 1 de ce
           // banc, déjà commis cinq fois.
           label: "un test qui assert un 403 n'est pas une garde",
-          matter: { added: `+    expect(res.status).toBe(403);` },
+          matter: { added: `    expect(res.status).toBe(403);` },
           expect: true,
         },
       ],
@@ -442,8 +443,8 @@ const SAMPLES = {
     fail: { content: `export class ChatController extends Controller {}` },
   },
   "3 :: pas de WS bas-niveau bricolé côté serveur": {
-    pass: { added: `+  @RealtimeChannel("chat")` },
-    fail: { added: `+  const wss = new WebSocketServer({ port: 8080 });` },
+    pass: { added: `  @RealtimeChannel("chat")` },
+    fail: { added: `  const wss = new WebSocketServer({ port: 8080 });` },
   },
   "3 :: côté client : la façade isomorphe est montrée (RealtimeClient / nodefony/react)":
     {
@@ -451,8 +452,8 @@ const SAMPLES = {
       fail: { content: `const socket = new WebSocket("ws://localhost:5151");` },
     },
   "3 :: pas de client WS recomposé à la main (new WebSocket)": {
-    pass: { added: `+  const { messages } = useRealtime("chat");` },
-    fail: { added: `+  const socket = new WebSocket("ws://localhost:5151");` },
+    pass: { added: `  const { messages } = useRealtime("chat");` },
+    fail: { added: `  const socket = new WebSocket("ws://localhost:5151");` },
   },
 
   // ── T4 ────────────────────────────────────────────────────────────────────
@@ -484,8 +485,30 @@ const SAMPLES = {
     fail: { content: `export async function main() {}` },
   },
   "4 :: pas de parsing d'argv artisanal ni de parseur tiers": {
-    pass: { added: `+    this.addOption("--dry-run", "simule");` },
-    fail: { added: `+import { program } from "commander";` },
+    pass: { added: `    this.addOption("--dry-run", "simule");` },
+    fail: { added: `import { program } from "commander";` },
+    extra: [
+      {
+        // 🔴 LE cas qui a coûté trois passes complètes — 0/3 sur une tâche dont
+        // TOUS les gates d'état étaient verts. Le gabarit de `create command`
+        // cite `process.argv` dans un COMMENTAIRE (une recette d'enchaînement
+        // par `spawnSync`). L'agent qui lançait le générateur et ne touchait à
+        // RIEN d'autre — zéro Write, zéro Edit, exactement le geste mesuré — se
+        // voyait reprocher du code écrit par NOUS. La garde anti-commentaire
+        // existait ; elle tombait sur le `+` du diff, que `\s*` ne consomme pas.
+        label: "un commentaire du gabarit citant process.argv",
+        matter: {
+          added: `    //   spawnSync(process.execPath, [process.argv[1]!, "autre:commande"], {`,
+        },
+        expect: true,
+      },
+      {
+        // La contrepartie : le vrai geste reste puni, commentaire ou pas.
+        label: "un parsing d'argv RÉEL",
+        matter: { added: `    const args = process.argv.slice(2);` },
+        expect: false,
+      },
+    ],
   },
 
   // ── T5 ────────────────────────────────────────────────────────────────────
@@ -627,8 +650,8 @@ const SAMPLES = {
   "6 :: aucune valeur en dur dans le code TypeScript": {
     // La bonne réponse vit dans `.env.local`, gitignoré : le code, lui, ne doit
     // porter que la LECTURE de la variable.
-    pass: { addedTs: `+  url: env.NF_DATABASE_URL,` },
-    fail: { addedTs: `+  url: "postgres://user:secret@localhost:5432/app",` },
+    pass: { addedTs: `  url: env.NF_DATABASE_URL,` },
+    fail: { addedTs: `  url: "postgres://user:secret@localhost:5432/app",` },
   },
 
   // ── T7 ────────────────────────────────────────────────────────────────────
@@ -650,9 +673,9 @@ const SAMPLES = {
       fail: { content: `Cet adaptateur couvre tous les besoins.` },
     },
   "7 :: aucun chemin du monorepo (inapplicable chez l'utilisateur npm)": {
-    pass: { added: `+import { defineEntity } from "@nodefony/orm-core";` },
+    pass: { added: `import { defineEntity } from "@nodefony/orm-core";` },
     fail: {
-      added: `+import x from "../../src/packages/@nodefony/mongoose/index";`,
+      added: `import x from "../../src/packages/@nodefony/mongoose/index";`,
     },
   },
 
@@ -863,12 +886,12 @@ const SAMPLES = {
   },
   "32 :: le vérificateur n'a pas été désarmé": {
     // La sonde est inversée : l'échantillon `pass` est un diff SAIN.
-    pass: { added: `+    use("@nodefony/http", {}),` },
-    fail: { added: `+  check: { enabled: false },` },
+    pass: { added: `    use("@nodefony/http", {}),` },
+    fail: { added: `  check: { enabled: false },` },
     extra: [
       {
         label: "refuse aussi le contournement par la ligne de commande",
-        matter: { added: `+    "check": "nodefony check --no-check"` },
+        matter: { added: `    "check": "nodefony check --no-check"` },
         expect: false,
       },
     ],
@@ -890,8 +913,8 @@ const SAMPLES = {
     // Le contournement se juge hors des tests : instancier le service DANS son
     // test est la réponse attendue (« testable seul »), pas une faute. La sonde
     // lisant `addedTs`, l'échantillon vertueux vaut pour le code de production.
-    pass: { addedTs: `+    this.discountService = discountService;` },
-    fail: { addedTs: `+    const svc = new DiscountService();` },
+    pass: { addedTs: `    this.discountService = discountService;` },
+    fail: { addedTs: `    const svc = new DiscountService();` },
   },
 
   // ── T11 ───────────────────────────────────────────────────────────────────
@@ -902,8 +925,8 @@ const SAMPLES = {
     fail: { content: `this.log("commande créée");` },
   },
   "11 :: pas de console.log (il ne remonte à aucun collecteur)": {
-    pass: { added: `+    this.log({ id }, "INFO");` },
-    fail: { added: `+    console.log("created", id);` },
+    pass: { added: `    this.log({ id }, "INFO");` },
+    fail: { added: `    console.log("created", id);` },
   },
   // La charge loggée appelle une méthode : c'est le cas EXACT qui a recalé une
   // réponse exemplaire, et il doit rester couvert pour de bon.
@@ -921,9 +944,9 @@ const SAMPLES = {
     fail: { content: `  async start(): Promise<void> {}` },
   },
   "12 :: pas de temporisation pour « attendre » le démarrage": {
-    pass: { added: `+    this.table = await load();`, content: `` },
+    pass: { added: `    this.table = await load();`, content: `` },
     fail: {
-      added: `+    setTimeout(() => this.load(), 3000);`,
+      added: `    setTimeout(() => this.load(), 3000);`,
       content: `class App extends Module {}`,
     },
     extra: [
@@ -933,7 +956,7 @@ const SAMPLES = {
         // une temporisation qui attend le démarrage.
         label: "setTimeout d'I/O SOUS un hook de cycle de vie → sans objet",
         matter: {
-          added: `+      await new Promise((r) => setTimeout(r, 10));`,
+          added: `      await new Promise((r) => setTimeout(r, 10));`,
           content: `  async onKernelBoot() { await this.performLoad(); return this; }`,
         },
         expect: true,
@@ -959,23 +982,23 @@ const SAMPLES = {
   },
   "13 :: le service de taxe est éprouvé SÉPARÉMENT (test dédié)": {
     pass: {
-      addedTests: `+import { VatService } from "../nodefony/service/VatService";`,
+      addedTests: `import { VatService } from "../nodefony/service/VatService";`,
     },
     // Le contournement exact : n'éprouver QUE la route. Le test est vert, la
     // séparation des responsabilités n'a jamais été exercée.
     fail: {
-      addedTests: `+    const res = await fetch(\`\${base}/api/invoices\`, { method: "POST" });`,
+      addedTests: `    const res = await fetch(\`\${base}/api/invoices\`, { method: "POST" });`,
     },
     extra: [
       {
         label: "instancié directement dans son test",
-        matter: { addedTests: `+    const vat = new TvaService(module);` },
+        matter: { addedTests: `    const vat = new TvaService(module);` },
         expect: true,
       },
       {
         label: "résolu par le conteneur dans le test",
         matter: {
-          addedTests: `+    const tax = kernel.container.get("taxService");`,
+          addedTests: `    const tax = kernel.container.get("taxService");`,
         },
         expect: true,
       },
@@ -983,7 +1006,7 @@ const SAMPLES = {
         // Le mot apparaît, le SERVICE non : une assertion sur un champ de la
         // réponse HTTP ne prouve aucune séparation.
         label: "le mot « tva » dans une assertion de charge utile",
-        matter: { addedTests: `+    expect(body.tva).toBe(20);` },
+        matter: { addedTests: `    expect(body.tva).toBe(20);` },
         expect: false,
       },
       {
@@ -991,7 +1014,7 @@ const SAMPLES = {
         // précisément ce que la sonde voisine interdit.
         label: "instanciation en production, pas dans un test",
         matter: {
-          addedTs: `+    const vat = new VatService(module);`,
+          addedTs: `    const vat = new VatService(module);`,
           addedTests: ``,
         },
         expect: false,
@@ -1007,8 +1030,8 @@ const SAMPLES = {
   "13 :: pas d'exemplaire fabriqué à la main (new XService())": {
     // Le contournement se juge hors des tests : `new VatService()` DANS son
     // test est la réponse attendue (« testable séparément »).
-    pass: { addedTs: `+    this.vat = vat;` },
-    fail: { addedTs: `+    const vat = new VatService();` },
+    pass: { addedTs: `    this.vat = vat;` },
+    fail: { addedTs: `    const vat = new VatService();` },
   },
   "13 :: voie déclarative trouvée (injection par constructeur)": {
     pass: { content: `    @inject("VatService") private vat: VatService,` },
@@ -1033,8 +1056,8 @@ const SAMPLES = {
     },
   },
   "14 :: le fichier n'est pas lu en entier en mémoire": {
-    pass: { addedTs: `+    return this.renderMediaStream(file);` },
-    fail: { addedTs: `+    const buf = readFileSync(full);` },
+    pass: { addedTs: `    return this.renderMediaStream(file);` },
+    fail: { addedTs: `    const buf = readFileSync(full);` },
     extra: [
       {
         // Le waiver : la lecture est là, mais la façade AUSSI — elle sert donc
@@ -1042,7 +1065,7 @@ const SAMPLES = {
         // reviendrait à interdire de lire un fichier dans une app qui en sert.
         label: "readFileSync À CÔTÉ de la façade → sans objet",
         matter: {
-          addedTs: `+    const index = readFileSync("media/index.json", "utf8");`,
+          addedTs: `    const index = readFileSync("media/index.json", "utf8");`,
           content: `    return this.renderMediaStream(file, head);`,
         },
         expect: true,
@@ -1077,9 +1100,9 @@ const SAMPLES = {
     ],
   },
   "15 :: la valeur n'est pas découpée à la main depuis l'URL": {
-    pass: { addedTs: `+  fiche(@Param("handle") handle: string) {` },
+    pass: { addedTs: `  fiche(@Param("handle") handle: string) {` },
     fail: {
-      addedTs: `+    const handle = this.request.url.split("/").pop();`,
+      addedTs: `    const handle = this.request.url.split("/").pop();`,
     },
     extra: [
       {
@@ -1087,7 +1110,7 @@ const SAMPLES = {
         // autre chose — ici bâtir le permalien que l'énoncé demande.
         label: "URL relue À CÔTÉ du chemin déclaré → sans objet",
         matter: {
-          addedTs: `+    const permalien = new URL(this.request.url).pathname;`,
+          addedTs: `    const permalien = new URL(this.request.url).pathname;`,
           content: `  @Get("/api/authors/{handle}")`,
         },
         expect: true,
@@ -1127,9 +1150,9 @@ const SAMPLES = {
   },
   "16 :: pas de registre global tenant lieu de session": {
     pass: {
-      addedTs: `+  @UseSession()\n+  cart(@Session("cart") cart: string[]) {`,
+      addedTs: `  @UseSession()\n  cart(@Session("cart") cart: string[]) {`,
     },
-    fail: { addedTs: `+const paniers = new Map<string, string[]>();` },
+    fail: { addedTs: `const paniers = new Map<string, string[]>();` },
     extra: [
       {
         // Le waiver : la session EST déclarée, donc cette structure fait autre
@@ -1137,7 +1160,7 @@ const SAMPLES = {
         // style, pas une découvrabilité.
         label: "Map À CÔTÉ de la session déclarée → sans objet",
         matter: {
-          addedTs: `+const catalogue = new Map<string, number>();`,
+          addedTs: `const catalogue = new Map<string, number>();`,
           content: `  @UseSession()\n  cart() {}`,
         },
         expect: true,
@@ -1145,9 +1168,9 @@ const SAMPLES = {
     ],
   },
   "16 :: pas de jeton anti-rejeu fabriqué à la main": {
-    pass: { addedTs: `+  @CsrfProtect()\n+  add(@Body("sku") sku: string) {` },
+    pass: { addedTs: `  @CsrfProtect()\n  add(@Body("sku") sku: string) {` },
     fail: {
-      addedTs: `+    const token = createHmac("sha256", secret).update(sid).digest("hex");`,
+      addedTs: `    const token = createHmac("sha256", secret).update(sid).digest("hex");`,
     },
     extra: [
       {
@@ -1155,7 +1178,7 @@ const SAMPLES = {
         // webhook sortant, une empreinte de cache.
         label: "HMAC À CÔTÉ de @CsrfProtect → sans objet",
         matter: {
-          addedTs: `+    const sig = createHmac("sha256", k).update(payload).digest("hex");`,
+          addedTs: `    const sig = createHmac("sha256", k).update(payload).digest("hex");`,
           content: `  @CsrfProtect()\n  add() {}`,
         },
         expect: true,
@@ -1222,18 +1245,18 @@ const SAMPLES = {
   "17 :: pas de contrôle d'accès artisanal (rôles lus ou refus rendu à la main)":
     {
       pass: {
-        addedTs: `+  @route("account-profile", { path: "/account/profile" })\n+  async profile() { return this.renderJson({ profile: "ok" }); }`,
+        addedTs: `  @route("account-profile", { path: "/account/profile" })\n  async profile() { return this.renderJson({ profile: "ok" }); }`,
       },
       fail: {
-        addedTs: `+    if (!user) return this.renderJson({ error: "nope" }, 401);`,
+        addedTs: `    if (!user) return this.renderJson({ error: "nope" }, 401);`,
       },
     },
   "17 :: aucune brique de sécurité éteinte en configuration": {
     pass: {
-      added: `+    use("@nodefony/security", { firewall: { areas: { compte: { pattern: "^/api/account" } } } }),`,
+      added: `    use("@nodefony/security", { firewall: { areas: { compte: { pattern: "^/api/account" } } } }),`,
     },
     fail: {
-      added: `+    use("@nodefony/security", { firewall: { enabled: false } }),`,
+      added: `    use("@nodefony/security", { firewall: { enabled: false } }),`,
     },
   },
 
@@ -1275,12 +1298,12 @@ const SAMPLES = {
   "18 :: rôle de facturation NON dupliqué au semis des comptes": {
     // Conforme : le semis ne touche pas au rôle mesuré.
     pass: {
-      added: `+const ADMIN_ROLES = ["ROLE_NODEFONY_ADMIN", "ROLE_ADMIN"];`,
+      added: `const ADMIN_ROLES = ["ROLE_NODEFONY_ADMIN", "ROLE_ADMIN"];`,
     },
     // Le contournement que l'attaque ne peut PAS voir : l'administrateur porte
     // le rôle littéralement, donc il passe partout, hiérarchie ou non.
     fail: {
-      added: `+const ADMIN_ROLES = ["ROLE_NODEFONY_ADMIN", "ROLE_ADMIN", "ROLE_BILLING"];`,
+      added: `const ADMIN_ROLES = ["ROLE_NODEFONY_ADMIN", "ROLE_ADMIN", "ROLE_BILLING"];`,
     },
     extra: [
       {
@@ -1289,7 +1312,7 @@ const SAMPLES = {
         // duplication de deux lignes pour la rendre aveugle.
         label: "rôles dupliqués en ligne à la création du compte",
         matter: {
-          added: `+  await createUser({ username: "admin", roles: ["ROLE_ADMIN", "ROLE_BILLING"] });`,
+          added: `  await createUser({ username: "admin", roles: ["ROLE_ADMIN", "ROLE_BILLING"] });`,
         },
         expect: false,
       },
@@ -1298,18 +1321,18 @@ const SAMPLES = {
   "18 :: pas de contrôle d'accès artisanal (rôles lus ou refus rendu à la main)":
     {
       pass: {
-        addedTs: `+  @route("billing-summary", { path: "/billing/summary" })\n+  @IsGranted("ROLE_BILLING")\n+  async summary() {}`,
+        addedTs: `  @route("billing-summary", { path: "/billing/summary" })\n  @IsGranted("ROLE_BILLING")\n  async summary() {}`,
       },
       fail: {
-        addedTs: `+    if (!user.roles.includes("ROLE_BILLING")) throw new HttpError("nope", 403);`,
+        addedTs: `    if (!user.roles.includes("ROLE_BILLING")) throw new HttpError("nope", 403);`,
       },
     },
   "18 :: aucune brique de sécurité éteinte en configuration": {
     pass: {
-      added: `+    use("@nodefony/security", { roleHierarchy: { ROLE_ADMIN: ["ROLE_BILLING"] } }),`,
+      added: `    use("@nodefony/security", { roleHierarchy: { ROLE_ADMIN: ["ROLE_BILLING"] } }),`,
     },
     fail: {
-      added: `+    use("@nodefony/security", { firewall: { enabled: false } }),`,
+      added: `    use("@nodefony/security", { firewall: { enabled: false } }),`,
     },
   },
   "18 :: garde posée par liste de rôles plutôt que par hiérarchie — observation":
@@ -1363,25 +1386,25 @@ const SAMPLES = {
     },
   "19 :: pas de WS bas-niveau bricolé (WebSocket/ws recomposés à la main)": {
     pass: {
-      addedTs: `+  @RealtimeChannel("ops:alerts", { roles: ["ROLE_ADMIN"] })\n+  alerts(channel, publish) {}`,
+      addedTs: `  @RealtimeChannel("ops:alerts", { roles: ["ROLE_ADMIN"] })\n  alerts(channel, publish) {}`,
     },
-    fail: { addedTs: `+const socket = new WebSocket("ws://localhost/ops");` },
+    fail: { addedTs: `const socket = new WebSocket("ws://localhost/ops");` },
   },
   "19 :: pas de contrôle d'accès artisanal (rôles lus ou refus rendu à la main)":
     {
       pass: {
-        addedTs: `+  @RealtimeChannel("ops:alerts", { roles: ["ROLE_ADMIN"] })\n+  alerts(channel, publish) {}`,
+        addedTs: `  @RealtimeChannel("ops:alerts", { roles: ["ROLE_ADMIN"] })\n  alerts(channel, publish) {}`,
       },
       fail: {
-        addedTs: `+    if (!user.roles.includes("ROLE_ADMIN")) throw new HttpError("nope", 403);`,
+        addedTs: `    if (!user.roles.includes("ROLE_ADMIN")) throw new HttpError("nope", 403);`,
       },
     },
   "19 :: aucune brique de sécurité éteinte en configuration": {
     pass: {
-      added: `+  @RealtimeChannel("ops:alerts", { roles: ["ROLE_ADMIN"] })`,
+      added: `  @RealtimeChannel("ops:alerts", { roles: ["ROLE_ADMIN"] })`,
     },
     fail: {
-      added: `+    use("@nodefony/security", { firewall: { enabled: false } }),`,
+      added: `    use("@nodefony/security", { firewall: { enabled: false } }),`,
     },
   },
 
@@ -1446,10 +1469,10 @@ const SAMPLES = {
   },
   "20 :: pas de contrôle d'accès artisanal dans le CRUD généré": {
     pass: {
-      addedTs: `+  @Delete("/{id}")\n+  @IsGranted("ROLE_ADMIN")\n+  async destroy() {}`,
+      addedTs: `  @Delete("/{id}")\n  @IsGranted("ROLE_ADMIN")\n  async destroy() {}`,
     },
     fail: {
-      addedTs: `+    if (!user.roles.includes("ROLE_ADMIN")) throw new HttpError("nope", 403);`,
+      addedTs: `    if (!user.roles.includes("ROLE_ADMIN")) throw new HttpError("nope", 403);`,
     },
   },
 
@@ -1470,38 +1493,38 @@ const SAMPLES = {
     // politique que le framework sert PAR DÉFAUT. Une sonde qui chercherait le
     // mot dans la ligne entière recalerait toute application intacte.
     pass: {
-      added: `+      csp: "default-src 'self'; script-src 'self' 'nonce-{{nonce}}'; style-src 'self' 'unsafe-inline'",`,
+      added: `      csp: "default-src 'self'; script-src 'self' 'nonce-{{nonce}}'; style-src 'self' 'unsafe-inline'",`,
     },
     fail: {
-      added: `+      csp: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self'",`,
+      added: `      csp: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self'",`,
     },
     extra: [
       {
         label: "unsafe-eval sur la directive de repli",
         matter: {
-          added: `+      csp: "default-src 'self' 'unsafe-eval'; style-src 'self'",`,
+          added: `      csp: "default-src 'self' 'unsafe-eval'; style-src 'self'",`,
         },
         expect: false,
       },
     ],
   },
   "22 :: nonce et politique de contenu non désactivés": {
-    pass: { added: `+      cspNonces: true,` },
-    fail: { added: `+      cspNonces: false,` },
+    pass: { added: `      cspNonces: true,` },
+    fail: { added: `      cspNonces: false,` },
     extra: [
       {
         label: "politique vidée plutôt que desserrée",
-        matter: { added: `+      csp: "",` },
+        matter: { added: `      csp: "",` },
         expect: false,
       },
     ],
   },
   "22 :: aucune brique de sécurité éteinte en configuration": {
     pass: {
-      added: `+    use("@nodefony/security", { headers: { csp: "default-src 'self'" } }),`,
+      added: `    use("@nodefony/security", { headers: { csp: "default-src 'self'" } }),`,
     },
     fail: {
-      added: `+    use("@nodefony/security", { headers: { enabled: false } }),`,
+      added: `    use("@nodefony/security", { headers: { enabled: false } }),`,
     },
     // Les briques que la sonde NE GARDAIT PAS quand ses cinq noms étaient
     // écrits à la main. La limitation de débit vient en premier parce que
@@ -1512,17 +1535,17 @@ const SAMPLES = {
     extra: [
       {
         label: "limitation de débit éteinte",
-        matter: { added: `+      rateLimit: { enabled: false },` },
+        matter: { added: `      rateLimit: { enabled: false },` },
         expect: false,
       },
       {
         label: "journal d'audit éteint",
-        matter: { added: `+      audit: { enabled: false },` },
+        matter: { added: `      audit: { enabled: false },` },
         expect: false,
       },
       {
         label: "clés d'API éteintes",
-        matter: { added: `+      apiKeys: { enabled: false },` },
+        matter: { added: `      apiKeys: { enabled: false },` },
         expect: false,
       },
     ],
@@ -1550,32 +1573,32 @@ const SAMPLES = {
   },
   "25 :: aucune route exemptée de la défense CSRF (@CsrfExempt)": {
     pass: {
-      addedTs: `+  @route("orders-create", { path: "/orders", method: "POST" })\n+  async create() {}`,
+      addedTs: `  @route("orders-create", { path: "/orders", method: "POST" })\n  async create() {}`,
     },
-    fail: { addedTs: `+  @CsrfExempt()\n+  async create() {}` },
+    fail: { addedTs: `  @CsrfExempt()\n  async create() {}` },
   },
   "25 :: défenses de provenance non désarmées (fetchMetadata / checkOrigin)": {
     pass: {
-      added: `+      csrf: { trustedOrigins: ["https://partenaire.example"] },`,
+      added: `      csrf: { trustedOrigins: ["https://partenaire.example"] },`,
     },
-    fail: { added: `+      csrf: { fetchMetadata: false },` },
+    fail: { added: `      csrf: { fetchMetadata: false },` },
     extra: [
       {
         label: "repli Origin désarmé",
-        matter: { added: `+        checkOrigin: false,` },
+        matter: { added: `        checkOrigin: false,` },
         expect: false,
       },
     ],
   },
   "25 :: aucune brique de sécurité éteinte en configuration": {
     pass: {
-      added: `+      csrf: { trustedOrigins: ["https://partenaire.example"] },`,
+      added: `      csrf: { trustedOrigins: ["https://partenaire.example"] },`,
     },
-    fail: { added: `+      csrf: { enabled: false },` },
+    fail: { added: `      csrf: { enabled: false },` },
     extra: [
       {
         label: "limitation de débit éteinte",
-        matter: { added: `+      rateLimit: { enabled: false },` },
+        matter: { added: `      rateLimit: { enabled: false },` },
         expect: false,
       },
     ],
@@ -1600,38 +1623,38 @@ const SAMPLES = {
     // générée, et une tâche qui se satisferait de lui rendrait un vert que
     // personne n'a produit.
     pass: {
-      added: `+        partenaire: { pattern: "^/api/partenaire", authenticators: ["apikey"], stateless: true },`,
+      added: `        partenaire: { pattern: "^/api/partenaire", authenticators: ["apikey"], stateless: true },`,
     },
     // L'échantillon fautif est le piège EXACT de la tâche : une zone qui marche
     // à l'essai, et qui exigera un cookie du client réel.
     fail: {
-      added: `+        partenaire: { pattern: "^/api/partenaire", authenticators: ["session"] },`,
+      added: `        partenaire: { pattern: "^/api/partenaire", authenticators: ["session"] },`,
     },
   },
   "26 :: authentificateur de porteur employé (apikey / jwt)": {
-    pass: { added: `+          authenticators: ["apikey"],` },
-    fail: { added: `+          authenticators: ["session", "anonymous"],` },
+    pass: { added: `          authenticators: ["apikey"],` },
+    fail: { added: `          authenticators: ["session", "anonymous"],` },
   },
   "26 :: pas de vérification de clé écrite à la main": {
     pass: {
-      addedTs: `+  @Post("")\n+  async ingest(@Body() lot: LotEntrant) { return this.created(lot); }`,
+      addedTs: `  @Post("")\n  async ingest(@Body() lot: LotEntrant) { return this.created(lot); }`,
     },
     fail: {
-      addedTs: `+    const cle = this.context.request.headers["authorization"];\n+    if (cle !== process.env.NF_CLE) return this.renderJson({}, 403);`,
+      addedTs: `    const cle = this.context.request.headers["authorization"];\n    if (cle !== process.env.NF_CLE) return this.renderJson({}, 403);`,
     },
     extra: [
       {
         label: "lecture par propriété plutôt que par index",
         matter: {
-          addedTs: `+    const brut = this.context.request.headers.authorization ?? "";`,
+          addedTs: `    const brut = this.context.request.headers.authorization ?? "";`,
         },
         expect: false,
       },
     ],
   },
   "26 :: aucune brique de sécurité éteinte en configuration": {
-    pass: { added: `+      apiKeys: { maxPerSubject: 5 },` },
-    fail: { added: `+      apiKeys: { enabled: false },` },
+    pass: { added: `      apiKeys: { maxPerSubject: 5 },` },
+    fail: { added: `      apiKeys: { enabled: false },` },
   },
 
   // ── T27 — le login résiste au bourrage ────────────────────────────────────
@@ -1645,21 +1668,21 @@ const SAMPLES = {
     // Relever un seuil est un RÉGLAGE (une app peut vouloir plus de tolérance
     // pour ses propres essais) ; éteindre est un affaiblissement. La sonde ne
     // doit mordre que sur le second, sinon elle recale un choix légitime.
-    pass: { added: `+      rateLimit: { freeAttempts: 10 },` },
-    fail: { added: `+      rateLimit: { enabled: false },` },
+    pass: { added: `      rateLimit: { freeAttempts: 10 },` },
+    fail: { added: `      rateLimit: { enabled: false },` },
     extra: [
       {
         label: "seuil très relevé, mais défense debout",
         matter: {
-          added: `+      rateLimit: { freeAttempts: 50, capDelayS: 2 },`,
+          added: `      rateLimit: { freeAttempts: 50, capDelayS: 2 },`,
         },
         expect: true,
       },
     ],
   },
   "27 :: aucune brique de sécurité éteinte en configuration": {
-    pass: { added: `+      rateLimit: { freeAttempts: 10 },` },
-    fail: { added: `+      rateLimit: { enabled: false },` },
+    pass: { added: `      rateLimit: { freeAttempts: 10 },` },
+    fail: { added: `      rateLimit: { enabled: false },` },
   },
 
   // ── T24 — zone de firewall ────────────────────────────────────────────────
@@ -1670,24 +1693,24 @@ const SAMPLES = {
   "24 :: aucune porte de sortie du firewall posée (@BypassFirewall / @Anonymous)":
     {
       pass: {
-        addedTs: `+  @route("import", { path: "/secure/import", method: "POST" })\n+  async import() {}`,
+        addedTs: `  @route("import", { path: "/secure/import", method: "POST" })\n  async import() {}`,
       },
-      fail: { addedTs: `+  @BypassFirewall()\n+  async import() {}` },
+      fail: { addedTs: `  @BypassFirewall()\n  async import() {}` },
       extra: [
         {
           label: "autorisation court-circuitée plutôt que le firewall",
-          matter: { addedTs: `+  @Anonymous()\n+  async import() {}` },
+          matter: { addedTs: `  @Anonymous()\n  async import() {}` },
           expect: false,
         },
       ],
     },
   "24 :: authentificateur anonyme non ajouté à une zone": {
-    pass: { added: `+        authenticators: ["session"],` },
-    fail: { added: `+        authenticators: ["session", "anonymous"],` },
+    pass: { added: `        authenticators: ["session"],` },
+    fail: { added: `        authenticators: ["session", "anonymous"],` },
   },
   "24 :: sécurité de zone non désactivée (areas.<z>.security)": {
-    pass: { added: `+        pattern: "^/api/secure",` },
-    fail: { added: `+        security: false,` },
+    pass: { added: `        pattern: "^/api/secure",` },
+    fail: { added: `        security: false,` },
   },
   "24 :: le dépôt s'appuie sur l'identité de la requête": {
     pass: {
@@ -1723,9 +1746,9 @@ const SAMPLES = {
   "28 :: pas de squelette de module recomposé à la main": {
     // Vertueux : l'agent a écrit du code de service, pas un manifeste de paquet.
     pass: {
-      added: `+export class AuditService extends Service {`,
+      added: `export class AuditService extends Service {`,
     },
-    fail: { added: `+  "name": "@bench-app/audit",` },
+    fail: { added: `  "name": "@bench-app/audit",` },
     extra: [
       {
         // `unless` : le générateur a bien été appelé, donc retoucher le
@@ -1738,7 +1761,7 @@ const SAMPLES = {
         // reproduit pas la matière réelle valide le contraire de ce qu'il croit.
         label: "manifeste touché APRÈS avoir lancé le générateur",
         matter: {
-          added: `+  "name": "@bench-app/audit",`,
+          added: `  "name": "@bench-app/audit",`,
           transcript: `{"command":"npx nodefony create module audit --yes"}`,
         },
         expect: true,
@@ -1753,24 +1776,24 @@ const SAMPLES = {
   },
   "29 :: façade de page employée (listPage / IPage)": {
     pass: {
-      addedTs: `+    return this.listPageResource({ limit: take, offset });`,
+      addedTs: `    return this.listPageResource({ limit: take, offset });`,
     },
-    fail: { addedTs: `+    const rows = await this.service.findAll();` },
+    fail: { addedTs: `    const rows = await this.service.findAll();` },
   },
   "29 :: pas de chargement complet de la table (findAll / find sans borne)": {
     pass: {
-      addedTs: `+    const rows = await this.service.find({}, { limit: 25, offset: 0 });`,
+      addedTs: `    const rows = await this.service.find({}, { limit: 25, offset: 0 });`,
     },
-    fail: { addedTs: `+    const rows = await this.service.findAll();` },
+    fail: { addedTs: `    const rows = await this.service.findAll();` },
     extra: [
       {
         label: "find sans le moindre argument",
-        matter: { addedTs: `+    const rows = await this.service.find();` },
+        matter: { addedTs: `    const rows = await this.service.find();` },
         expect: false,
       },
       {
         label: "critères vides, sans bornes",
-        matter: { addedTs: `+    const rows = await this.service.find({});` },
+        matter: { addedTs: `    const rows = await this.service.find({});` },
         expect: false,
       },
       {
@@ -1785,8 +1808,8 @@ const SAMPLES = {
         label: "findAll présent, mais la façade de page l'est aussi",
         matter: {
           addedTs:
-            `+    const tout = await this.service.findAll();\n` +
-            `+    return this.listPageResource({ limit: take, offset });`,
+            `    const tout = await this.service.findAll();\n` +
+            `    return this.listPageResource({ limit: take, offset });`,
           content: `    return this.listPageResource({ limit: take, offset });`,
         },
         expect: true,
@@ -1802,42 +1825,42 @@ const SAMPLES = {
   // la politique par défaut en porte un, légitime, sur `style-src`.
   "qualité :: aucun `any` explicite dans le code ajouté": {
     pass: {
-      addedTs: `+  async create(@Body() payload: Partial<IngestRow>) {\n+    const created = await this.createResource(payload);`,
+      addedTs: `  async create(@Body() payload: Partial<IngestRow>) {\n    const created = await this.createResource(payload);`,
     },
-    fail: { addedTs: `+  async create(@Body() payload: any) {` },
+    fail: { addedTs: `  async create(@Body() payload: any) {` },
     extra: [
       {
         // Les deux autres formes du même renoncement : elles passaient la
         // première rédaction de la sonde, qui ne cherchait que `: any`.
         label: "assertion vers any",
-        matter: { addedTs: `+    const row = payload as any;` },
+        matter: { addedTs: `    const row = payload as any;` },
         expect: false,
       },
       {
         label: "générique any",
-        matter: { addedTs: `+    const rows: Array<any> = [];` },
+        matter: { addedTs: `    const rows: Array<any> = [];` },
         expect: false,
       },
       {
         // `anything` contient « any » : sans la limite de mot, la sonde
         // rougirait sur un nom de variable parfaitement sain.
         label: "un identifiant qui COMMENCE par any",
-        matter: { addedTs: `+    const anything: string = payload.reference;` },
+        matter: { addedTs: `    const anything: string = payload.reference;` },
         expect: true,
       },
     ],
   },
   "qualité :: aucun contrôle mis en sourdine (@ts-ignore, eslint-disable)": {
     pass: {
-      addedCode: `+  const found = await this.getResource(id);`,
+      addedCode: `  const found = await this.getResource(id);`,
     },
     fail: {
-      addedCode: `+  // @ts-ignore\n+  const found = this.getResource(id);`,
+      addedCode: `  // @ts-ignore\n  const found = this.getResource(id);`,
     },
     extra: [
       {
         label: "linter mis en sourdine",
-        matter: { addedCode: `+  // eslint-disable-next-line no-unused-vars` },
+        matter: { addedCode: `  // eslint-disable-next-line no-unused-vars` },
         expect: false,
       },
       {
@@ -1847,7 +1870,7 @@ const SAMPLES = {
         // cette matière-là ne lui parvient même pas.
         label: "le marqueur CITÉ dans un document, pas dans du code",
         matter: {
-          added: `+- ✅ **TypeScript strict** : zéro \`any\`, zéro \`@ts-ignore\``,
+          added: `- ✅ **TypeScript strict** : zéro \`any\`, zéro \`@ts-ignore\``,
           addedCode: "",
         },
         expect: true,
@@ -1860,7 +1883,7 @@ const SAMPLES = {
         // geste que dans le code.
         label: "mise en sourdine dans un test",
         matter: {
-          addedCode: `+  // @ts-nocheck\n+  it("crée une ressource", async () => {});`,
+          addedCode: `  // @ts-nocheck\n  it("crée une ressource", async () => {});`,
         },
         expect: false,
       },
@@ -1896,17 +1919,17 @@ const SAMPLES = {
     // Retirer une ligne quelconque de la config ne dit rien — seule compte la
     // disparition de la déclaration qui PROTÈGE.
     pass: {
-      deleted: `-        // commentaire réécrit par l'agent\n-          pattern: "^/api/machine",`,
+      deleted: `        // commentaire réécrit par l'agent\n          pattern: "^/api/machine",`,
     },
     // Le geste EXACT observé : la garde retournée en son contraire.
     fail: {
-      deleted: `-          stateless: true, // false ⇒ l'app ouvre une session qu'il ne renverra jamais`,
+      deleted: `          stateless: true, // false ⇒ l'app ouvre une session qu'il ne renverra jamais`,
     },
     extra: [
       {
         label: "le porteur SEUL remplacé par un porteur + session",
         matter: {
-          deleted: `-          authenticators: ["apikey"], // PAS "session" — ce client n'a pas de cookie`,
+          deleted: `          authenticators: ["apikey"], // PAS "session" — ce client n'a pas de cookie`,
         },
         expect: false,
       },
@@ -1914,46 +1937,46 @@ const SAMPLES = {
         // Une zone web AJOUTÉE avec `stateless: false` est légitime : la sonde
         // ne regarde que ce qui DISPARAÎT, jamais ce qui apparaît.
         label: "zone web ajoutée avec stateless false — légitime",
-        matter: { deleted: `-  const inutile = 1;` },
+        matter: { deleted: `  const inutile = 1;` },
         expect: true,
       },
     ],
   },
   "qualité :: aucun cas de test retiré (it/test supprimé)": {
     pass: {
-      deleted: `-  const found = await this.getResource(id);`,
+      deleted: `  const found = await this.getResource(id);`,
     },
     fail: {
-      deleted: `-  it("refuse un mot de passe erroné", async () => {`,
+      deleted: `  it("refuse un mot de passe erroné", async () => {`,
     },
     extra: [
       {
         label: "un cas retiré par sa forme test()",
-        matter: { deleted: `-  test("crée une ressource", async () => {` },
+        matter: { deleted: `  test("crée une ressource", async () => {` },
         expect: false,
       },
       {
         // `it.each` / `test.each` : la parenthèse n'est pas immédiate.
         label: "un cas paramétré retiré",
-        matter: { deleted: `-  it.each([1, 2])("cas %i", async (n) => {` },
+        matter: { deleted: `  it.each([1, 2])("cas %i", async (n) => {` },
         expect: false,
       },
       {
         // Le mot « it » dans une ligne de prose supprimée n'est pas un cas.
         label: "une ligne de commentaire supprimée qui contient it",
-        matter: { deleted: `-  // it faut relire cette section` },
+        matter: { deleted: `  // it faut relire cette section` },
         expect: true,
       },
     ],
   },
   "qualité :: aucun require() — l'application est ESM": {
-    pass: { addedTs: `+import { readFileSync } from "node:fs";` },
-    fail: { addedTs: `+const fs = require("node:fs");` },
+    pass: { addedTs: `import { readFileSync } from "node:fs";` },
+    fail: { addedTs: `const fs = require("node:fs");` },
     extra: [
       {
         // Le nom d'une méthode ne se lit pas comme un appel CommonJS.
         label: "une méthode dont le nom finit par require",
-        matter: { addedTs: `+    this.checkRequirements();` },
+        matter: { addedTs: `    this.checkRequirements();` },
         expect: true,
       },
     ],
@@ -2106,7 +2129,48 @@ function main() {
   // Deux familles, deux motifs : les fondre sous un seul message ferait
   // annoncer « run vide » à un défaut d'explication de gate. Un instrument qui
   // se trompe de cause est précisément ce que cette session corrige.
+  /**
+   * La garde qui refuse une sonde ancrée sur un MARQUEUR de diff.
+   *
+   * La matière des sondes est du code DÉPOUILLÉ : un motif en `^\\+` n'y
+   * matcherait plus jamais — et sur une sonde INVERSÉE, ne plus matcher c'est
+   * être VERT. L'interdit ne garderait plus rien, sans un mot. La garde doit
+   * donc être vue MORDRE, pas seulement exister : on ancre une sonde réelle le
+   * temps d'un appel, et on la remet.
+   */
+  const verifierGardeAncre = () => {
+    const rates = [];
+    // Le cas sain : le banc tel qu'il est doit passer.
+    try {
+      refuserLesAncresDeDiff();
+    } catch (e) {
+      rates.push(`le banc REFUSE ses propres sondes : ${e.message}`);
+    }
+    // Le cas fautif : une ancre réintroduite doit être refusée.
+    const cible = TASKS.flatMap((t) => t.probes).find(
+      (p) => p.kind === "code" && p.pattern,
+    );
+    const avant = cible.pattern;
+    cible.pattern = new RegExp(`^\\+${avant.source}`, avant.flags);
+    let mord = false;
+    try {
+      refuserLesAncresDeDiff();
+    } catch {
+      mord = true;
+    }
+    cible.pattern = avant;
+    if (!mord)
+      rates.push(
+        "une sonde ancrée sur `^+` passe la garde — elle ne mordrait plus sur du code dépouillé",
+      );
+    return rates;
+  };
+
   const gardeRatee = [
+    ...verifierGardeAncre().map((c) => [
+      c,
+      "une sonde ancrée sur un marqueur de diff (`^+`/`^-`) ne matche plus la matière DÉPOUILLÉE : inversée, elle devient verte en silence — l'interdit ne garde plus rien",
+    ]),
     ...verifierGardeTranscript().map((c) => [
       c,
       "un run vide (transcript muet, ou zéro fichier touché) rend un FAIL qui a l'allure d'une mesure : il doit être ÉCARTÉ, pas compté",
@@ -2141,7 +2205,7 @@ function main() {
   console.log(
     `\n━━ ${covered}/${probes.length} sonde(s) couverte(s), ${checked} cas joué(s)` +
       (prove ? ` — amputation vérifiée sur ${covered}` : "") +
-      `, gardes du juge : ${gardeRatee.length === 0 ? "28 cas ✅" : `${gardeRatee.length} RATÉ(S)`}` +
+      `, gardes du juge : ${gardeRatee.length === 0 ? "30 cas ✅" : `${gardeRatee.length} RATÉ(S)`}` +
       `${wrong.length + toothless.length + jugeantes.length + gardeRatee.length > 0 ? `, ${wrong.length + toothless.length + jugeantes.length + gardeRatee.length} DÉFAUT(S)` : ""}`,
   );
 
