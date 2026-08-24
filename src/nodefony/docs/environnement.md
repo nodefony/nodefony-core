@@ -54,7 +54,18 @@ Ce qu'elle montre, et qu'aucune lecture de fichier ne donne :
   fournie** ;
 - ce qui est **masqué** : une valeur écrite dans un fichier de rang inférieur, donc sans effet ;
 - les variables `NF_` **inconnues** — presque toujours une faute de frappe, avec la correction
-  probable.
+  probable ;
+- les variables **posées par le framework** lui-même, à part, avec ce que chacune signale.
+
+> **Pourquoi ces deux dernières listes sont séparées.** Le framework écrit des `NF_*` dans
+> l'environnement sans que vous les ayez demandées : le lanceur du CLI marque sa délégation au
+> `nodefony` du projet (`NF_CLI_DELEGATED`), les commandes de démarrage inscrivent le mode
+> (`NF_MODE_START`), le maître de grappe signale la grappe (`NF_CLUSTER`), la déclaration MCP
+> porte son jeton (`NF_MCP_TOKEN`). Rangées parmi les inconnues, elles vous accusaient d'une
+> faute de frappe que vous n'aviez pas commise — et proposaient de « corriger »
+> `NF_CLI_DELEGATED` en `NF_ADMIN_PASSWORD`. Elles ne sont pas tues pour autant : une variable
+> présente que le rapport passe sous silence vous ferait chercher pourquoi votre environnement
+> ne ressemble pas à ce qu'il montre.
 
 ## Le modèle : deux axes, une cascade, un seul lecteur
 
@@ -212,7 +223,7 @@ code. Ce que l'application possède en propre se déclare dans `env.ts`.
 
 ## 🧪 Tests
 
-Le calcul du rapport est un module **pur** ([`envReport.ts:147`](../src/cli/envReport.ts)) : il
+Le calcul du rapport est un module **pur** ([`envReport.ts:177`](../src/cli/envReport.ts)) : il
 reçoit la cascade déjà lue et l'environnement effectif, et conclut. Cette séparation est ce qui
 rend éprouvables les trois affirmations sur lesquelles on va se fier pour corriger une
 configuration — d'où vient une valeur, ce qui est masqué, ce qui n'a aucun effet. Se tromper sur

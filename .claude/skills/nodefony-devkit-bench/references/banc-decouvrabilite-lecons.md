@@ -21,6 +21,7 @@
 - [Nommer la cause ne suffisait pas : il faut dire À QUI elle est opposable](#nommer-la-cause-ne-suffisait-pas--il-faut-dire-à-qui-elle-est-opposable)
 - [La sécurité ne se juge pas sur une présence de texte](#la-sécurité-ne-se-juge-pas-sur-une-présence-de-texte)
 - [Mesurer qu'on POSE une garde ne dit rien sur celle qu'on RETIRE](#mesurer-quon-pose-une-garde-ne-dit-rien-sur-celle-quon-retire)
+- [La matière d'une sonde n'est pas un DIFF — le marqueur `+` a coûté trois passes](#la-matière-dune-sonde-nest-pas-un-diff--le-marqueur--a-coûté-trois-passes)
 
 ### Les sondes s'éprouvent AVANT de juger
 
@@ -554,3 +555,52 @@ Ce banc a produit la leçon qui gouverne tout le devkit : **une règle lue s'ér
 une règle affichée agit.** Durcir la prose d'un fichier que l'agent lit n'a eu
 aucun effet ; déplacer la même règle dans le fichier chargé automatiquement l'a
 fait appliquer.
+
+### La matière d'une sonde n'est pas un DIFF — le marqueur `+` a coûté trois passes
+
+La tâche 4 (« commande CLI ») a rendu **0/3 aux trois passes**, tous ses gates
+d'état verts : la commande existait, `nodefony --help` la listait, l'application
+compilait. Une seule sonde rougissait — « pas de parsing d'argv artisanal ni de
+parseur tiers ». Le transcript du run montre pourtant un sans-faute : l'agent
+lance `npx nodefony create command ping --phase onReady`, lit le fichier
+produit, construit, exécute. **Zéro Write, zéro Edit.** Le banc reprochait à
+l'agent du code écrit par NOTRE PROPRE générateur.
+
+La ligne fautive est un **commentaire** du gabarit de `create command` — une
+recette d'enchaînement par `spawnSync` qui cite `process.argv[1]`. La garde
+anti-commentaire existait, et elle était juste :
+
+```js
+/^(?!\s*(?:\/\/|\*|\/\*)).*(?:process\.argv|from\s+["']commander["'])/mu;
+```
+
+Elle était juste **sur du code**. La matière, elle, était un diff : chaque ligne
+portait son `+`. `^` tombe alors sur le `+`, que `\s*` ne consomme pas — le
+lookahead ne voit jamais les `//` qui suivent, et la ligne passe pour du code.
+
+Trois enseignements, dans cet ordre :
+
+1. **Une matière doit avoir la forme que ses motifs supposent.** Les sondes sont
+   écrites comme on lit du code (`^` = début de ligne, un commentaire commence
+   par `//`) ; leur servir un diff invalide cette lecture pour TOUS les motifs
+   ancrés, sans qu'aucun ne le signale. `lignesDuDiff` dépouille donc le
+   marqueur, en une seule implémentation pour les cinq matières (`added`,
+   `addedCode`, `addedTs`, `addedTests`, `deleted`).
+2. **Le danger n'est pas le rouge, c'est le VERT.** Un motif ancré sur `^\+` qui
+   ne matche plus rend une sonde ordinaire rouge — visible. Mais la majorité des
+   interdits sont `invert: true` : ne plus matcher, pour eux, c'est **être
+   vert**. L'interdit ne garde plus rien et le rapport annonce un sans-faute.
+   D'où `refuserLesAncresDeDiff()`, qui refuse au LANCEMENT toute sonde `code`
+   dont le motif vise encore `^+` ou `^-` : la faute s'arrête avant la mesure au
+   lieu de se lire dans un verdict.
+3. **Un inventaire par un seul motif rate des sites.** Le premier balayage
+   (`pattern:.*\^\\+`) a rendu trois motifs ; un second, écrit autrement, en a
+   révélé un quatrième — sa regex était sur la ligne SUIVANTE, hors de portée du
+   premier. Ce sont les échantillons figés du selftest qui ont ensuite tranché,
+   pas la relecture : 141 d'entre eux portaient le marqueur, et six cas sont
+   passés au rouge dès le changement de matière.
+
+Le correctif fige aussi les deux cas de terrain : **un commentaire du gabarit
+citant `process.argv` est accepté**, un `const args = process.argv.slice(2)`
+reste refusé. Sans cette paire, rien n'empêcherait de « corriger » la sonde en
+la désarmant.
