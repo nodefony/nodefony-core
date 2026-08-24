@@ -145,6 +145,18 @@
 
 ## 🧭 Une garde ne couvre jamais une AUTRE question — même quand elle y ressemble
 
+- **La garde anti-abandon rendait NON JUGEABLE la tâche dont la bonne réponse est INVISIBLE au
+  diff.** « Aucun fichier touché ⇒ abandon » est juste partout — sauf pour la tâche de
+  configuration, qui se résout dans `.env.local`, **gitignoré par conception**. Un agent PARFAIT
+  n'y touche aucun fichier suivi : deux passes écartées pendant que le juge d'état rendait exit 0.
+  Le banc CONNAISSAIT le piège (son commentaire interdit toute sonde de diff sur cette tâche depuis
+  longtemps) ; la garde, ajoutée plus tard **à un autre étage**, l'a réintroduit. L'exception se
+  DÉCLARE sur la tâche, jamais en affaiblissant la garde pour tous. [1× — 08-24d]
+- **Un `--dry-run` qui ne rend qu'un inventaire de fichiers n'est pas une simulation.** Les notes
+  (table visée, connecteur, dialecte, routes) ne sortaient qu'en exécution RÉELLE ; l'agent à qui
+  l'on demande un plan colle la sortie et ne peut pas nommer la base sur laquelle il travaille.
+  Une simulation doit dire ce que la vraie commande dirait. [1× — 08-24d]
+
 - **`grid.containLabel` d'ECharts contient les ÉTIQUETTES, pas les NOMS d'axes** — deux questions qui
   se ressemblent, une seule couverte. J'ai passé une itération à compenser par des marges calculées à
   la main, qui déplaçaient le défaut sans le corriger. La doc officielle le dit en une ligne
@@ -203,6 +215,13 @@
   édition manuelle. `[1× — 08-22]`
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- **Trois de mes fautes ont été attrapées par les gates et les bancs, aucune par moi.** Un champ
+  d'options inexistant (vitest muet, `tsgo` l'a refusé au build) · un gabarit de test qui ne
+  COMPILAIT pas avec une dépendance injectée (mes assertions lisaient des chaînes, le banc de
+  vérité a compilé : `TS2554`, trois fois) · un `container` nullable (gate pre-push). Le point
+  commun : **mes propres tests lisaient du texte là où les leurs EXÉCUTENT**. Une assertion de
+  chaîne sur un artefact généré ne prouve jamais qu'il tient debout. [1× — 08-24d]
 
 - **Un gate qui SCANNE le dépôt s'auto-satisfait s'il se scanne lui-même.** Le contrôle « le
   registre ne réserve QUE des variables que le runtime lit vraiment » balayait tous les sources —
