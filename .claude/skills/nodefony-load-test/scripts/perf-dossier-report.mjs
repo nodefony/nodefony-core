@@ -1565,6 +1565,10 @@ const html = doc({
   sections,
   data: DATA,
   footer:
+    // Publié sous `/performance/dossier/`, ce rapport n'a pas la navigation du
+    // site de documentation : sans ce retour, il est un cul-de-sac. Lien
+    // relatif — le site vit dans un sous-chemin (`/nodefony-core/`).
+    `<a href="../">← Toutes les versions</a> · <a href="../../">Documentation</a> — ` +
     `${deckControls()} ${printButton()} — Généré par ` +
     `<code>node .claude/skills/nodefony-load-test/scripts/perf-dossier-report.mjs</code>. ` +
     `Données embarquées dans la page (<code>#report-data</code>) : le rapport se rejoue et se compare. ` +

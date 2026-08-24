@@ -537,7 +537,12 @@ const html = doc({
     `<a id="limites"></a>` + limites,
     decor,
   ],
-  footer: `Généré par <code>node .claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs</code> — Node ${node}`,
+  footer:
+    // Publiée sous `/performance/<version>/`, cette page n'a pas la
+    // navigation du site de documentation : sans ce retour, elle est un
+    // cul-de-sac. Le lien est relatif — le site vit dans un sous-chemin.
+    `<a href="../">← Toutes les versions</a> · <a href="../../">Documentation</a>` +
+    ` — généré par <code>node .claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs</code> — Node ${node}`,
   data: { comparatif: bench, soak, capacite: CAP },
 });
 

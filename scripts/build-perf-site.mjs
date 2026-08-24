@@ -170,7 +170,9 @@ h1{font-size:1.6rem;margin-bottom:.25rem} h2{font-size:1.1rem;margin-top:2rem}
 p.lead{color:#666;margin-top:0} ul{padding-left:1.1rem} li{margin:.4rem 0}
 a{color:#0b63ce} .d{color:#777;font-size:.9em} em{color:#0a7d33;font-style:normal}
 footer{margin-top:3rem;color:#777;font-size:.9em;border-top:1px solid #8883;padding-top:1rem}
+p.back{margin:0 0 1.5rem;font-size:.9em}
 </style></head><body>
+<p class="back"><a href="../">← Documentation Nodefony</a></p>
 <h1>Nodefony — performance</h1>
 <p class="lead">Une page par version publiée : ce qui a été mesuré, sur quelle machine, avec quel
 protocole — et ce que ces chiffres ne permettent pas de conclure.</p>
