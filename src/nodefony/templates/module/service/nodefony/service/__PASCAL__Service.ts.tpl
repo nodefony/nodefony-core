@@ -1,4 +1,11 @@
-import { Service, Module, Container, Event, extend, injectable } from "nodefony";
+import {
+  Service,
+  Module,
+  Container,
+  Event,
+  extend,
+  injectable,
+} from "nodefony";
 import type { I<%= it.pascal %>Service } from "../interfaces/I<%= it.pascal %>Service";
 import defaultConfig, { type <%= it.pascal %>Config } from "../config/config";
 

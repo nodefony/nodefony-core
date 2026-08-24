@@ -14,9 +14,9 @@ use("<%= it.pkgName %>", { enabled: true }),
 
 ## Configuration
 
-| Clé        | Type      | Défaut                    | Rôle                                    |
-| ---------- | --------- | ------------------------- | --------------------------------------- |
-| `enabled`  | `boolean` | `true`                    | Interrupteur du module                  |
+| Clé        | Type      | Défaut                           | Rôle                                        |
+| ---------- | --------- | -------------------------------- | ------------------------------------------- |
+| `enabled`  | `boolean` | `true`                           | Interrupteur du module                      |
 | `greeting` | `string`  | `"Bonjour de <%= it.name %>"` | Exemple de champ — à remplacer par la vôtre |
 
 La source unique est le schéma Zod de `nodefony/config/config.ts` : c'est lui qui porte

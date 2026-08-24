@@ -36,29 +36,46 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PRETTIER = path.join(ROOT, "node_modules", ".bin", "prettier");
 const CHECK = process.argv.includes("--check");
 
-/** Parser prettier + forme de commentaire qui masque une balise, par extension. */
+/**
+ * Le parser prettier, par extension. RIEN d'autre.
+ *
+ * 🔴 Ce champ portait aussi une fonction de MASQUAGE des balises eta
+ * — un commentaire de la forme `__ETA0__` — avec sa restauration et sa
+ * vérification jeton par jeton.
+ * Ce mécanisme n'a JAMAIS été exécuté : le refus délibéré ci-dessous rend la
+ * main avant, si bien que le tableau de balises n'était rempli par personne et
+ * que la restauration tournait à vide. Il a été retiré parce qu'un code mort
+ * qu'on LIT vaut promesse — deux lecteurs (l'auteur du dépôt et un agent) ont
+ * cru le dépôt capable de formater un gabarit à balises, et l'ont cherché.
+ * La capacité n'était pas cassée : elle était inatteignable.
+ *
+ * Les extensions absentes ne sont pas traitées. Markdown et HTML en font
+ * partie : un commentaire HTML est neutre, mais prettier RÉÉCRIT le markdown
+ * autour, et un un commentaire HTML en début de ligne ne protège pas d'une ligne de
+ * tableau — c'est là que la corruption a été observée.
+ */
 const LANG = {
-  ".ts": ["typescript", (i) => `/*__ETA${i}__*/`],
-  ".tsx": ["typescript", (i) => `/*__ETA${i}__*/`],
-  ".mts": ["typescript", (i) => `/*__ETA${i}__*/`],
-  ".js": ["babel", (i) => `/*__ETA${i}__*/`],
-  ".mjs": ["babel", (i) => `/*__ETA${i}__*/`],
-  ".css": ["css", (i) => `/*__ETA${i}__*/`],
-  ".scss": ["scss", (i) => `/*__ETA${i}__*/`],
-  // json : aucun commentaire n'est légal → jamais masqué, seuls les gabarits
-  // SANS balise sont traités.
-  ".json": ["json", null],
-  ".yml": ["yaml", null],
-  ".yaml": ["yaml", null],
-  // markdown et html : un commentaire HTML est neutre… mais prettier RÉÉCRIT le
-  // markdown autour, et un `<!-- -->` en début de ligne ne protège pas d'une
-  // ligne de tableau. Ces deux-là restent manuels — c'est là que la corruption
-  // a été observée.
+  ".ts": "typescript",
+  ".tsx": "typescript",
+  ".mts": "typescript",
+  ".js": "babel",
+  ".mjs": "babel",
+  ".css": "css",
+  ".scss": "scss",
+  ".json": "json",
+  ".yml": "yaml",
+  ".yaml": "yaml",
 };
 
 const files = globSync("src/nodefony/templates/**/*.tpl", { cwd: ROOT }).sort();
 let changed = 0;
 let skipped = 0;
+// Ce qui est écarté se COMPTE par motif : un total unique ne dit pas si un
+// gabarit est jugé ailleurs ou par personne, et c'est cette confusion qui laisse
+// une dette grossir. Les gabarits à balises sont jugés sur leur RENDU — mais
+// seulement là où un gate les rend, et `format:scaffold` n'exerce que
+// `create app`. Ceux des autres générateurs ne sont vérifiés par personne.
+const ecartes = { extension: [], balises: [], refus: [] };
 
 for (const rel of files) {
   const abs = path.join(ROOT, rel);
@@ -67,11 +84,10 @@ for (const rel of files) {
   const entry = LANG[ext];
   if (!entry) {
     skipped++;
+    ecartes.extension.push(rel);
     continue;
   }
-  const [parser, mask] = entry;
-  const tags = [];
-  let masked = src;
+  const parser = entry;
   if (src.includes("<%")) {
     // 🔴 REFUS DÉLIBÉRÉ, payé une fois : formater un gabarit À BALISES ne rend
     // pas son RENDU conforme, et peut le DÉGRADER. Constaté au premier usage —
@@ -83,36 +99,21 @@ for (const rel of files) {
     // se corrige donc à la main, en regardant le RENDU (`--diff`), jamais en
     // formatant la source.
     skipped++;
+    ecartes.balises.push(rel);
     continue;
   }
 
   const run = spawnSync(PRETTIER, ["--parser", parser], {
-    input: masked,
+    input: src,
     encoding: "utf8",
   });
   if (run.status !== 0) {
     skipped++;
-    continue; // le masquage ne suffit pas (balise au milieu d'une expression)
+    ecartes.refus.push(rel);
+    continue; // prettier refuse la source telle quelle
   }
 
-  // Restauration — et VÉRIFICATION que chaque jeton est revenu. Un jeton perdu
-  // (prettier a déplacé ou fusionné un commentaire) rendrait un gabarit amputé :
-  // on préfère ne rien écrire.
-  let out = run.stdout;
-  let intact = true;
-  tags.forEach((tag, i) => {
-    const token = mask(i);
-    if (!out.includes(token)) {
-      intact = false;
-      return;
-    }
-    out = out.replace(token, tag);
-  });
-  if (!intact || out.includes("__ETA")) {
-    console.error(`  ⚠ ${rel} — jeton eta perdu au formatage, laissé intact`);
-    skipped++;
-    continue;
-  }
+  const out = run.stdout;
 
   if (out !== src) {
     changed++;
@@ -125,6 +126,35 @@ for (const rel of files) {
 }
 
 console.log(
-  `${files.length} gabarits · ${changed} ${CHECK ? "à reformater" : "reformatés"} · ${skipped} non traitables (markdown, html, json avec balises, ou masquage insuffisant)`,
+  `\n${files.length} gabarits · ${changed} ${CHECK ? "à reformater" : "reformatés"} · ${skipped} écartés`,
 );
+console.log(
+  `  ${ecartes.balises.length} à balises — leur forme se juge sur le RENDU` +
+    `, jamais sur la source (voir l'en-tête) : \`npm run format:scaffold -- --diff\``,
+);
+console.log(
+  `  ${ecartes.extension.length} d'une extension que CE script ne traite pas (markdown, html…)` +
+    ` · ${ecartes.refus.length} refusés par prettier`,
+);
+// 🔴 Ce que RIEN ne vérifie, dit à voix haute. `format:scaffold` ne rend que
+// `create app` : un gabarit à balises appartenant à un AUTRE générateur n'est
+// donc formaté ni ici (refus) ni là-bas (jamais rendu). Le taire ferait lire
+// « 0 à reformater » comme « tout est propre ».
+const RACINE_TPL = "src/nodefony/templates/";
+const HORS_CREATE_APP = ecartes.balises
+  .map((f) => (f.startsWith(RACINE_TPL) ? f.slice(RACINE_TPL.length) : f))
+  .filter((f) => !f.startsWith("app/") && !f.startsWith("shared/"));
+if (HORS_CREATE_APP.length) {
+  console.log(
+    `\n⚠ ${HORS_CREATE_APP.length} gabarit(s) à balises hors \`create app\` : aucun gate ne` +
+      ` juge leur forme — ni ici, ni \`format:scaffold\`, qui ne rend que l'app.`,
+  );
+  const familles = {};
+  for (const f of HORS_CREATE_APP) {
+    const g = f.split("/")[0];
+    familles[g] = (familles[g] ?? 0) + 1;
+  }
+  for (const [g, n] of Object.entries(familles).sort((a, b) => b[1] - a[1]))
+    console.log(`    ${String(n).padStart(2)} × create ${g}`);
+}
 if (CHECK && changed > 0) process.exit(1);

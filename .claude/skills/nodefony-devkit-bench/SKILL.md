@@ -110,12 +110,54 @@ Sans elle, on livre un rendu conforme aux noms courts seulement.
 | Deux lignes vides ou zéro autour d'un bloc conditionnel | la newline vit du mauvais côté de la balise                                                                                                                                                                                                                    | placer la ligne vide **DANS** le bloc (`…\n\n<% } %>## Titre`), jamais après                                                                              |
 
 **Ce que le script NE peut pas rendre conforme, et pourquoi c'est structurel** :
-deux fichiers frontend changent de forme selon la longueur du nom d'application
-— pour un nom court prettier veut une ligne, pour un nom long il l'éclate. Un
-gabarit rend UNE forme. La seule issue complète serait de formater à la
-génération, ce qui demande prettier au runtime du CLI (dépendance pesée et
-refusée : ~8 Mo dans chaque image de production pour un scaffold qu'on n'y lance
-jamais). Le script les nomme plutôt que de les taire.
+**quatre** fichiers changent de forme selon la longueur du nom d'application —
+`frontend/index.html` (attribut `content`), `nodefony/controllers/AppController.ts`
+(`renderDocument("<nom>"…)`), `nodefony/frontend/register<Nom>Entry.ts` (nom de
+fonction) et `frontend/src/App.tsx` (le `<span>` qui affiche le nom). Pour un nom
+court prettier veut une ligne, pour un nom long il l'éclate ; un gabarit rend UNE
+forme. La seule issue complète serait de formater à la génération, ce qui demande
+prettier au runtime du CLI (dépendance pesée et refusée : ~8 Mo dans chaque image
+de production pour un scaffold qu'on n'y lance jamais). Le script les nomme
+plutôt que de les taire.
+
+> 🔴 **Un rouge PERMANENT cache les vrais défauts.** Ces quatre-là font échouer
+> le gate à chaque exécution, et on apprend à lire son rouge comme « les cas
+> connus ». C'est ainsi que `App.tsx` a accumulé **onze** écarts sans que
+> personne les voie — huit lignes JSX au-delà de 80 colonnes et trois lignes
+> vides parasites, livrées telles quelles à qui génère une application. Avant de
+> conclure « ce sont les cas structurels », lire le `--diff` : un cas structurel
+> se RECONNAÎT à ce que sa ligne fautive porte le nom de l'application. Aucune
+> autre non-conformité n'a d'excuse.
+
+### Deux formateurs, et ce qu'aucun des deux ne regarde
+
+```bash
+npm run format:templates            # les gabarits SANS balise, formatés à la SOURCE
+npm run format:templates -- --check # sort 1 si l'un d'eux changerait
+```
+
+Les deux outils se partagent le terrain, et le partage laisse un trou :
+
+| Gabarits                                     | Qui juge leur forme                                                              |
+| -------------------------------------------- | -------------------------------------------------------------------------------- |
+| sans balise eta                              | `format:templates`, sur la source — c'est exact                                  |
+| à balises, rendus par `create app`           | `format:scaffold`, sur le RENDU des 3 variantes                                  |
+| à balises, appartenant à un AUTRE générateur | **personne** — 29 gabarits : module, controller, entity, front, service, command |
+
+`format:templates` **refuse** délibérément un gabarit à balises : formater sa
+source ne rend pas son RENDU conforme et peut le DÉGRADER (deux fichiers de test
+acceptés en sont ressortis refusés). La bonne méthode pour ceux-là est de
+formater le RENDU puis de reporter le diff dans le gabarit, bloc par bloc.
+
+Le script nomme lui-même les 29, groupés par générateur, à chaque exécution : un
+« 0 à reformater » ne veut pas dire « tout est propre », il veut dire « propre
+là où je regarde ».
+
+> ⚠️ Deux instruments mentent en silence quand on mesure ça soi-même. Prettier
+> lancé sur une copie sous `tmp/` ne traite RIEN — le `.prettierignore` du dépôt
+> écarte ce dossier, et la commande sort 0 sans avoir lu le fichier. Et le gate
+> formate depuis le dossier de l'app générée (`cwd: dest`) : c'est la seule cible
+> dont le verdict vaille.
 
 ## Banc de vérité — le code généré tient-il debout ?
 
