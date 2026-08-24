@@ -162,6 +162,20 @@ jobs:
       - name: Build workspaces (turbo)
         run: npm run build
 
+      # Le graphe symbolique est GÉNÉRÉ, et `src/nodefony/.ai/` est IGNORÉ par
+      # git : il existe sur le poste qui vient de commiter — le hook pre-commit
+      # le régénère — et JAMAIS sur un checkout frais. `pack-all.mjs` refuse
+      # alors de packer le paquet `nodefony`, dont le `files` déclare `.ai`,
+      # et le banc tombe sur son DÉCOR sans avoir rien mesuré : un rouge dont la
+      # cause est un fichier absent, pas un défaut du produit.
+      #
+      # Constaté au premier run de ce workflow, à l'identique sur les quatre
+      # variantes — c'est le piège « un fichier gitignoré ne tient que chez
+      # toi », et il ne pouvait se voir que sur une machine qui n'est pas la
+      # mienne. Sept secondes.
+      - name: Générer le graphe symbolique (absent d'un checkout frais)
+        run: npm run generate-symbols
+
       # Le banc, en décor ISOLÉ (pas de `--link` : le mode lié laisse la
       # résolution de modules remonter au monorepo et rend invisible toute la
       # famille « dépendance manquante du gabarit »).
