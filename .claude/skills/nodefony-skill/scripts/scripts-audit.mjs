@@ -66,35 +66,49 @@ function collectDocs(dir, acc = "") {
   return acc;
 }
 
-/** Signaux qu'un script dépend d'un protocole — donc qu'il a sa place dans un skill. */
+/**
+ * Signaux qu'un script dépend d'un protocole — donc qu'il a sa place dans un skill.
+ *
+ * DEUX familles, et la distinction est toute la règle. Un signal EXÉCUTÉ prouve
+ * que le script monte un décor ou frappe une cible ; un signal de VOCABULAIRE ne
+ * prouve que le sujet dont il parle. Un rendeur de rapport parle de médianes, de
+ * p99 et de runs sans en produire un seul — il lit un JSON déjà mesuré et écrit
+ * du HTML.
+ *
+ * La règle « on exige un APPEL » était déjà écrite pour docker et pour le
+ * serveur en écoute ; les deux signaux de mesure l'avaient ratée, et deux
+ * rendeurs de la racine s'en trouvaient classés « à déplacer ». Le gate sortait
+ * alors 1 à chaque passe : rouge en permanence, donc ne gardant plus rien.
+ */
 function protocolSignals(path) {
   let src = "";
   try {
     src = readFileSync(path, "utf8");
   } catch {
-    return [];
+    return { tous: [], executes: [] };
   }
-  const s = [];
+  const executes = [];
+  const vocabulaire = [];
   // Mentionner « docker » ou « localhost » ne suffit pas : un générateur de fichier d'exemple en
   // parle sans jamais s'en servir. On exige un APPEL — lancer le conteneur, frapper le port.
   if (/(?:docker\s+(?:run|exec|compose|ps)|docker-compose)/i.test(src))
-    s.push("monte un décor docker");
+    executes.push("monte un décor docker");
   if (
     /(?:fetch|request|curl|WebSocket|autocannon|got)\s*\(?["'`]?[^\n]{0,40}(?:localhost|127\.0\.0\.1)/i.test(
       src,
     )
   )
-    s.push("frappe un serveur en écoute");
+    executes.push("frappe un serveur en écoute");
   if (/\b(bench|autocannon|wrk|rps|latenc|percentil|p9\d)\b/i.test(src))
-    s.push("mesure une performance");
+    vocabulaire.push("parle de performance");
   if (/\b(median|médiane|warmup|chauff|iterations?|runs?)\b/i.test(src))
-    s.push("exige plusieurs runs");
+    vocabulaire.push("parle de runs répétés");
   if (
     /process\.env\.[A-Z]/.test(src) &&
     (src.match(/process\.env\.[A-Z]/g) || []).length > 3
   )
-    s.push("piloté par plusieurs variables d'environnement");
-  return s;
+    vocabulaire.push("piloté par plusieurs variables d'environnement");
+  return { tous: executes.concat(vocabulaire), executes };
 }
 
 const rows = [];
@@ -149,9 +163,12 @@ for (const p of rootScripts) {
   if (inPkg) {
     verdict = "✅ bien placé";
     why = "câblé dans package.json — outil déterministe du dépôt";
-  } else if (signals.length >= 2) {
+  } else if (signals.executes.length >= 1 && signals.tous.length >= 2) {
+    // Au moins un APPEL, et au moins deux signaux au total : un unique
+    // `fetch("localhost")` dans un générateur de fichier d'exemple ne suffit
+    // pas à faire d'un script un banc.
     verdict = "➡️  à déplacer vers un skill";
-    why = signals.join(", ");
+    why = signals.tous.join(", ");
   } else if (!inPkg && !inSkill && !inDocs) {
     verdict = "⚠️  orphelin";
     why = "cité nulle part : ni package.json, ni skill, ni doc";

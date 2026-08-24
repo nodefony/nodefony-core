@@ -24,7 +24,6 @@ import {
   printButton,
   deckControls,
   fmt,
-  COLORS,
 } from "../.claude/skills/nodefony-html-report/lib/report.mjs";
 import {
   readFileSync,

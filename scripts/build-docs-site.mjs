@@ -127,7 +127,7 @@ const PUBLIC_DIRS = [
 ];
 
 /** Pages de la racine de `docs/` publiées, dans l'ordre de la navigation. */
-const PUBLIC_ROOT_PAGES = ["index.md", "demarrer.md", "lexique.md"];
+const PUBLIC_ROOT_PAGES = new Set(["index.md", "demarrer.md", "lexique.md"]);
 
 /**
  * Ce qui ne part JAMAIS sur le site, avec le motif — le motif est affiché dans
@@ -210,14 +210,16 @@ function decide(d) {
   if (d.source.kind !== "root")
     return { ok: true, why: "documentation d'un module" };
 
-  const rel = d.relPath;
-  const priv = PRIVATE.find((r) => r.match(rel));
+  const relPath = d.relPath;
+  const priv = PRIVATE.find((r) => r.match(relPath));
   if (priv && !forced) return { ok: false, why: priv.why };
   if (forced) return { ok: true, why: "publish: true (décision de la page)" };
 
-  const top = rel.includes("/") ? rel.slice(0, rel.indexOf("/")) : null;
+  const top = relPath.includes("/")
+    ? relPath.slice(0, relPath.indexOf("/"))
+    : null;
   if (top === null)
-    return PUBLIC_ROOT_PAGES.includes(rel)
+    return PUBLIC_ROOT_PAGES.has(relPath)
       ? { ok: true, why: "page d'accueil du site" }
       : {
           ok: false,
@@ -979,7 +981,7 @@ function renderPage(d, published, index, publishedPaths) {
           l.length > 30 &&
           !/^[#|\-*[\d]/.test(l) &&
           !l.includes("›") && // fil d'Ariane
-          !/^!\[/.test(l), // image seule
+          !l.startsWith("!["), // image seule
       ) ??
     d.title
   )

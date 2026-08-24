@@ -36,11 +36,11 @@ artificiellement.
 Une même source Markdown, aux vrais chemins (`docs/` et `<module>/docs/`, ADR-0001), sert trois
 lecteurs. Savoir lequel est concerné évite de chercher au mauvais endroit.
 
-| Consommateur | Ce qu'il fait | Où il vit |
-| --- | --- | --- |
-| **Le module** `@nodefony/documentation` | Data plane HEADLESS : indexe, résout les `{{ }}`, expose `/nodefony/documentation/api/{tree,page/:slug}` | `src/packages/@nodefony/documentation/` |
-| **Le portail Studio** | Rend l'index et les pages dans la console d'administration | `@nodefony/studio/frontend` (briques ci-dessous) |
-| **Le site publié** | Rend le corpus en HTML autonome sur GitHub Pages | `scripts/build-docs-site.mjs` |
+| Consommateur                            | Ce qu'il fait                                                                                            | Où il vit                                        |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| **Le module** `@nodefony/documentation` | Data plane HEADLESS : indexe, résout les `{{ }}`, expose `/nodefony/documentation/api/{tree,page/:slug}` | `src/packages/@nodefony/documentation/`          |
+| **Le portail Studio**                   | Rend l'index et les pages dans la console d'administration                                               | `@nodefony/studio/frontend` (briques ci-dessous) |
+| **Le site publié**                      | Rend le corpus en HTML autonome sur GitHub Pages                                                         | `scripts/build-docs-site.mjs`                    |
 
 Le site est un TROISIÈME consommateur, jamais une transformation de la source : rien ne réécrit
 `docs/`. Il **réutilise** les briques pures du module (`scanDocsDir`, `pathToSlug`,
