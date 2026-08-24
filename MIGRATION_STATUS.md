@@ -237,7 +237,7 @@ Historique du chantier (fabrique CLOSE) : base 9 347 RPS → lots A→D +8,9 %, 
 ────────────────────────────────────────────────────────────────────────
  DOC Corpus de référence   █████████▋  97%  61/63 pages aux 4 gates (rejoués 08-20) · 437 ancres en DÉRIVE (dette)
  DOC Site public           ██████████ 100%  84 pages PUBLIÉES sur GitHub Pages (f9aaf5de) · accueil + /docs/ + /performance/
- BANC devkit (référence)   ████████▋░  87%  26/30 PASS unanimes, 2 runs, décor `MCP eteint` (b186a401) · 4 FAIL tous à 1/2 = instables
+ BANC devkit (référence)   █████████▎  93%  28/30 PASS unanimes, 2 runs, décor `MCP eteint` (a851c1a3) · T5+T17 étaient des FAUX ROUGES du banc · restent T18/T22 à 1/2
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 

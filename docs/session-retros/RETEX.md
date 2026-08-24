@@ -53,6 +53,8 @@
 - **Un livrable annoncé en DEUX pièces livré en une** : j'avais dit « deux fichiers, deux
   publics », j'en ai publié un et clôturé. Le user a dû le relever. Annoncer un plan en N
   parties, c'est s'engager à recompter N à la livraison. `[1× — 08-24]`
+- **Le banc nommait DEUX contournements dans son propre code, le produit n'en désamorçait qu'un.** Tâche 18 : le rôle recopié au semis est averti en toutes lettres dans le skill ; la liste de rôles sur l'action — celle que l'agent écrit réellement — ne l'était nulle part. Le gabarit MONTRE en plus la forme fautive, et elle fonctionne sur la route mesurée. Quand un code de banc énumère les façons de contourner, chacune est une ligne de doc à écrire. [1× — 08-25]
+- **La règle existait, un cran plus bas.** La puce voisine du même fichier disait déjà « jamais la liste des routes du jour ; énumérer marche à l'essai, passe la revue, et laisse la route sœur NAÎTRE PUBLIQUE ». Écrite pour les routes, jamais pour les rôles. Chercher la convention-frère AVANT d'écrire une règle neuve. [1× — 08-25]
 
 ## 🌍 Une portée GLOBALE n'est pas « un peu intrusive » — elle est FAUSSE
 
@@ -98,6 +100,8 @@
   cas dangereux est l'autre : un exécuteur qui répond attribue SES cœurs au banc, chiffre faux
   et crédible sur une page publique. Trouvé en comparant octet à octet la page SERVIE et la
   page bâtie. `[1× — 08-24]`
+- **`os.tmpdir()` n'est PAS `/tmp` sous macOS** : c'est un dossier privé par utilisateur sous `/var/folders/…`. On cherchait dans `/tmp` (224 Ko) pendant que **13 Go** grossissaient à côté. Un outil qui agit sur un chemin doit l'ANNONCER, sinon l'appelant cherche ailleurs. [1× — 08-25]
+- **Le verdict du gate se prend depuis SA cible** : il formate avec `cwd: dest` (le dossier de l'app générée). Reproduire la mesure ailleurs — même config, même version — rend un autre résultat, et on croit le sien. [1× — 08-25]
 
 ## 🧭 La doc qui AFFIRME une automatisation qui n'existe pas
 
@@ -436,6 +440,8 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   d'un cran, et le corriger aurait introduit le vrai défaut. Les coordonnées (`y`) l'ont
   tranché en une commande. Dans un rendu, l'ordre du DOCUMENT n'est pas l'ordre VISUEL.
   `[1× — 08-24]`
+- **Un `rm -rf` composé que zsh REFUSE n'exécute AUCUNE de ses parties** — un glob sans correspondance annule la commande entière. J'ai annoncé « décors nettoyés » sur un compte que je n'avais pas relié au geste ; 156 Mo étaient toujours là. Même famille que la chaîne `&&` interrompue. [1× — 08-25]
+- **Prettier lancé sur une copie sous `tmp/` ne traite RIEN** : le `.prettierignore` du dépôt écarte ce dossier, la commande sort **0** sans avoir lu le fichier — j'en ai conclu « 0 écart » sur un fichier que le gate déclarait non conforme. La sortie masquée (`>/dev/null`) a caché que rien n'avait été traité. [1× — 08-25]
 
 ## 🗄️ Gradué aux CONSOLIDATE (retiré d'ici — règle anti-doublon)
 
@@ -546,6 +552,7 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
   montrait pas ce qui serait publié. Supprimé, remplacé par une option du générateur du site. Un
   outil qu'on ne lance jamais ne se contente pas de dormir : il POURRIT, et on s'en aperçoit le jour
   où on compte dessus. [1× — 08-24]
+- **Un gate ROUGE EN PERMANENCE ne garde rien non plus — on apprend à lire son rouge.** `format:scaffold` échouait depuis toujours sur des cas dits « structurels connus » ; personne ne relisait la liste. `App.tsx` y a accumulé **onze** écarts invisibles, livrés tels quels à qui générait une app. Le remède n'est pas de supprimer le gate mais de le rendre capable de VERT : il CONSTATE qu'une non-conformité dépend du nom (sa ligne fautive porte le nom de l'app), la nomme, et n'échoue que sur le reste. [1× — 08-25]
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
 
