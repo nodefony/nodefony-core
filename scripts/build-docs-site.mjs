@@ -905,6 +905,11 @@ a.nf-card:hover .card-t { color:var(--accent); }
 }
 .schema-zone { margin:18px 0; padding:12px; border:1px solid var(--line); border-radius:9px;
   background:var(--card); overflow-x:auto; }
+/* Le SVG occupe toute la largeur de son cadre. Il porte une zone de vue, donc il
+   s'échelonne sans se déformer — traits et libellés grandissent ensemble. Sans
+   cette règle il gardait sa largeur naturelle, calculée par le moteur, et
+   flottait dans un cadre bien plus large que lui. */
+.schema-zone svg { display:block; width:100%; height:auto; }
 pre.raw { white-space:pre-wrap; }
 .livegraph { border:1px dashed var(--line); border-left:3px solid var(--accent);
   border-radius:9px; padding:12px 16px; margin:18px 0; background:var(--card); }
