@@ -735,7 +735,7 @@ L'écran **Routes** et le point d'API `/nodefony/framework/api/routes` listent l
 | Symptôme | Cause (dans le code) | Correction |
 | --- | --- | --- |
 | `404` sur une route pourtant décorée | Contrôleur jamais importé, ou absent de `@controllers([…])` | L'ajouter au tableau `@controllers` du module |
-| `Action « remove » … : ce nom est RÉSERVÉ` au démarrage — ou `TS2416` au build | L'action reprend le nom d'un membre de `Controller` : la classe étend `Service`, qui expose déjà `remove(name): boolean` ([`Service.ts:452`](../../../nodefony/src/Service.ts)), `set`, `get`, `clean`… Le décorateur refuse le nom avant que le conflit n'atteigne le compilateur. | Renommer l'action (`destroy`, `deleteOne`…). Le nom d'une action est libre : c'est le chemin du décorateur qui fait l'URL. |
+| `Action « remove » … : ce nom est RÉSERVÉ` au démarrage — ou `TS2416` au build | L'action reprend le nom d'un membre de `Controller` : la classe étend `Service`, qui expose déjà `remove(name): boolean` ([`Service.ts:452`](../../../../nodefony/src/Service.ts)), `set`, `get`, `clean`… Le décorateur refuse le nom avant que le conflit n'atteigne le compilateur. | Renommer l'action (`destroy`, `deleteOne`…). Le nom d'une action est libre : c'est le chemin du décorateur qui fait l'URL. |
 | `404` après avoir déplacé `@controller` sous `@Domain` | `@controller` monte les routes ; les décorateurs lus au montage doivent être **sous** | Remettre `@controller` en **premier** (le plus haut) |
 | Le vhost de `@Domain` classe est ignoré | `@Domain` placé **au-dessus** de `@controller` → posé trop tard | Placer `@Domain` sous `@controller` |
 | `@BypassFirewall` n'ouvre rien | Écrit **avec** parenthèses — c'est un drapeau, pas une fabrique | `@BypassFirewall` (sans `()`) |

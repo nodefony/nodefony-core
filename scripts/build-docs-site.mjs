@@ -43,6 +43,7 @@ import {
   mkdirSync,
   existsSync,
   readdirSync,
+  statSync,
 } from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -205,6 +206,32 @@ function moduleDirs() {
 }
 
 /**
+ * Traduit une URL de site (`/adr/`) en chemin RELATIF depuis la page courante
+ * (`../../adr/`).
+ *
+ * Pourquoi ne pas publier des chemins absolus : GitHub Pages sert ce dépôt sous
+ * `/nodefony-core/`, et un `/adr/` y désignerait la racine du domaine — donc
+ * 122 pages de liens morts, invisibles en local et découverts en ligne. Un site
+ * à liens relatifs marche partout, sans réglage : sous un sous-chemin, sur un
+ * domaine propre, ouvert depuis le disque. C'est déjà le choix du site de
+ * performance voisin. Une variable de préfixe aurait ajouté un réglage dont
+ * l'oubli casse tout, en silence.
+ *
+ * @param {string} fromUrl - URL de la page qui porte le lien (dossier).
+ * @param {string} toUrl - URL visée.
+ * @returns {string} chemin relatif, avec sa barre finale.
+ */
+function rel(fromUrl, toUrl) {
+  const [target, hash = ""] = toUrl.split(/(#.*)$/);
+  const from = fromUrl.replace(/\/$/, "") || "/";
+  const to = target.replace(/\/$/, "") || "/";
+  let out = path.posix.relative(from, to);
+  if (out === "") out = "./";
+  else if (!out.endsWith("/")) out += "/";
+  return out + hash;
+}
+
+/**
  * Chemin d'un doc relatif à la RACINE DU DÉPÔT — c'est la clé que les liens
  * internes résolvent, et celle des URL GitHub.
  */
@@ -348,6 +375,11 @@ function decorate(html) {
     (_, attrs, name, title, anchor, body) =>
       `<section class="brick"><header class="brick-h"><code class="brick-name">${name}</code><span class="brick-t">${title}</span>${anchor ?? ""}</header><div class="brick-b">${body}</div></section>`,
   );
+  // Marque visuelle des liens qui QUITTENT le site (une flèche, via `.ext`).
+  out = out.replace(
+    new RegExp(`<a href="(${REPO_URL}[^"]*)"`, "g"),
+    '<a class="ext" href="$1"',
+  );
   // Enveloppe défilante des tableaux — voir `.table-zone` : sans elle, un
   // tableau large défile sans qu'aucune touche ne puisse l'atteindre.
   out = out.replace(
@@ -363,34 +395,45 @@ function decorate(html) {
 }
 
 /**
- * Réécrit les liens qui ne mènent nulle part sur le site vers GitHub.
+ * Réécrit vers GitHub les liens qui ne mèneront nulle part sur le site.
  *
- * Une page publiée cite des voisines non publiées (un retex, une archive) et du
- * CODE (`firewall.ts`). Ces cibles existent, elles sont publiques — mais sur le
- * dépôt, pas sur le site. Les laisser en relatif produirait des culs-de-sac ;
- * les faire pointer sur GitHub garde la promesse du lien.
+ * Une page publiée cite des voisines non publiées (un retex, une archive), des
+ * DOSSIERS, et du CODE. Ces cibles existent et sont publiques — sur le dépôt,
+ * pas sur le site. Les laisser en relatif produirait des culs-de-sac.
  *
- * @returns {{html: string, dead: string[]}} liens restés sans cible.
+ * Cela se fait sur le MARKDOWN, avant que les liens internes ne deviennent des
+ * chemins de site : c'est le seul moment où une cible est encore un chemin du
+ * dépôt. L'avoir tenté ensuite, sur le HTML, revenait à distinguer `../../adr/`
+ * (une page) de `../../drizzle/docs/` (un dossier) — deux formes identiques,
+ * qu'aucune règle ne sépare.
+ *
+ * @param {string} markdown - corps de la page, frontmatter retiré.
+ * @param {string} fromRepoDir - dossier de la page, relatif au dépôt.
+ * @param {Set<string>} publishedPaths - chemins des pages qui, elles, auront une URL.
+ * @returns {{markdown: string, dead: string[]}} liens restés sans cible.
  */
-function externalizeLinks(html, fromRepoDir) {
+function externalizeLinks(markdown, fromRepoDir, publishedPaths) {
   const dead = [];
-  const out = html.replace(/href="([^"]+)"/g, (whole, href) => {
-    if (/^(https?:|mailto:|#|\/)/.test(href)) return whole;
-    const [target, hash = ""] = href.split(/(#.*)$/);
-    const abs = path.posix
-      .normalize(path.posix.join(fromRepoDir, target))
-      .replace(/^\/+/, "");
-    // Le dossier de performance n'est pas dans CE site, mais il en a un : ses
-    // pages sont publiées sous `/performance/` par `build-perf-site.mjs`.
-    // L'envoyer sur GitHub serait faux — la page existe, en ligne, à côté.
-    if (abs.startsWith("docs/performance/"))
-      return `href="/performance/${hash}"`;
-    if (existsSync(path.join(ROOT, abs)))
-      return `href="${REPO_URL}/blob/${BRANCH}/${abs}${hash}" class="ext"`;
-    dead.push(href);
-    return whole;
-  });
-  return { html: out, dead };
+  const out = markdown.replace(
+    /\]\((?!https?:|mailto:|#)([^)\s]+?)(#[^)\s]*)?\)/g,
+    (whole, target, hash = "") => {
+      const abs = path.posix
+        .normalize(path.posix.join(fromRepoDir, target))
+        .replace(/^\/+/, "");
+      const clean = abs.replace(/\/$/, "");
+      if (publishedPaths.has(clean)) return whole; // aura son URL de site
+      // Le dossier de performance a son propre site, publié à côté.
+      if (clean.startsWith("docs/performance")) return whole;
+      const full = path.join(ROOT, clean);
+      if (!existsSync(full)) {
+        dead.push(target);
+        return whole;
+      }
+      const kind = statSync(full).isDirectory() ? "tree" : "blob";
+      return `](${REPO_URL}/${kind}/${BRANCH}/${clean}${hash})`;
+    },
+  );
+  return { markdown: out, dead };
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -403,7 +446,7 @@ function buildNav(pages, current) {
     pages.find((p) => p.source.kind === "root" && p.relPath === file);
   const li = (p) =>
     p
-      ? `<li><a href="${p.url}"${p.url === current.url ? ' aria-current="page"' : ""}>${esc(p.title)}</a></li>`
+      ? `<li><a href="${rel(current.url, p.url)}"${p.url === current.url ? ' aria-current="page"' : ""}>${esc(p.title)}</a></li>`
       : "";
 
   const group = (label, icon, items, open) =>
@@ -413,7 +456,7 @@ function buildNav(pages, current) {
 
   const parts = [];
   parts.push(
-    `<a class="nav-home${current.url === "/" ? " on" : ""}" href="/">${esc(home?.title ?? "Documentation")}</a>`,
+    `<a class="nav-home${current.url === "/" ? " on" : ""}" href="${rel(current.url, "/")}">${esc(home?.title ?? "Documentation")}</a>`,
   );
   const flat = ["demarrer.md", "outillage-agents.md", "lexique.md"]
     .map(rootPage)
@@ -585,23 +628,29 @@ pre.raw { white-space:pre-wrap; }
    6. ASSEMBLAGE
    ════════════════════════════════════════════════════════════════════════════ */
 
-function renderPage(d, published, index) {
+function renderPage(d, published, index, publishedPaths) {
   const raw = readFileSync(d.absPath, "utf8");
   const bodyRaw = raw.replace(/^---\n[\s\S]*?\n---\n/, "");
   // Le titre vient du chrome : on retire le `# …` de tête pour ne pas le doubler.
   const body = bodyRaw.replace(/^\s*#\s+.*\r?\n/, "");
 
   const fromDir = path.posix.dirname(d.repoRel);
-  const linked = rewriteInternalLinks(body, {
+  // 1. ce qui n'aura pas d'URL de site part vers GitHub, tant que c'est un chemin
+  const ext = externalizeLinks(body, fromDir, publishedPaths);
+  // 2. ce qui en aura une devient un chemin relatif vers elle
+  const linked = rewriteInternalLinks(ext.markdown, {
     fromDir,
-    toSlug: (p) => index.get(p),
+    toSlug: (p) => {
+      // Le dossier de performance est publié à côté, par son propre générateur.
+      if (p.startsWith("docs/performance/")) return rel(d.url, "/performance/");
+      const target = index.get(p);
+      return target === undefined ? undefined : rel(d.url, target);
+    },
     suffix: "",
   });
 
   const toc = [];
-  let html = decorate(withHeadings(md.render(linked), toc));
-  const ext = externalizeLinks(html, fromDir);
-  html = ext.html;
+  const html = decorate(withHeadings(md.render(linked), toc));
 
   const meta = d.meta ?? {};
   const badges = [
@@ -649,7 +698,9 @@ function renderPage(d, published, index) {
     title: d.title,
     head:
       `<meta name="description" content="${esc(firstText)}">\n` +
-      (FAVICON ? `<link rel="icon" href="${FAVICON}">\n` : "") +
+      (FAVICON
+        ? `<link rel="icon" href="${rel(d.url, "/")}${FAVICON.slice(1)}">\n`
+        : "") +
       `<link rel="canonical" href="${SITE_URL}${esc(d.url)}">`,
     subtitle: badges ? `<span class="badges">${badges}</span>` : "",
     sections: [html],
@@ -707,6 +758,7 @@ for (const p of published) {
 
 // Index chemin-dépôt → URL : c'est lui qui rend les liens internes navigables.
 const index = new Map(published.map((p) => [p.repoRel, p.url]));
+const publishedPaths = new Set(index.keys());
 
 mkdirSync(OUT, { recursive: true });
 
@@ -733,7 +785,7 @@ let bytes = 0;
 let diagrams = 0;
 const dead = [];
 for (const d of published) {
-  const r = renderPage(d, published, index);
+  const r = renderPage(d, published, index, publishedPaths);
   bytes += r.bytes;
   diagrams += r.diagrams;
   for (const h of r.dead) dead.push(`${d.repoRel} → ${h}`);
@@ -745,9 +797,11 @@ writeFileSync(
   doc({
     title: "Page introuvable",
     subtitle: "Cette adresse ne correspond à aucune page de la documentation.",
-    head: FAVICON ? `<link rel="icon" href="${FAVICON}">` : "",
+    head: FAVICON ? `<link rel="icon" href="${SITE_URL}${FAVICON}">` : "",
     sections: [
-      `<p><a href="/">Revenir à l'accueil de la documentation</a> — ou consulter ` +
+      // Servie à la place d'une URL quelconque, cette page ne connaît pas sa
+      // profondeur : ses liens sont les seuls du site à devoir rester absolus.
+      `<p><a href="${SITE_URL}/">Revenir à l'accueil de la documentation</a> — ou consulter ` +
         `<a href="${REPO_URL}">le dépôt sur GitHub</a>.</p>`,
     ],
     style: SITE_CSS,
