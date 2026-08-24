@@ -145,6 +145,12 @@
 
 ## 🧭 Une garde ne couvre jamais une AUTRE question — même quand elle y ressemble
 
+- **`grid.containLabel` d'ECharts contient les ÉTIQUETTES, pas les NOMS d'axes** — deux questions qui
+  se ressemblent, une seule couverte. J'ai passé une itération à compenser par des marges calculées à
+  la main, qui déplaçaient le défaut sans le corriger. La doc officielle le dit en une ligne
+  (l'option est dépréciée en v6 et vaut `outerBoundsContain: 'axisLabel'`) ; le défaut de la v6
+  couvre les deux. **Lire la doc de l'option AVANT de compenser son comportement.** [1× — 08-24]
+
 - **`PACKAGE_NAME` bornait la traversée de chemin, pas le PÉRIMÈTRE.** Les deux gardes se
   ressemblent (« quel nom de paquet accepte-t-on ? ») et répondent à deux questions distinctes : la
   première empêche `../../etc`, la seconde décide ce qu'on a le DROIT de servir. Sans la seconde,
@@ -197,6 +203,14 @@
   édition manuelle. `[1× — 08-22]`
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- **Un décor peut EXPIRER au milieu d'un run.** Le jeton de la porte MCP était émis pour 120 minutes
+  — durée calibrée sur « la tâche la plus longue » — alors qu'une passe en dure 110 et qu'un run en
+  compte trois. Les passes 2 et 3 auraient mesuré une porte fermée pendant que le décor enregistré
+  annonçait « jeton posé ». **Un paramètre de décor se dimensionne sur la DURÉE DU RUN, jamais sur
+  son unité de travail.** [1× — 08-24]
+- **La machine fait partie du décor** : un run de deux heures est mort sur « your computer went to
+  sleep ». Le banc s'en protège désormais lui-même (`caffeinate -w <pid>`, qui meurt avec lui). [1× — 08-24]
 
 - **Un gate de couverture a rougi en CI, et il avait raison.** Le cas du 499 se skippait faute de
   trouver le journal du serveur — mais AVANT le correctif de la veille, le même test lisait un
@@ -331,6 +345,16 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
 
+- **Un remplacement de texte qui ne trouve rien ne dit RIEN — et le formateur a déjà réécrit la
+  cible.** Quatre câblages d'échelle sur huit n'ont jamais été appliqués : mes motifs portaient sur
+  du code que prettier avait reformaté entre-temps, donc ils ne matchaient plus. Aucune erreur, aucun
+  avertissement — c'est un lint sur variable inutilisée qui l'a révélé, longtemps après. Depuis :
+  tout remplacement programmatique s'assortit d'un `assert` sur « le contenu a changé », et on
+  RECOMPTE les usages attendus. [1× — 08-24]
+- **Un « tout vert » ne couvre que les chemins qu'il emprunte.** `aDroite` n'existait pas dans
+  `lines()` — la suite passait au vert parce qu'aucun cas ne traversait ce code. Le cas ajouté cinq
+  minutes plus tard l'a fait tomber immédiatement. [1× — 08-24]
+
 - Un hook a bloqué un appel Bash entier (garde `cd` relatif), **python inclus** : l'édition n'a jamais eu lieu, j'ai buildé du code inchangé et conclu deux fois sur du vide. Le `grep` de contrôle sur le fichier édité coûte une seconde. [1× — 08-22]
 - `$?` après un pipeline est celui de la DERNIÈRE commande : `prettier --check f | tail` rend toujours 0. Quatre verdicts faux d'affilée. [2× — 08-22]
 - `prettier --check` lancé depuis le dépôt sur un chemin HORS périmètre ne trouve aucun fichier et sort **0** : « conforme » disait en réalité « rien vérifié ». Toujours mesurer dans le décor où la config s'applique. [1× — 08-22]
@@ -432,6 +456,11 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 | 🧨 Commande composée refusée (1)                        | `feedback_shell_false_diagnostics`                                      |
 
 ## 🧰 Un GATE excellent que personne ne lance ne garde rien
+
+- **La moulinette des skills a trouvé deux défauts que je n'aurais pas vus** : une description à
+  1396 caractères pour un plafond de 1024, et un auto-contrôle livré une heure plus tôt que AUCUN
+  SKILL.md ne citait — donc que personne n'aurait jamais lancé. Le réflexe « je viens de livrer, je
+  passe le gate du dépôt » vaut mieux que n'importe quelle relecture. [1× — 08-24]
 
 - **`anchor-check.mjs` existait, résolvait chaque ancre `fichier:ligne` contre le code, et n'était
   branché NULLE PART** — ni CI, ni script npm : une ligne dans un `SKILL.md`. Passé sur le corpus,
