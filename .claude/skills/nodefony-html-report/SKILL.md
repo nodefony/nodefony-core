@@ -1,16 +1,17 @@
 ---
 name: nodefony-html-report
 description: >
-  Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui
-  doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés. Fournit
-  une bibliothèque de rendu (`lib/report.mjs`) : graphes SVG (barres, courbes, nuage+régression,
-  waterfall, heatmap, jauge, donut, sparkline), tableaux triables/filtrables, calculateurs
-  interactifs, listes réordonnables par glisser-déposer, onglets, mode présentation, export CSV — et
-  une impression PDF soignée (sauts de page maîtrisés, en-têtes de tableau répétés, hypothèses
-  figées). À utiliser dès qu'un livrable doit être LU, MANIPULÉ ou IMPRIMÉ par une personne, plutôt
-  que relu par un outil. Déclencheurs : "rapport HTML", "générer un rapport", "rapport imprimable",
-  "rapport PDF", "dashboard statique", "restituer des mesures", "page de résultats", "graphe sans
-  dépendance", "calculateur interactif", "deck de présentation", "export CSV".
+  Fabrique des rapports HTML autonomes (zéro CDN) pour des humains qui doivent DÉCIDER — audits,
+  bancs de performance, revues, dashboards figés. Deux moteurs de figures : `lib/report.mjs`
+  (tableaux triables et filtrables, calculateurs interactifs, onglets, export CSV, impression PDF
+  soignée) et `lib/echarts.mjs`, qui rend CÔTÉ SERVEUR en SVG statique — sans un octet de
+  JavaScript servi, en thème clair ET sombre — barres avec étendue, courbes à deux axes alignés,
+  nuages, boîtes à moustaches, Sankey, radars, cartes de chaleur, arbres pondérés, entonnoirs,
+  cascades, jauges, graphes de relations. `lib/schemas.mjs` dessine les organigrammes et diagrammes
+  de séquence mermaid sans toucher à leur source. Déclencheurs : "rapport HTML", "rapport
+  imprimable", "dashboard statique", "restituer des mesures", "quel graphe choisir", "diagramme de
+  Sankey", "boîtes à moustaches", "deux axes", "échelle d'un graphe", "rendre un schéma mermaid",
+  "calculateur interactif", "deck de présentation", "export CSV".
 ---
 
 # nodefony-html-report
@@ -139,6 +140,124 @@ const html = doc({
 writeFileSync("tmp/rapport.html", html);
 ```
 
+## Le moteur de graphes — `lib/echarts.mjs`
+
+Les figures de `report.mjs` sont dessinées à la main : elles restent parfaites pour une barre ou une
+courbe dans un banc. Dès qu'il faut un flux, une distribution, une hiérarchie ou un radar, c'est ce
+moteur — **Apache ECharts (Apache-2.0) rendu CÔTÉ SERVEUR** : `renderToSVGString()` produit du SVG
+que le lecteur reçoit tel quel. Aucun JavaScript n'est servi, la figure est nette à tout zoom et à
+l'impression, rien ne se charge. En échange, **aucune interaction** : ce que le graphe doit dire, il
+doit le dire sans qu'on le touche.
+
+> `echarts` est une **devDependency du dépôt**. Aucun paquet publié ne l'importe : elle ne pèse rien
+> pour qui installe Nodefony. Absente, le moteur dit quelle commande taper (`npm i -D echarts`) au
+> lieu d'un « module introuvable ».
+
+### Choisir la famille
+
+<!-- prettier-ignore -->
+| La question du lecteur | Famille |
+| --- | --- |
+| « lequel est le plus grand ? » | `bars({ series, horizontal, empile })` |
+| « …et cette mesure est-elle fiable ? » | `barsEtendue({ data })` — médiane **+ min/max** |
+| « comment est-ce distribué ? » | `boxplot({ data })` |
+| « comment cela évolue-t-il ? » | `lines({ series, aire, log })` |
+| « ces deux grandeurs bougent-elles ensemble ? » (unités différentes) | `lines()` + `droite: true` sur une série |
+| « quel est le compromis entre deux dimensions ? » | `scatter({ points })` |
+| « où part le flux ? » | `sankey({ noeuds, liens })` |
+| « de quoi est-ce composé ? » | `pie({ parts, anneau })` · `treemap({ racine })` |
+| « où en est-on par rapport au seuil ? » | `gauge({ valeur, min, max, zones })` |
+| « qui dépend de qui ? » | `reseau({ noeuds, liens })` |
+| « combien reste-t-il à chaque étape ? » | `funnel({ etapes })` |
+| « d'où vient l'écart ? » | `cascade({ postes })` |
+| « quel profil sur plusieurs critères ? » | `radar({ axes, series })` |
+| « quelle intensité sur deux axes discrets ? » | `heatmap({ x, y, cellules })` |
+
+Besoin d'un type non couvert (bougies, sunburst, calendrier, coordonnées parallèles) :
+`rendre(option, { largeur, hauteur, theme, titre })` prend une option ECharts brute — thème et
+accessibilité appliqués, mais **la mise en page est alors à ta charge**.
+
+### 🔴 L'échelle est une décision, jamais un défaut
+
+`echelle(valeurs, { compareDesLongueurs, placePourEtiquettes })` est appliqué par les familles, et
+c'est lui qui décide :
+
+- **des barres se comparent par leur LONGUEUR** → l'axe garde le zéro. Le couper transforme
+  visuellement 3 % d'écart en doublement : ce n'est pas une préférence, c'est de la probité.
+- **un nuage ou des boîtes se comparent par leur POSITION** → imposer le zéro les écrase dans un
+  coin ; l'axe se recentre sur les données.
+- des valeurs **entières** gardent des graduations entières ; une série **constante** reçoit une
+  étendue lisible ; la place des étiquettes se réserve par `dataMax`, qui préserve les graduations
+  rondes là où `max` les fige.
+
+`hauteurPour(nbCategories)` dérive la hauteur du contenu : vingt catégories dans une hauteur fixe
+donnent des barres de six pixels et des étiquettes qu'ECharts masque **en silence**.
+
+### Le couple clair/sombre
+
+Un SVG porte ses couleurs en dur : il ne peut pas suivre le thème du lecteur. D'où deux rendus et un
+basculement en CSS pur.
+
+```js
+import { couple, bars, figure, STYLE_GRAPHES } from "./lib/echarts.mjs";
+
+const svgs = couple(bars, {
+  titre: "Débit",
+  axeValeur: "req/s",
+  series,
+  horizontal: true,
+});
+const html = figure(svgs, {
+  titre: "Débit par camp",
+  desc: "médiane de 3 tirs",
+});
+// une seule fois dans la page :
+doc({ title, sections, style: STYLE_GRAPHES });
+```
+
+### Migrer un rapport existant — un seul import
+
+`lib/report-echarts.mjs` offre `barChart`, `lineChart`, `donut` et `gauge` avec **la signature de
+`report.mjs`**. Migrer une page revient à changer la ligne d'import : les appels ne sont pas touchés,
+donc aucune occasion d'intervertir deux séries — une erreur qu'aucun test ne rattraperait, puisque le
+résultat reste une figure plausible.
+
+## Les schémas mermaid — `lib/schemas.mjs`
+
+Organigrammes et diagrammes de séquence, rendus à la charte **depuis leur source mermaid, qui ne
+bouge pas** : la console d'administration, les agents et l'affichage de GitHub continuent de la lire.
+
+```js
+import { schema } from "./lib/schemas.mjs";
+const svg = schema({
+  source: blocMermaid,
+  titre: "Pipeline de sécurité",
+  theme: "clair",
+});
+```
+
+`schema()` reconnaît le type et route vers `organigramme()` ou `sequence()` ; un type non couvert
+rend la source encadrée plutôt qu'un dessin faux. Le placement en couches (`placerEnCouches`) est
+calculé ici — rang par plus long chemin, croisements réduits au barycentre — et le tracé aussi : le
+type `graph` d'ECharts relie les CENTRES des nœuds et fait pivoter les étiquettes le long du trait,
+ce qui est juste pour un réseau et faux pour un organigramme.
+
+> Un schéma **DÉFILE**, il ne se réduit pas : l'enveloppe utilise `.schema-zone` (dans
+> `STYLE_GRAPHES`), sans quoi ses libellés deviennent illisibles dans une colonne étroite.
+
+## Éprouver le moteur
+
+```bash
+node .claude/skills/nodefony-html-report/scripts/echarts.selftest.mjs   # 14 familles, échelles, deux axes
+node .claude/skills/nodefony-html-report/scripts/formats.selftest.mjs   # nombres français ET tri des tableaux
+```
+
+Le second garde un défaut précis fermé : le point décimal anglais n'était resté dans `fmt.dec` que
+parce que le tri relisait le texte affiché en effaçant tout sauf chiffres et points — « 4,66 » y
+devenait 466, et la colonne se triait à l'envers sans un message. **Les deux ne se corrigent jamais
+l'un sans l'autre** ; `nombreDepuisTexte` est l'unique implémentation, exportée pour les tests et
+sérialisée dans le script envoyé au navigateur.
+
 ## La marque (logo)
 
 Par défaut, tout rapport porte la marque **Nodefony** : logo + nom + accroche en en-tête, logo en
@@ -193,11 +312,14 @@ doc({ brand: null }); // document neutre
 
 ## Index des références (charger à la demande)
 
-| Fichier                                                | Contenu                                                                                                          |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| [`references/print-pdf.md`](references/print-pdf.md)   | Impression : `@page`, sauts de page, en-têtes répétés, numéros de page, pièges par navigateur                    |
-| [`references/ergonomie.md`](references/ergonomie.md)   | Ergonomie et dataviz : hiérarchie de l'information, choix du graphe, échelles, accessibilité, erreurs classiques |
-| [`references/html-vs-md.md`](references/html-vs-md.md) | Pourquoi HTML pour un humain, Markdown pour un outil — et ce que ça change quand c'est une IA qui génère         |
+| Fichier                                                                  | Contenu                                                                                                          |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| [`references/print-pdf.md`](references/print-pdf.md)                     | Impression : `@page`, sauts de page, en-têtes répétés, numéros de page, pièges par navigateur                    |
+| [`references/ergonomie.md`](references/ergonomie.md)                     | Ergonomie et dataviz : hiérarchie de l'information, choix du graphe, échelles, accessibilité, erreurs classiques |
+| [`references/html-vs-md.md`](references/html-vs-md.md)                   | Pourquoi HTML pour un humain, Markdown pour un outil — et ce que ça change quand c'est une IA qui génère         |
+| [`references/echarts/grid.md`](references/echarts/grid.md)               | Doc officielle ECharts — mise en page d'une grille, `outerBounds*`, et pourquoi `containLabel` est déprécié      |
+| [`references/echarts/axis-common.md`](references/echarts/axis-common.md) | Doc officielle — `scale`, `min`/`max`, `dataMin`/`dataMax`, `splitNumber`, `minInterval`, étiquettes             |
+| [`references/echarts/y-axis.md`](references/echarts/y-axis.md)           | Doc officielle — `alignTicks`, `position`, `offset` : tout ce que demandent DEUX axes de valeurs                 |
 
 ## Exemple vivant
 
@@ -208,5 +330,10 @@ vitrine et de test de non-régression visuel :
 node .claude/skills/nodefony-html-report/scripts/demo.mjs tmp/demo.html && open tmp/demo.html
 ```
 
-Consommateur réel : `.claude/skills/nodefony-load-test/scripts/capacity.mjs` (banc de capacité →
-rapport de dimensionnement avec calculateur).
+Consommateurs réels :
+
+- `.claude/skills/nodefony-load-test/scripts/capacity.mjs` — banc de capacité, rapport de
+  dimensionnement avec calculateur ;
+- `.claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs` et
+  `perf-dossier-report.mjs` — **les deux pages publiées** sur GitHub Pages, rendues par le moteur
+  ECharts et bâties par `scripts/build-perf-site.mjs` depuis `docs/performance/data/<version>.json`.

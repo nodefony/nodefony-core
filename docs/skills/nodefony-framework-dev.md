@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-09
+updated: 2026-08-24
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 ---
@@ -28,10 +28,10 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 | Version | `2.0.0` |
 | Famille | Développer le framework |
 | Corps | 357 lignes |
-| Coût d'activation | ~7 643 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~7 703 tokens (le corps est chargé à l'invocation) |
 | Description | 980 / 1024 caractères |
 | Déclencheurs | 17 |
-| Ressources `references/` | 10 page(s), 83 fichiers au total |
+| Ressources `references/` | 10 page(s), 85 fichiers au total |
 | Scripts | 0 |
 | Conformité | ✅ conforme au standard |
 
@@ -68,17 +68,17 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/conventions.md` | Conventions de structure — modules, types, configuration | 216 |
-| `references/core.md` | Core (nodefony) — référence complète (recettes + API + internals + gotchas) | 730 |
-| `references/framework.md` | @nodefony/framework (Router/Controller/admin) — référence complète (recettes + API + internals + gotchas) | 567 |
+| `references/core.md` | Core (nodefony) — référence complète (recettes + API + internals + gotchas) | 731 |
+| `references/framework.md` | @nodefony/framework (Router/Controller/admin) — référence complète (recettes + API + internals + gotchas) | 568 |
 | `references/gotchas.md` | Gotchas & diagnostic — règles durables (vérité courante) | 94 |
-| `references/http.md` | @nodefony/http (pipeline/serveurs/WS/TLS) — référence complète (recettes + API + internals + gotchas) | 586 |
-| `references/orm.md` | ORM (orm-core/drizzle/mongoose) — référence complète (recettes + API + internals + gotchas) | 683 |
-| `references/pagination.md` | Pagination, tri, filtres, facettes — le contrat de page | 446 |
+| `references/http.md` | @nodefony/http (pipeline/serveurs/WS/TLS) — référence complète (recettes + API + internals + gotchas) | 588 |
+| `references/orm.md` | ORM (orm-core/drizzle/mongoose) — référence complète (recettes + API + internals + gotchas) | 688 |
+| `references/pagination.md` | Pagination, tri, filtres, facettes — le contrat de page | 468 |
 | `references/portabilite.md` | Portabilité — écrire du code qui tourne sur les 3 plateformes | 141 |
-| `references/realtime.md` | Realtime (WS/hub/RealtimeService) — référence complète (recettes + API + internals + gotchas) | 593 |
-| `references/security.md` | Référence SÉCURITÉ (coder AVEC la sécurité) — intemporel | 67 |
+| `references/realtime.md` | Realtime (WS/hub/RealtimeService) — référence complète (recettes + API + internals + gotchas) | 596 |
+| `references/security.md` | Référence SÉCURITÉ (coder AVEC la sécurité) — intemporel | 68 |
 
-_(+ 73 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
+_(+ 75 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 
 ## Conformité au standard Agent Skills
 

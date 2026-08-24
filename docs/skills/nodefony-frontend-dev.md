@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-08-09
+updated: 2026-08-24
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 ---
@@ -66,10 +66,10 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/build-hmr.md` | Référence — Builder & HMR Vite (@nodefony/frontend) | 702 |
+| `references/build-hmr.md` | Référence — Builder & HMR Vite (@nodefony/frontend) | 710 |
 | `references/data-bff.md` | Consommer le data-plane BFF (front Nodefony) | 243 |
 | `references/front-quality.md` | Qualité front (Nodefony) — temps réel calme · perf CSS · a11y · sécu | 154 |
-| `references/isomorphic.md` | Cœur isomorphe nodefony côté navigateur | 269 |
+| `references/isomorphic.md` | Cœur isomorphe nodefony côté navigateur | 270 |
 | `references/patterns.md` | Patterns d'écran front (Nodefony) — framework-agnostique | 168 |
 | `references/realtime-client.md` | RealtimeClient & hooks React (nodefony/client, nodefony/react) | 371 |
 

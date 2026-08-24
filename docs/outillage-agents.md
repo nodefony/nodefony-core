@@ -119,10 +119,10 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.1.0" },
   { "icon": "📈", "title": "load-test", "href": "skills/nodefony-load-test.md",
     "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).",
-    "meta": "🟢 conforme · ⚙️ 40 scripts · 📎 4 réf" },
+    "meta": "🟢 conforme · ⚙️ 43 scripts · 📎 4 réf" },
   { "icon": "🛰️", "title": "multipod-bench", "href": "skills/nodefony-multipod-bench.md",
     "desc": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout.",
-    "meta": "🟢 conforme · ⚙️ 9 scripts · 📎 2 réf" },
+    "meta": "🟢 conforme · ⚙️ 10 scripts · 📎 2 réf" },
   { "icon": "🚀", "title": "start-server", "href": "skills/nodefony-start-server.md",
     "desc": "Lance le serveur Nodefony en mode développement pour les tests d'intégration — script unique start.sh (1 commande, 1 approbation) : build conditionnel du module test, kill ports, spawn detached du DevSupervisor (auto-restart), wait boot fail-fast, health check.",
     "meta": "🟢 conforme · ⚙️ 2 scripts" },
@@ -166,8 +166,8 @@ serait sans effet à la régénération suivante.
 ```nodefony-cards
 [
   { "icon": "📊", "title": "html-report", "href": "skills/nodefony-html-report.md",
-    "desc": "Fabrique des rapports HTML autonomes (zéro dépendance, zéro CDN) destinés à des humains qui doivent DÉCIDER — audits, bancs de performance, revues, états des lieux, dashboards figés.",
-    "meta": "🟢 conforme · ⚙️ 3 scripts · 📎 3 réf" },
+    "desc": "Fabrique des rapports HTML autonomes (zéro CDN) pour des humains qui doivent DÉCIDER — audits, bancs de performance, revues, dashboards figés. Deux moteurs de figures : `lib/report.mjs` (tableaux triables et filtrables, calculateurs interactifs, onglets, export CSV, impression PDF soignée) et…",
+    "meta": "🟢 conforme · ⚙️ 8 scripts · 📎 3 réf" },
   { "icon": "📜", "title": "rfc", "href": "skills/nodefony-rfc.md",
     "desc": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, et la spécification Model Context Protocol — depuis des sources brutes, jamais des pages HTML.",
     "meta": "🟢 conforme v1.1.0" },
@@ -186,7 +186,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "skills/nodefony-devkit-bench.md",
     "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
-    "meta": "🟢 conforme v1.3.0 · ⚙️ 6 scripts · 📎 3 réf" }
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 7 scripts · 📎 4 réf" }
 ]
 ```
 <!-- skills-cards:end -->
