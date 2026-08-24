@@ -2156,6 +2156,60 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         version,
       );
 
+    it("génère AUSSI son test unitaire — sinon l'agent écrit un e2e", () => {
+      // 🔴 Mesuré au banc de découvrabilité (tâche 13) : sommé de rendre chaque
+      // responsabilité « testable séparément », l'agent écrit des tests de bout
+      // en bout. Il n'a rien d'autre à copier — `create service` était le SEUL
+      // générateur sans test, quand `entity` en produit deux et `module` un.
+      const dest = path.join(tmp, "svctest");
+      scaffold(dest, { name: "svctest", preset: "minimal" });
+      const r = service(dest, { name: "tax", description: "Calcul de la TVA" });
+      const file = path.join(dest, "tests", "TaxService.test.ts");
+      assert.isTrue(existsSync(file), "aucun test généré pour le service");
+      assert.include(r.files, path.join("tests", "TaxService.test.ts"));
+      const src = readFileSync(file, "utf8");
+      // Il passe par la porte PUBLIÉE, pas par un kernel bricolé.
+      assert.include(src, 'from "nodefony/testing"');
+      assert.include(src, "createTestModule()");
+      // 🔴 Et il n'assied AUCUNE assertion sur la méthode d'exemple, que le
+      // gabarit dit de remplacer : un test écrit sur `greet()` serait rouge à
+      // la première modification de l'utilisateur. C'est le piège déjà payé par
+      // `create command --service`, qui EXIGEAIT cette même méthode.
+      assert.notInclude(src, "greet");
+      // Zéro balise eta résiduelle.
+      assertNoEtaResidue(dest);
+    });
+
+    it("le test généré COMPILE aussi quand le service a une dépendance", () => {
+      // 🔴 Le banc de vérité a attrapé ce qu'aucune assertion de chaîne ne
+      // voyait : avec `--inject`, le constructeur prend DEUX arguments, et le
+      // test généré n'en passait qu'un — `TS2554: Expected 2 arguments, but
+      // got 1`, trois fois. D'où le constructeur local `build()`, seul endroit
+      // du fichier qui connaît la forme du constructeur.
+      const dest = path.join(tmp, "svctestdep");
+      scaffold(dest, { name: "svctestdep", preset: "minimal" });
+      service(dest, { name: "tax", description: "Calcul de la TVA" });
+      service(dest, {
+        name: "invoice",
+        description: "Facturation",
+        inject: "TaxService",
+      });
+      const src = readFileSync(
+        path.join(dest, "tests", "InvoiceService.test.ts"),
+        "utf8",
+      );
+      // La dépendance est CONSTRUITE et passée — sinon le fichier ne compile pas.
+      assert.include(src, "new TaxService(module)");
+      assert.include(src, "new InvoiceService(module, new TaxService(module))");
+      // Et le service SANS dépendance n'en invente pas une.
+      const seul = readFileSync(
+        path.join(dest, "tests", "TaxService.test.ts"),
+        "utf8",
+      );
+      assert.include(seul, "new TaxService(module)");
+      assert.notInclude(seul, "new TaxService(module, ");
+    });
+
     it("app racine SANS @services([...]) : le décorateur est CRÉÉ, pas refusé", () => {
       // Le gabarit `app/base` ne rend JAMAIS @services([...]) — c'est le cas
       // nominal du bug rapporté (un agent ne trouve @injectable nulle part).

@@ -20,6 +20,10 @@
       "types": "./dist/types/bundler/index.d.ts",
       "import": "./dist/node/bundler/index.js"
     },
+    "./testing": {
+      "types": "./dist/types/testing/index.d.ts",
+      "import": "./dist/node/testing/index.js"
+    },
     "./client": {
       "types": "./dist/client/types/src/client/index.d.ts",
       "default": "./dist/client/client/index.js"

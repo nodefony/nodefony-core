@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-24T14:03:51.685Z",
+  "generated": "2026-08-24T18:49:41.304Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 733,
-    "symbols": 3107,
+    "files": 734,
+    "symbols": 3109,
     "classes": 364,
-    "interfaces": 885,
+    "interfaces": 886,
     "types": 387,
     "enums": 4,
-    "functions": 1174,
+    "functions": 1175,
     "constants": 293
   },
   "symbols": {
@@ -4658,6 +4658,23 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Sink `/dev/null` : noop total (bench — mesure du plafond sans I/O de log)."
+    },
+    "ITestModuleOptions": {
+      "name": "ITestModuleOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Outillage de TEST publié — ce qu'il faut pour éprouver un service SEUL. ## Le problème que ce sous-chemin résout Un service Nodefony reçoit un `Module` (`super(nom, module.container, module.notific…"
+    },
+    "createTestModule": {
+      "name": "createTestModule",
+      "kind": "function",
+      "file": "src/nodefony/src/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un module JETABLE, prêt à porter un service dans un test. ```ts import { createTestModule } from \"nodefony/testing\"; import TaxService from \"../nodefony/service/TaxService\"; const tax = new TaxServ…"
     },
     "nodefonyOptions": {
       "name": "nodefonyOptions",
@@ -22433,6 +22450,7 @@
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
+        "src/nodefony/src/testing/index.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts"
       ],
@@ -22481,6 +22499,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/service/fetchService.ts",
+        "src/nodefony/src/testing/index.ts",
         "src/packages/@nodefony/redis/nodefony/registerStores.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
@@ -22658,6 +22677,7 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/service/fetchService.ts",
+        "src/nodefony/src/testing/index.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
@@ -22895,6 +22915,7 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/service/fetchService.ts",
+        "src/nodefony/src/testing/index.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
