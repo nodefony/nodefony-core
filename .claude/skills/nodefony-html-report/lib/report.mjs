@@ -641,6 +641,12 @@ const CSS = `
   --accent:#0067ba; --warn-bg:#fff6e5; --warn-fg:#7a4b00; --note-bg:#eef5ff; --note-fg:#0a4a86; }
 
 * { box-sizing: border-box; }
+/* Les liens n'avaient AUCUNE règle : ils gardaient le bleu par défaut du
+   navigateur (#0000ee), correct sur blanc et à 1,8:1 sur fond sombre. Tout
+   rapport lu en thème sombre était concerné, pas seulement les pages de site. */
+a { color: var(--accent); }
+a:hover { text-decoration: underline; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
 body { margin:0; background:var(--bg); color:var(--fg);
   font:15px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   -webkit-font-smoothing:antialiased; }
