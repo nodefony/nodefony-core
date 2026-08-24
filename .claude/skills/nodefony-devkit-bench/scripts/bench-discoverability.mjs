@@ -77,7 +77,7 @@
  * verdict, sondes, préuves). Exit 1 si une tâche échoue — AVANT S4 c'est
  * l'état ATTENDU : un banc qui n'a jamais mordu ne gate rien.
  */
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import {
   chmodSync,
   copyFileSync,
@@ -332,6 +332,57 @@ if (!MCP_REGIMES.includes(MCP_REGIME)) {
  * seraient comparées — l'agent authentifié voit des outils que l'autre n'a pas.
  */
 const mcpAuthentifie = () => typeof APP_ENV.NF_MCP_TOKEN === "string";
+
+/**
+ * Durée de vie du jeton MCP, en minutes — dimensionnée sur le RUN ENTIER,
+ * jamais sur une tâche.
+ *
+ * 🔴 Le trou était là : le jeton s'émettait pour 120 minutes, durée choisie
+ * pour « la tâche la plus longue ». Une passe de 30 tâches en dure ~110, donc
+ * un run de trois passes voyait sa porte se FERMER au milieu de la deuxième —
+ * et rien ne le disait : le décor enregistré continuait d'annoncer « MCP auth,
+ * jeton posé » pendant que la porte refusait. Deux mesures sur trois portaient
+ * alors sur un régime que personne n'avait choisi.
+ *
+ * La marge est large à dessein : un jeton en LECTURE seule, dans un décor
+ * jetable, ne coûte rien à rallonger — une porte qui se ferme en cours de run
+ * coûte le run.
+ *
+ * @param {number} nbTaches - tâches jouées par passe.
+ * @param {number} runs - nombre de passes.
+ * @returns {number} minutes, plancher à 120.
+ */
+export const ttlJetonMinutes = (nbTaches, runs) =>
+  Math.max(120, Math.ceil(nbTaches * runs * 7));
+
+/**
+ * Durée retenue pour CE run — posée par `main` une fois le périmètre connu
+ * (les tâches demandées, le nombre de passes), lue par le montage du décor.
+ * Le plancher vaut tant que le périmètre n'est pas connu.
+ */
+let TTL_JETON_MIN = 120;
+
+/**
+ * Minutes restantes au jeton — lues dans le jeton LUI-MÊME (`exp`), jamais
+ * déduites de l'heure d'émission : c'est l'émetteur qui décide, pas nous.
+ *
+ * @param {string | undefined} jeton - le JWT, ou rien.
+ * @param {number} maintenantMs - l'instant de référence.
+ * @returns {number} minutes restantes ; `-1` si illisible ou absent.
+ */
+export const minutesRestantesJeton = (jeton, maintenantMs) => {
+  if (typeof jeton !== "string") return -1;
+  const charge = jeton.split(".")[1];
+  if (!charge) return -1;
+  try {
+    const { exp } = JSON.parse(
+      Buffer.from(charge.replace(/-/gu, "+").replace(/_/gu, "/"), "base64"),
+    );
+    return typeof exp === "number" ? (exp * 1000 - maintenantMs) / 60_000 : -1;
+  } catch {
+    return -1;
+  }
+};
 
 /**
  * Ports DÉDIÉS de l'app témoin, hérités par tout ce que l'agent lance depuis
@@ -3811,8 +3862,68 @@ function monterDecor(runDir, app) {
   // (`invalid_target`). Le symptôme accusait le jeton ; la cause était l'ORDRE.
   sh("npm", ["run", "build"], { cwd: app, stdio: "ignore" });
   // Le jeton, ensuite : sans lui l'en-tête reste un gabarit non substitué, et
-  // la porte sert l'anonyme. Durée large (la tâche la plus longue tourne une
-  // demi-heure) et portée en LECTURE — un banc n'a rien à muter par cette voie.
+  // la porte sert l'anonyme. Portée en LECTURE — un banc n'a rien à muter par
+  // cette voie — et durée dimensionnée sur le RUN (`ttlJetonMinutes`).
+  emettreJetonMcp(app, envMcp, TTL_JETON_MIN);
+  // ⚠️ L'application n'est PAS démarrée ici. La porte est une route, il faut
+  // donc qu'elle tourne — mais le démarrer AU DÉCOR occupe le port avant les
+  // prémisses, et une tâche qui démarre elle-même l'application (elles sont
+  // plusieurs) échoue alors sur « port occupé » : sa prémisse tombe, la tâche
+  // n'est même pas jouée. Le démarrage a lieu au dernier moment utile — juste
+  // avant l'agent, prémisse passée — et seulement si rien ne répond déjà.
+}
+
+/**
+ * Empêche la machine de s'endormir pendant le run — le RÉGIME de la machine
+ * fait partie du décor, au même titre que le modèle ou l'isolation.
+ *
+ * 🔴 Vécu : un run de deux passes est mort à la tâche 19 sur
+ * « Your computer went to sleep mid-response ». Le banc a fait ce qu'il devait
+ * (arrêt, décor conservé), mais deux heures d'agents étaient payées pour rien —
+ * et rien, au lancement, ne disait que la machine allait s'endormir.
+ *
+ * `caffeinate -w <pid>` meurt avec le banc : pas de veilleur oublié qui
+ * empêcherait la machine de dormir après coup. Sur les autres plateformes, on
+ * le DIT plutôt que de faire semblant.
+ */
+function empecherLaVeilleMachine() {
+  if (process.platform !== "darwin") {
+    console.log(
+      "  · veille machine : non gérée sur cette plateforme — vérifier " +
+        "soi-même qu'elle ne s'endormira pas (un run dure des heures)",
+    );
+    return;
+  }
+  try {
+    const veilleur = spawn(
+      "caffeinate",
+      ["-dimsu", "-w", String(process.pid)],
+      { detached: true, stdio: "ignore" },
+    );
+    veilleur.unref();
+    console.log(
+      `  · veille machine EMPÊCHÉE pour la durée du run (caffeinate ${veilleur.pid})`,
+    );
+  } catch (e) {
+    console.log(
+      `  ⚠️ veille machine non empêchée (${e.message}) — un run long peut être coupé`,
+    );
+  }
+}
+
+/**
+ * Émet le jeton de la porte MCP et le pose dans l'environnement des agents.
+ *
+ * Extraite du montage parce qu'elle sert DEUX fois : à l'ouverture du décor, et
+ * au renouvellement entre deux passes — un jeton qui expire en cours de run
+ * ferme la porte sans que rien ne le dise.
+ *
+ * @param {string} app - l'application témoin (elle est son propre émetteur).
+ * @param {Record<string, string>} envMcp - l'environnement de la commande.
+ * @param {number} ttlMin - durée demandée, en minutes.
+ * @returns {string | null} le jeton posé, ou `null` si l'émission a échoué.
+ */
+function emettreJetonMcp(app, envMcp, ttlMin) {
   const emission = spawnSync(
     "npx",
     [
@@ -3821,7 +3932,7 @@ function monterDecor(runDir, app) {
       "security:token",
       "--json",
       "--ttl",
-      "120",
+      String(ttlMin),
       "--scope",
       "admin:read",
     ],
@@ -3837,29 +3948,30 @@ function monterDecor(runDir, app) {
   })();
   if (jeton) {
     APP_ENV.NF_MCP_TOKEN = jeton;
-    console.log("  · porte MCP AUTHENTIFIÉE (jeton admin:read, 120 min)");
-    // ⚠️ L'application n'est PAS démarrée ici. La porte est une route, il faut
-    // donc qu'elle tourne — mais le démarrer AU DÉCOR occupe le port avant les
-    // prémisses, et une tâche qui démarre elle-même l'application (elles sont
-    // plusieurs) échoue alors sur « port occupé » : sa prémisse tombe, la tâche
-    // n'est même pas jouée. Le démarrage a lieu au dernier moment utile — juste
-    // avant l'agent, prémisse passée — et seulement si rien ne répond déjà.
-  } else {
-    // Le DIRE, et ne pas continuer comme si de rien n'était : la mesure qui
-    // suit porterait sur un agent amputé de ses outils réservés, et le rapport
-    // l'attribuerait au devkit.
+    // La durée DEMANDÉE n'est pas la durée OBTENUE : l'émetteur peut la borner.
+    // On annonce ce que le jeton porte, pas ce qu'on a réclamé.
+    const reste = minutesRestantesJeton(jeton, Date.now());
     console.log(
-      `  ⚠️ jeton MCP non émis (code ${emission.status}) — l'agent sera ANONYME sur la porte`,
+      `  · porte MCP AUTHENTIFIÉE (jeton admin:read, ${Math.round(reste)} min ` +
+        `— ${ttlMin} demandées)`,
     );
-    // Les lignes UTILES, pas la première : `npm notice run …` occupe les deux
-    // premières et faisait passer un bruit pour la cause — deux diagnostics
-    // perdus là-dessus.
-    const motif = `${emission.stdout ?? ""}${emission.stderr ?? ""}`
-      .split("\n")
-      .filter((l) => l.trim() && !l.trim().startsWith("npm notice"))
-      .slice(0, 4);
-    for (const l of motif) console.log(`     ${l.trim()}`);
+    return jeton;
   }
+  // Le DIRE, et ne pas continuer comme si de rien n'était : la mesure qui
+  // suit porterait sur un agent amputé de ses outils réservés, et le rapport
+  // l'attribuerait au devkit.
+  console.log(
+    `  ⚠️ jeton MCP non émis (code ${emission.status}) — l'agent sera ANONYME sur la porte`,
+  );
+  // Les lignes UTILES, pas la première : `npm notice run …` occupe les deux
+  // premières et faisait passer un bruit pour la cause — deux diagnostics
+  // perdus là-dessus.
+  const motif = `${emission.stdout ?? ""}${emission.stderr ?? ""}`
+    .split("\n")
+    .filter((l) => l.trim() && !l.trim().startsWith("npm notice"))
+    .slice(0, 4);
+  for (const l of motif) console.log(`     ${l.trim()}`);
+  return null;
 }
 
 /**
@@ -5267,6 +5379,10 @@ function main() {
       );
       process.exit(64);
     }
+    // Le jeton de la porte doit couvrir le run ENTIER : son périmètre n'est
+    // connu qu'ici (tâches demandées × passes), et c'est ici qu'il se décide.
+    TTL_JETON_MIN = ttlJetonMinutes(tasks.length, runs);
+    empecherLaVeilleMachine();
     setup(runDir);
     if (args.includes("--setup-only")) {
       console.log(`\napp témoin prête : ${app}`);
@@ -5283,6 +5399,31 @@ function main() {
       if (runs > 1) {
         mkdirSync(dir, { recursive: true });
         console.log(`\n════ répétition ${rep + 1}/${runs}`);
+      }
+      // CEINTURE — le jeton doit tenir jusqu'au bout de la passe qui commence.
+      // La durée calculée au montage suffit en théorie ; en pratique un run
+      // s'étire (une tâche qui rame, une reprise), et une porte qui se ferme en
+      // cours de route ne se voit NULLE PART : le décor enregistré continue
+      // d'annoncer « jeton posé » pendant que la porte refuse, et deux passes
+      // mesurent alors un régime que personne n'a choisi. On CONSTATE ce que le
+      // jeton porte, et on le renouvelle plutôt que de l'espérer.
+      if (MCP_REGIME === "auth") {
+        const reste = minutesRestantesJeton(APP_ENV.NF_MCP_TOKEN, Date.now());
+        const requis = tasks.length * 7;
+        if (reste < requis) {
+          console.log(
+            `  · jeton MCP à ${Math.round(reste)} min — insuffisant pour cette ` +
+              `passe (~${requis} min estimées), renouvellement`,
+          );
+          emettreJetonMcp(
+            app,
+            {
+              ...APP_ENV,
+              NF_DEV_PORTS: `${PORTS.NF_PORT},${PORTS.NF_PORT_HTTPS}`,
+            },
+            ttlJetonMinutes(tasks.length, runs - rep),
+          );
+        }
       }
       for (const [i, task] of tasks.entries()) {
         if (rep > 0 || i > 0) reinitialiserDecor(app, runDir, task.id);
