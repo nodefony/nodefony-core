@@ -25,7 +25,13 @@ import {
   fmt,
   COLORS,
 } from "../.claude/skills/nodefony-html-report/lib/report.mjs";
-import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  readdirSync,
+  mkdirSync,
+} from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -756,6 +762,11 @@ const html = doc({
   footer: `Généré par <code>node scripts/readme-html.mjs</code> — ${new Date().toISOString().slice(0, 10)} · dépôt <code>nodefony-core</code> ${pkgRoot.version ?? ""} · les mesures de dimensionnement proviennent des rapports de capacité du dépôt.`,
 });
 
+// Le dossier de sortie peut ne pas exister : cette page est la PREMIÈRE écrite
+// du site publié, avant que le générateur de documentation ne crée quoi que ce
+// soit. En local l'ordre était inverse, le dossier préexistait, et le défaut ne
+// s'est vu qu'en intégration continue — sur l'artefact réellement produit.
+mkdirSync(dirname(resolve(OUT)), { recursive: true });
 writeFileSync(OUT, html);
 console.log(
   `readme.html écrit : ${OUT} (${fmt.int(Math.round(html.length / 1024))} Ko)`,
