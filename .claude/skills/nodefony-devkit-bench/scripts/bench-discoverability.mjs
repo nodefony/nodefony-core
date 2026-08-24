@@ -1330,8 +1330,23 @@ export const TASKS = [
         //
         // Le motif s'ouvre en échange à TOUT `kill`, plus seulement `-9` :
         // `kill $(lsof -ti:5371)` bricolait tout autant et passait.
+        //
+        // Et le QUATRIÈME travers, du même bois que les trois précédents : un
+        // `kill` ÉCRIT n'est pas un `kill` EXÉCUTÉ. L'agent fait le geste
+        // demandé, obtient « ✓ arrêté proprement », puis pose une ceinture
+        // `if ps -p $PID; then kill -9 $PID; fi` — que ce succès rend morte.
+        // La sonde comptait la ceinture comme le meurtre : elle punissait la
+        // prudence, et sur une sonde inversée ce faux rouge ne se distingue
+        // pas d'un agent fautif.
+        //
+        // Le waiver est ancré sur la SORTIE de l'arrêt, pas sur son
+        // invocation : `nodefony stop` n'imprime « arrêté proprement » que si
+        // AUCUN process ne survit (`devStop.ts:439`) — quand il en reste, il
+        // le dit autrement, et le `kill` qui suit redevient le vrai moyen
+        // d'arrêt, donc rouge. « Rien à arrêter » ne l'imprime pas non plus.
         pattern: commandeQuiContient("\\bp?kill(?:all)?\\s"),
         invert: true,
+        unless: /arrêté proprement/u,
       },
       {
         // Gate d'ÉTAT DU SYSTÈME, pas du dépôt : le seul de tout le banc. Un
@@ -2403,11 +2418,26 @@ export const TASKS = [
         // Le fichier ENTIER : le manifeste porte déjà un objet `areas`, donc
         // seule la zone ajoutée apparaîtrait dans le diff, jamais l'accolade
         // qui l'ouvre.
+        //
+        // 🔴 Ce que la DISTANCE à `areas: {` faisait mesurer : la POSITION du
+        // geste, pas le geste. Le motif exigeait la zone à moins de 800
+        // caractères de l'accolade ; le gabarit intercale entre les deux un
+        // commentaire de ~1 100 caractères — qui dit « AJOUTER une route
+        // ici ». Le banc recalait donc l'agent qui écrit là où son propre
+        // gabarit l'invite à écrire. Mesuré sur deux passes du MÊME run, zone
+        // identique : distance 1 251 → rouge, distance 145 → verte.
+        //
+        // La fenêtre est remplacée par un ancrage sur le FICHIER : une zone de
+        // firewall vit dans le manifeste, et nulle part ailleurs. Deux
+        // approximations tombent d'un coup — la distance, et le fait que
+        // `content` concatène TOUS les fichiers touchés (l'`areas` pouvait
+        // donc venir d'un fichier et le `pattern` d'un autre). Fichier non
+        // touché ⇒ matière vide ⇒ rouge, ce qui est bien le verdict voulu.
         kind: "code",
         name: "zone de firewall déclarée sur le préfixe du compte",
         pattern:
-          /areas\s*:\s*\{[\s\S]{0,800}?pattern\s*:\s*["'][^"']*\/api\/account[^"']*["'][\s\S]{0,300}?authenticators\s*:/u,
-        where: "content",
+          /pattern\s*:\s*["'][^"']*\/api\/account[^"']*["'][\s\S]{0,300}?authenticators\s*:/u,
+        file: "nodefony.config.ts",
       },
       {
         // Ce que l'attaque ne peut PAS voir : un agent qui décore route par
@@ -3456,9 +3486,24 @@ export function evaluateProbe(probe, matter) {
     // dans le dépôt (un `kill -9` n'écrit aucun fichier) — le transcript est
     // la seule pièce qui les montre.
     const hit = probe.pattern.test(transcript);
+    // Et `unless` aussi — MÊME règle, une seule écriture : un geste interdit
+    // ne se reproche que s'il a SERVI. Ce bloc rendait la main avant le waiver
+    // calculé plus bas, si bien que la moitié des interdits du banc — ceux qui
+    // ne laissent aucune trace dans le dépôt — ne pouvaient pas en bénéficier.
+    // Vécu (tâche 5) : l'agent arrête par le framework, obtient « ✓ arrêté
+    // proprement », puis écrit une ceinture `if ps -p …; then kill -9 …; fi`
+    // que ce succès rend MORTE. Personne n'est tué, et la sonde comptait quand
+    // même le `kill` — quatrième fois que celle-ci prend un texte pour un
+    // geste. La matière est ici le transcript, forcément : c'est la seule.
+    const waived =
+      probe.invert && probe.unless ? probe.unless.test(transcript) : false;
     return {
-      pass: probe.invert ? !hit : hit,
-      evidence: hit ? "vu dans le transcript" : "absent du transcript",
+      pass: waived ? true : probe.invert ? !hit : hit,
+      evidence: waived
+        ? "sans objet : la voie correcte a abouti"
+        : hit
+          ? "vu dans le transcript"
+          : "absent du transcript",
     };
   }
   // `deleted` / `deletedFiles` — la moitié du diff que le banc ne regardait PAS.
