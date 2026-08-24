@@ -219,15 +219,25 @@ function LiveCard() {
     }
   };
 <% } %>
-
   return (
     <div className="nf-split">
-
       {/* ── Panneau de marque (même design que le login Studio) ─────────── */}
       <aside className="nf-hero">
         <div className="nf-glow" aria-hidden />
-        <div style={{ display: "flex", gap: 14, alignItems: "center", position: "relative" }}>
-          <img src={NODEFONY_LOGO} alt="Nodefony" height={42} draggable={false} />
+        <div
+          style={{
+            display: "flex",
+            gap: 14,
+            alignItems: "center",
+            position: "relative",
+          }}
+        >
+          <img
+            src={NODEFONY_LOGO}
+            alt="Nodefony"
+            height={42}
+            draggable={false}
+          />
           <span style={{ fontWeight: 700, fontSize: 26 }}><%= it.appName %></span>
         </div>
 
@@ -244,13 +254,21 @@ function LiveCard() {
               </div>
               <div>
                 <div style={{ fontWeight: 600 }}>{f.title}</div>
-                <div style={{ fontSize: 14, color: "rgba(255,255,255,.78)" }}>{f.desc}</div>
+                <div style={{ fontSize: 14, color: "rgba(255,255,255,.78)" }}>
+                  {f.desc}
+                </div>
               </div>
             </div>
           ))}
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", position: "relative" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            position: "relative",
+          }}
+        >
           <span style={{ fontSize: 12, color: "rgba(255,255,255,.65)" }}>
             Nodefony 10 · licence CeCILL-B
           </span>
@@ -287,7 +305,9 @@ function LiveCard() {
             <span className="nf-fwbadge">React v{reactVersion} · Vite HMR</span>
           </div>
 <% if (it.complete) { %>          {/* Réponse de la route PROTÉGÉE — visible uniquement session ouverte. */}
-          {secureData && <span className="nf-hello">👋 {secureData.message}</span>}
+          {secureData && (
+            <span className="nf-hello">👋 {secureData.message}</span>
+          )}
 <% } %>        </header>
         <p className="nf-dim">
           <%= it.complete ? "Quatre" : "Trois" %> preuves interactives — édite <code>frontend/src/App.tsx</code>,
@@ -295,7 +315,10 @@ function LiveCard() {
         </p>
 
         <div className="nf-card">
-<% if (it.complete) { %>          <h2>1. Backend HTTP — <code>GET {secureData ? "/api/secure/hello" : "/api/hello"}</code></h2>
+<% if (it.complete) { %>          <h2>
+            1. Backend HTTP —{" "}
+            <code>GET {secureData ? "/api/secure/hello" : "/api/hello"}</code>
+          </h2>
 <% } else { %>          <h2>1. Backend HTTP — <code>GET /api/hello</code></h2>
 <% } %>          {error ? (
             <pre style={{ color: "crimson" }}>{error}</pre>
@@ -307,7 +330,9 @@ function LiveCard() {
         </div>
 <% if (it.complete) { %>
         <div className="nf-card">
-          <h2>2. Firewall — l'identité vit dans la zone <code>^/api</code></h2>
+          <h2>
+            2. Firewall — l'identité vit dans la zone <code>^/api</code>
+          </h2>
           <p className="nf-dim">
             Deux zones dans <code>nodefony.config.ts</code> : <code>main</code>{" "}
             (<code>^/api</code>, session → anonymous, jamais bloquante) et{" "}
@@ -365,10 +390,11 @@ function LiveCard() {
           <pre>{wsLog.join("\n") || "(envoie un message)"}</pre>
         </div>
 <% } %>
-
         <div className="nf-card">
           <h2><%= it.complete ? 4 : 3 %>. ♻️ HMR check — état React préservé</h2>
-          <button onClick={() => setCount((c) => c + 1)}>count is {count}</button>
+          <button onClick={() => setCount((c) => c + 1)}>
+            count is {count}
+          </button>
           <p className="nf-dim">
             Édite <code>frontend/src/App.tsx</code> — Vite recompile à la volée,
             la page se met à jour <em>sans recharger</em> et le compteur est
@@ -377,7 +403,8 @@ function LiveCard() {
         </div>
 
 <% if (it.complete) { %>        <p className="nf-dim">
-          Console d'administration : <a href="/nodefony">/nodefony</a> (Studio, en dev)
+          Console d'administration : <a href="/nodefony">/nodefony</a> (Studio,
+          en dev)
         </p>
 <% } %>      </main>
     </div>
