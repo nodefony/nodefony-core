@@ -86,13 +86,48 @@ export function couper(texte, largeur = 22, maxLignes = 3) {
   return gardees;
 }
 
-/** Un libellé Mermaid : guillemets ôtés, `<br/>` devenu saut de ligne. */
+/**
+ * Entités HTML qu'une source Mermaid porte couramment.
+ *
+ * Un libellé qui contient un chevron DOIT l'écrire échappé — Mermaid lit ce qui
+ * suit comme du HTML. `IRepository&lt;T&gt;` est donc la forme normale dans le
+ * fichier, et la forme attendue à l'écran est `IRepository<T>`.
+ */
+const ENTITES = {
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&#39;": "'",
+  "&nbsp;": " ",
+  "&amp;": "&",
+};
+
+/**
+ * Un libellé Mermaid, rendu en lignes de texte.
+ *
+ * Trois traitements, dans cet ORDRE — l'inverser casse tout :
+ *
+ *   1. `<br/>` devient un saut de ligne ;
+ *   2. les balises de mise en forme de Mermaid (`<b>`, `<i>`…) sont retirées —
+ *      un SVG rend du texte, et les laisser affichait `</b>` en clair au milieu
+ *      d'un nœud ;
+ *   3. les entités sont DÉCODÉES, en dernier, `&amp;` compris. Sans cette étape,
+ *      l'échappement qui protège le SVG s'appliquait une seconde fois et
+ *      `IRepository&lt;T&gt;` s'affichait tel quel, chevrons écrits en toutes
+ *      lettres. Décoder `&amp;` en premier ressusciterait au contraire les
+ *      autres entités : il passe donc en dernier, ce que fait une seule regex.
+ */
 const libelle = (t) =>
   t
     .trim()
     .replace(/^["']|["']$/g, "")
     .split(/<br\s*\/?>/i)
-    .map((s) => s.trim())
+    .map((s) =>
+      s
+        .replace(/<\/?(?:b|i|em|strong|u|small|code)>/gi, "")
+        .replace(/&(?:lt|gt|quot|#39|nbsp|amp);/g, (e) => ENTITES[e])
+        .trim(),
+    )
     .filter(Boolean);
 
 /**
@@ -241,7 +276,9 @@ function lireFlux(lignes) {
         aretes.push({
           de: a,
           vers: b,
-          etiquette: etiquette ? etiquette.trim() : null,
+          // Même traitement que les libellés de nœuds : une étiquette d'arête
+          // porte les mêmes entités et les mêmes balises de mise en forme.
+          etiquette: etiquette ? libelle(etiquette).join(" ") : null,
           pointille: fleche.startsWith("-."),
         });
     } else declare(l);
