@@ -107,18 +107,18 @@ La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le do
 > c'est `npm install` qui n'a pas été lancé. DIS-LE plutôt que de conclure de son
 > silence, et ne réécris jamais à la main ce que tu n'as pas pu lire.
 
-- Quel module installer pour tel besoin** (et lequel NE PAS installer) — `node_modules/nodefony/docs/catalogue.md`
-- Variables d'environnement** : cascade des `.env`, précédence, `NF__`, **et dans quel MODE tourne une commande** — `node_modules/nodefony/docs/environnement.md`
+- **Quel module installer pour tel besoin** (et lequel NE PAS installer) — `node_modules/nodefony/docs/catalogue.md`
+- **Variables d'environnement** : cascade des `.env`, précédence, `NF__`, **et dans quel MODE tourne une commande** — `node_modules/nodefony/docs/environnement.md`
 - **Kernel, cycle de vie, CLI** — `node_modules/nodefony/docs/kernel.md` + `cli.md`
 - **Service, DI, container, scopes** — `node_modules/nodefony/docs/service.md`
 - **Client isomorphe (navigateur), hooks React** — `node_modules/nodefony/docs/client.md` + `react-hooks.md`
 - **Serveurs, sessions, cookies, upload, rate-limit** — `node_modules/@nodefony/http/docs/`
-- Journaliser, corréler, tracer une requête** (identifiant de requête, trace) — `node_modules/@nodefony/http/docs/observabilite.md`
+- **Journaliser, corréler, tracer une requête** (identifiant de requête, trace) — `node_modules/@nodefony/http/docs/observabilite.md`
 - **Routing, controllers, décorateurs, idempotence** — `node_modules/@nodefony/framework/docs/`
 <% if (it.hasSecurity) { %>- **Firewall, authenticators, CSRF, CORS, clés d'API** — `node_modules/@nodefony/security/docs/firewall.md`
-- Protéger une action par un RÔLE** (`@IsGranted`), voters, hiérarchie — `node_modules/@nodefony/security/docs/authorization.md`
-- Utilisateurs** : contrat `IUser`, `UserService`, mot de passe — `node_modules/@nodefony/user/docs/index.md`
-- Notifier un système tiers** (webhook signé, rejeu, endpoints) — `node_modules/@nodefony/security/docs/webhooks.md`
+- **Protéger une action par un RÔLE** (`@IsGranted`), voters, hiérarchie — `node_modules/@nodefony/security/docs/authorization.md`
+- **Utilisateurs** : contrat `IUser`, `UserService`, mot de passe — `node_modules/@nodefony/user/docs/index.md`
+- **Notifier un système tiers** (webhook signé, rejeu, endpoints) — `node_modules/@nodefony/security/docs/webhooks.md`
 <% } %><% if (it.hasOrm) { %>- **Entités, repositories, requêtes (ORM)** — `node_modules/@nodefony/orm-core/docs/`
 <% } %><% if (it.hasRealtime) { %>- **Canaux temps réel, actions, protocole WS** — `node_modules/@nodefony/realtime/docs/`
 <% } %><% if (it.front) { %>- **Builder Vite, entries, HMR** — `node_modules/@nodefony/frontend/docs/`
@@ -350,7 +350,14 @@ et il fait foi le jour où les deux divergent.
     suite. N'écris pas ton propre lecteur de session ;
   - **déclarer qu'un rôle en implique un autre** : la clé `roleHierarchy` de
     la config du module de sécurité (`ROLE_ADMIN` hérite `ROLE_USER`). Elle
-    est aplatie au boot ; n'écris pas de test d'appartenance à la main ;
+    est aplatie au boot ; n'écris pas de test d'appartenance à la main — et
+    n'énumère pas non plus les rôles du jour sur l'action.
+    `@IsGranted(["ROLE_BILLING", "ROLE_ADMIN"])` accorde bien l'accès (un
+    attribut suffit), mais la relation entre ces deux rôles n'existe alors
+    NULLE PART : la route sœur ajoutée demain devra répéter la liste, et
+    l'oubli ne se voit sur aucune route. C'est le piège de la puce
+    précédente, un cran plus haut — énumérer ce qu'on a sous les yeux au
+    lieu de déclarer la règle ;
   - **créer un compte** : la commande `npx nodefony security:user:add <identifiant>`.
     Ne fabrique pas d'utilisateur en insérant directement dans la base — le mot
     de passe passe par l'encodeur du framework.
@@ -467,29 +474,30 @@ formulaire de Studio, à jour par construction.
 Chacun a déjà fait perdre une heure et beaucoup d'allers-retours. Le symptôme ne
 désigne jamais la cause : c'est ce qui les rend chers.
 
-- Un test rouge en suite, VERT rejoué seul** — une ressource PARTAGÉE entre fichiers (serveur, table, état global) — pas une régression de ton diff → rejoue-le seul : l'isolation dit la vérité ; puis donne à chaque fichier sa propre ressource
-- Le serveur lancé en arrière-plan a disparu** — `… &` reçoit SIGHUP et meurt ; et tuer le PID du port ne tue pas le superviseur, qui respawne → `npx nodefony production --detach --wait` pour démarrer, `npx nodefony stop` pour arrêter — jamais `&`, jamais un kill par le port
-- Des dizaines de tests d'intégration rouges d'un coup** — ils FRAPPENT un serveur, ils ne le lancent pas : il est éteint (`ECONNREFUSED`) → `npx nodefony status` d'abord ; en e2e, laisse la commande gérer le cycle
-- La route existe dans le code et répond 404** — le runtime charge `dist/`, pas tes sources → `npm run build` — et en cas de doute vérifie le `dist/` par son CONTENU (`grep` du symbole), jamais par sa date
-- TOUT répond 404, même les routes du gabarit** — un AUTRE serveur tient les ports — ou LE TIEN a glissé sur d'autres ports, le port voulu étant pris → `npx nodefony status` : il montre les ports RÉELS, pas ceux que tu as configurés, et NOMME le projet voisin qui tient un port ; `npx nodefony stop <nom>` l'arrête sans te déplacer
-- L'app démarre, et pourtant une brique manque** (base injoignable, module absent) — une brique peut tomber en fail-soft, ou être écartée par sa `policy` : le boot CONTINUE, et le journal ne le dit qu'une fois, dans le terminal de celui qui a lancé → `npm run check` — il lit `var/last-boot.json` et nomme chaque brique absente AVEC sa raison
-- L'app ne démarre plus et tu n'as pas la sortie** (démarrage détaché, conteneur, CI) — le journal est parti avec le terminal → `npm run check` n'exécute rien : il rapporte la phase atteinte et la cause du dernier démarrage
-- Ça marche en dev, c'est mort en production** — les modules `policy: dev` sont RETIRÉS en production — ce qu'ils portaient disparaît avec eux → avant de livrer, UN boot `npx nodefony production --detach --wait` et rejoue tes vérifications
-- Un réglage de `nodefony.config.ts` ne change rien** — clé inconnue ou mal placée : retirée EN SILENCE à la validation → `npx nodefony inspect config --json` — la config effective et la provenance de chaque valeur
-- Une variable d'environnement « ne prend pas »** — mal orthographiée (ignorée en silence) ou masquée par un rang supérieur → `npx nodefony env` — il montre la valeur EFFECTIVE et sa provenance
-- Après un échec au milieu d'une chaîne `&&`, tout ment** — rien d'aval n'a tourné : tu mesures l'état d'AVANT → après tout échec, considère que la suite n'a pas eu lieu — revérifie que l'artefact mesuré a été régénéré
-- Les tests passent, `npm run typecheck` échoue** — le runner efface les types : un test vert ne typecheck rien → lance les DEUX avant de conclure
-- Suite verte, et le câblage est mort** — un test qui ne quitte pas la brique ne prouve que la brique → débranche le point de câblage : si rien ne tombe, il n'est pas testé
-- Un test vert « prouve » une garantie de sécurité** — elle est vraie dans la fonction, fausse sur le trajet réel → frappe la route en anonyme et regarde si le code a tourné
-- Un test qui n'a jamais échoué** — il ne garde rien — un test neuf est complaisant par défaut → casse-le exprès une fois, vérifie qu'il rougit
-- « Tout est vert » alors qu'une suite ne s'est pas exécutée** — un test sauté compte comme réussi — et un fichier jamais COLLECTÉ (erreur de syntaxe, hors du glob) ne compte pas du tout → lis le NOMBRE de tests, pas la couleur
-- `localhost` et `127.0.0.1` te jouent des tours** — ce sont deux ORIGINES distinctes : cookies, cache et passkeys ne les partagent pas → une seule origine en développement, partout — URL ouverte comme callbacks
-<% if (it.hasOrm) { %>- La modif d'une entité « ne prend pas »** (erreur SQL au runtime) — le schéma de développement fait `CREATE TABLE IF NOT EXISTS` — une table existante n'est JAMAIS altérée → en dev, supprime la table (ou le fichier de base sous `var/`) et relance ; en production, une migration
-<% } %><% if (it.hasSecurity) { %>- Les routes authentifiées plafonnent** quand le reste tient la charge — le stockage de session par défaut est SYNCHRONE : chaque reprise bloque la boucle d'événements → compare une route anonyme et une route authentifiée AVANT d'accuser TLS ou le pare-feu ; passe le stockage sur redis pour la charge
-<% } %><% if (it.front) { %>- En production, la modif front n'apparaît jamais** — hors développement il n'y a PAS de rechargement à chaud, et le manifeste est lu AU BOOT → `npm run build` → **redémarre le serveur** → rechargement forcé
-- Ta modif front n'apparaît pas (en dev)** — le navigateur sert son cache — et le rechargement à chaud ne remplace ni un singleton ni un composant qui gagne des hooks : le code neuf tourne sur du vieil état → rechargement forcé, et vérifie que Vite a bien recompilé
-- Une route d'API répond du HTML** — un repli SPA générique avale les routes voisines — le premier motif qui correspond gagne → repli en préfixe LITTÉRAL ; `npx nodefony inspect routes --json` montre l'ordre réel
-- Des utilisateurs « déconnectés au hasard »** — le traitement global « 401 = session expirée » frappe aussi les sondes d'authentification, où 401 est NORMAL — et détruit une session valide → exempte les sondes du traitement global
+- **Un test rouge en suite, VERT rejoué seul** — une ressource PARTAGÉE entre fichiers (serveur, table, état global) — pas une régression de ton diff → rejoue-le seul : l'isolation dit la vérité ; puis donne à chaque fichier sa propre ressource
+- **Le serveur lancé en arrière-plan a disparu** — `… &` reçoit SIGHUP et meurt ; et tuer le PID du port ne tue pas le superviseur, qui respawne → `npx nodefony production --detach --wait` pour démarrer, `npx nodefony stop` pour arrêter — jamais `&`, jamais un kill par le port
+- **Des dizaines de tests d'intégration rouges d'un coup** — ils FRAPPENT un serveur, ils ne le lancent pas : il est éteint (`ECONNREFUSED`) → `npx nodefony status` d'abord ; en e2e, laisse la commande gérer le cycle
+- **La route existe dans le code et répond 404** — le runtime charge `dist/`, pas tes sources → `npm run build` — et en cas de doute vérifie le `dist/` par son CONTENU (`grep` du symbole), jamais par sa date
+- **Ta route NEUVE répond 404, et le `dist/` est à jour** — elle n'est pas montée où tu crois : le chemin réel est le PRÉFIXE de son controller suivi du `path` de la route — une action `path: "/widget"` posée dans un controller `@controller("/api")` répond sur `/api/widget` → `npx nodefony inspect routes --json` donne le chemin MONTÉ ; si l'URL demandée ne doit pas porter le préfixe, la route va dans un controller qui n'en a pas
+- **TOUT répond 404, même les routes du gabarit** — un AUTRE serveur tient les ports — ou LE TIEN a glissé sur d'autres ports, le port voulu étant pris → `npx nodefony status` : il montre les ports RÉELS, pas ceux que tu as configurés, et NOMME le projet voisin qui tient un port ; `npx nodefony stop <nom>` l'arrête sans te déplacer
+- **L'app démarre, et pourtant une brique manque** (base injoignable, module absent) — une brique peut tomber en fail-soft, ou être écartée par sa `policy` : le boot CONTINUE, et le journal ne le dit qu'une fois, dans le terminal de celui qui a lancé → `npm run check` — il lit `var/last-boot.json` et nomme chaque brique absente AVEC sa raison
+- **L'app ne démarre plus et tu n'as pas la sortie** (démarrage détaché, conteneur, CI) — le journal est parti avec le terminal → `npm run check` n'exécute rien : il rapporte la phase atteinte et la cause du dernier démarrage
+- **Ça marche en dev, c'est mort en production** — les modules `policy: dev` sont RETIRÉS en production — ce qu'ils portaient disparaît avec eux → avant de livrer, UN boot `npx nodefony production --detach --wait` et rejoue tes vérifications
+- **Un réglage de `nodefony.config.ts` ne change rien** — clé inconnue ou mal placée : retirée EN SILENCE à la validation → `npx nodefony inspect config --json` — la config effective et la provenance de chaque valeur
+- **Une variable d'environnement « ne prend pas »** — mal orthographiée (ignorée en silence) ou masquée par un rang supérieur → `npx nodefony env` — il montre la valeur EFFECTIVE et sa provenance
+- **Après un échec au milieu d'une chaîne `&&`, tout ment** — rien d'aval n'a tourné : tu mesures l'état d'AVANT → après tout échec, considère que la suite n'a pas eu lieu — revérifie que l'artefact mesuré a été régénéré
+- **Les tests passent, `npm run typecheck` échoue** — le runner efface les types : un test vert ne typecheck rien → lance les DEUX avant de conclure
+- **Suite verte, et le câblage est mort** — un test qui ne quitte pas la brique ne prouve que la brique → débranche le point de câblage : si rien ne tombe, il n'est pas testé
+- **Un test vert « prouve » une garantie de sécurité** — elle est vraie dans la fonction, fausse sur le trajet réel → frappe la route en anonyme et regarde si le code a tourné
+- **Un test qui n'a jamais échoué** — il ne garde rien — un test neuf est complaisant par défaut → casse-le exprès une fois, vérifie qu'il rougit
+- **« Tout est vert » alors qu'une suite ne s'est pas exécutée** — un test sauté compte comme réussi — et un fichier jamais COLLECTÉ (erreur de syntaxe, hors du glob) ne compte pas du tout → lis le NOMBRE de tests, pas la couleur
+- **`localhost` et `127.0.0.1` te jouent des tours** — ce sont deux ORIGINES distinctes : cookies, cache et passkeys ne les partagent pas → une seule origine en développement, partout — URL ouverte comme callbacks
+<% if (it.hasOrm) { %>- **La modif d'une entité « ne prend pas »** (erreur SQL au runtime) — le schéma de développement fait `CREATE TABLE IF NOT EXISTS` — une table existante n'est JAMAIS altérée → en dev, supprime la table (ou le fichier de base sous `var/`) et relance ; en production, une migration
+<% } %><% if (it.hasSecurity) { %>- **Les routes authentifiées plafonnent** quand le reste tient la charge — le stockage de session par défaut est SYNCHRONE : chaque reprise bloque la boucle d'événements → compare une route anonyme et une route authentifiée AVANT d'accuser TLS ou le pare-feu ; passe le stockage sur redis pour la charge
+<% } %><% if (it.front) { %>- **En production, la modif front n'apparaît jamais** — hors développement il n'y a PAS de rechargement à chaud, et le manifeste est lu AU BOOT → `npm run build` → **redémarre le serveur** → rechargement forcé
+- **Ta modif front n'apparaît pas (en dev)** — le navigateur sert son cache — et le rechargement à chaud ne remplace ni un singleton ni un composant qui gagne des hooks : le code neuf tourne sur du vieil état → rechargement forcé, et vérifie que Vite a bien recompilé
+- **Une route d'API répond du HTML** — un repli SPA générique avale les routes voisines — le premier motif qui correspond gagne → repli en préfixe LITTÉRAL ; `npx nodefony inspect routes --json` montre l'ordre réel
+- **Des utilisateurs « déconnectés au hasard »** — le traitement global « 401 = session expirée » frappe aussi les sondes d'authentification, où 401 est NORMAL — et détruit une session valide → exempte les sondes du traitement global
 <% } %>
 **Ce qui coûte le plus de tokens** : enchaîner arrêt → construction → démarrage
 après chaque petite modification. Regroupe TOUTES tes modifications serveur, puis

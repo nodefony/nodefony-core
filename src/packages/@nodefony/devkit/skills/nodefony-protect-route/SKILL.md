@@ -69,8 +69,12 @@ roleHierarchy: {
 }
 ```
 
-**Ne recopie pas le rôle sur le compte administrateur au moment du semis** : ça marche pour ce
-compte-là, et pour aucun autre — la relation entre les rôles n'existe alors nulle part.
+**Deux gestes rendent la même réponse sur la route que tu mesures, et aucun des deux ne
+généralise** : recopier le rôle sur le compte administrateur au moment du semis — ça marche pour
+ce compte-là et pour aucun autre — et énumérer les rôles sur l'action,
+`@IsGranted(["ROLE_BILLING", "ROLE_ADMIN"])`, où un attribut accordé suffit. Dans les deux cas la
+relation entre les rôles n'existe nulle part : la route suivante devra répéter la liste, et
+l'oubli ne se voit sur aucune route — c'est une ABSENCE, elle ne se relit pas dans un diff.
 
 ## Ouvrir à un partenaire sans démonter la défense
 
