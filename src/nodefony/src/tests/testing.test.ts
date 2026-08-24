@@ -46,6 +46,19 @@ class InvoiceService extends Service {
   }
 }
 
+/**
+ * Le conteneur d'un module de test, sans cast.
+ *
+ * `Module.container` est déclaré nullable — un module peut exister avant que le
+ * conteneur soit posé. Ici il ne l'est jamais ; on le CONSTATE plutôt que de
+ * l'affirmer par un `!`, et un jour où ce ne serait plus vrai, le test le dira.
+ */
+const containerOf = (m: Module): Container => {
+  const c = m.container;
+  if (!c) throw new Error("module de test sans conteneur");
+  return c;
+};
+
 describe("nodefony/testing — éprouver un service SEUL", () => {
   it("un service se construit et sa logique répond, sans kernel ni port", () => {
     const service = new TaxService(createTestModule());
@@ -69,7 +82,7 @@ describe("nodefony/testing — éprouver un service SEUL", () => {
     // (test isolé) → init direct non gardé »).
     const app = createTestModule();
     const tax = (await app.addService(TaxService)) as TaxService;
-    assert.strictEqual(app.container.get("tax"), tax);
+    assert.strictEqual(containerOf(app).get("tax"), tax);
   });
 
   it("un service construit au `new` n'entre PAS au conteneur", () => {
@@ -78,7 +91,7 @@ describe("nodefony/testing — éprouver un service SEUL", () => {
     const app = createTestModule();
     const tax = new TaxService(app);
     assert.equal(tax.rate(), 0.2);
-    assert.isNotOk(app.container.get("tax"));
+    assert.isNotOk(containerOf(app).get("tax"));
   });
 
   it("deux modules de test sont ISOLÉS l'un de l'autre", async () => {
@@ -87,17 +100,17 @@ describe("nodefony/testing — éprouver un service SEUL", () => {
     const a = createTestModule();
     const b = createTestModule();
     await a.addService(TaxService);
-    assert.isOk(a.container.get("tax"));
-    assert.isNotOk(b.container.get("tax"));
+    assert.isOk(containerOf(a).get("tax"));
+    assert.isNotOk(containerOf(b).get("tax"));
   });
 
   it("accepte un conteneur préparé — pour y poser un service simulé", () => {
     const container = new Container();
     container.set("clock", { now: () => 42 });
     const app = createTestModule({ container });
-    assert.strictEqual(app.container, container);
+    assert.strictEqual(containerOf(app), container);
     assert.equal(
-      (app.container.get("clock") as { now: () => number }).now(),
+      (containerOf(app).get("clock") as { now: () => number }).now(),
       42,
     );
   });
