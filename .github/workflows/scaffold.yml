@@ -190,8 +190,34 @@ jobs:
         shell: bash
         run: |
           set -eo pipefail
-          node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs 2>&1 \
+          node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --keep 2>&1 \
             | tee verify-generated.log
+
+      # Le second banc, sur le décor que le premier vient de laisser (`--keep`).
+      #
+      # Pourquoi deux bancs et pas un : ils répondent à deux questions qu'on
+      # confond facilement. Le premier demande « ce qui a été PRODUIT tient-il
+      # debout ? » — compilation, lint, build, tests, une route qui répond. Le
+      # second demande « ce qui a été CÂBLÉ tient-il les promesses du
+      # framework ? » — et c'est une autre affaire : une application peut
+      # compiler parfaitement, démarrer sans un mot, et servir une liste dont le
+      # client dicte la borne, une suppression que personne n'a besoin
+      # d'autoriser, un controller déclaré dont aucune route n'est montée.
+      #
+      # Trois étages joués SÉPARÉMENT, pour que le rouge se nomme : unitaire
+      # (aucun décor), intégration (l'application boote en entier, zéro port
+      # ouvert), e2e (serveur réel en production, HTTP et WebSocket).
+      #
+      # Les suites vivent dans le skill et sont INJECTÉES dans l'application
+      # témoin — elles ne sont jamais livrées à l'utilisateur : « ma commande
+      # porte-t-elle son namespace ? » est une question du générateur, pas de
+      # l'application.
+      - name: Banc de conformité — l'application tient-elle ses promesses ?
+        shell: bash
+        run: |
+          set -eo pipefail
+          node .claude/skills/nodefony-devkit-bench/scripts/verify-runtime.mjs 2>&1 \
+            | tee verify-runtime.log
 
       # Le décor est jetable, son rapport ne l'est pas. Il vit sous
       # `os.tmpdir()`, qui n'est ni `/tmp` ni `${{ runner.temp }}` selon le
@@ -206,12 +232,18 @@ jobs:
           const os = require('node:os');
           const path = require('node:path');
           const fs = require('node:fs');
-          const src = path.join(os.tmpdir(), 'nodefony-devkit-verify', 'report.json');
-          if (fs.existsSync(src)) {
-            fs.copyFileSync(src, 'verify-report.json');
-            console.log('rapport copie depuis ' + src);
-          } else {
-            console.log('aucun rapport a ' + src + ' — le banc est tombe avant de l ecrire');
+          const base = path.join(os.tmpdir(), 'nodefony-devkit-verify');
+          for (const [nom, cible] of [
+            ['report.json', 'verify-report.json'],
+            ['conformite.json', 'verify-conformite.json'],
+          ]) {
+            const src = path.join(base, nom);
+            if (fs.existsSync(src)) {
+              fs.copyFileSync(src, cible);
+              console.log('rapport copie depuis ' + src);
+            } else {
+              console.log('aucun ' + nom + ' a ' + base + ' — le banc est tombe avant de l ecrire');
+            }
           }
           "
 
@@ -222,6 +254,8 @@ jobs:
           name: code-genere-${{ matrix.os }}-node${{ matrix.node-version }}
           path: |
             verify-generated.log
+            verify-runtime.log
             verify-report.json
+            verify-conformite.json
           retention-days: 7
           if-no-files-found: ignore

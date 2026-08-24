@@ -357,6 +357,51 @@ verdict, l'ordre des drapeaux de Vibe, le foyer jetable qui doit emporter la cl�
 qui comptait ROUGE un agent utilisant le MCP : **`references/agents-et-porte-mcp.md`** — à lire
 AVANT de câbler un agent de plus (Codex et Gemini y ont leur ligne, à établir).
 
+## Banc de conformité — l'application tient-elle les promesses du framework ?
+
+```bash
+node scripts/verify-generated.mjs --keep        # d'abord : monte le décor et l'éprouve
+node scripts/verify-runtime.mjs                 # puis : la conformité, trois étages
+node scripts/verify-runtime.mjs --etage unit    # un seul étage (unit | integration | e2e)
+```
+
+**Deux bancs, deux questions qu'on confond.** `verify-generated.mjs` demande « ce
+qui a été PRODUIT tient-il debout ? » ; celui-ci demande « ce qui a été CÂBLÉ
+tient-il les promesses ? ». Une application peut compiler parfaitement, démarrer
+sans un mot, et servir une liste dont le client dicte la borne, une suppression
+que personne n'a besoin d'autoriser, un controller déclaré dont aucune route
+n'est montée.
+
+Il **réutilise le décor** du banc de vérité (`--keep`) : monter le sien coûterait
+une minute, et surtout il jugerait une AUTRE application que celle dont on vient
+de prouver qu'elle compile.
+
+| Étage         | Décor                                                     | Ce qu'il attrape SEUL                                                                                                                                         |
+| ------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unit`        | aucun                                                     | balise de gabarit non résolue, `any`, service `@injectable` non déclaré, `process.env` hors catalogue                                                         |
+| `integration` | l'app boote en entier, **zéro port** (`nodefony inspect`) | service non résolu au conteneur, controller déclaré sans route, collision méthode+chemin, route qui contourne le firewall, schéma qui ne produit pas de table |
+| `e2e`         | serveur RÉEL, en production                               | CRUD complet (201+Location, 422, PATCH, 204→404), suppression sans identité, borne de pagination, `nosniff`, cookie HttpOnly+SameSite, WebSocket co-citoyen   |
+
+Les suites vivent dans `suites/` (`harness.ts`, `conformite.unit.test.ts`,
+`conformite.integration.test.ts`, `conformite.e2e.test.ts`) et sont **injectées**
+dans l'application témoin, jouées, puis jetées avec le décor. Elles ne sont
+**jamais livrées à l'utilisateur** : « ma commande porte-t-elle son namespace ? »
+est une question du générateur, pas de l'application.
+
+> 🔴 **Quatre GARDES anti-suite creuse, et elles ont mordu dès le premier run.**
+> Chaque étage commence par un cas qui vérifie que la sonde a trouvé de quoi
+> mesurer — des sources, des routes, une ressource REST, une identité. Sans
+> elles, la famille CRUD entière rendait la main sur un `null` et comptait
+> **quinze cas verts en 0 ms, zéro requête émise**. Le signe ne se voit que dans
+> la colonne des durées, et jamais dans le total.
+
+> ⚠️ **La sonde est le premier suspect, pas le produit.** Au premier run, dix cas
+> sur onze accusaient le générateur — et tous étaient faux : les suites
+> s'analysaient elles-mêmes, un contrôle de code lisait les commentaires,
+> `nodefony check` tombait sur le serveur de développement du POSTE faute de
+> ports dédiés, et `cluster` — une valeur de configuration — était compté comme
+> un module manquant. Un seul défaut réel dans le lot.
+
 ### Rendre la page publique du banc
 
 ```bash
