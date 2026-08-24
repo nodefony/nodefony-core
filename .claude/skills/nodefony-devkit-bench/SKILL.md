@@ -346,6 +346,29 @@ verdict, l'ordre des drapeaux de Vibe, le foyer jetable qui doit emporter la cl�
 qui comptait ROUGE un agent utilisant le MCP : **`references/agents-et-porte-mcp.md`** — à lire
 AVANT de câbler un agent de plus (Codex et Gemini y ont leur ligne, à établir).
 
+### Purger les décors — garder la MESURE, jeter le DÉCOR
+
+```bash
+node $B --purge              # ce qui serait libéré, sans rien toucher
+node $B --purge --confirmer  # supprime les `app/`, garde tout le reste
+```
+
+Un run pèse ~300 Mo, dont **moins de 1 %** est la mesure : le reste est
+l'application témoin et ses `node_modules`. Mesuré ici : **47 runs = 13 Go**,
+pour 200 Mo de transcripts, verdicts de gates et rapports. Le décor se
+reconstruit — c'est tout l'intérêt d'un décor jetable ; les transcripts, non.
+Ce sont eux qui permettent d'INSTRUIRE un échec des mois plus tard sans repayer
+un run, et deux faux rouges du banc ont été trouvés exactement comme ça.
+
+🔴 **Le run que la référence cite garde son décor**, et ce n'est pas une
+politesse : `--analyze-only` rejoue les gates SUR l'application — elle est
+reconstruite et interrogée en HTTP. Sans son `app/`, le re-jugement gratuit
+devient impossible et il faut repayer des heures d'agent. La purge le nomme et
+l'écarte.
+
+Le mode DIT par défaut et n'agit que sur `--confirmer` : c'est une suppression,
+elle ne se déclenche pas par inadvertance.
+
 ### Dépistage — 1 run sur tout, 3 runs sur ce qui a bougé
 
 Rejouer toutes les tâches trois fois à chaque changement coûte des heures et des

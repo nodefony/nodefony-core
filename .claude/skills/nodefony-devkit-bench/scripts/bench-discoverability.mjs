@@ -85,6 +85,8 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import os from "node:os";
@@ -5428,8 +5430,113 @@ export function refuserLesAncresDeDiff() {
   }
 }
 
+/**
+ * Purge les DÉCORS des runs, jamais leurs MESURES.
+ *
+ * Un run pèse ~316 Mo, dont 708 Ko de matière : le reste est l'application
+ * témoin et ses `node_modules`. Mesuré ici — 47 runs, **13 Go**, pour 33 Mo de
+ * transcripts, de verdicts de gates et de rapports. Le décor se reconstruit
+ * (c'est même tout l'intérêt d'un décor jetable) ; les transcripts, non : ce
+ * sont eux qui permettent d'INSTRUIRE un échec des mois plus tard, sans
+ * repayer un run.
+ *
+ * 🔴 Le run que la RÉFÉRENCE cite est intouché, décor compris. `--analyze-only`
+ * rejoue les gates SUR l'application (elle est reconstruite, interrogée en
+ * HTTP) : sans son `app/`, le re-jugement gratuit devient impossible et il faut
+ * repayer des heures d'agent. C'est exactement ce qui a permis, sur ces runs-là,
+ * de retrouver deux faux rouges sans relancer une seule tâche.
+ *
+ * Geste destructeur, donc : il DIT par défaut, et n'agit que sur `--confirmer`.
+ *
+ * @param confirmer - false = plan seul ; true = suppression effective.
+ */
+function purgerDecors(confirmer) {
+  if (!existsSync(RUN_ROOT)) {
+    console.log(`aucun run sous ${RUN_ROOT}`);
+    return 0;
+  }
+  const reference = lireReference(cheminReference(AGENT));
+  const proteges = new Set(
+    reference
+      ? Object.values(reference.verdicts ?? {}).flatMap((v) => v.sources ?? [])
+      : [],
+  );
+  const poids = (dir) => {
+    let total = 0;
+    const pile = [dir];
+    while (pile.length) {
+      const courant = pile.pop();
+      let entrees;
+      try {
+        entrees = readdirSync(courant, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const e of entrees) {
+        const chemin = path.join(courant, e.name);
+        if (e.isDirectory()) pile.push(chemin);
+        else {
+          try {
+            total += statSync(chemin).size;
+          } catch {
+            /* fichier disparu en cours de route : il ne pèse plus */
+          }
+        }
+      }
+    }
+    return total;
+  };
+  const mo = (o) => `${(o / 1024 / 1024).toFixed(0)} Mo`;
+
+  let libere = 0;
+  let purges = 0;
+  let gardes = 0;
+  for (const nom of readdirSync(RUN_ROOT).sort()) {
+    const run = path.join(RUN_ROOT, nom);
+    if (!statSync(run).isDirectory()) continue;
+    const decors = [
+      path.join(run, "app"),
+      ...readdirSync(run)
+        .filter((e) => e.startsWith("rep-"))
+        .map((e) => path.join(run, e, "app")),
+    ].filter((d) => existsSync(d));
+    if (decors.length === 0) continue;
+    if (proteges.has(nom)) {
+      gardes += 1;
+      console.log(`  ⊘ ${nom} — cité par la référence, décor INTOUCHÉ`);
+      continue;
+    }
+    const taille = decors.reduce((n, d) => n + poids(d), 0);
+    libere += taille;
+    purges += 1;
+    if (confirmer) {
+      for (const d of decors) rmSync(d, { recursive: true, force: true });
+    }
+    console.log(
+      `  ${confirmer ? "✓" : "·"} ${nom} — ${mo(taille)}${confirmer ? " libérés" : ""}`,
+    );
+  }
+  console.log(
+    `\n${purges} décor(s) ${confirmer ? "supprimés" : "à supprimer"} · ${mo(libere)}` +
+      `${gardes ? ` · ${gardes} préservé(s) (référence)` : ""}`,
+  );
+  if (!confirmer && purges > 0) {
+    console.log(
+      "les transcripts, verdicts de gates et rapports RESTENT — c'est la matière\n" +
+        "qui permet d'instruire un échec sans repayer de run.\n" +
+        `pour exécuter : node ${path.relative(REPO, INVOCATION)} --purge --confirmer`,
+    );
+  }
+  return 0;
+}
+
 function main() {
   const args = process.argv.slice(2);
+  // Avant tout le reste : cette invocation ne joue aucune tâche, ne monte aucun
+  // décor, et n'a pas à payer les gardes de démarrage du banc.
+  if (args.includes("--purge")) {
+    process.exit(purgerDecors(args.includes("--confirmer")));
+  }
   refuserLesAncresDeDiff();
   const valeurDe = (drapeau) => {
     const i = args.indexOf(drapeau);
