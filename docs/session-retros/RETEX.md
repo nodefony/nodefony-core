@@ -231,6 +231,12 @@
   rouge : `expected +0 to be above +0`, la mesure directe du défaut). C'est le USER qui l'a
   vu. `[1× — 08-24]`
 
+- **Un gate neuf, vert du premier coup, laissait passer LE défaut qu'il existait pour attraper.**
+  Le contrôle anti-lien-mort d'un site servi sous un sous-chemin résolvait un `/adr/` absolu contre
+  la racine du DOSSIER de sortie — où le fichier existe — au lieu de la racine du domaine, où il
+  n'existe pas. Il rendait donc « 0 cassé » sur un site dont tous les liens auraient été morts en
+  ligne. Découvert en injectant le défaut exprès, pas en le relisant. [1× — 08-24]
+
 ## 🎭 Mon PROPRE `--dry-run` mentait — l'option dont le seul rôle est de dire ce qui va se passer
 
 - **La même URL recomposée à trois endroits, et l'un avait gardé l'origine nue** : `--dry-run`
@@ -351,6 +357,23 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   avertissement — c'est un lint sur variable inutilisée qui l'a révélé, longtemps après. Depuis :
   tout remplacement programmatique s'assortit d'un `assert` sur « le contenu a changé », et on
   RECOMPTE les usages attendus. [1× — 08-24]
+
+- **[2× — 08-24] La MÊME cause, le même jour, sur un autre fichier.** Trois règles d'exclusion
+  ajoutées à une liste ne l'ont jamais été : prettier avait reformaté la cible entre-temps et mes
+  `replace` étaient sans `assert`. Le résultat était JUSTE — par accident, une autre règle rattrapait
+  le cas — avec de mauvais motifs affichés. Un patch qui n'a pas eu lieu ne se voit pas dans la
+  sortie ; il se voit à ce qu'on ASSERTE.
+
+- **Un fichier qui ne charge plus, cinq fois pour la même raison.** Un backtick dans un commentaire
+  CSS, à l'intérieur d'un gabarit de chaîne, coupe le gabarit : le module refuse de se charger. Cinq
+  occurrences dans une seule session, chacune détectée tout de suite mais chacune coûtant un cycle.
+  Le remède n'est pas la vigilance : c'est `node --check <fichier>` DANS la commande qui édite. Une
+  faute mécanique répétée demande un automate, pas de l'attention. [1× — 08-24]
+
+- **Mon INSTRUMENT comptait deux fois la même chose.** « 271 chevauchements d'étiquettes sur 62
+  schémas » — chiffre alarmant, et faux : chaque figure contient DEUX rendus (clair et sombre) aux
+  mêmes coordonnées, dans la même balise. Mesure refaite par SVG : 4. Avant de corriger un chiffre
+  qui surprend, vérifier ce que l'instrument a réellement compté. [1× — 08-24]
 - **Un « tout vert » ne couvre que les chemins qu'il emprunte.** `aDroite` n'existait pas dans
   `lines()` — la suite passait au vert parce qu'aucun cas ne traversait ce code. Le cas ajouté cinq
   minutes plus tard l'a fait tomber immédiatement. [1× — 08-24]
@@ -474,6 +497,13 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
   fin) ; les dérives sont rapportées sans échouer, sinon la CI rougirait à chaque refactor honnête.
   Un gate qu'on branche sans mesurer son verdict actuel est un gate qu'on désactivera la semaine
   suivante. [1× — 08-23b]
+
+- **Un outil cassé depuis longtemps, que personne n'appelait.** L'aperçu HTML d'une page de doc
+  importait un paquet absent du dépôt : il échouait sur « module introuvable » à chaque invocation —
+  invocations qu'il n'y avait plus. Il portait en outre son PROPRE moteur de rendu, donc l'aperçu ne
+  montrait pas ce qui serait publié. Supprimé, remplacé par une option du générateur du site. Un
+  outil qu'on ne lance jamais ne se contente pas de dormir : il POURRIT, et on s'en aperçoit le jour
+  où on compte dessus. [1× — 08-24]
 
 ## 🎯 Une ancre PLAUSIBLE et fausse coûte plus cher qu'une ancre visiblement périmée
 
