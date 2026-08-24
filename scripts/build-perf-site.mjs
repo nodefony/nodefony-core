@@ -46,6 +46,7 @@ import {
   note,
   warn,
   esc,
+  calculator,
 } from "../.claude/skills/nodefony-html-report/lib/report.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -263,8 +264,108 @@ connexions.</p>` +
           desc: "médiane de 3 tirs, même route, même machine, même fenêtre",
         }) +
           `<p>Comparer un pipeline complet à un serveur nu ne compare pas le même travail. Le camp qui
-compte est <strong>Express équipé</strong> : même route, mêmes garanties. Plus une application fait un
-travail réel, plus l'écart entre les frameworks se réduit — c'est le travail applicatif qui domine.</p>`,
+compte est <strong>Express équipé</strong> : même route, mêmes garanties — un scope
+<code>AsyncLocalStorage</code> avec identifiant de requête, la corrélation W3C
+<code>traceparent</code>, CORS, les en-têtes de sécurité, le contrôle anti-CSRF par
+<em>Fetch Metadata</em>, et le matching des zones du pare-feu, sur CHAQUE requête.</p>`,
+      ),
+    );
+  }
+
+  // ── Ce que ces 92 % veulent dire, et ce qu'ils ne disent pas ───────────────
+  //
+  // La question que tout le monde pose devant ce comparatif — « Nodefony est
+  // donc plus lent ? » — appelle deux réponses de nature DIFFÉRENTE, et les
+  // mélanger serait malhonnête : le prix des garanties est MESURÉ ici même,
+  // l'effet du travail applicatif est CALCULÉ à partir de ces mesures. Chacune
+  // est annoncée comme telle.
+  const nu = f?.express;
+  if (ref && nu) {
+    const prixEquipement = Math.round((1 - ref.med / nu.med) * 1000) / 10;
+    const usNodefony = 1e6 / nf.med;
+    const usRef = 1e6 / ref.med;
+    const ecartUs = Math.round((usNodefony - usRef) * 10) / 10;
+    out.push(
+      section(
+        "Ce que ces chiffres veulent dire",
+        `<p class="lead">Un pipeline ne se juge pas au débit d'une route vide, mais à ce qu'il
+FAIT pendant qu'il la sert — et à ce qui reste de cet écart quand l'application, elle, commence à
+travailler.</p>
+
+<h3>Le prix des garanties est mesuré, et il est payé par tout le monde</h3>
+<p>Express nu rend <strong>${nb(nu.med)} req/s</strong> ; le même Express, équipé des six briques
+ci-dessus, en rend <strong>${nb(ref.med)}</strong>. <strong>Équiper Express coûte
+${nb(prixEquipement, 1)} %&nbsp;de son débit.</strong> Ce prix n'est pas celui d'un framework :
+c'est celui des fonctionnalités, et il se paie quel que soit l'outil qui les rend. Nodefony arrive
+avec ces briques déjà en place — les ${nb(nf.med)} req/s ci-dessus sont mesurées pipeline complet
+traversé, pas moteur nu.</p>
+<p>Reste alors l'écart d'implémentation, et lui seul :
+<strong>${nb(ecartUs, 1)}&nbsp;µs par requête</strong> (${nb(usNodefony, 1)} µs contre
+${nb(usRef, 1)} µs de temps de service). C'est le seul terrain où le choix du framework décide.</p>
+
+<h3>Puis le travail du développeur commence</h3>
+<p>Une application ne sert pas des routes vides : elle interroge une base, appelle un service,
+rend une vue. Ce travail-là s'ajoute au temps de service <em>des deux côtés</em>, tandis que
+l'écart de pipeline, lui, ne bouge pas. Sa part relative fond donc à mesure que l'application
+devient réelle. Le calculateur ci-dessous le montre sur VOS hypothèses.</p>` +
+          calculator({
+            id: "calc-travail",
+            constants: {
+              usNodefony: Math.round(usNodefony * 100) / 100,
+              usRef: Math.round(usRef * 100) / 100,
+              rpsNodefony: nf.med,
+              rpsRef: ref.med,
+            },
+            inputs: [
+              {
+                id: "travailMs",
+                label:
+                  "Travail applicatif par requête (ms) — requête ORM, appel de service, rendu",
+                value: 2,
+                step: "0.1",
+                min: 0,
+              },
+            ],
+            compute: `(v, K) => {
+              const t = Math.max(0, v.travailMs) * 1000;
+              const nf = K.usNodefony + t, ref = K.usRef + t;
+              const pct = (ref / nf) * 100;
+              const perte = 100 - pct;
+              const rpsNf = 1e6 / nf, rpsRef = 1e6 / ref;
+              const n = (x, d) => x.toLocaleString("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d });
+              return {
+                html:
+                  "<p><strong>Avec " + n(v.travailMs, 1) + " ms de travail applicatif par requête, " +
+                  "Nodefony rend " + n(pct, 1) + " % du débit d'Express équipé</strong> — " +
+                  n(rpsNf, 0) + " contre " + n(rpsRef, 0) + " req/s. " +
+                  "L'écart de pipeline représente alors " + n(perte, 2) + " % du temps de service.</p>",
+                alerts: v.travailMs === 0
+                  ? ["Route vide : c'est le cas MESURÉ ci-dessus, celui où le framework pèse le plus. Aucune application réelle ne s'y tient."]
+                  : (perte < 1 ? ["Sous 1 %, l'écart de framework est noyé dans la variance d'une machine — il ne se mesure même plus."] : []),
+              };
+            }`,
+          }) +
+          note(
+            `<strong>Ce bloc est un CALCUL, pas une mesure.</strong> Il ajoute un temps de travail
+au temps de service des deux camps et en refait le rapport. Posez le curseur à
+<strong>0 ms</strong> : il retombe sur les ${nb(Math.round((nf.med / ref.med) * 1000) / 10, 1)} %
+mesurés plus haut — c'est le seul contrôle qui vaille pour un modèle, retrouver la mesure là où
+elle existe. Le modèle est <em>conservateur</em>
+pour tout travail d'entrée-sortie : pendant qu'une requête attend sa base, elle ne consomme pas de
+processeur, et le débit réel baisse donc MOINS que ce que ce calcul annonce. Il vaut tel quel pour
+un travail qui consomme du processeur (sérialisation, rendu, chiffrement).`,
+          ) +
+          `<h3>Ce que ce comparatif ne mesure pas</h3>
+<p>Le camp équipé reproduit six briques. Il ne reproduit ni les sessions, ni l'autorisation par
+rôles, ni le WebSocket co-citoyen du même contexte, ni l'ORM, ni le plan d'administration — tout
+ce qu'une application finit par réclamer. Chacune de ces briques, ajoutée à Express, sera un
+intergiciel de plus dans la chaîne, et se paiera comme les six premières se sont payées
+(${nb(prixEquipement, 1)} %). Chez Nodefony, elles partagent la traversée déjà comptée dans les
+${nb(nf.med)} req/s ci-dessus.</p>
+<p>C'est une différence de STRUCTURE, et nous ne la chiffrons pas ici : il faudrait un banc par
+brique ajoutée, des deux côtés. Ce qui est chiffré, et qui suffit à situer le débat, c'est que le
+prix des six premières est déjà connu — et qu'il est plus élevé que l'écart de ${nb(ecartUs, 1)} µs
+qui sépare les deux pipelines complets.</p>`,
       ),
     );
   }
