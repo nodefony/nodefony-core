@@ -43,8 +43,16 @@ jobs:
         with:
           node-version: "26.x"
 
-      # Aucune dépendance à installer : le générateur et sa bibliothèque de rendu
-      # sont dans le dépôt et n'importent rien hors de `node:`.
+      # 🔴 Le moteur de figures a besoin d'Apache ECharts, qui rend le SVG côté
+      # serveur. Cette étape a longtemps été absente, à raison : la bibliothèque
+      # de rendu n'importait alors rien hors de `node:`. Le jour où le moteur est
+      # arrivé, la publication a échoué ici — proprement, sur le message qui
+      # nomme la commande à taper, et SANS rien publier de tronqué.
+      # `--ignore-scripts` : aucune dépendance de build de ce dépôt n'a besoin de
+      # compiler quoi que ce soit pour rendre des pages.
+      - name: Installer les dépendances de rendu
+        run: npm ci --ignore-scripts
+
       # Sous `performance/`, jamais à la racine : le domaine Pages de ce dépôt
       # servira d'autres choses (la documentation, d'abord). Une URL publiée ne se
       # change plus sans casser les liens de ceux qui l'ont citée — c'est donc
