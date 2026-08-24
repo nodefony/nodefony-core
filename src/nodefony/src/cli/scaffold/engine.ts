@@ -51,6 +51,7 @@ import {
 } from "./entityFields";
 import { findReservedEntity } from "./reservedEntities";
 import { pick, SCAFFOLD_VERSIONS } from "./versions";
+import { formatScaffoldOutput } from "./format.js";
 import { ScaffoldWriter, type IScaffoldChange } from "./writer";
 import {
   getScaffoldSpec,
@@ -108,6 +109,12 @@ export interface IScaffoldResult {
    * uniquement en dry-run (rien n'a touché le disque).
    */
   changes?: IScaffoldChange[];
+  /**
+   * Fichiers formatables laissés SANS mise en forme, faute de prettier dans le
+   * projet (cas courant : `--no-install`). Zéro dès qu'il est là — le CLI ne
+   * parle que quand ça compte.
+   */
+  unformatted?: number;
 }
 
 /** Options d'exécution d'un scaffold (cf {@link runScaffold}). */
@@ -990,11 +997,18 @@ export function runScaffold(
   if (options.writer) {
     return result;
   }
+  // La mise en forme entre DANS la transaction, avant que le plan soit calculé
+  // ou vidé : le dry-run décrit alors le texte exact qui sera écrit. La faire
+  // au vidage ferait annoncer une forme que l'exécution ne produit pas — une
+  // option dont le seul rôle est de dire ce qui va se passer ne peut pas mentir.
+  const forme = formatScaffoldOutput(writer, result.dest);
+  const rendu =
+    forme.pending > 0 ? { ...result, unformatted: forme.pending } : result;
   if (options.dryRun) {
-    return { ...result, changes: writer.changes() };
+    return { ...rendu, changes: writer.changes() };
   }
   writer.commit();
-  return result;
+  return rendu;
 }
 
 /** Résout la spec puis route vers le scaffold du type demandé. */

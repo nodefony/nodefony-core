@@ -109,25 +109,33 @@ Sans elle, on livre un rendu conforme aux noms courts seulement.
 | Une correction du moteur reste sans effet               | le CLI s'exécute depuis `dist` ; un gabarit se lit au disque, pas le moteur                                                                                                                                                                                    | **build avant de mesurer** — sinon on conclut sur du code inchangé                                                                                        |
 | Deux lignes vides ou zéro autour d'un bloc conditionnel | la newline vit du mauvais côté de la balise                                                                                                                                                                                                                    | placer la ligne vide **DANS** le bloc (`…\n\n<% } %>## Titre`), jamais après                                                                              |
 
-**Ce que le script NE peut pas rendre conforme, et pourquoi c'est structurel** :
-**quatre** fichiers changent de forme selon la longueur du nom d'application —
-`frontend/index.html` (attribut `content`), `nodefony/controllers/AppController.ts`
-(`renderDocument("<nom>"…)`), `nodefony/frontend/register<Nom>Entry.ts` (nom de
-fonction) et `frontend/src/App.tsx` (le `<span>` qui affiche le nom). Pour un nom
-court prettier veut une ligne, pour un nom long il l'éclate ; un gabarit rend UNE
-forme. La seule issue complète serait de formater à la génération, ce qui demande
-prettier au runtime du CLI (dépendance pesée et refusée : ~8 Mo dans chaque image
-de production pour un scaffold qu'on n'y lance jamais). Le script les nomme
-plutôt que de les taire.
+**Ce que le script ne peut pas rendre conforme, et pourquoi ce n'est plus un
+problème** : la forme canonique d'une ligne dépend souvent d'un identifiant que
+l'utilisateur choisit. `content="<nom> — application Nodefony."` tient sur une
+ligne pour `probe` et doit être éclatée pour un nom de vingt caractères ;
+`export type ReportingMensuelConfigInput = z.input<…>` fait 87 colonnes, et
+tiendrait sous 80 pour un module nommé `blog`. Un gabarit rend UNE forme : aucune
+écriture ne peut être juste pour tous les noms. Ce n'est pas un cas particulier —
+c'est la règle, puisque presque tout ce qu'un générateur produit porte un nom
+dérivé.
 
-> 🔴 **Un rouge PERMANENT cache les vrais défauts.** Ces quatre-là font échouer
-> le gate à chaque exécution, et on apprend à lire son rouge comme « les cas
-> connus ». C'est ainsi que `App.tsx` a accumulé **onze** écarts sans que
-> personne les voie — huit lignes JSX au-delà de 80 colonnes et trois lignes
-> vides parasites, livrées telles quelles à qui génère une application. Avant de
-> conclure « ce sont les cas structurels », lire le `--diff` : un cas structurel
-> se RECONNAÎT à ce que sa ligne fautive porte le nom de l'application. Aucune
-> autre non-conformité n'a d'excuse.
+**C'est donc le RÉSULTAT qui est mis en forme, avec le prettier du projet.**
+`create` formate ce qu'il écrit : dans la transaction quand le projet est déjà
+installé (`create module|entity|service|command|controller`, où le dry-run
+montre alors le texte exact qui sera écrit), et juste après `npm install` pour
+`create app`, dont les dépendances n'existent pas encore au moment où ses
+fichiers sont rendus. Le coût qui avait fait écarter cette solution — embarquer
+prettier dans le CLI — n'existait pas : l'application générée a DÉJÀ prettier en
+dépendance de développement. Prettier absent (`--no-install`, registre
+injoignable) : les fichiers sont écrits tels quels et `unformatted` le dit.
+
+> 🔴 **Un rouge PERMANENT cache les vrais défauts.** Tant que ces cas faisaient
+> échouer le gate, on lisait son rouge comme « les cas connus » — et `App.tsx` a
+> pu accumuler **onze** écarts que personne n'a vus, livrés tels quels. Le gate
+> CONSTATE désormais qu'une non-conformité dépend du nom (sa première ligne
+> fautive porte le nom de l'application), la nomme, et n'échoue que sur le reste.
+> Il garde ce qui lui reste à garder : la forme des GABARITS, et le cas où
+> l'installation échoue — c'est alors le rendu brut que l'utilisateur reçoit.
 
 ### Deux formateurs, et ce qu'aucun des deux ne regarde
 
@@ -135,8 +143,6 @@ plutôt que de les taire.
 npm run format:templates            # les gabarits SANS balise, formatés à la SOURCE
 npm run format:templates -- --check # sort 1 si l'un d'eux changerait
 ```
-
-Les deux outils se partagent le terrain, et le partage laisse un trou :
 
 | Gabarits                                     | Qui juge leur forme                                                              |
 | -------------------------------------------- | -------------------------------------------------------------------------------- |
@@ -146,12 +152,11 @@ Les deux outils se partagent le terrain, et le partage laisse un trou :
 
 `format:templates` **refuse** délibérément un gabarit à balises : formater sa
 source ne rend pas son RENDU conforme et peut le DÉGRADER (deux fichiers de test
-acceptés en sont ressortis refusés). La bonne méthode pour ceux-là est de
-formater le RENDU puis de reporter le diff dans le gabarit, bloc par bloc.
-
-Le script nomme lui-même les 29, groupés par générateur, à chaque exécution : un
-« 0 à reformater » ne veut pas dire « tout est propre », il veut dire « propre
-là où je regarde ».
+acceptés en sont ressortis refusés). Le script nomme lui-même les 29, groupés par
+générateur, à chaque exécution : un « 0 à reformater » ne veut pas dire « tout est
+propre », mais « propre là où je regarde ». Ces 29 ne sont plus livrés bruts — le
+formatage à la génération les couvre — mais leur forme reste celle qu'on LIT dans
+le dépôt.
 
 > ⚠️ Deux instruments mentent en silence quand on mesure ça soi-même. Prettier
 > lancé sur une copie sous `tmp/` ne traite RIEN — le `.prettierignore` du dépôt

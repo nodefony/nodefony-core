@@ -1,15 +1,15 @@
 {
-  "generated": "2026-08-24T18:49:41.304Z",
+  "generated": "2026-08-24T21:52:51.798Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 734,
-    "symbols": 3109,
+    "files": 735,
+    "symbols": 3113,
     "classes": 364,
-    "interfaces": 886,
+    "interfaces": 887,
     "types": 387,
     "enums": 4,
-    "functions": 1175,
+    "functions": 1178,
     "constants": 293
   },
   "symbols": {
@@ -5559,6 +5559,23 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Fonction de table Drizzle du dialecte (`sqliteTable`…) et son import."
+    },
+    "IFormatOutcome": {
+      "name": "IFormatOutcome",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/format.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que la mise en forme a fait — matière du récapitulatif du CLI."
+    },
+    "formatScaffoldOutput": {
+      "name": "formatScaffoldOutput",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/format.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Met en forme les écritures en attente, dans la transaction. Appelée par {@link runScaffold} AVANT la bifurcation dry-run / vidage, pour que le plan annoncé et le résultat écrit soient le même texte."
     },
     "confirm": {
       "name": "confirm",
@@ -25789,8 +25806,12 @@
       "SCAFFOLD_VERSIONS": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
-      "ScaffoldWriter": [
+      "formatScaffoldOutput": [
         "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "ScaffoldWriter": [
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/cli/scaffold/format.ts"
       ],
       "IScaffoldTypeSpec": [
         "src/nodefony/src/cli/scaffold/engine.ts",

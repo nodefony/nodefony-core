@@ -110,16 +110,53 @@ for (const variant of VARIANTS) {
     .filter((l) => l.startsWith("[warn] ") && !l.includes("Code style issues"))
     .map((l) => l.slice("[warn] ".length).trim());
 
-  if (offenders.length === 0) {
+  // Une non-conformité STRUCTURELLE se CONSTATE, elle ne se déclare pas dans une
+  // liste : sa première ligne fautive porte le nom de l'application. C'est la
+  // signature d'une forme canonique qui dépend d'une valeur interpolée —
+  // `content="<nom> — application Nodefony."` tient sur une ligne pour `probe`
+  // et doit être éclatée pour un nom de vingt caractères. Un gabarit rend UNE
+  // forme : aucune écriture ne peut être juste pour tous les noms.
+  //
+  // 🔴 Pourquoi les distinguer plutôt que d'échouer : un gate ROUGE EN
+  // PERMANENCE ne garde plus rien. On apprend à lire son rouge comme « les cas
+  // connus », et c'est ainsi que `App.tsx` a accumulé ONZE écarts que personne
+  // n'a vus — livrés tels quels à qui générait une application. Ces cas-là sont
+  // désormais résolus ailleurs, et mieux : `create` formate ce qu'il produit
+  // avec le prettier DU PROJET, après l'installation. Ce gate garde ce qui lui
+  // reste à garder — la forme des GABARITS eux-mêmes.
+  const pascal = variant.app
+    .split(/[^a-zA-Z0-9]+/u)
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join("");
+  const structurel = (f) => {
+    const want = spawnSync(PRETTIER, [f], { cwd: dest, encoding: "utf8" });
+    const got = readFileSync(path.join(dest, f), "utf8").split("\n");
+    const b = (want.stdout ?? "").split("\n");
+    for (let i = 0; i < Math.max(got.length, b.length); i++) {
+      if (got[i] === b[i]) continue;
+      // La PREMIÈRE divergence décide : c'est elle que prettier a voulu changer.
+      const ligne = `${got[i] ?? ""}${b[i] ?? ""}`;
+      return ligne.includes(variant.app) || ligne.includes(pascal);
+    }
+    return false;
+  };
+  const attendus = offenders.filter(structurel);
+  const vrais = offenders.filter((f) => !attendus.includes(f));
+
+  if (vrais.length === 0) {
     console.log(
-      `✓ ${variant.name} — le rendu est conforme au formateur qu'il embarque`,
+      `✓ ${variant.name} — le rendu est conforme au formateur qu'il embarque` +
+        (attendus.length
+          ? ` (${attendus.length} dépendant${attendus.length > 1 ? "s" : ""} du nom : ${attendus.join(", ")})`
+          : ""),
     );
   } else {
     failed++;
     console.error(
-      `✗ ${variant.name} — ${offenders.length} fichier(s) non conformes :`,
+      `✗ ${variant.name} — ${vrais.length} fichier(s) non conformes :`,
     );
-    for (const f of offenders) {
+    for (const f of vrais) {
       console.error(`    ${f}`);
       if (SHOW_DIFF) {
         const want = spawnSync(PRETTIER, [f], { cwd: dest, encoding: "utf8" });

@@ -1,5 +1,5 @@
 import path from "node:path";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
@@ -458,6 +458,35 @@ function runInstall(dest: string): boolean {
 }
 
 /**
+ * Met en forme le projet avec SON prettier, une fois les dépendances là.
+ *
+ * Le formatage de la transaction ({@link formatScaffoldOutput}) ne peut rien
+ * pour une app NEUVE : à l'instant où ses fichiers sont écrits, `npm install`
+ * n'a pas encore tourné et le projet n'a aucun prettier à emprunter. C'est
+ * pourtant le cas qui compte le plus — l'application qu'un utilisateur reçoit.
+ * D'où cette seconde passe, sur le disque, après l'installation.
+ *
+ * Un seul processus pour tout le dossier : le `.prettierignore` de l'app
+ * écarte `node_modules` et `dist`. Le projet vient de naître, rien n'y est
+ * écrit à la main — reformater en bloc n'y écrase aucun style.
+ *
+ * Silencieux et non bloquant : une app non formatée reste une app qui marche.
+ */
+function runFormat(dest: string): boolean {
+  const bin = path.join(
+    dest,
+    "node_modules",
+    ".bin",
+    process.platform === "win32" ? "prettier.cmd" : "prettier",
+  );
+  if (!existsSync(bin)) {
+    return false;
+  }
+  const r = spawnSync(bin, ["--write", "."], { cwd: dest, stdio: "ignore" });
+  return r.status === 0;
+}
+
+/**
  * `npm run build` dans l'app générée — le runtime charge `dist/index.js`
  * (garde fail-loud « NON CONSTRUIT » au boot) : sans ce build, le premier
  * `npm run dev` échoue. Suit l'install (pas de node_modules = pas de build) ;
@@ -874,6 +903,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     // pour le runtime que compilé dans le dist de l'APP. Construit module seul,
     // `inspect`, les gates et la production ignoraient un module pourtant
     // annoncé « installé et construit » — mesuré au banc (tâche 28).
+    runFormat(projectRoot);
     const built = runBuild(projectRoot);
     process.stdout.write(
       built
@@ -914,6 +944,12 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     process.stdout.write(
       `⚠ npm install a échoué — relance-le à la main dans ${relDest}/\n`,
     );
+  }
+  // AVANT le build : le build produit `dist/`, que le formateur n'a pas à
+  // relire, et une erreur de compilation doit se lire sur des sources dans leur
+  // forme finale — pas sur un texte qui changera juste après.
+  if (installed) {
+    runFormat(result.dest);
   }
   const built = installed ? runBuild(result.dest) : false;
   if (installed && !built) {
