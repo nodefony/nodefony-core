@@ -31,6 +31,8 @@ on:
       - "src/nodefony/docs/**"
       - "src/packages/@nodefony/*/docs/**"
       - "scripts/build-docs-site.mjs"
+      - "scripts/readme-html.mjs"
+      - "README.md"
       - "scripts/build-perf-site.mjs"
       - ".claude/skills/nodefony-html-report/lib/**"
       - ".claude/skills/nodefony-documentation/lib/**"
@@ -74,9 +76,14 @@ jobs:
       - name: Bâtir le module de documentation
         run: npx turbo run build --filter=@nodefony/documentation
 
-      # La documentation occupe la RACINE : c'est la porte d'entrée du projet.
+      # La RACINE est la page de présentation, tirée du README : c'est ce que
+      # voit quelqu'un qui découvre le projet. La documentation vit sous `/docs/`,
+      # les mesures sous `/performance/` — trois objets, trois publics.
+      - name: Construire la page d'accueil
+        run: node scripts/readme-html.mjs dist-site/index.html
+
       - name: Construire le site de documentation
-        run: node scripts/build-docs-site.mjs --out dist-site
+        run: node scripts/build-docs-site.mjs --out dist-site --mount /docs
 
       # Les mesures gardent leur place, sous `/performance/`. Une URL publiée ne
       # se change plus sans casser les liens de ceux qui l'ont citée.
@@ -90,7 +97,8 @@ jobs:
         run: |
           test -s dist-site/index.html
           test -s dist-site/404.html
-          test -s dist-site/modules/security/firewall/index.html
+          test -s dist-site/docs/index.html
+          test -s dist-site/docs/modules/security/firewall/index.html
           test -s dist-site/performance/latest/index.html
           echo "pages rendues : $(find dist-site -name index.html | wc -l)"
 

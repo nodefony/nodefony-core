@@ -714,6 +714,31 @@ const html = doc({
     "Dix minutes pour comprendre ce que le framework est, ce qu'il couvre, ce qu'il coûte et ce qui lui manque.",
   sections: [
     `<div class="noprint" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">${deckControls()}${printButton()}</div>`,
+    // Cette page est la PORTE D'ENTRÉE du site publié : sans ces deux liens, un
+    // lecteur y arrive et n'a nulle part où aller. Les cibles sont relatives —
+    // le site vit dans un sous-chemin (`/nodefony-core/`) — et restent justes
+    // quand la page est aussi ouverte depuis le disque, la doc étant alors
+    // simplement absente à côté.
+    section(
+      "Où aller ensuite",
+      cards([
+        {
+          k: "Documentation",
+          v: '<a href="./docs/">Lire la documentation</a>',
+          sub: "86 pages : le cœur, les modules, l'architecture, les guides",
+        },
+        {
+          k: "Performance",
+          v: '<a href="./performance/">Voir les mesures</a>',
+          sub: "une page par version, la méthode et ce qu'elle interdit de conclure",
+        },
+        {
+          k: "Code",
+          v: '<a href="https://github.com/nodefony/nodefony-core">Le dépôt</a>',
+          sub: "sources, suivi, licence CeCILL-B",
+        },
+      ]),
+    ),
     intro,
     cheminement,
     pari,

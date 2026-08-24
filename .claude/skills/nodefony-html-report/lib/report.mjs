@@ -615,24 +615,44 @@ body { margin:0; background:var(--bg); color:var(--fg);
 /* Site de documentation — la grille ne s'active QUE si la page fournit une
    navigation. Un rapport qui n'en passe pas garde exactement sa colonne unique :
    les pages deja publiees ne bougent pas d'un pixel. */
-.wrap.has-nav { max-width:1400px; display:grid; gap:0 38px;
-  grid-template-columns:250px minmax(0,1fr) 210px;
+/* Un site de documentation occupe TOUTE la largeur : la nav et le sommaire sont
+   des colonnes fixes, le contenu prend le reste. Une largeur maximale centrée
+   convient à un rapport qu'on imprime, pas à une doc qu'on parcourt en gardant
+   l'arborescence sous les yeux. */
+.wrap.has-nav { max-width:none; width:100%; display:grid; gap:0 40px;
+  padding:26px 34px 80px;
+  grid-template-columns:272px minmax(0,1fr) 232px;
   grid-template-areas:"head head head" "nav main toc"; }
 .wrap.has-nav > .rep-head { grid-area:head; }
+a.brand { text-decoration:none; color:inherit; }
+a.brand:hover .brand-name { color:var(--accent); }
+a.brand:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:6px; }
 .wrap.has-nav > main { grid-area:main; min-width:0; }
-.site-nav { grid-area:nav; position:sticky; top:64px; align-self:start;
-  max-height:calc(100vh - 84px); overflow-y:auto; font-size:13.5px; padding-right:6px; }
-.site-toc { grid-area:toc; position:sticky; top:64px; align-self:start;
-  max-height:calc(100vh - 84px); overflow-y:auto; font-size:12.5px; }
-.wrap.has-nav > .foot { grid-column:1/-1; }
-@media (max-width:1080px) { .site-toc { display:none; }
-  .wrap.has-nav { grid-template-columns:230px minmax(0,1fr);
+.site-nav { grid-area:nav; position:sticky; top:76px; align-self:start;
+  max-height:calc(100vh - 150px); overflow-y:auto; font-size:13.5px; padding-right:6px; }
+.site-toc { grid-area:toc; position:sticky; top:76px; align-self:start;
+  max-height:calc(100vh - 150px); overflow-y:auto; font-size:12.5px; }
+/* Pied COLLANT sur un site : la provenance de la page (source, version, commit)
+   reste lisible sans redescendre. Deux précautions, sans lesquelles il devient
+   illisible dès qu'on défile : un fond OPAQUE — la couleur de fond de
+   la page, jamais une transparence, sinon le texte défile derrière — et une
+   hauteur bornée, sinon il mange l'écran sur les petits appareils.
+   À l'impression il redevient un pied normal (cf le bloc @media print). */
+.wrap.has-nav > .foot { grid-column:1/-1; position:sticky; bottom:0; z-index:15;
+  background:var(--bg); margin-top:40px; padding:10px 0;
+  border-top:1px solid var(--line); max-height:22vh; overflow-y:auto; }
+/* L'en-tête est déjà collant ; sur un site il doit passer AU-DESSUS
+   des colonnes latérales, elles-mêmes collantes. */
+.wrap.has-nav > .rep-head { z-index:25; }
+@media (max-width:1180px) { .site-toc { display:none; }
+  .wrap.has-nav { grid-template-columns:250px minmax(0,1fr);
     grid-template-areas:"head head" "nav main"; } }
-@media (max-width:760px) { .site-nav { display:none; }
-  .wrap.has-nav { grid-template-columns:minmax(0,1fr);
+@media (max-width:820px) { .site-nav { display:none; }
+  .wrap.has-nav { padding:20px 18px 60px; grid-template-columns:minmax(0,1fr);
     grid-template-areas:"head" "main"; } }
 @media print { .site-nav, .site-toc { display:none; }
-  .wrap.has-nav { display:block; max-width:none; } }
+  .wrap.has-nav { display:block; max-width:none; padding:0; }
+  .wrap.has-nav > .foot { position:static; max-height:none; overflow:visible; } }
 h1 { font-size:28px; line-height:1.22; margin:0 0 8px; letter-spacing:-.021em; }
 h2 { font-size:20px; margin:0 0 10px; letter-spacing:-.012em; }
 h3 { font-size:15px; margin:22px 0 6px; }
@@ -844,6 +864,11 @@ export const doc = ({
    * en grille trois colonnes.
    */
   nav = "",
+  /**
+   * `brand.href` — rend la marque en tête CLIQUABLE. C'est le geste que tout
+   * lecteur essaie pour revenir à l'accueil d'un site ; un rapport isolé, lui,
+   * n'a nulle part où revenir, donc rien ne change sans ce champ.
+   */
   /** Sommaire de la page courante, colonne de droite. Suit le sort de `nav`. */
   aside = "",
   /**
@@ -876,13 +901,13 @@ ${style ? `<style>${style}</style>` : ""}
   <header class="rep-head">
     ${
       brand
-        ? `<div class="brand">
+        ? `<${brand.href ? "a" : "div"} class="brand"${brand.href ? ` href="${esc(brand.href)}"` : ""}>
       <img src="${brand.logo}" alt="${esc(brand.name)}" class="brand-logo">
       <div>
         <div class="brand-name">${esc(brand.name)}</div>
         ${brand.tagline ? `<div class="brand-tag">${esc(brand.tagline)}</div>` : ""}
       </div>
-    </div>`
+    </${brand.href ? "a" : "div"}>`
         : "<div></div>"
     }
     <button class="ghost no-print" id="theme-toggle" aria-label="Changer de thème">◐</button>

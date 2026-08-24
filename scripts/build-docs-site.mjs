@@ -77,6 +77,14 @@ const arg = (n, d) => {
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d;
 };
 const OUT = path.resolve(ROOT, arg("out", "dist-site"));
+/**
+ * Sous-dossier du site où vit la documentation (`/docs`), vide si elle occupe
+ * la racine. Il entre dans les URL avant tout calcul de chemin relatif : c'est
+ * ce qui permet à un lien vers un VOISIN du site (les mesures, l'accueil) de
+ * remonter du bon nombre de niveaux. Le déduire après coup revenait à corriger
+ * des `../` à la main, et à se tromper d'un cran sans que rien ne le dise.
+ */
+const MOUNT = arg("mount", "").replace(/\/+$/, "");
 const QUIET = process.argv.includes("--quiet");
 const REPO_URL = "https://github.com/nodefony/nodefony-core";
 const SITE_URL = arg("site-url", "https://nodefony.github.io/nodefony-core");
@@ -108,19 +116,11 @@ const PUBLIC_DIRS = [
   { dir: "architecture", label: "Architecture", icon: "🏛️" },
   { dir: "guides", label: "Guides", icon: "🧭" },
   { dir: "tutoriels", label: "Tutoriels", icon: "🎓" },
-  { dir: "adr", label: "Décisions (ADR)", icon: "⚖️" },
   { dir: "ia", label: "Couche IA", icon: "🤖" },
-  { dir: "api", label: "API", icon: "🔌" },
-  { dir: "skills", label: "Outillage agent", icon: "🛠️" },
 ];
 
 /** Pages de la racine de `docs/` publiées, dans l'ordre de la navigation. */
-const PUBLIC_ROOT_PAGES = [
-  "index.md",
-  "demarrer.md",
-  "outillage-agents.md",
-  "lexique.md",
-];
+const PUBLIC_ROOT_PAGES = ["index.md", "demarrer.md", "lexique.md"];
 
 /**
  * Ce qui ne part JAMAIS sur le site, avec le motif — le motif est affiché dans
@@ -149,6 +149,22 @@ const PRIVATE = [
     match: (p) => p === "README.md",
     why: "conventions d'écriture de la doc (interne)",
   },
+  {
+    // Une décision d'architecture documente un CHOIX fait par le projet, pas un
+    // usage : elle intéresse qui développe le cœur, pas qui s'en sert.
+    match: (p) => p.startsWith("adr/"),
+    why: "décision d'architecture (interne)",
+  },
+  {
+    // L'outillage d'agent sert à DÉVELOPPER le cœur : ces fiches n'ont pas de
+    // lecteur hors du dépôt.
+    match: (p) => p.startsWith("skills/") || p === "outillage-agents.md",
+    why: "outillage de développement du cœur (interne)",
+  },
+  {
+    match: (p) => p.startsWith("api/"),
+    why: "brouillon d'API souveraine (interne)",
+  },
 ];
 
 /**
@@ -157,12 +173,25 @@ const PRIVATE = [
  * @param {{source: string, relPath: string, meta: Record<string, unknown>}} d
  * @returns {{ok: boolean, why: string}}
  */
+/**
+ * Statuts qu'une page doit porter pour être publiée. Un brouillon ou une vision
+ * ENGAGE le projet dès qu'il est en ligne : un lecteur ne distingue pas un texte
+ * de travail d'une promesse, et le badge ne suffit pas à l'en avertir. Une page
+ * SANS statut reste publiée — retirer cinq guides utiles pour un frontmatter
+ * incomplet serait une punition, pas une règle — mais elle est signalée.
+ */
+const PUBLIC_STATUS = new Set(["stable", "accepted"]);
+
 function decide(d) {
   // Le frontmatter a le dernier mot, dans les deux sens.
   const explicit = d.meta?.publish;
   if (explicit === false || explicit === "false")
     return { ok: false, why: "publish: false (décision de la page)" };
   const forced = explicit === true || explicit === "true";
+
+  const status = metaString(d.meta, "status");
+  if (!forced && status && !PUBLIC_STATUS.has(status))
+    return { ok: false, why: `statut « ${status} » — non publiable` };
 
   if (d.source.kind !== "root")
     return { ok: true, why: "documentation d'un module" };
@@ -265,8 +294,8 @@ function urlOf(d) {
   if (isIndex) parts.pop();
   const tail = parts.length ? `${parts.join("/")}/` : "";
   return d.source.kind === "root"
-    ? `/${tail}`
-    : `/modules/${d.moduleKey}/${tail}`;
+    ? `${MOUNT}/${tail}`
+    : `${MOUNT}/modules/${d.moduleKey}/${tail}`;
 }
 
 async function collect() {
@@ -343,18 +372,66 @@ function renderMermaid(source) {
   }
 }
 
+/**
+ * Bloc « graphe vivant » : une DIRECTIVE adressée à la console d'administration,
+ * qui sait l'animer avec les données du serveur en marche. Un site statique n'a
+ * ni serveur ni socket — le rendre tel quel affichait sa configuration JSON en
+ * clair au milieu du texte, ce qui se lit comme une page cassée. On rend donc ce
+ * qu'il ANNONCE, et on dit où le voir vivant.
+ */
+function renderLiveGraph(json) {
+  let cfg;
+  try {
+    cfg = JSON.parse(json);
+  } catch {
+    return "";
+  }
+  const titre = cfg.title ? esc(cfg.title) : "Graphe interactif";
+  const hint = cfg.hint ? `<p class="lg-hint">${esc(cfg.hint)}</p>` : "";
+  return `<aside class="livegraph"><p class="lg-t"><span aria-hidden="true">📡</span> ${titre}</p>${hint}
+<p class="lg-note">Cette figure se dessine avec les données du serveur en marche : elle est
+vivante dans la console d'administration de votre application (<code>/nodefony</code>),
+pas sur une page publiée.</p></aside>`;
+}
+
 const baseFence = md.renderer.rules.fence.bind(md.renderer.rules);
 md.renderer.rules.fence = (tokens, idx, opts, env, self) => {
   const info = (tokens[idx].info || "").trim();
   if (info === "mermaid") return renderMermaid(tokens[idx].content);
   if (info === "nodefony-cards") return renderCards(tokens[idx].content);
+  if (info === "nodefony-livegraph")
+    return renderLiveGraph(tokens[idx].content);
   return baseFence(tokens, idx, opts, env, self);
 };
+
+/**
+ * Rend son texte à un fragment de HTML : balises retirées, entités décodées.
+ *
+ * Les deux sont nécessaires, et l'oubli du second coûtait double. Un titre
+ * `mode: "first"` arrive ici en `mode: &quot;first&quot;` : le slug en tirait
+ * `mode-quotfirstquot` — une ancre que le sommaire suivait, mais qu'aucun autre
+ * outil ne produit — et le sommaire réaffichait `&amp;quot;` en clair, ayant
+ * échappé une seconde fois ce qui l'était déjà. 123 titres du corpus étaient
+ * dans ce cas.
+ */
+const ENTITIES = {
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&#39;": "'",
+  "&nbsp;": " ",
+};
+const textOf = (html) =>
+  html
+    .replace(/<[^>]+>/g, "")
+    .replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (e) => ENTITIES[e])
+    .trim();
 
 /** Titres : `id` posé par la règle de slug commune, et collecté pour le sommaire. */
 function withHeadings(html, toc) {
   return html.replace(/<h([23])>([\s\S]*?)<\/h\1>/g, (_, lvl, inner) => {
-    const text = inner.replace(/<[^>]+>/g, "").trim();
+    const text = textOf(inner);
     const id = slugifyHeading(text);
     toc.push({ lvl: Number(lvl), id, text });
     return `<h${lvl} id="${id}">${inner}<a class="h-anchor" href="#${id}" aria-label="Lien vers cette section">#</a></h${lvl}>`;
@@ -388,6 +465,11 @@ function decorate(html) {
     new RegExp(`<a href="(${REPO_URL}[^"]*)"`, "g"),
     '<a class="ext" href="$1"',
   );
+  // Un bloc de code assez large pour défiler doit être atteignable au clavier —
+  // sinon son contenu est inaccessible à qui ne se sert pas d'une souris
+  // (axe : scrollable-region-focusable). Le poser sur TOUS les `pre` est sans
+  // effet visuel et couvre les blocs qui déborderont un jour.
+  out = out.replace(/<pre>/g, '<pre tabindex="0">');
   // Enveloppe défilante des tableaux — voir `.table-zone` : sans elle, un
   // tableau large défile sans qu'aucune touche ne puisse l'atteindre.
   out = out.replace(
@@ -422,25 +504,40 @@ function decorate(html) {
  */
 function externalizeLinks(markdown, fromRepoDir, publishedPaths) {
   const dead = [];
-  const out = markdown.replace(
-    /\]\((?!https?:|mailto:|#)([^)\s]+?)(#[^)\s]*)?\)/g,
-    (whole, target, hash = "") => {
-      const abs = path.posix
-        .normalize(path.posix.join(fromRepoDir, target))
-        .replace(/^\/+/, "");
-      const clean = abs.replace(/\/$/, "");
-      if (publishedPaths.has(clean)) return whole; // aura son URL de site
-      // Le dossier de performance a son propre site, publié à côté.
-      if (clean.startsWith("docs/performance")) return whole;
-      const full = path.join(ROOT, clean);
-      if (!existsSync(full)) {
-        dead.push(target);
-        return whole;
-      }
-      const kind = statSync(full).isDirectory() ? "tree" : "blob";
-      return `](${REPO_URL}/${kind}/${BRANCH}/${clean}${hash})`;
-    },
-  );
+  const rewrite = (whole, target, hash = "") => {
+    const abs = path.posix
+      .normalize(path.posix.join(fromRepoDir, target))
+      .replace(/^\/+/, "");
+    const clean = abs.replace(/\/$/, "");
+    if (publishedPaths.has(clean)) return whole; // aura son URL de site
+    // Le dossier de performance a son propre site, publié à côté.
+    if (clean.startsWith("docs/performance")) return whole;
+    const full = path.join(ROOT, clean);
+    if (!existsSync(full)) {
+      dead.push(target);
+      return whole;
+    }
+    const kind = statSync(full).isDirectory() ? "tree" : "blob";
+    return { url: `${REPO_URL}/${kind}/${BRANCH}/${clean}${hash}` };
+  };
+  // Deux syntaxes portent une cible : le lien markdown, et le `"href"` d'un bloc
+  // déclaratif (`nodefony-cards`). N'en traiter qu'une laissait les catalogues
+  // des hubs pointer vers des `.md` retirés du site — un cul-de-sac par card.
+  const out = markdown
+    .replace(
+      /\]\((?!https?:|mailto:|#)([^)\s]+?)(#[^)\s]*)?\)/g,
+      (whole, target, hash = "") => {
+        const r = rewrite(whole, target, hash);
+        return typeof r === "string" ? r : `](${r.url})`;
+      },
+    )
+    .replace(
+      /"href"\s*:\s*"(?!https?:|mailto:|#)([^"\s]+?)"/g,
+      (whole, target) => {
+        const r = rewrite(whole, target, "");
+        return typeof r === "string" ? r : `"href": "${r.url}"`;
+      },
+    );
   return { markdown: out, dead };
 }
 
@@ -448,53 +545,191 @@ function externalizeLinks(markdown, fromRepoDir, publishedPaths) {
    4. NAVIGATION — un arbre replié, sans une ligne de JavaScript
    ════════════════════════════════════════════════════════════════════════════ */
 
+/**
+ * Familles de modules — la navigation les groupe par RÔLE, pas par ordre
+ * alphabétique. Quatorze entrées à plat n'enseignent rien : un lecteur qui
+ * cherche « comment je stocke » ne sait pas que la réponse s'appelle `drizzle`.
+ * Un module absent de cette table atterrit dans « Autres » : la liste se périme
+ * en douceur, elle ne casse jamais.
+ */
+const MODULE_FAMILIES = [
+  { key: "coeur", label: "Le cœur", icon: "🧱", modules: ["core"] },
+  {
+    key: "web",
+    label: "Web & routage",
+    icon: "🔌",
+    modules: ["http", "framework", "frontend"],
+  },
+  {
+    key: "donnees",
+    label: "Données",
+    icon: "🗄️",
+    modules: ["orm-core", "drizzle", "mongoose", "redis"],
+  },
+  {
+    key: "securite",
+    label: "Sécurité & identité",
+    icon: "🔐",
+    modules: ["security", "user"],
+  },
+  { key: "temps-reel", label: "Temps réel", icon: "📡", modules: ["realtime"] },
+  {
+    key: "outils",
+    label: "Outils",
+    icon: "🧰",
+    modules: ["studio", "devkit", "documentation"],
+  },
+];
+
+const esc4 = (s) => esc(String(s));
+
+/**
+ * Navigation latérale : un champ de filtre, les sections transverses, puis les
+ * modules groupés par famille.
+ *
+ * Le filtre est le raccourci de qui sait déjà ce qu'il cherche — et sur 86
+ * pages, l'arbre seul ne suffit plus. Il tient en quelques lignes de script
+ * inline : chaque entrée porte son texte en attribut, on masque ce qui ne
+ * correspond pas, et l'on ouvre les groupes qui gardent au moins un résultat.
+ * Aucune dépendance, aucun index à charger — donc rien à maintenir en parallèle
+ * du contenu.
+ */
 function buildNav(pages, current) {
-  const home = pages.find((p) => p.url === "/");
+  const home = pages.find((p) => p.url === `${MOUNT}/`);
   const rootPage = (file) =>
     pages.find((p) => p.source.kind === "root" && p.relPath === file);
+
   const li = (p) =>
     p
-      ? `<li><a href="${rel(current.url, p.url)}"${p.url === current.url ? ' aria-current="page"' : ""}>${esc(p.title)}</a></li>`
+      ? `<li data-t="${esc4(p.title.toLowerCase())}"><a href="${rel(current.url, p.url)}"${
+          p.url === current.url ? ' aria-current="page"' : ""
+        }>${esc4(p.title)}</a></li>`
       : "";
 
-  const group = (label, icon, items, open) =>
+  const group = (label, icon, items, open, cls = "") =>
     items.length
-      ? `<details${open ? " open" : ""}><summary><span aria-hidden="true">${icon}</span> ${esc(label)} <span class="n">${items.length}</span></summary><ul>${items.map(li).join("")}</ul></details>`
+      ? `<details${open ? " open" : ""}${cls ? ` class="${cls}"` : ""}>` +
+        `<summary><span aria-hidden="true">${icon}</span> ${esc4(label)} ` +
+        `<span class="n">${items.length}</span></summary>` +
+        `<ul>${items.map(li).join("")}</ul></details>`
       : "";
 
   const parts = [];
+  if (MOUNT)
+    parts.push(
+      `<a class="nav-up" href="${rel(current.url, "/")}">← Accueil Nodefony</a>`,
+    );
   parts.push(
-    `<a class="nav-home${current.url === "/" ? " on" : ""}" href="${rel(current.url, "/")}">${esc(home?.title ?? "Documentation")}</a>`,
+    `<a class="nav-home${current.url === `${MOUNT}/` ? " on" : ""}" href="${rel(
+      current.url,
+      `${MOUNT}/`,
+    )}">${esc4(home?.title ?? "Documentation")}</a>`,
   );
-  const flat = ["demarrer.md", "outillage-agents.md", "lexique.md"]
-    .map(rootPage)
-    .filter(Boolean);
+  parts.push(
+    `<div class="nav-find"><input type="search" id="nav-q" placeholder="Filtrer les pages…" ` +
+      `aria-label="Filtrer les pages de la documentation" autocomplete="off"></div>` +
+      `<p class="nav-empty" hidden>Aucune page ne correspond.</p>`,
+  );
+
+  const flat = ["demarrer.md", "lexique.md"].map(rootPage).filter(Boolean);
   if (flat.length)
     parts.push(`<ul class="nav-flat">${flat.map(li).join("")}</ul>`);
 
-  for (const s of PUBLIC_DIRS) {
+  for (const sec of PUBLIC_DIRS) {
     const items = pages.filter(
-      (p) => p.source.kind === "root" && p.relPath.startsWith(`${s.dir}/`),
+      (p) => p.source.kind === "root" && p.relPath.startsWith(`${sec.dir}/`),
     );
     const open =
-      current.source.kind === "root" && current.relPath.startsWith(`${s.dir}/`);
-    parts.push(group(s.label, s.icon, items, open));
+      current.source.kind === "root" &&
+      current.relPath.startsWith(`${sec.dir}/`);
+    parts.push(group(sec.label, sec.icon, items, open));
   }
 
-  const mods = [
-    ...new Set(pages.filter((p) => p.moduleKey).map((p) => p.moduleKey)),
-  ];
-  const modItems = mods.map((key) => {
-    const items = pages.filter((p) => p.moduleKey === key);
-    const label = items[0].moduleLabel;
-    const open = current.moduleKey === key;
-    return group(label, "📦", items, open);
-  });
-  parts.push(
-    `<details class="nav-mods"${current.moduleKey ? " open" : ""}><summary><span aria-hidden="true">🧱</span> Modules <span class="n">${mods.length}</span></summary><div>${modItems.join("")}</div></details>`,
-  );
+  // Les modules, par famille. Chaque module reste un sous-groupe : ses pages
+  // sont nombreuses, et les mêler noierait le module dans sa famille.
+  const byModule = new Map();
+  for (const p of pages.filter((x) => x.moduleKey)) {
+    if (!byModule.has(p.moduleKey)) byModule.set(p.moduleKey, []);
+    byModule.get(p.moduleKey).push(p);
+  }
+  const placed = new Set();
+  const familyBlocks = [];
+  for (const fam of MODULE_FAMILIES) {
+    const blocks = [];
+    let count = 0;
+    let openFam = false;
+    for (const key of fam.modules) {
+      const items = byModule.get(key);
+      if (!items) continue;
+      placed.add(key);
+      count += items.length;
+      const openMod = current.moduleKey === key;
+      if (openMod) openFam = true;
+      blocks.push(group(items[0].moduleLabel, "📦", items, openMod, "nav-mod"));
+    }
+    if (blocks.length)
+      familyBlocks.push(
+        `<details${openFam ? " open" : ""} class="nav-fam"><summary>` +
+          `<span aria-hidden="true">${fam.icon}</span> ${esc4(fam.label)} ` +
+          `<span class="n">${count}</span></summary><div>${blocks.join("")}</div></details>`,
+      );
+  }
+  const others = [...byModule.keys()].filter((k) => !placed.has(k));
+  if (others.length) {
+    const blocks = others.map((k) =>
+      group(
+        byModule.get(k)[0].moduleLabel,
+        "📦",
+        byModule.get(k),
+        current.moduleKey === k,
+        "nav-mod",
+      ),
+    );
+    familyBlocks.push(
+      `<details${others.includes(current.moduleKey) ? " open" : ""} class="nav-fam">` +
+        `<summary><span aria-hidden="true">📦</span> Autres <span class="n">${others.length}</span>` +
+        `</summary><div>${blocks.join("")}</div></details>`,
+    );
+  }
+  parts.push(`<div class="nav-mods">${familyBlocks.join("")}</div>`);
+  parts.push(NAV_FILTER_JS);
   return parts.join("");
 }
+
+/**
+ * Filtre de la navigation. Il n'indexe rien : chaque `li` porte son titre en
+ * minuscules, on compare, on masque. Vider le champ rend l'arbre à son état de
+ * départ — et notamment referme ce que la recherche avait ouvert.
+ */
+const NAV_FILTER_JS = `<script>
+(function(){
+  var q=document.getElementById("nav-q"); if(!q) return;
+  var nav=q.closest(".site-nav"), empty=nav.querySelector(".nav-empty");
+  var items=[].slice.call(nav.querySelectorAll("li[data-t]"));
+  var groups=[].slice.call(nav.querySelectorAll("details"));
+  var initial=groups.map(function(g){return g.open;});
+  function apply(){
+    var v=q.value.trim().toLowerCase();
+    if(!v){
+      items.forEach(function(li){li.hidden=false;});
+      groups.forEach(function(g,i){g.hidden=false;g.open=initial[i];});
+      empty.hidden=true; return;
+    }
+    var n=0;
+    items.forEach(function(li){
+      var hit=li.getAttribute("data-t").indexOf(v)>=0;
+      li.hidden=!hit; if(hit) n++;
+    });
+    groups.forEach(function(g){
+      var hit=g.querySelector("li[data-t]:not([hidden])");
+      g.hidden=!hit; if(hit) g.open=true;
+    });
+    empty.hidden=n>0;
+  }
+  q.addEventListener("input",apply);
+  q.addEventListener("keydown",function(e){ if(e.key==="Escape"){q.value="";apply();} });
+})();
+</script>`;
 
 const buildToc = (toc) =>
   toc.length
@@ -517,6 +752,8 @@ const SITE_CSS = `
 .site-nav a[aria-current="page"] { background:var(--card); color:var(--accent); font-weight:650; }
 .site-nav ul { list-style:none; margin:2px 0 8px; padding-left:10px;
   border-left:1px solid var(--line); }
+.site-nav .nav-up { color:var(--dim); font-size:12.5px; padding-left:0; margin-bottom:10px; }
+.site-nav .nav-up:hover { color:var(--accent); background:none; }
 .site-nav .nav-home { font-weight:700; margin-bottom:8px; padding-left:0; }
 .site-nav .nav-home.on { color:var(--accent); }
 .site-nav .nav-flat { border:0; padding-left:0; margin-bottom:12px; }
@@ -526,7 +763,16 @@ const SITE_CSS = `
 .site-nav summary::before { content:"▸"; display:inline-block; width:1em; color:var(--dim); }
 .site-nav details[open] > summary::before { content:"▾"; }
 .site-nav .n { color:var(--dim); font-weight:400; font-size:11px; }
-.site-nav .nav-mods > div { padding-left:12px; border-left:1px solid var(--line); }
+.site-nav .nav-mods > .nav-fam > div { padding-left:11px; border-left:1px solid var(--line); }
+.site-nav .nav-fam > summary { margin-top:2px; }
+.site-nav .nav-mod > summary { font-weight:500; font-size:13px; color:var(--dim); }
+.site-nav .nav-mod > summary:hover { color:var(--accent); }
+.site-nav .nav-find { margin:10px 0 6px; }
+.site-nav .nav-find input { width:100%; font:inherit; font-size:13px; padding:6px 10px;
+  border:1px solid var(--line); border-radius:7px; background:var(--card); color:var(--fg); }
+.site-nav .nav-find input:focus-visible { outline:2px solid var(--accent); outline-offset:1px;
+  border-color:var(--accent); }
+.site-nav .nav-empty { color:var(--dim); font-size:12.5px; margin:4px 0 0; }
 .site-toc .toc-l { text-transform:uppercase; letter-spacing:.07em; font-size:10.5px;
   color:var(--dim); margin:0 0 6px; }
 .site-toc ul { list-style:none; margin:0; padding:0; }
@@ -538,8 +784,24 @@ h2, h3 { scroll-margin-top:72px; }
 .h-anchor { opacity:0; margin-left:8px; color:var(--dim); text-decoration:none; font-weight:400; }
 h2:hover .h-anchor, h3:hover .h-anchor { opacity:.6; }
 .h-anchor:focus { opacity:1; }
-main :is(h2,h3) { margin-top:34px; }
-main h2 { border-bottom:1px solid var(--line); padding-bottom:6px; }
+/* Une page de documentation n'est pas un rapport : elle se PARCOURT. Sans
+   repères colorés, 300 lignes de gris se ressemblent toutes et le lecteur perd
+   sa place. Les titres portent donc une barre d'accent, et les repères de
+   lecture (code, tableaux, citations) se détachent du fond. */
+main :is(h2,h3) { margin-top:38px; }
+main h2 { font-size:21px; border-bottom:1px solid var(--line); padding:0 0 8px 12px;
+  border-left:4px solid var(--accent); border-radius:2px 0 0 2px; }
+main h3 { font-size:16px; padding-left:12px; border-left:3px solid var(--line); }
+main h3:hover { border-left-color:var(--accent); }
+main > p:first-of-type { font-size:15.5px; color:var(--fg); }
+main blockquote { margin:18px 0; padding:10px 16px; border-left:4px solid var(--accent);
+  background:var(--card); border-radius:0 8px 8px 0; }
+main blockquote p { margin:4px 0; }
+main thead th { background:var(--card); font-weight:650; }
+main tbody tr:nth-child(even) { background:color-mix(in srgb, var(--card) 55%, transparent); }
+main :not(pre) > code { color:var(--accent); }
+main strong { font-weight:650; }
+main hr { border:0; border-top:1px solid var(--line); margin:34px 0; }
 main p, main li { font-size:14.5px; }
 /* Sans cette règle, les liens du corps gardent le bleu par défaut du navigateur
    (#0000ee) : correct sur blanc, à 1,98:1 sur fond sombre — mesuré sur 16 liens
@@ -563,8 +825,8 @@ main th, main td { border:1px solid var(--line); padding:7px 11px; text-align:le
 main th { background:var(--card); }
 main img { max-width:100%; height:auto; }
 .badges { display:flex; gap:7px; flex-wrap:wrap; margin:0 0 22px; }
-.badge { font-size:11.5px; padding:2px 9px; border-radius:20px; border:1px solid var(--line);
-  color:var(--dim); }
+.badge { font-size:11.5px; padding:3px 10px; border-radius:20px; border:1px solid var(--line);
+  color:var(--dim); background:var(--card); }
 /* Assombris pour tenir 4,5:1 sur fond clair — les valeurs précédentes
    (#2e9e5b, #b58100) sortaient à 3,41 et 3,9, mesurées par axe-core. */
 .badge.ok { color:#1a7040; border-color:#1a7040; }
@@ -630,6 +892,11 @@ a.nf-card:hover .card-t { color:var(--accent); }
 .schema-zone { margin:18px 0; padding:12px; border:1px solid var(--line); border-radius:9px;
   background:var(--card); overflow-x:auto; }
 pre.raw { white-space:pre-wrap; }
+.livegraph { border:1px dashed var(--line); border-left:3px solid var(--accent);
+  border-radius:9px; padding:12px 16px; margin:18px 0; background:var(--card); }
+.livegraph .lg-t { margin:0 0 4px; font-weight:650; }
+.livegraph .lg-hint { margin:0 0 6px; font-size:13.5px; }
+.livegraph .lg-note { margin:0; color:var(--dim); font-size:12.5px; }
 `;
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -704,6 +971,9 @@ function renderPage(d, published, index, publishedPaths) {
 
   const page = doc({
     title: d.title,
+    // La marque en tête ramène à l'accueil du site — le premier geste d'un
+    // lecteur perdu, avant même de chercher un menu.
+    brand: { ...NODEFONY_BRAND, href: rel(d.url, "/") },
     head:
       `<meta name="description" content="${esc(firstText)}">\n` +
       (FAVICON
@@ -718,8 +988,7 @@ function renderPage(d, published, index, publishedPaths) {
     footer:
       `Documentation de <strong>Nodefony ${esc(VERSION)}</strong> — page générée depuis ` +
       `<a href="${REPO_URL}/blob/${BRANCH}/${esc(d.repoRel)}"><code>${esc(d.repoRel)}</code></a> ` +
-      `(<code>${esc(COMMIT)}</code>, ${BUILT_AT}). ` +
-      `<a href="${REPO_URL}/edit/${BRANCH}/${esc(d.repoRel)}">Corriger cette page</a>.`,
+      `(<code>${esc(COMMIT)}</code>, ${BUILT_AT}).`,
   });
 
   const dir = path.join(OUT, d.url.replace(/^\//, ""));
@@ -742,7 +1011,7 @@ if (published.length === 0) {
   );
   process.exit(1);
 }
-const home = published.find((p) => p.url === "/");
+const home = published.find((p) => p.url === `${MOUNT}/`);
 if (!home) {
   console.error(
     "✗ le hub d'accueil (docs/index.md) manque — le site n'aurait pas de porte d'entrée.",
@@ -817,6 +1086,24 @@ writeFileSync(
   }),
 );
 
+// Un dossier de sortie réutilisé conserve les pages retirées du périmètre : en
+// local, elles restent servies et donnent l'illusion qu'un retrait n'a pas pris.
+// On ne supprime rien — le chemin vient de l'appelant — mais on le DIT.
+const written = new Set(
+  published.map((p) => path.join(OUT, p.url.replace(/^\//, ""), "index.html")),
+);
+written.add(path.join(OUT, "404.html"));
+const stale = [];
+const sweep = (dir) => {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) sweep(full);
+    else if (e.name.endsWith(".html") && !written.has(full))
+      stale.push(path.relative(OUT, full));
+  }
+};
+sweep(OUT);
+
 if (!QUIET) {
   const byWhy = new Map();
   for (const r of rejected)
@@ -835,6 +1122,17 @@ if (!QUIET) {
   console.log(`   écartées : ${rejected.length} pages`);
   for (const [why, n] of [...byWhy].sort((a, b) => b[1] - a[1]))
     console.log(`              ${String(n).padStart(4)}  ${why}`);
+  if (stale.length) {
+    console.log(
+      `\n   ⚠️ ${stale.length} page(s) d'une génération PRÉCÉDENTE encore dans ${path.relative(ROOT, OUT)} —`,
+    );
+    console.log(
+      "      elles seraient servies alors qu'elles ne sont plus publiées :",
+    );
+    for (const f of stale.slice(0, 8)) console.log(`      ${f}`);
+    if (stale.length > 8)
+      console.log(`      … et ${stale.length - 8} autre(s)`);
+  }
   if (dead.length) {
     console.log(
       `\n   ⚠️ ${dead.length} lien(s) sans cible (ni page publiée, ni fichier du dépôt) :`,

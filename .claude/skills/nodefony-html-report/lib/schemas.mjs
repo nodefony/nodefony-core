@@ -55,6 +55,37 @@ const FORMES = [
   { re: /^\{(.*)\}$/s, forme: "losange" },
 ];
 
+/**
+ * Coupe un texte en lignes d'au plus `largeur` caractères, sur les espaces.
+ *
+ * Au-delà de `maxLignes`, la dernière est suffixée d'une ellipse : mieux vaut
+ * une étiquette visiblement abrégée qu'un pavé qui recouvre ses voisines. Le
+ * texte entier reste porté par un `<title>`.
+ *
+ * @param {string} texte - le libellé à couper.
+ * @param {number} largeur - longueur visée d'une ligne, en caractères.
+ * @param {number} maxLignes - nombre de lignes au-delà duquel on abrège.
+ * @returns {string[]} les lignes.
+ */
+export function couper(texte, largeur = 22, maxLignes = 3) {
+  const mots = String(texte).split(/\s+/).filter(Boolean);
+  const lignes = [];
+  let cur = "";
+  for (const mot of mots) {
+    if (!cur) cur = mot;
+    else if (cur.length + 1 + mot.length <= largeur) cur += ` ${mot}`;
+    else {
+      lignes.push(cur);
+      cur = mot;
+    }
+  }
+  if (cur) lignes.push(cur);
+  if (lignes.length <= maxLignes) return lignes.length ? lignes : [""];
+  const gardees = lignes.slice(0, maxLignes);
+  gardees[maxLignes - 1] = `${gardees[maxLignes - 1]}…`;
+  return gardees;
+}
+
 /** Un libellé Mermaid : guillemets ôtés, `<br/>` devenu saut de ligne. */
 const libelle = (t) =>
   t
@@ -83,7 +114,77 @@ export function lireMermaid(src) {
     const dir = /(TD|TB|LR|RL|BT)/.exec(tete)?.[1] ?? "TD";
     return { type: "flux", dir, ...lireFlux(lignes.slice(1)) };
   }
+  if (/^stateDiagram(-v2)?\b/.test(tete))
+    return { type: "flux", dir: "TD", ...lireEtats(lignes.slice(1)) };
   return { type: "inconnu", src };
+}
+
+/**
+ * Diagramme d'ÉTATS, lu comme un flux.
+ *
+ * Un diagramme d'états est un graphe orienté à transitions étiquetées — la même
+ * chose qu'un organigramme, avec deux particularités de syntaxe : l'étiquette
+ * suit un deux-points au lieu de vivre entre barres verticales, et `[*]` désigne
+ * l'entrée ou la sortie. Sans cette lecture, ces schémas tombaient dans le cas
+ * « type non couvert » et s'affichaient en source brute au milieu d'une page de
+ * documentation — ce qui se lit comme une page cassée, à raison.
+ *
+ * Le point d'entrée et le point de sortie deviennent des nœuds en forme de stade
+ * nommés « début » et « fin » : un lecteur ne connaît pas la convention `[*]`.
+ * Chaque occurrence de `[*]` reçoit son propre nœud, sinon toutes les entrées
+ * d'un diagramme convergeraient en un seul point qui n'existe pas.
+ */
+function lireEtats(lignes) {
+  const noeuds = new Map();
+  const aretes = [];
+  const alias = new Map();
+  let bornes = 0;
+
+  const etat = (brut, sortie) => {
+    const t = brut.trim();
+    if (t === "[*]") {
+      const id = `__b${bornes++}`;
+      noeuds.set(id, {
+        id,
+        forme: "stade",
+        texte: [sortie ? "fin" : "début"],
+        groupe: null,
+      });
+      return id;
+    }
+    const id = t.replace(/^state\s+/, "").split(/\s+/)[0];
+    if (!noeuds.has(id))
+      noeuds.set(id, {
+        id,
+        forme: "arrondi",
+        texte: libelle(alias.get(id) ?? id.replace(/_/g, " ")),
+        groupe: null,
+      });
+    else if (alias.has(id)) noeuds.get(id).texte = libelle(alias.get(id));
+    return id;
+  };
+
+  for (const brut of lignes) {
+    const l = brut.trim();
+    if (!l || l.startsWith("%%")) continue;
+    if (/^(direction|note|end)\b/.test(l)) continue;
+    // `state "libellé lisible" as identifiant`
+    const a = /^state\s+"([^"]*)"\s+as\s+(\S+)/.exec(l);
+    if (a) {
+      alias.set(a[2], a[1]);
+      continue;
+    }
+    const m = /^(.+?)\s*-->\s*([^:]+?)\s*(?::\s*(.*))?$/s.exec(l);
+    if (!m) continue;
+    const [, g, d, etiquette] = m;
+    aretes.push({
+      de: etat(g, false),
+      vers: etat(d, true),
+      etiquette: etiquette ? libelle(etiquette).join(" ") : "",
+      style: "plein",
+    });
+  }
+  return { noeuds: [...noeuds.values()], aretes, groupes: [] };
 }
 
 function lireFlux(lignes) {
@@ -437,6 +538,8 @@ export function organigramme(o) {
     );
 
   // Les arêtes d'abord : elles passent SOUS les boîtes.
+  // Cartouches d'étiquettes déjà posés — sert à ne pas les empiler.
+  const posees = [];
   for (const a of modele.aretes) {
     if (!centre.has(a.de) || !centre.has(a.vers)) continue;
     const [x1, y1] = decaleY(a.de);
@@ -457,12 +560,44 @@ export function organigramme(o) {
     if (a.etiquette) {
       // Toujours HORIZONTALE, posée sur un fond opaque : une étiquette tournée
       // le long du trait devient illisible dès qu'elle croise une boîte.
+      //
+      // Et sur PLUSIEURS LIGNES au-delà d'une vingtaine de caractères. Un
+      // cartouche d'un seul tenant s'étale sur la largeur de deux colonnes et
+      // passe SOUS celui de l'arête voisine : le texte n'est pas tronqué, il est
+      // recouvert — ce qui se lit comme un schéma cassé, et l'était en pratique
+      // sur les transitions d'un diagramme d'états. Le texte entier reste
+      // accessible au survol.
       const mx = aligne ? (sx + ex) / 2 : horizontal ? (sx + ex) / 2 : sx;
-      const my = aligne ? (sy + ey) / 2 : horizontal ? sy : (sy + ey) / 2;
-      const w = a.etiquette.length * 6.1 + 8;
+      const my0 = aligne ? (sy + ey) / 2 : horizontal ? sy : (sy + ey) / 2;
+      const lignes = couper(a.etiquette, 22, 3);
+      const w = Math.max(...lignes.map((l) => l.length)) * 6.1 + 10;
+      const h = lignes.length * 12 + 4;
+      // Deux arêtes issues d'un même nœud ont des milieux voisins, donc des
+      // cartouches OPAQUES qui se recouvrent : le premier disparaît sous le
+      // second et son texte semble tronqué. On les écarte de part et d'autre du
+      // milieu jusqu'à ce qu'ils ne se croisent plus. La comparaison porte sur
+      // les CENTRES — confronter un bord supérieur à une demi-hauteur ne
+      // détecte rien, et laisse l'empilement intact.
+      let my = my0;
+      for (let essai = 1; essai <= 24; essai++) {
+        const chevauche = posees.some(
+          (r) =>
+            Math.abs(r.x - mx) < (r.w + w) / 2 - 2 &&
+            Math.abs(r.y - my) < (r.h + h) / 2 + 2,
+        );
+        if (!chevauche) break;
+        my = my0 + Math.ceil(essai / 2) * (h + 5) * (essai % 2 === 1 ? -1 : 1);
+      }
+      posees.push({ x: mx, y: my, w, h });
+      const y0 = my - h / 2;
       out.push(
-        `<rect x="${(mx - w / 2).toFixed(1)}" y="${(my - 8).toFixed(1)}" width="${w.toFixed(1)}" height="15" rx="3" fill="${T.fond}"/>`,
-        `<text x="${mx.toFixed(1)}" y="${(my + 3.5).toFixed(1)}" text-anchor="middle" font-size="10.5" fill="${T.muet}">${ech(a.etiquette)}</text>`,
+        `<rect x="${(mx - w / 2).toFixed(1)}" y="${y0.toFixed(1)}" width="${w.toFixed(1)}" height="${h}" rx="3" fill="${T.fond}"><title>${ech(a.etiquette)}</title></rect>`,
+        lignes
+          .map(
+            (l, k) =>
+              `<text x="${mx.toFixed(1)}" y="${(y0 + 12 + k * 12).toFixed(1)}" text-anchor="middle" font-size="10.5" fill="${T.muet}">${ech(l)}</text>`,
+          )
+          .join(""),
       );
     }
   }
