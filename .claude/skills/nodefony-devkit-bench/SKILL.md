@@ -177,6 +177,17 @@ node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --link   
 fabriqués depuis le `dist/` local : le banc éprouve ce que tu viens de compiler,
 mais **tel qu'un installeur le reçoit**.
 
+> **Il tourne tout seul à la forge, sur les TROIS systèmes** —
+> `.github/workflows/scaffold.yml`, matrice `ubuntu · macos · windows` sur le
+> plancher `engines` (Node 24, la version que pose la CI générée pour
+> l'application de l'utilisateur), plus une variante haute sur ubuntu. Le lancer
+> à la main sert à la boucle courte et au diagnostic, plus à obtenir le verdict :
+> il arrive à chaque poussée. En échec, le job remonte le journal complet et le
+> `report.json` en artefact — le décor, lui, ne l'est pas (~300 Mo), et le
+> rapport suffit à savoir quelle étape est tombée. **Ce que ce job n'éprouve
+> pas** est nommé dans [`docs/guides/integration-continue.md`](../../../docs/guides/integration-continue.md)
+> § 6 : le front d'une application générée, et les dialectes autres que SQLite.
+
 > **Le décor de ce banc est ISOLÉ, et ce n'est pas un détail d'exécution.**
 > Longtemps il vivait sous le dépôt, paquets liés au checkout — la résolution de
 > modules de Node remontait alors jusqu'aux `node_modules` du monorepo, et
@@ -345,6 +356,19 @@ démarrage APRÈS la prémisse (sinon la tâche n'est pas jouée), un code de so
 verdict, l'ordre des drapeaux de Vibe, le foyer jetable qui doit emporter la clé d'API, et la sonde
 qui comptait ROUGE un agent utilisant le MCP : **`references/agents-et-porte-mcp.md`** — à lire
 AVANT de câbler un agent de plus (Codex et Gemini y ont leur ligne, à établir).
+
+### Rendre la page publique du banc
+
+```bash
+node scripts/build-devkit-report.mjs [--data docs/devkit/data/10.0.0.json] [--out tmp/devkit.html]
+```
+
+**Ce rendeur ne MESURE rien**, et c'est le contrat : le banc lance de vrais
+agents, coûte de l'argent et prend des heures ; sa sortie est **commitée** dans
+`docs/devkit/data/<version>.json`. La page n'est qu'un rendu de ce jeu —
+déterministe, rejouable, indépendant de la machine qui l'exécute. Même règle que
+le site de performance, et pour le même motif : un chiffre reste attaché à sa
+version, définitivement.
 
 ### Purger les décors — garder la MESURE, jeter le DÉCOR
 

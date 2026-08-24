@@ -64,8 +64,10 @@ dans un job vert.
 
 ## 2. Ce que la forge lance
 
-Six fichiers de workflow, chacun déclenché par des **chemins** (pas par une
-branche : réserver l'infra à `main`, c'est découvrir la casse après le merge).
+Neuf fichiers de workflow. Ceux qui éprouvent le code se déclenchent sur
+**chaque poussée**, filtrés par des **chemins** — jamais par une branche :
+réserver l'infra à `main`, c'est découvrir la casse après le merge. Les autres
+(publication, site) partent d'un événement qui leur est propre.
 
 <!-- prettier-ignore -->
 | Workflow | Job | Ce qu'il prouve | Décor |
@@ -78,8 +80,11 @@ branche : réserver l'infra à `main`, c'est découvrir la casse après le merge
 | `orm.yml` | Socket distribuée | fan-out **cross-process** (IPC) et **cross-pod** (backplane Redis), attaques F83 | Redis, `NF_RUN_CLUSTER_E2E` |
 | `memory.yml` | Charge, fuites et scopes | heap, fuites HTTP/WS, scopes d'injection sous charge, sessions, flux | serveur `--expose-gc` |
 | `e2e-autonomes.yml` | Cluster · configuration · arrêt gracieux | fan-out entre process, sonde de pod, point de santé, surcharge par l'environnement | aucun (les scripts se montent) |
+| `scaffold.yml` | Code généré | ce que `create` PRODUIT compile, se lint, se bâtit, se teste, répond en HTTP et démarre en production — **3 systèmes**, décor isolé (tarballs, hors dépôt) | aucun (SQLite) |
 | `codeql.yml` | Analyze | analyse statique de sécurité | — |
-| `npm-publish-github-packages.yml` | build · publish-gpr | publication sur le registre GitHub (déclenché par une release) | — |
+| `release-smoke.yml` | Installation vierge | les tarballs s'installent et tiennent debout chez celui qui installe (`base`/`front`/`studio`) — manuel + hebdomadaire | conteneurs docker |
+| `release-preflight.yml` | OIDC · outils · jeton · docker | les ACCÈS de publication existent avant d'en avoir besoin (identité, versions minimales, quota) | — |
+| `pages.yml` | build · deploy | le site public (documentation + mesures) se rend depuis les sources versionnées | — |
 
 ### Le MODE du serveur est une dimension de la matrice, pas une propriété de branche
 
@@ -258,7 +263,20 @@ cd src/packages/@nodefony/http && npm run test:load
 
 # Preuves e2e autonomes — aucun décor, elles montent leurs propres process
 node .claude/skills/nodefony-load-test/scripts/cluster-realtime-e2e.mjs
+
+# Job « Code généré » de scaffold.yml — EXIGE un checkout bâti (il pack depuis dist/)
+npm run build
+node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs
+node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --link  # boucle courte, verdict AMPUTÉ
 ```
+
+> ⚠️ `--link` n'est **pas** ce que joue la forge, et la différence n'est pas de
+> vitesse : le mode lié symlinke les paquets du dépôt, la résolution de modules
+> de Node remonte alors au monorepo, et l'application témoin trouve des paquets
+> qu'elle ne déclare pas. Toute la famille « dépendance manquante du gabarit »
+> devient invisible — mesuré : l'étape production restait verte avec ET sans
+> `@node-rs/argon2`, pendant qu'une application réellement installée mourait au
+> boot. Pour la boucle courte, oui ; pour conclure, non.
 
 > **Reproduire le régime de la forge** en local : préfixer par `CI=1`. C'est le
 > seul moyen de voir échouer ce qui, sans lui, n'est qu'un avertissement.
@@ -278,6 +296,9 @@ Un choix énoncé n'est pas un oubli. Ce qui suit est délibérément dehors :
 | `idempotency-cluster-e2e` | tape sur le serveur de développement : sa place est avec les bancs à serveur partagé |
 | Les preuves à décor opt-in (un serveur par plafond) | coût de montage disproportionné pour ce qu'elles ajoutent à chaque poussée |
 | Banc reverse-proxy (`reverse-proxy.test.ts`) | décor à DEUX versants — conteneurs `--profile proxy`, serveur en `NF_BIND_ALL=1`, certificats dérivés, `nodefony.com` résolu côté client. Un montage automatique à moitié réussi rendrait le vert menteur qu'on passe ce guide à combattre : il se lance à la main (`PROXY_GATE`, mode d'emploi dans `docker/README.md`) |
+| Le FRONT d'une application générée (`scaffold.yml`) | l'application témoin naît `--frontend none`. Rien n'éprouve que le front produit se bâtit — c'est le trou le plus large de ce workflow, et il est nommé ici pour qu'on cesse de lire son vert comme une couverture complète |
+| Les autres DIALECTES du code généré (`scaffold.yml`) | le banc génère bien des entités PostgreSQL — indispensable, une clé `uuid` et une colonne texte sont le MÊME type en SQLite — mais `--no-tests`, et il vérifie qu'elles QUITTENT le câblage. Aucune base n'est jointe : les dialectes sont éprouvés par `orm.yml`, sur le code du dépôt |
+| Le banc de DÉCOUVRABILITÉ (`bench-discoverability.mjs`) | il lance de vrais agents et coûte de l'argent. Seuls ses auto-contrôles tournent, dans `node.js.yml` — ce sont eux qui décident si un verdict de banc veut dire quelque chose |
 
 **Perf dehors, mémoire dedans** : une latence dépend de la machine, une fuite
 fuit quelle que soit la charge.
