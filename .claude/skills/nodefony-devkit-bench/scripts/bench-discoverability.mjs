@@ -1354,6 +1354,14 @@ export const TASKS = [
   {
     id: 6,
     name: "configuration par l'environnement",
+    // 🔴 La bonne réponse est INVISIBLE au diff : elle s'écrit dans
+    // `.env.local`, gitignoré par conception — c'est le bon endroit, et c'est
+    // aussi celui qu'aucun `git diff` ne montre. Sans ce drapeau, la garde
+    // anti-abandon écarte le run d'un agent PARFAIT : mesuré sur deux passes,
+    // « NON JUGEABLE » deux fois pendant que le juge d'état rendait exit 0.
+    // Le gate ci-dessous est ce qui autorise cette exception : il lit l'état
+    // EFFECTIF de l'application, il n'a besoin d'aucun fichier suivi.
+    peutNeRienEcrire: true,
     // 🔴 L'ÉNONCÉ DISAIT DEUX CHOSES INCOMPATIBLES, et l'agent avait raison de
     // reculer. Il exigeait une base PostgreSQL que le décor ne fournit pas, PUIS
     // de « prouver que la configuration est prise en compte » — ce que tout agent
@@ -4671,15 +4679,30 @@ function coupureApi(texte) {
  *   écrit. Un tel run compté FAIL ordinaire mélange « il n'a pas su » et « il
  *   n'a rien tenté », et c'est le premier qu'on cherche à mesurer.
  *
- * @param {{transcript: string, files: string[]}} pieces - la matière du jugement.
+ * 🔴 **Sauf pour une tâche dont la bonne réponse est INVISIBLE au diff.** La
+ * tâche 6 se résout en écrivant dans `.env.local` — gitignoré par conception,
+ * et c'est justement le bon endroit. Un agent parfait n'y touche donc AUCUN
+ * fichier suivi, et cette garde écartait son run : la tâche est ressortie « NON
+ * JUGEABLE » sur deux passes alors que son juge d'ÉTAT (`nodefony env --json`)
+ * était vert deux fois. Le banc connaissait déjà le piège — le commentaire de
+ * la tâche 6 interdit toute sonde de diff pour cette raison exacte — mais la
+ * garde, ajoutée plus tard et à un autre étage, l'a réintroduit.
+ *
+ * L'exception se DÉCLARE sur la tâche (`peutNeRienEcrire`) plutôt que
+ * d'affaiblir la garde pour tout le monde : partout ailleurs, zéro fichier
+ * touché reste un abandon, et huit sondes vertes par vacuité restent un faux
+ * verdict. Une tâche qui porte ce drapeau doit avoir un gate d'état — sans lui,
+ * elle n'aurait plus rien pour la juger.
+ *
+ * @param {{transcript: string, files: string[], peutNeRienEcrire?: boolean}} pieces - la matière du jugement.
  * @returns {string|null} le motif d'écartement, ou `null` si le run est jugeable.
  */
-export function motifDEcartement({ transcript, files }) {
+export function motifDEcartement({ transcript, files, peutNeRienEcrire }) {
   const transcriptSeul = motifDEcartementTranscript(transcript);
   if (transcriptSeul) {
     return transcriptSeul;
   }
-  if (!files || files.length === 0) {
+  if (!peutNeRienEcrire && (!files || files.length === 0)) {
     return "aucun fichier touché — abandon, pas mesure (les interdits ne mordent sur rien)";
   }
   return null;
@@ -4939,7 +4962,11 @@ function judgeTask(app, runDir, task, occurrence = null) {
   // verdict d'écartement déjà en place (`NON JUGEABLE`) : il est SEUL à savoir
   // retirer un run du compte sans le compter PASS. Le motif est calculé par une
   // fonction pure, éprouvée par l'auto-contrôle sans qu'aucun décor soit monté.
-  const ecarte = motifDEcartement({ transcript, files });
+  const ecarte = motifDEcartement({
+    transcript,
+    files,
+    peutNeRienEcrire: task.peutNeRienEcrire === true,
+  });
   if (ecarte) {
     console.log(`  ⁉️  ${ecarte} — run ÉCARTÉ, aucune sonde n'est opposable`);
     return {

@@ -286,6 +286,25 @@ function verifierGardeTranscript() {
       "coupé sans fichier — le motif doit nommer la coupure, pas l'abandon",
     );
   }
+  // 🔴 La tâche dont la bonne réponse est INVISIBLE au diff (`.env.local`,
+  // gitignoré). Sans l'exception déclarée, la garde écarte le run d'un agent
+  // PARFAIT — vécu sur deux passes, « NON JUGEABLE » pendant que le juge d'état
+  // rendait exit 0. Les deux sens sont éprouvés : le drapeau ouvre, son absence
+  // ferme, et il ne dispense pas des autres causes d'écartement.
+  if (
+    motifDEcartement({ transcript: acheve, files: [], peutNeRienEcrire: true })
+  )
+    rates.push(
+      "peutNeRienEcrire n'ouvre pas — un travail invisible au diff reste écarté",
+    );
+  if (!motifDEcartement({ transcript: acheve, files: [] }))
+    rates.push("sans le drapeau, zéro fichier touché DOIT rester un abandon");
+  if (
+    !motifDEcartement({ transcript: coupe, files: [], peutNeRienEcrire: true })
+  )
+    rates.push(
+      "le drapeau ne doit pas couvrir une COUPURE d'API — ce n'est pas la même question",
+    );
   return rates;
 }
 
