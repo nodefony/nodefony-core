@@ -1,0 +1,116 @@
+# Publie le site Nodefony sur GitHub Pages — la documentation à la racine, les
+# mesures de performance sous `/performance/`.
+#
+# POURQUOI UN SEUL FLUX POUR DEUX SITES. GitHub Pages ne connaît qu'UN artefact,
+# et chaque déploiement REMPLACE l'intégralité du site. Deux flux séparés ne se
+# compléteraient donc pas : la documentation effacerait les mesures, puis les
+# mesures effaceraient la documentation, à chaque exécution. Ce n'est pas un
+# réglage à trouver, c'est le fonctionnement de `deploy-pages` — d'où ce flux
+# unique, qui bâtit les deux et les déploie ensemble.
+#
+# CE QUE CE FLUX NE FAIT PAS : mesurer, ni rédiger. Un exécuteur partagé rend des
+# chiffres faux, et le dépôt a déjà payé cette leçon (aucun absolu pris derrière
+# un chemin virtualisé n'est transposable). La mesure est un geste MANUEL, sur
+# une machine nommée, dont le résultat est commité dans
+# `docs/performance/data/<version>.json`. La documentation, elle, vit en Markdown
+# aux vrais chemins. Ici on ne fait que RENDRE — le résultat ne dépend donc pas
+# de la machine qui l'exécute.
+#
+# Prérequis, une seule fois : Settings → Pages → Source = « GitHub Actions ».
+name: Site — documentation et mesures
+
+on:
+  # Une release publiée : le site reflète la version sortie.
+  release:
+    types: [published]
+  # Un correctif de page part en ligne sans attendre la prochaine release.
+  push:
+    branches: [main, claude-ts]
+    paths:
+      - "docs/**"
+      - "src/nodefony/docs/**"
+      - "src/packages/@nodefony/*/docs/**"
+      - "scripts/build-docs-site.mjs"
+      - "scripts/build-perf-site.mjs"
+      - ".claude/skills/nodefony-html-report/lib/**"
+      - ".claude/skills/nodefony-documentation/lib/**"
+      - ".claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs"
+      - ".claude/skills/nodefony-load-test/scripts/perf-dossier-report.mjs"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un seul déploiement à la fois ; on ne coupe pas celui qui est en vol.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Rendre le site depuis les sources versionnées
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26.x"
+
+      # 🔴 Deux besoins de rendu, et deux leçons déjà payées. Apache ECharts rend
+      # les figures en SVG côté serveur ; `markdown-it` transforme les pages. Ce
+      # dernier n'existait longtemps que par transitivité de `typedoc` — un bump
+      # aurait emporté le rendu de la documentation sans qu'aucun test ne bouge.
+      # `--ignore-scripts` : rien ici n'a besoin de compiler quoi que ce soit.
+      - name: Installer les dépendances de rendu
+        run: npm ci --ignore-scripts
+
+      # Le générateur de documentation consomme la surface PUBLIÉE de
+      # `@nodefony/documentation` (scan, slugs, réécriture des liens) — la même
+      # que verrait une application qui l'installe. Elle exige donc un paquet
+      # bâti ; sans cette étape, le générateur s'arrête en nommant cette commande.
+      - name: Bâtir le module de documentation
+        run: npx turbo run build --filter=@nodefony/documentation
+
+      # La documentation occupe la RACINE : c'est la porte d'entrée du projet.
+      - name: Construire le site de documentation
+        run: node scripts/build-docs-site.mjs --out dist-site
+
+      # Les mesures gardent leur place, sous `/performance/`. Une URL publiée ne
+      # se change plus sans casser les liens de ceux qui l'ont citée.
+      - name: Construire le dossier de performance
+        run: node scripts/build-perf-site.mjs --out dist-site/performance
+
+      # Le site doit MONTRER quelque chose : une page vide se publierait en
+      # silence. On exige la porte d'entrée, une page profonde et la page de
+      # mesures courante — trois points qui tombent pour trois raisons distinctes.
+      - name: Vérifier que le site n'est pas vide
+        run: |
+          test -s dist-site/index.html
+          test -s dist-site/404.html
+          test -s dist-site/modules/security/firewall/index.html
+          test -s dist-site/performance/latest/index.html
+          echo "pages rendues : $(find dist-site -name index.html | wc -l)"
+
+      # Un lien mort ne se voit qu'une fois en ligne, et le site est servi sous
+      # un sous-chemin (`/nodefony-core/`) : ses liens sont donc RELATIFS, et
+      # cette garde est ce qui prouve qu'ils le sont restés.
+      - name: Refuser un lien interne cassé
+        run: node scripts/check-site-links.mjs dist-site
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist-site
+
+  deploy:
+    name: Déployer sur Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

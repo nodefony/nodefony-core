@@ -23,6 +23,13 @@
 dist/
 node_modules/
 tmp/
+# Sites RENDUS (`build-docs-site.mjs`, `build-perf-site.mjs`) : ~12 Mo de HTML
+# dérivé, reconstruit à l'identique depuis le Markdown et les mesures versionnés.
+# La SOURCE est ce Markdown ; le rendu ne vit que dans l'artefact publié sur
+# Pages. `dist/` ne les couvrait pas — un `git add -A` après un build local les
+# aurait emportés dans un commit, sans que rien ne le signale.
+dist-site/
+dist-perf-site/
 # Support de présentation GÉNÉRÉ (`node scripts/readme-html.mjs`) : ~1 Mo dont
 # des captures en base64, réécrit intégralement à chaque exécution. La source
 # versionnée est le script ; committer sa sortie alourdirait chaque diff sans

@@ -50,11 +50,19 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import MarkdownIt from "markdown-it";
 
-import {
-  scanDocsDir,
-  rewriteInternalLinks,
-  metaString,
-} from "../src/packages/@nodefony/documentation/dist/index.js";
+// Le module est consommé par sa SURFACE PUBLIÉE, pas par ses sources : ce
+// générateur voit exactement ce que voit une application qui l'installe. En
+// échange, il exige que le paquet soit bâti — et le dit, plutôt que de laisser
+// un « module introuvable » qu'on impute au mauvais endroit.
+const DOC_MODULE = "../src/packages/@nodefony/documentation/dist/index.js";
+const docModule = await import(DOC_MODULE).catch(() => {
+  console.error(
+    "✗ @nodefony/documentation n'est pas bâti — le générateur consomme sa surface publiée.\n" +
+      "  npx turbo run build --filter=@nodefony/documentation",
+  );
+  process.exit(1);
+});
+const { scanDocsDir, rewriteInternalLinks, metaString } = docModule;
 import {
   doc,
   esc,
