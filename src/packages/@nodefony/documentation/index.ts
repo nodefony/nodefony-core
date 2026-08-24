@@ -117,6 +117,10 @@ export {
 export { scanDocsDir, type ScannedDoc } from "./nodefony/src/docScanner";
 export { isSafeSlug, pathToSlug, type DocSource } from "./nodefony/src/slug";
 export {
+  rewriteInternalLinks,
+  type RewriteLinksOptions,
+} from "./nodefony/src/linkResolver";
+export {
   DocumentationError,
   DocNotFoundError,
   DocUnsafeSlugError,

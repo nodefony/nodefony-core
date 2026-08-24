@@ -612,6 +612,27 @@ body { margin:0; background:var(--bg); color:var(--fg);
   font:15px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   -webkit-font-smoothing:antialiased; }
 .wrap { max-width:900px; margin:0 auto; padding:40px 20px 90px; }
+/* Site de documentation — la grille ne s'active QUE si la page fournit une
+   navigation. Un rapport qui n'en passe pas garde exactement sa colonne unique :
+   les pages deja publiees ne bougent pas d'un pixel. */
+.wrap.has-nav { max-width:1400px; display:grid; gap:0 38px;
+  grid-template-columns:250px minmax(0,1fr) 210px;
+  grid-template-areas:"head head head" "nav main toc"; }
+.wrap.has-nav > .rep-head { grid-area:head; }
+.wrap.has-nav > main { grid-area:main; min-width:0; }
+.site-nav { grid-area:nav; position:sticky; top:64px; align-self:start;
+  max-height:calc(100vh - 84px); overflow-y:auto; font-size:13.5px; padding-right:6px; }
+.site-toc { grid-area:toc; position:sticky; top:64px; align-self:start;
+  max-height:calc(100vh - 84px); overflow-y:auto; font-size:12.5px; }
+.wrap.has-nav > .foot { grid-column:1/-1; }
+@media (max-width:1080px) { .site-toc { display:none; }
+  .wrap.has-nav { grid-template-columns:230px minmax(0,1fr);
+    grid-template-areas:"head head" "nav main"; } }
+@media (max-width:760px) { .site-nav { display:none; }
+  .wrap.has-nav { grid-template-columns:minmax(0,1fr);
+    grid-template-areas:"head" "main"; } }
+@media print { .site-nav, .site-toc { display:none; }
+  .wrap.has-nav { display:block; max-width:none; } }
 h1 { font-size:28px; line-height:1.22; margin:0 0 8px; letter-spacing:-.021em; }
 h2 { font-size:20px; margin:0 0 10px; letter-spacing:-.012em; }
 h3 { font-size:15px; margin:22px 0 6px; }
@@ -818,6 +839,22 @@ export const doc = ({
   lang = "fr",
   brand = NODEFONY_BRAND,
   /**
+   * Navigation latérale du SITE (arbre des pages). Absente pour un rapport —
+   * une photo de mesures n'a pas de voisines. Sa seule présence bascule la page
+   * en grille trois colonnes.
+   */
+  nav = "",
+  /** Sommaire de la page courante, colonne de droite. Suit le sort de `nav`. */
+  aside = "",
+  /**
+   * Balises ajoutées au `<head>` — description, icône, canonique, partage.
+   * Un rapport n'en a pas besoin : il se lit par le fichier qu'on a reçu. Une
+   * page PUBLIÉE, si : sans description, un moteur de recherche invente son
+   * propre extrait, et sans icône chaque visiteur récolte un 404 dans sa
+   * console. Le contenu passe tel quel — c'est à l'appelant de l'échapper.
+   */
+  head = "",
+  /**
    * Style ADDITIONNEL de la page — par exemple `STYLE_GRAPHES` du moteur
    * ECharts, qui bascule les figures entre thème clair et thème sombre. Sans ce
    * point d'injection, une page ne pouvait pas déclarer de style propre : il
@@ -830,11 +867,12 @@ export const doc = ({
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title>
+${head}
 <style>${CSS}</style>
 ${style ? `<style>${style}</style>` : ""}
 </head>
 <body>
-<div class="wrap">
+<div class="wrap${nav || aside ? " has-nav" : ""}">
   <header class="rep-head">
     ${
       brand
@@ -849,6 +887,8 @@ ${style ? `<style>${style}</style>` : ""}
     }
     <button class="ghost no-print" id="theme-toggle" aria-label="Changer de thème">◐</button>
   </header>
+  ${nav ? `<nav class="site-nav" aria-label="Navigation de la documentation">${nav}</nav>` : ""}
+  ${aside ? `<aside class="site-toc" aria-label="Sommaire de la page">${aside}</aside>` : ""}
   <main>
   <h1>${esc(title)}</h1>
   ${subtitle ? `<p class="sub">${subtitle}</p>` : ""}
