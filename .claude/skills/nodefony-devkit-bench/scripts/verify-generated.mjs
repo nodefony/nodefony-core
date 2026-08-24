@@ -720,6 +720,12 @@ step(
         cwd: APP,
         encoding: "utf8",
         timeout: 120_000,
+        // `oxlint.cmd` est un script batch : son chemin a beau être ABSOLU,
+        // Node ne peut pas l'exécuter sans shell. Le symptôme est `status null`
+        // — pas un message d'erreur — et la garde ci-dessous le traduisait en
+        // « un motif d'exclusion écarte l'application », qui envoyait chercher
+        // du côté de la configuration. Cf `lib/exec-portable.mjs`.
+        shell: besoinDeShell(bin),
       });
     const temoin = path.join(APP, "tests", "oxlint.selfcheck.ts");
     try {

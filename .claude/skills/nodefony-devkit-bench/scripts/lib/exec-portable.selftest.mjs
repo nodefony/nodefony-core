@@ -42,6 +42,17 @@ const cas = [
     attendu: false,
   },
   {
+    quoi: "un `.cmd` ABSOLU sous Windows → shell (absolu ne veut pas dire exécutable)",
+    calcul: () =>
+      regle("D:\\a\\repo\\node_modules\\.bin\\oxlint.cmd", "win32", path.win32),
+    attendu: true,
+  },
+  {
+    quoi: "un `.bat` ABSOLU sous Windows → shell",
+    calcul: () => regle("C:\\outils\\truc.bat", "win32", path.win32),
+    attendu: true,
+  },
+  {
     quoi: "`npm` sous linux → pas de shell",
     calcul: () => regle("npm", "linux", path.posix),
     attendu: false,
@@ -72,7 +83,7 @@ if (PROVE) {
   // Débranchée, la règle rend toujours `false` : les DEUX cas Windows doivent
   // tomber. S'ils passent quand même, c'est qu'aucun échantillon n'exerce la
   // branche Windows — et l'auto-contrôle ne garde rien.
-  const attendus = 2;
+  const attendus = 4;
   if (rouges < attendus) {
     process.stdout.write(
       `\n❌ règle débranchée : ${rouges} cas tombé(s), ${attendus} attendus — ` +

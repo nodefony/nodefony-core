@@ -33,10 +33,22 @@ import path from "node:path";
 /**
  * Faut-il passer par le shell pour lancer cette commande ?
  *
- * Vrai sous Windows uniquement, et seulement pour une commande cherchée dans le
- * `PATH` — un chemin absolu désigne un vrai exécutable, qui n'a besoin de rien.
- * Ailleurs, `shell: true` est à éviter : il rouvre l'interprétation des
- * métacaractères sur des arguments qui viennent parfois d'un décor.
+ * Vrai sous Windows dans DEUX cas, et la première version n'en voyait qu'un :
+ *
+ *  1. la commande est cherchée dans le `PATH` (`npm`, `npx`) — elle s'y résout
+ *    en `.cmd` ;
+ *  2. la commande est un chemin ABSOLU qui désigne un script batch
+ *    (`…\node_modules\.bin\oxlint.cmd`).
+ *
+ * « Absolu donc exécutable réel » était une inférence, pas un constat : ce qui
+ * empêche Node de lancer la chose n'est pas l'endroit où elle est, c'est ce
+ * qu'elle EST. Le passage Windows suivant l'a montré aussitôt — le décor se
+ * montait, six étapes passaient, et le lint tombait sur `code null` en visant un
+ * `oxlint.cmd` parfaitement absolu.
+ *
+ * Ailleurs que sous Windows, `shell: true` est à éviter : il rouvre
+ * l'interprétation des métacaractères sur des arguments qui viennent parfois
+ * d'un décor.
  *
  * La plateforme et la grammaire de chemins sont INJECTÉES, et ce n'est pas de
  * la coquetterie : une fonction qui lit `process.platform` ne peut être
@@ -54,5 +66,6 @@ export function besoinDeShell(
   plateforme = process.platform,
   grammaire = path,
 ) {
-  return plateforme === "win32" && !grammaire.isAbsolute(commande);
+  if (plateforme !== "win32") return false;
+  return !grammaire.isAbsolute(commande) || /\.(cmd|bat)$/i.test(commande);
 }
