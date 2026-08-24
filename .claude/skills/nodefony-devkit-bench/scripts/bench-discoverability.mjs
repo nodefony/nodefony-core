@@ -5455,6 +5455,7 @@ function purgerDecors(confirmer) {
     console.log(`aucun run sous ${RUN_ROOT}`);
     return 0;
   }
+  console.log(`runs sous ${RUN_ROOT}\n`);
   const reference = lireReference(cheminReference(AGENT));
   const proteges = new Set(
     reference
