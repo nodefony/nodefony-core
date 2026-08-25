@@ -198,6 +198,22 @@
 
 ## 🚧 Ajouter une EXIGENCE sans regarder qui PRODUIT l'artefact exigé
 
+- **J'ai contredit une décision que le dépôt portait DÉJÀ, écrite dans un test, avec son
+  motif.** Une mémoire listait « `verify` ignore les e2e » parmi les écarts de l'application
+  générée ; je l'ai « corrigé ». Or `create.test.ts` exige l'inverse — « le gate LENT reste
+  dehors : un `verify` qui boote l'app ne serait plus lancé, et on aurait remplacé quatre gates
+  oubliés par un seul » — et la CI générée joue `test:e2e` SÉPARÉMENT, donc rien n'était oublié.
+  Huit jobs rouges sur trois systèmes. Avant d'ajouter une exigence, chercher qui la porte déjà :
+  un test qui l'INTERDIT est une décision, pas un oubli. Et une liste d'écarts héritée d'une
+  session précédente se reconfronte au code avant d'être exécutée. [1× — 08-25]
+
+- **J'ai posé `--deny-warnings` au gabarit de l'application sans regarder ce que le générateur
+  ÉCRIT.** Le `vitest.config.ts` produit utilisait `Array#sort()` : toute application fraîchement
+  générée aurait échoué à son PREMIER `npm run lint`, sur une porte que je venais d'ajouter pour
+  l'aider. Invisible en relisant le gabarit — attrapé en lintant une app RÉELLEMENT générée avec ses
+  propres règles. Une exigence neuve se mesure sur l'artefact reçu, jamais sur sa source.
+  [1× — 08-25]
+
 - **La porte s'est mise à exiger un scope ; la commande qui fabrique le jeton n'en demandait
   aucun.** `ai:mcp` enchaîne `security:token --write` (sans `--scope`) : le parcours nominal de
   l'utilisateur aurait produit un jeton refusé à la première lecture — un 401 remplacé par un 403,
@@ -232,6 +248,12 @@
   édition manuelle. `[1× — 08-22]`
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- **Mon test neuf était complaisant par l'ORDRE de ses données.** Il devait prouver qu'une sonde lit
+  l'état d'un socket (`LISTENING`) et n'attrape pas un client connecté au même port ; la ligne en
+  écoute figurait AVANT celle du client, si bien que la première correspondance était la bonne par
+  accident. Débranché, il restait vert. Lignes inversées, il tombe — et deux cas avec lui. Un jeu de
+  données se compose CONTRE l'implémentation, pas dans son sens. [1× — 08-25]
 
 - **Quinze cas VERTS en 0 ms, zéro requête émise.** Ma suite e2e neuve déduisait un corps valide
   en lisant un format d'erreur SUPPOSÉ (`issues[].path`) là où l'application rend
@@ -423,6 +445,13 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   se vérifie à l'`od -c`, pas à l'œil.
 
 ## 🧪 Vérifier que la transformation a EU LIEU, avant de croire la mesure
+
+- **Mon débranchement est passé VERT, et ce n'était pas le test qui avait tort : le serveur n'avait
+  pas rechargé.** J'ai daté le handler 5 s dans le futur pour prouver qu'une assertion d'ordre
+  mordait ; les six cas sont restés verts. La cause n'était pas l'assertion mais le dist, encore
+  l'ancien. Constaté en interrogeant la route (écart mesuré à +4998 ms), et l'assertion est alors
+  tombée. Un débranchement se PROUVE comme un correctif : par ce que sert le process, pas par ce
+  qu'on vient d'écrire. [1× — 08-25]
 
 - **🔴 Une commande composée REFUSÉE par un hook n'exécute AUCUNE de ses parties — deux fois en une
   session, et deux fois j'ai conclu sur un état que je croyais acquis.** (a) `python … <<PY` qui

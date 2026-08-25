@@ -84,12 +84,31 @@ chez l'utilisateur. Au passage : la passe principale était **rouge depuis 20 ex
 personne ne la lise (`bd7485c0`), et le graphe symbolique, gitignoré, manquait à tout checkout frais
 (`8a1fad04` — `release-smoke.yml` portait le même trou).
 
-**Reste** : Loki/OpenSearch jamais montés à la forge (dette APRÈS release) ; `dependabot.yml` en
-place pour que la dérive des versions se voie ; et **sous Windows, les routes d'un MODULE LOCAL
-répondent 404** — le module se génère, compile et passe ses tests unitaires, mais l'application ne
-sert pas ses routes (12/13 étapes vertes, seul `comment.e2e.test.ts` tombe, entièrement). Défaut
-PRÉEXISTANT, rendu visible parce que rien ne l'exécutait sous Windows jusqu'ici ; piste = axiome 3
-(`import()` prend une URL, `D:\…` lu comme protocole `d:`).
+**Le 404 des routes d'un module local sous Windows est FERMÉ** (`e0d4b55e`), et sa cause dépassait le
+symptôme : `nodefony create module` lance le `npm install` qui pose le lien de workspace sans lequel
+le Kernel ne peut pas importer le module par son nom, et sous Windows `npm` est un `npm.cmd` que Node
+refuse d'exécuter sans shell (il répond `ENOENT`, qui se lit « npm n'est pas installé »). La règle
+existait — écrite la veille dans le BANC, jamais dans le PRODUIT : l'outil de mesure était portable
+pendant que le produit ne l'était pas. `besoinDeShell` est publiée par le cœur, le banc l'importe, et
+**11 sites** qui la redevinaient ou l'ignoraient sont fermés. `scaffold.yml` : **4/4 vert**.
+
+**L'intégration s'exécute désormais sur les TROIS systèmes** (`8f2321a7`) — c'est la seule tâche du
+dépôt qui DÉMARRE un serveur et lui parle : pipeline HTTP, **WebSocket**, sessions, firewall, cycle de
+vie et arrêt, en development ET en production. L'obstacle n'était pas le framework mais
+`.github/actions/nodefony-server`, qui recopiait le spawn, la readiness (`grep` sur le journal) et
+l'arrêt (`kill -9` + `lsof`) — tout cela POSIX. L'action APPELLE maintenant le lanceur du framework
+(`638ce1f8`), qui porte le kill d'arbre unique, la readiness sur les ports RÉELS et, depuis
+`10c6d556`, **le refus d'un boot DÉGRADÉ** : un module du manifeste écarté en fail-soft ne peut plus
+laisser une application se déclarer prête et rendre 404 sur toutes ses routes — le refus NOMME ce qui
+manque. Ce que la matrice a rapporté au premier passage : `websocket-fragmentation` pendait 60 s sous
+macOS et redevient vert avec la readiness réelle ; sous Windows `@nodefony/http` passe INTÉGRALEMENT
+(77 fichiers, 0 rouge), les seuls rouges venant d'une sonde de banc POSIX, d'une étape de CI sans
+`shell:` déclaré et d'un test d'ordre comparant deux horloges de process différents.
+
+**Reste** : Loki/OpenSearch jamais montés à la forge (dette APRÈS release) ; `dependabot.yml` en place
+pour que la dérive des versions se voie ; `memory.yml` et `e2e-autonomes.yml` restent sur ubuntu seul
+— leur lanceur est désormais portable, mais les seuils de heap sont calibrés sur Linux et doivent être
+mesurés avant d'ouvrir la matrice.
 
 **Log Backplane** (`project_log_backplane_vision`) : axe WRITE (`LB.W`) ✅ + axe QUERY (`LB.0→LB.5`) ✅ — drivers
 `memory`/`file`/`cluster-file`/`loki`/`opensearch` queryables, validés runtime cluster + Loki/OpenSearch réels.

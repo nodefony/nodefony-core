@@ -331,7 +331,16 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // zéro commande lancée ; le gate oublié était toujours `typecheck`, le
       // seul que le build ne fait pas.
       assert.property(pkg["scripts"], "verify");
-      for (const gate of ["typecheck", "lint", "test", "check"]) {
+      for (const gate of [
+        "typecheck",
+        "lint",
+        // `format:check` et non `format` : le second RÉÉCRIT, il ne vérifie rien.
+        // Sans lui, un `verify` vert cohabitait avec un dépôt non formaté, et le
+        // gate de forme de la CI générée tombait après coup, ailleurs.
+        "format:check",
+        "test",
+        "check",
+      ]) {
         assert.include(
           pkg["scripts"]["verify"],
           gate,
