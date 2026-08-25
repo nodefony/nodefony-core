@@ -33,7 +33,7 @@
  *   node ... soak.mjs --url http://127.0.0.1:5151/nodefony/kernel/bench
  */
 import { spawn, spawnSync, execFileSync } from "node:child_process";
-import { openSync, writeFileSync } from "node:fs";
+import { mkdirSync, openSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 
@@ -98,6 +98,36 @@ function slope(points) {
   const a = sxx === 0 ? 0 : sxy / sxx;
   const r2 = sxx === 0 || syy === 0 ? 0 : (sxy * sxy) / (sxx * syy);
   return { perHour: a * 3600, r2, n }; // x est en secondes → pente par heure
+}
+
+// ── 0. le GÉNÉRATEUR DE CHARGE existe-t-il ? ───────────────────────────────
+//
+// Sans cette garde, l'absence de `wrk` est SILENCIEUSE : `spawnSync` rend une
+// erreur ENOENT que rien ne lit, `out.stdout` vaut la chaîne vide, le débit se
+// parse à 0 — et le banc déroule ses fenêtres jusqu'au bout sur un serveur qui
+// ne reçoit AUCUNE requête. Le tas ne bouge pas, le RSS non plus, et il conclut
+// « ✅ pas de fuite ». C'est le faux VERT le plus cher qui soit : il ferme une
+// question au lieu de la poser, et rien dans la sortie ne trahit que la charge
+// n'a jamais eu lieu.
+//
+// La capacité se CONSTATE (axiome 4 du dépôt) : on ne déduit pas la présence de
+// `wrk` de la plateforme, on tente de l'exécuter. `wrk --version` sort en code 1
+// avec son usage — c'est ENOENT qu'il faut lire, jamais le code de sortie.
+// Le dossier de sortie se prépare MAINTENANT, pas à la dernière ligne. Dans un
+// dépôt fraîchement cloné, `tmp/` est ignoré par git et n'existe donc pas : le
+// banc chargeait trente minutes durant avant d'échouer sur l'écriture, et le
+// résultat de la mesure partait avec. Ce qu'un run produit doit avoir une place
+// où atterrir AVANT qu'on le produise.
+mkdirSync(path.dirname(OUT), { recursive: true });
+
+const wrkProbe = spawnSync("wrk", ["--version"], { encoding: "utf8" });
+if (wrkProbe.error?.code === "ENOENT") {
+  console.error(
+    `❌ \`wrk\` introuvable — ce banc n'a aucun moyen de charger le serveur.\n` +
+      `   Sans lui il mesurerait un process au repos et conclurait « pas de fuite ».\n` +
+      `   linux : sudo apt-get install -y wrk · macOS : brew install wrk`,
+  );
+  process.exit(1);
 }
 
 // ── 1. décor propre ────────────────────────────────────────────────────────
@@ -244,6 +274,30 @@ if (kept.length < 3) {
   console.error("\n✖ moins de 3 fenêtres exploitables — aucun verdict.");
   process.exit(1);
 }
+
+// ── La charge a-t-elle EU LIEU ? ──────────────────────────────────────────
+//
+// `wrk` peut être présent et n'avoir rien envoyé : cible qui refuse, ports
+// épuisés, générateur tué par l'ordonnanceur. Un débit nul produit exactement
+// la même courbe qu'un serveur sain — plate — et le verdict « pas de fuite »
+// serait rendu sur un process au repos. Le banc EXIGE donc de constater son
+// propre trafic avant de juger quoi que ce soit.
+const rpsKept = kept.map((s) => s.rps).sort((a, b) => a - b);
+const rpsMedian = rpsKept[Math.floor(rpsKept.length / 2)];
+if (rpsMedian <= 0) {
+  console.error(
+    `\n✖ AUCUNE CHARGE — débit médian ${rpsMedian} rps sur ${kept.length} fenêtres retenues.\n` +
+      `  Le serveur n'a rien reçu : tout verdict porterait sur un process au repos.\n` +
+      `  Voir /tmp/nf-soak.log et vérifier que ${URL} répond sous wrk.`,
+  );
+  process.exit(1);
+}
+
+// Le TRAVAIL réellement accompli pendant les fenêtres retenues. C'est lui qui
+// permet de comparer deux machines : une pente « par heure » n'a de sens qu'à
+// débit égal, et deux plateformes ne servent jamais le même débit. Rapportée au
+// MILLION DE REQUÊTES, la hausse devient une propriété du code — pas du poste.
+const reqTotal = kept.reduce((n, s) => n + s.rps * WINDOW, 0);
 const heap = slope(kept.map((s) => ({ x: s.atSec, y: s.heapUsedMb })));
 const rss = slope(kept.map((s) => ({ x: s.atSec, y: s.rssMb })));
 const rpsFirst = kept[0].rps;
@@ -284,7 +338,11 @@ console.log(
       : ""),
 );
 console.log(
-  `  débit  : ${Math.round(rpsFirst)} → ${Math.round(rpsLast)} rps (${drift >= 0 ? "+" : ""}${drift.toFixed(1)} %)`,
+  `  débit  : ${Math.round(rpsFirst)} → ${Math.round(rpsLast)} rps (${drift >= 0 ? "+" : ""}${drift.toFixed(1)} %)` +
+    // Le RÉGIME de charge qualifie tout ce qui précède : « RSS plat » sous
+    // 400 rps et « RSS plat » sous 10 000 rps ne disent pas la même chose, et
+    // un banc qui tait son débit laisse lire le premier comme le second.
+    ` · médiane ${Math.round(rpsMedian)} rps`,
 );
 
 // ── Trois conditions pour OSER dire « fuite », et pas une de moins ─────────
@@ -420,6 +478,29 @@ if (rssSuspect) {
       `\n    Relancer plus long (--minutes 90) tranche entre montée vers un palier et hausse sans fin.`,
   );
 }
+// ── LA grandeur qui traverse les machines ─────────────────────────────────
+//
+// « +33 MB/h » ne se compare à rien : le même code sur un runner partagé qui
+// sert cinq fois moins de requêtes rendra cinq fois moins de MB/h, et l'on
+// conclurait « cette plateforme ne fuit pas » alors qu'elle fuit pareil. Ce que
+// l'on cherche est un coût MÉMOIRE PAR REQUÊTE SERVIE — invariant du débit,
+// donc comparable entre un poste de développement et la forge.
+const rssPerMreq = reqTotal > 0 ? dRss / (reqTotal / 1e6) : 0;
+// ⚠️ Ce ratio n'est valide qu'au RÉGIME ÉTABLI. Sur un run court il englobe la
+// montée initiale — caches qui se remplissent, arènes qui s'ouvrent — et sort
+// un chiffre plusieurs fois trop gros (mesuré : 6,42 sur 1,3 min contre 0,87
+// sur 30 min, même machine, même route). Le publier nu sous un verdict
+// « indéterminé » en ferait un fait ; on le retient donc exactement là où le
+// reste du verdict se retient.
+console.log(
+  `\n  charge : ${(reqTotal / 1e6).toFixed(2)} M requêtes servies pendant les fenêtres retenues` +
+    (tooShort
+      ? `\n           (coût mémoire par requête NON publié : sous ${MIN_MINUTES} min il` +
+        ` englobe la montée en régime et sort plusieurs fois trop gros)`
+      : `\n           ⇒ RSS ${dRss >= 0 ? "+" : ""}${rssPerMreq.toFixed(2)} MB par million de requêtes` +
+        ` (grandeur COMPARABLE d'une machine à l'autre, contrairement aux MB/h)`),
+);
+
 console.log(
   `\n  ⚠ ${MINUTES} min ne prouvent pas 3 jours : ce banc élimine les fuites grossières, pas les lentes.`,
 );
@@ -438,6 +519,12 @@ writeFileSync(
       heapSlopeMbPerHour: +heap.perHour.toFixed(2),
       heapR2: +heap.r2.toFixed(3),
       rssSlopeMbPerHour: +rss.perHour.toFixed(2),
+      // Les bornes des fenêtres RETENUES, celles-là mêmes sur lesquelles la
+      // pente est ajustée. `samples[0]` est la première fenêtre TOUT COURT,
+      // montée en régime comprise : l'afficher à côté de la pente ferait lire
+      // deux périodes différentes dans une seule ligne.
+      rssKeptFirstMb: kept[0].rssMb,
+      rssKeptLastMb: kept[kept.length - 1].rssMb,
       rssR2: +rss.r2.toFixed(3),
       rssSlopeLateMbPerHour: +rssLate.perHour.toFixed(2),
       rssPlateau: plateau,
@@ -447,6 +534,9 @@ writeFileSync(
       externalDeltaMb: +dExternal.toFixed(1),
       resteDeltaMb: +reste.toFixed(1),
       rpsDriftPct: +drift.toFixed(1),
+      rpsMedian: Math.round(rpsMedian),
+      requestsTotal: Math.round(reqTotal),
+      rssMbPerMillionReq: tooShort ? null : +rssPerMreq.toFixed(3),
       observedMinutes: +observedMin.toFixed(1),
       amplitudeMb: +amplitude.toFixed(1),
       verdict: tooShort ? "indeterminate" : leaking ? "leak" : "clean",
