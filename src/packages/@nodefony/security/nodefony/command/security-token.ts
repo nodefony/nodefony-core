@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import {
   OptionsCommandInterface,
@@ -20,6 +20,12 @@ import {
 } from "nodefony";
 import type { UserService } from "@nodefony/user";
 import type TokenService from "../service/tokenService";
+import {
+  ecrireSecretSync,
+  lireSiPresentSync,
+  messageNonRestreint,
+  modeNonRestreint,
+} from "../src/token/secretFile";
 
 const options: OptionsCommandInterface = {
   showBanner: false,
@@ -182,7 +188,7 @@ class SecurityToken extends Command {
   #contenuDe(cible: IAgentTarget): string {
     try {
       const abs = path.resolve(this.#racineDe(cible), cible.fichier);
-      return existsSync(abs) ? readFileSync(abs, "utf8") : "";
+      return lireSiPresentSync(abs) ?? "";
     } catch {
       return "";
     }
@@ -233,9 +239,11 @@ class SecurityToken extends Command {
         continue;
       }
       const abs = path.resolve(racine, cible.fichier);
+      // Lire d'abord, traiter l'absence ensuite : `existsSync` puis `read` teste
+      // un état qui peut changer avant l'usage — et l'on écrit ici un SECRET.
       const pose = poseVariable(
         cible.forme,
-        existsSync(abs) ? readFileSync(abs, "utf8") : "",
+        lireSiPresentSync(abs) ?? "",
         MCP_TOKEN_ENV,
         jeton,
       );
@@ -246,13 +254,23 @@ class SecurityToken extends Command {
         continue;
       }
       try {
-        mkdirSync(path.dirname(abs), { recursive: true });
-        writeFileSync(abs, pose, "utf8");
+        // 🔴 Ce fichier porte un JETON. Écrit au masque par défaut, il serait
+        // lisible par tout compte de la machine — et rien ne le signalerait.
+        // Même écriture que la clé privée du keystore : 0600, atomique.
+        ecrireSecretSync(abs, pose);
       } catch (error) {
         w(
           `${YELLOW}⚠ ${cible.fichier} : écriture impossible — ${(error as Error).message}${RESET}\n\n`,
         );
         continue;
+      }
+      // Le mode demandé est une intention, pas une garantie (NTFS l'ignore, comme
+      // FAT/exFAT ou NFS sans mapping). On le CONSTATE plutôt que de le déduire
+      // de la plateforme — et s'il n'a pas pris, on le dit à celui qui vient de
+      // déposer un secret, au moment où il peut encore agir.
+      const modeObtenu = modeNonRestreint(abs);
+      if (typeof modeObtenu === "number") {
+        w(`${YELLOW}⚠ ${messageNonRestreint(abs, modeObtenu)}${RESET}\n`);
       }
       w(
         `${GREEN}✓ ${MCP_TOKEN_ENV} posé pour ${cible.nom}${RESET} ` +

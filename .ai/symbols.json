@@ -1,16 +1,16 @@
 {
-  "generated": "2026-08-25T19:04:54.208Z",
+  "generated": "2026-08-25T19:42:59.199Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 738,
-    "symbols": 3124,
+    "files": 739,
+    "symbols": 3132,
     "classes": 364,
     "interfaces": 887,
     "types": 388,
     "enums": 4,
-    "functions": 1188,
-    "constants": 293
+    "functions": 1195,
+    "constants": 294
   },
   "symbols": {
     "Cli": {
@@ -20362,6 +20362,70 @@
       "extends": null,
       "description": "Réglages du vérificateur — au-delà de la liste des émetteurs."
     },
+    "lireSiPresent": {
+      "name": "lireSiPresent",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Le contenu du fichier, ou `null` s'il n'existe pas."
+    },
+    "lireSiPresentSync": {
+      "name": "lireSiPresentSync",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Forme synchrone de {@link lireSiPresent}."
+    },
+    "modeNonRestreint": {
+      "name": "modeNonRestreint",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Le mode effectif du fichier n'est-il PAS restreint au propriétaire ?"
+    },
+    "modeNonRestreintAsync": {
+      "name": "modeNonRestreintAsync",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Forme asynchrone de {@link modeNonRestreint}."
+    },
+    "messageNonRestreint": {
+      "name": "messageNonRestreint",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "La phrase à journaliser quand la restriction n'a PAS pris. Elle nomme la cause probable et ce qui reste à faire : un avertissement qui dit seulement « mode inattendu » se lit comme du bruit et fini…"
+    },
+    "ecrireSecret": {
+      "name": "ecrireSecret",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Écrit un secret : dossier créé, mode 0600, remplacement ATOMIQUE. Le mode est posé à la création du temporaire — et non après `rename` — pour qu'il n'existe à aucun instant un fichier au contenu se…"
+    },
+    "ecrireSecretSync": {
+      "name": "ecrireSecretSync",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Forme synchrone de {@link ecrireSecret}."
+    },
+    "MODE_SECRET": {
+      "name": "MODE_SECRET",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/secretFile.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Écrire un SECRET sur disque — la seule implémentation du dépôt. ## Les trois règles, et ce que chacune évite 1. **Ne jamais tester la présence avant de lire.** `existsSync(f) ? read(f) : \"\"` ouvre …"
+    },
     "tokenStatusCriteria": {
       "name": "tokenStatusCriteria",
       "kind": "function",
@@ -28559,6 +28623,19 @@
       "porteDejaLaCle": [
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
+      "ecrireSecretSync": [
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "lireSiPresentSync": [
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
+      "messageNonRestreint": [
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
+      ],
+      "modeNonRestreint": [
+        "src/packages/@nodefony/security/nodefony/command/security-token.ts"
+      ],
       "askPasswordMasked": [
         "src/packages/@nodefony/security/nodefony/command/security-user-add.ts"
       ],
@@ -29657,6 +29734,15 @@
         "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts"
       ],
       "IJwtSigningKey": [
+        "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
+      ],
+      "ecrireSecret": [
+        "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
+      ],
+      "lireSiPresent": [
+        "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
+      ],
+      "modeNonRestreintAsync": [
         "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts"
       ],
       "matchesTokenStatus": [
