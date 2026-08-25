@@ -51,6 +51,18 @@ const abortState = {
   abortedCount: 0,
   completedCount: 0,
   lastAbortReason: "",
+  /**
+   * Requêtes actuellement DANS l'action — le fait qu'un banc d'abandon doit
+   * pouvoir constater avant de couper quoi que ce soit.
+   *
+   * `abortedCount` ne peut compter que ce que l'action VOIT : une requête
+   * coupée avant d'y entrer (poignée de main TLS, routage) n'est comptée nulle
+   * part, et c'est légitime. Un test qui lance N requêtes puis coupe après un
+   * délai fixe SUPPOSE qu'elles y sont toutes arrivées — vécu : 20 lancées,
+   * 9 comptées sur un exécuteur macOS en mode production, et le banc accusait
+   * le serveur de perdre des abandons qu'il n'avait jamais reçus.
+   */
+  inflightCount: 0,
 };
 
 // P2.5 — request-timeout → AbortSignal observation state. Records that the
@@ -304,6 +316,7 @@ class DefaultController extends Controller {
   @route("abort-wait", { path: "/abort/wait" })
   async abortWait() {
     const signal = this.context!.signal;
+    abortState.inflightCount++;
     try {
       await new Promise<void>((resolve, reject) => {
         const timer = setTimeout(() => {
@@ -326,8 +339,10 @@ class DefaultController extends Controller {
       });
     } catch {
       // Aborted — client already gone, but action returns so server stays clean.
+      abortState.inflightCount--;
       return this.renderJson({ aborted: true });
     }
+    abortState.inflightCount--;
     return this.renderJson({ aborted: false });
   }
 
@@ -337,6 +352,7 @@ class DefaultController extends Controller {
       abortedCount: abortState.abortedCount,
       completedCount: abortState.completedCount,
       lastAbortReason: abortState.lastAbortReason,
+      inflightCount: abortState.inflightCount,
     });
   }
 
@@ -345,6 +361,8 @@ class DefaultController extends Controller {
     abortState.abortedCount = 0;
     abortState.completedCount = 0;
     abortState.lastAbortReason = "";
+    // `inflightCount` n'est PAS remis à zéro : c'est un compteur d'état vivant,
+    // pas un cumul. L'écraser mentirait sur les requêtes encore en cours.
     return this.renderJson({ ok: true });
   }
 

@@ -58,31 +58,78 @@ type IssueRequete =
   | { issue: "statut"; code: number }
   | { issue: "erreur"; message: string };
 
-// Fires GET /abort/wait and destroys the socket after `abortAfterMs`.
-// The route waits 2s server-side, so any abortAfterMs < 2000 triggers the race.
-function abortedGet(path: string, abortAfterMs: number): Promise<IssueRequete> {
-  return new Promise((resolve) => {
-    let issue: IssueRequete = { issue: "abandon" };
+/**
+ * Lance GET /abort/wait et rend de quoi la couper QUAND ON VEUT.
+ *
+ * 🔴 L'ancienne forme coupait après un délai fixe, en SUPPOSANT que la requête
+ * était déjà entrée dans l'action. Le compteur du serveur ne peut compter que
+ * ce que l'action VOIT — une requête coupée pendant sa poignée de main TLS ou
+ * son routage n'est comptée nulle part, et c'est légitime. Vécu : 20 lancées,
+ * 20 abandonnées côté client, **9 comptées** côté serveur sur un exécuteur
+ * macOS en mode production. Le banc accusait le serveur de perdre des abandons
+ * qu'il n'avait jamais reçus.
+ *
+ * L'appelant coupe donc APRÈS avoir CONSTATÉ que les N requêtes sont en vol.
+ * La route attend 2 s côté serveur : la fenêtre est large.
+ */
+function lancerAbandon(path: string): {
+  issue: Promise<IssueRequete>;
+  couper: () => void;
+} {
+  let couper = (): void => {};
+  const issue = new Promise<IssueRequete>((resolve) => {
+    let vu: IssueRequete = { issue: "abandon" };
     const req = https.request({ ...BASE, path, method: "GET" }, (res) => {
       // Une réponse est arrivée : cette requête n'a PAS été abandonnée, quoi
       // qu'il advienne du socket ensuite.
-      issue = { issue: "statut", code: res.statusCode ?? 0 };
+      vu = { issue: "statut", code: res.statusCode ?? 0 };
       res.resume();
     });
     req.on("error", (e: Error) => {
       // `destroy()` provoque lui-même une erreur : ne pas écraser un statut
       // déjà observé, et ne pas confondre l'abandon voulu avec une panne.
-      if (issue.issue === "abandon") {
-        issue = /aborted|socket hang up|ECONNRESET/i.test(e.message)
+      if (vu.issue === "abandon") {
+        vu = /aborted|socket hang up|ECONNRESET/i.test(e.message)
           ? { issue: "abandon" }
           : { issue: "erreur", message: e.message };
       }
-      resolve(issue);
+      resolve(vu);
     });
-    req.on("close", () => resolve(issue));
+    req.on("close", () => resolve(vu));
     req.end();
-    setTimeout(() => req.destroy(), abortAfterMs);
+    couper = () => req.destroy();
   });
+  return { issue, couper };
+}
+
+/**
+ * Attend que N requêtes soient EFFECTIVEMENT dans l'action — la garde qui
+ * remplace le délai deviné. Rend ce qu'elle a vu, pour que l'échec le cite.
+ */
+async function attendreEnVol(
+  cible: number,
+  plafondMs = 10000,
+): Promise<number> {
+  const debut = Date.now();
+  let vues = -1;
+  while (Date.now() - debut < plafondMs) {
+    const state = await getJson("/nodefony/test/abort/state");
+    const brut = (state.body as { inflightCount?: number }).inflightCount;
+    // 🔴 Champ ABSENT ≠ zéro requête en vol. Un serveur bâti avant que cette
+    // sonde existe rend `undefined`, et confondre les deux ferait accuser le
+    // produit d'un décor périmé — vécu à la première exécution de ce cas.
+    if (typeof brut !== "number") {
+      throw new Error(
+        "le serveur sous test ne publie pas `inflightCount` sur " +
+          "/nodefony/test/abort/state — son dist est ANTÉRIEUR à cette sonde. " +
+          "Reconstruire le module de test et relancer le serveur.",
+      );
+    }
+    vues = brut;
+    if (vues >= cible) return vues;
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  return vues;
 }
 
 /** Répartition lisible des issues — ce que l'assertion doit pouvoir citer. */
@@ -146,11 +193,18 @@ describe("Abort cleanup — no CRITIC on client disconnect (requires server)", (
 
   it("10 client aborts mid-wait → server stays alive, no Response Already sended", async (ctx) => {
     const N = 10;
-    const issues = await Promise.all(
-      Array.from({ length: N }, () =>
-        abortedGet("/nodefony/test/abort/wait", 100),
-      ),
+    // Lancer, CONSTATER qu'elles sont toutes dans l'action, PUIS couper.
+    const vols = Array.from({ length: N }, () =>
+      lancerAbandon("/nodefony/test/abort/wait"),
     );
+    const enVol = await attendreEnVol(N);
+    expect(
+      enVol,
+      `les ${N} requêtes doivent être DANS l'action avant d'être coupées ` +
+        `(sinon le serveur ne peut pas les compter, et ce n'est pas un défaut)`,
+    ).to.equal(N);
+    for (const v of vols) v.couper();
+    const issues = await Promise.all(vols.map((v) => v.issue));
     const compteurs = await attendreCompteur(N);
 
     // Server still serves requests.
@@ -187,11 +241,16 @@ describe("Abort cleanup — no CRITIC on client disconnect (requires server)", (
   it("burst of 20 aborts then a clean request — counters consistent", async () => {
     await getJson("/nodefony/test/abort/reset");
     const N = 20;
-    const issues = await Promise.all(
-      Array.from({ length: N }, () =>
-        abortedGet("/nodefony/test/abort/wait", 80),
-      ),
+    const vols = Array.from({ length: N }, () =>
+      lancerAbandon("/nodefony/test/abort/wait"),
     );
+    const enVol = await attendreEnVol(N);
+    expect(
+      enVol,
+      `les ${N} requêtes doivent être DANS l'action avant d'être coupées`,
+    ).to.equal(N);
+    for (const v of vols) v.couper();
+    const issues = await Promise.all(vols.map((v) => v.issue));
     const compteurs = await attendreCompteur(N);
 
     expect(compteurs.abortedCount, `côté client : ${resume(issues)}`).to.equal(
