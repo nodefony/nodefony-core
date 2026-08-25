@@ -43,6 +43,50 @@ const openEcho = (): Promise<WebSocket> =>
 const consumeHandshake = (ws: WebSocket): Promise<void> =>
   new Promise((r) => ws.once("message", () => r()));
 
+/**
+ * Le PREMIER message reçu — ou la raison pour laquelle il ne viendra jamais.
+ *
+ * Écouter `message` seul transforme toute autre issue en attente muette : la
+ * connexion se ferme, le serveur émet une erreur, et le test pend jusqu'à son
+ * plafond pour ne rendre qu'un « timed out » qui n'apprend rien. Vécu sur un
+ * runner macOS — 60 s d'attente, aucun indice, alors que les mêmes cas passent en
+ * 20 ms sur un poste du même système : la cause est dans le décor, et c'est
+ * précisément ce que le silence empêchait de voir.
+ *
+ * Le plafond n'est PAS relâché : on ne fabrique pas un vert en desserrant un
+ * seuil, on rend l'échec parlant.
+ */
+const premierMessage = (ws: WebSocket): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const onMessage = (d: Buffer): void => {
+      fin();
+      resolve(d.toString());
+    };
+    const onClose = (code: number, raison: Buffer): void => {
+      fin();
+      reject(
+        new Error(
+          `connexion FERMÉE avant tout message — code ${code}` +
+            (raison.length ? ` « ${raison.toString()} »` : " (sans raison)"),
+        ),
+      );
+    };
+    const onError = (e: Error): void => {
+      fin();
+      reject(new Error(`socket en ERREUR avant tout message — ${e.message}`));
+    };
+    // Les trois issues sont exclusives : celle qui arrive détache les deux autres,
+    // sinon un `close` postérieur au message rejetterait une promesse déjà tenue.
+    const fin = (): void => {
+      ws.removeListener("message", onMessage);
+      ws.removeListener("close", onClose);
+      ws.removeListener("error", onError);
+    };
+    ws.once("message", onMessage);
+    ws.once("close", onClose);
+    ws.once("error", onError);
+  });
+
 const writeRawFrames = (ws: WebSocket, frames: Buffer[][]): void => {
   const sock = (ws as unknown as { _socket: { write(b: Buffer): void } })
     ._socket;
@@ -62,9 +106,7 @@ describe("WS fragmentation — RFC 6455 §5.4", () => {
   it("réassemble un message JSON fragmenté (echo renvoie le tout)", async () => {
     const ws = await openEcho();
     await consumeHandshake(ws);
-    const got = new Promise<string>((r) =>
-      ws.once("message", (d: Buffer) => r(d.toString())),
-    );
+    const got = premierMessage(ws);
     writeRawFrames(ws, [
       mkFrame(Buffer.from('{"frag":'), false, OPCODE_TEXT),
       mkFrame(Buffer.from('"MENT'), false, OPCODE_CONT),
@@ -77,9 +119,7 @@ describe("WS fragmentation — RFC 6455 §5.4", () => {
   it("gère un PING injecté entre fragments (pong + réassemblage intact)", async () => {
     const ws = await openEcho();
     await consumeHandshake(ws);
-    const gotMsg = new Promise<string>((r) =>
-      ws.once("message", (d: Buffer) => r(d.toString())),
-    );
+    const gotMsg = premierMessage(ws);
     const gotPong = new Promise<void>((r) => ws.once("pong", () => r()));
     writeRawFrames(ws, [
       mkFrame(Buffer.from('{"frag":"AAA'), false, OPCODE_TEXT),
