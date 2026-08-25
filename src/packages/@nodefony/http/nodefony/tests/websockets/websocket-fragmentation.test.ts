@@ -39,9 +39,20 @@ const openEcho = (): Promise<WebSocket> =>
     ws.on("error", reject);
   });
 
-// Consomme le message de handshake ({handshake:true}) envoyé à la connexion.
-const consumeHandshake = (ws: WebSocket): Promise<void> =>
-  new Promise((r) => ws.once("message", () => r()));
+/**
+ * Consomme le message de handshake (`{handshake:true}`) envoyé à la connexion.
+ *
+ * Passe par {@link premierMessage} plutôt que par un `once("message")` nu :
+ * l'attente muette que le commentaire ci-dessous décrit valait pour CETTE
+ * étape aussi, et c'est ici qu'elle a mordu. Sur un runner Windows en
+ * production, le test a pendu ses 60 s entières pour ne rendre qu'un
+ * « timed out » — le handshake n'était jamais arrivé, et rien ne disait
+ * pourquoi. Durcir le second message et laisser le premier muet ne protège
+ * que la moitié du chemin.
+ */
+const consumeHandshake = async (ws: WebSocket): Promise<void> => {
+  await premierMessage(ws);
+};
 
 /**
  * Le PREMIER message reçu — ou la raison pour laquelle il ne viendra jamais.
