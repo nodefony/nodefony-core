@@ -644,13 +644,30 @@ La condition posée était que le smoke sache générer son décor : elle est re
 plus aucun script ne lisait `examples/`. Le dépôt n'a donc plus **aucune** application témoin figée
 — toute preuve part désormais d'une application **générée par le paquet publié**.
 
-### 10.6 R4 — `create-nodefony`
+### 10.6 R4 ✅ — `create-nodefony`
 
 15ᵉ paquet (le plan disait « 14ᵉ » : `@nodefony/devkit` s'est ajouté depuis), ~70 lignes,
-versionné en lockstep : il résout le binaire `nodefony` et lui passe la
-main. **Preuve** : `npm create nodefony@<version> app-test` depuis les tarballs, en conteneur vierge.
+versionné en lockstep : il résout le binaire `nodefony` par `nodefonyBin()` et lui passe la main.
 
-### 10.7 R5 — la CI porte tout
+**Fait.** `npm create nodefony <app>` supprime le `npm i -g` que le §6bis-B nommait comme LE
+bloqueur d'onboarding. Il ne scaffolde RIEN : le générateur du cœur reste la seule implémentation —
+un second, même « juste pour le cas simple », dériverait en silence. `nodefonyBin()` a REMONTÉ de
+`nodefony/testing` vers la racine `nodefony` (ré-exportée, aucun consommateur cassé) : elle résout
+le lanceur du framework, ce dont un shim de création a autant besoin qu'un banc.
+
+Trois chemins prouvés par leur code de sortie : nominal `0` (application complète générée), dossier
+déjà occupé `73` (message du générateur remonté tel quel), paquet absent `1`.
+
+🔴 **Une garde MORTE-NÉE, trouvée en la voyant rouge.** Le shim protégeait l'absence de `nodefony`
+par un `try/catch` autour de l'appel — inopérant : un `import` STATIQUE est résolu par Node avant
+que la moindre ligne du fichier ne s'exécute, si bien que celui qui découvre le framework recevait
+une trace de pile interne. Passé en `await import()` dans le `try`. Écrire la garde ne suffisait
+pas ; il fallait débrancher le paquet pour le constater.
+
+**Reste** : la preuve depuis le TARBALL, en conteneur vierge — le smoke n'installe pas encore
+`create-nodefony`.
+
+### 10.7 R5 ✅ — la CI porte tout
 
 ```
 tag v10.x ─► build + tests ─► pack (15 tarballs) ─► smoke sur app GÉNÉRÉE
@@ -662,9 +679,36 @@ tag v10.x ─► build + tests ─► pack (15 tarballs) ─► smoke sur app G�
 
 Secrets : **aucun pour npm** (trusted publishing, §7.3bis), jeton d'écriture sur la vitrine,
 identifiants du registre d'images.
-**Manque criant que ce lot comble** : aucun job ne construit l'image aujourd'hui, et
-`smoke-docker.sh` n'est déclenché par aucun automate — la preuve la plus proche de la production
-n'existe que si quelqu'un pense à la taper.
+**Fait** — `.github/workflows/release.yml`, six jobs : `epreuve` (les trois scénarios du smoke, en
+matrice, `fail-fast: false`) → `publier` (OIDC) → `vitrine` · `image` · `annonce` → `bilan`.
+
+🔒 **Cran d'armement.** Tant que la variable de dépôt `NF_RELEASE_ARMED` ne vaut pas `true`, tout
+s'exécute SAUF les trois gestes irréversibles. On peut pousser un tag d'essai et voir la chaîne
+entière se dérouler sans qu'un octet ne parte sur le registre. Un workflow de publication qu'on n'a
+jamais vu tourner est un workflow dont on découvre les défauts le jour où ils coûtent le plus cher.
+
+Trois points structurels, et un avertissement devenu exécutable :
+
+- `cancel-in-progress: FALSE` — annuler une publication en cours l'interrompt ENTRE deux paquets :
+  le lot reste à moitié en ligne, et ces versions sont brûlées.
+- L'épreuve passe AVANT la publication, et ne s'arrête pas au premier rouge : sur ce chemin, on veut
+  tout savoir avant de publier.
+- 🔴 **La garde R6.1 est désormais un step qui REFUSE** : il interroge l'API GitHub et échoue si la
+  branche `v7` n'existe pas sur `nodefony/nodefony`. Un avertissement qu'on peut lire sans le voir
+  ne protège personne.
+
+Encodé depuis la doc npm ET le source du CLI, pas supposé : `id-token: write` (sans elle,
+`ENEEDAUTH` sans mention de permission) · provenance AUTOMATIQUE sous OIDC (ne pas ajouter
+`--provenance`) · le NOM du fichier est un identifiant sensible à la casse, saisi sur npmjs.com ·
+ne JAMAIS appeler ce workflow depuis un autre (npm valide le nom de l'APPELANT) · runner hébergé ·
+npm ≥ 11.5.1 CONSTATÉ à l'exécution.
+
+⚠️ **Ce que le workflow ne prouvera pas** : en `--dry-run`, npm n'émet qu'un AVERTISSEMENT quand
+les identifiants manquent — `ENEEDAUTH` n'est levé que hors dry-run. Une répétition verte ne dit
+donc rien de l'authentification ; seule une publication réelle le fait. Le workflow l'énonce.
+
+**Reste** : le workflow n'a jamais tourné — il exige un tag. C'est précisément ce que le cran
+d'armement permet de faire sans risque.
 
 ### 10.8 R6 — dépôts externes (gestes GitHub, hors dépôt)
 
@@ -674,6 +718,9 @@ n'existe que si quelqu'un pense à la taper.
 3. Image publiée sous `nodefony/nodefony`.
 
 ### 10.9 Ce que ce plan NE couvre PAS — et qui bloque encore la release
+
+> Séquence R0→R6 : **R0 ✅ · R1 ✅ · R2 ✅ · R3 ✅ · R4 ✅ · R5 ✅ · R6 ⬜** (gestes GitHub hors
+> dépôt). Le DoD du §8, lui, reste ouvert — voir ci-dessous.
 
 Le DoD du §8 n'est pas atteint : **ORM multi-dialecte S5** (DDL prod) · **preset Svelte** (figé
 comme dernier geste avant release) · **devkit S1→S4** + volet A « l'application possède son
