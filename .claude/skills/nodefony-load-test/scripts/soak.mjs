@@ -349,6 +349,40 @@ if (degrading) {
     `  ✖ DÉBIT DÉGRADÉ de ${drift.toFixed(1)} % — signe d'un GC qui travaille de plus en plus.`,
   );
 }
+
+// ── Le RSS a droit au MÊME examen que le tas ──────────────────────────────
+//
+// 🔴 Ce banc mesurait deux grandeurs et n'en jugeait qu'une. Vécu : un run de
+// 30 minutes a rendu « ✅ pas de fuite » sur un tas parfaitement plat, pendant
+// que son RSS montait de 235 à 251 Mo avec un R² de 0,92 et SANS plafonner —
+// c'est-à-dire en satisfaisant les trois conditions que ce même fichier exige
+// pour oser dire « fuite ». Le verdict gaspillait ce qu'il avait déjà mesuré.
+//
+// La distinction n'est pas académique : c'est le RSS qu'un orchestrateur
+// surveille, et c'est lui qui fait tuer un pod. Un tas stable dans un RSS qui
+// grimpe désigne une autre famille de causes — mémoire native, tampons hors
+// tas, fragmentation de l'allocateur — que le tas ne montrera jamais.
+//
+// Ce n'est PAS un échec : un RSS peut plafonner plus tard, et l'annoncer en
+// rouge fabriquerait le faux positif que ce fichier combat par ailleurs. C'est
+// un fait ÉNONCÉ, avec sa projection, pour qu'il ne passe plus inaperçu.
+const rssAmplitude = Math.abs(kept[kept.length - 1].rssMb - kept[0].rssMb);
+const rssSuspect =
+  !tooShort &&
+  !plateau &&
+  rss.perHour > 20 &&
+  rss.r2 > 0.7 &&
+  rssAmplitude >= MIN_AMPLITUDE_MB;
+if (rssSuspect) {
+  console.log(
+    `\n  ⚠ RSS EN HAUSSE SOUTENUE — +${rssAmplitude.toFixed(1)} MB en ${observedMin.toFixed(0)} min,` +
+      ` régulier (R² ${rss.r2.toFixed(2)}) et SANS plateau ⇒ ${rss.perHour.toFixed(1)} MB/h.` +
+      `\n    Projection : ~${(rss.perHour * 24).toFixed(0)} MB/jour, ~${((rss.perHour * 72) / 1024).toFixed(1)} Go sur 3 jours.` +
+      `\n    Le TAS est ${leaking ? "lui aussi en hausse" : "stable"} : chercher hors du tas JavaScript` +
+      ` (tampons natifs, sockets, fragmentation de l'allocateur), pas une rétention d'objets.` +
+      `\n    Relancer plus long (--minutes 90) tranche entre montée vers un palier et hausse sans fin.`,
+  );
+}
 console.log(
   `\n  ⚠ ${MINUTES} min ne prouvent pas 3 jours : ce banc élimine les fuites grossières, pas les lentes.`,
 );
