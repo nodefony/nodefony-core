@@ -12,6 +12,7 @@
  * ne plus rien vérifier nulle part.
  */
 import {
+  mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -98,6 +99,35 @@ describe("ecrireSecret — 0600, atomique, et sur une cible existante", () => {
     expect(readdirSync(dir).filter((n) => n.includes(".tmp"))).toEqual([]);
   });
 
+  it("🔴 l'écriture ÉCHOUE : le temporaire, qui porte le SECRET, ne survit pas", () => {
+    // Le cas n'est pas théorique. Sous Windows, remplacer une cible OUVERTE par
+    // un autre process échoue — et la cible est typiquement un `.env` que
+    // l'utilisateur a sous les yeux dans son éditeur au moment où il lance la
+    // commande. Le temporaire resterait alors sur le disque, en clair, sans que
+    // personne ne le nettoie.
+    //
+    // On provoque l'échec de façon PORTABLE : la cible est un répertoire non
+    // vide, que `rename` ne peut pas remplacer, sur aucune plateforme.
+    const cible = path.join(dir, "occupee");
+    mkdirSync(cible);
+    writeFileSync(path.join(cible, "dedans"), "x");
+
+    expect(() => ecrireSecretSync(cible, "s3cr3t")).toThrow();
+    const restes = readdirSync(dir).filter((n) => n.includes(".tmp"));
+    expect(restes, `temporaire ORPHELIN portant le secret : ${restes}`).toEqual(
+      [],
+    );
+  });
+
+  it("🔴 forme asynchrone : même nettoyage à l'échec", async () => {
+    const cible = path.join(dir, "occupee-async");
+    mkdirSync(cible);
+    writeFileSync(path.join(cible, "dedans"), "x");
+
+    await expect(ecrireSecret(cible, "s3cr3t")).rejects.toThrow();
+    expect(readdirSync(dir).filter((n) => n.includes(".tmp"))).toEqual([]);
+  });
+
   it.skipIf(!POSIX)("forme asynchrone : même mode", async () => {
     const f = path.join(dir, "async");
     await ecrireSecret(f, "y");
@@ -139,5 +169,9 @@ describe("modeNonRestreint — CONSTATER, jamais déduire de la plateforme", () 
     expect(m).toMatch(/0644/);
     expect(m).toMatch(/attendu 0600/);
     expect(m).toMatch(/NTFS/); // dit POURQUOI ça peut arriver sans faute de l'utilisateur
+    // Et le GESTE, qui n'est pas le même partout : `chmod` n'existe pas sous
+    // Windows, où il faut passer par les ACL. Un message qui donne une commande
+    // introuvable envoie chercher au mauvais endroit.
+    expect(m).toMatch(POSIX ? /chmod 600/ : /icacls/);
   });
 });

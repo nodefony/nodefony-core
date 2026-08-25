@@ -3,10 +3,11 @@ import {
   mkdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
-import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
@@ -112,7 +113,11 @@ export function messageNonRestreint(fichier: string, mode: number): string {
     `(mode ${mode.toString(8).padStart(4, "0")}, attendu 0600). Le système de ` +
     `fichiers n'applique pas les permissions POSIX (NTFS, FAT/exFAT, NFS sans ` +
     `mapping d'identité), ou le fichier a été déposé par un tiers. La ` +
-    `confidentialité dépend alors des seuls droits du dossier — restreignez-les.`
+    `confidentialité dépend alors des seuls droits du dossier — restreignez-les : ` +
+    (process.platform === "win32"
+      ? `icacls "${fichier}" /inheritance:r /grant:r "%USERNAME%:R"`
+      : `chmod 600 "${fichier}"`) +
+    `.`
   );
 }
 
@@ -131,7 +136,17 @@ export async function ecrireSecret(
   await mkdir(path.dirname(fichier), { recursive: true });
   const tmp = `${fichier}.${process.pid}.tmp`;
   await writeFile(tmp, contenu, { mode: MODE_SECRET });
-  await rename(tmp, fichier);
+  try {
+    await rename(tmp, fichier);
+  } catch (e) {
+    // 🔴 LE TEMPORAIRE PORTE LE SECRET. S'il survit à l'échec, il reste sur le
+    // disque, en clair, et personne ne le nettoiera. Le cas n'est pas
+    // théorique : sous Windows, remplacer une cible OUVERTE par un autre
+    // process échoue (là où POSIX remplace sans broncher) — et la cible est
+    // typiquement un `.env` que l'utilisateur a sous les yeux dans son éditeur.
+    await rm(tmp, { force: true }).catch(() => {});
+    throw e;
+  }
 }
 
 /** Forme synchrone de {@link ecrireSecret}. */
@@ -139,7 +154,18 @@ export function ecrireSecretSync(fichier: string, contenu: string): void {
   mkdirSync(path.dirname(fichier), { recursive: true });
   const tmp = `${fichier}.${process.pid}.tmp`;
   writeFileSync(tmp, contenu, { mode: MODE_SECRET });
-  renameSync(tmp, fichier);
+  try {
+    renameSync(tmp, fichier);
+  } catch (e) {
+    // Voir `ecrireSecret` : le temporaire porte le secret, il ne survit pas à
+    // un échec.
+    try {
+      rmSync(tmp, { force: true });
+    } catch {
+      /* rien de mieux à faire — l'erreur d'origine est plus utile */
+    }
+    throw e;
+  }
   // Un `rename` sur une cible existante peut en garder le mode : on le réaffirme.
   // L'échec n'est pas fatal — `modeNonRestreint` le CONSTATERA et le dira.
   try {
