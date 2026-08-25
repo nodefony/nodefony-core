@@ -34,6 +34,21 @@
 
 ## 🩺 Une correction qui ne couvre qu'un cas, présentée comme complète
 
+- [1× — 08-25] **QUATRE défauts d'une même session étaient la MÊME faute : une règle appliquée à un
+  seul frère.** Le gate Redis renommé d'un côté et pas dans le workflow ; `attendreServeur` écrit
+  pour PostgreSQL quand le bloc MySQL relançait son conteneur sans attendre ; `NF_GATES_ALLOW` posé
+  sur un step et pas sur son voisin ; `premierMessage` durci pour la deuxième attente d'un test
+  pendant que `consumeHandshake`, dix lignes plus haut, restait un `once("message")` nu. Chaque fois
+  le dépôt PORTAIT déjà la leçon — souvent avec le commentaire qui la raconte juste à côté. Le geste
+  qui manque n'est pas « corriger » mais **« chercher les frères AVANT de commiter »** : `rg` sur le
+  motif corrigé, pas sur le fichier. Coût mesuré : deux allers-retours de forge, dont un où le rouge
+  suivant était MASQUÉ par celui que je venais de fermer (steps séquentiels d'un même job).
+- [1× — 08-25] **Le dépôt possédait la réponse, le banc la redevinait — 2× dans la même nuit.** Un
+  banc tuait son serveur par `process.kill(-pid)` (groupe de process : n'existe pas sous Windows,
+  l'appel LÈVE et le `catch` le lit « déjà mort ») alors que `signalProcessGroup` est publiée par le
+  cœur et utilisée par cinq sites du produit. Même motif que `besoinDeShell` la veille. **Avant
+  d'écrire une primitive système dans un banc : chercher qui la porte déjà dans le barrel.**
+
 - [1× — 08-25] **J'ai corrigé ma propre règle une heure après l'avoir écrite, et c'est la CI qui
   l'a trouvée.** « Un chemin absolu désigne un vrai exécutable, qui n'a besoin d'aucun shell » —
   une INFÉRENCE, pas un constat : `…\node_modules\.bin\oxlint.cmd` est parfaitement absolu et
@@ -248,6 +263,15 @@
   édition manuelle. `[1× — 08-22]`
 
 ## 🟢 Un test peut passer depuis TOUJOURS sans avoir jamais rien mesuré
+
+- [1× — 08-25] **Un seuil dont on ne voit jamais la marge est indistinguable d'un seuil
+  décoratif.** Le gate mémoire ne publiait son delta qu'en ÉCHEC (message d'assertion), et le step
+  de rapport filtrait sur `status == "failed"` : tant qu'il passait — toujours — aucun chiffre.
+  Instrumenté, les marges sortent entre **×55 et ×572** (0,05–0,37 Mo mesurés pour des seuils de
+  10 à 35 Mo), quand le `CLAUDE.md` chiffre la fuite à surveiller à 0,1 Mo / 1000 requêtes. Le vert
+  ne prouvait que « pas de fuite ÉNORME ». **Un gate à seuil doit publier sa MARGE à chaque
+  passage**, sinon nul ne peut dire s'il garde encore quelque chose — et c'est le user qui a posé
+  la question, pas le banc.
 
 - **Mon test neuf était complaisant par l'ORDRE de ses données.** Il devait prouver qu'une sonde lit
   l'état d'un socket (`LISTENING`) et n'attrape pas un client connecté au même port ; la ligne en

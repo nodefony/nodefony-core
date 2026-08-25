@@ -132,8 +132,26 @@ AVEC ce chiffre, par plateforme — jamais par un `continue-on-error`, qui en fe
 jamais obtenu. Ils s'exécutent RÉELLEMENT (aucun `skipIf` de plateforme, spawn réel), y compris
 l'auto-redémarrage après un `SIGKILL` — le cas même où Windows n'a pas de groupes de process.
 
+⚠️ **Windows a parlé au premier passage, et le trou n'était pas dans le produit** (`30f5ede4`) : un
+banc tuait son serveur par `process.kill(-pid)` — un GROUPE de process, qui n'existe pas là-bas ;
+l'appel y LÈVE et le `catch` le lisait « déjà mort ». Le serveur survivait au banc et emportait les
+ports du SUIVANT, d'où trois symptômes sans rapport apparent dans le même journal (`Port 5173 is
+already in use`, `status` annonçant le mode du RÉSIDU faute de `ps`, et « aucun process n'écoute sur
+:5151 »). Le dépôt POSSÉDAIT la réponse — `signalProcessGroup`, cinq sites du produit l'utilisent —
+et un gate (`bancsPortables.test.ts`) interdit désormais le kill deviné dans tout script du dépôt.
+
+🔴 **Les seuils du gate mémoire sont 55 à 572× trop larges** (`54e2653a`) — et personne ne pouvait le
+savoir : le delta n'était publié qu'en ÉCHEC. Mesuré une fois la marge imprimée : 0,05 à 0,37 Mo
+pour des seuils de 10 à 35 Mo, quand la règle du dépôt chiffre la fuite à surveiller à 0,1 Mo /
+1000 requêtes. Le vert ne prouve donc que « pas de fuite ÉNORME ». La marge est maintenant imprimée
+à chaque passage sur les trois systèmes ; **les seuils se resserreront sur CES chiffres**, par cas
+et par plateforme — pas sur un run local, qui fabriquerait des faux rouges ailleurs.
+
 **Reste** : Loki/OpenSearch jamais montés à la forge (dette APRÈS release) ; `dependabot.yml` en place
-pour que la dérive des versions se voie. Et un flake instruit sans être fermé :
+pour que la dérive des versions se voie ; le resserrage des seuils mémoire ci-dessus ; et
+`graceful-shutdown-e2e` sous Windows, non revérifié depuis le correctif du résidu — s'il retombe,
+c'est l'axiome 6 (aucun SIGTERM réel là-bas), donc un fait de plateforme à ÉNONCER, pas un défaut à
+corriger. Et un flake instruit sans être fermé :
 `websocket-fragmentation` a pendu ses 60 s sous Windows/production puis repassé tel quel. Le fichier
 portait déjà la leçon À MOITIÉ — `premierMessage` écoutait `close` et `error`, `consumeHandshake` non,
 et c'est lui qui attend le premier message. Les deux passent maintenant par le même chemin (idem
