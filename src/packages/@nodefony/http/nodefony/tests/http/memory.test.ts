@@ -89,6 +89,33 @@ function uploadSmall(): Promise<void> {
 
 // ── suites ───────────────────────────────────────────────────────────────────
 
+/**
+ * Asserte que `delta` tient sous `seuilMo` — **et PUBLIE la mesure**.
+ *
+ * 🔴 Un seuil dont on ne voit jamais la marge est indistinguable d'un seuil
+ * décoratif. Ces bancs ne rendaient leur chiffre qu'en ÉCHEC (le message
+ * d'assertion) : tant qu'ils passaient — c'est-à-dire toujours — personne ne
+ * pouvait dire si 35 Mo était juste ou vingt fois trop large, ni si une
+ * dérive lente était en train de combler la marge. Le vert ne prouvait que
+ * « pas de fuite ÉNORME ».
+ *
+ * La marge est donc imprimée à chaque exécution, sur les trois systèmes. Elle
+ * est ce qui permet de resserrer un seuil sur des CHIFFRES — et de voir venir,
+ * d'un run à l'autre, ce qu'un simple vert cache par construction.
+ */
+const sousLeSeuil = (quoi: string, delta: number, seuilMo: number): void => {
+  const mo = delta / 1024 / 1024;
+  const marge = mo <= 0 ? "∞" : `×${(seuilMo / mo).toFixed(1)}`;
+  // eslint-disable-next-line no-console
+  console.log(
+    `[heap] ${quoi} : ${mo.toFixed(2)} MB mesurés · seuil ${seuilMo} MB · marge ${marge}`,
+  );
+  expect(delta).to.be.below(
+    seuilMo * 1024 * 1024,
+    `heap grew ${mo.toFixed(1)} MB`,
+  );
+};
+
 describe("Memory leaks — HTTP (requires server)", function () {
   beforeAll(() => warmup());
 
@@ -111,40 +138,28 @@ describe("Memory leaks — HTTP (requires server)", function () {
     const before = await serverHeap();
     for (let i = 0; i < 1000; i++) await get("/nodefony/test/index");
     const after = await serverHeap();
-    expect(after - before).to.be.below(
-      35 * 1024 * 1024,
-      `heap grew ${((after - before) / 1024 / 1024).toFixed(1)} MB`,
-    );
+    sousLeSeuil("1000 sequential GET requests", after - before, 35);
   });
 
   it("100 consecutive sync crashes — server heap delta < 10 MB", async () => {
     const before = await serverHeap();
     for (let i = 0; i < 100; i++) await get("/nodefony/test/crash/sync");
     const after = await serverHeap();
-    expect(after - before).to.be.below(
-      10 * 1024 * 1024,
-      `heap grew ${((after - before) / 1024 / 1024).toFixed(1)} MB`,
-    );
+    sousLeSeuil("100 consecutive sync crashes", after - before, 10);
   });
 
   it("100 consecutive async crashes — server heap delta < 10 MB", async () => {
     const before = await serverHeap();
     for (let i = 0; i < 100; i++) await get("/nodefony/test/crash/async");
     const after = await serverHeap();
-    expect(after - before).to.be.below(
-      10 * 1024 * 1024,
-      `heap grew ${((after - before) / 1024 / 1024).toFixed(1)} MB`,
-    );
+    sousLeSeuil("100 consecutive async crashes", after - before, 10);
   });
 
   it("100 consecutive native TypeError crashes — server heap delta < 15 MB", async () => {
     const before = await serverHeap();
     for (let i = 0; i < 100; i++) await get("/nodefony/test/crash/native");
     const after = await serverHeap();
-    expect(after - before).to.be.below(
-      15 * 1024 * 1024,
-      `heap grew ${((after - before) / 1024 / 1024).toFixed(1)} MB`,
-    );
+    sousLeSeuil("100 consecutive native TypeError crashes", after - before, 15);
   });
 
   it("500 mixed requests (index + context + session) — server heap delta < 20 MB", async () => {
@@ -156,9 +171,10 @@ describe("Memory leaks — HTTP (requires server)", function () {
     const before = await serverHeap();
     for (let i = 0; i < 500; i++) await get(routes[i % routes.length]);
     const after = await serverHeap();
-    expect(after - before).to.be.below(
-      20 * 1024 * 1024,
-      `heap grew ${((after - before) / 1024 / 1024).toFixed(1)} MB`,
+    sousLeSeuil(
+      "500 mixed requests (index + context + session)",
+      after - before,
+      20,
     );
   });
 
@@ -169,10 +185,7 @@ describe("Memory leaks — HTTP (requires server)", function () {
     const before = await serverHeap();
     for (let i = 0; i < 200; i++) await uploadSmall();
     const after = await serverHeap();
-    expect(after - before).to.be.below(
-      30 * 1024 * 1024,
-      `heap grew ${((after - before) / 1024 / 1024).toFixed(1)} MB`,
-    );
+    sousLeSeuil("200 sequential multipart uploads", after - before, 30);
   });
 
   it("server is alive after load — /index returns 200", async () => {
@@ -210,10 +223,7 @@ describe("Memory leaks — WebSocket (requires server)", function () {
       await openCloseWs(`${WSS}/nodefony/test/ws`);
     }
     const after = await serverHeap();
-    expect(after - before).to.be.below(
-      30 * 1024 * 1024,
-      `heap grew ${((after - before) / 1024 / 1024).toFixed(1)} MB`,
-    );
+    sousLeSeuil("100 WS connections open/close", after - before, 30);
   });
 
   it("50 WS echo round-trips open/send/close — heap delta < 25 MB", async () => {
@@ -232,9 +242,6 @@ describe("Memory leaks — WebSocket (requires server)", function () {
       });
     }
     const after = await serverHeap();
-    expect(after - before).to.be.below(
-      25 * 1024 * 1024,
-      `heap grew ${((after - before) / 1024 / 1024).toFixed(1)} MB`,
-    );
+    sousLeSeuil("50 WS echo round-trips open/send/close", after - before, 25);
   });
 });
