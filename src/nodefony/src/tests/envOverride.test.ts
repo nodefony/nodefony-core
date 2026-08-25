@@ -94,6 +94,81 @@ describe("envOverride — applyResolvedPath (résolution casse-insensible)", () 
   });
 });
 
+describe("envOverride — pollution de prototype (alerte CodeQL js/prototype-polluting-assignment)", () => {
+  // L'analyseur voit `node[leaf] = …` avec une clé issue de l'environnement, et
+  // il a raison de le signaler : c'est la forme exacte d'une pollution de
+  // prototype. Ce qui l'en préserve n'est pas visible localement — c'est
+  // `resolveKey`, qui n'accepte QUE des clés déjà PRÉSENTES dans l'objet. Un
+  // segment inconnu rend `null`, et rien n'est écrit.
+  //
+  // Ces cas existent pour que cette garde ne puisse pas disparaître en silence :
+  // le jour où quelqu'un « simplifie » `resolveKey` en renvoyant `seg` par
+  // défaut, ils tombent — et l'application entière devient polluable par une
+  // variable d'environnement.
+
+  it("🔴 refuse `__proto__` — et ne pollue AUCUN objet", () => {
+    const target: Record<string, unknown> = { port: 80 };
+    assert.strictEqual(
+      applyResolvedPath(target, ["__proto__", "pollue"], "oui"),
+      false,
+    );
+    assert.strictEqual(
+      ({} as Record<string, unknown>).pollue,
+      undefined,
+      "Object.prototype a été pollué",
+    );
+    assert.strictEqual(target.port, 80);
+  });
+
+  it("🔴 refuse `constructor` et `prototype`", () => {
+    const target: Record<string, unknown> = { port: 80 };
+    for (const seg of ["constructor", "prototype"]) {
+      assert.strictEqual(applyResolvedPath(target, [seg, "x"], 1), false);
+      assert.strictEqual(applyResolvedPath(target, [seg], 1), false);
+    }
+    assert.strictEqual(
+      ({} as Record<string, unknown>).x,
+      undefined,
+      "Object.prototype a été pollué",
+    );
+  });
+
+  it("PIÈGE : `__proto__` en segment FINAL est refusé aussi", () => {
+    // Le cas intermédiaire est arrêté par la traversée ; le cas final passe par
+    // une autre ligne (`leaf`), et doit être couvert séparément.
+    const target: Record<string, unknown> = { a: { b: 1 } };
+    assert.strictEqual(
+      applyResolvedPath(target, ["a", "__proto__"], { pollue: "oui" }),
+      false,
+    );
+    assert.strictEqual(({} as Record<string, unknown>).pollue, undefined);
+  });
+
+  it("PIÈGE : la résolution insensible à la casse n'ouvre pas `__PROTO__`", () => {
+    // `resolveKey` compare `k.toLowerCase() === seg` sur les clés ÉNUMÉRABLES.
+    // `Object.keys` n'énumère jamais un membre du prototype, donc aucune graphie
+    // ne peut y mener — c'est le point qu'un lecteur pressé suppose sans vérifier.
+    const target: Record<string, unknown> = { port: 80 };
+    for (const seg of ["__proto__", "__PROTO__".toLowerCase()]) {
+      assert.strictEqual(applyResolvedPath(target, [seg, "x"], 1), false);
+    }
+  });
+
+  it("un objet portant une clé PROPRE `__proto__` reste inatteignable par héritage", () => {
+    // Cas limite honnête : si la config elle-même déclarait cette clé, l'écriture
+    // porterait sur la propriété PROPRE, pas sur le prototype — donc toujours
+    // aucune pollution globale.
+    const target = Object.defineProperty({}, "__proto__", {
+      value: { deja: 1 },
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    }) as Record<string, unknown>;
+    applyResolvedPath(target, ["__proto__", "deja"], 2);
+    assert.strictEqual(({} as Record<string, unknown>).deja, undefined);
+  });
+});
+
 describe("envOverride — la valeur REMPLACÉE guide la conversion", () => {
   // Une variable d'environnement est TOUJOURS une chaîne ; c'est le schéma qui
   // sait ce qu'il attend. `coerceEnvValue` devine sans lui, et sa devinette
