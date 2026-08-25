@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   Service,
+  besoinDeShell,
   argvCablageMcp,
   AGENT_TARGETS,
   runScaffold,
@@ -762,6 +763,9 @@ class ScaffoldService extends Service {
         cwd,
         env: process.env,
         stdio: ["ignore", "pipe", "pipe"],
+        // `npx` est un `.cmd` sous Windows : lancé nu, Node rend « ENOENT », qui
+        // se lit « npx n'est pas installé ». Règle UNIQUE, portée par le core.
+        shell: besoinDeShell("npx"),
       });
       job.child = child;
       const pipe = (
@@ -815,6 +819,7 @@ class ScaffoldService extends Service {
         cwd,
         env: process.env,
         stdio: ["ignore", "pipe", "pipe"],
+        shell: besoinDeShell("npm"),
       });
       job.child = child;
 

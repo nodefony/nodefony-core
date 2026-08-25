@@ -21,6 +21,9 @@ export { default as clc } from "./colors";
 export type { ColorFn, Clc } from "./colors";
 export { SysExit } from "./cli/sysexits";
 export { askPasswordMasked } from "./cli/promptPassword";
+// La règle du shell Windows — publiée parce que ce sont les CONSOMMATEURS du
+// framework (modules, bancs, outillage) qui la subissent autant que lui.
+export { besoinDeShell } from "./cli/execPortable";
 // Rendu de la page de manuel, publié parce qu'une APPLICATION en a l'usage :
 // ses commandes de module ne peuvent figurer dans la page du framework, et
 // elle seule peut donc rendre la sienne. Publier la fonction évite qu'un

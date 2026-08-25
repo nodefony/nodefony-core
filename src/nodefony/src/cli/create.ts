@@ -1,6 +1,7 @@
 import path from "node:path";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { besoinDeShell } from "./execPortable";
 import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
 import {
@@ -454,7 +455,14 @@ export function renderDryRun(
  */
 function runInstall(dest: string): boolean {
   process.stdout.write(`\n⏳ npm install (${path.basename(dest)})…\n`);
-  const r = spawnSync("npm", ["install"], { cwd: dest, stdio: "inherit" });
+  // `shell` sous Windows : `npm` y est un `.cmd`, que Node refuse de lancer nu.
+  // Sans lui, le workspace n'est jamais lié et le module devient introuvable au
+  // boot — visible seulement en 404 sur toutes ses routes.
+  const r = spawnSync("npm", ["install"], {
+    cwd: dest,
+    stdio: "inherit",
+    shell: besoinDeShell("npm"),
+  });
   return r.status === 0;
 }
 
@@ -491,7 +499,11 @@ function runFormat(dest: string, files: string[]): void {
  */
 function runBuild(dest: string): boolean {
   process.stdout.write(`\n⏳ npm run build (${path.basename(dest)})…\n`);
-  const r = spawnSync("npm", ["run", "build"], { cwd: dest, stdio: "inherit" });
+  const r = spawnSync("npm", ["run", "build"], {
+    cwd: dest,
+    stdio: "inherit",
+    shell: besoinDeShell("npm"),
+  });
   return r.status === 0;
 }
 

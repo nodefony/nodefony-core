@@ -13,6 +13,7 @@ import {
   planMenuAction,
 } from "../../cli/startMenu";
 import { readCliManifest } from "../../cli/completion";
+import { besoinDeShell } from "../../cli/execPortable";
 import { INSPECT_SUBJECTS } from "../inspect/adminSubjects";
 import { resolveColorEnabled } from "../../syslog/logColor";
 
@@ -273,7 +274,10 @@ class Menu extends Command {
       Boolean(this.cli?.getCommand(name)),
     );
     if (plan.kind === "npm") {
-      const r = spawnSync("npm", ["run", plan.script], { stdio: "inherit" });
+      const r = spawnSync("npm", ["run", plan.script], {
+        stdio: "inherit",
+        shell: besoinDeShell("npm"),
+      });
       this.terminate(r.status ?? 1);
       return this;
     }
